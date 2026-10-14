@@ -313,6 +313,18 @@ static maniAffine AffineOf(const maniTransform* t)
     return maniAffineFromTrs(t->translation, t->rotation, t->scale);
 }
 
+// A refusal at a channel of the animation.
+static maniImportResult ChannelFail(const Build* b, maniImportReason reason, uint32_t channel)
+{
+    uint32_t channels = 0;
+    uint32_t value = maniGltfAnimationChannels(b->gltf, b->animation, &channels) + 1;
+    for (uint32_t i = 0; i < channel; ++i)
+    {
+        value = b->gltf->json.values[value].next;
+    }
+    return maniImportFail(reason, maniGltfOffset(&b->gltf->g, value), channel);
+}
+
 // The channel a folded root track answers for: the root's own, or the
 // first above it.
 static uint32_t FoldChannel(const Build* b)
@@ -359,9 +371,11 @@ static maniImportResult FoldRoot(Build* b, uint32_t samples)
             composed = maniAffineMul(&composed, &a);
         }
         maniTransform d;
-        if (r.result == mani_success && maniDecomposeAffine(&composed, &d) != mani_success)
+        // Shear from a non-uniform scale above a turning child cannot be
+        // a track: refused rather than dropped (mani-0010).
+        if (r.result == mani_success && !maniGltfDecomposeExact(&composed, &d))
         {
-            r = maniImportFail(maniImportReasonData, 0, FoldChannel(b));
+            r = ChannelFail(b, maniImportReasonMatrix, FoldChannel(b));
         }
         times[k] = (float)time;
         memcpy(t + 3 * (size_t)k, &d.translation, sizeof d.translation);
@@ -587,14 +601,7 @@ static maniImportResult FromBuild(const Build* b, maniBuildResult r)
         return maniImportFail(maniImportReasonBuild, 0, r.reason);
     }
     bool name = floats && reason == maniBuildReasonTrack;
-    uint32_t channels = 0;
-    uint32_t value = maniGltfAnimationChannels(b->gltf, b->animation, &channels) + 1;
-    for (uint32_t i = 0; i < channel; ++i)
-    {
-        value = b->gltf->json.values[value].next;
-    }
-    return maniImportFail(name ? maniImportReasonName : maniImportReasonData,
-                          maniGltfOffset(&b->gltf->g, value), channel);
+    return ChannelFail(b, name ? maniImportReasonName : maniImportReasonData, channel);
 }
 
 static maniImportResult Run(maniBuilder* builder, Build* b, maniLoopPolicy loop, uint32_t* boundOut)

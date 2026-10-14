@@ -32,7 +32,11 @@ skeleton (mani-0006).
 - **Placement:** reported placement leaves animation above the root out
   of the clip. Folded placement composes it in: the root track is
   resampled on the clip's grid from the composed transforms, so the
-  clip holds them exactly at its samples.
+  clip holds them exactly at its samples. A sample whose composed
+  transform does not compose back from TRS within mani-0009's
+  tolerance (a non-uniform scale above a turning root shears) refuses
+  the clip at the channel, so folding never changes the motion
+  unannounced.
 - **Duration** is the latest key of every channel in the animation, so
   one animation's clips for several skeletons share it. The clip
   builder's refusals of keys and values come back as Data naming the

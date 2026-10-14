@@ -86,6 +86,9 @@ typedef struct maniGltfNames
     uint32_t* starts;
     size_t textSize;
     uint32_t count;
+    // The nodes named other than as given, in node order.
+    uint32_t* renamed;
+    uint32_t renamedCount;
 } maniGltfNames;
 
 struct maniGltf

@@ -36,10 +36,16 @@ make naive tree walks quadratic.
   when both nodes are bones of one skeleton. A node has one name in
   every skeleton, skin and clip built from the document, so skins (and
   clips) find their bones by name whatever bone set the skeleton has.
+  `maniGltfNodeBoneName` gives it, and `maniGltfRenamedCount` and
+  `maniGltfRenamedNode` list the nodes whose name follows their index,
+  so a host binding by name across exports can warn or keep its own
+  map; nodes with unique given names keep them in any node order.
 - **Placement:** the product of the nodes above the root, reported by
   `maniGltfSkeletonPlacement`, or folded into the root's rest on
-  request. Inverse binds need no change either way: the palette times
-  the placement is the bind's world inverse.
+  request. A folded rest must compose back as node matrices must: a
+  non-uniform scale above a rotated root shears, and is refused rather
+  than dropped. Inverse binds need no change either way: the palette
+  times the placement is the bind's world inverse.
 - **Basis change:** a signed permutation of axes, applied exactly as
   B G B^-1: translations and rotation vector parts permuted and signed
   (rotations also times det B), scales permuted, matrices conjugated.

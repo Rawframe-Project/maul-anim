@@ -352,6 +352,13 @@ static void TestNames(void)
     CHECK(maniSkeletonFindBone(&skeleton, "bone", 4) != MANI_NO_BONE, "the first keeps it");
     CHECK(maniSkeletonFindBone(&skeleton, "bone#2", 6) != MANI_NO_BONE, "a repeat renamed");
     CHECK(maniSkeletonFindBone(&skeleton, "#3", 2) != MANI_NO_BONE, "no name");
+    CHECK(maniGltfRenamedCount(gltf) == 2 && maniGltfRenamedNode(gltf, 0) == 2 &&
+              maniGltfRenamedNode(gltf, 1) == 3 && maniGltfRenamedNode(gltf, 2) == UINT32_MAX,
+          "the renamed nodes, in node order");
+    uint32_t length = 0;
+    const char* name = maniGltfNodeBoneName(gltf, 2, &length);
+    CHECK(length == 6 && memcmp(name, "bone#2", 6) == 0, "a node's bone name");
+    CHECK(maniGltfNodeBoneName(gltf, 4, &length) == NULL && length == 0, "past the nodes");
     maniCloseGltf(gltf);
     // A node really named as a renamed one would be.
     Names("{\"name\":\"root\",\"children\":[1,2,3]},{\"name\":\"bone\"},{\"name\":\"bone\"},"
@@ -381,6 +388,47 @@ static void TestNames(void)
     r = maniGltfBuildSkin(builder, gltf, 0, &skeleton, &options);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBone, "a joint not there");
     maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
+// The bone names of one rig exported twice, its nodes in another order:
+// every node with a unique given name keeps it; the unnamed one is the
+// only rename, under its new index.
+static void TestNamesAcrossExports(void)
+{
+    static const char* const kFirst =
+        "{\"name\":\"hip\",\"children\":[1,3]},{\"name\":\"spine\",\"children\":[2]},"
+        "{\"name\":\"head\"},{}";
+    static const char* const kSecond =
+        "{},{\"name\":\"head\"},{\"name\":\"spine\",\"children\":[1]},"
+        "{\"name\":\"hip\",\"children\":[2,0]}";
+    static const char* const kGiven[3] = {"hip", "spine", "head"};
+    const char* exports[2] = {kFirst, kSecond};
+    const uint32_t unnamed[2] = {3, 0};
+    maniBuilder* builder = NewBuilder();
+    for (int e = 0; e < 2; ++e)
+    {
+        Names(exports[e], e == 0 ? "0,1,2,3" : "3,2,1,0");
+        maniGltf* gltf = Open(builder);
+        bool same = gltf != NULL;
+        for (uint32_t v = 0; same && v < maniGltfNodeCount(gltf); ++v)
+        {
+            uint32_t length = 0;
+            const char* name = maniGltfNodeBoneName(gltf, v, &length);
+            bool given = false;
+            for (int k = 0; k < 3; ++k)
+            {
+                given =
+                    given || (length == strlen(kGiven[k]) && memcmp(name, kGiven[k], length) == 0);
+            }
+            same = given || v == unnamed[e];
+        }
+        CHECK(same, "unique given names kept");
+        CHECK(gltf != NULL && maniGltfRenamedCount(gltf) == 1 &&
+                  maniGltfRenamedNode(gltf, 0) == unnamed[e],
+              "one rename, the unnamed node");
+        maniCloseGltf(gltf);
+    }
     maniDestroyBuilder(builder);
 }
 
@@ -484,6 +532,26 @@ static void TestShearTolerance(void)
     maniGltfOptions options = maniDefaultGltfOptions();
     CHECK(gltf != NULL && maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success,
           "a shear within 1e-4 of the largest column");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
+// A rest folded under a non-uniform scale that its rotation shears is
+// refused, as a sheared node matrix is.
+static void TestFoldedRestShear(void)
+{
+    Names("{\"scale\":[2,1,1],\"children\":[1]},"
+          "{\"name\":\"a\",\"rotation\":[0,0.38268343,0,0.92387953]}",
+          "1");
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    maniGltfOptions fold = {{maniAxisX, maniAxisY, maniAxisZ}, 1};
+    maniImportResult r =
+        gltf != NULL ? maniGltfBuildSkeleton(builder, gltf, 0, &fold) : (maniImportResult){0};
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonMatrix, "a folded shear");
+    maniGltfOptions report = maniDefaultGltfOptions();
+    CHECK(gltf != NULL && maniGltfBuildSkeleton(builder, gltf, 0, &report).result == mani_success,
+          "reported, the rest is the node's own");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
@@ -706,6 +774,8 @@ static void TestGroupingAgainstBruteForce(void)
 int main(void)
 {
     TestShearTolerance();
+    TestFoldedRestShear();
+    TestNamesAcrossExports();
     TestLowestSkinNumbering();
     TestGroupsAndBones();
     TestBindPalettes();

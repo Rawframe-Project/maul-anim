@@ -544,6 +544,32 @@ static void TestRefusals(void)
         maniCloseGltf(gltf);
         maniDestroyBuilder(builder);
     }
+    // Folded under a scale of 2 along x, a hip turning about y shears:
+    // refused, as a sheared rest is, rather than dropped.
+    Document("{\"input\":0,\"output\":3}",
+             "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"rotation\"}}", ",\"scale\":[2,1,1]");
+    {
+        maniBuilder* builder = NewBuilder();
+        maniGltf* gltf = Open(builder);
+        maniGltfOptions fold = {{maniAxisX, maniAxisY, maniAxisZ}, 1};
+        maniSkeleton skeleton;
+        CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &fold, &skeleton),
+              "the rest has no shear");
+        maniImportResult r =
+            maniGltfBuildClip(builder, gltf, 0, &skeleton, &fold, 10.0f, maniLoopClamp, NULL);
+        const char* channel = strstr(s_json, "{\"sampler\":0");
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonMatrix && r.item == 0 &&
+                  r.offset == (uint64_t)(channel - s_json),
+              "a folded shear");
+        maniGltfOptions report = maniDefaultGltfOptions();
+        CHECK(
+            gltf != NULL && BuildSkeleton(builder, gltf, 0, &report, &skeleton) &&
+                maniGltfBuildClip(builder, gltf, 0, &skeleton, &report, 10.0f, maniLoopClamp, NULL)
+                        .result == mani_success,
+            "reported placement: the clip holds the hip alone");
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
     // A key before 0 reaches the clip builder: Data on the channel.
     Document("{\"input\":1,\"output\":6}",
              "{\"sampler\":0,\"target\":{\"node\":2,\"path\":\"translation\"}}", "");

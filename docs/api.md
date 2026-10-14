@@ -254,6 +254,21 @@ MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkin(maniBuilder* builder,
 Builds a skin into the builder against an opened skeleton: each joint found by its bone name, the inverse binds read (identity when the skin has none) and the basis change applied.  @param builder   The builder. @param gltf      The document. @param skin      The skin. @param skeleton  An opened skeleton holding the skin's joints. @param options   The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skin past the count or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut);
+```
+Returns the bone name a node has in every skeleton, skin and clip built from the document (mani-0009): its name, or, when it has none or an earlier node has the same, that name followed by `#` and the node index.  @param gltf       The document. @param node       The node. @param lengthOut  Receives the length in bytes, 0 past the count. May be NULL. @return The name, UTF-8 and not terminated, or NULL past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfRenamedCount(const maniGltf* gltf);
+```
+Returns the number of nodes whose bone name is not their name as given: unnamed, or named as an earlier node. Their names follow the node index, so a host binding by name across exports can warn or keep its own map.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfRenamedNode(const maniGltf* gltf, uint32_t index);
+```
+Returns a renamed node, in node order.  @param gltf   The document. @param index  Below maniGltfRenamedCount. @return The node, or UINT32_MAX past the count. @par Thread safety Safe from any thread.
+
+```c
 uint32_t maniGltfAnimationCount(const maniGltf* gltf);
 ```
 Returns the number of animations.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
@@ -427,4 +442,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-79 functions across 7 headers.
+82 functions across 7 headers.

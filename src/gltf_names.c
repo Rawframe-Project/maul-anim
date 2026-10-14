@@ -125,6 +125,7 @@ static void Compose(const uint32_t* nodes, uint32_t count, const Work* w, maniGl
         if (length == 0 || w->repeated[b] != 0)
         {
             at += (uint32_t)WriteSuffix(out->text + at, nodes[b]);
+            out->renamed[out->renamedCount++] = nodes[b];
         }
     }
     out->starts[count] = at;
@@ -155,11 +156,12 @@ static maniImportResult NameBones(const maniGltf* gltf, const uint32_t* nodes, u
     namesOut->textSize = raw + (size_t)count * MANI_SUFFIX_MAX + 1;
     namesOut->text = maniAllocate(a, namesOut->textSize, 1, 8);
     namesOut->starts = maniAllocate(a, n, sizeof(uint32_t), 8);
+    namesOut->renamed = maniAllocate(a, n, sizeof(uint32_t), 8);
     namesOut->count = count;
     maniImportResult r = (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
     if (w.original != NULL && w.spans != NULL && w.keys != NULL && w.sorted != NULL &&
         w.scratch != NULL && w.repeated != NULL && namesOut->text != NULL &&
-        namesOut->starts != NULL)
+        namesOut->starts != NULL && namesOut->renamed != NULL)
     {
         r = Decode(gltf, nodes, count, &w);
         if (r.result == mani_success)
@@ -199,6 +201,7 @@ void maniGltfReleaseNames(maniGltf* gltf)
     maniGltfNames* names = &gltf->names;
     maniRelease(&gltf->allocator, names->text, names->textSize, 1, 8);
     maniRelease(&gltf->allocator, names->starts, (size_t)names->count + 1, sizeof(uint32_t), 8);
+    maniRelease(&gltf->allocator, names->renamed, (size_t)names->count + 1, sizeof(uint32_t), 8);
     *names = (maniGltfNames){0};
 }
 
@@ -207,6 +210,29 @@ const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* leng
     const maniGltfNames* names = &gltf->names;
     *lengthOut = names->starts[node + 1] - names->starts[node];
     return names->text + names->starts[node];
+}
+
+const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut)
+{
+    bool inRange = gltf != NULL && node < gltf->names.count;
+    uint32_t length = 0;
+    const char* name = inRange ? maniGltfNodeName(gltf, node, &length) : NULL;
+    if (lengthOut != NULL)
+    {
+        *lengthOut = length;
+    }
+    return name;
+}
+
+uint32_t maniGltfRenamedCount(const maniGltf* gltf)
+{
+    return gltf != NULL ? gltf->names.renamedCount : 0;
+}
+
+uint32_t maniGltfRenamedNode(const maniGltf* gltf, uint32_t index)
+{
+    return gltf != NULL && index < gltf->names.renamedCount ? gltf->names.renamed[index]
+                                                            : UINT32_MAX;
 }
 
 uint32_t maniGltfNodeBone(const maniGltf* gltf, const maniSkeleton* skeleton, uint32_t node)

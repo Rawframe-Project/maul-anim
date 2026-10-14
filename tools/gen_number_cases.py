@@ -51,7 +51,24 @@ def round_to(value, bits):
     return (sign << (bits - 1)) | (field << mant) | q
 
 
+# Exponents past this are not evaluated as rationals (10^(10^20) has no
+# room): a nonzero mantissa overflows above it and is zero below it.
+SATURATED = 100000
+
+
+def exponent_of(text):
+    at = max(text.find("e"), text.find("E"))
+    return int(text[at + 1:]) if at >= 0 else 0
+
+
 def exact(text):
+    """The text's value, or "overflow" for a saturating exponent."""
+    e = exponent_of(text)
+    if abs(e) > SATURATED:
+        mantissa = Fraction(text[:max(text.find("e"), text.find("E"))])
+        if mantissa == 0 or e < 0:
+            return Fraction(0)
+        return "overflow"
     return Fraction(text)
 
 
@@ -66,7 +83,11 @@ def cases():
            "0.1", "0.2", "0.3", "1e23", "8.589973e9", "9007199254740993",
            "9007199254740992.5", "16777217", "16777217.000000001", "33554435",
            "0.000000000000000000000000000000000000000000001",
-           "1" + "0" * 400, "0." + "0" * 400 + "1", "1e400", "1e-400"]
+           "1" + "0" * 400, "0." + "0" * 400 + "1", "1e400", "1e-400",
+           # Exponents no integer holds: they saturate, with no overflow.
+           "1e99999999999999999999", "-1e-99999999999999999999",
+           "0e99999999999999999999", "-0.000e-99999999999999999999",
+           "123.45E+12345678901234567890123"]
     # Halfway points between neighbours, written out exactly, and a hair
     # either side, with a long tail: the sticky flag's cases.
     for bits in (32, 64):
@@ -84,6 +105,17 @@ def cases():
         exponent = rnd.randrange(-60, 60)
         sign = rnd.choice(["", "-"])
         out.append(f"{sign}{digits}e{exponent}")
+    # Mantissas of thousands of digits, far past the 800-digit buffer:
+    # halfway points with a tail at 3,000 places, and one written long.
+    for bits in (32, 64):
+        mant, _ = FORMATS[bits]
+        for _ in range(4):
+            k = rnd.randrange(1 << mant, 1 << (mant + 1))
+            e = rnd.randrange(-20, 20)
+            half = Fraction(2 * k + 1) * Fraction(2) ** (e - 1)
+            for v in (half + Fraction(1, 10 ** 3000), half - Fraction(1, 10 ** 3000)):
+                out.append(decimal_text(v, 3100))
+    out.append("1" + "0" * 3500 + "e-3500")
     for _ in range(200):
         x = struct.unpack("<f", struct.pack("<I", rnd.getrandbits(32) & 0x7F7FFFFF))[0]
         out.append(repr(x))
@@ -112,12 +144,13 @@ def render():
     lines = []
     rows = []
     for text in cases():
-        if len(text) > 1000:
+        # C guarantees string literals of 4,095 characters.
+        if len(text) > 4000:
             continue
         v = exact(text)
-        b32 = round_to(v, 32)
-        b64 = round_to(v, 64)
-        if text.startswith("-") and v == 0:  # the rational has no -0
+        b32 = None if v == "overflow" else round_to(v, 32)
+        b64 = None if v == "overflow" else round_to(v, 64)
+        if text.startswith("-") and v != "overflow" and v == 0:  # the rational has no -0
             b32 |= 1 << 31
             b64 |= 1 << 63
         rows.append((text, b32, b64))

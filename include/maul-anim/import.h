@@ -278,6 +278,41 @@ extern "C"
                                                                const maniSkeleton* skeleton,
                                                                const maniGltfOptions* options);
 
+    /// Returns the bone name a node has in every skeleton, skin and clip
+    /// built from the document (mani-0009): its name, or, when it has
+    /// none or an earlier node has the same, that name followed by `#`
+    /// and the node index.
+    ///
+    /// @param gltf       The document.
+    /// @param node       The node.
+    /// @param lengthOut  Receives the length in bytes, 0 past the count.
+    ///                   May be NULL.
+    /// @return The name, UTF-8 and not terminated, or NULL past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node,
+                                              uint32_t* lengthOut);
+
+    /// Returns the number of nodes whose bone name is not their name as
+    /// given: unnamed, or named as an earlier node. Their names follow
+    /// the node index, so a host binding by name across exports can warn
+    /// or keep its own map.
+    ///
+    /// @param gltf  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfRenamedCount(const maniGltf* gltf);
+
+    /// Returns a renamed node, in node order.
+    ///
+    /// @param gltf   The document.
+    /// @param index  Below maniGltfRenamedCount.
+    /// @return The node, or UINT32_MAX past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfRenamedNode(const maniGltf* gltf, uint32_t index);
+
     /// Returns the number of animations.
     ///
     /// @param gltf  The document.
