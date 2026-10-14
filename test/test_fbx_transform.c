@@ -40,6 +40,10 @@ static void TestSinCos(void)
         exact = exact && s == kRight[i][1] && c == kRight[i][2];
     }
     CHECK(exact, "right angles exactly");
+    double tinySin = 9;
+    double tinyCos = 9;
+    maniFbxSinCosDegrees(-1e-20, &tinySin, &tinyCos);
+    CHECK(fabs(tinySin) < 1e-30 && tinyCos == 1.0, "a tiny negative angle rounding to a full turn");
     double worst = 0;
     for (int i = 0; i < 10000; ++i)
     {
@@ -165,7 +169,16 @@ static void TestMatrices(void)
     maniFbxMatrix out;
     CHECK(!maniFbxMatrixInverse(&singular, &out), "a singular matrix has none");
     maniFbxMatrix huge = {{1e-300, 0, 0, 0, 1e-300, 0, 0, 0, 1e-300, 0, 0, 0}};
-    CHECK(!maniFbxMatrixInverse(&huge, &out), "nor one whose inverse overflows");
+    CHECK(!maniFbxMatrixInverse(&huge, &out), "nor one whose determinant underflows");
+    maniFbxMatrix subnormal = {{1e-104, 0, 0, 0, 1e-103, 0, 0, 0, 1e-103, 0, 0, 0}};
+    CHECK(!maniFbxMatrixInverse(&subnormal, &out), "nor one whose determinant is subnormal");
+    maniFbxMatrix far = {{1e-10, 0, 0, 0, 1e-10, 0, 0, 0, 1e-10, 1e305, 0, 0}};
+    CHECK(!maniFbxMatrixInverse(&far, &out), "nor one whose translation overflows");
+    maniFbxTrs known = {{1, 2, 3}, {0, 0, 0.6, 0.8}, {2, 3, 4}};
+    maniFbxMatrix k = maniFbxTrsMatrix(&known);
+    // A rotation of 2 atan(0.75) about z: cos 0.28, sin 0.96.
+    maniFbxMatrix expected = {{0.56, 1.92, 0, -2.88, 0.84, 0, 0, 0, 4, 1, 2, 3}};
+    CHECK(Near(&k, &expected, 1e-15), "a known TRS as its matrix");
 }
 
 static char s_text[4096];

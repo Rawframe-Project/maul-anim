@@ -188,7 +188,8 @@ static maniImportResult Vector(const maniFbx* fbx, uint32_t object, const char* 
     {
         out[k] = fallback;
         uint32_t value = maniFbxPropertyValue(fbx, entry, k);
-        if (entry != MANI_FBX_NONE && (!maniFbxNumber(fbx, value, &out[k]) || !isfinite(out[k])))
+        // maniFbxNumber refuses values not finite.
+        if (entry != MANI_FBX_NONE && !maniFbxNumber(fbx, value, &out[k]))
         {
             return Refuse(fbx, value != MANI_FBX_NONE ? value : maniFbxNodeProperty(fbx, entry, 0),
                           object);
