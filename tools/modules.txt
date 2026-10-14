@@ -22,5 +22,8 @@ skin_file:
 skin: bytes container pose_memory skin_file vecmath
 skin_build: allocator builder bytes container skin_file
 clip_file:
-clip: bytes clip_file container pose_memory vecmath
+clip: bytes clip_file clip_view container pose_memory vecmath
+clip_view: clip_file
+clip_tracks: bytes clip_file clip_view container text
 clip_build: allocator builder bytes clip_file container scalar
+clip_build_named: allocator builder bytes clip_build clip_file container text

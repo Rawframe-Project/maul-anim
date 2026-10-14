@@ -8,6 +8,8 @@
 // hemisphere of the one before, so playback's normalized lerp between
 // neighbours takes the short way.
 
+#include "clip_build.h"
+
 #include "allocator.h"
 #include "builder.h"
 #include "bytes.h"
@@ -47,7 +49,8 @@ static uint32_t KeyFloats(const maniChannelSource* channel, uint32_t dimension)
 
 // A channel's keys: a known interpolation, times from 0 strictly
 // increasing, finite values, no zero rotation, two keys for a spline.
-static maniBuildResult CheckChannel(const maniChannelSource* c, uint32_t dimension, uint32_t track)
+maniBuildResult maniCheckChannel(const maniChannelSource* c, uint32_t dimension, uint32_t track,
+                                 maniBuildReason list)
 {
     if (c->keyCount == 0)
     {
@@ -55,21 +58,21 @@ static maniBuildResult CheckChannel(const maniChannelSource* c, uint32_t dimensi
     }
     if (c->interpolation > maniInterpolationCubicSpline)
     {
-        return Refuse(maniBuildReasonKind, track, 0);
+        return Refuse(list | maniBuildReasonKind, track, 0);
     }
     if (c->times == NULL || c->values == NULL)
     {
-        return Refuse(maniBuildReasonCount, track, 0);
+        return Refuse(list | maniBuildReasonCount, track, 0);
     }
     if (c->interpolation == maniInterpolationCubicSpline && c->keyCount < 2)
     {
-        return Refuse(maniBuildReasonKeyCount, track, 0);
+        return Refuse(list | maniBuildReasonKeyCount, track, 0);
     }
     for (uint32_t k = 0; k < c->keyCount; ++k)
     {
         if (!Finite(c->times[k]) || c->times[k] < 0.0f || (k > 0 && c->times[k] <= c->times[k - 1]))
         {
-            return Refuse(maniBuildReasonKeyTime, track, 0);
+            return Refuse(list | maniBuildReasonKeyTime, track, 0);
         }
     }
     uint32_t floats = KeyFloats(c, dimension);
@@ -77,7 +80,7 @@ static maniBuildResult CheckChannel(const maniChannelSource* c, uint32_t dimensi
     {
         if (!Finite(c->values[i]))
         {
-            return Refuse(maniBuildReasonNotFinite, track, 0);
+            return Refuse(list | maniBuildReasonNotFinite, track, 0);
         }
     }
     if (dimension == 4)
@@ -88,7 +91,7 @@ static maniBuildResult CheckChannel(const maniChannelSource* c, uint32_t dimensi
             const float* q = c->values + (size_t)k * floats + at;
             if (q[0] == 0.0f && q[1] == 0.0f && q[2] == 0.0f && q[3] == 0.0f)
             {
-                return Refuse(maniBuildReasonRotation, track, 0);
+                return Refuse(list | maniBuildReasonRotation, track, 0);
             }
         }
     }
@@ -113,7 +116,7 @@ static float LastKeyTime(const maniChannelSource* c)
 }
 
 // The source's tracks: each checked, bones in range and once each (seen
-// holds a track's index + 1 per bone); the duration found when not given.
+// holds a track's index + 1 per bone); the latest key time.
 static maniBuildResult CheckTracks(const maniClipSource* source, uint32_t* seen, float* durationOut)
 {
     float last = 0.0f;
@@ -130,14 +133,14 @@ static maniBuildResult CheckTracks(const maniClipSource* source, uint32_t* seen,
             return Refuse(maniBuildReasonTrack, i, seen[t->bone] - 1);
         }
         seen[t->bone] = i + 1;
-        maniBuildResult r = CheckChannel(&t->translation, 3, i);
+        maniBuildResult r = maniCheckChannel(&t->translation, 3, i, 0);
         if (r.result == mani_success)
         {
-            r = CheckChannel(&t->rotation, 4, i);
+            r = maniCheckChannel(&t->rotation, 4, i, 0);
         }
         if (r.result == mani_success)
         {
-            r = CheckChannel(&t->scale, 3, i);
+            r = maniCheckChannel(&t->scale, 3, i, 0);
         }
         if (r.result != mani_success)
         {
@@ -146,7 +149,7 @@ static maniBuildResult CheckTracks(const maniClipSource* source, uint32_t* seen,
         last = Max(last, Max(LastKeyTime(&t->translation),
                              Max(LastKeyTime(&t->rotation), LastKeyTime(&t->scale))));
     }
-    *durationOut = source->duration == 0.0f ? last : source->duration;
+    *durationOut = last;
     return Outcome(mani_success);
 }
 
@@ -273,7 +276,7 @@ static void Interpolate(const maniChannelSource* c, uint32_t dimension, uint32_t
 
 // A channel's value at a time; times outside the keys take the nearer
 // end. Rotations come out normalized.
-static void Evaluate(const maniChannelSource* c, uint32_t dimension, double time, double out[4])
+void maniEvaluateChannel(const maniChannelSource* c, uint32_t dimension, double time, double out[4])
 {
     uint32_t valuePart = c->interpolation == maniInterpolationCubicSpline ? 1 : 0;
     uint32_t n = c->keyCount;
@@ -307,7 +310,7 @@ static void WriteSample(const maniClipSource* source, const uint32_t* order, uin
         double v[4];
         if (t->translation.keyCount > 0)
         {
-            Evaluate(&t->translation, 3, time, v);
+            maniEvaluateChannel(&t->translation, 3, time, v);
             for (int k = 0; k < 3; ++k)
             {
                 *out++ = (float)v[k];
@@ -315,7 +318,7 @@ static void WriteSample(const maniClipSource* source, const uint32_t* order, uin
         }
         if (t->rotation.keyCount > 0)
         {
-            Evaluate(&t->rotation, 4, time, v);
+            maniEvaluateChannel(&t->rotation, 4, time, v);
             float q[4] = {(float)v[0], (float)v[1], (float)v[2], (float)v[3]};
             float* p = previous + 4 * (size_t)i;
             float dot = q[0] * p[0] + q[1] * p[1] + q[2] * p[2] + q[3] * p[3];
@@ -328,13 +331,18 @@ static void WriteSample(const maniClipSource* source, const uint32_t* order, uin
         }
         if (t->scale.keyCount > 0)
         {
-            Evaluate(&t->scale, 3, time, v);
+            maniEvaluateChannel(&t->scale, 3, time, v);
             for (int k = 0; k < 3; ++k)
             {
                 *out++ = (float)v[k];
             }
         }
     }
+}
+
+double maniClipSampleTime(uint32_t k, uint32_t n, float rate, float duration)
+{
+    return k + 1 == n && k > 0 ? (double)duration : (double)k / (double)rate;
 }
 
 typedef struct Plan
@@ -348,7 +356,7 @@ typedef struct Plan
 } Plan;
 
 static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source, const Plan* plan,
-                             float* previous)
+                             const maniClipNamedLayout* named, float* previous)
 {
     uint8_t header[MANI_CLIP_HEADER_SIZE] = {0};
     maniStoreU64(header, maniSkeletonIdentity(source->skeleton));
@@ -359,6 +367,10 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
     maniStoreU32(header + 24, source->loop);
     maniStoreU32(header + 28, plan->tracks);
     maniStoreU32(header + 32, plan->floatsPerSample);
+    for (uint32_t l = 0; l < 4; ++l)
+    {
+        maniStoreU32(header + 36 + 4 * l, named->counts[l]);
+    }
     size_t trackBytes = (size_t)plan->tracks * MANI_CLIP_TRACK_SIZE;
     size_t sampleFloats = 0;
     if (ckd_mul(&sampleFloats, (size_t)plan->sampleCount, (size_t)plan->floatsPerSample))
@@ -380,14 +392,18 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         }
         for (uint32_t k = 0; k < plan->sampleCount; ++k)
         {
-            double time = k + 1 == plan->sampleCount && k > 0 ? (double)plan->duration
-                                                              : (double)k / (double)plan->rate;
+            double time = maniClipSampleTime(k, plan->sampleCount, plan->rate, plan->duration);
             WriteSample(source, plan->order, plan->tracks, time, previous, k == 0,
                         samples + (size_t)k * plan->floatsPerSample);
         }
         const uint8_t* sections[MANI_CLIP_SECTIONS] = {header, tracks, (const uint8_t*)samples};
-        const uint64_t sizes[MANI_CLIP_SECTIONS] = {sizeof header, trackBytes,
-                                                    sampleFloats * sizeof(float)};
+        uint64_t sizes[MANI_CLIP_SECTIONS] = {sizeof header, trackBytes,
+                                              sampleFloats * sizeof(float)};
+        for (uint32_t i = 0; i < 7; ++i)
+        {
+            sections[3 + i] = named->data[i];
+            sizes[3 + i] = named->sizes[i];
+        }
         maniSectionSource table[MANI_CLIP_SECTIONS];
         for (uint32_t i = 0; i < MANI_CLIP_SECTIONS; ++i)
         {
@@ -464,10 +480,28 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
         memset(previous, 0, (4 * (size_t)source->boneTrackCount + 1) * sizeof(float));
         r = CheckTracks(source, scratch, &plan.duration);
     }
+    float namedLast = 0.0f;
+    if (r.result == mani_success)
+    {
+        r = maniCheckClipNamedSource(source, &namedLast);
+    }
+    if (source->duration == 0.0f)
+    {
+        plan.duration = plan.duration > namedLast ? plan.duration : namedLast;
+    }
+    else
+    {
+        plan.duration = source->duration;
+    }
     if (r.result == mani_success &&
         !maniClipSampleCountFor(plan.duration, plan.rate, &plan.sampleCount))
     {
         r = Refuse(maniBuildReasonTiming, 0, 0);
+    }
+    maniClipNamedLayout named = {0};
+    if (r.result == mani_success)
+    {
+        r = maniLayClipNamed(builder, source, plan.duration, plan.rate, plan.sampleCount, &named);
     }
     if (r.result == mani_success)
     {
@@ -482,7 +516,8 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
                 plan.floatsPerSample += maniChannelFloats(Mask(&source->boneTracks[index - 1]));
             }
         }
-        r = Write(builder, source, &plan, previous);
+        r = Write(builder, source, &plan, &named, previous);
+        maniReleaseClipNamed(builder, &named);
     }
     maniRelease(&builder->allocator, scratch, words, sizeof(uint32_t), 8);
     maniRelease(&builder->allocator, previous, 4 * (size_t)source->boneTrackCount + 1,

@@ -106,7 +106,9 @@ extern "C"
         // A joint naming a bone the skeleton does not have.
         maniBuildReasonJoint = 9,
         // A track for a bone the skeleton does not have, or a second track
-        // for one bone; other is the earlier track.
+        // for one bone or name; other is the earlier track. For float
+        // tracks, discrete tracks, events and markers, item counts from 0
+        // within its own list.
         maniBuildReasonTrack = 10,
         // Key times not increasing, or before 0.
         maniBuildReasonKeyTime = 11,
@@ -117,6 +119,12 @@ extern "C"
         maniBuildReasonTiming = 13,
         // An interpolation or loop policy the library does not know.
         maniBuildReasonKind = 14,
+        // The list a refused float track, discrete track, event or marker
+        // is in: the reason's item indexes it. Bone tracks report plainly.
+        maniBuildReasonFloatTrack = 0x100,
+        maniBuildReasonDiscreteTrack = 0x200,
+        maniBuildReasonEvent = 0x300,
+        maniBuildReasonMarker = 0x400,
     };
 
     // A build's outcome: the status and, when the source was refused
@@ -224,13 +232,58 @@ extern "C"
         maniChannelSource scale;
     } maniBoneTrackSource;
 
+    // A named curve: keys of one float, linear, step or a cubic spline
+    // (morph weights, host curves). Sampled on the clip's grid; a step
+    // track stays a step at playback, the others interpolate linearly.
+    typedef struct maniFloatTrackSource
+    {
+        // UTF-8, not empty, unique among float tracks.
+        const char* name;
+        uint32_t nameLength;
+        uint32_t reserved;
+        // One float a key, or three for a cubic spline.
+        maniChannelSource keys;
+    } maniFloatTrackSource;
+
+    // A named whole number held from each key to the next.
+    typedef struct maniDiscreteTrackSource
+    {
+        // UTF-8, not empty, unique among discrete tracks.
+        const char* name;
+        uint32_t nameLength;
+        // At least one key, times strictly increasing within [0, duration].
+        uint32_t keyCount;
+        const float* times;
+        const int32_t* values;
+    } maniDiscreteTrackSource;
+
+    // An event (with a payload for the host) or a sync marker (payload
+    // ignored) at a time within [0, duration].
+    typedef struct maniEventSource
+    {
+        float time;
+        int32_t payload;
+        // UTF-8, not empty; names repeat freely.
+        const char* name;
+        uint32_t nameLength;
+        uint32_t reserved;
+    } maniEventSource;
+
     // A clip: tracks for some of a skeleton's bones, in any order.
     typedef struct maniClipSource
     {
         // The opened skeleton the clip is for.
         const maniSkeleton* skeleton;
         const maniBoneTrackSource* boneTracks;
+        const maniFloatTrackSource* floatTracks;
+        const maniDiscreteTrackSource* discreteTracks;
+        const maniEventSource* events;
+        const maniEventSource* markers;
         uint32_t boneTrackCount;
+        uint32_t floatTrackCount;
+        uint32_t discreteTrackCount;
+        uint32_t eventCount;
+        uint32_t markerCount;
         // maniLoopClamp or maniLoopRepeat.
         uint32_t loop;
         // Samples per second, 0 for 30.

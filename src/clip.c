@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "clip_file.h"
+#include "clip_view.h"
 #include "container.h"
 #include "pose_memory.h"
 #include "vecmath.h"
@@ -93,7 +94,7 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
     {
         return Fail(at + 24);
     }
-    for (uint32_t i = 36; i < MANI_CLIP_HEADER_SIZE; ++i)
+    for (uint32_t i = 52; i < MANI_CLIP_HEADER_SIZE; ++i)
     {
         if (h[i] != 0)
         {
@@ -106,6 +107,10 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
         .sampleCount = expected,
         .trackCount = maniLoadU32(h + 28),
         .floatsPerSample = maniLoadU32(h + 32),
+        .floatTrackCount = maniLoadU32(h + 36),
+        .discreteTrackCount = maniLoadU32(h + 40),
+        .eventCount = maniLoadU32(h + 44),
+        .markerCount = maniLoadU32(h + 48),
         .sampleRate = rate,
         .duration = duration,
         .loop = maniLoadU32(h + 24),
@@ -232,6 +237,10 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
         return Fail(MANI_CONTAINER_HEADER_SIZE + 2 * MANI_CONTAINER_ENTRY_SIZE + 16);
     }
     r = CheckSamples(data[2], at[2], data[1], &clip);
+    if (r.result == mani_success)
+    {
+        r = maniCheckClipNamed(data, sizes, at, &clip);
+    }
     if (r.result != mani_success)
     {
         return r;
@@ -365,6 +374,40 @@ maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, fl
             b += 12;
         }
         maniPoseSetLocal(pose, bone, local);
+    }
+    return mani_success;
+}
+
+maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values, uint32_t capacity,
+                                uint32_t* countOut)
+{
+    if (clip == NULL || (values == NULL && capacity > 0))
+    {
+        return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = clip->floatTrackCount;
+    }
+    if (capacity < clip->floatTrackCount)
+    {
+        return mani_errorCapacity;
+    }
+    uint32_t first = 0;
+    float alpha = 0.0f;
+    Locate(clip, time, &first, &alpha);
+    uint32_t second = clip->sampleCount > 1 ? first + 1 : first;
+    size_t stride = 4 * (size_t)clip->floatTrackCount;
+    const uint8_t* a = clip->floatSamples + stride * first;
+    const uint8_t* b = clip->floatSamples + stride * second;
+    for (uint32_t i = 0; i < clip->floatTrackCount; ++i)
+    {
+        float va = LoadF32(a + 4 * (size_t)i);
+        float vb = LoadF32(b + 4 * (size_t)i);
+        bool step =
+            maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
+        // A step track holds the sample at or before the time.
+        values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha;
     }
     return mani_success;
 }

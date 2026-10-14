@@ -41,16 +41,42 @@ extern "C"
     {
         const uint8_t* tracks;
         const uint8_t* samples;
+        const uint8_t* floatTracks;
+        const uint8_t* floatSamples;
+        const uint8_t* discreteTracks;
+        const uint8_t* discreteKeys;
+        const uint8_t* events;
+        const uint8_t* markers;
+        const uint8_t* names;
         uint64_t skeletonIdentity;
         uint32_t skeletonBoneCount;
         uint32_t sampleCount;
         uint32_t trackCount;
         uint32_t floatsPerSample;
+        uint32_t floatTrackCount;
+        uint32_t discreteTrackCount;
+        uint32_t eventCount;
+        uint32_t markerCount;
         float sampleRate;
         float duration;
         maniLoopPolicy loop;
         uint32_t reserved;
     } maniClip;
+
+// What a lookup by name finds for no track.
+#define MANI_NO_TRACK 0xFFFFFFFFu
+
+    // An event or a sync marker: its time, payload (0 for a marker) and
+    // name, the name's bytes inside the file, UTF-8, not terminated.
+    typedef struct maniClipEvent
+    {
+        float time;
+        int32_t payload;
+        uint64_t nameHash;
+        const char* name;
+        uint32_t nameLength;
+        uint32_t reserved;
+    } maniClipEvent;
 
     /// Opens a clip file in place: checks the container, the header, every
     /// track and every sample (finite, rotations unit) and the identity.
@@ -125,6 +151,147 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniSampleClip(const maniClip* clip,
                                                       const maniSkeleton* skeleton, float time,
                                                       maniPose* pose);
+
+    /// Returns the number of float tracks (morph weights, curves).
+    ///
+    /// @param clip  An opened clip.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniClipFloatTrackCount(const maniClip* clip);
+
+    /// Returns a float track's name, UTF-8 and not terminated.
+    ///
+    /// @param clip       An opened clip.
+    /// @param track      The track, below the count.
+    /// @param lengthOut  Receives the length in bytes, 0 for a track past
+    ///                   the count. May be NULL.
+    /// @return The name's bytes, or NULL for a track past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track,
+                                                uint32_t* lengthOut);
+
+    /// Finds a float track by name.
+    ///
+    /// @param clip    An opened clip.
+    /// @param name    The name's UTF-8 bytes; may be NULL when length is 0.
+    /// @param length  The name's length in bytes.
+    /// @return The track, or MANI_NO_TRACK.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniClipFindFloatTrack(const maniClip* clip, const char* name, size_t length);
+
+    /// Samples every float track at a time, clamped as maniSampleClip
+    /// clamps it: a linear track interpolates its two samples, a step
+    /// track holds the sample at or before the time.
+    ///
+    /// @param clip      An opened clip.
+    /// @param time      The time in seconds.
+    /// @param values    Receives one value per track, in track order; may
+    ///                  be NULL when capacity is 0.
+    /// @param capacity  The array's length.
+    /// @param countOut  Receives the track count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when the array is
+    /// shorter than the track count, with the count written and nothing
+    /// else; `mani_errorInvalid` for a NULL clip or a NULL array with a
+    /// positive capacity.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniSampleClipFloats(const maniClip* clip, float time,
+                                                            float* values, uint32_t capacity,
+                                                            uint32_t* countOut);
+
+    /// Returns the number of discrete tracks (whole numbers held between
+    /// keys).
+    ///
+    /// @param clip  An opened clip.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniClipDiscreteTrackCount(const maniClip* clip);
+
+    /// Returns a discrete track's name, as maniClipFloatTrackName does.
+    ///
+    /// @param clip       An opened clip.
+    /// @param track      The track.
+    /// @param lengthOut  Receives the length in bytes. May be NULL.
+    /// @return The name's bytes, or NULL for a track past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track,
+                                                   uint32_t* lengthOut);
+
+    /// Finds a discrete track by name.
+    ///
+    /// @param clip    An opened clip.
+    /// @param name    The name's UTF-8 bytes; may be NULL when length is 0.
+    /// @param length  The name's length in bytes.
+    /// @return The track, or MANI_NO_TRACK.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniClipFindDiscreteTrack(const maniClip* clip, const char* name,
+                                                size_t length);
+
+    /// Returns a discrete track's value at a time: its last key at or
+    /// before the time, or its first key before that (NaN is 0).
+    ///
+    /// @param clip   An opened clip.
+    /// @param track  The track.
+    /// @param time   The time in seconds.
+    /// @return The value, or 0 for a track past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time);
+
+    /// Returns the number of events.
+    ///
+    /// @param clip  An opened clip.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniClipEventCount(const maniClip* clip);
+
+    /// Returns an event; events are in increasing time.
+    ///
+    /// @param clip   An opened clip.
+    /// @param index  The event.
+    /// @return The event, or a zeroed one for an index past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniClipEvent maniClipEventAt(const maniClip* clip, uint32_t index);
+
+    /// Finds the events a playhead passes going from one time to another:
+    /// forward (from below to) those with from <= time < to, backward
+    /// (from above to) those with to < time <= from; none when the two are
+    /// equal or either is NaN. They are consecutive indices.
+    ///
+    /// @param clip      An opened clip.
+    /// @param from      Where the playhead was.
+    /// @param to        Where it is.
+    /// @param firstOut  Receives the first event's index.
+    /// @param countOut  Receives how many.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,
+                                     uint32_t* countOut);
+
+    /// Returns the number of sync markers.
+    ///
+    /// @param clip  An opened clip.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniClipMarkerCount(const maniClip* clip);
+
+    /// Returns a sync marker; markers are in increasing time.
+    ///
+    /// @param clip   An opened clip.
+    /// @param index  The marker.
+    /// @return The marker, or a zeroed one for an index past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniClipEvent maniClipMarkerAt(const maniClip* clip, uint32_t index);
 
 #ifdef __cplusplus
 }

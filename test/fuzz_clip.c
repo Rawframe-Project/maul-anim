@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a clip file (mani-0006); then the same bytes with the payload's
-// hash made right, so that mutations reach the checks behind it. Run as
-// fuzz_clip <corpus dir>; the seed comes from test_clip --seed <file>.
+// Opening a clip file (mani-0006) and reading its named items; then the same bytes with the
+// payload's hash made right, so that mutations reach the checks behind it. Run as fuzz_clip <corpus
+// dir>; the seed comes from test_clip --seed <file>.
 
 #include "maul-anim/clip.h"
 
@@ -21,6 +21,32 @@ static void Exercise(const uint8_t* bytes, size_t size)
     {
         if (maniClipSampleCount(&clip) == 0 || !(maniClipDuration(&clip) >= 0.0f) ||
             !(maniClipSampleRate(&clip) > 0.0f))
+        {
+            abort();
+        }
+        for (uint32_t i = 0; i < maniClipFloatTrackCount(&clip); ++i)
+        {
+            uint32_t length = 0;
+            const char* name = maniClipFloatTrackName(&clip, i, &length);
+            if (maniClipFindFloatTrack(&clip, name, length) != i)
+            {
+                abort();
+            }
+        }
+        for (uint32_t i = 0; i < maniClipDiscreteTrackCount(&clip); ++i)
+        {
+            uint32_t length = 0;
+            const char* name = maniClipDiscreteTrackName(&clip, i, &length);
+            if (maniClipFindDiscreteTrack(&clip, name, length) != i)
+            {
+                abort();
+            }
+            (void)maniClipDiscreteValue(&clip, i, maniClipDuration(&clip) * 0.5f);
+        }
+        uint32_t first = 0;
+        uint32_t count = 0;
+        maniClipEventRange(&clip, 0.0f, maniClipDuration(&clip), &first, &count);
+        if (first + count > maniClipEventCount(&clip))
         {
             abort();
         }

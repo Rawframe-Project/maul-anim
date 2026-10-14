@@ -44,6 +44,7 @@ endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
     src/clip.c
+    src/clip_tracks.c
     src/container.c
     src/decompose.c
     src/elementary_float.c
@@ -59,8 +60,9 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # library, compiled when MAUL_ANIM_OFFLINE is on; tools/modules.txt keeps
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
-    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/inflate.c
-                                     src/skeleton_build.c src/skin_build.c)
+    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c
+                                     src/clip_build_named.c src/inflate.c src/skeleton_build.c
+                                     src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
 # The exactly rounded functions the sources may call

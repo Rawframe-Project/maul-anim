@@ -33,6 +33,16 @@ sync all jump), and give the same bits everywhere (mani-0001).
   normalized lerp, and writes every bone of a pose: the clip's channels
   where it has them, the rest elsewhere.
 
+- **Named items:** float tracks (morph weights and host curves, any of
+  glTF's interpolations, sampled on the same grid; a step track holds
+  its sample at playback, the others interpolate), discrete tracks
+  (whole numbers held from key to key), events (a time, a name, a
+  32-bit payload) and sync markers. Tracks are found by name through
+  a binary search over name hashes, names unique per kind; events and
+  markers are kept in time order, so the events a playhead passes
+  between two times, forward or backward, are one range of indices
+  (`maniClipEventRange`).
+
 ## Consequences
 
 Any time costs one division and two contiguous reads, the same in any

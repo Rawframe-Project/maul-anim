@@ -11,11 +11,21 @@
 #include <stdint.h>
 
 #define MANI_CLIP_FORMAT_VERSION 1u
-#define MANI_CLIP_SECTIONS       3u
+#define MANI_CLIP_SECTIONS       10u
 // The header: skeleton identity (u64), skeleton bone count, sample count
 // (u32 each), sample rate, duration (binary32 each), loop policy, track
-// count, floats per sample (u32 each), then zeros.
-#define MANI_CLIP_HEADER_SIZE 48u
+// count, floats per sample, float track count, discrete track count,
+// event count, marker count (u32 each), then zeros.
+#define MANI_CLIP_HEADER_SIZE 64u
+// A float or discrete track: name offset, name length (u32 each), name
+// hash (u64), then for a float track its interpolation (u32: 0 linear,
+// 1 step) and zero, for a discrete track its first key and key count.
+#define MANI_CLIP_NAMED_TRACK_SIZE 24u
+// A discrete key: time (binary32), value (i32).
+#define MANI_CLIP_KEY_SIZE 8u
+// An event: time (binary32), payload (i32), name offset, name length
+// (u32 each), name hash (u64). A marker: the same with a zero payload.
+#define MANI_CLIP_EVENT_SIZE 24u
 // A track: bone (u16), channel mask (u8), zero (u8).
 #define MANI_CLIP_TRACK_SIZE 4u
 
@@ -26,6 +36,19 @@ enum
     // Sample-major binary32: for each sample, each track's animated
     // channels (translation 3, rotation 4, scale 3) in that order.
     maniClipTagSamples = 3,
+    // Float tracks by increasing name hash, then their samples,
+    // sample-major.
+    maniClipTagFloatTracks = 4,
+    maniClipTagFloatSamples = 5,
+    // Discrete tracks by increasing name hash, then their keys, each
+    // track's in increasing time.
+    maniClipTagDiscreteTracks = 6,
+    maniClipTagDiscreteKeys = 7,
+    // Events and markers by time, ties in source order.
+    maniClipTagEvents = 8,
+    maniClipTagMarkers = 9,
+    // The names' UTF-8 bytes.
+    maniClipTagNames = 10,
 };
 
 enum

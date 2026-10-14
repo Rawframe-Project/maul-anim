@@ -110,6 +110,71 @@ MANI_NODISCARD MANI_API maniResult maniSampleClip(const maniClip* clip, const ma
 ```
 Samples the clip at a time into a pose: every bone's local transform, the clip's channels where it animates them and the skeleton's rest elsewhere; the model is marked stale. The time is clamped to [0, duration] (NaN is 0). Between two samples, translation and scale interpolate linearly and rotations by normalized linear interpolation.  @param clip      An opened clip. @param skeleton  The clip's skeleton. @param time      The time in seconds. @param pose      A pose of the skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a skeleton that is not the clip's or the pose's. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
+```c
+uint32_t maniClipFloatTrackCount(const maniClip* clip);
+```
+Returns the number of float tracks (morph weights, curves).  @param clip  An opened clip. @return The count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track, uint32_t* lengthOut);
+```
+Returns a float track's name, UTF-8 and not terminated.  @param clip       An opened clip. @param track      The track, below the count. @param lengthOut  Receives the length in bytes, 0 for a track past the count. May be NULL. @return The name's bytes, or NULL for a track past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniClipFindFloatTrack(const maniClip* clip, const char* name, size_t length);
+```
+Finds a float track by name.  @param clip    An opened clip. @param name    The name's UTF-8 bytes; may be NULL when length is 0. @param length  The name's length in bytes. @return The track, or MANI_NO_TRACK. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values, uint32_t capacity, uint32_t* countOut);
+```
+Samples every float track at a time, clamped as maniSampleClip clamps it: a linear track interpolates its two samples, a step track holds the sample at or before the time.  @param clip      An opened clip. @param time      The time in seconds. @param values    Receives one value per track, in track order; may be NULL when capacity is 0. @param capacity  The array's length. @param countOut  Receives the track count. May be NULL. @return `mani_success`; `mani_errorCapacity` when the array is shorter than the track count, with the count written and nothing else; `mani_errorInvalid` for a NULL clip or a NULL array with a positive capacity. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniClipDiscreteTrackCount(const maniClip* clip);
+```
+Returns the number of discrete tracks (whole numbers held between keys).  @param clip  An opened clip. @return The count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track, uint32_t* lengthOut);
+```
+Returns a discrete track's name, as maniClipFloatTrackName does.  @param clip       An opened clip. @param track      The track. @param lengthOut  Receives the length in bytes. May be NULL. @return The name's bytes, or NULL for a track past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniClipFindDiscreteTrack(const maniClip* clip, const char* name, size_t length);
+```
+Finds a discrete track by name.  @param clip    An opened clip. @param name    The name's UTF-8 bytes; may be NULL when length is 0. @param length  The name's length in bytes. @return The track, or MANI_NO_TRACK. @par Thread safety Safe from any thread.
+
+```c
+int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time);
+```
+Returns a discrete track's value at a time: its last key at or before the time, or its first key before that (NaN is 0).  @param clip   An opened clip. @param track  The track. @param time   The time in seconds. @return The value, or 0 for a track past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniClipEventCount(const maniClip* clip);
+```
+Returns the number of events.  @param clip  An opened clip. @return The count. @par Thread safety Safe from any thread.
+
+```c
+maniClipEvent maniClipEventAt(const maniClip* clip, uint32_t index);
+```
+Returns an event; events are in increasing time.  @param clip   An opened clip. @param index  The event. @return The event, or a zeroed one for an index past the count. @par Thread safety Safe from any thread.
+
+```c
+void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut, uint32_t* countOut);
+```
+Finds the events a playhead passes going from one time to another: forward (from below to) those with from <= time < to, backward (from above to) those with to < time <= from; none when the two are equal or either is NaN. They are consecutive indices.  @param clip      An opened clip. @param from      Where the playhead was. @param to        Where it is. @param firstOut  Receives the first event's index. @param countOut  Receives how many. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniClipMarkerCount(const maniClip* clip);
+```
+Returns the number of sync markers.  @param clip  An opened clip. @return The count. @par Thread safety Safe from any thread.
+
+```c
+maniClipEvent maniClipMarkerAt(const maniClip* clip, uint32_t index);
+```
+Returns a sync marker; markers are in increasing time.  @param clip   An opened clip. @param index  The marker. @return The marker, or a zeroed one for an index past the count. @par Thread safety Safe from any thread.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -264,4 +329,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-47 functions across 6 headers.
+60 functions across 6 headers.

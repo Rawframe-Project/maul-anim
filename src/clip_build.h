@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// What the two halves of the clip builder share: channel checks and
+// evaluation (clip_build.c) and the named items (clip_build_named.c).
+
+#ifndef MAUL_ANIM_SRC_CLIP_BUILD_H
+#define MAUL_ANIM_SRC_CLIP_BUILD_H
+
+#include "maul-anim/base.h"
+#include "maul-anim/build.h"
+
+#include <stdint.h>
+
+// Checks a channel of keys of dimension 1, 3 or 4; a refusal names item
+// and has list (0 for bone tracks) or-ed into its reason.
+maniBuildResult maniCheckChannel(const maniChannelSource* channel, uint32_t dimension,
+                                 uint32_t item, maniBuildReason list);
+
+// A channel's value at a time, as glTF's Appendix C defines it, in
+// binary64; rotations normalized.
+void maniEvaluateChannel(const maniChannelSource* channel, uint32_t dimension, double time,
+                         double out[4]);
+
+// Sample k's time of n on the grid: k / rate, the last at the duration.
+double maniClipSampleTime(uint32_t k, uint32_t n, float rate, float duration);
+
+// The named items' sections: float tracks and samples, discrete tracks
+// and keys, events, markers, names; laid out once the grid is known.
+typedef struct maniClipNamedLayout
+{
+    uint8_t* block;
+    uint64_t blockSize;
+    const uint8_t* data[7];
+    uint64_t sizes[7];
+    uint32_t counts[4];
+} maniClipNamedLayout;
+
+// Checks every named item, and the latest time any key, event or marker
+// names (lastOut), before the duration is known.
+maniBuildResult maniCheckClipNamedSource(const maniClipSource* source, float* lastOut);
+
+// Lays out the named sections for a grid; refuses times past the duration
+// and repeated names. The layout's block is the builder's to release with
+// maniReleaseClipNamed.
+maniBuildResult maniLayClipNamed(maniBuilder* builder, const maniClipSource* source, float duration,
+                                 float rate, uint32_t sampleCount, maniClipNamedLayout* layout);
+
+void maniReleaseClipNamed(maniBuilder* builder, maniClipNamedLayout* layout);
+
+#endif // MAUL_ANIM_SRC_CLIP_BUILD_H

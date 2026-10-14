@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_CLIP_HASH 0x42a8f119163cb13cull
+#define PINNED_CLIP_HASH 0x1107b83bb9df50a9ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -62,6 +62,39 @@ static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
 
 static maniBoneTrackSource s_tracks[3];
 
+// Float tracks: a linear ramp, a step and a cubic spline.
+static const float kRampTimes[2] = {0.0f, 1.0f};
+static const float kRampValues[2] = {0.0f, 2.0f};
+static const float kGateTimes[2] = {0.0f, 0.3f};
+static const float kGateValues[2] = {1.0f, 0.0f};
+static const float kWaveTimes[2] = {0.0f, 1.0f};
+static const float kWaveValues[6] = {0, 0, 4, 0, 1, 0};
+static const maniFloatTrackSource s_floats[3] = {
+    {"ramp", 4, 0, {kRampTimes, kRampValues, 2, maniInterpolationLinear}},
+    {"gate", 4, 0, {kGateTimes, kGateValues, 2, maniInterpolationStep}},
+    {"wave", 4, 0, {kWaveTimes, kWaveValues, 2, maniInterpolationCubicSpline}},
+};
+// Discrete tracks.
+static const float kFootTimes[3] = {0.0f, 0.4f, 0.8f};
+static const int32_t kFootValues[3] = {1, 2, 1};
+static const float kStateTimes[1] = {0.25f};
+static const int32_t kStateValues[1] = {7};
+static const maniDiscreteTrackSource s_discrete[2] = {
+    {"foot", 4, 3, kFootTimes, kFootValues},
+    {"state", 5, 1, kStateTimes, kStateValues},
+};
+// Events out of time order, two at one time; markers.
+static const maniEventSource s_events[4] = {
+    {0.5f, 11, "step", 4, 0},
+    {0.2f, 12, "breath", 6, 0},
+    {0.5f, 13, "sound", 5, 0},
+    {1.0f, 14, "end", 3, 0},
+};
+static const maniEventSource s_markers[2] = {
+    {0.4f, 99, "right", 5, 0},
+    {0.0f, 0, "left", 4, 0},
+};
+
 static maniBuilder* NewBuilder(void)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
@@ -93,7 +126,20 @@ static maniClipSource SampleSource(void)
         kNone};
     s_tracks[2] = (maniBoneTrackSource){
         0, 0, (maniChannelSource){kStepTimes, kStepValues, 2, maniInterpolationStep}, kNone, kNone};
-    return (maniClipSource){&s_skeleton, s_tracks, 3, maniLoopRepeat, 10.0f, 0.0f};
+    return (maniClipSource){.skeleton = &s_skeleton,
+                            .boneTracks = s_tracks,
+                            .floatTracks = s_floats,
+                            .discreteTracks = s_discrete,
+                            .events = s_events,
+                            .markers = s_markers,
+                            .boneTrackCount = 3,
+                            .floatTrackCount = 3,
+                            .discreteTrackCount = 2,
+                            .eventCount = 4,
+                            .markerCount = 2,
+                            .loop = maniLoopRepeat,
+                            .sampleRate = 10.0f,
+                            .duration = 0.0f};
 }
 
 static maniBuildResult BuildFrom(const maniClipSource* source)
@@ -243,6 +289,11 @@ static void TestDurationAndRate(void)
 {
     OpenSkeleton();
     maniClipSource source = SampleSource();
+    // Only the bone tracks: the named items reach 1 s.
+    source.floatTrackCount = 0;
+    source.discreteTrackCount = 0;
+    source.eventCount = 0;
+    source.markerCount = 0;
     source.duration = 0.95f;
     source.sampleRate = 0.0f;
     CHECK(BuildFrom(&source).result == mani_success, "builds");
@@ -261,6 +312,104 @@ static void TestDurationAndRate(void)
     CHECK(maniClipSampleCount(&clip) == 1 && maniClipDuration(&clip) == 0.0f, "one sample");
     maniTransform rest = maniPoseLocal(SampleAt(&clip, 0.3f), 1);
     CHECK(rest.translation.x == 0.5f, "every bone at rest");
+}
+
+static void TestFloatTracks(void)
+{
+    BuildSample();
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    CHECK(maniClipFloatTrackCount(&clip) == 3, "three float tracks");
+    uint32_t ramp = maniClipFindFloatTrack(&clip, "ramp", 4);
+    uint32_t gate = maniClipFindFloatTrack(&clip, "gate", 4);
+    uint32_t wave = maniClipFindFloatTrack(&clip, "wave", 4);
+    CHECK(ramp != MANI_NO_TRACK && gate != MANI_NO_TRACK && wave != MANI_NO_TRACK, "found");
+    CHECK(maniClipFindFloatTrack(&clip, "foot", 4) == MANI_NO_TRACK, "not a float track");
+    uint32_t length = 0;
+    const char* name = maniClipFloatTrackName(&clip, gate, &length);
+    CHECK(length == 4 && memcmp(name, "gate", 4) == 0, "its name");
+    CHECK(maniClipFloatTrackName(&clip, 3, &length) == NULL && length == 0, "name past");
+    float values[3];
+    uint32_t count = 0;
+    for (int k = 0; k <= 20; ++k)
+    {
+        float time = 0.05f * (float)k;
+        CHECK(maniSampleClipFloats(&clip, time, values, 3, &count) == mani_success && count == 3,
+              "samples");
+        CHECK(Near(values[ramp], 2.0 * (double)time, 2e-6), "linear");
+        // The step key at 0.3f, a float just past 0.3, lands on the first
+        // sample at or after it, 0.4: before it 1, then 0.
+        CHECK(values[gate] == (time < 0.39f ? 1.0f : 0.0f), "step held");
+    }
+    // The spline at its samples: out-tangent 4 from 0, toward 1 with no
+    // in-tangent.
+    for (int k = 0; k <= 10; ++k)
+    {
+        float time = (float)k / 10.0f;
+        CHECK(maniSampleClipFloats(&clip, time, values, 3, NULL) == mani_success, "samples");
+        double u = (double)time;
+        double expected = (u * u * u - 2 * u * u + u) * 4 + (-2 * u * u * u + 3 * u * u);
+        CHECK(Near(values[wave], expected, 1e-6), "cubic");
+    }
+    CHECK(maniSampleClipFloats(&clip, 0.5f, values, 2, &count) == mani_errorCapacity && count == 3,
+          "short array");
+    CHECK(maniSampleClipFloats(&clip, 0.5f, NULL, 1, NULL) == mani_errorInvalid, "null array");
+}
+
+static void TestDiscreteTracks(void)
+{
+    BuildSample();
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    CHECK(maniClipDiscreteTrackCount(&clip) == 2, "two discrete tracks");
+    uint32_t foot = maniClipFindDiscreteTrack(&clip, "foot", 4);
+    uint32_t state = maniClipFindDiscreteTrack(&clip, "state", 5);
+    CHECK(foot != MANI_NO_TRACK && state != MANI_NO_TRACK, "found");
+    CHECK(maniClipDiscreteValue(&clip, foot, 0.0f) == 1, "first key");
+    CHECK(maniClipDiscreteValue(&clip, foot, 0.39f) == 1, "held");
+    CHECK(maniClipDiscreteValue(&clip, foot, 0.4f) == 2, "at a key");
+    CHECK(maniClipDiscreteValue(&clip, foot, 0.9f) == 1, "after the last");
+    CHECK(maniClipDiscreteValue(&clip, state, 0.1f) == 7, "before the first key, the first");
+    CHECK(maniClipDiscreteValue(&clip, foot, NAN) == 1, "NaN is 0");
+    CHECK(maniClipDiscreteValue(&clip, 2, 0.5f) == 0, "a track past the count");
+    uint32_t length = 0;
+    CHECK(maniClipDiscreteTrackName(&clip, state, &length) != NULL && length == 5, "its name");
+}
+
+static void TestEventsAndMarkers(void)
+{
+    BuildSample();
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    CHECK(maniClipEventCount(&clip) == 4 && maniClipMarkerCount(&clip) == 2, "counts");
+    // By time, the tie at 0.5 in source order: breath, step, sound, end.
+    static const int32_t payloads[4] = {12, 11, 13, 14};
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        CHECK(maniClipEventAt(&clip, i).payload == payloads[i], "in time order");
+    }
+    maniClipEvent step = maniClipEventAt(&clip, 1);
+    CHECK(step.time == 0.5f && step.nameLength == 4 && memcmp(step.name, "step", 4) == 0,
+          "an event's fields");
+    CHECK(maniClipEventAt(&clip, 4).name == NULL, "an event past the count");
+    uint32_t first = 0;
+    uint32_t count = 0;
+    maniClipEventRange(&clip, 0.2f, 0.5f, &first, &count);
+    CHECK(first == 0 && count == 1, "forward includes from, not to");
+    maniClipEventRange(&clip, 0.5f, 1.0f, &first, &count);
+    CHECK(first == 1 && count == 2, "forward from the tie");
+    maniClipEventRange(&clip, 1.0f, 0.5f, &first, &count);
+    CHECK(first == 3 && count == 1, "backward includes from, not to");
+    maniClipEventRange(&clip, 0.5f, 0.2f, &first, &count);
+    CHECK(first == 1 && count == 2, "backward over the tie");
+    maniClipEventRange(&clip, 0.5f, 0.5f, &first, &count);
+    CHECK(count == 0, "no move, no events");
+    maniClipEventRange(&clip, NAN, 0.5f, &first, &count);
+    CHECK(count == 0, "NaN, no events");
+    maniClipEvent left = maniClipMarkerAt(&clip, 0);
+    maniClipEvent right = maniClipMarkerAt(&clip, 1);
+    CHECK(left.time == 0.0f && memcmp(left.name, "left", 4) == 0, "markers by time");
+    CHECK(right.time == 0.4f && right.payload == 0, "a marker's payload is 0");
 }
 
 static void TestWrongSkeleton(void)
@@ -342,6 +491,71 @@ static void TestBuildRefusals(void)
     s_tracks[1].translation.values = NULL;
     ExpectRefusal(&source, maniBuildReasonCount, 1, "keys without values");
 
+    // Named items: each list's refusals carry the list in the reason.
+    maniFloatTrackSource floats[3];
+    memcpy(floats, s_floats, sizeof floats);
+    source = SampleSource();
+    source.floatTracks = floats;
+    floats[1].nameLength = 0;
+    ExpectRefusal(&source, maniBuildReasonFloatTrack | maniBuildReasonName, 1, "a float name");
+    memcpy(floats, s_floats, sizeof floats);
+    floats[2].name = "ramp";
+    r = BuildFrom(&source);
+    CHECK(r.reason == (maniBuildReasonFloatTrack | maniBuildReasonTrack) && r.item == 2 &&
+              r.other == 0,
+          "a float name twice");
+    memcpy(floats, s_floats, sizeof floats);
+    floats[0].keys.keyCount = 0;
+    ExpectRefusal(&source, maniBuildReasonFloatTrack | maniBuildReasonKeyCount, 0,
+                  "a float track without keys");
+    memcpy(floats, s_floats, sizeof floats);
+    floats[0].keys.times = backwards;
+    floats[0].keys.keyCount = 3;
+    ExpectRefusal(&source, maniBuildReasonFloatTrack | maniBuildReasonKeyTime, 0,
+                  "float keys not increasing");
+    maniDiscreteTrackSource discrete[2];
+    memcpy(discrete, s_discrete, sizeof discrete);
+    source = SampleSource();
+    source.discreteTracks = discrete;
+    discrete[1].name = "foot";
+    discrete[1].nameLength = 4;
+    r = BuildFrom(&source);
+    CHECK(r.reason == (maniBuildReasonDiscreteTrack | maniBuildReasonTrack) && r.item == 1,
+          "a discrete name twice");
+    memcpy(discrete, s_discrete, sizeof discrete);
+    discrete[0].times = backwards;
+    ExpectRefusal(&source, maniBuildReasonDiscreteTrack | maniBuildReasonKeyTime, 0,
+                  "discrete keys not increasing");
+    memcpy(discrete, s_discrete, sizeof discrete);
+    discrete[1].keyCount = 0;
+    ExpectRefusal(&source, maniBuildReasonDiscreteTrack | maniBuildReasonKeyCount, 1,
+                  "a discrete track without keys");
+    maniEventSource events[4];
+    memcpy(events, s_events, sizeof events);
+    source = SampleSource();
+    source.events = events;
+    events[2].time = -1.0f;
+    ExpectRefusal(&source, maniBuildReasonEvent | maniBuildReasonKeyTime, 2, "an event before 0");
+    memcpy(events, s_events, sizeof events);
+    events[3].name = "\xFF";
+    events[3].nameLength = 1;
+    ExpectRefusal(&source, maniBuildReasonEvent | maniBuildReasonName, 3, "an event's name");
+    source = SampleSource();
+    source.duration = 0.75f;
+    ExpectRefusal(&source, maniBuildReasonDiscreteTrack | maniBuildReasonKeyTime, 0,
+                  "a discrete key past the duration");
+    source.discreteTrackCount = 0;
+    ExpectRefusal(&source, maniBuildReasonEvent | maniBuildReasonKeyTime, 3,
+                  "an event past the duration");
+    source.eventCount = 3;
+    source.markers = s_events;
+    source.markerCount = 4;
+    ExpectRefusal(&source, maniBuildReasonMarker | maniBuildReasonKeyTime, 3,
+                  "a marker past the duration");
+    source = SampleSource();
+    source.markers = NULL;
+    ExpectRefusal(&source, maniBuildReasonMarker | maniBuildReasonCount, 0, "markers missing");
+
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildClip(builder, NULL).result == mani_errorInvalid, "null source");
     CHECK(maniBuilderMisuses(builder) == 1, "a misuse");
@@ -389,8 +603,8 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 12, "sample count not the duration's");
     maniStoreU32(s_file + header + 24, 2);
     ExpectFormat(header + 24, "loop policy");
-    s_file[header + 40] = 1;
-    ExpectFormat(header + 40, "header padding");
+    s_file[header + 56] = 1;
+    ExpectFormat(header + 56, "header padding");
     maniStoreU32(s_file + header + 32, 7);
     ExpectFormat(header + 32, "floats per sample");
     // Tracks are bones 0, 1, 2: make the second bone 0.
@@ -409,6 +623,38 @@ static void TestOpenRefusals(void)
     // Track 2 (bone 2) after 3 + 3 floats: its rotation's x.
     StoreF32(samples + 24, 0.5f);
     ExpectFormat(samples + 24, "a rotation not unit");
+    // The named sections.
+    uint64_t floatTracks = SectionAt(maniClipTagFloatTracks);
+    uint64_t floatSamples = SectionAt(maniClipTagFloatSamples);
+    uint64_t discrete = SectionAt(maniClipTagDiscreteTracks);
+    uint64_t keys = SectionAt(maniClipTagDiscreteKeys);
+    uint64_t events = SectionAt(maniClipTagEvents);
+    uint64_t markers = SectionAt(maniClipTagMarkers);
+    maniStoreU32(s_file + floatTracks + 4, 0);
+    ExpectFormat(floatTracks, "an empty float name");
+    s_file[floatTracks + 8] ^= 1;
+    ExpectFormat(floatTracks + 8, "a float name's hash");
+    maniStoreU32(s_file + floatTracks + 16, 2);
+    ExpectFormat(floatTracks + 16, "an interpolation");
+    maniStoreU32(s_file + floatTracks + 20, 1);
+    ExpectFormat(floatTracks + 20, "float track padding");
+    StoreF32(floatSamples + 8, NAN);
+    ExpectFormat(floatSamples + 8, "a float sample not finite");
+    // The second discrete track starts where the first ends.
+    maniStoreU32(s_file + discrete + 24 + 16, 0);
+    ExpectFormat(discrete + 24 + 16, "discrete keys not contiguous");
+    maniStoreU32(s_file + discrete + 20, 0);
+    ExpectFormat(discrete + 20, "a discrete track without keys");
+    StoreF32(keys + 8, 0.0f);
+    ExpectFormat(keys + 8, "discrete keys not increasing");
+    StoreF32(keys, 2.0f);
+    ExpectFormat(keys, "a discrete key past the duration");
+    StoreF32(events + 24, 0.1f);
+    ExpectFormat(events + 24, "events out of time order");
+    maniStoreU32(s_file + markers + 4, 5);
+    ExpectFormat(markers + 4, "a marker's payload");
+    maniStoreU32(s_file + markers + 8, 100000);
+    ExpectFormat(markers + 8, "a marker's name past the names");
     s_file[43] ^= 1;
     maniFileResult r = Open();
     CHECK(r.result == mani_errorFormat && r.offset == 40, "identity");
@@ -468,6 +714,9 @@ int main(int argc, char** argv)
     TestCubicAtSamples();
     TestStepAndClamp();
     TestDurationAndRate();
+    TestFloatTracks();
+    TestDiscreteTracks();
+    TestEventsAndMarkers();
     TestWrongSkeleton();
     TestBuildRefusals();
     TestOpenRefusals();
