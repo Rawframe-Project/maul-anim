@@ -47,7 +47,13 @@ bool maniClipSampleCountFor(float duration, float rate, uint32_t* countOut)
         *countOut = 1;
         return true;
     }
-    float intervals = ceilf(duration * rate);
+    // A duration that is a whole number of frames in decimal (1/3 s at
+    // 30 per second) multiplies to a few ulps off that number; one within
+    // 2^-20 of it is taken as it, so no near-duplicate last sample and no
+    // near-empty last interval appear.
+    float product = duration * rate;
+    float nearest = floorf(product + 0.5f);
+    float intervals = fabsf(product - nearest) <= nearest * 0x1p-20f ? nearest : ceilf(product);
     if (!(intervals < (float)MANI_MAX_SAMPLES))
     {
         return false;

@@ -412,6 +412,44 @@ static void TestEventsAndMarkers(void)
     CHECK(right.time == 0.4f && right.payload == 0, "a marker's payload is 0");
 }
 
+// Durations of whole frames written in decimal: no near-duplicate last
+// sample at any common rate.
+static void TestWholeFrameDurations(void)
+{
+    const float rates[] = {24.0f, 25.0f, 30.0f, 48.0f, 50.0f, 60.0f, 90.0f, 120.0f, 29.97f};
+    uint32_t wrong = 0;
+    for (size_t r = 0; r < sizeof rates / sizeof rates[0]; ++r)
+    {
+        for (uint32_t k = 1; k <= 20000; ++k)
+        {
+            float duration = (float)((double)k / (double)rates[r]);
+            uint32_t count = 0;
+            if (!maniClipSampleCountFor(duration, rates[r], &count) || count != k + 1)
+            {
+                ++wrong;
+            }
+        }
+    }
+    CHECK(wrong == 0, "whole frames, whole sample counts");
+    uint32_t count = 0;
+    CHECK(maniClipSampleCountFor(1.0f / 3.0f, 30.0f, &count) && count == 11, "1/3 s at 30");
+    CHECK(maniClipSampleCountFor(0.1f, 60.0f, &count) && count == 7, "0.1 s at 60");
+    CHECK(maniClipSampleCountFor(0.95f, 30.0f, &count) && count == 30, "a part frame rounds up");
+    // Built and sampled: the last interval is a whole one.
+    OpenSkeleton();
+    maniClipSource source = SampleSource();
+    source.floatTrackCount = 0;
+    source.discreteTrackCount = 0;
+    source.eventCount = 0;
+    source.markerCount = 0;
+    source.duration = 0.6f;
+    source.sampleRate = 25.0f;
+    CHECK(BuildFrom(&source).result == mani_success, "builds");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    CHECK(maniClipSampleCount(&clip) == 16, "0.6 s at 25: 16 samples, not 17");
+}
+
 static void TestWrongSkeleton(void)
 {
     BuildSample();
@@ -717,6 +755,7 @@ int main(int argc, char** argv)
     TestFloatTracks();
     TestDiscreteTracks();
     TestEventsAndMarkers();
+    TestWholeFrameDurations();
     TestWrongSkeleton();
     TestBuildRefusals();
     TestOpenRefusals();
