@@ -549,3 +549,18 @@ fbw-children | src/fbx_world.c | stack[height++] = children[k]; | stack[height++
 bas-unit | src/basis.c | return (maniVec3){b->unit * v.x, b->unit * v.y, b->unit * v.z}; | return (maniVec3){v.x, v.y, v.z};
 bas-unit-vector | src/basis.c | out = translation ? Scale(basis, out) : out; | out = Scale(basis, out);
 bas-unit-affine | src/basis.c | out.m[9 + j] = basis->unit * (basis->s[j] * a.m[9 + basis->p[j]]); | out.m[9 + j] = basis->s[j] * a.m[9 + basis->p[j]];
+
+# The node forest (hierarchy.c, mani-0009 and mani-0014), 2026-10-14: 12
+# mutants, all killed (one by its brute-force test).
+hie-depth | src/hierarchy.c | uint32_t d = v == MANI_NO_NODE ? 0 : depth[v] + 1; | uint32_t d = v == MANI_NO_NODE ? 0 : depth[v];
+hie-max-depth | src/hierarchy.c | maxDepth = d > 0 && d - 1 > maxDepth ? d - 1 : maxDepth; | maxDepth = maxDepth;
+hie-levels | src/hierarchy.c | while (levels < 32 && ((uint64_t)1 << levels) <= maxDepth) | while (levels < 32 && ((uint64_t)1 << levels) < maxDepth)
+hie-lift-table | src/hierarchy.c | up[k * n + v] = half == MANI_NO_NODE ? MANI_NO_NODE : up[(k - 1) * n + half]; | up[k * n + v] = half == MANI_NO_NODE ? MANI_NO_NODE : up[(k - 1) * n + v];
+hie-swap | src/hierarchy.c | if (h->depths[a] < h->depths[b]) | if (h->depths[a] > h->depths[b])
+hie-lift | src/hierarchy.c | a = (lift & 1u) != 0 ? up[k * n + a] : a; | a = (lift & 1u) != 0 ? up[k * n + a] : up[k * n + a];
+hie-same | src/hierarchy.c | if (a == b) | if (false)
+hie-descend | src/hierarchy.c | if (up[k * n + a] != up[k * n + b]) | if (true)
+hie-parent | src/hierarchy.c | return h->parents[a]; | return a;
+hie-walk-top | src/hierarchy.c | while (v != MANI_NO_NODE && h->depths[v] >= top && stamp[v] != unit) | while (v != MANI_NO_NODE && h->depths[v] > top && stamp[v] != unit)
+hie-jump | src/hierarchy.c | v = h->depths[otherRoot] <= top ? MANI_NO_NODE : h->parents[otherRoot]; | v = MANI_NO_NODE;
+hie-group-root | src/hierarchy.c | groupRoots[g] = maniCommonAncestor(h, groupRoots[g], units->roots[u]); | groupRoots[g] = groupRoots[g];
