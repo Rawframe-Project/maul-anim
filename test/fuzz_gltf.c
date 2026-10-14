@@ -18,8 +18,50 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
+
+// The builder's memory, at most 16 MiB live: a few bytes can ask for a
+// clip of millions of samples, whose cost is time, not coverage, and
+// past the budget the capacity refusals are exercised instead.
+#define FUZZ_BUDGET ((size_t)16 << 20)
+
+static size_t s_live;
+
+// Aligned by hand, as aligned_alloc is not everywhere; the block's start
+// sits just before the aligned memory.
+static void* Allocate(size_t size, size_t alignment, void* context)
+{
+    (void)context;
+    size_t extra = alignment + sizeof(void*);
+    if (size > FUZZ_BUDGET - s_live || size > SIZE_MAX - extra)
+    {
+        return NULL;
+    }
+    uint8_t* block = malloc(size + extra);
+    if (block == NULL)
+    {
+        return NULL;
+    }
+    uintptr_t at = ((uintptr_t)block + sizeof(void*) + alignment - 1) & ~(uintptr_t)(alignment - 1);
+    memcpy((uint8_t*)at - sizeof(void*), &block, sizeof block);
+    s_live += size;
+    return (void*)at;
+}
+
+static void Release(void* memory, size_t size, size_t alignment, void* context)
+{
+    (void)alignment;
+    (void)context;
+    if (memory != NULL)
+    {
+        void* block = NULL;
+        memcpy(&block, (uint8_t*)memory - sizeof(void*), sizeof block);
+        s_live -= size;
+        free(block);
+    }
+}
 
 // Every skeleton, with and without folding and with a basis change, and
 // each of its skins against it; the first node's subtree.
@@ -68,6 +110,7 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
+    def.allocator = (maniAllocator){Allocate, Release, NULL};
     maniBuilder* builder = NULL;
     if (maniCreateBuilder(&def, &builder) != mani_success)
     {
