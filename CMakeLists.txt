@@ -99,6 +99,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(gltf_skeleton WHITEBOX)
         maul_add_test(gltf_clip WHITEBOX)
         maul_add_test(gltf_spring WHITEBOX)
+        maul_add_test(arena WHITEBOX)
         # Khronos sample models in test/data/gltf.
         maul_add_test(gltf_fixtures WHITEBOX)
         if(TARGET test_gltf_fixtures)

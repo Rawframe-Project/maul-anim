@@ -52,7 +52,10 @@ enum
     kWeights = 49,
     kColor = 53,
     kProp = 61,
-    kKeyFloats = 67,
+    // Eight int16: a normalized rotation from identity to a half turn
+    // about y; its first six as a normalized translation.
+    kShorts = 67,
+    kKeyFloats = 71,
 };
 
 static const float kSpineKeys[18] = {0, 0, 0, 0, 0.5f, 0, 1, 0, 0, 0, 1, -1, 0, 0.8f, 0, 0, 0, 0};
@@ -78,6 +81,8 @@ static void FillKeys(void)
     memcpy(s_keys + kColor, color, sizeof color);
     const float prop[6] = {3, 0, 0, 4, 0, 0};
     memcpy(s_keys + kProp, prop, sizeof prop);
+    const int16_t shorts[8] = {0, 0, 0, 32767, 0, 32767, 0, 0};
+    memcpy(s_keys + kShorts, shorts, sizeof shorts);
 }
 
 static void Base64(const uint8_t* bytes, size_t size, char* out)
@@ -136,7 +141,8 @@ static void Document(const char* samplers, const char* channels, const char* sce
         "\"extras\":{\"targetNames\":[\"smile\",\"frown\"]}},"
         "{\"primitives\":[{\"attributes\":{}}]}],"
         "\"buffers\":[{\"byteLength\":%d,\"uri\":\"data:application/octet-stream;base64,%s\"}],"
-        "\"bufferViews\":[{\"buffer\":0,\"byteLength\":%d}],"
+        "\"bufferViews\":[{\"buffer\":0,\"byteLength\":%d},"
+        "{\"buffer\":0,\"byteOffset\":12,\"byteLength\":12,\"byteStride\":8}],"
         "\"accessors\":["
         "{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"SCALAR\",\"min\":[0],"
         "\"max\":[1]},"
@@ -155,6 +161,19 @@ static void Document(const char* samplers, const char* channels, const char* sce
         "{\"bufferView\":0,\"byteOffset\":212,\"componentType\":5126,\"count\":2,\"type\":\"VEC4\"}"
         ","
         "{\"bufferView\":0,\"byteOffset\":244,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"}"
+        ","
+        // 10: bytes for times; 11: times in a strided view; 12, 13: the
+        // shorts; 14: one time.
+        "{\"bufferView\":0,\"byteOffset\":12,\"componentType\":5121,\"count\":2,\"type\":"
+        "\"SCALAR\"},"
+        "{\"bufferView\":1,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},"
+        "{\"bufferView\":0,\"byteOffset\":268,\"componentType\":5122,\"normalized\":true,"
+        "\"count\":2,\"type\":\"VEC4\"},"
+        "{\"bufferView\":0,\"byteOffset\":268,\"componentType\":5123,\"normalized\":true,"
+        "\"count\":2,\"type\":\"VEC3\"},"
+        "{\"bufferView\":0,\"componentType\":5126,\"count\":1,\"type\":\"SCALAR\"},"
+        // 15: two 4x4 matrices, for a pointer of sixteen components.
+        "{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"MAT4\"}"
         "],"
         "\"animations\":[{\"name\":\"walk\",\"samplers\":[%s],\"channels\":[%s]}]}",
         sceneExtra, (int)(kKeyFloats * sizeof(float)), digits, (int)(kKeyFloats * sizeof(float)),
@@ -484,6 +503,47 @@ static void TestRefusals(void)
              "{\"KHR_animation_pointer\":{\"pointer\":\"/nodes/1/translation\"}}}}",
              "");
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "a pointer to a target already used");
+    static const char kHipMove[] =
+        "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"translation\"}}";
+    Document("{\"input\":10,\"output\":6}", kHipMove, "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "times not floats");
+    Document("{\"input\":11,\"output\":6}", kHipMove, "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "times strided");
+    Document("{\"input\":1,\"output\":13}", kHipMove, "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "a normalized translation");
+    Document(kOne, "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"rotation\"}}", "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "a rotation of three");
+    Document("{\"input\":14,\"output\":3,\"interpolation\":\"CUBICSPLINE\"}",
+             "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"rotation\"}}", "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "a cubic spline of one key");
+    Document(kOne, "", "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "no channels");
+    Document("", kHipMove, "");
+    ExpectOpenRefusal(maniImportReasonProperty, NULL, "no samplers");
+    Document(kOne, kHipMove, "");
+    char* name = strstr(s_json, "\"walk\"");
+    memcpy(name, "7     ", 6);
+    ExpectOpenRefusal(maniImportReasonProperty, "7     ", "a name not a string");
+    // "/a" of three components and "/a/0" of one: the same float name.
+    Document("{\"input\":1,\"output\":6},{\"input\":1,\"output\":1}",
+             "{\"sampler\":0,\"target\":{\"path\":\"pointer\",\"extensions\":"
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/a\"}}}},"
+             "{\"sampler\":1,\"target\":{\"path\":\"pointer\",\"extensions\":"
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/a/0\"}}}}",
+             "");
+    {
+        maniBuilder* builder = NewBuilder();
+        maniGltf* gltf = Open(builder);
+        maniGltfOptions options = maniDefaultGltfOptions();
+        maniSkeleton skeleton;
+        CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
+        maniImportResult r =
+            maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL);
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonName,
+              "a float name twice");
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
     // A key before 0 reaches the clip builder: Data on the channel.
     Document("{\"input\":1,\"output\":6}",
              "{\"sampler\":0,\"target\":{\"node\":2,\"path\":\"translation\"}}", "");
@@ -505,11 +565,142 @@ static void TestRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+// What glTF allows beside the defaults: a normalized rotation, pointers
+// shaped like a node's but naming none, a last channel shorter than an
+// earlier one.
+static void TestAllowed(void)
+{
+    Document("{\"input\":1,\"output\":12},{\"input\":1,\"output\":6},"
+             "{\"input\":2,\"output\":5,\"interpolation\":\"STEP\"},"
+             "{\"input\":1,\"output\":1},{\"input\":1,\"output\":15}",
+             "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"rotation\"}},"
+             "{\"sampler\":1,\"target\":{\"node\":1,\"path\":\"translation\"}},"
+             "{\"sampler\":1,\"target\":{\"path\":\"pointer\",\"extensions\":"
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/nodes/01/translation\"}}}},"
+             "{\"sampler\":1,\"target\":{\"path\":\"pointer\",\"extensions\":"
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/nodes/1/translationX\"}}}},"
+             "{\"sampler\":2,\"target\":{\"node\":3,\"path\":\"scale\"}},"
+             "{\"sampler\":3,\"target\":{\"path\":\"pointer\",\"extensions\":"
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/materials/0/alphaCutoff\"}}}},"
+             "{\"sampler\":4,\"target\":{\"path\":\"pointer\",\"extensions\":"
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/x/matrix\"}}}}",
+             "");
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    maniGltfOptions options = maniDefaultGltfOptions();
+    maniSkeleton skeleton;
+    CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
+    uint32_t bound = 0;
+    CHECK(gltf != NULL &&
+              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, &bound)
+                      .result == mani_success &&
+              bound == 7,
+          "builds");
+    maniClip clip;
+    CHECK(OpenClip(builder, &clip), "opens");
+    CHECK(maniClipDuration(&clip) == 1.0f, "the longest channel's end, not the last's");
+    const char kScalar[] = "/materials/0/alphaCutoff";
+    const char kSixteenth[] = "/x/matrix/15";
+    CHECK(maniClipFindFloatTrack(&clip, kScalar, sizeof kScalar - 1) != MANI_NO_TRACK,
+          "one component: the pointer alone");
+    CHECK(maniClipFindFloatTrack(&clip, kSixteenth, sizeof kSixteenth - 1) != MANI_NO_TRACK,
+          "two-digit components");
+    const char kZero[] = "/nodes/01/translation/0";
+    const char kLonger[] = "/nodes/1/translationX/2";
+    CHECK(maniClipFindFloatTrack(&clip, kZero, sizeof kZero - 1) != MANI_NO_TRACK &&
+              maniClipFindFloatTrack(&clip, kLonger, sizeof kLonger - 1) != MANI_NO_TRACK,
+          "pointers, not node targets");
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
+    CHECK(maniSampleClip(&clip, &skeleton, 1.0f, pose) == mani_success, "samples");
+    maniQuat q = maniPoseLocal(pose, hip).rotation;
+    CHECK(Near(q.y, 1.0, 1e-6) && Near(q.w, 0.0, 1e-6), "a normalized short rotation");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
+// A clip's float track names when the mesh's target names cannot serve:
+// too few, or one empty. The indices stand in.
+static void ExpectIndexNames(const char* names, const char* what)
+{
+    Document(NULL, NULL, "");
+    char* at = strstr(s_json, "\"smile\",\"frown\"");
+    memcpy(at, names, strlen(names));
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    maniGltfOptions options = maniDefaultGltfOptions();
+    maniSkeleton skeleton;
+    CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
+    maniClip clip;
+    CHECK(gltf != NULL &&
+              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL)
+                      .result == mani_success &&
+              OpenClip(builder, &clip),
+          "builds");
+    CHECK(maniClipFindFloatTrack(&clip, "body/0", 6) != MANI_NO_TRACK &&
+              maniClipFindFloatTrack(&clip, "body/1", 6) != MANI_NO_TRACK,
+          what);
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
+// Folding a placement with no channel: the scene turned a quarter about
+// y, only the hip animated. The hip's model is the scene's times its own.
+static void TestFoldedStatic(void)
+{
+    Document("{\"input\":0,\"output\":3}",
+             "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"rotation\"}}",
+             ",\"rotation\":[0,0.70710677,0,0.70710677]");
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    maniGltfOptions options = {{maniAxisX, maniAxisNegativeZ, maniAxisY}, 1};
+    maniSkeleton skeleton;
+    CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
+    maniClip clip;
+    CHECK(gltf != NULL &&
+              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL)
+                      .result == mani_success &&
+              OpenClip(builder, &clip),
+          "builds");
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
+    CHECK(maniSampleClip(&clip, &skeleton, 1.0f, pose) == mani_success &&
+              maniComputeModel(pose, &skeleton) == mani_success,
+          "samples");
+    const double one[3] = {1, 1, 1};
+    const double sceneT[3] = {0, 0, 5};
+    const double sceneQ[4] = {0, sqrt(0.5), 0, sqrt(0.5)};
+    const double hipT[3] = {0, 1, 0};
+    double hipQ[4];
+    HipRotation(1.0, hipQ);
+    maniAffine scene = Trs(sceneT, sceneQ, one);
+    maniAffine local = Trs(hipT, hipQ, one);
+    maniAffine world = maniAffineMul(&scene, &local);
+    maniAffine expected = ZUp(world);
+    maniAffine model = maniPoseModel(pose, hip);
+    double worst = 0;
+    for (int i = 0; i < 12; ++i)
+    {
+        worst = fmax(worst, fabs((double)model.m[i] - (double)expected.m[i]));
+    }
+    CHECK(worst < 2e-6, "the placement's turn composed in");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
 int main(void)
 {
     TestLocals();
     TestFoldedModels();
     TestAnotherRig();
     TestRefusals();
+    TestAllowed();
+    ExpectIndexNames("\"smile\"        ", "too few target names");
+    ExpectIndexNames("\"smile\",\"\"     ", "an empty target name");
+    TestFoldedStatic();
     return s_failures == 0 ? 0 : 1;
 }

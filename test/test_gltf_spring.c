@@ -211,6 +211,13 @@ static void TestRefusals(void)
     ExpectRefusal(maniImportReasonIndex, "5]", "a collider past the count");
     Document("1.0", kColliders, kGroups, "[{\"joints\":[{\"node\":1,\"gravityDir\":[0,-1]}]}]");
     ExpectRefusal(maniImportReasonProperty, "[0,-1]", "two numbers for a direction");
+    Document("1.0", kColliders, kGroups, "[{\"joints\":[{\"node\":1,\"gravityDir\":[0,-1,0,0]}]}]");
+    ExpectRefusal(maniImportReasonProperty, "[0,-1,0,0]", "four numbers for a direction");
+    Document("1.0", kColliders, "[{\"colliders\":[0.5]}]", kSprings);
+    ExpectRefusal(maniImportReasonProperty, "0.5]", "an index not whole");
+    Document("1.0", kColliders, kGroups,
+             "[{\"joints\":[{\"node\":1},{\"node\":2},{\"node\":3}],\"center\":2}]");
+    ExpectRefusal(maniImportReasonHierarchy, "2}]", "a center inside its chain");
     // A node outside the skeleton given: a skeleton of the head alone.
     Document("1.0", kColliders, kGroups, kSprings);
     maniBuilder* builder = NewBuilder();

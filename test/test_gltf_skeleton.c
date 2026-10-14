@@ -442,6 +442,8 @@ static void TestRefusals(void)
     ExpectBuildRefusal(maniImportReasonProperty, "a matrix and TRS");
     Names("{\"matrix\":[1,0,0,0]}", "0");
     ExpectBuildRefusal(maniImportReasonProperty, "four numbers");
+    Names("{\"translation\":[1,0,0,0]}", "0");
+    ExpectBuildRefusal(maniImportReasonProperty, "four numbers for a translation");
     Names("{\"rotation\":[0,0,0,0]}", "0");
     ExpectBuildRefusal(maniImportReasonProperty, "a zero rotation");
     Names("{\"translation\":[1e39,0,0]}", "0");
@@ -454,6 +456,57 @@ static void TestRefusals(void)
              "\"inverseBindMatrices\":0}],\"accessors\":[{\"componentType\":5126,\"count\":1,"
              "\"type\":\"MAT3\"}]}");
     ExpectRefusal(maniImportReasonProperty, "0}]", "inverse binds not MAT4");
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"children\":[1]},{}],\"skins\":"
+             "[{\"joints\":[0,1],\"inverseBindMatrices\":0}],\"accessors\":[{\"componentType\":"
+             "5126,\"count\":1,\"type\":\"MAT4\"}]}");
+    ExpectRefusal(maniImportReasonProperty, "0}]", "fewer inverse binds than joints");
+    char zeros[89];
+    memset(zeros, 'A', 86);
+    memcpy(zeros + 86, "==", 3);
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{}],\"skins\":[{\"joints\":[0],"
+             "\"inverseBindMatrices\":0}],\"buffers\":[{\"byteLength\":64,\"uri\":"
+             "\"data:application/octet-stream;base64,%s\"}],\"bufferViews\":[{\"buffer\":0,"
+             "\"byteLength\":64,\"byteStride\":64}],\"accessors\":[{\"bufferView\":0,"
+             "\"componentType\":5126,\"count\":1,\"type\":\"MAT4\"}]}",
+             zeros);
+    ExpectRefusal(maniImportReasonLayout, "0}]", "inverse binds in a strided view");
+}
+
+// A shear small beside the matrix's largest column is within the
+// tolerance: 1e-3 under a column of 1000.
+static void TestShearTolerance(void)
+{
+    Names("{\"matrix\":[1,0,0,0, 0.001,1,0,0, 0,0,1000,0, 0,0,0,1]}", "0");
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    maniGltfOptions options = maniDefaultGltfOptions();
+    CHECK(gltf != NULL && maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success,
+          "a shear within 1e-4 of the largest column");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
+// Skins numbered by their lowest: a lone skin 0, then skin 3 joining
+// skin 1 and, through it, skin 2. Skins 1 to 3 are one skeleton, 1.
+static void TestLowestSkinNumbering(void)
+{
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"name\":\"L\"},"
+             "{\"name\":\"P\",\"children\":[2,4]},{\"name\":\"A\",\"children\":[3]},"
+             "{\"name\":\"A1\"},{\"name\":\"B\",\"children\":[5]},{\"name\":\"B1\"}],"
+             "\"skins\":[{\"joints\":[0]},{\"joints\":[1,2]},{\"joints\":[5]},"
+             "{\"joints\":[3,5]}]}");
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    CHECK(gltf != NULL && maniGltfSkeletonCount(gltf) == 2, "two skeletons");
+    CHECK(gltf != NULL && maniGltfSkinSkeleton(gltf, 0) == 0 &&
+              maniGltfSkinSkeleton(gltf, 1) == 1 && maniGltfSkinSkeleton(gltf, 2) == 1 &&
+              maniGltfSkinSkeleton(gltf, 3) == 1,
+          "numbered by their lowest skins");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
 }
 
 // Grouping against a brute force: random forests of 24 nodes, random
@@ -652,6 +705,8 @@ static void TestGroupingAgainstBruteForce(void)
 
 int main(void)
 {
+    TestShearTolerance();
+    TestLowestSkinNumbering();
     TestGroupsAndBones();
     TestBindPalettes();
     TestBasisRests();

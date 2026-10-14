@@ -208,7 +208,12 @@ static void TestAccessors(void)
         "\"values\":{\"bufferView\":0,\"byteOffset\":48}}},"
         "{\"componentType\":5126,\"count\":2,\"type\":\"VEC2\"},"
         "{\"bufferView\":0,\"byteOffset\":60,\"componentType\":5126,\"count\":1,\"type\":"
-        "\"SCALAR\"}");
+        "\"SCALAR\"},"
+        "{\"bufferView\":0,\"byteOffset\":40,\"componentType\":5123,\"normalized\":true,"
+        "\"count\":2,\"type\":\"SCALAR\"},"
+        "{\"bufferView\":0,\"componentType\":5126,\"count\":1,\"type\":\"SCALAR\",\"sparse\":"
+        "{\"count\":1,\"indices\":{\"bufferView\":0,\"byteOffset\":44,\"componentType\":5121},"
+        "\"values\":{\"bufferView\":0,\"byteOffset\":48}}}");
     if (gltf == NULL)
     {
         maniDestroyBuilder(builder);
@@ -232,7 +237,13 @@ static void TestAccessors(void)
     CHECK(out[0] == 1 && out[1] == 9 && out[2] == 3, "element 1 replaced");
     CHECK(maniGltfReadFloats(gltf, 6, out).result == mani_success && out[0] == 0 && out[3] == 0,
           "no view: zeros");
-    maniImportResult r = maniGltfReadFloats(gltf, 7, out);
+    CHECK(maniGltfReadFloats(gltf, 8, out).result == mani_success &&
+              out[0] == 32767.0f / 65535.0f && out[1] == 32768.0f / 65535.0f,
+          "unorm16");
+    maniImportResult r = maniGltfReadFloats(gltf, 9, out);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData && r.offset == 44,
+          "a sparse index past the count");
+    r = maniGltfReadFloats(gltf, 7, out);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData && r.offset == 60 &&
               r.item == 7,
           "a NaN, at its buffer offset");
@@ -300,6 +311,17 @@ static void TestLayoutRefusals(void)
     Document(uri, kViews,
              "{\"bufferView\":0,\"componentType\":5124,\"count\":1,\"type\":\"SCALAR\"}", "");
     ExpectRefusal(maniImportReasonProperty, "5124", 0, "a component type glTF lacks");
+    Document(uri, kViews,
+             "{\"bufferView\":0,\"componentType\":5126,\"normalized\":1,\"count\":1,"
+             "\"type\":\"SCALAR\"}",
+             "");
+    ExpectRefusal(maniImportReasonProperty, "1,\"count", 0, "normalized not a boolean");
+    Document(uri, "{\"buffer\":0,\"byteLength\":64,\"byteStride\":8}",
+             "{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"}", "");
+    ExpectRefusal(maniImportReasonLayout, "{\"bufferView\":0,\"componentType\"", 0,
+                  "a stride below the element");
+    Document(uri, kViews, "", "\"extensionsRequired\":[1],");
+    ExpectRefusal(maniImportReasonProperty, "1]", 0, "an extension name not a string");
     Document(uri, kViews, "{\"bufferView\":0,\"componentType\":5126,\"count\":1,\"type\":\"VEC5\"}",
              "");
     ExpectRefusal(maniImportReasonProperty, "VEC5\"", 0, "a type glTF lacks");
@@ -338,8 +360,38 @@ static void TestLayoutRefusals(void)
     ExpectRefusal(maniImportReasonProperty, "5122", 0, "signed sparse indices");
 }
 
+// A data URI over the test buffer, its first base64 digit replaced, or
+// one digit appended.
+static void BadBase64(char replace, bool append)
+{
+    char uri[256];
+    snprintf(uri, sizeof uri, "%s%s", DataUri(), append ? "A" : "");
+    char* digits = strchr(uri, ',') + 1;
+    digits[0] = replace != 0 ? replace : digits[0];
+    Document(uri, "", "", "");
+}
+
 static void TestBufferRefusals(void)
 {
+    BadBase64('*', false);
+    ExpectRefusal(maniImportReasonBuffer, "data:", 0, "a digit not base64, enough of them");
+    BadBase64(0, true);
+    ExpectRefusal(maniImportReasonBuffer, "data:", 0, "digits not in fours");
+    // 64 bytes end in "==": one byte short of a buffer of 65.
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":65,\"uri\":\"%s\"}]}",
+             DataUri());
+    ExpectRefusal(maniImportReasonBuffer, "data:", 0, "padding counts no byte");
+    {
+        char uri[400] = "data:application/octet-stream,";
+        for (int i = 0; i < 63; ++i)
+        {
+            strcat(uri, "%00");
+        }
+        strcat(uri, "%0G");
+        Document(uri, "", "", "");
+        ExpectRefusal(maniImportReasonBuffer, "data:", 0, "a percent escape's second digit");
+    }
     Document("data:text/plain;base64,AAAA", "", "", "");
     ExpectRefusal(maniImportReasonBuffer, "data:", 0, "a media type glTF does not allow");
     Document("data:application/octet-stream;base64,AA*A", "", "", "");
@@ -364,7 +416,9 @@ static void TestBufferRefusals(void)
     char upper[256];
     snprintf(upper, sizeof upper, "DATA:Application/Octet-Stream;BASE64,%s", DataUri() + 37);
     Document(upper, "", "", "");
-    CHECK(OpenJson(builder, &gltf).result == mani_success, "case folded");
+    CHECK(OpenJson(builder, &gltf).result == mani_success &&
+              maniGltfBufferUri(gltf, 0, NULL) == NULL,
+          "case folded: data the document holds");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
@@ -492,6 +546,30 @@ static void TestGlb(void)
     Glb(false);
     r = OpenGlb(builder, &gltf);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuffer, "no BIN");
+    // A BIN chunk shorter than the first buffer.
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":68}]}");
+    Glb(true);
+    r = OpenGlb(builder, &gltf);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuffer, "a short BIN");
+    // Only the first buffer is BIN's: a second without a URI is the host's.
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":64},"
+             "{\"byteLength\":8}]}");
+    Glb(true);
+    CHECK(OpenGlb(builder, &gltf).result == mani_success, "opens");
+    CHECK(maniGltfSupplyBuffer(gltf, 1, s_buffer, 8).result == mani_success,
+          "the second buffer supplied");
+    maniCloseGltf(gltf);
+    // A total length not a multiple of 4, its bytes there.
+    Document("", kViews, "", "");
+    Glb(true);
+    s_glb[s_glbSize] = 0;
+    s_glbSize += 1;
+    maniStoreU32(s_glb + 8, (uint32_t)s_glbSize);
+    r = OpenGlb(builder, &gltf);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonContainer && r.offset == 8,
+          "a length not 4-aligned");
     // JSON offsets count from the GLB's start.
     snprintf(s_json, sizeof s_json, "{\"asset\":{\"version\":\"3.0\"}}");
     Glb(false);
