@@ -44,7 +44,7 @@ bytes, and instances live in the caller's memory.
 ## Status
 
 Not released. The design is decided; the library is built in slices.
-This skeleton has 18 public functions.
+This skeleton has 30 public functions.
 
 ## Building
 

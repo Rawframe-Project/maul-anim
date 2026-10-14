@@ -47,6 +47,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/elementary_float.c
     src/fpenv.c
     src/hash.c
+    src/pose.c
     src/scalar.c
     src/skeleton.c
     src/text.c
@@ -78,6 +79,7 @@ if(MAUL_ANIM_BUILD_TESTS)
     if(MAUL_ANIM_OFFLINE)
         maul_add_test(inflate WHITEBOX)
         maul_add_test(skeleton WHITEBOX)
+        maul_add_test(pose)
     endif()
     maul_add_header_tests()
 endif()
