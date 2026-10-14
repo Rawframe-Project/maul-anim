@@ -118,8 +118,9 @@ static void ListChildren(maniFbx* fbx, uint8_t* placed)
         {
             const maniFbxConnection* c = &fbx->connections[list[k]];
             uint32_t child = maniFbxModelOf(fbx, c->child);
-            if (ObjectToObject(c) && child != MANI_FBX_NONE && fbx->modelParents[child] == p &&
-                placed[child] == 0)
+            // A model's object parent is unique (ReadParents), so p is
+            // this child's.
+            if (ObjectToObject(c) && child != MANI_FBX_NONE && placed[child] == 0)
             {
                 placed[child] = 1;
                 fbx->modelChildren[at++] = child;

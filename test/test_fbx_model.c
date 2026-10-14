@@ -26,6 +26,7 @@ static const char kSeven[] = "; FBX 7.4.0 project file\n"
                              " Model: 400, \"Model::spine\", \"Null\" {\n }\n"
                              " Model: 500, \"Model::\", \"Null\" {\n }\n"
                              " Model: 600, \"Model::lone\", \"Mesh\" {\n }\n"
+                             " Deformer: 700, \"SubDeformer::\", \"Cluster\" {\n }\n"
                              "}\n"
                              "Connections: {\n"
                              " C: \"OO\",100,0\n"
@@ -36,6 +37,8 @@ static const char kSeven[] = "; FBX 7.4.0 project file\n"
                              " C: \"OP\",400,100, \"Lcl Translation\"\n"
                              " C: \"OO\",400,200\n"
                              " C: \"OO\",500,0\n"
+                             " C: \"OO\",300,700\n"
+                             " C: \"PO\",600, \"Visibility\",100\n"
                              "}\n";
 
 static const char kSix[] = "; FBX 6.1.0 project file\n"
@@ -89,7 +92,7 @@ static void TestSeven(void)
     const uint32_t* parents = fbx->modelParents;
     CHECK(parents[0] == root && parents[1] == 0 && parents[2] == 0 && parents[3] == 1 &&
               parents[4] == root && parents[5] == root,
-          "parents from object connections only");
+          "parents: models or the root, by object connections only");
     uint32_t hip[2] = {2, 1};
     uint32_t top[3] = {0, 4, 5};
     uint32_t spine[1] = {3};
