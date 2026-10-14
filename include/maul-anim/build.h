@@ -10,6 +10,7 @@
 #define MAUL_ANIM_BUILD_H
 
 #include "maul-anim/base.h"
+#include "maul-anim/skeleton.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -101,6 +102,8 @@ extern "C"
         maniBuildReasonNotFinite = 7,
         // A rotation of zero length.
         maniBuildReasonRotation = 8,
+        // A joint naming a bone the skeleton does not have.
+        maniBuildReasonJoint = 9,
     };
 
     // A build's outcome: the status and, when the source was refused
@@ -148,6 +151,34 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSkeleton(maniBuilder* builder,
                                                               const maniSkeletonSource* source);
+
+    // A skin: the bones a mesh is bound to, in the mesh's order, with an
+    // inverse bind matrix each (mani-0005).
+    typedef struct maniSkinSource
+    {
+        // The opened skeleton the skin is for.
+        const maniSkeleton* skeleton;
+        // jointCount skeleton bones, 1 to MANI_MAX_BONES of them.
+        const uint32_t* joints;
+        // jointCount matrices, finite.
+        const maniAffine* inverseBinds;
+        uint32_t jointCount;
+        uint32_t reserved;
+    } maniSkinSource;
+
+    /// Builds a skin file bound to the source's skeleton, and keeps it in
+    /// place of any file built before.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The skin.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
+    /// misuse), or with the reason and joint for a refused source (no
+    /// joints or too many, a bone past the skeleton's, a matrix not
+    /// finite); `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder,
+                                                          const maniSkinSource* source);
 
     /// Copies the last built file into caller memory.
     ///

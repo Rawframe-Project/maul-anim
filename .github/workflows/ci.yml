@@ -146,7 +146,7 @@ jobs:
         run: stat -c '%s bytes' build/libmaul-anim.a
 
   # Each fuzz target runs for one minute on every push, from its seed:
-  # the skeleton loader from the test's sample file.
+  # the skeleton and skin loaders from their tests' sample files.
   fuzz:
     name: fuzz
     runs-on: ubuntu-24.04
@@ -167,6 +167,8 @@ jobs:
         run: |
           mkdir -p corpus-fuzz_skeleton
           build/test_skeleton --seed corpus-fuzz_skeleton/sample.skeleton
+          mkdir -p corpus-fuzz_skin
+          build/test_skin --seed corpus-fuzz_skin/sample.skin
           for target in build/fuzz_*; do
             name=$(basename $target)
             mkdir -p "corpus-$name"

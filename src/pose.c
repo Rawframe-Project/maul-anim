@@ -10,6 +10,7 @@
 #include "maul-anim/pose.h"
 
 #include "bytes.h"
+#include "pose_memory.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -91,7 +92,7 @@ size_t maniPoseSize(const maniSkeleton* skeleton)
     return (size + MANI_POSE_ALIGNMENT - 1) / MANI_POSE_ALIGNMENT * MANI_POSE_ALIGNMENT;
 }
 
-static bool Matches(const maniPose* pose, const maniSkeleton* skeleton)
+bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton)
 {
     return pose != NULL && skeleton != NULL && pose->tag == kPoseTag &&
            pose->identity == skeleton->identity && pose->boneCount == skeleton->boneCount;
@@ -184,7 +185,7 @@ maniResult maniPoseWriteLocals(maniPose* pose, uint32_t first, uint32_t count,
 
 maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
 {
-    if (!Matches(pose, skeleton))
+    if (!maniPoseMatches(pose, skeleton))
     {
         return mani_errorInvalid;
     }
@@ -198,7 +199,7 @@ maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
 
 maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
 {
-    if (!Matches(pose, skeleton))
+    if (!maniPoseMatches(pose, skeleton))
     {
         return mani_errorInvalid;
     }
@@ -220,6 +221,11 @@ maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
     }
     pose->modelCurrent = 1;
     return mani_success;
+}
+
+const float* maniPoseModelData(const maniPose* pose)
+{
+    return ConstModels(pose);
 }
 
 bool maniPoseModelCurrent(const maniPose* pose)

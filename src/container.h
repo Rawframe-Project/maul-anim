@@ -41,6 +41,7 @@ enum
     maniKindClip = 2,
     maniKindGraph = 3,
     maniKindRetargetMap = 4,
+    maniKindSkin = 5,
 };
 
 // An opened container: a view over the caller's bytes.

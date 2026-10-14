@@ -50,6 +50,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/pose.c
     src/scalar.c
     src/skeleton.c
+    src/skin.c
     src/text.c
     src/vecmath.c)
 # The offline side (builders, compression, import) is part of the one
@@ -57,7 +58,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/inflate.c
-                                     src/skeleton_build.c)
+                                     src/skeleton_build.c src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
 # The exactly rounded functions the sources may call
@@ -80,6 +81,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(inflate WHITEBOX)
         maul_add_test(skeleton WHITEBOX)
         maul_add_test(pose)
+        maul_add_test(skin WHITEBOX)
     endif()
     maul_add_header_tests()
 endif()
@@ -93,7 +95,7 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton)
+    foreach(area skeleton skin)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
         maul_apply_flags(fuzz_${area})
