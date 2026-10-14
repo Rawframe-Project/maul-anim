@@ -10,6 +10,7 @@
 #define MAUL_ANIM_BUILD_H
 
 #include "maul-anim/base.h"
+#include "maul-anim/clip.h"
 #include "maul-anim/skeleton.h"
 
 #include <stddef.h>
@@ -104,6 +105,18 @@ extern "C"
         maniBuildReasonRotation = 8,
         // A joint naming a bone the skeleton does not have.
         maniBuildReasonJoint = 9,
+        // A track for a bone the skeleton does not have, or a second track
+        // for one bone; other is the earlier track.
+        maniBuildReasonTrack = 10,
+        // Key times not increasing, or before 0.
+        maniBuildReasonKeyTime = 11,
+        // A cubic spline channel with fewer than two keys.
+        maniBuildReasonKeyCount = 12,
+        // A sample rate or duration not finite, a rate not above 0, a
+        // duration below 0, or more than MANI_MAX_SAMPLES samples.
+        maniBuildReasonTiming = 13,
+        // An interpolation or loop policy the library does not know.
+        maniBuildReasonKind = 14,
     };
 
     // A build's outcome: the status and, when the source was refused
@@ -179,6 +192,67 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder,
                                                           const maniSkinSource* source);
+
+    // How a channel's keys are joined, as glTF's samplers define it.
+    typedef uint32_t maniInterpolation;
+    enum
+    {
+        maniInterpolationLinear = 0,
+        maniInterpolationStep = 1,
+        maniInterpolationCubicSpline = 2,
+    };
+
+    // A channel's keys: keyCount strictly increasing times from 0, and per
+    // key one value of 3 floats (translation, scale) or 4 (rotation, x y z
+    // w), or for a cubic spline three: in-tangent, value, out-tangent. No
+    // keys: the channel is the rest's.
+    typedef struct maniChannelSource
+    {
+        const float* times;
+        const float* values;
+        uint32_t keyCount;
+        maniInterpolation interpolation;
+    } maniChannelSource;
+
+    // A bone's channels.
+    typedef struct maniBoneTrackSource
+    {
+        uint32_t bone;
+        uint32_t reserved;
+        maniChannelSource translation;
+        maniChannelSource rotation;
+        maniChannelSource scale;
+    } maniBoneTrackSource;
+
+    // A clip: tracks for some of a skeleton's bones, in any order.
+    typedef struct maniClipSource
+    {
+        // The opened skeleton the clip is for.
+        const maniSkeleton* skeleton;
+        const maniBoneTrackSource* boneTracks;
+        uint32_t boneTrackCount;
+        // maniLoopClamp or maniLoopRepeat.
+        uint32_t loop;
+        // Samples per second, 0 for 30.
+        float sampleRate;
+        // Seconds, 0 for the last key's time.
+        float duration;
+    } maniClipSource;
+
+    /// Builds a full-precision clip file: evaluates every channel at each
+    /// sample time as glTF defines its interpolation (in binary64,
+    /// rotations normalized and kept in one hemisphere from sample to
+    /// sample), and keeps the file in place of any built before.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The clip.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
+    /// misuse), or with the reason and track for a refused source;
+    /// `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildClip(maniBuilder* builder,
+                                                          const maniClipSource* source);
 
     /// Copies the last built file into caller memory.
     ///

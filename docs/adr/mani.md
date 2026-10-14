@@ -10,3 +10,4 @@ are listed in [README.md](README.md).
 | [mani-0003](mani-0003-skeletons.md) | Transforms, skeletons and their files | Accepted |
 | [mani-0004](mani-0004-poses.md) | Poses in caller memory | Accepted |
 | [mani-0005](mani-0005-skins.md) | Skins and palettes | Accepted |
+| [mani-0006](mani-0006-clips.md) | Clips on one uniform grid | Accepted |

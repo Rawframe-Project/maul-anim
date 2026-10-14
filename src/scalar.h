@@ -31,4 +31,12 @@ float maniAcos(float value);
 // canonical quiet NaN.
 float maniAtan2(float y, float x);
 
+// Binary64 entry points for the offline side, which evaluates sources in
+// binary64 and rounds once. The angle of (x, y) in [-pi, pi], about one
+// unit in binary64's last place short of the true value at worst.
+double maniAtan2Double(double y, double x);
+
+// The sine and cosine of an angle in [0, pi / 2], in binary64.
+void maniSinCosQuarterDouble(double angle, double* sinOut, double* cosOut);
+
 #endif // MAUL_ANIM_SRC_SCALAR_H

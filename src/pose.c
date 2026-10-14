@@ -184,7 +184,7 @@ maniResult maniPoseWriteLocals(maniPose* pose, uint32_t first, uint32_t count,
     return mani_success;
 }
 
-maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
+maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton)
 {
     if (!maniPoseMatches(pose, skeleton))
     {
@@ -195,7 +195,14 @@ maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
         maniTransform rest = maniSkeletonRest(skeleton, bone);
         StoreLocal(Locals(pose), bone, &rest);
     }
-    return maniComputeModel(pose, skeleton);
+    pose->modelCurrent = 0;
+    return mani_success;
+}
+
+maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
+{
+    maniResult result = maniPoseSetRestLocals(pose, skeleton);
+    return result == mani_success ? maniComputeModel(pose, skeleton) : result;
 }
 
 maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)

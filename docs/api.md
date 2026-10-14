@@ -57,6 +57,11 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder, cons
 Builds a skin file bound to the source's skeleton, and keeps it in place of any file built before.  @param builder  The builder. @param source   The skin. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and joint for a refused source (no joints or too many, a bone past the skeleton's, a matrix not finite); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source);
+```
+Builds a full-precision clip file: evaluates every channel at each sample time as glTF defines its interpolation (in binary64, rotations normalized and kept in one hemisphere from sample to sample), and keeps the file in place of any built before.  @param builder  The builder. @param source   The clip. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and track for a refused source; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
 ```
 Copies the last built file into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open the copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the file's size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding no file. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -65,6 +70,45 @@ Copies the last built file into caller memory.  @param builder   The builder. @p
 MANI_NODISCARD MANI_API maniResult maniCopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity, uint32_t* countOut);
 ```
 Copies where each source bone of the last built skeleton went: the skeleton's index of source bone i at boneOut[i].  @param builder   The builder. @param boneOut   Receives up to capacity indices; may be NULL when capacity is 0. @param capacity  The array's length. @param countOut  Receives the source's bone count. May be NULL. @return `mani_success`; `mani_errorCapacity` when the array is shorter than the count, with the count still written and the array filled as far as it goes; `mani_errorInvalid` for a NULL builder, a NULL array with a positive capacity, or a builder holding no skeleton. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+## `clip.h`
+
+Clips (mani-0006): a skeleton's motion as samples on one uniform grid, read in place from a clip file and bound to its skeleton by identity. Sampling costs the same at any time, in any order.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut);
+```
+Opens a clip file in place: checks the container, the header, every track and every sample (finite, rotations unit) and the identity.  @param bytes    The file, 16-byte aligned. @param size     Its size in bytes; bytes past the file are ignored. @param clipOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+float maniClipDuration(const maniClip* clip);
+```
+Returns the clip's duration in seconds, at least 0.  @param clip  An opened clip. @return The duration. @par Thread safety Safe from any thread.
+
+```c
+float maniClipSampleRate(const maniClip* clip);
+```
+Returns the number of samples per second.  @param clip  An opened clip. @return The rate. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniClipSampleCount(const maniClip* clip);
+```
+Returns the number of samples, at least 1: one at each multiple of the sample period, the last at the duration.  @param clip  An opened clip. @return The sample count. @par Thread safety Safe from any thread.
+
+```c
+maniLoopPolicy maniClipLoopPolicy(const maniClip* clip);
+```
+Returns the clip's loop policy.  @param clip  An opened clip. @return maniLoopClamp or maniLoopRepeat. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniClipSkeletonIdentity(const maniClip* clip);
+```
+Returns the identity of the skeleton the clip is bound to.  @param clip  An opened clip. @return The skeleton's identity. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time, maniPose* pose);
+```
+Samples the clip at a time into a pose: every bone's local transform, the clip's channels where it animates them and the skeleton's rest elsewhere; the model is marked stale. The time is clamped to [0, duration] (NaN is 0). Between two samples, translation and scale interpolate linearly and rotations by normalized linear interpolation.  @param clip      An opened clip. @param skeleton  The clip's skeleton. @param time      The time in seconds. @param pose      A pose of the skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a skeleton that is not the clip's or the pose's. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
 ## `pose.h`
 
@@ -220,4 +264,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-39 functions across 5 headers.
+47 functions across 6 headers.

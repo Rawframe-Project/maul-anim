@@ -135,7 +135,7 @@ static double AtanUnit(double t)
 }
 
 // The angle of (x, y) for finite or infinite x and y, not NaN.
-static double Atan2Double(double y, double x)
+double maniAtan2Double(double y, double x)
 {
     double ay = fabs(y);
     double ax = fabs(x);
@@ -165,7 +165,7 @@ float maniAtan2(float y, float x)
     {
         return NAN;
     }
-    return (float)Atan2Double((double)y, (double)x);
+    return (float)maniAtan2Double((double)y, (double)x);
 }
 
 float maniAcos(float value)
@@ -176,5 +176,19 @@ float maniAcos(float value)
     }
     double v = (double)value;
     v = v > 1.0 ? 1.0 : (v < -1.0 ? -1.0 : v);
-    return (float)Atan2Double(sqrt((1.0 - v) * (1.0 + v)), v);
+    return (float)maniAtan2Double(sqrt((1.0 - v) * (1.0 + v)), v);
+}
+
+void maniSinCosQuarterDouble(double angle, double* sinOut, double* cosOut)
+{
+    if (angle <= s_halfPi / 2.0)
+    {
+        *sinOut = SinSeries(angle);
+        *cosOut = CosSeries(angle);
+        return;
+    }
+    // sin x = cos(pi / 2 - x), the difference taken in two parts.
+    double r = (s_halfPiHead - angle) + s_halfPiTail;
+    *sinOut = CosSeries(r);
+    *cosOut = SinSeries(r);
 }
