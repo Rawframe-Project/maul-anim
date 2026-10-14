@@ -583,3 +583,28 @@ fbu-mark-root | src/fbx_units.c | marked[fbx->skeletonRoots[skeleton]] = 1; | ma
 fbu-mark-unit | src/fbx_units.c | if (fbx->unitSkeletons[u] != skeleton) | if (false)
 fbu-skin-range | src/fbx_units.c | return fbx != NULL && skin < fbx->skinCount ? fbx->skinSkeletons[skin] : UINT32_MAX; | return fbx != NULL ? fbx->skinSkeletons[skin] : UINT32_MAX;
 fbu-attribute-kind | src/fbx_units.c | maniFbxObjectKindIs(fbx, child, "NodeAttribute", 13) && LimbClass(fbx, child)); | LimbClass(fbx, child));
+
+# FBX skeleton builds (fbx_skeleton.c, mani-0014), 2026-10-15: 21 mutants,
+# all killed (eight by tests added after the sweep; two more showed
+# redundant code, removed).
+fbs-unit-valid | src/fbx_skeleton.c | o->inheritHelpers <= 1 && o->unitMeters >= 0.0 && isfinite(o->unitMeters); | o->inheritHelpers <= 1 && isfinite(o->unitMeters);
+fbs-convert | src/fbx_skeleton.c | for (uint32_t k = 0; o->convertAxes != 0 && k < 3; ++k) | for (uint32_t k = 0; k < 3; ++k)
+fbs-negative | src/fbx_skeleton.c | bool negative = (s->signs[k] < 0) != (o->axes[k] >= maniAxisNegativeX); | bool negative = (s->signs[k] < 0);
+fbs-target-axis | src/fbx_skeleton.c | axes[o->axes[k] % 3] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX); | axes[k] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX);
+fbs-unit | src/fbx_skeleton.c | double unit = o->unitMeters > 0.0 ? s->unitScale * 0.01 / o->unitMeters : 1.0; | double unit = o->unitMeters > 0.0 ? s->unitScale / o->unitMeters : 1.0;
+fbs-marked-children | src/fbx_skeleton.c | if (b->marked[children[k]] != 0) | if (true)
+fbs-singular | src/fbx_skeleton.c | if (!maniFbxMatrixInverse(&b->worlds[parent].world, &inverse)) | if (false)
+fbs-normal-skip | src/fbx_skeleton.c | if (b->worlds[c].inherit == maniFbxInheritRSrs) | if (false)
+fbs-request | src/fbx_skeleton.c | bool exact = b->options->inheritHelpers == 0 && Compensate(b, c, p, &b->compensated[c]); | bool exact = Compensate(b, c, p, &b->compensated[c]);
+fbs-helper-keep | src/fbx_skeleton.c | b->helper[p] = exact ? b->helper[p] : 1; | b->helper[p] = exact ? 0 : 1;
+fbs-top-placement | src/fbx_skeleton.c | if (p == MANI_FBX_NONE) | if (false)
+fbs-unscaled-placement | src/fbx_skeleton.c | return worlds[root].inherit == maniFbxInheritRSrs ? worlds[p].world : worlds[p].unscaled; | return worlds[p].world;
+fbs-fold | src/fbx_skeleton.c | if (b->options->foldPlacement == 0) | if (true)
+fbs-helper-float | src/fbx_skeleton.c | if (!isfinite((float)inverse[i])) | if (false)
+fbs-hangs | src/fbx_skeleton.c | bool hangs = !normal && b->helper[p] != 0; | bool hangs = b->helper[p] != 0;
+fbs-hangs-parent | src/fbx_skeleton.c | bone->parent = (int32_t)(hangs ? b->helperOf[p] : b->boneOf[p]); | bone->parent = (int32_t)b->boneOf[p];
+fbs-own-rest | src/fbx_skeleton.c | normal || hangs ? maniFbxTrsTransform(&b->worlds[model].transform) : b->compensated[model]; | normal ? maniFbxTrsTransform(&b->worlds[model].transform) : b->compensated[model];
+fbs-no-helper | src/fbx_skeleton.c | if (r.result != mani_success || b->helper[v] == 0) | if (r.result != mani_success)
+fbs-name-reason | src/fbx_skeleton.c | return maniFbxFail(name ? maniImportReasonName : maniImportReasonBuild, | return maniFbxFail(maniImportReasonBuild,
+fbs-ancestors | src/fbx_skeleton.c | b->marked[v] = 2; | b->marked[v] = 0;
+fbs-fold-identity | src/fbx_skeleton.c | if (options->foldPlacement != 0) | if (false)
