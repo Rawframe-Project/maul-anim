@@ -105,6 +105,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(fbx_transform WHITEBOX)
         maul_add_test(fbx_model WHITEBOX)
         maul_add_test(fbx_world WHITEBOX)
+        maul_add_test(basis WHITEBOX)
         # Khronos sample models in test/data/gltf.
         maul_add_test(gltf_fixtures WHITEBOX)
         if(TARGET test_gltf_fixtures)
