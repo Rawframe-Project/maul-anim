@@ -130,3 +130,43 @@ text-continuations | src/text.c | if (!InRange(bytes[i + (size_t)k], 0x80, 0xBF)
 text-two-byte-lead | src/text.c | if (InRange(lead, 0xC2, 0xDF)) | if (InRange(lead, 0xC0, 0xDF))
 builder-version | src/builder.c | if (def->version != MANI_ABI_VERSION) | if (false)
 builder-cookie | src/builder.c | if (def->cookie != MANI_BUILDER_DEF_COOKIE || !maniAllocatorValid(&def->allocator)) | if (!maniAllocatorValid(&def->allocator))
+
+# Poses (src/pose.c), skins (src/skin.c, src/skin_build.c) and
+# decomposition (src/decompose.c)
+pose-misaligned | src/pose.c | if (skeleton == NULL || memory == NULL || poseOut == NULL || | if (skeleton == NULL || poseOut == NULL ||
+pose-size | src/pose.c | if (size < maniPoseSize(skeleton)) | if (size + 32 < maniPoseSize(skeleton))
+# pose-padding survives, equivalent until the passes over groups of
+# eight bones: no function reads a padding bone yet; those passes'
+# tests will read them.
+pose-padding | src/pose.c | for (uint32_t bone = bones; bone < pose->groups * kGroupBones; ++bone) | for (uint32_t bone = bones; bone < bones; ++bone)
+pose-local-past | src/pose.c | return bone < pose->boneCount ? LoadLocal(ConstLocals(pose), bone) : s_identity; | return bone <= pose->boneCount ? LoadLocal(ConstLocals(pose), bone) : s_identity;
+pose-range | src/pose.c | return first <= pose->boneCount && count <= pose->boneCount - first; | return first <= pose->boneCount;
+pose-range-start | src/pose.c | return first <= pose->boneCount && count <= pose->boneCount - first; | return count <= pose->boneCount - first;
+pose-root | src/pose.c | if (parent != MANI_NO_BONE) | if (parent != MANI_NO_BONE && parent != 0)
+pose-tag | src/pose.c | return pose != NULL && skeleton != NULL && pose->tag == kPoseTag && | return pose != NULL && skeleton != NULL &&
+skin-section-count | src/skin.c | if (c.sectionCount != MANI_SKIN_SECTIONS) | if (false)
+skin-binding-size | src/skin.c | if (sizes[0] != MANI_SKIN_BINDING_SIZE) | if (false)
+skin-no-bones | src/skin.c | if (bones == 0 || bones > MANI_MAX_BONES) | if (bones > MANI_MAX_BONES)
+skin-many-bones | src/skin.c | if (bones == 0 || bones > MANI_MAX_BONES) | if (bones == 0)
+skin-no-joints | src/skin.c | if (joints == 0 || joints > MANI_MAX_BONES) | if (joints > MANI_MAX_BONES)
+skin-joint-size | src/skin.c | if (sizes[1] != 2 * (uint64_t)joints) | if (false)
+skin-bind-size | src/skin.c | if (sizes[2] != MANI_SKIN_MATRIX_SIZE * (uint64_t)joints) | if (false)
+skin-joint-range | src/skin.c | if (maniLoadU16(data[1] + 2 * (uint64_t)j) >= bones) | if (maniLoadU16(data[1] + 2 * (uint64_t)j) > bones)
+skin-finite | src/skin.c | if (!Finite(value)) | if (false)
+skin-identity | src/skin.c | if (maniSkinComputeIdentity(data[0], data[1], data[2], joints) != c.identity) | if (false)
+skin-capacity | src/skin.c | if (capacity < skin->jointCount) | if (capacity + 1 < skin->jointCount)
+skin-joint-past | src/skin.c | if (joint < skin->jointCount) | if (joint <= skin->jointCount)
+skinb-count | src/skin_build.c | if (n == 0 || n > MANI_MAX_BONES || source->joints == NULL || source->inverseBinds == NULL) | if (n > MANI_MAX_BONES || source->joints == NULL || source->inverseBinds == NULL)
+skinb-joint | src/skin_build.c | if (source->joints[j] >= bones) | if (source->joints[j] > bones)
+skinb-finite | src/skin_build.c | if (!Finite(source->inverseBinds[j].m[k])) | if (false)
+dec-gamma | src/decompose.c | double gamma = sqrt(Frobenius(inverseT) / Frobenius(q)); | double gamma = 1.0;
+dec-stop | src/decompose.c | if (sqrt(change) <= 0x1p-45 * Frobenius(q)) | if (sqrt(change) <= 0x1p-10 * Frobenius(q))
+dec-flip | src/decompose.c | scale[0] *= flip; | scale[0] *= 1.0;
+dec-flip-axis | src/decompose.c | a[k] *= flip; | a[k] *= 1.0;
+dec-degenerate | src/decompose.c | if (largest == 0.0 || fabs(det) < 1e-30 * largest * largest * largest) | if (largest == 0.0)
+dec-zero-axis | src/decompose.c | zero[c] = lengths[c] <= 1e-30 * largest || lengths[c] == 0.0; | zero[c] = lengths[c] == 0.0;
+dec-parallel | src/decompose.c | if (Length(c[third]) <= 1e-12 * Length(helper) || Length(helper) == 0.0) | if (Length(helper) == 0.0)
+dec-least-axis | src/decompose.c | least = fabs(c[first][k]) < fabs(c[first][least]) ? k : least; | least = k;
+dec-hemisphere | src/decompose.c | double sign = w < 0.0 ? -1.0 : 1.0; | double sign = 1.0;
+dec-shepperd | src/decompose.c | if (trace >= m00 && trace >= m11 && trace >= m22) | if (trace >= m00 && trace >= m11)
+dec-finite | src/decompose.c | if (!Finite(matrix->m[i])) | if (false)
