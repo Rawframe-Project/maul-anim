@@ -3,11 +3,12 @@
 //
 // Sine and cosine reduce the angle by multiples of pi/2 with pi/2 split in
 // two parts (Cody and Waite), then sum their Taylor series to the 13th and
-// 14th powers, which on [-pi/4, pi/4] leaves an error far below binary32's
+// 12th powers, which on [-pi/4, pi/4] leaves an error far below binary32's
 // half unit. The arc tangent halves its argument twice with
 // atan(t) = 2 atan(t / (1 + sqrt(1 + t^2))) and sums the series to the
-// 17th power. Every step is an exactly rounded binary64 operation, so the
-// result is the same everywhere.
+// 15th power. Every step is an exactly rounded binary64 operation, so the
+// result is the same everywhere; a NaN result is always the canonical
+// quiet NaN, since NaN payloads differ between platforms.
 
 #include "scalar.h"
 
@@ -51,8 +52,8 @@ static double SinSeries(double r)
 static double CosSeries(double r)
 {
     double r2 = r * r;
-    double p = s_cosCoefficients[6];
-    for (int32_t i = 5; i >= 0; --i)
+    double p = s_cosCoefficients[5];
+    for (int32_t i = 4; i >= 0; --i)
     {
         p = s_cosCoefficients[i] + r2 * p;
     }
@@ -64,8 +65,8 @@ void maniSinCos(float angle, float* sinOut, float* cosOut)
     double x = (double)angle;
     if (!(fabs(x) <= 3.5e38))
     {
-        *sinOut = angle * 0.0f;
-        *cosOut = angle * 0.0f;
+        *sinOut = NAN;
+        *cosOut = NAN;
         return;
     }
     // Beyond 2^30 no reduction keeps the promised accuracy; bring the angle
@@ -124,8 +125,8 @@ static double AtanUnit(double t)
     double u = t / (1.0 + sqrt(1.0 + t * t));
     u = u / (1.0 + sqrt(1.0 + u * u));
     double u2 = u * u;
-    double p = 1.0 / 17.0;
-    for (int32_t n = 15; n >= 1; n -= 2)
+    double p = 1.0 / 15.0;
+    for (int32_t n = 13; n >= 1; n -= 2)
     {
         p = 1.0 / (double)n - u2 * p;
     }
@@ -161,7 +162,7 @@ float maniAtan2(float y, float x)
 {
     if (isnan(y) || isnan(x))
     {
-        return y + x;
+        return NAN;
     }
     return (float)Atan2Double((double)y, (double)x);
 }
@@ -170,7 +171,7 @@ float maniAcos(float value)
 {
     if (isnan(value))
     {
-        return value;
+        return NAN;
     }
     double v = (double)value;
     v = v > 1.0 ? 1.0 : (v < -1.0 ? -1.0 : v);

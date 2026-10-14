@@ -99,14 +99,32 @@ static void TestSinCosStayFiniteAndBounded(void)
     CHECK(SameBits(maniSin(1e-40f), 1e-40f), "a subnormal's sine is itself");
 }
 
-static void TestSinCosOfNonFiniteIsNan(void)
+// A quiet NaN with a payload, and one with its sign set: platforms differ
+// in what arithmetic does with them, so every NaN result is canonical.
+static float NanWithBits(uint32_t bits)
 {
-    float s = 0.0f;
-    float c = 0.0f;
-    maniSinCos(INFINITY, &s, &c);
-    CHECK(isnan(s) && isnan(c), "infinity gives NaN");
-    maniSinCos(NAN, &s, &c);
-    CHECK(isnan(s) && isnan(c), "NaN gives NaN");
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
+static void TestNonFiniteGivesTheCanonicalNan(void)
+{
+    const float inputs[] = {INFINITY, -INFINITY, NAN, NanWithBits(0x7fc01234u),
+                            NanWithBits(0xffc00000u)};
+    for (size_t i = 0; i < sizeof inputs / sizeof inputs[0]; ++i)
+    {
+        float s = 0.0f;
+        float c = 0.0f;
+        maniSinCos(inputs[i], &s, &c);
+        CHECK(SameBits(s, NAN) && SameBits(c, NAN), "sine and cosine");
+        if (isnan(inputs[i]))
+        {
+            CHECK(SameBits(maniAcos(inputs[i]), NAN), "arc cosine");
+            CHECK(SameBits(maniAtan2(inputs[i], 1.0f), NAN), "arc tangent of NaN y");
+            CHECK(SameBits(maniAtan2(-2.0f, inputs[i]), NAN), "arc tangent of NaN x");
+        }
+    }
 }
 
 static void TestAcosWithinOneUlp(void)
@@ -137,7 +155,6 @@ static void TestAcosExactValuesAndClamping(void)
     CHECK(SameBits(maniAcos(0.0f), (float)acos(0.0)), "acos 0 is half pi");
     CHECK(SameBits(maniAcos(1.0000001f), 0.0f), "above 1 clamps to 1");
     CHECK(SameBits(maniAcos(-5.0f), (float)acos(-1.0)), "below -1 clamps to -1");
-    CHECK(isnan(maniAcos(NAN)), "NaN gives NaN");
 }
 
 static void TestAtan2WithinOneUlpOnCircles(void)
@@ -172,7 +189,6 @@ static void TestAtan2Quadrants(void)
                   "zeros, signs and infinities as C defines them");
         }
     }
-    CHECK(isnan(maniAtan2(NAN, 1.0f)) && isnan(maniAtan2(1.0f, NAN)), "NaN gives NaN");
 }
 
 // FNV-1a over the bits of every result: a check that every platform
@@ -222,7 +238,7 @@ int main(void)
     TestSinCosWithinOneUlpForLargeAngles();
     TestSinCosExactValues();
     TestSinCosStayFiniteAndBounded();
-    TestSinCosOfNonFiniteIsNan();
+    TestNonFiniteGivesTheCanonicalNan();
     TestAcosWithinOneUlp();
     TestAcosExactValuesAndClamping();
     TestAtan2WithinOneUlpOnCircles();
