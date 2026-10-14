@@ -212,7 +212,8 @@ static maniImportResult HelperRest(const Build* b, uint32_t parent, maniTransfor
     for (uint32_t i = 0; i < 3; ++i)
     {
         inverse[i] = 1.0 / s[i];
-        if (!isfinite(inverse[i]) || !isfinite((float)inverse[i]))
+        // Not finite as a double, it is not as a float either.
+        if (!isfinite((float)inverse[i]))
         {
             return Refuse(b->fbx, maniImportReasonMatrix, parent);
         }
@@ -342,13 +343,8 @@ static maniImportResult Worlds(Build* b)
     {
         b->marked[v] = 2;
     }
-    maniImportResult r = maniFbxEvaluateWorlds(b->fbx, b->marked, b->worlds);
-    for (uint32_t v = b->fbx->modelParents[b->root]; v != MANI_FBX_NONE;
-         v = b->fbx->modelParents[v])
-    {
-        b->marked[v] = 0;
-    }
-    return r;
+    // The marks above the root stay: bones are walked down from it.
+    return maniFbxEvaluateWorlds(b->fbx, b->marked, b->worlds);
 }
 
 static maniImportResult Start(Build* b)

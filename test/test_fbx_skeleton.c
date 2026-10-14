@@ -28,9 +28,12 @@ static char s_text[8192];
 static _Alignas(16) uint8_t s_file[16384];
 
 // Armature (a null scaled 100, the placement) over a limb chain: Hips
-// (pivots, pre-rotation, rotated), Spine (scaled as given), Head (Rrs,
-// rotated 30 about z) under Spine, Leg (RrSs) under Hips; a mesh under
-// the armature.
+// (pivots, pre-rotation, rotated), Spine (scaled as given), under Spine
+// Head (Rrs, rotated 30 about z), Arm (Rrs, not rotated), Chest
+// (normal) and Prop (a mesh, no bone), Neck (normal) under Head, Leg
+// (RrSs) under Hips; Body, a mesh, under the armature. Models: 0
+// Armature, 1 Hips, 2 Spine, 3 Head, 4 Leg, 5 Body, 6 Arm, 7 Chest, 8
+// Neck, 9 Prop.
 static void Rig(const char* spineScale, const char* extra)
 {
     snprintf(s_text, sizeof s_text,
@@ -58,9 +61,19 @@ static void Rig(const char* spineScale, const char* extra)
              "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,-1,0\n"
              "   P: \"Lcl Scaling\", \"Lcl Scaling\", \"\", \"A\",1,1,2\n  }\n }\n"
              " Model: 6, \"Model::Body\", \"Mesh\" {\n }\n"
+             " Model: 7, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n"
+             "   P: \"InheritType\", \"enum\", \"\", \"\",2\n"
+             "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,0,0\n  }\n }\n"
+             " Model: 8, \"Model::Chest\", \"LimbNode\" {\n  Properties70: {\n"
+             "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,0.5,0\n"
+             "   P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,15\n  }\n }\n"
+             " Model: 9, \"Model::Neck\", \"LimbNode\" {\n  Properties70: {\n"
+             "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,0.5,0\n  }\n }\n"
+             " Model: 10, \"Model::Prop\", \"Mesh\" {\n }\n"
              "}\n"
              "Connections: {\n C: \"OO\",1,0\n C: \"OO\",2,1\n C: \"OO\",3,2\n C: \"OO\",4,3\n"
-             " C: \"OO\",5,2\n C: \"OO\",6,1\n}\n",
+             " C: \"OO\",5,2\n C: \"OO\",6,1\n C: \"OO\",7,3\n C: \"OO\",8,3\n"
+             " C: \"OO\",10,3\n C: \"OO\",9,4\n}\n",
              extra, spineScale);
 }
 
@@ -120,7 +133,7 @@ static maniAffine ModelOf(const maniSkeleton* skeleton, uint32_t bone)
 // Builds the skeleton and checks every model bone against its world;
 // the bone count.
 static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOptions* options,
-                      const char* what)
+                      const maniBasis* basis, const char* what)
 {
     maniImportResult r = maniFbxBuildSkeleton(builder, fbx, 0, options);
     CHECK(r.result == mani_success, what);
@@ -134,17 +147,11 @@ static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpt
     CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenSkeleton(s_file, size, &skeleton).result == mani_success,
           "opens the skeleton");
-    maniFbxWorld worlds[8];
+    maniFbxWorld worlds[16];
     (void)maniFbxEvaluateWorlds(fbx, NULL, worlds);
     maniAffine placement;
     CHECK(maniFbxSkeletonPlacement(fbx, 0, options, &placement).result == mani_success,
           "placement");
-    // The converting case's basis, derived by hand: TestAxes' file is X
-    // right, Z up, -Y front in centimetres, turned to X, Y, Z in metres.
-    maniAxis none[3] = {maniAxisX, maniAxisY, maniAxisZ};
-    maniAxis turned[3] = {maniAxisX, maniAxisZ, maniAxisNegativeY};
-    bool converts = options->convertAxes != 0 || options->unitMeters > 0;
-    maniBasis basis = converts ? maniBasisMake(turned, 0.01f) : maniBasisMake(none, 1.0f);
     bool all = true;
     for (uint32_t m = 0; m < fbx->modelCount; ++m)
     {
@@ -157,11 +164,17 @@ static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpt
         }
         maniAffine model = ModelOf(&skeleton, bone);
         maniAffine got = maniAffineMul(&placement, &model);
-        maniAffine expected = maniBasisAffine(&basis, maniFbxMatrixAffine(&worlds[m].world));
+        maniAffine expected = maniBasisAffine(basis, maniFbxMatrixAffine(&worlds[m].world));
         all = all && Near(&got, &expected);
     }
     CHECK(all, what);
     return maniSkeletonBoneCount(&skeleton);
+}
+
+static maniBasis Identity(void)
+{
+    maniAxis none[3] = {maniAxisX, maniAxisY, maniAxisZ};
+    return maniBasisMake(none, 1.0f);
 }
 
 static void TestBuilds(void)
@@ -174,21 +187,24 @@ static void TestBuilds(void)
         maniDestroyBuilder(builder);
         return;
     }
+    maniBasis identity = Identity();
     maniFbxOptions options = maniDefaultFbxOptions();
-    CHECK(Check(builder, fbx, &options, "uniform scale: compensated exactly") == 4,
-          "Hips, Spine, Head, Leg, no helpers");
+    CHECK(Check(builder, fbx, &options, &identity, "uniform scale: compensated exactly") == 7,
+          "seven bones, no helpers, no mesh");
     options.inheritHelpers = 1;
-    CHECK(Check(builder, fbx, &options, "helpers on request") == 6,
-          "a helper under Hips and under Spine");
+    CHECK(Check(builder, fbx, &options, &identity, "helpers on request") == 9,
+          "a helper under Hips and under Spine, none for normal children");
     options = maniDefaultFbxOptions();
     options.foldPlacement = 1;
-    CHECK(Check(builder, fbx, &options, "the placement folded") == 4, "four bones folded");
+    CHECK(Check(builder, fbx, &options, &identity, "the placement folded") == 7,
+          "seven bones folded");
     maniCloseFbx(fbx);
     Rig("1,2,3", "");
     fbx = Open(builder);
     options = maniDefaultFbxOptions();
-    CHECK(fbx != NULL && Check(builder, fbx, &options, "non-uniform scale: a helper") == 5,
-          "Spine's helper only");
+    CHECK(fbx != NULL &&
+              Check(builder, fbx, &options, &identity, "non-uniform scale: a helper") == 8,
+          "Spine's helper only, whatever its later children");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -208,7 +224,12 @@ static void TestHelperShape(void)
     uint32_t spine = maniSkeletonFindBone(&skeleton, "Spine", 5);
     uint32_t helper = maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14);
     uint32_t head = maniSkeletonFindBone(&skeleton, "Head", 4);
+    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
+    uint32_t chest = maniSkeletonFindBone(&skeleton, "Chest", 5);
     maniTransform h = maniSkeletonRest(&skeleton, helper);
+    CHECK(maniSkeletonParent(&skeleton, arm) == helper &&
+              maniSkeletonParent(&skeleton, chest) == spine,
+          "every RrSs or Rrs child under the helper, normal ones under the parent");
     CHECK(helper != MANI_NO_BONE && maniSkeletonParent(&skeleton, helper) == spine &&
               maniSkeletonParent(&skeleton, head) == helper && h.scale.x == 1.0f &&
               h.scale.y == 0.5f && fabsf(h.scale.z - 1.0f / 3.0f) < 1e-7f && h.translation.x == 0 &&
@@ -216,25 +237,50 @@ static void TestHelperShape(void)
           "a helper: the inverse of its parent's scale, Head under it");
     CHECK(maniSkeletonFindBone(&skeleton, "Body", 4) == MANI_NO_BONE &&
               maniSkeletonFindBone(&skeleton, "Armature", 8) == MANI_NO_BONE,
-          "the mesh and the armature are no bones");
+          "the meshes and the armature are no bones");
+    CHECK(maniSkeletonFindBone(&skeleton, "Prop", 4) == MANI_NO_BONE, "a mesh under a bone");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
 
 static void TestAxes(void)
 {
-    // Z up, -Y front, X right, centimetres, turned to Y up, Z front,
-    // metres: output y is file z, output z is minus file y.
+    // The file: X right, Z up, -Y front, centimetres.
     maniBuilder* builder = NewBuilder();
     Rig("2,2,2", "  P: \"UpAxis\", \"int\", \"Integer\", \"\",2\n"
                  "  P: \"FrontAxis\", \"int\", \"Integer\", \"\",1\n"
                  "  P: \"FrontAxisSign\", \"int\", \"Integer\", \"\",-1\n");
     maniFbx* fbx = Open(builder);
+    if (fbx == NULL)
+    {
+        maniDestroyBuilder(builder);
+        return;
+    }
+    // To X right, Y up, Z front in metres: output y is file z, output z
+    // minus file y.
+    maniAxis toYUp[3] = {maniAxisX, maniAxisZ, maniAxisNegativeY};
+    maniBasis basis = maniBasisMake(toYUp, 0.01f);
     maniFbxOptions options = maniDefaultFbxOptions();
     options.convertAxes = 1;
     options.unitMeters = 1.0;
-    CHECK(fbx != NULL && Check(builder, fbx, &options, "axes and units converted") == 4,
-          "four bones converted");
+    CHECK(Check(builder, fbx, &options, &basis, "to Y up in metres") == 7, "seven bones");
+    // To -X right, Y up, -Z front: output x is minus file x, output z
+    // file y (its front, negated, negated).
+    maniAxis toBack[3] = {maniAxisNegativeX, maniAxisZ, maniAxisY};
+    basis = maniBasisMake(toBack, 1.0f);
+    options = maniDefaultFbxOptions();
+    options.convertAxes = 1;
+    options.axes[0] = maniAxisNegativeX;
+    options.axes[2] = maniAxisNegativeZ;
+    CHECK(Check(builder, fbx, &options, &basis, "to negative targets") == 7, "seven bones");
+    // To the file's own axes, given out of order: nothing changes.
+    basis = Identity();
+    options.axes[0] = maniAxisX;
+    options.axes[1] = maniAxisZ;
+    options.axes[2] = maniAxisNegativeY;
+    CHECK(Check(builder, fbx, &options, &basis, "to its own axes") == 7, "seven bones");
+    options = maniDefaultFbxOptions();
+    CHECK(Check(builder, fbx, &options, &basis, "not converted") == 7, "seven bones");
     maniFbxSettings settings;
     CHECK(maniFbxReadSettings(fbx, &settings) == mani_success && settings.axes[0] == maniAxisX &&
               settings.axes[1] == maniAxisZ && settings.axes[2] == maniAxisNegativeY &&
@@ -268,6 +314,11 @@ static void TestRefusals(void)
     maniFbx* fbx = Open(builder);
     ExpectRefusal(maniFbxBuildSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
                   "Model: 3", 2, "a helper for a zero scale");
+    maniCloseFbx(fbx);
+    Rig("1e-300,1,1", "");
+    fbx = Open(builder);
+    ExpectRefusal(maniFbxBuildSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
+                  "Model: 3", 2, "a helper scale past binary32");
     maniCloseFbx(fbx);
     // A non-uniform armature under a rotated root: folding shears.
     Rig("2,2,2", "");
@@ -323,11 +374,11 @@ static void TestMisuse(void)
               maniFbxBuildSkeleton(NULL, fbx, 0, &options).result == mani_errorInvalid &&
               maniFbxBuildSkeleton(builder, NULL, 0, &options).result == mani_errorInvalid &&
               maniFbxBuildSkeleton(builder, fbx, 0, NULL).result == mani_errorInvalid &&
-              maniFbxBuildModelSkeleton(builder, fbx, 6, &options).result == mani_errorInvalid &&
+              maniFbxBuildModelSkeleton(builder, fbx, 10, &options).result == mani_errorInvalid &&
               maniFbxSkeletonPlacement(fbx, 1, &options, &placement).result == mani_errorInvalid &&
               maniFbxSkeletonPlacement(fbx, 0, &bad[1], &placement).result == mani_errorInvalid &&
               maniFbxSkeletonPlacement(fbx, 0, &options, NULL).result == mani_errorInvalid &&
-              maniFbxModelPlacement(fbx, 6, &options, &placement).result == mani_errorInvalid &&
+              maniFbxModelPlacement(fbx, 10, &options, &placement).result == mani_errorInvalid &&
               maniFbxModelPlacement(NULL, 0, &options, &placement).result == mani_errorInvalid,
           "arguments out of range");
     maniCloseFbx(fbx);
@@ -345,7 +396,7 @@ static void TestModelSkeleton(void)
     CHECK(maniFbxBuildModelSkeleton(builder, fbx, 0, &options).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenSkeleton(s_file, size, &skeleton).result == mani_success &&
-              maniSkeletonBoneCount(&skeleton) == 6 &&
+              maniSkeletonBoneCount(&skeleton) == 10 &&
               maniSkeletonFindBone(&skeleton, "Body", 4) != MANI_NO_BONE &&
               maniSkeletonFindBone(&skeleton, "Armature", 8) == 0,
           "a model's whole subtree");
@@ -354,7 +405,7 @@ static void TestModelSkeleton(void)
     CHECK(maniFbxModelPlacement(fbx, 0, &options, &placement).result == mani_success &&
               Near(&placement, &identity),
           "a top model hangs from nothing");
-    maniFbxWorld worlds[6];
+    maniFbxWorld worlds[16];
     (void)maniFbxEvaluateWorlds(fbx, NULL, worlds);
     maniAffine armature = maniFbxMatrixAffine(&worlds[0].world);
     CHECK(maniFbxModelPlacement(fbx, 1, &options, &placement).result == mani_success &&
