@@ -30,3 +30,8 @@ clip_build_named: allocator builder bytes clip_build clip_file container text
 clip_measure: allocator builder clip_build scalar
 decimal:
 json: allocator decimal text
+gltf_property: json
+gltf_document: gltf_property json
+gltf: allocator builder bytes gltf_buffer gltf_document gltf_layout gltf_property json
+gltf_buffer: allocator gltf_document gltf_property json
+gltf_layout: allocator bytes gltf_document gltf_property json

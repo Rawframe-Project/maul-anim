@@ -62,7 +62,8 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c
                                      src/clip_build_named.c src/clip_measure.c src/decimal.c src/inflate.c
-                                     src/json.c src/skeleton_build.c
+                                     src/gltf.c src/gltf_buffer.c src/gltf_layout.c
+                                     src/gltf_property.c src/json.c src/skeleton_build.c
                                      src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
@@ -90,6 +91,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(skin WHITEBOX)
         maul_add_test(clip WHITEBOX)
         maul_add_test(json WHITEBOX)
+        maul_add_test(gltf WHITEBOX)
     endif()
     maul_add_header_tests()
 endif()
@@ -103,7 +105,7 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton skin clip json)
+    foreach(area skeleton skin clip json gltf)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
         # Internal readers (JSON) are fuzzed through their own headers.
@@ -120,11 +122,11 @@ if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)
 endif()
 
 if(MAUL_ANIM_INSTALL)
-    # Without the offline side, its header is not installed.
+    # Without the offline side, its headers are not installed.
     if(NOT MAUL_ANIM_OFFLINE)
         file(GLOB MAUL_PUBLIC_HEADERS RELATIVE ${PROJECT_SOURCE_DIR}/include/maul-anim
             ${PROJECT_SOURCE_DIR}/include/maul-anim/*.h)
-        list(REMOVE_ITEM MAUL_PUBLIC_HEADERS build.h)
+        list(REMOVE_ITEM MAUL_PUBLIC_HEADERS build.h import.h)
     endif()
     include(cmake/Install.cmake)
 endif()

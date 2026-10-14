@@ -180,6 +180,35 @@ maniClipEvent maniClipMarkerAt(const maniClip* clip, uint32_t index);
 ```
 Returns a sync marker; markers are in increasing time.  @param clip   An opened clip. @param index  The marker. @return The marker, or a zeroed one for an index past the count. @par Thread safety Safe from any thread.
 
+## `import.h`
+
+glTF 2.0 import (mani-0008), offline: a document opened from JSON or GLB bytes the caller keeps alive, its external buffers supplied by the host, then skeletons, skins and clips built from it.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t size, maniGltf** gltfOut);
+```
+Opens a glTF document from JSON or GLB bytes (told apart by GLB's magic), checking the container, the asset version, required extensions, buffers, buffer views and accessors. `data:` buffers are decoded into the document; external buffers wait for maniGltfSupplyBuffer.  @param builder  A builder; the document uses its allocator and must be closed before the builder is destroyed. @param bytes    The file; kept alive and unchanged while the document is open. @param size     Its size in bytes. @param gltfOut  Receives the document. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorFormat` with a reason, an offset and an item; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+void maniCloseGltf(maniGltf* gltf);
+```
+Closes a document and frees its memory. NULL is allowed.  @param gltf  The document. @par Thread safety Safe from any thread; the document is used by one thread at a time.
+
+```c
+uint32_t maniGltfBufferCount(const maniGltf* gltf);
+```
+Returns the number of buffers.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer, uint32_t* lengthOut);
+```
+Returns an external buffer's URI, as the JSON gives it after its escapes (a URI reference relative to the document; percent escapes are left to the host, which resolves it), or NULL for a buffer the document holds (GLB or `data:`) or past the count.  @param gltf       The document. @param buffer     The buffer. @param lengthOut  Receives the URI's length in bytes, 0 for NULL. May be NULL. @return The URI, UTF-8 and not terminated, or NULL. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes, size_t size);
+```
+Supplies an external buffer's bytes, which the caller keeps alive and unchanged while the document is open. They must hold the buffer's `byteLength`; bytes past it are ignored.  @param gltf    The document. @param buffer  An external buffer. @param bytes   Its bytes. @param size    Their size. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a buffer that is not external; `mani_errorFormat` with maniImportReasonBuffer for too few bytes. @par Thread safety Safe from any thread; the document is used by one thread at a time.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -334,4 +363,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-61 functions across 6 headers.
+66 functions across 7 headers.
