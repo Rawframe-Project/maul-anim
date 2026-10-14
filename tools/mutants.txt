@@ -608,3 +608,34 @@ fbs-no-helper | src/fbx_skeleton.c | if (r.result != mani_success || b->helper[v
 fbs-name-reason | src/fbx_skeleton.c | return maniFbxFail(name ? maniImportReasonName : maniImportReasonBuild, | return maniFbxFail(maniImportReasonBuild,
 fbs-ancestors | src/fbx_skeleton.c | b->marked[v] = 2; | b->marked[v] = 0;
 fbs-fold-identity | src/fbx_skeleton.c | if (options->foldPlacement != 0) | if (false)
+
+# FBX skins (fbx_skin.c, mani-0015), 2026-10-15: 27 mutants, all killed
+# (fourteen by decoys and cases added after the sweep, which also found
+# all-zero matrices refused where ufbx reads them as not given).
+fbk-root-parent | src/fbx_skin.c | c->parent >= fbx->objectCount) | false)
+fbk-through-geometry | src/fbx_skin.c | if (model == MANI_FBX_NONE && throughGeometry && | if (model == MANI_FBX_NONE &&
+fbk-geometry-kind | src/fbx_skin.c | maniFbxObjectKindIs(fbx, c->parent, "Geometry", 8)) | true)
+fbk-skin-range | src/fbx_skin.c | if (fbx == NULL || skin >= fbx->skinCount) | if (fbx == NULL)
+fbk-link-oo | src/fbx_skin.c | if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE && | if (
+fbk-cluster | src/fbx_skin.c | if (!maniFbxDeformerIs(fbx, child, "Cluster", 7)) | if (false)
+fbk-list | src/fbx_skin.c | if (count == 0) | if (false)
+fbk-short | src/fbx_skin.c | if (count < 16) | if (count < 4)
+fbk-item | src/fbx_skin.c | r.item = r.result == mani_errorFormat ? item : r.item; | r.item = r.item;
+fbk-affine-one | src/fbx_skin.c | fabs(m[15] - 1.0) <= 1e-5)) | true))
+fbk-columns | src/fbx_skin.c | out->m[3 * c + i] = m[4 * c + i]; | out->m[3 * c + i] = m[4 * i + c];
+fbk-zero | src/fbx_skin.c | if (m->m[i] != 0.0) | if (m->m[i] != 0.0 && i > 8)
+fbk-bindpose | src/fbx_skin.c | !maniFbxObjectSubclassIs(fbx, o, "BindPose", 8)) | false)
+fbk-first-pose | src/fbx_skin.c | s->poseOf[model] == MANI_FBX_NONE) | true)
+fbk-mesh-world | src/fbx_skin.c | for (uint32_t j = 0; j <= s->joints.count; ++j) | for (uint32_t j = 0; j < s->joints.count; ++j)
+fbk-additive | src/fbx_skin.c | maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, mode, 0), "Additive", 8)) | false)
+fbk-transform-zero | src/fbx_skin.c | if (r.result == mani_success && !(present && linked && !AllZero(&meshToBone))) | if (r.result == mani_success && !(present && linked))
+fbk-transform-link | src/fbx_skin.c | if (r.result == mani_success && !(present && linked && !AllZero(&meshToBone))) | if (r.result == mani_success && !(present && !AllZero(&meshToBone)))
+fbk-mesh | src/fbx_skin.c | const maniFbxMatrix* mesh = s->mesh != MANI_FBX_NONE ? &s->worlds[s->mesh].world : &identity; | const maniFbxMatrix* mesh = &identity;
+fbk-geometry | src/fbx_skin.c | *out = maniFbxMatrixMul(&meshToBone, geometry); | *out = meshToBone;
+fbk-bone | src/fbx_skin.c | if (s->bones[j] == MANI_NO_BONE) | if (false)
+fbk-link-zero | src/fbx_skin.c | bool linked = present && !AllZero(out); | bool linked = present;
+fbk-pose-zero | src/fbx_skin.c | posed = present && !AllZero(out); | posed = present;
+fbk-pose | src/fbx_skin.c | if (r.result == mani_success && !linked && s->poseOf[model] != MANI_FBX_NONE) | if (false)
+fbk-rest | src/fbx_skin.c | if (r.result == mani_success && !linked && !posed) | if (r.result == mani_success && !linked)
+fbk-affine-row | src/fbx_skin.c | if (!zero && !(fabs(m[3]) <= 1e-5 && fabs(m[7]) <= 1e-5 && fabs(m[11]) <= 1e-5 && | if (!zero && !(fabs(m[3]) <= 1e-5 && fabs(m[7]) <= 1e-5 &&
+fbk-all-zero | src/fbx_skin.c | zero = zero && m[k] == 0.0; | zero = false;
