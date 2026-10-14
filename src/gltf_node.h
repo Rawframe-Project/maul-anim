@@ -20,10 +20,6 @@ maniImportResult maniGltfReadNodes(maniGltf* gltf);
 // Frees what maniGltfReadNodes allocated.
 void maniGltfReleaseNodes(maniGltf* gltf);
 
-// The deepest common ancestor of two nodes (either may be the other),
-// or MANI_JSON_NONE for nodes of different trees.
-uint32_t maniGltfCommonAncestor(const maniGltf* gltf, uint32_t a, uint32_t b);
-
 // A skin's joints array value and its count.
 uint32_t maniGltfSkinJoints(const maniGltf* gltf, uint32_t skin, uint32_t* countOut);
 

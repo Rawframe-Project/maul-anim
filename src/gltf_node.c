@@ -1,25 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The node hierarchy and skins (mani-0009). Every step is
-// linear or n log n in the document's size, whatever its shape: depths
-// by walks that stop at known nodes, common ancestors by binary lifting,
-// and skins grouped by walks in which each node is claimed once and a
-// walk that meets another skin's node jumps past that skin's root.
+// The node hierarchy and skins (mani-0009): parents from children
+// lists, then the shared forest (hierarchy.c) for depths, common roots
+// and the skeletons skins sharing nodes make, each step linear or
+// n log n in the document's size, whatever its shape.
 
 #include "gltf_node.h"
 
 #include "allocator.h"
 #include "gltf_document.h"
 #include "gltf_property.h"
+#include "hierarchy.h"
 #include "json.h"
 
 #include "maul-anim/skeleton.h"
 
 #include <string.h>
-
-#define UNKNOWN_DEPTH 0xFFFFFFFEu
-#define WALKING       0xFFFFFFFDu
 
 static maniImportResult Capacity(void)
 {
@@ -89,97 +86,18 @@ static maniImportResult ReadChildren(maniGltf* gltf)
     return maniImportSuccess();
 }
 
-// Depths, refusing a cycle: each walk goes up to a node of known depth or
-// a root, then numbers its way back down.
-static maniImportResult ReadDepths(maniGltf* gltf, uint32_t* stack, uint32_t* maxDepthOut)
+// Depths and common ancestors, refusing a cycle.
+static maniImportResult ReadHierarchy(maniGltf* gltf)
 {
-    uint32_t* depth = gltf->nodeDepths;
-    uint32_t maxDepth = 0;
-    for (uint32_t i = 0; i < gltf->nodeCount; ++i)
+    uint32_t cycle = 0;
+    maniResult r = maniHierarchyInit(&gltf->hierarchy, &gltf->allocator, gltf->nodeParents,
+                                     gltf->nodeCount, &cycle);
+    if (r == mani_errorFormat)
     {
-        depth[i] = UNKNOWN_DEPTH;
+        return maniImportFail(maniImportReasonHierarchy,
+                              maniGltfOffset(&gltf->g, gltf->nodeValues[cycle]), cycle);
     }
-    for (uint32_t i = 0; i < gltf->nodeCount; ++i)
-    {
-        uint32_t height = 0;
-        uint32_t v = i;
-        while (v != MANI_JSON_NONE && depth[v] == UNKNOWN_DEPTH)
-        {
-            depth[v] = WALKING;
-            stack[height++] = v;
-            v = gltf->nodeParents[v];
-        }
-        if (v != MANI_JSON_NONE && depth[v] == WALKING)
-        {
-            return maniImportFail(maniImportReasonHierarchy,
-                                  maniGltfOffset(&gltf->g, gltf->nodeValues[v]), v);
-        }
-        uint32_t d = v == MANI_JSON_NONE ? 0 : depth[v] + 1;
-        while (height > 0)
-        {
-            depth[stack[--height]] = d++;
-        }
-        maxDepth = d > 0 && d - 1 > maxDepth ? d - 1 : maxDepth;
-    }
-    *maxDepthOut = maxDepth;
-    return maniImportSuccess();
-}
-
-static maniImportResult BuildAncestors(maniGltf* gltf, uint32_t maxDepth)
-{
-    uint32_t levels = 1;
-    while (levels < 32 && ((uint64_t)1 << levels) <= maxDepth)
-    {
-        ++levels;
-    }
-    size_t n = gltf->nodeCount;
-    gltf->ancestors = Words(gltf, (size_t)levels * n);
-    if (gltf->ancestors == NULL)
-    {
-        return Capacity();
-    }
-    gltf->levels = levels;
-    uint32_t* up = gltf->ancestors;
-    memcpy(up, gltf->nodeParents, n * sizeof(uint32_t));
-    for (uint32_t k = 1; k < levels; ++k)
-    {
-        for (size_t v = 0; v < n; ++v)
-        {
-            uint32_t half = up[(k - 1) * n + v];
-            up[k * n + v] = half == MANI_JSON_NONE ? MANI_JSON_NONE : up[(k - 1) * n + half];
-        }
-    }
-    return maniImportSuccess();
-}
-
-uint32_t maniGltfCommonAncestor(const maniGltf* gltf, uint32_t a, uint32_t b)
-{
-    const uint32_t* up = gltf->ancestors;
-    size_t n = gltf->nodeCount;
-    if (gltf->nodeDepths[a] < gltf->nodeDepths[b])
-    {
-        uint32_t swap = a;
-        a = b;
-        b = swap;
-    }
-    uint32_t lift = gltf->nodeDepths[a] - gltf->nodeDepths[b];
-    for (uint32_t k = 0; lift != 0; ++k, lift >>= 1)
-    {
-        a = (lift & 1u) != 0 ? up[k * n + a] : a;
-    }
-    if (a == b)
-    {
-        return a;
-    }
-    for (uint32_t k = gltf->levels; k-- > 0;)
-    {
-        if (up[k * n + a] != up[k * n + b])
-        {
-            a = up[k * n + a];
-            b = up[k * n + b];
-        }
-    }
-    return gltf->nodeParents[a];
+    return r == mani_success ? maniImportSuccess() : Capacity();
 }
 
 uint32_t maniGltfSkinJoints(const maniGltf* gltf, uint32_t skin, uint32_t* countOut)
@@ -254,8 +172,8 @@ static maniImportResult ReadSkin(maniGltf* gltf, uint32_t skin, uint32_t* stamp)
             return maniImportFail(maniImportReasonProperty, maniGltfOffset(g, element), skin);
         }
         stamp[node] = skin;
-        root = j == 0 ? node : maniGltfCommonAncestor(gltf, root, node);
-        if (root == MANI_JSON_NONE)
+        root = j == 0 ? node : maniCommonAncestor(&gltf->hierarchy, root, node);
+        if (root == MANI_NO_NODE)
         {
             return maniImportFail(maniImportReasonHierarchy, maniGltfOffset(g, joints), skin);
         }
@@ -269,102 +187,48 @@ static maniImportResult ReadSkin(maniGltf* gltf, uint32_t skin, uint32_t* stamp)
     return r;
 }
 
-static uint32_t Find(uint32_t* sets, uint32_t s)
+// Skeletons: skins whose joints' paths to their roots share a node, as
+// one (hierarchy.c).
+static maniImportResult GroupSkins(maniGltf* gltf)
 {
-    while (sets[s] != s)
+    uint32_t total = 0;
+    for (uint32_t k = 0; k < gltf->skinCount; ++k)
     {
-        sets[s] = sets[sets[s]];
-        s = sets[s];
+        uint32_t count = 0;
+        (void)maniGltfSkinJoints(gltf, k, &count);
+        total += count;
     }
-    return s;
-}
-
-// Joins two sets under the lower skin, so a set's representative is its
-// lowest skin.
-static void Join(uint32_t* sets, uint32_t a, uint32_t b)
-{
-    a = Find(sets, a);
-    b = Find(sets, b);
-    if (a != b)
-    {
-        sets[a > b ? a : b] = a < b ? a : b;
-    }
-}
-
-// One skin's walks from its joints up to its root: unclaimed nodes are
-// claimed; a node another skin claimed joins the two and the walk jumps
-// past that skin's root, whose path from there it already holds.
-static void GroupSkin(const maniGltf* gltf, uint32_t skin, uint32_t* owner, uint32_t* stamp,
-                      uint32_t* sets)
-{
-    uint32_t count = 0;
-    uint32_t element = maniGltfSkinJoints(gltf, skin, &count) + 1;
-    uint32_t top = gltf->nodeDepths[gltf->skinRoots[skin]];
-    for (uint32_t j = 0; j < count; ++j)
-    {
-        uint32_t v = maniGltfJointNode(gltf, element);
-        element = gltf->json.values[element].next;
-        while (v != MANI_JSON_NONE && gltf->nodeDepths[v] >= top && stamp[v] != skin)
-        {
-            stamp[v] = skin;
-            uint32_t other = owner[v];
-            if (other == MANI_JSON_NONE)
-            {
-                owner[v] = skin;
-                v = gltf->nodeParents[v];
-                continue;
-            }
-            Join(sets, skin, other);
-            uint32_t otherRoot = gltf->skinRoots[other];
-            v = gltf->nodeDepths[otherRoot] <= top ? MANI_JSON_NONE : gltf->nodeParents[otherRoot];
-        }
-    }
-}
-
-static maniImportResult GroupSkins(maniGltf* gltf, uint32_t* owner, uint32_t* stamp)
-{
-    uint32_t* sets = Words(gltf, gltf->skinCount);
+    uint32_t* seeds = Words(gltf, total);
+    uint32_t* starts = Words(gltf, (size_t)gltf->skinCount + 1);
     gltf->skinSkeletons = Words(gltf, gltf->skinCount);
     gltf->skeletonRoots = Words(gltf, gltf->skinCount);
-    maniImportResult r = maniImportSuccess();
-    if (sets == NULL || gltf->skinSkeletons == NULL || gltf->skeletonRoots == NULL)
+    maniResult r = mani_errorCapacity;
+    if (seeds != NULL && starts != NULL && gltf->skinSkeletons != NULL &&
+        gltf->skeletonRoots != NULL)
     {
-        r = Capacity();
-    }
-    for (uint32_t s = 0; r.result == mani_success && s < gltf->skinCount; ++s)
-    {
-        sets[s] = s;
-    }
-    for (uint32_t v = 0; r.result == mani_success && v < gltf->nodeCount; ++v)
-    {
-        owner[v] = MANI_JSON_NONE;
-        stamp[v] = MANI_JSON_NONE;
-    }
-    for (uint32_t s = 0; r.result == mani_success && s < gltf->skinCount; ++s)
-    {
-        GroupSkin(gltf, s, owner, stamp, sets);
-    }
-    // Skeletons in the order of their lowest skins; each root the common
-    // ancestor of its skins' roots.
-    for (uint32_t s = 0; r.result == mani_success && s < gltf->skinCount; ++s)
-    {
-        uint32_t lowest = Find(sets, s);
-        if (lowest == s)
+        uint32_t at = 0;
+        for (uint32_t k = 0; k < gltf->skinCount; ++k)
         {
-            gltf->skeletonRoots[gltf->skeletonCount] = gltf->skinRoots[s];
-            gltf->skinSkeletons[s] = gltf->skeletonCount++;
-            continue;
+            uint32_t count = 0;
+            uint32_t element = maniGltfSkinJoints(gltf, k, &count) + 1;
+            starts[k] = at;
+            for (uint32_t j = 0; j < count; ++j)
+            {
+                seeds[at++] = maniGltfJointNode(gltf, element);
+                element = gltf->json.values[element].next;
+            }
         }
-        uint32_t k = gltf->skinSkeletons[lowest];
-        gltf->skinSkeletons[s] = k;
-        gltf->skeletonRoots[k] =
-            maniGltfCommonAncestor(gltf, gltf->skeletonRoots[k], gltf->skinRoots[s]);
+        starts[gltf->skinCount] = at;
+        maniHierarchyUnits units = {seeds, starts, gltf->skinRoots, gltf->skinCount};
+        r = maniHierarchyGroup(&gltf->hierarchy, &gltf->allocator, &units, gltf->skinSkeletons,
+                               gltf->skeletonRoots, &gltf->skeletonCount);
     }
-    Free(gltf, sets, gltf->skinCount);
-    return r;
+    Free(gltf, seeds, total);
+    Free(gltf, starts, (size_t)gltf->skinCount + 1);
+    return r == mani_success ? maniImportSuccess() : Capacity();
 }
 
-static maniImportResult ReadSkins(maniGltf* gltf, uint32_t* owner, uint32_t* stamp)
+static maniImportResult ReadSkins(maniGltf* gltf, uint32_t* stamp)
 {
     uint32_t array = MANI_JSON_NONE;
     uint32_t count = 0;
@@ -395,7 +259,7 @@ static maniImportResult ReadSkins(maniGltf* gltf, uint32_t* owner, uint32_t* sta
         }
         value = gltf->json.values[value].next;
     }
-    return GroupSkins(gltf, owner, stamp);
+    return GroupSkins(gltf);
 }
 
 maniImportResult maniGltfReadNodes(maniGltf* gltf)
@@ -411,11 +275,8 @@ maniImportResult maniGltfReadNodes(maniGltf* gltf)
     gltf->nodeCount = count;
     gltf->nodeValues = Words(gltf, count);
     gltf->nodeParents = Words(gltf, count);
-    gltf->nodeDepths = Words(gltf, count);
-    uint32_t* stack = Words(gltf, count);
-    uint32_t* owner = Words(gltf, count);
-    if (gltf->nodeValues == NULL || gltf->nodeParents == NULL || gltf->nodeDepths == NULL ||
-        stack == NULL || owner == NULL)
+    uint32_t* stamp = Words(gltf, count);
+    if (gltf->nodeValues == NULL || gltf->nodeParents == NULL || stamp == NULL)
     {
         r = Capacity();
     }
@@ -428,23 +289,17 @@ maniImportResult maniGltfReadNodes(maniGltf* gltf)
             gltf->nodeParents[i] = MANI_JSON_NONE;
             value = gltf->json.values[value].next;
         }
-        uint32_t maxDepth = 0;
         r = ReadChildren(gltf);
         if (r.result == mani_success)
         {
-            r = ReadDepths(gltf, stack, &maxDepth);
+            r = ReadHierarchy(gltf);
         }
         if (r.result == mani_success)
         {
-            r = BuildAncestors(gltf, maxDepth);
-        }
-        if (r.result == mani_success)
-        {
-            r = ReadSkins(gltf, owner, stack);
+            r = ReadSkins(gltf, stamp);
         }
     }
-    Free(gltf, stack, count);
-    Free(gltf, owner, count);
+    Free(gltf, stamp, count);
     return r;
 }
 
@@ -454,8 +309,7 @@ void maniGltfReleaseNodes(maniGltf* gltf)
     size_t skins = gltf->skinCount;
     Free(gltf, gltf->nodeValues, n);
     Free(gltf, gltf->nodeParents, n);
-    Free(gltf, gltf->nodeDepths, n);
-    Free(gltf, gltf->ancestors, (size_t)gltf->levels * n);
+    maniHierarchyRelease(&gltf->hierarchy, &gltf->allocator);
     Free(gltf, gltf->skinValues, skins);
     Free(gltf, gltf->skinRoots, skins);
     Free(gltf, gltf->skinSkeletons, skins);

@@ -344,7 +344,7 @@ static uint32_t FoldChannel(const Build* b)
 // clip's grid with linear keys the clip reproduces at its samples.
 static maniImportResult FoldRoot(Build* b, uint32_t samples)
 {
-    uint32_t depth = b->gltf->nodeDepths[b->rootNode];
+    uint32_t depth = b->gltf->hierarchy.depths[b->rootNode];
     uint32_t* path = maniArenaTake(&b->arena, (size_t)depth + 1, sizeof(uint32_t));
     float* times = maniArenaTake(&b->arena, samples, sizeof(float));
     float* t = maniArenaTake(&b->arena, (size_t)samples * 3, sizeof(float));

@@ -32,18 +32,19 @@ clip_measure: allocator builder clip_build scalar
 decimal:
 json: allocator decimal text
 gltf_property: json
-gltf_document: arena gltf_property json names
+gltf_document: arena gltf_property hierarchy json names
 gltf: allocator arena builder bytes gltf_animation gltf_buffer gltf_document gltf_layout gltf_names gltf_node gltf_property json
 arena: allocator
 gltf_clip: arena builder clip_build clip_file decompose gltf_animation gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json vecmath
 gltf_animation: allocator arena container gltf_document gltf_property json sort
 gltf_basis: basis
 gltf_names: allocator gltf_document gltf_property json names
-gltf_node: allocator gltf_document gltf_property json
+gltf_node: allocator gltf_document gltf_property hierarchy json
 gltf_rest: allocator decompose gltf_basis gltf_document gltf_property json vecmath
 gltf_skeleton: allocator builder gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json
 sort:
 names: allocator container sort
+hierarchy: allocator
 fbx: allocator builder fbx_ascii fbx_binary fbx_document fbx_model fbx_object
 fbx_model: allocator fbx_document fbx_object fbx_value names
 fbx_object: allocator container fbx_document fbx_value sort

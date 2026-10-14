@@ -9,6 +9,7 @@
 
 #include "arena.h"
 #include "gltf_property.h"
+#include "hierarchy.h"
 #include "json.h"
 #include "names.h"
 
@@ -95,14 +96,11 @@ struct maniGltf
     uint32_t bufferCount;
     uint32_t viewCount;
     uint32_t accessorCount;
-    // Nodes: their JSON values, parents (MANI_JSON_NONE for roots),
-    // depths, and the binary lifting table for common ancestors: level k
-    // holds each node's 2^k-th ancestor, `levels` levels of nodeCount.
+    // Nodes: their JSON values, parents (MANI_JSON_NONE for roots), and
+    // the forest they make (depths, common ancestors).
     uint32_t* nodeValues;
     uint32_t* nodeParents;
-    uint32_t* nodeDepths;
-    uint32_t* ancestors;
-    uint32_t levels;
+    maniHierarchy hierarchy;
     uint32_t nodeCount;
     // Skins: their JSON values, common roots and skeletons.
     uint32_t* skinValues;

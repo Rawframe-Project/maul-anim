@@ -148,7 +148,7 @@ maniImportResult maniGltfNodeRest(const maniGltf* gltf, uint32_t node,
 maniImportResult maniGltfPlacement(const maniGltf* gltf, uint32_t root,
                                    const maniGltfOptions* options, maniAffine* placementOut)
 {
-    uint32_t depth = gltf->nodeDepths[root];
+    uint32_t depth = gltf->hierarchy.depths[root];
     uint32_t* path = maniAllocate(&gltf->allocator, (size_t)depth + 1, sizeof(uint32_t), 8);
     if (path == NULL)
     {
