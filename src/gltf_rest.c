@@ -10,13 +10,12 @@
 #include "gltf_rest.h"
 
 #include "allocator.h"
+#include "decompose.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
 #include "gltf_property.h"
 #include "json.h"
 #include "vecmath.h"
-
-#include "maul-anim/pose.h"
 
 #include <math.h>
 #include <string.h>
@@ -85,38 +84,12 @@ maniImportResult maniGltfMatrixAffine(const maniGltf* gltf, const float m[16],
     return maniImportSuccess();
 }
 
-static float ColumnLength(const maniAffine* a, uint32_t c)
-{
-    const float* v = a->m + 3 * c;
-    return sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-}
-
-bool maniGltfDecomposeExact(const maniAffine* a, maniTransform* out)
-{
-    if (maniDecomposeAffine(a, out) != mani_success)
-    {
-        return false;
-    }
-    maniAffine back = maniAffineFromTrs(out->translation, out->rotation, out->scale);
-    float largest = ColumnLength(a, 0);
-    largest = ColumnLength(a, 1) > largest ? ColumnLength(a, 1) : largest;
-    largest = ColumnLength(a, 2) > largest ? ColumnLength(a, 2) : largest;
-    for (uint32_t i = 0; i < 9; ++i)
-    {
-        if (!(fabsf(back.m[i] - a->m[i]) <= 1e-4f * largest))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
 // A node matrix as TRS: affine, decomposed, and composing back.
 static maniImportResult DecomposeNode(const float m[16], uint64_t at, uint32_t node,
                                       maniTransform* out)
 {
     maniAffine a = FromColumns(m);
-    if (!Affine(m) || !maniGltfDecomposeExact(&a, out))
+    if (!Affine(m) || !maniDecomposeExact(&a, out))
     {
         return maniImportFail(maniImportReasonMatrix, at, node);
     }
@@ -216,7 +189,7 @@ maniImportResult maniGltfRootRest(const maniGltf* gltf, uint32_t root,
     }
     maniAffine local = maniAffineFromTrs(restOut->translation, restOut->rotation, restOut->scale);
     maniAffine folded = maniAffineMul(&p, &local);
-    if (!maniGltfDecomposeExact(&folded, restOut))
+    if (!maniDecomposeExact(&folded, restOut))
     {
         return maniImportFail(maniImportReasonMatrix,
                               maniGltfOffset(&gltf->g, gltf->nodeValues[root]), root);

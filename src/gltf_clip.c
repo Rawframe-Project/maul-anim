@@ -11,6 +11,7 @@
 #include "builder.h"
 #include "clip_build.h"
 #include "clip_file.h"
+#include "decompose.h"
 #include "gltf_animation.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
@@ -373,7 +374,7 @@ static maniImportResult FoldRoot(Build* b, uint32_t samples)
         maniTransform d;
         // Shear from a non-uniform scale above a turning child cannot be
         // a track: refused rather than dropped (mani-0010).
-        if (r.result == mani_success && !maniGltfDecomposeExact(&composed, &d))
+        if (r.result == mani_success && !maniDecomposeExact(&composed, &d))
         {
             r = ChannelFail(b, maniImportReasonMatrix, FoldChannel(b));
         }

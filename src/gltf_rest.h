@@ -31,9 +31,6 @@ maniImportResult maniGltfPlacement(const maniGltf* gltf, uint32_t root,
 
 // A column-major 4x4 as an affine in the output's basis; refused
 // (Matrix, at `at`, item) when its last row is not 0 0 0 1 within 1e-5.
-// Decomposes an affine into TRS when it composes back within 1e-4 of its
-// largest column (mani-0009): false for a shear TRS cannot hold.
-bool maniGltfDecomposeExact(const maniAffine* a, maniTransform* out);
 
 maniImportResult maniGltfMatrixAffine(const maniGltf* gltf, const float m[16],
                                       const maniGltfOptions* options, uint64_t at, uint32_t item,

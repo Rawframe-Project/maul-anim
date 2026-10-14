@@ -6,6 +6,8 @@
 
 #include "decompose.h"
 
+#include "vecmath.h"
+
 #include <math.h>
 #include <string.h>
 
@@ -244,5 +246,31 @@ bool maniDecompose(const maniAffine* matrix, maniTransform* out)
     out->translation = (maniVec3){matrix->m[9], matrix->m[10], matrix->m[11]};
     out->rotation = ToQuaternion(q);
     out->scale = (maniVec3){(float)scale[0], (float)scale[1], (float)scale[2]};
+    return true;
+}
+
+static float ColumnLength(const maniAffine* a, uint32_t c)
+{
+    const float* v = a->m + 3 * c;
+    return sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+}
+
+bool maniDecomposeExact(const maniAffine* matrix, maniTransform* out)
+{
+    if (!maniDecompose(matrix, out))
+    {
+        return false;
+    }
+    maniAffine back = maniAffineFromTrs(out->translation, out->rotation, out->scale);
+    float largest = ColumnLength(matrix, 0);
+    largest = ColumnLength(matrix, 1) > largest ? ColumnLength(matrix, 1) : largest;
+    largest = ColumnLength(matrix, 2) > largest ? ColumnLength(matrix, 2) : largest;
+    for (uint32_t i = 0; i < 9; ++i)
+    {
+        if (!(fabsf(back.m[i] - matrix->m[i]) <= 1e-4f * largest))
+        {
+            return false;
+        }
+    }
     return true;
 }

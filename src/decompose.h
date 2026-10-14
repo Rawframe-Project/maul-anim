@@ -16,4 +16,9 @@
 // not finite.
 bool maniDecompose(const maniAffine* matrix, maniTransform* out);
 
+// Splits a matrix when the parts compose back within 1e-4 of its largest
+// column (mani-0009): false for a shear TRS cannot hold, or a component
+// not finite.
+bool maniDecomposeExact(const maniAffine* matrix, maniTransform* out);
+
 #endif // MAUL_ANIM_SRC_DECOMPOSE_H

@@ -4,11 +4,13 @@
 // Opening an FBX document (mani-0012) from any bytes, then reading
 // every property of every node: numbers, integers, strings (decoded and
 // compared), and arrays up to a million elements; binary or ASCII; and
-// every object's name, a property and its connections. Run as fuzz_fbx <corpus dir>;
+// every object's name, a property, its connections and its local
+// transform. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
 #include "fbx_document.h"
 #include "fbx_object.h"
+#include "fbx_transform.h"
 #include "fbx_value.h"
 
 #include "maul-anim/base.h"
@@ -74,6 +76,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             (void)maniFbxChildConnections(fbx, o, &list);
             (void)maniFbxParentConnections(fbx, o, &list);
             (void)maniFbxFindObject(fbx, fbx->objects[o].id);
+            maniFbxLocal local;
+            (void)maniFbxModelLocal(fbx, o, &local);
         }
         for (uint32_t v = 0; v < fbx->nodeCount; ++v)
         {
