@@ -328,6 +328,27 @@ extern "C"
                       const maniSkeleton* skeleton, const maniGltfOptions* options,
                       float sampleRate, maniLoopPolicy loop, uint32_t* boundOut);
 
+    /// Reads the document's `VRMC_springBone` extension (version 1.0) as
+    /// spring bone sources on an opened skeleton (mani-0011): colliders,
+    /// collider groups and springs, nodes found by bone name, offsets,
+    /// tails and gravity directions in the output's basis. A document
+    /// without the extension gives an empty set. The arrays are the
+    /// document's until the next call or maniCloseGltf.
+    ///
+    /// @param gltf      The document.
+    /// @param skeleton  An opened skeleton holding the springs' nodes.
+    /// @param options   The options the skeleton was built with.
+    /// @param setOut    Receives the sources.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
+    /// options out of range; `mani_errorFormat` with a reason;
+    /// `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the document is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfReadSprings(maniGltf* gltf,
+                                                                 const maniSkeleton* skeleton,
+                                                                 const maniGltfOptions* options,
+                                                                 maniSpringSetSource* setOut);
+
 #ifdef __cplusplus
 }
 #endif

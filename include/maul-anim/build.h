@@ -360,6 +360,75 @@ extern "C"
                                                        const maniClip* clip,
                                                        maniClipReport* reportOut);
 
+    // A spring bone collider's shape.
+    typedef uint32_t maniColliderShape;
+    enum
+    {
+        maniColliderSphere = 0,
+        maniColliderCapsule = 1,
+    };
+
+    // A collider on a bone: a sphere at offset, or a capsule from offset
+    // to tail, both in the bone's local space.
+    typedef struct maniColliderSource
+    {
+        uint32_t bone;
+        maniColliderShape shape;
+        maniVec3 offset;
+        maniVec3 tail;
+        float radius;
+        uint32_t reserved;
+    } maniColliderSource;
+
+    // Colliders that springs collide with together.
+    typedef struct maniColliderGroupSource
+    {
+        const char* name;
+        uint32_t nameLength;
+        uint32_t colliderCount;
+        const uint32_t* colliders;
+    } maniColliderGroupSource;
+
+    // A spring chain's joint: a bone and the motion of the segment it
+    // heads (the last joint is only a tail), as VRM defines them.
+    typedef struct maniSpringJointSource
+    {
+        uint32_t bone;
+        float hitRadius;
+        float stiffness;
+        float gravityPower;
+        maniVec3 gravityDirection;
+        // Air resistance, 0 to 1.
+        float drag;
+    } maniSpringJointSource;
+
+    // A chain of joints, each an ancestor of the next, colliding with
+    // the colliders of its groups, simulated in its center bone's space
+    // (MANI_NO_BONE for the model's).
+    typedef struct maniSpringSource
+    {
+        const char* name;
+        uint32_t nameLength;
+        uint32_t jointCount;
+        const maniSpringJointSource* joints;
+        const uint32_t* colliderGroups;
+        uint32_t colliderGroupCount;
+        uint32_t center;
+    } maniSpringSource;
+
+    // A skeleton's spring bones: colliders, collider groups, springs.
+    typedef struct maniSpringSetSource
+    {
+        const maniSkeleton* skeleton;
+        const maniColliderSource* colliders;
+        const maniColliderGroupSource* colliderGroups;
+        const maniSpringSource* springs;
+        uint32_t colliderCount;
+        uint32_t colliderGroupCount;
+        uint32_t springCount;
+        uint32_t reserved;
+    } maniSpringSetSource;
+
     /// Copies the last built file into caller memory.
     ///
     /// @param builder   The builder.

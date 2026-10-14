@@ -3,7 +3,8 @@
 //
 // Opening a glTF document (mani-0008) from any bytes, then reading every
 // accessor, with each external buffer given the input's own bytes when
-// they are long enough, and building every skeleton, skin and clip. Run as fuzz_gltf <corpus dir>;
+// they are long enough, and building every skeleton, skin and clip and
+// reading the spring bones. Run as fuzz_gltf <corpus dir>;
 // the seed comes from test_gltf --seed <file>.
 
 #include "gltf_document.h"
@@ -22,7 +23,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
 // Every skeleton, with and without folding and with a basis change, and
 // each of its skins against it; the first node's subtree.
-static void BuildAll(maniBuilder* builder, const maniGltf* gltf)
+static void BuildAll(maniBuilder* builder, maniGltf* gltf)
 {
     static _Alignas(16) uint8_t file[1 << 20];
     const maniGltfOptions options[2] = {{{maniAxisX, maniAxisY, maniAxisZ}, 0},
@@ -48,6 +49,8 @@ static void BuildAll(maniBuilder* builder, const maniGltf* gltf)
                     (void)maniGltfBuildSkin(builder, gltf, s, &skeleton, &options[o]);
                 }
             }
+            maniSpringSetSource springs;
+            (void)maniGltfReadSprings(gltf, &skeleton, &options[o], &springs);
             for (uint32_t a = 0; a < maniGltfAnimationCount(gltf); ++a)
             {
                 uint32_t bound = 0;

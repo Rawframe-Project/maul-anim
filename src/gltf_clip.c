@@ -70,9 +70,7 @@ static maniImportResult Capacity(void)
 
 static uint32_t NodeBone(const Build* b, uint32_t node)
 {
-    uint32_t length = 0;
-    const char* name = maniGltfNodeName(b->gltf, node, &length);
-    return maniSkeletonFindBone(b->skeleton, name, length);
+    return maniGltfNodeBone(b->gltf, b->skeleton, node);
 }
 
 // The first node named as the skeleton's root bone.

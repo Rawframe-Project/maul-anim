@@ -11,6 +11,7 @@
 #include "gltf_document.h"
 
 #include "maul-anim/import.h"
+#include "maul-anim/skeleton.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -22,5 +23,8 @@ void maniGltfReleaseNames(maniGltf* gltf);
 
 // A node's bone name, not terminated.
 const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut);
+
+// The skeleton's bone named as the node, or MANI_NO_BONE.
+uint32_t maniGltfNodeBone(const maniGltf* gltf, const maniSkeleton* skeleton, uint32_t node);
 
 #endif // MAUL_ANIM_SRC_GLTF_NAMES_H

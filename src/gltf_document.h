@@ -7,6 +7,7 @@
 #ifndef MAUL_ANIM_SRC_GLTF_DOCUMENT_H
 #define MAUL_ANIM_SRC_GLTF_DOCUMENT_H
 
+#include "arena.h"
 #include "gltf_property.h"
 #include "json.h"
 
@@ -132,6 +133,8 @@ struct maniGltf
     uint32_t samplerTotal;
     uint32_t* meshValues;
     uint32_t meshCount;
+    // What maniGltfReadSprings last gave.
+    maniArena springs;
 };
 
 #endif // MAUL_ANIM_SRC_GLTF_DOCUMENT_H

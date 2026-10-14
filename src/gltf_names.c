@@ -208,3 +208,10 @@ const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* leng
     *lengthOut = names->starts[node + 1] - names->starts[node];
     return names->text + names->starts[node];
 }
+
+uint32_t maniGltfNodeBone(const maniGltf* gltf, const maniSkeleton* skeleton, uint32_t node)
+{
+    uint32_t length = 0;
+    const char* name = maniGltfNodeName(gltf, node, &length);
+    return maniSkeletonFindBone(skeleton, name, length);
+}

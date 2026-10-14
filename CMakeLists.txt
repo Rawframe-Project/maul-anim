@@ -66,7 +66,7 @@ if(MAUL_ANIM_OFFLINE)
                                      src/gltf_clip.c
                                      src/gltf_buffer.c src/gltf_layout.c
                                      src/gltf_names.c src/gltf_node.c src/gltf_property.c
-                                     src/gltf_rest.c src/gltf_skeleton.c src/json.c src/skeleton_build.c
+                                     src/gltf_rest.c src/gltf_skeleton.c src/gltf_spring.c src/json.c src/skeleton_build.c
                                      src/sort.c
                                      src/skin_build.c)
 endif()
@@ -98,6 +98,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(gltf WHITEBOX)
         maul_add_test(gltf_skeleton WHITEBOX)
         maul_add_test(gltf_clip WHITEBOX)
+        maul_add_test(gltf_spring WHITEBOX)
     endif()
     maul_add_header_tests()
 endif()
