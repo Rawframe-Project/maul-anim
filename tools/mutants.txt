@@ -513,3 +513,22 @@ fbt-spheric | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)order
 fbt-limit-only | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)order, active != 0 && limitOnly == 0, t->rotation); | Rotation(v, order == 6 ? 0 : (uint32_t)order, active != 0, t->rotation);
 fbt-pivot-inner | src/fbx_transform.c | inner[i] = -v[kScaling][i] * v[kScalingPivot][i] + v[kScalingPivot][i] + | inner[i] = -v[kScaling][i] * v[kScalingPivot][i] - v[kScalingPivot][i] +
 fbt-pivot-outer | src/fbx_transform.c | t->translation[i] + v[kRotationPivot][i] + v[kRotationOffset][i] + v[kTranslation][i]; | t->translation[i] + v[kRotationOffset][i] + v[kTranslation][i];
+
+# FBX models (mani-0014), 2026-10-14: 16 mutants, all killed (two by
+# tests added after the sweep; a third found a redundant check, removed).
+fbm-oo-child | src/fbx_model.c | return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE; | return c->parentProperty == MANI_FBX_NONE;
+fbm-oo-parent | src/fbx_model.c | return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE; | return c->childProperty == MANI_FBX_NONE;
+fbm-root | src/fbx_model.c | return c->parent == fbx->objectCount ? fbx->modelCount : maniFbxModelOf(fbx, c->parent); | return maniFbxModelOf(fbx, c->parent);
+fbm-two-same | src/fbx_model.c | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent) | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE)
+fbm-two | src/fbx_model.c | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent) | if (false)
+fbm-keep-parent | src/fbx_model.c | parent = p != MANI_FBX_NONE ? p : parent; | parent = p;
+fbm-unparented | src/fbx_model.c | fbx->modelParents[m] = parent == MANI_FBX_NONE ? fbx->modelCount : parent; | fbx->modelParents[m] = parent;
+fbm-cycle | src/fbx_model.c | if (v != n && walk[v] == m) | if (false)
+fbm-cycle-walk | src/fbx_model.c | while (v != n && walk[v] == MANI_FBX_NONE) | while (false)
+fbm-orphans | src/fbx_model.c | if (placed[m] == 0) | if (false)
+fbm-name-k | src/fbx_model.c | uint32_t k = fbx->version >= 7000 ? 1 : 0; | uint32_t k = 1;
+fbm-model-kind | src/fbx_model.c | bool model = maniFbxObjectKindIs(fbx, o, "Model", 5); | bool model = true;
+fbm-model-of | src/fbx_model.c | return object < fbx->objectCount ? fbx->modelOfObject[object] : MANI_FBX_NONE; | return fbx->modelOfObject[object];
+fbm-name-range | src/fbx_model.c | bool inRange = fbx != NULL && model < fbx->modelCount; | bool inRange = fbx != NULL;
+fbm-renamed-range | src/fbx_model.c | return fbx != NULL && index < fbx->modelNames.renamedCount ? fbx->modelNames.renamed[index] | return fbx != NULL ? fbx->modelNames.renamed[index]
+fbm-placed | src/fbx_model.c | if (ObjectToObject(c) && child != MANI_FBX_NONE && placed[child] == 0) | if (ObjectToObject(c) && child != MANI_FBX_NONE)
