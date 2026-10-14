@@ -9,14 +9,16 @@
 #include "scalar.h"
 #include "test_harness.h"
 
+#include "maul-anim/base.h"
+
 #include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
 
 // The hash of HashAll on the reference build; every platform must match.
-#define PINNED_HASH       0x5a2f5e0a26b1295full
-#define PINNED_DENSE_HASH 0x983a86a6db424248ull
+#define PINNED_HASH       0xc78d5a708acb5a58ull
+#define PINNED_DENSE_HASH 0xe3101e4aa62210f9ull
 
 // The distance in units in the last place between two floats of the same
 // sign; equal values, signed zeros included, are 0 apart.
@@ -192,35 +194,45 @@ static void TestAtan2Quadrants(void)
     }
 }
 
-// FNV-1a over the bits of every result: a check that every platform
-// computes the same bits, until the family hash is in this library.
-static uint64_t HashFloat(uint64_t hash, float value)
+// Results are hashed with the family hash in blocks, as every platform
+// must produce the same bits.
+typedef struct Hasher
 {
-    uint32_t bits = 0;
-    memcpy(&bits, &value, sizeof bits);
-    for (int32_t i = 0; i < 4; ++i)
+    uint64_t hash;
+    int32_t count;
+    float block[1024];
+} Hasher;
+
+static void HashFloat(Hasher* h, float value)
+{
+    h->block[h->count++] = value;
+    if (h->count == 1024)
     {
-        hash ^= (bits >> (8 * i)) & 0xffu;
-        hash *= 0x100000001b3ull;
+        h->hash = maniHash64(h->hash, h->block, (int32_t)sizeof h->block);
+        h->count = 0;
     }
-    return hash;
+}
+
+static uint64_t HashEnd(Hasher* h)
+{
+    return maniHash64(h->hash, h->block, h->count * (int32_t)sizeof(float));
 }
 
 static uint64_t HashAll(void)
 {
-    uint64_t hash = 0xcbf29ce484222325ull;
+    Hasher h = {MANI_HASH_INIT, 0, {0}};
     for (int32_t i = -50000; i <= 50000; ++i)
     {
         float x = (float)i * 0.0137f;
         float s = 0.0f;
         float c = 0.0f;
         maniSinCos(x, &s, &c);
-        hash = HashFloat(hash, s);
-        hash = HashFloat(hash, c);
-        hash = HashFloat(hash, maniAcos((float)i / 50000.0f));
-        hash = HashFloat(hash, maniAtan2(x, (float)(i % 97) - 48.0f));
+        HashFloat(&h, s);
+        HashFloat(&h, c);
+        HashFloat(&h, maniAcos((float)i / 50000.0f));
+        HashFloat(&h, maniAtan2(x, (float)(i % 97) - 48.0f));
     }
-    return hash;
+    return HashEnd(&h);
 }
 
 // Every one of 2^24 angles over eight turns and 2^24 tangents over
@@ -228,21 +240,21 @@ static uint64_t HashAll(void)
 // results.
 static uint64_t HashDense(void)
 {
-    uint64_t hash = 0xcbf29ce484222325ull;
+    Hasher h = {MANI_HASH_INIT, 0, {0}};
     for (int32_t i = -(1 << 23); i <= (1 << 23); ++i)
     {
         float x = (float)((double)i / 8388608.0 * 25.132741228718345);
         float s = 0.0f;
         float c = 0.0f;
         maniSinCos(x, &s, &c);
-        hash = HashFloat(hash, s);
-        hash = HashFloat(hash, c);
+        HashFloat(&h, s);
+        HashFloat(&h, c);
     }
     for (int32_t i = 0; i <= (1 << 24); ++i)
     {
-        hash = HashFloat(hash, maniAtan2((float)i, 16777216.0f));
+        HashFloat(&h, maniAtan2((float)i, 16777216.0f));
     }
-    return hash;
+    return HashEnd(&h);
 }
 
 static void TestSameBitsEverywhere(void)

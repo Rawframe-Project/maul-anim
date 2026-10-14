@@ -13,3 +13,5 @@ format.
 - The library skeleton: the build, the family rules and tools, the
   version and result API (`maniGetVersion`, `maniResultName`) and the
   library profile.
+- `maniHash64` and `MANI_HASH_INIT`, the family's frozen 64-bit hash, for
+  comparing results between machines.

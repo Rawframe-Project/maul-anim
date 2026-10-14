@@ -3,3 +3,4 @@
 base:
 scalar:
 vecmath: scalar
+hash:
