@@ -10,6 +10,7 @@
 #include "arena.h"
 #include "gltf_property.h"
 #include "json.h"
+#include "names.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/import.h"
@@ -79,18 +80,6 @@ typedef struct maniGltfAccessor
     uint32_t value;
 } maniGltfAccessor;
 
-// Names: node v's is text[starts[v]] to text[starts[v + 1]].
-typedef struct maniGltfNames
-{
-    char* text;
-    uint32_t* starts;
-    size_t textSize;
-    uint32_t count;
-    // The nodes named other than as given, in node order.
-    uint32_t* renamed;
-    uint32_t renamedCount;
-} maniGltfNames;
-
 struct maniGltf
 {
     maniAllocator allocator;
@@ -123,14 +112,15 @@ struct maniGltf
     // Skeletons: each one's root node.
     uint32_t* skeletonRoots;
     uint32_t skeletonCount;
-    // Every node's bone name.
-    maniGltfNames names;
+    // Every node's bone name: node v's is text[starts[v]] to
+    // text[starts[v + 1]].
+    maniBoneNames names;
     // Animations: their JSON values and names (empty when unnamed); all
     // their samplers' values end to end, animation a's from
     // samplerStarts[a]; meshes' values.
     uint32_t* animationValues;
     uint32_t animationCount;
-    maniGltfNames animationNames;
+    maniBoneNames animationNames;
     uint32_t* samplerValues;
     uint32_t* samplerStarts;
     uint32_t samplerTotal;

@@ -365,7 +365,7 @@ static maniImportResult ReadAnimation(maniGltf* gltf, uint32_t a, maniArena* are
 // Names: decoded, end to end; empty for an animation without one.
 static maniImportResult ReadNames(maniGltf* gltf)
 {
-    maniGltfNames* names = &gltf->animationNames;
+    maniBoneNames* names = &gltf->animationNames;
     size_t total = 0;
     for (uint32_t a = 0; a < gltf->animationCount; ++a)
     {
@@ -511,7 +511,7 @@ maniImportResult maniGltfReadAnimations(maniGltf* gltf)
 
 void maniGltfReleaseAnimations(maniGltf* gltf)
 {
-    maniGltfNames* names = &gltf->animationNames;
+    maniBoneNames* names = &gltf->animationNames;
     maniRelease(&gltf->allocator, names->text, names->textSize, 1, 8);
     maniRelease(&gltf->allocator, names->starts, (size_t)names->count + 1, sizeof(uint32_t), 8);
     maniRelease(&gltf->allocator, gltf->animationValues, (size_t)gltf->animationCount + 1,

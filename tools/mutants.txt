@@ -388,8 +388,8 @@ nod-ibm-stride | src/gltf_node.c | if (a->view != MANI_JSON_NONE && gltf->views[
 nod-joints-empty | src/gltf_node.c | if (r.result == mani_success && (count == 0 || count > MANI_MAX_BONES)) | if (r.result == mani_success && count > MANI_MAX_BONES)
 nod-joint-twice | src/gltf_node.c | if (stamp[node] == skin) | if (false)
 nod-union-low | src/gltf_node.c | sets[a > b ? a : b] = a < b ? a : b; | sets[a] = b;
-nam-repeat | src/gltf_names.c | if (length == 0 || w->repeated[b] != 0) | if (length == 0)
-nam-empty | src/gltf_names.c | if (length == 0 || w->repeated[b] != 0) | if (w->repeated[b] != 0)
+nam-repeat | src/names.c | if (length == 0 || w->repeated[b] != 0) | if (length == 0)
+nam-empty | src/names.c | if (length == 0 || w->repeated[b] != 0) | if (w->repeated[b] != 0)
 skl-skin-missing | src/gltf_skeleton.c | if (joints[j] == MANI_NO_BONE) | if (false)
 skl-fold | src/gltf_skeleton.c | if (options->foldPlacement != 0) | if (false)
 rst-count | src/gltf_rest.c | if (gltf->json.values[array].count != count) | if (false)
@@ -404,7 +404,7 @@ bas-valid | src/gltf_basis.c | if (options->axes[i] > maniAxisNegativeZ || seen[
 
 # Renamed nodes and folded shear (mani-0009, mani-0010), 2026-10-14:
 # five mutants, all killed.
-nam-renamed | src/gltf_names.c | out->renamed[out->renamedCount++] = nodes[b]; | out->renamedCount = out->renamedCount;
+nam-renamed | src/names.c | out->renamed[out->renamedCount++] = b; | out->renamedCount = out->renamedCount;
 nam-bone-name-range | src/gltf_names.c | bool inRange = gltf != NULL && node < gltf->names.count; | bool inRange = gltf != NULL;
 rst-fold-exact | src/gltf_rest.c | if (!maniDecomposeExact(&folded, restOut)) | if (!maniDecompose(&folded, restOut))
 clp-fold-exact | src/gltf_clip.c | if (r.result == mani_success && !maniDecomposeExact(&composed, &d)) | if (r.result == mani_success && !maniDecompose(&composed, &d))

@@ -361,7 +361,7 @@ uint32_t maniGltfAnimationCount(const maniGltf* gltf)
 
 const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation, uint32_t* lengthOut)
 {
-    const maniGltfNames* names = &gltf->animationNames;
+    const maniBoneNames* names = &gltf->animationNames;
     bool inRange = animation < gltf->animationCount;
     if (lengthOut != NULL)
     {
