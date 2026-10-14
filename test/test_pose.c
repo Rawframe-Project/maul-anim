@@ -157,6 +157,7 @@ static void TestMemory(void)
     CHECK(maniInitPose(&s, s_poseMemory, size - 1, &pose) == mani_errorCapacity, "too small");
     CHECK(maniInitPose(NULL, s_poseMemory, size, &pose) == mani_errorInvalid, "null skeleton");
     CHECK(maniInitPose(&s, s_poseMemory, size, NULL) == mani_errorInvalid, "null out");
+    CHECK(maniInitPose(&s, NULL, size, &pose) == mani_errorInvalid, "null memory");
     CHECK(maniInitPose(&s, s_poseMemory, size, &pose) == mani_success, "inits");
     CHECK((void*)pose == (void*)s_poseMemory, "in the caller's memory");
     CHECK(maniPoseBoneCount(pose) == kBones, "count");
@@ -198,6 +199,25 @@ static void TestLocals(void)
     CHECK(maniPoseReadLocals(pose, 0, 0, NULL) == mani_success, "an empty range");
     CHECK(maniPoseReadLocals(pose, 0, 1, NULL) == mani_errorInvalid, "a null array");
     CHECK(maniPoseSetRest(pose, &s) == mani_success && maniPoseModelCurrent(pose), "rest again");
+}
+
+// A count that fills its last group: the bone past it is not read.
+static void TestFullGroupEdge(void)
+{
+    maniSkeleton s = BuildRandomSkeleton(8, s_file, sizeof s_file);
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
+    for (uint32_t bone = 0; bone < 8; ++bone)
+    {
+        maniPoseSetLocal(pose, bone, RandomTransform());
+    }
+    CHECK(maniComputeModel(pose, &s) == mani_success, "composes");
+    maniTransform past = maniPoseLocal(pose, 8);
+    CHECK(past.rotation.w == 1.0f && past.rotation.x == 0.0f && past.translation.x == 0.0f &&
+              past.scale.z == 1.0f,
+          "identity just past a full group");
+    maniAffine model = maniPoseModel(pose, 8);
+    CHECK(model.m[0] == 1.0f && model.m[9] == 0.0f, "identity model just past");
 }
 
 static void TestModelAgainstBinary64(void)
@@ -246,10 +266,11 @@ static void TestIdentityRefused(void)
     CHECK(maniComputeModel(pose, &b) == mani_errorInvalid, "another skeleton");
     CHECK(maniPoseSetRest(pose, &b) == mani_errorInvalid, "another skeleton's rest");
     CHECK(maniComputeModel(NULL, &a) == mani_errorInvalid, "null pose");
-    // Memory that no init made is not a pose.
-    memset(s_otherMemory, 0, sizeof s_otherMemory);
-    CHECK(maniComputeModel((maniPose*)(void*)s_otherMemory, &a) == mani_errorInvalid,
-          "uninitialized memory");
+    // Memory that no init made is not a pose: a copy of a real pose
+    // without the tag in its first four bytes is refused.
+    memcpy(s_otherMemory, s_poseMemory, maniPoseSize(&a));
+    memset(s_otherMemory, 0, 4);
+    CHECK(maniComputeModel((maniPose*)(void*)s_otherMemory, &a) == mani_errorInvalid, "no tag");
 }
 
 // A pose is its bytes: a copy composes the same matrices.
@@ -304,6 +325,7 @@ int main(void)
 {
     TestMemory();
     TestLocals();
+    TestFullGroupEdge();
     TestModelAgainstBinary64();
     TestIdentityRefused();
     TestCopiedBytes();

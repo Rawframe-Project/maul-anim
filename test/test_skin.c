@@ -177,6 +177,11 @@ static void TestPaletteIsModelTimesInverseBind(void)
         CHECK(memcmp(&expected, &palette[j], sizeof expected) == 0, "model times inverse bind");
     }
     uint32_t count = 0;
+    maniAffine three[kJoints - 1];
+    CHECK(maniComputePalette(pose, &s_skeleton, &skin, three, kJoints - 1, &count) ==
+                  mani_errorCapacity &&
+              count == kJoints,
+          "one short");
     CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, 2, &count) == mani_errorCapacity &&
               count == kJoints,
           "short array");
@@ -280,6 +285,44 @@ static void TestOpenRefusals(void)
           "a skeleton is not a skin");
 }
 
+// Rewrites the sample from its sections with one replaced or dropped.
+static void Rewrite(uint32_t tag, const void* data, uint64_t size)
+{
+    static _Alignas(16) uint8_t copy[1024];
+    memcpy(copy, s_file, s_size);
+    maniSectionSource sections[MANI_SKIN_SECTIONS];
+    uint32_t count = 0;
+    for (uint32_t t = 1; t <= MANI_SKIN_SECTIONS; ++t)
+    {
+        uint64_t at = 64 + (uint64_t)(t - 1) * 24;
+        if (t == tag && data == NULL)
+        {
+            continue;
+        }
+        sections[count++] = t == tag ? (maniSectionSource){t, data, size}
+                                     : (maniSectionSource){t, copy + maniLoadU64(copy + at + 8),
+                                                           maniLoadU64(copy + at + 16)};
+    }
+    uint64_t total = 0;
+    CHECK(maniContainerSize(sections, count, &total) && total <= sizeof s_file, "fits");
+    maniWriteContainer(s_file, maniKindSkin, 1, maniLoadU64(copy + 40), sections, count);
+    s_size = (size_t)total;
+}
+
+static void TestTableRefusals(void)
+{
+    BuildSample();
+    Rewrite(maniSkinTagInverseBinds, NULL, 0);
+    maniFileResult r = Open();
+    CHECK(r.result == mani_errorFormat && r.offset == 12, "two sections");
+    BuildSample();
+    static const uint8_t binds[48 * (kJoints - 1)] = {0};
+    Rewrite(maniSkinTagInverseBinds, binds, sizeof binds);
+    r = Open();
+    CHECK(r.result == mani_errorFormat && r.offset == 64 + 2 * 24 + 16, "binds of the wrong size");
+    BuildSample();
+}
+
 static void TestEveryByteFlip(void)
 {
     BuildSample();
@@ -328,6 +371,7 @@ int main(int argc, char** argv)
     TestPaletteIsModelTimesInverseBind();
     TestBuildRefusals();
     TestOpenRefusals();
+    TestTableRefusals();
     TestEveryByteFlip();
     TestPinnedBytes();
     return s_failures == 0 ? 0 : 1;

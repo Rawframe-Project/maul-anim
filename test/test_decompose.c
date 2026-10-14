@@ -197,6 +197,34 @@ static void TestDegenerateMatrices(void)
           "tiny scale kept");
 }
 
+// Half turns, where Shepperd's method must not divide by 1 + trace.
+static void TestHalfTurns(void)
+{
+    const maniQuat turns[3] = {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}};
+    for (int i = 0; i < 3; ++i)
+    {
+        maniAffine m = maniAffineFromTrs((maniVec3){0, 0, 0}, turns[i], (maniVec3){1, 2, 3});
+        maniTransform d;
+        CHECK(maniDecomposeAffine(&m, &d) == mani_success && AllFinite(&d), "a half turn splits");
+        double dot = (double)turns[i].x * (double)d.rotation.x +
+                     (double)turns[i].y * (double)d.rotation.y +
+                     (double)turns[i].z * (double)d.rotation.z;
+        CHECK(fabs(fabs(dot) - 1.0) < 1e-6, "the half turn back");
+    }
+}
+
+// A tiny axis counts as zero: here x, parallel to y, is rebuilt from y
+// and z.
+static void TestTinyAxisIsZero(void)
+{
+    maniAffine m = {{0, 1e-35f, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
+    maniTransform d;
+    CHECK(maniDecomposeAffine(&m, &d) == mani_success, "splits");
+    CHECK(d.rotation.w == 1.0f && d.rotation.x == 0.0f && d.rotation.y == 0.0f &&
+              d.rotation.z == 0.0f,
+          "the identity rotation");
+}
+
 static void TestRefusals(void)
 {
     maniAffine m = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
@@ -238,6 +266,8 @@ int main(void)
     TestRecomposesWithoutShear();
     TestShearGivesThePolarRotation();
     TestDegenerateMatrices();
+    TestHalfTurns();
+    TestTinyAxisIsZero();
     TestRefusals();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
