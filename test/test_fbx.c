@@ -1,0 +1,587 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// The binary FBX container (mani-0012): files written here record by
+// record, in both header widths and both byte orders, read back as the
+// tree they were written as; values, raw and zlib arrays read on
+// request; and each way the container can be wrong refused at its byte.
+// Run as test_fbx --seed <file> it writes the fuzz target's seed.
+
+// The seed writer uses fopen, which the Microsoft C library deprecates;
+// the request comes before any header that reaches the C library.
+#define _CRT_SECURE_NO_WARNINGS
+
+#include "fbx_document.h"
+#include "fbx_value.h"
+#include "test_harness.h"
+
+#include "maul-anim/base.h"
+#include "maul-anim/build.h"
+#include "maul-anim/import.h"
+
+#include <stdio.h>
+#include <string.h>
+
+// A file being written: records open on a stack, their headers patched
+// when they close.
+typedef struct Writer
+{
+    uint8_t b[16384];
+    size_t n;
+    uint32_t version;
+    bool big;
+    int depth;
+    size_t start[80];
+    size_t values[80];
+    size_t valuesEnd[80];
+    uint32_t count[80];
+    bool children[80];
+} Writer;
+
+static Writer s_w;
+
+static size_t HeaderSize(const Writer* w)
+{
+    return w->version >= 7500 ? 25 : 13;
+}
+
+static void Put(Writer* w, const void* bytes, size_t size)
+{
+    memcpy(w->b + w->n, bytes, size);
+    w->n += size;
+}
+
+static void Word(uint8_t* p, uint64_t v, int size, bool big)
+{
+    for (int i = 0; i < size; ++i)
+    {
+        p[big ? size - 1 - i : i] = (uint8_t)(v >> (8 * i));
+    }
+}
+
+static void PutWord(Writer* w, uint64_t v, int size)
+{
+    Word(w->b + w->n, v, size, w->big);
+    w->n += (size_t)size;
+}
+
+static void Start(uint32_t version, bool big)
+{
+    Writer* w = &s_w;
+    memset(w, 0, sizeof *w);
+    w->version = version;
+    w->big = big;
+    Put(w, "Kaydara FBX Binary  \0\x1A", 22);
+    uint8_t endian = big ? 1 : 0;
+    Put(w, &endian, 1);
+    PutWord(w, version, 4);
+    w->depth = 0;
+}
+
+static void Begin(const char* name)
+{
+    Writer* w = &s_w;
+    if (w->depth > 0 && !w->children[w->depth])
+    {
+        w->children[w->depth] = true;
+        w->valuesEnd[w->depth] = w->n;
+    }
+    ++w->depth;
+    w->start[w->depth] = w->n;
+    memset(w->b + w->n, 0, HeaderSize(w));
+    w->n += HeaderSize(w);
+    w->b[w->n - 1] = (uint8_t)strlen(name);
+    Put(w, name, strlen(name));
+    w->values[w->depth] = w->n;
+    w->count[w->depth] = 0;
+    w->children[w->depth] = false;
+}
+
+static void Null(Writer* w)
+{
+    memset(w->b + w->n, 0, HeaderSize(w));
+    w->n += HeaderSize(w);
+}
+
+static void End(void)
+{
+    Writer* w = &s_w;
+    int d = w->depth;
+    if (w->children[d])
+    {
+        Null(w);
+    }
+    else
+    {
+        w->valuesEnd[d] = w->n;
+    }
+    int size = w->version >= 7500 ? 8 : 4;
+    uint8_t* h = w->b + w->start[d];
+    Word(h, w->n, size, w->big);
+    Word(h + size, w->count[d], size, w->big);
+    Word(h + 2 * size, w->valuesEnd[d] - w->values[d], size, w->big);
+    --w->depth;
+}
+
+// The top-level list's null record and a footer of no meaning.
+static void Finish(void)
+{
+    Null(&s_w);
+    Put(&s_w, "footer bytes....", 16);
+}
+
+static void Scalar(char type, uint64_t bits, int size)
+{
+    Put(&s_w, &type, 1);
+    PutWord(&s_w, bits, size);
+    ++s_w.count[s_w.depth];
+}
+
+static void PropI(int32_t v)
+{
+    Scalar('I', (uint32_t)v, 4);
+}
+
+static void PropL(int64_t v)
+{
+    Scalar('L', (uint64_t)v, 8);
+}
+
+static void PropD(double v)
+{
+    uint64_t bits = 0;
+    memcpy(&bits, &v, sizeof bits);
+    Scalar('D', bits, 8);
+}
+
+static void PropS(const char* s, size_t length)
+{
+    Put(&s_w, "S", 1);
+    PutWord(&s_w, length, 4);
+    Put(&s_w, s, length);
+    ++s_w.count[s_w.depth];
+}
+
+// A raw array of `count` elements of `size` bytes, given as words.
+static void PropArray(char type, const uint64_t* words, uint32_t count, int size)
+{
+    Put(&s_w, &type, 1);
+    PutWord(&s_w, count, 4);
+    PutWord(&s_w, 0, 4);
+    PutWord(&s_w, (uint64_t)count * (uint64_t)size, 4);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        PutWord(&s_w, words[i], size);
+    }
+    ++s_w.count[s_w.depth];
+}
+
+static uint32_t Adler32(const uint8_t* p, size_t n)
+{
+    uint32_t a = 1;
+    uint32_t b = 0;
+    for (size_t i = 0; i < n; ++i)
+    {
+        a = (a + p[i]) % 65521u;
+        b = (b + a) % 65521u;
+    }
+    return b << 16 | a;
+}
+
+// The same as a zlib stream of one stored block; `corrupt` breaks its
+// checksum.
+static void PropZlib(char type, const uint64_t* words, uint32_t count, int size, bool corrupt)
+{
+    uint8_t data[512];
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        Word(data + i * (uint32_t)size, words[i], size, s_w.big);
+    }
+    uint16_t length = (uint16_t)(count * (uint32_t)size);
+    Put(&s_w, &type, 1);
+    PutWord(&s_w, count, 4);
+    PutWord(&s_w, 1, 4);
+    PutWord(&s_w, (uint64_t)length + 11, 4);
+    const uint8_t head[5] = {0x78, 0x01, 0x01, (uint8_t)length, (uint8_t)(length >> 8)};
+    Put(&s_w, head, sizeof head);
+    const uint8_t inverse[2] = {(uint8_t)~length, (uint8_t)(~length >> 8)};
+    Put(&s_w, inverse, 2);
+    Put(&s_w, data, length);
+    uint32_t adler = Adler32(data, length) ^ (corrupt ? 1u : 0u);
+    const uint8_t sum[4] = {(uint8_t)(adler >> 24), (uint8_t)(adler >> 16), (uint8_t)(adler >> 8),
+                            (uint8_t)adler};
+    Put(&s_w, sum, 4);
+    ++s_w.count[s_w.depth];
+}
+
+static uint64_t Bits(double v)
+{
+    uint64_t bits = 0;
+    memcpy(&bits, &v, sizeof bits);
+    return bits;
+}
+
+static uint64_t Bits32(float v)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &v, sizeof bits);
+    return bits;
+}
+
+// A small scene: a header node, a model with a name, a Properties70
+// entry and arrays of every kind.
+static void Scene(uint32_t version, bool big)
+{
+    Start(version, big);
+    Begin("FBXHeaderExtension");
+    Begin("FBXVersion");
+    PropI((int32_t)version);
+    End();
+    End();
+    Begin("Objects");
+    Begin("Model");
+    PropL(1234567890123LL);
+    PropS("hip\0\1Model", 11);
+    PropS("LimbNode", 8);
+    Begin("Properties70");
+    Begin("P");
+    PropS("Lcl Translation", 15);
+    PropS("Lcl Translation", 15);
+    PropS("", 0);
+    PropS("A", 1);
+    PropD(1.5);
+    PropD(-2.0);
+    PropD(0.25);
+    End();
+    End();
+    Begin("KeyTime");
+    const uint64_t times[3] = {0, 46186158000ull, 92372316000ull};
+    PropArray('l', times, 3, 8);
+    End();
+    Begin("KeyValueFloat");
+    const uint64_t values[3] = {Bits32(1.0f), Bits32(-0.5f), Bits32(3.25f)};
+    PropZlib('f', values, 3, 4, false);
+    End();
+    Begin("Indexes");
+    const uint64_t indexes[2] = {(uint32_t)-7, 9};
+    PropArray('i', indexes, 2, 4);
+    End();
+    Begin("Weights");
+    const uint64_t weights[2] = {Bits(0.75), Bits(0.25)};
+    PropArray('d', weights, 2, 8);
+    End();
+    End();
+    End();
+    Finish();
+}
+
+static maniBuilder* NewBuilder(void)
+{
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = NULL;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_success, "builder");
+    return builder;
+}
+
+static uint32_t Path(const maniFbx* fbx, const char* const* names, int count)
+{
+    uint32_t node = 0;
+    for (int i = 0; i < count && node != MANI_FBX_NONE; ++i)
+    {
+        node = maniFbxFindChild(fbx, node, names[i], strlen(names[i]));
+    }
+    return node;
+}
+
+static void CheckScene(uint32_t version, bool big, const char* what)
+{
+    Scene(version, big);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniImportResult r = maniOpenFbx(builder, s_w.b, s_w.n, &fbx);
+    CHECK(r.result == mani_success, what);
+    if (r.result != mani_success)
+    {
+        printf("  reason %u offset %llu\n", r.reason, (unsigned long long)r.offset);
+        maniDestroyBuilder(builder);
+        return;
+    }
+    CHECK(maniFbxVersion(fbx) == version, "the version");
+    CHECK(fbx->nodeCount == 11, "eleven nodes and the root");
+    const char* const header[2] = {"FBXHeaderExtension", "FBXVersion"};
+    int64_t v = 0;
+    CHECK(maniFbxInteger(fbx, maniFbxNodeProperty(fbx, Path(fbx, header, 2), 0), 0, 9999, &v) &&
+              v == version,
+          "an int32 property");
+    const char* const model[2] = {"Objects", "Model"};
+    uint32_t m = Path(fbx, model, 2);
+    CHECK(m != MANI_FBX_NONE && fbx->nodes[m].propertyCount == 3, "a model, three properties");
+    CHECK(maniFbxInteger(fbx, maniFbxNodeProperty(fbx, m, 0), INT64_MIN, INT64_MAX, &v) &&
+              v == 1234567890123LL,
+          "an int64 id");
+    const uint8_t* text = NULL;
+    uint32_t length = 0;
+    CHECK(maniFbxString(fbx, maniFbxNodeProperty(fbx, m, 1), &text, &length) && length == 11 &&
+              memcmp(text, "hip\0\1Model", 11) == 0,
+          "a name with its class, raw");
+    CHECK(maniFbxNodeProperty(fbx, m, 3) == MANI_FBX_NONE, "past the properties");
+    const char* const p[4] = {"Objects", "Model", "Properties70", "P"};
+    uint32_t entry = Path(fbx, p, 4);
+    double d = 0;
+    CHECK(maniFbxNumber(fbx, maniFbxNodeProperty(fbx, entry, 5), &d) && d == -2.0, "a double");
+    CHECK(!maniFbxNumber(fbx, maniFbxNodeProperty(fbx, entry, 0), &d), "a string is no number");
+    CHECK(maniFbxInteger(fbx, maniFbxNodeProperty(fbx, entry, 5), -5, 5, &v) && v == -2,
+          "a whole double as an integer");
+    CHECK(!maniFbxInteger(fbx, maniFbxNodeProperty(fbx, entry, 4), -5, 5, &v), "1.5 is not whole");
+    const char* const times[3] = {"Objects", "Model", "KeyTime"};
+    uint32_t t = maniFbxNodeProperty(fbx, Path(fbx, times, 3), 0);
+    int64_t ticks[3];
+    CHECK(maniFbxArrayCount(fbx, t) == 3 &&
+              maniFbxReadIntegers(fbx, t, ticks).result == mani_success &&
+              ticks[1] == 46186158000LL && ticks[2] == 92372316000LL,
+          "an int64 array");
+    const char* const keys[3] = {"Objects", "Model", "KeyValueFloat"};
+    uint32_t k = maniFbxNodeProperty(fbx, Path(fbx, keys, 3), 0);
+    double out[3];
+    CHECK(maniFbxReadDoubles(fbx, k, out).result == mani_success && out[0] == 1.0 &&
+              out[1] == -0.5 && out[2] == 3.25,
+          "a zlib float array");
+    CHECK(maniFbxReadIntegers(fbx, k, ticks).result == mani_errorFormat, "floats are no integers");
+    const char* const indexes[3] = {"Objects", "Model", "Indexes"};
+    uint32_t i = maniFbxNodeProperty(fbx, Path(fbx, indexes, 3), 0);
+    CHECK(maniFbxReadIntegers(fbx, i, ticks).result == mani_success && ticks[0] == -7 &&
+              ticks[1] == 9,
+          "int32 sign extended");
+    CHECK(maniFbxReadDoubles(fbx, i, out).result == mani_success && out[0] == -7.0,
+          "integers as doubles");
+    const char* const weights[3] = {"Objects", "Model", "Weights"};
+    uint32_t wt = maniFbxNodeProperty(fbx, Path(fbx, weights, 3), 0);
+    CHECK(maniFbxReadDoubles(fbx, wt, out).result == mani_success && out[0] == 0.75 &&
+              out[1] == 0.25,
+          "a double array");
+    CHECK(maniFbxArrayCount(fbx, maniFbxNodeProperty(fbx, m, 0)) == 0, "a scalar is no array");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static void ExpectRefusal(maniImportReason reason, uint64_t offset, const char* what)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniImportResult r = maniOpenFbx(builder, s_w.b, s_w.n, &fbx);
+    bool right =
+        r.result == mani_errorFormat && r.reason == reason && r.offset == offset && fbx == NULL;
+    CHECK(right, what);
+    if (!right)
+    {
+        printf("  result %d reason %u offset %llu (want %llu)\n", (int)r.result, r.reason,
+               (unsigned long long)r.offset, (unsigned long long)offset);
+    }
+    maniDestroyBuilder(builder);
+}
+
+// The offset of a node's header in the written file: the n-th record
+// named so.
+static size_t RecordAt(const char* name)
+{
+    size_t length = strlen(name);
+    for (size_t at = 27; at + length < s_w.n; ++at)
+    {
+        size_t h = HeaderSize(&s_w);
+        if (at + h + length <= s_w.n && s_w.b[at + h - 1] == length &&
+            memcmp(s_w.b + at + h, name, length) == 0)
+        {
+            return at;
+        }
+    }
+    return 0;
+}
+
+static uint64_t ReadWord(const uint8_t* p, int size, bool big)
+{
+    uint64_t v = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        v |= (uint64_t)p[big ? size - 1 - i : i] << (8 * i);
+    }
+    return v;
+}
+
+// The offset of a record's k-th property's type letter.
+static size_t PropertyAt(size_t record, int k)
+{
+    size_t at = record + HeaderSize(&s_w) + s_w.b[record + HeaderSize(&s_w) - 1];
+    for (int i = 0; i < k; ++i)
+    {
+        uint8_t type = s_w.b[at];
+        size_t step = type == 'I' ? 5 : type == 'L' || type == 'D' ? 9 : 0;
+        if (type == 'S')
+        {
+            step = 5 + (size_t)ReadWord(s_w.b + at + 1, 4, s_w.big);
+        }
+        at += step;
+    }
+    return at;
+}
+
+static void TestRefusals(void)
+{
+    Scene(7400, false);
+    s_w.b[21] = 0x1B;
+    ExpectRefusal(maniImportReasonContainer, 21, "the byte after the magic");
+    Scene(7400, false);
+    s_w.b[22] = 2;
+    ExpectRefusal(maniImportReasonContainer, 21, "an endianness byte neither 0 nor 1");
+    Scene(2900, false);
+    ExpectRefusal(maniImportReasonVersion, 23, "version below 3000");
+    Scene(7800, false);
+    ExpectRefusal(maniImportReasonVersion, 23, "version past 7700");
+    Scene(7400, false);
+    s_w.n = 24;
+    ExpectRefusal(maniImportReasonContainer, 24, "a header cut short");
+    // A record ending past the file.
+    Scene(7400, false);
+    size_t model = RecordAt("Model");
+    Word(s_w.b + model, s_w.n + 100, 4, false);
+    ExpectRefusal(maniImportReasonContainer, model, "an end past the file");
+    // A record ending one byte before its children's null record does:
+    // refused at that null record.
+    Scene(7400, false);
+    model = RecordAt("Model");
+    uint64_t end = ReadWord(s_w.b + model, 4, false);
+    Word(s_w.b + model, end - 1, 4, false);
+    ExpectRefusal(maniImportReasonContainer, end - 13, "an end before the record does");
+    Scene(7400, false);
+    model = RecordAt("Model");
+    s_w.b[PropertyAt(model, 0)] = 'Q';
+    ExpectRefusal(maniImportReasonContainer, PropertyAt(model, 0), "a type FBX lacks");
+    Scene(7400, false);
+    model = RecordAt("Model");
+    Word(s_w.b + model + 4, 2, 4, false);
+    ExpectRefusal(maniImportReasonContainer, PropertyAt(model, 2), "fewer properties than bytes");
+    Scene(7400, false);
+    model = RecordAt("Model");
+    Word(s_w.b + model + 4, 1000, 4, false);
+    ExpectRefusal(maniImportReasonContainer, model, "more properties than bytes");
+    Scene(7400, false);
+    model = RecordAt("Model");
+    Word(s_w.b + PropertyAt(model, 1) + 1, 100000, 4, false);
+    ExpectRefusal(maniImportReasonContainer, PropertyAt(model, 1), "a string past its record");
+    Scene(7400, false);
+    size_t times = RecordAt("KeyTime");
+    size_t array = PropertyAt(times, 0) + 1;
+    Word(s_w.b + array + 4, 2, 4, false);
+    ExpectRefusal(maniImportReasonContainer, array + 4, "an array encoding FBX lacks");
+    Scene(7400, false);
+    Word(s_w.b + array + 8, 23, 4, false);
+    ExpectRefusal(maniImportReasonContainer, array + 8, "a raw array of the wrong size");
+    Scene(7400, false);
+    Word(s_w.b + array, 4, 4, false);
+    ExpectRefusal(maniImportReasonContainer, array + 8, "a raw array's count past its bytes");
+    // No null record ends the top level.
+    Scene(7400, false);
+    s_w.n -= 16 + 13;
+    ExpectRefusal(maniImportReasonContainer, s_w.n, "the top level unended");
+    // Nesting past 64.
+    Start(7400, false);
+    for (int i = 0; i < 66; ++i)
+    {
+        Begin("N");
+    }
+    for (int i = 0; i < 66; ++i)
+    {
+        End();
+    }
+    Finish();
+    size_t deep = 27;
+    for (int i = 0; i < 64; ++i)
+    {
+        deep += 13 + 1;
+    }
+    ExpectRefusal(maniImportReasonContainer, deep - 14, "nesting past 64");
+    Start(7400, false);
+    for (int i = 0; i < 64; ++i)
+    {
+        Begin("N");
+    }
+    for (int i = 0; i < 64; ++i)
+    {
+        End();
+    }
+    Finish();
+    {
+        maniBuilder* builder = NewBuilder();
+        maniFbx* fbx = NULL;
+        CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "64 levels");
+        maniCloseFbx(fbx);
+        maniDestroyBuilder(builder);
+    }
+    // Not the binary form.
+    s_w.n = (size_t)snprintf((char*)s_w.b, sizeof s_w.b, "; FBX 7.4.0 project file\n");
+    ExpectRefusal(maniImportReasonSyntax, 0, "text, until the ASCII reader");
+}
+
+static void TestValueRefusals(void)
+{
+    Start(7400, false);
+    Begin("Bad");
+    const uint64_t values[2] = {Bits32(1.0f), Bits32(2.0f)};
+    PropZlib('f', values, 2, 4, true);
+    End();
+    Begin("NaN");
+    const uint64_t nan[2] = {Bits(1.0), 0x7FF8000000000000ull};
+    PropArray('d', nan, 2, 8);
+    End();
+    Finish();
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "opens");
+    double out[2];
+    uint32_t bad = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "Bad", 3), 0);
+    maniImportResult r = maniFbxReadDoubles(fbx, bad, out);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData &&
+              r.offset == fbx->properties[bad].offset,
+          "a checksum that fails");
+    uint32_t nanArray = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "NaN", 3), 0);
+    r = maniFbxReadDoubles(fbx, nanArray, out);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData &&
+              r.offset == fbx->properties[nanArray].offset + 8,
+          "a NaN, at its element");
+    CHECK(maniFbxReadDoubles(fbx, MANI_FBX_NONE, out).result == mani_errorFormat, "no property");
+    maniCloseFbx(fbx);
+    // Misuse.
+    CHECK(maniOpenFbx(builder, NULL, 0, &fbx).result == mani_errorInvalid && fbx == NULL,
+          "no bytes");
+    CHECK(maniOpenFbx(NULL, s_w.b, s_w.n, &fbx).result == mani_errorInvalid, "no builder");
+    CHECK(maniBuilderMisuses(builder) == 1, "a misuse counted");
+    maniCloseFbx(NULL);
+    CHECK(maniFbxVersion(NULL) == 0, "no document");
+    maniDestroyBuilder(builder);
+}
+
+static int WriteSeed(const char* path)
+{
+    Scene(7400, false);
+    FILE* out = fopen(path, "wb");
+    if (out == NULL)
+    {
+        return 1;
+    }
+    size_t written = fwrite(s_w.b, 1, s_w.n, out);
+    return fclose(out) == 0 && written == s_w.n ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc == 3 && strcmp(argv[1], "--seed") == 0)
+    {
+        return WriteSeed(argv[2]);
+    }
+    CheckScene(7400, false, "a 7.4 file");
+    CheckScene(7500, false, "a 7.5 file, 64-bit headers");
+    CheckScene(7700, true, "a big-endian 7.7 file");
+    CheckScene(6100, true, "a big-endian 6.1 file");
+    TestRefusals();
+    TestValueRefusals();
+    return s_failures == 0 ? 0 : 1;
+}

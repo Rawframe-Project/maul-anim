@@ -42,6 +42,10 @@ gltf_node: allocator gltf_document gltf_property json
 gltf_rest: allocator gltf_basis gltf_document gltf_property json vecmath
 gltf_skeleton: allocator builder gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json
 sort:
+fbx: allocator builder fbx_binary fbx_document
+fbx_binary: allocator bytes fbx_document
+fbx_document:
+fbx_value: allocator fbx_binary fbx_document inflate
 gltf_spring: arena gltf_basis gltf_document gltf_names gltf_property json
 gltf_buffer: allocator gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_document gltf_property json

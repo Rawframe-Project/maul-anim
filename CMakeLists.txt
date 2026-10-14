@@ -67,7 +67,7 @@ if(MAUL_ANIM_OFFLINE)
                                      src/gltf_buffer.c src/gltf_layout.c
                                      src/gltf_names.c src/gltf_node.c src/gltf_property.c
                                      src/gltf_rest.c src/gltf_skeleton.c src/gltf_spring.c src/json.c src/skeleton_build.c
-                                     src/sort.c
+                                     src/fbx.c src/fbx_binary.c src/fbx_value.c src/sort.c
                                      src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
@@ -100,6 +100,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(gltf_clip WHITEBOX)
         maul_add_test(gltf_spring WHITEBOX)
         maul_add_test(arena WHITEBOX)
+        maul_add_test(fbx WHITEBOX)
         # Khronos sample models in test/data/gltf.
         maul_add_test(gltf_fixtures WHITEBOX)
         if(TARGET test_gltf_fixtures)
@@ -124,7 +125,7 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton skin clip json gltf)
+    foreach(area skeleton skin clip json gltf fbx)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
         # Internal readers (JSON) are fuzzed through their own headers.

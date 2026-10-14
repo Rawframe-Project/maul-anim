@@ -288,6 +288,21 @@ MANI_NODISCARD MANI_API maniImportResult maniGltfReadSprings(maniGltf* gltf, con
 ```
 Reads the document's `VRMC_springBone` extension (version 1.0) as spring bone sources on an opened skeleton (mani-0011): colliders, collider groups and springs, nodes found by bone name, offsets, tails and gravity directions in the output's basis. A document without the extension gives an empty set. The arrays are the document's until the next call or maniCloseGltf.  @param gltf      The document. @param skeleton  An opened skeleton holding the springs' nodes. @param options   The options the skeleton was built with. @param setOut    Receives the sources. @return `mani_success`; `mani_errorInvalid` for a NULL argument or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the document is used by one thread at a time.
 
+```c
+MANI_NODISCARD MANI_API maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut);
+```
+Opens an FBX document (mani-0012) from the bytes of a file in the binary form, versions 3000 to 7700, either byte order. Every record and length is checked against the bytes; no array is decoded until asked for.  @param builder  The builder whose allocator the document uses; it must be closed before the builder is destroyed. @param bytes    The file; kept alive and unchanged while the document is open. @param size     Its size in bytes. @param fbxOut   Receives the document. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorFormat` with a reason (Container, Version, Syntax) and the offset of the first byte found wrong; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+void maniCloseFbx(maniFbx* fbx);
+```
+Closes an FBX document and frees its memory. NULL is allowed.  @param fbx  The document. @par Thread safety Safe from any thread; the document is used by one thread at a time.
+
+```c
+uint32_t maniFbxVersion(const maniFbx* fbx);
+```
+Returns the document's version (7400 for FBX 7.4), 0 for NULL.  @param fbx  The document. @return The version. @par Thread safety Safe from any thread.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -442,4 +457,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-82 functions across 7 headers.
+85 functions across 7 headers.

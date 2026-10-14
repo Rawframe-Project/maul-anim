@@ -1,0 +1,45 @@
+# mani-0012. The FBX document
+
+Status: Accepted
+
+## Context
+
+FBX has no published specification and its SDK is closed. The binary
+form's encoding is described in the Blender Foundation's public-domain
+notes (2013), and ufbx, an open reader, shows what files in the wild
+hold: versions 3000 to 7700, record headers widened to 64 bits from
+7500, big-endian files, arrays raw or zlib-compressed. The ASCII form
+holds the same tree as text. Importing animation needs the tree's
+objects, properties and connections, not its meshes, and a file is
+hostile input.
+
+## Decision
+
+- **One tree from either form:** a flat array of nodes (name, a run of
+  properties, first child, next sibling) and one of properties (type
+  letter, count, where the payload lies in the file, an array's
+  encoding). Node 0 has the top-level nodes as its children.
+- **The binary container:** the 27-byte header (magic, 0x1A, an
+  endianness byte of 0 or 1, the version); versions 3000 to 7700, others
+  refused (Version); headers of 13 bytes before 7500 and 25 from it.
+  Every record's end offset must lie within its parent's and match
+  where its properties and children end; property bytes must add up to
+  the stated length; each child list ends in an all-zero record, the
+  top level too; at most 64 levels. Read in two passes, iteratively:
+  the first counts and checks, the second fills. Refusals are
+  Container, at the byte found wrong.
+- **Values on request:** numbers, whole numbers within a range, raw
+  strings (FBX's names hold `\x00\x01` separators), and arrays decoded
+  into caller memory, as binary64 or as integers. A zlib array is
+  inflated by the family's inflate into exactly its decoded size; a
+  stream that gives more or less or fails its checksum is Data at the
+  array, a float that is not finite Data at its element (or the array,
+  when compressed).
+- **`maniOpenFbx`, `maniCloseFbx`, `maniFbxVersion`**; until the ASCII
+  reader lands, text is refused with Syntax.
+
+## Consequences
+
+Opening is linear in the file and allocates two arrays; arrays the
+import never needs cost nothing. The animation import reads the same
+tree whichever form a file came in.

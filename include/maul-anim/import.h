@@ -24,6 +24,9 @@ extern "C"
     // An opened glTF document.
     typedef struct maniGltf maniGltf;
 
+    // An opened FBX document: its tree, read from the caller's bytes.
+    typedef struct maniFbx maniFbx;
+
     // Why an import refused its input.
     typedef uint32_t maniImportReason;
     enum
@@ -63,6 +66,8 @@ extern "C"
         // The builder refused what the document gave (item: the build's
         // reason).
         maniImportReasonBuild = 15,
+        // An FBX file in the ASCII form that is not its syntax.
+        maniImportReasonSyntax = 16,
     };
 
     // An axis of glTF's space, or its negative.
@@ -383,6 +388,41 @@ extern "C"
                                                                  const maniSkeleton* skeleton,
                                                                  const maniGltfOptions* options,
                                                                  maniSpringSetSource* setOut);
+
+    /// Opens an FBX document (mani-0012) from the bytes of a file in the
+    /// binary form, versions 3000 to 7700, either byte order. Every record
+    /// and length is checked against the bytes; no array is decoded until
+    /// asked for.
+    ///
+    /// @param builder  The builder whose allocator the document uses; it
+    ///                 must be closed before the builder is destroyed.
+    /// @param bytes    The file; kept alive and unchanged while the
+    ///                 document is open.
+    /// @param size     Its size in bytes.
+    /// @param fbxOut   Receives the document.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorFormat` with a reason (Container, Version, Syntax) and
+    /// the offset of the first byte found wrong; `mani_errorCapacity`
+    /// when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes,
+                                                         size_t size, maniFbx** fbxOut);
+
+    /// Closes an FBX document and frees its memory. NULL is allowed.
+    ///
+    /// @param fbx  The document.
+    /// @par Thread safety
+    /// Safe from any thread; the document is used by one thread at a time.
+    MANI_API void maniCloseFbx(maniFbx* fbx);
+
+    /// Returns the document's version (7400 for FBX 7.4), 0 for NULL.
+    ///
+    /// @param fbx  The document.
+    /// @return The version.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxVersion(const maniFbx* fbx);
 
 #ifdef __cplusplus
 }
