@@ -46,13 +46,13 @@ sort:
 names: allocator container sort
 hierarchy: allocator
 fbx: allocator builder fbx_ascii fbx_binary fbx_document fbx_model fbx_object
-fbx_model: allocator fbx_document fbx_object fbx_value names
+fbx_model: allocator fbx_document fbx_object fbx_value hierarchy names
 fbx_object: allocator container fbx_document fbx_value sort
 fbx_transform: fbx_document fbx_object fbx_value scalar
 fbx_world: allocator fbx_document fbx_model fbx_transform
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
-fbx_document: names
+fbx_document: hierarchy names
 fbx_value: allocator fbx_ascii fbx_binary fbx_document inflate
 gltf_spring: arena gltf_basis gltf_document gltf_names gltf_property json
 gltf_buffer: allocator gltf_document gltf_property json

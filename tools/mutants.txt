@@ -514,17 +514,17 @@ fbt-limit-only | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)or
 fbt-pivot-inner | src/fbx_transform.c | inner[i] = -v[kScaling][i] * v[kScalingPivot][i] + v[kScalingPivot][i] + | inner[i] = -v[kScaling][i] * v[kScalingPivot][i] - v[kScalingPivot][i] +
 fbt-pivot-outer | src/fbx_transform.c | t->translation[i] + v[kRotationPivot][i] + v[kRotationOffset][i] + v[kTranslation][i]; | t->translation[i] + v[kRotationOffset][i] + v[kTranslation][i];
 
-# FBX models (mani-0014), 2026-10-14: 16 mutants, all killed (two by
-# tests added after the sweep; a third found a redundant check, removed).
+# FBX models (mani-0014), 2026-10-14: 15 mutants, all killed (two by
+# tests added after the sweep; a third found a redundant check, removed;
+# the cycle walk moved to hierarchy.c).
 fbm-oo-child | src/fbx_model.c | return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE; | return c->parentProperty == MANI_FBX_NONE;
 fbm-oo-parent | src/fbx_model.c | return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE; | return c->childProperty == MANI_FBX_NONE;
 fbm-root | src/fbx_model.c | return c->parent == fbx->objectCount ? fbx->modelCount : maniFbxModelOf(fbx, c->parent); | return maniFbxModelOf(fbx, c->parent);
 fbm-two-same | src/fbx_model.c | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent) | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE)
 fbm-two | src/fbx_model.c | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent) | if (false)
 fbm-keep-parent | src/fbx_model.c | parent = p != MANI_FBX_NONE ? p : parent; | parent = p;
-fbm-unparented | src/fbx_model.c | fbx->modelParents[m] = parent == MANI_FBX_NONE ? fbx->modelCount : parent; | fbx->modelParents[m] = parent;
-fbm-cycle | src/fbx_model.c | if (v != n && walk[v] == m) | if (false)
-fbm-cycle-walk | src/fbx_model.c | while (v != n && walk[v] == MANI_FBX_NONE) | while (false)
+fbm-unparented | src/fbx_model.c | fbx->modelParents[m] = parent == fbx->modelCount ? MANI_FBX_NONE : parent; | fbx->modelParents[m] = parent;
+fbm-cycle | src/fbx_model.c | if (r == mani_errorFormat) | if (false)
 fbm-orphans | src/fbx_model.c | if (placed[m] == 0) | if (false)
 fbm-name-k | src/fbx_model.c | uint32_t k = fbx->version >= 7000 ? 1 : 0; | uint32_t k = 1;
 fbm-model-kind | src/fbx_model.c | bool model = maniFbxObjectKindIs(fbx, o, "Model", 5); | bool model = true;
@@ -533,7 +533,7 @@ fbm-name-range | src/fbx_model.c | bool inRange = fbx != NULL && model < fbx->mo
 fbm-renamed-range | src/fbx_model.c | return fbx != NULL && index < fbx->modelNames.renamedCount ? fbx->modelNames.renamed[index] | return fbx != NULL ? fbx->modelNames.renamed[index]
 fbm-placed | src/fbx_model.c | if (ObjectToObject(c) && child != MANI_FBX_NONE && placed[child] == 0) | if (ObjectToObject(c) && child != MANI_FBX_NONE)
 
-# FBX worlds and the basis unit (mani-0014), 2026-10-14: 14 mutants, all
+# FBX worlds and the basis unit (mani-0014), 2026-10-14: 13 mutants, all
 # killed.
 fbw-unscaled | src/fbx_world.c | r.scale[0] = r.scale[1] = r.scale[2] = 1.0; | r.scale[0] = r.scale[1] = 1.0;
 fbw-source-rrss | src/fbx_world.c | out->scaleSource = local->inherit == maniFbxInheritRrSs  ? parent | out->scaleSource = local->inherit == maniFbxInheritRrSs  ? MANI_FBX_NONE
@@ -544,7 +544,6 @@ fbw-scale-source | src/fbx_world.c | out->transform.scale[i] *= source[i]; | out
 fbw-translation | src/fbx_world.c | out->transform.translation[i] *= p->inheritScale[i]; | out->transform.translation[i] *= 1.0;
 fbw-hang | src/fbx_world.c | out->world = maniFbxMatrixMul(&p->unscaled, &linear); | out->world = maniFbxMatrixMul(&p->world, &linear);
 fbw-inherit-scale | src/fbx_world.c | memcpy(out->inheritScale, out->transform.scale, sizeof out->inheritScale); | memcpy(out->inheritScale, local->trs.scale, sizeof out->inheritScale);
-fbw-parent-root | src/fbx_world.c | maniFbxEvaluateModel(worlds, parent != n ? parent : MANI_FBX_NONE, &local, | maniFbxEvaluateModel(worlds, MANI_FBX_NONE, &local,
 fbw-children | src/fbx_world.c | stack[height++] = children[k]; | stack[height++] = children[0];
 bas-unit | src/basis.c | return (maniVec3){b->unit * v.x, b->unit * v.y, b->unit * v.z}; | return (maniVec3){v.x, v.y, v.z};
 bas-unit-vector | src/basis.c | out = translation ? Scale(basis, out) : out; | out = Scale(basis, out);

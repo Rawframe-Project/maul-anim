@@ -90,8 +90,8 @@ static void TestSeven(void)
     // hip 0, spine 1, leg 2, spine 3, unnamed 4, lone 5.
     uint32_t root = fbx->modelCount;
     const uint32_t* parents = fbx->modelParents;
-    CHECK(parents[0] == root && parents[1] == 0 && parents[2] == 0 && parents[3] == 1 &&
-              parents[4] == root && parents[5] == root,
+    CHECK(parents[0] == MANI_FBX_NONE && parents[1] == 0 && parents[2] == 0 && parents[3] == 1 &&
+              parents[4] == MANI_FBX_NONE && parents[5] == MANI_FBX_NONE,
           "parents: models or the root, by object connections only");
     uint32_t hip[2] = {2, 1};
     uint32_t top[3] = {0, 4, 5};

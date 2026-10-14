@@ -90,8 +90,7 @@ maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, maniFbxWorld* worlds)
             uint32_t parent = fbx->modelParents[v];
             if (r.result == mani_success)
             {
-                maniFbxEvaluateModel(worlds, parent != n ? parent : MANI_FBX_NONE, &local,
-                                     &worlds[v]);
+                maniFbxEvaluateModel(worlds, parent, &local, &worlds[v]);
             }
         }
         const uint32_t* children = NULL;

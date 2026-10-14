@@ -3,7 +3,7 @@
 //
 // FBX models (mani-0014). A model's parent is the model (or the root)
 // it is the child of through an `OO` connection; another parent is
-// refused, as is a cycle, found by walking each model's parents once.
+// refused, as is a cycle, found as the shared forest finds them.
 // Children are listed per parent in connection order, models with no
 // parent connection under the root after those connected to it.
 
@@ -13,6 +13,7 @@
 #include "fbx_document.h"
 #include "fbx_object.h"
 #include "fbx_value.h"
+#include "hierarchy.h"
 #include "names.h"
 
 #include "maul-anim/import.h"
@@ -71,34 +72,22 @@ static maniImportResult ReadParents(maniFbx* fbx)
             }
             parent = p != MANI_FBX_NONE ? p : parent;
         }
-        fbx->modelParents[m] = parent == MANI_FBX_NONE ? fbx->modelCount : parent;
+        fbx->modelParents[m] = parent == fbx->modelCount ? MANI_FBX_NONE : parent;
     }
     return maniFbxSuccess();
 }
 
-// A cycle: a walk up from each model, marking the models on it, that
-// meets a model of its own walk. Each model is walked past once.
-static maniImportResult FindCycles(const maniFbx* fbx, uint32_t* walk)
+// Depths and common ancestors, refusing a cycle.
+static maniImportResult ReadHierarchy(maniFbx* fbx)
 {
-    uint32_t n = fbx->modelCount;
-    for (uint32_t m = 0; m < n; ++m)
+    uint32_t cycle = 0;
+    maniResult r = maniHierarchyInit(&fbx->modelHierarchy, &fbx->allocator, fbx->modelParents,
+                                     fbx->modelCount, &cycle);
+    if (r == mani_errorFormat)
     {
-        walk[m] = MANI_FBX_NONE;
+        return Refuse(fbx, cycle);
     }
-    for (uint32_t m = 0; m < n; ++m)
-    {
-        uint32_t v = m;
-        while (v != n && walk[v] == MANI_FBX_NONE)
-        {
-            walk[v] = m;
-            v = fbx->modelParents[v];
-        }
-        if (v != n && walk[v] == m)
-        {
-            return Refuse(fbx, v);
-        }
-    }
-    return maniFbxSuccess();
+    return r == mani_success ? maniFbxSuccess() : Capacity();
 }
 
 // Children per parent, in connection order: the root's (the parent
@@ -209,10 +198,9 @@ maniImportResult maniFbxReadModels(maniFbx* fbx)
     {
         r = ReadParents(fbx);
     }
-    // The children's array holds each walk's marks first.
     if (r.result == mani_success)
     {
-        r = FindCycles(fbx, fbx->modelChildren);
+        r = ReadHierarchy(fbx);
     }
     if (r.result == mani_success)
     {
@@ -232,6 +220,7 @@ void maniFbxReleaseModels(maniFbx* fbx)
 {
     uint32_t n = fbx->modelCount;
     maniReleaseBoneNames(&fbx->allocator, &fbx->modelNames);
+    maniHierarchyRelease(&fbx->modelHierarchy, &fbx->allocator);
     FreeWords(fbx, fbx->childStartsOfModel, (size_t)n + 1);
     FreeWords(fbx, fbx->modelChildren, n);
     FreeWords(fbx, fbx->modelParents, n);

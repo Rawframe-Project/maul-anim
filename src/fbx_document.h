@@ -8,6 +8,7 @@
 #ifndef MAUL_ANIM_SRC_FBX_DOCUMENT_H
 #define MAUL_ANIM_SRC_FBX_DOCUMENT_H
 
+#include "hierarchy.h"
 #include "names.h"
 
 #include "maul-anim/base.h"
@@ -129,12 +130,14 @@ struct maniFbx
     uint32_t skippedConnections;
     maniFbxSettings settings;
     // Models (mani-0014): their objects in object order, each object's
-    // model (or MANI_FBX_NONE), each model's parent (modelCount for the
-    // root), children per parent (the root's last) and bone names.
+    // model (or MANI_FBX_NONE), each model's parent (MANI_FBX_NONE at the
+    // top) and the forest they make, children per parent (the root's
+    // last, at modelCount) and bone names.
     uint32_t* models;
     uint32_t modelCount;
     uint32_t* modelOfObject;
     uint32_t* modelParents;
+    maniHierarchy modelHierarchy;
     uint32_t* modelChildren;
     uint32_t* childStartsOfModel;
     maniBoneNames modelNames;
