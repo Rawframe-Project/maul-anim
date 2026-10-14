@@ -840,6 +840,7 @@ static void TestShortInteger(void)
     uint32_t p = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "Short", 5), 0);
     CHECK(maniFbxInteger(fbx, p, -10, 10, &v) && v == -5 && maniFbxNumber(fbx, p, &d) && d == -5.0,
           "an int16 sign extended");
+    CHECK(!maniFbxInteger(fbx, p, -4, 4, &v), "a binary integer below its range");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
