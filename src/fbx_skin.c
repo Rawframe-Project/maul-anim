@@ -296,20 +296,18 @@ static maniImportResult BindWorld(const Skin* s, uint32_t cluster, uint32_t mode
     bool present = false;
     maniImportResult r =
         ReadMatrix(fbx, fbx->objects[cluster].node, "TransformLink", s->skin, &present, out);
-    if (r.result != mani_success || (present && !AllZero(out)))
-    {
-        return r;
-    }
-    if (s->poseOf[model] != MANI_FBX_NONE)
+    bool linked = present && !AllZero(out);
+    bool posed = false;
+    if (r.result == mani_success && !linked && s->poseOf[model] != MANI_FBX_NONE)
     {
         r = ReadMatrix(fbx, s->poseOf[model], "Matrix", s->skin, &present, out);
-        if (r.result != mani_success || (present && !AllZero(out)))
-        {
-            return r;
-        }
+        posed = present && !AllZero(out);
     }
-    *out = s->worlds[model].world;
-    return maniFbxSuccess();
+    if (r.result == mani_success && !linked && !posed)
+    {
+        *out = s->worlds[model].world;
+    }
+    return r;
 }
 
 // The mesh node relative to the bone at bind, from the bone's bind world
