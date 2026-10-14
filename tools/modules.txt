@@ -2,3 +2,4 @@
 # and the modules it may use. tools/check_modules.py enforces it.
 base:
 scalar:
+vecmath: scalar
