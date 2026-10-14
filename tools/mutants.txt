@@ -639,3 +639,49 @@ fbk-pose | src/fbx_skin.c | if (r.result == mani_success && !linked && s->poseOf
 fbk-rest | src/fbx_skin.c | if (r.result == mani_success && !linked && !posed) | if (r.result == mani_success && !linked)
 fbk-affine-row | src/fbx_skin.c | if (!zero && !(fabs(m[3]) <= 1e-5 && fabs(m[7]) <= 1e-5 && fabs(m[11]) <= 1e-5 && | if (!zero && !(fabs(m[3]) <= 1e-5 && fabs(m[7]) <= 1e-5 &&
 fbk-all-zero | src/fbx_skin.c | zero = zero && m[k] == 0.0; | zero = false;
+
+# FBX curves (fbx_curve.c, mani-0016), 2026-10-15: 42 mutants, all killed
+# (the first sweep asked for a case per tangent rule and removed three
+# branches that made no observable difference).
+fcv-sizes | src/fbx_curve.c | if (n[0] != n[1] || n[2] != n[4] || (uint64_t)n[3] != (uint64_t)n[4] * 4u) | if (n[0] != n[1] || n[2] != n[4])
+fcv-run-empty | src/fbx_curve.c | if (a->runs[k] <= 0) | if (a->runs[k] < 0)
+fcv-covered | src/fbx_curve.c | if (covered < a->keyCount) | if (false)
+fcv-order | src/fbx_curve.c | if (a->ticks[i] < a->ticks[i - 1]) | if (false)
+fcv-bias-weight | src/fbx_curve.c | double weight = fabs((double)bias) / 100.0; | double weight = fabs((double)bias) / 10.0;
+fcv-bias-target | src/fbx_curve.c | double target = bias > 0.0f ? right : left; | double target = bias > 0.0f ? left : right;
+fcv-bias-beyond | src/fbx_curve.c | double beyond = weight - 5.0; | double beyond = weight - 6.0;
+fcv-bias-sign | src/fbx_curve.c | double sign = fabs(toward) > 0.00001 ? toward : (double)bias; | double sign = (double)bias;
+fcv-prog-left | src/fbx_curve.c | magnitude = magnitude > maxLeft ? maxLeft : magnitude; | magnitude = magnitude;
+fcv-prog-right | src/fbx_curve.c | magnitude = magnitude > maxRight ? maxRight : magnitude; | magnitude = magnitude;
+fcv-prog-floor | src/fbx_curve.c | maxLeft = maxLeft > 0.0 ? maxLeft : 0.0; | maxLeft = maxLeft;
+fcv-clamp | src/fbx_curve.c | if ((flags & KEY_CLAMP) != 0 && (prevValue == value || nextValue == value)) | if ((flags & KEY_CLAMP) != 0 && prevValue == value)
+fcv-independent | src/fbx_curve.c | if ((flags & KEY_TIME_INDEPENDENT) == 0) | if (true)
+fcv-delta | src/fbx_curve.c | slope = slope * 0.5 + (left * (1.0 - delta) + right * delta) * 0.5; | slope = slope * 0.5 + (left * delta + right * (1.0 - delta)) * 0.5;
+fcv-progressive | src/fbx_curve.c | if ((flags & KEY_CLAMP_PROGRESSIVE) != 0) | if (false)
+fcv-end-progressive | src/fbx_curve.c | if ((flags & KEY_CLAMP_PROGRESSIVE) != 0 || ((flags & KEY_CLAMP) != 0 && toValue == fromValue)) | if ((flags & KEY_CLAMP) != 0 && toValue == fromValue)
+fcv-end-bias | src/fbx_curve.c | if ((flags & KEY_TIME_INDEPENDENT) == 0 && beyond > 0.0) | if (false)
+fcv-left-bias | src/fbx_curve.c | weightRight, -*left, flags); | weightRight, *left, flags);
+fcv-end-left | src/fbx_curve.c | *left = *right = EndSlope(d->previousTime, time, v[i - 1], v[i], -*left, flags); | *left = *right = EndSlope(d->previousTime, time, v[i - 1], v[i], *left, flags);
+fcv-tcb-edge | src/fbx_curve.c | double factor = edge ? 1.0 : 0.5; | double factor = 0.5;
+fcv-tcb-continuity | src/fbx_curve.c | double d00 = factor * (1.0 - tension) * (1.0 + bias) * (1.0 - continuity); | double d00 = factor * (1.0 - tension) * (1.0 + bias);
+fcv-tcb-next | src/fbx_curve.c | nextSlopeLeft = 0.0f; | (void)0;
+fcv-weight-right | src/fbx_curve.c | weightRight = (float)(words[2] & 0xffffu) * 0.0001f; | weightRight = (float)(words[2] >> 16) * 0.0001f;
+fcv-weight-left | src/fbx_curve.c | nextWeightLeft = (float)(words[2] >> 16) * 0.0001f; | nextWeightLeft = (float)(words[2] & 0xffffu) * 0.0001f;
+fcv-constant-next | src/fbx_curve.c | (flags & KEY_CONSTANT_NEXT) != 0 ? maniFbxConstantNext : maniFbxConstantPrevious; | maniFbxConstantPrevious;
+fcv-constant-flat | src/fbx_curve.c | slopeRight = nextSlopeLeft = 0.0f; | (void)0;
+fcv-user | src/fbx_curve.c | else if ((flags & KEY_USER) == 0) | else if (true)
+fcv-linear-slope | src/fbx_curve.c | double slope = next > time ? (v[i + 1] - v[i]) / (next - time) : 0.0; | double slope = 0.0;
+fcv-left-dx | src/fbx_curve.c | ? (double)Narrow((double)d->weightLeft * (time - d->previousTime)) | ? (double)Narrow((double)THIRD * (time - d->previousTime))
+fcv-ext-mirror | src/fbx_curve.c | : mode == 'M' ? maniFbxExtrapolateMirror | : mode == 'M' ? maniFbxExtrapolateRepeat
+fcv-ext-repeat | src/fbx_curve.c | e.repeat = count < 0 ? -1 : (int32_t)count; | e.repeat = -1;
+fcv-run-advance | src/fbx_curve.c | if (--left == 0 && run + 1 < a.runCount) | if (--left == 0 && run + 2 < a.runCount)
+fcv-newton | src/fbx_curve.c | for (uint32_t i = 0; i < 11; ++i) | for (uint32_t i = 0; i < 1; ++i)
+fcv-exact-key | src/fbx_curve.c | if (prev->time == time) | if (false)
+fcv-slope-dx | src/fbx_curve.c | double dx = pre ? key->rightDx : key->leftDx; | double dx = key->leftDx;
+fcv-repeat-zero | src/fbx_curve.c | if (e.mode == maniFbxExtrapolateConstant || e.repeat == 0) | if (e.mode == maniFbxExtrapolateConstant)
+fcv-repeat-cap | src/fbx_curve.c | into = duration; | (void)0;
+fcv-mirror-parity | src/fbx_curve.c | if (e.mode == maniFbxExtrapolateMirror && n * 0.5 - Floor(n * 0.5) <= 0.25) | if (e.mode == maniFbxExtrapolateMirror && n * 0.5 - Floor(n * 0.5) > 0.25)
+fcv-pre-flip | src/fbx_curve.c | into = pre ? duration - into : into; | into = into;
+fcv-relative | src/fbx_curve.c | value += (pre ? -change : change) * (n + 1.0); | value += change * (n + 1.0);
+fcv-one-key | src/fbx_curve.c | return curve->count == 1 ? curve->keys[0].value : fallback; | return fallback;
+fcv-duration | src/fbx_curve.c | if (!(duration >= 1.0) || !(delta > 0.0)) | if (!(delta > 0.0))
