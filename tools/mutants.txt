@@ -45,9 +45,9 @@ inverse-translation | src/vecmath.c | out.m[9 + k] = (float)-(r[k] * t[0] + r[3 
 inverse-not-written | src/vecmath.c | *inverseOut = out; | (void)out;
 
 # The floating-point environment (src/fpenv.c, x86's mask)
-fpenv-keep-ftz | src/fpenv.c | return (control & ~(uint64_t)((1u << 15) | (1u << 6) | (3u << 13))) | (0x3fu << 7); | return (control & ~(uint64_t)((1u << 6) | (3u << 13))) | (0x3fu << 7);
-fpenv-keep-daz | src/fpenv.c | return (control & ~(uint64_t)((1u << 15) | (1u << 6) | (3u << 13))) | (0x3fu << 7); | return (control & ~(uint64_t)((1u << 15) | (3u << 13))) | (0x3fu << 7);
-fpenv-keep-rounding | src/fpenv.c | return (control & ~(uint64_t)((1u << 15) | (1u << 6) | (3u << 13))) | (0x3fu << 7); | return (control & ~(uint64_t)((1u << 15) | (1u << 6))) | (0x3fu << 7);
+fpenv-keep-ftz | src/fpenv.c | static const uint32_t s_flushToZero = 1u << 15; | static const uint32_t s_flushToZero = 0u;
+fpenv-keep-daz | src/fpenv.c | static const uint32_t s_denormalsAreZero = 1u << 6; | static const uint32_t s_denormalsAreZero = 0u;
+fpenv-keep-rounding | src/fpenv.c | static const uint32_t s_roundingMode = 3u << 13; | static const uint32_t s_roundingMode = 0u;
 fpenv-no-restore | src/fpenv.c | if (ReadControl() != env->saved) | if (false)
 fpenv-no-enter | src/fpenv.c | if (wanted != saved) | if (false)
 fpenv-restore-default | src/fpenv.c | WriteControl(env->saved); | WriteControl(0x1f80u);

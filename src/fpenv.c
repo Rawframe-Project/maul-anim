@@ -50,9 +50,15 @@ static void WriteControl(uint64_t value)
 
 // Clear flush-to-zero, denormals-are-zero and the rounding mode; mask
 // every exception.
+static const uint32_t s_flushToZero = 1u << 15;
+static const uint32_t s_denormalsAreZero = 1u << 6;
+static const uint32_t s_roundingMode = 3u << 13;
+static const uint32_t s_exceptionMasks = 0x3fu << 7;
+
 static uint64_t Wanted(uint64_t control)
 {
-    return (control & ~(uint64_t)((1u << 15) | (1u << 6) | (3u << 13))) | (0x3fu << 7);
+    uint32_t clear = s_flushToZero | s_denormalsAreZero | s_roundingMode;
+    return (control & ~(uint64_t)clear) | s_exceptionMasks;
 }
 
 #elif defined(__aarch64__) || defined(_M_ARM64)
@@ -84,10 +90,18 @@ static void WriteControl(uint64_t value)
 
 // Clear flush-to-zero (single and half, and input flush), alternate
 // handling, default NaN, the rounding mode and the trap enables.
+static const uint64_t s_flushToZero = 1ull << 24;
+static const uint64_t s_flushToZeroHalf = 1ull << 19;
+static const uint64_t s_defaultNan = 1ull << 25;
+static const uint64_t s_roundingMode = 3ull << 22;
+static const uint64_t s_trapEnables = (0x1full << 8) + (1ull << 15);
+static const uint64_t s_inputFlushAndAlternate = 3ull;
+
 static uint64_t Wanted(uint64_t control)
 {
-    return control & ~((1ull << 24) | (1ull << 19) | (1ull << 25) | (3ull << 22) | (0x1full << 8) |
-                       (1ull << 15) | 3ull);
+    uint64_t clear = s_flushToZero | s_flushToZeroHalf | s_defaultNan | s_roundingMode |
+                     s_trapEnables | s_inputFlushAndAlternate;
+    return control & ~clear;
 }
 
 #elif defined(__wasm__)
