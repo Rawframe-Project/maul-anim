@@ -394,10 +394,18 @@ skl-skin-missing | src/gltf_skeleton.c | if (joints[j] == MANI_NO_BONE) | if (fa
 skl-fold | src/gltf_skeleton.c | if (options->foldPlacement != 0) | if (false)
 rst-count | src/gltf_rest.c | if (gltf->json.values[array].count != count) | if (false)
 rst-number | src/gltf_rest.c | if (!maniJsonBinary(&gltf->json, element, maniBinary32, &bits)) | if (false)
-rst-shear | src/gltf_rest.c | if (!(fabsf(back.m[i] - a.m[i]) <= 1e-4f * largest)) | if (false)
-rst-largest | src/gltf_rest.c | largest = ColumnLength(&a, 2) > largest ? ColumnLength(&a, 2) : largest; | largest = largest;
+rst-shear | src/gltf_rest.c | if (!(fabsf(back.m[i] - a->m[i]) <= 1e-4f * largest)) | if (false)
+rst-largest | src/gltf_rest.c | largest = ColumnLength(a, 2) > largest ? ColumnLength(a, 2) : largest; | largest = largest;
 rst-matrix-trs | src/gltf_rest.c | if (hasT || hasR || hasS) | if (false)
 rst-zero-quat | src/gltf_rest.c | else if (q[0] == 0.0f && q[1] == 0.0f && q[2] == 0.0f && q[3] == 0.0f) | else if (false)
 bas-sign | src/gltf_basis.c | b.s[i] = options->axes[i] >= 3 ? -1.0f : 1.0f; | b.s[i] = 1.0f;
 bas-det | src/gltf_basis.c | b.det = b.s[0] * b.s[1] * b.s[2] * (even ? 1.0f : -1.0f); | b.det = b.s[0] * b.s[1] * b.s[2];
 bas-valid | src/gltf_basis.c | if (options->axes[i] > maniAxisNegativeZ || seen[options->axes[i] % 3]) | if (options->axes[i] > maniAxisNegativeZ)
+
+# Renamed nodes and folded shear (mani-0009, mani-0010), 2026-10-14:
+# five mutants, all killed.
+nam-renamed | src/gltf_names.c | out->renamed[out->renamedCount++] = nodes[b]; | out->renamedCount = out->renamedCount;
+nam-bone-name-range | src/gltf_names.c | bool inRange = gltf != NULL && node < gltf->names.count; | bool inRange = gltf != NULL;
+rst-fold-exact | src/gltf_rest.c | if (!maniGltfDecomposeExact(&folded, restOut)) | if (maniDecomposeAffine(&folded, restOut) != mani_success)
+clp-fold-exact | src/gltf_clip.c | if (r.result == mani_success && !maniGltfDecomposeExact(&composed, &d)) | if (r.result == mani_success && maniDecomposeAffine(&composed, &d) != mani_success)
+nam-renamed-range | src/gltf_names.c | return gltf != NULL && index < gltf->names.renamedCount ? gltf->names.renamed[index] | return gltf != NULL ? gltf->names.renamed[index]
