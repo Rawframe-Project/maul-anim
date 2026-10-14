@@ -253,6 +253,21 @@ MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkin(maniBuilder* builder,
 ```
 Builds a skin into the builder against an opened skeleton: each joint found by its bone name, the inverse binds read (identity when the skin has none) and the basis change applied.  @param builder   The builder. @param gltf      The document. @param skin      The skin. @param skeleton  An opened skeleton holding the skin's joints. @param options   The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skin past the count or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
+```c
+uint32_t maniGltfAnimationCount(const maniGltf* gltf);
+```
+Returns the number of animations.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation, uint32_t* lengthOut);
+```
+Returns an animation's name, UTF-8 and not terminated; empty for an animation without one.  @param gltf       The document. @param animation  The animation. @param lengthOut  Receives the length in bytes, 0 past the count. May be NULL. @return The name, or NULL past the count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation, const maniSkeleton* skeleton, const maniGltfOptions* options, float sampleRate, maniLoopPolicy loop, uint32_t* boundOut);
+```
+Builds one animation as a clip of an opened skeleton (mani-0010): translation, rotation and scale channels on its bones (found by name), morph weights of its bones and of meshes it skins, and `KHR_animation_pointer` channels to anything but nodes, each as float tracks; the basis change applied and, with placement folded, the nodes above the root composed in. The duration is the animation's latest key over every channel.  @param builder     The builder. @param gltf        The document, its buffers supplied. @param animation   The animation. @param skeleton    An opened skeleton. @param options     The options the skeleton was built with. @param sampleRate  Samples per second; 0 for 30. @param loop        The clip's loop policy. @param boundOut    Receives how many of the animation's channels the clip holds. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL argument, an animation past the count or options out of range; `mani_errorFormat` with a reason (Data with the channel as item for keys the clip builder refuses); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -407,4 +422,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-75 functions across 7 headers.
+78 functions across 7 headers.

@@ -62,7 +62,9 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c
                                      src/clip_build_named.c src/clip_measure.c src/decimal.c src/inflate.c
-                                     src/gltf.c src/gltf_basis.c src/gltf_buffer.c src/gltf_layout.c
+                                     src/arena.c src/gltf.c src/gltf_animation.c src/gltf_basis.c
+                                     src/gltf_clip.c
+                                     src/gltf_buffer.c src/gltf_layout.c
                                      src/gltf_names.c src/gltf_node.c src/gltf_property.c
                                      src/gltf_rest.c src/gltf_skeleton.c src/json.c src/skeleton_build.c
                                      src/sort.c
@@ -95,6 +97,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)
         maul_add_test(gltf_skeleton WHITEBOX)
+        maul_add_test(gltf_clip WHITEBOX)
     endif()
     maul_add_header_tests()
 endif()

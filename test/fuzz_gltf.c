@@ -3,8 +3,8 @@
 //
 // Opening a glTF document (mani-0008) from any bytes, then reading every
 // accessor, with each external buffer given the input's own bytes when
-// they are long enough, and building every skeleton and skin. Run as fuzz_gltf <corpus dir>; the
-// seed comes from test_gltf --seed <file>.
+// they are long enough, and building every skeleton, skin and clip. Run as fuzz_gltf <corpus dir>;
+// the seed comes from test_gltf --seed <file>.
 
 #include "gltf_document.h"
 #include "gltf_layout.h"
@@ -47,6 +47,12 @@ static void BuildAll(maniBuilder* builder, const maniGltf* gltf)
                 {
                     (void)maniGltfBuildSkin(builder, gltf, s, &skeleton, &options[o]);
                 }
+            }
+            for (uint32_t a = 0; a < maniGltfAnimationCount(gltf); ++a)
+            {
+                uint32_t bound = 0;
+                (void)maniGltfBuildClip(builder, gltf, a, &skeleton, &options[o], 10.0f,
+                                        maniLoopClamp, &bound);
             }
         }
     }

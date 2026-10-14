@@ -8,6 +8,7 @@
 #include "allocator.h"
 #include "builder.h"
 #include "bytes.h"
+#include "gltf_animation.h"
 #include "gltf_buffer.h"
 #include "gltf_document.h"
 #include "gltf_layout.h"
@@ -240,6 +241,10 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
     {
         r = maniGltfReadNames(gltf);
     }
+    if (r.result == mani_success)
+    {
+        r = maniGltfReadAnimations(gltf);
+    }
     return r;
 }
 
@@ -283,6 +288,7 @@ void maniCloseGltf(maniGltf* gltf)
         return;
     }
     maniAllocator allocator = gltf->allocator;
+    maniGltfReleaseAnimations(gltf);
     maniGltfReleaseNames(gltf);
     maniGltfReleaseNodes(gltf);
     maniGltfReleaseBuffers(gltf);
@@ -345,4 +351,20 @@ uint32_t maniGltfSkinSkeleton(const maniGltf* gltf, uint32_t skin)
 uint32_t maniGltfNodeCount(const maniGltf* gltf)
 {
     return gltf->nodeCount;
+}
+
+uint32_t maniGltfAnimationCount(const maniGltf* gltf)
+{
+    return gltf->animationCount;
+}
+
+const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation, uint32_t* lengthOut)
+{
+    const maniGltfNames* names = &gltf->animationNames;
+    bool inRange = animation < gltf->animationCount;
+    if (lengthOut != NULL)
+    {
+        *lengthOut = inRange ? names->starts[animation + 1] - names->starts[animation] : 0;
+    }
+    return inRange ? names->text + names->starts[animation] : NULL;
 }

@@ -32,7 +32,10 @@ decimal:
 json: allocator decimal text
 gltf_property: json
 gltf_document: gltf_property json
-gltf: allocator builder bytes gltf_buffer gltf_document gltf_layout gltf_names gltf_node gltf_property json
+gltf: allocator builder bytes gltf_animation gltf_buffer gltf_document gltf_layout gltf_names gltf_node gltf_property json
+arena: allocator
+gltf_clip: arena builder clip_build clip_file gltf_animation gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json vecmath
+gltf_animation: allocator arena container gltf_document gltf_property json sort
 gltf_basis:
 gltf_names: allocator container gltf_document gltf_property json sort
 gltf_node: allocator gltf_document gltf_property json

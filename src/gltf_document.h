@@ -121,6 +121,17 @@ struct maniGltf
     uint32_t skeletonCount;
     // Every node's bone name.
     maniGltfNames names;
+    // Animations: their JSON values and names (empty when unnamed); all
+    // their samplers' values end to end, animation a's from
+    // samplerStarts[a]; meshes' values.
+    uint32_t* animationValues;
+    uint32_t animationCount;
+    maniGltfNames animationNames;
+    uint32_t* samplerValues;
+    uint32_t* samplerStarts;
+    uint32_t samplerTotal;
+    uint32_t* meshValues;
+    uint32_t meshCount;
 };
 
 #endif // MAUL_ANIM_SRC_GLTF_DOCUMENT_H

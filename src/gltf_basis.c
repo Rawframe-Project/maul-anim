@@ -71,6 +71,24 @@ maniTransform maniGltfBasisTransform(const maniGltfOptions* options, maniTransfo
     return t;
 }
 
+void maniGltfBasisVector(const maniGltfOptions* options, float v[3], bool signs)
+{
+    Basis b = Make(options);
+    maniVec3 out = Permute(&b, (maniVec3){v[0], v[1], v[2]}, signs);
+    v[0] = out.x;
+    v[1] = out.y;
+    v[2] = out.z;
+}
+
+void maniGltfBasisQuat(const maniGltfOptions* options, float q[4])
+{
+    Basis b = Make(options);
+    maniVec3 axis = Permute(&b, (maniVec3){q[0], q[1], q[2]}, true);
+    q[0] = b.det * axis.x;
+    q[1] = b.det * axis.y;
+    q[2] = b.det * axis.z;
+}
+
 maniAffine maniGltfBasisAffine(const maniGltfOptions* options, maniAffine a)
 {
     Basis b = Make(options);
