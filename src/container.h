@@ -62,6 +62,10 @@ typedef struct maniSectionSource
     uint64_t size;
 } maniSectionSource;
 
+// maniHash64 over any number of bytes, continuing seed: the same value as
+// one call would give.
+uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size);
+
 // Opens bytes as a container of the given kind whose format version is at
 // most maxVersion: checks the alignment of bytes (16), the header, the
 // table, every section's place and the payload hash. Returns

@@ -21,6 +21,11 @@ extern "C"
 #define MANI_VERSION_MINOR 0
 #define MANI_VERSION_PATCH 1
 
+// The major and minor version a def is stamped with by its default
+// function; a call taking a def built against another refuses it with
+// mani_errorVersion before it reads anything else of it.
+#define MANI_ABI_VERSION (((uint32_t)MANI_VERSION_MAJOR << 16) | (uint32_t)MANI_VERSION_MINOR)
+
 // MANI_API marks the public functions: dllexport or dllimport in a
 // shared Windows build (maul_anim_EXPORTS is defined while building the
 // library), default visibility in a shared build elsewhere.
@@ -79,6 +84,50 @@ extern "C"
         uint32_t reserved;
         uint64_t offset;
     } maniFileResult;
+
+    // The allocator an owner object takes in its def and keeps for its
+    // lifetime. Alignment is a power of two. A zeroed allocator means the C
+    // library's functions, which serve alignments up to that of max_align_t.
+    typedef struct maniAllocator
+    {
+        void* (*alloc)(size_t size, size_t alignment, void* context);
+        void (*free)(void* memory, size_t size, size_t alignment, void* context);
+        void* context;
+    } maniAllocator;
+
+    // A vector or a position, binary32.
+    typedef struct maniVec3
+    {
+        float x;
+        float y;
+        float z;
+    } maniVec3;
+
+    // A rotation as a unit quaternion (x, y, z, w); a * b turns by b, then
+    // by a.
+    typedef struct maniQuat
+    {
+        float x;
+        float y;
+        float z;
+        float w;
+    } maniQuat;
+
+    // A bone's local transform: scale per axis, then rotation, then
+    // translation, as glTF composes a node (mani-0003).
+    typedef struct maniTransform
+    {
+        maniVec3 translation;
+        maniQuat rotation;
+        maniVec3 scale;
+    } maniTransform;
+
+    // An affine matrix, 3x4: its three columns (the x, y and z axes), then
+    // the translation; m[0..2], m[3..5], m[6..8], m[9..11].
+    typedef struct maniAffine
+    {
+        float m[12];
+    } maniAffine;
 
     // A version: major, minor and patch.
     typedef struct maniVersion

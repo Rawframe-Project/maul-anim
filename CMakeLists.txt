@@ -43,15 +43,19 @@ endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
     src/container.c
+    src/elementary_float.c
     src/fpenv.c
     src/hash.c
     src/scalar.c
+    src/skeleton.c
+    src/text.c
     src/vecmath.c)
 # The offline side (builders, compression, import) is part of the one
 # library, compiled when MAUL_ANIM_OFFLINE is on; tools/modules.txt keeps
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
-    target_sources(maul-anim PRIVATE src/inflate.c)
+    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/inflate.c
+                                     src/skeleton_build.c)
 endif()
 maul_configure_library(maul-anim)
 # The exactly rounded functions the sources may call
@@ -65,11 +69,14 @@ if(MAUL_ANIM_BUILD_TESTS)
     maul_add_test(base)
     maul_add_test(container WHITEBOX)
     maul_add_test(hash)
+    maul_add_test(math_float WHITEBOX)
     maul_add_test(fpenv WHITEBOX)
     maul_add_test(scalar WHITEBOX)
+    maul_add_test(text WHITEBOX)
     maul_add_test(vecmath WHITEBOX)
     if(MAUL_ANIM_OFFLINE)
         maul_add_test(inflate WHITEBOX)
+        maul_add_test(skeleton WHITEBOX)
     endif()
     maul_add_header_tests()
 endif()
@@ -79,5 +86,11 @@ if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)
 endif()
 
 if(MAUL_ANIM_INSTALL)
+    # Without the offline side, its header is not installed.
+    if(NOT MAUL_ANIM_OFFLINE)
+        file(GLOB MAUL_PUBLIC_HEADERS RELATIVE ${PROJECT_SOURCE_DIR}/include/maul-anim
+            ${PROJECT_SOURCE_DIR}/include/maul-anim/*.h)
+        list(REMOVE_ITEM MAUL_PUBLIC_HEADERS build.h)
+    endif()
     include(cmake/Install.cmake)
 endif()

@@ -10,29 +10,9 @@
 #ifndef MAUL_ANIM_SRC_VECMATH_H
 #define MAUL_ANIM_SRC_VECMATH_H
 
+#include "maul-anim/base.h"
+
 #include <stdbool.h>
-
-typedef struct maniVec3
-{
-    float x;
-    float y;
-    float z;
-} maniVec3;
-
-typedef struct maniQuat
-{
-    float x;
-    float y;
-    float z;
-    float w;
-} maniQuat;
-
-// Columns: m[0..2] the x axis, m[3..5] the y axis, m[6..8] the z axis,
-// m[9..11] the translation.
-typedef struct maniAffine
-{
-    float m[12];
-} maniAffine;
 
 static inline maniVec3 maniVec3Make(float x, float y, float z)
 {

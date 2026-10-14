@@ -74,7 +74,7 @@ container-section-past | src/container.c | if (sectionSize > fileSize - offset) 
 container-next | src/container.c | next = offset + sectionSize; | next = offset;
 container-null | src/container.c | if (bytes == NULL || containerOut == NULL || (uintptr_t)bytes % MANI_CONTAINER_ALIGNMENT != 0) | if (bytes == NULL || containerOut == NULL)
 container-hash | src/container.c | if (HashPayload(b, fileSize) != maniLoadU64(b + 32)) | if (false)
-container-hash-piece | src/container.c | uint64_t piece = payload - done < 0x40000000u ? payload - done : 0x40000000u; | uint64_t piece = payload - done < 0x40000000u ? payload - done - 1 : 0x40000000u;
+container-hash-piece | src/container.c | uint64_t piece = size - done < 0x40000000u ? size - done : 0x40000000u; | uint64_t piece = size - done < 0x40000000u ? size - done - 1 : 0x40000000u;
 container-size-limit | src/container.c | if (count > MANI_CONTAINER_MAX_SECTIONS) | if (count > MANI_CONTAINER_MAX_SECTIONS + 1)
 container-no-overflow | src/container.c | if (ckd_add(&end, size, sections[i].size) || end > UINT64_MAX - MANI_CONTAINER_ALIGNMENT) | if (end > UINT64_MAX - MANI_CONTAINER_ALIGNMENT)
 container-no-align-room | src/container.c | if (ckd_add(&end, size, sections[i].size) || end > UINT64_MAX - MANI_CONTAINER_ALIGNMENT) | if (ckd_add(&end, size, sections[i].size))

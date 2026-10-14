@@ -16,19 +16,25 @@
 
 static const uint8_t kMagic[4] = {'M', 'A', 'N', 'I'};
 
-// The hash of bytes 64 to the end. maniHash64 takes counts below 2^31 a
-// call; pieces of 2^30 bytes, a multiple of eight, continue it exactly.
-static uint64_t HashPayload(const uint8_t* b, uint64_t fileSize)
+uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size)
 {
-    uint64_t payload = fileSize - MANI_CONTAINER_HEADER_SIZE;
-    uint64_t hash = MANI_HASH_INIT;
-    for (uint64_t done = 0; done < payload;)
+    // maniHash64 takes counts below 2^31 a call; pieces of 2^30 bytes, a
+    // multiple of eight, continue it exactly.
+    uint64_t hash = seed;
+    for (uint64_t done = 0; done < size;)
     {
-        uint64_t piece = payload - done < 0x40000000u ? payload - done : 0x40000000u;
-        hash = maniHash64(hash, b + MANI_CONTAINER_HEADER_SIZE + done, (int32_t)piece);
+        uint64_t piece = size - done < 0x40000000u ? size - done : 0x40000000u;
+        hash = maniHash64(hash, data + done, (int32_t)piece);
         done += piece;
     }
     return hash;
+}
+
+// The hash of bytes 64 to the end.
+static uint64_t HashPayload(const uint8_t* b, uint64_t fileSize)
+{
+    return maniHashBytes(MANI_HASH_INIT, b + MANI_CONTAINER_HEADER_SIZE,
+                         fileSize - MANI_CONTAINER_HEADER_SIZE);
 }
 
 static maniFileResult Fail(maniResult result, uint64_t offset)

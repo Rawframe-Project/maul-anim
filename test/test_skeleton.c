@@ -1,0 +1,389 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// Skeletons: building from bones in any order, opening the file, reading
+// it, every refusal of the builder and of opening, and the bytes pinned.
+
+#include "bytes.h"
+#include "container.h"
+#include "skeleton_file.h"
+#include "test_harness.h"
+
+#include "maul-anim/base.h"
+#include "maul-anim/build.h"
+#include "maul-anim/skeleton.h"
+
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define PINNED_SKELETON_HASH     0x2ea3356be92d3053ull
+#define PINNED_SKELETON_IDENTITY 0x54b40db4c8a9de13ull
+
+enum
+{
+    kCapacity = 4096,
+};
+
+static _Alignas(16) uint8_t s_file[kCapacity];
+static size_t s_size;
+
+#define BONE(n, p, tx, qw)                                                                         \
+    {                                                                                              \
+        n, sizeof(n) - 1, p,                                                                       \
+        {                                                                                          \
+            {tx, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, qw}, {1.0f, 1.0f, 1.0f}                           \
+        }                                                                                          \
+    }
+
+// Two roots; the source lists a child before its sibling's subtree.
+static const maniBoneSource kBones[6] = {
+    BONE("hips", -1, 1.0f, 1.0f),    BONE("leftLeg", 0, 2.0f, 1.0f), BONE("spine", 0, 3.0f, 2.0f),
+    BONE("leftFoot", 1, 4.0f, 1.0f), BONE("head", 2, 5.0f, 1.0f),    BONE("prop", -1, 6.0f, 1.0f),
+};
+
+static maniBuilder* NewBuilder(void)
+{
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = NULL;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_success, "builder");
+    return builder;
+}
+
+static void BuildSample(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource source = {kBones, 6, 0};
+    CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
+    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
+    maniDestroyBuilder(builder);
+}
+
+static maniFileResult Open(void)
+{
+    maniSkeleton skeleton;
+    return maniOpenSkeleton(s_file, s_size, &skeleton);
+}
+
+static void TestBuildsDepthFirst(void)
+{
+    BuildSample();
+    maniSkeleton s;
+    CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
+    CHECK(maniSkeletonBoneCount(&s) == 6, "count");
+    // hips, leftLeg, leftFoot, spine, head, prop.
+    static const char* const names[6] = {"hips", "leftLeg", "leftFoot", "spine", "head", "prop"};
+    static const uint32_t parents[6] = {MANI_NO_BONE, 0, 1, 0, 3, MANI_NO_BONE};
+    static const uint32_t ends[6] = {5, 3, 3, 5, 5, 6};
+    static const float tx[6] = {1.0f, 2.0f, 4.0f, 3.0f, 5.0f, 6.0f};
+    for (uint32_t i = 0; i < 6; ++i)
+    {
+        uint32_t length = 0;
+        const char* name = maniSkeletonBoneName(&s, i, &length);
+        CHECK(length == strlen(names[i]) && memcmp(name, names[i], length) == 0, "name");
+        CHECK(maniSkeletonParent(&s, i) == parents[i], "parent");
+        CHECK(maniSkeletonSubtreeEnd(&s, i) == ends[i], "subtree end");
+        CHECK(maniSkeletonRest(&s, i).translation.x == tx[i], "rest");
+        CHECK(maniSkeletonFindBone(&s, names[i], strlen(names[i])) == i, "find");
+    }
+    // spine's rotation (0, 0, 0, 2) is normalized.
+    CHECK(maniSkeletonRest(&s, 3).rotation.w == 1.0f, "normalized");
+    CHECK(maniSkeletonFindBone(&s, "tail", 4) == MANI_NO_BONE, "no such bone");
+    CHECK(maniSkeletonFindBone(&s, "hip", 3) == MANI_NO_BONE, "a prefix");
+    CHECK(maniSkeletonFindBone(&s, NULL, 0) == MANI_NO_BONE, "empty");
+}
+
+static void TestGettersPastTheCount(void)
+{
+    BuildSample();
+    maniSkeleton s;
+    CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
+    CHECK(maniSkeletonParent(&s, 6) == MANI_NO_BONE, "parent past");
+    CHECK(maniSkeletonSubtreeEnd(&s, 9) == 9, "end past");
+    maniTransform rest = maniSkeletonRest(&s, 6);
+    CHECK(rest.rotation.w == 1.0f && rest.scale.y == 1.0f && rest.translation.z == 0.0f,
+          "identity past");
+    uint32_t length = 7;
+    CHECK(maniSkeletonBoneName(&s, 6, &length) == NULL && length == 0, "name past");
+}
+
+static void TestOrderMap(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource source = {kBones, 6, 0};
+    CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
+    uint32_t map[6] = {0};
+    uint32_t count = 0;
+    CHECK(maniCopySkeletonOrder(builder, map, 6, &count) == mani_success && count == 6, "map");
+    static const uint32_t expected[6] = {0, 1, 3, 2, 4, 5};
+    CHECK(memcmp(map, expected, sizeof map) == 0, "where bones went");
+    uint32_t partial[2] = {0};
+    CHECK(maniCopySkeletonOrder(builder, partial, 2, &count) == mani_errorCapacity && count == 6,
+          "short map");
+    CHECK(partial[0] == 0 && partial[1] == 1, "short map filled");
+    CHECK(maniCopySkeletonOrder(builder, NULL, 0, &count) == mani_errorCapacity && count == 6,
+          "count only");
+    size_t size = 0;
+    CHECK(maniCopyBuilt(builder, s_file, 10, &size) == mani_errorCapacity && size > 10,
+          "short buffer");
+    CHECK(maniCopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity, "size only");
+    CHECK(maniBuilderMisuses(builder) == 0, "no misuse");
+    CHECK(maniCopyBuilt(builder, NULL, 5, &size) == mani_errorInvalid, "null buffer");
+    CHECK(maniBuilderMisuses(builder) == 1, "counted");
+    maniDestroyBuilder(builder);
+}
+
+static void TestDefRefusals(void)
+{
+    maniBuilder* builder = NULL;
+    maniBuilderDef def = maniDefaultBuilderDef();
+    CHECK(maniCreateBuilder(NULL, &builder) == mani_errorInvalid, "null def");
+    CHECK(maniCreateBuilder(&def, NULL) == mani_errorInvalid, "null out");
+    def.version += 1;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_errorVersion && builder == NULL, "version");
+    def = maniDefaultBuilderDef();
+    def.cookie = 0;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_errorInvalid, "cookie");
+    def = maniDefaultBuilderDef();
+    def.allocator.context = &def;
+    def.allocator.free = NULL;
+    def.allocator.alloc = NULL;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_success, "context alone is zeroed");
+    maniDestroyBuilder(builder);
+    maniDestroyBuilder(NULL);
+}
+
+static maniBuildResult BuildOf(const maniBoneSource* bones, uint32_t count)
+{
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource source = {bones, count, 0};
+    maniBuildResult r = maniBuildSkeleton(builder, &source);
+    maniDestroyBuilder(builder);
+    return r;
+}
+
+static void ExpectRefusal(const maniBoneSource* bones, uint32_t count, maniBuildReason reason,
+                          uint32_t item, uint32_t other, const char* what)
+{
+    maniBuildResult r = BuildOf(bones, count);
+    CHECK(r.result == mani_errorInvalid, what);
+    CHECK(r.reason == reason && r.item == item && r.other == other, what);
+}
+
+static void TestBuildRefusals(void)
+{
+    maniBoneSource b[3] = {kBones[0], kBones[1], kBones[2]};
+    ExpectRefusal(b, 0, maniBuildReasonCount, 0, 0, "no bones");
+    b[2].parent = 3;
+    ExpectRefusal(b, 3, maniBuildReasonParent, 2, 0, "parent past");
+    b[2].parent = -2;
+    ExpectRefusal(b, 3, maniBuildReasonParent, 2, 0, "parent below -1");
+    b[2].parent = 2;
+    ExpectRefusal(b, 3, maniBuildReasonParent, 2, 0, "own parent");
+    b[1].parent = 2;
+    b[2].parent = 1;
+    ExpectRefusal(b, 3, maniBuildReasonCycle, 1, 0, "cycle");
+    b[1] = kBones[1];
+    b[2] = kBones[2];
+    b[2].nameLength = 0;
+    ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "empty name");
+    b[2].name = NULL;
+    b[2].nameLength = 3;
+    ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "null name");
+    b[2].name = "a\xC0\xAF";
+    ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "overlong UTF-8");
+    b[2] = kBones[2];
+    b[2].name = "hips";
+    b[2].nameLength = 4;
+    ExpectRefusal(b, 3, maniBuildReasonDuplicateName, 2, 0, "duplicate");
+    b[2] = kBones[2];
+    b[2].rest.scale.y = INFINITY;
+    ExpectRefusal(b, 3, maniBuildReasonNotFinite, 2, 0, "infinite scale");
+    b[2] = kBones[2];
+    b[2].rest.translation.z = NAN;
+    ExpectRefusal(b, 3, maniBuildReasonNotFinite, 2, 0, "NaN translation");
+    b[2] = kBones[2];
+    b[2].rest.rotation = (maniQuat){0.0f, 0.0f, 0.0f, 0.0f};
+    ExpectRefusal(b, 3, maniBuildReasonRotation, 2, 0, "zero rotation");
+
+    maniBuilder* builder = NewBuilder();
+    CHECK(maniBuildSkeleton(builder, NULL).result == mani_errorInvalid, "null source");
+    CHECK(maniBuilderMisuses(builder) == 1, "a misuse");
+    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, NULL) == mani_errorInvalid,
+          "nothing built");
+    CHECK(maniCopySkeletonOrder(builder, NULL, 0, NULL) == mani_errorInvalid, "no skeleton");
+    maniDestroyBuilder(builder);
+    CHECK(maniBuildSkeleton(NULL, NULL).result == mani_errorInvalid, "null builder");
+}
+
+// An allocator that fails its n-th call and counts what is outstanding.
+typedef struct Budget
+{
+    int32_t callsLeft;
+    int64_t outstanding;
+} Budget;
+
+static void* BudgetAlloc(size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    if (budget->callsLeft-- <= 0)
+    {
+        return NULL;
+    }
+    budget->outstanding += (int64_t)size;
+    return malloc(size);
+}
+
+static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    budget->outstanding -= (int64_t)size;
+    free(memory);
+}
+
+static void TestAllocationFailures(void)
+{
+    for (int32_t calls = 0; calls < 8; ++calls)
+    {
+        Budget budget = {calls, 0};
+        maniBuilderDef def = maniDefaultBuilderDef();
+        def.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
+        maniBuilder* builder = NULL;
+        maniResult created = maniCreateBuilder(&def, &builder);
+        if (created == mani_success)
+        {
+            maniSkeletonSource source = {kBones, 6, 0};
+            maniResult built = maniBuildSkeleton(builder, &source).result;
+            CHECK(built == mani_success || built == mani_errorCapacity, "fails cleanly");
+            maniDestroyBuilder(builder);
+        }
+        else
+        {
+            CHECK(created == mani_errorCapacity, "create fails cleanly");
+        }
+        CHECK(budget.outstanding == 0, "everything freed");
+    }
+}
+
+// Restores the payload hash after a test changes a section.
+static void Rehash(void)
+{
+    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + 64, s_size - 64));
+}
+
+static uint64_t SectionAt(uint32_t tag)
+{
+    return maniLoadU64(s_file + 64 + (uint64_t)(tag - 1) * 24 + 8);
+}
+
+static void ExpectFormat(uint64_t offset, const char* what)
+{
+    Rehash();
+    maniFileResult r = Open();
+    CHECK(r.result == mani_errorFormat, what);
+    CHECK(r.offset == offset, what);
+    BuildSample();
+}
+
+static void TestOpenRefusals(void)
+{
+    BuildSample();
+    uint64_t parents = SectionAt(maniSkeletonTagParents);
+    uint64_t ends = SectionAt(maniSkeletonTagSubtreeEnds);
+    uint64_t rests = SectionAt(maniSkeletonTagRests);
+    uint64_t hashes = SectionAt(maniSkeletonTagNameHashes);
+    uint64_t order = SectionAt(maniSkeletonTagNameOrder);
+    uint64_t spans = SectionAt(maniSkeletonTagNameSpans);
+    uint64_t names = SectionAt(maniSkeletonTagNameBytes);
+
+    // A parent at or after its child.
+    maniStoreU16(s_file + parents + 2 * 2, 2);
+    ExpectFormat(parents + 4, "parent not earlier");
+    // Not depth-first: prop (5) under leftFoot (2), whose subtree closed
+    // at 3; the walk closes head, spine and hips correctly and runs out.
+    maniStoreU16(s_file + parents + 2 * 5, 2);
+    ExpectFormat(parents + 10, "not depth-first");
+    // The first bone with a parent.
+    maniStoreU16(s_file + parents, 0);
+    ExpectFormat(parents, "first bone's parent");
+    // A wrong subtree end, closed by the walk.
+    maniStoreU16(s_file + ends + 2 * 1, 4);
+    ExpectFormat(ends + 2, "subtree end");
+    // A wrong end closed at the file's end.
+    maniStoreU16(s_file + ends + 2 * 5, 5);
+    ExpectFormat(ends + 10, "last subtree end");
+
+    float nan = NAN;
+    memcpy(s_file + rests + 40 * 2 + 4, &nan, 4);
+    ExpectFormat(rests + 84, "NaN rest");
+    float two = 2.0f;
+    memcpy(s_file + rests + 40 * 3 + 24, &two, 4);
+    ExpectFormat(rests + 132, "rotation not unit");
+
+    maniStoreU32(s_file + spans + 8, 5);
+    ExpectFormat(spans + 8, "span not contiguous");
+    maniStoreU32(s_file + spans + 4, 0);
+    ExpectFormat(spans + 4, "empty name");
+    maniStoreU32(s_file + spans + 8 * 5 + 4, 999);
+    ExpectFormat(spans + 44, "span past the bytes");
+    s_file[names + 1] = 0xFF;
+    ExpectFormat(names, "invalid UTF-8");
+    s_file[hashes + 8] ^= 1;
+    ExpectFormat(hashes + 8, "hash not the name's");
+    maniStoreU16(s_file + order + 2, 6);
+    ExpectFormat(order + 2, "order past the count");
+    uint16_t first = maniLoadU16(s_file + order);
+    maniStoreU16(s_file + order + 2, first);
+    ExpectFormat(order + 2, "order repeats");
+
+    // The identity is in the header, outside the payload's hash.
+    s_file[44] ^= 1;
+    maniFileResult r = Open();
+    CHECK(r.result == mani_errorFormat && r.offset == 40, "identity");
+    BuildSample();
+
+    maniSkeleton s;
+    CHECK(maniOpenSkeleton(s_file, s_size, NULL).result == mani_errorInvalid, "null view");
+    CHECK(maniOpenSkeleton(s_file + 16, s_size, &s).result == mani_errorFormat, "not a file");
+}
+
+// Every byte but the writer's version is covered by a check or a hash.
+static void TestEveryByteFlip(void)
+{
+    BuildSample();
+    for (size_t i = 0; i < s_size; ++i)
+    {
+        bool isFree = i >= 16 && i < 22;
+        s_file[i] ^= 0x20;
+        bool opened = Open().result == mani_success;
+        s_file[i] ^= 0x20;
+        CHECK(opened == isFree, "byte flip");
+    }
+}
+
+static void TestPinnedBytes(void)
+{
+    BuildSample();
+    maniSkeleton s;
+    CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
+    memset(s_file + 16, 0, 6);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
+    CHECK(hash == PINNED_SKELETON_HASH, "pinned file");
+    CHECK(maniSkeletonIdentity(&s) == PINNED_SKELETON_IDENTITY, "pinned identity");
+}
+
+int main(void)
+{
+    TestBuildsDepthFirst();
+    TestGettersPastTheCount();
+    TestOrderMap();
+    TestDefRefusals();
+    TestBuildRefusals();
+    TestAllocationFailures();
+    TestOpenRefusals();
+    TestEveryByteFlip();
+    TestPinnedBytes();
+    return s_failures == 0 ? 0 : 1;
+}

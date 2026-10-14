@@ -8,3 +8,10 @@ fpenv:
 bytes:
 container: bytes
 inflate:
+allocator:
+text:
+skeleton_file:
+skeleton: bytes container skeleton_file text
+builder: allocator container
+skeleton_build: allocator builder bytes container skeleton_file text
+elementary_float:
