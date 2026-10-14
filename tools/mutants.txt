@@ -563,3 +563,23 @@ hie-parent | src/hierarchy.c | return h->parents[a]; | return a;
 hie-walk-top | src/hierarchy.c | while (v != MANI_NO_NODE && h->depths[v] >= top && stamp[v] != unit) | while (v != MANI_NO_NODE && h->depths[v] > top && stamp[v] != unit)
 hie-jump | src/hierarchy.c | v = h->depths[otherRoot] <= top ? MANI_NO_NODE : h->parents[otherRoot]; | v = MANI_NO_NODE;
 hie-group-root | src/hierarchy.c | groupRoots[g] = maniCommonAncestor(h, groupRoots[g], units->roots[u]); | groupRoots[g] = groupRoots[g];
+
+# FBX skeletons at open (fbx_units.c, mani-0014), 2026-10-14: 17 mutants,
+# all killed (four by decoys added to the test after the sweep).
+fbu-deformer-kind | src/fbx_units.c | return object < fbx->objectCount && maniFbxObjectKindIs(fbx, object, "Deformer", 8) && | return object < fbx->objectCount &&
+fbu-oo | src/fbx_units.c | if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE) | if (c->parentProperty == MANI_FBX_NONE)
+fbu-link-model | src/fbx_units.c | if (model != MANI_FBX_NONE) | if (true)
+fbu-cluster | src/fbx_units.c | if (DeformerIs(fbx, child, "Cluster", 7)) | if (child < fbx->objectCount)
+fbu-limb-root | src/fbx_units.c | maniFbxObjectSubclassIs(fbx, object, "Root", 4); | false;
+fbu-attribute | src/fbx_units.c | EachChild(fbx, object, VisitAttribute, &limb); | (void)object;
+fbu-top-above | src/fbx_units.c | top[v] = above != MANI_FBX_NONE ? above : limb[v] != 0 ? v : MANI_FBX_NONE; | top[v] = limb[v] != 0 ? v : MANI_FBX_NONE;
+fbu-skin-empty | src/fbx_units.c | if (links.count == 0) | if (false)
+fbu-skin-root | src/fbx_units.c | root = maniCommonAncestor(&fbx->modelHierarchy, root, links.out[k]); | root = root;
+fbu-skin-apart | src/fbx_units.c | if (root == MANI_NO_NODE) | if (false)
+fbu-chain-top | src/fbx_units.c | if (top[r] == r) | if (top[r] != MANI_FBX_NONE)
+fbu-seed-limb | src/fbx_units.c | fbx->unitSeeds[chainOf[top[m]]++] = m; | fbx->unitSeeds[chainOf[top[m]]++] = top[m];
+fbu-skin-skeleton | src/fbx_units.c | fbx->skinSkeletons[unitSkin[u]] = fbx->unitSkeletons[u]; | fbx->skinSkeletons[unitSkin[u]] = 0;
+fbu-mark-root | src/fbx_units.c | marked[fbx->skeletonRoots[skeleton]] = 1; | marked[fbx->skeletonRoots[skeleton]] = 0;
+fbu-mark-unit | src/fbx_units.c | if (fbx->unitSkeletons[u] != skeleton) | if (false)
+fbu-skin-range | src/fbx_units.c | return fbx != NULL && skin < fbx->skinCount ? fbx->skinSkeletons[skin] : UINT32_MAX; | return fbx != NULL ? fbx->skinSkeletons[skin] : UINT32_MAX;
+fbu-attribute-kind | src/fbx_units.c | maniFbxObjectKindIs(fbx, child, "NodeAttribute", 13) && LimbClass(fbx, child)); | LimbClass(fbx, child));
