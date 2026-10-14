@@ -60,6 +60,8 @@ typedef struct Reader
     bool firstComment;
 } Reader;
 
+static bool WellFormed(const uint8_t* p, uint64_t length);
+
 // The text's sign handled for the decimal conversion, which reads JSON's
 // numbers: a leading '+' dropped.
 static const char* NumberText(const maniFbx* fbx, uint64_t* at, uint64_t* length)
@@ -72,24 +74,9 @@ static const char* NumberText(const maniFbx* fbx, uint64_t* at, uint64_t* length
     return (const char*)fbx->bytes + *at;
 }
 
-// Whether the text is a number the decimal conversion reads: the open
-// checked its shape, but "1.#INF" is kept as a number that is none.
-static bool Numeric(const maniFbx* fbx, uint64_t at, uint64_t length)
-{
-    for (uint64_t i = 0; i < length; ++i)
-    {
-        uint8_t c = fbx->bytes[at + i];
-        if (c == '#' || (c >= 'A' && c <= 'Z' && c != 'E') || (c >= 'a' && c <= 'z' && c != 'e'))
-        {
-            return false;
-        }
-    }
-    return length > 0;
-}
-
 bool maniFbxTextDouble(const maniFbx* fbx, uint64_t at, uint64_t length, double* out)
 {
-    if (!Numeric(fbx, at, length))
+    if (length == 0 || !WellFormed(fbx->bytes + at, length))
     {
         return false;
     }
@@ -106,7 +93,7 @@ bool maniFbxTextDouble(const maniFbx* fbx, uint64_t at, uint64_t length, double*
 bool maniFbxTextInteger(const maniFbx* fbx, uint64_t at, uint64_t length, int64_t minimum,
                         int64_t maximum, int64_t* out)
 {
-    if (!Numeric(fbx, at, length))
+    if (length == 0 || !WellFormed(fbx->bytes + at, length))
     {
         return false;
     }
@@ -393,7 +380,7 @@ static bool IsValue(TokenKind kind)
 
 static uint8_t PropertyType(TokenKind kind)
 {
-    return kind == TokenString ? 'S' : kind == TokenWord ? 'W' : 'N';
+    return kind == TokenString ? 'S' : kind == TokenWord ? 'W' : kind == TokenNumber ? 'N' : 'Q';
 }
 
 // A node's values after its name; the token after them is held.

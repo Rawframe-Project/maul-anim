@@ -21,6 +21,7 @@
 #include "maul-anim/import.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // A file being written: records open on a stack, their headers patched
@@ -367,9 +368,18 @@ static void CheckScene(uint32_t version, bool big, const char* what)
 
 static void ExpectRefusal(maniImportReason reason, uint64_t offset, const char* what)
 {
+    // The file alone in a block of its size, so that a read past its end
+    // is a sanitizer's error, not a read of the writer's spare room.
+    uint8_t* exact = malloc(s_w.n + 1);
+    if (exact == NULL)
+    {
+        return;
+    }
+    memcpy(exact, s_w.b, s_w.n);
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
-    maniImportResult r = maniOpenFbx(builder, s_w.b, s_w.n, &fbx);
+    maniImportResult r = maniOpenFbx(builder, exact, s_w.n, &fbx);
+    free(exact);
     bool right =
         r.result == mani_errorFormat && r.reason == reason && r.offset == offset && fbx == NULL;
     CHECK(right, what);
@@ -479,6 +489,61 @@ static void TestRefusals(void)
     Scene(7400, false);
     Word(s_w.b + array, 4, 4, false);
     ExpectRefusal(maniImportReasonContainer, array + 8, "a raw array's count past its bytes");
+    // A scalar running past its record's property bytes.
+    Scene(7400, false);
+    size_t version = RecordAt("FBXVersion");
+    Word(s_w.b + version + 8, 4, 4, false);
+    ExpectRefusal(maniImportReasonContainer, PropertyAt(version, 0), "a scalar past its bytes");
+    // An array's header, then its bytes, cut by the property bytes.
+    Scene(7400, false);
+    times = RecordAt("KeyTime");
+    array = PropertyAt(times, 0) + 1;
+    Word(s_w.b + times + 8, 1 + 8, 4, false);
+    ExpectRefusal(maniImportReasonContainer, array, "an array header past its bytes");
+    Scene(7400, false);
+    Word(s_w.b + times + 8, 1 + 12 + 8, 4, false);
+    ExpectRefusal(maniImportReasonContainer, array + 8, "array bytes past their record's");
+    // A child ending past its parent, within the file.
+    Scene(7400, false);
+    model = RecordAt("Model");
+    size_t child = RecordAt("Weights");
+    Word(s_w.b + child, ReadWord(s_w.b + model, 4, false) + 1, 4, false);
+    ExpectRefusal(maniImportReasonContainer, child, "a child past its parent");
+    // A list's null record with a property count.
+    Scene(7400, false);
+    model = RecordAt("Model");
+    end = ReadWord(s_w.b + model, 4, false);
+    Word(s_w.b + end - 13 + 4, 1, 4, false);
+    ExpectRefusal(maniImportReasonContainer, end - 13, "a null record that is not all zero");
+    // A header cut by the end of the file.
+    Scene(7400, false);
+    s_w.n -= 16 + 5;
+    ExpectRefusal(maniImportReasonContainer, s_w.n - 8, "a header cut short");
+    // One property more than a record holds, the byte after it an array
+    // letter: refused at the record's end, not read as an array.
+    bool padded = false;
+    for (size_t pad = 1; pad < 256 && !padded; ++pad)
+    {
+        Start(7400, false);
+        Begin("X");
+        PropI(1);
+        End();
+        char name[256];
+        memset(name, 'y', pad);
+        name[pad] = 0;
+        Begin(name);
+        End();
+        Finish();
+        size_t y = RecordAt("X") + 13 + 1 + 5;
+        if (s_w.b[y] != 'i')
+        {
+            continue;
+        }
+        Word(s_w.b + RecordAt("X") + 4, 2, 4, false);
+        ExpectRefusal(maniImportReasonContainer, y, "a property at its record's end");
+        padded = true;
+    }
+    CHECK(padded, "a padding that puts an array letter there");
     // No null record ends the top level.
     Scene(7400, false);
     s_w.n -= 16 + 13;
@@ -635,6 +700,46 @@ static void TestAscii(void)
     maniDestroyBuilder(builder);
 }
 
+static void TestAsciiEdges(void)
+{
+    SetText("; FBX 7.4.0 project file\n; FBX 6.1.0 project file\n"
+            "Odd: 1x5, ., 1e, -\n"
+            "Spaced : 1\n"
+            "Lines: \"a\nb\"\n"
+            "Short: -5\n");
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "opens");
+    if (fbx != NULL)
+    {
+        CHECK(maniFbxVersion(fbx) == 7400, "the first comment's version, not a later one's");
+        uint32_t odd = maniFbxFindChild(fbx, 0, "Odd", 3);
+        double d = 0;
+        bool none = true;
+        for (uint32_t k = 0; k < 4; ++k)
+        {
+            none = none && !maniFbxNumber(fbx, maniFbxNodeProperty(fbx, odd, k), &d);
+        }
+        CHECK(fbx->nodes[odd].propertyCount == 4 && none, "1x5, ., 1e and - are no numbers");
+        CHECK(maniFbxFindChild(fbx, 0, "Spaced", 6) != MANI_FBX_NONE, "a space before the colon");
+        uint32_t lines = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "Lines", 5), 0);
+        CHECK(maniFbxStringEquals(fbx, lines, "a\nb", 3), "a string across lines");
+        int64_t v = 0;
+        uint32_t shortValue = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "Short", 5), 0);
+        CHECK(!maniFbxInteger(fbx, shortValue, -4, 4, &v), "below the range");
+        CHECK(!maniFbxStringEquals(fbx, lines, "a\nbc", 4) &&
+                  !maniFbxStringEquals(fbx, lines, "a\n", 2),
+              "neither longer nor shorter");
+        maniCloseFbx(fbx);
+    }
+    maniDestroyBuilder(builder);
+    // A nested value list ending in a comma.
+    SetText("; FBX 7.4.0 project file\nA: {\nB: 1,\n}\n");
+    ExpectRefusal(maniImportReasonSyntax,
+                  (uint64_t)(strchr((const char*)s_w.b, '}') - (const char*)s_w.b),
+                  "a nested trailing comma");
+}
+
 static void TestAsciiRefusals(void)
 {
     struct
@@ -719,6 +824,26 @@ static void TestValueRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+// A binary int16, negative.
+static void TestShortInteger(void)
+{
+    Start(7400, false);
+    Begin("Short");
+    Scalar('Y', (uint16_t)-5, 2);
+    End();
+    Finish();
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "opens");
+    int64_t v = 0;
+    double d = 0;
+    uint32_t p = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "Short", 5), 0);
+    CHECK(maniFbxInteger(fbx, p, -10, 10, &v) && v == -5 && maniFbxNumber(fbx, p, &d) && d == -5.0,
+          "an int16 sign extended");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 static int WriteFile(const char* path)
 {
     FILE* out = fopen(path, "wb");
@@ -754,6 +879,8 @@ int main(int argc, char** argv)
     TestRefusals();
     TestValueRefusals();
     TestAscii();
+    TestAsciiEdges();
     TestAsciiRefusals();
+    TestShortInteger();
     return s_failures == 0 ? 0 : 1;
 }
