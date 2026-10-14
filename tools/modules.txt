@@ -4,3 +4,4 @@ base:
 scalar:
 vecmath: scalar
 hash:
+fpenv:

@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// x86 keeps the environment in MXCSR: flush-to-zero is bit 15,
+// denormals-are-zero bit 6, the rounding mode bits 13 and 14, the
+// exception masks bits 7 to 12. AArch64 keeps it in FPCR: flush-to-zero
+// is bit 24, half-precision flush-to-zero bit 19, default NaN bit 25, the
+// rounding mode bits 22 and 23, the trap enables bits 8 to 12 and 15, and
+// with FEAT_AFP input flush and alternate handling bits 0 and 1.
+// WebAssembly has one environment, the one the library needs. Any other
+// architecture is refused at build time rather than computed in an
+// unknown environment.
+
+#include "fpenv.h"
+
+#include <float.h>
+
+#if FLT_EVAL_METHOD != 0
+#error "maul-anim: float arithmetic must round to float (FLT_EVAL_METHOD 0)"
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+
+#include <xmmintrin.h>
+
+static uint64_t ReadControl(void)
+{
+    return _mm_getcsr();
+}
+
+static void WriteControl(uint64_t value)
+{
+    _mm_setcsr((uint32_t)value);
+}
+
+// Clear flush-to-zero, denormals-are-zero and the rounding mode; mask
+// every exception.
+static uint64_t Wanted(uint64_t control)
+{
+    return (control & ~(uint64_t)((1u << 15) | (1u << 6) | (3u << 13))) | (0x3fu << 7);
+}
+
+#elif defined(__aarch64__) || defined(_M_ARM64)
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
+// FPCR as _ReadStatusReg names it: op0 3, op1 3, CRn 4, CRm 4, op2 0.
+#define FPCR_REGISTER 0x5A20
+static uint64_t ReadControl(void)
+{
+    return (uint64_t)_ReadStatusReg(FPCR_REGISTER);
+}
+static void WriteControl(uint64_t value)
+{
+    _WriteStatusReg(FPCR_REGISTER, (__int64)value);
+}
+#else
+static uint64_t ReadControl(void)
+{
+    uint64_t value = 0;
+    __asm__ volatile("mrs %0, fpcr" : "=r"(value));
+    return value;
+}
+static void WriteControl(uint64_t value)
+{
+    __asm__ volatile("msr fpcr, %0" : : "r"(value));
+}
+#endif
+
+// Clear flush-to-zero (single and half, and input flush), alternate
+// handling, default NaN, the rounding mode and the trap enables.
+static uint64_t Wanted(uint64_t control)
+{
+    return control & ~((1ull << 24) | (1ull << 19) | (1ull << 25) | (3ull << 22) | (0x1full << 8) |
+                       (1ull << 15) | 3ull);
+}
+
+#elif defined(__wasm__)
+
+static uint64_t ReadControl(void)
+{
+    return 0;
+}
+
+static void WriteControl(uint64_t value)
+{
+    (void)value;
+}
+
+static uint64_t Wanted(uint64_t control)
+{
+    return control;
+}
+
+#else
+#error "maul-anim: unknown floating-point environment for this architecture"
+#endif
+
+void maniFloatEnvEnter(maniFloatEnv* env)
+{
+    uint64_t saved = ReadControl();
+    env->saved = saved;
+    uint64_t wanted = Wanted(saved);
+    if (wanted != saved)
+    {
+        WriteControl(wanted);
+    }
+}
+
+void maniFloatEnvLeave(const maniFloatEnv* env)
+{
+    if (ReadControl() != env->saved)
+    {
+        WriteControl(env->saved);
+    }
+}

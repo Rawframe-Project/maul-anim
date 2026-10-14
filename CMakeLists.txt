@@ -41,6 +41,7 @@ else()
 endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
+    src/fpenv.c
     src/hash.c
     src/scalar.c
     src/vecmath.c)
@@ -55,6 +56,7 @@ if(MAUL_ANIM_BUILD_TESTS)
     enable_testing()
     maul_add_test(base)
     maul_add_test(hash)
+    maul_add_test(fpenv WHITEBOX)
     maul_add_test(scalar WHITEBOX)
     maul_add_test(vecmath WHITEBOX)
     maul_add_header_tests()
