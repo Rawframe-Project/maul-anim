@@ -579,11 +579,11 @@ static void TestAllowed(void)
              "{\"KHR_animation_pointer\":{\"pointer\":\"/nodes/01/translation\"}}}},"
              "{\"sampler\":1,\"target\":{\"path\":\"pointer\",\"extensions\":"
              "{\"KHR_animation_pointer\":{\"pointer\":\"/nodes/1/translationX\"}}}},"
-             "{\"sampler\":2,\"target\":{\"node\":3,\"path\":\"scale\"}},"
              "{\"sampler\":3,\"target\":{\"path\":\"pointer\",\"extensions\":"
              "{\"KHR_animation_pointer\":{\"pointer\":\"/materials/0/alphaCutoff\"}}}},"
              "{\"sampler\":4,\"target\":{\"path\":\"pointer\",\"extensions\":"
-             "{\"KHR_animation_pointer\":{\"pointer\":\"/x/matrix\"}}}}",
+             "{\"KHR_animation_pointer\":{\"pointer\":\"/x/matrix\"}}}},"
+             "{\"sampler\":2,\"target\":{\"node\":3,\"path\":\"scale\"}}",
              "");
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
@@ -699,7 +699,8 @@ int main(void)
     TestAnotherRig();
     TestRefusals();
     TestAllowed();
-    ExpectIndexNames("\"smile\"        ", "too few target names");
+    // One name, then a key: read on, the key would pass for a second.
+    ExpectIndexNames("\"smile\"],\"x\":[0", "too few target names");
     ExpectIndexNames("\"smile\",\"\"     ", "an empty target name");
     TestFoldedStatic();
     return s_failures == 0 ? 0 : 1;

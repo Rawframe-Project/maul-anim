@@ -377,6 +377,25 @@ static void TestBufferRefusals(void)
     ExpectRefusal(maniImportReasonBuffer, "data:", 0, "a digit not base64, enough of them");
     BadBase64(0, true);
     ExpectRefusal(maniImportReasonBuffer, "data:", 0, "digits not in fours");
+    {
+        // 84 digits and one more, after a buffer whose longer URI leaves
+        // digits where a decoder reading past the end would find them.
+        FillBuffer();
+        char digits[100];
+        Base64(s_buffer, 63, digits);
+        snprintf(s_json, sizeof s_json,
+                 "{\"asset\":{\"version\":\"2.0\"},\"buffers\":["
+                 "{\"byteLength\":63,\"uri\":\"data:application/octet-stream;base64,%sAAAA\"},"
+                 "{\"byteLength\":63,\"uri\":\"data:application/octet-stream;base64,%sA\"}]}",
+                 digits, digits);
+        maniBuilder* builder = NewBuilder();
+        maniGltf* gltf = NULL;
+        maniImportResult r = OpenJson(builder, &gltf);
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuffer && r.item == 1,
+              "85 digits, digits after them in memory");
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
     // 64 bytes end in "==": one byte short of a buffer of 65.
     snprintf(s_json, sizeof s_json,
              "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":65,\"uri\":\"%s\"}]}",
