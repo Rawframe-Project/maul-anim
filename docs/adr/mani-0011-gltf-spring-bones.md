@@ -27,9 +27,9 @@ the importer can be finished now against the format.
   schema's ranges (drag in [0, 1], radii, stiffness, gravity power and
   hit radius not below 0); a chain whose joints are not each an
   ancestor of the next; a joint in two chains; a center that is not the
-  chain's first joint or its ancestor; a shape that is not exactly one
-  of sphere and capsule; indices out of range; a node that is not a
-  bone of the skeleton.
+  chain's first joint or its ancestor, or that is another chain's joint
+  or below one; a shape that is not exactly one of sphere and capsule;
+  indices out of range; a node that is not a bone of the skeleton.
 - VRM 0.x's `secondaryAnimation` is another format and is not read.
 
 ## Consequences

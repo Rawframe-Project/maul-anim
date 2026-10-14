@@ -53,6 +53,14 @@ static void TestNumbers(void)
     {
         printf("%zu wrong\n", wrong);
     }
+    // Exponents past any int64 saturate: no overflow on the way.
+    uint64_t bits = 1;
+    const char kHuge[] = "1e99999999999999999999999";
+    CHECK(!maniDecimalToBinary(kHuge, sizeof kHuge - 1, maniBinary64, &bits), "a huge exponent");
+    const char kTiny[] = "-1e-99999999999999999999999";
+    CHECK(maniDecimalToBinary(kTiny, sizeof kTiny - 1, maniBinary64, &bits) &&
+              bits == 0x8000000000000000u,
+          "a tiny one is -0");
 }
 
 static bool Integer(const char* text, int64_t minimum, int64_t maximum, int64_t* value)
@@ -124,8 +132,10 @@ static void TestRefusals(void)
         {"\"\\uD800\"", maniJsonReasonEscape, 1},
         {"\"\\uDC00\"", maniJsonReasonEscape, 1},
         {"\"\\uD800\\u0041\"", maniJsonReasonEscape, 1},
+        {"\"\\uD800\\uE000\"", maniJsonReasonEscape, 1},
         {"\"a\x01\"", maniJsonReasonControl, 2},
         {"\"a\tb\"", maniJsonReasonControl, 2},
+        {"\"a\x1F\"", maniJsonReasonControl, 2},
         {"\"\xC3\x28\"", maniJsonReasonUtf8, 1},
         {"\"\xED\xA0\x80\"", maniJsonReasonUtf8, 1},
         {"\"\xC0\xAF\"", maniJsonReasonUtf8, 1},
@@ -225,6 +235,19 @@ static void TestScalarsAndSpace(void)
               memcmp(out, "\"\\/\b\f\n\r\t", 8) == 0,
           "decoded");
     maniReleaseJson(&kDefault, &json);
+    // Each encoded length's last and first code point, upper-case hex.
+    CHECK(Read("\"\\u07FF\\u0800\\uFFFF\\uD800\\uDC00\"", &json).result == mani_success,
+          "boundaries");
+    uint8_t wide[16];
+    CHECK(maniJsonStringDecode(&json, 0, wide, sizeof wide) == 12 &&
+              memcmp(wide, "\xDF\xBF\xE0\xA0\x80\xEF\xBF\xBF\xF0\x90\x80\x80", 12) == 0,
+          "two, three and four bytes");
+    maniReleaseJson(&kDefault, &json);
+    // A backslash before a NUL byte is no escape.
+    const uint8_t kNul[] = {'"', '\\', 0, '"'};
+    maniJsonResult r = maniReadJson(&kDefault, kNul, sizeof kNul, &json);
+    CHECK(r.result == mani_errorFormat && r.reason == maniJsonReasonEscape && r.offset == 1,
+          "\\ and NUL");
 }
 
 static void TestDepth(void)

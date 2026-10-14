@@ -184,6 +184,17 @@ static void TestRefusals(void)
     ExpectRefusal(maniImportReasonProperty, "{\"node\":2},{\"node\":3}", "a joint in two chains");
     Document("1.0", kColliders, kGroups, "[{\"joints\":[{\"node\":1},{\"node\":2}],\"center\":4}]");
     ExpectRefusal(maniImportReasonHierarchy, "4}]", "a center off the chain");
+    // The specification: a center is no joint of another chain, nor
+    // below one; here the later chain's joint is above the center.
+    Document("1.0", kColliders, kGroups,
+             "[{\"joints\":[{\"node\":2},{\"node\":3}],\"center\":2},"
+             "{\"joints\":[{\"node\":1}]}]");
+    ExpectRefusal(maniImportReasonHierarchy, "2},{\"joints\":[{\"node\":1}",
+                  "a center below another chain");
+    Document("1.0", kColliders, kGroups,
+             "[{\"joints\":[{\"node\":1}]},{\"joints\":[{\"node\":2},{\"node\":3}],"
+             "\"center\":1}]");
+    ExpectRefusal(maniImportReasonHierarchy, "1}]}}}", "a center on another chain");
     Document("1.0", kColliders, kGroups, "[{\"joints\":[{\"node\":1}],\"colliderGroups\":[2]}]");
     ExpectRefusal(maniImportReasonIndex, "2]}]", "a group past the count");
     Document("1.0", kColliders, kGroups, "[{\"joints\":[]}]");

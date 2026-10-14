@@ -396,7 +396,7 @@ static maniImportResult ReadJoints(Reader* r, uint32_t spring, uint32_t item, ui
 }
 
 static maniImportResult ReadSpring(Reader* r, uint32_t spring, uint32_t item, uint32_t* owner,
-                                   maniSpringSource* s)
+                                   maniSpringSource* s, uint32_t* centerOut)
 {
     if (r->gltf->json.values[spring].kind != maniJsonObject)
     {
@@ -418,6 +418,7 @@ static maniImportResult ReadSpring(Reader* r, uint32_t spring, uint32_t item, ui
     {
         result = Bone(r, spring, "center", false, item, &center, &s->center);
     }
+    *centerOut = center;
     if (result.result == mani_success && center != MANI_JSON_NONE && center != first &&
         !IsAncestor(r->gltf, center, first))
     {
@@ -425,6 +426,28 @@ static maniImportResult ReadSpring(Reader* r, uint32_t spring, uint32_t item, ui
         return Fail(r, maniImportReasonHierarchy, at, item);
     }
     return result;
+}
+
+// No center is another chain's joint or below one, once every chain's
+// joints are known.
+static maniImportResult CheckCenters(const Reader* r, uint32_t array, const uint32_t* owner,
+                                     const uint32_t* centers)
+{
+    const maniGltf* gltf = r->gltf;
+    uint32_t spring = array + 1;
+    for (uint32_t i = 0; i < gltf->json.values[array].count; ++i)
+    {
+        for (uint32_t v = centers[i]; v != MANI_JSON_NONE; v = gltf->nodeParents[v])
+        {
+            if (owner[v] != 0 && owner[v] != i + 1)
+            {
+                uint32_t at = maniJsonFind(&gltf->json, spring, "center", 6);
+                return Fail(r, maniImportReasonHierarchy, at, i);
+            }
+        }
+        spring = gltf->json.values[spring].next;
+    }
+    return maniImportSuccess();
 }
 
 static maniImportResult ReadSprings(Reader* r, uint32_t extension)
@@ -444,11 +467,20 @@ static maniImportResult ReadSprings(Reader* r, uint32_t extension)
     {
         return Capacity();
     }
+    uint32_t* centers = maniArenaTake(&r->gltf->springs, n, sizeof(uint32_t));
+    if (centers == NULL)
+    {
+        return Capacity();
+    }
     uint32_t value = array + 1;
     for (uint32_t i = 0; result.result == mani_success && i < n; ++i)
     {
-        result = ReadSpring(r, value, i, owner, &springs[i]);
+        result = ReadSpring(r, value, i, owner, &springs[i], &centers[i]);
         value = r->gltf->json.values[value].next;
+    }
+    if (result.result == mani_success)
+    {
+        result = CheckCenters(r, array, owner, centers);
     }
     r->set->springs = springs;
     r->set->springCount = n;
