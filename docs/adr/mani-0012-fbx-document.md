@@ -35,8 +35,20 @@ hostile input.
   stream that gives more or less or fails its checksum is Data at the
   array, a float that is not finite Data at its element (or the array,
   when compressed).
-- **`maniOpenFbx`, `maniCloseFbx`, `maniFbxVersion`**; until the ASCII
-  reader lands, text is refused with Syntax.
+- **The ASCII form,** into the same tree: `Name: value, value
+  { children }` (a leading comma allowed), names bare or quoted, `;`
+  comments, quoted strings with FBX's `&quot;`, `&cr;` and `&lf;`
+  decoded when read, bare words, numbers kept as their text and
+  converted exactly when read (mani-0007's decimal conversion; a
+  leading `+` allowed; old writers' `1.#INF` kept as a number that is
+  none). `*N { a: v, ... }` folds into one array property of exactly N
+  numbers, read like a binary array. The version is the first
+  comment's (`; FBX 7.4.0 project file`), else
+  `FBXHeaderExtension.FBXVersion`, else refused (Version). Refusals are
+  Syntax at the token's first byte; nesting is bounded at 64 as in the
+  binary form.
+- **`maniOpenFbx`, `maniCloseFbx`, `maniFbxVersion`**; anything without
+  the binary magic is read as text.
 
 ## Consequences
 

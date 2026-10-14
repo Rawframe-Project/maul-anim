@@ -5,7 +5,8 @@
 // record, in both header widths and both byte orders, read back as the
 // tree they were written as; values, raw and zlib arrays read on
 // request; and each way the container can be wrong refused at its byte.
-// Run as test_fbx --seed <file> it writes the fuzz target's seed.
+// Run as test_fbx --seed <file> it writes the fuzz target's seeds, the
+// binary scene and (beside it) the ASCII one.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -516,9 +517,168 @@ static void TestRefusals(void)
         maniCloseFbx(fbx);
         maniDestroyBuilder(builder);
     }
-    // Not the binary form.
-    s_w.n = (size_t)snprintf((char*)s_w.b, sizeof s_w.b, "; FBX 7.4.0 project file\n");
-    ExpectRefusal(maniImportReasonSyntax, 0, "text, until the ASCII reader");
+}
+
+static const char kAscii[] =
+    "; FBX 7.4.0 project file\n"
+    "; a comment\n"
+    "FBXHeaderExtension:  {\n"
+    "\tFBXVersion: 7400\n"
+    "}\n"
+    "Objects:  {\n"
+    "\tModel: 1234567890123, \"Model::hip\", \"LimbNode\" {\n"
+    "\t\tProperties70:  {\n"
+    "\t\t\tP: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1.5,-2,+0.25\n"
+    "\t\t}\n"
+    "\t\tShading: T\n"
+    "\t\tKeyTime: *3 {\n"
+    "\t\t\ta: 0,46186158000, ; a comment inside\n"
+    "\t\t\t92372316000\n"
+    "\t\t}\n"
+    "\t\tEmpty: *0 {\n"
+    "\t\t}\n"
+    "\t\tWeird: 1.#INF, -1.#IND\n"
+    "\t\tBadKeys: *2 {\n"
+    "\t\t\ta: 1,1.#QNAN\n"
+    "\t\t}\n"
+    "\t\tQuote: \"say &quot;hi&quot;&lf;& more\"\n"
+    "\t\t\"Spaced Name\": , 1\n"
+    "\t}\n"
+    "}\n";
+
+static void SetText(const char* text)
+{
+    s_w.n = strlen(text);
+    memcpy(s_w.b, text, s_w.n);
+}
+
+static void TestAscii(void)
+{
+    SetText(kAscii);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniImportResult r = maniOpenFbx(builder, s_w.b, s_w.n, &fbx);
+    CHECK(r.result == mani_success, "an ASCII file");
+    if (r.result != mani_success)
+    {
+        printf("  reason %u offset %llu near: %.30s\n", r.reason, (unsigned long long)r.offset,
+               (const char*)s_w.b + r.offset);
+        maniDestroyBuilder(builder);
+        return;
+    }
+    CHECK(maniFbxVersion(fbx) == 7400, "the version from the first comment");
+    const char* const model[2] = {"Objects", "Model"};
+    uint32_t m = Path(fbx, model, 2);
+    int64_t v = 0;
+    CHECK(m != MANI_FBX_NONE &&
+              maniFbxInteger(fbx, maniFbxNodeProperty(fbx, m, 0), INT64_MIN, INT64_MAX, &v) &&
+              v == 1234567890123LL,
+          "an id");
+    CHECK(maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, m, 1), "Model::hip", 10),
+          "a quoted string");
+    const char* const p[4] = {"Objects", "Model", "Properties70", "P"};
+    uint32_t entry = Path(fbx, p, 4);
+    double d = 0;
+    CHECK(maniFbxNumber(fbx, maniFbxNodeProperty(fbx, entry, 4), &d) && d == 1.5, "1.5");
+    CHECK(maniFbxNumber(fbx, maniFbxNodeProperty(fbx, entry, 6), &d) && d == 0.25,
+          "+0.25, exactly");
+    CHECK(maniFbxInteger(fbx, maniFbxNodeProperty(fbx, entry, 5), -5, 5, &v) && v == -2, "-2");
+    CHECK(maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, entry, 2), "", 0), "an empty string");
+    const char* const shading[3] = {"Objects", "Model", "Shading"};
+    CHECK(maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, Path(fbx, shading, 3), 0), "T", 1),
+          "a bare word");
+    const char* const times[3] = {"Objects", "Model", "KeyTime"};
+    uint32_t t = maniFbxNodeProperty(fbx, Path(fbx, times, 3), 0);
+    int64_t ticks[3];
+    double values[3];
+    CHECK(maniFbxArrayCount(fbx, t) == 3 &&
+              maniFbxReadIntegers(fbx, t, ticks).result == mani_success &&
+              ticks[1] == 46186158000LL && ticks[2] == 92372316000LL,
+          "an array across lines and a comment");
+    CHECK(maniFbxReadDoubles(fbx, t, values).result == mani_success && values[2] == 92372316000.0,
+          "as doubles");
+    CHECK(fbx->nodes[Path(fbx, times, 3)].firstChild == MANI_FBX_NONE, "its a: folded in");
+    const char* const empty[3] = {"Objects", "Model", "Empty"};
+    uint32_t e = maniFbxNodeProperty(fbx, Path(fbx, empty, 3), 0);
+    CHECK(e != MANI_FBX_NONE && maniFbxArrayCount(fbx, e) == 0, "an empty array");
+    const char* const weird[3] = {"Objects", "Model", "Weird"};
+    uint32_t w = Path(fbx, weird, 3);
+    CHECK(fbx->nodes[w].propertyCount == 2 &&
+              !maniFbxNumber(fbx, maniFbxNodeProperty(fbx, w, 0), &d),
+          "1.#INF is kept, and is no number");
+    const char* const bad[3] = {"Objects", "Model", "BadKeys"};
+    uint32_t b = maniFbxNodeProperty(fbx, Path(fbx, bad, 3), 0);
+    r = maniFbxReadDoubles(fbx, b, values);
+    const char* qnan = strstr(kAscii, "1.#QNAN");
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData &&
+              r.offset == (uint64_t)(qnan - kAscii),
+          "a non-number element, at its text");
+    const char* const quote[3] = {"Objects", "Model", "Quote"};
+    uint32_t q = maniFbxNodeProperty(fbx, Path(fbx, quote, 3), 0);
+    uint8_t out[32];
+    size_t n = maniFbxStringDecode(fbx, q, out, sizeof out);
+    CHECK(n == 15 && memcmp(out, "say \"hi\"\n& more", 15) == 0, "entities decoded");
+    CHECK(maniFbxStringEquals(fbx, q, "say \"hi\"\n& more", 15) &&
+              !maniFbxStringEquals(fbx, q, "say \"hi\"\n& mor", 14),
+          "and compared");
+    const char* const spaced[3] = {"Objects", "Model", "Spaced Name"};
+    uint32_t sp = Path(fbx, spaced, 3);
+    CHECK(sp != MANI_FBX_NONE && fbx->nodes[sp].propertyCount == 1,
+          "a quoted name, a leading comma");
+    maniCloseFbx(fbx);
+    // The version from the header when no comment gives it.
+    SetText("FBXHeaderExtension: {\n FBXVersion: 6100\n}\n");
+    CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success &&
+              maniFbxVersion(fbx) == 6100,
+          "the version from FBXHeaderExtension");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static void TestAsciiRefusals(void)
+{
+    struct
+    {
+        const char* text;
+        maniImportReason reason;
+        const char* at;
+        const char* what;
+    } kBad[] = {
+        {"; FBX 7.4.0 project file\nA: \"open", maniImportReasonSyntax, "\"open",
+         "a string unended"},
+        {"; FBX 7.4.0 project file\n}", maniImportReasonSyntax, "}", "a brace closing nothing"},
+        {"; FBX 7.4.0 project file\nA: {\nB: 1\n", maniImportReasonSyntax, NULL,
+         "a brace unclosed"},
+        {"; FBX 7.4.0 project file\nA: *3 {\na: 1,2\n}", maniImportReasonSyntax, "*3",
+         "three promised, two given"},
+        {"; FBX 7.4.0 project file\nA: *2 {\nb: 1,2\n}", maniImportReasonSyntax,
+         "b:", "an array's values not under a:"},
+        {"; FBX 7.4.0 project file\nA: *2 {\na: 1,\"x\"\n}", maniImportReasonSyntax, "\"x\"",
+         "a string in an array"},
+        {"; FBX 7.4.0 project file\nA: 1,\n}", maniImportReasonSyntax, "}", "a trailing comma"},
+        {"; FBX 7.4.0 project file\nA: 1 @", maniImportReasonSyntax, "@", "a character FBX lacks"},
+        {"; FBX 7.4.0 project file\n1, 2", maniImportReasonSyntax, "1, 2", "values without a name"},
+        {"; FBX 7.4.0 project file\nA: *x {\n}", maniImportReasonSyntax, "*x",
+         "a count not a number"},
+        {"A: 1\n", maniImportReasonVersion, NULL, "no version"},
+        {"; FBX 2.9.0 project file\nA: 1\n", maniImportReasonVersion, NULL, "a version below 3000"},
+    };
+    for (size_t i = 0; i < sizeof kBad / sizeof kBad[0]; ++i)
+    {
+        SetText(kBad[i].text);
+        uint64_t at = kBad[i].at != NULL
+                          ? (uint64_t)(strstr(kBad[i].text, kBad[i].at) - kBad[i].text)
+                          : (kBad[i].reason == maniImportReasonVersion ? 0 : s_w.n);
+        ExpectRefusal(kBad[i].reason, at, kBad[i].what);
+    }
+    // Nesting past 64 levels.
+    char deep[1024] = "; FBX 7.4.0 project file\n";
+    for (int i = 0; i < 64; ++i)
+    {
+        strcat(deep, "A: {\n");
+    }
+    SetText(deep);
+    ExpectRefusal(maniImportReasonSyntax, (uint64_t)(strrchr(deep, '{') - deep), "65 levels");
 }
 
 static void TestValueRefusals(void)
@@ -559,9 +719,8 @@ static void TestValueRefusals(void)
     maniDestroyBuilder(builder);
 }
 
-static int WriteSeed(const char* path)
+static int WriteFile(const char* path)
 {
-    Scene(7400, false);
     FILE* out = fopen(path, "wb");
     if (out == NULL)
     {
@@ -569,6 +728,17 @@ static int WriteSeed(const char* path)
     }
     size_t written = fwrite(s_w.b, 1, s_w.n, out);
     return fclose(out) == 0 && written == s_w.n ? 0 : 1;
+}
+
+// The binary scene at the path, the ASCII one beside it.
+static int WriteSeed(const char* path)
+{
+    Scene(7400, false);
+    int failed = WriteFile(path);
+    char ascii[512];
+    snprintf(ascii, sizeof ascii, "%s-ascii", path);
+    SetText(kAscii);
+    return failed | WriteFile(ascii);
 }
 
 int main(int argc, char** argv)
@@ -583,5 +753,7 @@ int main(int argc, char** argv)
     CheckScene(6100, true, "a big-endian 6.1 file");
     TestRefusals();
     TestValueRefusals();
+    TestAscii();
+    TestAsciiRefusals();
     return s_failures == 0 ? 0 : 1;
 }

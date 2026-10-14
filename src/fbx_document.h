@@ -22,8 +22,11 @@
 #define MANI_FBX_MAX_DEPTH 64u
 
 // A property: its FBX type letter (binary `C Y I L F D S R` and the
-// arrays `b c i l f d`), where its payload starts in the file, and its
-// count: a string's bytes, an array's elements, 1 for a number.
+// arrays `b c i l f d`; from the ASCII form `N` a number's text, `S` a
+// string's, `W` a bare word, `A` an array's values), where its payload
+// starts in the file, and its count: a string's bytes, an array's
+// elements, 1 for a number. An ASCII property's text is encodedSize
+// bytes long.
 typedef struct maniFbxProperty
 {
     uint64_t offset;
@@ -56,6 +59,8 @@ struct maniFbx
     size_t size;
     uint32_t version;
     bool bigEndian;
+    // From the ASCII form: numbers are text, strings may hold entities.
+    bool ascii;
     // Node 0 has no name and the top-level nodes as its children.
     maniFbxNode* nodes;
     uint32_t nodeCount;

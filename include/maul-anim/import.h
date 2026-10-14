@@ -389,10 +389,11 @@ extern "C"
                                                                  const maniGltfOptions* options,
                                                                  maniSpringSetSource* setOut);
 
-    /// Opens an FBX document (mani-0012) from the bytes of a file in the
-    /// binary form, versions 3000 to 7700, either byte order. Every record
-    /// and length is checked against the bytes; no array is decoded until
-    /// asked for.
+    /// Opens an FBX document (mani-0012) from the bytes of a file, binary
+    /// (told apart by its magic, either byte order) or ASCII, versions 3000
+    /// to 7700. Every record, token and length is checked against the
+    /// bytes; no array is decoded and no number converted until asked
+    /// for.
     ///
     /// @param builder  The builder whose allocator the document uses; it
     ///                 must be closed before the builder is destroyed.

@@ -15,6 +15,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Whether a string property (binary or ASCII, quoted or a bare word)
+// holds exactly these bytes, FBX's entities decoded.
+bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length);
+
+// A string property's bytes, entities decoded, into out: the count
+// written, whole bytes up to capacity.
+size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity);
+
 // A node's k-th property, or MANI_FBX_NONE past its count.
 uint32_t maniFbxNodeProperty(const maniFbx* fbx, uint32_t node, uint32_t k);
 

@@ -10,6 +10,7 @@
 #include "fbx_value.h"
 
 #include "allocator.h"
+#include "fbx_ascii.h"
 #include "fbx_binary.h"
 #include "fbx_document.h"
 #include "inflate.h"
@@ -71,6 +72,12 @@ bool maniFbxNumber(const maniFbx* fbx, uint32_t property, double* out)
     double v = 0.0;
     switch (p->type)
     {
+    case 'N':
+        if (!maniFbxTextDouble(fbx, p->offset, p->encodedSize, &v))
+        {
+            return false;
+        }
+        break;
     case 'C':
     case 'B':
     case 'Z':
@@ -111,6 +118,10 @@ bool maniFbxInteger(const maniFbx* fbx, uint32_t property, int64_t minimum, int6
     }
     const maniFbxProperty* p = &fbx->properties[property];
     int64_t v = 0;
+    if (p->type == 'N')
+    {
+        return maniFbxTextInteger(fbx, p->offset, p->encodedSize, minimum, maximum, out);
+    }
     if (p->type == 'L' || p->type == 'I' || p->type == 'Y')
     {
         v = LoadSigned(fbx, p->offset, p->type == 'L' ? 8 : (p->type == 'I' ? 4 : 2));
@@ -134,11 +145,15 @@ bool maniFbxInteger(const maniFbx* fbx, uint32_t property, int64_t minimum, int6
     return true;
 }
 
+static bool IsText(uint8_t type)
+{
+    return type == 'S' || type == 'R' || type == 'W';
+}
+
 bool maniFbxString(const maniFbx* fbx, uint32_t property, const uint8_t** bytesOut,
                    uint32_t* lengthOut)
 {
-    if (property >= fbx->propertyCount ||
-        (fbx->properties[property].type != 'S' && fbx->properties[property].type != 'R'))
+    if (property >= fbx->propertyCount || !IsText(fbx->properties[property].type))
     {
         return false;
     }
@@ -146,6 +161,66 @@ bool maniFbxString(const maniFbx* fbx, uint32_t property, const uint8_t** bytesO
     *bytesOut = fbx->bytes + p->offset;
     *lengthOut = p->count;
     return true;
+}
+
+// The next decoded byte of an ASCII string at *at: FBX's entities
+// "&quot;", "&cr;" and "&lf;"; any other '&' stands for itself.
+static uint8_t NextByte(const uint8_t* p, uint32_t length, uint32_t* at)
+{
+    static const char* const kEntities[3] = {"&quot;", "&cr;", "&lf;"};
+    static const uint8_t kBytes[3] = {'"', '\r', '\n'};
+    if (p[*at] == '&')
+    {
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            uint32_t n = (uint32_t)strlen(kEntities[k]);
+            if (length - *at >= n && memcmp(p + *at, kEntities[k], n) == 0)
+            {
+                *at += n;
+                return kBytes[k];
+            }
+        }
+    }
+    return p[(*at)++];
+}
+
+size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity)
+{
+    const uint8_t* p = NULL;
+    uint32_t length = 0;
+    if (!maniFbxString(fbx, property, &p, &length))
+    {
+        return 0;
+    }
+    bool entities = fbx->ascii && fbx->properties[property].type == 'S';
+    size_t written = 0;
+    for (uint32_t at = 0; at < length && written < capacity;)
+    {
+        out[written++] = entities ? NextByte(p, length, &at) : p[at++];
+    }
+    return written;
+}
+
+bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length)
+{
+    const uint8_t* p = NULL;
+    uint32_t raw = 0;
+    if (!maniFbxString(fbx, property, &p, &raw))
+    {
+        return false;
+    }
+    bool entities = fbx->ascii && fbx->properties[property].type == 'S';
+    size_t matched = 0;
+    for (uint32_t at = 0; at < raw;)
+    {
+        uint8_t c = entities ? NextByte(p, raw, &at) : p[at++];
+        if (matched == length || (uint8_t)bytes[matched] != c)
+        {
+            return false;
+        }
+        ++matched;
+    }
+    return matched == length;
 }
 
 static uint32_t ElementSize(uint8_t type)
@@ -168,9 +243,10 @@ static uint32_t ElementSize(uint8_t type)
 
 uint32_t maniFbxArrayCount(const maniFbx* fbx, uint32_t property)
 {
-    return property < fbx->propertyCount && ElementSize(fbx->properties[property].type) != 0
-               ? fbx->properties[property].count
-               : 0;
+    bool array =
+        property < fbx->propertyCount &&
+        (ElementSize(fbx->properties[property].type) != 0 || fbx->properties[property].type == 'A');
+    return array ? fbx->properties[property].count : 0;
 }
 
 // The array's decoded elements: where they lie in the file, or a block
@@ -259,8 +335,35 @@ static maniImportResult Store(const maniFbx* fbx, const maniFbxProperty* p, cons
     return maniFbxSuccess();
 }
 
+// An ASCII array's numbers converted one by one, each refusal at its
+// text.
+static maniImportResult ReadText(const maniFbx* fbx, const maniFbxProperty* p, Want want, void* out)
+{
+    uint64_t at = p->offset;
+    uint64_t end = p->offset + p->encodedSize;
+    for (uint32_t i = 0; i < p->count; ++i)
+    {
+        uint64_t start = 0;
+        uint64_t length = 0;
+        bool read = maniFbxAsciiNextNumber(fbx, &at, end, &start, &length);
+        bool fine =
+            read && (want == WantDoubles ? maniFbxTextDouble(fbx, start, length, (double*)out + i)
+                                         : maniFbxTextInteger(fbx, start, length, INT64_MIN,
+                                                              INT64_MAX, (int64_t*)out + i));
+        if (!fine)
+        {
+            return maniFbxFail(maniImportReasonData, read ? start : p->offset, 0);
+        }
+    }
+    return maniFbxSuccess();
+}
+
 static maniImportResult Read(const maniFbx* fbx, uint32_t property, Want want, void* out)
 {
+    if (property < fbx->propertyCount && fbx->properties[property].type == 'A')
+    {
+        return ReadText(fbx, &fbx->properties[property], want, out);
+    }
     const maniFbxProperty* p = property < fbx->propertyCount ? &fbx->properties[property] : NULL;
     uint32_t size = p != NULL ? ElementSize(p->type) : 0;
     bool floats = p != NULL && (p->type == 'f' || p->type == 'd');

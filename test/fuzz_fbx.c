@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Opening an FBX document (mani-0012) from any bytes, then reading
-// every property of every node: numbers, integers, strings, and arrays
-// up to a million elements. Run as fuzz_fbx <corpus dir>; the seed
-// comes from test_fbx --seed <file>.
+// every property of every node: numbers, integers, strings (decoded and
+// compared), and arrays up to a million elements; binary or ASCII. Run as fuzz_fbx <corpus dir>;
+// the seed comes from test_fbx --seed <file>.
 
 #include "fbx_document.h"
 #include "fbx_value.h"
@@ -30,6 +30,9 @@ static void ReadAll(const maniFbx* fbx)
         (void)maniFbxNumber(fbx, p, &d);
         (void)maniFbxInteger(fbx, p, INT64_MIN, INT64_MAX, &n);
         (void)maniFbxString(fbx, p, &text, &length);
+        uint8_t decoded[64];
+        (void)maniFbxStringDecode(fbx, p, decoded, sizeof decoded);
+        (void)maniFbxStringEquals(fbx, p, "Model", 5);
         uint32_t count = maniFbxArrayCount(fbx, p);
         // Large arrays cost time, not coverage.
         if (count == 0 || count > (1u << 20))

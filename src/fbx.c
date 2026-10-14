@@ -6,6 +6,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "fbx_ascii.h"
 #include "fbx_binary.h"
 #include "fbx_document.h"
 
@@ -42,8 +43,7 @@ static maniImportResult Open(maniFbx* fbx)
     {
         return maniFbxReadBinary(fbx);
     }
-    // The ASCII form is part (b) of mani-0012's reader.
-    return maniFbxFail(maniImportReasonSyntax, 0, 0);
+    return maniFbxReadAscii(fbx);
 }
 
 maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
