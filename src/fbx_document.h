@@ -8,6 +8,8 @@
 #ifndef MAUL_ANIM_SRC_FBX_DOCUMENT_H
 #define MAUL_ANIM_SRC_FBX_DOCUMENT_H
 
+#include "names.h"
+
 #include "maul-anim/base.h"
 #include "maul-anim/import.h"
 
@@ -126,6 +128,16 @@ struct maniFbx
     // Entries of another type or naming no object.
     uint32_t skippedConnections;
     maniFbxSettings settings;
+    // Models (mani-0014): their objects in object order, each object's
+    // model (or MANI_FBX_NONE), each model's parent (modelCount for the
+    // root), children per parent (the root's last) and bone names.
+    uint32_t* models;
+    uint32_t modelCount;
+    uint32_t* modelOfObject;
+    uint32_t* modelParents;
+    uint32_t* modelChildren;
+    uint32_t* childStartsOfModel;
+    maniBoneNames modelNames;
 };
 
 static inline maniImportResult maniFbxSuccess(void)

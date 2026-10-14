@@ -303,6 +303,26 @@ uint32_t maniFbxVersion(const maniFbx* fbx);
 ```
 Returns the document's version (7400 for FBX 7.4), 0 for NULL.  @param fbx  The document. @return The version. @par Thread safety Safe from any thread.
 
+```c
+uint32_t maniFbxModelCount(const maniFbx* fbx);
+```
+Returns the number of models (the objects of kind Model, in the order of the file's `Objects`), 0 for NULL.  @param fbx  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model, uint32_t* lengthOut);
+```
+Returns the bone name a model has in every skeleton, skin and clip built from the document (mani-0014): its name without its class, or, when it has none or an earlier model has the same, that name followed by `#` and the model index.  @param fbx        The document. @param model      The model. @param lengthOut  Receives the length in bytes, 0 past the count. May be NULL. @return The name, UTF-8 and not terminated, or NULL past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniFbxRenamedCount(const maniFbx* fbx);
+```
+Returns the number of models whose bone names differ from their names, 0 for NULL.  @param fbx  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index);
+```
+Returns a renamed model, in model order.  @param fbx    The document. @param index  Below maniFbxRenamedCount. @return The model, or UINT32_MAX past the count. @par Thread safety Safe from any thread.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -457,4 +477,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-85 functions across 7 headers.
+89 functions across 7 headers.

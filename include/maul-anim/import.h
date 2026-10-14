@@ -425,6 +425,48 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniFbxVersion(const maniFbx* fbx);
 
+    /// Returns the number of models (the objects of kind Model, in the
+    /// order of the file's `Objects`), 0 for NULL.
+    ///
+    /// @param fbx  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxModelCount(const maniFbx* fbx);
+
+    /// Returns the bone name a model has in every skeleton, skin and clip
+    /// built from the document (mani-0014): its name without its class,
+    /// or, when it has none or an earlier model has the same, that name
+    /// followed by `#` and the model index.
+    ///
+    /// @param fbx        The document.
+    /// @param model      The model.
+    /// @param lengthOut  Receives the length in bytes, 0 past the count.
+    ///                   May be NULL.
+    /// @return The name, UTF-8 and not terminated, or NULL past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model,
+                                              uint32_t* lengthOut);
+
+    /// Returns the number of models whose bone names differ from their
+    /// names, 0 for NULL.
+    ///
+    /// @param fbx  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxRenamedCount(const maniFbx* fbx);
+
+    /// Returns a renamed model, in model order.
+    ///
+    /// @param fbx    The document.
+    /// @param index  Below maniFbxRenamedCount.
+    /// @return The model, or UINT32_MAX past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index);
+
 #ifdef __cplusplus
 }
 #endif
