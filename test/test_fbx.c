@@ -366,6 +366,14 @@ static void CheckScene(uint32_t version, bool big, const char* what)
     CHECK(maniFbxReadDoubles(fbx, wt, out).result == mani_success && out[0] == 0.75 &&
               out[1] == 0.25,
           "a double array");
+    uint32_t words[3];
+    CHECK(maniFbxReadFloatBits(fbx, k, words).result == mani_success && words[0] == 0x3f800000u &&
+              words[1] == 0xbf000000u &&
+              maniFbxReadFloatBits(fbx, i, words).result == mani_success && words[0] == 0xfffffff9u,
+          "float and int32 arrays as binary32 words");
+    CHECK(maniFbxReadFloatBits(fbx, wt, words).result == mani_errorFormat &&
+              maniFbxReadFloatBits(fbx, t, words).result == mani_errorFormat,
+          "no words of doubles or int64s");
     CHECK(maniFbxArrayCount(fbx, maniFbxNodeProperty(fbx, m, 0)) == 0, "a scalar is no array");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
