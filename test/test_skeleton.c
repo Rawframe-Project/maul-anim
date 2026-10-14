@@ -8,6 +8,9 @@
 #include "bytes.h"
 #include "container.h"
 #include "skeleton_file.h"
+// The seed writer uses fopen, which the Microsoft C library deprecates.
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
