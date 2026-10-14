@@ -285,6 +285,26 @@ static void TestStepAndClamp(void)
     CHECK(end.translation.x == 3.0f && end.translation.z == 1.0f, "the last key");
 }
 
+// floor(t * rate) can round up past t: at 25 per second 3.87999988f
+// lands on sample 97 at 3.88000011f, a factor just below 0 that must not
+// extrapolate.
+static void TestFactorClamped(void)
+{
+    OpenSkeleton();
+    static const float times[2] = {0.0f, 4.0f};
+    static const float values[6] = {0, 0, 0, 100, 0, 0};
+    maniBoneTrackSource track = {
+        1, 0, (maniChannelSource){times, values, 2, maniInterpolationLinear}, kNone, kNone};
+    maniClipSource source = {
+        .skeleton = &s_skeleton, .boneTracks = &track, .boneTrackCount = 1, .sampleRate = 25.0f};
+    CHECK(BuildFrom(&source).result == mani_success, "builds");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    float at = maniPoseLocal(SampleAt(&clip, 3.88f), 1).translation.x;
+    float before = maniPoseLocal(SampleAt(&clip, 3.87999988f), 1).translation.x;
+    CHECK(before == at, "no extrapolation below a sample");
+}
+
 static void TestDurationAndRate(void)
 {
     OpenSkeleton();
@@ -435,6 +455,14 @@ static void TestWholeFrameDurations(void)
     CHECK(maniClipSampleCountFor(1.0f / 3.0f, 30.0f, &count) && count == 11, "1/3 s at 30");
     CHECK(maniClipSampleCountFor(0.1f, 60.0f, &count) && count == 7, "0.1 s at 60");
     CHECK(maniClipSampleCountFor(0.95f, 30.0f, &count) && count == 30, "a part frame rounds up");
+    CHECK(maniClipSampleCountFor(16777215.0f, 1.0f, &count) && count == MANI_MAX_SAMPLES,
+          "the most samples");
+    CHECK(!maniClipSampleCountFor(16777216.0f, 1.0f, &count), "one past the most");
+    // Long durations: a real part frame is never snapped away.
+    CHECK(maniClipSampleCountFor(1000000.5f, 1.0f, &count) && count == 1000002,
+          "half a frame at a million");
+    CHECK(maniClipSampleCountFor(100000.0625f, 1.0f, &count) && count == 100002,
+          "a sixteenth of a frame at a hundred thousand");
     // Built and sampled: the last interval is a whole one.
     OpenSkeleton();
     maniClipSource source = SampleSource();
@@ -566,6 +594,93 @@ static void TestReport(void)
     builder = NewBuilder();
     CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
           "a float track the clip lacks");
+    maniDestroyBuilder(builder);
+}
+
+// Keys on opposite hemispheres turn the short way; a step to a key
+// written with w below 0 is stored on the previous sample's side, which
+// the measure sees as no error.
+static void TestHemispheres(void)
+{
+    OpenSkeleton();
+    static const float times[2] = {0.0f, 1.0f};
+    static const float negated[8] = {0, 0, 0, 1, 0, 0, -0.70710677f, -0.70710677f};
+    maniBoneTrackSource track = {
+        2, 0, kNone, (maniChannelSource){times, negated, 2, maniInterpolationLinear}, kNone};
+    maniClipSource source = {
+        .skeleton = &s_skeleton, .boneTracks = &track, .boneTrackCount = 1, .sampleRate = 10.0f};
+    CHECK(BuildFrom(&source).result == mani_success, "builds");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    maniTransform r = maniPoseLocal(SampleAt(&clip, 0.5f), 2);
+    double half = 0.25 * 3.14159265358979323846 * 0.5;
+    CHECK(Near(fabsf(r.rotation.z), sin(half), 2e-7) && Near(fabsf(r.rotation.w), cos(half), 2e-7),
+          "the short way");
+
+    static const float steps[8] = {0, 0, 0, 1, 0, 0, -0.38268343f, -0.92387953f};
+    track.rotation = (maniChannelSource){times, steps, 2, maniInterpolationStep};
+    CHECK(BuildFrom(&source).result == mani_success, "builds");
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    maniTransform last = maniPoseLocal(SampleAt(&clip, 1.0f), 2);
+    CHECK(last.rotation.w > 0.0f, "kept on the previous sample's side");
+    maniBuilder* builder = NewBuilder();
+    maniClipReport report;
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_success, "measures");
+    CHECK(report.sampleRotation.error < 1e-6, "a flipped sign is no error");
+    maniDestroyBuilder(builder);
+}
+
+// A cubic's tangents scale with the span between keys (Appendix C).
+static void TestCubicSpan(void)
+{
+    OpenSkeleton();
+    static const float times[2] = {0.0f, 0.5f};
+    static const float values[6] = {0, 0, 0, 2, 1, 0};
+    maniFloatTrackSource curve = {"curve", 5, 0, {times, values, 2, maniInterpolationCubicSpline}};
+    maniClipSource source = {
+        .skeleton = &s_skeleton, .floatTracks = &curve, .floatTrackCount = 1, .sampleRate = 10.0f};
+    CHECK(BuildFrom(&source).result == mani_success, "builds");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    for (int k = 0; k <= 5; ++k)
+    {
+        float value = 0.0f;
+        float time = (float)k / 10.0f;
+        CHECK(maniSampleClipFloats(&clip, time, &value, 1, NULL) == mani_success, "samples");
+        double u = (double)time / 0.5;
+        double expected = (-2 * u * u * u + 3 * u * u) * 1 + 0.5 * (u * u * u - u * u) * 2;
+        CHECK(Near(value, expected, 1e-6), "the in-tangent times the span");
+    }
+}
+
+static void TestNamedItemsAlone(void)
+{
+    OpenSkeleton();
+    // An event past every key sets the default duration; -0 sorts as 0.
+    static const maniEventSource events[2] = {{1.5f, 1, "late", 4, 0}, {-0.0f, 2, "start", 5, 0}};
+    maniBoneTrackSource empty = {3, 0, kNone, kNone, kNone};
+    maniClipSource source = {.skeleton = &s_skeleton,
+                             .boneTracks = &empty,
+                             .events = events,
+                             .boneTrackCount = 1,
+                             .eventCount = 2,
+                             .sampleRate = 10.0f};
+    CHECK(BuildFrom(&source).result == mani_success, "a track without channels builds");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    CHECK(maniClipDuration(&clip) == 1.5f, "the duration from an event");
+    maniClipEvent first = maniClipEventAt(&clip, 0);
+    CHECK(first.payload == 2 && first.time == 0.0f && !signbit(first.time), "-0 first, as 0");
+    CHECK(maniPoseLocal(SampleAt(&clip, 0.5f), 3).translation.x == 0.5f, "at rest");
+    // The measure checks the rate, not only the count: 9.5 per second
+    // over 1.5 s gives 16 samples, as 10 does.
+    maniBuilder* builder = NewBuilder();
+    maniClipReport report;
+    source.sampleRate = 9.5f;
+    uint32_t count = 0;
+    CHECK(maniClipSampleCountFor(1.5f, 9.5f, &count) && count == maniClipSampleCount(&clip),
+          "the same count");
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid, "another rate");
     maniDestroyBuilder(builder);
 }
 
@@ -762,6 +877,8 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 24, "loop policy");
     s_file[header + 56] = 1;
     ExpectFormat(header + 56, "header padding");
+    s_file[header + 52] = 1;
+    ExpectFormat(header + 52, "header padding's first byte");
     maniStoreU32(s_file + header + 32, 7);
     ExpectFormat(header + 32, "floats per sample");
     // Tracks are bones 0, 1, 2: make the second bone 0.
@@ -787,6 +904,17 @@ static void TestOpenRefusals(void)
     uint64_t keys = SectionAt(maniClipTagDiscreteKeys);
     uint64_t events = SectionAt(maniClipTagEvents);
     uint64_t markers = SectionAt(maniClipTagMarkers);
+    // Swapping two float track entries keeps each name right but breaks
+    // the hash order.
+    uint8_t entry[24];
+    memcpy(entry, s_file + floatTracks, 24);
+    memcpy(s_file + floatTracks, s_file + floatTracks + 24, 24);
+    memcpy(s_file + floatTracks + 24, entry, 24);
+    ExpectFormat(floatTracks + 24 + 8, "float tracks out of hash order");
+    // foot keeps two keys, state one: a key left over in the section.
+    maniStoreU32(s_file + discrete + 20, 2);
+    maniStoreU32(s_file + discrete + 24 + 16, 2);
+    ExpectFormat(64 + 6 * 24 + 16, "discrete keys left over");
     maniStoreU32(s_file + floatTracks + 4, 0);
     ExpectFormat(floatTracks, "an empty float name");
     s_file[floatTracks + 8] ^= 1;
@@ -870,12 +998,16 @@ int main(int argc, char** argv)
     TestSlerpAtSamples();
     TestCubicAtSamples();
     TestStepAndClamp();
+    TestFactorClamped();
     TestDurationAndRate();
     TestFloatTracks();
     TestDiscreteTracks();
     TestEventsAndMarkers();
     TestWholeFrameDurations();
     TestReport();
+    TestHemispheres();
+    TestCubicSpan();
+    TestNamedItemsAlone();
     TestWrongSkeleton();
     TestBuildRefusals();
     TestOpenRefusals();

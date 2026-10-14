@@ -321,14 +321,15 @@ int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time)
     const uint8_t* entry = clip->discreteTracks + (size_t)track * MANI_CLIP_NAMED_TRACK_SIZE;
     const uint8_t* keys = clip->discreteKeys + (size_t)maniLoadU32(entry + 16) * MANI_CLIP_KEY_SIZE;
     uint32_t count = maniLoadU32(entry + 20);
-    float t = time == time ? time : 0.0f;
-    // The number of keys at or before t; the value is the last of them.
+    // The number of keys at or before the time; the value is the last of
+    // them, or the first key when there is none, NaN included (no
+    // comparison with NaN holds), which is the value at 0.
     uint32_t low = 0;
     uint32_t high = count;
     while (low < high)
     {
         uint32_t middle = low + (high - low) / 2;
-        if (LoadF32(keys + (size_t)middle * MANI_CLIP_KEY_SIZE) <= t)
+        if (LoadF32(keys + (size_t)middle * MANI_CLIP_KEY_SIZE) <= time)
         {
             low = middle + 1;
         }

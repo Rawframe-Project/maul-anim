@@ -68,7 +68,7 @@ static inline uint32_t maniChannelFloats(uint32_t mask)
 
 // The sample count for a duration and rate, both finite, the rate above
 // 0: 1 for a duration of 0, else ceil(duration * rate) + 1 in binary32,
-// the product snapped to a whole number within 2^-20 of it.
+// the product snapped to a whole number within 2^-22 of it.
 // False when it would pass MANI_MAX_SAMPLES.
 bool maniClipSampleCountFor(float duration, float rate, uint32_t* countOut);
 
