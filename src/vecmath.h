@@ -119,7 +119,7 @@ maniQuat maniQuatFromAxisAngle(maniVec3 axis, float angle);
 
 // The shortest turn taking the unit direction from onto the unit direction
 // to; opposite directions turn half way about an axis perpendicular to
-// from.
+// from. Always a unit quaternion, even for a zero or non-finite input.
 maniQuat maniQuatBetween(maniVec3 from, maniVec3 to);
 
 // The affine matrix that scales, then turns, then translates.

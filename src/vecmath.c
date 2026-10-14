@@ -120,7 +120,8 @@ maniQuat maniQuatBetween(maniVec3 from, maniVec3 to)
         h[k] = f[k] + t[k] / tl;
     }
     double length = sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
-    if (!(length > 1e-6) || !(fl > 0.0) || !(tl > 0.0))
+    // A zero or non-finite input makes length NaN, which lands here too.
+    if (!(length > 1e-6))
     {
         // Half a turn about the axis least aligned with from, made
         // perpendicular to it.

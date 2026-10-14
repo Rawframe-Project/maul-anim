@@ -7,13 +7,15 @@
 #include "test_harness.h"
 #include "vecmath.h"
 
+#include "maul-anim/base.h"
+
 #include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
 
 // The hash of HashAll on the reference build; every platform must match.
-#define PINNED_HASH 0xd1c9eb0a3fba4739ull
+#define PINNED_HASH 0x8bfb0de0498f9bc5ull
 
 // A fixed sequence of numbers in [-1, 1], the same everywhere.
 static uint32_t s_state = 12345u;
@@ -224,6 +226,14 @@ static void TestBetweenTakesFromOntoTo(void)
               "opposite directions turn half way");
         CHECK(Near(maniQuatDot(q, q), 1.0, 1e-6), "a unit turn");
     }
+    const maniVec3 bad[] = {{0.0f, 0.0f, 0.0f}, {NAN, 0.0f, 0.0f}, {INFINITY, 1.0f, 0.0f}};
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; ++i)
+    {
+        maniQuat q = maniQuatBetween(bad[i], axes[1]);
+        maniQuat r = maniQuatBetween(axes[1], bad[i]);
+        CHECK(Near(maniQuatDot(q, q), 1.0, 1e-6) && Near(maniQuatDot(r, r), 1.0, 1e-6),
+              "a zero or non-finite direction still gives a unit turn");
+    }
     maniQuat same = maniQuatBetween(axes[3], axes[3]);
     CHECK(Near(same.w, 1.0, 1e-7), "the same direction does not turn");
 }
@@ -282,22 +292,34 @@ static void TestAffineProductAndInverse(void)
     CHECK(!maniAffineInverse(&nan, &untouched), "nor has one with NaN");
 }
 
-static uint64_t HashFloat(uint64_t hash, float value)
+// Results are hashed with the family hash in blocks, as every platform
+// must produce the same bits.
+typedef struct Hasher
 {
-    uint32_t bits = 0;
-    memcpy(&bits, &value, sizeof bits);
-    for (int32_t i = 0; i < 4; ++i)
+    uint64_t hash;
+    int32_t count;
+    float block[1024];
+} Hasher;
+
+static void HashFloat(Hasher* h, float value)
+{
+    h->block[h->count++] = value;
+    if (h->count == 1024)
     {
-        hash ^= (bits >> (8 * i)) & 0xffu;
-        hash *= 0x100000001b3ull;
+        h->hash = maniHash64(h->hash, h->block, (int32_t)sizeof h->block);
+        h->count = 0;
     }
-    return hash;
+}
+
+static uint64_t HashEnd(Hasher* h)
+{
+    return maniHash64(h->hash, h->block, h->count * (int32_t)sizeof(float));
 }
 
 static uint64_t HashAll(void)
 {
     s_state = 777u;
-    uint64_t hash = 0xcbf29ce484222325ull;
+    Hasher h = {MANI_HASH_INIT, 0, {0}};
     for (int32_t i = 0; i < 20000; ++i)
     {
         maniQuat a = RandomUnitQuat();
@@ -320,15 +342,15 @@ static uint64_t HashAll(void)
         {
             for (int32_t k = 0; k < 4; ++k)
             {
-                hash = HashFloat(hash, parts[p][k]);
+                HashFloat(&h, parts[p][k]);
             }
         }
         for (int32_t k = 0; k < 12; ++k)
         {
-            hash = HashFloat(hash, inv.m[k]);
+            HashFloat(&h, inv.m[k]);
         }
     }
-    return hash;
+    return HashEnd(&h);
 }
 
 static void TestSameBitsEverywhere(void)
