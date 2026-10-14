@@ -44,6 +44,7 @@ endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
     src/container.c
+    src/decompose.c
     src/elementary_float.c
     src/fpenv.c
     src/hash.c
@@ -71,6 +72,7 @@ if(MAUL_ANIM_BUILD_TESTS)
     enable_testing()
     maul_add_test(base)
     maul_add_test(container WHITEBOX)
+    maul_add_test(decompose WHITEBOX)
     maul_add_test(hash)
     maul_add_test(math_float WHITEBOX)
     maul_add_test(fpenv WHITEBOX)

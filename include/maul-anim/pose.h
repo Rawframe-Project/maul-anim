@@ -166,6 +166,34 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniPoseReadModels(const maniPose* pose, uint32_t first,
                                                           uint32_t count, maniAffine* matrices);
 
+    /// Splits an affine matrix into translation, rotation and scale: the
+    /// fourth column, the rotation of the polar decomposition (the
+    /// rotation nearest the matrix, exact up to rounding when the matrix
+    /// has no shear) as a quaternion with w >= 0, and the scale along the
+    /// rotated axes. A mirror becomes a negative x scale. A matrix with a
+    /// zero or flat axis still splits, its rotation built from the axes
+    /// that are left.
+    ///
+    /// @param matrix        The matrix.
+    /// @param transformOut  Receives the transform.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
+    /// component that is not finite.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniDecomposeAffine(const maniAffine* matrix,
+                                                           maniTransform* transformOut);
+
+    /// Returns a bone's model matrix, as last composed, split as
+    /// maniDecomposeAffine splits it.
+    ///
+    /// @param pose  The pose.
+    /// @param bone  The bone.
+    /// @return The transform, or the identity for a bone past the count or a
+    /// matrix that is not finite.
+    /// @par Thread safety
+    /// Safe from any thread; the pose is used by one thread at a time.
+    MANI_API maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone);
+
 #ifdef __cplusplus
 }
 #endif

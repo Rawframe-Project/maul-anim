@@ -130,6 +130,16 @@ MANI_NODISCARD MANI_API maniResult maniPoseReadModels(const maniPose* pose, uint
 ```
 Reads the model matrices of bones first to first + count - 1, as last composed.  @param pose      The pose. @param first     The first bone. @param count     How many bones; the range must lie within the bone count. @param matrices  Receives count matrices. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a range past the bone count. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transformOut);
+```
+Splits an affine matrix into translation, rotation and scale: the fourth column, the rotation of the polar decomposition (the rotation nearest the matrix, exact up to rounding when the matrix has no shear) as a quaternion with w >= 0, and the scale along the rotated axes. A mirror becomes a negative x scale. A matrix with a zero or flat axis still splits, its rotation built from the axes that are left.  @param matrix        The matrix. @param transformOut  Receives the transform. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a component that is not finite. @par Thread safety Safe from any thread.
+
+```c
+maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone);
+```
+Returns a bone's model matrix, as last composed, split as maniDecomposeAffine splits it.  @param pose  The pose. @param bone  The bone. @return The transform, or the identity for a bone past the count or a matrix that is not finite. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
+
 ## `skeleton.h`
 
 Skeletons (mani-0003): bones in depth-first order, each with a parent, a rest transform and a unique name, read in place from a skeleton file's bytes. Opening a file checks all of it once; the view then reads it without checks and allocates nothing.
@@ -210,4 +220,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-37 functions across 5 headers.
+39 functions across 5 headers.

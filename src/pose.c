@@ -10,6 +10,7 @@
 #include "maul-anim/pose.h"
 
 #include "bytes.h"
+#include "decompose.h"
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -256,4 +257,27 @@ maniResult maniPoseReadModels(const maniPose* pose, uint32_t first, uint32_t cou
                (size_t)count * sizeof(maniAffine));
     }
     return mani_success;
+}
+
+maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transformOut)
+{
+    if (matrix == NULL || transformOut == NULL || !maniDecompose(matrix, transformOut))
+    {
+        return mani_errorInvalid;
+    }
+    return mani_success;
+}
+
+maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
+{
+    maniTransform out = s_identity;
+    if (bone < pose->boneCount)
+    {
+        maniAffine model = maniPoseModel(pose, bone);
+        if (!maniDecompose(&model, &out))
+        {
+            out = s_identity;
+        }
+    }
+    return out;
 }

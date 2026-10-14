@@ -15,7 +15,8 @@ skeleton: bytes container skeleton_file text
 builder: allocator container
 skeleton_build: allocator builder bytes container skeleton_file text
 elementary_float:
-pose: bytes pose_memory vecmath
+pose: bytes decompose pose_memory vecmath
+decompose:
 pose_memory:
 skin_file:
 skin: bytes container pose_memory skin_file vecmath

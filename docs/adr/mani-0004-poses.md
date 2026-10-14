@@ -30,6 +30,13 @@ change as the passes are measured.
 - **The model pass** `maniComputeModel` composes each bone's model
   matrix as its parent's times its local matrix (mani-0003), in bone
   order, and refuses a skeleton whose identity is not the pose's.
+- **Decomposition** (`maniDecomposeAffine`, `maniPoseModelTransform`)
+  splits a matrix into translation, rotation and scale: the rotation of
+  the polar decomposition, computed in binary64 by the scaled Newton
+  iteration (N. J. Higham, 1986), so it is exact up to rounding without
+  shear and the nearest rotation with it; a mirror as a negative x
+  scale; a matrix with a zero or flat axis split from the axes left,
+  never refused.
 
 ## Consequences
 
