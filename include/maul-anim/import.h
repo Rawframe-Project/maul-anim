@@ -522,9 +522,12 @@ extern "C"
         uint32_t rateNumerator;
         uint32_t rateDenominator;
         double customRate;
-        // The time span in FBX ticks, 46186158000 a second.
+        // The time span in FBX ticks, ticksPerSecond a second
+        // (46186158000, or 141120000 where the header defines the newer
+        // unit).
         int64_t spanStart;
         int64_t spanStop;
+        int64_t ticksPerSecond;
     } maniFbxSettings;
 
     /// Reads the scene's settings, FBX's defaults where the file is

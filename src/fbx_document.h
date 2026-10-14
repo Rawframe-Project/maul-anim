@@ -81,7 +81,7 @@ typedef struct maniFbxConnection
 // GlobalSettings: right (coord), up and front axes (0 x, 1 y, 2 z) with
 // their signs; centimetres a unit; the frame rate as numerator over
 // denominator, or customRate when the denominator is 0; the time span
-// in ticks.
+// in ticks, ticksPerSecond a second.
 typedef struct maniFbxGlobalSettings
 {
     uint8_t axes[3];
@@ -94,6 +94,7 @@ typedef struct maniFbxGlobalSettings
     double customRate;
     int64_t spanStart;
     int64_t spanStop;
+    int64_t ticksPerSecond;
 } maniFbxGlobalSettings;
 
 struct maniFbx

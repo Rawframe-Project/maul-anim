@@ -48,4 +48,10 @@ uint32_t maniFbxArrayCount(const maniFbx* fbx, uint32_t property);
 maniImportResult maniFbxReadDoubles(const maniFbx* fbx, uint32_t property, double* out);
 maniImportResult maniFbxReadIntegers(const maniFbx* fbx, uint32_t property, int64_t* out);
 
+// A float or int32 array's binary32 bit patterns, as they are (an ASCII
+// array's: from 7.2 integers holding the bits, before float values),
+// for KeyAttrDataFloat, whose words are not all floats; Property for
+// other kinds.
+maniImportResult maniFbxReadFloatBits(const maniFbx* fbx, uint32_t property, uint32_t* out);
+
 #endif // MAUL_ANIM_SRC_FBX_VALUE_H

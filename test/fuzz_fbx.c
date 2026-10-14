@@ -9,6 +9,7 @@
 // skeleton's models, and skeleton and skin builds. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
+#include "fbx_curve.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
@@ -57,6 +58,26 @@ static void ReadAll(const maniFbx* fbx)
             free(out);
         }
     }
+}
+
+// Reads a curve object and evaluates it inside, on and past its keys.
+static void Curve(const maniFbx* fbx, uint32_t object)
+{
+    maniFbxCurve curve;
+    if (!maniFbxNameIs(fbx, fbx->objects[object].node, "AnimationCurve", 14) ||
+        maniFbxReadCurve(fbx, object, &curve).result != mani_success)
+    {
+        return;
+    }
+    for (uint32_t k = 0; k < curve.count && k < 8; ++k)
+    {
+        double t = curve.keys[k].time;
+        (void)maniFbxEvaluateCurve(&curve, t, 0.0);
+        (void)maniFbxEvaluateCurve(&curve, t + 0.37, 0.0);
+        (void)maniFbxEvaluateCurve(&curve, t - 2.71, 0.0);
+        (void)maniFbxEvaluateCurve(&curve, t + 1e9, 0.0);
+    }
+    maniFbxReleaseCurve(fbx, &curve);
 }
 
 // Builds the skins of a skeleton the builder holds, against it opened
@@ -139,6 +160,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             (void)maniFbxFindObject(fbx, fbx->objects[o].id);
             maniFbxLocal local;
             (void)maniFbxModelLocal(fbx, o, &local);
+            Curve(fbx, o);
         }
         for (uint32_t m = 0; m <= fbx->modelCount; ++m)
         {

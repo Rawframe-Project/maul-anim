@@ -305,6 +305,8 @@ typedef enum Want
 {
     WantDoubles,
     WantIntegers,
+    // Binary32 bit patterns: float and int32 arrays as they are.
+    WantBits,
 } Want;
 
 // Element i into out, as the caller wants it.
@@ -313,6 +315,11 @@ static maniImportResult Store(const maniFbx* fbx, const maniFbxProperty* p, cons
 {
     uint32_t size = ElementSize(p->type);
     uint64_t bits = ElementBits(fbx, e, size, i);
+    if (want == WantBits)
+    {
+        ((uint32_t*)out)[i] = (uint32_t)bits;
+        return maniFbxSuccess();
+    }
     if (p->type == 'f' || p->type == 'd')
     {
         double d = p->type == 'f' ? (double)AsFloat((uint32_t)bits) : AsDouble(bits);
@@ -335,6 +342,26 @@ static maniImportResult Store(const maniFbx* fbx, const maniFbxProperty* p, cons
     return maniFbxSuccess();
 }
 
+// A text number as binary32 bits: from 7.2 on, the bits written as an
+// integer (FBX's KeyAttrDataFloat packs integers into floats); before,
+// a float's value.
+static bool TextBits(const maniFbx* fbx, uint64_t start, uint64_t length, uint32_t* out)
+{
+    if (fbx->version >= 7200)
+    {
+        int64_t n = 0;
+        bool fine = maniFbxTextInteger(fbx, start, length, INT32_MIN, UINT32_MAX, &n);
+        *out = (uint32_t)n;
+        return fine;
+    }
+    double d = 0.0;
+    float f = 0.0f;
+    bool fine = maniFbxTextDouble(fbx, start, length, &d);
+    f = (float)d;
+    memcpy(out, &f, sizeof f);
+    return fine;
+}
+
 // An ASCII array's numbers converted one by one, each refusal at its
 // text.
 static maniImportResult ReadText(const maniFbx* fbx, const maniFbxProperty* p, Want want, void* out)
@@ -347,9 +374,10 @@ static maniImportResult ReadText(const maniFbx* fbx, const maniFbxProperty* p, W
         uint64_t length = 0;
         bool read = maniFbxAsciiNextNumber(fbx, &at, end, &start, &length);
         bool fine =
-            read && (want == WantDoubles ? maniFbxTextDouble(fbx, start, length, (double*)out + i)
-                                         : maniFbxTextInteger(fbx, start, length, INT64_MIN,
-                                                              INT64_MAX, (int64_t*)out + i));
+            read && (want == WantBits      ? TextBits(fbx, start, length, (uint32_t*)out + i)
+                     : want == WantDoubles ? maniFbxTextDouble(fbx, start, length, (double*)out + i)
+                                           : maniFbxTextInteger(fbx, start, length, INT64_MIN,
+                                                                INT64_MAX, (int64_t*)out + i));
         if (!fine)
         {
             return maniFbxFail(maniImportReasonData, read ? start : p->offset, 0);
@@ -367,7 +395,8 @@ static maniImportResult Read(const maniFbx* fbx, uint32_t property, Want want, v
     const maniFbxProperty* p = property < fbx->propertyCount ? &fbx->properties[property] : NULL;
     uint32_t size = p != NULL ? ElementSize(p->type) : 0;
     bool floats = p != NULL && (p->type == 'f' || p->type == 'd');
-    if (size == 0 || (want == WantIntegers && floats))
+    bool words = p != NULL && (p->type == 'f' || p->type == 'i');
+    if (size == 0 || (want == WantIntegers && floats) || (want == WantBits && !words))
     {
         return maniFbxFail(maniImportReasonProperty, p != NULL ? p->offset : 0, property);
     }
@@ -389,4 +418,9 @@ maniImportResult maniFbxReadDoubles(const maniFbx* fbx, uint32_t property, doubl
 maniImportResult maniFbxReadIntegers(const maniFbx* fbx, uint32_t property, int64_t* out)
 {
     return Read(fbx, property, WantIntegers, out);
+}
+
+maniImportResult maniFbxReadFloatBits(const maniFbx* fbx, uint32_t property, uint32_t* out)
+{
+    return Read(fbx, property, WantBits, out);
 }

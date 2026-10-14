@@ -20,3 +20,4 @@ are listed in [README.md](README.md).
 | [mani-0013](mani-0013-fbx-objects.md) | FBX objects, properties, connections and settings | Accepted |
 | [mani-0014](mani-0014-fbx-transforms.md) | FBX transforms, inherit modes and skeletons | Accepted |
 | [mani-0015](mani-0015-fbx-skins.md) | FBX skins | Accepted |
+| [mani-0016](mani-0016-fbx-clips.md) | FBX clips | Accepted |

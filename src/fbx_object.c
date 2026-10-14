@@ -520,11 +520,37 @@ static maniImportResult ReadScale(const maniFbx* fbx, uint32_t properties, const
     return maniFbxSuccess();
 }
 
+// FBX's time unit, as ufbx reads it: 46186158000 ticks a second before
+// 8000, unless a header version from 1004 on gives OtherFlags a
+// TCDefinition other than 127, which selects 141120000.
+static int64_t TicksPerSecond(const maniFbx* fbx)
+{
+    uint32_t header = maniFbxFindChild(fbx, 0, "FBXHeaderExtension", 18);
+    if (header == MANI_FBX_NONE)
+    {
+        return 46186158000;
+    }
+    int64_t version = 0;
+    int64_t definition = 127;
+    uint32_t node = maniFbxFindChild(fbx, header, "FBXHeaderVersion", 16);
+    bool versioned =
+        node != MANI_FBX_NONE &&
+        maniFbxInteger(fbx, maniFbxNodeProperty(fbx, node, 0), 0, INT32_MAX, &version) &&
+        version >= 1004;
+    uint32_t flags = maniFbxFindChild(fbx, header, "OtherFlags", 10);
+    node =
+        flags != MANI_FBX_NONE ? maniFbxFindChild(fbx, flags, "TCDefinition", 12) : MANI_FBX_NONE;
+    bool defined = node != MANI_FBX_NONE && maniFbxInteger(fbx, maniFbxNodeProperty(fbx, node, 0),
+                                                           INT32_MIN, INT32_MAX, &definition);
+    return versioned && defined && definition != 127 ? 141120000 : 46186158000;
+}
+
 // GlobalSettings, FBX's defaults where it is silent: X right, Y up, Z
 // front, all positive; one centimetre a unit; 30 frames a second.
 static maniImportResult ReadSettings(maniFbx* fbx)
 {
-    fbx->settings = (maniFbxGlobalSettings){{0, 1, 2}, {1, 1, 1}, 1.0, 1.0, 0, 30, 1, 0.0, 0, 0};
+    fbx->settings = (maniFbxGlobalSettings){
+        {0, 1, 2}, {1, 1, 1}, 1.0, 1.0, 0, 30, 1, 0.0, 0, 0, TicksPerSecond(fbx)};
     uint32_t global = maniFbxFindChild(fbx, 0, "GlobalSettings", 14);
     uint32_t properties = global != MANI_FBX_NONE ? PropertiesOf(fbx, global) : MANI_FBX_NONE;
     maniImportResult r = ReadAxis(fbx, properties, "CoordAxis", "CoordAxisSign", 0);
@@ -597,6 +623,7 @@ maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
     settingsOut->customRate = s->customRate;
     settingsOut->spanStart = s->spanStart;
     settingsOut->spanStop = s->spanStop;
+    settingsOut->ticksPerSecond = s->ticksPerSecond;
     return mani_success;
 }
 
