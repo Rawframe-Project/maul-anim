@@ -83,3 +83,50 @@ container-no-copy | src/container.c | if (sections[i].size > 0) | if (false)
 container-writer-major | src/container.c | maniStoreU16(out + 16, MANI_VERSION_MAJOR); | maniStoreU16(out + 16, 7);
 container-identity | src/container.c | maniStoreU64(out + 40, identity); | maniStoreU64(out + 40, 0);
 container-align | src/container.c | return (value + MANI_CONTAINER_ALIGNMENT - 1) / MANI_CONTAINER_ALIGNMENT * | return (value + MANI_CONTAINER_ALIGNMENT) / MANI_CONTAINER_ALIGNMENT *
+
+# Skeletons (src/skeleton.c, src/skeleton_build.c), UTF-8 (src/text.c)
+# and the builder (src/builder.c)
+skeleton-section-count | src/skeleton.c | if (c->sectionCount != MANI_SKELETON_SECTIONS) | if (false)
+skeleton-parents-odd | src/skeleton.c | if (parentsSize == 0 || parentsSize % 2 != 0 || parentsSize / 2 > MANI_MAX_BONES) | if (parentsSize == 0 || parentsSize / 2 > MANI_MAX_BONES)
+skeleton-section-sizes | src/skeleton.c | if (sections[i].size != sizes[i - 1]) | if (false)
+skeleton-parent-later | src/skeleton.c | if (p != MANI_NO_BONE && p >= i) | if (p != MANI_NO_BONE && p > i)
+skeleton-walk-runs-out | src/skeleton.c | if (b == MANI_NO_BONE) | if (false)
+skeleton-walk-end | src/skeleton.c | if (End(ends, b) != i) | if (false)
+skeleton-last-ends | src/skeleton.c | if (End(ends, b) != n) | if (false)
+skeleton-rest-finite | src/skeleton.c | if (!Finite(values[k])) | if (false)
+skeleton-unit-tolerance | src/skeleton.c | if (fabs(squared - 1.0) > 0x1p-20) | if (fabs(squared - 1.0) > 2.0)
+skeleton-span-contiguous | src/skeleton.c | if (offset != next) | if (false)
+skeleton-span-empty | src/skeleton.c | if (length == 0 || length > names->size - offset) | if (length > names->size - offset)
+skeleton-span-past | src/skeleton.c | if (length == 0 || length > names->size - offset) | if (length == 0)
+skeleton-name-utf8 | src/skeleton.c | if (!maniValidUtf8(names->data + offset, (size_t)length)) | if (false)
+skeleton-names-tail | src/skeleton.c | if (next != names->size) | if (false)
+skeleton-order-range | src/skeleton.c | if (bone >= n) | if (false)
+skeleton-order-strict | src/skeleton.c | if (k > 0 && hash <= last) | if (k > 0 && hash < last)
+skeleton-identity | src/skeleton.c | return Fail(40); | return Success();
+skeleton-find-greater | src/skeleton.c | low = middle + 1; | low = middle;
+# skeleton-find-bytes survives, equivalent short of a 64-bit hash
+# collision: a name whose hash matches a bone's but whose bytes differ
+# cannot be made in a test; the comparison stays for correctness.
+skeleton-find-bytes | src/skeleton.c | return same ? bone : MANI_NO_BONE; | return bone;
+build-count | src/skeleton_build.c | if (n == 0 || n > MANI_MAX_BONES || source->bones == NULL) | if (n > MANI_MAX_BONES || source->bones == NULL)
+build-parent-self | src/skeleton_build.c | if (bone->parent < -1 || bone->parent >= (int64_t)n || bone->parent == (int64_t)i) | if (bone->parent < -1 || bone->parent >= (int64_t)n)
+build-parent-low | src/skeleton_build.c | if (bone->parent < -1 || bone->parent >= (int64_t)n || bone->parent == (int64_t)i) | if (bone->parent >= (int64_t)n || bone->parent == (int64_t)i)
+build-finite | src/skeleton_build.c | if (!Finite(values[k])) | if (false)
+build-zero-rotation | src/skeleton_build.c | return Refuse(maniBuildReasonRotation, i, 0); | break;
+build-cycle | src/skeleton_build.c | return Refuse(maniBuildReasonCycle, cycleBone, 0); | return Refuse(maniBuildReasonCycle, 0, 0);
+build-child-order | src/skeleton_build.c | stack[--at] = c; | stack[at - (--count) - 1 + 1 - 1] = c;
+# build-sort-stable survives, equivalent: equal hashes are refused
+# whatever their order, and the refusal orders the pair by index.
+build-sort-stable | src/skeleton_build.c | bool takeA = a < middle && (b >= high || hashes[from[a]] <= hashes[from[b]]); | bool takeA = a < middle && (b >= high || hashes[from[a]] < hashes[from[b]]);
+build-ends | src/skeleton_build.c | if (parent != MANI_NO_BONE && end[parent] < end[k]) | if (false)
+build-duplicate-kind | src/skeleton_build.c | return Refuse(same ? maniBuildReasonDuplicateName : maniBuildReasonNameHash, high, low); | return Refuse(maniBuildReasonNameHash, high, low);
+build-duplicate-check | src/skeleton_build.c | if (hashes[sorted[k]] != hashes[sorted[k - 1]]) | if (true)
+text-overlong-three | src/text.c | *lowOut = lead == 0xE0 ? 0xA0 : 0x80; | *lowOut = 0x80;
+text-surrogates | src/text.c | *highOut = lead == 0xED ? 0x9F : 0xBF; | *highOut = 0xBF;
+text-overlong-four | src/text.c | *lowOut = lead == 0xF0 ? 0x90 : 0x80; | *lowOut = 0x80;
+text-past-max | src/text.c | *highOut = lead == 0xF4 ? 0x8F : 0xBF; | *highOut = 0xBF;
+text-truncated | src/text.c | if (count < 0 || length - i - 1 < (size_t)count) | if (count < 0)
+text-continuations | src/text.c | if (!InRange(bytes[i + (size_t)k], 0x80, 0xBF)) | if (false)
+text-two-byte-lead | src/text.c | if (InRange(lead, 0xC2, 0xDF)) | if (InRange(lead, 0xC0, 0xDF))
+builder-version | src/builder.c | if (def->version != MANI_ABI_VERSION) | if (false)
+builder-cookie | src/builder.c | if (def->cookie != MANI_BUILDER_DEF_COOKIE || !maniAllocatorValid(&def->allocator)) | if (!maniAllocatorValid(&def->allocator))
