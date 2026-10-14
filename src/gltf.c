@@ -11,6 +11,7 @@
 #include "gltf_buffer.h"
 #include "gltf_document.h"
 #include "gltf_layout.h"
+#include "gltf_names.h"
 #include "gltf_node.h"
 #include "gltf_property.h"
 #include "json.h"
@@ -235,6 +236,10 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
     {
         r = maniGltfReadNodes(gltf);
     }
+    if (r.result == mani_success)
+    {
+        r = maniGltfReadNames(gltf);
+    }
     return r;
 }
 
@@ -278,6 +283,7 @@ void maniCloseGltf(maniGltf* gltf)
         return;
     }
     maniAllocator allocator = gltf->allocator;
+    maniGltfReleaseNames(gltf);
     maniGltfReleaseNodes(gltf);
     maniGltfReleaseBuffers(gltf);
     maniRelease(&allocator, gltf->views, gltf->viewCount, sizeof(maniGltfView), 8);

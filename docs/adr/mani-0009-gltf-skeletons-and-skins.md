@@ -30,10 +30,12 @@ make naive tree walks quadratic.
   decomposition), refused when projective or when the result does not
   compose back within 1e-4 of the largest column (the shear glTF
   forbids). Inverse binds must be affine within 1e-5.
-- **Names:** a node's name, or, when it has none or repeats an earlier
-  bone's in node order, the name followed by `#` and the node index.
-  A collision after that is refused. Skins (and clips) find bones by
-  these names.
+- **Names,** fixed per document at open: a node's name, or, when it
+  has none or an earlier node in the document has the same, the name
+  followed by `#` and the node index. A collision after that is refused
+  when both nodes are bones of one skeleton. A node has one name in
+  every skeleton, skin and clip built from the document, so skins (and
+  clips) find their bones by name whatever bone set the skeleton has.
 - **Placement:** the product of the nodes above the root, reported by
   `maniGltfSkeletonPlacement`, or folded into the root's rest on
   request. Inverse binds need no change either way: the palette times

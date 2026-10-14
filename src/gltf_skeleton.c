@@ -134,18 +134,16 @@ static maniImportResult BuildBones(maniBuilder* builder, const maniGltf* gltf, u
     uint32_t* nodes = Words(gltf, n);
     uint32_t* boneOf = Words(gltf, n);
     maniBoneSource* bones = maniAllocate(&gltf->allocator, n + 1, sizeof(maniBoneSource), 8);
-    maniGltfNames names = {0};
     maniImportResult r = Capacity();
     if (nodes != NULL && boneOf != NULL && bones != NULL)
     {
         uint32_t count = CollectBones(gltf, marked, nodes, boneOf);
-        r = maniGltfNameBones(gltf, nodes, count, &names);
+        r = maniImportSuccess();
         for (uint32_t b = 0; r.result == mani_success && b < count; ++b)
         {
             uint32_t v = nodes[b];
             bool isRoot = v == root;
-            bones[b].name = names.text + names.starts[b];
-            bones[b].nameLength = names.starts[b + 1] - names.starts[b];
+            bones[b].name = maniGltfNodeName(gltf, v, &bones[b].nameLength);
             bones[b].parent = isRoot ? -1 : (int32_t)boneOf[gltf->nodeParents[v]];
             r = isRoot ? maniGltfRootRest(gltf, root, options, &bones[b].rest)
                        : maniGltfNodeRest(gltf, v, options, &bones[b].rest);
@@ -156,7 +154,6 @@ static maniImportResult BuildBones(maniBuilder* builder, const maniGltf* gltf, u
             r = FromBuild(gltf, maniBuildSkeleton(builder, &source), nodes);
         }
     }
-    maniGltfReleaseNames(gltf, &names);
     Free(gltf, bones, n, sizeof(maniBoneSource));
     Free(gltf, nodes, n, sizeof(uint32_t));
     Free(gltf, boneOf, n, sizeof(uint32_t));
@@ -241,37 +238,20 @@ maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skelet
 static maniImportResult FindJoints(const maniGltf* gltf, uint32_t skin,
                                    const maniSkeleton* skeleton, uint32_t* joints)
 {
-    size_t n = gltf->nodeCount;
-    uint32_t* marked = Words(gltf, n);
-    uint32_t* nodes = Words(gltf, n);
-    uint32_t* boneOf = Words(gltf, n);
-    maniGltfNames names = {0};
-    maniImportResult r = Capacity();
-    if (marked != NULL && nodes != NULL && boneOf != NULL)
+    uint32_t count = 0;
+    uint32_t element = maniGltfSkinJoints(gltf, skin, &count) + 1;
+    for (uint32_t j = 0; j < count; ++j)
     {
-        memset(marked, 0, (n + 1) * sizeof(uint32_t));
-        MarkSkinBones(gltf, gltf->skinSkeletons[skin], marked);
-        uint32_t count = CollectBones(gltf, marked, nodes, boneOf);
-        r = maniGltfNameBones(gltf, nodes, count, &names);
-        uint32_t jointCount = 0;
-        uint32_t element = maniGltfSkinJoints(gltf, skin, &jointCount) + 1;
-        for (uint32_t j = 0; r.result == mani_success && j < jointCount; ++j)
+        uint32_t length = 0;
+        const char* name = maniGltfNodeName(gltf, maniGltfJointNode(gltf, element), &length);
+        joints[j] = maniSkeletonFindBone(skeleton, name, length);
+        if (joints[j] == MANI_NO_BONE)
         {
-            uint32_t b = boneOf[maniGltfJointNode(gltf, element)];
-            joints[j] = maniSkeletonFindBone(skeleton, names.text + names.starts[b],
-                                             names.starts[b + 1] - names.starts[b]);
-            if (joints[j] == MANI_NO_BONE)
-            {
-                r = maniImportFail(maniImportReasonBone, maniGltfOffset(&gltf->g, element), skin);
-            }
-            element = gltf->json.values[element].next;
+            return maniImportFail(maniImportReasonBone, maniGltfOffset(&gltf->g, element), skin);
         }
+        element = gltf->json.values[element].next;
     }
-    maniGltfReleaseNames(gltf, &names);
-    Free(gltf, marked, n, sizeof(uint32_t));
-    Free(gltf, nodes, n, sizeof(uint32_t));
-    Free(gltf, boneOf, n, sizeof(uint32_t));
-    return r;
+    return maniImportSuccess();
 }
 
 // The inverse binds, one per joint, identity when the skin has none.

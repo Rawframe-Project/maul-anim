@@ -361,6 +361,20 @@ static void TestNames(void)
     maniImportResult r = maniGltfBuildSkeleton(builder, gltf, 0, &options);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonName, "a collision");
     maniCloseGltf(gltf);
+    // Names are fixed per document: the second rig's "hip" repeats the
+    // first's, so it is renamed in its own skeleton too.
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"name\":\"hip\"},"
+             "{\"name\":\"hip\"}],\"skins\":[{\"joints\":[0]},{\"joints\":[1]}]}");
+    gltf = Open(builder);
+    CHECK(maniGltfSkeletonCount(gltf) == 2, "two rigs");
+    CHECK(maniGltfBuildSkeleton(builder, gltf, 1, &options).result == mani_success, "builds");
+    OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
+    CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, "opens");
+    CHECK(maniSkeletonFindBone(&skeleton, "hip#1", 5) == 0, "renamed for the document");
+    CHECK(maniGltfBuildSkin(builder, gltf, 1, &skeleton, &options).result == mani_success,
+          "its skin binds by that name");
+    maniCloseGltf(gltf);
     // A skin's joint missing from the skeleton given.
     Names("{\"name\":\"root\",\"children\":[1]},{\"name\":\"a\"}", "1");
     gltf = Open(builder);
@@ -433,7 +447,7 @@ static void TestRefusals(void)
     Names("{\"translation\":[1e39,0,0]}", "0");
     ExpectBuildRefusal(maniImportReasonProperty, "past binary32");
     Names("{\"name\":7}", "0");
-    ExpectBuildRefusal(maniImportReasonProperty, "a name not a string");
+    ExpectRefusal(maniImportReasonProperty, "7}", "a name not a string");
     // Inverse binds of the wrong shape.
     snprintf(s_json, sizeof s_json,
              "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{}],\"skins\":[{\"joints\":[0],"

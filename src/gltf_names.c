@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Bone names (mani-0009). Repeats are found through a stable sort
-// of the names' hashes: within a run of equal hashes, a name equal to
-// the run's first is a repeat, and only a true hash collision falls back
-// to comparing with each earlier name of the run.
+// Node names (mani-0009), fixed per document. Repeats are found through a
+// stable sort of the names' hashes: within a run of equal hashes, a name
+// equal to the run's first is a repeat, and only a true hash collision
+// falls back to comparing with each earlier name of the run.
 
 #include "gltf_names.h"
 
@@ -130,8 +130,9 @@ static void Compose(const uint32_t* nodes, uint32_t count, const Work* w, maniGl
     out->starts[count] = at;
 }
 
-maniImportResult maniGltfNameBones(const maniGltf* gltf, const uint32_t* nodes, uint32_t count,
-                                   maniGltfNames* namesOut)
+// Names the bones whose nodes are given, in that order.
+static maniImportResult NameBones(const maniGltf* gltf, const uint32_t* nodes, uint32_t count,
+                                  maniGltfNames* namesOut)
 {
     *namesOut = (maniGltfNames){0};
     const maniAllocator* a = &gltf->allocator;
@@ -176,9 +177,34 @@ maniImportResult maniGltfNameBones(const maniGltf* gltf, const uint32_t* nodes, 
     return r;
 }
 
-void maniGltfReleaseNames(const maniGltf* gltf, maniGltfNames* names)
+maniImportResult maniGltfReadNames(maniGltf* gltf)
 {
+    uint32_t* nodes =
+        maniAllocate(&gltf->allocator, (size_t)gltf->nodeCount + 1, sizeof(uint32_t), 8);
+    if (nodes == NULL)
+    {
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    }
+    for (uint32_t v = 0; v < gltf->nodeCount; ++v)
+    {
+        nodes[v] = v;
+    }
+    maniImportResult r = NameBones(gltf, nodes, gltf->nodeCount, &gltf->names);
+    maniRelease(&gltf->allocator, nodes, (size_t)gltf->nodeCount + 1, sizeof(uint32_t), 8);
+    return r;
+}
+
+void maniGltfReleaseNames(maniGltf* gltf)
+{
+    maniGltfNames* names = &gltf->names;
     maniRelease(&gltf->allocator, names->text, names->textSize, 1, 8);
     maniRelease(&gltf->allocator, names->starts, (size_t)names->count + 1, sizeof(uint32_t), 8);
     *names = (maniGltfNames){0};
+}
+
+const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut)
+{
+    const maniGltfNames* names = &gltf->names;
+    *lengthOut = names->starts[node + 1] - names->starts[node];
+    return names->text + names->starts[node];
 }

@@ -78,6 +78,15 @@ typedef struct maniGltfAccessor
     uint32_t value;
 } maniGltfAccessor;
 
+// Names: node v's is text[starts[v]] to text[starts[v + 1]].
+typedef struct maniGltfNames
+{
+    char* text;
+    uint32_t* starts;
+    size_t textSize;
+    uint32_t count;
+} maniGltfNames;
+
 struct maniGltf
 {
     maniAllocator allocator;
@@ -110,6 +119,8 @@ struct maniGltf
     // Skeletons: each one's root node.
     uint32_t* skeletonRoots;
     uint32_t skeletonCount;
+    // Every node's bone name.
+    maniGltfNames names;
 };
 
 #endif // MAUL_ANIM_SRC_GLTF_DOCUMENT_H

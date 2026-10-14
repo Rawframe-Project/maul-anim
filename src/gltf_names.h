@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Bone names for glTF nodes (mani-0009): a node's name, or with
-// `#` and its node index appended when it has none or repeats an
-// earlier bone's.
+// Bone names for glTF nodes (mani-0009): a node's name, or with `#` and
+// its node index appended when it has none or an earlier node in the
+// document has the same; fixed per document.
 
 #ifndef MAUL_ANIM_SRC_GLTF_NAMES_H
 #define MAUL_ANIM_SRC_GLTF_NAMES_H
@@ -15,19 +15,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Bone b's name is text[starts[b]] to text[starts[b + 1]].
-typedef struct maniGltfNames
-{
-    char* text;
-    uint32_t* starts;
-    size_t textSize;
-    uint32_t count;
-} maniGltfNames;
+// Names every node at open, into the document.
+maniImportResult maniGltfReadNames(maniGltf* gltf);
 
-// Names the bones whose nodes are given, in that order.
-maniImportResult maniGltfNameBones(const maniGltf* gltf, const uint32_t* nodes, uint32_t count,
-                                   maniGltfNames* namesOut);
+void maniGltfReleaseNames(maniGltf* gltf);
 
-void maniGltfReleaseNames(const maniGltf* gltf, maniGltfNames* names);
+// A node's bone name, not terminated.
+const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut);
 
 #endif // MAUL_ANIM_SRC_GLTF_NAMES_H
