@@ -180,7 +180,8 @@ static maniImportResult ReadSixteen(const maniFbx* fbx, uint32_t node, uint32_t 
 }
 
 // A matrix child of a node (Transform, TransformLink, Matrix): absent
-// (false), or read; refused when not affine (Matrix, item).
+// (false), or read, all zero when not given; refused when not affine
+// (Matrix, item).
 static maniImportResult ReadMatrix(const maniFbx* fbx, uint32_t node, const char* name,
                                    uint32_t item, bool* present, maniFbxMatrix* out)
 {
@@ -196,8 +197,14 @@ static maniImportResult ReadMatrix(const maniFbx* fbx, uint32_t node, const char
     {
         return r;
     }
-    if (!(fabs(m[3]) <= 1e-5 && fabs(m[7]) <= 1e-5 && fabs(m[11]) <= 1e-5 &&
-          fabs(m[15] - 1.0) <= 1e-5))
+    // All zero is a matrix not given (ufbx's reading), not a projective one.
+    bool zero = true;
+    for (uint32_t k = 0; k < 16; ++k)
+    {
+        zero = zero && m[k] == 0.0;
+    }
+    if (!zero && !(fabs(m[3]) <= 1e-5 && fabs(m[7]) <= 1e-5 && fabs(m[11]) <= 1e-5 &&
+                   fabs(m[15] - 1.0) <= 1e-5))
     {
         return maniFbxFail(maniImportReasonMatrix, fbx->nodes[child].nameOffset, item);
     }

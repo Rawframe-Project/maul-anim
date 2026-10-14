@@ -21,10 +21,16 @@
 #include <string.h>
 
 // Body (mesh at z 2, geometry moved 1 along z and scaled 2); Hips at y
-// 1, Spine above, Arm beside. Clusters: 41 Hips with Transform (y -1,
-// z -2) and TransformLink; 42 Spine with TransformLink alone (y 3); 43
-// Arm with none, in the bind pose at x 5; 44 Hips with none, at rest;
-// 45 linking nothing.
+// 1, Spine above, Arm beside. Skin 0's clusters: 41 Hips with
+// Transform (y -1, z -2) and TransformLink; 42 Spine with TransformLink
+// alone (y 3); 43 Arm with Transform alone (not used without a link),
+// in the bind pose at x 5 (a later bind pose at 7 ignored); 44 Hips
+// with an all-zero TransformLink and an all-zero bind pose entry (a rest
+// pose at 9 ignored), so at rest; 45 linking a model by a property
+// connection only, skipped; a blend shape channel under the skin with
+// a model child, no cluster. Skin 1 hangs from the root (no mesh; its
+// cluster links Arm at 1 2 3); skin 2 from a video under Body (no
+// mesh); skin 3 from geometries in a cycle (no mesh).
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
     "Objects: {\n"
@@ -45,18 +51,42 @@ static const char kScene[] =
     "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1\n  }\n }\n"
     " Deformer: 42, \"SubDeformer::\", \"Cluster\" {\n"
     "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,3,0,1\n  }\n }\n"
-    " Deformer: 43, \"SubDeformer::\", \"Cluster\" {\n }\n"
-    " Deformer: 44, \"SubDeformer::\", \"Cluster\" {\n }\n"
+    " Deformer: 43, \"SubDeformer::\", \"Cluster\" {\n"
+    "  Transform: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,9,1\n  }\n }\n"
+    " Deformer: 44, \"SubDeformer::\", \"Cluster\" {\n"
+    "  TransformLink: *16 {\n   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\n  }\n }\n"
     " Deformer: 45, \"SubDeformer::\", \"Cluster\" {\n }\n"
+    " Deformer: 46, \"SubDeformer::\", \"BlendShapeChannel\" {\n }\n"
+    " Pose: 61, \"Pose::rest\", \"RestPose\" {\n"
+    "  PoseNode: {\n   Node: 2\n   Matrix: *16 {\n    a: 1,0,0,0,0,1,0,0,0,0,1,0,9,0,0,1\n   }\n  "
+    "}\n }\n"
     " Pose: 60, \"Pose::BIND_POSES\", \"BindPose\" {\n  Type: \"BindPose\"\n"
-    "  PoseNode: {\n   Node: 4\n   Matrix: *16 {\n"
-    "    a: 1,0,0,0,0,1,0,0,0,0,1,0,5,0,0,1\n   }\n  }\n }\n"
+    "  PoseNode: {\n   Node: 4\n   Matrix: *16 {\n    a: 1,0,0,0,0,1,0,0,0,0,1,0,5,0,0,1\n   }\n  "
+    "}\n"
+    "  PoseNode: {\n   Node: 2\n   Matrix: *16 {\n    a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\n   }\n  "
+    "}\n }\n"
+    " Pose: 62, \"Pose::later\", \"BindPose\" {\n"
+    "  PoseNode: {\n   Node: 4\n   Matrix: *16 {\n    a: 1,0,0,0,0,1,0,0,0,0,1,0,7,0,0,1\n   }\n  "
+    "}\n }\n"
+    " Deformer: 70, \"Deformer::\", \"Skin\" {\n }\n"
+    " Deformer: 73, \"SubDeformer::\", \"Cluster\" {\n"
+    "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,1,2,3,1\n  }\n }\n"
+    " Video: 71, \"Video::\", \"Clip\" {\n }\n"
+    " Deformer: 72, \"Deformer::\", \"Skin\" {\n }\n"
+    " Geometry: 76, \"Geometry::\", \"Mesh\" {\n }\n"
+    " Geometry: 77, \"Geometry::\", \"Mesh\" {\n }\n"
+    " Deformer: 75, \"Deformer::\", \"Skin\" {\n }\n"
     "}\n"
     "Connections: {\n"
     " C: \"OO\",1,0\n C: \"OO\",50,1\n C: \"OO\",40,50\n"
     " C: \"OO\",2,0\n C: \"OO\",3,2\n C: \"OO\",4,3\n"
-    " C: \"OO\",41,40\n C: \"OO\",42,40\n C: \"OO\",43,40\n C: \"OO\",44,40\n C: \"OO\",45,40\n"
+    " C: \"OO\",41,40\n C: \"OO\",42,40\n C: \"OO\",43,40\n C: \"OO\",44,40\n"
+    " C: \"OO\",45,40\n C: \"OO\",46,40\n"
     " C: \"OO\",2,41\n C: \"OO\",3,42\n C: \"OO\",4,43\n C: \"OO\",2,44\n"
+    " C: \"OP\",3,45, \"Visibility\"\n C: \"OO\",3,46\n"
+    " C: \"OO\",70,0\n C: \"OO\",73,70\n C: \"OO\",4,73\n"
+    " C: \"OO\",72,71\n C: \"OO\",71,1\n"
+    " C: \"OO\",75,76\n C: \"OO\",76,77\n C: \"OO\",77,76\n"
     "}\n";
 
 static char s_text[8192];
@@ -94,6 +124,12 @@ static bool Skeleton(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpti
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
+static maniAffine maniIdentityAffineForTest(void)
+{
+    maniAffine a = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
+    return a;
+}
+
 // A scaled translation's matrix: 2 I and t.
 static bool IsBind(const maniAffine* a, float scale, float x, float y, float z)
 {
@@ -122,8 +158,9 @@ static void TestBinds(void)
         return;
     }
     CHECK(maniFbxSkinModel(fbx, 0) == 0 && maniFbxSkinModel(fbx, 1) == UINT32_MAX &&
-              maniFbxSkinModel(NULL, 0) == UINT32_MAX,
-          "the skin's mesh model");
+              maniFbxSkinModel(fbx, 2) == UINT32_MAX && maniFbxSkinModel(fbx, 3) == UINT32_MAX &&
+              maniFbxSkinModel(fbx, 4) == UINT32_MAX && maniFbxSkinModel(NULL, 0) == UINT32_MAX,
+          "each skin's mesh model: through a geometry only, and only one");
     maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
     size_t size = 0;
     maniSkin skin;
@@ -144,6 +181,12 @@ static void TestBinds(void)
     maniAffine b2 = maniSkinInverseBind(&skin, 2);
     maniAffine b3 = maniSkinInverseBind(&skin, 3);
     CHECK(IsBind(&b0, 2, 0, -1, -1), "Transform times G");
+    CHECK(maniFbxBuildSkin(builder, fbx, 1, &skeleton, &options).result == mani_success &&
+              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
+          "a skin with no mesh");
+    maniAffine lone = maniSkinInverseBind(&skin, 0);
+    CHECK(IsBind(&lone, 1, -1, -2, -3), "relative to the origin");
     CHECK(IsBind(&b1, 2, 0, -3, 3), "TransformLink inverted, the mesh at rest, G");
     CHECK(IsBind(&b2, 2, -5, 0, 3), "the bind pose's matrix");
     CHECK(IsBind(&b3, 2, 0, -1, 3), "the rest when nothing else is given");
@@ -203,7 +246,8 @@ static void Replace(const char* from, const char* to)
     snprintf(s_text, sizeof s_text, "%.*s%s%s", (int)(at - kScene), kScene, to, at + strlen(from));
 }
 
-static void ExpectRefusal(maniImportReason reason, const char* at, const char* what)
+static void ExpectSkinRefusal(uint32_t skinIndex, maniImportReason reason, const char* at,
+                              const char* what)
 {
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, s_text);
@@ -216,9 +260,9 @@ static void ExpectRefusal(maniImportReason reason, const char* at, const char* w
         maniDestroyBuilder(builder);
         return;
     }
-    maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
+    maniImportResult r = maniFbxBuildSkin(builder, fbx, skinIndex, &skeleton, &options);
     bool right = r.result == mani_errorFormat && r.reason == reason &&
-                 r.offset == (uint64_t)(strstr(s_text, at) - s_text) && r.item == 0;
+                 r.offset == (uint64_t)(strstr(s_text, at) - s_text) && r.item == skinIndex;
     CHECK(right, what);
     if (!right)
     {
@@ -229,6 +273,40 @@ static void ExpectRefusal(maniImportReason reason, const char* at, const char* w
     maniDestroyBuilder(builder);
 }
 
+static void ExpectRefusal(maniImportReason reason, const char* at, const char* what)
+{
+    ExpectSkinRefusal(0, reason, at, what);
+}
+
+// Skin 0's first bind after a replacement.
+static bool FirstBind(float x, float y, float z)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, s_text);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    size_t size = 0;
+    maniSkin skin;
+    bool right = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+                 maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+                 maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+                 maniOpenSkin(s_skinFile, size, &skin).result == mani_success;
+    maniAffine b = right ? maniSkinInverseBind(&skin, 0) : maniIdentityAffineForTest();
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    return right && IsBind(&b, 2, x, y, z);
+}
+
+static void TestMatrices(void)
+{
+    // A Transform with no translation is given, not all zero.
+    Replace("0,0,1,0,0,-1,-2,1", "0,0,1,0,0,0,0,1");
+    CHECK(FirstBind(0, 0, 1), "a Transform of identity");
+    // An all-zero Transform is none: TransformLink's then.
+    Replace("a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-1,-2,1", "a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+    CHECK(FirstBind(0, -1, 3), "an all-zero Transform");
+}
+
 static void TestRefusals(void)
 {
     Replace(" Deformer: 41, \"SubDeformer::\", \"Cluster\" {\n",
@@ -236,6 +314,10 @@ static void TestRefusals(void)
     ExpectRefusal(maniImportReasonProperty, "Mode: ", "an additive cluster");
     Replace("0,0,1,0,0,-1,-2,1", "0,0,1,0,0,-1,-2,2");
     ExpectRefusal(maniImportReasonMatrix, "Transform:", "a matrix not affine");
+    Replace("0,0,1,0,0,-1,-2,1", "0,0,1,1,0,-1,-2,1");
+    ExpectRefusal(maniImportReasonMatrix, "Transform:", "a projective row");
+    Replace("0,0,1,0,1,2,3,1", "0,0,1,0,1,2,1e999,1");
+    ExpectSkinRefusal(1, maniImportReasonData, "1e999", "a number past binary64 in skin 1");
     Replace("*16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-1,-2,1", "*4 {\n   a: 1,0,0,0");
     // The array's offset is its first value's.
     ExpectRefusal(maniImportReasonProperty, " 1,0,0,0\n", "a matrix too short");
@@ -258,7 +340,7 @@ static void TestRefusals(void)
           "a joint the skeleton lacks");
     maniFbxOptions bad = options;
     bad.unitMeters = -1;
-    CHECK(maniFbxBuildSkin(builder, fbx, 1, &skeleton, &options).result == mani_errorInvalid &&
+    CHECK(maniFbxBuildSkin(builder, fbx, 4, &skeleton, &options).result == mani_errorInvalid &&
               maniFbxBuildSkin(builder, fbx, 0, NULL, &options).result == mani_errorInvalid &&
               maniFbxBuildSkin(builder, NULL, 0, &skeleton, &options).result == mani_errorInvalid &&
               maniFbxBuildSkin(NULL, fbx, 0, &skeleton, &options).result == mani_errorInvalid &&
@@ -272,6 +354,7 @@ int main(void)
 {
     TestBinds();
     TestSix();
+    TestMatrices();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
