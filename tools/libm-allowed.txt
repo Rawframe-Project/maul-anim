@@ -1,0 +1,9 @@
+# The <math.h> functions the library may call (mani-0001): only those
+# exactly rounded, which give the same bits under every C library; any
+# other is refused. Trigonometry is the library's own.
+ceilf
+copysignf
+fabsf
+floorf
+sqrtf
+truncf
