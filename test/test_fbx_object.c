@@ -250,6 +250,8 @@ static void TestRefusals(void)
     ExpectRefusal("19\n", "a time mode FBX lacks");
     Setting("\"\",9\n", "\"\",14\n");
     ExpectRefusal(NULL, "a custom rate not given");
+    Setting("\"\",9\n", "\"\",14\n  P: \"CustomFrameRate\", \"double\", \"Number\", \"\",-12.5\n");
+    ExpectRefusal("-12.5", "a custom rate below zero");
     Setting("\"\",9\n", "\"\",14\n  P: \"CustomFrameRate\", \"double\", \"Number\", \"\",12.5\n");
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, s_text);
