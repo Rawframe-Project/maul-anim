@@ -5,12 +5,13 @@
 // it, every refusal of the builder and of opening, and the bytes pinned.
 // Run as test_skeleton --seed <file> it writes the fuzz target's seed.
 
+// The seed writer uses fopen, which the Microsoft C library deprecates;
+// the request comes before any header that reaches the C library.
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "bytes.h"
 #include "container.h"
 #include "skeleton_file.h"
-// The seed writer uses fopen, which the Microsoft C library deprecates.
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
