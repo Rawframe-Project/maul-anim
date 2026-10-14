@@ -170,3 +170,70 @@ dec-least-axis | src/decompose.c | least = fabs(c[first][k]) < fabs(c[first][lea
 dec-hemisphere | src/decompose.c | double sign = w < 0.0 ? -1.0 : 1.0; | double sign = 1.0;
 dec-shepperd | src/decompose.c | if (trace >= m00 && trace >= m11 && trace >= m22) | if (trace >= m00 && trace >= m11)
 dec-finite | src/decompose.c | if (!Finite(matrix->m[i])) | if (false)
+
+# Clips (mani-0006), 2026-10-14: 60 mutants; 57 killed (13 by tests
+# added after the first sweep). Three survive, equivalent:
+# clip-clamp-high: a time past the end gives a factor above 1, which the
+# factor's clamp brings back to the last sample. trk-find-same: short of
+# a 64-bit hash collision. bld-slerp-small: slerp and normalized lerp
+# differ below binary32 precision under 1e-3 radians.
+clip-snap | src/clip.c | float intervals = fabsf(product - nearest) <= nearest * 0x1p-22f ? nearest : ceilf(product); | float intervals = ceilf(product);
+clip-max-samples | src/clip.c | if (!(intervals < (float)MANI_MAX_SAMPLES)) | if (!(intervals <= (float)MANI_MAX_SAMPLES))
+clip-bones-zero | src/clip.c | if (bones == 0 || bones > MANI_MAX_BONES) | if (bones > MANI_MAX_BONES)
+clip-rate | src/clip.c | if (!Finite(rate) || !(rate > 0.0f)) | if (!Finite(rate))
+clip-duration | src/clip.c | if (!Finite(duration) || !(duration >= 0.0f)) | if (!Finite(duration))
+clip-loop | src/clip.c | if (maniLoadU32(h + 24) > maniLoopRepeat) | if (maniLoadU32(h + 24) > 2)
+clip-header-zeros | src/clip.c | for (uint32_t i = 52; i < MANI_CLIP_HEADER_SIZE; ++i) | for (uint32_t i = 56; i < MANI_CLIP_HEADER_SIZE; ++i)
+clip-track-order | src/clip.c | if (bone >= clip->skeletonBoneCount || (i > 0 && bone <= maniLoadU16(entry - 4))) | if (bone >= clip->skeletonBoneCount || (i > 0 && bone < maniLoadU16(entry - 4)))
+clip-mask-empty | src/clip.c | if (entry[2] == 0 || entry[2] > maniChannelAll) | if (entry[2] > maniChannelAll)
+clip-unit | src/clip.c | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-20) | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-2)
+clip-identity | src/clip.c | if (maniClipComputeIdentity(data, sizes) != c.identity) | if (false)
+clip-clamp-high | src/clip.c | t = t < clip->duration ? t : clip->duration; | t = t < clip->duration ? t : clip->duration + 1.0f;
+clip-last-interval | src/clip.c | float end = i + 1 == n - 1 ? clip->duration : (float)(i + 1) / clip->sampleRate; | float end = (float)(i + 1) / clip->sampleRate;
+clip-alpha-clamp | src/clip.c | *alphaOut = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha); | *alphaOut = alpha;
+clip-nlerp | src/clip.c | return maniQuatNormalize(q); | return q;
+clip-step-float | src/clip.c | values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha; | values[i] = va + (vb - va) * alpha;
+clip-skeleton | src/clip.c | clip->skeletonIdentity != skeleton->identity || | false ||
+clip-capacity | src/clip.c | if (capacity < clip->floatTrackCount) | if (capacity + 1 < clip->floatTrackCount)
+trk-name-empty | src/clip_tracks.c | if (length == 0 || start > nameSize || length > nameSize - start) | if (start > nameSize || length > nameSize - start)
+trk-name-hash | src/clip_tracks.c | if (maniHashBytes(MANI_HASH_INIT, names + start, length) != maniLoadU64(entry + offset + 8)) | if (false)
+trk-hash-order | src/clip_tracks.c | if (i > 0 && maniLoadU64(entry + 8) <= maniLoadU64(entry + 8 - MANI_CLIP_NAMED_TRACK_SIZE)) | if (false)
+trk-interp | src/clip_tracks.c | if (maniLoadU32(entry + 16) > 1) | if (maniLoadU32(entry + 16) > 2)
+trk-contiguous | src/clip_tracks.c | if (first != next) | if (false)
+trk-key-order | src/clip_tracks.c | (k > first && time <= LoadF32(data[6] + (k - 1) * MANI_CLIP_KEY_SIZE))) | (k > first && time < LoadF32(data[6] + (k - 1) * MANI_CLIP_KEY_SIZE)))
+trk-keys-total | src/clip_tracks.c | if (r.result == mani_success && next * MANI_CLIP_KEY_SIZE != sizes[6]) | if (false)
+trk-event-order | src/clip_tracks.c | (i > 0 && time < LoadF32(entry - MANI_CLIP_EVENT_SIZE))) | (false))
+trk-marker-payload | src/clip_tracks.c | if (markers && maniLoadU32(entry + 4) != 0) | if (false)
+trk-find-direction | src/clip_tracks.c | if (found < hash) | if (found > hash)
+trk-find-same | src/clip_tracks.c | return same ? middle : MANI_NO_TRACK; | return middle;
+trk-discrete-at-key | src/clip_tracks.c | if (LoadF32(keys + (size_t)middle * MANI_CLIP_KEY_SIZE) <= time) | if (LoadF32(keys + (size_t)middle * MANI_CLIP_KEY_SIZE) < time)
+trk-discrete-first | src/clip_tracks.c | uint32_t key = low > 0 ? low - 1 : 0; | uint32_t key = low;
+trk-range-tie | src/clip_tracks.c | if (time < t || (inclusive && time == t)) | if (time < t)
+trk-range-backward | src/clip_tracks.c | else if (to < from) | else if (false)
+bld-cubic-one-key | src/clip_build.c | if (c->interpolation == maniInterpolationCubicSpline && c->keyCount < 2) | if (false)
+bld-key-order | src/clip_build.c | if (!Finite(c->times[k]) || c->times[k] < 0.0f || (k > 0 && c->times[k] <= c->times[k - 1])) | if (!Finite(c->times[k]) || c->times[k] < 0.0f || (k > 0 && c->times[k] < c->times[k - 1]))
+bld-zero-rotation | src/clip_build.c | if (q[0] == 0.0f && q[1] == 0.0f && q[2] == 0.0f && q[3] == 0.0f) | if (false)
+bld-slerp-shortest | src/clip_build.c | double sign = dot < 0.0 ? -1.0 : 1.0; | double sign = 1.0;
+bld-slerp-small | src/clip_build.c | if (angle > 1e-9) | if (angle > 1e-3)
+bld-key-search | src/clip_build.c | while (high - low > 1) | while (high - low > 2)
+bld-step | src/clip_build.c | if (c->interpolation == maniInterpolationStep || time == t0) | if (time == t0)
+bld-cubic-tangent | src/clip_build.c | (-2 * u3 + 3 * u2) * b[k] + span * (u3 - u2) * inTangent[k]; | (-2 * u3 + 3 * u2) * b[k] + (u3 - u2) * inTangent[k];
+bld-hemisphere | src/clip_build.c | float sign = !first && dot < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
+bld-last-sample | src/clip_build.c | return k + 1 == n && k > 0 ? (double)duration : (double)k / (double)rate; | return (double)k / (double)rate;
+bld-default-rate | src/clip_build.c | float rate = source->sampleRate == 0.0f ? 30.0f : source->sampleRate; | float rate = source->sampleRate == 0.0f ? 24.0f : source->sampleRate;
+bld-default-duration | src/clip_build.c | timing.duration = timing.duration > namedLast ? timing.duration : namedLast; | timing.duration = timing.duration + 0.0f;
+bld-empty-track | src/clip_build.c | if (index != 0 && Mask(&source->boneTracks[index - 1]) != 0) | if (index != 0)
+nam-stable | src/clip_build_named.c | bool takeA = a < middle && (b >= high || keys[from[a]] <= keys[from[b]]); | bool takeA = a < middle && (b >= high || keys[from[a]] < keys[from[b]]);
+nam-repeat | src/clip_build_named.c | if (hashes[a] != hashes[b]) | if (true)
+nam-step-flag | src/clip_build_named.c | maniStoreU32(entry + 16, f->keys.interpolation == maniInterpolationStep ? 1u : 0u); | maniStoreU32(entry + 16, 0u);
+nam-marker-payload | src/clip_build_named.c | maniStoreU32(entry + 4, markers ? 0u : (uint32_t)e->payload); | maniStoreU32(entry + 4, (uint32_t)e->payload);
+nam-discrete-past | src/clip_build_named.c | if (d->times[d->keyCount - 1] > duration) | if (false)
+nam-marker-past | src/clip_build_named.c | if (source->markers[i].time > duration) | if (false)
+nam-null-list | src/clip_build_named.c | if (counts[l] > 0 && lists[l] == NULL) | if (false)
+nam-negative-zero | src/clip_build_named.c | float t = time + 0.0f; | float t = time;
+msr-angle-side | src/clip_measure.c | double side = dot < 0.0 ? -1.0 : 1.0; | double side = 1.0;
+msr-step-midpoint | src/clip_measure.c | if (!Has(channels[c]) || (midpoint && channels[c]->interpolation == maniInterpolationStep)) | if (!Has(channels[c]))
+msr-shift-up | src/clip_measure.c | while (j + 1 < g->sampleCount && | while (false &&
+msr-midpoint | src/clip_measure.c | float mid = (float)(0.5 * (t + next)); | float mid = (float)t;
+msr-rate | src/clip_measure.c | maniClipSampleCount(m->clip) != g->sampleCount || maniClipSampleRate(m->clip) != g->rate || | maniClipSampleCount(m->clip) != g->sampleCount ||
+msr-float-map | src/clip_measure.c | if (m->floatMap[i] == MANI_NO_TRACK) | if (false)
