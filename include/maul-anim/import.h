@@ -467,6 +467,35 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index);
 
+    /// Returns the number of skeletons (mani-0014): skins' linked models
+    /// and limb chains, joined where they share a model, numbered by
+    /// their lowest skin, then chain; 0 for NULL.
+    ///
+    /// @param fbx  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxSkeletonCount(const maniFbx* fbx);
+
+    /// Returns the number of skins (deformers of subclass Skin, in object
+    /// order), 0 for NULL.
+    ///
+    /// @param fbx  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxSkinCount(const maniFbx* fbx);
+
+    /// Returns the skeleton a skin is part of.
+    ///
+    /// @param fbx   The document.
+    /// @param skin  The skin.
+    /// @return The skeleton, or UINT32_MAX for a skin past the count or
+    /// one linking no model.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin);
+
 #ifdef __cplusplus
 }
 #endif

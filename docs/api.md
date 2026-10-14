@@ -323,6 +323,21 @@ uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index);
 ```
 Returns a renamed model, in model order.  @param fbx    The document. @param index  Below maniFbxRenamedCount. @return The model, or UINT32_MAX past the count. @par Thread safety Safe from any thread.
 
+```c
+uint32_t maniFbxSkeletonCount(const maniFbx* fbx);
+```
+Returns the number of skeletons (mani-0014): skins' linked models and limb chains, joined where they share a model, numbered by their lowest skin, then chain; 0 for NULL.  @param fbx  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniFbxSkinCount(const maniFbx* fbx);
+```
+Returns the number of skins (deformers of subclass Skin, in object order), 0 for NULL.  @param fbx  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin);
+```
+Returns the skeleton a skin is part of.  @param fbx   The document. @param skin  The skin. @return The skeleton, or UINT32_MAX for a skin past the count or one linking no model. @par Thread safety Safe from any thread.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -477,4 +492,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-89 functions across 7 headers.
+92 functions across 7 headers.

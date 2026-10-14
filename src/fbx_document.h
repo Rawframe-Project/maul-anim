@@ -141,6 +141,22 @@ struct maniFbx
     uint32_t* modelChildren;
     uint32_t* childStartsOfModel;
     maniBoneNames modelNames;
+    // Skins: their objects and skeletons (MANI_FBX_NONE when they link
+    // no model). Units: skins with links, then limb chains; each one's
+    // seeds (unitSeeds from unitStarts[u] to unitStarts[u + 1]), root
+    // and skeleton. Skeletons: each one's root model.
+    uint32_t* skins;
+    uint32_t skinCount;
+    uint32_t* skinSkeletons;
+    uint32_t* unitSeeds;
+    uint32_t* unitStarts;
+    uint32_t* unitRoots;
+    uint32_t* unitSkeletons;
+    uint32_t unitCount;
+    uint32_t unitCapacity;
+    uint32_t seedCapacity;
+    uint32_t* skeletonRoots;
+    uint32_t skeletonCount;
 };
 
 static inline maniImportResult maniFbxSuccess(void)

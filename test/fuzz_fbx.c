@@ -5,13 +5,15 @@
 // every property of every node: numbers, integers, strings (decoded and
 // compared), and arrays up to a million elements; binary or ASCII; and
 // every object's name, a property, its connections and its local
-// transform; every model's children and bone name, and the worlds. Run as fuzz_fbx <corpus dir>;
+// transform; every model's children and bone name, the worlds, and
+// every skeleton's models. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
 #include "fbx_document.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_transform.h"
+#include "fbx_units.h"
 #include "fbx_value.h"
 #include "fbx_world.h"
 
@@ -22,6 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
@@ -94,6 +97,13 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             (void)maniFbxEvaluateWorlds(fbx, worlds);
             free(worlds);
         }
+        uint8_t* marked = malloc((size_t)fbx->modelCount + 1);
+        for (uint32_t k = 0; marked != NULL && k < maniFbxSkeletonCount(fbx); ++k)
+        {
+            memset(marked, 0, (size_t)fbx->modelCount + 1);
+            maniFbxMarkSkeleton(fbx, k, marked);
+        }
+        free(marked);
         for (uint32_t v = 0; v < fbx->nodeCount; ++v)
         {
             (void)maniFbxFindChild(fbx, v, "P", 1);
