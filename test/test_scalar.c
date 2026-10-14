@@ -15,7 +15,8 @@
 #include <string.h>
 
 // The hash of HashAll on the reference build; every platform must match.
-#define PINNED_HASH 0x5a2f5e0a26b1295full
+#define PINNED_HASH       0x5a2f5e0a26b1295full
+#define PINNED_DENSE_HASH 0x983a86a6db424248ull
 
 // The distance in units in the last place between two floats of the same
 // sign; equal values, signed zeros included, are 0 apart.
@@ -222,6 +223,28 @@ static uint64_t HashAll(void)
     return hash;
 }
 
+// Every one of 2^24 angles over eight turns and 2^24 tangents over
+// [0, 1]: dense enough that the last term of each series changes some
+// results.
+static uint64_t HashDense(void)
+{
+    uint64_t hash = 0xcbf29ce484222325ull;
+    for (int32_t i = -(1 << 23); i <= (1 << 23); ++i)
+    {
+        float x = (float)((double)i / 8388608.0 * 25.132741228718345);
+        float s = 0.0f;
+        float c = 0.0f;
+        maniSinCos(x, &s, &c);
+        hash = HashFloat(hash, s);
+        hash = HashFloat(hash, c);
+    }
+    for (int32_t i = 0; i <= (1 << 24); ++i)
+    {
+        hash = HashFloat(hash, maniAtan2((float)i, 16777216.0f));
+    }
+    return hash;
+}
+
 static void TestSameBitsEverywhere(void)
 {
     uint64_t hash = HashAll();
@@ -230,6 +253,12 @@ static void TestSameBitsEverywhere(void)
         printf("hash %016llx\n", (unsigned long long)hash);
     }
     CHECK(hash == PINNED_HASH, "the pinned results");
+    uint64_t dense = HashDense();
+    if (dense != PINNED_DENSE_HASH)
+    {
+        printf("dense hash %016llx\n", (unsigned long long)dense);
+    }
+    CHECK(dense == PINNED_DENSE_HASH, "the pinned dense results");
 }
 
 int main(void)
