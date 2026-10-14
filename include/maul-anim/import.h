@@ -70,7 +70,7 @@ extern "C"
         maniImportReasonSyntax = 16,
     };
 
-    // An axis of glTF's space, or its negative.
+    // An axis, or its negative.
     typedef uint32_t maniAxis;
     enum
     {
@@ -495,6 +495,134 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin);
+
+    // An FBX scene's settings (GlobalSettings, mani-0013).
+    typedef struct maniFbxSettings
+    {
+        // The file's right, up and front axes.
+        maniAxis axes[3];
+        uint32_t timeMode;
+        // Metres a unit, now and as first authored.
+        double unitMeters;
+        double originalUnitMeters;
+        // The frame rate, rateNumerator / rateDenominator frames a
+        // second (30000 / 1001 for NTSC); a denominator of 0 for a custom
+        // rate, customRate.
+        uint32_t rateNumerator;
+        uint32_t rateDenominator;
+        double customRate;
+        // The time span in FBX ticks, 46186158000 a second.
+        int64_t spanStart;
+        int64_t spanStop;
+    } maniFbxSettings;
+
+    /// Reads the scene's settings, FBX's defaults where the file is
+    /// silent: X right, Y up, Z front, a centimetre a unit, 30 frames a
+    /// second.
+    ///
+    /// @param fbx          The document.
+    /// @param settingsOut  Receives the settings.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniFbxReadSettings(const maniFbx* fbx,
+                                                           maniFbxSettings* settingsOut);
+
+    // How an FBX document's skeletons, skins and clips are built
+    // (mani-0014).
+    typedef struct maniFbxOptions
+    {
+        // With convertAxes 1, the output's right, up and front axes, each
+        // axis once: the file's axes (maniFbxSettings) are turned to
+        // them, exactly, mirroring when handedness differs.
+        maniAxis axes[3];
+        uint32_t convertAxes;
+        // Fold the models above a skeleton's root into the root's rest
+        // and keys, in place of reporting them as its placement.
+        uint32_t foldPlacement;
+        // The output's unit in metres (1 for metres), translations
+        // scaled to it; 0 keeps the file's unit.
+        double unitMeters;
+        // A helper bone under every parent of a model that does not
+        // inherit its parent's scale normally, not only where exact
+        // compensation needs one: for clips from other files.
+        uint32_t inheritHelpers;
+        uint32_t reserved;
+    } maniFbxOptions;
+
+    // The file's axes and units, placement reported, helpers only where
+    // needed.
+    static inline maniFbxOptions maniDefaultFbxOptions(void)
+    {
+        maniFbxOptions options = {{maniAxisX, maniAxisY, maniAxisZ}, 0, 0, 0.0, 0, 0};
+        return options;
+    }
+
+    /// Builds a skeleton of the document into the builder (mani-0014):
+    /// its skins' linked models and limb chains, the models between and
+    /// their common root, named by their bone names, with helper bones
+    /// (`name#unscaled`) where FBX's scale inheritance needs them.
+    ///
+    /// @param builder   The builder.
+    /// @param fbx       The document.
+    /// @param skeleton  The skeleton, below maniFbxSkeletonCount.
+    /// @param options   The options.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton past the count or options out of range;
+    /// `mani_errorFormat` with a reason; `mani_errorCapacity` when the
+    /// allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkeleton(maniBuilder* builder,
+                                                                  const maniFbx* fbx,
+                                                                  uint32_t skeleton,
+                                                                  const maniFbxOptions* options);
+
+    /// Builds a model's subtree as a skeleton, for rigid hierarchies.
+    ///
+    /// @param builder  The builder.
+    /// @param fbx      The document.
+    /// @param model    The root model, below maniFbxModelCount.
+    /// @param options  The options.
+    /// @return As maniFbxBuildSkeleton.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildModelSkeleton(
+        maniBuilder* builder, const maniFbx* fbx, uint32_t model, const maniFbxOptions* options);
+
+    /// Returns where a skeleton's root hangs: the world of the model
+    /// above it (its unscaled world when the root does not inherit its
+    /// scale normally), the options' axes and unit applied; identity when
+    /// the root is at the top or the options fold the placement.
+    ///
+    /// @param fbx           The document.
+    /// @param skeleton      The skeleton.
+    /// @param options       The options.
+    /// @param placementOut  Receives the placement.
+    /// @return `mani_success`; `mani_errorInvalid` as
+    /// maniFbxBuildSkeleton; `mani_errorFormat` for a model above the
+    /// root whose properties are refused.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx,
+                                                                      uint32_t skeleton,
+                                                                      const maniFbxOptions* options,
+                                                                      maniAffine* placementOut);
+
+    /// Returns where a model skeleton's root hangs, as
+    /// maniFbxSkeletonPlacement.
+    ///
+    /// @param fbx           The document.
+    /// @param model         The root model.
+    /// @param options       The options.
+    /// @param placementOut  Receives the placement.
+    /// @return As maniFbxSkeletonPlacement.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fbx,
+                                                                   uint32_t model,
+                                                                   const maniFbxOptions* options,
+                                                                   maniAffine* placementOut);
 
 #ifdef __cplusplus
 }

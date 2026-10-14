@@ -82,7 +82,7 @@ typedef struct maniFbxConnection
 // their signs; centimetres a unit; the frame rate as numerator over
 // denominator, or customRate when the denominator is 0; the time span
 // in ticks.
-typedef struct maniFbxSettings
+typedef struct maniFbxGlobalSettings
 {
     uint8_t axes[3];
     int8_t signs[3];
@@ -94,7 +94,7 @@ typedef struct maniFbxSettings
     double customRate;
     int64_t spanStart;
     int64_t spanStop;
-} maniFbxSettings;
+} maniFbxGlobalSettings;
 
 struct maniFbx
 {
@@ -128,7 +128,7 @@ struct maniFbx
     uint32_t* childStarts;
     // Entries of another type or naming no object.
     uint32_t skippedConnections;
-    maniFbxSettings settings;
+    maniFbxGlobalSettings settings;
     // Models (mani-0014): their objects in object order, each object's
     // model (or MANI_FBX_NONE), each model's parent (MANI_FBX_NONE at the
     // top) and the forest they make, children per parent (the root's

@@ -169,7 +169,7 @@ static void TestSeven(void)
     CHECK(n == 1 && fbx->connections[list[0]].parent == hip, "a child's parent");
     CHECK(maniFbxParentConnections(fbx, fbx->objectCount, &list) == 0, "the root has none");
     // Settings.
-    const maniFbxSettings* s = &fbx->settings;
+    const maniFbxGlobalSettings* s = &fbx->settings;
     CHECK(s->axes[0] == 0 && s->signs[0] == 1 && s->axes[1] == 2 && s->signs[1] == 1 &&
               s->axes[2] == 1 && s->signs[2] == -1,
           "X right, Z up, -Y front");
@@ -199,7 +199,7 @@ static void TestSix(void)
     CHECK(n == 1 && fbx->connections[list[0]].child == 0, "Model::Scene is the root");
     n = maniFbxChildConnections(fbx, 0, &list);
     CHECK(n == 1 && fbx->connections[list[0]].child == 1, "connected by name");
-    const maniFbxSettings* s = &fbx->settings;
+    const maniFbxGlobalSettings* s = &fbx->settings;
     CHECK(s->axes[1] == 1 && s->signs[1] == 1 && s->unitScale == 1.0 && s->rateNumerator == 30 &&
               s->rateDenominator == 1,
           "FBX's defaults with no GlobalSettings");

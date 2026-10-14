@@ -338,6 +338,35 @@ uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin);
 ```
 Returns the skeleton a skin is part of.  @param fbx   The document. @param skin  The skin. @return The skeleton, or UINT32_MAX for a skin past the count or one linking no model. @par Thread safety Safe from any thread.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut);
+```
+Reads the scene's settings, FBX's defaults where the file is silent: X right, Y up, Z front, a centimetre a unit, 30 frames a second.  @param fbx          The document. @param settingsOut  Receives the settings. @return `mani_success`; `mani_errorInvalid` for a NULL argument. @par Thread safety Safe from any thread.
+
+```c
+static inline maniFbxOptions maniDefaultFbxOptions(void);
+```
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton, const maniFbxOptions* options);
+```
+Builds a skeleton of the document into the builder (mani-0014): its skins' linked models and limb chains, the models between and their common root, named by their bone names, with helper bones (`name#unscaled`) where FBX's scale inheritance needs them.  @param builder   The builder. @param fbx       The document. @param skeleton  The skeleton, below maniFbxSkeletonCount. @param options   The options. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton past the count or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxBuildModelSkeleton( maniBuilder* builder, const maniFbx* fbx, uint32_t model, const maniFbxOptions* options);
+```
+Builds a model's subtree as a skeleton, for rigid hierarchies.  @param builder  The builder. @param fbx      The document. @param model    The root model, below maniFbxModelCount. @param options  The options. @return As maniFbxBuildSkeleton. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton, const maniFbxOptions* options, maniAffine* placementOut);
+```
+Returns where a skeleton's root hangs: the world of the model above it (its unscaled world when the root does not inherit its scale normally), the options' axes and unit applied; identity when the root is at the top or the options fold the placement.  @param fbx           The document. @param skeleton      The skeleton. @param options       The options. @param placementOut  Receives the placement. @return `mani_success`; `mani_errorInvalid` as maniFbxBuildSkeleton; `mani_errorFormat` for a model above the root whose properties are refused. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model, const maniFbxOptions* options, maniAffine* placementOut);
+```
+Returns where a model skeleton's root hangs, as maniFbxSkeletonPlacement.  @param fbx           The document. @param model         The root model. @param options       The options. @param placementOut  Receives the placement. @return As maniFbxSkeletonPlacement. @par Thread safety Safe from any thread.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -492,4 +521,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-92 functions across 7 headers.
+98 functions across 7 headers.

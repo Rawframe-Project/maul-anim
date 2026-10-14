@@ -81,7 +81,7 @@ static void TestWorlds(void)
         return;
     }
     maniFbxWorld worlds[6];
-    CHECK(maniFbxEvaluateWorlds(fbx, worlds).result == mani_success, "evaluates");
+    CHECK(maniFbxEvaluateWorlds(fbx, NULL, worlds).result == mani_success, "evaluates");
     static const double kA[12] = {2, 0, 0, 0, 3, 0, 0, 0, 4, 1, 0, 0};
     // RrSs: A's unscaled world, translation and scale times A's (2 3 4).
     static const double kB[12] = {0, 2, 0, -3, 0, 0, 0, 0, 4, 3, 3, 4};
@@ -138,10 +138,13 @@ static void TestRefusal(void)
     if (fbx != NULL)
     {
         maniFbxWorld worlds[2];
-        maniImportResult r = maniFbxEvaluateWorlds(fbx, worlds);
+        maniImportResult r = maniFbxEvaluateWorlds(fbx, NULL, worlds);
         CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
                   r.offset == (uint64_t)(strstr(kBad, "9\n") - kBad) && r.item == 1,
               "a refused local refuses the evaluation");
+        uint8_t needed[2] = {1, 0};
+        CHECK(maniFbxEvaluateWorlds(fbx, needed, worlds).result == mani_success,
+              "a model not needed is not evaluated");
         maniCloseFbx(fbx);
     }
     maniDestroyBuilder(builder);

@@ -5,8 +5,8 @@
 // every property of every node: numbers, integers, strings (decoded and
 // compared), and arrays up to a million elements; binary or ASCII; and
 // every object's name, a property, its connections and its local
-// transform; every model's children and bone name, the worlds, and
-// every skeleton's models. Run as fuzz_fbx <corpus dir>;
+// transform; every model's children and bone name, the worlds, every
+// skeleton's models, and skeleton builds. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
 #include "fbx_document.h"
@@ -58,6 +58,34 @@ static void ReadAll(const maniFbx* fbx)
     }
 }
 
+// Builds the first skeletons and model subtrees, with the default options
+// and with axes and units converted, helpers everywhere and the
+// placement folded.
+static void Build(maniBuilder* builder, const maniFbx* fbx)
+{
+    maniFbxOptions options[2] = {maniDefaultFbxOptions(), maniDefaultFbxOptions()};
+    options[1].convertAxes = 1;
+    options[1].axes[1] = maniAxisNegativeZ;
+    options[1].axes[2] = maniAxisY;
+    options[1].unitMeters = 1.0;
+    options[1].inheritHelpers = 1;
+    options[1].foldPlacement = 1;
+    for (uint32_t o = 0; o < 2; ++o)
+    {
+        maniAffine placement;
+        for (uint32_t k = 0; k < maniFbxSkeletonCount(fbx) && k < 4; ++k)
+        {
+            (void)maniFbxBuildSkeleton(builder, fbx, k, &options[o]);
+            (void)maniFbxSkeletonPlacement(fbx, k, &options[o], &placement);
+        }
+        for (uint32_t m = 0; m < maniFbxModelCount(fbx) && m < 4; ++m)
+        {
+            (void)maniFbxBuildModelSkeleton(builder, fbx, m, &options[o]);
+            (void)maniFbxModelPlacement(fbx, m, &options[o], &placement);
+        }
+    }
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
@@ -94,7 +122,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         maniFbxWorld* worlds = malloc(((size_t)fbx->modelCount + 1) * sizeof(maniFbxWorld));
         if (worlds != NULL)
         {
-            (void)maniFbxEvaluateWorlds(fbx, worlds);
+            (void)maniFbxEvaluateWorlds(fbx, NULL, worlds);
             free(worlds);
         }
         uint8_t* marked = malloc((size_t)fbx->modelCount + 1);
@@ -104,6 +132,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             maniFbxMarkSkeleton(fbx, k, marked);
         }
         free(marked);
+        Build(builder, fbx);
         for (uint32_t v = 0; v < fbx->nodeCount; ++v)
         {
             (void)maniFbxFindChild(fbx, v, "P", 1);

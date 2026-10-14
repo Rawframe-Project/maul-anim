@@ -39,8 +39,10 @@ typedef struct maniFbxWorld
 void maniFbxEvaluateModel(const maniFbxWorld* worlds, uint32_t parent, const maniFbxLocal* local,
                           maniFbxWorld* out);
 
-// Evaluates every model at rest, parents first, into worlds (one per
-// model); refused as maniFbxModelLocal.
-maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, maniFbxWorld* worlds);
+// Evaluates models at rest, parents first, into worlds (one per model):
+// those needed (a byte per model; a needed model's parent is needed
+// too), or every one when needed is NULL; refused as maniFbxModelLocal.
+maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, const uint8_t* needed,
+                                       maniFbxWorld* worlds);
 
 #endif // MAUL_ANIM_SRC_FBX_WORLD_H

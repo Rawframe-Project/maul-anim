@@ -487,7 +487,7 @@ static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties)
     {
         return Refuse(fbx, where, 0);
     }
-    maniFbxSettings* s = &fbx->settings;
+    maniFbxGlobalSettings* s = &fbx->settings;
     s->timeMode = (uint32_t)mode;
     s->rateNumerator = kRates[mode][0];
     s->rateDenominator = kRates[mode][1];
@@ -526,7 +526,7 @@ static maniImportResult ReadScale(const maniFbx* fbx, uint32_t properties, const
 // front, all positive; one centimetre a unit; 30 frames a second.
 static maniImportResult ReadSettings(maniFbx* fbx)
 {
-    fbx->settings = (maniFbxSettings){{0, 1, 2}, {1, 1, 1}, 1.0, 1.0, 0, 30, 1, 0.0, 0, 0};
+    fbx->settings = (maniFbxGlobalSettings){{0, 1, 2}, {1, 1, 1}, 1.0, 1.0, 0, 30, 1, 0.0, 0, 0};
     uint32_t global = maniFbxFindChild(fbx, 0, "GlobalSettings", 14);
     uint32_t properties = global != MANI_FBX_NONE ? PropertiesOf(fbx, global) : MANI_FBX_NONE;
     maniImportResult r = ReadAxis(fbx, properties, "CoordAxis", "CoordAxisSign", 0);
@@ -578,4 +578,26 @@ void maniFbxReleaseObjects(maniFbx* fbx)
     FreeWords(fbx, fbx->objectsById, fbx->objectCount);
     maniRelease(&fbx->allocator, fbx->objects, (size_t)fbx->objectCapacity + 1,
                 sizeof(maniFbxObject), 8);
+}
+
+maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
+{
+    if (fbx == NULL || settingsOut == NULL)
+    {
+        return mani_errorInvalid;
+    }
+    const maniFbxGlobalSettings* s = &fbx->settings;
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        settingsOut->axes[k] = s->axes[k] + (s->signs[k] < 0 ? maniAxisNegativeX : maniAxisX);
+    }
+    settingsOut->timeMode = s->timeMode;
+    settingsOut->unitMeters = s->unitScale * 0.01;
+    settingsOut->originalUnitMeters = s->originalUnitScale * 0.01;
+    settingsOut->rateNumerator = s->rateNumerator;
+    settingsOut->rateDenominator = s->rateDenominator;
+    settingsOut->customRate = s->customRate;
+    settingsOut->spanStart = s->spanStart;
+    settingsOut->spanStop = s->spanStop;
+    return mani_success;
 }

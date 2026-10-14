@@ -67,7 +67,8 @@ void maniFbxEvaluateModel(const maniFbxWorld* worlds, uint32_t parent, const man
     memcpy(out->inheritScale, out->transform.scale, sizeof out->inheritScale);
 }
 
-maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, maniFbxWorld* worlds)
+maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, const uint8_t* needed,
+                                       maniFbxWorld* worlds)
 {
     uint32_t n = fbx->modelCount;
     uint32_t* stack = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 8);
@@ -97,7 +98,10 @@ maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, maniFbxWorld* worlds)
         uint32_t count = maniFbxModelChildren(fbx, v, &children);
         for (uint32_t k = 0; r.result == mani_success && k < count; ++k)
         {
-            stack[height++] = children[k];
+            if (needed == NULL || needed[children[k]] != 0)
+            {
+                stack[height++] = children[k];
+            }
         }
     }
     maniRelease(&fbx->allocator, stack, (size_t)n + 1, sizeof(uint32_t), 8);
