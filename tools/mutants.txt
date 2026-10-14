@@ -409,3 +409,53 @@ nam-bone-name-range | src/gltf_names.c | bool inRange = gltf != NULL && node < g
 rst-fold-exact | src/gltf_rest.c | if (!maniGltfDecomposeExact(&folded, restOut)) | if (maniDecomposeAffine(&folded, restOut) != mani_success)
 clp-fold-exact | src/gltf_clip.c | if (r.result == mani_success && !maniGltfDecomposeExact(&composed, &d)) | if (r.result == mani_success && maniDecomposeAffine(&composed, &d) != mani_success)
 nam-renamed-range | src/gltf_names.c | return gltf != NULL && index < gltf->names.renamedCount ? gltf->names.renamed[index] | return gltf != NULL ? gltf->names.renamed[index]
+
+# The FBX document (mani-0012), binary and ASCII, 2026-10-14: 46 mutants,
+# all killed (16 by tests added after the first sweep, which also found
+# a lone "-" or "." reading as a number).
+fbb-big-load | src/fbx_binary.c | return fbx->bigEndian ? (uint32_t)LoadBig(p, 4) : maniLoadU32(p); | return maniLoadU32(p);
+fbb-big-load64 | src/fbx_binary.c | return fbx->bigEndian ? LoadBig(p, 8) : maniLoadU64(p); | return maniLoadU64(p);
+fbb-array-header | src/fbx_binary.c | if (!Fits(p, 12, limit)) | if (!Fits(p, 8, limit))
+fbb-encoding | src/fbx_binary.c | if (encoding > 1) | if (encoding > 2)
+fbb-raw-size | src/fbx_binary.c | if (encoding == 0 && encoded != (uint64_t)count * ArrayElementSize(type)) | if (false)
+fbb-array-bytes | src/fbx_binary.c | if (!Fits(p + 12, encoded, limit)) | if (false)
+fbb-past-limit | src/fbx_binary.c | if (p >= limit) | if (p > limit)
+fbb-scalar-fits | src/fbx_binary.c | if (!Fits(p + 1, scalar, limit)) | if (false)
+fbb-string-fits | src/fbx_binary.c | if (length == UINT64_MAX || !Fits(p + 5, length, limit)) | if (length == UINT64_MAX)
+fbb-header-width | src/fbx_binary.c | if (fbx->version >= 7500) | if (fbx->version > 7500)
+fbb-end-before-name | src/fbx_binary.c | if (h.end <= names || h.end > r->fbx->size || h.end > r->end[r->depth] || | if (h.end <= names || h.end > r->fbx->size ||
+fbb-props-count | src/fbx_binary.c | h.properties > h.listLength || r->nodes == MANI_FBX_NONE - 1) | r->nodes == MANI_FBX_NONE - 1)
+fbb-values-end | src/fbx_binary.c | if (p != valuesEnd) | if (false)
+fbb-depth | src/fbx_binary.c | if (r->depth + 1 >= MANI_FBX_MAX_DEPTH) | if (r->depth + 1 > MANI_FBX_MAX_DEPTH)
+fbb-null | src/fbx_binary.c | return h.end == 0 && h.properties == 0 && h.listLength == 0 && h.nameLength == 0; | return h.end == 0 && h.nameLength == 0;
+fbb-list-end | src/fbx_binary.c | if (at != r->end[r->depth]) | if (false)
+fbb-header-fits | src/fbx_binary.c | if (!Fits(at, headerSize, fbx->size)) | if (at >= fbx->size)
+fbb-magic-tail | src/fbx_binary.c | if (fbx->size < MANI_FBX_HEADER_SIZE || b[21] != 0x1A || b[22] > 1) | if (fbx->size < MANI_FBX_HEADER_SIZE || b[22] > 1)
+fbb-version-low | src/fbx_binary.c | if (fbx->version < 3000 || fbx->version > 7700) | if (fbx->version > 7700)
+fba-plus | src/fbx_ascii.c | if (*length > 1 && fbx->bytes[*at] == '+') | if (false)
+fba-comment-version | src/fbx_ascii.c | return (uint32_t)(p[n] - '0') * 1000 + (uint32_t)(p[n + 2] - '0') * 100; | return (uint32_t)(p[n] - '0') * 1000;
+fba-first-comment | src/fbx_ascii.c | if (!r->firstComment) | if (true)
+fba-well-digits | src/fbx_ascii.c | if (digits == 0) | if (false)
+fba-exponent-digits | src/fbx_ascii.c | if (i == exponent) | if (false)
+fba-word-colon-space | src/fbx_ascii.c | while (r->at < fbx->size && (fbx->bytes[r->at] == ' ' || fbx->bytes[r->at] == '\t')) | while (false)
+fba-array-a | src/fbx_ascii.c | if (a.kind != TokenName || a.length != 1 || r->fbx->bytes[a.start] != 'a') | if (a.kind != TokenName)
+fba-empty-array | src/fbx_ascii.c | if (a.kind == TokenClose && n == 0) | if (false)
+fba-array-count | src/fbx_ascii.c | if (t.kind != TokenClose || values != (uint64_t)n) | if (t.kind != TokenClose)
+fba-leading-comma | src/fbx_ascii.c | t = t.kind == TokenComma ? Next(r) : t; | t = t;
+fba-trailing-comma | src/fbx_ascii.c | if (!IsValue(t.kind) && t.kind != TokenStar) | if (false)
+fba-depth | src/fbx_ascii.c | if (r->depth + 1 >= MANI_FBX_MAX_DEPTH) | if (r->depth + 1 > MANI_FBX_MAX_DEPTH)
+fba-unclosed | src/fbx_ascii.c | return r->depth == 0 ? maniFbxSuccess() : Bad(t.at); | return maniFbxSuccess();
+fba-close-top | src/fbx_ascii.c | if (t.kind == TokenClose && r->depth > 0) | if (t.kind == TokenClose)
+fba-version-range | src/fbx_ascii.c | if (version < 3000 || version > 7700) | if (version > 7700)
+fba-header-version | src/fbx_ascii.c | if (version == 0) | if (false)
+fbv-finite | src/fbx_value.c | return (bits & 0x7FF0000000000000u) != 0x7FF0000000000000u; | return true;
+fbv-int16-sign | src/fbx_value.c | return (int16_t)v; | return v;
+fbv-integer-range | src/fbx_value.c | if (v < minimum || v > maximum) | if (v > maximum)
+fbv-whole | src/fbx_value.c | d != (double)(int64_t)d) | false)
+fbv-entity-quot | src/fbx_value.c | static const uint8_t kBytes[3] = {'"', '\r', '\n'}; | static const uint8_t kBytes[3] = {'"', '\n', '\r'};
+fbv-equals-length | src/fbx_value.c | return matched == length; | return true;
+fbv-int32-sign | src/fbx_value.c | int64_t n = p->type == 'i' ? (int32_t)(uint32_t)bits : (int64_t)bits; | int64_t n = (int64_t)bits;
+fbv-element-order | src/fbx_value.c | uint32_t byte = fbx->bigEndian ? k : size - 1 - k; | uint32_t byte = size - 1 - k;
+fbv-float-ints | src/fbx_value.c | if (size == 0 || (want == WantIntegers && floats)) | if (size == 0)
+fbv-text-array | src/fbx_value.c | return maniFbxFail(maniImportReasonData, read ? start : p->offset, 0); | return maniFbxSuccess();
+fba-string-close | src/fbx_ascii.c | while (r->at < fbx->size && fbx->bytes[r->at] != '"') | while (r->at < fbx->size && fbx->bytes[r->at] != '"' && fbx->bytes[r->at] != '\n')
