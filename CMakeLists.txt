@@ -40,12 +40,19 @@ else()
     set(MAUL_LIBRARY_KIND STATIC)
 endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
-    src/base.c)
+    src/base.c
+    src/scalar.c)
 maul_configure_library(maul-anim)
+# The exactly rounded functions the sources may call
+# (tools/libm-allowed.txt) come from libm (mani-0001).
+if(NOT WIN32 AND NOT APPLE)
+    target_link_libraries(maul-anim PUBLIC m)
+endif()
 
 if(MAUL_ANIM_BUILD_TESTS)
     enable_testing()
     maul_add_test(base)
+    maul_add_test(scalar WHITEBOX)
     maul_add_header_tests()
 endif()
 

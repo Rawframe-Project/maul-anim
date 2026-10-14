@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// The library's own sine, cosine, arc cosine and arc tangent. Results
+// must be the same bits on every platform (mani-0001), so nothing here
+// calls a libm function other than the exactly rounded ones. Each works
+// in binary64 and rounds once, which keeps it within one unit in the
+// last place of the true value.
+
+#ifndef MAUL_ANIM_SRC_SCALAR_H
+#define MAUL_ANIM_SRC_SCALAR_H
+
+// The sine and cosine of an angle in radians, within one unit in the last
+// place for |angle| up to 2^20; for any finite angle both lie in [-1, 1].
+// An infinite or NaN angle gives NaN for both.
+void maniSinCos(float angle, float* sinOut, float* cosOut);
+
+// The sine of an angle in radians, as maniSinCos.
+float maniSin(float angle);
+
+// The cosine of an angle in radians, as maniSinCos.
+float maniCos(float angle);
+
+// The arc cosine in [0, pi], within one unit in the last place. A value
+// outside [-1, 1] is taken as the nearer end; NaN gives NaN.
+float maniAcos(float value);
+
+// The angle of the point (x, y) in [-pi, pi], within one unit in the last
+// place, with C's results for zeros, signs and infinities; NaN gives NaN.
+float maniAtan2(float y, float x);
+
+#endif // MAUL_ANIM_SRC_SCALAR_H
