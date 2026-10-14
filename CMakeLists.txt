@@ -22,6 +22,7 @@ option(MAUL_ANIM_WERROR "Treat compiler warnings as errors" OFF)
 option(MAUL_ANIM_SANITIZE "Instrument with AddressSanitizer and UBSan" OFF)
 option(MAUL_ANIM_TSAN "Instrument with ThreadSanitizer" OFF)
 option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
+option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
 # build tree, so scripts and CI find them in one place.
@@ -46,6 +47,12 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/hash.c
     src/scalar.c
     src/vecmath.c)
+# The offline side (builders, compression, import) is part of the one
+# library, compiled when MAUL_ANIM_OFFLINE is on; tools/modules.txt keeps
+# the runtime from using it.
+if(MAUL_ANIM_OFFLINE)
+    target_sources(maul-anim PRIVATE src/inflate.c)
+endif()
 maul_configure_library(maul-anim)
 # The exactly rounded functions the sources may call
 # (tools/libm-allowed.txt) come from libm (mani-0001).
@@ -61,6 +68,9 @@ if(MAUL_ANIM_BUILD_TESTS)
     maul_add_test(fpenv WHITEBOX)
     maul_add_test(scalar WHITEBOX)
     maul_add_test(vecmath WHITEBOX)
+    if(MAUL_ANIM_OFFLINE)
+        maul_add_test(inflate WHITEBOX)
+    endif()
     maul_add_header_tests()
 endif()
 
