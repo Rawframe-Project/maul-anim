@@ -37,6 +37,9 @@ static void TestIllFormed(void)
     CHECK(!Valid("\xE1\x80\x41"), "a bad third byte");
     CHECK(!Valid("\xF1\x80\x80\xC0"), "a bad fourth byte");
     CHECK(!Valid("\xC2"), "truncated two");
+    // The length ends the sequence, not the bytes after it.
+    CHECK(!maniValidUtf8((const uint8_t*)"\xC3\xA9", 1), "cut by the length");
+    CHECK(!maniValidUtf8((const uint8_t*)"\xE2\x82\xAC", 2), "cut by the length, three");
 }
 
 int main(void)

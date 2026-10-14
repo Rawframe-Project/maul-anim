@@ -289,6 +289,64 @@ static void ExpectFormat(uint64_t offset, const char* what)
     BuildSample();
 }
 
+// Rewrites the sample's container from its sections, with section tag
+// replaced by size bytes of data (or dropped for a NULL data), keeping
+// the identity: the table's own checks are reached.
+static void Rewrite(uint32_t tag, const void* data, uint64_t size)
+{
+    static _Alignas(16) uint8_t copy[kCapacity];
+    memcpy(copy, s_file, s_size);
+    maniSectionSource sections[MANI_SKELETON_SECTIONS];
+    uint32_t count = 0;
+    for (uint32_t t = 1; t <= MANI_SKELETON_SECTIONS; ++t)
+    {
+        uint64_t at = 64 + (uint64_t)(t - 1) * 24;
+        const uint8_t* bytes = copy + maniLoadU64(copy + at + 8);
+        uint64_t length = maniLoadU64(copy + at + 16);
+        if (t == tag && data == NULL)
+        {
+            continue;
+        }
+        sections[count++] =
+            t == tag ? (maniSectionSource){t, data, size} : (maniSectionSource){t, bytes, length};
+    }
+    uint64_t total = 0;
+    CHECK(maniContainerSize(sections, count, &total) && total <= sizeof s_file, "rewrite fits");
+    maniWriteContainer(s_file, maniKindSkeleton, 1, maniLoadU64(copy + 40), sections, count);
+    s_size = (size_t)total;
+}
+
+static void ExpectRewriteRefused(uint64_t offset, const char* what)
+{
+    maniFileResult r = Open();
+    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    BuildSample();
+}
+
+static void TestTableRefusals(void)
+{
+    BuildSample();
+    Rewrite(maniSkeletonTagNameOrder, NULL, 0);
+    ExpectRewriteRefused(12, "six sections");
+    static const uint8_t odd[3] = {0xFF, 0xFF, 0};
+    Rewrite(maniSkeletonTagParents, odd, 3);
+    ExpectRewriteRefused(64 + 16, "parents of odd size");
+    static const uint8_t none[1] = {0};
+    Rewrite(maniSkeletonTagParents, none, 0);
+    ExpectRewriteRefused(64 + 16, "no bones");
+    static const uint8_t rests[40 * 5] = {0};
+    Rewrite(maniSkeletonTagRests, rests, sizeof rests);
+    ExpectRewriteRefused(64 + 2 * 24 + 16, "rests of the wrong size");
+    // The names with one byte more than their spans cover.
+    static uint8_t names[64];
+    uint64_t at = 64 + 6 * 24;
+    uint64_t length = maniLoadU64(s_file + at + 16);
+    memcpy(names, s_file + maniLoadU64(s_file + at + 8), (size_t)length);
+    names[length] = 'x';
+    Rewrite(maniSkeletonTagNameBytes, names, length + 1);
+    ExpectRewriteRefused(at + 16, "trailing name bytes");
+}
+
 static void TestOpenRefusals(void)
 {
     BuildSample();
@@ -320,9 +378,15 @@ static void TestOpenRefusals(void)
     float nan = NAN;
     memcpy(s_file + rests + 40 * 2 + 4, &nan, 4);
     ExpectFormat(rests + 84, "NaN rest");
-    float two = 2.0f;
-    memcpy(s_file + rests + 40 * 3 + 24, &two, 4);
+    float off = 1.25f;
+    memcpy(s_file + rests + 40 * 3 + 24, &off, 4);
     ExpectFormat(rests + 132, "rotation not unit");
+    // Within the tolerance of 2^-20 in squared length, a rotation opens.
+    float near = 1.0f + 0x1p-23f;
+    memcpy(s_file + rests + 40 * 3 + 24, &near, 4);
+    Rehash();
+    CHECK(Open().result == mani_errorFormat && Open().offset == 40, "near unit is no refusal");
+    BuildSample();
 
     maniStoreU32(s_file + spans + 8, 5);
     ExpectFormat(spans + 8, "span not contiguous");
@@ -336,6 +400,8 @@ static void TestOpenRefusals(void)
     ExpectFormat(hashes + 8, "hash not the name's");
     maniStoreU16(s_file + order + 2, 6);
     ExpectFormat(order + 2, "order past the count");
+    maniStoreU16(s_file + order + 2, 0xFFFF);
+    ExpectFormat(order + 2, "order far past the count");
     uint16_t first = maniLoadU16(s_file + order);
     maniStoreU16(s_file + order + 2, first);
     ExpectFormat(order + 2, "order repeats");
@@ -401,6 +467,7 @@ int main(int argc, char** argv)
     TestDefRefusals();
     TestBuildRefusals();
     TestAllocationFailures();
+    TestTableRefusals();
     TestOpenRefusals();
     TestEveryByteFlip();
     TestPinnedBytes();

@@ -338,10 +338,8 @@ const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone, ui
 
 uint32_t maniSkeletonFindBone(const maniSkeleton* skeleton, const char* name, size_t length)
 {
-    if (length == 0 || name == NULL)
-    {
-        return MANI_NO_BONE;
-    }
+    // An empty name hashes to MANI_HASH_INIT and matches no bone, whose
+    // names are never empty, so it needs no case of its own.
     uint64_t hash = maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
     uint32_t low = 0;
     uint32_t high = skeleton->boneCount;
