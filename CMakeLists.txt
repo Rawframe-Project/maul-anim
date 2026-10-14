@@ -62,12 +62,12 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c
                                      src/clip_build_named.c src/clip_measure.c src/decimal.c src/inflate.c
-                                     src/arena.c src/gltf.c src/gltf_animation.c src/gltf_basis.c
+                                     src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c
                                      src/gltf_buffer.c src/gltf_layout.c
                                      src/gltf_names.c src/names.c src/gltf_node.c src/gltf_property.c
                                      src/gltf_rest.c src/gltf_skeleton.c src/gltf_spring.c src/json.c src/skeleton_build.c
-                                     src/fbx.c src/fbx_ascii.c src/fbx_binary.c src/fbx_model.c src/fbx_object.c src/fbx_transform.c src/fbx_value.c src/sort.c
+                                     src/fbx.c src/fbx_ascii.c src/fbx_binary.c src/fbx_model.c src/fbx_object.c src/fbx_transform.c src/fbx_value.c src/fbx_world.c src/sort.c
                                      src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
@@ -104,6 +104,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(fbx_object WHITEBOX)
         maul_add_test(fbx_transform WHITEBOX)
         maul_add_test(fbx_model WHITEBOX)
+        maul_add_test(fbx_world WHITEBOX)
         # Khronos sample models in test/data/gltf.
         maul_add_test(gltf_fixtures WHITEBOX)
         if(TARGET test_gltf_fixtures)

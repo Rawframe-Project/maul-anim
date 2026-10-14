@@ -5,7 +5,7 @@
 // every property of every node: numbers, integers, strings (decoded and
 // compared), and arrays up to a million elements; binary or ASCII; and
 // every object's name, a property, its connections and its local
-// transform; every model's children and bone name. Run as fuzz_fbx <corpus dir>;
+// transform; every model's children and bone name, and the worlds. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
 #include "fbx_document.h"
@@ -13,6 +13,7 @@
 #include "fbx_object.h"
 #include "fbx_transform.h"
 #include "fbx_value.h"
+#include "fbx_world.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -86,6 +87,12 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             uint32_t length = 0;
             (void)maniFbxModelChildren(fbx, m, &children);
             (void)maniFbxModelBoneName(fbx, m, &length);
+        }
+        maniFbxWorld* worlds = malloc(((size_t)fbx->modelCount + 1) * sizeof(maniFbxWorld));
+        if (worlds != NULL)
+        {
+            (void)maniFbxEvaluateWorlds(fbx, worlds);
+            free(worlds);
         }
         for (uint32_t v = 0; v < fbx->nodeCount; ++v)
         {

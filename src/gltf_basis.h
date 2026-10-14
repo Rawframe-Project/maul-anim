@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The import options' basis change (mani-0009): a signed
-// permutation B of axes applied as B G B^-1, exactly, to transforms and
-// matrices.
+// The glTF options' basis change (mani-0009), basis.c's with glTF's
+// units kept: a signed permutation of axes applied as B G B^-1, exactly,
+// to transforms and matrices.
 
 #ifndef MAUL_ANIM_SRC_GLTF_BASIS_H
 #define MAUL_ANIM_SRC_GLTF_BASIS_H

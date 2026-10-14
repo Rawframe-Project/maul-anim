@@ -398,9 +398,9 @@ rst-shear | src/decompose.c | if (!(fabsf(back.m[i] - matrix->m[i]) <= 1e-4f * l
 rst-largest | src/decompose.c | largest = ColumnLength(matrix, 2) > largest ? ColumnLength(matrix, 2) : largest; | largest = largest;
 rst-matrix-trs | src/gltf_rest.c | if (hasT || hasR || hasS) | if (false)
 rst-zero-quat | src/gltf_rest.c | else if (q[0] == 0.0f && q[1] == 0.0f && q[2] == 0.0f && q[3] == 0.0f) | else if (false)
-bas-sign | src/gltf_basis.c | b.s[i] = options->axes[i] >= 3 ? -1.0f : 1.0f; | b.s[i] = 1.0f;
-bas-det | src/gltf_basis.c | b.det = b.s[0] * b.s[1] * b.s[2] * (even ? 1.0f : -1.0f); | b.det = b.s[0] * b.s[1] * b.s[2];
-bas-valid | src/gltf_basis.c | if (options->axes[i] > maniAxisNegativeZ || seen[options->axes[i] % 3]) | if (options->axes[i] > maniAxisNegativeZ)
+bas-sign | src/basis.c | b.s[i] = axes[i] >= 3 ? -1.0f : 1.0f; | b.s[i] = 1.0f;
+bas-det | src/basis.c | b.det = b.s[0] * b.s[1] * b.s[2] * (even ? 1.0f : -1.0f); | b.det = b.s[0] * b.s[1] * b.s[2];
+bas-valid | src/basis.c | if (axes[i] > maniAxisNegativeZ || seen[axes[i] % 3]) | if (axes[i] > maniAxisNegativeZ)
 
 # Renamed nodes and folded shear (mani-0009, mani-0010), 2026-10-14:
 # five mutants, all killed.
