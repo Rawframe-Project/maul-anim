@@ -27,7 +27,8 @@
 // biased 50 each way, 18 biased 600 (and the last key's -600), 19
 // clamped, 20 time independent, 22 and 23 clamped progressively. 21 TCB
 // at an end and with continuity 0.5; 24 two runs; 25 and 26 more
-// extrapolations, 26 after a constant key carrying a slope.
+// extrapolations, 26 after a constant key carrying a slope; 27 one key;
+// 28 two keys on one tick, repeated.
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
     "Objects: {\n"
@@ -102,6 +103,13 @@ static const char kScene[] =
     "KeyValueFloat: *2 {\n   a: 0,1\n  }\n  KeyAttrFlags: *2 {\n   a: 2,4\n  }\n  "
     "KeyAttrDataFloat: *8 {\n   a: 0,1082130432,0,0,0,0,0,0\n  }\n  KeyAttrRefCount: *2 {\n   a: "
     "1,1\n  }\n  Post-Extrapolation: {\n   Type: 75\n  }\n }\n"
+    " AnimationCurve: 27, \"AnimCurve::\", \"\" {\n  KeyTime: *1 {\n   a: 23093079000\n  }\n  "
+    "KeyValueFloat: *1 {\n   a: 7\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: *4 "
+    "{\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 1\n  }\n }\n"
+    " AnimationCurve: 28, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: "
+    "46186158000,46186158000\n  }\n  KeyValueFloat: *2 {\n   a: 1,2\n  }\n  KeyAttrFlags: *1 {\n   "
+    "a: 4\n  }\n  KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  "
+    "}\n  Post-Extrapolation: {\n   Type: 82\n   Repetition: -1\n  }\n }\n"
     "}\n";
 
 static char s_text[16384];
@@ -202,6 +210,8 @@ static void TestMoreKeys(void)
     CHECK(At(24, 1.5) == 1.0, "the second run's flags");
     CHECK(At(25, -0.5) == -1.0 && At(25, 1.5) == 2.0, "relative before, no repeats after");
     CHECK(At(26, 2.0) == 1.0, "a constant key's slope not carried");
+    CHECK(At(27, -3.0) == 7.0 && At(27, 0.5) == 7.0 && At(27, 9.0) == 7.0, "one key");
+    CHECK(At(28, 2.0) == 2.0 && At(28, 0.0) == 1.0, "nothing to repeat");
 }
 
 static void TestExtrapolations(void)
