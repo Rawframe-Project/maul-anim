@@ -63,7 +63,22 @@ extern "C"
         mani_errorInvalid = -1,
         // A caller buffer or a named limit is too small for the result.
         mani_errorCapacity = -2,
+        // A file's bytes break its format: the result's offset names the
+        // first byte found wrong.
+        mani_errorFormat = -3,
+        // A file of a format version, or a def stamped by headers, this
+        // library does not read.
+        mani_errorVersion = -4,
     };
+
+    // The result of reading external bytes: the status and, for
+    // mani_errorFormat, the offset of the first byte found wrong.
+    typedef struct maniFileResult
+    {
+        maniResult result;
+        uint32_t reserved;
+        uint64_t offset;
+    } maniFileResult;
 
     // A version: major, minor and patch.
     typedef struct maniVersion

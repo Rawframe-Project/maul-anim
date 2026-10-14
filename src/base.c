@@ -20,6 +20,10 @@ const char* maniResultName(maniResult result)
         return "mani_errorInvalid";
     case mani_errorCapacity:
         return "mani_errorCapacity";
+    case mani_errorFormat:
+        return "mani_errorFormat";
+    case mani_errorVersion:
+        return "mani_errorVersion";
     default:
         return "unknown result";
     }

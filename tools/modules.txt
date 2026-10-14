@@ -5,3 +5,5 @@ scalar:
 vecmath: scalar
 hash:
 fpenv:
+bytes:
+container: bytes

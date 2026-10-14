@@ -22,6 +22,8 @@ static void TestResultNames(void)
     CHECK(strcmp(maniResultName(mani_success), "mani_success") == 0, "success name");
     CHECK(strcmp(maniResultName(mani_errorInvalid), "mani_errorInvalid") == 0, "invalid name");
     CHECK(strcmp(maniResultName(mani_errorCapacity), "mani_errorCapacity") == 0, "capacity name");
+    CHECK(strcmp(maniResultName(mani_errorFormat), "mani_errorFormat") == 0, "format name");
+    CHECK(strcmp(maniResultName(mani_errorVersion), "mani_errorVersion") == 0, "version name");
     CHECK(strcmp(maniResultName(12345), "unknown result") == 0, "unknown name");
 }
 
