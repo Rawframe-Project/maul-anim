@@ -24,3 +24,22 @@ acos-nan | src/scalar.c | if (isnan(value)) | if (false)
 # 11th-power term moves the sum by about 5e-17 of itself, below binary64's
 # own rounding of it.
 sin-coefficient-nudge | src/scalar.c | -1.0 / 6.0, 1.0 / 120.0, -1.0 / 5040.0, 1.0 / 362880.0, -1.0 / 39916800.0, 1.0 / 6227020800.0, | -1.0 / 6.0, 1.0 / 120.0, -1.0 / 5040.0, 1.0 / 362880.0, -1.0 / 39916801.0, 1.0 / 6227020800.0,
+
+# Vectors, quaternions and affine matrices (src/vecmath.c)
+length-no-sqrt | src/vecmath.c | return (float)sqrt(x * x + y * y + z * z); | return (float)(x * x + y * y + z * z);
+slerp-half-angle | src/vecmath.c | float theta = 2.0f * maniAtan2(Length4(difference), Length4(sum)); | float theta = maniAtan2(Length4(difference), Length4(sum));
+slerp-wide-cutoff | src/vecmath.c | if (theta < 1e-6f) | if (theta < 1e-1f)
+slerp-no-cutoff | src/vecmath.c | if (theta < 1e-6f) | if (false)
+slerp-linear-weight | src/vecmath.c | float wa = maniSin((1.0f - t) * theta) * inverseSin; | float wa = (1.0f - t);
+axis-full-angle | src/vecmath.c | maniSinCos(angle * 0.5f, &s, &c); | maniSinCos(angle, &s, &c);
+between-from-not-unit | src/vecmath.c | f[k] /= fl; | f[k] /= 1.0;
+between-to-not-unit | src/vecmath.c | h[k] = f[k] + t[k] / tl; | h[k] = f[k] + t[k];
+between-wide-cutoff | src/vecmath.c | if (!(length > 1e-6)) | if (!(length > 1e-2))
+between-half-not-unit | src/vecmath.c | h[k] /= length; | h[k] /= 1.0;
+trs-no-scale | src/vecmath.c | (1.0f - 2.0f * (yy + zz)) * scale.x, | (1.0f - 2.0f * (yy + zz)),
+trs-sign | src/vecmath.c | 2.0f * (xy + wz) * scale.x, | 2.0f * (xy - wz) * scale.x,
+mul-no-translation | src/vecmath.c | r.m[9] = t.x; | r.m[9] = b->m[9];
+inverse-any-det | src/vecmath.c | if (!(fabs(det) >= 1e-30 && fabs(det) <= 1e300)) | if (!(det != 0.0))
+inverse-cofactor-sign | src/vecmath.c | double c01 = m[7] * m[2] - m[1] * m[8]; | double c01 = m[1] * m[8] - m[7] * m[2];
+inverse-translation | src/vecmath.c | out.m[9 + k] = (float)-(r[k] * t[0] + r[3 + k] * t[1] + r[6 + k] * t[2]); | out.m[9 + k] = (float)-t[k];
+inverse-not-written | src/vecmath.c | *inverseOut = out; | (void)out;
