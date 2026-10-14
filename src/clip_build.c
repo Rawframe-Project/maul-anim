@@ -448,6 +448,40 @@ static maniBuildResult CheckTiming(const maniClipSource* source, float* rateOut)
     return Outcome(mani_success);
 }
 
+maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen,
+                                    maniClipTiming* timingOut)
+{
+    maniClipTiming timing = {0};
+    maniBuildResult r = CheckTiming(source, &timing.rate);
+    if (r.result == mani_success)
+    {
+        r = CheckTracks(source, seen, &timing.duration);
+    }
+    float namedLast = 0.0f;
+    if (r.result == mani_success)
+    {
+        r = maniCheckClipNamedSource(source, &namedLast);
+    }
+    if (r.result != mani_success)
+    {
+        return r;
+    }
+    if (source->duration == 0.0f)
+    {
+        timing.duration = timing.duration > namedLast ? timing.duration : namedLast;
+    }
+    else
+    {
+        timing.duration = source->duration;
+    }
+    if (!maniClipSampleCountFor(timing.duration, timing.rate, &timing.sampleCount))
+    {
+        return Refuse(maniBuildReasonTiming, 0, 0);
+    }
+    *timingOut = timing;
+    return maniCheckClipNamedDuration(source, timing.duration);
+}
+
 maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source)
 {
     if (builder == NULL)
@@ -460,11 +494,7 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
         return Outcome(mani_errorInvalid);
     }
     Plan plan = {0};
-    maniBuildResult r = CheckTiming(source, &plan.rate);
-    if (r.result != mani_success)
-    {
-        return r;
-    }
+    maniBuildResult r;
     uint32_t bones = maniSkeletonBoneCount(source->skeleton);
     size_t words = (size_t)bones + (size_t)source->boneTrackCount;
     uint32_t* scratch = maniAllocate(&builder->allocator, words, sizeof(uint32_t), 8);
@@ -478,25 +508,11 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
     {
         memset(scratch, 0, words * sizeof(uint32_t));
         memset(previous, 0, (4 * (size_t)source->boneTrackCount + 1) * sizeof(float));
-        r = CheckTracks(source, scratch, &plan.duration);
-    }
-    float namedLast = 0.0f;
-    if (r.result == mani_success)
-    {
-        r = maniCheckClipNamedSource(source, &namedLast);
-    }
-    if (source->duration == 0.0f)
-    {
-        plan.duration = plan.duration > namedLast ? plan.duration : namedLast;
-    }
-    else
-    {
-        plan.duration = source->duration;
-    }
-    if (r.result == mani_success &&
-        !maniClipSampleCountFor(plan.duration, plan.rate, &plan.sampleCount))
-    {
-        r = Refuse(maniBuildReasonTiming, 0, 0);
+        maniClipTiming timing = {0};
+        r = maniCheckClipSource(source, scratch, &timing);
+        plan.duration = timing.duration;
+        plan.rate = timing.rate;
+        plan.sampleCount = timing.sampleCount;
     }
     maniClipNamedLayout named = {0};
     if (r.result == mani_success)

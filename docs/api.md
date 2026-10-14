@@ -62,6 +62,11 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildClip(maniBuilder* builder, cons
 Builds a full-precision clip file: evaluates every channel at each sample time as glTF defines its interpolation (in binary64, rotations normalized and kept in one hemisphere from sample to sample), and keeps the file in place of any built before.  @param builder  The builder. @param source   The clip. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and track for a refused source; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+MANI_NODISCARD MANI_API maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, const maniClip* clip, maniClipReport* reportOut);
+```
+Measures a clip against the source it was built from, at every sample time and halfway between samples, through the clip's own sampling, against the source evaluated in binary64. Rotations are compared by the angle between them.  @param builder    A builder, for its allocator. @param source     The clip's source, as maniBuildClip accepts it. @param clip       The clip opened from what the build made. @param reportOut  Receives the report. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a source the build refuses, or a clip not of the source's skeleton or missing one of its float tracks; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
 ```
 Copies the last built file into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open the copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the file's size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding no file. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -329,4 +334,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-60 functions across 6 headers.
+61 functions across 6 headers.

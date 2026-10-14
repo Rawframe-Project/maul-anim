@@ -384,7 +384,7 @@ static bool Measure(const maniClipSource* source, uint32_t samples, Sizes* s)
 }
 
 // Discrete keys, events and markers past the duration.
-static maniBuildResult CheckDuration(const maniClipSource* source, float duration)
+maniBuildResult maniCheckClipNamedDuration(const maniClipSource* source, float duration)
 {
     for (uint32_t i = 0; i < source->discreteTrackCount; ++i)
     {
@@ -446,12 +446,7 @@ maniBuildResult maniLayClipNamed(maniBuilder* builder, const maniClipSource* sou
                                  float rate, uint32_t sampleCount, maniClipNamedLayout* layout)
 {
     *layout = (maniClipNamedLayout){0};
-    maniBuildResult r = CheckDuration(source, duration);
     Sizes sizes;
-    if (r.result != mani_success)
-    {
-        return r;
-    }
     if (!Measure(source, sampleCount, &sizes))
     {
         return Refuse(maniBuildReasonCount, 0, 0);
@@ -499,7 +494,7 @@ maniBuildResult maniLayClipNamed(maniBuilder* builder, const maniClipSource* sou
         work[l].scratch = work[l].sorted + counts[l];
         at += counts[l];
     }
-    r = Lay(source, duration, rate, sampleCount, work, layout);
+    maniBuildResult r = Lay(source, duration, rate, sampleCount, work, layout);
     maniRelease(&builder->allocator, keys, items + 1, sizeof(uint64_t), 8);
     maniRelease(&builder->allocator, words, 2 * items + 1, sizeof(uint32_t), 8);
     if (r.result != mani_success)

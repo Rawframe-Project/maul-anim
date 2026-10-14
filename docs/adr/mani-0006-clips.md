@@ -43,6 +43,14 @@ sync all jump), and give the same bits everywhere (mani-0001).
   between two times, forward or backward, are one range of indices
   (`maniClipEventRange`).
 
+- **Measuring** (`maniMeasureClip`, offline) plays a clip through its
+  own sampling at every sample time and halfway between samples,
+  against its source in binary64, and reports the largest error of
+  each channel kind with where it is (rotations as the angle between
+  them), and how late each step key plays once moved onto the grid.
+  It reads any clip through the public samplers, so a compressed clip
+  is measured against its source the same way.
+
 ## Consequences
 
 Any time costs one division and two contiguous reads, the same in any

@@ -307,6 +307,59 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult maniBuildClip(maniBuilder* builder,
                                                           const maniClipSource* source);
 
+    // The largest error of one kind, where it is: the error (metres or
+    // the source's unit for translations, scales and floats; radians for
+    // rotations; seconds for step shifts), the time, and the item, a bone
+    // for bone channels and a source index for float tracks. Zero error,
+    // time and item where there is nothing to measure.
+    typedef struct maniClipError
+    {
+        double error;
+        float time;
+        uint32_t item;
+    } maniClipError;
+
+    // How far a clip plays from its source (mani-0006).
+    typedef struct maniClipReport
+    {
+        // At the sample times: what the clip stores against the source;
+        // the rounding to binary32, or a compressed format's error.
+        maniClipError sampleTranslation;
+        maniClipError sampleRotation;
+        maniClipError sampleScale;
+        maniClipError sampleFloat;
+        // Halfway between samples: playback against the source curve;
+        // what raising the rate lowers. Step channels are left out.
+        maniClipError midTranslation;
+        maniClipError midRotation;
+        maniClipError midScale;
+        maniClipError midFloat;
+        // How late a step key plays, moved to the first sample at or
+        // after it; the time is the key's.
+        maniClipError boneStepShift;
+        maniClipError floatStepShift;
+    } maniClipReport;
+
+    /// Measures a clip against the source it was built from, at every
+    /// sample time and halfway between samples, through the clip's own
+    /// sampling, against the source evaluated in binary64. Rotations are
+    /// compared by the angle between them.
+    ///
+    /// @param builder    A builder, for its allocator.
+    /// @param source     The clip's source, as maniBuildClip accepts it.
+    /// @param clip       The clip opened from what the build made.
+    /// @param reportOut  Receives the report.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// source the build refuses, or a clip not of the source's skeleton or
+    /// missing one of its float tracks; `mani_errorCapacity` when the
+    /// allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniMeasureClip(maniBuilder* builder,
+                                                       const maniClipSource* source,
+                                                       const maniClip* clip,
+                                                       maniClipReport* reportOut);
+
     /// Copies the last built file into caller memory.
     ///
     /// @param builder   The builder.

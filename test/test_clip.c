@@ -450,6 +450,125 @@ static void TestWholeFrameDurations(void)
     CHECK(maniClipSampleCount(&clip) == 16, "0.6 s at 25: 16 samples, not 17");
 }
 
+// The scale channel's Hermite curve (v0 1 1 1, out-tangent 2 0 -1; v1
+// 2 2 2, in-tangent 0 1 0) and the wave's (0, out-tangent 4; 1, 0).
+static void Hermite(double u, double out[4])
+{
+    double h00 = 2 * u * u * u - 3 * u * u + 1;
+    double h10 = u * u * u - 2 * u * u + u;
+    double h01 = -2 * u * u * u + 3 * u * u;
+    double h11 = u * u * u - u * u;
+    out[0] = h00 + 2 * h10 + 2 * h01;
+    out[1] = h00 + 2 * h01 + h11;
+    out[2] = h00 - h10 + 2 * h01;
+    out[3] = 4 * h10 + h01;
+}
+
+// The largest distance halfway between samples from a curve to its chord.
+static void ChordErrors(double rate, double* scaleOut, double* waveOut)
+{
+    uint32_t n = (uint32_t)rate;
+    *scaleOut = 0.0;
+    *waveOut = 0.0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        double a[4];
+        double b[4];
+        double m[4];
+        Hermite((double)k / rate, a);
+        Hermite((double)(k + 1) / rate, b);
+        Hermite((double)(float)((k + 0.5) / rate), m);
+        double d = 0.0;
+        for (int c = 0; c < 3; ++c)
+        {
+            double e = m[c] - 0.5 * (a[c] + b[c]);
+            d += e * e;
+        }
+        *scaleOut = fmax(*scaleOut, sqrt(d));
+        *waveOut = fmax(*waveOut, fabs(m[3] - 0.5 * (a[3] + b[3])));
+    }
+}
+
+static maniClipReport Report(const maniClipSource* source)
+{
+    maniClipReport report;
+    memset(&report, 0xFF, sizeof report);
+    CHECK(BuildFrom(source).result == mani_success, "builds");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    maniBuilder* builder = NewBuilder();
+    CHECK(maniMeasureClip(builder, source, &clip, &report) == mani_success, "measures");
+    maniDestroyBuilder(builder);
+    return report;
+}
+
+static void TestReport(void)
+{
+    OpenSkeleton();
+    maniClipSource source = SampleSource();
+    maniClipReport r = Report(&source);
+    // At the samples: binary32 rounding only.
+    CHECK(r.sampleTranslation.error < 1e-6 && r.sampleScale.error < 1e-6, "samples stored");
+    CHECK(r.sampleRotation.error < 1e-6 && r.sampleFloat.error < 1e-6, "samples stored");
+    // Halfway: the linear translation's keys are on the grid, and a
+    // normalized lerp halfway is the slerp: both near 0.
+    CHECK(r.midTranslation.error < 1e-6 && r.midRotation.error < 1e-6, "linear midpoints");
+    double scale = 0.0;
+    double wave = 0.0;
+    ChordErrors(10.0, &scale, &wave);
+    CHECK(fabs(r.midScale.error - scale) < 1e-6 && r.midScale.item == 2, "cubic midpoints");
+    CHECK(fabs(r.midFloat.error - wave) < 1e-6 && r.midFloat.item == 2, "a float's midpoints");
+    CHECK(r.midScale.time > 0.0f && r.midScale.time < 1.0f, "where");
+    // Step keys: bone 0's key at 0.55 plays at 0.6; the gate's at 0.3f,
+    // a float just past 0.3, at 0.4.
+    CHECK(fabs(r.boneStepShift.error - (0.6 - (double)0.55f)) < 1e-12 &&
+              r.boneStepShift.item == 0 && r.boneStepShift.time == 0.55f,
+          "a bone's step");
+    CHECK(fabs(r.floatStepShift.error - (0.4 - (double)0.3f)) < 1e-12 && r.floatStepShift.item == 1,
+          "a float's step");
+    // Four times the rate: the chord error falls sixteen times.
+    source.sampleRate = 40.0f;
+    maniClipReport fine = Report(&source);
+    ChordErrors(40.0, &scale, &wave);
+    CHECK(fabs(fine.midScale.error - scale) < 1e-6, "cubic midpoints at 40");
+    CHECK(fine.midScale.error < r.midScale.error / 12.0, "a higher rate, a smaller error");
+    CHECK(fine.boneStepShift.error < 0.025 + 1e-6, "steps land closer");
+
+    // Refusals.
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    maniBuilder* builder = NewBuilder();
+    maniClipReport report;
+    source = SampleSource();
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid, "another rate");
+    source.sampleRate = 40.0f;
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_success, "the clip's rate");
+    source.floatTrackCount = 0;
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_success,
+          "a source's float tracks may be fewer");
+    source = SampleSource();
+    source.sampleRate = 40.0f;
+    source.loop = 5;
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
+          "a source the build refuses");
+    CHECK(maniMeasureClip(builder, NULL, &clip, &report) == mani_errorInvalid, "null source");
+    CHECK(maniMeasureClip(builder, &source, NULL, &report) == mani_errorInvalid, "null clip");
+    CHECK(maniMeasureClip(builder, &source, &clip, NULL) == mani_errorInvalid, "null report");
+    CHECK(maniBuilderMisuses(builder) == 3, "misuses");
+    CHECK(maniMeasureClip(NULL, &source, &clip, &report) == mani_errorInvalid, "null builder");
+    maniDestroyBuilder(builder);
+    // A clip without the source's float tracks.
+    source = SampleSource();
+    maniClipSource bare = source;
+    bare.floatTrackCount = 0;
+    CHECK(BuildFrom(&bare).result == mani_success, "builds");
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    builder = NewBuilder();
+    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
+          "a float track the clip lacks");
+    maniDestroyBuilder(builder);
+}
+
 static void TestWrongSkeleton(void)
 {
     BuildSample();
@@ -756,6 +875,7 @@ int main(int argc, char** argv)
     TestDiscreteTracks();
     TestEventsAndMarkers();
     TestWholeFrameDurations();
+    TestReport();
     TestWrongSkeleton();
     TestBuildRefusals();
     TestOpenRefusals();

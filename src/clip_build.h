@@ -36,12 +36,29 @@ typedef struct maniClipNamedLayout
     uint32_t counts[4];
 } maniClipNamedLayout;
 
+// A source's grid: its duration, rate and sample count.
+typedef struct maniClipTiming
+{
+    float duration;
+    float rate;
+    uint32_t sampleCount;
+} maniClipTiming;
+
+// Checks a source as the build does, all but repeated names: seen holds
+// a zeroed word per skeleton bone and receives each bone's track index
+// + 1.
+maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen,
+                                    maniClipTiming* timingOut);
+
 // Checks every named item, and the latest time any key, event or marker
 // names (lastOut), before the duration is known.
 maniBuildResult maniCheckClipNamedSource(const maniClipSource* source, float* lastOut);
 
-// Lays out the named sections for a grid; refuses times past the duration
-// and repeated names. The layout's block is the builder's to release with
+// Refuses discrete keys, events and markers past the duration.
+maniBuildResult maniCheckClipNamedDuration(const maniClipSource* source, float duration);
+
+// Lays out the named sections for a checked source and its grid; refuses
+// repeated names. The layout's block is the builder's to release with
 // maniReleaseClipNamed.
 maniBuildResult maniLayClipNamed(maniBuilder* builder, const maniClipSource* source, float duration,
                                  float rate, uint32_t sampleCount, maniClipNamedLayout* layout);
