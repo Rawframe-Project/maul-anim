@@ -102,17 +102,73 @@ maniQuat maniQuatFromAxisAngle(maniVec3 axis, float angle);
 // from. Always a unit quaternion, even for a zero or non-finite input.
 maniQuat maniQuatBetween(maniVec3 from, maniVec3 to);
 
-// The affine matrix that scales, then turns, then translates.
-maniAffine maniAffineFromTrs(maniVec3 translation, maniQuat rotation, maniVec3 scale);
-
-// a times b: b's transform, then a's.
-maniAffine maniAffineMul(const maniAffine* a, const maniAffine* b);
-
-// The point p transformed by a, translation included.
-maniVec3 maniAffineTransformPoint(const maniAffine* a, maniVec3 p);
+// The affine matrix that scales, then turns, then translates. Inline,
+// with the matrix product below, so the model pass composes without
+// calls; the expressions are fixed, as their results are pinned.
+static inline maniAffine maniAffineFromTrs(maniVec3 translation, maniQuat rotation, maniVec3 scale)
+{
+    float x = rotation.x;
+    float y = rotation.y;
+    float z = rotation.z;
+    float w = rotation.w;
+    float xx = x * x;
+    float yy = y * y;
+    float zz = z * z;
+    float xy = x * y;
+    float xz = x * z;
+    float yz = y * z;
+    float wx = w * x;
+    float wy = w * y;
+    float wz = w * z;
+    return (maniAffine){{
+        (1.0f - 2.0f * (yy + zz)) * scale.x,
+        2.0f * (xy + wz) * scale.x,
+        2.0f * (xz - wy) * scale.x,
+        2.0f * (xy - wz) * scale.y,
+        (1.0f - 2.0f * (xx + zz)) * scale.y,
+        2.0f * (yz + wx) * scale.y,
+        2.0f * (xz + wy) * scale.z,
+        2.0f * (yz - wx) * scale.z,
+        (1.0f - 2.0f * (xx + yy)) * scale.z,
+        translation.x,
+        translation.y,
+        translation.z,
+    }};
+}
 
 // The direction v transformed by a, without translation.
-maniVec3 maniAffineTransformVector(const maniAffine* a, maniVec3 v);
+static inline maniVec3 maniAffineTransformVector(const maniAffine* a, maniVec3 v)
+{
+    const float* m = a->m;
+    return maniVec3Make(m[0] * v.x + m[3] * v.y + m[6] * v.z, m[1] * v.x + m[4] * v.y + m[7] * v.z,
+                        m[2] * v.x + m[5] * v.y + m[8] * v.z);
+}
+
+// The point p transformed by a, translation included.
+static inline maniVec3 maniAffineTransformPoint(const maniAffine* a, maniVec3 p)
+{
+    maniVec3 v = maniAffineTransformVector(a, p);
+    return maniVec3Make(v.x + a->m[9], v.y + a->m[10], v.z + a->m[11]);
+}
+
+// a times b: b's transform, then a's.
+static inline maniAffine maniAffineMul(const maniAffine* a, const maniAffine* b)
+{
+    maniAffine r;
+    for (int c = 0; c < 3; ++c)
+    {
+        maniVec3 column = maniAffineTransformVector(
+            a, maniVec3Make(b->m[3 * c], b->m[3 * c + 1], b->m[3 * c + 2]));
+        r.m[3 * c] = column.x;
+        r.m[3 * c + 1] = column.y;
+        r.m[3 * c + 2] = column.z;
+    }
+    maniVec3 t = maniAffineTransformPoint(a, maniVec3Make(b->m[9], b->m[10], b->m[11]));
+    r.m[9] = t.x;
+    r.m[10] = t.y;
+    r.m[11] = t.z;
+    return r;
+}
 
 // The inverse of a; false, with inverseOut untouched, when a's linear part
 // has a determinant whose magnitude is below 1e-30 or is not finite.

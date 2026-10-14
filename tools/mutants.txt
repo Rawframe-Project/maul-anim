@@ -36,9 +36,9 @@ between-from-not-unit | src/vecmath.c | f[k] /= fl; | f[k] /= 1.0;
 between-to-not-unit | src/vecmath.c | h[k] = f[k] + t[k] / tl; | h[k] = f[k] + t[k];
 between-wide-cutoff | src/vecmath.c | if (!(length > 1e-6)) | if (!(length > 1e-2))
 between-half-not-unit | src/vecmath.c | h[k] /= length; | h[k] /= 1.0;
-trs-no-scale | src/vecmath.c | (1.0f - 2.0f * (yy + zz)) * scale.x, | (1.0f - 2.0f * (yy + zz)),
-trs-sign | src/vecmath.c | 2.0f * (xy + wz) * scale.x, | 2.0f * (xy - wz) * scale.x,
-mul-no-translation | src/vecmath.c | r.m[9] = t.x; | r.m[9] = b->m[9];
+trs-no-scale | src/vecmath.h | (1.0f - 2.0f * (yy + zz)) * scale.x, | (1.0f - 2.0f * (yy + zz)),
+trs-sign | src/vecmath.h | 2.0f * (xy + wz) * scale.x, | 2.0f * (xy - wz) * scale.x,
+mul-no-translation | src/vecmath.h | r.m[9] = t.x; | r.m[9] = b->m[9];
 inverse-any-det | src/vecmath.c | if (!(fabs(det) >= 1e-30 && fabs(det) <= 1e300)) | if (!(det != 0.0))
 inverse-cofactor-sign | src/vecmath.c | double c01 = m[7] * m[2] - m[1] * m[8]; | double c01 = m[1] * m[8] - m[7] * m[2];
 inverse-translation | src/vecmath.c | out.m[9 + k] = (float)-(r[k] * t[0] + r[3 + k] * t[1] + r[6 + k] * t[2]); | out.m[9 + k] = (float)-t[k];

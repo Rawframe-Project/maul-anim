@@ -9,6 +9,7 @@
 
 #include "maul-anim/pose.h"
 
+#include "bytes.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -207,7 +208,7 @@ maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
     {
         maniTransform t = LoadLocal(locals, bone);
         maniAffine local = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-        uint32_t parent = maniSkeletonParent(skeleton, bone);
+        uint32_t parent = maniLoadU16(skeleton->parents + 2 * (size_t)bone);
         maniAffine model = local;
         if (parent != MANI_NO_BONE)
         {
