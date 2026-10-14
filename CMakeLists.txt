@@ -22,6 +22,7 @@ option(MAUL_ANIM_WERROR "Treat compiler warnings as errors" OFF)
 option(MAUL_ANIM_SANITIZE "Instrument with AddressSanitizer and UBSan" OFF)
 option(MAUL_ANIM_TSAN "Instrument with ThreadSanitizer" OFF)
 option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
+option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
@@ -79,6 +80,25 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(skeleton WHITEBOX)
     endif()
     maul_add_header_tests()
+endif()
+
+# The fuzz targets: test/fuzz_<area>.c, run as fuzz_<area> <corpus dir>,
+# over the bytes programs hand the library; test_skeleton --seed <file>
+# writes fuzz_skeleton's first seed.
+if(MAUL_ANIM_FUZZ)
+    # The library is instrumented too: its coverage guides libFuzzer, and
+    # the sanitizers watch its code. Undefined behaviour stops the run.
+    target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
+                                             -fno-sanitize-recover=all)
+    target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
+    foreach(area skeleton)
+        add_executable(fuzz_${area} test/fuzz_${area}.c)
+        target_link_libraries(fuzz_${area} PRIVATE maul-anim)
+        maul_apply_flags(fuzz_${area})
+        target_compile_options(fuzz_${area} PRIVATE -fsanitize=fuzzer,address,undefined
+                                                      -fno-sanitize-recover=all)
+        target_link_options(fuzz_${area} PRIVATE -fsanitize=fuzzer,address,undefined)
+    endforeach()
 endif()
 
 if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)

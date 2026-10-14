@@ -3,6 +3,7 @@
 //
 // Skeletons: building from bones in any order, opening the file, reading
 // it, every refusal of the builder and of opening, and the bytes pinned.
+// Run as test_skeleton --seed <file> it writes the fuzz target's seed.
 
 #include "bytes.h"
 #include "container.h"
@@ -14,6 +15,7 @@
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -374,8 +376,25 @@ static void TestPinnedBytes(void)
     CHECK(maniSkeletonIdentity(&s) == PINNED_SKELETON_IDENTITY, "pinned identity");
 }
 
-int main(void)
+// Writes the sample skeleton file, the fuzz target's seed.
+static int WriteSeed(const char* path)
 {
+    BuildSample();
+    FILE* out = fopen(path, "wb");
+    if (out == NULL)
+    {
+        return 1;
+    }
+    size_t written = fwrite(s_file, 1, s_size, out);
+    return fclose(out) == 0 && written == s_size ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc == 3 && strcmp(argv[1], "--seed") == 0)
+    {
+        return WriteSeed(argv[2]);
+    }
     TestBuildsDepthFirst();
     TestGettersPastTheCount();
     TestOrderMap();
