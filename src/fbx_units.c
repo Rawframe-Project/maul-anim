@@ -35,30 +35,6 @@ static void FreeWords(const maniFbx* fbx, uint32_t* words, size_t count)
     maniRelease(&fbx->allocator, words, count + 1, sizeof(uint32_t), 8);
 }
 
-static bool DeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass, size_t length)
-{
-    return object < fbx->objectCount && maniFbxObjectKindIs(fbx, object, "Deformer", 8) &&
-           maniFbxObjectSubclassIs(fbx, object, subclass, length);
-}
-
-// The object children of an object through `OO` connections, each
-// passed to visit.
-typedef void (*Visit)(const maniFbx* fbx, uint32_t child, void* context);
-
-static void EachChild(const maniFbx* fbx, uint32_t object, Visit visit, void* context)
-{
-    const uint32_t* list = NULL;
-    uint32_t n = maniFbxChildConnections(fbx, object, &list);
-    for (uint32_t k = 0; k < n; ++k)
-    {
-        const maniFbxConnection* c = &fbx->connections[list[k]];
-        if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE)
-        {
-            visit(fbx, c->child, context);
-        }
-    }
-}
-
 // Links: the models a skin's clusters link, counted or written.
 typedef struct Links
 {
@@ -82,9 +58,9 @@ static void VisitLink(const maniFbx* fbx, uint32_t child, void* context)
 
 static void VisitCluster(const maniFbx* fbx, uint32_t child, void* context)
 {
-    if (DeformerIs(fbx, child, "Cluster", 7))
+    if (maniFbxDeformerIs(fbx, child, "Cluster", 7))
     {
-        EachChild(fbx, child, VisitLink, context);
+        maniFbxEachChild(fbx, child, VisitLink, context);
     }
 }
 
@@ -107,7 +83,7 @@ static bool IsLimb(const maniFbx* fbx, uint32_t model)
 {
     uint32_t object = fbx->models[model];
     bool limb = LimbClass(fbx, object);
-    EachChild(fbx, object, VisitAttribute, &limb);
+    maniFbxEachChild(fbx, object, VisitAttribute, &limb);
     return limb;
 }
 
@@ -143,7 +119,7 @@ static maniImportResult ListSkins(maniFbx* fbx, uint32_t* totalOut)
     uint32_t n = 0;
     for (uint32_t o = 0; o < fbx->objectCount; ++o)
     {
-        n += DeformerIs(fbx, o, "Skin", 4) ? 1 : 0;
+        n += maniFbxDeformerIs(fbx, o, "Skin", 4) ? 1 : 0;
     }
     fbx->skinCount = n;
     fbx->skins = Words(fbx, n);
@@ -156,10 +132,10 @@ static maniImportResult ListSkins(maniFbx* fbx, uint32_t* totalOut)
     *totalOut = 0;
     for (uint32_t o = 0; o < fbx->objectCount; ++o)
     {
-        if (DeformerIs(fbx, o, "Skin", 4))
+        if (maniFbxDeformerIs(fbx, o, "Skin", 4))
         {
             Links links = {NULL, 0};
-            EachChild(fbx, o, VisitCluster, &links);
+            maniFbxEachChild(fbx, o, VisitCluster, &links);
             fbx->skins[s] = o;
             fbx->skinSkeletons[s++] = MANI_FBX_NONE;
             *totalOut += links.count;
@@ -177,7 +153,7 @@ static maniImportResult SkinUnits(maniFbx* fbx, uint32_t* unitSkin, uint32_t* at
     for (uint32_t s = 0; s < fbx->skinCount; ++s)
     {
         Links links = {fbx->unitSeeds + at, 0};
-        EachChild(fbx, fbx->skins[s], VisitCluster, &links);
+        maniFbxEachChild(fbx, fbx->skins[s], VisitCluster, &links);
         if (links.count == 0)
         {
             continue;

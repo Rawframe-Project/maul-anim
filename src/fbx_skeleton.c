@@ -17,6 +17,7 @@
 #include "decompose.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
+#include "fbx_options.h"
 #include "fbx_transform.h"
 #include "fbx_units.h"
 #include "fbx_world.h"
@@ -49,45 +50,6 @@ static uint64_t ModelOffset(const maniFbx* fbx, uint32_t model)
 static maniImportResult Refuse(const maniFbx* fbx, maniImportReason reason, uint32_t model)
 {
     return maniFbxFail(reason, ModelOffset(fbx, model), model);
-}
-
-static bool OptionsValid(const maniFbxOptions* o)
-{
-    return maniBasisAxesValid(o->axes) && o->convertAxes <= 1 && o->foldPlacement <= 1 &&
-           o->inheritHelpers <= 1 && o->unitMeters >= 0.0 && isfinite(o->unitMeters);
-}
-
-// The checks every entry point makes: a NULL builder is refused alone, any
-// other bad argument is a misuse.
-static bool Usable(maniBuilder* builder, const maniFbx* fbx, const maniFbxOptions* options,
-                   bool inRange)
-{
-    if (builder == NULL)
-    {
-        return false;
-    }
-    if (fbx == NULL || options == NULL || !OptionsValid(options) || !inRange)
-    {
-        ++builder->misuses;
-        return false;
-    }
-    return true;
-}
-
-// The output's basis: the file's right, up and front axes turned to the
-// options' (output axis `to` is file axis `from`, negated when exactly
-// one of the two is), translations from the file's unit to the options'.
-static maniBasis MakeBasis(const maniFbx* fbx, const maniFbxOptions* o)
-{
-    const maniFbxGlobalSettings* s = &fbx->settings;
-    maniAxis axes[3] = {maniAxisX, maniAxisY, maniAxisZ};
-    for (uint32_t k = 0; o->convertAxes != 0 && k < 3; ++k)
-    {
-        bool negative = (s->signs[k] < 0) != (o->axes[k] >= maniAxisNegativeX);
-        axes[o->axes[k] % 3] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX);
-    }
-    double unit = o->unitMeters > 0.0 ? s->unitScale * 0.01 / o->unitMeters : 1.0;
-    return maniBasisMake(axes, (float)unit);
 }
 
 static void* Block(const maniFbx* fbx, size_t count, size_t size)
@@ -395,7 +357,7 @@ static maniImportResult BuildMarked(maniBuilder* builder, Build* b)
 
 static Build NewBuild(const maniFbx* fbx, const maniFbxOptions* options, uint32_t root)
 {
-    Build b = {fbx,  options, MakeBasis(fbx, options), root, NULL, NULL, NULL, NULL, NULL, NULL,
+    Build b = {fbx,  options, maniFbxBasis(fbx, options), root, NULL, NULL, NULL, NULL, NULL, NULL,
                NULL, 0};
     b.marked = Block(fbx, fbx->modelCount, 1);
     if (b.marked != NULL)
@@ -408,7 +370,10 @@ static Build NewBuild(const maniFbx* fbx, const maniFbxOptions* options, uint32_
 maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
                                       const maniFbxOptions* options)
 {
-    if (!Usable(builder, fbx, options, fbx != NULL && skeleton < fbx->skeletonCount))
+    bool usable =
+        maniFbxUsable(builder, fbx, options, fbx != NULL && skeleton < fbx->skeletonCount);
+    // fbx is not NULL when usable; said again for the analyzer.
+    if (!usable || fbx == NULL)
     {
         return Invalid();
     }
@@ -448,7 +413,9 @@ static void MarkSubtree(Build* b)
 maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
                                            const maniFbxOptions* options)
 {
-    if (!Usable(builder, fbx, options, fbx != NULL && model < fbx->modelCount))
+    bool usable = maniFbxUsable(builder, fbx, options, fbx != NULL && model < fbx->modelCount);
+    // fbx is not NULL when usable; said again for the analyzer.
+    if (!usable || fbx == NULL)
     {
         return Invalid();
     }
@@ -490,7 +457,7 @@ static maniImportResult PlacementOf(const maniFbx* fbx, uint32_t root,
 maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
                                           const maniFbxOptions* options, maniAffine* placementOut)
 {
-    if (fbx == NULL || options == NULL || placementOut == NULL || !OptionsValid(options) ||
+    if (fbx == NULL || options == NULL || placementOut == NULL || !maniFbxOptionsValid(options) ||
         skeleton >= fbx->skeletonCount)
     {
         return Invalid();
@@ -501,7 +468,7 @@ maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
 maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model,
                                        const maniFbxOptions* options, maniAffine* placementOut)
 {
-    if (fbx == NULL || options == NULL || placementOut == NULL || !OptionsValid(options) ||
+    if (fbx == NULL || options == NULL || placementOut == NULL || !maniFbxOptionsValid(options) ||
         model >= fbx->modelCount)
     {
         return Invalid();

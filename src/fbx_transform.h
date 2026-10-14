@@ -81,4 +81,9 @@ maniTransform maniFbxTrsTransform(const maniFbxTrs* t);
 // type out of range.
 maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxLocal* out);
 
+// A model's geometric transform (mani-0015): GeometricTranslation, XYZ
+// GeometricRotation and GeometricScaling as T R S, moving only the
+// geometry it carries; refused as maniFbxModelLocal.
+maniImportResult maniFbxGeometricTransform(const maniFbx* fbx, uint32_t object, maniFbxTrs* out);
+
 #endif // MAUL_ANIM_SRC_FBX_TRANSFORM_H

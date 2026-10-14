@@ -1,0 +1,277 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// FBX skins (mani-0015): joints from clusters by bone name, a cluster
+// linking nothing skipped, inverse binds from the cluster's Transform,
+// from TransformLink, from a bind pose and from the rest, each times the
+// mesh's geometric transform, in metres on request; the 6.x form with
+// plain matrices; the refusals and the misuses.
+
+#include "fbx_document.h"
+#include "test_harness.h"
+
+#include "maul-anim/base.h"
+#include "maul-anim/build.h"
+#include "maul-anim/import.h"
+#include "maul-anim/skeleton.h"
+#include "maul-anim/skin.h"
+
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+
+// Body (mesh at z 2, geometry moved 1 along z and scaled 2); Hips at y
+// 1, Spine above, Arm beside. Clusters: 41 Hips with Transform (y -1,
+// z -2) and TransformLink; 42 Spine with TransformLink alone (y 3); 43
+// Arm with none, in the bind pose at x 5; 44 Hips with none, at rest;
+// 45 linking nothing.
+static const char kScene[] =
+    "; FBX 7.4.0 project file\n"
+    "Objects: {\n"
+    " Geometry: 50, \"Geometry::\", \"Mesh\" {\n }\n"
+    " Model: 1, \"Model::Body\", \"Mesh\" {\n  Properties70: {\n"
+    "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,0,2\n"
+    "   P: \"GeometricTranslation\", \"Vector3D\", \"Vector\", \"\",0,0,1\n"
+    "   P: \"GeometricScaling\", \"Vector3D\", \"Vector\", \"\",2,2,2\n  }\n }\n"
+    " Model: 2, \"Model::Hips\", \"LimbNode\" {\n  Properties70: {\n"
+    "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,1,0\n  }\n }\n"
+    " Model: 3, \"Model::Spine\", \"LimbNode\" {\n  Properties70: {\n"
+    "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,1,0\n  }\n }\n"
+    " Model: 4, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n"
+    "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,0,0\n  }\n }\n"
+    " Deformer: 40, \"Deformer::\", \"Skin\" {\n }\n"
+    " Deformer: 41, \"SubDeformer::\", \"Cluster\" {\n"
+    "  Transform: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-1,-2,1\n  }\n"
+    "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1\n  }\n }\n"
+    " Deformer: 42, \"SubDeformer::\", \"Cluster\" {\n"
+    "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,3,0,1\n  }\n }\n"
+    " Deformer: 43, \"SubDeformer::\", \"Cluster\" {\n }\n"
+    " Deformer: 44, \"SubDeformer::\", \"Cluster\" {\n }\n"
+    " Deformer: 45, \"SubDeformer::\", \"Cluster\" {\n }\n"
+    " Pose: 60, \"Pose::BIND_POSES\", \"BindPose\" {\n  Type: \"BindPose\"\n"
+    "  PoseNode: {\n   Node: 4\n   Matrix: *16 {\n"
+    "    a: 1,0,0,0,0,1,0,0,0,0,1,0,5,0,0,1\n   }\n  }\n }\n"
+    "}\n"
+    "Connections: {\n"
+    " C: \"OO\",1,0\n C: \"OO\",50,1\n C: \"OO\",40,50\n"
+    " C: \"OO\",2,0\n C: \"OO\",3,2\n C: \"OO\",4,3\n"
+    " C: \"OO\",41,40\n C: \"OO\",42,40\n C: \"OO\",43,40\n C: \"OO\",44,40\n C: \"OO\",45,40\n"
+    " C: \"OO\",2,41\n C: \"OO\",3,42\n C: \"OO\",4,43\n C: \"OO\",2,44\n"
+    "}\n";
+
+static char s_text[8192];
+static _Alignas(16) uint8_t s_skeletonFile[16384];
+static _Alignas(16) uint8_t s_skinFile[16384];
+
+static maniBuilder* NewBuilder(void)
+{
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = NULL;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_success, "builder");
+    return builder;
+}
+
+static maniFbx* Open(maniBuilder* builder, const char* text)
+{
+    maniFbx* fbx = NULL;
+    maniImportResult r = maniOpenFbx(builder, text, strlen(text), &fbx);
+    CHECK(r.result == mani_success, "opens");
+    if (r.result != mani_success)
+    {
+        printf("  reason %u offset %llu near: %.30s\n", r.reason, (unsigned long long)r.offset,
+               text + r.offset);
+    }
+    return fbx;
+}
+
+// Builds and opens skeleton 0 with the options.
+static bool Skeleton(maniBuilder* builder, const maniFbx* fbx, const maniFbxOptions* options,
+                     maniSkeleton* out)
+{
+    size_t size = 0;
+    return maniFbxBuildSkeleton(builder, fbx, 0, options).result == mani_success &&
+           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+           maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
+}
+
+// A scaled translation's matrix: 2 I and t.
+static bool IsBind(const maniAffine* a, float scale, float x, float y, float z)
+{
+    const float expected[12] = {scale, 0, 0, 0, scale, 0, 0, 0, scale, x, y, z};
+    for (int i = 0; i < 12; ++i)
+    {
+        if (!(fabsf(a->m[i] - expected[i]) <= 1e-6f))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void TestBinds(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    if (fbx == NULL || !Skeleton(builder, fbx, &options, &skeleton))
+    {
+        CHECK(false, "a skeleton");
+        maniCloseFbx(fbx);
+        maniDestroyBuilder(builder);
+        return;
+    }
+    CHECK(maniFbxSkinModel(fbx, 0) == 0 && maniFbxSkinModel(fbx, 1) == UINT32_MAX &&
+              maniFbxSkinModel(NULL, 0) == UINT32_MAX,
+          "the skin's mesh model");
+    maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
+    size_t size = 0;
+    maniSkin skin;
+    CHECK(r.result == mani_success &&
+              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
+          "builds the skin");
+    uint32_t hips = maniSkeletonFindBone(&skeleton, "Hips", 4);
+    uint32_t spine = maniSkeletonFindBone(&skeleton, "Spine", 5);
+    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
+    CHECK(maniSkinJointCount(&skin) == 4 && maniSkinJoint(&skin, 0) == hips &&
+              maniSkinJoint(&skin, 1) == spine && maniSkinJoint(&skin, 2) == arm &&
+              maniSkinJoint(&skin, 3) == hips,
+          "joints in cluster order, the unlinked one skipped, Hips twice");
+    // G = T(0 0 1) S(2); the mesh at z 2.
+    maniAffine b0 = maniSkinInverseBind(&skin, 0);
+    maniAffine b1 = maniSkinInverseBind(&skin, 1);
+    maniAffine b2 = maniSkinInverseBind(&skin, 2);
+    maniAffine b3 = maniSkinInverseBind(&skin, 3);
+    CHECK(IsBind(&b0, 2, 0, -1, -1), "Transform times G");
+    CHECK(IsBind(&b1, 2, 0, -3, 3), "TransformLink inverted, the mesh at rest, G");
+    CHECK(IsBind(&b2, 2, -5, 0, 3), "the bind pose's matrix");
+    CHECK(IsBind(&b3, 2, 0, -1, 3), "the rest when nothing else is given");
+    // In metres: translations a hundredth.
+    options.unitMeters = 1.0;
+    CHECK(Skeleton(builder, fbx, &options, &skeleton) &&
+              maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
+          "builds in metres");
+    b0 = maniSkinInverseBind(&skin, 0);
+    CHECK(IsBind(&b0, 2, 0, -0.01f, -0.01f), "a bind in metres");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static void TestSix(void)
+{
+    static const char kSix[] = "; FBX 6.1.0 project file\n"
+                               "Objects: {\n"
+                               " Model: \"Model::hip\", \"Limb\" {\n }\n"
+                               " Model: \"Model::mesh\", \"Mesh\" {\n }\n"
+                               " Deformer: \"Deformer::skin\", \"Skin\" {\n }\n"
+                               " Deformer: \"SubDeformer::c\", \"Cluster\" {\n"
+                               "  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,4,0,0,1\n"
+                               "  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n }\n"
+                               "}\n"
+                               "Connections: {\n"
+                               " Connect: \"OO\", \"Model::hip\", \"Model::Scene\"\n"
+                               " Connect: \"OO\", \"Model::mesh\", \"Model::Scene\"\n"
+                               " Connect: \"OO\", \"Deformer::skin\", \"Model::mesh\"\n"
+                               " Connect: \"OO\", \"SubDeformer::c\", \"Deformer::skin\"\n"
+                               " Connect: \"OO\", \"Model::hip\", \"SubDeformer::c\"\n"
+                               "}\n";
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kSix);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    size_t size = 0;
+    maniSkin skin;
+    CHECK(fbx != NULL && maniFbxSkinModel(fbx, 0) == 1 &&
+              Skeleton(builder, fbx, &options, &skeleton) &&
+              maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
+          "a 6.x skin on its mesh model");
+    maniAffine b = maniSkinInverseBind(&skin, 0);
+    CHECK(maniSkinJointCount(&skin) == 1 && IsBind(&b, 1, 4, 0, 0), "plain matrices");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+// kScene with one piece of text replaced.
+static void Replace(const char* from, const char* to)
+{
+    const char* at = strstr(kScene, from);
+    snprintf(s_text, sizeof s_text, "%.*s%s%s", (int)(at - kScene), kScene, to, at + strlen(from));
+}
+
+static void ExpectRefusal(maniImportReason reason, const char* at, const char* what)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, s_text);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    if (fbx == NULL || !Skeleton(builder, fbx, &options, &skeleton))
+    {
+        CHECK(false, what);
+        maniCloseFbx(fbx);
+        maniDestroyBuilder(builder);
+        return;
+    }
+    maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
+    bool right = r.result == mani_errorFormat && r.reason == reason &&
+                 r.offset == (uint64_t)(strstr(s_text, at) - s_text) && r.item == 0;
+    CHECK(right, what);
+    if (!right)
+    {
+        printf("  result %d reason %u offset %llu item %u\n", (int)r.result, r.reason,
+               (unsigned long long)r.offset, r.item);
+    }
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static void TestRefusals(void)
+{
+    Replace(" Deformer: 41, \"SubDeformer::\", \"Cluster\" {\n",
+            " Deformer: 41, \"SubDeformer::\", \"Cluster\" {\n  Mode: \"Additive\"\n");
+    ExpectRefusal(maniImportReasonProperty, "Mode: ", "an additive cluster");
+    Replace("0,0,1,0,0,-1,-2,1", "0,0,1,0,0,-1,-2,2");
+    ExpectRefusal(maniImportReasonMatrix, "Transform:", "a matrix not affine");
+    Replace("*16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-1,-2,1", "*4 {\n   a: 1,0,0,0");
+    // The array's offset is its first value's.
+    ExpectRefusal(maniImportReasonProperty, " 1,0,0,0\n", "a matrix too short");
+    Replace("a: 1,0,0,0,0,1,0,0,0,0,1,0,0,3,0,1", "a: 0,0,0,0,0,1,0,0,0,0,1,0,0,3,0,1");
+    ExpectRefusal(maniImportReasonMatrix, "Deformer: 42", "a bind world with no inverse");
+    // A skeleton of Spine's subtree lacks Hips.
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    size_t size = 0;
+    maniSkeleton skeleton;
+    CHECK(maniFbxBuildModelSkeleton(builder, fbx, 2, &options).result == mani_success &&
+              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                  mani_success &&
+              maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success,
+          "Spine's subtree");
+    maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBone &&
+              r.offset == (uint64_t)(strstr(kScene, "Deformer: 41") - kScene) && r.item == 0,
+          "a joint the skeleton lacks");
+    maniFbxOptions bad = options;
+    bad.unitMeters = -1;
+    CHECK(maniFbxBuildSkin(builder, fbx, 1, &skeleton, &options).result == mani_errorInvalid &&
+              maniFbxBuildSkin(builder, fbx, 0, NULL, &options).result == mani_errorInvalid &&
+              maniFbxBuildSkin(builder, NULL, 0, &skeleton, &options).result == mani_errorInvalid &&
+              maniFbxBuildSkin(NULL, fbx, 0, &skeleton, &options).result == mani_errorInvalid &&
+              maniFbxBuildSkin(builder, fbx, 0, &skeleton, &bad).result == mani_errorInvalid,
+          "misuses");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+int main(void)
+{
+    TestBinds();
+    TestSix();
+    TestRefusals();
+    return s_failures == 0 ? 0 : 1;
+}

@@ -24,6 +24,10 @@ void maniFbxReleaseObjects(maniFbx* fbx);
 // The object with an id (7.x) or MANI_FBX_NONE.
 uint32_t maniFbxFindObject(const maniFbx* fbx, int64_t id);
 
+// The object a property names, by id (7.x) or by name (6.x): the root
+// (objectCount) for id 0 or "Model::Scene", MANI_FBX_NONE for none.
+uint32_t maniFbxReferencedObject(const maniFbx* fbx, uint32_t property);
+
 // The connections an object is the parent of, or the child of: a run of
 // indices into fbx->connections, in file order; their count.
 uint32_t maniFbxChildConnections(const maniFbx* fbx, uint32_t object, const uint32_t** out);
@@ -48,5 +52,13 @@ uint32_t maniFbxFindProperty(const maniFbx* fbx, uint32_t object, const char* na
 // index into fbx->properties; MANI_FBX_NONE past its values or for no
 // entry (a lookup's MANI_FBX_NONE passes through).
 uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k);
+
+// Whether an object is a Deformer of a subclass (Skin, Cluster).
+bool maniFbxDeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass, size_t length);
+
+// Calls visit with each object an object is the parent of through an
+// `OO` connection, in connection order.
+typedef void (*maniFbxVisit)(const maniFbx* fbx, uint32_t child, void* context);
+void maniFbxEachChild(const maniFbx* fbx, uint32_t object, maniFbxVisit visit, void* context);
 
 #endif // MAUL_ANIM_SRC_FBX_OBJECT_H

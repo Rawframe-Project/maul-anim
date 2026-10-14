@@ -566,12 +566,12 @@ hie-group-root | src/hierarchy.c | groupRoots[g] = maniCommonAncestor(h, groupRo
 
 # FBX skeletons at open (fbx_units.c, mani-0014), 2026-10-14: 17 mutants,
 # all killed (four by decoys added to the test after the sweep).
-fbu-deformer-kind | src/fbx_units.c | return object < fbx->objectCount && maniFbxObjectKindIs(fbx, object, "Deformer", 8) && | return object < fbx->objectCount &&
-fbu-oo | src/fbx_units.c | if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE) | if (c->parentProperty == MANI_FBX_NONE)
+fbu-deformer-kind | src/fbx_object.c | return object < fbx->objectCount && maniFbxObjectKindIs(fbx, object, "Deformer", 8) && | return object < fbx->objectCount &&
+fbu-oo | src/fbx_object.c | if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE) | if (c->parentProperty == MANI_FBX_NONE)
 fbu-link-model | src/fbx_units.c | if (model != MANI_FBX_NONE) | if (true)
-fbu-cluster | src/fbx_units.c | if (DeformerIs(fbx, child, "Cluster", 7)) | if (child < fbx->objectCount)
+fbu-cluster | src/fbx_units.c | if (maniFbxDeformerIs(fbx, child, "Cluster", 7)) | if (child < fbx->objectCount)
 fbu-limb-root | src/fbx_units.c | maniFbxObjectSubclassIs(fbx, object, "Root", 4); | false;
-fbu-attribute | src/fbx_units.c | EachChild(fbx, object, VisitAttribute, &limb); | (void)object;
+fbu-attribute | src/fbx_units.c | maniFbxEachChild(fbx, object, VisitAttribute, &limb); | (void)object;
 fbu-top-above | src/fbx_units.c | top[v] = above != MANI_FBX_NONE ? above : limb[v] != 0 ? v : MANI_FBX_NONE; | top[v] = limb[v] != 0 ? v : MANI_FBX_NONE;
 fbu-skin-empty | src/fbx_units.c | if (links.count == 0) | if (false)
 fbu-skin-root | src/fbx_units.c | root = maniCommonAncestor(&fbx->modelHierarchy, root, links.out[k]); | root = root;
@@ -587,11 +587,11 @@ fbu-attribute-kind | src/fbx_units.c | maniFbxObjectKindIs(fbx, child, "NodeAttr
 # FBX skeleton builds (fbx_skeleton.c, mani-0014), 2026-10-15: 21 mutants,
 # all killed (eight by tests added after the sweep; two more showed
 # redundant code, removed).
-fbs-unit-valid | src/fbx_skeleton.c | o->inheritHelpers <= 1 && o->unitMeters >= 0.0 && isfinite(o->unitMeters); | o->inheritHelpers <= 1 && isfinite(o->unitMeters);
-fbs-convert | src/fbx_skeleton.c | for (uint32_t k = 0; o->convertAxes != 0 && k < 3; ++k) | for (uint32_t k = 0; k < 3; ++k)
-fbs-negative | src/fbx_skeleton.c | bool negative = (s->signs[k] < 0) != (o->axes[k] >= maniAxisNegativeX); | bool negative = (s->signs[k] < 0);
-fbs-target-axis | src/fbx_skeleton.c | axes[o->axes[k] % 3] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX); | axes[k] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX);
-fbs-unit | src/fbx_skeleton.c | double unit = o->unitMeters > 0.0 ? s->unitScale * 0.01 / o->unitMeters : 1.0; | double unit = o->unitMeters > 0.0 ? s->unitScale / o->unitMeters : 1.0;
+fbs-unit-valid | src/fbx_options.c | o->inheritHelpers <= 1 && o->unitMeters >= 0.0 && isfinite(o->unitMeters); | o->inheritHelpers <= 1 && isfinite(o->unitMeters);
+fbs-convert | src/fbx_options.c | for (uint32_t k = 0; o->convertAxes != 0 && k < 3; ++k) | for (uint32_t k = 0; k < 3; ++k)
+fbs-negative | src/fbx_options.c | bool negative = (s->signs[k] < 0) != (o->axes[k] >= maniAxisNegativeX); | bool negative = (s->signs[k] < 0);
+fbs-target-axis | src/fbx_options.c | axes[o->axes[k] % 3] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX); | axes[k] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX);
+fbs-unit | src/fbx_options.c | double unit = o->unitMeters > 0.0 ? s->unitScale * 0.01 / o->unitMeters : 1.0; | double unit = o->unitMeters > 0.0 ? s->unitScale / o->unitMeters : 1.0;
 fbs-marked-children | src/fbx_skeleton.c | if (b->marked[children[k]] != 0) | if (true)
 fbs-singular | src/fbx_skeleton.c | if (!maniFbxMatrixInverse(&b->worlds[parent].world, &inverse)) | if (false)
 fbs-normal-skip | src/fbx_skeleton.c | if (b->worlds[c].inherit == maniFbxInheritRSrs) | if (false)

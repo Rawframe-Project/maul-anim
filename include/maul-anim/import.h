@@ -496,6 +496,17 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin);
 
+    /// Returns the model whose mesh a skin deforms: the skin's geometry's
+    /// model (its own parent in 6.x files).
+    ///
+    /// @param fbx   The document.
+    /// @param skin  The skin.
+    /// @return The model, or UINT32_MAX for a skin past the count or one
+    /// with no mesh model.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniFbxSkinModel(const maniFbx* fbx, uint32_t skin);
+
     // An FBX scene's settings (GlobalSettings, mani-0013).
     typedef struct maniFbxSettings
     {
@@ -608,6 +619,30 @@ extern "C"
                                                                       uint32_t skeleton,
                                                                       const maniFbxOptions* options,
                                                                       maniAffine* placementOut);
+
+    /// Builds a skin into the builder against an opened skeleton
+    /// (mani-0015): each cluster linking a model a joint, found by the
+    /// model's bone name, its inverse bind the mesh relative to the bone
+    /// at bind (the cluster's matrices, a bind pose or the rest, as ufbx
+    /// reads them) times the mesh's geometric transform, the options'
+    /// axes and unit applied. Vertex weights are the mesh's to carry.
+    ///
+    /// @param builder   The builder.
+    /// @param fbx       The document.
+    /// @param skin      The skin, below maniFbxSkinCount.
+    /// @param skeleton  An opened skeleton holding the skin's joints.
+    /// @param options   The options the skeleton was built with.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skin past the count or options out of range; `mani_errorFormat`
+    /// with a reason (Bone for a joint the skeleton lacks, Matrix for a
+    /// bind that is not affine or not invertible, Property for an
+    /// additive cluster); `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkin(maniBuilder* builder,
+                                                              const maniFbx* fbx, uint32_t skin,
+                                                              const maniSkeleton* skeleton,
+                                                              const maniFbxOptions* options);
 
     /// Returns where a model skeleton's root hangs, as
     /// maniFbxSkeletonPlacement.

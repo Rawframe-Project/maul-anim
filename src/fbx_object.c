@@ -237,9 +237,7 @@ static maniImportResult ReadObjectList(maniFbx* fbx)
     return IndexObjects(fbx);
 }
 
-// An end of a connection: an object by id (7.x) or name (6.x); the
-// root for id 0 or 6.x's "Model::Scene"; MANI_FBX_NONE otherwise.
-static uint32_t End(const maniFbx* fbx, uint32_t property)
+uint32_t maniFbxReferencedObject(const maniFbx* fbx, uint32_t property)
 {
     int64_t key = 0;
     if (fbx->version >= 7000)
@@ -271,9 +269,9 @@ static bool ReadConnection(const maniFbx* fbx, uint32_t node, maniFbxConnection*
         return false;
     }
     uint32_t k = 1;
-    c->child = End(fbx, maniFbxNodeProperty(fbx, node, k++));
+    c->child = maniFbxReferencedObject(fbx, maniFbxNodeProperty(fbx, node, k++));
     c->childProperty = childProperty ? maniFbxNodeProperty(fbx, node, k++) : MANI_FBX_NONE;
-    c->parent = End(fbx, maniFbxNodeProperty(fbx, node, k++));
+    c->parent = maniFbxReferencedObject(fbx, maniFbxNodeProperty(fbx, node, k++));
     c->parentProperty = parentProperty ? maniFbxNodeProperty(fbx, node, k) : MANI_FBX_NONE;
     const uint8_t* text = NULL;
     uint32_t length = 0;
@@ -600,4 +598,24 @@ maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
     settingsOut->spanStart = s->spanStart;
     settingsOut->spanStop = s->spanStop;
     return mani_success;
+}
+
+bool maniFbxDeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass, size_t length)
+{
+    return object < fbx->objectCount && maniFbxObjectKindIs(fbx, object, "Deformer", 8) &&
+           maniFbxObjectSubclassIs(fbx, object, subclass, length);
+}
+
+void maniFbxEachChild(const maniFbx* fbx, uint32_t object, maniFbxVisit visit, void* context)
+{
+    const uint32_t* list = NULL;
+    uint32_t n = maniFbxChildConnections(fbx, object, &list);
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        const maniFbxConnection* c = &fbx->connections[list[k]];
+        if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE)
+        {
+            visit(fbx, c->child, context);
+        }
+    }
 }

@@ -51,7 +51,9 @@ fbx_object: allocator container fbx_document fbx_value sort
 fbx_transform: fbx_document fbx_object fbx_value scalar
 fbx_world: allocator fbx_document fbx_model fbx_transform
 fbx_units: allocator fbx_document fbx_model fbx_object hierarchy
-fbx_skeleton: allocator basis builder decompose fbx_document fbx_model fbx_transform fbx_units fbx_world
+fbx_options: basis builder fbx_document
+fbx_skeleton: allocator basis builder decompose fbx_document fbx_model fbx_options fbx_transform fbx_units fbx_world
+fbx_skin: allocator basis fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
 fbx_document: hierarchy names

@@ -310,3 +310,22 @@ maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxL
     out->inherit = (uint32_t)inherit;
     return maniFbxSuccess();
 }
+
+maniImportResult maniFbxGeometricTransform(const maniFbx* fbx, uint32_t object, maniFbxTrs* out)
+{
+    double rotation[3];
+    maniImportResult r = Vector(fbx, object, "GeometricTranslation", 0.0, out->translation);
+    if (r.result == mani_success)
+    {
+        r = Vector(fbx, object, "GeometricRotation", 0.0, rotation);
+    }
+    if (r.result == mani_success)
+    {
+        r = Vector(fbx, object, "GeometricScaling", 1.0, out->scale);
+    }
+    if (r.result == mani_success)
+    {
+        maniFbxEulerQuat(rotation, 0, out->rotation);
+    }
+    return r;
+}
