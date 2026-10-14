@@ -1,0 +1,26 @@
+# Mutants of maul-anim: name | file | the line as it is | the line as the
+# mutant has it (whole lines, without indentation). Each is killed by a
+# test or cannot change a result, its reason in a comment above it.
+
+# Own trigonometry (src/scalar.c)
+sin-zero-sign | src/scalar.c | if (r == 0.0) | if (r == 1.0)
+sin-last-term | src/scalar.c | -1.0 / 6.0, 1.0 / 120.0, -1.0 / 5040.0, 1.0 / 362880.0, -1.0 / 39916800.0, 1.0 / 6227020800.0, | -1.0 / 6.0, 1.0 / 120.0, -1.0 / 5040.0, 1.0 / 362880.0, -1.0 / 39916800.0, 0.0,
+cos-last-term | src/scalar.c | -1.0 / 3628800.0, 1.0 / 479001600.0, -1.0 / 87178291200.0, | -1.0 / 3628800.0, 1.0 / 479001600.0, 0.0,
+reduce-one-part | src/scalar.c | double r = (x - kd * s_halfPiHead) - kd * s_halfPiTail; | double r = x - kd * s_halfPiHead;
+reduce-truncate | src/scalar.c | int64_t k = (int64_t)(q >= 0.0 ? q + 0.5 : q - 0.5); | int64_t k = (int64_t)(q + 0.5);
+huge-no-fmod | src/scalar.c | x = fmod(x, s_twoPi); | x = x;
+quadrant-cos | src/scalar.c | *cosOut = (float)-s; | *cosOut = (float)s;
+nonfinite-check | src/scalar.c | if (!(fabs(x) <= 3.5e38)) | if (false)
+atan-one-halving | src/scalar.c | u = u / (1.0 + sqrt(1.0 + u * u)); | u = u;
+atan-last-term | src/scalar.c | double p = 1.0 / 17.0; | double p = 0.0;
+atan-both-infinite | src/scalar.c | base = s_pi / 4.0; | base = s_pi / 2.0;
+atan-zero-zero | src/scalar.c | base = ax == 0.0 ? 0.0 : AtanUnit(ay / ax); | base = AtanUnit(ay / ax);
+atan-left-half | src/scalar.c | base = s_pi - base; | base = base;
+atan-sign | src/scalar.c | return signbit(y) ? -base : base; | return base;
+acos-clamp | src/scalar.c | v = v > 1.0 ? 1.0 : (v < -1.0 ? -1.0 : v); | v = v;
+atan2-nan-x | src/scalar.c | if (isnan(y) || isnan(x)) | if (isnan(y))
+acos-nan | src/scalar.c | if (isnan(value)) | if (false)
+# sin-coefficient-nudge survives, equivalent: one part in 4e7 of the
+# 11th-power term moves the sum by about 5e-17 of itself, below binary64's
+# own rounding of it.
+sin-coefficient-nudge | src/scalar.c | -1.0 / 6.0, 1.0 / 120.0, -1.0 / 5040.0, 1.0 / 362880.0, -1.0 / 39916800.0, 1.0 / 6227020800.0, | -1.0 / 6.0, 1.0 / 120.0, -1.0 / 5040.0, 1.0 / 362880.0, -1.0 / 39916801.0, 1.0 / 6227020800.0,
