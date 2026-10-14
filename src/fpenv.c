@@ -21,17 +21,32 @@
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 
+// The register is read and written through volatile asm with a memory
+// clobber: Clang treats _mm_getcsr as free of side effects and may reuse
+// an earlier read, which would undo a restore.
+#if defined(_MSC_VER) && !defined(__clang__)
 #include <xmmintrin.h>
-
 static uint64_t ReadControl(void)
 {
     return _mm_getcsr();
 }
-
 static void WriteControl(uint64_t value)
 {
     _mm_setcsr((uint32_t)value);
 }
+#else
+static uint64_t ReadControl(void)
+{
+    uint32_t value = 0;
+    __asm__ volatile("stmxcsr %0" : "=m"(value) : : "memory");
+    return value;
+}
+static void WriteControl(uint64_t value)
+{
+    uint32_t control = (uint32_t)value;
+    __asm__ volatile("ldmxcsr %0" : : "m"(control) : "memory");
+}
+#endif
 
 // Clear flush-to-zero, denormals-are-zero and the rounding mode; mask
 // every exception.
@@ -58,12 +73,12 @@ static void WriteControl(uint64_t value)
 static uint64_t ReadControl(void)
 {
     uint64_t value = 0;
-    __asm__ volatile("mrs %0, fpcr" : "=r"(value));
+    __asm__ volatile("mrs %0, fpcr" : "=r"(value) : : "memory");
     return value;
 }
 static void WriteControl(uint64_t value)
 {
-    __asm__ volatile("msr fpcr, %0" : : "r"(value));
+    __asm__ volatile("msr fpcr, %0" : : "r"(value) : "memory");
 }
 #endif
 
@@ -113,4 +128,14 @@ void maniFloatEnvLeave(const maniFloatEnv* env)
     {
         WriteControl(env->saved);
     }
+}
+
+uint64_t maniFloatControlRead(void)
+{
+    return ReadControl();
+}
+
+void maniFloatControlWrite(uint64_t value)
+{
+    WriteControl(value);
 }

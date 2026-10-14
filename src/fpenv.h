@@ -39,4 +39,12 @@ void maniFloatEnvEnter(maniFloatEnv* env);
 // when it differs.
 void maniFloatEnvLeave(const maniFloatEnv* env);
 
+// The thread's control register as it is: MXCSR on x86, FPCR on AArch64,
+// 0 on WebAssembly. For tests and diagnostics.
+uint64_t maniFloatControlRead(void);
+
+// Sets the thread's control register to value; nothing on WebAssembly. For
+// tests, which play a host with another setting.
+void maniFloatControlWrite(uint64_t value);
+
 #endif // MAUL_ANIM_SRC_FPENV_H

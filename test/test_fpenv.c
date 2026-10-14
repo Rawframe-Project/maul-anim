@@ -13,47 +13,31 @@
 #include <stdint.h>
 #include <string.h>
 
-// Every helper is out of line: compilers may move float arithmetic across
-// an inline write to the control register (fpenv.h).
+// The register is read and written through the library's accessors,
+// which no compiler may drop or reorder; the arithmetic helpers are out of
+// line, since compilers move float arithmetic freely (fpenv.h).
 #if defined(__x86_64__) || defined(_M_X64)
-#include <xmmintrin.h>
-MANI_NOINLINE static uint64_t ReadControl(void)
-{
-    return _mm_getcsr();
-}
-MANI_NOINLINE static void WriteControl(uint64_t value)
-{
-    _mm_setcsr((uint32_t)value);
-}
 // Flush-to-zero, denormals-are-zero, round toward zero, exceptions masked.
 static const uint64_t s_hostSetting = 0x1f80u | (1u << 15) | (1u << 6) | (3u << 13);
 static const int s_hostCanChange = 1;
 #elif defined(__aarch64__) || defined(_M_ARM64)
-MANI_NOINLINE static uint64_t ReadControl(void)
-{
-    uint64_t value = 0;
-    __asm__ volatile("mrs %0, fpcr" : "=r"(value));
-    return value;
-}
-MANI_NOINLINE static void WriteControl(uint64_t value)
-{
-    __asm__ volatile("msr fpcr, %0" : : "r"(value));
-}
 // Flush-to-zero and round toward zero.
 static const uint64_t s_hostSetting = (1ull << 24) | (3ull << 22);
 static const int s_hostCanChange = 1;
 #else
-static uint64_t ReadControl(void)
-{
-    return 0;
-}
-static void WriteControl(uint64_t value)
-{
-    (void)value;
-}
 static const uint64_t s_hostSetting = 0;
 static const int s_hostCanChange = 0;
 #endif
+
+static uint64_t ReadControl(void)
+{
+    return maniFloatControlRead();
+}
+
+static void WriteControl(uint64_t value)
+{
+    maniFloatControlWrite(value);
+}
 
 static bool SameBits(float a, float b)
 {
