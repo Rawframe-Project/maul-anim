@@ -10,6 +10,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/skeleton.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -49,7 +50,50 @@ extern "C"
         maniImportReasonData = 9,
         // An external buffer the host has not supplied.
         maniImportReasonPending = 10,
+        // The node hierarchy: a node with two parents, a cycle, or a
+        // skin's joints with no common root.
+        maniImportReasonHierarchy = 11,
+        // Bone names that collide even after renaming.
+        maniImportReasonName = 12,
+        // A node matrix that is projective or does not decompose (shear).
+        maniImportReasonMatrix = 13,
+        // A joint or animated node missing from the skeleton given.
+        maniImportReasonBone = 14,
+        // The builder refused what the document gave (item: the build's
+        // reason).
+        maniImportReasonBuild = 15,
     };
+
+    // An axis of glTF's space, or its negative.
+    typedef uint32_t maniAxis;
+    enum
+    {
+        maniAxisX = 0,
+        maniAxisY = 1,
+        maniAxisZ = 2,
+        maniAxisNegativeX = 3,
+        maniAxisNegativeY = 4,
+        maniAxisNegativeZ = 5,
+    };
+
+    // How a document's skeletons, skins and clips are built.
+    typedef struct maniGltfOptions
+    {
+        // The basis change: the output's x, y and z axes as glTF axes,
+        // each axis once (a signed permutation); X, Y, Z for none. For
+        // Z up from glTF's Y up: X, NegativeZ, Y.
+        maniAxis axes[3];
+        // Fold the nodes above a skeleton's root into the root's rest
+        // and keys, in place of reporting them as its placement.
+        uint32_t foldPlacement;
+    } maniGltfOptions;
+
+    // No basis change, placement reported.
+    static inline maniGltfOptions maniDefaultGltfOptions(void)
+    {
+        maniGltfOptions options = {{maniAxisX, maniAxisY, maniAxisZ}, 0};
+        return options;
+    }
 
     // An import's outcome: the status; for a refusal, the reason, the
     // offset of the first byte found wrong, and the item (an index into
@@ -130,6 +174,108 @@ extern "C"
     /// Safe from any thread; the document is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer,
                                                                   const void* bytes, size_t size);
+
+    /// Returns the number of skeletons the document's skins make: skins
+    /// sharing any node of their joints' hierarchy share one, numbered by
+    /// their lowest skin.
+    ///
+    /// @param gltf  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfSkeletonCount(const maniGltf* gltf);
+
+    /// Returns the number of skins.
+    ///
+    /// @param gltf  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfSkinCount(const maniGltf* gltf);
+
+    /// Returns the skeleton a skin is part of.
+    ///
+    /// @param gltf  The document.
+    /// @param skin  The skin.
+    /// @return The skeleton, or UINT32_MAX for a skin past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfSkinSkeleton(const maniGltf* gltf, uint32_t skin);
+
+    /// Returns the number of nodes.
+    ///
+    /// @param gltf  The document.
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfNodeCount(const maniGltf* gltf);
+
+    /// Builds a skeleton of the document into the builder: its skins'
+    /// joints, their common root and the nodes between, named by their
+    /// nodes' names (renamed `name#node` where missing or repeated).
+    ///
+    /// @param builder   The builder.
+    /// @param gltf      The document.
+    /// @param skeleton  The skeleton, below maniGltfSkeletonCount.
+    /// @param options   The options.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton past the count or options out of range;
+    /// `mani_errorFormat` with a reason; `mani_errorCapacity` when the
+    /// allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkeleton(maniBuilder* builder,
+                                                                   const maniGltf* gltf,
+                                                                   uint32_t skeleton,
+                                                                   const maniGltfOptions* options);
+
+    /// Builds a node's subtree as a skeleton, for rigid hierarchies.
+    ///
+    /// @param builder  The builder.
+    /// @param gltf     The document.
+    /// @param node     The root node.
+    /// @param options  The options.
+    /// @return As maniGltfBuildSkeleton.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildNodeSkeleton(
+        maniBuilder* builder, const maniGltf* gltf, uint32_t node, const maniGltfOptions* options);
+
+    /// Returns a skeleton's placement: the product of the local
+    /// transforms of the nodes above its root, the basis change applied;
+    /// identity when the options fold it into the root.
+    ///
+    /// @param gltf          The document.
+    /// @param skeleton      The skeleton.
+    /// @param options       The options.
+    /// @param placementOut  Receives the placement.
+    /// @return `mani_success`; `mani_errorInvalid` as
+    /// maniGltfBuildSkeleton; `mani_errorFormat` for a node above the
+    /// root whose matrix is refused.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniImportResult
+    maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
+                              const maniGltfOptions* options, maniAffine* placementOut);
+
+    /// Builds a skin into the builder against an opened skeleton: each
+    /// joint found by its bone name, the inverse binds read (identity
+    /// when the skin has none) and the basis change applied.
+    ///
+    /// @param builder   The builder.
+    /// @param gltf      The document.
+    /// @param skin      The skin.
+    /// @param skeleton  An opened skeleton holding the skin's joints.
+    /// @param options   The options the skeleton was built with.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skin past the count or options out of range; `mani_errorFormat`
+    /// with a reason; `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkin(maniBuilder* builder,
+                                                               const maniGltf* gltf, uint32_t skin,
+                                                               const maniSkeleton* skeleton,
+                                                               const maniGltfOptions* options);
 
 #ifdef __cplusplus
 }

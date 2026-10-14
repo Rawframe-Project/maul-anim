@@ -26,12 +26,18 @@ clip: bytes clip_file clip_view container pose_memory vecmath
 clip_view: clip_file
 clip_tracks: bytes clip_file clip_view container text
 clip_build: allocator builder bytes clip_file container scalar
-clip_build_named: allocator builder bytes clip_build clip_file container text
+clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 decimal:
 json: allocator decimal text
 gltf_property: json
 gltf_document: gltf_property json
-gltf: allocator builder bytes gltf_buffer gltf_document gltf_layout gltf_property json
+gltf: allocator builder bytes gltf_buffer gltf_document gltf_layout gltf_node gltf_property json
+gltf_basis:
+gltf_names: allocator container gltf_document gltf_property json sort
+gltf_node: allocator gltf_document gltf_property json
+gltf_rest: allocator gltf_basis gltf_document gltf_property json vecmath
+gltf_skeleton: allocator builder gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json
+sort:
 gltf_buffer: allocator gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_document gltf_property json

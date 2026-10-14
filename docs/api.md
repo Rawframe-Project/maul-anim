@@ -185,6 +185,10 @@ Returns a sync marker; markers are in increasing time.  @param clip   An opened 
 glTF 2.0 import (mani-0008), offline: a document opened from JSON or GLB bytes the caller keeps alive, its external buffers supplied by the host, then skeletons, skins and clips built from it.
 
 ```c
+static inline maniGltfOptions maniDefaultGltfOptions(void);
+```
+
+```c
 MANI_NODISCARD MANI_API maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t size, maniGltf** gltfOut);
 ```
 Opens a glTF document from JSON or GLB bytes (told apart by GLB's magic), checking the container, the asset version, required extensions, buffers, buffer views and accessors. `data:` buffers are decoded into the document; external buffers wait for maniGltfSupplyBuffer.  @param builder  A builder; the document uses its allocator and must be closed before the builder is destroyed. @param bytes    The file; kept alive and unchanged while the document is open. @param size     Its size in bytes. @param gltfOut  Receives the document. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorFormat` with a reason, an offset and an item; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -208,6 +212,46 @@ Returns an external buffer's URI, as the JSON gives it after its escapes (a URI 
 MANI_NODISCARD MANI_API maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes, size_t size);
 ```
 Supplies an external buffer's bytes, which the caller keeps alive and unchanged while the document is open. They must hold the buffer's `byteLength`; bytes past it are ignored.  @param gltf    The document. @param buffer  An external buffer. @param bytes   Its bytes. @param size    Their size. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a buffer that is not external; `mani_errorFormat` with maniImportReasonBuffer for too few bytes. @par Thread safety Safe from any thread; the document is used by one thread at a time.
+
+```c
+uint32_t maniGltfSkeletonCount(const maniGltf* gltf);
+```
+Returns the number of skeletons the document's skins make: skins sharing any node of their joints' hierarchy share one, numbered by their lowest skin.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfSkinCount(const maniGltf* gltf);
+```
+Returns the number of skins.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfSkinSkeleton(const maniGltf* gltf, uint32_t skin);
+```
+Returns the skeleton a skin is part of.  @param gltf  The document. @param skin  The skin. @return The skeleton, or UINT32_MAX for a skin past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfNodeCount(const maniGltf* gltf);
+```
+Returns the number of nodes.  @param gltf  The document. @return The count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* gltf, uint32_t skeleton, const maniGltfOptions* options);
+```
+Builds a skeleton of the document into the builder: its skins' joints, their common root and the nodes between, named by their nodes' names (renamed `name#node` where missing or repeated).  @param builder   The builder. @param gltf      The document. @param skeleton  The skeleton, below maniGltfSkeletonCount. @param options   The options. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton past the count or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfBuildNodeSkeleton( maniBuilder* builder, const maniGltf* gltf, uint32_t node, const maniGltfOptions* options);
+```
+Builds a node's subtree as a skeleton, for rigid hierarchies.  @param builder  The builder. @param gltf     The document. @param node     The root node. @param options  The options. @return As maniGltfBuildSkeleton. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton, const maniGltfOptions* options, maniAffine* placementOut);
+```
+Returns a skeleton's placement: the product of the local transforms of the nodes above its root, the basis change applied; identity when the options fold it into the root.  @param gltf          The document. @param skeleton      The skeleton. @param options       The options. @param placementOut  Receives the placement. @return `mani_success`; `mani_errorInvalid` as maniGltfBuildSkeleton; `mani_errorFormat` for a node above the root whose matrix is refused. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin, const maniSkeleton* skeleton, const maniGltfOptions* options);
+```
+Builds a skin into the builder against an opened skeleton: each joint found by its bone name, the inverse binds read (identity when the skin has none) and the basis change applied.  @param builder   The builder. @param gltf      The document. @param skin      The skin. @param skeleton  An opened skeleton holding the skin's joints. @param options   The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skin past the count or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ## `pose.h`
 
@@ -363,4 +407,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-66 functions across 7 headers.
+75 functions across 7 headers.

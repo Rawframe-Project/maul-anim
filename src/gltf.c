@@ -11,6 +11,7 @@
 #include "gltf_buffer.h"
 #include "gltf_document.h"
 #include "gltf_layout.h"
+#include "gltf_node.h"
 #include "gltf_property.h"
 #include "json.h"
 
@@ -230,6 +231,10 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
     {
         r = maniGltfReadLayout(gltf);
     }
+    if (r.result == mani_success)
+    {
+        r = maniGltfReadNodes(gltf);
+    }
     return r;
 }
 
@@ -273,6 +278,7 @@ void maniCloseGltf(maniGltf* gltf)
         return;
     }
     maniAllocator allocator = gltf->allocator;
+    maniGltfReleaseNodes(gltf);
     maniGltfReleaseBuffers(gltf);
     maniRelease(&allocator, gltf->views, gltf->viewCount, sizeof(maniGltfView), 8);
     maniRelease(&allocator, gltf->accessors, gltf->accessorCount, sizeof(maniGltfAccessor), 8);
@@ -313,4 +319,24 @@ maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const voi
     }
     gltf->buffers[buffer].data = bytes;
     return maniImportSuccess();
+}
+
+uint32_t maniGltfSkeletonCount(const maniGltf* gltf)
+{
+    return gltf->skeletonCount;
+}
+
+uint32_t maniGltfSkinCount(const maniGltf* gltf)
+{
+    return gltf->skinCount;
+}
+
+uint32_t maniGltfSkinSkeleton(const maniGltf* gltf, uint32_t skin)
+{
+    return skin < gltf->skinCount ? gltf->skinSkeletons[skin] : UINT32_MAX;
+}
+
+uint32_t maniGltfNodeCount(const maniGltf* gltf)
+{
+    return gltf->nodeCount;
 }

@@ -93,6 +93,23 @@ struct maniGltf
     uint32_t bufferCount;
     uint32_t viewCount;
     uint32_t accessorCount;
+    // Nodes: their JSON values, parents (MANI_JSON_NONE for roots),
+    // depths, and the binary lifting table for common ancestors: level k
+    // holds each node's 2^k-th ancestor, `levels` levels of nodeCount.
+    uint32_t* nodeValues;
+    uint32_t* nodeParents;
+    uint32_t* nodeDepths;
+    uint32_t* ancestors;
+    uint32_t levels;
+    uint32_t nodeCount;
+    // Skins: their JSON values, common roots and skeletons.
+    uint32_t* skinValues;
+    uint32_t* skinRoots;
+    uint32_t* skinSkeletons;
+    uint32_t skinCount;
+    // Skeletons: each one's root node.
+    uint32_t* skeletonRoots;
+    uint32_t skeletonCount;
 };
 
 #endif // MAUL_ANIM_SRC_GLTF_DOCUMENT_H

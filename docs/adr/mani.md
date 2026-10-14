@@ -13,3 +13,4 @@ are listed in [README.md](README.md).
 | [mani-0006](mani-0006-clips.md) | Clips on one uniform grid | Accepted |
 | [mani-0007](mani-0007-gltf-json-and-numbers.md) | The glTF importer's JSON reader and numbers | Accepted |
 | [mani-0008](mani-0008-gltf-document.md) | The glTF document: containers, buffers and accessors | Accepted |
+| [mani-0009](mani-0009-gltf-skeletons-and-skins.md) | glTF skeletons and skins | Accepted |

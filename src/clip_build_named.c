@@ -12,6 +12,7 @@
 #include "clip_build.h"
 #include "clip_file.h"
 #include "container.h"
+#include "sort.h"
 #include "text.h"
 
 #include "maul-anim/build.h"
@@ -147,39 +148,6 @@ maniBuildResult maniCheckClipNamedSource(const maniClipSource* source, float* la
     return r;
 }
 
-// Sorts indices 0 to n - 1 by key, stable, bottom-up; scratch holds n.
-static void SortByKey(const uint64_t* keys, uint32_t n, uint32_t* sorted, uint32_t* scratch)
-{
-    for (uint32_t i = 0; i < n; ++i)
-    {
-        sorted[i] = i;
-    }
-    uint32_t* from = sorted;
-    uint32_t* to = scratch;
-    for (uint32_t width = 1; width < n; width *= 2)
-    {
-        for (uint32_t low = 0; low < n; low += 2 * width)
-        {
-            uint32_t middle = low + width < n ? low + width : n;
-            uint32_t high = middle + width < n ? middle + width : n;
-            uint32_t a = low;
-            uint32_t b = middle;
-            for (uint32_t k = low; k < high; ++k)
-            {
-                bool takeA = a < middle && (b >= high || keys[from[a]] <= keys[from[b]]);
-                to[k] = takeA ? from[a++] : from[b++];
-            }
-        }
-        uint32_t* swap = from;
-        from = to;
-        to = swap;
-    }
-    if (from != sorted)
-    {
-        memcpy(sorted, from, (size_t)n * sizeof(uint32_t));
-    }
-}
-
 static uint64_t NameHash(const char* name, uint32_t length)
 {
     return maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
@@ -266,7 +234,7 @@ static void FillWork(const maniClipSource* source, uint32_t list, Work* w)
                                     : TimeKey(list == kEvents ? source->events[i].time
                                                               : source->markers[i].time);
     }
-    SortByKey(w->keys, counts[list], w->sorted, w->scratch);
+    maniSortByKey(w->keys, counts[list], w->sorted, w->scratch);
 }
 
 // Writes a name into the names and its span at entry.

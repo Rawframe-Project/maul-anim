@@ -125,8 +125,8 @@ text-overlong-three | src/text.c | *lowOut = lead == 0xE0 ? 0xA0 : 0x80; | *lowO
 text-surrogates | src/text.c | *highOut = lead == 0xED ? 0x9F : 0xBF; | *highOut = 0xBF;
 text-overlong-four | src/text.c | *lowOut = lead == 0xF0 ? 0x90 : 0x80; | *lowOut = 0x80;
 text-past-max | src/text.c | *highOut = lead == 0xF4 ? 0x8F : 0xBF; | *highOut = 0xBF;
-text-truncated | src/text.c | if (count < 0 || length - i - 1 < (size_t)count) | if (count < 0)
-text-continuations | src/text.c | if (!InRange(bytes[i + (size_t)k], 0x80, 0xBF)) | if (false)
+text-truncated | src/text.c | if (count < 0 || length - 1 < (size_t)count) | if (count < 0)
+text-continuations | src/text.c | if (!InRange(bytes[k], 0x80, 0xBF)) | if (false)
 text-two-byte-lead | src/text.c | if (InRange(lead, 0xC2, 0xDF)) | if (InRange(lead, 0xC0, 0xDF))
 builder-version | src/builder.c | if (def->version != MANI_ABI_VERSION) | if (false)
 builder-cookie | src/builder.c | if (def->cookie != MANI_BUILDER_DEF_COOKIE || !maniAllocatorValid(&def->allocator)) | if (!maniAllocatorValid(&def->allocator))
@@ -223,7 +223,7 @@ bld-last-sample | src/clip_build.c | return k + 1 == n && k > 0 ? (double)durati
 bld-default-rate | src/clip_build.c | float rate = source->sampleRate == 0.0f ? 30.0f : source->sampleRate; | float rate = source->sampleRate == 0.0f ? 24.0f : source->sampleRate;
 bld-default-duration | src/clip_build.c | timing.duration = timing.duration > namedLast ? timing.duration : namedLast; | timing.duration = timing.duration + 0.0f;
 bld-empty-track | src/clip_build.c | if (index != 0 && Mask(&source->boneTracks[index - 1]) != 0) | if (index != 0)
-nam-stable | src/clip_build_named.c | bool takeA = a < middle && (b >= high || keys[from[a]] <= keys[from[b]]); | bool takeA = a < middle && (b >= high || keys[from[a]] < keys[from[b]]);
+nam-stable | src/sort.c | bool takeA = a < middle && (b >= high || keys[from[a]] <= keys[from[b]]); | bool takeA = a < middle && (b >= high || keys[from[a]] < keys[from[b]]);
 nam-repeat | src/clip_build_named.c | if (hashes[a] != hashes[b]) | if (true)
 nam-step-flag | src/clip_build_named.c | maniStoreU32(entry + 16, f->keys.interpolation == maniInterpolationStep ? 1u : 0u); | maniStoreU32(entry + 16, 0u);
 nam-marker-payload | src/clip_build_named.c | maniStoreU32(entry + 4, markers ? 0u : (uint32_t)e->payload); | maniStoreU32(entry + 4, (uint32_t)e->payload);
