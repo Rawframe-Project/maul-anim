@@ -459,3 +459,29 @@ fbv-element-order | src/fbx_value.c | uint32_t byte = fbx->bigEndian ? k : size 
 fbv-float-ints | src/fbx_value.c | if (size == 0 || (want == WantIntegers && floats)) | if (size == 0)
 fbv-text-array | src/fbx_value.c | return maniFbxFail(maniImportReasonData, read ? start : p->offset, 0); | return maniFbxSuccess();
 fba-string-close | src/fbx_ascii.c | while (r->at < fbx->size && fbx->bytes[r->at] != '"') | while (r->at < fbx->size && fbx->bytes[r->at] != '"' && fbx->bytes[r->at] != '\n')
+
+# FBX objects, connections, properties and settings (mani-0013),
+# 2026-10-14: 23 mutants, all killed (one by a test added after the sweep).
+fbo-duplicate | src/fbx_object.c | if (keys[later] == keys[fbx->objectsById[k - 1]]) | if (false)
+fbo-search | src/fbx_object.c | if (at < key) | if (at <= key)
+fbo-properties60 | src/fbx_object.c | return p != MANI_FBX_NONE ? p : maniFbxFindChild(fbx, node, "Properties60", 12); | return p;
+fbo-subclass-six | src/fbx_object.c | return maniFbxNodeProperty(fbx, node, fbx->version >= 7000 ? 2 : 1); | return maniFbxNodeProperty(fbx, node, 2);
+fbo-class-fbx | src/fbx_object.c | uint32_t skip = length >= 3 && memcmp(text, "Fbx", 3) == 0 ? 3 : 0; | uint32_t skip = 0;
+fbo-any-template | src/fbx_object.c | if (maniFbxNameIs(fbx, p, "PropertyTemplate", 16) && (any || ClassIs(fbx, p, subclass))) | if (maniFbxNameIs(fbx, p, "PropertyTemplate", 16))
+fbo-class-only | src/fbx_object.c | if (maniFbxNameIs(fbx, p, "PropertyTemplate", 16) && (any || ClassIs(fbx, p, subclass))) | if (maniFbxNameIs(fbx, p, "PropertyTemplate", 16) && ClassIs(fbx, p, subclass))
+fbo-skip-object | src/fbx_object.c | if (ObjectKey(fbx, c, &o.id)) | if (true)
+fbo-root-id | src/fbx_object.c | return key == 0 ? fbx->objectCount : maniFbxFindObject(fbx, key); | return maniFbxFindObject(fbx, key);
+fbo-scene-root | src/fbx_object.c | if (maniFbxStringEquals(fbx, property, "Model::Scene", 12)) | if (false)
+fbo-oo-only | src/fbx_object.c | if (!childProperty && !parentProperty && !StringIs(fbx, type, "OO", 2)) | if (!childProperty && !parentProperty)
+fbo-child-prop | src/fbx_object.c | c->childProperty = childProperty ? maniFbxNodeProperty(fbx, node, k++) : MANI_FBX_NONE; | c->childProperty = MANI_FBX_NONE;
+fbo-later-entry | src/fbx_object.c | found = e; | found = found == MANI_FBX_NONE ? e : found;
+fbo-template-fallback | src/fbx_object.c | return own != MANI_FBX_NONE ? own : FindIn(fbx, o->templateProperties, name, length); | return own;
+fbo-label | src/fbx_object.c | uint32_t first = maniFbxNameIs(fbx, entry, "P", 1) ? 4 : 3; | uint32_t first = 4;
+fbo-binary-split | src/fbx_object.c | if (!fbx->ascii && out[i] == 0 && out[i + 1] == 1) | if (false)
+fbo-ascii-split | src/fbx_object.c | if (fbx->ascii && out[i] == ':' && out[i + 1] == ':') | if (false)
+fbo-sign-zero | src/fbx_object.c | !IntegerSetting(fbx, properties, sign, -1, 1, &s, &where) || s == 0) | !IntegerSetting(fbx, properties, sign, -1, 1, &s, &where))
+fbo-custom | src/fbx_object.c | if (mode == 14) | if (false)
+fbo-custom-positive | src/fbx_object.c | if (!maniFbxNumber(fbx, where, &s->customRate) || !(s->customRate > 0.0)) | if (!maniFbxNumber(fbx, where, &s->customRate))
+fbo-scale-positive | src/fbx_object.c | if (where != MANI_FBX_NONE && (!maniFbxNumber(fbx, where, scale) || !(*scale > 0.0))) | if (where != MANI_FBX_NONE && !maniFbxNumber(fbx, where, scale))
+fbo-same-axes | src/fbx_object.c | if (r.result == mani_success && | if (false &&
+fbo-ntsc | src/fbx_object.c | {30, 1}, {30000, 1001}, {30000, 1001}, {25, 1},       {24, 1},        {1000, 1}, {24000, 1001}, | {30, 1}, {30000, 1001}, {30, 1}, {25, 1},       {24, 1},        {1000, 1}, {24000, 1001},
