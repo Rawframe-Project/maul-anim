@@ -61,8 +61,11 @@ typedef struct maniFbxCurve
     uint32_t reserved;
     maniFbxExtrapolation pre;
     maniFbxExtrapolation post;
-    // Ticks a second, for extrapolating in whole ticks.
+    // Ticks a second, and the end keys' ticks, for extrapolating in
+    // whole ticks.
     double ticksPerSecond;
+    int64_t firstTick;
+    int64_t lastTick;
 } maniFbxCurve;
 
 // Reads an AnimationCurve object; refused (Property, item: the object)

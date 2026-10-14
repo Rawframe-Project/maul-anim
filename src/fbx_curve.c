@@ -54,12 +54,11 @@ static float Narrow(double x)
     return x > (double)FLT_MAX ? INFINITY : x < -(double)FLT_MAX ? -INFINITY : (float)x;
 }
 
-// floor and rint are not among the exactly rounded functions the library
-// may call; fmod is.
+// The floor of a value not negative (floor is not among the exactly
+// rounded functions the library may call; fmod is).
 static double Floor(double x)
 {
-    double r = x - fmod(x, 1.0);
-    return r > x ? r - 1.0 : r;
+    return x - fmod(x, 1.0);
 }
 
 // The curve's arrays, read whole.
@@ -93,9 +92,8 @@ static maniImportResult Find(const maniFbx* fbx, uint32_t node, const char* name
     uint32_t child = maniFbxFindChild(fbx, node, name, strlen(name));
     *property = child != MANI_FBX_NONE ? maniFbxNodeProperty(fbx, child, 0) : MANI_FBX_NONE;
     *count = maniFbxArrayCount(fbx, *property);
-    bool array = *property != MANI_FBX_NONE && fbx->properties[*property].type != 0 &&
-                 strchr("bcifldA", fbx->properties[*property].type) != NULL;
-    if (!array)
+    // A value not an array is refused when read.
+    if (*property == MANI_FBX_NONE)
     {
         uint64_t at = child != MANI_FBX_NONE ? fbx->nodes[child].nameOffset
                                              : fbx->nodes[fbx->objects[object].node].nameOffset;
@@ -292,14 +290,10 @@ static void AutoTangents(const Decoder* d, uint32_t i, double time, double next,
     const double* v = d->a->values;
     bool before = i > 0 && time > d->previousTime;
     bool after = i + 1 < d->a->keyCount && next > time;
+    // Where the biases cancel ufbx solves once with the right one, which
+    // differs from solving each side by under 1e-6 of a slope: not kept.
     if (before && after)
     {
-        if (fabsf(*left + *right) <= 0.0001f)
-        {
-            *left = *right = AutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
-                                       d->weightLeft, weightRight, *right, flags);
-            return;
-        }
         float l = AutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1], d->weightLeft,
                             weightRight, -*left, flags);
         *right = AutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1], d->weightLeft,
@@ -314,10 +308,7 @@ static void AutoTangents(const Decoder* d, uint32_t i, double time, double next,
     {
         *left = *right = EndSlope(time, next, v[i], v[i + 1], *right, flags);
     }
-    else
-    {
-        *left = *right = 0.0f;
-    }
+    // A key alone at its time has handles of no length.
 }
 
 // Kochanek-Bartels slopes from tension, continuity and bias.
@@ -446,7 +437,7 @@ static maniFbxExtrapolation ReadExtrapolation(const maniFbx* fbx, uint32_t node,
 
 maniImportResult maniFbxReadCurve(const maniFbx* fbx, uint32_t object, maniFbxCurve* out)
 {
-    *out = (maniFbxCurve){NULL, 0, 0, {0, -1}, {0, -1}, (double)fbx->settings.ticksPerSecond};
+    *out = (maniFbxCurve){NULL, 0, 0, {0, -1}, {0, -1}, (double)fbx->settings.ticksPerSecond, 0, 0};
     uint32_t node = fbx->objects[object].node;
     out->pre = ReadExtrapolation(fbx, node, "Pre-Extrapolation");
     out->post = ReadExtrapolation(fbx, node, "Post-Extrapolation");
@@ -461,6 +452,8 @@ maniImportResult maniFbxReadCurve(const maniFbx* fbx, uint32_t object, maniFbxCu
     if (r.result == mani_success)
     {
         out->count = a.keyCount;
+        out->firstTick = a.keyCount > 0 ? a.ticks[0] : 0;
+        out->lastTick = a.keyCount > 0 ? a.ticks[a.keyCount - 1] : 0;
         Decoder d = {&a, out->ticksPerSecond, 0.0f, THIRD, 0.0};
         uint32_t run = 0;
         int64_t left = a.runCount > 0 ? a.runs[0] : 0;
@@ -573,12 +566,12 @@ static double Outside(const maniFbxCurve* c, double time)
         return key->value;
     }
     double scale = c->ticksPerSecond;
-    double first = Floor(c->keys[0].time * scale + 0.5);
-    double last = Floor(c->keys[c->count - 1].time * scale + 0.5);
+    double first = (double)c->firstTick;
     double ticks = time * scale;
-    double delta = pre ? first - ticks : ticks - last;
-    double duration = last - first;
-    if (!(duration >= 1.0))
+    double delta = pre ? first - ticks : ticks - (double)c->lastTick;
+    double duration = (double)c->lastTick - first;
+    // A time rounded onto the keys' side of the end is the end.
+    if (!(duration >= 1.0) || !(delta > 0.0))
     {
         return key->value;
     }
