@@ -11,6 +11,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// The length of the well-formed sequence the bytes start with, 1 to 4,
+// or 0 when they start with none (or are empty).
+size_t maniUtf8Sequence(const uint8_t* bytes, size_t length);
+
 // True when the bytes are well-formed UTF-8.
 bool maniValidUtf8(const uint8_t* bytes, size_t length);
 

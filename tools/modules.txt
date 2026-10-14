@@ -28,3 +28,5 @@ clip_tracks: bytes clip_file clip_view container text
 clip_build: allocator builder bytes clip_file container scalar
 clip_build_named: allocator builder bytes clip_build clip_file container text
 clip_measure: allocator builder clip_build scalar
+decimal:
+json: allocator decimal text

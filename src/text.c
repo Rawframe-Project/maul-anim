@@ -42,30 +42,44 @@ static int32_t Continuations(uint8_t lead, uint8_t* lowOut, uint8_t* highOut)
     return -1;
 }
 
+size_t maniUtf8Sequence(const uint8_t* bytes, size_t length)
+{
+    if (length == 0)
+    {
+        return 0;
+    }
+    uint8_t low = 0;
+    uint8_t high = 0;
+    int32_t count = Continuations(bytes[0], &low, &high);
+    if (count < 0 || length - 1 < (size_t)count)
+    {
+        return 0;
+    }
+    if (count > 0 && !InRange(bytes[1], low, high))
+    {
+        return 0;
+    }
+    for (int32_t k = 2; k <= count; ++k)
+    {
+        if (!InRange(bytes[k], 0x80, 0xBF))
+        {
+            return 0;
+        }
+    }
+    return (size_t)count + 1;
+}
+
 bool maniValidUtf8(const uint8_t* bytes, size_t length)
 {
     size_t i = 0;
     while (i < length)
     {
-        uint8_t low = 0;
-        uint8_t high = 0;
-        int32_t count = Continuations(bytes[i], &low, &high);
-        if (count < 0 || length - i - 1 < (size_t)count)
+        size_t step = maniUtf8Sequence(bytes + i, length - i);
+        if (step == 0)
         {
             return false;
         }
-        if (count > 0 && !InRange(bytes[i + 1], low, high))
-        {
-            return false;
-        }
-        for (int32_t k = 2; k <= count; ++k)
-        {
-            if (!InRange(bytes[i + (size_t)k], 0x80, 0xBF))
-            {
-                return false;
-            }
-        }
-        i += (size_t)count + 1;
+        i += step;
     }
     return true;
 }

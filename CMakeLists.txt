@@ -61,7 +61,8 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c
-                                     src/clip_build_named.c src/clip_measure.c src/inflate.c src/skeleton_build.c
+                                     src/clip_build_named.c src/clip_measure.c src/decimal.c src/inflate.c
+                                     src/json.c src/skeleton_build.c
                                      src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
@@ -88,6 +89,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(pose WHITEBOX)
         maul_add_test(skin WHITEBOX)
         maul_add_test(clip WHITEBOX)
+        maul_add_test(json WHITEBOX)
     endif()
     maul_add_header_tests()
 endif()
@@ -101,9 +103,11 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton skin clip)
+    foreach(area skeleton skin clip json)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
+        # Internal readers (JSON) are fuzzed through their own headers.
+        target_include_directories(fuzz_${area} PRIVATE ${PROJECT_SOURCE_DIR}/src)
         maul_apply_flags(fuzz_${area})
         target_compile_options(fuzz_${area} PRIVATE -fsanitize=fuzzer,address,undefined
                                                       -fno-sanitize-recover=all)
