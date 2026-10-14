@@ -51,3 +51,35 @@ fpenv-keep-rounding | src/fpenv.c | static const uint32_t s_roundingMode = 3u <<
 fpenv-no-restore | src/fpenv.c | if (ReadControl() != env->saved) | if (false)
 fpenv-no-enter | src/fpenv.c | if (wanted != saved) | if (false)
 fpenv-restore-default | src/fpenv.c | WriteControl(env->saved); | WriteControl(0x1f80u);
+container-short-ok | src/container.c | if (size < MANI_CONTAINER_HEADER_SIZE) | if (false)
+container-no-magic | src/container.c | if (memcmp(b, kMagic, sizeof kMagic) != 0) | if (false)
+container-no-kind | src/container.c | if (maniLoadU16(b + 4) != kind) | if (false)
+container-version-zero-ok | src/container.c | if (version == 0) | if (false)
+container-newer-ok | src/container.c | if (version > maxVersion) | if (version > maxVersion + 1)
+container-newer-format | src/container.c | return Fail(mani_errorVersion, 6); | return Fail(mani_errorFormat, 6);
+container-header-size | src/container.c | if (maniLoadU32(b + 8) != MANI_CONTAINER_HEADER_SIZE) | if (false)
+container-limit-off | src/container.c | if (maniLoadU32(b + 12) > MANI_CONTAINER_MAX_SECTIONS) | if (maniLoadU32(b + 12) > MANI_CONTAINER_MAX_SECTIONS + 1)
+container-pad22 | src/container.c | if (maniLoadU16(b + 22) != 0) | if (false)
+container-filesize-low | src/container.c | if (fileSize < MANI_CONTAINER_HEADER_SIZE || fileSize > size) | if (fileSize > size)
+container-filesize-high | src/container.c | if (fileSize < MANI_CONTAINER_HEADER_SIZE || fileSize > size) | if (fileSize < MANI_CONTAINER_HEADER_SIZE)
+container-reserved | src/container.c | if (b[i] != 0) | if (false)
+container-reserved-start | src/container.c | for (uint32_t i = 48; i < MANI_CONTAINER_HEADER_SIZE; ++i) | for (uint32_t i = 49; i < MANI_CONTAINER_HEADER_SIZE; ++i)
+container-table-end | src/container.c | if (tableEnd > fileSize) | if (false)
+container-tags-equal | src/container.c | if (i > 0 && tag <= lastTag) | if (i > 0 && tag < lastTag)
+container-entry-pad | src/container.c | if (maniLoadU32(b + at + 4) != 0) | if (false)
+container-misaligned | src/container.c | if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset < next || offset > fileSize) | if (offset < next || offset > fileSize)
+container-overlap | src/container.c | if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset < next || offset > fileSize) | if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset > fileSize)
+container-offset-past | src/container.c | if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset < next || offset > fileSize) | if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset < next)
+container-section-past | src/container.c | if (sectionSize > fileSize - offset) | if (false)
+container-next | src/container.c | next = offset + sectionSize; | next = offset;
+container-null | src/container.c | if (bytes == NULL || containerOut == NULL || (uintptr_t)bytes % MANI_CONTAINER_ALIGNMENT != 0) | if (bytes == NULL || containerOut == NULL)
+container-hash | src/container.c | if (HashPayload(b, fileSize) != maniLoadU64(b + 32)) | if (false)
+container-hash-piece | src/container.c | uint64_t piece = payload - done < 0x40000000u ? payload - done : 0x40000000u; | uint64_t piece = payload - done < 0x40000000u ? payload - done - 1 : 0x40000000u;
+container-size-limit | src/container.c | if (count > MANI_CONTAINER_MAX_SECTIONS) | if (count > MANI_CONTAINER_MAX_SECTIONS + 1)
+container-no-overflow | src/container.c | if (ckd_add(&end, size, sections[i].size) || end > UINT64_MAX - MANI_CONTAINER_ALIGNMENT) | if (end > UINT64_MAX - MANI_CONTAINER_ALIGNMENT)
+container-no-align-room | src/container.c | if (ckd_add(&end, size, sections[i].size) || end > UINT64_MAX - MANI_CONTAINER_ALIGNMENT) | if (ckd_add(&end, size, sections[i].size))
+container-pad-last | src/container.c | size = i + 1 < count ? AlignUp(end) : end; | size = AlignUp(end);
+container-no-copy | src/container.c | if (sections[i].size > 0) | if (false)
+container-writer-major | src/container.c | maniStoreU16(out + 16, MANI_VERSION_MAJOR); | maniStoreU16(out + 16, 7);
+container-identity | src/container.c | maniStoreU64(out + 40, identity); | maniStoreU64(out + 40, 0);
+container-align | src/container.c | return (value + MANI_CONTAINER_ALIGNMENT - 1) / MANI_CONTAINER_ALIGNMENT * | return (value + MANI_CONTAINER_ALIGNMENT) / MANI_CONTAINER_ALIGNMENT *

@@ -16,7 +16,7 @@
 
 enum
 {
-    kCapacity = 512,
+    kCapacity = 2048,
     kKind = maniKindSkeleton,
 };
 
@@ -153,6 +153,29 @@ static void TestHeaderRefusals(void)
     }
 }
 
+// One section over the limit, in a file whose table is otherwise right.
+static void TestSectionLimit(void)
+{
+    uint32_t count = MANI_CONTAINER_MAX_SECTIONS + 1;
+    uint64_t tableEnd = MANI_CONTAINER_HEADER_SIZE + (uint64_t)count * MANI_CONTAINER_ENTRY_SIZE;
+    uint64_t sectionsAt = (tableEnd + 15) / 16 * 16;
+    WriteSample();
+    memset(s_file, 0, sizeof s_file);
+    maniWriteContainer(s_file, kKind, 1, 0, NULL, 0);
+    maniStoreU32(s_file + 12, count);
+    maniStoreU64(s_file + 24, sectionsAt);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        uint8_t* entry =
+            s_file + MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
+        maniStoreU32(entry, i + 1);
+        maniStoreU64(entry + 8, sectionsAt);
+    }
+    s_size = sectionsAt;
+    Rehash();
+    ExpectFormat(12, "sections over the limit");
+}
+
 static void TestTableRefusals(void)
 {
     WriteSample();
@@ -237,6 +260,7 @@ int main(void)
     TestBadArguments();
     TestHeaderRefusals();
     TestTableRefusals();
+    TestSectionLimit();
     TestEveryByteFlip();
     TestSizeLimits();
     TestPinnedBytes();
