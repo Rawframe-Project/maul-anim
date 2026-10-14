@@ -9,6 +9,7 @@
 #include "fbx_ascii.h"
 #include "fbx_binary.h"
 #include "fbx_document.h"
+#include "fbx_object.h"
 
 #include "maul-anim/import.h"
 
@@ -39,11 +40,9 @@ uint32_t maniFbxFindChild(const maniFbx* fbx, uint32_t node, const char* name, s
 
 static maniImportResult Open(maniFbx* fbx)
 {
-    if (maniFbxIsBinary(fbx->bytes, fbx->size))
-    {
-        return maniFbxReadBinary(fbx);
-    }
-    return maniFbxReadAscii(fbx);
+    maniImportResult r =
+        maniFbxIsBinary(fbx->bytes, fbx->size) ? maniFbxReadBinary(fbx) : maniFbxReadAscii(fbx);
+    return r.result == mani_success ? maniFbxReadObjects(fbx) : r;
 }
 
 maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
@@ -87,6 +86,7 @@ void maniCloseFbx(maniFbx* fbx)
         return;
     }
     maniAllocator allocator = fbx->allocator;
+    maniFbxReleaseObjects(fbx);
     maniRelease(&allocator, fbx->nodes, fbx->nodeCount, sizeof(maniFbxNode), 8);
     maniRelease(&allocator, fbx->properties, (size_t)fbx->propertyCount + 1,
                 sizeof(maniFbxProperty), 8);

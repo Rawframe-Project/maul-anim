@@ -17,3 +17,4 @@ are listed in [README.md](README.md).
 | [mani-0010](mani-0010-gltf-animations.md) | glTF animations into clips | Accepted |
 | [mani-0011](mani-0011-gltf-spring-bones.md) | Spring bone sources from `VRMC_springBone` | Accepted |
 | [mani-0012](mani-0012-fbx-document.md) | The FBX document | Accepted |
+| [mani-0013](mani-0013-fbx-objects.md) | FBX objects, properties, connections and settings | Accepted |

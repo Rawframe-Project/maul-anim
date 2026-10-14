@@ -13,6 +13,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "fbx_document.h"
+#include "fbx_object.h"
 #include "fbx_value.h"
 #include "test_harness.h"
 
@@ -327,6 +328,10 @@ static void CheckScene(uint32_t version, bool big, const char* what)
               memcmp(text, "hip\0\1Model", 11) == 0,
           "a name with its class, raw");
     CHECK(maniFbxNodeProperty(fbx, m, 3) == MANI_FBX_NONE, "past the properties");
+    uint8_t name[16];
+    CHECK(fbx->objectCount == 1 && maniFbxObjectName(fbx, 0, name, sizeof name) == 3 &&
+              memcmp(name, "hip", 3) == 0 && maniFbxFindObject(fbx, 1234567890123LL) == 0,
+          "a binary object, its name before \\x00\\x01");
     const char* const p[4] = {"Objects", "Model", "Properties70", "P"};
     uint32_t entry = Path(fbx, p, 4);
     double d = 0;
@@ -876,7 +881,7 @@ int main(int argc, char** argv)
     CheckScene(7400, false, "a 7.4 file");
     CheckScene(7500, false, "a 7.5 file, 64-bit headers");
     CheckScene(7700, true, "a big-endian 7.7 file");
-    CheckScene(6100, true, "a big-endian 6.1 file");
+    CheckScene(7100, true, "a big-endian 7.1 file");
     TestRefusals();
     TestValueRefusals();
     TestAscii();

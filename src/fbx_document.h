@@ -53,6 +53,46 @@ typedef struct maniFbxNode
     uint32_t reserved;
 } maniFbxNode;
 
+// An object (mani-0013): its id (7.x; 6.x: its name's hash), its node,
+// and its own and its template's properties nodes (or MANI_FBX_NONE).
+typedef struct maniFbxObject
+{
+    int64_t id;
+    uint32_t node;
+    uint32_t properties;
+    uint32_t templateProperties;
+    uint32_t reserved;
+} maniFbxObject;
+
+// A connection: child and parent objects (the parent the root when it
+// is fbx->objectCount), and the property names it gives (string
+// properties, or MANI_FBX_NONE).
+typedef struct maniFbxConnection
+{
+    uint32_t child;
+    uint32_t parent;
+    uint32_t childProperty;
+    uint32_t parentProperty;
+} maniFbxConnection;
+
+// GlobalSettings: right (coord), up and front axes (0 x, 1 y, 2 z) with
+// their signs; centimetres a unit; the frame rate as numerator over
+// denominator, or customRate when the denominator is 0; the time span
+// in ticks.
+typedef struct maniFbxSettings
+{
+    uint8_t axes[3];
+    int8_t signs[3];
+    double unitScale;
+    double originalUnitScale;
+    uint32_t timeMode;
+    uint32_t rateNumerator;
+    uint32_t rateDenominator;
+    double customRate;
+    int64_t spanStart;
+    int64_t spanStop;
+} maniFbxSettings;
+
 struct maniFbx
 {
     maniAllocator allocator;
@@ -67,6 +107,25 @@ struct maniFbx
     uint32_t nodeCount;
     maniFbxProperty* properties;
     uint32_t propertyCount;
+    maniFbxObject* objects;
+    uint32_t objectCount;
+    uint32_t objectCapacity;
+    // Objects with no id or name, skipped.
+    uint32_t skippedObjects;
+    // Object indices sorted by id.
+    uint32_t* objectsById;
+    maniFbxConnection* connections;
+    uint32_t connectionCount;
+    uint32_t connectionCapacity;
+    // Connection indices sorted by parent and by child, and where each
+    // object's run starts (the root's last).
+    uint32_t* byParent;
+    uint32_t* byChild;
+    uint32_t* parentStarts;
+    uint32_t* childStarts;
+    // Entries of another type or naming no object.
+    uint32_t skippedConnections;
+    maniFbxSettings settings;
 };
 
 static inline maniImportResult maniFbxSuccess(void)

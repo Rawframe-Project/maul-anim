@@ -3,10 +3,12 @@
 //
 // Opening an FBX document (mani-0012) from any bytes, then reading
 // every property of every node: numbers, integers, strings (decoded and
-// compared), and arrays up to a million elements; binary or ASCII. Run as fuzz_fbx <corpus dir>;
+// compared), and arrays up to a million elements; binary or ASCII; and
+// every object's name, a property and its connections. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
 #include "fbx_document.h"
+#include "fbx_object.h"
 #include "fbx_value.h"
 
 #include "maul-anim/base.h"
@@ -61,6 +63,18 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if (maniOpenFbx(builder, data, size, &fbx).result == mani_success)
     {
         ReadAll(fbx);
+        for (uint32_t o = 0; o < fbx->objectCount; ++o)
+        {
+            uint8_t name[64];
+            (void)maniFbxObjectName(fbx, o, name, sizeof name);
+            uint32_t entry = maniFbxFindProperty(fbx, o, "Lcl Translation", 15);
+            double d = 0.0;
+            (void)maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), &d);
+            const uint32_t* list = NULL;
+            (void)maniFbxChildConnections(fbx, o, &list);
+            (void)maniFbxParentConnections(fbx, o, &list);
+            (void)maniFbxFindObject(fbx, fbx->objects[o].id);
+        }
         for (uint32_t v = 0; v < fbx->nodeCount; ++v)
         {
             (void)maniFbxFindChild(fbx, v, "P", 1);
