@@ -20,7 +20,9 @@
 
 // Models: 0 Armature, 1 Hips, 2 Spine, 3 Head (a limb by its
 // attribute), 4 HeadProp (a mesh), 5 Body, 6 Gun, 7 Trigger, 8 Tail.
-// Skins: 0 links Hips and Tail; 1 links nothing; 2 links Trigger.
+// Skins: 0 links Hips and Tail; 1 links nothing (a cluster tied to it
+// by a property, a blend shape channel); 2 links Trigger (and an
+// attribute that is no model). A video of subclass Skin is no skin.
 static const char kRig[] = "; FBX 7.4.0 project file\n"
                            "Objects: {\n"
                            " Model: 10, \"Model::Armature\", \"Null\" {\n }\n"
@@ -39,6 +41,10 @@ static const char kRig[] = "; FBX 7.4.0 project file\n"
                            " Deformer: 43, \"Deformer::\", \"Skin\" {\n }\n"
                            " Deformer: 44, \"Deformer::\", \"Skin\" {\n }\n"
                            " Deformer: 45, \"SubDeformer::\", \"Cluster\" {\n }\n"
+                           " Deformer: 46, \"SubDeformer::\", \"Cluster\" {\n }\n"
+                           " Deformer: 47, \"SubDeformer::\", \"BlendShapeChannel\" {\n }\n"
+                           " NodeAttribute: 31, \"NodeAttribute::\", \"Null\" {\n }\n"
+                           " Video: 51, \"Video::\", \"Skin\" {\n }\n"
                            "}\n"
                            "Connections: {\n"
                            " C: \"OO\",10,0\n C: \"OO\",11,10\n C: \"OO\",12,11\n C: \"OO\",13,12\n"
@@ -47,6 +53,8 @@ static const char kRig[] = "; FBX 7.4.0 project file\n"
                            " C: \"OO\",40,15\n C: \"OO\",41,40\n C: \"OO\",42,40\n"
                            " C: \"OO\",11,41\n C: \"OO\",18,42\n"
                            " C: \"OO\",45,44\n C: \"OO\",17,45\n"
+                           " C: \"PO\",46, \"Visibility\",43\n C: \"OO\",15,46\n"
+                           " C: \"OO\",47,43\n C: \"OO\",15,47\n C: \"OO\",31,45\n"
                            "}\n";
 
 static maniBuilder* NewBuilder(void)
