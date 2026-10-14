@@ -237,3 +237,167 @@ msr-shift-up | src/clip_measure.c | while (j + 1 < g->sampleCount && | while (fa
 msr-midpoint | src/clip_measure.c | float mid = (float)(0.5 * (t + next)); | float mid = (float)t;
 msr-rate | src/clip_measure.c | maniClipSampleCount(m->clip) != g->sampleCount || maniClipSampleRate(m->clip) != g->rate || | maniClipSampleCount(m->clip) != g->sampleCount ||
 msr-float-map | src/clip_measure.c | if (m->floatMap[i] == MANI_NO_TRACK) | if (false)
+
+# The JSON reader and decimal conversion (mani-0007), the glTF document,
+# skeletons, skins, animations, clips and spring bones (mani-0008 to
+# mani-0011) and the arena, 2026-10-14: 150 mutants; 145 killed (47 by
+# tests added after the first sweeps). Five survive, equivalent:
+# ani-normalized-int: the layout refuses normalized 32-bit components, so
+# a normalized output is one of 8 or 16 bits anyway. ani-weights-targets:
+# with no morph targets a key holds no values, and an accessor holds at
+# least one, so the count check refuses at the same place.
+# clp-fold-identity: folding under an identity placement resamples the
+# root on the clip's grid, which the clip builder does with every track.
+# doc-version-dot: a version starting with "." reads as major 0, refused
+# either way. doc-root-object: a root that is not an object has no
+# "asset", refused with the same reason, offset and item.
+jsn-lone-low | src/json.c | if (unit >= 0xDC00 && unit <= 0xDFFF) | if (false)
+jsn-high-low | src/json.c | if (low < 0xDC00 || low > 0xDFFF) | if (low < 0xDC00)
+jsn-escape-nul | src/json.c | if (strchr("\"\\/bfnrt", c) == NULL || c == 0) | if (strchr("\"\\/bfnrt", c) == NULL)
+jsn-control | src/json.c | if (c < 0x20) | if (c < 0x1F)
+jsn-utf8 | src/json.c | if (step == 0) | if (false)
+jsn-leading-zero | src/json.c | if (At(s, '0')) | if (false)
+jsn-exp-plus | src/json.c | s->at += At(s, '+') || At(s, '-') ? 1 : 0; | s->at += At(s, '-') ? 1 : 0;
+jsn-depth | src/json.c | if (s->depth == MANI_JSON_MAX_DEPTH) | if (false)
+jsn-trailing | src/json.c | return s->at == s->size ? Success() : Fail(maniJsonReasonSyntax, s->at); | return Success();
+jsn-space-cr | src/json.c | if (c != ' ' && c != '\t' && c != '\n' && c != '\r') | if (c != ' ' && c != '\t' && c != '\n')
+jsn-hex-upper | src/json.c | if (c >= 'A' && c <= 'F') | if (c >= 'A' && c < 'F')
+jsn-pair | src/json.c | point = 0x10000 + ((point - 0xD800) << 10) + (low - 0xDC00); | point = ((point - 0xD800) << 10) + (low - 0xDC00);
+jsn-two-bytes | src/json.c | if (point < 0x800) | if (point <= 0x800)
+jsn-three-bytes | src/json.c | if (point < 0x10000) | if (point < 0xFFFF)
+jsn-escape-map | src/json.c | static const char kTo[] = "\"\\/\b\f\n\r\t"; | static const char kTo[] = "\"\\/\b\f\r\n\t";
+jsn-equals-whole | src/json.c | return matched == length; | return true;
+jsn-find-last | src/json.c | found = key + 1; | return key + 1;
+jsn-decode-room | src/json.c | if (capacity - written < n) | if (capacity - written < 1)
+dec-zero-point | src/decimal.c | point -= fraction ? 1 : 0; | point -= 0;
+dec-exp-cap | src/decimal.c | exponent = exponent < 100000000 ? exponent * 10 + (text[at] - '0') : exponent; | exponent = exponent * 10 + (text[at] - '0');
+dec-exp-sign | src/decimal.c | return negative ? -exponent : exponent; | return exponent;
+dec-half-even | src/decimal.c | return d->truncated || (at > 0 && d->digits[at - 1] % 2 == 1); | return at > 0 && d->digits[at - 1] % 2 == 1;
+dec-half-odd | src/decimal.c | return d->truncated || (at > 0 && d->digits[at - 1] % 2 == 1); | return true;
+dec-round-five | src/decimal.c | return d->digits[at] >= 5; | return d->digits[at] > 5;
+dec-powers | src/decimal.c | static const int32_t kPowers[9] = {1, 3, 6, 9, 13, 16, 19, 23, 26}; | static const int32_t kPowers[9] = {1, 3, 6, 9, 13, 16, 19, 23, 27};
+dec-underflow | src/decimal.c | if (d.count == 0 || d.point < -330) | if (d.count == 0 || d.point < -300)
+dec-normalize | src/decimal.c | while (d.point < 0 || (d.point == 0 && d.digits[0] < 5)) | while (d.point < 0)
+dec-subnormal | src/decimal.c | if (exponent < bias + 1) | if (exponent < bias)
+dec-carry | src/decimal.c | if (mantissa == (uint64_t)2 << mantissaBits) | if (false)
+dec-denormal-field | src/decimal.c | exponent = bias; | exponent = exponent;
+dec-int-fraction | src/decimal.c | if (d.truncated || d.count > (uint32_t)(d.point > 0 ? d.point : 0) || d.point > 19) | if (d.truncated || d.point > 19)
+dec-int-min | src/decimal.c | if (magnitude > (uint64_t)INT64_MAX + 1) | if (magnitude > (uint64_t)INT64_MAX)
+dec-int-range | src/decimal.c | if (value < minimum || value > maximum) | if (value > maximum)
+dec-truncated | src/decimal.c | else if (c != '0') | else if (false)
+ani-pointer-zeros | src/gltf_animation.c | (text[7] == '0' && at > 8)) | false)
+ani-pointer-exact | src/gltf_animation.c | if (length - at == n && memcmp(text + at, kProperties[k], n) == 0) | if (length - at >= n && memcmp(text + at, kProperties[k], n) == 0)
+ani-pointer-index | src/gltf_animation.c | if (out->target != maniGltfTargetPointer && out->node >= gltf->nodeCount) | if (false)
+ani-pointer-slash | src/gltf_animation.c | if (n == 0 || text[0] != '/') | if (n == 0)
+ani-unknown-path | src/gltf_animation.c | if (kind == 5) | if (false)
+ani-no-node | src/gltf_animation.c | out->node == MANI_JSON_NONE ? maniGltfTargetIgnored : (maniGltfTarget)(kind + 1); | (maniGltfTarget)(kind + 1);
+ani-mode-unknown | src/gltf_animation.c | if (out->interpolation == 3) | if (false)
+ani-input-scalar | src/gltf_animation.c | if (input->rows != 1 || input->columns != 1 || !IsFloat(input) || Strided(gltf, input)) | if (!IsFloat(input) || Strided(gltf, input))
+ani-input-strided | src/gltf_animation.c | if (input->rows != 1 || input->columns != 1 || !IsFloat(input) || Strided(gltf, input)) | if (input->rows != 1 || input->columns != 1 || !IsFloat(input))
+ani-input-float | src/gltf_animation.c | if (input->rows != 1 || input->columns != 1 || !IsFloat(input) || Strided(gltf, input)) | if (input->rows != 1 || input->columns != 1 || Strided(gltf, input))
+ani-matrix-node | src/gltf_animation.c | if (trs && | if (false &&
+ani-cubic-two | src/gltf_animation.c | if ((uint64_t)output->count != perKey * out->keys || (parts == 3 && out->keys < 2)) | if ((uint64_t)output->count != perKey * out->keys)
+ani-weights-per-key | src/gltf_animation.c | uint64_t perKey = out->target == maniGltfTargetWeights ? parts * out->width : parts; | uint64_t perKey = parts;
+ani-normalized | src/gltf_animation.c | return IsFloat(a) || (a->normalized && a->component <= maniGltfUnsignedShort); | return IsFloat(a);
+ani-normalized-int | src/gltf_animation.c | return IsFloat(a) || (a->normalized && a->component <= maniGltfUnsignedShort); | return IsFloat(a) || a->normalized;
+ani-trs-float | src/gltf_animation.c | return a->rows == 3 && a->columns == 1 && IsFloat(a); | return a->rows == 3 && a->columns == 1 && IsNormalizedOrFloat(a);
+ani-rotation-vec4 | src/gltf_animation.c | return a->rows == 4 && a->columns == 1 && IsNormalizedOrFloat(a); | return a->columns == 1 && IsNormalizedOrFloat(a);
+ani-weights-targets | src/gltf_animation.c | return c->width > 0 && a->rows == 1 && a->columns == 1 && IsNormalizedOrFloat(a); | return a->rows == 1 && a->columns == 1 && IsNormalizedOrFloat(a);
+ani-duplicate | src/gltf_animation.c | if (keys[sorted[k]] == keys[sorted[k - 1]]) | if (false)
+ani-empty | src/gltf_animation.c | if (count == 0 || gltf->json.values[samplers].count == 0) | if (false)
+ani-name-kind | src/gltf_animation.c | if (name != MANI_JSON_NONE && gltf->json.values[name].kind != maniJsonString) | if (false)
+clp-placement | src/gltf_clip.c | b->rootNode != MANI_JSON_NONE && IsAncestor(b->gltf, x->c.node, b->rootNode); | b->rootNode != MANI_JSON_NONE;
+clp-ancestor | src/gltf_clip.c | if (v == ancestor) | if (false)
+clp-weights-skin | src/gltf_clip.c | return NodeBone(b, x->c.node) != MANI_NO_BONE || SkinsInto(b, x->c.node); | return NodeBone(b, x->c.node) != MANI_NO_BONE;
+clp-skin-joints | src/gltf_clip.c | if (NodeBone(b, maniGltfJointNode(b->gltf, element)) == MANI_NO_BONE) | if (false)
+clp-scale-signs | src/gltf_clip.c | x->c.target == maniGltfTargetTranslation); | true);
+clp-tangents | src/gltf_clip.c | size_t parts = x->c.interpolation == maniInterpolationCubicSpline ? 3 : 1; | size_t parts = 1;
+clp-duration | src/gltf_clip.c | b->duration = last > b->duration ? last : b->duration; | b->duration = last;
+clp-basis | src/gltf_clip.c | if (x.c.target <= maniGltfTargetScale) | if (false)
+clp-local-rest | src/gltf_clip.c | if (x->c.node != node || x->c.target > maniGltfTargetScale) | if (x->c.target > maniGltfTargetScale)
+clp-compose | src/gltf_clip.c | composed = maniAffineMul(&composed, &a); | composed = a;
+clp-fold-static | src/gltf_clip.c | return rootAnimated && !isIdentity; | return false;
+clp-fold-identity | src/gltf_clip.c | return rootAnimated && !isIdentity; | return rootAnimated;
+clp-target-names | src/gltf_clip.c | gltf->json.values[names].count != targets) | false)
+clp-empty-target | src/gltf_clip.c | gltf->json.values[element].length == 0) | false)
+clp-pointer-single | src/gltf_clip.c | length += x->c.width > 1 ? SlashNumber(name + length, k) : 0; | length += SlashNumber(name + length, k);
+clp-digits | src/gltf_clip.c | out[1 + i] = digits[count - 1 - i]; | out[1 + i] = digits[i];
+clp-name-reason | src/gltf_clip.c | bool name = floats && reason == maniBuildReasonTrack; | bool name = false;
+clp-default-rate | src/gltf_clip.c | .rate = sampleRate == 0.0f ? 30.0f : sampleRate}; | .rate = sampleRate == 0.0f ? 60.0f : sampleRate};
+spr-range | src/gltf_spring.c | if (!fits || !(f >= minimum) || !(f <= maximum)) | if (!fits || !(f >= minimum))
+spr-vector-three | src/gltf_spring.c | if (json->values[array].count != 3) | if (json->values[array].count < 3)
+spr-bone | src/gltf_spring.c | if (*boneOut == MANI_NO_BONE) | if (false)
+spr-index-reason | src/gltf_spring.c | return Fail(r, whole ? maniImportReasonIndex : maniImportReasonProperty, element, item); | return Fail(r, maniImportReasonIndex, element, item);
+spr-shape-one | src/gltf_spring.c | if ((sphere == MANI_JSON_NONE) == (capsule == MANI_JSON_NONE)) | if (sphere == MANI_JSON_NONE && capsule == MANI_JSON_NONE)
+spr-capsule-tail | src/gltf_spring.c | if (result.result == mani_success && c->shape == maniColliderCapsule) | if (false)
+spr-drag-max | src/gltf_spring.c | result = Number(r, value, "dragForce", 0.0f, 1.0f, item, &j->drag); | result = Number(r, value, "dragForce", 0.0f, 3.4e38f, item, &j->drag);
+spr-two-chains | src/gltf_spring.c | if (owner[node] != 0) | if (false)
+spr-chain-down | src/gltf_spring.c | if (previous != MANI_JSON_NONE && !IsAncestor(r->gltf, previous, node)) | if (false)
+spr-first | src/gltf_spring.c | *firstNode = k == 0 ? node : *firstNode; | *firstNode = node;
+spr-center | src/gltf_spring.c | if (result.result == mani_success && center != MANI_JSON_NONE && center != first && | if (false &&
+spr-version | src/gltf_spring.c | if (!maniJsonStringEquals(&r->gltf->json, version, "1.0", 3)) | if (false)
+spr-cleared | src/gltf_spring.c | *setOut = result.result == mani_success ? set : (maniSpringSetSource){0}; | *setOut = set;
+arn-align | src/arena.c | bytes = (bytes + 7) / 8 * 8; | bytes = bytes;
+arn-fit | src/arena.c | if (chunk == NULL || chunk->size - chunk->used < bytes) | if (chunk == NULL)
+arn-zero | src/arena.c | memset(block, 0, bytes); | (void)block;
+arn-large | src/arena.c | size_t data = bytes > MANI_ARENA_CHUNK ? bytes : MANI_ARENA_CHUNK; | size_t data = MANI_ARENA_CHUNK;
+spr-center-others | src/gltf_spring.c | if (owner[v] != 0 && owner[v] != i + 1) | if (false)
+buf-scheme-case | src/gltf_buffer.c | return c >= 'A' && c <= 'Z' ? (uint8_t)(c + 32) : c; | return c;
+buf-b64-length | src/gltf_buffer.c | if (length % 4 != 0) | if (false)
+buf-b64-pad | src/gltf_buffer.c | if (pad < 2) | if (pad < 3)
+buf-b64-digit | src/gltf_buffer.c | if (digit < 0) | if (false)
+buf-percent | src/gltf_buffer.c | if (high < 0 || low < 0) | if (high < 0)
+buf-mime | src/gltf_buffer.c | !EqualsFolded(header, end, "application/gltf-buffer")) | true)
+buf-base64-flag | src/gltf_buffer.c | *base64Out = length >= 7 && EqualsFolded(header + length - 7, 7, ";base64"); | *base64Out = true;
+buf-data-short | src/gltf_buffer.c | if (n == SIZE_MAX || n < b->byteLength) | if (n == SIZE_MAX)
+buf-bin-short | src/gltf_buffer.c | if (gltf->binSize < b->byteLength) | if (false)
+buf-bin-first | src/gltf_buffer.c | if (i == 0 && gltf->bin != NULL) | if (gltf->bin != NULL)
+doc-glb-version | src/gltf.c | if (size < 20 || maniLoadU32(bytes + 4) != 2) | if (size < 20)
+doc-glb-length | src/gltf.c | if (length < 20 || length > size || length % 4 != 0) | if (length < 20 || length > size)
+doc-chunk-length | src/gltf.c | if (chunkLength == UINT64_MAX || chunkLength % 4 != 0 || chunkLength > length - at - 8) | if (chunkLength == UINT64_MAX || chunkLength > length - at - 8)
+doc-chunk-order | src/gltf.c | if ((chunk == 0) != json || (bin && chunk != 1)) | if ((chunk == 0) != json)
+doc-version-dot | src/gltf.c | if (text[i] == '.' && part == 0 && digits > 0) | if (text[i] == '.' && part == 0)
+doc-major | src/gltf.c | if (!ParseVersion(&gltf->json, version, &major, &minor) || major != 2) | if (!ParseVersion(&gltf->json, version, &major, &minor))
+doc-min-minor | src/gltf.c | (!ParseVersion(&gltf->json, minimum, &major, &minor) || major != 2 || minor != 0)) | (!ParseVersion(&gltf->json, minimum, &major, &minor) || major != 2))
+doc-required | src/gltf.c | if (!known) | if (false)
+doc-root-object | src/gltf.c | if (gltf->json.values[0].kind != maniJsonObject) | if (false)
+doc-supply-short | src/gltf.c | if (size < gltf->buffers[buffer].byteLength) | if (false)
+prp-kind | src/gltf_property.c | if (g->json->values[value].kind != (uint32_t)kind) | if (false)
+prp-index-count | src/gltf_property.c | if (index >= (int64_t)count) | if (index > (int64_t)count)
+prp-bool | src/gltf_property.c | if (kind != maniJsonTrue && kind != maniJsonFalse) | if (false)
+prp-array-kind | src/gltf_property.c | if (values[element].kind != (uint32_t)kind) | if (false)
+lay-stride-four | src/gltf_layout.c | if (stride % 4 != 0 || stride > length) | if (stride > length)
+lay-view-bound | src/gltf_layout.c | if ((uint64_t)offset + (uint64_t)length > gltf->buffers[v->buffer].byteLength) | if (false)
+lay-align | src/gltf_layout.c | if (alignment == 0 || (v->offset + offset) % alignment != 0 || | if (alignment == 0 ||
+lay-span | src/gltf_layout.c | (!strideAllowed && v->stride != 0) || offset > v->length || span > v->length - offset) | (!strideAllowed && v->stride != 0) || offset > v->length)
+lay-normalized-int | src/gltf_layout.c | if (ComponentSize(code) == 0 || (a->normalized && code >= 5125)) | if (ComponentSize(code) == 0)
+lay-column-pad | src/gltf_layout.c | a->columnStride = a->columns > 1 ? (column + 3) / 4 * 4 : column; | a->columnStride = column;
+lay-offset-noview | src/gltf_layout.c | if (a->view == MANI_JSON_NONE && offsetAt != MANI_JSON_NONE) | if (false)
+lay-implicit-cap | src/gltf_layout.c | if (a->view == MANI_JSON_NONE && a->count > MANI_GLTF_MAX_IMPLICIT) | if (false)
+lay-stride-small | src/gltf_layout.c | if (stride < a->elementSize) | if (false)
+lay-byte-clamp | src/gltf_layout.c | return normalized ? (float)(c < -127 ? -127 : c) / 127.0f : (float)c; | return normalized ? (float)c / 127.0f : (float)c;
+lay-short-sign | src/gltf_layout.c | int32_t c = (int16_t)maniLoadU16(p); | int32_t c = maniLoadU16(p);
+lay-ushort | src/gltf_layout.c | return normalized ? (float)maniLoadU16(p) / 65535.0f : (float)maniLoadU16(p); | return normalized ? (float)maniLoadU16(p) / 65536.0f : (float)maniLoadU16(p);
+lay-finite | src/gltf_layout.c | if (!Finite(f)) | if (false)
+lay-sparse-order | src/gltf_layout.c | if (index >= a->count || (j > 0 && index <= previous)) | if (index >= a->count || (j > 0 && index < previous))
+lay-sparse-range | src/gltf_layout.c | if (index >= a->count || (j > 0 && index <= previous)) | if (j > 0 && index <= previous)
+nod-two-parents | src/gltf_node.c | if (gltf->nodeParents[child] != MANI_JSON_NONE) | if (false)
+nod-cycle | src/gltf_node.c | if (v != MANI_JSON_NONE && depth[v] == WALKING) | if (false)
+nod-ibm-count | src/gltf_node.c | if (a->rows != 4 || a->columns != 4 || a->component != maniGltfFloat || a->count < joints) | if (a->rows != 4 || a->columns != 4 || a->component != maniGltfFloat)
+nod-ibm-stride | src/gltf_node.c | if (a->view != MANI_JSON_NONE && gltf->views[a->view].stride != 0) | if (false)
+nod-joints-empty | src/gltf_node.c | if (r.result == mani_success && (count == 0 || count > MANI_MAX_BONES)) | if (r.result == mani_success && count > MANI_MAX_BONES)
+nod-joint-twice | src/gltf_node.c | if (stamp[node] == skin) | if (false)
+nod-union-low | src/gltf_node.c | sets[a > b ? a : b] = a < b ? a : b; | sets[a] = b;
+nam-repeat | src/gltf_names.c | if (length == 0 || w->repeated[b] != 0) | if (length == 0)
+nam-empty | src/gltf_names.c | if (length == 0 || w->repeated[b] != 0) | if (w->repeated[b] != 0)
+skl-skin-missing | src/gltf_skeleton.c | if (joints[j] == MANI_NO_BONE) | if (false)
+skl-fold | src/gltf_skeleton.c | if (options->foldPlacement != 0) | if (false)
+rst-count | src/gltf_rest.c | if (gltf->json.values[array].count != count) | if (false)
+rst-number | src/gltf_rest.c | if (!maniJsonBinary(&gltf->json, element, maniBinary32, &bits)) | if (false)
+rst-shear | src/gltf_rest.c | if (!(fabsf(back.m[i] - a.m[i]) <= 1e-4f * largest)) | if (false)
+rst-largest | src/gltf_rest.c | largest = ColumnLength(&a, 2) > largest ? ColumnLength(&a, 2) : largest; | largest = largest;
+rst-matrix-trs | src/gltf_rest.c | if (hasT || hasR || hasS) | if (false)
+rst-zero-quat | src/gltf_rest.c | else if (q[0] == 0.0f && q[1] == 0.0f && q[2] == 0.0f && q[3] == 0.0f) | else if (false)
+bas-sign | src/gltf_basis.c | b.s[i] = options->axes[i] >= 3 ? -1.0f : 1.0f; | b.s[i] = 1.0f;
+bas-det | src/gltf_basis.c | b.det = b.s[0] * b.s[1] * b.s[2] * (even ? 1.0f : -1.0f); | b.det = b.s[0] * b.s[1] * b.s[2];
+bas-valid | src/gltf_basis.c | if (options->axes[i] > maniAxisNegativeZ || seen[options->axes[i] % 3]) | if (options->axes[i] > maniAxisNegativeZ)
