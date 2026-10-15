@@ -793,32 +793,42 @@ static void TestTimes(void)
 // builds.
 // Whether a scene of Spine (at rest) and Arm (scale not inherited,
 // turned 45 about z) under it has a helper for Spine, its stacks Rest
-// (nothing) and Bad (Spine scaled 2 in x, then the fragment given).
-static bool HelperFrom(const char* more)
+// (nothing) and Bad, a second keying Spine's x scale at its start, middle
+// and end and Arm's inherit type at its start.
+static bool HelperFrom(const char* scales, const char* inherit)
 {
-    char text[2048];
+    static const char kCurve[] =
+        " AnimationCurve: %d, \"AnimCurve::\", \"\" {\n  KeyTime: *3 {\n   a: "
+        "0,23093079000,46186158000\n  }\n  KeyValueFloat: *3 {\n   a: %s\n  }\n  KeyAttrFlags: "
+        "*1 {\n   a: 4\n  }\n  KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 "
+        "{\n   a: 3\n  }\n }\n";
+    char scale[512];
+    char type[512];
+    snprintf(scale, sizeof scale, kCurve, 211, scales);
+    snprintf(type, sizeof type, kCurve, 221, inherit);
+    char text[3072];
     snprintf(
         text, sizeof text,
         "; FBX 7.4.0 project file\nObjects: {\n"
         " Model: 2, \"Model::Spine\", \"LimbNode\" {\n }\n"
-        " Model: 3, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n   P: "
-        "\"InheritType\", \"enum\", \"\", \"\",2\n   P: \"Lcl Rotation\", \"Lcl Rotation\", "
-        "\"\", \"A\",0,0,45\n  }\n }\n"
+        " Model: 3, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n   P: \"InheritType\", "
+        "\"enum\", \"\", \"\",2\n   P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,45\n"
+        "  }\n }\n"
         " AnimationStack: 100, \"AnimStack::Rest\", \"\" {\n }\n"
-        " AnimationStack: 200, \"AnimStack::Bad\", \"\" {\n }\n"
+        " AnimationStack: 200, \"AnimStack::Bad\", \"\" {\n  Properties70: {\n   P: "
+        "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
+        "\"A\",46186158000\n  }\n }\n"
         " AnimationLayer: 201, \"AnimLayer::Base\", \"\" {\n }\n"
         " AnimationCurveNode: 210, \"AnimCurveNode::S\", \"\" {\n  Properties70: {\n   P: "
-        "\"d|X\", \"Number\", \"\", \"A\",2\n   P: \"d|Y\", \"Number\", \"\", \"A\",1\n   "
-        "P: \"d|Z\", \"Number\", \"\", \"A\",1\n  }\n }\n"
+        "\"d|X\", \"Number\", \"\", \"A\",1\n   P: \"d|Y\", \"Number\", \"\", \"A\",1\n   P: "
+        "\"d|Z\", \"Number\", \"\", \"A\",1\n  }\n }\n%s"
         " AnimationCurveNode: 220, \"AnimCurveNode::I\", \"\" {\n  Properties70: {\n   P: "
-        "\"d|InheritType\", \"Number\", \"\", \"A\",0\n  }\n }\n"
-        " AnimationCurve: 221, \"AnimCurve::\", \"\" {\n  KeyTime: *1 {\n   a: 0\n  }\n  "
-        "KeyValueFloat: *1 {\n   a: %s\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  "
-        "KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 1\n  }\n }\n"
+        "\"d|InheritType\", \"Number\", \"\", \"A\",0\n  }\n }\n%s"
         "}\nConnections: {\n C: \"OO\",2,0\n C: \"OO\",3,2\n C: \"OO\",201,200\n"
-        " C: \"OO\",210,201\n C: \"OP\",210,2, \"Lcl Scaling\"\n C: \"OO\",220,201\n"
-        " C: \"OP\",220,3, \"InheritType\"\n C: \"OP\",221,220, \"d|InheritType\"\n}\n",
-        more);
+        " C: \"OO\",210,201\n C: \"OP\",210,2, \"Lcl Scaling\"\n C: \"OP\",211,210, \"d|X\"\n"
+        " C: \"OO\",220,201\n C: \"OP\",220,3, \"InheritType\"\n"
+        " C: \"OP\",221,220, \"d|InheritType\"\n}\n",
+        scale, type);
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, text);
     maniFbxOptions options = maniDefaultFbxOptions();
@@ -830,12 +840,14 @@ static bool HelperFrom(const char* more)
     return helper;
 }
 
-// A stack the sampler refuses partway adds no helper: its worlds are
-// partly another sample's.
+// A helper where Spine's scale is not uniform at a sample past the
+// start and before the end alone; none from a stack the sampler refuses
+// partway, whose worlds are partly another sample's.
 static void TestRefusedHelper(void)
 {
-    CHECK(HelperFrom("2"), "a helper where Spine's scale is not uniform");
-    CHECK(!HelperFrom("9"), "none from a stack refused at Arm, after Spine");
+    CHECK(HelperFrom("1,2,1", "2,2,2"), "a helper from the middle of a stack");
+    CHECK(!HelperFrom("1,1,1", "2,2,2"), "none where Spine's scale stays uniform");
+    CHECK(!HelperFrom("2,2,2", "9,9,9"), "none from a stack refused at Arm, after Spine");
 }
 
 static void TestAnimatedHelper(void)

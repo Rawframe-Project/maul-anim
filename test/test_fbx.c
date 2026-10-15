@@ -395,7 +395,7 @@ static void ExpectRefusal(maniImportReason reason, uint64_t offset, const char* 
 {
     // The file alone in a block of its size, so that a read past its end
     // is a sanitizer's error, not a read of the writer's spare room.
-    uint8_t* exact = malloc(s_w.n + 1);
+    uint8_t* exact = malloc(s_w.n > 0 ? s_w.n : 1);
     if (exact == NULL)
     {
         return;
