@@ -261,9 +261,63 @@ void maniEvaluateChannel(const maniChannelSource* c, uint32_t dimension, double 
     }
 }
 
-// One sample: every track's animated channels, rotations kept in the
-// hemisphere of the track's previous rotation (previous holds four floats
-// a track).
+// An additive clip's basis for a track's channel (0 translation, 1
+// rotation, 2 scale): the bone's rest, or the channel at time 0.
+static void Basis(const maniClipSource* source, const maniBoneTrackSource* t, uint32_t channel,
+                  double out[4])
+{
+    if (source->additive == maniAdditiveFirstFrame)
+    {
+        const maniChannelSource* c =
+            channel == 0 ? &t->translation : (channel == 1 ? &t->rotation : &t->scale);
+        maniEvaluateChannel(c, channel == 1 ? 4 : 3, 0.0, out);
+        return;
+    }
+    maniTransform rest = maniSkeletonRest(source->skeleton, t->bone);
+    const float r[3][4] = {
+        {rest.translation.x, rest.translation.y, rest.translation.z, 0.0f},
+        {rest.rotation.x, rest.rotation.y, rest.rotation.z, rest.rotation.w},
+        {rest.scale.x, rest.scale.y, rest.scale.z, 0.0f},
+    };
+    for (int k = 0; k < 4; ++k)
+    {
+        out[k] = (double)r[channel][k];
+    }
+}
+
+// A channel's value as its difference from the basis, in binary64:
+// t - t_b, r_b^-1 r (normalized), s / s_b.
+static void Difference(const maniClipSource* source, const maniBoneTrackSource* t, uint32_t channel,
+                       double v[4])
+{
+    if (source->additive == maniAdditiveNone)
+    {
+        return;
+    }
+    double b[4];
+    Basis(source, t, channel, b);
+    if (channel == 1)
+    {
+        // The conjugate of b times v.
+        double d[4] = {
+            b[3] * v[0] - b[0] * v[3] - b[1] * v[2] + b[2] * v[1],
+            b[3] * v[1] + b[0] * v[2] - b[1] * v[3] - b[2] * v[0],
+            b[3] * v[2] - b[0] * v[1] + b[1] * v[0] - b[2] * v[3],
+            b[3] * v[3] + b[0] * v[0] + b[1] * v[1] + b[2] * v[2],
+        };
+        NormalizeDouble(d);
+        memcpy(v, d, sizeof d);
+        return;
+    }
+    for (int k = 0; k < 3; ++k)
+    {
+        v[k] = channel == 0 ? v[k] - b[k] : v[k] / b[k];
+    }
+}
+
+// One sample: every track's animated channels (an additive clip's as
+// differences), rotations kept in the hemisphere of the track's previous
+// rotation (previous holds four floats a track).
 static void WriteSample(const maniClipSource* source, const uint32_t* order, uint32_t tracks,
                         double time, float* previous, bool first, float* out)
 {
@@ -274,6 +328,7 @@ static void WriteSample(const maniClipSource* source, const uint32_t* order, uin
         if (t->translation.keyCount > 0)
         {
             maniEvaluateChannel(&t->translation, 3, time, v);
+            Difference(source, t, 0, v);
             for (int k = 0; k < 3; ++k)
             {
                 *out++ = (float)v[k];
@@ -282,6 +337,7 @@ static void WriteSample(const maniClipSource* source, const uint32_t* order, uin
         if (t->rotation.keyCount > 0)
         {
             maniEvaluateChannel(&t->rotation, 4, time, v);
+            Difference(source, t, 1, v);
             float q[4] = {(float)v[0], (float)v[1], (float)v[2], (float)v[3]};
             float* p = previous + 4 * (size_t)i;
             float dot = q[0] * p[0] + q[1] * p[1] + q[2] * p[2] + q[3] * p[3];
@@ -295,6 +351,7 @@ static void WriteSample(const maniClipSource* source, const uint32_t* order, uin
         if (t->scale.keyCount > 0)
         {
             maniEvaluateChannel(&t->scale, 3, time, v);
+            Difference(source, t, 2, v);
             for (int k = 0; k < 3; ++k)
             {
                 *out++ = (float)v[k];
@@ -334,6 +391,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
     {
         maniStoreU32(header + 36 + 4 * l, named->counts[l]);
     }
+    maniStoreU32(header + 60, source->additive);
     size_t trackBytes = (size_t)plan->tracks * MANI_CLIP_TRACK_SIZE;
     size_t sampleFloats = 0;
     if (ckd_mul(&sampleFloats, (size_t)plan->sampleCount, (size_t)plan->floatsPerSample))
@@ -398,7 +456,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
 
 static maniBuildResult CheckTiming(const maniClipSource* source, float* rateOut)
 {
-    if (source->loop > maniLoopRepeat)
+    if (source->loop > maniLoopRepeat || source->additive > maniAdditiveFirstFrame)
     {
         return Refuse(maniBuildReasonKind, 0, 0);
     }
@@ -415,6 +473,26 @@ static maniBuildResult CheckTiming(const maniClipSource* source, float* rateOut)
     return Outcome(mani_success);
 }
 
+// An additive clip's tracks with scale keys: no basis scale component 0.
+static maniBuildResult CheckBasis(const maniClipSource* source)
+{
+    for (uint32_t i = 0; source->additive != maniAdditiveNone && i < source->boneTrackCount; ++i)
+    {
+        const maniBoneTrackSource* t = &source->boneTracks[i];
+        double b[4];
+        if (t->scale.keyCount == 0)
+        {
+            continue;
+        }
+        Basis(source, t, 2, b);
+        if (b[0] == 0.0 || b[1] == 0.0 || b[2] == 0.0)
+        {
+            return Refuse(maniBuildReasonBasis, i, 0);
+        }
+    }
+    return Outcome(mani_success);
+}
+
 maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen,
                                     maniClipTiming* timingOut)
 {
@@ -423,6 +501,10 @@ maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen
     if (r.result == mani_success)
     {
         r = CheckTracks(source, seen, &timing.duration);
+    }
+    if (r.result == mani_success)
+    {
+        r = CheckBasis(source);
     }
     float namedLast = 0.0f;
     if (r.result == mani_success)

@@ -68,23 +68,33 @@ void maniSampleClipPairFloats(const maniClip* clip, const maniClipPair* pair, fl
 void maniSampleClipAt(const maniClip* clip, const maniSkeleton* skeleton, uint32_t k,
                       maniPose* pose, float* values);
 
-// A bone's channel (0 translation, 1 rotation, 2 scale) set to its rest
-// in a pose slot; first is its first component, count how many.
+// A bone's channel (0 translation, 1 rotation, 2 scale) set to its rest,
+// or for an additive clip to the identity, in a pose slot; first is its
+// first component, count how many.
 static inline uint32_t maniChannelFirst(uint32_t channel)
 {
     return channel == 0 ? 0u : (channel == 1 ? 3u : 7u);
 }
 
 static inline void maniSlotRest(float* slot, const maniSkeleton* skeleton, uint32_t bone,
-                                uint32_t channel)
+                                uint32_t channel, bool identity)
 {
+    static const float kIdentity[MANI_POSE_COMPONENTS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                          0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     uint32_t first = maniChannelFirst(channel);
     uint32_t count = channel == 1 ? 4u : 3u;
     float rest[4];
-    memcpy(rest,
-           skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone +
-               sizeof(float) * first,
-           sizeof(float) * count);
+    if (identity)
+    {
+        memcpy(rest, kIdentity + first, sizeof(float) * count);
+    }
+    else
+    {
+        memcpy(rest,
+               skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone +
+                   sizeof(float) * first,
+               sizeof(float) * count);
+    }
     maniPoseSlotPut(slot, first, rest, count);
 }
 

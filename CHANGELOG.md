@@ -30,3 +30,7 @@ format.
 - Additive layers (mani-0020): `maniPoseDifference` writes a pose's
   difference from a basis and `maniAddPoses` applies differences at
   layer and per-bone weights.
+- Additive clips (mani-0020): `maniClipSource.additive` names a basis
+  (the rest or the first frame), sampling such a clip writes a
+  difference, compression measures it on the rest, and
+  `maniClipAdditiveBasis` reports the basis.

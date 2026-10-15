@@ -183,7 +183,7 @@ clip-bones-zero | src/clip.c | if (bones == 0 || bones > MANI_MAX_BONES) | if (b
 clip-rate | src/clip.c | if (!Finite(rate) || !(rate > 0.0f)) | if (!Finite(rate))
 clip-duration | src/clip.c | if (!Finite(duration) || !(duration >= 0.0f)) | if (!Finite(duration))
 clip-loop | src/clip.c | if (maniLoadU32(h + 24) > maniLoopRepeat) | if (maniLoadU32(h + 24) > 2)
-clip-header-zeros | src/clip.c | for (uint32_t i = 60; i < MANI_CLIP_HEADER_SIZE; ++i) | for (uint32_t i = 61; i < MANI_CLIP_HEADER_SIZE; ++i)
+clip-header-zeros | src/clip.c | if (maniLoadU32(h + 60) > maniAdditiveFirstFrame) | if (maniLoadU32(h + 60) > 3)
 clip-track-order | src/clip.c | if (bone >= clip->skeletonBoneCount || (i > 0 && bone <= maniLoadU16(entry - 4))) | if (bone >= clip->skeletonBoneCount || (i > 0 && bone < maniLoadU16(entry - 4)))
 clip-mask-empty | src/clip.c | if (entry[2] == 0 || entry[2] > maniChannelAll) | if (entry[2] > maniChannelAll)
 clip-unit | src/clip.c | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-20) | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-2)

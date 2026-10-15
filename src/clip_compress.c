@@ -295,6 +295,7 @@ static void Header(const maniClip* c, uint32_t segments, uint8_t h[MANI_CLIP_HEA
     {
         maniStoreU32(h + 24 + 4 * i, fields[i]);
     }
+    maniStoreU32(h + 60, c->additive);
     maniStoreU32(h + 56, 1);
 }
 

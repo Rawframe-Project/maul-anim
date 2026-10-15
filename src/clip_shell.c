@@ -6,6 +6,8 @@
 
 #include "clip_shell.h"
 
+#include "additive.h"
+
 #include <math.h>
 
 // A local T R S as a 3x4 matrix: rotation columns scaled, then the
@@ -52,12 +54,26 @@ maniShellMatrix maniShellMul(const maniShellMatrix* a, const maniShellMatrix* b)
     return out;
 }
 
+maniTransform maniShellAbsolute(const maniSkeleton* skeleton, uint32_t bone, bool additive,
+                                maniTransform t)
+{
+    if (!additive)
+    {
+        return t;
+    }
+    maniTransform rest = maniSkeletonRest(skeleton, bone);
+    maniAddTransform(&rest, &t, 1.0f);
+    return rest;
+}
+
 void maniShellModels(const maniSkeleton* skeleton, const maniPose* pose, maniShellMatrix* out)
 {
     uint32_t n = maniSkeletonBoneCount(skeleton);
+    bool additive = maniPoseIsDifference(pose);
     for (uint32_t b = 0; b < n; ++b)
     {
-        maniShellMatrix local = maniShellLocal(maniPoseLocal(pose, b));
+        maniShellMatrix local =
+            maniShellLocal(maniShellAbsolute(skeleton, b, additive, maniPoseLocal(pose, b)));
         uint32_t parent = maniSkeletonParent(skeleton, b);
         out[b] = parent == MANI_NO_BONE ? local : maniShellMul(&out[parent], &local);
     }

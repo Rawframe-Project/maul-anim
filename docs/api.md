@@ -145,6 +145,11 @@ maniLoopPolicy maniClipLoopPolicy(const maniClip* clip);
 Returns the clip's loop policy.  @param clip  An opened clip. @return maniLoopClamp or maniLoopRepeat. @par Thread safety Safe from any thread.
 
 ```c
+maniAdditiveBasis maniClipAdditiveBasis(const maniClip* clip);
+```
+Returns what an additive clip's differences are from; sampling an additive clip writes a difference (mani-0020), its channels without a track the identity.  @param clip  An opened clip. @return maniAdditiveNone, maniAdditiveRest or maniAdditiveFirstFrame. @par Thread safety Safe from any thread.
+
+```c
 uint64_t maniClipIdentity(const maniClip* clip);
 ```
 Returns the clip's identity: a hash of its sections, the same for the same bytes.  @param clip  An opened clip. @return The identity. @par Thread safety Safe from any thread.
@@ -620,4 +625,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-117 functions across 8 headers.
+118 functions across 8 headers.

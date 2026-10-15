@@ -437,6 +437,8 @@ typedef struct Reading
     const uint8_t* constant;
     const uint8_t* range;
     float alpha;
+    // An additive clip's channels without a form are the identity.
+    bool identity;
 } Reading;
 
 // Moves a walker past a sub-track of `width` components unread.
@@ -545,7 +547,7 @@ static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot,
     }
     else
     {
-        maniSlotRest(slot, skeleton, bone, channel);
+        maniSlotRest(slot, skeleton, bone, channel, r->identity);
         return;
     }
     float out[4];
@@ -569,6 +571,7 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
                  .cacheB = pair->cacheB,
                  .constant = clip->constants,
                  .range = clip->ranges,
+                 .identity = clip->additive != maniAdditiveNone,
                  .alpha = pair->alpha};
     if (pair->cacheA == NULL)
     {

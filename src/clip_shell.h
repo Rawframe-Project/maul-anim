@@ -24,6 +24,11 @@ typedef struct maniShellMatrix
 
 // A local T R S as a matrix, and a product of two.
 maniShellMatrix maniShellLocal(maniTransform t);
+
+// A bone's local as the shells measure it: itself, or an additive clip's
+// difference applied to the bone's rest at weight 1.
+maniTransform maniShellAbsolute(const maniSkeleton* skeleton, uint32_t bone, bool additive,
+                                maniTransform t);
 maniShellMatrix maniShellMul(const maniShellMatrix* a, const maniShellMatrix* b);
 
 // Every bone's matrix of a pose, parents first.

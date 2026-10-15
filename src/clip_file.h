@@ -20,7 +20,8 @@
 // (u32 each), sample rate, duration (binary32 each), loop policy, track
 // count, floats per sample, float track count, discrete track count,
 // event count, marker count, segment count (0 for full precision), form
-// (0 full precision, 1 compressed; u32 each), then zeros.
+// (0 full precision, 1 compressed), additive basis (0 none, 1 rest, 2
+// first frame; u32 each).
 #define MANI_CLIP_HEADER_SIZE 64u
 // A float or discrete track: name offset, name length (u32 each), name
 // hash (u64), then for a float track its interpolation (u32: 0 linear,

@@ -117,8 +117,12 @@ extern "C"
         // A sample rate or duration not finite, a rate not above 0, a
         // duration below 0, or more than MANI_MAX_SAMPLES samples.
         maniBuildReasonTiming = 13,
-        // An interpolation or loop policy the library does not know.
+        // An interpolation, loop policy or additive basis the library does not
+        // know.
         maniBuildReasonKind = 14,
+        // An additive clip's basis with a scale component of 0 on a bone
+        // whose track has scale keys.
+        maniBuildReasonBasis = 15,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -290,6 +294,9 @@ extern "C"
         float sampleRate;
         // Seconds, 0 for the last key's time.
         float duration;
+        // maniAdditiveNone for a clip of poses; otherwise each channel is
+        // stored as its difference from the basis (mani-0020).
+        maniAdditiveBasis additive;
     } maniClipSource;
 
     /// Builds a full-precision clip file: evaluates every channel at each

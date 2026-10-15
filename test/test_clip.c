@@ -17,6 +17,7 @@
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
+#include "maul-anim/blend.h"
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/pose.h"
@@ -875,10 +876,10 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 12, "sample count not the duration's");
     maniStoreU32(s_file + header + 24, 2);
     ExpectFormat(header + 24, "loop policy");
-    s_file[header + 60] = 1;
-    ExpectFormat(header + 60, "header padding");
+    maniStoreU32(s_file + header + 60, 3);
+    ExpectFormat(header + 60, "an additive basis past first frame");
     s_file[header + 63] = 1;
-    ExpectFormat(header + 63, "header padding's last byte");
+    ExpectFormat(header + 60, "the basis word's last byte");
     s_file[header + 56] = 2;
     ExpectFormat(header + 56, "form past compressed");
     s_file[header + 56] = 1;
@@ -998,6 +999,112 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// An additive clip, from either basis: its difference at a time applied
+// to the basis gives the plain clip's pose there; channels without a
+// track are the identity; subsets keep the clip's kind.
+static _Alignas(16) uint8_t s_plain[65536];
+static _Alignas(32) uint8_t s_posesMemory[3][4096];
+
+static double PoseApart(const maniPose* a, const maniPose* b)
+{
+    double worst = 0.0;
+    for (uint32_t bone = 0; bone < 4; ++bone)
+    {
+        maniTransform x = maniPoseLocal(a, bone);
+        maniTransform y = maniPoseLocal(b, bone);
+        float dot = x.rotation.x * y.rotation.x + x.rotation.y * y.rotation.y +
+                    x.rotation.z * y.rotation.z + x.rotation.w * y.rotation.w;
+        float s = dot < 0.0f ? -1.0f : 1.0f;
+        const float d[10] = {x.translation.x - y.translation.x,
+                             x.translation.y - y.translation.y,
+                             x.translation.z - y.translation.z,
+                             x.rotation.x - s * y.rotation.x,
+                             x.rotation.y - s * y.rotation.y,
+                             x.rotation.z - s * y.rotation.z,
+                             x.rotation.w - s * y.rotation.w,
+                             x.scale.x - y.scale.x,
+                             x.scale.y - y.scale.y,
+                             x.scale.z - y.scale.z};
+        for (int c = 0; c < 10; ++c)
+        {
+            double e = fabs((double)d[c]);
+            worst = e > worst ? e : worst;
+        }
+    }
+    return worst;
+}
+
+static void TestAdditiveClip(void)
+{
+    maniClipSource source = SampleSource();
+    CHECK(BuildFrom(&source).result == mani_success, "builds the plain clip");
+    memcpy(s_plain, s_file, s_size);
+    maniClip plain;
+    CHECK(maniOpenClip(s_plain, s_size, &plain).result == mani_success, "opens the plain clip");
+    CHECK(maniClipAdditiveBasis(&plain) == maniAdditiveNone, "a clip of poses");
+    maniPose* p[3];
+    for (int i = 0; i < 3; ++i)
+    {
+        CHECK(maniInitPose(&s_skeleton, s_posesMemory[i], sizeof s_posesMemory[i], &p[i]) ==
+                  mani_success,
+              "pose");
+    }
+    const maniAdditiveBasis bases[2] = {maniAdditiveRest, maniAdditiveFirstFrame};
+    const float times[6] = {0.0f, 0.13f, 0.5f, 0.55f, 0.77f, 1.0f};
+    for (int i = 0; i < 2; ++i)
+    {
+        source.additive = bases[i];
+        CHECK(BuildFrom(&source).result == mani_success, "builds an additive clip");
+        maniClip clip;
+        CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens it");
+        CHECK(maniClipAdditiveBasis(&clip) == bases[i], "its basis");
+        double worst = 0.0;
+        bool identity = true;
+        for (int k = 0; k < 6; ++k)
+        {
+            CHECK(maniSampleClip(&plain, &s_skeleton, times[k], p[0]) == mani_success, "plain");
+            CHECK(maniSampleClip(&clip, &s_skeleton, times[k], p[1]) == mani_success, "additive");
+            CHECK(maniPoseIsDifference(p[1]), "samples a difference");
+            maniTransform t = maniPoseLocal(p[1], 3);
+            identity = identity && t.translation.x == 0.0f && t.rotation.w == 1.0f &&
+                       t.scale.x == 1.0f && t.rotation.x == 0.0f;
+            if (bases[i] == maniAdditiveRest)
+            {
+                CHECK(maniPoseSetRest(p[2], &s_skeleton) == mani_success, "the rest");
+            }
+            else
+            {
+                CHECK(maniSampleClip(&plain, &s_skeleton, 0.0f, p[2]) == mani_success, "frame 0");
+            }
+            maniBlendLayer layer = {p[1], 1.0f, NULL};
+            CHECK(maniAddPoses(&s_skeleton, p[2], &layer, 1) == mani_success, "adds");
+            double e = PoseApart(p[0], p[2]);
+            worst = e > worst ? e : worst;
+        }
+        CHECK(worst < 2e-6, "the basis plus the difference: the plain clip");
+        CHECK(identity, "a bone without a track: the identity");
+        const uint32_t bone[1] = {2};
+        CHECK(maniSampleClipBones(&clip, &s_skeleton, 0.5f, bone, 1, p[0]) == mani_errorInvalid,
+              "a subset into a pose");
+        CHECK(maniSampleClipBones(&clip, &s_skeleton, 0.5f, bone, 1, p[1]) == mani_success,
+              "a subset into a difference");
+        CHECK(maniSampleClipBones(&plain, &s_skeleton, 0.5f, bone, 1, p[1]) == mani_errorInvalid,
+              "a plain subset into a difference");
+    }
+    source.additive = 3;
+    maniBuildResult r = BuildFrom(&source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonKind, "a basis unknown");
+    // A scale whose first value is 0: no first-frame basis.
+    source.additive = maniAdditiveFirstFrame;
+    s_tracks[1].scale =
+        (maniChannelSource){kLinearTimes, kLinearValues, 3, maniInterpolationLinear};
+    r = BuildFrom(&source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonBasis && r.item == 1,
+          "a basis scale 0");
+    source.additive = maniAdditiveRest;
+    CHECK(BuildFrom(&source).result == mani_success, "the rest's scale is 1");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -1021,6 +1128,7 @@ int main(int argc, char** argv)
     TestNamedItemsAlone();
     TestWrongSkeleton();
     TestBuildRefusals();
+    TestAdditiveClip();
     TestOpenRefusals();
     TestEveryByteFlip();
     TestPinnedBytes();

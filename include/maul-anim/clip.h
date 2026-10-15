@@ -33,6 +33,17 @@ extern "C"
         maniLoopRepeat = 1,
     };
 
+    // What an additive clip's differences are from (mani-0020): the
+    // skeleton's rest or the source's first sample; none for a clip of
+    // poses.
+    typedef uint32_t maniAdditiveBasis;
+    enum
+    {
+        maniAdditiveNone = 0,
+        maniAdditiveRest = 1,
+        maniAdditiveFirstFrame = 2,
+    };
+
     // A clip over a file's bytes, which the caller keeps alive and
     // unchanged while the view is used. Its fields are the library's; read
     // a clip through the functions below. A view is immutable and
@@ -74,7 +85,7 @@ extern "C"
         float sampleRate;
         float duration;
         maniLoopPolicy loop;
-        uint32_t reserved;
+        maniAdditiveBasis additive;
     } maniClip;
 
 // What a lookup by name finds for no track.
@@ -147,6 +158,16 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API maniLoopPolicy maniClipLoopPolicy(const maniClip* clip);
+
+    /// Returns what an additive clip's differences are from; sampling an
+    /// additive clip writes a difference (mani-0020), its channels without
+    /// a track the identity.
+    ///
+    /// @param clip  An opened clip.
+    /// @return maniAdditiveNone, maniAdditiveRest or maniAdditiveFirstFrame.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniAdditiveBasis maniClipAdditiveBasis(const maniClip* clip);
 
     /// Returns the clip's identity: a hash of its sections, the same for
     /// the same bytes.

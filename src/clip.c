@@ -118,12 +118,9 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
     {
         return Fail(at + 52);
     }
-    for (uint32_t i = 60; i < MANI_CLIP_HEADER_SIZE; ++i)
+    if (maniLoadU32(h + 60) > maniAdditiveFirstFrame)
     {
-        if (h[i] != 0)
-        {
-            return Fail(at + i);
-        }
+        return Fail(at + 60);
     }
     *clip = (maniClip){
         .skeletonIdentity = maniLoadU64(h),
@@ -140,6 +137,7 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
         .sampleRate = rate,
         .duration = duration,
         .loop = maniLoadU32(h + 24),
+        .additive = maniLoadU32(h + 60),
     };
     return (maniFileResult){mani_success, 0, 0};
 }
@@ -364,6 +362,11 @@ maniLoopPolicy maniClipLoopPolicy(const maniClip* clip)
     return clip->loop;
 }
 
+maniAdditiveBasis maniClipAdditiveBasis(const maniClip* clip)
+{
+    return clip->additive;
+}
+
 uint64_t maniClipSkeletonIdentity(const maniClip* clip)
 {
     return clip->skeletonIdentity;
@@ -425,15 +428,17 @@ static void LerpInto(const uint8_t* a, const uint8_t* b, float alpha, float* slo
 
 // A bone's channels at a pair into its pose slot, the samples' pointers
 // moved past its track's floats; the rest where the track has none.
-static void FullChannels(uint32_t mask, const uint8_t** a, const uint8_t** b, float alpha,
-                         float* slot, const maniSkeleton* skeleton, uint32_t bone)
+static void FullChannels(uint32_t mask, const uint8_t** a, const uint8_t** b,
+                         const maniClipPair* pair, float* slot, const maniSkeleton* skeleton,
+                         uint32_t bone, bool identity)
 {
+    float alpha = pair->alpha;
     static const uint32_t kCounts[3] = {3, 4, 3};
     for (uint32_t c = 0; c < 3; ++c)
     {
         if (((mask >> c) & 1u) == 0)
         {
-            maniSlotRest(slot, skeleton, bone, c);
+            maniSlotRest(slot, skeleton, bone, c, identity);
             continue;
         }
         LerpInto(*a, *b, alpha, slot, maniChannelFirst(c), kCounts[c]);
@@ -466,7 +471,8 @@ static void SampleFull(const maniClip* clip, const maniSkeleton* skeleton, const
             b += skip;
             continue;
         }
-        FullChannels(mask, &a, &b, pair->alpha, maniPoseSlot(locals, bone), skeleton, bone);
+        FullChannels(mask, &a, &b, pair, maniPoseSlot(locals, bone), skeleton, bone,
+                     clip->additive != maniAdditiveNone);
     }
     maniPoseMarkStale(pose);
 }
@@ -500,7 +506,7 @@ void maniSampleClipPair(const maniClip* clip, const maniSkeleton* skeleton,
     }
     if (list == NULL)
     {
-        maniPoseSetKind(pose, false);
+        maniPoseSetKind(pose, clip->additive != maniAdditiveNone);
     }
 }
 
@@ -550,9 +556,9 @@ maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleto
                                const uint32_t* bones, uint32_t count, maniPose* pose)
 {
     // A subset keeps the other bones, so it writes into a pose of the
-    // skeleton only.
+    // clip's kind only.
     if (!maniClipFits(clip, skeleton, pose) || (bones == NULL && count > 0) ||
-        maniPoseIsDifference(pose))
+        maniPoseIsDifference(pose) != (clip->additive != maniAdditiveNone))
     {
         return mani_errorInvalid;
     }

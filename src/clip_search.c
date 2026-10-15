@@ -179,7 +179,8 @@ static void Shells(Search* s)
         LoadRaw(s, k, 0);
         for (uint32_t b = 0; b < s->bones; ++b)
         {
-            maniVec3 t = s->raw[b].translation;
+            maniVec3 t =
+                maniShellAbsolute(p->skeleton, b, p->clip->additive != 0, s->raw[b]).translation;
             double x = (double)t.x;
             double y = (double)t.y;
             double z = (double)t.z;
@@ -214,8 +215,10 @@ static double Excess(const Shell* shell, const maniShellMatrix* reference, const
 static maniShellMatrix Under(const Search* s, const maniShellMatrix* row, uint32_t bone,
                              maniTransform local)
 {
-    maniShellMatrix m = maniShellLocal(local);
-    uint32_t parent = maniSkeletonParent(s->plan->skeleton, bone);
+    const maniCompressPlan* p = s->plan;
+    maniShellMatrix m =
+        maniShellLocal(maniShellAbsolute(p->skeleton, bone, p->clip->additive != 0, local));
+    uint32_t parent = maniSkeletonParent(p->skeleton, bone);
     return parent == MANI_NO_BONE ? m : maniShellMul(&row[parent], &m);
 }
 
@@ -486,7 +489,8 @@ static void Relative(Search* s, const Bone* b)
         const maniTransform* decoded = s->decoded + (size_t)j * s->bones;
         for (uint32_t c = b->bone + 1; c < b->end; ++c)
         {
-            maniShellMatrix local = maniShellLocal(decoded[c]);
+            maniShellMatrix local = maniShellLocal(
+                maniShellAbsolute(s->plan->skeleton, c, s->plan->clip->additive != 0, decoded[c]));
             uint32_t parent = maniSkeletonParent(s->plan->skeleton, c);
             row[c] = parent == b->bone ? local : maniShellMul(&row[parent], &local);
         }

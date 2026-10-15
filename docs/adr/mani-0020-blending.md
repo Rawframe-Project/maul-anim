@@ -32,10 +32,19 @@ and it zeroes negative weights silently.
 - **Kinds:** a pose records whether it holds a difference. Blends take
   layers of one kind and write it (a difference's rest is the
   identity); the model pass and subset sampling refuse differences;
-  making a pose, setting its rest and sampling a whole clip make a pose
-  of the skeleton. Differences from a basis and additive layers
+  making a pose, setting its rest and sampling a whole clip of poses
+  make a pose of the skeleton. Differences from a basis and additive layers
   (`t + w d_t`, `r nlerp(1, d_r, w)`, `s (1 + w (d_s - 1))`, weights
   at least 0, no subtraction) follow the same rule.
+- **Additive clips:** a clip source names a basis, the skeleton's rest
+  or the source's first frame, and the builder stores each channel as
+  its difference from it, computed in binary64. The header's last word
+  holds the basis (readers that predate it refuse a non-zero word).
+  Sampling an additive clip writes a difference, its channels without
+  keys the identity; a subset writes into a pose of the clip's kind.
+  The compressor folds channels to the identity, not the rest, and
+  measures every difference applied to the rest at weight 1, whichever
+  the basis (the first frame is not kept).
 - **Bits:** binary32 in a fixed order, no contraction or estimates; the
   same on every platform, pinned by a hash in the tests.
 

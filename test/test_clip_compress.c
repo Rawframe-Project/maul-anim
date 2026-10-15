@@ -21,6 +21,7 @@
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
+#include "maul-anim/blend.h"
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/pose.h"
@@ -926,6 +927,65 @@ static void TestCodec(void)
     CHECK(zero[3] == 1.0f, "zero: the identity");
 }
 
+// An additive clip compressed: its report is the test's own measure of
+// the rest plus each difference, within the precision; channels at the
+// rest fold to the identity difference.
+static void TestAdditiveCompressed(void)
+{
+    maniClipSource source = Source(0.0f);
+    source.additive = maniAdditiveRest;
+    BuildFullFrom(&source);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    maniCompressReport report;
+    CHECK(Compress(&options, &report) == mani_success, "compresses");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    CHECK(maniClipAdditiveBasis(&clip) == maniAdditiveRest, "keeps the basis");
+    static _Alignas(32) uint8_t restMemory[2][8192];
+    maniPose* a = NULL;
+    maniPose* b = NULL;
+    maniPose* ra = NULL;
+    maniPose* rb = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &a) == mani_success, "pose a");
+    CHECK(maniInitPose(&s_skeleton, s_poseB, sizeof s_poseB, &b) == mani_success, "pose b");
+    CHECK(maniInitPose(&s_skeleton, restMemory[0], sizeof restMemory[0], &ra) == mani_success,
+          "rest a");
+    CHECK(maniInitPose(&s_skeleton, restMemory[1], sizeof restMemory[1], &rb) == mani_success,
+          "rest b");
+    Matrix ma[6];
+    Matrix mb[6];
+    double worst = 0.0;
+    for (uint32_t k = 0; k < maniClipSampleCount(&clip); ++k)
+    {
+        maniSampleClipAt(&s_full, &s_skeleton, k, a, NULL);
+        maniSampleClipAt(&clip, &s_skeleton, k, b, NULL);
+        CHECK(maniPoseSetRest(ra, &s_skeleton) == mani_success &&
+                  maniPoseSetRest(rb, &s_skeleton) == mani_success,
+              "rests");
+        maniBlendLayer la = {a, 1.0f, NULL};
+        maniBlendLayer lb = {b, 1.0f, NULL};
+        CHECK(maniAddPoses(&s_skeleton, ra, &la, 1) == mani_success &&
+                  maniAddPoses(&s_skeleton, rb, &lb, 1) == mani_success,
+              "adds");
+        PoseMatrices(ra, ma);
+        PoseMatrices(rb, mb);
+        for (uint32_t bone = 0; bone < 6; ++bone)
+        {
+            double e = ShellApart(&ma[bone], &mb[bone], (double)options.shellDistance);
+            worst = e > worst ? e : worst;
+        }
+    }
+    CHECK(worst <= (double)options.precision, "within the precision on the rest");
+    CHECK(fabs(worst - report.shellError) <= 1e-12, "the report is the test's measure");
+    // Channels without keys decode as the identity difference.
+    maniTransform spine = maniPoseLocal(b, 1);
+    maniTransform root = maniPoseLocal(b, 0);
+    maniTransform hand = maniPoseLocal(b, 4);
+    CHECK(spine.translation.x == 0.0f && spine.translation.y == 0.0f && root.scale.x == 1.0f &&
+              root.scale.z == 1.0f && hand.rotation.w == 1.0f && hand.rotation.x == 0.0f,
+          "no keys: the identity");
+}
+
 // Per-bone precisions, tight near the root and loose at the leaves: each
 // bone within its own, though its dominant shell carries a leaf's.
 static void TestBonePrecisions(void)
@@ -1338,6 +1398,7 @@ int main(int argc, char** argv)
     TestCodec();
     TestReportMatches();
     TestBonePrecisions();
+    TestAdditiveCompressed();
     TestCursor();
     TestSubsets();
     TestSameBytes();

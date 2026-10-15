@@ -5,6 +5,8 @@
 // d_r = r_b^-1 r, d_s = s / s_b, applied as t + w d_t,
 // r nlerp(1, d_r, w), s (1 + w (d_s - 1)). Binary32 in a fixed order.
 
+#include "additive.h"
+
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -122,8 +124,7 @@ static bool AdditiveValid(const maniSkeleton* skeleton, const maniPose* pose,
     return true;
 }
 
-// One difference at weight w onto a transform.
-static void Add(maniTransform* t, const maniTransform* d, float w)
+void maniAddTransform(maniTransform* t, const maniTransform* d, float w)
 {
     t->translation = maniVec3Add(t->translation, maniVec3Scale(d->translation, w));
     // The difference's turn on its positive-w half, so a weight between
@@ -157,7 +158,7 @@ maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const mani
                 continue;
             }
             maniTransform d = Read(maniPoseLocalsRead(l->pose), bone);
-            Add(&t, &d, w);
+            maniAddTransform(&t, &d, w);
         }
         Write(locals, bone, &t);
     }
