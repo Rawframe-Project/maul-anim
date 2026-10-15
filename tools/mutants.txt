@@ -691,3 +691,63 @@ fcv-duration | src/fbx_curve.c | if (!(duration >= 1.0) || !(delta > 0.0)) | if 
 fbv-word-kinds | src/fbx_value.c | if (size == 0 || (want == WantIntegers && floats) || (want == WantBits && !words)) | if (size == 0 || (want == WantIntegers && floats))
 fbv-bits-raw | src/fbx_value.c | ((uint32_t*)out)[i] = (uint32_t)bits; | ((uint32_t*)out)[i] = 0;
 fbv-text-version | src/fbx_value.c | if (fbx->version >= 7200) | if (fbx->version >= 7100)
+
+# Binary64 power and FBX Euler angles (scalar.c, fbx_transform.c,
+# mani-0016), 2026-10-15: 12 mutants, all killed. A rounded exponent
+# reduction in Exp was equivalent to truncation and went.
+sca-log-subnormal | src/scalar.c | x *= 18014398509481984.0; | x *= 1.0;
+sca-log-half | src/scalar.c | if (m > 1.4142135623730951) | if (m > 2.0)
+sca-log-terms | src/scalar.c | for (int32_t n = 23; n >= 1; n -= 2) | for (int32_t n = 7; n >= 1; n -= 2)
+sca-log-tail | src/scalar.c | return ((double)k * s_ln2Head + 2.0 * s * p) + (double)k * s_ln2Tail; | return (double)k * s_ln2Head + 2.0 * s * p;
+sca-exp-tail | src/scalar.c | double r = (y - (double)n * s_ln2Head) - (double)n * s_ln2Tail; | double r = y - (double)n * s_ln2Head;
+sca-pow-over | src/scalar.c | if (y > 710.0) | if (y > 1e9)
+sca-pow-under | src/scalar.c | return y < -746.0 ? 0.0 : Exp(y); | return Exp(y);
+ftr-euler-first | src/fbx_transform.c | radians[a] = -maniAtan2Double(e.r[0], e.r[1]); | radians[a] = maniAtan2Double(e.r[0], e.r[1]);
+ftr-euler-locked-last | src/fbx_transform.c | radians[c] = maniAtan2Double(e.g[0], e.g[1]); | radians[c] = 0.0;
+
+# FBX stacks (fbx_anim.c, fbx_value.c, mani-0016), 2026-10-15: 41
+# mutants; 38 killed (16 by cases added after the first sweep). Three
+# survive: fan-name-hash and fan-name-equal, a hash that only filters an
+# exact comparison (they differ only on a 64-bit collision); fan-count-cap,
+# the refusal of 2^32 channel bindings, which no test can reach.
+fan-weight-percent | src/fbx_anim.c | weight /= 100.0; | weight /= 50.0;
+fan-weight-clamp | src/fbx_anim.c | weight = weight < 0.0 ? 0.0 : (weight > 0.99999 ? 1.0 : weight); | weight = weight;
+fan-blend-additive | src/fbx_anim.c | uint32_t mode = blend == 0.0   ? maniFbxBlendAdditive | uint32_t mode = blend == 9.0   ? maniFbxBlendAdditive
+fan-blend-pass | src/fbx_anim.c | : blend == 2.0 ? maniFbxBlendPassthrough | : blend == 9.0 ? maniFbxBlendPassthrough
+fan-accumulation | src/fbx_anim.c | return (maniFbxLayer){object, mode, weight, rotation == 0.0, scale == 0.0}; | return (maniFbxLayer){object, mode, weight, true, true};
+fan-component-y | src/fbx_anim.c | if (NameIs(fbx, property, "Y") || NameIs(fbx, property, "d|Y")) | if (NameIs(fbx, property, "Y"))
+fan-component-z | src/fbx_anim.c | return NameIs(fbx, property, "Z") || NameIs(fbx, property, "d|Z") ? 2 : 0; | return NameIs(fbx, property, "Z") ? 2 : 0;
+fan-node-values | src/fbx_anim.c | if (!Number(fbx, node, kNames[k], strlen(kNames[k]), &values[k / 2])) | if (false)
+fan-target-root | src/fbx_anim.c | c->parent >= fbx->objectCount) | false)
+fan-sort-key | src/fbx_anim.c | keys[i] = ((uint64_t)c->target << 32) + c->layer; | keys[i] = (uint64_t)c->layer;
+fan-twice | src/fbx_anim.c | if (maniFbxSameString(fbx, a->channels[i].name, a->channels[j].name)) | if (false)
+fan-take-name | src/fbx_anim.c | if (maniFbxNameIs(fbx, take, "Take", 4) && | if (true &&
+fan-take-reference | src/fbx_anim.c | TakeTimes(fbx, take, "ReferenceTime", a, b); | false;
+fan-span-start | src/fbx_anim.c | *start = !any || c->firstTick < *start ? c->firstTick : *start; | *start = c->firstTick;
+fan-span-stop | src/fbx_anim.c | *stop = !any || c->lastTick > *stop ? c->lastTick : *stop; | *stop = c->lastTick;
+fan-reference | src/fbx_anim.c | !Pair(fbx, stack, "ReferenceStart", "ReferenceStop", &a->start, &a->stop) && | true &&
+fan-run-search | src/fbx_anim.c | low = mid + 1; | low = mid;
+fan-weight-animated | src/fbx_anim.c | l->blend != maniFbxBlendOverride ? Find(a, fbx, first, count, layer, "Weight", 6) : NULL; | NULL;
+fan-weight-animated-clamp | src/fbx_anim.c | return w < 0.0 ? 0.0 : (w > 0.99999 ? 1.0 : w); | return w;
+fan-pow-zero | src/fbx_anim.c | if (e <= 0.0) | if (e < -1.0)
+fan-pow-one | src/fbx_anim.c | if (e >= 1.0) | if (e >= 2.0)
+fan-pow-sign | src/fbx_anim.c | return v < 0.0 ? -p : p; | return p;
+fan-additive-slerp | src/fbx_anim.c | maniSlerpDouble(kIdentity, b, weight, b); | (void)0;
+fan-compose-rotation | src/fbx_anim.c | else if (l->composeRotation && rotation) | else if (rotation)
+fan-geometric | src/fbx_anim.c | bool geometric = l->composeScale && scale; | bool geometric = scale;
+fan-pass-geometric | src/fbx_anim.c | : PowAbs(result[k], 1.0 - weight) * PowAbs(value[k], weight); | : PowAbs(value[k], weight);
+fan-pass-linear | src/fbx_anim.c | : result[k] * (1.0 - weight) + value[k] * weight; | : value[k] * weight;
+fan-first-sets | src/fbx_anim.c | if (c->layer == 0) | if (false)
+fan-scale-name | src/fbx_anim.c | bool scale = length == 11 && memcmp(name, "Lcl Scaling", 11) == 0; | bool scale = false;
+fan-rotation-name | src/fbx_anim.c | bool rotation = length == 12 && memcmp(name, "Lcl Rotation", 12) == 0; | bool rotation = false;
+sca-exp-terms | src/scalar.c | for (int32_t k = 20; k >= 1; --k) | for (int32_t k = 12; k >= 1; --k)
+ftr-euler-gimbal | src/fbx_transform.c | if (fabs(e.t) < 0.999999999) | if (fabs(e.t) <= 1.0)
+ftr-euler-locked-sign | src/fbx_transform.c | radians[b] = e.t < 0.0 ? -1.5707963267948966 : 1.5707963267948966; | radians[b] = 1.5707963267948966;
+fan-count-cap | src/fbx_anim.c | r = r.result == mani_success && count >= UINT32_MAX ? Capacity() : r; | (void)0;
+fan-name-hash | src/fbx_anim.c | if (c->nameHash != hash || !maniFbxStringEquals(fbx, c->name, name, length)) | if (!maniFbxStringEquals(fbx, c->name, name, length))
+fan-name-equal | src/fbx_anim.c | if (c->nameHash != hash || !maniFbxStringEquals(fbx, c->name, name, length)) | if (c->nameHash != hash)
+fan-hash-first | src/fbx_anim.c | keys[i] = a->channels[i].nameHash; | keys[i] = 0;
+fan-channel-value | src/fbx_anim.c | !Number(fbx, node, (const char*)name, length, &channel->values[k])) | false)
+fbv-same-bytes | src/fbx_value.c | if (Next(&x) != Next(&y)) | if (false)
+fbv-same-length | src/fbx_value.c | return x.at == x.raw && y.at == y.raw; | return true;
+fbv-hash-bytes | src/fbx_value.c | h = maniHash64(h, &c, 1); | (void)c;
