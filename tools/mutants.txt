@@ -767,8 +767,8 @@ fcl-scene-rate | src/fbx_clip.c | return s->rateDenominator != 0 ? (double)s->ra
 fcl-rate-cap | src/fbx_clip.c | : scene > 0.0 && scene <= 120.0 ? scene | : scene > 0.0 ? scene
 fcl-rate-given | src/fbx_clip.c | c->exactRate = sampleRate != 0.0f              ? (double)sampleRate | c->exactRate = false              ? (double)sampleRate
 fcl-duration-zero | src/fbx_clip.c | c->duration = span > 0.0 ? (float)(span / tps) : 0.0f; | c->duration = (float)(span / tps);
-fcl-last-stop | src/fbx_clip.c | double tick = last && c->animation.stop > c->animation.start | double tick = false
-fcl-round | src/fbx_clip.c | : (double)c->animation.start + Round((double)k * tps / c->exactRate); | : (double)c->animation.start + (double)k * tps / c->exactRate;
+fcl-last-stop | src/fbx_clip_state.c | double tick = last && c->animation.stop > c->animation.start | double tick = false
+fcl-round | src/fbx_clip_state.c | : (double)c->animation.start + Round((double)k * tps / c->exactRate); | : (double)c->animation.start + (double)k * tps / c->exactRate;
 fcl-fold | src/fbx_clip.c | if (c->options->foldPlacement == 0) | if (true)
 fcl-placement-unscaled | src/fbx_clip.c | : w->inherit == maniFbxInheritRSrs ? c->worlds[p].world | : w->inherit == maniFbxInheritRSrs ? c->worlds[p].unscaled
 fcl-frame-helper | src/fbx_clip.c | return c->rule[bone] == kHelper ? &w->unscaled : &w->world; | return &w->world;
@@ -777,12 +777,12 @@ fcl-finite | src/fbx_clip.c | if (!Local(c, b, &pose[b]) || !Finite(&pose[b])) |
 fcl-basis | src/fbx_clip.c | pose[b] = maniBasisTransform(&c->basis, pose[b]); | (void)0;
 fcl-moving-t | src/fbx_clip.c | bits |= t[0] != rest[0] || t[1] != rest[1] || t[2] != rest[2] ? 1u : 0u; | bits |= 1u;
 fcl-moving-s | src/fbx_clip.c | bits |= t[7] != rest[7] || t[8] != rest[8] || t[9] != rest[9] ? 4u : 0u; | bits |= 0u;
-fcl-in-chain-int | src/fbx_clip.c | const char* n = maniFbxLocalIntegerNames[k]; | const char* n = "";
-fcl-static-entry | src/fbx_clip.c | return channel->curves[1].count > 0 || channel->curves[2].count > 0 ? 3 : 1; | return 1;
-fcl-static-count | src/fbx_clip.c | while (n < 3 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n])) | while (n < 1 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n]))
-fcl-name-slash | src/fbx_clip.c | name[n - 2] = '/'; | name[n - 2] = '.';
-fcl-name-index | src/fbx_clip.c | name[n - 1] = (char)('0' + k); | name[n - 1] = '0';
-fcl-seen | src/fbx_clip.c | if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i)) | if (!channel->attribute && !InChain(c->fbx, channel))
+fcl-in-chain-int | src/fbx_tracks.c | const char* n = maniFbxLocalIntegerNames[k]; | const char* n = "";
+fcl-static-entry | src/fbx_tracks.c | return channel->curves[1].count > 0 || channel->curves[2].count > 0 ? 3 : 1; | return 1;
+fcl-static-count | src/fbx_tracks.c | while (n < 3 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n])) | while (n < 1 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n]))
+fcl-name-slash | src/fbx_tracks.c | name[n - 2] = '/'; | name[n - 2] = '.';
+fcl-name-index | src/fbx_tracks.c | name[n - 1] = (char)('0' + k); | name[n - 1] = '0';
+fcl-seen | src/fbx_tracks.c | if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i)) | if (!channel->attribute && !InChain(c->fbx, channel))
 fcl-float-skip | src/fbx_clip.c | if (c->rule[b] == kNone || c->rule[b] == kHelper) | if (c->rule[b] == kNone)
 fcl-bound | src/fbx_clip.c | for (uint32_t i = first; c->needed[m] != 0 && i < first + count; ++i) | for (uint32_t i = first; i < first + count; ++i)
 fcl-name-refusal | src/fbx_clip.c | if (floats && (r.reason & 0xFFu) == maniBuildReasonTrack && r.item < c->floatCount) | if (false)
@@ -812,12 +812,12 @@ fbl-down-break | src/fbx_blend.c | if (shapes[next].target < weight) | if (false
 fbl-prev-start | src/fbx_blend.c | prev = firstUp < count ? firstUp : MANI_FBX_NONE; | prev = MANI_FBX_NONE;
 fbl-delta | src/fbx_blend.c | if (delta != 0.0) | if (true)
 fbl-prev-share | src/fbx_blend.c | effective[prev] = 1.0 - t; | effective[prev] = t;
-fcl-mesh-bone | src/fbx_clip.c | if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE) | if (false)
-fcl-mesh-skin | src/fbx_clip.c | if (maniFbxSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton)) | if (maniFbxSkinModel(c->fbx, s) == model)
-fcl-shape-unnamed | src/fbx_clip.c | bool named = own != NULL && length > 0; | bool named = true;
-fcl-shape-index | src/fbx_clip.c | size_t digits = named || k == 0 ? 0 : Decimal(k, index); | size_t digits = 0;
-fcl-blend-bound | src/fbx_clip.c | c->blendBound += maniFbxAnimatedRun(&c->animation, channel, &first); | (void)first;
-fcl-drives | src/fbx_clip.c | if (maniFbxIsBlendChannel(c->fbx, target) && DrivesWeight(c, first, n)) | if (maniFbxIsBlendChannel(c->fbx, target))
+fcl-mesh-bone | src/fbx_tracks.c | if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE) | if (false)
+fcl-mesh-skin | src/fbx_tracks.c | if (maniFbxSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton)) | if (maniFbxSkinModel(c->fbx, s) == model)
+fcl-shape-unnamed | src/fbx_tracks.c | bool named = own != NULL && length > 0; | bool named = true;
+fcl-shape-index | src/fbx_tracks.c | size_t digits = named || k == 0 ? 0 : Decimal(k, index); | size_t digits = 0;
+fcl-blend-bound | src/fbx_tracks.c | c->blendBound += maniFbxAnimatedRun(&c->animation, channel, &first); | (void)first;
+fcl-drives | src/fbx_tracks.c | if (maniFbxIsBlendChannel(c->fbx, target) && DrivesWeight(c, first, n)) | if (maniFbxIsBlendChannel(c->fbx, target))
 fsk-within-all | src/fbx_skin.c | w->all = w->all && maniSkeletonFindBone(w->skeleton, name, length) != MANI_NO_BONE; | w->all = true;
 fsk-within-some | src/fbx_skin.c | return w.count > 0 && w.all; | return w.all;
 fbl-shape-indexes | src/fbx_blend.c | maniFbxFindChild(fbx, node, "Indexes", 7) != MANI_FBX_NONE) | true)
@@ -925,7 +925,31 @@ fan-same-b | src/fbx_anim.c | return maniFbxChannelNameIs(fbx, a, b->literal, b-
 fob-node-length | src/fbx_object.c | if (strlen(n) == length && memcmp(n, name, length) == 0) | if (memcmp(n, name, length) == 0)
 fob-user-index | src/fbx_object.c | uint32_t k = maniFbxNameIs(fbx, entry, "P", 1) ? 3 : 2; | uint32_t k = 3;
 fob-user-flag | src/fbx_object.c | memchr(flags, 'U', length) != NULL; | memchr(flags, 'A', length) != NULL;
-fob-attr-mesh | src/fbx_object.c | return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE && | return false &&
-fob-attr-model | src/fbx_object.c | return !maniFbxStringEquals(fbx, subclass, "Model", 5); | return true;
-fcl-tracks-attribute | src/fbx_clip.c | if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i)) | if (!InChain(c->fbx, channel) && !Seen(c, first, i))
+fob-attr-mesh | src/fbx_object.c | *meshOut = maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE && | *meshOut = false &&
+fob-attr-model | src/fbx_object.c | (mesh || !maniFbxStringEquals(fbx, subclass, "Model", 5)); | (mesh || true);
+fcl-tracks-attribute | src/fbx_tracks.c | if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i)) | if (!InChain(c->fbx, channel) && !Seen(c, first, i))
 fcl-bound-attribute | src/fbx_clip.c | n += c->animation.channels[i].attribute ? 0 : 1; | n += 1;
+
+# FBX blend shapes before 7.2 (owners in fbx_blend.c and fbx_object.c,
+# tracks in fbx_tracks.c; mani-0017), 2026-10-15: 18 mutants, all
+# killed. Seventeen earlier records moved with the float tracks into
+# fbx_tracks.c and fbx_clip_state.c, or with the subclass rule, and were
+# rerun, all killed.
+fbs-owner-version | src/fbx_blend.c | return fbx->version <= 7100 && maniFbxObjectKindIs(fbx, object, "Geometry", 8) && | return maniFbxObjectKindIs(fbx, object, "Geometry", 8) &&
+fbs-owner-of | src/fbx_blend.c | return fbx->version < 7000 ? maniFbxModelOf(fbx, owner) : maniFbxDeformerModel(fbx, owner); | return maniFbxModelOf(fbx, owner);
+fob-numeric-type | src/fbx_object.c | if (maniFbxStringEquals(fbx, type, kTypes[k], strlen(kTypes[k]))) | if (true)
+fob-numeric-enum | src/fbx_object.c | "Integer", | "Bool",
+fob-mesh-subclass | src/fbx_object.c | *meshOut = maniFbxStringEquals(fbx, subclass, "Mesh", 4); | *meshOut = true;
+fot-legacy | src/fbx_tracks.c | if (channel->attribute == legacy && maniFbxChannelNameIs(c->fbx, channel, name, length)) | if (maniFbxChannelNameIs(c->fbx, channel, name, length))
+fot-unnamed | src/fbx_tracks.c | return maniFbxFail(maniImportReasonProperty, fbx->nodes[shape].nameOffset, owner); | return maniFbxSuccess();
+fot-indexes | src/fbx_tracks.c | if (maniFbxFindChild(fbx, shape, "Indexes", 7) == MANI_FBX_NONE || | if (false ||
+fot-vertices | src/fbx_tracks.c | maniFbxFindChild(fbx, shape, "Vertices", 8) == MANI_FBX_NONE || entry == MANI_FBX_NONE || | entry == MANI_FBX_NONE ||
+fot-numeric | src/fbx_tracks.c | !maniFbxEntryNumeric(fbx, entry) || OwnerChannel(c, first, count, name, length) == NULL) | OwnerChannel(c, first, count, name, length) == NULL)
+fot-driven | src/fbx_tracks.c | !maniFbxEntryNumeric(fbx, entry) || OwnerChannel(c, first, count, name, length) == NULL) | !maniFbxEntryNumeric(fbx, entry))
+fot-rest | src/fbx_tracks.c | (void)maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), &rest); | (void)rest;
+fot-attribute | src/fbx_tracks.c | (void)(fbx->version < 7000 | (void)(fbx->version < 6000
+fot-percent | src/fbx_tracks.c | maniFbxBlendWeights(&kWhole, 1, v[0] / 100.0, &effective); | maniFbxBlendWeights(&kWhole, 1, v[0], &effective);
+fot-bound | src/fbx_tracks.c | c->blendBound += 1; | c->blendBound += 0;
+fot-kept | src/fbx_tracks.c | bool kept = mesh != MANI_FBX_NONE && MeshInSkeleton(c, mesh); | bool kept = mesh != MANI_FBX_NONE;
+fot-shape-node | src/fbx_tracks.c | if (!maniFbxNameIs(fbx, k, "Shape", 5)) | if (false)
+fot-owner | src/fbx_tracks.c | else if (maniFbxIsShapeOwner(c->fbx, target)) | else if (false)
