@@ -24,6 +24,7 @@ option(MAUL_ANIM_TSAN "Instrument with ThreadSanitizer" OFF)
 option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
 option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
+option(MAUL_ANIM_DIFFERENTIAL "Build the ufbx differential (fetches ufbx; mani-0018)" OFF)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
 # build tree, so scripts and CI find them in one place.
@@ -151,6 +152,28 @@ if(MAUL_ANIM_FUZZ)
                                                       -fno-sanitize-recover=all)
         target_link_options(fuzz_${area} PRIVATE -fsanitize=fuzzer,address,undefined)
     endforeach()
+endif()
+
+# The ufbx differential (mani-0018): ufbx at its pinned commit, with its
+# corpus, fetched for the tool alone and never linked into the library.
+if(MAUL_ANIM_DIFFERENTIAL)
+    if(NOT MAUL_ANIM_OFFLINE)
+        message(FATAL_ERROR "MAUL_ANIM_DIFFERENTIAL needs MAUL_ANIM_OFFLINE")
+    endif()
+    include(FetchContent)
+    FetchContent_Declare(ufbx GIT_REPOSITORY https://github.com/ufbx/ufbx.git
+                              GIT_TAG 5955c5c0b042ac2dc6f32955ab206aaec0620cfc)
+    FetchContent_MakeAvailable(ufbx)
+    add_executable(fbx_differential tools/fbx_differential.c ${ufbx_SOURCE_DIR}/ufbx.c)
+    target_include_directories(fbx_differential SYSTEM PRIVATE ${ufbx_SOURCE_DIR})
+    target_link_libraries(fbx_differential PRIVATE maul-anim)
+    maul_apply_flags(fbx_differential)
+    if(NOT MSVC)
+        target_link_libraries(fbx_differential PRIVATE m)
+    endif()
+    # ufbx is someone else's code: built as it is, without our warnings.
+    set_source_files_properties(${ufbx_SOURCE_DIR}/ufbx.c PROPERTIES COMPILE_OPTIONS -w)
+    set(MAUL_ANIM_UFBX_DATA ${ufbx_SOURCE_DIR}/data CACHE INTERNAL "ufbx's corpus")
 endif()
 
 if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)

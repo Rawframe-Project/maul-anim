@@ -1,0 +1,41 @@
+# The ufbx differential (mani-0018): every file of ufbx's corpus, at the
+# commit CMake pins, read by ufbx and by Maul Anim and compared. Weekly
+# and by hand, not on every commit: it fetches and builds ufbx.
+name: differential
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+env:
+  # apt retries a stalled download and gives up on a dead one.
+  APT_OPTIONS: -o Acquire::Retries=3 -o Acquire::http::Timeout=30
+
+jobs:
+  fbx:
+    name: fbx-ufbx
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        timeout-minutes: 15
+        run: |
+          sudo apt-get $APT_OPTIONS update -q
+          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 libclang-rt-20-dev
+          sudo apt-get $APT_OPTIONS install -y -q ninja-build
+      - name: Configure
+        # The sanitizers watch the library through every file.
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMAUL_ANIM_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -DMAUL_ANIM_SANITIZE=ON -DMAUL_ANIM_DIFFERENTIAL=ON \
+            -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+      - name: Build
+        run: cmake --build build --target fbx_differential -j 4
+      - name: ufbx's corpus
+        run: |
+          cd build/_deps/ufbx-src/data
+          "$GITHUB_WORKSPACE/build/fbx_differential" \
+            --deviations "$GITHUB_WORKSPACE/tools/fbx-deviations.txt" *.fbx
