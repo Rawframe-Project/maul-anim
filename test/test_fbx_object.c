@@ -255,6 +255,12 @@ static void TestInvalidUtf8(void)
         " Model: 7, \"Model::A\xC1\", \"Null\" {\n }\n"
         " Model: 8, \"Model::A\xC2\", \"Null\" {\n }\n"
         " Model: 9, \"Model::a::b\", \"Null\" {\n }\n"
+        " Model: 10, \"Model::a\0b\", \"Null\" {\n }\n"
+        " Model: 11, \"Model::x\xC3"
+        "A\", \"Null\" {\n }\n"
+        " Model: 12, \"Model::\xC3\xA9\xC3\", \"Null\" {\n }\n"
+        " Model: 13, \"Model::\xE0\x80\x80\", \"Null\" {\n }\n"
+        " Model: 14, \"Model::\xF0\x8F\xBF\xBF\", \"Null\" {\n }\n"
         "}\n";
     static const char kR[] = "\xEF\xBF\xBD";
     char twice[16];
@@ -266,14 +272,16 @@ static void TestInvalidUtf8(void)
     char cut[16];
     snprintf(cut, sizeof cut, "x%s%s", kR, kR);
     maniBuilder* builder = NewBuilder();
-    maniFbx* fbx = Open(builder, kText);
+    // The text holds a NUL: opened by its size.
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, kText, sizeof kText - 1, &fbx).result == mani_success, "opens");
     if (fbx == NULL)
     {
         maniDestroyBuilder(builder);
         return;
     }
-    uint32_t o[10];
-    for (int64_t id = 1; id <= 9; ++id)
+    uint32_t o[15];
+    for (int64_t id = 1; id <= 14; ++id)
     {
         o[id] = maniFbxFindObject(fbx, id);
     }
@@ -287,6 +295,17 @@ static void TestInvalidUtf8(void)
     CHECK(NameIs(fbx, o[5], four), "past U+10FFFF");
     CHECK(NameIs(fbx, o[6], cut), "a cut sequence");
     CHECK(NameIs(fbx, o[9], "a::b"), "the class cut at the first ::");
+    CHECK(NameIs(fbx, o[10],
+                 "a\xEF\xBF\xBD"
+                 "b"),
+          "a NUL");
+    CHECK(NameIs(fbx, o[11],
+                 "x\xEF\xBF\xBD"
+                 "A"),
+          "a lead byte with no continuation");
+    CHECK(NameIs(fbx, o[12], "\xC3\xA9\xEF\xBF\xBD"), "a lead byte at the end");
+    CHECK(NameIs(fbx, o[13], thrice), "an overlong form of three bytes");
+    CHECK(NameIs(fbx, o[14], four), "an overlong form of four bytes");
     uint8_t out[8];
     CHECK(maniFbxObjectName(fbx, o[5], NULL, 0) == 12 && maniFbxObjectName(fbx, o[2], out, 4) == 2,
           "counted with no output; whole characters up to a capacity");
