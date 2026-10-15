@@ -382,7 +382,8 @@ static void TestShapeNames(void)
 // no channel; A's rests from Lcl channels by name, its scale from one
 // Default (2 0 0, as ufbx reads it); B has none. Idle's empty T channel
 // on Root leaves Root's rest, and its Comment node, not a Model, sets
-// nothing. Settings give 25 frames a second, as a number.
+// nothing, nor does B's Extra channel with a T child. Settings give 25
+// frames a second, as a number.
 static const char kRests[] = "; FBX 5.0.0 project file\n"
                              "Model: \"Model::Root\" {\n"
                              " Type: \"LimbNode\"\n"
@@ -434,6 +435,13 @@ static const char kRests[] = "; FBX 5.0.0 project file\n"
                              "}\n"
                              "Model: \"Model::B\" {\n"
                              " Type: \"LimbNode\"\n"
+                             " Channel: \"Extra\" {\n"
+                             "  Channel: \"T\" {\n"
+                             "   Channel: \"X\" {\n"
+                             "    Default: 8\n"
+                             "   }\n"
+                             "  }\n"
+                             " }\n"
                              "}\n"
                              "Takes: {\n"
                              " Take: \"Idle\" {\n"
