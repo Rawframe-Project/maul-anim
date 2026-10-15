@@ -148,7 +148,7 @@ jobs:
   # Each fuzz target runs for one minute on every push, from its seed:
   # the skeleton, skin and clip loaders (full and compressed clips), the
   # JSON reader and the glTF and FBX documents from their tests' sample
-  # files (FBX's with the fixtures of test/data/fbx).
+  # files (with the fixtures of test/data/gltf and test/data/fbx).
   fuzz:
     name: fuzz
     runs-on: ubuntu-24.04
@@ -182,6 +182,7 @@ jobs:
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf
           build/test_gltf --seed corpus-fuzz_gltf/sample.glb
+          cp test/data/gltf/*.glb test/data/gltf/*.gltf corpus-fuzz_gltf/
           mkdir -p corpus-fuzz_fbx
           build/test_fbx --seed corpus-fuzz_fbx/sample.fbx
           cp test/data/fbx/*.fbx corpus-fuzz_fbx/

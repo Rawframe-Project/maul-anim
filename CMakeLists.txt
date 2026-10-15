@@ -74,7 +74,7 @@ if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c
                                      src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
-                                     src/gltf_clip.c
+                                     src/gltf_clip.c src/gltf_mesh.c
                                      src/gltf_buffer.c src/gltf_layout.c
                                      src/gltf_names.c src/hierarchy.c src/names.c src/gltf_node.c src/gltf_property.c
                                      src/gltf_rest.c src/gltf_skeleton.c src/gltf_spring.c src/json.c src/skeleton_build.c
@@ -142,8 +142,9 @@ if(MAUL_ANIM_BUILD_TESTS)
         # Khronos sample models in test/data/gltf; FBX scenes in
         # test/data/fbx against ufbx's values (mani-0018).
         maul_add_test(gltf_fixtures WHITEBOX)
+        maul_add_test(gltf_mesh WHITEBOX)
         maul_add_test(fbx_fixtures)
-        foreach(fixtures IN ITEMS test_gltf_fixtures test_fbx_fixtures)
+        foreach(fixtures IN ITEMS test_gltf_fixtures test_gltf_mesh test_fbx_fixtures)
             if(TARGET ${fixtures})
                 target_compile_definitions(${fixtures} PRIVATE MANI_TEST_DATA="${PROJECT_SOURCE_DIR}/test/data")
                 if(EMSCRIPTEN)

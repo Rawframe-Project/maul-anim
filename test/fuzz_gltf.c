@@ -4,7 +4,8 @@
 // Opening a glTF document (mani-0008) from any bytes, then reading every
 // accessor, with each external buffer given the input's own bytes when
 // they are long enough, and building every skeleton, skin and clip and
-// reading the spring bones. Run as fuzz_gltf <corpus dir>;
+// reading the spring bones, every mesh primitive's influences against
+// each skin and its morph targets. Run as fuzz_gltf <corpus dir>;
 // the seed comes from test_gltf --seed <file>.
 
 #include "gltf_document.h"
@@ -14,6 +15,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/skin.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -63,6 +65,34 @@ static void Release(void* memory, size_t size, size_t alignment, void* context)
     }
 }
 
+// Every primitive's influences against the skin, and morph targets.
+static void BuildMeshes(maniBuilder* builder, maniGltf* gltf, const maniSkin* skin,
+                        const maniGltfOptions* options)
+{
+    for (uint32_t m = 0; m < maniGltfMeshCount(gltf) && m < 8; ++m)
+    {
+        for (uint32_t p = 0; p < maniGltfPrimitiveCount(gltf, m) && p < 8; ++p)
+        {
+            if (skin != NULL)
+            {
+                (void)maniGltfBuildInfluences(builder, gltf, m, p, skin);
+            }
+            (void)maniGltfBuildMorphTargets(builder, gltf, m, p, options);
+        }
+    }
+    for (uint32_t n = 0; n < maniGltfNodeCount(gltf) && n < 8; ++n)
+    {
+        float weights[8];
+        uint32_t mesh = maniGltfNodeMesh(gltf, n);
+        uint32_t count = mesh == UINT32_MAX ? 0 : maniGltfPrimitiveTargetCount(gltf, mesh, 0);
+        (void)maniGltfNodeSkin(gltf, n);
+        if (count > 0 && count <= 8)
+        {
+            (void)maniGltfMorphWeights(gltf, n, weights, count);
+        }
+    }
+}
+
 // Every skeleton, with and without folding and with a basis change, and
 // each of its skins against it; the first node's subtree.
 static void BuildAll(maniBuilder* builder, maniGltf* gltf)
@@ -86,9 +116,16 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
             }
             for (uint32_t s = 0; s < maniGltfSkinCount(gltf); ++s)
             {
-                if (maniGltfSkinSkeleton(gltf, s) == k)
+                static _Alignas(16) uint8_t skinFile[1 << 16];
+                size_t skinSize = 0;
+                maniSkin skin;
+                if (maniGltfSkinSkeleton(gltf, s) == k &&
+                    maniGltfBuildSkin(builder, gltf, s, &skeleton, &options[o]).result ==
+                        mani_success &&
+                    maniCopyBuilt(builder, skinFile, sizeof skinFile, &skinSize) == mani_success &&
+                    maniOpenSkin(skinFile, skinSize, &skin).result == mani_success)
                 {
-                    (void)maniGltfBuildSkin(builder, gltf, s, &skeleton, &options[o]);
+                    BuildMeshes(builder, gltf, &skin, &options[o]);
                 }
             }
             maniSpringSetSource springs;
@@ -105,6 +142,7 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
     {
         (void)maniGltfBuildNodeSkeleton(builder, gltf, 0, &options[0]);
     }
+    BuildMeshes(builder, gltf, NULL, &options[0]);
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)

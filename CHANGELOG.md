@@ -65,3 +65,11 @@ format.
   channel weights into target weights, and `maniApplyMorphTargets` adds
   the weighted deltas to strided vertex ranges before skinning;
   `maniMorphAttributeCount` and `maniMorphAttribute` read the table.
+- glTF meshes (mani-0021): `maniGltfBuildInfluences` reads a
+  primitive's joint and weight sets into influences, refusing what
+  glTF forbids (new import reason `maniImportReasonInfluence`);
+  `maniGltfBuildMorphTargets` reads its morph targets; `maniGltfMeshCount`,
+  `maniGltfPrimitiveCount`, `maniGltfPrimitiveTargetCount`,
+  `maniGltfNodeMesh`, `maniGltfNodeSkin` and `maniGltfMorphWeights`
+  describe meshes and their starting weights. A mesh's target count is
+  now its first primitive with targets', as glTF defines it.

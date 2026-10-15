@@ -378,6 +378,46 @@ MANI_NODISCARD MANI_API maniImportResult maniGltfReadSprings(maniGltf* gltf, con
 Reads the document's `VRMC_springBone` extension (version 1.0) as spring bone sources on an opened skeleton (mani-0011): colliders, collider groups and springs, nodes found by bone name, offsets, tails and gravity directions in the output's basis. A document without the extension gives an empty set. The arrays are the document's until the next call or maniCloseGltf.  @param gltf      The document. @param skeleton  An opened skeleton holding the springs' nodes. @param options   The options the skeleton was built with. @param setOut    Receives the sources. @return `mani_success`; `mani_errorInvalid` for a NULL argument or options out of range; `mani_errorFormat` with a reason; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the document is used by one thread at a time.
 
 ```c
+uint32_t maniGltfMeshCount(const maniGltf* gltf);
+```
+Returns the number of meshes in the document.  @param gltf  The document. @return The mesh count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfPrimitiveCount(const maniGltf* gltf, uint32_t mesh);
+```
+Returns the number of primitives a mesh has.  @param gltf  The document. @param mesh  The mesh. @return The primitive count; 0 for a mesh past the count or one whose primitives are not an array. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfPrimitiveTargetCount(const maniGltf* gltf, uint32_t mesh, uint32_t primitive);
+```
+Returns the number of morph targets a mesh primitive has.  @param gltf       The document. @param mesh       The mesh. @param primitive  The primitive. @return The target count; 0 for none or past a count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfNodeMesh(const maniGltf* gltf, uint32_t node);
+```
+Returns the mesh a node instances.  @param gltf  The document. @param node  The node. @return The mesh, or UINT32_MAX for none or a node past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGltfNodeSkin(const maniGltf* gltf, uint32_t node);
+```
+Returns the skin that deforms a node's mesh.  @param gltf  The document. @param node  The node. @return The skin, or UINT32_MAX for none or a node past the count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut, uint32_t count);
+```
+Reads the morph weights a node's mesh starts with: the node's `weights`, else its mesh's, else zeros.  @param gltf        The document. @param node        The node. @param weightsOut  Receives count weights. @param count       The mesh's morph target count. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a node past the count or a count other than its mesh's targets; `mani_errorFormat` (Property) for weights not an array of that many numbers. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh, uint32_t primitive, const maniSkin* skin);
+```
+Builds a primitive's influences into the builder, bound to an opened skin built from the glTF skin that deforms it (its joints in the skin's order): every `JOINTS_n` and `WEIGHTS_n` set read, zero weights dropped, then sorted and renormalized as maniBuildInfluences does.  @param builder    The builder. @param gltf       The document. @param mesh       The mesh. @param primitive  The primitive. @param skin       The opened skin. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a mesh or primitive past its count; `mani_errorFormat` with a reason: Property (no `JOINTS_0`, sets not paired, an accessor of the wrong type or count), Extension (Draco-compressed), Influence, Data, Pending, Build; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh, uint32_t primitive, const maniGltfOptions* options);
+```
+Builds a primitive's morph targets into the builder: a channel a target, at full weight 1, named by the mesh's `extras.targetNames` when it names every target and by the target's index otherwise (weight tracks are the node's bone name, a slash and that name); positions, normals, tangents, texture coordinate and color sets read (other semantics left), positions, normals and tangents in the output's basis, VEC3 colors with alpha 0; a target keeps the vertices it moves.  @param builder    The builder. @param gltf       The document. @param mesh       The mesh. @param primitive  The primitive. @param options    The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a mesh or primitive past its count, a primitive without targets or options out of range; `mani_errorFormat` with a reason: Property (a semantic the primitive lacks, an accessor of the wrong type or count, more than 32 attributes), Index, Extension (Draco), Data, Pending, Build; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut);
 ```
 Opens an FBX document (mani-0012) from the bytes of a file, binary (told apart by its magic, either byte order) or ASCII, versions 3000 to 7700. Every record, token and length is checked against the bytes; no array is decoded and no number converted until asked for.  @param builder  The builder whose allocator the document uses; it must be closed before the builder is destroyed. @param bytes    The file; kept alive and unchanged while the document is open. @param size     Its size in bytes. @param fbxOut   Receives the document. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorFormat` with a reason (Container, Version, Syntax) and the offset of the first byte found wrong; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -778,4 +818,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-147 functions across 10 headers.
+155 functions across 10 headers.

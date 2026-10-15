@@ -444,8 +444,8 @@ static size_t SlashNumber(char* out, uint32_t n)
     return count + 1;
 }
 
-// A morph target's name from the mesh's extras.targetNames, if it has one
-// for every target; NULL otherwise.
+// The node's mesh's extras.targetNames, if it has one for every target;
+// MANI_JSON_NONE otherwise.
 static uint32_t TargetNames(const maniGltf* gltf, uint32_t node, uint32_t targets)
 {
     int64_t mesh = -1;
@@ -454,24 +454,7 @@ static uint32_t TargetNames(const maniGltf* gltf, uint32_t node, uint32_t target
     {
         return MANI_JSON_NONE;
     }
-    uint32_t extras = maniJsonFind(&gltf->json, gltf->meshValues[mesh], "extras", 6);
-    uint32_t names = maniJsonFind(&gltf->json, extras, "targetNames", 11);
-    if (names == MANI_JSON_NONE || gltf->json.values[names].kind != maniJsonArray ||
-        gltf->json.values[names].count != targets)
-    {
-        return MANI_JSON_NONE;
-    }
-    uint32_t element = names + 1;
-    for (uint32_t i = 0; i < targets; ++i)
-    {
-        if (gltf->json.values[element].kind != maniJsonString ||
-            gltf->json.values[element].length == 0)
-        {
-            return MANI_JSON_NONE;
-        }
-        element = gltf->json.values[element].next;
-    }
-    return names;
+    return maniGltfTargetNames(gltf, (uint32_t)mesh, targets);
 }
 
 // Float track k of a channel of `width` components: its keys, as the

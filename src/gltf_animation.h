@@ -57,8 +57,16 @@ uint32_t maniGltfAnimationChannels(const maniGltf* gltf, uint32_t animation, uin
 maniImportResult maniGltfReadChannel(const maniGltf* gltf, uint32_t animation, uint32_t channel,
                                      uint32_t item, maniGltfChannel* out);
 
-// A node's morph target count: its mesh's first primitive's targets; 0
-// for none.
+// A mesh's morph target count: that of its first primitive with targets
+// (the specification's rule); 0 for none.
+uint32_t maniGltfMeshTargets(const maniGltf* gltf, uint32_t mesh);
+
+// A node's morph target count: its mesh's; 0 for none.
 uint32_t maniGltfMorphTargets(const maniGltf* gltf, uint32_t node);
+
+// The mesh's extras.targetNames, when it holds a non-empty string for each
+// of its targets; MANI_JSON_NONE otherwise. Morph channels and weight
+// tracks are named by them, or by the target's index.
+uint32_t maniGltfTargetNames(const maniGltf* gltf, uint32_t mesh, uint32_t targets);
 
 #endif // MAUL_ANIM_SRC_GLTF_ANIMATION_H

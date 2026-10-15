@@ -12,6 +12,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/skin.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -68,6 +69,11 @@ extern "C"
         maniImportReasonBuild = 15,
         // An FBX file in the ASCII form that is not its syntax.
         maniImportReasonSyntax = 16,
+        // A vertex's joints and weights the format forbids: a weight below
+        // 0, a joint with two non-zero weights or past the skin, glTF's
+        // normalized weights not summing to 255 or 65535 (offset: the
+        // weights' accessor or array; item: the vertex).
+        maniImportReasonInfluence = 17,
     };
 
     // An axis, or its negative.
@@ -388,6 +394,121 @@ extern "C"
                                                                  const maniSkeleton* skeleton,
                                                                  const maniGltfOptions* options,
                                                                  maniSpringSetSource* setOut);
+
+    /// Returns the number of meshes in the document.
+    ///
+    /// @param gltf  The document.
+    /// @return The mesh count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfMeshCount(const maniGltf* gltf);
+
+    /// Returns the number of primitives a mesh has.
+    ///
+    /// @param gltf  The document.
+    /// @param mesh  The mesh.
+    /// @return The primitive count; 0 for a mesh past the count or one
+    /// whose primitives are not an array.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfPrimitiveCount(const maniGltf* gltf, uint32_t mesh);
+
+    /// Returns the number of morph targets a mesh primitive has.
+    ///
+    /// @param gltf       The document.
+    /// @param mesh       The mesh.
+    /// @param primitive  The primitive.
+    /// @return The target count; 0 for none or past a count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfPrimitiveTargetCount(const maniGltf* gltf, uint32_t mesh,
+                                                   uint32_t primitive);
+
+    /// Returns the mesh a node instances.
+    ///
+    /// @param gltf  The document.
+    /// @param node  The node.
+    /// @return The mesh, or UINT32_MAX for none or a node past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfNodeMesh(const maniGltf* gltf, uint32_t node);
+
+    /// Returns the skin that deforms a node's mesh.
+    ///
+    /// @param gltf  The document.
+    /// @param node  The node.
+    /// @return The skin, or UINT32_MAX for none or a node past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGltfNodeSkin(const maniGltf* gltf, uint32_t node);
+
+    /// Reads the morph weights a node's mesh starts with: the node's
+    /// `weights`, else its mesh's, else zeros.
+    ///
+    /// @param gltf        The document.
+    /// @param node        The node.
+    /// @param weightsOut  Receives count weights.
+    /// @param count       The mesh's morph target count.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// node past the count or a count other than its mesh's targets;
+    /// `mani_errorFormat` (Property) for weights not an array of that many
+    /// numbers.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfMorphWeights(const maniGltf* gltf,
+                                                                  uint32_t node, float* weightsOut,
+                                                                  uint32_t count);
+
+    /// Builds a primitive's influences into the builder, bound to an
+    /// opened skin built from the glTF skin that deforms it (its joints
+    /// in the skin's order): every `JOINTS_n` and `WEIGHTS_n` set read,
+    /// zero weights dropped, then sorted and renormalized as
+    /// maniBuildInfluences does.
+    ///
+    /// @param builder    The builder.
+    /// @param gltf       The document.
+    /// @param mesh       The mesh.
+    /// @param primitive  The primitive.
+    /// @param skin       The opened skin.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
+    /// a mesh or primitive past its count; `mani_errorFormat` with a
+    /// reason: Property (no `JOINTS_0`, sets not paired, an accessor of
+    /// the wrong type or count), Extension (Draco-compressed),
+    /// Influence, Data, Pending, Build; `mani_errorCapacity` when the
+    /// allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildInfluences(maniBuilder* builder,
+                                                                     const maniGltf* gltf,
+                                                                     uint32_t mesh,
+                                                                     uint32_t primitive,
+                                                                     const maniSkin* skin);
+
+    /// Builds a primitive's morph targets into the builder: a channel a
+    /// target, at full weight 1, named by the mesh's `extras.targetNames`
+    /// when it names every target and by the target's index otherwise
+    /// (weight tracks are the node's bone name, a slash and that name);
+    /// positions, normals, tangents, texture coordinate and color sets
+    /// read (other semantics left), positions, normals and tangents in
+    /// the output's basis, VEC3 colors with alpha 0; a target keeps the
+    /// vertices it moves.
+    ///
+    /// @param builder    The builder.
+    /// @param gltf       The document.
+    /// @param mesh       The mesh.
+    /// @param primitive  The primitive.
+    /// @param options    The options the skeleton was built with.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// mesh or primitive past its count, a primitive without targets or
+    /// options out of range; `mani_errorFormat` with a reason: Property
+    /// (a semantic the primitive lacks, an accessor of the wrong type or
+    /// count, more than 32 attributes), Index, Extension (Draco), Data,
+    /// Pending, Build; `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult
+    maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
+                              uint32_t primitive, const maniGltfOptions* options);
 
     /// Opens an FBX document (mani-0012) from the bytes of a file, binary
     /// (told apart by its magic, either byte order) or ASCII, versions 3000

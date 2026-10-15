@@ -54,6 +54,7 @@ gltf_property: json
 gltf_document: arena gltf_property hierarchy json names
 gltf: allocator arena builder bytes gltf_animation gltf_buffer gltf_document gltf_layout gltf_names gltf_node gltf_property json
 arena: allocator
+gltf_mesh: arena decimal gltf_animation gltf_basis gltf_document gltf_layout gltf_property json
 gltf_clip: arena builder clip_build clip_file decompose gltf_animation gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json vecmath
 gltf_animation: allocator arena container gltf_document gltf_property json sort
 gltf_basis: basis

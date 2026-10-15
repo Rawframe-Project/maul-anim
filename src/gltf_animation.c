@@ -31,26 +31,60 @@ static maniImportResult Fail(const maniGltf* gltf, maniImportReason reason, uint
     return maniImportFail(reason, maniGltfOffset(&gltf->g, value), item);
 }
 
-uint32_t maniGltfMorphTargets(const maniGltf* gltf, uint32_t node)
+uint32_t maniGltfMeshTargets(const maniGltf* gltf, uint32_t mesh)
 {
     const maniJson* json = &gltf->json;
-    int64_t mesh = -1;
-    uint32_t index = maniJsonFind(json, gltf->nodeValues[node], "mesh", 4);
-    if (gltf->meshCount == 0 ||
-        !maniJsonInteger(json, index, 0, (int64_t)gltf->meshCount - 1, &mesh))
-    {
-        return 0;
-    }
     uint32_t primitives = maniJsonFind(json, gltf->meshValues[mesh], "primitives", 10);
-    if (primitives == MANI_JSON_NONE || json->values[primitives].kind != maniJsonArray ||
-        json->values[primitives].count == 0)
+    if (primitives == MANI_JSON_NONE || json->values[primitives].kind != maniJsonArray)
     {
         return 0;
     }
-    uint32_t targets = maniJsonFind(json, primitives + 1, "targets", 7);
-    return targets != MANI_JSON_NONE && json->values[targets].kind == maniJsonArray
-               ? json->values[targets].count
-               : 0;
+    uint32_t element = primitives + 1;
+    for (uint32_t p = 0; p < json->values[primitives].count; ++p)
+    {
+        uint32_t targets = maniJsonFind(json, element, "targets", 7);
+        if (targets != MANI_JSON_NONE && json->values[targets].kind == maniJsonArray &&
+            json->values[targets].count > 0)
+        {
+            return json->values[targets].count;
+        }
+        element = json->values[element].next;
+    }
+    return 0;
+}
+
+uint32_t maniGltfMorphTargets(const maniGltf* gltf, uint32_t node)
+{
+    int64_t mesh = -1;
+    uint32_t index = maniJsonFind(&gltf->json, gltf->nodeValues[node], "mesh", 4);
+    if (gltf->meshCount == 0 ||
+        !maniJsonInteger(&gltf->json, index, 0, (int64_t)gltf->meshCount - 1, &mesh))
+    {
+        return 0;
+    }
+    return maniGltfMeshTargets(gltf, (uint32_t)mesh);
+}
+
+uint32_t maniGltfTargetNames(const maniGltf* gltf, uint32_t mesh, uint32_t targets)
+{
+    const maniJson* json = &gltf->json;
+    uint32_t extras = maniJsonFind(json, gltf->meshValues[mesh], "extras", 6);
+    uint32_t names = maniJsonFind(json, extras, "targetNames", 11);
+    if (names == MANI_JSON_NONE || json->values[names].kind != maniJsonArray ||
+        json->values[names].count != targets)
+    {
+        return MANI_JSON_NONE;
+    }
+    uint32_t element = names + 1;
+    for (uint32_t i = 0; i < targets; ++i)
+    {
+        if (json->values[element].kind != maniJsonString || json->values[element].length == 0)
+        {
+            return MANI_JSON_NONE;
+        }
+        element = json->values[element].next;
+    }
+    return names;
 }
 
 // A pointer of the form /nodes/<index>/<property> for a node's TRS or

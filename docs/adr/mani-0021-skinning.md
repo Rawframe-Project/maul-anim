@@ -41,6 +41,13 @@ deltas applied before skinning, weighted by animated values.
   the keys, extrapolated past the ends); the job adds the weighted
   deltas in target order before skinning, then renormalizes normals and
   tangents.
+- **Importers:** glTF's `JOINTS_n` and `WEIGHTS_n` sets, every rule
+  the specification makes a MUST refused (a negative weight, a joint
+  with two non-zero weights or past the skin, normalized weights not
+  summing to 255 or 65535), float sums renormalized; glTF's morph
+  targets over every attribute it morphs, channels named by
+  `extras.targetNames` or the target's index so they meet the clips'
+  weight tracks.
 - **Bits:** binary32 in a fixed order, the same on every platform.
 
 ## Consequences
