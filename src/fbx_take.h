@@ -14,6 +14,14 @@
 
 #include <stdint.h>
 
+// A take channel's components (mani-0017): the node itself when it holds
+// a Key or Default, else its first three named Channel children holding
+// one; their count.
+uint32_t maniFbxChannelComponents(const maniFbx* fbx, uint32_t node, uint32_t out[3]);
+
+// A component's Default, 0 when absent or not a number.
+double maniFbxChannelDefault(const maniFbx* fbx, uint32_t component);
+
 // Reads stack k: an AnimationStack object (7.x, maniFbxReadAnimation) or
 // a Take node (6.x): one base layer, its Model children's channels bound
 // to the models their keys name (`Transform`'s T, R and S as the Lcl

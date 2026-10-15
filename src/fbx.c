@@ -10,6 +10,7 @@
 #include "fbx_ascii.h"
 #include "fbx_binary.h"
 #include "fbx_document.h"
+#include "fbx_legacy.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_units.h"
@@ -45,7 +46,11 @@ static maniImportResult Open(maniFbx* fbx)
 {
     maniImportResult r =
         maniFbxIsBinary(fbx->bytes, fbx->size) ? maniFbxReadBinary(fbx) : maniFbxReadAscii(fbx);
-    r = r.result == mani_success ? maniFbxReadObjects(fbx) : r;
+    // Files before 6.0 have no Objects section (mani-0017).
+    if (r.result == mani_success)
+    {
+        r = fbx->version < 6000 ? maniFbxReadLegacy(fbx) : maniFbxReadObjects(fbx);
+    }
     r = r.result == mani_success ? maniFbxReadModels(fbx) : r;
     r = r.result == mani_success ? maniFbxReadUnits(fbx) : r;
     return r.result == mani_success ? maniFbxReadStacks(fbx) : r;
@@ -95,6 +100,7 @@ void maniCloseFbx(maniFbx* fbx)
     maniFbxReleaseStacks(fbx);
     maniFbxReleaseUnits(fbx);
     maniFbxReleaseModels(fbx);
+    maniFbxReleaseLegacy(fbx);
     maniFbxReleaseObjects(fbx);
     maniRelease(&allocator, fbx->nodes, fbx->nodeCount, sizeof(maniFbxNode), 8);
     maniRelease(&allocator, fbx->properties, (size_t)fbx->propertyCount + 1,

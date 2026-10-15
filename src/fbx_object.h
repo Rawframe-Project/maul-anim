@@ -19,6 +19,17 @@
 // Reads Objects, Connections, Definitions and GlobalSettings.
 maniImportResult maniFbxReadObjects(maniFbx* fbx);
 
+// For readers of other layouts (mani-0017): a string property's 6.x key;
+// the objects indexed by id, refused (Property) for one given twice; the
+// connections indexed by both ends; GlobalSettings read with a frame
+// rate to fall back on where it gives none (0 for none); and a Settings
+// node's FrameRate (a number or a numeric string, 0 for none).
+int64_t maniFbxNameKey(const maniFbx* fbx, uint32_t property, bool* ok);
+maniImportResult maniFbxIndexObjects(maniFbx* fbx);
+maniImportResult maniFbxIndexConnections(maniFbx* fbx);
+maniImportResult maniFbxReadSettingsWith(maniFbx* fbx, double legacyRate);
+double maniFbxLegacyFrameRate(const maniFbx* fbx, uint32_t settings);
+
 void maniFbxReleaseObjects(maniFbx* fbx);
 
 // The object with an id (7.x) or MANI_FBX_NONE.
@@ -52,6 +63,11 @@ uint32_t maniFbxFindProperty(const maniFbx* fbx, uint32_t object, const char* na
 // index into fbx->properties; MANI_FBX_NONE past its values or for no
 // entry (a lookup's MANI_FBX_NONE passes through).
 uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k);
+
+// Before 6.0: the rest value of an object's Lcl Translation (0),
+// Rotation (1) or Scaling (2) its channels give (mani-0017); false where
+// none does.
+bool maniFbxLegacyRest(const maniFbx* fbx, uint32_t object, uint32_t which, double out[3]);
 
 // Whether a property name is one ufbx keeps on a 6.x model rather than
 // its attribute (mani-0017): the transform, limits, visibility.

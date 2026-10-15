@@ -56,15 +56,26 @@ typedef struct maniFbxNode
     uint32_t reserved;
 } maniFbxNode;
 
+// What an object stands for in a file before 6.0 (mani-0017), which has
+// no deformer objects: a mesh model's skin (its node the mesh's) or one
+// of its Link children as a cluster.
+enum
+{
+    maniFbxRoleNone = 0,
+    maniFbxRoleLegacySkin = 1,
+    maniFbxRoleLegacyCluster = 2,
+};
+
 // An object (mani-0013): its id (7.x; 6.x: its name's hash), its node,
-// and its own and its template's properties nodes (or MANI_FBX_NONE).
+// its own and its template's properties nodes (or MANI_FBX_NONE), and
+// its role.
 typedef struct maniFbxObject
 {
     int64_t id;
     uint32_t node;
     uint32_t properties;
     uint32_t templateProperties;
-    uint32_t reserved;
+    uint32_t role;
 } maniFbxObject;
 
 // A connection: child and parent objects (the parent the root when it
@@ -158,6 +169,11 @@ struct maniFbx
     uint32_t seedCapacity;
     uint32_t* skeletonRoots;
     uint32_t skeletonCount;
+    // Before 6.0 (mani-0017): per object, the rest values the last
+    // channel driving its Lcl Translation, Rotation and Scaling gives,
+    // and which of the three it gives (bits 0 to 2).
+    double (*legacyRests)[3][3];
+    uint8_t* legacyRestMask;
     // Animation stacks in object order, and their names (decoded, without
     // their class) end to end: stack k's at stackNameOffsets[k], up to
     // stackNameOffsets[k + 1].

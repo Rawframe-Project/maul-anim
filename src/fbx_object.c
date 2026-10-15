@@ -13,6 +13,7 @@
 
 #include "allocator.h"
 #include "container.h"
+#include "fbx_ascii.h"
 #include "fbx_document.h"
 #include "fbx_value.h"
 #include "sort.h"
@@ -40,8 +41,7 @@ static void FreeWords(maniFbx* fbx, uint32_t* words, size_t count)
     maniRelease(&fbx->allocator, words, count + 1, sizeof(uint32_t), 8);
 }
 
-// A string property's raw bytes as a 6.x key.
-static int64_t NameKey(const maniFbx* fbx, uint32_t property, bool* ok)
+int64_t maniFbxNameKey(const maniFbx* fbx, uint32_t property, bool* ok)
 {
     const uint8_t* bytes = NULL;
     uint32_t length = 0;
@@ -58,7 +58,7 @@ static bool ObjectKey(const maniFbx* fbx, uint32_t node, int64_t* key)
         return maniFbxInteger(fbx, first, INT64_MIN, INT64_MAX, key);
     }
     bool ok = false;
-    *key = NameKey(fbx, first, &ok);
+    *key = maniFbxNameKey(fbx, first, &ok);
     return ok;
 }
 
@@ -67,7 +67,7 @@ static uint64_t SortKey(int64_t id)
     return (uint64_t)id ^ 0x8000000000000000u;
 }
 
-static maniImportResult IndexObjects(maniFbx* fbx)
+maniImportResult maniFbxIndexObjects(maniFbx* fbx)
 {
     uint32_t n = fbx->objectCount;
     uint64_t* keys = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint64_t), 8);
@@ -137,6 +137,12 @@ static bool StringIs(const maniFbx* fbx, uint32_t property, const char* s, size_
 // The subclass property: third in 7.x, second in 6.x.
 static uint32_t SubclassOf(const maniFbx* fbx, uint32_t node)
 {
+    if (fbx->version < 6000)
+    {
+        // A model's Type child (mani-0017).
+        uint32_t type = maniFbxFindChild(fbx, node, "Type", 4);
+        return type != MANI_FBX_NONE ? maniFbxNodeProperty(fbx, type, 0) : MANI_FBX_NONE;
+    }
     return maniFbxNodeProperty(fbx, node, fbx->version >= 7000 ? 2 : 1);
 }
 
@@ -234,7 +240,7 @@ static maniImportResult ReadObjectList(maniFbx* fbx)
             ++fbx->skippedObjects;
         }
     }
-    return IndexObjects(fbx);
+    return maniFbxIndexObjects(fbx);
 }
 
 uint32_t maniFbxReferencedObject(const maniFbx* fbx, uint32_t property)
@@ -253,7 +259,7 @@ uint32_t maniFbxReferencedObject(const maniFbx* fbx, uint32_t property)
         return fbx->objectCount;
     }
     bool ok = false;
-    key = NameKey(fbx, property, &ok);
+    key = maniFbxNameKey(fbx, property, &ok);
     return ok ? maniFbxFindObject(fbx, key) : MANI_FBX_NONE;
 }
 
@@ -352,6 +358,11 @@ static maniImportResult ReadConnections(maniFbx* fbx)
             ++fbx->skippedConnections;
         }
     }
+    return maniFbxIndexConnections(fbx);
+}
+
+maniImportResult maniFbxIndexConnections(maniFbx* fbx)
+{
     maniImportResult r = IndexEnds(fbx, true, &fbx->byParent, &fbx->parentStarts);
     return r.result == mani_success ? IndexEnds(fbx, false, &fbx->byChild, &fbx->childStarts) : r;
 }
@@ -406,13 +417,29 @@ uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k)
     return maniFbxNodeProperty(fbx, entry, first + k);
 }
 
+// A legacy role's kind and subclass: Deformer, Skin or Cluster.
+static bool RoleIs(uint32_t role, const char* kind, size_t length, const char* name,
+                   size_t nameLength)
+{
+    const char* sub = role == maniFbxRoleLegacySkin ? "Skin" : "Cluster";
+    return kind != NULL ? length == 8 && memcmp(kind, "Deformer", 8) == 0
+                        : strlen(sub) == nameLength && memcmp(sub, name, nameLength) == 0;
+}
+
 bool maniFbxObjectKindIs(const maniFbx* fbx, uint32_t object, const char* kind, size_t length)
 {
-    return maniFbxNameIs(fbx, fbx->objects[object].node, kind, length);
+    uint32_t role = fbx->objects[object].role;
+    return role != maniFbxRoleNone ? RoleIs(role, kind, length, NULL, 0)
+                                   : maniFbxNameIs(fbx, fbx->objects[object].node, kind, length);
 }
 
 bool maniFbxObjectSubclassIs(const maniFbx* fbx, uint32_t object, const char* name, size_t length)
 {
+    uint32_t role = fbx->objects[object].role;
+    if (role != maniFbxRoleNone)
+    {
+        return RoleIs(role, NULL, 0, name, length);
+    }
     return maniFbxStringEquals(fbx, SubclassOf(fbx, fbx->objects[object].node), name, length);
 }
 
@@ -477,7 +504,8 @@ static const uint32_t kRates[19][2] = {
     {0, 0},  {96, 1},       {72, 1},       {60000, 1001}, {120000, 1001},
 };
 
-static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties)
+// The rate: TimeMode's, else the legacy rate (mode 14) when there is one.
+static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties, double legacyRate)
 {
     int64_t mode = 0;
     uint32_t where = MANI_FBX_NONE;
@@ -485,6 +513,8 @@ static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties)
     {
         return Refuse(fbx, where, 0);
     }
+    bool legacy = where == MANI_FBX_NONE && legacyRate > 0.0;
+    mode = legacy ? 14 : mode;
     maniFbxGlobalSettings* s = &fbx->settings;
     s->timeMode = (uint32_t)mode;
     s->rateNumerator = kRates[mode][0];
@@ -492,7 +522,9 @@ static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties)
     if (mode == 14)
     {
         where = Setting(fbx, properties, "CustomFrameRate");
-        if (!maniFbxNumber(fbx, where, &s->customRate) || !(s->customRate > 0.0))
+        s->customRate = legacy ? legacyRate : 0.0;
+        if ((where != MANI_FBX_NONE || !legacy) &&
+            (!maniFbxNumber(fbx, where, &s->customRate) || !(s->customRate > 0.0)))
         {
             return Refuse(fbx, where, 0);
         }
@@ -545,9 +577,7 @@ static int64_t TicksPerSecond(const maniFbx* fbx)
     return versioned && defined && definition != 127 ? 141120000 : 46186158000;
 }
 
-// GlobalSettings, FBX's defaults where it is silent: X right, Y up, Z
-// front, all positive; one centimetre a unit; 30 frames a second.
-static maniImportResult ReadSettings(maniFbx* fbx)
+maniImportResult maniFbxReadSettingsWith(maniFbx* fbx, double legacyRate)
 {
     fbx->settings = (maniFbxGlobalSettings){
         {0, 1, 2}, {1, 1, 1}, 1.0, 1.0, 0, 30, 1, 0.0, 0, 0, TicksPerSecond(fbx)};
@@ -577,7 +607,23 @@ static maniImportResult ReadSettings(maniFbx* fbx)
     {
         r = ReadScale(fbx, properties, "OriginalUnitScaleFactor", &fbx->settings.originalUnitScale);
     }
-    return r.result == mani_success ? ReadRate(fbx, properties) : r;
+    return r.result == mani_success ? ReadRate(fbx, properties, legacyRate) : r;
+}
+
+double maniFbxLegacyFrameRate(const maniFbx* fbx, uint32_t settings)
+{
+    uint32_t node =
+        settings != MANI_FBX_NONE ? maniFbxFindChild(fbx, settings, "FrameRate", 9) : MANI_FBX_NONE;
+    uint32_t value = node != MANI_FBX_NONE ? maniFbxNodeProperty(fbx, node, 0) : MANI_FBX_NONE;
+    double rate = 0.0;
+    const uint8_t* text = NULL;
+    uint32_t length = 0;
+    if (!maniFbxNumber(fbx, value, &rate) && maniFbxString(fbx, value, &text, &length) &&
+        !maniFbxTextDouble(fbx, (uint64_t)(text - fbx->bytes), length, &rate))
+    {
+        rate = 0.0;
+    }
+    return rate > 0.0 ? rate : 0.0;
 }
 
 maniImportResult maniFbxReadObjects(maniFbx* fbx)
@@ -587,7 +633,14 @@ maniImportResult maniFbxReadObjects(maniFbx* fbx)
     {
         r = ReadConnections(fbx);
     }
-    return r.result == mani_success ? ReadSettings(fbx) : r;
+    // Version5's Settings (a 6.x file's leftover) give a rate where
+    // GlobalSettings gives none.
+    uint32_t version5 = maniFbxFindChild(fbx, 0, "Version5", 8);
+    uint32_t settings =
+        version5 != MANI_FBX_NONE ? maniFbxFindChild(fbx, version5, "Settings", 8) : MANI_FBX_NONE;
+    return r.result == mani_success
+               ? maniFbxReadSettingsWith(fbx, maniFbxLegacyFrameRate(fbx, settings))
+               : r;
 }
 
 void maniFbxReleaseObjects(maniFbx* fbx)
@@ -746,12 +799,29 @@ bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry)
            memchr(flags, 'U', length) != NULL;
 }
 
+// Before 6.0 (mani-0017), a model has an attribute when its Type is a
+// LimbNode, Light or Camera or it holds Vertices; it is a mesh with
+// Vertices and PolygonVertexIndex. The subclass is never Model there.
+static bool LegacySubclass(const maniFbx* fbx, uint32_t node, uint32_t* subclassOut, bool* meshOut)
+{
+    uint32_t type = SubclassOf(fbx, node);
+    bool vertices = maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE;
+    *subclassOut = type;
+    *meshOut = vertices && maniFbxFindChild(fbx, node, "PolygonVertexIndex", 18) != MANI_FBX_NONE;
+    return vertices || StringIs(fbx, type, "LimbNode", 8) || StringIs(fbx, type, "Light", 5) ||
+           StringIs(fbx, type, "Camera", 6);
+}
+
 // A 6.x model's subclass as ufbx sees it: its own, or Mesh for none with
 // a mesh's Vertices and PolygonVertexIndex; false for none otherwise.
 static bool EffectiveSubclass(const maniFbx* fbx, uint32_t object, uint32_t* subclassOut,
                               bool* meshOut)
 {
     uint32_t node = fbx->objects[object].node;
+    if (fbx->version < 6000)
+    {
+        return LegacySubclass(fbx, node, subclassOut, meshOut);
+    }
     uint32_t subclass = SubclassOf(fbx, node);
     const uint8_t* bytes = NULL;
     uint32_t length = 0;
@@ -807,4 +877,14 @@ bool maniFbxEntryNumeric(const maniFbx* fbx, uint32_t entry)
         }
     }
     return false;
+}
+
+bool maniFbxLegacyRest(const maniFbx* fbx, uint32_t object, uint32_t which, double out[3])
+{
+    if (fbx->legacyRestMask == NULL || (fbx->legacyRestMask[object] & (1u << which)) == 0)
+    {
+        return false;
+    }
+    memcpy(out, fbx->legacyRests[object][which], 3 * sizeof *out);
+    return true;
 }

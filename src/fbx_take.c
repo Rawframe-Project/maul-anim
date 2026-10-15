@@ -54,9 +54,7 @@ static bool Named(const maniFbx* fbx, uint32_t node)
     return maniFbxString(fbx, maniFbxNodeProperty(fbx, node, 0), &bytes, &length);
 }
 
-// A property channel's components: the node itself, or its first three
-// named Channel children holding one.
-static uint32_t Components(const maniFbx* fbx, uint32_t node, uint32_t out[3])
+uint32_t maniFbxChannelComponents(const maniFbx* fbx, uint32_t node, uint32_t out[3])
 {
     if (Holds(fbx, node))
     {
@@ -73,6 +71,18 @@ static uint32_t Components(const maniFbx* fbx, uint32_t node, uint32_t out[3])
         }
     }
     return n;
+}
+
+double maniFbxChannelDefault(const maniFbx* fbx, uint32_t component)
+{
+    // A Default not a number counts as none.
+    double value = 0.0;
+    uint32_t node = maniFbxFindChild(fbx, component, "Default", 7);
+    if (node != MANI_FBX_NONE)
+    {
+        (void)maniFbxNumber(fbx, maniFbxNodeProperty(fbx, node, 0), &value);
+    }
+    return value;
 }
 
 // Whether a channel drives the target's attribute: a 6.x model with one,
@@ -104,12 +114,7 @@ static maniImportResult ReadComponents(const maniFbx* fbx, const uint32_t* compo
     maniImportResult r = maniFbxSuccess();
     for (uint32_t k = 0; r.result == mani_success && k < n; ++k)
     {
-        // A Default not a number leaves the value 0 (the channel is zeroed).
-        uint32_t value = maniFbxFindChild(fbx, components[k], "Default", 7);
-        if (value != MANI_FBX_NONE)
-        {
-            (void)maniFbxNumber(fbx, maniFbxNodeProperty(fbx, value, 0), &channel->values[k]);
-        }
+        channel->values[k] = maniFbxChannelDefault(fbx, components[k]);
         r = maniFbxReadKeys(fbx, components[k], channel->target, &channel->curves[k]);
     }
     return r;
@@ -121,7 +126,7 @@ static maniImportResult Property(Reader* r, uint32_t node, uint32_t target, uint
                                  const char* literal)
 {
     uint32_t components[3];
-    uint32_t n = Components(r->fbx, node, components);
+    uint32_t n = maniFbxChannelComponents(r->fbx, node, components);
     if (n == 0)
     {
         return maniFbxSuccess();

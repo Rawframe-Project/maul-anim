@@ -36,6 +36,15 @@ weights are one float per target (mani-0012's glTF morph tracks).
   makes no float track.
 - What ufbx fails on is refused; times that are not whole ticks or go
   back, and values that are not finite, are refused as for 7.x curves.
+- Files before 6.0 (versions 3000 to 5999) are read, as ufbx reads
+  them, into the same objects and connections: each top-level Model is
+  an object keyed by its name, its `Type` (LimbNode, Light, Camera) its
+  subclass, its `Children` list its children; a mesh's `Link` children
+  are the clusters of one skin per mesh. Such a model has no property
+  entries: the last channel driving one of its Lcl properties in file
+  order, a take's or its own, gives that property's rest value. A
+  `Settings` FrameRate, and a 6.x file's `Version5` one, is the frame
+  rate where GlobalSettings gives none.
 
 ## Consequences
 
