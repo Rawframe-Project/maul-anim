@@ -720,9 +720,9 @@ fan-component-z | src/fbx_anim.c | return NameIs(fbx, property, "Z") || NameIs(f
 fan-node-values | src/fbx_anim.c | if (!Number(fbx, node, kNames[k], strlen(kNames[k]), &values[k / 2])) | if (false)
 fan-target-root | src/fbx_anim.c | c->parent >= fbx->objectCount) | false)
 fan-sort-key | src/fbx_anim.c | keys[i] = ((uint64_t)c->target << 32) + c->layer; | keys[i] = (uint64_t)c->layer;
-fan-twice | src/fbx_anim.c | if (maniFbxSameString(fbx, a->channels[i].name, a->channels[j].name)) | if (false)
+fan-twice | src/fbx_anim.c | if (maniFbxSameChannelName(fbx, &a->channels[i], &a->channels[j])) | if (false)
 fan-take-name | src/fbx_anim.c | if (maniFbxNameIs(fbx, take, "Take", 4) && | if (true &&
-fan-take-reference | src/fbx_anim.c | TakeTimes(fbx, take, "ReferenceTime", a, b); | false;
+fan-take-reference | src/fbx_anim.c | maniFbxTakeTimes(fbx, take, "ReferenceTime", a, b); | false;
 fan-span-start | src/fbx_anim.c | *start = !any || c->firstTick < *start ? c->firstTick : *start; | *start = c->firstTick;
 fan-span-stop | src/fbx_anim.c | *stop = !any || c->lastTick > *stop ? c->lastTick : *stop; | *stop = c->lastTick;
 fan-reference | src/fbx_anim.c | !Pair(fbx, stack, "ReferenceStart", "ReferenceStop", &a->start, &a->stop) && | true &&
@@ -744,8 +744,8 @@ sca-exp-terms | src/scalar.c | for (int32_t k = 20; k >= 1; --k) | for (int32_t 
 ftr-euler-gimbal | src/fbx_transform.c | if (fabs(e.t) < 0.999999999) | if (fabs(e.t) <= 1.0)
 ftr-euler-locked-sign | src/fbx_transform.c | radians[b] = e.t < 0.0 ? -1.5707963267948966 : 1.5707963267948966; | radians[b] = 1.5707963267948966;
 fan-count-cap | src/fbx_anim.c | r = r.result == mani_success && count >= UINT32_MAX ? Capacity() : r; | (void)0;
-fan-name-hash | src/fbx_anim.c | if (c->nameHash != hash || !maniFbxStringEquals(fbx, c->name, name, length)) | if (!maniFbxStringEquals(fbx, c->name, name, length))
-fan-name-equal | src/fbx_anim.c | if (c->nameHash != hash || !maniFbxStringEquals(fbx, c->name, name, length)) | if (c->nameHash != hash)
+fan-name-hash | src/fbx_anim.c | if (c->nameHash != hash || c->attribute != attribute || | if (c->attribute != attribute ||
+fan-name-equal | src/fbx_anim.c | !maniFbxChannelNameIs(fbx, c, name, length)) | false)
 fan-hash-first | src/fbx_anim.c | keys[i] = a->channels[i].nameHash; | keys[i] = 0;
 fan-channel-value | src/fbx_anim.c | !Number(fbx, node, (const char*)name, length, &channel->values[k])) | false)
 fbv-same-bytes | src/fbx_value.c | if (Next(&x) != Next(&y)) | if (false)
@@ -782,15 +782,15 @@ fcl-static-entry | src/fbx_clip.c | return channel->curves[1].count > 0 || chann
 fcl-static-count | src/fbx_clip.c | while (n < 3 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n])) | while (n < 1 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n]))
 fcl-name-slash | src/fbx_clip.c | name[n - 2] = '/'; | name[n - 2] = '.';
 fcl-name-index | src/fbx_clip.c | name[n - 1] = (char)('0' + k); | name[n - 1] = '0';
-fcl-seen | src/fbx_clip.c | if (!InChain(c->fbx, channel->name) && !Seen(c, first, i)) | if (!InChain(c->fbx, channel->name))
+fcl-seen | src/fbx_clip.c | if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i)) | if (!channel->attribute && !InChain(c->fbx, channel))
 fcl-float-skip | src/fbx_clip.c | if (c->rule[b] == kNone || c->rule[b] == kHelper) | if (c->rule[b] == kNone)
-fcl-bound | src/fbx_clip.c | n += c->needed[m] != 0 ? maniFbxAnimatedRun(&c->animation, c->fbx->models[m], &first) : 0; | n += maniFbxAnimatedRun(&c->animation, c->fbx->models[m], &first);
+fcl-bound | src/fbx_clip.c | for (uint32_t i = first; c->needed[m] != 0 && i < first + count; ++i) | for (uint32_t i = first; i < first + count; ++i)
 fcl-name-refusal | src/fbx_clip.c | if (floats && (r.reason & 0xFFu) == maniBuildReasonTrack && r.item < c->floatCount) | if (false)
 fcl-anim-item | src/fbx_clip.c | r.item = r.result == mani_errorFormat ? clip : r.item; | (void)0;
 fsm-integer-range | src/fbx_sample.c | if (!(v[0] > -1.0 && v[0] < limit + 1.0)) | if (!(v[0] < limit + 1.0))
 fsm-order-first | src/fbx_sample.c | uint32_t compose = order == 6 ? 0 : (uint32_t)order; | uint32_t compose = 0;
 fsm-needed | src/fbx_sample.c | if (needed[children[k]] != 0) | if (true)
-fst-name | src/fbx_anim.c | at += maniFbxObjectName(fbx, o, (uint8_t*)fbx->stackNames + at, text - at); | at += 0;
+fst-name | src/fbx_anim.c | ? maniFbxObjectName(fbx, source, (uint8_t*)fbx->stackNames + at, text - at) | ? 0
 fst-object | src/fbx_anim.c | return k < fbx->stackCount ? fbx->stacks[k] : MANI_FBX_NONE; | return fbx->stacks[k];
 
 # FBX blend shapes (fbx_blend.c, their tracks in fbx_clip.c, skins within
@@ -878,3 +878,54 @@ fva-list-word | src/fbx_value.c | return NonFiniteWord(bytes, p->encodedSize) | 
 fva-list-string | src/fbx_value.c | if (p->type == 'S' || p->type == 'R' || maniFbxArrayCount(fbx, property) > 0) | if (p->type == 'R' || maniFbxArrayCount(fbx, property) > 0)
 fva-list-array | src/fbx_value.c | bool array = n->propertyCount == 1 && maniFbxArrayCount(fbx, first) > 0; | bool array = false;
 fcu-type-char | src/fbx_curve.c | if (type == MANI_FBX_NONE || !maniFbxCharacter(fbx, maniFbxNodeProperty(fbx, type, 0), &mode)) | if (type == MANI_FBX_NONE || !maniFbxInteger(fbx, maniFbxNodeProperty(fbx, type, 0), INT32_MIN, INT32_MAX, &mode))
+
+# FBX 6.x takes (fbx_take.c, stacks and channel names in fbx_anim.c, the
+# attribute split in fbx_object.c and fbx_clip.c; mani-0016),
+# 2026-10-15: 42 mutants, 39 killed. Equivalent: fta-layer-weight (a
+# lone layer sets its values whatever its weight), fan-same-a and
+# fan-same-b (only reached when the name hashes agree). Seven earlier
+# records (fan-twice, fan-take-reference, fan-name-hash, fan-name-equal,
+# fcl-seen, fcl-bound, fst-name) were rewritten for the moved lines and
+# rerun.
+fta-holds-key | src/fbx_take.c | return maniFbxFindChild(fbx, node, "Key", 3) != MANI_FBX_NONE || | return false ||
+fta-holds-default | src/fbx_take.c | maniFbxFindChild(fbx, node, "Default", 7) != MANI_FBX_NONE; | false;
+fta-components-self | src/fbx_take.c | if (Holds(fbx, node)) | if (false)
+fta-components-three | src/fbx_take.c | for (uint32_t c = fbx->nodes[node].firstChild; c != MANI_FBX_NONE && n < 3; | for (uint32_t c = fbx->nodes[node].firstChild; c != MANI_FBX_NONE && n < 2;
+fta-components-holds | src/fbx_take.c | if (maniFbxNameIs(fbx, c, "Channel", 7) && Holds(fbx, c) && Named(fbx, c)) | if (maniFbxNameIs(fbx, c, "Channel", 7) && Named(fbx, c))
+fta-components-named | src/fbx_take.c | if (maniFbxNameIs(fbx, c, "Channel", 7) && Holds(fbx, c) && Named(fbx, c)) | if (maniFbxNameIs(fbx, c, "Channel", 7) && Holds(fbx, c))
+fta-attr-model | src/fbx_take.c | if (!maniFbxObjectKindIs(fbx, model, "Model", 5) || !maniFbxModelHasAttribute(fbx, model)) | if (!maniFbxModelHasAttribute(fbx, model))
+fta-attr-has | src/fbx_take.c | if (!maniFbxObjectKindIs(fbx, model, "Model", 5) || !maniFbxModelHasAttribute(fbx, model)) | if (!maniFbxObjectKindIs(fbx, model, "Model", 5))
+fta-attr-node | src/fbx_take.c | if (length < sizeof name && maniFbxIsNodeProperty(name, length)) | if (false)
+fta-attr-user | src/fbx_take.c | return entry == MANI_FBX_NONE || !maniFbxEntryUserDefined(fbx, entry); | return true;
+fta-attr-absent | src/fbx_take.c | return entry == MANI_FBX_NONE || !maniFbxEntryUserDefined(fbx, entry); | return entry != MANI_FBX_NONE && !maniFbxEntryUserDefined(fbx, entry);
+fta-keys | src/fbx_take.c | r = maniFbxReadKeys(fbx, components[k], channel->target, &channel->curves[k]); | r = maniFbxSuccess();
+fta-none | src/fbx_take.c | if (n == 0) | if (false)
+fta-hash | src/fbx_take.c | c->nameHash = literal != NULL ? maniFbxNameHash(literal, c->literalLength) | c->nameHash = literal != NULL ? 0
+fta-source | src/fbx_take.c | c->source = node; | c->source = 0;
+fta-attribute | src/fbx_take.c | c->attribute = OnAttribute(r->fbx, c); | c->attribute = false;
+fta-transform-unnamed | src/fbx_take.c | return Refuse(fbx, c, target); | continue;
+fta-transform-short | src/fbx_take.c | if (maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, c, 0), kShort[k], 1)) | if (maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, c, 0), kShort[0], 1))
+fta-model-unnamed | src/fbx_take.c | return Refuse(fbx, node, 0); | return maniFbxSuccess();
+fta-model-missing | src/fbx_take.c | if (target >= fbx->objectCount) | if (target == MANI_FBX_NONE)
+fta-model-channel | src/fbx_take.c | if (!maniFbxNameIs(fbx, c, "Channel", 7) || !Named(fbx, c)) | if (!Named(fbx, c))
+fta-model-transform | src/fbx_take.c | result = maniFbxStringEquals(fbx, name, "Transform", 9) | result = false
+fta-each-model | src/fbx_take.c | if (maniFbxNameIs(r->fbx, c, "Model", 5)) | if (true)
+fta-take-unnamed | src/fbx_take.c | return Refuse(fbx, take, 0); | (void)0;
+fta-layer-weight | src/fbx_take.c | out->layers[0] = (maniFbxLayer){MANI_FBX_NONE, maniFbxBlendAdditive, 1.0, true, true}; | out->layers[0] = (maniFbxLayer){MANI_FBX_NONE, maniFbxBlendAdditive, 0.5, true, true};
+fta-sort | src/fbx_take.c | r = r.result == mani_success ? maniFbxSortChannels(fbx, out) : r; | r = r;
+fta-local | src/fbx_take.c | if (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) && | if (true &&
+fta-reference | src/fbx_take.c | !maniFbxTakeTimes(fbx, take, "ReferenceTime", &out->start, &out->stop)) | true)
+fta-dispatch | src/fbx_take.c | return fbx->version >= 7000 ? maniFbxReadAnimation(fbx, source, out) | return fbx->version > 7000 ? maniFbxReadAnimation(fbx, source, out)
+fan-stack-name | src/fbx_anim.c | return fbx->version >= 7000 ? maniFbxNodeProperty(fbx, fbx->objects[source].node, 1) | return fbx->version >= 7000 ? maniFbxNodeProperty(fbx, fbx->objects[source].node, 0)
+fan-stack-takes | src/fbx_anim.c | uint32_t takes = fbx->version < 7000 ? maniFbxFindChild(fbx, 0, "Takes", 5) : MANI_FBX_NONE; | uint32_t takes = maniFbxFindChild(fbx, 0, "Takes", 5);
+fan-stack-take | src/fbx_anim.c | if (maniFbxNameIs(fbx, take, "Take", 4)) | if (true)
+fan-literal-is | src/fbx_anim.c | return channel->literalLength == length && memcmp(channel->literal, name, length) == 0; | return memcmp(channel->literal, name, length) == 0;
+fan-same-a | src/fbx_anim.c | return maniFbxChannelNameIs(fbx, b, a->literal, a->literalLength); | return true;
+fan-same-b | src/fbx_anim.c | return maniFbxChannelNameIs(fbx, a, b->literal, b->literalLength); | return true;
+fob-node-length | src/fbx_object.c | if (strlen(n) == length && memcmp(n, name, length) == 0) | if (memcmp(n, name, length) == 0)
+fob-user-index | src/fbx_object.c | uint32_t k = maniFbxNameIs(fbx, entry, "P", 1) ? 3 : 2; | uint32_t k = 3;
+fob-user-flag | src/fbx_object.c | memchr(flags, 'U', length) != NULL; | memchr(flags, 'A', length) != NULL;
+fob-attr-mesh | src/fbx_object.c | return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE && | return false &&
+fob-attr-model | src/fbx_object.c | return !maniFbxStringEquals(fbx, subclass, "Model", 5); | return true;
+fcl-tracks-attribute | src/fbx_clip.c | if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i)) | if (!InChain(c->fbx, channel) && !Seen(c, first, i))
+fcl-bound-attribute | src/fbx_clip.c | n += c->animation.channels[i].attribute ? 0 : 1; | n += 1;
