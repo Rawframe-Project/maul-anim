@@ -103,13 +103,13 @@ static maniImportResult PropertyTracks(maniFbxClipState* c, uint32_t b,
 {
     const maniFbx* fbx = c->fbx;
     uint32_t object = fbx->models[c->modelOf[b]];
-    size_t rawLength = maniFbxChannelName(fbx, channel, NULL, 0);
-    char* property = maniArenaTake(&c->arena, rawLength + 1, 1);
+    size_t needed = maniFbxChannelName(fbx, channel, NULL, 0);
+    char* property = maniArenaTake(&c->arena, needed + 1, 1);
     if (property == NULL)
     {
         return Capacity();
     }
-    size_t length = maniFbxChannelName(fbx, channel, (uint8_t*)property, rawLength);
+    size_t length = maniFbxChannelName(fbx, channel, (uint8_t*)property, needed);
     double rest[3];
     uint32_t width = Static(fbx, object, property, length, channel, rest);
     float* values = maniArenaTake(&c->arena, (size_t)c->sampleCount * width, sizeof(float));
@@ -161,13 +161,9 @@ static bool Seen(const maniFbxClipState* c, uint32_t first, uint32_t i)
 static char* ObjectName(maniFbxClipState* c, uint32_t object, size_t* lengthOut)
 {
     const maniFbx* fbx = c->fbx;
-    const uint8_t* raw = NULL;
-    uint32_t rawLength = 0;
-    uint32_t property =
-        maniFbxNodeProperty(fbx, fbx->objects[object].node, fbx->version >= 7000 ? 1 : 0);
-    (void)maniFbxString(fbx, property, &raw, &rawLength);
-    char* name = maniArenaTake(&c->arena, (size_t)rawLength + 1, 1);
-    *lengthOut = name != NULL ? maniFbxObjectName(fbx, object, (uint8_t*)name, rawLength) : 0;
+    size_t length = maniFbxObjectName(fbx, object, NULL, 0);
+    char* name = maniArenaTake(&c->arena, length + 1, 1);
+    *lengthOut = name != NULL ? maniFbxObjectName(fbx, object, (uint8_t*)name, length) : 0;
     return name;
 }
 
@@ -339,12 +335,13 @@ static maniImportResult OwnerShape(maniFbxClipState* c, uint32_t owner, uint32_t
     {
         return maniFbxFail(maniImportReasonProperty, fbx->nodes[shape].nameOffset, owner);
     }
-    char* name = maniArenaTake(&c->arena, (size_t)rawLength + 1, 1);
+    size_t decoded = maniFbxStringDecode(fbx, property, NULL, 0);
+    char* name = maniArenaTake(&c->arena, decoded + 1, 1);
     if (name == NULL)
     {
         return Capacity();
     }
-    size_t length = maniFbxStringDecode(fbx, property, (uint8_t*)name, rawLength);
+    size_t length = maniFbxStringDecode(fbx, property, (uint8_t*)name, decoded);
     uint32_t entry = maniFbxFindProperty(fbx, owner, name, length);
     // Before 6.0 the weight is connected with no property (mani-0017).
     bool weighted =

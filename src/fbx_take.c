@@ -154,11 +154,9 @@ static maniImportResult Property(Reader* r, uint32_t node, uint32_t target, uint
     }
     maniImportResult result = maniFbxSuccess();
     bool cut = r->fbx->version < 6000 && literal == NULL;
-    const uint8_t* raw = NULL;
-    uint32_t rawLength = 0;
-    if (cut && r->out == NULL && maniFbxString(r->fbx, name, &raw, &rawLength))
+    if (cut && r->out == NULL)
     {
-        r->namesUsed += rawLength;
+        r->namesUsed += maniFbxStringDecode(r->fbx, name, NULL, 0);
     }
     if (r->out != NULL && r->count < r->capacity)
     {

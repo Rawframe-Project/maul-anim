@@ -445,21 +445,7 @@ size_t maniFbxObjectName(const maniFbx* fbx, uint32_t object, uint8_t* out, size
 {
     uint32_t k = fbx->version >= 7000 ? 1 : 0;
     uint32_t property = maniFbxNodeProperty(fbx, fbx->objects[object].node, k);
-    size_t length = maniFbxStringDecode(fbx, property, out, capacity);
-    // Binary: Name\x00\x01Class. ASCII: Class::Name.
-    for (size_t i = 0; i + 1 < length; ++i)
-    {
-        if (!fbx->ascii && out[i] == 0 && out[i + 1] == 1)
-        {
-            return i;
-        }
-        if (fbx->ascii && out[i] == ':' && out[i + 1] == ':')
-        {
-            memmove(out, out + i + 2, length - i - 2);
-            return length - i - 2;
-        }
-    }
-    return length;
+    return maniFbxStringNameRange(fbx, property, !fbx->ascii, out, capacity);
 }
 
 // A setting's first value, or MANI_FBX_NONE when GlobalSettings lacks it.

@@ -16,7 +16,8 @@
 #include <stdint.h>
 
 // Whether a string property (binary or ASCII, quoted or a bare word)
-// holds exactly these bytes, FBX's entities decoded.
+// holds exactly these bytes, FBX's entities decoded and made valid UTF-8
+// as maniFbxStringDecode makes them.
 bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length);
 
 // A name's hash: maniHash64 from MANI_HASH_INIT, a byte at a time.
@@ -29,9 +30,17 @@ uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property);
 // Whether two string properties hold the same bytes, so compared.
 bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b);
 
-// A string property's bytes, entities decoded, into out: the count
-// written, whole bytes up to capacity.
+// A string property's bytes, entities decoded, then made valid UTF-8 as
+// ufbx makes them (mani-0012): each valid sequence kept, each other byte
+// and NUL U+FFFD, so a byte can become three. Into out, whole characters
+// up to capacity: the count written; with out NULL, the count all take.
 size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity);
+
+// An object name's part before "\x00\x01" (binary) or after "::"
+// (ASCII), found before the bytes are made valid, then decoded as
+// maniFbxStringDecode decodes.
+size_t maniFbxStringNameRange(const maniFbx* fbx, uint32_t property, bool binary, uint8_t* out,
+                              size_t capacity);
 
 // A node's k-th property, or MANI_FBX_NONE past its count.
 uint32_t maniFbxNodeProperty(const maniFbx* fbx, uint32_t node, uint32_t k);

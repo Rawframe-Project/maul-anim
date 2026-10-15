@@ -526,6 +526,19 @@ static void TestRefusals(void)
     Scene(7400, false);
     Word(s_w.b + array, 4, 4, false);
     ExpectRefusal(maniImportReasonContainer, array + 8, "a raw array's count past its bytes");
+    // A deflated array (23 bytes) may give 1032 times its bytes, no more.
+    Scene(7400, false);
+    size_t values = PropertyAt(RecordAt("KeyValueFloat"), 0) + 1;
+    Word(s_w.b + values, 23 * 1032 / 4 + 1, 4, false);
+    ExpectRefusal(maniImportReasonContainer, values, "a deflated array larger than DEFLATE gives");
+    Scene(7400, false);
+    Word(s_w.b + values, 23 * 1032 / 4, 4, false);
+    maniBuilder* largest = NewBuilder();
+    maniFbx* opened = NULL;
+    CHECK(maniOpenFbx(largest, s_w.b, s_w.n, &opened).result == mani_success,
+          "a deflated array as large as DEFLATE gives opens");
+    maniCloseFbx(opened);
+    maniDestroyBuilder(largest);
     // A scalar running past its record's property bytes.
     Scene(7400, false);
     size_t version = RecordAt("FBXVersion");

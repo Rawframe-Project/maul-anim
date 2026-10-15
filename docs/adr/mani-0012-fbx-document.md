@@ -31,9 +31,14 @@ hostile input.
   the first counts and checks, the second fills. Refusals are
   Container, at the byte found wrong.
 - **Values on request:** numbers, whole numbers within a range, raw
-  strings (FBX's names hold `\x00\x01` separators), and arrays decoded
+  strings (FBX's names hold `\x00\x01` separators), strings decoded and
+  made valid UTF-8 as ufbx makes them (each valid sequence kept, each
+  other byte and NUL U+FFFD; names split from their class first), so
+  names and the comparisons of names match ufbx's, and arrays decoded
   into caller memory, as binary64 or as integers. A zlib array is
-  inflated by the family's inflate into exactly its decoded size; a
+  inflated by the family's inflate into exactly its decoded size (a
+  size past 1032 times its compressed bytes, DEFLATE's most, refused at
+  open as Container, before anything is sized by it); a
   stream that gives more or less or fails its checksum is Data at the
   array, a float that is not finite Data at its element (or the array,
   when compressed).

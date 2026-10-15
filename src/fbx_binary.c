@@ -140,6 +140,13 @@ static maniImportResult ReadArray(Reader* r, uint8_t type, uint64_t* at, uint64_
     {
         return Bad(p + 8);
     }
+    // DEFLATE gives at most 1032 bytes for each it takes (a 258-byte
+    // match in two bits): a larger size is refused before anything is
+    // sized by it.
+    if (encoding == 1 && (uint64_t)count * ArrayElementSize(type) > encoded * 1032)
+    {
+        return Bad(p);
+    }
     if (!Fits(p + 12, encoded, limit))
     {
         return Bad(p + 8);

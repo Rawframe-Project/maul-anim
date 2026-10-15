@@ -187,45 +187,6 @@ static uint8_t NextByte(const uint8_t* p, uint32_t length, uint32_t* at)
     return p[(*at)++];
 }
 
-size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity)
-{
-    const uint8_t* p = NULL;
-    uint32_t length = 0;
-    if (!maniFbxString(fbx, property, &p, &length))
-    {
-        return 0;
-    }
-    bool entities = fbx->ascii && fbx->properties[property].type == 'S';
-    size_t written = 0;
-    for (uint32_t at = 0; at < length && written < capacity;)
-    {
-        out[written++] = entities ? NextByte(p, length, &at) : p[at++];
-    }
-    return written;
-}
-
-bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length)
-{
-    const uint8_t* p = NULL;
-    uint32_t raw = 0;
-    if (!maniFbxString(fbx, property, &p, &raw))
-    {
-        return false;
-    }
-    bool entities = fbx->ascii && fbx->properties[property].type == 'S';
-    size_t matched = 0;
-    for (uint32_t at = 0; at < raw;)
-    {
-        uint8_t c = entities ? NextByte(p, raw, &at) : p[at++];
-        if (matched == length || (uint8_t)bytes[matched] != c)
-        {
-            return false;
-        }
-        ++matched;
-    }
-    return matched == length;
-}
-
 // A string property's decoded bytes, one at a time.
 typedef struct Reader
 {
@@ -252,6 +213,162 @@ static uint8_t Next(Reader* r)
     return r->entities ? NextByte(r->p, r->raw, &r->at) : r->p[r->at++];
 }
 
+// The length of the UTF-8 sequence starting b (n bytes at hand), or 0
+// for none, by ufbx's rules (ufbxi_utf8_valid_length): no NUL, no
+// overlong form, no surrogate, nothing past U+10FFFF.
+static uint32_t SequenceLength(const uint8_t* b, uint32_t n)
+{
+    uint32_t c = b[0];
+    if (c < 0x80)
+    {
+        return c != 0 ? 1 : 0;
+    }
+    if ((c & 0xe0) == 0xc0 && n >= 2)
+    {
+        uint32_t code = c << 8 | b[1];
+        return (code & 0xc0) == 0x80 && code >= 0xc280 ? 2 : 0;
+    }
+    if ((c & 0xf0) == 0xe0 && n >= 3)
+    {
+        uint32_t code = c << 16 | (uint32_t)b[1] << 8 | b[2];
+        bool valid =
+            (code & 0xc0c0) == 0x8080 && code >= 0xe0a080 && (code < 0xeda080 || code >= 0xee8080);
+        return valid ? 3 : 0;
+    }
+    if ((c & 0xf8) == 0xf0 && n >= 4)
+    {
+        uint32_t code = c << 24 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 8 | b[3];
+        return (code & 0xc0c0c0) == 0x808080 && code >= 0xf0908080u && code <= 0xf48fbfbfu ? 4 : 0;
+    }
+    return 0;
+}
+
+// A string's characters made valid UTF-8 as ufbx makes them
+// (mani-0012): each valid sequence whole, each other byte U+FFFD; over
+// the decoded bytes from the start or a given position to the end or a
+// given one.
+typedef struct Text
+{
+    Reader r;
+    uint64_t decoded;
+    uint64_t end;
+    uint8_t ahead[4];
+    uint32_t held;
+} Text;
+
+static bool OpenText(const maniFbx* fbx, uint32_t property, uint64_t from, uint64_t to, Text* t)
+{
+    t->decoded = 0;
+    t->end = to;
+    t->held = 0;
+    if (!Open(fbx, property, &t->r))
+    {
+        return false;
+    }
+    while (t->decoded < from && t->r.at < t->r.raw)
+    {
+        (void)Next(&t->r);
+        ++t->decoded;
+    }
+    return true;
+}
+
+// The next character's bytes into out; 0 at the end.
+static uint32_t NextCharacter(Text* t, uint8_t out[4])
+{
+    while (t->held < 4 && t->decoded < t->end && t->r.at < t->r.raw)
+    {
+        t->ahead[t->held++] = Next(&t->r);
+        ++t->decoded;
+    }
+    if (t->held == 0)
+    {
+        return 0;
+    }
+    static const uint8_t kReplacement[3] = {0xef, 0xbf, 0xbd};
+    uint32_t n = SequenceLength(t->ahead, t->held);
+    uint32_t used = n != 0 ? n : 1;
+    memcpy(out, n != 0 ? t->ahead : kReplacement, n != 0 ? n : 3);
+    memmove(t->ahead, t->ahead + used, t->held - used);
+    t->held -= used;
+    return n != 0 ? n : 3;
+}
+
+// A range of a string's decoded bytes made valid into out (NULL to
+// count): whole characters up to capacity.
+static size_t DecodeRange(const maniFbx* fbx, uint32_t property, uint64_t from, uint64_t to,
+                          uint8_t* out, size_t capacity)
+{
+    Text t;
+    if (!OpenText(fbx, property, from, to, &t))
+    {
+        return 0;
+    }
+    size_t written = 0;
+    uint8_t c[4];
+    for (uint32_t n = NextCharacter(&t, c); n != 0; n = NextCharacter(&t, c))
+    {
+        if (out != NULL && capacity - written < n)
+        {
+            break;
+        }
+        if (out != NULL)
+        {
+            memcpy(out + written, c, n);
+        }
+        written += n;
+    }
+    return written;
+}
+
+size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity)
+{
+    return DecodeRange(fbx, property, 0, UINT64_MAX, out, capacity);
+}
+
+size_t maniFbxStringNameRange(const maniFbx* fbx, uint32_t property, bool binary, uint8_t* out,
+                              size_t capacity)
+{
+    // Binary: Name\x00\x01Class. ASCII: Class::Name. Found in the bytes
+    // before they are made valid, as ufbx splits them.
+    Reader r;
+    if (!Open(fbx, property, &r))
+    {
+        return 0;
+    }
+    uint64_t from = 0;
+    uint64_t to = UINT64_MAX;
+    uint8_t previous = 0;
+    for (uint64_t k = 0; r.at < r.raw && to == UINT64_MAX && from == 0; ++k)
+    {
+        uint8_t c = Next(&r);
+        to = binary && k > 0 && previous == 0 && c == 1 ? k - 1 : to;
+        from = !binary && k > 0 && previous == ':' && c == ':' ? k + 1 : from;
+        previous = c;
+    }
+    return DecodeRange(fbx, property, from, to, out, capacity);
+}
+
+bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length)
+{
+    Text t;
+    if (!OpenText(fbx, property, 0, UINT64_MAX, &t))
+    {
+        return false;
+    }
+    size_t matched = 0;
+    uint8_t c[4];
+    for (uint32_t n = NextCharacter(&t, c); n != 0; n = NextCharacter(&t, c))
+    {
+        if (length - matched < n || memcmp(bytes + matched, c, n) != 0)
+        {
+            return false;
+        }
+        matched += n;
+    }
+    return matched == length;
+}
+
 uint64_t maniFbxNameHash(const void* bytes, size_t length)
 {
     const uint8_t* p = bytes;
@@ -266,35 +383,42 @@ uint64_t maniFbxNameHash(const void* bytes, size_t length)
 uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property)
 {
     uint64_t h = MANI_HASH_INIT;
-    Reader r;
-    if (!Open(fbx, property, &r))
+    Text t;
+    if (!OpenText(fbx, property, 0, UINT64_MAX, &t))
     {
         return h;
     }
-    while (r.at < r.raw)
+    uint8_t c[4];
+    for (uint32_t n = NextCharacter(&t, c); n != 0; n = NextCharacter(&t, c))
     {
-        uint8_t c = Next(&r);
-        h = maniHash64(h, &c, 1);
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            h = maniHash64(h, c + i, 1);
+        }
     }
     return h;
 }
 
 bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b)
 {
-    Reader x;
-    Reader y;
-    if (!Open(fbx, a, &x) || !Open(fbx, b, &y))
+    Text x;
+    Text y;
+    if (!OpenText(fbx, a, 0, UINT64_MAX, &x) || !OpenText(fbx, b, 0, UINT64_MAX, &y))
     {
         return false;
     }
-    while (x.at < x.raw && y.at < y.raw)
+    uint8_t cx[4];
+    uint8_t cy[4];
+    uint32_t n = 0;
+    do
     {
-        if (Next(&x) != Next(&y))
+        n = NextCharacter(&x, cx);
+        if (n != NextCharacter(&y, cy) || memcmp(cx, cy, n) != 0)
         {
             return false;
         }
-    }
-    return x.at == x.raw && y.at == y.raw;
+    } while (n != 0);
+    return true;
 }
 
 static uint32_t ElementSize(uint8_t type)

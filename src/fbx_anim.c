@@ -33,6 +33,13 @@ static maniImportResult Capacity(void)
 // source the root node.
 static const char kInternal[] = "(internal)";
 
+// Whether a stack's source is the root standing for the internal stack
+// (from 7.0 a source is an object, and object 0 is a stack like any).
+static bool IsInternal(const maniFbx* fbx, uint32_t source)
+{
+    return fbx->version < 6000 && source == 0;
+}
+
 // Whether a file before 6.0 has a top-level model with channels.
 static bool HasInternal(const maniFbx* fbx)
 {
@@ -48,11 +55,13 @@ static bool HasInternal(const maniFbx* fbx)
     return false;
 }
 
-// A stack's name property: an AnimationStack's (7.x) or a Take's (6.x).
-static uint32_t StackNameProperty(const maniFbx* fbx, uint32_t source)
+// A stack's name, decoded: an AnimationStack's (7.x) or a Take's (6.x);
+// counted with out NULL.
+static size_t StackName(const maniFbx* fbx, uint32_t source, uint8_t* out, size_t capacity)
 {
-    return fbx->version >= 7000 ? maniFbxNodeProperty(fbx, fbx->objects[source].node, 1)
-                                : maniFbxNodeProperty(fbx, source, 0);
+    return fbx->version >= 7000
+               ? maniFbxObjectName(fbx, source, out, capacity)
+               : maniFbxStringDecode(fbx, maniFbxNodeProperty(fbx, source, 0), out, capacity);
 }
 
 // Each stack's source: counted (out NULL) or listed.
@@ -95,13 +104,6 @@ static uint32_t EachStack(const maniFbx* fbx, uint32_t* out)
     return n;
 }
 
-static size_t RawLength(const maniFbx* fbx, uint32_t property)
-{
-    const uint8_t* bytes = NULL;
-    uint32_t length = 0;
-    return maniFbxString(fbx, property, &bytes, &length) ? length : 0;
-}
-
 maniImportResult maniFbxReadStacks(maniFbx* fbx)
 {
     uint32_t n = EachStack(fbx, NULL);
@@ -119,7 +121,7 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
     for (uint32_t k = 0; k < n; ++k)
     {
         uint32_t source = fbx->stacks[k];
-        text += source == 0 ? sizeof kInternal - 1 : RawLength(fbx, StackNameProperty(fbx, source));
+        text += IsInternal(fbx, source) ? sizeof kInternal - 1 : StackName(fbx, source, NULL, 0);
     }
     fbx->stackNamesSize = text;
     fbx->stackNames = maniAllocate(&fbx->allocator, text + 1, 1, 1);
@@ -132,16 +134,13 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
     {
         uint32_t source = fbx->stacks[k];
         fbx->stackNameOffsets[k] = at;
-        if (source == 0)
+        if (IsInternal(fbx, source))
         {
             memcpy(fbx->stackNames + at, kInternal, sizeof kInternal - 1);
             at += sizeof kInternal - 1;
             continue;
         }
-        at += fbx->version >= 7000
-                  ? maniFbxObjectName(fbx, source, (uint8_t*)fbx->stackNames + at, text - at)
-                  : maniFbxStringDecode(fbx, StackNameProperty(fbx, source),
-                                        (uint8_t*)fbx->stackNames + at, text - at);
+        at += StackName(fbx, source, (uint8_t*)fbx->stackNames + at, text - at);
     }
     fbx->stackNameOffsets[n] = at;
     return maniFbxSuccess();
@@ -497,8 +496,8 @@ bool maniFbxTakeTimes(const maniFbx* fbx, uint32_t take, const char* name, int64
            maniFbxInteger(fbx, maniFbxNodeProperty(fbx, node, 1), INT64_MIN, INT64_MAX, b);
 }
 
-// The take of the stack's name in the top-level Takes.
-static bool FromTake(const maniFbx* fbx, uint32_t stack, int64_t* a, int64_t* b)
+// The take of the stack's name in the top-level Takes, or MANI_FBX_NONE.
+static uint32_t FindTake(const maniFbx* fbx, uint32_t stack)
 {
     uint8_t name[256];
     size_t length = maniFbxObjectName(fbx, stack, name, sizeof name);
@@ -509,11 +508,10 @@ static bool FromTake(const maniFbx* fbx, uint32_t stack, int64_t* a, int64_t* b)
         if (maniFbxNameIs(fbx, take, "Take", 4) &&
             maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, take, 0), (const char*)name, length))
         {
-            return maniFbxTakeTimes(fbx, take, "LocalTime", a, b) ||
-                   maniFbxTakeTimes(fbx, take, "ReferenceTime", a, b);
+            return take;
         }
     }
-    return false;
+    return MANI_FBX_NONE;
 }
 
 void maniFbxKeySpan(const maniFbxAnimation* a, int64_t* start, int64_t* stop)
@@ -537,11 +535,22 @@ void maniFbxKeySpan(const maniFbxAnimation* a, int64_t* start, int64_t* stop)
     }
 }
 
+// The stack's times, as ufbx finds them: its LocalStart and LocalStop,
+// else ReferenceStart and ReferenceStop, each its own or its template's;
+// a stack with no properties of its own takes its take's LocalTime and
+// ReferenceTime as its own, ahead of the template. Else its key span.
 static void Range(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* a)
 {
-    if (!Pair(fbx, stack, "LocalStart", "LocalStop", &a->start, &a->stop) &&
-        !Pair(fbx, stack, "ReferenceStart", "ReferenceStop", &a->start, &a->stop) &&
-        !FromTake(fbx, stack, &a->start, &a->stop))
+    uint32_t list = fbx->objects[stack].properties;
+    bool bare = list == MANI_FBX_NONE || fbx->nodes[list].firstChild == MANI_FBX_NONE;
+    uint32_t take = bare ? FindTake(fbx, stack) : MANI_FBX_NONE;
+    bool timed =
+        take != MANI_FBX_NONE && maniFbxTakeTimes(fbx, take, "LocalTime", &a->start, &a->stop);
+    timed = timed || Pair(fbx, stack, "LocalStart", "LocalStop", &a->start, &a->stop);
+    timed = timed || (take != MANI_FBX_NONE &&
+                      maniFbxTakeTimes(fbx, take, "ReferenceTime", &a->start, &a->stop));
+    timed = timed || Pair(fbx, stack, "ReferenceStart", "ReferenceStop", &a->start, &a->stop);
+    if (!timed)
     {
         maniFbxKeySpan(a, &a->start, &a->stop);
     }
@@ -750,8 +759,7 @@ size_t maniFbxChannelName(const maniFbx* fbx, const maniFbxChannel* channel, uin
         }
         return out != NULL ? n : channel->literalLength;
     }
-    return out != NULL ? maniFbxStringDecode(fbx, channel->name, out, capacity)
-                       : RawLength(fbx, channel->name);
+    return maniFbxStringDecode(fbx, channel->name, out, capacity);
 }
 
 // A property's value through the channels of one side: the model's own

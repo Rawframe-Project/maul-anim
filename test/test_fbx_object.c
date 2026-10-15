@@ -235,6 +235,70 @@ static void ExpectRefusal(const char* at, const char* what)
 
 // An id given twice is kept by its first object, as ufbx keeps it: the
 // later one stays an object that no id finds, counted.
+// Names made valid UTF-8 as ufbx makes them (mani-0012): valid
+// sequences of two to four bytes kept; a byte of no sequence (C1), an
+// overlong form, a surrogate, a code past U+10FFFF and a cut sequence
+// each a U+FFFD per byte; whole characters up to a capacity; counted
+// with no output; compared, hashed and matched made valid.
+static void TestInvalidUtf8(void)
+{
+    static const char kText[] =
+        "; FBX 7.4.0 project file\n"
+        "Objects: {\n"
+        " Model: 1, \"Model::A\xC1"
+        "B\", \"Null\" {\n }\n"
+        " Model: 2, \"Model::\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80\", \"Null\" {\n }\n"
+        " Model: 3, \"Model::\xC0\x80\", \"Null\" {\n }\n"
+        " Model: 4, \"Model::\xED\xA0\x80\", \"Null\" {\n }\n"
+        " Model: 5, \"Model::\xF4\x90\x80\x80\", \"Null\" {\n }\n"
+        " Model: 6, \"Model::x\xE2\x82\", \"Null\" {\n }\n"
+        " Model: 7, \"Model::A\xC1\", \"Null\" {\n }\n"
+        " Model: 8, \"Model::A\xC2\", \"Null\" {\n }\n"
+        "}\n";
+    static const char kR[] = "\xEF\xBF\xBD";
+    char twice[16];
+    char thrice[16];
+    char four[16];
+    snprintf(twice, sizeof twice, "%s%s", kR, kR);
+    snprintf(thrice, sizeof thrice, "%s%s%s", kR, kR, kR);
+    snprintf(four, sizeof four, "%s%s%s%s", kR, kR, kR, kR);
+    char cut[16];
+    snprintf(cut, sizeof cut, "x%s%s", kR, kR);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kText);
+    if (fbx == NULL)
+    {
+        maniDestroyBuilder(builder);
+        return;
+    }
+    uint32_t o[9];
+    for (int64_t id = 1; id <= 8; ++id)
+    {
+        o[id] = maniFbxFindObject(fbx, id);
+    }
+    CHECK(NameIs(fbx, o[1],
+                 "A\xEF\xBF\xBD"
+                 "B"),
+          "a byte of no sequence");
+    CHECK(NameIs(fbx, o[2], "\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80"), "valid sequences kept");
+    CHECK(NameIs(fbx, o[3], twice), "an overlong form");
+    CHECK(NameIs(fbx, o[4], thrice), "a surrogate");
+    CHECK(NameIs(fbx, o[5], four), "past U+10FFFF");
+    CHECK(NameIs(fbx, o[6], cut), "a cut sequence");
+    uint8_t out[8];
+    CHECK(maniFbxObjectName(fbx, o[5], NULL, 0) == 12 && maniFbxObjectName(fbx, o[2], out, 4) == 2,
+          "counted with no output; whole characters up to a capacity");
+    uint32_t a1 = maniFbxNodeProperty(fbx, fbx->objects[o[7]].node, 1);
+    uint32_t a2 = maniFbxNodeProperty(fbx, fbx->objects[o[8]].node, 1);
+    static const char kMade[] = "Model::A\xEF\xBF\xBD";
+    CHECK(maniFbxStringEquals(fbx, a1, kMade, strlen(kMade)) &&
+              !maniFbxStringEquals(fbx, a1, "Model::A\xC1", 9) && maniFbxSameString(fbx, a1, a2) &&
+              maniFbxStringHash(fbx, a1) == maniFbxNameHash(kMade, strlen(kMade)),
+          "compared, matched and hashed made valid");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 static void TestDuplicateId(void)
 {
     Setting("Model: 200,", "Model: 100,");
@@ -286,6 +350,7 @@ int main(void)
     TestSeven();
     TestSix();
     TestDuplicateId();
+    TestInvalidUtf8();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

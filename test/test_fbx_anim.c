@@ -209,6 +209,70 @@ static void TestRanges(const maniFbx* fbx)
     CHECK(right, "ranges: local, a take's reference, the keys, reference, a take's local");
 }
 
+// A stack's range from its take, as ufbx reads it: a stack with no
+// properties of its own takes its take's times ahead of its template's
+// (LocalStart 3, LocalStop 4); with properties of its own, never; a
+// take's reference times come after the template's local ones.
+static bool RangeIs(const char* text, uint32_t k, int64_t start, int64_t stop)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniFbxAnimation a;
+    bool right = maniOpenFbx(builder, text, strlen(text), &fbx).result == mani_success &&
+                 maniFbxReadAnimation(fbx, maniFbxStackSource(fbx, k), &a).result == mani_success;
+    if (right)
+    {
+        right = a.start == start && a.stop == stop;
+        maniFbxReleaseAnimation(fbx, &a);
+    }
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    return right;
+}
+
+static void TestTakeRanges(void)
+{
+    static const char kTemplate[] =
+        "; FBX 7.4.0 project file\n"
+        "Definitions: {\n ObjectType: \"AnimationStack\" {\n  PropertyTemplate: \"FbxAnimStack\" "
+        "{\n"
+        "   Properties70: {\n    P: \"LocalStart\", \"KTime\", \"Time\", \"\",3\n"
+        "    P: \"LocalStop\", \"KTime\", \"Time\", \"\",4\n   }\n  }\n }\n}\n"
+        "Objects: {\n AnimationStack: 100, \"AnimStack::Bare\", \"\" {\n }\n"
+        " AnimationStack: 200, \"AnimStack::Ref\", \"\" {\n }\n"
+        " AnimationStack: 300, \"AnimStack::Own\", \"\" {\n  Properties70: {\n   P: "
+        "\"Description\", \"KString\", \"\", \"\", \"x\"\n  }\n }\n}\n"
+        "Takes: {\n Take: \"Bare\" {\n  LocalTime: 6,9\n }\n Take: \"Ref\" {\n  ReferenceTime: "
+        "1,2\n"
+        " }\n Take: \"Own\" {\n  LocalTime: 6,9\n }\n}\n";
+    static const char kNoTemplate[] =
+        "; FBX 7.4.0 project file\n"
+        "Objects: {\n AnimationStack: 300, \"AnimStack::Own\", \"\" {\n  Properties70: {\n   P: "
+        "\"Description\", \"KString\", \"\", \"\", \"x\"\n  }\n }\n}\n"
+        "Takes: {\n Take: \"Own\" {\n  LocalTime: 6,9\n }\n}\n";
+    CHECK(RangeIs(kTemplate, 0, 6, 9), "a bare stack's take ahead of its template");
+    CHECK(RangeIs(kTemplate, 1, 3, 4), "the template's local times ahead of a take's reference");
+    CHECK(RangeIs(kTemplate, 2, 3, 4), "a stack with properties of its own: no take");
+    CHECK(RangeIs(kNoTemplate, 0, 0, 0), "no take there with no template: the keys' span");
+}
+
+// A stack that is the file's first object (object 0) is named as any.
+static void TestFirstObject(void)
+{
+    static const char kText[] =
+        "; FBX 7.4.0 project file\n"
+        "Objects: {\n AnimationStack: 100, \"AnimStack::Walk\", \"\" {\n }\n}\n";
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    uint32_t length = 0;
+    const char* name = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success
+                           ? maniFbxClipName(fbx, 0, &length)
+                           : NULL;
+    CHECK(name != NULL && length == 4 && memcmp(name, "Walk", 4) == 0, "object 0's stack named");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 static void TestComponents(const maniFbx* fbx)
 {
     maniFbxAnimation a = Stack(fbx, 2);
@@ -320,6 +384,8 @@ static void TestRefusals(void)
 int main(void)
 {
     TestLayers();
+    TestTakeRanges();
+    TestFirstObject();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

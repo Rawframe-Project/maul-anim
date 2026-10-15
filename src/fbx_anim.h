@@ -121,8 +121,8 @@ uint32_t maniFbxAnimatedRun(const maniFbxAnimation* animation, uint32_t object, 
 // A property of an object at a time in seconds: value holds its static
 // value and receives the animated one, each layer applied in order (the
 // first sets, later ones combine by their weight and blend mode; a
-// composed Lcl Rotation goes through quaternions in the order given and
-// back). Whether any channel drives it. A 6.x model's attribute's
+// composed Lcl Rotation goes through quaternions in the order given, 0
+// to 5, and back). Whether any channel drives it. A 6.x model's attribute's
 // properties are animated through maniFbxAnimateAttribute.
 bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
                             const char* name, size_t length, double time, uint32_t order,

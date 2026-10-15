@@ -19,8 +19,10 @@ None of this is one of the clip builder's source interpolations
 - **Clips** are the file's `AnimationStack`s in object order, built one
   at a time for an opened skeleton, as glTF animations are
   (mani-0012). A clip's range is the stack's local times, else its
-  reference times, else the take's, else the span of its keys; clip
-  time 0 is the range's start.
+  reference times, each its own or its template's, as ufbx finds them;
+  a stack with no properties of its own takes its take's local and
+  reference times as its own, ahead of the template; else the span of
+  its keys. Clip time 0 is the range's start.
 - **Curves** are decoded and evaluated as ufbx does, in binary64 with
   tangents rounded to binary32 where ufbx keeps them: keys and their
   run-length attributes become Bézier handles; segments are constant

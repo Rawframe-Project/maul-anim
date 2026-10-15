@@ -131,11 +131,9 @@ static maniImportResult ReadNames(maniFbx* fbx)
 {
     uint32_t n = fbx->modelCount;
     size_t raw = 0;
-    uint32_t k = fbx->version >= 7000 ? 1 : 0;
     for (uint32_t m = 0; m < n; ++m)
     {
-        uint32_t p = maniFbxNodeProperty(fbx, fbx->objects[fbx->models[m]].node, k);
-        raw += p != MANI_FBX_NONE ? fbx->properties[p].count : 0;
+        raw += maniFbxObjectName(fbx, fbx->models[m], NULL, 0);
     }
     char* original = maniAllocate(&fbx->allocator, raw + 1, 1, 8);
     uint32_t* spans = Words(fbx, n);

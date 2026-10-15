@@ -50,8 +50,9 @@ bool maniFbxObjectKindIs(const maniFbx* fbx, uint32_t object, const char* kind, 
 // Whether an object's subclass (LimbNode, Skin, Cluster) is the one given.
 bool maniFbxObjectSubclassIs(const maniFbx* fbx, uint32_t object, const char* name, size_t length);
 
-// An object's name without its class, entities decoded, into out; the
-// count of bytes written, whole up to capacity.
+// An object's name without its class, decoded as maniFbxStringDecode
+// decodes, into out: the count written, whole characters up to
+// capacity; with out NULL, the count all take.
 size_t maniFbxObjectName(const maniFbx* fbx, uint32_t object, uint8_t* out, size_t capacity);
 
 // The entry (a `P` or `Property` node) holding an object's property of
