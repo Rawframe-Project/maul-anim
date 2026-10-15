@@ -13,6 +13,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
+#include "maul-anim/skinning.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -767,6 +768,43 @@ extern "C"
                                                               const maniFbx* fbx, uint32_t skin,
                                                               const maniSkeleton* skeleton,
                                                               const maniFbxOptions* options);
+
+    /// Returns how a skin blends its joints, as ufbx evaluates it:
+    /// dual quaternion for SkinningType DualQuaternion, blended for Blend
+    /// or a skin that gives per-vertex blend weights, linear otherwise
+    /// (Rigid among them).
+    ///
+    /// @param fbx   The document.
+    /// @param skin  The skin.
+    /// @return The method; linear for a skin past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin);
+
+    /// Builds a skin's influences into the builder, a vertex a control
+    /// point of its mesh, bound to the opened skin maniFbxBuildSkin built
+    /// from it (a cluster's index its joint): every cluster's Indexes and
+    /// Weights, indices past the control points skipped, a vertex given
+    /// twice by one cluster summed, then sorted and renormalized as
+    /// maniBuildInfluences does; blend weights (BlendIndexes and
+    /// BlendWeights, 1 for a dual quaternion skin, 0 else) unless the
+    /// method is linear.
+    ///
+    /// @param builder  The builder.
+    /// @param fbx      The document.
+    /// @param skin     The skin.
+    /// @param built    The opened skin.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
+    /// a skin past the count; `mani_errorFormat` with a reason: Property
+    /// (no control points, Indexes and Weights of different counts),
+    /// Influence (a weight below 0, a blend weight outside 0 to 1), Data,
+    /// Build; `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildInfluences(maniBuilder* builder,
+                                                                    const maniFbx* fbx,
+                                                                    uint32_t skin,
+                                                                    const maniSkin* built);
 
     /// Returns how many clips the document has: its animation stacks
     /// (takes), in file order (mani-0016).

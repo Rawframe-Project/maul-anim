@@ -114,6 +114,33 @@ static void VisitCluster(const maniFbx* fbx, uint32_t child, void* context)
     ++joints->count;
 }
 
+// The clusters linking a model, written where out is given.
+typedef struct Collect
+{
+    uint32_t* out;
+    uint32_t count;
+} Collect;
+
+static void VisitCollect(const maniFbx* fbx, uint32_t child, void* context)
+{
+    Collect* c = context;
+    if (maniFbxDeformerIs(fbx, child, "Cluster", 7) && LinkedModel(fbx, child) != MANI_FBX_NONE)
+    {
+        if (c->out != NULL)
+        {
+            c->out[c->count] = child;
+        }
+        ++c->count;
+    }
+}
+
+uint32_t maniFbxSkinClusters(const maniFbx* fbx, uint32_t skin, uint32_t* clusters)
+{
+    Collect c = {clusters, 0};
+    maniFbxEachChild(fbx, fbx->skins[skin], VisitCollect, &c);
+    return c.count;
+}
+
 // Whether every cluster linking a model links a bone of a skeleton.
 typedef struct Within
 {

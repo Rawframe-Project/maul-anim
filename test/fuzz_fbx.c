@@ -27,6 +27,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/skin.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -201,9 +202,16 @@ static void SkinsAndClips(maniBuilder* builder, const maniFbx* fbx, uint32_t ske
     {
         for (uint32_t s = 0; !subtree && s < maniFbxSkinCount(fbx); ++s)
         {
-            if (maniFbxSkinSkeleton(fbx, s) == skeleton)
+            static _Alignas(16) uint8_t skinFile[1 << 16];
+            size_t skinSize = 0;
+            maniSkin skin;
+            (void)maniFbxSkinMethod(fbx, s);
+            if (maniFbxSkinSkeleton(fbx, s) == skeleton &&
+                maniFbxBuildSkin(builder, fbx, s, &opened, options).result == mani_success &&
+                maniCopyBuilt(builder, skinFile, sizeof skinFile, &skinSize) == mani_success &&
+                maniOpenSkin(skinFile, skinSize, &skin).result == mani_success)
             {
-                (void)maniFbxBuildSkin(builder, fbx, s, &opened, options);
+                (void)maniFbxBuildInfluences(builder, fbx, s, &skin);
             }
         }
         Clips(builder, fbx, &opened, options);

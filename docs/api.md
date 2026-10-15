@@ -502,6 +502,16 @@ MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkin(maniBuilder* builder, 
 Builds a skin into the builder against an opened skeleton (mani-0015): each cluster linking a model a joint, found by the model's bone name, its inverse bind the mesh relative to the bone at bind (the cluster's matrices, a bind pose or the rest, as ufbx reads them) times the mesh's geometric transform, the options' axes and unit applied. Vertex weights are the mesh's to carry.  @param builder   The builder. @param fbx       The document. @param skin      The skin, below maniFbxSkinCount. @param skeleton  An opened skeleton holding the skin's joints. @param options   The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skin past the count or options out of range; `mani_errorFormat` with a reason (Bone for a joint the skeleton lacks, Matrix for a bind that is not affine or not invertible, Property for an additive cluster); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin);
+```
+Returns how a skin blends its joints, as ufbx evaluates it: dual quaternion for SkinningType DualQuaternion, blended for Blend or a skin that gives per-vertex blend weights, linear otherwise (Rigid among them).  @param fbx   The document. @param skin  The skin. @return The method; linear for a skin past the count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin, const maniSkin* built);
+```
+Builds a skin's influences into the builder, a vertex a control point of its mesh, bound to the opened skin maniFbxBuildSkin built from it (a cluster's index its joint): every cluster's Indexes and Weights, indices past the control points skipped, a vertex given twice by one cluster summed, then sorted and renormalized as maniBuildInfluences does; blend weights (BlendIndexes and BlendWeights, 1 for a dual quaternion skin, 0 else) unless the method is linear.  @param builder  The builder. @param fbx      The document. @param skin     The skin. @param built    The opened skin. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a skin past the count; `mani_errorFormat` with a reason: Property (no control points, Indexes and Weights of different counts), Influence (a weight below 0, a blend weight outside 0 to 1), Data, Build; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 uint32_t maniFbxClipCount(const maniFbx* fbx);
 ```
 Returns how many clips the document has: its animation stacks (takes), in file order (mani-0016).  @param fbx  The document; NULL gives 0. @return The count. @par Thread safety Safe from any thread.
@@ -828,4 +838,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-157 functions across 10 headers.
+159 functions across 10 headers.

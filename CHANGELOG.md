@@ -77,3 +77,8 @@ format.
   `maniMorphFindTarget`; a target without a given name takes its
   channel's, with its index past the first. Clip weight tracks bind to
   targets by these names.
+- FBX influences (mani-0021): `maniFbxBuildInfluences` reads a skin's
+  clusters into influences a control point at a time, as ufbx reads
+  them; `maniFbxSkinMethod` names the job to run (`maniSkinningMethod`:
+  linear, dual quaternion or blended, from SkinningType and the
+  per-vertex blend weights).

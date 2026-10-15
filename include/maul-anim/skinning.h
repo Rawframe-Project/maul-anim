@@ -120,6 +120,16 @@ extern "C"
     MANI_API bool maniInfluencesCenter(const maniInfluences* influences, uint32_t vertex,
                                        maniVec3* centerOut);
 
+    // How a skin blends its joints: the job to run on its influences.
+    typedef uint32_t maniSkinningMethod;
+    enum
+    {
+        maniSkinningLinear = 0,
+        maniSkinningDualQuaternion = 1,
+        // Linear and dual quaternion at each vertex's blend weight.
+        maniSkinningBlended = 2,
+    };
+
     // What a stream holds: points (positions, moved by the whole
     // transform), directions (turned and renormalized), normals (by the
     // inverse transpose's direction, renormalized) or tangents (four
