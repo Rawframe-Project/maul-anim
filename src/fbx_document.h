@@ -125,8 +125,10 @@ struct maniFbx
     maniFbxObject* objects;
     uint32_t objectCount;
     uint32_t objectCapacity;
-    // Objects with no id or name, skipped.
+    // Objects with no id or name, skipped; objects whose id an earlier
+    // one has, kept but found by none.
     uint32_t skippedObjects;
+    uint32_t duplicateObjects;
     // Object indices sorted by id.
     uint32_t* objectsById;
     maniFbxConnection* connections;

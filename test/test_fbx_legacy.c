@@ -597,6 +597,23 @@ static void TestSixKeepsSuffix(void)
     maniDestroyBuilder(builder);
 }
 
+// A name given twice is kept by its first model (as ufbx keeps it);
+// Children naming it reach that one only.
+static void TestNameTwice(void)
+{
+    static const char kText[] = "; FBX 5.0.0 project file\nModel: \"Model::A\" {\n"
+                                " Children: \"Model::B\"\n}\nModel: \"Model::B\" {\n}\n"
+                                "Model: \"Model::B\" {\n}\n";
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    bool open = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success;
+    CHECK(open && fbx->objectCount == 3 && fbx->duplicateObjects == 1 &&
+              fbx->modelParents[1] == 0 && fbx->modelParents[2] == MANI_FBX_NONE,
+          "a name twice: the first model has the parent, the later none");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 // The settings of a text.
 static bool Settings(const char* text, maniFbxSettings* out)
 {
@@ -658,8 +675,6 @@ static void TestRefusals(void)
     Refused("; FBX 5.0.0 project file\nModel: \"Model::Mesh\" {\n Vertices: 0,0,0\n"
             " PolygonVertexIndex: -1\n Link: {\n }\n}\nModel: \"Model::Other\" {\n}\n",
             "a link without a name, a model after it");
-    Refused("; FBX 5.0.0 project file\nModel: \"Model::A\" {\n}\nModel: \"Model::A\" {\n}\n",
-            "a name given twice");
 }
 
 static void TestAllocationFailures(void)
@@ -680,6 +695,7 @@ int main(void)
     TestRoles();
     TestLinks();
     TestSixKeepsSuffix();
+    TestNameTwice();
     TestShapeNames();
     TestVersion5Settings();
     TestRefusals();

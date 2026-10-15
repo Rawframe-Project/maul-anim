@@ -86,13 +86,11 @@ maniImportResult maniFbxIndexObjects(maniFbx* fbx)
     {
         maniSortByKey(keys, n, fbx->objectsById, scratch);
     }
+    // An id given twice is kept by its first object, as ufbx keeps it (the
+    // sort is stable, the lookup finds the first); the others are counted.
     for (uint32_t k = 1; r.result == mani_success && k < n; ++k)
     {
-        uint32_t later = fbx->objectsById[k];
-        if (keys[later] == keys[fbx->objectsById[k - 1]])
-        {
-            r = Refuse(fbx, maniFbxNodeProperty(fbx, fbx->objects[later].node, 0), later);
-        }
+        fbx->duplicateObjects += keys[fbx->objectsById[k]] == keys[fbx->objectsById[k - 1]] ? 1 : 0;
     }
     maniRelease(&fbx->allocator, keys, (size_t)n + 1, sizeof(uint64_t), 8);
     FreeWords(fbx, scratch, n);

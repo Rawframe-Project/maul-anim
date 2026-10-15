@@ -233,10 +233,30 @@ static void ExpectRefusal(const char* at, const char* what)
     maniDestroyBuilder(builder);
 }
 
-static void TestRefusals(void)
+// An id given twice is kept by its first object, as ufbx keeps it: the
+// later one stays an object that no id finds, counted.
+static void TestDuplicateId(void)
 {
     Setting("Model: 200,", "Model: 100,");
-    ExpectRefusal("100, \"Model::spine", "an id twice");
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    bool open = maniOpenFbx(builder, s_text, strlen(s_text), &fbx).result == mani_success;
+    uint32_t found = open ? maniFbxFindObject(fbx, 100) : MANI_FBX_NONE;
+    uint32_t later = MANI_FBX_NONE;
+    for (uint32_t o = found != MANI_FBX_NONE ? found + 1 : UINT32_MAX;
+         open && o < fbx->objectCount && later == MANI_FBX_NONE; ++o)
+    {
+        later = fbx->objects[o].id == 100 ? o : MANI_FBX_NONE;
+    }
+    CHECK(open && found != MANI_FBX_NONE && later != MANI_FBX_NONE &&
+              maniFbxObjectKindIs(fbx, found, "Model", 5) && fbx->duplicateObjects == 1,
+          "an id twice: the first object found, the later kept and counted");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static void TestRefusals(void)
+{
     Setting("\"\",2\n", "\"\",3\n");
     ExpectRefusal("3\n  P: \"UpAxisSign", "an axis past z");
     Setting("\"\",-1\n", "\"\",0\n");
@@ -265,6 +285,7 @@ int main(void)
 {
     TestSeven();
     TestSix();
+    TestDuplicateId();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

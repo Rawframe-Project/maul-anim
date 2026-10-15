@@ -20,7 +20,7 @@
 maniImportResult maniFbxReadObjects(maniFbx* fbx);
 
 // For readers of other layouts (mani-0017): a string property's 6.x key;
-// the objects indexed by id, refused (Property) for one given twice; the
+// the objects indexed by id, an id given twice kept by its first object; the
 // connections indexed by both ends; GlobalSettings read with a frame
 // rate to fall back on where it gives none (0 for none); and a Settings
 // node's FrameRate (a number or a numeric string; none when not above 0).

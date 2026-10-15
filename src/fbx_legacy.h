@@ -14,8 +14,8 @@
 #include "maul-anim/import.h"
 
 // Reads a file before 6.0 in place of maniFbxReadObjects; refused
-// (Property) for a Model or Link without its name, or a name given
-// twice; Capacity when the allocator fails.
+// (Property) for a Model or Link without its name; Capacity when the
+// allocator fails. A name given twice is kept by its first model.
 maniImportResult maniFbxReadLegacy(maniFbx* fbx);
 
 void maniFbxReleaseLegacy(maniFbx* fbx);
