@@ -354,7 +354,9 @@ static maniImportResult ReadArray(Reader* r, uint64_t star)
     uint64_t first = r->at;
     uint64_t values = 0;
     Token t = Next(r);
-    while (t.kind == TokenNumber || t.kind == TokenNotNumber)
+    // Words too (inf, nan(ind), ...), as ufbx reads them: an array is
+    // decoded only when used, a word in it refused then.
+    while (t.kind == TokenNumber || t.kind == TokenNotNumber || t.kind == TokenWord)
     {
         ++values;
         t = Next(r);

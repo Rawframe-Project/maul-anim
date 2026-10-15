@@ -44,7 +44,8 @@ hostile input.
   converted exactly when read (mani-0007's decimal conversion; a
   leading `+` allowed; old writers' `1.#INF` kept as a number that is
   none). `*N { a: v, ... }` folds into one array property of exactly N
-  numbers, read like a binary array. The version is the first
+  numbers or words (ufbx's `inf` and `nan(ind)` among them), read like
+  a binary array, a word refused (Data) when the array is read. The version is the first
   comment's (`; FBX 7.4.0 project file`), else
   `FBXHeaderExtension.FBXVersion`, else refused (Version). Refusals are
   Syntax at the token's first byte; nesting is bounded at 64 as in the

@@ -782,6 +782,22 @@ static void TestAsciiEdges(void)
         maniCloseFbx(fbx);
     }
     maniDestroyBuilder(builder);
+    // Words in an array open, as ufbx reads them; decoding the array
+    // refuses at the first (Data).
+    SetText("; FBX 7.4.0 project file\nV: *4 {\n a: 1,inf,nan(ind),-1.#IND\n}\n");
+    builder = NewBuilder();
+    fbx = NULL;
+    bool open = maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success;
+    double values[4];
+    uint32_t array = open ? maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "V", 1), 0) : 0;
+    maniImportResult r = open ? maniFbxReadDoubles(fbx, array, values)
+                              : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
+    const char* word = strstr((const char*)s_w.b, "inf");
+    CHECK(open && maniFbxArrayCount(fbx, array) == 4 && r.reason == maniImportReasonData &&
+              r.offset == (uint64_t)(word - (const char*)s_w.b),
+          "words in an array: opened, refused when read");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
     // A nested value list ending in a comma.
     SetText("; FBX 7.4.0 project file\nA: {\nB: 1,\n}\n");
     ExpectRefusal(maniImportReasonSyntax,
