@@ -751,3 +751,44 @@ fan-channel-value | src/fbx_anim.c | !Number(fbx, node, (const char*)name, lengt
 fbv-same-bytes | src/fbx_value.c | if (Next(&x) != Next(&y)) | if (false)
 fbv-same-length | src/fbx_value.c | return x.at == x.raw && y.at == y.raw; | return true;
 fbv-hash-bytes | src/fbx_value.c | h = maniHash64(h, &c, 1); | (void)c;
+
+# FBX clips (fbx_clip.c, fbx_sample.c, stacks in fbx_anim.c, mani-0016),
+# 2026-10-15: 37 mutants, all killed (22 by cases added after the first
+# sweep; two branches that made no difference went).
+fcl-helper-bone | src/fbx_clip.c | helper[bone] = 1; | (void)0;
+fcl-helper-rule | src/fbx_clip.c | c->rule[b] = helper[b] != 0 ? kHelper : c->rule[b]; | c->rule[b] = c->rule[b];
+fcl-rules-skip | src/fbx_clip.c | if (m == MANI_FBX_NONE || c->rule[b] == kHelper) | if (m == MANI_FBX_NONE)
+fcl-rule-root | src/fbx_clip.c | c->rule[b] = pb == MANI_NO_BONE        ? kRoot | c->rule[b] = pb == MANI_NO_BONE        ? kOwn
+fcl-rule-own | src/fbx_clip.c | : pm == MANI_FBX_NONE     ? kOwn | : pm == MANI_FBX_NONE     ? kRoot
+fcl-rule-helper | src/fbx_clip.c | : pm == p && parentHelper ? kUnderHelper | : pm == p && parentHelper ? kUnderParent
+fcl-rule-parent | src/fbx_clip.c | : pm == p                 ? kUnderParent | : pm == p                 ? kRelative
+fcl-need | src/fbx_clip.c | c->needed[v] = 1; | (void)0;
+fcl-scene-rate | src/fbx_clip.c | return s->rateDenominator != 0 ? (double)s->rateNumerator / (double)s->rateDenominator | return s->rateDenominator != 0 ? (double)s->rateNumerator
+fcl-rate-cap | src/fbx_clip.c | : scene > 0.0 && scene <= 120.0 ? scene | : scene > 0.0 ? scene
+fcl-rate-given | src/fbx_clip.c | c->exactRate = sampleRate != 0.0f              ? (double)sampleRate | c->exactRate = false              ? (double)sampleRate
+fcl-duration-zero | src/fbx_clip.c | c->duration = span > 0.0 ? (float)(span / tps) : 0.0f; | c->duration = (float)(span / tps);
+fcl-last-stop | src/fbx_clip.c | double tick = last && c->animation.stop > c->animation.start | double tick = false
+fcl-round | src/fbx_clip.c | : (double)c->animation.start + Round((double)k * tps / c->exactRate); | : (double)c->animation.start + (double)k * tps / c->exactRate;
+fcl-fold | src/fbx_clip.c | if (c->options->foldPlacement == 0) | if (true)
+fcl-placement-unscaled | src/fbx_clip.c | : w->inherit == maniFbxInheritRSrs ? c->worlds[p].world | : w->inherit == maniFbxInheritRSrs ? c->worlds[p].unscaled
+fcl-frame-helper | src/fbx_clip.c | return c->rule[bone] == kHelper ? &w->unscaled : &w->world; | return &w->world;
+fcl-own-normal | src/fbx_clip.c | bool own = (c->rule[b] == kUnderParent && normal) || (c->rule[b] == kUnderHelper && !normal); | bool own = c->rule[b] == kUnderParent || c->rule[b] == kUnderHelper;
+fcl-finite | src/fbx_clip.c | if (!Local(c, b, &pose[b]) || !Finite(&pose[b])) | if (!Local(c, b, &pose[b]))
+fcl-basis | src/fbx_clip.c | pose[b] = maniBasisTransform(&c->basis, pose[b]); | (void)0;
+fcl-moving-t | src/fbx_clip.c | bits |= t[0] != rest[0] || t[1] != rest[1] || t[2] != rest[2] ? 1u : 0u; | bits |= 1u;
+fcl-moving-s | src/fbx_clip.c | bits |= t[7] != rest[7] || t[8] != rest[8] || t[9] != rest[9] ? 4u : 0u; | bits |= 0u;
+fcl-in-chain-int | src/fbx_clip.c | const char* n = maniFbxLocalIntegerNames[k]; | const char* n = "";
+fcl-static-entry | src/fbx_clip.c | return channel->curves[1].count > 0 || channel->curves[2].count > 0 ? 3 : 1; | return 1;
+fcl-static-count | src/fbx_clip.c | while (n < 3 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n])) | while (n < 1 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n]))
+fcl-name-slash | src/fbx_clip.c | name[n - 2] = '/'; | name[n - 2] = '.';
+fcl-name-index | src/fbx_clip.c | name[n - 1] = (char)('0' + k); | name[n - 1] = '0';
+fcl-seen | src/fbx_clip.c | if (!InChain(c->fbx, channel->name) && !Seen(c, first, i)) | if (!InChain(c->fbx, channel->name))
+fcl-float-skip | src/fbx_clip.c | if (c->rule[b] == kNone || c->rule[b] == kHelper) | if (c->rule[b] == kNone)
+fcl-bound | src/fbx_clip.c | n += c->needed[m] != 0 ? maniFbxAnimatedRun(&c->animation, c->fbx->models[m], &first) : 0; | n += maniFbxAnimatedRun(&c->animation, c->fbx->models[m], &first);
+fcl-name-refusal | src/fbx_clip.c | if (floats && (r.reason & 0xFFu) == maniBuildReasonTrack && r.item < c->floatCount) | if (false)
+fcl-anim-item | src/fbx_clip.c | r.item = r.result == mani_errorFormat ? clip : r.item; | (void)0;
+fsm-integer-range | src/fbx_sample.c | if (!(v[0] > -1.0 && v[0] < limit + 1.0)) | if (!(v[0] < limit + 1.0))
+fsm-order-first | src/fbx_sample.c | uint32_t compose = order == 6 ? 0 : (uint32_t)order; | uint32_t compose = 0;
+fsm-needed | src/fbx_sample.c | if (needed[children[k]] != 0) | if (true)
+fst-name | src/fbx_anim.c | at += maniFbxObjectName(fbx, o, (uint8_t*)fbx->stackNames + at, text - at); | at += 0;
+fst-object | src/fbx_anim.c | return k < fbx->stackCount ? fbx->stacks[k] : MANI_FBX_NONE; | return fbx->stacks[k];
