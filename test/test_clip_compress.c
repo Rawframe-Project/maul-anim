@@ -626,7 +626,17 @@ static void TestCursor(void)
     CHECK(Open(&second).result == mani_success, "opens the second");
     CHECK(maniClipCursorSize(&second) == maniClipCursorSize(&view), "the same shape");
     CursorWalk(&view, cursor);
+    // The same time on both: the first clip's samples held at the address
+    // must not play for the second.
+    maniPose* held = NULL;
+    maniPose* fresh = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &held) == mani_success, "pose");
+    CHECK(maniInitPose(&s_skeleton, s_poseB, sizeof s_poseB, &fresh) == mani_success, "pose");
+    CHECK(maniSampleClipCursor(cursor, &view, &s_skeleton, 0.37f, held) == mani_success, "first");
     view = second;
+    CHECK(maniSampleClipCursor(cursor, &view, &s_skeleton, 0.37f, held) == mani_success, "second");
+    CHECK(maniSampleClip(&view, &s_skeleton, 0.37f, fresh) == mani_success, "random");
+    CHECK(SameLocals(held, fresh), "rebound by identity");
     CursorWalk(&view, cursor);
     view.animatedFloats += 1000;
     maniPose* grownPose = NULL;
@@ -875,6 +885,19 @@ static void TestCodec(void)
         }
     }
     CHECK(covers, "segment ranges cover their values");
+    // The extent is the smallest byte that covers: a ceiling of the
+    // product gives a step more at 0x1.818184p-7 and 125 more values.
+    const float tight[3] = {0x1.818184p-7f, 0x1.818184p-6f, 0x1.c1c1c4p-6f};
+    bool least = true;
+    for (int i = 0; i < 3; ++i)
+    {
+        uint8_t q = 0;
+        uint8_t e = 0;
+        maniCodecSegmentRange(0.0f, tight[i], &q, &e);
+        least = least && maniCodecRangeByte(e) >= tight[i] &&
+                maniCodecRangeByte((uint8_t)(e - 1)) < tight[i];
+    }
+    CHECK(least, "the smallest extent byte");
     const float kept[3] = {0.1f, 0.2f, 0.3f};
     float r = maniCodecRebuild(0.1f, 0.2f, 0.3f);
     const float want[4][4] = {

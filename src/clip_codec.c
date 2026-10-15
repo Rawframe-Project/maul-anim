@@ -58,8 +58,10 @@ void maniCodecSegmentRange(float minimum, float maximum, uint8_t* minimumOut, ui
     uint8_t q = (uint8_t)low;
     // One step lower when rounding put the minimum above the values.
     q = maniCodecRangeByte(q) <= minimum || q == 0 ? q : (uint8_t)(q - 1);
+    // The smallest extent byte reaching the maximum: the product's floor,
+    // one step up when short (a ceiling can land a step past it).
     float extent = maximum - maniCodecRangeByte(q);
-    float high = ceilf(extent * 255.0f);
+    float high = floorf(extent * 255.0f);
     high = high > 0.0f ? (high < 255.0f ? high : 255.0f) : 0.0f;
     uint8_t e = (uint8_t)high;
     e = maniCodecRangeByte(e) >= extent || e == 255 ? e : (uint8_t)(e + 1);
