@@ -16,19 +16,42 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/import.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/skin.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 
-// Hips (a limb, its own channels giving T 1 2 3) above Spine (its own
-// channels turning it about z from 10); Walk's channels on Hips come
-// later in the file, so Hips' rest is theirs, 5 6 0 (Z has no Default).
-// Settings give 24 frames a second.
+// Body, a mesh skinned to Hips and Spine with a Smile shape; Hips (a
+// limb, its own channels giving T 1 2 3) above Spine (its own channels
+// turning it about z from 10). Walk's channels on Hips come later in the
+// file, so Hips' rest is theirs, 5 6 0 (Z has no Default); Walk takes
+// Smile from 0 to 100. Settings give 24 frames a second.
 static const char kScene[] = "; FBX 5.0.0 project file\n"
                              "FBXHeaderExtension: {\n"
                              " FBXHeaderVersion: 1002\n"
                              " FBXVersion: 5000\n"
+                             "}\n"
+                             "Model: \"Model::Body\" {\n"
+                             " Vertices: 0,0,0,1,0,0,0,1,0\n"
+                             " PolygonVertexIndex: 0,1,-3\n"
+                             " MaterialAssignation: \"AllSame\"\n"
+                             " Shape: \"Smile\" {\n"
+                             "  Indexes: 0\n"
+                             "  Vertices: 0,0,1\n"
+                             " }\n"
+                             " Link: \"Model::Hips\" {\n"
+                             "  Indexes: 0,1,2\n"
+                             "  Weights: 1,0.5,1\n"
+                             "  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,-5,-6,0,1\n"
+                             "  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,5,6,0,1\n"
+                             " }\n"
+                             " Link: \"Model::Spine\" {\n"
+                             "  Indexes: 1\n"
+                             "  Weights: 0.5\n"
+                             "  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,-5,-7,0,1\n"
+                             "  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,5,7,0,1\n"
+                             " }\n"
                              "}\n"
                              "Model: \"Model::Hips\" {\n"
                              " Type: \"LimbNode\"\n"
@@ -84,6 +107,14 @@ static const char kScene[] = "; FBX 5.0.0 project file\n"
                              "    }\n"
                              "   }\n"
                              "  }\n"
+                             "  Model: \"Model::Body\" {\n"
+                             "   Channel: \"Smile (Shape)\" {\n"
+                             "    Default: 0\n"
+                             "    KeyVer: 4004\n"
+                             "    KeyCount: 2\n"
+                             "    Key: 0,0,L,46186158000,100,L\n"
+                             "   }\n"
+                             "  }\n"
                              " }\n"
                              "}\n"
                              "Settings: {\n"
@@ -92,6 +123,7 @@ static const char kScene[] = "; FBX 5.0.0 project file\n"
 
 static _Alignas(16) uint8_t s_skeletonFile[16384];
 static _Alignas(16) uint8_t s_clipFile[65536];
+static _Alignas(16) uint8_t s_skinFile[16384];
 static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[16384];
 
 static bool Near(double a, double b)
@@ -112,8 +144,8 @@ static void TestSkeleton(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     maniImportResult r = maniOpenFbx(builder, kScene, strlen(kScene), &fbx);
-    CHECK(r.result == mani_success && maniFbxVersion(fbx) == 5000 && maniFbxModelCount(fbx) == 2,
-          "opens with two models");
+    CHECK(r.result == mani_success && maniFbxVersion(fbx) == 5000 && maniFbxModelCount(fbx) == 3,
+          "opens with three models");
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     size_t size = 0;
@@ -224,6 +256,64 @@ static void TestStacks(void)
     maniDestroyBuilder(builder);
 }
 
+// A translation-only inverse bind.
+static bool IsBind(const maniAffine* a, float x, float y, float z)
+{
+    const float expected[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, x, y, z};
+    for (int i = 0; i < 12; ++i)
+    {
+        if (!(fabsf(a->m[i] - expected[i]) <= 1e-6f))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Body's links are its skin's clusters, in order, each bind its
+// Transform (as ufbx's geometry to bone); Walk's Smile channel (its
+// suffix cut) drives Body's Smile weight from 0 to 1.
+static void TestSkinAndShape(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    size_t size = 0;
+    bool built =
+        maniOpenFbx(builder, kScene, strlen(kScene), &fbx).result == mani_success &&
+        maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
+        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+    maniSkin skin;
+    bool skinned = built && maniFbxSkinCount(fbx) == 1 &&
+                   maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+                   maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+                   maniOpenSkin(s_skinFile, size, &skin).result == mani_success;
+    CHECK(skinned && maniSkinJointCount(&skin) == 2 &&
+              maniSkinJoint(&skin, 0) == maniSkeletonFindBone(&skeleton, "Hips", 4) &&
+              maniSkinJoint(&skin, 1) == maniSkeletonFindBone(&skeleton, "Spine", 5),
+          "a skin of the links, in order");
+    maniAffine b0 = skinned ? maniSkinInverseBind(&skin, 0) : (maniAffine){{0}};
+    maniAffine b1 = skinned ? maniSkinInverseBind(&skin, 1) : (maniAffine){{0}};
+    CHECK(IsBind(&b0, -5, -6, 0) && IsBind(&b1, -5, -7, 0), "binds from Transform");
+    maniClip clip;
+    bool clipped =
+        built &&
+        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, NULL).result ==
+            mani_success &&
+        maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+        maniOpenClip(s_clipFile, size, &clip).result == mani_success;
+    float value = -1.0f;
+    CHECK(clipped && maniClipFindFloatTrack(&clip, "Body/Smile", 10) != MANI_NO_TRACK &&
+              maniClipFloatTrackCount(&clip) == 1 &&
+              maniSampleClipFloats(&clip, 0.5f, &value, 1, NULL) == mani_success &&
+              Near((double)value, 0.5),
+          "the shape's weight, with no property of its name");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 // A take channel's " (Shape)" suffix is cut; a name that only is the
 // suffix, or lacks it, stays whole.
 static void TestShapeNames(void)
@@ -311,14 +401,18 @@ static void TestRefusals(void)
 
 static void TestAllocationFailures(void)
 {
-    FbxSweep sweep = {kScene, 1, UINT32_MAX};
-    CHECK(TestSweep(FbxSweepWork, &sweep, 4096), "allocation failures handled, nothing kept");
+    // Walk with the skin, then (internal).
+    FbxSweep walk = {kScene, 0, 0};
+    FbxSweep internal = {kScene, 1, UINT32_MAX};
+    CHECK(TestSweep(FbxSweepWork, &walk, 4096) && TestSweep(FbxSweepWork, &internal, 4096),
+          "allocation failures handled, nothing kept");
 }
 
 int main(void)
 {
     TestSkeleton();
     TestStacks();
+    TestSkinAndShape();
     TestShapeNames();
     TestVersion5Settings();
     TestRefusals();

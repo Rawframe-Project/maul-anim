@@ -326,7 +326,8 @@ static const maniFbxChannel* OwnerChannel(const maniFbxClipState* c, uint32_t fi
 }
 
 // A Shape child's track: its weight (the owner's property of its name /
-// 100) at every sample, when that property is a number the stack drives.
+// 100) at every sample, when that property is a number (before 6.0, any
+// name) the stack drives.
 static maniImportResult OwnerShape(maniFbxClipState* c, uint32_t owner, uint32_t mesh,
                                    uint32_t shape, uint32_t first, uint32_t count)
 {
@@ -345,9 +346,12 @@ static maniImportResult OwnerShape(maniFbxClipState* c, uint32_t owner, uint32_t
     }
     size_t length = maniFbxStringDecode(fbx, property, (uint8_t*)name, rawLength);
     uint32_t entry = maniFbxFindProperty(fbx, owner, name, length);
+    // Before 6.0 the weight is connected with no property (mani-0017).
+    bool weighted =
+        fbx->version < 6000 || (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry));
     if (maniFbxFindChild(fbx, shape, "Indexes", 7) == MANI_FBX_NONE ||
-        maniFbxFindChild(fbx, shape, "Vertices", 8) == MANI_FBX_NONE || entry == MANI_FBX_NONE ||
-        !maniFbxEntryNumeric(fbx, entry) || OwnerChannel(c, first, count, name, length) == NULL)
+        maniFbxFindChild(fbx, shape, "Vertices", 8) == MANI_FBX_NONE || !weighted ||
+        OwnerChannel(c, first, count, name, length) == NULL)
     {
         return maniFbxSuccess();
     }

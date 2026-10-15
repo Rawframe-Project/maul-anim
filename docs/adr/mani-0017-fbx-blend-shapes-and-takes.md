@@ -48,7 +48,9 @@ weights are one float per target (mani-0012's glTF morph tracks).
 - In those files the takes are followed by one more stack,
   `(internal)`, of the top-level models' own channels, when there are
   any; its range is its keys' span. A channel name ending in
-  ` (Shape)` names the shape without that suffix.
+  ` (Shape)` names the shape without that suffix, and a mesh's Shape
+  weight is driven by a channel of the shape's name with no property
+  of that name on the mesh.
 
 ## Consequences
 
