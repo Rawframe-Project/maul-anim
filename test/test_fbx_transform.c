@@ -383,9 +383,10 @@ static void TestQuatEuler(void)
                 gimbal = gimbal && SameRotation(q, back, 1e-12) && out[kAxes[order][0]] == 0.0 &&
                          fabs(out[kAxes[order][1]] - 90.0 * sign) <= 1e-12;
             }
-            // Within 1e-9 of the lock (by the sine), treated as locked.
+            // Within 1e-9 of the lock by the sine (89.99999 degrees would be
+            // exactly locked already), treated as locked.
             double near[3] = {(double)i, (double)i, (double)i};
-            near[kAxes[order][1]] = 89.99999;
+            near[kAxes[order][1]] = 89.999;
             // The last angle 0: the first is i, recoverable short of the
             // threshold, so 0 shows the threshold applied.
             near[kAxes[order][2]] = 0.0;
