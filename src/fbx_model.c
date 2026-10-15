@@ -233,6 +233,39 @@ uint32_t maniFbxModelOf(const maniFbx* fbx, uint32_t object)
     return object < fbx->objectCount ? fbx->modelOfObject[object] : MANI_FBX_NONE;
 }
 
+// The first model among an object's parents through `OO` connections,
+// looking one geometry up on request.
+static uint32_t DeformerParent(const maniFbx* fbx, uint32_t object, bool throughGeometry)
+{
+    const uint32_t* list = NULL;
+    uint32_t n = maniFbxParentConnections(fbx, object, &list);
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        const maniFbxConnection* c = &fbx->connections[list[k]];
+        if (c->childProperty != MANI_FBX_NONE || c->parentProperty != MANI_FBX_NONE ||
+            c->parent >= fbx->objectCount)
+        {
+            continue;
+        }
+        uint32_t model = maniFbxModelOf(fbx, c->parent);
+        if (model == MANI_FBX_NONE && throughGeometry &&
+            maniFbxObjectKindIs(fbx, c->parent, "Geometry", 8))
+        {
+            model = DeformerParent(fbx, c->parent, false);
+        }
+        if (model != MANI_FBX_NONE)
+        {
+            return model;
+        }
+    }
+    return MANI_FBX_NONE;
+}
+
+uint32_t maniFbxDeformerModel(const maniFbx* fbx, uint32_t object)
+{
+    return DeformerParent(fbx, object, true);
+}
+
 uint32_t maniFbxModelChildren(const maniFbx* fbx, uint32_t model, const uint32_t** out)
 {
     *out = fbx->modelChildren + fbx->childStartsOfModel[model];

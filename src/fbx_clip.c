@@ -21,11 +21,13 @@
 #include "clip_file.h"
 #include "decompose.h"
 #include "fbx_anim.h"
+#include "fbx_blend.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_options.h"
 #include "fbx_sample.h"
+#include "fbx_skin.h"
 #include "fbx_transform.h"
 #include "fbx_value.h"
 #include "fbx_world.h"
@@ -119,6 +121,8 @@ typedef struct Clip
     uint32_t floatCount;
     // Per float track, its model, for refusals.
     uint32_t* floatModel;
+    // The weight bindings of the blend shape channels kept.
+    uint32_t blendBound;
 } Clip;
 
 static uint64_t ModelOffset(const maniFbx* fbx, uint32_t model)
@@ -585,11 +589,188 @@ static bool Seen(const Clip* c, uint32_t first, uint32_t i)
     return false;
 }
 
+// An object's name without its class, in the arena.
+static char* ObjectName(Clip* c, uint32_t object, size_t* lengthOut)
+{
+    const maniFbx* fbx = c->fbx;
+    const uint8_t* raw = NULL;
+    uint32_t rawLength = 0;
+    uint32_t property =
+        maniFbxNodeProperty(fbx, fbx->objects[object].node, fbx->version >= 7000 ? 1 : 0);
+    (void)maniFbxString(fbx, property, &raw, &rawLength);
+    char* name = maniArenaTake(&c->arena, (size_t)rawLength + 1, 1);
+    *lengthOut = name != NULL ? maniFbxObjectName(fbx, object, (uint8_t*)name, rawLength) : 0;
+    return name;
+}
+
+// '/' and k in decimal into out (12 bytes); the count written.
+static size_t Decimal(uint32_t k, char* out)
+{
+    char digits[10];
+    size_t n = 0;
+    do
+    {
+        digits[n++] = (char)('0' + k % 10);
+        k /= 10;
+    } while (k > 0);
+    out[0] = '/';
+    for (size_t i = 0; i < n; ++i)
+    {
+        out[1 + i] = digits[n - 1 - i];
+    }
+    return n + 1;
+}
+
+// A shape's track name: the mesh's, '/', the shape's; or for a shape
+// without a name, its channel's, with '/' and its index past the first.
+static char* ShapeName(Clip* c, uint32_t mesh, uint32_t channel, uint32_t shape, uint32_t k,
+                       uint32_t* lengthOut)
+{
+    uint32_t meshLength = 0;
+    const char* meshName = maniFbxModelName(c->fbx, mesh, &meshLength);
+    size_t length = 0;
+    const char* own = ObjectName(c, shape, &length);
+    bool named = own != NULL && length > 0;
+    const char* base = named ? own : ObjectName(c, channel, &length);
+    char index[12];
+    size_t digits = named || k == 0 ? 0 : Decimal(k, index);
+    size_t n = (size_t)meshLength + 1 + length + digits;
+    char* name = base != NULL ? maniArenaTake(&c->arena, n, 1) : NULL;
+    if (name != NULL)
+    {
+        memcpy(name, meshName, meshLength);
+        name[meshLength] = '/';
+        memcpy(name + meshLength + 1, base, length);
+        memcpy(name + meshLength + 1 + length, index, digits);
+    }
+    *lengthOut = (uint32_t)n;
+    return name;
+}
+
+// Whether a mesh model belongs to the skeleton: a bone of it, or carrying
+// a skin within it.
+static bool MeshInSkeleton(const Clip* c, uint32_t model)
+{
+    uint32_t length = 0;
+    const char* name = maniFbxModelName(c->fbx, model, &length);
+    if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE)
+    {
+        return true;
+    }
+    for (uint32_t s = 0; s < c->fbx->skinCount; ++s)
+    {
+        if (maniFbxSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Each shape's effective weight over the samples.
+static maniImportResult ShapeWeights(Clip* c, uint32_t channel, const maniFbxBlendShape* shapes,
+                                     uint32_t count, float* values)
+{
+    double* effective = maniArenaTake(&c->arena, count, sizeof(double));
+    if (effective == NULL)
+    {
+        return Capacity();
+    }
+    double rest = maniFbxBlendRestPercent(c->fbx, channel);
+    for (uint32_t s = 0; s < c->sampleCount; ++s)
+    {
+        double v[3] = {rest, 0.0, 0.0};
+        (void)maniFbxAnimateProperty(&c->animation, c->fbx, channel, "DeformPercent", 13,
+                                     StackTime(c, s), 0, v);
+        maniFbxBlendWeights(shapes, count, v[0] / 100.0, effective);
+        for (uint32_t k = 0; k < count; ++k)
+        {
+            values[(size_t)k * c->sampleCount + s] = (float)effective[k];
+        }
+    }
+    return maniFbxSuccess();
+}
+
+// The tracks of a blend shape channel whose mesh is the skeleton's.
+static maniImportResult ChannelTracks(Clip* c, uint32_t channel)
+{
+    uint32_t mesh = maniFbxBlendChannelModel(c->fbx, channel);
+    if (mesh == MANI_FBX_NONE || !MeshInSkeleton(c, mesh))
+    {
+        return maniFbxSuccess();
+    }
+    uint32_t first = 0;
+    c->blendBound += maniFbxAnimatedRun(&c->animation, channel, &first);
+    uint32_t count = 0;
+    (void)maniFbxReadBlendShapes(c->fbx, channel, NULL, &count);
+    maniFbxBlendShape* shapes = maniArenaTake(&c->arena, count, sizeof(maniFbxBlendShape));
+    size_t floats = 0;
+    float* values = !ckd_mul(&floats, (size_t)count, (size_t)c->sampleCount)
+                        ? maniArenaTake(&c->arena, floats, sizeof(float))
+                        : NULL;
+    if (shapes == NULL || values == NULL)
+    {
+        return Capacity();
+    }
+    maniImportResult r = maniFbxReadBlendShapes(c->fbx, channel, shapes, &count);
+    r = r.result == mani_success ? ShapeWeights(c, channel, shapes, count, values) : r;
+    for (uint32_t k = 0; r.result == mani_success && k < count; ++k)
+    {
+        maniFloatTrackSource* f = &c->floats[c->floatCount];
+        f->name = ShapeName(c, mesh, channel, shapes[k].object, k, &f->nameLength);
+        f->keys = (maniChannelSource){c->times, values + (size_t)k * c->sampleCount, c->sampleCount,
+                                      maniInterpolationLinear};
+        c->floatModel[c->floatCount++] = mesh;
+        r = f->name != NULL ? r : Capacity();
+    }
+    return r;
+}
+
+// Whether a run's channels include its target's DeformPercent: the first
+// of the run's blend shape channel.
+static bool DrivesWeight(const Clip* c, uint32_t first, uint32_t count)
+{
+    for (uint32_t i = first; i < first + count; ++i)
+    {
+        if (maniFbxStringEquals(c->fbx, c->animation.channels[i].name, "DeformPercent", 13))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Each blend shape channel whose weight the stack animates, once: its
+// shapes counted into shapesOut, and its tracks made unless counting.
+static maniImportResult EachBlendChannel(Clip* c, bool count, size_t* shapesOut)
+{
+    maniImportResult r = maniFbxSuccess();
+    const maniFbxChannel* channels = c->animation.channels;
+    for (uint32_t i = 0; r.result == mani_success && i < c->animation.channelCount;)
+    {
+        uint32_t first = 0;
+        uint32_t target = channels[i].target;
+        uint32_t n = maniFbxAnimatedRun(&c->animation, target, &first);
+        if (maniFbxIsBlendChannel(c->fbx, target) && DrivesWeight(c, first, n))
+        {
+            uint32_t shapes = 0;
+            (void)maniFbxReadBlendShapes(c->fbx, target, NULL, &shapes);
+            *shapesOut += shapes;
+            r = count ? r : ChannelTracks(c, target);
+        }
+        i = first + n;
+    }
+    return r;
+}
+
 static maniImportResult FloatTracks(Clip* c)
 {
-    // At most three tracks a channel.
+    // At most three tracks a channel, and one a blend shape.
     size_t most = 0;
-    if (ckd_mul(&most, (size_t)c->animation.channelCount, (size_t)3))
+    size_t shapes = 0;
+    (void)EachBlendChannel(c, true, &shapes);
+    if (ckd_mul(&most, (size_t)c->animation.channelCount, (size_t)3) ||
+        ckd_add(&most, most, shapes))
     {
         return Capacity();
     }
@@ -617,13 +798,15 @@ static maniImportResult FloatTracks(Clip* c)
             }
         }
     }
-    return r;
+    size_t unused = 0;
+    return r.result == mani_success ? EachBlendChannel(c, false, &unused) : r;
 }
 
-// The channels bound to the models the clip reads.
+// The channels bound to the models the clip reads, and to the blend
+// shape channels it keeps.
 static uint32_t Bound(const Clip* c)
 {
-    uint32_t n = 0;
+    uint32_t n = c->blendBound;
     for (uint32_t m = 0; m < c->fbx->modelCount; ++m)
     {
         uint32_t first = 0;

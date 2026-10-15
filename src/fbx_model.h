@@ -23,6 +23,10 @@ void maniFbxReleaseModels(maniFbx* fbx);
 // The model an object is, or MANI_FBX_NONE.
 uint32_t maniFbxModelOf(const maniFbx* fbx, uint32_t object);
 
+// A deformer's mesh model: its parent model (6.x) or its geometry's
+// (7.x), the first through `OO` connections; MANI_FBX_NONE for none.
+uint32_t maniFbxDeformerModel(const maniFbx* fbx, uint32_t object);
+
 // A model's children in connection order (the root's for
 // fbx->modelCount: models with no parent model), as a run of model
 // indices; their count.

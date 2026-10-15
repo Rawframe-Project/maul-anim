@@ -10,6 +10,7 @@
 // the seed comes from test_fbx --seed <file>.
 
 #include "fbx_anim.h"
+#include "fbx_blend.h"
 #include "fbx_curve.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
@@ -79,6 +80,36 @@ static void Curve(const maniFbx* fbx, uint32_t object)
         (void)maniFbxEvaluateCurve(&curve, t + 1e9, 0.0);
     }
     maniFbxReleaseCurve(fbx, &curve);
+}
+
+// A blend shape channel's model, shapes and weights at a few points.
+static void Blend(const maniFbx* fbx, uint32_t object)
+{
+    if (!maniFbxIsBlendChannel(fbx, object))
+    {
+        return;
+    }
+    (void)maniFbxBlendChannelModel(fbx, object);
+    (void)maniFbxBlendRestPercent(fbx, object);
+    uint32_t count = 0;
+    (void)maniFbxReadBlendShapes(fbx, object, NULL, &count);
+    if (count == 0 || count > 1024)
+    {
+        return;
+    }
+    maniFbxBlendShape* shapes = malloc(count * sizeof *shapes);
+    double* effective = malloc(count * sizeof *effective);
+    if (shapes != NULL && effective != NULL &&
+        maniFbxReadBlendShapes(fbx, object, shapes, &count).result == mani_success)
+    {
+        static const double kWeights[5] = {-1.5, -0.25, 0.0, 0.4, 2.0};
+        for (uint32_t k = 0; k < 5; ++k)
+        {
+            maniFbxBlendWeights(shapes, count, kWeights[k], effective);
+        }
+    }
+    free(shapes);
+    free(effective);
 }
 
 // Reads each stack and evaluates what it drives at its ends and between.
@@ -214,6 +245,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             maniFbxLocal local;
             (void)maniFbxModelLocal(fbx, o, &local);
             Curve(fbx, o);
+            Blend(fbx, o);
         }
         for (uint32_t m = 0; m <= fbx->modelCount; ++m)
         {

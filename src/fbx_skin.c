@@ -9,6 +9,8 @@
 // a bind pose, else its world at rest, and the mesh node's world at rest
 // is taken relative to it.
 
+#include "fbx_skin.h"
+
 #include "allocator.h"
 #include "basis.h"
 #include "fbx_document.h"
@@ -51,38 +53,9 @@ static void FreeBlock(const maniFbx* fbx, void* block, size_t count, size_t size
     maniRelease(&fbx->allocator, block, count + 1, size, 8);
 }
 
-// The first model among an object's parents through `OO` connections,
-// looking one geometry up on request: a skin's mesh model is its parent
-// (6.x) or its geometry's (7.x).
-static uint32_t ParentModel(const maniFbx* fbx, uint32_t object, bool throughGeometry)
-{
-    const uint32_t* list = NULL;
-    uint32_t n = maniFbxParentConnections(fbx, object, &list);
-    for (uint32_t k = 0; k < n; ++k)
-    {
-        const maniFbxConnection* c = &fbx->connections[list[k]];
-        if (c->childProperty != MANI_FBX_NONE || c->parentProperty != MANI_FBX_NONE ||
-            c->parent >= fbx->objectCount)
-        {
-            continue;
-        }
-        uint32_t model = maniFbxModelOf(fbx, c->parent);
-        if (model == MANI_FBX_NONE && throughGeometry &&
-            maniFbxObjectKindIs(fbx, c->parent, "Geometry", 8))
-        {
-            model = ParentModel(fbx, c->parent, false);
-        }
-        if (model != MANI_FBX_NONE)
-        {
-            return model;
-        }
-    }
-    return MANI_FBX_NONE;
-}
-
 static uint32_t MeshModel(const maniFbx* fbx, uint32_t skin)
 {
-    return ParentModel(fbx, fbx->skins[skin], true);
+    return maniFbxDeformerModel(fbx, fbx->skins[skin]);
 }
 
 uint32_t maniFbxSkinModel(const maniFbx* fbx, uint32_t skin)
@@ -139,6 +112,36 @@ static void VisitCluster(const maniFbx* fbx, uint32_t child, void* context)
         joints->models[joints->count] = model;
     }
     ++joints->count;
+}
+
+// Whether every cluster linking a model links a bone of a skeleton.
+typedef struct Within
+{
+    const maniSkeleton* skeleton;
+    uint32_t count;
+    bool all;
+} Within;
+
+static void VisitWithin(const maniFbx* fbx, uint32_t child, void* context)
+{
+    Within* w = context;
+    uint32_t model =
+        maniFbxDeformerIs(fbx, child, "Cluster", 7) ? LinkedModel(fbx, child) : MANI_FBX_NONE;
+    if (model == MANI_FBX_NONE)
+    {
+        return;
+    }
+    uint32_t length = 0;
+    const char* name = maniFbxModelName(fbx, model, &length);
+    w->all = w->all && maniSkeletonFindBone(w->skeleton, name, length) != MANI_NO_BONE;
+    ++w->count;
+}
+
+bool maniFbxSkinWithin(const maniFbx* fbx, uint32_t skin, const maniSkeleton* skeleton)
+{
+    Within w = {skeleton, 0, true};
+    maniFbxEachChild(fbx, fbx->skins[skin], VisitWithin, &w);
+    return w.count > 0 && w.all;
 }
 
 // Sixteen numbers, an array's or a node's own, column-major; refused
