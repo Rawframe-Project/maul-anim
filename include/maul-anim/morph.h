@@ -4,14 +4,14 @@
 // Morph targets (mani-0021): a mesh primitive's blend shapes over the
 // caller's bytes. Named channels, each one or more targets at increasing
 // full weights (glTF's targets have one at 1; FBX's in-betweens several),
-// each target a set of position, normal and tangent deltas, dense or
+// each target deltas for some of the file's attributes (positions,
+// normals, tangents, texture coordinate and color sets), dense or
 // sparse.
 
 #ifndef MAUL_ANIM_MORPH_H
 #define MAUL_ANIM_MORPH_H
 
 #include "maul-anim/base.h"
-#include "maul-anim/skinning.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -23,6 +23,21 @@ extern "C"
 
 // What a channel lookup finds for no channel.
 #define MANI_NO_CHANNEL 0xFFFFFFFFu
+// The most attributes a morph targets file holds.
+#define MANI_MORPH_MAX_ATTRIBUTES 32u
+
+    // A vertex attribute morph targets move: deltas of 3 floats for
+    // positions, normals and tangents (no w), 2 for texture coordinates,
+    // 4 for colors (RGBA).
+    typedef uint32_t maniMorphSemantic;
+    enum
+    {
+        maniMorphPosition = 0,
+        maniMorphNormal = 1,
+        maniMorphTangent = 2,
+        maniMorphTexcoord = 3,
+        maniMorphColor = 4,
+    };
 
     // Morph targets over a file's bytes, which the caller keeps alive and
     // unchanged while the view is used. Its fields are the library's;
@@ -30,6 +45,7 @@ extern "C"
     // copyable.
     typedef struct maniMorphTargets
     {
+        const uint8_t* attributes;
         const uint8_t* channels;
         const uint8_t* targets;
         const uint8_t* indices;
@@ -39,11 +55,12 @@ extern "C"
         uint32_t vertexCount;
         uint32_t channelCount;
         uint32_t targetCount;
-        uint32_t reserved;
+        uint32_t attributeCount;
     } maniMorphTargets;
 
     /// Opens a morph targets file in place: checks the container, the
-    /// sizes, the channels covering the targets in order, every full
+    /// sizes, the attribute table, the channels covering the targets in
+    /// order, every full
     /// weight finite, not 0 and increasing within its channel, every
     /// sparse target's indices increasing and below the vertex count,
     /// every delta finite, and the identity.
@@ -83,6 +100,26 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargetCount(const maniMorphTargets* targets);
+
+    /// Returns the number of attributes the targets move.
+    ///
+    /// @param targets  Opened morph targets.
+    /// @return The attribute count, at most MANI_MORPH_MAX_ATTRIBUTES.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniMorphAttributeCount(const maniMorphTargets* targets);
+
+    /// Returns one of the attributes the targets move.
+    ///
+    /// @param targets    Opened morph targets.
+    /// @param attribute  The attribute, in the file's order.
+    /// @param setOut     Receives its set (0 for positions, normals and
+    ///                   tangents); may be NULL.
+    /// @return Its semantic; UINT32_MAX (and set 0) past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets,
+                                                  uint32_t attribute, uint32_t* setOut);
 
     /// Returns a channel's name, UTF-8 and not terminated.
     ///
@@ -146,6 +183,24 @@ extern "C"
                                                               const float* channelWeights,
                                                               float* targetWeights);
 
+    // A vertex stream a morph job moves: an attribute's floats at in,
+    // written at out; strides in bytes between vertices, at least 4 times
+    // the components. out may be in, with the same stride.
+    typedef struct maniMorphStream
+    {
+        const void* in;
+        void* out;
+        size_t inStride;
+        size_t outStride;
+        maniMorphSemantic semantic;
+        // The set: 0 for positions, normals and tangents.
+        uint32_t set;
+        // 3 for positions and normals, 4 for tangents (w kept), 2 for
+        // texture coordinates, 3 or 4 for colors.
+        uint32_t components;
+        uint32_t reserved;
+    } maniMorphStream;
+
     // A morph job over vertices [first, first + count) of the targets,
     // their streams' pointers at vertex first.
     typedef struct maniMorphJob
@@ -157,22 +212,23 @@ extern "C"
         uint32_t count;
         uint32_t streamCount;
         uint32_t reserved;
-        // Points take the position deltas, normals the normal deltas,
-        // tangents the tangent deltas (w kept).
-        const maniSkinStream* streams;
+        // Each takes its attribute's deltas; one whose attribute the file
+        // lacks is copied.
+        const maniMorphStream* streams;
     } maniMorphJob;
 
-    /// Applies morph targets: each stream's vertices plus the weighted
-    /// deltas, target by target in order (so ranges and sparsity give
-    /// the same bits), then every normal and tangent of the range
+    /// Applies morph targets: each stream's vertices plus its attribute's
+    /// weighted deltas, target by target in order (so ranges and sparsity
+    /// give the same bits), then every normal and tangent of the range
     /// renormalized (zero kept zero). Runs before skinning, into the
     /// skinning job's input.
     ///
     /// @param job  The job.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// weight not finite, a range past the vertices, or a stream without
-    /// pointers, with a stride too small, of an unknown kind or a
-    /// direction (nothing written).
+    /// pointers, with a stride too small, an unknown semantic, a set
+    /// beyond 0 for positions, normals or tangents, or components other
+    /// than its semantic's (nothing written).
     /// @par Thread safety
     /// Safe from any thread; the output range is used by one thread at a time.
     /// Jobs over disjoint ranges run at once.

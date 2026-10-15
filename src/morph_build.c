@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a morph targets file (mani-0021): channels and targets
-// checked, each sparse target's vertices sorted with a vertex given twice
-// summed in binary64 (as ufbx adds FBX's repeated indices), a target
-// touching every vertex stored densely.
+// Building a morph targets file (mani-0021): the attribute table,
+// channels and targets checked, each sparse target's vertices sorted with
+// a vertex given twice summed in binary64 (as ufbx adds FBX's repeated
+// indices), a target touching every vertex stored densely.
 
 #include "allocator.h"
 #include "builder.h"
@@ -16,6 +16,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/morph.h"
 
 #include <stdbool.h>
 #include <stdckdint.h>
@@ -37,34 +38,69 @@ static bool Finite(float value)
     return (bits & 0x7F800000u) != 0x7F800000u;
 }
 
-static uint32_t Attributes(const maniMorphTargetSource* t)
+// The table entries a target holds: those it gives deltas for.
+static uint32_t Mask(const maniMorphSource* s, const maniMorphTargetSource* t)
 {
-    return (t->positions != NULL ? maniMorphPositions : 0u) |
-           (t->normals != NULL ? maniMorphNormals : 0u) |
-           (t->tangents != NULL ? maniMorphTangents : 0u);
+    uint32_t mask = 0;
+    for (uint32_t a = 0; t->deltas != NULL && a < s->attributeCount; ++a)
+    {
+        mask |= t->deltas[a] != NULL ? 1u << a : 0u;
+    }
+    return mask;
 }
 
 // A target's given values: indices below the vertex count, deltas finite;
 // t its index over the channels.
-static maniBuildResult CheckValues(const maniMorphTargetSource* s, uint32_t vertices, uint32_t t)
+static maniBuildResult CheckValues(const maniMorphSource* source, const maniMorphTargetSource* s,
+                                   uint32_t t)
 {
-    if (s->indices == NULL && s->count != vertices)
+    if (s->indices == NULL && s->count != source->vertexCount)
     {
         return Result(mani_errorInvalid, maniBuildReasonCount, t, 0);
     }
-    const float* const lists[3] = {s->positions, s->normals, s->tangents};
+    uint32_t mask = Mask(source, s);
     for (uint32_t i = 0; i < s->count; ++i)
     {
-        if (s->indices != NULL && s->indices[i] >= vertices)
+        if (s->indices != NULL && s->indices[i] >= source->vertexCount)
         {
             return Result(mani_errorInvalid, maniBuildReasonVertex, t, i);
         }
-        for (int a = 0; a < 3; ++a)
+        for (uint32_t a = 0; a < source->attributeCount; ++a)
         {
-            const float* d = lists[a] == NULL ? NULL : lists[a] + 3 * (size_t)i;
-            if (d != NULL && !(Finite(d[0]) && Finite(d[1]) && Finite(d[2])))
+            uint32_t width = maniMorphWidth(source->attributes[a].semantic);
+            const float* d = ((mask >> a) & 1u) != 0 ? s->deltas[a] + width * (size_t)i : NULL;
+            for (uint32_t k = 0; d != NULL && k < width; ++k)
             {
-                return Result(mani_errorInvalid, maniBuildReasonNotFinite, t, i);
+                if (!Finite(d[k]))
+                {
+                    return Result(mani_errorInvalid, maniBuildReasonNotFinite, t, i);
+                }
+            }
+        }
+    }
+    return kOk;
+}
+
+// The attribute table: at most MANI_MORPH_MAX_ATTRIBUTES, each known, set
+// 0 for positions, normals and tangents, none twice.
+static maniBuildResult CheckTable(const maniMorphSource* s)
+{
+    if (s->attributeCount > MANI_MORPH_MAX_ATTRIBUTES)
+    {
+        return Result(mani_errorInvalid, maniBuildReasonCount, 0, 0);
+    }
+    for (uint32_t a = 0; a < s->attributeCount; ++a)
+    {
+        const maniMorphAttributeSource* x = &s->attributes[a];
+        if (maniMorphWidth(x->semantic) == 0 || (x->semantic <= maniMorphTangent && x->set != 0))
+        {
+            return Result(mani_errorInvalid, maniBuildReasonAttribute, a, 0);
+        }
+        for (uint32_t b = 0; b < a; ++b)
+        {
+            if (s->attributes[b].semantic == x->semantic && s->attributes[b].set == x->set)
+            {
+                return Result(mani_errorInvalid, maniBuildReasonAttribute, a, b);
             }
         }
     }
@@ -129,28 +165,29 @@ static maniBuildResult Check(const maniMorphSource* s, uint32_t* targetCountOut)
     {
         return Result(mani_errorInvalid, maniBuildReasonCount, 0, 0);
     }
+    maniBuildResult table = CheckTable(s);
+    if (table.result != mani_success)
+    {
+        return table;
+    }
     uint32_t t = 0;
     for (uint32_t c = 0; c < s->channelCount; ++c)
     {
         const maniMorphChannelSource* ch = &s->channels[c];
-        if (ch->targetCount == 0 || ch->targets == NULL)
+        if (ch->targetCount == 0 || ch->targets == NULL || t > UINT32_MAX - ch->targetCount)
         {
             return Result(mani_errorInvalid, maniBuildReasonCount, c, 0);
         }
         float previous = 0.0f;
         for (uint32_t k = 0; k < ch->targetCount; ++k, ++t)
         {
-            if (t == UINT32_MAX)
-            {
-                return Result(mani_errorInvalid, maniBuildReasonCount, c, 0);
-            }
             float full = ch->targets[k].fullWeight;
             if (!Finite(full) || full == 0.0f || (k > 0 && !(full > previous)))
             {
                 return Result(mani_errorInvalid, maniBuildReasonWeight, t, 0);
             }
             previous = full;
-            maniBuildResult r = CheckValues(&ch->targets[k], s->vertexCount, t);
+            maniBuildResult r = CheckValues(s, &ch->targets[k], t);
             if (r.result != mani_success)
             {
                 return r;
@@ -178,6 +215,8 @@ typedef struct Work
     uint32_t targetCount;
     // The largest given count, for the sort's buffers.
     uint32_t widest;
+    // Each table entry's width.
+    uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES];
     // The targets over the channels in order.
     const maniMorphTargetSource** sources;
     uint64_t* keys;
@@ -195,13 +234,10 @@ static bool Fits(uint64_t count, uint64_t k, size_t size)
            bytes < SIZE_MAX;
 }
 
-// One attribute's deltas of the source's i-th given vertex.
-static const float* Given(const maniMorphTargetSource* s, uint32_t attribute, uint32_t i)
+// The floats a target holds a given vertex.
+static uint32_t Floats(const Work* w, const maniMorphTargetSource* s)
 {
-    const float* list = attribute == maniMorphPositions
-                            ? s->positions
-                            : (attribute == maniMorphNormals ? s->normals : s->tangents);
-    return list + 3 * (size_t)i;
+    return maniMorphFloatsPerVertex(w->widths, Mask(w->source, s));
 }
 
 // The merged vertices of a target: the sorted runs of equal indices.
@@ -240,23 +276,24 @@ static uint32_t SortedVertex(const Work* w, const maniMorphTargetSource* s, uint
 }
 
 // One attribute's deltas summed by run (in the source's order, the sort
-// being stable), rounded into out: three floats a merged vertex.
+// being stable), rounded into out: its width of floats a merged vertex.
 static void SumAttribute(Work* w, const maniMorphTargetSource* s, uint32_t attribute,
                          uint32_t merged, float* out)
 {
+    uint32_t width = w->widths[attribute];
     uint32_t run = 0;
     for (uint32_t i = 0; i < s->count; ++i)
     {
         bool fresh = i == 0 || SortedVertex(w, s, i) != SortedVertex(w, s, i - 1);
         run += fresh && i > 0 ? 1 : 0;
-        const float* d = Given(s, attribute, w->order[i]);
-        for (int k = 0; k < 3; ++k)
+        const float* d = s->deltas[attribute] + width * (size_t)w->order[i];
+        for (uint32_t k = 0; k < width; ++k)
         {
-            double* sum = &w->sums[3 * (size_t)run + k];
+            double* sum = &w->sums[width * (size_t)run + k];
             *sum = (fresh ? 0.0 : *sum) + (double)d[k];
         }
     }
-    for (size_t k = 0; k < 3 * (size_t)merged; ++k)
+    for (size_t k = 0; k < width * (size_t)merged; ++k)
     {
         out[k] = (float)w->sums[k];
     }
@@ -266,13 +303,14 @@ static bool Merge(Work* w, uint32_t t)
 {
     const maniMorphTargetSource* s = w->sources[t];
     Merged* m = &w->merged[t];
-    uint32_t attributes = Attributes(s);
-    if (!Fits(s->count, 9, sizeof(float)))
+    uint32_t mask = Mask(w->source, s);
+    uint32_t floats = Floats(w, s);
+    if (!Fits(s->count, floats, sizeof(float)))
     {
         return false;
     }
     m->indices = maniAllocate(w->allocator, (size_t)s->count + 1, sizeof(uint32_t), 8);
-    m->deltas = maniAllocate(w->allocator, (size_t)s->count * 9 + 1, sizeof(float), 8);
+    m->deltas = maniAllocate(w->allocator, (size_t)s->count * floats + 1, sizeof(float), 8);
     if (m->indices == NULL || m->deltas == NULL)
     {
         return false;
@@ -280,12 +318,12 @@ static bool Merge(Work* w, uint32_t t)
     m->count = Runs(w, s, m->indices);
     m->dense = m->count == w->source->vertexCount;
     float* out = m->deltas;
-    for (uint32_t a = maniMorphPositions; a <= maniMorphTangents; a <<= 1)
+    for (uint32_t a = 0; a < w->source->attributeCount; ++a)
     {
-        if ((attributes & a) != 0)
+        if (((mask >> a) & 1u) != 0)
         {
             SumAttribute(w, s, a, m->count, out);
-            out += 3 * (size_t)m->count;
+            out += w->widths[a] * (size_t)m->count;
         }
     }
     return true;
@@ -298,12 +336,13 @@ static void Release(Work* w)
     maniRelease(a, w->keys, n, sizeof(uint64_t), 8);
     maniRelease(a, w->order, n, sizeof(uint32_t), 8);
     maniRelease(a, w->scratch, n, sizeof(uint32_t), 8);
-    maniRelease(a, w->sums, 3 * n, sizeof(double), 8);
+    maniRelease(a, w->sums, 4 * n, sizeof(double), 8);
     for (uint32_t t = 0; w->merged != NULL && t < w->targetCount; ++t)
     {
         uint32_t given = w->sources[t]->count;
+        size_t floats = (size_t)given * Floats(w, w->sources[t]) + 1;
         maniRelease(a, w->merged[t].indices, (size_t)given + 1, sizeof(uint32_t), 8);
-        maniRelease(a, w->merged[t].deltas, (size_t)given * 9 + 1, sizeof(float), 8);
+        maniRelease(a, w->merged[t].deltas, floats, sizeof(float), 8);
     }
     maniRelease(a, w->merged, w->targetCount, sizeof(Merged), 8);
     maniRelease(a, (void*)w->sources, w->targetCount, sizeof(void*), 8);
@@ -313,14 +352,14 @@ static bool Allocate(Work* w)
 {
     const maniAllocator* a = w->allocator;
     size_t n = (size_t)w->widest + 1;
-    if (!Fits(n, 3, sizeof(double)))
+    if (!Fits(n, 4, sizeof(double)))
     {
         return false;
     }
     w->keys = maniAllocate(a, n, sizeof(uint64_t), 8);
     w->order = maniAllocate(a, n, sizeof(uint32_t), 8);
     w->scratch = maniAllocate(a, n, sizeof(uint32_t), 8);
-    w->sums = maniAllocate(a, 3 * n, sizeof(double), 8);
+    w->sums = maniAllocate(a, 4 * n, sizeof(double), 8);
     w->merged = maniAllocate(a, w->targetCount, sizeof(Merged), 8);
     if (w->merged != NULL)
     {
@@ -345,7 +384,7 @@ static Totals Sum(const Work* w)
     {
         const Merged* m = &w->merged[t];
         totals.indices += m->dense ? 0 : m->count;
-        totals.deltas += (uint64_t)m->count * maniMorphFloatsPerVertex(Attributes(w->sources[t]));
+        totals.deltas += (uint64_t)m->count * Floats(w, w->sources[t]);
     }
     for (uint32_t c = 0; c < w->source->channelCount; ++c)
     {
@@ -354,53 +393,73 @@ static Totals Sum(const Work* w)
     return totals;
 }
 
-// The header, channel and target records, the indices, deltas and names
-// laid into the section buffers.
-static void Lay(const Work* w, uint8_t* header, uint8_t* channels, uint8_t* targets,
-                uint8_t* indices, uint8_t* deltas, uint8_t* names)
+// The section buffers, in tag order.
+typedef struct Buffers
+{
+    uint8_t* header;
+    uint8_t* attributes;
+    uint8_t* channels;
+    uint8_t* targets;
+    uint8_t* indices;
+    uint8_t* deltas;
+    uint8_t* names;
+} Buffers;
+
+// The header, attribute and channel records and the names.
+static void LayTable(const Work* w, const Buffers* b)
 {
     const maniMorphSource* s = w->source;
-    maniStoreU32(header, s->vertexCount);
-    maniStoreU32(header + 4, s->channelCount);
-    maniStoreU32(header + 8, w->targetCount);
-    maniStoreU32(header + 12, 0);
+    maniStoreU32(b->header, s->vertexCount);
+    maniStoreU32(b->header + 4, s->channelCount);
+    maniStoreU32(b->header + 8, w->targetCount);
+    maniStoreU32(b->header + 12, s->attributeCount);
+    for (uint32_t a = 0; a < s->attributeCount; ++a)
+    {
+        uint8_t* e = b->attributes + (size_t)a * MANI_MORPH_ATTRIBUTE_SIZE;
+        maniStoreU32(e, s->attributes[a].semantic);
+        maniStoreU32(e + 4, s->attributes[a].set);
+    }
     uint32_t first = 0;
     uint32_t name = 0;
     for (uint32_t c = 0; c < s->channelCount; ++c)
     {
-        uint8_t* e = channels + (size_t)c * MANI_MORPH_CHANNEL_SIZE;
+        uint8_t* e = b->channels + (size_t)c * MANI_MORPH_CHANNEL_SIZE;
         maniStoreU32(e, first);
         maniStoreU32(e + 4, s->channels[c].targetCount);
         maniStoreU32(e + 8, name);
         maniStoreU32(e + 12, s->channels[c].nameLength);
-        memcpy(names + name, s->channels[c].name, s->channels[c].nameLength);
+        memcpy(b->names + name, s->channels[c].name, s->channels[c].nameLength);
         first += s->channels[c].targetCount;
         name += s->channels[c].nameLength;
     }
+}
+
+// The target records, their indices and deltas.
+static void LayTargets(const Work* w, const Buffers* b)
+{
     uint64_t index = 0;
     uint64_t delta = 0;
     for (uint32_t t = 0; t < w->targetCount; ++t)
     {
         const maniMorphTargetSource* src = w->sources[t];
         const Merged* m = &w->merged[t];
-        uint32_t attributes = Attributes(src) | (m->dense ? maniMorphDense : 0u);
-        uint8_t* e = targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
+        uint8_t* e = b->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
         memcpy(e, &src->fullWeight, sizeof(float));
-        maniStoreU32(e + 4, attributes);
+        maniStoreU32(e + 4, Mask(w->source, src));
         maniStoreU32(e + 8, m->count);
-        maniStoreU32(e + 12, 0);
+        maniStoreU32(e + 12, m->dense ? MANI_MORPH_DENSE : 0u);
         maniStoreU64(e + 16, index);
         maniStoreU64(e + 24, delta);
-        uint64_t floats = (uint64_t)m->count * maniMorphFloatsPerVertex(attributes);
+        uint64_t floats = (uint64_t)m->count * Floats(w, src);
         if (!m->dense)
         {
             for (uint32_t i = 0; i < m->count; ++i)
             {
-                maniStoreU32(indices + 4 * (index + i), m->indices[i]);
+                maniStoreU32(b->indices + 4 * (index + i), m->indices[i]);
             }
             index += m->count;
         }
-        memcpy(deltas + 4 * delta, m->deltas, 4 * floats);
+        memcpy(b->deltas + 4 * delta, m->deltas, 4 * floats);
         delta += floats;
     }
 }
@@ -409,13 +468,14 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
 {
     Totals totals = Sum(w);
     const maniMorphSource* s = w->source;
-    const uint64_t sizes[MANI_MORPH_SECTIONS] = {MANI_MORPH_HEADER_SIZE,
-                                                 (uint64_t)s->channelCount *
-                                                     MANI_MORPH_CHANNEL_SIZE,
-                                                 (uint64_t)w->targetCount * MANI_MORPH_TARGET_SIZE,
-                                                 4 * totals.indices,
-                                                 4 * totals.deltas,
-                                                 totals.names};
+    const uint64_t sizes[MANI_MORPH_SECTIONS] = {
+        MANI_MORPH_HEADER_SIZE,
+        (uint64_t)s->attributeCount * MANI_MORPH_ATTRIBUTE_SIZE,
+        (uint64_t)s->channelCount * MANI_MORPH_CHANNEL_SIZE,
+        (uint64_t)w->targetCount * MANI_MORPH_TARGET_SIZE,
+        4 * totals.indices,
+        4 * totals.deltas,
+        totals.names};
     uint64_t all = 0;
     for (uint32_t i = 0; i < MANI_MORPH_SECTIONS; ++i)
     {
@@ -437,8 +497,11 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
         data[i] = at;
         at += sizes[i];
     }
-    Lay(w, staging, (uint8_t*)data[1], (uint8_t*)data[2], (uint8_t*)data[3], (uint8_t*)data[4],
-        (uint8_t*)data[5]);
+    const Buffers buffers = {staging,           (uint8_t*)data[1], (uint8_t*)data[2],
+                             (uint8_t*)data[3], (uint8_t*)data[4], (uint8_t*)data[5],
+                             (uint8_t*)data[6]};
+    LayTable(w, &buffers);
+    LayTargets(w, &buffers);
     maniSectionSource sections[MANI_MORPH_SECTIONS];
     uint32_t count = 0;
     for (uint32_t i = 0; i < MANI_MORPH_SECTIONS; ++i)
@@ -470,7 +533,8 @@ maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSourc
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
-    if (source == NULL || (source->channels == NULL && source->channelCount > 0))
+    if (source == NULL || (source->channels == NULL && source->channelCount > 0) ||
+        (source->attributes == NULL && source->attributeCount > 0))
     {
         ++builder->misuses;
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
@@ -486,6 +550,10 @@ maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSourc
         return r;
     }
     Work w = {.source = source, .allocator = &builder->allocator, .targetCount = targetCount};
+    for (uint32_t a = 0; a < source->attributeCount; ++a)
+    {
+        w.widths[a] = maniMorphWidth(source->attributes[a].semantic);
+    }
     w.sources =
         (const maniMorphTargetSource**)maniAllocate(w.allocator, targetCount, sizeof(void*), 8);
     for (uint32_t c = 0, t = 0; w.sources != NULL && c < source->channelCount; ++c)

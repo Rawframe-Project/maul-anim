@@ -24,6 +24,8 @@ enum
 static float s_points[kVertices * 3];
 static float s_normals[kVertices * 3];
 static float s_tangents[kVertices * 4];
+static float s_texcoords[kVertices * 2];
+static float s_colors[kVertices * 4];
 
 static void Exercise(const uint8_t* bytes, size_t size)
 {
@@ -64,11 +66,25 @@ static void Exercise(const uint8_t* bytes, size_t size)
     memset(s_points, 0, sizeof s_points);
     memset(s_normals, 0, sizeof s_normals);
     memset(s_tangents, 0, sizeof s_tangents);
+    memset(s_texcoords, 0, sizeof s_texcoords);
+    memset(s_colors, 0, sizeof s_colors);
+    // Every attribute the file names, then read back.
+    for (uint32_t a = 0; a < maniMorphAttributeCount(&m); ++a)
+    {
+        uint32_t set = 0;
+        if (maniMorphAttribute(&m, a, &set) > maniMorphColor)
+        {
+            abort();
+        }
+    }
     uint32_t count = maniMorphVertexCount(&m) < kVertices ? maniMorphVertexCount(&m) : kVertices;
-    const maniSkinStream streams[3] = {{s_points, s_points, 12, 12, maniStreamPoint, 0},
-                                       {s_normals, s_normals, 12, 12, maniStreamNormal, 0},
-                                       {s_tangents, s_tangents, 16, 16, maniStreamTangent, 0}};
-    maniMorphJob job = {&m, targetWeights, 0, count, 3, 0, streams};
+    const maniMorphStream streams[5] = {
+        {s_points, s_points, 12, 12, maniMorphPosition, 0, 3, 0},
+        {s_normals, s_normals, 12, 12, maniMorphNormal, 0, 3, 0},
+        {s_tangents, s_tangents, 16, 16, maniMorphTangent, 0, 4, 0},
+        {s_texcoords, s_texcoords, 8, 8, maniMorphTexcoord, 0, 2, 0},
+        {s_colors, s_colors, 16, 16, maniMorphColor, 0, 4, 0}};
+    maniMorphJob job = {&m, targetWeights, 0, count, 5, 0, streams};
     (void)maniApplyMorphTargets(&job);
     free(channelWeights);
     free(targetWeights);

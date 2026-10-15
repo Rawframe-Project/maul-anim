@@ -141,6 +141,10 @@ extern "C"
         // A vertex index past the vertex count; other is its place in the
         // source's indices.
         maniBuildReasonVertex = 20,
+        // A morph attribute of an unknown semantic, with a set beyond 0
+        // for positions, normals or tangents, or given twice (other the
+        // earlier); item is the attribute.
+        maniBuildReasonAttribute = 21,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -630,6 +634,14 @@ extern "C"
                                                              uint32_t* boneOut, uint32_t capacity,
                                                              uint32_t* countOut);
 
+    // An attribute morph targets move: its semantic and set (0 for
+    // positions, normals and tangents).
+    typedef struct maniMorphAttributeSource
+    {
+        maniMorphSemantic semantic;
+        uint32_t set;
+    } maniMorphAttributeSource;
+
     // A morph target as a source gives it: deltas for some of its
     // vertices (any order; a vertex given twice takes the sum) or for all.
     typedef struct maniMorphTargetSource
@@ -642,10 +654,10 @@ extern "C"
         // count vertex indices, or NULL for every vertex in order (count
         // then the vertex count).
         const uint32_t* indices;
-        // Three floats a given vertex each, or NULL for none.
-        const float* positions;
-        const float* normals;
-        const float* tangents;
+        // A pointer an attribute of the source's: its deltas, its width
+        // of floats (3, 2 or 4, maniMorphSemantic) a given vertex, or NULL
+        // where the target leaves it. NULL for none at all.
+        const float* const* deltas;
     } maniMorphTargetSource;
 
     // A named channel: its targets at increasing full weights.
@@ -664,6 +676,11 @@ extern "C"
         const maniMorphChannelSource* channels;
         uint32_t channelCount;
         uint32_t vertexCount;
+        // The attributes the targets move, at most
+        // MANI_MORPH_MAX_ATTRIBUTES.
+        const maniMorphAttributeSource* attributes;
+        uint32_t attributeCount;
+        uint32_t reserved;
     } maniMorphSource;
 
     /// Builds a morph targets file: checks every channel and target, sorts
@@ -678,8 +695,10 @@ extern "C"
     /// channel for `maniBuildReasonCount` on a channel without targets,
     /// `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a
     /// target, counted over the channels in order, otherwise):
-    /// `maniBuildReasonCount` (no channels, no vertices, or an index-less
-    /// target whose count is not the vertex count), `maniBuildReasonName`,
+    /// `maniBuildReasonCount` (no channels, no vertices, more than
+    /// MANI_MORPH_MAX_ATTRIBUTES attributes (item 0), or an index-less
+    /// target whose count is not the vertex count), `maniBuildReasonAttribute`
+    /// (item the attribute), `maniBuildReasonName`,
     /// `maniBuildReasonDuplicateName` (other the earlier channel),
     /// `maniBuildReasonWeight`, `maniBuildReasonVertex`,
     /// `maniBuildReasonNotFinite` (other the given vertex's place);

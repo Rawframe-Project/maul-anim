@@ -59,7 +59,9 @@ format.
   pair), and `maniSkinCenters` skins about them without the collapse of
   linear or the bulge of dual quaternion skinning.
 - Morph targets (mani-0021): `maniBuildMorphTargets` builds named
-  channels of dense or sparse targets (FBX in-betweens included),
+  channels of dense or sparse targets (FBX in-betweens included) over
+  positions, normals, tangents, texture coordinates and colors,
   `maniOpenMorphTargets` opens them, `maniMorphTargetWeights` turns
   channel weights into target weights, and `maniApplyMorphTargets` adds
-  the weighted deltas to strided vertex ranges before skinning.
+  the weighted deltas to strided vertex ranges before skinning;
+  `maniMorphAttributeCount` and `maniMorphAttribute` read the table.

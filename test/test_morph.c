@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Morph targets (mani-0021): built with sparse targets sorted and their
-// repeated vertices summed, a target touching every vertex stored
-// densely, FBX in-betweens; channel weights walked to target weights as
+// Morph targets (mani-0021): built over an attribute table (positions,
+// normals, tangents, a texture coordinate and a color set) with sparse
+// targets sorted and their repeated vertices summed, a target touching
+// every vertex stored densely, FBX in-betweens; channel weights walked to target weights as
 // ufbx does, against a piecewise linear reference; the job against a
 // binary64 reference, ranges, in place and sparse against dense giving
 // the same bits; every refusal of the builder, the opener and the job;
@@ -26,8 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_MORPH_FILE 0x2199e0ea0414cb8cull
-#define PINNED_MORPH_JOB  0x8f6d7cfcab3a9593ull
+#define PINNED_MORPH_FILE 0x9d6f20bf1a45265bull
+#define PINNED_MORPH_JOB  0x505a297b9b1d7aabull
 
 enum
 {
@@ -61,22 +62,38 @@ static maniBuilder* NewBuilder(void)
     return builder;
 }
 
-// The sample: "smile", one sparse target given out of order with vertex
-// 5 twice; "blink", FBX in-betweens at -1, 0.5 and 1, dense; "wide", one
-// target given for every vertex in reverse, so stored densely.
+// The attributes: positions, normals, tangents, texture coordinate set
+// 0 and color set 1.
+static const maniMorphAttributeSource kAttributes[5] = {{maniMorphPosition, 0},
+                                                        {maniMorphNormal, 0},
+                                                        {maniMorphTangent, 0},
+                                                        {maniMorphTexcoord, 0},
+                                                        {maniMorphColor, 1}};
+
+// The sample: "smile", one sparse target of positions and normals given
+// out of order with vertex 5 twice; "blink", FBX in-betweens at -1, 0.5
+// and 1, dense positions (the middle one texture coordinates too);
+// "wide", tangents and colors given for every vertex in reverse, so
+// stored densely.
 static const uint32_t kSmileIndices[4] = {5, 2, 5, 9};
 static const float kSmilePositions[12] = {1, 0, 0, 0, 2, 0, 0.5f, 0.25f, 0, 0, 0, 3};
 static const float kSmileNormals[12] = {0, 1, 0, 1, 0, 0, 0, 0.5f, 0, 0, 0, 1};
 static float s_blink[3][3 * kVertices];
+static float s_blinkTexcoords[2 * kVertices];
 static uint32_t s_wideIndices[kVertices];
 static float s_wideTangents[3 * kVertices];
+static float s_wideColors[4 * kVertices];
 
+static const float* s_smileDeltas[5];
+static const float* s_blinkDeltas[3][5];
+static const float* s_wideDeltas[5];
 static maniMorphTargetSource s_smile[1];
 static maniMorphTargetSource s_blinks[3];
 static maniMorphTargetSource s_wide[1];
 static maniMorphChannelSource s_channels[3];
+static maniMorphAttributeSource s_attributes[5];
 
-static void SampleSource(maniMorphSource* source)
+static void SampleData(void)
 {
     for (int k = 0; k < 3; ++k)
     {
@@ -91,17 +108,40 @@ static void SampleSource(maniMorphSource* source)
         s_wideTangents[3 * i] = 0.25f * (float)i;
         s_wideTangents[3 * i + 1] = -0.5f;
         s_wideTangents[3 * i + 2] = 0.125f;
+        s_blinkTexcoords[2 * i] = 0.0625f * (float)i;
+        s_blinkTexcoords[2 * i + 1] = -0.25f;
+        for (uint32_t k = 0; k < 4; ++k)
+        {
+            s_wideColors[4 * i + k] = 0.03125f * (float)(i + k);
+        }
     }
-    s_smile[0] =
-        (maniMorphTargetSource){1.0f, 4, kSmileIndices, kSmilePositions, kSmileNormals, NULL};
-    s_blinks[0] = (maniMorphTargetSource){-1.0f, kVertices, NULL, s_blink[0], NULL, NULL};
-    s_blinks[1] = (maniMorphTargetSource){0.5f, kVertices, NULL, s_blink[1], NULL, NULL};
-    s_blinks[2] = (maniMorphTargetSource){1.0f, kVertices, NULL, s_blink[2], NULL, NULL};
-    s_wide[0] = (maniMorphTargetSource){1.0f, kVertices, s_wideIndices, NULL, NULL, s_wideTangents};
+}
+
+static void SampleSource(maniMorphSource* source)
+{
+    SampleData();
+    memcpy(s_attributes, kAttributes, sizeof s_attributes);
+    memset(s_smileDeltas, 0, sizeof s_smileDeltas);
+    memset(s_blinkDeltas, 0, sizeof s_blinkDeltas);
+    memset(s_wideDeltas, 0, sizeof s_wideDeltas);
+    s_smileDeltas[0] = kSmilePositions;
+    s_smileDeltas[1] = kSmileNormals;
+    for (int k = 0; k < 3; ++k)
+    {
+        s_blinkDeltas[k][0] = s_blink[k];
+    }
+    s_blinkDeltas[1][3] = s_blinkTexcoords;
+    s_wideDeltas[2] = s_wideTangents;
+    s_wideDeltas[4] = s_wideColors;
+    s_smile[0] = (maniMorphTargetSource){1.0f, 4, kSmileIndices, s_smileDeltas};
+    s_blinks[0] = (maniMorphTargetSource){-1.0f, kVertices, NULL, s_blinkDeltas[0]};
+    s_blinks[1] = (maniMorphTargetSource){0.5f, kVertices, NULL, s_blinkDeltas[1]};
+    s_blinks[2] = (maniMorphTargetSource){1.0f, kVertices, NULL, s_blinkDeltas[2]};
+    s_wide[0] = (maniMorphTargetSource){1.0f, kVertices, s_wideIndices, s_wideDeltas};
     s_channels[0] = (maniMorphChannelSource){"smile", 5, 1, s_smile};
     s_channels[1] = (maniMorphChannelSource){"blink", 5, 3, s_blinks};
     s_channels[2] = (maniMorphChannelSource){"wide", 4, 1, s_wide};
-    *source = (maniMorphSource){s_channels, 3, kVertices};
+    *source = (maniMorphSource){s_channels, 3, kVertices, s_attributes, 5, 0};
 }
 
 static void BuildSample(void)
@@ -121,15 +161,21 @@ static void TestBuildsAndReads(void)
     maniMorphTargets m;
     CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
     CHECK(maniMorphVertexCount(&m) == kVertices && maniMorphChannelCount(&m) == 3 &&
-              maniMorphTargetCount(&m) == 5,
+              maniMorphTargetCount(&m) == 5 && maniMorphAttributeCount(&m) == 5,
           "counts");
+    uint32_t set = 9;
+    CHECK(maniMorphAttribute(&m, 4, &set) == maniMorphColor && set == 1 &&
+              maniMorphAttribute(&m, 3, &set) == maniMorphTexcoord && set == 0 &&
+              maniMorphAttribute(&m, 5, &set) == UINT32_MAX && set == 0,
+          "the attribute table");
     uint32_t length = 0;
     const char* name = maniMorphChannelName(&m, 1, &length);
     CHECK(length == 5 && memcmp(name, "blink", 5) == 0, "a channel's name");
     CHECK(maniMorphChannelName(&m, 3, &length) == NULL && length == 0, "no channel past the count");
     CHECK(maniMorphFindChannel(&m, "wide", 4) == 2 &&
               maniMorphFindChannel(&m, "wid", 3) == MANI_NO_CHANNEL &&
-              maniMorphFindChannel(&m, NULL, 1) == MANI_NO_CHANNEL,
+              maniMorphFindChannel(&m, NULL, 1) == MANI_NO_CHANNEL &&
+              maniMorphFindChannel(&m, "", 0) == MANI_NO_CHANNEL,
           "find");
     uint32_t first = 0;
     CHECK(maniMorphChannelTargets(&m, 1, &first) == 3 && first == 1 &&
@@ -139,10 +185,11 @@ static void TestBuildsAndReads(void)
     CHECK(maniMorphTargetFullWeight(&m, 1) == -1.0f && maniMorphTargetFullWeight(&m, 2) == 0.5f &&
               maniMorphTargetFullWeight(&m, 5) == 0.0f,
           "full weights");
-    // Smile: sorted, vertex 5 summed; wide: dense.
+    // Smile: sorted, vertex 5 summed; wide: dense, tangents then colors.
     const uint8_t* smile = m.targets;
+    const uint8_t* blink = m.targets + 2 * MANI_MORPH_TARGET_SIZE;
     const uint8_t* wide = m.targets + 4 * MANI_MORPH_TARGET_SIZE;
-    CHECK(maniLoadU32(smile + 4) == (maniMorphPositions | maniMorphNormals) &&
+    CHECK(maniLoadU32(smile + 4) == 3u && maniLoadU32(smile + 12) == 0 &&
               maniLoadU32(smile + 8) == 3 && maniLoadU32(m.indices) == 2 &&
               maniLoadU32(m.indices + 4) == 5 && maniLoadU32(m.indices + 8) == 9,
           "sparse sorted and merged");
@@ -151,12 +198,20 @@ static void TestBuildsAndReads(void)
     CHECK(d[0] == 1.5f && d[1] == 0.25f && d[2] == 0.0f, "vertex 5 summed in source order");
     memcpy(d, m.deltas + 4 * 9 + 12, sizeof d);
     CHECK(d[0] == 0.0f && d[1] == 1.5f && d[2] == 0.0f, "normals summed too");
-    CHECK(maniLoadU32(wide + 4) == (maniMorphTangents | maniMorphDense) &&
+    CHECK(maniLoadU32(blink + 4) == 9u && maniLoadU32(blink + 12) == MANI_MORPH_DENSE,
+          "positions and texture coordinates");
+    float uv[2];
+    memcpy(uv, m.deltas + 4 * (maniLoadU64(blink + 24) + 3 * kVertices + 2 * 5), sizeof uv);
+    CHECK(uv[0] == 0.3125f && uv[1] == -0.25f, "texture coordinates after the positions");
+    CHECK(maniLoadU32(wide + 4) == 0x14u && maniLoadU32(wide + 12) == MANI_MORPH_DENSE &&
               maniLoadU32(wide + 8) == kVertices,
           "every vertex: dense");
     uint64_t deltas = maniLoadU64(wide + 24);
     memcpy(d, m.deltas + 4 * (deltas + 3 * 7), sizeof d);
     CHECK(d[0] == 1.0f && d[1] == -0.5f, "dense in vertex order (given in reverse)");
+    float color[4];
+    memcpy(color, m.deltas + 4 * (deltas + 3 * kVertices + 4 * 7), sizeof color);
+    CHECK(color[0] == 0.125f && color[3] == 0.21875f, "colors after the tangents");
 }
 
 // The walk by its definition: the keys and the zero shape in order of
@@ -249,12 +304,15 @@ static void TestWeights(void)
     CHECK(maniMorphTargetWeights(&m, NULL, targets) == mani_errorInvalid, "no weights");
 }
 
-// Vertices: position, normal, tangent (four floats), interleaved.
+// Vertices: position, normal, tangent (four floats), texture coordinate
+// and color, interleaved.
 typedef struct Vertex
 {
     float position[3];
     float normal[3];
     float tangent[4];
+    float texcoord[2];
+    float color[4];
 } Vertex;
 
 static Vertex s_in[kVertices];
@@ -272,63 +330,85 @@ static void RandomVertices(void)
             s_in[v].tangent[k] = Uniform(-1, 1);
         }
         s_in[v].tangent[3] = v % 2 == 0 ? 1.0f : -1.0f;
+        s_in[v].texcoord[0] = Uniform(0.1f, 1);
+        s_in[v].texcoord[1] = Uniform(0.1f, 1);
+        for (int k = 0; k < 4; ++k)
+        {
+            s_in[v].color[k] = Uniform(0.1f, 1);
+        }
     }
 }
 
-static void Streams(const Vertex* in, Vertex* out, maniSkinStream streams[3])
+// A stream over the vertices: an attribute's floats at its member.
+static maniMorphStream Stream(const float* in, float* out, maniMorphSemantic semantic, uint32_t set,
+                              uint32_t components)
 {
-    streams[0] = (maniSkinStream){in->position,   out->position,   sizeof(Vertex),
-                                  sizeof(Vertex), maniStreamPoint, 0};
-    streams[1] = (maniSkinStream){in->normal,     out->normal,      sizeof(Vertex),
-                                  sizeof(Vertex), maniStreamNormal, 0};
-    streams[2] = (maniSkinStream){in->tangent,    out->tangent,      sizeof(Vertex),
-                                  sizeof(Vertex), maniStreamTangent, 0};
+    return (maniMorphStream){in, out, sizeof(Vertex), sizeof(Vertex), semantic, set, components, 0};
 }
 
-// The source's delta of one attribute (0 positions, 1 normals, 2
-// tangents) for vertex v in target t of the sample, summed over repeats.
-static void SourceDelta(uint32_t t, int attribute, uint32_t v, double out[3])
+static void Streams(const Vertex* in, Vertex* out, maniMorphStream streams[5])
 {
-    out[0] = out[1] = out[2] = 0.0;
+    streams[0] = Stream(in->position, out->position, maniMorphPosition, 0, 3);
+    streams[1] = Stream(in->normal, out->normal, maniMorphNormal, 0, 3);
+    streams[2] = Stream(in->tangent, out->tangent, maniMorphTangent, 0, 4);
+    streams[3] = Stream(in->texcoord, out->texcoord, maniMorphTexcoord, 0, 2);
+    streams[4] = Stream(in->color, out->color, maniMorphColor, 1, 4);
+}
+
+// The floats compared of each table entry, and a vertex's member for it.
+static const uint32_t kCompared[5] = {3, 3, 3, 2, 4};
+
+static const float* Member(const Vertex* x, uint32_t a)
+{
+    const float* members[5] = {x->position, x->normal, x->tangent, x->texcoord, x->color};
+    return members[a];
+}
+
+// The source's deltas of table entry a for vertex v in target t of the
+// sample, summed over repeats.
+static void SourceDelta(uint32_t t, uint32_t a, uint32_t v, double out[4])
+{
+    out[0] = out[1] = out[2] = out[3] = 0.0;
     const maniMorphTargetSource* all[5] = {&s_smile[0], &s_blinks[0], &s_blinks[1], &s_blinks[2],
                                            &s_wide[0]};
     const maniMorphTargetSource* s = all[t];
-    const float* list = attribute == 0 ? s->positions : (attribute == 1 ? s->normals : s->tangents);
+    const float* list = s->deltas[a];
+    uint32_t width = kCompared[a];
     for (uint32_t i = 0; list != NULL && i < s->count; ++i)
     {
         if ((s->indices == NULL ? i : s->indices[i]) == v)
         {
-            for (int k = 0; k < 3; ++k)
+            for (uint32_t k = 0; k < width; ++k)
             {
-                out[k] += (double)list[3 * i + k];
+                out[k] += (double)list[width * i + k];
             }
         }
     }
 }
 
-static double Reference(const float* weights, uint32_t v, int attribute, double out[3])
+// In binary64: the input plus the weighted deltas, normals and tangents
+// renormalized.
+static void Reference(const float* weights, uint32_t v, uint32_t a, double out[4])
 {
-    const float* in =
-        attribute == 0 ? s_in[v].position : (attribute == 1 ? s_in[v].normal : s_in[v].tangent);
-    for (int k = 0; k < 3; ++k)
+    const float* in = Member(&s_in[v], a);
+    for (uint32_t k = 0; k < kCompared[a]; ++k)
     {
         out[k] = (double)in[k];
     }
     for (uint32_t t = 0; t < 5; ++t)
     {
-        double d[3];
-        SourceDelta(t, attribute, v, d);
-        for (int k = 0; k < 3; ++k)
+        double d[4];
+        SourceDelta(t, a, v, d);
+        for (uint32_t k = 0; k < kCompared[a]; ++k)
         {
             out[k] += (double)weights[t] * d[k];
         }
     }
     double length = sqrt(out[0] * out[0] + out[1] * out[1] + out[2] * out[2]);
-    for (int k = 0; k < 3 && attribute > 0; ++k)
+    for (int k = 0; k < 3 && (a == 1 || a == 2); ++k)
     {
         out[k] /= length;
     }
-    return length;
 }
 
 static void TestJob(void)
@@ -345,21 +425,21 @@ static void TestJob(void)
                                    Uniform(-1.5f, 1.5f)};
         float weights[5];
         CHECK(maniMorphTargetWeights(&m, channels, weights) == mani_success, "weights");
-        maniSkinStream streams[3];
+        maniMorphStream streams[5];
         Streams(s_in, s_out, streams);
-        maniMorphJob job = {&m, weights, 0, kVertices, 3, 0, streams};
+        maniMorphJob job = {&m, weights, 0, kVertices, 5, 0, streams};
         CHECK(maniApplyMorphTargets(&job) == mani_success, "applies");
         for (uint32_t v = 0; v < kVertices; ++v)
         {
-            const float* got[3] = {s_out[v].position, s_out[v].normal, s_out[v].tangent};
-            for (int a = 0; a < 3; ++a)
+            for (uint32_t a = 0; a < 5; ++a)
             {
-                double want[3];
-                (void)Reference(weights, v, a, want);
-                for (int k = 0; k < 3; ++k)
+                double want[4];
+                Reference(weights, v, a, want);
+                const float* got = Member(&s_out[v], a);
+                for (uint32_t k = 0; k < kCompared[a]; ++k)
                 {
                     double size = fabs(want[k]) > 1.0 ? fabs(want[k]) : 1.0;
-                    double e = fabs((double)got[a][k] - want[k]) / size;
+                    double e = fabs((double)got[k] - want[k]) / size;
                     worst = e > worst ? e : worst;
                 }
             }
@@ -374,36 +454,10 @@ static void TestJob(void)
     CHECK(wKept, "the tangents' w kept");
 }
 
-// Ranges, in place, and a sparse target against the same deltas dense:
-// the same bits.
-static void TestSameBits(void)
+// A sparse target on vertices 1 to 11 and a dense one with vertex 0's
+// delta 0 give the same bits (inputs have no zero, so +0 changes none).
+static void TestSparseAsDense(void)
 {
-    BuildSample();
-    maniMorphTargets m;
-    CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
-    RandomVertices();
-    const float weights[5] = {0.75f, -0.25f, 0.5f, 0.125f, -1.5f};
-    maniSkinStream streams[3];
-    Streams(s_in, s_out, streams);
-    maniMorphJob whole = {&m, weights, 0, kVertices, 3, 0, streams};
-    CHECK(maniApplyMorphTargets(&whole) == mani_success, "whole");
-    const uint32_t cuts[4] = {0, 3, 6, kVertices};
-    for (int i = 0; i < 3; ++i)
-    {
-        maniSkinStream part[3];
-        Streams(&s_in[cuts[i]], &s_other[cuts[i]], part);
-        maniMorphJob job = {&m, weights, cuts[i], cuts[i + 1] - cuts[i], 3, 0, part};
-        CHECK(maniApplyMorphTargets(&job) == mani_success, "a range");
-    }
-    CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "ranges give the same bits");
-    memcpy(s_other, s_in, sizeof s_other);
-    maniSkinStream place[3];
-    Streams(s_other, s_other, place);
-    maniMorphJob inPlace = {&m, weights, 0, kVertices, 3, 0, place};
-    CHECK(maniApplyMorphTargets(&inPlace) == mani_success, "in place");
-    CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "in place gives the same bits");
-    // One target sparse on vertices 1 to 11, one dense with vertex 0's
-    // delta 0: the same bits (inputs have no zero, so +0 changes none).
     static uint32_t indices[kVertices - 1];
     static float positions[3 * kVertices];
     for (uint32_t v = 0; v < kVertices; ++v)
@@ -417,12 +471,14 @@ static void TestSameBits(void)
             indices[v - 1] = v;
         }
     }
-    maniMorphTargetSource sparse = {1.0f, kVertices - 1, indices, positions + 3, NULL, NULL};
-    maniMorphTargetSource dense = {1.0f, kVertices, NULL, positions, NULL, NULL};
+    const float* sparseDeltas[1] = {positions + 3};
+    const float* denseDeltas[1] = {positions};
+    maniMorphTargetSource sparse = {1.0f, kVertices - 1, indices, sparseDeltas};
+    maniMorphTargetSource dense = {1.0f, kVertices, NULL, denseDeltas};
     maniMorphChannelSource a = {"a", 1, 1, &sparse};
     maniMorphChannelSource b = {"a", 1, 1, &dense};
-    maniMorphSource sa = {&a, 1, kVertices};
-    maniMorphSource sb = {&b, 1, kVertices};
+    maniMorphSource sa = {&a, 1, kVertices, kAttributes, 1, 0};
+    maniMorphSource sb = {&b, 1, kVertices, kAttributes, 1, 0};
     static _Alignas(16) uint8_t fa[4096];
     static _Alignas(16) uint8_t fb[4096];
     size_t na = 0;
@@ -438,19 +494,60 @@ static void TestSameBits(void)
               maniOpenMorphTargets(fb, nb, &mb).result == mani_success,
           "sparse and dense built");
     maniDestroyBuilder(builder);
-    CHECK((maniLoadU32(ma.targets + 4) & maniMorphDense) == 0 &&
-              (maniLoadU32(mb.targets + 4) & maniMorphDense) != 0,
+    CHECK(maniLoadU32(ma.targets + 12) == 0 && maniLoadU32(mb.targets + 12) == MANI_MORPH_DENSE,
           "one sparse, one dense");
     const float one = 0.625f;
-    maniSkinStream points[1];
-    points[0] = (maniSkinStream){s_in->position, s_out->position, sizeof(Vertex),
-                                 sizeof(Vertex), maniStreamPoint, 0};
+    maniMorphStream points[1] = {Stream(s_in->position, s_out->position, maniMorphPosition, 0, 3)};
     maniMorphJob ja = {&ma, &one, 0, kVertices, 1, 0, points};
     CHECK(maniApplyMorphTargets(&ja) == mani_success, "sparse");
     memcpy(s_other, s_out, sizeof s_other);
     maniMorphJob jb = {&mb, &one, 0, kVertices, 1, 0, points};
     CHECK(maniApplyMorphTargets(&jb) == mani_success, "dense");
     CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "sparse and dense give the same bits");
+}
+
+// Ranges and in place give the same bits; an RGB stream takes the color
+// deltas' first three; a stream of an attribute the file lacks is copied.
+static void TestSameBits(void)
+{
+    BuildSample();
+    maniMorphTargets m;
+    CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
+    RandomVertices();
+    const float weights[5] = {0.75f, -0.25f, 0.5f, 0.125f, -1.5f};
+    maniMorphStream streams[5];
+    Streams(s_in, s_out, streams);
+    maniMorphJob whole = {&m, weights, 0, kVertices, 5, 0, streams};
+    CHECK(maniApplyMorphTargets(&whole) == mani_success, "whole");
+    memset(s_other, 0, sizeof s_other);
+    const uint32_t cuts[4] = {0, 3, 6, kVertices};
+    for (int i = 0; i < 3; ++i)
+    {
+        maniMorphStream part[5];
+        Streams(&s_in[cuts[i]], &s_other[cuts[i]], part);
+        maniMorphJob job = {&m, weights, cuts[i], cuts[i + 1] - cuts[i], 5, 0, part};
+        CHECK(maniApplyMorphTargets(&job) == mani_success, "a range");
+    }
+    CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "ranges give the same bits");
+    memcpy(s_other, s_in, sizeof s_other);
+    maniMorphStream place[5];
+    Streams(s_other, s_other, place);
+    maniMorphJob inPlace = {&m, weights, 0, kVertices, 5, 0, place};
+    CHECK(maniApplyMorphTargets(&inPlace) == mani_success, "in place");
+    CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "in place gives the same bits");
+    TestSparseAsDense();
+    const float full[5] = {1, 1, 1, 1, 1};
+    maniMorphStream rgb[2] = {Stream(s_in->color, s_out->color, maniMorphColor, 1, 3),
+                              Stream(s_in->texcoord, s_out->texcoord, maniMorphTexcoord, 1, 2)};
+    memcpy(s_out, s_in, sizeof s_out);
+    s_out[7].color[3] = 9.0f;
+    maniMorphJob colors = {&m, full, 0, kVertices, 2, 0, rgb};
+    CHECK(maniApplyMorphTargets(&colors) == mani_success, "colors");
+    CHECK(s_out[7].color[0] == s_in[7].color[0] + s_wideColors[4 * 4] &&
+              s_out[7].color[2] == s_in[7].color[2] + s_wideColors[4 * 4 + 2] &&
+              s_out[7].color[3] == 9.0f,
+          "RGB takes three");
+    CHECK(memcmp(s_out[3].texcoord, s_in[3].texcoord, 8) == 0, "a set the file lacks: copied");
 }
 
 static void ExpectBuildRefused(const maniMorphSource* source, maniBuildReason reason, uint32_t item,
@@ -499,6 +596,9 @@ static void TestBuildRefusals(void)
     s_blink[1][3 * 4 + 1] = NAN;
     ExpectBuildRefused(&source, maniBuildReasonNotFinite, 2, 4, "a delta not finite");
     SampleSource(&source);
+    s_wideColors[4 * 6 + 3] = NAN;
+    ExpectBuildRefused(&source, maniBuildReasonNotFinite, 4, 6, "a color delta not finite");
+    SampleSource(&source);
     s_channels[2].name = "smile";
     s_channels[2].nameLength = 5;
     ExpectBuildRefused(&source, maniBuildReasonDuplicateName, 2, 0, "a repeated name");
@@ -509,10 +609,25 @@ static void TestBuildRefusals(void)
     s_channels[1].name = "\xff\xfe";
     s_channels[1].nameLength = 2;
     ExpectBuildRefused(&source, maniBuildReasonName, 1, 0, "a name not UTF-8");
+    SampleSource(&source);
+    s_attributes[3].semantic = 5;
+    ExpectBuildRefused(&source, maniBuildReasonAttribute, 3, 0, "an unknown semantic");
+    SampleSource(&source);
+    s_attributes[1].set = 1;
+    ExpectBuildRefused(&source, maniBuildReasonAttribute, 1, 0, "normals of set 1");
+    SampleSource(&source);
+    s_attributes[4] = (maniMorphAttributeSource){maniMorphTexcoord, 0};
+    ExpectBuildRefused(&source, maniBuildReasonAttribute, 4, 3, "an attribute twice");
+    SampleSource(&source);
+    source.attributeCount = MANI_MORPH_MAX_ATTRIBUTES + 1;
+    ExpectBuildRefused(&source, maniBuildReasonCount, 0, 0, "too many attributes");
+    SampleSource(&source);
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildMorphTargets(builder, NULL).result == mani_errorInvalid &&
               maniBuildMorphTargets(NULL, &source).result == mani_errorInvalid,
           "NULL arguments");
+    source.attributes = NULL;
+    CHECK(maniBuildMorphTargets(builder, &source).result == mani_errorInvalid, "no attributes");
     maniDestroyBuilder(builder);
 }
 
@@ -609,7 +724,18 @@ static void TestOpenRefusals(void)
 {
     const uint32_t T = MANI_MORPH_TARGET_SIZE;
     CraftU32(maniMorphTagHeader, 0, 0, 0, "no vertices");
-    CraftU32(maniMorphTagHeader, 12, 1, 12, "the header's zero");
+    CraftU32(maniMorphTagHeader, 12, 33, 12, "33 attributes");
+    CraftU32(maniMorphTagAttributes, 8 * 3, 7, 8 * 3, "an unknown semantic");
+    CraftU32(maniMorphTagAttributes, 4, 1, 4, "positions of set 1");
+    {
+        BuildSample();
+        uint8_t table[5 * MANI_MORPH_ATTRIBUTE_SIZE];
+        memcpy(table, s_file + SectionAt(maniMorphTagAttributes), sizeof table);
+        maniStoreU32(table + 8 * 4, maniMorphTexcoord);
+        maniStoreU32(table + 8 * 4 + 4, 0);
+        Craft(maniMorphTagAttributes, table, sizeof table);
+        ExpectFormat(SectionAt(maniMorphTagAttributes) + 8 * 4, "an attribute twice");
+    }
     CraftU32(maniMorphTagChannels, 16, 2, 16, "a channel not following the last");
     CraftU32(maniMorphTagChannels, 4, 0, 4, "a channel without targets");
     CraftU32(maniMorphTagChannels, 24, 6, 24, "a channel's name not following");
@@ -617,9 +743,9 @@ static void TestOpenRefusals(void)
     CraftU32(maniMorphTagTargets, 2 * T, Bits(-2.0f), 2 * T, "full weights not increasing");
     CraftU32(maniMorphTagTargets, 0, Bits(0.0f), 0, "a full weight of 0");
     CraftU32(maniMorphTagTargets, 0, Bits(NAN), 0, "a full weight NaN");
-    CraftU32(maniMorphTagTargets, 4, 16, 4, "unknown attributes");
+    CraftU32(maniMorphTagTargets, 4, 32, 4, "an attribute past the table");
     CraftU32(maniMorphTagTargets, T + 8, kVertices - 1, T + 8, "dense, short");
-    CraftU32(maniMorphTagTargets, 12, 1, 12, "a target's zero");
+    CraftU32(maniMorphTagTargets, 12, 2, 12, "unknown flags");
     CraftU32(maniMorphTagTargets, 16, 1, 16, "indices not following");
     CraftU32(maniMorphTagTargets, T + 24, 1, T + 24, "deltas not following");
     CraftU32(maniMorphTagIndices, 4, 2, 4, "indices repeated");
@@ -636,7 +762,7 @@ static void TestOpenRefusals(void)
                  "a name past the bytes");
     BuildSample();
     Craft(maniMorphTagNames, "smileblinkwide!", 15);
-    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 5 * MANI_CONTAINER_ENTRY_SIZE + 16,
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 6 * MANI_CONTAINER_ENTRY_SIZE + 16,
                  "name bytes left over");
     BuildSample();
     maniMorphTargets m;
@@ -654,16 +780,28 @@ static void TestJobRefusals(void)
     maniMorphTargets m;
     CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
     float weights[5] = {1, 1, 1, 1, 1};
-    maniSkinStream streams[3];
+    maniMorphStream streams[5];
     Streams(s_in, s_out, streams);
     memcpy(s_other, s_out, sizeof s_other);
-    maniMorphJob job = {&m, weights, 0, kVertices, 3, 0, streams};
-    streams[1].kind = maniStreamDirection;
-    CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "a direction stream");
-    streams[1].kind = maniStreamNormal;
+    maniMorphJob job = {&m, weights, 0, kVertices, 5, 0, streams};
+    streams[1].semantic = 5;
+    CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "an unknown semantic");
+    streams[1].semantic = maniMorphNormal;
+    streams[1].set = 1;
+    CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "normals of set 1");
+    streams[1].set = 0;
+    streams[2].components = 3;
+    CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "tangents of three");
+    streams[2].components = 4;
+    streams[4].components = 2;
+    CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "colors of two");
+    streams[4].components = 4;
     streams[2].outStride = 12;
     CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "a tangent stride under 16");
     streams[2].outStride = sizeof(Vertex);
+    streams[0].out = NULL;
+    CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "no output");
+    streams[0].out = s_out->position;
     weights[3] = INFINITY;
     CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "a weight not finite");
     weights[3] = 1.0f;
@@ -698,9 +836,9 @@ static void TestPinned(void)
     const float channels[3] = {0.8f, -0.4f, 1.3f};
     float weights[5];
     CHECK(maniMorphTargetWeights(&m, channels, weights) == mani_success, "weights");
-    maniSkinStream streams[3];
+    maniMorphStream streams[5];
     Streams(s_in, s_out, streams);
-    maniMorphJob job = {&m, weights, 0, kVertices, 3, 0, streams};
+    maniMorphJob job = {&m, weights, 0, kVertices, 5, 0, streams};
     CHECK(maniApplyMorphTargets(&job) == mani_success, "applies");
     hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)sizeof s_out);
     CHECK(hash == PINNED_MORPH_JOB, "pinned job");

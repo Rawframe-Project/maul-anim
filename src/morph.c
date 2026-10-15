@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Morph targets (mani-0021): opening the file (every count, offset,
-// index and delta checked, so the job reads without checks), the channel
+// Morph targets (mani-0021): opening the file (the attribute table and
+// every count, offset, index and delta checked, so the job reads without
+// checks), the channel
 // weights' walk through their targets (ufbx's rule for FBX in-betweens),
 // and the job: streams plus weighted deltas in target order, directions
 // renormalized.
@@ -14,7 +15,6 @@
 #include "morph_file.h"
 
 #include "maul-anim/base.h"
-#include "maul-anim/skinning.h"
 
 #include <float.h>
 #include <math.h>
@@ -97,35 +97,86 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
     return kOk;
 }
 
+// Section indices (tag - 1).
+enum
+{
+    kHeader = maniMorphTagHeader - 1,
+    kAttributes = maniMorphTagAttributes - 1,
+    kChannels = maniMorphTagChannels - 1,
+    kTargets = maniMorphTagTargets - 1,
+    kIndices = maniMorphTagIndices - 1,
+    kDeltas = maniMorphTagDeltas - 1,
+    kNames = maniMorphTagNames - 1,
+};
+
 // The header's counts and the fixed-size sections against them.
 static maniFileResult CheckHeader(const Sections* s, maniMorphTargets* m)
 {
-    if (s->sizes[0] != MANI_MORPH_HEADER_SIZE)
+    if (s->sizes[kHeader] != MANI_MORPH_HEADER_SIZE)
     {
-        return Fail(s->entry[0]);
+        return Fail(s->entry[kHeader]);
     }
-    const uint8_t* h = s->data[0];
+    const uint8_t* h = s->data[kHeader];
     m->vertexCount = maniLoadU32(h);
     m->channelCount = maniLoadU32(h + 4);
     m->targetCount = maniLoadU32(h + 8);
+    m->attributeCount = maniLoadU32(h + 12);
     for (uint32_t k = 0; k < 3; ++k)
     {
         if (maniLoadU32(h + 4 * k) == 0)
         {
-            return Fail(s->at[0] + 4 * k);
+            return Fail(s->at[kHeader] + 4 * k);
         }
     }
-    if (maniLoadU32(h + 12) != 0)
+    if (m->attributeCount > MANI_MORPH_MAX_ATTRIBUTES)
     {
-        return Fail(s->at[0] + 12);
+        return Fail(s->at[kHeader] + 12);
     }
-    if (s->sizes[1] != (uint64_t)m->channelCount * MANI_MORPH_CHANNEL_SIZE)
+    const uint64_t want[3] = {(uint64_t)m->attributeCount * MANI_MORPH_ATTRIBUTE_SIZE,
+                              (uint64_t)m->channelCount * MANI_MORPH_CHANNEL_SIZE,
+                              (uint64_t)m->targetCount * MANI_MORPH_TARGET_SIZE};
+    for (uint32_t k = 0; k < 3; ++k)
     {
-        return Fail(s->entry[1]);
+        if (s->sizes[kAttributes + k] != want[k])
+        {
+            return Fail(s->entry[kAttributes + k]);
+        }
     }
-    if (s->sizes[2] != (uint64_t)m->targetCount * MANI_MORPH_TARGET_SIZE)
+    return kOk;
+}
+
+// The attribute table: known semantics, set 0 for the first three, none
+// repeated; their widths out.
+static maniFileResult CheckAttributes(const Sections* s, const maniMorphTargets* m,
+                                      uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES])
+{
+    for (uint32_t a = 0; a < MANI_MORPH_MAX_ATTRIBUTES; ++a)
     {
-        return Fail(s->entry[2]);
+        widths[a] = 0;
+    }
+    for (uint32_t a = 0; a < m->attributeCount; ++a)
+    {
+        const uint8_t* e = s->data[kAttributes] + (uint64_t)a * MANI_MORPH_ATTRIBUTE_SIZE;
+        uint64_t at = s->at[kAttributes] + (uint64_t)a * MANI_MORPH_ATTRIBUTE_SIZE;
+        uint32_t semantic = maniLoadU32(e);
+        uint32_t set = maniLoadU32(e + 4);
+        if (maniMorphWidth(semantic) == 0)
+        {
+            return Fail(at);
+        }
+        if (semantic <= maniMorphTangent && set != 0)
+        {
+            return Fail(at + 4);
+        }
+        for (uint32_t b = 0; b < a; ++b)
+        {
+            const uint8_t* f = s->data[kAttributes] + (uint64_t)b * MANI_MORPH_ATTRIBUTE_SIZE;
+            if (maniLoadU32(f) == semantic && maniLoadU32(f + 4) == set)
+            {
+                return Fail(at);
+            }
+        }
+        widths[a] = maniMorphWidth(semantic);
     }
     return kOk;
 }
@@ -138,8 +189,8 @@ static maniFileResult CheckChannels(const Sections* s, const maniMorphTargets* m
     uint64_t name = 0;
     for (uint32_t c = 0; c < m->channelCount; ++c)
     {
-        const uint8_t* e = s->data[1] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
-        uint64_t at = s->at[1] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
+        const uint8_t* e = s->data[kChannels] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
+        uint64_t at = s->at[kChannels] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
         if (maniLoadU32(e) != target)
         {
             return Fail(at);
@@ -155,7 +206,7 @@ static maniFileResult CheckChannels(const Sections* s, const maniMorphTargets* m
             return Fail(at + 8);
         }
         uint32_t length = maniLoadU32(e + 12);
-        if (length == 0 || length > s->sizes[5] - name)
+        if (length == 0 || length > s->sizes[kNames] - name)
         {
             return Fail(at + 12);
         }
@@ -163,9 +214,10 @@ static maniFileResult CheckChannels(const Sections* s, const maniMorphTargets* m
     }
     if (target != m->targetCount)
     {
-        return Fail(s->at[1] + (uint64_t)(m->channelCount - 1) * MANI_MORPH_CHANNEL_SIZE + 4);
+        return Fail(s->at[kChannels] + (uint64_t)(m->channelCount - 1) * MANI_MORPH_CHANNEL_SIZE +
+                    4);
     }
-    return name == s->sizes[5] ? kOk : Fail(s->entry[5]);
+    return name == s->sizes[kNames] ? kOk : Fail(s->entry[kNames]);
 }
 
 // Running totals of the indices and deltas the targets claim.
@@ -176,30 +228,31 @@ typedef struct Claimed
 } Claimed;
 
 // One target's record: full weight finite, not 0, above the channel's
-// previous; attributes known; a dense one covering every vertex; its
-// indices and deltas following the previous target's.
+// previous; attributes in the table; a dense one covering every vertex;
+// its indices and deltas following the previous target's.
 static maniFileResult CheckTarget(const Sections* s, const maniMorphTargets* m, uint32_t t,
-                                  float previous, Claimed* claimed)
+                                  float previous, const uint32_t* widths, Claimed* claimed)
 {
-    const uint8_t* e = s->data[2] + (uint64_t)t * MANI_MORPH_TARGET_SIZE;
-    uint64_t at = s->at[2] + (uint64_t)t * MANI_MORPH_TARGET_SIZE;
+    const uint8_t* e = s->data[kTargets] + (uint64_t)t * MANI_MORPH_TARGET_SIZE;
+    uint64_t at = s->at[kTargets] + (uint64_t)t * MANI_MORPH_TARGET_SIZE;
     float full = LoadF32(e);
     if (!Finite(full) || full == 0.0f || !(full > previous))
     {
         return Fail(at);
     }
-    uint32_t attributes = maniLoadU32(e + 4);
-    if (attributes > 15u)
+    uint32_t mask = maniLoadU32(e + 4);
+    if (m->attributeCount < 32 && (mask >> m->attributeCount) != 0)
     {
         return Fail(at + 4);
     }
     uint32_t count = maniLoadU32(e + 8);
-    bool dense = (attributes & maniMorphDense) != 0;
+    uint32_t flags = maniLoadU32(e + 12);
+    bool dense = flags == MANI_MORPH_DENSE;
     if ((dense && count != m->vertexCount) || count > m->vertexCount)
     {
         return Fail(at + 8);
     }
-    if (maniLoadU32(e + 12) != 0)
+    if (flags > MANI_MORPH_DENSE)
     {
         return Fail(at + 12);
     }
@@ -212,34 +265,35 @@ static maniFileResult CheckTarget(const Sections* s, const maniMorphTargets* m, 
         return Fail(at + 24);
     }
     claimed->indices += dense ? 0 : count;
-    claimed->deltas += (uint64_t)count * maniMorphFloatsPerVertex(attributes);
+    claimed->deltas += (uint64_t)count * maniMorphFloatsPerVertex(widths, mask);
     return kOk;
 }
 
-static maniFileResult CheckTargets(const Sections* s, const maniMorphTargets* m)
+static maniFileResult CheckTargets(const Sections* s, const maniMorphTargets* m,
+                                   const uint32_t* widths)
 {
     Claimed claimed = {0, 0};
     for (uint32_t c = 0; c < m->channelCount; ++c)
     {
-        const uint8_t* e = s->data[1] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
+        const uint8_t* e = s->data[kChannels] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
         uint32_t first = maniLoadU32(e);
         uint32_t count = maniLoadU32(e + 4);
         float previous = -INFINITY;
         for (uint32_t t = first; t < first + count; ++t)
         {
-            maniFileResult r = CheckTarget(s, m, t, previous, &claimed);
+            maniFileResult r = CheckTarget(s, m, t, previous, widths, &claimed);
             if (r.result != mani_success)
             {
                 return r;
             }
-            previous = LoadF32(s->data[2] + (uint64_t)t * MANI_MORPH_TARGET_SIZE);
+            previous = LoadF32(s->data[kTargets] + (uint64_t)t * MANI_MORPH_TARGET_SIZE);
         }
     }
-    if (s->sizes[3] != 4 * claimed.indices)
+    if (s->sizes[kIndices] != 4 * claimed.indices)
     {
-        return Fail(s->entry[3]);
+        return Fail(s->entry[kIndices]);
     }
-    return s->sizes[4] == 4 * claimed.deltas ? kOk : Fail(s->entry[4]);
+    return s->sizes[kDeltas] == 4 * claimed.deltas ? kOk : Fail(s->entry[kDeltas]);
 }
 
 // Each sparse target's indices increasing and below the vertex count;
@@ -248,8 +302,8 @@ static maniFileResult CheckValues(const Sections* s, const maniMorphTargets* m)
 {
     for (uint32_t t = 0; t < m->targetCount; ++t)
     {
-        const uint8_t* e = s->data[2] + (uint64_t)t * MANI_MORPH_TARGET_SIZE;
-        if ((maniLoadU32(e + 4) & maniMorphDense) != 0)
+        const uint8_t* e = s->data[kTargets] + (uint64_t)t * MANI_MORPH_TARGET_SIZE;
+        if (maniLoadU32(e + 12) == MANI_MORPH_DENSE)
         {
             continue;
         }
@@ -258,22 +312,45 @@ static maniFileResult CheckValues(const Sections* s, const maniMorphTargets* m)
         uint64_t floor = 0;
         for (uint64_t i = first; i < first + count; ++i)
         {
-            uint32_t v = maniLoadU32(s->data[3] + 4 * i);
+            uint32_t v = maniLoadU32(s->data[kIndices] + 4 * i);
             if (v < floor || v >= m->vertexCount)
             {
-                return Fail(s->at[3] + 4 * i);
+                return Fail(s->at[kIndices] + 4 * i);
             }
             floor = (uint64_t)v + 1;
         }
     }
-    for (uint64_t k = 0; k < s->sizes[4] / 4; ++k)
+    for (uint64_t k = 0; k < s->sizes[kDeltas] / 4; ++k)
     {
-        if (!Finite(LoadF32(s->data[4] + 4 * k)))
+        if (!Finite(LoadF32(s->data[kDeltas] + 4 * k)))
         {
-            return Fail(s->at[4] + 4 * k);
+            return Fail(s->at[kDeltas] + 4 * k);
         }
     }
     return kOk;
+}
+
+static maniFileResult CheckAll(const Sections* s, maniMorphTargets* m)
+{
+    uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES];
+    maniFileResult r = CheckHeader(s, m);
+    if (r.result == mani_success)
+    {
+        r = CheckAttributes(s, m, widths);
+    }
+    if (r.result == mani_success)
+    {
+        r = CheckChannels(s, m);
+    }
+    if (r.result == mani_success)
+    {
+        r = CheckTargets(s, m, widths);
+    }
+    if (r.result == mani_success)
+    {
+        r = CheckValues(s, m);
+    }
+    return r;
 }
 
 maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut)
@@ -293,19 +370,7 @@ maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTar
     maniMorphTargets m = {0};
     if (r.result == mani_success)
     {
-        r = CheckHeader(&s, &m);
-    }
-    if (r.result == mani_success)
-    {
-        r = CheckChannels(&s, &m);
-    }
-    if (r.result == mani_success)
-    {
-        r = CheckTargets(&s, &m);
-    }
-    if (r.result == mani_success)
-    {
-        r = CheckValues(&s, &m);
+        r = CheckAll(&s, &m);
     }
     if (r.result != mani_success)
     {
@@ -315,11 +380,12 @@ maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTar
     {
         return Fail(40);
     }
-    m.channels = s.data[1];
-    m.targets = s.data[2];
-    m.indices = s.data[3];
-    m.deltas = s.data[4];
-    m.names = s.data[5];
+    m.attributes = s.data[kAttributes];
+    m.channels = s.data[kChannels];
+    m.targets = s.data[kTargets];
+    m.indices = s.data[kIndices];
+    m.deltas = s.data[kDeltas];
+    m.names = s.data[kNames];
     m.identity = c.identity;
     *targetsOut = m;
     return kOk;
@@ -338,6 +404,23 @@ uint32_t maniMorphChannelCount(const maniMorphTargets* targets)
 uint32_t maniMorphTargetCount(const maniMorphTargets* targets)
 {
     return targets->targetCount;
+}
+
+uint32_t maniMorphAttributeCount(const maniMorphTargets* targets)
+{
+    return targets->attributeCount;
+}
+
+maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets, uint32_t attribute,
+                                     uint32_t* setOut)
+{
+    bool inside = attribute < targets->attributeCount;
+    const uint8_t* e = targets->attributes + (size_t)attribute * MANI_MORPH_ATTRIBUTE_SIZE;
+    if (setOut != NULL)
+    {
+        *setOut = inside ? maniLoadU32(e + 4) : 0;
+    }
+    return inside ? maniLoadU32(e) : UINT32_MAX;
 }
 
 const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
@@ -498,14 +581,34 @@ maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* 
     return mani_success;
 }
 
-// A stream the job takes: pointers, a kind with deltas, strides wide
-// enough.
-static bool StreamValid(const maniSkinStream* s)
+// The components a stream of the semantic may have: positions and
+// normals 3, tangents 4, texture coordinates 2, colors 3 or 4.
+static bool Components(maniMorphSemantic semantic, uint32_t components)
 {
-    size_t width = s->kind == maniStreamTangent ? 16 : 12;
-    bool kind =
-        s->kind == maniStreamPoint || s->kind == maniStreamNormal || s->kind == maniStreamTangent;
-    return s->in != NULL && s->out != NULL && kind && s->inStride >= width && s->outStride >= width;
+    switch (semantic)
+    {
+    case maniMorphPosition:
+    case maniMorphNormal:
+        return components == 3;
+    case maniMorphTangent:
+        return components == 4;
+    case maniMorphTexcoord:
+        return components == 2;
+    case maniMorphColor:
+        return components == 3 || components == 4;
+    default:
+        return false;
+    }
+}
+
+// A stream the job takes: pointers, a known semantic and set, its
+// components, strides wide enough.
+static bool StreamValid(const maniMorphStream* s)
+{
+    size_t width = 4 * (size_t)s->components;
+    return s->in != NULL && s->out != NULL && Components(s->semantic, s->components) &&
+           (s->semantic > maniMorphTangent || s->set == 0) && s->inStride >= width &&
+           s->outStride >= width;
 }
 
 static bool JobValid(const maniMorphJob* job)
@@ -533,25 +636,32 @@ static bool JobValid(const maniMorphJob* job)
     return true;
 }
 
-// The attribute a stream kind takes.
-static uint32_t Attribute(maniStreamKind kind)
+// The table's entry for a stream's semantic and set, or
+// MANI_MORPH_MAX_ATTRIBUTES for none.
+static uint32_t Slot(const maniMorphTargets* m, const maniMorphStream* s)
 {
-    return kind == maniStreamPoint
-               ? maniMorphPositions
-               : (kind == maniStreamNormal ? maniMorphNormals : maniMorphTangents);
+    for (uint32_t a = 0; a < m->attributeCount; ++a)
+    {
+        uint32_t set = 0;
+        if (maniMorphAttribute(m, a, &set) == s->semantic && set == s->set)
+        {
+            return a;
+        }
+    }
+    return MANI_MORPH_MAX_ATTRIBUTES;
 }
 
-// A target's slice of its deltas for one attribute: the floats for its
-// vertices, three a vertex.
-static const uint8_t* AttributeDeltas(const maniMorphTargets* m, const uint8_t* e,
-                                      uint32_t attribute)
+// Where a target's deltas for one table entry begin: past the entries
+// below it that it holds.
+static const uint8_t* SlotDeltas(const maniMorphTargets* m, const uint8_t* e, uint32_t slot)
 {
-    uint32_t attributes = maniLoadU32(e + 4);
-    uint32_t count = maniLoadU32(e + 8);
+    uint32_t mask = maniLoadU32(e + 4);
+    uint64_t count = maniLoadU32(e + 8);
     uint64_t at = maniLoadU64(e + 24);
-    for (uint32_t a = maniMorphPositions; a < attribute; a <<= 1)
+    for (uint32_t a = 0; a < slot; ++a)
     {
-        at += (attributes & a) != 0 ? 3 * (uint64_t)count : 0;
+        uint32_t semantic = maniMorphAttribute(m, a, NULL);
+        at += ((mask >> a) & 1u) != 0 ? count * maniMorphWidth(semantic) : 0;
     }
     return m->deltas + 4 * at;
 }
@@ -576,34 +686,45 @@ static uint32_t LowerBound(const uint8_t* indices, uint32_t count, uint32_t vert
     return low;
 }
 
-static void AddDelta(const maniSkinStream* s, uint32_t i, const uint8_t* delta, float weight)
+// One stream's view of one target: the deltas' stride and the floats it
+// adds a vertex.
+typedef struct Apply
 {
-    uint8_t* out = (uint8_t*)s->out + (size_t)i * s->outStride;
-    for (int k = 0; k < 3; ++k)
+    const maniMorphStream* stream;
+    size_t stride;
+    uint32_t floats;
+    float weight;
+} Apply;
+
+static void AddDelta(const Apply* a, uint32_t i, const uint8_t* delta)
+{
+    uint8_t* out = (uint8_t*)a->stream->out + (size_t)i * a->stream->outStride;
+    for (uint32_t k = 0; k < a->floats; ++k)
     {
-        float x = LoadF32(out + 4 * k) + LoadF32(delta + 4 * k) * weight;
+        float x = LoadF32(out + 4 * k) + LoadF32(delta + 4 * k) * a->weight;
         memcpy(out + 4 * k, &x, sizeof x);
     }
 }
 
 // One target's deltas onto one stream over the job's range.
-static void AddTarget(const maniMorphJob* job, uint32_t t, const maniSkinStream* s)
+static void AddTarget(const maniMorphJob* job, uint32_t t, const maniMorphStream* s, uint32_t slot)
 {
     const maniMorphTargets* m = job->targets;
     const uint8_t* e = m->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
-    uint32_t attribute = Attribute(s->kind);
-    if ((maniLoadU32(e + 4) & attribute) == 0)
+    if (((maniLoadU32(e + 4) >> slot) & 1u) == 0)
     {
         return;
     }
-    const uint8_t* deltas = AttributeDeltas(m, e, attribute);
-    float w = job->weights[t];
+    const uint8_t* deltas = SlotDeltas(m, e, slot);
+    uint32_t width = maniMorphWidth(s->semantic);
+    Apply a = {s, 4 * (size_t)width, s->components < width ? s->components : width,
+               job->weights[t]};
     uint32_t end = job->first + job->count;
-    if ((maniLoadU32(e + 4) & maniMorphDense) != 0)
+    if (maniLoadU32(e + 12) == MANI_MORPH_DENSE)
     {
         for (uint32_t v = job->first; v < end; ++v)
         {
-            AddDelta(s, v - job->first, deltas + 12 * (size_t)v, w);
+            AddDelta(&a, v - job->first, deltas + a.stride * v);
         }
         return;
     }
@@ -616,7 +737,7 @@ static void AddTarget(const maniMorphJob* job, uint32_t t, const maniSkinStream*
         {
             break;
         }
-        AddDelta(s, v - job->first, deltas + 12 * (size_t)i, w);
+        AddDelta(&a, v - job->first, deltas + a.stride * i);
     }
 }
 
@@ -636,6 +757,31 @@ static void Renormalize(uint8_t* p)
     memcpy(p, v, sizeof v);
 }
 
+// One stream over the range: copied, its attribute's targets added in
+// order, directions renormalized.
+static void ApplyStream(const maniMorphJob* job, const maniMorphStream* s)
+{
+    size_t width = 4 * (size_t)s->components;
+    for (uint32_t i = 0; i < job->count && s->in != s->out; ++i)
+    {
+        memmove((uint8_t*)s->out + (size_t)i * s->outStride,
+                (const uint8_t*)s->in + (size_t)i * s->inStride, width);
+    }
+    uint32_t slot = Slot(job->targets, s);
+    for (uint32_t t = 0; slot < MANI_MORPH_MAX_ATTRIBUTES && t < job->targets->targetCount; ++t)
+    {
+        if (job->weights[t] != 0.0f)
+        {
+            AddTarget(job, t, s, slot);
+        }
+    }
+    bool direction = s->semantic == maniMorphNormal || s->semantic == maniMorphTangent;
+    for (uint32_t i = 0; i < job->count && direction; ++i)
+    {
+        Renormalize((uint8_t*)s->out + (size_t)i * s->outStride);
+    }
+}
+
 maniResult maniApplyMorphTargets(const maniMorphJob* job)
 {
     if (!JobValid(job))
@@ -644,24 +790,7 @@ maniResult maniApplyMorphTargets(const maniMorphJob* job)
     }
     for (uint32_t k = 0; k < job->streamCount; ++k)
     {
-        const maniSkinStream* s = &job->streams[k];
-        size_t width = s->kind == maniStreamTangent ? 16 : 12;
-        for (uint32_t i = 0; i < job->count && s->in != s->out; ++i)
-        {
-            memmove((uint8_t*)s->out + (size_t)i * s->outStride,
-                    (const uint8_t*)s->in + (size_t)i * s->inStride, width);
-        }
-        for (uint32_t t = 0; t < job->targets->targetCount; ++t)
-        {
-            if (job->weights[t] != 0.0f)
-            {
-                AddTarget(job, t, s);
-            }
-        }
-        for (uint32_t i = 0; i < job->count && s->kind != maniStreamPoint; ++i)
-        {
-            Renormalize((uint8_t*)s->out + (size_t)i * s->outStride);
-        }
+        ApplyStream(job, &job->streams[k]);
     }
     return mani_success;
 }
