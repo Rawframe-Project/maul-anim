@@ -24,8 +24,10 @@ hostile input.
   refused (Version); headers of 13 bytes before 7500 and 25 from it.
   Every record's end offset must lie within its parent's and match
   where its properties and children end; property bytes must add up to
-  the stated length; each child list ends in an all-zero record, the
-  top level too; at most 64 levels. Read in two passes, iteratively:
+  the stated length; each child list ends in a record of no end and no
+  name (all zeros as written), the top level too; at most 64 levels. A
+  record whose end offset is 0 ends with its values and holds no
+  children, as ufbx reads the records Maya 2019 writes so. Read in two passes, iteratively:
   the first counts and checks, the second fills. Refusals are
   Container, at the byte found wrong.
 - **Values on request:** numbers, whole numbers within a range, raw

@@ -3,7 +3,9 @@
 //
 // The binary FBX container (mani-0012), from the Blender Foundation's
 // description of it: a 27-byte header, then records of a name, typed
-// properties and nested records, each list ended by an all-zero record.
+// properties and nested records, each list ended by a record of no end
+// and no name (all zeros as written). A record whose end is 0 ends with
+// its values, as ufbx reads Maya 2019's.
 // Read in two passes, the first counting and checking every length, the
 // second filling the tree, both iterative with an explicit stack.
 
@@ -232,6 +234,13 @@ static maniImportResult ReadNode(Reader* r, Header h, uint64_t* at, uint64_t hea
 {
     uint64_t start = *at;
     uint64_t names = start + headerSize;
+    // A record whose end is 0 ends with its values, holding no children,
+    // as ufbx reads it (Maya 2019 writes such records).
+    if (h.end == 0 && Fits(names, h.nameLength, r->fbx->size) &&
+        Fits(names + h.nameLength, h.listLength, r->fbx->size))
+    {
+        h.end = names + h.nameLength + h.listLength;
+    }
     if (h.end <= names || h.end > r->fbx->size || h.end > r->end[r->depth] ||
         !Fits(names, h.nameLength, h.end) || !Fits(names + h.nameLength, h.listLength, h.end) ||
         h.properties > h.listLength || r->nodes == MANI_FBX_NONE - 1)
@@ -274,9 +283,11 @@ static maniImportResult ReadNode(Reader* r, Header h, uint64_t* at, uint64_t hea
     return result;
 }
 
+// A list's end: no end and no name, whatever else the header says, as
+// ufbx reads it.
 static bool IsNull(Header h)
 {
-    return h.end == 0 && h.properties == 0 && h.listLength == 0 && h.nameLength == 0;
+    return h.end == 0 && h.nameLength == 0;
 }
 
 // Every record from the header on; the top-level list ends the read.

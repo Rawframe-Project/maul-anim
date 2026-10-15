@@ -407,6 +407,7 @@ static void ExpectRefusal(maniImportReason reason, uint64_t offset, const char* 
     free(exact);
     bool right =
         r.result == mani_errorFormat && r.reason == reason && r.offset == offset && fbx == NULL;
+    maniCloseFbx(fbx);
     CHECK(right, what);
     if (!right)
     {
@@ -414,6 +415,17 @@ static void ExpectRefusal(maniImportReason reason, uint64_t offset, const char* 
                (unsigned long long)r.offset, (unsigned long long)offset);
     }
     maniDestroyBuilder(builder);
+}
+
+// Whether the written file opens.
+static bool Opens(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    bool open = maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success;
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    return open;
 }
 
 // The offset of a node's header in the written file: the n-th record
@@ -534,12 +546,24 @@ static void TestRefusals(void)
     size_t child = RecordAt("Weights");
     Word(s_w.b + child, ReadWord(s_w.b + model, 4, false) + 1, 4, false);
     ExpectRefusal(maniImportReasonContainer, child, "a child past its parent");
-    // A list's null record with a property count.
+    // A list's null record with a property count still ends it, as ufbx
+    // reads it: no end and no name.
     Scene(7400, false);
     model = RecordAt("Model");
     end = ReadWord(s_w.b + model, 4, false);
     Word(s_w.b + end - 13 + 4, 1, 4, false);
-    ExpectRefusal(maniImportReasonContainer, end - 13, "a null record that is not all zero");
+    CHECK(Opens(), "a null record with a property count");
+    // A leaf record whose end is 0 ends with its values, as Maya 2019
+    // writes them; one with children then leaves its children's null
+    // record short of its parent's end.
+    Scene(7400, false);
+    Word(s_w.b + RecordAt("Weights"), 0, 4, false);
+    CHECK(Opens(), "a leaf record with an end of 0");
+    Scene(7400, false);
+    model = RecordAt("Model");
+    end = ReadWord(s_w.b + model, 4, false);
+    Word(s_w.b + model, 0, 4, false);
+    ExpectRefusal(maniImportReasonContainer, end - 13, "a record with children and an end of 0");
     // A header cut by the end of the file.
     Scene(7400, false);
     s_w.n -= 16 + 5;
