@@ -5,11 +5,15 @@
 // rest values from the last channel driving them in file order, the
 // legacy frame rate, against what ufbx gives for the same file.
 
+#include "fbx_anim.h"
+#include "fbx_take.h"
+#include "fbx_value.h"
 #include "test_fbx_sweep.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/clip.h"
 #include "maul-anim/import.h"
 #include "maul-anim/skeleton.h"
 
@@ -87,6 +91,8 @@ static const char kScene[] = "; FBX 5.0.0 project file\n"
                              "}\n";
 
 static _Alignas(16) uint8_t s_skeletonFile[16384];
+static _Alignas(16) uint8_t s_clipFile[65536];
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[16384];
 
 static bool Near(double a, double b)
 {
@@ -131,6 +137,124 @@ static void TestSkeleton(void)
     CHECK(fbx != NULL && maniFbxReadSettings(fbx, &settings) == mani_success &&
               settings.timeMode == 14 && settings.customRate == 24.0,
           "the legacy frame rate");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+// What ufbx evaluates: a stack's Hips translation and Spine's turn about
+// z (as the quaternion's z and w) at a time.
+typedef struct Row
+{
+    uint32_t stack;
+    float time;
+    double hips[3];
+    double spine[2];
+} Row;
+
+static const Row kRows[] = {
+    {0, 0.0f, {5, 6, 0}, {0.0871557, 0.996195}}, {0, 0.5f, {7, 6, 0}, {0.0871557, 0.996195}},
+    {0, 1.0f, {9, 6, 0}, {0.0871557, 0.996195}}, {1, 0.0f, {1, 2, 3}, {0.0871557, 0.996195}},
+    {1, 0.5f, {1, 2, 3}, {0.258819, 0.965926}},  {1, 1.0f, {1, 2, 3}, {0.422618, 0.906308}},
+};
+
+static bool RowMatches(const maniClip* clip, const maniSkeleton* skeleton, const Row* row)
+{
+    maniPose* pose = NULL;
+    if (maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
+        maniSampleClip(clip, skeleton, row->time, pose) != mani_success)
+    {
+        return false;
+    }
+    maniTransform h = maniPoseLocal(pose, maniSkeletonFindBone(skeleton, "Hips", 4));
+    maniTransform s = maniPoseLocal(pose, maniSkeletonFindBone(skeleton, "Spine", 5));
+    double dot = (double)s.rotation.z * row->spine[0] + (double)s.rotation.w * row->spine[1];
+    return Near((double)h.translation.x, row->hips[0]) &&
+           Near((double)h.translation.y, row->hips[1]) &&
+           Near((double)h.translation.z, row->hips[2]) && Near(fabs(dot), 1.0);
+}
+
+static const char* const kNames[2] = {"Walk", "(internal)"};
+
+// Whether the clips are these, by name.
+static bool NamesAre(const maniFbx* fbx, const char* const* names, uint32_t count)
+{
+    bool named = maniFbxClipCount(fbx) == count;
+    for (uint32_t k = 0; named && k < count; ++k)
+    {
+        uint32_t length = 0;
+        const char* name = maniFbxClipName(fbx, k, &length);
+        named = name != NULL && length == strlen(names[k]) && memcmp(name, names[k], length) == 0;
+    }
+    return named;
+}
+
+// The take, then the models' own channels as "(internal)", each over its
+// keys' span where it gives no times.
+static void TestStacks(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, kScene, strlen(kScene), &fbx).result == mani_success, "opens");
+    bool named = fbx != NULL && NamesAre(fbx, kNames, 2);
+    CHECK(named, "the take, then (internal)");
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    size_t size = 0;
+    bool built =
+        fbx != NULL && maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
+        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+    for (uint32_t k = 0; built && k < 2; ++k)
+    {
+        maniClip clip;
+        bool rows =
+            maniFbxBuildClip(builder, fbx, k, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
+                    .result == mani_success &&
+            maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+            maniOpenClip(s_clipFile, size, &clip).result == mani_success &&
+            Near((double)maniClipDuration(&clip), 1.0);
+        for (size_t r = 0; rows && r < sizeof kRows / sizeof kRows[0]; ++r)
+        {
+            rows = kRows[r].stack != k || RowMatches(&clip, &skeleton, &kRows[r]);
+        }
+        CHECK(rows, kNames[k]);
+    }
+    CHECK(built, "a skeleton");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+// A take channel's " (Shape)" suffix is cut; a name that only is the
+// suffix, or lacks it, stays whole.
+static void TestShapeNames(void)
+{
+    static const char kText[] = "; FBX 5.0.0 project file\nModel: \"Model::Face\" {\n}\n"
+                                "Takes: {\n Take: \"Talk\" {\n  Model: \"Model::Face\" {\n"
+                                "   Channel: \"Smile (Shape)\" {\n    Default: 1\n   }\n"
+                                "   Channel: \" (Shape)\" {\n    Default: 1\n   }\n"
+                                "   Channel: \"Frown\" {\n    Default: 1\n   }\n  }\n }\n}\n";
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniFbxAnimation a;
+    memset(&a, 0, sizeof a);
+    bool read = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success &&
+                maniFbxReadStack(fbx, 0, &a).result == mani_success && a.channelCount == 3;
+    bool smile = false;
+    bool suffix = false;
+    bool frown = false;
+    for (uint32_t i = 0; read && i < a.channelCount; ++i)
+    {
+        const maniFbxChannel* c = &a.channels[i];
+        smile = smile || (maniFbxChannelNameIs(fbx, c, "Smile", 5) &&
+                          c->nameHash == maniFbxNameHash("Smile", 5));
+        suffix = suffix || maniFbxChannelNameIs(fbx, c, " (Shape)", 8);
+        frown = frown || maniFbxChannelNameIs(fbx, c, "Frown", 5);
+    }
+    CHECK(read && smile && suffix && frown, "the suffix cut where it ends a longer name");
+    if (fbx != NULL)
+    {
+        maniFbxReleaseAnimation(fbx, &a);
+    }
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -187,13 +311,15 @@ static void TestRefusals(void)
 
 static void TestAllocationFailures(void)
 {
-    FbxSweep sweep = {kScene, UINT32_MAX, UINT32_MAX};
+    FbxSweep sweep = {kScene, 1, UINT32_MAX};
     CHECK(TestSweep(FbxSweepWork, &sweep, 4096), "allocation failures handled, nothing kept");
 }
 
 int main(void)
 {
     TestSkeleton();
+    TestStacks();
+    TestShapeNames();
     TestVersion5Settings();
     TestRefusals();
     TestAllocationFailures();

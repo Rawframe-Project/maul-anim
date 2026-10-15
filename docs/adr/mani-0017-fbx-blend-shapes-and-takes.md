@@ -45,6 +45,10 @@ weights are one float per target (mani-0012's glTF morph tracks).
   order, a take's or its own, gives that property's rest value. A
   `Settings` FrameRate, and a 6.x file's `Version5` one, is the frame
   rate where GlobalSettings gives none.
+- In those files the takes are followed by one more stack,
+  `(internal)`, of the top-level models' own channels, when there are
+  any; its range is its keys' span. A channel name ending in
+  ` (Shape)` names the shape without that suffix.
 
 ## Consequences
 

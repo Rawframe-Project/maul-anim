@@ -29,6 +29,25 @@ static maniImportResult Capacity(void)
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
 }
 
+// Before 6.0, the stack of the models' own channels (mani-0017), its
+// source the root node.
+static const char kInternal[] = "(internal)";
+
+// Whether a file before 6.0 has a top-level model with channels.
+static bool HasInternal(const maniFbx* fbx)
+{
+    for (uint32_t m = fbx->version < 6000 ? fbx->nodes[0].firstChild : MANI_FBX_NONE;
+         m != MANI_FBX_NONE; m = fbx->nodes[m].next)
+    {
+        if (maniFbxNameIs(fbx, m, "Model", 5) &&
+            maniFbxFindChild(fbx, m, "Channel", 7) != MANI_FBX_NONE)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 // A stack's name property: an AnimationStack's (7.x) or a Take's (6.x).
 static uint32_t StackNameProperty(const maniFbx* fbx, uint32_t source)
 {
@@ -65,6 +84,14 @@ static uint32_t EachStack(const maniFbx* fbx, uint32_t* out)
             ++n;
         }
     }
+    if (HasInternal(fbx))
+    {
+        if (out != NULL)
+        {
+            out[n] = 0;
+        }
+        ++n;
+    }
     return n;
 }
 
@@ -91,7 +118,8 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
     size_t text = 0;
     for (uint32_t k = 0; k < n; ++k)
     {
-        text += RawLength(fbx, StackNameProperty(fbx, fbx->stacks[k]));
+        uint32_t source = fbx->stacks[k];
+        text += source == 0 ? sizeof kInternal - 1 : RawLength(fbx, StackNameProperty(fbx, source));
     }
     fbx->stackNamesSize = text;
     fbx->stackNames = maniAllocate(&fbx->allocator, text + 1, 1, 1);
@@ -104,6 +132,12 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
     {
         uint32_t source = fbx->stacks[k];
         fbx->stackNameOffsets[k] = at;
+        if (source == 0)
+        {
+            memcpy(fbx->stackNames + at, kInternal, sizeof kInternal - 1);
+            at += sizeof kInternal - 1;
+            continue;
+        }
         at += fbx->version >= 7000
                   ? maniFbxObjectName(fbx, source, (uint8_t*)fbx->stackNames + at, text - at)
                   : maniFbxStringDecode(fbx, StackNameProperty(fbx, source),
@@ -304,6 +338,10 @@ void maniFbxReleaseAnimation(const maniFbx* fbx, maniFbxAnimation* animation)
                 sizeof(maniFbxChannel), 8);
     maniRelease(&fbx->allocator, animation->layers, (size_t)animation->layerCount + 1,
                 sizeof(maniFbxLayer), 8);
+    if (animation->names != NULL)
+    {
+        maniRelease(&fbx->allocator, animation->names, animation->namesSize + 1, 1, 1);
+    }
     memset(animation, 0, sizeof *animation);
 }
 

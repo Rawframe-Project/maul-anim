@@ -69,6 +69,10 @@ typedef struct maniFbxAnimation
     // The stack's range in ticks (mani-0016's order of sources).
     int64_t start;
     int64_t stop;
+    // Before 6.0 (mani-0017): channel names decoded with their " (Shape)"
+    // suffix cut, which those channels' literals point into.
+    uint8_t* names;
+    size_t namesSize;
 } maniFbxAnimation;
 
 // Lists the stacks with their names: the AnimationStack objects in

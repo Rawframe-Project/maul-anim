@@ -38,6 +38,11 @@ typedef struct Reader
     maniFbxChannel* out;
     uint64_t capacity;
     uint64_t count;
+    // Before 6.0: the pool cut names are decoded into, its size, and what
+    // is used of it (counted at most each name's raw length).
+    uint8_t* names;
+    size_t namesSize;
+    size_t namesUsed;
 } Reader;
 
 // Whether a node holds a component: a Key or a Default.
@@ -120,6 +125,22 @@ static maniImportResult ReadComponents(const maniFbx* fbx, const uint32_t* compo
     return r;
 }
 
+// Before 6.0, a channel name ending in " (Shape)" names the shape
+// without it (mani-0017): decoded into the pool, its literal.
+static void CutShape(Reader* r, maniFbxChannel* channel)
+{
+    static const char kSuffix[] = " (Shape)";
+    const size_t suffix = sizeof kSuffix - 1;
+    uint8_t* at = r->names + r->namesUsed;
+    size_t n = maniFbxStringDecode(r->fbx, channel->name, at, r->namesSize - r->namesUsed);
+    if (n > suffix && memcmp(at + n - suffix, kSuffix, suffix) == 0)
+    {
+        channel->literal = (const char*)at;
+        channel->literalLength = (uint32_t)(n - suffix);
+        r->namesUsed += n - suffix;
+    }
+}
+
 // A property channel of a target, named by a string property or a
 // literal.
 static maniImportResult Property(Reader* r, uint32_t node, uint32_t target, uint32_t name,
@@ -132,6 +153,13 @@ static maniImportResult Property(Reader* r, uint32_t node, uint32_t target, uint
         return maniFbxSuccess();
     }
     maniImportResult result = maniFbxSuccess();
+    bool cut = r->fbx->version < 6000 && literal == NULL;
+    const uint8_t* raw = NULL;
+    uint32_t rawLength = 0;
+    if (cut && r->out == NULL && maniFbxString(r->fbx, name, &raw, &rawLength))
+    {
+        r->namesUsed += rawLength;
+    }
     if (r->out != NULL && r->count < r->capacity)
     {
         maniFbxChannel* c = &r->out[r->count];
@@ -140,8 +168,12 @@ static maniImportResult Property(Reader* r, uint32_t node, uint32_t target, uint
         c->name = name;
         c->literal = literal;
         c->literalLength = literal != NULL ? (uint32_t)strlen(literal) : 0;
-        c->nameHash = literal != NULL ? maniFbxNameHash(literal, c->literalLength)
-                                      : maniFbxStringHash(r->fbx, name);
+        if (cut)
+        {
+            CutShape(r, c);
+        }
+        c->nameHash = c->literal != NULL ? maniFbxNameHash(c->literal, c->literalLength)
+                                         : maniFbxStringHash(r->fbx, name);
         c->item = target;
         c->source = node;
         c->attribute = OnAttribute(r->fbx, c);
@@ -223,10 +255,11 @@ static maniImportResult EachModel(Reader* r, uint32_t take)
     return result;
 }
 
+// A take, or (source 0, mani-0017) the top-level models' own channels.
 static maniImportResult ReadTake(const maniFbx* fbx, uint32_t take, maniFbxAnimation* out)
 {
     memset(out, 0, sizeof *out);
-    if (!Named(fbx, take))
+    if (take != 0 && !Named(fbx, take))
     {
         return Refuse(fbx, take, 0);
     }
@@ -237,9 +270,15 @@ static maniImportResult ReadTake(const maniFbx* fbx, uint32_t take, maniFbxAnima
     }
     out->layerCount = 1;
     out->layers[0] = (maniFbxLayer){MANI_FBX_NONE, maniFbxBlendAdditive, 1.0, true, true};
-    Reader counter = {fbx, NULL, 0, 0};
+    Reader counter = {fbx, NULL, 0, 0, NULL, 0, 0};
     maniImportResult r = EachModel(&counter, take);
     r = r.result == mani_success && counter.count >= UINT32_MAX ? Capacity() : r;
+    if (r.result == mani_success && fbx->version < 6000)
+    {
+        out->names = maniAllocate(&fbx->allocator, counter.namesUsed + 1, 1, 1);
+        out->namesSize = counter.namesUsed;
+        r = out->names != NULL ? r : Capacity();
+    }
     if (r.result == mani_success)
     {
         size_t n = (size_t)counter.count + 1;
@@ -251,7 +290,7 @@ static maniImportResult ReadTake(const maniFbx* fbx, uint32_t take, maniFbxAnima
         // Zeroed, so a refusal partway releases only what was read.
         memset(out->channels, 0, ((size_t)counter.count + 1) * sizeof(maniFbxChannel));
         out->channelCount = (uint32_t)counter.count;
-        Reader reader = {fbx, out->channels, counter.count, 0};
+        Reader reader = {fbx, out->channels, counter.count, 0, out->names, out->namesSize, 0};
         r = EachModel(&reader, take);
     }
     r = r.result == mani_success ? maniFbxSortChannels(fbx, out) : r;
@@ -260,8 +299,8 @@ static maniImportResult ReadTake(const maniFbx* fbx, uint32_t take, maniFbxAnima
         maniFbxReleaseAnimation(fbx, out);
         return r;
     }
-    if (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) &&
-        !maniFbxTakeTimes(fbx, take, "ReferenceTime", &out->start, &out->stop))
+    if (take == 0 || (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) &&
+                      !maniFbxTakeTimes(fbx, take, "ReferenceTime", &out->start, &out->stop)))
     {
         maniFbxKeySpan(out, &out->start, &out->stop);
     }
