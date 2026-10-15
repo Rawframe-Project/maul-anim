@@ -24,7 +24,8 @@
 // (y 1, turning 90 about z and scaling 1 to 2, Glow 0 to 1) and Arm
 // (scale not inherited, x 1, turned 45 about z). Prop is no bone. Walk
 // runs a second; Idle has nothing; Shear scales Spine in x alone; Inherit
-// takes Arm's inherit type past its range.
+// takes Arm's inherit type past its range; Back ends before it starts;
+// Late ends at 1.01 s on a constant key of Glow.
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
     "Objects: {\n"
@@ -96,6 +97,16 @@ static const char kScene[] =
     " AnimationCurve: 411, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
     "KeyValueFloat: *2 {\n   a: 2,7\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
     "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationStack: 500, \"AnimStack::Back\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",46186158000\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationStack: 600, \"AnimStack::Late\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46648019580\n  }\n }\n"
+    " AnimationLayer: 601, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 610, \"AnimCurveNode::Glow\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
+    " AnimationCurve: 611, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46648019580\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,9\n  }\n  KeyAttrFlags: *1 {\n   a: 2\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
     "}\n"
     "Connections: {\n"
     " C: \"OO\",5,0\n C: \"OO\",1,5\n C: \"OO\",2,1\n C: \"OO\",3,2\n C: \"OO\",4,0\n"
@@ -111,6 +122,8 @@ static const char kScene[] =
     "\"OP\",311,310, \"d|X\"\n"
     " C: \"OO\",401,400\n C: \"OO\",410,401\n C: \"OP\",410,3, \"InheritType\"\n C: "
     "\"OP\",411,410, \"d|InheritType\"\n"
+    " C: \"OO\",601,600\n C: \"OO\",610,601\n C: \"OP\",610,2, \"Glow\"\n C: \"OP\",611,610, "
+    "\"d|Glow\"\n"
     "}\n";
 
 static _Alignas(16) uint8_t s_skeletonFile[16384];
@@ -246,8 +259,8 @@ static void TestNames(void)
     maniFbx* fbx = Open(builder, kScene);
     uint32_t length = 0;
     const char* name = maniFbxClipName(fbx, 2, &length);
-    CHECK(maniFbxClipCount(fbx) == 4 && name != NULL && length == 5 &&
-              memcmp(name, "Shear", 5) == 0 && maniFbxClipName(fbx, 4, &length) == NULL &&
+    CHECK(maniFbxClipCount(fbx) == 6 && name != NULL && length == 5 &&
+              memcmp(name, "Shear", 5) == 0 && maniFbxClipName(fbx, 6, &length) == NULL &&
               length == 0 && maniFbxClipCount(NULL) == 0,
           "clips and their names");
     maniFbxOptions options = maniDefaultFbxOptions();
@@ -259,6 +272,158 @@ static void TestNames(void)
               OpenClip(builder, &clip) && maniClipDuration(&clip) == 0.0f &&
               maniClipSampleCount(&clip) == 1,
           "an empty stack: one sample");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static char s_text[16384];
+
+static void Replace(const char* from, const char* to)
+{
+    const char* at = strstr(kScene, from);
+    snprintf(s_text, sizeof s_text, "%.*s%s%s", (int)(at - kScene), kScene, to, at + strlen(from));
+}
+
+// A clip built for a skeleton and opened.
+static bool BuildFor(maniBuilder* builder, const maniFbx* fbx, uint32_t index,
+                     const maniSkeleton* skeleton, const maniFbxOptions* options, maniClip* clip)
+{
+    return fbx != NULL &&
+           maniFbxBuildClip(builder, fbx, index, skeleton, options, 0.0f, maniLoopClamp, NULL)
+                   .result == mani_success &&
+           OpenClip(builder, clip);
+}
+
+// A skeleton of three bones: Root (no model), Hips under it, Arm under
+// Hips (in the file, under Spine).
+static bool Custom(maniBuilder* builder, maniSkeleton* out)
+{
+    const maniTransform rest = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
+    const maniBoneSource bones[3] = {
+        {"Root", 4, -1, rest}, {"Hips", 4, 0, rest}, {"Arm", 3, 1, rest}};
+    maniSkeletonSource source = {bones, 3, 0};
+    size_t size = 0;
+    return maniBuildSkeleton(builder, &source).result == mani_success &&
+           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+           maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
+}
+
+// A skeleton not from the file: Hips under a bone with no model takes
+// its own transform; Arm under Hips its world relative to Hips'.
+static void TestOtherSkeleton(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    options.foldPlacement = 1;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniPose* pose = NULL;
+    bool built = fbx != NULL && Custom(builder, &skeleton) &&
+                 BuildFor(builder, fbx, 0, &skeleton, &options, &clip) &&
+                 maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success;
+    CHECK(built, "builds for another skeleton");
+    bool right = built;
+    for (int k = 0; k <= 30 && built; k += 5)
+    {
+        double t = (double)k / 30.0;
+        double turn = 90.0 * t * 3.14159265358979323846 / 180.0;
+        right = right && maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success;
+        maniTransform h = maniPoseLocal(pose, 1);
+        maniTransform a = maniPoseLocal(pose, 2);
+        // Hips' own transform, the placement not folded into a bone that
+        // is not the root.
+        right = right && NearVec(h.translation, 3 * t, 1, 0);
+        // T(0 1 0) R(90t) T(1 + t, 0, 0) R(45), relative to Hips.
+        right = right && NearVec(a.translation, (1 + t) * cos(turn), 1 + (1 + t) * sin(turn), 0) &&
+                AboutZ(a.rotation, 90 * t + 45) && NearVec(a.scale, 1, 1, 1);
+    }
+    CHECK(right, "own and relative locals");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+// With helper bones: Spine#unscaled undoes Spine's scale; Arm hangs from
+// it with its own transform, its translation scaled by Spine's.
+static void TestHelpers(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    options.inheritHelpers = 1;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniPose* pose = NULL;
+    bool built = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+                 BuildFor(builder, fbx, 0, &skeleton, &options, &clip) &&
+                 maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success;
+    uint32_t helper = maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14);
+    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
+    CHECK(built && helper != MANI_NO_BONE && maniSkeletonParent(&skeleton, arm) == helper,
+          "builds with helpers");
+    bool right = built;
+    for (int k = 0; k <= 30 && built; k += 5)
+    {
+        double t = (double)k / 30.0;
+        right = right && maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success;
+        maniTransform h = maniPoseLocal(pose, helper);
+        maniTransform a = maniPoseLocal(pose, arm);
+        right = right && NearVec(h.scale, 1 / (1 + t), 1 / (1 + t), 1 / (1 + t)) &&
+                NearVec(h.translation, 0, 0, 0) && NearVec(a.translation, 1 + t, 0, 0) &&
+                AboutZ(a.rotation, 45) && NearVec(a.scale, 1, 1, 1);
+    }
+    CHECK(right, "a helper's inverse scale, a child's own transform");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+// Walk's rate and sample count with a TimeMode given.
+static bool RateIs(const char* mode, float rate, uint32_t samples)
+{
+    char settings[256];
+    snprintf(settings, sizeof settings,
+             "; FBX 7.4.0 project file\nGlobalSettings: {\n Properties70: {\n"
+             "  P: \"TimeMode\", \"enum\", \"\", \"\",%s\n }\n}\n",
+             mode);
+    Replace("; FBX 7.4.0 project file\n", settings);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, s_text);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    maniClip clip;
+    bool right = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+                 BuildFor(builder, fbx, 0, &skeleton, &options, &clip) &&
+                 maniClipSampleRate(&clip) == rate && maniClipSampleCount(&clip) == samples;
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    return right;
+}
+
+static void TestRates(void)
+{
+    CHECK(RateIs("11", 24.0f, 25), "the scene's 24 a second");
+    CHECK(RateIs("12", 30.0f, 31), "30 for a scene's 1000 a second");
+    CHECK(RateIs("9", (float)(30000.0 / 1001.0), 31), "NTSC's rate");
+}
+
+static void TestEnds(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    maniClip clip;
+    bool opened = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton);
+    CHECK(opened && BuildFor(builder, fbx, 4, &skeleton, &options, &clip) &&
+              maniClipDuration(&clip) == 0.0f && maniClipSampleCount(&clip) == 1,
+          "a stack ending before it starts: one sample");
+    float glow = 0.0f;
+    CHECK(opened && BuildFor(builder, fbx, 5, &skeleton, &options, &clip) &&
+              maniClipDuration(&clip) == (float)1.01 && maniClipSampleCount(&clip) == 32 &&
+              maniSampleClipFloats(&clip, maniClipDuration(&clip), &glow, 1, NULL) ==
+                  mani_success &&
+              glow == 9.0f,
+          "the last sample at the stack's stop, on its key");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -300,7 +465,7 @@ static void TestRefusals(void)
     bool opened = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton);
     CHECK(
         opened &&
-            maniFbxBuildClip(builder, fbx, 4, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
+            maniFbxBuildClip(builder, fbx, 6, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
                     .result == mani_errorInvalid &&
             maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, -1.0f, maniLoopClamp, NULL)
                     .result == mani_errorInvalid &&
@@ -318,6 +483,10 @@ int main(void)
     CheckWalk(0);
     CheckWalk(1);
     TestNames();
+    TestOtherSkeleton();
+    TestHelpers();
+    TestRates();
+    TestEnds();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

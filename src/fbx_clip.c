@@ -104,7 +104,10 @@ typedef struct Clip
     // Per model: needed for the worlds.
     uint8_t* needed;
     maniFbxWorld* worlds;
+    // The rate as the builder takes it, and as the source states it
+    // (NTSC's 30000 / 1001 exactly), for the ticks of samples.
     float rate;
+    double exactRate;
     float duration;
     uint32_t sampleCount;
     // The builder's sample times, and the poses: sampleCount by boneCount.
@@ -218,9 +221,10 @@ static double Round(double x)
 static maniImportResult Timing(Clip* c, float sampleRate)
 {
     double scene = SceneRate(c->fbx);
-    c->rate = sampleRate != 0.0f              ? sampleRate
-              : scene > 0.0 && scene <= 120.0 ? (float)scene
-                                              : 30.0f;
+    c->exactRate = sampleRate != 0.0f              ? (double)sampleRate
+                   : scene > 0.0 && scene <= 120.0 ? scene
+                                                   : 30.0;
+    c->rate = (float)c->exactRate;
     double tps = (double)c->fbx->settings.ticksPerSecond;
     double span = (double)c->animation.stop - (double)c->animation.start;
     c->duration = span > 0.0 ? (float)(span / tps) : 0.0f;
@@ -238,16 +242,15 @@ static maniImportResult Timing(Clip* c, float sampleRate)
     return c->times != NULL && c->poses != NULL ? maniFbxSuccess() : Capacity();
 }
 
-// Sample k's time in the stack, in seconds: whole ticks from its start,
-// the last at its stop.
+// Sample k's time in the stack, in seconds: k frames of the exact rate
+// in whole ticks from its start, the last at its stop.
 static double StackTime(const Clip* c, uint32_t k)
 {
     double tps = (double)c->fbx->settings.ticksPerSecond;
-    double t = maniClipSampleTime(k, c->sampleCount, c->rate, c->duration);
     bool last = k + 1 == c->sampleCount && k > 0;
     double tick = last && c->animation.stop > c->animation.start
                       ? (double)c->animation.stop
-                      : (double)c->animation.start + Round(t * tps);
+                      : (double)c->animation.start + Round((double)k * tps / c->exactRate);
     return tick / tps;
 }
 

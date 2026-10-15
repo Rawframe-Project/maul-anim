@@ -503,16 +503,16 @@ fbt-singular | src/fbx_transform.c | if (!(det != 0.0) || !isfinite(1.0 / det)) 
 fbt-inverse-t | src/fbx_transform.c | inv.m[9 + i] = -(inv.m[i] * m[9] + inv.m[3 + i] * m[10] + inv.m[6 + i] * m[11]); | inv.m[9 + i] = (inv.m[i] * m[9] + inv.m[3 + i] * m[10] + inv.m[6 + i] * m[11]);
 fbt-inverse-finite | src/fbx_transform.c | if (!isfinite(inv.m[i])) | if (false)
 fbt-integer | src/fbx_transform.c | if (entry != MANI_FBX_NONE && !maniFbxInteger(fbx, value, 0, maximum, out)) | if (entry != MANI_FBX_NONE && !maniFbxInteger(fbx, value, -1, maximum, out))
-fbt-space-order | src/fbx_transform.c | maniFbxEulerQuat(v[kRotation], space ? order : 0, q); | maniFbxEulerQuat(v[kRotation], order, q);
+fbt-space-order | src/fbx_transform.c | maniFbxEulerQuat(v[maniFbxLocalRotation], space ? order : 0, q); | maniFbxEulerQuat(v[maniFbxLocalRotation], order, q);
 fbt-post-inverse | src/fbx_transform.c | post[0] = -post[0]; | post[0] = post[0];
 fbt-pre | src/fbx_transform.c | maniFbxQuatMul(pre, q, q); | maniFbxQuatMul(q, pre, q);
-fbt-scaling-one | src/fbx_transform.c | r = Vector(fbx, object, kVectorNames[k], k == kScaling ? 1.0 : 0.0, v[k]); | r = Vector(fbx, object, kVectorNames[k], 0.0, v[k]);
-fbt-order-max | src/fbx_transform.c | r = Integer(fbx, object, "RotationOrder", 6, 0, &order); | r = Integer(fbx, object, "RotationOrder", 7, 0, &order);
-fbt-inherit-max | src/fbx_transform.c | r = Integer(fbx, object, "InheritType", 2, maniFbxInheritRSrs, &inherit); | r = Integer(fbx, object, "InheritType", 2, maniFbxInheritRrs, &inherit);
-fbt-spheric | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)order, active != 0 && limitOnly == 0, t->rotation); | Rotation(v, order == 6 ? 5 : (uint32_t)order, active != 0 && limitOnly == 0, t->rotation);
-fbt-limit-only | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)order, active != 0 && limitOnly == 0, t->rotation); | Rotation(v, order == 6 ? 0 : (uint32_t)order, active != 0, t->rotation);
-fbt-pivot-inner | src/fbx_transform.c | inner[i] = -v[kScaling][i] * v[kScalingPivot][i] + v[kScalingPivot][i] + | inner[i] = -v[kScaling][i] * v[kScalingPivot][i] - v[kScalingPivot][i] +
-fbt-pivot-outer | src/fbx_transform.c | t->translation[i] + v[kRotationPivot][i] + v[kRotationOffset][i] + v[kTranslation][i]; | t->translation[i] + v[kRotationOffset][i] + v[kTranslation][i];
+fbt-scaling-one | src/fbx_transform.c | r = Vector(fbx, object, maniFbxLocalVectorNames[k], k == maniFbxLocalScaling ? 1.0 : 0.0, | r = Vector(fbx, object, maniFbxLocalVectorNames[k], 0.0,
+fbt-order-max | src/fbx_transform.c | const int64_t maniFbxLocalIntegerLimits[maniFbxLocalIntegers] = {6, 1, 1, 2}; | const int64_t maniFbxLocalIntegerLimits[maniFbxLocalIntegers] = {7, 1, 1, 2};
+fbt-inherit-max | src/fbx_transform.c | static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRSrs}; | static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRrs};
+fbt-spheric | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)order, space, t->rotation); | Rotation(v, order == 6 ? 5 : (uint32_t)order, space, t->rotation);
+fbt-limit-only | src/fbx_transform.c | bool space = in->integers[maniFbxLocalActive] != 0 && in->integers[maniFbxLocalLimitOnly] == 0; | bool space = in->integers[maniFbxLocalActive] != 0;
+fbt-pivot-inner | src/fbx_transform.c | v[maniFbxLocalScalingPivot][i] + v[maniFbxLocalScalingOffset][i] - | -v[maniFbxLocalScalingPivot][i] + v[maniFbxLocalScalingOffset][i] -
+fbt-pivot-outer | src/fbx_transform.c | t->translation[i] = t->translation[i] + v[maniFbxLocalRotationPivot][i] + | t->translation[i] = t->translation[i] +
 
 # FBX models (mani-0014), 2026-10-14: 15 mutants, all killed (two by
 # tests added after the sweep; a third found a redundant check, removed;
