@@ -79,6 +79,11 @@ if(MAUL_ANIM_OFFLINE)
                                      src/skin_build.c)
 endif()
 maul_configure_library(maul-anim)
+# sqrtf need not set errno, which the library never reads: square roots
+# then run four or eight at a time; no value changes (mani-0020).
+if(NOT MSVC)
+    target_compile_options(maul-anim PRIVATE -fno-math-errno)
+endif()
 # The exactly rounded functions the sources may call
 # (tools/libm-allowed.txt) come from libm (mani-0001).
 if(NOT WIN32 AND NOT APPLE)

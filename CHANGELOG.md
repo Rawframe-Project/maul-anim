@@ -38,3 +38,6 @@ format.
   the Quaternius clips' poses with masks and additive layers by
   ozz-animation's BlendingJob and by Maul Anim, compares them and times
   both, in the weekly differential workflow.
+- Blending weights run from 0 to 1 and are divided by each bone's total
+  first, so blends of finite poses stay finite; differences that are
+  not finite are refused, and the palette refuses a difference.

@@ -10,7 +10,9 @@
 // nanoseconds a blend of two poses takes in each. Built with
 // MAUL_ANIM_DIFFERENTIAL against ozz-animation at the commit CMake pins.
 //
-// usage: ozz_differential <file.fbx> [rounds [repetitions]]
+// usage: ozz_differential <file.fbx> [rounds [repetitions [side]]]: side
+//        0 or 1 times only ozz or only Maul Anim, for counting
+//        instructions.
 
 #include "maul-anim/blend.h"
 #include "maul-anim/build.h"
@@ -407,7 +409,7 @@ double Seconds()
     return std::chrono::duration<double>(Clock::now().time_since_epoch()).count();
 }
 
-void Timings(const Run& run, long reps)
+void Timings(const Run& run, long reps, int only)
 {
     Pose a;
     Pose b;
@@ -434,13 +436,13 @@ void Timings(const Run& run, long reps)
     job.rest_pose = run.ozz->joint_rest_poses();
     job.output = ozz::make_span(so);
     double start = Seconds();
-    for (long r = 0; r < reps; ++r)
+    for (long r = 0; only != 1 && r < reps; ++r)
     {
         job.Run();
     }
     double ozzTime = Seconds() - start;
     start = Seconds();
-    for (long r = 0; r < reps; ++r)
+    for (long r = 0; only != 0 && r < reps; ++r)
     {
         (void)maniBlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
     }
@@ -455,10 +457,11 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        return Fail("usage: ozz_differential <file.fbx> [rounds [repetitions]]");
+        return Fail("usage: ozz_differential <file.fbx> [rounds [repetitions [side]]]");
     }
     long rounds = argc > 2 ? std::atol(argv[2]) : 20000;
     long reps = argc > 3 ? std::atol(argv[3]) : 1000000;
+    int only = argc > 4 ? std::atoi(argv[4]) : -1;
     Bytes file;
     if (!ReadFile(argv[1], &file))
     {
@@ -505,7 +508,7 @@ int main(int argc, char** argv)
     int status = Compare(run, rounds);
     if (reps > 0)
     {
-        Timings(run, reps);
+        Timings(run, reps, only);
     }
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);

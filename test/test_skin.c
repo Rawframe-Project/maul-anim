@@ -12,6 +12,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "pose_memory.h"
 #include "skin_file.h"
 #include "test_harness.h"
 #include "vecmath.h"
@@ -167,6 +168,11 @@ static void TestPaletteIsModelTimesInverseBind(void)
     CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_errorInvalid,
           "stale model");
     CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "composes");
+    // A difference has no model to skin with, even one left current.
+    maniPoseSetKind(pose, true);
+    CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_errorInvalid,
+          "a difference");
+    maniPoseSetKind(pose, false);
     CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_success,
           "palette");
     for (uint32_t j = 0; j < kJoints; ++j)

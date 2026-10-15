@@ -26,7 +26,7 @@ extern "C"
 
     // A blend's layer: a pose, its weight, and optional per-bone weights
     // (a float per bone in skeleton order, NULL for 1 everywhere). Weights
-    // are finite and at least 0; above 1 is allowed.
+    // run from 0 to 1.
     typedef struct maniBlendLayer
     {
         const maniPose* pose;
@@ -35,25 +35,27 @@ extern "C"
     } maniBlendLayer;
 
     /// Blends layers into a pose. Each bone takes from each layer its
-    /// weight times its bone weight; rotations add on the arc that agrees
-    /// with the sum so far (so the layers' order counts), translations and
-    /// scales linearly. Where a bone's total is below the threshold, its
-    /// rest fills the difference (a difference's rest is the identity),
-    /// so the result slides into the rest as weights fall. Rotations are
-    /// then normalized, translations and scales divided by the total.
-    /// With no layers the output is the skeleton's rest.
+    /// weight times its bone weight, divided by the bone's total (or by
+    /// the threshold where the total is below it, the rest taking the
+    /// shortfall; a difference's rest is the identity), so the result
+    /// slides into the rest as weights fall. Rotations add on the arc that
+    /// agrees with the sum so far (so the layers' order counts) and are
+    /// then normalized; translations and scales add linearly and never
+    /// pass the largest input's magnitude by more than rounding, so
+    /// inputs up to 2^127 stay finite. With no weight on a bone it takes
+    /// its rest as it is.
     ///
     /// @param skeleton   The layers' and the output's skeleton.
     /// @param layers     count layers, all poses or all differences.
     /// @param count      The number of layers.
-    /// @param threshold  Finite and above 0 (MANI_BLEND_THRESHOLD in
+    /// @param threshold  Above 0 and at most 1 (MANI_BLEND_THRESHOLD in
     ///                   graphs).
     /// @param out        Receives the blend, of the layers' kind; not one
     ///                   of the layers' poses.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// pose of another skeleton, layers of both kinds, out among the
-    /// layers, a negative or non-finite weight or a threshold out of range
-    /// (out unchanged).
+    /// layers, a weight outside 0 to 1 or a threshold out of range (out
+    /// unchanged).
     /// @par Thread safety
     /// Safe from any thread; out is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniBlendPoses(const maniSkeleton* skeleton,
@@ -97,11 +99,12 @@ extern "C"
     ///
     /// @param skeleton  The poses' skeleton.
     /// @param pose      A pose of the skeleton.
-    /// @param basis     A pose of the skeleton, no scale component 0.
+    /// @param basis     A pose of the skeleton.
     /// @param out       Receives the difference.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// pose of another skeleton, a difference given as pose or basis, or a
-    /// basis scale component of 0 (out unchanged).
+    /// difference not finite (a basis scale component of 0 or near it,
+    /// translations past binary32's range apart; out unchanged).
     /// @par Thread safety
     /// Safe from any thread; out is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPoseDifference(const maniSkeleton* skeleton,
@@ -109,9 +112,9 @@ extern "C"
                                                           const maniPose* basis, maniPose* out);
 
     /// Applies differences to a pose in order, each bone at its layer
-    /// weight times its bone weight: `t + w d_t`, `r nlerp(1, d_r, w)`
-    /// (the difference's turn taken the short way), `s (1 + w (d_s - 1))`
-    /// per axis. Weights above 1 extrapolate.
+    /// weight times its bone weight (both 0 to 1): `t + w d_t`,
+    /// `r nlerp(1, d_r, w)` (the difference's turn taken the short way),
+    /// `s (1 + w (d_s - 1))` per axis, a factor between 1 and `d_s`.
     ///
     /// @param skeleton  The poses' skeleton.
     /// @param pose      A pose of the skeleton, changed in place.
@@ -119,8 +122,7 @@ extern "C"
     /// @param count     The number of layers.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// pose of another skeleton, a difference as the pose, a layer not a
-    /// difference, or a negative or non-finite weight (the pose
-    /// unchanged).
+    /// difference, or a weight outside 0 to 1 (the pose unchanged).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose,

@@ -147,7 +147,8 @@ maniResult maniComputePalette(const maniPose* pose, const maniSkeleton* skeleton
 {
     if (skin == NULL || (palette == NULL && capacity > 0) || !maniPoseMatches(pose, skeleton) ||
         skin->skeletonIdentity != skeleton->identity ||
-        skin->skeletonBoneCount != skeleton->boneCount || !maniPoseModelCurrent(pose))
+        skin->skeletonBoneCount != skeleton->boneCount || !maniPoseModelCurrent(pose) ||
+        maniPoseIsDifference(pose))
     {
         return mani_errorInvalid;
     }

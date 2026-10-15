@@ -14,13 +14,14 @@
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_BLEND_HASH    0x131c3b8fe854e21eull
-#define PINNED_ADDITIVE_HASH 0xdd89f3419f2418bfull
+#define PINNED_BLEND_HASH    0x885e28d511d3c155ull
+#define PINNED_ADDITIVE_HASH 0x8047e342222b7524ull
 
 enum
 {
@@ -218,7 +219,7 @@ static void TestAgainstReference(void)
             {
                 boneWeights[i][b] = Next() % 4 == 0 ? 0.0f : Uniform(0.0f, 1.0f);
             }
-            float weight = Next() % 5 == 0 ? 0.0f : Uniform(0.0f, 2.0f);
+            float weight = Next() % 5 == 0 ? 0.0f : Uniform(0.0f, 1.0f);
             layers[i] = (maniBlendLayer){s_layer[i], weight, masked ? boneWeights[i] : NULL};
         }
         uint32_t count = 1 + Next() % kLayers;
@@ -380,11 +381,38 @@ static void TestRefusals(void)
     other.identity ^= 1;
     CHECK(maniBlendPoses(&other, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_errorInvalid,
           "another skeleton");
-    // Weights above 1 are allowed.
-    layers[0].weight = 3.0f;
-    boneWeights[0] = 2.5f;
+    // Weights run from 0 to 1, both ends included.
+    layers[0].weight = nextafterf(1.0f, 2.0f);
+    ExpectRefused(layers, 2, MANI_BLEND_THRESHOLD, "a layer weight past 1");
+    layers[0].weight = 1.0f;
+    boneWeights[0] = nextafterf(1.0f, 2.0f);
+    ExpectRefused(layers, 2, MANI_BLEND_THRESHOLD, "a bone weight past 1");
+    boneWeights[0] = 1.0f;
+    ExpectRefused(layers, 2, nextafterf(1.0f, 2.0f), "a threshold past 1");
+    CHECK(maniBlendPoses(&s_skeleton, layers, 2, 1.0f, s_out) == mani_success, "weights of 1");
+    // Inputs at 2^127, half binary32's range: the blend stays within
+    // them (shares summing a rounding past 1 cannot reach infinity).
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniTransform t = maniPoseLocal(s_layer[0], b);
+        t.translation = (maniVec3){0x1p127f, -0x1p127f, 0x1p126f};
+        t.scale = (maniVec3){0x1p127f, 0x1p100f, -0x1p127f};
+        maniPoseSetLocal(s_layer[0], b, t);
+        maniPoseSetLocal(s_layer[1], b, t);
+    }
+    layers[0].weight = 0.7f;
+    layers[1].weight = 0.9f;
+    boneWeights[3] = 0.3f;
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
-          "weights past 1");
+          "huge inputs");
+    bool finite = true;
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniTransform t = maniPoseLocal(s_out, b);
+        finite = finite && isfinite(t.translation.x) && isfinite(t.translation.y) &&
+                 isfinite(t.scale.x) && isfinite(t.scale.z) && fabsf(t.translation.x) <= FLT_MAX;
+    }
+    CHECK(finite, "a blend of finite inputs is finite");
 }
 
 static void TestMask(void)
@@ -495,7 +523,7 @@ static void TestAdditive(void)
         }
         maniTransform base[kBones];
         CHECK(maniPoseReadLocals(s_out, 0, kBones, base) == mani_success, "reads");
-        maniBlendLayer layers[2] = {{s_layer[0], Uniform(0.0f, 1.5f), NULL},
+        maniBlendLayer layers[2] = {{s_layer[0], Uniform(0.0f, 1.0f), NULL},
                                     {s_layer[1], Uniform(0.0f, 1.0f), boneWeights}};
         CHECK(maniAddPoses(&s_skeleton, s_out, layers, 2) == mani_success, "adds");
         for (uint32_t b = 0; b < kBones; ++b)
@@ -580,6 +608,30 @@ static void TestAdditiveHemisphere(void)
     CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "the same bits");
 }
 
+// At the top weight a halving scale difference halves the scale: the
+// factor stays between 1 and d_s, never negative.
+static void TestAdditiveBounds(void)
+{
+    RandomizeLayers();
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniPoseSetLocal(s_layer[2], b,
+                         (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {0.5f, 0.5f, 0.5f}});
+    }
+    maniPoseSetKind(s_layer[2], true);
+    maniPoseSetKind(s_out, false);
+    memcpy(s_poses[kLayers], s_poses[0], sizeof s_poses[0]);
+    maniBlendLayer layer = {s_layer[2], 1.0f, NULL};
+    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds at 1");
+    bool halved = true;
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        halved = halved &&
+                 maniPoseLocal(s_out, b).scale.x == 0.5f * maniPoseLocal(s_layer[0], b).scale.x;
+    }
+    CHECK(halved, "w 1, d_s 0.5: half the scale");
+}
+
 static void TestAdditiveRefusals(void)
 {
     RandomizeLayers();
@@ -592,8 +644,8 @@ static void TestAdditiveRefusals(void)
         boneWeights[b] = 1.0f;
     }
     maniBlendLayer layer = {s_layer[2], 0.5f, boneWeights};
-    const float wrong[3] = {-0.5f, INFINITY, NAN};
-    for (int i = 0; i < 3; ++i)
+    const float wrong[4] = {-0.5f, INFINITY, NAN, 0x1.000002p0f};
+    for (int i = 0; i < 4; ++i)
     {
         memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
         layer.weight = wrong[i];
@@ -616,12 +668,26 @@ static void TestAdditiveRefusals(void)
     CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[2], s_out) == mani_errorInvalid,
           "a difference as the basis");
     maniTransform t = maniPoseLocal(s_layer[1], kBones - 1);
-    t.scale.z = 0.0f;
-    maniPoseSetLocal(s_layer[1], kBones - 1, t);
+    maniTransform kept = t;
     memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
+    const float scales[2] = {0.0f, 1e-39f};
+    for (int i = 0; i < 2; ++i)
+    {
+        t.scale.z = scales[i];
+        maniPoseSetLocal(s_layer[1], kBones - 1, t);
+        CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
+              "a basis scale 0 or near it");
+    }
+    t = kept;
+    t.translation.x = -FLT_MAX;
+    maniPoseSetLocal(s_layer[1], kBones - 1, t);
+    maniTransform far = maniPoseLocal(s_layer[0], kBones - 1);
+    far.translation.x = FLT_MAX;
+    maniPoseSetLocal(s_layer[0], kBones - 1, far);
     CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
-          "a basis scale 0");
+          "translations past binary32's range apart");
     CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "out unchanged");
+    maniPoseSetLocal(s_layer[1], kBones - 1, kept);
     CHECK(maniPoseDifference(NULL, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
           "no skeleton");
 }
@@ -673,6 +739,7 @@ int main(void)
     TestRoundTrip();
     TestAdditiveHemisphere();
     TestAdditiveRefusals();
+    TestAdditiveBounds();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

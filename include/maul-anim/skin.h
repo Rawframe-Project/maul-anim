@@ -96,7 +96,8 @@ extern "C"
     /// @return `mani_success`; `mani_errorCapacity` when the array is
     /// shorter than the joint count, with the count written and nothing
     /// else; `mani_errorInvalid` for a NULL argument, a skeleton that is
-    /// not the skin's or the pose's, or a pose whose model is stale.
+    /// not the skin's or the pose's, a pose whose model is stale, or a
+    /// difference.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniComputePalette(const maniPose* pose,

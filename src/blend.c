@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Blending (mani-0020): each group of eight bones summed over the layers
-// in their order, the rest filling in under the threshold, then
-// normalized. Binary32 operations in a fixed order, so the same bits on
-// every platform.
+// in their order at weights divided by the bone's total first (so
+// translations and scales never pass the largest input), the rest
+// filling in under the threshold, then rotations normalized. Binary32 operations in a fixed order,
+// so the same bits on every platform.
 
 #include "maul-anim/blend.h"
 
@@ -23,19 +24,10 @@
 #define LANES      MANI_POSE_GROUP_BONES
 #define COMPONENTS MANI_POSE_COMPONENTS
 
-// A group's running sums: each component of its eight bones, their
-// total weights, and which bones took their rest unweighted.
-typedef struct Sums
-{
-    float c[COMPONENTS][LANES];
-    float total[LANES];
-    bool rest[LANES];
-} Sums;
-
-// Finite and at least 0.
+// Between 0 and 1 (NaN fails).
 static bool Usable(float w)
 {
-    return w >= 0.0f && w <= FLT_MAX;
+    return w >= 0.0f && w <= 1.0f;
 }
 
 static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton,
@@ -83,30 +75,46 @@ static void GroupWeights(const maniBlendLayer* layer, uint32_t first, uint32_t l
 {
     for (uint32_t k = 0; k < LANES; ++k)
     {
-        float bone = layer->boneWeights != NULL && k < lanes ? layer->boneWeights[first + k] : 1.0f;
-        w[k] = k < lanes ? layer->weight * bone : 0.0f;
+        w[k] = k < lanes ? layer->weight : 0.0f;
+    }
+    for (uint32_t k = 0; layer->boneWeights != NULL && k < lanes; ++k)
+    {
+        w[k] = layer->weight * layer->boneWeights[first + k];
     }
 }
 
-// Adds a group of eight transforms at their weights: a rotation negated
-// where it points away from the sum so far.
-static void Accumulate(Sums* s, const float* in, const float w[LANES])
+// Adds a group of eight transforms at their shares into the output
+// group: a rotation negated where it points away from the sum so far.
+// The first layer starts the sums from 0 (0 + v, so a zero keeps its
+// sign as later sums would).
+static void Accumulate(float* restrict o, const float* restrict in, const float* restrict w,
+                       bool first)
 {
+    if (first)
+    {
+        for (uint32_t c = 0; c < COMPONENTS; ++c)
+        {
+            for (uint32_t k = 0; k < LANES; ++k)
+            {
+                o[c * LANES + k] = 0.0f + in[c * LANES + k] * w[k];
+            }
+        }
+        return;
+    }
     float rw[LANES];
     for (uint32_t k = 0; k < LANES; ++k)
     {
-        float dot = ((s->c[3][k] * in[3 * LANES + k] + s->c[4][k] * in[4 * LANES + k]) +
-                     s->c[5][k] * in[5 * LANES + k]) +
-                    s->c[6][k] * in[6 * LANES + k];
+        float dot = ((o[3 * LANES + k] * in[3 * LANES + k] + o[4 * LANES + k] * in[4 * LANES + k]) +
+                     o[5 * LANES + k] * in[5 * LANES + k]) +
+                    o[6 * LANES + k] * in[6 * LANES + k];
         rw[k] = dot < 0.0f ? -w[k] : w[k];
-        s->total[k] += w[k];
     }
     for (uint32_t c = 0; c < COMPONENTS; ++c)
     {
         const float* weights = c >= 3 && c < 7 ? rw : w;
         for (uint32_t k = 0; k < LANES; ++k)
         {
-            s->c[c][k] += in[c * LANES + k] * weights[k];
+            o[c * LANES + k] += in[c * LANES + k] * weights[k];
         }
     }
 }
@@ -128,71 +136,113 @@ static void Rest(const maniSkeleton* skeleton, uint32_t bone, bool difference, f
     }
 }
 
-// The rest into a bone's lane under the threshold: copied where nothing
-// weighed, added at the shortfall otherwise.
-static void FillRest(Sums* s, const maniSkeleton* skeleton, uint32_t first, uint32_t lanes,
-                     float threshold, bool difference)
+// The rest added at its share where a bone's total was under the
+// threshold.
+static void FillRest(float* o, const float* share, const maniSkeleton* skeleton, uint32_t first,
+                     uint32_t lanes, bool difference)
 {
     for (uint32_t k = 0; k < lanes; ++k)
     {
-        if (!(s->total[k] < threshold))
+        if (!(share[k] > 0.0f))
         {
             continue;
         }
         float rest[COMPONENTS];
         Rest(skeleton, first + k, difference, rest);
-        if (s->total[k] == 0.0f)
-        {
-            // Nothing weighed: the rest as it is.
-            for (uint32_t c = 0; c < COMPONENTS; ++c)
-            {
-                s->c[c][k] = rest[c];
-            }
-            s->rest[k] = true;
-            continue;
-        }
-        float f = threshold - s->total[k];
-        float dot = ((s->c[3][k] * rest[3] + s->c[4][k] * rest[4]) + s->c[5][k] * rest[5]) +
-                    s->c[6][k] * rest[6];
-        float rf = dot < 0.0f ? -f : f;
+        float dot = ((o[3 * LANES + k] * rest[3] + o[4 * LANES + k] * rest[4]) +
+                     o[5 * LANES + k] * rest[5]) +
+                    o[6 * LANES + k] * rest[6];
+        float rf = dot < 0.0f ? -share[k] : share[k];
         for (uint32_t c = 0; c < COMPONENTS; ++c)
         {
-            s->c[c][k] += rest[c] * (c >= 3 && c < 7 ? rf : f);
+            o[c * LANES + k] += rest[c] * (c >= 3 && c < 7 ? rf : share[k]);
         }
-        s->total[k] = threshold;
     }
 }
 
-// Normalized into the output group: rotations to unit length (the
-// identity for a zero sum), the rest divided by the total.
-static void Store(const Sums* s, uint32_t lanes, float* out)
+// Rotations normalized in place: to unit length, the identity for a
+// zero or overflowing sum.
+static void Normalize(float* o)
 {
-    for (uint32_t k = 0; k < lanes; ++k)
+    float root[LANES];
+    for (uint32_t k = 0; k < LANES; ++k)
     {
-        if (s->rest[k])
+        float x = o[3 * LANES + k];
+        float y = o[4 * LANES + k];
+        float z = o[5 * LANES + k];
+        float w = o[6 * LANES + k];
+        float squared = ((x * x + y * y) + z * z) + w * w;
+        root[k] = squared > 0.0f && squared <= FLT_MAX ? squared : -1.0f;
+    }
+    for (uint32_t k = 0; k < LANES; ++k)
+    {
+        root[k] = root[k] > 0.0f ? sqrtf(root[k]) : -1.0f;
+    }
+    float inverse[LANES];
+    for (uint32_t k = 0; k < LANES; ++k)
+    {
+        inverse[k] = 1.0f / (root[k] > 0.0f ? root[k] : 1.0f);
+    }
+    for (uint32_t c = 3; c < 7; ++c)
+    {
+        float fallback = c == 6 ? 1.0f : 0.0f;
+        for (uint32_t k = 0; k < LANES; ++k)
         {
-            for (uint32_t c = 0; c < COMPONENTS; ++c)
-            {
-                out[c * LANES + k] = s->c[c][k];
-            }
+            o[c * LANES + k] = root[k] > 0.0f ? o[c * LANES + k] * inverse[k] : fallback;
+        }
+    }
+}
+
+// The lanes nothing weighed take their rest as it is, and padding bones
+// past the last stay the identity.
+static void Settle(float* o, const float* total, const maniSkeleton* skeleton, uint32_t first,
+                   uint32_t lanes, bool difference)
+{
+    bool any = lanes < LANES;
+    for (uint32_t k = 0; k < LANES; ++k)
+    {
+        any |= total[k] == 0.0f;
+    }
+    for (uint32_t k = 0; any && k < LANES; ++k)
+    {
+        if (k < lanes && total[k] != 0.0f)
+        {
             continue;
         }
-        float x = s->c[3][k];
-        float y = s->c[4][k];
-        float z = s->c[5][k];
-        float w = s->c[6][k];
-        float squared = ((x * x + y * y) + z * z) + w * w;
-        bool usable = squared > 0.0f && squared <= FLT_MAX;
-        float inverse = usable ? 1.0f / sqrtf(squared) : 0.0f;
-        out[3 * LANES + k] = usable ? x * inverse : 0.0f;
-        out[4 * LANES + k] = usable ? y * inverse : 0.0f;
-        out[5 * LANES + k] = usable ? z * inverse : 0.0f;
-        out[6 * LANES + k] = usable ? w * inverse : 1.0f;
-        float ratio = 1.0f / s->total[k];
+        float rest[COMPONENTS];
+        Rest(skeleton, first + k, difference || k >= lanes, rest);
         for (uint32_t c = 0; c < COMPONENTS; ++c)
         {
-            out[c * LANES + k] = c >= 3 && c < 7 ? out[c * LANES + k] : s->c[c][k] * ratio;
+            o[c * LANES + k] = rest[c];
         }
+    }
+}
+
+// Each bone's total over the layers (from the weights alone, so known
+// before any pose is read), the reciprocal the weights' shares take (of
+// the threshold where the total is under it), and the rest's share of
+// the shortfall.
+static void Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first, uint32_t lanes,
+                   float threshold, float* total, float* inverse, float* share)
+{
+    float w[LANES];
+    for (uint32_t k = 0; k < LANES; ++k)
+    {
+        total[k] = 0.0f;
+    }
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        GroupWeights(&layers[i], first, lanes, w);
+        for (uint32_t k = 0; k < LANES; ++k)
+        {
+            total[k] += w[k];
+        }
+    }
+    for (uint32_t k = 0; k < LANES; ++k)
+    {
+        bool under = total[k] < threshold;
+        inverse[k] = 1.0f / (under ? threshold : total[k]);
+        share[k] = under && total[k] > 0.0f ? (threshold - total[k]) * inverse[k] : 0.0f;
     }
 }
 
@@ -209,20 +259,34 @@ maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* la
     for (uint32_t first = 0; first < bones; first += LANES)
     {
         uint32_t lanes = bones - first < LANES ? bones - first : LANES;
-        size_t group = (size_t)first * COMPONENTS;
-        Sums s = {0};
+        float* o = locals + (size_t)first * COMPONENTS;
+        float w[LANES];
+        float total[LANES];
+        float inverse[LANES];
+        float share[LANES];
+        Shares(layers, count, first, lanes, threshold, total, inverse, share);
+        bool started = false;
         for (uint32_t i = 0; i < count; ++i)
         {
             if (layers[i].weight == 0.0f)
             {
                 continue;
             }
-            float w[LANES];
             GroupWeights(&layers[i], first, lanes, w);
-            Accumulate(&s, maniPoseLocalsRead(layers[i].pose) + group, w);
+            for (uint32_t k = 0; k < LANES; ++k)
+            {
+                w[k] *= inverse[k];
+            }
+            Accumulate(o, maniPoseLocalsRead(layers[i].pose) + (size_t)first * COMPONENTS, w,
+                       !started);
+            started = true;
         }
-        FillRest(&s, skeleton, first, lanes, threshold, difference);
-        Store(&s, lanes, locals + group);
+        if (started)
+        {
+            FillRest(o, share, skeleton, first, lanes, difference);
+            Normalize(o);
+        }
+        Settle(o, total, skeleton, first, lanes, difference);
     }
     maniPoseSetKind(out, difference);
     maniPoseMarkStale(out);

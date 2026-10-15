@@ -23,10 +23,15 @@
 
 #define LANES MANI_POSE_GROUP_BONES
 
-// Finite and at least 0.
+// Between 0 and 1 (NaN fails).
 static bool Usable(float w)
 {
-    return w >= 0.0f && w <= FLT_MAX;
+    return w >= 0.0f && w <= 1.0f;
+}
+
+static bool Finite(float v)
+{
+    return v >= -FLT_MAX && v <= FLT_MAX;
 }
 
 // To unit length in binary32, the identity for a zero or overflowing sum.
@@ -63,6 +68,24 @@ static bool IsPose(const maniPose* pose, const maniSkeleton* skeleton)
     return maniPoseMatches(pose, skeleton) && !maniPoseIsDifference(pose);
 }
 
+// A bone's difference: t - t_b, r_b^-1 r (normalized), s / s_b.
+static maniTransform Difference(const float* p, const float* b, uint32_t bone)
+{
+    maniTransform t = Read(p, bone);
+    maniTransform tb = Read(b, bone);
+    return (maniTransform){
+        maniVec3Sub(t.translation, tb.translation),
+        Normalize(maniQuatMul(maniQuatConjugate(tb.rotation), t.rotation)),
+        {t.scale.x / tb.scale.x, t.scale.y / tb.scale.y, t.scale.z / tb.scale.z},
+    };
+}
+
+static bool DifferenceFinite(const maniTransform* d)
+{
+    return Finite(d->translation.x) && Finite(d->translation.y) && Finite(d->translation.z) &&
+           Finite(d->scale.x) && Finite(d->scale.y) && Finite(d->scale.z);
+}
+
 maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
                               const maniPose* basis, maniPose* out)
 {
@@ -70,27 +93,23 @@ maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose
     {
         return mani_errorInvalid;
     }
+    const float* p = maniPoseLocalsRead(pose);
     const float* b = maniPoseLocalsRead(basis);
+    // Every difference finite (a basis scale of 0 or near it, or
+    // translations far apart, are not) before any is written.
     for (uint32_t bone = 0; bone < skeleton->boneCount; ++bone)
     {
-        maniVec3 s = Read(b, bone).scale;
-        if (s.x == 0.0f || s.y == 0.0f || s.z == 0.0f)
+        maniTransform d = Difference(p, b, bone);
+        if (!DifferenceFinite(&d))
         {
             return mani_errorInvalid;
         }
     }
-    const float* p = maniPoseLocalsRead(pose);
     float* o = maniPoseLocals(out);
     // Bone by bone, each read before it is written: out may be either.
     for (uint32_t bone = 0; bone < skeleton->boneCount; ++bone)
     {
-        maniTransform t = Read(p, bone);
-        maniTransform tb = Read(b, bone);
-        maniTransform d = {
-            maniVec3Sub(t.translation, tb.translation),
-            Normalize(maniQuatMul(maniQuatConjugate(tb.rotation), t.rotation)),
-            {t.scale.x / tb.scale.x, t.scale.y / tb.scale.y, t.scale.z / tb.scale.z},
-        };
+        maniTransform d = Difference(p, b, bone);
         Write(o, bone, &d);
     }
     maniPoseSetKind(out, true);
