@@ -427,7 +427,6 @@ fbb-end-before-name | src/fbx_binary.c | if (h.end <= names || h.end > r->fbx->s
 fbb-props-count | src/fbx_binary.c | h.properties > h.listLength || r->nodes == MANI_FBX_NONE - 1) | r->nodes == MANI_FBX_NONE - 1)
 fbb-values-end | src/fbx_binary.c | if (p != valuesEnd) | if (false)
 fbb-depth | src/fbx_binary.c | if (r->depth + 1 >= MANI_FBX_MAX_DEPTH) | if (r->depth + 1 > MANI_FBX_MAX_DEPTH)
-fbb-null | src/fbx_binary.c | return h.end == 0 && h.properties == 0 && h.listLength == 0 && h.nameLength == 0; | return h.end == 0 && h.nameLength == 0;
 fbb-list-end | src/fbx_binary.c | if (at != r->end[r->depth]) | if (false)
 fbb-header-fits | src/fbx_binary.c | if (!Fits(at, headerSize, fbx->size)) | if (at >= fbx->size)
 fbb-magic-tail | src/fbx_binary.c | if (fbx->size < MANI_FBX_HEADER_SIZE || b[21] != 0x1A || b[22] > 1) | if (fbx->size < MANI_FBX_HEADER_SIZE || b[22] > 1)
@@ -462,7 +461,6 @@ fba-string-close | src/fbx_ascii.c | while (r->at < fbx->size && fbx->bytes[r->a
 
 # FBX objects, connections, properties and settings (mani-0013),
 # 2026-10-14: 23 mutants, all killed (one by a test added after the sweep).
-fbo-duplicate | src/fbx_object.c | if (keys[later] == keys[fbx->objectsById[k - 1]]) | if (false)
 fbo-search | src/fbx_object.c | if (at < key) | if (at <= key)
 fbo-properties60 | src/fbx_object.c | return p != MANI_FBX_NONE ? p : maniFbxFindChild(fbx, node, "Properties60", 12); | return p;
 fbo-subclass-six | src/fbx_object.c | return maniFbxNodeProperty(fbx, node, fbx->version >= 7000 ? 2 : 1); | return maniFbxNodeProperty(fbx, node, 2);
@@ -520,10 +518,7 @@ fbt-pivot-outer | src/fbx_transform.c | t->translation[i] = t->translation[i] + 
 fbm-oo-child | src/fbx_model.c | return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE; | return c->parentProperty == MANI_FBX_NONE;
 fbm-oo-parent | src/fbx_model.c | return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE; | return c->childProperty == MANI_FBX_NONE;
 fbm-root | src/fbx_model.c | return c->parent == fbx->objectCount ? fbx->modelCount : maniFbxModelOf(fbx, c->parent); | return maniFbxModelOf(fbx, c->parent);
-fbm-two-same | src/fbx_model.c | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent) | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE)
-fbm-two | src/fbx_model.c | if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent) | if (false)
-fbm-keep-parent | src/fbx_model.c | parent = p != MANI_FBX_NONE ? p : parent; | parent = p;
-fbm-unparented | src/fbx_model.c | fbx->modelParents[m] = parent == fbx->modelCount ? MANI_FBX_NONE : parent; | fbx->modelParents[m] = parent;
+fbm-keep-parent | src/fbx_model.c | parent = later ? p : parent; | parent = p < fbx->modelCount ? p : parent;
 fbm-cycle | src/fbx_model.c | if (r == mani_errorFormat) | if (false)
 fbm-orphans | src/fbx_model.c | if (placed[m] == 0) | if (false)
 fbm-name-k | src/fbx_model.c | uint32_t k = fbx->version >= 7000 ? 1 : 0; | uint32_t k = 1;
@@ -531,7 +526,7 @@ fbm-model-kind | src/fbx_model.c | bool model = maniFbxObjectKindIs(fbx, o, "Mod
 fbm-model-of | src/fbx_model.c | return object < fbx->objectCount ? fbx->modelOfObject[object] : MANI_FBX_NONE; | return fbx->modelOfObject[object];
 fbm-name-range | src/fbx_model.c | bool inRange = fbx != NULL && model < fbx->modelCount; | bool inRange = fbx != NULL;
 fbm-renamed-range | src/fbx_model.c | return fbx != NULL && index < fbx->modelNames.renamedCount ? fbx->modelNames.renamed[index] | return fbx != NULL ? fbx->modelNames.renamed[index]
-fbm-placed | src/fbx_model.c | if (ObjectToObject(c) && child != MANI_FBX_NONE && placed[child] == 0) | if (ObjectToObject(c) && child != MANI_FBX_NONE)
+fbm-placed | src/fbx_model.c | if (ObjectToObject(c) && mine && placed[child] == 0) | if (ObjectToObject(c) && mine)
 
 # FBX worlds and the basis unit (mani-0014), 2026-10-14: 13 mutants, all
 # killed.
@@ -593,10 +588,9 @@ fbs-negative | src/fbx_options.c | bool negative = (s->signs[k] < 0) != (o->axes
 fbs-target-axis | src/fbx_options.c | axes[o->axes[k] % 3] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX); | axes[k] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX);
 fbs-unit | src/fbx_options.c | double unit = o->unitMeters > 0.0 ? s->unitScale * 0.01 / o->unitMeters : 1.0; | double unit = o->unitMeters > 0.0 ? s->unitScale / o->unitMeters : 1.0;
 fbs-marked-children | src/fbx_skeleton.c | if (b->marked[children[k]] != 0) | if (true)
-fbs-singular | src/fbx_skeleton.c | if (!maniFbxMatrixInverse(&b->worlds[parent].world, &inverse)) | if (false)
 fbs-normal-skip | src/fbx_skeleton.c | if (b->worlds[c].inherit == maniFbxInheritRSrs) | if (false)
-fbs-request | src/fbx_skeleton.c | bool exact = b->options->inheritHelpers == 0 && Compensate(b, c, p, &b->compensated[c]); | bool exact = Compensate(b, c, p, &b->compensated[c]);
-fbs-helper-keep | src/fbx_skeleton.c | b->helper[p] = exact ? b->helper[p] : 1; | b->helper[p] = exact ? 0 : 1;
+fbs-request | src/fbx_skeleton.c | bool kept = b->options->inheritHelpers == 0 && | bool kept = b->options->inheritHelpers == 0 || true ||
+fbs-helper-keep | src/fbx_skeleton.c | b->helper[p] = kept ? b->helper[p] : 1; | b->helper[p] = kept ? 0 : 1;
 fbs-top-placement | src/fbx_skeleton.c | if (p == MANI_FBX_NONE) | if (false)
 fbs-unscaled-placement | src/fbx_skeleton.c | return worlds[root].inherit == maniFbxInheritRSrs ? worlds[p].world : worlds[p].unscaled; | return worlds[p].world;
 fbs-fold | src/fbx_skeleton.c | if (b->options->foldPlacement == 0) | if (true)
@@ -633,7 +627,8 @@ fbk-transform-link | src/fbx_skin.c | if (r.result == mani_success && !(present 
 fbk-mesh | src/fbx_skin.c | const maniFbxMatrix* mesh = s->mesh != MANI_FBX_NONE ? &s->worlds[s->mesh].world : &identity; | const maniFbxMatrix* mesh = &identity;
 fbk-geometry | src/fbx_skin.c | *out = maniFbxMatrixMul(&meshToBone, geometry); | *out = meshToBone;
 fbk-bone | src/fbx_skin.c | if (s->bones[j] == MANI_NO_BONE) | if (false)
-fbk-link-zero | src/fbx_skin.c | bool linked = present && !AllZero(out); | bool linked = present;
+fbk-link-zero | src/fbx_skin.c | bool linked = paired && present && !AllZero(out); | bool linked = paired && present;
+fbk-link-paired | src/fbx_skin.c | bool linked = paired && present && !AllZero(out); | bool linked = present && !AllZero(out);
 fbk-pose-zero | src/fbx_skin.c | posed = present && !AllZero(out); | posed = present;
 fbk-pose | src/fbx_skin.c | if (r.result == mani_success && !linked && s->poseOf[model] != MANI_FBX_NONE) | if (false)
 fbk-rest | src/fbx_skin.c | if (r.result == mani_success && !linked && !posed) | if (r.result == mani_success && !linked)
@@ -763,12 +758,12 @@ fcl-rule-own | src/fbx_clip.c | : pm == MANI_FBX_NONE     ? kOwn | : pm == MANI_
 fcl-rule-helper | src/fbx_clip.c | : pm == p && parentHelper ? kUnderHelper | : pm == p && parentHelper ? kUnderParent
 fcl-rule-parent | src/fbx_clip.c | : pm == p                 ? kUnderParent | : pm == p                 ? kRelative
 fcl-need | src/fbx_clip.c | c->needed[v] = 1; | (void)0;
-fcl-scene-rate | src/fbx_clip.c | return s->rateDenominator != 0 ? (double)s->rateNumerator / (double)s->rateDenominator | return s->rateDenominator != 0 ? (double)s->rateNumerator
-fcl-rate-cap | src/fbx_clip.c | : scene > 0.0 && scene <= 120.0 ? scene | : scene > 0.0 ? scene
-fcl-rate-given | src/fbx_clip.c | c->exactRate = sampleRate != 0.0f              ? (double)sampleRate | c->exactRate = false              ? (double)sampleRate
+fcl-scene-rate | src/fbx_clip_state.c | double scene = s->rateDenominator != 0 ? (double)s->rateNumerator / (double)s->rateDenominator | double scene = s->rateDenominator != 0 ? (double)s->rateNumerator
+fcl-rate-cap | src/fbx_clip_state.c | return scene > 0.0 && scene <= 120.0 ? scene : 30.0; | return scene > 0.0 ? scene : 30.0;
+fcl-rate-given | src/fbx_clip.c | c->exactRate = sampleRate != 0.0f ? (double)sampleRate : maniFbxDefaultRate(c->fbx); | c->exactRate = maniFbxDefaultRate(c->fbx);
 fcl-duration-zero | src/fbx_clip.c | c->duration = span > 0.0 ? (float)(span / tps) : 0.0f; | c->duration = (float)(span / tps);
-fcl-last-stop | src/fbx_clip_state.c | double tick = last && c->animation.stop > c->animation.start | double tick = false
-fcl-round | src/fbx_clip_state.c | : (double)c->animation.start + Round((double)k * tps / c->exactRate); | : (double)c->animation.start + (double)k * tps / c->exactRate;
+fcl-last-stop | src/fbx_clip_state.c | double tick = last && animation->stop > animation->start | double tick = false
+fcl-round | src/fbx_clip_state.c | : (double)animation->start + Round((double)k * tps / exactRate); | : (double)animation->start + (double)k * tps / exactRate;
 fcl-fold | src/fbx_clip.c | if (c->options->foldPlacement == 0) | if (true)
 fcl-placement-unscaled | src/fbx_clip.c | : w->inherit == maniFbxInheritRSrs ? c->worlds[p].world | : w->inherit == maniFbxInheritRSrs ? c->worlds[p].unscaled
 fcl-frame-helper | src/fbx_clip.c | return c->rule[bone] == kHelper ? &w->unscaled : &w->world; | return &w->world;
@@ -971,7 +966,7 @@ fle-stop-on-refusal | src/fbx_legacy.c | for (uint32_t m = fbx->nodes[0].firstCh
 fle-model-node | src/fbx_legacy.c | if (!maniFbxNameIs(fbx, m, "Model", 5)) | if (maniFbxNameIs(fbx, m, "Takes", 5))
 fle-model-named | src/fbx_legacy.c | if (!Named(fbx, m)) | if (false)
 fle-index-objects | src/fbx_legacy.c | return r.result == mani_success ? maniFbxIndexObjects(fbx) : r; | return r;
-fle-children-all | src/fbx_legacy.c | uint32_t n = list != MANI_FBX_NONE ? fbx->nodes[list].propertyCount : 0; | uint32_t n = list != MANI_FBX_NONE ? 1 : 0;
+fle-children-all | src/fbx_legacy.c | uint32_t child = maniFbxReferencedObject(fbx, maniFbxNodeProperty(fbx, list, k)); | uint32_t child = maniFbxReferencedObject(fbx, maniFbxNodeProperty(fbx, list, 0));
 fle-children-direction | src/fbx_legacy.c | Connect(fbx, child, model); | Connect(fbx, model, child);
 fle-skin-mesh | src/fbx_legacy.c | Connect(fbx, o, o - 1); | Connect(fbx, o - 1, o);
 fle-cluster-skin | src/fbx_legacy.c | Connect(fbx, o, skin); | Connect(fbx, skin, o);
@@ -1032,3 +1027,49 @@ fta-internal-unnamed | src/fbx_take.c | if (take != 0 && !Named(fbx, take)) | if
 fot-legacy-weight | src/fbx_tracks.c | fbx->version < 6000 || (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry)); | (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry));
 fta-internal-span | src/fbx_take.c | if (take == 0 || (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) && | if ((!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) &&
 fbo-legacy-mode-missing | src/fbx_object.c | mode = where == MANI_FBX_NONE && legacy ? 14 : mode; | mode = legacy ? 14 : mode;
+
+# The ufbx differential's findings (fbx_helpers.c, helpers from a
+# stack's grid; duplicate ids; binary records with an end of 0; number
+# tokens; several parents; legacy Children; mani-0018), 2026-10-15: 36
+# mutants, two surviving. A grid's last-sample condition no input could
+# tell apart was removed instead.
+fhl-inverse | src/fbx_helpers.c | if (!maniFbxMatrixInverse(&worlds[parent].world, &inverse)) | if (false && !maniFbxMatrixInverse(&worlds[parent].world, &inverse))
+fhl-exact | src/fbx_helpers.c | return maniDecomposeExact(&affine, out); | return maniDecomposeExact(&affine, out) || true;
+fhl-check | src/fbx_helpers.c | if (helper[p] == 0 && !maniFbxCompensate(worlds, c, p, &unused)) | if (helper[p] == 0 && false)
+fhl-mark | src/fbx_helpers.c | helper[p] = 1; | helper[p] = 0;
+fhl-left | src/fbx_helpers.c | left = left || helper[p] == 0; | left = left || helper[p] != 0;
+# fhl-stack-refused survives, equivalent: a refused read leaves an empty
+# animation, whose one sample is the rest, already checked.
+fhl-stack-refused | src/fbx_helpers.c | if (r.result != mani_success) | if (r.result == mani_errorCapacity)
+fhl-span | src/fbx_helpers.c | maniClipSampleCountFor(span > 0.0 ? (float)(span / tps) : 0.0f, (float)rate, &samples); | maniClipSampleCountFor(0.0f, (float)rate, &samples);
+# fhl-stop-left survives, equivalent: it only stops sampling once no
+# child is left to check.
+fhl-stop-left | src/fbx_helpers.c | for (uint32_t s = 0; r.result == mani_success && timed && left && s < samples; ++s) | for (uint32_t s = 0; r.result == mani_success && timed && s < samples; ++s)
+fhl-grid | src/fbx_helpers.c | double time = maniFbxGridTime(fbx, &animation, rate, samples, s); | double time = maniFbxGridTime(fbx, &animation, rate, samples, 0);
+fhl-sampled | src/fbx_helpers.c | left = r.result == mani_success && CheckAt(fbx, worlds, children, count, helper); | left = CheckAt(fbx, worlds, children, count, helper);
+fhl-none | src/fbx_helpers.c | if (count == 0 || fbx->stackCount == 0) | if (count == 0 || fbx->stackCount != 0)
+fhl-stacks | src/fbx_helpers.c | for (uint32_t k = 0; r.result == mani_success && k < fbx->stackCount; ++k) | for (uint32_t k = 0; r.result == mani_success && k < 1; ++k)
+fsk-exact-list | src/fbx_skeleton.c | b->boneOf[exact++] = c; | b->boneOf[exact] = c;
+fsk-animated | src/fbx_skeleton.c | return maniFbxAnimatedHelpers(b->fbx, b->marked, b->boneOf, exact, b->helper); | return maniFbxSuccess();
+fbo-duplicate-count | src/fbx_object.c | fbx->duplicateObjects += keys[fbx->objectsById[k]] == keys[fbx->objectsById[k - 1]] ? 1 : 0; | fbx->duplicateObjects += 0;
+fbb-zero-end | src/fbx_binary.c | if (h.end == 0 && Fits(names, h.nameLength, r->fbx->size) && | if (false && Fits(names, h.nameLength, r->fbx->size) &&
+fbb-zero-end-at | src/fbx_binary.c | h.end = names + h.nameLength + h.listLength; | h.end = names + h.nameLength + h.listLength + 1;
+fbb-null-name | src/fbx_binary.c | return h.end == 0 && h.nameLength == 0; | return h.end == 0;
+fas-array-words | src/fbx_ascii.c | while (t.kind == TokenNumber || t.kind == TokenNotNumber || t.kind == TokenWord) | while (t.kind == TokenNumber || t.kind == TokenNotNumber)
+fas-spells-length | src/fbx_ascii.c | bool same = (size_t)(end - p) >= n; | bool same = true;
+fas-alnum-digit | src/fbx_ascii.c | return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || IsDigit(c); | return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+fas-old-quiet | src/fbx_ascii.c | bool quiet = Spells(p, end, "qnan") || Spells(p, end, "snan"); | bool quiet = Spells(p, end, "qnan");
+fas-old-words | src/fbx_ascii.c | if (!quiet && !Spells(p, end, "inf") && !Spells(p, end, "nan") && !Spells(p, end, "ind")) | if (!quiet && !Spells(p, end, "inf") && !Spells(p, end, "nan"))
+fas-old-skip | src/fbx_ascii.c | for (p += quiet ? 4 : 3; p != end && IsDigit(*p);) | for (p += 3; p != end && IsDigit(*p);)
+fas-sign | src/fbx_ascii.c | p += p != end && (*p == '+' || *p == '-') ? 1 : 0; | p += p != end && *p == '-' ? 1 : 0;
+fas-old-form | src/fbx_ascii.c | if (end - p >= 3 && IsDigit(p[0]) && p[1] == '.' && p[2] == '#') | if (end - p >= 3 && IsDigit(p[0]) && p[1] == '.')
+fas-infinity | src/fbx_ascii.c | return p + (Spells(p + 3, end, "inity") ? 8 : 3) == end; | return p + 3 == end;
+fas-nan | src/fbx_ascii.c | if (!Spells(p, end, "nan")) | if (!Spells(p, end, "na"))
+fas-nan-close | src/fbx_ascii.c | if (p == end || *p != ')') | if (p == end)
+fas-number-kind | src/fbx_ascii.c | TokenKind kind = r->at == digits ? (WellFormed(b + start, length) ? TokenNumber : TokenBad) | TokenKind kind = r->at == digits ? (WellFormed(b + start, length) ? TokenNumber : TokenNotNumber)
+fas-infnan-kind | src/fbx_ascii.c | : InfNan(b + start, length) ? TokenNotNumber | : true ? TokenNotNumber
+fmo-later | src/fbx_model.c | bool later = p < fbx->modelCount && (parent == MANI_FBX_NONE || p > parent); | bool later = p < fbx->modelCount && parent == MANI_FBX_NONE;
+fmo-root-loses | src/fbx_model.c | bool later = p < fbx->modelCount && (parent == MANI_FBX_NONE || p > parent); | bool later = p <= fbx->modelCount && (parent == MANI_FBX_NONE || p > parent);
+fmo-mine | src/fbx_model.c | child != MANI_FBX_NONE && fbx->modelParents[child] == (p < n ? p : MANI_FBX_NONE); | child != MANI_FBX_NONE;
+fle-children-strings | src/fbx_legacy.c | if (fbx->properties[maniFbxNodeProperty(fbx, list, k)].type != 'S') | if (false)
+fcs-default-rate | src/fbx_clip_state.c | return scene > 0.0 && scene <= 120.0 ? scene : 30.0; | return scene > 0.0 && scene < 120.0 ? scene : 30.0;
