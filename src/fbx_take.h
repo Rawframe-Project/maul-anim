@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x takes as stacks (research 26), and a stack of either model
+// FBX 6.x takes as stacks (mani-0017), and a stack of either model
 // read by its index.
 
 #ifndef MAUL_ANIM_SRC_FBX_TAKE_H

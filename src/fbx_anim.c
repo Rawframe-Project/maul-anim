@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // FBX animation stacks (mani-0016), as ufbx binds and evaluates them
-// (research 24). A stack's layers are its AnimationLayer children in
+// (mani-0016). A stack's layers are its AnimationLayer children in
 // connection order; a layer's curve nodes are its AnimationCurveNode
 // children, each bound through its property connections to the
 // properties it drives, its curves connected to its channel properties

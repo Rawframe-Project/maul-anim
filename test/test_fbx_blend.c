@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX blend shapes (research 25): effective weights at channel weights,
+// FBX blend shapes (mani-0017): effective weights at channel weights,
 // in-betweens and negative targets, against values worked by hand; a
 // skinned face's channels as one float track per shape and their names;
 // which meshes count; Blender's FullWeights; rest weights.
@@ -393,6 +393,294 @@ static void TestRests(void)
     maniDestroyBuilder(builder);
 }
 
+// Before 7.2, shapes held by meshes (mani-0017), as ufbx weighs them:
+// a 6.x Mesh model's Smile (a number) and Wink (an integer) are driven;
+// Blink (user-defined, so the model's), Frown (a Bool), Gape (no
+// property) and Hollow (no vertices) are not.
+static const char kShapes6[] =
+    "; FBX 6.1.0 project file\n"
+    "FBXHeaderExtension: {\n"
+    " FBXHeaderVersion: 1003\n"
+    " FBXVersion: 6100\n"
+    "}\n"
+    "Objects: {\n"
+    " Model: \"Model::Head\", \"Limb\" {\n"
+    "  Version: 232\n"
+    "  Properties60: {\n"
+    "   Property: \"Lcl Translation\", \"Lcl Translation\", \"A+\",0,1,0\n"
+    "  }\n"
+    " }\n"
+    " Model: \"Model::Face\", \"Mesh\" {\n"
+    "  Version: 232\n"
+    "  Properties60: {\n"
+    "   Property: \"Smile\", \"Number\", \"A+\",10\n"
+    "   Property: \"Blink\", \"Number\", \"A+U\",0\n"
+    "   Property: \"Frown\", \"Bool\", \"A+\",0\n"
+    "   Property: \"Wink\", \"Integer\", \"A+\",0\n"
+    "  }\n"
+    "  Vertices: 0,0,0,1,0,0,0,1,0\n"
+    "  PolygonVertexIndex: 0,1,-3\n"
+    "  Shape: \"Smile\" {\n"
+    "   Indexes: 0\n"
+    "   Vertices: 0,0,1\n"
+    "  }\n"
+    "  Shape: \"Blink\" {\n"
+    "   Indexes: 0\n"
+    "   Vertices: 0,0,1\n"
+    "  }\n"
+    "  Shape: \"Frown\" {\n"
+    "   Indexes: 0\n"
+    "   Vertices: 0,0,1\n"
+    "  }\n"
+    "  Shape: \"Wink\" {\n"
+    "   Indexes: 0\n"
+    "   Vertices: 0,0,1\n"
+    "  }\n"
+    "  Shape: \"Gape\" {\n"
+    "   Indexes: 0\n"
+    "   Vertices: 0,0,1\n"
+    "  }\n"
+    "  Shape: \"Hollow\" {\n"
+    "  }\n"
+    " }\n"
+    " Deformer: \"Deformer::Skin Face\", \"Skin\" {\n"
+    "  Version: 100\n"
+    " }\n"
+    " Deformer: \"SubDeformer::Cluster Head\", \"Cluster\" {\n"
+    "  Version: 100\n"
+    "  Indexes: 0\n"
+    "  Weights: 1\n"
+    "  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n"
+    "  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n"
+    " }\n"
+    "}\n"
+    "Connections: {\n"
+    " Connect: \"OO\", \"Model::Head\", \"Model::Scene\"\n"
+    " Connect: \"OO\", \"Model::Face\", \"Model::Scene\"\n"
+    " Connect: \"OO\", \"Deformer::Skin Face\", \"Model::Face\"\n"
+    " Connect: \"OO\", \"SubDeformer::Cluster Head\", \"Deformer::Skin Face\"\n"
+    " Connect: \"OO\", \"Model::Head\", \"SubDeformer::Cluster Head\"\n"
+    "}\n"
+    "Takes: {\n"
+    " Take: \"Talk\" {\n"
+    "  LocalTime: 0,46186158000\n"
+    "  Model: \"Model::Face\" {\n"
+    "   Channel: \"Smile\" {\n"
+    "    Default: 10\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,10,L,46186158000,90,L\n"
+    "   }\n"
+    "   Channel: \"Blink\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
+    "   Channel: \"Frown\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
+    "   Channel: \"Wink\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
+    "   Channel: \"Gape\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
+    "   Channel: \"Hollow\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
+    "  }\n"
+    " }\n"
+    "}\n";
+
+// A 7.1 geometry's Smile and Blink, both driven (no split in 7.x).
+static const char kShapes71[] =
+    "; FBX 7.1.0 project file\n"
+    "FBXHeaderExtension: {\n"
+    " FBXHeaderVersion: 1003\n"
+    " FBXVersion: 7100\n"
+    "}\n"
+    "Objects: {\n"
+    " Model: 1, \"Model::Head\", \"LimbNode\" {\n"
+    "  Properties70: {\n"
+    "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,1,0\n"
+    "  }\n"
+    " }\n"
+    " Model: 2, \"Model::Face\", \"Mesh\" {\n"
+    " }\n"
+    " Geometry: 50, \"Geometry::Face\", \"Mesh\" {\n"
+    "  Properties70: {\n"
+    "   P: \"Smile\", \"Number\", \"\", \"A\",10\n"
+    "   P: \"Blink\", \"Number\", \"\", \"A+U\",20\n"
+    "  }\n"
+    "  Vertices: *9 {\n"
+    "   a: 0,0,0,1,0,0,0,1,0\n"
+    "  }\n"
+    "  PolygonVertexIndex: *3 {\n"
+    "   a: 0,1,-3\n"
+    "  }\n"
+    "  Shape: \"Smile\" {\n"
+    "   Indexes: *1 {\n"
+    "    a: 0\n"
+    "   }\n"
+    "   Vertices: *3 {\n"
+    "    a: 0,0,1\n"
+    "   }\n"
+    "  }\n"
+    "  Shape: \"Blink\" {\n"
+    "   Indexes: *1 {\n"
+    "    a: 0\n"
+    "   }\n"
+    "   Vertices: *3 {\n"
+    "    a: 0,0,1\n"
+    "   }\n"
+    "  }\n"
+    " }\n"
+    " Deformer: 40, \"Deformer::Skin\", \"Skin\" {\n"
+    " }\n"
+    " Deformer: 41, \"SubDeformer::Head\", \"Cluster\" {\n"
+    " }\n"
+    " AnimationStack: 100, \"AnimStack::Talk\", \"\" {\n"
+    "  Properties70: {\n"
+    "   P: \"LocalStart\", \"KTime\", \"Time\", \"\",0\n"
+    "   P: \"LocalStop\", \"KTime\", \"Time\", \"\",46186158000\n"
+    "  }\n"
+    " }\n"
+    " AnimationLayer: 101, \"AnimLayer::Base\", \"\" {\n"
+    " }\n"
+    " AnimationCurveNode: 110, \"AnimCurveNode::Smile\", \"\" {\n"
+    "  Properties70: {\n"
+    "   P: \"d|Smile\", \"Number\", \"\", \"A\",10\n"
+    "  }\n"
+    " }\n"
+    " AnimationCurve: 111, \"AnimCurve::\", \"\" {\n"
+    "  KeyTime: *2 {\n"
+    "   a: 0,46186158000\n"
+    "  }\n"
+    "  KeyValueFloat: *2 {\n"
+    "   a: 10,90\n"
+    "  }\n"
+    "  KeyAttrFlags: *1 {\n"
+    "   a: 4\n"
+    "  }\n"
+    "  KeyAttrDataFloat: *4 {\n"
+    "   a: 0,0,0,0\n"
+    "  }\n"
+    "  KeyAttrRefCount: *1 {\n"
+    "   a: 2\n"
+    "  }\n"
+    " }\n"
+    " AnimationCurveNode: 112, \"AnimCurveNode::Blink\", \"\" {\n"
+    "  Properties70: {\n"
+    "   P: \"d|Blink\", \"Number\", \"\", \"A\",20\n"
+    "  }\n"
+    " }\n"
+    " AnimationCurve: 113, \"AnimCurve::\", \"\" {\n"
+    "  KeyTime: *2 {\n"
+    "   a: 0,46186158000\n"
+    "  }\n"
+    "  KeyValueFloat: *2 {\n"
+    "   a: 20,60\n"
+    "  }\n"
+    "  KeyAttrFlags: *1 {\n"
+    "   a: 4\n"
+    "  }\n"
+    "  KeyAttrDataFloat: *4 {\n"
+    "   a: 0,0,0,0\n"
+    "  }\n"
+    "  KeyAttrRefCount: *1 {\n"
+    "   a: 2\n"
+    "  }\n"
+    " }\n"
+    "}\n"
+    "Connections: {\n"
+    " C: \"OO\",1,0\n"
+    " C: \"OO\",2,0\n"
+    " C: \"OO\",50,2\n"
+    " C: \"OO\",40,50\n"
+    " C: \"OO\",41,40\n"
+    " C: \"OO\",1,41\n"
+    " C: \"OO\",101,100\n"
+    " C: \"OO\",110,101\n"
+    " C: \"OP\",110,50, \"Smile\"\n"
+    " C: \"OP\",111,110, \"d|Smile\"\n"
+    " C: \"OO\",112,101\n"
+    " C: \"OP\",112,50, \"Blink\"\n"
+    " C: \"OP\",113,112, \"d|Blink\"\n"
+    "}\n";
+
+// Talk's float tracks of a text: the count, and each named value at
+// times 0, 0.25 ... 1.
+static bool ShapeTracks(const char* text, uint32_t count, const char* const* names,
+                        const double (*values)[5])
+{
+    maniBuilder* builder = NewBuilder();
+    maniClip clip;
+    uint32_t bound = 0;
+    bool right = Build(builder, text, NULL, 0, &clip, &bound) &&
+                 maniClipFloatTrackCount(&clip) == count && bound == count;
+    for (uint32_t k = 0; right && k < count; ++k)
+    {
+        for (int s = 0; right && s < 5; ++s)
+        {
+            right = Near(ValueAt(&clip, names[k], (float)s * 0.25f), values[k][s]);
+        }
+    }
+    maniDestroyBuilder(builder);
+    return right;
+}
+
+static void TestShapeOwners(void)
+{
+    static const char* const kNames6[2] = {"Face/Smile", "Face/Wink"};
+    static const double kValues6[2][5] = {{0.1, 0.3, 0.5, 0.7, 0.9}, {0, 0.25, 0.5, 0.75, 1}};
+    CHECK(ShapeTracks(kShapes6, 2, kNames6, kValues6), "a 6.x mesh model's shapes");
+    static const char* const kNames71[2] = {"Face/Smile", "Face/Blink"};
+    static const double kValues71[2][5] = {{0.1, 0.3, 0.5, 0.7, 0.9}, {0.2, 0.3, 0.4, 0.5, 0.6}};
+    CHECK(ShapeTracks(kShapes71, 2, kNames71, kValues71), "a 7.1 geometry's shapes");
+    // From 7.2, Shape children are no blend shapes.
+    static char text[sizeof kShapes71];
+    snprintf(text, sizeof text, "%s", kShapes71);
+    memcpy(strstr(text, "7.1.0"), "7.2.0", 5);
+    memcpy(strstr(text, "7100"), "7200", 4);
+    CHECK(ShapeTracks(text, 0, NULL, NULL), "a 7.2 geometry's Shape children");
+    // A Shape without a name is refused, as ufbx refuses the file.
+    static char unnamed[sizeof kShapes6];
+    snprintf(unnamed, sizeof unnamed, "%s", kShapes6);
+    char* hollow = strstr(unnamed, "Shape: \"Hollow\"");
+    memcpy(hollow, "Shape:          ", 16);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    size_t size = 0;
+    maniSkeleton skeleton;
+    maniImportResult r = {mani_success, 0, 0, 0, 0};
+    if (maniOpenFbx(builder, unnamed, strlen(unnamed), &fbx).result == mani_success &&
+        maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
+        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success)
+    {
+        r = maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, NULL);
+    }
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
+              r.offset == (uint64_t)(hollow - unnamed),
+          "a shape without a name");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 // An allocator that fails its n-th call and counts what is outstanding.
 typedef struct Budget
 {
@@ -420,9 +708,9 @@ static void BudgetFree(void* memory, size_t size, size_t alignment, void* contex
     free(memory);
 }
 
-// Every allocation failing in turn while building Talk's clip: each
-// fails cleanly, and everything taken is given back at its size.
-static void TestAllocationFailures(void)
+// Every allocation failing in turn while building Talk's clip of a text:
+// each fails cleanly, and everything taken is given back at its size.
+static void TestAllocationFailures(const char* text, const char* label)
 {
     bool clean = true;
     bool done = false;
@@ -436,21 +724,23 @@ static void TestAllocationFailures(void)
         {
             maniClip clip;
             uint32_t bound = 0;
-            done = Build(builder, kScene, NULL, 0, &clip, &bound);
+            done = Build(builder, text, NULL, 0, &clip, &bound);
             maniDestroyBuilder(builder);
         }
         clean = clean && budget.outstanding == 0;
     }
-    CHECK(done && clean, "allocation failures handled, nothing kept");
+    CHECK(done && clean, label);
 }
 
 int main(void)
 {
-    TestAllocationFailures();
+    TestAllocationFailures(kScene, "allocation failures handled, nothing kept");
     TestWeights();
     TestTracks();
     TestMeshes();
     TestBlender();
     TestRests();
+    TestShapeOwners();
+    TestAllocationFailures(kShapes6, "allocation failures handled for 6.x shapes");
     return s_failures == 0 ? 0 : 1;
 }

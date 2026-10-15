@@ -1,0 +1,45 @@
+# mani-0017. FBX blend shapes and 6.x takes
+
+Status: Accepted
+
+## Context
+
+FBX weighs blend shapes per channel: a channel's DeformPercent drives
+one or more shapes, in-between shapes taking over at their target
+weights (FullWeights), negative targets below zero. Files up to 7.1
+may instead hold shapes as children of a mesh, weighted by the mesh's
+property of the shape's name. Files before 7.0 have no stacks or curve
+nodes at all: their animation is a list of takes, each naming models
+and nesting channels whose keys are one flat list of times, values and
+mode letters, and their models split properties between themselves and
+an attribute (mesh, bone, camera) by name. The clip format's morph
+weights are one float per target (mani-0012's glTF morph tracks).
+
+## Decision
+
+- **Blend shapes** become one float track per shape, named
+  `mesh/shape`, holding the shape's effective weight at every sample as
+  ufbx computes it: targets from FullWeights (all 1 in files of
+  Blender's binary exporter, which writes per-vertex weights there),
+  stably sorted, the two shapes around the channel weight sharing it
+  linearly. A channel's tracks are kept when its mesh is a bone of the
+  skeleton or skinned within it, and the stack drives its weight.
+- **Before 7.2**, a mesh's Shape children (a 6.x Mesh model, a 7.0 or
+  7.1 Geometry) are channels of one shape each, weighted by the mesh's
+  number property of the shape's name.
+- **6.x takes** are stacks with one base layer. Their channels bind to
+  the models their keys name; `Transform`'s T, R and S are the Lcl
+  properties; a component's Default is its static value; key lists are
+  read as ufbx reads them, every mode, slope mode, weight mode and key
+  version included. A channel on a property the model does not keep
+  (neither a node property nor user-defined) drives its attribute and
+  makes no float track.
+- What ufbx fails on is refused; times that are not whole ticks or go
+  back, and values that are not finite, are refused as for 7.x curves.
+
+## Consequences
+
+FBX morph weights reach the runtime as glTF's do, one weight per
+target, so morph targets need no second weighting model; in-betweens
+resolve at import. Old files import with the same clips ufbx evaluates,
+which keeps the differential meaningful across versions.

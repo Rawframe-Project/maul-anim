@@ -3,7 +3,7 @@
 //
 // FBX curves (mani-0016): each interpolation, tangent kind and
 // extrapolation against values derived from the Bézier and the rules of
-// research 24 by hand; ASCII attribute words before 7.2 as floats; the
+// mani-0016 by hand; ASCII attribute words before 7.2 as floats; the
 // tick unit; and refused curves.
 
 #include "fbx_curve.h"

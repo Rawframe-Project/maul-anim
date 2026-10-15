@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x takes (research 26), as ufbx reads them. A Take holds Model
+// FBX 6.x takes (mani-0017), as ufbx reads them. A Take holds Model
 // nodes naming their targets by 6.x key; each Channel under one is a
 // property, `Transform`'s T, R and S being the Lcl ones. A channel with
 // Key or Default is one component, else its first three such children

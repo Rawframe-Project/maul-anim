@@ -21,14 +21,14 @@
 #include "clip_file.h"
 #include "decompose.h"
 #include "fbx_anim.h"
-#include "fbx_blend.h"
+#include "fbx_clip_state.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_options.h"
 #include "fbx_sample.h"
-#include "fbx_skin.h"
 #include "fbx_take.h"
+#include "fbx_tracks.h"
 #include "fbx_transform.h"
 #include "fbx_value.h"
 #include "fbx_world.h"
@@ -91,40 +91,7 @@ enum
     kOwn,
 };
 
-typedef struct Clip
-{
-    const maniFbx* fbx;
-    const maniSkeleton* skeleton;
-    const maniFbxOptions* options;
-    maniBasis basis;
-    maniArena arena;
-    maniFbxAnimation animation;
-    maniFbxSampler sampler;
-    uint32_t boneCount;
-    // Per bone: its model (MANI_FBX_NONE for none) and its rule.
-    uint32_t* modelOf;
-    uint8_t* rule;
-    // Per model: needed for the worlds.
-    uint8_t* needed;
-    maniFbxWorld* worlds;
-    // The rate as the builder takes it, and as the source states it
-    // (NTSC's 30000 / 1001 exactly), for the ticks of samples.
-    float rate;
-    double exactRate;
-    float duration;
-    uint32_t sampleCount;
-    // The builder's sample times, and the poses: sampleCount by boneCount.
-    float* times;
-    maniTransform* poses;
-    maniBoneTrackSource* tracks;
-    uint32_t trackCount;
-    maniFloatTrackSource* floats;
-    uint32_t floatCount;
-    // Per float track, its model, for refusals.
-    uint32_t* floatModel;
-    // The weight bindings of the blend shape channels kept.
-    uint32_t blendBound;
-} Clip;
+typedef maniFbxClipState Clip;
 
 static uint64_t ModelOffset(const maniFbx* fbx, uint32_t model)
 {
@@ -216,13 +183,6 @@ static double SceneRate(const maniFbx* fbx)
                                    : s->customRate;
 }
 
-// x rounded to the nearest whole number, for x not negative.
-static double Round(double x)
-{
-    double y = x + 0.5;
-    return y - fmod(y, 1.0);
-}
-
 static maniImportResult Timing(Clip* c, float sampleRate)
 {
     double scene = SceneRate(c->fbx);
@@ -245,18 +205,6 @@ static maniImportResult Timing(Clip* c, float sampleRate)
     c->times = maniArenaTake(&c->arena, c->sampleCount, sizeof(float));
     c->poses = maniArenaTake(&c->arena, poses, sizeof(maniTransform));
     return c->times != NULL && c->poses != NULL ? maniFbxSuccess() : Capacity();
-}
-
-// Sample k's time in the stack, in seconds: k frames of the exact rate
-// in whole ticks from its start, the last at its stop.
-static double StackTime(const Clip* c, uint32_t k)
-{
-    double tps = (double)c->fbx->settings.ticksPerSecond;
-    bool last = k + 1 == c->sampleCount && k > 0;
-    double tick = last && c->animation.stop > c->animation.start
-                      ? (double)c->animation.stop
-                      : (double)c->animation.start + Round((double)k * tps / c->exactRate);
-    return tick / tps;
 }
 
 static maniFbxMatrix Identity(void)
@@ -369,7 +317,8 @@ static maniImportResult Sample(Clip* c)
     for (uint32_t k = 0; k < c->sampleCount; ++k)
     {
         c->times[k] = (float)maniClipSampleTime(k, c->sampleCount, c->rate, c->duration);
-        maniImportResult r = maniFbxSampleWorlds(&c->sampler, StackTime(c, k), c->worlds);
+        maniImportResult r =
+            maniFbxSampleWorlds(&c->sampler, maniFbxClipStackTime(c, k), c->worlds);
         if (r.result != mani_success)
         {
             return r;
@@ -463,311 +412,12 @@ static maniImportResult BoneTracks(Clip* c)
     return r;
 }
 
-// Whether a property is one of the local transform's inputs.
-static bool InChain(const maniFbx* fbx, const maniFbxChannel* channel)
-{
-    for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
-    {
-        const char* n = maniFbxLocalVectorNames[k];
-        if (maniFbxChannelNameIs(fbx, channel, n, strlen(n)))
-        {
-            return true;
-        }
-    }
-    for (uint32_t k = 0; k < maniFbxLocalIntegers; ++k)
-    {
-        const char* n = maniFbxLocalIntegerNames[k];
-        if (maniFbxChannelNameIs(fbx, channel, n, strlen(n)))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-// A property's static value and its component count: the entry's
-// numbers, or 0 and the channel's keyed components when the model has
-// no entry.
-static uint32_t Static(const maniFbx* fbx, uint32_t object, const char* name, size_t length,
-                       const maniFbxChannel* channel, double value[3])
-{
-    value[0] = value[1] = value[2] = 0.0;
-    uint32_t entry = maniFbxFindProperty(fbx, object, name, length);
-    if (entry == MANI_FBX_NONE)
-    {
-        return channel->curves[1].count > 0 || channel->curves[2].count > 0 ? 3 : 1;
-    }
-    uint32_t n = 0;
-    while (n < 3 && maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, n), &value[n]))
-    {
-        ++n;
-    }
-    return n > 0 ? n : 1;
-}
-
-// The float track's name: the bone's, '/', the property's, and '/'
-// with the component for vectors.
-static char* TrackName(Clip* c, uint32_t b, const char* property, size_t length, uint32_t width,
-                       uint32_t k, uint32_t* lengthOut)
-{
-    uint32_t boneLength = 0;
-    const char* bone = maniSkeletonBoneName(c->skeleton, b, &boneLength);
-    size_t n = (size_t)boneLength + 1 + length + (width > 1 ? 2 : 0);
-    char* name = maniArenaTake(&c->arena, n, 1);
-    if (name != NULL)
-    {
-        memcpy(name, bone, boneLength);
-        name[boneLength] = '/';
-        memcpy(name + boneLength + 1, property, length);
-        if (width > 1)
-        {
-            name[n - 2] = '/';
-            name[n - 1] = (char)('0' + k);
-        }
-    }
-    *lengthOut = (uint32_t)n;
-    return name;
-}
-
-// The float tracks of one property of a bone's model.
-static maniImportResult PropertyTracks(Clip* c, uint32_t b, const maniFbxChannel* channel)
-{
-    const maniFbx* fbx = c->fbx;
-    uint32_t object = fbx->models[c->modelOf[b]];
-    size_t rawLength = maniFbxChannelName(fbx, channel, NULL, 0);
-    char* property = maniArenaTake(&c->arena, rawLength + 1, 1);
-    if (property == NULL)
-    {
-        return Capacity();
-    }
-    size_t length = maniFbxChannelName(fbx, channel, (uint8_t*)property, rawLength);
-    double rest[3];
-    uint32_t width = Static(fbx, object, property, length, channel, rest);
-    float* values = maniArenaTake(&c->arena, (size_t)c->sampleCount * width, sizeof(float));
-    if (values == NULL)
-    {
-        return Capacity();
-    }
-    for (uint32_t s = 0; s < c->sampleCount; ++s)
-    {
-        double v[3] = {rest[0], rest[1], rest[2]};
-        (void)maniFbxAnimateProperty(&c->animation, fbx, object, property, length, StackTime(c, s),
-                                     0, v);
-        for (uint32_t k = 0; k < width; ++k)
-        {
-            values[(size_t)k * c->sampleCount + s] = (float)v[k];
-        }
-    }
-    for (uint32_t k = 0; k < width; ++k)
-    {
-        maniFloatTrackSource* f = &c->floats[c->floatCount];
-        f->name = TrackName(c, b, property, length, width, k, &f->nameLength);
-        if (f->name == NULL)
-        {
-            return Capacity();
-        }
-        f->keys = (maniChannelSource){c->times, values + (size_t)k * c->sampleCount, c->sampleCount,
-                                      maniInterpolationLinear};
-        c->floatModel[c->floatCount++] = c->modelOf[b];
-    }
-    return maniFbxSuccess();
-}
-
-// Whether an earlier channel of the run names the same property.
-static bool Seen(const Clip* c, uint32_t first, uint32_t i)
-{
-    const maniFbxChannel* channels = c->animation.channels;
-    for (uint32_t j = first; j < i; ++j)
-    {
-        if (channels[j].nameHash == channels[i].nameHash &&
-            maniFbxSameChannelName(c->fbx, &channels[j], &channels[i]))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-// An object's name without its class, in the arena.
-static char* ObjectName(Clip* c, uint32_t object, size_t* lengthOut)
-{
-    const maniFbx* fbx = c->fbx;
-    const uint8_t* raw = NULL;
-    uint32_t rawLength = 0;
-    uint32_t property =
-        maniFbxNodeProperty(fbx, fbx->objects[object].node, fbx->version >= 7000 ? 1 : 0);
-    (void)maniFbxString(fbx, property, &raw, &rawLength);
-    char* name = maniArenaTake(&c->arena, (size_t)rawLength + 1, 1);
-    *lengthOut = name != NULL ? maniFbxObjectName(fbx, object, (uint8_t*)name, rawLength) : 0;
-    return name;
-}
-
-// '/' and k in decimal into out (12 bytes); the count written.
-static size_t Decimal(uint32_t k, char* out)
-{
-    char digits[10];
-    size_t n = 0;
-    do
-    {
-        digits[n++] = (char)('0' + k % 10);
-        k /= 10;
-    } while (k > 0);
-    out[0] = '/';
-    for (size_t i = 0; i < n; ++i)
-    {
-        out[1 + i] = digits[n - 1 - i];
-    }
-    return n + 1;
-}
-
-// A shape's track name: the mesh's, '/', the shape's; or for a shape
-// without a name, its channel's, with '/' and its index past the first.
-static char* ShapeName(Clip* c, uint32_t mesh, uint32_t channel, uint32_t shape, uint32_t k,
-                       uint32_t* lengthOut)
-{
-    uint32_t meshLength = 0;
-    const char* meshName = maniFbxModelName(c->fbx, mesh, &meshLength);
-    size_t length = 0;
-    const char* own = ObjectName(c, shape, &length);
-    bool named = own != NULL && length > 0;
-    const char* base = named ? own : ObjectName(c, channel, &length);
-    char index[12];
-    size_t digits = named || k == 0 ? 0 : Decimal(k, index);
-    size_t n = (size_t)meshLength + 1 + length + digits;
-    char* name = base != NULL ? maniArenaTake(&c->arena, n, 1) : NULL;
-    if (name != NULL)
-    {
-        memcpy(name, meshName, meshLength);
-        name[meshLength] = '/';
-        memcpy(name + meshLength + 1, base, length);
-        memcpy(name + meshLength + 1 + length, index, digits);
-    }
-    *lengthOut = (uint32_t)n;
-    return name;
-}
-
-// Whether a mesh model belongs to the skeleton: a bone of it, or carrying
-// a skin within it.
-static bool MeshInSkeleton(const Clip* c, uint32_t model)
-{
-    uint32_t length = 0;
-    const char* name = maniFbxModelName(c->fbx, model, &length);
-    if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE)
-    {
-        return true;
-    }
-    for (uint32_t s = 0; s < c->fbx->skinCount; ++s)
-    {
-        if (maniFbxSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Each shape's effective weight over the samples.
-static maniImportResult ShapeWeights(Clip* c, uint32_t channel, const maniFbxBlendShape* shapes,
-                                     uint32_t count, float* values)
-{
-    double* effective = maniArenaTake(&c->arena, count, sizeof(double));
-    if (effective == NULL)
-    {
-        return Capacity();
-    }
-    double rest = maniFbxBlendRestPercent(c->fbx, channel);
-    for (uint32_t s = 0; s < c->sampleCount; ++s)
-    {
-        double v[3] = {rest, 0.0, 0.0};
-        (void)maniFbxAnimateProperty(&c->animation, c->fbx, channel, "DeformPercent", 13,
-                                     StackTime(c, s), 0, v);
-        maniFbxBlendWeights(shapes, count, v[0] / 100.0, effective);
-        for (uint32_t k = 0; k < count; ++k)
-        {
-            values[(size_t)k * c->sampleCount + s] = (float)effective[k];
-        }
-    }
-    return maniFbxSuccess();
-}
-
-// The tracks of a blend shape channel whose mesh is the skeleton's.
-static maniImportResult ChannelTracks(Clip* c, uint32_t channel)
-{
-    uint32_t mesh = maniFbxBlendChannelModel(c->fbx, channel);
-    if (mesh == MANI_FBX_NONE || !MeshInSkeleton(c, mesh))
-    {
-        return maniFbxSuccess();
-    }
-    uint32_t first = 0;
-    c->blendBound += maniFbxAnimatedRun(&c->animation, channel, &first);
-    uint32_t count = 0;
-    (void)maniFbxReadBlendShapes(c->fbx, channel, NULL, &count);
-    maniFbxBlendShape* shapes = maniArenaTake(&c->arena, count, sizeof(maniFbxBlendShape));
-    size_t floats = 0;
-    float* values = !ckd_mul(&floats, (size_t)count, (size_t)c->sampleCount)
-                        ? maniArenaTake(&c->arena, floats, sizeof(float))
-                        : NULL;
-    if (shapes == NULL || values == NULL)
-    {
-        return Capacity();
-    }
-    maniImportResult r = maniFbxReadBlendShapes(c->fbx, channel, shapes, &count);
-    r = r.result == mani_success ? ShapeWeights(c, channel, shapes, count, values) : r;
-    for (uint32_t k = 0; r.result == mani_success && k < count; ++k)
-    {
-        maniFloatTrackSource* f = &c->floats[c->floatCount];
-        f->name = ShapeName(c, mesh, channel, shapes[k].object, k, &f->nameLength);
-        f->keys = (maniChannelSource){c->times, values + (size_t)k * c->sampleCount, c->sampleCount,
-                                      maniInterpolationLinear};
-        c->floatModel[c->floatCount++] = mesh;
-        r = f->name != NULL ? r : Capacity();
-    }
-    return r;
-}
-
-// Whether a run's channels include its target's DeformPercent: the first
-// of the run's blend shape channel.
-static bool DrivesWeight(const Clip* c, uint32_t first, uint32_t count)
-{
-    for (uint32_t i = first; i < first + count; ++i)
-    {
-        if (maniFbxChannelNameIs(c->fbx, &c->animation.channels[i], "DeformPercent", 13))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Each blend shape channel whose weight the stack animates, once: its
-// shapes counted into shapesOut, and its tracks made unless counting.
-static maniImportResult EachBlendChannel(Clip* c, bool count, size_t* shapesOut)
-{
-    maniImportResult r = maniFbxSuccess();
-    const maniFbxChannel* channels = c->animation.channels;
-    for (uint32_t i = 0; r.result == mani_success && i < c->animation.channelCount;)
-    {
-        uint32_t first = 0;
-        uint32_t target = channels[i].target;
-        uint32_t n = maniFbxAnimatedRun(&c->animation, target, &first);
-        if (maniFbxIsBlendChannel(c->fbx, target) && DrivesWeight(c, first, n))
-        {
-            uint32_t shapes = 0;
-            (void)maniFbxReadBlendShapes(c->fbx, target, NULL, &shapes);
-            *shapesOut += shapes;
-            r = count ? r : ChannelTracks(c, target);
-        }
-        i = first + n;
-    }
-    return r;
-}
-
 static maniImportResult FloatTracks(Clip* c)
 {
     // At most three tracks a channel, and one a blend shape.
     size_t most = 0;
     size_t shapes = 0;
-    (void)EachBlendChannel(c, true, &shapes);
+    (void)maniFbxBlendTracks(c, true, &shapes);
     if (ckd_mul(&most, (size_t)c->animation.channelCount, (size_t)3) ||
         ckd_add(&most, most, shapes))
     {
@@ -786,20 +436,10 @@ static maniImportResult FloatTracks(Clip* c)
         {
             continue;
         }
-        uint32_t first = 0;
-        uint32_t n = maniFbxAnimatedRun(&c->animation, c->fbx->models[c->modelOf[b]], &first);
-        for (uint32_t i = first; r.result == mani_success && i < first + n; ++i)
-        {
-            const maniFbxChannel* channel = &c->animation.channels[i];
-            // A 6.x attribute's properties are no bone's.
-            if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i))
-            {
-                r = PropertyTracks(c, b, channel);
-            }
-        }
+        r = maniFbxBoneFloatTracks(c, b);
     }
     size_t unused = 0;
-    return r.result == mani_success ? EachBlendChannel(c, false, &unused) : r;
+    return r.result == mani_success ? maniFbxBlendTracks(c, false, &unused) : r;
 }
 
 // The channels bound to the models the clip reads, and to the blend

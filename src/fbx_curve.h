@@ -4,7 +4,7 @@
 // FBX animation curves (mani-0016): keys decoded as ufbx decodes them
 // into Bézier handles (weights, auto tangents with bias and clamps, TCB,
 // constant previous and next, linear), evaluated as ufbx evaluates them,
-// extrapolated in whole ticks; all in binary64 (research 24).
+// extrapolated in whole ticks; all in binary64 (mani-0016).
 
 #ifndef MAUL_ANIM_SRC_FBX_CURVE_H
 #define MAUL_ANIM_SRC_FBX_CURVE_H

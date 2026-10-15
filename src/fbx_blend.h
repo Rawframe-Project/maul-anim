@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX blend shape channels (mani-0016's float tracks, research 25): a
+// FBX blend shape channels (mani-0017): a
 // channel's mesh model, its shapes ordered by target weight, its static
 // weight, and each shape's effective weight at a channel weight, as
 // ufbx computes them.
@@ -47,5 +47,16 @@ double maniFbxBlendRestPercent(const maniFbx* fbx, uint32_t channel);
 // 100), into effective (one per shape).
 void maniFbxBlendWeights(const maniFbxBlendShape* shapes, uint32_t count, double weight,
                          double* effective);
+
+// Before 7.2 (mani-0017), whether an object holds blend shapes as
+// Shape children: a 6.x Model of subclass Mesh (or of none, holding
+// Vertices and PolygonVertexIndex), or a 7.0 or 7.1 Geometry of
+// subclass Mesh. Each Shape is a channel of its name with one shape at
+// target 1, weighted by the owner's property of that name.
+bool maniFbxIsShapeOwner(const maniFbx* fbx, uint32_t object);
+
+// A shape owner's mesh model: itself (6.x) or its geometry's model;
+// MANI_FBX_NONE for none.
+uint32_t maniFbxShapeOwnerModel(const maniFbx* fbx, uint32_t owner);
 
 #endif // MAUL_ANIM_SRC_FBX_BLEND_H

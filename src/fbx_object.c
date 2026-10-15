@@ -746,17 +746,65 @@ bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry)
            memchr(flags, 'U', length) != NULL;
 }
 
-bool maniFbxModelHasAttribute(const maniFbx* fbx, uint32_t object)
+// A 6.x model's subclass as ufbx sees it: its own, or Mesh for none with
+// a mesh's Vertices and PolygonVertexIndex; false for none otherwise.
+static bool EffectiveSubclass(const maniFbx* fbx, uint32_t object, uint32_t* subclassOut,
+                              bool* meshOut)
 {
     uint32_t node = fbx->objects[object].node;
     uint32_t subclass = SubclassOf(fbx, node);
     const uint8_t* bytes = NULL;
     uint32_t length = 0;
-    bool none = !maniFbxString(fbx, subclass, &bytes, &length) || length == 0;
-    if (none)
+    *subclassOut = subclass;
+    *meshOut = false;
+    if (maniFbxString(fbx, subclass, &bytes, &length) && length > 0)
     {
-        return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE &&
-               maniFbxFindChild(fbx, node, "PolygonVertexIndex", 18) != MANI_FBX_NONE;
+        *meshOut = maniFbxStringEquals(fbx, subclass, "Mesh", 4);
+        return true;
     }
-    return !maniFbxStringEquals(fbx, subclass, "Model", 5);
+    *meshOut = maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE &&
+               maniFbxFindChild(fbx, node, "PolygonVertexIndex", 18) != MANI_FBX_NONE;
+    return *meshOut;
+}
+
+bool maniFbxModelHasAttribute(const maniFbx* fbx, uint32_t object)
+{
+    uint32_t subclass = MANI_FBX_NONE;
+    bool mesh = false;
+    return EffectiveSubclass(fbx, object, &subclass, &mesh) &&
+           (mesh || !maniFbxStringEquals(fbx, subclass, "Model", 5));
+}
+
+bool maniFbxModelIsMesh(const maniFbx* fbx, uint32_t object)
+{
+    uint32_t subclass = MANI_FBX_NONE;
+    bool mesh = false;
+    return EffectiveSubclass(fbx, object, &subclass, &mesh) && mesh;
+}
+
+bool maniFbxEntryNumeric(const maniFbx* fbx, uint32_t entry)
+{
+    static const char* const kTypes[] = {
+        "Number",
+        "double",
+        "Real",
+        "Float",
+        "Intensity",
+        "Integer",
+        "int",
+        "enum",
+        "Enum",
+        "Visibility",
+        "Visibility Inheritance",
+        "KTime",
+    };
+    uint32_t type = maniFbxNodeProperty(fbx, entry, 1);
+    for (size_t k = 0; k < sizeof kTypes / sizeof kTypes[0]; ++k)
+    {
+        if (maniFbxStringEquals(fbx, type, kTypes[k], strlen(kTypes[k])))
+        {
+            return true;
+        }
+    }
+    return false;
 }

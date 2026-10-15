@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX blend shape channels (research 25), as ufbx reads them. A channel
+// FBX blend shape channels (mani-0017), as ufbx reads them. A channel
 // (a BlendShapeChannel deformer under a BlendShape) holds Shape
 // geometries; FullWeights gives each its target weight in percent, but
 // Blender's binary exporter writes per-vertex weights there, so in its
@@ -302,4 +302,23 @@ void maniFbxBlendWeights(const maniFbxBlendShape* shapes, uint32_t count, double
             effective[next] = t;
         }
     }
+}
+
+bool maniFbxIsShapeOwner(const maniFbx* fbx, uint32_t object)
+{
+    if (fbx->version >= 7000)
+    {
+        return fbx->version <= 7100 && maniFbxObjectKindIs(fbx, object, "Geometry", 8) &&
+               maniFbxObjectSubclassIs(fbx, object, "Mesh", 4);
+    }
+    if (!maniFbxObjectKindIs(fbx, object, "Model", 5))
+    {
+        return false;
+    }
+    return maniFbxModelIsMesh(fbx, object);
+}
+
+uint32_t maniFbxShapeOwnerModel(const maniFbx* fbx, uint32_t owner)
+{
+    return fbx->version < 7000 ? owner : maniFbxDeformerModel(fbx, owner);
 }

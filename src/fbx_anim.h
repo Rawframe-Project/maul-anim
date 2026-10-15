@@ -4,7 +4,7 @@
 // FBX animation stacks (mani-0016): a stack's layers in connection
 // order, their curve nodes bound to the properties they drive, and a
 // property's value at a time with every layer applied as ufbx applies
-// them (research 24).
+// them (mani-0016).
 
 #ifndef MAUL_ANIM_SRC_FBX_ANIM_H
 #define MAUL_ANIM_SRC_FBX_ANIM_H
@@ -42,7 +42,7 @@ typedef struct maniFbxLayer
 // when its count is 0 and keys NULL) over a static value. A 7.x curve
 // node's name is a string property of the file; a 6.x take's Transform
 // channels name the Lcl properties by a literal. A 6.x property that is
-// not the model's own belongs to its attribute (research 26). Refusals
+// not the model's own belongs to its attribute (mani-0017). Refusals
 // point at the file node source, with item the curve node (7.x) or the
 // target (6.x).
 typedef struct maniFbxChannel

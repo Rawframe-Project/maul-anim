@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x keys, as ufbx reads them (research 26). A Key list runs time,
+// FBX 6.x keys, as ufbx reads them (mani-0017). A Key list runs time,
 // value and a mode letter per key, then the mode's own values: `L`
 // linear, `C` constant (from KeyVer 4004 a letter, `n` for next), `U`
 // cubic with a slope mode and weight modes whose counts depend on the

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // FBX animation curves (mani-0016), as ufbx reads and evaluates them
-// (research 24), its float roundings kept so the differential compares
+// (mani-0016), its float roundings kept so the differential compares
 // like with like. Flags and their four attribute words are run-length
 // encoded over the keys. Tangents become Bézier handles: dx is a weight
 // (1/3 unless weighted) times the time to the neighbour, dy the slope
