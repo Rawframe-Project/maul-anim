@@ -24,3 +24,4 @@ are listed in [README.md](README.md).
 | [mani-0017](mani-0017-fbx-blend-shapes-and-takes.md) | FBX blend shapes and 6.x takes | Accepted |
 | [mani-0018](mani-0018-fbx-differential.md) | FBX fixtures and the ufbx differential | Accepted |
 | [mani-0019](mani-0019-compressed-clips.md) | Compressed clips | Accepted |
+| [mani-0020](mani-0020-blending.md) | Blending: blends, masks, differences and additive layers | Accepted |

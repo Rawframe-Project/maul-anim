@@ -47,6 +47,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
     src/clip.c
     src/clip_codec.c
+    src/blend.c
     src/clip_compressed.c
     src/clip_cursor.c
     src/clip_tracks.c
@@ -55,6 +56,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/elementary_float.c
     src/fpenv.c
     src/hash.c
+    src/mask.c
     src/pose.c
     src/scalar.c
     src/skeleton.c
@@ -100,6 +102,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(skin WHITEBOX)
         maul_add_test(clip WHITEBOX)
         maul_add_test(clip_compress WHITEBOX)
+        maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)
         maul_add_test(gltf_skeleton WHITEBOX)

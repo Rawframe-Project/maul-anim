@@ -216,8 +216,8 @@ extern "C"
     /// @param count     How many.
     /// @param pose      A pose of the skeleton.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// skeleton that is not the clip's or the pose's, or bones out of
-    /// range or not increasing (the pose unchanged).
+    /// skeleton that is not the clip's or the pose's, bones out of range
+    /// or not increasing, or a difference pose (the pose unchanged).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSampleClipBones(const maniClip* clip,

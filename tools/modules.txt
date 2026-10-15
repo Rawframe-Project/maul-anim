@@ -20,6 +20,8 @@ pose: bytes decompose pose_memory vecmath
 decompose: vecmath
 basis:
 pose_memory:
+blend: pose_memory
+mask:
 skin_file:
 skin: bytes container pose_memory skin_file vecmath
 skin_build: allocator builder bytes container skin_file

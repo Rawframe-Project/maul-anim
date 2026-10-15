@@ -23,3 +23,7 @@ format.
   `maniInitClipCursor`, `maniSampleClipCursor`,
   `maniSampleClipFloatsCursor`) gives random access's bits. An ACL
   differential compares sizes, errors and playback costs.
+- Blending (mani-0020): `maniBlendPoses` mixes poses by layer and
+  per-bone weights with the rest filling in under a threshold,
+  `maniBuildMask` makes per-bone weights from chains, and
+  `maniPoseIsDifference` tells a difference from a pose of the skeleton.

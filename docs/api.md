@@ -22,6 +22,20 @@ const char* maniResultName(maniResult result);
 ```
 Returns the name of a result code, for diagnostics.  @param result  Any value; an unknown one is named as such. @return A static, NUL-terminated string such as "mani_errorCapacity". @par Thread safety Safe from any thread.
 
+## `blend.h`
+
+Blending (mani-0020): poses mixed by weights, per bone through masks, in caller memory. Poses and differences never mix: a blend takes layers of one kind and writes that kind.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers, uint32_t count, float threshold, maniPose* out);
+```
+Blends layers into a pose. Each bone takes from each layer its weight times its bone weight; rotations add on the arc that agrees with the sum so far (so the layers' order counts), translations and scales linearly. Where a bone's total is below the threshold, its rest fills the difference (a difference's rest is the identity), so the result slides into the rest as weights fall. Rotations are then normalized, translations and scales divided by the total. With no layers the output is the skeleton's rest.  @param skeleton   The layers' and the output's skeleton. @param layers     count layers, all poses or all differences. @param count      The number of layers. @param threshold  Finite and above 0 (MANI_BLEND_THRESHOLD in graphs). @param out        Receives the blend, of the layers' kind; not one of the layers' poses. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a pose of another skeleton, layers of both kinds, out among the layers, a negative or non-finite weight or a threshold out of range (out unchanged). @par Thread safety Safe from any thread; out is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniBuildMask(const maniSkeleton* skeleton, const maniMaskChain* chains, uint32_t count, float defaultWeight, float* weights, uint32_t capacity);
+```
+Makes per-bone weights from chains. A bone takes a chain on itself alone first, else the subtree chain on its nearest ancestor or itself, else the default; of two chains on one bone and kind the later wins.  @param skeleton       The skeleton. @param chains         count chains. @param count          The number of chains. @param defaultWeight  The weight of bones no chain reaches. @param weights        Receives a weight per bone in skeleton order. @param capacity       The floats weights holds. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a bone past the skeleton or a negative or non-finite weight; `mani_errorCapacity` when capacity is below the bone count (weights unchanged). @par Thread safety Safe from any thread.
+
 ## `build.h`
 
 The offline side: a builder turns source data into the library's files (mani-0003), which it keeps until the next build for a copy into caller memory. A builder allocates through the allocator of its def and is built only when MAUL_ANIM_OFFLINE is on.
@@ -148,7 +162,7 @@ Returns a float track's name, UTF-8 and not terminated.  @param clip       An op
 ```c
 MANI_NODISCARD MANI_API maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time, const uint32_t* bones, uint32_t count, maniPose* pose);
 ```
-Samples some bones of the clip at a time, as maniSampleClip samples them; every other bone's local is left as it was, and the clip's other channels are not decoded.  @param clip      An opened clip. @param skeleton  The clip's skeleton. @param time      The time in seconds. @param bones     The bones, strictly increasing; may be NULL when count is 0. @param count     How many. @param pose      A pose of the skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton that is not the clip's or the pose's, or bones out of range or not increasing (the pose unchanged). @par Thread safety Safe from any thread; the pose is used by one thread at a time.
+Samples some bones of the clip at a time, as maniSampleClip samples them; every other bone's local is left as it was, and the clip's other channels are not decoded.  @param clip      An opened clip. @param skeleton  The clip's skeleton. @param time      The time in seconds. @param bones     The bones, strictly increasing; may be NULL when count is 0. @param count     How many. @param pose      A pose of the skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton that is not the clip's or the pose's, bones out of range or not increasing, or a difference pose (the pose unchanged). @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
 ```c
 size_t maniClipCursorSize(const maniClip* clip);
@@ -484,12 +498,17 @@ Sets every bone to the skeleton's rest and composes the model.  @param pose     
 ```c
 MANI_NODISCARD MANI_API maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton);
 ```
-Composes every bone's model matrix: its parent's model matrix times its local transform's matrix (scale, then rotation, then translation), a root's being its local's.  @param pose      The pose. @param skeleton  The pose's skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a skeleton of another identity. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
+Composes every bone's model matrix: its parent's model matrix times its local transform's matrix (scale, then rotation, then translation), a root's being its local's.  @param pose      The pose. @param skeleton  The pose's skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton of another identity or a difference (which has no model). @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
 ```c
 bool maniPoseModelCurrent(const maniPose* pose);
 ```
 Returns whether the model matrices match the local transforms: true after maniComputeModel until a local is set.  @param pose  The pose. @return True when current. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
+
+```c
+bool maniPoseIsDifference(const maniPose* pose);
+```
+Returns whether the pose holds a difference (mani-0020): what maniPoseDifference writes and additive layers apply, never mixed with poses of the skeleton. Making a pose, setting its rest and sampling a whole clip into it make it a pose of the skeleton.  @param pose  The pose. @return True for a difference. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
 ```c
 maniAffine maniPoseModel(const maniPose* pose, uint32_t bone);
@@ -591,4 +610,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-112 functions across 7 headers.
+115 functions across 8 headers.

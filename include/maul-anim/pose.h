@@ -126,8 +126,8 @@ extern "C"
     ///
     /// @param pose      The pose.
     /// @param skeleton  The pose's skeleton.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
-    /// skeleton of another identity.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton of another identity or a difference (which has no model).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniComputeModel(maniPose* pose,
@@ -141,6 +141,17 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_API bool maniPoseModelCurrent(const maniPose* pose);
+
+    /// Returns whether the pose holds a difference (mani-0020): what
+    /// maniPoseDifference writes and additive layers apply, never mixed
+    /// with poses of the skeleton. Making a pose, setting its rest and
+    /// sampling a whole clip into it make it a pose of the skeleton.
+    ///
+    /// @param pose  The pose.
+    /// @return True for a difference.
+    /// @par Thread safety
+    /// Safe from any thread; the pose is used by one thread at a time.
+    MANI_API bool maniPoseIsDifference(const maniPose* pose);
 
     /// Returns a bone's model matrix as last composed.
     ///

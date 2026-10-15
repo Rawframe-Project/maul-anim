@@ -498,6 +498,10 @@ void maniSampleClipPair(const maniClip* clip, const maniSkeleton* skeleton,
     {
         SampleFull(clip, skeleton, pair, list, pose);
     }
+    if (list == NULL)
+    {
+        maniPoseSetKind(pose, false);
+    }
 }
 
 void maniSampleClipPairFloats(const maniClip* clip, const maniClipPair* pair, float* values)
@@ -545,7 +549,10 @@ maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, fl
 maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
                                const uint32_t* bones, uint32_t count, maniPose* pose)
 {
-    if (!maniClipFits(clip, skeleton, pose) || (bones == NULL && count > 0))
+    // A subset keeps the other bones, so it writes into a pose of the
+    // skeleton only.
+    if (!maniClipFits(clip, skeleton, pose) || (bones == NULL && count > 0) ||
+        maniPoseIsDifference(pose))
     {
         return mani_errorInvalid;
     }

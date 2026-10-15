@@ -28,7 +28,11 @@ maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton);
 
 // The locals' first float, and the model marked stale once they change.
 float* maniPoseLocals(maniPose* pose);
+const float* maniPoseLocalsRead(const maniPose* pose);
 void maniPoseMarkStale(maniPose* pose);
+
+// Records what the locals hold: a difference or a pose of the skeleton.
+void maniPoseSetKind(maniPose* pose, bool difference);
 
 // A bone's slot in the locals: its component c at slot[c * 8].
 static inline float* maniPoseSlot(float* locals, uint32_t bone)

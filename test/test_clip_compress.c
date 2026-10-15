@@ -17,6 +17,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
+#include "pose_memory.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -726,8 +727,15 @@ static void SubsetOf(const maniClip* clip)
     CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, NULL, 0, b) == mani_success, "none");
     CHECK(maniSampleClipBones(NULL, &s_skeleton, 0.5f, kList, 3, b) == mani_errorInvalid,
           "no clip");
+    // A subset keeps the other bones: never into a difference.
+    maniPoseSetKind(b, true);
+    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, kList, 3, b) == mani_errorInvalid,
+          "a difference");
     maniTransform got = maniPoseLocal(b, 0);
     CHECK(memcmp(&got, &marker, sizeof got) == 0, "refusals leave the pose");
+    // A whole sample makes it a pose again.
+    CHECK(maniSampleClip(clip, &s_skeleton, 0.5f, b) == mani_success && !maniPoseIsDifference(b),
+          "a whole sample: a pose");
 }
 
 static void TestSubsets(void)

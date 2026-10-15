@@ -37,7 +37,9 @@ struct maniPose
     uint32_t groups;
     uint32_t modelCurrent;
     uint64_t identity;
-    uint8_t reserved[kHeaderSize - 24];
+    // 1 for a difference (mani-0020), 0 for a pose of the skeleton.
+    uint32_t difference;
+    uint8_t reserved[kHeaderSize - 28];
 };
 
 static_assert(sizeof(struct maniPose) == kHeaderSize, "the header is 64 bytes");
@@ -146,9 +148,24 @@ float* maniPoseLocals(maniPose* pose)
     return Locals(pose);
 }
 
+const float* maniPoseLocalsRead(const maniPose* pose)
+{
+    return ConstLocals(pose);
+}
+
 void maniPoseMarkStale(maniPose* pose)
 {
     pose->modelCurrent = 0;
+}
+
+void maniPoseSetKind(maniPose* pose, bool difference)
+{
+    pose->difference = difference ? 1u : 0u;
+}
+
+bool maniPoseIsDifference(const maniPose* pose)
+{
+    return pose->difference != 0;
 }
 
 void maniPoseSetLocal(maniPose* pose, uint32_t bone, maniTransform transform)
@@ -209,6 +226,7 @@ maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton)
         StoreLocal(Locals(pose), bone, &rest);
     }
     pose->modelCurrent = 0;
+    pose->difference = 0;
     return mani_success;
 }
 
@@ -220,7 +238,7 @@ maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
 
 maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
 {
-    if (!maniPoseMatches(pose, skeleton))
+    if (!maniPoseMatches(pose, skeleton) || pose->difference != 0)
     {
         return mani_errorInvalid;
     }
