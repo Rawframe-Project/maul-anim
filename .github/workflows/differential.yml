@@ -1,6 +1,8 @@
 # The ufbx differential (mani-0018): every file of ufbx's corpus, at the
-# commit CMake pins, read by ufbx and by Maul Anim and compared. Weekly
-# and by hand, not on every commit: it fetches and builds ufbx.
+# commit CMake pins, read by ufbx and by Maul Anim and compared, and the
+# fixtures' expected values written again and held against the committed
+# ones. Weekly and by hand, not on every commit: it fetches and builds
+# ufbx.
 name: differential
 
 on:
@@ -39,3 +41,9 @@ jobs:
           cd build/_deps/ufbx-src/data
           "$GITHUB_WORKSPACE/build/fbx_differential" \
             --deviations "$GITHUB_WORKSPACE/tools/fbx-deviations.txt" *.fbx
+      - name: The fixtures' expected values
+        if: ${{ !cancelled() }}
+        run: |
+          build/fbx_differential --deviations tools/fbx-deviations.txt \
+            --expect build/fbx_fixture_expect.h test/data/fbx/*.fbx
+          python3 tools/fbx_fixtures.py --compare build/fbx_fixture_expect.h test/fbx_fixture_expect.h
