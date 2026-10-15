@@ -1,0 +1,49 @@
+; FBX 7.4.0 project file
+Objects: {
+ Model: 1, "Model::A", "Null" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",1,0,0
+   P: "Lcl Scaling", "Lcl Scaling", "", "A",2,3,4
+  }
+ }
+ Model: 2, "Model::B", "Null" {
+  Properties70: {
+   P: "InheritType", "enum", "", "",0
+   P: "Lcl Translation", "Lcl Translation", "", "A",1,1,1
+   P: "Lcl Rotation", "Lcl Rotation", "", "A",0,0,90
+  }
+ }
+ Model: 3, "Model::C", "Null" {
+  Properties70: {
+   P: "InheritType", "enum", "", "",2
+   P: "Lcl Translation", "Lcl Translation", "", "A",1,0,0
+   P: "Lcl Scaling", "Lcl Scaling", "", "A",5,5,5
+  }
+ }
+ Model: 4, "Model::D", "Null" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",1,0,0
+   P: "Lcl Rotation", "Lcl Rotation", "", "A",0,0,90
+  }
+ }
+ Model: 5, "Model::E", "Null" {
+  Properties70: {
+   P: "InheritType", "enum", "", "",2
+   P: "Lcl Translation", "Lcl Translation", "", "A",1,0,0
+  }
+ }
+ Model: 6, "Model::F", "Null" {
+  Properties70: {
+   P: "InheritType", "enum", "", "",0
+   P: "Lcl Translation", "Lcl Translation", "", "A",0,1,0
+  }
+ }
+}
+Connections: {
+ C: "OO",6,2
+ C: "OO",5,3
+ C: "OO",1,0
+ C: "OO",2,1
+ C: "OO",3,1
+ C: "OO",4,1
+}

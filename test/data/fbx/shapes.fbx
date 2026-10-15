@@ -1,0 +1,445 @@
+; FBX 7.4.0 project file
+Objects: {
+ Model: 1, "Model::Head", "LimbNode" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",0,1,0
+  }
+ }
+ Model: 2, "Model::Face", "Mesh" {
+ }
+ Model: 3, "Model::Prop", "Mesh" {
+ }
+ Geometry: 50, "Geometry::Face", "Mesh" {
+ }
+ Geometry: 51, "Geometry::Prop", "Mesh" {
+ }
+ Deformer: 40, "Deformer::Skin", "Skin" {
+ }
+ Deformer: 41, "SubDeformer::Head", "Cluster" {
+ }
+ Deformer: 60, "Deformer::Face", "BlendShape" {
+ }
+ Deformer: 61, "SubDeformer::Smile", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+  FullWeights: *2 {
+   a: 50,100
+  }
+ }
+ Geometry: 70, "Geometry::Smile_half", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Geometry: 71, "Geometry::Smile", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Geometry: 72, "Geometry::Decoy", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+ }
+ Deformer: 62, "SubDeformer::Blink", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+ }
+ Geometry: 73, "Geometry::", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Deformer: 63, "SubDeformer::Wide", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+ }
+ Geometry: 74, "Geometry::", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Geometry: 75, "Geometry::", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Deformer: 64, "Deformer::Prop", "BlendShape" {
+ }
+ Deformer: 65, "SubDeformer::Grow", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+ }
+ Geometry: 76, "Geometry::Grow", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ AnimationStack: 100, "AnimStack::Talk", "" {
+  Properties70: {
+   P: "LocalStart", "KTime", "", "A",0
+   P: "LocalStop", "KTime", "", "A",46186158000
+  }
+ }
+ AnimationLayer: 101, "AnimLayer::Base", "" {
+ }
+ AnimationCurveNode: 110, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 111, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurveNode: 112, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 113, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurveNode: 114, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 115, "AnimCurve::", "" {
+  KeyTime: *1 {
+   a: 0
+  }
+  KeyValueFloat: *1 {
+   a: 50
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 1
+  }
+ }
+ AnimationCurveNode: 116, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 117, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ Deformer: 66, "SubDeformer::Frown", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+  FullWeights: *2 {
+   a: 100,-100
+  }
+ }
+ Geometry: 77, "Geometry::Frown_up", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Geometry: 78, "Geometry::Frown_down", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ AnimationCurveNode: 118, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 119, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ Model: 4, "Model::Jaw", "LimbNode" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",0,2,0
+  }
+ }
+ Deformer: 42, "SubDeformer::Jaw", "Cluster" {
+ }
+ Deformer: 43, "Deformer::Bare", "Skin" {
+ }
+ Geometry: 79, "Geometry::Decoy2", "Shape" {
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Geometry: 80, "Geometry::Stray", "Mesh" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Deformer: 67, "SubDeformer::Squint", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+  FullWeights: *1 {
+   a: 50
+  }
+ }
+ Geometry: 81, "Geometry::Squint_half", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Geometry: 82, "Geometry::Squint", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Deformer: 68, "SubDeformer::Orphan", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+  }
+ }
+ Geometry: 83, "Geometry::Orphan", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ Deformer: 69, "SubDeformer::Idle", "BlendShapeChannel" {
+  Properties70: {
+   P: "DeformPercent", "Number", "", "A",0
+   P: "Other", "Number", "", "A",0
+  }
+ }
+ Geometry: 84, "Geometry::Idle", "Shape" {
+  Indexes: *1 {
+   a: 0
+  }
+  Vertices: *3 {
+   a: 0,0,1
+  }
+ }
+ AnimationCurveNode: 120, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 121, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurveNode: 122, "AnimCurveNode::DeformPercent", "" {
+  Properties70: {
+   P: "d|DeformPercent", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 123, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurveNode: 124, "AnimCurveNode::Other", "" {
+  Properties70: {
+   P: "d|Other", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 125, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,100
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+}
+Connections: {
+ C: "OO",1,0
+ C: "OO",2,1
+ C: "OO",3,0
+ C: "OO",50,2
+ C: "OO",51,3
+ C: "OO",40,50
+ C: "OO",41,40
+ C: "OO",1,41
+ C: "OO",60,50
+ C: "OO",61,60
+ C: "OO",70,61
+ C: "OO",72,61
+ C: "OO",71,61
+ C: "OO",62,60
+ C: "OO",73,62
+ C: "OO",63,60
+ C: "OO",74,63
+ C: "OO",75,63
+ C: "OO",64,51
+ C: "OO",65,64
+ C: "OO",76,65
+ C: "OO",101,100
+ C: "OO",110,101
+ C: "OP",110,61, "DeformPercent"
+ C: "OP",111,110, "d|DeformPercent"
+ C: "OO",112,101
+ C: "OP",112,62, "DeformPercent"
+ C: "OP",113,112, "d|DeformPercent"
+ C: "OO",114,101
+ C: "OP",114,63, "DeformPercent"
+ C: "OP",115,114, "d|DeformPercent"
+ C: "OO",116,101
+ C: "OP",116,65, "DeformPercent"
+ C: "OP",117,116, "d|DeformPercent"
+ C: "OO",66,60
+ C: "OO",77,66
+ C: "OO",78,66
+ C: "OO",118,101
+ C: "OP",118,66, "DeformPercent"
+ C: "OP",119,118, "d|DeformPercent"
+ C: "OO",4,1
+ C: "OO",42,40
+ C: "OO",4,42
+ C: "OO",43,51
+ C: "OO",79,61
+ C: "OO",80,61
+ C: "OO",67,60
+ C: "OO",81,67
+ C: "OO",82,67
+ C: "OO",68,50
+ C: "OO",83,68
+ C: "OO",69,60
+ C: "OO",84,69
+ C: "OO",120,101
+ C: "OP",120,67, "DeformPercent"
+ C: "OP",121,120, "d|DeformPercent"
+ C: "OO",122,101
+ C: "OP",122,68, "DeformPercent"
+ C: "OP",123,122, "d|DeformPercent"
+ C: "OO",124,101
+ C: "OP",124,69, "Other"
+ C: "OP",125,124, "d|Other"
+}

@@ -1,0 +1,545 @@
+; FBX 7.4.0 project file
+; Every curve of test_fbx_curve.c driving a user property of Dial over
+; four seconds, past their keys.
+Objects: {
+ Model: 1, "Model::Dial", "LimbNode" {
+  Properties70: {
+   P: "C10", "Number", "", "A+U",0
+   P: "C11", "Number", "", "A+U",0
+   P: "C12", "Number", "", "A+U",0
+   P: "C13", "Number", "", "A+U",0
+   P: "C14", "Number", "", "A+U",0
+   P: "C15", "Number", "", "A+U",0
+   P: "C16", "Number", "", "A+U",0
+   P: "C17", "Number", "", "A+U",0
+   P: "C18", "Number", "", "A+U",0
+   P: "C19", "Number", "", "A+U",0
+   P: "C20", "Number", "", "A+U",0
+   P: "C21", "Number", "", "A+U",0
+   P: "C22", "Number", "", "A+U",0
+   P: "C23", "Number", "", "A+U",0
+   P: "C24", "Number", "", "A+U",0
+   P: "C25", "Number", "", "A+U",0
+   P: "C26", "Number", "", "A+U",0
+   P: "C27", "Number", "", "A+U",0
+   P: "C28", "Number", "", "A+U",0
+  }
+ }
+ AnimationStack: 100, "AnimStack::Dial", "" {
+  Properties70: {
+   P: "LocalStart", "KTime", "Time", "",0
+   P: "LocalStop", "KTime", "Time", "",184744632000
+  }
+ }
+ AnimationLayer: 101, "AnimLayer::Base", "" {
+ }
+ AnimationCurveNode: 210, "AnimCurveNode::C10", "" {
+  Properties70: {
+   P: "d|C10", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 211, "AnimCurveNode::C11", "" {
+  Properties70: {
+   P: "d|C11", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 212, "AnimCurveNode::C12", "" {
+  Properties70: {
+   P: "d|C12", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 213, "AnimCurveNode::C13", "" {
+  Properties70: {
+   P: "d|C13", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 214, "AnimCurveNode::C14", "" {
+  Properties70: {
+   P: "d|C14", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 215, "AnimCurveNode::C15", "" {
+  Properties70: {
+   P: "d|C15", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 216, "AnimCurveNode::C16", "" {
+  Properties70: {
+   P: "d|C16", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 217, "AnimCurveNode::C17", "" {
+  Properties70: {
+   P: "d|C17", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 218, "AnimCurveNode::C18", "" {
+  Properties70: {
+   P: "d|C18", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 219, "AnimCurveNode::C19", "" {
+  Properties70: {
+   P: "d|C19", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 220, "AnimCurveNode::C20", "" {
+  Properties70: {
+   P: "d|C20", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 221, "AnimCurveNode::C21", "" {
+  Properties70: {
+   P: "d|C21", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 222, "AnimCurveNode::C22", "" {
+  Properties70: {
+   P: "d|C22", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 223, "AnimCurveNode::C23", "" {
+  Properties70: {
+   P: "d|C23", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 224, "AnimCurveNode::C24", "" {
+  Properties70: {
+   P: "d|C24", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 225, "AnimCurveNode::C25", "" {
+  Properties70: {
+   P: "d|C25", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 226, "AnimCurveNode::C26", "" {
+  Properties70: {
+   P: "d|C26", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 227, "AnimCurveNode::C27", "" {
+  Properties70: {
+   P: "d|C27", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 228, "AnimCurveNode::C28", "" {
+  Properties70: {
+   P: "d|C28", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 10, "AnimCurve::", "" {
+  KeyTime: *4 {
+   a: 0,46186158000,92372316000,138558474000
+  }
+  KeyValueFloat: *4 {
+   a: 0,10,4,8
+  }
+  KeyAttrFlags: *4 {
+   a: 4,2,258,4
+  }
+  KeyAttrDataFloat: *16 {
+   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *4 {
+   a: 1,1,1,1
+  }
+ }
+ AnimationCurve: 11, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,1
+  }
+  KeyAttrFlags: *1 {
+   a: 1032
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurve: 12, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,1
+  }
+  KeyAttrFlags: *2 {
+   a: 50332680,1032
+  }
+  KeyAttrDataFloat: *8 {
+   a: 1073741824,1073741824,163845000,0,0,0,0,0
+  }
+  KeyAttrRefCount: *2 {
+   a: 1,1
+  }
+ }
+ AnimationCurve: 13, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,138558474000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,0
+  }
+  KeyAttrFlags: *1 {
+   a: 8
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 3
+  }
+ }
+ AnimationCurve: 14, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,138558474000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,1
+  }
+  KeyAttrFlags: *3 {
+   a: 4,520,4
+  }
+  KeyAttrDataFloat: *12 {
+   a: 0,0,0,0,1056964608,0,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *3 {
+   a: 1,1,1
+  }
+ }
+ AnimationCurve: 15, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,2
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+  Pre-Extrapolation: {
+   Type: 77
+   Repetition: -1
+  }
+  Post-Extrapolation: {
+   Type: 65
+   Repetition: -1
+  }
+ }
+ AnimationCurve: 16, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,2
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+  Pre-Extrapolation: {
+   Type: 75
+  }
+  Post-Extrapolation: {
+   Type: 82
+   Repetition: 1
+  }
+ }
+ AnimationCurve: 17, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,92372316000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,3
+  }
+  KeyAttrFlags: *3 {
+   a: 8,8,8
+  }
+  KeyAttrDataFloat: *12 {
+   a: 0,1112014848,0,0,1112014848,0,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *3 {
+   a: 1,1,1
+  }
+ }
+ AnimationCurve: 18, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,92372316000
+  }
+  KeyValueFloat: *3 {
+   a: 0,2,3
+  }
+  KeyAttrFlags: *3 {
+   a: 8,8,8
+  }
+  KeyAttrDataFloat: *12 {
+   a: 0,0,0,0,1142292480,1142292480,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *3 {
+   a: 1,1,1
+  }
+ }
+ AnimationCurve: 19, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,92372316000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,1
+  }
+  KeyAttrFlags: *1 {
+   a: 4104
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 3
+  }
+ }
+ AnimationCurve: 20, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,138558474000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,0
+  }
+  KeyAttrFlags: *1 {
+   a: 8200
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 3
+  }
+ }
+ AnimationCurve: 21, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,138558474000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,1
+  }
+  KeyAttrFlags: *3 {
+   a: 520,520,4
+  }
+  KeyAttrDataFloat: *12 {
+   a: 0,0,0,0,0,1056964608,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *3 {
+   a: 1,1,1
+  }
+ }
+ AnimationCurve: 22, "AnimCurve::", "" {
+  KeyTime: *4 {
+   a: 0,46186158000,92372316000,138558474000
+  }
+  KeyValueFloat: *4 {
+   a: 0,0.1,1.1,1.2
+  }
+  KeyAttrFlags: *1 {
+   a: 16392
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 4
+  }
+ }
+ AnimationCurve: 23, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,92372316000
+  }
+  KeyValueFloat: *3 {
+   a: 1,0.9,3
+  }
+  KeyAttrFlags: *1 {
+   a: 16392
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 3
+  }
+ }
+ AnimationCurve: 24, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,46186158000,92372316000
+  }
+  KeyValueFloat: *3 {
+   a: 0,1,2
+  }
+  KeyAttrFlags: *2 {
+   a: 4,2
+  }
+  KeyAttrDataFloat: *8 {
+   a: 0,0,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *2 {
+   a: 1,2
+  }
+ }
+ AnimationCurve: 25, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,2
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+  Pre-Extrapolation: {
+   Type: 65
+   Repetition: -1
+  }
+  Post-Extrapolation: {
+   Type: 82
+   Repetition: 0
+  }
+ }
+ AnimationCurve: 26, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,1
+  }
+  KeyAttrFlags: *2 {
+   a: 2,4
+  }
+  KeyAttrDataFloat: *8 {
+   a: 0,1082130432,0,0,0,0,0,0
+  }
+  KeyAttrRefCount: *2 {
+   a: 1,1
+  }
+  Post-Extrapolation: {
+   Type: 75
+  }
+ }
+ AnimationCurve: 27, "AnimCurve::", "" {
+  KeyTime: *1 {
+   a: 23093079000
+  }
+  KeyValueFloat: *1 {
+   a: 7
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 1
+  }
+ }
+ AnimationCurve: 28, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 46186158000,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 1,2
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+  Post-Extrapolation: {
+   Type: 82
+   Repetition: -1
+  }
+ }
+}
+Connections: {
+ C: "OO",1,0
+ C: "OO",101,100
+ C: "OO",210,101
+ C: "OP",210,1, "C10"
+ C: "OP",10,210, "d|C10"
+ C: "OO",211,101
+ C: "OP",211,1, "C11"
+ C: "OP",11,211, "d|C11"
+ C: "OO",212,101
+ C: "OP",212,1, "C12"
+ C: "OP",12,212, "d|C12"
+ C: "OO",213,101
+ C: "OP",213,1, "C13"
+ C: "OP",13,213, "d|C13"
+ C: "OO",214,101
+ C: "OP",214,1, "C14"
+ C: "OP",14,214, "d|C14"
+ C: "OO",215,101
+ C: "OP",215,1, "C15"
+ C: "OP",15,215, "d|C15"
+ C: "OO",216,101
+ C: "OP",216,1, "C16"
+ C: "OP",16,216, "d|C16"
+ C: "OO",217,101
+ C: "OP",217,1, "C17"
+ C: "OP",17,217, "d|C17"
+ C: "OO",218,101
+ C: "OP",218,1, "C18"
+ C: "OP",18,218, "d|C18"
+ C: "OO",219,101
+ C: "OP",219,1, "C19"
+ C: "OP",19,219, "d|C19"
+ C: "OO",220,101
+ C: "OP",220,1, "C20"
+ C: "OP",20,220, "d|C20"
+ C: "OO",221,101
+ C: "OP",221,1, "C21"
+ C: "OP",21,221, "d|C21"
+ C: "OO",222,101
+ C: "OP",222,1, "C22"
+ C: "OP",22,222, "d|C22"
+ C: "OO",223,101
+ C: "OP",223,1, "C23"
+ C: "OP",23,223, "d|C23"
+ C: "OO",224,101
+ C: "OP",224,1, "C24"
+ C: "OP",24,224, "d|C24"
+ C: "OO",225,101
+ C: "OP",225,1, "C25"
+ C: "OP",25,225, "d|C25"
+ C: "OO",226,101
+ C: "OP",226,1, "C26"
+ C: "OP",26,226, "d|C26"
+ C: "OO",227,101
+ C: "OP",227,1, "C27"
+ C: "OP",27,227, "d|C27"
+ C: "OO",228,101
+ C: "OP",228,1, "C28"
+ C: "OP",28,228, "d|C28"
+}

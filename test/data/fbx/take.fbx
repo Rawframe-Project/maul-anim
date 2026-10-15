@@ -1,0 +1,137 @@
+; FBX 6.1.0 project file
+FBXHeaderExtension: {
+ FBXHeaderVersion: 1003
+ FBXVersion: 6100
+}
+Objects: {
+ Model: "Model::Hips", "Limb" {
+  Version: 232
+  Properties60: {
+   Property: "Lcl Translation", "Lcl Translation", "A+",0,1,0
+   Property: "Custom", "Number", "A+U",2
+   Property: "Size", "Number", "A+",100
+  }
+ }
+ Model: "Model::Spine", "Limb" {
+  Version: 232
+  Properties60: {
+   Property: "Lcl Translation", "Lcl Translation", "A+",0,1,0
+   Property: "RotationOrder", "enum", "",4
+  }
+ }
+}
+Connections: {
+ Connect: "OO", "Model::Hips", "Model::Scene"
+ Connect: "OO", "Model::Spine", "Model::Hips"
+}
+Takes: {
+ Current: "Walk"
+ Take: "Walk" {
+  FileName: "Walk.tak"
+  LocalTime: 0,46186158000
+  ReferenceTime: 0,46186158000
+  Model: "Model::Hips" {
+   Version: 1.1
+   Channel: "Transform" {
+    Channel: "T" {
+     Channel: "X" {
+      Default: 0
+      KeyVer: 4005
+      KeyCount: 2
+      Key: 0,0,L,46186158000,3,L
+     }
+     Channel: "Y" {
+      Default: 1
+     }
+     Channel: "Z" {
+      Default: 0
+     }
+     LayerType: 1
+    }
+    Channel: "R" {
+     Channel: "X" {
+      Default: 0
+     }
+     Channel: "Y" {
+      Default: 0
+     }
+     Channel: "Z" {
+      Default: 0
+      KeyVer: 4005
+      KeyCount: 2
+      Key: 0,0,U,s,0,0,n,46186158000,90,U,s,0,0,n
+     }
+     LayerType: 2
+    }
+   }
+   Channel: "Custom" {
+    Default: 2
+    KeyVer: 4005
+    KeyCount: 2
+    Key: 0,2,L,46186158000,4,L
+   }
+   Channel: "Size" {
+    Default: 100
+    KeyVer: 4005
+    KeyCount: 2
+    Key: 0,100,L,46186158000,50,L
+   }
+  }
+  Model: "Model::Spine" {
+   Version: 1.1
+   Channel: "Transform" {
+    Channel: "R" {
+     Channel: "X" {
+      Default: 30
+     }
+     Channel: "Y" {
+      Default: 0
+      KeyVer: 4005
+      KeyCount: 2
+      Key: 0,0,L,46186158000,60,L
+     }
+     Channel: "Z" {
+      Default: 10
+     }
+    }
+    Channel: "S" {
+     Channel: "X" {
+      Default: 1
+      KeyVer: 4005
+      KeyCount: 2
+      Key: 0,1,L,46186158000,2,L
+     }
+     Channel: "Y" {
+      Default: 1
+     }
+     Channel: "Z" {
+      Default: 0.5
+     }
+    }
+   }
+  }
+  Model: "Model::Missing" {
+   Channel: "Transform" {
+    Channel: "T" {
+     Channel: "X" {
+      Default: 7
+     }
+    }
+   }
+  }
+ }
+ Take: "Idle" {
+  LocalTime: 0,23093079000
+ }
+ Take: "Still" {
+  Model: "Model::Hips" {
+   Channel: "Transform" {
+    Channel: "T" {
+     Channel: "X" {
+      Default: 5
+     }
+    }
+   }
+  }
+ }
+}

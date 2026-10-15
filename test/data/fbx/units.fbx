@@ -1,0 +1,67 @@
+; FBX 7.4.0 project file
+Objects: {
+ Model: 10, "Model::Armature", "Null" {
+ }
+ Model: 11, "Model::Hips", "LimbNode" {
+ }
+ Model: 12, "Model::Spine", "LimbNode" {
+ }
+ Model: 13, "Model::Head", "Null" {
+ }
+ NodeAttribute: 30, "NodeAttribute::", "LimbNode" {
+ }
+ Model: 14, "Model::HeadProp", "Mesh" {
+ }
+ Model: 15, "Model::Body", "Mesh" {
+ }
+ Model: 16, "Model::Gun", "Null" {
+ }
+ Model: 17, "Model::Trigger", "Null" {
+ }
+ Model: 18, "Model::Tail", "Root" {
+ }
+ Deformer: 40, "Deformer::", "Skin" {
+ }
+ Deformer: 41, "SubDeformer::", "Cluster" {
+ }
+ Deformer: 42, "SubDeformer::", "Cluster" {
+ }
+ Deformer: 43, "Deformer::", "Skin" {
+ }
+ Deformer: 44, "Deformer::", "Skin" {
+ }
+ Deformer: 45, "SubDeformer::", "Cluster" {
+ }
+ Deformer: 46, "SubDeformer::", "Cluster" {
+ }
+ Deformer: 47, "SubDeformer::", "BlendShapeChannel" {
+ }
+ NodeAttribute: 31, "NodeAttribute::", "Null" {
+ }
+ Video: 51, "Video::", "Skin" {
+ }
+}
+Connections: {
+ C: "OO",10,0
+ C: "OO",11,10
+ C: "OO",12,11
+ C: "OO",13,12
+ C: "OO",30,13
+ C: "OO",14,13
+ C: "OO",15,0
+ C: "OO",16,0
+ C: "OO",17,16
+ C: "OO",18,10
+ C: "OO",40,15
+ C: "OO",41,40
+ C: "OO",42,40
+ C: "OO",11,41
+ C: "OO",18,42
+ C: "OO",45,44
+ C: "OO",17,45
+ C: "PO",46, "Visibility",43
+ C: "OO",15,46
+ C: "OO",47,43
+ C: "OO",15,47
+ C: "OO",31,45
+}

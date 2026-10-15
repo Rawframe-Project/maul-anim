@@ -1,0 +1,94 @@
+; FBX 5.0.0 project file
+FBXHeaderExtension: {
+ FBXHeaderVersion: 1002
+ FBXVersion: 5000
+}
+Model: "Model::Body" {
+ Vertices: 0,0,0,1,0,0,0,1,0
+ PolygonVertexIndex: 0,1,-3
+ MaterialAssignation: "AllSame"
+ Shape: "Smile" {
+  Indexes: 0
+  Vertices: 0,0,1
+ }
+ Link: "Model::Hips" {
+  Indexes: 0,1,2
+  Weights: 1,0.5,1
+  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,-5,-6,0,1
+  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,5,6,0,1
+ }
+ Link: "Model::Spine" {
+  Indexes: 1
+  Weights: 0.5
+  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,-5,-7,0,1
+  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,5,7,0,1
+ }
+}
+Model: "Model::Hips" {
+ Type: "LimbNode"
+ Children: "Model::Spine"
+ Channel: "Transform" {
+  Channel: "T" {
+   Channel: "X" {
+    Default: 1
+   }
+   Channel: "Y" {
+    Default: 2
+   }
+   Channel: "Z" {
+    Default: 3
+   }
+  }
+ }
+}
+Model: "Model::Spine" {
+ Type: "LimbNode"
+ Channel: "Transform" {
+  Channel: "R" {
+   Channel: "X" {
+    Default: 0
+   }
+   Channel: "Y" {
+    Default: 0
+   }
+   Channel: "Z" {
+    Default: 10
+    KeyVer: 4004
+    KeyCount: 2
+    Key: 0,10,L,46186158000,50,L
+   }
+  }
+ }
+}
+Takes: {
+ Take: "Walk" {
+  LocalTime: 0,46186158000
+  Model: "Model::Hips" {
+   Channel: "Transform" {
+    Channel: "T" {
+     Channel: "X" {
+      Default: 5
+      KeyVer: 4004
+      KeyCount: 2
+      Key: 0,5,L,46186158000,9,L
+     }
+     Channel: "Y" {
+      Default: 6
+     }
+    }
+   }
+  }
+  Model: "Model::Body" {
+   Channel: "Smile (Shape)" {
+    Default: 0
+    KeyVer: 4004
+    KeyCount: 2
+    Key: 0,0,L,46186158000,100,L
+   }
+  }
+ }
+}
+LocalTime: 0,92372316000
+Settings: {
+ FrameRate: "24"
+}

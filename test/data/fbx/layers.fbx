@@ -1,0 +1,354 @@
+; FBX 7.4.0 project file
+Objects: {
+ Model: 1, "Model::A", "Null" {
+  Properties70: {
+   P: "Glow", "Number", "", "A",5
+  }
+ }
+ AnimationStack: 100, "AnimStack::Run", "" {
+  Properties70: {
+   P: "LocalStart", "KTime", "", "A",0
+   P: "LocalStop", "KTime", "", "A",46186158000
+  }
+ }
+ AnimationLayer: 101, "AnimLayer::Base", "" {
+ }
+ AnimationLayer: 102, "AnimLayer::Add", "" {
+  Properties70: {
+   P: "Weight", "Number", "", "A",50
+   P: "BlendMode", "enum", "", "A",0
+  }
+ }
+ AnimationLayer: 103, "AnimLayer::Pass", "" {
+  Properties70: {
+   P: "Weight", "Number", "", "A",25
+   P: "BlendMode", "enum", "", "A",2
+  }
+ }
+ AnimationLayer: 104, "AnimLayer::Over", "" {
+  Properties70: {
+   P: "Weight", "Number", "", "A",10
+   P: "BlendMode", "enum", "", "A",1
+  }
+ }
+ AnimationLayer: 105, "AnimLayer::Parts", "" {
+  Properties70: {
+   P: "RotationAccumulationMode", "enum", "", "A",1
+   P: "ScaleAccumulationMode", "enum", "", "A",1
+  }
+ }
+ AnimationLayer: 106, "AnimLayer::None", "" {
+  Properties70: {
+   P: "Weight", "Number", "", "A",-20
+  }
+ }
+ AnimationLayer: 107, "AnimLayer::Full", "" {
+  Properties70: {
+   P: "Weight", "Number", "", "A",150
+  }
+ }
+ AnimationCurveNode: 110, "AnimCurveNode::T", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",1
+   P: "d|Y", "Number", "", "A",2
+   P: "d|Z", "Number", "", "A",3
+  }
+ }
+ AnimationCurve: 111, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 0,46186158000
+  }
+  KeyValueFloat: *2 {
+   a: 0,10
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurveNode: 112, "AnimCurveNode::T", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",0
+   P: "d|Y", "Number", "", "A",4
+   P: "d|Z", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 113, "AnimCurveNode::S", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",4
+   P: "d|Y", "Number", "", "A",-4
+   P: "d|Z", "Number", "", "A",4
+  }
+ }
+ AnimationCurveNode: 114, "AnimCurveNode::R", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",90
+   P: "d|Y", "Number", "", "A",0
+   P: "d|Z", "Number", "", "A",90
+  }
+ }
+ AnimationCurveNode: 130, "AnimCurveNode::Weight", "" {
+  Properties70: {
+   P: "d|Weight", "Number", "", "A",25
+  }
+ }
+ AnimationCurve: 131, "AnimCurve::", "" {
+  KeyTime: *3 {
+   a: 0,23093079000,46186158000
+  }
+  KeyValueFloat: *3 {
+   a: 50,50,250
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 3
+  }
+ }
+ AnimationCurveNode: 115, "AnimCurveNode::T", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",10
+   P: "d|Y", "Number", "", "A",10
+   P: "d|Z", "Number", "", "A",10
+  }
+ }
+ AnimationCurveNode: 118, "AnimCurveNode::S", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",16
+   P: "d|Y", "Number", "", "A",16
+   P: "d|Z", "Number", "", "A",16
+  }
+ }
+ AnimationCurveNode: 119, "AnimCurveNode::R", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",0
+   P: "d|Y", "Number", "", "A",0
+   P: "d|Z", "Number", "", "A",0
+  }
+ }
+ AnimationCurveNode: 116, "AnimCurveNode::Glow", "" {
+  Properties70: {
+   P: "d|Glow", "Number", "", "A",5
+  }
+ }
+ AnimationCurve: 117, "AnimCurve::", "" {
+  KeyTime: *1 {
+   a: 0
+  }
+  KeyValueFloat: *1 {
+   a: 9
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 1
+  }
+ }
+ AnimationCurveNode: 120, "AnimCurveNode::R", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",0
+   P: "d|Y", "Number", "", "A",0
+   P: "d|Z", "Number", "", "A",10
+  }
+ }
+ AnimationCurveNode: 121, "AnimCurveNode::S", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",1
+   P: "d|Y", "Number", "", "A",1
+   P: "d|Z", "Number", "", "A",1
+  }
+ }
+ AnimationCurveNode: 122, "AnimCurveNode::T", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",1
+   P: "d|Y", "Number", "", "A",1
+   P: "d|Z", "Number", "", "A",1
+  }
+ }
+ AnimationCurveNode: 123, "AnimCurveNode::S", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",0
+   P: "d|Y", "Number", "", "A",2
+   P: "d|Z", "Number", "", "A",2
+  }
+ }
+ AnimationCurveNode: 124, "AnimCurveNode::T", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",0
+   P: "d|Y", "Number", "", "A",0
+   P: "d|Z", "Number", "", "A",1
+  }
+ }
+ AnimationStack: 200, "AnimStack::Walk", "" {
+ }
+ AnimationStack: 300, "AnimStack::Span", "" {
+ }
+ AnimationLayer: 301, "AnimLayer::Only", "" {
+ }
+ AnimationCurveNode: 310, "AnimCurveNode::T", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",0
+   P: "d|Y", "Number", "", "A",0
+   P: "d|Z", "Number", "", "A",0
+  }
+ }
+ AnimationCurve: 311, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 11546539500,34639618500
+  }
+  KeyValueFloat: *2 {
+   a: 0,1
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurve: 312, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 4618615800,23093079000
+  }
+  KeyValueFloat: *2 {
+   a: 0,1
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationCurve: 313, "AnimCurve::", "" {
+  KeyTime: *2 {
+   a: 13855847400,27711694800
+  }
+  KeyValueFloat: *2 {
+   a: 0,1
+  }
+  KeyAttrFlags: *1 {
+   a: 4
+  }
+  KeyAttrDataFloat: *4 {
+   a: 0,0,0,0
+  }
+  KeyAttrRefCount: *1 {
+   a: 2
+  }
+ }
+ AnimationStack: 400, "AnimStack::Ref", "" {
+  Properties70: {
+   P: "ReferenceStart", "KTime", "", "A",3
+   P: "ReferenceStop", "KTime", "", "A",4
+  }
+ }
+ AnimationStack: 500, "AnimStack::Jog", "" {
+ }
+ AnimationStack: 600, "AnimStack::Exact", "" {
+ }
+ AnimationLayer: 601, "AnimLayer::Base", "" {
+ }
+ AnimationLayer: 602, "AnimLayer::Add", "" {
+ }
+ AnimationCurveNode: 610, "AnimCurveNode::S", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",3
+   P: "d|Y", "Number", "", "A",3
+   P: "d|Z", "Number", "", "A",3
+  }
+ }
+ AnimationCurveNode: 611, "AnimCurveNode::S", "" {
+  Properties70: {
+   P: "d|X", "Number", "", "A",8
+   P: "d|Y", "Number", "", "A",-8
+   P: "d|Z", "Number", "", "A",8
+  }
+ }
+}
+Connections: {
+ C: "OO",1,0
+ C: "OO",101,100
+ C: "OO",102,100
+ C: "OO",103,100
+ C: "OO",104,100
+ C: "OO",105,100
+ C: "OO",106,100
+ C: "OO",107,100
+ C: "OO",110,101
+ C: "OP",110,1, "Lcl Translation"
+ C: "OP",111,110, "d|X"
+ C: "OO",112,102
+ C: "OP",112,1, "Lcl Translation"
+ C: "OP",112,0, "Lcl Translation"
+ C: "OO",113,102
+ C: "OP",113,1, "Lcl Scaling"
+ C: "OO",114,102
+ C: "OP",114,1, "Lcl Rotation"
+ C: "OO",130,103
+ C: "OP",130,103, "Weight"
+ C: "OP",131,130, "d|Weight"
+ C: "OO",115,103
+ C: "OP",115,1, "Lcl Translation"
+ C: "OO",118,103
+ C: "OP",118,1, "Lcl Scaling"
+ C: "OO",119,103
+ C: "OP",119,1, "Lcl Rotation"
+ C: "OO",116,104
+ C: "OP",116,1, "Glow"
+ C: "OP",117,116, "d|Glow"
+ C: "OO",120,105
+ C: "OP",120,1, "Lcl Rotation"
+ C: "OO",121,105
+ C: "OP",121,1, "Lcl Scaling"
+ C: "OO",122,106
+ C: "OP",122,1, "Lcl Translation"
+ C: "OO",123,106
+ C: "OP",123,1, "Lcl Scaling"
+ C: "OO",124,107
+ C: "OP",124,1, "Lcl Translation"
+ C: "OO",301,300
+ C: "OO",310,301
+ C: "OP",310,1, "Lcl Translation"
+ C: "OP",312,310, "d|X"
+ C: "OP",311,310, "d|Y"
+ C: "OP",313,310, "d|Z"
+ C: "OO",601,600
+ C: "OO",602,600
+ C: "OO",610,601
+ C: "OP",610,1, "Lcl Scaling"
+ C: "OO",611,602
+ C: "OP",611,1, "Lcl Scaling"
+}
+Takes: {
+ Current: "Walk"
+ Take: "Other" {
+  LocalTime: 1,2
+ }
+ Take: "Walk" {
+  ReferenceTime: 5,10
+ }
+ Take: "Jog" {
+  LocalTime: 6,9
+  ReferenceTime: 1,2
+ }
+}

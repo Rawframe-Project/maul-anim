@@ -1,0 +1,138 @@
+; FBX 7.4.0 project file
+Objects: {
+ Geometry: 50, "Geometry::", "Mesh" {
+ }
+ Model: 1, "Model::Body", "Mesh" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",0,0,2
+   P: "GeometricTranslation", "Vector3D", "Vector", "",0,0,1
+   P: "GeometricScaling", "Vector3D", "Vector", "",2,2,2
+  }
+ }
+ Model: 2, "Model::Hips", "LimbNode" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",0,1,0
+  }
+ }
+ Model: 3, "Model::Spine", "LimbNode" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",0,1,0
+  }
+ }
+ Model: 4, "Model::Arm", "LimbNode" {
+  Properties70: {
+   P: "Lcl Translation", "Lcl Translation", "", "A",1,0,0
+  }
+ }
+ Deformer: 40, "Deformer::", "Skin" {
+ }
+ Deformer: 41, "SubDeformer::", "Cluster" {
+  Transform: *16 {
+   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-1,-2,1
+  }
+  TransformLink: *16 {
+   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1
+  }
+ }
+ Deformer: 42, "SubDeformer::", "Cluster" {
+  Transform: *16 {
+   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  }
+  TransformLink: *16 {
+   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,3,0,1
+  }
+ }
+ Deformer: 43, "SubDeformer::", "Cluster" {
+  Transform: *16 {
+   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,9,1
+  }
+ }
+ Deformer: 44, "SubDeformer::", "Cluster" {
+  Transform: *16 {
+   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  }
+  TransformLink: *16 {
+   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  }
+ }
+ Deformer: 45, "SubDeformer::", "Cluster" {
+ }
+ Deformer: 46, "SubDeformer::", "BlendShapeChannel" {
+ }
+ Pose: 61, "Pose::rest", "RestPose" {
+  PoseNode: {
+   Node: 2
+   Matrix: *16 {
+    a: 1,0,0,0,0,1,0,0,0,0,1,0,9,0,0,1
+   }
+  }
+ }
+ Pose: 60, "Pose::BIND_POSES", "BindPose" {
+  Type: "BindPose"
+  PoseNode: {
+   Node: 4
+   Matrix: *16 {
+    a: 1,0,0,0,0,1,0,0,0,0,1,0,5,0,0,1
+   }
+  }
+  PoseNode: {
+   Node: 2
+   Matrix: *16 {
+    a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+   }
+  }
+ }
+ Pose: 62, "Pose::later", "BindPose" {
+  PoseNode: {
+   Node: 4
+   Matrix: *16 {
+    a: 1,0,0,0,0,1,0,0,0,0,1,0,7,0,0,1
+   }
+  }
+ }
+ Deformer: 70, "Deformer::", "Skin" {
+ }
+ Deformer: 73, "SubDeformer::", "Cluster" {
+  TransformLink: *16 {
+   a: 1,0,0,0,0,1,0,0,0,0,1,0,1,2,3,1
+  }
+ }
+ Video: 71, "Video::", "Clip" {
+ }
+ Deformer: 72, "Deformer::", "Skin" {
+ }
+ Geometry: 76, "Geometry::", "Mesh" {
+ }
+ Geometry: 77, "Geometry::", "Mesh" {
+ }
+ Deformer: 75, "Deformer::", "Skin" {
+ }
+}
+Connections: {
+ C: "OO",1,0
+ C: "OO",50,1
+ C: "OO",40,50
+ C: "OO",2,0
+ C: "OO",3,2
+ C: "OO",4,3
+ C: "OO",41,40
+ C: "OO",42,40
+ C: "OO",43,40
+ C: "OO",44,40
+ C: "OO",45,40
+ C: "OO",46,40
+ C: "OO",2,41
+ C: "OO",3,42
+ C: "OO",4,43
+ C: "OO",2,44
+ C: "OP",3,45, "Visibility"
+ C: "OO",3,46
+ C: "OO",70,0
+ C: "OO",73,70
+ C: "OO",4,73
+ C: "OO",72,71
+ C: "OO",71,1
+ C: "OO",75,76
+ C: "OO",76,77
+ C: "OO",77,76
+}
