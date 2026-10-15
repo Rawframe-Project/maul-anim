@@ -183,17 +183,17 @@ clip-bones-zero | src/clip.c | if (bones == 0 || bones > MANI_MAX_BONES) | if (b
 clip-rate | src/clip.c | if (!Finite(rate) || !(rate > 0.0f)) | if (!Finite(rate))
 clip-duration | src/clip.c | if (!Finite(duration) || !(duration >= 0.0f)) | if (!Finite(duration))
 clip-loop | src/clip.c | if (maniLoadU32(h + 24) > maniLoopRepeat) | if (maniLoadU32(h + 24) > 2)
-clip-header-zeros | src/clip.c | for (uint32_t i = 52; i < MANI_CLIP_HEADER_SIZE; ++i) | for (uint32_t i = 56; i < MANI_CLIP_HEADER_SIZE; ++i)
+clip-header-zeros | src/clip.c | for (uint32_t i = 60; i < MANI_CLIP_HEADER_SIZE; ++i) | for (uint32_t i = 61; i < MANI_CLIP_HEADER_SIZE; ++i)
 clip-track-order | src/clip.c | if (bone >= clip->skeletonBoneCount || (i > 0 && bone <= maniLoadU16(entry - 4))) | if (bone >= clip->skeletonBoneCount || (i > 0 && bone < maniLoadU16(entry - 4)))
 clip-mask-empty | src/clip.c | if (entry[2] == 0 || entry[2] > maniChannelAll) | if (entry[2] > maniChannelAll)
 clip-unit | src/clip.c | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-20) | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-2)
-clip-identity | src/clip.c | if (maniClipComputeIdentity(data, sizes) != c.identity) | if (false)
+clip-identity | src/clip.c | if (maniClipComputeIdentity(s.data, s.sizes, MANI_CLIP_COMPRESSED_SECTIONS) != c.identity) | if (false)
 clip-clamp-high | src/clip.c | t = t < clip->duration ? t : clip->duration; | t = t < clip->duration ? t : clip->duration + 1.0f;
 clip-last-interval | src/clip.c | float end = i + 1 == n - 1 ? clip->duration : (float)(i + 1) / clip->sampleRate; | float end = (float)(i + 1) / clip->sampleRate;
-clip-alpha-clamp | src/clip.c | *alphaOut = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha); | *alphaOut = alpha;
-clip-nlerp | src/clip.c | return maniQuatNormalize(q); | return q;
-clip-step-float | src/clip.c | values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha; | values[i] = va + (vb - va) * alpha;
-clip-skeleton | src/clip.c | clip->skeletonIdentity != skeleton->identity || | false ||
+clip-alpha-clamp | src/clip.c | pair.alpha = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha); | pair.alpha = alpha;
+clip-nlerp | src/clip.c | maniCodecNormalize(out); | (void)out;
+clip-step-float | src/clip.c | values[i] = step ? (pair->alpha < 1.0f ? va : vb) : va + (vb - va) * pair->alpha; | values[i] = va + (vb - va) * pair->alpha;
+clip-skeleton | src/clip.c | clip->skeletonIdentity == skeleton->identity && | true &&
 clip-capacity | src/clip.c | if (capacity < clip->floatTrackCount) | if (capacity + 1 < clip->floatTrackCount)
 trk-name-empty | src/clip_tracks.c | if (length == 0 || start > nameSize || length > nameSize - start) | if (start > nameSize || length > nameSize - start)
 trk-name-hash | src/clip_tracks.c | if (maniHashBytes(MANI_HASH_INIT, names + start, length) != maniLoadU64(entry + offset + 8)) | if (false)
@@ -1102,3 +1102,74 @@ fta-names-count | src/fbx_take.c | r->namesUsed += maniFbxStringDecode(r->fbx, n
 fmo-names-count | src/fbx_model.c | raw += maniFbxObjectName(fbx, fbx->models[m], NULL, 0); | raw += 1;
 ftr-object-name-count | src/fbx_tracks.c | size_t length = maniFbxObjectName(fbx, object, NULL, 0); | size_t length = 1;
 ftr-shape-name-count | src/fbx_tracks.c | size_t decoded = maniFbxStringDecode(fbx, property, NULL, 0); | size_t decoded = 1;
+
+# Compressed clips (clip_compressed.c, clip_codec.c, clip_cursor.c,
+# clip_plan.c, clip_search.c, clip_compress.c, sections in clip.c;
+# mani-0019), 2026-10-15: 58 mutants, 54 killed. The first sweep left 21;
+# tests of the codec alone, grown and empty sections, a raw NaN, constant
+# rotations, cursor rebinding, negated keys and per-bone precisions
+# killed 17, and one found segment extents a step loose (fixed).
+# Equivalent: cmp-segment-of (the lookup's correcting walk finds the
+# segment from 0 too, only slower), cod-round-cap (v * max + 0.5 for v in
+# [0, 1] floors to at most max for bits up to 23), cod-seg-cap (no
+# binary32 maximum in [0, 1] takes minimum and extent past 255, checked
+# over all of them) and cur-slot-b (one sample decoded into both slots
+# gives the same values).
+cmp-dropped | src/clip_compressed.c | return 3u - (byte >> 6); | return 3u;
+cmp-forms-right | src/clip_compressed.c | right = ((mask >> c) & 1u) != 0 ? f != maniClipFormAbsent : f == maniClipFormAbsent; | right = true;
+cmp-forms-rotations | src/clip_compressed.c | counts->animatedRotations += f == maniClipFormAnimated && c == 1 ? 1 : 0; | counts->animatedRotations += f == maniClipFormAnimated ? 1 : 0;
+cmp-float-form | src/clip_compressed.c | if (f != maniClipFormConstant && f != maniClipFormAnimated) | if (f == 0)
+cmp-constant-rot | src/clip_compressed.c | if (!Finite(v) || (rotation && !(v >= -1.0f && v <= 1.0f))) | if (!Finite(v))
+cmp-low-rot | src/clip_compressed.c | if (!Finite(low) || (rotation && !(low >= -1.0f))) | if (!Finite(low))
+cmp-extent-sum | src/clip_compressed.c | if (!Finite(extent) || !(extent >= 0.0f) || !Finite(low + extent) || | if (!Finite(extent) || !(extent >= 0.0f) ||
+cmp-extent-rot | src/clip_compressed.c | (rotation && !(extent <= 2.0f))) | (false))
+cmp-rate-table | src/clip_compressed.c | if (rate >= MANI_CODEC_RATES || (rate == 0 && clip->segmentCount == 1)) | if (rate > MANI_CODEC_RATES || (rate == 0 && clip->segmentCount == 1))
+cmp-rate-zero-one | src/clip_compressed.c | if (rate >= MANI_CODEC_RATES || (rate == 0 && clip->segmentCount == 1)) | if (rate >= MANI_CODEC_RATES)
+cmp-head | src/clip_compressed.c | return n + (clip->segmentCount > 1 ? ranges : 0); | return n + ranges;
+cmp-seg-count | src/clip_compressed.c | if (maniLoadU32(e) != next || count == 0 || next + count > clip->sampleCount) | if (maniLoadU32(e) != next || next + count > clip->sampleCount)
+cmp-seg-offset | src/clip_compressed.c | if (maniLoadU32(e + 8) != offset || offset + head > dataSize || | if (offset + head > dataSize ||
+cmp-seg-bits | src/clip_compressed.c | if (maniLoadU32(e + 12) != channelBits || maniLoadU32(e + 16) != floatBits) | if (maniLoadU32(e + 12) != channelBits)
+cmp-seg-all | src/clip_compressed.c | if (next != clip->sampleCount) | if (false)
+cmp-spare | src/clip_compressed.c | return offset + 8 == dataSize ? (maniFileResult){mani_success, 0, 0} : Fail(dataEntry); | return offset + 8 <= dataSize ? (maniFileResult){mani_success, 0, 0} : Fail(dataEntry);
+cmp-raw-finite | src/clip_compressed.c | if (!Finite(v)) | if (false)
+cmp-range-wide | src/clip_compressed.c | if (range[k] + range[width + k] > 255) | if (range[k] + range[width + k] > 256)
+cmp-forms-size | src/clip_compressed.c | if (sizes[10] != (uint64_t)clip->trackCount + clip->floatTrackCount) | if (sizes[10] < (uint64_t)clip->trackCount + clip->floatTrackCount)
+cmp-ranges-size | src/clip_compressed.c | if (sizes[12] != 24 * counts.animatedChannels + 8 * counts.animatedFloats) | if (sizes[12] < 24 * counts.animatedChannels + 8 * counts.animatedFloats)
+cmp-segment-of | src/clip_compressed.c | uint32_t s = sample / per < n ? sample / per : n - 1; | uint32_t s = 0;
+cmp-walker-floats | src/clip_compressed.c | w.bit += channelBits; | w.bit += 0;
+cmp-decode-several | src/clip_compressed.c | if (w->several && rate != 0) | if (rate != 0)
+cmp-pass-bits | src/clip_compressed.c | w->bit += (uint64_t)width * maniCodecBits(rate); | w->bit += maniCodecBits(rate);
+cod-round-half | src/clip_codec.c | float q = floorf(v * (float)max + 0.5f); | float q = floorf(v * (float)max);
+cod-round-cap | src/clip_codec.c | return q < (float)max ? (uint32_t)q : max; | return (uint32_t)q;
+cod-seg-step | src/clip_codec.c | q = maniCodecRangeByte(q) <= minimum || q == 0 ? q : (uint8_t)(q - 1); | q = q;
+cod-seg-cap | src/clip_codec.c | e = e <= 255 - q ? e : (uint8_t)(255 - q); | e = e;
+cod-ext-step | src/clip_codec.c | e = maniCodecRangeByte(e) >= extent || e == 255 ? e : (uint8_t)(e + 1); | e = e;
+cod-rebuild | src/clip_codec.h | float squared = ((1.0f - a * a) - b * b) - c * c; | float squared = (1.0f - a * a) - b * b;
+cod-rot-y | src/clip_codec.h | out[1] = dropped == 0 ? a : (dropped == 1 ? r : b); | out[1] = dropped == 1 ? r : b;
+cod-normalize-guard | src/clip_codec.h | if (!(squared > 0.0f && squared <= FLT_MAX)) | if (!(squared > 0.0f))
+cur-shape | src/clip_cursor.c | if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats) | if (cursor->clip == clip && cursor->identity == clip->identity)
+cur-identity | src/clip_cursor.c | if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats) | if (cursor->clip == clip && cursor->floats == floats)
+cur-capacity | src/clip_cursor.c | if (floats > cursor->capacity) | if (false)
+cur-slot-b | src/clip_cursor.c | b = pair->second == pair->first ? a : 1 - a; | b = 1 - a;
+cur-align | src/clip_cursor.c | if (memory == NULL || cursorOut == NULL || (uintptr_t)memory % MANI_CLIP_CURSOR_ALIGNMENT != 0) | if (memory == NULL || cursorOut == NULL)
+cur-tag | src/clip_cursor.c | return cursor != NULL && cursor->tag == CURSOR_TAG; | return cursor != NULL;
+cl-tag-past | src/clip.c | if (tag == 0 || tag > MANI_CLIP_COMPRESSED_SECTIONS) | if (tag == 0)
+cl-empty | src/clip.c | if (size == 0) | if (false)
+cl-full-extra | src/clip.c | if (s->sizes[i] != 0) | if (false)
+cl-listed | src/clip.c | return *next < list->count && list->bones[*next] == bone; | return *next < list->count;
+cl-bones-order | src/clip.c | if (bones[i] >= skeleton->boneCount || (i > 0 && bones[i] <= bones[i - 1])) | if (bones[i] >= skeleton->boneCount)
+pl-dropped | src/clip_plan.c | t->dropped = smallest[i] > smallest[t->dropped] ? i : t->dropped; | t->dropped = 3;
+pl-sign | src/clip_plan.c | float sign = LoadF32(v + 4 * t->dropped) < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
+pl-fold-float | src/clip_plan.c | constant = fabsf(v[0] - t->constant[0]) <= t->tolerance; | constant = fabsf(v[0] - t->constant[0]) < 0.0f;
+pl-float-zero | src/clip_plan.c | uint32_t rate = several && Fits(p, t, s, 0, constant) ? 0 : 1; | uint32_t rate = 1;
+pl-split-extra | src/clip_plan.c | at += base + (s < extra ? 1u : 0u); | at += base;
+se-excess-own | src/clip_search.c | return own > dominant ? own : dominant; | return dominant;
+se-excess-dominant | src/clip_search.c | return own > dominant ? own : dominant; | return own;
+se-reach | src/clip_search.c | s->shells[parent].dominant = reach; | s->shells[parent].dominant = s->shells[parent].dominant;
+se-least-room | src/clip_search.c | if (excess <= 0.0 && excess > bestExcess) | if (excess <= 0.0 && bestBits == UINT32_MAX)
+se-size-stop | src/clip_search.c | if (bits > bestBits) | if (false)
+se-allowed | src/clip_search.c | if (rates[i] == 0 && s->plan->segmentCount == 1) | if (false)
+se-fold-rest | src/clip_search.c | restOk[i] = restOk[i] && Excess(shell, reference, &m) <= 0.0; | restOk[i] = restOk[i];
+co-dropped-bits | src/clip_compress.c | out->data[0][t->track] |= (uint8_t)((3u - t->dropped) << 6); | out->data[0][t->track] |= 0;
+co-empty-left | src/clip_compress.c | count += sizes[i] > 0 ? 1 : 0; | count += 1;
+cod-seg-floor | src/clip_codec.c | float high = floorf(extent * 255.0f); | float high = ceilf(extent * 255.0f);
