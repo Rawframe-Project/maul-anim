@@ -41,3 +41,7 @@ format.
 - Blending weights run from 0 to 1 and are divided by each bone's total
   first, so blends of finite poses stay finite; differences that are
   not finite are refused, and the palette refuses a difference.
+- Influences (mani-0021): `maniBuildInfluences` writes a mesh
+  primitive's influences bound to a skin, sorted and renormalized in
+  groups of four; `maniOpenInfluences` and its queries read them, and
+  `maniSkinIdentity` gives the identity they bind to.

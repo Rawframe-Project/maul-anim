@@ -12,6 +12,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/skin.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -123,6 +124,11 @@ extern "C"
         // An additive clip's basis with a scale component of 0 on a bone
         // whose track has scale keys.
         maniBuildReasonBasis = 15,
+        // A weight below 0, or a dual quaternion weight outside 0 to 1.
+        maniBuildReasonWeight = 16,
+        // A joint given twice for one vertex with weight; other is the
+        // earlier influence.
+        maniBuildReasonRepeatedJoint = 17,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -204,6 +210,46 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder,
                                                           const maniSkinSource* source);
+
+    // A mesh primitive's influences (mani-0021): any number a vertex,
+    // vertex v's in [offsets[v], offsets[v + 1]) of joints and weights.
+    typedef struct maniInfluenceSource
+    {
+        // The opened skin the joints index.
+        const maniSkin* skin;
+        // vertexCount + 1 offsets, increasing from 0.
+        const uint32_t* offsets;
+        // Joints of the skin, and their weights (finite, not negative).
+        const uint32_t* joints;
+        const float* weights;
+        // NULL, or per vertex the blend from linear (0) to dual
+        // quaternion (1) skinning, FBX's blended method.
+        const float* dualQuaternionWeights;
+        uint32_t vertexCount;
+        uint32_t reserved;
+    } maniInfluenceSource;
+
+    /// Builds an influences file bound to the source's skin: zero weights
+    /// dropped, each vertex's influences sorted by decreasing weight then
+    /// joint, padded to groups of four with joint 0 at weight 0 and
+    /// renormalized to sum 1 (in binary64, then rounded); a vertex with no
+    /// weight keeps all 0, and skinning leaves it as it is. Keeps the file
+    /// in place of any built before.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The influences.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
+    /// misuse), or with the reason and item for a refused source (item a
+    /// vertex, other an influence index): `maniBuildReasonCount` for no
+    /// vertices, offsets not increasing from 0 or more than 64 weighted
+    /// influences on a vertex, `maniBuildReasonJoint`,
+    /// `maniBuildReasonNotFinite`, `maniBuildReasonWeight`,
+    /// `maniBuildReasonRepeatedJoint`; `mani_errorCapacity` when memory
+    /// runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildInfluences(maniBuilder* builder,
+                                                                const maniInfluenceSource* source);
 
     // How a channel's keys are joined, as glTF's samplers define it.
     typedef uint32_t maniInterpolation;

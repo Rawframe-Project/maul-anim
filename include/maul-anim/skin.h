@@ -29,6 +29,7 @@ extern "C"
     {
         const uint8_t* joints;
         const uint8_t* inverseBinds;
+        uint64_t identity;
         uint64_t skeletonIdentity;
         uint32_t skeletonBoneCount;
         uint32_t jointCount;
@@ -64,6 +65,15 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniSkinSkeletonIdentity(const maniSkin* skin);
+
+    /// Returns the skin's own identity, which influences record to bind
+    /// to it (mani-0021).
+    ///
+    /// @param skin  An opened skin.
+    /// @return The identity.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniSkinIdentity(const maniSkin* skin);
 
     /// Returns the skeleton bone of a joint.
     ///

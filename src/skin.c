@@ -109,6 +109,7 @@ maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
     *skinOut = (maniSkin){
         .joints = data[1],
         .inverseBinds = data[2],
+        .identity = c.identity,
         .skeletonIdentity = maniLoadU64(data[0]),
         .skeletonBoneCount = bones,
         .jointCount = joints,
@@ -124,6 +125,11 @@ uint32_t maniSkinJointCount(const maniSkin* skin)
 uint64_t maniSkinSkeletonIdentity(const maniSkin* skin)
 {
     return skin->skeletonIdentity;
+}
+
+uint64_t maniSkinIdentity(const maniSkin* skin)
+{
+    return skin->identity;
 }
 
 uint32_t maniSkinJoint(const maniSkin* skin, uint32_t joint)

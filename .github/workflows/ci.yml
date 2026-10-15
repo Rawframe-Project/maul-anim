@@ -171,6 +171,8 @@ jobs:
           build/test_skeleton --seed corpus-fuzz_skeleton/sample.skeleton
           mkdir -p corpus-fuzz_skin
           build/test_skin --seed corpus-fuzz_skin/sample.skin
+          mkdir -p corpus-fuzz_influences
+          build/test_influences --seed corpus-fuzz_influences/sample.influences
           mkdir -p corpus-fuzz_clip
           build/test_clip --seed corpus-fuzz_clip/sample.clip
           build/test_clip_compress --seed corpus-fuzz_clip/compressed.clip

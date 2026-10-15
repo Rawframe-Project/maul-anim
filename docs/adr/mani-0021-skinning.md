@@ -1,0 +1,44 @@
+# mani-0021. Skinning and morph targets
+
+Status: Accepted
+
+## Context
+
+Skins (mani-0005) give each mesh's joints and inverse binds, and the
+palette composes them with a pose. Deforming the mesh needs each
+vertex's influences, which glTF stores per mesh primitive (`JOINTS_n`,
+`WEIGHTS_n`, any number of sets) and FBX per cluster (`Indexes`,
+`Weights`), with FBX's skinning method and per-vertex blend between
+linear and dual quaternion skinning. A glTF skin serves several meshes,
+so influences cannot live in the skin. Morph targets are per-primitive
+deltas applied before skinning, weighted by animated values.
+
+## Decision
+
+- **Influences** are container kind 6, a file per mesh primitive, bound
+  to a skin by the skin's identity and joint count. Each vertex holds
+  groups of four (joint, weight), as many groups as its heaviest vertex
+  needs (at most 16): weights decreasing, the lower joint first between
+  equals, padded with joint 0 at weight 0, renormalized to sum 1 in
+  binary64 at build (a vertex without weight keeps all 0 and skinning
+  leaves it as it is). Optional per vertex: FBX's blend toward dual
+  quaternion skinning, and a center of rotation. Building refuses a
+  weight negative or not finite, a joint outside the skin, a joint
+  weighted twice for one vertex, and more than 64 weighted influences;
+  opening checks every joint, weight, blend and center.
+- **Methods:** linear blend, dual quaternion with two-phase scale and
+  shear, FBX's blend of the two, and centers of rotation built offline,
+  all over one influence format, as CPU jobs over vertex ranges of
+  strided streams and as palettes for GPUs (row-major 3x4; dual
+  quaternions with the scale and shear part).
+- **Morph targets** are container kind 7, a file per primitive of named
+  dense or sparse deltas, applied before skinning.
+- **Bits:** binary32 in a fixed order, the same on every platform.
+
+## Consequences
+
+A host switches methods per mesh without rebuilding data, and a mesh
+binds to the wrong skin only by an identity collision. Sorting and
+renormalizing once at build make every job independent of the
+source's order. The formats and jobs land slice by slice (item 6b);
+this record grows with them.

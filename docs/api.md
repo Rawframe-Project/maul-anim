@@ -81,6 +81,11 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder, cons
 Builds a skin file bound to the source's skeleton, and keeps it in place of any file built before.  @param builder  The builder. @param source   The skin. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and joint for a refused source (no joints or too many, a bone past the skeleton's, a matrix not finite); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildInfluences(maniBuilder* builder, const maniInfluenceSource* source);
+```
+Builds an influences file bound to the source's skin: zero weights dropped, each vertex's influences sorted by decreasing weight then joint, padded to groups of four with joint 0 at weight 0 and renormalized to sum 1 (in binary64, then rounded); a vertex with no weight keeps all 0, and skinning leaves it as it is. Keeps the file in place of any built before.  @param builder  The builder. @param source   The influences. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source (item a vertex, other an influence index): `maniBuildReasonCount` for no vertices, offsets not increasing from 0 or more than 64 weighted influences on a vertex, `maniBuildReasonJoint`, `maniBuildReasonNotFinite`, `maniBuildReasonWeight`, `maniBuildReasonRepeatedJoint`; `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source);
 ```
 Builds a full-precision clip file: evaluates every channel at each sample time as glTF defines its interpolation (in binary64, rotations normalized and kept in one hemisphere from sample to sample), and keeps the file in place of any built before.  @param builder  The builder. @param source   The clip. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and track for a refused source; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -609,6 +614,11 @@ uint64_t maniSkinSkeletonIdentity(const maniSkin* skin);
 Returns the identity of the skeleton the skin is bound to.  @param skin  An opened skin. @return The skeleton's identity. @par Thread safety Safe from any thread.
 
 ```c
+uint64_t maniSkinIdentity(const maniSkin* skin);
+```
+Returns the skin's own identity, which influences record to bind to it (mani-0021).  @param skin  An opened skin. @return The identity. @par Thread safety Safe from any thread.
+
+```c
 uint32_t maniSkinJoint(const maniSkin* skin, uint32_t joint);
 ```
 Returns the skeleton bone of a joint.  @param skin   An opened skin. @param joint  The joint. @return The bone, or MANI_NO_BONE for a joint past the count. @par Thread safety Safe from any thread.
@@ -623,6 +633,45 @@ MANI_NODISCARD MANI_API maniResult maniComputePalette(const maniPose* pose, cons
 ```
 Computes a skin's palette: entry j is the model matrix of joint j's bone times the joint's inverse bind matrix.  @param pose      A pose of the skeleton with its model composed. @param skeleton  The skeleton the skin is bound to. @param skin      The skin. @param palette   Receives the entries; may be NULL when capacity is 0. @param capacity  The array's length. @param countOut  Receives the joint count. May be NULL. @return `mani_success`; `mani_errorCapacity` when the array is shorter than the joint count, with the count written and nothing else; `mani_errorInvalid` for a NULL argument, a skeleton that is not the skin's or the pose's, a pose whose model is stale, or a difference. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
+## `skinning.h`
+
+Skinning (mani-0021): a mesh primitive's influences, bound to a skin, over the caller's bytes. Groups of four influences a vertex, weights decreasing and summing to 1 (or all 0, a vertex left as it is).
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences* influencesOut);
+```
+Opens an influences file in place: checks the container, the sizes, every joint against the skin's joint count the file records, every weight finite and from 0 to 1, the dual quaternion weights and the centers when present, and the identity.  @param bytes          The file, 16-byte aligned. @param size           Its size in bytes; bytes past the file are ignored. @param influencesOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniInfluencesVertexCount(const maniInfluences* influences);
+```
+Returns the number of vertices.  @param influences  Opened influences. @return The vertex count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniInfluencesPerVertex(const maniInfluences* influences);
+```
+Returns the influences a vertex holds: four times the group count, the last ones of weight 0 where a vertex has fewer.  @param influences  Opened influences. @return The influences a vertex. @par Thread safety Safe from any thread.
+
+```c
+bool maniInfluencesFitSkin(const maniInfluences* influences, const maniSkin* skin);
+```
+Returns whether the influences are a skin's: its identity and joint count are the ones recorded.  @param influences  Opened influences. @param skin        An opened skin. @return True when bound to the skin. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniInfluence(const maniInfluences* influences, uint32_t vertex, uint32_t slot, float* weightOut);
+```
+Returns one influence of a vertex: its joint (an index into the skin's joints) and weight; joint 0 at weight 0 past the vertex count or the influences.  @param influences  Opened influences. @param vertex      The vertex. @param slot        The influence, 0 the heaviest. @param weightOut   Receives the weight; may be NULL. @return The joint. @par Thread safety Safe from any thread.
+
+```c
+float maniInfluencesDualQuaternionWeight(const maniInfluences* influences, uint32_t vertex);
+```
+Returns a vertex's blend between linear (0) and dual quaternion (1) skinning, FBX's blended method; 0 for influences without them or past the vertex count.  @param influences  Opened influences. @param vertex      The vertex. @return The weight, 0 to 1. @par Thread safety Safe from any thread.
+
+```c
+bool maniInfluencesCenter(const maniInfluences* influences, uint32_t vertex, maniVec3* centerOut);
+```
+Reads a vertex's center of rotation, built offline.  @param influences  Opened influences. @param vertex      The vertex. @param centerOut   Receives the center; unchanged on false. @return True when the influences hold centers and the vertex is in range. @par Thread safety Safe from any thread.
+
 ---
 
-118 functions across 8 headers.
+127 functions across 9 headers.
