@@ -930,12 +930,13 @@ static void TestCodec(void)
 // An additive clip compressed: its report is the test's own measure of
 // the rest plus each difference, within the precision; channels at the
 // rest fold to the identity difference.
-static void TestAdditiveCompressed(void)
+static void AdditiveCompressed(float precision)
 {
     maniClipSource source = Source(0.0f);
     source.additive = maniAdditiveRest;
     BuildFullFrom(&source);
     maniCompressOptions options = maniDefaultCompressOptions();
+    options.precision = precision;
     maniCompressReport report;
     CHECK(Compress(&options, &report) == mani_success, "compresses");
     maniClip clip;
@@ -984,6 +985,26 @@ static void TestAdditiveCompressed(void)
     CHECK(spine.translation.x == 0.0f && spine.translation.y == 0.0f && root.scale.x == 1.0f &&
               root.scale.z == 1.0f && hand.rotation.w == 1.0f && hand.rotation.x == 0.0f,
           "no keys: the identity");
+}
+
+// At the default precision and a tight one (the dominant shells grow by
+// the children's reach on the rest, not by their differences); and a
+// channel at its rest folds to the identity difference, the default.
+static const float kChestRestT[3] = {0.0f, 0.3f, 0.0f};
+
+static void TestAdditiveCompressed(void)
+{
+    AdditiveCompressed(0.0001f);
+    AdditiveCompressed(0.00001f);
+    maniClipSource source = Source(0.0f);
+    source.additive = maniAdditiveRest;
+    s_tracks[2].translation = Linear(kChestRestT, 1);
+    BuildFullFrom(&source);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Compress(&options, NULL) == mani_success, "compresses");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    CHECK((clip.forms[2] & 3) == maniClipFormDefault, "a translation at its rest: the default");
 }
 
 // Per-bone precisions, tight near the root and loose at the leaves: each

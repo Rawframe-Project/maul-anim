@@ -307,6 +307,78 @@ static void TestHemisphere(void)
     CHECK(same, "a negated layer blends to the same bits");
 }
 
+// Padding bones past the count stay the identity; zero and overflowing
+// rotation sums give the identity; the model is marked stale.
+static void TestEdges(void)
+{
+    RandomizeLayers();
+    maniBlendLayer layers[2] = {{s_layer[0], 0.4f, NULL}, {s_layer[1], 0.6f, NULL}};
+    CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
+          "blends");
+    const float* locals = maniPoseLocalsRead(s_out);
+    bool padding = true;
+    for (uint32_t b = kBones; b < 24; ++b)
+    {
+        const float* slot = locals + (size_t)(b / 8) * 80 + b % 8;
+        for (uint32_t c = 0; c < 10; ++c)
+        {
+            float want = c == 6 || c >= 7 ? 1.0f : 0.0f;
+            padding = padding && slot[c * 8] == want;
+        }
+    }
+    CHECK(padding, "padding bones stay the identity");
+    const maniQuat sums[2] = {{0.0f, 0.0f, 0.0f, 0.0f}, {3e19f, 3e19f, 0.0f, 0.0f}};
+    for (int i = 0; i < 2; ++i)
+    {
+        for (uint32_t b = 0; b < kBones; ++b)
+        {
+            for (int l = 0; l < 2; ++l)
+            {
+                maniTransform t = maniPoseLocal(s_layer[l], b);
+                t.rotation = sums[i];
+                maniPoseSetLocal(s_layer[l], b, t);
+            }
+        }
+        CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
+              "blends");
+        bool identity = true;
+        for (uint32_t b = 0; b < kBones; ++b)
+        {
+            maniQuat q = maniPoseLocal(s_out, b).rotation;
+            identity = identity && q.x == 0.0f && q.y == 0.0f && q.z == 0.0f && q.w == 1.0f;
+        }
+        CHECK(identity, "a zero or overflowing rotation sum: the identity");
+    }
+    RandomizeLayers();
+    CHECK(maniPoseSetRest(s_out, &s_skeleton) == mani_success && maniPoseModelCurrent(s_out),
+          "a current model");
+    CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
+          "blends");
+    CHECK(!maniPoseModelCurrent(s_out), "a blend marks the model stale");
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+          "difference");
+    CHECK(maniComputeModel(s_out, &s_skeleton) == mani_success, "composes");
+    maniBlendLayer add = {s_layer[2], 0.5f, NULL};
+    CHECK(maniAddPoses(&s_skeleton, s_out, &add, 1) == mani_success, "adds");
+    CHECK(!maniPoseModelCurrent(s_out), "adding marks the model stale");
+    // A difference whose turn overflows binary32: the identity turn.
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniTransform t = maniPoseLocal(s_layer[0], b);
+        t.rotation = (maniQuat){3e19f, 3e19f, 0.0f, 0.0f};
+        maniPoseSetLocal(s_layer[0], b, t);
+    }
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+          "difference");
+    bool turn = true;
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniQuat q = maniPoseLocal(s_layer[2], b).rotation;
+        turn = turn && q.x == 0.0f && q.y == 0.0f && q.z == 0.0f && q.w == 1.0f;
+    }
+    CHECK(turn, "an overflowing difference turn: the identity");
+}
+
 static void TestKinds(void)
 {
     RandomizeLayers();
@@ -437,6 +509,13 @@ static void TestMask(void)
         right = right && weights[b] == want;
     }
     CHECK(right, "nearest chain, the bone's own first, the later of two");
+    // A bone with children: its own chain, listed before its subtree's,
+    // stays its own, and its children take the subtree's.
+    uint32_t parent = maniSkeletonParent(&s_skeleton, kBones - 1);
+    const maniMaskChain mixed[2] = {{parent, 0.25f, false}, {parent, 0.5f, true}};
+    CHECK(maniBuildMask(&s_skeleton, mixed, 2, 0.0f, weights, kBones) == mani_success, "builds");
+    CHECK(weights[parent] == 0.25f && weights[kBones - 1] == 0.5f,
+          "own first for the bone, the subtree for its children");
     float kept[kBones];
     memcpy(kept, weights, sizeof kept);
     const maniMaskChain past = {kBones, 0.5f, true};
@@ -732,6 +811,7 @@ int main(void)
     TestAgainstReference();
     TestRest();
     TestHemisphere();
+    TestEdges();
     TestKinds();
     TestRefusals();
     TestMask();

@@ -68,14 +68,14 @@ static bool Valid(const maniSkeleton* skeleton, const maniBlendLayer* layers, ui
     return true;
 }
 
-// One layer's eight weights from first: its weight times each bone's,
-// 0 past the bones.
+// One layer's eight weights from first: its weight times each bone's
+// (padding lanes take the layer's; Settle rewrites them).
 static void GroupWeights(const maniBlendLayer* layer, uint32_t first, uint32_t lanes,
                          float w[LANES])
 {
     for (uint32_t k = 0; k < LANES; ++k)
     {
-        w[k] = k < lanes ? layer->weight : 0.0f;
+        w[k] = layer->weight;
     }
     for (uint32_t k = 0; layer->boneWeights != NULL && k < lanes; ++k)
     {
@@ -210,7 +210,8 @@ static void Settle(float* o, const float* total, const maniSkeleton* skeleton, u
             continue;
         }
         float rest[COMPONENTS];
-        Rest(skeleton, first + k, difference || k >= lanes, rest);
+        // Bones past the skeleton's count have the identity for a rest.
+        Rest(skeleton, first + k, difference, rest);
         for (uint32_t c = 0; c < COMPONENTS; ++c)
         {
             o[c * LANES + k] = rest[c];

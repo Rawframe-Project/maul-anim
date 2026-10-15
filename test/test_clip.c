@@ -1101,6 +1101,11 @@ static void TestAdditiveClip(void)
     r = BuildFrom(&source);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonBasis && r.item == 1,
           "a basis scale 0");
+    // Only z at 0: refused as well.
+    static const float kFlatZ[6] = {1, 1, 0, 1, 1, 1};
+    s_tracks[1].scale = (maniChannelSource){kTurnTimes, kFlatZ, 2, maniInterpolationLinear};
+    r = BuildFrom(&source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonBasis, "a basis z of 0");
     source.additive = maniAdditiveRest;
     CHECK(BuildFrom(&source).result == mani_success, "the rest's scale is 1");
 }
