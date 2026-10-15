@@ -36,10 +36,8 @@ static _Alignas(16) uint8_t s_skinFile[65536];
 static _Alignas(16) uint8_t s_clipFile[262144];
 static _Alignas(32) uint8_t s_poseMemory[16384];
 
-enum
-{
-    kNone = UINT32_MAX,
-};
+// Nothing built yet.
+static const uint32_t kNone = UINT32_MAX;
 
 // One fixture open, and what was last built from it: a skeleton (by
 // kind, index and whether its placement is folded), a skin, a clip.
