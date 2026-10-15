@@ -222,8 +222,8 @@ static void Settle(float* o, const float* total, const maniSkeleton* skeleton, u
 // Each bone's total over the layers (from the weights alone, so known
 // before any pose is read), the reciprocal the weights' shares take (of
 // the threshold where the total is under it), and the rest's share of
-// the shortfall.
-static void Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first, uint32_t lanes,
+// the shortfall; whether any bone takes a share.
+static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first, uint32_t lanes,
                    float threshold, float* total, float* inverse, float* share)
 {
     float w[LANES];
@@ -239,12 +239,15 @@ static void Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
             total[k] += w[k];
         }
     }
+    bool any = false;
     for (uint32_t k = 0; k < LANES; ++k)
     {
         bool under = total[k] < threshold;
         inverse[k] = 1.0f / (under ? threshold : total[k]);
         share[k] = under && total[k] > 0.0f ? (threshold - total[k]) * inverse[k] : 0.0f;
+        any |= share[k] > 0.0f;
     }
+    return any;
 }
 
 maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
@@ -265,7 +268,7 @@ maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* la
         float total[LANES];
         float inverse[LANES];
         float share[LANES];
-        Shares(layers, count, first, lanes, threshold, total, inverse, share);
+        bool fill = Shares(layers, count, first, lanes, threshold, total, inverse, share);
         bool started = false;
         for (uint32_t i = 0; i < count; ++i)
         {
@@ -284,7 +287,10 @@ maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* la
         }
         if (started)
         {
-            FillRest(o, share, skeleton, first, lanes, difference);
+            if (fill)
+            {
+                FillRest(o, share, skeleton, first, lanes, difference);
+            }
             Normalize(o);
         }
         Settle(o, total, skeleton, first, lanes, difference);
