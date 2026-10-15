@@ -822,3 +822,59 @@ fsk-within-all | src/fbx_skin.c | w->all = w->all && maniSkeletonFindBone(w->ske
 fsk-within-some | src/fbx_skin.c | return w.count > 0 && w.all; | return w.all;
 fbl-shape-indexes | src/fbx_blend.c | maniFbxFindChild(fbx, node, "Indexes", 7) != MANI_FBX_NONE) | true)
 fbl-blender-pattern | src/fbx_blend.c | return Matches("blender-- ?.?.?", s, length) || Matches("blender- ?.?", s, length); | return Matches("blender-- ?.?.?", s, length);
+
+# FBX 6.x keys (fbx_keys.c, value lists in fbx_value.c, extrapolation
+# letters in fbx_curve.c; mani-0016), 2026-10-15: 49 mutants, 47 killed.
+# Equivalent: fky-linear-guard (a chord slope at a zero gap only feeds
+# handles whose guards then skip it) and fky-count-cap (a count past a
+# third of the values fails the parse either way; the bound only saves
+# memory).
+fky-letter-range | src/fbx_keys.c | return v >= 0.0 && v <= 127.0 ? (char)(int)v : 0; | return (char)(int)v;
+fky-has | src/fbx_keys.c | return p->end - p->at >= n; | return p->end - p->at > n;
+fky-weight-need | src/fbx_keys.c | uint32_t need = mode == 'a' ? 2 : (mode == 'l' || mode == 'r' ? 1 : 0); | uint32_t need = mode == 'a' ? 2 : (mode == 'l' ? 1 : 0);
+fky-weight-known | src/fbx_keys.c | if (!(mode == 'n' || mode == 'c' || need > 0) || !Has(p, need)) | if (!(mode == 'n' || need > 0) || !Has(p, need))
+fky-weight-has | src/fbx_keys.c | if (!(mode == 'n' || mode == 'c' || need > 0) || !Has(p, need)) | if (!(mode == 'n' || mode == 'c' || need > 0))
+fky-weight-right | src/fbx_keys.c | if (mode == 'a' || mode == 'r') | if (mode == 'a')
+fky-weight-left | src/fbx_keys.c | if (mode == 'a' || mode == 'l') | if (mode == 'l')
+fky-weight-left-at | src/fbx_keys.c | m->nextWeightLeft = maniFbxNarrow(p->data[p->at + need - 1]); | m->nextWeightLeft = maniFbxNarrow(p->data[p->at]);
+fky-weight-advance | src/fbx_keys.c | p->at += need; | p->at += 0;
+fky-old | src/fbx_keys.c | bool old = version <= 4004; | bool old = version < 4004;
+fky-sb-weights | src/fbx_keys.c | *weights = version == 4003 ? 0 : 1; | *weights = 1;
+fky-a-weights | src/fbx_keys.c | *weights = old ? 0 : 1; | *weights = 1;
+fky-pq-weights | src/fbx_keys.c | *weights = old ? 1 : 2; | *weights = 2;
+fky-t-skip | src/fbx_keys.c | *skip = 3; | *skip = 2;
+fky-cubic-has | src/fbx_keys.c | if (!SlopeCounts(mode, p->version, &skip, &weights) || !Has(p, skip)) | if (!SlopeCounts(mode, p->version, &skip, &weights))
+fky-slope-explicit | src/fbx_keys.c | if (mode == 's' || mode == 'b') | if (mode == 's')
+fky-slope-next | src/fbx_keys.c | m->nextSlopeLeft = maniFbxNarrow(p->data[p->at + 1]); | m->nextSlopeLeft = maniFbxNarrow(p->data[p->at]);
+fky-auto | src/fbx_keys.c | m->autoSlope = true; | m->autoSlope = false;
+fky-skip | src/fbx_keys.c | p->at += skip; | p->at += 0;
+fky-mode-at | src/fbx_keys.c | char mode = Letter(p->data[p->at - 1]); | char mode = Letter(p->data[p->at - 2]);
+fky-linear | src/fbx_keys.c | key->interpolation = maniFbxLinear; | key->interpolation = maniFbxCubic;
+fky-constant-other | src/fbx_keys.c | if (mode != 'C') | if (false)
+fky-constant-version | src/fbx_keys.c | if (p->version >= 4004) | if (p->version > 4004)
+fky-constant-next | src/fbx_keys.c | Letter(p->data[p->at++]) == 'n' ? maniFbxConstantNext : maniFbxConstantPrevious; | Letter(p->data[p->at++]) == 'p' ? maniFbxConstantPrevious : maniFbxConstantNext;
+fky-ticks-whole | src/fbx_keys.c | if (!(ticks >= -0x1p63 && ticks < 0x1p63) || ticks != (double)(int64_t)ticks) | if (!(ticks >= -0x1p63 && ticks < 0x1p63))
+fky-left-guard | src/fbx_keys.c | if (key->time > p->previousTime) | if (key->time >= p->previousTime)
+fky-left-dy | src/fbx_keys.c | key->leftDy = (double)maniFbxNarrow((double)dx * (double)p->slopeLeft); | key->leftDy = (double)dx * (double)p->slopeLeft;
+fky-right-guard | src/fbx_keys.c | if (nextTime > key->time) | if (true)
+fky-carry-slope | src/fbx_keys.c | p->slopeLeft = m->nextSlopeLeft; | p->slopeLeft = 0.0f;
+fky-carry-weight | src/fbx_keys.c | p->weightLeft = m->nextWeightLeft; | p->weightLeft = MANI_FBX_THIRD;
+fky-next-ahead | src/fbx_keys.c | if (i + 1 < count) | if (i < count)
+fky-auto-first | src/fbx_keys.c | i > 0 ? maniFbxAutoSlope(p->previousTime, key->time, nextTime, keys[i - 1].value, | i > 1 ? maniFbxAutoSlope(p->previousTime, key->time, nextTime, keys[i - 1].value,
+fky-auto-left | src/fbx_keys.c | p->slopeLeft = slope; | (void)slope;
+fky-linear-guard | src/fbx_keys.c | float slope = nextTime > key->time | float slope = true
+fky-linear-next | src/fbx_keys.c | m.nextSlopeLeft = slope; | m.nextSlopeLeft = 0.0f;
+fky-order | src/fbx_keys.c | if (!Ticks(p->nextTicks, &ticks) || ticks < previous || !Key(p, out->keys, i, out->count)) | if (!Ticks(p->nextTicks, &ticks) || !Key(p, out->keys, i, out->count))
+fky-first-tick | src/fbx_keys.c | out->firstTick = i == 0 ? ticks : out->firstTick; | out->firstTick = ticks;
+fky-leftover | src/fbx_keys.c | return p->at == p->end; | return true;
+fky-keyver-positive | src/fbx_keys.c | if (version > 0) | if (version != 0)
+fky-keyver-default | src/fbx_keys.c | return fbx->version < 5000 ? 4003 : (fbx->version < 6000 ? 4004 : 4005); | return 4004;
+fky-pre | src/fbx_keys.c | out->pre = maniFbxReadExtrapolation(fbx, node, "Pre-Extrapolation"); | out->pre = out->post;
+fky-count-cap | src/fbx_keys.c | !maniFbxInteger(fbx, maniFbxNodeProperty(fbx, countNode, 0), 0, values / 3, &count)) | !maniFbxInteger(fbx, maniFbxNodeProperty(fbx, countNode, 0), 0, values, &count))
+fky-values-item | src/fbx_keys.c | r.item = r.result == mani_errorFormat ? item : r.item; | r.item = r.item;
+fva-char-word | src/fbx_value.c | *out = fbx->bytes[fbx->properties[property].offset]; | *out = 0;
+fva-nonfinite-length | src/fbx_value.c | bool same = length == n; | bool same = length >= n;
+fva-list-word | src/fbx_value.c | return NonFiniteWord(bytes, p->encodedSize) | return false
+fva-list-string | src/fbx_value.c | if (p->type == 'S' || p->type == 'R' || maniFbxArrayCount(fbx, property) > 0) | if (p->type == 'R' || maniFbxArrayCount(fbx, property) > 0)
+fva-list-array | src/fbx_value.c | bool array = n->propertyCount == 1 && maniFbxArrayCount(fbx, first) > 0; | bool array = false;
+fcu-type-char | src/fbx_curve.c | if (type == MANI_FBX_NONE || !maniFbxCharacter(fbx, maniFbxNodeProperty(fbx, type, 0), &mode)) | if (type == MANI_FBX_NONE || !maniFbxInteger(fbx, maniFbxNodeProperty(fbx, type, 0), INT32_MIN, INT32_MAX, &mode))
