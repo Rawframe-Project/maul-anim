@@ -13,6 +13,7 @@
 #include "fbx_blend.h"
 #include "fbx_curve.h"
 #include "fbx_document.h"
+#include "fbx_keys.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_transform.h"
@@ -62,24 +63,43 @@ static void ReadAll(const maniFbx* fbx)
     }
 }
 
-// Reads a curve object and evaluates it inside, on and past its keys.
+// Evaluates a curve inside, on and past its keys, and releases it.
+static void Evaluate(const maniFbx* fbx, maniFbxCurve* curve)
+{
+    for (uint32_t k = 0; k < curve->count && k < 8; ++k)
+    {
+        double t = curve->keys[k].time;
+        (void)maniFbxEvaluateCurve(curve, t, 0.0);
+        (void)maniFbxEvaluateCurve(curve, t + 0.37, 0.0);
+        (void)maniFbxEvaluateCurve(curve, t - 2.71, 0.0);
+        (void)maniFbxEvaluateCurve(curve, t + 1e9, 0.0);
+    }
+    maniFbxReleaseCurve(fbx, curve);
+}
+
+// Reads a curve object and evaluates it.
 static void Curve(const maniFbx* fbx, uint32_t object)
 {
     maniFbxCurve curve;
-    if (!maniFbxNameIs(fbx, fbx->objects[object].node, "AnimationCurve", 14) ||
-        maniFbxReadCurve(fbx, object, &curve).result != mani_success)
+    if (maniFbxNameIs(fbx, fbx->objects[object].node, "AnimationCurve", 14) &&
+        maniFbxReadCurve(fbx, object, &curve).result == mani_success)
     {
-        return;
+        Evaluate(fbx, &curve);
     }
-    for (uint32_t k = 0; k < curve.count && k < 8; ++k)
+}
+
+// Reads every node with a Key child as 6.x keys and evaluates them.
+static void Keys(const maniFbx* fbx)
+{
+    for (uint32_t n = 0; n < fbx->nodeCount; ++n)
     {
-        double t = curve.keys[k].time;
-        (void)maniFbxEvaluateCurve(&curve, t, 0.0);
-        (void)maniFbxEvaluateCurve(&curve, t + 0.37, 0.0);
-        (void)maniFbxEvaluateCurve(&curve, t - 2.71, 0.0);
-        (void)maniFbxEvaluateCurve(&curve, t + 1e9, 0.0);
+        maniFbxCurve curve;
+        if (maniFbxFindChild(fbx, n, "Key", 3) != MANI_FBX_NONE &&
+            maniFbxReadKeys(fbx, n, 0, &curve).result == mani_success)
+        {
+            Evaluate(fbx, &curve);
+        }
     }
-    maniFbxReleaseCurve(fbx, &curve);
 }
 
 // A blend shape channel's model, shapes and weights at a few points.
@@ -231,6 +251,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if (maniOpenFbx(builder, data, size, &fbx).result == mani_success)
     {
         ReadAll(fbx);
+        Keys(fbx);
         for (uint32_t o = 0; o < fbx->objectCount; ++o)
         {
             uint8_t name[64];

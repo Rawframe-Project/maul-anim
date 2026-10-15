@@ -20,20 +20,14 @@
 #include <math.h>
 #include <string.h>
 
-// KeyAttrFlags bits.
-#define KEY_CONSTANT          0x2u
-#define KEY_CUBIC             0x8u
-#define KEY_CONSTANT_NEXT     0x100u
-#define KEY_TCB               0x200u
-#define KEY_USER              0x400u
-#define KEY_CLAMP             0x1000u
-#define KEY_TIME_INDEPENDENT  0x2000u
-#define KEY_CLAMP_PROGRESSIVE 0x4000u
-#define KEY_WEIGHTED_RIGHT    0x1000000u
-#define KEY_WEIGHTED_LEFT     0x2000000u
-
-// FBX's unweighted handle length, as binary32 the way ufbx keeps it.
-#define THIRD 0.333333f
+// KeyAttrFlags bits (the auto tangent ones in fbx_curve.h).
+#define KEY_CONSTANT       0x2u
+#define KEY_CUBIC          0x8u
+#define KEY_CONSTANT_NEXT  0x100u
+#define KEY_TCB            0x200u
+#define KEY_USER           0x400u
+#define KEY_WEIGHTED_RIGHT 0x1000000u
+#define KEY_WEIGHTED_LEFT  0x2000000u
 
 static maniImportResult Capacity(void)
 {
@@ -47,9 +41,7 @@ static float FloatOf(uint32_t bits)
     return f;
 }
 
-// A double rounded to binary32 as ufbx keeps tangents, infinite past
-// its range (where C leaves the conversion undefined).
-static float Narrow(double x)
+float maniFbxNarrow(double x)
 {
     return x > (double)FLT_MAX ? INFINITY : x < -(double)FLT_MAX ? -INFINITY : (float)x;
 }
@@ -221,18 +213,16 @@ static double Progressive(double slope, double rangeLeft, double rangeRight, dou
     return sign * magnitude;
 }
 
-// Auto tangents, as ufbx (and Maya) solve them; the clamp threshold is
-// ufbx's default, 0.
-static float AutoSlope(double prevTime, double time, double nextTime, double prevValue,
+float maniFbxAutoSlope(double prevTime, double time, double nextTime, double prevValue,
                        double value, double nextValue, float weightLeft, float weightRight,
                        float bias, uint32_t flags)
 {
-    if ((flags & KEY_CLAMP) != 0 && (prevValue == value || nextValue == value))
+    if ((flags & maniFbxKeyClamp) != 0 && (prevValue == value || nextValue == value))
     {
         return 0.0f;
     }
     double slope = (nextValue - prevValue) / (nextTime - prevTime);
-    if ((flags & KEY_TIME_INDEPENDENT) == 0)
+    if ((flags & maniFbxKeyTimeIndependent) == 0)
     {
         double left = (value - prevValue) / (time - prevTime);
         double right = (nextValue - value) / (nextTime - time);
@@ -240,13 +230,13 @@ static float AutoSlope(double prevTime, double time, double nextTime, double pre
         slope = slope * 0.5 + (left * (1.0 - delta) + right * delta) * 0.5;
         slope = Biased(slope, left, right, bias);
     }
-    if ((flags & KEY_CLAMP_PROGRESSIVE) != 0)
+    if ((flags & maniFbxKeyClampProgressive) != 0)
     {
         slope = Progressive(slope, (double)weightLeft * (time - prevTime),
                             (double)weightRight * (nextTime - time), value - prevValue,
                             nextValue - value);
     }
-    return Narrow(slope);
+    return maniFbxNarrow(slope);
 }
 
 // An end key's auto tangent: the one-sided slope, pushed by a bias
@@ -254,17 +244,18 @@ static float AutoSlope(double prevTime, double time, double nextTime, double pre
 static float EndSlope(double fromTime, double toTime, double fromValue, double toValue, float bias,
                       uint32_t flags)
 {
-    if ((flags & KEY_CLAMP_PROGRESSIVE) != 0 || ((flags & KEY_CLAMP) != 0 && toValue == fromValue))
+    if ((flags & maniFbxKeyClampProgressive) != 0 ||
+        ((flags & maniFbxKeyClamp) != 0 && toValue == fromValue))
     {
         return 0.0f;
     }
     double slope = (toValue - fromValue) / (toTime - fromTime);
     double beyond = fabs((double)bias) / 100.0 - 5.0;
-    if ((flags & KEY_TIME_INDEPENDENT) == 0 && beyond > 0.0)
+    if ((flags & maniFbxKeyTimeIndependent) == 0 && beyond > 0.0)
     {
         slope += beyond * beyond * (bias > 0.0f ? 1.0 : -1.0) * 40.0;
     }
-    return Narrow(slope);
+    return maniFbxNarrow(slope);
 }
 
 // The decoder's state across keys: the left slope and weight the
@@ -294,10 +285,10 @@ static void AutoTangents(const Decoder* d, uint32_t i, double time, double next,
     // differs from solving each side by under 1e-6 of a slope: not kept.
     if (before && after)
     {
-        float l = AutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1], d->weightLeft,
-                            weightRight, -*left, flags);
-        *right = AutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1], d->weightLeft,
-                           weightRight, *right, flags);
+        float l = maniFbxAutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
+                                   d->weightLeft, weightRight, -*left, flags);
+        *right = maniFbxAutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
+                                  d->weightLeft, weightRight, *right, flags);
         *left = l;
     }
     else if (before)
@@ -343,8 +334,8 @@ static void TcbTangents(const Decoder* d, uint32_t i, double time, double next,
     double d01 = factor * (1.0 - tension) * (1.0 - bias) * (1.0 + continuity);
     double d10 = factor * (1.0 - tension) * (1.0 + bias) * (1.0 + continuity);
     double d11 = factor * (1.0 - tension) * (1.0 - bias) * (1.0 - continuity);
-    *left = Narrow(d00 * slopeLeft + d01 * slopeRight);
-    *right = Narrow(d10 * slopeLeft + d11 * slopeRight);
+    *left = maniFbxNarrow(d00 * slopeLeft + d01 * slopeRight);
+    *right = maniFbxNarrow(d10 * slopeLeft + d11 * slopeRight);
 }
 
 // One key's interpolation and handles, from its flags and words.
@@ -355,9 +346,9 @@ static void DecodeKey(Decoder* d, uint32_t i, uint32_t flags, const uint32_t* wo
     double time = TimeOf(d, i);
     double next = i + 1 < d->a->keyCount ? TimeOf(d, i + 1) : time;
     float slopeRight = FloatOf(words[0]);
-    float weightRight = THIRD;
+    float weightRight = MANI_FBX_THIRD;
     float nextSlopeLeft = FloatOf(words[1]);
-    float nextWeightLeft = THIRD;
+    float nextWeightLeft = MANI_FBX_THIRD;
     if ((flags & KEY_WEIGHTED_RIGHT) != 0)
     {
         weightRight = (float)(words[2] & 0xffffu) * 0.0001f;
@@ -372,7 +363,7 @@ static void DecodeKey(Decoder* d, uint32_t i, uint32_t flags, const uint32_t* wo
     {
         key->interpolation =
             (flags & KEY_CONSTANT_NEXT) != 0 ? maniFbxConstantNext : maniFbxConstantPrevious;
-        weightRight = nextWeightLeft = THIRD;
+        weightRight = nextWeightLeft = MANI_FBX_THIRD;
         slopeRight = nextSlopeLeft = 0.0f;
     }
     else if ((flags & KEY_CUBIC) != 0)
@@ -382,7 +373,7 @@ static void DecodeKey(Decoder* d, uint32_t i, uint32_t flags, const uint32_t* wo
         {
             TcbTangents(d, i, time, next, words, &d->slopeLeft, &slopeRight);
             nextSlopeLeft = 0.0f;
-            nextWeightLeft = THIRD;
+            nextWeightLeft = MANI_FBX_THIRD;
         }
         else if ((flags & KEY_USER) == 0)
         {
@@ -393,30 +384,29 @@ static void DecodeKey(Decoder* d, uint32_t i, uint32_t flags, const uint32_t* wo
     {
         // Linear, or a kind FBX does not name: the straight line.
         key->interpolation = maniFbxLinear;
-        weightRight = nextWeightLeft = THIRD;
+        weightRight = nextWeightLeft = MANI_FBX_THIRD;
         double slope = next > time ? (v[i + 1] - v[i]) / (next - time) : 0.0;
-        slopeRight = nextSlopeLeft = Narrow(slope);
+        slopeRight = nextSlopeLeft = maniFbxNarrow(slope);
     }
     key->leftDx = time > d->previousTime
-                      ? (double)Narrow((double)d->weightLeft * (time - d->previousTime))
+                      ? (double)maniFbxNarrow((double)d->weightLeft * (time - d->previousTime))
                       : 0.0;
-    key->leftDy = (double)Narrow(key->leftDx * (double)d->slopeLeft);
-    key->rightDx = next > time ? (double)Narrow((double)weightRight * (next - time)) : 0.0;
-    key->rightDy = (double)Narrow(key->rightDx * (double)slopeRight);
+    key->leftDy = (double)maniFbxNarrow(key->leftDx * (double)d->slopeLeft);
+    key->rightDx = next > time ? (double)maniFbxNarrow((double)weightRight * (next - time)) : 0.0;
+    key->rightDy = (double)maniFbxNarrow(key->rightDx * (double)slopeRight);
     d->slopeLeft = nextSlopeLeft;
     d->weightLeft = nextWeightLeft;
     d->previousTime = time;
 }
 
-static maniFbxExtrapolation ReadExtrapolation(const maniFbx* fbx, uint32_t node, const char* name)
+maniFbxExtrapolation maniFbxReadExtrapolation(const maniFbx* fbx, uint32_t node, const char* name)
 {
     maniFbxExtrapolation e = {maniFbxExtrapolateConstant, -1};
     uint32_t child = maniFbxFindChild(fbx, node, name, strlen(name));
     uint32_t type =
         child != MANI_FBX_NONE ? maniFbxFindChild(fbx, child, "Type", 4) : MANI_FBX_NONE;
     int64_t mode = 0;
-    if (type == MANI_FBX_NONE ||
-        !maniFbxInteger(fbx, maniFbxNodeProperty(fbx, type, 0), INT32_MIN, INT32_MAX, &mode))
+    if (type == MANI_FBX_NONE || !maniFbxCharacter(fbx, maniFbxNodeProperty(fbx, type, 0), &mode))
     {
         return e;
     }
@@ -439,8 +429,8 @@ maniImportResult maniFbxReadCurve(const maniFbx* fbx, uint32_t object, maniFbxCu
 {
     *out = (maniFbxCurve){NULL, 0, 0, {0, -1}, {0, -1}, (double)fbx->settings.ticksPerSecond, 0, 0};
     uint32_t node = fbx->objects[object].node;
-    out->pre = ReadExtrapolation(fbx, node, "Pre-Extrapolation");
-    out->post = ReadExtrapolation(fbx, node, "Post-Extrapolation");
+    out->pre = maniFbxReadExtrapolation(fbx, node, "Pre-Extrapolation");
+    out->post = maniFbxReadExtrapolation(fbx, node, "Post-Extrapolation");
     Arrays a = {0};
     maniImportResult r = ReadArrays(fbx, object, &a);
     r = r.result == mani_success ? Check(fbx, object, &a) : r;
@@ -454,7 +444,7 @@ maniImportResult maniFbxReadCurve(const maniFbx* fbx, uint32_t object, maniFbxCu
         out->count = a.keyCount;
         out->firstTick = a.keyCount > 0 ? a.ticks[0] : 0;
         out->lastTick = a.keyCount > 0 ? a.ticks[a.keyCount - 1] : 0;
-        Decoder d = {&a, out->ticksPerSecond, 0.0f, THIRD, 0.0};
+        Decoder d = {&a, out->ticksPerSecond, 0.0f, MANI_FBX_THIRD, 0.0};
         uint32_t run = 0;
         int64_t left = a.runCount > 0 ? a.runs[0] : 0;
         for (uint32_t i = 0; i < a.keyCount; ++i)

@@ -44,6 +44,10 @@ bool maniFbxNumber(const maniFbx* fbx, uint32_t property, double* out);
 bool maniFbxInteger(const maniFbx* fbx, uint32_t property, int64_t minimum, int64_t maximum,
                     int64_t* out);
 
+// A character code as ufbx reads one: a whole number, or an ASCII bare
+// word's first byte.
+bool maniFbxCharacter(const maniFbx* fbx, uint32_t property, int64_t* out);
+
 // A string's bytes (raw: FBX's names hold "\x00\x01" separators).
 bool maniFbxString(const maniFbx* fbx, uint32_t property, const uint8_t** bytesOut,
                    uint32_t* lengthOut);
@@ -57,6 +61,14 @@ uint32_t maniFbxArrayCount(const maniFbx* fbx, uint32_t property);
 // or a float not finite; Capacity when the allocator fails.
 maniImportResult maniFbxReadDoubles(const maniFbx* fbx, uint32_t property, double* out);
 maniImportResult maniFbxReadIntegers(const maniFbx* fbx, uint32_t property, int64_t* out);
+
+// A node's values as binary64, as ufbx reads 6.x's Key lists: its one
+// array, or its scalars with bare words (ASCII) as their first byte;
+// counted with out NULL. Data for a value not finite (a word spelling
+// inf or nan reads as such), Property for a string among the values, and
+// as maniFbxReadDoubles for an array.
+maniImportResult maniFbxReadValues(const maniFbx* fbx, uint32_t node, double* out,
+                                   uint32_t* countOut);
 
 // A float or int32 array's binary32 bit patterns, as they are (an ASCII
 // array's: from 7.2 integers holding the bits, before float values),

@@ -498,3 +498,77 @@ maniImportResult maniFbxReadFloatBits(const maniFbx* fbx, uint32_t property, uin
 {
     return Read(fbx, property, WantBits, out);
 }
+
+bool maniFbxCharacter(const maniFbx* fbx, uint32_t property, int64_t* out)
+{
+    if (property < fbx->propertyCount && fbx->properties[property].type == 'W')
+    {
+        *out = fbx->bytes[fbx->properties[property].offset];
+        return true;
+    }
+    return maniFbxInteger(fbx, property, INT64_MIN, INT64_MAX, out);
+}
+
+// Whether a word is one ufbx reads as infinite or not a number: inf,
+// infinity or nan in any case, with an optional sign.
+static bool NonFiniteWord(const uint8_t* bytes, uint64_t length)
+{
+    static const char* const kWords[3] = {"inf", "infinity", "nan"};
+    for (uint32_t w = 0; w < 3; ++w)
+    {
+        size_t n = strlen(kWords[w]);
+        bool same = length == n;
+        for (size_t i = 0; same && i < n; ++i)
+        {
+            same = (bytes[i] | 0x20) == (uint8_t)kWords[w][i];
+        }
+        if (same)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// One scalar of a value list.
+static maniImportResult ListValue(const maniFbx* fbx, uint32_t property, double* out)
+{
+    const maniFbxProperty* p = &fbx->properties[property];
+    if (p->type == 'W')
+    {
+        const uint8_t* bytes = fbx->bytes + p->offset;
+        *out = bytes[0];
+        return NonFiniteWord(bytes, p->encodedSize)
+                   ? maniFbxFail(maniImportReasonData, p->offset, 0)
+                   : maniFbxSuccess();
+    }
+    if (p->type == 'S' || p->type == 'R' || maniFbxArrayCount(fbx, property) > 0)
+    {
+        return maniFbxFail(maniImportReasonProperty, p->offset, 0);
+    }
+    return maniFbxNumber(fbx, property, out) ? maniFbxSuccess()
+                                             : maniFbxFail(maniImportReasonData, p->offset, 0);
+}
+
+maniImportResult maniFbxReadValues(const maniFbx* fbx, uint32_t node, double* out,
+                                   uint32_t* countOut)
+{
+    const maniFbxNode* n = &fbx->nodes[node];
+    uint32_t first = maniFbxNodeProperty(fbx, node, 0);
+    bool array = n->propertyCount == 1 && maniFbxArrayCount(fbx, first) > 0;
+    *countOut = array ? maniFbxArrayCount(fbx, first) : n->propertyCount;
+    if (out == NULL)
+    {
+        return maniFbxSuccess();
+    }
+    if (array)
+    {
+        return maniFbxReadDoubles(fbx, first, out);
+    }
+    maniImportResult r = maniFbxSuccess();
+    for (uint32_t k = 0; r.result == mani_success && k < n->propertyCount; ++k)
+    {
+        r = ListValue(fbx, n->firstProperty + k, &out[k]);
+    }
+    return r;
+}

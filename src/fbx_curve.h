@@ -68,6 +68,31 @@ typedef struct maniFbxCurve
     int64_t lastTick;
 } maniFbxCurve;
 
+// Auto tangent flags, as KeyAttrFlags holds them.
+enum
+{
+    maniFbxKeyClamp = 0x1000u,
+    maniFbxKeyTimeIndependent = 0x2000u,
+    maniFbxKeyClampProgressive = 0x4000u,
+};
+
+// FBX's unweighted handle length, as binary32 the way ufbx keeps it.
+#define MANI_FBX_THIRD 0.333333f
+
+// A double rounded to binary32 as ufbx keeps tangents, infinite past
+// its range (where C leaves the conversion undefined).
+float maniFbxNarrow(double x);
+
+// An auto tangent's slope as ufbx (and Maya) solve it, under the flags
+// above and an auto bias; the clamp threshold is ufbx's default, 0.
+float maniFbxAutoSlope(double prevTime, double time, double nextTime, double prevValue,
+                       double value, double nextValue, float weightLeft, float weightRight,
+                       float bias, uint32_t flags);
+
+// The extrapolation a node's child of a name gives (its Type a character,
+// its Repetition a count), constant forever without one.
+maniFbxExtrapolation maniFbxReadExtrapolation(const maniFbx* fbx, uint32_t node, const char* name);
+
 // Reads an AnimationCurve object; refused (Property, item: the object)
 // for arrays missing, of the wrong kinds or sizes, run lengths that do
 // not cover the keys or times that decrease, Data for values not
