@@ -792,3 +792,33 @@ fsm-order-first | src/fbx_sample.c | uint32_t compose = order == 6 ? 0 : (uint32
 fsm-needed | src/fbx_sample.c | if (needed[children[k]] != 0) | if (true)
 fst-name | src/fbx_anim.c | at += maniFbxObjectName(fbx, o, (uint8_t*)fbx->stackNames + at, text - at); | at += 0;
 fst-object | src/fbx_anim.c | return k < fbx->stackCount ? fbx->stacks[k] : MANI_FBX_NONE; | return fbx->stacks[k];
+
+# FBX blend shapes (fbx_blend.c, their tracks in fbx_clip.c, skins within
+# a skeleton in fbx_skin.c; mani-0016), 2026-10-15: 26 mutants, all
+# killed (the three fbk- records above them moved to fbx_model.c).
+fbl-blend-parent | src/fbx_blend.c | c->parent < fbx->objectCount && maniFbxDeformerIs(fbx, c->parent, "BlendShape", 10)) | c->parent < fbx->objectCount)
+fbl-shape-kind | src/fbx_blend.c | maniFbxObjectSubclassIs(fbx, child, "Shape", 5) && | true &&
+fbl-shape-vertices | src/fbx_blend.c | maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE && | true &&
+fbl-full-percent | src/fbx_blend.c | shapes[i].target = weights[i] / 100.0; | shapes[i].target = weights[i];
+fbl-full-count | src/fbx_blend.c | for (uint32_t i = 0; r.result == mani_success && i < count && i < n; ++i) | for (uint32_t i = 0; r.result == mani_success && i < count; ++i)
+fbl-blender | src/fbx_blend.c | if (n == 0 || FromBlender(fbx)) | if (n == 0)
+fbl-sort | src/fbx_blend.c | keys[i] = OrderedBits(shapes[i].target); | keys[i] = 0;
+fbl-order-negative | src/fbx_blend.c | return (bits >> 63) != 0 ? ~bits : bits + 0x8000000000000000u; | return bits;
+fbl-rest-entry | src/fbx_blend.c | return maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), &percent) ? percent : 0.0; | return 0.0;
+fbl-rest-blender | src/fbx_blend.c | percent = 100.0; | percent = 0.0;
+fbl-last-negative | src/fbx_blend.c | lastNegative = shapes[i].target < 0.0 ? i : lastNegative; | lastNegative = lastNegative;
+fbl-up-break | src/fbx_blend.c | if (shapes[next].target > weight) | if (false)
+fbl-down-break | src/fbx_blend.c | if (shapes[next].target < weight) | if (false)
+fbl-prev-start | src/fbx_blend.c | prev = firstUp < count ? firstUp : MANI_FBX_NONE; | prev = MANI_FBX_NONE;
+fbl-delta | src/fbx_blend.c | if (delta != 0.0) | if (true)
+fbl-prev-share | src/fbx_blend.c | effective[prev] = 1.0 - t; | effective[prev] = t;
+fcl-mesh-bone | src/fbx_clip.c | if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE) | if (false)
+fcl-mesh-skin | src/fbx_clip.c | if (maniFbxSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton)) | if (maniFbxSkinModel(c->fbx, s) == model)
+fcl-shape-unnamed | src/fbx_clip.c | bool named = own != NULL && length > 0; | bool named = true;
+fcl-shape-index | src/fbx_clip.c | size_t digits = named || k == 0 ? 0 : Decimal(k, index); | size_t digits = 0;
+fcl-blend-bound | src/fbx_clip.c | c->blendBound += maniFbxAnimatedRun(&c->animation, channel, &first); | (void)first;
+fcl-drives | src/fbx_clip.c | if (maniFbxIsBlendChannel(c->fbx, target) && DrivesWeight(c, first, n)) | if (maniFbxIsBlendChannel(c->fbx, target))
+fsk-within-all | src/fbx_skin.c | w->all = w->all && maniSkeletonFindBone(w->skeleton, name, length) != MANI_NO_BONE; | w->all = true;
+fsk-within-some | src/fbx_skin.c | return w.count > 0 && w.all; | return w.all;
+fbl-shape-indexes | src/fbx_blend.c | maniFbxFindChild(fbx, node, "Indexes", 7) != MANI_FBX_NONE) | true)
+fbl-blender-pattern | src/fbx_blend.c | return Matches("blender-- ?.?.?", s, length) || Matches("blender- ?.?", s, length); | return Matches("blender-- ?.?.?", s, length);
