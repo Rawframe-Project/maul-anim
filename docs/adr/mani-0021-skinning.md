@@ -36,7 +36,9 @@ deltas applied before skinning, weighted by animated values.
   in-betweens; glTF's targets are one at 1), over an attribute table
   (positions, normals, tangents, texture coordinate and color sets,
   every attribute glTF morphs), each target dense or sparse deltas for
-  some of the table. Channel weights become
+  some of the table. Channels and targets are named; clip weight
+  tracks of both formats are target weights and bind to targets by
+  name. Channel weights become
   target weights by ufbx's walk (from an implicit zero shape through
   the keys, extrapolated past the ends); the job adds the weighted
   deltas in target order before skinning, then renormalizes normals and

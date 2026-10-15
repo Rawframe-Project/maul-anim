@@ -390,6 +390,7 @@ static void TestMorphTargets(void)
     CHECK(maniMorphFindChannel(&m, "smile", 5) == 0 && maniMorphFindChannel(&m, "blink", 5) == 1 &&
               maniMorphTargetFullWeight(&m, 1) == 1.0f,
           "channels named by targetNames, full weight 1");
+    CHECK(maniMorphFindTarget(&m, "blink", 5) == 1, "targets named as their channels");
     const uint8_t* t0 = m.targets;
     const uint8_t* t1 = m.targets + MANI_MORPH_TARGET_SIZE;
     CHECK(maniLoadU32(t0 + 8) == 3 && Index(&m, 0, 0) == 0 && Index(&m, 0, 1) == 1 &&

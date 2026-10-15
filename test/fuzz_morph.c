@@ -60,6 +60,12 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     for (uint32_t t = 0; t < targets; ++t)
     {
+        uint32_t length = 0;
+        const char* name = maniMorphTargetName(&m, t, &length);
+        if (name == NULL || maniMorphFindTarget(&m, name, length) > t)
+        {
+            abort();
+        }
         // Extrapolation can overflow to infinity; the job refuses that.
         targetWeights[t] = targetWeights[t] == targetWeights[t] ? targetWeights[t] : 0.0f;
     }

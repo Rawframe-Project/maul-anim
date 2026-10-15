@@ -58,6 +58,11 @@ static maniBuildResult CheckValues(const maniMorphSource* source, const maniMorp
     {
         return Result(mani_errorInvalid, maniBuildReasonCount, t, 0);
     }
+    if (s->name != NULL &&
+        (s->nameLength == 0 || !maniValidUtf8((const uint8_t*)s->name, s->nameLength)))
+    {
+        return Result(mani_errorInvalid, maniBuildReasonName, t, 1);
+    }
     uint32_t mask = Mask(source, s);
     for (uint32_t i = 0; i < s->count; ++i)
     {
@@ -234,6 +239,46 @@ static bool Fits(uint64_t count, uint64_t k, size_t size)
            bytes < SIZE_MAX;
 }
 
+// k in decimal into out (at least 10 bytes); its length.
+static uint32_t Decimal(uint32_t k, char* out)
+{
+    char digits[10];
+    uint32_t count = 0;
+    do
+    {
+        digits[count++] = (char)('0' + k % 10);
+        k /= 10;
+    } while (k != 0);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        out[i] = digits[count - 1 - i];
+    }
+    return count;
+}
+
+// The k-th target of a channel's name into out (NULL to measure): its
+// own, or the channel's with k appended past the first; its length.
+static uint64_t TargetName(const maniMorphChannelSource* ch, uint32_t k, uint8_t* out)
+{
+    const maniMorphTargetSource* t = &ch->targets[k];
+    if (t->name != NULL)
+    {
+        if (out != NULL)
+        {
+            memcpy(out, t->name, t->nameLength);
+        }
+        return t->nameLength;
+    }
+    char digits[10];
+    uint32_t n = k > 0 ? Decimal(k, digits) : 0;
+    if (out != NULL)
+    {
+        memcpy(out, ch->name, ch->nameLength);
+        memcpy(out + ch->nameLength, digits, n);
+    }
+    return (uint64_t)ch->nameLength + n;
+}
+
 // The floats a target holds a given vertex.
 static uint32_t Floats(const Work* w, const maniMorphTargetSource* s)
 {
@@ -388,7 +433,12 @@ static Totals Sum(const Work* w)
     }
     for (uint32_t c = 0; c < w->source->channelCount; ++c)
     {
-        totals.names += w->source->channels[c].nameLength;
+        const maniMorphChannelSource* ch = &w->source->channels[c];
+        totals.names += ch->nameLength;
+        for (uint32_t k = 0; k < ch->targetCount; ++k)
+        {
+            totals.names += TargetName(ch, k, NULL);
+        }
     }
     return totals;
 }
@@ -431,6 +481,28 @@ static void LayTable(const Work* w, const Buffers* b)
         memcpy(b->names + name, s->channels[c].name, s->channels[c].nameLength);
         first += s->channels[c].targetCount;
         name += s->channels[c].nameLength;
+    }
+}
+
+// The targets' names after the channels', each record's span.
+static void LayTargetNames(const Work* w, const Buffers* b)
+{
+    uint64_t name = 0;
+    for (uint32_t c = 0; c < w->source->channelCount; ++c)
+    {
+        name += w->source->channels[c].nameLength;
+    }
+    for (uint32_t c = 0, t = 0; c < w->source->channelCount; ++c)
+    {
+        const maniMorphChannelSource* ch = &w->source->channels[c];
+        for (uint32_t k = 0; k < ch->targetCount; ++k, ++t)
+        {
+            uint8_t* e = b->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
+            uint64_t length = TargetName(ch, k, b->names + name);
+            maniStoreU32(e + 32, (uint32_t)name);
+            maniStoreU32(e + 36, (uint32_t)length);
+            name += length;
+        }
     }
 }
 
@@ -481,6 +553,11 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
     {
         all += sizes[i];
     }
+    // Name offsets are u32.
+    if (totals.names > UINT32_MAX)
+    {
+        return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
+    }
     uint8_t* staging = NULL;
     if (all <= SIZE_MAX - 1)
     {
@@ -502,6 +579,7 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
                              (uint8_t*)data[6]};
     LayTable(w, &buffers);
     LayTargets(w, &buffers);
+    LayTargetNames(w, &buffers);
     maniSectionSource sections[MANI_MORPH_SECTIONS];
     uint32_t count = 0;
     for (uint32_t i = 0; i < MANI_MORPH_SECTIONS; ++i)

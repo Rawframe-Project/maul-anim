@@ -689,7 +689,7 @@ static maniImportResult Pack(Morph* m, float* const* full, maniMorphTargetSource
         }
         deltas[a] = packed;
     }
-    *out = (maniMorphTargetSource){1.0f, kept, indices, (const float* const*)deltas};
+    *out = (maniMorphTargetSource){1.0f, kept, indices, (const float* const*)deltas, NULL, 0, 0};
     return maniImportSuccess();
 }
 

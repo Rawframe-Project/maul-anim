@@ -73,3 +73,7 @@ format.
   `maniGltfNodeMesh`, `maniGltfNodeSkin` and `maniGltfMorphWeights`
   describe meshes and their starting weights. A mesh's target count is
   now its first primitive with targets', as glTF defines it.
+- Morph targets are named (mani-0021): `maniMorphTargetName` and
+  `maniMorphFindTarget`; a target without a given name takes its
+  channel's, with its index past the first. Clip weight tracks bind to
+  targets by these names.

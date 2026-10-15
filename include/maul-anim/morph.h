@@ -60,7 +60,7 @@ extern "C"
 
     /// Opens a morph targets file in place: checks the container, the
     /// sizes, the attribute table, the channels covering the targets in
-    /// order, every full
+    /// order, every name inside the name bytes, every full
     /// weight finite, not 0 and increasing within its channel, every
     /// sparse target's indices increasing and below the vertex count,
     /// every delta finite, and the identity.
@@ -145,6 +145,35 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name,
                                            size_t length);
+
+    /// Returns a target's name, UTF-8 and not terminated: the one it was
+    /// built with, else its channel's, followed by its index within the
+    /// channel past the first. Clip weight tracks (`<node or mesh>/<name>`)
+    /// bind to targets by it.
+    ///
+    /// @param targets    Opened morph targets.
+    /// @param target     The target.
+    /// @param lengthOut  Receives the name's length in bytes, 0 for a
+    ///                   target past the count. May be NULL.
+    /// @return The name's bytes, inside the file, or NULL for a target
+    /// past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
+                                             uint32_t* lengthOut);
+
+    /// Finds a target by its name, in time linear in the targets: the
+    /// first of that name.
+    ///
+    /// @param targets  Opened morph targets.
+    /// @param name     The name's UTF-8 bytes; may be NULL when length is
+    ///                 0.
+    /// @param length   The name's length in bytes.
+    /// @return The target, or MANI_NO_CHANNEL when none has that name.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name,
+                                          size_t length);
 
     /// Returns a channel's targets: the first's index and their count.
     ///

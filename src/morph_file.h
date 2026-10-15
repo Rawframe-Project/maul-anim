@@ -22,8 +22,9 @@
 #define MANI_MORPH_CHANNEL_SIZE 16u
 // A target: full weight (binary32), the attributes it holds (a u32 mask
 // over the table), vertex count (u32), flags (u32), first index (u64,
-// into the indices), first delta (u64, floats into the deltas).
-#define MANI_MORPH_TARGET_SIZE 32u
+// into the indices), first delta (u64, floats into the deltas), name
+// offset and name length (u32 each).
+#define MANI_MORPH_TARGET_SIZE 40u
 
 // A target's flags: dense (every vertex, no indices).
 #define MANI_MORPH_DENSE 1u
@@ -40,7 +41,7 @@ enum
     // binary32 deltas, target by target: for each attribute it holds, in
     // table order, its width of floats a vertex; absent when none.
     maniMorphTagDeltas = 6,
-    // The channels' names, UTF-8, end to end.
+    // The channels' names, then the targets' names, UTF-8, end to end.
     maniMorphTagNames = 7,
 };
 

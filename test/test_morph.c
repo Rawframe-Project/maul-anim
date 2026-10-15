@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_MORPH_FILE 0x9d6f20bf1a45265bull
+#define PINNED_MORPH_FILE 0x360ed5148978ca78ull
 #define PINNED_MORPH_JOB  0x505a297b9b1d7aabull
 
 enum
@@ -133,11 +133,11 @@ static void SampleSource(maniMorphSource* source)
     s_blinkDeltas[1][3] = s_blinkTexcoords;
     s_wideDeltas[2] = s_wideTangents;
     s_wideDeltas[4] = s_wideColors;
-    s_smile[0] = (maniMorphTargetSource){1.0f, 4, kSmileIndices, s_smileDeltas};
-    s_blinks[0] = (maniMorphTargetSource){-1.0f, kVertices, NULL, s_blinkDeltas[0]};
-    s_blinks[1] = (maniMorphTargetSource){0.5f, kVertices, NULL, s_blinkDeltas[1]};
-    s_blinks[2] = (maniMorphTargetSource){1.0f, kVertices, NULL, s_blinkDeltas[2]};
-    s_wide[0] = (maniMorphTargetSource){1.0f, kVertices, s_wideIndices, s_wideDeltas};
+    s_smile[0] = (maniMorphTargetSource){1.0f, 4, kSmileIndices, s_smileDeltas, NULL, 0, 0};
+    s_blinks[0] = (maniMorphTargetSource){-1.0f, kVertices, NULL, s_blinkDeltas[0], NULL, 0, 0};
+    s_blinks[1] = (maniMorphTargetSource){0.5f, kVertices, NULL, s_blinkDeltas[1], NULL, 0, 0};
+    s_blinks[2] = (maniMorphTargetSource){1.0f, kVertices, NULL, s_blinkDeltas[2], "shut", 4, 0};
+    s_wide[0] = (maniMorphTargetSource){1.0f, kVertices, s_wideIndices, s_wideDeltas, NULL, 0, 0};
     s_channels[0] = (maniMorphChannelSource){"smile", 5, 1, s_smile};
     s_channels[1] = (maniMorphChannelSource){"blink", 5, 3, s_blinks};
     s_channels[2] = (maniMorphChannelSource){"wide", 4, 1, s_wide};
@@ -177,6 +177,15 @@ static void TestBuildsAndReads(void)
               maniMorphFindChannel(&m, NULL, 1) == MANI_NO_CHANNEL &&
               maniMorphFindChannel(&m, "", 0) == MANI_NO_CHANNEL,
           "find");
+    const char* target = maniMorphTargetName(&m, 2, &length);
+    CHECK(length == 6 && memcmp(target, "blink1", 6) == 0, "a target's default name");
+    target = maniMorphTargetName(&m, 1, &length);
+    CHECK(length == 5 && memcmp(target, "blink", 5) == 0, "a first target: the channel's name");
+    CHECK(maniMorphFindTarget(&m, "shut", 4) == 3 && maniMorphFindTarget(&m, "wide", 4) == 4 &&
+              maniMorphFindTarget(&m, "blink2", 6) == MANI_NO_CHANNEL &&
+              maniMorphFindTarget(&m, NULL, 0) == MANI_NO_CHANNEL &&
+              maniMorphTargetName(&m, 5, &length) == NULL && length == 0,
+          "a given name; find");
     uint32_t first = 0;
     CHECK(maniMorphChannelTargets(&m, 1, &first) == 3 && first == 1 &&
               maniMorphChannelTargets(&m, 2, &first) == 1 && first == 4 &&
@@ -473,8 +482,8 @@ static void TestSparseAsDense(void)
     }
     const float* sparseDeltas[1] = {positions + 3};
     const float* denseDeltas[1] = {positions};
-    maniMorphTargetSource sparse = {1.0f, kVertices - 1, indices, sparseDeltas};
-    maniMorphTargetSource dense = {1.0f, kVertices, NULL, denseDeltas};
+    maniMorphTargetSource sparse = {1.0f, kVertices - 1, indices, sparseDeltas, NULL, 0, 0};
+    maniMorphTargetSource dense = {1.0f, kVertices, NULL, denseDeltas, NULL, 0, 0};
     maniMorphChannelSource a = {"a", 1, 1, &sparse};
     maniMorphChannelSource b = {"a", 1, 1, &dense};
     maniMorphSource sa = {&a, 1, kVertices, kAttributes, 1, 0};
@@ -609,6 +618,13 @@ static void TestBuildRefusals(void)
     s_channels[1].name = "\xff\xfe";
     s_channels[1].nameLength = 2;
     ExpectBuildRefused(&source, maniBuildReasonName, 1, 0, "a name not UTF-8");
+    SampleSource(&source);
+    s_blinks[2].name = "\xc0";
+    s_blinks[2].nameLength = 1;
+    ExpectBuildRefused(&source, maniBuildReasonName, 3, 1, "a target's name not UTF-8");
+    SampleSource(&source);
+    s_blinks[2].nameLength = 0;
+    ExpectBuildRefused(&source, maniBuildReasonName, 3, 1, "a target's empty name");
     SampleSource(&source);
     s_attributes[3].semantic = 5;
     ExpectBuildRefused(&source, maniBuildReasonAttribute, 3, 0, "an unknown semantic");
@@ -748,6 +764,8 @@ static void TestOpenRefusals(void)
     CraftU32(maniMorphTagTargets, 12, 2, 12, "unknown flags");
     CraftU32(maniMorphTagTargets, 16, 1, 16, "indices not following");
     CraftU32(maniMorphTagTargets, T + 24, 1, T + 24, "deltas not following");
+    CraftU32(maniMorphTagTargets, T + 32, 0, T + 32, "a target's name not following");
+    CraftU32(maniMorphTagTargets, 2 * T + 36, 0, 2 * T + 36, "a target's empty name");
     CraftU32(maniMorphTagIndices, 4, 2, 4, "indices repeated");
     CraftU32(maniMorphTagIndices, 8, kVertices, 8, "an index past the vertices");
     CraftU32(maniMorphTagDeltas, 4 * 7, Bits(INFINITY), 4 * 7, "a delta not finite");
@@ -761,7 +779,7 @@ static void TestOpenRefusals(void)
     ExpectFormat(SectionAt(maniMorphTagChannels) + 2 * MANI_MORPH_CHANNEL_SIZE + 12,
                  "a name past the bytes");
     BuildSample();
-    Craft(maniMorphTagNames, "smileblinkwide!", 15);
+    Craft(maniMorphTagNames, "smileblinkwidesmileblinkblink1shutwide!", 39);
     ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 6 * MANI_CONTAINER_ENTRY_SIZE + 16,
                  "name bytes left over");
     BuildSample();

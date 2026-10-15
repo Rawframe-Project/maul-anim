@@ -658,6 +658,11 @@ extern "C"
         // of floats (3, 2 or 4, maniMorphSemantic) a given vertex, or NULL
         // where the target leaves it. NULL for none at all.
         const float* const* deltas;
+        // The name, UTF-8, not empty; NULL for the channel's name followed
+        // by the target's index within the channel past the first.
+        const char* name;
+        uint32_t nameLength;
+        uint32_t reserved;
     } maniMorphTargetSource;
 
     // A named channel: its targets at increasing full weights.
@@ -695,6 +700,8 @@ extern "C"
     /// channel for `maniBuildReasonCount` on a channel without targets,
     /// `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a
     /// target, counted over the channels in order, otherwise):
+    /// `maniBuildReasonName` for a target's name has item the target and
+    /// other 1.
     /// `maniBuildReasonCount` (no channels, no vertices, more than
     /// MANI_MORPH_MAX_ATTRIBUTES attributes (item 0), or an index-less
     /// target whose count is not the vertex count), `maniBuildReasonAttribute`

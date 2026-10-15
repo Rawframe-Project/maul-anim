@@ -182,8 +182,9 @@ static maniFileResult CheckAttributes(const Sections* s, const maniMorphTargets*
 }
 
 // Channels covering the targets in order, at least one each, names inside
-// the name bytes and covering them in order.
-static maniFileResult CheckChannels(const Sections* s, const maniMorphTargets* m)
+// the name bytes in order from the first; the bytes their names take out.
+static maniFileResult CheckChannels(const Sections* s, const maniMorphTargets* m,
+                                    uint64_t* namesOut)
 {
     uint64_t target = 0;
     uint64_t name = 0;
@@ -217,14 +218,16 @@ static maniFileResult CheckChannels(const Sections* s, const maniMorphTargets* m
         return Fail(s->at[kChannels] + (uint64_t)(m->channelCount - 1) * MANI_MORPH_CHANNEL_SIZE +
                     4);
     }
-    return name == s->sizes[kNames] ? kOk : Fail(s->entry[kNames]);
+    *namesOut = name;
+    return kOk;
 }
 
-// Running totals of the indices and deltas the targets claim.
+// Running totals of the indices, deltas and name bytes the targets claim.
 typedef struct Claimed
 {
     uint64_t indices;
     uint64_t deltas;
+    uint64_t names;
 } Claimed;
 
 // One target's record: full weight finite, not 0, above the channel's
@@ -264,15 +267,25 @@ static maniFileResult CheckTarget(const Sections* s, const maniMorphTargets* m, 
     {
         return Fail(at + 24);
     }
+    if (maniLoadU32(e + 32) != claimed->names)
+    {
+        return Fail(at + 32);
+    }
+    uint32_t length = maniLoadU32(e + 36);
+    if (length == 0 || length > s->sizes[kNames] - claimed->names)
+    {
+        return Fail(at + 36);
+    }
+    claimed->names += length;
     claimed->indices += dense ? 0 : count;
     claimed->deltas += (uint64_t)count * maniMorphFloatsPerVertex(widths, mask);
     return kOk;
 }
 
 static maniFileResult CheckTargets(const Sections* s, const maniMorphTargets* m,
-                                   const uint32_t* widths)
+                                   const uint32_t* widths, uint64_t names)
 {
-    Claimed claimed = {0, 0};
+    Claimed claimed = {0, 0, names};
     for (uint32_t c = 0; c < m->channelCount; ++c)
     {
         const uint8_t* e = s->data[kChannels] + (uint64_t)c * MANI_MORPH_CHANNEL_SIZE;
@@ -288,6 +301,10 @@ static maniFileResult CheckTargets(const Sections* s, const maniMorphTargets* m,
             }
             previous = LoadF32(s->data[kTargets] + (uint64_t)t * MANI_MORPH_TARGET_SIZE);
         }
+    }
+    if (claimed.names != s->sizes[kNames])
+    {
+        return Fail(s->entry[kNames]);
     }
     if (s->sizes[kIndices] != 4 * claimed.indices)
     {
@@ -333,6 +350,7 @@ static maniFileResult CheckValues(const Sections* s, const maniMorphTargets* m)
 static maniFileResult CheckAll(const Sections* s, maniMorphTargets* m)
 {
     uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES];
+    uint64_t names = 0;
     maniFileResult r = CheckHeader(s, m);
     if (r.result == mani_success)
     {
@@ -340,11 +358,11 @@ static maniFileResult CheckAll(const Sections* s, maniMorphTargets* m)
     }
     if (r.result == mani_success)
     {
-        r = CheckChannels(s, m);
+        r = CheckChannels(s, m, &names);
     }
     if (r.result == mani_success)
     {
-        r = CheckTargets(s, m, widths);
+        r = CheckTargets(s, m, widths, names);
     }
     if (r.result == mani_success)
     {
@@ -449,6 +467,37 @@ uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name,
             memcmp(targets->names + maniLoadU32(e + 8), name, length) == 0)
         {
             return c;
+        }
+    }
+    return MANI_NO_CHANNEL;
+}
+
+const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
+                                uint32_t* lengthOut)
+{
+    bool inside = target < targets->targetCount;
+    const uint8_t* e = targets->targets + (size_t)target * MANI_MORPH_TARGET_SIZE;
+    if (lengthOut != NULL)
+    {
+        *lengthOut = inside ? maniLoadU32(e + 36) : 0;
+    }
+    return inside ? (const char*)targets->names + maniLoadU32(e + 32) : NULL;
+}
+
+uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name, size_t length)
+{
+    // No target has an empty name.
+    if (name == NULL || length == 0)
+    {
+        return MANI_NO_CHANNEL;
+    }
+    for (uint32_t t = 0; t < targets->targetCount; ++t)
+    {
+        const uint8_t* e = targets->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
+        if (maniLoadU32(e + 36) == length &&
+            memcmp(targets->names + maniLoadU32(e + 32), name, length) == 0)
+        {
+            return t;
         }
     }
     return MANI_NO_CHANNEL;

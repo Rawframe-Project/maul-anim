@@ -123,7 +123,7 @@ Copies where each source bone of the last built skeleton went: the skeleton's in
 ```c
 MANI_NODISCARD MANI_API maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSource* source);
 ```
-Builds a morph targets file: checks every channel and target, sorts each sparse target's vertices and sums a vertex given twice (in binary64, in the source's order), stores a target touching every vertex densely, and keeps the file in place of any built before.  @param builder  The builder. @param source   The channels. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source (item a channel for `maniBuildReasonCount` on a channel without targets, `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a target, counted over the channels in order, otherwise): `maniBuildReasonCount` (no channels, no vertices, more than MANI_MORPH_MAX_ATTRIBUTES attributes (item 0), or an index-less target whose count is not the vertex count), `maniBuildReasonAttribute` (item the attribute), `maniBuildReasonName`, `maniBuildReasonDuplicateName` (other the earlier channel), `maniBuildReasonWeight`, `maniBuildReasonVertex`, `maniBuildReasonNotFinite` (other the given vertex's place); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+Builds a morph targets file: checks every channel and target, sorts each sparse target's vertices and sums a vertex given twice (in binary64, in the source's order), stores a target touching every vertex densely, and keeps the file in place of any built before.  @param builder  The builder. @param source   The channels. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source (item a channel for `maniBuildReasonCount` on a channel without targets, `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a target, counted over the channels in order, otherwise): `maniBuildReasonName` for a target's name has item the target and other 1. `maniBuildReasonCount` (no channels, no vertices, more than MANI_MORPH_MAX_ATTRIBUTES attributes (item 0), or an index-less target whose count is not the vertex count), `maniBuildReasonAttribute` (item the attribute), `maniBuildReasonName`, `maniBuildReasonDuplicateName` (other the earlier channel), `maniBuildReasonWeight`, `maniBuildReasonVertex`, `maniBuildReasonNotFinite` (other the given vertex's place); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ## `clip.h`
 
@@ -528,7 +528,7 @@ Morph targets (mani-0021): a mesh primitive's blend shapes over the caller's byt
 ```c
 MANI_NODISCARD MANI_API maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut);
 ```
-Opens a morph targets file in place: checks the container, the sizes, the attribute table, the channels covering the targets in order, every full weight finite, not 0 and increasing within its channel, every sparse target's indices increasing and below the vertex count, every delta finite, and the identity.  @param bytes       The file, 16-byte aligned. @param size        Its size in bytes; bytes past the file are ignored. @param targetsOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+Opens a morph targets file in place: checks the container, the sizes, the attribute table, the channels covering the targets in order, every name inside the name bytes, every full weight finite, not 0 and increasing within its channel, every sparse target's indices increasing and below the vertex count, every delta finite, and the identity.  @param bytes       The file, 16-byte aligned. @param size        Its size in bytes; bytes past the file are ignored. @param targetsOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
 
 ```c
 uint32_t maniMorphVertexCount(const maniMorphTargets* targets);
@@ -564,6 +564,16 @@ Returns a channel's name, UTF-8 and not terminated.  @param targets    Opened mo
 uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name, size_t length);
 ```
 Finds a channel by its name, in time linear in the channels.  @param targets  Opened morph targets. @param name     The name's UTF-8 bytes; may be NULL when length is 0. @param length   The name's length in bytes. @return The channel, or MANI_NO_CHANNEL when none has that name. @par Thread safety Safe from any thread.
+
+```c
+const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target, uint32_t* lengthOut);
+```
+Returns a target's name, UTF-8 and not terminated: the one it was built with, else its channel's, followed by its index within the channel past the first. Clip weight tracks (`<node or mesh>/<name>`) bind to targets by it.  @param targets    Opened morph targets. @param target     The target. @param lengthOut  Receives the name's length in bytes, 0 for a target past the count. May be NULL. @return The name's bytes, inside the file, or NULL for a target past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name, size_t length);
+```
+Finds a target by its name, in time linear in the targets: the first of that name.  @param targets  Opened morph targets. @param name     The name's UTF-8 bytes; may be NULL when length is 0. @param length   The name's length in bytes. @return The target, or MANI_NO_CHANNEL when none has that name. @par Thread safety Safe from any thread.
 
 ```c
 uint32_t maniMorphChannelTargets(const maniMorphTargets* targets, uint32_t channel, uint32_t* firstOut);
@@ -818,4 +828,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-155 functions across 10 headers.
+157 functions across 10 headers.
