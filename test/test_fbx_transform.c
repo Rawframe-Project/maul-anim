@@ -386,6 +386,9 @@ static void TestQuatEuler(void)
             // Within 1e-9 of the lock (by the sine), treated as locked.
             double near[3] = {(double)i, (double)i, (double)i};
             near[kAxes[order][1]] = 89.99999;
+            // The last angle 0: the first is i, recoverable short of the
+            // threshold, so 0 shows the threshold applied.
+            near[kAxes[order][2]] = 0.0;
             double q[4];
             double out[3];
             maniFbxEulerQuat(near, order, q);

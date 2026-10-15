@@ -5,7 +5,8 @@
 // (a base, an additive one, a passthrough one with an animated weight,
 // an override and an additive one adding components), against values
 // derived by hand from ufbx's rules; stack ranges from properties, a
-// take and the keys; and a property driven twice in a layer refused.
+// take and the keys; and a property driven twice in a layer, and a
+// channel value not a number, refused.
 
 #include "fbx_anim.h"
 #include "fbx_document.h"
@@ -158,7 +159,8 @@ static const char kScene[] =
     " C: \"OO\",601,600\n C: \"OO\",602,600\n C: \"OO\",610,601\n C: \"OP\",610,1, \"Lcl "
     "Scaling\"\n C: \"OO\",611,602\n C: \"OP\",611,1, \"Lcl Scaling\"\n"
     "}\n"
-    "Takes: {\n Take: \"Other\" {\n  LocalTime: 1,2\n }\n Take: \"Walk\" {\n  ReferenceTime: "
+    "Takes: {\n Current: \"Walk\"\n Take: \"Other\" {\n  LocalTime: 1,2\n }\n Take: \"Walk\" {\n  "
+    "ReferenceTime: "
     "5,10\n }\n Take: \"Jog\" {\n  LocalTime: 6,9\n  ReferenceTime: 1,2\n }\n}\n";
 
 static char s_text[16384];
@@ -279,29 +281,45 @@ static void TestLayers(void)
     maniDestroyBuilder(builder);
 }
 
-static void TestTwice(void)
+// The scene with a text replaced.
+static void Replace(const char* from, const char* to)
 {
-    const char* from = " C: \"OO\",112,102\n";
     const char* at = strstr(kScene, from);
-    snprintf(s_text, sizeof s_text, "%.*s C: \"OO\",112,101\n%s", (int)(at - kScene), kScene,
-             at + strlen(from));
+    snprintf(s_text, sizeof s_text, "%.*s%s%s", (int)(at - kScene), kScene, to, at + strlen(from));
+}
+
+static void ExpectRefusal(int64_t node, const char* what)
+{
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     CHECK(maniOpenFbx(builder, s_text, strlen(s_text), &fbx).result == mani_success, "opens");
     maniFbxAnimation a;
     maniImportResult r = fbx != NULL ? maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, 0), &a)
                                      : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
+    char at[32];
+    snprintf(at, sizeof at, "AnimationCurveNode: %lld", (long long)node);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
-              r.item == maniFbxFindObject(fbx, 112) &&
-              r.offset == (uint64_t)(strstr(s_text, "AnimationCurveNode: 112") - s_text),
-          "a property driven twice in a layer");
+              r.item == maniFbxFindObject(fbx, node) &&
+              r.offset == (uint64_t)(strstr(s_text, at) - s_text),
+          what);
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
+}
+
+static void TestRefusals(void)
+{
+    // Base gets the scale node 113, then the translation node 112: the
+    // second translation lies past another property.
+    Replace(" C: \"OO\",112,102\n", " C: \"OO\",113,101\n C: \"OO\",112,101\n");
+    ExpectRefusal(112, "a property driven twice in a layer");
+    Replace("P: \"d|Glow\", \"Number\", \"\", \"A\",5",
+            "P: \"d|Glow\", \"Number\", \"\", \"A\",\"x\"");
+    ExpectRefusal(116, "a channel's value not a number");
 }
 
 int main(void)
 {
     TestLayers();
-    TestTwice();
+    TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

@@ -371,6 +371,18 @@ static void CheckScene(uint32_t version, bool big, const char* what)
               words[1] == 0xbf000000u &&
               maniFbxReadFloatBits(fbx, i, words).result == mani_success && words[0] == 0xfffffff9u,
           "float and int32 arrays as binary32 words");
+    uint32_t named = maniFbxNodeProperty(fbx, entry, 0);
+    uint32_t again = maniFbxNodeProperty(fbx, entry, 1);
+    uint32_t empty = maniFbxNodeProperty(fbx, entry, 2);
+    uint32_t a = maniFbxNodeProperty(fbx, entry, 3);
+    CHECK(maniFbxSameString(fbx, named, again) && !maniFbxSameString(fbx, empty, a) &&
+              !maniFbxSameString(fbx, a, empty) && !maniFbxSameString(fbx, named, a) &&
+              !maniFbxSameString(fbx, named, k),
+          "strings the same or not, by length too");
+    CHECK(maniFbxStringHash(fbx, named) == maniFbxNameHash("Lcl Translation", 15) &&
+              maniFbxStringHash(fbx, empty) == maniFbxNameHash("", 0) &&
+              maniFbxStringHash(fbx, k) == maniFbxNameHash("", 0),
+          "a string's hash, a non-string's the empty one");
     CHECK(maniFbxReadFloatBits(fbx, wt, words).result == mani_errorFormat &&
               maniFbxReadFloatBits(fbx, t, words).result == mani_errorFormat,
           "no words of doubles or int64s");
