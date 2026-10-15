@@ -25,7 +25,7 @@ option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
 option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
 option(MAUL_ANIM_DIFFERENTIAL
-       "Build the ufbx and ACL differentials (fetch ufbx, ACL and RTM; mani-0018, mani-0019)" OFF)
+       "Build the ufbx, ACL and ozz differentials (fetch ufbx, ACL, RTM and ozz-animation; mani-0018, mani-0019, mani-0020)" OFF)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
 # build tree, so scripts and CI find them in one place.
@@ -206,6 +206,29 @@ if(MAUL_ANIM_DIFFERENTIAL)
     target_include_directories(acl_differential PRIVATE ${PROJECT_SOURCE_DIR}/src)
     target_link_libraries(acl_differential PRIVATE maul-anim)
     maul_apply_flags(acl_differential)
+    # The ozz differential: the few ozz-animation sources blending and
+    # building a skeleton need, compiled as they are; its own project
+    # (CMake 3.30, samples, tools) is not built.
+    FetchContent_Declare(ozz GIT_REPOSITORY https://github.com/guillaumeblanc/ozz-animation.git
+                             GIT_TAG 744eb9d99f606eda849acb0b1204f7a3dc20bca1
+                             GIT_SUBMODULES "" SOURCE_SUBDIR not-built)
+    FetchContent_MakeAvailable(ozz)
+    set(MAUL_OZZ_SOURCES
+        src/base/memory/allocator.cc src/base/platform.cc src/base/log.cc src/base/io/archive.cc
+        src/base/io/stream.cc src/base/containers/string_archive.cc
+        src/base/maths/simd_math_archive.cc src/base/maths/soa_math_archive.cc
+        src/base/maths/math_archive.cc src/base/maths/simd_math.cc
+        src/animation/runtime/skeleton.cc src/animation/runtime/blending_job.cc
+        src/animation/offline/raw_skeleton.cc src/animation/offline/skeleton_builder.cc)
+    list(TRANSFORM MAUL_OZZ_SOURCES PREPEND ${ozz_SOURCE_DIR}/)
+    add_executable(ozz_differential tools/ozz_differential.cc ${MAUL_OZZ_SOURCES})
+    set_target_properties(ozz_differential PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
+                                                      CXX_EXTENSIONS OFF)
+    target_include_directories(ozz_differential SYSTEM PRIVATE ${ozz_SOURCE_DIR}/include
+                                                               ${ozz_SOURCE_DIR}/src)
+    target_link_libraries(ozz_differential PRIVATE maul-anim)
+    maul_apply_flags(ozz_differential)
+    set_source_files_properties(${MAUL_OZZ_SOURCES} PROPERTIES COMPILE_OPTIONS -w)
 endif()
 
 if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)

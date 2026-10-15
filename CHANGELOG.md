@@ -34,3 +34,7 @@ format.
   (the rest or the first frame), sampling such a clip writes a
   difference, compression measures it on the rest, and
   `maniClipAdditiveBasis` reports the basis.
+- The ozz differential (mani-0020): `tools/ozz_differential.cc` blends
+  the Quaternius clips' poses with masks and additive layers by
+  ozz-animation's BlendingJob and by Maul Anim, compares them and times
+  both, in the weekly differential workflow.

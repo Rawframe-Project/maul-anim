@@ -3,8 +3,11 @@
 # fixtures' expected values written again and held against the committed
 # ones. The ACL differential (mani-0019): ozz-animation's Quaternius file
 # at 0.17.0, its clips compressed by ACL and by Maul Anim, sizes, errors
-# and times printed, every bone within the precision required. Weekly
-# and by hand, not on every commit: they fetch and build ufbx and ACL.
+# and times printed, every bone within the precision required. The ozz
+# differential (mani-0020): the same clips sampled and blended, with
+# masks and additive layers, by ozz's BlendingJob and by Maul Anim,
+# compared to binary32 rounding and timed. Weekly and by hand, not on
+# every commit: they fetch and build ufbx, ACL and ozz-animation.
 name: differential
 
 on:
@@ -76,3 +79,29 @@ jobs:
             https://raw.githubusercontent.com/guillaumeblanc/ozz-animation/744eb9d99f606eda849acb0b1204f7a3dc20bca1/media/fbx/quaternius/ual.fbx
           echo "42f16a4ed61d1e9f5fc7c2526894c5487148ac6ba82b64281ceb7943570f3c37  ual.fbx" | sha256sum -c -
           build/acl_differential ual.fbx
+
+  ozz:
+    name: blending-ozz
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        timeout-minutes: 15
+        run: |
+          sudo apt-get $APT_OPTIONS update -q
+          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 ninja-build
+      - name: Configure
+        # Release: the times are printed, and ozz is built as it ships.
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMAUL_ANIM_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -DMAUL_ANIM_DIFFERENTIAL=ON -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+      - name: Build
+        run: cmake --build build --target ozz_differential -j 4
+      - name: The Quaternius clips
+        # The same file, from the ozz-animation commit CMake fetched.
+        run: |
+          f=build/_deps/ozz-src/media/fbx/quaternius/ual.fbx
+          echo "42f16a4ed61d1e9f5fc7c2526894c5487148ac6ba82b64281ceb7943570f3c37  $f" | sha256sum -c -
+          build/ozz_differential "$f"
