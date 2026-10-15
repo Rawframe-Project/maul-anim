@@ -22,9 +22,10 @@
 
 // Head (a limb) skins Face; Face's BlendShape has Smile (an in-between
 // at 50 percent, Smile_half, and a shape without vertices, ignored),
-// Blink (one unnamed shape) and Wide (two unnamed shapes); Prop's Grow
+// Blink (one unnamed shape), Wide (two unnamed shapes) and Frown (its
+// second shape at -100 percent, sorted first); Prop's Grow
 // belongs to no skeleton's mesh. Talk raises Smile, Blink and Grow from
-// 0 to 100 over a second and holds Wide at 50.
+// 0 to 100 over a second (Frown too) and holds Wide at 50.
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
     "Objects: {\n"
@@ -83,6 +84,18 @@ static const char kScene[] =
     " AnimationCurve: 117, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
     "KeyValueFloat: *2 {\n   a: 0,100\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  "
     "KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " Deformer: 66, \"SubDeformer::Frown\", \"BlendShapeChannel\" {\n  Properties70: {\n   P: "
+    "\"DeformPercent\", \"Number\", \"\", \"A\",0\n  }\n  FullWeights: *2 {\n   a: 100,-100\n  }\n "
+    "}\n"
+    " Geometry: 77, \"Geometry::Frown_up\", \"Shape\" {\n  Indexes: *1 {\n   a: 0\n  }\n  "
+    "Vertices: *3 {\n   a: 0,0,1\n  }\n }\n"
+    " Geometry: 78, \"Geometry::Frown_down\", \"Shape\" {\n  Indexes: *1 {\n   a: 0\n  }\n  "
+    "Vertices: *3 {\n   a: 0,0,1\n  }\n }\n"
+    " AnimationCurveNode: 118, \"AnimCurveNode::DeformPercent\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|DeformPercent\", \"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurve: 119, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,100\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  "
+    "KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
     "}\n"
     "Connections: {\n"
     " C: \"OO\",1,0\n C: \"OO\",2,1\n C: \"OO\",3,0\n C: \"OO\",50,2\n C: \"OO\",51,3\n C: "
@@ -99,6 +112,8 @@ static const char kScene[] =
     "\"d|DeformPercent\"\n"
     " C: \"OO\",116,101\n C: \"OP\",116,65, \"DeformPercent\"\n C: \"OP\",117,116, "
     "\"d|DeformPercent\"\n"
+    " C: \"OO\",66,60\n C: \"OO\",77,66\n C: \"OO\",78,66\n C: \"OO\",118,101\n C: \"OP\",118,66, "
+    "\"DeformPercent\"\n C: \"OP\",119,118, \"d|DeformPercent\"\n"
     "}\n";
 
 static _Alignas(16) uint8_t s_skeletonFile[16384];
@@ -172,21 +187,24 @@ static void TestTracks(void)
                 .result == mani_success &&
         maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, &clip).result == mani_success;
-    CHECK(built && maniClipFloatTrackCount(&clip) == 5 && bound == 3,
-          "five shapes of the skinned face, three weights bound; not Prop's");
-    static const char* const kNames[5] = {"Face/Smile_half", "Face/Smile", "Face/Blink",
-                                          "Face/Wide", "Face/Wide/1"};
+    CHECK(built && maniClipFloatTrackCount(&clip) == 7 && bound == 4,
+          "seven shapes of the skinned face, four weights bound; not Prop's");
+    static const char* const kNames[7] = {"Face/Smile_half", "Face/Smile",  "Face/Blink",
+                                          "Face/Wide",       "Face/Wide/1", "Face/Frown_up",
+                                          "Face/Frown_down"};
     // At 0.25 and 0.75 s: Smile's weight there, handed from the half
     // shape to the whole; Blink the weight itself; Wide's first shape
-    // 0.5, its second (the same target, after it) 0.
-    static const double kAt[2][5] = {{0.5, 0, 0.25, 0.5, 0}, {0.5, 0.5, 0.75, 0.5, 0}};
+    // 0.5, its second (the same target, after it) 0; Frown's upper shape
+    // the weight, its lower none.
+    static const double kAt[2][7] = {{0.5, 0, 0.25, 0.5, 0, 0.25, 0},
+                                     {0.5, 0.5, 0.75, 0.5, 0, 0.75, 0}};
     bool right = built;
     for (int s = 0; s < 2 && right; ++s)
     {
-        float values[5] = {0};
+        float values[7] = {0};
         right =
-            maniSampleClipFloats(&clip, s == 0 ? 0.25f : 0.75f, values, 5, NULL) == mani_success;
-        for (int k = 0; k < 5 && right; ++k)
+            maniSampleClipFloats(&clip, s == 0 ? 0.25f : 0.75f, values, 7, NULL) == mani_success;
+        for (int k = 0; k < 7 && right; ++k)
         {
             uint32_t track = maniClipFindFloatTrack(&clip, kNames[k], strlen(kNames[k]));
             right = track != MANI_NO_TRACK && Near((double)values[track], kAt[s][k]);

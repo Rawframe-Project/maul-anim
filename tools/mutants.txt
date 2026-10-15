@@ -612,9 +612,9 @@ fbs-fold-identity | src/fbx_skeleton.c | if (options->foldPlacement != 0) | if (
 # FBX skins (fbx_skin.c, mani-0015), 2026-10-15: 27 mutants, all killed
 # (fourteen by decoys and cases added after the sweep, which also found
 # all-zero matrices refused where ufbx reads them as not given).
-fbk-root-parent | src/fbx_skin.c | c->parent >= fbx->objectCount) | false)
-fbk-through-geometry | src/fbx_skin.c | if (model == MANI_FBX_NONE && throughGeometry && | if (model == MANI_FBX_NONE &&
-fbk-geometry-kind | src/fbx_skin.c | maniFbxObjectKindIs(fbx, c->parent, "Geometry", 8)) | true)
+fbk-root-parent | src/fbx_model.c | c->parent >= fbx->objectCount) | false)
+fbk-through-geometry | src/fbx_model.c | if (model == MANI_FBX_NONE && throughGeometry && | if (model == MANI_FBX_NONE &&
+fbk-geometry-kind | src/fbx_model.c | maniFbxObjectKindIs(fbx, c->parent, "Geometry", 8)) | true)
 fbk-skin-range | src/fbx_skin.c | if (fbx == NULL || skin >= fbx->skinCount) | if (fbx == NULL)
 fbk-link-oo | src/fbx_skin.c | if (c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE && | if (
 fbk-cluster | src/fbx_skin.c | if (!maniFbxDeformerIs(fbx, child, "Cluster", 7)) | if (false)

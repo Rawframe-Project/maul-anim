@@ -176,7 +176,7 @@ static uint64_t OrderedBits(double d)
 {
     uint64_t bits = 0;
     memcpy(&bits, &d, sizeof bits);
-    return (bits >> 63) != 0 ? ~bits : bits | 0x8000000000000000u;
+    return (bits >> 63) != 0 ? ~bits : bits + 0x8000000000000000u;
 }
 
 static maniImportResult SortShapes(const maniFbx* fbx, maniFbxBlendShape* shapes, uint32_t count)
