@@ -296,7 +296,7 @@ static maniImportResult Sort(const maniFbx* fbx, maniFbxAnimation* a)
     {
         for (uint32_t i = 0; i < n; ++i)
         {
-            keys[i] = (uint64_t)a->channels[i].target << 32 | a->channels[i].layer;
+            keys[i] = ((uint64_t)a->channels[i].target << 32) + a->channels[i].layer;
         }
         maniSortByKey(keys, n, order, order + n);
         for (uint32_t i = 0; i < n; ++i)
