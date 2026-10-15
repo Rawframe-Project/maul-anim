@@ -14,6 +14,7 @@
 
 #include "bytes.h"
 #include "clip_file.h"
+#include "clip_view.h"
 #include "container.h"
 #include "test_harness.h"
 
@@ -685,6 +686,116 @@ static void TestSubsets(void)
     CHECK(maniClipIdentity(&packed) == maniLoadU64(s_file + 40), "identity");
 }
 
+// The test's own shell metric, binary64: each bone's matrix through the
+// hierarchy, three points at the shell distance on its axes.
+typedef struct Matrix
+{
+    double m[12];
+} Matrix;
+
+static Matrix LocalMatrix(maniTransform t)
+{
+    double x = (double)t.rotation.x;
+    double y = (double)t.rotation.y;
+    double z = (double)t.rotation.z;
+    double w = (double)t.rotation.w;
+    double r[9] = {1 - 2 * (y * y + z * z), 2 * (x * y + w * z),     2 * (x * z - w * y),
+                   2 * (x * y - w * z),     1 - 2 * (x * x + z * z), 2 * (y * z + w * x),
+                   2 * (x * z + w * y),     2 * (y * z - w * x),     1 - 2 * (x * x + y * y)};
+    double s[3] = {(double)t.scale.x, (double)t.scale.y, (double)t.scale.z};
+    Matrix out;
+    for (int c = 0; c < 9; ++c)
+    {
+        out.m[c] = r[c] * s[c / 3];
+    }
+    out.m[9] = (double)t.translation.x;
+    out.m[10] = (double)t.translation.y;
+    out.m[11] = (double)t.translation.z;
+    return out;
+}
+
+static Matrix Product(const Matrix* a, const Matrix* b)
+{
+    Matrix out;
+    for (int c = 0; c < 4; ++c)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            double v = a->m[k] * b->m[3 * c] + a->m[3 + k] * b->m[3 * c + 1] +
+                       a->m[6 + k] * b->m[3 * c + 2];
+            out.m[3 * c + k] = c == 3 ? v + a->m[9 + k] : v;
+        }
+    }
+    return out;
+}
+
+static void PoseMatrices(const maniPose* pose, Matrix* out)
+{
+    for (uint32_t b = 0; b < maniSkeletonBoneCount(&s_skeleton); ++b)
+    {
+        Matrix local = LocalMatrix(maniPoseLocal(pose, b));
+        uint32_t parent = maniSkeletonParent(&s_skeleton, b);
+        out[b] = parent == MANI_NO_BONE ? local : Product(&out[parent], &local);
+    }
+}
+
+static double ShellApart(const Matrix* a, const Matrix* b, double distance)
+{
+    double worst = 0.0;
+    for (int axis = 0; axis < 3; ++axis)
+    {
+        double squared = 0.0;
+        for (int k = 0; k < 3; ++k)
+        {
+            double d =
+                (a->m[3 * axis + k] - b->m[3 * axis + k]) * distance + a->m[9 + k] - b->m[9 + k];
+            squared += d * d;
+        }
+        worst = sqrt(squared) > worst ? sqrt(squared) : worst;
+    }
+    return worst;
+}
+
+// The report's largest shell error, its bone and sample, are what the
+// test measures itself at every sample.
+static void TestReportMatches(void)
+{
+    BuildFull(0.0f);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    maniCompressReport report;
+    CHECK(Compress(&options, &report) == mani_success, "compresses");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    maniPose* a = NULL;
+    maniPose* b = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &a) == mani_success, "pose a");
+    CHECK(maniInitPose(&s_skeleton, s_poseB, sizeof s_poseB, &b) == mani_success, "pose b");
+    Matrix ma[6];
+    Matrix mb[6];
+    double worst = 0.0;
+    uint32_t worstBone = 0;
+    uint32_t worstSample = 0;
+    for (uint32_t k = 0; k < maniClipSampleCount(&clip); ++k)
+    {
+        maniSampleClipAt(&s_full, &s_skeleton, k, a, NULL);
+        maniSampleClipAt(&clip, &s_skeleton, k, b, NULL);
+        PoseMatrices(a, ma);
+        PoseMatrices(b, mb);
+        for (uint32_t bone = 0; bone < 6; ++bone)
+        {
+            double e = ShellApart(&ma[bone], &mb[bone], (double)options.shellDistance);
+            if (e > worst)
+            {
+                worst = e;
+                worstBone = bone;
+                worstSample = k;
+            }
+        }
+    }
+    CHECK(fabs(worst - report.shellError) <= 1e-15, "the report's error is the test's");
+    CHECK(worstBone == report.shellBone && worstSample == report.shellSample, "and where");
+}
+
 static void TestSameBytes(void)
 {
     BuildFull(0.0f);
@@ -954,6 +1065,7 @@ int main(int argc, char** argv)
     TestFoldWithinPrecision();
     TestNoRatePasses();
     TestRandomWithinPrecision();
+    TestReportMatches();
     TestCursor();
     TestSubsets();
     TestSameBytes();
