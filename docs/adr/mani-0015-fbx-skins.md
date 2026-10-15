@@ -18,9 +18,10 @@ runtime's skin is a list of skeleton bones with an inverse bind each
   (refused, Bone, when missing); a model linked twice is two joints.
 - **Inverse binds** are the cluster's `Transform` times the mesh
   model's geometric transform, as ufbx reads them. Without `Transform`
-  (or `TransformLink`), the bone's bind world is `TransformLink`, else
-  its matrix in a bind pose, else its world at rest, and the mesh
-  node's world at rest is taken relative to it. Matrices that are not
+  (or `TransformLink`), the bone's bind world is `TransformLink` (read,
+  as ufbx reads it, only beside `Transform`), else its matrix in a bind
+  pose, else its world at rest where ufbx is left with none, and the
+  mesh node's world at rest is taken relative to it. Matrices that are not
   affine, too short or not invertible are refused; additive clusters
   are refused rather than bound wrongly.
 - **Axes and units** apply to binds as to rests (`B M B^-1`, the

@@ -23,14 +23,16 @@
 
 // Body (mesh at z 2, geometry moved 1 along z and scaled 2); Hips at y
 // 1, Spine above, Arm beside. Skin 0's clusters: 41 Hips with
-// Transform (y -1, z -2) and TransformLink; 42 Spine with TransformLink
-// alone (y 3); 43 Arm with Transform alone (not used without a link),
+// Transform (y -1, z -2) and TransformLink; 42 Spine with an all-zero
+// Transform and TransformLink (y 3); 43 Arm with Transform alone (not
+// used without a link),
 // in the bind pose at x 5 (a later bind pose at 7 ignored); 44 Hips
 // with an all-zero TransformLink and an all-zero bind pose entry (a rest
 // pose at 9 ignored), so at rest; 45 linking a model by a property
 // connection only, skipped; a blend shape channel under the skin with
 // a model child, no cluster. Skin 1 hangs from the root (no mesh; its
-// cluster links Arm at 1 2 3); skin 2 from a video under Body (no
+// cluster links Arm with a TransformLink alone at 1 2 3, unread as ufbx
+// leaves it, so Arm's bind pose at x 5); skin 2 from a video under Body (no
 // mesh); skin 3 from geometries in a cycle (no mesh).
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
@@ -51,6 +53,7 @@ static const char kScene[] =
     "  Transform: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-1,-2,1\n  }\n"
     "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1\n  }\n }\n"
     " Deformer: 42, \"SubDeformer::\", \"Cluster\" {\n"
+    "  Transform: *16 {\n   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\n  }\n"
     "  TransformLink: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,3,0,1\n  }\n }\n"
     " Deformer: 43, \"SubDeformer::\", \"Cluster\" {\n"
     "  Transform: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,9,1\n  }\n }\n"
@@ -187,7 +190,7 @@ static void TestBinds(void)
               maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
           "a skin with no mesh");
     maniAffine lone = maniSkinInverseBind(&skin, 0);
-    CHECK(IsBind(&lone, 1, -1, -2, -3), "relative to the origin");
+    CHECK(IsBind(&lone, 1, -5, 0, 0), "a lone TransformLink unread, relative to the origin");
     CHECK(IsBind(&b1, 2, 0, -3, 3), "TransformLink inverted, the mesh at rest, G");
     CHECK(IsBind(&b2, 2, -5, 0, 3), "the bind pose's matrix");
     CHECK(IsBind(&b3, 2, 0, -1, 3), "the rest when nothing else is given");

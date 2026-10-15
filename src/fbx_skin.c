@@ -297,16 +297,16 @@ static maniImportResult Worlds(Skin* s)
     return maniFbxEvaluateWorlds(fbx, s->needed, s->worlds);
 }
 
-// A bone's world at bind: TransformLink, its bind pose matrix, or its
-// world at rest.
-static maniImportResult BindWorld(const Skin* s, uint32_t cluster, uint32_t model,
+// A bone's world at bind: TransformLink (read only with Transform, as
+// ufbx reads it), its bind pose matrix, or its world at rest.
+static maniImportResult BindWorld(const Skin* s, uint32_t cluster, uint32_t model, bool paired,
                                   maniFbxMatrix* out)
 {
     const maniFbx* fbx = s->fbx;
     bool present = false;
     maniImportResult r =
         ReadMatrix(fbx, fbx->objects[cluster].node, "TransformLink", s->skin, &present, out);
-    bool linked = present && !AllZero(out);
+    bool linked = paired && present && !AllZero(out);
     bool posed = false;
     if (r.result == mani_success && !linked && s->poseOf[model] != MANI_FBX_NONE)
     {
@@ -322,13 +322,13 @@ static maniImportResult BindWorld(const Skin* s, uint32_t cluster, uint32_t mode
 
 // The mesh node relative to the bone at bind, from the bone's bind world
 // and the mesh node's world at rest.
-static maniImportResult Relative(const Skin* s, uint32_t j, maniFbxMatrix* out)
+static maniImportResult Relative(const Skin* s, uint32_t j, bool paired, maniFbxMatrix* out)
 {
     const maniFbx* fbx = s->fbx;
     uint32_t cluster = s->joints.clusters[j];
     maniFbxMatrix bind;
     maniFbxMatrix inverse;
-    maniImportResult r = BindWorld(s, cluster, s->joints.models[j], &bind);
+    maniImportResult r = BindWorld(s, cluster, s->joints.models[j], paired, &bind);
     if (r.result != mani_success)
     {
         return r;
@@ -368,7 +368,7 @@ static maniImportResult Bind(const Skin* s, uint32_t j, const maniFbxMatrix* geo
     }
     if (r.result == mani_success && !(present && linked && !AllZero(&meshToBone)))
     {
-        r = Relative(s, j, &meshToBone);
+        r = Relative(s, j, present && linked, &meshToBone);
     }
     if (r.result == mani_success)
     {
