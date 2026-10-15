@@ -67,7 +67,7 @@ def parse(text):
         if stripped == "}":
             stack.pop()
             continue
-        m = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*):(.*)$", line)
+        m = re.match(r"\s*([A-Za-z_][A-Za-z0-9_-]*):(.*)$", line)
         if m is None:
             # A continuation of the previous node's values.
             parts = [t for t in tokens(stripped) if t not in (",",)]
