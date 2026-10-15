@@ -311,14 +311,11 @@ bool maniFbxIsShapeOwner(const maniFbx* fbx, uint32_t object)
         return fbx->version <= 7100 && maniFbxObjectKindIs(fbx, object, "Geometry", 8) &&
                maniFbxObjectSubclassIs(fbx, object, "Mesh", 4);
     }
-    if (!maniFbxObjectKindIs(fbx, object, "Model", 5))
-    {
-        return false;
-    }
+    // An object not a model has no mesh model, so makes no tracks.
     return maniFbxModelIsMesh(fbx, object);
 }
 
 uint32_t maniFbxShapeOwnerModel(const maniFbx* fbx, uint32_t owner)
 {
-    return fbx->version < 7000 ? owner : maniFbxDeformerModel(fbx, owner);
+    return fbx->version < 7000 ? maniFbxModelOf(fbx, owner) : maniFbxDeformerModel(fbx, owner);
 }

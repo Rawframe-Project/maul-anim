@@ -55,8 +55,8 @@ void maniFbxBlendWeights(const maniFbxBlendShape* shapes, uint32_t count, double
 // target 1, weighted by the owner's property of that name.
 bool maniFbxIsShapeOwner(const maniFbx* fbx, uint32_t object);
 
-// A shape owner's mesh model: itself (6.x) or its geometry's model;
-// MANI_FBX_NONE for none.
+// A shape owner's mesh model, as an index into fbx->models: the owner
+// (6.x) or its geometry's model; MANI_FBX_NONE for none.
 uint32_t maniFbxShapeOwnerModel(const maniFbx* fbx, uint32_t owner);
 
 #endif // MAUL_ANIM_SRC_FBX_BLEND_H

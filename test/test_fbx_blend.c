@@ -396,7 +396,9 @@ static void TestRests(void)
 // Before 7.2, shapes held by meshes (mani-0017), as ufbx weighs them:
 // a 6.x Mesh model's Smile (a number) and Wink (an integer) are driven;
 // Blink (user-defined, so the model's), Frown (a Bool), Gape (no
-// property) and Hollow (no vertices) are not.
+// property), Hollow (no arrays), Half (no Vertices) and Part (no
+// Indexes) are not. The deformers come first, so the models' indices
+// differ from their objects'.
 static const char kShapes6[] =
     "; FBX 6.1.0 project file\n"
     "FBXHeaderExtension: {\n"
@@ -404,6 +406,16 @@ static const char kShapes6[] =
     " FBXVersion: 6100\n"
     "}\n"
     "Objects: {\n"
+    " Deformer: \"Deformer::Skin Face\", \"Skin\" {\n"
+    "  Version: 100\n"
+    " }\n"
+    " Deformer: \"SubDeformer::Cluster Head\", \"Cluster\" {\n"
+    "  Version: 100\n"
+    "  Indexes: 0\n"
+    "  Weights: 1\n"
+    "  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n"
+    "  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n"
+    " }\n"
     " Model: \"Model::Head\", \"Limb\" {\n"
     "  Version: 232\n"
     "  Properties60: {\n"
@@ -417,6 +429,8 @@ static const char kShapes6[] =
     "   Property: \"Blink\", \"Number\", \"A+U\",0\n"
     "   Property: \"Frown\", \"Bool\", \"A+\",0\n"
     "   Property: \"Wink\", \"Integer\", \"A+\",0\n"
+    "   Property: \"Half\", \"Number\", \"A+\",0\n"
+    "   Property: \"Part\", \"Number\", \"A+\",0\n"
     "  }\n"
     "  Vertices: 0,0,0,1,0,0,0,1,0\n"
     "  PolygonVertexIndex: 0,1,-3\n"
@@ -442,16 +456,12 @@ static const char kShapes6[] =
     "  }\n"
     "  Shape: \"Hollow\" {\n"
     "  }\n"
-    " }\n"
-    " Deformer: \"Deformer::Skin Face\", \"Skin\" {\n"
-    "  Version: 100\n"
-    " }\n"
-    " Deformer: \"SubDeformer::Cluster Head\", \"Cluster\" {\n"
-    "  Version: 100\n"
-    "  Indexes: 0\n"
-    "  Weights: 1\n"
-    "  Transform: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n"
-    "  TransformLink: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1\n"
+    "  Shape: \"Half\" {\n"
+    "   Indexes: 0\n"
+    "  }\n"
+    "  Shape: \"Part\" {\n"
+    "   Vertices: 0,0,1\n"
+    "  }\n"
     " }\n"
     "}\n"
     "Connections: {\n"
@@ -495,6 +505,18 @@ static const char kShapes6[] =
     "    KeyCount: 2\n"
     "    Key: 0,0,L,46186158000,100,L\n"
     "   }\n"
+    "   Channel: \"Half\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
+    "   Channel: \"Part\" {\n"
+    "    Default: 0\n"
+    "    KeyVer: 4005\n"
+    "    KeyCount: 2\n"
+    "    Key: 0,0,L,46186158000,100,L\n"
+    "   }\n"
     "   Channel: \"Hollow\" {\n"
     "    Default: 0\n"
     "    KeyVer: 4005\n"
@@ -505,7 +527,8 @@ static const char kShapes6[] =
     " }\n"
     "}\n";
 
-// A 7.1 geometry's Smile and Blink, both driven (no split in 7.x).
+// A 7.1 geometry's Smile and Blink, both driven (no split in 7.x);
+// Blink only in a second layer, which adds to its rest.
 static const char kShapes71[] =
     "; FBX 7.1.0 project file\n"
     "FBXHeaderExtension: {\n"
@@ -559,6 +582,8 @@ static const char kShapes71[] =
     "  }\n"
     " }\n"
     " AnimationLayer: 101, \"AnimLayer::Base\", \"\" {\n"
+    " }\n"
+    " AnimationLayer: 102, \"AnimLayer::Over\", \"\" {\n"
     " }\n"
     " AnimationCurveNode: 110, \"AnimCurveNode::Smile\", \"\" {\n"
     "  Properties70: {\n"
@@ -616,7 +641,8 @@ static const char kShapes71[] =
     " C: \"OO\",110,101\n"
     " C: \"OP\",110,50, \"Smile\"\n"
     " C: \"OP\",111,110, \"d|Smile\"\n"
-    " C: \"OO\",112,101\n"
+    " C: \"OO\",102,100\n"
+    " C: \"OO\",112,102\n"
     " C: \"OP\",112,50, \"Blink\"\n"
     " C: \"OP\",113,112, \"d|Blink\"\n"
     "}\n";
@@ -648,8 +674,19 @@ static void TestShapeOwners(void)
     static const double kValues6[2][5] = {{0.1, 0.3, 0.5, 0.7, 0.9}, {0, 0.25, 0.5, 0.75, 1}};
     CHECK(ShapeTracks(kShapes6, 2, kNames6, kValues6), "a 6.x mesh model's shapes");
     static const char* const kNames71[2] = {"Face/Smile", "Face/Blink"};
-    static const double kValues71[2][5] = {{0.1, 0.3, 0.5, 0.7, 0.9}, {0.2, 0.3, 0.4, 0.5, 0.6}};
+    static const double kValues71[2][5] = {{0.1, 0.3, 0.5, 0.7, 0.9}, {0.4, 0.5, 0.6, 0.7, 0.8}};
     CHECK(ShapeTracks(kShapes71, 2, kNames71, kValues71), "a 7.1 geometry's shapes");
+    {
+        // Face skinned to Head: none for a skeleton without Head.
+        static const char* const kOther[1] = {"Other"};
+        maniBuilder* builder = NewBuilder();
+        maniClip clip;
+        uint32_t bound = 0;
+        CHECK(Build(builder, kShapes6, kOther, 1, &clip, &bound) &&
+                  maniClipFloatTrackCount(&clip) == 0,
+              "no shapes of a mesh outside the skeleton");
+        maniDestroyBuilder(builder);
+    }
     // From 7.2, Shape children are no blend shapes.
     static char text[sizeof kShapes71];
     snprintf(text, sizeof text, "%s", kShapes71);
