@@ -1073,3 +1073,37 @@ fmo-root-loses | src/fbx_model.c | bool later = p < fbx->modelCount && (parent =
 fmo-mine | src/fbx_model.c | child != MANI_FBX_NONE && fbx->modelParents[child] == (p < n ? p : MANI_FBX_NONE); | child != MANI_FBX_NONE;
 fle-children-strings | src/fbx_legacy.c | if (fbx->properties[maniFbxNodeProperty(fbx, list, k)].type != 'S') | if (false)
 fcs-default-rate | src/fbx_clip_state.c | return scene > 0.0 && scene <= 120.0 ? scene : 30.0; | return scene > 0.0 && scene < 120.0 ? scene : 30.0;
+
+# The differential's second round (names made valid UTF-8 in fbx_value.c,
+# the deflate bound, stack times from takes, object 0's stack, sizes
+# counted; mani-0012, mani-0016), 2026-10-15: 29 mutants, none
+# surviving; a four-byte lead mask no input could tell apart was removed.
+fva-nul | src/fbx_value.c | return c != 0 ? 1 : 0; | return 1;
+fva-two-overlong | src/fbx_value.c | return (code & 0xc0) == 0x80 && code >= 0xc280 ? 2 : 0; | return (code & 0xc0) == 0x80 && code >= 0xc080 ? 2 : 0;
+fva-two-trail | src/fbx_value.c | return (code & 0xc0) == 0x80 && code >= 0xc280 ? 2 : 0; | return code >= 0xc280 ? 2 : 0;
+fva-two-short | src/fbx_value.c | if ((c & 0xe0) == 0xc0 && n >= 2) | if ((c & 0xe0) == 0xc0 && n >= 1)
+fva-three-overlong | src/fbx_value.c | (code & 0xc0c0) == 0x8080 && code >= 0xe0a080 && (code < 0xeda080 || code >= 0xee8080); | (code & 0xc0c0) == 0x8080 && code >= 0xe08080 && (code < 0xeda080 || code >= 0xee8080);
+fva-three-surrogate | src/fbx_value.c | (code & 0xc0c0) == 0x8080 && code >= 0xe0a080 && (code < 0xeda080 || code >= 0xee8080); | (code & 0xc0c0) == 0x8080 && code >= 0xe0a080 && (code < 0xeda080 || code >= 0xeda080);
+fva-three-short | src/fbx_value.c | if ((c & 0xf0) == 0xe0 && n >= 3) | if ((c & 0xf0) == 0xe0 && n >= 2)
+fva-four-high | src/fbx_value.c | return (code & 0xc0c0c0) == 0x808080 && code >= 0xf0908080u && code <= 0xf48fbfbfu ? 4 : 0; | return (code & 0xc0c0c0) == 0x808080 && code >= 0xf0908080u ? 4 : 0;
+fva-four-overlong | src/fbx_value.c | return (code & 0xc0c0c0) == 0x808080 && code >= 0xf0908080u && code <= 0xf48fbfbfu ? 4 : 0; | return (code & 0xc0c0c0) == 0x808080 && code <= 0xf48fbfbfu ? 4 : 0;
+fva-text-skip | src/fbx_value.c | while (t->decoded < from && t->r.at < t->r.raw) | while (false)
+fva-text-end | src/fbx_value.c | while (t->held < 4 && t->decoded < t->end && t->r.at < t->r.raw) | while (t->held < 4 && t->r.at < t->r.raw)
+fva-text-window | src/fbx_value.c | while (t->held < 4 && t->decoded < t->end && t->r.at < t->r.raw) | while (t->held < 1 && t->decoded < t->end && t->r.at < t->r.raw)
+fva-used | src/fbx_value.c | uint32_t used = n != 0 ? n : 1; | uint32_t used = n != 0 ? n : 2;
+fva-whole | src/fbx_value.c | if (out != NULL && capacity - written < n) | if (out != NULL && capacity == written)
+fva-split-binary | src/fbx_value.c | to = binary && k > 0 && previous == 0 && c == 1 ? k - 1 : to; | to = binary && k > 0 && previous == 0 && c == 1 ? k : to;
+fva-split-ascii | src/fbx_value.c | from = !binary && k > 0 && previous == ':' && c == ':' ? k + 1 : from; | from = !binary && k > 0 && previous == ':' && c == ':' ? k : from;
+fva-split-first | src/fbx_value.c | for (uint64_t k = 0; r.at < r.raw && to == UINT64_MAX && from == 0; ++k) | for (uint64_t k = 0; r.at < r.raw && to == UINT64_MAX; ++k)
+fva-equals-length | src/fbx_value.c | if (length - matched < n || memcmp(bytes + matched, c, n) != 0) | if (length - matched < 1 || memcmp(bytes + matched, c, n) != 0)
+fva-same-count | src/fbx_value.c | if (n != NextCharacter(&y, cy) || memcmp(cx, cy, n) != 0) | if (NextCharacter(&y, cy) == 0 || memcmp(cx, cy, n) != 0)
+fva-hash-all | src/fbx_value.c | for (uint32_t i = 0; i < n; ++i) | for (uint32_t i = 0; i < 1; ++i)
+fbi-deflate-bound | src/fbx_binary.c | if (encoding == 1 && (uint64_t)count * ArrayElementSize(type) > encoded * 1032) | if (encoding == 1 && (uint64_t)count * ArrayElementSize(type) > encoded * 1033)
+fan-internal-version | src/fbx_anim.c | return fbx->version < 6000 && source == 0; | return source == 0;
+fan-bare | src/fbx_anim.c | bool bare = list == MANI_FBX_NONE || fbx->nodes[list].firstChild == MANI_FBX_NONE; | bool bare = list == MANI_FBX_NONE;
+fan-bare-own | src/fbx_anim.c | bool bare = list == MANI_FBX_NONE || fbx->nodes[list].firstChild == MANI_FBX_NONE; | bool bare = true;
+fan-take-reference | src/fbx_anim.c | maniFbxTakeTimes(fbx, take, "ReferenceTime", &a->start, &a->stop)); | false);
+fta-names-count | src/fbx_take.c | r->namesUsed += maniFbxStringDecode(r->fbx, name, NULL, 0); | r->namesUsed += 0;
+fmo-names-count | src/fbx_model.c | raw += maniFbxObjectName(fbx, fbx->models[m], NULL, 0); | raw += 1;
+ftr-object-name-count | src/fbx_tracks.c | size_t length = maniFbxObjectName(fbx, object, NULL, 0); | size_t length = 1;
+ftr-shape-name-count | src/fbx_tracks.c | size_t decoded = maniFbxStringDecode(fbx, property, NULL, 0); | size_t decoded = 1;
