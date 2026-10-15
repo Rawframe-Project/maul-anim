@@ -390,7 +390,22 @@ maniClipPair maniClipLocate(const maniClip* clip, float time)
     return pair;
 }
 
-// count components of two samples at alpha into a slot from first.
+bool maniBoneListed(const maniBoneList* list, uint32_t bone, uint32_t* next)
+{
+    if (list == NULL)
+    {
+        return true;
+    }
+    while (*next < list->count && list->bones[*next] < bone)
+    {
+        ++*next;
+    }
+    return *next < list->count && list->bones[*next] == bone;
+}
+
+// count components of two samples at alpha into a slot from first; a
+// rotation normalized (the builder put consecutive ones in one
+// hemisphere).
 static void LerpInto(const uint8_t* a, const uint8_t* b, float alpha, float* slot, uint32_t first,
                      uint32_t count)
 {
@@ -403,23 +418,9 @@ static void LerpInto(const uint8_t* a, const uint8_t* b, float alpha, float* slo
     }
     if (count == 4)
     {
-        // The builder put consecutive samples in one hemisphere.
         maniCodecNormalize(out);
     }
     maniPoseSlotPut(slot, first, out, count);
-}
-
-bool maniBoneListed(const maniBoneList* list, uint32_t bone, uint32_t* next)
-{
-    if (list == NULL)
-    {
-        return true;
-    }
-    while (*next < list->count && list->bones[*next] < bone)
-    {
-        ++*next;
-    }
-    return *next < list->count && list->bones[*next] == bone;
 }
 
 // A bone's channels at a pair into its pose slot, the samples' pointers

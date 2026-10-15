@@ -31,9 +31,15 @@ static inline uint32_t maniCodecBits(uint32_t rate)
 // away from zero.
 uint32_t maniCodecPack(float normalized, uint32_t bits);
 
+// 1 / (2^bits - 1) for bits 1 to 23 (index 0 unused), rounded once.
+extern const float maniCodecInverse[24];
+
 // The value of q on bits (1 to 23): q times 1 / (2^bits - 1), in
 // binary32.
-float maniCodecUnpack(uint32_t q, uint32_t bits);
+static inline float maniCodecUnpack(uint32_t q, uint32_t bits)
+{
+    return (float)q * maniCodecInverse[bits];
+}
 
 // A segment range of clip-normalized values (in [0, 1]) on 8 bits: the
 // minimum rounded down and the extent up, a step further when rounding
@@ -41,7 +47,10 @@ float maniCodecUnpack(uint32_t q, uint32_t bits);
 void maniCodecSegmentRange(float minimum, float maximum, uint8_t* minimumOut, uint8_t* extentOut);
 
 // A segment range's byte as a value: q / 255 in binary32.
-float maniCodecRangeByte(uint8_t q);
+static inline float maniCodecRangeByte(uint8_t q)
+{
+    return (float)q * maniCodecInverse[8];
+}
 
 // A value constant in its segment, clip-normalized, on 16 bits, and
 // back.

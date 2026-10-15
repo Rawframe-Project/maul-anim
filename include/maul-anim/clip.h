@@ -70,6 +70,7 @@ extern "C"
         uint32_t animatedChannels;
         uint32_t animatedFloats;
         uint32_t constantChannels;
+        uint32_t animatedRotations;
         float sampleRate;
         float duration;
         maniLoopPolicy loop;

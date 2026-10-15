@@ -10,7 +10,7 @@
 #include <math.h>
 
 // 1 / (2^bits - 1) for bits 1 to 23, rounded once at translation.
-static const float kInverse[24] = {
+const float maniCodecInverse[24] = {
     0.0f,
     1.0f,
     1.0f / 3.0f,
@@ -51,16 +51,6 @@ uint32_t maniCodecPack(float normalized, uint32_t bits)
     return Round(normalized, (1u << bits) - 1u);
 }
 
-float maniCodecUnpack(uint32_t q, uint32_t bits)
-{
-    return (float)q * kInverse[bits];
-}
-
-float maniCodecRangeByte(uint8_t q)
-{
-    return (float)q * kInverse[8];
-}
-
 void maniCodecSegmentRange(float minimum, float maximum, uint8_t* minimumOut, uint8_t* extentOut)
 {
     float low = floorf(minimum * 255.0f);
@@ -87,7 +77,7 @@ uint16_t maniCodecPack16(float normalized)
 
 float maniCodecUnpack16(uint16_t q)
 {
-    return (float)q * kInverse[16];
+    return (float)q * maniCodecInverse[16];
 }
 
 void maniBitWrite(maniBitWriter* w, uint32_t value, uint32_t bits)

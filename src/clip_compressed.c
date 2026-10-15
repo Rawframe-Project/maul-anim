@@ -63,29 +63,35 @@ typedef struct Counts
     uint64_t constantChannels;
     uint64_t constantFloats;
     uint64_t animatedChannels;
+    uint64_t animatedRotations;
     uint64_t animatedFloats;
 } Counts;
+
+// A bone track's forms byte against its channel mask, counted: false when
+// a present channel has no form, an absent one has one, or a dropped
+// component is named without a rotation stored.
+static bool TrackForms(uint32_t byte, uint32_t mask, Counts* counts)
+{
+    uint32_t rotation = Form(byte, 1);
+    bool right = byte < 64 || rotation == maniClipFormConstant || rotation == maniClipFormAnimated;
+    for (uint32_t c = 0; right && c < 3; ++c)
+    {
+        uint32_t f = Form(byte, c);
+        right = ((mask >> c) & 1u) != 0 ? f != maniClipFormAbsent : f == maniClipFormAbsent;
+        counts->constantChannels += f == maniClipFormConstant ? 1 : 0;
+        counts->animatedChannels += f == maniClipFormAnimated ? 1 : 0;
+        counts->animatedRotations += f == maniClipFormAnimated && c == 1 ? 1 : 0;
+    }
+    return right;
+}
 
 static maniFileResult CheckForms(const uint8_t* forms, uint64_t at, const maniClip* clip,
                                  Counts* counts)
 {
-    *counts = (Counts){0, 0, 0, 0};
+    *counts = (Counts){0, 0, 0, 0, 0};
     for (uint32_t i = 0; i < clip->trackCount; ++i)
     {
-        uint32_t mask = clip->tracks[(size_t)i * MANI_CLIP_TRACK_SIZE + 2];
-        uint32_t byte = forms[i];
-        uint32_t rotation = Form(byte, 1);
-        // A dropped component only for a rotation stored.
-        bool right =
-            byte < 64 || rotation == maniClipFormConstant || rotation == maniClipFormAnimated;
-        for (uint32_t c = 0; right && c < 3; ++c)
-        {
-            uint32_t f = Form(byte, c);
-            right = ((mask >> c) & 1u) != 0 ? f != maniClipFormAbsent : f == maniClipFormAbsent;
-            counts->constantChannels += f == maniClipFormConstant ? 1 : 0;
-            counts->animatedChannels += f == maniClipFormAnimated ? 1 : 0;
-        }
-        if (!right)
+        if (!TrackForms(forms[i], clip->tracks[(size_t)i * MANI_CLIP_TRACK_SIZE + 2], counts))
         {
             return Fail(at + i);
         }
@@ -321,6 +327,7 @@ maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_
     clip->animatedChannels = (uint32_t)counts.animatedChannels;
     clip->animatedFloats = (uint32_t)counts.animatedFloats;
     clip->constantChannels = (uint32_t)counts.constantChannels;
+    clip->animatedRotations = (uint32_t)counts.animatedRotations;
     clip->forms = data[10];
     r = CheckAllValues(data, at, clip);
     r = r.result == mani_success
@@ -417,6 +424,82 @@ static void Decode(Walker* w, const uint8_t* clipRange, uint32_t width, float* o
     }
 }
 
+// The walk over the bone channels: constants, clip ranges, and the two
+// samples' values, from their bits (walkers) or decoded before (caches,
+// when not NULL: rotations rebuilt, four floats; vectors three), the
+// same arithmetic after.
+typedef struct Reading
+{
+    Walker a;
+    Walker b;
+    const float* cacheA;
+    const float* cacheB;
+    const uint8_t* constant;
+    const uint8_t* range;
+    float alpha;
+} Reading;
+
+// Moves a walker past a sub-track of `width` components unread.
+static void Pass(Walker* w, uint32_t width)
+{
+    uint32_t rate = *w->rates++;
+    w->ranges += w->several ? 2 * (size_t)width : 0;
+    w->bit += (uint64_t)width * maniCodecBits(rate);
+}
+
+// Moves past a bone channel of a form unread.
+static void Skip(Reading* r, uint32_t form, uint32_t channel)
+{
+    if (form == maniClipFormConstant)
+    {
+        r->constant += 12;
+    }
+    else if (form == maniClipFormAnimated)
+    {
+        uint32_t cached = channel == 1 ? 4 : 3;
+        r->range += 24;
+        r->cacheA += r->cacheA != NULL ? cached : 0;
+        r->cacheB += r->cacheB != NULL ? cached : 0;
+        if (r->cacheA == NULL)
+        {
+            Pass(&r->a, 3);
+            Pass(&r->b, 3);
+        }
+    }
+}
+
+// The next animated channel's two values: from the caches, or decoded
+// (and a rotation rebuilt with its dropped component).
+static void Animated(Reading* r, uint32_t channel, uint32_t dropped, float* va, float* vb)
+{
+    uint32_t width = channel == 1 ? 4 : 3;
+    if (r->cacheA != NULL && r->cacheB != NULL)
+    {
+        memcpy(va, r->cacheA, width * sizeof(float));
+        memcpy(vb, r->cacheB, width * sizeof(float));
+        r->cacheA += width;
+        r->cacheB += width;
+    }
+    else
+    {
+        float ka[3];
+        float kb[3];
+        Decode(&r->a, r->range, 3, ka);
+        Decode(&r->b, r->range, 3, kb);
+        if (channel == 1)
+        {
+            maniCodecRotation(ka, dropped, va);
+            maniCodecRotation(kb, dropped, vb);
+        }
+        else
+        {
+            memcpy(va, ka, sizeof ka);
+            memcpy(vb, kb, sizeof kb);
+        }
+    }
+    r->range += 24;
+}
+
 // Normalized lerp on the shorter arc: both rotations keep their dropped
 // component positive, so the second is negated when they point apart.
 static void Nlerp(const float a[4], const float b[4], float alpha, float q[4])
@@ -430,85 +513,35 @@ static void Nlerp(const float a[4], const float b[4], float alpha, float q[4])
     maniCodecNormalize(q);
 }
 
-// The walk over the bone channels: constants, clip ranges, and the two
-// samples' values, from their bits (walkers) or decoded before (caches,
-// when not NULL), the same arithmetic after.
-typedef struct Reading
-{
-    Walker a;
-    Walker b;
-    const float* cacheA;
-    const float* cacheB;
-    const uint8_t* constant;
-    const uint8_t* range;
-} Reading;
-
-// Moves a walker past a sub-track of `width` components unread.
-static void Pass(Walker* w, uint32_t width)
-{
-    uint32_t rate = *w->rates++;
-    w->ranges += w->several ? 2 * (size_t)width : 0;
-    w->bit += (uint64_t)width * maniCodecBits(rate);
-}
-
-// The next animated sub-track's two values.
-static void Animated(Reading* r, uint32_t width, float* va, float* vb)
-{
-    if (r->cacheA != NULL && r->cacheB != NULL)
-    {
-        memcpy(va, r->cacheA, width * sizeof(float));
-        memcpy(vb, r->cacheB, width * sizeof(float));
-        r->cacheA += width;
-        r->cacheB += width;
-    }
-    else
-    {
-        Decode(&r->a, r->range, width, va);
-        Decode(&r->b, r->range, width, vb);
-    }
-    r->range += 8 * (size_t)width;
-}
-
-// Moves past a bone channel of a form unread.
-static void Skip(Reading* r, uint32_t form)
-{
-    if (form == maniClipFormConstant)
-    {
-        r->constant += 12;
-    }
-    else if (form == maniClipFormAnimated)
-    {
-        r->range += 24;
-        r->cacheA += r->cacheA != NULL ? 3 : 0;
-        r->cacheB += r->cacheB != NULL ? 3 : 0;
-        if (r->cacheA == NULL)
-        {
-            Pass(&r->a, 3);
-            Pass(&r->b, 3);
-        }
-    }
-}
-
 // One channel (0 translation, 1 rotation, 2 scale) of a bone into its
-// pose slot: interpolated when stored, the rest otherwise.
-static void Channel(Reading* r, uint32_t forms, uint32_t channel, float alpha, float* slot,
+// slot: interpolated when stored, the rest otherwise.
+static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot,
                     const maniSkeleton* skeleton, uint32_t bone)
 {
     uint32_t form = Form(forms, channel);
-    float va[3];
-    float vb[3];
+    float va[4];
+    float vb[4];
     if (form == maniClipFormConstant)
     {
+        float kept[3];
         for (int k = 0; k < 3; ++k)
         {
-            va[k] = LoadF32(r->constant + 4 * k);
-            vb[k] = va[k];
+            kept[k] = LoadF32(r->constant + 4 * k);
         }
         r->constant += 12;
+        if (channel == 1)
+        {
+            maniCodecRotation(kept, Dropped(forms), va);
+        }
+        else
+        {
+            memcpy(va, kept, sizeof kept);
+        }
+        memcpy(vb, va, sizeof va);
     }
     else if (form == maniClipFormAnimated)
     {
-        Animated(r, 3, va, vb);
+        Animated(r, channel, Dropped(forms), va, vb);
     }
     else
     {
@@ -518,17 +551,13 @@ static void Channel(Reading* r, uint32_t forms, uint32_t channel, float alpha, f
     float out[4];
     if (channel == 1)
     {
-        float qa[4];
-        float qb[4];
-        maniCodecRotation(va, Dropped(forms), qa);
-        maniCodecRotation(vb, Dropped(forms), qb);
-        Nlerp(qa, qb, alpha, out);
+        Nlerp(va, vb, r->alpha, out);
         maniPoseSlotPut(slot, 3, out, 4);
         return;
     }
     for (int k = 0; k < 3; ++k)
     {
-        out[k] = va[k] + (vb[k] - va[k]) * alpha;
+        out[k] = va[k] + (vb[k] - va[k]) * r->alpha;
     }
     maniPoseSlotPut(slot, maniChannelFirst(channel), out, 3);
 }
@@ -539,7 +568,8 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     Reading r = {.cacheA = pair->cacheA,
                  .cacheB = pair->cacheB,
                  .constant = clip->constants,
-                 .range = clip->ranges};
+                 .range = clip->ranges,
+                 .alpha = pair->alpha};
     if (pair->cacheA == NULL)
     {
         r.a = WalkerAt(clip, pair->first, false);
@@ -562,25 +592,37 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
         {
             if (wanted)
             {
-                Channel(&r, forms, c, pair->alpha, slot, skeleton, bone);
+                Channel(&r, forms, c, slot, skeleton, bone);
             }
             else
             {
-                Skip(&r, Form(forms, c));
+                Skip(&r, Form(forms, c), c);
             }
         }
     }
     maniPoseMarkStale(pose);
 }
 
+// The walk over the float tracks.
+typedef struct FloatReading
+{
+    Walker a;
+    Walker b;
+    const float* cacheA;
+    const float* cacheB;
+    const uint8_t* constant;
+    const uint8_t* range;
+} FloatReading;
+
 void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, float* values)
 {
-    size_t channels = 3 * (size_t)clip->animatedChannels;
-    Reading r = {.cacheA = pair->cacheA != NULL ? pair->cacheA + channels : NULL,
-                 .cacheB = pair->cacheB != NULL ? pair->cacheB + channels : NULL,
-                 // The bone channels' constants and ranges come first.
-                 .constant = clip->constants + 12 * (size_t)clip->constantChannels,
-                 .range = clip->ranges + 24 * (size_t)clip->animatedChannels};
+    size_t channels = 4 * (size_t)clip->animatedRotations +
+                      3 * (size_t)(clip->animatedChannels - clip->animatedRotations);
+    FloatReading r = {.cacheA = pair->cacheA != NULL ? pair->cacheA + channels : NULL,
+                      .cacheB = pair->cacheB != NULL ? pair->cacheB + channels : NULL,
+                      // The bone channels' constants and ranges come first.
+                      .constant = clip->constants + 12 * (size_t)clip->constantChannels,
+                      .range = clip->ranges + 24 * (size_t)clip->animatedChannels};
     if (pair->cacheA == NULL)
     {
         r.a = WalkerAt(clip, pair->first, true);
@@ -596,9 +638,16 @@ void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, 
             vb = va;
             r.constant += 4;
         }
+        else if (r.cacheA != NULL && r.cacheB != NULL)
+        {
+            va = *r.cacheA++;
+            vb = *r.cacheB++;
+        }
         else
         {
-            Animated(&r, 1, &va, &vb);
+            Decode(&r.a, r.range, 1, &va);
+            Decode(&r.b, r.range, 1, &vb);
+            r.range += 8;
         }
         bool step =
             maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
@@ -609,19 +658,42 @@ void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, 
 
 uint32_t maniCompressedSampleFloats(const maniClip* clip)
 {
-    return 3 * clip->animatedChannels + clip->animatedFloats;
+    return 4 * clip->animatedRotations + 3 * (clip->animatedChannels - clip->animatedRotations) +
+           clip->animatedFloats;
 }
 
 void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* out)
 {
     Walker w = WalkerAt(clip, sample, false);
     const uint8_t* range = clip->ranges;
-    uint32_t n = clip->animatedChannels + clip->animatedFloats;
-    for (uint32_t j = 0; j < n; ++j)
+    for (uint32_t i = 0; i < clip->trackCount; ++i)
     {
-        uint32_t width = j < clip->animatedChannels ? 3 : 1;
-        Decode(&w, range, width, out);
-        out += width;
-        range += 8 * (size_t)width;
+        uint32_t forms = clip->forms[i];
+        for (uint32_t c = 0; c < 3; ++c)
+        {
+            if (Form(forms, c) != maniClipFormAnimated)
+            {
+                continue;
+            }
+            float kept[3];
+            Decode(&w, range, 3, kept);
+            range += 24;
+            if (c == 1)
+            {
+                maniCodecRotation(kept, Dropped(forms), out);
+                out += 4;
+            }
+            else
+            {
+                memcpy(out, kept, sizeof kept);
+                out += 3;
+            }
+        }
+    }
+    for (uint32_t j = 0; j < clip->animatedFloats; ++j)
+    {
+        Decode(&w, range, 1, out);
+        out += 1;
+        range += 8;
     }
 }
