@@ -481,7 +481,7 @@ fbo-binary-split | src/fbx_object.c | if (!fbx->ascii && out[i] == 0 && out[i + 
 fbo-ascii-split | src/fbx_object.c | if (fbx->ascii && out[i] == ':' && out[i + 1] == ':') | if (false)
 fbo-sign-zero | src/fbx_object.c | !IntegerSetting(fbx, properties, sign, -1, 1, &s, &where) || s == 0) | !IntegerSetting(fbx, properties, sign, -1, 1, &s, &where))
 fbo-custom | src/fbx_object.c | if (mode == 14) | if (false)
-fbo-custom-positive | src/fbx_object.c | if (!maniFbxNumber(fbx, where, &s->customRate) || !(s->customRate > 0.0)) | if (!maniFbxNumber(fbx, where, &s->customRate))
+fbo-custom-positive | src/fbx_object.c | (!maniFbxNumber(fbx, where, &s->customRate) || !(s->customRate > 0.0))) | (!maniFbxNumber(fbx, where, &s->customRate)))
 fbo-scale-positive | src/fbx_object.c | if (where != MANI_FBX_NONE && (!maniFbxNumber(fbx, where, scale) || !(*scale > 0.0))) | if (where != MANI_FBX_NONE && !maniFbxNumber(fbx, where, scale))
 fbo-same-axes | src/fbx_object.c | if (r.result == mani_success && | if (false &&
 fbo-ntsc | src/fbx_object.c | {30, 1}, {30000, 1001}, {30000, 1001}, {25, 1},       {24, 1},        {1000, 1}, {24000, 1001}, | {30, 1}, {30000, 1001}, {30, 1}, {25, 1},       {24, 1},        {1000, 1}, {24000, 1001},
@@ -900,7 +900,7 @@ fta-attr-user | src/fbx_take.c | return entry == MANI_FBX_NONE || !maniFbxEntryU
 fta-attr-absent | src/fbx_take.c | return entry == MANI_FBX_NONE || !maniFbxEntryUserDefined(fbx, entry); | return entry != MANI_FBX_NONE && !maniFbxEntryUserDefined(fbx, entry);
 fta-keys | src/fbx_take.c | r = maniFbxReadKeys(fbx, components[k], channel->target, &channel->curves[k]); | r = maniFbxSuccess();
 fta-none | src/fbx_take.c | if (n == 0) | if (false)
-fta-hash | src/fbx_take.c | c->nameHash = literal != NULL ? maniFbxNameHash(literal, c->literalLength) | c->nameHash = literal != NULL ? 0
+fta-hash | src/fbx_take.c | c->nameHash = c->literal != NULL ? maniFbxNameHash(c->literal, c->literalLength) | c->nameHash = c->literal != NULL ? 0
 fta-source | src/fbx_take.c | c->source = node; | c->source = 0;
 fta-attribute | src/fbx_take.c | c->attribute = OnAttribute(r->fbx, c); | c->attribute = false;
 fta-transform-unnamed | src/fbx_take.c | return Refuse(fbx, c, target); | continue;
@@ -913,8 +913,8 @@ fta-each-model | src/fbx_take.c | if (maniFbxNameIs(r->fbx, c, "Model", 5)) | if
 fta-take-unnamed | src/fbx_take.c | return Refuse(fbx, take, 0); | (void)0;
 fta-layer-weight | src/fbx_take.c | out->layers[0] = (maniFbxLayer){MANI_FBX_NONE, maniFbxBlendAdditive, 1.0, true, true}; | out->layers[0] = (maniFbxLayer){MANI_FBX_NONE, maniFbxBlendAdditive, 0.5, true, true};
 fta-sort | src/fbx_take.c | r = r.result == mani_success ? maniFbxSortChannels(fbx, out) : r; | r = r;
-fta-local | src/fbx_take.c | if (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) && | if (true &&
-fta-reference | src/fbx_take.c | !maniFbxTakeTimes(fbx, take, "ReferenceTime", &out->start, &out->stop)) | true)
+fta-local | src/fbx_take.c | if (take == 0 || (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) && | if (take == 0 || (true &&
+fta-reference | src/fbx_take.c | !maniFbxTakeTimes(fbx, take, "ReferenceTime", &out->start, &out->stop))) | true))
 fta-dispatch | src/fbx_take.c | return fbx->version >= 7000 ? maniFbxReadAnimation(fbx, source, out) | return fbx->version > 7000 ? maniFbxReadAnimation(fbx, source, out)
 fan-stack-name | src/fbx_anim.c | return fbx->version >= 7000 ? maniFbxNodeProperty(fbx, fbx->objects[source].node, 1) | return fbx->version >= 7000 ? maniFbxNodeProperty(fbx, fbx->objects[source].node, 0)
 fan-stack-takes | src/fbx_anim.c | uint32_t takes = fbx->version < 7000 ? maniFbxFindChild(fbx, 0, "Takes", 5) : MANI_FBX_NONE; | uint32_t takes = maniFbxFindChild(fbx, 0, "Takes", 5);
@@ -943,9 +943,9 @@ fob-mesh-subclass | src/fbx_object.c | *meshOut = maniFbxStringEquals(fbx, subcl
 fot-legacy | src/fbx_tracks.c | if (channel->attribute == legacy && maniFbxChannelNameIs(c->fbx, channel, name, length)) | if (maniFbxChannelNameIs(c->fbx, channel, name, length))
 fot-unnamed | src/fbx_tracks.c | return maniFbxFail(maniImportReasonProperty, fbx->nodes[shape].nameOffset, owner); | return maniFbxSuccess();
 fot-indexes | src/fbx_tracks.c | if (maniFbxFindChild(fbx, shape, "Indexes", 7) == MANI_FBX_NONE || | if (false ||
-fot-vertices | src/fbx_tracks.c | maniFbxFindChild(fbx, shape, "Vertices", 8) == MANI_FBX_NONE || entry == MANI_FBX_NONE || | entry == MANI_FBX_NONE ||
-fot-numeric | src/fbx_tracks.c | !maniFbxEntryNumeric(fbx, entry) || OwnerChannel(c, first, count, name, length) == NULL) | OwnerChannel(c, first, count, name, length) == NULL)
-fot-driven | src/fbx_tracks.c | !maniFbxEntryNumeric(fbx, entry) || OwnerChannel(c, first, count, name, length) == NULL) | !maniFbxEntryNumeric(fbx, entry))
+fot-vertices | src/fbx_tracks.c | maniFbxFindChild(fbx, shape, "Vertices", 8) == MANI_FBX_NONE || !weighted || | !weighted ||
+fot-numeric | src/fbx_tracks.c | fbx->version < 6000 || (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry)); | fbx->version < 6000 || entry != MANI_FBX_NONE;
+fot-driven | src/fbx_tracks.c | OwnerChannel(c, first, count, name, length) == NULL) | false)
 fot-rest | src/fbx_tracks.c | (void)maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), &rest); | (void)rest;
 fot-attribute | src/fbx_tracks.c | (void)(fbx->version < 7000 | (void)(fbx->version < 6000
 fot-percent | src/fbx_tracks.c | maniFbxBlendWeights(&kWhole, 1, v[0] / 100.0, &effective); | maniFbxBlendWeights(&kWhole, 1, v[0], &effective);
@@ -953,3 +953,82 @@ fot-bound | src/fbx_tracks.c | c->blendBound += 1; | c->blendBound += 0;
 fot-kept | src/fbx_tracks.c | bool kept = mesh != MANI_FBX_NONE && MeshInSkeleton(c, mesh); | bool kept = mesh != MANI_FBX_NONE;
 fot-shape-node | src/fbx_tracks.c | if (!maniFbxNameIs(fbx, k, "Shape", 5)) | if (false)
 fot-owner | src/fbx_tracks.c | else if (maniFbxIsShapeOwner(c->fbx, target)) | else if (false)
+
+# FBX files before 6.0 (fbx_legacy.c; their roles, subclasses, rates and
+# rests in fbx_object.c; the internal stack and cut names in fbx_anim.c and
+# fbx_take.c; mani-0017), 2026-10-15: 67 mutants, three surviving. Five
+# lines whose mutants no input could tell apart were removed instead, and
+# the rate lines were rewritten after a fix.
+fle-refuse-reason | src/fbx_legacy.c | return maniFbxFail(maniImportReasonProperty, fbx->nodes[node].nameOffset, 0); | return maniFbxFail(maniImportReasonNumber, fbx->nodes[node].nameOffset, 0);
+fle-mesh-both | src/fbx_legacy.c | return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE && | return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE ||
+fle-id-spacing | src/fbx_legacy.c | return INT64_MIN + (int64_t)node * 2 + (int64_t)(role - maniFbxRoleLegacySkin); | return INT64_MIN + (int64_t)node + (int64_t)(role - maniFbxRoleLegacySkin);
+fle-put-role | src/fbx_legacy.c | (maniFbxObject){SyntheticId(node, role), node, MANI_FBX_NONE, MANI_FBX_NONE, role}; | (maniFbxObject){SyntheticId(node, role), node, MANI_FBX_NONE, MANI_FBX_NONE, maniFbxRoleNone};
+fle-links-of-meshes | src/fbx_legacy.c | for (uint32_t k = Mesh(fbx, model) ? fbx->nodes[model].firstChild : MANI_FBX_NONE; | for (uint32_t k = fbx->nodes[model].firstChild;
+fle-link-node | src/fbx_legacy.c | if (!maniFbxNameIs(fbx, k, "Link", 4)) | if (maniFbxNameIs(fbx, k, "Vertices", 8))
+fle-link-named | src/fbx_legacy.c | if (!Named(fbx, k)) | if (false)
+fle-one-skin | src/fbx_legacy.c | skin = true; | skin = false;
+fle-stop-on-refusal | src/fbx_legacy.c | for (uint32_t m = fbx->nodes[0].firstChild; r.result == mani_success && m != MANI_FBX_NONE; | for (uint32_t m = fbx->nodes[0].firstChild; m != MANI_FBX_NONE;
+fle-model-node | src/fbx_legacy.c | if (!maniFbxNameIs(fbx, m, "Model", 5)) | if (maniFbxNameIs(fbx, m, "Takes", 5))
+fle-model-named | src/fbx_legacy.c | if (!Named(fbx, m)) | if (false)
+fle-index-objects | src/fbx_legacy.c | return r.result == mani_success ? maniFbxIndexObjects(fbx) : r; | return r;
+fle-children-all | src/fbx_legacy.c | uint32_t n = list != MANI_FBX_NONE ? fbx->nodes[list].propertyCount : 0; | uint32_t n = list != MANI_FBX_NONE ? 1 : 0;
+fle-children-direction | src/fbx_legacy.c | Connect(fbx, child, model); | Connect(fbx, model, child);
+fle-skin-mesh | src/fbx_legacy.c | Connect(fbx, o, o - 1); | Connect(fbx, o - 1, o);
+fle-cluster-skin | src/fbx_legacy.c | Connect(fbx, o, skin); | Connect(fbx, skin, o);
+# fle-link-scene survives, equivalent: a link naming the scene gives the
+# root as its child, which no reader takes as a model.
+fle-link-scene | src/fbx_legacy.c | if (linked < fbx->objectCount) | if (linked <= fbx->objectCount)
+fle-link-direction | src/fbx_legacy.c | Connect(fbx, linked, o); | Connect(fbx, o, linked);
+fle-index-connections | src/fbx_legacy.c | return maniFbxIndexConnections(fbx); | return maniFbxSuccess();
+fle-rest-empty | src/fbx_legacy.c | if (n == 0) | if (n == 4)
+# fle-rest-components survives: past n the mutant reads indices no one
+# wrote; whatever it finds there is undefined, not a test gap.
+fle-rest-components | src/fbx_legacy.c | rest[k] = k < n ? maniFbxChannelDefault(fbx, components[k]) : 0.0; | rest[k] = maniFbxChannelDefault(fbx, components[k]);
+fle-rest-mask-or | src/fbx_legacy.c | fbx->legacyRestMask[object] |= (uint8_t)(1u << which); | fbx->legacyRestMask[object] = (uint8_t)(1u << which);
+# fle-rest-object-bound survives, equivalent: the scene's index is the
+# rest table's spare last slot, which nothing reads.
+fle-rest-object-bound | src/fbx_legacy.c | if (object >= fbx->objectCount) | if (object > fbx->objectCount)
+fle-rest-transform | src/fbx_legacy.c | bool transform = maniFbxStringEquals(fbx, name, "Transform", 9); | bool transform = true;
+fle-rest-channel-child | src/fbx_legacy.c | for (uint32_t k = 0; k < 3 && maniFbxNameIs(fbx, t, "Channel", 7); ++k) | for (uint32_t k = 0; k < 3; ++k)
+fle-rest-long | src/fbx_legacy.c | RestOf(fbx, object, c, k); | (void)c;
+fle-rest-mask-clear | src/fbx_legacy.c | memset(fbx->legacyRestMask, 0, n); | memset(fbx->legacyRestMask, 0, 1);
+fle-rest-models | src/fbx_legacy.c | ModelRests(fbx, top); | (void)top;
+fle-rest-takes | src/fbx_legacy.c | bool takes = maniFbxNameIs(fbx, top, "Takes", 5); | bool takes = false;
+fle-rest-take-node | src/fbx_legacy.c | for (uint32_t m = maniFbxNameIs(fbx, take, "Take", 4) ? fbx->nodes[take].firstChild | for (uint32_t m = fbx->nodes[take].firstChild
+fle-rest-take-models | src/fbx_legacy.c | ModelRests(fbx, m); | (void)m;
+fle-settings-node | src/fbx_legacy.c | uint32_t settings = maniFbxFindChild(fbx, 0, "Settings", 8); | uint32_t settings = MANI_FBX_NONE;
+fle-rests | src/fbx_legacy.c | return r.result == mani_success ? Rests(fbx) : r; | return r;
+fle-rest-take-model-only | src/fbx_legacy.c | if (maniFbxNameIs(fbx, m, "Model", 5)) | if (true)
+fbx-legacy-version | src/fbx.c | r = fbx->version < 6000 ? maniFbxReadLegacy(fbx) : maniFbxReadObjects(fbx); | r = fbx->version < 5000 ? maniFbxReadLegacy(fbx) : maniFbxReadObjects(fbx);
+fan-internal-version | src/fbx_anim.c | for (uint32_t m = fbx->version < 6000 ? fbx->nodes[0].firstChild : MANI_FBX_NONE; | for (uint32_t m = fbx->nodes[0].firstChild;
+fan-internal-channels | src/fbx_anim.c | maniFbxFindChild(fbx, m, "Channel", 7) != MANI_FBX_NONE) | true)
+fan-internal-size | src/fbx_anim.c | text += source == 0 ? sizeof kInternal - 1 : RawLength(fbx, StackNameProperty(fbx, source)); | text += RawLength(fbx, StackNameProperty(fbx, source));
+fan-internal-name | src/fbx_anim.c | at += sizeof kInternal - 1; | at += sizeof kInternal - 2;
+fbo-legacy-type | src/fbx_object.c | uint32_t type = maniFbxFindChild(fbx, node, "Type", 4); | uint32_t type = maniFbxFindChild(fbx, node, "Kind", 4);
+fbo-role-subclass | src/fbx_object.c | const char* sub = role == maniFbxRoleLegacySkin ? "Skin" : "Cluster"; | const char* sub = role != maniFbxRoleLegacySkin ? "Skin" : "Cluster";
+fbo-role-kind | src/fbx_object.c | return kind != NULL ? length == 8 && memcmp(kind, "Deformer", 8) == 0 | return kind != NULL ? length == 8
+fbo-role-whole-name | src/fbx_object.c | : strlen(sub) == nameLength && memcmp(sub, name, nameLength) == 0; | : memcmp(sub, name, nameLength) == 0;
+fbo-role-any | src/fbx_object.c | return role != maniFbxRoleNone ? RoleIs(role, kind, length, NULL, 0) | return role == maniFbxRoleLegacyCluster ? RoleIs(role, kind, length, NULL, 0)
+fbo-role-answer | src/fbx_object.c | return RoleIs(role, NULL, 0, name, length); | return false;
+fbo-legacy-rate-positive | src/fbx_object.c | bool legacy = legacyRate > 0.0; | bool legacy = legacyRate >= 0.0;
+fbo-legacy-mode | src/fbx_object.c | mode = where == MANI_FBX_NONE && legacy ? 14 : mode; | mode = where == MANI_FBX_NONE && legacy ? 0 : mode;
+fbo-legacy-custom | src/fbx_object.c | s->customRate = legacyRate; | s->customRate = 0.0;
+fbo-legacy-custom-present | src/fbx_object.c | if ((where != MANI_FBX_NONE || !legacy) && | if (!legacy &&
+fbo-frame-rate-node | src/fbx_object.c | settings != MANI_FBX_NONE ? maniFbxFindChild(fbx, settings, "FrameRate", 9) : MANI_FBX_NONE; | settings != MANI_FBX_NONE ? maniFbxFindChild(fbx, settings, "Rate", 4) : MANI_FBX_NONE;
+fbo-frame-rate-number | src/fbx_object.c | if (!maniFbxNumber(fbx, value, &rate) && maniFbxString(fbx, value, &text, &length) && | if (maniFbxString(fbx, value, &text, &length) &&
+fbo-frame-rate-text | src/fbx_object.c | !maniFbxTextDouble(fbx, (uint64_t)(text - fbx->bytes), length, &rate)) | false)
+fbo-version5 | src/fbx_object.c | uint32_t version5 = maniFbxFindChild(fbx, 0, "Version5", 8); | uint32_t version5 = MANI_FBX_NONE;
+fbo-legacy-mesh | src/fbx_object.c | *meshOut = vertices && maniFbxFindChild(fbx, node, "PolygonVertexIndex", 18) != MANI_FBX_NONE; | *meshOut = vertices;
+fbo-legacy-limb | src/fbx_object.c | return vertices || StringIs(fbx, type, "LimbNode", 8) || StringIs(fbx, type, "Light", 5) || | return vertices || StringIs(fbx, type, "Light", 5) ||
+fbo-legacy-subclass | src/fbx_object.c | return LegacySubclass(fbx, node, subclassOut, meshOut); | (void)LegacySubclass(fbx, node, subclassOut, meshOut);
+fbo-legacy-rest-mask | src/fbx_object.c | if (fbx->legacyRestMask == NULL || (fbx->legacyRestMask[object] & (1u << which)) == 0) | if (fbx->legacyRestMask == NULL)
+fta-cut-longer | src/fbx_take.c | if (n > suffix && memcmp(at + n - suffix, kSuffix, suffix) == 0) | if (n >= suffix && memcmp(at + n - suffix, kSuffix, suffix) == 0)
+fta-cut-length | src/fbx_take.c | channel->literalLength = (uint32_t)(n - suffix); | channel->literalLength = (uint32_t)n;
+fta-cut-advance | src/fbx_take.c | r->namesUsed += n - suffix; | r->namesUsed += 0;
+fta-cut-legacy | src/fbx_take.c | bool cut = r->fbx->version < 6000 && literal == NULL; | bool cut = literal == NULL;
+fta-cut-count | src/fbx_take.c | r->namesUsed += rawLength; | r->namesUsed += 1;
+fta-cut-hash | src/fbx_take.c | c->nameHash = c->literal != NULL ? maniFbxNameHash(c->literal, c->literalLength) | c->nameHash = literal != NULL ? maniFbxNameHash(c->literal, c->literalLength)
+fta-internal-unnamed | src/fbx_take.c | if (take != 0 && !Named(fbx, take)) | if (!Named(fbx, take))
+fot-legacy-weight | src/fbx_tracks.c | fbx->version < 6000 || (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry)); | (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry));
+fta-internal-span | src/fbx_take.c | if (take == 0 || (!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) && | if ((!maniFbxTakeTimes(fbx, take, "LocalTime", &out->start, &out->stop) &&
+fbo-legacy-mode-missing | src/fbx_object.c | mode = where == MANI_FBX_NONE && legacy ? 14 : mode; | mode = legacy ? 14 : mode;
