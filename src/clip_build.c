@@ -367,12 +367,15 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
             sections[3 + i] = named->data[i];
             sizes[3 + i] = named->sizes[i];
         }
+        // Empty sections are left out of the table.
         maniSectionSource table[MANI_CLIP_SECTIONS];
+        uint32_t count = 0;
         for (uint32_t i = 0; i < MANI_CLIP_SECTIONS; ++i)
         {
-            table[i] = (maniSectionSource){i + 1, sections[i], sizes[i]};
+            table[count] = (maniSectionSource){i + 1, sections[i], sizes[i]};
+            count += sizes[i] > 0 ? 1 : 0;
         }
-        if (maniContainerSize(table, MANI_CLIP_SECTIONS, &fileSize) && fileSize <= SIZE_MAX)
+        if (maniContainerSize(table, count, &fileSize) && fileSize <= SIZE_MAX)
         {
             file = maniAllocate(&builder->allocator, (size_t)fileSize, 1, 8);
         }
@@ -380,7 +383,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         {
             maniWriteContainer(file, maniKindClip, MANI_CLIP_FORMAT_VERSION,
                                maniClipComputeIdentity(sections, sizes, MANI_CLIP_SECTIONS), table,
-                               MANI_CLIP_SECTIONS);
+                               count);
         }
     }
     maniRelease(&builder->allocator, tracks, trackBytes + 1, 1, 8);

@@ -1,8 +1,10 @@
 # The ufbx differential (mani-0018): every file of ufbx's corpus, at the
 # commit CMake pins, read by ufbx and by Maul Anim and compared, and the
 # fixtures' expected values written again and held against the committed
-# ones. Weekly and by hand, not on every commit: it fetches and builds
-# ufbx.
+# ones. The ACL differential (mani-0006): ozz-animation's Quaternius file
+# at 0.17.0, its clips compressed by ACL and by Maul Anim, sizes, errors
+# and times printed, every bone within the precision required. Weekly
+# and by hand, not on every commit: they fetch and build ufbx and ACL.
 name: differential
 
 on:
@@ -47,3 +49,30 @@ jobs:
           build/fbx_differential --deviations tools/fbx-deviations.txt \
             --expect build/fbx_fixture_expect.h test/data/fbx/*.fbx
           python3 tools/fbx_fixtures.py --compare build/fbx_fixture_expect.h test/fbx_fixture_expect.h
+
+  acl:
+    name: compression-acl
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        timeout-minutes: 15
+        run: |
+          sudo apt-get $APT_OPTIONS update -q
+          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 ninja-build
+      - name: Configure
+        # Release: the times are printed, and ACL is built as it ships.
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMAUL_ANIM_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -DMAUL_ANIM_DIFFERENTIAL=ON -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+      - name: Build
+        run: cmake --build build --target acl_differential -j 4
+      - name: The Quaternius clips
+        # ozz-animation 0.17.0's media, CC0 per its README; checked by hash.
+        run: |
+          curl -sSfL --retry 3 -o ual.fbx \
+            https://raw.githubusercontent.com/guillaumeblanc/ozz-animation/744eb9d99f606eda849acb0b1204f7a3dc20bca1/media/fbx/quaternius/ual.fbx
+          echo "42f16a4ed61d1e9f5fc7c2526894c5487148ac6ba82b64281ceb7943570f3c37  ual.fbx" | sha256sum -c -
+          build/acl_differential ual.fbx

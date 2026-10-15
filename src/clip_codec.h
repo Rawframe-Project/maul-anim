@@ -60,8 +60,13 @@ static inline float maniCodecValue(float normalized, float minimum, float extent
     return normalized * extent + minimum;
 }
 
-// A rotation's w from x, y and z: sqrt(|((1 - x*x) - y*y) - z*z|).
-float maniCodecRebuildW(float x, float y, float z);
+// A rotation's dropped component from the three kept:
+// sqrt(|((1 - a*a) - b*b) - c*c|).
+float maniCodecRebuild(float a, float b, float c);
+
+// A rotation's x, y, z and w from its kept components (in increasing
+// index order) and the dropped one's index (0 x, 1 y, 2 z, 3 w).
+void maniCodecRotation(const float kept[3], uint32_t dropped, float out[4]);
 
 // A bit stream written least significant bit first into bytes the
 // caller zeroed.

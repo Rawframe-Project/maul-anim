@@ -61,8 +61,8 @@ static void Gather(maniCompressPlan* p)
             {
                 continue;
             }
-            p->subs[p->subCount++] =
-                (maniSubTrack){.track = i, .channel = ch, .bone = bone, .offset = offset};
+            p->subs[p->subCount++] = (maniSubTrack){
+                .track = i, .channel = ch, .bone = bone, .offset = offset, .dropped = 3};
             offset += ch == maniSubRotation ? 4u : 3u;
         }
     }
@@ -74,6 +74,10 @@ static void Gather(maniCompressPlan* p)
     }
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
+        if (p->subs[i].channel == maniSubRotation)
+        {
+            maniPlanChooseDropped(p, &p->subs[i]);
+        }
         maniPlanRanges(p, &p->subs[i]);
     }
 }
@@ -163,6 +167,11 @@ static void WriteFront(const maniCompressPlan* p, Sections* out)
         else
         {
             out->data[0][t->track] |= (uint8_t)(t->form << (2 * t->channel));
+            bool stored = t->form == maniClipFormConstant || t->form == maniClipFormAnimated;
+            if (t->channel == maniSubRotation && stored)
+            {
+                out->data[0][t->track] |= (uint8_t)((3u - t->dropped) << 6);
+            }
         }
         for (uint32_t c = 0; t->form == maniClipFormConstant && c < width; ++c)
         {
@@ -332,14 +341,17 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
         sections[10 + i] = out.sizes[i] > 0 ? out.data[i] : &kEmpty;
         sizes[10 + i] = out.sizes[i];
     }
+    // Empty sections are left out of the table.
     maniSectionSource table[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint32_t count = 0;
     for (uint32_t i = 0; i < MANI_CLIP_COMPRESSED_SECTIONS; ++i)
     {
-        table[i] = (maniSectionSource){i + 1, sections[i], sizes[i]};
+        table[count] = (maniSectionSource){i + 1, sections[i], sizes[i]};
+        count += sizes[i] > 0 ? 1 : 0;
     }
     uint64_t fileSize = 0;
     uint8_t* file = NULL;
-    if (maniContainerSize(table, MANI_CLIP_COMPRESSED_SECTIONS, &fileSize) && fileSize <= SIZE_MAX)
+    if (maniContainerSize(table, count, &fileSize) && fileSize <= SIZE_MAX)
     {
         file = maniAllocate(&builder->allocator, (size_t)fileSize, 1, 8);
     }
@@ -347,7 +359,7 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
     {
         maniWriteContainer(file, maniKindClip, MANI_CLIP_FORMAT_VERSION,
                            maniClipComputeIdentity(sections, sizes, MANI_CLIP_COMPRESSED_SECTIONS),
-                           table, MANI_CLIP_COMPRESSED_SECTIONS);
+                           table, count);
     }
     maniRelease(&builder->allocator, out.block, out.blockSize + 1, 1, 8);
     if (file == NULL)

@@ -118,7 +118,8 @@ static maniFileResult CheckFloatTracks(const uint8_t* const data[], const uint64
 // Discrete tracks: keys contiguous in track order, each track's times
 // strictly increasing within [0, duration].
 static maniFileResult CheckDiscrete(const uint8_t* const data[], const uint64_t sizes[],
-                                    const uint64_t at[], const maniClip* clip, uint64_t nameSize)
+                                    const uint64_t at[], uint64_t keysEntry, const maniClip* clip,
+                                    uint64_t nameSize)
 {
     maniFileResult r =
         CheckNamedTracks(data[5], at[5], clip->discreteTrackCount, data[9], nameSize);
@@ -150,7 +151,7 @@ static maniFileResult CheckDiscrete(const uint8_t* const data[], const uint64_t 
     }
     if (r.result == mani_success && next * MANI_CLIP_KEY_SIZE != sizes[6])
     {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + 6 * MANI_CONTAINER_ENTRY_SIZE + 16);
+        return Fail(keysEntry);
     }
     return r;
 }
@@ -185,7 +186,7 @@ static maniFileResult CheckTimed(const uint8_t* entries, uint64_t at, uint32_t c
 }
 
 maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* sizes,
-                                  const uint64_t* at, maniClip* clip)
+                                  const uint64_t* at, const uint64_t* entry, maniClip* clip)
 {
     uint64_t floatValues = 0;
     const uint64_t expected[5] = {
@@ -203,14 +204,13 @@ maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* si
     {
         if (sizes[sections[i]] != expected[i])
         {
-            return Fail(MANI_CONTAINER_HEADER_SIZE +
-                        (uint64_t)sections[i] * MANI_CONTAINER_ENTRY_SIZE + 16);
+            return Fail(entry[sections[i]]);
         }
     }
     maniFileResult r = CheckFloatTracks(data, at, clip, sizes[9]);
     if (r.result == mani_success)
     {
-        r = CheckDiscrete(data, sizes, at, clip, sizes[9]);
+        r = CheckDiscrete(data, sizes, at, entry[6], clip, sizes[9]);
     }
     if (r.result == mani_success)
     {

@@ -90,10 +90,19 @@ float maniCodecUnpack16(uint16_t q)
     return (float)q * kInverse[16];
 }
 
-float maniCodecRebuildW(float x, float y, float z)
+float maniCodecRebuild(float a, float b, float c)
 {
-    float w2 = ((1.0f - x * x) - y * y) - z * z;
-    return sqrtf(fabsf(w2));
+    float squared = ((1.0f - a * a) - b * b) - c * c;
+    return sqrtf(fabsf(squared));
+}
+
+void maniCodecRotation(const float kept[3], uint32_t dropped, float out[4])
+{
+    for (uint32_t i = 0, k = 0; i < 4; ++i)
+    {
+        out[i] = i == dropped ? 0.0f : kept[k++];
+    }
+    out[dropped] = maniCodecRebuild(kept[0], kept[1], kept[2]);
 }
 
 void maniBitWrite(maniBitWriter* w, uint32_t value, uint32_t bits)

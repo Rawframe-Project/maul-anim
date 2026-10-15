@@ -210,41 +210,92 @@ static maniFileResult CheckSamples(const uint8_t* s, uint64_t at, const uint8_t*
     return (maniFileResult){mani_success, 0, 0};
 }
 
-// The header and the tracks (sections 1 and 2), and the samples: section
-// 3 at full precision, none in a compressed clip.
-static maniFileResult CheckFront(const uint8_t* const* data, const uint64_t* sizes,
-                                 const uint64_t* at, bool compressed, maniClip* clip)
+// A clip file's sections by tag (index tag - 1), an absent one empty.
+typedef struct Sections
 {
-    if (sizes[0] != MANI_CLIP_HEADER_SIZE)
+    const uint8_t* data[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint64_t at[MANI_CLIP_COMPRESSED_SECTIONS];
+    // Where each one's size is in the table; the section count for an
+    // absent one.
+    uint64_t entry[MANI_CLIP_COMPRESSED_SECTIONS];
+} Sections;
+
+static const uint8_t kEmpty = 0;
+
+// The table: tags 1 to 15 (the container keeps them increasing), none
+// empty, since an empty section is left out.
+static maniFileResult LoadSections(const maniContainer* c, Sections* s)
+{
+    for (uint32_t i = 0; i < MANI_CLIP_COMPRESSED_SECTIONS; ++i)
     {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + 16);
+        s->data[i] = &kEmpty;
+        s->sizes[i] = 0;
+        s->at[i] = 0;
+        s->entry[i] = 12;
     }
-    maniFileResult r = CheckHeader(data[0], at[0], clip);
+    for (uint32_t i = 0; i < c->sectionCount; ++i)
+    {
+        uint64_t entryAt = MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
+        const uint8_t* entry = c->bytes + entryAt;
+        uint32_t tag = maniLoadU32(entry);
+        if (tag == 0 || tag > MANI_CLIP_COMPRESSED_SECTIONS)
+        {
+            return Fail(entryAt);
+        }
+        uint64_t size = maniLoadU64(entry + 16);
+        if (size == 0)
+        {
+            return Fail(entryAt + 16);
+        }
+        uint64_t offset = maniLoadU64(entry + 8);
+        s->data[tag - 1] = c->bytes + offset;
+        s->sizes[tag - 1] = size;
+        s->at[tag - 1] = offset;
+        s->entry[tag - 1] = entryAt + 16;
+    }
+    return (maniFileResult){mani_success, 0, 0};
+}
+
+// The header and the tracks (sections 1 and 2), and the samples: section
+// 3 at full precision, none in a compressed clip, which alone has
+// sections 11 to 15.
+static maniFileResult CheckFront(const Sections* s, maniClip* clip)
+{
+    if (s->sizes[0] != MANI_CLIP_HEADER_SIZE)
+    {
+        return Fail(s->entry[0]);
+    }
+    maniFileResult r = CheckHeader(s->data[0], s->at[0], clip);
     if (r.result != mani_success)
     {
         return r;
     }
-    if ((clip->compressed != 0) != compressed)
+    for (uint32_t i = MANI_CLIP_SECTIONS; !clip->compressed && i < MANI_CLIP_COMPRESSED_SECTIONS;
+         ++i)
     {
-        return Fail(at[0] + 56);
+        if (s->sizes[i] != 0)
+        {
+            return Fail(s->entry[i]);
+        }
     }
-    if (sizes[1] != (uint64_t)clip->trackCount * MANI_CLIP_TRACK_SIZE)
+    if (s->sizes[1] != (uint64_t)clip->trackCount * MANI_CLIP_TRACK_SIZE)
     {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + MANI_CONTAINER_ENTRY_SIZE + 16);
+        return Fail(s->entry[1]);
     }
-    r = CheckTracks(data[1], at[1], at[0], clip);
+    r = CheckTracks(s->data[1], s->at[1], s->at[0], clip);
     if (r.result != mani_success)
     {
         return r;
     }
-    clip->tracks = data[1];
+    clip->tracks = s->data[1];
     uint64_t sampleBytes = 0;
     if (ckd_mul(&sampleBytes, (uint64_t)clip->sampleCount, 4 * (uint64_t)clip->floatsPerSample) ||
-        sizes[2] != (compressed ? 0 : sampleBytes))
+        s->sizes[2] != (clip->compressed ? 0 : sampleBytes))
     {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + 2 * MANI_CONTAINER_ENTRY_SIZE + 16);
+        return Fail(s->entry[2]);
     }
-    return compressed ? r : CheckSamples(data[2], at[2], data[1], clip);
+    return clip->compressed ? r : CheckSamples(s->data[2], s->at[2], s->data[1], clip);
 }
 
 maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
@@ -259,40 +310,24 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
     {
         return r;
     }
-    bool compressed = c.sectionCount == MANI_CLIP_COMPRESSED_SECTIONS;
-    if (c.sectionCount != MANI_CLIP_SECTIONS && !compressed)
-    {
-        return Fail(12);
-    }
-    const uint8_t* data[MANI_CLIP_COMPRESSED_SECTIONS];
-    uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS];
-    uint64_t at[MANI_CLIP_COMPRESSED_SECTIONS];
-    for (uint32_t i = 0; i < c.sectionCount; ++i)
-    {
-        if (!maniContainerSection(&c, i + 1, &data[i], &sizes[i], &at[i]))
-        {
-            return Fail(MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE);
-        }
-    }
+    Sections s;
     maniClip clip;
-    r = CheckFront(data, sizes, at, compressed, &clip);
-    if (r.result == mani_success)
+    r = LoadSections(&c, &s);
+    r = r.result == mani_success ? CheckFront(&s, &clip) : r;
+    r = r.result == mani_success ? maniCheckClipNamed(s.data, s.sizes, s.at, s.entry, &clip) : r;
+    if (r.result == mani_success && clip.compressed)
     {
-        r = maniCheckClipNamed(data, sizes, at, &clip);
-    }
-    if (r.result == mani_success && compressed)
-    {
-        r = maniCheckClipCompressed(data, sizes, at, &clip);
+        r = maniCheckClipCompressed(s.data, s.sizes, s.at, s.entry, &clip);
     }
     if (r.result != mani_success)
     {
         return r;
     }
-    if (maniClipComputeIdentity(data, sizes, c.sectionCount) != c.identity)
+    if (maniClipComputeIdentity(s.data, s.sizes, MANI_CLIP_COMPRESSED_SECTIONS) != c.identity)
     {
         return Fail(40);
     }
-    clip.samples = compressed ? NULL : data[2];
+    clip.samples = clip.compressed ? NULL : s.data[2];
     clip.identity = c.identity;
     *clipOut = clip;
     return (maniFileResult){mani_success, 0, 0};

@@ -887,7 +887,9 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 52, "segments at full precision");
     s_file[header + 52] = 1;
     s_file[header + 56] = 1;
-    ExpectFormat(header + 56, "compressed form in ten sections");
+    // A compressed header over full-precision samples: the samples
+    // section's size is wrong.
+    ExpectFormat(64 + 2 * 24 + 16, "compressed form with samples");
     maniStoreU32(s_file + header + 32, 7);
     ExpectFormat(header + 32, "floats per sample");
     // Tracks are bones 0, 1, 2: make the second bone 0.

@@ -49,10 +49,41 @@ void maniPlanValue(const maniCompressPlan* p, const maniSubTrack* t, uint32_t sa
         return;
     }
     const uint8_t* v = c->samples + 4 * ((size_t)sample * c->floatsPerSample + t->offset);
-    float sign = t->channel == maniSubRotation && LoadF32(v + 12) < 0.0f ? -1.0f : 1.0f;
-    for (int k = 0; k < 3; ++k)
+    if (t->channel != maniSubRotation)
     {
-        out[k] = sign * LoadF32(v + 4 * k);
+        for (int k = 0; k < 3; ++k)
+        {
+            out[k] = LoadF32(v + 4 * k);
+        }
+        return;
+    }
+    float sign = LoadF32(v + 4 * t->dropped) < 0.0f ? -1.0f : 1.0f;
+    for (uint32_t i = 0, k = 0; i < 4; ++i)
+    {
+        if (i != t->dropped)
+        {
+            out[k++] = sign * LoadF32(v + 4 * i);
+        }
+    }
+}
+
+void maniPlanChooseDropped(const maniCompressPlan* p, maniSubTrack* t)
+{
+    const maniClip* c = p->clip;
+    float smallest[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    for (uint32_t k = 0; k < c->sampleCount; ++k)
+    {
+        const uint8_t* v = c->samples + 4 * ((size_t)k * c->floatsPerSample + t->offset);
+        for (uint32_t i = 0; i < 4; ++i)
+        {
+            float m = fabsf(LoadF32(v + 4 * i));
+            smallest[i] = m < smallest[i] ? m : smallest[i];
+        }
+    }
+    t->dropped = 3;
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        t->dropped = smallest[i] > smallest[t->dropped] ? i : t->dropped;
     }
 }
 
@@ -197,8 +228,9 @@ void maniPlanSetChannel(const maniCompressPlan* p, const maniSubTrack* t, uint32
     {
         // As the sampler: w rebuilt, then a normalized lerp of the sample
         // with itself.
-        local->rotation =
-            maniQuatNormalize((maniQuat){o[0], o[1], o[2], maniCodecRebuildW(o[0], o[1], o[2])});
+        float q[4];
+        maniCodecRotation(o, t->dropped, q);
+        local->rotation = maniQuatNormalize((maniQuat){q[0], q[1], q[2], q[3]});
     }
     else if (t->channel == maniSubTranslation)
     {

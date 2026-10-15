@@ -19,13 +19,16 @@
 
 // Checks sections 4 to 10 against the counts the header gave (in clip)
 // and fills clip's pointers to them.
+// Each takes the sections by tag (index tag - 1): their bytes, sizes,
+// offsets, and the offsets of their size fields in the table (of the
+// section count for an absent one), where a wrong size is reported.
 maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* sizes,
-                                  const uint64_t* at, maniClip* clip);
+                                  const uint64_t* at, const uint64_t* entry, maniClip* clip);
 
 // Checks a compressed clip's sections 11 to 15 against its header and
 // tracks (in clip) and fills clip's pointers and counts.
 maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_t* sizes,
-                                       const uint64_t* at, maniClip* clip);
+                                       const uint64_t* at, const uint64_t* entry, maniClip* clip);
 
 // The two samples a time falls between and the factor between them;
 // with caches (not NULL), their decoded values (maniDecodeCompressedSample).

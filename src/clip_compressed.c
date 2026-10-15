@@ -49,6 +49,12 @@ static uint32_t Form(uint32_t byte, uint32_t channel)
     return (byte >> (2 * channel)) & 3u;
 }
 
+// The component a bone track's stored rotation leaves out.
+static uint32_t Dropped(uint32_t byte)
+{
+    return 3u - (byte >> 6);
+}
+
 // The forms: a channel present in the track's mask has a form, an absent
 // one none; a float track is constant or animated. Counts of constant
 // and animated sub-tracks, channels and floats apart.
@@ -68,7 +74,10 @@ static maniFileResult CheckForms(const uint8_t* forms, uint64_t at, const maniCl
     {
         uint32_t mask = clip->tracks[(size_t)i * MANI_CLIP_TRACK_SIZE + 2];
         uint32_t byte = forms[i];
-        bool right = byte < 64;
+        uint32_t rotation = Form(byte, 1);
+        // A dropped component only for a rotation stored.
+        bool right =
+            byte < 64 || rotation == maniClipFormConstant || rotation == maniClipFormAnimated;
         for (uint32_t c = 0; right && c < 3; ++c)
         {
             uint32_t f = Form(byte, c);
@@ -193,7 +202,7 @@ static uint64_t SegmentHead(const maniClip* clip)
 // The segment table: in order, covering every sample, each segment's
 // data where the one before it ends, its bits per sample its rates'.
 static maniFileResult CheckSegments(const uint8_t* table, uint64_t at, const uint8_t* data,
-                                    uint64_t dataSize, const maniClip* clip)
+                                    uint64_t dataSize, uint64_t dataEntry, const maniClip* clip)
 {
     uint64_t next = 0;
     uint64_t offset = 0;
@@ -226,9 +235,7 @@ static maniFileResult CheckSegments(const uint8_t* table, uint64_t at, const uin
         return Fail(at);
     }
     // Eight spare bytes, so every read is one 64-bit load.
-    return offset + 8 == dataSize
-               ? (maniFileResult){mani_success, 0, 0}
-               : Fail(MANI_CONTAINER_HEADER_SIZE + 14 * (uint64_t)MANI_CONTAINER_ENTRY_SIZE + 16);
+    return offset + 8 == dataSize ? (maniFileResult){mani_success, 0, 0} : Fail(dataEntry);
 }
 
 // A segment's raw values (rate 24), binary32 from the file: each finite.
@@ -286,17 +293,12 @@ static uint64_t RangeTooWide(const maniClip* clip, const uint8_t* e)
     return 0;
 }
 
-static uint64_t EntrySize(uint32_t section)
-{
-    return MANI_CONTAINER_HEADER_SIZE + (uint64_t)section * MANI_CONTAINER_ENTRY_SIZE + 16;
-}
-
 maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_t* sizes,
-                                       const uint64_t* at, maniClip* clip)
+                                       const uint64_t* at, const uint64_t* entry, maniClip* clip)
 {
     if (sizes[10] != (uint64_t)clip->trackCount + clip->floatTrackCount)
     {
-        return Fail(EntrySize(10));
+        return Fail(entry[10]);
     }
     Counts counts;
     maniFileResult r = CheckForms(data[10], at[10], clip, &counts);
@@ -306,22 +308,24 @@ maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_
     }
     if (sizes[11] != 12 * counts.constantChannels + 4 * counts.constantFloats)
     {
-        return Fail(EntrySize(11));
+        return Fail(entry[11]);
     }
     if (sizes[12] != 24 * counts.animatedChannels + 8 * counts.animatedFloats)
     {
-        return Fail(EntrySize(12));
+        return Fail(entry[12]);
     }
     if (sizes[13] != (uint64_t)clip->segmentCount * MANI_CLIP_SEGMENT_SIZE)
     {
-        return Fail(EntrySize(13));
+        return Fail(entry[13]);
     }
     clip->animatedChannels = (uint32_t)counts.animatedChannels;
     clip->animatedFloats = (uint32_t)counts.animatedFloats;
     clip->constantChannels = (uint32_t)counts.constantChannels;
     clip->forms = data[10];
     r = CheckAllValues(data, at, clip);
-    r = r.result == mani_success ? CheckSegments(data[13], at[13], data[14], sizes[14], clip) : r;
+    r = r.result == mani_success
+            ? CheckSegments(data[13], at[13], data[14], sizes[14], entry[14], clip)
+            : r;
     clip->constants = data[11];
     clip->ranges = data[12];
     clip->segments = data[13];
@@ -413,13 +417,15 @@ static void Decode(Walker* w, const uint8_t* clipRange, uint32_t width, float* o
     }
 }
 
-static maniQuat Rotation(const float xyz[3])
+static maniQuat Rotation(const float kept[3], uint32_t dropped)
 {
-    return (maniQuat){xyz[0], xyz[1], xyz[2], maniCodecRebuildW(xyz[0], xyz[1], xyz[2])};
+    float q[4];
+    maniCodecRotation(kept, dropped, q);
+    return (maniQuat){q[0], q[1], q[2], q[3]};
 }
 
-// Normalized lerp on the shorter arc: both rotations keep w positive, so
-// the second is negated when they point apart.
+// Normalized lerp on the shorter arc: both rotations keep their dropped
+// component positive, so the second is negated when they point apart.
 static maniQuat Nlerp(maniQuat a, maniQuat b, float alpha)
 {
     float dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
@@ -496,8 +502,9 @@ static void Skip(Reading* r, uint32_t form)
 
 // One channel (0 translation, 1 rotation, 2 scale) of a local; false
 // when it is absent or the rest.
-static bool Channel(Reading* r, uint32_t form, uint32_t channel, float alpha, maniTransform* local)
+static bool Channel(Reading* r, uint32_t forms, uint32_t channel, float alpha, maniTransform* local)
 {
+    uint32_t form = Form(forms, channel);
     float va[3];
     float vb[3];
     if (form == maniClipFormConstant)
@@ -519,7 +526,7 @@ static bool Channel(Reading* r, uint32_t form, uint32_t channel, float alpha, ma
     }
     if (channel == 1)
     {
-        local->rotation = Nlerp(Rotation(va), Rotation(vb), alpha);
+        local->rotation = Nlerp(Rotation(va, Dropped(forms)), Rotation(vb, Dropped(forms)), alpha);
     }
     else if (channel == 0)
     {
@@ -565,7 +572,7 @@ void maniSampleCompressedBones(const maniClip* clip, const maniClipPair* pair,
         bool changed = false;
         for (uint32_t c = 0; c < 3; ++c)
         {
-            changed = Channel(&r, Form(forms, c), c, pair->alpha, &local) || changed;
+            changed = Channel(&r, forms, c, pair->alpha, &local) || changed;
         }
         if (changed)
         {

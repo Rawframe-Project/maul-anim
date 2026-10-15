@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_COMPRESSED_HASH 0xdf52fd43a5865a20ull
+#define PINNED_COMPRESSED_HASH 0xa866c371429ce0fbull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_fullFile[65536];
@@ -85,7 +85,8 @@ static void StoreAxisAngle(float* q, float ax, float ay, float az, float angle)
 }
 
 // Keys every 0.1 s over 2 s: smooth motion; the hand still after 1 s;
-// the leg turning past half a turn, so w changes sign.
+// the leg turning from 0.5 to 5.5 radians about x, so w passes 0 and x
+// stays clear of it.
 static void FillKeys(void)
 {
     for (int k = 0; k < KEYS; ++k)
@@ -102,7 +103,7 @@ static void FillKeys(void)
         s_handT[3 * k] = 0.02f * still;
         s_handT[3 * k + 1] = 0.3f;
         s_handT[3 * k + 2] = 0.0f;
-        StoreAxisAngle(&s_legR[4 * k], 1.0f, 0.0f, 0.0f, 3.4f * t);
+        StoreAxisAngle(&s_legR[4 * k], 1.0f, 0.0f, 0.0f, 0.5f + 2.5f * t);
         s_wave[k] = sinf(t * 6.0f);
         s_wide[k] = 5000.0f * t;
     }
@@ -275,6 +276,8 @@ static void TestSegments(void)
     CHECK((clip.forms[2] & 3) == maniClipFormConstant, "chest translation constant");
     CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormDefault, "chest rotation default");
     CHECK(((clip.forms[3] >> 4) & 3) == maniClipFormDefault, "arm scale default");
+    CHECK((clip.forms[0] >> 6) == 0, "the root's rotation leaves w out");
+    CHECK((clip.forms[5] >> 6) == 3, "the leg's leaves x out");
     CHECK(clip.forms[6 + maniClipFindFloatTrack(&clip, "half", 4)] == maniClipFormConstant,
           "half constant");
     uint32_t zeros = 0;
@@ -756,9 +759,22 @@ static void Rehash(void)
     maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + 64, s_size - 64));
 }
 
+// A section's table entry by tag (empty ones are left out), or 0.
+static uint64_t EntryOf(uint32_t tag)
+{
+    for (uint32_t i = 0; i < maniLoadU32(s_file + 12); ++i)
+    {
+        if (maniLoadU32(s_file + 64 + 24 * (uint64_t)i) == tag)
+        {
+            return 64 + 24 * (uint64_t)i;
+        }
+    }
+    return 0;
+}
+
 static uint64_t SectionAt(uint32_t tag)
 {
-    return maniLoadU64(s_file + 64 + (uint64_t)(tag - 1) * 24 + 8);
+    return maniLoadU64(s_file + EntryOf(tag) + 8);
 }
 
 // The clip's identity made right after an edit that should open.
@@ -768,8 +784,9 @@ static void Reidentify(void)
     uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS];
     for (uint32_t i = 0; i < MANI_CLIP_COMPRESSED_SECTIONS; ++i)
     {
-        sections[i] = s_file + SectionAt(i + 1);
-        sizes[i] = maniLoadU64(s_file + 64 + (uint64_t)i * 24 + 16);
+        uint64_t entry = EntryOf(i + 1);
+        sections[i] = s_file + (entry != 0 ? SectionAt(i + 1) : 0);
+        sizes[i] = entry != 0 ? maniLoadU64(s_file + entry + 16) : 0;
     }
     maniStoreU64(s_file + 40,
                  maniClipComputeIdentity(sections, sizes, MANI_CLIP_COMPRESSED_SECTIONS));
@@ -811,12 +828,25 @@ static void TestOpenRefusals(void)
     uint64_t ranges = SectionAt(maniClipTagRanges);
     uint64_t table = SectionAt(maniClipTagSegments);
     uint64_t data = SectionAt(maniClipTagSegmentData);
+    // The table: empty sections left out, so a compressed clip has no
+    // samples sections; tags past 15 and compressed sections in a
+    // full-precision clip refused.
+    uint32_t count = maniLoadU32(s_file + 12);
+    CHECK(EntryOf(maniClipTagSamples) == 0 && EntryOf(maniClipTagFloatSamples) == 0,
+          "no empty sections");
+    maniStoreU32(s_file + 64 + 24 * (uint64_t)(count - 1), 16);
+    ExpectFormat(64 + 24 * (uint64_t)(count - 1), "a tag past 15");
+    maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 56, 0);
+    maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 52, 0);
+    ExpectFormat(EntryOf(maniClipTagForms) + 16, "compressed sections at full precision");
     s_file[forms + 2] = 0x3f;
     ExpectFormat(forms + 2, "a form for an absent channel");
     s_file[forms + 0] &= 0xf3;
     ExpectFormat(forms + 0, "no form for a present channel");
-    s_file[forms + 0] |= 0x40;
-    ExpectFormat(forms + 0, "high bits");
+    s_file[forms + 2] |= 0x40;
+    ExpectFormat(forms + 2, "a dropped component for a default rotation");
+    s_file[forms + 4] = 0x01 | 0x40;
+    ExpectFormat(forms + 4, "a dropped component for no rotation");
     s_file[forms + 6] = maniClipFormDefault;
     ExpectFormat(forms + 6, "a default float track");
     StoreF32(constants, NAN);

@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The clip file's layout (mani-0006), shared by its view, its builder and
-// its compressor: kind 2 of the container, full precision (10 sections)
-// or compressed (15: the samples sections empty, five more after).
+// its compressor: kind 2 of the container, sections tagged 1 to 10 at
+// full precision, 1 to 15 compressed; an empty section is left out of
+// the table (absent is empty, and nothing else is), so the identity is
+// the same either way.
 
 #ifndef MAUL_ANIM_SRC_CLIP_FILE_H
 #define MAUL_ANIM_SRC_CLIP_FILE_H
@@ -53,7 +55,9 @@ enum
     // The names' UTF-8 bytes.
     maniClipTagNames = 10,
     // Compressed: a byte per bone track (2 bits per channel: translation,
-    // rotation, scale), then one per float track, each a maniClipForm.
+    // rotation, scale, each a maniClipForm; the top 2 bits 3 less the
+    // component a stored rotation leaves out, 0 x to 3 w, so 0 for w),
+    // then one per float track, a maniClipForm.
     maniClipTagForms = 11,
     // Compressed: the constant sub-tracks' values in track order, three
     // binary32 for a channel (a rotation's x, y, z with w positive), one

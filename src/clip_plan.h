@@ -40,6 +40,8 @@ typedef struct maniSubTrack
     // A maniClipForm, and its index among the animated sub-tracks.
     uint32_t form;
     uint32_t animated;
+    // A rotation's component left out (0 x to 3 w), made positive.
+    uint32_t dropped;
     // A float track's precision.
     float tolerance;
     // The first sample's value (kept by a constant), and the clip range.
@@ -74,14 +76,19 @@ typedef struct maniCompressPlan
 // The components of a sub-track: 3, or 1 for a float track.
 uint32_t maniPlanWidth(const maniSubTrack* t);
 
-// A sub-track's value at a sample; a rotation as x, y, z with w made
-// positive.
+// A sub-track's value at a sample; a rotation as its kept components,
+// signed so the dropped one is positive.
 void maniPlanValue(const maniCompressPlan* p, const maniSubTrack* t, uint32_t sample, float out[3]);
 
 // The segments: one up to MANI_CLIP_SEGMENT_MAX samples, else about
 // MANI_CLIP_SEGMENT_IDEAL each; and their first samples.
 uint32_t maniPlanSegmentCount(uint32_t samples);
 void maniPlanSplit(uint32_t samples, uint32_t segments, uint32_t* firsts);
+
+// A rotation's component to leave out: the one whose smallest magnitude
+// over the clip is largest (w on ties), so the one rebuilt stays clear of
+// 0, where rebuilding loses precision.
+void maniPlanChooseDropped(const maniCompressPlan* p, maniSubTrack* t);
 
 // A sub-track's first value and clip range.
 void maniPlanRanges(const maniCompressPlan* p, maniSubTrack* t);

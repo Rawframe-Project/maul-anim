@@ -24,7 +24,8 @@ option(MAUL_ANIM_TSAN "Instrument with ThreadSanitizer" OFF)
 option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
 option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
-option(MAUL_ANIM_DIFFERENTIAL "Build the ufbx differential (fetches ufbx; mani-0018)" OFF)
+option(MAUL_ANIM_DIFFERENTIAL
+       "Build the ufbx and ACL differentials (fetch ufbx, ACL and RTM; mani-0018, mani-0006)" OFF)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
 # build tree, so scripts and CI find them in one place.
@@ -182,6 +183,25 @@ if(MAUL_ANIM_DIFFERENTIAL)
     # ufbx is someone else's code: built as it is, without our warnings.
     set_source_files_properties(${ufbx_SOURCE_DIR}/ufbx.c PROPERTIES COMPILE_OPTIONS -w)
     set(MAUL_ANIM_UFBX_DATA ${ufbx_SOURCE_DIR}/data CACHE INTERNAL "ufbx's corpus")
+    # The ACL differential, the one C++ program: ACL and RTM are header
+    # only, read at the commits research measured them at; their own
+    # projects are not built (SOURCE_SUBDIR names none).
+    enable_language(CXX)
+    FetchContent_Declare(acl GIT_REPOSITORY https://github.com/nfrechette/acl.git
+                             GIT_TAG 3ee568542eca4428e1041908b4a644b98e7885bd
+                             GIT_SUBMODULES "" SOURCE_SUBDIR not-built)
+    FetchContent_Declare(rtm GIT_REPOSITORY https://github.com/nfrechette/rtm.git
+                             GIT_TAG dd384b40c4a8f15ceff4f743c4f3ae7ce4730981
+                             GIT_SUBMODULES "" SOURCE_SUBDIR not-built)
+    FetchContent_MakeAvailable(acl rtm)
+    add_executable(acl_differential tools/acl_differential.cc)
+    set_target_properties(acl_differential PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
+                                                      CXX_EXTENSIONS OFF)
+    target_include_directories(acl_differential SYSTEM PRIVATE ${acl_SOURCE_DIR}/includes
+                                                               ${rtm_SOURCE_DIR}/includes)
+    target_include_directories(acl_differential PRIVATE ${PROJECT_SOURCE_DIR}/src)
+    target_link_libraries(acl_differential PRIVATE maul-anim)
+    maul_apply_flags(acl_differential)
 endif()
 
 if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)
