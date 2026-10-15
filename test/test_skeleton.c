@@ -12,6 +12,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "skeleton_file.h"
+#include "test_budget.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -222,55 +223,17 @@ static void TestBuildRefusals(void)
     CHECK(maniBuildSkeleton(NULL, NULL).result == mani_errorInvalid, "null builder");
 }
 
-// An allocator that fails its n-th call and counts what is outstanding.
-typedef struct Budget
+static TestOutcome BuildWork(maniBuilder* builder, void* context)
 {
-    int32_t callsLeft;
-    int64_t outstanding;
-} Budget;
-
-static void* BudgetAlloc(size_t size, size_t alignment, void* context)
-{
-    Budget* budget = context;
-    (void)alignment;
-    if (budget->callsLeft-- <= 0)
-    {
-        return NULL;
-    }
-    budget->outstanding += (int64_t)size;
-    return malloc(size);
+    (void)context;
+    maniSkeletonSource source = {kBones, 6, 0};
+    return TestOutcomeOf(maniBuildSkeleton(builder, &source).result);
 }
 
-static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
-{
-    Budget* budget = context;
-    (void)alignment;
-    budget->outstanding -= (int64_t)size;
-    free(memory);
-}
-
+// Every allocation failing in turn while creating a builder and building.
 static void TestAllocationFailures(void)
 {
-    for (int32_t calls = 0; calls < 8; ++calls)
-    {
-        Budget budget = {calls, 0};
-        maniBuilderDef def = maniDefaultBuilderDef();
-        def.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
-        maniBuilder* builder = NULL;
-        maniResult created = maniCreateBuilder(&def, &builder);
-        if (created == mani_success)
-        {
-            maniSkeletonSource source = {kBones, 6, 0};
-            maniResult built = maniBuildSkeleton(builder, &source).result;
-            CHECK(built == mani_success || built == mani_errorCapacity, "fails cleanly");
-            maniDestroyBuilder(builder);
-        }
-        else
-        {
-            CHECK(created == mani_errorCapacity, "create fails cleanly");
-        }
-        CHECK(budget.outstanding == 0, "everything freed");
-    }
+    CHECK(TestSweep(BuildWork, NULL, 64), "allocation failures handled, nothing kept");
 }
 
 // Restores the payload hash after a test changes a section.

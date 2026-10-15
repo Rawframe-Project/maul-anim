@@ -8,6 +8,7 @@
 // C evaluated here in binary64, locals with placement reported, model
 // transforms with it folded and the basis changed; then each refusal.
 
+#include "test_gltf_sweep.h"
 #include "test_harness.h"
 #include "vecmath.h"
 
@@ -718,8 +719,18 @@ static void TestFoldedStatic(void)
     maniDestroyBuilder(builder);
 }
 
+// Every allocation failing in turn while opening the document and
+// building its skeleton and walk clip.
+static void TestAllocationFailures(void)
+{
+    Document(NULL, NULL, "");
+    GltfSweep sweep = {s_json, 0, UINT32_MAX, false};
+    CHECK(TestSweep(GltfSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
+}
+
 int main(void)
 {
+    TestAllocationFailures();
     TestLocals();
     TestFoldedModels();
     TestAnotherRig();

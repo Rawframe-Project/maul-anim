@@ -250,17 +250,22 @@ maniImportResult maniGltfReadBuffers(maniGltf* gltf)
         return r;
     }
     gltf->buffers = maniAllocate(&gltf->allocator, count, sizeof(maniGltfBuffer), 8);
+    if (gltf->buffers == NULL)
+    {
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    }
+    // Counted (and empty) at once, so a release after a later failure
+    // frees the list whole.
+    memset(gltf->buffers, 0, (size_t)count * sizeof(maniGltfBuffer));
+    gltf->bufferCount = count;
     // A URI decodes into at most its own length: one scratch the JSON's
     // size serves every buffer.
     size_t scratchSize = gltf->json.values[0].length + 1;
     uint8_t* scratch = maniAllocate(&gltf->allocator, scratchSize, 1, 8);
-    if (gltf->buffers == NULL || scratch == NULL)
+    if (scratch == NULL)
     {
-        maniRelease(&gltf->allocator, scratch, scratchSize, 1, 8);
         return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
     }
-    memset(gltf->buffers, 0, (size_t)count * sizeof(maniGltfBuffer));
-    gltf->bufferCount = count;
     uint32_t value = array + 1;
     for (uint32_t i = 0; r.result == mani_success && i < count; ++i)
     {

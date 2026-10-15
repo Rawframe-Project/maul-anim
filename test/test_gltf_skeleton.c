@@ -9,6 +9,7 @@
 // basis and inverse binds agree.
 
 #include "gltf_document.h"
+#include "test_gltf_sweep.h"
 #include "test_harness.h"
 #include "vecmath.h"
 
@@ -771,8 +772,18 @@ static void TestGroupingAgainstBruteForce(void)
     }
 }
 
+// Every allocation failing in turn while opening the document,
+// building its skeleton and first skin.
+static void TestAllocationFailures(void)
+{
+    RigJson();
+    GltfSweep sweep = {s_json, UINT32_MAX, 0, false};
+    CHECK(TestSweep(GltfSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
+}
+
 int main(void)
 {
+    TestAllocationFailures();
     TestShearTolerance();
     TestFoldedRestShear();
     TestNamesAcrossExports();

@@ -6,6 +6,7 @@
 // bound by name, the basis change on offsets and gravity, and every
 // rule the specification sets on versions, ranges, chains and centers.
 
+#include "test_gltf_sweep.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -238,8 +239,18 @@ static void TestRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+// Every allocation failing in turn while opening the document,
+// building its skeleton and reading its springs.
+static void TestAllocationFailures(void)
+{
+    Document("1.0", kColliders, kGroups, kSprings);
+    GltfSweep sweep = {s_json, UINT32_MAX, UINT32_MAX, true};
+    CHECK(TestSweep(GltfSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
+}
+
 int main(void)
 {
+    TestAllocationFailures();
     TestValues();
     TestNone();
     TestRefusals();

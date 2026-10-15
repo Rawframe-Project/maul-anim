@@ -8,6 +8,7 @@
 // plain matrices; the refusals and the misuses.
 
 #include "fbx_document.h"
+#include "test_fbx_sweep.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -350,8 +351,17 @@ static void TestRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+// Every allocation failing in turn while opening the scene, building its
+// skeleton and its first skin.
+static void TestAllocationFailures(void)
+{
+    FbxSweep sweep = {kScene, UINT32_MAX, 0};
+    CHECK(TestSweep(FbxSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
+}
+
 int main(void)
 {
+    TestAllocationFailures();
     TestBinds();
     TestSix();
     TestMatrices();

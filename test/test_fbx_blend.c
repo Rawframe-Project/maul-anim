@@ -8,6 +8,7 @@
 
 #include "fbx_blend.h"
 #include "fbx_document.h"
+#include "test_fbx_sweep.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -18,7 +19,6 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 // Head and Jaw (limbs, Jaw under Head) skin Face; Face's BlendShape has Smile (an
@@ -718,55 +718,11 @@ static void TestShapeOwners(void)
     maniDestroyBuilder(builder);
 }
 
-// An allocator that fails its n-th call and counts what is outstanding.
-typedef struct Budget
-{
-    int32_t callsLeft;
-    int64_t outstanding;
-} Budget;
-
-static void* BudgetAlloc(size_t size, size_t alignment, void* context)
-{
-    Budget* budget = context;
-    (void)alignment;
-    if (budget->callsLeft-- <= 0)
-    {
-        return NULL;
-    }
-    budget->outstanding += (int64_t)size;
-    return malloc(size);
-}
-
-static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
-{
-    Budget* budget = context;
-    (void)alignment;
-    budget->outstanding -= (int64_t)size;
-    free(memory);
-}
-
-// Every allocation failing in turn while building Talk's clip of a text:
-// each fails cleanly, and everything taken is given back at its size.
+// Every allocation failing in turn while building Talk's clip of a text.
 static void TestAllocationFailures(const char* text, const char* label)
 {
-    bool clean = true;
-    bool done = false;
-    for (int32_t calls = 0; !done && calls < 8192; ++calls)
-    {
-        Budget budget = {calls, 0};
-        maniBuilderDef def = maniDefaultBuilderDef();
-        def.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
-        maniBuilder* builder = NULL;
-        if (maniCreateBuilder(&def, &builder) == mani_success)
-        {
-            maniClip clip;
-            uint32_t bound = 0;
-            done = Build(builder, text, NULL, 0, &clip, &bound);
-            maniDestroyBuilder(builder);
-        }
-        clean = clean && budget.outstanding == 0;
-    }
-    CHECK(done && clean, label);
+    FbxSweep sweep = {text, 0, UINT32_MAX};
+    CHECK(TestSweep(FbxSweepWork, &sweep, 8192), label);
 }
 
 int main(void)
