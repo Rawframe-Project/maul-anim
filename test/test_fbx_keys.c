@@ -623,6 +623,465 @@ static const double kEmptyValues[21] = {-7.0, -7.0, -7.0, -7.0, -7.0, -7.0, -7.0
                                         -7.0, -7.0, -7.0, -7.0, -7.0, -7.0, -7.0,
                                         -7.0, -7.0, -7.0, -7.0, -7.0, -7.0, -7.0};
 
+static const char kRising[] =
+    "; FBX 6.1.0 project file\n"
+    "FBXHeaderExtension: {\n"
+    " FBXHeaderVersion: 1003\n"
+    " FBXVersion: 6100\n"
+    "}\n"
+    "Objects: {\n"
+    " Model: \"Model::A\", \"Null\" {\n"
+    "  Version: 232\n"
+    " }\n"
+    "}\n"
+    "Takes: {\n"
+    " Take: \"T\" {\n"
+    "  LocalTime: 0,92372316000\n"
+    "  Model: \"Model::A\" {\n"
+    "   Channel: \"Transform\" {\n"
+    "    Channel: \"T\" {\n"
+    "     Channel: \"X\" {\n"
+    "      Default: 0.5\n"
+    "      KeyVer: 4005\n"
+    "      KeyCount: 4\n"
+    "      Key: 0,0,U,a,n,46186158000,1,U,a,n,92372316000,3,U,p,1,2,n,n,138558474000,6,U,a,n\n"
+    "     }\n"
+    "    }\n"
+    "   }\n"
+    "  }\n"
+    " }\n"
+    "}\n";
+
+static const Expected kRisingKeys[4] = {
+    {0.0, 0.0, 3, 0.0f, 0.0f, 0.333332986f, 0.0f},
+    {1.0, 1.0, 3, 0.333332986f, 0.499999464f, 0.333332986f, 0.499999464f},
+    {2.0, 3.0, 3, 0.333332986f, 0.833332479f, 0.333332986f, 0.833332479f},
+    {3.0, 6.0, 3, 0.333332986f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kRisingValues[21] = {0.0,
+                                         0.0,
+                                         0.0,
+                                         0.0,
+                                         0.0,
+                                         0.08593763961112624,
+                                         0.3125002011656761,
+                                         0.6328125887958378,
+                                         1.0,
+                                         1.4062500649597809,
+                                         1.8750001192092896,
+                                         2.406250064959781,
+                                         3.0,
+                                         3.820312515454051,
+                                         4.812499679625034,
+                                         5.648437126219423,
+                                         6.0,
+                                         6.0,
+                                         6.0,
+                                         6.0,
+                                         6.0};
+
+static const char kRightweight[] =
+    "; FBX 6.1.0 project file\n"
+    "FBXHeaderExtension: {\n"
+    " FBXHeaderVersion: 1003\n"
+    " FBXVersion: 6100\n"
+    "}\n"
+    "Objects: {\n"
+    " Model: \"Model::A\", \"Null\" {\n"
+    "  Version: 232\n"
+    " }\n"
+    "}\n"
+    "Takes: {\n"
+    " Take: \"T\" {\n"
+    "  LocalTime: 0,92372316000\n"
+    "  Model: \"Model::A\" {\n"
+    "   Channel: \"Transform\" {\n"
+    "    Channel: \"T\" {\n"
+    "     Channel: \"X\" {\n"
+    "      Default: 0.5\n"
+    "      KeyVer: 4005\n"
+    "      KeyCount: 3\n"
+    "      Key: 0,0,U,s,1,1,r,0.7,46186158000,2,U,s,1,1,l,0.2,92372316000,1,L\n"
+    "     }\n"
+    "    }\n"
+    "   }\n"
+    "  }\n"
+    " }\n"
+    "}\n";
+
+static const Expected kRightweightKeys[3] = {
+    {0.0, 0.0, 3, 0.0f, 0.0f, 0.699999988f, 0.699999988f},
+    {1.0, 2.0, 3, 0.333332986f, 0.333332986f, 0.333332986f, 0.333332986f},
+    {2.0, 1.0, 2, 0.200000003f, 0.200000003f, 0.0f, 0.0f},
+};
+
+static const double kRightweightValues[21] = {0.0,
+                                              0.0,
+                                              0.0,
+                                              0.0,
+                                              0.0,
+                                              0.30151229725167705,
+                                              0.7642313673457248,
+                                              1.4946304005717002,
+                                              2.0,
+                                              1.9742045941226716,
+                                              1.6349857414380513,
+                                              1.2049148446945295,
+                                              1.0,
+                                              1.0,
+                                              1.0,
+                                              1.0,
+                                              1.0,
+                                              1.0,
+                                              1.0,
+                                              1.0,
+                                              1.0};
+
+static const char kConstant4004[] = "; FBX 6.1.0 project file\n"
+                                    "FBXHeaderExtension: {\n"
+                                    " FBXHeaderVersion: 1003\n"
+                                    " FBXVersion: 6100\n"
+                                    "}\n"
+                                    "Objects: {\n"
+                                    " Model: \"Model::A\", \"Null\" {\n"
+                                    "  Version: 232\n"
+                                    " }\n"
+                                    "}\n"
+                                    "Takes: {\n"
+                                    " Take: \"T\" {\n"
+                                    "  LocalTime: 0,92372316000\n"
+                                    "  Model: \"Model::A\" {\n"
+                                    "   Channel: \"Transform\" {\n"
+                                    "    Channel: \"T\" {\n"
+                                    "     Channel: \"X\" {\n"
+                                    "      Default: 0.5\n"
+                                    "      KeyVer: 4004\n"
+                                    "      KeyCount: 2\n"
+                                    "      Key: 0,1,C,n,46186158000,2,L\n"
+                                    "     }\n"
+                                    "    }\n"
+                                    "   }\n"
+                                    "  }\n"
+                                    " }\n"
+                                    "}\n";
+
+static const Expected kConstant4004Keys[2] = {
+    {0.0, 1.0, 1, 0.0f, 0.0f, 0.333332986f, 0.0f},
+    {1.0, 2.0, 2, 0.333332986f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kConstant4004Values[21] = {1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0,
+                                               2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
+                                               2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0};
+
+static const char kConstantother[] = "; FBX 6.1.0 project file\n"
+                                     "FBXHeaderExtension: {\n"
+                                     " FBXHeaderVersion: 1003\n"
+                                     " FBXVersion: 6100\n"
+                                     "}\n"
+                                     "Objects: {\n"
+                                     " Model: \"Model::A\", \"Null\" {\n"
+                                     "  Version: 232\n"
+                                     " }\n"
+                                     "}\n"
+                                     "Takes: {\n"
+                                     " Take: \"T\" {\n"
+                                     "  LocalTime: 0,92372316000\n"
+                                     "  Model: \"Model::A\" {\n"
+                                     "   Channel: \"Transform\" {\n"
+                                     "    Channel: \"T\" {\n"
+                                     "     Channel: \"X\" {\n"
+                                     "      Default: 0.5\n"
+                                     "      KeyVer: 4005\n"
+                                     "      KeyCount: 2\n"
+                                     "      Key: 0,1,C,x,46186158000,2,L\n"
+                                     "     }\n"
+                                     "    }\n"
+                                     "   }\n"
+                                     "  }\n"
+                                     " }\n"
+                                     "}\n";
+
+static const Expected kConstantotherKeys[2] = {
+    {0.0, 1.0, 0, 0.0f, 0.0f, 0.333332986f, 0.0f},
+    {1.0, 2.0, 2, 0.333332986f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kConstantotherValues[21] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                                                1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
+                                                2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0};
+
+static const char kSame[] = "; FBX 6.1.0 project file\n"
+                            "FBXHeaderExtension: {\n"
+                            " FBXHeaderVersion: 1003\n"
+                            " FBXVersion: 6100\n"
+                            "}\n"
+                            "Objects: {\n"
+                            " Model: \"Model::A\", \"Null\" {\n"
+                            "  Version: 232\n"
+                            " }\n"
+                            "}\n"
+                            "Takes: {\n"
+                            " Take: \"T\" {\n"
+                            "  LocalTime: 0,92372316000\n"
+                            "  Model: \"Model::A\" {\n"
+                            "   Channel: \"Transform\" {\n"
+                            "    Channel: \"T\" {\n"
+                            "     Channel: \"X\" {\n"
+                            "      Default: 0.5\n"
+                            "      KeyVer: 4005\n"
+                            "      KeyCount: 3\n"
+                            "      Key: 0,0,U,s,0,1e40,n,0,1,L,46186158000,2,U,s,1e40,0,n\n"
+                            "     }\n"
+                            "    }\n"
+                            "   }\n"
+                            "  }\n"
+                            " }\n"
+                            "}\n";
+
+static const Expected kSameKeys[3] = {
+    {0.0, 0.0, 3, 0.0f, 0.0f, 0.0f, 0.0f},
+    {0.0, 1.0, 2, 0.0f, 0.0f, 0.333332986f, 0.333332986f},
+    {1.0, 2.0, 3, 0.333332986f, 0.333332986f, 0.0f, 0.0f},
+};
+
+static const double kSameValues[21] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.25, 1.5, 1.75, 2.0, 2.0, 2.0,
+                                       2.0, 2.0, 2.0, 2.0, 2.0, 2.0,  2.0, 2.0,  2.0, 2.0};
+
+static const char kNegativever[] = "; FBX 6.1.0 project file\n"
+                                   "FBXHeaderExtension: {\n"
+                                   " FBXHeaderVersion: 1003\n"
+                                   " FBXVersion: 6100\n"
+                                   "}\n"
+                                   "Objects: {\n"
+                                   " Model: \"Model::A\", \"Null\" {\n"
+                                   "  Version: 232\n"
+                                   " }\n"
+                                   "}\n"
+                                   "Takes: {\n"
+                                   " Take: \"T\" {\n"
+                                   "  LocalTime: 0,92372316000\n"
+                                   "  Model: \"Model::A\" {\n"
+                                   "   Channel: \"Transform\" {\n"
+                                   "    Channel: \"T\" {\n"
+                                   "     Channel: \"X\" {\n"
+                                   "      Default: 0.5\n"
+                                   "      KeyVer: -1\n"
+                                   "      KeyCount: 2\n"
+                                   "      Key: 0,1,C,n,46186158000,2,L\n"
+                                   "     }\n"
+                                   "    }\n"
+                                   "   }\n"
+                                   "  }\n"
+                                   " }\n"
+                                   "}\n";
+
+static const Expected kNegativeverKeys[2] = {
+    {0.0, 1.0, 1, 0.0f, 0.0f, 0.333332986f, 0.0f},
+    {1.0, 2.0, 2, 0.333332986f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kNegativeverValues[21] = {1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
+                                              2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0};
+
+static const char kDefaultver[] = "; FBX 6.1.0 project file\n"
+                                  "FBXHeaderExtension: {\n"
+                                  " FBXHeaderVersion: 1003\n"
+                                  " FBXVersion: 6100\n"
+                                  "}\n"
+                                  "Objects: {\n"
+                                  " Model: \"Model::A\", \"Null\" {\n"
+                                  "  Version: 232\n"
+                                  " }\n"
+                                  "}\n"
+                                  "Takes: {\n"
+                                  " Take: \"T\" {\n"
+                                  "  LocalTime: 0,92372316000\n"
+                                  "  Model: \"Model::A\" {\n"
+                                  "   Channel: \"Transform\" {\n"
+                                  "    Channel: \"T\" {\n"
+                                  "     Channel: \"X\" {\n"
+                                  "      Default: 0.5\n"
+                                  "      KeyCount: 2\n"
+                                  "      Key: 0,0,U,a,n,46186158000,1,L\n"
+                                  "     }\n"
+                                  "    }\n"
+                                  "   }\n"
+                                  "  }\n"
+                                  " }\n"
+                                  "}\n";
+
+static const Expected kDefaultverKeys[2] = {
+    {0.0, 0.0, 3, 0.0f, 0.0f, 0.333332986f, 0.0f},
+    {1.0, 1.0, 2, 0.333332986f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kDefaultverValues[21] = {0.0, 0.0,
+                                             0.0, 0.0,
+                                             0.0, 0.1562501100124791,
+                                             0.5, 0.8437498899875209,
+                                             1.0, 1.0,
+                                             1.0, 1.0,
+                                             1.0, 1.0,
+                                             1.0, 1.0,
+                                             1.0, 1.0,
+                                             1.0, 1.0,
+                                             1.0};
+
+static const char kVersion5[] = "; FBX 5.0.0 project file\n"
+                                "FBXHeaderExtension: {\n"
+                                " FBXHeaderVersion: 1003\n"
+                                " FBXVersion: 5000\n"
+                                "}\n"
+                                "Objects: {\n"
+                                " Model: \"Model::A\", \"Null\" {\n"
+                                "  Version: 232\n"
+                                " }\n"
+                                "}\n"
+                                "Takes: {\n"
+                                " Take: \"T\" {\n"
+                                "  LocalTime: 0,92372316000\n"
+                                "  Model: \"Model::A\" {\n"
+                                "   Channel: \"Transform\" {\n"
+                                "    Channel: \"T\" {\n"
+                                "     Channel: \"X\" {\n"
+                                "      Default: 0.5\n"
+                                "      KeyCount: 2\n"
+                                "      Key: 0,0,U,a,46186158000,1,L\n"
+                                "     }\n"
+                                "    }\n"
+                                "   }\n"
+                                "  }\n"
+                                " }\n"
+                                "}\n";
+
+static const Expected kVersion5Keys[2] = {
+    {0.0, 0.0, 3, 0.0f, 0.0f, 0.333332986f, 0.0f},
+    {1.0, 1.0, 2, 0.333332986f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kVersion5Values[21] = {0.0, 0.0,
+                                           0.0, 0.0,
+                                           0.0, 0.1562501100124791,
+                                           0.5, 0.8437498899875209,
+                                           1.0, 1.0,
+                                           1.0, 1.0,
+                                           1.0, 1.0,
+                                           1.0, 1.0,
+                                           1.0, 1.0,
+                                           1.0, 1.0,
+                                           1.0};
+
+static const char kVersion4[] = "; FBX 4.0.0 project file\n"
+                                "FBXHeaderExtension: {\n"
+                                " FBXHeaderVersion: 1003\n"
+                                " FBXVersion: 4000\n"
+                                "}\n"
+                                "Objects: {\n"
+                                " Model: \"Model::A\", \"Null\" {\n"
+                                "  Version: 232\n"
+                                " }\n"
+                                "}\n"
+                                "Takes: {\n"
+                                " Take: \"T\" {\n"
+                                "  LocalTime: 0,92372316000\n"
+                                "  Model: \"Model::A\" {\n"
+                                "   Channel: \"Transform\" {\n"
+                                "    Channel: \"T\" {\n"
+                                "     Channel: \"X\" {\n"
+                                "      Default: 0.5\n"
+                                "      KeyCount: 2\n"
+                                "      Key: 0,0,U,s,1,1,46186158000,1,L\n"
+                                "     }\n"
+                                "    }\n"
+                                "   }\n"
+                                "  }\n"
+                                " }\n"
+                                "}\n";
+
+static const Expected kVersion4Keys[2] = {
+    {0.0, 0.0, 3, 0.0f, 0.0f, 0.333332986f, 0.333332986f},
+    {1.0, 1.0, 2, 0.333332986f, 0.333332986f, 0.0f, 0.0f},
+};
+
+static const double kVersion4Values[21] = {
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.24999999999999994, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0, 1.0};
+
+static const char kWordvalue[] = "; FBX 6.1.0 project file\n"
+                                 "FBXHeaderExtension: {\n"
+                                 " FBXHeaderVersion: 1003\n"
+                                 " FBXVersion: 6100\n"
+                                 "}\n"
+                                 "Objects: {\n"
+                                 " Model: \"Model::A\", \"Null\" {\n"
+                                 "  Version: 232\n"
+                                 " }\n"
+                                 "}\n"
+                                 "Takes: {\n"
+                                 " Take: \"T\" {\n"
+                                 "  LocalTime: 0,92372316000\n"
+                                 "  Model: \"Model::A\" {\n"
+                                 "   Channel: \"Transform\" {\n"
+                                 "    Channel: \"T\" {\n"
+                                 "     Channel: \"X\" {\n"
+                                 "      Default: 0.5\n"
+                                 "      KeyVer: 4005\n"
+                                 "      KeyCount: 1\n"
+                                 "      Key: 0,infx,L\n"
+                                 "     }\n"
+                                 "    }\n"
+                                 "   }\n"
+                                 "  }\n"
+                                 " }\n"
+                                 "}\n";
+
+static const Expected kWordvalueKeys[1] = {
+    {0.0, 105.0, 2, 0.0f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kWordvalueValues[21] = {105.0, 105.0, 105.0, 105.0, 105.0, 105.0, 105.0,
+                                            105.0, 105.0, 105.0, 105.0, 105.0, 105.0, 105.0,
+                                            105.0, 105.0, 105.0, 105.0, 105.0, 105.0, 105.0};
+
+static const char kArray[] = "; FBX 6.1.0 project file\n"
+                             "FBXHeaderExtension: {\n"
+                             " FBXHeaderVersion: 1003\n"
+                             " FBXVersion: 6100\n"
+                             "}\n"
+                             "Objects: {\n"
+                             " Model: \"Model::A\", \"Null\" {\n"
+                             "  Version: 232\n"
+                             " }\n"
+                             "}\n"
+                             "Takes: {\n"
+                             " Take: \"T\" {\n"
+                             "  LocalTime: 0,92372316000\n"
+                             "  Model: \"Model::A\" {\n"
+                             "   Channel: \"Transform\" {\n"
+                             "    Channel: \"T\" {\n"
+                             "     Channel: \"X\" {\n"
+                             "      Default: 0.5\n"
+                             "      KeyVer: 4005\n"
+                             "      KeyCount: 1\n"
+                             "      Key: *3 {\n"
+                             "       a: 0,0,76\n"
+                             "      }\n"
+                             "     }\n"
+                             "    }\n"
+                             "   }\n"
+                             "  }\n"
+                             " }\n"
+                             "}\n";
+
+static const Expected kArrayKeys[1] = {
+    {0.0, 0.0, 2, 0.0f, 0.0f, 0.0f, 0.0f},
+};
+
+static const double kArrayValues[21] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
 static const char kNokey[] = "; FBX 6.1.0 project file\n"
                              "FBXHeaderExtension: {\n"
                              " FBXHeaderVersion: 1003\n"
@@ -984,6 +1443,90 @@ static const char kMany[] = "; FBX 6.1.0 project file\n"
                             " }\n"
                             "}\n";
 
+static const char kWrapped[] = "; FBX 6.1.0 project file\n"
+                               "FBXHeaderExtension: {\n"
+                               " FBXHeaderVersion: 1003\n"
+                               " FBXVersion: 6100\n"
+                               "}\n"
+                               "Objects: {\n"
+                               " Model: \"Model::A\", \"Null\" {\n"
+                               "  Version: 232\n"
+                               " }\n"
+                               "}\n"
+                               "Takes: {\n"
+                               " Take: \"T\" {\n"
+                               "  LocalTime: 0,92372316000\n"
+                               "  Model: \"Model::A\" {\n"
+                               "   Channel: \"Transform\" {\n"
+                               "    Channel: \"T\" {\n"
+                               "     Channel: \"X\" {\n"
+                               "      Default: 0.5\n"
+                               "      KeyVer: 4005\n"
+                               "      KeyCount: 1\n"
+                               "      Key: 0,0,332\n"
+                               "     }\n"
+                               "    }\n"
+                               "   }\n"
+                               "  }\n"
+                               " }\n"
+                               "}\n";
+
+static const char kWeightshort[] = "; FBX 6.1.0 project file\n"
+                                   "FBXHeaderExtension: {\n"
+                                   " FBXHeaderVersion: 1003\n"
+                                   " FBXVersion: 6100\n"
+                                   "}\n"
+                                   "Objects: {\n"
+                                   " Model: \"Model::A\", \"Null\" {\n"
+                                   "  Version: 232\n"
+                                   " }\n"
+                                   "}\n"
+                                   "Takes: {\n"
+                                   " Take: \"T\" {\n"
+                                   "  LocalTime: 0,92372316000\n"
+                                   "  Model: \"Model::A\" {\n"
+                                   "   Channel: \"Transform\" {\n"
+                                   "    Channel: \"T\" {\n"
+                                   "     Channel: \"X\" {\n"
+                                   "      Default: 0.5\n"
+                                   "      KeyVer: 4005\n"
+                                   "      KeyCount: 1\n"
+                                   "      Key: 0,0,U,s,0,0,a\n"
+                                   "     }\n"
+                                   "    }\n"
+                                   "   }\n"
+                                   "  }\n"
+                                   " }\n"
+                                   "}\n";
+
+static const char kModeextra[] = "; FBX 6.1.0 project file\n"
+                                 "FBXHeaderExtension: {\n"
+                                 " FBXHeaderVersion: 1003\n"
+                                 " FBXVersion: 6100\n"
+                                 "}\n"
+                                 "Objects: {\n"
+                                 " Model: \"Model::A\", \"Null\" {\n"
+                                 "  Version: 232\n"
+                                 " }\n"
+                                 "}\n"
+                                 "Takes: {\n"
+                                 " Take: \"T\" {\n"
+                                 "  LocalTime: 0,92372316000\n"
+                                 "  Model: \"Model::A\" {\n"
+                                 "   Channel: \"Transform\" {\n"
+                                 "    Channel: \"T\" {\n"
+                                 "     Channel: \"X\" {\n"
+                                 "      Default: 0.5\n"
+                                 "      KeyVer: 4005\n"
+                                 "      KeyCount: 1\n"
+                                 "      Key: 0,0,X,n\n"
+                                 "     }\n"
+                                 "    }\n"
+                                 "   }\n"
+                                 "  }\n"
+                                 " }\n"
+                                 "}\n";
+
 static const Case kCases[] = {
     {"linear", kLinear, maniImportReasonNone, true, 3, kLinearKeys, 0, -1, 0, -1, kLinearValues},
     {"constant", kConstant, maniImportReasonNone, true, 3, kConstantKeys, 0, -1, 0, -1,
@@ -1004,6 +1547,25 @@ static const Case kCases[] = {
     {"late", kLate, maniImportReasonNone, true, 2, kLateKeys, 1, 2, 2, -1, kLateValues},
     {"mirror", kMirror, maniImportReasonNone, true, 2, kMirrorKeys, 3, -1, 4, -1, kMirrorValues},
     {"empty", kEmpty, maniImportReasonNone, true, 0, NULL, 0, -1, 0, -1, kEmptyValues},
+    {"rising", kRising, maniImportReasonNone, true, 4, kRisingKeys, 0, -1, 0, -1, kRisingValues},
+    {"rightweight", kRightweight, maniImportReasonNone, true, 3, kRightweightKeys, 0, -1, 0, -1,
+     kRightweightValues},
+    {"constant4004", kConstant4004, maniImportReasonNone, true, 2, kConstant4004Keys, 0, -1, 0, -1,
+     kConstant4004Values},
+    {"constantother", kConstantother, maniImportReasonNone, true, 2, kConstantotherKeys, 0, -1, 0,
+     -1, kConstantotherValues},
+    {"same", kSame, maniImportReasonNone, true, 3, kSameKeys, 0, -1, 0, -1, kSameValues},
+    {"negativever", kNegativever, maniImportReasonNone, true, 2, kNegativeverKeys, 0, -1, 0, -1,
+     kNegativeverValues},
+    {"defaultver", kDefaultver, maniImportReasonNone, true, 2, kDefaultverKeys, 0, -1, 0, -1,
+     kDefaultverValues},
+    {"version5", kVersion5, maniImportReasonNone, true, 2, kVersion5Keys, 0, -1, 0, -1,
+     kVersion5Values},
+    {"version4", kVersion4, maniImportReasonNone, true, 2, kVersion4Keys, 0, -1, 0, -1,
+     kVersion4Values},
+    {"wordvalue", kWordvalue, maniImportReasonNone, true, 1, kWordvalueKeys, 0, -1, 0, -1,
+     kWordvalueValues},
+    {"array", kArray, maniImportReasonNone, true, 1, kArrayKeys, 0, -1, 0, -1, kArrayValues},
     {"nokey", kNokey, maniImportReasonNone, false, 0, NULL, 0, -1, 0, -1, NULL},
     {"nocount", kNocount, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
     {"mode", kMode, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
@@ -1017,6 +1579,9 @@ static const Case kCases[] = {
     {"string", kString, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
     {"nan", kNan, maniImportReasonData, false, 0, NULL, 0, 0, 0, 0, NULL},
     {"many", kMany, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
+    {"wrapped", kWrapped, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
+    {"weightshort", kWeightshort, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
+    {"modeextra", kModeextra, maniImportReasonProperty, false, 0, NULL, 0, 0, 0, 0, NULL},
 };
 
 // The first node holding a Default child: the channel.

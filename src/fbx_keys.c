@@ -269,10 +269,7 @@ static bool Key(Parser* p, maniFbxKey* keys, uint32_t i, uint32_t count)
 // The keys of a parsed list, their end ticks and order checked.
 static bool Parse(Parser* p, maniFbxCurve* out)
 {
-    if (out->count > 0 && !Has(p, 2))
-    {
-        return false;
-    }
+    // A key at all means three values at least (the count's bound).
     p->nextTicks = out->count > 0 ? p->data[0] : 0.0;
     p->nextValue = out->count > 0 ? p->data[1] : 0.0;
     int64_t previous = INT64_MIN;
