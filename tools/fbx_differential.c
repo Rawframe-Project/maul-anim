@@ -10,7 +10,9 @@
 // shape weights, against ufbx's scene evaluated at the same stack time.
 // Bones compare by their world matrices (the skeleton's placement times
 // the model matrix), as maul-anim bakes inherit modes into its rests.
-// Values agree within 1e-4 of their size (at least 1).
+// Values agree within 1e-4 of their size (at least 1): a matrix
+// element's size is its column's length, so a small element of a scaled
+// axis is held to the axis, not to itself.
 //
 // A mismatch whose file and aspect a deviations file lists (lines of a
 // file name part, or * for any, and an aspect; # comments) is reported
@@ -203,12 +205,20 @@ static void OurWorld(const maniAffine* placement, const maniPose* pose, uint32_t
     Compose(p, m, out);
 }
 
+// a against b, 3x4 column-major, each element within 1e-4 of b's
+// column's length (at least 1).
 static bool SameMatrix(const double a[12], const double b[12])
 {
     bool same = true;
-    for (int i = 0; same && i < 12; ++i)
+    for (int col = 0; same && col < 4; ++col)
     {
-        same = Near(a[i], b[i]);
+        const double* v = b + 3 * col;
+        double length = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        double size = length > 1.0 ? length : 1.0;
+        for (int k = 0; same && k < 3; ++k)
+        {
+            same = fabs(a[3 * col + k] - v[k]) <= 1e-4 * size;
+        }
     }
     return same;
 }
@@ -573,8 +583,8 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
         {
             ours[i] = (double)bind.m[i];
             expected[i] = cluster != NULL ? TheirBind(cluster, mesh).v[i] : 0.0;
-            same = same && Near(ours[i], expected[i]);
         }
+        same = same && SameMatrix(ours, expected);
         if (same)
         {
             Emit(c, "bind", k, (double)j, name, length, expected, 12);

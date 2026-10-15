@@ -28,7 +28,8 @@ from many tools are not marked one by one, and the corpus weighs 62 MB.
   of its sample times: bone worlds against
   ufbx's scene evaluated at the same stack time, and float tracks
   against blend shapes' effective weights or nodes' properties.
-  Values agree within 1e-4 of their size.
+  Values agree within 1e-4 of their size (at least 1); a matrix
+  element's size is its column's length.
 - **Deviations** are listed in `tools/fbx-deviations.txt`, a file name
   part (or `*`) and an aspect each, with the decision behind it: they
   are reported and not counted. Anything else that disagrees is a
