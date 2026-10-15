@@ -56,7 +56,8 @@ typedef struct maniFbxClipState
 } maniFbxClipState;
 
 // Sample k's time in the stack, in seconds: k frames of the exact rate
-// in whole ticks from its start, the last at its stop.
+// in whole ticks from its start, the last at its stop (a single sample
+// has no span: its stop is its start).
 double maniFbxClipStackTime(const maniFbxClipState* c, uint32_t k);
 
 // The same for any grid: count samples over a stack's range at a rate.

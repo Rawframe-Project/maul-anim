@@ -19,7 +19,7 @@ double maniFbxGridTime(const maniFbx* fbx, const maniFbxAnimation* animation, do
                        uint32_t count, uint32_t k)
 {
     double tps = (double)fbx->settings.ticksPerSecond;
-    bool last = k + 1 == count && k > 0;
+    bool last = k + 1 == count;
     double tick = last && animation->stop > animation->start
                       ? (double)animation->stop
                       : (double)animation->start + Round((double)k * tps / exactRate);

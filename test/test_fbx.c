@@ -785,8 +785,9 @@ static void TestAsciiEdges(void)
     maniDestroyBuilder(builder);
     // A number-like token that is neither a number nor an infinity or NaN
     // whole is refused at open, as ufbx fails on it.
-    static const char* const kOdd[6] = {"1x5", ".", "1e", "-", "1.#INDIE", "-nan(a-b)"};
-    for (uint32_t k = 0; k < 6; ++k)
+    static const char* const kOdd[] = {"1x5",       ".",      "1e",   "-",      "1.#INDIE",
+                                       "-nan(a-b)", "1.Xinf", "-nab", "-nan(a#"};
+    for (uint32_t k = 0; k < sizeof kOdd / sizeof kOdd[0]; ++k)
     {
         char text[96];
         (void)snprintf(text, sizeof text, "; FBX 7.4.0 project file\nOdd: 1, %s\n", kOdd[k]);
@@ -795,6 +796,11 @@ static void TestAsciiEdges(void)
                       (uint64_t)(strstr((const char*)s_w.b, "1, ") + 3 - (const char*)s_w.b),
                       kOdd[k]);
     }
+    // A token cut by the end of the file is read within it.
+    SetText("; FBX 7.4.0 project file\nOdd: 1, -na");
+    ExpectRefusal(maniImportReasonSyntax,
+                  (uint64_t)(strstr((const char*)s_w.b, "-na") - (const char*)s_w.b),
+                  "a token at the end of the file");
     // Words in an array open, as ufbx reads them; decoding the array
     // refuses at the first (Data).
     SetText("; FBX 7.4.0 project file\nV: *4 {\n a: 1,inf,nan(ind),-1.#IND\n}\n");

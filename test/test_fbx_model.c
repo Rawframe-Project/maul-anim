@@ -151,9 +151,9 @@ static void ExpectRefusal(const char* text, const char* at, uint32_t item, const
     maniDestroyBuilder(builder);
 }
 
-// Several parents, as ufbx links them: b's root and a, a; c's b and a
-// (connected in that order), b, the later in object order; c listed
-// under b alone.
+// Several parents, as ufbx links them: b's root and a, a; c's a and b
+// (connected in that order), b, the later in object order, not the
+// first connected; c listed under b alone.
 static void TestSeveralParents(void)
 {
     static const char kText[] = "; FBX 7.4.0 project file\n"
@@ -161,7 +161,7 @@ static void TestSeveralParents(void)
                                 " Model: 2, \"Model::b\", \"Null\" {\n }\n"
                                 " Model: 3, \"Model::c\", \"Null\" {\n }\n}\n"
                                 "Connections: {\n C: \"OO\",1,0\n C: \"OO\",2,0\n"
-                                " C: \"OO\",2,1\n C: \"OO\",3,2\n C: \"OO\",3,1\n}\n";
+                                " C: \"OO\",2,1\n C: \"OO\",3,1\n C: \"OO\",3,2\n}\n";
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     bool open = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success;

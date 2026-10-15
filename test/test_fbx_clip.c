@@ -550,6 +550,7 @@ static void TestRates(void)
 {
     CHECK(RateIs("11", 24.0f, 25), "the scene's 24 a second");
     CHECK(RateIs("12", 30.0f, 31), "30 for a scene's 1000 a second");
+    CHECK(RateIs("1", 120.0f, 121), "the scene's 120 a second, the most taken");
     CHECK(RateIs("9", (float)(30000.0 / 1001.0), 31), "NTSC's rate");
 }
 
