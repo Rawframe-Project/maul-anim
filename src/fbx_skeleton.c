@@ -16,6 +16,7 @@
 #include "builder.h"
 #include "decompose.h"
 #include "fbx_document.h"
+#include "fbx_helpers.h"
 #include "fbx_model.h"
 #include "fbx_options.h"
 #include "fbx_transform.h"
@@ -107,24 +108,13 @@ static void Order(Build* b)
     }
 }
 
-// A model's rest under its parent's world, decomposed; false when that
-// shears, or the parent's world has no inverse.
-static bool Compensate(const Build* b, uint32_t child, uint32_t parent, maniTransform* out)
-{
-    maniFbxMatrix inverse;
-    if (!maniFbxMatrixInverse(&b->worlds[parent].world, &inverse))
-    {
-        return false;
-    }
-    maniFbxMatrix local = maniFbxMatrixMul(&inverse, &b->worlds[child].world);
-    maniAffine affine = maniFbxMatrixAffine(&local);
-    return maniDecomposeExact(&affine, out);
-}
-
 // Which parents get helpers: those of a non-normal child, on request;
-// otherwise those of one whose compensation is not exact.
-static void FindHelpers(Build* b)
+// otherwise those of one whose compensation is not exact, at rest or at
+// a sample of the file's animation. The children still exact are listed
+// in boneOf, free until the bones are emitted.
+static maniImportResult FindHelpers(Build* b)
 {
+    uint32_t exact = 0;
     for (uint32_t i = 1; i < b->count; ++i)
     {
         uint32_t c = b->order[i];
@@ -133,9 +123,15 @@ static void FindHelpers(Build* b)
         {
             continue;
         }
-        bool exact = b->options->inheritHelpers == 0 && Compensate(b, c, p, &b->compensated[c]);
-        b->helper[p] = exact ? b->helper[p] : 1;
+        bool kept = b->options->inheritHelpers == 0 &&
+                    maniFbxCompensate(b->worlds, c, p, &b->compensated[c]);
+        b->helper[p] = kept ? b->helper[p] : 1;
+        if (kept)
+        {
+            b->boneOf[exact++] = c;
+        }
     }
+    return maniFbxAnimatedHelpers(b->fbx, b->marked, b->boneOf, exact, b->helper);
 }
 
 // The placement: the world the root's own transform is relative to.
@@ -348,7 +344,10 @@ static maniImportResult BuildMarked(maniBuilder* builder, Build* b)
     if (r.result == mani_success)
     {
         Order(b);
-        FindHelpers(b);
+        r = FindHelpers(b);
+    }
+    if (r.result == mani_success)
+    {
         r = Emit(builder, b);
     }
     Finish(b);

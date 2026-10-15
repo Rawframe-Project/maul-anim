@@ -289,6 +289,24 @@ static bool Skeleton(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpti
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
+// Skeleton 0 of the scene with the Shear stack hidden, as a skeleton
+// from a file without that animation would be: no helper for Spine.
+static bool PlainSkeleton(maniBuilder* builder, const maniFbxOptions* options, maniSkeleton* out)
+{
+    static char text[sizeof kScene];
+    memcpy(text, kScene, sizeof kScene);
+    char* stack = strstr(text, "AnimationStack: 300");
+    if (stack == NULL)
+    {
+        return false;
+    }
+    memcpy(stack, "AnimationStacq", 14);
+    maniFbx* fbx = Open(builder, text);
+    bool built = fbx != NULL && Skeleton(builder, fbx, options, out);
+    maniCloseFbx(fbx);
+    return built;
+}
+
 static bool OpenClip(maniBuilder* builder, maniClip* clip)
 {
     size_t size = 0;
@@ -328,7 +346,7 @@ static void CheckWalk(int fold)
     maniSkeleton skeleton;
     maniClip clip;
     uint32_t bound = 0;
-    bool built = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+    bool built = fbx != NULL && PlainSkeleton(builder, &options, &skeleton) &&
                  maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, &bound)
                          .result == mani_success &&
                  OpenClip(builder, &clip);
@@ -767,6 +785,52 @@ static void TestTimes(void)
     maniDestroyBuilder(builder);
 }
 
+// The whole scene's skeleton knows Shear's animation: Spine's
+// non-uniform scale there gives Spine a helper bone, so Arm hangs from it
+// with its own transform in every clip (its translation scaled by
+// Spine's), the helper holding the inverse of Spine's scale, and Shear
+// builds.
+static void TestAnimatedHelper(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    maniClip clip;
+    bool built =
+        fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, NULL).result ==
+            mani_success &&
+        OpenClip(builder, &clip);
+    uint32_t spine = built ? maniSkeletonFindBone(&skeleton, "Spine", 5) : MANI_NO_BONE;
+    uint32_t helper = built ? maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14) : MANI_NO_BONE;
+    uint32_t arm = built ? maniSkeletonFindBone(&skeleton, "Arm", 3) : MANI_NO_BONE;
+    CHECK(helper != MANI_NO_BONE && maniSkeletonParent(&skeleton, helper) == spine &&
+              maniSkeletonParent(&skeleton, arm) == helper,
+          "a helper from the animation");
+    maniPose* pose = NULL;
+    bool right =
+        built && maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success;
+    for (int k = 0; right && k <= 30; ++k)
+    {
+        double t = (double)k / 30.0;
+        right = maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success;
+        maniTransform a = maniPoseLocal(pose, arm);
+        maniTransform h = maniPoseLocal(pose, helper);
+        // Its own transform, the translation scaled by Spine's inherited
+        // scale (mani-0014).
+        right = right && NearVec(a.translation, 1 + t, 0, 0) && AboutZ(a.rotation, 45) &&
+                NearVec(a.scale, 1, 1, 1) &&
+                NearVec(h.scale, 1 / (1 + t), 1 / (1 + t), 1 / (1 + t));
+    }
+    CHECK(right, "Arm its own transform under the helper");
+    CHECK(built && maniFbxBuildClip(builder, fbx, 2, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
+                           .result == mani_success,
+          "Shear builds");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const char* at,
                           uint32_t item, const char* what)
 {
@@ -775,7 +839,7 @@ static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const cha
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     maniImportResult r = {mani_errorInvalid, 0, 0, 0, 0};
-    if (fbx != NULL && Skeleton(builder, fbx, &options, &skeleton))
+    if (fbx != NULL && PlainSkeleton(builder, &options, &skeleton))
     {
         r = maniFbxBuildClip(builder, fbx, clipIndex, &skeleton, &options, 0.0f, maniLoopClamp,
                              NULL);
@@ -850,6 +914,7 @@ int main(void)
     TestAllocationFailures();
     CheckWalk(0);
     CheckWalk(1);
+    TestAnimatedHelper();
     TestNames();
     TestOtherSkeleton();
     TestHelpers();

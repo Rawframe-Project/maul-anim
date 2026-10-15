@@ -175,20 +175,9 @@ static void Need(Clip* c)
     }
 }
 
-// The frame rate the scene states, or 0.
-static double SceneRate(const maniFbx* fbx)
-{
-    const maniFbxGlobalSettings* s = &fbx->settings;
-    return s->rateDenominator != 0 ? (double)s->rateNumerator / (double)s->rateDenominator
-                                   : s->customRate;
-}
-
 static maniImportResult Timing(Clip* c, float sampleRate)
 {
-    double scene = SceneRate(c->fbx);
-    c->exactRate = sampleRate != 0.0f              ? (double)sampleRate
-                   : scene > 0.0 && scene <= 120.0 ? scene
-                                                   : 30.0;
+    c->exactRate = sampleRate != 0.0f ? (double)sampleRate : maniFbxDefaultRate(c->fbx);
     c->rate = (float)c->exactRate;
     double tps = (double)c->fbx->settings.ticksPerSecond;
     double span = (double)c->animation.stop - (double)c->animation.start;

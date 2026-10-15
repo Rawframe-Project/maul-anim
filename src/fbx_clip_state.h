@@ -59,4 +59,12 @@ typedef struct maniFbxClipState
 // in whole ticks from its start, the last at its stop.
 double maniFbxClipStackTime(const maniFbxClipState* c, uint32_t k);
 
+// The same for any grid: count samples over a stack's range at a rate.
+double maniFbxGridTime(const maniFbx* fbx, const maniFbxAnimation* animation, double exactRate,
+                       uint32_t count, uint32_t k);
+
+// The rate of a clip built with sampleRate 0: the scene's when it is at
+// most 120 a second, else 30.
+double maniFbxDefaultRate(const maniFbx* fbx);
+
 #endif // MAUL_ANIM_SRC_FBX_CLIP_STATE_H

@@ -27,9 +27,10 @@ matrix is its parent's times its local TRS.
 - **Helper bones**, named `<parent>#unscaled` and holding the inverse
   of the parent's inherited scale, are added only where that local
   does not decompose exactly (a non-uniform scale under a non-normal
-  child), at rest or at any key of the file's clips; on request under
-  every parent of a non-normal child. A clip key needing a helper the
-  target skeleton lacks is refused (Matrix).
+  child), at rest or at any sample of a stack on its default clip grid
+  (the scene's rate up to 120 a second, else 30); on request under
+  every parent of a non-normal child. A clip sample needing a helper
+  the target skeleton lacks is refused (Matrix).
 - **Skeletons** are skins' linked models and limb chains with the
   models between, merged when they share a model, rooted at their
   common ancestor; any model's subtree can be built too. Names are the
