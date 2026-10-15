@@ -22,18 +22,18 @@
 #include <string.h>
 
 // Body (mesh at z 2, geometry moved 1 along z and scaled 2); Hips at y
-// 1, Spine above, Arm beside. Skin 0's clusters: 41 Hips with
-// Transform (y -1, z -2) and TransformLink; 42 Spine with an all-zero
-// Transform and TransformLink (y 3); 43 Arm with Transform alone (not
-// used without a link),
-// in the bind pose at x 5 (a later bind pose at 7 ignored); 44 Hips
-// with an all-zero TransformLink and an all-zero bind pose entry (a rest
-// pose at 9 ignored), so at rest; 45 linking a model by a property
-// connection only, skipped; a blend shape channel under the skin with
-// a model child, no cluster. Skin 1 hangs from the root (no mesh; its
-// cluster links Arm with a TransformLink alone at 1 2 3, unread as ufbx
-// leaves it, so Arm's bind pose at x 5); skin 2 from a video under Body (no
-// mesh); skin 3 from geometries in a cycle (no mesh).
+// 1, Spine above, Arm beside. Skin 0's clusters: 41 Hips with Transform
+// (y -1, z -2) and TransformLink; 42 Spine with an all-zero Transform
+// beside its TransformLink (y 3); 43 Arm with Transform alone (not used
+// without a link), in the bind pose at x 5 (a later bind pose at 7
+// ignored); 44 Hips with an all-zero Transform and TransformLink and an
+// all-zero bind pose entry (a rest pose at 9 ignored), so at rest; 45
+// linking a model by a property connection only, skipped; a blend shape
+// channel under the skin with a model child, no cluster. Skin 1 hangs
+// from the root (no mesh; its cluster links Arm with a TransformLink
+// alone at 1 2 3, unread as ufbx leaves it, so Arm's bind pose at x 5);
+// skin 2 from a video under Body (no mesh); skin 3 from geometries in a
+// cycle (no mesh).
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
     "Objects: {\n"
@@ -58,6 +58,7 @@ static const char kScene[] =
     " Deformer: 43, \"SubDeformer::\", \"Cluster\" {\n"
     "  Transform: *16 {\n   a: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,9,1\n  }\n }\n"
     " Deformer: 44, \"SubDeformer::\", \"Cluster\" {\n"
+    "  Transform: *16 {\n   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\n  }\n"
     "  TransformLink: *16 {\n   a: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\n  }\n }\n"
     " Deformer: 45, \"SubDeformer::\", \"Cluster\" {\n }\n"
     " Deformer: 46, \"SubDeformer::\", \"BlendShapeChannel\" {\n }\n"

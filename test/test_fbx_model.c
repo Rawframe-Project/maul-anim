@@ -152,23 +152,28 @@ static void ExpectRefusal(const char* text, const char* at, uint32_t item, const
 }
 
 // Several parents, as ufbx links them: b's root and a, a; c's a and b
-// (connected in that order), b, the later in object order, not the
-// first connected; c listed under b alone.
+// (connected in that order) and d's b and a, b both times, the later in
+// object order, not the first or last connected; c and d listed under b
+// alone.
 static void TestSeveralParents(void)
 {
     static const char kText[] = "; FBX 7.4.0 project file\n"
                                 "Objects: {\n Model: 1, \"Model::a\", \"Null\" {\n }\n"
                                 " Model: 2, \"Model::b\", \"Null\" {\n }\n"
-                                " Model: 3, \"Model::c\", \"Null\" {\n }\n}\n"
+                                " Model: 3, \"Model::c\", \"Null\" {\n }\n"
+                                " Model: 4, \"Model::d\", \"Null\" {\n }\n}\n"
                                 "Connections: {\n C: \"OO\",1,0\n C: \"OO\",2,0\n"
-                                " C: \"OO\",2,1\n C: \"OO\",3,1\n C: \"OO\",3,2\n}\n";
+                                " C: \"OO\",2,1\n C: \"OO\",3,1\n C: \"OO\",3,2\n"
+                                " C: \"OO\",4,2\n C: \"OO\",4,1\n}\n";
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     bool open = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success;
     const uint32_t a[1] = {1};
-    const uint32_t b[1] = {2};
-    CHECK(open && fbx->modelParents[1] == 0 && fbx->modelParents[2] == 1, "the later parent");
-    CHECK(open && ChildrenAre(fbx, 0, a, 1) && ChildrenAre(fbx, 1, b, 1),
+    const uint32_t b[2] = {2, 3};
+    CHECK(open && fbx->modelParents[1] == 0 && fbx->modelParents[2] == 1 &&
+              fbx->modelParents[3] == 1,
+          "the later parent");
+    CHECK(open && ChildrenAre(fbx, 0, a, 1) && ChildrenAre(fbx, 1, b, 2),
           "children under their chosen parents only");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
