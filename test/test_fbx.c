@@ -752,7 +752,7 @@ static void TestAscii(void)
 static void TestAsciiEdges(void)
 {
     SetText("; FBX 7.4.0 project file\n; FBX 6.1.0 project file\n"
-            "Odd: 1x5, ., 1e, -\n"
+            "Odd: 1.#QNAN, -nan(ind), +infinity, 2.#SNAN7\n"
             "Spaced : 1\n"
             "Lines: \"a\nb\"\n"
             "Short: -5\n");
@@ -769,7 +769,8 @@ static void TestAsciiEdges(void)
         {
             none = none && !maniFbxNumber(fbx, maniFbxNodeProperty(fbx, odd, k), &d);
         }
-        CHECK(fbx->nodes[odd].propertyCount == 4 && none, "1x5, ., 1e and - are no numbers");
+        CHECK(fbx->nodes[odd].propertyCount == 4 && none,
+              "infinities and NaNs open, numbers that are none");
         CHECK(maniFbxFindChild(fbx, 0, "Spaced", 6) != MANI_FBX_NONE, "a space before the colon");
         uint32_t lines = maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "Lines", 5), 0);
         CHECK(maniFbxStringEquals(fbx, lines, "a\nb", 3), "a string across lines");
@@ -782,6 +783,18 @@ static void TestAsciiEdges(void)
         maniCloseFbx(fbx);
     }
     maniDestroyBuilder(builder);
+    // A number-like token that is neither a number nor an infinity or NaN
+    // whole is refused at open, as ufbx fails on it.
+    static const char* const kOdd[6] = {"1x5", ".", "1e", "-", "1.#INDIE", "-nan(a-b)"};
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        char text[96];
+        (void)snprintf(text, sizeof text, "; FBX 7.4.0 project file\nOdd: 1, %s\n", kOdd[k]);
+        SetText(text);
+        ExpectRefusal(maniImportReasonSyntax,
+                      (uint64_t)(strstr((const char*)s_w.b, "1, ") + 3 - (const char*)s_w.b),
+                      kOdd[k]);
+    }
     // Words in an array open, as ufbx reads them; decoding the array
     // refuses at the first (Data).
     SetText("; FBX 7.4.0 project file\nV: *4 {\n a: 1,inf,nan(ind),-1.#IND\n}\n");

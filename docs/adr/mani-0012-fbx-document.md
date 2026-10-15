@@ -42,8 +42,11 @@ hostile input.
   comments, quoted strings with FBX's `&quot;`, `&cr;` and `&lf;`
   decoded when read, bare words, numbers kept as their text and
   converted exactly when read (mani-0007's decimal conversion; a
-  leading `+` allowed; old writers' `1.#INF` kept as a number that is
-  none). `*N { a: v, ... }` folds into one array property of exactly N
+  leading `+` allowed). Infinities and NaNs as ufbx spells them (`inf`,
+  `infinity`, `nan`, `nan(ind)`, old writers' `1.#INF` and `-1.#IND`,
+  and MSVC's `1.#QNAN` and `1.#SNAN`, which ufbx misses) are numbers
+  that are none, refused where read; any other number-like token is
+  refused at open (Syntax), as ufbx fails on it. `*N { a: v, ... }` folds into one array property of exactly N
   numbers or words (ufbx's `inf` and `nan(ind)` among them), read like
   a binary array, a word refused (Data) when the array is read. The version is the first
   comment's (`; FBX 7.4.0 project file`), else

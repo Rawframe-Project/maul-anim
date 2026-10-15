@@ -206,6 +206,79 @@ static bool WellFormed(const uint8_t* p, uint64_t length)
     return i == length;
 }
 
+// Whether p, n bytes on, begins with a word in any case.
+static bool Spells(const uint8_t* p, const uint8_t* end, const char* word)
+{
+    size_t n = strlen(word);
+    bool same = (size_t)(end - p) >= n;
+    for (size_t i = 0; same && i < n; ++i)
+    {
+        same = (p[i] | 0x20) == (uint8_t)word[i];
+    }
+    return same;
+}
+
+static bool IsAlphanumeric(uint8_t c)
+{
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || IsDigit(c);
+}
+
+// An old writer's form after the sign, whole: a digit, '.', '#', then
+// inf, nan, ind, or qnan or snan (which MSVC writes too and ufbx
+// misses), then digits ("1.#INF", "-1.#IND").
+static bool OldInfNan(const uint8_t* p, const uint8_t* end)
+{
+    p += 3;
+    bool quiet = Spells(p, end, "qnan") || Spells(p, end, "snan");
+    if (!quiet && !Spells(p, end, "inf") && !Spells(p, end, "nan") && !Spells(p, end, "ind"))
+    {
+        return false;
+    }
+    for (p += quiet ? 4 : 3; p != end && IsDigit(*p);)
+    {
+        ++p;
+    }
+    return p == end;
+}
+
+// Whether a number's text is an infinity or NaN, whole, as ufbx spells
+// them: a sign, then nan (or nan and letters and digits in parentheses),
+// inf or infinity, or an old writer's form.
+static bool InfNan(const uint8_t* p, uint64_t length)
+{
+    const uint8_t* end = p + length;
+    p += p != end && (*p == '+' || *p == '-') ? 1 : 0;
+    if (end - p >= 3 && IsDigit(p[0]) && p[1] == '.' && p[2] == '#')
+    {
+        return OldInfNan(p, end);
+    }
+    if (Spells(p, end, "inf"))
+    {
+        return p + (Spells(p + 3, end, "inity") ? 8 : 3) == end;
+    }
+    if (!Spells(p, end, "nan"))
+    {
+        return false;
+    }
+    p += 3;
+    if (p != end && *p == '(')
+    {
+        for (++p; p != end && IsAlphanumeric(*p);)
+        {
+            ++p;
+        }
+        if (p == end || *p != ')')
+        {
+            return false;
+        }
+        ++p;
+    }
+    return p == end;
+}
+
+// A number: digits, signs, points and exponents, then any letters,
+// digits, '#' and parentheses (an infinity or NaN). Bad unless it is
+// a number or an infinity or NaN whole, as ufbx fails on it.
 static Token NumberToken(Reader* r)
 {
     const uint8_t* b = r->fbx->bytes;
@@ -215,14 +288,17 @@ static Token NumberToken(Reader* r)
     {
         ++r->at;
     }
-    // Old writers' non-finite numbers: "1.#INF", "-1.#IND", "1.#QNAN".
-    while (r->at < r->fbx->size && (IsWord(b[r->at]) || b[r->at] == '#'))
+    uint64_t digits = r->at;
+    while (r->at < r->fbx->size &&
+           (IsAlphanumeric(b[r->at]) || b[r->at] == '#' || b[r->at] == '(' || b[r->at] == ')'))
     {
         ++r->at;
     }
     uint64_t length = r->at - start;
-    return (Token){WellFormed(b + start, length) ? TokenNumber : TokenNotNumber, start, length,
-                   start};
+    TokenKind kind = r->at == digits ? (WellFormed(b + start, length) ? TokenNumber : TokenBad)
+                     : InfNan(b + start, length) ? TokenNotNumber
+                                                 : TokenBad;
+    return (Token){kind, start, length, start};
 }
 
 // A quoted string, or a name when a colon follows its closing quote.
