@@ -235,7 +235,7 @@ static uint32_t SequenceLength(const uint8_t* b, uint32_t n)
             (code & 0xc0c0) == 0x8080 && code >= 0xe0a080 && (code < 0xeda080 || code >= 0xee8080);
         return valid ? 3 : 0;
     }
-    // Its bounds admit leads F0 to F4 alone.
+    // Its bounds admit lead bytes 0xf0 to 0xf4 alone.
     if (n >= 4)
     {
         uint32_t code = c << 24 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 8 | b[3];
