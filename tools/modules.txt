@@ -31,6 +31,9 @@ influences: bytes container influence_file
 skinning: bytes decompose influence_file vecmath
 influences_build: allocator builder bytes container influence_file
 centers_build: allocator builder bytes container elementary_float influence_file sort
+morph_file:
+morph: bytes container morph_file
+morph_build: allocator builder bytes container morph_file sort text
 clip_file:
 clip: bytes clip_codec clip_file clip_view container pose_memory vecmath
 clip_view: clip_file pose_memory

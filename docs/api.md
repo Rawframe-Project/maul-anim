@@ -120,6 +120,11 @@ MANI_NODISCARD MANI_API maniResult maniCopySkeletonOrder(maniBuilder* builder, u
 ```
 Copies where each source bone of the last built skeleton went: the skeleton's index of source bone i at boneOut[i].  @param builder   The builder. @param boneOut   Receives up to capacity indices; may be NULL when capacity is 0. @param capacity  The array's length. @param countOut  Receives the source's bone count. May be NULL. @return `mani_success`; `mani_errorCapacity` when the array is shorter than the count, with the count still written and the array filled as far as it goes; `mani_errorInvalid` for a NULL builder, a NULL array with a positive capacity, or a builder holding no skeleton. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSource* source);
+```
+Builds a morph targets file: checks every channel and target, sorts each sparse target's vertices and sums a vertex given twice (in binary64, in the source's order), stores a target touching every vertex densely, and keeps the file in place of any built before.  @param builder  The builder. @param source   The channels. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source (item a channel for `maniBuildReasonCount` on a channel without targets, `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a target, counted over the channels in order, otherwise): `maniBuildReasonCount` (no channels, no vertices, or an index-less target whose count is not the vertex count), `maniBuildReasonName`, `maniBuildReasonDuplicateName` (other the earlier channel), `maniBuildReasonWeight`, `maniBuildReasonVertex`, `maniBuildReasonNotFinite` (other the given vertex's place); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `clip.h`
 
 Clips (mani-0006): a skeleton's motion as samples on one uniform grid, read in place from a clip file and bound to its skeleton by identity. Sampling costs the same at any time, in any order.
@@ -476,6 +481,60 @@ MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fb
 ```
 Returns where a model skeleton's root hangs, as maniFbxSkeletonPlacement.  @param fbx           The document. @param model         The root model. @param options       The options. @param placementOut  Receives the placement. @return As maniFbxSkeletonPlacement. @par Thread safety Safe from any thread.
 
+## `morph.h`
+
+Morph targets (mani-0021): a mesh primitive's blend shapes over the caller's bytes. Named channels, each one or more targets at increasing full weights (glTF's targets have one at 1; FBX's in-betweens several), each target a set of position, normal and tangent deltas, dense or sparse.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut);
+```
+Opens a morph targets file in place: checks the container, the sizes, the channels covering the targets in order, every full weight finite, not 0 and increasing within its channel, every sparse target's indices increasing and below the vertex count, every delta finite, and the identity.  @param bytes       The file, 16-byte aligned. @param size        Its size in bytes; bytes past the file are ignored. @param targetsOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMorphVertexCount(const maniMorphTargets* targets);
+```
+Returns the number of vertices the targets move.  @param targets  Opened morph targets. @return The vertex count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMorphChannelCount(const maniMorphTargets* targets);
+```
+Returns the number of channels, each weighted by its own value.  @param targets  Opened morph targets. @return The channel count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMorphTargetCount(const maniMorphTargets* targets);
+```
+Returns the number of targets over all channels, in channel order.  @param targets  Opened morph targets. @return The target count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel, uint32_t* lengthOut);
+```
+Returns a channel's name, UTF-8 and not terminated.  @param targets    Opened morph targets. @param channel    The channel. @param lengthOut  Receives the name's length in bytes, 0 for a channel past the count. May be NULL. @return The name's bytes, inside the file, or NULL for a channel past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name, size_t length);
+```
+Finds a channel by its name, in time linear in the channels.  @param targets  Opened morph targets. @param name     The name's UTF-8 bytes; may be NULL when length is 0. @param length   The name's length in bytes. @return The channel, or MANI_NO_CHANNEL when none has that name. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMorphChannelTargets(const maniMorphTargets* targets, uint32_t channel, uint32_t* firstOut);
+```
+Returns a channel's targets: the first's index and their count.  @param targets   Opened morph targets. @param channel   The channel. @param firstOut  Receives the first target's index; may be NULL. @return The number of targets, 0 for a channel past the count. @par Thread safety Safe from any thread.
+
+```c
+float maniMorphTargetFullWeight(const maniMorphTargets* targets, uint32_t target);
+```
+Returns the channel weight at which a target applies in full.  @param targets  Opened morph targets. @param target   The target. @return The full weight; 0 for a target past the count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights, float* targetWeights);
+```
+Turns channel weights into target weights, for the job or a shader: within each channel, the weight walks linearly from an implicit zero shape at 0 through the targets at their full weights, past the last (or first) extrapolated. A channel of one target at 1 passes its weight through.  @param targets         Opened morph targets. @param channelWeights  A finite weight a channel, any sign. @param targetWeights   Receives a weight a target. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a weight not finite (nothing written). @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniApplyMorphTargets(const maniMorphJob* job);
+```
+Applies morph targets: each stream's vertices plus the weighted deltas, target by target in order (so ranges and sparsity give the same bits), then every normal and tangent of the range renormalized (zero kept zero). Runs before skinning, into the skinning job's input.  @param job  The job. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a weight not finite, a range past the vertices, or a stream without pointers, with a stride too small, of an unknown kind or a direction (nothing written). @par Thread safety Safe from any thread; the output range is used by one thread at a time. Jobs over disjoint ranges run at once.
+
 ## `pose.h`
 
 Poses (mani-0004): a skeleton's local transforms and the model matrices composed from them, in memory the caller owns. A pose holds no pointers: copying its bytes copies the pose, and it may move between threads. A pose is used by one thread at a time.
@@ -709,4 +768,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-134 functions across 9 headers.
+145 functions across 10 headers.

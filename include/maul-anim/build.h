@@ -11,6 +11,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/morph.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 #include "maul-anim/skinning.h"
@@ -125,7 +126,9 @@ extern "C"
         // An additive clip's basis with a scale component of 0 on a bone
         // whose track has scale keys.
         maniBuildReasonBasis = 15,
-        // A weight below 0, or a dual quaternion weight outside 0 to 1.
+        // A weight below 0, a dual quaternion weight outside 0 to 1, or a
+        // morph target's full weight not finite, 0 or not above the
+        // channel's previous.
         maniBuildReasonWeight = 16,
         // A joint given twice for one vertex with weight; other is the
         // earlier influence.
@@ -135,6 +138,9 @@ extern "C"
         maniBuildReasonTriangle = 18,
         // An option outside its range (the centers' sigma).
         maniBuildReasonOption = 19,
+        // A vertex index past the vertex count; other is its place in the
+        // source's indices.
+        maniBuildReasonVertex = 20,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -623,6 +629,65 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniCopySkeletonOrder(maniBuilder* builder,
                                                              uint32_t* boneOut, uint32_t capacity,
                                                              uint32_t* countOut);
+
+    // A morph target as a source gives it: deltas for some of its
+    // vertices (any order; a vertex given twice takes the sum) or for all.
+    typedef struct maniMorphTargetSource
+    {
+        // The channel weight at which the target applies in full: 1 for
+        // glTF, FBX's FullWeights over 100 for in-betweens.
+        float fullWeight;
+        // The vertices given.
+        uint32_t count;
+        // count vertex indices, or NULL for every vertex in order (count
+        // then the vertex count).
+        const uint32_t* indices;
+        // Three floats a given vertex each, or NULL for none.
+        const float* positions;
+        const float* normals;
+        const float* tangents;
+    } maniMorphTargetSource;
+
+    // A named channel: its targets at increasing full weights.
+    typedef struct maniMorphChannelSource
+    {
+        // The name, UTF-8, not empty, unique among the channels.
+        const char* name;
+        uint32_t nameLength;
+        uint32_t targetCount;
+        const maniMorphTargetSource* targets;
+    } maniMorphChannelSource;
+
+    // A mesh primitive's morph targets.
+    typedef struct maniMorphSource
+    {
+        const maniMorphChannelSource* channels;
+        uint32_t channelCount;
+        uint32_t vertexCount;
+    } maniMorphSource;
+
+    /// Builds a morph targets file: checks every channel and target, sorts
+    /// each sparse target's vertices and sums a vertex given twice (in
+    /// binary64, in the source's order), stores a target touching every
+    /// vertex densely, and keeps the file in place of any built before.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The channels.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
+    /// misuse), or with the reason and item for a refused source (item a
+    /// channel for `maniBuildReasonCount` on a channel without targets,
+    /// `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a
+    /// target, counted over the channels in order, otherwise):
+    /// `maniBuildReasonCount` (no channels, no vertices, or an index-less
+    /// target whose count is not the vertex count), `maniBuildReasonName`,
+    /// `maniBuildReasonDuplicateName` (other the earlier channel),
+    /// `maniBuildReasonWeight`, `maniBuildReasonVertex`,
+    /// `maniBuildReasonNotFinite` (other the given vertex's place);
+    /// `mani_errorCapacity` when memory runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildMorphTargets(maniBuilder* builder,
+                                                                  const maniMorphSource* source);
 
 #ifdef __cplusplus
 }

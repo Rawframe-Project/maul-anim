@@ -58,3 +58,8 @@ format.
   rest mesh (Le and Hodgins 2016, Eq. 4, triangles indexed by joint
   pair), and `maniSkinCenters` skins about them without the collapse of
   linear or the bulge of dual quaternion skinning.
+- Morph targets (mani-0021): `maniBuildMorphTargets` builds named
+  channels of dense or sparse targets (FBX in-betweens included),
+  `maniOpenMorphTargets` opens them, `maniMorphTargetWeights` turns
+  channel weights into target weights, and `maniApplyMorphTargets` adds
+  the weighted deltas to strided vertex ranges before skinning.

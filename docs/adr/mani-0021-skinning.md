@@ -32,7 +32,13 @@ deltas applied before skinning, weighted by animated values.
   strided streams and as palettes for GPUs (row-major 3x4; dual
   quaternions with the scale and shear part).
 - **Morph targets** are container kind 7, a file per primitive of named
-  dense or sparse deltas, applied before skinning.
+  channels, each one or more targets at increasing full weights (FBX's
+  in-betweens; glTF's targets are one at 1), each target dense or
+  sparse position, normal and tangent deltas. Channel weights become
+  target weights by ufbx's walk (from an implicit zero shape through
+  the keys, extrapolated past the ends); the job adds the weighted
+  deltas in target order before skinning, then renormalizes normals and
+  tangents.
 - **Bits:** binary32 in a fixed order, the same on every platform.
 
 ## Consequences

@@ -173,6 +173,8 @@ jobs:
           build/test_skin --seed corpus-fuzz_skin/sample.skin
           mkdir -p corpus-fuzz_influences
           build/test_influences --seed corpus-fuzz_influences/sample.influences
+          mkdir -p corpus-fuzz_morph
+          build/test_morph --seed corpus-fuzz_morph/sample.morph
           mkdir -p corpus-fuzz_clip
           build/test_clip --seed corpus-fuzz_clip/sample.clip
           build/test_clip_compress --seed corpus-fuzz_clip/compressed.clip
