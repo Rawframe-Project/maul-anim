@@ -44,7 +44,9 @@ once on their own threads.
 - **Commit areas:** `api`, `bench`, `blend`, `build`, `ci`, `clip`,
   `compress`, `docs`, `format`, `graph`, `ik`, `import`, `machine`,
   `math`, `pose`, `retarget`, `rootmotion`, `sample`, `skeleton`,
-  `tests`, `tools`, `transition`.
+  `skin`, `tests`, `tools`, `transition`. `skin` (skins, influences,
+  skinning and morph targets, mani-0021) joined when that scope's work
+  began.
 
 ## Consequences
 
