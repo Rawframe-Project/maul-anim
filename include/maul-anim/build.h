@@ -13,6 +13,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
+#include "maul-anim/skinning.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -129,6 +130,11 @@ extern "C"
         // A joint given twice for one vertex with weight; other is the
         // earlier influence.
         maniBuildReasonRepeatedJoint = 17,
+        // A triangle naming a vertex past the vertex count; item is the
+        // triangle.
+        maniBuildReasonTriangle = 18,
+        // An option outside its range (the centers' sigma).
+        maniBuildReasonOption = 19,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -250,6 +256,44 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildInfluences(maniBuilder* builder,
                                                                 const maniInfluenceSource* source);
+
+    // What centers of rotation are built from (mani-0021): influences, the
+    // rest mesh's positions (binary32 x, y, z a vertex, stride in bytes)
+    // and its triangles.
+    typedef struct maniCenterSource
+    {
+        // Opened influences; the centers are added to a copy of them.
+        const maniInfluences* influences;
+        // The influences' vertex count of positions, at least 12 bytes
+        // apart.
+        const float* positions;
+        size_t stride;
+        // triangleCount triples of vertex indices.
+        const uint32_t* triangles;
+        uint32_t triangleCount;
+        // The similarity's width; 0 for 0.1, Le and Hodgins' value.
+        float sigma;
+    } maniCenterSource;
+
+    /// Builds the influences again with a center of rotation for every
+    /// vertex (Le and Hodgins 2016, Eq. 4): the triangles' centroids
+    /// weighted by their areas and by the similarity of their average
+    /// weights to the vertex's, in binary64. A vertex similar to no
+    /// triangle (a single influence, say) takes its rest position. Keeps
+    /// the file in place of any built before.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The influences, mesh and sigma.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
+    /// misuse), or with the reason and item for a refused source:
+    /// `maniBuildReasonNotFinite` (a position; item the vertex),
+    /// `maniBuildReasonTriangle`, `maniBuildReasonOption` (sigma below 0
+    /// or not finite), `maniBuildReasonCount` (a stride under 12);
+    /// `mani_errorCapacity` when memory runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildCenters(maniBuilder* builder,
+                                                             const maniCenterSource* source);
 
     // How a channel's keys are joined, as glTF's samplers define it.
     typedef uint32_t maniInterpolation;

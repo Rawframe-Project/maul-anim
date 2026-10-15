@@ -7,8 +7,10 @@
 // at the first weight of 0). Dual quaternion: the scale and shear parts
 // summed the same way, the dual quaternions blended in the first's
 // hemisphere and normalized, the matrix [R S | t]. Blended: the two at
-// FBX's per-vertex weight. Binary32 in a fixed order, so the same bits on
-// every platform.
+// FBX's per-vertex weight. Centers of rotation: the dual quaternion's
+// rotation and scale, the translation carrying the scaled center where
+// the rigid parts' linear blend takes it. Binary32 in a fixed order, so
+// the same bits on every platform.
 
 #include "maul-anim/skinning.h"
 
@@ -95,6 +97,19 @@ static bool Blend(const maniSkinJob* job, uint32_t vertex, float m[12])
     return true;
 }
 
+// R times S into m's 3x3 part, S's rows at scale[0..2], [4..6], [8..10].
+static void RotateScale(const maniAffine* r, const float scale[12], float m[12])
+{
+    for (int c = 0; c < 3; ++c)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            m[3 * c + k] =
+                (r->m[k] * scale[c] + r->m[3 + k] * scale[4 + c]) + r->m[6 + k] * scale[8 + c];
+        }
+    }
+}
+
 // A dual quaternion palette entry: real, dual, S's rows.
 #define DUAL_FLOATS 20
 
@@ -148,15 +163,83 @@ static bool DualMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
                   2.0f * (((e[1] * q.w - e[3] * q.y) - e[2] * q.x) + e[0] * q.z),
                   2.0f * (((e[2] * q.w - e[3] * q.z) - e[0] * q.y) + e[1] * q.x)};
     maniAffine r = maniAffineFromTrs((maniVec3){0.0f, 0.0f, 0.0f}, q, (maniVec3){1.0f, 1.0f, 1.0f});
-    // R times S: S's rows are scale[0..2], [4..6], [8..10].
+    RotateScale(&r, scale, m);
     for (int c = 0; c < 3; ++c)
     {
+        m[9 + c] = t[c];
+    }
+    return true;
+}
+
+// A vertex's matrix about its center of rotation: R S, and the
+// translation sum w_j (R_j S c + t_j) - R S c; false for a vertex without
+// weight.
+static bool CenterMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
+{
+    const maniInfluences* v = job->influences;
+    uint32_t per = v->groupCount * MANI_INFLUENCE_GROUP;
+    size_t base = (size_t)vertex * per;
+    float real[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float rigid[12] = {0.0f};
+    float scale[12] = {0.0f};
+    const float* lead = NULL;
+    for (uint32_t slot = 0; slot < per; ++slot)
+    {
+        float w = LoadF32(v->weights + 4 * (base + slot));
+        if (w == 0.0f)
+        {
+            break;
+        }
+        uint32_t joint = maniLoadU16(v->joints + 2 * (base + slot));
+        const float* d = job->dualQuaternions + DUAL_FLOATS * (size_t)joint;
+        lead = lead == NULL ? d : lead;
+        float dot = ((d[0] * lead[0] + d[1] * lead[1]) + d[2] * lead[2]) + d[3] * lead[3];
+        float sw = dot < 0.0f ? -w : w;
+        for (int k = 0; k < 4; ++k)
+        {
+            real[k] += d[k] * sw;
+        }
+        // The rigid part [R_j | t_j] summed at the weights.
+        maniAffine r =
+            maniAffineFromTrs((maniVec3){0.0f, 0.0f, 0.0f}, (maniQuat){d[0], d[1], d[2], d[3]},
+                              (maniVec3){1.0f, 1.0f, 1.0f});
+        const float* t = job->palette[joint].m + 9;
+        for (int k = 0; k < 9; ++k)
+        {
+            rigid[k] += r.m[k] * w;
+        }
         for (int k = 0; k < 3; ++k)
         {
-            m[3 * c + k] =
-                (r.m[k] * scale[c] + r.m[3 + k] * scale[4 + c]) + r.m[6 + k] * scale[8 + c];
+            rigid[9 + k] += t[k] * w;
         }
-        m[9 + c] = t[c];
+        for (int k = 0; k < 12; ++k)
+        {
+            scale[k] += d[8 + k] * w;
+        }
+    }
+    if (lead == NULL)
+    {
+        return false;
+    }
+    float squared =
+        ((real[0] * real[0] + real[1] * real[1]) + real[2] * real[2]) + real[3] * real[3];
+    float inverse = 1.0f / sqrtf(squared);
+    maniQuat q = {real[0] * inverse, real[1] * inverse, real[2] * inverse, real[3] * inverse};
+    maniAffine r = maniAffineFromTrs((maniVec3){0.0f, 0.0f, 0.0f}, q, (maniVec3){1.0f, 1.0f, 1.0f});
+    const uint8_t* cp = v->centers + 12 * (size_t)vertex;
+    const float c[3] = {LoadF32(cp), LoadF32(cp + 4), LoadF32(cp + 8)};
+    float cs[3];
+    for (int i = 0; i < 3; ++i)
+    {
+        cs[i] = (scale[4 * i] * c[0] + scale[4 * i + 1] * c[1]) + scale[4 * i + 2] * c[2];
+    }
+    RotateScale(&r, scale, m);
+    for (int k = 0; k < 3; ++k)
+    {
+        float carried =
+            ((rigid[k] * cs[0] + rigid[3 + k] * cs[1]) + rigid[6 + k] * cs[2]) + rigid[9 + k];
+        float turned = (r.m[k] * cs[0] + r.m[3 + k] * cs[1]) + r.m[6 + k] * cs[2];
+        m[9 + k] = carried - turned;
     }
     return true;
 }
@@ -232,6 +315,7 @@ typedef enum Method
     kLinear,
     kDual,
     kBlended,
+    kCenters,
 } Method;
 
 // A vertex's matrix by the method; false for a vertex without weight.
@@ -244,6 +328,10 @@ static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex,
     if (method == kDual)
     {
         return DualMatrix(job, vertex, m);
+    }
+    if (method == kCenters)
+    {
+        return CenterMatrix(job, vertex, m);
     }
     float b = maniInfluencesDualQuaternionWeight(job->influences, vertex);
     if (b == 0.0f || b == 1.0f)
@@ -265,7 +353,8 @@ static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex,
 
 static maniResult Run(const maniSkinJob* job, Method method)
 {
-    if (!JobValid(job, method != kDual, method != kLinear))
+    if (!JobValid(job, method != kDual, method != kLinear) ||
+        (method == kCenters && job->influences->centers == NULL))
     {
         return mani_errorInvalid;
     }
@@ -304,6 +393,11 @@ maniResult maniSkinDualQuaternion(const maniSkinJob* job)
 maniResult maniSkinBlended(const maniSkinJob* job)
 {
     return Run(job, kBlended);
+}
+
+maniResult maniSkinCenters(const maniSkinJob* job)
+{
+    return Run(job, kCenters);
 }
 
 // One matrix's dual quaternion entry: the polar rotation R, the dual part

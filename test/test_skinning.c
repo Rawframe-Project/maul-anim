@@ -22,6 +22,8 @@
 #define PINNED_LINEAR_HASH  0x884d9250a5cd8cf6ull
 #define PINNED_DUAL_HASH    0x10edaa4707ee5fafull
 #define PINNED_BLENDED_HASH 0x19b3c5385f5ecb28ull
+#define PINNED_CENTERS_FILE 0xa865f550867d4a6bull
+#define PINNED_CENTERS_HASH 0x5db7627636501222ull
 
 enum
 {
@@ -839,6 +841,349 @@ static void TestPinned(void)
     }
 }
 
+// A cylinder along y, 24 rings of 12 vertices, each ring weighted between
+// the two joints its height falls between (the first ring on joint 0
+// alone), and its triangles.
+enum
+{
+    kRings = 24,
+    kSegments = 12,
+    kMesh = kRings * kSegments,
+    kTriangles = (kRings - 1) * kSegments * 2,
+};
+
+static float s_rest[kMesh][3];
+static uint32_t s_triangles[kTriangles * 3];
+static _Alignas(16) uint8_t s_meshFile[65536];
+static _Alignas(16) uint8_t s_centersFile[65536];
+static size_t s_centersSize;
+static maniInfluences s_mesh;
+static maniInfluences s_centered;
+
+static void BuildMesh(void)
+{
+    static uint32_t offsets[kMesh + 1];
+    static uint32_t joints[kMesh * 2];
+    static float weights[kMesh * 2];
+    uint32_t n = 0;
+    for (uint32_t r = 0; r < kRings; ++r)
+    {
+        float h = 7.0f * (float)r / (float)(kRings - 1);
+        uint32_t a = (uint32_t)h < 7 ? (uint32_t)h : 6;
+        float f = h - (float)a;
+        for (uint32_t k = 0; k < kSegments; ++k)
+        {
+            uint32_t v = r * kSegments + k;
+            float angle = 6.2831853f * (float)k / (float)kSegments;
+            s_rest[v][0] = 0.4f * cosf(angle);
+            s_rest[v][1] = h;
+            s_rest[v][2] = 0.4f * sinf(angle);
+            offsets[v] = n;
+            joints[n] = a;
+            weights[n++] = r == 0 ? 1.0f : 1.0f - f;
+            if (r > 0)
+            {
+                joints[n] = a + 1;
+                weights[n++] = f;
+            }
+        }
+    }
+    offsets[kMesh] = n;
+    uint32_t t = 0;
+    for (uint32_t r = 0; r + 1 < kRings; ++r)
+    {
+        for (uint32_t k = 0; k < kSegments; ++k)
+        {
+            uint32_t a = r * kSegments + k;
+            uint32_t b = r * kSegments + (k + 1) % kSegments;
+            uint32_t c = a + kSegments;
+            uint32_t d = b + kSegments;
+            const uint32_t two[6] = {a, b, c, b, d, c};
+            memcpy(&s_triangles[3 * t], two, sizeof two);
+            t += 2;
+        }
+    }
+    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kMesh, 0};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_meshFile, sizeof s_meshFile, &size) == mani_success &&
+              maniOpenInfluences(s_meshFile, size, &s_mesh).result == mani_success,
+          "mesh influences");
+    maniCenterSource centers = {&s_mesh, &s_rest[0][0], 12, s_triangles, kTriangles, 0.0f};
+    CHECK(maniBuildCenters(builder, &centers).result == mani_success &&
+              maniCopyBuilt(builder, s_centersFile, sizeof s_centersFile, &s_centersSize) ==
+                  mani_success &&
+              maniOpenInfluences(s_centersFile, s_centersSize, &s_centered).result == mani_success,
+          "centers");
+    maniDestroyBuilder(builder);
+}
+
+// Eq. 4 by brute force in binary64: every triangle, every pair, libm's exp.
+static void BruteCenter(uint32_t vertex, double out[3])
+{
+    double wv[kJoints] = {0};
+    for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_mesh); ++slot)
+    {
+        float w = 0.0f;
+        uint32_t j = maniInfluence(&s_mesh, vertex, slot, &w);
+        wv[j] += (double)w;
+    }
+    double sum[3] = {0, 0, 0};
+    double total = 0.0;
+    for (uint32_t t = 0; t < kTriangles; ++t)
+    {
+        double wt[kJoints] = {0};
+        const uint32_t* c = &s_triangles[3 * t];
+        for (int i = 0; i < 3; ++i)
+        {
+            for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_mesh); ++slot)
+            {
+                float w = 0.0f;
+                uint32_t j = maniInfluence(&s_mesh, c[i], slot, &w);
+                wt[j] += (double)w / 3.0;
+            }
+        }
+        double similarity = 0.0;
+        for (int j = 0; j < kJoints; ++j)
+        {
+            for (int k = j + 1; k < kJoints; ++k)
+            {
+                double d = wv[j] * wt[k] - wv[k] * wt[j];
+                similarity += wv[j] * wv[k] * wt[j] * wt[k] * exp(-(d * d) / 0.01);
+            }
+        }
+        double e1[3], e2[3], centroid[3];
+        for (int k = 0; k < 3; ++k)
+        {
+            e1[k] = (double)s_rest[c[1]][k] - (double)s_rest[c[0]][k];
+            e2[k] = (double)s_rest[c[2]][k] - (double)s_rest[c[0]][k];
+            centroid[k] =
+                ((double)s_rest[c[0]][k] + (double)s_rest[c[1]][k] + (double)s_rest[c[2]][k]) / 3.0;
+        }
+        double x = e1[1] * e2[2] - e1[2] * e2[1];
+        double y = e1[2] * e2[0] - e1[0] * e2[2];
+        double z = e1[0] * e2[1] - e1[1] * e2[0];
+        double area = 0.5 * sqrt(x * x + y * y + z * z);
+        for (int k = 0; k < 3; ++k)
+        {
+            sum[k] += similarity * area * centroid[k];
+        }
+        total += similarity * area;
+    }
+    for (int k = 0; k < 3; ++k)
+    {
+        out[k] = total > 0.0 ? sum[k] / total : (double)s_rest[vertex][k];
+    }
+}
+
+static void TestCentersBuilt(void)
+{
+    double worst = 0.0;
+    bool rigid = true;
+    for (uint32_t v = 0; v < kMesh; ++v)
+    {
+        double want[3];
+        BruteCenter(v, want);
+        maniVec3 got;
+        CHECK(maniInfluencesCenter(&s_centered, v, &got), "a center");
+        const float g[3] = {got.x, got.y, got.z};
+        for (int k = 0; k < 3; ++k)
+        {
+            double e = fabs((double)g[k] - want[k]);
+            worst = e > worst ? e : worst;
+        }
+        if (v < kSegments)
+        {
+            rigid = rigid && g[0] == s_rest[v][0] && g[1] == s_rest[v][1] && g[2] == s_rest[v][2];
+        }
+    }
+    CHECK(worst < 2e-5, "centers as Eq. 4 by brute force");
+    if (worst >= 2e-5)
+    {
+        printf("  centers apart by %g\n", worst);
+    }
+    CHECK(rigid, "a vertex on one joint keeps its position");
+    // The copy keeps everything else.
+    CHECK(maniInfluencesVertexCount(&s_centered) == kMesh &&
+              maniInfluencesPerVertex(&s_centered) == maniInfluencesPerVertex(&s_mesh) &&
+              maniInfluencesFitSkin(&s_centered, &s_skin),
+          "the influences kept");
+    static uint8_t copy[65536];
+    memcpy(copy, s_centersFile, s_centersSize);
+    memset(copy + 16, 0, 6);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, copy, (int32_t)s_centersSize);
+    CHECK(hash == PINNED_CENTERS_FILE, "pinned centers file");
+    if (hash != PINNED_CENTERS_FILE)
+    {
+        printf("centers file hash 0x%016llx\n", (unsigned long long)hash);
+    }
+}
+
+static void TestCentersRefused(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniCenterSource source = {&s_mesh, &s_rest[0][0], 12, s_triangles, kTriangles, 0.0f};
+    source.stride = 8;
+    maniBuildResult r = maniBuildCenters(builder, &source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonCount, "a short stride");
+    source.stride = 12;
+    source.sigma = -1.0f;
+    r = maniBuildCenters(builder, &source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonOption, "a negative sigma");
+    source.sigma = NAN;
+    r = maniBuildCenters(builder, &source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonOption, "a NaN sigma");
+    source.sigma = 0.0f;
+    float kept = s_rest[17][1];
+    s_rest[17][1] = INFINITY;
+    r = maniBuildCenters(builder, &source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNotFinite && r.item == 17,
+          "a position not finite");
+    s_rest[17][1] = kept;
+    s_triangles[3 * 5 + 2] = kMesh;
+    r = maniBuildCenters(builder, &source);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonTriangle && r.item == 5,
+          "a triangle past the vertices");
+    s_triangles[3 * 5 + 2] = 0;
+    BuildMesh();
+    CHECK(maniBuildCenters(builder, NULL).result == mani_errorInvalid, "no source");
+    source.positions = NULL;
+    CHECK(maniBuildCenters(builder, &source).result == mani_errorInvalid, "no positions");
+    maniDestroyBuilder(builder);
+    // The job needs centers.
+    maniSkinStream streams[4];
+    Streams(s_in, s_out, streams);
+    maniSkinJob job = Job(0, kMesh, streams, 4);
+    job.influences = &s_mesh;
+    CHECK(maniSkinCenters(&job) == mani_errorInvalid, "influences without centers");
+}
+
+// The job: one influence as linear; the reference formula in binary64;
+// the candy wrapper about centers on the axis.
+static void TestCentersJob(void)
+{
+    RandomPalette();
+    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+    for (uint32_t v = 0; v < kMesh; ++v)
+    {
+        s_in[v] = (Vertex){{s_rest[v][0], s_rest[v][1], s_rest[v][2]},
+                           {s_rest[v][0], 0.0f, s_rest[v][2]},
+                           {0.0f, 1.0f, 0.0f, 1.0f},
+                           {0.0f, 0.0f, 0.0f}};
+    }
+    maniSkinStream a[4];
+    maniSkinStream b[4];
+    Streams(s_in, s_out, a);
+    Streams(s_in, s_other, b);
+    maniSkinJob centers = Job(0, kMesh, a, 4);
+    maniSkinJob linear = Job(0, kMesh, b, 4);
+    centers.influences = &s_centered;
+    linear.influences = &s_centered;
+    CHECK(maniSkinCenters(&centers) == mani_success && maniSkinLinear(&linear) == mani_success,
+          "skins");
+    double one = 0.0;
+    double worst = 0.0;
+    for (uint32_t v = 0; v < kMesh; ++v)
+    {
+        if (v < kSegments)
+        {
+            double e = Apart(&s_out[v], &s_other[v]);
+            one = e > one ? e : one;
+            continue;
+        }
+        // v' = R (S v - S c) + sum w_j (R_j S c + t_j), in binary64.
+        double real[4] = {0}, lead[4] = {0}, rigid[12] = {0}, sum[9] = {0};
+        bool any = false;
+        for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_centered); ++slot)
+        {
+            float wf = 0.0f;
+            uint32_t j = maniInfluence(&s_centered, v, slot, &wf);
+            double w = (double)wf;
+            if (w == 0.0)
+            {
+                break;
+            }
+            double am[9];
+            for (int k = 0; k < 9; ++k)
+            {
+                am[k] = (double)s_palette[j].m[k];
+            }
+            double r[9];
+            Polar(am, r);
+            double q[4];
+            QuatOf(r, q);
+            if (!any)
+            {
+                memcpy(lead, q, sizeof lead);
+                any = true;
+            }
+            double sw =
+                q[0] * lead[0] + q[1] * lead[1] + q[2] * lead[2] + q[3] * lead[3] < 0.0 ? -w : w;
+            for (int k = 0; k < 4; ++k)
+            {
+                real[k] += q[k] * sw;
+            }
+            for (int k = 0; k < 9; ++k)
+            {
+                rigid[k] += r[k] * w;
+            }
+            for (int k = 0; k < 3; ++k)
+            {
+                rigid[9 + k] += (double)s_palette[j].m[9 + k] * w;
+            }
+            for (int i = 0; i < 3; ++i)
+            {
+                for (int c = 0; c < 3; ++c)
+                {
+                    sum[3 * i + c] += w * (r[3 * i] * am[3 * c] + r[3 * i + 1] * am[3 * c + 1] +
+                                           r[3 * i + 2] * am[3 * c + 2]);
+                }
+            }
+        }
+        double n =
+            sqrt(real[0] * real[0] + real[1] * real[1] + real[2] * real[2] + real[3] * real[3]);
+        double q[4] = {real[0] / n, real[1] / n, real[2] / n, real[3] / n};
+        double r[9] = {1 - 2 * (q[1] * q[1] + q[2] * q[2]), 2 * (q[0] * q[1] + q[3] * q[2]),
+                       2 * (q[0] * q[2] - q[3] * q[1]),     2 * (q[0] * q[1] - q[3] * q[2]),
+                       1 - 2 * (q[0] * q[0] + q[2] * q[2]), 2 * (q[1] * q[2] + q[3] * q[0]),
+                       2 * (q[0] * q[2] + q[3] * q[1]),     2 * (q[1] * q[2] - q[3] * q[0]),
+                       1 - 2 * (q[0] * q[0] + q[1] * q[1])};
+        maniVec3 cf;
+        CHECK(maniInfluencesCenter(&s_centered, v, &cf), "center");
+        const double c[3] = {(double)cf.x, (double)cf.y, (double)cf.z};
+        const double p[3] = {(double)s_in[v].position[0], (double)s_in[v].position[1],
+                             (double)s_in[v].position[2]};
+        double sp[3], sc[3];
+        for (int i = 0; i < 3; ++i)
+        {
+            sp[i] = sum[3 * i] * p[0] + sum[3 * i + 1] * p[1] + sum[3 * i + 2] * p[2];
+            sc[i] = sum[3 * i] * c[0] + sum[3 * i + 1] * c[1] + sum[3 * i + 2] * c[2];
+        }
+        for (int k = 0; k < 3; ++k)
+        {
+            double want = r[k] * (sp[0] - sc[0]) + r[3 + k] * (sp[1] - sc[1]) +
+                          r[6 + k] * (sp[2] - sc[2]) + rigid[k] * sc[0] + rigid[3 + k] * sc[1] +
+                          rigid[6 + k] * sc[2] + rigid[9 + k];
+            double size = fabs(want) > 1.0 ? fabs(want) : 1.0;
+            double e = fabs(want - (double)s_out[v].position[k]) / size;
+            worst = e > worst ? e : worst;
+        }
+    }
+    CHECK(one < 1e-5, "one influence: as linear");
+    CHECK(worst < 5e-5, "centers within binary32 of the binary64 formula");
+    if (worst >= 5e-5)
+    {
+        printf("  centers job apart by %g\n", worst);
+    }
+    uint64_t hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)(kMesh * sizeof(Vertex)));
+    CHECK(hash == PINNED_CENTERS_HASH, "pinned centers job");
+    if (hash != PINNED_CENTERS_HASH)
+    {
+        printf("centers hash 0x%016llx\n", (unsigned long long)hash);
+    }
+}
+
 int main(void)
 {
     OpenSkin();
@@ -854,5 +1199,9 @@ int main(void)
     TestCandyWrapper();
     TestDualPalette();
     TestBlended();
+    BuildMesh();
+    TestCentersBuilt();
+    TestCentersRefused();
+    TestCentersJob();
     return s_failures == 0 ? 0 : 1;
 }

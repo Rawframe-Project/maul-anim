@@ -53,3 +53,8 @@ format.
   splits each palette matrix as rotation times scale and shear,
   `maniSkinDualQuaternion` skins in two phases, and `maniSkinBlended`
   mixes linear and dual quaternion skinning at FBX's per-vertex weights.
+- Skinning with optimized centers of rotation (mani-0021):
+  `maniBuildCenters` computes each vertex's center offline from the
+  rest mesh (Le and Hodgins 2016, Eq. 4, triangles indexed by joint
+  pair), and `maniSkinCenters` skins about them without the collapse of
+  linear or the bulge of dual quaternion skinning.

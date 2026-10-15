@@ -207,6 +207,24 @@ extern "C"
     /// Jobs over disjoint ranges run at once.
     MANI_NODISCARD MANI_API maniResult maniSkinBlended(const maniSkinJob* job);
 
+    /// Skinning with optimized centers of rotation (Le and Hodgins 2016)
+    /// in two phases: each vertex's scale and shear parts summed at their
+    /// weights and applied first (to the vertex and its center c), then
+    /// the rotation R of its joints' quaternions blended in the first's
+    /// hemisphere, and the translation that carries the scaled center
+    /// where linear blending of the rigid parts takes it:
+    /// `v' = R (S v - S c) + sum w_j (R_j S c + t_j)`. No collapse and no
+    /// bulge; a vertex with one influence moves as under linear skinning.
+    ///
+    /// @param job  The job, its palette and dualQuaternions given, its
+    ///             influences with centers (maniBuildCenters).
+    /// @return As maniSkinDualQuaternion, and `mani_errorInvalid` for
+    /// influences without centers.
+    /// @par Thread safety
+    /// Safe from any thread; the output range is used by one thread at a time.
+    /// Jobs over disjoint ranges run at once.
+    MANI_NODISCARD MANI_API maniResult maniSkinCenters(const maniSkinJob* job);
+
     /// Writes a palette for dual quaternion skinning, on the CPU or in a
     /// shader: each matrix A split as A = R S (R the rotation of its polar
     /// decomposition, S = R^T A carrying scale, shear and mirror), 20

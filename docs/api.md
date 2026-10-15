@@ -86,6 +86,11 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildInfluences(maniBuilder* builder
 Builds an influences file bound to the source's skin: zero weights dropped, each vertex's influences sorted by decreasing weight then joint, padded to groups of four with joint 0 at weight 0 and renormalized to sum 1 (in binary64, then rounded); a vertex with no weight keeps all 0, and skinning leaves it as it is. Keeps the file in place of any built before.  @param builder  The builder. @param source   The influences. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source (item a vertex, other an influence index): `maniBuildReasonCount` for no vertices, offsets not increasing from 0 or more than 64 weighted influences on a vertex, `maniBuildReasonJoint`, `maniBuildReasonNotFinite`, `maniBuildReasonWeight`, `maniBuildReasonRepeatedJoint`; `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* source);
+```
+Builds the influences again with a center of rotation for every vertex (Le and Hodgins 2016, Eq. 4): the triangles' centroids weighted by their areas and by the similarity of their average weights to the vertex's, in binary64. A vertex similar to no triangle (a single influence, say) takes its rest position. Keeps the file in place of any built before.  @param builder  The builder. @param source   The influences, mesh and sigma. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonNotFinite` (a position; item the vertex), `maniBuildReasonTriangle`, `maniBuildReasonOption` (sigma below 0 or not finite), `maniBuildReasonCount` (a stride under 12); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source);
 ```
 Builds a full-precision clip file: evaluates every channel at each sample time as glTF defines its interpolation (in binary64, rotations normalized and kept in one hemisphere from sample to sample), and keeps the file in place of any built before.  @param builder  The builder. @param source   The clip. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and track for a refused source; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -688,6 +693,11 @@ MANI_NODISCARD MANI_API maniResult maniSkinBlended(const maniSkinJob* job);
 FBX's blended skinning: each vertex moved by `(1 - b)` times its linear matrix plus `b` times its dual quaternion one, b its weight in the influences (0 where they have none). A vertex at 0 or 1 gives the bits of maniSkinLinear or maniSkinDualQuaternion.  @param job  The job, its palette and dualQuaternions given. @return As maniSkinDualQuaternion. @par Thread safety Safe from any thread; the output range is used by one thread at a time. Jobs over disjoint ranges run at once.
 
 ```c
+MANI_NODISCARD MANI_API maniResult maniSkinCenters(const maniSkinJob* job);
+```
+Skinning with optimized centers of rotation (Le and Hodgins 2016) in two phases: each vertex's scale and shear parts summed at their weights and applied first (to the vertex and its center c), then the rotation R of its joints' quaternions blended in the first's hemisphere, and the translation that carries the scaled center where linear blending of the rigid parts takes it: `v' = R (S v - S c) + sum w_j (R_j S c + t_j)`. No collapse and no bulge; a vertex with one influence moves as under linear skinning.  @param job  The job, its palette and dualQuaternions given, its influences with centers (maniBuildCenters). @return As maniSkinDualQuaternion, and `mani_errorInvalid` for influences without centers. @par Thread safety Safe from any thread; the output range is used by one thread at a time. Jobs over disjoint ranges run at once.
+
+```c
 MANI_NODISCARD MANI_API maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count, float* out);
 ```
 Writes a palette for dual quaternion skinning, on the CPU or in a shader: each matrix A split as A = R S (R the rotation of its polar decomposition, S = R^T A carrying scale, shear and mirror), 20 floats a matrix: R's quaternion (x, y, z, w with w >= 0), the dual part (half the translation times it), then S as three rows of four (the fourth 0).  @param palette  count matrices, as maniComputePalette writes them. @param count    The number of matrices. @param out      Receives 20 floats a matrix. @return `mani_success`; `mani_errorInvalid` for a NULL pointer with a count or a matrix not finite (out unchanged). @par Thread safety Safe from any thread.
@@ -699,4 +709,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-132 functions across 9 headers.
+134 functions across 9 headers.
