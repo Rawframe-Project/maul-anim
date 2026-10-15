@@ -190,7 +190,7 @@ static bool At(const maniFbx* fbx, const maniFbxAnimation* a, const char* name, 
 static maniFbxAnimation Stack(const maniFbx* fbx, uint32_t k)
 {
     maniFbxAnimation a;
-    maniImportResult r = maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, k), &a);
+    maniImportResult r = maniFbxReadAnimation(fbx, maniFbxStackSource(fbx, k), &a);
     CHECK(r.result == mani_success, "a stack read");
     return a;
 }
@@ -236,8 +236,8 @@ static void TestLayers(void)
         return;
     }
     CHECK(maniFbxStackCount(fbx) == 6 &&
-              maniFbxStackObject(fbx, 1) == maniFbxFindObject(fbx, 200) &&
-              maniFbxStackObject(fbx, 6) == MANI_FBX_NONE,
+              maniFbxStackSource(fbx, 1) == maniFbxFindObject(fbx, 200) &&
+              maniFbxStackSource(fbx, 6) == MANI_FBX_NONE,
           "six stacks in object order");
     maniFbxAnimation a = Stack(fbx, 0);
     CHECK(a.layerCount == 7 && a.channelCount == 14, "seven layers, fourteen channels");
@@ -294,7 +294,7 @@ static void ExpectRefusal(int64_t node, const char* what)
     maniFbx* fbx = NULL;
     CHECK(maniOpenFbx(builder, s_text, strlen(s_text), &fbx).result == mani_success, "opens");
     maniFbxAnimation a;
-    maniImportResult r = fbx != NULL ? maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, 0), &a)
+    maniImportResult r = fbx != NULL ? maniFbxReadAnimation(fbx, maniFbxStackSource(fbx, 0), &a)
                                      : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
     char at[32];
     snprintf(at, sizeof at, "AnimationCurveNode: %lld", (long long)node);

@@ -646,3 +646,117 @@ void maniFbxEachChild(const maniFbx* fbx, uint32_t object, maniFbxVisit visit, v
         }
     }
 }
+
+// The properties ufbx keeps on a 6.x model (ufbxi_node_prop_names).
+static const char* const kNodeProperties[] = {
+    "AxisLen",
+    "DefaultAttributeIndex",
+    "Freeze",
+    "GeometricRotation",
+    "GeometricScaling",
+    "GeometricTranslation",
+    "InheritType",
+    "LODBox",
+    "Lcl Rotation",
+    "Lcl Scaling",
+    "Lcl Translation",
+    "LookAtProperty",
+    "MaxDampRangeX",
+    "MaxDampRangeY",
+    "MaxDampRangeZ",
+    "MaxDampStrengthX",
+    "MaxDampStrengthY",
+    "MaxDampStrengthZ",
+    "MinDampRangeX",
+    "MinDampRangeY",
+    "MinDampRangeZ",
+    "MinDampStrengthX",
+    "MinDampStrengthY",
+    "MinDampStrengthZ",
+    "NegativePercentShapeSupport",
+    "PostRotation",
+    "PreRotation",
+    "PreferedAngleX",
+    "PreferedAngleY",
+    "PreferedAngleZ",
+    "QuaternionInterpolate",
+    "RotationActive",
+    "RotationMax",
+    "RotationMaxX",
+    "RotationMaxY",
+    "RotationMaxZ",
+    "RotationMin",
+    "RotationMinX",
+    "RotationMinY",
+    "RotationMinZ",
+    "RotationOffset",
+    "RotationOrder",
+    "RotationPivot",
+    "RotationSpaceForLimitOnly",
+    "RotationStiffnessX",
+    "RotationStiffnessY",
+    "RotationStiffnessZ",
+    "ScalingActive",
+    "ScalingMax",
+    "ScalingMaxX",
+    "ScalingMaxY",
+    "ScalingMaxZ",
+    "ScalingMin",
+    "ScalingMinX",
+    "ScalingMinY",
+    "ScalingMinZ",
+    "ScalingOffset",
+    "ScalingPivot",
+    "Show",
+    "TranslationActive",
+    "TranslationMax",
+    "TranslationMaxX",
+    "TranslationMaxY",
+    "TranslationMaxZ",
+    "TranslationMin",
+    "TranslationMinX",
+    "TranslationMinY",
+    "TranslationMinZ",
+    "UpVectorProperty",
+    "Visibility Inheritance",
+    "Visibility",
+    "notes",
+};
+
+bool maniFbxIsNodeProperty(const uint8_t* name, size_t length)
+{
+    for (size_t k = 0; k < sizeof kNodeProperties / sizeof kNodeProperties[0]; ++k)
+    {
+        const char* n = kNodeProperties[k];
+        if (strlen(n) == length && memcmp(n, name, length) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry)
+{
+    // The flags follow the type, and the label in Properties70.
+    uint32_t k = maniFbxNameIs(fbx, entry, "P", 1) ? 3 : 2;
+    const uint8_t* flags = NULL;
+    uint32_t length = 0;
+    return maniFbxString(fbx, maniFbxNodeProperty(fbx, entry, k), &flags, &length) &&
+           memchr(flags, 'U', length) != NULL;
+}
+
+bool maniFbxModelHasAttribute(const maniFbx* fbx, uint32_t object)
+{
+    uint32_t node = fbx->objects[object].node;
+    uint32_t subclass = SubclassOf(fbx, node);
+    const uint8_t* bytes = NULL;
+    uint32_t length = 0;
+    bool none = !maniFbxString(fbx, subclass, &bytes, &length) || length == 0;
+    if (none)
+    {
+        return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE &&
+               maniFbxFindChild(fbx, node, "PolygonVertexIndex", 18) != MANI_FBX_NONE;
+    }
+    return !maniFbxStringEquals(fbx, subclass, "Model", 5);
+}

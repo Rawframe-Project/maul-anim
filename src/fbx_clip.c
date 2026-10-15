@@ -28,6 +28,7 @@
 #include "fbx_options.h"
 #include "fbx_sample.h"
 #include "fbx_skin.h"
+#include "fbx_take.h"
 #include "fbx_transform.h"
 #include "fbx_value.h"
 #include "fbx_world.h"
@@ -463,12 +464,12 @@ static maniImportResult BoneTracks(Clip* c)
 }
 
 // Whether a property is one of the local transform's inputs.
-static bool InChain(const maniFbx* fbx, uint32_t name)
+static bool InChain(const maniFbx* fbx, const maniFbxChannel* channel)
 {
     for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
     {
         const char* n = maniFbxLocalVectorNames[k];
-        if (maniFbxStringEquals(fbx, name, n, strlen(n)))
+        if (maniFbxChannelNameIs(fbx, channel, n, strlen(n)))
         {
             return true;
         }
@@ -476,7 +477,7 @@ static bool InChain(const maniFbx* fbx, uint32_t name)
     for (uint32_t k = 0; k < maniFbxLocalIntegers; ++k)
     {
         const char* n = maniFbxLocalIntegerNames[k];
-        if (maniFbxStringEquals(fbx, name, n, strlen(n)))
+        if (maniFbxChannelNameIs(fbx, channel, n, strlen(n)))
         {
             return true;
         }
@@ -533,15 +534,13 @@ static maniImportResult PropertyTracks(Clip* c, uint32_t b, const maniFbxChannel
 {
     const maniFbx* fbx = c->fbx;
     uint32_t object = fbx->models[c->modelOf[b]];
-    const uint8_t* raw = NULL;
-    uint32_t rawLength = 0;
-    (void)maniFbxString(fbx, channel->name, &raw, &rawLength);
-    char* property = maniArenaTake(&c->arena, (size_t)rawLength + 1, 1);
+    size_t rawLength = maniFbxChannelName(fbx, channel, NULL, 0);
+    char* property = maniArenaTake(&c->arena, rawLength + 1, 1);
     if (property == NULL)
     {
         return Capacity();
     }
-    size_t length = maniFbxStringDecode(fbx, channel->name, (uint8_t*)property, rawLength);
+    size_t length = maniFbxChannelName(fbx, channel, (uint8_t*)property, rawLength);
     double rest[3];
     uint32_t width = Static(fbx, object, property, length, channel, rest);
     float* values = maniArenaTake(&c->arena, (size_t)c->sampleCount * width, sizeof(float));
@@ -581,7 +580,7 @@ static bool Seen(const Clip* c, uint32_t first, uint32_t i)
     for (uint32_t j = first; j < i; ++j)
     {
         if (channels[j].nameHash == channels[i].nameHash &&
-            maniFbxSameString(c->fbx, channels[j].name, channels[i].name))
+            maniFbxSameChannelName(c->fbx, &channels[j], &channels[i]))
         {
             return true;
         }
@@ -732,7 +731,7 @@ static bool DrivesWeight(const Clip* c, uint32_t first, uint32_t count)
 {
     for (uint32_t i = first; i < first + count; ++i)
     {
-        if (maniFbxStringEquals(c->fbx, c->animation.channels[i].name, "DeformPercent", 13))
+        if (maniFbxChannelNameIs(c->fbx, &c->animation.channels[i], "DeformPercent", 13))
         {
             return true;
         }
@@ -792,7 +791,8 @@ static maniImportResult FloatTracks(Clip* c)
         for (uint32_t i = first; r.result == mani_success && i < first + n; ++i)
         {
             const maniFbxChannel* channel = &c->animation.channels[i];
-            if (!InChain(c->fbx, channel->name) && !Seen(c, first, i))
+            // A 6.x attribute's properties are no bone's.
+            if (!channel->attribute && !InChain(c->fbx, channel) && !Seen(c, first, i))
             {
                 r = PropertyTracks(c, b, channel);
             }
@@ -810,7 +810,11 @@ static uint32_t Bound(const Clip* c)
     for (uint32_t m = 0; m < c->fbx->modelCount; ++m)
     {
         uint32_t first = 0;
-        n += c->needed[m] != 0 ? maniFbxAnimatedRun(&c->animation, c->fbx->models[m], &first) : 0;
+        uint32_t count = maniFbxAnimatedRun(&c->animation, c->fbx->models[m], &first);
+        for (uint32_t i = first; c->needed[m] != 0 && i < first + count; ++i)
+        {
+            n += c->animation.channels[i].attribute ? 0 : 1;
+        }
     }
     return n;
 }
@@ -855,7 +859,7 @@ static maniImportResult Prepare(Clip* c, uint32_t clip)
     }
     Rules(c);
     Need(c);
-    r = maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, clip), &c->animation);
+    r = maniFbxReadStack(fbx, clip, &c->animation);
     // A refusal names the stack's object; the clip is the item a caller
     // knows.
     r.item = r.result == mani_errorFormat ? clip : r.item;

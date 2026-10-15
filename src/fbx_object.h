@@ -53,6 +53,18 @@ uint32_t maniFbxFindProperty(const maniFbx* fbx, uint32_t object, const char* na
 // entry (a lookup's MANI_FBX_NONE passes through).
 uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k);
 
+// Whether a property name is one ufbx keeps on a 6.x model rather than
+// its attribute (research 26): the transform, limits, visibility.
+bool maniFbxIsNodeProperty(const uint8_t* name, size_t length);
+
+// Whether an entry is flagged user-defined (U).
+bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry);
+
+// Whether a 6.x Model has an attribute ufbx splits off: any but a plain
+// model (no subclass or Model, unless it holds a mesh's Vertices and
+// PolygonVertexIndex).
+bool maniFbxModelHasAttribute(const maniFbx* fbx, uint32_t object);
+
 // Whether an object is a Deformer of a subclass (Skin, Cluster).
 bool maniFbxDeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass, size_t length);
 

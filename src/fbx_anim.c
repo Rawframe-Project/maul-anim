@@ -29,47 +29,86 @@ static maniImportResult Capacity(void)
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
 }
 
-// An object's name's length before decoding: at least its decoded one.
-static size_t RawNameLength(const maniFbx* fbx, uint32_t object)
+// A stack's name property: an AnimationStack's (7.x) or a Take's (6.x).
+static uint32_t StackNameProperty(const maniFbx* fbx, uint32_t source)
+{
+    return fbx->version >= 7000 ? maniFbxNodeProperty(fbx, fbx->objects[source].node, 1)
+                                : maniFbxNodeProperty(fbx, source, 0);
+}
+
+// Each stack's source: counted (out NULL) or listed.
+static uint32_t EachStack(const maniFbx* fbx, uint32_t* out)
+{
+    uint32_t n = 0;
+    uint32_t takes = fbx->version < 7000 ? maniFbxFindChild(fbx, 0, "Takes", 5) : MANI_FBX_NONE;
+    uint32_t take = takes != MANI_FBX_NONE ? fbx->nodes[takes].firstChild : MANI_FBX_NONE;
+    uint32_t count = fbx->version >= 7000 ? fbx->objectCount : 0;
+    for (uint32_t o = 0; o < count; ++o)
+    {
+        if (maniFbxObjectKindIs(fbx, o, "AnimationStack", 14))
+        {
+            if (out != NULL)
+            {
+                out[n] = o;
+            }
+            ++n;
+        }
+    }
+    for (; take != MANI_FBX_NONE; take = fbx->nodes[take].next)
+    {
+        if (maniFbxNameIs(fbx, take, "Take", 4))
+        {
+            if (out != NULL)
+            {
+                out[n] = take;
+            }
+            ++n;
+        }
+    }
+    return n;
+}
+
+static size_t RawLength(const maniFbx* fbx, uint32_t property)
 {
     const uint8_t* bytes = NULL;
     uint32_t length = 0;
-    uint32_t property =
-        maniFbxNodeProperty(fbx, fbx->objects[object].node, fbx->version >= 7000 ? 1 : 0);
     return maniFbxString(fbx, property, &bytes, &length) ? length : 0;
 }
 
 maniImportResult maniFbxReadStacks(maniFbx* fbx)
 {
-    uint32_t n = 0;
-    size_t text = 0;
-    for (uint32_t o = 0; o < fbx->objectCount; ++o)
-    {
-        if (maniFbxObjectKindIs(fbx, o, "AnimationStack", 14))
-        {
-            ++n;
-            text += RawNameLength(fbx, o);
-        }
-    }
+    uint32_t n = EachStack(fbx, NULL);
     fbx->stacks = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 4);
     fbx->stackNameOffsets = maniAllocate(&fbx->allocator, (size_t)n + 2, sizeof(size_t), 8);
+    if (fbx->stacks == NULL || fbx->stackNameOffsets == NULL)
+    {
+        return Capacity();
+    }
+    (void)EachStack(fbx, fbx->stacks);
+    // The names' raw bytes, at least their decoded ones.
+    size_t text = 0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        text += RawLength(fbx, StackNameProperty(fbx, fbx->stacks[k]));
+    }
     fbx->stackNames = maniAllocate(&fbx->allocator, text + 1, 1, 1);
     fbx->stackNamesSize = text;
-    if (fbx->stacks == NULL || fbx->stackNameOffsets == NULL || fbx->stackNames == NULL)
+    if (fbx->stackNames == NULL)
     {
         return Capacity();
     }
     size_t at = 0;
-    for (uint32_t o = 0; o < fbx->objectCount; ++o)
+    for (uint32_t k = 0; k < n; ++k)
     {
-        if (maniFbxObjectKindIs(fbx, o, "AnimationStack", 14))
-        {
-            fbx->stackNameOffsets[fbx->stackCount] = at;
-            fbx->stacks[fbx->stackCount++] = o;
-            at += maniFbxObjectName(fbx, o, (uint8_t*)fbx->stackNames + at, text - at);
-        }
+        uint32_t source = fbx->stacks[k];
+        fbx->stackNameOffsets[k] = at;
+        at += fbx->version >= 7000
+                  ? maniFbxObjectName(fbx, source, (uint8_t*)fbx->stackNames + at, text - at)
+                  : maniFbxStringDecode(fbx, StackNameProperty(fbx, source),
+                                        (uint8_t*)fbx->stackNames + at, text - at);
     }
-    fbx->stackNameOffsets[fbx->stackCount] = at;
+    fbx->stackCount = n;
+    fbx->stackNameOffsets[n] = at;
     return maniFbxSuccess();
 }
 
@@ -90,7 +129,7 @@ uint32_t maniFbxStackCount(const maniFbx* fbx)
     return fbx->stackCount;
 }
 
-uint32_t maniFbxStackObject(const maniFbx* fbx, uint32_t k)
+uint32_t maniFbxStackSource(const maniFbx* fbx, uint32_t k)
 {
     return k < fbx->stackCount ? fbx->stacks[k] : MANI_FBX_NONE;
 }
@@ -236,7 +275,8 @@ static maniImportResult Bind(const maniFbx* fbx, uint32_t node, uint32_t layer, 
             channel->target = c->parent;
             channel->name = c->parentProperty;
             channel->layer = layer;
-            channel->node = node;
+            channel->item = node;
+            channel->source = fbx->objects[node].node;
             r = NodeValues(fbx, node, channel->values);
             r = r.result == mani_success ? NodeCurves(fbx, node, channel) : r;
         }
@@ -379,7 +419,7 @@ static bool SameSlot(const maniFbxChannel* a, const maniFbxChannel* b)
 
 // Sorted, then a property driven twice in one layer refused: equal names
 // share a hash, so they lie together.
-static maniImportResult Sort(const maniFbx* fbx, maniFbxAnimation* a)
+maniImportResult maniFbxSortChannels(const maniFbx* fbx, maniFbxAnimation* a)
 {
     maniImportResult r = SortChannels(fbx, a);
     for (uint32_t i = 0; r.result == mani_success && i < a->channelCount; ++i)
@@ -387,11 +427,11 @@ static maniImportResult Sort(const maniFbx* fbx, maniFbxAnimation* a)
         for (uint32_t j = i + 1; j < a->channelCount && SameSlot(&a->channels[i], &a->channels[j]);
              ++j)
         {
-            if (maniFbxSameString(fbx, a->channels[i].name, a->channels[j].name))
+            if (maniFbxSameChannelName(fbx, &a->channels[i], &a->channels[j]))
             {
-                uint32_t node = a->channels[j].node;
-                return maniFbxFail(maniImportReasonProperty,
-                                   fbx->nodes[fbx->objects[node].node].nameOffset, node);
+                const maniFbxChannel* c = &a->channels[j];
+                return maniFbxFail(maniImportReasonProperty, fbx->nodes[c->source].nameOffset,
+                                   c->item);
             }
         }
     }
@@ -409,8 +449,7 @@ static bool Pair(const maniFbx* fbx, uint32_t object, const char* first, const c
            maniFbxInteger(fbx, maniFbxPropertyValue(fbx, y, 0), INT64_MIN, INT64_MAX, b);
 }
 
-// A Take node's two times under a child name.
-static bool TakeTimes(const maniFbx* fbx, uint32_t take, const char* name, int64_t* a, int64_t* b)
+bool maniFbxTakeTimes(const maniFbx* fbx, uint32_t take, const char* name, int64_t* a, int64_t* b)
 {
     uint32_t node = maniFbxFindChild(fbx, take, name, strlen(name));
     return node != MANI_FBX_NONE &&
@@ -430,15 +469,14 @@ static bool FromTake(const maniFbx* fbx, uint32_t stack, int64_t* a, int64_t* b)
         if (maniFbxNameIs(fbx, take, "Take", 4) &&
             maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, take, 0), (const char*)name, length))
         {
-            return TakeTimes(fbx, take, "LocalTime", a, b) ||
-                   TakeTimes(fbx, take, "ReferenceTime", a, b);
+            return maniFbxTakeTimes(fbx, take, "LocalTime", a, b) ||
+                   maniFbxTakeTimes(fbx, take, "ReferenceTime", a, b);
         }
     }
     return false;
 }
 
-// The first and last key over every curve.
-static void KeySpan(const maniFbxAnimation* a, int64_t* start, int64_t* stop)
+void maniFbxKeySpan(const maniFbxAnimation* a, int64_t* start, int64_t* stop)
 {
     bool any = false;
     *start = 0;
@@ -465,7 +503,7 @@ static void Range(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* a)
         !Pair(fbx, stack, "ReferenceStart", "ReferenceStop", &a->start, &a->stop) &&
         !FromTake(fbx, stack, &a->start, &a->stop))
     {
-        KeySpan(a, &a->start, &a->stop);
+        maniFbxKeySpan(a, &a->start, &a->stop);
     }
 }
 
@@ -490,7 +528,7 @@ maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFb
         uint64_t filled = 0;
         r = EachNode(fbx, out, out->channels, count, &filled);
     }
-    r = r.result == mani_success ? Sort(fbx, out) : r;
+    r = r.result == mani_success ? maniFbxSortChannels(fbx, out) : r;
     if (r.result != mani_success)
     {
         maniFbxReleaseAnimation(fbx, out);
@@ -540,7 +578,7 @@ static const maniFbxChannel* Find(const maniFbxAnimation* a, const maniFbx* fbx,
     for (uint32_t i = first; i < first + count; ++i)
     {
         const maniFbxChannel* c = &a->channels[i];
-        if (c->layer == layer && maniFbxStringEquals(fbx, c->name, name, length))
+        if (c->layer == layer && !c->attribute && maniFbxChannelNameIs(fbx, c, name, length))
         {
             return c;
         }
@@ -637,9 +675,50 @@ static void Combine(const maniFbxLayer* l, double weight, bool scale, bool rotat
     }
 }
 
-bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
-                            const char* name, size_t length, double time, uint32_t order,
-                            double value[3])
+bool maniFbxChannelNameIs(const maniFbx* fbx, const maniFbxChannel* channel, const char* name,
+                          size_t length)
+{
+    if (channel->literal != NULL)
+    {
+        return channel->literalLength == length && memcmp(channel->literal, name, length) == 0;
+    }
+    return maniFbxStringEquals(fbx, channel->name, name, length);
+}
+
+bool maniFbxSameChannelName(const maniFbx* fbx, const maniFbxChannel* a, const maniFbxChannel* b)
+{
+    if (a->literal != NULL)
+    {
+        return maniFbxChannelNameIs(fbx, b, a->literal, a->literalLength);
+    }
+    if (b->literal != NULL)
+    {
+        return maniFbxChannelNameIs(fbx, a, b->literal, b->literalLength);
+    }
+    return maniFbxSameString(fbx, a->name, b->name);
+}
+
+size_t maniFbxChannelName(const maniFbx* fbx, const maniFbxChannel* channel, uint8_t* out,
+                          size_t capacity)
+{
+    if (channel->literal != NULL)
+    {
+        size_t n = channel->literalLength < capacity ? channel->literalLength : capacity;
+        if (out != NULL)
+        {
+            memcpy(out, channel->literal, n);
+        }
+        return out != NULL ? n : channel->literalLength;
+    }
+    return out != NULL ? maniFbxStringDecode(fbx, channel->name, out, capacity)
+                       : RawLength(fbx, channel->name);
+}
+
+// A property's value through the channels of one side: the model's own
+// or (6.x) its attribute's.
+static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
+                    const char* name, size_t length, double time, uint32_t order, bool attribute,
+                    double value[3])
 {
     uint32_t first = 0;
     uint32_t count = maniFbxAnimatedRun(animation, object, &first);
@@ -651,7 +730,8 @@ bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fb
     for (uint32_t i = first; i < first + count; ++i)
     {
         const maniFbxChannel* c = &animation->channels[i];
-        if (c->nameHash != hash || !maniFbxStringEquals(fbx, c->name, name, length))
+        if (c->nameHash != hash || c->attribute != attribute ||
+            !maniFbxChannelNameIs(fbx, c, name, length))
         {
             continue;
         }
@@ -669,4 +749,17 @@ bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fb
         animated = true;
     }
     return animated;
+}
+
+bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
+                            const char* name, size_t length, double time, uint32_t order,
+                            double value[3])
+{
+    return Animate(animation, fbx, object, name, length, time, order, false, value);
+}
+
+bool maniFbxAnimateAttribute(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t model,
+                             const char* name, size_t length, double time, double value[3])
+{
+    return Animate(animation, fbx, model, name, length, time, 0, true, value);
 }

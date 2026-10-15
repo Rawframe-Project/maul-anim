@@ -58,8 +58,9 @@ fbx_blend: allocator fbx_document fbx_model fbx_object fbx_value sort
 fbx_anim: allocator fbx_curve fbx_document fbx_object fbx_transform fbx_value quat64 scalar sort
 fbx_options: basis builder fbx_document
 fbx_sample: allocator fbx_anim fbx_document fbx_model fbx_transform fbx_world
-fbx_clip: arena basis clip_build clip_file decompose fbx_anim fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_skin fbx_transform fbx_value fbx_world
+fbx_clip: arena basis clip_build clip_file decompose fbx_anim fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_skin fbx_take fbx_transform fbx_value fbx_world
 fbx_skeleton: allocator basis builder decompose fbx_document fbx_model fbx_options fbx_transform fbx_units fbx_world
+fbx_take: allocator fbx_anim fbx_document fbx_keys fbx_object fbx_value
 fbx_skin: allocator basis fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document

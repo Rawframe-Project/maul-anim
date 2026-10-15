@@ -16,6 +16,7 @@
 #include "fbx_keys.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
+#include "fbx_take.h"
 #include "fbx_transform.h"
 #include "fbx_units.h"
 #include "fbx_value.h"
@@ -140,7 +141,7 @@ static void Stacks(const maniFbx* fbx)
     for (uint32_t k = 0; k < maniFbxStackCount(fbx) && k < 4; ++k)
     {
         maniFbxAnimation a;
-        if (maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, k), &a).result != mani_success)
+        if (maniFbxReadStack(fbx, k, &a).result != mani_success)
         {
             continue;
         }
@@ -170,7 +171,7 @@ static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* 
     for (uint32_t k = 0; k < maniFbxClipCount(fbx) && k < 3; ++k)
     {
         maniFbxAnimation a;
-        if (maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, k), &a).result != mani_success)
+        if (maniFbxReadStack(fbx, k, &a).result != mani_success)
         {
             continue;
         }

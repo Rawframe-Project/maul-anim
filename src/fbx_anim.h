@@ -37,17 +37,25 @@ typedef struct maniFbxLayer
     bool composeScale;
 } maniFbxLayer;
 
-// A curve node's binding to one property it drives: the object, the
-// string property naming the property (and its bytes' hash), the layer,
-// the node, and per component a curve (none when its count is 0 and keys
-// NULL) over a static value.
+// A binding to one property a stack drives: the object, the property's
+// name (and its bytes' hash), the layer, and per component a curve (none
+// when its count is 0 and keys NULL) over a static value. A 7.x curve
+// node's name is a string property of the file; a 6.x take's Transform
+// channels name the Lcl properties by a literal. A 6.x property that is
+// not the model's own belongs to its attribute (research 26). Refusals
+// point at the file node source, with item the curve node (7.x) or the
+// target (6.x).
 typedef struct maniFbxChannel
 {
     uint64_t nameHash;
     uint32_t target;
     uint32_t name;
+    const char* literal;
+    uint32_t literalLength;
     uint32_t layer;
-    uint32_t node;
+    uint32_t item;
+    uint32_t source;
+    bool attribute;
     maniFbxCurve curves[3];
     double values[3];
 } maniFbxChannel;
@@ -63,22 +71,44 @@ typedef struct maniFbxAnimation
     int64_t stop;
 } maniFbxAnimation;
 
-// Lists the AnimationStack objects in object order, with their names;
-// Capacity when the allocator fails.
+// Lists the stacks with their names: the AnimationStack objects in
+// object order (7.x), or the top-level Takes' Take nodes in file order
+// (6.x); Capacity when the allocator fails.
 maniImportResult maniFbxReadStacks(maniFbx* fbx);
 void maniFbxReleaseStacks(maniFbx* fbx);
 
-// The stacks: their count, and the k-th (MANI_FBX_NONE past the count).
+// The stacks: their count, and the k-th's object (7.x) or Take node
+// (6.x), MANI_FBX_NONE past the count.
 uint32_t maniFbxStackCount(const maniFbx* fbx);
-uint32_t maniFbxStackObject(const maniFbx* fbx, uint32_t k);
+uint32_t maniFbxStackSource(const maniFbx* fbx, uint32_t k);
 
-// Reads a stack; refused (Property, item: the curve node) for a property
+// Reads an AnimationStack object; refused (Property, item: the curve node) for a property
 // driven twice in one layer, or as its curves are; Capacity when the
 // allocator fails. Channels come sorted by target, then layer, then
 // name hash.
 maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* out);
 
 void maniFbxReleaseAnimation(const maniFbx* fbx, maniFbxAnimation* animation);
+
+// Sorts read channels by target, layer and name hash; refused (Property,
+// at the source, the item) for a property driven twice in one layer;
+// Capacity when the allocator fails.
+maniImportResult maniFbxSortChannels(const maniFbx* fbx, maniFbxAnimation* animation);
+
+// A channel's name: whether it is the bytes given; whether two channels
+// share it; it decoded into out (the bytes it may need with out NULL).
+bool maniFbxChannelNameIs(const maniFbx* fbx, const maniFbxChannel* channel, const char* name,
+                          size_t length);
+bool maniFbxSameChannelName(const maniFbx* fbx, const maniFbxChannel* a, const maniFbxChannel* b);
+size_t maniFbxChannelName(const maniFbx* fbx, const maniFbxChannel* channel, uint8_t* out,
+                          size_t capacity);
+
+// A Take node's two times under a child name (LocalTime,
+// ReferenceTime), both whole numbers.
+bool maniFbxTakeTimes(const maniFbx* fbx, uint32_t take, const char* name, int64_t* a, int64_t* b);
+
+// The first and last key's ticks over every curve, 0 and 0 for none.
+void maniFbxKeySpan(const maniFbxAnimation* animation, int64_t* start, int64_t* stop);
 
 // The run of channels driving an object: its first index and count.
 uint32_t maniFbxAnimatedRun(const maniFbxAnimation* animation, uint32_t object, uint32_t* first);
@@ -87,9 +117,12 @@ uint32_t maniFbxAnimatedRun(const maniFbxAnimation* animation, uint32_t object, 
 // value and receives the animated one, each layer applied in order (the
 // first sets, later ones combine by their weight and blend mode; a
 // composed Lcl Rotation goes through quaternions in the order given and
-// back). Whether any channel drives it.
+// back). Whether any channel drives it. A 6.x model's attribute's
+// properties are animated through maniFbxAnimateAttribute.
 bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
                             const char* name, size_t length, double time, uint32_t order,
                             double value[3]);
+bool maniFbxAnimateAttribute(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t model,
+                             const char* name, size_t length, double time, double value[3]);
 
 #endif // MAUL_ANIM_SRC_FBX_ANIM_H
