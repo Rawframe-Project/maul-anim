@@ -456,7 +456,7 @@ fbv-entity-quot | src/fbx_value.c | static const uint8_t kBytes[3] = {'"', '\r',
 fbv-equals-length | src/fbx_value.c | return matched == length; | return true;
 fbv-int32-sign | src/fbx_value.c | int64_t n = p->type == 'i' ? (int32_t)(uint32_t)bits : (int64_t)bits; | int64_t n = (int64_t)bits;
 fbv-element-order | src/fbx_value.c | uint32_t byte = fbx->bigEndian ? k : size - 1 - k; | uint32_t byte = size - 1 - k;
-fbv-float-ints | src/fbx_value.c | if (size == 0 || (want == WantIntegers && floats)) | if (size == 0)
+fbv-float-ints | src/fbx_value.c | if (size == 0 || (want == WantIntegers && floats) || (want == WantBits && !words)) | if (size == 0 || (want == WantBits && !words))
 fbv-text-array | src/fbx_value.c | return maniFbxFail(maniImportReasonData, read ? start : p->offset, 0); | return maniFbxSuccess();
 fba-string-close | src/fbx_ascii.c | while (r->at < fbx->size && fbx->bytes[r->at] != '"') | while (r->at < fbx->size && fbx->bytes[r->at] != '"' && fbx->bytes[r->at] != '\n')
 
@@ -685,3 +685,9 @@ fcv-pre-flip | src/fbx_curve.c | into = pre ? duration - into : into; | into = i
 fcv-relative | src/fbx_curve.c | value += (pre ? -change : change) * (n + 1.0); | value += change * (n + 1.0);
 fcv-one-key | src/fbx_curve.c | return curve->count == 1 ? curve->keys[0].value : fallback; | return fallback;
 fcv-duration | src/fbx_curve.c | if (!(duration >= 1.0) || !(delta > 0.0)) | if (!(delta > 0.0))
+
+# FBX binary32 words (fbx_value.c), 2026-10-15: 3 mutants, all killed;
+# fbv-float-ints above rewritten for the line they share, rerun, killed.
+fbv-word-kinds | src/fbx_value.c | if (size == 0 || (want == WantIntegers && floats) || (want == WantBits && !words)) | if (size == 0 || (want == WantIntegers && floats))
+fbv-bits-raw | src/fbx_value.c | ((uint32_t*)out)[i] = (uint32_t)bits; | ((uint32_t*)out)[i] = 0;
+fbv-text-version | src/fbx_value.c | if (fbx->version >= 7200) | if (fbx->version >= 7100)
