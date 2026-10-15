@@ -121,9 +121,7 @@ maniImportResult maniFbxSampleWorlds(const maniFbxSampler* sampler, double time,
         uint32_t v = sampler->order[i];
         uint32_t object = fbx->models[v];
         maniFbxLocalInputs in = sampler->rest[i];
-        uint32_t first = 0;
-        if (maniFbxAnimatedRun(sampler->animation, object, &first) > 0 &&
-            !Animate(sampler, object, time, &in))
+        if (!Animate(sampler, object, time, &in))
         {
             return maniFbxFail(maniImportReasonProperty,
                                fbx->nodes[fbx->objects[object].node].nameOffset, v);

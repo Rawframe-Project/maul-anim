@@ -21,11 +21,17 @@
 #include <string.h>
 
 // Rig (Null, z 5, animated to 6) above Hips (y 1, x from 0 to 3), Spine
-// (y 1, turning 90 about z and scaling 1 to 2, Glow 0 to 1) and Arm
-// (scale not inherited, x 1, turned 45 about z). Prop is no bone. Walk
-// runs a second; Idle has nothing; Shear scales Spine in x alone; Inherit
-// takes Arm's inherit type past its range; Back ends before it starts;
-// Late ends at 1.01 s on a constant key of Glow.
+// (y 1, turning 90 about z and scaling 1 to 2, Glow 0 to 1; rotation
+// order ZXY) and Arm (scale not inherited, x 1, turned 45 about z). Prop
+// is no bone (its rotation order out of range, unread). Stacks: Walk, a
+// second; Idle, nothing; Shear scales Spine in x alone; Inherit and Below
+// take Arm's inherit type past either end; Back ends before it starts;
+// Late ends at 1.01 s on a constant key of Glow, repeated after; Still
+// moves only Prop; Active animates Arm's RotationActive; Props animates
+// Spine's Tint (a colour), Missing and Lone (no entries) and Glow in two
+// layers (the second adding a constant 0.5); Clash makes two float tracks of one name; Broken has a
+// curve without times; Layered composes Spine's rotation in two layers; Frames keys Glow at NTSC's
+// frame 3.
 static const char kScene[] =
     "; FBX 7.4.0 project file\n"
     "Objects: {\n"
@@ -34,12 +40,14 @@ static const char kScene[] =
     " Model: 1, \"Model::Hips\", \"LimbNode\" {\n  Properties70: {\n   P: \"Lcl Translation\", "
     "\"Lcl Translation\", \"\", \"A\",0,1,0\n  }\n }\n"
     " Model: 2, \"Model::Spine\", \"LimbNode\" {\n  Properties70: {\n   P: \"Lcl Translation\", "
-    "\"Lcl Translation\", \"\", \"A\",0,1,0\n   P: \"Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
+    "\"Lcl Translation\", \"\", \"A\",0,1,0\n   P: \"RotationOrder\", \"enum\", \"\", \"A\",4\n   "
+    "P: \"Glow\", \"Number\", \"\", \"A\",0.5\n   P: \"Tint\", \"ColorRGB\", \"\", "
+    "\"A\",0.1,0.2,0.3\n  }\n }\n"
     " Model: 3, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n   P: \"InheritType\", "
     "\"enum\", \"\", \"A\",2\n   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,0,0\n  "
     " P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,45\n  }\n }\n"
     " Model: 4, \"Model::Prop\", \"Null\" {\n  Properties70: {\n   P: \"Lcl Translation\", \"Lcl "
-    "Translation\", \"\", \"A\",0,0,0\n  }\n }\n"
+    "Translation\", \"\", \"A\",0,0,0\n   P: \"RotationOrder\", \"enum\", \"\", \"A\",9\n  }\n }\n"
     " AnimationStack: 100, \"AnimStack::Walk\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
     "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46186158000\n  }\n }\n"
     " AnimationLayer: 101, \"AnimLayer::Base\", \"\" {\n }\n"
@@ -92,7 +100,7 @@ static const char kScene[] =
     "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
     "\"A\",46186158000\n  }\n }\n"
     " AnimationLayer: 401, \"AnimLayer::Base\", \"\" {\n }\n"
-    " AnimationCurveNode: 410, \"AnimCurveNode::Inherit\", \"\" {\n  Properties70: {\n   P: "
+    " AnimationCurveNode: 410, \"AnimCurveNode::InheritType\", \"\" {\n  Properties70: {\n   P: "
     "\"d|InheritType\", \"Number\", \"\", \"A\",2\n  }\n }\n"
     " AnimationCurve: 411, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
     "KeyValueFloat: *2 {\n   a: 2,7\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
@@ -106,6 +114,104 @@ static const char kScene[] =
     "\"d|Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
     " AnimationCurve: 611, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46648019580\n  }\n  "
     "KeyValueFloat: *2 {\n   a: 0,9\n  }\n  KeyAttrFlags: *1 {\n   a: 2\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n  Post-Extrapolation: {\n   "
+    "Type: 82\n   Repetition: -1\n  }\n }\n"
+    " AnimationStack: 700, \"AnimStack::Still\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 701, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 710, \"AnimCurveNode::T\", \"\" {\n  Properties70: {\n   P: \"d|X\", "
+    "\"Number\", \"\", \"A\",0\n   P: \"d|Y\", \"Number\", \"\", \"A\",0\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurve: 711, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,4\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationStack: 800, \"AnimStack::Active\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 801, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 810, \"AnimCurveNode::RotationActive\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|RotationActive\", \"Number\", \"\", \"A\",1\n  }\n }\n"
+    " AnimationCurve: 811, \"AnimCurve::\", \"\" {\n  KeyTime: *1 {\n   a: 0\n  }\n  "
+    "KeyValueFloat: *1 {\n   a: 1\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: *4 "
+    "{\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 1\n  }\n }\n"
+    " AnimationStack: 900, \"AnimStack::Props\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 901, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationLayer: 902, \"AnimLayer::Add\", \"\" {\n  Properties70: {\n   P: \"Weight\", "
+    "\"Number\", \"\", \"A\",100\n  }\n }\n"
+    " AnimationCurveNode: 910, \"AnimCurveNode::Tint\", \"\" {\n  Properties70: {\n   P: \"d|X\", "
+    "\"Number\", \"\", \"A\",0.1\n   P: \"d|Y\", \"Number\", \"\", \"A\",0.2\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0.3\n  }\n }\n"
+    " AnimationCurve: 912, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,1\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationCurveNode: 913, \"AnimCurveNode::Missing\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|X\", \"Number\", \"\", \"A\",0\n   P: \"d|Y\", \"Number\", \"\", \"A\",0\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurve: 914, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,2\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationCurveNode: 915, \"AnimCurveNode::Lone\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|Lone\", \"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurve: 916, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,3\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationCurveNode: 917, \"AnimCurveNode::Glow\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
+    " AnimationCurve: 918, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,1\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationCurveNode: 919, \"AnimCurveNode::Glow\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
+    " AnimationCurve: 920, \"AnimCurve::\", \"\" {\n  KeyTime: *1 {\n   a: 0\n  }\n  "
+    "KeyValueFloat: *1 {\n   a: 0.5\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 1\n  }\n }\n"
+    " AnimationStack: 1000, \"AnimStack::Clash\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 1001, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 1010, \"AnimCurveNode::Tint\", \"\" {\n  Properties70: {\n   P: \"d|X\", "
+    "\"Number\", \"\", \"A\",0\n   P: \"d|Y\", \"Number\", \"\", \"A\",0\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurveNode: 1011, \"AnimCurveNode::Tint/0\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|Tint/0\", \"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurve: 1012, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,1\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationStack: 1100, \"AnimStack::Broken\", \"\" {\n  Properties70: {\n   P: "
+    "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
+    "\"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 1101, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 1110, \"AnimCurveNode::T\", \"\" {\n  Properties70: {\n   P: \"d|X\", "
+    "\"Number\", \"\", \"A\",0\n   P: \"d|Y\", \"Number\", \"\", \"A\",1\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurve: 1111, \"AnimCurve::\", \"\" {\n  KeyValueFloat: *1 {\n   a: 0\n  }\n }\n"
+    " AnimationStack: 1200, \"AnimStack::Below\", \"\" {\n  Properties70: {\n   P: \"LocalStart\", "
+    "\"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", \"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 1201, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 1210, \"AnimCurveNode::InheritType\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|InheritType\", \"Number\", \"\", \"A\",2\n  }\n }\n"
+    " AnimationCurve: 1211, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,46186158000\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 2,-3\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  KeyAttrDataFloat: "
+    "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
+    " AnimationStack: 1300, \"AnimStack::Layered\", \"\" {\n  Properties70: {\n   P: "
+    "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
+    "\"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 1301, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationLayer: 1302, \"AnimLayer::Add\", \"\" {\n  Properties70: {\n   P: \"Weight\", "
+    "\"Number\", \"\", \"A\",100\n  }\n }\n"
+    " AnimationCurveNode: 1310, \"AnimCurveNode::R\", \"\" {\n  Properties70: {\n   P: \"d|X\", "
+    "\"Number\", \"\", \"A\",90\n   P: \"d|Y\", \"Number\", \"\", \"A\",0\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationCurveNode: 1311, \"AnimCurveNode::R\", \"\" {\n  Properties70: {\n   P: \"d|X\", "
+    "\"Number\", \"\", \"A\",0\n   P: \"d|Y\", \"Number\", \"\", \"A\",90\n   P: \"d|Z\", "
+    "\"Number\", \"\", \"A\",0\n  }\n }\n"
+    " AnimationStack: 1400, \"AnimStack::Frames\", \"\" {\n  Properties70: {\n   P: "
+    "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
+    "\"A\",46186158000\n  }\n }\n"
+    " AnimationLayer: 1401, \"AnimLayer::Base\", \"\" {\n }\n"
+    " AnimationCurveNode: 1410, \"AnimCurveNode::Glow\", \"\" {\n  Properties70: {\n   P: "
+    "\"d|Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
+    " AnimationCurve: 1411, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,4623232993\n  }\n  "
+    "KeyValueFloat: *2 {\n   a: 0,5\n  }\n  KeyAttrFlags: *1 {\n   a: 2\n  }\n  KeyAttrDataFloat: "
     "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
     "}\n"
     "Connections: {\n"
@@ -124,6 +230,25 @@ static const char kScene[] =
     "\"OP\",411,410, \"d|InheritType\"\n"
     " C: \"OO\",601,600\n C: \"OO\",610,601\n C: \"OP\",610,2, \"Glow\"\n C: \"OP\",611,610, "
     "\"d|Glow\"\n"
+    " C: \"OO\",701,700\n C: \"OO\",710,701\n C: \"OP\",710,4, \"Lcl Translation\"\n C: "
+    "\"OP\",711,710, \"d|X\"\n"
+    " C: \"OO\",801,800\n C: \"OO\",810,801\n C: \"OP\",810,3, \"RotationActive\"\n C: "
+    "\"OP\",811,810, \"d|RotationActive\"\n"
+    " C: \"OO\",901,900\n C: \"OO\",902,900\n C: \"OO\",910,901\n C: \"OP\",910,2, \"Tint\"\n C: "
+    "\"OP\",912,910, \"d|X\"\n C: \"OO\",913,901\n C: \"OP\",913,2, \"Missing\"\n C: "
+    "\"OP\",914,913, \"d|Y\"\n C: \"OO\",915,901\n C: \"OP\",915,2, \"Lone\"\n C: \"OP\",916,915, "
+    "\"d|Lone\"\n C: \"OO\",917,901\n C: \"OP\",917,2, \"Glow\"\n C: \"OP\",918,917, \"d|Glow\"\n "
+    "C: \"OO\",919,902\n C: \"OP\",919,2, \"Glow\"\n C: \"OP\",920,919, \"d|Glow\"\n"
+    " C: \"OO\",1001,1000\n C: \"OO\",1010,1001\n C: \"OP\",1010,2, \"Tint\"\n C: "
+    "\"OO\",1011,1001\n C: \"OP\",1011,2, \"Tint/0\"\n C: \"OP\",1012,1011, \"d|Tint/0\"\n"
+    " C: \"OO\",1101,1100\n C: \"OO\",1110,1101\n C: \"OP\",1110,1, \"Lcl Translation\"\n C: "
+    "\"OP\",1111,1110, \"d|X\"\n"
+    " C: \"OO\",1201,1200\n C: \"OO\",1210,1201\n C: \"OP\",1210,3, \"InheritType\"\n C: "
+    "\"OP\",1211,1210, \"d|InheritType\"\n"
+    " C: \"OO\",1301,1300\n C: \"OO\",1302,1300\n C: \"OO\",1310,1301\n C: \"OP\",1310,2, \"Lcl "
+    "Rotation\"\n C: \"OO\",1311,1302\n C: \"OP\",1311,2, \"Lcl Rotation\"\n"
+    " C: \"OO\",1401,1400\n C: \"OO\",1410,1401\n C: \"OP\",1410,2, \"Glow\"\n C: "
+    "\"OP\",1411,1410, \"d|Glow\"\n"
     "}\n";
 
 static _Alignas(16) uint8_t s_skeletonFile[16384];
@@ -259,8 +384,8 @@ static void TestNames(void)
     maniFbx* fbx = Open(builder, kScene);
     uint32_t length = 0;
     const char* name = maniFbxClipName(fbx, 2, &length);
-    CHECK(maniFbxClipCount(fbx) == 6 && name != NULL && length == 5 &&
-              memcmp(name, "Shear", 5) == 0 && maniFbxClipName(fbx, 6, &length) == NULL &&
+    CHECK(maniFbxClipCount(fbx) == 14 && name != NULL && length == 5 &&
+              memcmp(name, "Shear", 5) == 0 && maniFbxClipName(fbx, 14, &length) == NULL &&
               length == 0 && maniFbxClipCount(NULL) == 0,
           "clips and their names");
     maniFbxOptions options = maniDefaultFbxOptions();
@@ -428,6 +553,191 @@ static void TestEnds(void)
     maniDestroyBuilder(builder);
 }
 
+// Replaces in s_text itself.
+static void ReplaceAgain(const char* from, const char* to)
+{
+    static char copy[16384];
+    snprintf(copy, sizeof copy, "%s", s_text);
+    const char* at = strstr(copy, from);
+    snprintf(s_text, sizeof s_text, "%.*s%s%s", (int)(at - copy), copy, to, at + strlen(from));
+}
+
+// A clip of a text for skeleton 0 under options, with a sample rate.
+static bool BuildText(const char* text, uint32_t index, const maniFbxOptions* options, float rate,
+                      maniBuilder** builderOut, maniSkeleton* skeleton, maniClip* clip)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, text);
+    bool right = fbx != NULL && Skeleton(builder, fbx, options, skeleton) &&
+                 maniFbxBuildClip(builder, fbx, index, skeleton, options, rate, maniLoopClamp, NULL)
+                         .result == mani_success &&
+                 OpenClip(builder, clip);
+    maniCloseFbx(fbx);
+    *builderOut = builder;
+    return right;
+}
+
+static maniTransform LocalAt(const maniClip* clip, const maniSkeleton* skeleton, const char* bone,
+                             float time)
+{
+    maniPose* pose = NULL;
+    maniTransform none = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
+    if (maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
+        maniSampleClip(clip, skeleton, time, pose) != mani_success)
+    {
+        return none;
+    }
+    return maniPoseLocal(pose, maniSkeletonFindBone(skeleton, bone, strlen(bone)));
+}
+
+static void TestOptions(void)
+{
+    maniBuilder* builder = NULL;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    CHECK(BuildText(kScene, 0, &options, 10.0f, &builder, &skeleton, &clip) &&
+              maniClipSampleRate(&clip) == 10.0f && maniClipSampleCount(&clip) == 11,
+          "a rate given");
+    maniDestroyBuilder(builder);
+    // Units: a centimetre file in units of 2 cm.
+    options.unitMeters = 0.02;
+    CHECK(BuildText(kScene, 0, &options, 0.0f, &builder, &skeleton, &clip) &&
+              NearVec(LocalAt(&clip, &skeleton, "Hips", 0.5f).translation, 0.75, 0.5, 0),
+          "the unit applied to samples");
+    maniDestroyBuilder(builder);
+    // Hips scale-ignoring (RrSs) under Rig scaled 2: folded, the placement
+    // is Rig's unscaled world and Hips' own transform takes Rig's scale.
+    Replace("P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,0,5\n",
+            "P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",0,0,5\n"
+            "   P: \"Lcl Scaling\", \"Lcl Scaling\", \"\", \"A\",2,2,2\n");
+    ReplaceAgain("Model::Hips\", \"LimbNode\" {\n  Properties70: {\n",
+                 "Model::Hips\", \"LimbNode\" {\n  Properties70: {\n"
+                 "   P: \"InheritType\", \"enum\", \"\", \"\",1\n");
+    options = maniDefaultFbxOptions();
+    options.foldPlacement = 1;
+    bool built = BuildText(s_text, 0, &options, 0.0f, &builder, &skeleton, &clip);
+    maniTransform h = LocalAt(&clip, &skeleton, "Hips", 0.5f);
+    CHECK(built && NearVec(h.translation, 3, 2, 5.5) && NearVec(h.scale, 2, 2, 2),
+          "a scale-ignoring root folded under its parent's unscaled world");
+    maniDestroyBuilder(builder);
+}
+
+// Another skeleton: Spine, its helper, and Hips under the helper.
+static bool Helpered(maniBuilder* builder, maniSkeleton* out)
+{
+    const maniTransform rest = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
+    const maniBoneSource bones[3] = {
+        {"Spine", 5, -1, rest}, {"Spine#unscaled", 14, 0, rest}, {"Hips", 4, 1, rest}};
+    maniSkeletonSource source = {bones, 3, 0};
+    size_t size = 0;
+    return maniBuildSkeleton(builder, &source).result == mani_success &&
+           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+           maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
+}
+
+static void TestHelperFrame(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kScene);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    maniClip clip;
+    bool built = fbx != NULL && Helpered(builder, &skeleton) &&
+                 BuildFor(builder, fbx, 0, &skeleton, &options, &clip);
+    bool right = built;
+    for (int k = 0; k <= 30 && built; k += 10)
+    {
+        double t = (double)k / 30.0;
+        double turn = 90.0 * t * 3.14159265358979323846 / 180.0;
+        maniTransform h = LocalAt(&clip, &skeleton, "Hips", (float)t);
+        // Relative to Spine's unscaled world: R(-90t) T(0 -1 0), no scale.
+        right = right && NearVec(h.translation, -sin(turn), -cos(turn), 0) &&
+                AboutZ(h.rotation, -90 * t) && NearVec(h.scale, 1, 1, 1);
+    }
+    CHECK(right, "a bone relative to a helper's unscaled world");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+static void TestTracks(void)
+{
+    maniBuilder* builder = NULL;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    // Still moves no bone: its clip is the size of one with no tracks.
+    bool built = BuildText(kScene, 6, &options, 0.0f, &builder, &skeleton, &clip);
+    size_t size = 0;
+    (void)maniCopyBuilt(builder, NULL, 0, &size);
+    maniClipSource empty = {
+        .skeleton = &skeleton, .loop = maniLoopClamp, .sampleRate = 30.0f, .duration = 1.0f};
+    size_t reference = 0;
+    CHECK(built && maniBuildClip(builder, &empty).result == mani_success &&
+              maniCopyBuilt(builder, NULL, 0, &reference) == mani_errorCapacity &&
+              size == reference,
+          "no bone moved, no track");
+    maniDestroyBuilder(builder);
+    CHECK(BuildText(kScene, 7, &options, 0.0f, &builder, &skeleton, &clip) &&
+              maniClipFloatTrackCount(&clip) == 0,
+          "a transform input animated is no float track");
+    maniDestroyBuilder(builder);
+    built = BuildText(kScene, 8, &options, 0.0f, &builder, &skeleton, &clip);
+    static const char* const kNames[8] = {"Spine/Tint/0",    "Spine/Tint/1",    "Spine/Tint/2",
+                                          "Spine/Missing/0", "Spine/Missing/1", "Spine/Missing/2",
+                                          "Spine/Lone",      "Spine/Glow"};
+    static const double kAtHalf[8] = {0.5, 0.2, 0.3, 0, 1, 0, 1.5, 1.0};
+    bool right = built && maniClipFloatTrackCount(&clip) == 8;
+    float values[8] = {0};
+    right = right && maniSampleClipFloats(&clip, 0.5f, values, 8, NULL) == mani_success;
+    for (int k = 0; k < 8 && right; ++k)
+    {
+        uint32_t track = maniClipFindFloatTrack(&clip, kNames[k], strlen(kNames[k]));
+        right = track != MANI_NO_TRACK && Near(values[track], kAtHalf[k]);
+    }
+    CHECK(right, "float tracks: a colour's components, entries missing, one name over layers");
+    maniDestroyBuilder(builder);
+    options.inheritHelpers = 1;
+    CHECK(BuildText(kScene, 0, &options, 0.0f, &builder, &skeleton, &clip) &&
+              maniClipFloatTrackCount(&clip) == 1,
+          "no float tracks for helpers");
+    maniDestroyBuilder(builder);
+}
+
+// Rx(90) composed with Ry(90), either sign.
+static bool Composed(maniQuat q)
+{
+    double h = sqrt(0.5);
+    // (x w)(y w) for halves: x = h h, y = h h, z = h h, w = h h.
+    double v = h * h;
+    bool plus = Near(q.x, v) && Near(q.y, v) && Near(q.z, v) && Near(q.w, v);
+    bool minus = Near(q.x, -v) && Near(q.y, -v) && Near(q.z, -v) && Near(q.w, -v);
+    return plus || minus;
+}
+
+static void TestTimes(void)
+{
+    maniBuilder* builder = NULL;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    CHECK(BuildText(kScene, 12, &options, 0.0f, &builder, &skeleton, &clip) &&
+              Composed(LocalAt(&clip, &skeleton, "Spine", 0.5f).rotation),
+          "layers composed in the model's rotation order");
+    maniDestroyBuilder(builder);
+    Replace("; FBX 7.4.0 project file\n",
+            "; FBX 7.4.0 project file\nGlobalSettings: {\n Properties70: {\n"
+            "  P: \"TimeMode\", \"enum\", \"\", \"\",9\n }\n}\n");
+    bool built = BuildText(s_text, 13, &options, 0.0f, &builder, &skeleton, &clip);
+    float values[1] = {0};
+    // Sample 3's time on the clip's grid.
+    float third = (float)(3.0 / (double)(float)(30000.0 / 1001.0));
+    CHECK(built && maniSampleClipFloats(&clip, third, values, 1, NULL) == mani_success &&
+              fabs((double)values[0] - 5.0) <= 1e-4,
+          "a key on an NTSC frame lands on its sample");
+    maniDestroyBuilder(builder);
+}
+
 static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const char* at,
                           uint32_t item, const char* what)
 {
@@ -455,6 +765,26 @@ static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const cha
 
 static void TestRefusals(void)
 {
+    ExpectRefusal(9, maniImportReasonName, "Model: 2,", 2, "two float tracks of one name");
+    ExpectRefusal(10, maniImportReasonProperty, "AnimationCurve: 1111", 10,
+                  "a stack's curve refused, the clip as item");
+    ExpectRefusal(11, maniImportReasonProperty, "Model: 3,", 3, "an inherit type below its range");
+    Replace("a: 0,3\n", "a: 0,1e300\n");
+    {
+        maniBuilder* builder = NewBuilder();
+        maniFbx* fbx = Open(builder, s_text);
+        maniFbxOptions options = maniDefaultFbxOptions();
+        maniSkeleton skeleton;
+        maniImportResult r = {mani_errorInvalid, 0, 0, 0, 0};
+        if (fbx != NULL && Skeleton(builder, fbx, &options, &skeleton))
+        {
+            r = maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, NULL);
+        }
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonMatrix && r.item == 1,
+              "a local past binary32's range");
+        maniCloseFbx(fbx);
+        maniDestroyBuilder(builder);
+    }
     // Models in file order: Rig 0, Hips 1, Spine 2, Arm 3, Prop 4.
     ExpectRefusal(2, maniImportReasonMatrix, "Model: 3,", 3, "a sheared local");
     ExpectRefusal(3, maniImportReasonProperty, "Model: 3,", 3, "an inherit type past its range");
@@ -465,7 +795,7 @@ static void TestRefusals(void)
     bool opened = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton);
     CHECK(
         opened &&
-            maniFbxBuildClip(builder, fbx, 6, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
+            maniFbxBuildClip(builder, fbx, 14, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
                     .result == mani_errorInvalid &&
             maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, -1.0f, maniLoopClamp, NULL)
                     .result == mani_errorInvalid &&
@@ -487,6 +817,10 @@ int main(void)
     TestHelpers();
     TestRates();
     TestEnds();
+    TestOptions();
+    TestHelperFrame();
+    TestTracks();
+    TestTimes();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

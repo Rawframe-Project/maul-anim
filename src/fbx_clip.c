@@ -388,7 +388,7 @@ static maniImportResult Sample(Clip* c)
 }
 
 // Which of a bone's channels leave its rest: bits for translation,
-// rotation (either sign) and scale.
+// rotation and scale (a rotation of the other sign is a track, harmless).
 static uint32_t Moving(const Clip* c, uint32_t b)
 {
     float rest[10];
@@ -399,15 +399,8 @@ static uint32_t Moving(const Clip* c, uint32_t b)
     {
         float t[10];
         Floats(&c->poses[(size_t)k * c->boneCount + b], t);
-        bool sameRotation = true;
-        bool oppositeRotation = true;
-        for (uint32_t i = 3; i < 7; ++i)
-        {
-            sameRotation = sameRotation && t[i] == rest[i];
-            oppositeRotation = oppositeRotation && t[i] == -rest[i];
-        }
         bits |= t[0] != rest[0] || t[1] != rest[1] || t[2] != rest[2] ? 1u : 0u;
-        bits |= !sameRotation && !oppositeRotation ? 2u : 0u;
+        bits |= t[3] != rest[3] || t[4] != rest[4] || t[5] != rest[5] || t[6] != rest[6] ? 2u : 0u;
         bits |= t[7] != rest[7] || t[8] != rest[8] || t[9] != rest[9] ? 4u : 0u;
     }
     return bits;
