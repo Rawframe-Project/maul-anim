@@ -38,7 +38,10 @@ static _Alignas(16) uint8_t s_skeletonFiles[2][4096];
 static maniSkeleton s_skeletons[2];
 static int s_skeletonCount = -1;
 static _Alignas(32) uint8_t s_poseMemory[8192];
+static _Alignas(32) uint8_t s_cursorPoseMemory[8192];
+static _Alignas(8) uint8_t s_cursorMemory[1 << 16];
 static float s_values[64];
+static float s_cursorValues[64];
 
 static void BuildSkeletons(void)
 {
@@ -65,6 +68,46 @@ static void BuildSkeletons(void)
     maniDestroyBuilder(builder);
 }
 
+// The same bits from random access and through a cursor, and for some
+// bones alone.
+static void Compare(const maniClip* clip, const maniSkeleton* skeleton, const maniPose* pose,
+                    maniClipCursor* cursor, maniPose* other, float time)
+{
+    if (maniSampleClipCursor(cursor, clip, skeleton, time, other) == mani_success)
+    {
+        for (uint32_t b = 0; b < maniSkeletonBoneCount(skeleton); ++b)
+        {
+            maniTransform x = maniPoseLocal(pose, b);
+            maniTransform y = maniPoseLocal(other, b);
+            if (memcmp(&x, &y, sizeof x) != 0)
+            {
+                abort();
+            }
+        }
+    }
+    uint32_t bones[2] = {0, maniSkeletonBoneCount(skeleton) - 1};
+    if (maniSampleClipBones(clip, skeleton, time, bones, bones[1] > 0 ? 2 : 1, other) ==
+        mani_success)
+    {
+        for (uint32_t i = 0; i < 2; ++i)
+        {
+            maniTransform x = maniPoseLocal(pose, bones[i]);
+            maniTransform y = maniPoseLocal(other, bones[i]);
+            if (memcmp(&x, &y, sizeof x) != 0)
+            {
+                abort();
+            }
+        }
+    }
+    uint32_t n = 0;
+    if (maniSampleClipFloats(clip, time, s_values, 64, &n) == mani_success &&
+        maniSampleClipFloatsCursor(cursor, clip, time, s_cursorValues, 64, &n) == mani_success &&
+        memcmp(s_values, s_cursorValues, n * sizeof(float)) != 0)
+    {
+        abort();
+    }
+}
+
 // Samples a clip of a seed's skeleton at times inside and outside it.
 static void Sample(const maniClip* clip)
 {
@@ -72,8 +115,13 @@ static void Sample(const maniClip* clip)
     {
         const maniSkeleton* skeleton = &s_skeletons[i];
         maniPose* pose = NULL;
+        maniPose* other = NULL;
+        maniClipCursor* cursor = NULL;
         if (maniClipSkeletonIdentity(clip) != maniSkeletonIdentity(skeleton) ||
-            maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success)
+            maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
+            maniInitPose(skeleton, s_cursorPoseMemory, sizeof s_cursorPoseMemory, &other) !=
+                mani_success ||
+            maniInitClipCursor(s_cursorMemory, sizeof s_cursorMemory, &cursor) != mani_success)
         {
             continue;
         }
@@ -89,6 +137,10 @@ static void Sample(const maniClip* clip)
                 (floats == mani_success) != fits)
             {
                 abort();
+            }
+            if (bones == mani_success)
+            {
+                Compare(clip, skeleton, pose, cursor, other, times[t]);
             }
         }
     }

@@ -293,8 +293,14 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
         return Fail(40);
     }
     clip.samples = compressed ? NULL : data[2];
+    clip.identity = c.identity;
     *clipOut = clip;
     return (maniFileResult){mani_success, 0, 0};
+}
+
+uint64_t maniClipIdentity(const maniClip* clip)
+{
+    return clip->identity;
 }
 
 bool maniClipCompressed(const maniClip* clip)
@@ -327,15 +333,13 @@ uint64_t maniClipSkeletonIdentity(const maniClip* clip)
     return clip->skeletonIdentity;
 }
 
-// The two samples around a time and the factor between them.
-static void Locate(const maniClip* clip, float time, uint32_t* firstOut, float* alphaOut)
+maniClipPair maniClipLocate(const maniClip* clip, float time)
 {
-    *firstOut = 0;
-    *alphaOut = 0.0f;
+    maniClipPair pair = {0, 0, 0.0f, NULL, NULL};
     uint32_t n = clip->sampleCount;
     if (n == 1)
     {
-        return;
+        return pair;
     }
     float t = time > 0.0f ? time : 0.0f;
     t = t < clip->duration ? t : clip->duration;
@@ -344,8 +348,10 @@ static void Locate(const maniClip* clip, float time, uint32_t* firstOut, float* 
     float start = (float)i / clip->sampleRate;
     float end = i + 1 == n - 1 ? clip->duration : (float)(i + 1) / clip->sampleRate;
     float alpha = end > start ? (t - start) / (end - start) : 0.0f;
-    *firstOut = i;
-    *alphaOut = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
+    pair.first = i;
+    pair.second = i + 1;
+    pair.alpha = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
+    return pair;
 }
 
 static maniVec3 LerpVec3(const uint8_t* a, const uint8_t* b, float alpha)
@@ -375,34 +381,57 @@ static maniQuat NlerpQuat(const uint8_t* a, const uint8_t* b, float alpha)
     return maniQuatNormalize(q);
 }
 
-// The full-precision samples first and second at alpha into the pose.
-static void SampleFull(const maniClip* clip, uint32_t first, uint32_t second, float alpha,
+// Whether a list (or none, every bone) takes a bone; next walks the
+// list along increasing bones.
+static bool Listed(const maniBoneList* list, uint32_t bone, uint32_t* next)
+{
+    if (list == NULL)
+    {
+        return true;
+    }
+    while (*next < list->count && list->bones[*next] < bone)
+    {
+        ++*next;
+    }
+    return *next < list->count && list->bones[*next] == bone;
+}
+
+// The full-precision samples of a pair into the pose.
+static void SampleFull(const maniClip* clip, const maniClipPair* pair, const maniBoneList* list,
                        maniPose* pose)
 {
     size_t stride = 4 * (size_t)clip->floatsPerSample;
-    const uint8_t* a = clip->samples + stride * first;
-    const uint8_t* b = clip->samples + stride * second;
+    const uint8_t* a = clip->samples + stride * pair->first;
+    const uint8_t* b = clip->samples + stride * pair->second;
+    uint32_t next = 0;
     for (uint32_t i = 0; i < clip->trackCount; ++i)
     {
         const uint8_t* entry = clip->tracks + (size_t)i * MANI_CLIP_TRACK_SIZE;
         uint32_t bone = maniLoadU16(entry);
         uint32_t mask = entry[2];
+        if (!Listed(list, bone, &next))
+        {
+            size_t skip = 4 * (size_t)maniChannelFloats(mask);
+            a += skip;
+            b += skip;
+            continue;
+        }
         maniTransform local = maniPoseLocal(pose, bone);
         if (mask & maniChannelTranslation)
         {
-            local.translation = LerpVec3(a, b, alpha);
+            local.translation = LerpVec3(a, b, pair->alpha);
             a += 12;
             b += 12;
         }
         if (mask & maniChannelRotation)
         {
-            local.rotation = NlerpQuat(a, b, alpha);
+            local.rotation = NlerpQuat(a, b, pair->alpha);
             a += 16;
             b += 16;
         }
         if (mask & maniChannelScale)
         {
-            local.scale = LerpVec3(a, b, alpha);
+            local.scale = LerpVec3(a, b, pair->alpha);
             a += 12;
             b += 12;
         }
@@ -410,34 +439,70 @@ static void SampleFull(const maniClip* clip, uint32_t first, uint32_t second, fl
     }
 }
 
+static void SampleFullFloats(const maniClip* clip, const maniClipPair* pair, float* values)
+{
+    size_t stride = 4 * (size_t)clip->floatTrackCount;
+    const uint8_t* a = clip->floatSamples + stride * pair->first;
+    const uint8_t* b = clip->floatSamples + stride * pair->second;
+    for (uint32_t i = 0; i < clip->floatTrackCount; ++i)
+    {
+        float va = LoadF32(a + 4 * (size_t)i);
+        float vb = LoadF32(b + 4 * (size_t)i);
+        bool step =
+            maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
+        // A step track holds the sample at or before the time.
+        values[i] = step ? (pair->alpha < 1.0f ? va : vb) : va + (vb - va) * pair->alpha;
+    }
+}
+
+void maniSampleClipPair(const maniClip* clip, const maniClipPair* pair, const maniBoneList* list,
+                        maniPose* pose)
+{
+    if (clip->compressed)
+    {
+        maniSampleCompressedBones(clip, pair, list, pose);
+    }
+    else
+    {
+        SampleFull(clip, pair, list, pose);
+    }
+}
+
+void maniSampleClipPairFloats(const maniClip* clip, const maniClipPair* pair, float* values)
+{
+    if (clip->compressed)
+    {
+        maniSampleCompressedFloats(clip, pair, values);
+    }
+    else
+    {
+        SampleFullFloats(clip, pair, values);
+    }
+}
+
 void maniSampleClipAt(const maniClip* clip, const maniSkeleton* skeleton, uint32_t k,
                       maniPose* pose, float* values)
 {
     (void)maniPoseSetRestLocals(pose, skeleton);
-    if (clip->compressed)
+    maniClipPair pair = {k, k, 0.0f, NULL, NULL};
+    maniSampleClipPair(clip, &pair, NULL, pose);
+    if (values != NULL)
     {
-        maniSampleCompressedBones(clip, k, k, 0.0f, pose);
+        maniSampleClipPairFloats(clip, &pair, values);
     }
-    else
-    {
-        SampleFull(clip, k, k, 0.0f, pose);
-    }
-    if (values != NULL && clip->compressed)
-    {
-        maniSampleCompressedFloats(clip, k, k, 0.0f, values);
-    }
-    for (uint32_t i = 0; values != NULL && !clip->compressed && i < clip->floatTrackCount; ++i)
-    {
-        values[i] = LoadF32(clip->floatSamples + 4 * ((size_t)k * clip->floatTrackCount + i));
-    }
+}
+
+bool maniClipFits(const maniClip* clip, const maniSkeleton* skeleton, const maniPose* pose)
+{
+    return clip != NULL && maniPoseMatches(pose, skeleton) &&
+           clip->skeletonIdentity == skeleton->identity &&
+           clip->skeletonBoneCount == skeleton->boneCount;
 }
 
 maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
                           maniPose* pose)
 {
-    if (clip == NULL || !maniPoseMatches(pose, skeleton) ||
-        clip->skeletonIdentity != skeleton->identity ||
-        clip->skeletonBoneCount != skeleton->boneCount)
+    if (!maniClipFits(clip, skeleton, pose))
     {
         return mani_errorInvalid;
     }
@@ -446,18 +511,32 @@ maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, fl
     {
         return result;
     }
-    uint32_t first = 0;
-    float alpha = 0.0f;
-    Locate(clip, time, &first, &alpha);
-    uint32_t second = clip->sampleCount > 1 ? first + 1 : first;
-    if (clip->compressed)
+    maniClipPair pair = maniClipLocate(clip, time);
+    maniSampleClipPair(clip, &pair, NULL, pose);
+    return mani_success;
+}
+
+maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                               const uint32_t* bones, uint32_t count, maniPose* pose)
+{
+    if (!maniClipFits(clip, skeleton, pose) || (bones == NULL && count > 0))
     {
-        maniSampleCompressedBones(clip, first, second, alpha, pose);
+        return mani_errorInvalid;
     }
-    else
+    for (uint32_t i = 0; i < count; ++i)
     {
-        SampleFull(clip, first, second, alpha, pose);
+        if (bones[i] >= skeleton->boneCount || (i > 0 && bones[i] <= bones[i - 1]))
+        {
+            return mani_errorInvalid;
+        }
     }
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        maniPoseSetLocal(pose, bones[i], maniSkeletonRest(skeleton, bones[i]));
+    }
+    maniClipPair pair = maniClipLocate(clip, time);
+    maniBoneList list = {bones, count};
+    maniSampleClipPair(clip, &pair, &list, pose);
     return mani_success;
 }
 
@@ -476,26 +555,7 @@ maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values,
     {
         return mani_errorCapacity;
     }
-    uint32_t first = 0;
-    float alpha = 0.0f;
-    Locate(clip, time, &first, &alpha);
-    uint32_t second = clip->sampleCount > 1 ? first + 1 : first;
-    if (clip->compressed)
-    {
-        maniSampleCompressedFloats(clip, first, second, alpha, values);
-        return mani_success;
-    }
-    size_t stride = 4 * (size_t)clip->floatTrackCount;
-    const uint8_t* a = clip->floatSamples + stride * first;
-    const uint8_t* b = clip->floatSamples + stride * second;
-    for (uint32_t i = 0; i < clip->floatTrackCount; ++i)
-    {
-        float va = LoadF32(a + 4 * (size_t)i);
-        float vb = LoadF32(b + 4 * (size_t)i);
-        bool step =
-            maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
-        // A step track holds the sample at or before the time.
-        values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha;
-    }
+    maniClipPair pair = maniClipLocate(clip, time);
+    maniSampleClipPairFloats(clip, &pair, values);
     return mani_success;
 }

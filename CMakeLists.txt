@@ -47,6 +47,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/clip.c
     src/clip_codec.c
     src/clip_compressed.c
+    src/clip_cursor.c
     src/clip_tracks.c
     src/container.c
     src/decompose.c

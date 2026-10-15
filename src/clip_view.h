@@ -14,6 +14,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/pose.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 // Checks sections 4 to 10 against the counts the header gave (in clip)
@@ -26,20 +27,55 @@ maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* si
 maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_t* sizes,
                                        const uint64_t* at, maniClip* clip);
 
+// The two samples a time falls between and the factor between them;
+// with caches (not NULL), their decoded values (maniDecodeCompressedSample).
+typedef struct maniClipPair
+{
+    uint32_t first;
+    uint32_t second;
+    float alpha;
+    const float* cacheA;
+    const float* cacheB;
+} maniClipPair;
+
+// A list of bones, strictly increasing.
+typedef struct maniBoneList
+{
+    const uint32_t* bones;
+    uint32_t count;
+} maniBoneList;
+
+// Whether a clip, a skeleton and a pose go together (none NULL).
+bool maniClipFits(const maniClip* clip, const maniSkeleton* skeleton, const maniPose* pose);
+
+// The two samples a time falls between and the factor; no caches.
+maniClipPair maniClipLocate(const maniClip* clip, float time);
+
+// A clip of either form at a pair into a pose whose locals hold the rest
+// (every track's bone, or the listed ones); its float tracks.
+void maniSampleClipPair(const maniClip* clip, const maniClipPair* pair, const maniBoneList* list,
+                        maniPose* pose);
+void maniSampleClipPairFloats(const maniClip* clip, const maniClipPair* pair, float* values);
+
 // Sample k of a clip of either form, exactly: the clip's channels into
 // the pose (the rest elsewhere) and, when values is not NULL, its float
 // tracks. The clip and skeleton are known to match the pose.
 void maniSampleClipAt(const maniClip* clip, const maniSkeleton* skeleton, uint32_t k,
                       maniPose* pose, float* values);
 
-// A compressed clip's bone channels between samples first and second
-// at alpha, written over a pose whose locals hold the rest.
-void maniSampleCompressedBones(const maniClip* clip, uint32_t first, uint32_t second, float alpha,
-                               maniPose* pose);
+// A compressed clip's bone channels at a pair, over a pose whose locals
+// hold the rest: every track's bone, or only the listed ones (list not
+// NULL).
+void maniSampleCompressedBones(const maniClip* clip, const maniClipPair* pair,
+                               const maniBoneList* list, maniPose* pose);
 
-// A compressed clip's float tracks between two samples, in track order;
-// a step track (step[i] true) holds the first below alpha 1.
-void maniSampleCompressedFloats(const maniClip* clip, uint32_t first, uint32_t second, float alpha,
-                                float* values);
+// A compressed clip's float tracks at a pair, in track order; a step
+// track holds the first sample below alpha 1.
+void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, float* values);
+
+// The floats a decoded sample of a compressed clip holds: three per
+// animated bone channel, one per animated float track, in that order.
+uint32_t maniCompressedSampleFloats(const maniClip* clip);
+void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* out);
 
 #endif // MAUL_ANIM_SRC_CLIP_VIEW_H

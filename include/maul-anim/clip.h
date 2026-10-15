@@ -54,6 +54,7 @@ extern "C"
         const uint8_t* ranges;
         const uint8_t* segments;
         const uint8_t* segmentData;
+        uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
         uint32_t skeletonBoneCount;
@@ -68,6 +69,7 @@ extern "C"
         uint32_t compressed;
         uint32_t animatedChannels;
         uint32_t animatedFloats;
+        uint32_t constantChannels;
         float sampleRate;
         float duration;
         maniLoopPolicy loop;
@@ -145,6 +147,15 @@ extern "C"
     /// Safe from any thread.
     MANI_API maniLoopPolicy maniClipLoopPolicy(const maniClip* clip);
 
+    /// Returns the clip's identity: a hash of its sections, the same for
+    /// the same bytes.
+    ///
+    /// @param clip  An opened clip.
+    /// @return The identity.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniClipIdentity(const maniClip* clip);
+
     /// Returns the identity of the skeleton the clip is bound to.
     ///
     /// @param clip  An opened clip.
@@ -191,6 +202,99 @@ extern "C"
     /// Safe from any thread.
     MANI_API const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track,
                                                 uint32_t* lengthOut);
+
+    /// Samples some bones of the clip at a time, as maniSampleClip samples
+    /// them; every other bone's local is left as it was, and the clip's
+    /// other channels are not decoded.
+    ///
+    /// @param clip      An opened clip.
+    /// @param skeleton  The clip's skeleton.
+    /// @param time      The time in seconds.
+    /// @param bones     The bones, strictly increasing; may be NULL when
+    ///                  count is 0.
+    /// @param count     How many.
+    /// @param pose      A pose of the skeleton.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton that is not the clip's or the pose's, or bones out of
+    /// range or not increasing (the pose unchanged).
+    /// @par Thread safety
+    /// Safe from any thread; the pose is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSampleClipBones(const maniClip* clip,
+                                                           const maniSkeleton* skeleton, float time,
+                                                           const uint32_t* bones, uint32_t count,
+                                                           maniPose* pose);
+
+    // A cursor for playing clips forward: caller memory caching
+    // the decoded samples a time falls between, so a time moving by
+    // less than a sample decodes nothing and one moving by one sample
+    // decodes one. Poses and values are the same bits as without it.
+    typedef struct maniClipCursor maniClipCursor;
+
+#define MANI_CLIP_CURSOR_ALIGNMENT 8u
+
+    /// Returns the bytes a cursor needs to play a clip: a cursor made for
+    /// a clip plays any clip that needs no more.
+    ///
+    /// @param clip  An opened clip.
+    /// @return The size in bytes; 0 for a NULL clip.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniClipCursorSize(const maniClip* clip);
+
+    /// Makes a cursor in caller memory, bound to no clip yet.
+    ///
+    /// @param memory     At least maniClipCursorSize bytes,
+    ///                   MANI_CLIP_CURSOR_ALIGNMENT-aligned; the cursor
+    ///                   lives in it.
+    /// @param size       The memory's size; what it holds beyond the
+    ///                   smallest cursor sets the clips it can play.
+    /// @param cursorOut  Receives the cursor.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL or misaligned
+    /// argument; `mani_errorCapacity` when the memory is too small for
+    /// any cursor.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniInitClipCursor(void* memory, size_t size,
+                                                          maniClipCursor** cursorOut);
+
+    /// Samples the clip at a time into a pose, as maniSampleClip does,
+    /// through the cursor: a clip of another identity or at another
+    /// address rebinds it, dropping what it held.
+    ///
+    /// @param cursor    A cursor.
+    /// @param clip      An opened clip.
+    /// @param skeleton  The clip's skeleton.
+    /// @param time      The time in seconds.
+    /// @param pose      A pose of the skeleton.
+    /// @return `mani_success`; `mani_errorInvalid` as maniSampleClip, or
+    /// for a NULL cursor; `mani_errorCapacity` when the cursor is too
+    /// small for the clip (the cursor and pose unchanged).
+    /// @par Thread safety
+    /// Safe from any thread; the cursor and pose are used by one thread
+    /// at a time.
+    MANI_NODISCARD MANI_API maniResult maniSampleClipCursor(maniClipCursor* cursor,
+                                                            const maniClip* clip,
+                                                            const maniSkeleton* skeleton,
+                                                            float time, maniPose* pose);
+
+    /// Samples every float track at a time, as maniSampleClipFloats does,
+    /// through the cursor.
+    ///
+    /// @param cursor    A cursor.
+    /// @param clip      An opened clip.
+    /// @param time      The time in seconds.
+    /// @param values    Receives one value per track; may be NULL when
+    ///                  capacity is 0.
+    /// @param capacity  The array's length.
+    /// @param countOut  Receives the track count. May be NULL.
+    /// @return As maniSampleClipFloats; `mani_errorInvalid` also for a NULL
+    /// cursor; `mani_errorCapacity` also when the cursor is too small.
+    /// @par Thread safety
+    /// Safe from any thread; the cursor is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor,
+                                                                  const maniClip* clip, float time,
+                                                                  float* values, uint32_t capacity,
+                                                                  uint32_t* countOut);
 
     /// Finds a float track by name.
     ///
