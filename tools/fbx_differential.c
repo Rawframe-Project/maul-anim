@@ -385,24 +385,91 @@ static void KeepClipSkeleton(Context* c)
         maniFbxSkeletonPlacement(c->fbx, 0, &options, &c->placement).result == mani_success;
 }
 
-// The ufbx skin deformer our skin k stands for: the mesh's deformer of
-// the same rank among its skins.
-static ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k)
+// Whether a ufbx skin deformer belongs to no mesh.
+static bool Meshless(const ufbx_scene* scene, const ufbx_skin_deformer* skin)
+{
+    for (size_t n = 0; n < scene->meshes.count; ++n)
+    {
+        const ufbx_mesh* mesh = scene->meshes.data[n];
+        for (size_t k = 0; k < mesh->skin_deformers.count; ++k)
+        {
+            if (mesh->skin_deformers.data[k] == skin)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// The ufbx mesh node our skin k hangs from, or NULL when ufbx has none
+// there (no model, or a model without a mesh).
+static const ufbx_node* SkinMesh(const Context* c, uint32_t k)
 {
     uint32_t model = maniFbxSkinModel(c->fbx, k);
+    uint32_t length = 0;
+    const char* name = model != UINT32_MAX ? maniFbxModelBoneName(c->fbx, model, &length) : NULL;
+    const ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
+    return node != NULL && node->mesh != NULL ? node : NULL;
+}
+
+// The ufbx skin deformer our skin k stands for: its mesh's deformer of
+// the same rank among the mesh's skins, or for a skin ufbx places on no
+// mesh, its skin of no mesh of the same rank; the mesh into meshOut.
+static ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k, const ufbx_node** meshOut)
+{
+    const ufbx_node* mesh = SkinMesh(c, k);
     uint32_t rank = 0;
     for (uint32_t j = 0; j < k; ++j)
     {
-        rank += maniFbxSkinModel(c->fbx, j) == model ? 1 : 0;
+        rank += SkinMesh(c, j) == mesh ? 1 : 0;
     }
-    uint32_t length = 0;
-    const char* name = model != UINT32_MAX ? maniFbxModelBoneName(c->fbx, model, &length) : NULL;
-    ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
-    if (node == NULL || node->mesh == NULL || rank >= node->mesh->skin_deformers.count)
+    *meshOut = mesh;
+    for (size_t i = 0; mesh == NULL && i < c->scene->skin_deformers.count; ++i)
     {
-        return NULL;
+        ufbx_skin_deformer* skin = c->scene->skin_deformers.data[i];
+        if (Meshless(c->scene, skin) && rank-- == 0)
+        {
+            return skin;
+        }
     }
-    return node->mesh->skin_deformers.data[rank];
+    return mesh != NULL && rank < mesh->mesh->skin_deformers.count
+               ? mesh->mesh->skin_deformers.data[rank]
+               : NULL;
+}
+
+static bool AllZero(const ufbx_matrix* m)
+{
+    bool zero = true;
+    for (int i = 0; zero && i < 12; ++i)
+    {
+        zero = m->v[i] == 0.0;
+    }
+    return zero;
+}
+
+// A cluster's inverse bind as maul-anim takes it (mani-0015): ufbx's
+// geometry-to-bone matrix, or where ufbx has none (no Transform and
+// TransformLink pair, and no mesh to place it against, or no bind world
+// at all, which leaves ufbx's zero), the bone's bind world (ufbx's, from
+// the pair or a bind pose, else its world at rest) inverted times the
+// mesh's world and geometric transform at rest (the origin for a skin of
+// no mesh).
+static ufbx_matrix TheirBind(const ufbx_skin_cluster* cluster, const ufbx_node* mesh)
+{
+    if (!AllZero(&cluster->geometry_to_bone))
+    {
+        return cluster->geometry_to_bone;
+    }
+    const ufbx_matrix* world = AllZero(&cluster->bind_to_world) ? &cluster->bone_node->node_to_world
+                                                                : &cluster->bind_to_world;
+    ufbx_matrix inverse = ufbx_matrix_invert(world);
+    if (mesh == NULL)
+    {
+        return inverse;
+    }
+    ufbx_matrix geometry = ufbx_matrix_mul(&mesh->node_to_world, &mesh->geometry_to_node);
+    return ufbx_matrix_mul(&inverse, &geometry);
 }
 
 // Our joint j's cluster: the j-th that links a bone.
@@ -421,7 +488,8 @@ static ufbx_skin_cluster* TheirCluster(ufbx_skin_deformer* skin, uint32_t j)
 
 static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const maniSkeleton* skeleton)
 {
-    ufbx_skin_deformer* theirs = TheirSkin(c, k);
+    const ufbx_node* mesh = NULL;
+    ufbx_skin_deformer* theirs = TheirSkin(c, k, &mesh);
     uint32_t n = maniSkinJointCount(skin);
     for (uint32_t j = 0; theirs != NULL && j < n; ++j)
     {
@@ -436,7 +504,7 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
         for (int i = 0; i < 12; ++i)
         {
             ours[i] = (double)bind.m[i];
-            expected[i] = cluster != NULL ? cluster->geometry_to_bone.v[i] : 0.0;
+            expected[i] = cluster != NULL ? TheirBind(cluster, mesh).v[i] : 0.0;
             same = same && Near(ours[i], expected[i]);
         }
         if (c->expect)
@@ -445,7 +513,13 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
         }
         else if (!same)
         {
-            Mismatch(c, "bind", "skin %u joint %u %.*s", k, j, (int)length, name);
+            Mismatch(c, "bind",
+                     "skin %u joint %u %.*s: ours %g %g %g / %g %g %g / %g %g %g / %g %g %g; ufbx "
+                     "%g %g %g / %g %g %g / %g %g %g / %g %g %g",
+                     k, j, (int)length, name, ours[0], ours[1], ours[2], ours[3], ours[4], ours[5],
+                     ours[6], ours[7], ours[8], ours[9], ours[10], ours[11], expected[0],
+                     expected[1], expected[2], expected[3], expected[4], expected[5], expected[6],
+                     expected[7], expected[8], expected[9], expected[10], expected[11]);
         }
     }
     if (theirs == NULL)
@@ -514,10 +588,39 @@ static double StackStart(const ufbx_anim_stack* stack, double* stop)
     return first <= last ? first : 0.0;
 }
 
+// Whether a channel's shape k has a track name: the shape's name, or for
+// a shape of none, the channel's with "/k" past the first (mani-0017).
+static bool ShapeNamed(const ufbx_blend_channel* channel, size_t k, const char* name, size_t length)
+{
+    const ufbx_blend_shape* shape = channel->keyframes.data[k].shape;
+    char own[256];
+    int n = shape->name.length > 0
+                ? snprintf(own, sizeof own, "%s", shape->name.data)
+                : snprintf(own, sizeof own, k > 0 ? "%s/%zu" : "%s", channel->name.data, k);
+    return n >= 0 && (size_t)n == length && memcmp(own, name, length) == 0;
+}
+
 // The value of a float track in an evaluated scene: a shape's effective
 // weight ("mesh/shape") or a node's number property ("node/property", a
 // vector's component k "node/property/k").
-static bool TheirFloat(const ufbx_scene* scene, const char* track, size_t length, double* out)
+// Shape k's effective weight in an evaluated channel. Where ufbx's scene
+// evaluation and ufbx_evaluate_blend_weight disagree on the channel's
+// weight (the scene counts an additive layer twice on a weight connected
+// through a property), the latter is taken: for a channel of one whole
+// shape it is the effective weight.
+static double ShapeWeight(const ufbx_scene* original, const ufbx_anim* anim, double time,
+                          const ufbx_blend_channel* channel, size_t k)
+{
+    const ufbx_blend_channel* own =
+        (const ufbx_blend_channel*)original->elements.data[channel->element.element_id];
+    double weight = ufbx_evaluate_blend_weight(anim, own, time);
+    bool whole = channel->keyframes.count == 1 && channel->keyframes.data[0].target_weight == 1.0;
+    return whole && !Near(weight, channel->weight) ? weight
+                                                   : channel->keyframes.data[k].effective_weight;
+}
+
+static bool TheirFloat(const ufbx_scene* original, const ufbx_anim* anim, double time,
+                       const ufbx_scene* scene, const char* track, size_t length, double* out)
 {
     for (size_t n = 0; n < scene->nodes.count; ++n)
     {
@@ -538,11 +641,9 @@ static bool TheirFloat(const ufbx_scene* scene, const char* track, size_t length
                 const ufbx_blend_channel* channel = deformer->channels.data[ch];
                 for (size_t k = 0; k < channel->keyframes.count; ++k)
                 {
-                    const ufbx_blend_shape* shape = channel->keyframes.data[k].shape;
-                    if (shape->name.length == restLength &&
-                        memcmp(shape->name.data, rest, restLength) == 0)
+                    if (ShapeNamed(channel, k, rest, restLength))
                     {
-                        *out = channel->keyframes.data[k].effective_weight;
+                        *out = ShapeWeight(original, anim, time, channel, k);
                         return true;
                     }
                 }
@@ -569,7 +670,8 @@ static bool TheirFloat(const ufbx_scene* scene, const char* track, size_t length
 
 // One sample time of clip k: every bone's pose and every float track.
 static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* pose,
-                        const ufbx_scene* evaluated, double time)
+                        const ufbx_anim* anim, const ufbx_scene* evaluated, double time,
+                        double stackTime)
 {
     const maniSkeleton* skeleton = &c->skeleton;
     if (maniSampleClip(clip, skeleton, (float)time, pose) != mani_success)
@@ -587,7 +689,7 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
         uint32_t length = 0;
         const char* name = maniClipFloatTrackName(clip, t, &length);
         double theirs = 0.0;
-        bool found = TheirFloat(evaluated, name, length, &theirs);
+        bool found = TheirFloat(c->scene, anim, stackTime, evaluated, name, length, &theirs);
         if (c->expect && found)
         {
             Emit(c, "float", k, time, name, length, &theirs, 1);
@@ -623,7 +725,7 @@ static void CompareClipTimes(Context* c, uint32_t k, const maniClip* clip,
             ufbx_evaluate_scene(c->scene, stack->anim, start + time, NULL, &error);
         if (evaluated != NULL)
         {
-            CompareTime(c, k, clip, pose, evaluated, time);
+            CompareTime(c, k, clip, pose, stack->anim, evaluated, time, start + time);
             ufbx_free_scene(evaluated);
         }
     }
