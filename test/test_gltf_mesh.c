@@ -9,8 +9,8 @@
 // targetNames or index; node and mesh weights; Khronos sample models
 // (test/data/gltf) imported whole.
 
-// MSVC's CRT deprecates fopen; the fixtures use it.
-#define _CRT_SECURE_NO_WARNINGS
+// MSVC's CRT deprecates fopen, which the fixtures use: CMake defines
+// _CRT_SECURE_NO_WARNINGS for the fixture tests.
 
 #include "bytes.h"
 #include "morph_file.h"
