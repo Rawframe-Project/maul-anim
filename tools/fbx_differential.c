@@ -770,9 +770,21 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
     }
 }
 
-// Clip k's five times, ufbx evaluated at the stack's start plus each.
+// The rate clips are built at: the scene's up to 120 a second, else 30.
+static double ClipRate(const Context* c)
+{
+    maniFbxSettings s;
+    double scene = maniFbxReadSettings(c->fbx, &s) != mani_success ? 0.0
+                   : s.rateDenominator != 0 ? (double)s.rateNumerator / s.rateDenominator
+                                            : s.customRate;
+    return scene > 0.0 && scene <= 120.0 ? scene : 30.0;
+}
+
+// Clip k's five times, ufbx evaluated at the same stack times as the
+// clip's samples: whole ticks from the start, the last at the stop, so a
+// step at a key falls on the same side for both.
 static void CompareClipTimes(Context* c, uint32_t k, const maniClip* clip,
-                             const ufbx_anim_stack* stack, double start)
+                             const ufbx_anim_stack* stack, double start, double stop)
 {
     void* raw = NULL;
     maniPose* pose = NewPose(&c->skeleton, &raw);
@@ -784,16 +796,23 @@ static void CompareClipTimes(Context* c, uint32_t k, const maniClip* clip,
     uint32_t n = maniClipSampleCount(clip);
     double rate = (double)maniClipSampleRate(clip);
     double duration = (double)maniClipDuration(clip);
+    double exact = ClipRate(c);
+    double tps = (double)c->scene->metadata.ktime_second;
+    double first = round(start * tps);
+    double last = round(stop * tps);
     for (uint32_t i = 0; n > 0 && i < kTimes; ++i)
     {
         uint32_t frame = (uint32_t)((uint64_t)(n - 1) * i / (kTimes - 1));
         double time = fmin(frame / rate, duration);
+        double tick = frame + 1 == n && frame > 0 && last > first
+                          ? last
+                          : first + floor((double)frame * tps / exact + 0.5);
         ufbx_error error;
         ufbx_scene* evaluated =
-            ufbx_evaluate_scene(c->scene, stack->anim, start + time, NULL, &error);
+            ufbx_evaluate_scene(c->scene, stack->anim, tick / tps, NULL, &error);
         if (evaluated != NULL)
         {
-            CompareTime(c, k, clip, pose, stack->anim, evaluated, time, start + time);
+            CompareTime(c, k, clip, pose, stack->anim, evaluated, time, tick / tps);
             ufbx_free_scene(evaluated);
         }
     }
@@ -837,7 +856,7 @@ static void CompareClip(Context* c, uint32_t k)
         Mismatch(c, "duration", "clip %u: ours %g, ufbx %g", k, (double)maniClipDuration(&clip),
                  theirs);
     }
-    CompareClipTimes(c, k, &clip, stack, start);
+    CompareClipTimes(c, k, &clip, stack, start, stop);
     Release(&blob);
 }
 

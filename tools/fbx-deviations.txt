@@ -11,3 +11,9 @@ synthetic_unsupported_cube_8000 open
 # ufbx refuses NURBS geometry past its limits; maul-anim reads no geometry.
 synthetic_nurbs_dimension_overflow_fail open
 synthetic_nurbs_order_overflow_fail open
+# An integer input animated out of range (here RotationOrder driven by a
+# rotation's curves) refuses the clip (mani-0014); ufbx takes XYZ.
+synthetic_rotation_order_layers clip
+# Clip times are float seconds (mani-0006): at 1.7e5 s a time is within
+# 1/128 s, between samples; ufbx is evaluated at the exact tick.
+maya_long_keyframes sample
