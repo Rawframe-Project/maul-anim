@@ -19,7 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_BLEND_HASH 0x131c3b8fe854e21eull
+#define PINNED_BLEND_HASH    0x131c3b8fe854e21eull
+#define PINNED_ADDITIVE_HASH 0xdd89f3419f2418bfull
 
 enum
 {
@@ -428,6 +429,203 @@ static void TestMask(void)
           "no chains: the default");
 }
 
+// Additive layers in binary64 for one bone: the same formulas.
+static void AddReference(const maniTransform* base, const maniBlendLayer* layers, uint32_t count,
+                         uint32_t bone, double out[10])
+{
+    Components(*base, out);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        double w = (double)layers[i].weight *
+                   (layers[i].boneWeights != NULL ? (double)layers[i].boneWeights[bone] : 1.0);
+        if (w == 0.0)
+        {
+            continue;
+        }
+        double d[10];
+        Components(maniPoseLocal(layers[i].pose, bone), d);
+        double sign = d[6] < 0.0 ? -1.0 : 1.0;
+        double q[4] = {sign * d[3] * w, sign * d[4] * w, sign * d[5] * w,
+                       (sign * d[6] - 1.0) * w + 1.0};
+        double n = sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+        for (int k = 0; k < 4; ++k)
+        {
+            q[k] /= n;
+        }
+        double x = out[3], y = out[4], z = out[5], r = out[6];
+        out[3] = r * q[0] + x * q[3] + y * q[2] - z * q[1];
+        out[4] = r * q[1] - x * q[2] + y * q[3] + z * q[0];
+        out[5] = r * q[2] + x * q[1] - y * q[0] + z * q[3];
+        out[6] = r * q[3] - x * q[0] - y * q[1] - z * q[2];
+        for (int c = 0; c < 3; ++c)
+        {
+            out[c] += w * d[c];
+            out[7 + c] *= 1.0 + w * (d[7 + c] - 1.0);
+        }
+    }
+}
+
+// Differences of random poses from random bases.
+static void MakeDifferences(uint32_t count)
+{
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        CHECK(maniPoseDifference(&s_skeleton, s_layer[i], s_out, s_layer[i]) == mani_success,
+              "a difference in place");
+    }
+}
+
+static void TestAdditive(void)
+{
+    float boneWeights[kBones];
+    double worst = 0.0;
+    for (int round = 0; round < 200; ++round)
+    {
+        RandomizeLayers();
+        for (uint32_t b = 0; b < kBones; ++b)
+        {
+            maniPoseSetLocal(s_out, b, RandomTransform());
+            boneWeights[b] = Uniform(0.0f, 1.0f);
+        }
+        maniPoseSetKind(s_out, false);
+        MakeDifferences(2);
+        for (uint32_t b = 0; b < kBones; ++b)
+        {
+            maniPoseSetLocal(s_out, b, RandomTransform());
+        }
+        maniTransform base[kBones];
+        CHECK(maniPoseReadLocals(s_out, 0, kBones, base) == mani_success, "reads");
+        maniBlendLayer layers[2] = {{s_layer[0], Uniform(0.0f, 1.5f), NULL},
+                                    {s_layer[1], Uniform(0.0f, 1.0f), boneWeights}};
+        CHECK(maniAddPoses(&s_skeleton, s_out, layers, 2) == mani_success, "adds");
+        for (uint32_t b = 0; b < kBones; ++b)
+        {
+            double want[10];
+            double got[10];
+            AddReference(&base[b], layers, 2, b, want);
+            Components(maniPoseLocal(s_out, b), got);
+            for (int c = 0; c < 10; ++c)
+            {
+                double e = fabs(want[c] - got[c]);
+                worst = e > worst ? e : worst;
+            }
+        }
+    }
+    CHECK(worst < 4e-6, "additive within binary32 of the binary64 formulas");
+}
+
+// A difference applied at 1 to its basis gives the pose back; at 0
+// nothing changes; out may be the pose or the basis.
+static void TestRoundTrip(void)
+{
+    RandomizeLayers();
+    // s_layer[0] the pose, s_layer[1] the basis, s_layer[2] the difference.
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+          "difference");
+    CHECK(maniPoseIsDifference(s_layer[2]), "a difference");
+    memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
+    maniBlendLayer layer = {s_layer[2], 1.0f, NULL};
+    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds");
+    double worst = 0.0;
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        double want[10];
+        double got[10];
+        Components(maniPoseLocal(s_layer[0], b), want);
+        Components(maniPoseLocal(s_out, b), got);
+        double dot = want[3] * got[3] + want[4] * got[4] + want[5] * got[5] + want[6] * got[6];
+        for (int c = 0; c < 10; ++c)
+        {
+            double e = fabs(want[c] - (c >= 3 && c < 7 && dot < 0.0 ? -got[c] : got[c]));
+            worst = e > worst ? e : worst;
+        }
+    }
+    CHECK(worst < 1e-5, "the basis plus the difference: the pose");
+    memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
+    layer.weight = 0.0f;
+    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds at 0");
+    CHECK(memcmp(s_poses[kLayers], s_poses[1], sizeof s_poses[1]) == 0, "at 0: unchanged");
+    // In place, either side, against out of place.
+    memcpy(s_copy, s_poses[2], sizeof s_copy);
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[0]) == mani_success,
+          "out is the pose");
+    CHECK(memcmp(s_poses[0] + 64, s_copy + 64, sizeof s_copy - 64) == 0, "the same bits");
+    RandomizeLayers();
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+          "out of place");
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[1]) == mani_success,
+          "out is the basis");
+    CHECK(memcmp(s_poses[1] + 64, s_poses[2] + 64, sizeof s_copy - 64) == 0, "the same bits");
+}
+
+// A difference's turn and its negative add the same.
+static void TestAdditiveHemisphere(void)
+{
+    RandomizeLayers();
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+          "difference");
+    maniPoseSetKind(s_out, false);
+    memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
+    maniBlendLayer layer = {s_layer[2], 0.6f, NULL};
+    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds");
+    memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniTransform t = maniPoseLocal(s_layer[2], b);
+        t.rotation = (maniQuat){-t.rotation.x, -t.rotation.y, -t.rotation.z, -t.rotation.w};
+        maniPoseSetLocal(s_layer[2], b, t);
+    }
+    memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
+    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds negated");
+    CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "the same bits");
+}
+
+static void TestAdditiveRefusals(void)
+{
+    RandomizeLayers();
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+          "difference");
+    maniPoseSetKind(s_out, false);
+    float boneWeights[kBones];
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        boneWeights[b] = 1.0f;
+    }
+    maniBlendLayer layer = {s_layer[2], 0.5f, boneWeights};
+    const float wrong[3] = {-0.5f, INFINITY, NAN};
+    for (int i = 0; i < 3; ++i)
+    {
+        memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
+        layer.weight = wrong[i];
+        CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_errorInvalid, "a layer weight");
+        layer.weight = 0.5f;
+        boneWeights[3] = wrong[i];
+        CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_errorInvalid, "a bone weight");
+        boneWeights[3] = 1.0f;
+        CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "the pose unchanged");
+    }
+    layer.pose = s_layer[0];
+    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_errorInvalid, "a pose as a layer");
+    layer.pose = s_layer[2];
+    CHECK(maniAddPoses(&s_skeleton, s_layer[2], &layer, 1) == mani_errorInvalid,
+          "a difference as the pose");
+    CHECK(maniAddPoses(&s_skeleton, s_out, NULL, 1) == mani_errorInvalid, "no layers given");
+    CHECK(maniAddPoses(&s_skeleton, s_out, NULL, 0) == mani_success, "none");
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[2], s_layer[1], s_out) == mani_errorInvalid,
+          "a difference as the pose");
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[2], s_out) == mani_errorInvalid,
+          "a difference as the basis");
+    maniTransform t = maniPoseLocal(s_layer[1], kBones - 1);
+    t.scale.z = 0.0f;
+    maniPoseSetLocal(s_layer[1], kBones - 1, t);
+    memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
+    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
+          "a basis scale 0");
+    CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "out unchanged");
+    CHECK(maniPoseDifference(NULL, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
+          "no skeleton");
+}
+
 static void TestPinned(void)
 {
     s_random = 0x0123456789ABCDEFull;
@@ -449,6 +647,17 @@ static void TestPinned(void)
     {
         printf("blend hash 0x%016llx\n", (unsigned long long)hash);
     }
+    // That blend as a difference from layer 2, added back onto layer 0.
+    CHECK(maniPoseDifference(&s_skeleton, s_out, s_layer[2], s_out) == mani_success, "difference");
+    maniBlendLayer add = {s_out, 0.7f, boneWeights};
+    CHECK(maniAddPoses(&s_skeleton, s_layer[0], &add, 1) == mani_success, "adds");
+    CHECK(maniPoseReadLocals(s_layer[0], 0, kBones, locals) == mani_success, "reads");
+    hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
+    CHECK(hash == PINNED_ADDITIVE_HASH, "pinned additive");
+    if (hash != PINNED_ADDITIVE_HASH)
+    {
+        printf("additive hash 0x%016llx\n", (unsigned long long)hash);
+    }
 }
 
 int main(void)
@@ -460,6 +669,10 @@ int main(void)
     TestKinds();
     TestRefusals();
     TestMask();
+    TestAdditive();
+    TestRoundTrip();
+    TestAdditiveHemisphere();
+    TestAdditiveRefusals();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

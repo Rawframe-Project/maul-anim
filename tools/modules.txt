@@ -20,6 +20,7 @@ pose: bytes decompose pose_memory vecmath
 decompose: vecmath
 basis:
 pose_memory:
+additive: pose_memory vecmath
 blend: pose_memory
 mask:
 skin_file:

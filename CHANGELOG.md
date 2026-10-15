@@ -27,3 +27,6 @@ format.
   per-bone weights with the rest filling in under a threshold,
   `maniBuildMask` makes per-bone weights from chains, and
   `maniPoseIsDifference` tells a difference from a pose of the skeleton.
+- Additive layers (mani-0020): `maniPoseDifference` writes a pose's
+  difference from a basis and `maniAddPoses` applies differences at
+  layer and per-bone weights.

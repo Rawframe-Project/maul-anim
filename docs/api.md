@@ -36,6 +36,16 @@ MANI_NODISCARD MANI_API maniResult maniBuildMask(const maniSkeleton* skeleton, c
 ```
 Makes per-bone weights from chains. A bone takes a chain on itself alone first, else the subtree chain on its nearest ancestor or itself, else the default; of two chains on one bone and kind the later wins.  @param skeleton       The skeleton. @param chains         count chains. @param count          The number of chains. @param defaultWeight  The weight of bones no chain reaches. @param weights        Receives a weight per bone in skeleton order. @param capacity       The floats weights holds. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a bone past the skeleton or a negative or non-finite weight; `mani_errorCapacity` when capacity is below the bone count (weights unchanged). @par Thread safety Safe from any thread.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose, const maniPose* basis, maniPose* out);
+```
+Writes the difference of a pose from a basis, bone by bone: `d_t = t - t_b`, `d_r = r_b^-1 r` (normalized), `d_s = s / s_b` per axis. The output may be the pose or the basis.  @param skeleton  The poses' skeleton. @param pose      A pose of the skeleton. @param basis     A pose of the skeleton, no scale component 0. @param out       Receives the difference. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a pose of another skeleton, a difference given as pose or basis, or a basis scale component of 0 (out unchanged). @par Thread safety Safe from any thread; out is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const maniBlendLayer* layers, uint32_t count);
+```
+Applies differences to a pose in order, each bone at its layer weight times its bone weight: `t + w d_t`, `r nlerp(1, d_r, w)` (the difference's turn taken the short way), `s (1 + w (d_s - 1))` per axis. Weights above 1 extrapolate.  @param skeleton  The poses' skeleton. @param pose      A pose of the skeleton, changed in place. @param layers    count layers, each a difference. @param count     The number of layers. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a pose of another skeleton, a difference as the pose, a layer not a difference, or a negative or non-finite weight (the pose unchanged). @par Thread safety Safe from any thread; the pose is used by one thread at a time.
+
 ## `build.h`
 
 The offline side: a builder turns source data into the library's files (mani-0003), which it keeps until the next build for a copy into caller memory. A builder allocates through the allocator of its def and is built only when MAUL_ANIM_OFFLINE is on.
@@ -610,4 +620,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-115 functions across 8 headers.
+117 functions across 8 headers.
