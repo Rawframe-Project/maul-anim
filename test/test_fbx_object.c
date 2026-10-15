@@ -261,6 +261,7 @@ static void TestInvalidUtf8(void)
         " Model: 12, \"Model::\xC3\xA9\xC3\", \"Null\" {\n }\n"
         " Model: 13, \"Model::\xE0\x80\x80\", \"Null\" {\n }\n"
         " Model: 14, \"Model::\xF0\x8F\xBF\xBF\", \"Null\" {\n }\n"
+        " Model: 15, \"Model::a::c\", \"Null\" {\n }\n"
         "}\n";
     static const char kR[] = "\xEF\xBF\xBD";
     char twice[16];
@@ -280,8 +281,8 @@ static void TestInvalidUtf8(void)
         maniDestroyBuilder(builder);
         return;
     }
-    uint32_t o[15];
-    for (int64_t id = 1; id <= 14; ++id)
+    uint32_t o[16];
+    for (int64_t id = 1; id <= 15; ++id)
     {
         o[id] = maniFbxFindObject(fbx, id);
     }
@@ -311,6 +312,11 @@ static void TestInvalidUtf8(void)
           "counted with no output; whole characters up to a capacity");
     uint32_t a1 = maniFbxNodeProperty(fbx, fbx->objects[o[7]].node, 1);
     uint32_t a2 = maniFbxNodeProperty(fbx, fbx->objects[o[8]].node, 1);
+    uint32_t longer = maniFbxNodeProperty(fbx, fbx->objects[o[1]].node, 1);
+    uint32_t b = maniFbxNodeProperty(fbx, fbx->objects[o[9]].node, 1);
+    uint32_t c = maniFbxNodeProperty(fbx, fbx->objects[o[15]].node, 1);
+    CHECK(!maniFbxSameString(fbx, a1, longer) && !maniFbxSameString(fbx, b, c),
+          "one name a prefix of another, or of the same length, not the same");
     static const char kMade[] = "Model::A\xEF\xBF\xBD";
     CHECK(maniFbxStringEquals(fbx, a1, kMade, strlen(kMade)) &&
               !maniFbxStringEquals(fbx, a1, "Model::A\xC1", 9) && maniFbxSameString(fbx, a1, a2) &&
