@@ -1173,3 +1173,77 @@ se-fold-rest | src/clip_search.c | restOk[i] = restOk[i] && Excess(shell, refere
 co-dropped-bits | src/clip_compress.c | out->data[0][t->track] |= (uint8_t)((3u - t->dropped) << 6); | out->data[0][t->track] |= 0;
 co-empty-left | src/clip_compress.c | count += sizes[i] > 0 ? 1 : 0; | count += 1;
 cod-seg-floor | src/clip_codec.c | float high = floorf(extent * 255.0f); | float high = ceilf(extent * 255.0f);
+
+# Blending, masks, differences, additive layers and additive clips
+# (blend.c, mask.c, additive.c, the clip builder, samplers, compressor
+# and palette's kinds; mani-0020), 2026-10-15: 62 mutants, 58 killed. The
+# first sweep left 17: tests of padding under uneven shares, zero and
+# overflowing rotation sums, stale models, mask chain order, a basis z
+# of 0, additive folding and the additive file's pinned bytes killed 11,
+# and two dead padding branches were removed.
+# Equivalent: bl-share-zero (a lane nothing weighed is rewritten with
+# its rest after), bl-skip-zero and ad-skip (a weight of 0 adds nothing;
+# the skips save work), bl-started (with no layer every lane is
+# rewritten with its rest).
+bl-usable-low | src/blend.c | return w >= 0.0f && w <= 1.0f; | return w <= 1.0f;
+bl-usable-high | src/blend.c | return w >= 0.0f && w <= 1.0f; | return w >= 0.0f;
+bl-layer-out | src/blend.c | if (!maniPoseMatches(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) || | if (!maniPoseMatches(layer->pose, skeleton) || !Usable(layer->weight) ||
+bl-layer-kind | src/blend.c | maniPoseIsDifference(layer->pose) != difference) | false)
+bl-bone-weights | src/blend.c | if (!Usable(layer->boneWeights[b])) | if (false)
+bl-threshold-zero | src/blend.c | !(threshold > 0.0f)) | false)
+bl-group-bone | src/blend.c | w[k] = layer->weight * layer->boneWeights[first + k]; | w[k] = layer->boneWeights[first + k];
+bl-first-zero | src/blend.c | o[c * LANES + k] = 0.0f + in[c * LANES + k] * w[k]; | o[c * LANES + k] = in[c * LANES + k];
+bl-sign | src/blend.c | rw[k] = dot < 0.0f ? -w[k] : w[k]; | rw[k] = w[k];
+bl-rot-weights | src/blend.c | const float* weights = c >= 3 && c < 7 ? rw : w; | const float* weights = w;
+bl-fill-share | src/blend.c | if (!(share[k] > 0.0f)) | if (true)
+bl-fill-sign | src/blend.c | float rf = dot < 0.0f ? -share[k] : share[k]; | float rf = share[k];
+bl-norm-guard | src/blend.c | root[k] = squared > 0.0f && squared <= FLT_MAX ? squared : -1.0f; | root[k] = squared;
+bl-norm-fallback | src/blend.c | float fallback = c == 6 ? 1.0f : 0.0f; | float fallback = 0.0f;
+bl-settle-any | src/blend.c | any |= total[k] == 0.0f; | any |= false;
+bl-settle-skip-lanes | src/blend.c | if (k < lanes && total[k] != 0.0f) | if (total[k] != 0.0f)
+bl-under | src/blend.c | bool under = total[k] < threshold; | bool under = false;
+bl-share-zero | src/blend.c | share[k] = under && total[k] > 0.0f ? (threshold - total[k]) * inverse[k] : 0.0f; | share[k] = under ? (threshold - total[k]) * inverse[k] : 0.0f;
+bl-skip-zero | src/blend.c | if (layers[i].weight == 0.0f) | if (false)
+bl-share-scale | src/blend.c | w[k] *= inverse[k]; | w[k] *= 1.0f;
+bl-started | src/blend.c | if (started) | if (true)
+bl-kind | src/blend.c | maniPoseSetKind(out, difference); | maniPoseSetKind(out, false);
+bl-stale | src/blend.c | maniPoseMarkStale(out); | (void)out;
+mk-default | src/mask.c | float inherited = parent == MANI_NO_BONE ? defaultWeight : weights[parent]; | float inherited = defaultWeight;
+mk-subtree | src/mask.c | weights[chains[i].bone] = chains[i].subtree ? chains[i].weight : weights[chains[i].bone]; | weights[chains[i].bone] = chains[i].weight;
+mk-own | src/mask.c | weights[chains[i].bone] = chains[i].subtree ? weights[chains[i].bone] : chains[i].weight; | weights[chains[i].bone] = chains[i].weight;
+mk-inherit | src/mask.c | weights[b] = weights[b] < 0.0f ? inherited : weights[b]; | weights[b] = inherited;
+mk-capacity | src/mask.c | if (capacity < bones) | if (false)
+mk-bone | src/mask.c | if (chains[i].bone >= bones || !Usable(chains[i].weight)) | if (!Usable(chains[i].weight))
+mk-default-usable | src/mask.c | !Usable(defaultWeight)) | false)
+ad-usable-high | src/additive.c | return w >= 0.0f && w <= 1.0f; | return w >= 0.0f;
+ad-finite | src/additive.c | return v >= -FLT_MAX && v <= FLT_MAX; | return true;
+ad-diff-check | src/additive.c | if (!DifferenceFinite(&d)) | if (false)
+ad-diff-kind | src/additive.c | maniPoseSetKind(out, true); | maniPoseSetKind(out, false);
+ad-diff-norm | src/additive.c | Normalize(maniQuatMul(maniQuatConjugate(tb.rotation), t.rotation)), | maniQuatMul(maniQuatConjugate(tb.rotation), t.rotation),
+ad-layer-kind | src/additive.c | if (!maniPoseMatches(l->pose, skeleton) || !maniPoseIsDifference(l->pose) || | if (!maniPoseMatches(l->pose, skeleton) ||
+ad-bone-weights | src/additive.c | if (!Usable(l->boneWeights[b])) | if (false)
+ad-sign | src/additive.c | float sign = d->rotation.w < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
+ad-normalize | src/additive.c | t->rotation = maniQuatMul(t->rotation, Normalize(q)); | t->rotation = maniQuatMul(t->rotation, q);
+ad-order | src/additive.c | t->rotation = maniQuatMul(t->rotation, Normalize(q)); | t->rotation = maniQuatMul(Normalize(q), t->rotation);
+ad-scale | src/additive.c | t->scale.y *= 1.0f + w * (d->scale.y - 1.0f); | t->scale.y *= d->scale.y;
+ad-skip | src/additive.c | if (w == 0.0f) | if (false)
+ad-bone-w | src/additive.c | float w = l->boneWeights != NULL ? l->weight * l->boneWeights[bone] : l->weight; | float w = l->weight;
+ad-stale | src/additive.c | maniPoseMarkStale(pose); | (void)pose;
+ad-norm-guard | src/additive.c | if (!(squared > 0.0f && squared <= FLT_MAX)) | if (!(squared > 0.0f))
+ac-basis-first | src/clip_build.c | if (source->additive == maniAdditiveFirstFrame) | if (false)
+ac-diff-none | src/clip_build.c | if (source->additive == maniAdditiveNone) | if (true)
+ac-check-basis | src/clip_build.c | if (b[0] == 0.0 || b[1] == 0.0 || b[2] == 0.0) | if (b[0] == 0.0 || b[1] == 0.0)
+ac-kind | src/clip_build.c | if (source->loop > maniLoopRepeat || source->additive > maniAdditiveFirstFrame) | if (source->loop > maniLoopRepeat)
+ac-header | src/clip_build.c | maniStoreU32(header + 60, source->additive); | (void)header;
+ac-identity | src/clip.c | clip->additive != maniAdditiveNone); | false);
+ac-kind-set | src/clip.c | maniPoseSetKind(pose, clip->additive != maniAdditiveNone); | maniPoseSetKind(pose, false);
+ac-subset-kind | src/clip.c | maniPoseIsDifference(pose) != (clip->additive != maniAdditiveNone)) | false)
+ac-comp-identity | src/clip_compressed.c | .identity = clip->additive != maniAdditiveNone, | .identity = false,
+ac-plan-default | src/clip_plan.c | p->clip->additive != 0 | false
+ac-compress-header | src/clip_compress.c | maniStoreU32(h + 60, c->additive); | (void)h;
+ac-shell-abs | src/clip_shell.c | if (!additive) | if (true)
+ac-search-reach | src/clip_search.c | maniShellAbsolute(p->skeleton, b, p->clip->additive != 0, s->raw[b]).translation; | s->raw[b].translation;
+sk-palette-kind | src/skin.c | maniPoseIsDifference(pose)) | false)
+po-model-kind | src/pose.c | if (!maniPoseMatches(pose, skeleton) || pose->difference != 0) | if (!maniPoseMatches(pose, skeleton))
+po-rest-kind | src/pose.c | pose->difference = 0; | (void)pose;
+bl-settle-lanes | src/blend.c | bool any = lanes < LANES; | bool any = false;
