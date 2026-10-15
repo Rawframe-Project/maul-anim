@@ -22,6 +22,10 @@ typedef struct maniShellMatrix
     double m[12];
 } maniShellMatrix;
 
+// A local T R S as a matrix, and a product of two.
+maniShellMatrix maniShellLocal(maniTransform t);
+maniShellMatrix maniShellMul(const maniShellMatrix* a, const maniShellMatrix* b);
+
 // Every bone's matrix of a pose, parents first.
 void maniShellModels(const maniSkeleton* skeleton, const maniPose* pose, maniShellMatrix* out);
 

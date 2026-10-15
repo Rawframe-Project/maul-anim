@@ -64,7 +64,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c
-                                     src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_shell.c src/decimal.c src/inflate.c
+                                     src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c
                                      src/gltf_buffer.c src/gltf_layout.c

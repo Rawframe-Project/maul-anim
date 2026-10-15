@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Compression of a full-precision clip (mani-0006). Sub-tracks (each bone
-// track's channels, then the float tracks) are folded to default or
-// constant where every sample allows it, the rest range-reduced over
-// the clip and, with several segments, over each segment, and stored per
-// segment at a bit rate that keeps every sample within its tolerance.
-// The rates chosen here are each sub-track's own fewest bits; the shell
-// metric reports what the whole pose then does.
+// Compression of a full-precision clip (mani-0006): the sub-tracks
+// gathered, folded (float tracks within their precision, bone channels
+// by the shell metric), their rates chosen (float tracks each on its
+// own, bone channels by the search), the sections written, and the file
+// opened and measured for the report.
 
 #include "allocator.h"
 #include "builder.h"
 #include "bytes.h"
 #include "clip_codec.h"
 #include "clip_file.h"
+#include "clip_plan.h"
+#include "clip_search.h"
 #include "clip_shell.h"
 #include "clip_view.h"
 #include "container.h"
@@ -31,63 +31,6 @@
 #include <stdint.h>
 #include <string.h>
 
-enum
-{
-    kTranslation = 0,
-    kRotation = 1,
-    kScale = 2,
-    kFloat = 3,
-};
-
-typedef struct SubTrack
-{
-    // The bone track and channel, or the float track (channel kFloat).
-    uint32_t track;
-    uint32_t channel;
-    // Where its value starts in a sample: floats into the bone samples,
-    // or the float track's index.
-    uint32_t offset;
-    uint32_t form;
-    // Its index among the animated sub-tracks.
-    uint32_t animated;
-    float tolerance;
-    float constant[3];
-    float minimum[3];
-    float extent[3];
-} SubTrack;
-
-typedef struct Plan
-{
-    const maniClip* clip;
-    const maniSkeleton* skeleton;
-    const maniAllocator* allocator;
-    SubTrack* subs;
-    uint32_t subCount;
-    uint32_t animatedChannels;
-    uint32_t animatedFloats;
-    uint32_t constantChannels;
-    uint32_t constantFloats;
-    uint32_t segmentCount;
-    // First samples, segmentCount + 1 of them.
-    uint32_t* firsts;
-    // Per segment and animated sub-track: its rate and six range bytes.
-    uint8_t* rates;
-    uint8_t* segmentRanges;
-} Plan;
-
-static uint32_t Width(const SubTrack* t)
-{
-    return t->channel == kFloat ? 1u : 3u;
-}
-
-static float LoadF32(const uint8_t* p)
-{
-    uint32_t bits = maniLoadU32(p);
-    float value;
-    memcpy(&value, &bits, sizeof value);
-    return value;
-}
-
 static void StoreF32(uint8_t* p, float value)
 {
     uint32_t bits;
@@ -95,264 +38,54 @@ static void StoreF32(uint8_t* p, float value)
     maniStoreU32(p, bits);
 }
 
-// A sub-track's value at a sample; a rotation as x, y, z with w made
-// positive.
-static void Value(const Plan* p, const SubTrack* t, uint32_t sample, float out[3])
+// The bone channels and float tracks as sub-tracks, with each bone's
+// first.
+static void Gather(maniCompressPlan* p)
 {
     const maniClip* c = p->clip;
-    if (t->channel == kFloat)
-    {
-        out[0] = LoadF32(c->floatSamples + 4 * ((size_t)sample * c->floatTrackCount + t->offset));
-        return;
-    }
-    const uint8_t* v = c->samples + 4 * ((size_t)sample * c->floatsPerSample + t->offset);
-    float sign = t->channel == kRotation && LoadF32(v + 12) < 0.0f ? -1.0f : 1.0f;
-    for (int k = 0; k < 3; ++k)
-    {
-        out[k] = sign * LoadF32(v + 4 * k);
-    }
-}
-
-// The rest value of a bone channel, as Value gives it.
-static void Rest(const Plan* p, const SubTrack* t, float out[3])
-{
-    uint32_t bone = maniLoadU16(p->clip->tracks + (size_t)t->track * MANI_CLIP_TRACK_SIZE);
-    maniTransform rest = maniSkeletonRest(p->skeleton, bone);
-    const float* v = t->channel == kTranslation ? &rest.translation.x
-                     : t->channel == kScale     ? &rest.scale.x
-                                                : &rest.rotation.x;
-    float sign = t->channel == kRotation && rest.rotation.w < 0.0f ? -1.0f : 1.0f;
-    for (int k = 0; k < 3; ++k)
-    {
-        out[k] = sign * v[k];
-    }
-}
-
-static bool Same(const float a[3], const float b[3], uint32_t width)
-{
-    for (uint32_t k = 0; k < width; ++k)
-    {
-        if (a[k] != b[k])
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-// Default (every sample the rest), constant (every sample the first) or
-// animated, with the clip range of an animated one.
-static void Classify(const Plan* p, SubTrack* t)
-{
-    uint32_t width = Width(t);
-    float rest[3] = {0.0f, 0.0f, 0.0f};
-    if (t->channel != kFloat)
-    {
-        Rest(p, t, rest);
-    }
-    float first[3] = {0.0f, 0.0f, 0.0f};
-    Value(p, t, 0, first);
-    bool isRest = t->channel != kFloat && Same(first, rest, width);
-    bool constant = true;
-    float low[3] = {first[0], first[1], first[2]};
-    float high[3] = {first[0], first[1], first[2]};
-    for (uint32_t k = 1; k < p->clip->sampleCount; ++k)
-    {
-        float v[3] = {0.0f, 0.0f, 0.0f};
-        Value(p, t, k, v);
-        constant = constant && Same(v, first, width);
-        for (uint32_t c = 0; c < width; ++c)
-        {
-            low[c] = v[c] < low[c] ? v[c] : low[c];
-            high[c] = v[c] > high[c] ? v[c] : high[c];
-        }
-    }
-    t->form =
-        constant ? (isRest ? maniClipFormDefault : maniClipFormConstant) : maniClipFormAnimated;
-    for (uint32_t c = 0; c < width; ++c)
-    {
-        t->constant[c] = first[c];
-        t->minimum[c] = low[c];
-        t->extent[c] = high[c] - low[c];
-    }
-}
-
-// The segments: one up to MANI_CLIP_SEGMENT_MAX samples, else of
-// MANI_CLIP_SEGMENT_IDEAL, the last one's shortfall spread over the
-// first ones, one sample each.
-static uint32_t SegmentCount(uint32_t samples)
-{
-    return samples <= MANI_CLIP_SEGMENT_MAX
-               ? 1u
-               : (samples + MANI_CLIP_SEGMENT_IDEAL - 1) / MANI_CLIP_SEGMENT_IDEAL;
-}
-
-static void Split(uint32_t samples, uint32_t segments, uint32_t* firsts)
-{
-    uint32_t base = samples / segments;
-    uint32_t extra = samples % segments;
-    uint32_t at = 0;
-    for (uint32_t s = 0; s < segments; ++s)
-    {
-        firsts[s] = at;
-        at += base + (s < extra ? 1u : 0u);
-    }
-    firsts[segments] = samples;
-}
-
-// A value's clip-normalized form.
-static float Normalized(const SubTrack* t, uint32_t c, float v)
-{
-    return t->extent[c] > 0.0f ? (v - t->minimum[c]) / t->extent[c] : 0.0f;
-}
-
-// The value a component plays at a rate: encoded and decoded as the
-// sampler decodes it. range holds the segment's bytes (min, extent per
-// component, or the 16-bit value at rate 0); NULL with one segment.
-static float Played(const SubTrack* t, uint32_t c, float v, uint32_t rate, const uint8_t* range)
-{
-    uint32_t width = Width(t);
-    if (rate == MANI_CODEC_RAW_RATE)
-    {
-        return v;
-    }
-    if (rate == 0)
-    {
-        return maniCodecValue(maniCodecUnpack16(maniLoadU16(range + 2 * c)), t->minimum[c],
-                              t->extent[c]);
-    }
-    float n = Normalized(t, c, v);
-    if (range != NULL)
-    {
-        float low = maniCodecRangeByte(range[c]);
-        float size = maniCodecRangeByte(range[width + c]);
-        n = size > 0.0f ? (n - low) / size : 0.0f;
-    }
-    float q = maniCodecUnpack(maniCodecPack(n, rate), rate);
-    if (range != NULL)
-    {
-        q = maniCodecSegmentValue(q, range[c], range[width + c]);
-    }
-    return maniCodecValue(q, t->minimum[c], t->extent[c]);
-}
-
-// Whether every sample of a segment plays within the tolerance at a rate.
-static bool Fits(const Plan* p, const SubTrack* t, uint32_t s, uint32_t rate, const uint8_t* range)
-{
-    for (uint32_t k = p->firsts[s]; k < p->firsts[s + 1]; ++k)
-    {
-        float v[3] = {0.0f, 0.0f, 0.0f};
-        Value(p, t, k, v);
-        for (uint32_t c = 0; c < Width(t); ++c)
-        {
-            if (!(fabsf(Played(t, c, v[c], rate, range) - v[c]) <= t->tolerance))
-            {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-// A segment's range bytes for a sub-track, and the 16-bit constant it
-// would hold at rate 0 (the middle of the segment's values).
-static void SegmentRange(const Plan* p, const SubTrack* t, uint32_t s, uint8_t range[6],
-                         uint8_t constant[6])
-{
-    for (uint32_t c = 0; c < Width(t); ++c)
-    {
-        float low = 1.0f;
-        float high = 0.0f;
-        for (uint32_t k = p->firsts[s]; k < p->firsts[s + 1]; ++k)
-        {
-            float v[3] = {0.0f, 0.0f, 0.0f};
-            Value(p, t, k, v);
-            float n = Normalized(t, c, v[c]);
-            n = n > 0.0f ? (n < 1.0f ? n : 1.0f) : 0.0f;
-            low = n < low ? n : low;
-            high = n > high ? n : high;
-        }
-        maniCodecSegmentRange(low, high, &range[c], &range[Width(t) + c]);
-        maniStoreU16(constant + 2 * c, maniCodecPack16(low + (high - low) * 0.5f));
-    }
-}
-
-// Each animated sub-track's rate and range bytes in each segment: rate 0
-// where the segment allows it, else the fewest bits that fit, else raw.
-static void ChooseRates(Plan* p)
-{
-    bool several = p->segmentCount > 1;
-    for (uint32_t s = 0; s < p->segmentCount; ++s)
-    {
-        for (uint32_t i = 0; i < p->subCount; ++i)
-        {
-            const SubTrack* t = &p->subs[i];
-            if (t->form != maniClipFormAnimated)
-            {
-                continue;
-            }
-            size_t at = (size_t)s * (p->animatedChannels + p->animatedFloats) + t->animated;
-            uint8_t* range = p->segmentRanges + 6 * at;
-            uint8_t constant[6] = {0};
-            SegmentRange(p, t, s, range, constant);
-            uint32_t rate = several && Fits(p, t, s, 0, constant) ? 0 : 1;
-            while (rate != 0 && rate < MANI_CODEC_RAW_RATE &&
-                   !Fits(p, t, s, rate, several ? range : NULL))
-            {
-                ++rate;
-            }
-            memcpy(range, rate == 0 ? constant : range, 6);
-            p->rates[at] = (uint8_t)rate;
-        }
-    }
-}
-
-// The bone channels and float tracks as sub-tracks, with the plain
-// tolerances: a channel's precision (a rotation's over its shell
-// distance), a float track's own.
-static void Gather(Plan* p, const maniCompressOptions* o)
-{
-    const maniClip* c = p->clip;
+    const maniCompressOptions* o = p->options;
     uint32_t offset = 0;
     p->subCount = 0;
+    for (uint32_t b = 0; b < c->skeletonBoneCount; ++b)
+    {
+        p->boneSubs[b] = UINT32_MAX;
+    }
     for (uint32_t i = 0; i < c->trackCount; ++i)
     {
         const uint8_t* entry = c->tracks + (size_t)i * MANI_CLIP_TRACK_SIZE;
         uint32_t bone = maniLoadU16(entry);
-        float precision = o->bonePrecisions != NULL ? o->bonePrecisions[bone] : o->precision;
-        float shell =
-            o->boneShellDistances != NULL ? o->boneShellDistances[bone] : o->shellDistance;
+        p->boneSubs[bone] = p->subCount;
         for (uint32_t ch = 0; ch < 3; ++ch)
         {
             if (((entry[2] >> ch) & 1u) == 0)
             {
                 continue;
             }
-            p->subs[p->subCount++] = (SubTrack){
-                .track = i,
-                .channel = ch,
-                .offset = offset,
-                .tolerance = ch == kRotation ? precision / shell : precision,
-            };
-            offset += ch == kRotation ? 4u : 3u;
+            p->subs[p->subCount++] =
+                (maniSubTrack){.track = i, .channel = ch, .bone = bone, .offset = offset};
+            offset += ch == maniSubRotation ? 4u : 3u;
         }
     }
     for (uint32_t i = 0; i < c->floatTrackCount; ++i)
     {
         float precision = o->floatPrecisions != NULL ? o->floatPrecisions[i] : o->floatPrecision;
-        p->subs[p->subCount++] =
-            (SubTrack){.track = i, .channel = kFloat, .offset = i, .tolerance = precision};
+        p->subs[p->subCount++] = (maniSubTrack){
+            .track = i, .channel = maniSubFloat, .offset = i, .tolerance = precision};
+    }
+    for (uint32_t i = 0; i < p->subCount; ++i)
+    {
+        maniPlanRanges(p, &p->subs[i]);
     }
 }
 
-// Every sub-track classified, the animated ones numbered.
-static void Fold(Plan* p)
+// The animated sub-tracks numbered, bone channels first, and the
+// constants counted.
+static void Number(maniCompressPlan* p)
 {
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
-        SubTrack* t = &p->subs[i];
-        Classify(p, t);
-        bool channel = t->channel != kFloat;
+        maniSubTrack* t = &p->subs[i];
+        bool channel = t->channel != maniSubFloat;
         if (t->form == maniClipFormConstant)
         {
             p->constantChannels += channel ? 1 : 0;
@@ -366,7 +99,7 @@ static void Fold(Plan* p)
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
         p->subs[i].animated +=
-            p->subs[i].channel == kFloat && p->subs[i].form == maniClipFormAnimated
+            p->subs[i].channel == maniSubFloat && p->subs[i].form == maniClipFormAnimated
                 ? p->animatedChannels
                 : 0;
     }
@@ -382,7 +115,8 @@ typedef struct Sections
 } Sections;
 
 // A segment's bits per sample: bone channels and floats.
-static void SegmentBits(const Plan* p, uint32_t s, uint32_t* channelBits, uint32_t* floatBits)
+static void SegmentBits(const maniCompressPlan* p, uint32_t s, uint32_t* channelBits,
+                        uint32_t* floatBits)
 {
     uint32_t n = p->animatedChannels + p->animatedFloats;
     *channelBits = 0;
@@ -395,7 +129,7 @@ static void SegmentBits(const Plan* p, uint32_t s, uint32_t* channelBits, uint32
     }
 }
 
-static uint64_t SegmentDataSize(const Plan* p)
+static uint64_t SegmentDataSize(const maniCompressPlan* p)
 {
     uint64_t n = (uint64_t)p->animatedChannels + p->animatedFloats;
     uint64_t ranges = 6 * (uint64_t)p->animatedChannels + 2 * (uint64_t)p->animatedFloats;
@@ -413,16 +147,16 @@ static uint64_t SegmentDataSize(const Plan* p)
 }
 
 // Forms, constants and clip ranges.
-static void WriteFront(const Plan* p, Sections* out)
+static void WriteFront(const maniCompressPlan* p, Sections* out)
 {
     uint8_t* constant = out->data[1];
     uint8_t* range = out->data[2];
     memset(out->data[0], 0, (size_t)out->sizes[0]);
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
-        const SubTrack* t = &p->subs[i];
-        uint32_t width = Width(t);
-        if (t->channel == kFloat)
+        const maniSubTrack* t = &p->subs[i];
+        uint32_t width = maniPlanWidth(t);
+        if (t->channel == maniSubFloat)
         {
             out->data[0][p->clip->trackCount + t->track] = (uint8_t)t->form;
         }
@@ -445,12 +179,12 @@ static void WriteFront(const Plan* p, Sections* out)
 }
 
 // One sample's bits in a segment.
-static void WriteSample(const Plan* p, uint32_t s, uint32_t k, maniBitWriter* w)
+static void WriteSample(const maniCompressPlan* p, uint32_t s, uint32_t k, maniBitWriter* w)
 {
     uint32_t n = p->animatedChannels + p->animatedFloats;
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
-        const SubTrack* t = &p->subs[i];
+        const maniSubTrack* t = &p->subs[i];
         if (t->form != maniClipFormAnimated)
         {
             continue;
@@ -459,28 +193,16 @@ static void WriteSample(const Plan* p, uint32_t s, uint32_t k, maniBitWriter* w)
         uint32_t rate = p->rates[at];
         const uint8_t* range = p->segmentCount > 1 ? p->segmentRanges + 6 * at : NULL;
         float v[3] = {0.0f, 0.0f, 0.0f};
-        Value(p, t, k, v);
-        for (uint32_t c = 0; rate != 0 && c < Width(t); ++c)
+        maniPlanValue(p, t, k, v);
+        for (uint32_t c = 0; rate != 0 && c < maniPlanWidth(t); ++c)
         {
-            uint32_t q = 0;
-            if (rate == MANI_CODEC_RAW_RATE)
-            {
-                memcpy(&q, &v[c], sizeof q);
-            }
-            else
-            {
-                float x = Normalized(t, c, v[c]);
-                float low = range != NULL ? maniCodecRangeByte(range[c]) : 0.0f;
-                float size = range != NULL ? maniCodecRangeByte(range[Width(t) + c]) : 1.0f;
-                q = maniCodecPack(size > 0.0f ? (x - low) / size : 0.0f, rate);
-            }
-            maniBitWrite(w, q, maniCodecBits(rate));
+            maniBitWrite(w, maniPlanQuantize(t, c, v[c], rate, range), maniCodecBits(rate));
         }
     }
 }
 
 // The segment table and data.
-static void WriteSegments(const Plan* p, Sections* out)
+static void WriteSegments(const maniCompressPlan* p, Sections* out)
 {
     uint32_t n = p->animatedChannels + p->animatedFloats;
     uint8_t* data = out->data[4];
@@ -568,7 +290,7 @@ static void Header(const maniClip* c, uint32_t segments, uint8_t h[MANI_CLIP_HEA
 }
 
 // The file from a planned clip, kept in the builder.
-static maniResult Emit(maniBuilder* builder, const Plan* p)
+static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
 {
     Sections out = {0};
     out.sizes[0] = (uint64_t)p->clip->trackCount + p->clip->floatTrackCount;
@@ -748,32 +470,38 @@ maniCompressOptions maniDefaultCompressOptions(void)
     };
 }
 
-static void ReleasePlan(Plan* p, uint32_t subs)
+static void ReleasePlan(maniCompressPlan* p, uint32_t subs)
 {
     size_t cells = (size_t)p->segmentCount * subs;
-    maniRelease(p->allocator, p->subs, (size_t)subs + 1, sizeof(SubTrack), alignof(SubTrack));
+    maniRelease(p->allocator, p->subs, (size_t)subs + 1, sizeof(maniSubTrack),
+                alignof(maniSubTrack));
     maniRelease(p->allocator, p->firsts, (size_t)p->segmentCount + 1, sizeof(uint32_t),
                 alignof(uint32_t));
     maniRelease(p->allocator, p->rates, 7 * cells + 1, 1, 1);
+    maniRelease(p->allocator, p->boneSubs, p->clip->skeletonBoneCount, sizeof(uint32_t),
+                alignof(uint32_t));
 }
 
 // The plan's arrays: sub-tracks, segment starts, and per segment and
 // sub-track a rate and six range bytes.
-static maniResult Prepare(Plan* p, uint32_t subs)
+static maniResult Prepare(maniCompressPlan* p, uint32_t subs)
 {
-    p->segmentCount = SegmentCount(p->clip->sampleCount);
+    p->segmentCount = maniPlanSegmentCount(p->clip->sampleCount);
     size_t cells = (size_t)p->segmentCount * subs;
     // One more of each, so no count is 0.
-    p->subs = maniAllocate(p->allocator, (size_t)subs + 1, sizeof(SubTrack), alignof(SubTrack));
+    p->subs =
+        maniAllocate(p->allocator, (size_t)subs + 1, sizeof(maniSubTrack), alignof(maniSubTrack));
     p->firsts = maniAllocate(p->allocator, (size_t)p->segmentCount + 1, sizeof(uint32_t),
                              alignof(uint32_t));
     p->rates = maniAllocate(p->allocator, 7 * cells + 1, 1, 1);
-    if (p->subs == NULL || p->firsts == NULL || p->rates == NULL)
+    p->boneSubs =
+        maniAllocate(p->allocator, p->clip->skeletonBoneCount, sizeof(uint32_t), alignof(uint32_t));
+    if (p->subs == NULL || p->firsts == NULL || p->rates == NULL || p->boneSubs == NULL)
     {
         return mani_errorCapacity;
     }
     p->segmentRanges = p->rates + cells;
-    Split(p->clip->sampleCount, p->segmentCount, p->firsts);
+    maniPlanSplit(p->clip->sampleCount, p->segmentCount, p->firsts);
     return mani_success;
 }
 
@@ -826,15 +554,28 @@ maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
         return mani_errorInvalid;
     }
     uint32_t subs = 3 * clip->trackCount + clip->floatTrackCount;
-    Plan p = {.clip = clip, .skeleton = skeleton, .allocator = &builder->allocator};
+    maniCompressPlan p = {
+        .clip = clip, .skeleton = skeleton, .options = options, .allocator = &builder->allocator};
     maniResult r = Prepare(&p, subs);
     if (r == mani_success)
     {
-        Gather(&p, options);
-        Fold(&p);
-        ChooseRates(&p);
-        r = Emit(builder, &p);
+        Gather(&p);
+        for (uint32_t i = 0; i < p.subCount; ++i)
+        {
+            if (p.subs[i].channel == maniSubFloat)
+            {
+                maniPlanFoldFloat(&p, &p.subs[i]);
+            }
+        }
+        r = maniSearchFold(&p);
     }
+    if (r == mani_success)
+    {
+        Number(&p);
+        maniPlanFloatRates(&p);
+        r = maniSearchRates(&p);
+    }
+    r = r == mani_success ? Emit(builder, &p) : r;
     ReleasePlan(&p, subs);
     maniCompressReport report = {0};
     r = r == mani_success ? Check(builder, clip, skeleton, options, &report) : r;

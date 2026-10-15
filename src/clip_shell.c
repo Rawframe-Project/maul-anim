@@ -10,7 +10,7 @@
 
 // A local T R S as a 3x4 matrix: rotation columns scaled, then the
 // translation.
-static maniShellMatrix Local(maniTransform t)
+maniShellMatrix maniShellLocal(maniTransform t)
 {
     double x = (double)t.rotation.x;
     double y = (double)t.rotation.y;
@@ -37,7 +37,7 @@ static maniShellMatrix Local(maniTransform t)
 }
 
 // a times b.
-static maniShellMatrix Mul(const maniShellMatrix* a, const maniShellMatrix* b)
+maniShellMatrix maniShellMul(const maniShellMatrix* a, const maniShellMatrix* b)
 {
     maniShellMatrix out;
     for (int c = 0; c < 4; ++c)
@@ -57,9 +57,9 @@ void maniShellModels(const maniSkeleton* skeleton, const maniPose* pose, maniShe
     uint32_t n = maniSkeletonBoneCount(skeleton);
     for (uint32_t b = 0; b < n; ++b)
     {
-        maniShellMatrix local = Local(maniPoseLocal(pose, b));
+        maniShellMatrix local = maniShellLocal(maniPoseLocal(pose, b));
         uint32_t parent = maniSkeletonParent(skeleton, b);
-        out[b] = parent == MANI_NO_BONE ? local : Mul(&out[parent], &local);
+        out[b] = parent == MANI_NO_BONE ? local : maniShellMul(&out[parent], &local);
     }
 }
 

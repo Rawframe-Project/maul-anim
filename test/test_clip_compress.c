@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_COMPRESSED_HASH 0x871b33031a4f8b1aull
+#define PINNED_COMPRESSED_HASH 0xdf52fd43a5865a20ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_fullFile[65536];
@@ -267,8 +267,7 @@ static void TestSegments(void)
     CHECK(maniClipSampleCount(&clip) == 61 && clip.segmentCount == 4, "four segments");
     CHECK(maniClipDuration(&clip) == maniClipDuration(&s_full), "duration");
     CHECK(report.bytes == s_size && s_size < s_fullSize / 2, "smaller");
-    // Each channel within its own tolerance; the search bounds the shell.
-    CHECK(report.shellError > 0.0 && report.shellError < 0.01, "shell error");
+    CHECK(report.shellError > 0.0 && report.shellError <= 0.0001, "shell error within precision");
     CHECK(report.floatError <= 0.00001, "float error within precision");
     // Translation, rotation per bone track; the chest's constant and its
     // default, the arm's default scale.
@@ -286,14 +285,16 @@ static void TestSegments(void)
     float bone = 0.0f;
     float value = 0.0f;
     Compare(&clip, &bone, &value);
-    CHECK(bone < 0.01f, "bones play near the full clip");
+    // Between samples too, a little more: interpolation.
+    CHECK(bone < 0.0002f, "bones play near the full clip");
     CHECK(value < 0.0001f, "floats play near the full clip");
     // A finer precision: the error follows it down.
     options.precision = 1e-7f;
     CHECK(Compress(&options, &report) == mani_success, "compresses finely");
     CHECK(Open(&clip).result == mani_success, "opens");
     Compare(&clip, &bone, &value);
-    CHECK(report.shellError < 1e-5 && bone < 1e-5f, "finely");
+    // Playback in binary32 adds its own rounding between samples.
+    CHECK(report.shellError <= 1e-7 && bone < 1e-6f, "finely");
 }
 
 static void TestOneSegment(void)
@@ -311,7 +312,7 @@ static void TestOneSegment(void)
     float bone = 0.0f;
     float value = 0.0f;
     Compare(&clip, &bone, &value);
-    CHECK(bone < 0.01f && value < 0.0001f, "plays near the full clip");
+    CHECK(bone < 0.0002f && value < 0.0001f, "plays near the full clip");
 }
 
 static void TestOneSample(void)
@@ -334,6 +335,170 @@ static void TestOneSample(void)
     float value = 0.0f;
     Compare(&clip, &bone, &value);
     CHECK(bone == 0.0f && value == 0.0f, "plays the full clip");
+}
+
+// Channels that move less than the precision fold: a translation
+// wobbling by a micrometre keeps its first value, a rotation by a
+// microradian is the rest.
+static float s_chestT[3 * KEYS];
+static float s_chestR[4 * KEYS];
+
+static void TestFoldWithinPrecision(void)
+{
+    for (int k = 0; k < KEYS; ++k)
+    {
+        float wobble = 1e-6f * sinf((float)k);
+        s_chestT[3 * k] = wobble;
+        s_chestT[3 * k + 1] = 0.35f;
+        s_chestT[3 * k + 2] = 0.0f;
+        StoreAxisAngle(&s_chestR[4 * k], 0.0f, 1.0f, 0.0f, wobble);
+    }
+    maniClipSource source = Source(0.0f);
+    s_tracks[2].translation = Linear(s_chestT, KEYS);
+    s_tracks[2].rotation = Linear(s_chestR, KEYS);
+    BuildFullFrom(&source);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    maniCompressReport report;
+    CHECK(Compress(&options, &report) == mani_success, "compresses");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    CHECK((clip.forms[2] & 3) == maniClipFormConstant, "a wobbling translation constant");
+    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormDefault, "a wobbling rotation the rest");
+    CHECK(report.shellError <= 0.0001, "within precision");
+    // At a precision below the wobble they stay animated.
+    options.precision = 1e-7f;
+    CHECK(Compress(&options, &report) == mani_success, "compresses finely");
+    CHECK(Open(&clip).result == mani_success, "opens");
+    CHECK((clip.forms[2] & 3) == maniClipFormAnimated, "the translation animated");
+    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormAnimated, "the rotation animated");
+}
+
+// A precision no rate meets (below binary32's resolution at these
+// values): the search keeps what misses by least.
+static void TestNoRatePasses(void)
+{
+    BuildFull(0.0f);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    options.precision = 1e-12f;
+    maniCompressReport report;
+    CHECK(Compress(&options, &report) == mani_success, "compresses");
+    CHECK(report.shellError > 1e-12 && report.shellError < 1e-6, "misses by little");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    uint32_t zeros = 0;
+    uint32_t raws = 0;
+    CountRates(&clip, &zeros, &raws);
+    // More than the wide float track's.
+    CHECK(raws > 4, "raw rates");
+}
+
+// Random hierarchies and motion: every bone within its precision at
+// every sample, whatever the tolerances.
+#define RANDOM_BONES 12
+static uint32_t s_random = 12345;
+static maniBoneSource s_randomBones[RANDOM_BONES];
+static float s_randomT[RANDOM_BONES][3 * KEYS];
+static float s_randomR[RANDOM_BONES][4 * KEYS];
+static float s_randomS[RANDOM_BONES][3 * KEYS];
+static maniBoneTrackSource s_randomTracks[RANDOM_BONES];
+
+static float Random(void)
+{
+    s_random = s_random * 1664525u + 1013904223u;
+    return (float)(s_random >> 8) / 16777216.0f;
+}
+
+static void RandomSkeleton(uint32_t bones)
+{
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        s_randomBones[b] =
+            (maniBoneSource){"b",
+                             1,
+                             b == 0 ? -1 : (int32_t)(Random() * (float)b),
+                             {{Random() - 0.5f, 0.1f + 0.4f * Random(), Random() - 0.5f},
+                              {0.0f, 0.0f, 0.0f, 1.0f},
+                              {1.0f, 1.0f, 1.0f}}};
+    }
+    // Names must differ: one letter each.
+    static char names[RANDOM_BONES][2];
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        names[b][0] = (char)('a' + b);
+        s_randomBones[b].name = names[b];
+    }
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource source = {s_randomBones, bones, 0};
+    CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "random skeleton builds");
+    size_t size = 0;
+    CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+          "copies");
+    maniDestroyBuilder(builder);
+    CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
+}
+
+// Bone b's keys: a translation drifting, a rotation swinging about a
+// random axis, a scale breathing unevenly.
+static void RandomKeys(uint32_t b)
+{
+    float axis[3] = {Random() - 0.5f, Random() - 0.5f, Random() - 0.5f};
+    float length = sqrtf(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]) + 1e-3f;
+    float swing = 3.0f * Random();
+    float speed = 1.0f + 4.0f * Random();
+    for (int k = 0; k < KEYS; ++k)
+    {
+        float t = s_times[k];
+        for (int c = 0; c < 3; ++c)
+        {
+            s_randomT[b][3 * k + c] = 0.3f * sinf(speed * t + (float)c);
+            s_randomS[b][3 * k + c] = 1.0f + 0.2f * sinf(speed * t * (float)(c + 1));
+        }
+        StoreAxisAngle(&s_randomR[b][4 * k], axis[0] / length, axis[1] / length, axis[2] / length,
+                       swing * sinf(speed * t));
+    }
+    uint32_t pick = (uint32_t)(Random() * 8.0f);
+    s_randomTracks[b] = (maniBoneTrackSource){b, 0, (pick & 1) ? Linear(s_randomT[b], KEYS) : kNone,
+                                              (pick & 2) ? Linear(s_randomR[b], KEYS) : kNone,
+                                              (pick & 4) ? Linear(s_randomS[b], KEYS) : kNone};
+}
+
+static void TestRandomWithinPrecision(void)
+{
+    static const float kPrecisions[3] = {1e-3f, 1e-4f, 1e-5f};
+    static const float kShells[3] = {0.01f, 0.03f, 0.1f};
+    for (int round = 0; round < 24; ++round)
+    {
+        uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_BONES - 2));
+        RandomSkeleton(bones);
+        uint32_t tracks = 0;
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            RandomKeys(b);
+            bool any = s_randomTracks[b].translation.keyCount +
+                           s_randomTracks[b].rotation.keyCount + s_randomTracks[b].scale.keyCount >
+                       0;
+            s_randomTracks[tracks] = s_randomTracks[b];
+            tracks += any ? 1 : 0;
+        }
+        maniClipSource source = {.skeleton = &s_skeleton,
+                                 .boneTracks = s_randomTracks,
+                                 .boneTrackCount = tracks,
+                                 .sampleRate = 30.0f,
+                                 .duration = 0.5f + 1.5f * Random()};
+        BuildFullFrom(&source);
+        maniCompressOptions options = maniDefaultCompressOptions();
+        options.precision = kPrecisions[round % 3];
+        options.shellDistance = kShells[(round / 3) % 3];
+        maniCompressReport report;
+        CHECK(Compress(&options, &report) == mani_success, "random compresses");
+        CHECK(report.shellError <= (double)options.precision, "random within precision");
+        if (report.shellError > (double)options.precision)
+        {
+            printf("  round %d: %g over %g at bone %u sample %u\n", round, report.shellError,
+                   (double)options.precision, report.shellBone, report.shellSample);
+        }
+    }
+    OpenSkeleton();
 }
 
 static void TestSameBytes(void)
@@ -575,6 +740,9 @@ int main(int argc, char** argv)
     TestSegments();
     TestOneSegment();
     TestOneSample();
+    TestFoldWithinPrecision();
+    TestNoRatePasses();
+    TestRandomWithinPrecision();
     TestSameBytes();
     TestMisuse();
     TestOpenRefusals();
