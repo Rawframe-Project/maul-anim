@@ -213,8 +213,8 @@ trk-range-backward | src/clip_tracks.c | else if (to < from) | else if (false)
 bld-cubic-one-key | src/clip_build.c | if (c->interpolation == maniInterpolationCubicSpline && c->keyCount < 2) | if (false)
 bld-key-order | src/clip_build.c | if (!Finite(c->times[k]) || c->times[k] < 0.0f || (k > 0 && c->times[k] <= c->times[k - 1])) | if (!Finite(c->times[k]) || c->times[k] < 0.0f || (k > 0 && c->times[k] < c->times[k - 1]))
 bld-zero-rotation | src/clip_build.c | if (q[0] == 0.0f && q[1] == 0.0f && q[2] == 0.0f && q[3] == 0.0f) | if (false)
-bld-slerp-shortest | src/clip_build.c | double sign = dot < 0.0 ? -1.0 : 1.0; | double sign = 1.0;
-bld-slerp-small | src/clip_build.c | if (angle > 1e-9) | if (angle > 1e-3)
+bld-slerp-shortest | src/quat64.c | double sign = dot < 0.0 ? -1.0 : 1.0; | double sign = 1.0;
+bld-slerp-small | src/quat64.c | if (angle > 1e-9) | if (angle > 1e-3)
 bld-key-search | src/clip_build.c | while (high - low > 1) | while (high - low > 2)
 bld-step | src/clip_build.c | if (c->interpolation == maniInterpolationStep || time == t0) | if (time == t0)
 bld-cubic-tangent | src/clip_build.c | (-2 * u3 + 3 * u2) * b[k] + span * (u3 - u2) * inTangent[k]; | (-2 * u3 + 3 * u2) * b[k] + (u3 - u2) * inTangent[k];

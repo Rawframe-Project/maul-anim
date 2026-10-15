@@ -39,4 +39,9 @@ double maniAtan2Double(double y, double x);
 // The sine and cosine of an angle in [0, pi / 2], in binary64.
 void maniSinCosQuarterDouble(double angle, double* sinOut, double* cosOut);
 
+// x to the power e for x positive and finite and e e^y within binary64's
+// range, through the library's own logarithm and exponential: within
+// about 1e-15 of the true value, relatively, times 1 + |e ln x|.
+double maniPowDouble(double x, double e);
+
 #endif // MAUL_ANIM_SRC_SCALAR_H

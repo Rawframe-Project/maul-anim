@@ -55,6 +55,11 @@ void maniFbxSinCosDegrees(double degrees, double* sinOut, double* cosOut);
 // YZX, YXZ, ZXY, ZYX, the first axis applied first.
 void maniFbxEulerQuat(const double degrees[3], uint32_t order, double q[4]);
 
+// A unit quaternion as Euler angles in degrees in an order (0 to 5), by
+// ufbx's formulas: the middle angle by its arc sine, within 1e-9 of a
+// quarter turn the first angle 0.
+void maniFbxQuatEuler(const double q[4], uint32_t order, double degrees[3]);
+
 // The product a b of two quaternions.
 void maniFbxQuatMul(const double a[4], const double b[4], double out[4]);
 

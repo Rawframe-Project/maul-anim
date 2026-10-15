@@ -328,10 +328,66 @@ static void TestRefusals(void)
                   "a string for a number");
 }
 
+// The same rotation, the quaternions equal up to sign.
+static bool SameRotation(const double a[4], const double b[4], double tolerance)
+{
+    double dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+    return fabs(fabs(dot) - 1.0) <= tolerance;
+}
+
+// Each order's axes, the first applied first (the middle one's angle
+// within a quarter turn).
+static const int kAxes[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 2, 0}, {1, 0, 2}, {2, 0, 1}, {2, 1, 0}};
+
+static void TestQuatEuler(void)
+{
+    double worst = 0.0;
+    bool gimbal = true;
+    for (uint32_t order = 0; order < 6; ++order)
+    {
+        for (int i = -170; i <= 170; i += 17)
+        {
+            for (int j = -85; j <= 85; j += 17)
+            {
+                for (int k = -170; k <= 170; k += 23)
+                {
+                    double angles[3];
+                    angles[kAxes[order][0]] = (double)i;
+                    angles[kAxes[order][1]] = (double)j;
+                    angles[kAxes[order][2]] = (double)k;
+                    double q[4];
+                    double out[3];
+                    maniFbxEulerQuat(angles, order, q);
+                    maniFbxQuatEuler(q, order, out);
+                    for (int c = 0; c < 3; ++c)
+                    {
+                        double e = fabs(out[c] - angles[c]);
+                        worst = e > worst ? e : worst;
+                    }
+                }
+            }
+            // A quarter turn about the middle axis: another set of angles,
+            // the same rotation.
+            double locked[3] = {(double)i, (double)i, (double)i};
+            locked[kAxes[order][1]] = 90.0;
+            double q[4];
+            double back[4];
+            double out[3];
+            maniFbxEulerQuat(locked, order, q);
+            maniFbxQuatEuler(q, order, out);
+            maniFbxEulerQuat(out, order, back);
+            gimbal = gimbal && SameRotation(q, back, 1e-12);
+        }
+    }
+    CHECK(worst <= 1e-9, "Euler angles back from their quaternion, each order");
+    CHECK(gimbal, "at gimbal lock, the same rotation");
+}
+
 int main(void)
 {
     TestSinCos();
     TestEuler();
+    TestQuatEuler();
     TestMatrices();
     TestChain();
     TestRefusals();

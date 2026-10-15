@@ -67,6 +67,97 @@ void maniFbxEulerQuat(const double degrees[3], uint32_t order, double q[4])
     }
 }
 
+// The arc sine of t in [-1, 1].
+static double Asin(double t)
+{
+    return maniAtan2Double(t, sqrt((1.0 - t) * (1.0 + t)));
+}
+
+// ufbx's formulas, order by order: the middle axis b by an arc sine of t,
+// the outer axes by arc tangents of the parts p (a's) and r (c's), or at
+// gimbal lock the last axis from g alone and the first 0.
+typedef struct EulerParts
+{
+    double t;
+    double p[2];
+    double r[2];
+    double g[2];
+} EulerParts;
+
+static EulerParts Parts(const double q[4], uint32_t order)
+{
+    double x = q[0];
+    double y = q[1];
+    double z = q[2];
+    double w = q[3];
+    double t = 0.0;
+    switch (order)
+    {
+    case 0: // XYZ: x, y middle, z.
+        t = 2.0 * (w * y - x * z);
+        return (EulerParts){t,
+                            {2.0 * (w * z + x * y), 2.0 * (w * w + x * x) - 1.0},
+                            {-2.0 * (w * x + y * z), 2.0 * (w * w + z * z) - 1.0},
+                            {-2.0 * t * (w * x - y * z), t * (2.0 * w * y + 2.0 * x * z)}};
+    case 1: // XZY
+        t = 2.0 * (w * z + x * y);
+        return (EulerParts){t,
+                            {2.0 * (w * y - x * z), 2.0 * (w * w + x * x) - 1.0},
+                            {-2.0 * (w * x - y * z), 2.0 * (w * w + y * y) - 1.0},
+                            {2.0 * t * (w * x + y * z), -t * (2.0 * x * y - 2.0 * w * z)}};
+    case 2: // YZX
+        t = 2.0 * (w * z - x * y);
+        return (EulerParts){t,
+                            {2.0 * (w * x + y * z), 2.0 * (w * w + y * y) - 1.0},
+                            {-2.0 * (w * y + x * z), 2.0 * (w * w + x * x) - 1.0},
+                            {-2.0 * t * (w * y - x * z), t * (2.0 * w * z + 2.0 * x * y)}};
+    case 3: // YXZ
+        t = 2.0 * (w * x + y * z);
+        return (EulerParts){t,
+                            {2.0 * (w * z - x * y), 2.0 * (w * w + y * y) - 1.0},
+                            {-2.0 * (w * y - x * z), 2.0 * (w * w + z * z) - 1.0},
+                            {2.0 * t * (w * y + x * z), -t * (2.0 * y * z - 2.0 * w * x)}};
+    case 4: // ZXY
+        t = 2.0 * (w * x - y * z);
+        return (EulerParts){t,
+                            {2.0 * (w * y + x * z), 2.0 * (w * w + z * z) - 1.0},
+                            {-2.0 * (w * z + x * y), 2.0 * (w * w + y * y) - 1.0},
+                            {-2.0 * t * (w * z - x * y), t * (2.0 * w * x + 2.0 * y * z)}};
+    default: // ZYX
+        t = 2.0 * (w * y + x * z);
+        return (EulerParts){t,
+                            {2.0 * (w * x - y * z), 2.0 * (w * w + z * z) - 1.0},
+                            {-2.0 * (w * z - x * y), 2.0 * (w * w + x * x) - 1.0},
+                            {2.0 * t * (w * z + x * y), -t * (2.0 * x * z - 2.0 * w * y)}};
+    }
+}
+
+void maniFbxQuatEuler(const double q[4], uint32_t order, double degrees[3])
+{
+    // The axes each order applies first, second and third.
+    uint32_t a = kOrders[order][0];
+    uint32_t b = kOrders[order][1];
+    uint32_t c = kOrders[order][2];
+    EulerParts e = Parts(q, order);
+    double radians[3];
+    if (fabs(e.t) < 0.999999999)
+    {
+        radians[b] = Asin(e.t);
+        radians[c] = maniAtan2Double(e.p[0], e.p[1]);
+        radians[a] = -maniAtan2Double(e.r[0], e.r[1]);
+    }
+    else
+    {
+        radians[b] = e.t < 0.0 ? -1.5707963267948966 : 1.5707963267948966;
+        radians[c] = maniAtan2Double(e.g[0], e.g[1]);
+        radians[a] = 0.0;
+    }
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        degrees[k] = radians[k] * 57.295779513082323;
+    }
+}
+
 void maniFbxQuatRotate(const double q[4], const double v[3], double out[3])
 {
     // v + 2w (u x v) + 2 u x (u x v), u the vector part.

@@ -15,6 +15,7 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
 
 // pi/2 as a 33-bit head, so that k times it is exact for |k| < 2^20, and
 // the binary64 tail of the remainder.
@@ -191,4 +192,78 @@ void maniSinCosQuarterDouble(double angle, double* sinOut, double* cosOut)
     double r = (s_halfPiHead - angle) + s_halfPiTail;
     *sinOut = CosSeries(r);
     *cosOut = SinSeries(r);
+}
+
+// ln 2 as a head with zeros in its low 32 bits, so that n times it is
+// exact for |n| < 2^20, and the tail.
+static const double s_ln2Head = 6.93147180369123816490e-01;
+static const double s_ln2Tail = 1.90821492927058770002e-10;
+
+// The natural logarithm of a positive finite x: x = m 2^k with m in
+// [sqrt(1/2), sqrt(2)], and ln m = 2 atanh(s), s = (m - 1) / (m + 1),
+// |s| < 0.172, by its series to the 25th power.
+static double LogPositive(double x)
+{
+    int32_t k = 0;
+    if (x < 2.2250738585072014e-308)
+    {
+        // Subnormal: made normal by 2^54.
+        x *= 18014398509481984.0;
+        k = -54;
+    }
+    uint64_t bits = 0;
+    memcpy(&bits, &x, sizeof bits);
+    k += (int32_t)((bits >> 52) & 0x7ffu) - 1023;
+    bits = (bits & 0x000fffffffffffffu) | 0x3ff0000000000000u;
+    double m = 1.0;
+    memcpy(&m, &bits, sizeof m);
+    if (m > 1.4142135623730951)
+    {
+        m *= 0.5;
+        ++k;
+    }
+    double s = (m - 1.0) / (m + 1.0);
+    double s2 = s * s;
+    double p = 1.0 / 25.0;
+    for (int32_t n = 23; n >= 1; n -= 2)
+    {
+        p = 1.0 / (double)n + s2 * p;
+    }
+    return ((double)k * s_ln2Head + 2.0 * s * p) + (double)k * s_ln2Tail;
+}
+
+// 2^n for n in [-1022, 1023].
+static double PowerOfTwo(int32_t n)
+{
+    uint64_t bits = (uint64_t)(n + 1023) << 52;
+    double d = 0.0;
+    memcpy(&d, &bits, sizeof d);
+    return d;
+}
+
+// e^y for y in [-746, 710]: y = n ln 2 + r, |r| <= ln 2 / 2, e^r by its
+// Taylor series to the 20th power, scaled by 2^n in two halves (each
+// within the normal range).
+static double Exp(double y)
+{
+    double q = y * 1.4426950408889634;
+    int32_t n = (int32_t)(q >= 0.0 ? q + 0.5 : q - 0.5);
+    double r = (y - (double)n * s_ln2Head) - (double)n * s_ln2Tail;
+    double p = 1.0;
+    for (int32_t k = 20; k >= 1; --k)
+    {
+        p = 1.0 + p * r / (double)k;
+    }
+    int32_t half = n / 2;
+    return p * PowerOfTwo(half) * PowerOfTwo(n - half);
+}
+
+double maniPowDouble(double x, double e)
+{
+    double y = e * LogPositive(x);
+    if (y > 710.0)
+    {
+        return (double)INFINITY;
+    }
+    return y < -746.0 ? 0.0 : Exp(y);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The library's own sine, cosine, arc cosine and arc tangent against the
+// The library's own sine, cosine, arc cosine, arc tangent and power against the
 // C library's binary64 functions, rounded to binary32: within one unit in
 // the last place over dense sweeps, exact where the value is exact, and
 // defined for every input.
@@ -257,6 +257,35 @@ static uint64_t HashDense(void)
     return HashEnd(&h);
 }
 
+// maniPowDouble against the C library's pow: x over 2^-1074 to 2^1023
+// in uneven steps (subnormals included), exponents in (0, 1] and beyond;
+// 1 exactly for 1.
+static void TestPowDouble(void)
+{
+    double worst = 0.0;
+    for (int32_t i = 0; i < 4600; ++i)
+    {
+        double x = exp(-744.4 + 0.3149 * (double)i);
+        for (int32_t k = 1; k <= 23; ++k)
+        {
+            double e = (double)k / 16.0 - 0.3;
+            double want = pow(x, e);
+            double got = maniPowDouble(x, e);
+            double scale = 1.0 + fabs(e * log(x));
+            double error = fabs(got - want) / (want * scale);
+            worst = error > worst ? error : worst;
+        }
+    }
+    CHECK(worst <= 4e-16, "within 4e-16 relatively, times 1 + |e ln x|");
+    if (!(worst <= 4e-16))
+    {
+        printf("  worst %g\n", worst);
+    }
+    CHECK(maniPowDouble(1.0, 0.3) == 1.0 && maniPowDouble(1.0, 7.0) == 1.0, "1 to any power");
+    CHECK(maniPowDouble(1e300, 3.0) == (double)INFINITY && maniPowDouble(1e-300, 3.0) == 0.0,
+          "past the range");
+}
+
 static void TestSameBitsEverywhere(void)
 {
     uint64_t hash = HashAll();
@@ -284,6 +313,7 @@ int main(void)
     TestAcosExactValuesAndClamping();
     TestAtan2WithinOneUlpOnCircles();
     TestAtan2Quadrants();
+    TestPowDouble();
     TestSameBitsEverywhere();
     return s_failures == 0 ? 0 : 1;
 }

@@ -2,6 +2,7 @@
 # and the modules it may use. tools/check_modules.py enforces it.
 base:
 scalar:
+quat64: scalar
 vecmath: scalar
 hash:
 fpenv:
@@ -26,7 +27,7 @@ clip_file:
 clip: bytes clip_file clip_view container pose_memory vecmath
 clip_view: clip_file
 clip_tracks: bytes clip_file clip_view container text
-clip_build: allocator builder bytes clip_file container scalar
+clip_build: allocator builder bytes clip_file container quat64
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 decimal:
