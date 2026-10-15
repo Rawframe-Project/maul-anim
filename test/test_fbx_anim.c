@@ -241,10 +241,11 @@ static void TestTakeRanges(void)
         "Objects: {\n AnimationStack: 100, \"AnimStack::Bare\", \"\" {\n }\n"
         " AnimationStack: 200, \"AnimStack::Ref\", \"\" {\n }\n"
         " AnimationStack: 300, \"AnimStack::Own\", \"\" {\n  Properties70: {\n   P: "
-        "\"Description\", \"KString\", \"\", \"\", \"x\"\n  }\n }\n}\n"
+        "\"Description\", \"KString\", \"\", \"\", \"x\"\n  }\n }\n"
+        " AnimationStack: 400, \"AnimStack::Empty\", \"\" {\n  Properties70: {\n  }\n }\n}\n"
         "Takes: {\n Take: \"Bare\" {\n  LocalTime: 6,9\n }\n Take: \"Ref\" {\n  ReferenceTime: "
         "1,2\n"
-        " }\n Take: \"Own\" {\n  LocalTime: 6,9\n }\n}\n";
+        " }\n Take: \"Own\" {\n  LocalTime: 6,9\n }\n Take: \"Empty\" {\n  LocalTime: 6,9\n }\n}\n";
     static const char kNoTemplate[] =
         "; FBX 7.4.0 project file\n"
         "Objects: {\n AnimationStack: 300, \"AnimStack::Own\", \"\" {\n  Properties70: {\n   P: "
@@ -253,6 +254,7 @@ static void TestTakeRanges(void)
     CHECK(RangeIs(kTemplate, 0, 6, 9), "a bare stack's take ahead of its template");
     CHECK(RangeIs(kTemplate, 1, 3, 4), "the template's local times ahead of a take's reference");
     CHECK(RangeIs(kTemplate, 2, 3, 4), "a stack with properties of its own: no take");
+    CHECK(RangeIs(kTemplate, 3, 6, 9), "an empty Properties70 is none of its own");
     CHECK(RangeIs(kNoTemplate, 0, 0, 0), "no take there with no template: the keys' span");
 }
 
