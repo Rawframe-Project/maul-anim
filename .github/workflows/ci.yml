@@ -146,9 +146,9 @@ jobs:
         run: stat -c '%s bytes' build/libmaul-anim.a
 
   # Each fuzz target runs for one minute on every push, from its seed:
-  # the skeleton, skin and clip loaders, the JSON reader and the glTF and
-  # FBX documents from their tests' sample files (FBX's with the
-  # fixtures of test/data/fbx).
+  # the skeleton, skin and clip loaders (full and compressed clips), the
+  # JSON reader and the glTF and FBX documents from their tests' sample
+  # files (FBX's with the fixtures of test/data/fbx).
   fuzz:
     name: fuzz
     runs-on: ubuntu-24.04
@@ -173,6 +173,7 @@ jobs:
           build/test_skin --seed corpus-fuzz_skin/sample.skin
           mkdir -p corpus-fuzz_clip
           build/test_clip --seed corpus-fuzz_clip/sample.clip
+          build/test_clip_compress --seed corpus-fuzz_clip/compressed.clip
           mkdir -p corpus-fuzz_json
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf

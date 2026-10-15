@@ -360,6 +360,68 @@ extern "C"
                                                        const maniClip* clip,
                                                        maniClipReport* reportOut);
 
+    // How a clip is compressed (mani-0006), in skeleton units: the largest
+    // distance a point on a shell around each bone may move, through the
+    // hierarchy, and the shell's radius.
+    typedef struct maniCompressOptions
+    {
+        float precision;
+        float shellDistance;
+        // Per bone in skeleton order, or NULL for the values above.
+        const float* bonePrecisions;
+        const float* boneShellDistances;
+        // A float track's largest error, or per float track in the clip's
+        // track order (NULL for the value).
+        float floatPrecision;
+        const float* floatPrecisions;
+    } maniCompressOptions;
+
+    /// Returns the default compression options: precision 0.0001 and shell
+    /// distance 0.03 (0.1 mm at 3 cm when the unit is the metre), float
+    /// tracks within 0.00001.
+    ///
+    /// @return The options.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniCompressOptions maniDefaultCompressOptions(void);
+
+    // What a compression made: the file's size, and the largest errors at
+    // the samples against the full-precision clip: the farthest a shell
+    // point moved (skeleton units), with its sample and bone, and a float
+    // track's (with its sample and track).
+    typedef struct maniCompressReport
+    {
+        uint64_t bytes;
+        double shellError;
+        uint32_t shellSample;
+        uint32_t shellBone;
+        double floatError;
+        uint32_t floatSample;
+        uint32_t floatTrack;
+    } maniCompressReport;
+
+    /// Compresses a full-precision clip into the builder (mani-0006):
+    /// default and constant channels folded, segments of about 16
+    /// samples, ranges over the clip and the segment, and per segment the
+    /// fewest bits that keep every bone's shell and every float track
+    /// within its tolerance at every sample. The same input gives the same
+    /// bytes on every platform.
+    ///
+    /// @param builder    The builder.
+    /// @param clip       A full-precision clip.
+    /// @param skeleton   Its skeleton.
+    /// @param options    The tolerances.
+    /// @param reportOut  Receives the report. May be NULL.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// compressed clip, a skeleton not the clip's, or a tolerance not
+    /// finite and above 0; `mani_errorCapacity` when the allocator fails.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
+                                                        const maniSkeleton* skeleton,
+                                                        const maniCompressOptions* options,
+                                                        maniCompressReport* reportOut);
+
     // A spring bone collider's shape.
     typedef uint32_t maniColliderShape;
     enum

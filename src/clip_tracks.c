@@ -103,7 +103,8 @@ static maniFileResult CheckFloatTracks(const uint8_t* const data[], const uint64
             r = Fail(entryAt + 20);
         }
     }
-    uint64_t values = (uint64_t)clip->sampleCount * clip->floatTrackCount;
+    // A compressed clip's float samples are in its segments.
+    uint64_t values = clip->compressed ? 0 : (uint64_t)clip->sampleCount * clip->floatTrackCount;
     for (uint64_t k = 0; r.result == mani_success && k < values; ++k)
     {
         if (!Finite(LoadF32(data[4] + 4 * k)))
@@ -183,14 +184,14 @@ static maniFileResult CheckTimed(const uint8_t* entries, uint64_t at, uint32_t c
     return Success();
 }
 
-maniFileResult maniCheckClipNamed(const uint8_t* const data[MANI_CLIP_SECTIONS],
-                                  const uint64_t sizes[MANI_CLIP_SECTIONS],
-                                  const uint64_t at[MANI_CLIP_SECTIONS], maniClip* clip)
+maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* sizes,
+                                  const uint64_t* at, maniClip* clip)
 {
     uint64_t floatValues = 0;
     const uint64_t expected[5] = {
         (uint64_t)clip->floatTrackCount * MANI_CLIP_NAMED_TRACK_SIZE,
-        ckd_mul(&floatValues, (uint64_t)clip->sampleCount, 4 * (uint64_t)clip->floatTrackCount)
+        clip->compressed ? 0
+        : ckd_mul(&floatValues, (uint64_t)clip->sampleCount, 4 * (uint64_t)clip->floatTrackCount)
             ? UINT64_MAX
             : floatValues,
         (uint64_t)clip->discreteTrackCount * MANI_CLIP_NAMED_TRACK_SIZE,
@@ -226,6 +227,7 @@ maniFileResult maniCheckClipNamed(const uint8_t* const data[MANI_CLIP_SECTIONS],
     clip->events = data[7];
     clip->markers = data[8];
     clip->names = data[9];
+    clip->namesSize = sizes[9];
     return r;
 }
 

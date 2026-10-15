@@ -379,7 +379,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         if (file != NULL)
         {
             maniWriteContainer(file, maniKindClip, MANI_CLIP_FORMAT_VERSION,
-                               maniClipComputeIdentity(sections, sizes), table, MANI_CLIP_SECTIONS);
+                               maniClipComputeIdentity(sections, sizes, MANI_CLIP_SECTIONS), table,
+                               MANI_CLIP_SECTIONS);
         }
     }
     maniRelease(&builder->allocator, tracks, trackBytes + 1, 1, 8);

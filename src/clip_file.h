@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The clip file's layout (mani-0006), shared by its view and its builder:
-// kind 2 of the container, full precision.
+// The clip file's layout (mani-0006), shared by its view, its builder and
+// its compressor: kind 2 of the container, full precision (10 sections)
+// or compressed (15: the samples sections empty, five more after).
 
 #ifndef MAUL_ANIM_SRC_CLIP_FILE_H
 #define MAUL_ANIM_SRC_CLIP_FILE_H
@@ -10,12 +11,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_CLIP_FORMAT_VERSION 1u
-#define MANI_CLIP_SECTIONS       10u
+#define MANI_CLIP_FORMAT_VERSION      2u
+#define MANI_CLIP_SECTIONS            10u
+#define MANI_CLIP_COMPRESSED_SECTIONS 15u
 // The header: skeleton identity (u64), skeleton bone count, sample count
 // (u32 each), sample rate, duration (binary32 each), loop policy, track
 // count, floats per sample, float track count, discrete track count,
-// event count, marker count (u32 each), then zeros.
+// event count, marker count, segment count (0 for full precision), form
+// (0 full precision, 1 compressed; u32 each), then zeros.
 #define MANI_CLIP_HEADER_SIZE 64u
 // A float or discrete track: name offset, name length (u32 each), name
 // hash (u64), then for a float track its interpolation (u32: 0 linear,
@@ -49,7 +52,40 @@ enum
     maniClipTagMarkers = 9,
     // The names' UTF-8 bytes.
     maniClipTagNames = 10,
+    // Compressed: a byte per bone track (2 bits per channel: translation,
+    // rotation, scale), then one per float track, each a maniClipForm.
+    maniClipTagForms = 11,
+    // Compressed: the constant sub-tracks' values in track order, three
+    // binary32 for a channel (a rotation's x, y, z with w positive), one
+    // for a float track.
+    maniClipTagConstants = 12,
+    // Compressed: the animated sub-tracks' clip ranges in track order,
+    // minimum and extent per component, binary32.
+    maniClipTagRanges = 13,
+    // Compressed: per segment, its first sample, sample count, offset in
+    // the segment data, and bits per sample of the bone and of the float
+    // sub-tracks (u32 each).
+    maniClipTagSegments = 14,
+    // Compressed: per segment, a rate byte per animated sub-track; with
+    // several segments its ranges (per component a minimum and an extent
+    // byte, or a 16-bit value at rate 0); then its samples' bits, sample-
+    // major, least significant bit first. Eight spare bytes end it.
+    maniClipTagSegmentData = 15,
 };
+
+// A sub-track's form in a compressed clip.
+typedef enum maniClipForm
+{
+    maniClipFormAbsent = 0,
+    maniClipFormDefault = 1,
+    maniClipFormConstant = 2,
+    maniClipFormAnimated = 3,
+} maniClipForm;
+
+#define MANI_CLIP_SEGMENT_SIZE 20u
+// Segments of about 16 samples; a clip of at most 31 is one segment.
+#define MANI_CLIP_SEGMENT_IDEAL 16u
+#define MANI_CLIP_SEGMENT_MAX   31u
 
 enum
 {
@@ -74,7 +110,7 @@ bool maniClipSampleCountFor(float duration, float rate, uint32_t* countOut);
 
 // The identity: maniHash64 over the sections in tag order, each
 // continuing the last.
-uint64_t maniClipComputeIdentity(const uint8_t* const sections[MANI_CLIP_SECTIONS],
-                                 const uint64_t sizes[MANI_CLIP_SECTIONS]);
+uint64_t maniClipComputeIdentity(const uint8_t* const* sections, const uint64_t* sizes,
+                                 uint32_t count);
 
 #endif // MAUL_ANIM_SRC_CLIP_FILE_H

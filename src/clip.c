@@ -68,11 +68,11 @@ bool maniClipSampleCountFor(float duration, float rate, uint32_t* countOut)
     return true;
 }
 
-uint64_t maniClipComputeIdentity(const uint8_t* const sections[MANI_CLIP_SECTIONS],
-                                 const uint64_t sizes[MANI_CLIP_SECTIONS])
+uint64_t maniClipComputeIdentity(const uint8_t* const* sections, const uint64_t* sizes,
+                                 uint32_t count)
 {
     uint64_t hash = MANI_HASH_INIT;
-    for (uint32_t i = 0; i < MANI_CLIP_SECTIONS; ++i)
+    for (uint32_t i = 0; i < count; ++i)
     {
         hash = maniHashBytes(hash, sections[i], sizes[i]);
     }
@@ -106,7 +106,18 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
     {
         return Fail(at + 24);
     }
-    for (uint32_t i = 52; i < MANI_CLIP_HEADER_SIZE; ++i)
+    // A compressed clip has its segments; full precision none.
+    uint32_t segments = maniLoadU32(h + 52);
+    uint32_t form = maniLoadU32(h + 56);
+    if (form > 1)
+    {
+        return Fail(at + 56);
+    }
+    if (form == 1 ? segments == 0 || segments > expected : segments != 0)
+    {
+        return Fail(at + 52);
+    }
+    for (uint32_t i = 60; i < MANI_CLIP_HEADER_SIZE; ++i)
     {
         if (h[i] != 0)
         {
@@ -123,6 +134,8 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
         .discreteTrackCount = maniLoadU32(h + 40),
         .eventCount = maniLoadU32(h + 44),
         .markerCount = maniLoadU32(h + 48),
+        .segmentCount = segments,
+        .compressed = form,
         .sampleRate = rate,
         .duration = duration,
         .loop = maniLoadU32(h + 24),
@@ -197,6 +210,43 @@ static maniFileResult CheckSamples(const uint8_t* s, uint64_t at, const uint8_t*
     return (maniFileResult){mani_success, 0, 0};
 }
 
+// The header and the tracks (sections 1 and 2), and the samples: section
+// 3 at full precision, none in a compressed clip.
+static maniFileResult CheckFront(const uint8_t* const* data, const uint64_t* sizes,
+                                 const uint64_t* at, bool compressed, maniClip* clip)
+{
+    if (sizes[0] != MANI_CLIP_HEADER_SIZE)
+    {
+        return Fail(MANI_CONTAINER_HEADER_SIZE + 16);
+    }
+    maniFileResult r = CheckHeader(data[0], at[0], clip);
+    if (r.result != mani_success)
+    {
+        return r;
+    }
+    if ((clip->compressed != 0) != compressed)
+    {
+        return Fail(at[0] + 56);
+    }
+    if (sizes[1] != (uint64_t)clip->trackCount * MANI_CLIP_TRACK_SIZE)
+    {
+        return Fail(MANI_CONTAINER_HEADER_SIZE + MANI_CONTAINER_ENTRY_SIZE + 16);
+    }
+    r = CheckTracks(data[1], at[1], at[0], clip);
+    if (r.result != mani_success)
+    {
+        return r;
+    }
+    clip->tracks = data[1];
+    uint64_t sampleBytes = 0;
+    if (ckd_mul(&sampleBytes, (uint64_t)clip->sampleCount, 4 * (uint64_t)clip->floatsPerSample) ||
+        sizes[2] != (compressed ? 0 : sampleBytes))
+    {
+        return Fail(MANI_CONTAINER_HEADER_SIZE + 2 * MANI_CONTAINER_ENTRY_SIZE + 16);
+    }
+    return compressed ? r : CheckSamples(data[2], at[2], data[1], clip);
+}
+
 maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
 {
     if (clipOut == NULL)
@@ -209,62 +259,47 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
     {
         return r;
     }
-    if (c.sectionCount != MANI_CLIP_SECTIONS)
+    bool compressed = c.sectionCount == MANI_CLIP_COMPRESSED_SECTIONS;
+    if (c.sectionCount != MANI_CLIP_SECTIONS && !compressed)
     {
         return Fail(12);
     }
-    const uint8_t* data[MANI_CLIP_SECTIONS];
-    uint64_t sizes[MANI_CLIP_SECTIONS];
-    uint64_t at[MANI_CLIP_SECTIONS];
-    for (uint32_t i = 0; i < MANI_CLIP_SECTIONS; ++i)
+    const uint8_t* data[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint64_t at[MANI_CLIP_COMPRESSED_SECTIONS];
+    for (uint32_t i = 0; i < c.sectionCount; ++i)
     {
         if (!maniContainerSection(&c, i + 1, &data[i], &sizes[i], &at[i]))
         {
             return Fail(MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE);
         }
     }
-    if (sizes[0] != MANI_CLIP_HEADER_SIZE)
-    {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + 16);
-    }
     maniClip clip;
-    r = CheckHeader(data[0], at[0], &clip);
-    if (r.result != mani_success)
-    {
-        return r;
-    }
-    if (sizes[1] != (uint64_t)clip.trackCount * MANI_CLIP_TRACK_SIZE)
-    {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + MANI_CONTAINER_ENTRY_SIZE + 16);
-    }
-    r = CheckTracks(data[1], at[1], at[0], &clip);
-    if (r.result != mani_success)
-    {
-        return r;
-    }
-    uint64_t sampleBytes = 0;
-    if (ckd_mul(&sampleBytes, (uint64_t)clip.sampleCount, 4 * (uint64_t)clip.floatsPerSample) ||
-        sizes[2] != sampleBytes)
-    {
-        return Fail(MANI_CONTAINER_HEADER_SIZE + 2 * MANI_CONTAINER_ENTRY_SIZE + 16);
-    }
-    r = CheckSamples(data[2], at[2], data[1], &clip);
+    r = CheckFront(data, sizes, at, compressed, &clip);
     if (r.result == mani_success)
     {
         r = maniCheckClipNamed(data, sizes, at, &clip);
     }
+    if (r.result == mani_success && compressed)
+    {
+        r = maniCheckClipCompressed(data, sizes, at, &clip);
+    }
     if (r.result != mani_success)
     {
         return r;
     }
-    if (maniClipComputeIdentity(data, sizes) != c.identity)
+    if (maniClipComputeIdentity(data, sizes, c.sectionCount) != c.identity)
     {
         return Fail(40);
     }
-    clip.tracks = data[1];
-    clip.samples = data[2];
+    clip.samples = compressed ? NULL : data[2];
     *clipOut = clip;
     return (maniFileResult){mani_success, 0, 0};
+}
+
+bool maniClipCompressed(const maniClip* clip)
+{
+    return clip->compressed != 0;
 }
 
 float maniClipDuration(const maniClip* clip)
@@ -340,24 +375,10 @@ static maniQuat NlerpQuat(const uint8_t* a, const uint8_t* b, float alpha)
     return maniQuatNormalize(q);
 }
 
-maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                          maniPose* pose)
+// The full-precision samples first and second at alpha into the pose.
+static void SampleFull(const maniClip* clip, uint32_t first, uint32_t second, float alpha,
+                       maniPose* pose)
 {
-    if (clip == NULL || !maniPoseMatches(pose, skeleton) ||
-        clip->skeletonIdentity != skeleton->identity ||
-        clip->skeletonBoneCount != skeleton->boneCount)
-    {
-        return mani_errorInvalid;
-    }
-    maniResult result = maniPoseSetRestLocals(pose, skeleton);
-    if (result != mani_success)
-    {
-        return result;
-    }
-    uint32_t first = 0;
-    float alpha = 0.0f;
-    Locate(clip, time, &first, &alpha);
-    uint32_t second = clip->sampleCount > 1 ? first + 1 : first;
     size_t stride = 4 * (size_t)clip->floatsPerSample;
     const uint8_t* a = clip->samples + stride * first;
     const uint8_t* b = clip->samples + stride * second;
@@ -387,6 +408,56 @@ maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, fl
         }
         maniPoseSetLocal(pose, bone, local);
     }
+}
+
+void maniSampleClipAt(const maniClip* clip, const maniSkeleton* skeleton, uint32_t k,
+                      maniPose* pose, float* values)
+{
+    (void)maniPoseSetRestLocals(pose, skeleton);
+    if (clip->compressed)
+    {
+        maniSampleCompressedBones(clip, k, k, 0.0f, pose);
+    }
+    else
+    {
+        SampleFull(clip, k, k, 0.0f, pose);
+    }
+    if (values != NULL && clip->compressed)
+    {
+        maniSampleCompressedFloats(clip, k, k, 0.0f, values);
+    }
+    for (uint32_t i = 0; values != NULL && !clip->compressed && i < clip->floatTrackCount; ++i)
+    {
+        values[i] = LoadF32(clip->floatSamples + 4 * ((size_t)k * clip->floatTrackCount + i));
+    }
+}
+
+maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                          maniPose* pose)
+{
+    if (clip == NULL || !maniPoseMatches(pose, skeleton) ||
+        clip->skeletonIdentity != skeleton->identity ||
+        clip->skeletonBoneCount != skeleton->boneCount)
+    {
+        return mani_errorInvalid;
+    }
+    maniResult result = maniPoseSetRestLocals(pose, skeleton);
+    if (result != mani_success)
+    {
+        return result;
+    }
+    uint32_t first = 0;
+    float alpha = 0.0f;
+    Locate(clip, time, &first, &alpha);
+    uint32_t second = clip->sampleCount > 1 ? first + 1 : first;
+    if (clip->compressed)
+    {
+        maniSampleCompressedBones(clip, first, second, alpha, pose);
+    }
+    else
+    {
+        SampleFull(clip, first, second, alpha, pose);
+    }
     return mani_success;
 }
 
@@ -409,6 +480,11 @@ maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values,
     float alpha = 0.0f;
     Locate(clip, time, &first, &alpha);
     uint32_t second = clip->sampleCount > 1 ? first + 1 : first;
+    if (clip->compressed)
+    {
+        maniSampleCompressedFloats(clip, first, second, alpha, values);
+        return mani_success;
+    }
     size_t stride = 4 * (size_t)clip->floatTrackCount;
     const uint8_t* a = clip->floatSamples + stride * first;
     const uint8_t* b = clip->floatSamples + stride * second;

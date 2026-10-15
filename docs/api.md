@@ -67,6 +67,16 @@ MANI_NODISCARD MANI_API maniResult maniMeasureClip(maniBuilder* builder, const m
 Measures a clip against the source it was built from, at every sample time and halfway between samples, through the clip's own sampling, against the source evaluated in binary64. Rotations are compared by the angle between them.  @param builder    A builder, for its allocator. @param source     The clip's source, as maniBuildClip accepts it. @param clip       The clip opened from what the build made. @param reportOut  Receives the report. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a source the build refuses, or a clip not of the source's skeleton or missing one of its float tracks; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+maniCompressOptions maniDefaultCompressOptions(void);
+```
+Returns the default compression options: precision 0.0001 and shell distance 0.03 (0.1 mm at 3 cm when the unit is the metre), float tracks within 0.00001.  @return The options. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip, const maniSkeleton* skeleton, const maniCompressOptions* options, maniCompressReport* reportOut);
+```
+Compresses a full-precision clip into the builder (mani-0006): default and constant channels folded, segments of about 16 samples, ranges over the clip and the segment, and per segment the fewest bits that keep every bone's shell and every float track within its tolerance at every sample. The same input gives the same bytes on every platform.  @param builder    The builder. @param clip       A full-precision clip. @param skeleton   Its skeleton. @param options    The tolerances. @param reportOut  Receives the report. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a compressed clip, a skeleton not the clip's, or a tolerance not finite and above 0; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
 ```
 Copies the last built file into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open the copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the file's size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding no file. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -84,6 +94,11 @@ Clips (mani-0006): a skeleton's motion as samples on one uniform grid, read in p
 MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut);
 ```
 Opens a clip file in place: checks the container, the header, every track and every sample (finite, rotations unit) and the identity.  @param bytes    The file, 16-byte aligned. @param size     Its size in bytes; bytes past the file are ignored. @param clipOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+bool maniClipCompressed(const maniClip* clip);
+```
+Returns whether a clip is compressed (mani-0006); a full-precision clip is the build's output and the reference.  @param clip  An opened clip. @return True for a compressed clip. @par Thread safety Safe from any thread.
 
 ```c
 float maniClipDuration(const maniClip* clip);
@@ -546,4 +561,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-103 functions across 7 headers.
+106 functions across 7 headers.

@@ -48,7 +48,14 @@ extern "C"
         const uint8_t* events;
         const uint8_t* markers;
         const uint8_t* names;
+        // A compressed clip's sections (NULL at full precision).
+        const uint8_t* forms;
+        const uint8_t* constants;
+        const uint8_t* ranges;
+        const uint8_t* segments;
+        const uint8_t* segmentData;
         uint64_t skeletonIdentity;
+        uint64_t namesSize;
         uint32_t skeletonBoneCount;
         uint32_t sampleCount;
         uint32_t trackCount;
@@ -57,6 +64,10 @@ extern "C"
         uint32_t discreteTrackCount;
         uint32_t eventCount;
         uint32_t markerCount;
+        uint32_t segmentCount;
+        uint32_t compressed;
+        uint32_t animatedChannels;
+        uint32_t animatedFloats;
         float sampleRate;
         float duration;
         maniLoopPolicy loop;
@@ -91,6 +102,15 @@ extern "C"
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size,
                                                         maniClip* clipOut);
+
+    /// Returns whether a clip is compressed (mani-0006); a full-precision
+    /// clip is the build's output and the reference.
+    ///
+    /// @param clip  An opened clip.
+    /// @return True for a compressed clip.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API bool maniClipCompressed(const maniClip* clip);
 
     /// Returns the clip's duration in seconds, at least 0.
     ///

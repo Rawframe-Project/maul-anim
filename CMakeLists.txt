@@ -45,6 +45,8 @@ endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
     src/clip.c
+    src/clip_codec.c
+    src/clip_compressed.c
     src/clip_tracks.c
     src/container.c
     src/decompose.c
@@ -62,7 +64,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c
-                                     src/clip_build_named.c src/clip_measure.c src/decimal.c src/inflate.c
+                                     src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_shell.c src/decimal.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c
                                      src/gltf_buffer.c src/gltf_layout.c
@@ -95,6 +97,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(pose WHITEBOX)
         maul_add_test(skin WHITEBOX)
         maul_add_test(clip WHITEBOX)
+        maul_add_test(clip_compress WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)
         maul_add_test(gltf_skeleton WHITEBOX)

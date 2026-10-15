@@ -1,18 +1,98 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a clip file (mani-0006) and reading its named items; then the same bytes with the
-// payload's hash made right, so that mutations reach the checks behind it. Run as fuzz_clip <corpus
-// dir>; the seed comes from test_clip --seed <file>.
+// Opening a clip file (mani-0006), full precision or compressed, reading its named items and, for
+// a clip of a seed's skeleton, sampling it; then the same bytes with the payload's hash made right,
+// so that mutations reach the checks behind it. Run as fuzz_clip <corpus dir>; the seeds come from
+// test_clip --seed <file> and test_clip_compress --seed <file>.
 
+#include "maul-anim/build.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
+
+#define BONE(n, p, x, y)                                                                           \
+    {                                                                                              \
+        n, sizeof(n) - 1, p,                                                                       \
+        {                                                                                          \
+            {x, y, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}                             \
+        }                                                                                          \
+    }
+
+// The seeds' skeletons, as their tests build them.
+static const maniBoneSource kClipBones[4] = {BONE("root", -1, 0.5f, 0.0f), BONE("a", 0, 0.5f, 0.0f),
+                                             BONE("b", 1, 0.5f, 0.0f), BONE("c", 0, 0.5f, 0.0f)};
+static const maniBoneSource kCompressBones[6] = {
+    BONE("root", -1, 0.0f, 0.0f), BONE("spine", 0, 0.0f, 0.3f), BONE("chest", 1, 0.0f, 0.3f),
+    BONE("arm", 2, 0.0f, 0.3f),   BONE("hand", 3, 0.0f, 0.3f),  BONE("leg", 0, 0.0f, -0.3f)};
+
+static _Alignas(16) uint8_t s_skeletonFiles[2][4096];
+static maniSkeleton s_skeletons[2];
+static int s_skeletonCount = -1;
+static _Alignas(32) uint8_t s_poseMemory[8192];
+static float s_values[64];
+
+static void BuildSkeletons(void)
+{
+    s_skeletonCount = 0;
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = NULL;
+    if (maniCreateBuilder(&def, &builder) != mani_success)
+    {
+        return;
+    }
+    const maniSkeletonSource sources[2] = {{kClipBones, 4, 0}, {kCompressBones, 6, 0}};
+    for (int i = 0; i < 2; ++i)
+    {
+        size_t size = 0;
+        if (maniBuildSkeleton(builder, &sources[i]).result == mani_success &&
+            maniCopyBuilt(builder, s_skeletonFiles[i], sizeof s_skeletonFiles[i], &size) ==
+                mani_success &&
+            maniOpenSkeleton(s_skeletonFiles[i], size, &s_skeletons[s_skeletonCount]).result ==
+                mani_success)
+        {
+            ++s_skeletonCount;
+        }
+    }
+    maniDestroyBuilder(builder);
+}
+
+// Samples a clip of a seed's skeleton at times inside and outside it.
+static void Sample(const maniClip* clip)
+{
+    for (int i = 0; i < s_skeletonCount; ++i)
+    {
+        const maniSkeleton* skeleton = &s_skeletons[i];
+        maniPose* pose = NULL;
+        if (maniClipSkeletonIdentity(clip) != maniSkeletonIdentity(skeleton) ||
+            maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success)
+        {
+            continue;
+        }
+        float d = maniClipDuration(clip);
+        const float times[6] = {-1.0f, 0.0f, d * 0.37f, d * 0.5f, d, d + 1.0f};
+        for (int t = 0; t < 6; ++t)
+        {
+            maniResult bones = maniSampleClip(clip, skeleton, times[t], pose);
+            maniResult floats = maniSampleClipFloats(clip, times[t], s_values, 64, NULL);
+            bool fits = maniClipFloatTrackCount(clip) <= 64;
+            if ((clip->skeletonBoneCount == maniSkeletonBoneCount(skeleton)) !=
+                    (bones == mani_success) ||
+                (floats == mani_success) != fits)
+            {
+                abort();
+            }
+        }
+    }
+}
 
 static void Exercise(const uint8_t* bytes, size_t size)
 {
@@ -50,6 +130,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         {
             abort();
         }
+        Sample(&clip);
     }
 }
 
@@ -57,6 +138,10 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     // The file is opened from a 16-byte aligned copy, as a host would;
     // aligned by hand, as aligned_alloc is not everywhere.
+    if (s_skeletonCount < 0)
+    {
+        BuildSkeletons();
+    }
     uint8_t* block = malloc(size + 16);
     if (block == NULL)
     {

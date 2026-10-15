@@ -26,10 +26,14 @@ skin_build: allocator builder bytes container skin_file
 clip_file:
 clip: bytes clip_file clip_view container pose_memory vecmath
 clip_view: clip_file
+clip_codec: bytes
+clip_compressed: bytes clip_codec clip_file clip_view container pose_memory vecmath
 clip_tracks: bytes clip_file clip_view container text
 clip_build: allocator builder bytes clip_file container quat64
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
+clip_shell:
+clip_compress: allocator builder bytes clip_codec clip_file clip_shell clip_view container
 decimal:
 json: allocator decimal text
 gltf_property: json

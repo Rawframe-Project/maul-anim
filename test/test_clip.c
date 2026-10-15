@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_CLIP_HASH 0x1107b83bb9df50a9ull
+#define PINNED_CLIP_HASH 0xdb00f7383addc056ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -875,10 +875,19 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 12, "sample count not the duration's");
     maniStoreU32(s_file + header + 24, 2);
     ExpectFormat(header + 24, "loop policy");
+    s_file[header + 60] = 1;
+    ExpectFormat(header + 60, "header padding");
+    s_file[header + 63] = 1;
+    ExpectFormat(header + 63, "header padding's last byte");
+    s_file[header + 56] = 2;
+    ExpectFormat(header + 56, "form past compressed");
     s_file[header + 56] = 1;
-    ExpectFormat(header + 56, "header padding");
+    ExpectFormat(header + 52, "compressed without segments");
     s_file[header + 52] = 1;
-    ExpectFormat(header + 52, "header padding's first byte");
+    ExpectFormat(header + 52, "segments at full precision");
+    s_file[header + 52] = 1;
+    s_file[header + 56] = 1;
+    ExpectFormat(header + 56, "compressed form in ten sections");
     maniStoreU32(s_file + header + 32, 7);
     ExpectFormat(header + 32, "floats per sample");
     // Tracks are bones 0, 1, 2: make the second bone 0.
