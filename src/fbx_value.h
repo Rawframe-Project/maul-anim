@@ -19,6 +19,16 @@
 // holds exactly these bytes, FBX's entities decoded.
 bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length);
 
+// A name's hash: maniHash64 from MANI_HASH_INIT, a byte at a time.
+uint64_t maniFbxNameHash(const void* bytes, size_t length);
+
+// The same hash of a string property's bytes as maniFbxStringEquals
+// compares them; MANI_HASH_INIT for no string.
+uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property);
+
+// Whether two string properties hold the same bytes, so compared.
+bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b);
+
 // A string property's bytes, entities decoded, into out: the count
 // written, whole bytes up to capacity.
 size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity);

@@ -102,12 +102,6 @@ static maniFbxLayer ReadLayer(const maniFbx* fbx, uint32_t object)
     return (maniFbxLayer){object, mode, weight, rotation == 0.0, scale == 0.0};
 }
 
-// A string property's bytes.
-static bool Bytes(const maniFbx* fbx, uint32_t property, const uint8_t** bytes, uint32_t* length)
-{
-    return maniFbxString(fbx, property, bytes, length);
-}
-
 static bool NameIs(const maniFbx* fbx, uint32_t property, const char* name)
 {
     return maniFbxStringEquals(fbx, property, name, strlen(name));
@@ -156,9 +150,11 @@ static maniImportResult NodeCurves(const maniFbx* fbx, uint32_t node, maniFbxCha
             continue;
         }
         uint32_t k = Component(fbx, c->parentProperty);
-        const uint8_t* name = NULL;
-        uint32_t length = 0;
-        if (Bytes(fbx, c->parentProperty, &name, &length) &&
+        // The channel's own value, by its decoded name (a longer name than
+        // any channel's keeps the node's value).
+        uint8_t name[128];
+        size_t length = maniFbxStringDecode(fbx, c->parentProperty, name, sizeof name);
+        if (length < sizeof name &&
             !Number(fbx, node, (const char*)name, length, &channel->values[k]))
         {
             return maniFbxFail(maniImportReasonProperty,
@@ -171,9 +167,11 @@ static maniImportResult NodeCurves(const maniFbx* fbx, uint32_t node, maniFbxCha
 }
 
 // The property connections of a curve node to what it drives: counted
-// (out NULL) or bound as channels of a layer.
+// (out NULL) or bound as channels of a layer, never past capacity. A
+// node under several layers binds once in each, so the count can pass
+// 32 bits: it is kept in 64.
 static maniImportResult Bind(const maniFbx* fbx, uint32_t node, uint32_t layer, maniFbxChannel* out,
-                             uint32_t* count)
+                             uint64_t capacity, uint64_t* count)
 {
     const uint32_t* list = NULL;
     uint32_t n = maniFbxParentConnections(fbx, node, &list);
@@ -186,10 +184,11 @@ static maniImportResult Bind(const maniFbx* fbx, uint32_t node, uint32_t layer, 
         {
             continue;
         }
-        if (out != NULL)
+        if (out != NULL && *count < capacity)
         {
             maniFbxChannel* channel = &out[*count];
             memset(channel, 0, sizeof *channel);
+            channel->nameHash = maniFbxStringHash(fbx, c->parentProperty);
             channel->target = c->parent;
             channel->name = c->parentProperty;
             channel->layer = layer;
@@ -225,7 +224,7 @@ void maniFbxReleaseAnimation(const maniFbx* fbx, maniFbxAnimation* animation)
 
 // Every layer's curve nodes bound: counted (out NULL) or read.
 static maniImportResult EachNode(const maniFbx* fbx, const maniFbxAnimation* a, maniFbxChannel* out,
-                                 uint32_t* count)
+                                 uint64_t capacity, uint64_t* count)
 {
     maniImportResult r = maniFbxSuccess();
     for (uint32_t l = 0; r.result == mani_success && l < a->layerCount; ++l)
@@ -242,7 +241,7 @@ static maniImportResult EachNode(const maniFbx* fbx, const maniFbxAnimation* a, 
         maniFbxEachChild(fbx, a->layers[l].object, VisitChild, &nodes);
         for (uint32_t i = 0; r.result == mani_success && i < nodes.count; ++i)
         {
-            r = Bind(fbx, nodes.objects[i], l, out, count);
+            r = Bind(fbx, nodes.objects[i], l, out, capacity, count);
         }
         maniRelease(&fbx->allocator, nodes.objects, (size_t)all + 1, sizeof(uint32_t), 4);
     }
@@ -272,55 +271,86 @@ static maniImportResult ReadLayers(const maniFbx* fbx, uint32_t stack, maniFbxAn
     return a->layers != NULL && objects != NULL ? maniFbxSuccess() : Capacity();
 }
 
-static bool SameName(const maniFbx* fbx, uint32_t a, uint32_t b)
+// The channels in the order given.
+static maniImportResult Reorder(const maniFbx* fbx, maniFbxAnimation* a, const uint32_t* order)
 {
-    const uint8_t* x = NULL;
-    const uint8_t* y = NULL;
-    uint32_t nx = 0;
-    uint32_t ny = 0;
-    return Bytes(fbx, a, &x, &nx) && Bytes(fbx, b, &y, &ny) && nx == ny && memcmp(x, y, nx) == 0;
+    uint32_t n = a->channelCount;
+    maniFbxChannel* sorted =
+        maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(maniFbxChannel), 8);
+    if (sorted == NULL)
+    {
+        return Capacity();
+    }
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        sorted[i] = a->channels[order[i]];
+    }
+    memcpy(a->channels, sorted, (size_t)n * sizeof *sorted);
+    maniRelease(&fbx->allocator, sorted, (size_t)n + 1, sizeof(maniFbxChannel), 8);
+    return maniFbxSuccess();
 }
 
-// Channels sorted by target and layer (stable); a property driven twice
-// in one layer refused.
-static maniImportResult Sort(const maniFbx* fbx, maniFbxAnimation* a)
+// Sorted by target, layer and name hash: by the hash first, then stably
+// by target and layer.
+static maniImportResult SortChannels(const maniFbx* fbx, maniFbxAnimation* a)
 {
     uint32_t n = a->channelCount;
     uint64_t* keys = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint64_t), 8);
-    uint32_t* order = maniAllocate(&fbx->allocator, (size_t)n * 2 + 1, sizeof(uint32_t), 4);
-    maniFbxChannel* sorted =
-        maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(maniFbxChannel), 8);
-    maniImportResult r =
-        keys != NULL && order != NULL && sorted != NULL ? maniFbxSuccess() : Capacity();
+    uint32_t* byHash = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 4);
+    uint32_t* order = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 4);
+    uint32_t* scratch = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 4);
+    maniImportResult r = keys != NULL && byHash != NULL && order != NULL && scratch != NULL
+                             ? maniFbxSuccess()
+                             : Capacity();
     if (r.result == mani_success)
     {
         for (uint32_t i = 0; i < n; ++i)
         {
-            keys[i] = ((uint64_t)a->channels[i].target << 32) + a->channels[i].layer;
+            keys[i] = a->channels[i].nameHash;
         }
-        maniSortByKey(keys, n, order, order + n);
+        maniSortByKey(keys, n, byHash, scratch);
         for (uint32_t i = 0; i < n; ++i)
         {
-            sorted[i] = a->channels[order[i]];
+            const maniFbxChannel* c = &a->channels[byHash[i]];
+            keys[i] = ((uint64_t)c->target << 32) + c->layer;
         }
-        memcpy(a->channels, sorted, (size_t)n * sizeof *sorted);
-    }
-    for (uint32_t i = 0; r.result == mani_success && i < n; ++i)
-    {
-        for (uint32_t j = i + 1; j < n && keys[order[j]] == keys[order[i]]; ++j)
+        maniSortByKey(keys, n, order, scratch);
+        for (uint32_t i = 0; i < n; ++i)
         {
-            if (SameName(fbx, a->channels[i].name, a->channels[j].name))
+            scratch[i] = byHash[order[i]];
+        }
+        r = Reorder(fbx, a, scratch);
+    }
+    maniRelease(&fbx->allocator, keys, (size_t)n + 1, sizeof(uint64_t), 8);
+    maniRelease(&fbx->allocator, byHash, (size_t)n + 1, sizeof(uint32_t), 4);
+    maniRelease(&fbx->allocator, order, (size_t)n + 1, sizeof(uint32_t), 4);
+    maniRelease(&fbx->allocator, scratch, (size_t)n + 1, sizeof(uint32_t), 4);
+    return r;
+}
+
+static bool SameSlot(const maniFbxChannel* a, const maniFbxChannel* b)
+{
+    return a->target == b->target && a->layer == b->layer && a->nameHash == b->nameHash;
+}
+
+// Sorted, then a property driven twice in one layer refused: equal names
+// share a hash, so they lie together.
+static maniImportResult Sort(const maniFbx* fbx, maniFbxAnimation* a)
+{
+    maniImportResult r = SortChannels(fbx, a);
+    for (uint32_t i = 0; r.result == mani_success && i < a->channelCount; ++i)
+    {
+        for (uint32_t j = i + 1; j < a->channelCount && SameSlot(&a->channels[i], &a->channels[j]);
+             ++j)
+        {
+            if (maniFbxSameString(fbx, a->channels[i].name, a->channels[j].name))
             {
                 uint32_t node = a->channels[j].node;
-                r = maniFbxFail(maniImportReasonProperty,
-                                fbx->nodes[fbx->objects[node].node].nameOffset, node);
-                break;
+                return maniFbxFail(maniImportReasonProperty,
+                                   fbx->nodes[fbx->objects[node].node].nameOffset, node);
             }
         }
     }
-    maniRelease(&fbx->allocator, keys, (size_t)n + 1, sizeof(uint64_t), 8);
-    maniRelease(&fbx->allocator, order, (size_t)n * 2 + 1, sizeof(uint32_t), 4);
-    maniRelease(&fbx->allocator, sorted, (size_t)n + 1, sizeof(maniFbxChannel), 8);
     return r;
 }
 
@@ -399,8 +429,10 @@ maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFb
 {
     memset(out, 0, sizeof *out);
     maniImportResult r = ReadLayers(fbx, stack, out);
-    uint32_t count = 0;
-    r = r.result == mani_success ? EachNode(fbx, out, NULL, &count) : r;
+    uint64_t count = 0;
+    r = r.result == mani_success ? EachNode(fbx, out, NULL, 0, &count) : r;
+    // Indices and the sort's keys stay within 32 bits.
+    r = r.result == mani_success && count >= UINT32_MAX ? Capacity() : r;
     if (r.result == mani_success)
     {
         out->channels = maniAllocate(&fbx->allocator, (size_t)count + 1, sizeof(maniFbxChannel), 8);
@@ -410,9 +442,9 @@ maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFb
     {
         // Zeroed, so a refusal partway releases only what was read.
         memset(out->channels, 0, ((size_t)count + 1) * sizeof(maniFbxChannel));
-        out->channelCount = count;
-        uint32_t filled = 0;
-        r = EachNode(fbx, out, out->channels, &filled);
+        out->channelCount = (uint32_t)count;
+        uint64_t filled = 0;
+        r = EachNode(fbx, out, out->channels, count, &filled);
     }
     r = r.result == mani_success ? Sort(fbx, out) : r;
     if (r.result != mani_success)
@@ -569,24 +601,26 @@ bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fb
     uint32_t count = maniFbxAnimatedRun(animation, object, &first);
     bool scale = length == 11 && memcmp(name, "Lcl Scaling", 11) == 0;
     bool rotation = length == 12 && memcmp(name, "Lcl Rotation", 12) == 0;
+    uint64_t hash = maniFbxNameHash(name, length);
     bool animated = false;
-    for (uint32_t l = 0; count > 0 && l < animation->layerCount; ++l)
+    // The run is in layer order: one pass applies each layer's channel.
+    for (uint32_t i = first; i < first + count; ++i)
     {
-        const maniFbxChannel* c = Find(animation, fbx, first, count, l, name, length);
-        if (c == NULL)
+        const maniFbxChannel* c = &animation->channels[i];
+        if (c->nameHash != hash || !maniFbxStringEquals(fbx, c->name, name, length))
         {
             continue;
         }
         double v[3];
         Evaluate(c, time, v);
-        if (l == 0)
+        if (c->layer == 0)
         {
             memcpy(value, v, sizeof v);
         }
         else
         {
-            Combine(&animation->layers[l], Weight(animation, fbx, l, time), scale, rotation, order,
-                    value, v);
+            Combine(&animation->layers[c->layer], Weight(animation, fbx, c->layer, time), scale,
+                    rotation, order, value, v);
         }
         animated = true;
     }

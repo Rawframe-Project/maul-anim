@@ -383,6 +383,14 @@ static void TestQuatEuler(void)
                 gimbal = gimbal && SameRotation(q, back, 1e-12) && out[kAxes[order][0]] == 0.0 &&
                          fabs(out[kAxes[order][1]] - 90.0 * sign) <= 1e-12;
             }
+            // Within 1e-9 of the lock (by the sine), treated as locked.
+            double near[3] = {(double)i, (double)i, (double)i};
+            near[kAxes[order][1]] = 89.99999;
+            double q[4];
+            double out[3];
+            maniFbxEulerQuat(near, order, q);
+            maniFbxQuatEuler(q, order, out);
+            gimbal = gimbal && out[kAxes[order][0]] == 0.0;
         }
     }
     CHECK(worst <= 1e-9, "Euler angles back from their quaternion, each order");

@@ -38,10 +38,12 @@ typedef struct maniFbxLayer
 } maniFbxLayer;
 
 // A curve node's binding to one property it drives: the object, the
-// string property naming the property, the layer, and per component a
-// curve (none when its count is 0 and keys NULL) over a static value.
+// string property naming the property (and its bytes' hash), the layer,
+// the node, and per component a curve (none when its count is 0 and keys
+// NULL) over a static value.
 typedef struct maniFbxChannel
 {
+    uint64_t nameHash;
     uint32_t target;
     uint32_t name;
     uint32_t layer;
@@ -67,7 +69,8 @@ uint32_t maniFbxStackObject(const maniFbx* fbx, uint32_t k);
 
 // Reads a stack; refused (Property, item: the curve node) for a property
 // driven twice in one layer, or as its curves are; Capacity when the
-// allocator fails. Channels come sorted by target, then layer.
+// allocator fails. Channels come sorted by target, then layer, then
+// name hash.
 maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* out);
 
 void maniFbxReleaseAnimation(const maniFbx* fbx, maniFbxAnimation* animation);

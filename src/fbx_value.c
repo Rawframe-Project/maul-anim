@@ -15,6 +15,9 @@
 #include "fbx_document.h"
 #include "inflate.h"
 
+#include "maul-anim/base.h"
+
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -221,6 +224,77 @@ bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* byte
         ++matched;
     }
     return matched == length;
+}
+
+// A string property's decoded bytes, one at a time.
+typedef struct Reader
+{
+    const uint8_t* p;
+    uint32_t raw;
+    uint32_t at;
+    bool entities;
+} Reader;
+
+static bool Open(const maniFbx* fbx, uint32_t property, Reader* r)
+{
+    r->at = 0;
+    r->entities = false;
+    if (!maniFbxString(fbx, property, &r->p, &r->raw))
+    {
+        return false;
+    }
+    r->entities = fbx->ascii && fbx->properties[property].type == 'S';
+    return true;
+}
+
+static uint8_t Next(Reader* r)
+{
+    return r->entities ? NextByte(r->p, r->raw, &r->at) : r->p[r->at++];
+}
+
+uint64_t maniFbxNameHash(const void* bytes, size_t length)
+{
+    const uint8_t* p = bytes;
+    uint64_t h = MANI_HASH_INIT;
+    for (size_t i = 0; i < length; ++i)
+    {
+        h = maniHash64(h, p + i, 1);
+    }
+    return h;
+}
+
+uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property)
+{
+    uint64_t h = MANI_HASH_INIT;
+    Reader r;
+    if (!Open(fbx, property, &r))
+    {
+        return h;
+    }
+    while (r.at < r.raw)
+    {
+        uint8_t c = Next(&r);
+        h = maniHash64(h, &c, 1);
+    }
+    return h;
+}
+
+bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b)
+{
+    Reader x;
+    Reader y;
+    if (!Open(fbx, a, &x) || !Open(fbx, b, &y))
+    {
+        return false;
+    }
+    while (x.at < x.raw && y.at < y.raw)
+    {
+        if (Next(&x) != Next(&y))
+        {
+            return false;
+        }
+    }
+    return x.at == x.raw && y.at == y.raw;
 }
 
 static uint32_t ElementSize(uint8_t type)
