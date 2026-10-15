@@ -791,6 +791,53 @@ static void TestTimes(void)
 // with its own transform in every clip (its translation scaled by
 // Spine's), the helper holding the inverse of Spine's scale, and Shear
 // builds.
+// Whether a scene of Spine (at rest) and Arm (scale not inherited,
+// turned 45 about z) under it has a helper for Spine, its stacks Rest
+// (nothing) and Bad (Spine scaled 2 in x, then the fragment given).
+static bool HelperFrom(const char* more)
+{
+    char text[2048];
+    snprintf(
+        text, sizeof text,
+        "; FBX 7.4.0 project file\nObjects: {\n"
+        " Model: 2, \"Model::Spine\", \"LimbNode\" {\n }\n"
+        " Model: 3, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n   P: "
+        "\"InheritType\", \"enum\", \"\", \"\",2\n   P: \"Lcl Rotation\", \"Lcl Rotation\", "
+        "\"\", \"A\",0,0,45\n  }\n }\n"
+        " AnimationStack: 100, \"AnimStack::Rest\", \"\" {\n }\n"
+        " AnimationStack: 200, \"AnimStack::Bad\", \"\" {\n }\n"
+        " AnimationLayer: 201, \"AnimLayer::Base\", \"\" {\n }\n"
+        " AnimationCurveNode: 210, \"AnimCurveNode::S\", \"\" {\n  Properties70: {\n   P: "
+        "\"d|X\", \"Number\", \"\", \"A\",2\n   P: \"d|Y\", \"Number\", \"\", \"A\",1\n   "
+        "P: \"d|Z\", \"Number\", \"\", \"A\",1\n  }\n }\n"
+        " AnimationCurveNode: 220, \"AnimCurveNode::I\", \"\" {\n  Properties70: {\n   P: "
+        "\"d|InheritType\", \"Number\", \"\", \"A\",0\n  }\n }\n"
+        " AnimationCurve: 221, \"AnimCurve::\", \"\" {\n  KeyTime: *1 {\n   a: 0\n  }\n  "
+        "KeyValueFloat: *1 {\n   a: %s\n  }\n  KeyAttrFlags: *1 {\n   a: 4\n  }\n  "
+        "KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 1\n  }\n }\n"
+        "}\nConnections: {\n C: \"OO\",2,0\n C: \"OO\",3,2\n C: \"OO\",201,200\n"
+        " C: \"OO\",210,201\n C: \"OP\",210,2, \"Lcl Scaling\"\n C: \"OO\",220,201\n"
+        " C: \"OP\",220,3, \"InheritType\"\n C: \"OP\",221,220, \"d|InheritType\"\n}\n",
+        more);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, text);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    bool helper = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+                  maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14) != MANI_NO_BONE;
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    return helper;
+}
+
+// A stack the sampler refuses partway adds no helper: its worlds are
+// partly another sample's.
+static void TestRefusedHelper(void)
+{
+    CHECK(HelperFrom("2"), "a helper where Spine's scale is not uniform");
+    CHECK(!HelperFrom("9"), "none from a stack refused at Arm, after Spine");
+}
+
 static void TestAnimatedHelper(void)
 {
     maniBuilder* builder = NewBuilder();
@@ -916,6 +963,7 @@ int main(void)
     CheckWalk(0);
     CheckWalk(1);
     TestAnimatedHelper();
+    TestRefusedHelper();
     TestNames();
     TestOtherSkeleton();
     TestHelpers();
