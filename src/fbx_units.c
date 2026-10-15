@@ -229,7 +229,9 @@ static void ChainUnits(maniFbx* fbx, const uint32_t* top, const uint8_t* limb, u
 // Groups the units; each skin's skeleton is its unit's.
 static maniImportResult Group(maniFbx* fbx, const uint32_t* unitSkin)
 {
-    fbx->skeletonRoots = Words(fbx, fbx->unitCount);
+    // At the units' capacity, as the other unit arrays, which their
+    // release counts on.
+    fbx->skeletonRoots = Words(fbx, fbx->unitCapacity);
     if (fbx->skeletonRoots == NULL)
     {
         return Capacity();

@@ -80,6 +80,8 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
     uint32_t n = EachStack(fbx, NULL);
     fbx->stacks = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 4);
     fbx->stackNameOffsets = maniAllocate(&fbx->allocator, (size_t)n + 2, sizeof(size_t), 8);
+    // Counted now, so a release after a later failure frees what was taken.
+    fbx->stackCount = n;
     if (fbx->stacks == NULL || fbx->stackNameOffsets == NULL)
     {
         return Capacity();
@@ -91,8 +93,8 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
     {
         text += RawLength(fbx, StackNameProperty(fbx, fbx->stacks[k]));
     }
-    fbx->stackNames = maniAllocate(&fbx->allocator, text + 1, 1, 1);
     fbx->stackNamesSize = text;
+    fbx->stackNames = maniAllocate(&fbx->allocator, text + 1, 1, 1);
     if (fbx->stackNames == NULL)
     {
         return Capacity();
@@ -107,7 +109,6 @@ maniImportResult maniFbxReadStacks(maniFbx* fbx)
                   : maniFbxStringDecode(fbx, StackNameProperty(fbx, source),
                                         (uint8_t*)fbx->stackNames + at, text - at);
     }
-    fbx->stackCount = n;
     fbx->stackNameOffsets[n] = at;
     return maniFbxSuccess();
 }
@@ -340,9 +341,10 @@ static maniImportResult ReadLayers(const maniFbx* fbx, uint32_t stack, maniFbxAn
     uint32_t* objects =
         maniAllocate(&fbx->allocator, (size_t)layers.count + 1, sizeof(uint32_t), 4);
     uint32_t all = layers.count;
+    // Counted with the array, so a release after a failure frees it whole.
+    a->layerCount = a->layers != NULL ? all : 0;
     if (a->layers != NULL && objects != NULL)
     {
-        a->layerCount = all;
         layers.objects = objects;
         layers.count = 0;
         maniFbxEachChild(fbx, stack, VisitChild, &layers);

@@ -21,6 +21,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Hips (a limb, y 1) above Spine (y 1, rotation order ZXY). Walk moves
@@ -479,8 +480,65 @@ static void TestRefusals(void)
             "keys without a count");
 }
 
+// An allocator that fails its n-th call and counts what is outstanding.
+typedef struct Budget
+{
+    int32_t callsLeft;
+    int64_t outstanding;
+} Budget;
+
+static void* BudgetAlloc(size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    if (budget->callsLeft-- <= 0)
+    {
+        return NULL;
+    }
+    budget->outstanding += (int64_t)size;
+    return malloc(size);
+}
+
+static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    budget->outstanding -= (int64_t)size;
+    free(memory);
+}
+
+// Every allocation failing in turn while opening the file and building
+// Walk's clip: each fails cleanly, and everything taken is given back
+// at its size.
+static void TestAllocationFailures(void)
+{
+    bool clean = true;
+    bool done = false;
+    for (int32_t calls = 0; !done && calls < 4096; ++calls)
+    {
+        Budget budget = {calls, 0};
+        maniBuilderDef def = maniDefaultBuilderDef();
+        def.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
+        maniBuilder* builder = NULL;
+        if (maniCreateBuilder(&def, &builder) == mani_success)
+        {
+            maniFbx* fbx = NULL;
+            maniSkeleton skeleton;
+            maniClip clip;
+            maniImportResult r = maniOpenFbx(builder, kScene, strlen(kScene), &fbx);
+            done = r.result == mani_success && Build(builder, fbx, 0, &skeleton, &clip);
+            clean = clean && (r.result == mani_success || r.result == mani_errorCapacity);
+            maniCloseFbx(fbx);
+            maniDestroyBuilder(builder);
+        }
+        clean = clean && budget.outstanding == 0;
+    }
+    CHECK(done && clean, "allocation failures handled, nothing kept");
+}
+
 int main(void)
 {
+    TestAllocationFailures();
     TestStacks();
     TestTracks();
     TestSplit();

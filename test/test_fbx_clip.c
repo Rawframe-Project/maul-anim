@@ -18,6 +18,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Rig (Null, z 5, animated to 6) above Hips (y 1, x from 0 to 3, turned
@@ -822,8 +823,67 @@ static void TestRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+// An allocator that fails its n-th call and counts what is outstanding.
+typedef struct Budget
+{
+    int32_t callsLeft;
+    int64_t outstanding;
+} Budget;
+
+static void* BudgetAlloc(size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    if (budget->callsLeft-- <= 0)
+    {
+        return NULL;
+    }
+    budget->outstanding += (int64_t)size;
+    return malloc(size);
+}
+
+static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    budget->outstanding -= (int64_t)size;
+    free(memory);
+}
+
+// Every allocation failing in turn while opening the scene and building
+// the Props clip (stacks, layers, curves, float tracks): each fails
+// cleanly, and everything taken is given back at its size.
+static void TestAllocationFailures(void)
+{
+    bool clean = true;
+    bool done = false;
+    for (int32_t calls = 0; !done && calls < 8192; ++calls)
+    {
+        Budget budget = {calls, 0};
+        maniBuilderDef def = maniDefaultBuilderDef();
+        def.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
+        maniBuilder* builder = NULL;
+        if (maniCreateBuilder(&def, &builder) == mani_success)
+        {
+            maniFbx* fbx = NULL;
+            maniFbxOptions options = maniDefaultFbxOptions();
+            maniSkeleton skeleton;
+            maniClip clip;
+            maniImportResult r = maniOpenFbx(builder, kScene, strlen(kScene), &fbx);
+            clean = clean && (r.result == mani_success || r.result == mani_errorCapacity);
+            done = r.result == mani_success && Skeleton(builder, fbx, &options, &skeleton) &&
+                   BuildFor(builder, fbx, 8, &skeleton, &options, &clip);
+            maniCloseFbx(fbx);
+            maniDestroyBuilder(builder);
+        }
+        clean = clean && budget.outstanding == 0;
+    }
+    CHECK(done && clean, "allocation failures handled, nothing kept");
+}
+
 int main(void)
 {
+    TestAllocationFailures();
     CheckWalk(0);
     CheckWalk(1);
     TestNames();
