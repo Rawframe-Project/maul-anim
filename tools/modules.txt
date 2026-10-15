@@ -28,7 +28,7 @@ skin: bytes container pose_memory skin_file vecmath
 skin_build: allocator builder bytes container skin_file
 influence_file:
 influences: bytes container influence_file
-skinning: bytes influence_file
+skinning: bytes decompose influence_file vecmath
 influences_build: allocator builder bytes container influence_file
 clip_file:
 clip: bytes clip_codec clip_file clip_view container pose_memory vecmath

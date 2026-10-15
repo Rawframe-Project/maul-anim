@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skinning jobs (mani-0021). Linear blend: each vertex's palette matrices
-// summed at their weights in the influences' order (the heaviest first,
-// stopping at the first weight of 0), applied to its streams. Binary32 in
-// a fixed order, so the same bits on every platform.
+// Skinning jobs (mani-0021). Every method makes each vertex's matrix, then
+// applies it to the vertex's streams. Linear: the palette matrices summed
+// at their weights in the influences' order (the heaviest first, stopping
+// at the first weight of 0). Dual quaternion: the scale and shear parts
+// summed the same way, the dual quaternions blended in the first's
+// hemisphere and normalized, the matrix [R S | t]. Blended: the two at
+// FBX's per-vertex weight. Binary32 in a fixed order, so the same bits on
+// every platform.
 
 #include "maul-anim/skinning.h"
 
 #include "bytes.h"
+#include "decompose.h"
 #include "influence_file.h"
+#include "vecmath.h"
 
 #include "maul-anim/base.h"
 
@@ -34,11 +40,12 @@ static bool StreamValid(const maniSkinStream* s)
            s->inStride >= width && s->outStride >= width;
 }
 
-// The job's arguments checked before anything is written.
-static bool JobValid(const maniSkinJob* job)
+// The job's arguments checked before anything is written; the palettes
+// the method reads given.
+static bool JobValid(const maniSkinJob* job, bool linear, bool dual)
 {
-    if (job == NULL || job->influences == NULL || job->palette == NULL ||
-        (job->streams == NULL && job->streamCount > 0) ||
+    if (job == NULL || job->influences == NULL || (linear && job->palette == NULL) ||
+        (dual && job->dualQuaternions == NULL) || (job->streams == NULL && job->streamCount > 0) ||
         job->paletteCount != job->influences->skinJointCount ||
         job->first > job->influences->vertexCount ||
         job->count > job->influences->vertexCount - job->first)
@@ -84,6 +91,72 @@ static bool Blend(const maniSkinJob* job, uint32_t vertex, float m[12])
         {
             m[k] += p[k] * w;
         }
+    }
+    return true;
+}
+
+// A dual quaternion palette entry: real, dual, S's rows.
+#define DUAL_FLOATS 20
+
+// A vertex's dual quaternion matrix: S summed at the weights, the dual
+// quaternions summed in the first's hemisphere, normalized, as [R S | t];
+// false (m untouched) for a vertex without weight.
+static bool DualMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
+{
+    const maniInfluences* v = job->influences;
+    uint32_t per = v->groupCount * MANI_INFLUENCE_GROUP;
+    size_t base = (size_t)vertex * per;
+    float real[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float dual[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float scale[12] = {0.0f};
+    const float* lead = NULL;
+    for (uint32_t slot = 0; slot < per; ++slot)
+    {
+        float w = LoadF32(v->weights + 4 * (base + slot));
+        if (w == 0.0f)
+        {
+            break;
+        }
+        const float* d =
+            job->dualQuaternions + DUAL_FLOATS * (size_t)maniLoadU16(v->joints + 2 * (base + slot));
+        lead = lead == NULL ? d : lead;
+        float dot = ((d[0] * lead[0] + d[1] * lead[1]) + d[2] * lead[2]) + d[3] * lead[3];
+        float sw = dot < 0.0f ? -w : w;
+        for (int k = 0; k < 4; ++k)
+        {
+            real[k] += d[k] * sw;
+            dual[k] += d[4 + k] * sw;
+        }
+        for (int k = 0; k < 12; ++k)
+        {
+            scale[k] += d[8 + k] * w;
+        }
+    }
+    if (lead == NULL)
+    {
+        return false;
+    }
+    float squared =
+        ((real[0] * real[0] + real[1] * real[1]) + real[2] * real[2]) + real[3] * real[3];
+    // The lead's weight is above 0 and every term agrees with it, so the
+    // sum's length is at least that weight's.
+    float inverse = 1.0f / sqrtf(squared);
+    maniQuat q = {real[0] * inverse, real[1] * inverse, real[2] * inverse, real[3] * inverse};
+    float e[4] = {dual[0] * inverse, dual[1] * inverse, dual[2] * inverse, dual[3] * inverse};
+    // t = 2 (e q*), the vector part.
+    float t[3] = {2.0f * (((e[0] * q.w - e[3] * q.x) - e[1] * q.z) + e[2] * q.y),
+                  2.0f * (((e[1] * q.w - e[3] * q.y) - e[2] * q.x) + e[0] * q.z),
+                  2.0f * (((e[2] * q.w - e[3] * q.z) - e[0] * q.y) + e[1] * q.x)};
+    maniAffine r = maniAffineFromTrs((maniVec3){0.0f, 0.0f, 0.0f}, q, (maniVec3){1.0f, 1.0f, 1.0f});
+    // R times S: S's rows are scale[0..2], [4..6], [8..10].
+    for (int c = 0; c < 3; ++c)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            m[3 * c + k] =
+                (r.m[k] * scale[c] + r.m[3 + k] * scale[4 + c]) + r.m[6 + k] * scale[8 + c];
+        }
+        m[9 + c] = t[c];
     }
     return true;
 }
@@ -154,9 +227,45 @@ static void SkinStream(const maniSkinStream* s, uint32_t i, const float* m, cons
     memcpy(out, y, width * sizeof(float));
 }
 
-maniResult maniSkinLinear(const maniSkinJob* job)
+typedef enum Method
 {
-    if (!JobValid(job))
+    kLinear,
+    kDual,
+    kBlended,
+} Method;
+
+// A vertex's matrix by the method; false for a vertex without weight.
+static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex, float m[12])
+{
+    if (method == kLinear)
+    {
+        return Blend(job, vertex, m);
+    }
+    if (method == kDual)
+    {
+        return DualMatrix(job, vertex, m);
+    }
+    float b = maniInfluencesDualQuaternionWeight(job->influences, vertex);
+    if (b == 0.0f || b == 1.0f)
+    {
+        return b == 0.0f ? Blend(job, vertex, m) : DualMatrix(job, vertex, m);
+    }
+    float d[12];
+    if (!Blend(job, vertex, m) || !DualMatrix(job, vertex, d))
+    {
+        return false;
+    }
+    float a = 1.0f - b;
+    for (int k = 0; k < 12; ++k)
+    {
+        m[k] = m[k] * a + d[k] * b;
+    }
+    return true;
+}
+
+static maniResult Run(const maniSkinJob* job, Method method)
+{
+    if (!JobValid(job, method != kDual, method != kLinear))
     {
         return mani_errorInvalid;
     }
@@ -169,7 +278,7 @@ maniResult maniSkinLinear(const maniSkinJob* job)
     {
         float m[12];
         float c[9];
-        bool weighed = Blend(job, job->first + i, m);
+        bool weighed = VertexMatrix(job, method, job->first + i, m);
         if (weighed && normals)
         {
             Cofactor(m, c);
@@ -178,6 +287,78 @@ maniResult maniSkinLinear(const maniSkinJob* job)
         {
             SkinStream(&job->streams[s], i, weighed ? m : NULL, c);
         }
+    }
+    return mani_success;
+}
+
+maniResult maniSkinLinear(const maniSkinJob* job)
+{
+    return Run(job, kLinear);
+}
+
+maniResult maniSkinDualQuaternion(const maniSkinJob* job)
+{
+    return Run(job, kDual);
+}
+
+maniResult maniSkinBlended(const maniSkinJob* job)
+{
+    return Run(job, kBlended);
+}
+
+// One matrix's dual quaternion entry: the polar rotation R, the dual part
+// half (t, 0) times R's quaternion, S = R^T A in binary64 then rounded.
+static bool DualEntry(const maniAffine* a, float* out)
+{
+    maniTransform split;
+    if (!maniDecompose(a, &split))
+    {
+        return false;
+    }
+    maniQuat q = split.rotation;
+    maniAffine r = maniAffineFromTrs((maniVec3){0.0f, 0.0f, 0.0f}, q, (maniVec3){1.0f, 1.0f, 1.0f});
+    const float* t = a->m + 9;
+    const float entry[8] = {q.x,
+                            q.y,
+                            q.z,
+                            q.w,
+                            0.5f * ((t[0] * q.w + t[1] * q.z) - t[2] * q.y),
+                            0.5f * ((t[1] * q.w + t[2] * q.x) - t[0] * q.z),
+                            0.5f * ((t[2] * q.w + t[0] * q.y) - t[1] * q.x),
+                            -0.5f * ((t[0] * q.x + t[1] * q.y) + t[2] * q.z)};
+    memcpy(out, entry, sizeof entry);
+    // S's row i, column c: R's column i dotted with A's column c.
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int c = 0; c < 3; ++c)
+        {
+            double v = (double)r.m[3 * i] * (double)a->m[3 * c] +
+                       (double)r.m[3 * i + 1] * (double)a->m[3 * c + 1] +
+                       (double)r.m[3 * i + 2] * (double)a->m[3 * c + 2];
+            out[8 + 4 * i + c] = (float)v;
+        }
+        out[8 + 4 * i + 3] = 0.0f;
+    }
+    return true;
+}
+
+maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count, float* out)
+{
+    if (count > 0 && (palette == NULL || out == NULL))
+    {
+        return mani_errorInvalid;
+    }
+    for (uint32_t j = 0; j < count; ++j)
+    {
+        maniTransform split;
+        if (!maniDecompose(&palette[j], &split))
+        {
+            return mani_errorInvalid;
+        }
+    }
+    for (uint32_t j = 0; j < count; ++j)
+    {
+        (void)DualEntry(&palette[j], out + DUAL_FLOATS * (size_t)j);
     }
     return mani_success;
 }

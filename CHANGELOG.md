@@ -49,3 +49,7 @@ format.
   ranges of strided position, normal, tangent and further streams, in
   place or not; `maniPaletteRows` writes palettes as row-major 3x4 for
   shaders.
+- Dual quaternion skinning (mani-0021): `maniPaletteDualQuaternions`
+  splits each palette matrix as rotation times scale and shear,
+  `maniSkinDualQuaternion` skins in two phases, and `maniSkinBlended`
+  mixes linear and dual quaternion skinning at FBX's per-vertex weights.

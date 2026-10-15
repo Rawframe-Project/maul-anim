@@ -152,8 +152,11 @@ extern "C"
     {
         const maniInfluences* influences;
         // The skin's palette, as maniComputePalette writes it: a matrix a
-        // joint.
+        // joint (linear, blended).
         const maniAffine* palette;
+        // The same palette as maniPaletteDualQuaternions writes it, 20
+        // floats a joint (dual quaternion, blended); NULL otherwise.
+        const float* dualQuaternions;
         uint32_t paletteCount;
         uint32_t first;
         uint32_t count;
@@ -176,6 +179,50 @@ extern "C"
     /// Safe from any thread; the output range is used by one thread at a time.
     /// Jobs over disjoint ranges run at once.
     MANI_NODISCARD MANI_API maniResult maniSkinLinear(const maniSkinJob* job);
+
+    /// Dual quaternion skinning in two phases (Kavan et al. 2008): each
+    /// vertex's scale and shear parts summed at their weights and applied
+    /// first, then its joints' dual quaternions blended (each turned to
+    /// the first's hemisphere) and normalized. Streams as maniSkinLinear
+    /// treats them; a vertex with one influence moves exactly as under
+    /// linear skinning, up to rounding.
+    ///
+    /// @param job  The job, its dualQuaternions given.
+    /// @return As maniSkinLinear, and `mani_errorInvalid` without dual
+    /// quaternions.
+    /// @par Thread safety
+    /// Safe from any thread; the output range is used by one thread at a time.
+    /// Jobs over disjoint ranges run at once.
+    MANI_NODISCARD MANI_API maniResult maniSkinDualQuaternion(const maniSkinJob* job);
+
+    /// FBX's blended skinning: each vertex moved by `(1 - b)` times its
+    /// linear matrix plus `b` times its dual quaternion one, b its weight
+    /// in the influences (0 where they have none). A vertex at 0 or 1
+    /// gives the bits of maniSkinLinear or maniSkinDualQuaternion.
+    ///
+    /// @param job  The job, its palette and dualQuaternions given.
+    /// @return As maniSkinDualQuaternion.
+    /// @par Thread safety
+    /// Safe from any thread; the output range is used by one thread at a time.
+    /// Jobs over disjoint ranges run at once.
+    MANI_NODISCARD MANI_API maniResult maniSkinBlended(const maniSkinJob* job);
+
+    /// Writes a palette for dual quaternion skinning, on the CPU or in a
+    /// shader: each matrix A split as A = R S (R the rotation of its polar
+    /// decomposition, S = R^T A carrying scale, shear and mirror), 20
+    /// floats a matrix: R's quaternion (x, y, z, w with w >= 0), the dual
+    /// part (half the translation times it), then S as three rows of four
+    /// (the fourth 0).
+    ///
+    /// @param palette  count matrices, as maniComputePalette writes them.
+    /// @param count    The number of matrices.
+    /// @param out      Receives 20 floats a matrix.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
+    /// a count or a matrix not finite (out unchanged).
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniPaletteDualQuaternions(const maniAffine* palette,
+                                                                  uint32_t count, float* out);
 
     /// Writes a palette for shaders: each matrix as three rows of four
     /// floats (row-major 3x4), the translation last in each row.
