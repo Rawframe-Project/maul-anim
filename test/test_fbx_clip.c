@@ -20,9 +20,10 @@
 #include <stdio.h>
 #include <string.h>
 
-// Rig (Null, z 5, animated to 6) above Hips (y 1, x from 0 to 3), Spine
-// (y 1, turning 90 about z and scaling 1 to 2, Glow 0 to 1; rotation
-// order ZXY) and Arm (scale not inherited, x 1, turned 45 about z). Prop
+// Rig (Null, z 5, animated to 6) above Hips (y 1, x from 0 to 3, turned
+// 17 about z), Spine
+// (y 1, at rest turned 33 about z, turning from 0 to 90 and scaling 1 to
+// 2, Glow 0 to 1; rotation order ZXY) and Arm (scale not inherited, x 1, turned 45 about z). Prop
 // is no bone (its rotation order out of range, unread). Stacks: Walk, a
 // second; Idle, nothing; Shear scales Spine in x alone; Inherit and Below
 // take Arm's inherit type past either end; Back ends before it starts;
@@ -37,9 +38,11 @@ static const char kScene[] =
     "Objects: {\n"
     " Model: 5, \"Model::Rig\", \"Null\" {\n  Properties70: {\n   P: \"Lcl Translation\", \"Lcl "
     "Translation\", \"\", \"A\",0,0,5\n  }\n }\n"
-    " Model: 1, \"Model::Hips\", \"LimbNode\" {\n  Properties70: {\n   P: \"Lcl Translation\", "
+    " Model: 1, \"Model::Hips\", \"LimbNode\" {\n  Properties70: {\n   P: \"Lcl Rotation\", \"Lcl "
+    "Rotation\", \"\", \"A\",0,0,17\n   P: \"Lcl Translation\", "
     "\"Lcl Translation\", \"\", \"A\",0,1,0\n  }\n }\n"
-    " Model: 2, \"Model::Spine\", \"LimbNode\" {\n  Properties70: {\n   P: \"Lcl Translation\", "
+    " Model: 2, \"Model::Spine\", \"LimbNode\" {\n  Properties70: {\n   P: \"Lcl Rotation\", \"Lcl "
+    "Rotation\", \"\", \"A\",0,0,33\n   P: \"Lcl Translation\", "
     "\"Lcl Translation\", \"\", \"A\",0,1,0\n   P: \"RotationOrder\", \"enum\", \"\", \"A\",4\n   "
     "P: \"Glow\", \"Number\", \"\", \"A\",0.5\n   P: \"Tint\", \"ColorRGB\", \"\", "
     "\"A\",0.1,0.2,0.3\n  }\n }\n"
@@ -210,7 +213,7 @@ static const char kScene[] =
     " AnimationLayer: 1401, \"AnimLayer::Base\", \"\" {\n }\n"
     " AnimationCurveNode: 1410, \"AnimCurveNode::Glow\", \"\" {\n  Properties70: {\n   P: "
     "\"d|Glow\", \"Number\", \"\", \"A\",0.5\n  }\n }\n"
-    " AnimationCurve: 1411, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,4623232993\n  }\n  "
+    " AnimationCurve: 1411, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: 0,4623234416\n  }\n  "
     "KeyValueFloat: *2 {\n   a: 0,5\n  }\n  KeyAttrFlags: *1 {\n   a: 2\n  }\n  KeyAttrDataFloat: "
     "*4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: *1 {\n   a: 2\n  }\n }\n"
     "}\n"
@@ -660,29 +663,40 @@ static void TestHelperFrame(void)
     maniDestroyBuilder(builder);
 }
 
-static void TestTracks(void)
+static bool StillIsEmpty(uint8_t helpers)
 {
     maniBuilder* builder = NULL;
     maniSkeleton skeleton;
     maniClip clip;
     maniFbxOptions options = maniDefaultFbxOptions();
-    // Still moves no bone: its clip is the size of one with no tracks.
+    options.inheritHelpers = helpers;
     bool built = BuildText(kScene, 6, &options, 0.0f, &builder, &skeleton, &clip);
     size_t size = 0;
     (void)maniCopyBuilt(builder, NULL, 0, &size);
     maniClipSource empty = {
         .skeleton = &skeleton, .loop = maniLoopClamp, .sampleRate = 30.0f, .duration = 1.0f};
     size_t reference = 0;
-    CHECK(built && maniBuildClip(builder, &empty).result == mani_success &&
-              maniCopyBuilt(builder, NULL, 0, &reference) == mani_errorCapacity &&
-              size == reference,
-          "no bone moved, no track");
+    bool right = built && maniBuildClip(builder, &empty).result == mani_success &&
+                 maniCopyBuilt(builder, NULL, 0, &reference) == mani_errorCapacity &&
+                 size == reference;
     maniDestroyBuilder(builder);
+    return right;
+}
+
+static void TestTracks(void)
+{
+    maniBuilder* builder = NULL;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    // Still moves no bone: its clip is the size of one with no tracks,
+    // with helpers or without (the rests formed as the samples are).
+    CHECK(StillIsEmpty(0) && StillIsEmpty(1), "no bone moved, no track");
     CHECK(BuildText(kScene, 7, &options, 0.0f, &builder, &skeleton, &clip) &&
               maniClipFloatTrackCount(&clip) == 0,
           "a transform input animated is no float track");
     maniDestroyBuilder(builder);
-    built = BuildText(kScene, 8, &options, 0.0f, &builder, &skeleton, &clip);
+    bool built = BuildText(kScene, 8, &options, 0.0f, &builder, &skeleton, &clip);
     static const char* const kNames[8] = {"Spine/Tint/0",    "Spine/Tint/1",    "Spine/Tint/2",
                                           "Spine/Missing/0", "Spine/Missing/1", "Spine/Missing/2",
                                           "Spine/Lone",      "Spine/Glow"};
