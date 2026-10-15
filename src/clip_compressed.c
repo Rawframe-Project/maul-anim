@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A compressed clip (mani-0006): its sections checked once at open, and
+// A compressed clip (mani-0019): its sections checked once at open, and
 // its samples decoded. Sub-tracks run in track order, each bone track's
 // channels translation, rotation, scale, then the float tracks; each is
 // absent, default (the rest), constant or animated. An animated value

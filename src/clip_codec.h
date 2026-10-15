@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The compressed clip's arithmetic (mani-0006): bit rates, quantization,
+// The compressed clip's arithmetic (mani-0019): bit rates, quantization,
 // segment ranges and the bit stream, shared by the compressor and the
 // sampler so that both compute the same binary32 values.
 

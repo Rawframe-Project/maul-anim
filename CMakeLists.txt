@@ -25,7 +25,7 @@ option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
 option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
 option(MAUL_ANIM_DIFFERENTIAL
-       "Build the ufbx and ACL differentials (fetch ufbx, ACL and RTM; mani-0018, mani-0006)" OFF)
+       "Build the ufbx and ACL differentials (fetch ufbx, ACL and RTM; mani-0018, mani-0019)" OFF)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
 # build tree, so scripts and CI find them in one place.

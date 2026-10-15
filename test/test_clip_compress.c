@@ -13,6 +13,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "bytes.h"
+#include "clip_codec.h"
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
@@ -301,9 +302,23 @@ static void TestSegments(void)
     CHECK(report.shellError <= 1e-7 && bone < 1e-6f, "finely");
 }
 
+// The hand's height wobbling by 0.8 of the precision about 0.8: neither
+// the rest nor its first value folds it, but one value at the middle
+// would; with one segment there are no segment ranges, so rate 0 is no
+// choice.
+static float s_handWobble[3 * KEYS];
+
 static void TestOneSegment(void)
 {
-    BuildFull(0.5f);
+    for (int k = 0; k < KEYS; ++k)
+    {
+        s_handWobble[3 * k] = 0.0f;
+        s_handWobble[3 * k + 1] = 0.8f + 0.8e-4f * cosf(0.5f * (float)k);
+        s_handWobble[3 * k + 2] = 0.0f;
+    }
+    maniClipSource source = Source(0.5f);
+    s_tracks[4].translation = Linear(s_handWobble, KEYS);
+    BuildFullFrom(&source);
     maniCompressOptions options = maniDefaultCompressOptions();
     CHECK(Compress(&options, NULL) == mani_success, "compresses");
     maniClip clip;
@@ -448,6 +463,9 @@ static void RandomKeys(uint32_t b)
     float axis[3] = {Random() - 0.5f, Random() - 0.5f, Random() - 0.5f};
     float length = sqrtf(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]) + 1e-3f;
     float swing = 3.0f * Random();
+    // Half the bones keep their rotations' negatives: the same turns, with
+    // the component left out negative.
+    float flip = Random() < 0.5f ? -1.0f : 1.0f;
     float speed = 1.0f + 4.0f * Random();
     for (int k = 0; k < KEYS; ++k)
     {
@@ -459,6 +477,10 @@ static void RandomKeys(uint32_t b)
         }
         StoreAxisAngle(&s_randomR[b][4 * k], axis[0] / length, axis[1] / length, axis[2] / length,
                        swing * sinf(speed * t));
+        for (int c = 0; c < 4; ++c)
+        {
+            s_randomR[b][4 * k + c] *= flip;
+        }
     }
     uint32_t pick = (uint32_t)(Random() * 8.0f);
     s_randomTracks[b] = (maniBoneTrackSource){b, 0, (pick & 1) ? Linear(s_randomT[b], KEYS) : kNone,
@@ -589,6 +611,30 @@ static void TestCursor(void)
     maniClip copy = packed;
     CursorWalk(&copy, cursor);
     CursorWalk(&packed, cursor);
+    // One view, one address: another clip of the same shape (another
+    // precision) rebinds by identity; the same identity grown in shape
+    // rebinds and is refused for room.
+    static uint8_t other[65536];
+    size_t otherSize = s_size;
+    memcpy(other, s_file, s_size);
+    maniCompressOptions finer = maniDefaultCompressOptions();
+    finer.precision = 0.00005f;
+    CHECK(Compress(&finer, NULL) == mani_success, "compresses finer");
+    static maniClip view;
+    CHECK(maniOpenClip(other, otherSize, &view).result == mani_success, "opens the first");
+    maniClip second;
+    CHECK(Open(&second).result == mani_success, "opens the second");
+    CHECK(maniClipCursorSize(&second) == maniClipCursorSize(&view), "the same shape");
+    CursorWalk(&view, cursor);
+    view = second;
+    CursorWalk(&view, cursor);
+    view.animatedFloats += 1000;
+    maniPose* grownPose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &grownPose) == mani_success, "pose");
+    CHECK(maniSampleClipCursor(cursor, &view, &s_skeleton, 0.5f, grownPose) == mani_errorCapacity,
+          "a shape grown at the same identity and address");
+    CHECK(Compress(&options, NULL) == mani_success, "compresses again");
+    CHECK(Open(&packed).result == mani_success, "opens again");
     // Too small for the compressed clip: refused, nothing written.
     maniClipCursor* small = NULL;
     CHECK(maniInitClipCursor(s_cursorMemory, maniClipCursorSize(&s_full), &small) == mani_success,
@@ -796,6 +842,92 @@ static void TestReportMatches(void)
     CHECK(worstBone == report.shellBone && worstSample == report.shellSample, "and where");
 }
 
+// The codec alone: packing at the top of 23 bits (v * max + 0.5 rounds
+// past max in binary32), segment ranges around every k / 255 covering
+// their values within [0, 1], rotations rebuilt from each dropped
+// component, and normalization's guard.
+static bool RangeCovers(float low, float high)
+{
+    uint8_t q = 0;
+    uint8_t e = 0;
+    maniCodecSegmentRange(low, high, &q, &e);
+    float top = maniCodecRangeByte(q) + maniCodecRangeByte(e);
+    return maniCodecRangeByte(q) <= low && (top >= high || q + e == 255) && q + e <= 255;
+}
+
+static void TestCodec(void)
+{
+    CHECK(maniCodecPack(1.0f, 23) == 8388607u, "1 on 23 bits");
+    CHECK(maniCodecPack(1.0f, 8) == 255u && maniCodecPack(0.0f, 8) == 0u, "the ends");
+    CHECK(maniCodecPack(2.0f, 4) == 15u && maniCodecPack(-1.0f, 4) == 0u, "clamped");
+    bool covers = true;
+    for (int k = 0; k <= 255; ++k)
+    {
+        float v = (float)k / 255.0f;
+        const float near[5] = {nextafterf(nextafterf(v, 0.0f), 0.0f), nextafterf(v, 0.0f), v,
+                               nextafterf(v, 1.0f), nextafterf(nextafterf(v, 1.0f), 1.0f)};
+        for (int i = 0; i < 5; ++i)
+        {
+            float low = near[i] < 0.0f ? 0.0f : near[i];
+            covers = covers && RangeCovers(low, low) && RangeCovers(low, 1.0f) &&
+                     RangeCovers(0.0f, low > 1.0f ? 1.0f : low) &&
+                     RangeCovers(low, low + 0.3f > 1.0f ? 1.0f : low + 0.3f);
+        }
+    }
+    CHECK(covers, "segment ranges cover their values");
+    const float kept[3] = {0.1f, 0.2f, 0.3f};
+    float r = maniCodecRebuild(0.1f, 0.2f, 0.3f);
+    const float want[4][4] = {
+        {r, 0.1f, 0.2f, 0.3f}, {0.1f, r, 0.2f, 0.3f}, {0.1f, 0.2f, r, 0.3f}, {0.1f, 0.2f, 0.3f, r}};
+    bool rebuilt = true;
+    for (uint32_t d = 0; d < 4; ++d)
+    {
+        float q[4];
+        maniCodecRotation(kept, d, q);
+        rebuilt = rebuilt && memcmp(q, want[d], sizeof q) == 0;
+    }
+    CHECK(rebuilt, "each dropped component rebuilt in place");
+    float huge[4] = {3e38f, 3e38f, 0.0f, 0.0f};
+    maniCodecNormalize(huge);
+    CHECK(huge[0] == 0.0f && huge[3] == 1.0f, "past binary32's range: the identity");
+    float zero[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    maniCodecNormalize(zero);
+    CHECK(zero[3] == 1.0f, "zero: the identity");
+}
+
+// Per-bone precisions, tight near the root and loose at the leaves: each
+// bone within its own, though its dominant shell carries a leaf's.
+static void TestBonePrecisions(void)
+{
+    BuildFull(0.0f);
+    const float precisions[6] = {1e-5f, 1e-5f, 1e-5f, 1e-3f, 1e-3f, 1e-3f};
+    maniCompressOptions options = maniDefaultCompressOptions();
+    options.bonePrecisions = precisions;
+    CHECK(Compress(&options, NULL) == mani_success, "compresses");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    maniPose* a = NULL;
+    maniPose* b = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &a) == mani_success, "pose a");
+    CHECK(maniInitPose(&s_skeleton, s_poseB, sizeof s_poseB, &b) == mani_success, "pose b");
+    Matrix ma[6];
+    Matrix mb[6];
+    bool within = true;
+    for (uint32_t k = 0; k < maniClipSampleCount(&clip); ++k)
+    {
+        maniSampleClipAt(&s_full, &s_skeleton, k, a, NULL);
+        maniSampleClipAt(&clip, &s_skeleton, k, b, NULL);
+        PoseMatrices(a, ma);
+        PoseMatrices(b, mb);
+        for (uint32_t bone = 0; bone < 6; ++bone)
+        {
+            double e = ShellApart(&ma[bone], &mb[bone], (double)options.shellDistance);
+            within = within && e <= (double)precisions[bone];
+        }
+    }
+    CHECK(within, "every bone within its own precision");
+}
+
 static void TestSameBytes(void)
 {
     BuildFull(0.0f);
@@ -1001,6 +1133,113 @@ static void TestOpenRefusals(void)
     ExpectFormat(table + 8, "a rate past the table");
 }
 
+// The compressed file rebuilt with one section grown by `extra` zero
+// bytes, or with an empty section of an absent tag put in the table; the
+// identity and the payload hash made right.
+static _Alignas(16) uint8_t s_old[65536];
+static uint8_t s_grown[65536];
+
+static void Rebuild(uint32_t tag, uint32_t extra)
+{
+    memcpy(s_old, s_file, s_size);
+    maniSectionSource table[MANI_CLIP_COMPRESSED_SECTIONS];
+    const uint8_t* sections[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint32_t count = 0;
+    for (uint32_t t = 1; t <= MANI_CLIP_COMPRESSED_SECTIONS; ++t)
+    {
+        uint64_t entry = EntryOf(t);
+        const uint8_t* data = entry != 0 ? s_old + maniLoadU64(s_old + entry + 8) : s_old;
+        uint64_t size = entry != 0 ? maniLoadU64(s_old + entry + 16) : 0;
+        if (t == tag && size > 0)
+        {
+            memset(s_grown, 0, sizeof s_grown);
+            memcpy(s_grown, data, (size_t)size);
+            data = s_grown;
+            size += extra;
+        }
+        sections[t - 1] = data;
+        sizes[t - 1] = size;
+        if (size > 0 || t == tag)
+        {
+            table[count++] = (maniSectionSource){t, data, size};
+        }
+    }
+    uint64_t fileSize = 0;
+    CHECK(maniContainerSize(table, count, &fileSize) && fileSize <= sizeof s_file, "rebuilt");
+    maniWriteContainer(s_file, maniKindClip, MANI_CLIP_FORMAT_VERSION,
+                       maniClipComputeIdentity(sections, sizes, MANI_CLIP_COMPRESSED_SECTIONS),
+                       table, count);
+    s_size = (size_t)fileSize;
+}
+
+// Sections larger than their counts make them, a present empty section,
+// the last segment a sample short, a raw value NaN.
+static void TestTableRefusals(void)
+{
+    BuildFull(0.0f);
+    Reset();
+    const uint32_t grown[3] = {maniClipTagForms, maniClipTagRanges, maniClipTagSegmentData};
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        Rebuild(grown[i], 16);
+        ExpectFormat(EntryOf(grown[i]) + 16, "a section past its size");
+    }
+    Rebuild(maniClipTagSamples, 0);
+    ExpectFormat(EntryOf(maniClipTagSamples) + 16, "an empty section in the table");
+    uint64_t table = SectionAt(maniClipTagSegments);
+    uint64_t last = table + 20 * 3;
+    maniStoreU32(s_file + last + 4, maniLoadU32(s_file + last + 4) - 1);
+    ExpectFormat(table, "the segments a sample short");
+    // The first raw sub-track's first component at segment 0, sample 0.
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    uint32_t n = clip.animatedChannels + clip.animatedFloats;
+    uint64_t data = SectionAt(maniClipTagSegmentData);
+    const uint8_t* rates = s_file + data + maniLoadU32(s_file + table + 8);
+    uint64_t head = n + 6 * (uint64_t)clip.animatedChannels + 2 * (uint64_t)clip.animatedFloats;
+    uint64_t bit = 0;
+    uint32_t j = 0;
+    while (j < n && rates[j] != 24)
+    {
+        bit += (j < clip.animatedChannels ? 3u : 1u) * (rates[j] == 0 ? 0u : rates[j]);
+        ++j;
+    }
+    CHECK(j < n, "a raw sub-track");
+    uint8_t* stream = s_file + data + maniLoadU32(s_file + table + 8) + head;
+    for (uint32_t b = 0; b < 32; ++b)
+    {
+        uint64_t at = bit + b;
+        uint8_t mask = (uint8_t)(1u << (at & 7u));
+        bool one = ((0x7FC00000u >> b) & 1u) != 0;
+        stream[at >> 3] =
+            one ? (uint8_t)(stream[at >> 3] | mask) : (uint8_t)(stream[at >> 3] & ~mask);
+    }
+    ExpectFormat((uint64_t)(stream - s_file) + bit / 8, "a raw value NaN");
+}
+
+// A rotation constant over the clip, stored and bounded.
+static void TestConstantRotation(void)
+{
+    static float turn[4];
+    StoreAxisAngle(turn, 0.0f, 1.0f, 0.0f, 0.3f);
+    maniClipSource source = Source(0.0f);
+    s_tracks[2].rotation = Linear(turn, 1);
+    BuildFullFrom(&source);
+    maniCompressReport report;
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Compress(&options, &report) == mani_success && report.shellError <= 0.0001, "compresses");
+    maniClip clip;
+    CHECK(Open(&clip).result == mani_success, "opens");
+    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormConstant, "the chest's rotation constant");
+    // The chest's constants: its translation, then its rotation's kept three.
+    uint64_t constants = SectionAt(maniClipTagConstants);
+    StoreF32(constants + 12, 1.5f);
+    Rehash();
+    maniFileResult r = Open(&clip);
+    CHECK(r.result == mani_errorFormat && r.offset == constants + 12, "a rotation constant past 1");
+}
+
 static void TestRateZeroAlone(void)
 {
     // One segment has no segment ranges, so rate 0 is refused there.
@@ -1065,13 +1304,17 @@ int main(int argc, char** argv)
     TestFoldWithinPrecision();
     TestNoRatePasses();
     TestRandomWithinPrecision();
+    TestCodec();
     TestReportMatches();
+    TestBonePrecisions();
     TestCursor();
     TestSubsets();
     TestSameBytes();
     TestMisuse();
     TestOpenRefusals();
     TestRateZeroAlone();
+    TestTableRefusals();
+    TestConstantRotation();
     TestEveryByteFlip();
     TestPinnedBytes();
     return s_failures == 0 ? 0 : 1;

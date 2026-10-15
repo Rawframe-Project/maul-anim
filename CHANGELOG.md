@@ -15,3 +15,11 @@ format.
   library profile.
 - `maniHash64` and `MANI_HASH_INIT`, the family's frozen 64-bit hash, for
   comparing results between machines.
+- Compressed clips (mani-0019): `maniCompressClip` writes a clip of
+  default, constant and animated sub-tracks, segments, range reduction
+  and per-segment bit rates chosen by a shell error metric; `maniOpenClip`
+  and every sampler take either form, `maniSampleClipBones` samples a
+  subset, and a forward cursor (`maniClipCursorSize`,
+  `maniInitClipCursor`, `maniSampleClipCursor`,
+  `maniSampleClipFloatsCursor`) gives random access's bits. An ACL
+  differential compares sizes, errors and playback costs.

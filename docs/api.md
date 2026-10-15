@@ -74,7 +74,7 @@ Returns the default compression options: precision 0.0001 and shell distance 0.0
 ```c
 MANI_NODISCARD MANI_API maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip, const maniSkeleton* skeleton, const maniCompressOptions* options, maniCompressReport* reportOut);
 ```
-Compresses a full-precision clip into the builder (mani-0006): default and constant channels folded, segments of about 16 samples, ranges over the clip and the segment, and per segment the fewest bits that keep every bone's shell and every float track within its tolerance at every sample. The same input gives the same bytes on every platform.  @param builder    The builder. @param clip       A full-precision clip. @param skeleton   Its skeleton. @param options    The tolerances. @param reportOut  Receives the report. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a compressed clip, a skeleton not the clip's, or a tolerance not finite and above 0; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+Compresses a full-precision clip into the builder (mani-0019): default and constant channels folded, segments of about 16 samples, ranges over the clip and the segment, and per segment the fewest bits that keep every bone's shell and every float track within its tolerance at every sample. The same input gives the same bytes on every platform.  @param builder    The builder. @param clip       A full-precision clip. @param skeleton   Its skeleton. @param options    The tolerances. @param reportOut  Receives the report. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a compressed clip, a skeleton not the clip's, or a tolerance not finite and above 0; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
@@ -98,7 +98,7 @@ Opens a clip file in place: checks the container, the header, every track and ev
 ```c
 bool maniClipCompressed(const maniClip* clip);
 ```
-Returns whether a clip is compressed (mani-0006); a full-precision clip is the build's output and the reference.  @param clip  An opened clip. @return True for a compressed clip. @par Thread safety Safe from any thread.
+Returns whether a clip is compressed (mani-0019); a full-precision clip is the build's output and the reference.  @param clip  An opened clip. @return True for a compressed clip. @par Thread safety Safe from any thread.
 
 ```c
 float maniClipDuration(const maniClip* clip);

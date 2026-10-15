@@ -1,7 +1,7 @@
 # The ufbx differential (mani-0018): every file of ufbx's corpus, at the
 # commit CMake pins, read by ufbx and by Maul Anim and compared, and the
 # fixtures' expected values written again and held against the committed
-# ones. The ACL differential (mani-0006): ozz-animation's Quaternius file
+# ones. The ACL differential (mani-0019): ozz-animation's Quaternius file
 # at 0.17.0, its clips compressed by ACL and by Maul Anim, sizes, errors
 # and times printed, every bone within the precision required. Weekly
 # and by hand, not on every commit: they fetch and build ufbx and ACL.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Compression of a full-precision clip (mani-0006): the sub-tracks
+// Compression of a full-precision clip (mani-0019): the sub-tracks
 // gathered, folded (float tracks within their precision, bone channels
 // by the shell metric), their rates chosen (float tracks each on its
 // own, bone channels by the search), the sections written, and the file

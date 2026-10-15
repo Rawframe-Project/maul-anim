@@ -360,7 +360,7 @@ extern "C"
                                                        const maniClip* clip,
                                                        maniClipReport* reportOut);
 
-    // How a clip is compressed (mani-0006), in skeleton units: the largest
+    // How a clip is compressed (mani-0019), in skeleton units: the largest
     // distance a point on a shell around each bone may move, through the
     // hierarchy, and the shell's radius.
     typedef struct maniCompressOptions
@@ -400,7 +400,7 @@ extern "C"
         uint32_t floatTrack;
     } maniCompressReport;
 
-    /// Compresses a full-precision clip into the builder (mani-0006):
+    /// Compresses a full-precision clip into the builder (mani-0019):
     /// default and constant channels folded, segments of about 16
     /// samples, ranges over the clip and the segment, and per segment the
     /// fewest bits that keep every bone's shell and every float track

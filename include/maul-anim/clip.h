@@ -106,7 +106,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size,
                                                         maniClip* clipOut);
 
-    /// Returns whether a clip is compressed (mani-0006); a full-precision
+    /// Returns whether a clip is compressed (mani-0019); a full-precision
     /// clip is the build's output and the reference.
     ///
     /// @param clip  An opened clip.

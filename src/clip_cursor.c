@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The forward cursor (mani-0006): two cached
+// The forward cursor (mani-0019): two cached
 // samples of a compressed clip, decoded once and interpolated by the
 // sampler's own code, so its poses are random access's bits. Bound to a
 // clip by identity and address, as ACL's context binds by a hash.

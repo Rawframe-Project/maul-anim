@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The compressed clip's arithmetic (mani-0006). Every operation is one
+// The compressed clip's arithmetic (mani-0019). Every operation is one
 // binary32 rounding in a fixed order (contraction is off), so the
 // compressor and the sampler reach the same bits on every platform.
 
