@@ -6,8 +6,9 @@
 // compared), and arrays up to a million elements; binary or ASCII; and
 // every object's name, a property, its connections and its local
 // transform; every model's children and bone name, the worlds, every
-// skeleton's models, and skeleton and skin builds. Run as fuzz_fbx <corpus dir>;
-// the seed comes from test_fbx --seed <file>.
+// skeleton's models, and builds: skeletons and model subtrees, their
+// skins and clips. Run as fuzz_fbx <corpus dir>; the seeds come from
+// test_fbx --seed <file> and the fixtures of test/data/fbx.
 
 #include "fbx_anim.h"
 #include "fbx_blend.h"
@@ -154,15 +155,13 @@ static void Stacks(const maniFbx* fbx)
             {
                 double v[3] = {1.0, 1.0, 1.0};
                 (void)maniFbxAnimateProperty(&a, fbx, a.channels[c].target, kNames[n],
-                                             strlen(kNames[n]), times[c % 3], c % 7, v);
+                                             strlen(kNames[n]), times[c % 3], c % 6, v);
             }
         }
         maniFbxReleaseAnimation(fbx, &a);
     }
 }
 
-// Builds the skins of a skeleton the builder holds, against it opened
-// from a copy aligned by hand.
 // Builds the clips of short stacks (ten seconds at most, so the scene's
 // rate keeps the samples few) for an opened skeleton.
 static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* skeleton,
@@ -186,8 +185,11 @@ static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* 
     }
 }
 
-static void Skins(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
-                  const maniFbxOptions* options)
+// Builds the skins (for a skeleton of the file, not a model subtree) and
+// the clips of a skeleton the builder holds, against it opened from a
+// copy aligned by hand.
+static void SkinsAndClips(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton, bool subtree,
+                          const maniFbxOptions* options)
 {
     size_t size = 0;
     (void)maniCopyBuilt(builder, NULL, 0, &size);
@@ -197,7 +199,7 @@ static void Skins(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
     if (file != NULL && maniCopyBuilt(builder, file, size, &size) == mani_success &&
         maniOpenSkeleton(file, size, &opened).result == mani_success)
     {
-        for (uint32_t s = 0; s < maniFbxSkinCount(fbx); ++s)
+        for (uint32_t s = 0; !subtree && s < maniFbxSkinCount(fbx); ++s)
         {
             if (maniFbxSkinSkeleton(fbx, s) == skeleton)
             {
@@ -228,13 +230,16 @@ static void Build(maniBuilder* builder, const maniFbx* fbx)
         {
             if (maniFbxBuildSkeleton(builder, fbx, k, &options[o]).result == mani_success)
             {
-                Skins(builder, fbx, k, &options[o]);
+                SkinsAndClips(builder, fbx, k, false, &options[o]);
             }
             (void)maniFbxSkeletonPlacement(fbx, k, &options[o], &placement);
         }
         for (uint32_t m = 0; m < maniFbxModelCount(fbx) && m < 4; ++m)
         {
-            (void)maniFbxBuildModelSkeleton(builder, fbx, m, &options[o]);
+            if (maniFbxBuildModelSkeleton(builder, fbx, m, &options[o]).result == mani_success)
+            {
+                SkinsAndClips(builder, fbx, m, true, &options[o]);
+            }
             (void)maniFbxModelPlacement(fbx, m, &options[o], &placement);
         }
     }
