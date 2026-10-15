@@ -19,6 +19,34 @@ bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton);
 // stale; mani_errorInvalid when the pose is not the skeleton's.
 maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton);
 
+// A pose's locals after its 64-byte header: groups of eight bones, each
+// component (translation x, y, z, rotation x, y, z, w, scale x, y, z) of
+// the eight together. Samplers write them in place, through these.
+#define MANI_POSE_HEADER_SIZE 64u
+#define MANI_POSE_GROUP_BONES 8u
+#define MANI_POSE_COMPONENTS  10u
+
+// The locals' first float, and the model marked stale once they change.
+float* maniPoseLocals(maniPose* pose);
+void maniPoseMarkStale(maniPose* pose);
+
+// A bone's slot in the locals: its component c at slot[c * 8].
+static inline float* maniPoseSlot(float* locals, uint32_t bone)
+{
+    return locals +
+           (size_t)(bone / MANI_POSE_GROUP_BONES) * (MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS) +
+           bone % MANI_POSE_GROUP_BONES;
+}
+
+// count components from first into a slot.
+static inline void maniPoseSlotPut(float* slot, uint32_t first, const float* values, uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        slot[(first + k) * MANI_POSE_GROUP_BONES] = values[k];
+    }
+}
+
 // The model matrices, twelve floats a bone in bone order.
 const float* maniPoseModelData(const maniPose* pose);
 

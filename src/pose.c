@@ -41,6 +41,9 @@ struct maniPose
 };
 
 static_assert(sizeof(struct maniPose) == kHeaderSize, "the header is 64 bytes");
+static_assert(kHeaderSize == MANI_POSE_HEADER_SIZE && kGroupBones == MANI_POSE_GROUP_BONES &&
+                  kComponents == MANI_POSE_COMPONENTS,
+              "pose_memory.h describes this layout");
 
 static const maniTransform s_identity = {
     {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
@@ -136,6 +139,16 @@ uint32_t maniPoseBoneCount(const maniPose* pose)
 maniTransform maniPoseLocal(const maniPose* pose, uint32_t bone)
 {
     return bone < pose->boneCount ? LoadLocal(ConstLocals(pose), bone) : s_identity;
+}
+
+float* maniPoseLocals(maniPose* pose)
+{
+    return Locals(pose);
+}
+
+void maniPoseMarkStale(maniPose* pose)
+{
+    pose->modelCurrent = 0;
 }
 
 void maniPoseSetLocal(maniPose* pose, uint32_t bone, maniTransform transform)

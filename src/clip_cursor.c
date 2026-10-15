@@ -144,14 +144,9 @@ maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
     {
         return mani_errorCapacity;
     }
-    maniResult result = maniPoseSetRestLocals(pose, skeleton);
-    if (result != mani_success)
-    {
-        return result;
-    }
     maniClipPair pair = maniClipLocate(clip, time);
     Load(cursor, clip, &pair);
-    maniSampleClipPair(clip, &pair, NULL, pose);
+    maniSampleClipPair(clip, skeleton, &pair, NULL, pose);
     return mani_success;
 }
 

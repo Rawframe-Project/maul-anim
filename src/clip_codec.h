@@ -10,6 +10,8 @@
 
 #include "bytes.h"
 
+#include <float.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -62,11 +64,45 @@ static inline float maniCodecValue(float normalized, float minimum, float extent
 
 // A rotation's dropped component from the three kept:
 // sqrt(|((1 - a*a) - b*b) - c*c|).
-float maniCodecRebuild(float a, float b, float c);
+static inline float maniCodecRebuild(float a, float b, float c)
+{
+    float squared = ((1.0f - a * a) - b * b) - c * c;
+    return sqrtf(fabsf(squared));
+}
 
 // A rotation's x, y, z and w from its kept components (in increasing
 // index order) and the dropped one's index (0 x, 1 y, 2 z, 3 w).
-void maniCodecRotation(const float kept[3], uint32_t dropped, float out[4]);
+static inline void maniCodecRotation(const float kept[3], uint32_t dropped, float out[4])
+{
+    float a = kept[0];
+    float b = kept[1];
+    float c = kept[2];
+    float r = maniCodecRebuild(a, b, c);
+    out[0] = dropped == 0 ? r : a;
+    out[1] = dropped == 0 ? a : (dropped == 1 ? r : b);
+    out[2] = dropped <= 1 ? b : (dropped == 2 ? r : c);
+    out[3] = dropped == 3 ? r : c;
+}
+
+// A rotation made unit: divided by its length, as one reciprocal, in
+// binary32; the identity for a length 0 or past binary32's range.
+static inline void maniCodecNormalize(float q[4])
+{
+    float squared = ((q[0] * q[0] + q[1] * q[1]) + q[2] * q[2]) + q[3] * q[3];
+    if (!(squared > 0.0f && squared <= FLT_MAX))
+    {
+        q[0] = 0.0f;
+        q[1] = 0.0f;
+        q[2] = 0.0f;
+        q[3] = 1.0f;
+        return;
+    }
+    float inverse = 1.0f / sqrtf(squared);
+    for (int k = 0; k < 4; ++k)
+    {
+        q[k] *= inverse;
+    }
+}
 
 // A bit stream written least significant bit first into bytes the
 // caller zeroed.

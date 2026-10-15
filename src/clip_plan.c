@@ -230,7 +230,8 @@ void maniPlanSetChannel(const maniCompressPlan* p, const maniSubTrack* t, uint32
         // with itself.
         float q[4];
         maniCodecRotation(o, t->dropped, q);
-        local->rotation = maniQuatNormalize((maniQuat){q[0], q[1], q[2], q[3]});
+        maniCodecNormalize(q);
+        local->rotation = (maniQuat){q[0], q[1], q[2], q[3]};
     }
     else if (t->channel == maniSubTranslation)
     {

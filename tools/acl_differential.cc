@@ -379,8 +379,8 @@ bool CompressBoth(Run& run, Clip& c)
            maniOpenClip(c.packed.data(), c.packed.size, &c.packedClip).result == mani_success;
 }
 
-// Nanoseconds a pose: random times over every clip, then forward over
-// the first.
+// Nanoseconds a pose: random times over every clip, then forward, each
+// clip in turn in 600 steps.
 void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
 {
     uint32_t bones = maniSkeletonBoneCount(run.skeleton);
@@ -389,7 +389,13 @@ void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
     writer.out = out.data();
     writer.rest = run.rest.data();
     Pose pose(run.skeleton);
-    std::vector<std::max_align_t> cursorWords(maniClipCursorSize(&clips[0].packedClip) / 16 + 2);
+    size_t cursorSize = 0;
+    for (const Clip& c : clips)
+    {
+        size_t size = maniClipCursorSize(&c.packedClip);
+        cursorSize = size > cursorSize ? size : cursorSize;
+    }
+    std::vector<std::max_align_t> cursorWords(cursorSize / 16 + 2);
     maniClipCursor* cursor = nullptr;
     if (maniInitClipCursor(cursorWords.data(), cursorWords.size() * 16, &cursor) != mani_success)
     {
@@ -410,10 +416,15 @@ void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
             context.decompress_tracks(writer);
         }
         double t1 = Now();
-        context.initialize(*clips[0].acl);
+        // Forward: each clip in turn, played in 600 steps over its length.
         for (long r = 0; (only < 0 || only == 1) && r < reps; ++r)
         {
-            context.seek(clips[0].acl->get_duration() * static_cast<float>(r % 600) / 600.0f,
+            Clip& c = clips[static_cast<size_t>(r / 600) % clips.size()];
+            if (r % 600 == 0)
+            {
+                context.initialize(*c.acl);
+            }
+            context.seek(c.acl->get_duration() * static_cast<float>(r % 600) / 600.0f,
                          acl::sample_rounding_policy::none);
             context.decompress_tracks(writer);
         }
@@ -429,14 +440,16 @@ void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
         double t3 = Now();
         for (long r = 0; (only < 0 || only == 3) && r < reps; ++r)
         {
-            float t = maniClipDuration(&clips[0].packedClip) * static_cast<float>(r % 600) / 600.0f;
-            (void)maniSampleClipCursor(cursor, &clips[0].packedClip, run.skeleton, t, pose.pose);
+            Clip& c = clips[static_cast<size_t>(r / 600) % clips.size()];
+            float t = maniClipDuration(&c.packedClip) * static_cast<float>(r % 600) / 600.0f;
+            (void)maniSampleClipCursor(cursor, &c.packedClip, run.skeleton, t, pose.pose);
         }
         double t4 = Now();
         for (long r = 0; (only < 0 || only == 4) && r < reps; ++r)
         {
-            float t = maniClipDuration(&clips[0].fullClip) * static_cast<float>(r % 600) / 600.0f;
-            (void)maniSampleClip(&clips[0].fullClip, run.skeleton, t, pose.pose);
+            Clip& c = clips[static_cast<size_t>(r / 600) % clips.size()];
+            float t = maniClipDuration(&c.fullClip) * static_cast<float>(r % 600) / 600.0f;
+            (void)maniSampleClip(&c.fullClip, run.skeleton, t, pose.pose);
         }
         double t5 = Now();
         double scale = 1e9 / static_cast<double>(reps);

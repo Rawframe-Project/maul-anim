@@ -417,28 +417,17 @@ static void Decode(Walker* w, const uint8_t* clipRange, uint32_t width, float* o
     }
 }
 
-static maniQuat Rotation(const float kept[3], uint32_t dropped)
-{
-    float q[4];
-    maniCodecRotation(kept, dropped, q);
-    return (maniQuat){q[0], q[1], q[2], q[3]};
-}
-
 // Normalized lerp on the shorter arc: both rotations keep their dropped
 // component positive, so the second is negated when they point apart.
-static maniQuat Nlerp(maniQuat a, maniQuat b, float alpha)
+static void Nlerp(const float a[4], const float b[4], float alpha, float q[4])
 {
-    float dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    float dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
     float s = dot < 0.0f ? -1.0f : 1.0f;
-    maniQuat q = {a.x + (s * b.x - a.x) * alpha, a.y + (s * b.y - a.y) * alpha,
-                  a.z + (s * b.z - a.z) * alpha, a.w + (s * b.w - a.w) * alpha};
-    return maniQuatNormalize(q);
-}
-
-static maniVec3 Lerp(const float a[3], const float b[3], float alpha)
-{
-    return (maniVec3){a[0] + (b[0] - a[0]) * alpha, a[1] + (b[1] - a[1]) * alpha,
-                      a[2] + (b[2] - a[2]) * alpha};
+    for (int k = 0; k < 4; ++k)
+    {
+        q[k] = a[k] + (s * b[k] - a[k]) * alpha;
+    }
+    maniCodecNormalize(q);
 }
 
 // The walk over the bone channels: constants, clip ranges, and the two
@@ -500,9 +489,10 @@ static void Skip(Reading* r, uint32_t form)
     }
 }
 
-// One channel (0 translation, 1 rotation, 2 scale) of a local; false
-// when it is absent or the rest.
-static bool Channel(Reading* r, uint32_t forms, uint32_t channel, float alpha, maniTransform* local)
+// One channel (0 translation, 1 rotation, 2 scale) of a bone into its
+// pose slot: interpolated when stored, the rest otherwise.
+static void Channel(Reading* r, uint32_t forms, uint32_t channel, float alpha, float* slot,
+                    const maniSkeleton* skeleton, uint32_t bone)
 {
     uint32_t form = Form(forms, channel);
     float va[3];
@@ -522,25 +512,29 @@ static bool Channel(Reading* r, uint32_t forms, uint32_t channel, float alpha, m
     }
     else
     {
-        return false;
+        maniSlotRest(slot, skeleton, bone, channel);
+        return;
     }
+    float out[4];
     if (channel == 1)
     {
-        local->rotation = Nlerp(Rotation(va, Dropped(forms)), Rotation(vb, Dropped(forms)), alpha);
+        float qa[4];
+        float qb[4];
+        maniCodecRotation(va, Dropped(forms), qa);
+        maniCodecRotation(vb, Dropped(forms), qb);
+        Nlerp(qa, qb, alpha, out);
+        maniPoseSlotPut(slot, 3, out, 4);
+        return;
     }
-    else if (channel == 0)
+    for (int k = 0; k < 3; ++k)
     {
-        local->translation = Lerp(va, vb, alpha);
+        out[k] = va[k] + (vb[k] - va[k]) * alpha;
     }
-    else
-    {
-        local->scale = Lerp(va, vb, alpha);
-    }
-    return true;
+    maniPoseSlotPut(slot, maniChannelFirst(channel), out, 3);
 }
 
-void maniSampleCompressedBones(const maniClip* clip, const maniClipPair* pair,
-                               const maniBoneList* list, maniPose* pose)
+void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleton,
+                               const maniClipPair* pair, const maniBoneList* list, maniPose* pose)
 {
     Reading r = {.cacheA = pair->cacheA,
                  .cacheB = pair->cacheB,
@@ -551,34 +545,32 @@ void maniSampleCompressedBones(const maniClip* clip, const maniClipPair* pair,
         r.a = WalkerAt(clip, pair->first, false);
         r.b = WalkerAt(clip, pair->second, false);
     }
+    // Every bone (or listed one) written once, each channel from the clip
+    // or the rest; the tracks are in bone order.
+    float* locals = maniPoseLocals(pose);
+    uint32_t track = 0;
     uint32_t next = 0;
-    for (uint32_t i = 0; i < clip->trackCount; ++i)
+    for (uint32_t bone = 0; bone < clip->skeletonBoneCount; ++bone)
     {
-        uint32_t bone = maniLoadU16(clip->tracks + (size_t)i * MANI_CLIP_TRACK_SIZE);
-        uint32_t forms = clip->forms[i];
-        while (list != NULL && next < list->count && list->bones[next] < bone)
+        bool tracked = track < clip->trackCount &&
+                       maniLoadU16(clip->tracks + (size_t)track * MANI_CLIP_TRACK_SIZE) == bone;
+        uint32_t forms = tracked ? clip->forms[track] : 0;
+        track += tracked ? 1 : 0;
+        bool wanted = maniBoneListed(list, bone, &next);
+        float* slot = maniPoseSlot(locals, bone);
+        for (uint32_t c = 0; c < 3; ++c)
         {
-            ++next;
-        }
-        if (list != NULL && (next == list->count || list->bones[next] != bone))
-        {
-            for (uint32_t c = 0; c < 3; ++c)
+            if (wanted)
+            {
+                Channel(&r, forms, c, pair->alpha, slot, skeleton, bone);
+            }
+            else
             {
                 Skip(&r, Form(forms, c));
             }
-            continue;
-        }
-        maniTransform local = maniPoseLocal(pose, bone);
-        bool changed = false;
-        for (uint32_t c = 0; c < 3; ++c)
-        {
-            changed = Channel(&r, forms, c, pair->alpha, &local) || changed;
-        }
-        if (changed)
-        {
-            maniPoseSetLocal(pose, bone, local);
         }
     }
+    maniPoseMarkStale(pose);
 }
 
 void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, float* values)
