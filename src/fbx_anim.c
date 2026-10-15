@@ -580,7 +580,7 @@ static const maniFbxChannel* Find(const maniFbxAnimation* a, const maniFbx* fbx,
     for (uint32_t i = first; i < first + count; ++i)
     {
         const maniFbxChannel* c = &a->channels[i];
-        if (c->layer == layer && !c->attribute && maniFbxChannelNameIs(fbx, c, name, length))
+        if (c->layer == layer && maniFbxChannelNameIs(fbx, c, name, length))
         {
             return c;
         }

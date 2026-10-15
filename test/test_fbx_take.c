@@ -9,6 +9,7 @@
 
 #include "fbx_anim.h"
 #include "fbx_document.h"
+#include "fbx_object.h"
 #include "fbx_take.h"
 #include "test_harness.h"
 
@@ -334,6 +335,14 @@ static void TestTracks(void)
     maniClip clip;
     bool built = maniOpenFbx(builder, kScene, strlen(kScene), &fbx).result == mani_success &&
                  Build(builder, fbx, 0, &skeleton, &clip);
+    // Bound: Hips' T, R and Custom, Spine's R and S; not Size.
+    maniFbxOptions options = maniDefaultFbxOptions();
+    uint32_t bound = 0;
+    CHECK(built &&
+              maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, &bound)
+                      .result == mani_success &&
+              bound == 5,
+          "the model channels bound, not an attribute's");
     float value = 0.0f;
     uint32_t track = built ? maniClipFindFloatTrack(&clip, "Hips/Custom", 11) : MANI_NO_TRACK;
     CHECK(built && maniClipFloatTrackCount(&clip) == 1 && track == 0 &&
@@ -345,9 +354,12 @@ static void TestTracks(void)
 }
 
 // Which channels drive the attribute: Limb's Size (neither a node
-// property nor user-defined); not its Visibility, Custom (U) or a
-// property it lacks... which goes to the attribute too; a plain model
-// keeps all; a model with mesh arrays and no subclass has one.
+// property nor user-defined) and Absent (a property it lacks), not its
+// Visibility or Custom (U); a plain model (no subclass, or Model) and an
+// object not a model keep all; a model with mesh arrays and no subclass
+// has one. Limb's Tint takes its components from its named children
+// holding a value; an empty channel, a node not a Channel and the scene
+// root bind nothing. Ref has only a ReferenceTime.
 static const char kSplit[] = "; FBX 6.1.0 project file\n"
                              "Objects: {\n"
                              " Model: \"Model::Limb\", \"Limb\" {\n"
@@ -361,6 +373,10 @@ static const char kSplit[] = "; FBX 6.1.0 project file\n"
                              " Model: \"Model::Shape\", \"\" {\n"
                              "  Vertices: 0,0,0\n"
                              "  PolygonVertexIndex: 0\n"
+                             " }\n"
+                             " Model: \"Model::Typed\", \"Model\" {\n"
+                             " }\n"
+                             " Deformer: \"Model::Odd\", \"Skin\" {\n"
                              " }\n"
                              "}\n"
                              "Takes: {\n"
@@ -391,6 +407,48 @@ static const char kSplit[] = "; FBX 6.1.0 project file\n"
                              "    Default: 1\n"
                              "   }\n"
                              "  }\n"
+                             "  Model: \"Model::Typed\" {\n"
+                             "   Channel: \"Size\" {\n"
+                             "    Default: 1\n"
+                             "   }\n"
+                             "  }\n"
+                             "  Model: \"Model::Odd\" {\n"
+                             "   Channel: \"Size\" {\n"
+                             "    Default: 1\n"
+                             "   }\n"
+                             "  }\n"
+                             "  Model: \"Model::Scene\" {\n"
+                             "   Channel: \"Visibility\" {\n"
+                             "    Default: 1\n"
+                             "   }\n"
+                             "  }\n"
+                             "  Model: \"Model::Limb\" {\n"
+                             "   Channel: \"Tint\" {\n"
+                             "    Channel: \"A\" {\n"
+                             "     Color: 1,1,1\n"
+                             "    }\n"
+                             "    Channel: {\n"
+                             "     Default: 9\n"
+                             "    }\n"
+                             "    Channel: \"X\" {\n"
+                             "     Default: 1\n"
+                             "    }\n"
+                             "    Channel: \"Y\" {\n"
+                             "     Default: 2\n"
+                             "    }\n"
+                             "    Channel: \"Z\" {\n"
+                             "     Default: 3\n"
+                             "    }\n"
+                             "   }\n"
+                             "   Channel: \"Empty\" {\n"
+                             "   }\n"
+                             "   Other: \"Size2\" {\n"
+                             "    Default: 1\n"
+                             "   }\n"
+                             "  }\n"
+                             " }\n"
+                             " Take: \"Ref\" {\n"
+                             "  ReferenceTime: 0,23093079000\n"
                              " }\n"
                              "}\n";
 
@@ -422,14 +480,24 @@ static void TestSplit(void)
         uint32_t model;
         const char* name;
         bool attribute;
-    } kWant[6] = {{0, "Size", true},   {0, "Visibility", false}, {0, "Custom", false},
-                  {0, "Absent", true}, {1, "Size", false},       {2, "Size", true}};
-    bool right = read && a.channelCount == 6;
-    for (int k = 0; right && k < 6; ++k)
+    } kWant[8] = {{0, "Size", true},   {0, "Visibility", false}, {0, "Custom", false},
+                  {0, "Absent", true}, {1, "Size", false},       {2, "Size", true},
+                  {3, "Size", false},  {0, "Tint", true}};
+    bool right = read && a.channelCount == 9;
+    for (int k = 0; right && k < 8; ++k)
     {
         const maniFbxChannel* c = Channel(fbx, &a, fbx->models[kWant[k].model], kWant[k].name);
         right = c != NULL && c->attribute == kWant[k].attribute;
     }
+    // The object keyed Model::Odd, a Skin: its own property.
+    for (uint32_t o = 0; right && o < fbx->objectCount; ++o)
+    {
+        const maniFbxChannel* c = Channel(fbx, &a, o, "Size");
+        right = !maniFbxObjectKindIs(fbx, o, "Deformer", 8) || (c != NULL && !c->attribute);
+    }
+    const maniFbxChannel* tint = read ? Channel(fbx, &a, fbx->models[0], "Tint") : NULL;
+    right = right && tint != NULL && tint->values[0] == 1.0 && tint->values[1] == 2.0 &&
+            tint->values[2] == 3.0;
     CHECK(right, "a 6.x model's properties split from its attribute's");
     double v[3] = {0, 0, 0};
     uint32_t limb = read ? fbx->models[0] : 0;
@@ -440,12 +508,20 @@ static void TestSplit(void)
     {
         maniFbxReleaseAnimation(fbx, &a);
     }
+    CHECK(read && maniFbxReadStack(fbx, 1, &a).result == mani_success && a.start == 0 &&
+              a.stop == 23093079000,
+          "a range from ReferenceTime alone");
+    if (read)
+    {
+        maniFbxReleaseAnimation(fbx, &a);
+    }
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
 
-// Each text refused as a stack, at its node.
-static void Refused(const char* takes, const char* label)
+// Each text refused as a stack; at the node a marker's first byte is in
+// (the marker NULL for any).
+static void Refused(const char* takes, const char* marker, const char* label)
 {
     char text[1024];
     snprintf(text, sizeof text,
@@ -458,26 +534,33 @@ static void Refused(const char* takes, const char* label)
     bool opened = maniOpenFbx(builder, text, strlen(text), &fbx).result == mani_success;
     maniImportResult r =
         opened ? maniFbxReadStack(fbx, 0, &a) : (maniImportResult){mani_success, 0, 0, 0, 0};
-    CHECK(opened && r.result == mani_errorFormat && r.reason == maniImportReasonProperty, label);
+    const char* at = marker != NULL ? strstr(text, marker) : NULL;
+    CHECK(opened && r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
+              (at == NULL || r.offset == (uint64_t)(at - text)),
+          label);
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
 
 static void TestRefusals(void)
 {
-    Refused(" Take: {\n }\n", "a take without a name");
-    Refused(" Take: \"T\" {\n  Model: {\n  }\n }\n", "a model without a name");
+    Refused(" Take: {\n }\n", NULL, "a take without a name");
+    Refused(" Take: \"T\" {\n  Model: {\n  }\n }\n", NULL, "a model without a name");
     Refused(" Take: \"T\" {\n  Model: \"Model::A\" {\n   Channel: \"Transform\" {\n"
             "    Channel: {\n    }\n   }\n  }\n }\n",
-            "a transform channel without a name");
+            NULL, "a transform channel without a name");
     Refused(" Take: \"T\" {\n  Model: \"Model::A\" {\n   Channel: \"Transform\" {\n"
             "    Channel: \"T\" {\n     Channel: \"X\" {\n      Default: 1\n     }\n    }\n"
             "   }\n   Channel: \"Transform\" {\n    Channel: \"T\" {\n     Channel: \"X\" {\n"
             "      Default: 2\n     }\n    }\n   }\n  }\n }\n",
-            "a property driven twice");
+            "Channel: \"T\" {\n     Channel: \"X\" {\n      Default: 2", "a property driven twice");
+    Refused(" Take: \"T\" {\n  Model: \"Model::A\" {\n   Channel: \"Transform\" {\n"
+            "    Channel: \"T\" {\n     Channel: \"X\" {\n      Default: 1\n     }\n    }\n"
+            "   }\n   Channel: \"Lcl Translation\" {\n    Default: 2\n   }\n  }\n }\n",
+            "Channel: \"Lcl", "T and Lcl Translation both");
     Refused(" Take: \"T\" {\n  Model: \"Model::A\" {\n   Channel: \"Visibility\" {\n"
             "    Key: 0,1,L\n   }\n  }\n }\n",
-            "keys without a count");
+            NULL, "keys without a count");
 }
 
 // An allocator that fails its n-th call and counts what is outstanding.

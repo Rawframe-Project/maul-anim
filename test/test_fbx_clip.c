@@ -627,6 +627,20 @@ static void TestOptions(void)
     maniDestroyBuilder(builder);
 }
 
+// A 7.0 file's stacks read as 7.4's (not as 6.x takes).
+static void TestVersion70(void)
+{
+    Replace("; FBX 7.4.0 project file\n", "; FBX 7.0.0 project file\n");
+    maniBuilder* builder = NULL;
+    maniSkeleton skeleton;
+    maniClip clip;
+    maniFbxOptions options = maniDefaultFbxOptions();
+    bool built = BuildText(s_text, 0, &options, 0.0f, &builder, &skeleton, &clip);
+    CHECK(built && NearVec(LocalAt(&clip, &skeleton, "Hips", 0.5f).translation, 1.5, 1, 0),
+          "a 7.0 file's stacks");
+    maniDestroyBuilder(builder);
+}
+
 // Another skeleton: Spine, its helper, and Hips under the helper.
 static bool Helpered(maniBuilder* builder, maniSkeleton* out)
 {
@@ -892,6 +906,7 @@ int main(void)
     TestRates();
     TestEnds();
     TestOptions();
+    TestVersion70();
     TestHelperFrame();
     TestTracks();
     TestTimes();

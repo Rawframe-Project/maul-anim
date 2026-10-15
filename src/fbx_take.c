@@ -104,11 +104,11 @@ static maniImportResult ReadComponents(const maniFbx* fbx, const uint32_t* compo
     maniImportResult r = maniFbxSuccess();
     for (uint32_t k = 0; r.result == mani_success && k < n; ++k)
     {
+        // A Default not a number leaves the value 0 (the channel is zeroed).
         uint32_t value = maniFbxFindChild(fbx, components[k], "Default", 7);
-        if (value != MANI_FBX_NONE &&
-            !maniFbxNumber(fbx, maniFbxNodeProperty(fbx, value, 0), &channel->values[k]))
+        if (value != MANI_FBX_NONE)
         {
-            channel->values[k] = 0.0;
+            (void)maniFbxNumber(fbx, maniFbxNodeProperty(fbx, value, 0), &channel->values[k]);
         }
         r = maniFbxReadKeys(fbx, components[k], channel->target, &channel->curves[k]);
     }
