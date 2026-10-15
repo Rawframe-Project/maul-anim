@@ -9,6 +9,7 @@
 // skeleton's models, and skeleton and skin builds. Run as fuzz_fbx <corpus dir>;
 // the seed comes from test_fbx --seed <file>.
 
+#include "fbx_anim.h"
 #include "fbx_curve.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
@@ -78,6 +79,34 @@ static void Curve(const maniFbx* fbx, uint32_t object)
         (void)maniFbxEvaluateCurve(&curve, t + 1e9, 0.0);
     }
     maniFbxReleaseCurve(fbx, &curve);
+}
+
+// Reads each stack and evaluates what it drives at its ends and between.
+static void Stacks(const maniFbx* fbx)
+{
+    static const char* const kNames[4] = {"Lcl Translation", "Lcl Rotation", "Lcl Scaling",
+                                          "Visibility"};
+    for (uint32_t k = 0; k < maniFbxStackCount(fbx) && k < 4; ++k)
+    {
+        maniFbxAnimation a;
+        if (maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, k), &a).result != mani_success)
+        {
+            continue;
+        }
+        double tps = (double)fbx->settings.ticksPerSecond;
+        double times[3] = {(double)a.start / tps, (double)a.stop / tps,
+                           ((double)a.start + (double)a.stop) / (2.0 * tps)};
+        for (uint32_t c = 0; c < a.channelCount && c < 16; ++c)
+        {
+            for (uint32_t n = 0; n < 4; ++n)
+            {
+                double v[3] = {1.0, 1.0, 1.0};
+                (void)maniFbxAnimateProperty(&a, fbx, a.channels[c].target, kNames[n],
+                                             strlen(kNames[n]), times[c % 3], c % 7, v);
+            }
+        }
+        maniFbxReleaseAnimation(fbx, &a);
+    }
 }
 
 // Builds the skins of a skeleton the builder holds, against it opened
@@ -182,6 +211,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             maniFbxMarkSkeleton(fbx, k, marked);
         }
         free(marked);
+        Stacks(fbx);
         Build(builder, fbx);
         for (uint32_t v = 0; v < fbx->nodeCount; ++v)
         {

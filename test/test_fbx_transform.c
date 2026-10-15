@@ -368,15 +368,21 @@ static void TestQuatEuler(void)
             }
             // A quarter turn about the middle axis: another set of angles,
             // the same rotation.
-            double locked[3] = {(double)i, (double)i, (double)i};
-            locked[kAxes[order][1]] = 90.0;
-            double q[4];
-            double back[4];
-            double out[3];
-            maniFbxEulerQuat(locked, order, q);
-            maniFbxQuatEuler(q, order, out);
-            maniFbxEulerQuat(out, order, back);
-            gimbal = gimbal && SameRotation(q, back, 1e-12);
+            // ufbx's convention there: the first angle 0, the middle a
+            // quarter turn of the same sign.
+            for (int sign = -1; sign <= 1; sign += 2)
+            {
+                double locked[3] = {(double)i, (double)i, (double)i};
+                locked[kAxes[order][1]] = 90.0 * sign;
+                double q[4];
+                double back[4];
+                double out[3];
+                maniFbxEulerQuat(locked, order, q);
+                maniFbxQuatEuler(q, order, out);
+                maniFbxEulerQuat(out, order, back);
+                gimbal = gimbal && SameRotation(q, back, 1e-12) && out[kAxes[order][0]] == 0.0 &&
+                         fabs(out[kAxes[order][1]] - 90.0 * sign) <= 1e-12;
+            }
         }
     }
     CHECK(worst <= 1e-9, "Euler angles back from their quaternion, each order");

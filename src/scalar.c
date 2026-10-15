@@ -241,13 +241,12 @@ static double PowerOfTwo(int32_t n)
     return d;
 }
 
-// e^y for y in [-746, 710]: y = n ln 2 + r, |r| <= ln 2 / 2, e^r by its
-// Taylor series to the 20th power, scaled by 2^n in two halves (each
-// within the normal range).
+// e^y for y in [-746, 710]: y = n ln 2 + r, |r| < ln 2 (n truncated),
+// e^r by its Taylor series to the 20th power, scaled by 2^n in two
+// halves (each within the normal range).
 static double Exp(double y)
 {
-    double q = y * 1.4426950408889634;
-    int32_t n = (int32_t)(q >= 0.0 ? q + 0.5 : q - 0.5);
+    int32_t n = (int32_t)(y * 1.4426950408889634);
     double r = (y - (double)n * s_ln2Head) - (double)n * s_ln2Tail;
     double p = 1.0;
     for (int32_t k = 20; k >= 1; --k)
