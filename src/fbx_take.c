@@ -273,7 +273,7 @@ static maniImportResult ReadTake(const maniFbx* fbx, uint32_t take, maniFbxAnima
     Reader counter = {fbx, NULL, 0, 0, NULL, 0, 0};
     maniImportResult r = EachModel(&counter, take);
     r = r.result == mani_success && counter.count >= UINT32_MAX ? Capacity() : r;
-    if (r.result == mani_success && fbx->version < 6000)
+    if (r.result == mani_success)
     {
         out->names = maniAllocate(&fbx->allocator, counter.namesUsed + 1, 1, 1);
         out->namesSize = counter.namesUsed;

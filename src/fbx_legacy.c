@@ -135,9 +135,11 @@ static maniImportResult Objects(maniFbx* fbx)
     return r.result == mani_success ? maniFbxIndexObjects(fbx) : r;
 }
 
+// One connection: counted, and written once the list exists (the second
+// pass makes the same ones).
 static void Connect(maniFbx* fbx, uint32_t child, uint32_t parent)
 {
-    if (fbx->connections != NULL && fbx->connectionCount < fbx->connectionCapacity)
+    if (fbx->connections != NULL)
     {
         fbx->connections[fbx->connectionCount] =
             (maniFbxConnection){child, parent, MANI_FBX_NONE, MANI_FBX_NONE};
@@ -256,7 +258,7 @@ static void ModelRests(maniFbx* fbx, uint32_t node)
                 }
             }
         }
-        for (uint32_t k = 0; k < 3 && !transform; ++k)
+        for (uint32_t k = 0; k < 3; ++k)
         {
             if (maniFbxStringEquals(fbx, name, kLong[k], strlen(kLong[k])))
             {

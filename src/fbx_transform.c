@@ -348,10 +348,11 @@ maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
         r = Integer(fbx, object, maniFbxLocalIntegerNames[k], maniFbxLocalIntegerLimits[k],
                     kDefaults[k], &out->integers[k]);
     }
-    // Before 6.0 the Lcl values are the channels' defaults (mani-0017).
+    // Before 6.0 the Lcl values are the channels' defaults (mani-0017);
+    // later files have no such rests.
     static const uint32_t kLcl[3] = {maniFbxLocalTranslation, maniFbxLocalRotation,
                                      maniFbxLocalScaling};
-    for (uint32_t k = 0; fbx->version < 6000 && k < 3; ++k)
+    for (uint32_t k = 0; k < 3; ++k)
     {
         (void)maniFbxLegacyRest(fbx, object, k, out->vectors[kLcl[k]]);
     }

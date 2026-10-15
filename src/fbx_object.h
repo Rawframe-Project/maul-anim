@@ -23,7 +23,7 @@ maniImportResult maniFbxReadObjects(maniFbx* fbx);
 // the objects indexed by id, refused (Property) for one given twice; the
 // connections indexed by both ends; GlobalSettings read with a frame
 // rate to fall back on where it gives none (0 for none); and a Settings
-// node's FrameRate (a number or a numeric string, 0 for none).
+// node's FrameRate (a number or a numeric string; none when not above 0).
 int64_t maniFbxNameKey(const maniFbx* fbx, uint32_t property, bool* ok);
 maniImportResult maniFbxIndexObjects(maniFbx* fbx);
 maniImportResult maniFbxIndexConnections(maniFbx* fbx);

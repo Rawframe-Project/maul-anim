@@ -504,7 +504,8 @@ static const uint32_t kRates[19][2] = {
     {0, 0},  {96, 1},       {72, 1},       {60000, 1001}, {120000, 1001},
 };
 
-// The rate: TimeMode's, else the legacy rate (mode 14) when there is one.
+// The rate as ufbx fills it from a legacy rate (mani-0017): TimeMode's,
+// else 14 when there is one; CustomFrameRate's, else the legacy rate.
 static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties, double legacyRate)
 {
     int64_t mode = 0;
@@ -513,8 +514,8 @@ static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties, double legac
     {
         return Refuse(fbx, where, 0);
     }
-    bool legacy = where == MANI_FBX_NONE && legacyRate > 0.0;
-    mode = legacy ? 14 : mode;
+    bool legacy = legacyRate > 0.0;
+    mode = where == MANI_FBX_NONE && legacy ? 14 : mode;
     maniFbxGlobalSettings* s = &fbx->settings;
     s->timeMode = (uint32_t)mode;
     s->rateNumerator = kRates[mode][0];
@@ -522,7 +523,7 @@ static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties, double legac
     if (mode == 14)
     {
         where = Setting(fbx, properties, "CustomFrameRate");
-        s->customRate = legacy ? legacyRate : 0.0;
+        s->customRate = legacyRate;
         if ((where != MANI_FBX_NONE || !legacy) &&
             (!maniFbxNumber(fbx, where, &s->customRate) || !(s->customRate > 0.0)))
         {
@@ -623,7 +624,7 @@ double maniFbxLegacyFrameRate(const maniFbx* fbx, uint32_t settings)
     {
         rate = 0.0;
     }
-    return rate > 0.0 ? rate : 0.0;
+    return rate;
 }
 
 maniImportResult maniFbxReadObjects(maniFbx* fbx)
