@@ -312,21 +312,30 @@ static void TestHemisphere(void)
 static void TestEdges(void)
 {
     RandomizeLayers();
-    maniBlendLayer layers[2] = {{s_layer[0], 0.4f, NULL}, {s_layer[1], 0.6f, NULL}};
-    CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
-          "blends");
-    const float* locals = maniPoseLocalsRead(s_out);
+    // Weights whose shares do not sum to exactly 1: blended identities
+    // would drift from 1 in the padding's scales.
+    maniBlendLayer three[3] = {
+        {s_layer[0], 0.1f, NULL}, {s_layer[1], 0.2f, NULL}, {s_layer[2], 0.7f, NULL}};
     bool padding = true;
-    for (uint32_t b = kBones; b < 24; ++b)
+    for (int round = 0; round < 16; ++round)
     {
-        const float* slot = locals + (size_t)(b / 8) * 80 + b % 8;
-        for (uint32_t c = 0; c < 10; ++c)
+        three[0].weight = Uniform(0.01f, 1.0f);
+        three[1].weight = Uniform(0.01f, 1.0f);
+        CHECK(maniBlendPoses(&s_skeleton, three, 3, MANI_BLEND_THRESHOLD, s_out) == mani_success,
+              "blends");
+        const float* locals = maniPoseLocalsRead(s_out);
+        for (uint32_t b = kBones; b < 24; ++b)
         {
-            float want = c == 6 || c >= 7 ? 1.0f : 0.0f;
-            padding = padding && slot[c * 8] == want;
+            const float* slot = locals + (size_t)(b / 8) * 80 + b % 8;
+            for (uint32_t c = 0; c < 10; ++c)
+            {
+                float want = c == 6 || c >= 7 ? 1.0f : 0.0f;
+                padding = padding && slot[c * 8] == want;
+            }
         }
     }
     CHECK(padding, "padding bones stay the identity");
+    maniBlendLayer layers[2] = {{s_layer[0], 0.4f, NULL}, {s_layer[1], 0.6f, NULL}};
     const maniQuat sums[2] = {{0.0f, 0.0f, 0.0f, 0.0f}, {3e19f, 3e19f, 0.0f, 0.0f}};
     for (int i = 0; i < 2; ++i)
     {
@@ -516,6 +525,10 @@ static void TestMask(void)
     CHECK(maniBuildMask(&s_skeleton, mixed, 2, 0.0f, weights, kBones) == mani_success, "builds");
     CHECK(weights[parent] == 0.25f && weights[kBones - 1] == 0.5f,
           "own first for the bone, the subtree for its children");
+    // A bone's own chain alone: its children take the default.
+    CHECK(maniBuildMask(&s_skeleton, mixed, 1, 0.75f, weights, kBones) == mani_success, "builds");
+    CHECK(weights[parent] == 0.25f && weights[kBones - 1] == 0.75f,
+          "an own chain is not inherited");
     float kept[kBones];
     memcpy(kept, weights, sizeof kept);
     const maniMaskChain past = {kBones, 0.5f, true};
