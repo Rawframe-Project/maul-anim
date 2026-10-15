@@ -4,7 +4,8 @@
 // FBX models (mani-0014): parents from `OO` connections only, children
 // in connection order with unconnected models under the root, bone
 // names renamed when empty or repeated, the 6.x form, the public
-// queries, and the refusals of two parents and of a cycle.
+// queries, a model of several parents linked as ufbx links it, and the
+// refusal of a cycle.
 
 #include "fbx_document.h"
 #include "fbx_model.h"
@@ -150,13 +151,31 @@ static void ExpectRefusal(const char* text, const char* at, uint32_t item, const
     maniDestroyBuilder(builder);
 }
 
+// Several parents, as ufbx links them: b's root and a, a; c's b and a
+// (connected in that order), b, the later in object order; c listed
+// under b alone.
+static void TestSeveralParents(void)
+{
+    static const char kText[] = "; FBX 7.4.0 project file\n"
+                                "Objects: {\n Model: 1, \"Model::a\", \"Null\" {\n }\n"
+                                " Model: 2, \"Model::b\", \"Null\" {\n }\n"
+                                " Model: 3, \"Model::c\", \"Null\" {\n }\n}\n"
+                                "Connections: {\n C: \"OO\",1,0\n C: \"OO\",2,0\n"
+                                " C: \"OO\",2,1\n C: \"OO\",3,2\n C: \"OO\",3,1\n}\n";
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    bool open = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success;
+    const uint32_t a[1] = {1};
+    const uint32_t b[1] = {2};
+    CHECK(open && fbx->modelParents[1] == 0 && fbx->modelParents[2] == 1, "the later parent");
+    CHECK(open && ChildrenAre(fbx, 0, a, 1) && ChildrenAre(fbx, 1, b, 1),
+          "children under their chosen parents only");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 static void TestRefusals(void)
 {
-    ExpectRefusal("; FBX 7.4.0 project file\n"
-                  "Objects: {\n Model: 1, \"Model::a\", \"Null\" {\n }\n"
-                  " Model: 2, \"Model::b\", \"Null\" {\n }\n}\n"
-                  "Connections: {\n C: \"OO\",2,0\n C: \"OO\",2,1\n}\n",
-                  "Model: 2", 1, "two parents");
     ExpectRefusal("; FBX 7.4.0 project file\n"
                   "Objects: {\n Model: 1, \"Model::a\", \"Null\" {\n }\n"
                   " Model: 2, \"Model::b\", \"Null\" {\n }\n"
@@ -173,6 +192,7 @@ int main(void)
 {
     TestSeven();
     TestSix();
+    TestSeveralParents();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

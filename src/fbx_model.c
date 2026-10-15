@@ -55,7 +55,10 @@ static uint32_t ParentModel(const maniFbx* fbx, const maniFbxConnection* c)
     return c->parent == fbx->objectCount ? fbx->modelCount : maniFbxModelOf(fbx, c->parent);
 }
 
-static maniImportResult ReadParents(maniFbx* fbx)
+// Each model's parent: of several parent models the last in object
+// order, the root when none, as ufbx links them (each node in turn
+// taking its children).
+static void ReadParents(maniFbx* fbx)
 {
     for (uint32_t m = 0; m < fbx->modelCount; ++m)
     {
@@ -66,15 +69,11 @@ static maniImportResult ReadParents(maniFbx* fbx)
         {
             const maniFbxConnection* c = &fbx->connections[list[k]];
             uint32_t p = ObjectToObject(c) ? ParentModel(fbx, c) : MANI_FBX_NONE;
-            if (p != MANI_FBX_NONE && parent != MANI_FBX_NONE && p != parent)
-            {
-                return Refuse(fbx, m);
-            }
-            parent = p != MANI_FBX_NONE ? p : parent;
+            bool later = p < fbx->modelCount && (parent == MANI_FBX_NONE || p > parent);
+            parent = later ? p : parent;
         }
-        fbx->modelParents[m] = parent == fbx->modelCount ? MANI_FBX_NONE : parent;
+        fbx->modelParents[m] = parent;
     }
-    return maniFbxSuccess();
 }
 
 // Depths and common ancestors, refusing a cycle.
@@ -107,9 +106,10 @@ static void ListChildren(maniFbx* fbx, uint8_t* placed)
         {
             const maniFbxConnection* c = &fbx->connections[list[k]];
             uint32_t child = maniFbxModelOf(fbx, c->child);
-            // A model's object parent is unique (ReadParents), so p is
-            // this child's.
-            if (ObjectToObject(c) && child != MANI_FBX_NONE && placed[child] == 0)
+            // Listed under the parent ReadParents chose for it only.
+            bool mine =
+                child != MANI_FBX_NONE && fbx->modelParents[child] == (p < n ? p : MANI_FBX_NONE);
+            if (ObjectToObject(c) && mine && placed[child] == 0)
             {
                 placed[child] = 1;
                 fbx->modelChildren[at++] = child;
@@ -196,10 +196,7 @@ maniImportResult maniFbxReadModels(maniFbx* fbx)
     maniImportResult r = ListModels(fbx);
     if (r.result == mani_success)
     {
-        r = ReadParents(fbx);
-    }
-    if (r.result == mani_success)
-    {
+        ReadParents(fbx);
         r = ReadHierarchy(fbx);
     }
     if (r.result == mani_success)

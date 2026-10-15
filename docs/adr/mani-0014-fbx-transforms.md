@@ -31,6 +31,9 @@ matrix is its parent's times its local TRS.
   (the scene's rate up to 120 a second, else 30); on request under
   every parent of a non-normal child. A clip sample needing a helper
   the target skeleton lacks is refused (Matrix).
+- **The hierarchy:** a model's parent is the model an `OO` connection
+  names; of several, the last in object order, as ufbx links them; the
+  root when there is none. A cycle is refused (Hierarchy).
 - **Skeletons** are skins' linked models and limb chains with the
   models between, merged when they share a model, rooted at their
   common ancestor; any model's subtree can be built too. Names are the
