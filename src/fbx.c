@@ -6,6 +6,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "fbx_anim.h"
 #include "fbx_ascii.h"
 #include "fbx_binary.h"
 #include "fbx_document.h"
@@ -46,7 +47,8 @@ static maniImportResult Open(maniFbx* fbx)
         maniFbxIsBinary(fbx->bytes, fbx->size) ? maniFbxReadBinary(fbx) : maniFbxReadAscii(fbx);
     r = r.result == mani_success ? maniFbxReadObjects(fbx) : r;
     r = r.result == mani_success ? maniFbxReadModels(fbx) : r;
-    return r.result == mani_success ? maniFbxReadUnits(fbx) : r;
+    r = r.result == mani_success ? maniFbxReadUnits(fbx) : r;
+    return r.result == mani_success ? maniFbxReadStacks(fbx) : r;
 }
 
 maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
@@ -90,6 +92,7 @@ void maniCloseFbx(maniFbx* fbx)
         return;
     }
     maniAllocator allocator = fbx->allocator;
+    maniFbxReleaseStacks(fbx);
     maniFbxReleaseUnits(fbx);
     maniFbxReleaseModels(fbx);
     maniFbxReleaseObjects(fbx);

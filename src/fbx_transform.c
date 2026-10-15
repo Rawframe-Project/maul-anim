@@ -304,37 +304,28 @@ static maniImportResult Integer(const maniFbx* fbx, uint32_t object, const char*
     return maniFbxSuccess();
 }
 
-// The vectors of the chain, in its order of application.
-enum
-{
-    kTranslation,
-    kRotationOffset,
-    kRotationPivot,
-    kPreRotation,
-    kRotation,
-    kPostRotation,
-    kScalingOffset,
-    kScalingPivot,
-    kScaling,
-    kVectors
-};
-
-static const char* const kVectorNames[kVectors] = {
+const char* const maniFbxLocalVectorNames[maniFbxLocalVectors] = {
     "Lcl Translation", "RotationOffset", "RotationPivot", "PreRotation", "Lcl Rotation",
     "PostRotation",    "ScalingOffset",  "ScalingPivot",  "Lcl Scaling"};
 
+const char* const maniFbxLocalIntegerNames[maniFbxLocalIntegers] = {
+    "RotationOrder", "RotationActive", "RotationSpaceForLimitOnly", "InheritType"};
+
+const int64_t maniFbxLocalIntegerLimits[maniFbxLocalIntegers] = {6, 1, 1, 2};
+
 // The rotation Rpre R Rpost^-1, or R alone outside the rotation space.
-static void Rotation(double v[kVectors][3], uint32_t order, bool space, double q[4])
+static void Rotation(const double v[maniFbxLocalVectors][3], uint32_t order, bool space,
+                     double q[4])
 {
-    maniFbxEulerQuat(v[kRotation], space ? order : 0, q);
+    maniFbxEulerQuat(v[maniFbxLocalRotation], space ? order : 0, q);
     if (!space)
     {
         return;
     }
     double pre[4];
     double post[4];
-    maniFbxEulerQuat(v[kPreRotation], 0, pre);
-    maniFbxEulerQuat(v[kPostRotation], 0, post);
+    maniFbxEulerQuat(v[maniFbxLocalPreRotation], 0, pre);
+    maniFbxEulerQuat(v[maniFbxLocalPostRotation], 0, post);
     post[0] = -post[0];
     post[1] = -post[1];
     post[2] = -post[2];
@@ -342,64 +333,60 @@ static void Rotation(double v[kVectors][3], uint32_t order, bool space, double q
     maniFbxQuatMul(pre, q, q);
 }
 
-static maniImportResult ReadVectors(const maniFbx* fbx, uint32_t object, double v[kVectors][3])
+maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
+                                        maniFbxLocalInputs* out)
 {
+    static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRSrs};
     maniImportResult r = maniFbxSuccess();
-    for (uint32_t k = 0; r.result == mani_success && k < kVectors; ++k)
+    for (uint32_t k = 0; r.result == mani_success && k < maniFbxLocalVectors; ++k)
     {
-        r = Vector(fbx, object, kVectorNames[k], k == kScaling ? 1.0 : 0.0, v[k]);
+        r = Vector(fbx, object, maniFbxLocalVectorNames[k], k == maniFbxLocalScaling ? 1.0 : 0.0,
+                   out->vectors[k]);
+    }
+    for (uint32_t k = 0; r.result == mani_success && k < maniFbxLocalIntegers; ++k)
+    {
+        r = Integer(fbx, object, maniFbxLocalIntegerNames[k], maniFbxLocalIntegerLimits[k],
+                    kDefaults[k], &out->integers[k]);
     }
     return r;
 }
 
-maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxLocal* out)
+void maniFbxComposeLocal(const maniFbxLocalInputs* in, maniFbxLocal* out)
 {
-    double v[kVectors][3];
-    int64_t order = 0;
-    int64_t active = 1;
-    int64_t limitOnly = 0;
-    int64_t inherit = maniFbxInheritRSrs;
-    maniImportResult r = ReadVectors(fbx, object, v);
-    if (r.result == mani_success)
-    {
-        r = Integer(fbx, object, "RotationOrder", 6, 0, &order);
-    }
-    if (r.result == mani_success)
-    {
-        r = Integer(fbx, object, "RotationActive", 1, 1, &active);
-    }
-    if (r.result == mani_success)
-    {
-        r = Integer(fbx, object, "RotationSpaceForLimitOnly", 1, 0, &limitOnly);
-    }
-    if (r.result == mani_success)
-    {
-        r = Integer(fbx, object, "InheritType", 2, maniFbxInheritRSrs, &inherit);
-    }
-    if (r.result != mani_success)
-    {
-        return r;
-    }
+    const double (*v)[3] = in->vectors;
+    int64_t order = in->integers[maniFbxLocalOrder];
+    bool space = in->integers[maniFbxLocalActive] != 0 && in->integers[maniFbxLocalLimitOnly] == 0;
     maniFbxTrs* t = &out->trs;
     // Spheric (6) is XYZ.
-    Rotation(v, order == 6 ? 0 : (uint32_t)order, active != 0 && limitOnly == 0, t->rotation);
-    memcpy(t->scale, v[kScaling], sizeof t->scale);
+    Rotation(v, order == 6 ? 0 : (uint32_t)order, space, t->rotation);
+    memcpy(t->scale, v[maniFbxLocalScaling], sizeof t->scale);
     // Applied right to left, as ufbx adds them, for the same rounding:
     // -S Sp + Sp + Soff - Rp, rotated, + Rp + Roff + T.
     double inner[3];
     for (uint32_t i = 0; i < 3; ++i)
     {
-        inner[i] = -v[kScaling][i] * v[kScalingPivot][i] + v[kScalingPivot][i] +
-                   v[kScalingOffset][i] - v[kRotationPivot][i];
+        inner[i] = -v[maniFbxLocalScaling][i] * v[maniFbxLocalScalingPivot][i] +
+                   v[maniFbxLocalScalingPivot][i] + v[maniFbxLocalScalingOffset][i] -
+                   v[maniFbxLocalRotationPivot][i];
     }
     maniFbxQuatRotate(t->rotation, inner, t->translation);
     for (uint32_t i = 0; i < 3; ++i)
     {
-        t->translation[i] =
-            t->translation[i] + v[kRotationPivot][i] + v[kRotationOffset][i] + v[kTranslation][i];
+        t->translation[i] = t->translation[i] + v[maniFbxLocalRotationPivot][i] +
+                            v[maniFbxLocalRotationOffset][i] + v[maniFbxLocalTranslation][i];
     }
-    out->inherit = (uint32_t)inherit;
-    return maniFbxSuccess();
+    out->inherit = (uint32_t)in->integers[maniFbxLocalInherit];
+}
+
+maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxLocal* out)
+{
+    maniFbxLocalInputs in;
+    maniImportResult r = maniFbxReadLocalInputs(fbx, object, &in);
+    if (r.result == mani_success)
+    {
+        maniFbxComposeLocal(&in, out);
+    }
+    return r;
 }
 
 maniImportResult maniFbxGeometricTransform(const maniFbx* fbx, uint32_t object, maniFbxTrs* out)

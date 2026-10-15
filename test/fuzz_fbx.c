@@ -111,6 +111,29 @@ static void Stacks(const maniFbx* fbx)
 
 // Builds the skins of a skeleton the builder holds, against it opened
 // from a copy aligned by hand.
+// Builds the clips of short stacks (ten seconds at most, so the scene's
+// rate keeps the samples few) for an opened skeleton.
+static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* skeleton,
+                  const maniFbxOptions* options)
+{
+    for (uint32_t k = 0; k < maniFbxClipCount(fbx) && k < 3; ++k)
+    {
+        maniFbxAnimation a;
+        if (maniFbxReadAnimation(fbx, maniFbxStackObject(fbx, k), &a).result != mani_success)
+        {
+            continue;
+        }
+        double seconds = ((double)a.stop - (double)a.start) / (double)fbx->settings.ticksPerSecond;
+        maniFbxReleaseAnimation(fbx, &a);
+        if (seconds <= 10.0)
+        {
+            uint32_t bound = 0;
+            (void)maniFbxBuildClip(builder, fbx, k, skeleton, options, k == 1 ? 7.0f : 0.0f,
+                                   maniLoopClamp, &bound);
+        }
+    }
+}
+
 static void Skins(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
                   const maniFbxOptions* options)
 {
@@ -129,6 +152,7 @@ static void Skins(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
                 (void)maniFbxBuildSkin(builder, fbx, s, &opened, options);
             }
         }
+        Clips(builder, fbx, &opened, options);
     }
     free(block);
 }

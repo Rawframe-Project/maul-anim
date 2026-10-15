@@ -79,6 +79,53 @@ maniAffine maniFbxMatrixAffine(const maniFbxMatrix* a);
 // The transform rounded to binary32.
 maniTransform maniFbxTrsTransform(const maniFbxTrs* t);
 
+// The inputs of a model's local transform, in the chain's order of
+// application: vectors (translation, rotation offset and pivot, pre-,
+// own and post-rotation in degrees, scaling offset and pivot, scaling)
+// and integers (rotation order 0 to 6, rotation active, rotation space
+// for limits only, inherit type 0 to 2), so named by FBX.
+enum
+{
+    maniFbxLocalTranslation,
+    maniFbxLocalRotationOffset,
+    maniFbxLocalRotationPivot,
+    maniFbxLocalPreRotation,
+    maniFbxLocalRotation,
+    maniFbxLocalPostRotation,
+    maniFbxLocalScalingOffset,
+    maniFbxLocalScalingPivot,
+    maniFbxLocalScaling,
+    maniFbxLocalVectors
+};
+
+enum
+{
+    maniFbxLocalOrder,
+    maniFbxLocalActive,
+    maniFbxLocalLimitOnly,
+    maniFbxLocalInherit,
+    maniFbxLocalIntegers
+};
+
+extern const char* const maniFbxLocalVectorNames[maniFbxLocalVectors];
+extern const char* const maniFbxLocalIntegerNames[maniFbxLocalIntegers];
+// Each integer's largest value (the least is 0).
+extern const int64_t maniFbxLocalIntegerLimits[maniFbxLocalIntegers];
+
+typedef struct maniFbxLocalInputs
+{
+    double vectors[maniFbxLocalVectors][3];
+    int64_t integers[maniFbxLocalIntegers];
+} maniFbxLocalInputs;
+
+// A model's inputs from its properties (and its template's); refused
+// as maniFbxModelLocal.
+maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
+                                        maniFbxLocalInputs* out);
+
+// Composes inputs whose integers are within their limits.
+void maniFbxComposeLocal(const maniFbxLocalInputs* in, maniFbxLocal* out);
+
 // A model's local transform from its properties (and its template's):
 // Lcl translation, rotation and scaling with pivots, offsets, pre- and
 // post-rotation and the rotation order; refused (Property, item: the

@@ -63,7 +63,12 @@ typedef struct maniFbxAnimation
     int64_t stop;
 } maniFbxAnimation;
 
-// The AnimationStack objects in object order: their count, and the k-th.
+// Lists the AnimationStack objects in object order, with their names;
+// Capacity when the allocator fails.
+maniImportResult maniFbxReadStacks(maniFbx* fbx);
+void maniFbxReleaseStacks(maniFbx* fbx);
+
+// The stacks: their count, and the k-th (MANI_FBX_NONE past the count).
 uint32_t maniFbxStackCount(const maniFbx* fbx);
 uint32_t maniFbxStackObject(const maniFbx* fbx, uint32_t k);
 

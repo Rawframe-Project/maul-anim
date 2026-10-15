@@ -29,26 +29,70 @@ static maniImportResult Capacity(void)
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
 }
 
-uint32_t maniFbxStackCount(const maniFbx* fbx)
+// An object's name's length before decoding: at least its decoded one.
+static size_t RawNameLength(const maniFbx* fbx, uint32_t object)
+{
+    const uint8_t* bytes = NULL;
+    uint32_t length = 0;
+    uint32_t property =
+        maniFbxNodeProperty(fbx, fbx->objects[object].node, fbx->version >= 7000 ? 1 : 0);
+    return maniFbxString(fbx, property, &bytes, &length) ? length : 0;
+}
+
+maniImportResult maniFbxReadStacks(maniFbx* fbx)
 {
     uint32_t n = 0;
+    size_t text = 0;
     for (uint32_t o = 0; o < fbx->objectCount; ++o)
     {
-        n += maniFbxObjectKindIs(fbx, o, "AnimationStack", 14) ? 1u : 0u;
+        if (maniFbxObjectKindIs(fbx, o, "AnimationStack", 14))
+        {
+            ++n;
+            text += RawNameLength(fbx, o);
+        }
     }
-    return n;
+    fbx->stacks = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 4);
+    fbx->stackNameOffsets = maniAllocate(&fbx->allocator, (size_t)n + 2, sizeof(size_t), 8);
+    fbx->stackNames = maniAllocate(&fbx->allocator, text + 1, 1, 1);
+    fbx->stackNamesSize = text;
+    if (fbx->stacks == NULL || fbx->stackNameOffsets == NULL || fbx->stackNames == NULL)
+    {
+        return Capacity();
+    }
+    size_t at = 0;
+    for (uint32_t o = 0; o < fbx->objectCount; ++o)
+    {
+        if (maniFbxObjectKindIs(fbx, o, "AnimationStack", 14))
+        {
+            fbx->stackNameOffsets[fbx->stackCount] = at;
+            fbx->stacks[fbx->stackCount++] = o;
+            at += maniFbxObjectName(fbx, o, (uint8_t*)fbx->stackNames + at, text - at);
+        }
+    }
+    fbx->stackNameOffsets[fbx->stackCount] = at;
+    return maniFbxSuccess();
+}
+
+void maniFbxReleaseStacks(maniFbx* fbx)
+{
+    maniRelease(&fbx->allocator, fbx->stacks, (size_t)fbx->stackCount + 1, sizeof(uint32_t), 4);
+    maniRelease(&fbx->allocator, fbx->stackNameOffsets, (size_t)fbx->stackCount + 2, sizeof(size_t),
+                8);
+    maniRelease(&fbx->allocator, fbx->stackNames, fbx->stackNamesSize + 1, 1, 1);
+    fbx->stacks = NULL;
+    fbx->stackNameOffsets = NULL;
+    fbx->stackNames = NULL;
+    fbx->stackCount = 0;
+}
+
+uint32_t maniFbxStackCount(const maniFbx* fbx)
+{
+    return fbx->stackCount;
 }
 
 uint32_t maniFbxStackObject(const maniFbx* fbx, uint32_t k)
 {
-    for (uint32_t o = 0; o < fbx->objectCount; ++o)
-    {
-        if (maniFbxObjectKindIs(fbx, o, "AnimationStack", 14) && k-- == 0)
-        {
-            return o;
-        }
-    }
-    return MANI_FBX_NONE;
+    return k < fbx->stackCount ? fbx->stacks[k] : MANI_FBX_NONE;
 }
 
 // A number property of an object, its fallback when absent; false for

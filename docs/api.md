@@ -373,6 +373,21 @@ MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkin(maniBuilder* builder, 
 Builds a skin into the builder against an opened skeleton (mani-0015): each cluster linking a model a joint, found by the model's bone name, its inverse bind the mesh relative to the bone at bind (the cluster's matrices, a bind pose or the rest, as ufbx reads them) times the mesh's geometric transform, the options' axes and unit applied. Vertex weights are the mesh's to carry.  @param builder   The builder. @param fbx       The document. @param skin      The skin, below maniFbxSkinCount. @param skeleton  An opened skeleton holding the skin's joints. @param options   The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skin past the count or options out of range; `mani_errorFormat` with a reason (Bone for a joint the skeleton lacks, Matrix for a bind that is not affine or not invertible, Property for an additive cluster); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+uint32_t maniFbxClipCount(const maniFbx* fbx);
+```
+Returns how many clips the document has: its animation stacks (takes), in file order (mani-0016).  @param fbx  The document; NULL gives 0. @return The count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, uint32_t* lengthOut);
+```
+Returns a clip's name: its stack's, without the class, UTF-8 and not terminated.  @param fbx        The document. @param clip       The clip. @param lengthOut  Receives the length in bytes, 0 past the count. May be NULL. @return The name, or NULL past the count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxBuildClip( maniBuilder* builder, const maniFbx* fbx, uint32_t clip, const maniSkeleton* skeleton, const maniFbxOptions* options, float sampleRate, maniLoopPolicy loop, uint32_t* boundOut);
+```
+Builds a clip into the builder for an opened skeleton (mani-0016): the stack's layers and curves evaluated as ufbx evaluates them, at every sample of the clip's grid from the stack's start (its local, reference or take times, else its keys), whole ticks apart. Each bone of the skeleton named as a model (or a model's helper, `name#unscaled`) takes its local as a skeleton built from the file formed its rest, the options' axes and unit applied and, with placement folded, the placement composed into the root; a channel that never leaves the skeleton's rest is left out. Other numbers a bone's model animates become float tracks named `bone/property` (`/0` to `/2` added for vectors).  @param builder     The builder. @param fbx         The document. @param clip        The clip, below maniFbxClipCount. @param skeleton    An opened skeleton. @param options     The options the skeleton was built with. @param sampleRate  Samples per second; 0 for the scene's frame rate up to 120, else 30. @param loop        The clip's loop policy. @param boundOut    Receives how many of the stack's channel bindings drive models the clip reads. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a clip past the count, a rate not finite or negative, or options out of range; `mani_errorFormat` with a reason (Property with the clip as item for a stack's curves or channels refused, or with the model for an animated integer input out of range; Matrix with the model for a local that does not decompose at a sample; Name with the model for a repeated float track name; Build for a timing the builder refuses); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model, const maniFbxOptions* options, maniAffine* placementOut);
 ```
 Returns where a model skeleton's root hangs, as maniFbxSkeletonPlacement.  @param fbx           The document. @param model         The root model. @param options       The options. @param placementOut  Receives the placement. @return As maniFbxSkeletonPlacement. @par Thread safety Safe from any thread.
@@ -531,4 +546,4 @@ Computes a skin's palette: entry j is the model matrix of joint j's bone times t
 
 ---
 
-100 functions across 7 headers.
+103 functions across 7 headers.

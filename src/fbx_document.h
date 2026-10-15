@@ -158,6 +158,14 @@ struct maniFbx
     uint32_t seedCapacity;
     uint32_t* skeletonRoots;
     uint32_t skeletonCount;
+    // Animation stacks in object order, and their names (decoded, without
+    // their class) end to end: stack k's at stackNameOffsets[k], up to
+    // stackNameOffsets[k + 1].
+    uint32_t* stacks;
+    uint32_t stackCount;
+    size_t* stackNameOffsets;
+    char* stackNames;
+    size_t stackNamesSize;
 };
 
 static inline maniImportResult maniFbxSuccess(void)
