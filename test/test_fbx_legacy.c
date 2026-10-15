@@ -675,6 +675,8 @@ static void TestRefusals(void)
     Refused("; FBX 5.0.0 project file\nModel: \"Model::Mesh\" {\n Vertices: 0,0,0\n"
             " PolygonVertexIndex: -1\n Link: {\n }\n}\nModel: \"Model::Other\" {\n}\n",
             "a link without a name, a model after it");
+    Refused("; FBX 5.0.0 project file\nModel: \"Model::A\" {\n Children: \"Model::B\", B\n}\n",
+            "a bare word among the children");
 }
 
 static void TestAllocationFailures(void)

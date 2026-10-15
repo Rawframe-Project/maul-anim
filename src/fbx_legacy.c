@@ -37,6 +37,22 @@ static bool Named(const maniFbx* fbx, uint32_t node)
     return maniFbxString(fbx, maniFbxNodeProperty(fbx, node, 0), &bytes, &length);
 }
 
+// Whether a model's Children list holds strings only (ufbx fails on a
+// list with a bare word, reading it as an array of strings).
+static bool ChildrenNamed(const maniFbx* fbx, uint32_t model)
+{
+    uint32_t list = maniFbxFindChild(fbx, model, "Children", 8);
+    uint32_t n = list != MANI_FBX_NONE ? fbx->nodes[list].propertyCount : 0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        if (fbx->properties[maniFbxNodeProperty(fbx, list, k)].type != 'S')
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Whether a model's links are read: a mesh's (with Vertices and
 // PolygonVertexIndex), as ufbx reads them.
 static bool Mesh(const maniFbx* fbx, uint32_t node)
@@ -88,7 +104,8 @@ static maniImportResult Links(maniFbx* fbx, uint32_t model, uint32_t* count)
 }
 
 // The objects: counted (objects NULL) or listed. A Model without its
-// name is refused, as ufbx refuses the file.
+// name, or with a Children value not a string, is refused, as ufbx
+// refuses the file.
 static maniImportResult EachObject(maniFbx* fbx, uint32_t* count)
 {
     *count = 0;
@@ -103,6 +120,10 @@ static maniImportResult EachObject(maniFbx* fbx, uint32_t* count)
         if (!Named(fbx, m))
         {
             return Refuse(fbx, m);
+        }
+        if (!ChildrenNamed(fbx, m))
+        {
+            return Refuse(fbx, maniFbxFindChild(fbx, m, "Children", 8));
         }
         bool ok = false;
         if (fbx->objects != NULL)
