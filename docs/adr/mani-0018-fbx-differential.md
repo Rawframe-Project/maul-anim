@@ -20,10 +20,12 @@ from many tools are not marked one by one, and the corpus weighs 62 MB.
   never linked into the library. For each file it compares whether
   each opens, the frame rate, every skeleton's rest worlds (the
   placement times each bone's model matrix, against ufbx's node
-  worlds, since inherit modes are baked into rests), every skin's
-  joints and inverse binds (against the clusters' geometry-to-bone
-  matrices), and every clip of the first skeleton, built with the
-  placement folded, at five of its sample times: bone worlds against
+  worlds, since inherit modes are baked into rests; in a file of no
+  skeleton, every top model's subtree), every skin's joints and
+  inverse binds (against the clusters' geometry-to-bone matrices, or
+  where ufbx has none, the same fallbacks from its worlds), and every
+  clip of the first skeleton, built with the placement folded, at five
+  of its sample times: bone worlds against
   ufbx's scene evaluated at the same stack time, and float tracks
   against blend shapes' effective weights or nodes' properties.
   Values agree within 1e-4 of their size.
@@ -39,8 +41,10 @@ from many tools are not marked one by one, and the corpus weighs 62 MB.
   records, deflated arrays, big-endian) by `tools/fbx_binary.py`,
   which shares no code with the library. Their expected values are
   ufbx's, written by the differential's `--expect` into a header the
-  commit gate's tests read, and checked against a fresh run by the
-  scheduled job.
+  commit gate's tests read: only checks that agree, deviations left
+  out, and nothing when any other check disagrees. The scheduled job
+  writes the header again and holds it against the committed one,
+  values within 1e-6 (libm and build flags move the last digits).
 
 ## Consequences
 

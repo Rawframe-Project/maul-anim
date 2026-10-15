@@ -4,8 +4,9 @@
 // The ufbx differential (mani-0018): reads each FBX file with ufbx and
 // with maul-anim and compares what maul-anim builds, through its public
 // interface only: whether each opens, the frame rate, every skeleton's
-// rests, every skin's joints and inverse binds, and every clip (built on
-// the first skeleton) at five of its sample times, bone poses and blend
+// rests (with none, every top model's subtree's), every skin's joints
+// and inverse binds, and every clip (built on the first of those) at
+// five of its sample times, bone poses and blend
 // shape weights, against ufbx's scene evaluated at the same stack time.
 // Bones compare by their world matrices (the skeleton's placement times
 // the model matrix), as maul-anim bakes inherit modes into its rests.
@@ -13,14 +14,14 @@
 //
 // A mismatch whose file and aspect a deviations file lists (lines of a
 // file name part, or * for any, and an aspect; # comments) is reported
-// as such and not counted. With --expect, nothing is compared: ufbx's values for the
-// same checks are written as a C header for test_fbx_fixtures.c.
+// as such and not counted. With --expect, ufbx's values of the checks
+// that agree are written to HEADER as a C header for test_fbx_fixtures.c
+// (deviations left out), and only when nothing else disagrees.
 //
 // Built only with MAUL_ANIM_DIFFERENTIAL, against ufbx at its pinned
 // commit; never part of the library.
 //
-// usage: fbx_differential [--deviations FILE] FILE...
-//        fbx_differential --expect FILE...
+// usage: fbx_differential [--deviations FILE] [--expect HEADER] FILE...
 
 #include "ufbx.h"
 
@@ -44,6 +45,7 @@ enum
 {
     kMaxDeviations = 256,
     kTimes = 5,
+    kMaxRoots = 256,
 };
 
 typedef struct Deviation
@@ -65,6 +67,8 @@ typedef struct Context
     const char* path;
     uint32_t file;
     bool expect;
+    // The expected values so far, while expecting.
+    FILE* out;
     const Deviation* deviations;
     uint32_t deviationCount;
     uint32_t mismatches;
@@ -76,6 +80,11 @@ typedef struct Context
     Blob skeletonBlob;
     maniAffine placement;
     bool hasSkeleton;
+    // With no skeleton, the subtrees of the top models (by ufbx's
+    // hierarchy) stand in for skeletons.
+    bool byModel;
+    uint32_t sourceCount;
+    uint32_t roots[kMaxRoots];
 } Context;
 
 static void Release(Blob* blob)
@@ -204,28 +213,47 @@ static bool SameMatrix(const double a[12], const double b[12])
     return same;
 }
 
-// The header line of one expected value set.
+// A C string literal of bytes, every byte that is not a plain printable
+// character in three octal digits.
+static void PrintString(FILE* f, const char* text, size_t length)
+{
+    fputc('"', f);
+    for (size_t i = 0; i < length; ++i)
+    {
+        unsigned char b = (unsigned char)text[i];
+        bool plain = b >= 0x20 && b < 0x7f && b != '"' && b != '\\' && b != '?';
+        (void)(plain ? fputc(b, f) : fprintf(f, "\\%03o", b));
+    }
+    fputc('"', f);
+}
+
+// One agreeing check's expected values, while expecting: the time
+// exactly, values to nine digits (the test's tolerance is 1e-4).
 static void Emit(const Context* c, const char* kind, uint32_t index, double time, const char* name,
                  size_t nameLength, const double* values, uint32_t count)
 {
-    printf("    {%u, \"%s\", %u, %.9g, \"%.*s\", %u, {", c->file, kind, index, time,
-           (int)nameLength, name, count);
+    if (!c->expect)
+    {
+        return;
+    }
+    fprintf(c->out, "    {%u, \"%s\", %u, %.17g, ", c->file, kind, index, time);
+    PrintString(c->out, name, nameLength);
+    fprintf(c->out, ", %u, {", count);
     for (uint32_t i = 0; i < count; ++i)
     {
-        printf("%s%.17g", i > 0 ? ", " : "", values[i]);
+        fprintf(c->out, "%s%.9g", i > 0 ? ", " : "", values[i]);
     }
-    printf("}},\n");
+    fprintf(c->out, "}},\n");
 }
 
 static void CheckWorld(Context* c, const char* kind, uint32_t index, double time, const char* name,
                        size_t length, const double ours[12], const double theirs[12])
 {
-    if (c->expect)
+    if (SameMatrix(ours, theirs))
     {
         Emit(c, kind, index, time, name, length, theirs, 12);
-        return;
     }
-    if (!SameMatrix(ours, theirs))
+    else
     {
         Mismatch(c, kind,
                  "%u t=%g %.*s: ours %g %g %g / %g %g %g / %g %g %g / %g %g %g; ufbx %g %g %g / "
@@ -287,12 +315,12 @@ static bool CompareOpen(Context* c, const void* bytes, size_t size)
     maniImportResult r = maniOpenFbx(c->builder, bytes, size, &c->fbx);
     bool ours = r.result == mani_success;
     bool theirs = c->scene != NULL;
-    if (c->expect)
+    double opened = theirs ? 1.0 : 0.0;
+    if (ours == theirs)
     {
-        double opened = theirs ? 1.0 : 0.0;
         Emit(c, "open", 0, 0.0, "", 0, &opened, 1);
     }
-    else if (ours != theirs)
+    else
     {
         Mismatch(c, "open", "ours %s (reason %d at %llu), ufbx %s (%s)", ours ? "opens" : "refuses",
                  (int)r.reason, (unsigned long long)r.offset, theirs ? "opens" : "refuses",
@@ -312,11 +340,11 @@ static void CompareRate(Context* c)
     double ours =
         s.rateDenominator != 0 ? (double)s.rateNumerator / s.rateDenominator : s.customRate;
     double theirs = c->scene->settings.frames_per_second;
-    if (c->expect)
+    if (Near(ours, theirs))
     {
         Emit(c, "rate", 0, 0.0, "", 0, &theirs, 1);
     }
-    else if (!Near(ours, theirs))
+    else
     {
         // No TimeMode: ufbx reads 24, maul-anim FBX's default mode, 30.
         bool unset = s.timeMode == 0;
@@ -324,10 +352,44 @@ static void CompareRate(Context* c)
     }
 }
 
+// The skeletons compared: the file's, or with none, its top models'
+// subtrees.
+static void FindSources(Context* c)
+{
+    c->sourceCount = maniFbxSkeletonCount(c->fbx);
+    c->byModel = c->sourceCount == 0;
+    uint32_t n = c->byModel ? maniFbxModelCount(c->fbx) : 0;
+    for (uint32_t m = 0; m < n && c->sourceCount < kMaxRoots; ++m)
+    {
+        uint32_t length = 0;
+        const char* name = maniFbxModelBoneName(c->fbx, m, &length);
+        ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
+        if (node != NULL && node->parent == c->scene->root_node)
+        {
+            c->roots[c->sourceCount++] = m;
+        }
+    }
+}
+
+// Source s's index as recorded: the skeleton's, or the root model's.
+static uint32_t SourceIndex(const Context* c, uint32_t s)
+{
+    return c->byModel ? c->roots[s] : s;
+}
+
+static maniImportResult Placement(const Context* c, uint32_t s, const maniFbxOptions* options,
+                                  maniAffine* out)
+{
+    return c->byModel ? maniFbxModelPlacement(c->fbx, c->roots[s], options, out)
+                      : maniFbxSkeletonPlacement(c->fbx, s, options, out);
+}
+
 static bool BuildSkeleton(Context* c, uint32_t s, const maniFbxOptions* options, maniSkeleton* out,
                           Blob* blob)
 {
-    maniImportResult r = maniFbxBuildSkeleton(c->builder, c->fbx, s, options);
+    maniImportResult r = c->byModel
+                             ? maniFbxBuildModelSkeleton(c->builder, c->fbx, c->roots[s], options)
+                             : maniFbxBuildSkeleton(c->builder, c->fbx, s, options);
     if (r.result != mani_success || !Copy(c->builder, blob) ||
         maniOpenSkeleton(blob->data, blob->size, out).result != mani_success)
     {
@@ -344,14 +406,14 @@ static void CompareRests(Context* c, uint32_t s, const maniSkeleton* skeleton)
     maniAffine placement;
     void* raw = NULL;
     maniPose* pose = NewPose(skeleton, &raw);
-    if (pose == NULL ||
-        maniFbxSkeletonPlacement(c->fbx, s, &options, &placement).result != mani_success)
+    const char* kind = c->byModel ? "model" : "rest";
+    if (pose == NULL || Placement(c, s, &options, &placement).result != mani_success)
     {
-        Mismatch(c, "rest", "%u: no pose or placement", s);
+        Mismatch(c, kind, "%u: no pose or placement", SourceIndex(c, s));
     }
     else
     {
-        CompareWorlds(c, "rest", s, 0.0, skeleton, &placement, pose, c->scene);
+        CompareWorlds(c, kind, SourceIndex(c, s), 0.0, skeleton, &placement, pose, c->scene);
     }
     free(raw);
 }
@@ -359,7 +421,8 @@ static void CompareRests(Context* c, uint32_t s, const maniSkeleton* skeleton)
 // Every skeleton's rests, its placement reported.
 static void CompareSkeletons(Context* c)
 {
-    uint32_t n = maniFbxSkeletonCount(c->fbx);
+    FindSources(c);
+    uint32_t n = c->sourceCount;
     maniFbxOptions options = maniDefaultFbxOptions();
     for (uint32_t s = 0; s < n; ++s)
     {
@@ -375,14 +438,19 @@ static void CompareSkeletons(Context* c)
 
 // The first skeleton for the clips, its placement folded: animation above
 // its root is then part of the clips (mani-0016), as in ufbx's worlds.
+// Recorded as the clips' basis: the skeleton, or the root model (1).
 static void KeepClipSkeleton(Context* c)
 {
     maniFbxOptions options = maniDefaultFbxOptions();
     options.foldPlacement = 1;
-    c->hasSkeleton =
-        maniFbxSkeletonCount(c->fbx) > 0 &&
-        BuildSkeleton(c, 0, &options, &c->skeleton, &c->skeletonBlob) &&
-        maniFbxSkeletonPlacement(c->fbx, 0, &options, &c->placement).result == mani_success;
+    c->hasSkeleton = c->sourceCount > 0 &&
+                     BuildSkeleton(c, 0, &options, &c->skeleton, &c->skeletonBlob) &&
+                     Placement(c, 0, &options, &c->placement).result == mani_success;
+    double byModel = c->byModel ? 1.0 : 0.0;
+    if (c->hasSkeleton)
+    {
+        Emit(c, "basis", SourceIndex(c, 0), 0.0, "", 0, &byModel, 1);
+    }
 }
 
 // Whether a ufbx skin deformer belongs to no mesh.
@@ -507,11 +575,11 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
             expected[i] = cluster != NULL ? TheirBind(cluster, mesh).v[i] : 0.0;
             same = same && Near(ours[i], expected[i]);
         }
-        if (c->expect)
+        if (same)
         {
             Emit(c, "bind", k, (double)j, name, length, expected, 12);
         }
-        else if (!same)
+        else
         {
             Mismatch(c, "bind",
                      "skin %u joint %u %.*s: ours %g %g %g / %g %g %g / %g %g %g / %g %g %g; ufbx "
@@ -690,11 +758,11 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
         const char* name = maniClipFloatTrackName(clip, t, &length);
         double theirs = 0.0;
         bool found = TheirFloat(c->scene, anim, stackTime, evaluated, name, length, &theirs);
-        if (c->expect && found)
+        if (found && Near((double)values[t], theirs))
         {
             Emit(c, "float", k, time, name, length, &theirs, 1);
         }
-        else if (!c->expect && (!found || !Near((double)values[t], theirs)))
+        else
         {
             Mismatch(c, "float", "clip %u t=%g %.*s: ours %g, ufbx %s %g", k, time, (int)length,
                      name, (double)values[t], found ? "" : "none", theirs);
@@ -760,11 +828,11 @@ static void CompareClip(Context* c, uint32_t k)
     double stop = 0.0;
     double start = StackStart(stack, &stop);
     double theirs = stop - start;
-    if (c->expect)
+    if (Near((double)maniClipDuration(&clip), theirs))
     {
         Emit(c, "duration", k, 0.0, name, length, &theirs, 1);
     }
-    else if (!Near((double)maniClipDuration(&clip), theirs))
+    else
     {
         Mismatch(c, "duration", "clip %u: ours %g, ufbx %g", k, (double)maniClipDuration(&clip),
                  theirs);
@@ -827,21 +895,89 @@ static uint32_t ReadDeviations(const char* path, Deviation* out)
     return n;
 }
 
+static int ComparePaths(const void* a, const void* b)
+{
+    return strcmp(*(char* const*)a, *(char* const*)b);
+}
+
+// The header of expected values: the files' names (their last path
+// parts) and the records written while comparing.
+static bool WriteExpected(const char* path, FILE* records, char** files, int count)
+{
+    FILE* f = fopen(path, "w");
+    if (f == NULL)
+    {
+        return false;
+    }
+    fprintf(f, "// SPDX-License-Identifier: MIT\n// Copyright (c) 2026 Sirac Ozmen\n//\n"
+               "// Generated by tools/fbx_differential.c --expect (mani-0018): ufbx's\n"
+               "// values for the fixtures of test/data/fbx where maul-anim agrees with\n"
+               "// them, recorded deviations left out. Do not edit.\n\n"
+               "#include <stdint.h>\n\n"
+               "typedef struct FbxExpected\n{\n    uint32_t file;\n"
+               "    // open, rate, rest (a skeleton's), model (a model subtree's\n"
+               "    // rest), basis (the clips' skeleton; 1 for a model's), bind,\n"
+               "    // duration, sample or float.\n"
+               "    const char* kind;\n"
+               "    // The skeleton, model, skin or clip.\n    uint32_t index;\n"
+               "    // A clip's sample time; a bind's joint.\n    double time;\n"
+               "    // The bone, the float track or the clip.\n    const char* name;\n"
+               "    uint32_t count;\n    double values[12];\n} FbxExpected;\n\n"
+               "// clang-format off\nstatic const char* const kFbxFixtureFiles[] = {\n");
+    for (int i = 0; i < count; ++i)
+    {
+        const char* slash = strrchr(files[i], '/');
+        const char* name = slash != NULL ? slash + 1 : files[i];
+        fprintf(f, "    ");
+        PrintString(f, name, strlen(name));
+        fprintf(f, ",\n");
+    }
+    fprintf(f, "};\n\nstatic const FbxExpected kFbxExpected[] = {\n");
+    rewind(records);
+    char buffer[4096];
+    size_t n = 0;
+    while ((n = fread(buffer, 1, sizeof buffer, records)) > 0)
+    {
+        (void)fwrite(buffer, 1, n, f);
+    }
+    fprintf(f, "};\n// clang-format on\n");
+    return fclose(f) == 0;
+}
+
 int main(int argc, char** argv)
 {
     static Deviation deviations[kMaxDeviations];
     Context base = {0};
+    const char* header = NULL;
     int first = 1;
-    if (argc > 1 && strcmp(argv[1], "--expect") == 0)
+    while (first + 1 < argc && argv[first][0] == '-')
     {
-        base.expect = true;
-        first = 2;
+        if (strcmp(argv[first], "--expect") == 0)
+        {
+            header = argv[first + 1];
+        }
+        else if (strcmp(argv[first], "--deviations") == 0)
+        {
+            base.deviations = deviations;
+            base.deviationCount = ReadDeviations(argv[first + 1], deviations);
+        }
+        else
+        {
+            fprintf(stderr,
+                    "usage: fbx_differential [--deviations FILE] [--expect HEADER] FILE...\n");
+            return 2;
+        }
+        first += 2;
     }
-    else if (argc > 2 && strcmp(argv[1], "--deviations") == 0)
+    // In byte order, so the header is the same whatever the shell's
+    // locale sorted.
+    qsort(argv + first, (size_t)(argc - first), sizeof(char*), ComparePaths);
+    base.expect = header != NULL;
+    base.out = header != NULL ? tmpfile() : NULL;
+    if (header != NULL && base.out == NULL)
     {
-        base.deviations = deviations;
-        base.deviationCount = ReadDeviations(argv[2], deviations);
-        first = 3;
+        fprintf(stderr, "no temporary file\n");
+        return 2;
     }
     uint32_t mismatches = 0;
     uint32_t deviated = 0;
@@ -854,9 +990,16 @@ int main(int argc, char** argv)
         mismatches += c.mismatches;
         deviated += c.deviated;
     }
-    if (!base.expect)
+    printf("%d files, %u mismatches, %u deviations\n", argc - first, mismatches, deviated);
+    bool written = header == NULL ||
+                   (mismatches == 0 && WriteExpected(header, base.out, argv + first, argc - first));
+    if (base.out != NULL)
     {
-        printf("%d files, %u mismatches, %u deviations\n", argc - first, mismatches, deviated);
+        (void)fclose(base.out);
     }
-    return mismatches == 0 ? 0 : 1;
+    if (!written)
+    {
+        fprintf(stderr, "%s not written\n", header);
+    }
+    return mismatches == 0 && written ? 0 : 1;
 }
