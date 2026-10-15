@@ -103,7 +103,8 @@ static bool Matches(const char* format, const uint8_t* s, uint32_t length)
     return true;
 }
 
-// Whether the file is from Blender's binary exporter (its Creator).
+// Whether the file is from Blender's binary exporter, by its Creator
+// alone as ufbx decides (the ASCII exporter's Creator differs).
 static bool FromBlender(const maniFbx* fbx)
 {
     uint32_t header = maniFbxFindChild(fbx, 0, "FBXHeaderExtension", 18);
@@ -111,7 +112,7 @@ static bool FromBlender(const maniFbx* fbx)
         header != MANI_FBX_NONE ? maniFbxFindChild(fbx, header, "Creator", 7) : MANI_FBX_NONE;
     const uint8_t* s = NULL;
     uint32_t length = 0;
-    if (fbx->ascii || creator == MANI_FBX_NONE ||
+    if (creator == MANI_FBX_NONE ||
         !maniFbxString(fbx, maniFbxNodeProperty(fbx, creator, 0), &s, &length))
     {
         return false;
