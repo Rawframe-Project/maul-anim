@@ -120,6 +120,76 @@ extern "C"
     MANI_API bool maniInfluencesCenter(const maniInfluences* influences, uint32_t vertex,
                                        maniVec3* centerOut);
 
+    // What a stream holds: points (positions, moved by the whole
+    // transform), directions (turned and renormalized), normals (by the
+    // inverse transpose's direction, renormalized) or tangents (four
+    // floats, the first three a direction, the fourth copied).
+    typedef uint32_t maniStreamKind;
+    enum
+    {
+        maniStreamPoint = 0,
+        maniStreamDirection = 1,
+        maniStreamNormal = 2,
+        maniStreamTangent = 3,
+    };
+
+    // A vertex stream: binary32 x, y, z (w for tangents) at in, written
+    // at out; strides in bytes between vertices, at least 12 (16 for
+    // tangents). out may be in, with the same stride.
+    typedef struct maniSkinStream
+    {
+        const void* in;
+        void* out;
+        size_t inStride;
+        size_t outStride;
+        maniStreamKind kind;
+        uint32_t reserved;
+    } maniSkinStream;
+
+    // A skinning job over vertices [first, first + count) of the
+    // influences, their streams' pointers at vertex first.
+    typedef struct maniSkinJob
+    {
+        const maniInfluences* influences;
+        // The skin's palette, as maniComputePalette writes it: a matrix a
+        // joint.
+        const maniAffine* palette;
+        uint32_t paletteCount;
+        uint32_t first;
+        uint32_t count;
+        uint32_t streamCount;
+        const maniSkinStream* streams;
+    } maniSkinJob;
+
+    /// Linear blend skinning: each vertex moved by the weighted sum of its
+    /// joints' palette matrices, its directions by the sum's 3x3 part, its
+    /// normals by that part's cofactor times its determinant's sign (the
+    /// inverse transpose's direction), directions renormalized (zero when
+    /// they collapse). A vertex without weight is copied.
+    ///
+    /// @param job  The job.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// palette count other than the influences' joint count, a range past
+    /// the vertices, or a stream without pointers, with a stride too
+    /// small or of an unknown kind (nothing written).
+    /// @par Thread safety
+    /// Safe from any thread; the output range is used by one thread at a time.
+    /// Jobs over disjoint ranges run at once.
+    MANI_NODISCARD MANI_API maniResult maniSkinLinear(const maniSkinJob* job);
+
+    /// Writes a palette for shaders: each matrix as three rows of four
+    /// floats (row-major 3x4), the translation last in each row.
+    ///
+    /// @param palette  count matrices, as maniComputePalette writes them.
+    /// @param count    The number of matrices.
+    /// @param rows     Receives 12 floats a matrix.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
+    /// a count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniPaletteRows(const maniAffine* palette, uint32_t count,
+                                                       float* rows);
+
 #ifdef __cplusplus
 }
 #endif

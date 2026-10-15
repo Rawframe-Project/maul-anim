@@ -672,6 +672,16 @@ bool maniInfluencesCenter(const maniInfluences* influences, uint32_t vertex, man
 ```
 Reads a vertex's center of rotation, built offline.  @param influences  Opened influences. @param vertex      The vertex. @param centerOut   Receives the center; unchanged on false. @return True when the influences hold centers and the vertex is in range. @par Thread safety Safe from any thread.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniSkinLinear(const maniSkinJob* job);
+```
+Linear blend skinning: each vertex moved by the weighted sum of its joints' palette matrices, its directions by the sum's 3x3 part, its normals by that part's cofactor times its determinant's sign (the inverse transpose's direction), directions renormalized (zero when they collapse). A vertex without weight is copied.  @param job  The job. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a palette count other than the influences' joint count, a range past the vertices, or a stream without pointers, with a stride too small or of an unknown kind (nothing written). @par Thread safety Safe from any thread; the output range is used by one thread at a time. Jobs over disjoint ranges run at once.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniPaletteRows(const maniAffine* palette, uint32_t count, float* rows);
+```
+Writes a palette for shaders: each matrix as three rows of four floats (row-major 3x4), the translation last in each row.  @param palette  count matrices, as maniComputePalette writes them. @param count    The number of matrices. @param rows     Receives 12 floats a matrix. @return `mani_success`; `mani_errorInvalid` for a NULL pointer with a count. @par Thread safety Safe from any thread.
+
 ---
 
-127 functions across 9 headers.
+129 functions across 9 headers.

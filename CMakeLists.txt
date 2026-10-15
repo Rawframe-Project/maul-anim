@@ -63,6 +63,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/scalar.c
     src/skeleton.c
     src/skin.c
+    src/skinning.c
     src/text.c
     src/vecmath.c)
 # The offline side (builders, compression, import) is part of the one
@@ -108,6 +109,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(pose WHITEBOX)
         maul_add_test(skin WHITEBOX)
         maul_add_test(influences WHITEBOX)
+        maul_add_test(skinning WHITEBOX)
         maul_add_test(clip WHITEBOX)
         maul_add_test(clip_compress WHITEBOX)
         maul_add_test(blend WHITEBOX)

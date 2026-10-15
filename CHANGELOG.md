@@ -45,3 +45,7 @@ format.
   primitive's influences bound to a skin, sorted and renormalized in
   groups of four; `maniOpenInfluences` and its queries read them, and
   `maniSkinIdentity` gives the identity they bind to.
+- Linear blend skinning (mani-0021): `maniSkinLinear` skins vertex
+  ranges of strided position, normal, tangent and further streams, in
+  place or not; `maniPaletteRows` writes palettes as row-major 3x4 for
+  shaders.
