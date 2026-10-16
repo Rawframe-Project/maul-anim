@@ -20,6 +20,7 @@
 #include "fbx_object.h"
 #include "fbx_options.h"
 #include "fbx_value.h"
+#include "sort.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -65,9 +66,12 @@ static uint32_t ShapeChildren(const maniFbx* fbx, uint32_t owner)
     return n;
 }
 
+// A shape owner with shapes; not a legacy skin, which shares its mesh
+// model's node.
 static bool IsOwner(const maniFbx* fbx, uint32_t object)
 {
-    return maniFbxIsShapeOwner(fbx, object) && ShapeChildren(fbx, object) > 0;
+    return fbx->objects[object].role == maniFbxRoleNone && maniFbxIsShapeOwner(fbx, object) &&
+           ShapeChildren(fbx, object) > 0;
 }
 
 // The morph-th set's object: BlendShapes first, then owners; or
@@ -425,9 +429,8 @@ static maniImportResult BlenderWeights(Morph* m, uint32_t channel, uint32_t shap
     return r;
 }
 
-// A shape's name: its own, or for a shape without one past the first,
-// the channel's with '/' and k (the clips' track rule); NULL for the
-// channel's own.
+// A shape's name: its own, or for a shape without one its channel's,
+// with '/' and k past the first (the clips' track rule).
 static maniImportResult ShapeName(Morph* m, const maniMorphChannelSource* channel, uint32_t shape,
                                   uint32_t k, maniMorphTargetSource* target)
 {
@@ -436,6 +439,8 @@ static maniImportResult ShapeName(Morph* m, const maniMorphChannelSource* channe
     target->nameLength = 0;
     if (length == 0 && k == 0)
     {
+        target->name = channel->name;
+        target->nameLength = channel->nameLength;
         return maniFbxSuccess();
     }
     char* name = maniArenaTake(m->arena, length > 0 ? length : channel->nameLength + 11u, 1);
@@ -527,10 +532,65 @@ static maniImportResult ReadOwner(Morph* m)
         length = maniFbxStringDecode(fbx, property, (uint8_t*)name, length);
         r = ReadShape(m, k, NULL, target);
         length = length > 0 ? length : Numbered(c, name);
+        target->name = name;
+        target->nameLength = (uint32_t)length;
         m->channels[c++] = (maniMorphChannelSource){name, (uint32_t)length, 1, target};
     }
     m->channelCount = c;
     return r;
+}
+
+// Whether channels a and b have the same name.
+static bool SameName(const maniMorphChannelSource* a, const maniMorphChannelSource* b)
+{
+    return a->nameLength == b->nameLength && memcmp(a->name, b->name, a->nameLength) == 0;
+}
+
+// A channel repeating an earlier one's name renamed with "#" and its
+// index (its targets named already, as the clips' tracks name them).
+static maniImportResult Unique(Morph* m)
+{
+    uint32_t n = m->channelCount;
+    uint64_t* keys = maniArenaTake(m->arena, (size_t)n + 1, sizeof(uint64_t));
+    uint32_t* order = maniArenaTake(m->arena, (size_t)n + 1, sizeof(uint32_t));
+    uint32_t* scratch = maniArenaTake(m->arena, (size_t)n + 1, sizeof(uint32_t));
+    bool* repeats = maniArenaTake(m->arena, (size_t)n + 1, sizeof(bool));
+    if (keys == NULL || order == NULL || scratch == NULL || repeats == NULL)
+    {
+        return Capacity();
+    }
+    for (uint32_t c = 0; c < n; ++c)
+    {
+        keys[c] =
+            maniHash64(MANI_HASH_INIT, m->channels[c].name, (int32_t)m->channels[c].nameLength);
+        repeats[c] = false;
+    }
+    maniSortByKey(keys, n, order, scratch);
+    // Sorted stably, so within a run of equal hashes in channel order.
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        for (uint32_t j = i + 1; j < n && keys[order[j]] == keys[order[i]]; ++j)
+        {
+            repeats[order[j]] =
+                repeats[order[j]] || SameName(&m->channels[order[i]], &m->channels[order[j]]);
+        }
+    }
+    for (uint32_t c = 0; c < n; ++c)
+    {
+        maniMorphChannelSource* ch = &m->channels[c];
+        char* name = repeats[c] ? maniArenaTake(m->arena, (size_t)ch->nameLength + 11, 1) : NULL;
+        if (repeats[c] && name == NULL)
+        {
+            return Capacity();
+        }
+        if (name != NULL)
+        {
+            memcpy(name, ch->name, ch->nameLength);
+            ch->nameLength += (uint32_t)Numbered(c, name + ch->nameLength);
+            ch->name = name;
+        }
+    }
+    return maniFbxSuccess();
 }
 
 static maniImportResult BuildMorph(maniBuilder* builder, Morph* m)
@@ -553,6 +613,7 @@ static maniImportResult BuildMorph(maniBuilder* builder, Morph* m)
         r = ReadChannel(m, list.out[c], c);
     }
     r = r.result == mani_success && !blend ? ReadOwner(m) : r;
+    r = r.result == mani_success ? Unique(m) : r;
     if (r.result != mani_success)
     {
         return r;

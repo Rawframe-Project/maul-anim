@@ -86,6 +86,7 @@ format.
   `maniFbxBuildMorphTargets` builds a BlendShape deformer's channels (or
   a 6.x mesh's Shape children) as ufbx reads them, in-betweens and
   negative targets sorted, Blender's per-vertex weights folded in, each
-  target named as its clip weight track; `maniFbxMorphCount`,
+  target named as its clip weight track (a repeated channel name
+  numbered); `maniFbxMorphCount`,
   `maniFbxMorphModel`, `maniFbxMorphTargetCount` and
   `maniFbxMorphWeights` describe the sets and their rest weights.

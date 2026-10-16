@@ -312,7 +312,8 @@ static void TestRefusals(void)
 
 // 6.x: Shape children of the mesh model, each a channel of one target at
 // 1 weighted by the model's property of its name; Hollow (no arrays) is
-// no shape.
+// no shape; the second Smile channel is renamed, its target keeping the
+// name its track has.
 static void TestSix(void)
 {
     static const char kSix[] = "; FBX 6.1.0 project file\n"
@@ -328,6 +329,10 @@ static void TestSix(void)
                                "   Indexes: 1\n"
                                "   Vertices: 0,3,0\n"
                                "  }\n"
+                               "  Shape: \"Smile\" {\n"
+                               "   Indexes: 0\n"
+                               "   Vertices: 0,0,5\n"
+                               "  }\n"
                                " }\n"
                                "}\n"
                                "Connections: {\n"
@@ -337,9 +342,14 @@ static void TestSix(void)
     maniMorphTargets m;
     maniImportResult r = Import(kSix, &options, &m);
     CHECK(r.result == mani_success && maniMorphVertexCount(&m) == 2 &&
-              maniMorphChannelCount(&m) == 1 && maniMorphTargetCount(&m) == 1 &&
-              Named(&m, 0, "Smile") && maniMorphTargetFullWeight(&m, 0) == 1.0f,
+              maniMorphChannelCount(&m) == 2 && maniMorphTargetCount(&m) == 2 &&
+              Named(&m, 0, "Smile") && Named(&m, 1, "Smile") &&
+              maniMorphTargetFullWeight(&m, 0) == 1.0f,
           "a 6.x shape: a channel of one target at 1");
+    uint32_t length = 0;
+    const char* channel = maniMorphChannelName(&m, 1, &length);
+    CHECK(channel != NULL && length == 7 && memcmp(channel, "Smile#1", 7) == 0,
+          "a repeated channel name numbered");
     if (r.result != mani_success)
     {
         printf("  reason %u item %u\n", r.reason, r.item);
@@ -351,10 +361,43 @@ static void TestSix(void)
     CHECK(p[4] == 3.0f && p[1] == 0.0f, "its offset");
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, kSix);
-    float w = 0.0f;
-    CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 1 &&
-              maniFbxMorphWeights(fbx, 0, &w, 1).result == mani_success && Near(w, 0.1f),
+    float w[2] = {0};
+    CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 2 &&
+              maniFbxMorphWeights(fbx, 0, w, 2).result == mani_success && Near(w[0], 0.1f) &&
+              Near(w[1], 0.1f),
           "its weight: the property over 100");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
+// Before 6.0: the mesh model holds its shapes and links; its legacy
+// skin, which shares its node, is no second set.
+static void TestLegacy(void)
+{
+    static const char kLegacy[] = "; FBX 5.0.0 project file\n"
+                                  "FBXHeaderExtension: {\n"
+                                  " FBXHeaderVersion: 1002\n"
+                                  " FBXVersion: 5000\n"
+                                  "}\n"
+                                  "Model: \"Model::Body\" {\n"
+                                  " Vertices: 0,0,0,1,0,0,0,1,0\n"
+                                  " PolygonVertexIndex: 0,1,-3\n"
+                                  " Shape: \"Smile\" {\n"
+                                  "  Indexes: 0\n"
+                                  "  Vertices: 0,0,1\n"
+                                  " }\n"
+                                  " Link: \"Model::Hips\" {\n"
+                                  "  Indexes: 0\n"
+                                  "  Weights: 1\n"
+                                  " }\n"
+                                  "}\n"
+                                  "Model: \"Model::Hips\" {\n"
+                                  " Type: \"LimbNode\"\n"
+                                  "}\n";
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, kLegacy);
+    CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 1,
+          "one set: the model's, not its legacy skin's");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -368,5 +411,6 @@ int main(void)
     TestBlender();
     TestRefusals();
     TestSix();
+    TestLegacy();
     return s_failures == 0 ? 0 : 1;
 }

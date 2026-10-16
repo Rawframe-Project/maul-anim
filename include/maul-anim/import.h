@@ -844,7 +844,8 @@ extern "C"
     /// in the options' axes (positions in its unit too), indices past the
     /// control points skipped, Blender's per-vertex weights folded in; a
     /// shape after another of the same full weight left out, as is a
-    /// channel without shapes. Channels are named as their objects; a
+    /// channel without shapes. Channels are named as their objects (one
+    /// repeating an earlier one's name followed by '#' and its index); a
     /// target as its shape, else as its channel with '/' and its index
     /// past the first, as weight tracks are.
     ///
