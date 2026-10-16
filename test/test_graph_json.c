@@ -386,26 +386,28 @@ static void TestDefaults(void)
           "an empty list on one line");
 }
 
-// A seek's time, a mask's chains and default weight, a blend's direct
-// and a sync group's allEvents left out.
+// A seek's time, a mask's default weight, a chain's subtree, a blend's
+// direct and a sync group's allEvents left out.
 static void TestNodeDefaults(void)
 {
     static const char kText[] =
         "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": \"t\", "
         "\"type\": \"trigger\"}], \"clips\": [\"walk\"], \"syncGroups\": [{\"name\": \"g\"}], "
         "\"nodes\": [{\"kind\": \"seek\", \"inputs\": [1], \"trigger\": \"t\"}, {\"kind\": "
-        "\"mask\", \"inputs\": [2, 3]}, {\"kind\": \"blend\", \"inputs\": [3], \"weights\": "
+        "\"mask\", \"inputs\": [2, 3], \"chains\": [{\"bone\": \"spine\", \"weight\": 1}]}, "
+        "{\"kind\": \"blend\", \"inputs\": [3], \"weights\": "
         "[1]}, {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": \"g\"}], \"output\": 0}";
     static const uint32_t kSeek[1] = {1};
     static const uint32_t kMask[2] = {2, 3};
     static const uint32_t kBlend[1] = {3};
     static const maniGraphScalar kOne[1] = {{MANI_NO_PARAMETER, 1.0f}};
+    static const maniMaskChain kSpine = {1, 1.0f, false};
     maniGraphParameterSource trigger = Parameter("t", maniGraphParameterTrigger, Int(0));
     maniGraphClipSource slot = {&s_clips[0], "walk", 4, 0};
     maniGraphSyncGroupSource group = {"g", 1, 0};
     maniGraphNodeSource nodes[4] = {
         {maniGraphNodeSeek, 1, kSeek, .seek = {0, LITERAL(0.0f)}},
-        {maniGraphNodeMask, 2, kMask, .mask = {NULL, 0, 0.0f}},
+        {maniGraphNodeMask, 2, kMask, .mask = {&kSpine, 1, 0.0f}},
         {maniGraphNodeBlend, 1, kBlend, .blend = {kOne, 0, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {0, 0, LITERAL(1.0f), maniGraphLoopClip, 0}}};
     maniGraphSource source = {&s_skeleton, &trigger, &slot, &group, nodes, 1, 1, 1, 4, 0, 0};
