@@ -357,7 +357,7 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
         return Fail(n->at + 12);
     }
     uint32_t words = n->kind == maniGraphNodeMachine
-                         ? maniGraphMachineDataWords(g, n->data, g->dataWords - dataAt)
+                         ? maniGraphMachineDataWords(g, n->data, n->count, g->dataWords - dataAt)
                          : maniGraphDataWords(n->kind, n->count);
     if (n->words != words || n->words > g->dataWords - dataAt)
     {
@@ -410,7 +410,7 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         bool machine = n.kind == maniGraphNodeMachine;
         uint32_t wrong =
-            machine ? maniGraphMachineValid(g, n.data, n.count, blockAt) : DataValid(g, &n);
+            machine ? maniGraphMachineValid(g, p, n.data, n.count, blockAt) : DataValid(g, &n);
         if (wrong != UINT32_MAX)
         {
             return Fail(dataAt + 4 * (uint64_t)wrong);
@@ -422,7 +422,8 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         inputAt += n.count;
         wordAt += n.words;
-        blockAt += machine ? MANI_GRAPH_BLOCK_SIZE(n.count, Word(g, n.data + 2)) : 0u;
+        blockAt +=
+            machine ? MANI_GRAPH_BLOCK_SIZE(n.count, Word(g, n.data + 2), Word(g, n.data + 4)) : 0u;
     }
     *machineWordsOut = blockAt;
     if (inputAt != g->inputCount)

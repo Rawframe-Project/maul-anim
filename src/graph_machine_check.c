@@ -56,7 +56,12 @@ static bool ConditionValid(const maniGraphSource* source, const maniGraphConditi
     case maniGraphConditionTrigger:
         return ParameterIs(source, c->parameter, maniGraphParameterTrigger);
     case maniGraphConditionTimeInState:
+    case maniGraphConditionPhase:
         return isfinite(c->value.f[0]) && c->value.f[0] >= 0.0f;
+    case maniGraphConditionFinished:
+        return true;
+    case maniGraphConditionEvent:
+        return c->event != NULL && c->eventLength > 0;
     default:
         return false;
     }
@@ -67,7 +72,7 @@ static bool TransitionValid(const maniGraphSource* source, const maniGraphTransi
 {
     bool ok = (t->from < states || t->from == MANI_GRAPH_ANY_STATE) && t->to < states &&
               t->from != t->to && t->interruption <= maniGraphInterruptionAny &&
-              t->entry <= maniGraphEntryKeep && t->fade <= maniGraphFadeSmoothstep &&
+              t->entry <= maniGraphEntryMatch && t->fade <= maniGraphFadeSmoothstep &&
               isfinite(t->duration) && t->duration >= 0.0f && isfinite(t->cooldown) &&
               t->cooldown >= 0.0f && t->conditionCount <= MANI_GRAPH_MAX_CONDITIONS &&
               (t->conditions != NULL || t->conditionCount == 0);
@@ -89,9 +94,14 @@ maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniG
                                       uint32_t node)
 {
     const maniGraphMachineNodeSource* m = &n->machine;
-    if ((m->transitions == NULL && m->transitionCount > 0) ||
-        m->transitionCount > MANI_GRAPH_MAX_TRANSITIONS || m->entry >= n->inputCount ||
-        m->chainLimit > MANI_GRAPH_MAX_CHAIN)
+    bool valid = !(m->transitions == NULL && m->transitionCount > 0) &&
+                 m->transitionCount <= MANI_GRAPH_MAX_TRANSITIONS && m->entry < n->inputCount &&
+                 m->chainLimit <= MANI_GRAPH_MAX_CHAIN && (m->finals != NULL || m->finalCount == 0);
+    for (uint32_t k = 0; k < m->finalCount && valid; ++k)
+    {
+        valid = m->finals[k] < n->inputCount;
+    }
+    if (!valid)
     {
         return Refuse(maniBuildReasonNode, node, 0);
     }
@@ -112,15 +122,76 @@ maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniG
     return kOk;
 }
 
+bool maniGraphMachineListens(const maniGraphNodeSource* n)
+{
+    const maniGraphMachineNodeSource* m = &n->machine;
+    bool listens = false;
+    for (uint32_t t = 0; t < m->transitionCount && !listens; ++t)
+    {
+        const maniGraphTransitionSource* a = &m->transitions[t];
+        listens = a->entry == maniGraphEntryMatch;
+        for (uint32_t c = 0; c < a->conditionCount && !listens; ++c)
+        {
+            listens = a->conditions[c].kind >= maniGraphConditionPhase;
+        }
+    }
+    return listens;
+}
+
 uint32_t maniGraphMachineSourceWords(const maniGraphNodeSource* n)
 {
     const maniGraphMachineNodeSource* m = &n->machine;
-    uint32_t words = MANI_GRAPH_MACHINE_WORDS + MANI_GRAPH_TRANSITION_WORDS * m->transitionCount;
-    for (uint32_t t = 0; t < m->transitionCount; ++t)
+    uint32_t words = MANI_GRAPH_MACHINE_WORDS + MANI_GRAPH_TRANSITION_WORDS * m->transitionCount +
+                     MANI_GRAPH_STATE_WORDS * n->inputCount;
+    return words + MANI_GRAPH_CONDITION_WORDS * maniGraphMachineConditions(n);
+}
+
+uint32_t maniGraphMachineConditions(const maniGraphNodeSource* n)
+{
+    uint32_t count = 0;
+    for (uint32_t t = 0; t < n->machine.transitionCount; ++t)
     {
-        words += MANI_GRAPH_CONDITION_WORDS * m->transitions[t].conditionCount;
+        count += n->machine.transitions[t].conditionCount;
     }
-    return words;
+    return count;
+}
+
+uint32_t maniGraphReachClips(maniGraphReach* r, uint32_t from, uint32_t* clipsOut,
+                             uint32_t* nearestOut)
+{
+    uint32_t mark = ++r->mark;
+    uint32_t depth = 1;
+    uint32_t count = 0;
+    uint32_t nearest = MANI_GRAPH_NO_NODE;
+    r->stack[0] = from;
+    r->stamp[from] = mark;
+    while (depth > 0)
+    {
+        uint32_t v = r->stack[--depth];
+        const maniGraphNodeSource* node = &r->source->nodes[v];
+        uint32_t at = r->position != NULL ? r->position[v] : v;
+        if (node->kind == maniGraphNodeClip && clipsOut != NULL)
+        {
+            clipsOut[count] = at;
+        }
+        count += node->kind == maniGraphNodeClip ? 1u : 0u;
+        bool machine = node->kind == maniGraphNodeMachine;
+        nearest = machine && (nearest == MANI_GRAPH_NO_NODE || at > nearest) ? at : nearest;
+        for (uint32_t k = 0; k < node->inputCount; ++k)
+        {
+            uint32_t u = node->inputs[k];
+            if (r->stamp[u] != mark)
+            {
+                r->stamp[u] = mark;
+                r->stack[depth++] = u;
+            }
+        }
+    }
+    if (nearestOut != NULL)
+    {
+        *nearestOut = nearest;
+    }
+    return count;
 }
 
 static uint32_t Put(uint8_t* data, uint32_t at, uint32_t word)
@@ -136,34 +207,41 @@ static uint32_t Bits(float value)
     return bits;
 }
 
-// A condition's words: a trigger's compare and value zero, time in
-// state's parameter none; a parameter's value as its bits (bool, int or
-// binary32 alike).
+// A condition's words: a parameter's value as its bits (bool, int or
+// binary32 alike), a trigger's compare and value zero; the others read
+// no parameter: a time's or phase's value as bits, an event's name hash
+// in the parameter and compare words.
 static uint32_t PutCondition(uint8_t* data, uint32_t at, const maniGraphConditionSource* c)
 {
-    bool parameter = c->kind == maniGraphConditionParameter;
-    bool time = c->kind == maniGraphConditionTimeInState;
-    uint32_t value = parameter ? c->value.b : (time ? Bits(c->value.f[0]) : 0u);
-    at = Put(data, at, c->kind);
-    at = Put(data, at, time ? MANI_NO_PARAMETER : c->parameter);
-    at = Put(data, at, parameter ? c->compare : 0u);
-    return Put(data, at, value);
+    uint32_t words[4] = {c->kind, MANI_NO_PARAMETER, 0u, 0u};
+    if (c->kind == maniGraphConditionParameter || c->kind == maniGraphConditionTrigger)
+    {
+        words[1] = c->parameter;
+        words[2] = c->kind == maniGraphConditionParameter ? c->compare : 0u;
+        words[3] = c->kind == maniGraphConditionParameter ? c->value.b : 0u;
+    }
+    else if (c->kind == maniGraphConditionTimeInState || c->kind == maniGraphConditionPhase)
+    {
+        words[3] = Bits(c->value.f[0]);
+    }
+    else if (c->kind == maniGraphConditionEvent)
+    {
+        uint64_t hash = maniHash64(MANI_HASH_INIT, c->event, (int32_t)c->eventLength);
+        words[1] = (uint32_t)hash;
+        words[2] = (uint32_t)(hash >> 32);
+    }
+    for (uint32_t w = 0; w < 4; ++w)
+    {
+        at = Put(data, at, words[w]);
+    }
+    return at;
 }
 
-uint32_t maniPutGraphMachine(uint8_t* data, uint32_t at, const maniGraphNodeSource* n,
-                             uint32_t block, uint32_t* order, uint32_t* scratch, uint64_t* keys)
+static uint32_t PutTransitions(uint8_t* data, uint32_t at, const maniGraphNodeSource* n,
+                               const uint32_t* order)
 {
     const maniGraphMachineNodeSource* m = &n->machine;
     uint32_t count = m->transitionCount;
-    for (uint32_t t = 0; t < count; ++t)
-    {
-        keys[t] = m->transitions[t].priority;
-    }
-    maniSortByKey(keys, count, order, scratch);
-    at = Put(data, at, m->entry);
-    at = Put(data, at, m->chainLimit != 0 ? m->chainLimit : 4u);
-    at = Put(data, at, count);
-    at = Put(data, at, block);
     uint32_t conditions = at + MANI_GRAPH_TRANSITION_WORDS * count;
     uint32_t first = 0;
     for (uint32_t k = 0; k < count; ++k)
@@ -188,4 +266,62 @@ uint32_t maniPutGraphMachine(uint8_t* data, uint32_t at, const maniGraphNodeSour
         first += t->conditionCount;
     }
     return conditions;
+}
+
+// Per state its final flag, nearest machine and clip list (a listening
+// machine's), then the lists, each in node order.
+static uint32_t PutStates(uint8_t* data, uint32_t at, const maniGraphNodeSource* n,
+                          maniGraphMachineWork* work)
+{
+    const maniGraphMachineNodeSource* m = &n->machine;
+    bool listens = maniGraphMachineListens(n);
+    uint32_t lists = at + MANI_GRAPH_STATE_WORDS * n->inputCount;
+    uint32_t first = 0;
+    for (uint32_t k = 0; k < n->inputCount; ++k)
+    {
+        bool final = false;
+        for (uint32_t f = 0; f < m->finalCount; ++f)
+        {
+            final = final || m->finals[f] == k;
+        }
+        uint32_t nearest = MANI_GRAPH_NO_NODE;
+        uint32_t count =
+            listens ? maniGraphReachClips(work->reach, n->inputs[k], work->clips, &nearest) : 0u;
+        for (uint32_t c = 0; c < count; ++c)
+        {
+            work->keys[c] = work->clips[c];
+        }
+        maniSortByKey(work->keys, count, work->order, work->scratch);
+        for (uint32_t c = 0; c < count; ++c)
+        {
+            (void)Put(data, lists + first + c, work->clips[work->order[c]]);
+        }
+        const uint32_t words[4] = {final ? 1u : 0u, nearest, first, count};
+        for (uint32_t w = 0; w < 4; ++w)
+        {
+            at = Put(data, at, words[w]);
+        }
+        first += count;
+    }
+    return lists + first;
+}
+
+uint32_t maniPutGraphMachine(uint8_t* data, uint32_t at, const maniGraphNodeSource* n,
+                             uint32_t block, maniGraphMachineWork* work)
+{
+    const maniGraphMachineNodeSource* m = &n->machine;
+    uint32_t count = m->transitionCount;
+    for (uint32_t t = 0; t < count; ++t)
+    {
+        work->keys[t] = m->transitions[t].priority;
+    }
+    maniSortByKey(work->keys, count, work->order, work->scratch);
+    at = Put(data, at, m->entry);
+    at = Put(data, at, m->chainLimit != 0 ? m->chainLimit : 4u);
+    at = Put(data, at, count);
+    at = Put(data, at, block);
+    at = Put(data, at, maniGraphMachineConditions(n));
+    at = Put(data, at, maniGraphMachineListens(n) ? 1u : 0u);
+    at = PutTransitions(data, at, n, work->order);
+    return PutStates(data, at, n, work);
 }

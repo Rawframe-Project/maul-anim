@@ -15,11 +15,12 @@
 
 #include <stdint.h>
 
-// The states one step entered from their start, at most
-// MANI_GRAPH_MAX_CHAIN.
+// The states one step entered at weight 0 by a restart or a match entry
+// (maniGraphEntry), at most MANI_GRAPH_MAX_CHAIN.
 typedef struct maniGraphEntered
 {
     uint32_t states[MANI_GRAPH_MAX_CHAIN];
+    uint32_t entries[MANI_GRAPH_MAX_CHAIN];
     uint32_t count;
 } maniGraphEntered;
 

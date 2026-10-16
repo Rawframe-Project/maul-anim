@@ -446,8 +446,8 @@ static const KindForm kForms[] = {
      15u},
     {"machine",
      maniGraphNodeMachine,
-     {"kind", "inputs", "entry", "chainLimit", "transitions"},
-     5,
+     {"kind", "inputs", "entry", "chainLimit", "transitions", "finals"},
+     6,
      3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };

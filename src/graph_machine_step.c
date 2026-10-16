@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A machine decides at the start of an update from what the updates
-// before it left: its clocks advance, a fade whose time is up completes,
-// then the first candidate in priority order whose conditions hold fires
+// before it left (its leading clip's record among them): its clocks
+// advance, a fade whose time is up completes, then the first candidate
+// in priority order whose conditions hold fires
 // (a fade of 0 completing at once, so the machine looks again, up to its
 // chain limit). A fade sets each state's weight from the weights when it
 // began: the destination's rises to 1, every other falls to 0, so an
@@ -38,9 +39,7 @@ static float TransitionFloat(const maniGraphMachine* m, uint32_t t, uint32_t k)
 // Transition t's first condition's data word.
 static uint32_t FirstCondition(const maniGraphMachine* m, uint32_t t)
 {
-    uint32_t conditions =
-        MANI_GRAPH_MACHINE_WORDS + MANI_GRAPH_TRANSITION_WORDS * maniGraphMachineCount(m);
-    return conditions + MANI_GRAPH_CONDITION_WORDS * Transition(m, t, 6);
+    return maniGraphMachineCondition(m, Transition(m, t, 6));
 }
 
 // A parameter condition: its parameter's value compared with the
@@ -77,27 +76,58 @@ static bool Compares(const maniGraphMachine* m, const maniGraphCell* cells, uint
     }
 }
 
-// Whether transition t's conditions all hold.
-static bool Holds(const maniGraphMachine* m, const maniGraphCell* cells, const uint32_t* block,
-                  uint32_t t)
+// Whether the leading clip passed phase v in the update before: below 1
+// its position, by the whole loops it wrapped and where it was before and
+// after; 1 or more the loops since the state was entered.
+static bool Passed(const uint32_t* block, double v)
 {
-    uint32_t first = FirstCondition(m, t);
-    bool holds = true;
-    for (uint32_t c = 0; c < Transition(m, t, 7) && holds; ++c)
+    double before = maniGraphBlockDouble(block, maniGraphBlockBefore) - v;
+    double after = maniGraphBlockDouble(block, maniGraphBlockPosition) - v;
+    double wraps = maniGraphBlockDouble(block, maniGraphBlockWraps);
+    double move = maniGraphRecordMove(block);
+    if (v >= 1.0)
     {
-        uint32_t at = first + MANI_GRAPH_CONDITION_WORDS * c;
-        switch (maniGraphMachineWord(m, at))
-        {
-        case maniGraphConditionParameter:
-            holds = Compares(m, cells, at);
-            break;
-        case maniGraphConditionTrigger:
-            holds = cells[maniGraphMachineWord(m, at + 1)].value.b != 0;
-            break;
-        default:
-            holds = maniGraphBlockTime(block) >= (double)maniGraphMachineFloat(m, at + 3);
-            break;
-        }
+        double loops = maniGraphBlockDouble(block, maniGraphBlockLoops);
+        return loops < v && v <= loops + fabs(move);
+    }
+    if (move > 0.0)
+    {
+        return wraps + floor(after) - floor(before) > 0.0;
+    }
+    // Backward the count is ceil(before) - ceil(after) - wraps.
+    return move < 0.0 && floor(-after) - floor(-before) - wraps > 0.0;
+}
+
+static bool Holds(const maniGraphMachine* m, const maniGraphCell* cells, const uint32_t* block,
+                  uint32_t at, uint32_t c)
+{
+    switch (maniGraphMachineWord(m, at))
+    {
+    case maniGraphConditionParameter:
+        return Compares(m, cells, at);
+    case maniGraphConditionTrigger:
+        return cells[maniGraphMachineWord(m, at + 1)].value.b != 0;
+    case maniGraphConditionTimeInState:
+        return maniGraphBlockDouble(block, maniGraphBlockTime) >=
+               (double)maniGraphMachineFloat(m, at + 3);
+    case maniGraphConditionPhase:
+        return Passed(block, (double)maniGraphMachineFloat(m, at + 3));
+    case maniGraphConditionFinished:
+        return block[maniGraphBlockFinished] != 0;
+    default:
+        return maniGraphMachineHeard(m, block, c);
+    }
+}
+
+// Whether transition t's conditions all hold.
+static bool AllHold(const maniGraphMachine* m, const maniGraphCell* cells, const uint32_t* block,
+                    uint32_t t)
+{
+    uint32_t first = Transition(m, t, 6);
+    bool holds = true;
+    for (uint32_t c = first; c < first + Transition(m, t, 7) && holds; ++c)
+    {
+        holds = Holds(m, cells, block, maniGraphMachineCondition(m, c), c);
     }
     return holds;
 }
@@ -129,7 +159,7 @@ static void Fade(const maniGraphMachine* m, uint32_t* block)
 {
     uint32_t running = block[maniGraphBlockRunning];
     float duration = TransitionFloat(m, running, 4);
-    float elapsed = maniGraphBlockElapsed(block);
+    float elapsed = maniGraphBlockFloat(block, maniGraphBlockElapsed);
     bool done = !(elapsed < duration);
     float c = done ? 1.0f : elapsed / duration;
     if (Transition(m, running, 3) >> 8 == maniGraphFadeSmoothstep)
@@ -147,8 +177,9 @@ static void Fade(const maniGraphMachine* m, uint32_t* block)
 }
 
 // Fires t: its triggers consumed, its timer reset, the weights kept as
-// the fade's start, its destination current (from its start when entered
-// at weight 0 by a restart).
+// the fade's start, its destination current (from its start or at the
+// leading clip's phase when entered at weight 0 by a restart or a match),
+// the record cleared but the position.
 static void Fire(const maniGraphMachine* m, maniGraphCell* cells, uint32_t* block, uint32_t t,
                  maniGraphEntered* entered)
 {
@@ -162,23 +193,26 @@ static void Fire(const maniGraphMachine* m, maniGraphCell* cells, uint32_t* bloc
         }
     }
     uint32_t to = Transition(m, t, 1);
-    bool restart = (Transition(m, t, 3) >> 4 & 0xFu) == maniGraphEntryRestart;
-    if (restart && !(maniGraphMachineWeight(block, to) > 0.0f))
+    uint32_t entry = Transition(m, t, 3) >> 4 & 0xFu;
+    if (entry != maniGraphEntryKeep && !(maniGraphMachineWeight(block, to) > 0.0f))
     {
-        entered->states[entered->count++] = to;
+        entered->states[entered->count] = to;
+        entered->entries[entered->count++] = entry;
     }
     maniGraphKeepStartWeights(m, block);
     maniGraphSetMachineSince(m, block, t, 0.0f);
     block[maniGraphBlockRunning] = t;
     block[maniGraphBlockCurrent] = to;
-    maniGraphSetBlockElapsed(block, 0.0f);
-    maniGraphSetBlockTime(block, 0.0);
+    maniGraphSetBlockFloat(block, maniGraphBlockElapsed, 0.0f);
+    maniGraphSetBlockDouble(block, maniGraphBlockTime, 0.0);
+    maniGraphClearRecord(m, block);
     Fade(m, block);
 }
 
 static void Advance(const maniGraphMachine* m, uint32_t* block, double seconds)
 {
-    maniGraphSetBlockTime(block, maniGraphBlockTime(block) + seconds);
+    double time = maniGraphBlockDouble(block, maniGraphBlockTime) + seconds;
+    maniGraphSetBlockDouble(block, maniGraphBlockTime, time);
     for (uint32_t t = 0; t < maniGraphMachineCount(m); ++t)
     {
         double since = (double)maniGraphMachineSince(m, block, t) + seconds;
@@ -186,8 +220,8 @@ static void Advance(const maniGraphMachine* m, uint32_t* block, double seconds)
     }
     if (block[maniGraphBlockRunning] != MANI_GRAPH_NO_TRANSITION)
     {
-        double elapsed = (double)maniGraphBlockElapsed(block) + seconds;
-        maniGraphSetBlockElapsed(block, (float)elapsed);
+        double elapsed = (double)maniGraphBlockFloat(block, maniGraphBlockElapsed) + seconds;
+        maniGraphSetBlockFloat(block, maniGraphBlockElapsed, (float)elapsed);
         Fade(m, block);
     }
 }
@@ -202,7 +236,7 @@ void maniGraphStepMachine(const maniGraphMachine* m, maniGraphCell* cells, uint3
     for (uint32_t chain = 0; chain < limit; ++chain)
     {
         uint32_t t = 0;
-        while (t < count && !(Candidate(m, block, t) && Holds(m, cells, block, t)))
+        while (t < count && !(Candidate(m, block, t) && AllHold(m, cells, block, t)))
         {
             ++t;
         }

@@ -41,15 +41,19 @@ struct maniGraphBinding
     const maniClip* clips[];
 };
 
-// A node's flags during an update: its time factor set from a parent,
-// and a seek above it firing.
+// A node's flags during an update: its time factor set from a parent, a
+// seek above it firing (to a normalized time with phase), and a clip's
+// events listed.
 #define MANI_GRAPH_REACHED 1u
 #define MANI_GRAPH_SEEKING 2u
+#define MANI_GRAPH_PHASE   4u
+#define MANI_GRAPH_LISTED  8u
 
 // A node's state: its effective weight, a word its kind keeps (a
 // select's input) and its playhead in seconds (a clip's), all saved; and
 // for the update in progress its root motion weight, time factor, flags
-// and the time a seek above it sets.
+// and the time a seek above it sets; a clip's playhead before the update
+// and how far it moved (0 for a seek), kept until the next.
 typedef struct maniGraphNodeState
 {
     float weight;
@@ -59,6 +63,8 @@ typedef struct maniGraphNodeState
     float factor;
     uint32_t flags;
     float seekTo;
+    double from;
+    double step;
 } maniGraphNodeState;
 
 // A sync group's flags during an update: its leader declared, its

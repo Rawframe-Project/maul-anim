@@ -231,7 +231,9 @@ static void RemapMachine(const Scope* s, Flat* f, maniGraphNodeSource* node)
         for (uint32_t j = 0; j < to[k].conditionCount; ++j)
         {
             c[j] = to[k].conditions[j];
-            c[j].parameter = Resolve(s, c[j].parameter);
+            bool reads =
+                c[j].kind == maniGraphConditionParameter || c[j].kind == maniGraphConditionTrigger;
+            c[j].parameter = reads ? Resolve(s, c[j].parameter) : c[j].parameter;
         }
         to[k].conditions = to[k].conditionCount > 0 ? c : NULL;
         f->conditionCount += to[k].conditionCount;

@@ -64,6 +64,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_machine_file.c
     src/graph_machine.c
     src/graph_machine_step.c
+    src/graph_machine_listen.c
     src/graph_space.c
     src/graph_update.c
     src/graph_evaluate.c
@@ -135,6 +136,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_triangles WHITEBOX)
         maul_add_test(exact WHITEBOX)
         maul_add_test(graph_machine WHITEBOX)
+        maul_add_test(graph_listen WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

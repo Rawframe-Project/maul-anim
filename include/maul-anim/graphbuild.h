@@ -179,17 +179,32 @@ extern "C"
         // At least value.f seconds (finite, not negative) since the
         // machine entered its current state.
         maniGraphConditionTimeInState = 2,
+        // The current state's leading clip (the clip node beneath it of
+        // greatest effective weight) passed phase value.f (finite, not
+        // negative) in the update before: below 1, its normalized
+        // position at every loop; 1 or more, its loops since the state
+        // was entered, once.
+        maniGraphConditionPhase = 3,
+        // The current state finished in the update before: its nearest
+        // nested machine in a final state with no transition running, or
+        // with none, its leading clip, not repeating, at its end.
+        maniGraphConditionFinished = 4,
+        // A clip node beneath the current state listed an event of the
+        // condition's name in the update before.
+        maniGraphConditionEvent = 5,
     };
 
     // A condition of a transition: its kind, the parameter it reads, how
-    // it compares and the value it compares with.
+    // it compares and the value it compares with; an event condition's
+    // name (UTF-8, not empty, eventLength bytes).
     typedef struct maniGraphConditionSource
     {
         maniGraphConditionKind kind;
         uint32_t parameter;
         maniGraphCompare compare;
-        uint32_t reserved;
+        uint32_t eventLength;
         maniGraphValue value;
+        const char* event;
     } maniGraphConditionSource;
 
     // While a transition runs, which others may fire.
@@ -213,6 +228,10 @@ extern "C"
         maniGraphEntryRestart = 0,
         // Where it was left.
         maniGraphEntryKeep = 1,
+        // At the source's leading clip's normalized position, each clip
+        // below it at that fraction of its duration, when it is entered
+        // at weight 0 (as a restart).
+        maniGraphEntryMatch = 2,
     };
 
     // The curve of a cross-fade over its elapsed fraction.
@@ -245,15 +264,17 @@ extern "C"
     } maniGraphTransitionSource;
 
     // A state machine node: its inputs are its states; the state it
-    // starts in, its transitions, and the most transitions it takes in
-    // one update (1 to MANI_GRAPH_MAX_CHAIN; 0 for 4).
+    // starts in, its transitions, the most transitions it takes in one
+    // update (1 to MANI_GRAPH_MAX_CHAIN; 0 for 4), and its final states
+    // (a parent machine's finished condition reads them).
     typedef struct maniGraphMachineNodeSource
     {
         const maniGraphTransitionSource* transitions;
         uint32_t transitionCount;
         uint32_t entry;
         uint32_t chainLimit;
-        uint32_t reserved;
+        uint32_t finalCount;
+        const uint32_t* finals;
     } maniGraphMachineNodeSource;
 
     typedef struct maniGraphSource maniGraphSource;
@@ -429,7 +450,7 @@ extern "C"
     /// and defaultWeight 0; a chain's subtree false; a seek's time 0; a
     /// 1D space's period 0, a banded space's polar false, a triangulated
     /// space's triangles none (its Delaunay triangulation), a position's
-    /// y 0; a machine's entry 0, chainLimit 0 (4) and transitions empty; a
+    /// y 0; a machine's entry 0, chainLimit 0 (4), transitions and finals empty; a
     /// transition's priority 0, interruption "none", entry "restart", fade
     /// "linear", duration and cooldown 0 and conditions empty; parameters,
     /// clips and syncGroups empty). Each clip slot name, at

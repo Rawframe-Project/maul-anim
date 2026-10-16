@@ -185,9 +185,32 @@ runtime allocates (mani-0001).
   start (the default entry, when it is entered at weight 0) has its
   playheads set to 0 as a seek does, and a nested machine so entered
   starts at its entry; one still weighted keeps its time, and "keep"
-  entries always do. Each machine's block (current state, running
-  transition, clocks, two weights per state, a timer per transition)
-  lies in the instance after the cursors and joins the saved state.
+  entries always do. A machine that no parent reached in an update does
+  not step, so its triggers wait. Each machine's block (current state,
+  running transition, clocks, the record below, two weights per state,
+  a timer per transition, a bit per condition) lies in the instance
+  after the cursors and joins the saved state.
+- **Leading clips.** A machine listens when a transition of it has a
+  phase, finished or event condition or a match entry; its build lists,
+  per state, the clip nodes beneath the state in node order and its
+  nearest machine (the machine node of greatest index beneath it). After
+  the clips move, a listening machine records its current state's
+  leading clip (greatest effective weight, the first of equals): its
+  normalized position before and after and the whole loops it wrapped
+  (taken from where the playhead landed, so a crossing at a loop's end
+  counts in one update only), the loops moved since the state was
+  entered, whether the state finished, and which event conditions a
+  clip beneath the state heard (listed events, so a clip below the
+  event threshold is not heard). These conditions read the update
+  before, as Unreal's rules read the players' last tick. A phase below
+  1 holds when the position passed it (reaching counts, leaving does
+  not) at any loop; 1 or more when the loops since entry passed it,
+  once. Finished: the nearest machine in a final state (the source's
+  `finals`) with no transition running, or with none, the leading clip
+  not repeating and at the end it moves toward. A match entry seeks the
+  state entered at weight 0 to the leading clip's position, each clip
+  at that fraction of its own duration. Event names are kept as their
+  64-bit hashes, as clips keep them.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

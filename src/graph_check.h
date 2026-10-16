@@ -25,8 +25,11 @@ typedef struct maniGraphTally
     uint64_t machineWords;
     uint32_t inputCount;
     uint32_t maskCount;
-    // The most transitions of one machine.
+    // The most transitions of one machine, the machines that listen and
+    // the most clip nodes beneath one of their states.
     uint32_t maxTransitions;
+    uint32_t listeners;
+    uint32_t longestList;
     uint32_t reserved;
 } maniGraphTally;
 

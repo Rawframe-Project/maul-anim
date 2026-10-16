@@ -76,6 +76,15 @@ format.
   state was left. Machine state is saved and restored with the
   instance; refusals name the transition (`maniBuildReasonTransition`);
   in the JSON form as `machine`.
+- State machine conditions on the current state's leading clip (the
+  clip node beneath it weighed most): its phase passed in the update
+  before (`maniGraphConditionPhase`, every loop below 1, once at 1 or
+  more), the state finished (`maniGraphConditionFinished`: a clamped
+  clip at its end, or a nested machine in one of its `finals` with no
+  fade running), and an event name heard from any clip beneath the
+  state (`maniGraphConditionEvent`); `maniGraphEntryMatch` enters a
+  state at the leading clip's normalized phase. A machine no parent
+  reaches does not step, so its triggers wait.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

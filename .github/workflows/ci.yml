@@ -187,6 +187,7 @@ jobs:
           build/test_graph_space --seed corpus-fuzz_graph/space.graph corpus-fuzz_graph_json/space.json
           build/test_graph_triangles --seed corpus-fuzz_graph/triangles.graph corpus-fuzz_graph_json/triangles.json
           build/test_graph_machine --seed corpus-fuzz_graph/machine.graph corpus-fuzz_graph_json/machine.json
+          build/test_graph_listen --seed corpus-fuzz_graph/listen.graph corpus-fuzz_graph_json/listen.json
           mkdir -p corpus-fuzz_json
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf

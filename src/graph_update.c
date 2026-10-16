@@ -9,6 +9,7 @@
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
+#include "graph_machine_listen.h"
 #include "graph_machine_step.h"
 #include "graph_space.h"
 #include "root_motion.h"
@@ -16,6 +17,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/graphbuild.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
@@ -95,7 +97,7 @@ static void Give(const Update* u, uint32_t input, Share share)
     {
         s->factor = share.factor;
         s->seekTo = share.seekTo;
-        s->flags = MANI_GRAPH_REACHED | (share.flags & MANI_GRAPH_SEEKING);
+        s->flags = MANI_GRAPH_REACHED | (share.flags & (MANI_GRAPH_SEEKING | MANI_GRAPH_PHASE));
     }
 }
 
@@ -175,15 +177,20 @@ static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNo
     }
 }
 
-// A machine stepped by its own time, then its states shared by their
-// weights; a state it entered from its start this step reached even at
-// weight 0, seeking 0, so its playheads start over. A seek above the
-// machine starts it over too.
+// A machine a parent reached stepped by its own time, then its states
+// shared by their weights; a state it entered at weight 0 this step by a
+// restart or a match reached even so, seeking 0 or the leading clip's
+// phase, so its playheads start over or match. A seek above the machine
+// starts it over too.
 static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeState* s)
 {
     maniGraphMachine m = {u->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
     uint32_t* block =
         (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + maniGraphMachineBlockAt(&m);
+    if ((s->flags & MANI_GRAPH_REACHED) == 0)
+    {
+        return;
+    }
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetMachine(&m, block);
@@ -195,13 +202,18 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     {
         float weight = maniGraphMachineWeight(block, k);
         Share share = Pass(s, weight, weight);
-        bool restart = false;
+        uint32_t entry = maniGraphEntryKeep;
         for (uint32_t e = 0; e < entered.count; ++e)
         {
-            restart = restart || entered.states[e] == k;
+            entry = entered.states[e] == k ? entered.entries[e] : entry;
         }
+        bool restart = entry != maniGraphEntryKeep;
+        bool match = entry == maniGraphEntryMatch;
+        double position = maniGraphBlockDouble(block, maniGraphBlockPosition);
+        share.flags &= restart ? ~MANI_GRAPH_PHASE : ~0u;
         share.flags |= restart ? MANI_GRAPH_SEEKING : 0u;
-        share.seekTo = restart ? 0.0f : share.seekTo;
+        share.flags |= match ? MANI_GRAPH_PHASE : 0u;
+        share.seekTo = restart ? (match ? (float)position : 0.0f) : share.seekTo;
         if (weight > 0.0f || restart)
         {
             Give(u, InputOf(u, record, k), share);
@@ -241,7 +253,7 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
         if (trigger->b != 0)
         {
             trigger->b = 0;
-            share.flags |= MANI_GRAPH_SEEKING;
+            share.flags = (share.flags | MANI_GRAPH_SEEKING) & ~MANI_GRAPH_PHASE;
             share.seekTo = Scalar(u, d + 1);
         }
     }
@@ -262,8 +274,8 @@ static void Weigh(const Update* u)
         s->seekTo = 0.0f;
     }
     maniGraphNodeState* output = Node(u, n - 1);
-    *output = (maniGraphNodeState){1.0f, output->word,       output->time, 1.0f,
-                                   1.0f, MANI_GRAPH_REACHED, 0.0f};
+    *output = (maniGraphNodeState){1.0f, output->word, output->time, 1.0f, 1.0f, MANI_GRAPH_REACHED,
+                                   0.0f, output->from, output->step};
     for (uint32_t p = n; p-- > 0;)
     {
         const uint8_t* record = Record(u, p);
@@ -412,7 +424,8 @@ static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const mani
 {
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
-        return (Motion){Place(clip, (double)s->seekTo), 0.0, true, false};
+        double scale = (s->flags & MANI_GRAPH_PHASE) != 0 ? (double)clip->duration : 1.0;
+        return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, true, false};
     }
     return (Motion){s->time, u->delta * (double)Scalar(u, data + 4) * (double)s->factor, false,
                     true};
@@ -762,10 +775,13 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
         m = Follow(u, group, &clip, s->time);
     }
     maniRootMove move = maniRootMoveIdentity();
+    s->from = m.t0;
+    s->step = m.seeking ? 0.0 : m.step;
     if (!m.seeking)
     {
         if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD)
         {
+            s->flags |= MANI_GRAPH_LISTED;
             Events(u, p, &clip, m.t0, m.step);
         }
         if (s->rootWeight > 0.0f)
@@ -805,6 +821,7 @@ maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEv
             Advance(&u, p, record);
         }
     }
+    maniGraphListen(u.graph, binding->clips, instance);
     if (eventCountOut != NULL)
     {
         *eventCountOut = u.count < UINT32_MAX ? (uint32_t)u.count : UINT32_MAX;

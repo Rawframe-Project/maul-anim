@@ -15,7 +15,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// The machine's members entry, chainLimit and transitions (values in
+// The machine's members entry, chainLimit, transitions and finals (values in
 // members, MANI_JSON_NONE when absent) into n.
 bool maniGraphJsonMachine(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
                           maniGraphNodeSource* n);

@@ -2,11 +2,13 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A transition: {"from": state or "any", "to", "priority", "interruption":
-// "none" | "higher" | "any", "entry": "restart" | "keep", "fade":
-// "linear" | "smoothstep", "duration", "cooldown", "conditions"}, all but
-// from and to optional. A condition: {"parameter": name, "compare": "=="
-// | "!=" | "<" | "<=" | ">" | ">=", "value": of the parameter's type},
-// {"trigger": name} or {"timeInState": seconds}.
+// "none" | "higher" | "any", "entry": "restart" | "keep" | "match",
+// "fade": "linear" | "smoothstep", "duration", "cooldown", "conditions"},
+// all but from and to optional. A condition: {"parameter": name,
+// "compare": "==" | "!=" | "<" | "<=" | ">" | ">=", "value": of the
+// parameter's type}, {"trigger": name}, {"timeInState": seconds},
+// {"phase": number}, {"finished": true} or {"event": name}. A machine's
+// finals: an array of states.
 
 #include "graph_json_machine.h"
 
@@ -54,49 +56,70 @@ static bool Compared(maniGraphReader* r, const maniGraphScope* scope, uint32_t v
     return maniGraphJsonFloat(r, value, &c->value.f[0]);
 }
 
+// The one member naming a condition's kind (its index among the kind
+// keys), or a fault on a second or on none.
+static bool KindOf(maniGraphReader* r, uint32_t object, const uint32_t* f, uint32_t* kindOut)
+{
+    // The keys' order is the members' from parameter on.
+    static const uint32_t kKinds[] = {0, 3, 4, 5, 6, 7};
+    *kindOut = UINT32_MAX;
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        uint32_t at = f[kKinds[k]];
+        if (at != ABSENT && *kindOut != UINT32_MAX)
+        {
+            return maniGraphJsonFault(r, at - 1, maniGraphFormMember);
+        }
+        *kindOut = at != ABSENT ? k : *kindOut;
+    }
+    if (*kindOut == UINT32_MAX)
+    {
+        return maniGraphJsonFault(r, object, maniGraphFormMissing);
+    }
+    uint32_t extra = *kindOut != 0 ? (f[1] != ABSENT ? f[1] : f[2]) : ABSENT;
+    return extra == ABSENT || maniGraphJsonFault(r, extra - 1, maniGraphFormMember);
+}
+
 static bool Condition(maniGraphReader* r, const maniGraphScope* scope, uint32_t object,
                       maniGraphConditionSource* c)
 {
-    static const char* const kKeys[] = {"parameter", "compare", "value", "trigger", "timeInState"};
+    static const char* const kKeys[] = {"parameter",   "compare", "value",    "trigger",
+                                        "timeInState", "phase",   "finished", "event"};
     static const char* const kCompares[] = {"==", "!=", "<", "<=", ">", ">="};
-    uint32_t f[5];
+    static const maniGraphConditionKind kKind[] = {
+        maniGraphConditionParameter, maniGraphConditionTrigger,  maniGraphConditionTimeInState,
+        maniGraphConditionPhase,     maniGraphConditionFinished, maniGraphConditionEvent};
+    uint32_t f[8];
+    uint32_t kind = 0;
     *c = (maniGraphConditionSource){0};
-    if (!maniGraphJsonMembers(r, object, kKeys, 5, 0u, f))
+    if (!maniGraphJsonMembers(r, object, kKeys, 8, 0u, f) || !KindOf(r, object, f, &kind))
     {
         return false;
     }
-    if (f[0] != ABSENT)
+    c->kind = kKind[kind];
+    c->parameter = kind < 2 ? 0u : MANI_NO_PARAMETER;
+    bool finished = false;
+    switch (c->kind)
     {
-        uint32_t extra = f[3] != ABSENT ? f[3] : f[4];
-        if (extra != ABSENT)
-        {
-            return maniGraphJsonFault(r, extra - 1, maniGraphFormMember);
-        }
+    case maniGraphConditionParameter:
         if (f[1] == ABSENT || f[2] == ABSENT)
         {
             return maniGraphJsonFault(r, object, maniGraphFormMissing);
         }
-        c->kind = maniGraphConditionParameter;
         return maniGraphJsonRefer(r, &scope->parameters, f[0], &c->parameter) &&
                Choice(r, f[1], kCompares, 6, &c->compare) && Compared(r, scope, f[2], c);
-    }
-    uint32_t extra = f[1] != ABSENT ? f[1] : f[2];
-    if (extra != ABSENT || (f[3] != ABSENT && f[4] != ABSENT))
-    {
-        return maniGraphJsonFault(r, (extra != ABSENT ? extra : f[4]) - 1, maniGraphFormMember);
-    }
-    if (f[3] != ABSENT)
-    {
-        c->kind = maniGraphConditionTrigger;
+    case maniGraphConditionTrigger:
         return maniGraphJsonRefer(r, &scope->parameters, f[3], &c->parameter);
+    case maniGraphConditionTimeInState:
+    case maniGraphConditionPhase:
+        return maniGraphJsonFloat(r, f[kind + 2], &c->value.f[0]);
+    case maniGraphConditionFinished:
+        // Only true: a condition that never holds is a mistake.
+        return maniGraphJsonBool(r, f[6], &finished) &&
+               (finished || maniGraphJsonFault(r, f[6], maniGraphFormValue));
+    default:
+        return maniGraphJsonName(r, f[7], &c->event, &c->eventLength);
     }
-    if (f[4] == ABSENT)
-    {
-        return maniGraphJsonFault(r, object, maniGraphFormMissing);
-    }
-    c->kind = maniGraphConditionTimeInState;
-    c->parameter = MANI_NO_PARAMETER;
-    return maniGraphJsonFloat(r, f[4], &c->value.f[0]);
 }
 
 static bool Conditions(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
@@ -149,7 +172,7 @@ static bool Transition(maniGraphReader* r, const maniGraphScope* scope, uint32_t
     static const char* const kKeys[] = {"from", "to",       "priority", "interruption", "entry",
                                         "fade", "duration", "cooldown", "conditions"};
     static const char* const kInterruptions[] = {"none", "higher", "any"};
-    static const char* const kEntries[] = {"restart", "keep"};
+    static const char* const kEntries[] = {"restart", "keep", "match"};
     static const char* const kFades[] = {"linear", "smoothstep"};
     uint32_t f[9];
     *t = (maniGraphTransitionSource){0};
@@ -157,10 +180,37 @@ static bool Transition(maniGraphReader* r, const maniGraphScope* scope, uint32_t
            State(r, f[1], false, &t->to) &&
            (f[2] == ABSENT || maniGraphJsonIndex(r, f[2], &t->priority)) &&
            Choice(r, f[3], kInterruptions, 3, &t->interruption) &&
-           Choice(r, f[4], kEntries, 2, &t->entry) && Choice(r, f[5], kFades, 2, &t->fade) &&
+           Choice(r, f[4], kEntries, 3, &t->entry) && Choice(r, f[5], kFades, 2, &t->fade) &&
            (f[6] == ABSENT || maniGraphJsonFloat(r, f[6], &t->duration)) &&
            (f[7] == ABSENT || maniGraphJsonFloat(r, f[7], &t->cooldown)) &&
            Conditions(r, scope, f[8], t);
+}
+
+// The final states: an array of state indices.
+static bool Finals(maniGraphReader* r, uint32_t value, maniGraphMachineNodeSource* m)
+{
+    uint32_t count = 0;
+    if (!maniGraphJsonArray(r, value, &count))
+    {
+        return false;
+    }
+    uint32_t* finals = count > 0 ? maniArenaTake(&r->arena, count, sizeof(uint32_t)) : NULL;
+    if (count > 0 && finals == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    uint32_t e = value;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        e = maniGraphJsonNext(r->json, e, k == 0);
+        if (!maniGraphJsonIndex(r, e, &finals[k]))
+        {
+            return false;
+        }
+    }
+    m->finals = finals;
+    m->finalCount = count;
+    return true;
 }
 
 bool maniGraphJsonMachine(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
@@ -170,6 +220,10 @@ bool maniGraphJsonMachine(maniGraphReader* r, const maniGraphScope* scope, const
     *m = (maniGraphMachineNodeSource){0};
     if ((members[0] != ABSENT && !maniGraphJsonIndex(r, members[0], &m->entry)) ||
         (members[1] != ABSENT && !maniGraphJsonIndex(r, members[1], &m->chainLimit)))
+    {
+        return false;
+    }
+    if (members[3] != ABSENT && !Finals(r, members[3], m))
     {
         return false;
     }

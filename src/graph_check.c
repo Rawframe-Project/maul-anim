@@ -370,11 +370,42 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
     tally->inputCount += n->inputCount;
     tally->dataWords +=
         machine ? maniGraphMachineSourceWords(n) : maniGraphDataWords(n->kind, n->inputCount);
-    tally->machineWords += machine ? MANI_GRAPH_BLOCK_SIZE(n->inputCount, transitions) : 0u;
+    tally->machineWords +=
+        machine ? MANI_GRAPH_BLOCK_SIZE(n->inputCount, transitions, maniGraphMachineConditions(n))
+                : 0u;
+    tally->listeners += machine && maniGraphMachineListens(n) ? 1u : 0u;
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
     tally->maskCount += n->kind == maniGraphNodeMask ? 1u : 0u;
     return r;
+}
+
+// The clip lists of the machines that listen: their words, and the
+// longest list.
+static maniBuildResult TallyLists(const maniGraphSource* source, const maniAllocator* allocator,
+                                  maniGraphTally* tally)
+{
+    size_t n = source->nodeCount;
+    uint32_t* work = maniAllocate(allocator, 2 * n, sizeof(uint32_t), 4);
+    if (work == NULL)
+    {
+        return Outcome(mani_errorCapacity);
+    }
+    memset(work, 0, n * sizeof(uint32_t));
+    maniGraphReach reach = {source, NULL, work, work + n, 0, 0};
+    for (uint32_t v = 0; v < n; ++v)
+    {
+        const maniGraphNodeSource* node = &source->nodes[v];
+        bool listens = node->kind == maniGraphNodeMachine && maniGraphMachineListens(node);
+        for (uint32_t k = 0; k < (listens ? node->inputCount : 0u); ++k)
+        {
+            uint32_t count = maniGraphReachClips(&reach, node->inputs[k], NULL, NULL);
+            tally->dataWords += count;
+            tally->longestList = count > tally->longestList ? count : tally->longestList;
+        }
+    }
+    maniRelease(allocator, work, 2 * n, sizeof(uint32_t), 4);
+    return Outcome(mani_success);
 }
 
 static bool CountsValid(const maniGraphSource* source)
@@ -414,6 +445,10 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     if (r.result == mani_success && source->output >= source->nodeCount)
     {
         r = maniGraphRefuse(maniBuildReasonInput, source->output, 0);
+    }
+    if (r.result == mani_success && tallyOut->listeners > 0)
+    {
+        r = TallyLists(source, allocator, tallyOut);
     }
     if (r.result == mani_success &&
         (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX))

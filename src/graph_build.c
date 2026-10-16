@@ -176,11 +176,14 @@ typedef struct Layout
     float* weights;
     // A triangulation's working memory, when a space needs one.
     maniTriangulation* mesh;
-    // Sorting a machine's transitions: keys, order and scratch, as many
-    // as the most transitions of one machine.
+    // Sorting a machine's transitions and a state's clips: keys, order
+    // and scratch, as many as the most of either; the search below its
+    // states and its clips.
     uint64_t* keys;
     uint32_t* order;
     uint32_t sortCount;
+    maniGraphReach reach;
+    maniGraphMachineWork machine;
     // The next machine's first word in an instance's machine state.
     uint32_t blockAt;
     uint32_t dataAt;
@@ -416,10 +419,9 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeMachine)
     {
-        uint32_t* order = lay->order;
-        at = maniPutGraphMachine(d, at, node, lay->blockAt, order, order + lay->sortCount,
-                                 lay->keys);
-        lay->blockAt += MANI_GRAPH_BLOCK_SIZE(n, node->machine.transitionCount);
+        at = maniPutGraphMachine(d, at, node, lay->blockAt, &lay->machine);
+        lay->blockAt += MANI_GRAPH_BLOCK_SIZE(n, node->machine.transitionCount,
+                                              maniGraphMachineConditions(node));
     }
     else
     {
@@ -440,16 +442,17 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         maniStoreU32(e + 4, lay->inputAt);
         maniStoreU32(e + 8, node->inputCount);
         maniStoreU32(e + 12, lay->dataAt);
-        maniStoreU32(e + 16, node->kind == maniGraphNodeMachine
-                                 ? maniGraphMachineSourceWords(node)
-                                 : maniGraphDataWords(node->kind, node->inputCount));
         maniStoreU32(e + 20, w->slot[v]);
         for (uint32_t k = 0; k < node->inputCount; ++k)
         {
             maniStoreU32(lay->sections[3] + 4 * (size_t)lay->inputAt++,
                          w->position[node->inputs[k]]);
         }
+        uint32_t first = lay->dataAt;
         PutData(source, node, lay);
+        maniStoreU32(e + 16, node->kind == maniGraphNodeMachine
+                                 ? lay->dataAt - first
+                                 : maniGraphDataWords(node->kind, node->inputCount));
     }
 }
 
@@ -564,7 +567,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source
     lay.weights = maniAllocate(&builder->allocator, bones, sizeof(float), 4);
     bool mesh = Triangulates(source);
     lay.mesh = mesh ? maniAllocate(&builder->allocator, 1, sizeof(maniTriangulation), 8) : NULL;
-    lay.sortCount = tally->maxTransitions;
+    lay.sortCount =
+        tally->maxTransitions > tally->longestList ? tally->maxTransitions : tally->longestList;
     bool sort = lay.sortCount > 0;
     lay.keys = sort ? maniAllocate(&builder->allocator, lay.sortCount, sizeof(uint64_t), 8) : NULL;
     lay.order =
@@ -577,6 +581,11 @@ static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source
         Release(&builder->allocator, &lay, bones);
         return Outcome(mani_errorCapacity);
     }
+    // The order's state, stack and next inputs are free once it is made.
+    memset(w->state, 0, source->nodeCount * sizeof(uint32_t));
+    lay.reach = (maniGraphReach){source, w->position, w->state, w->stack, 0, 0};
+    lay.machine =
+        (maniGraphMachineWork){lay.keys, lay.order, lay.order + lay.sortCount, w->next, &lay.reach};
     PutHeader(source, tally, w->slotCount, lay.sections[0]);
     PutLists(source, &lay);
     PutNodes(source, w, &lay);

@@ -350,10 +350,20 @@ static void PutCondition(Writer* w, const maniGraphSource* source,
     static const char* const kCompares[] = {"\"==\"", "\"!=\"", "\"<\"",
                                             "\"<=\"", "\">\"",  "\">=\""};
     PutText(w, "{");
-    if (c->kind == maniGraphConditionTimeInState)
+    if (c->kind == maniGraphConditionTimeInState || c->kind == maniGraphConditionPhase)
     {
-        PutKey(w, "timeInState");
+        PutKey(w, c->kind == maniGraphConditionPhase ? "phase" : "timeInState");
         PutFloat(w, c->value.f[0]);
+    }
+    else if (c->kind == maniGraphConditionFinished)
+    {
+        PutKey(w, "finished");
+        PutBool(w, true);
+    }
+    else if (c->kind == maniGraphConditionEvent)
+    {
+        PutKey(w, "event");
+        PutString(w, c->event, c->eventLength);
     }
     else if (c->kind == maniGraphConditionTrigger)
     {
@@ -390,7 +400,7 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
                           const maniGraphTransitionSource* t)
 {
     static const char* const kInterruptions[] = {"\"none\"", "\"higher\"", "\"any\""};
-    static const char* const kEntries[] = {"\"restart\"", "\"keep\""};
+    static const char* const kEntries[] = {"\"restart\"", "\"keep\"", "\"match\""};
     static const char* const kFades[] = {"\"linear\"", "\"smoothstep\""};
     PutText(w, "{");
     PutKey(w, "from");
@@ -434,7 +444,8 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
     PutText(w, "]}");
 }
 
-// A machine's entry, chain limit and transitions, on the node's line.
+// A machine's entry, chain limit, transitions and finals, on the node's
+// line.
 static void PutMachine(Writer* w, const maniGraphSource* source,
                        const maniGraphMachineNodeSource* m)
 {
@@ -450,6 +461,14 @@ static void PutMachine(Writer* w, const maniGraphSource* source,
     {
         PutText(w, t > 0 ? ", " : "");
         PutTransition(w, source, &m->transitions[t]);
+    }
+    PutText(w, "], ");
+    PutKey(w, "finals");
+    PutText(w, "[");
+    for (uint32_t k = 0; k < m->finalCount; ++k)
+    {
+        PutText(w, k > 0 ? ", " : "");
+        PutUnsigned(w, m->finals[k]);
     }
     PutText(w, "]");
 }

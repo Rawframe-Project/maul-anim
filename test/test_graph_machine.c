@@ -44,7 +44,7 @@ static maniGraphInstance* Machine(const maniGraphTransitionSource* transitions, 
     static const uint32_t kStates[3] = {1, 2, 3};
     Parameters();
     maniGraphNodeSource nodes[4] = {
-        {maniGraphNodeMachine, 3, kStates, .machine = {transitions, count, 0, chain, 0}},
+        {maniGraphNodeMachine, 3, kStates, .machine = {transitions, count, 0, chain, 0, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip)};
@@ -56,13 +56,13 @@ static maniGraphInstance* Machine(const maniGraphTransitionSource* transitions, 
 
 static maniGraphConditionSource Greater(uint32_t parameter, float value)
 {
-    return (maniGraphConditionSource){maniGraphConditionParameter, parameter,
-                                      maniGraphCompareGreater, 0, Float(value)};
+    return (maniGraphConditionSource){
+        maniGraphConditionParameter, parameter, maniGraphCompareGreater, 0, Float(value), NULL};
 }
 
 static maniGraphConditionSource Trigger(uint32_t parameter)
 {
-    return (maniGraphConditionSource){maniGraphConditionTrigger, parameter, 0, 0, Int(0)};
+    return (maniGraphConditionSource){maniGraphConditionTrigger, parameter, 0, 0, Int(0), NULL};
 }
 
 static maniGraphTransitionSource Go(uint32_t from, uint32_t to, uint32_t priority, float duration,
@@ -91,7 +91,7 @@ static bool Weights3(maniGraphInstance* instance, const maniGraph* g, float a, f
 static void TestFade(void)
 {
     static const maniGraphConditionSource kFast[1] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}}};
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}, NULL}};
     maniGraphTransitionSource run[1] = {Go(0, 1, 0, 0.5f, kFast, 1)};
     maniGraph g;
     maniGraphInstance* instance = Machine(run, 1, 0, &g);
@@ -124,8 +124,9 @@ static void TestFade(void)
 static void TestInterruption(void)
 {
     static const maniGraphConditionSource kFast[1] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}}};
-    static const maniGraphConditionSource kJump[1] = {{maniGraphConditionTrigger, 1, 0, 0, {{0}}}};
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}, NULL}};
+    static const maniGraphConditionSource kJump[1] = {
+        {maniGraphConditionTrigger, 1, 0, 0, {{0}}, NULL}};
     maniGraphTransitionSource t[2] = {Go(0, 1, 5, 1.0f, kFast, 1),
                                       Go(MANI_GRAPH_ANY_STATE, 2, 1, 1.0f, kJump, 1)};
     const maniGraphInterruption kRules[3] = {maniGraphInterruptionAny, maniGraphInterruptionHigher,
@@ -224,7 +225,7 @@ static void TestCooldown(void)
 static void TestConditions(void)
 {
     static const maniGraphConditionSource kHalf[1] = {
-        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}}};
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}, NULL}};
     maniGraphTransitionSource t[1] = {Go(0, 1, 0, 0.0f, kHalf, 1)};
     maniGraph g;
     maniGraphInstance* instance = Machine(t, 1, 0, &g);
@@ -233,10 +234,10 @@ static void TestConditions(void)
     Update(instance, 0.25f);
     CHECK(Weights3(instance, &g, 0, 1, 0), "half a second in");
     const maniGraphConditionSource kCompares[4] = {
-        {maniGraphConditionParameter, 2, maniGraphCompareEqual, 0, Int(1)},
-        {maniGraphConditionParameter, 3, maniGraphCompareAtLeast, 0, Int(-2)},
-        {maniGraphConditionParameter, 3, maniGraphCompareNotEqual, 0, Int(3)},
-        {maniGraphConditionParameter, 0, maniGraphCompareAtMost, 0, Float(0.5f)}};
+        {maniGraphConditionParameter, 2, maniGraphCompareEqual, 0, Int(1), NULL},
+        {maniGraphConditionParameter, 3, maniGraphCompareAtLeast, 0, Int(-2), NULL},
+        {maniGraphConditionParameter, 3, maniGraphCompareNotEqual, 0, Int(3), NULL},
+        {maniGraphConditionParameter, 0, maniGraphCompareAtMost, 0, Float(0.5f), NULL}};
     t[0] = Go(0, 1, 0, 0.0f, kCompares, 4);
     instance = Machine(t, 1, 0, &g);
     Set(instance, 3, maniGraphParameterInt, Int(-2));
@@ -262,9 +263,9 @@ static void TestConditions(void)
 static void TestEntries(void)
 {
     static const maniGraphConditionSource kQuarter[1] = {
-        {maniGraphConditionTimeInState, 0, 0, 0, {{0.25f}}}};
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.25f}}, NULL}};
     static const maniGraphConditionSource kHalf[1] = {
-        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}}};
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}, NULL}};
     maniGraphTransitionSource t[2] = {Go(0, 1, 0, 0.0f, kQuarter, 1), Go(1, 0, 1, 0.0f, kHalf, 1)};
     for (int keep = 0; keep < 2; ++keep)
     {
@@ -307,7 +308,7 @@ static void TestTimeScale(void)
     maniGraphTransitionSource t[1] = {Go(0, 1, 0, 0.5f, NULL, 0)};
     maniGraphNodeSource nodes[4] = {
         {maniGraphNodeTimeScale, 1, kScaled, .timeScale = {LITERAL(2.0f)}},
-        {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0}},
+        {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraph g;
@@ -324,20 +325,20 @@ static void TestTimeScale(void)
 static void TestNested(void)
 {
     static const maniGraphConditionSource kQuarter[1] = {
-        {maniGraphConditionTimeInState, 0, 0, 0, {{0.25f}}}};
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.25f}}, NULL}};
     static const maniGraphConditionSource kHalf[1] = {
-        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}}};
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}, NULL}};
     static const maniGraphConditionSource kLong[1] = {
-        {maniGraphConditionTimeInState, 0, 0, 0, {{0.75f}}}};
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.75f}}, NULL}};
     static const uint32_t kOuter[2] = {1, 2};
     static const uint32_t kInner[2] = {3, 4};
     maniGraphTransitionSource outer[2] = {Go(0, 1, 0, 0.0f, kQuarter, 1),
                                           Go(1, 0, 1, 0.0f, kLong, 1)};
     maniGraphTransitionSource inner[1] = {Go(0, 1, 0, 0.0f, kHalf, 1)};
     maniGraphNodeSource nodes[5] = {
-        {maniGraphNodeMachine, 2, kOuter, .machine = {outer, 2, 0, 1, 0}},
+        {maniGraphNodeMachine, 2, kOuter, .machine = {outer, 2, 0, 1, 0, NULL}},
         ClipNode(3, 1.0f, maniGraphLoopClip),
-        {maniGraphNodeMachine, 2, kInner, .machine = {inner, 1, 0, 1, 0}},
+        {maniGraphNodeMachine, 2, kInner, .machine = {inner, 1, 0, 1, 0, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraph g;
@@ -364,7 +365,7 @@ static _Alignas(8) uint8_t s_other[8192];
 static void TestSaved(void)
 {
     static const maniGraphConditionSource kFast[1] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}}};
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}, NULL}};
     maniGraphTransitionSource t[1] = {Go(0, 1, 0, 1.0f, kFast, 1)};
     maniGraph g;
     maniGraphInstance* instance = Machine(t, 1, 0, &g);
@@ -387,14 +388,27 @@ static void TestSaved(void)
           "the same after");
     // The block follows the 4 parameters' and 4 nodes' 16 bytes each.
     size_t block = MANI_GRAPH_STATE_HEADER_SIZE + 8 * MANI_GRAPH_VALUE_SIZE;
-    const uint32_t kBad[6][2] = {{0, 3}, {1, 5},           {2, 0xFF800000u},
-                                 {5, 1}, {6, 0x3F800001u}, {12, 0xBF800000u}};
-    for (int k = 0; k < 6; ++k)
+    // The word changed, its value, the word refused: the header, the
+    // record (binary64 high words), a weight, a timer, a heard bit past
+    // the one condition.
+    const uint32_t kBad[12][3] = {{0, 3, 0},
+                                  {1, 5, 1},
+                                  {2, 0xFF800000u, 2},
+                                  {4, 0xFFF00000u, 3},
+                                  {6, 0x3FF00001u, 5},
+                                  {8, 0xBFF00000u, 7},
+                                  {9, 1, 9},
+                                  {12, 0xBFF00000u, 11},
+                                  {13, 2, 13},
+                                  {14, 0x3F800001u, 14},
+                                  {20, 0xBF800000u, 20},
+                                  {21, 2, 21}};
+    for (int k = 0; k < 12; ++k)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
         maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
-        CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kBad[k][0],
+        CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kBad[k][2],
               "a saved block refused at its word");
     }
 }
@@ -439,7 +453,7 @@ static maniBuildResult Built(const maniGraphTransitionSource* t, uint32_t count,
 {
     static const uint32_t kStates[3] = {1, 2, 3};
     maniGraphNodeSource nodes[4] = {
-        {maniGraphNodeMachine, 3, kStates, .machine = {t, count, entry, chain, 0}},
+        {maniGraphNodeMachine, 3, kStates, .machine = {t, count, entry, chain, 0, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip)};
@@ -487,12 +501,12 @@ static void TestRefusals(void)
     CHECK(Transition(Built(t, 2, 0, 0), 1), "17 conditions");
     t[1].conditionCount = 1;
     const maniGraphConditionSource kWrong[6] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareEqual, 0, Float(1.0f)},
-        {maniGraphConditionParameter, 2, maniGraphCompareLess, 0, Int(1)},
-        {maniGraphConditionParameter, 2, maniGraphCompareEqual, 0, Int(2)},
-        {maniGraphConditionTrigger, 2, 0, 0, Int(0)},
-        {maniGraphConditionTimeInState, 0, 0, 0, Float(-1.0f)},
-        {3, 0, 0, 0, Int(0)}};
+        {maniGraphConditionParameter, 0, maniGraphCompareEqual, 0, Float(1.0f), NULL},
+        {maniGraphConditionParameter, 2, maniGraphCompareLess, 0, Int(1), NULL},
+        {maniGraphConditionParameter, 2, maniGraphCompareEqual, 0, Int(2), NULL},
+        {maniGraphConditionTrigger, 2, 0, 0, Int(0), NULL},
+        {maniGraphConditionTimeInState, 0, 0, 0, Float(-1.0f), NULL},
+        {6, 0, 0, 0, Int(0), NULL}};
     for (int k = 0; k < 6; ++k)
     {
         c[0] = kWrong[k];
@@ -506,29 +520,35 @@ static void TestRefusals(void)
 static void TestOpenRefusals(void)
 {
     static const maniGraphConditionSource kFast[1] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}}};
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}, NULL}};
     maniGraphTransitionSource t[2] = {Go(0, 1, 0, 0.5f, kFast, 1), Go(1, 2, 4, 0.0f, NULL, 0)};
     maniGraph g;
     (void)Machine(t, 2, 0, &g);
-    // Words: entry 0, chain 1, count 2, block 3; transitions from 4 and
-    // 12; the condition from 20.
+    // Words: entry 0, chain 1, count 2, block 3, conditions 4, listens
+    // 5; transitions from 6 and 14; the condition from 22; the states
+    // from 26.
     CHECK(RefusedAtWord(&g, 3, 0, 3), "an entry past the states");
     CHECK(RefusedAtWord(&g, 3, 1, 0), "a chain of 0");
     CHECK(RefusedAtWord(&g, 3, 1, 17), "a chain past 16");
     CHECK(RefusedAtWord(&g, 3, 3, 1), "a block not where the count puts it");
-    CHECK(RefusedAtWord(&g, 3, 4, 3), "from past the states");
-    CHECK(RefusedAtWord(&g, 3, 5, 0), "to its own source");
+    CHECK(RefusedAtWord(&g, 3, 5, 1), "listening with nothing to listen for");
+    CHECK(RefusedAtWord(&g, 3, 6, 3), "from past the states");
+    CHECK(RefusedAtWord(&g, 3, 7, 0), "to its own source");
     uint64_t at = 0;
-    CHECK(Crafted(&g, 3, 14, 0, &at).result == mani_success, "an equal priority (a tie) opens");
-    CHECK(RefusedAtWordOf(&g, 3, 6, 5, 14), "priorities out of order");
-    CHECK(RefusedAtWord(&g, 3, 7, 3), "an interruption past any");
-    CHECK(RefusedAtWord(&g, 3, 7, 0x200u), "a fade past smoothstep");
-    CHECK(RefusedAtWord(&g, 3, 8, Bits(-1.0f)), "a negative duration");
-    CHECK(RefusedAtWord(&g, 3, 9, 0x7FC00000u), "a cooldown not finite");
-    CHECK(RefusedAtWord(&g, 3, 10, 1), "a first condition not in turn");
-    CHECK(RefusedAtWordOf(&g, 3, 20, 7, 20), "a condition of no kind");
-    CHECK(RefusedAtWordOf(&g, 3, 21, 1, 20), "a float compare on a trigger");
-    CHECK(RefusedAtWordOf(&g, 3, 22, maniGraphCompareEqual, 20), "a float compared for equality");
+    CHECK(Crafted(&g, 3, 16, 0, &at).result == mani_success, "an equal priority (a tie) opens");
+    CHECK(RefusedAtWordOf(&g, 3, 8, 5, 16), "priorities out of order");
+    CHECK(RefusedAtWord(&g, 3, 9, 3), "an interruption past any");
+    CHECK(RefusedAtWord(&g, 3, 9, 0x30u), "an entry past match");
+    CHECK(RefusedAtWord(&g, 3, 9, 0x200u), "a fade past smoothstep");
+    CHECK(RefusedAtWord(&g, 3, 10, Bits(-1.0f)), "a negative duration");
+    CHECK(RefusedAtWord(&g, 3, 11, 0x7FC00000u), "a cooldown not finite");
+    CHECK(RefusedAtWord(&g, 3, 12, 1), "a first condition not in turn");
+    CHECK(RefusedAtWordOf(&g, 3, 22, 6, 22), "a condition of no kind");
+    CHECK(RefusedAtWordOf(&g, 3, 23, 1, 22), "a float compare on a trigger");
+    CHECK(RefusedAtWordOf(&g, 3, 24, maniGraphCompareEqual, 22), "a float compared for equality");
+    CHECK(RefusedAtWord(&g, 3, 26, 2), "a final flag past 1");
+    CHECK(RefusedAtWord(&g, 3, 27, 0), "a nearest machine where it does not listen");
+    CHECK(RefusedAtWord(&g, 3, 28, 1), "a list's first not in turn");
 }
 
 // A machine in a subgraph, its condition reading the outer graph's
@@ -538,11 +558,12 @@ static void TestSubgraph(void)
     static const uint32_t kStates[2] = {1, 2};
     maniGraphParameterSource inner = Parameter("v", maniGraphParameterFloat, Float(0));
     static const maniGraphConditionSource kFast[1] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}}};
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, {{1.0f}}, NULL}};
     maniGraphTransitionSource t[1] = {Go(0, 1, 0, 0.5f, kFast, 1)};
-    maniGraphNodeSource nodes[3] = {{maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0}},
-                                    ClipNode(0, 1.0f, maniGraphLoopClip),
-                                    ClipNode(1, 1.0f, maniGraphLoopClip)};
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraphSource sub = {&s_skeleton, &inner, kSlots, NULL, nodes, 1, CLIPS, 0, 3, 0, 0};
     maniGraphParameterSource outer[2] = {Parameter("a", maniGraphParameterFloat, Float(0)),
                                          Parameter("speed", maniGraphParameterFloat, Float(0))};
@@ -550,7 +571,7 @@ static void TestSubgraph(void)
     maniGraphNodeSource node = {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                 .subgraph = {&sub, kMap}};
     static const maniGraphConditionSource kFlatFast[1] = {
-        {maniGraphConditionParameter, 1, maniGraphCompareGreater, 0, {{1.0f}}}};
+        {maniGraphConditionParameter, 1, maniGraphCompareGreater, 0, {{1.0f}}, NULL}};
     maniGraphTransitionSource flatT[1] = {Go(0, 1, 0, 0.5f, kFlatFast, 1)};
     maniGraphNodeSource flat[3] = {nodes[0], nodes[1], nodes[2]};
     flat[0].machine.transitions = flatT;
@@ -607,22 +628,23 @@ static void TestJson(void)
 {
     static const uint32_t kStates[3] = {1, 2, 3};
     const maniGraphConditionSource kRun[3] = {
-        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, Float(1.5f)},
-        {maniGraphConditionParameter, 2, maniGraphCompareEqual, 0, Int(1)},
-        {maniGraphConditionParameter, 3, maniGraphCompareAtMost, 0, Int(-3)}};
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, Float(1.5f), NULL},
+        {maniGraphConditionParameter, 2, maniGraphCompareEqual, 0, Int(1), NULL},
+        {maniGraphConditionParameter, 3, maniGraphCompareAtMost, 0, Int(-3), NULL}};
     const maniGraphConditionSource kJump[2] = {
-        {maniGraphConditionTrigger, 1, 0, 0, Int(0)},
-        {maniGraphConditionTimeInState, MANI_NO_PARAMETER, 0, 0, Float(0.25f)}};
+        {maniGraphConditionTrigger, 1, 0, 0, Int(0), NULL},
+        {maniGraphConditionTimeInState, MANI_NO_PARAMETER, 0, 0, Float(0.25f), NULL}};
     maniGraphTransitionSource t[2] = {Go(0, 1, 2, 0.5f, kRun, 3),
                                       Go(MANI_GRAPH_ANY_STATE, 2, 1, 0.0f, kJump, 2)};
     t[0].interruption = maniGraphInterruptionHigher;
     t[0].entry = maniGraphEntryKeep;
     t[0].fade = maniGraphFadeSmoothstep;
     t[0].cooldown = 1.0f;
-    maniGraphNodeSource nodes[4] = {{maniGraphNodeMachine, 3, kStates, .machine = {t, 2, 1, 6, 0}},
-                                    ClipNode(0, 1.0f, maniGraphLoopClip),
-                                    ClipNode(1, 1.0f, maniGraphLoopClip),
-                                    ClipNode(3, 1.0f, maniGraphLoopClip)};
+    maniGraphNodeSource nodes[4] = {
+        {maniGraphNodeMachine, 3, kStates, .machine = {t, 2, 1, 6, 0, NULL}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip),
+        ClipNode(3, 1.0f, maniGraphLoopClip)};
     maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 4, CLIPS, 0, 4, 0, 0};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "\"entry\": 1, \"chainLimit\": 6, \"transitions\": [{\"from\": 0, "
@@ -633,7 +655,7 @@ static void TestJson(void)
                          "\"compare\": \"==\", \"value\": true}, {\"parameter\": \"gait\", "
                          "\"compare\": \"<=\", \"value\": -3}]}, {\"from\": \"any\"") != NULL &&
               strstr(s_text, "\"conditions\": [{\"trigger\": \"jump\"}, {\"timeInState\": "
-                             "0.25}]}]}") != NULL,
+                             "0.25}]}], \"finals\": []}") != NULL,
           "the form");
 }
 
