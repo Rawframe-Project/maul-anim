@@ -268,7 +268,7 @@ runtime allocates (mani-0001).
   and is lerped (slerped for rotation) into the input by
   `smoothstep(t / T)`. The half-lives are the node's (0.3, 0.1 and 1.0
   in the JSON form by default; inertialization takes them all 0). Its
-  block keeps 48 words a bone where inertialization's keeps 38.
+  capture keeps 28 words a bone where inertialization's keeps 18.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`
@@ -333,6 +333,19 @@ clips (a plain blend of the same clips, 5,199); at 256 states 51,113
 and 62,002, the machine's own share about 190 instructions a state. A
 one-shot over a clip takes 1,404 (a blend of the two clips, 1,167).
 
+An inertialize node keeps its two last outputs as copies of the pose's
+locals, the newer over the older, so a frame (update and evaluation)
+with nothing to ease costs one copy: on a 64-bone chain, a machine of
+two clips under the node takes 21,420 instructions a frame against
+20,966 without it. Switching once a second over 0.2 s, a fifth of the
+frames easing, inertialization takes 29,667 a frame and dead blending
+40,370, against 23,781 for a linear cross-fade of the same clips, which
+samples both while it runs: with these one-track clips sampling is
+cheap, so easing costs more than the second clip; with clips of many
+tracks the cross-fade's second sampling grows and the node's easing
+does not. Dead blending's exponentials are skipped for axes with no
+speed.
+
 Every check, choice and refusal is tested against a change made to its
 line: of 203 such changes to the graph's sources, the JSON forms and
 the binary32 writer, every one is caught but seven that cannot change a
@@ -348,4 +361,8 @@ box test the exact edge test repeats). Of 102 changes to the state
 machines and the one-shots, every one is caught but two that
 cannot change a result (whole wraps rounded from a difference that is
 already whole, and a greatest index the search meets first anyway).
+Of 78 changes to the inertialize node and dead blending, every one is
+caught but two that cannot change a result (the pending word a reset
+writes, which the next evaluation drops unread, and the logarithm of a
+scale axis not positive, never read).
 Opening, saved state and the JSON reader are fuzzed.

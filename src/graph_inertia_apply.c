@@ -29,6 +29,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 float maniGraphQuintic(float x0, float v0, float t1, float t)
 {
@@ -85,9 +86,8 @@ static Channel Settle(maniVec3 direction, float x0, float before, float dt, floa
 }
 
 // A vector channel: the offset last - input, the one before projected
-// on its direction.
-static Channel Vector(maniVec3 last, maniVec3 before, maniVec3 input, bool moving, float dt,
-                      float duration)
+// on its direction (before is last when there is no speed).
+static Channel Vector(maniVec3 last, maniVec3 before, maniVec3 input, float dt, float duration)
 {
     maniVec3 d = maniVec3Sub(last, input);
     float x0 = maniVec3Length(d);
@@ -97,7 +97,7 @@ static Channel Vector(maniVec3 last, maniVec3 before, maniVec3 input, bool movin
     }
     maniVec3 direction = maniVec3Scale(d, 1.0f / x0);
     float projected = maniVec3Dot(maniVec3Sub(before, input), direction);
-    return Settle(direction, x0, moving ? projected : x0, dt, duration);
+    return Settle(direction, x0, projected, dt, duration);
 }
 
 static maniQuat Shorter(maniQuat q)
@@ -107,8 +107,7 @@ static maniQuat Shorter(maniQuat q)
 
 // A rotation channel: the turn last * input^-1 by axis and angle, the
 // one before by its twist about that axis.
-static Channel Rotation(maniQuat last, maniQuat before, maniQuat input, bool moving, float dt,
-                        float duration)
+static Channel Rotation(maniQuat last, maniQuat before, maniQuat input, float dt, float duration)
 {
     maniQuat inverse = maniQuatConjugate(input);
     maniQuat q = Shorter(maniQuatMul(last, inverse));
@@ -122,22 +121,23 @@ static Channel Rotation(maniQuat last, maniQuat before, maniQuat input, bool mov
     float x0 = 2.0f * maniAtan2(s, q.w);
     maniQuat p = Shorter(maniQuatMul(before, inverse));
     float twist = 2.0f * maniAtan2(maniVec3Dot(axis, (maniVec3){p.x, p.y, p.z}), p.w);
-    return Settle(axis, x0, moving ? twist : x0, dt, duration);
+    return Settle(axis, x0, twist, dt, duration);
 }
 
-static void Capture(uint32_t* block, uint32_t bones, float* locals, bool moving, float dt,
-                    float duration)
+static void Capture(uint32_t* block, const maniGraphInertia* node, float* locals, bool moving,
+                    float dt, float duration)
 {
-    for (uint32_t b = 0; b < bones; ++b)
+    uint32_t lastAt = maniGraphInertiaHistory(block, node->bones, true);
+    uint32_t beforeAt = maniGraphInertiaHistory(block, node->bones, false);
+    for (uint32_t b = 0; b < node->bones; ++b)
     {
-        uint32_t at = maniGraphInertiaBone(b, maniGraphInertialization);
         maniGraphTrs in = maniGraphTrsRead(maniPoseSlot(locals, b));
-        maniGraphTrs last = maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_LAST);
-        maniGraphTrs before = moving ? maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_PREV) : last;
-        uint32_t capture = at + MANI_GRAPH_INERTIA_CAPTURE;
-        Store(block, capture, Vector(last.t, before.t, in.t, moving, dt, duration));
-        Store(block, capture + 6, Rotation(last.r, before.r, in.r, moving, dt, duration));
-        Store(block, capture + 12, Vector(last.s, before.s, in.s, moving, dt, duration));
+        maniGraphTrs last = maniGraphTrsHeld(block, lastAt, b);
+        maniGraphTrs before = moving ? maniGraphTrsHeld(block, beforeAt, b) : last;
+        uint32_t capture = maniGraphInertiaCapture(node, b);
+        Store(block, capture, Vector(last.t, before.t, in.t, dt, duration));
+        Store(block, capture + 6, Rotation(last.r, before.r, in.r, dt, duration));
+        Store(block, capture + 12, Vector(last.s, before.s, in.s, dt, duration));
     }
 }
 
@@ -146,12 +146,11 @@ static maniVec3 Ease(maniVec3 input, Channel c, float t)
     return maniVec3Add(input, maniVec3Scale(c.direction, maniGraphQuintic(c.x0, c.v0, c.t1, t)));
 }
 
-static void Apply(const uint32_t* block, uint32_t bones, float* locals, float t)
+static void Apply(const uint32_t* block, const maniGraphInertia* node, float* locals, float t)
 {
-    for (uint32_t b = 0; b < bones; ++b)
+    for (uint32_t b = 0; b < node->bones; ++b)
     {
-        uint32_t capture =
-            maniGraphInertiaBone(b, maniGraphInertialization) + MANI_GRAPH_INERTIA_CAPTURE;
+        uint32_t capture = maniGraphInertiaCapture(node, b);
         float* slot = maniPoseSlot(locals, b);
         maniGraphTrs x = maniGraphTrsRead(slot);
         Channel r = Load(block, capture + 6);
@@ -163,32 +162,24 @@ static void Apply(const uint32_t* block, uint32_t bones, float* locals, float t)
     }
 }
 
-// The output kept: replacing the last within one update, else the last
-// becoming the one before.
-static void Remember(uint32_t* block, const maniGraphInertia* node, float* locals)
+// The output kept: over the last within one update (a second
+// evaluation), else over the one before, the last becoming the one
+// before.
+static void Remember(uint32_t* block, const maniGraphInertia* node, const float* locals)
 {
-    uint32_t bones = node->bones;
     uint32_t flags = block[maniGraphInertiaFlags];
     uint32_t serial = block[maniGraphInertiaSerial];
-    bool again =
-        (flags & maniGraphInertiaLastKept) != 0 && block[maniGraphInertiaLastSerial] == serial;
-    for (uint32_t b = 0; b < bones && !again; ++b)
-    {
-        uint32_t at = maniGraphInertiaBone(b, node->method);
-        maniGraphTrsKeep(block, at + MANI_GRAPH_INERTIA_PREV,
-                         maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_LAST));
-    }
-    if (!again && (flags & maniGraphInertiaLastKept) != 0)
+    bool kept = (flags & maniGraphInertiaLastKept) != 0;
+    bool again = kept && block[maniGraphInertiaLastSerial] == serial;
+    if (!again && kept)
     {
         flags |= maniGraphInertiaPrevKept;
         block[maniGraphInertiaPrevSerial] = block[maniGraphInertiaLastSerial];
     }
-    for (uint32_t b = 0; b < bones; ++b)
-    {
-        maniGraphTrs x = maniGraphTrsRead(maniPoseSlot(locals, b));
-        maniGraphTrsKeep(block, maniGraphInertiaBone(b, node->method) + MANI_GRAPH_INERTIA_LAST, x);
-    }
+    flags ^= again ? 0u : (uint32_t)maniGraphInertiaLastSecond;
     block[maniGraphInertiaFlags] = flags | maniGraphInertiaLastKept;
+    memcpy(block + maniGraphInertiaHistory(block, node->bones, true), locals,
+           4 * (size_t)MANI_GRAPH_INERTIA_HISTORY(node->bones));
     block[maniGraphInertiaLastSerial] = serial;
     block[maniGraphInertiaLastStep] = block[maniGraphInertiaStep];
 }
@@ -207,7 +198,7 @@ void maniGraphInertiaEvaluate(uint32_t* block, const maniGraphInertia* node, con
         float dt = maniGraphInertiaGet(block, maniGraphInertiaLastStep);
         if (node->method == maniGraphInertialization)
         {
-            Capture(block, node->bones, locals, moving, dt, pending);
+            Capture(block, node, locals, moving, dt, pending);
         }
         else
         {
@@ -226,7 +217,7 @@ void maniGraphInertiaEvaluate(uint32_t* block, const maniGraphInertia* node, con
     block[maniGraphInertiaFlags] = flags;
     if ((flags & maniGraphInertiaActive) != 0 && node->method == maniGraphInertialization)
     {
-        Apply(block, node->bones, locals, elapsed);
+        Apply(block, node, locals, elapsed);
     }
     else if ((flags & maniGraphInertiaActive) != 0)
     {

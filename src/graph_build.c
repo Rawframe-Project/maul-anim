@@ -12,6 +12,7 @@
 #include "container.h"
 #include "graph_check.h"
 #include "graph_file.h"
+#include "graph_inertia.h"
 #include "graph_inline.h"
 #include "graph_machine_check.h"
 #include "sort.h"

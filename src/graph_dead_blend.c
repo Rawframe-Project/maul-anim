@@ -120,13 +120,15 @@ void maniGraphDeadCapture(uint32_t* block, const maniGraphInertia* node, float* 
 {
     // 1 / dt, or 0 for no speed.
     float rate = moving && dt > 0.0f ? 1.0f / dt : 0.0f;
+    uint32_t lastAt = maniGraphInertiaHistory(block, node->bones, true);
+    uint32_t beforeAt = maniGraphInertiaHistory(block, node->bones, false);
     for (uint32_t b = 0; b < node->bones; ++b)
     {
-        uint32_t at = maniGraphInertiaBone(b, node->method);
         maniGraphTrs in = maniGraphTrsRead(maniPoseSlot(locals, b));
-        maniGraphTrs x = maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_LAST);
-        maniGraphTrs p = rate > 0.0f ? maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_PREV) : x;
-        uint32_t capture = at + MANI_GRAPH_INERTIA_CAPTURE;
+        maniGraphTrs x = maniGraphTrsHeld(block, lastAt, b);
+        // With no speed the rate zeroes every difference from it.
+        maniGraphTrs p = maniGraphTrsHeld(block, beforeAt, b);
+        uint32_t capture = maniGraphInertiaCapture(node, b);
         maniGraphTrsKeep(block, capture + Origin, x);
         Channel(block, capture, node, maniVec3Scale(maniVec3Sub(x.t, p.t), rate),
                 maniVec3Sub(in.t, x.t));
@@ -139,10 +141,22 @@ void maniGraphDeadCapture(uint32_t* block, const maniGraphInertia* node, float* 
     }
 }
 
-// How far a speed decaying at rate y carries in t seconds.
+// How far a speed decaying at rate y carries in t seconds (none for no
+// speed, without the exponential: most bones hold their translation and
+// scale).
 static float Carry(float v, float y, float t)
 {
+    if (v == 0.0f)
+    {
+        return 0.0f;
+    }
     return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : v * t;
+}
+
+// A scale axis grown by e to the carried logarithm.
+static float Grow(float s, float carried)
+{
+    return carried != 0.0f ? s * maniExpF(carried) : s;
 }
 
 static maniVec3 Carried(const uint32_t* block, uint32_t at, float t)
@@ -168,14 +182,14 @@ void maniGraphDeadApply(const uint32_t* block, const maniGraphInertia* node, flo
     float w = u * u * (3.0f - 2.0f * u);
     for (uint32_t b = 0; b < node->bones; ++b)
     {
-        uint32_t capture = maniGraphInertiaBone(b, node->method) + MANI_GRAPH_INERTIA_CAPTURE;
+        uint32_t capture = maniGraphInertiaCapture(node, b);
         float* slot = maniPoseSlot(locals, b);
         maniGraphTrs in = maniGraphTrsRead(slot);
         maniGraphTrs x = maniGraphTrsKept(block, capture + Origin);
         maniVec3 s = Carried(block, capture + 6, t);
         x.t = maniVec3Add(x.t, Carried(block, capture, t));
         x.r = maniQuatMul(Exp(Carried(block, capture + 3, t)), x.r);
-        x.s = (maniVec3){x.s.x * maniExpF(s.x), x.s.y * maniExpF(s.y), x.s.z * maniExpF(s.z)};
+        x.s = (maniVec3){Grow(x.s.x, s.x), Grow(x.s.y, s.y), Grow(x.s.z, s.z)};
         maniGraphTrsWrite(slot, (maniGraphTrs){Lerp(x.t, in.t, w), maniQuatSlerp(x.r, in.r, w),
                                                Lerp(x.s, in.s, w)});
     }

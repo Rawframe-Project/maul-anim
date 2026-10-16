@@ -1863,3 +1863,93 @@ mf-condition-sum | src/graph_machine_file.c | return first == Word(g, data + 4) 
 me-machine-weight | src/graph_evaluate.c | e->layers[count++] = (maniBlendLayer){input, weight, NULL}; | e->layers[count++] = (maniBlendLayer){input, 1.0f, NULL};
 mj-to-any | src/graph_json_machine.c | if (any && maniGraphJsonWord(r, value, kAny, 1) == 0) | if (maniGraphJsonWord(r, value, kAny, 1) == 0)
 mj-write-any | src/graph_json.c | if (t->from == MANI_GRAPH_ANY_STATE) | if (false)
+
+# Inertialize nodes (mani-0023), 2026-10-16: 78 mutants of the quintic,
+# the capture and its history, the saved block and the words, dead
+# blending's speeds, half-lives and extrapolation, and the requests from
+# triggers, time scales and machine chains. Two lines found redundant
+# (the speed's "moving" choice, given the outputs it chooses between)
+# and removed; the rest killed but two equivalents.
+iq-end | src/graph_inertia_apply.c | if (!(t < t1) || x0 == 0.0f) | if (!(t <= t1) || x0 == 0.0f)
+iq-zero | src/graph_inertia_apply.c | if (!(t < t1) || x0 == 0.0f) | if (!(t < t1))
+iq-u | src/graph_inertia_apply.c | float u = t / t1; | float u = t;
+iq-w | src/graph_inertia_apply.c | float w = v0 * t1; | float w = v0;
+iq-k | src/graph_inertia_apply.c | float k = -8.0f * w - 20.0f * x0; | float k = -8.0f * w - 21.0f * x0;
+iq-k-clamp | src/graph_inertia_apply.c | k = k > 0.0f ? k : 0.0f; | k = k;
+iq-p | src/graph_inertia_apply.c | float p = k + 6.0f * w + 12.0f * x0; | float p = k + 6.0f * w + 11.0f * x0;
+iq-q | src/graph_inertia_apply.c | float q = 3.0f * k + 16.0f * w + 30.0f * x0; | float q = 3.0f * k + 15.0f * w + 30.0f * x0;
+iq-r | src/graph_inertia_apply.c | float r = 3.0f * k + 12.0f * w + 20.0f * x0; | float r = 2.0f * k + 12.0f * w + 20.0f * x0;
+iq-poly | src/graph_inertia_apply.c | return x0 + u * (w + u * (0.5f * k + u * (-0.5f * r + u * (0.5f * q - u * 0.5f * p)))); | return x0 + u * (w + u * (0.5f * k + u * (-0.5f * r + u * (0.5f * q - 0.5f * p))));
+is-speed | src/graph_inertia_apply.c | float v0 = dt > 0.0f ? (x0 - before) / dt : 0.0f; | float v0 = dt > 0.0f ? (x0 - before) : 0.0f;
+is-clamp | src/graph_inertia_apply.c | v0 = v0 < 0.0f ? v0 : 0.0f; | v0 = v0;
+is-cut | src/graph_inertia_apply.c | float cut = v0 < 0.0f ? -5.0f * x0 / v0 : duration; | float cut = duration;
+is-cut-min | src/graph_inertia_apply.c | return (Channel){direction, x0, v0, cut < duration ? cut : duration}; | return (Channel){direction, x0, v0, duration};
+iv-none | src/graph_inertia_apply.c | if (!(x0 > 0.0f)) | if (x0 < 0.0f)
+iv-project | src/graph_inertia_apply.c | float projected = maniVec3Dot(maniVec3Sub(before, input), direction); | float projected = maniVec3Dot(maniVec3Sub(before, input), direction) * 0.5f;
+ir-shorter | src/graph_inertia_apply.c | maniQuat q = Shorter(maniQuatMul(last, inverse)); | maniQuat q = maniQuatMul(last, inverse);
+ir-angle | src/graph_inertia_apply.c | float x0 = 2.0f * maniAtan2(s, q.w); | float x0 = maniAtan2(s, q.w);
+ir-twist | src/graph_inertia_apply.c | float twist = 2.0f * maniAtan2(maniVec3Dot(axis, (maniVec3){p.x, p.y, p.z}), p.w); | float twist = 2.0f * maniAtan2(maniVec3Dot(axis, (maniVec3){p.x, p.y, p.z}), 1.0f);
+ic-before | src/graph_inertia_apply.c | maniGraphTrs before = moving ? maniGraphTrsHeld(block, beforeAt, b) : last; | maniGraphTrs before = maniGraphTrsHeld(block, beforeAt, b);
+ic-rot | src/graph_inertia_apply.c | Store(block, capture + 6, Rotation(last.r, before.r, in.r, dt, duration)); | Store(block, capture + 6, Rotation(last.r, last.r, in.r, dt, duration));
+ic-scale | src/graph_inertia_apply.c | Store(block, capture + 12, Vector(last.s, before.s, in.s, dt, duration)); | Store(block, capture + 12, Vector(in.s, before.s, in.s, dt, duration));
+ia-angle | src/graph_inertia_apply.c | x.r = angle != 0.0f ? maniQuatMul(maniQuatFromAxisAngle(r.direction, angle), x.r) : x.r; | x.r = angle != 0.0f ? maniQuatMul(x.r, maniQuatFromAxisAngle(r.direction, angle)) : x.r;
+ia-scale | src/graph_inertia_apply.c | x.s = Ease(x.s, Load(block, capture + 12), t); | x.s = x.s;
+im-again | src/graph_inertia_apply.c | bool again = kept && block[maniGraphInertiaLastSerial] == serial; | bool again = false;
+im-prev | src/graph_inertia_apply.c | flags |= maniGraphInertiaPrevKept; | flags |= 0u;
+im-prev-serial | src/graph_inertia_apply.c | block[maniGraphInertiaPrevSerial] = block[maniGraphInertiaLastSerial]; | block[maniGraphInertiaPrevSerial] = serial;
+im-last-step | src/graph_inertia_apply.c | block[maniGraphInertiaLastStep] = block[maniGraphInertiaStep]; | block[maniGraphInertiaLastStep] = 0;
+ie-pending | src/graph_inertia_apply.c | if (pending < HUGE_VALF && (flags & maniGraphInertiaLastKept) != 0) | if (pending < HUGE_VALF)
+ie-moving | src/graph_inertia_apply.c | block[maniGraphInertiaPrevSerial] + 1u == block[maniGraphInertiaLastSerial]; | true;
+ie-elapsed | src/graph_inertia_apply.c | maniGraphInertiaGet(block, maniGraphInertiaStep)); | 0.0f);
+ie-clear | src/graph_inertia_apply.c | maniGraphInertiaSet(block, maniGraphInertiaPending, HUGE_VALF); | (void)0;
+ie-done | src/graph_inertia_apply.c | flags = elapsed < maniGraphInertiaGet(block, maniGraphInertiaDuration) | flags = elapsed <= maniGraphInertiaGet(block, maniGraphInertiaDuration)
+# ii-reset-pending survives, equivalent: a reset clears the kept outputs,
+# so the next evaluation drops whatever is pending before it is read;
+# +inf stays the block's word for no request.
+ii-reset-pending | src/graph_inertia.c | maniGraphInertiaSet(block, maniGraphInertiaPending, HUGE_VALF); | maniGraphInertiaSet(block, maniGraphInertiaPending, 0.0f);
+ii-flags | src/graph_inertia.c | if (maniLoadU32(bytes) > 15u) | if (maniLoadU32(bytes) > 16u)
+ii-pending | src/graph_inertia.c | if (!(pending >= 0.0f)) | if (pending < 0.0f)
+ii-zero | src/graph_inertia.c | return maniLoadU32(bytes + 4 * 9) == 0 ? UINT32_MAX : 9u; | return UINT32_MAX;
+ii-unit | src/graph_inertia.c | return (length == 0.0f || (length > 0.99f && length < 1.01f)) && v[5] >= 0.0f; | return (length == 0.0f || length > 0.99f) && v[5] >= 0.0f;
+ii-dead-rate | src/graph_inertia.c | if (!isfinite(v) || (k >= 19 && v < 0.0f)) | if (!isfinite(v))
+ii-dead-at | src/graph_inertia.c | wrong = k == UINT32_MAX ? k : capture + k; | wrong = k == UINT32_MAX ? k : capture;
+ii-history | src/graph_inertia.c | wrong = isfinite(FloatOf(maniLoadU32(bytes + 4 * (size_t)k))) ? UINT32_MAX : k; | wrong = UINT32_MAX;
+ih-scale | src/graph_inertia.c | const bool valid[3] = {dead ? Seconds(v[0]) : v[0] == 0.0f, | const bool valid[3] = {dead ? Seconds(v[0]) : true,
+ih-min | src/graph_inertia.c | dead ? v[1] > 0.0f && v[1] < HUGE_VALF : v[1] == 0.0f, | dead ? v[1] >= 0.0f && v[1] < HUGE_VALF : v[1] == 0.0f,
+ih-max | src/graph_inertia.c | dead ? v[2] >= v[1] && v[2] < HUGE_VALF : v[2] == 0.0f}; | dead ? v[2] < HUGE_VALF : v[2] == 0.0f};
+iw-method | src/graph_inertia.c | if (method > maniGraphDeadBlending) | if (method > 2u)
+iw-block | src/graph_inertia.c | return Word(g, data + maniGraphInertiaBlock) == block ? UINT32_MAX | return Word(g, data + maniGraphInertiaBlock) >= block ? UINT32_MAX
+id-log-zero | src/graph_dead_blend.c | return s > 0.0f ? maniVec3Scale(xyz, 2.0f * maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0}; | return s > 0.0f ? maniVec3Scale(xyz, maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0};
+id-log-shorter | src/graph_dead_blend.c | q = Shorter(q); | q = q;
+# id-logscale survives, equivalent: the logarithm of an axis not positive
+# is never read, its flag false.
+id-logscale | src/graph_dead_blend.c | *out = s > 0.0f ? maniLogF(s) : 0.0f; | *out = s > 0.0f ? maniLogF(s) : 1.0f;
+id-logscale-ok | src/graph_dead_blend.c | return s > 0.0f; | return s != 0.0f;
+id-eps | src/graph_dead_blend.c | float v = speed >= 0.0f ? (speed > 1e-8f ? speed : 1e-8f) : (speed < -1e-8f ? speed : -1e-8f); | float v = speed >= 0.0f ? (speed > 1e-8f ? speed : 1e-8f) : (speed < -1e-8f ? speed : 1e-8f);
+id-h | src/graph_dead_blend.c | float h = node->halfLifeScale * distance / v; | float h = distance / v;
+id-min | src/graph_dead_blend.c | h = h > node->halfLifeMin ? h : node->halfLifeMin; | h = h;
+id-max | src/graph_dead_blend.c | h = h < node->halfLifeMax ? h : node->halfLifeMax; | h = h < 2.0f * node->halfLifeMax ? h : 2.0f * node->halfLifeMax;
+id-speed-word | src/graph_dead_blend.c | maniGraphInertiaSet(block, at + Speed + k, v); | maniGraphInertiaSet(block, at + Speed + k, 0.0f);
+id-scale-speed | src/graph_dead_blend.c | v[k] = positive && earlier ? (lx - lp) * rate : 0.0f; | v[k] = earlier ? (lx - lp) * rate : 0.0f;
+id-scale-dist | src/graph_dead_blend.c | d[k] = positive && target ? li - lx : 0.0f; | d[k] = positive && target ? lx - li : 0.0f;
+id-rate | src/graph_dead_blend.c | float rate = moving && dt > 0.0f ? 1.0f / dt : 0.0f; | float rate = moving ? 1.0f / dt : 0.0f;
+id-t-dist | src/graph_dead_blend.c | maniVec3Sub(in.t, x.t)); | maniVec3Sub(x.t, in.t));
+id-turn | src/graph_dead_blend.c | maniVec3 turn = maniVec3Scale(Log(maniQuatMul(x.r, maniQuatConjugate(p.r))), rate); | maniVec3 turn = maniVec3Scale(Log(maniQuatMul(p.r, maniQuatConjugate(x.r))), rate);
+id-turn-dist | src/graph_dead_blend.c | Channel(block, capture + 3, node, turn, Log(maniQuatMul(in.r, maniQuatConjugate(x.r)))); | Channel(block, capture + 3, node, turn, Log(maniQuatMul(x.r, maniQuatConjugate(in.r))));
+id-carry | src/graph_dead_blend.c | return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : v * t; | return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : 0.0f;
+id-carry-exp | src/graph_dead_blend.c | return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : v * t; | return y > 0.0f ? v * t : v * t;
+id-smooth | src/graph_dead_blend.c | float w = u * u * (3.0f - 2.0f * u); | float w = u;
+id-rot-exp | src/graph_dead_blend.c | x.r = maniQuatMul(Exp(Carried(block, capture + 3, t)), x.r); | x.r = x.r;
+id-scale-exp | src/graph_dead_blend.c | x.s = (maniVec3){Grow(x.s.x, s.x), Grow(x.s.y, s.y), Grow(x.s.z, s.z)}; | x.s = (maniVec3){Grow(x.s.x, s.x), x.s.y, Grow(x.s.z, s.z)};
+iu-seek | src/graph_update.c | maniGraphResetInertia(block, &node); | (void)node;
+iu-serial | src/graph_update.c | block[maniGraphInertiaSerial] += 1u; | block[maniGraphInertiaSerial] += 2u;
+iu-step | src/graph_update.c | float step = (float)fabs(u->delta * (double)s->factor); | float step = (float)fabs(u->delta);
+iu-consume | src/graph_update.c | u->instance->cells[trigger].value.b = 0; | u->instance->cells[trigger].value.b = 1;
+iu-least | src/graph_update.c | maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending); | maniGraphInertiaSet(block, maniGraphInertiaPending, seconds);
+iu-nearest | src/graph_update.c | share.inertia = p; | share.inertia = s->inertia;
+ims-done | src/graph_machine_step.c | bool done = !(elapsed < duration) || Transition(m, running, 3) >> 8 == maniGraphFadeInertial; | bool done = !(elapsed < duration);
+ims-least | src/graph_machine_step.c | if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial && duration < entered->inertia) | if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial)
+id-prev | src/graph_dead_blend.c | maniGraphTrs p = maniGraphTrsHeld(block, beforeAt, b); | maniGraphTrs p = x;
+im-swap | src/graph_inertia_apply.c | flags ^= again ? 0u : (uint32_t)maniGraphInertiaLastSecond; | flags ^= 0u;
+im-copy | src/graph_inertia_apply.c | memcpy(block + maniGraphInertiaHistory(block, node->bones, true), locals, | memcpy(block + maniGraphInertiaHistory(block, node->bones, false), locals,
+id-grow | src/graph_dead_blend.c | return carried != 0.0f ? s * maniExpF(carried) : s; | return s;

@@ -67,7 +67,7 @@ graph_machine_check: bytes graph_file sort
 exact:
 triangulate: exact sort
 graph_inline: allocator graph_check
-graph_build: allocator builder bytes container graph_check graph_file graph_inline graph_machine_check sort triangulate
+graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_machine_check sort triangulate
 graph_json: allocator builder decimal_format
 graph_json_read: arena container decimal json sort
 graph_json_graph: arena builder graph_json_machine graph_json_read json

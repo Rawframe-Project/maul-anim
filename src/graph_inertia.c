@@ -3,7 +3,7 @@
 //
 // A saved block's words are finite but the pending request, which is
 // +inf when there is none; seconds are not negative; flags name only the
-// three states; inertialization's directions and axes are unit or zero,
+// four states; inertialization's directions and axes are unit or zero,
 // as a capture leaves them (checked to a loose bound: the capture
 // normalizes in binary32); dead blending's decay rates are not negative.
 
@@ -88,6 +88,33 @@ void maniGraphTrsKeep(uint32_t* block, uint32_t at, maniGraphTrs x)
     }
 }
 
+// Bone b's component c in a history at word at.
+static uint32_t Lane(uint32_t at, uint32_t b, uint32_t c)
+{
+    return at + b / MANI_POSE_GROUP_BONES * (MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS) +
+           c * MANI_POSE_GROUP_BONES + b % MANI_POSE_GROUP_BONES;
+}
+
+maniGraphTrs maniGraphTrsHeld(const uint32_t* block, uint32_t at, uint32_t b)
+{
+    float v[MANI_POSE_COMPONENTS];
+    for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c)
+    {
+        v[c] = maniGraphInertiaGet(block, Lane(at, b, c));
+    }
+    return (maniGraphTrs){{v[0], v[1], v[2]}, {v[3], v[4], v[5], v[6]}, {v[7], v[8], v[9]}};
+}
+
+void maniGraphTrsHold(uint32_t* block, uint32_t at, uint32_t b, maniGraphTrs x)
+{
+    const float v[MANI_POSE_COMPONENTS] = {x.t.x, x.t.y, x.t.z, x.r.x, x.r.y,
+                                           x.r.z, x.r.w, x.s.x, x.s.y, x.s.z};
+    for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c)
+    {
+        maniGraphInertiaSet(block, Lane(at, b, c), v[c]);
+    }
+}
+
 void maniGraphResetInertia(uint32_t* block, const maniGraphInertia* node)
 {
     memset(block, 0, 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(node->bones, node->method));
@@ -102,7 +129,7 @@ static bool Seconds(float value)
 static uint32_t HeaderValid(const uint8_t* bytes)
 {
     float pending = FloatOf(maniLoadU32(bytes + 4 * maniGraphInertiaPending));
-    if (maniLoadU32(bytes) > 7u)
+    if (maniLoadU32(bytes) > 15u)
     {
         return maniGraphInertiaFlags;
     }
@@ -157,16 +184,16 @@ static uint32_t DeadValid(const uint8_t* bytes)
 uint32_t maniGraphSavedInertiaValid(const uint8_t* bytes, const maniGraphInertia* node)
 {
     uint32_t wrong = HeaderValid(bytes);
+    uint32_t history = 2u * MANI_GRAPH_INERTIA_HISTORY(node->bones);
+    for (uint32_t k = MANI_GRAPH_INERTIA_HEADER;
+         k < MANI_GRAPH_INERTIA_HEADER + history && wrong == UINT32_MAX; ++k)
+    {
+        wrong = isfinite(FloatOf(maniLoadU32(bytes + 4 * (size_t)k))) ? UINT32_MAX : k;
+    }
     for (uint32_t b = 0; b < node->bones && wrong == UINT32_MAX; ++b)
     {
-        uint32_t at = maniGraphInertiaBone(b, node->method);
-        for (uint32_t k = 0; k < MANI_GRAPH_INERTIA_CAPTURE && wrong == UINT32_MAX; ++k)
-        {
-            wrong =
-                isfinite(FloatOf(maniLoadU32(bytes + 4 * (size_t)(at + k)))) ? UINT32_MAX : at + k;
-        }
-        uint32_t capture = at + MANI_GRAPH_INERTIA_CAPTURE;
-        if (node->method != maniGraphInertialization && wrong == UINT32_MAX)
+        uint32_t capture = maniGraphInertiaCapture(node, b);
+        if (node->method != maniGraphInertialization)
         {
             uint32_t k = DeadValid(bytes + 4 * (size_t)capture);
             wrong = k == UINT32_MAX ? k : capture + k;
