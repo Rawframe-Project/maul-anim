@@ -298,6 +298,7 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         Additive(e, record, out);
         return;
     case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         Space(e, record, out, difference);
         return;

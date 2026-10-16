@@ -85,6 +85,9 @@ extern "C"
         // A blend space on a line: its inputs blended by where a position
         // falls among their points.
         maniGraphNodeBlendSpace1D = 8,
+        // A blend space in a plane by triangles: the corners of the
+        // triangle holding the position, or the ends of the nearest edge.
+        maniGraphNodeBlendSpaceTriangles = 9,
         // A blend space in a plane by gradient bands, cartesian or polar.
         maniGraphNodeBlendSpaceBands = 10,
     };

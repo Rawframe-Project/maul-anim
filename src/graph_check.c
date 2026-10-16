@@ -329,6 +329,7 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
     case maniGraphNodeTimeScale:
         return CheckScalar(source, n->timeScale.scale, node, 0, -HUGE_VALF, HUGE_VALF);
     case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         return maniCheckGraphSpace(source, n, node);
     default:

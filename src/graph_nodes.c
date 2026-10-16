@@ -191,14 +191,9 @@ static uint32_t LineValid(const maniGraph* g, uint32_t d, uint32_t n)
     return period > 0.0f && !(span < period) ? d + MANI_GRAPH_POSITION_WORDS : UINT32_MAX;
 }
 
-// A banded space: its flag 0 or 1, its points finite, no two equal.
-static uint32_t BandsValid(const maniGraph* g, uint32_t d, uint32_t n)
+// Points in a plane from word at: finite, no two equal.
+static uint32_t PairsValid(const maniGraph* g, uint32_t points, uint32_t n)
 {
-    if (Word(g, d + MANI_GRAPH_POSITION_WORDS) > 1u)
-    {
-        return d + MANI_GRAPH_POSITION_WORDS;
-    }
-    uint32_t points = d + MANI_GRAPH_SPACE_WORDS;
     for (uint32_t k = 0; k < n; ++k)
     {
         float x = WordFloat(g, points + 2 * k);
@@ -216,6 +211,39 @@ static uint32_t BandsValid(const maniGraph* g, uint32_t d, uint32_t n)
     return UINT32_MAX;
 }
 
+// A banded space: its flag 0 or 1, then its points.
+static uint32_t BandsValid(const maniGraph* g, uint32_t d, uint32_t n)
+{
+    if (Word(g, d + MANI_GRAPH_POSITION_WORDS) > 1u)
+    {
+        return d + MANI_GRAPH_POSITION_WORDS;
+    }
+    return PairsValid(g, d + MANI_GRAPH_SPACE_WORDS, n);
+}
+
+// A triangulated space: its count 1 to the most, its points, each
+// counted triangle's corners distinct inputs, the reserved ones zero.
+static uint32_t TrianglesValid(const maniGraph* g, uint32_t d, uint32_t n)
+{
+    uint32_t count = Word(g, d + MANI_GRAPH_POSITION_WORDS);
+    if (count == 0 || count > MANI_GRAPH_MAX_TRIANGLES(n))
+    {
+        return d + MANI_GRAPH_POSITION_WORDS;
+    }
+    uint32_t wrong = PairsValid(g, d + MANI_GRAPH_SPACE_WORDS, n);
+    uint32_t corners = d + MANI_GRAPH_SPACE_WORDS + 2 * n;
+    for (uint32_t t = 0; t < MANI_GRAPH_MAX_TRIANGLES(n) && wrong == UINT32_MAX; ++t)
+    {
+        uint32_t a = Word(g, corners + 3 * t);
+        uint32_t b = Word(g, corners + 3 * t + 1);
+        uint32_t c = Word(g, corners + 3 * t + 2);
+        bool ok =
+            t < count ? a < n && b < n && c < n && a != b && b != c && a != c : (a | b | c) == 0;
+        wrong = ok ? UINT32_MAX : corners + 3 * t;
+    }
+    return wrong;
+}
+
 static uint32_t SpaceValid(const maniGraph* g, const Node* n)
 {
     bool line = n->kind == maniGraphNodeBlendSpace1D;
@@ -224,7 +252,12 @@ static uint32_t SpaceValid(const maniGraph* g, const Node* n)
     {
         return wrong;
     }
-    return line ? LineValid(g, n->data, n->count) : BandsValid(g, n->data, n->count);
+    if (line)
+    {
+        return LineValid(g, n->data, n->count);
+    }
+    return n->kind == maniGraphNodeBlendSpaceBands ? BandsValid(g, n->data, n->count)
+                                                   : TrianglesValid(g, n->data, n->count);
 }
 
 // The first wrong data word of a node, or UINT32_MAX.
@@ -250,6 +283,7 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
     case maniGraphNodeTimeScale:
         return ScalarsValid(g, d, 1, -HUGE_VALF, HUGE_VALF);
     case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         return SpaceValid(g, n);
     default:

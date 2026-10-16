@@ -3,6 +3,9 @@
 
 #include "graph_space_check.h"
 
+#include "exact.h"
+#include "graph_file.h"
+
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
 #include "maul-anim/graph.h"
@@ -45,13 +48,6 @@ static maniBuildResult CheckPosition(const maniGraphSource* source, const maniGr
     return line || ScalarValid(source, p->y) ? kOk : Refuse(maniBuildReasonScalar, node, 1);
 }
 
-uint64_t maniGraphSpaceKey(float value)
-{
-    uint32_t bits = 0;
-    memcpy(&bits, &value, sizeof bits);
-    return (bits & 0x80000000u) != 0 ? (uint64_t)~bits : (uint64_t)(bits | 0x80000000u);
-}
-
 static maniBuildResult CheckLine(const maniGraphBlendSpace1DNodeSource* s, uint32_t count,
                                  uint32_t node)
 {
@@ -87,19 +83,16 @@ static maniBuildResult CheckLine(const maniGraphBlendSpace1DNodeSource* s, uint3
     return kOk;
 }
 
-static maniBuildResult CheckBands(const maniGraphBandsNodeSource* s, uint32_t count, uint32_t node)
+// Points in a plane: finite, no two equal.
+static maniBuildResult CheckPairs(const float* points, uint32_t count, uint32_t node)
 {
-    if (s->polar > 1u)
-    {
-        return Refuse(maniBuildReasonNode, node, 0);
-    }
     for (uint32_t k = 0; k < count; ++k)
     {
-        const float* p = s->points + 2 * k;
+        const float* p = points + 2 * k;
         bool repeated = false;
         for (uint32_t j = 0; j < k && !repeated; ++j)
         {
-            repeated = s->points[2 * j] == p[0] && s->points[2 * j + 1] == p[1];
+            repeated = points[2 * j] == p[0] && points[2 * j + 1] == p[1];
         }
         if (!isfinite(p[0]) || !isfinite(p[1]) || repeated)
         {
@@ -109,12 +102,123 @@ static maniBuildResult CheckBands(const maniGraphBandsNodeSource* s, uint32_t co
     return kOk;
 }
 
+static maniBuildResult CheckBands(const maniGraphBandsNodeSource* s, uint32_t count, uint32_t node)
+{
+    return s->polar > 1u ? Refuse(maniBuildReasonNode, node, 0)
+                         : CheckPairs(s->points, count, node);
+}
+
+// Whether every corner of b lies on or right of one of a's edges.
+static bool SeparatedBy(const float* points, const uint32_t* a, const uint32_t* b)
+{
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        const float* u = points + 2 * (size_t)a[i];
+        const float* v = points + 2 * (size_t)a[(i + 1) % 3];
+        bool right = true;
+        for (uint32_t k = 0; k < 3 && right; ++k)
+        {
+            right = maniExactOrient(u, v, points + 2 * (size_t)b[k]) <= 0;
+        }
+        if (right)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Whether the interiors of two anticlockwise triangles meet: apart in x
+// or y, or apart across an edge of either (the separating axis test).
+static bool Overlap(const float* points, const uint32_t* a, const uint32_t* b)
+{
+    for (uint32_t axis = 0; axis < 2; ++axis)
+    {
+        float low[2] = {HUGE_VALF, HUGE_VALF};
+        float high[2] = {-HUGE_VALF, -HUGE_VALF};
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            float va = points[2 * (size_t)a[k] + axis];
+            float vb = points[2 * (size_t)b[k] + axis];
+            low[0] = va < low[0] ? va : low[0];
+            high[0] = va > high[0] ? va : high[0];
+            low[1] = vb < low[1] ? vb : low[1];
+            high[1] = vb > high[1] ? vb : high[1];
+        }
+        if (high[0] <= low[1] || high[1] <= low[0])
+        {
+            return false;
+        }
+    }
+    return !SeparatedBy(points, a, b) && !SeparatedBy(points, b, a);
+}
+
+// Authored triangles: corners among the points, anticlockwise, no two
+// overlapping, every point a corner.
+static maniBuildResult CheckAuthored(const maniGraphTrianglesNodeSource* s, uint32_t count,
+                                     uint32_t node)
+{
+    if (s->triangles == NULL || s->triangleCount > MANI_GRAPH_MAX_TRIANGLES(count))
+    {
+        return Refuse(maniBuildReasonNode, node, 0);
+    }
+    bool used[MANI_GRAPH_MAX_SPACE_POINTS] = {false};
+    for (uint32_t t = 0; t < s->triangleCount; ++t)
+    {
+        const uint32_t* v = s->triangles + 3 * (size_t)t;
+        bool ok = v[0] < count && v[1] < count && v[2] < count &&
+                  maniExactOrient(s->points + 2 * (size_t)v[0], s->points + 2 * (size_t)v[1],
+                                  s->points + 2 * (size_t)v[2]) > 0;
+        for (uint32_t j = 0; j < t && ok; ++j)
+        {
+            ok = !Overlap(s->points, s->triangles + 3 * (size_t)j, v);
+        }
+        if (!ok)
+        {
+            return Refuse(maniBuildReasonSpaceTriangle, node, t);
+        }
+        used[v[0]] = used[v[1]] = used[v[2]] = true;
+    }
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (!used[k])
+        {
+            return Refuse(maniBuildReasonPoint, node, k);
+        }
+    }
+    return kOk;
+}
+
+// Triangles: the points, then the authored triangles, or for a Delaunay
+// triangulation points not all on one line.
+static maniBuildResult CheckTriangles(const maniGraphTrianglesNodeSource* s, uint32_t count,
+                                      uint32_t node)
+{
+    maniBuildResult r = CheckPairs(s->points, count, node);
+    if (r.result != mani_success || s->triangleCount > 0)
+    {
+        return r.result != mani_success ? r : CheckAuthored(s, count, node);
+    }
+    for (uint32_t k = 2; k < count; ++k)
+    {
+        if (maniExactOrient(s->points, s->points + 2, s->points + 2 * (size_t)k) != 0)
+        {
+            return kOk;
+        }
+    }
+    return Refuse(maniBuildReasonNode, node, 0);
+}
+
 maniBuildResult maniCheckGraphSpace(const maniGraphSource* source, const maniGraphNodeSource* n,
                                     uint32_t node)
 {
     bool line = n->kind == maniGraphNodeBlendSpace1D;
-    const maniGraphPosition* position = line ? &n->blendSpace1D.position : &n->bands.position;
-    const float* points = line ? n->blendSpace1D.points : n->bands.points;
+    bool bands = n->kind == maniGraphNodeBlendSpaceBands;
+    const maniGraphPosition* position = line    ? &n->blendSpace1D.position
+                                        : bands ? &n->bands.position
+                                                : &n->triangulated.position;
+    const float* points =
+        line ? n->blendSpace1D.points : (bands ? n->bands.points : n->triangulated.points);
     if (points == NULL)
     {
         return Refuse(maniBuildReasonNode, node, 0);
@@ -124,6 +228,10 @@ maniBuildResult maniCheckGraphSpace(const maniGraphSource* source, const maniGra
     {
         return r;
     }
-    return line ? CheckLine(&n->blendSpace1D, n->inputCount, node)
-                : CheckBands(&n->bands, n->inputCount, node);
+    if (line)
+    {
+        return CheckLine(&n->blendSpace1D, n->inputCount, node);
+    }
+    return bands ? CheckBands(&n->bands, n->inputCount, node)
+                 : CheckTriangles(&n->triangulated, n->inputCount, node);
 }

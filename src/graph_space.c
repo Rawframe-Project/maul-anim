@@ -2,9 +2,11 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A 1D space blends the two points either side of the position (clamped
-// to the ends, or wrapped across the seam); a banded space weighs each
-// point by Johansen's gradient bands (2009, section 6.3), cartesian or
-// polar, normalized. Binary32 in a fixed order.
+// to the ends, or wrapped across the seam); a triangulated space the
+// corners of the triangle holding it, or the ends of the nearest edge; a
+// banded space weighs each point by Johansen's gradient bands (2009,
+// section 6.3), cartesian or polar, normalized. Binary32 in a fixed
+// order.
 
 #include "graph_space.h"
 
@@ -189,6 +191,75 @@ static uint32_t Nearest(const float* p, uint32_t n, const float* at)
     return best;
 }
 
+// The weights of triangle v's corners at the position: barycentric, in
+// v[0]'s frame.
+static void Corners(const Space* s, const uint32_t* v, const float* at, float* w)
+{
+    float ax = Point(s, 2 * v[0]);
+    float ay = Point(s, 2 * v[0] + 1);
+    float ux = Point(s, 2 * v[1]) - ax;
+    float uy = Point(s, 2 * v[1] + 1) - ay;
+    float vx = Point(s, 2 * v[2]) - ax;
+    float vy = Point(s, 2 * v[2] + 1) - ay;
+    float px = at[0] - ax;
+    float py = at[1] - ay;
+    float area = ux * vy - uy * vx;
+    w[1] = (px * vy - py * vx) / area;
+    w[2] = (ux * py - uy * px) / area;
+    w[0] = 1.0f - w[1] - w[2];
+}
+
+// The first triangle holding the position weighs its corners. Outside
+// every one (or where rounding puts it outside both triangles of an
+// edge), the nearest point on any triangle's edge weighs that edge's
+// ends: Godot's rule, continuous with the inside.
+static void Triangulated(const Space* s, const float* at, float* weights)
+{
+    uint32_t count = Word(s, MANI_GRAPH_POSITION_WORDS);
+    uint32_t corners = MANI_GRAPH_SPACE_WORDS + 2 * s->count;
+    for (uint32_t t = 0; t < count; ++t)
+    {
+        const uint32_t v[3] = {Word(s, corners + 3 * t), Word(s, corners + 3 * t + 1),
+                               Word(s, corners + 3 * t + 2)};
+        float w[3];
+        Corners(s, v, at, w);
+        if (w[0] >= 0.0f && w[1] >= 0.0f && w[2] >= 0.0f)
+        {
+            weights[v[0]] = w[0];
+            weights[v[1]] = w[1];
+            weights[v[2]] = w[2];
+            return;
+        }
+    }
+    uint32_t ends[2] = {0, 0};
+    float along = 0.0f;
+    float best = HUGE_VALF;
+    for (uint32_t e = 0; e < 3 * count; ++e)
+    {
+        uint32_t a = Word(s, corners + e);
+        uint32_t b = Word(s, corners + e - e % 3 + (e + 1) % 3);
+        float ax = Point(s, 2 * a);
+        float ay = Point(s, 2 * a + 1);
+        float ex = Point(s, 2 * b) - ax;
+        float ey = Point(s, 2 * b + 1) - ay;
+        // A NaN (an edge too short to measure) clamps to the edge's start.
+        float u = ((at[0] - ax) * ex + (at[1] - ay) * ey) / (ex * ex + ey * ey);
+        u = u > 0.0f ? (u < 1.0f ? u : 1.0f) : 0.0f;
+        float dx = ax + u * ex - at[0];
+        float dy = ay + u * ey - at[1];
+        float d = dx * dx + dy * dy;
+        if (e == 0 || d < best)
+        {
+            ends[0] = a;
+            ends[1] = b;
+            along = u;
+            best = d;
+        }
+    }
+    weights[ends[0]] = 1.0f - along;
+    weights[ends[1]] = along;
+}
+
 static void Banded(const Space* s, const float* at, float* weights)
 {
     uint32_t n = s->count;
@@ -252,6 +323,11 @@ void maniGraphSpaceWeights(const maniGraph* graph, const maniGraphCell* cells, u
     if (kind == maniGraphNodeBlendSpace1D)
     {
         Line(&s, at[0], weights);
+        return;
+    }
+    if (kind == maniGraphNodeBlendSpaceTriangles)
+    {
+        Triangulated(&s, at, weights);
         return;
     }
     Banded(&s, at, weights);

@@ -42,6 +42,10 @@ uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount)
     case maniGraphNodeBlendSpace1D:
     case maniGraphNodeBlendSpaceBands:
         return MANI_GRAPH_SPACE_WORDS + 2 * inputCount;
+    case maniGraphNodeBlendSpaceTriangles:
+        return inputCount >= 3 ? MANI_GRAPH_SPACE_WORDS + 2 * inputCount +
+                                     3 * MANI_GRAPH_MAX_TRIANGLES(inputCount)
+                               : 0;
     default:
         return 0;
     }
@@ -71,6 +75,9 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeBlendSpace1D:
     case maniGraphNodeBlendSpaceBands:
         *minOut = 1;
+        return MANI_GRAPH_MAX_SPACE_POINTS;
+    case maniGraphNodeBlendSpaceTriangles:
+        *minOut = 3;
         return MANI_GRAPH_MAX_SPACE_POINTS;
     default:
         *minOut = 1;

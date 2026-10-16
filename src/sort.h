@@ -13,4 +13,7 @@
 // scratch holds n.
 void maniSortByKey(const uint64_t* keys, uint32_t n, uint32_t* sorted, uint32_t* scratch);
 
+// A finite binary32's key, ascending with its value (-0 before +0).
+uint64_t maniFloatKey(float value);
+
 #endif // MAUL_ANIM_SRC_SORT_H

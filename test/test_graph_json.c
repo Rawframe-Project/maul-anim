@@ -482,6 +482,17 @@ static const Refusal kRefusals[] = {
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpace1D\", \"inputs\": [1], \"position\": "
               "{\"x\": 0, \"y\": 0}, \"points\": [0]}, " NODE "], \"output\": 0}",
      maniBuildReasonForm, maniGraphFormMember, "\"y", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceTriangles\", \"inputs\": [1], \"position\": "
+              "{\"x\": 0}, \"points\": [[0, 0]], \"triangles\": []}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[]", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceTriangles\", \"inputs\": [1], \"position\": "
+              "{\"x\": 0}, \"points\": [[0, 0]], \"triangles\": [[0, 1]]}, " NODE "], "
+              "\"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[0, 1]]", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceTriangles\", \"inputs\": [1], \"position\": "
+              "{\"x\": 0}, \"points\": [[0, 0]], \"triangles\": [[0, 1, -1]]}, " NODE "], "
+              "\"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "-1]", 1},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceBands\", \"inputs\": [1], \"position\": "
               "{}, \"points\": [[0, 0]]}, " NODE "], \"output\": 0}",
      maniBuildReasonForm, maniGraphFormMissing, "{}", 1},

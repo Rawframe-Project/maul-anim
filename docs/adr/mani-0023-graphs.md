@@ -124,7 +124,23 @@ runtime allocates (mani-0001).
   side of x, held at the ends; given a period it wraps x and blends the
   last point with the first a period on, so a direction can turn past
   the seam. Its points are stored with their ascending order, found by
-  halves at run time. A banded space (`maniGraphNodeBlendSpaceBands`)
+  halves at run time. A triangulated space
+  (`maniGraphNodeBlendSpaceTriangles`) takes the author's triangles
+  (anticlockwise, none degenerate, no two overlapping, every point a
+  corner) or the points' Delaunay triangulation, made by the builder
+  with exact predicates: each coordinate times 2^149 is an integer, and
+  the orientation and in-circle determinants are computed on those
+  integers (up to 1117 bits), so the file is the same on every platform
+  even for grids, where every cell is a tie. The points are swept by x,
+  then y, into a fan, each joined to the hull edges it sees strictly;
+  Lawson's flips then turn every edge whose far point lies strictly
+  inside the circle across it, so ties stay as the sweep made them. The
+  file reserves 2n - 5 triangles (the most n points allow), unused ones
+  zero. At run time the first triangle holding the position weighs its
+  corners barycentrically; outside every triangle, the nearest point on
+  any triangle's edge weighs that edge's ends, which is continuous with
+  the inside and needs no tolerance where rounding leaves a position
+  between two triangles. A banded space (`maniGraphNodeBlendSpaceBands`)
   weighs each point by Johansen's gradient bands (2009, section 6.3):
   the least, over the other points, of one minus the position's
   projection onto the band between the two, clamped at 0, then
@@ -135,8 +151,11 @@ runtime allocates (mani-0001).
   it all. The update shares weights by the space's and the evaluation
   blends by the same binary32 weights, so a space plays bit for bit as
   a blend of those weights. The builder refuses points not finite or
-  equal (`maniBuildReasonPoint`, other the point) and 1D points that
-  span a period; opening checks the same, the stored order included.
+  equal (`maniBuildReasonPoint`, other the point), 1D points that span
+  a period, triangle points all on one line, and authored triangles that
+  are clockwise, degenerate or overlapping (`maniBuildReasonSpaceTriangle`,
+  other the triangle); opening checks the points, the stored order and
+  each triangle's corners.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

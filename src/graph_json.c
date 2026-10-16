@@ -315,7 +315,31 @@ static void PutPoints(Writer* w, const float* points, uint32_t count, bool pairs
         PutFloat(w, points[2 * k + 1]);
         PutText(w, "]");
     }
-    PutText(w, "], ");
+    PutText(w, "]");
+}
+
+// A triangulated space's authored triangles, three inputs each; nothing
+// for a Delaunay triangulation.
+static void PutTriangles(Writer* w, const maniGraphTrianglesNodeSource* s)
+{
+    if (s->triangleCount == 0)
+    {
+        return;
+    }
+    PutText(w, ", ");
+    PutKey(w, "triangles");
+    PutText(w, "[");
+    for (uint32_t t = 0; t < s->triangleCount; ++t)
+    {
+        PutText(w, t > 0 ? ", [" : "[");
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            PutText(w, k > 0 ? ", " : "");
+            PutUnsigned(w, s->triangles[3 * (size_t)t + k]);
+        }
+        PutText(w, "]");
+    }
+    PutText(w, "]");
 }
 
 static void PutSubgraphNode(Writer* w, const maniGraphSource* source,
@@ -369,12 +393,19 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeBlendSpace1D:
         PutPosition(w, source, &n->blendSpace1D.position, false);
         PutPoints(w, n->blendSpace1D.points, n->inputCount, false);
+        PutText(w, ", ");
         PutKey(w, "period");
         PutFloat(w, n->blendSpace1D.period);
+        return;
+    case maniGraphNodeBlendSpaceTriangles:
+        PutPosition(w, source, &n->triangulated.position, true);
+        PutPoints(w, n->triangulated.points, n->inputCount, true);
+        PutTriangles(w, &n->triangulated);
         return;
     case maniGraphNodeBlendSpaceBands:
         PutPosition(w, source, &n->bands.position, true);
         PutPoints(w, n->bands.points, n->inputCount, true);
+        PutText(w, ", ");
         PutKey(w, "polar");
         PutBool(w, n->bands.polar != 0);
         return;
@@ -393,9 +424,10 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
 
 static const char* KindName(maniGraphNodeKind kind)
 {
-    static const char* const kKinds[] = {"clip",   "blend",          "mask", "additive",
-                                         "select", "timeScale",      "seek", "blendSpace1D",
-                                         "",       "blendSpaceBands"};
+    static const char* const kKinds[] = {"clip",           "blend",        "mask",
+                                         "additive",       "select",       "timeScale",
+                                         "seek",           "blendSpace1D", "blendSpaceTriangles",
+                                         "blendSpaceBands"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

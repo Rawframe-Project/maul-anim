@@ -13,8 +13,8 @@
 #include "graph_check.h"
 #include "graph_file.h"
 #include "graph_inline.h"
-#include "graph_space_check.h"
 #include "sort.h"
+#include "triangulate.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -173,6 +173,8 @@ typedef struct Layout
     uint64_t namesAt;
     // One mask's weights before they are copied in.
     float* weights;
+    // A triangulation's working memory, when a space needs one.
+    maniTriangulation* mesh;
     uint32_t dataAt;
     uint32_t inputAt;
     uint32_t maskAt;
@@ -296,21 +298,53 @@ static uint32_t PutFloats(uint8_t* data, uint32_t at, const float* values, uint3
     return at + count;
 }
 
-// A blend space's position, its word (period or polar flag), its points
-// and, on a line, their order.
-static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* node)
+// A triangulated space's count, points and triangles (the authored ones,
+// or the points' Delaunay triangulation made in mesh); the reserved
+// triangles past the count stay zero.
+static uint32_t PutTriangles(uint8_t* d, uint32_t at, const maniGraphTrianglesNodeSource* s,
+                             uint32_t n, maniTriangulation* mesh)
+{
+    uint32_t count = s->triangleCount;
+    if (count == 0)
+    {
+        count = maniTriangulate(s->points, n, mesh);
+        for (uint32_t t = 0; t < count; ++t)
+        {
+            (void)PutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3);
+        }
+    }
+    else
+    {
+        (void)PutWords(d, at + 1 + 2 * n, s->triangles, 3 * count);
+    }
+    at = PutFloats(d, PutWords(d, at, &count, 1), s->points, 2 * n);
+    return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n);
+}
+
+// A blend space's position, its word (period, polar flag or triangle
+// count), its points and, on a line, their order, in a triangulated
+// space its triangles.
+static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* node,
+                         maniTriangulation* mesh)
 {
     bool line = node->kind == maniGraphNodeBlendSpace1D;
-    const maniGraphPosition* p = line ? &node->blendSpace1D.position : &node->bands.position;
+    bool bands = node->kind == maniGraphNodeBlendSpaceBands;
+    const maniGraphPosition* p = line    ? &node->blendSpace1D.position
+                                 : bands ? &node->bands.position
+                                         : &node->triangulated.position;
     bool vector = p->vector != MANI_NO_PARAMETER;
     const maniGraphScalar zero = {MANI_NO_PARAMETER, 0.0f};
     at = PutWords(d, at, &p->vector, 1);
     at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector || line ? zero : p->y);
     uint32_t n = node->inputCount;
-    if (!line)
+    if (bands)
     {
         at = PutWords(d, at, &node->bands.polar, 1);
         return PutFloats(d, at, node->bands.points, 2 * n);
+    }
+    if (!line)
+    {
+        return PutTriangles(d, at, &node->triangulated, n, mesh);
     }
     PutFloat(d + 4 * (size_t)at, node->blendSpace1D.period);
     at = PutFloats(d, at + 1, node->blendSpace1D.points, n);
@@ -319,7 +353,7 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
     uint32_t scratch[MANI_GRAPH_MAX_SPACE_POINTS];
     for (uint32_t k = 0; k < n; ++k)
     {
-        keys[k] = maniGraphSpaceKey(node->blendSpace1D.points[k]);
+        keys[k] = maniFloatKey(node->blendSpace1D.points[k]);
     }
     maniSortByKey(keys, n, order, scratch);
     return PutWords(d, at, order, n);
@@ -366,9 +400,11 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     {
         at = PutScalar(d, at, node->timeScale.scale);
     }
-    else if (node->kind == maniGraphNodeBlendSpace1D || node->kind == maniGraphNodeBlendSpaceBands)
+    else if (node->kind == maniGraphNodeBlendSpace1D ||
+             node->kind == maniGraphNodeBlendSpaceBands ||
+             node->kind == maniGraphNodeBlendSpaceTriangles)
     {
-        at = PutSpace(d, at, node);
+        at = PutSpace(d, at, node, lay->mesh);
     }
     else
     {
@@ -480,23 +516,46 @@ static maniBuildResult Keep(maniBuilder* builder, const Layout* lay)
     return Outcome(mani_success);
 }
 
+// Whether a space of the source is to be triangulated.
+static bool Triangulates(const maniGraphSource* source)
+{
+    for (uint32_t v = 0; v < source->nodeCount; ++v)
+    {
+        const maniGraphNodeSource* node = &source->nodes[v];
+        if (node->kind == maniGraphNodeBlendSpaceTriangles && node->triangulated.triangleCount == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void Release(const maniAllocator* allocator, Layout* lay, uint32_t bones)
+{
+    maniRelease(allocator, lay->block, lay->blockSize, 1, 8);
+    maniRelease(allocator, lay->weights, bones, sizeof(float), 4);
+    maniRelease(allocator, lay->mesh, 1, sizeof(maniTriangulation), 8);
+}
+
 static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source,
                              const maniGraphTally* tally, const Work* w)
 {
     Layout lay = {0};
     uint32_t bones = maniSkeletonBoneCount(source->skeleton);
     lay.weights = maniAllocate(&builder->allocator, bones, sizeof(float), 4);
-    if (lay.weights == NULL || !Lay(source, tally, bones, &builder->allocator, &lay))
+    bool mesh = Triangulates(source);
+    lay.mesh = mesh ? maniAllocate(&builder->allocator, 1, sizeof(maniTriangulation), 8) : NULL;
+    if (lay.weights == NULL || (mesh && lay.mesh == NULL) ||
+        !Lay(source, tally, bones, &builder->allocator, &lay))
     {
-        maniRelease(&builder->allocator, lay.weights, bones, sizeof(float), 4);
+        Release(&builder->allocator, &lay, bones);
         return Outcome(mani_errorCapacity);
     }
     PutHeader(source, tally, w->slotCount, lay.sections[0]);
     PutLists(source, &lay);
     PutNodes(source, w, &lay);
     maniBuildResult r = Keep(builder, &lay);
-    maniRelease(&builder->allocator, lay.block, lay.blockSize, 1, 8);
-    maniRelease(&builder->allocator, lay.weights, bones, sizeof(float), 4);
+    Release(&builder->allocator, &lay, bones);
     return r;
 }
 

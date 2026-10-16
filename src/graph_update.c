@@ -245,7 +245,8 @@ static void Weigh(const Update* u)
         {
             ShareAdditive(u, record, s);
         }
-        else if (kind == maniGraphNodeBlendSpace1D || kind == maniGraphNodeBlendSpaceBands)
+        else if (kind == maniGraphNodeBlendSpace1D || kind == maniGraphNodeBlendSpaceTriangles ||
+                 kind == maniGraphNodeBlendSpaceBands)
         {
             ShareSpace(u, record, s);
         }

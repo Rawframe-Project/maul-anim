@@ -39,3 +39,10 @@ void maniSortByKey(const uint64_t* keys, uint32_t n, uint32_t* sorted, uint32_t*
         memcpy(sorted, from, (size_t)n * sizeof(uint32_t));
     }
 }
+
+uint64_t maniFloatKey(float value)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &value, sizeof bits);
+    return (bits & 0x80000000u) != 0 ? (uint64_t)~bits : (uint64_t)(bits | 0x80000000u);
+}

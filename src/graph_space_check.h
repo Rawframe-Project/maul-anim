@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A blend space node's source checked (mani-0023): its position, its
-// points (finite, no two equal, within a period when it wraps) and its
-// flags. Offline.
+// points (finite, no two equal, within a period when it wraps, not all on
+// one line for triangles), its flags and its authored triangles (exact
+// tests). Offline.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_SPACE_CHECK_H
 #define MAUL_ANIM_SRC_GRAPH_SPACE_CHECK_H
@@ -15,9 +16,5 @@
 
 maniBuildResult maniCheckGraphSpace(const maniGraphSource* source, const maniGraphNodeSource* n,
                                     uint32_t node);
-
-// A binary32's key in ascending order of value (equal values aside, -0
-// before +0).
-uint64_t maniGraphSpaceKey(float value);
 
 #endif // MAUL_ANIM_SRC_GRAPH_SPACE_CHECK_H

@@ -323,7 +323,7 @@ static void TestNodeRefusals(void)
     s_clipSlots[1].clip = &s_clips[0];
     ExpectRefused(&s, maniBuildReasonClip, 1, 0, "a clip twice");
     s = Source();
-    s_nodes[6].kind = 9;
+    s_nodes[6].kind = 11;
     ExpectRefused(&s, maniBuildReasonNode, 6, 0, "an unknown kind");
     s = Source();
     s_nodes[4].inputCount = 1;
@@ -468,7 +468,7 @@ static void TestOpenRefusals(void)
     ExpectFormat(parameters + 24, 0x40400000u, parameters + 24, "a default past its bound");
     ExpectFormat(parameters + 5 * MANI_GRAPH_PARAMETER_SIZE + 36, 0x40000000u,
                  parameters + 5 * MANI_GRAPH_PARAMETER_SIZE + 24, "a quaternion not unit");
-    ExpectFormat(nodes, 9, nodes, "an unknown kind");
+    ExpectFormat(nodes, 11, nodes, "an unknown kind");
     ExpectFormat(nodes + 2 * MANI_GRAPH_NODE_SIZE, 0x00010002u,
                  nodes + 2 * MANI_GRAPH_NODE_SIZE + 2, "a blend of poses marked as differences");
     ExpectFormat(nodes + 2 * MANI_GRAPH_NODE_SIZE + 20, 0, nodes + 2 * MANI_GRAPH_NODE_SIZE + 20,

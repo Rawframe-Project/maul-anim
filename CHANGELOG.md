@@ -56,6 +56,14 @@ format.
   position a vec2 parameter or two numbers (`maniGraphPosition`);
   points not finite, equal or past a period refused
   (`maniBuildReasonPoint`); both in the JSON form.
+- Blend spaces by triangles (mani-0023):
+  `maniGraphNodeBlendSpaceTriangles` weighs the corners of the triangle
+  holding the position, or outside them the ends of the nearest edge;
+  the triangles are the author's (`maniGraphTrianglesNodeSource`,
+  checked exactly for orientation and overlap,
+  `maniBuildReasonSpaceTriangle`) or the points' Delaunay triangulation,
+  made with exact integer predicates so every platform builds the same
+  file; in the JSON form as `blendSpaceTriangles`.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

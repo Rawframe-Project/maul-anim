@@ -222,11 +222,13 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         node->seek.time = Scalar(s, node->seek.time);
         return;
     case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
     {
-        maniGraphPosition* p = node->kind == maniGraphNodeBlendSpace1D
-                                   ? &node->blendSpace1D.position
-                                   : &node->bands.position;
+        maniGraphPosition* p =
+            node->kind == maniGraphNodeBlendSpace1D      ? &node->blendSpace1D.position
+            : node->kind == maniGraphNodeBlendSpaceBands ? &node->bands.position
+                                                         : &node->triangulated.position;
         p->vector = Resolve(s, p->vector);
         p->x = Scalar(s, p->x);
         p->y = Scalar(s, p->y);

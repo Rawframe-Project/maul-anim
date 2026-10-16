@@ -190,6 +190,20 @@ extern "C"
         uint32_t reserved;
     } maniGraphBandsNodeSource;
 
+    // A 2D blend space by triangles: a point (x, y) per input (finite, no
+    // two equal, 3 or more, not all on one line), and triangleCount
+    // triangles of three inputs each, anticlockwise and not degenerate,
+    // no two overlapping, every input a corner of one, at most 2n - 5 of
+    // them for n points; or none, for the points' Delaunay triangulation.
+    typedef struct maniGraphTrianglesNodeSource
+    {
+        maniGraphPosition position;
+        const float* points;
+        const uint32_t* triangles;
+        uint32_t triangleCount;
+        uint32_t reserved;
+    } maniGraphTrianglesNodeSource;
+
     // A subgraph node: the graph (of the same skeleton; its clips joined
     // to this graph's by identity, its sync groups by name), and for each
     // of its parameters the parameter of this graph it reads, of the same
@@ -218,6 +232,7 @@ extern "C"
             maniGraphSeekNodeSource seek;
             maniGraphBlendSpace1DNodeSource blendSpace1D;
             maniGraphBandsNodeSource bands;
+            maniGraphTrianglesNodeSource triangulated;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
@@ -310,7 +325,8 @@ extern "C"
     /// allEvents false; a clip node's syncGroup null, speed 1, loop
     /// "clip", leader false; a blend's direct false; a mask's chains empty
     /// and defaultWeight 0; a chain's subtree false; a seek's time 0; a
-    /// 1D space's period 0, a banded space's polar false, a position's
+    /// 1D space's period 0, a banded space's polar false, a triangulated
+    /// space's triangles none (its Delaunay triangulation), a position's
     /// y 0; parameters, clips and syncGroups empty). Each clip slot name, at
     /// any nesting, takes the host's clip of that name (the first of
     /// equal names). The source read is then built as maniBuildGraph
