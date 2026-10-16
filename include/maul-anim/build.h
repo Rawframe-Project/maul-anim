@@ -148,7 +148,8 @@ extern "C"
         maniBuildReasonAttribute = 21,
         // A root motion source (mani-0022): a bone outside the skeleton
         // or without a track, no channel chosen, a field out of range,
-        // or an additive clip; item is the bone.
+        // an additive clip, or a motion translation beyond 2^64; item is
+        // the bone.
         maniBuildReasonRootMotion = 22,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.

@@ -19,6 +19,7 @@
 #include "maul-anim/rootmotion.h"
 
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -206,7 +207,13 @@ static void StoreFloat(uint8_t* p, double value)
     memcpy(p, &f, sizeof f);
 }
 
-void maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out)
+static bool InReach(const double t[3])
+{
+    return fabs(t[0]) <= MANI_ROOT_MOTION_REACH && fabs(t[1]) <= MANI_ROOT_MOTION_REACH &&
+           fabs(t[2]) <= MANI_ROOT_MOTION_REACH;
+}
+
+bool maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out)
 {
     const maniRootMotionSource* s = &work->source;
     const uint32_t fields[8] = {s->bone,
@@ -233,6 +240,7 @@ void maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out)
     Rotate(back, d, period);
     Multiply(back, last + 3, period + 3);
     Normalize(period + 3);
+    bool reach = InReach(period);
     uint8_t* p = out + MANI_ROOT_MOTION_HEADER_SIZE;
     for (uint32_t i = 0; i < MOVE; ++i)
     {
@@ -243,7 +251,9 @@ void maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out)
     for (size_t i = 0; i < (size_t)n * MOVE; ++i)
     {
         StoreFloat(p + 4 * i, work->motion[i]);
+        reach = reach && (i % MOVE != 0 || InReach(work->motion + i));
     }
+    return reach;
 }
 
 void maniRootMotionRelease(maniRootMotionWork* work, const maniAllocator* allocator)

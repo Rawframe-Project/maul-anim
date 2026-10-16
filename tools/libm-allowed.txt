@@ -6,6 +6,7 @@ ceilf
 copysignf
 fabs
 fabsf
+floor
 floorf
 fmod
 fmodf

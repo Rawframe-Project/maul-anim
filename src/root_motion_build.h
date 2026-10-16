@@ -12,6 +12,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/rootmotion.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 // The motion of a clip being built, per sample in binary64: translation
@@ -35,8 +36,9 @@ maniResult maniRootMotionTake(const maniRootMotionSource* source, const double* 
 // t' = m_r^-1 (t - m_t), r' = m_r^-1 r.
 void maniRootMotionBake(const maniRootMotionWork* work, uint32_t k, double t[3], double r[4]);
 
-// The section's bytes (maniRootMotionSize of the sample count).
-void maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out);
+// The section's bytes (maniRootMotionSize of the sample count); false
+// when a translation component falls outside MANI_ROOT_MOTION_REACH.
+bool maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out);
 
 void maniRootMotionRelease(maniRootMotionWork* work, const maniAllocator* allocator);
 

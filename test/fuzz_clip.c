@@ -12,6 +12,7 @@
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -147,6 +148,35 @@ static void Sample(const maniClip* clip)
     }
 }
 
+static bool MoveFinite(const maniRootMove* m)
+{
+    return isfinite(m->translation.x) && isfinite(m->translation.y) && isfinite(m->translation.z) &&
+           isfinite(m->rotation.x) && isfinite(m->rotation.y) && isfinite(m->rotation.z) &&
+           isfinite(m->rotation.w);
+}
+
+// An opened clip's moves are finite, across wraps either way, and blend.
+static void ExerciseRootMotion(const maniClip* clip)
+{
+    static const float kSteps[5][2] = {
+        {0.0f, 0.37f}, {0.5f, -3.1f}, {-2.0f, 1e9f}, {1e30f, -1e30f}, {0.25f, 0.0f}};
+    maniRootMove moves[5];
+    const float weights[5] = {1.0f, 0.5f, 0.0f, 2.0f, 1.0f};
+    for (int i = 0; i < 5; ++i)
+    {
+        if (maniClipRootMotion(clip, kSteps[i][0], kSteps[i][1], &moves[i]) != mani_success ||
+            !MoveFinite(&moves[i]))
+        {
+            abort();
+        }
+    }
+    maniRootMove blend;
+    if (maniBlendRootMotion(moves, weights, 5, &blend) != mani_success || !MoveFinite(&blend))
+    {
+        abort();
+    }
+}
+
 static void Exercise(const uint8_t* bytes, size_t size)
 {
     maniClip clip;
@@ -165,6 +195,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         {
             abort();
         }
+        ExerciseRootMotion(&clip);
         for (uint32_t i = 0; i < maniClipFloatTrackCount(&clip); ++i)
         {
             uint32_t length = 0;

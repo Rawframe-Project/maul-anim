@@ -17,6 +17,11 @@ format.
   the bone, optionally looped so the motion ends where it began;
   `maniClipRootMotionSource` reads the source back; compressed clips
   keep it.
+- Root motion moves (mani-0022): `maniClipRootMotion` gives the move
+  from a playhead time over a signed step, clamped or across any number
+  of wraps either way (the period's move composed by squaring);
+  `maniComposeRootMotion`, `maniBlendRootMotion` and
+  `maniRootMoveIdentity` compose and blend moves.
 - The library skeleton: the build, the family rules and tools, the
   version and result API (`maniGetVersion`, `maniResultName`) and the
   library profile.

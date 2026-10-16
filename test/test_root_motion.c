@@ -312,6 +312,42 @@ static void TestLoop(void)
           "a period of no move");
 }
 
+// The largest component difference between two moves (a rotation and
+// its negative the same).
+static float MoveApart(maniRootMove a, maniRootMove b)
+{
+    float worst = fmaxf(
+        fabsf(a.translation.x - b.translation.x),
+        fmaxf(fabsf(a.translation.y - b.translation.y), fabsf(a.translation.z - b.translation.z)));
+    float dot = a.rotation.x * b.rotation.x + a.rotation.y * b.rotation.y +
+                a.rotation.z * b.rotation.z + a.rotation.w * b.rotation.w;
+    return fmaxf(worst, 1.0f - fabsf(dot));
+}
+
+static maniRootMove Move(const maniClip* clip, float time, float step)
+{
+    maniRootMove m = maniRootMoveIdentity();
+    CHECK(maniClipRootMotion(clip, time, step, &m) == mani_success, "a move");
+    return m;
+}
+
+// Sample k of the section as a move.
+static maniRootMove SampleMove(const maniClip* clip, uint32_t k)
+{
+    float m[7];
+    MotionAt(clip, k, m);
+    return (maniRootMove){{m[0], m[1], m[2]}, {m[3], m[4], m[5], m[6]}};
+}
+
+static maniRootMove Inverted(maniRootMove m)
+{
+    const float back[4] = {-m.rotation.x, -m.rotation.y, -m.rotation.z, m.rotation.w};
+    const float t[3] = {m.translation.x, m.translation.y, m.translation.z};
+    float r[3];
+    Rotate(back, t, r);
+    return (maniRootMove){{-r[0], -r[1], -r[2]}, {back[0], back[1], back[2], back[3]}};
+}
+
 static void TestCompressed(void)
 {
     maniRootMotionSource walk = Walk();
@@ -329,6 +365,121 @@ static void TestCompressed(void)
     CHECK(compressed.rootMotion != NULL &&
               memcmp(compressed.rootMotion, clip.rootMotion, maniRootMotionSize(5)) == 0,
           "the compressor carries the root motion unchanged");
+    maniRootMove moves[4] = {Move(&compressed, 0.3f, 2.9f), Move(&clip, 0.3f, 2.9f),
+                             Move(&compressed, 0.9f, -1.6f), Move(&clip, 0.9f, -1.6f)};
+    CHECK(memcmp(&moves[0], &moves[1], sizeof moves[0]) == 0 &&
+              memcmp(&moves[2], &moves[3], sizeof moves[0]) == 0,
+          "the same moves from either form");
+}
+
+// Moves between two playhead times, against the samples; a step split
+// anywhere composes to the whole, across wraps and backward.
+static void TestMoves(void)
+{
+    maniRootMotionSource walk = Walk();
+    maniClip clip;
+    maniClip without;
+    CHECK(BuildBoth(&walk) && OpenBoth(&clip, &without), "builds");
+    maniRootMove between =
+        maniComposeRootMotion(Inverted(SampleMove(&clip, 1)), SampleMove(&clip, 3));
+    CHECK(MoveApart(Move(&clip, 0.25f, 0.5f), between) < 1e-6f, "between two samples");
+    CHECK(MoveApart(Move(&clip, 0.6f, 0.0f), maniRootMoveIdentity()) < 1e-6f, "no step, no move");
+    maniRootMove period =
+        maniComposeRootMotion(Inverted(SampleMove(&clip, 0)), SampleMove(&clip, 4));
+    CHECK(MoveApart(Move(&clip, 0.0f, 1.0f), period) < 1e-6f &&
+              MoveApart(Move(&clip, 0.3f, 1.0f), period) > 1e-3f,
+          "a whole period from the start is the period's move");
+    // Splits: (time, a, b) over wraps either way.
+    static const float kSplits[6][3] = {{0.1f, 0.3f, 0.4f},  {0.75f, 1.5f, 1.0f},
+                                        {0.9f, 3.25f, 2.6f}, {0.5f, -0.7f, -1.9f},
+                                        {0.2f, 2.5f, -1.3f}, {0.6f, -4.1f, 3.3f}};
+    float worst = 0.0f;
+    for (int i = 0; i < 6; ++i)
+    {
+        float t = kSplits[i][0];
+        float a = kSplits[i][1];
+        float b = kSplits[i][2];
+        maniRootMove two = maniComposeRootMotion(Move(&clip, t, a), Move(&clip, t + a, b));
+        worst = fmaxf(worst, MoveApart(two, Move(&clip, t, a + b)));
+    }
+    CHECK(worst < 2e-5f, "a step split anywhere composes to the whole, across wraps");
+    if (worst >= 2e-5f)
+    {
+        printf("  splits apart by %g\n", (double)worst);
+    }
+    maniRootMove there = Move(&clip, 0.4f, 2.7f);
+    maniRootMove back = Move(&clip, 0.4f + 2.7f, -2.7f);
+    CHECK(MoveApart(maniComposeRootMotion(there, back), maniRootMoveIdentity()) < 2e-5f,
+          "backward undoes forward");
+    // The period turns a quarter about y, so four periods come back to
+    // the start: a thousand periods by squaring are no move, a thousand
+    // and one the period, and back the period's inverse.
+    CHECK(MoveApart(Move(&clip, 0.0f, 1000.0f), maniRootMoveIdentity()) < 1e-5f &&
+              MoveApart(Move(&clip, 0.0f, 1001.0f), period) < 1e-5f &&
+              MoveApart(Move(&clip, 1001.0f, -1001.0f), Inverted(period)) < 1e-5f,
+          "a thousand periods by squaring");
+    // A clamped clip stops at its ends.
+    clip.loop = maniLoopClamp;
+    maniRootMove rest = maniComposeRootMotion(Inverted(SampleMove(&clip, 2)), SampleMove(&clip, 4));
+    CHECK(MoveApart(Move(&clip, 0.5f, 9.0f), rest) < 1e-6f &&
+              MoveApart(Move(&clip, -3.0f, 3.5f),
+                        maniComposeRootMotion(Inverted(SampleMove(&clip, 0)),
+                                              SampleMove(&clip, 2))) < 1e-6f,
+          "a clamped clip between its clamped times");
+    CHECK(MoveApart(Move(&clip, -3.0f, 2.0f), maniRootMoveIdentity()) == 0.0f,
+          "both times before the start: no move");
+    maniRootMove m;
+    CHECK(maniClipRootMotion(&without, 0.0f, 1.0f, &m) == mani_success &&
+              MoveApart(m, maniRootMoveIdentity()) == 0.0f,
+          "a clip without root motion moves nothing");
+    CHECK(maniClipRootMotion(NULL, 0.0f, 1.0f, &m) == mani_errorInvalid &&
+              maniClipRootMotion(&clip, 0.0f, 1.0f, NULL) == mani_errorInvalid &&
+              maniClipRootMotion(&clip, NAN, 1.0f, &m) == mani_errorInvalid &&
+              maniClipRootMotion(&clip, 0.0f, INFINITY, &m) == mani_errorInvalid,
+          "misuses");
+}
+
+static void TestBlend(void)
+{
+    // Thirty degrees either way about y, a metre along x and along z.
+    const maniRootMove moves[3] = {
+        {{1.0f, 0.0f, 0.0f}, {0.0f, 0.25881905f, 0.0f, 0.96592583f}},
+        {{0.0f, 0.0f, 1.0f}, {0.0f, -0.25881905f, 0.0f, 0.96592583f}},
+        // The second's rotation negated: the same turn.
+        {{0.0f, 0.0f, 1.0f}, {0.0f, 0.25881905f, 0.0f, -0.96592583f}},
+    };
+    const float even[2] = {2.0f, 2.0f};
+    maniRootMove out;
+    CHECK(maniBlendRootMotion(moves, even, 2, &out) == mani_success &&
+              MoveApart(out, (maniRootMove){{0.5f, 0.0f, 0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}}) < 1e-6f,
+          "even weights: the mean translation, no turn");
+    const float skip[3] = {1.0f, 0.0f, 1.0f};
+    CHECK(maniBlendRootMotion(moves, skip, 3, &out) == mani_success &&
+              MoveApart(out, (maniRootMove){{0.5f, 0.0f, 0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}}) < 1e-6f,
+          "a negated rotation turned into the first's hemisphere; a weight of 0 left out");
+    const float one[2] = {0.0f, 3.0f};
+    CHECK(maniBlendRootMotion(moves, one, 2, &out) == mani_success &&
+              MoveApart(out, moves[1]) < 1e-6f,
+          "one weight: that move");
+    const float none[2] = {0.0f, 0.0f};
+    CHECK(maniBlendRootMotion(moves, none, 2, &out) == mani_success &&
+              MoveApart(out, maniRootMoveIdentity()) == 0.0f &&
+              maniBlendRootMotion(NULL, NULL, 0, &out) == mani_success,
+          "no weight: no move");
+    const float negative[2] = {1.0f, -1.0f};
+    const float nan[2] = {1.0f, NAN};
+    maniRootMove bad[2] = {moves[0], moves[1]};
+    bad[1].translation.y = INFINITY;
+    CHECK(maniBlendRootMotion(moves, negative, 2, &out) == mani_errorInvalid &&
+              maniBlendRootMotion(moves, nan, 2, &out) == mani_errorInvalid &&
+              maniBlendRootMotion(bad, even, 2, &out) == mani_errorInvalid &&
+              maniBlendRootMotion(NULL, even, 2, &out) == mani_errorInvalid &&
+              maniBlendRootMotion(moves, even, 2, NULL) == mani_errorInvalid,
+          "misuses");
+    maniRootMove id = maniRootMoveIdentity();
+    CHECK(MoveApart(maniComposeRootMotion(id, moves[0]), moves[0]) < 1e-7f &&
+              MoveApart(maniComposeRootMotion(moves[0], id), moves[0]) < 1e-7f,
+          "composing with no move");
 }
 
 static void ExpectRefused(const maniRootMotionSource* root, maniAdditiveBasis additive,
@@ -364,6 +515,18 @@ static void TestBuildRefusals(void)
     }
     s = Walk();
     ExpectRefused(&s, maniAdditiveRest, "an additive clip");
+    // A walk of 2^65 along x: its translation past 2^64.
+    static const float kFar[6] = {0, 1, 0, 36893488147419103232.0f, 1, 0};
+    maniClipSource far = Source(&s);
+    s_tracks[0].translation.values = kFar;
+    size_t size = 0;
+    maniBuildResult r = Build(&far, s_crafted, &size);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonRootMotion && r.item == 0,
+          "a translation past 2^64");
+    // Along y, which the walk does not take: built.
+    static const float kHigh[6] = {0, 1, 0, 0, 36893488147419103232.0f, 0};
+    s_tracks[0].translation.values = kHigh;
+    CHECK(Build(&far, s_crafted, &size).result == mani_success, "a translation not taken");
 }
 
 // Where a section of s_file begins.
@@ -432,6 +595,18 @@ static void TestOpenRefusals(void)
     ExpectFormat(at + 28, 1, at, "a header's last word not zero");
     ExpectFormat(at + 60, 1, at + 60, "the period's last word not zero");
     ExpectFormat(at + 64 + 12, 0x7F800000u, at + 76, "a move not finite");
+    // 2^65 (0x60000000) in a translation, the period's or a sample's.
+    ExpectFormat(at + 32, 0x60000000u, at + 32, "a period translation past 2^64");
+    ExpectFormat(at + 64 + 28 + 8, 0x60000000u, at + 100, "a sample translation past 2^64");
+    ExpectFormat(at + 64 + 28 + 4, 0xE0000000u, at + 96, "a negative translation past 2^64");
+    // A translation of 2^64 itself, and 2^65 in a rotation: opened.
+    memcpy(s_crafted, s_file, s_size);
+    maniStoreU32(s_crafted + at + 64, 0x5F800000u);
+    maniStoreU32(s_crafted + at + 64 + 28 + 12, 0x60000000u);
+    Rehash(s_crafted);
+    maniClip clip;
+    CHECK(maniOpenClip(s_crafted, s_size, &clip).result == mani_success,
+          "2^64 in a translation, 2^65 in a rotation");
     // The additive basis in the header: root motion on a difference clip.
     ExpectFormat(SectionAt(maniClipTagHeader) + 60, 1, at, "an additive clip");
 }
@@ -471,6 +646,8 @@ int main(int argc, char** argv)
     TestReferences();
     TestLoop();
     TestCompressed();
+    TestMoves();
+    TestBlend();
     TestBuildRefusals();
     TestOpenRefusals();
     TestPinned();

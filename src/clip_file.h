@@ -90,6 +90,9 @@ enum
 // the period's move is followed by a zero float.
 #define MANI_ROOT_MOTION_MOVE_FLOATS 7u
 #define MANI_ROOT_MOTION_PERIOD_SIZE 32u
+// A stored translation component's bound, 2^64: a move across 2^32 wraps
+// stays well inside binary32.
+#define MANI_ROOT_MOTION_REACH 18446744073709551616.0
 
 // The root motion section's size for a clip of n samples.
 static inline uint64_t maniRootMotionSize(uint32_t n)

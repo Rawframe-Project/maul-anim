@@ -593,10 +593,11 @@ static maniBuildResult WriteWithRootMotion(maniBuilder* builder, const maniClipS
     maniBuildResult r = Outcome(mani_errorCapacity);
     if (bytes != NULL && TakeRoot(builder, source, track, plan, &root) == mani_success)
     {
-        maniRootMotionWrite(&root.work, bytes);
         plan->rootMotion = &root;
         plan->rootMotionBytes = bytes;
-        r = Write(builder, source, plan, named, previous);
+        r = maniRootMotionWrite(&root.work, bytes)
+                ? Write(builder, source, plan, named, previous)
+                : Refuse(maniBuildReasonRootMotion, source->rootMotion->bone, 0);
     }
     plan->rootMotion = NULL;
     plan->rootMotionBytes = NULL;
