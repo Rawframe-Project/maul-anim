@@ -36,7 +36,10 @@ format.
 - Graph sync groups and subgraphs (mani-0023): clip nodes of a sync
   group follow a leader (the declared one, else the member weighed
   most) by normalized phase, only the leader's events firing unless the
-  group asks for all; `maniGraphNodeSubgraph` inlines another graph
+  group asks for all, by the markers common to all members when they
+  repeat and share one (names matched, a follower placed where the
+  leader's names and fraction are); `maniGraphNodeSubgraph` inlines
+  another graph
   source at build, its parameters read through a map, its clips joined
   by identity and its sync groups by name.
 - Root motion taken out at build (mani-0022): a clip source may name a

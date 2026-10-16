@@ -98,8 +98,18 @@ runtime allocates (mani-0001).
   far through its own clip as the leader through its own, so members of
   different lengths stay in step. Only the leader's events fire unless
   the group asks for every member's; a seeking leader moves its
-  followers to its new phase, firing nothing. Phase by markers common
-  to the members follows in this record.
+  followers to its new phase, firing nothing.
+- **By markers:** a group whose members all repeat and share a marker
+  name syncs by the markers common to all. A position is the common
+  marker last passed (one at the playhead is still ahead), the next one
+  and the fraction between them. Each follower is first placed silently
+  where its markers carry the leader's starting names at the leader's
+  starting fraction (the nearest such place), then passes as many common
+  markers as the leader passed, continues (at most a loop) until its
+  markers carry the leader's final names, and lands at the leader's
+  final fraction; loops past two are skipped arithmetically. A follower
+  whose clip starts on the other foot thus keeps in step without
+  passing a loop of events.
 - **Subgraphs** are a source-only node kind: at build the subgraph's
   output takes the node's place and its other nodes follow the source's
   (nested ones after them), its parameters are read through the node's

@@ -1127,6 +1127,89 @@ static void TestSubgraph(void)
     ExpectRefused(&source, maniBuildReasonCount, 0, 0, "a graph inside itself");
 }
 
+static _Alignas(16) uint8_t s_footFiles[2][8192];
+static maniClip s_feet[2];
+
+// A step of a second (left at 0, right at 0.5) and one of two seconds
+// that starts between its feet (right at 0.5, left at 1.5).
+static void OpenFeet(void)
+{
+    static const float kLongTimes[2] = {0.0f, 2.0f};
+    static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
+    static const maniEventSource kShort[2] = {{0.0f, 0, "left", 4, 0}, {0.5f, 0, "right", 5, 0}};
+    static const maniEventSource kLong[2] = {{0.5f, 0, "right", 5, 0}, {1.5f, 0, "left", 4, 0}};
+    static const maniEventSource kMiddle = {1.0f, 3, "middle", 6, 0};
+    const maniBoneTrackSource tracks[2] = {
+        {0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, 0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+    };
+    for (int i = 0; i < 2; ++i)
+    {
+        maniClipSource source = {.skeleton = &s_skeleton,
+                                 .boneTracks = &tracks[i],
+                                 .boneTrackCount = 1,
+                                 .markers = i == 0 ? kShort : kLong,
+                                 .markerCount = 2,
+                                 .events = i == 1 ? &kMiddle : NULL,
+                                 .eventCount = i == 1 ? 1u : 0u,
+                                 .loop = maniLoopRepeat,
+                                 .sampleRate = 10.0f};
+        maniBuilder* builder = NewBuilder();
+        size_t size = 0;
+        CHECK(maniBuildClip(builder, &source).result == mani_success &&
+                  maniCopyBuilt(builder, s_footFiles[i], sizeof s_footFiles[i], &size) ==
+                      mani_success &&
+                  maniOpenClip(s_footFiles[i], size, &s_feet[i]).result == mani_success,
+              "a clip with feet");
+        maniDestroyBuilder(builder);
+    }
+}
+
+static void TestMarkerSync(void)
+{
+    OpenFeet();
+    maniGraphClipSource clips[2] = {{&s_feet[0], "short", 5, 0}, {&s_feet[1], "long", 4, 0}};
+    maniGraphSyncGroupSource groups[1] = {{"feet", 4, maniGraphSyncAllEvents}};
+    static const uint32_t kInputs[2] = {0, 1};
+    const maniGraphScalar weights[2] = {{MANI_NO_PARAMETER, 0.5f}, {MANI_NO_PARAMETER, 0.5f}};
+    const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeClip, 0, NULL, .clip = {0, 0, one, maniGraphLoopClip, maniGraphClipLeader}},
+        {maniGraphNodeClip, 0, NULL, .clip = {1, 0, one, maniGraphLoopClip, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}},
+    };
+    maniGraphSource source = {&s_skeleton, NULL, clips, groups, nodes, 0, 2, 1, 3, 2, 0};
+    maniGraph g;
+    const maniClip* bound[2] = {&s_feet[0], &s_feet[1]};
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    CHECK(Build(&source).result == mani_success &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniBindGraph(&g, &s_skeleton, bound, 2, s_bindingMemory, sizeof s_bindingMemory,
+                            &binding, NULL) == mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "a marker graph");
+    // The short clip from its left foot to halfway to its right: the long
+    // one placed on its left foot, then halfway to its right (at 2, so 0).
+    // Placed on its left foot without a sound: its middle is not passed.
+    uint32_t count = 0;
+    CHECK(maniUpdateGraph(instance, 0.25f, NULL, 0, &count, NULL) == mani_success &&
+              Near(State(instance, &g, 0)->time, 0.25) && Near(State(instance, &g, 1)->time, 0.0) &&
+              count == 0,
+          "the long clip aligned by names, then halfway between its feet");
+    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
+              Near(State(instance, &g, 0)->time, 0.75) && Near(State(instance, &g, 1)->time, 1.0) &&
+              count == 0,
+          "past the right foot to halfway to the left, in each clip's own spacing");
+    CHECK(maniUpdateGraph(instance, -0.5f, NULL, 0, NULL, NULL) == mani_success &&
+              Near(State(instance, &g, 0)->time, 0.25) && Near(State(instance, &g, 1)->time, 0.0),
+          "backward through the right foot again");
+    CHECK(maniUpdateGraph(instance, 10.25f, NULL, 0, NULL, NULL) == mani_success &&
+              Near(State(instance, &g, 0)->time, 0.5) && Near(State(instance, &g, 1)->time, 0.5),
+          "ten loops and a quarter: both on the right foot");
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -1172,6 +1255,7 @@ int main(int argc, char** argv)
     TestEvaluate();
     TestSync();
     TestSubgraph();
+    TestMarkerSync();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

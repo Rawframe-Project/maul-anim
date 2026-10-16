@@ -61,12 +61,14 @@ typedef struct maniGraphNodeState
 } maniGraphNodeState;
 
 // A sync group's flags during an update: its leader declared, its
-// leader seeking.
-#define MANI_GRAPH_DECLARED 1u
+// leader seeking, the group synced by markers.
+#define MANI_GRAPH_DECLARED       1u
+#define MANI_GRAPH_LEADER_SEEKING 2u
+#define MANI_GRAPH_MARKERS        4u
 
-// A sync group during an update (not saved): its leader, and the
-// leader's phase (its playhead over its duration) before the update and
-// how far the update moves it.
+// A sync group during an update (not saved): its leader, and the leader's
+// phase (its playhead over its duration) before the update and how far
+// the update moves it; by markers, its playhead and step in seconds.
 typedef struct maniGraphGroupState
 {
     uint32_t leader;
