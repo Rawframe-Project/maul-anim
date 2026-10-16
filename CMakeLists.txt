@@ -192,7 +192,8 @@ if(MAUL_ANIM_DIFFERENTIAL)
     FetchContent_Declare(ufbx GIT_REPOSITORY https://github.com/ufbx/ufbx.git
                               GIT_TAG 5955c5c0b042ac2dc6f32955ab206aaec0620cfc)
     FetchContent_MakeAvailable(ufbx)
-    add_executable(fbx_differential tools/fbx_differential.c ${ufbx_SOURCE_DIR}/ufbx.c)
+    add_executable(fbx_differential tools/fbx_differential.c tools/fbx_differential_mesh.c
+        ${ufbx_SOURCE_DIR}/ufbx.c)
     target_include_directories(fbx_differential SYSTEM PRIVATE ${ufbx_SOURCE_DIR})
     target_link_libraries(fbx_differential PRIVATE maul-anim)
     maul_apply_flags(fbx_differential)

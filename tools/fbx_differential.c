@@ -5,9 +5,11 @@
 // with maul-anim and compares what maul-anim builds, through its public
 // interface only: whether each opens, the frame rate, every skeleton's
 // rests (with none, every top model's subtree's), every skin's joints
-// and inverse binds, and every clip (built on the first of those) at
-// five of its sample times, bone poses and blend
-// shape weights, against ufbx's scene evaluated at the same stack time.
+// and inverse binds, its influences and its control points skinned at
+// rest (fbx_differential_mesh.c), every set of morph targets, and every
+// clip (built on the first of those) at five of its sample times, bone
+// poses, blend shape weights and the skins of that skeleton skinned,
+// against ufbx's scene evaluated at the same stack time.
 // Bones compare by their world matrices (the skeleton's placement times
 // the model matrix), as maul-anim bakes inherit modes into its rests.
 // Values agree within 1e-4 of their size (at least 1): a matrix
@@ -24,6 +26,8 @@
 // commit; never part of the library.
 //
 // usage: fbx_differential [--deviations FILE] [--expect HEADER] FILE...
+
+#include "fbx_differential.h"
 
 #include "ufbx.h"
 
@@ -43,60 +47,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum
-{
-    kMaxDeviations = 256,
-    kTimes = 5,
-    kMaxRoots = 256,
-};
-
-typedef struct Deviation
-{
-    char file[128];
-    char aspect[32];
-} Deviation;
-
-// A built file, kept aligned for opening.
-typedef struct Blob
-{
-    void* raw;
-    void* data;
-    size_t size;
-} Blob;
-
-typedef struct Context
-{
-    const char* path;
-    uint32_t file;
-    bool expect;
-    // The expected values so far, while expecting.
-    FILE* out;
-    const Deviation* deviations;
-    uint32_t deviationCount;
-    uint32_t mismatches;
-    uint32_t deviated;
-    ufbx_scene* scene;
-    maniBuilder* builder;
-    maniFbx* fbx;
-    maniSkeleton skeleton;
-    Blob skeletonBlob;
-    maniAffine placement;
-    bool hasSkeleton;
-    // With no skeleton, the subtrees of the top models (by ufbx's
-    // hierarchy) stand in for skeletons.
-    bool byModel;
-    uint32_t sourceCount;
-    uint32_t roots[kMaxRoots];
-} Context;
-
-static void Release(Blob* blob)
+void Release(Blob* blob)
 {
     free(blob->raw);
     *blob = (Blob){NULL, NULL, 0};
 }
 
 // Copies the builder's file into an aligned blob.
-static bool Copy(maniBuilder* builder, Blob* blob)
+bool Copy(maniBuilder* builder, Blob* blob)
 {
     Release(blob);
     size_t size = 0;
@@ -146,7 +104,7 @@ static bool Deviates(const Context* c, const char* aspect)
     return false;
 }
 
-static void Mismatch(Context* c, const char* aspect, const char* format, ...)
+void Mismatch(Context* c, const char* aspect, const char* format, ...)
 {
     bool listed = Deviates(c, aspect);
     printf("%s: %s %s: ", c->path, listed ? "deviation" : "MISMATCH", aspect);
@@ -165,14 +123,14 @@ static void Mismatch(Context* c, const char* aspect, const char* format, ...)
     }
 }
 
-static bool Near(double a, double b)
+bool Near(double a, double b)
 {
     double size = fabs(b) > 1.0 ? fabs(b) : 1.0;
     return fabs(a - b) <= 1e-4 * size;
 }
 
 // a times b, both 3x4 column-major affine matrices.
-static void Compose(const double a[12], const double b[12], double out[12])
+void Compose(const double a[12], const double b[12], double out[12])
 {
     for (int col = 0; col < 4; ++col)
     {
@@ -185,7 +143,7 @@ static void Compose(const double a[12], const double b[12], double out[12])
     }
 }
 
-static void FromAffine(const maniAffine* a, double out[12])
+void FromAffine(const maniAffine* a, double out[12])
 {
     for (int i = 0; i < 12; ++i)
     {
@@ -302,7 +260,7 @@ static void CompareWorlds(Context* c, const char* kind, uint32_t index, double t
 }
 
 // A pose of a skeleton in aligned memory of its own (free raw after).
-static maniPose* NewPose(const maniSkeleton* skeleton, void** raw)
+maniPose* NewPose(const maniSkeleton* skeleton, void** raw)
 {
     size_t size = maniPoseSize(skeleton);
     *raw = malloc(size + 64);
@@ -387,8 +345,8 @@ static uint32_t SourceIndex(const Context* c, uint32_t s)
     return c->byModel ? c->roots[s] : s;
 }
 
-static maniImportResult Placement(const Context* c, uint32_t s, const maniFbxOptions* options,
-                                  maniAffine* out)
+maniImportResult Placement(const Context* c, uint32_t s, const maniFbxOptions* options,
+                           maniAffine* out)
 {
     return c->byModel ? maniFbxModelPlacement(c->fbx, c->roots[s], options, out)
                       : maniFbxSkeletonPlacement(c->fbx, s, options, out);
@@ -494,7 +452,7 @@ static const ufbx_node* SkinMesh(const Context* c, uint32_t k)
 // The ufbx skin deformer our skin k stands for: its mesh's deformer of
 // the same rank among the mesh's skins, or for a skin ufbx places on no
 // mesh, its skin of no mesh of the same rank; the mesh into meshOut.
-static ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k, const ufbx_node** meshOut)
+ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k, const ufbx_node** meshOut)
 {
     const ufbx_node* mesh = SkinMesh(c, k);
     uint32_t rank = 0;
@@ -625,6 +583,7 @@ static void CompareSkins(Context* c)
         if (built)
         {
             CompareBinds(c, k, &skin, &skeleton);
+            CompareInfluences(c, k, s, &skin, &skeleton);
         }
         else if (s != UINT32_MAX)
         {
@@ -668,7 +627,7 @@ static double StackStart(const ufbx_anim_stack* stack, double* stop)
 
 // Whether a channel's shape k has a track name: the shape's name, or for
 // a shape of none, the channel's with "/k" past the first (mani-0017).
-static bool ShapeNamed(const ufbx_blend_channel* channel, size_t k, const char* name, size_t length)
+bool ShapeNamed(const ufbx_blend_channel* channel, size_t k, const char* name, size_t length)
 {
     const ufbx_blend_shape* shape = channel->keyframes.data[k].shape;
     char own[256];
@@ -758,6 +717,7 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
         return;
     }
     CompareWorlds(c, "sample", k, time, skeleton, &c->placement, pose, evaluated);
+    CompareSkinsAt(c, k, pose, evaluated, time);
     uint32_t tracks = maniClipFloatTrackCount(clip);
     float values[256];
     bool sampled = tracks <= 256 &&
@@ -886,6 +846,7 @@ static void CompareFile(Context* c)
         CompareRate(c);
         CompareSkeletons(c);
         CompareSkins(c);
+        CompareMorphs(c);
         KeepClipSkeleton(c);
         uint32_t n = c->hasSkeleton ? maniFbxClipCount(c->fbx) : 0;
         for (uint32_t k = 0; k < n; ++k)
@@ -1010,6 +971,10 @@ int main(int argc, char** argv)
     }
     uint32_t mismatches = 0;
     uint32_t deviated = 0;
+    uint32_t skins = 0;
+    uint32_t morphs = 0;
+    uint32_t posed = 0;
+    uint32_t dualQuaternion = 0;
     for (int i = first; i < argc; ++i)
     {
         Context c = base;
@@ -1018,8 +983,14 @@ int main(int argc, char** argv)
         CompareFile(&c);
         mismatches += c.mismatches;
         deviated += c.deviated;
+        skins += c.skinsCompared;
+        morphs += c.morphsCompared;
+        posed += c.posedCompared;
+        dualQuaternion += c.posedDualQuaternion;
     }
-    printf("%d files, %u mismatches, %u deviations\n", argc - first, mismatches, deviated);
+    printf("%d files: %u skins (%u posed, %u of those dual quaternion or blended) and %u morph "
+           "target sets compared, %u mismatches, %u deviations\n",
+           argc - first, skins, posed, dualQuaternion, morphs, mismatches, deviated);
     bool written = header == NULL ||
                    (mismatches == 0 && WriteExpected(header, base.out, argv + first, argc - first));
     if (base.out != NULL)
