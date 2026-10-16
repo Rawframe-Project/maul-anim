@@ -7,7 +7,8 @@
 // capped; mask shares from the bones' largest weights and the root
 // motion bone's; a select clamped to its inputs; time scales multiplied;
 // loops overridden, clamped and wrapped both ways; a sync group's first
-// equal member leading, a declared leader kept; events and root motion by
+// equal member leading, a declared leader kept; an unreached follower in
+// step, an unreached clip in no group not moved; events and root motion by
 // their own weights; marker sync's edges (a marker at the step's end,
 // the nearest match, names walked to); evaluated blends normalized,
 // capped when direct, a layer of no weight choosing nothing; evaluation
@@ -216,6 +217,42 @@ static void TestDeclaredKept(void)
     Update(instance, 0.1f);
     CHECK(instance->cells[g.parameterCount + g.nodeCount].group.leader == 0,
           "the declared leader kept");
+}
+
+// A sync group's follower that no parent reaches (the select's other
+// input) still keeps pace with its leader; one in no group stays put.
+static void TestUnreachedFollower(void)
+{
+    static const uint32_t kInputs[2] = {1, 2};
+    static const maniGraphSyncGroupSource kGroup = {"feet", 4, 0};
+    maniGraphParameterSource n = Parameter("n", maniGraphParameterInt, Int(0));
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeSelect, 2, kInputs, .select = {0}},
+        {maniGraphNodeClip, 0, NULL,
+         .clip = {0, 0, LITERAL(1.0f), maniGraphLoopClip, maniGraphClipLeader}},
+        {maniGraphNodeClip, 0, NULL, .clip = {1, 0, LITERAL(1.0f), maniGraphLoopClip, 0}}};
+    maniGraph g;
+    // The walk 0 (leading), the run 1, the select 2.
+    maniGraphInstance* instance = Make((maniGraphSource){.parameters = &n,
+                                                         .syncGroups = &kGroup,
+                                                         .nodes = nodes,
+                                                         .parameterCount = 1,
+                                                         .syncGroupCount = 1,
+                                                         .nodeCount = 3},
+                                       &g);
+    Update(instance, 0.25f);
+    CHECK(State(instance, &g, 1)->weight == 0.0f && Near(State(instance, &g, 1)->time, 0.25),
+          "unreached, in step with its leader");
+    nodes[2].clip.syncGroup = MANI_NO_SYNC_GROUP;
+    instance = Make((maniGraphSource){.parameters = &n,
+                                      .syncGroups = &kGroup,
+                                      .nodes = nodes,
+                                      .parameterCount = 1,
+                                      .syncGroupCount = 1,
+                                      .nodeCount = 3},
+                    &g);
+    Update(instance, 0.25f);
+    CHECK(State(instance, &g, 1)->time == 0.0, "unreached in no group: not moved");
 }
 
 // A walk of no weight lists no events; root motion follows the root
@@ -568,6 +605,7 @@ int main(void)
     TestLoops();
     TestLeaderTie();
     TestDeclaredKept();
+    TestUnreachedFollower();
     TestOwnWeights();
     TestMarkerStepEnd();
     TestLeaderSeek();

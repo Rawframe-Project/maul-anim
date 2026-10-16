@@ -303,8 +303,8 @@ can find). Of 81 changes to the blend spaces, the exact predicates and
 the triangulation, every one is caught but five that cannot change a
 result (an end of a line met exactly, a position on a triangle's edge,
 the bands' fallback no position reaches, and two forms of a bounding
-box test the exact edge test repeats). Of 54 changes to the machines'
-leading clips and the one-shots, every one is caught but two that
+box test the exact edge test repeats). Of 102 changes to the state
+machines and the one-shots, every one is caught but two that
 cannot change a result (whole wraps rounded from a difference that is
 already whole, and a greatest index the search meets first anyway).
 Opening, saved state and the JSON reader are fuzzed.

@@ -1810,3 +1810,56 @@ mb-shot-list | src/graph_build.c | uint32_t count = maniGraphSortedClips(&lay->m
 mu-reached | src/graph_update.c | return (s->flags & MANI_GRAPH_REACHED) != 0; | return true;
 mu-skip-unreached | src/graph_update.c | if (!Reached(s) && group >= u->graph->syncGroupCount) | if (!Reached(s))
 me-shot-outside | src/graph_evaluate.c | e->outside[b] = 1.0f - w * m; | e->outside[b] = 1.0f - m;
+
+# State machines' core (mani-0023), 2026-10-16: 48 mutants of candidacy,
+# interruption, cooldowns, fades, conditions, entries, the saved block,
+# the builder's checks and order, opening and the JSON form; all killed
+# (11 by tests added after the first sweep).
+ma-candidate-from | src/graph_machine_step.c | if ((from != current && from != MANI_GRAPH_ANY_STATE) || Transition(m, t, 1) == current || | if (Transition(m, t, 1) == current ||
+ma-candidate-to | src/graph_machine_step.c | if ((from != current && from != MANI_GRAPH_ANY_STATE) || Transition(m, t, 1) == current || | if ((from != current && from != MANI_GRAPH_ANY_STATE) ||
+ma-cooldown | src/graph_machine_step.c | maniGraphMachineSince(m, block, t) < TransitionFloat(m, t, 5)) | false)
+ma-not-running | src/graph_machine_step.c | if (running == MANI_GRAPH_NO_TRANSITION) | if (true)
+ma-interrupt-any | src/graph_machine_step.c | return rule == maniGraphInterruptionAny || | return false ||
+ma-interrupt-higher | src/graph_machine_step.c | (rule == maniGraphInterruptionHigher && Transition(m, t, 2) < Transition(m, running, 2)); | (rule == maniGraphInterruptionHigher);
+ma-smooth | src/graph_machine_step.c | if (Transition(m, running, 3) >> 8 == maniGraphFadeSmoothstep) | if (false)
+ma-fade-to | src/graph_machine_step.c | float weight = k == to ? start + (1.0f - start) * c : start * (1.0f - c); | float weight = k == to ? c : start * (1.0f - c);
+ma-fade-from | src/graph_machine_step.c | float weight = k == to ? start + (1.0f - start) * c : start * (1.0f - c); | float weight = k == to ? start + (1.0f - start) * c : 1.0f - c;
+ma-entry-weight | src/graph_machine_step.c | if (entry != maniGraphEntryKeep && !(maniGraphMachineWeight(block, to) > 0.0f)) | if (entry != maniGraphEntryKeep)
+ma-keep-start | src/graph_machine_step.c | maniGraphKeepStartWeights(m, block); | (void)block;
+ma-since-reset | src/graph_machine_step.c | maniGraphSetMachineSince(m, block, t, 0.0f); | (void)t;
+ma-time-reset | src/graph_machine_step.c | maniGraphSetBlockDouble(block, maniGraphBlockTime, 0.0); | (void)block;
+ma-since-advance | src/graph_machine_step.c | double since = (double)maniGraphMachineSince(m, block, t) + seconds; | double since = (double)maniGraphMachineSince(m, block, t);
+ma-time-advance | src/graph_machine_step.c | double time = maniGraphBlockDouble(block, maniGraphBlockTime) + seconds; | double time = maniGraphBlockDouble(block, maniGraphBlockTime);
+ma-trigger-consume | src/graph_machine_step.c | cells[maniGraphMachineWord(m, at + 1)].value.b = 0; | (void)cells;
+ma-less | src/graph_machine_step.c | return a < b; | return a <= b;
+ma-at-most | src/graph_machine_step.c | return a <= b; | return a < b;
+ma-greater | src/graph_machine_step.c | return a > b; | return a >= b;
+ma-at-least | src/graph_machine_step.c | return a >= b; | return a > b;
+ma-bool-compare | src/graph_machine_step.c | return compare == maniGraphCompareEqual ? v->b == word : v->b != word; | return v->b == word;
+ma-int-value | src/graph_machine_step.c | double b = integer ? (double)(int32_t)word : (double)maniGraphMachineFloat(m, at + 3); | double b = (double)maniGraphMachineFloat(m, at + 3);
+ma-trigger-hold | src/graph_machine_step.c | return cells[maniGraphMachineWord(m, at + 1)].value.b != 0; | return true;
+ma-time-hold | src/graph_machine_step.c | return maniGraphBlockDouble(block, maniGraphBlockTime) >= | return maniGraphBlockDouble(block, maniGraphBlockTime) >
+ma-all-hold | src/graph_machine_step.c | holds = Holds(m, cells, block, maniGraphMachineCondition(m, c), c); | holds = true;
+mu-machine-seek-reset | src/graph_update.c | maniGraphResetMachine(&m, block); | (void)block;
+mu-machine-weighted | src/graph_update.c | if (weight > 0.0f || restart) | if (restart)
+mu-restart-zero | src/graph_update.c | share.seekTo = restart ? (match ? (float)position : 0.0f) : share.seekTo; | share.seekTo = restart ? (match ? (float)position : 0.5f) : share.seekTo;
+mm-reset-entry | src/graph_machine.c | maniGraphSetMachineWeight(block, k, k == entry ? 1.0f : 0.0f); | maniGraphSetMachineWeight(block, k, k == 0 ? 1.0f : 0.0f);
+mm-reset-since | src/graph_machine.c | maniGraphSetMachineSince(m, block, t, HUGE_VALF); | maniGraphSetMachineSince(m, block, t, 0.0f);
+mm-saved-running | src/graph_machine.c | maniGraphMachineTransition(m, running, 1) != current)) | false))
+mm-saved-unit | src/graph_machine.c | return isfinite(value) && value >= 0.0f && value <= 1.0f; | return isfinite(value) && value >= 0.0f;
+mm-saved-since | src/graph_machine.c | wrong = since >= 0.0f ? UINT32_MAX : weights + t; | wrong = UINT32_MAX;
+mm-heard-spare | src/graph_machine.c | if (wrong == UINT32_MAX && spare != 0 && (maniLoadU32(bytes + 4 * (size_t)last) >> spare) != 0) | if (false)
+mc-rivals | src/graph_machine_check.c | return a->from == b->from || a->from == MANI_GRAPH_ANY_STATE || b->from == MANI_GRAPH_ANY_STATE; | return a->from == b->from;
+mc-self | src/graph_machine_check.c | t->from != t->to && t->interruption <= maniGraphInterruptionAny && | t->interruption <= maniGraphInterruptionAny &&
+mc-float-equal | src/graph_machine_check.c | c->compare >= maniGraphCompareLess && c->compare <= maniGraphCompareAtLeast && | c->compare <= maniGraphCompareAtLeast &&
+mc-bool-value | src/graph_machine_check.c | return c->compare <= maniGraphCompareNotEqual && c->value.b <= 1u; | return c->compare <= maniGraphCompareNotEqual;
+mc-chain-default | src/graph_machine_check.c | at = Put(data, at, m->chainLimit != 0 ? m->chainLimit : 4u); | at = Put(data, at, m->chainLimit != 0 ? m->chainLimit : 1u);
+mc-sort | src/graph_machine_check.c | work->keys[t] = m->transitions[t].priority; | work->keys[t] = t;
+mc-flags-entry | src/graph_machine_check.c | t->interruption + (t->entry << 4) + (t->fade << 8), | t->interruption + (t->fade << 8),
+mf-priority-order | src/graph_machine_file.c | if (Word(g, at + 2) < before) | if (false)
+mf-first-turn | src/graph_machine_file.c | return Word(g, at + 6) == first ? UINT32_MAX : at + 6; | return UINT32_MAX;
+mf-chain-max | src/graph_machine_file.c | if (chain == 0 || chain > MANI_GRAPH_MAX_CHAIN) | if (chain == 0)
+mf-condition-sum | src/graph_machine_file.c | return first == Word(g, data + 4) ? UINT32_MAX : data + 4; | return UINT32_MAX;
+me-machine-weight | src/graph_evaluate.c | e->layers[count++] = (maniBlendLayer){input, weight, NULL}; | e->layers[count++] = (maniBlendLayer){input, 1.0f, NULL};
+mj-to-any | src/graph_json_machine.c | if (any && maniGraphJsonWord(r, value, kAny, 1) == 0) | if (maniGraphJsonWord(r, value, kAny, 1) == 0)
+mj-write-any | src/graph_json.c | if (t->from == MANI_GRAPH_ANY_STATE) | if (false)

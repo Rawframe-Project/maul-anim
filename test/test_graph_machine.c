@@ -200,6 +200,27 @@ static void TestChains(void)
     instance = Machine(t, 3, 0, &g);
     Update(instance, 0.1f);
     CHECK(Weights3(instance, &g, 0, 1, 0), "the default 4: round once and on");
+    t[1] = Go(1, 0, 1, 0.0f, NULL, 0);
+    instance = Machine(t, 2, 0, &g);
+    Update(instance, 0.1f);
+    CHECK(Weights3(instance, &g, 1, 0, 0), "the default 4: there and back twice");
+}
+
+// An any-state transition never fires into the current state: the state
+// keeps its time and leaves when its half second is up.
+static void TestAnyToCurrent(void)
+{
+    static const maniGraphConditionSource kHalf[1] = {
+        {maniGraphConditionTimeInState, 0, 0, 0, {{0.5f}}, NULL}};
+    maniGraphTransitionSource t[2] = {Go(MANI_GRAPH_ANY_STATE, 2, 0, 0.0f, NULL, 0),
+                                      Go(2, 0, 1, 0.0f, kHalf, 1)};
+    maniGraph g;
+    maniGraphInstance* instance = Machine(t, 2, 1, &g);
+    Update(instance, 0.25f);
+    CHECK(Weights3(instance, &g, 0, 0, 1), "entered from any state");
+    Update(instance, 0.25f);
+    Update(instance, 0.25f);
+    CHECK(Weights3(instance, &g, 1, 0, 0), "not entered again: its half second up");
 }
 
 // The walk to the run and straight back; the walk to the run again only
@@ -215,8 +236,9 @@ static void TestCooldown(void)
     Update(instance, 0.25f);
     CHECK(Weights3(instance, &g, 1, 0, 0), "back");
     Update(instance, 0.25f);
-    Update(instance, 0.25f);
     CHECK(Weights3(instance, &g, 1, 0, 0), "cooling down");
+    Update(instance, 0.25f);
+    CHECK(Weights3(instance, &g, 1, 0, 0), "still cooling down");
     Update(instance, 0.5f);
     CHECK(Weights3(instance, &g, 0, 1, 0), "a second on");
 }
@@ -254,6 +276,23 @@ static void TestConditions(void)
     Set(instance, 0, maniGraphParameterFloat, Float(0.5f));
     Update(instance, 0.1f);
     CHECK(Weights3(instance, &g, 0, 1, 0), "all four hold");
+    // At the value: less and greater do not hold; crouch not true.
+    const maniGraphConditionSource kEdges[3] = {
+        {maniGraphConditionParameter, 0, maniGraphCompareLess, 0, Float(1.0f), NULL},
+        {maniGraphConditionParameter, 0, maniGraphCompareGreater, 0, Float(1.0f), NULL},
+        {maniGraphConditionParameter, 2, maniGraphCompareNotEqual, 0, Int(1), NULL}};
+    for (int k = 0; k < 3; ++k)
+    {
+        t[0] = Go(0, 1, 0, 0.0f, &kEdges[k], 1);
+        instance = Machine(t, 1, 0, &g);
+        Set(instance, 0, maniGraphParameterFloat, Float(1.0f));
+        Set(instance, 2, maniGraphParameterBool, Int(1));
+        Update(instance, 0.1f);
+        CHECK(Weights3(instance, &g, 1, 0, 0), "not at the value");
+    }
+    Set(instance, 2, maniGraphParameterBool, Int(0));
+    Update(instance, 0.1f);
+    CHECK(Weights3(instance, &g, 0, 1, 0), "crouch false: not equal holds");
 }
 
 // The walk to the run after a quarter in it, back after a half in the
@@ -391,7 +430,8 @@ static void TestSaved(void)
     // The word changed, its value, the word refused: the header, the
     // record (binary64 high words), a weight, a timer, a heard bit past
     // the one condition.
-    const uint32_t kBad[12][3] = {{0, 3, 0},
+    const uint32_t kBad[13][3] = {{0, 2, 1},
+                                  {0, 3, 0},
                                   {1, 5, 1},
                                   {2, 0xFF800000u, 2},
                                   {4, 0xFFF00000u, 3},
@@ -403,7 +443,7 @@ static void TestSaved(void)
                                   {14, 0x3F800001u, 14},
                                   {20, 0xBF800000u, 20},
                                   {21, 2, 21}};
-    for (int k = 0; k < 12; ++k)
+    for (int k = 0; k < 13; ++k)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
@@ -423,7 +463,7 @@ static void TestEvaluated(void)
     maniGraph g;
     maniGraphInstance* instance = Machine(t, 1, 0, &g);
     Update(instance, 0.25f);
-    Update(instance, 0.5f);
+    Update(instance, 0.25f);
     maniPose* poses[4];
     for (int i = 0; i < 4; ++i)
     {
@@ -431,10 +471,12 @@ static void TestEvaluated(void)
                   mani_success,
               "a pose");
     }
-    const maniBlendLayer layers[2] = {{poses[1], 0.5f, NULL}, {poses[2], 0.5f, NULL}};
+    // A quarter into the fade: the walk at 0.5 weighs 0.75, the run at
+    // 0.25 weighs 0.25.
+    const maniBlendLayer layers[2] = {{poses[1], 0.75f, NULL}, {poses[2], 0.25f, NULL}};
     CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, poses[0]) == mani_success &&
-              maniSampleClip(&s_clips[0], &s_skeleton, 0.75f, poses[1]) == mani_success &&
-              maniSampleClip(&s_clips[1], &s_skeleton, 0.5f, poses[2]) == mani_success &&
+              maniSampleClip(&s_clips[0], &s_skeleton, 0.5f, poses[1]) == mani_success &&
+              maniSampleClip(&s_clips[1], &s_skeleton, 0.25f, poses[2]) == mani_success &&
               maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, poses[3]) ==
                   mani_success,
           "evaluated");
@@ -680,9 +722,11 @@ static void TestJsonForms(void)
         const char* text;
         uint32_t form;
         const char* marker;
-    } kRefusals[6] = {
+    } kRefusals[7] = {
         {HEAD ", \"transitions\": [{\"from\": \"all\", \"to\": 1}]" TAIL, maniGraphFormValue,
          "all\""},
+        {HEAD ", \"transitions\": [{\"from\": 0, \"to\": \"any\"}]" TAIL, maniGraphFormValue,
+         "any\""},
         {HEAD ", \"transitions\": [{\"from\": 0}]" TAIL, maniGraphFormMissing, "{\"from"},
         {HEAD ", \"transitions\": [{\"from\": 0, \"to\": 1, \"conditions\": [{\"parameter\": "
               "\"speed\", \"compare\": \"=~\", \"value\": 1}]}]" TAIL,
@@ -695,7 +739,7 @@ static void TestJsonForms(void)
          maniGraphFormMember, "timeInState"},
         {HEAD ", \"transitions\": [{\"from\": 0, \"to\": 1, \"fade\": \"cubic\"}]" TAIL,
          maniGraphFormValue, "cubic"}};
-    for (int k = 0; k < 6; ++k)
+    for (int k = 0; k < 7; ++k)
     {
         maniBuildResult r = Read(kRefusals[k].text);
         const char* at = strstr(kRefusals[k].text, kRefusals[k].marker);
@@ -737,6 +781,7 @@ int main(int argc, char** argv)
     TestInterruption();
     TestPriority();
     TestChains();
+    TestAnyToCurrent();
     TestCooldown();
     TestConditions();
     TestEntries();

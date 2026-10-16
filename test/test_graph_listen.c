@@ -490,6 +490,7 @@ static void TestOpenRefusals(void)
     uint64_t at = 0;
     CHECK(Crafted(&g, 3, 15, 0, &at).result == mani_success, "an event's hash is any");
     CHECK(RefusedAtWord(&g, 3, 5, 0), "not listening with an event condition");
+    CHECK(RefusedAtWordOf(&g, 3, 13, 0, 4), "conditions not adding up to the count");
     CHECK(RefusedAtWordOf(&g, 3, 17, 1, 14), "an event condition's value not 0");
     CHECK(RefusedAtWord(&g, 3, 19, 2), "a nearest machine of another kind");
     CHECK(RefusedAtWord(&g, 3, 19, 3), "the machine as its own nearest");
