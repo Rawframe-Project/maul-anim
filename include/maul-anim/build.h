@@ -640,18 +640,19 @@ extern "C"
         uint32_t reserved;
     } maniSpringSetSource;
 
-    /// Copies the last built file into caller memory.
+    /// Copies the last built file, or the last written text, into caller
+    /// memory.
     ///
     /// @param builder   The builder.
     /// @param bufferOut Receives the bytes: at least capacity bytes; may be
-    ///                  NULL when capacity is 0. Open the copy from a
+    ///                  NULL when capacity is 0. Open a file's copy from a
     ///                  16-byte aligned address.
     /// @param capacity  The buffer's size in bytes.
-    /// @param sizeOut   Receives the file's size in bytes. May be NULL.
+    /// @param sizeOut   Receives the size in bytes. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when the buffer is
-    /// smaller than the file, with the size still written;
+    /// smaller than the file or text, with the size still written;
     /// `mani_errorInvalid` for a NULL builder, a NULL buffer with a
-    /// positive capacity, or a builder holding no file.
+    /// positive capacity, or a builder holding neither.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut,

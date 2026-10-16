@@ -113,7 +113,7 @@ Compresses a full-precision clip into the builder (mani-0019): default and const
 ```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
 ```
-Copies the last built file into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open the copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the file's size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding no file. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+Copies the last built file, or the last written text, into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open a file's copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file or text, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding neither. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniCopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity, uint32_t* countOut);
@@ -396,6 +396,11 @@ Building a graph file (mani-0023), offline: a graph's parameters, clip slots, sy
 MANI_NODISCARD MANI_API maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source);
 ```
 Builds a graph file: inlines subgraphs (their nodes after the source's, in order, nested ones after them; refusals name nodes by their place there), checks every parameter, clip slot, sync group and node, orders the nodes so each follows its inputs (the output last, the source's order kept where it may be), makes each mask's bone weights, marks each node as giving poses or differences, gives each node's pose a slot reused once its last reader has run, and keeps the file in place of any built before.  @param builder  The builder. @param source   The graph. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse) or with the reason, the item and another the reason names for a refused source: Count (more items than the named limits, or none of nodes), Name, DuplicateName and NameHash with the list bits of parameters, clips or sync groups, Parameter, Clip, Node, Input, Cycle, Unreachable, Scalar, Weight and Difference; and `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniWriteGraphJson(maniBuilder* builder, const maniGraphSource* source);
+```
+Writes a graph source as its JSON text form (UTF-8, two-space indents, a line per list item, ending in a new line), building it first: a source maniBuildGraph refuses is refused the same way and not written. Parameters, clip slots, sync groups and the bones of mask chains are written by name, nodes and the output by their place in the source, subgraphs as nested graphs with their parameters mapped by name, and numbers as the shortest text that reads back to the same binary32 (ECMAScript's layout). The text is kept in place of any file or text kept before; maniCopyBuilt copies it.  @param builder  The builder. @param source   The graph. @return As maniBuildGraph. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ## `import.h`
 
@@ -1029,4 +1034,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-195 functions across 13 headers.
+196 functions across 13 headers.

@@ -79,7 +79,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
     target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c src/root_motion_build.c
-                                     src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/inflate.c
+                                     src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/decimal_format.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c src/gltf_mesh.c
                                      src/gltf_buffer.c src/gltf_layout.c
@@ -87,7 +87,7 @@ if(MAUL_ANIM_OFFLINE)
                                      src/gltf_rest.c src/gltf_skeleton.c src/gltf_spring.c src/json.c src/skeleton_build.c
                                      src/fbx.c src/fbx_anim.c src/fbx_ascii.c src/fbx_binary.c src/fbx_blend.c src/fbx_clip.c src/fbx_clip_state.c src/fbx_curve.c src/fbx_helpers.c src/fbx_influences.c src/fbx_morph.c src/fbx_keys.c src/fbx_legacy.c src/fbx_model.c src/fbx_object.c src/fbx_options.c src/fbx_sample.c src/fbx_skeleton.c src/fbx_skin.c src/fbx_take.c src/fbx_tracks.c src/fbx_transform.c src/fbx_units.c src/fbx_value.c src/fbx_world.c src/sort.c
                                      src/skin_build.c src/influences_build.c src/centers_build.c
-                                     src/morph_build.c src/graph_check.c src/graph_build.c src/graph_inline.c)
+                                     src/morph_build.c src/graph_check.c src/graph_build.c src/graph_inline.c src/graph_json.c)
 endif()
 maul_configure_library(maul-anim)
 # sqrtf need not set errno, which the library never reads: square roots
@@ -124,6 +124,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(clip_compress WHITEBOX)
         maul_add_test(root_motion WHITEBOX)
         maul_add_test(graph WHITEBOX)
+        maul_add_test(graph_json)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

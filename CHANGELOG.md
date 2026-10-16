@@ -39,9 +39,12 @@ format.
   group asks for all, by the markers common to all members when they
   repeat and share one (names matched, a follower placed where the
   leader's names and fraction are); `maniGraphNodeSubgraph` inlines
-  another graph
-  source at build, its parameters read through a map, its clips joined
-  by identity and its sync groups by name.
+  another graph source at build, its parameters read through a map,
+  its clips joined by identity and its sync groups by name.
+- Graph text form (mani-0023): `maniWriteGraphJson` writes a graph
+  source as JSON once it builds, names in place of indices (bones of
+  mask chains included), subgraphs nested, a line per item, numbers as
+  the shortest text that reads back to the same binary32.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

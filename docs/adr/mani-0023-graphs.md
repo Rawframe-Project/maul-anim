@@ -117,6 +117,21 @@ runtime allocates (mani-0001).
   by identity and its sync groups by name. Nesting deeper than 16 (a
   graph inside itself) is refused. A graph built from subgraphs plays
   bit for bit as the same graph written out.
+- **Text form:** `maniWriteGraphJson` writes a source as JSON after
+  building it, so only a source that builds is written; the builder
+  keeps the text as it keeps files. The top object carries `format`
+  ("maul-anim graph") and `version` (1), then `parameters` (name, type,
+  default, and bounds when bounded), `clips` (slot names), `syncGroups`
+  (name, `allEvents`), `nodes` and `output`. Nodes name their kind and
+  list their inputs by place in `nodes`; parameters, clip slots, sync
+  groups and the bones of mask chains are named, never indexed, so a
+  file survives a reimport that changes identities or bone order. A
+  number a node takes is a number or `{"parameter": name}`. A subgraph
+  node carries its graph nested, with its parameters mapped by name.
+  Each list item takes one line, so a change to one item is a one-line
+  diff. Numbers are the shortest decimal that reads back to the same
+  binary32, in ECMAScript's layout, found with integers only (`-0`
+  kept), so one source has one text on every platform.
 
 ## Consequences
 

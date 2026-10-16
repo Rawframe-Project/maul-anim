@@ -11,10 +11,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// The kind of a kept text (a JSON form), not a file: no container kind.
+#define MANI_BUILT_TEXT 0x100u
+
 struct maniBuilder
 {
     maniAllocator allocator;
-    // The last built file, and its kind (0 for none).
+    // The last built file or text, and its kind (0 for none).
     uint8_t* file;
     size_t fileSize;
     uint32_t kind;

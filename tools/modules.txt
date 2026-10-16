@@ -54,6 +54,7 @@ clip_build: allocator builder bytes clip_file container quat64 root_motion root_
 graph_check: allocator container graph_file sort text
 graph_inline: allocator graph_check
 graph_build: allocator builder bytes container graph_check graph_file graph_inline
+graph_json: allocator builder decimal_format
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 clip_shell: additive
@@ -61,6 +62,7 @@ clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_searc
 clip_plan: allocator bytes clip_codec clip_file vecmath
 clip_search: allocator bytes clip_codec clip_file clip_plan clip_shell clip_view pose_memory
 decimal:
+decimal_format: decimal
 json: allocator decimal text
 gltf_property: json
 gltf_document: arena gltf_property hierarchy json names

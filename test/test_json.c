@@ -2,18 +2,20 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The JSON reader (mani-0007): numbers against an exact rational oracle in
-// both formats, whole numbers, the grammar's refusals with their
-// offsets, every proper prefix of a document refused, the layout of
-// values, lookups where names repeat, escapes, depth and allocation
-// failure. Run as test_json --seed <file> it writes the fuzz target's
-// seed.
+// both formats, binary32 written shortest against another (mani-0023),
+// whole numbers, the grammar's refusals with their offsets, every proper
+// prefix of a document refused, the layout of values, lookups where names
+// repeat, escapes, depth and allocation failure. Run as test_json --seed
+// <file> it writes the fuzz target's seed.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "decimal.h"
+#include "decimal_format.h"
 #include "json.h"
+#include "json_format_cases.h"
 #include "json_number_cases.h"
 #include "test_harness.h"
 
@@ -61,6 +63,40 @@ static void TestNumbers(void)
     CHECK(maniDecimalToBinary(kTiny, sizeof kTiny - 1, maniBinary64, &bits) &&
               bits == 0x8000000000000000u,
           "a tiny one is -0");
+}
+
+static void TestFormat(void)
+{
+    size_t wrong = 0;
+    char text[MANI_DECIMAL_MAX];
+    for (size_t i = 0; i < sizeof kFormatCases / sizeof kFormatCases[0]; ++i)
+    {
+        const FormatCase* c = &kFormatCases[i];
+        float value = 0.0f;
+        memcpy(&value, &c->bits, sizeof value);
+        size_t length = maniFormatBinary32(value, text);
+        wrong += length != strlen(c->text) || memcmp(text, c->text, length) != 0 ? 1 : 0;
+    }
+    CHECK(wrong == 0, "every case written as the oracle writes it");
+    // A sweep of the whole range: each text reads back to its value.
+    size_t lost = 0;
+    for (uint64_t bits = 0; bits < 0x7F800000u; bits += 32771u)
+    {
+        uint32_t b = (uint32_t)bits;
+        float value = 0.0f;
+        memcpy(&value, &b, sizeof value);
+        size_t length = maniFormatBinary32(value, text);
+        uint64_t read = 0;
+        lost += maniDecimalToBinary(text, length, maniBinary32, &read) && read == b ? 0 : 1;
+    }
+    CHECK(lost == 0, "every text reads back");
+    uint32_t infinity = 0x7F800000u;
+    uint32_t nan = 0x7FC00000u;
+    float value = 0.0f;
+    memcpy(&value, &infinity, sizeof value);
+    CHECK(maniFormatBinary32(value, text) == 0, "infinity is not written");
+    memcpy(&value, &nan, sizeof value);
+    CHECK(maniFormatBinary32(value, text) == 0, "NaN is not written");
 }
 
 static bool Integer(const char* text, int64_t minimum, int64_t maximum, int64_t* value)
@@ -314,6 +350,7 @@ int main(int argc, char** argv)
         return WriteSeed(argv[2]);
     }
     TestNumbers();
+    TestFormat();
     TestIntegers();
     TestRefusals();
     TestPrefixes();

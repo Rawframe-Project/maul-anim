@@ -226,6 +226,25 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult maniBuildGraph(maniBuilder* builder,
                                                            const maniGraphSource* source);
 
+    /// Writes a graph source as its JSON text form (UTF-8, two-space
+    /// indents, a line per list item, ending in a new line), building it
+    /// first: a source maniBuildGraph refuses is refused the same way and
+    /// not written. Parameters, clip slots, sync groups and the bones of
+    /// mask chains are written by name, nodes and the output by their
+    /// place in the source, subgraphs as nested graphs with their
+    /// parameters mapped by name, and numbers as the shortest text that
+    /// reads back to the same binary32 (ECMAScript's layout). The text is
+    /// kept in place of any file or text kept before; maniCopyBuilt
+    /// copies it.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The graph.
+    /// @return As maniBuildGraph.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniWriteGraphJson(maniBuilder* builder,
+                                                               const maniGraphSource* source);
+
 #ifdef __cplusplus
 }
 #endif
