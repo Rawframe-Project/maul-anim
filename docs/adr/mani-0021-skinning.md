@@ -49,13 +49,31 @@ deltas applied before skinning, weighted by animated values.
   summing to 255 or 65535), float sums renormalized; glTF's morph
   targets over every attribute it morphs, channels named by
   `extras.targetNames` or the target's index so they meet the clips'
-  weight tracks.
+  weight tracks. FBX's clusters' `Indexes` and `Weights` per control
+  point, as ufbx reads them (an index past the control points skipped,
+  a vertex repeated in one cluster summed, a negative weight refused,
+  weights renormalized as every source's are), `SkinningType` as the
+  method and the skin's blend weights; FBX's BlendShape channels (6.x
+  meshes' Shape children) as morph targets at FullWeights / 100,
+  in-betweens and negative targets sorted, a shape after an equal
+  target left out (ufbx weighs it 0 at every weight), Blender's
+  per-vertex weights folded in, a repeated channel name numbered, each
+  target named as its weight track.
 - **Bits:** binary32 in a fixed order, the same on every platform.
+- **Verification:** the ufbx differential (mani-0018) compares every
+  skin's influences and blend weights, its control points skinned at
+  rest and at each sampled clip time by the skin's method against
+  `ufbx_get_skin_vertex_matrix`, and every set of morph targets
+  (targets, names, full weights, offsets, rest weights) against ufbx's
+  blend deformers; over ufbx's corpus no deviation is listed, dual
+  quaternion skins with scaled bones included (both apply the scale
+  before the rigid part). Fuzz targets read every format and importer;
+  mutation sweeps cover the builders, jobs and importers.
 
 ## Consequences
 
 A host switches methods per mesh without rebuilding data, and a mesh
 binds to the wrong skin only by an identity collision. Sorting and
 renormalizing once at build make every job independent of the
-source's order. The formats and jobs land slice by slice (item 6b);
-this record grows with them.
+source's order. A weight track finds its target without the host
+knowing which format produced it.
