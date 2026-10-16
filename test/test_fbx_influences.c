@@ -174,6 +174,15 @@ static void TestMethods(void)
     CHECK(Method(text) == maniSkinningBlended, "Blend without weights");
     snprintf(text, sizeof text, "%s", Replace("\"Blend\"\n", "\"Linear\"\n"));
     CHECK(Method(text) == maniSkinningBlended, "Linear with blend weights: blended");
+    snprintf(text, sizeof text, "%s", Replace("\"Blend\"\n", "\"DualQuaternion\"\n"));
+    CHECK(Method(text) == maniSkinningBlended, "DualQuaternion with blend weights: blended");
+    snprintf(text, sizeof text, "%s",
+             Replace("  Indexes: *2 {\n   a: 1,3\n  }\n", "  Indexes: *2 {\n   a: 1,4\n  }\n"));
+    maniInfluences skipped;
+    CHECK(Import(text, &skipped).result == mani_success &&
+              maniInfluencesDualQuaternionWeight(&skipped, 1) == 0.25f &&
+              maniInfluencesDualQuaternionWeight(&skipped, 3) == 0.0f,
+          "a blend index past the control points skipped");
     snprintf(text, sizeof text, "%s",
              Replace("  SkinningType: \"Blend\"\n"
                      "  Indexes: *2 {\n   a: 1,3\n  }\n"

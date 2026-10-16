@@ -278,6 +278,10 @@ static void TestBlender(void)
     CHECK(p[2] == 1.0f && p[5] == 2.0f, "per-vertex weights 0.5 and 1");
     Apply(&m, 2, p, n);
     CHECK(p[11] == -1.0f, "Frown's first shape, its FullWeights not as many as its offsets");
+    snprintf(text, sizeof text, "%s", Replace(text, "a: 100,-100", "a: 50,-100"));
+    CHECK(Import(text, &options, &m).result == mani_success, "imports");
+    Apply(&m, 2, p, n);
+    CHECK(p[11] == -1.0f, "FullWeights not as many as the offsets are no per-vertex weights");
 }
 
 static void ExpectRefused(const char* text, maniImportReason reason, uint32_t item,
@@ -311,8 +315,8 @@ static void TestRefusals(void)
 }
 
 // 6.x: Shape children of the mesh model, each a channel of one target at
-// 1 weighted by the model's property of its name; Hollow (no arrays) is
-// no shape; the second Smile channel is renamed, its target keeping the
+// 1 weighted by the model's property of its name; Hollow (no arrays) and
+// Half (no Indexes) are no shapes; the second Smile channel is renamed, its target keeping the
 // name its track has.
 static void TestSix(void)
 {
@@ -325,6 +329,7 @@ static void TestSix(void)
                                "  Vertices: 0,0,0,1,0,0\n"
                                "  PolygonVertexIndex: 0,-2\n"
                                "  Shape: \"Hollow\" {\n  }\n"
+                               "  Shape: \"Half\" {\n   Vertices: 0,0,1\n  }\n"
                                "  Shape: \"Smile\" {\n"
                                "   Indexes: 1\n"
                                "   Vertices: 0,3,0\n"

@@ -158,8 +158,9 @@ static void TestBuildsAndReads(void)
               w == 0.0f,
           "past the vertices or slots: joint 0 at 0");
     CHECK(maniInfluencesDualQuaternionWeight(&v, 2) == 0.25f &&
-              maniInfluencesDualQuaternionWeight(&v, 9) == 0.0f,
-          "blend weights");
+              maniInfluencesDualQuaternionWeight(&v, 4) == 0.0f &&
+              maniInfluencesDualQuaternionWeight(&v, UINT32_MAX) == 0.0f,
+          "blend weights; 0 past the vertices");
     maniVec3 center;
     CHECK(!maniInfluencesCenter(&v, 0, &center), "no centers yet");
     maniInfluenceSource plain = Sample();
@@ -173,6 +174,24 @@ static void TestBuildsAndReads(void)
     maniSkin other = s_skin;
     other.identity ^= 1;
     CHECK(!maniInfluencesFitSkin(&v, &other), "not another skin");
+}
+
+// A vertex of exactly four influences takes one group, not two.
+static void TestWholeGroup(void)
+{
+    static const uint32_t offsets[2] = {0, 4};
+    static const uint32_t joints[4] = {0, 1, 2, 3};
+    static const float weights[4] = {0.4f, 0.3f, 0.2f, 0.1f};
+    maniInfluenceSource source = {.skin = &s_skin,
+                                  .offsets = offsets,
+                                  .joints = joints,
+                                  .weights = weights,
+                                  .vertexCount = 1};
+    maniInfluences v;
+    CHECK(BuildFrom(&source).result == mani_success &&
+              maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
+              maniInfluencesPerVertex(&v) == 4,
+          "four influences: one group");
 }
 
 static void ExpectRefused(const maniInfluenceSource* source, maniBuildReason reason, uint32_t item,
@@ -430,6 +449,7 @@ int main(int argc, char** argv)
     }
     OpenSkin();
     TestBuildsAndReads();
+    TestWholeGroup();
     TestBuildRefusals();
     TestOpenRefusals();
     TestPinned();

@@ -463,6 +463,41 @@ static void TestJob(void)
     CHECK(wKept, "the tangents' w kept");
 }
 
+// A range ending at 5 leaves the vertex past it alone though smile's
+// sparse target moves vertex 5; at weight 0 every target leaves the
+// streams a copy of their input, bit for bit (-0 kept).
+static void TestRangeAndZero(void)
+{
+    BuildSample();
+    maniMorphTargets m;
+    CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
+    RandomVertices();
+    const float ones[5] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    maniMorphStream streams[5];
+    memset(s_other, 0x5A, sizeof s_other);
+    Vertex guard = s_other[5];
+    Streams(s_in, s_other, streams);
+    maniMorphJob job = {&m, ones, 0, 5, 5, 0, streams};
+    CHECK(maniApplyMorphTargets(&job) == mani_success &&
+              memcmp(&s_other[5], &guard, sizeof guard) == 0,
+          "a range writes no vertex past its end");
+    for (uint32_t v = 0; v < kVertices; ++v)
+    {
+        s_in[v].position[0] = -0.0f;
+        s_in[v].position[1] = -0.0f;
+        s_in[v].position[2] = -0.0f;
+    }
+    const float zeros[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    maniMorphStream position = Stream(s_in->position, s_out->position, maniMorphPosition, 0, 3);
+    job = (maniMorphJob){&m, zeros, 0, kVertices, 1, 0, &position};
+    bool same = maniApplyMorphTargets(&job) == mani_success;
+    for (uint32_t v = 0; same && v < kVertices; ++v)
+    {
+        same = memcmp(s_out[v].position, s_in[v].position, sizeof s_in[v].position) == 0;
+    }
+    CHECK(same, "weights of 0: the input's bits");
+}
+
 // A sparse target on vertices 1 to 11 and a dense one with vertex 0's
 // delta 0 give the same bits (inputs have no zero, so +0 changes none).
 static void TestSparseAsDense(void)
@@ -888,6 +923,7 @@ int main(int argc, char** argv)
     TestWeights();
     TestJob();
     TestSameBits();
+    TestRangeAndZero();
     TestBuildRefusals();
     TestOpenRefusals();
     TestJobRefusals();
