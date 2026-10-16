@@ -337,30 +337,117 @@ static void Events(Update* u, uint32_t node, const maniClip* clip, double t0, do
     Emit(u, node, clip, forward ? 0.0 : d, rest);
 }
 
+// How a clip node moves this update: from t0 by step, or set to t0 by a
+// seek (nothing passed); with its events or not.
+typedef struct Motion
+{
+    double t0;
+    double step;
+    bool seeking;
+    bool events;
+} Motion;
+
+// A node's own motion: its playhead by its speed and time factor.
+static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const maniClip* clip,
+                        uint32_t data)
+{
+    if ((s->flags & MANI_GRAPH_SEEKING) != 0)
+    {
+        return (Motion){Place(clip, (double)s->seekTo), 0.0, true, false};
+    }
+    return (Motion){s->time, u->delta * (double)Scalar(u, data + 4) * (double)s->factor, false,
+                    true};
+}
+
+static maniGraphGroupState* Group(const Update* u, uint32_t group)
+{
+    return &u->instance->cells[u->graph->parameterCount + u->graph->nodeCount + group].group;
+}
+
+static uint32_t GroupOf(const Update* u, const uint8_t* record)
+{
+    return Word(u, maniLoadU32(record + 12) + 1);
+}
+
+// Each group's leader: the first declared, else the member weighed most
+// (the first of equals); then its phase and how far it moves.
+static void Lead(const Update* u)
+{
+    for (uint32_t g = 0; g < u->graph->syncGroupCount; ++g)
+    {
+        *Group(u, g) = (maniGraphGroupState){UINT32_MAX, 0, 0.0, 0.0};
+    }
+    for (uint32_t p = 0; p < u->graph->nodeCount; ++p)
+    {
+        const uint8_t* record = Record(u, p);
+        uint32_t g = maniLoadU16(record) == maniGraphNodeClip ? GroupOf(u, record) : UINT32_MAX;
+        if (g >= u->graph->syncGroupCount)
+        {
+            continue;
+        }
+        maniGraphGroupState* group = Group(u, g);
+        bool declared = Word(u, maniLoadU32(record + 12) + 3) != 0;
+        bool heavier =
+            group->leader == UINT32_MAX || Node(u, p)->weight > Node(u, group->leader)->weight;
+        if ((group->flags & MANI_GRAPH_DECLARED) == 0 && (declared || heavier))
+        {
+            group->leader = p;
+            group->flags = declared ? MANI_GRAPH_DECLARED : 0u;
+        }
+    }
+    for (uint32_t g = 0; g < u->graph->syncGroupCount; ++g)
+    {
+        maniGraphGroupState* group = Group(u, g);
+        if (group->leader == UINT32_MAX)
+        {
+            continue;
+        }
+        uint32_t data = maniLoadU32(Record(u, group->leader) + 12);
+        maniClip clip = ClipOf(u, data);
+        Motion m = OwnMotion(u, Node(u, group->leader), &clip, data);
+        double d = (double)clip.duration;
+        group->phase = d > 0.0 ? m.t0 / d : 0.0;
+        group->delta = d > 0.0 ? m.step / d : 0.0;
+    }
+}
+
+// A follower's motion: as far through its clip as the leader through its
+// own, from the leader's phase; its events only when the group asks.
+static Motion Follow(const Update* u, uint32_t group, const maniClip* clip, Motion leader)
+{
+    const maniGraphGroupState* g = Group(u, group);
+    double d = (double)clip->duration;
+    const uint8_t* entry = u->graph->syncGroups + (size_t)group * MANI_GRAPH_SYNC_GROUP_SIZE;
+    bool all = (maniLoadU32(entry + 16) & 1u) != 0;
+    return (Motion){Place(clip, g->phase * d), g->delta * d, leader.seeking,
+                    all && !leader.seeking};
+}
+
 static void Advance(Update* u, uint32_t p, const uint8_t* record)
 {
     maniGraphNodeState* s = Node(u, p);
     uint32_t data = maniLoadU32(record + 12);
     maniClip clip = ClipOf(u, data);
-    maniRootMove move = maniRootMoveIdentity();
-    if ((s->flags & MANI_GRAPH_SEEKING) != 0)
+    Motion m = OwnMotion(u, s, &clip, data);
+    uint32_t group = GroupOf(u, record);
+    if (group < u->graph->syncGroupCount && Group(u, group)->leader != p &&
+        Group(u, group)->leader != UINT32_MAX)
     {
-        s->time = Place(&clip, (double)s->seekTo);
+        m = Follow(u, group, &clip, m);
     }
-    else
+    maniRootMove move = maniRootMoveIdentity();
+    if (!m.seeking)
     {
-        double step = u->delta * (double)Scalar(u, data + 4) * (double)s->factor;
-        double t0 = s->time;
-        if (s->weight > MANI_GRAPH_EVENT_THRESHOLD)
+        if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD)
         {
-            Events(u, p, &clip, t0, step);
+            Events(u, p, &clip, m.t0, m.step);
         }
         if (s->rootWeight > 0.0f)
         {
-            (void)maniClipRootMotion(&clip, (float)t0, (float)step, &move);
+            (void)maniClipRootMotion(&clip, (float)m.t0, (float)m.step, &move);
         }
-        s->time = Place(&clip, t0 + step);
     }
+    s->time = Place(&clip, m.t0 + m.step);
     if (s->rootWeight > 0.0f)
     {
         maniRootMotionSumAdd(&u->root, &move, (double)s->rootWeight);
@@ -383,6 +470,7 @@ maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEv
                 .events = events,
                 .capacity = capacity};
     Weigh(&u);
+    Lead(&u);
     for (uint32_t p = 0; p < u.graph->nodeCount; ++p)
     {
         const uint8_t* record = Record(&u, p);

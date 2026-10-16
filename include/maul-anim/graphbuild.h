@@ -147,6 +147,25 @@ extern "C"
         maniGraphScalar time;
     } maniGraphSeekNodeSource;
 
+    // A source-only node kind: another graph inlined in its place at
+    // build (its nodes appended, its output standing where this node is).
+    enum
+    {
+        maniGraphNodeSubgraph = 64,
+    };
+
+    typedef struct maniGraphSource maniGraphSource;
+
+    // A subgraph node: the graph (of the same skeleton; its clips joined
+    // to this graph's by identity, its sync groups by name), and for each
+    // of its parameters the parameter of this graph it reads, of the same
+    // type. It takes no inputs.
+    typedef struct maniGraphSubgraphNodeSource
+    {
+        const maniGraphSource* graph;
+        const uint32_t* parameters;
+    } maniGraphSubgraphNodeSource;
+
     // A node: its kind, its inputs by index in the source's nodes, and the
     // part of the union its kind reads.
     typedef struct maniGraphNodeSource
@@ -163,12 +182,13 @@ extern "C"
             maniGraphSelectNodeSource select;
             maniGraphTimeScaleNodeSource timeScale;
             maniGraphSeekNodeSource seek;
+            maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
 
     // A graph: everything it holds, and the node whose pose it outputs.
     // Every node must reach the output.
-    typedef struct maniGraphSource
+    struct maniGraphSource
     {
         const maniSkeleton* skeleton;
         const maniGraphParameterSource* parameters;
@@ -181,9 +201,11 @@ extern "C"
         uint32_t nodeCount;
         uint32_t output;
         uint32_t reserved;
-    } maniGraphSource;
+    };
 
-    /// Builds a graph file: checks every parameter, clip slot, sync group
+    /// Builds a graph file: inlines subgraphs (their nodes after the
+    /// source's, in order, nested ones after them; refusals name nodes by
+    /// their place there), checks every parameter, clip slot, sync group
     /// and node, orders the nodes so each follows its inputs (the output
     /// last, the source's order kept where it may be), makes each mask's
     /// bone weights, marks each node as giving poses or differences, gives

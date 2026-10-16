@@ -91,6 +91,22 @@ runtime allocates (mani-0001).
   rest (or the difference of nothing). Before the first update, or with
   the output unweighed, the pose is the rest. The result equals the
   blending functions applied by hand, bit for bit.
+- **Sync groups:** each update picks a group's leader, the first member
+  declared one, else the member weighed most (the first of equals). The
+  leader moves by its own speed and time factor; each follower starts
+  from the leader's phase (its playhead over its duration) and moves as
+  far through its own clip as the leader through its own, so members of
+  different lengths stay in step. Only the leader's events fire unless
+  the group asks for every member's; a seeking leader moves its
+  followers to its new phase, firing nothing. Phase by markers common
+  to the members follows in this record.
+- **Subgraphs** are a source-only node kind: at build the subgraph's
+  output takes the node's place and its other nodes follow the source's
+  (nested ones after them), its parameters are read through the node's
+  map (each to a parameter of the same type), its clips join the graph's
+  by identity and its sync groups by name. Nesting deeper than 16 (a
+  graph inside itself) is refused. A graph built from subgraphs plays
+  bit for bit as the same graph written out.
 
 ## Consequences
 

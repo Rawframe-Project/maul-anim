@@ -44,7 +44,7 @@ static uint32_t ClipNodeCount(const maniGraph* graph)
 
 static size_t CursorsAt(const maniGraph* graph)
 {
-    size_t cells = (size_t)graph->parameterCount + graph->nodeCount;
+    size_t cells = (size_t)graph->parameterCount + graph->nodeCount + graph->syncGroupCount;
     return offsetof(maniGraphInstance, cells) + cells * sizeof(maniGraphCell);
 }
 

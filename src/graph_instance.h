@@ -60,15 +60,33 @@ typedef struct maniGraphNodeState
     float seekTo;
 } maniGraphNodeState;
 
-// A cell of an instance: a parameter's value or a node's state.
+// A sync group's flags during an update: its leader declared, its
+// leader seeking.
+#define MANI_GRAPH_DECLARED 1u
+
+// A sync group during an update (not saved): its leader, and the
+// leader's phase (its playhead over its duration) before the update and
+// how far the update moves it.
+typedef struct maniGraphGroupState
+{
+    uint32_t leader;
+    uint32_t flags;
+    double phase;
+    double delta;
+} maniGraphGroupState;
+
+// A cell of an instance: a parameter's value, a node's state or a sync
+// group's.
 typedef union maniGraphCell
 {
     maniGraphValue value;
     maniGraphNodeState node;
+    maniGraphGroupState group;
 } maniGraphCell;
 
-// The instance's cells follow it, a value per parameter then a state per
-// node; then, at cursorsAt, a cursor per clip node in node order.
+// The instance's cells follow it, a value per parameter, a state per
+// node, a state per sync group; then, at cursorsAt, a cursor per clip
+// node in node order.
 struct maniGraphInstance
 {
     uint32_t stamp;

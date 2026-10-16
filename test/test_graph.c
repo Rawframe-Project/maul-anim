@@ -936,6 +936,197 @@ static void TestEvaluate(void)
           "misuses");
 }
 
+static _Alignas(16) uint8_t s_longFile[8192];
+static maniClip s_long;
+
+// A clip twice the walk's length, with an event at its middle.
+static void OpenLong(void)
+{
+    static const float kLongTimes[2] = {0.0f, 2.0f};
+    static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
+    static const maniEventSource kMiddle = {1.0f, 9, "middle", 6, 0};
+    const maniBoneTrackSource track = {
+        0, 0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
+    maniClipSource source = {.skeleton = &s_skeleton,
+                             .boneTracks = &track,
+                             .boneTrackCount = 1,
+                             .events = &kMiddle,
+                             .eventCount = 1,
+                             .loop = maniLoopRepeat,
+                             .sampleRate = 10.0f};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildClip(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_longFile, sizeof s_longFile, &size) == mani_success &&
+              maniOpenClip(s_longFile, size, &s_long).result == mani_success,
+          "the long clip");
+    maniDestroyBuilder(builder);
+}
+
+// The walk and the long clip blended in one group: the walk by the mix
+// parameter, the long clip by 0.2; flags for the group and the long node.
+static maniGraphInstance* SyncInstance(uint32_t groupFlags, uint32_t longFlags, maniGraph* g)
+{
+    static maniGraphParameterSource parameters[1];
+    static maniGraphClipSource clips[2];
+    static maniGraphSyncGroupSource groups[1];
+    static maniGraphScalar weights[2];
+    static maniGraphNodeSource nodes[3];
+    static const uint32_t kInputs[2] = {0, 1};
+    parameters[0] = Parameter("mix", maniGraphParameterFloat, Float(0.8f, 0, 0, 0));
+    clips[0] = (maniGraphClipSource){&s_clips[0], "walk", 4, 0};
+    clips[1] = (maniGraphClipSource){&s_long, "long", 4, 0};
+    groups[0] = (maniGraphSyncGroupSource){"steps", 5, groupFlags};
+    weights[0] = (maniGraphScalar){0, 0.0f};
+    weights[1] = (maniGraphScalar){MANI_NO_PARAMETER, 0.2f};
+    const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
+    nodes[0] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
+                                     .clip = {0, 0, one, maniGraphLoopClip, 0}};
+    nodes[1] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
+                                     .clip = {1, 0, one, maniGraphLoopClip, longFlags}};
+    nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}};
+    maniGraphSource source = {&s_skeleton, parameters, clips, groups, nodes, 1, 2, 1, 3, 2, 0};
+    const maniClip* bound[2] = {&s_clips[0], &s_long};
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    CHECK(Build(&source).result == mani_success &&
+              maniOpenGraph(s_file, s_size, g).result == mani_success &&
+              maniBindGraph(g, &s_skeleton, bound, 2, s_bindingMemory, sizeof s_bindingMemory,
+                            &binding, NULL) == mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "a sync graph");
+    return instance;
+}
+
+static void TestSync(void)
+{
+    OpenLong();
+    maniGraph g;
+    maniGraphInstance* instance = SyncInstance(0, 0, &g);
+    maniGraphEvent events[8];
+    uint32_t count = 0;
+    CHECK(maniUpdateGraph(instance, 0.25f, events, 8, &count, NULL) == mani_success &&
+              Near(State(instance, &g, 0)->time, 0.25) && Near(State(instance, &g, 1)->time, 0.5) &&
+              count == 1 && events[0].node == 0,
+          "the walk leads by weight; the long clip a quarter through, its events quiet");
+    CHECK(maniSetGraphParameter(instance, 0, maniGraphParameterFloat, Float(0.1f, 0, 0, 0)) ==
+                  mani_success &&
+              maniUpdateGraph(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
+              Near(State(instance, &g, 1)->time, 1.0) && Near(State(instance, &g, 0)->time, 0.5) &&
+              count == 0,
+          "the long clip leads once it weighs more; the walk follows its phase");
+    CHECK(maniUpdateGraph(instance, 0.5f, events, 8, &count, NULL) == mani_success && count == 1 &&
+              events[0].node == 1 && events[0].payload == 9,
+          "the leader's event at its middle; the walk's quiet");
+    instance = SyncInstance(0, maniGraphClipLeader, &g);
+    CHECK(maniUpdateGraph(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
+              Near(State(instance, &g, 1)->time, 0.5) && Near(State(instance, &g, 0)->time, 0.25),
+          "a declared leader leads whatever its weight");
+    instance = SyncInstance(maniGraphSyncAllEvents, 0, &g);
+    CHECK(maniUpdateGraph(instance, 0.75f, events, 8, &count, NULL) == mani_success && count == 3,
+          "every member's events when the group asks: two steps and the middle");
+}
+
+static _Alignas(16) uint8_t s_flatFile[16384];
+
+// Locomotion as a subgraph: walk and run blended by its pace (the
+// parent's mix), nested once more around a time scale.
+static void TestSubgraph(void)
+{
+    static const maniGraphParameterSource kPace[1] = {
+        {"pace", 4, maniGraphParameterFloat, {{0.5f}}, {{0}}, {{0}}, 0, 0}};
+    static const maniGraphClipSource kLegs[2] = {{&s_clips[0], "walk", 4, 0},
+                                                 {&s_clips[1], "run", 3, 0}};
+    static const uint32_t kPair[2] = {0, 1};
+    static const maniGraphScalar kWeights[2] = {{0, 0.0f}, {MANI_NO_PARAMETER, 1.0f}};
+    static const maniGraphScalar kOne = {MANI_NO_PARAMETER, 1.0f};
+    static const maniGraphNodeSource kLocomotion[3] = {
+        {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
+        {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
+        {maniGraphNodeBlend, 2, kPair, .blend = {kWeights, 0, 0}},
+    };
+    static const maniGraphSource kInner = {&s_skeleton, kPace, kLegs, NULL, kLocomotion, 1, 2,
+                                           0,           3,     2,     0};
+    // The middle graph: the inner one, time scaled.
+    static const uint32_t kPaceMap[1] = {0};
+    static const uint32_t kFirst[1] = {0};
+    static const maniGraphNodeSource kMiddle[2] = {
+        {maniGraphNodeSubgraph, 0, NULL, .subgraph = {&kInner, kPaceMap}},
+        {maniGraphNodeTimeScale, 1, kFirst, .timeScale = {{MANI_NO_PARAMETER, 1.5f}}},
+    };
+    static const maniGraphSource kOuter = {&s_skeleton, kPace, NULL, NULL, kMiddle, 1,
+                                           0,           0,     2,    1,    0};
+    // The top: the middle graph with the wave added.
+    maniGraphParameterSource top[1] = {
+        Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0))};
+    const maniGraphClipSource waves[1] = {{&s_clips[2], "wave", 4, 0}};
+    static const uint32_t kMixMap[1] = {0};
+    static const uint32_t kLayers[2] = {0, 1};
+    const maniGraphScalar layerWeights[1] = {kOne};
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeSubgraph, 0, NULL, .subgraph = {&kOuter, kMixMap}},
+        {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
+        {maniGraphNodeAdditive, 2, kLayers, .additive = {layerWeights}},
+    };
+    maniGraphSource source = {&s_skeleton, top, waves, NULL, nodes, 1, 1, 0, 3, 2, 0};
+    // The same written flat: walk, run, blend, time scale, wave, output.
+    const maniGraphClipSource flatClips[3] = {
+        {&s_clips[2], "wave", 4, 0}, {&s_clips[0], "walk", 4, 0}, {&s_clips[1], "run", 3, 0}};
+    static const uint32_t kFlatPair[2] = {0, 1};
+    static const uint32_t kFlatScale[1] = {2};
+    static const uint32_t kFlatAdd[2] = {3, 4};
+    maniGraphNodeSource flat[6] = {
+        {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
+        {maniGraphNodeClip, 0, NULL, .clip = {2, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
+        {maniGraphNodeBlend, 2, kFlatPair, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeTimeScale, 1, kFlatScale, .timeScale = {{MANI_NO_PARAMETER, 1.5f}}},
+        {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
+        {maniGraphNodeAdditive, 2, kFlatAdd, .additive = {layerWeights}},
+    };
+    maniGraphSource flatSource = {&s_skeleton, top, flatClips, NULL, flat, 1, 3, 0, 6, 5, 0};
+    size_t flatSize = 0;
+    maniGraph flatGraph;
+    CHECK(Build(&flatSource).result == mani_success, "the flat graph builds");
+    memcpy(s_flatFile, s_file, s_size);
+    flatSize = s_size;
+    maniGraph g;
+    CHECK(Build(&source).result == mani_success && s_size == flatSize &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniOpenGraph(s_flatFile, flatSize, &flatGraph).result == mani_success &&
+              maniGraphNodeCount(&g) == 6 && maniGraphClipCount(&g) == 3,
+          "two subgraphs inlined: six nodes, three clips");
+    // Played alike: the same poses after the same updates.
+    const maniClip* bound[3] = {&s_clips[0], &s_clips[1], &s_clips[2]};
+    static _Alignas(8) uint8_t bindings[2][256];
+    static _Alignas(8) uint8_t instances[2][4096];
+    maniGraphBinding* b[2] = {NULL, NULL};
+    maniGraphInstance* i[2] = {NULL, NULL};
+    maniPose* poses[2] = {PoseAt(0), PoseAt(1)};
+    const maniGraph* graphs[2] = {&g, &flatGraph};
+    bool same = true;
+    for (int k = 0; k < 2; ++k)
+    {
+        same =
+            same &&
+            maniBindGraph(graphs[k], &s_skeleton, bound, 3, bindings[k], sizeof bindings[k], &b[k],
+                          NULL) == mani_success &&
+            maniInitGraphInstance(b[k], instances[k], sizeof instances[k], &i[k]) == mani_success &&
+            maniSetGraphParameter(i[k], 0, maniGraphParameterFloat, Float(2, 0, 0, 0)) ==
+                mani_success &&
+            maniUpdateGraph(i[k], 0.3f, NULL, 0, NULL, NULL) == mani_success &&
+            maniEvaluateGraph(i[k], s_scratch, sizeof s_scratch, poses[k]) == mani_success;
+    }
+    CHECK(same && SamePose(poses[0], poses[1]), "the inlined graph plays as the flat one");
+    // Refusals: a map to a parameter of another type, a graph of itself.
+    top[0].type = maniGraphParameterInt;
+    top[0].defaultValue = Int(0);
+    ExpectRefused(&source, maniBuildReasonNode, 0, 0, "a subgraph's parameter of another type");
+    top[0] = Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0));
+    nodes[0].subgraph.graph = &source;
+    ExpectRefused(&source, maniBuildReasonCount, 0, 0, "a graph inside itself");
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -979,6 +1170,8 @@ int main(int argc, char** argv)
     TestEvents();
     TestRootMotion();
     TestEvaluate();
+    TestSync();
+    TestSubgraph();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

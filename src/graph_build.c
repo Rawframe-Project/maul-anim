@@ -12,6 +12,7 @@
 #include "container.h"
 #include "graph_check.h"
 #include "graph_file.h"
+#include "graph_inline.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -496,7 +497,12 @@ maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* sour
         ++builder->misuses;
         return Outcome(mani_errorInvalid);
     }
+    maniGraphFlat flat;
+    maniBuildResult r = maniInlineSubgraphs(source, &builder->allocator, &flat);
     maniGraphTally tally;
-    maniBuildResult r = maniCheckGraphSource(source, &builder->allocator, &tally);
-    return r.result == mani_success ? Arrange(builder, source, &tally) : r;
+    r = r.result == mani_success ? maniCheckGraphSource(&flat.source, &builder->allocator, &tally)
+                                 : r;
+    r = r.result == mani_success ? Arrange(builder, &flat.source, &tally) : r;
+    maniReleaseInlined(&flat, &builder->allocator);
+    return r;
 }
