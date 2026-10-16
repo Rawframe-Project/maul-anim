@@ -318,8 +318,8 @@ clp-local-rest | src/gltf_clip.c | if (x->c.node != node || x->c.target > maniGl
 clp-compose | src/gltf_clip.c | composed = maniAffineMul(&composed, &a); | composed = a;
 clp-fold-static | src/gltf_clip.c | return rootAnimated && !isIdentity; | return false;
 clp-fold-identity | src/gltf_clip.c | return rootAnimated && !isIdentity; | return rootAnimated;
-clp-target-names | src/gltf_clip.c | gltf->json.values[names].count != targets) | false)
-clp-empty-target | src/gltf_clip.c | gltf->json.values[element].length == 0) | false)
+clp-target-names | src/gltf_animation.c | json->values[names].count != targets) | false)
+clp-empty-target | src/gltf_animation.c | if (json->values[element].kind != maniJsonString || json->values[element].length == 0) | if (json->values[element].kind != maniJsonString)
 clp-pointer-single | src/gltf_clip.c | length += x->c.width > 1 ? SlashNumber(name + length, k) : 0; | length += SlashNumber(name + length, k);
 clp-digits | src/gltf_clip.c | out[1 + i] = digits[count - 1 - i]; | out[1 + i] = digits[i];
 clp-name-reason | src/gltf_clip.c | bool name = floats && reason == maniBuildReasonTrack; | bool name = false;
@@ -337,9 +337,9 @@ spr-first | src/gltf_spring.c | *firstNode = k == 0 ? node : *firstNode; | *firs
 spr-center | src/gltf_spring.c | if (result.result == mani_success && center != MANI_JSON_NONE && center != first && | if (false &&
 spr-version | src/gltf_spring.c | if (!maniJsonStringEquals(&r->gltf->json, version, "1.0", 3)) | if (false)
 spr-cleared | src/gltf_spring.c | *setOut = result.result == mani_success ? set : (maniSpringSetSource){0}; | *setOut = set;
-arn-align | src/arena.c | bytes = (bytes + 7) / 8 * 8; | bytes = bytes;
+arn-align | src/arena.c | bytes = (bytes + 7) / 8 * 8 + MANI_ARENA_REDZONE; | bytes = bytes + MANI_ARENA_REDZONE;
 arn-fit | src/arena.c | if (chunk == NULL || chunk->size - chunk->used < bytes) | if (chunk == NULL)
-arn-zero | src/arena.c | memset(block, 0, bytes); | (void)block;
+arn-zero | src/arena.c | memset(block, 0, given); | (void)block;
 arn-large | src/arena.c | size_t data = bytes > MANI_ARENA_CHUNK ? bytes : MANI_ARENA_CHUNK; | size_t data = MANI_ARENA_CHUNK;
 spr-center-others | src/gltf_spring.c | if (owner[v] != 0 && owner[v] != i + 1) | if (false)
 buf-scheme-case | src/gltf_buffer.c | return c >= 'A' && c <= 'Z' ? (uint8_t)(c + 32) : c; | return c;
@@ -792,7 +792,7 @@ fbl-shape-kind | src/fbx_blend.c | maniFbxObjectSubclassIs(fbx, child, "Shape", 
 fbl-shape-vertices | src/fbx_blend.c | maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE && | true &&
 fbl-full-percent | src/fbx_blend.c | shapes[i].target = weights[i] / 100.0; | shapes[i].target = weights[i];
 fbl-full-count | src/fbx_blend.c | for (uint32_t i = 0; r.result == mani_success && i < count && i < n; ++i) | for (uint32_t i = 0; r.result == mani_success && i < count; ++i)
-fbl-blender | src/fbx_blend.c | if (n == 0 || FromBlender(fbx)) | if (n == 0)
+fbl-blender | src/fbx_blend.c | if (n == 0 || maniFbxFromBlender(fbx)) | if (n == 0)
 fbl-sort | src/fbx_blend.c | keys[i] = OrderedBits(shapes[i].target); | keys[i] = 0;
 fbl-order-negative | src/fbx_blend.c | return (bits >> 63) != 0 ? ~bits : bits + 0x8000000000000000u; | return bits;
 fbl-rest-entry | src/fbx_blend.c | return maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), &percent) ? percent : 0.0; | return 0.0;
@@ -1247,3 +1247,102 @@ sk-palette-kind | src/skin.c | maniPoseIsDifference(pose)) | false)
 po-model-kind | src/pose.c | if (!maniPoseMatches(pose, skeleton) || pose->difference != 0) | if (!maniPoseMatches(pose, skeleton))
 po-rest-kind | src/pose.c | pose->difference = 0; | (void)pose;
 bl-settle-lanes | src/blend.c | bool any = lanes < LANES; | bool any = false;
+
+# Influences, skinning, morph targets and their importers
+# (influences_build.c, influences.c, skinning.c, centers_build.c,
+# morph.c, morph_build.c, gltf_mesh.c, fbx_influences.c, fbx_morph.c;
+# mani-0021), 2026-10-16: 84 mutants, 82 killed. The first sweep left
+# 10: tests of a whole group of four, a blend weight past the vertices,
+# a job range's end, weights of 0 keeping -0, a DualQuaternion skin with
+# blend weights, a blend index past the control points, a 6.x Shape
+# without Indexes and Blender's FullWeights of another count killed 8.
+# fi-blend-skip writes past an arena block, which AddressSanitizer saw
+# only once the arena poisoned its free space (b5bb489).
+# Equivalent: mo-side (at a weight of 0 both walks give every target 0,
+# differing only in a zero's sign) and fi-inside (an index past the
+# control points sorts after every vertex and is never read; the
+# entries are sized by the given counts).
+inf-nan | src/influences_build.c | if (!Finite(w)) | if (false)
+inf-neg | src/influences_build.c | if (w < 0.0f) | if (w < -1.0f)
+inf-joint | src/influences_build.c | if (s->joints[i] >= joints) | if (s->joints[i] > joints)
+inf-zero-skip | src/influences_build.c | if (w == 0.0f) | if (false)
+inf-repeat | src/influences_build.c | if (entries[e].joint == s->joints[i]) | if (false)
+inf-max | src/influences_build.c | if (n == MAX_INFLUENCES) | if (n == MAX_INFLUENCES + 1)
+inf-offset0 | src/influences_build.c | if (s->vertexCount == 0 || s->offsets[0] != 0) | if (s->vertexCount == 0)
+inf-dq-range | src/influences_build.c | if (!(b >= 0.0f && b <= 1.0f)) | if (!(b >= 0.0f))
+inf-groups | src/influences_build.c | *groupsOut = most == 0 ? 1 : (most + MANI_INFLUENCE_GROUP - 1) / MANI_INFLUENCE_GROUP; | *groupsOut = most == 0 ? 1 : most / MANI_INFLUENCE_GROUP + 1;
+inf-sort-weight | src/influences_build.c | while (j > 0 && (entries[j - 1].weight < e.weight || | while (j > 0 && (entries[j - 1].weight > e.weight ||
+inf-sort-tie | src/influences_build.c | (entries[j - 1].weight == e.weight && entries[j - 1].joint > e.joint))) | false))
+inf-renorm | src/influences_build.c | float w = k < n ? (float)((double)entries[k].weight / sum) : 0.0f; | float w = k < n ? entries[k].weight : 0.0f;
+inf-pad-joint | src/influences_build.c | maniStoreU16(joints + 2 * slot, k < n ? (uint16_t)entries[k].joint : 0); | maniStoreU16(joints + 2 * slot, (uint16_t)entries[k < n ? k : 0].joint);
+inr-joint | src/influences.c | if (maniLoadU16(s->data[1] + 2 * k) >= v->skinJointCount) | if (maniLoadU16(s->data[1] + 2 * k) > v->skinJointCount)
+inr-unit | src/influences.c | return value >= 0.0f && value <= 1.0f; | return value >= 0.0f;
+inr-dq-null | src/influences.c | if (influences->dualQuaternionWeights == NULL || vertex >= influences->vertexCount) | if (influences->dualQuaternionWeights == NULL)
+inr-center | src/influences.c | if (!Finite(LoadF32(s->data[4] + 4 * k))) | if (false)
+sk-dq-t | src/skinning.c | m[9 + c] = t[c]; | m[9 + c] = 0.5f * t[c];
+sk-cof-sign | src/skinning.c | float sign = det < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
+sk-apply-point | src/skinning.c | out[k] = point ? r + m[9 + k] : r; | out[k] = r + m[9 + k];
+sk-normal-cof | src/skinning.c | Apply(s->kind == maniStreamNormal ? c : m, x, s->kind == maniStreamPoint, y); | Apply(m, x, s->kind == maniStreamPoint, y);
+sk-unit | src/skinning.c | if (s->kind != maniStreamPoint) | if (false)
+sk-tangent-w | src/skinning.c | float y[4] = {x[0], x[1], x[2], width == 4 ? x[3] : 0.0f}; | float y[4] = {x[0], x[1], x[2], 0.0f};
+sk-blend-ends | src/skinning.c | return b == 0.0f ? Blend(job, vertex, m) : DualMatrix(job, vertex, m); | return Blend(job, vertex, m);
+sk-blend-mix | src/skinning.c | m[k] = m[k] * a + d[k] * b; | m[k] = m[k] * b + d[k] * a;
+sk-unit-zero | src/skinning.c | bool usable = squared > 0.0f && squared <= FLT_MAX; | bool usable = true;
+sk-dual-half | src/skinning.c | -0.5f * ((t[0] * q.x + t[1] * q.y) + t[2] * q.z)}; | 0.5f * ((t[0] * q.x + t[1] * q.y) + t[2] * q.z)};
+sk-s-row | src/skinning.c | out[8 + 4 * i + 3] = 0.0f; | out[8 + 4 * i + 3] = 1.0f;
+mo-dense | src/morph.c | if ((dense && count != m->vertexCount) || count > m->vertexCount) | if (count > m->vertexCount)
+mo-full-order | src/morph.c | if (!Finite(full) || full == 0.0f || !(full > previous)) | if (!Finite(full) || full == 0.0f)
+mo-index-order | src/morph.c | if (v < floor || v >= m->vertexCount) | if (v >= m->vertexCount)
+mo-delta-nan | src/morph.c | if (!Finite(LoadF32(s->data[kDeltas] + 4 * k))) | if (false)
+mo-set | src/morph.c | if (semantic <= maniMorphTangent && set != 0) | if (false)
+mo-zero-key | src/morph.c | out[key] = weight / Full(m, first, key); | out[key] = weight;
+mo-t | src/morph.c | out[prev] = 1.0f - t; | out[prev] = t;
+mo-neg | src/morph.c | lastNegative = Full(m, first, i) < 0.0f ? (int64_t)i : lastNegative; | lastNegative = lastNegative;
+mo-side | src/morph.c | if (weight > 0.0f) | if (weight >= 0.0f)
+mo-lower | src/morph.c | if (maniLoadU32(indices + 4 * (size_t)mid) < vertex) | if (maniLoadU32(indices + 4 * (size_t)mid) <= vertex)
+mo-end | src/morph.c | if (v >= end) | if (v > end)
+mo-mask | src/morph.c | if (((maniLoadU32(e + 4) >> slot) & 1u) == 0) | if (false)
+mo-components | src/morph.c | Apply a = {s, 4 * (size_t)width, s->components < width ? s->components : width, | Apply a = {s, 4 * (size_t)width, width,
+mo-copy | src/morph.c | for (uint32_t i = 0; i < job->count && s->in != s->out; ++i) | for (uint32_t i = 0; i + 1 < job->count && s->in != s->out; ++i)
+mo-renorm | src/morph.c | bool direction = s->semantic == maniMorphNormal || s->semantic == maniMorphTangent; | bool direction = s->semantic == maniMorphNormal;
+mo-skip-zero | src/morph.c | if (job->weights[t] != 0.0f) | if (true)
+mb-runs | src/morph_build.c | if (n == 0 || indicesOut[n - 1] != v) | if (true)
+mb-sum | src/morph_build.c | *sum = (fresh ? 0.0 : *sum) + (double)d[k]; | *sum = (double)d[k];
+mb-fresh | src/morph_build.c | run += fresh && i > 0 ? 1 : 0; | run += i > 0 ? 1 : 0;
+mb-full-zero | src/morph_build.c | if (!Finite(full) || full == 0.0f || (k > 0 && !(full > previous))) | if (!Finite(full) || (k > 0 && !(full > previous)))
+mb-dup | src/morph_build.c | if (x->nameLength == y->nameLength && memcmp(x->name, y->name, x->nameLength) == 0) | if (false)
+mb-vertex | src/morph_build.c | if (s->indices != NULL && s->indices[i] >= source->vertexCount) | if (false)
+mb-name-slash | src/morph_build.c | uint32_t n = k > 0 ? 1 + Decimal(k, digits + 1) : 0; | uint32_t n = k > 0 ? Decimal(k, digits + 1) : 0;
+gm-joint | src/gltf_mesh.c | if (j[k] >= (float)skinJoints || w[k] < 0.0f || repeated) | if (w[k] < 0.0f || repeated)
+gm-repeat | src/gltf_mesh.c | repeated = repeated || joints[i] == (uint32_t)j[k]; | repeated = false;
+gm-units | src/gltf_mesh.c | if (normalized && units != 65535u) | if (false)
+gm-byte | src/gltf_mesh.c | return a->component == maniGltfUnsignedByte ? 257u * (uint32_t)floorf(w * 255.0f + 0.5f) | return a->component == maniGltfUnsignedByte ? 256u * (uint32_t)floorf(w * 255.0f + 0.5f)
+gm-moves | src/gltf_mesh.c | kept += moves ? 1 : 0; | kept += 1;
+gm-color | src/gltf_mesh.c | uint32_t low = semantic == maniMorphColor ? 3u : width; | uint32_t low = width;
+gm-width | src/gltf_mesh.c | return semantic == maniMorphTexcoord ? 2u : (semantic == maniMorphColor ? 4u : 3u); | return semantic == maniMorphTexcoord ? 2u : 3u;
+fi-dq | src/fbx_influences.c | if (TypeIs(fbx, skin, "DualQuaternion") && !blend) | if (TypeIs(fbx, skin, "DualQuaternion"))
+fi-neg | src/fbx_influences.c | if (weight[i] < 0.0) | if (false)
+fi-inside | src/fbx_influences.c | if (inside && weight[i] > 0.0) | if (weight[i] > 0.0)
+fi-counts | src/fbx_influences.c | if (a != b) | if (false)
+fi-initial | src/fbx_influences.c | float initial = TypeIs(fbx, r->skin, "DualQuaternion") ? 1.0f : 0.0f; | float initial = 0.0f;
+fi-blend-range | src/fbx_influences.c | if (!(weight[i] >= 0.0 && weight[i] <= 1.0)) | if (false)
+fi-blend-skip | src/fbx_influences.c | if (v < 0 || v >= (int64_t)r->vertices) | if (v < 0)
+fi-sum | src/fbx_influences.c | sum += r->entries[order[i++]].weight; | i++;
+fi-points3 | src/fbx_influences.c | return floats % 3 == 0 | return true
+fm-kept | src/fbx_morph.c | return k == 0 || shapes[k].target != shapes[k - 1].target; | return true;
+fm-owner-role | src/fbx_morph.c | return fbx->objects[object].role == maniFbxRoleNone && maniFbxIsShapeOwner(fbx, object) && | return maniFbxIsShapeOwner(fbx, object) &&
+fm-shape-node | src/fbx_morph.c | maniFbxFindChild(fbx, node, "Indexes", 7) != MANI_FBX_NONE && | true &&
+fm-sizes | src/fbx_morph.c | if (b != 3 * (uint64_t)a || (normal != NULL && c != b)) | if (b != 3 * (uint64_t)a)
+fm-skip | src/fbx_morph.c | if (v < 0) | if (false)
+fm-weight | src/fbx_morph.c | double w = weights != NULL ? weights[i] : 1.0; | double w = 1.0;
+fm-blender-div | src/fbx_morph.c | full[i] /= 100.0; | full[i] /= 1.0;
+fm-blender-count | src/fbx_morph.c | if (r.result == mani_success && full != NULL && n == a) | if (r.result == mani_success && full != NULL)
+fm-unit | src/fbx_morph.c | m.directions.unit = 1.0f; | (void)m;
+fm-repeat | src/fbx_morph.c | repeats[order[j]] || SameName(&m->channels[order[i]], &m->channels[order[j]]); | repeats[order[j]];
+fm-empty-chan | src/fbx_morph.c | if (r.result != mani_success || kept == 0) | if (r.result != mani_success)
+fm-normals | src/fbx_morph.c | m->normals = m->normals || normal != NULL; | m->normals = normal != NULL;
+ce-skip-zero | src/centers_build.c | double d = lower * e->higher - higher * e->lower; | double d = lower * e->higher;
+ce-fallback | src/centers_build.c | c[k] = total > 0.0 ? (float)(sum[k] / total) : p[k]; | c[k] = total > 0.0 ? (float)(sum[k] / total) : 0.0f;
+ce-sigma | src/centers_build.c | double sigma = source->sigma == 0.0f ? 0.1 : (double)source->sigma; | double sigma = source->sigma == 0.0f ? 1.0 : (double)source->sigma;
+sk-center-rigid | src/skinning.c | rigid[k] += r.m[k] * w; | rigid[k] += r.m[k];
+sk-center-t | src/skinning.c | rigid[9 + k] += t[k] * w; | rigid[9 + k] += t[k];
