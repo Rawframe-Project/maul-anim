@@ -423,25 +423,115 @@ static bool Subgraph(Reader* r, const Scope* scope, uint32_t node, const uint32_
     return true;
 }
 
-// Each kind's members after "kind" and the bits of those required.
+// Each kind's name, members (kind first) and the bits of those required.
 typedef struct KindForm
 {
     const char* name;
+    maniGraphNodeKind kind;
     const char* keys[6];
     uint32_t count;
     uint32_t required;
 } KindForm;
 
 static const KindForm kForms[] = {
-    {"clip", {"kind", "clip", "syncGroup", "speed", "loop", "leader"}, 6, 3u},
-    {"blend", {"kind", "inputs", "weights", "direct"}, 4, 7u},
-    {"mask", {"kind", "inputs", "chains", "defaultWeight"}, 4, 3u},
-    {"additive", {"kind", "inputs", "weights"}, 3, 7u},
-    {"select", {"kind", "inputs", "parameter"}, 3, 7u},
-    {"timeScale", {"kind", "inputs", "scale"}, 3, 7u},
-    {"seek", {"kind", "inputs", "trigger", "time"}, 4, 7u},
-    {"subgraph", {"kind", "graph", "parameters"}, 3, 3u},
+    {"clip", maniGraphNodeClip, {"kind", "clip", "syncGroup", "speed", "loop", "leader"}, 6, 3u},
+    {"blend", maniGraphNodeBlend, {"kind", "inputs", "weights", "direct"}, 4, 7u},
+    {"mask", maniGraphNodeMask, {"kind", "inputs", "chains", "defaultWeight"}, 4, 3u},
+    {"additive", maniGraphNodeAdditive, {"kind", "inputs", "weights"}, 3, 7u},
+    {"select", maniGraphNodeSelect, {"kind", "inputs", "parameter"}, 3, 7u},
+    {"timeScale", maniGraphNodeTimeScale, {"kind", "inputs", "scale"}, 3, 7u},
+    {"seek", maniGraphNodeSeek, {"kind", "inputs", "trigger", "time"}, 4, 7u},
+    {"blendSpace1D",
+     maniGraphNodeBlendSpace1D,
+     {"kind", "inputs", "position", "points", "period"},
+     5,
+     15u},
+    {"blendSpaceBands",
+     maniGraphNodeBlendSpaceBands,
+     {"kind", "inputs", "position", "points", "polar"},
+     5,
+     15u},
+    {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
+
+#define FORMS (sizeof kForms / sizeof kForms[0])
+
+// A blend space's position: {"vector": name}, or {"x": number, "y":
+// number} with y 0 when left out.
+static bool Position(Reader* r, const Scope* scope, uint32_t value, bool plane,
+                     maniGraphPosition* p)
+{
+    static const char* const kKeys[] = {"vector", "x", "y"};
+    uint32_t f[3] = {ABSENT, ABSENT, ABSENT};
+    *p = (maniGraphPosition){
+        MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.0f}, {MANI_NO_PARAMETER, 0.0f}};
+    if (!maniGraphJsonMembers(r, value, kKeys, plane ? 3u : 2u, 0u, f))
+    {
+        return false;
+    }
+    if (f[0] != ABSENT)
+    {
+        uint32_t extra = f[1] != ABSENT ? f[1] : f[2];
+        return extra == ABSENT ? maniGraphJsonRefer(r, &scope->parameters, f[0], &p->vector)
+                               : maniGraphJsonFault(r, extra - 1, maniGraphFormMember);
+    }
+    if (f[1] == ABSENT)
+    {
+        return maniGraphJsonFault(r, value, maniGraphFormMissing);
+    }
+    return maniGraphJsonScalar(r, scope, f[1], &p->x) &&
+           (f[2] == ABSENT || maniGraphJsonScalar(r, scope, f[2], &p->y));
+}
+
+// A blend space's points: count numbers, or count [x, y] pairs.
+static bool Points(Reader* r, uint32_t value, uint32_t count, bool pairs, const float** out)
+{
+    uint32_t n = 0;
+    if (!maniGraphJsonArray(r, value, &n))
+    {
+        return false;
+    }
+    if (n != count)
+    {
+        return maniGraphJsonFault(r, value, maniGraphFormValue);
+    }
+    float* points = maniArenaTake(&r->arena, pairs ? 2 * (size_t)count : count, sizeof(float));
+    if (points == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    uint32_t e = value;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        e = maniGraphJsonNext(r->json, e, k == 0);
+        bool ok = pairs ? Floats(r, e, points + 2 * k, 2) : maniGraphJsonFloat(r, e, &points[k]);
+        if (!ok)
+        {
+            return false;
+        }
+    }
+    *out = points;
+    return true;
+}
+
+static bool Space(Reader* r, const Scope* scope, const uint32_t* f, maniGraphNodeSource* n)
+{
+    if (n->kind == maniGraphNodeBlendSpace1D)
+    {
+        maniGraphBlendSpace1DNodeSource* s = &n->blendSpace1D;
+        s->period = 0.0f;
+        return Position(r, scope, f[2], false, &s->position) &&
+               Points(r, f[3], n->inputCount, false, &s->points) &&
+               (f[4] == ABSENT || maniGraphJsonFloat(r, f[4], &s->period));
+    }
+    maniGraphBandsNodeSource* s = &n->bands;
+    bool polar = false;
+    bool ok = Position(r, scope, f[2], true, &s->position) &&
+              Points(r, f[3], n->inputCount, true, &s->points) &&
+              (f[4] == ABSENT || maniGraphJsonBool(r, f[4], &polar));
+    s->polar = polar ? 1u : 0u;
+    return ok;
+}
 
 // A node's fields of its kind (f the members of kForms[form]).
 static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t* f,
@@ -469,6 +559,9 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->select.parameter);
     case maniGraphNodeTimeScale:
         return maniGraphJsonScalar(r, scope, f[2], &n->timeScale.scale);
+    case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceBands:
+        return Space(r, scope, f, n);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&
@@ -489,11 +582,11 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
                                       : maniGraphFormValue);
     }
     uint32_t form = 0;
-    while (form < 8 && WordOf(r, kind, &kForms[form].name, 1) != 0)
+    while (form < FORMS && WordOf(r, kind, &kForms[form].name, 1) != 0)
     {
         ++form;
     }
-    if (form == 8)
+    if (form == FORMS)
     {
         return maniGraphJsonFault(r, kind, maniGraphFormValue);
     }
@@ -504,9 +597,8 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
         return false;
     }
     *n = (maniGraphNodeSource){0};
-    n->kind = form < 7 ? (maniGraphNodeKind)(maniGraphNodeClip + form)
-                       : (maniGraphNodeKind)maniGraphNodeSubgraph;
-    bool takesInputs = form != 0 && form != 7;
+    n->kind = k->kind;
+    bool takesInputs = k->kind != maniGraphNodeClip && k->kind != maniGraphNodeSubgraph;
     return (!takesInputs || Inputs(r, f[1], n)) && Fields(r, scope, object, f, n);
 }
 

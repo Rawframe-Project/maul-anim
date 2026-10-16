@@ -270,6 +270,54 @@ static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
 
 static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, bool top);
 
+// A blend space's position: a vec2 parameter, or x (and, in a plane,
+// y).
+static void PutPosition(Writer* w, const maniGraphSource* source, const maniGraphPosition* p,
+                        bool plane)
+{
+    PutKey(w, "position");
+    PutText(w, "{");
+    if (p->vector != MANI_NO_PARAMETER)
+    {
+        PutKey(w, "vector");
+        PutParameterName(w, source, p->vector);
+    }
+    else
+    {
+        PutKey(w, "x");
+        PutScalar(w, source, p->x);
+        if (plane)
+        {
+            PutText(w, ", ");
+            PutKey(w, "y");
+            PutScalar(w, source, p->y);
+        }
+    }
+    PutText(w, "}, ");
+}
+
+// A blend space's points: numbers on a line, [x, y] pairs in a plane.
+static void PutPoints(Writer* w, const float* points, uint32_t count, bool pairs)
+{
+    PutKey(w, "points");
+    PutText(w, "[");
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        PutText(w, k > 0 ? ", " : "");
+        if (!pairs)
+        {
+            PutFloat(w, points[k]);
+            continue;
+        }
+        PutText(w, "[");
+        PutFloat(w, points[2 * k]);
+        PutText(w, ", ");
+        PutFloat(w, points[2 * k + 1]);
+        PutText(w, "]");
+    }
+    PutText(w, "], ");
+}
+
 static void PutSubgraphNode(Writer* w, const maniGraphSource* source,
                             const maniGraphSubgraphNodeSource* s, uint32_t depth)
 {
@@ -318,6 +366,18 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutKey(w, "scale");
         PutScalar(w, source, n->timeScale.scale);
         return;
+    case maniGraphNodeBlendSpace1D:
+        PutPosition(w, source, &n->blendSpace1D.position, false);
+        PutPoints(w, n->blendSpace1D.points, n->inputCount, false);
+        PutKey(w, "period");
+        PutFloat(w, n->blendSpace1D.period);
+        return;
+    case maniGraphNodeBlendSpaceBands:
+        PutPosition(w, source, &n->bands.position, true);
+        PutPoints(w, n->bands.points, n->inputCount, true);
+        PutKey(w, "polar");
+        PutBool(w, n->bands.polar != 0);
+        return;
     case maniGraphNodeSeek:
         PutKey(w, "trigger");
         PutParameterName(w, source, n->seek.trigger);
@@ -333,8 +393,9 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
 
 static const char* KindName(maniGraphNodeKind kind)
 {
-    static const char* const kKinds[] = {"clip",   "blend",     "mask", "additive",
-                                         "select", "timeScale", "seek"};
+    static const char* const kKinds[] = {"clip",   "blend",          "mask", "additive",
+                                         "select", "timeScale",      "seek", "blendSpace1D",
+                                         "",       "blendSpaceBands"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

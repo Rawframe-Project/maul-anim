@@ -8,6 +8,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_space.h"
 #include "root_motion.h"
 
 #include "maul-anim/base.h"
@@ -159,6 +160,19 @@ static void ShareAdditive(const Update* u, const uint8_t* record, const maniGrap
     }
 }
 
+// A blend space's weights, shared as a normalized blend shares them.
+static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
+{
+    uint32_t n = maniLoadU32(record + 8);
+    float weights[MANI_GRAPH_MAX_SPACE_POINTS];
+    maniGraphSpaceWeights(u->graph, u->instance->cells, maniLoadU16(record),
+                          maniLoadU32(record + 12), n, weights);
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        Give(u, InputOf(u, record, k), Pass(s, weights[k], weights[k]));
+    }
+}
+
 // The input a select's parameter chooses, clamped to its inputs.
 static uint32_t Chosen(const Update* u, const uint8_t* record)
 {
@@ -230,6 +244,10 @@ static void Weigh(const Update* u)
         else if (kind == maniGraphNodeAdditive)
         {
             ShareAdditive(u, record, s);
+        }
+        else if (kind == maniGraphNodeBlendSpace1D || kind == maniGraphNodeBlendSpaceBands)
+        {
+            ShareSpace(u, record, s);
         }
         else if (kind != maniGraphNodeClip)
         {

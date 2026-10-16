@@ -39,6 +39,9 @@ uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount)
         return MANI_GRAPH_TIME_SCALE_WORDS;
     case maniGraphNodeSeek:
         return MANI_GRAPH_SEEK_WORDS;
+    case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceBands:
+        return MANI_GRAPH_SPACE_WORDS + 2 * inputCount;
     default:
         return 0;
     }
@@ -65,6 +68,10 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeSeek:
         *minOut = 1;
         return 1;
+    case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceBands:
+        *minOut = 1;
+        return MANI_GRAPH_MAX_SPACE_POINTS;
     default:
         *minOut = 1;
         return 0;

@@ -117,6 +117,26 @@ runtime allocates (mani-0001).
   by identity and its sync groups by name. Nesting deeper than 16 (a
   graph inside itself) is refused. A graph built from subgraphs plays
   bit for bit as the same graph written out.
+- **Blend spaces** are nodes whose input weights follow a position
+  among points, one point per input (at most 256). The position is a
+  vec2 parameter, or two numbers (each a literal or a float parameter).
+  A 1D space (`maniGraphNodeBlendSpace1D`) blends the two points either
+  side of x, held at the ends; given a period it wraps x and blends the
+  last point with the first a period on, so a direction can turn past
+  the seam. Its points are stored with their ascending order, found by
+  halves at run time. A banded space (`maniGraphNodeBlendSpaceBands`)
+  weighs each point by Johansen's gradient bands (2009, section 6.3):
+  the least, over the other points, of one minus the position's
+  projection onto the band between the two, clamped at 0, then
+  normalized. Polar bands measure magnitudes over the pair's mean and
+  twice the signed angle, so a space of speeds and directions blends by
+  speed along one direction and by angle around it; where no band
+  reaches the position (gaps past half a turn), the nearest point takes
+  it all. The update shares weights by the space's and the evaluation
+  blends by the same binary32 weights, so a space plays bit for bit as
+  a blend of those weights. The builder refuses points not finite or
+  equal (`maniBuildReasonPoint`, other the point) and 1D points that
+  span a period; opening checks the same, the stored order included.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

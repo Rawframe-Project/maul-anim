@@ -157,6 +157,39 @@ extern "C"
 
     typedef struct maniGraphSource maniGraphSource;
 
+    // Where a blend space reads its position: a vec2 parameter, or when
+    // vector is MANI_NO_PARAMETER the numbers x and y (a 1D space reads x
+    // alone, its y unused).
+    typedef struct maniGraphPosition
+    {
+        uint32_t vector;
+        uint32_t reserved;
+        maniGraphScalar x;
+        maniGraphScalar y;
+    } maniGraphPosition;
+
+    // A 1D blend space: a point per input (finite, no two equal), and a
+    // period: 0 to clamp the position to the ends, or above 0 to wrap it
+    // and blend across the seam (the points then within one period).
+    typedef struct maniGraphBlendSpace1DNodeSource
+    {
+        maniGraphPosition position;
+        const float* points;
+        float period;
+        uint32_t reserved;
+    } maniGraphBlendSpace1DNodeSource;
+
+    // A 2D blend space by gradient bands: a point (x, y) per input
+    // (finite, no two equal); polar 1 weighs directions and speeds about
+    // the origin, 0 the coordinates.
+    typedef struct maniGraphBandsNodeSource
+    {
+        maniGraphPosition position;
+        const float* points;
+        uint32_t polar;
+        uint32_t reserved;
+    } maniGraphBandsNodeSource;
+
     // A subgraph node: the graph (of the same skeleton; its clips joined
     // to this graph's by identity, its sync groups by name), and for each
     // of its parameters the parameter of this graph it reads, of the same
@@ -183,6 +216,8 @@ extern "C"
             maniGraphSelectNodeSource select;
             maniGraphTimeScaleNodeSource timeScale;
             maniGraphSeekNodeSource seek;
+            maniGraphBlendSpace1DNodeSource blendSpace1D;
+            maniGraphBandsNodeSource bands;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
@@ -274,8 +309,9 @@ extern "C"
     /// zero vector or the identity quaternion; bounds, both or neither;
     /// allEvents false; a clip node's syncGroup null, speed 1, loop
     /// "clip", leader false; a blend's direct false; a mask's chains empty
-    /// and defaultWeight 0; a chain's subtree false; a seek's time 0;
-    /// parameters, clips and syncGroups empty). Each clip slot name, at
+    /// and defaultWeight 0; a chain's subtree false; a seek's time 0; a
+    /// 1D space's period 0, a banded space's polar false, a position's
+    /// y 0; parameters, clips and syncGroups empty). Each clip slot name, at
     /// any nesting, takes the host's clip of that name (the first of
     /// equal names). The source read is then built as maniBuildGraph
     /// builds it.

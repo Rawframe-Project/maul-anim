@@ -190,6 +190,10 @@ extern "C"
         // offset of the value at fault (of an object missing a member),
         // other the kind of fault (maniGraphForm for graphs).
         maniBuildReasonForm = 31,
+        // A blend space's point not finite, equal to an earlier one, or
+        // (wrapped) outside one period of the first; item is the node,
+        // other the point.
+        maniBuildReasonPoint = 32,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

@@ -49,6 +49,13 @@ format.
   host's clips by slot name, members strict, off values optional; texts
   that are not JSON or not the form are refused with the byte offset
   (`maniBuildReasonJson`, `maniBuildReasonForm`, `maniGraphForm`).
+- Blend spaces (mani-0023): `maniGraphNodeBlendSpace1D` weighs its
+  inputs by where a position falls among their points on a line,
+  clamped or wrapped by a period; `maniGraphNodeBlendSpaceBands` by
+  gradient bands, cartesian or polar, among points in a plane; the
+  position a vec2 parameter or two numbers (`maniGraphPosition`);
+  points not finite, equal or past a period refused
+  (`maniBuildReasonPoint`); both in the JSON form.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

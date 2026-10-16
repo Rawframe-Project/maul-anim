@@ -9,6 +9,7 @@
 #include "allocator.h"
 #include "container.h"
 #include "graph_file.h"
+#include "graph_space_check.h"
 #include "sort.h"
 #include "text.h"
 
@@ -327,6 +328,9 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
                    : maniGraphRefuse(maniBuildReasonNode, node, 0);
     case maniGraphNodeTimeScale:
         return CheckScalar(source, n->timeScale.scale, node, 0, -HUGE_VALF, HUGE_VALF);
+    case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceBands:
+        return maniCheckGraphSpace(source, n, node);
     default:
         return ParameterOf(source, n->seek.trigger, maniGraphParameterTrigger,
                            maniGraphParameterTrigger)

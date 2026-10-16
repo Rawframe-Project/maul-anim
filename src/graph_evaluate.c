@@ -8,6 +8,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_space.h"
 #include "pose_memory.h"
 
 #include "maul-anim/base.h"
@@ -191,6 +192,29 @@ static void Blend(const Evaluation* e, const uint8_t* record, maniPose* out, boo
     }
 }
 
+// A blend space: its inputs at their weights, blended.
+static void Space(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
+{
+    uint32_t n = maniLoadU32(record + 8);
+    float weights[MANI_GRAPH_MAX_SPACE_POINTS];
+    maniGraphSpaceWeights(e->graph, e->instance->cells, maniLoadU16(record),
+                          maniLoadU32(record + 12), n, weights);
+    uint32_t count = 0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        const maniPose* input = InputPose(e, record, k);
+        if (weights[k] > 0.0f && input != NULL)
+        {
+            e->layers[count++] = (maniBlendLayer){input, weights[k], NULL};
+        }
+    }
+    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                     out) != mani_success)
+    {
+        Neutral(e, out, difference);
+    }
+}
+
 static void Mask(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
 {
     uint32_t bones = e->graph->skeletonBoneCount;
@@ -272,6 +296,10 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodeAdditive:
         Additive(e, record, out);
+        return;
+    case maniGraphNodeBlendSpace1D:
+    case maniGraphNodeBlendSpaceBands:
+        Space(e, record, out, difference);
         return;
     default:
     {

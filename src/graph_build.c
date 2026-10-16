@@ -13,6 +13,8 @@
 #include "graph_check.h"
 #include "graph_file.h"
 #include "graph_inline.h"
+#include "graph_space_check.h"
+#include "sort.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -285,6 +287,44 @@ static uint32_t PutWords(uint8_t* data, uint32_t at, const uint32_t* words, uint
     return at + count;
 }
 
+static uint32_t PutFloats(uint8_t* data, uint32_t at, const float* values, uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        PutFloat(data + 4 * (size_t)(at + k), values[k]);
+    }
+    return at + count;
+}
+
+// A blend space's position, its word (period or polar flag), its points
+// and, on a line, their order.
+static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* node)
+{
+    bool line = node->kind == maniGraphNodeBlendSpace1D;
+    const maniGraphPosition* p = line ? &node->blendSpace1D.position : &node->bands.position;
+    bool vector = p->vector != MANI_NO_PARAMETER;
+    const maniGraphScalar zero = {MANI_NO_PARAMETER, 0.0f};
+    at = PutWords(d, at, &p->vector, 1);
+    at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector || line ? zero : p->y);
+    uint32_t n = node->inputCount;
+    if (!line)
+    {
+        at = PutWords(d, at, &node->bands.polar, 1);
+        return PutFloats(d, at, node->bands.points, 2 * n);
+    }
+    PutFloat(d + 4 * (size_t)at, node->blendSpace1D.period);
+    at = PutFloats(d, at + 1, node->blendSpace1D.points, n);
+    uint64_t keys[MANI_GRAPH_MAX_SPACE_POINTS];
+    uint32_t order[MANI_GRAPH_MAX_SPACE_POINTS];
+    uint32_t scratch[MANI_GRAPH_MAX_SPACE_POINTS];
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        keys[k] = maniGraphSpaceKey(node->blendSpace1D.points[k]);
+    }
+    maniSortByKey(keys, n, order, scratch);
+    return PutWords(d, at, order, n);
+}
+
 // A node's data words, by kind; a mask's weights made.
 static void PutData(const maniGraphSource* source, const maniGraphNodeSource* node, Layout* lay)
 {
@@ -325,6 +365,10 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     else if (node->kind == maniGraphNodeTimeScale)
     {
         at = PutScalar(d, at, node->timeScale.scale);
+    }
+    else if (node->kind == maniGraphNodeBlendSpace1D || node->kind == maniGraphNodeBlendSpaceBands)
+    {
+        at = PutSpace(d, at, node);
     }
     else
     {

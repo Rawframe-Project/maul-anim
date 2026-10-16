@@ -36,6 +36,8 @@ extern "C"
 #define MANI_GRAPH_MAX_PARAMETERS  65536u
 #define MANI_GRAPH_MAX_CLIPS       65536u
 #define MANI_GRAPH_MAX_SYNC_GROUPS 65536u
+// The most points (and inputs) a blend space has.
+#define MANI_GRAPH_MAX_SPACE_POINTS 256u
 
     // A parameter's type. A trigger is set by the host and consumed by the
     // first node that reads it within an update.
@@ -80,6 +82,11 @@ extern "C"
         maniGraphNodeTimeScale = 6,
         // Its input, its playheads set to a time when a trigger fires.
         maniGraphNodeSeek = 7,
+        // A blend space on a line: its inputs blended by where a position
+        // falls among their points.
+        maniGraphNodeBlendSpace1D = 8,
+        // A blend space in a plane by gradient bands, cartesian or polar.
+        maniGraphNodeBlendSpaceBands = 10,
     };
 
     // A graph over a file's bytes, which the caller keeps alive and

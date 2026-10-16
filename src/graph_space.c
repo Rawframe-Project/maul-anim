@@ -1,0 +1,258 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// A 1D space blends the two points either side of the position (clamped
+// to the ends, or wrapped across the seam); a banded space weighs each
+// point by Johansen's gradient bands (2009, section 6.3), cartesian or
+// polar, normalized. Binary32 in a fixed order.
+
+#include "graph_space.h"
+
+#include "bytes.h"
+#include "graph_file.h"
+#include "graph_instance.h"
+#include "scalar.h"
+
+#include "maul-anim/graph.h"
+
+#include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+
+typedef struct Space
+{
+    const maniGraph* graph;
+    const maniGraphCell* cells;
+    uint32_t data;
+    uint32_t count;
+} Space;
+
+static uint32_t Word(const Space* s, uint32_t at)
+{
+    return maniLoadU32(s->graph->data + 4 * (size_t)(s->data + at));
+}
+
+static float Float(const Space* s, uint32_t at)
+{
+    uint32_t bits = Word(s, at);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
+static float Scalar(const Space* s, uint32_t at)
+{
+    uint32_t parameter = Word(s, at);
+    return parameter != MANI_NO_PARAMETER ? s->cells[parameter].value.f[0] : Float(s, at + 1);
+}
+
+// The position: a vec2 parameter's, or the two scalars'.
+static void Position(const Space* s, float* x, float* y)
+{
+    uint32_t vector = Word(s, 0);
+    if (vector != MANI_NO_PARAMETER)
+    {
+        *x = s->cells[vector].value.f[0];
+        *y = s->cells[vector].value.f[1];
+        return;
+    }
+    *x = Scalar(s, 1);
+    *y = Scalar(s, 3);
+}
+
+// The points' order: the input of the r-th smallest point.
+static uint32_t Ordered(const Space* s, uint32_t r)
+{
+    return Word(s, MANI_GRAPH_SPACE_WORDS + s->count + r);
+}
+
+static float Point(const Space* s, uint32_t k)
+{
+    return Float(s, MANI_GRAPH_SPACE_WORDS + k);
+}
+
+// Between inputs a and b (points pa < pb), at x within them.
+static void Between(float* weights, uint32_t a, uint32_t b, float pa, float pb, float x)
+{
+    float t = (x - pa) / (pb - pa);
+    t = t > 0.0f ? (t < 1.0f ? t : 1.0f) : 0.0f;
+    weights[a] = 1.0f - t;
+    weights[b] = t;
+}
+
+static void Line(const Space* s, float x, float* weights)
+{
+    uint32_t n = s->count;
+    uint32_t first = Ordered(s, 0);
+    uint32_t last = Ordered(s, n - 1);
+    float low = Point(s, first);
+    float high = Point(s, last);
+    float period = Float(s, MANI_GRAPH_POSITION_WORDS);
+    if (n == 1)
+    {
+        weights[0] = 1.0f;
+        return;
+    }
+    if (period > 0.0f)
+    {
+        float w = fmodf(x - low, period);
+        x = low + (w < 0.0f ? w + period : w);
+        if (x > high)
+        {
+            // Across the seam, from the last point to the first a period on.
+            Between(weights, last, first, high, low + period, x);
+            return;
+        }
+    }
+    if (x <= low || x >= high)
+    {
+        weights[x <= low ? first : last] = 1.0f;
+        return;
+    }
+    // The last point at or below x, by halves.
+    uint32_t lo = 0;
+    uint32_t hi = n - 1;
+    while (hi - lo > 1)
+    {
+        uint32_t mid = lo + (hi - lo) / 2;
+        if (Point(s, Ordered(s, mid)) <= x)
+        {
+            lo = mid;
+        }
+        else
+        {
+            hi = mid;
+        }
+    }
+    uint32_t a = Ordered(s, lo);
+    uint32_t b = Ordered(s, hi);
+    Between(weights, a, b, Point(s, a), Point(s, b), x);
+}
+
+// The signed angle from a to b, 0 with a zero vector.
+static float Angle(float ax, float ay, float bx, float by)
+{
+    bool zero = (ax == 0.0f && ay == 0.0f) || (bx == 0.0f && by == 0.0f);
+    return zero ? 0.0f : maniAtan2(ax * by - ay * bx, ax * bx + ay * by);
+}
+
+// A banded space's points, and per point (polar) its magnitude and the
+// angle from it to the position.
+typedef struct Points
+{
+    float p[2 * MANI_GRAPH_MAX_SPACE_POINTS];
+    float magnitude[MANI_GRAPH_MAX_SPACE_POINTS];
+    float toPosition[MANI_GRAPH_MAX_SPACE_POINTS];
+    float at[2];
+    float atMagnitude;
+    bool polar;
+} Points;
+
+// The band vectors from point i to point j and to the position, polar
+// (magnitudes over the pair's mean, twice the angle) or cartesian.
+static void Bands(const Points* q, uint32_t i, uint32_t j, float* vij, float* vip)
+{
+    const float* pi = q->p + 2 * i;
+    const float* pj = q->p + 2 * j;
+    if (!q->polar)
+    {
+        vij[0] = pj[0] - pi[0];
+        vij[1] = pj[1] - pi[1];
+        vip[0] = q->at[0] - pi[0];
+        vip[1] = q->at[1] - pi[1];
+        return;
+    }
+    float mean = (q->magnitude[i] + q->magnitude[j]) * 0.5f;
+    vij[0] = (q->magnitude[j] - q->magnitude[i]) / mean;
+    vij[1] = 2.0f * Angle(pi[0], pi[1], pj[0], pj[1]);
+    vip[0] = (q->atMagnitude - q->magnitude[i]) / mean;
+    vip[1] = 2.0f * q->toPosition[i];
+}
+
+// The nearest point to the position, the first of equals.
+static uint32_t Nearest(const float* p, uint32_t n, const float* at)
+{
+    uint32_t best = 0;
+    float bestDistance = 0.0f;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        float dx = p[2 * k] - at[0];
+        float dy = p[2 * k + 1] - at[1];
+        float d = dx * dx + dy * dy;
+        if (k == 0 || d < bestDistance)
+        {
+            best = k;
+            bestDistance = d;
+        }
+    }
+    return best;
+}
+
+static void Banded(const Space* s, const float* at, float* weights)
+{
+    uint32_t n = s->count;
+    Points q;
+    q.polar = Word(s, MANI_GRAPH_POSITION_WORDS) != 0;
+    q.at[0] = at[0];
+    q.at[1] = at[1];
+    q.atMagnitude = sqrtf(at[0] * at[0] + at[1] * at[1]);
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        float* pk = q.p + 2 * k;
+        pk[0] = Point(s, 2 * k);
+        pk[1] = Point(s, 2 * k + 1);
+        q.magnitude[k] = sqrtf(pk[0] * pk[0] + pk[1] * pk[1]);
+        q.toPosition[k] = Angle(pk[0], pk[1], at[0], at[1]);
+    }
+    float sum = 0.0f;
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        float h = 1.0f;
+        for (uint32_t j = 0; j < n; ++j)
+        {
+            float vij[2];
+            float vip[2];
+            Bands(&q, i, j, vij, vip);
+            float d = vij[0] * vij[0] + vij[1] * vij[1];
+            float band = d > 0.0f ? 1.0f - (vip[0] * vij[0] + vip[1] * vij[1]) / d : 1.0f;
+            h = j != i && band < h ? band : h;
+        }
+        weights[i] = h > 0.0f ? h : 0.0f;
+        sum += weights[i];
+    }
+    if (!(sum > 0.0f))
+    {
+        // No band reaches the position (polar spaces with gaps past half
+        // a turn): the nearest point.
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            weights[i] = 0.0f;
+        }
+        weights[Nearest(q.p, n, at)] = 1.0f;
+        return;
+    }
+    float inverse = 1.0f / sum;
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        weights[i] *= inverse;
+    }
+}
+
+void maniGraphSpaceWeights(const maniGraph* graph, const maniGraphCell* cells, uint32_t kind,
+                           uint32_t data, uint32_t count, float* weights)
+{
+    Space s = {graph, cells, data, count};
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        weights[k] = 0.0f;
+    }
+    float at[2];
+    Position(&s, &at[0], &at[1]);
+    if (kind == maniGraphNodeBlendSpace1D)
+    {
+        Line(&s, at[0], weights);
+        return;
+    }
+    Banded(&s, at, weights);
+}
