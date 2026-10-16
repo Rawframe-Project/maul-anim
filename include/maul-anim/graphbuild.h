@@ -302,18 +302,38 @@ extern "C"
         const maniGraphMaskNodeSource* mask;
     } maniGraphOneShotNodeSource;
 
+    // How an inertialize node eases out a request.
+    typedef uint32_t maniGraphInertializeMethod;
+    enum
+    {
+        // Bollo's inertialization: the offset from its last output to its
+        // input decays to 0 by a quintic over the requested seconds.
+        maniGraphInertialization = 0,
+        // Holden's dead blending: its last output, extrapolated by its
+        // speed decaying per axis, cross-faded into its input by a
+        // smoothstep over the requested seconds.
+        maniGraphDeadBlending = 1,
+    };
+
     // An inertialize node: one input, whose discontinuities it eases out
-    // (Bollo's inertialization: the offset from its last output decays to
-    // 0 by a quintic over the requested seconds). Requests come from the
-    // inertial transitions of the machines beneath it (the nearest such
-    // node above on their first parents' path takes them) and from its
-    // trigger (MANI_NO_PARAMETER for none), for duration seconds (not
-    // negative); the least of one update's requests is taken.
+    // by its method. Requests come from the inertial transitions of the
+    // machines beneath it (the nearest such node above on their first
+    // parents' path takes them) and from its trigger (MANI_NO_PARAMETER
+    // for none), for duration seconds (not negative); the least of one
+    // update's requests is taken. Dead blending's speed on each axis
+    // decays with a half-life of halfLifeScale times the distance to the
+    // input over the speed, clamped to halfLifeMin and halfLifeMax
+    // seconds (0 < halfLifeMin <= halfLifeMax, halfLifeScale not
+    // negative; Holden's 0.3, 0.1 and 1.0 are the JSON form's defaults);
+    // inertialization takes all three 0.
     typedef struct maniGraphInertializeNodeSource
     {
         uint32_t trigger;
-        uint32_t reserved;
+        maniGraphInertializeMethod method;
         maniGraphScalar duration;
+        float halfLifeScale;
+        float halfLifeMin;
+        float halfLifeMax;
     } maniGraphInertializeNodeSource;
 
     typedef struct maniGraphSource maniGraphSource;
@@ -496,7 +516,9 @@ extern "C"
     /// "restart", fade "linear", duration and cooldown 0 and conditions
     /// empty; a one-shot's fadeOutTrigger and abort none, curve "linear",
     /// fadeIn and fadeOut 0, mask none (the whole body); an
-    /// inertialize node's trigger none and duration 0; parameters,
+    /// inertialize node's trigger none, method "inertialization",
+    /// duration 0 and, for "deadBlending", halfLifeScale 0.3, halfLifeMin
+    /// 0.1 and halfLifeMax 1.0; parameters,
     /// clips and syncGroups empty). Each clip slot name, at
     /// any nesting, takes the host's clip of that name (the first of
     /// equal names). The source read is then built as maniBuildGraph

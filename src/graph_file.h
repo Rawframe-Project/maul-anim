@@ -128,21 +128,26 @@ enum
 #define MANI_GRAPH_SHOT_BLOCK_WORDS 6u
 
 // An inertialize node's data words: its trigger (MANI_NO_PARAMETER for
-// none), its request's duration as a scalar, and the first word of its
-// block in an instance's machine state.
-#define MANI_GRAPH_INERTIA_WORDS 4u
+// none), its method, its request's duration as a scalar, dead blending's
+// half-life scale, minimum and maximum (binary32, 0 for
+// inertialization), and the first word of its block in an instance's
+// machine state.
+#define MANI_GRAPH_INERTIA_WORDS 8u
 // Its block: flags (active, last output kept, the one before kept), its
 // update count, this update's step, the elapsed and requested seconds,
 // the pending request (+inf for none), the last output's count and step,
 // the one before's count, a zero word (binary32 for seconds); then per
 // bone its last two outputs (translation, rotation, scale: ten binary32
-// each) and the capture per channel (translation, rotation, scale): a
-// unit direction or axis, the offset's magnitude or angle, its speed and
-// its duration.
-#define MANI_GRAPH_INERTIA_HEADER     10u
-#define MANI_GRAPH_INERTIA_BONE_WORDS 38u
-#define MANI_GRAPH_INERTIA_BLOCK(bones)                                                            \
-    (MANI_GRAPH_INERTIA_HEADER + MANI_GRAPH_INERTIA_BONE_WORDS * (bones))
+// each) and the capture. Inertialization's per channel (translation,
+// rotation, scale): a unit direction or axis, the offset's magnitude or
+// angle, its speed and its duration (18 words). Dead blending's: the
+// last output (10), its speeds per axis (translation, the rotation's
+// scaled axis-angle, the scale's logarithm: 9) and their decay rates
+// (9).
+#define MANI_GRAPH_INERTIA_HEADER             10u
+#define MANI_GRAPH_INERTIA_BONE_WORDS(method) ((method) != 0 ? 48u : 38u)
+#define MANI_GRAPH_INERTIA_BLOCK(bones, method)                                                    \
+    (MANI_GRAPH_INERTIA_HEADER + MANI_GRAPH_INERTIA_BONE_WORDS(method) * (bones))
 
 // The data words a node of a kind with n inputs holds; 0 for an unknown
 // kind, a state machine and a one-shot, whose words their contents

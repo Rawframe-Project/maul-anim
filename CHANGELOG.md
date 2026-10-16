@@ -101,6 +101,12 @@ format.
   when they came from consecutive updates. The builder refuses an
   inertial transition with no node above it. Its state is saved and
   restored with the instance; in the JSON form as `inertialize`.
+- Dead blending (mani-0023): an inertialize node whose method is
+  `maniGraphDeadBlending` extrapolates its last output by its speed
+  (translation, rotation as a scaled axis-angle, scale in log space),
+  each axis decaying with Holden's half-life (`halfLifeScale` times the
+  distance over the speed, between `halfLifeMin` and `halfLifeMax`),
+  and cross-fades it into its input by a smoothstep.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

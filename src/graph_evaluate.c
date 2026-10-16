@@ -313,15 +313,17 @@ static void Shot(const Evaluation* e, const uint8_t* record, maniPose* out, bool
 // output.
 static void Inertia(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
 {
+    uint32_t data = maniLoadU32(record + 12);
     uint32_t* block = (uint32_t*)((uint8_t*)e->instance + e->instance->machinesAt) +
-                      Word(e, maniLoadU32(record + 12) + 3);
+                      Word(e, data + maniGraphInertiaBlock);
     const maniPose* input = InputPose(e, record, 0);
     if (input == NULL)
     {
         Neutral(e, out, difference);
         return;
     }
-    maniGraphInertiaEvaluate(block, e->graph->skeletonBoneCount, input, out);
+    maniGraphInertia node = maniGraphInertiaOf(e->graph, data);
+    maniGraphInertiaEvaluate(block, &node, input, out);
 }
 
 static void Additive(const Evaluation* e, const uint8_t* record, maniPose* out)

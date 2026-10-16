@@ -268,6 +268,36 @@ static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
     PutFloat(w, m->defaultWeight);
 }
 
+// An inertialize node: its method and half-lives for dead blending only.
+static void PutInertialize(Writer* w, const maniGraphSource* source,
+                           const maniGraphInertializeNodeSource* s)
+{
+    if (s->trigger != MANI_NO_PARAMETER)
+    {
+        PutKey(w, "trigger");
+        PutParameterName(w, source, s->trigger);
+        PutText(w, ", ");
+    }
+    if (s->method == maniGraphDeadBlending)
+    {
+        PutKey(w, "method");
+        PutText(w, "\"deadBlending\", ");
+    }
+    PutKey(w, "duration");
+    PutScalar(w, source, s->duration);
+    if (s->method == maniGraphDeadBlending)
+    {
+        const char* const keys[3] = {"halfLifeScale", "halfLifeMin", "halfLifeMax"};
+        const float values[3] = {s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            PutText(w, ", ");
+            PutKey(w, keys[k]);
+            PutFloat(w, values[k]);
+        }
+    }
+}
+
 // A one-shot's triggers (those it has), curve, fades and mask (when it
 // has one).
 static void PutShot(Writer* w, const maniGraphSource* source, const maniGraphOneShotNodeSource* s)
@@ -545,14 +575,7 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutShot(w, source, &n->oneShot);
         return;
     case maniGraphNodeInertialize:
-        if (n->inertialize.trigger != MANI_NO_PARAMETER)
-        {
-            PutKey(w, "trigger");
-            PutParameterName(w, source, n->inertialize.trigger);
-            PutText(w, ", ");
-        }
-        PutKey(w, "duration");
-        PutScalar(w, source, n->inertialize.duration);
+        PutInertialize(w, source, &n->inertialize);
         return;
     case maniGraphNodeAdditive:
         PutKey(w, "weights");

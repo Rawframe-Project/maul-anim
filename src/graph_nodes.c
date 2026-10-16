@@ -425,7 +425,8 @@ static uint32_t BlockWords(const maniGraph* g, const Node* n)
     case maniGraphNodeOneShot:
         return MANI_GRAPH_SHOT_BLOCK_WORDS;
     case maniGraphNodeInertialize:
-        return MANI_GRAPH_INERTIA_BLOCK(g->skeletonBoneCount);
+        return MANI_GRAPH_INERTIA_BLOCK(g->skeletonBoneCount,
+                                        Word(g, n->data + maniGraphInertiaMethod));
     default:
         return 0;
     }

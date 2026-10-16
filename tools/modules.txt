@@ -42,8 +42,9 @@ graph_machine_file: bytes graph_file
 graph: bytes container graph_file graph_nodes text
 graph_instance: bytes graph_file graph_inertia graph_machine graph_shot
 graph_shot: bytes graph_file
-graph_inertia: bytes graph_file
-graph_inertia_apply: graph_file graph_inertia pose_memory scalar vecmath
+graph_inertia: bytes graph_file pose_memory vecmath
+graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar vecmath
+graph_inertia_apply: graph_dead_blend graph_file graph_inertia pose_memory scalar vecmath
 graph_shot_step: graph_file graph_instance graph_shot
 graph_machine: bytes graph_file
 graph_machine_step: bytes graph_file graph_instance graph_machine
@@ -60,7 +61,7 @@ clip_cursor: clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
 root_motion_build: allocator bytes clip_file quat64
 clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
-graph_check: allocator container graph_file graph_machine_check graph_space_check sort text
+graph_check: allocator container graph_file graph_inertia graph_machine_check graph_space_check sort text
 graph_space_check: exact graph_file
 graph_machine_check: bytes graph_file sort
 exact:

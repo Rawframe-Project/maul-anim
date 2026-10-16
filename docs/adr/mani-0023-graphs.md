@@ -254,6 +254,21 @@ runtime allocates (mani-0001).
   two outputs and the capture per bone) joins the saved state, which
   refuses non-finite words, negative seconds and directions not of
   unit length.
+- **Dead blending** (Holden's "Dead Blending" and its Unreal node) is
+  the inertialize node's other method, on the same requests, capture
+  and clock. At capture each bone keeps its last output and per axis a
+  speed (translation; rotation as the scaled axis-angle of the turn
+  between the last two outputs; scale in log space, so it stays
+  positive, an axis not positive taking none) and a decay rate `ln 2 /
+  h`, the half-life `h = clamp(scale d / v, min, max)` with `d` the
+  distance to the input at capture in the same terms and `v` at least
+  1e-8 in magnitude by its sign: an axis moving slowly toward the
+  input extrapolates long, one moving fast or away decays soon. At
+  time t the output extrapolates by `v (1 - e^(-y t)) / y` per axis
+  and is lerped (slerped for rotation) into the input by
+  `smoothstep(t / T)`. The half-lives are the node's (0.3, 0.1 and 1.0
+  in the JSON form by default; inertialization takes them all 0). Its
+  block keeps 48 words a bone where inertialization's keeps 38.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

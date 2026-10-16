@@ -67,6 +67,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_machine_listen.c
     src/graph_shot.c
     src/graph_shot_step.c
+    src/graph_dead_blend.c
     src/graph_inertia.c
     src/graph_inertia_apply.c
     src/graph_space.c

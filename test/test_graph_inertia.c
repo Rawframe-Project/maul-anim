@@ -18,9 +18,11 @@
 // the request comes before any header that reaches the C library.
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "graph_dead_blend.h"
 #include "graph_inertia.h"
 #include "graph_inertia_apply.h"
 #include "graph_space_fixture.h"
+#include "pose_memory.h"
 
 #include "maul-anim/pose.h"
 
@@ -114,7 +116,7 @@ static maniGraphNodeSource Node(uint32_t trigger, maniGraphScalar duration)
 {
     static const uint32_t kNode[1] = {1};
     return (maniGraphNodeSource){maniGraphNodeInertialize, 1, kNode,
-                                 .inertialize = {trigger, 0, duration}};
+                                 .inertialize = {trigger, 0, duration, 0.0f, 0.0f, 0.0f}};
 }
 
 // An inertialize node (its trigger and duration given) over a machine of
@@ -169,7 +171,7 @@ static uint32_t* Block(maniGraphInstance* instance, const maniGraph* g, uint32_t
 {
     uint32_t data = maniLoadU32(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
     return (uint32_t*)((uint8_t*)instance + instance->machinesAt) +
-           maniLoadU32(g->data + 4 * (size_t)(data + 3));
+           maniLoadU32(g->data + 4 * (size_t)(data + maniGraphInertiaBlock));
 }
 
 // Bone b's channel c (translation 0, rotation 1, scale 2) as captured:
@@ -178,7 +180,7 @@ static float Captured(maniGraphInstance* instance, const maniGraph* g, uint32_t 
                       uint32_t k)
 {
     return maniGraphInertiaGet(Block(instance, g, 3),
-                               maniGraphInertiaBone(b) + MANI_GRAPH_INERTIA_CAPTURE + 6 * c + k);
+                               maniGraphInertiaBone(b, 0) + MANI_GRAPH_INERTIA_CAPTURE + 6 * c + k);
 }
 
 static void Pull(maniGraphInstance* instance, uint32_t trigger)
@@ -322,7 +324,8 @@ static void TestSeek(void)
     Parameters();
     maniGraphNodeSource nodes[5] = {
         {maniGraphNodeSeek, 1, kSeek, .seek = {1, {MANI_NO_PARAMETER, 0.0f}}},
-        {maniGraphNodeInertialize, 1, kNode, .inertialize = {MANI_NO_PARAMETER, 0, {2, 0.0f}}},
+        {maniGraphNodeInertialize, 1, kNode,
+         .inertialize = {MANI_NO_PARAMETER, 0, {2, 0.0f}, 0.0f, 0.0f, 0.0f}},
         {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
         ClipNode(0, 2.0f, maniGraphLoopRepeat),
         ClipNode(1, 1.0f, maniGraphLoopRepeat)};
@@ -342,6 +345,129 @@ static void TestSeek(void)
     CHECK((block[0] & maniGraphInertiaActive) == 0 &&
               maniGraphInertiaGet(block, maniGraphInertiaElapsed) == 0.1f,
           "sought: cleared, its clock begun again");
+}
+
+// Dead blending with Holden's half-lives, the node's trigger push and
+// duration d.
+static maniGraphNodeSource Dead(void)
+{
+    maniGraphNodeSource n = Node(1, (maniGraphScalar){2, 0.0f});
+    n.inertialize.method = maniGraphDeadBlending;
+    n.inertialize.halfLifeScale = 0.3f;
+    n.inertialize.halfLifeMin = 0.1f;
+    n.inertialize.halfLifeMax = 1.0f;
+    return n;
+}
+
+// Dead blending's capture word k of bone b: the last output 0 to 9, the
+// speeds 10 to 18, their decay rates 19 to 27.
+static float DeadWord(maniGraphInstance* instance, const maniGraph* g, uint32_t b, uint32_t k)
+{
+    return maniGraphInertiaGet(Block(instance, g, 3),
+                               maniGraphInertiaBone(b, maniGraphDeadBlending) +
+                                   MANI_GRAPH_INERTIA_CAPTURE + k);
+}
+
+// The walk extrapolated from x at speed v, decaying at y, t seconds in,
+// blended into the run's xIn by the smoothstep of t over 0.5.
+static double Extrapolated(double x, double v, double y, double t, double xIn)
+{
+    double e = x + v * (1.0 - exp(-y * t)) / y;
+    double u = t / 0.5;
+    double w = u * u * (3.0 - 2.0 * u);
+    return e + (xIn - e) * w;
+}
+
+// The walk at twice its speed away from the run: the least half-life;
+// backward toward it: scale times distance over speed; slowly toward
+// it: the most. Each extrapolated and blended into the run, the run
+// alone at the half second.
+static void TestDead(void)
+{
+    static const float kSpeeds[3] = {2.0f, -1.0f, -0.1f};
+    static const double kLast[3] = {0.6, 0.7, 0.97};
+    static const double kHalfLives[3] = {0.1, 0.21, 1.0};
+    for (int k = 0; k < 3; ++k)
+    {
+        maniGraph g;
+        maniGraphInstance* instance = Eased(Dead(), 3, kSpeeds[k], 1, &g);
+        Steps(instance, 3);
+        Pull(instance, 0);
+        maniTransform x = Step(instance, 0.1f, 0);
+        double y = log(2.0) / kHalfLives[k];
+        CHECK(NearF(DeadWord(instance, &g, 0, 0), kLast[k]) &&
+                  fabs((double)DeadWord(instance, &g, 0, 10) - (double)kSpeeds[k]) < 1e-4 &&
+                  fabs((double)DeadWord(instance, &g, 0, 19) - y) < 1e-3 &&
+                  DeadWord(instance, &g, 0, 11) == 0.0f && DeadWord(instance, &g, 0, 13) == 0.0f,
+              "captured: the last output, its speed, its half-life");
+        double want = Extrapolated(kLast[k], (double)kSpeeds[k], y, 0.1, 0.0);
+        CHECK(fabs((double)x.translation.x - want) < 1e-4 && x.translation.y == 1.0f,
+              "extrapolated and blended into the run");
+        for (int s = 1; s <= 3; ++s)
+        {
+            x = Step(instance, 0.1f, 0);
+            want = Extrapolated(kLast[k], (double)kSpeeds[k], y, 0.1 * (s + 1), 0.3 * s);
+            CHECK(fabs((double)x.translation.x - want) < 1e-4, "blending on");
+        }
+        x = Step(instance, 0.1f, 0);
+        CHECK(Run(x.translation.x, 0.4) &&
+                  (Block(instance, &g, 3)[0] & maniGraphInertiaActive) == 0,
+              "the run alone at the half second");
+    }
+}
+
+// The spine still in turn A, then turn B: no speed, so turn A slerped
+// into turn B by the smoothstep.
+static void TestDeadRotation(void)
+{
+    maniGraph g;
+    maniGraphNodeSource node = Dead();
+    node.inertialize.trigger = MANI_NO_PARAMETER;
+    maniGraphInstance* instance = Eased(node, 7, 1.0f, 8, &g);
+    Steps(instance, 2);
+    Pull(instance, 0);
+    maniTransform x = Step(instance, 0.1f, 1);
+    maniQuat a = {0.0f, 0.0f, 1.0f, 0.0f};
+    maniQuat b = {0.0f, 0.0f, -0.9f, 0.43588989f};
+    maniQuat want = maniQuatSlerp(a, b, 0.104f);
+    CHECK(DeadWord(instance, &g, 1, 15) == 0.0f && NearF(x.rotation.z, (double)want.z) &&
+              NearF(x.rotation.w, (double)want.w),
+          "turn A slerped into turn B");
+    for (int k = 0; k < 4; ++k)
+    {
+        x = Step(instance, 0.1f, 1);
+    }
+    CHECK(NearF(x.rotation.z, -0.9) && NearF(x.rotation.w, 0.43588989), "turn B alone at the end");
+}
+
+static _Alignas(32) uint32_t s_deadBlock[MANI_GRAPH_INERTIA_BLOCK(3, 1)];
+
+// Scale in log space, captured and applied directly: an axis growing
+// from 1.8 to 2 toward 1 decays at the least half-life; an axis not
+// positive takes no speed and holds.
+static void TestDeadScale(void)
+{
+    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f};
+    maniGraphResetInertia(s_deadBlock, &node);
+    maniGraphTrs last = {{0, 0, 0}, {0, 0, 0, 1}, {2.0f, -1.0f, 1.0f}};
+    maniGraphTrs before = {{0, 0, 0}, {0, 0, 0, 1}, {1.8f, -1.0f, 1.0f}};
+    uint32_t at = maniGraphInertiaBone(0, maniGraphDeadBlending);
+    maniGraphTrsKeep(s_deadBlock, at + MANI_GRAPH_INERTIA_LAST, last);
+    maniGraphTrsKeep(s_deadBlock, at + MANI_GRAPH_INERTIA_PREV, before);
+    maniPoseSetLocal(s_pose, 0, (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1.0f, 1.0f, 1.0f}});
+    maniGraphDeadCapture(s_deadBlock, &node, maniPoseLocals(s_pose), true, 0.1f);
+    double v = log(2.0 / 1.8) / 0.1;
+    double y = log(2.0) / 0.1;
+    float* words = (float*)(s_deadBlock + at + MANI_GRAPH_INERTIA_CAPTURE);
+    CHECK(fabs((double)words[16] - v) < 1e-4 && words[17] == 0.0f &&
+              fabs((double)words[25] - y) < 1e-3,
+          "the scale's speed in log space, none for a negative axis");
+    maniGraphDeadApply(s_deadBlock, &node, maniPoseLocals(s_pose), 0.1f, 0.5f);
+    maniTransform x = maniPoseLocal(s_pose, 0);
+    double e = 2.0 * exp(v * (1.0 - exp(-y * 0.1)) / y);
+    CHECK(fabs((double)x.scale.x - (e + (1.0 - e) * 0.104)) < 1e-4 &&
+              NearF(x.scale.y, -1.0 + 2.0 * 0.104) && x.scale.z == 1.0f,
+          "extrapolated by its logarithm, blended");
 }
 
 static _Alignas(8) uint8_t s_saved[2][8192];
@@ -368,14 +494,14 @@ static void TestSaved(void)
     maniTransform b = Step(other, 0.1f, 0);
     CHECK(memcmp(&a, &b, sizeof a) == 0 && a.translation.x != 0.0f, "eased alike");
     // The node's block is the last: after the machine's.
-    size_t block = size - 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(3);
-    uint32_t capture = maniGraphInertiaBone(2) + MANI_GRAPH_INERTIA_CAPTURE + 6;
+    size_t block = size - 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(3, 0);
+    uint32_t capture = maniGraphInertiaBone(2, 0) + MANI_GRAPH_INERTIA_CAPTURE + 6;
     const uint32_t kBad[7][2] = {{maniGraphInertiaFlags, 8},
                                  {maniGraphInertiaStep, 0x7F800000u},
                                  {maniGraphInertiaElapsed, 0xBF800000u},
                                  {maniGraphInertiaPending, 0x7FC00000u},
                                  {9, 1},
-                                 {maniGraphInertiaBone(1) + 4, 0xFF800000u},
+                                 {maniGraphInertiaBone(1, 0) + 4, 0xFF800000u},
                                  {capture, 0x40000000u}};
     CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success,
           "saved again");
@@ -420,7 +546,7 @@ static void TestRefusals(void)
     maniGraphNodeSource around[5] = {
         {maniGraphNodeBlend, 2, kBoth, .blend = {kHalves, 0, 0}},
         {maniGraphNodeInertialize, 1, kNode,
-         .inertialize = {MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.2f}}},
+         .inertialize = {MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.2f}, 0.0f, 0.0f, 0.0f}},
         {maniGraphNodeMachine, 2, kMachine, .machine = {t, 2, 0, 0, 0, NULL}},
         nodes[1],
         nodes[2]};
@@ -437,20 +563,73 @@ static void TestRefusals(void)
     CHECK(Built(under, 4).result == mani_success, "beneath the node");
     under[0].inertialize.trigger = 2;
     CHECK(Refused(Built(under, 4), maniBuildReasonNode, 0), "a trigger of another type");
-    under[0].inertialize = (maniGraphInertializeNodeSource){0, 0, {MANI_NO_PARAMETER, -1.0f}};
+    under[0].inertialize =
+        (maniGraphInertializeNodeSource){0, 0, {MANI_NO_PARAMETER, -1.0f}, 0.0f, 0.0f, 0.0f};
     CHECK(Refused(Built(under, 4), maniBuildReasonScalar, 0), "a negative duration");
+    under[0] = Dead();
+    under[0].inertialize.trigger = MANI_NO_PARAMETER;
+    CHECK(Built(under, 4).result == mani_success, "dead blending");
+    const float kLives[4][3] = {
+        {-0.1f, 0.1f, 1.0f}, {0.3f, 0.0f, 1.0f}, {0.3f, 0.5f, 0.4f}, {0.3f, 0.1f, HUGE_VALF}};
+    for (int k = 0; k < 4; ++k)
+    {
+        under[0].inertialize.halfLifeScale = kLives[k][0];
+        under[0].inertialize.halfLifeMin = kLives[k][1];
+        under[0].inertialize.halfLifeMax = kLives[k][2];
+        CHECK(Refused(Built(under, 4), maniBuildReasonNode, 0), "half-lives refused");
+    }
+    under[0].inertialize.method = 2;
+    CHECK(Refused(Built(under, 4), maniBuildReasonNode, 0), "an unknown method");
+    under[0].inertialize =
+        Node(MANI_NO_PARAMETER, (maniGraphScalar){MANI_NO_PARAMETER, 0.2f}).inertialize;
+    under[0].inertialize.halfLifeMax = 1.0f;
+    CHECK(Refused(Built(under, 4), maniBuildReasonNode, 0), "inertialization's half-lives not 0");
 }
 
-// The node of Walked: its words checked on open (trigger 0, the duration
-// 1 and 2, the block 3).
+// Dead blending saved mid-blend and restored: both go on alike; a
+// negative decay rate refused at its word.
+static void TestDeadSaved(void)
+{
+    maniGraph g;
+    maniGraphInstance* instance = Eased(Dead(), 3, -1.0f, 1, &g);
+    Steps(instance, 2);
+    Pull(instance, 0);
+    Steps(instance, 1);
+    size_t size = maniGraphStateSize(instance->binding);
+    maniGraphInstance* other = NULL;
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
+                  mani_success &&
+              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+          "saved and restored");
+    maniTransform a = Step(instance, 0.1f, 0);
+    maniTransform b = Step(other, 0.1f, 0);
+    CHECK(a.translation.x == b.translation.x && a.translation.x != 0.0f, "blended alike");
+    size_t block = size - 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(3, maniGraphDeadBlending);
+    uint32_t capture = maniGraphInertiaBone(2, maniGraphDeadBlending) + MANI_GRAPH_INERTIA_CAPTURE;
+    const uint32_t kBad[3][2] = {
+        {capture + 4, 0x7F800000u}, {capture + 18, 0x7FC00000u}, {capture + 27, 0xBF800000u}};
+    for (int k = 0; k < 3; ++k)
+    {
+        memcpy(s_saved[1], s_saved[0], size);
+        maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
+        maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kBad[k][0],
+              "a saved block refused at its word");
+    }
+}
+
+// The node of Walked: its words checked on open (trigger 0, method 1, the
+// duration 2 and 3, the half-lives 4 to 6, the block 7).
 static void TestOpenRefusals(void)
 {
     maniGraph g;
     (void)Walked(1.0f, &g);
     uint64_t at = 0;
     CHECK(Crafted(&g, 3, 0, MANI_NO_PARAMETER, &at).result == mani_success, "no trigger");
-    const uint32_t kBad[6][3] = {{0, 2, 0}, {0, 3, 0}, {1, 0, 1}, {1, 3, 1}, {2, 1, 1}, {3, 1, 3}};
-    for (int k = 0; k < 6; ++k)
+    const uint32_t kBad[8][3] = {{0, 2, 0}, {0, 3, 0}, {1, 2, 1},          {2, 0, 2},
+                                 {2, 5, 2}, {3, 1, 2}, {4, Bits(0.3f), 4}, {7, 1, 7}};
+    for (int k = 0; k < 8; ++k)
     {
         CHECK(RefusedAtWordOf(&g, 3, kBad[k][0], kBad[k][1], kBad[k][2]), "a node's word refused");
     }
@@ -494,7 +673,7 @@ static void TestJson(void)
                                        maniGraphFadeInertial, 0.5f, 0.0f, kGo, 1, 0}};
     Parameters();
     maniGraphNodeSource nodes[4] = {
-        {maniGraphNodeInertialize, 1, kNode, .inertialize = {1, 0, {2, 0.0f}}},
+        {maniGraphNodeInertialize, 1, kNode, .inertialize = {1, 0, {2, 0.0f}, 0.0f, 0.0f, 0.0f}},
         {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopRepeat),
         ClipNode(1, 1.0f, maniGraphLoopRepeat)};
@@ -504,10 +683,17 @@ static void TestJson(void)
                          "\"duration\": {\"parameter\": \"d\"}}") != NULL &&
               strstr(s_text, "\"fade\": \"inertial\"") != NULL,
           "the form");
-    nodes[0].inertialize =
-        (maniGraphInertializeNodeSource){MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.25f}};
+    nodes[0].inertialize = (maniGraphInertializeNodeSource){
+        MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.25f}, 0.0f, 0.0f, 0.0f};
     CHECK(RoundTrip(&source) && strstr(s_text, "\"inputs\": [1], \"duration\": 0.25}") != NULL,
           "no trigger");
+    nodes[0] = Dead();
+    nodes[0].inertialize.halfLifeMax = 0.75f;
+    CHECK(RoundTrip(&source) &&
+              strstr(s_text, "\"trigger\": \"push\", \"method\": \"deadBlending\", \"duration\": "
+                             "{\"parameter\": \"d\"}, \"halfLifeScale\": 0.3, \"halfLifeMin\": "
+                             "0.1, \"halfLifeMax\": 0.75}") != NULL,
+          "dead blending");
 }
 
 #define HEAD                                                                                       \
@@ -519,15 +705,21 @@ static void TestJson(void)
 static void TestJsonForms(void)
 {
     CHECK(Read(HEAD TAIL).result == mani_success, "members left out");
+    CHECK(Read(HEAD ", \"method\": \"deadBlending\"" TAIL).result == mani_success,
+          "dead blending's half-lives by default");
+    maniBuildResult lives = Read(HEAD ", \"halfLifeMin\": 0.1" TAIL);
+    CHECK(lives.result == mani_errorInvalid && lives.reason == maniBuildReasonNode,
+          "inertialization's half-lives not 0");
     static const struct
     {
         const char* text;
         uint32_t form;
         const char* marker;
-    } kRefusals[3] = {{HEAD ", \"trigger\": \"pull\"" TAIL, maniGraphFormName, "pull"},
+    } kRefusals[4] = {{HEAD ", \"trigger\": \"pull\"" TAIL, maniGraphFormName, "pull"},
+                      {HEAD ", \"method\": \"springs\"" TAIL, maniGraphFormValue, "springs"},
                       {HEAD ", \"duration\": \"long\"" TAIL, maniGraphFormValue, "long"},
                       {HEAD ", \"time\": 1" TAIL, maniGraphFormMember, "time"}};
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 4; ++k)
     {
         maniBuildResult r = Read(kRefusals[k].text);
         const char* at = strstr(kRefusals[k].text, kRefusals[k].marker);
@@ -572,6 +764,10 @@ int main(int argc, char** argv)
     TestRequests();
     TestRotation();
     TestSeek();
+    TestDead();
+    TestDeadRotation();
+    TestDeadScale();
+    TestDeadSaved();
     TestSaved();
     TestRefusals();
     TestOpenRefusals();

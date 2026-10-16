@@ -9,6 +9,7 @@
 #include "allocator.h"
 #include "container.h"
 #include "graph_file.h"
+#include "graph_inertia.h"
 #include "graph_machine_check.h"
 #include "graph_space_check.h"
 #include "sort.h"
@@ -328,6 +329,21 @@ static maniBuildResult CheckShotNode(const maniGraphSource* source, const maniGr
     return s->mask != NULL ? CheckMask(source, s->mask, node) : Outcome(mani_success);
 }
 
+// An inertialize node: an optional trigger, a known method, half-lives
+// as it wants them, a duration in seconds.
+static maniBuildResult CheckInertialize(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                        uint32_t node)
+{
+    const maniGraphInertializeNodeSource* s = &n->inertialize;
+    maniGraphParameterType trigger = maniGraphParameterTrigger;
+    maniGraphInertia lives = {0, s->method, s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
+    bool ok =
+        (s->trigger == MANI_NO_PARAMETER || ParameterOf(source, s->trigger, trigger, trigger)) &&
+        s->method <= maniGraphDeadBlending && maniGraphHalfLivesValid(&lives) == UINT32_MAX;
+    return ok ? CheckScalar(source, s->duration, node, 0, 0.0f, HUGE_VALF)
+              : maniGraphRefuse(maniBuildReasonNode, node, 0);
+}
+
 // A node's own fields, by kind.
 static maniBuildResult CheckFields(const maniGraphSource* source, const maniGraphNodeSource* n,
                                    uint32_t node)
@@ -346,11 +362,7 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
     case maniGraphNodeOneShot:
         return CheckShotNode(source, n, node);
     case maniGraphNodeInertialize:
-        return n->inertialize.trigger == MANI_NO_PARAMETER ||
-                       ParameterOf(source, n->inertialize.trigger, maniGraphParameterTrigger,
-                                   maniGraphParameterTrigger)
-                   ? CheckScalar(source, n->inertialize.duration, node, 0, 0.0f, HUGE_VALF)
-                   : maniGraphRefuse(maniBuildReasonNode, node, 0);
+        return CheckInertialize(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -371,6 +383,24 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
                            maniGraphParameterTrigger)
                    ? CheckScalar(source, n->seek.time, node, 0, -HUGE_VALF, HUGE_VALF)
                    : maniGraphRefuse(maniBuildReasonNode, node, 0);
+    }
+}
+
+// The words of the block a node keeps in an instance.
+static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSource* n)
+{
+    switch (n->kind)
+    {
+    case maniGraphNodeMachine:
+        return MANI_GRAPH_BLOCK_SIZE(n->inputCount, n->machine.transitionCount,
+                                     maniGraphMachineConditions(n));
+    case maniGraphNodeOneShot:
+        return MANI_GRAPH_SHOT_BLOCK_WORDS;
+    case maniGraphNodeInertialize:
+        return MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton),
+                                        n->inertialize.method);
+    default:
+        return 0;
     }
 }
 
@@ -403,15 +433,10 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
     tally->dataWords +=
         machine ? maniGraphMachineSourceWords(n)
                 : (shot ? MANI_GRAPH_SHOT_WORDS : maniGraphDataWords(n->kind, n->inputCount));
-    tally->machineWords +=
-        machine ? MANI_GRAPH_BLOCK_SIZE(n->inputCount, transitions, maniGraphMachineConditions(n))
-                : (shot ? MANI_GRAPH_SHOT_BLOCK_WORDS : 0u);
+    tally->machineWords += BlockWords(source, n);
     tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
     tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX ? 1u : 0u;
     tally->maskCount += shot && n->oneShot.mask != NULL ? 1u : 0u;
-    tally->machineWords += n->kind == maniGraphNodeInertialize
-                               ? MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton))
-                               : 0u;
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
     tally->maskCount += n->kind == maniGraphNodeMask ? 1u : 0u;

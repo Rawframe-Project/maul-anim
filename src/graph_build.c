@@ -445,10 +445,13 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeInertialize)
     {
-        at = PutScalar(d, PutWords(d, at, &node->inertialize.trigger, 1),
-                       node->inertialize.duration);
-        at = PutWords(d, at, &lay->blockAt, 1);
-        lay->blockAt += MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton));
+        const maniGraphInertializeNodeSource* s = &node->inertialize;
+        const float halfLives[3] = {s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
+        const uint32_t head[2] = {s->trigger, s->method};
+        at = PutScalar(d, PutWords(d, at, head, 2), s->duration);
+        at = PutWords(d, PutFloats(d, at, halfLives, 3), &lay->blockAt, 1);
+        lay->blockAt +=
+            MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton), s->method);
     }
     else if (node->kind == maniGraphNodeSelect)
     {

@@ -16,12 +16,14 @@
 
 #include "graph_inertia_apply.h"
 
+#include "graph_dead_blend.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "pose_memory.h"
 #include "scalar.h"
 #include "vecmath.h"
 
+#include "maul-anim/graphbuild.h"
 #include "maul-anim/pose.h"
 
 #include <math.h>
@@ -42,51 +44,6 @@ float maniGraphQuintic(float x0, float v0, float t1, float t)
     float q = 3.0f * k + 16.0f * w + 30.0f * x0;
     float r = 3.0f * k + 12.0f * w + 20.0f * x0;
     return x0 + u * (w + u * (0.5f * k + u * (-0.5f * r + u * (0.5f * q - u * 0.5f * p))));
-}
-
-// Ten components of a bone: translation, rotation, scale.
-typedef struct Trs
-{
-    maniVec3 t;
-    maniQuat r;
-    maniVec3 s;
-} Trs;
-
-static Trs Read(const float* slot)
-{
-    float v[MANI_POSE_COMPONENTS];
-    for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c)
-    {
-        v[c] = slot[c * MANI_POSE_GROUP_BONES];
-    }
-    return (Trs){{v[0], v[1], v[2]}, {v[3], v[4], v[5], v[6]}, {v[7], v[8], v[9]}};
-}
-
-static void Write(float* slot, Trs x)
-{
-    const float v[MANI_POSE_COMPONENTS] = {x.t.x, x.t.y, x.t.z, x.r.x, x.r.y,
-                                           x.r.z, x.r.w, x.s.x, x.s.y, x.s.z};
-    maniPoseSlotPut(slot, 0, v, MANI_POSE_COMPONENTS);
-}
-
-static Trs Kept(const uint32_t* block, uint32_t at)
-{
-    float v[MANI_POSE_COMPONENTS];
-    for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c)
-    {
-        v[c] = maniGraphInertiaGet(block, at + c);
-    }
-    return (Trs){{v[0], v[1], v[2]}, {v[3], v[4], v[5], v[6]}, {v[7], v[8], v[9]}};
-}
-
-static void Keep(uint32_t* block, uint32_t at, Trs x)
-{
-    const float v[MANI_POSE_COMPONENTS] = {x.t.x, x.t.y, x.t.z, x.r.x, x.r.y,
-                                           x.r.z, x.r.w, x.s.x, x.s.y, x.s.z};
-    for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c)
-    {
-        maniGraphInertiaSet(block, at + c, v[c]);
-    }
 }
 
 // A channel's capture: direction, magnitude, speed, duration.
@@ -173,10 +130,10 @@ static void Capture(uint32_t* block, uint32_t bones, float* locals, bool moving,
 {
     for (uint32_t b = 0; b < bones; ++b)
     {
-        uint32_t at = maniGraphInertiaBone(b);
-        Trs in = Read(maniPoseSlot(locals, b));
-        Trs last = Kept(block, at + MANI_GRAPH_INERTIA_LAST);
-        Trs before = moving ? Kept(block, at + MANI_GRAPH_INERTIA_PREV) : last;
+        uint32_t at = maniGraphInertiaBone(b, maniGraphInertialization);
+        maniGraphTrs in = maniGraphTrsRead(maniPoseSlot(locals, b));
+        maniGraphTrs last = maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_LAST);
+        maniGraphTrs before = moving ? maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_PREV) : last;
         uint32_t capture = at + MANI_GRAPH_INERTIA_CAPTURE;
         Store(block, capture, Vector(last.t, before.t, in.t, moving, dt, duration));
         Store(block, capture + 6, Rotation(last.r, before.r, in.r, moving, dt, duration));
@@ -193,30 +150,33 @@ static void Apply(const uint32_t* block, uint32_t bones, float* locals, float t)
 {
     for (uint32_t b = 0; b < bones; ++b)
     {
-        uint32_t capture = maniGraphInertiaBone(b) + MANI_GRAPH_INERTIA_CAPTURE;
+        uint32_t capture =
+            maniGraphInertiaBone(b, maniGraphInertialization) + MANI_GRAPH_INERTIA_CAPTURE;
         float* slot = maniPoseSlot(locals, b);
-        Trs x = Read(slot);
+        maniGraphTrs x = maniGraphTrsRead(slot);
         Channel r = Load(block, capture + 6);
         float angle = maniGraphQuintic(r.x0, r.v0, r.t1, t);
         x.t = Ease(x.t, Load(block, capture), t);
         x.r = angle != 0.0f ? maniQuatMul(maniQuatFromAxisAngle(r.direction, angle), x.r) : x.r;
         x.s = Ease(x.s, Load(block, capture + 12), t);
-        Write(slot, x);
+        maniGraphTrsWrite(slot, x);
     }
 }
 
 // The output kept: replacing the last within one update, else the last
 // becoming the one before.
-static void Remember(uint32_t* block, uint32_t bones, float* locals)
+static void Remember(uint32_t* block, const maniGraphInertia* node, float* locals)
 {
+    uint32_t bones = node->bones;
     uint32_t flags = block[maniGraphInertiaFlags];
     uint32_t serial = block[maniGraphInertiaSerial];
     bool again =
         (flags & maniGraphInertiaLastKept) != 0 && block[maniGraphInertiaLastSerial] == serial;
     for (uint32_t b = 0; b < bones && !again; ++b)
     {
-        uint32_t at = maniGraphInertiaBone(b);
-        Keep(block, at + MANI_GRAPH_INERTIA_PREV, Kept(block, at + MANI_GRAPH_INERTIA_LAST));
+        uint32_t at = maniGraphInertiaBone(b, node->method);
+        maniGraphTrsKeep(block, at + MANI_GRAPH_INERTIA_PREV,
+                         maniGraphTrsKept(block, at + MANI_GRAPH_INERTIA_LAST));
     }
     if (!again && (flags & maniGraphInertiaLastKept) != 0)
     {
@@ -225,15 +185,15 @@ static void Remember(uint32_t* block, uint32_t bones, float* locals)
     }
     for (uint32_t b = 0; b < bones; ++b)
     {
-        Trs x = Read(maniPoseSlot(locals, b));
-        Keep(block, maniGraphInertiaBone(b) + MANI_GRAPH_INERTIA_LAST, x);
+        maniGraphTrs x = maniGraphTrsRead(maniPoseSlot(locals, b));
+        maniGraphTrsKeep(block, maniGraphInertiaBone(b, node->method) + MANI_GRAPH_INERTIA_LAST, x);
     }
     block[maniGraphInertiaFlags] = flags | maniGraphInertiaLastKept;
     block[maniGraphInertiaLastSerial] = serial;
     block[maniGraphInertiaLastStep] = block[maniGraphInertiaStep];
 }
 
-void maniGraphInertiaEvaluate(uint32_t* block, uint32_t bones, const maniPose* input,
+void maniGraphInertiaEvaluate(uint32_t* block, const maniGraphInertia* node, const maniPose* input,
                               maniPose* output)
 {
     maniPoseCopy(output, input);
@@ -245,7 +205,14 @@ void maniGraphInertiaEvaluate(uint32_t* block, uint32_t bones, const maniPose* i
         bool moving = (flags & maniGraphInertiaPrevKept) != 0 &&
                       block[maniGraphInertiaPrevSerial] + 1u == block[maniGraphInertiaLastSerial];
         float dt = maniGraphInertiaGet(block, maniGraphInertiaLastStep);
-        Capture(block, bones, locals, moving, dt, pending);
+        if (node->method == maniGraphInertialization)
+        {
+            Capture(block, node->bones, locals, moving, dt, pending);
+        }
+        else
+        {
+            maniGraphDeadCapture(block, node, locals, moving, dt);
+        }
         maniGraphInertiaSet(block, maniGraphInertiaElapsed,
                             maniGraphInertiaGet(block, maniGraphInertiaStep));
         maniGraphInertiaSet(block, maniGraphInertiaDuration, pending);
@@ -257,9 +224,14 @@ void maniGraphInertiaEvaluate(uint32_t* block, uint32_t bones, const maniPose* i
                 ? flags
                 : flags & ~(uint32_t)maniGraphInertiaActive;
     block[maniGraphInertiaFlags] = flags;
-    if ((flags & maniGraphInertiaActive) != 0)
+    if ((flags & maniGraphInertiaActive) != 0 && node->method == maniGraphInertialization)
     {
-        Apply(block, bones, locals, elapsed);
+        Apply(block, node->bones, locals, elapsed);
     }
-    Remember(block, bones, locals);
+    else if ((flags & maniGraphInertiaActive) != 0)
+    {
+        maniGraphDeadApply(block, node, locals, elapsed,
+                           maniGraphInertiaGet(block, maniGraphInertiaDuration));
+    }
+    Remember(block, node, locals);
 }

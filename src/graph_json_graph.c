@@ -368,6 +368,28 @@ static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneS
     return maniGraphJsonMembers(r, f[8], kMask, 2, 0u, members + 2) && Mask(r, members, mask);
 }
 
+// An inertialize node; dead blending's half-lives default to Holden's.
+static bool Inertialize(Reader* r, const Scope* scope, const uint32_t* f,
+                        maniGraphInertializeNodeSource* s)
+{
+    static const char* const kMethods[] = {"inertialization", "deadBlending"};
+    *s = (maniGraphInertializeNodeSource){
+        MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.0f}, 0.0f, 0.0f, 0.0f};
+    s->method = f[3] == ABSENT ? 0u : maniGraphJsonWord(r, f[3], kMethods, 2);
+    if (s->method == maniGraphDeadBlending)
+    {
+        s->halfLifeScale = 0.3f;
+        s->halfLifeMin = 0.1f;
+        s->halfLifeMax = 1.0f;
+    }
+    return (f[2] == ABSENT || maniGraphJsonRefer(r, &scope->parameters, f[2], &s->trigger)) &&
+           (s->method < 2 || maniGraphJsonFault(r, f[3], maniGraphFormValue)) &&
+           (f[4] == ABSENT || maniGraphJsonScalar(r, scope, f[4], &s->duration)) &&
+           (f[5] == ABSENT || maniGraphJsonFloat(r, f[5], &s->halfLifeScale)) &&
+           (f[6] == ABSENT || maniGraphJsonFloat(r, f[6], &s->halfLifeMin)) &&
+           (f[7] == ABSENT || maniGraphJsonFloat(r, f[7], &s->halfLifeMax));
+}
+
 static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraphClipNodeSource* c)
 {
     static const char* const kLoops[] = {"clip", "clamp", "repeat"};
@@ -487,7 +509,12 @@ static const KindForm kForms[] = {
      {"kind", "inputs", "fire", "fadeOutTrigger", "abort", "curve", "fadeIn", "fadeOut", "mask"},
      9,
      7u},
-    {"inertialize", maniGraphNodeInertialize, {"kind", "inputs", "trigger", "duration"}, 4, 3u},
+    {"inertialize",
+     maniGraphNodeInertialize,
+     {"kind", "inputs", "trigger", "method", "duration", "halfLifeScale", "halfLifeMin",
+      "halfLifeMax"},
+     8,
+     3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -660,11 +687,7 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
     case maniGraphNodeOneShot:
         return Shot(r, scope, f, &n->oneShot);
     case maniGraphNodeInertialize:
-        n->inertialize =
-            (maniGraphInertializeNodeSource){MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.0f}};
-        return (f[2] == ABSENT ||
-                maniGraphJsonRefer(r, &scope->parameters, f[2], &n->inertialize.trigger)) &&
-               (f[3] == ABSENT || maniGraphJsonScalar(r, scope, f[3], &n->inertialize.duration));
+        return Inertialize(r, scope, f, &n->inertialize);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

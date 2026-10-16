@@ -88,7 +88,7 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
     maniGraphShot shot = {graph, maniLoadU32(e + 12), 0};
     if (maniLoadU16(e) == maniGraphNodeInertialize)
     {
-        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + 3));
+        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphInertiaBlock));
     }
     return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
                                                   : UINT32_MAX;
@@ -97,6 +97,13 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
 static bool Inertial(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeInertialize;
+}
+
+// Inertialize node p as its words give it.
+static maniGraphInertia InertiaAt(const maniGraph* graph, uint32_t p)
+{
+    return maniGraphInertiaOf(graph,
+                              maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12));
 }
 
 static void ResetMachines(maniGraphInstance* instance)
@@ -112,7 +119,8 @@ static void ResetMachines(maniGraphInstance* instance)
         }
         else if (shot != UINT32_MAX && Inertial(graph, p))
         {
-            maniGraphResetInertia(Blocks(instance) + shot, graph->skeletonBoneCount);
+            maniGraphInertia node = InertiaAt(graph, p);
+            maniGraphResetInertia(Blocks(instance) + shot, &node);
         }
         else if (shot != UINT32_MAX)
         {
@@ -440,9 +448,9 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
             continue;
         }
         uint64_t block = at + 4 * (uint64_t)first;
-        uint32_t bones = graph->skeletonBoneCount;
+        maniGraphInertia node = InertiaAt(graph, p);
         uint32_t wrong = m.states > 0         ? maniGraphSavedBlockValid(&m, b + block)
-                         : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, bones)
+                         : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, &node)
                                               : maniGraphSavedShotValid(b + block);
         if (wrong != UINT32_MAX)
         {

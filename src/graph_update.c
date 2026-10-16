@@ -201,7 +201,8 @@ static void Request(const Update* u, uint32_t node, float seconds)
     {
         return;
     }
-    uint32_t* block = BlockAt(u, Word(u, maniLoadU32(Record(u, node) + 12) + 3));
+    uint32_t* block =
+        BlockAt(u, Word(u, maniLoadU32(Record(u, node) + 12) + maniGraphInertiaBlock));
     float pending = maniGraphInertiaGet(block, maniGraphInertiaPending);
     maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending);
 }
@@ -312,10 +313,11 @@ static void ShareInertia(const Update* u, const uint8_t* record, const maniGraph
         return;
     }
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t* block = BlockAt(u, Word(u, d + 3));
+    uint32_t* block = BlockAt(u, Word(u, d + maniGraphInertiaBlock));
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
-        maniGraphResetInertia(block, u->graph->skeletonBoneCount);
+        maniGraphInertia node = maniGraphInertiaOf(u->graph, d);
+        maniGraphResetInertia(block, &node);
     }
     float step = (float)fabs(u->delta * (double)s->factor);
     block[maniGraphInertiaSerial] += 1u;
@@ -326,7 +328,7 @@ static void ShareInertia(const Update* u, const uint8_t* record, const maniGraph
     if (trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0)
     {
         u->instance->cells[trigger].value.b = 0;
-        Request(u, p, Scalar(u, d + 1));
+        Request(u, p, Scalar(u, d + maniGraphInertiaDurationScalar));
     }
     Share share = Pass(s, 1.0f, 1.0f);
     share.inertia = p;
