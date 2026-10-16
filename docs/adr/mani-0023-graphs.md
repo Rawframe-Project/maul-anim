@@ -283,6 +283,15 @@ direction is taken once and a pair's turn is the difference of two.
 Lines and triangles grow linearly. The builder's exact triangulation of
 a 16 by 16 grid, every cell a tie, takes 15 ms.
 
+A state machine costs about its weighted states: a clip node no parent
+reaches is not moved (it could not move: no time factor, no weight),
+outside sync groups, whose followers keep pace with their leader. A
+machine of 16 states, one clip each, fading a fifth of the time, takes
+4,289 instructions an update, 5,433 when it listens to its leading
+clips (a plain blend of the same clips, 5,199); at 256 states 51,113
+and 62,002, the machine's own share about 190 instructions a state. A
+one-shot over a clip takes 1,404 (a blend of the two clips, 1,167).
+
 Every check, choice and refusal is tested against a change made to its
 line: of 203 such changes to the graph's sources, the JSON forms and
 the binary32 writer, every one is caught but seven that cannot change a
@@ -294,5 +303,8 @@ can find). Of 81 changes to the blend spaces, the exact predicates and
 the triangulation, every one is caught but five that cannot change a
 result (an end of a line met exactly, a position on a triangle's edge,
 the bands' fallback no position reaches, and two forms of a bounding
-box test the exact edge test repeats). Opening, saved state and the
-JSON reader are fuzzed.
+box test the exact edge test repeats). Of 54 changes to the machines'
+leading clips and the one-shots, every one is caught but two that
+cannot change a result (whole wraps rounded from a difference that is
+already whole, and a greatest index the search meets first anyway).
+Opening, saved state and the JSON reader are fuzzed.

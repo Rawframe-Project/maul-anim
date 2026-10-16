@@ -103,6 +103,12 @@ static void Give(const Update* u, uint32_t input, Share share)
     }
 }
 
+// Whether a parent reached a node this update.
+static bool Reached(const maniGraphNodeState* s)
+{
+    return (s->flags & MANI_GRAPH_REACHED) != 0;
+}
+
 static Share Pass(const maniGraphNodeState* s, float part, float rootPart)
 {
     return (Share){s->weight * part, s->rootWeight * rootPart, s->factor, s->seekTo, s->flags};
@@ -189,7 +195,7 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     maniGraphMachine m = {u->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
     uint32_t* block =
         (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + maniGraphMachineBlockAt(&m);
-    if ((s->flags & MANI_GRAPH_REACHED) == 0)
+    if (!Reached(s))
     {
         return;
     }
@@ -229,7 +235,7 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
 // even at weight 0, seeking 0. A seek above it stops the shot.
 static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
-    if ((s->flags & MANI_GRAPH_REACHED) == 0)
+    if (!Reached(s))
     {
         return;
     }
@@ -818,13 +824,22 @@ static Motion Follow(const Update* u, uint32_t g, const maniClip* clip, double t
     return (Motion){Place(clip, group->phase * d), group->delta * d, seeking, all && !seeking};
 }
 
+// A clip node's move. One no parent reached and in no sync group stays
+// where it is: its time factor 0, no seek, no weight, so no events and
+// no root motion.
 static void Advance(Update* u, uint32_t p, const uint8_t* record)
 {
     maniGraphNodeState* s = Node(u, p);
+    uint32_t group = GroupOf(u, record);
+    if (!Reached(s) && group >= u->graph->syncGroupCount)
+    {
+        s->from = s->time;
+        s->step = 0.0;
+        return;
+    }
     uint32_t data = maniLoadU32(record + 12);
     maniClip clip = ClipOf(u, data);
     Motion m = OwnMotion(u, s, &clip, data);
-    uint32_t group = GroupOf(u, record);
     if (group < u->graph->syncGroupCount && Group(u, group)->leader != p &&
         Group(u, group)->leader != UINT32_MAX)
     {

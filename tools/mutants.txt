@@ -1420,7 +1420,7 @@ up-time-scale-product | src/graph_update.c | share.factor *= Scalar(u, d); | sha
 up-seek-consume | src/graph_update.c | trigger->b = 0; | trigger->b = 1;
 up-seek-time | src/graph_update.c | share.seekTo = Scalar(u, d + 1); | share.seekTo = 0.0f;
 up-weigh-reset | src/graph_update.c | s->weight = 0.0f; | s->weight = s->weight * 1.0f;
-up-output-root | src/graph_update.c | *output = (maniGraphNodeState){1.0f, output->word,       output->time, 1.0f, | *output = (maniGraphNodeState){1.0f, output->word,       output->time, 0.0f,
+up-output-root | src/graph_update.c | *output = (maniGraphNodeState){1.0f, output->word, output->time, 1.0f, 1.0f, MANI_GRAPH_REACHED, | *output = (maniGraphNodeState){1.0f, output->word, output->time, 0.0f, 1.0f, MANI_GRAPH_REACHED,
 up-clip-loop-override | src/graph_update.c | clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat); | clip.loop = loop == 0 ? clip.loop : maniLoopRepeat;
 up-place-negative | src/graph_update.c | w = w < 0.0 ? w + d : w; | w = w * 1.0;
 up-place-clamp-low | src/graph_update.c | return t < 0.0 ? 0.0 : (t > d ? d : t); | return t > d ? d : t;
@@ -1430,7 +1430,7 @@ up-loops-count | src/graph_update.c | u->count += (n - k) * perLoop; | u->count 
 up-events-no-wrap | src/graph_update.c | if (wraps == 0.0) | if (false)
 up-events-loops | src/graph_update.c | double loops = fabs(wraps) - 1.0; | double loops = fabs(wraps);
 up-events-rest | src/graph_update.c | double rest = t1 - wraps * d; | double rest = t1;
-up-own-seek | src/graph_update.c | return (Motion){Place(clip, (double)s->seekTo), 0.0, true, false}; | return (Motion){Place(clip, (double)s->seekTo), 0.0, false, false};
+up-own-seek | src/graph_update.c | return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, true, false}; | return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, false, false};
 up-own-factor | src/graph_update.c | return (Motion){s->time, u->delta * (double)Scalar(u, data + 4) * (double)s->factor, false, | return (Motion){s->time, u->delta * (double)Scalar(u, data + 4), false,
 up-leader-first-equal | src/graph_update.c | group->leader == UINT32_MAX || Node(u, p)->weight > Node(u, group->leader)->weight; | group->leader == UINT32_MAX || Node(u, p)->weight >= Node(u, group->leader)->weight;
 up-leader-declared-kept | src/graph_update.c | if ((group->flags & MANI_GRAPH_DECLARED) == 0 && (declared || heavier)) | if (declared || heavier)
@@ -1746,3 +1746,67 @@ tr-join-hull-start | src/triangulate.c | m->hullTriangle[i] = SlotOf(&m->t[t], a
 tr-key-order | src/triangulate.c | m->keys[k] = (maniFloatKey(points[2 * k]) << 32) + maniFloatKey(points[2 * k + 1]); | m->keys[k] = (maniFloatKey(points[2 * k + 1]) << 32) + maniFloatKey(points[2 * k]);
 ex-hidden-bit | src/exact.c | uint64_t m = exponent == 0 ? mantissa : mantissa + 0x800000u; | uint64_t m = mantissa + 0x800000u;
 sn-reserved-zero | src/graph_nodes.c | : a == 0 && b == 0 && c == 0; | : true;
+
+# State machines listening to their leading clips, and one-shots
+# (mani-0023), 2026-10-16: 54 mutants; 52 killed (12 by tests added after
+# the first sweep, two lines found redundant and removed). Two survive,
+# equivalent: ml-wraps-round: the whole wraps come from a playhead
+# difference that is a whole number of durations to the last bit with
+# these clips; the half before the floor guards a duration that does not
+# divide it exactly. mc-nearest-greatest: the search pops the state's
+# inputs last first, so the first machine it meets is already the one of
+# greatest index; the comparison keeps that true of any graph.
+ml-loop-override | src/graph_machine_listen.c | clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat); | clip.loop = clip.loop;
+ml-heard-hash | src/graph_machine_listen.c | heard = maniClipEventAt(clip, first + k).nameHash == hash; | heard = true;
+ml-leading-first | src/graph_machine_listen.c | return leading; | return maniGraphMachineState(m, k, 3) > 0 ? maniGraphMachineClip(m, k, 0) : MANI_GRAPH_NO_NODE;
+ml-before | src/graph_machine_listen.c | double before = d > 0.0 ? s->from / d : 0.0; | double before = d > 0.0 ? s->time / d : 0.0;
+ml-wraps | src/graph_machine_listen.c | double wraps = Repeats(&c) ? floor((s->from + s->step - s->time) / d + 0.5) : 0.0; | double wraps = 0.0;
+ml-wraps-round | src/graph_machine_listen.c | double wraps = Repeats(&c) ? floor((s->from + s->step - s->time) / d + 0.5) : 0.0; | double wraps = Repeats(&c) ? floor((s->from + s->step - s->time) / d) : 0.0;
+ml-nearest | src/graph_machine_listen.c | if (nearest != MANI_GRAPH_NO_NODE) | if (false)
+ml-nearest-final | src/graph_machine_listen.c | return maniGraphMachineState(&inner, block[maniGraphBlockCurrent], 0) != 0 && | return true &&
+ml-nearest-running | src/graph_machine_listen.c | block[maniGraphBlockRunning] == MANI_GRAPH_NO_TRANSITION; | true;
+ml-finished-direction | src/graph_machine_listen.c | return !Repeats(&c) && (s->step < 0.0 ? s->time <= 0.0 : s->time >= (double)c.duration); | return !Repeats(&c) && s->time >= (double)c.duration;
+ml-listed | src/graph_machine_listen.c | heard = (s->flags & MANI_GRAPH_LISTED) != 0 && Heard(&view, s->from, s->step, hash); | heard = Heard(&view, s->from, s->step, hash);
+ml-loops-abs | src/graph_machine_listen.c | loops += fabs(maniGraphRecordMove(block)); | loops += maniGraphRecordMove(block);
+ml-finished-keep | src/graph_machine_listen.c | block[maniGraphBlockFinished] = finished ? 1u : 0u; | block[maniGraphBlockFinished] = 0u;
+ml-shot-backward | src/graph_machine_listen.c | left = Repeats(&c) ? HUGE_VAL : (s->step < 0.0 ? s->time : (double)c.duration - s->time); | left = Repeats(&c) ? HUGE_VAL : (double)c.duration - s->time;
+ml-shot-repeat | src/graph_machine_listen.c | left = Repeats(&c) ? HUGE_VAL : (s->step < 0.0 ? s->time : (double)c.duration - s->time); | left = s->step < 0.0 ? s->time : (double)c.duration - s->time;
+ml-dispatch-shot | src/graph_machine_listen.c | else if (kind == maniGraphNodeOneShot) | else if (false)
+ms-loops-low | src/graph_machine_step.c | return loops < v && v <= loops + fabs(move); | return v <= loops + fabs(move);
+ms-loops-high | src/graph_machine_step.c | return loops < v && v <= loops + fabs(move); | return loops < v;
+ms-forward-wraps | src/graph_machine_step.c | return wraps + floor(after) - floor(before) > 0.0; | return floor(after) - floor(before) > 0.0;
+ms-backward-wraps | src/graph_machine_step.c | return move < 0.0 && floor(-after) - floor(-before) - wraps > 0.0; | return move < 0.0 && floor(-after) - floor(-before) > 0.0;
+ms-finished | src/graph_machine_step.c | return block[maniGraphBlockFinished] != 0; | return true;
+ms-heard | src/graph_machine_step.c | return maniGraphMachineHeard(m, block, c); | return true;
+ms-entry-restart-only | src/graph_machine_step.c | if (entry != maniGraphEntryKeep && !(maniGraphMachineWeight(block, to) > 0.0f)) | if (entry == maniGraphEntryRestart && !(maniGraphMachineWeight(block, to) > 0.0f))
+ms-clear-on-fire | src/graph_machine_step.c | maniGraphClearRecord(m, block); | (void)block;
+mo-fade-done | src/graph_shot_step.c | bool done = !(elapsed < duration); | bool done = false;
+mo-curve | src/graph_shot_step.c | if (maniGraphShotWord(s, maniGraphShotCurve) == maniGraphFadeSmoothstep) | if (false)
+mo-in-weight | src/graph_shot_step.c | float weight = in ? start + (1.0f - start) * c : start * (1.0f - c); | float weight = in ? c : start * (1.0f - c);
+mo-start | src/graph_shot_step.c | Put(block, maniGraphShotStart, Get(block, maniGraphShotWeight)); | Put(block, maniGraphShotStart, 0.0f);
+mo-abort | src/graph_shot_step.c | if (abort) | if (false)
+mo-active | src/graph_shot_step.c | bool active = phase == maniGraphShotIn || phase == maniGraphShotPlaying; | bool active = true;
+mo-auto | src/graph_shot_step.c | if (active && (out || Remaining(block) <= (double)fadeOut)) | if (active && out)
+mo-consume | src/graph_shot_step.c | cells[parameter].value.b = 0; | (void)cells;
+mo-saved-settled | src/graph_shot.c | if (!Unit(weight) || (settled && weight != want)) | if (!Unit(weight))
+mo-open-mask | src/graph_shot.c | mask == MANI_GRAPH_NO_MASK || mask < g->maskCount, | true,
+mo-open-order | src/graph_shot.c | (i > 0 && clip <= Word(g, first + i - 1))) | false)
+mu-shot-least | src/graph_update.c | Give(u, InputOf(u, record, 0), Pass(s, 1.0f - w * least, 1.0f - w * root)); | Give(u, InputOf(u, record, 0), Pass(s, 1.0f - w, 1.0f - w * root));
+mu-shot-most | src/graph_update.c | Share share = Pass(s, w * most, w * root); | Share share = Pass(s, w, w * root);
+mu-shot-restart | src/graph_update.c | if (w > 0.0f || restart) | if (w > 0.0f)
+mu-match-flag | src/graph_update.c | share.flags |= match ? MANI_GRAPH_PHASE : 0u; | share.flags |= 0u;
+mu-phase-scale | src/graph_update.c | double scale = (s->flags & MANI_GRAPH_PHASE) != 0 ? (double)clip->duration : 1.0; | double scale = 1.0;
+mu-listed | src/graph_update.c | s->flags |= MANI_GRAPH_LISTED; | s->flags |= 0u;
+me-shot-mask | src/graph_evaluate.c | if (mask != MANI_GRAPH_NO_MASK) | if (false)
+me-shot-w | src/graph_evaluate.c | e->inside[b] = w * m; | e->inside[b] = m;
+mf-nearest-kind | src/graph_machine_file.c | (!listens || nearest >= p || Kind(g, nearest) != maniGraphNodeMachine)) | (!listens || nearest >= p))
+mf-list-order | src/graph_machine_file.c | (c > 0 && clip <= Word(g, lists + first + c - 1))) | false)
+mf-event-value | src/graph_machine_file.c | return value == 0; | return true;
+mc-final | src/graph_machine_check.c | final = final || m->finals[f] == k; | final = false;
+mc-listens-match | src/graph_machine_check.c | listens = a->entry == maniGraphEntryMatch; | listens = false;
+mc-event-length | src/graph_machine_check.c | return c->event != NULL && c->eventLength > 0; | return c->event != NULL;
+mc-nearest-greatest | src/graph_machine_check.c | nearest = machine && (nearest == MANI_GRAPH_NO_NODE || at > nearest) ? at : nearest; | nearest = machine && nearest == MANI_GRAPH_NO_NODE ? at : nearest;
+mb-shot-list | src/graph_build.c | uint32_t count = maniGraphSortedClips(&lay->machine, node->inputs[1], NULL); | uint32_t count = maniGraphSortedClips(&lay->machine, node->inputs[0], NULL);
+mu-reached | src/graph_update.c | return (s->flags & MANI_GRAPH_REACHED) != 0; | return true;
+mu-skip-unreached | src/graph_update.c | if (!Reached(s) && group >= u->graph->syncGroupCount) | if (!Reached(s))
+me-shot-outside | src/graph_evaluate.c | e->outside[b] = 1.0f - w * m; | e->outside[b] = 1.0f - m;

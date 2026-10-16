@@ -195,7 +195,8 @@ static uint32_t Kind(const maniGraph* g, uint32_t node)
 }
 
 // A state's four words and its list: a listening machine's nearest a
-// machine before it, its clips before it in node order; another's none.
+// machine before it, its clips before it in node order; another's
+// nearest none (its counts are 0, or its words would not add up).
 static uint32_t StateValid(const maniGraph* g, uint32_t p, uint32_t at, uint32_t lists,
                            bool listens, uint32_t first)
 {
@@ -213,10 +214,6 @@ static uint32_t StateValid(const maniGraph* g, uint32_t p, uint32_t at, uint32_t
     if (Word(g, at + 2) != first)
     {
         return at + 2;
-    }
-    if (!listens && count != 0)
-    {
-        return at + 3;
     }
     for (uint32_t c = 0; c < count; ++c)
     {

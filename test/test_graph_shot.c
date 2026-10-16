@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // One-shots (mani-0023): fired, faded in and played; faded out when the
-// shot's clip has the fade-out's seconds left, never when it repeats;
+// shot's clip has the fade-out's seconds left (backward, toward its
+// start), never when it repeats; a smoothstep fade; fired again after an
+// abort, from its start;
 // fired again while fading out, rising from its weight and starting the
 // shot over; aborted at once, abort winning over fire; the fade-out
 // trigger, and a trigger read while idle consumed; the base and the shot
@@ -41,20 +43,26 @@ static maniGraphOneShotNodeSource Shot(float fadeIn, float fadeOut)
 }
 
 // A one-shot of the walk (repeating) as its base and the shot clip given
-// (the long step, two seconds, by default clamped): base 0, shot 1, the
-// one-shot 2.
-static maniGraphInstance* Make1(maniGraphOneShotNodeSource shot, uint32_t clip, maniGraphLoop loop,
-                                maniGraph* g)
+// (the long step, two seconds, by default clamped) at speed: base 0,
+// shot 1, the one-shot 2.
+static maniGraphInstance* Played(maniGraphOneShotNodeSource shot, uint32_t clip, maniGraphLoop loop,
+                                 float speed, maniGraph* g)
 {
     static const uint32_t kInputs[2] = {1, 2};
     Parameters();
     maniGraphNodeSource nodes[3] = {{maniGraphNodeOneShot, 2, kInputs, .oneShot = shot},
                                     ClipNode(0, 1.0f, maniGraphLoopRepeat),
-                                    ClipNode(clip, 1.0f, loop)};
+                                    ClipNode(clip, speed, loop)};
     return Make(
         (maniGraphSource){
             .parameters = s_parameters, .nodes = nodes, .parameterCount = 4, .nodeCount = 3},
         g);
+}
+
+static maniGraphInstance* Make1(maniGraphOneShotNodeSource shot, uint32_t clip, maniGraphLoop loop,
+                                maniGraph* g)
+{
+    return Played(shot, clip, loop, 1.0f, g);
 }
 
 static const uint32_t* Block(const maniGraphInstance* instance, const maniGraph* g, uint32_t p)
@@ -127,6 +135,22 @@ static void TestFire(void)
     Pull(instance, 1);
     Steps(instance, 20, 0.25f);
     CHECK(Phase(instance, &g, 2) == maniGraphShotPlaying, "a repeating shot plays on");
+
+    // Played backward from its start, a clamped shot has nothing left.
+    instance = Played(Shot(0.0f, 0.5f), 4, maniGraphLoopClamp, -1.0f, &g);
+    Pull(instance, 1);
+    Steps(instance, 2, 0.25f);
+    CHECK(Phase(instance, &g, 2) == maniGraphShotPlaying, "started over: not moved yet");
+    Update(instance, 0.25f);
+    CHECK(Phase(instance, &g, 2) == maniGraphShotOut, "backward at its start: fading out");
+
+    maniGraphOneShotNodeSource smooth = Shot(1.0f, 0.5f);
+    smooth.curve = maniGraphFadeSmoothstep;
+    instance = Make1(smooth, 4, maniGraphLoopClamp, &g);
+    Pull(instance, 1);
+    Update(instance, 0.25f);
+    Update(instance, 0.25f);
+    CHECK(Weight(instance, &g, 2) == 0.15625f, "a smoothstep fade a quarter in");
 }
 
 // Fired again while fading out: rising from its weight, from its start.
@@ -149,6 +173,18 @@ static void TestRefire(void)
           "fired again: from its weight, the shot from its start");
     Update(instance, 0.25f);
     CHECK(NearF(Weight(instance, &g, 2), 0.75), "rising from its weight");
+
+    // Aborted mid-shot, then fired again at weight 0: from its start.
+    instance = Make1(Shot(0.5f, 0.5f), 4, maniGraphLoopClamp, &g);
+    Pull(instance, 1);
+    Steps(instance, 3, 0.25f);
+    Pull(instance, 3);
+    Update(instance, 0.25f);
+    CHECK(Weight(instance, &g, 2) == 0.0f && NearF((float)State(instance, &g, 1)->time, 0.5),
+          "aborted with the shot at 0.5");
+    Pull(instance, 1);
+    Update(instance, 0.25f);
+    CHECK(State(instance, &g, 1)->time == 0.0, "fired at weight 0: the shot from its start");
 }
 
 // Abort stops at once and wins over fire; a trigger read while idle is
@@ -204,11 +240,12 @@ static void TestUnreached(void)
 static _Alignas(32) uint8_t s_scratch[65536];
 static _Alignas(32) uint8_t s_poseMemory[3][4096];
 
-// Masked to bone 1, half faded in: per bone the shot at half on bone 1
-// and nothing elsewhere, as the blending functions give it.
+// Masked to bone 0, half faded in: per bone the shot at half on bone 0
+// and nothing elsewhere, as the blending functions give it; a mask of
+// half at most hands the shot half its weight.
 static void TestMask(void)
 {
-    static const maniMaskChain kChain = {1, 1.0f, false};
+    static const maniMaskChain kChain = {0, 1.0f, false};
     static const maniGraphMaskNodeSource kMask = {&kChain, 1, 0.0f};
     maniGraphOneShotNodeSource shot = Shot(1.0f, 0.0f);
     shot.mask = &kMask;
@@ -227,8 +264,8 @@ static void TestMask(void)
                   mani_success,
               "a pose");
     }
-    const float inside[3] = {0.0f, 0.5f, 0.0f};
-    const float outside[3] = {1.0f, 0.5f, 1.0f};
+    const float inside[3] = {0.5f, 0.0f, 0.0f};
+    const float outside[3] = {0.5f, 1.0f, 1.0f};
     CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, poses[0]) == mani_success &&
               maniSampleClip(&s_clips[4], &s_skeleton, 0.5f, poses[1]) == mani_success &&
               maniSampleClip(&s_clips[0], &s_skeleton, 0.75f, poses[2]) == mani_success,
@@ -248,6 +285,16 @@ static void TestMask(void)
         same = same && memcmp(&a, &b, sizeof a) == 0;
     }
     CHECK(same, "the one-shot's pose, bit for bit");
+
+    static const maniMaskChain kHalf = {0, 0.5f, false};
+    static const maniGraphMaskNodeSource kHalfMask = {&kHalf, 1, 0.0f};
+    shot = Shot(0.0f, 0.0f);
+    shot.mask = &kHalfMask;
+    instance = Make1(shot, 4, maniGraphLoopClamp, &g);
+    Pull(instance, 1);
+    Update(instance, 0.25f);
+    CHECK(Weight(instance, &g, 2) == 1.0f && NearF(State(instance, &g, 1)->weight, 0.5),
+          "the shot at its weight times the mask's most");
 }
 
 static _Alignas(8) uint8_t s_saved[2][4096];
@@ -381,6 +428,23 @@ static void TestOpenRefusals(void)
     {
         CHECK(RefusedAtWord(&g, 2, kBad[k][0], kBad[k][1]), "a one-shot's word refused");
     }
+    // A shot blending the long step and the run: walk 0, long 1, run 2,
+    // blend 3, the one-shot 4; its list 1 and 2 at words 9 and 10.
+    static const uint32_t kInputs[2] = {1, 2};
+    static const uint32_t kBlend[2] = {3, 4};
+    static const maniGraphScalar kWeights[2] = {{MANI_NO_PARAMETER, 1.0f},
+                                                {MANI_NO_PARAMETER, 1.0f}};
+    Parameters();
+    maniGraphNodeSource nodes[5] = {{maniGraphNodeOneShot, 2, kInputs, .oneShot = Shot(0.0f, 0.0f)},
+                                    ClipNode(0, 1.0f, maniGraphLoopClip),
+                                    {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0, 0}},
+                                    ClipNode(4, 1.0f, maniGraphLoopClip),
+                                    ClipNode(1, 1.0f, maniGraphLoopClip)};
+    (void)Make(
+        (maniGraphSource){
+            .parameters = s_parameters, .nodes = nodes, .parameterCount = 4, .nodeCount = 5},
+        &g);
+    CHECK(RefusedAtWord(&g, 4, 10, 1), "a list out of node order");
 }
 
 static uint8_t s_built[16384];

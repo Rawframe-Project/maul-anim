@@ -15,7 +15,6 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
 
-#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -107,11 +106,8 @@ bool maniGraphStepShot(const maniGraphShot* s, maniGraphCell* cells, uint32_t* b
     }
     if (fire)
     {
-        double none = HUGE_VAL;
-        uint64_t bits = 0;
-        memcpy(&bits, &none, sizeof bits);
-        block[maniGraphShotRemaining] = (uint32_t)bits;
-        block[maniGraphShotRemaining + 1] = (uint32_t)(bits >> 32);
+        // The clip time left stays until the update records the restarted
+        // shot's: fire returns before it is read.
         Begin(s, block, maniGraphShotIn);
         return true;
     }

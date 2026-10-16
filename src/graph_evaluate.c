@@ -288,7 +288,7 @@ static void Shot(const Evaluation* e, const uint8_t* record, maniPose* out, bool
             memcpy(&m, e->graph->maskWeights + 4 * ((size_t)mask * bones + b), sizeof m);
         }
         e->inside[b] = w * m;
-        e->outside[b] = 1.0f - e->inside[b];
+        e->outside[b] = 1.0f - w * m;
     }
     uint32_t count = 0;
     const maniPose* base = InputPose(e, record, 0);

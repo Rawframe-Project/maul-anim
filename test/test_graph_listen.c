@@ -2,9 +2,11 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // State machines listening to their leading clips (mani-0023): phase
-// below 1 at every loop (reaching it counted, leaving it not), phase of
-// 1 or more once, backward play; finished by a clamped clip at the end
-// it moves toward, never by a repeating one; events heard from any clip
+// below 1 at every loop (reaching it counted, leaving it not), across a
+// loop's end both ways, phase of 1 or more once, backward play counted
+// as loops; the record cleared when a transition fires; the leading clip
+// the one weighed most; finished by a clamped clip at the end it moves
+// toward, never by a repeating one, and kept while unreached; events heard from any clip
 // beneath the state that listed them, not from one below the threshold;
 // a match entry seeking at the leading clip's phase; a nested machine's
 // final state finishing its state once its fade is done; a machine no
@@ -151,6 +153,28 @@ static void TestPhase(void)
     Update(instance, 0.25f);
     Update(instance, 0.0f);
     CHECK(Current(instance, &g, 3) == 2, "backward past 0.75: passed");
+
+    // Across a loop's end: 0.875 to 0.375 passes 0.25.
+    c[0] = Phase(0.25f);
+    c[1] = Fast();
+    instance = Three(t, 1, 0, 1.0f, &g);
+    Update(instance, 0.5f);
+    Update(instance, 0.375f);
+    Set(instance, 0, maniGraphParameterFloat, Float(2.0f));
+    Update(instance, 0.5f);
+    CHECK(Current(instance, &g, 3) == 0, "0.5 to 0.875: not passed");
+    Update(instance, 0.0f);
+    CHECK(Current(instance, &g, 3) == 2, "passed across the loop's end");
+
+    // Backward across it: 0.125 to 0.875 passes 0.0625.
+    c[0] = Phase(0.0625f);
+    c[1] = c[0];
+    instance = Three(t, 1, 0, -1.0f, &g);
+    Update(instance, 0.875f);
+    Update(instance, 0.25f);
+    CHECK(Current(instance, &g, 3) == 0, "backward from 1 to 0.125: not passed");
+    Update(instance, 0.0f);
+    CHECK(Current(instance, &g, 3) == 2, "backward across the loop's start: passed");
 }
 
 // A phase of one or more: the loops since the state was entered, once.
@@ -173,6 +197,49 @@ static void TestLoops(void)
     Set(instance, 0, maniGraphParameterFloat, Float(2.0f));
     Steps(instance, 6, 0.5f);
     CHECK(Current(instance, &g, 3) == 0, "passed once, not again");
+
+    t[0].conditions = c;
+    t[0].conditionCount = 1;
+    instance = Three(t, 1, 0, -1.0f, &g);
+    Steps(instance, 4, 0.5f);
+    CHECK(Current(instance, &g, 3) == 2, "backward loops count as loops");
+}
+
+// A transition firing clears the record: the next state's phase has not
+// passed, so an instant chain stops there.
+static void TestCleared(void)
+{
+    maniGraphConditionSource c[1] = {Phase(0.5f)};
+    maniGraphTransitionSource t[2] = {Go(0, 1, 0, 0.0f, c, 1), Go(1, 2, 1, 0.0f, c, 1)};
+    maniGraph g;
+    maniGraphInstance* instance = Three(t, 2, 0, 1.0f, &g);
+    Update(instance, 0.75f);
+    Update(instance, 0.0f);
+    CHECK(Current(instance, &g, 3) == 1, "passed once: one transition, not a chain");
+}
+
+// The leading clip is the one weighed most: the clamped long step at 0.8
+// over the walk at 0.2 finishes the state.
+static void TestLeading(void)
+{
+    static const uint32_t kStates[2] = {1, 4};
+    static const uint32_t kBlend[2] = {2, 3};
+    static const maniGraphScalar kWeights[2] = {{MANI_NO_PARAMETER, 0.25f},
+                                                {MANI_NO_PARAMETER, 1.0f}};
+    maniGraphConditionSource c[1] = {Finished()};
+    maniGraphTransitionSource t[1] = {Go(0, 1, 0, 0.0f, c, 1)};
+    maniGraphNodeSource nodes[5] = {
+        {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
+        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0, 0}},
+        ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        ClipNode(4, 1.0f, maniGraphLoopClamp),
+        ClipNode(1, 1.0f, maniGraphLoopRepeat)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeNodes(nodes, 5, &g);
+    Steps(instance, 4, 0.5f);
+    CHECK(Current(instance, &g, 4) == 0, "the long step at its end after the update");
+    Update(instance, 0.5f);
+    CHECK(Current(instance, &g, 4) == 1, "finished by the clip weighed most");
 }
 
 // Finished: a clamped clip at the end it moves toward; never repeating.
@@ -316,6 +383,38 @@ static void TestUnreached(void)
     CHECK(instance->cells[1].value.b == 0 && Current(instance, &g, 4) == 1 &&
               Current(instance, &g, 3) == 1,
           "entered: the inner started over and took the trigger");
+}
+
+// A finished inner machine left unreached and entered again where it was
+// left keeps its finish: it leaves at once. Run 0, long 1, walk 2, inner
+// 3, outer 4.
+static void TestFinishKept(void)
+{
+    static const uint32_t kOuter[2] = {1, 2};
+    static const uint32_t kInner[2] = {3, 4};
+    maniGraphConditionSource jump[1] = {Jump()};
+    maniGraphConditionSource fast[1] = {Fast()};
+    maniGraphConditionSource done[2] = {Finished(), Fast()};
+    maniGraphTransitionSource outer[2] = {Go(1, 0, 0, 0.0f, jump, 1), Go(0, 1, 1, 0.0f, fast, 1)};
+    outer[1].entry = maniGraphEntryKeep;
+    maniGraphTransitionSource inner[1] = {Go(0, 1, 0, 0.0f, done, 2)};
+    maniGraphNodeSource nodes[5] = {
+        {maniGraphNodeMachine, 2, kOuter, .machine = {outer, 2, 1, 0, 0, NULL}},
+        ClipNode(1, 1.0f, maniGraphLoopRepeat),
+        {maniGraphNodeMachine, 2, kInner, .machine = {inner, 1, 0, 0, 0, NULL}},
+        ClipNode(4, 1.0f, maniGraphLoopClamp),
+        ClipNode(0, 1.0f, maniGraphLoopRepeat)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeNodes(nodes, 5, &g);
+    Steps(instance, 5, 0.5f);
+    Set(instance, 1, maniGraphParameterTrigger, Int(1));
+    Steps(instance, 2, 0.5f);
+    CHECK(Current(instance, &g, 4) == 0 && Current(instance, &g, 3) == 0,
+          "the inner finished, left unreached");
+    Set(instance, 0, maniGraphParameterFloat, Float(2.0f));
+    Update(instance, 0.5f);
+    CHECK(Current(instance, &g, 4) == 1 && Current(instance, &g, 3) == 1,
+          "entered again where it was: its finish kept, taken at once");
 }
 
 static _Alignas(8) uint8_t s_saved[2][4096];
@@ -519,7 +618,10 @@ int main(int argc, char** argv)
     }
     TestPhase();
     TestLoops();
+    TestCleared();
+    TestLeading();
     TestFinished();
+    TestFinishKept();
     TestEvents();
     TestMatch();
     TestNested();

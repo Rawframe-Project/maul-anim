@@ -190,6 +190,9 @@ format.
 
 ### Changed
 
+- A graph update no longer moves the clip nodes no parent reached and
+  no sync group holds, which could not move: a state machine of 16
+  states costs less than a blend of its clips (mani-0023).
 - `maniGltfBuildClip` and `maniFbxBuildClip` take a
   `maniImportClipOptions` (`maniDefaultImportClipOptions`) in place of
   their sample rate and loop arguments; `maniGltfBuildClip` now refuses
