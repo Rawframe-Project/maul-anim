@@ -27,6 +27,16 @@ uint32_t maniMatchChannelWidth(uint32_t kind)
     return kind < 6 ? kWidths[kind] : 0u;
 }
 
+float maniMatchFrameTime(float start, uint32_t k, float rate)
+{
+    return (float)((double)start + (double)k / (double)rate);
+}
+
+static bool Within(float time, float end, bool loop)
+{
+    return loop ? time < end : time <= end;
+}
+
 uint32_t maniMatchEntryFrames(float start, float end, float rate, bool loop)
 {
     double span = ((double)end - (double)start) * (double)rate;
@@ -34,14 +44,15 @@ uint32_t maniMatchEntryFrames(float start, float end, float rate, bool loop)
     {
         return UINT32_MAX;
     }
-    double whole = floor(span);
-    uint32_t n = (uint32_t)whole + 1u;
-    return loop && whole == span ? n - 1u : n;
-}
-
-float maniMatchFrameTime(float start, uint32_t k, float rate)
-{
-    return (float)((double)start + (double)k / (double)rate);
+    // The binary64 count, then one frame less when the last's binary32
+    // time does not hold, or one more when the next's does: once only, as
+    // far past 2^24 seconds a step no longer moves the time.
+    uint32_t n = (uint32_t)floor(span) + 1u;
+    if (n > 1 && !Within(maniMatchFrameTime(start, n - 1, rate), end, loop))
+    {
+        return n - 1;
+    }
+    return Within(maniMatchFrameTime(start, n, rate), end, loop) ? n + 1 : n;
 }
 
 uint64_t maniMatchComputeIdentity(const uint8_t* const data[MANI_MATCH_SECTIONS],

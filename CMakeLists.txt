@@ -77,6 +77,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/influences.c
     src/mask.c
     src/match.c
+    src/match_search.c
     src/pose.c
     src/scalar.c
     src/skeleton.c
@@ -148,6 +149,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_inertia WHITEBOX)
         maul_add_test(graph_dead_blend WHITEBOX)
         maul_add_test(match WHITEBOX)
+        maul_add_test(match_search WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

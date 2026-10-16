@@ -752,6 +752,11 @@ MANI_NODISCARD MANI_API maniResult maniMotionDatabaseNormalization( const maniMo
 ```
 Reads a database's normalization: per feature, the offset taken from a value and the scale it is divided by.  @param database  An opened database. @param offsetsOut Receives the feature count of offsets, or NULL. @param scalesOut  Receives the feature count of scales, or NULL. @return `mani_success`; `mani_errorInvalid` for a NULL database. @par Thread safety Safe from any thread.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query, maniMatchResult* resultOut);
+```
+Finds the frame of least cost, exactly (Holden's search with bounds over runs of 16 and 64 frames, which prune without changing the result). A frame's cost is its entry's cost bias plus the transition cost (the continuing frame: the continuing bias), plus the squared differences of the normalized query and its features in feature order, in binary32. The continuing frame is a candidate when its entry's tags pass; another frame when its entry's tags pass, its entry is not MANI_MATCH_NO_JUMP, and no exclusion holds. Ties go to the continuing frame, then to the lowest frame.  @param database  An opened database. @param query     The search. @param resultOut Receives the result. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a feature or cost not finite, a negative time, a continuing frame or pick past the frames, or more than MANI_MATCH_MAX_HISTORY picks. @par Thread safety Safe from any thread.
+
 ## `matchbuild.h`
 
 Building motion databases (mani-0024): channels sampled from a skeleton's clips at a rate, normalized per channel as Holden's reference does, with bounds over runs of frames for the search.
@@ -1102,4 +1107,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-208 functions across 15 headers.
+209 functions across 15 headers.

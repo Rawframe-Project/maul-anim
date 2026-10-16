@@ -36,6 +36,7 @@ morph: bytes container morph_file
 morph_build: allocator builder bytes container morph_file sort text
 match_file:
 match: bytes container match_file text
+match_search: bytes match_file
 match_sample: match match_file vecmath
 match_build: allocator builder bytes container match match_file match_sample text
 clip_file:

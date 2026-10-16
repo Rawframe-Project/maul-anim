@@ -37,9 +37,35 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   flags (looping: times past its end wrap to its start, the root's
   motion composed across; else clamped to its ends), a cost bias added
   to its frames, 32 tag bits for filters, and a flag for frames that
-  play but are never jumped to. Frames sit at `start + k / rate`, every
-  `k` with that time at most the end (before it when looping), in
-  binary64; opening checks every entry's frame count against it.
+  play but are never jumped to. Frames sit at `start + k / rate` (in
+  binary64, rounded to binary32), every `k` whose time is at most the
+  end (before it when looping): counted in binary64, then one frame
+  less or more once when the binary32 times of the last frame or the
+  next say otherwise, so an end a hair above a whole frame in binary64
+  adds no frame at the wrap, and a start so large that steps no longer
+  move the time still gives a count at once (a fuzzed file found the
+  unbounded form's hang). Opening checks every entry's frame count
+  against it.
+- **Search** (`maniSearchMotionDatabase`): exact, Holden's. A frame's
+  cost is a constant (its entry's cost bias plus the transition cost;
+  for the continuing frame the continuing bias) plus the squared
+  differences of the normalized query and its features in feature
+  order, in binary32. The continuing frame is scored first; then each
+  candidate entry's frames in order, a run of 64 skipped when its box's
+  bound (the entry's constant plus the squared distances to the box, in
+  the same order) already reaches the best, then a run of 16, then each
+  frame, every sum stopped once it reaches the best. Box terms are at
+  most their frames' and binary32 rounding is monotone, so pruning
+  never changes the result: the plain scan's frame and cost bit for
+  bit, which a test checks over thousands of random databases and
+  searches. Ties go to the continuing frame, then the lowest frame. A
+  frame is not a candidate when its entry's tags lack a required tag or
+  hold an excluded one, its entry is never jumped to, or it lies nearer
+  than given times to the continuing frame on its entry, to a clamped
+  entry's end, or to one of up to eight earlier picks on its entry
+  (Holden's ignored surroundings and range ends, Unreal's pose jump
+  threshold and reselect history; looping entries measured around
+  their span the shorter way).
 - **The file** (container kind 8): the channels and their times, the
   clips by identity, the entries, the normalization, the normalized
   features frame by frame, and bounds over runs of 16 and 64 frames

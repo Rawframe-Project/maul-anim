@@ -62,6 +62,11 @@ extern "C"
         maniMatchAxisNegativeZ = 5,
     };
 
+// No frame: a search with no continuing frame, or one that found none.
+#define MANI_MATCH_NO_FRAME 0xFFFFFFFFu
+// The most earlier picks a search excludes.
+#define MANI_MATCH_MAX_HISTORY 8u
+
 // An entry's flags: its times wrap from its end to its start (else they
 // clamp to its ends); its frames play but are never jumped to.
 #define MANI_MATCH_LOOP    1u
@@ -244,6 +249,62 @@ extern "C"
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMotionDatabaseNormalization(
         const maniMotionDatabase* database, float* offsetsOut, float* scalesOut);
+
+    // A search: the query's features (raw, the database's feature count),
+    // the continuing frame (MANI_MATCH_NO_FRAME for none), the tags an
+    // entry must have all of and none of, and up to
+    // MANI_MATCH_MAX_HISTORY earlier picks; the cost added to the
+    // continuing frame and to any other, and three times in seconds (not
+    // negative): frames of the continuing frame's entry nearer it than
+    // jumpThreshold, frames of a clamped entry nearer its end than
+    // endExclusion, and frames of an earlier pick's entry nearer it than
+    // historyTime are not candidates (looping entries measured around
+    // their span the shorter way).
+    typedef struct maniMatchQuery
+    {
+        const float* features;
+        uint32_t current;
+        uint32_t requiredTags;
+        uint32_t excludedTags;
+        uint32_t historyCount;
+        uint32_t history[MANI_MATCH_MAX_HISTORY];
+        float continuingBias;
+        float transitionCost;
+        float jumpThreshold;
+        float endExclusion;
+        float historyTime;
+        uint32_t reserved;
+    } maniMatchQuery;
+
+    // A search's result: the frame (MANI_MATCH_NO_FRAME when no frame is
+    // a candidate) and its cost (+inf then).
+    typedef struct maniMatchResult
+    {
+        uint32_t frame;
+        float cost;
+    } maniMatchResult;
+
+    /// Finds the frame of least cost, exactly (Holden's search with
+    /// bounds over runs of 16 and 64 frames, which prune without changing
+    /// the result). A frame's cost is its entry's cost bias plus the
+    /// transition cost (the continuing frame: the continuing bias), plus
+    /// the squared differences of the normalized query and its features
+    /// in feature order, in binary32. The continuing frame is a candidate
+    /// when its entry's tags pass; another frame when its entry's tags
+    /// pass, its entry is not MANI_MATCH_NO_JUMP, and no exclusion holds.
+    /// Ties go to the continuing frame, then to the lowest frame.
+    ///
+    /// @param database  An opened database.
+    /// @param query     The search.
+    /// @param resultOut Receives the result.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// feature or cost not finite, a negative time, a continuing frame or
+    /// pick past the frames, or more than MANI_MATCH_MAX_HISTORY picks.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniSearchMotionDatabase(const maniMotionDatabase* database,
+                                                                const maniMatchQuery* query,
+                                                                maniMatchResult* resultOut);
 
 #ifdef __cplusplus
 }

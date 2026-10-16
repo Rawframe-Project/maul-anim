@@ -116,6 +116,11 @@ format.
   opens one in place with every byte checked and the bounds over runs
   of 16 and 64 frames recomputed; channels, entries, frames, features
   and the normalization read back.
+- Motion matching search (mani-0024): `maniSearchMotionDatabase` finds
+  the frame of least cost exactly, Holden's bounds pruning without
+  changing the result, with a continuing bias, a transition cost,
+  entry biases, tag masks, and exclusions near the continuing frame,
+  at clamped ends and around up to eight earlier picks.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

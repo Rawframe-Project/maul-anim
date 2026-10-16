@@ -416,6 +416,14 @@ static void TestEntryRefusals(void)
     maniMotionDatabaseSource s = Source();
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.5f, 0.5f, 0.0f, 0u};
     CHECK(Build(&s).result == mani_success, "a clamped entry of one frame");
+    // 4 / 30 in binary32 is a hair above it in binary64: the frame at
+    // 4 / 30 rounds to the end itself, so a loop of it holds 4.
+    CHECK(maniMatchEntryFrames(0.0f, 4.0f / 30.0f, 30.0f, true) == 4 &&
+              maniMatchEntryFrames(0.0f, 4.0f / 30.0f, 30.0f, false) == 5,
+          "frames judged by their binary32 times");
+    // Past 2^24 seconds a frame's step no longer moves its time: one
+    // frame more at most, at once.
+    CHECK(maniMatchEntryFrames(1.0e9f, 1.0e9f, 30.0f, false) == 2, "a count at once");
 }
 
 static void TestMisuse(void)
