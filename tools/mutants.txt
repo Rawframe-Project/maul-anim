@@ -1637,3 +1637,112 @@ df-layout-small | src/decimal_format.c | if (-6 < n && n <= 0) | if (-7 < n && n
 df-negative-zero | src/decimal_format.c | if ((bits >> 31) != 0) | if (false)
 df-exponent-sign | src/decimal_format.c | out[at++] = x < 0 ? '-' : '+'; | out[at++] = '-';
 df-exact-power | src/decimal_format.c | int32_t power = e < 0 ? e : 0; | int32_t power = e;
+
+# Blend spaces (mani-0023): weights on a line, by triangles and by
+# gradient bands, the exact predicates and the Delaunay triangulation,
+# the build and open checks and the JSON forms. 81 run against the
+# suites of their slices: 65 killed, 10 more by the tests added after
+# (test_exact, test_graph_space, test_graph_triangles), one line made
+# simpler (a point's band to itself), five equivalent below.
+# Blend spaces' weights (src/graph_space.c): lines, triangles, bands.
+sp-between-low | src/graph_space.c | weights[a] = 1.0f - t; | weights[a] = t;
+sp-one-point | src/graph_space.c | if (n == 1) | if (false)
+sp-no-wrap | src/graph_space.c | if (period > 0.0f) | if (false)
+sp-wrap-negative | src/graph_space.c | x = low + (w < 0.0f ? w + period : w); | x = low + w;
+sp-seam | src/graph_space.c | if (x > high) | if (false)
+sp-seam-end | src/graph_space.c | Between(weights, last, first, high, low + period, x); | Between(weights, last, first, high, low, x);
+# Equivalent: sp-held (at x equal to an end, the search between the
+# points gives that end all of the weight too).
+sp-held | src/graph_space.c | if (x <= low || x >= high) | if (x < low || x > high)
+sp-held-end | src/graph_space.c | weights[x <= low ? first : last] = 1.0f; | weights[first] = 1.0f;
+sp-halves | src/graph_space.c | if (Point(s, Ordered(s, mid)) <= x) | if (Point(s, Ordered(s, mid)) >= x)
+sp-polar-mean | src/graph_space.c | float mean = (q->magnitude[i] + q->magnitude[j]) * 0.5f; | float mean = (q->magnitude[i] + q->magnitude[j]);
+sp-polar-angle-twice | src/graph_space.c | vij[1] = 2.0f * Turn(q->direction[i], q->direction[j], q->origin[i] || q->origin[j]); | vij[1] = Turn(q->direction[i], q->direction[j], q->origin[i] || q->origin[j]);
+sp-polar-position | src/graph_space.c | vip[0] = (q->atMagnitude - q->magnitude[i]) / mean; | vip[0] = q->atMagnitude / mean;
+# Equivalent: sp-nearest-first (the fallback when no band reaches the
+# position guards rounding; no polar space of 300,000 random ones
+# reached it, so which point it takes is not observable).
+sp-nearest-first | src/graph_space.c | if (k == 0 || d < bestDistance) | if (d < bestDistance)
+sp-corner-area | src/graph_space.c | float area = ux * vy - uy * vx; | float area = ux * vy;
+sp-corner-first | src/graph_space.c | w[0] = 1.0f - w[1] - w[2]; | w[0] = 1.0f - w[1];
+sp-inside | src/graph_space.c | if (w[0] >= 0.0f && w[1] >= 0.0f && w[2] >= 0.0f) | if (w[1] >= 0.0f && w[2] >= 0.0f)
+# Equivalent: sp-inside-edge (a position on a triangle's edge, taken
+# as outside, lands on that edge at distance 0: the same two weights).
+sp-inside-edge | src/graph_space.c | if (w[0] >= 0.0f && w[1] >= 0.0f && w[2] >= 0.0f) | if (w[0] > 0.0f && w[1] > 0.0f && w[2] > 0.0f)
+sp-edge-next | src/graph_space.c | uint32_t b = Word(s, corners + e - e % 3 + (e + 1) % 3); | uint32_t b = Word(s, corners + e);
+sp-edge-clamp | src/graph_space.c | u = u > 0.0f ? (u < 1.0f ? u : 1.0f) : 0.0f; | u = u > 0.0f ? u : 0.0f;
+sp-edge-nearest | src/graph_space.c | if (e == 0 || d < best) | if (e == 0 || d > best)
+sp-edge-start | src/graph_space.c | weights[ends[0]] = 1.0f - along; | weights[ends[0]] = along;
+sp-band-floor | src/graph_space.c | weights[i] = h > 0.0f ? h : 0.0f; | weights[i] = h;
+sp-band-min | src/graph_space.c | h = band < h ? band : h; | h = band;
+
+# Delaunay triangulations (src/triangulate.c): the sweep and the flips.
+tr-sees-strict | src/triangulate.c | return maniExactOrient(P(s, a), P(s, b), P(s, p)) < 0; | return maniExactOrient(P(s, a), P(s, b), P(s, p)) <= 0;
+tr-run-back | src/triangulate.c | first = (first + h - 1) % h; | first = (first + h - 1) % h; break;
+tr-join-hull | src/triangulate.c | Join(m, t, m->hullTriangle[i]); | (void)0;
+tr-kept | src/triangulate.c | uint32_t kept = h - seen + 1; | uint32_t kept = h - seen;
+tr-first-new | src/triangulate.c | edges[kept - 1] = firstNew; | edges[kept - 1] = previous;
+tr-incircle-strict | src/triangulate.c | if (maniExactInCircle(P(s, a), P(s, b), P(s, c), P(s, d)) <= 0) | if (maniExactInCircle(P(s, a), P(s, b), P(s, c), P(s, d)) < 0)
+tr-no-flip | src/triangulate.c | if (maniExactInCircle(P(s, a), P(s, b), P(s, c), P(s, d)) <= 0) | if (true)
+tr-flip-ab | src/triangulate.c | m->t[t] = (maniTriangle){{a, b, d}, {bd, o, ab}}; | m->t[t] = (maniTriangle){{a, b, d}, {bd, o, NONE}};
+tr-repoint-bd | src/triangulate.c | Repoint(m, bd, d, b, t); | (void)0;
+tr-repoint-ca | src/triangulate.c | Repoint(m, ca, a, c, o); | (void)0;
+tr-push-outer | src/triangulate.c | Push(m, tail, o, 1); | (void)0;
+tr-queue-flag | src/triangulate.c | m->queued[e] = 0; | (void)0;
+tr-collinear | src/triangulate.c | if (k == n) | if (false)
+
+# Exact predicates (src/exact.c).
+ex-subnormal | src/exact.c | uint32_t shift = exponent == 0 ? 0 : exponent - 1; | uint32_t shift = exponent == 0 ? 0 : exponent;
+ex-high-limb | src/exact.c | e.limb[at + 1] = (uint32_t)(moved >> 32); | e.limb[at + 1] = 0;
+ex-carry | src/exact.c | carry = sum >> 32; | carry = 0;
+ex-borrow | src/exact.c | borrow = x < y ? 1 : 0; | borrow = 0;
+ex-compare-length | src/exact.c | return a->length < b->length ? -1 : 1; | return a->length < b->length ? 1 : -1;
+ex-subtract-larger | src/exact.c | return c >= 0 ? SubtractMagnitudes(a, b, a->sign) : SubtractMagnitudes(b, a, b->sign); | return SubtractMagnitudes(a, b, a->sign);
+ex-multiply-carry | src/exact.c | r.limb[i + b->length] = (uint32_t)carry; | r.limb[i + b->length] = 0;
+ex-multiply-sign | src/exact.c | r.sign = a->sign * b->sign; | r.sign = a->sign;
+ex-trim-sign | src/exact.c | e->sign = e->length == 0 ? 0 : e->sign; | e->sign = e->sign;
+
+# Blend spaces checked at build (src/graph_space_check.c).
+sc-vector-type | src/graph_space_check.c | source->parameters[p->vector].type == maniGraphParameterVec2; | true;
+sc-x | src/graph_space_check.c | if (!ScalarValid(source, p->x)) | if (false)
+sc-y | src/graph_space_check.c | return line || ScalarValid(source, p->y) ? kOk : Refuse(maniBuildReasonScalar, node, 1); | return kOk;
+sc-period | src/graph_space_check.c | if (!isfinite(period) || period < 0.0f) | if (!isfinite(period))
+sc-line-repeat | src/graph_space_check.c | repeated = s->points[j] == v; | repeated = false;
+sc-line-span | src/graph_space_check.c | if (s->points[k] == high && !(high - low < period)) | if (s->points[k] == high && !(high - low <= period))
+sc-pairs-repeat | src/graph_space_check.c | repeated = points[2 * j] == p[0] && points[2 * j + 1] == p[1]; | repeated = points[2 * j] == p[0];
+sc-polar | src/graph_space_check.c | return s->polar > 1u ? Refuse(maniBuildReasonNode, node, 0) | return false ? Refuse(maniBuildReasonNode, node, 0)
+sc-separated-closed | src/graph_space_check.c | right = maniExactOrient(u, v, points + 2 * (size_t)b[k]) <= 0; | right = maniExactOrient(u, v, points + 2 * (size_t)b[k]) < 0;
+sc-separated-none | src/graph_space_check.c | right = maniExactOrient(u, v, points + 2 * (size_t)b[k]) <= 0; | right = false;
+# Equivalent: sc-box and sc-box-one-way (the boxes are a shortcut; the
+# exact edge test that follows decides every pair the same).
+sc-box | src/graph_space_check.c | if (high[0] <= low[1] || high[1] <= low[0]) | if (high[0] < low[1] || high[1] < low[0])
+sc-box-one-way | src/graph_space_check.c | if (high[0] <= low[1] || high[1] <= low[0]) | if (high[0] <= low[1])
+sc-sat-one-side | src/graph_space_check.c | return !SeparatedBy(points, a, b) && !SeparatedBy(points, b, a); | return !SeparatedBy(points, a, b);
+sc-too-many | src/graph_space_check.c | if (s->triangles == NULL || s->triangleCount > MANI_GRAPH_MAX_TRIANGLES(count)) | if (s->triangles == NULL)
+sc-corner-range | src/graph_space_check.c | bool ok = v[0] < count && v[1] < count && v[2] < count && | bool ok = v[0] < count && v[1] < count &&
+sc-overlap | src/graph_space_check.c | ok = !Overlap(s->points, s->triangles + 3 * (size_t)j, v); | ok = true;
+sc-used | src/graph_space_check.c | if (!used[k]) | if (false)
+
+# Blend spaces checked at opening (src/graph_nodes.c).
+sn-count-zero | src/graph_nodes.c | if (count == 0 || count > MANI_GRAPH_MAX_TRIANGLES(n)) | if (count > MANI_GRAPH_MAX_TRIANGLES(n))
+sn-count-most | src/graph_nodes.c | if (count == 0 || count > MANI_GRAPH_MAX_TRIANGLES(n)) | if (count == 0)
+sn-pairs | src/graph_nodes.c | uint32_t wrong = PairsValid(g, d + MANI_GRAPH_SPACE_WORDS, n); | uint32_t wrong = UINT32_MAX;
+
+# Blend spaces built and written (src/graph_build.c, src/graph_json.c,
+# src/graph_json_graph.c).
+sb-line-y | src/graph_build.c | at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector || line ? zero : p->y); | at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector ? zero : p->y);
+sb-delaunay | src/graph_build.c | (void)PutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3); | (void)0;
+sb-authored | src/graph_build.c | (void)PutWords(d, at + 1 + 2 * n, s->triangles, 3 * count); | (void)0;
+sb-reserve | src/graph_build.c | return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n); | return at + 3 * count;
+sj-omit-delaunay | src/graph_json.c | if (s->triangleCount == 0) | if (false)
+sj-plane-y | src/graph_json.c | if (plane) | if (true)
+sj-three | src/graph_json_graph.c | if (three != 3) | if (false)
+sp-turn-origin | src/graph_space.c | float d = origin ? 0.0f : b - a; | float d = b - a;
+sp-turn-wrap-high | src/graph_space.c | return d > 3.14159265f ? d - 6.28318531f : (d < -3.14159265f ? d + 6.28318531f : d); | return d < -3.14159265f ? d + 6.28318531f : d;
+sp-turn-wrap-low | src/graph_space.c | return d > 3.14159265f ? d - 6.28318531f : (d < -3.14159265f ? d + 6.28318531f : d); | return d > 3.14159265f ? d - 6.28318531f : d;
+sp-turn-position | src/graph_space.c | vip[1] = 2.0f * Turn(q->direction[i], q->atDirection, q->origin[i] || q->atOrigin); | vip[1] = 2.0f * Turn(q->direction[i], q->atDirection, q->origin[i]);
+sp-at-origin | src/graph_space.c | q.atOrigin = at[0] == 0.0f && at[1] == 0.0f; | q.atOrigin = false;
+tr-join-hull-start | src/triangulate.c | m->hullTriangle[i] = SlotOf(&m->t[t], a, b) < 3 ? t : m->hullTriangle[i]; | m->hullTriangle[i] = t;
+tr-key-order | src/triangulate.c | m->keys[k] = (maniFloatKey(points[2 * k]) << 32) + maniFloatKey(points[2 * k + 1]); | m->keys[k] = (maniFloatKey(points[2 * k + 1]) << 32) + maniFloatKey(points[2 * k]);
+ex-hidden-bit | src/exact.c | uint64_t m = exponent == 0 ? mantissa : mantissa + 0x800000u; | uint64_t m = mantissa + 0x800000u;
+sn-reserved-zero | src/graph_nodes.c | : a == 0 && b == 0 && c == 0; | : true;

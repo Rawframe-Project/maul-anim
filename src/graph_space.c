@@ -295,7 +295,8 @@ static void Banded(const Space* s, const float* at, float* weights)
             Bands(&q, i, j, vij, vip);
             float d = vij[0] * vij[0] + vij[1] * vij[1];
             float band = d > 0.0f ? 1.0f - (vip[0] * vij[0] + vip[1] * vij[1]) / d : 1.0f;
-            h = j != i && band < h ? band : h;
+            // A point's band to itself is 1 (d is 0): no lower than h.
+            h = band < h ? band : h;
         }
         weights[i] = h > 0.0f ? h : 0.0f;
         sum += weights[i];

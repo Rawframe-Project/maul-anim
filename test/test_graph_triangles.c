@@ -83,6 +83,31 @@ static void TestTie(void)
     CHECK(AtPoint(instance, &g, 0.5f, 0.5f, kDiagonal, 4), "the sweep's diagonal");
 }
 
+// The square's two triangles under a time scale: the third reserved
+// triangle zero and the time scale's words after it, as opening checks.
+static void TestReserved(void)
+{
+    static const uint32_t kInputs[4] = {2, 3, 4, 5};
+    static const uint32_t kScaled[1] = {1};
+    maniGraphParameterSource parameters[2] = {Parameter("x", maniGraphParameterFloat, Float(0)),
+                                              Parameter("y", maniGraphParameterFloat, Float(0))};
+    maniGraphNodeSource nodes[6] = {
+        {maniGraphNodeTimeScale, 1, kScaled, .timeScale = {LITERAL(2.0f)}},
+        {maniGraphNodeBlendSpaceTriangles, 4, kInputs,
+         .triangulated = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, kSquare, NULL, 0, 0}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip),
+        ClipNode(3, 1.0f, maniGraphLoopClip),
+        ClipNode(4, 1.0f, maniGraphLoopClip)};
+    maniGraph g;
+    maniGraphInstance* instance = Make(
+        (maniGraphSource){
+            .parameters = parameters, .nodes = nodes, .parameterCount = 2, .nodeCount = 6},
+        &g);
+    static const float kDiagonal[4] = {0, 0.5f, 0, 0.5f};
+    CHECK(AtPoint(instance, &g, 0.5f, 0.5f, kDiagonal, 4), "a space not the output");
+}
+
 // A 3 by 3 grid: every cell a tie, its eight triangles pinned.
 static void TestGrid(void)
 {
@@ -197,7 +222,7 @@ static void TestRefusals(void)
     static const uint32_t kClockwise[6] = {0, 1, 2, 0, 3, 2};
     CHECK(Refused(Triangles(kSquare, 4, kClockwise, 2), maniBuildReasonSpaceTriangle, 1),
           "a triangle clockwise");
-    static const uint32_t kPast[6] = {0, 1, 2, 0, 2, 4};
+    static const uint32_t kPast[6] = {0, 2, 3, 0, 1, 4};
     CHECK(Refused(Triangles(kSquare, 4, kPast, 2), maniBuildReasonSpaceTriangle, 1),
           "a corner past the points");
     static const uint32_t kDegenerate[6] = {0, 1, 2, 0, 2, 2};
@@ -215,6 +240,10 @@ static void TestRefusals(void)
     static const uint32_t kFour[12] = {0, 1, 2, 0, 2, 3, 0, 1, 3, 1, 2, 3};
     CHECK(Refused(Triangles(kSquare, 4, kFour, 4), maniBuildReasonNode, 0), "too many");
     CHECK(Refused(Triangles(kSquare, 4, NULL, 1), maniBuildReasonNode, 0), "no triangles");
+    // Apart, their boxes overlapping, across an edge of the second only.
+    static const float kApart[12] = {0, 0, 4, 0, 0, 4, 3.5f, -1, 6, 0, 4.375f, 0.5f};
+    CHECK(Triangles(kApart, 6, kInside, 2).result == mani_success,
+          "apart across the second's edge");
     static const uint32_t kTouching[6] = {0, 1, 4, 1, 2, 4};
     static const float kKite[10] = {0, 0, 1, 0, 1, 1, 9, 9, 0.5f, 0.5f};
     CHECK(Refused(Triangles(kKite, 5, kTouching, 2), maniBuildReasonPoint, 3),
@@ -347,6 +376,7 @@ int main(int argc, char** argv)
     }
     TestSquare();
     TestTie();
+    TestReserved();
     TestGrid();
     TestAuthored();
     TestEvaluated();

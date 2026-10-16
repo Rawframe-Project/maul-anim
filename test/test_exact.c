@@ -75,6 +75,11 @@ static void TestPredicates(void)
     float s2[2] = {ldexpf(3, -149), 0};
     float up[2] = {ldexpf(1, -149), ldexpf(1, -149)};
     CHECK(maniExactOrient(s0, s1, s2) == 0 && maniExactOrient(s0, s1, up) == 1, "subnormals");
+    // Each point a normal and a subnormal coordinate, b twice a.
+    float origin[2] = {0, 0};
+    float a[2] = {ldexpf(1, -126), ldexpf(1, -127)};
+    float b[2] = {ldexpf(1, -125), ldexpf(1, -126)};
+    CHECK(maniExactOrient(origin, a, b) == 0, "normals and subnormals on one line");
     float w0[2] = {ldexpf(1, -149), 0};
     float w1[2] = {3.4028235e38f, -3.4028235e38f};
     float w2[2] = {-3.4028235e38f, ldexpf(1, -149)};

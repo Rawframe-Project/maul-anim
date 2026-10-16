@@ -218,4 +218,9 @@ result (a zero weight's layer, which adds nothing and never picks a
 hemisphere; a scratch kept for another binding of the same graph; a
 range check another check already implies; flags any later check
 refuses at the same byte; names equal in the family hash, which no test
-can find). Opening, saved state and the JSON reader are fuzzed.
+can find). Of 81 changes to the blend spaces, the exact predicates and
+the triangulation, every one is caught but five that cannot change a
+result (an end of a line met exactly, a position on a triangle's edge,
+the bands' fallback no position reaches, and two forms of a bounding
+box test the exact edge test repeats). Opening, saved state and the
+JSON reader are fuzzed.

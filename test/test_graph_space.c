@@ -74,12 +74,13 @@ static void TestLine(void)
     maniGraphParameterSource x = Parameter("x", maniGraphParameterFloat, Float(0.0f));
     maniGraphNodeSource alone[2] = {
         {maniGraphNodeBlendSpace1D, 1, kOne,
-         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.0f)}, kPoint, 2.0f, 0}},
+         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {0, 0.0f}}, kPoint, 2.0f, 0}},
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     instance = Make(
         (maniGraphSource){.parameters = &x, .nodes = alone, .parameterCount = 1, .nodeCount = 2},
         &g);
     static const float kAll[1] = {1};
+    // Its y names x, unused: stored as a literal 0, so the file opens.
     CHECK(At(instance, &g, 1.75f, kAll, 1), "one point, wrapped: all of it");
 }
 
@@ -174,6 +175,37 @@ static void TestPolarMixed(void)
     CHECK(AtPoint(instance, &g, 0.5f, -0.25f, kRight, 5), "polar: slow and to the right");
 }
 
+// Polar bands across the seam at half a turn, where a turn must wrap
+// (points at 0 and either side of 180 degrees), and at the origin, whose
+// direction no turn uses: weights from the binary64 model.
+static void TestPolarTurns(void)
+{
+    static const uint32_t kInputs[3] = {1, 2, 3};
+    static const float kSeam[6] = {1, 0, -1, 0.25f, -1, -0.25f};
+    static const float kRing[6] = {1, 0, 0, 2, -1, 0.5f};
+    maniGraphParameterSource parameters[2] = {Parameter("x", maniGraphParameterFloat, Float(0)),
+                                              Parameter("y", maniGraphParameterFloat, Float(0))};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniGraphNodeSource nodes[4] = {
+            {maniGraphNodeBlendSpaceBands, 3, kInputs,
+             .bands = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, k == 0 ? kSeam : kRing, 1, 0}},
+            ClipNode(0, 1.0f, maniGraphLoopClip),
+            ClipNode(1, 1.0f, maniGraphLoopClip),
+            ClipNode(3, 1.0f, maniGraphLoopClip)};
+        maniGraph g;
+        maniGraphInstance* instance = Make(
+            (maniGraphSource){
+                .parameters = parameters, .nodes = nodes, .parameterCount = 2, .nodeCount = 4},
+            &g);
+        static const float kAcross[3] = {0, 0.62739642f, 0.37260358f};
+        static const float kOrigin[3] = {0.35002322f, 0.30138873f, 0.34858805f};
+        CHECK(k == 0 ? AtPoint(instance, &g, -1.0f, 0.0625f, kAcross, 3)
+                     : AtPoint(instance, &g, 0.0f, 0.0f, kOrigin, 3),
+              k == 0 ? "polar: across the seam" : "polar: at the origin");
+    }
+}
+
 static _Alignas(32) uint8_t s_scratch[65536];
 static _Alignas(32) uint8_t s_poseMemory[4][4096];
 
@@ -252,6 +284,8 @@ static void TestRefusals(void)
     CHECK(Refused(BuildOnly(nodes, 4, NULL, 0), maniBuildReasonNode, 0), "a polar flag past 1");
     nodes[0].bands.polar = 0;
     CHECK(BuildOnly(nodes, 4, NULL, 0).result == mani_success, "builds when right");
+    nodes[0].bands.position.y = (maniGraphScalar){0, 0.0f};
+    CHECK(Refused(BuildOnly(nodes, 4, &n, 1), maniBuildReasonScalar, 1), "y from an int");
 }
 
 static void TestOpenRefusals(void)
@@ -426,6 +460,7 @@ int main(int argc, char** argv)
     TestLine();
     TestBands();
     TestPolarMixed();
+    TestPolarTurns();
     TestEvaluated();
     TestRefusals();
     TestOpenRefusals();
