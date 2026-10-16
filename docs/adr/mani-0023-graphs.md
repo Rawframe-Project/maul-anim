@@ -151,3 +151,22 @@ machines, inertial transitions) add kinds and data words, not
 sections, so the format grows without breaking the readers of earlier
 kinds. Nodes no output reaches are refused rather than kept, so a
 file holds only what plays.
+
+The graph adds little to the work it orders: on a 53-bone skeleton, a
+graph of two clips and a blend takes 5.6% more instructions a step than
+sampling the two clips through cursors and blending them by hand
+(30,850 against 29,203), within the 10% bound kept since; the update's
+weights, playheads, events and root motion and the evaluation's scratch
+checks and final copy are the difference. A graph of ten nodes, one of
+each kind, takes 75,128 instructions a step, the cost of its samples,
+blends and copies. Nothing at runtime allocates: binding, instance and
+scratch are the caller's memory, sized by the functions that name them.
+
+Every check, choice and refusal is tested against a change made to its
+line: of 203 such changes to the graph's sources, the JSON forms and
+the binary32 writer, every one is caught but seven that cannot change a
+result (a zero weight's layer, which adds nothing and never picks a
+hemisphere; a scratch kept for another binding of the same graph; a
+range check another check already implies; flags any later check
+refuses at the same byte; names equal in the family hash, which no test
+can find). Opening, saved state and the JSON reader are fuzzed.

@@ -1390,3 +1390,250 @@ cb-import-reserved | src/clip_build.c | options->reserved == 0 && | true &&
 cb-apply-additive | src/clip_build.h | source->additive = options->additive; | source->additive = maniAdditiveNone;
 cb-apply-root | src/clip_build.h | source->rootMotion = options->rootMotion; | source->rootMotion = NULL;
 gl-root-build | src/gltf_clip.c | reason != maniBuildReasonRootMotion; | true;
+
+# Graphs (mani-0023): every part of the graph, its JSON forms and the
+# binary32 writer. A first run of 203 left 84 alive; tests of each were
+# added (test_graph_update, test_graph_build, and the JSON suite), and a
+# second run of those 84 left only the equivalents noted below.
+
+# Graph updates (src/graph_update.c): weights, playheads, loops, events,
+# root motion, sync groups by phase and by markers.
+up-scalar-literal | src/graph_update.c | if (parameter != MANI_NO_PARAMETER) | if (false)
+up-give-root-sum | src/graph_update.c | s->rootWeight += share.rootWeight; | s->rootWeight = share.rootWeight;
+up-give-weight-sum | src/graph_update.c | s->weight += share.weight; | s->weight = share.weight;
+up-give-first-parent | src/graph_update.c | if ((s->flags & MANI_GRAPH_REACHED) == 0) | if (true)
+up-blend-negative | src/graph_update.c | total += v > 0.0f ? v : 0.0f; | total += v;
+up-blend-direct-scale | src/graph_update.c | float scale = direct ? 1.0f : 1.0f / (total > MANI_GRAPH_EVENT_THRESHOLD ? total : 1e-5f); | float scale = 1.0f / (total > MANI_GRAPH_EVENT_THRESHOLD ? total : 1e-5f);
+up-blend-zero-total | src/graph_update.c | float scale = direct ? 1.0f : 1.0f / (total > MANI_GRAPH_EVENT_THRESHOLD ? total : 1e-5f); | float scale = direct ? 1.0f : 1.0f / total;
+up-blend-clamp-negative | src/graph_update.c | v = v > 0.0f ? v : 0.0f; | v = v * 1.0f;
+up-blend-direct-cap | src/graph_update.c | v = direct && v > 1.0f ? 1.0f : v; | v = v * 1.0f;
+up-mask-inside | src/graph_update.c | inside = m > inside ? m : inside; | inside = m;
+up-mask-outside | src/graph_update.c | outside = 1.0f - m > outside ? 1.0f - m : outside; | outside = 1.0f - m;
+up-mask-root-rest | src/graph_update.c | Give(u, InputOf(u, record, 1), Pass(s, outside, 1.0f - root)); | Give(u, InputOf(u, record, 1), Pass(s, outside, root));
+up-mask-root-bone | src/graph_update.c | if (bone < bones) | if (false)
+up-additive-base-root | src/graph_update.c | Give(u, InputOf(u, record, 0), Pass(s, 1.0f, 1.0f)); | Give(u, InputOf(u, record, 0), Pass(s, 1.0f, 0.0f));
+up-additive-clamp | src/graph_update.c | v = v > 0.0f ? (v < 1.0f ? v : 1.0f) : 0.0f; | v = v > 0.0f ? v : 0.0f;
+up-additive-layer-root | src/graph_update.c | Give(u, InputOf(u, record, k), Pass(s, v, 0.0f)); | Give(u, InputOf(u, record, k), Pass(s, v, v));
+up-select-high | src/graph_update.c | return i < 0 ? 0u : (i >= (int64_t)n ? n - 1 : (uint32_t)i); | return i < 0 ? 0u : (uint32_t)i;
+up-select-low | src/graph_update.c | return i < 0 ? 0u : (i >= (int64_t)n ? n - 1 : (uint32_t)i); | return i >= (int64_t)n ? n - 1 : (uint32_t)i;
+up-time-scale-product | src/graph_update.c | share.factor *= Scalar(u, d); | share.factor = Scalar(u, d);
+up-seek-consume | src/graph_update.c | trigger->b = 0; | trigger->b = 1;
+up-seek-time | src/graph_update.c | share.seekTo = Scalar(u, d + 1); | share.seekTo = 0.0f;
+up-weigh-reset | src/graph_update.c | s->weight = 0.0f; | s->weight = s->weight * 1.0f;
+up-output-root | src/graph_update.c | *output = (maniGraphNodeState){1.0f, output->word,       output->time, 1.0f, | *output = (maniGraphNodeState){1.0f, output->word,       output->time, 0.0f,
+up-clip-loop-override | src/graph_update.c | clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat); | clip.loop = loop == 0 ? clip.loop : maniLoopRepeat;
+up-place-negative | src/graph_update.c | w = w < 0.0 ? w + d : w; | w = w * 1.0;
+up-place-clamp-low | src/graph_update.c | return t < 0.0 ? 0.0 : (t > d ? d : t); | return t > d ? d : t;
+up-event-direction | src/graph_update.c | e.time,     to >= from ? 1 : -1, | e.time,     1,
+up-event-weight | src/graph_update.c | e.nameHash, s->weight, | e.nameHash, 1.0f,
+up-loops-count | src/graph_update.c | u->count += (n - k) * perLoop; | u->count += perLoop;
+up-events-no-wrap | src/graph_update.c | if (wraps == 0.0) | if (false)
+up-events-loops | src/graph_update.c | double loops = fabs(wraps) - 1.0; | double loops = fabs(wraps);
+up-events-rest | src/graph_update.c | double rest = t1 - wraps * d; | double rest = t1;
+up-own-seek | src/graph_update.c | return (Motion){Place(clip, (double)s->seekTo), 0.0, true, false}; | return (Motion){Place(clip, (double)s->seekTo), 0.0, false, false};
+up-own-factor | src/graph_update.c | return (Motion){s->time, u->delta * (double)Scalar(u, data + 4) * (double)s->factor, false, | return (Motion){s->time, u->delta * (double)Scalar(u, data + 4), false,
+up-leader-first-equal | src/graph_update.c | group->leader == UINT32_MAX || Node(u, p)->weight > Node(u, group->leader)->weight; | group->leader == UINT32_MAX || Node(u, p)->weight >= Node(u, group->leader)->weight;
+up-leader-declared-kept | src/graph_update.c | if ((group->flags & MANI_GRAPH_DECLARED) == 0 && (declared || heavier)) | if (declared || heavier)
+up-follow-events | src/graph_update.c | return (Motion){Place(clip, group->phase * d), group->delta * d, seeking, all && !seeking}; | return (Motion){Place(clip, group->phase * d), group->delta * d, seeking, !seeking};
+up-follow-marker-events | src/graph_update.c | return (Motion){start, backward ? -distance : distance, false, all && distance >= 0.0}; | return (Motion){start, backward ? -distance : distance, false, distance >= 0.0};
+up-leader-markers | src/graph_update.c | if (!m.seeking && ByMarkers(u, g, &clip)) | if (false)
+up-markers-repeat | src/graph_update.c | if (!Repeats(&clip)) | if (false)
+up-along-wrap | src/graph_update.c | return x < 0.0 ? x + d : x; | return x;
+up-passed-at-ahead | src/graph_update.c | behind = behind > 0.0 ? behind : d; | behind = behind * 1.0;
+up-count-passed-edge | src/graph_update.c | count += ahead < distance - loops * d ? 1.0 : 0.0; | count += ahead <= distance - loops * d ? 1.0 : 0.0;
+up-match-nearest | src/graph_update.c | if (away < nearest) | if (true)
+up-follow-match-names | src/graph_update.c | if (done >= steps && match) | if (done >= steps)
+up-advance-event-weight | src/graph_update.c | if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD) | if (m.events)
+up-advance-root-weight | src/graph_update.c | maniRootMotionSumAdd(&u->root, &move, (double)s->rootWeight); | maniRootMotionSumAdd(&u->root, &move, (double)s->weight);
+up-advance-leader-own | src/graph_update.c | if (group < u->graph->syncGroupCount && Group(u, group)->leader != p && | if (group < u->graph->syncGroupCount &&
+up-delta-finite | src/graph_update.c | if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP || !isfinite(delta) || | if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP ||
+
+# Graph evaluation (src/graph_evaluate.c).
+ev-blend-direct | src/graph_evaluate.c | float scale = direct || total < MANI_BLEND_THRESHOLD ? 1.0f : 1.0f / total; | float scale = total < MANI_BLEND_THRESHOLD ? 1.0f : 1.0f / total;
+ev-blend-negative | src/graph_evaluate.c | total += v > 0.0f ? v : 0.0f; | total += v;
+# Equivalent: ev-blend-zero-layer (a layer of weight 0 adds zeros to
+# sums that start from 0, so it never picks a hemisphere).
+ev-blend-zero-layer | src/graph_evaluate.c | if (v > 0.0f && input != NULL) | if (input != NULL)
+ev-mask-outside | src/graph_evaluate.c | e->outside[b] = 1.0f - e->inside[b]; | e->outside[b] = e->inside[b];
+ev-mask-inside-weights | src/graph_evaluate.c | e->layers[count++] = (maniBlendLayer){inside, 1.0f, e->inside}; | e->layers[count++] = (maniBlendLayer){inside, 1.0f, NULL};
+ev-additive-no-base | src/graph_evaluate.c | if (base == NULL) | if (false)
+# Equivalent: ev-additive-zero-layer (maniAddPoses skips a layer of
+# weight 0).
+ev-additive-zero-layer | src/graph_evaluate.c | if (v > 0.0f && layer != NULL) | if (layer != NULL)
+ev-select-word | src/graph_evaluate.c | uint32_t k = maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0; | uint32_t k = 0;
+ev-neutral-difference | src/graph_evaluate.c | if (difference) | if (false)
+ev-input-unweighed | src/graph_evaluate.c | if (!(State(e, input)->weight > 0.0f)) | if (false)
+ev-cursor-clips-only | src/graph_evaluate.c | cursor += clip ? 1u : 0u; | cursor += 1u;
+ev-output-unweighed | src/graph_evaluate.c | if (!(State(&e, last)->weight > 0.0f)) | if (false)
+# Equivalent: ev-prepare-binding (another binding of the same graph,
+# identity checked, has the same skeleton and the same slots).
+ev-prepare-binding | src/graph_evaluate.c | if (head->stamp == SCRATCH_STAMP && head->binding == e->binding && | if (head->stamp == SCRATCH_STAMP &&
+ev-sample-time | src/graph_evaluate.c | (void)maniSampleClipCursor(c, clip, e->binding->skeleton, (float)s->time, out); | (void)maniSampleClipCursor(c, clip, e->binding->skeleton, 0.0f, out);
+ev-scratch-size | src/graph_evaluate.c | if (size < e.parts.size) | if (false)
+ev-weights-room | src/graph_evaluate.c | parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float)); | parts.weightsAt + Round((size_t)binding->graph.skeletonBoneCount * sizeof(float));
+
+# Graph builds (src/graph_build.c): order, kinds, slots, layout.
+bd-cycle | src/graph_build.c | if (w->state[u] == 1) | if (false)
+bd-unreachable | src/graph_build.c | if (w->state[v] == 0) | if (false)
+bd-clip-difference | src/graph_build.c | w->difference[v] = maniClipAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u; | w->difference[v] = 0u;
+bd-additive-base | src/graph_build.c | if (additive && first != 0) | if (false)
+bd-mix | src/graph_build.c | if (additive ? d == 0 : d != first) | if (additive && d == 0)
+bd-output-difference | src/graph_build.c | if (r.result == mani_success && w.difference[source->output] != 0) | if (false)
+bd-slot-reuse | src/graph_build.c | w->freeSlots[freeCount++] = w->slot[u]; | (void)0;
+bd-slot-freed-once | src/graph_build.c | w->lastReader[u] = n + 1; | (void)0;
+bd-quat-normalized | src/graph_build.c | double scale = t == maniGraphParameterQuat ? 1.0 / sqrt(length) : 1.0; | double scale = 1.0;
+bd-bound-scalar-zero | src/graph_build.c | PutFloat(data + 4 * (size_t)at + 4, s.parameter == MANI_NO_PARAMETER ? s.value : 0.0f); | PutFloat(data + 4 * (size_t)at + 4, s.value);
+bd-int-unbounded-zero | src/graph_build.c | maniStoreU32(e + 40, p->bounded != 0 ? (uint32_t)p->minimum.i : 0u); | maniStoreU32(e + 40, (uint32_t)p->minimum.i);
+bd-mask-index | src/graph_build.c | ++lay->maskAt; | (void)0;
+bd-input-position | src/graph_build.c | w->position[node->inputs[k]]); | node->inputs[k]);
+bd-node-difference | src/graph_build.c | maniStoreU16(e + 2, (uint16_t)(w->difference[v] != 0 ? MANI_GRAPH_DIFFERENCE : 0u)); | maniStoreU16(e + 2, 0u);
+bd-slot-difference | src/graph_build.c | maniStoreU32(e + 24, difference ? MANI_GRAPH_DIFFERENCE : 0u); | maniStoreU32(e + 24, 0u);
+bd-empty-sections | src/graph_build.c | if (lay->sizes[s] > 0) | if (true)
+
+# Graph source checks (src/graph_check.c).
+ck-name-utf8 | src/graph_check.c | if (name == NULL || length == 0 || !maniValidUtf8((const uint8_t*)name, length)) | if (name == NULL || length == 0)
+ck-name-empty | src/graph_check.c | if (name == NULL || length == 0 || !maniValidUtf8((const uint8_t*)name, length)) | if (name == NULL || !maniValidUtf8((const uint8_t*)name, length))
+# Equivalent in practice: ck-name-hash-or-same (telling a repeated
+# name from two names of one hash needs a collision of the family hash).
+ck-name-hash-or-same | src/graph_check.c | bool same = lengthA == lengthB && memcmp(a, b, lengthA) == 0; | bool same = true;
+# Equivalent: ck-int-order and gf-int-order (a default between its
+# bounds implies the bounds in order).
+ck-int-order | src/graph_check.c | (p->minimum.i <= p->maximum.i && p->defaultValue.i >= p->minimum.i && | (p->defaultValue.i >= p->minimum.i &&
+ck-bool-default | src/graph_check.c | ok = p->defaultValue.b <= 1u; | ok = true;
+ck-quat-length | src/graph_check.c | ok = ok && (t != maniGraphParameterQuat || (length > 0.0 && isfinite(length))); | ok = ok && true;
+ck-bounded-type | src/graph_check.c | bool ok = t <= maniGraphParameterTrigger && p->bounded <= (number ? 1u : 0u); | bool ok = t <= maniGraphParameterTrigger && p->bounded <= 1u;
+ck-clip-skeleton | src/graph_check.c | if (clip == NULL || maniClipSkeletonIdentity(clip) != skeleton) | if (clip == NULL)
+ck-clip-twice | src/graph_check.c | int found = FindRepeat(keys, n > 1 ? n : 0, allocator, &low, &high); | int found = 0;
+ck-sync-flags | src/graph_check.c | if ((source->syncGroups[i].flags & ~(uint32_t)maniGraphSyncAllEvents) != 0) | if (false)
+ck-scalar-range | src/graph_check.c | ? Finite(s.value) && s.value >= low && s.value <= high | ? Finite(s.value)
+ck-scalar-type | src/graph_check.c | source->parameters[s.parameter].type == maniGraphParameterFloat; | true;
+ck-clip-flags-group | src/graph_check.c | (grouped || c->flags == 0); | true;
+ck-clip-loop | src/graph_check.c | c->loop <= maniGraphLoopRepeat && (c->flags & ~(uint32_t)maniGraphClipLeader) == 0 && | (c->flags & ~(uint32_t)maniGraphClipLeader) == 0 &&
+ck-mask-bone | src/graph_check.c | if (m->chains[k].bone >= bones) | if (false)
+ck-mask-weight | src/graph_check.c | if (!(w >= 0.0f && w <= 1.0f)) | if (!(w >= 0.0f))
+ck-mask-default | src/graph_check.c | bool ok = m->defaultWeight >= 0.0f && m->defaultWeight <= 1.0f; | bool ok = m->defaultWeight >= 0.0f;
+ck-blend-direct-flag | src/graph_check.c | return n->blend.direct > 1u ? maniGraphRefuse(maniBuildReasonNode, node, 0) | return false ? maniGraphRefuse(maniBuildReasonNode, node, 0)
+ck-direct-cap | src/graph_check.c | n->blend.direct != 0 ? 1.0f : HUGE_VALF); | HUGE_VALF);
+ck-input-self | src/graph_check.c | if (n->inputs[k] >= source->nodeCount || n->inputs[k] == node) | if (n->inputs[k] >= source->nodeCount)
+ck-input-few | src/graph_check.c | if (n->inputCount < low || n->inputCount > high || (n->inputCount > 0 && n->inputs == NULL)) | if (n->inputCount > high || (n->inputCount > 0 && n->inputs == NULL))
+ck-output | src/graph_check.c | if (r.result == mani_success && source->output >= source->nodeCount) | if (false)
+ck-no-nodes | src/graph_check.c | return source->nodeCount > 0 && source->nodeCount <= MANI_GRAPH_MAX_NODES && | return source->nodeCount <= MANI_GRAPH_MAX_NODES &&
+
+# Graph files opened: node records and data words (src/graph_nodes.c).
+nd-scalar-bits | src/graph_nodes.c | ParameterType(g, parameter) == maniGraphParameterFloat && bits == 0; | ParameterType(g, parameter) == maniGraphParameterFloat;
+nd-scalar-range | src/graph_nodes.c | return isfinite(value) && value >= low && value <= high; | return isfinite(value);
+nd-clip-loop | src/graph_nodes.c | if (Word(g, d + 2) > 2u) | if (false)
+nd-clip-flags | src/graph_nodes.c | if (flags > 1u || (!grouped && flags != 0)) | if (flags > 1u)
+nd-mask-index | src/graph_nodes.c | return Word(g, d) < g->maskCount ? UINT32_MAX : d; | return UINT32_MAX;
+nd-select-type | src/graph_nodes.c | return type == maniGraphParameterInt || type == maniGraphParameterBool ? UINT32_MAX : d; | return UINT32_MAX;
+nd-kind-clip | src/graph_nodes.c | return n->flags == maniLoadU32(clip + 24); | return true;
+nd-kind-additive | src/graph_nodes.c | if (additive ? first != 0 || n->flags != 0 : n->flags != first) | if (additive ? first != 0 : n->flags != first)
+# Equivalent: nd-flags (flags past differences fail the kind check at
+# the same byte, every node's flags compared with 0 or 1).
+nd-flags | src/graph_nodes.c | if (n->flags > MANI_GRAPH_DIFFERENCE) | if (false)
+nd-first | src/graph_nodes.c | if (n->first != inputAt) | if (false)
+nd-count | src/graph_nodes.c | if (n->count < low || n->count > high || n->count > g->inputCount - inputAt) | if (n->count < low || n->count > high)
+nd-slot | src/graph_nodes.c | if (n->slot >= g->slotCount) | if (false)
+nd-reserved | src/graph_nodes.c | if (maniLoadU64(n->entry + 24) != 0) | if (false)
+nd-input-order | src/graph_nodes.c | if (u >= p) | if (u > p)
+nd-input-slot | src/graph_nodes.c | if (maniLoadU32(g->nodes + (size_t)u * MANI_GRAPH_NODE_SIZE + 20) == n->slot) | if (false)
+nd-last-flags | src/graph_nodes.c | if (!KindValid(g, &n) || (last && n.flags != 0)) | if (!KindValid(g, &n))
+nd-input-total | src/graph_nodes.c | if (inputAt != g->inputCount) | if (false)
+
+# Graph files opened: sections, parameters, lists (src/graph.c).
+gf-tag | src/graph.c | if (tag == 0 || tag > MANI_GRAPH_SECTIONS) | if (tag == 0)
+gf-size-zero | src/graph.c | if (size == 0) | if (false)
+gf-header-size | src/graph.c | if (s->sizes[0] != MANI_GRAPH_HEADER_SIZE) | if (false)
+gf-counts-low | src/graph.c | if (counts[k] < lows[k] || counts[k] > highs[k]) | if (counts[k] > highs[k])
+gf-name-empty | src/graph.c | if (length == 0 || offset > g->namesSize || length > g->namesSize - offset) | if (offset > g->namesSize || length > g->namesSize - offset)
+gf-name-hash | src/graph.c | maniHashBytes(MANI_HASH_INIT, name, length) == maniLoadU64(hashAt); | true;
+gf-value-unused | src/graph.c | if (!zero) | if (false)
+gf-bool-range | src/graph.c | return maniLoadU32(v) <= 1u && zeroBounds; | return zeroBounds;
+# Equivalent: gf-int-order (as ck-int-order).
+gf-int-order | src/graph.c | return bounded ? low <= high && d >= low && d <= high : zeroBounds; | return bounded ? d >= low && d <= high : zeroBounds;
+gf-quat-unit | src/graph.c | if (type == maniGraphParameterQuat && fabs(length - 1.0) > 1e-5) | if (false)
+gf-float-bounds-finite | src/graph.c | return Finite(v + 16) && Finite(v + 20) && low <= high && d >= low && d <= high; | return low <= high && d >= low && d <= high;
+gf-parameter-type | src/graph.c | if (type > maniGraphParameterTrigger) | if (false)
+gf-parameter-flags | src/graph.c | if (flags > (number ? MANI_GRAPH_BOUNDED : 0u)) | if (flags > MANI_GRAPH_BOUNDED)
+gf-clip-flags | src/graph.c | if (maniLoadU32(e + 24) > MANI_GRAPH_DIFFERENCE || maniLoadU32(e + 28) != 0) | if (maniLoadU32(e + 28) != 0)
+gf-group-flags | src/graph.c | if (maniLoadU32(e + 16) > 1u || maniLoadU32(e + 20) != 0) | if (maniLoadU32(e + 20) != 0)
+gf-mask-weights | src/graph.c | if (!(w >= 0.0f && w <= 1.0f)) | if (!(w >= 0.0f))
+gf-identity | src/graph.c | if (maniGraphComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
+
+# Graph bindings (src/graph_bind.c).
+bn-root-conflict | src/graph_bind.c | if (binding->rootMotionBone != MANI_NO_BONE && binding->rootMotionBone != source.bone) | if (false)
+bn-cursor-largest | src/graph_bind.c | largest = size > largest ? size : largest; | largest = size;
+bn-max-inputs | src/graph_bind.c | binding->maxInputs = n > binding->maxInputs ? n : binding->maxInputs; | binding->maxInputs = n;
+bn-size | src/graph_bind.c | if (size < maniGraphBindingSize(graph)) | if (false)
+
+# Graph instances, parameters and saved state (src/graph_instance.c).
+in-defaults | src/graph_instance.c | instance->cells[i].value = LoadValue(ParameterEntry(graph, i) + 24); | (void)0;
+in-clamp-low | src/graph_instance.c | return v < low ? low : (v > high ? high : v); | return v > high ? high : v;
+in-quat-normalized | src/graph_instance.c | out.f[k] = (float)((double)out.f[k] * scale); | out.f[k] = out.f[k] * 1.0f;
+in-quat-zero | src/graph_instance.c | if (!(length > 0.0) || !isfinite(length)) | if (!isfinite(length))
+in-float-finite | src/graph_instance.c | if (!isfinite(v->f[k])) | if (false)
+in-bool-range | src/graph_instance.c | return out.b <= 1u; | return true;
+in-int-clamp | src/graph_instance.c | out.i = bounded ? (v->i < low ? low : (v->i > high ? high : v->i)) : v->i; | out.i = v->i;
+in-set-type | src/graph_instance.c | if (maniLoadU32(entry) != type || !Canonical(type, entry, &value)) | if (!Canonical(type, entry, &value))
+in-save-capacity | src/graph_instance.c | if (capacity < size) | if (false)
+in-restore-reserved | src/graph_instance.c | if (maniLoadU32(b + 4) != 0) | if (false)
+in-restore-identity | src/graph_instance.c | if (maniLoadU64(b + 8) != graph->identity) | if (false)
+in-restore-short | src/graph_instance.c | if (maniLoadU64(b + 16) != expected || size < expected) | if (maniLoadU64(b + 16) != expected)
+in-saved-canonical | src/graph_instance.c | return memcmp(a, b, sizeof a) == 0; | return true;
+in-saved-quat | src/graph_instance.c | return fabs(length - 1.0) <= 1e-5; | return true;
+in-saved-word | src/graph_instance.c | bool wordValid = select ? word < maniLoadU32(e + 8) : word == 0; | bool wordValid = true;
+in-saved-weight | src/graph_instance.c | return isfinite(weight) && weight >= 0.0f && isfinite(time) && wordValid; | return isfinite(weight) && isfinite(time) && wordValid;
+in-size-cursors | src/graph_instance.c | return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize; | return CursorsAt(graph);
+
+# Subgraphs inlined (src/graph_inline.c).
+il-depth | src/graph_inline.c | if (depth > MANI_GRAPH_MAX_DEPTH || source->nodeCount == 0 || source->nodes == NULL) | if (source->nodeCount == 0 || source->nodes == NULL)
+il-place-output | src/graph_inline.c | return j == out ? s->place : s->base + j - (j > out ? 1u : 0u); | return j == out ? s->place : s->base + j;
+il-parameter-map | src/graph_inline.c | parameter = s->parameters[parameter]; | parameter = parameter + 0;
+il-clip-join | src/graph_inline.c | if (f->clips[k].clip != NULL && maniClipIdentity(f->clips[k].clip) == identity) | if (false)
+il-group-join | src/graph_inline.c | memcmp(h->name, g->name, g->nameLength) == 0) | false)
+il-subgraph-type | src/graph_inline.c | s->graph->parameters[p].type != sub->parameters[k].type) | false)
+il-subgraph-skeleton | src/graph_inline.c | maniSkeletonIdentity(sub->skeleton) != maniSkeletonIdentity(skeleton) || | false ||
+il-subgraph-inputs | src/graph_inline.c | if (node->inputCount != 0 || sub->skeleton == NULL || | if (sub->skeleton == NULL ||
+il-subgraph-output | src/graph_inline.c | sub->output >= sub->nodeCount || | false ||
+
+# The graph JSON writer (src/graph_json.c).
+js-control-escape | src/graph_json.c | else if (c < 0x20u) | else if (false)
+js-hex-high | src/graph_json.c | char escape[6] = {'\\', 'u', '0', '0', kHex[c >> 4], kHex[c & 15u]}; | char escape[6] = {'\\', 'u', '0', '0', '0', kHex[c & 15u]};
+js-int-negative | src/graph_json.c | PutUnsigned(w, value < 0 ? (uint64_t)(-(int64_t)value) : (uint64_t)value); | PutUnsigned(w, (uint64_t)value);
+js-empty-list | src/graph_json.c | if (counts[list] > 0) | if (true)
+js-bounds | src/graph_json.c | if (p->bounded != 0) | if (false)
+js-clear-on-failure | src/graph_json.c | maniBuilderClear(builder); | (void)0;
+
+# The graph JSON reader (src/graph_json_read.c, src/graph_json_graph.c).
+rd-required | src/graph_json_read.c | if ((required >> k & 1u) != 0 && found[k] == MANI_JSON_NONE) | if (false)
+rd-repeat | src/graph_json_read.c | if (found[k] != MANI_JSON_NONE) | if (false)
+rd-lookup-bound | src/graph_json_read.c | if (table->keys[mid] < key) | if (table->keys[mid] <= key)
+rd-float-range | src/graph_json_read.c | if (!maniJsonBinary(r->json, value, maniBinary32, &bits)) | if (!maniJsonBinary(r->json, value, maniBinary64, &bits))
+rd-index-range | src/graph_json_read.c | if (!maniJsonInteger(r->json, value, 0, (int64_t)UINT32_MAX - 1, &whole)) | if (!maniJsonInteger(r->json, value, INT32_MIN, (int64_t)UINT32_MAX - 1, &whole))
+
+gg-int-range | src/graph_json_graph.c | bool ok = maniJsonInteger(r->json, value, INT32_MIN, INT32_MAX, &whole); | bool ok = maniJsonInteger(r->json, value, INT64_MIN, INT64_MAX, &whole);
+gg-bounds-type | src/graph_json_graph.c | if (f[3] != ABSENT && !number) | if (false)
+gg-quat-identity | src/graph_json_graph.c | p->defaultValue = p->type == maniGraphParameterQuat ? (maniGraphValue){{0.0f, 0.0f, 0.0f, 1.0f}} | p->defaultValue = p->type == maniGraphParameterQuat ? (maniGraphValue){{0.0f, 0.0f, 1.0f, 0.0f}}
+gg-sync-all | src/graph_json_graph.c | g[i].flags = all ? (uint32_t)maniGraphSyncAllEvents : 0u; | g[i].flags = 0u;
+gg-chain-subtree | src/graph_json_graph.c | chain->subtree = subtree; | chain->subtree = true;
+gg-null-group | src/graph_json_graph.c | bool grouped = f[2] != ABSENT && r->json->values[f[2]].kind != maniJsonNull; | bool grouped = f[2] != ABSENT;
+gg-leader | src/graph_json_graph.c | c->flags = leader ? (uint32_t)maniGraphClipLeader : 0u; | c->flags = 0u;
+gg-map-repeat | src/graph_json_graph.c | if (map[k] != ABSENT) | if (false)
+gg-map-missing-at | src/graph_json_graph.c | return maniGraphJsonFault(r, f[2] != ABSENT ? f[2] : node, maniGraphFormMissing); | return maniGraphJsonFault(r, node, maniGraphFormMissing);
+gg-additive-weights | src/graph_json_graph.c | return Weights(r, scope, f[2], n->inputCount > 0 ? n->inputCount - 1 : 0, | return Weights(r, scope, f[2], n->inputCount,
+gg-seek-time | src/graph_json_graph.c | n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f}; | n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 1.0f};
+gg-mask-default | src/graph_json_graph.c | m->defaultWeight = 0.0f; | m->defaultWeight = 1.0f;
+gg-version | src/graph_json_graph.c | return (maniJsonInteger(r->json, f[1], 1, 1, &version)) || | return true ||
+gg-kind-missing | src/graph_json_graph.c | kind == ABSENT && r->json->values[object].kind == maniJsonObject | false
+gg-json-offset | src/graph_json_graph.c | (uint32_t)read.offset, read.reason}; | 0, read.reason};
+
+# The shortest binary32 text (src/decimal_format.c).
+df-tie-even | src/decimal_format.c | bool pickBelow = below && (!above || half < 0 || (half == 0 && even)); | bool pickBelow = below && (!above || half <= 0);
+df-half-sticky | src/decimal_format.c | if (digits[i] != '0') | if (false)
+df-carry | src/decimal_format.c | out[0] = '1'; | out[0] = '0';
+df-nine-digits | src/decimal_format.c | uint32_t high = total <= 9 ? total : 9; | uint32_t high = total <= 8 ? total : 8;
+df-layout-21 | src/decimal_format.c | if ((int32_t)k <= n && n <= 21) | if ((int32_t)k <= n && n <= 20)
+df-layout-small | src/decimal_format.c | if (-6 < n && n <= 0) | if (-7 < n && n <= 0)
+df-negative-zero | src/decimal_format.c | if ((bits >> 31) != 0) | if (false)
+df-exponent-sign | src/decimal_format.c | out[at++] = x < 0 ? '-' : '+'; | out[at++] = '-';
+df-exact-power | src/decimal_format.c | int32_t power = e < 0 ? e : 0; | int32_t power = e;
