@@ -174,14 +174,10 @@ maniResult maniRootMotionTake(const maniRootMotionSource* source, const double* 
     {
         const double* local = locals + MOVE * (size_t)k;
         double* m = out->motion + MOVE * (size_t)k;
+        // Signs are left as they come: moves nlerp into one hemisphere,
+        // the loop's correction slerps by the shorter arc, and the clip
+        // builder keeps the stored bone continuous.
         Motion(source, local, local + 3, tRef, rRef, m);
-        // Each rotation in the hemisphere of the one before.
-        const double* p = k > 0 ? m - MOVE : NULL;
-        double dot = p != NULL ? p[3] * m[3] + p[4] * m[4] + p[5] * m[5] + p[6] * m[6] : 1.0;
-        for (int i = 3; dot < 0.0 && i < 7; ++i)
-        {
-            m[i] = -m[i];
-        }
     }
     if (out->source.loop != 0)
     {

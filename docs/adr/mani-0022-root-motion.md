@@ -71,3 +71,14 @@ A host moves its character by moves it reads beside the clip, with no
 extraction at runtime. Masking by axes and a twist about an axis
 covers the common choices (horizontal travel, turning about up)
 without an Euler order.
+
+Moves across any number of wraps cost the logarithm of the wrap count
+and never stall; a step split anywhere composes to the whole step, so
+a host stepping by frames travels as far as one stepping once. Blending
+weighs whole moves once, so split steps do not lose rotation. A clip
+keeps one root motion source; a host wanting another rebuilds the clip.
+Between samples, a restored pose differs from the source by the
+difference between interpolating the motion and the stored bone apart
+and interpolating their product, which vanishes at the samples.
+Changing the importers' clip arguments into one struct broke their
+callers once, before the first release.

@@ -323,7 +323,7 @@ clp-empty-target | src/gltf_animation.c | if (json->values[element].kind != mani
 clp-pointer-single | src/gltf_clip.c | length += x->c.width > 1 ? SlashNumber(name + length, k) : 0; | length += SlashNumber(name + length, k);
 clp-digits | src/gltf_clip.c | out[1 + i] = digits[count - 1 - i]; | out[1 + i] = digits[i];
 clp-name-reason | src/gltf_clip.c | bool name = floats && reason == maniBuildReasonTrack; | bool name = false;
-clp-default-rate | src/gltf_clip.c | .rate = sampleRate == 0.0f ? 30.0f : sampleRate}; | .rate = sampleRate == 0.0f ? 60.0f : sampleRate};
+clp-default-rate | src/gltf_clip.c | .rate = clipOptions->sampleRate == 0.0f ? 30.0f : clipOptions->sampleRate}; | .rate = clipOptions->sampleRate == 0.0f ? 60.0f : clipOptions->sampleRate};
 spr-range | src/gltf_spring.c | if (!fits || !(f >= minimum) || !(f <= maximum)) | if (!fits || !(f >= minimum))
 spr-vector-three | src/gltf_spring.c | if (json->values[array].count != 3) | if (json->values[array].count < 3)
 spr-bone | src/gltf_spring.c | if (*boneOut == MANI_NO_BONE) | if (false)
@@ -1346,3 +1346,47 @@ ce-fallback | src/centers_build.c | c[k] = total > 0.0 ? (float)(sum[k] / total)
 ce-sigma | src/centers_build.c | double sigma = source->sigma == 0.0f ? 0.1 : (double)source->sigma; | double sigma = source->sigma == 0.0f ? 1.0 : (double)source->sigma;
 sk-center-rigid | src/skinning.c | rigid[k] += r.m[k] * w; | rigid[k] += r.m[k];
 sk-center-t | src/skinning.c | rigid[9 + k] += t[k] * w; | rigid[9 + k] += t[k];
+
+# Root motion (mani-0022): the section checked at open, the moves across
+# wraps, compose, blend and restore (src/root_motion.c), taking it out at
+# build (src/root_motion_build.c), and the clip builder and importers
+# carrying it. A first run left six alive: a first move of weight 0, all
+# weights 0 (the tests' distance dropped NaN), the restore turning the
+# stored translation, a twist about x and a period starting turned were
+# tested since; the build kept the motion's rotations in one hemisphere,
+# which nothing reads (moves nlerp into one hemisphere, the loop slerps
+# the shorter arc, the builder keeps the bone continuous), and the loop
+# was removed.
+rm-source-axes | src/root_motion.c | return s->translationAxes <= 7u && s->rotation <= maniRootRotationWhole && s->twistAxis <= 2u && | return s->translationAxes <= 8u && s->rotation <= maniRootRotationWhole && s->twistAxis <= 2u &&
+rm-reach | src/root_motion.c | return component >= 3 || fabs((double)LoadF32(p)) <= MANI_ROOT_MOTION_REACH; | return true;
+rm-reach-component | src/root_motion.c | uint64_t component = k < 8 ? k : (k - 8) % MANI_ROOT_MOTION_MOVE_FLOATS; | uint64_t component = k % MANI_ROOT_MOTION_MOVE_FLOATS;
+rm-check-finite | src/root_motion.c | if ((bits & 0x7F800000u) == 0x7F800000u) | if (false)
+rm-check-additive | src/root_motion.c | if (!SourceValid(&s) || clip->additive != maniAdditiveNone) | if (!SourceValid(&s))
+rm-period-zero | src/root_motion.c | if (maniLoadU32(data + MANI_ROOT_MOTION_HEADER_SIZE + 28) != 0) | if (false)
+rm-compose-rotate | src/root_motion.c | maniVec3Add(first.translation, maniQuatRotate(first.rotation, then.translation)), | maniVec3Add(first.translation, then.translation),
+rm-inverse-rotate | src/root_motion.c | return (maniRootMove){maniVec3Scale(maniQuatRotate(back, m.translation), -1.0f), back}; | return (maniRootMove){maniVec3Scale(m.translation, -1.0f), back};
+rm-at-lerp | src/root_motion.c | maniVec3Scale(maniVec3Sub(b.translation, a.translation), pair.alpha)); | maniVec3Scale(maniVec3Sub(b.translation, a.translation), 0.0f));
+rm-repeated-bit | src/root_motion.c | if ((count & 1u) != 0) | if (count == 1u)
+rm-repeating-backward | src/root_motion.c | maniRootMove out = Between(At(clip, f0), forward ? end : start); | maniRootMove out = Between(At(clip, f0), end);
+rm-repeating-inverse | src/root_motion.c | maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1)); | maniComposeRootMotion(out, Repeated(period, Wraps(w0, w1) - 1));
+rm-repeating-count | src/root_motion.c | maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1)); | maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1)));
+rm-blend-hemisphere | src/root_motion.c | double sw = maniQuatDot(*lead, m->rotation) < 0.0f ? -w : w; | double sw = w;
+rm-blend-zero-weight | src/root_motion.c | if (w == 0.0) | if (false)
+rm-blend-all-zero | src/root_motion.c | if (!(total > 0.0)) | if (false)
+rm-blend-negative | src/root_motion.c | if (!isfinite(weights[i]) || weights[i] < 0.0f || !MoveFinite(&moves[i])) | if (!isfinite(weights[i]) || !MoveFinite(&moves[i]))
+rm-restore-difference | src/root_motion.c | if (!maniClipFits(clip, skeleton, pose) || maniPoseIsDifference(pose)) | if (!maniClipFits(clip, skeleton, pose))
+rm-restore-rotate | src/root_motion.c | local.translation = maniVec3Add(m.translation, maniQuatRotate(m.rotation, local.translation)); | local.translation = maniVec3Add(m.translation, local.translation);
+rmb-twist-axis | src/root_motion_build.c | twist[s->twistAxis] = q[s->twistAxis]; | twist[1] = q[1];
+rmb-axes | src/root_motion_build.c | out[k] = ((s->translationAxes >> k) & 1u) != 0 ? t[k] - tRef[k] : 0.0; | out[k] = t[k] - tRef[k];
+rmb-loop-rotation | src/root_motion_build.c | Multiply(c, m + 3, m + 3); | Multiply(kIdentity, m + 3, m + 3);
+rmb-loop-translation | src/root_motion_build.c | m[i] -= u * dt[i]; | m[i] -= dt[i];
+rmb-bake-rotate | src/root_motion_build.c | Rotate(back, d, t); | memcpy(t, d, sizeof d);
+rmb-period-rotation | src/root_motion_build.c | Multiply(back, last + 3, period + 3); | memcpy(period + 3, last + 3, 4 * sizeof(double));
+rmb-reach | src/root_motion_build.c | reach = reach && (i % MOVE != 0 || InReach(work->motion + i)); | reach = reach && (i % MOVE != 0);
+cb-root-mask | src/clip_build.c | bool root = source->rootMotion != NULL && t->bone == source->rootMotion->bone; | bool root = false;
+cb-reach-refuse | src/clip_build.c | r = maniRootMotionWrite(&root.work, bytes) | r = (maniRootMotionWrite(&root.work, bytes) || true)
+cb-import-bone | src/clip_build.c | (maniRootMotionSourceValid(root) && root->bone < maniSkeletonBoneCount(skeleton))); | (maniRootMotionSourceValid(root)));
+cb-import-reserved | src/clip_build.c | options->reserved == 0 && | true &&
+cb-apply-additive | src/clip_build.h | source->additive = options->additive; | source->additive = maniAdditiveNone;
+cb-apply-root | src/clip_build.h | source->rootMotion = options->rootMotion; | source->rootMotion = NULL;
+gl-root-build | src/gltf_clip.c | reason != maniBuildReasonRootMotion; | true;

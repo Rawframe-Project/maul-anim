@@ -317,6 +317,20 @@ static void TestLoop(void)
 // its negative the same).
 static float MoveApart(maniRootMove a, maniRootMove b)
 {
+    const float* fa = &a.translation.x;
+    const float* fb = &b.translation.x;
+    for (int i = 0; i < 3; ++i)
+    {
+        if (!isfinite(fa[i]) || !isfinite(fb[i]))
+        {
+            return INFINITY;
+        }
+    }
+    if (!isfinite(a.rotation.x + a.rotation.y + a.rotation.z + a.rotation.w) ||
+        !isfinite(b.rotation.x + b.rotation.y + b.rotation.z + b.rotation.w))
+    {
+        return INFINITY;
+    }
     float worst = fmaxf(
         fabsf(a.translation.x - b.translation.x),
         fmaxf(fabsf(a.translation.y - b.translation.y), fabsf(a.translation.z - b.translation.z)));
@@ -458,6 +472,17 @@ static void TestBlend(void)
     CHECK(maniBlendRootMotion(moves, skip, 3, &out) == mani_success &&
               MoveApart(out, (maniRootMove){{0.5f, 0.0f, 0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}}) < 1e-6f,
           "a negated rotation turned into the first's hemisphere; a weight of 0 left out");
+    // A move of weight 0 first, turned against the second: the second,
+    // not it, leads the hemispheres (else a half turn).
+    const maniRootMove turned[3] = {
+        {{0.0f, 0.0f, 0.0f}, {0.0f, -1.0f, 0.0f, 0.0f}},
+        {{0.0f, 0.0f, 0.0f}, {0.0f, 0.5f, 0.0f, 0.8660254f}},
+        {{0.0f, 0.0f, 0.0f}, {0.0f, -0.5f, 0.0f, 0.8660254f}},
+    };
+    const float later[3] = {0.0f, 1.0f, 1.0f};
+    CHECK(maniBlendRootMotion(turned, later, 3, &out) == mani_success &&
+              MoveApart(out, maniRootMoveIdentity()) < 1e-6f,
+          "a first move of weight 0 does not lead");
     const float one[2] = {0.0f, 3.0f};
     CHECK(maniBlendRootMotion(moves, one, 2, &out) == mani_success &&
               MoveApart(out, moves[1]) < 1e-6f,
@@ -485,6 +510,13 @@ static void TestBlend(void)
 
 static float TransformApart(maniTransform a, maniTransform b)
 {
+    if (!isfinite(a.translation.x + a.translation.y + a.translation.z + a.rotation.x +
+                  a.rotation.y + a.rotation.z + a.rotation.w + a.scale.x) ||
+        !isfinite(b.translation.x + b.translation.y + b.translation.z + b.rotation.x +
+                  b.rotation.y + b.rotation.z + b.rotation.w + b.scale.x))
+    {
+        return INFINITY;
+    }
     float worst = fmaxf(
         fabsf(a.translation.x - b.translation.x),
         fmaxf(fabsf(a.translation.y - b.translation.y), fabsf(a.translation.z - b.translation.z)));
@@ -510,7 +542,6 @@ static void TestRestore(void)
     maniRootMotionSource walk = Walk();
     maniClip clip;
     maniClip without;
-    CHECK(BuildBoth(&walk) && OpenBoth(&clip, &without), "builds");
     maniPose* a = NULL;
     maniPose* b = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &a) == mani_success &&
@@ -518,30 +549,42 @@ static void TestRestore(void)
           "poses");
     static const float kAt[7] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 9.0f, -1.0f};
     float worst = 0.0f;
-    float between = 0.0f;
-    for (int i = 0; i < 9; ++i)
+    // Between samples the motion and the stored bone interpolate apart:
+    // close for the twist, about a centimetre for the whole rotation.
+    float between[2] = {0.0f, 0.0f};
+    // The twist about y, then the whole rotation: its pitch turns the
+    // stored translation off y, so the restore must turn it back.
+    for (int i = 0; i < 18; ++i)
     {
-        float time = i < 7 ? kAt[i] : 0.1f + 0.4f * (float)(i - 7);
+        if (i % 9 == 0)
+        {
+            walk.rotation = i == 0 ? maniRootRotationTwist : maniRootRotationWhole;
+            CHECK(BuildBoth(&walk) && OpenBoth(&clip, &without), "builds");
+        }
+        int j = i % 9;
+        float time = j < 7 ? kAt[j] : 0.1f + 0.4f * (float)(j - 7);
         CHECK(maniSampleClip(&clip, &s_skeleton, time, a) == mani_success &&
                   maniRestoreRootMotion(&clip, &s_skeleton, time, a) == mani_success &&
                   maniSampleClip(&without, &s_skeleton, time, b) == mani_success,
               "restores");
         float apart = TransformApart(maniPoseLocal(a, 0), maniPoseLocal(b, 0));
-        if (i < 7)
+        if (j < 7)
         {
             worst = fmaxf(worst, apart);
         }
         else
         {
-            between = fmaxf(between, apart);
+            between[i / 9] = fmaxf(between[i / 9], apart);
         }
         worst = fmaxf(worst, TransformApart(maniPoseLocal(a, 1), maniPoseLocal(b, 1)));
     }
     CHECK(worst < 2e-6f, "restored at the samples: the source's hips");
-    CHECK(between < 1e-4f, "restored between samples: close to the source's hips");
-    if (worst >= 2e-6f || between >= 1e-4f)
+    CHECK(between[0] < 1e-4f && between[1] < 2e-2f,
+          "restored between samples: close to the source's hips");
+    if (worst >= 2e-6f || between[0] >= 1e-4f || between[1] >= 2e-2f)
     {
-        printf("  restored apart by %g, between by %g\n", (double)worst, (double)between);
+        printf("  restored apart by %g, between by %g and %g\n", (double)worst, (double)between[0],
+               (double)between[1]);
     }
     // Without root motion: unchanged.
     CHECK(maniSampleClip(&without, &s_skeleton, 0.3f, b) == mani_success, "samples");
@@ -558,6 +601,34 @@ static void TestRestore(void)
     CHECK(maniRestoreRootMotion(&clip, &s_skeleton, 0.5f, a) == mani_errorInvalid &&
               SameTransform(before, maniPoseLocal(a, 0)),
           "a difference pose refused, untouched");
+}
+
+// A twist about x keeps only x and w; a walk that starts turned has a
+// period from its first sample's frame.
+static void TestStartTurned(void)
+{
+    maniRootMotionSource roll = Walk();
+    roll.twistAxis = 0;
+    maniClip clip;
+    maniClip without;
+    float m[7];
+    CHECK(BuildBoth(&roll) && OpenBoth(&clip, &without), "builds");
+    MotionAt(&clip, 4, m);
+    CHECK(m[3] > 0.1f && m[4] == 0.0f && m[5] == 0.0f, "the twist about x");
+    // From a quarter turn about y to a half turn.
+    static const float kTurned[8] = {0, 0.70710678f, 0, 0.70710678f, 0, 1, 0, 0};
+    maniRootMotionSource walk = Walk();
+    maniClipSource source = Source(&walk);
+    s_tracks[0].rotation.values = kTurned;
+    CHECK(Build(&source, s_file, &s_size).result == mani_success &&
+              maniOpenClip(s_file, s_size, &clip).result == mani_success,
+          "builds turned");
+    maniRootMove period =
+        maniComposeRootMotion(Inverted(SampleMove(&clip, 0)), SampleMove(&clip, 4));
+    maniRootMove twice = Move(&clip, 0.0f, 2.0f);
+    CHECK(MoveApart(twice, maniComposeRootMotion(period, period)) < 1e-5f &&
+              fabsf(twice.rotation.w) < 1e-5f,
+          "two periods of a walk that starts turned: a half turn");
 }
 
 static void ExpectRefused(const maniRootMotionSource* root, maniAdditiveBasis additive,
@@ -727,6 +798,7 @@ int main(int argc, char** argv)
     TestMoves();
     TestBlend();
     TestRestore();
+    TestStartTurned();
     TestBuildRefusals();
     TestOpenRefusals();
     TestPinned();
