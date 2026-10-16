@@ -1199,13 +1199,13 @@ static void TestOpenRefusals(void)
     uint64_t table = SectionAt(maniClipTagSegments);
     uint64_t data = SectionAt(maniClipTagSegmentData);
     // The table: empty sections left out, so a compressed clip has no
-    // samples sections; tags past 15 and compressed sections in a
+    // samples sections; tags past 16 and compressed sections in a
     // full-precision clip refused.
     uint32_t count = maniLoadU32(s_file + 12);
     CHECK(EntryOf(maniClipTagSamples) == 0 && EntryOf(maniClipTagFloatSamples) == 0,
           "no empty sections");
-    maniStoreU32(s_file + 64 + 24 * (uint64_t)(count - 1), 16);
-    ExpectFormat(64 + 24 * (uint64_t)(count - 1), "a tag past 15");
+    maniStoreU32(s_file + 64 + 24 * (uint64_t)(count - 1), 17);
+    ExpectFormat(64 + 24 * (uint64_t)(count - 1), "a tag past 16");
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 56, 0);
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 52, 0);
     ExpectFormat(EntryOf(maniClipTagForms) + 16, "compressed sections at full precision");

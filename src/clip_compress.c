@@ -333,8 +333,8 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
     WriteSegments(p, &out);
     uint8_t header[MANI_CLIP_HEADER_SIZE];
     Header(p->clip, p->segmentCount, header);
-    const uint8_t* sections[MANI_CLIP_COMPRESSED_SECTIONS] = {header, p->clip->tracks, &kEmpty};
-    uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS] = {
+    const uint8_t* sections[MANI_CLIP_ALL_SECTIONS] = {header, p->clip->tracks, &kEmpty};
+    uint64_t sizes[MANI_CLIP_ALL_SECTIONS] = {
         MANI_CLIP_HEADER_SIZE, (uint64_t)p->clip->trackCount * MANI_CLIP_TRACK_SIZE, 0};
     NamedSections(p->clip, sections + 3, sizes + 3);
     for (uint32_t i = 0; i < 5; ++i)
@@ -342,10 +342,15 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
         sections[10 + i] = out.sizes[i] > 0 ? out.data[i] : &kEmpty;
         sizes[10 + i] = out.sizes[i];
     }
+    // The root motion, as the clip has it.
+    sections[maniClipTagRootMotion - 1] =
+        p->clip->rootMotion != NULL ? p->clip->rootMotion : &kEmpty;
+    sizes[maniClipTagRootMotion - 1] =
+        p->clip->rootMotion != NULL ? maniRootMotionSize(p->clip->sampleCount) : 0;
     // Empty sections are left out of the table.
-    maniSectionSource table[MANI_CLIP_COMPRESSED_SECTIONS];
+    maniSectionSource table[MANI_CLIP_ALL_SECTIONS];
     uint32_t count = 0;
-    for (uint32_t i = 0; i < MANI_CLIP_COMPRESSED_SECTIONS; ++i)
+    for (uint32_t i = 0; i < MANI_CLIP_ALL_SECTIONS; ++i)
     {
         table[count] = (maniSectionSource){i + 1, sections[i], sizes[i]};
         count += sizes[i] > 0 ? 1 : 0;
@@ -359,8 +364,8 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
     if (file != NULL)
     {
         maniWriteContainer(file, maniKindClip, MANI_CLIP_FORMAT_VERSION,
-                           maniClipComputeIdentity(sections, sizes, MANI_CLIP_COMPRESSED_SECTIONS),
-                           table, count);
+                           maniClipComputeIdentity(sections, sizes, MANI_CLIP_ALL_SECTIONS), table,
+                           count);
     }
     maniRelease(&builder->allocator, out.block, out.blockSize + 1, 1, 8);
     if (file == NULL)

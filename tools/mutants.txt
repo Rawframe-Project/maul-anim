@@ -187,7 +187,7 @@ clip-header-zeros | src/clip.c | if (maniLoadU32(h + 60) > maniAdditiveFirstFram
 clip-track-order | src/clip.c | if (bone >= clip->skeletonBoneCount || (i > 0 && bone <= maniLoadU16(entry - 4))) | if (bone >= clip->skeletonBoneCount || (i > 0 && bone < maniLoadU16(entry - 4)))
 clip-mask-empty | src/clip.c | if (entry[2] == 0 || entry[2] > maniChannelAll) | if (entry[2] > maniChannelAll)
 clip-unit | src/clip.c | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-20) | if (fabs(x * x + y * y + z * z + w * w - 1.0) > 0x1p-2)
-clip-identity | src/clip.c | if (maniClipComputeIdentity(s.data, s.sizes, MANI_CLIP_COMPRESSED_SECTIONS) != c.identity) | if (false)
+clip-identity | src/clip.c | if (maniClipComputeIdentity(s.data, s.sizes, MANI_CLIP_ALL_SECTIONS) != c.identity) | if (false)
 clip-clamp-high | src/clip.c | t = t < clip->duration ? t : clip->duration; | t = t < clip->duration ? t : clip->duration + 1.0f;
 clip-last-interval | src/clip.c | float end = i + 1 == n - 1 ? clip->duration : (float)(i + 1) / clip->sampleRate; | float end = (float)(i + 1) / clip->sampleRate;
 clip-alpha-clamp | src/clip.c | pair.alpha = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha); | pair.alpha = alpha;
@@ -222,7 +222,7 @@ bld-hemisphere | src/clip_build.c | float sign = !first && dot < 0.0f ? -1.0f : 
 bld-last-sample | src/clip_build.c | return k + 1 == n && k > 0 ? (double)duration : (double)k / (double)rate; | return (double)k / (double)rate;
 bld-default-rate | src/clip_build.c | float rate = source->sampleRate == 0.0f ? 30.0f : source->sampleRate; | float rate = source->sampleRate == 0.0f ? 24.0f : source->sampleRate;
 bld-default-duration | src/clip_build.c | timing.duration = timing.duration > namedLast ? timing.duration : namedLast; | timing.duration = timing.duration + 0.0f;
-bld-empty-track | src/clip_build.c | if (index != 0 && Mask(&source->boneTracks[index - 1]) != 0) | if (index != 0)
+bld-empty-track | src/clip_build.c | if (index != 0 && Mask(source, &source->boneTracks[index - 1]) != 0) | if (index != 0)
 nam-stable | src/sort.c | bool takeA = a < middle && (b >= high || keys[from[a]] <= keys[from[b]]); | bool takeA = a < middle && (b >= high || keys[from[a]] < keys[from[b]]);
 nam-repeat | src/clip_build_named.c | if (hashes[a] != hashes[b]) | if (true)
 nam-step-flag | src/clip_build_named.c | maniStoreU32(entry + 16, f->keys.interpolation == maniInterpolationStep ? 1u : 0u); | maniStoreU32(entry + 16, 0u);
@@ -1153,7 +1153,7 @@ cur-capacity | src/clip_cursor.c | if (floats > cursor->capacity) | if (false)
 cur-slot-b | src/clip_cursor.c | b = pair->second == pair->first ? a : 1 - a; | b = 1 - a;
 cur-align | src/clip_cursor.c | if (memory == NULL || cursorOut == NULL || (uintptr_t)memory % MANI_CLIP_CURSOR_ALIGNMENT != 0) | if (memory == NULL || cursorOut == NULL)
 cur-tag | src/clip_cursor.c | return cursor != NULL && cursor->tag == CURSOR_TAG; | return cursor != NULL;
-cl-tag-past | src/clip.c | if (tag == 0 || tag > MANI_CLIP_COMPRESSED_SECTIONS) | if (tag == 0)
+cl-tag-past | src/clip.c | if (tag == 0 || tag > MANI_CLIP_ALL_SECTIONS) | if (tag == 0)
 cl-empty | src/clip.c | if (size == 0) | if (false)
 cl-full-extra | src/clip.c | if (s->sizes[i] != 0) | if (false)
 cl-listed | src/clip.c | return *next < list->count && list->bones[*next] == bone; | return *next < list->count;

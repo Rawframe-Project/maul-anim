@@ -10,6 +10,13 @@ format.
 
 ### Added
 
+- Root motion taken out at build (mani-0022): a clip source may name a
+  bone (`maniRootMotionSource`), whose translation along chosen axes
+  and rotation (whole, or the twist about an axis) from its rest, its
+  first sample or the origin are kept beside the clip and taken out of
+  the bone, optionally looped so the motion ends where it began;
+  `maniClipRootMotionSource` reads the source back; compressed clips
+  keep it.
 - The library skeleton: the build, the family rules and tools, the
   version and result API (`maniGetVersion`, `maniResultName`) and the
   library profile.

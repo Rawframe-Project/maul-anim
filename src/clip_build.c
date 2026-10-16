@@ -16,6 +16,8 @@
 #include "clip_file.h"
 #include "container.h"
 #include "quat64.h"
+#include "root_motion.h"
+#include "root_motion_build.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
@@ -98,10 +100,13 @@ maniBuildResult maniCheckChannel(const maniChannelSource* c, uint32_t dimension,
     return Outcome(mani_success);
 }
 
-static uint32_t Mask(const maniBoneTrackSource* t)
+// The channels a track stores: its keyed ones; the root motion bone's
+// translation and rotation always, its motion taken out of them.
+static uint32_t Mask(const maniClipSource* source, const maniBoneTrackSource* t)
 {
-    return (t->translation.keyCount > 0 ? maniChannelTranslation : 0u) |
-           (t->rotation.keyCount > 0 ? maniChannelRotation : 0u) |
+    bool root = source->rootMotion != NULL && t->bone == source->rootMotion->bone;
+    return (t->translation.keyCount > 0 || root ? maniChannelTranslation : 0u) |
+           (t->rotation.keyCount > 0 || root ? maniChannelRotation : 0u) |
            (t->scale.keyCount > 0 ? maniChannelScale : 0u);
 }
 
@@ -315,46 +320,115 @@ static void Difference(const maniClipSource* source, const maniBoneTrackSource* 
     }
 }
 
-// One sample: every track's animated channels (an additive clip's as
-// differences), rotations kept in the hemisphere of the track's previous
-// rotation (previous holds four floats a track).
-static void WriteSample(const maniClipSource* source, const uint32_t* order, uint32_t tracks,
-                        double time, float* previous, bool first, float* out)
+// A rotation into out, in the hemisphere of the track's previous one.
+static float* PutRotation(const double v[4], float* p, bool first, float* out)
 {
+    float q[4] = {(float)v[0], (float)v[1], (float)v[2], (float)v[3]};
+    float dot = q[0] * p[0] + q[1] * p[1] + q[2] * p[2] + q[3] * p[3];
+    float sign = !first && dot < 0.0f ? -1.0f : 1.0f;
+    for (int k = 0; k < 4; ++k)
+    {
+        p[k] = sign * q[k];
+        *out++ = p[k];
+    }
+    return out;
+}
+
+// The root motion of a clip being built: the motion, and the bone's local
+// translation and rotation at each sample (seven binary64).
+typedef struct RootBone
+{
+    maniRootMotionWork work;
+    double* locals;
+} RootBone;
+
+// A bone's local translation and rotation at a time: its keys, or its
+// rest where a channel has none.
+static void Local(const maniClipSource* source, const maniBoneTrackSource* track, double time,
+                  double out[7])
+{
+    maniTransform rest = maniSkeletonRest(source->skeleton, track->bone);
+    double v[4];
+    if (track->translation.keyCount > 0)
+    {
+        maniEvaluateChannel(&track->translation, 3, time, v);
+    }
+    else
+    {
+        v[0] = (double)rest.translation.x;
+        v[1] = (double)rest.translation.y;
+        v[2] = (double)rest.translation.z;
+    }
+    memcpy(out, v, 3 * sizeof(double));
+    if (track->rotation.keyCount > 0)
+    {
+        maniEvaluateChannel(&track->rotation, 4, time, out + 3);
+    }
+    else
+    {
+        out[3] = (double)rest.rotation.x;
+        out[4] = (double)rest.rotation.y;
+        out[5] = (double)rest.rotation.z;
+        out[6] = (double)rest.rotation.w;
+    }
+}
+
+// The root motion bone's translation and rotation at sample k, the
+// motion taken out.
+static float* PutRootBone(const RootBone* root, uint32_t k, float* p, float* out)
+{
+    double v[3];
+    double r[4];
+    memcpy(v, root->locals + 7 * (size_t)k, sizeof v);
+    memcpy(r, root->locals + 7 * (size_t)k + 3, sizeof r);
+    maniRootMotionBake(&root->work, k, v, r);
+    for (int i = 0; i < 3; ++i)
+    {
+        *out++ = (float)v[i];
+    }
+    return PutRotation(r, p, k == 0, out);
+}
+
+// One sample, k of the grid: every track's animated channels (an
+// additive clip's as differences), rotations kept in the hemisphere of
+// the track's previous rotation (previous holds four floats a track).
+static void WriteSample(const maniClipSource* source, const uint32_t* order, uint32_t tracks,
+                        const RootBone* root, uint32_t k, double time, float* previous, float* out)
+{
+    bool first = k == 0;
     for (uint32_t i = 0; i < tracks; ++i)
     {
         const maniBoneTrackSource* t = &source->boneTracks[order[i]];
         double v[4];
-        if (t->translation.keyCount > 0)
+        if (root != NULL && t->bone == root->work.source.bone)
         {
-            maniEvaluateChannel(&t->translation, 3, time, v);
-            Difference(source, t, 0, v);
-            for (int k = 0; k < 3; ++k)
-            {
-                *out++ = (float)v[k];
-            }
+            out = PutRootBone(root, k, previous + 4 * (size_t)i, out);
         }
-        if (t->rotation.keyCount > 0)
+        else
         {
-            maniEvaluateChannel(&t->rotation, 4, time, v);
-            Difference(source, t, 1, v);
-            float q[4] = {(float)v[0], (float)v[1], (float)v[2], (float)v[3]};
-            float* p = previous + 4 * (size_t)i;
-            float dot = q[0] * p[0] + q[1] * p[1] + q[2] * p[2] + q[3] * p[3];
-            float sign = !first && dot < 0.0f ? -1.0f : 1.0f;
-            for (int k = 0; k < 4; ++k)
+            if (t->translation.keyCount > 0)
             {
-                p[k] = sign * q[k];
-                *out++ = p[k];
+                maniEvaluateChannel(&t->translation, 3, time, v);
+                Difference(source, t, 0, v);
+                for (int c = 0; c < 3; ++c)
+                {
+                    *out++ = (float)v[c];
+                }
+            }
+            if (t->rotation.keyCount > 0)
+            {
+                maniEvaluateChannel(&t->rotation, 4, time, v);
+                Difference(source, t, 1, v);
+                out = PutRotation(v, previous + 4 * (size_t)i, first, out);
             }
         }
         if (t->scale.keyCount > 0)
         {
             maniEvaluateChannel(&t->scale, 3, time, v);
             Difference(source, t, 2, v);
-            for (int k = 0; k < 3; ++k)
+            for (int c = 0; c < 3; ++c)
             {
-                *out++ = (float)v[k];
+                *out++ = (float)v[c];
             }
         }
     }
@@ -367,6 +441,9 @@ double maniClipSampleTime(uint32_t k, uint32_t n, float rate, float duration)
 
 typedef struct Plan
 {
+    // NULL without root motion.
+    const RootBone* rootMotion;
+    const uint8_t* rootMotionBytes;
     uint32_t* order;
     uint32_t tracks;
     uint32_t floatsPerSample;
@@ -374,6 +451,29 @@ typedef struct Plan
     float rate;
     float duration;
 } Plan;
+
+// The sections past the samples: the named ones, the compressed ones
+// empty, the root motion.
+static void LaySections(const Plan* plan, const maniClipNamedLayout* named,
+                        const uint8_t** sections, uint64_t* sizes)
+{
+    static const uint8_t kNone = 0;
+    for (uint32_t i = 0; i < 7; ++i)
+    {
+        sections[3 + i] = named->data[i];
+        sizes[3 + i] = named->sizes[i];
+    }
+    for (uint32_t i = MANI_CLIP_SECTIONS; i < MANI_CLIP_ALL_SECTIONS; ++i)
+    {
+        sections[i] = &kNone;
+        sizes[i] = 0;
+    }
+    if (plan->rootMotionBytes != NULL)
+    {
+        sections[maniClipTagRootMotion - 1] = plan->rootMotionBytes;
+        sizes[maniClipTagRootMotion - 1] = maniRootMotionSize(plan->sampleCount);
+    }
+}
 
 static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source, const Plan* plan,
                              const maniClipNamedLayout* named, float* previous)
@@ -408,27 +508,23 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         {
             const maniBoneTrackSource* t = &source->boneTracks[plan->order[i]];
             maniStoreU16(tracks + 4 * (size_t)i, (uint16_t)t->bone);
-            tracks[4 * (size_t)i + 2] = (uint8_t)Mask(t);
+            tracks[4 * (size_t)i + 2] = (uint8_t)Mask(source, t);
             tracks[4 * (size_t)i + 3] = 0;
         }
         for (uint32_t k = 0; k < plan->sampleCount; ++k)
         {
             double time = maniClipSampleTime(k, plan->sampleCount, plan->rate, plan->duration);
-            WriteSample(source, plan->order, plan->tracks, time, previous, k == 0,
+            WriteSample(source, plan->order, plan->tracks, plan->rootMotion, k, time, previous,
                         samples + (size_t)k * plan->floatsPerSample);
         }
-        const uint8_t* sections[MANI_CLIP_SECTIONS] = {header, tracks, (const uint8_t*)samples};
-        uint64_t sizes[MANI_CLIP_SECTIONS] = {sizeof header, trackBytes,
-                                              sampleFloats * sizeof(float)};
-        for (uint32_t i = 0; i < 7; ++i)
-        {
-            sections[3 + i] = named->data[i];
-            sizes[3 + i] = named->sizes[i];
-        }
+        const uint8_t* sections[MANI_CLIP_ALL_SECTIONS] = {header, tracks, (const uint8_t*)samples};
+        uint64_t sizes[MANI_CLIP_ALL_SECTIONS] = {sizeof header, trackBytes,
+                                                  sampleFloats * sizeof(float)};
+        LaySections(plan, named, sections, sizes);
         // Empty sections are left out of the table.
-        maniSectionSource table[MANI_CLIP_SECTIONS];
+        maniSectionSource table[MANI_CLIP_ALL_SECTIONS];
         uint32_t count = 0;
-        for (uint32_t i = 0; i < MANI_CLIP_SECTIONS; ++i)
+        for (uint32_t i = 0; i < MANI_CLIP_ALL_SECTIONS; ++i)
         {
             table[count] = (maniSectionSource){i + 1, sections[i], sizes[i]};
             count += sizes[i] > 0 ? 1 : 0;
@@ -440,8 +536,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         if (file != NULL)
         {
             maniWriteContainer(file, maniKindClip, MANI_CLIP_FORMAT_VERSION,
-                               maniClipComputeIdentity(sections, sizes, MANI_CLIP_SECTIONS), table,
-                               count);
+                               maniClipComputeIdentity(sections, sizes, MANI_CLIP_ALL_SECTIONS),
+                               table, count);
         }
     }
     maniRelease(&builder->allocator, tracks, trackBytes + 1, 1, 8);
@@ -452,6 +548,62 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
     }
     maniBuilderKeep(builder, maniKindClip, file, (size_t)fileSize, NULL, 0);
     return Outcome(mani_success);
+}
+
+// The root bone's locals and the motion taken from them, at each sample;
+// Capacity when the allocator fails.
+static maniResult TakeRoot(maniBuilder* builder, const maniClipSource* source,
+                           const maniBoneTrackSource* track, const Plan* plan, RootBone* root)
+{
+    uint32_t n = plan->sampleCount;
+    double* times = maniAllocate(&builder->allocator, n, sizeof(double), 8);
+    root->locals = maniAllocate(&builder->allocator, (size_t)n * 7, sizeof(double), 8);
+    maniResult r = times != NULL && root->locals != NULL ? mani_success : mani_errorCapacity;
+    for (uint32_t k = 0; r == mani_success && k < n; ++k)
+    {
+        times[k] = maniClipSampleTime(k, n, plan->rate, plan->duration);
+        Local(source, track, times[k], root->locals + 7 * (size_t)k);
+    }
+    maniTransform rest = maniSkeletonRest(source->skeleton, track->bone);
+    const double restLocal[7] = {(double)rest.translation.x, (double)rest.translation.y,
+                                 (double)rest.translation.z, (double)rest.rotation.x,
+                                 (double)rest.rotation.y,    (double)rest.rotation.z,
+                                 (double)rest.rotation.w};
+    r = r == mani_success ? maniRootMotionTake(source->rootMotion, root->locals, restLocal, times,
+                                               n, &builder->allocator, &root->work)
+                          : r;
+    maniRelease(&builder->allocator, times, n, sizeof(double), 8);
+    return r;
+}
+
+// Takes the root motion (if any) out, then writes the file; seen holds
+// each bone's track index + 1.
+static maniBuildResult WriteWithRootMotion(maniBuilder* builder, const maniClipSource* source,
+                                           Plan* plan, const maniClipNamedLayout* named,
+                                           float* previous, const uint32_t* seen)
+{
+    if (source->rootMotion == NULL)
+    {
+        return Write(builder, source, plan, named, previous);
+    }
+    const maniBoneTrackSource* track = &source->boneTracks[seen[source->rootMotion->bone] - 1];
+    RootBone root = {0};
+    uint64_t size = maniRootMotionSize(plan->sampleCount);
+    uint8_t* bytes = maniAllocate(&builder->allocator, (size_t)size, 1, 8);
+    maniBuildResult r = Outcome(mani_errorCapacity);
+    if (bytes != NULL && TakeRoot(builder, source, track, plan, &root) == mani_success)
+    {
+        maniRootMotionWrite(&root.work, bytes);
+        plan->rootMotion = &root;
+        plan->rootMotionBytes = bytes;
+        r = Write(builder, source, plan, named, previous);
+    }
+    plan->rootMotion = NULL;
+    plan->rootMotionBytes = NULL;
+    maniRootMotionRelease(&root.work, &builder->allocator);
+    maniRelease(&builder->allocator, root.locals, (size_t)plan->sampleCount * 7, sizeof(double), 8);
+    maniRelease(&builder->allocator, bytes, (size_t)size, 1, 8);
+    return r;
 }
 
 static maniBuildResult CheckTiming(const maniClipSource* source, float* rateOut)
@@ -493,6 +645,20 @@ static maniBuildResult CheckBasis(const maniClipSource* source)
     return Outcome(mani_success);
 }
 
+// A root motion source: its fields, a bone with a track (seen holds each
+// bone's track index + 1), a clip of poses.
+static maniBuildResult CheckRootMotion(const maniClipSource* source, const uint32_t* seen)
+{
+    const maniRootMotionSource* s = source->rootMotion;
+    if (s == NULL)
+    {
+        return Outcome(mani_success);
+    }
+    bool valid = maniRootMotionSourceValid(s) && source->additive == maniAdditiveNone &&
+                 s->bone < maniSkeletonBoneCount(source->skeleton) && seen[s->bone] != 0;
+    return valid ? Outcome(mani_success) : Refuse(maniBuildReasonRootMotion, s->bone, 0);
+}
+
 maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen,
                                     maniClipTiming* timingOut)
 {
@@ -505,6 +671,10 @@ maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen
     if (r.result == mani_success)
     {
         r = CheckBasis(source);
+    }
+    if (r.result == mani_success)
+    {
+        r = CheckRootMotion(source, seen);
     }
     float namedLast = 0.0f;
     if (r.result == mani_success)
@@ -575,13 +745,14 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
             uint32_t index = scratch[bone];
-            if (index != 0 && Mask(&source->boneTracks[index - 1]) != 0)
+            if (index != 0 && Mask(source, &source->boneTracks[index - 1]) != 0)
             {
                 plan.order[plan.tracks++] = index - 1;
-                plan.floatsPerSample += maniChannelFloats(Mask(&source->boneTracks[index - 1]));
+                plan.floatsPerSample +=
+                    maniChannelFloats(Mask(source, &source->boneTracks[index - 1]));
             }
         }
-        r = Write(builder, source, &plan, &named, previous);
+        r = WriteWithRootMotion(builder, source, &plan, &named, previous, scratch);
         maniReleaseClipNamed(builder, &named);
     }
     maniRelease(&builder->allocator, scratch, words, sizeof(uint32_t), 8);

@@ -26,3 +26,4 @@ are listed in [README.md](README.md).
 | [mani-0019](mani-0019-compressed-clips.md) | Compressed clips | Accepted |
 | [mani-0020](mani-0020-blending.md) | Blending: blends, masks, differences and additive layers | Accepted |
 | [mani-0021](mani-0021-skinning.md) | Skinning and morph targets | Accepted |
+| [mani-0022](mani-0022-root-motion.md) | Root motion | Accepted |

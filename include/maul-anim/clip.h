@@ -65,6 +65,8 @@ extern "C"
         const uint8_t* ranges;
         const uint8_t* segments;
         const uint8_t* segmentData;
+        // The root motion section (NULL without root motion).
+        const uint8_t* rootMotion;
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;

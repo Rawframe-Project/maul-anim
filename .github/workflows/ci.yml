@@ -178,6 +178,7 @@ jobs:
           mkdir -p corpus-fuzz_clip
           build/test_clip --seed corpus-fuzz_clip/sample.clip
           build/test_clip_compress --seed corpus-fuzz_clip/compressed.clip
+          build/test_root_motion --seed corpus-fuzz_clip/root.clip
           mkdir -p corpus-fuzz_json
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf

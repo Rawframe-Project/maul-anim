@@ -46,6 +46,7 @@ endif()
 add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/base.c
     src/clip.c
+    src/root_motion.c
     src/clip_codec.c
     src/additive.c
     src/blend.c
@@ -71,7 +72,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # library, compiled when MAUL_ANIM_OFFLINE is on; tools/modules.txt keeps
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
-    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c
+    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c src/root_motion_build.c
                                      src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c src/gltf_mesh.c
@@ -115,6 +116,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(morph WHITEBOX)
         maul_add_test(clip WHITEBOX)
         maul_add_test(clip_compress WHITEBOX)
+        maul_add_test(root_motion WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

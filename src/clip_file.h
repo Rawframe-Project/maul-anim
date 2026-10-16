@@ -3,9 +3,9 @@
 //
 // The clip file's layout (mani-0006), shared by its view, its builder and
 // its compressor: kind 2 of the container, sections tagged 1 to 10 at
-// full precision, 1 to 15 compressed; an empty section is left out of
-// the table (absent is empty, and nothing else is), so the identity is
-// the same either way.
+// full precision, 1 to 15 compressed, and 16 (root motion) in either; an
+// empty section is left out of the table (absent is empty, and nothing
+// else is), so the identity is the same either way.
 
 #ifndef MAUL_ANIM_SRC_CLIP_FILE_H
 #define MAUL_ANIM_SRC_CLIP_FILE_H
@@ -16,6 +16,7 @@
 #define MANI_CLIP_FORMAT_VERSION      2u
 #define MANI_CLIP_SECTIONS            10u
 #define MANI_CLIP_COMPRESSED_SECTIONS 15u
+#define MANI_CLIP_ALL_SECTIONS        16u
 // The header: skeleton identity (u64), skeleton bone count, sample count
 // (u32 each), sample rate, duration (binary32 each), loop policy, track
 // count, floats per sample, float track count, discrete track count,
@@ -76,7 +77,26 @@ enum
     // byte, or a 16-bit value at rate 0); then its samples' bits, sample-
     // major, least significant bit first. Eight spare bytes end it.
     maniClipTagSegmentData = 15,
+    // Root motion (mani-0022), in either form: its source
+    // (MANI_ROOT_MOTION_HEADER_SIZE), the whole-period move, then per
+    // sample the motion's translation and rotation.
+    maniClipTagRootMotion = 16,
 };
+
+// The root motion header: bone, translation axes, rotation, twist axis,
+// translation reference, rotation reference, loop (u32 each), then zero.
+#define MANI_ROOT_MOTION_HEADER_SIZE 32u
+// A move: translation x, y, z and rotation x, y, z, w (binary32 each);
+// the period's move is followed by a zero float.
+#define MANI_ROOT_MOTION_MOVE_FLOATS 7u
+#define MANI_ROOT_MOTION_PERIOD_SIZE 32u
+
+// The root motion section's size for a clip of n samples.
+static inline uint64_t maniRootMotionSize(uint32_t n)
+{
+    return MANI_ROOT_MOTION_HEADER_SIZE + MANI_ROOT_MOTION_PERIOD_SIZE +
+           4 * (uint64_t)MANI_ROOT_MOTION_MOVE_FLOATS * n;
+}
 
 // A sub-track's form in a compressed clip.
 typedef enum maniClipForm

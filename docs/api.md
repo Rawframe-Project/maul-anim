@@ -709,6 +709,15 @@ maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone);
 ```
 Returns a bone's model matrix, as last composed, split as maniDecomposeAffine splits it.  @param pose  The pose. @param bone  The bone. @return The transform, or the identity for a bone past the count or a matrix that is not finite. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
+## `rootmotion.h`
+
+Root motion (mani-0022): the move a clip's declared bone makes, taken out of the bone at build and kept beside the clip, so the clip plays in place and the host moves the character by the moves it reads.
+
+```c
+bool maniClipRootMotionSource(const maniClip* clip, maniRootMotionSource* sourceOut);
+```
+Reads the source a clip's root motion was taken from.  @param clip       An opened clip. @param sourceOut  Receives the source; unchanged on false. @return True when the clip has root motion. @par Thread safety Safe from any thread.
+
 ## `skeleton.h`
 
 Skeletons (mani-0003): bones in depth-first order, each with a parent, a rest transform and a unique name, read in place from a skeleton file's bytes. Opening a file checks all of it once; the view then reads it without checks and allocates nothing.
@@ -863,4 +872,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-164 functions across 10 headers.
+165 functions across 11 headers.

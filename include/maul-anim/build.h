@@ -12,6 +12,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/morph.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 #include "maul-anim/skinning.h"
@@ -145,6 +146,10 @@ extern "C"
         // for positions, normals or tangents, or given twice (other the
         // earlier); item is the attribute.
         maniBuildReasonAttribute = 21,
+        // A root motion source (mani-0022): a bone outside the skeleton
+        // or without a track, no channel chosen, a field out of range,
+        // or an additive clip; item is the bone.
+        maniBuildReasonRootMotion = 22,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -397,6 +402,10 @@ extern "C"
         // maniAdditiveNone for a clip of poses; otherwise each channel is
         // stored as its difference from the basis (mani-0020).
         maniAdditiveBasis additive;
+        uint32_t reserved;
+        // NULL, or the root motion to take out of a bone (mani-0022): kept
+        // beside the clip, the bone left without it.
+        const maniRootMotionSource* rootMotion;
     } maniClipSource;
 
     /// Builds a full-precision clip file: evaluates every channel at each

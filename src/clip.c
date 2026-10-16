@@ -13,6 +13,7 @@
 #include "clip_view.h"
 #include "container.h"
 #include "pose_memory.h"
+#include "root_motion.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -212,21 +213,21 @@ static maniFileResult CheckSamples(const uint8_t* s, uint64_t at, const uint8_t*
 // A clip file's sections by tag (index tag - 1), an absent one empty.
 typedef struct Sections
 {
-    const uint8_t* data[MANI_CLIP_COMPRESSED_SECTIONS];
-    uint64_t sizes[MANI_CLIP_COMPRESSED_SECTIONS];
-    uint64_t at[MANI_CLIP_COMPRESSED_SECTIONS];
+    const uint8_t* data[MANI_CLIP_ALL_SECTIONS];
+    uint64_t sizes[MANI_CLIP_ALL_SECTIONS];
+    uint64_t at[MANI_CLIP_ALL_SECTIONS];
     // Where each one's size is in the table; the section count for an
     // absent one.
-    uint64_t entry[MANI_CLIP_COMPRESSED_SECTIONS];
+    uint64_t entry[MANI_CLIP_ALL_SECTIONS];
 } Sections;
 
 static const uint8_t kEmpty = 0;
 
-// The table: tags 1 to 15 (the container keeps them increasing), none
+// The table: tags 1 to 16 (the container keeps them increasing), none
 // empty, since an empty section is left out.
 static maniFileResult LoadSections(const maniContainer* c, Sections* s)
 {
-    for (uint32_t i = 0; i < MANI_CLIP_COMPRESSED_SECTIONS; ++i)
+    for (uint32_t i = 0; i < MANI_CLIP_ALL_SECTIONS; ++i)
     {
         s->data[i] = &kEmpty;
         s->sizes[i] = 0;
@@ -238,7 +239,7 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         uint64_t entryAt = MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
         const uint8_t* entry = c->bytes + entryAt;
         uint32_t tag = maniLoadU32(entry);
-        if (tag == 0 || tag > MANI_CLIP_COMPRESSED_SECTIONS)
+        if (tag == 0 || tag > MANI_CLIP_ALL_SECTIONS)
         {
             return Fail(entryAt);
         }
@@ -318,11 +319,15 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
     {
         r = maniCheckClipCompressed(s.data, s.sizes, s.at, s.entry, &clip);
     }
+    uint32_t root = maniClipTagRootMotion - 1;
+    r = r.result == mani_success
+            ? maniCheckClipRootMotion(s.data[root], s.sizes[root], s.at[root], s.entry[root], &clip)
+            : r;
     if (r.result != mani_success)
     {
         return r;
     }
-    if (maniClipComputeIdentity(s.data, s.sizes, MANI_CLIP_COMPRESSED_SECTIONS) != c.identity)
+    if (maniClipComputeIdentity(s.data, s.sizes, MANI_CLIP_ALL_SECTIONS) != c.identity)
     {
         return Fail(40);
     }

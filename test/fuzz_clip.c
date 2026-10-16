@@ -9,6 +9,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/pose.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -153,6 +154,14 @@ static void Exercise(const uint8_t* bytes, size_t size)
     {
         if (maniClipSampleCount(&clip) == 0 || !(maniClipDuration(&clip) >= 0.0f) ||
             !(maniClipSampleRate(&clip) > 0.0f))
+        {
+            abort();
+        }
+        // An opened clip's root motion source is in range.
+        maniRootMotionSource root;
+        if (maniClipRootMotionSource(&clip, &root) &&
+            (root.translationAxes > 7 || root.rotation > maniRootRotationWhole ||
+             (root.translationAxes == 0 && root.rotation == maniRootRotationNone)))
         {
             abort();
         }

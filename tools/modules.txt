@@ -35,13 +35,15 @@ morph_file:
 morph: bytes container morph_file
 morph_build: allocator builder bytes container morph_file sort text
 clip_file:
-clip: bytes clip_codec clip_file clip_view container pose_memory vecmath
+root_motion: bytes clip_file
+clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes
 clip_compressed: bytes clip_codec clip_file clip_view container pose_memory vecmath
 clip_cursor: clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
-clip_build: allocator builder bytes clip_file container quat64
+root_motion_build: allocator bytes clip_file quat64
+clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 clip_shell: additive
