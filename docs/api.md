@@ -336,7 +336,7 @@ Returns the bytes a binding of the graph needs.  @param graph  An opened graph. 
 ```c
 MANI_NODISCARD MANI_API maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton, const maniClip* const* clips, uint32_t count, void* memory, size_t size, maniGraphBinding** bindingOut, uint32_t* unboundOut);
 ```
-Binds a graph to its skeleton and clips: each clip slot to the clip of its identity among clips (in any order, others ignored), each of the graph's skeleton and of the kind the slot was built with. The graph, skeleton and clips must outlive the binding.  @param graph       An opened graph. @param skeleton    The skeleton the graph was built against. @param clips       count opened clips. @param count       The number of clips. @param memory      At least maniGraphBindingSize bytes, MANI_GRAPH_BINDING_ALIGNMENT-aligned. @param size        The memory's size. @param bindingOut  Receives the binding. @param unboundOut  Receives the first slot left unbound on failure (MANI_NO_TRACK otherwise). May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL or misaligned argument, a skeleton that is not the graph's, or a slot no clip binds; `mani_errorCapacity` when the memory is too small. @par Thread safety Safe from any thread.
+Binds a graph to its skeleton and clips: each clip slot to the clip of its identity among clips (in any order, others ignored), each of the graph's skeleton and of the kind the slot was built with. The graph, skeleton and clips must outlive the binding.  @param graph       An opened graph. @param skeleton    The skeleton the graph was built against. @param clips       count opened clips. @param count       The number of clips. @param memory      At least maniGraphBindingSize bytes, MANI_GRAPH_BINDING_ALIGNMENT-aligned. @param size        The memory's size. @param bindingOut  Receives the binding. @param unboundOut  Receives the first slot left unbound on failure (MANI_NO_TRACK otherwise). May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL or misaligned argument, a skeleton that is not the graph's, a slot no clip binds, or clips whose root motion names different bones; `mani_errorCapacity` when the memory is too small. @par Thread safety Safe from any thread.
 
 ```c
 size_t maniGraphInstanceSize(const maniGraphBinding* binding);
@@ -372,6 +372,11 @@ Writes an instance's state as bytes that hold no pointer, to be restored into an
 MANI_NODISCARD MANI_API maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void* bytes, size_t size);
 ```
 Restores a saved state, checked as external bytes: the graph's identity, the size, every parameter in form and every node's state finite and in range. The instance's cursors start over (they cache nothing a pose depends on).  @param instance  An instance of the graph the state was saved from. @param bytes     The state. @param size      Its size in bytes. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorFormat` with the offset of the first byte found wrong (the instance unchanged). @par Thread safety Safe from any thread; the instance is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEvent* events, uint32_t capacity, uint32_t* eventCountOut, maniRootMove* rootMotionOut);
+```
+Moves an instance through time: shares each node's weight down from the output (normalized blends, masks by their largest bone weight, additive layers by their weights, the selected input), moves every clip node's playhead by the step times its speed and the time scales above it (a seek whose trigger is set moving its playheads to its time instead, and consuming the trigger), lists the events clip nodes weighed past MANI_GRAPH_EVENT_THRESHOLD pass in node order, and blends the clips' root motion by the weights the output gives it (masks by their weight at the root motion bone, additive layers none).  @param instance      An instance. @param delta         The step in seconds, finite, either sign. @param events        Receives up to capacity events. May be NULL with a capacity of 0. @param capacity      The events events holds. @param eventCountOut Receives the true count, which may pass the capacity (saturating at UINT32_MAX). May be NULL. @param rootMotionOut Receives the update's root motion. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL instance, events NULL with a capacity, or a step not finite (nothing changed). @par Thread safety Safe from any thread; the instance is used by one thread at a time.
 
 ## `graphbuild.h`
 
@@ -1014,4 +1019,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-192 functions across 13 headers.
+193 functions across 13 headers.

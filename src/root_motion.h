@@ -23,4 +23,21 @@ bool maniRootMotionSourceValid(const maniRootMotionSource* source);
 maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t size, uint64_t at,
                                        uint64_t entry, maniClip* clip);
 
+// A weighted sum of moves as maniBlendRootMotion takes it: translations
+// in binary64, rotations turned into the first weighted one's hemisphere.
+typedef struct maniRootMotionSum
+{
+    double translation[3];
+    double rotation[4];
+    double total;
+    maniQuat lead;
+    bool led;
+} maniRootMotionSum;
+
+// Adds a finite move at a weight above 0.
+void maniRootMotionSumAdd(maniRootMotionSum* sum, const maniRootMove* move, double weight);
+
+// The blend: the move of no motion when nothing was added.
+maniRootMove maniRootMotionSumResult(const maniRootMotionSum* sum);
+
 #endif // MAUL_ANIM_SRC_ROOT_MOTION_H

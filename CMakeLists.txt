@@ -61,6 +61,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_bind.c
     src/graph_instance.c
     src/graph_nodes.c
+    src/graph_update.c
     src/hash.c
     src/influences.c
     src/mask.c

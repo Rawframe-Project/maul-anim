@@ -6,7 +6,7 @@
 // and a select over a clip and a time scale of it. The bytes are tried as
 // they are, then with the header made right so they reach the checks
 // behind it, then with the quaternion parameter made a unit one; a
-// restored state saves back to the same bytes. Run as
+// restored state saves back to the same bytes and updates. Run as
 // fuzz_graph_state <corpus dir>.
 
 #include "maul-anim/base.h"
@@ -126,6 +126,15 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     if (maniSaveGraphInstance(s_live, s_saved, sizeof s_saved) != mani_success ||
         memcmp(s_saved, bytes, s_stateSize) != 0)
+    {
+        abort();
+    }
+    // Updated from any restored state, forward and back.
+    maniGraphEvent events[4];
+    uint32_t count = 0;
+    maniRootMove move;
+    if (maniUpdateGraph(s_live, 0.37f, events, 4, &count, &move) != mani_success ||
+        maniUpdateGraph(s_live, -5.5f, events, 4, &count, &move) != mani_success)
     {
         abort();
     }

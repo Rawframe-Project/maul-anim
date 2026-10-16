@@ -11,8 +11,10 @@
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -57,6 +59,27 @@ static size_t CursorSize(const maniGraphBinding* binding)
     return (largest + 7u) & ~(size_t)7u;
 }
 
+// The one bone the clips' root motion names, into the binding; false
+// when two clips name different bones.
+static bool RootMotionBone(maniGraphBinding* binding)
+{
+    binding->rootMotionBone = MANI_NO_BONE;
+    for (uint32_t s = 0; s < binding->graph.clipCount; ++s)
+    {
+        maniRootMotionSource source;
+        if (!maniClipRootMotionSource(binding->clips[s], &source))
+        {
+            continue;
+        }
+        if (binding->rootMotionBone != MANI_NO_BONE && binding->rootMotionBone != source.bone)
+        {
+            return false;
+        }
+        binding->rootMotionBone = source.bone;
+    }
+    return true;
+}
+
 maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
                          const maniClip* const* clips, uint32_t count, void* memory, size_t size,
                          maniGraphBinding** bindingOut, uint32_t* unboundOut)
@@ -77,6 +100,7 @@ maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
         return mani_errorCapacity;
     }
     maniGraphBinding* binding = memory;
+    binding->graph = *graph;
     for (uint32_t s = 0; s < graph->clipCount; ++s)
     {
         binding->clips[s] = Find(graph, s, clips, count);
@@ -89,9 +113,13 @@ maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
             return mani_errorInvalid;
         }
     }
+    if (!RootMotionBone(binding))
+    {
+        return mani_errorInvalid;
+    }
     binding->stamp = MANI_GRAPH_BINDING_STAMP;
     binding->reserved = 0;
-    binding->graph = *graph;
+    binding->reserved2 = 0;
     binding->skeleton = skeleton;
     binding->cursorSize = CursorSize(binding);
     *bindingOut = binding;

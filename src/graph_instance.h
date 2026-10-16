@@ -32,17 +32,31 @@ struct maniGraphBinding
     const maniSkeleton* skeleton;
     // The bytes each clip node's cursor takes (a multiple of 8).
     size_t cursorSize;
+    // The bone the clips' root motion names (MANI_NO_BONE for none).
+    uint32_t rootMotionBone;
+    uint32_t reserved2;
     // The clip each slot binds, in slot order.
     const maniClip* clips[];
 };
 
+// A node's flags during an update: its time factor set from a parent,
+// and a seek above it firing.
+#define MANI_GRAPH_REACHED 1u
+#define MANI_GRAPH_SEEKING 2u
+
 // A node's state: its effective weight, a word its kind keeps (a
-// select's input), and its playhead in seconds (a clip's).
+// select's input) and its playhead in seconds (a clip's), all saved; and
+// for the update in progress its root motion weight, time factor, flags
+// and the time a seek above it sets.
 typedef struct maniGraphNodeState
 {
     float weight;
     uint32_t word;
     double time;
+    float rootWeight;
+    float factor;
+    uint32_t flags;
+    float seekTo;
 } maniGraphNodeState;
 
 // A cell of an instance: a parameter's value or a node's state.

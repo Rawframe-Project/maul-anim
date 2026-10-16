@@ -61,7 +61,25 @@ runtime allocates (mani-0001).
   negative, playheads finite, a select's word below its inputs) and
   starts the cursors over, which cache nothing a pose depends on.
 
-Update and evaluation follow in this record as they land (item 8).
+- **Update:** weights are shared from the output down, in reverse node
+  order: a normalized blend by its weights over their total (or over
+  1e-5 when the total is smaller), a direct blend by its weights clamped
+  to 1, a mask's inside by its largest bone weight and its outside by
+  the largest remainder, an additive node's layers by their weights,
+  a select's chosen input whole. A node fed by several parents sums
+  their shares and takes its time factor (the product of the time
+  scales above it) from the first. Every clip node's playhead moves by
+  the step, its speed and its factor, wrapped into a repeating clip or
+  clamped; a seek whose trigger is set moves the playheads below it to
+  its time and consumes the trigger. Clip nodes weighed past 1e-5 list
+  the events they pass, in the clip API's windows (forward `[from, to)`,
+  backward `(to, from]`), across any number of wraps, counting whole
+  loops past the buffer. Root motion is the clip nodes' moves blended by
+  root weights, which differ from weights at masks (the weight at the
+  root motion bone, which the binding fixes) and additive layers
+  (none); a clip without root motion adds the move of no motion.
+
+Evaluation follows in this record as it lands (item 8).
 
 ## Consequences
 

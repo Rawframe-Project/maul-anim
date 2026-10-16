@@ -384,6 +384,7 @@ maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void*
         maniGraphNodeState* s = &instance->cells[graph->parameterCount + n].node;
         uint32_t bits = maniLoadU32(p);
         uint64_t timeBits = maniLoadU64(p + 8);
+        *s = (maniGraphNodeState){0};
         memcpy(&s->weight, &bits, sizeof s->weight);
         s->word = maniLoadU32(p + 4);
         memcpy(&s->time, &timeBits, sizeof s->time);

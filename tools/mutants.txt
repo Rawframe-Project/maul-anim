@@ -1370,8 +1370,8 @@ rm-repeated-bit | src/root_motion.c | if ((count & 1u) != 0) | if (count == 1u)
 rm-repeating-backward | src/root_motion.c | maniRootMove out = Between(At(clip, f0), forward ? end : start); | maniRootMove out = Between(At(clip, f0), end);
 rm-repeating-inverse | src/root_motion.c | maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1)); | maniComposeRootMotion(out, Repeated(period, Wraps(w0, w1) - 1));
 rm-repeating-count | src/root_motion.c | maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1)); | maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1)));
-rm-blend-hemisphere | src/root_motion.c | double sw = maniQuatDot(*lead, m->rotation) < 0.0f ? -w : w; | double sw = w;
-rm-blend-zero-weight | src/root_motion.c | if (w == 0.0) | if (false)
+rm-blend-hemisphere | src/root_motion.c | double sw = maniQuatDot(sum->lead, move->rotation) < 0.0f ? -weight : weight; | double sw = weight;
+rm-blend-zero-weight | src/root_motion.c | if (weights[i] != 0.0f) | if (true)
 rm-blend-all-zero | src/root_motion.c | if (!(total > 0.0)) | if (false)
 rm-blend-negative | src/root_motion.c | if (!isfinite(weights[i]) || weights[i] < 0.0f || !MoveFinite(&moves[i])) | if (!isfinite(weights[i]) || !MoveFinite(&moves[i]))
 rm-restore-difference | src/root_motion.c | if (!maniClipFits(clip, skeleton, pose) || maniPoseIsDifference(pose)) | if (!maniClipFits(clip, skeleton, pose))

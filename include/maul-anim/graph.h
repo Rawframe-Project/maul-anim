@@ -11,6 +11,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -254,8 +255,9 @@ extern "C"
     /// @param unboundOut  Receives the first slot left unbound on failure
     ///                    (MANI_NO_TRACK otherwise). May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL or
-    /// misaligned argument, a skeleton that is not the graph's, or a slot
-    /// no clip binds; `mani_errorCapacity` when the memory is too small.
+    /// misaligned argument, a skeleton that is not the graph's, a slot no
+    /// clip binds, or clips whose root motion names different bones;
+    /// `mani_errorCapacity` when the memory is too small.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniBindGraph(const maniGraph* graph,
@@ -361,6 +363,54 @@ extern "C"
     /// Safe from any thread; the instance is used by one thread at a time.
     MANI_NODISCARD MANI_API maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance,
                                                                     const void* bytes, size_t size);
+
+// An event fires only from a clip node weighed past this.
+#define MANI_GRAPH_EVENT_THRESHOLD 1e-5f
+
+    // An event a clip node passed in an update.
+    typedef struct maniGraphEvent
+    {
+        // The clip node, its clip slot and the event's index in the clip.
+        uint32_t node;
+        uint32_t clip;
+        uint32_t event;
+        int32_t payload;
+        uint64_t nameHash;
+        // The node's effective weight and the event's time in its clip.
+        float weight;
+        float time;
+        // 1 passed forward, -1 backward.
+        int32_t direction;
+        uint32_t reserved;
+    } maniGraphEvent;
+
+    /// Moves an instance through time: shares each node's weight down from
+    /// the output (normalized blends, masks by their largest bone weight,
+    /// additive layers by their weights, the selected input), moves every
+    /// clip node's playhead by the step times its speed and the time
+    /// scales above it (a seek whose trigger is set moving its playheads to
+    /// its time instead, and consuming the trigger), lists the events clip
+    /// nodes weighed past MANI_GRAPH_EVENT_THRESHOLD pass in node order,
+    /// and blends the clips' root motion by the weights the output gives it
+    /// (masks by their weight at the root motion bone, additive layers
+    /// none).
+    ///
+    /// @param instance      An instance.
+    /// @param delta         The step in seconds, finite, either sign.
+    /// @param events        Receives up to capacity events. May be NULL
+    ///                      with a capacity of 0.
+    /// @param capacity      The events events holds.
+    /// @param eventCountOut Receives the true count, which may pass the
+    ///                      capacity (saturating at UINT32_MAX). May be NULL.
+    /// @param rootMotionOut Receives the update's root motion. May be NULL.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL instance,
+    /// events NULL with a capacity, or a step not finite (nothing changed).
+    /// @par Thread safety
+    /// Safe from any thread; the instance is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniUpdateGraph(maniGraphInstance* instance, float delta,
+                                                       maniGraphEvent* events, uint32_t capacity,
+                                                       uint32_t* eventCountOut,
+                                                       maniRootMove* rootMotionOut);
 
 #ifdef __cplusplus
 }

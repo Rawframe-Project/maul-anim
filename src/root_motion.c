@@ -262,6 +262,38 @@ static bool MoveFinite(const maniRootMove* m)
            isfinite(m->rotation.w);
 }
 
+void maniRootMotionSumAdd(maniRootMotionSum* sum, const maniRootMove* move, double weight)
+{
+    if (!sum->led)
+    {
+        sum->lead = move->rotation;
+        sum->led = true;
+    }
+    double sw = maniQuatDot(sum->lead, move->rotation) < 0.0f ? -weight : weight;
+    sum->total += weight;
+    sum->translation[0] += weight * (double)move->translation.x;
+    sum->translation[1] += weight * (double)move->translation.y;
+    sum->translation[2] += weight * (double)move->translation.z;
+    sum->rotation[0] += sw * (double)move->rotation.x;
+    sum->rotation[1] += sw * (double)move->rotation.y;
+    sum->rotation[2] += sw * (double)move->rotation.z;
+    sum->rotation[3] += sw * (double)move->rotation.w;
+}
+
+maniRootMove maniRootMotionSumResult(const maniRootMotionSum* sum)
+{
+    double total = sum->total;
+    if (!(total > 0.0))
+    {
+        return maniRootMoveIdentity();
+    }
+    const double* t = sum->translation;
+    const double* q = sum->rotation;
+    return (maniRootMove){
+        {(float)(t[0] / total), (float)(t[1] / total), (float)(t[2] / total)},
+        maniQuatNormalize((maniQuat){(float)q[0], (float)q[1], (float)q[2], (float)q[3]})};
+}
+
 maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, uint32_t count,
                                maniRootMove* moveOut)
 {
@@ -276,37 +308,15 @@ maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, 
             return mani_errorInvalid;
         }
     }
-    double total = 0.0;
-    double t[3] = {0.0, 0.0, 0.0};
-    double q[4] = {0.0, 0.0, 0.0, 0.0};
-    const maniQuat* lead = NULL;
+    maniRootMotionSum sum = {0};
     for (uint32_t i = 0; i < count; ++i)
     {
-        double w = (double)weights[i];
-        if (w == 0.0)
+        if (weights[i] != 0.0f)
         {
-            continue;
+            maniRootMotionSumAdd(&sum, &moves[i], (double)weights[i]);
         }
-        const maniRootMove* m = &moves[i];
-        lead = lead == NULL ? &m->rotation : lead;
-        double sw = maniQuatDot(*lead, m->rotation) < 0.0f ? -w : w;
-        total += w;
-        t[0] += w * (double)m->translation.x;
-        t[1] += w * (double)m->translation.y;
-        t[2] += w * (double)m->translation.z;
-        q[0] += sw * (double)m->rotation.x;
-        q[1] += sw * (double)m->rotation.y;
-        q[2] += sw * (double)m->rotation.z;
-        q[3] += sw * (double)m->rotation.w;
     }
-    if (!(total > 0.0))
-    {
-        *moveOut = maniRootMoveIdentity();
-        return mani_success;
-    }
-    *moveOut = (maniRootMove){
-        {(float)(t[0] / total), (float)(t[1] / total), (float)(t[2] / total)},
-        maniQuatNormalize((maniQuat){(float)q[0], (float)q[1], (float)q[2], (float)q[3]})};
+    *moveOut = maniRootMotionSumResult(&sum);
     return mani_success;
 }
 

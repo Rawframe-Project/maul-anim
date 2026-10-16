@@ -23,13 +23,14 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_GRAPH_HASH 0x74d949fc8a152768ull
+#define PINNED_GRAPH_HASH 0xf597515aaf4a4cfaull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -69,9 +70,12 @@ static void OpenClips(void)
         {0, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
         {2, 0, kNone, {kTimes, kWave, 2, maniInterpolationLinear}, kNone},
     };
+    static const maniEventSource kSteps[2] = {{0.0f, 7, "left", 4, 0}, {0.5f, 8, "right", 5, 0}};
     for (int i = 0; i < 3; ++i)
     {
         maniClipSource source = {.skeleton = &s_skeleton,
+                                 .events = i == 0 ? kSteps : NULL,
+                                 .eventCount = i == 0 ? 2u : 0u,
                                  .boneTracks = &tracks[i],
                                  .boneTrackCount = 1,
                                  .loop = maniLoopRepeat,
@@ -663,6 +667,188 @@ static void TestSaveRestore(void)
           "a short state; the instance unchanged by refusals");
 }
 
+static maniGraphInstance* NewInstance(maniGraph* g, maniGraphBinding** bindingOut)
+{
+    maniGraphBinding* binding = Bound(g);
+    maniGraphInstance* instance = NULL;
+    CHECK(binding != NULL &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "an instance");
+    if (bindingOut != NULL)
+    {
+        *bindingOut = binding;
+    }
+    return instance;
+}
+
+static maniGraphNodeState* State(maniGraphInstance* instance, const maniGraph* g, uint32_t p)
+{
+    return &instance->cells[g->parameterCount + p].node;
+}
+
+static bool Near(double a, double b)
+{
+    return fabs(a - b) <= 1e-5;
+}
+
+static bool NearF(float a, double b)
+{
+    return Near((double)a, b);
+}
+
+// Weights from the output down, playheads moved by speed and time scale,
+// across a wrap; the select's choice kept.
+static void TestWeights(void)
+{
+    maniGraph g;
+    maniGraphInstance* instance = NewInstance(&g, NULL);
+    maniGraphEvent events[8];
+    uint32_t count = 0;
+    maniRootMove move;
+    CHECK(maniUpdateGraph(instance, 0.4f, events, 8, &count, &move) == mani_success, "updates");
+    // Walk 0, run 1, blend 2, select 3, mask 4, time scale 5, seek 6,
+    // wave 7, the output 8.
+    static const float kWeights[9] = {4.0f / 3.0f, 2.0f / 3.0f, 1, 1, 1, 1, 1, 1, 1};
+    bool weights = true;
+    for (uint32_t p = 0; p < 9; ++p)
+    {
+        weights = weights && NearF(State(instance, &g, p)->weight, (double)kWeights[p]);
+    }
+    CHECK(weights, "weights shared down: the walk by both blend and select");
+    CHECK(State(instance, &g, 0)->rootWeight == 1.0f &&
+              State(instance, &g, 1)->rootWeight == 0.0f &&
+              State(instance, &g, 7)->rootWeight == 0.0f,
+          "root weights: the mask's outside (no root motion bone), no layer");
+    CHECK(Near(State(instance, &g, 0)->time, 0.6) && Near(State(instance, &g, 1)->time, 0.6) &&
+              Near(State(instance, &g, 7)->time, 0.4),
+          "playheads by the time scale above them");
+    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
+              Near(State(instance, &g, 0)->time, 0.35) && count == 1,
+          "a wrap: the walk at 0.35, its first event counted past no buffer");
+    CHECK(maniSetGraphParameter(instance, 2, maniGraphParameterInt, Int(1)) == mani_success &&
+              maniUpdateGraph(instance, 0.0f, NULL, 0, NULL, NULL) == mani_success &&
+              State(instance, &g, 3)->word == 1 && NearF(State(instance, &g, 1)->weight, 5.0 / 3.0),
+          "the select's choice: the run");
+    CHECK(maniUpdateGraph(NULL, 0.1f, NULL, 0, NULL, NULL) == mani_errorInvalid &&
+              maniUpdateGraph(instance, NAN, NULL, 0, NULL, NULL) == mani_errorInvalid &&
+              maniUpdateGraph(instance, 0.1f, NULL, 3, NULL, NULL) == mani_errorInvalid,
+          "misuses");
+}
+
+static void TestEvents(void)
+{
+    maniGraph g;
+    maniGraphInstance* instance = NewInstance(&g, NULL);
+    maniGraphEvent events[4];
+    uint32_t count = 0;
+    CHECK(maniUpdateGraph(instance, 0.4f, events, 4, &count, NULL) == mani_success && count == 2,
+          "the walk's two steps from 0 to 0.6");
+    CHECK(events[0].node == 0 && events[0].clip == 0 && events[0].event == 0 &&
+              events[0].payload == 7 && events[0].direction == 1 && events[0].time == 0.0f &&
+              NearF(events[0].weight, 4.0 / 3.0) && events[1].event == 1 && events[1].payload == 8,
+          "records: node, slot, event, payload, weight, time, direction");
+    CHECK(maniUpdateGraph(instance, -0.4f, events, 4, &count, NULL) == mani_success && count == 1 &&
+              events[0].event == 1 && events[0].direction == -1,
+          "backward from 0.6 to 0: the right step at 0.5 only");
+    CHECK(maniUpdateGraph(instance, 0.4f, events, 1, &count, NULL) == mani_success && count == 2 &&
+              events[0].event == 0,
+          "past the capacity: the true count");
+    // A million seconds at 1.5: 1.5 million loops of two steps each.
+    CHECK(maniUpdateGraph(instance, 1.0e6f, events, 4, &count, NULL) == mani_success &&
+              count >= 2999999 && count <= 3000001,
+          "a huge step counted, not listed");
+    CHECK(maniSetGraphParameter(instance, 3, maniGraphParameterTrigger, Int(1)) == mani_success &&
+              maniUpdateGraph(instance, 0.3f, events, 4, &count, NULL) == mani_success &&
+              count == 0 && Near(State(instance, &g, 0)->time, 0.25) &&
+              Near(State(instance, &g, 1)->time, 0.25),
+          "a seek: playheads at its time, no events");
+    maniGraphValue trigger = Get(instance, 3);
+    CHECK(trigger.b == 0, "the trigger consumed");
+}
+
+static _Alignas(16) uint8_t s_rootClipFiles[3][8192];
+static maniClip s_rootClips[3];
+
+// The walk with its hips' travel along x as root motion (0, from bone 0;
+// 2, from the spine), and the run without.
+static void OpenRootClips(void)
+{
+    static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
+    static const maniRootMotionSource kHips = {0, maniRootAxisX, 0, 0, 0, 0, 0, 0};
+    static const maniRootMotionSource kSpine = {1, maniRootAxisX, 0, 0, 0, 0, 0, 0};
+    const maniBoneTrackSource tracks[3] = {
+        {0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+        {1, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+    };
+    for (int i = 0; i < 3; ++i)
+    {
+        maniClipSource source = {.skeleton = &s_skeleton,
+                                 .boneTracks = &tracks[i],
+                                 .boneTrackCount = 1,
+                                 .loop = maniLoopRepeat,
+                                 .sampleRate = 10.0f,
+                                 .rootMotion = i == 0 ? &kHips : (i == 2 ? &kSpine : NULL)};
+        maniBuilder* builder = NewBuilder();
+        size_t size = 0;
+        CHECK(maniBuildClip(builder, &source).result == mani_success &&
+                  maniCopyBuilt(builder, s_rootClipFiles[i], sizeof s_rootClipFiles[i], &size) ==
+                      mani_success &&
+                  maniOpenClip(s_rootClipFiles[i], size, &s_rootClips[i]).result == mani_success,
+              "a root motion clip");
+        maniDestroyBuilder(builder);
+    }
+}
+
+// A blend of a walk with root motion and a run without, by a parameter.
+static void TestRootMotion(void)
+{
+    OpenRootClips();
+    maniGraphParameterSource parameters[1] = {
+        Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0))};
+    maniGraphClipSource clips[2] = {{&s_rootClips[0], "walk", 4, 0},
+                                    {&s_rootClips[1], "run", 3, 0}};
+    static const uint32_t kInputs[2] = {0, 1};
+    const maniGraphScalar weights[2] = {{0, 0.0f}, {MANI_NO_PARAMETER, 0.5f}};
+    const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, one, maniGraphLoopClip, 0}},
+        {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, one, maniGraphLoopClip, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}},
+    };
+    maniGraphSource source = {&s_skeleton, parameters, clips, NULL, nodes, 1, 2, 0, 3, 2, 0};
+    maniGraph g;
+    const maniClip* bound[2] = {&s_rootClips[0], &s_rootClips[1]};
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    CHECK(Build(&source).result == mani_success &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniBindGraph(&g, &s_skeleton, bound, 2, s_bindingMemory, sizeof s_bindingMemory,
+                            &binding, NULL) == mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "a root motion graph");
+    maniRootMove move;
+    // The walk moves 1 a second; half the weight, half a second: 0.25.
+    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, NULL, &move) == mani_success &&
+              Near((double)move.translation.x, 0.25) && move.translation.z == 0.0f &&
+              move.rotation.w == 1.0f,
+          "the walk's travel blended with the run's none");
+    CHECK(maniSetGraphParameter(instance, 0, maniGraphParameterFloat, Float(1.5f, 0, 0, 0)) ==
+                  mani_success &&
+              maniUpdateGraph(instance, 0.8f, NULL, 0, NULL, &move) == mani_success &&
+              Near((double)move.translation.x, 0.6),
+          "three quarters of the walk across its wrap");
+    clips[1].clip = &s_rootClips[2];
+    bound[1] = &s_rootClips[2];
+    CHECK(Build(&source).result == mani_success &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniBindGraph(&g, &s_skeleton, bound, 2, s_bindingMemory, sizeof s_bindingMemory,
+                            &binding, NULL) == mani_errorInvalid,
+          "clips moving different bones refused");
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -702,6 +888,9 @@ int main(int argc, char** argv)
     TestBind();
     TestParameters();
     TestSaveRestore();
+    TestWeights();
+    TestEvents();
+    TestRootMotion();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

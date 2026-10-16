@@ -23,6 +23,11 @@ format.
   set (clamped, normalized, checked) and read parameters;
   `maniSaveGraphInstance` and `maniRestoreGraphInstance` save a state
   without pointers and restore it after checking it as external bytes.
+- Graph updates (mani-0023): `maniUpdateGraph` shares weights down from
+  the output, moves clip playheads by speed and time scales (seeks set
+  them), lists the events clip nodes pass across any number of wraps
+  (counted past the buffer), and blends the clips' root motion by the
+  weights the output gives it.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its
