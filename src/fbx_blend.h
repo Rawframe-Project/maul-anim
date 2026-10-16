@@ -24,6 +24,10 @@ typedef struct maniFbxBlendShape
     double target;
 } maniFbxBlendShape;
 
+// Whether the file is from Blender's binary exporter (by its Creator, as
+// ufbx decides), whose FullWeights are per-vertex weights.
+bool maniFbxFromBlender(const maniFbx* fbx);
+
 // Whether an object is a blend shape channel.
 bool maniFbxIsBlendChannel(const maniFbx* fbx, uint32_t object);
 

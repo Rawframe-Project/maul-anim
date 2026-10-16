@@ -26,6 +26,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
+#include "maul-anim/morph.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 
@@ -219,6 +220,33 @@ static void SkinsAndClips(maniBuilder* builder, const maniFbx* fbx, uint32_t ske
     free(block);
 }
 
+// The first sets of morph targets: their rest weights, built, opened and
+// applied at those weights over their first vertices.
+static void Morphs(maniBuilder* builder, const maniFbx* fbx, const maniFbxOptions* options)
+{
+    static _Alignas(16) uint8_t file[1 << 16];
+    static float weights[256];
+    static float positions[3 * 64];
+    for (uint32_t k = 0; k < maniFbxMorphCount(fbx) && k < 4; ++k)
+    {
+        (void)maniFbxMorphModel(fbx, k);
+        uint32_t count = maniFbxMorphTargetCount(fbx, k);
+        size_t size = 0;
+        maniMorphTargets m;
+        if (count <= 256 && maniFbxMorphWeights(fbx, k, weights, count).result == mani_success &&
+            maniFbxBuildMorphTargets(builder, fbx, k, options).result == mani_success &&
+            maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+            maniOpenMorphTargets(file, size, &m).result == mani_success)
+        {
+            uint32_t vertices = maniMorphVertexCount(&m);
+            maniMorphStream stream = {positions, positions, 12, 12, maniMorphPosition, 0, 3, 0};
+            maniMorphJob job = {&m, weights, 0, vertices < 64 ? vertices : 64, 1, 0, &stream};
+            memset(positions, 0, sizeof positions);
+            (void)maniApplyMorphTargets(&job);
+        }
+    }
+}
+
 // Builds the first skeletons and model subtrees, with the default options
 // and with axes and units converted, helpers everywhere and the
 // placement folded.
@@ -233,6 +261,7 @@ static void Build(maniBuilder* builder, const maniFbx* fbx)
     options[1].foldPlacement = 1;
     for (uint32_t o = 0; o < 2; ++o)
     {
+        Morphs(builder, fbx, &options[o]);
         maniAffine placement;
         for (uint32_t k = 0; k < maniFbxSkeletonCount(fbx) && k < 4; ++k)
         {

@@ -147,8 +147,8 @@ extern "C"
                                            size_t length);
 
     /// Returns a target's name, UTF-8 and not terminated: the one it was
-    /// built with, else its channel's, followed by its index within the
-    /// channel past the first. Clip weight tracks (`<node or mesh>/<name>`)
+    /// built with, else its channel's, followed by '/' and its index
+    /// within the channel past the first. Clip weight tracks (`<node or mesh>/<name>`)
     /// bind to targets by it.
     ///
     /// @param targets    Opened morph targets.

@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_MORPH_FILE 0x360ed5148978ca78ull
+#define PINNED_MORPH_FILE 0x1e05bc5c3d0f7b09ull
 #define PINNED_MORPH_JOB  0x505a297b9b1d7aabull
 
 enum
@@ -178,11 +178,11 @@ static void TestBuildsAndReads(void)
               maniMorphFindChannel(&m, "", 0) == MANI_NO_CHANNEL,
           "find");
     const char* target = maniMorphTargetName(&m, 2, &length);
-    CHECK(length == 6 && memcmp(target, "blink1", 6) == 0, "a target's default name");
+    CHECK(length == 7 && memcmp(target, "blink/1", 7) == 0, "a target's default name");
     target = maniMorphTargetName(&m, 1, &length);
     CHECK(length == 5 && memcmp(target, "blink", 5) == 0, "a first target: the channel's name");
     CHECK(maniMorphFindTarget(&m, "shut", 4) == 3 && maniMorphFindTarget(&m, "wide", 4) == 4 &&
-              maniMorphFindTarget(&m, "blink2", 6) == MANI_NO_CHANNEL &&
+              maniMorphFindTarget(&m, "blink/2", 7) == MANI_NO_CHANNEL &&
               maniMorphFindTarget(&m, NULL, 0) == MANI_NO_CHANNEL &&
               maniMorphTargetName(&m, 5, &length) == NULL && length == 0,
           "a given name; find");
@@ -779,7 +779,7 @@ static void TestOpenRefusals(void)
     ExpectFormat(SectionAt(maniMorphTagChannels) + 2 * MANI_MORPH_CHANNEL_SIZE + 12,
                  "a name past the bytes");
     BuildSample();
-    Craft(maniMorphTagNames, "smileblinkwidesmileblinkblink1shutwide!", 39);
+    Craft(maniMorphTagNames, "smileblinkwidesmileblinkblink/1shutwide!", 40);
     ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 6 * MANI_CONTAINER_ENTRY_SIZE + 16,
                  "name bytes left over");
     BuildSample();

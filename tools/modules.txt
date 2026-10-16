@@ -84,6 +84,7 @@ fbx_skeleton: allocator basis builder decompose fbx_document fbx_helpers fbx_mod
 fbx_take: allocator fbx_anim fbx_document fbx_keys fbx_object fbx_value
 fbx_tracks: arena fbx_anim fbx_blend fbx_clip_state fbx_document fbx_model fbx_object fbx_skin fbx_transform fbx_value
 fbx_influences: arena fbx_document fbx_object fbx_skin fbx_value sort
+fbx_morph: arena basis fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_value
 fbx_skin: allocator basis fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document

@@ -257,7 +257,7 @@ static uint32_t Decimal(uint32_t k, char* out)
 }
 
 // The k-th target of a channel's name into out (NULL to measure): its
-// own, or the channel's with k appended past the first; its length.
+// own, or the channel's with '/' and k appended past the first; its length.
 static uint64_t TargetName(const maniMorphChannelSource* ch, uint32_t k, uint8_t* out)
 {
     const maniMorphTargetSource* t = &ch->targets[k];
@@ -269,8 +269,8 @@ static uint64_t TargetName(const maniMorphChannelSource* ch, uint32_t k, uint8_t
         }
         return t->nameLength;
     }
-    char digits[10];
-    uint32_t n = k > 0 ? Decimal(k, digits) : 0;
+    char digits[11] = {'/'};
+    uint32_t n = k > 0 ? 1 + Decimal(k, digits + 1) : 0;
     if (out != NULL)
     {
         memcpy(out, ch->name, ch->nameLength);

@@ -659,7 +659,7 @@ extern "C"
         // where the target leaves it. NULL for none at all.
         const float* const* deltas;
         // The name, UTF-8, not empty; NULL for the channel's name followed
-        // by the target's index within the channel past the first.
+        // by '/' and the target's index within the channel past the first.
         const char* name;
         uint32_t nameLength;
         uint32_t reserved;

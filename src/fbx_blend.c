@@ -105,7 +105,7 @@ static bool Matches(const char* format, const uint8_t* s, uint32_t length)
 
 // Whether the file is from Blender's binary exporter, by its Creator
 // alone as ufbx decides (the ASCII exporter's Creator differs).
-static bool FromBlender(const maniFbx* fbx)
+bool maniFbxFromBlender(const maniFbx* fbx)
 {
     uint32_t header = maniFbxFindChild(fbx, 0, "FBXHeaderExtension", 18);
     uint32_t creator =
@@ -153,7 +153,7 @@ static maniImportResult Targets(const maniFbx* fbx, uint32_t channel, maniFbxBle
     uint32_t node = maniFbxFindChild(fbx, fbx->objects[channel].node, "FullWeights", 11);
     uint32_t property = node != MANI_FBX_NONE ? maniFbxNodeProperty(fbx, node, 0) : MANI_FBX_NONE;
     uint32_t n = maniFbxArrayCount(fbx, property);
-    if (n == 0 || FromBlender(fbx))
+    if (n == 0 || maniFbxFromBlender(fbx))
     {
         return maniFbxSuccess();
     }

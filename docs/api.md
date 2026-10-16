@@ -512,6 +512,31 @@ MANI_NODISCARD MANI_API maniImportResult maniFbxBuildInfluences(maniBuilder* bui
 Builds a skin's influences into the builder, a vertex a control point of its mesh, bound to the opened skin maniFbxBuildSkin built from it (a cluster's index its joint): every cluster's Indexes and Weights, indices past the control points skipped, a vertex given twice by one cluster summed, then sorted and renormalized as maniBuildInfluences does; blend weights (BlendIndexes and BlendWeights, 1 for a dual quaternion skin, 0 else) unless the method is linear.  @param builder  The builder. @param fbx      The document. @param skin     The skin. @param built    The opened skin. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a skin past the count; `mani_errorFormat` with a reason: Property (no control points, Indexes and Weights of different counts), Influence (a weight below 0, a blend weight outside 0 to 1), Data, Build; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+uint32_t maniFbxMorphCount(const maniFbx* fbx);
+```
+Returns how many sets of morph targets the document has: its BlendShape deformers, in file order, then (before 7.2) the meshes holding Shape children.  @param fbx  The document; NULL gives 0. @return The count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniFbxMorphModel(const maniFbx* fbx, uint32_t morph);
+```
+Returns the mesh model a set of morph targets deforms; its bone name begins the clips' weight tracks for it (`<mesh>/<target>`).  @param fbx    The document. @param morph  The set. @return The model, or UINT32_MAX for none or a set past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniFbxMorphTargetCount(const maniFbx* fbx, uint32_t morph);
+```
+Returns the number of targets a set of morph targets has: its channels' shapes, but a shape after another of the same full weight (whose weight track is always 0).  @param fbx    The document. @param morph  The set. @return The count; 0 past the count. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxBuildMorphTargets( maniBuilder* builder, const maniFbx* fbx, uint32_t morph, const maniFbxOptions* options);
+```
+Builds a set of morph targets into the builder, as ufbx reads them: a channel a BlendShapeChannel (a Shape child before 7.2), its shapes the targets at FullWeights / 100 (as the clips order them), a vertex a control point; positions and normals as offsets in the options' axes (positions in its unit too), indices past the control points skipped, Blender's per-vertex weights folded in; a shape after another of the same full weight left out, as is a channel without shapes. Channels are named as their objects; a target as its shape, else as its channel with '/' and its index past the first, as weight tracks are.  @param builder  The builder. @param fbx      The document. @param morph    The set. @param options  The options the skeleton was built with. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a set past the count or options out of range; `mani_errorFormat` with a reason: Property (no control points, a shape's arrays of mismatched sizes), Data, Build (a full weight of 0, or a name not UTF-8; the item the builder's reason); `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut, uint32_t count);
+```
+Reads the target weights a set of morph targets has at rest: each channel's DeformPercent walked through its shapes, as the clips' weight tracks are.  @param fbx         The document. @param morph       The set. @param weightsOut  Receives count weights. @param count       The set's target count. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a set past the count or another count; `mani_errorFormat` (Data) for a FullWeights value not finite; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread.
+
+```c
 uint32_t maniFbxClipCount(const maniFbx* fbx);
 ```
 Returns how many clips the document has: its animation stacks (takes), in file order (mani-0016).  @param fbx  The document; NULL gives 0. @return The count. @par Thread safety Safe from any thread.
@@ -578,7 +603,7 @@ Finds a channel by its name, in time linear in the channels.  @param targets  Op
 ```c
 const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target, uint32_t* lengthOut);
 ```
-Returns a target's name, UTF-8 and not terminated: the one it was built with, else its channel's, followed by its index within the channel past the first. Clip weight tracks (`<node or mesh>/<name>`) bind to targets by it.  @param targets    Opened morph targets. @param target     The target. @param lengthOut  Receives the name's length in bytes, 0 for a target past the count. May be NULL. @return The name's bytes, inside the file, or NULL for a target past the count. @par Thread safety Safe from any thread.
+Returns a target's name, UTF-8 and not terminated: the one it was built with, else its channel's, followed by '/' and its index within the channel past the first. Clip weight tracks (`<node or mesh>/<name>`) bind to targets by it.  @param targets    Opened morph targets. @param target     The target. @param lengthOut  Receives the name's length in bytes, 0 for a target past the count. May be NULL. @return The name's bytes, inside the file, or NULL for a target past the count. @par Thread safety Safe from any thread.
 
 ```c
 uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name, size_t length);
@@ -838,4 +863,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-159 functions across 10 headers.
+164 functions across 10 headers.

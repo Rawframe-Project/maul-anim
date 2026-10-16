@@ -75,10 +75,17 @@ format.
   now its first primitive with targets', as glTF defines it.
 - Morph targets are named (mani-0021): `maniMorphTargetName` and
   `maniMorphFindTarget`; a target without a given name takes its
-  channel's, with its index past the first. Clip weight tracks bind to
+  channel's, with '/' and its index past the first. Clip weight tracks bind to
   targets by these names.
 - FBX influences (mani-0021): `maniFbxBuildInfluences` reads a skin's
   clusters into influences a control point at a time, as ufbx reads
   them; `maniFbxSkinMethod` names the job to run (`maniSkinningMethod`:
   linear, dual quaternion or blended, from SkinningType and the
   per-vertex blend weights).
+- FBX blend shapes as morph targets (mani-0021):
+  `maniFbxBuildMorphTargets` builds a BlendShape deformer's channels (or
+  a 6.x mesh's Shape children) as ufbx reads them, in-betweens and
+  negative targets sorted, Blender's per-vertex weights folded in, each
+  target named as its clip weight track; `maniFbxMorphCount`,
+  `maniFbxMorphModel`, `maniFbxMorphTargetCount` and
+  `maniFbxMorphWeights` describe the sets and their rest weights.
