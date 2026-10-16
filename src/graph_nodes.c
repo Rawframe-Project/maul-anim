@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "graph_inertia.h"
 #include "graph_machine_file.h"
 #include "graph_shot.h"
 
@@ -397,6 +398,39 @@ static maniFileResult InputsValid(const maniGraph* g, const Node* n, uint32_t p,
     return kOk;
 }
 
+// The first wrong data word of node p, whose block (if it keeps one)
+// starts at blockAt, or UINT32_MAX.
+static uint32_t WordsValid(const maniGraph* g, const Node* n, uint32_t p, uint32_t blockAt)
+{
+    switch (n->kind)
+    {
+    case maniGraphNodeMachine:
+        return maniGraphMachineValid(g, p, n->data, n->count, blockAt);
+    case maniGraphNodeOneShot:
+        return maniGraphShotValid(g, p, n->data, blockAt);
+    case maniGraphNodeInertialize:
+        return maniGraphInertiaValid(g, n->data, blockAt);
+    default:
+        return DataValid(g, n);
+    }
+}
+
+// The words of the block node n keeps in an instance.
+static uint32_t BlockWords(const maniGraph* g, const Node* n)
+{
+    switch (n->kind)
+    {
+    case maniGraphNodeMachine:
+        return MANI_GRAPH_BLOCK_SIZE(n->count, Word(g, n->data + 2), Word(g, n->data + 4));
+    case maniGraphNodeOneShot:
+        return MANI_GRAPH_SHOT_BLOCK_WORDS;
+    case maniGraphNodeInertialize:
+        return MANI_GRAPH_INERTIA_BLOCK(g->skeletonBoneCount);
+    default:
+        return 0;
+    }
+}
+
 maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_t inputsAt,
                                    uint64_t dataAt, uint32_t* machineWordsOut)
 {
@@ -412,11 +446,7 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         {
             return r;
         }
-        bool machine = n.kind == maniGraphNodeMachine;
-        bool shot = n.kind == maniGraphNodeOneShot;
-        uint32_t wrong = shot ? maniGraphShotValid(g, p, n.data, blockAt) : UINT32_MAX;
-        wrong = machine ? maniGraphMachineValid(g, p, n.data, n.count, blockAt)
-                        : (shot ? wrong : DataValid(g, &n));
+        uint32_t wrong = WordsValid(g, &n, p, blockAt);
         if (wrong != UINT32_MAX)
         {
             return Fail(dataAt + 4 * (uint64_t)wrong);
@@ -428,9 +458,7 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         inputAt += n.count;
         wordAt += n.words;
-        blockAt += machine
-                       ? MANI_GRAPH_BLOCK_SIZE(n.count, Word(g, n.data + 2), Word(g, n.data + 4))
-                       : (shot ? MANI_GRAPH_SHOT_BLOCK_WORDS : 0u);
+        blockAt += BlockWords(g, &n);
     }
     *machineWordsOut = blockAt;
     if (inputAt != g->inputCount)

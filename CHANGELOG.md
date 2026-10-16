@@ -91,6 +91,16 @@ format.
   of clip time left, or on a fade-out trigger; an abort trigger stops it
   at once. An optional mask weighs the shot per bone. Its state is saved
   and restored with the instance; in the JSON form as `oneShot`.
+- Inertialization (mani-0023): `maniGraphNodeInertialize` eases out
+  the jumps of its input. A machine transition faded `inertial`
+  switches at once and asks the nearest such node above it for its
+  duration, as the node's own trigger does; the least request of an
+  update wins. Each bone's offset from the node's last output decays
+  by Bollo's quintic (translation and scale by direction and length,
+  rotation by axis and angle), from the speed of its last two outputs
+  when they came from consecutive updates. The builder refuses an
+  inertial transition with no node above it. Its state is saved and
+  restored with the instance; in the JSON form as `inertialize`.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

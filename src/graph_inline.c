@@ -300,6 +300,10 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
     case maniGraphNodeMachine:
         RemapMachine(s, f, node);
         return;
+    case maniGraphNodeInertialize:
+        node->inertialize.trigger = Resolve(s, node->inertialize.trigger);
+        node->inertialize.duration = Scalar(s, node->inertialize.duration);
+        return;
     case maniGraphNodeOneShot:
         node->oneShot.fire = Resolve(s, node->oneShot.fire);
         node->oneShot.fadeOutTrigger = Resolve(s, node->oneShot.fadeOutTrigger);

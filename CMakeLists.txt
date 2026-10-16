@@ -67,6 +67,8 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_machine_listen.c
     src/graph_shot.c
     src/graph_shot_step.c
+    src/graph_inertia.c
+    src/graph_inertia_apply.c
     src/graph_space.c
     src/graph_update.c
     src/graph_evaluate.c
@@ -140,6 +142,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_machine WHITEBOX)
         maul_add_test(graph_listen WHITEBOX)
         maul_add_test(graph_shot WHITEBOX)
+        maul_add_test(graph_inertia WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

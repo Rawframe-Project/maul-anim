@@ -240,6 +240,10 @@ extern "C"
     {
         maniGraphFadeLinear = 0,
         maniGraphFadeSmoothstep = 1,
+        // At once, its duration requested of the inertialize nodes above
+        // the machine (one on every path to the output, or the build
+        // refuses it).
+        maniGraphFadeInertial = 2,
     };
 
     // A transition of a state machine: from a state (or
@@ -297,6 +301,20 @@ extern "C"
         float fadeOut;
         const maniGraphMaskNodeSource* mask;
     } maniGraphOneShotNodeSource;
+
+    // An inertialize node: one input, whose discontinuities it eases out
+    // (Bollo's inertialization: the offset from its last output decays to
+    // 0 by a quintic over the requested seconds). Requests come from the
+    // inertial transitions of the machines beneath it (the nearest such
+    // node above on their first parents' path takes them) and from its
+    // trigger (MANI_NO_PARAMETER for none), for duration seconds (not
+    // negative); the least of one update's requests is taken.
+    typedef struct maniGraphInertializeNodeSource
+    {
+        uint32_t trigger;
+        uint32_t reserved;
+        maniGraphScalar duration;
+    } maniGraphInertializeNodeSource;
 
     typedef struct maniGraphSource maniGraphSource;
 
@@ -378,6 +396,7 @@ extern "C"
             maniGraphTrianglesNodeSource triangulated;
             maniGraphMachineNodeSource machine;
             maniGraphOneShotNodeSource oneShot;
+            maniGraphInertializeNodeSource inertialize;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
@@ -476,7 +495,8 @@ extern "C"
     /// empty; a transition's priority 0, interruption "none", entry
     /// "restart", fade "linear", duration and cooldown 0 and conditions
     /// empty; a one-shot's fadeOutTrigger and abort none, curve "linear",
-    /// fadeIn and fadeOut 0, mask none (the whole body); parameters,
+    /// fadeIn and fadeOut 0, mask none (the whole body); an
+    /// inertialize node's trigger none and duration 0; parameters,
     /// clips and syncGroups empty). Each clip slot name, at
     /// any nesting, takes the host's clip of that name (the first of
     /// equal names). The source read is then built as maniBuildGraph

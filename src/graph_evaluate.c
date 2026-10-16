@@ -7,6 +7,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "graph_inertia_apply.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
 #include "graph_shot.h"
@@ -308,6 +309,21 @@ static void Shot(const Evaluation* e, const uint8_t* record, maniPose* out, bool
     }
 }
 
+// An inertialize node: its input eased by its block, which keeps the
+// output.
+static void Inertia(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
+{
+    uint32_t* block = (uint32_t*)((uint8_t*)e->instance + e->instance->machinesAt) +
+                      Word(e, maniLoadU32(record + 12) + 3);
+    const maniPose* input = InputPose(e, record, 0);
+    if (input == NULL)
+    {
+        Neutral(e, out, difference);
+        return;
+    }
+    maniGraphInertiaEvaluate(block, e->graph->skeletonBoneCount, input, out);
+}
+
 static void Additive(const Evaluation* e, const uint8_t* record, maniPose* out)
 {
     uint32_t d = maniLoadU32(record + 12);
@@ -370,6 +386,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodeOneShot:
         Shot(e, record, out, difference);
+        return;
+    case maniGraphNodeInertialize:
+        Inertia(e, record, out, difference);
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);

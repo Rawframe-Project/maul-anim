@@ -433,7 +433,7 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
 {
     static const char* const kInterruptions[] = {"\"none\"", "\"higher\"", "\"any\""};
     static const char* const kEntries[] = {"\"restart\"", "\"keep\"", "\"match\""};
-    static const char* const kFades[] = {"\"linear\"", "\"smoothstep\""};
+    static const char* const kFades[] = {"\"linear\"", "\"smoothstep\"", "\"inertial\""};
     PutText(w, "{");
     PutKey(w, "from");
     if (t->from == MANI_GRAPH_ANY_STATE)
@@ -544,6 +544,16 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeOneShot:
         PutShot(w, source, &n->oneShot);
         return;
+    case maniGraphNodeInertialize:
+        if (n->inertialize.trigger != MANI_NO_PARAMETER)
+        {
+            PutKey(w, "trigger");
+            PutParameterName(w, source, n->inertialize.trigger);
+            PutText(w, ", ");
+        }
+        PutKey(w, "duration");
+        PutScalar(w, source, n->inertialize.duration);
+        return;
     case maniGraphNodeAdditive:
         PutKey(w, "weights");
         PutScalars(w, source, n->additive.weights, n->inputCount - 1);
@@ -604,7 +614,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "blendSpaceTriangles",
                                          "blendSpaceBands",
                                          "machine",
-                                         "oneShot"};
+                                         "oneShot",
+                                         "inertialize"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

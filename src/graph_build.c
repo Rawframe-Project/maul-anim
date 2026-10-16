@@ -443,6 +443,13 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     {
         at = PutShot(source, node, d, at, lay);
     }
+    else if (node->kind == maniGraphNodeInertialize)
+    {
+        at = PutScalar(d, PutWords(d, at, &node->inertialize.trigger, 1),
+                       node->inertialize.duration);
+        at = PutWords(d, at, &lay->blockAt, 1);
+        lay->blockAt += MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton));
+    }
     else if (node->kind == maniGraphNodeSelect)
     {
         at = PutWords(d, at, &node->select.parameter, 1);

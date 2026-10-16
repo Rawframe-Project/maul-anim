@@ -581,7 +581,7 @@ static void TestOpenRefusals(void)
     CHECK(RefusedAtWordOf(&g, 3, 8, 5, 16), "priorities out of order");
     CHECK(RefusedAtWord(&g, 3, 9, 3), "an interruption past any");
     CHECK(RefusedAtWord(&g, 3, 9, 0x30u), "an entry past match");
-    CHECK(RefusedAtWord(&g, 3, 9, 0x200u), "a fade past smoothstep");
+    CHECK(RefusedAtWord(&g, 3, 9, 0x300u), "a fade past inertial");
     CHECK(RefusedAtWord(&g, 3, 10, Bits(-1.0f)), "a negative duration");
     CHECK(RefusedAtWord(&g, 3, 11, 0x7FC00000u), "a cooldown not finite");
     CHECK(RefusedAtWord(&g, 3, 12, 1), "a first condition not in turn");

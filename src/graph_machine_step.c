@@ -160,7 +160,9 @@ static void Fade(const maniGraphMachine* m, uint32_t* block)
     uint32_t running = block[maniGraphBlockRunning];
     float duration = TransitionFloat(m, running, 4);
     float elapsed = maniGraphBlockFloat(block, maniGraphBlockElapsed);
-    bool done = !(elapsed < duration);
+    // An inertial transition switches at once; its duration is the
+    // inertialize node's.
+    bool done = !(elapsed < duration) || Transition(m, running, 3) >> 8 == maniGraphFadeInertial;
     float c = done ? 1.0f : elapsed / duration;
     if (Transition(m, running, 3) >> 8 == maniGraphFadeSmoothstep)
     {
@@ -194,6 +196,11 @@ static void Fire(const maniGraphMachine* m, maniGraphCell* cells, uint32_t* bloc
     }
     uint32_t to = Transition(m, t, 1);
     uint32_t entry = Transition(m, t, 3) >> 4 & 0xFu;
+    float duration = TransitionFloat(m, t, 4);
+    if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial && duration < entered->inertia)
+    {
+        entered->inertia = duration;
+    }
     if (entry != maniGraphEntryKeep && !(maniGraphMachineWeight(block, to) > 0.0f))
     {
         entered->states[entered->count] = to;
@@ -230,6 +237,7 @@ void maniGraphStepMachine(const maniGraphMachine* m, maniGraphCell* cells, uint3
                           double seconds, maniGraphEntered* entered)
 {
     entered->count = 0;
+    entered->inertia = HUGE_VALF;
     Advance(m, block, seconds);
     uint32_t count = maniGraphMachineCount(m);
     uint32_t limit = maniGraphMachineWord(m, 1);

@@ -1420,7 +1420,7 @@ up-time-scale-product | src/graph_update.c | share.factor *= Scalar(u, d); | sha
 up-seek-consume | src/graph_update.c | trigger->b = 0; | trigger->b = 1;
 up-seek-time | src/graph_update.c | share.seekTo = Scalar(u, d + 1); | share.seekTo = 0.0f;
 up-weigh-reset | src/graph_update.c | s->weight = 0.0f; | s->weight = s->weight * 1.0f;
-up-output-root | src/graph_update.c | *output = (maniGraphNodeState){1.0f, output->word, output->time, 1.0f, 1.0f, MANI_GRAPH_REACHED, | *output = (maniGraphNodeState){1.0f, output->word, output->time, 0.0f, 1.0f, MANI_GRAPH_REACHED,
+up-output-root | src/graph_update.c | output->rootWeight = 1.0f; | output->rootWeight = 0.0f;
 up-clip-loop-override | src/graph_update.c | clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat); | clip.loop = loop == 0 ? clip.loop : maniLoopRepeat;
 up-place-negative | src/graph_update.c | w = w < 0.0 ? w + d : w; | w = w * 1.0;
 up-place-clamp-low | src/graph_update.c | return t < 0.0 ? 0.0 : (t > d ? d : t); | return t > d ? d : t;

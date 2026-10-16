@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "graph_inertia.h"
 #include "graph_machine.h"
 #include "graph_shot.h"
 
@@ -79,14 +80,23 @@ static uint32_t* Blocks(maniGraphInstance* instance)
     return (uint32_t*)((uint8_t*)instance + instance->machinesAt);
 }
 
-// The one-shot node p's block's first word, or UINT32_MAX for another
-// kind.
+// The one-shot or inertialize node p's block's first word, or UINT32_MAX
+// for another kind.
 static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
 {
     const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
     maniGraphShot shot = {graph, maniLoadU32(e + 12), 0};
+    if (maniLoadU16(e) == maniGraphNodeInertialize)
+    {
+        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + 3));
+    }
     return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
                                                   : UINT32_MAX;
+}
+
+static bool Inertial(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeInertialize;
 }
 
 static void ResetMachines(maniGraphInstance* instance)
@@ -99,6 +109,10 @@ static void ResetMachines(maniGraphInstance* instance)
         if (m.states > 0)
         {
             maniGraphResetMachine(&m, Blocks(instance) + maniGraphMachineBlockAt(&m));
+        }
+        else if (shot != UINT32_MAX && Inertial(graph, p))
+        {
+            maniGraphResetInertia(Blocks(instance) + shot, graph->skeletonBoneCount);
         }
         else if (shot != UINT32_MAX)
         {
@@ -426,8 +440,10 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
             continue;
         }
         uint64_t block = at + 4 * (uint64_t)first;
-        uint32_t wrong = m.states > 0 ? maniGraphSavedBlockValid(&m, b + block)
-                                      : maniGraphSavedShotValid(b + block);
+        uint32_t bones = graph->skeletonBoneCount;
+        uint32_t wrong = m.states > 0         ? maniGraphSavedBlockValid(&m, b + block)
+                         : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, bones)
+                                              : maniGraphSavedShotValid(b + block);
         if (wrong != UINT32_MAX)
         {
             return Fail(block + 4 * (uint64_t)wrong);

@@ -30,7 +30,8 @@ typedef struct maniGraphTally
     uint32_t maxTransitions;
     uint32_t listeners;
     uint32_t longestList;
-    uint32_t reserved;
+    // The machines with an inertial transition.
+    uint32_t inertial;
 } maniGraphTally;
 
 maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t other);

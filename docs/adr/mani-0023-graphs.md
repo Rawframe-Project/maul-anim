@@ -228,6 +228,32 @@ runtime allocates (mani-0001).
   weight, weight, clip seconds left) lies with the machines' and joins
   the saved state, which refuses a phase out of range and a weight its
   phase does not allow.
+- **Inertialization** (`maniGraphNodeInertialize`, Bollo's GDC 2018
+  and SIGGRAPH 2017 supplemental) takes one input and eases out its
+  jumps. A machine transition whose fade is `inertial` switches at once
+  (as a fade of 0) and requests its duration of the inertialize node on
+  its first parents' path; the node's optional trigger requests its
+  own duration scalar; the least request of an update is taken. The
+  builder refuses a machine with an inertial transition that the output
+  reaches without passing an inertialize node (Unreal can only log
+  this at runtime). Poses exist only in evaluation, so the node
+  captures on its first evaluation after a request: per bone,
+  translation and scale by the direction and length of the offset from
+  its last output to the input, rotation by the axis and angle of the
+  turn on the shorter arc, the earlier output projected on that
+  direction (a rotation's twist about the axis) for the speed. The
+  speed is used only when its last two outputs came from consecutive
+  updates (a skipped evaluation gives none; a second evaluation in one
+  update replaces the last, not the one before), clamped to at most 0
+  (moving away does not overshoot), and the duration cut to -5 x0 / v0
+  when sooner. The offset decays by the quintic of zero jerk at its
+  end, evaluated in the fraction of the duration; its clock is its own
+  time, the update's delta times the factor it is reached with, so the
+  first output after a request is one step in. A seek above the node
+  clears it. Its block (clocks, the pending request, serials, the last
+  two outputs and the capture per bone) joins the saved state, which
+  refuses non-finite words, negative seconds and directions not of
+  unit length.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

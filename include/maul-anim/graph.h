@@ -103,6 +103,9 @@ extern "C"
         // A one-shot: a shot (input 1) played over a base (input 0) when
         // a trigger fires it, faded in and out by its weight.
         maniGraphNodeOneShot = 12,
+        // An inertialize node: its input with the discontinuities
+        // requested beneath it eased out over the requested time.
+        maniGraphNodeInertialize = 13,
     };
 
     // A graph over a file's bytes, which the caller keeps alive and

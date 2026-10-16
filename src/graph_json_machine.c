@@ -3,7 +3,7 @@
 //
 // A transition: {"from": state or "any", "to", "priority", "interruption":
 // "none" | "higher" | "any", "entry": "restart" | "keep" | "match",
-// "fade": "linear" | "smoothstep", "duration", "cooldown", "conditions"},
+// "fade": "linear" | "smoothstep" | "inertial", "duration", "cooldown", "conditions"},
 // all but from and to optional. A condition: {"parameter": name,
 // "compare": "==" | "!=" | "<" | "<=" | ">" | ">=", "value": of the
 // parameter's type}, {"trigger": name}, {"timeInState": seconds},
@@ -173,14 +173,14 @@ static bool Transition(maniGraphReader* r, const maniGraphScope* scope, uint32_t
                                         "fade", "duration", "cooldown", "conditions"};
     static const char* const kInterruptions[] = {"none", "higher", "any"};
     static const char* const kEntries[] = {"restart", "keep", "match"};
-    static const char* const kFades[] = {"linear", "smoothstep"};
+    static const char* const kFades[] = {"linear", "smoothstep", "inertial"};
     uint32_t f[9];
     *t = (maniGraphTransitionSource){0};
     return maniGraphJsonMembers(r, object, kKeys, 9, 3u, f) && State(r, f[0], true, &t->from) &&
            State(r, f[1], false, &t->to) &&
            (f[2] == ABSENT || maniGraphJsonIndex(r, f[2], &t->priority)) &&
            Choice(r, f[3], kInterruptions, 3, &t->interruption) &&
-           Choice(r, f[4], kEntries, 3, &t->entry) && Choice(r, f[5], kFades, 2, &t->fade) &&
+           Choice(r, f[4], kEntries, 3, &t->entry) && Choice(r, f[5], kFades, 3, &t->fade) &&
            (f[6] == ABSENT || maniGraphJsonFloat(r, f[6], &t->duration)) &&
            (f[7] == ABSENT || maniGraphJsonFloat(r, f[7], &t->cooldown)) &&
            Conditions(r, scope, f[8], t);

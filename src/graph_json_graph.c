@@ -487,6 +487,7 @@ static const KindForm kForms[] = {
      {"kind", "inputs", "fire", "fadeOutTrigger", "abort", "curve", "fadeIn", "fadeOut", "mask"},
      9,
      7u},
+    {"inertialize", maniGraphNodeInertialize, {"kind", "inputs", "trigger", "duration"}, 4, 3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -658,6 +659,12 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return maniGraphJsonMachine(r, scope, f + 2, n);
     case maniGraphNodeOneShot:
         return Shot(r, scope, f, &n->oneShot);
+    case maniGraphNodeInertialize:
+        n->inertialize =
+            (maniGraphInertializeNodeSource){MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.0f}};
+        return (f[2] == ABSENT ||
+                maniGraphJsonRefer(r, &scope->parameters, f[2], &n->inertialize.trigger)) &&
+               (f[3] == ABSENT || maniGraphJsonScalar(r, scope, f[3], &n->inertialize.duration));
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

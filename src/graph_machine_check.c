@@ -72,7 +72,7 @@ static bool TransitionValid(const maniGraphSource* source, const maniGraphTransi
 {
     bool ok = (t->from < states || t->from == MANI_GRAPH_ANY_STATE) && t->to < states &&
               t->from != t->to && t->interruption <= maniGraphInterruptionAny &&
-              t->entry <= maniGraphEntryMatch && t->fade <= maniGraphFadeSmoothstep &&
+              t->entry <= maniGraphEntryMatch && t->fade <= maniGraphFadeInertial &&
               isfinite(t->duration) && t->duration >= 0.0f && isfinite(t->cooldown) &&
               t->cooldown >= 0.0f && t->conditionCount <= MANI_GRAPH_MAX_CONDITIONS &&
               (t->conditions != NULL || t->conditionCount == 0);
@@ -136,6 +136,46 @@ bool maniGraphMachineListens(const maniGraphNodeSource* n)
         }
     }
     return listens;
+}
+
+uint32_t maniGraphFirstInertial(const maniGraphNodeSource* n)
+{
+    uint32_t t = 0;
+    while (n->kind == maniGraphNodeMachine && t < n->machine.transitionCount &&
+           n->machine.transitions[t].fade != maniGraphFadeInertial)
+    {
+        ++t;
+    }
+    return n->kind == maniGraphNodeMachine && t < n->machine.transitionCount ? t : UINT32_MAX;
+}
+
+maniBuildResult maniCheckGraphInertial(const maniGraphSource* source, uint32_t* stamp,
+                                       uint32_t* stack)
+{
+    uint32_t depth = 1;
+    stack[0] = source->output;
+    stamp[source->output] = 1;
+    while (depth > 0)
+    {
+        uint32_t v = stack[--depth];
+        const maniGraphNodeSource* node = &source->nodes[v];
+        uint32_t t = maniGraphFirstInertial(node);
+        if (t != UINT32_MAX)
+        {
+            return Refuse(maniBuildReasonTransition, v, t);
+        }
+        for (uint32_t k = 0; k < (node->kind == maniGraphNodeInertialize ? 0u : node->inputCount);
+             ++k)
+        {
+            uint32_t u = node->inputs[k];
+            if (stamp[u] == 0)
+            {
+                stamp[u] = 1;
+                stack[depth++] = u;
+            }
+        }
+    }
+    return kOk;
 }
 
 uint32_t maniGraphMachineSourceWords(const maniGraphNodeSource* n)

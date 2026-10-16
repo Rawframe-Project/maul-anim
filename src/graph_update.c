@@ -7,6 +7,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "graph_inertia.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
 #include "graph_machine_listen.h"
@@ -88,6 +89,7 @@ typedef struct Share
     float factor;
     float seekTo;
     uint32_t flags;
+    uint32_t inertia;
 } Share;
 
 static void Give(const Update* u, uint32_t input, Share share)
@@ -99,6 +101,7 @@ static void Give(const Update* u, uint32_t input, Share share)
     {
         s->factor = share.factor;
         s->seekTo = share.seekTo;
+        s->inertia = share.inertia;
         s->flags = MANI_GRAPH_REACHED | (share.flags & (MANI_GRAPH_SEEKING | MANI_GRAPH_PHASE));
     }
 }
@@ -111,7 +114,8 @@ static bool Reached(const maniGraphNodeState* s)
 
 static Share Pass(const maniGraphNodeState* s, float part, float rootPart)
 {
-    return (Share){s->weight * part, s->rootWeight * rootPart, s->factor, s->seekTo, s->flags};
+    return (Share){s->weight * part, s->rootWeight * rootPart, s->factor, s->seekTo, s->flags,
+                   s->inertia};
 }
 
 static void ShareBlend(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
@@ -185,6 +189,23 @@ static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNo
     }
 }
 
+static uint32_t* BlockAt(const Update* u, uint32_t first)
+{
+    return (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + first;
+}
+
+// An inertialize node's request of seconds: the least of an update's.
+static void Request(const Update* u, uint32_t node, float seconds)
+{
+    if (node == MANI_GRAPH_NO_NODE || !(seconds >= 0.0f))
+    {
+        return;
+    }
+    uint32_t* block = BlockAt(u, Word(u, maniLoadU32(Record(u, node) + 12) + 3));
+    float pending = maniGraphInertiaGet(block, maniGraphInertiaPending);
+    maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending);
+}
+
 // A machine a parent reached stepped by its own time, then its states
 // shared by their weights; a state it entered at weight 0 this step by a
 // restart or a match reached even so, seeking 0 or the leading clip's
@@ -206,6 +227,7 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     maniGraphEntered entered;
     maniGraphStepMachine(&m, u->instance->cells, block, fabs(u->delta * (double)s->factor),
                          &entered);
+    Request(u, s->inertia, entered.inertia);
     for (uint32_t k = 0; k < m.states; ++k)
     {
         float weight = maniGraphMachineWeight(block, k);
@@ -279,6 +301,38 @@ static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNod
     }
 }
 
+// An inertialize node a parent reached: its count and step for the
+// evaluation, its clock advanced, its trigger read; its input reached as
+// it was, with this node the nearest above. A seek above clears it.
+static void ShareInertia(const Update* u, const uint8_t* record, const maniGraphNodeState* s,
+                         uint32_t p)
+{
+    if (!Reached(s))
+    {
+        return;
+    }
+    uint32_t d = maniLoadU32(record + 12);
+    uint32_t* block = BlockAt(u, Word(u, d + 3));
+    if ((s->flags & MANI_GRAPH_SEEKING) != 0)
+    {
+        maniGraphResetInertia(block, u->graph->skeletonBoneCount);
+    }
+    float step = (float)fabs(u->delta * (double)s->factor);
+    block[maniGraphInertiaSerial] += 1u;
+    maniGraphInertiaSet(block, maniGraphInertiaStep, step);
+    double elapsed = (double)maniGraphInertiaGet(block, maniGraphInertiaElapsed) + (double)step;
+    maniGraphInertiaSet(block, maniGraphInertiaElapsed, (float)elapsed);
+    uint32_t trigger = Word(u, d);
+    if (trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0)
+    {
+        u->instance->cells[trigger].value.b = 0;
+        Request(u, p, Scalar(u, d + 1));
+    }
+    Share share = Pass(s, 1.0f, 1.0f);
+    share.inertia = p;
+    Give(u, InputOf(u, record, 0), share);
+}
+
 // The input a select's parameter chooses, clamped to its inputs.
 static uint32_t Chosen(const Update* u, const uint8_t* record)
 {
@@ -330,10 +384,13 @@ static void Weigh(const Update* u)
         s->factor = 0.0f;
         s->flags = 0;
         s->seekTo = 0.0f;
+        s->inertia = MANI_GRAPH_NO_NODE;
     }
     maniGraphNodeState* output = Node(u, n - 1);
-    *output = (maniGraphNodeState){1.0f, output->word, output->time, 1.0f, 1.0f, MANI_GRAPH_REACHED,
-                                   0.0f, output->from, output->step};
+    output->weight = 1.0f;
+    output->rootWeight = 1.0f;
+    output->factor = 1.0f;
+    output->flags = MANI_GRAPH_REACHED;
     for (uint32_t p = n; p-- > 0;)
     {
         const uint8_t* record = Record(u, p);
@@ -363,6 +420,10 @@ static void Weigh(const Update* u)
         else if (kind == maniGraphNodeOneShot)
         {
             ShareShot(u, record, s);
+        }
+        else if (kind == maniGraphNodeInertialize)
+        {
+            ShareInertia(u, record, s, p);
         }
         else if (kind != maniGraphNodeClip)
         {

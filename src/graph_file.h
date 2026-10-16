@@ -127,6 +127,23 @@ enum
 // after the update before (binary64, +inf for none or repeating).
 #define MANI_GRAPH_SHOT_BLOCK_WORDS 6u
 
+// An inertialize node's data words: its trigger (MANI_NO_PARAMETER for
+// none), its request's duration as a scalar, and the first word of its
+// block in an instance's machine state.
+#define MANI_GRAPH_INERTIA_WORDS 4u
+// Its block: flags (active, last output kept, the one before kept), its
+// update count, this update's step, the elapsed and requested seconds,
+// the pending request (+inf for none), the last output's count and step,
+// the one before's count, a zero word (binary32 for seconds); then per
+// bone its last two outputs (translation, rotation, scale: ten binary32
+// each) and the capture per channel (translation, rotation, scale): a
+// unit direction or axis, the offset's magnitude or angle, its speed and
+// its duration.
+#define MANI_GRAPH_INERTIA_HEADER     10u
+#define MANI_GRAPH_INERTIA_BONE_WORDS 38u
+#define MANI_GRAPH_INERTIA_BLOCK(bones)                                                            \
+    (MANI_GRAPH_INERTIA_HEADER + MANI_GRAPH_INERTIA_BONE_WORDS * (bones))
+
 // The data words a node of a kind with n inputs holds; 0 for an unknown
 // kind, a state machine and a one-shot, whose words their contents
 // count.

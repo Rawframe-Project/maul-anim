@@ -125,7 +125,7 @@ static uint32_t TransitionValid(const maniGraph* g, uint32_t at, uint32_t states
         return at + 2;
     }
     if ((flags & 0xFu) > maniGraphInterruptionAny || (flags >> 4 & 0xFu) > maniGraphEntryMatch ||
-        (flags >> 8) > maniGraphFadeSmoothstep)
+        (flags >> 8) > maniGraphFadeInertial)
     {
         return at + 3;
     }

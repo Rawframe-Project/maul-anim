@@ -345,6 +345,12 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return CheckMask(source, &n->mask, node);
     case maniGraphNodeOneShot:
         return CheckShotNode(source, n, node);
+    case maniGraphNodeInertialize:
+        return n->inertialize.trigger == MANI_NO_PARAMETER ||
+                       ParameterOf(source, n->inertialize.trigger, maniGraphParameterTrigger,
+                                   maniGraphParameterTrigger)
+                   ? CheckScalar(source, n->inertialize.duration, node, 0, 0.0f, HUGE_VALF)
+                   : maniGraphRefuse(maniBuildReasonNode, node, 0);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -401,7 +407,11 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
         machine ? MANI_GRAPH_BLOCK_SIZE(n->inputCount, transitions, maniGraphMachineConditions(n))
                 : (shot ? MANI_GRAPH_SHOT_BLOCK_WORDS : 0u);
     tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
+    tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX ? 1u : 0u;
     tally->maskCount += shot && n->oneShot.mask != NULL ? 1u : 0u;
+    tally->machineWords += n->kind == maniGraphNodeInertialize
+                               ? MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton))
+                               : 0u;
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
     tally->maskCount += n->kind == maniGraphNodeMask ? 1u : 0u;
@@ -436,6 +446,21 @@ static maniBuildResult TallyLists(const maniGraphSource* source, const maniAlloc
     }
     maniRelease(allocator, work, 2 * n, sizeof(uint32_t), 4);
     return Outcome(mani_success);
+}
+
+// Every machine with an inertial transition below an inertialize node.
+static maniBuildResult CheckInertial(const maniGraphSource* source, const maniAllocator* allocator)
+{
+    size_t n = source->nodeCount;
+    uint32_t* work = maniAllocate(allocator, 2 * n, sizeof(uint32_t), 4);
+    if (work == NULL)
+    {
+        return Outcome(mani_errorCapacity);
+    }
+    memset(work, 0, n * sizeof(uint32_t));
+    maniBuildResult r = maniCheckGraphInertial(source, work, work + n);
+    maniRelease(allocator, work, 2 * n, sizeof(uint32_t), 4);
+    return r;
 }
 
 static bool CountsValid(const maniGraphSource* source)
@@ -479,6 +504,10 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     if (r.result == mani_success && tallyOut->listeners > 0)
     {
         r = TallyLists(source, allocator, tallyOut);
+    }
+    if (r.result == mani_success && tallyOut->inertial > 0)
+    {
+        r = CheckInertial(source, allocator);
     }
     if (r.result == mani_success &&
         (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX))

@@ -19,6 +19,16 @@
 maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniGraphNodeSource* n,
                                       uint32_t node);
 
+// A machine's first inertial transition, or UINT32_MAX (for a node of
+// another kind too).
+uint32_t maniGraphFirstInertial(const maniGraphNodeSource* n);
+
+// Refuses a machine's first inertial transition when the machine is
+// reached from the output on a path through no inertialize node; stamp
+// (zeroed) and stack hold a word per node.
+maniBuildResult maniCheckGraphInertial(const maniGraphSource* source, uint32_t* stamp,
+                                       uint32_t* stack);
+
 // Whether a machine listens: a transition with a phase, finished or
 // event condition or a match entry.
 bool maniGraphMachineListens(const maniGraphNodeSource* n);

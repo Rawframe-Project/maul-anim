@@ -53,7 +53,9 @@ struct maniGraphBinding
 // select's input) and its playhead in seconds (a clip's), all saved; and
 // for the update in progress its root motion weight, time factor, flags
 // and the time a seek above it sets; a clip's playhead before the update
-// and how far it moved (0 for a seek), kept until the next.
+// and how far it moved (0 for a seek), kept until the next; the nearest
+// inertialize node above it on its first parent's path (UINT32_MAX for
+// none).
 typedef struct maniGraphNodeState
 {
     float weight;
@@ -65,6 +67,8 @@ typedef struct maniGraphNodeState
     float seekTo;
     double from;
     double step;
+    uint32_t inertia;
+    uint32_t reserved;
 } maniGraphNodeState;
 
 // A sync group's flags during an update: its leader declared, its
