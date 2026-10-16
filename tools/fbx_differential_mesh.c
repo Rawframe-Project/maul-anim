@@ -299,6 +299,8 @@ void CompareSkinsAt(Context* c, uint32_t clip, const maniPose* pose, const ufbx_
                      "clip %u t=%g skin %u (method %u) vertex %u%s", clip, time, k, method, differs,
                      opened ? "" : " (not built)");
         }
+        Release(&skinBlob);
+        Release(&blob);
     }
 }
 
