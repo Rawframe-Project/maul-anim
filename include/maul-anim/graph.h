@@ -38,6 +38,13 @@ extern "C"
 #define MANI_GRAPH_MAX_SYNC_GROUPS 65536u
 // The most points (and inputs) a blend space has.
 #define MANI_GRAPH_MAX_SPACE_POINTS 256u
+// The most transitions of one state machine, conditions of one
+// transition, and transitions one machine takes in an update.
+#define MANI_GRAPH_MAX_TRANSITIONS 4096u
+#define MANI_GRAPH_MAX_CONDITIONS  16u
+#define MANI_GRAPH_MAX_CHAIN       16u
+// A transition's source when it leaves from any state.
+#define MANI_GRAPH_ANY_STATE 0xFFFFFFFFu
 
     // A parameter's type. A trigger is set by the host and consumed by the
     // first node that reads it within an update.
@@ -90,6 +97,9 @@ extern "C"
         maniGraphNodeBlendSpaceTriangles = 9,
         // A blend space in a plane by gradient bands, cartesian or polar.
         maniGraphNodeBlendSpaceBands = 10,
+        // A state machine: its inputs are its states, blended by the
+        // weights its transitions give them.
+        maniGraphNodeMachine = 11,
     };
 
     // A graph over a file's bytes, which the caller keeps alive and
@@ -118,7 +128,7 @@ extern "C"
         uint32_t syncGroupCount;
         uint32_t maskCount;
         uint32_t slotCount;
-        uint32_t reserved;
+        uint32_t machineWords;
     } maniGraph;
 
     /// Opens a graph file in place: checks the container, every record,
@@ -337,8 +347,9 @@ extern "C"
                                                              uint32_t parameter,
                                                              maniGraphValue* valueOut);
 
-    /// Returns the bytes an instance's saved state takes: its parameters
-    /// and its nodes' state, with the graph's identity.
+    /// Returns the bytes an instance's saved state takes: its parameters,
+    /// its nodes' state and its state machines', with the graph's
+    /// identity.
     ///
     /// @param binding  A binding.
     /// @return The size; 0 for a NULL binding.
@@ -360,8 +371,8 @@ extern "C"
                                                              void* out, size_t capacity);
 
     /// Restores a saved state, checked as external bytes: the graph's
-    /// identity, the size, every parameter in form and every node's state
-    /// finite and in range. The instance's cursors start over (they cache
+    /// identity, the size, every parameter in form and every node's and
+    /// state machine's state finite and in range. The instance's cursors start over (they cache
     /// nothing a pose depends on).
     ///
     /// @param instance  An instance of the graph the state was saved from.

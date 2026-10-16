@@ -342,6 +342,118 @@ static void PutTriangles(Writer* w, const maniGraphTrianglesNodeSource* s)
     PutText(w, "]");
 }
 
+// A condition in its form: a parameter compared with a value of its
+// type, a trigger, or time in state.
+static void PutCondition(Writer* w, const maniGraphSource* source,
+                         const maniGraphConditionSource* c)
+{
+    static const char* const kCompares[] = {"\"==\"", "\"!=\"", "\"<\"",
+                                            "\"<=\"", "\">\"",  "\">=\""};
+    PutText(w, "{");
+    if (c->kind == maniGraphConditionTimeInState)
+    {
+        PutKey(w, "timeInState");
+        PutFloat(w, c->value.f[0]);
+    }
+    else if (c->kind == maniGraphConditionTrigger)
+    {
+        PutKey(w, "trigger");
+        PutParameterName(w, source, c->parameter);
+    }
+    else
+    {
+        maniGraphParameterType type = source->parameters[c->parameter].type;
+        PutKey(w, "parameter");
+        PutParameterName(w, source, c->parameter);
+        PutText(w, ", ");
+        PutKey(w, "compare");
+        PutText(w, kCompares[c->compare]);
+        PutText(w, ", ");
+        PutKey(w, "value");
+        if (type == maniGraphParameterBool)
+        {
+            PutBool(w, c->value.b != 0);
+        }
+        else if (type == maniGraphParameterInt)
+        {
+            PutInt(w, c->value.i);
+        }
+        else
+        {
+            PutFloat(w, c->value.f[0]);
+        }
+    }
+    PutText(w, "}");
+}
+
+static void PutTransition(Writer* w, const maniGraphSource* source,
+                          const maniGraphTransitionSource* t)
+{
+    static const char* const kInterruptions[] = {"\"none\"", "\"higher\"", "\"any\""};
+    static const char* const kEntries[] = {"\"restart\"", "\"keep\""};
+    static const char* const kFades[] = {"\"linear\"", "\"smoothstep\""};
+    PutText(w, "{");
+    PutKey(w, "from");
+    if (t->from == MANI_GRAPH_ANY_STATE)
+    {
+        PutText(w, "\"any\"");
+    }
+    else
+    {
+        PutUnsigned(w, t->from);
+    }
+    PutText(w, ", ");
+    PutKey(w, "to");
+    PutUnsigned(w, t->to);
+    PutText(w, ", ");
+    PutKey(w, "priority");
+    PutUnsigned(w, t->priority);
+    PutText(w, ", ");
+    PutKey(w, "interruption");
+    PutText(w, kInterruptions[t->interruption]);
+    PutText(w, ", ");
+    PutKey(w, "entry");
+    PutText(w, kEntries[t->entry]);
+    PutText(w, ", ");
+    PutKey(w, "fade");
+    PutText(w, kFades[t->fade]);
+    PutText(w, ", ");
+    PutKey(w, "duration");
+    PutFloat(w, t->duration);
+    PutText(w, ", ");
+    PutKey(w, "cooldown");
+    PutFloat(w, t->cooldown);
+    PutText(w, ", ");
+    PutKey(w, "conditions");
+    PutText(w, "[");
+    for (uint32_t c = 0; c < t->conditionCount; ++c)
+    {
+        PutText(w, c > 0 ? ", " : "");
+        PutCondition(w, source, &t->conditions[c]);
+    }
+    PutText(w, "]}");
+}
+
+// A machine's entry, chain limit and transitions, on the node's line.
+static void PutMachine(Writer* w, const maniGraphSource* source,
+                       const maniGraphMachineNodeSource* m)
+{
+    PutKey(w, "entry");
+    PutUnsigned(w, m->entry);
+    PutText(w, ", ");
+    PutKey(w, "chainLimit");
+    PutUnsigned(w, m->chainLimit);
+    PutText(w, ", ");
+    PutKey(w, "transitions");
+    PutText(w, "[");
+    for (uint32_t t = 0; t < m->transitionCount; ++t)
+    {
+        PutText(w, t > 0 ? ", " : "");
+        PutTransition(w, source, &m->transitions[t]);
+    }
+    PutText(w, "]");
+}
+
 static void PutSubgraphNode(Writer* w, const maniGraphSource* source,
                             const maniGraphSubgraphNodeSource* s, uint32_t depth)
 {
@@ -409,6 +521,9 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutKey(w, "polar");
         PutBool(w, n->bands.polar != 0);
         return;
+    case maniGraphNodeMachine:
+        PutMachine(w, source, &n->machine);
+        return;
     case maniGraphNodeSeek:
         PutKey(w, "trigger");
         PutParameterName(w, source, n->seek.trigger);
@@ -424,10 +539,17 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
 
 static const char* KindName(maniGraphNodeKind kind)
 {
-    static const char* const kKinds[] = {"clip",           "blend",        "mask",
-                                         "additive",       "select",       "timeScale",
-                                         "seek",           "blendSpace1D", "blendSpaceTriangles",
-                                         "blendSpaceBands"};
+    static const char* const kKinds[] = {"clip",
+                                         "blend",
+                                         "mask",
+                                         "additive",
+                                         "select",
+                                         "timeScale",
+                                         "seek",
+                                         "blendSpace1D",
+                                         "blendSpaceTriangles",
+                                         "blendSpaceBands",
+                                         "machine"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

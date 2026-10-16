@@ -9,6 +9,7 @@
 #include "allocator.h"
 #include "container.h"
 #include "graph_file.h"
+#include "graph_machine_check.h"
 #include "graph_space_check.h"
 #include "sort.h"
 #include "text.h"
@@ -332,6 +333,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         return maniCheckGraphSpace(source, n, node);
+    case maniGraphNodeMachine:
+        return maniCheckGraphMachine(source, n, node);
     default:
         return ParameterOf(source, n->seek.trigger, maniGraphParameterTrigger,
                            maniGraphParameterTrigger)
@@ -358,8 +361,18 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
         }
     }
     maniBuildResult r = CheckFields(source, n, node);
+    if (r.result != mani_success)
+    {
+        return r;
+    }
+    bool machine = n->kind == maniGraphNodeMachine;
+    uint32_t transitions = machine ? n->machine.transitionCount : 0u;
     tally->inputCount += n->inputCount;
-    tally->dataWords += maniGraphDataWords(n->kind, n->inputCount);
+    tally->dataWords +=
+        machine ? maniGraphMachineSourceWords(n) : maniGraphDataWords(n->kind, n->inputCount);
+    tally->machineWords += machine ? MANI_GRAPH_BLOCK_SIZE(n->inputCount, transitions) : 0u;
+    tally->maxTransitions =
+        transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
     tally->maskCount += n->kind == maniGraphNodeMask ? 1u : 0u;
     return r;
 }
@@ -401,6 +414,11 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     if (r.result == mani_success && source->output >= source->nodeCount)
     {
         r = maniGraphRefuse(maniBuildReasonInput, source->output, 0);
+    }
+    if (r.result == mani_success &&
+        (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX))
+    {
+        r = maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
     return r;
 }

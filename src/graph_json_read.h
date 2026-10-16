@@ -41,12 +41,13 @@ typedef struct maniGraphReader
     maniBuildResult fault;
 } maniGraphReader;
 
-// The names one graph's members refer to.
+// The names one graph's members refer to, and its parameters read.
 typedef struct maniGraphScope
 {
     maniNameTable parameters;
     maniNameTable clips;
     maniNameTable syncGroups;
+    const maniGraphParameterSource* sources;
 } maniGraphScope;
 
 // Records a fault at a value's first byte; returns false.
@@ -85,6 +86,10 @@ uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, uint3
 // A string naming an item of the table; refuses a name it lacks.
 bool maniGraphJsonRefer(maniGraphReader* r, const maniNameTable* table, uint32_t value,
                         uint32_t* itemOut);
+
+// The index of a string value among count words, or count.
+uint32_t maniGraphJsonWord(const maniGraphReader* r, uint32_t value, const char* const* words,
+                           uint32_t count);
 
 bool maniGraphJsonFloat(maniGraphReader* r, uint32_t value, float* out);
 bool maniGraphJsonBool(maniGraphReader* r, uint32_t value, bool* out);

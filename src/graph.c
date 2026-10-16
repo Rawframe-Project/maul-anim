@@ -79,6 +79,9 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeBlendSpaceTriangles:
         *minOut = 3;
         return MANI_GRAPH_MAX_SPACE_POINTS;
+    case maniGraphNodeMachine:
+        *minOut = 1;
+        return MANI_GRAPH_MAX_INPUTS;
     default:
         *minOut = 1;
         return 0;
@@ -403,7 +406,9 @@ maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut
     r = r.result == mani_success ? CheckClips(&g, s.at[5]) : r;
     r = r.result == mani_success ? CheckSyncGroups(&g, s.at[6]) : r;
     r = r.result == mani_success ? CheckMaskWeights(&g, s.at[7]) : r;
-    r = r.result == mani_success ? maniCheckGraphNodes(&g, s.at[2], s.at[3], s.at[4]) : r;
+    r = r.result == mani_success
+            ? maniCheckGraphNodes(&g, s.at[2], s.at[3], s.at[4], &g.machineWords)
+            : r;
     if (r.result != mani_success)
     {
         return r;

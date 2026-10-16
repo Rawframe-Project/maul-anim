@@ -20,9 +20,13 @@
 typedef struct maniGraphTally
 {
     uint64_t namesSize;
+    uint64_t dataWords;
+    // The words of every state machine's block in an instance.
+    uint64_t machineWords;
     uint32_t inputCount;
-    uint32_t dataWords;
     uint32_t maskCount;
+    // The most transitions of one machine.
+    uint32_t maxTransitions;
     uint32_t reserved;
 } maniGraphTally;
 

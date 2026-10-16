@@ -10,6 +10,7 @@
 
 #include "arena.h"
 #include "builder.h"
+#include "graph_json_machine.h"
 #include "graph_json_read.h"
 #include "json.h"
 
@@ -28,20 +29,6 @@ typedef maniGraphReader Reader;
 typedef maniGraphScope Scope;
 
 #define ABSENT MANI_JSON_NONE
-
-// The index of a string value among count words, or count.
-static uint32_t WordOf(const Reader* r, uint32_t value, const char* const* words, uint32_t count)
-{
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        if (r->json->values[value].kind == maniJsonString &&
-            maniJsonStringEquals(r->json, value, words[k], strlen(words[k])))
-        {
-            return k;
-        }
-    }
-    return count;
-}
 
 // count numbers into out.
 static bool Floats(Reader* r, uint32_t value, float* out, uint32_t count)
@@ -103,7 +90,7 @@ static bool Parameter(Reader* r, uint32_t object, maniGraphParameterSource* p)
     {
         return false;
     }
-    p->type = WordOf(r, f[1], kTypes, 7);
+    p->type = maniGraphJsonWord(r, f[1], kTypes, 7);
     if (p->type == 7)
     {
         return maniGraphJsonFault(r, f[1], maniGraphFormValue);
@@ -171,6 +158,7 @@ static bool Parameters(Reader* r, uint32_t value, maniGraphSource* out, Scope* s
     }
     out->parameters = p;
     out->parameterCount = list.count;
+    scope->sources = p;
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->parameters);
 }
 
@@ -361,7 +349,7 @@ static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraph
         return false;
     }
     c->flags = leader ? (uint32_t)maniGraphClipLeader : 0u;
-    c->loop = f[4] == ABSENT ? 0u : WordOf(r, f[4], kLoops, 3);
+    c->loop = f[4] == ABSENT ? 0u : maniGraphJsonWord(r, f[4], kLoops, 3);
     return c->loop < 3u || maniGraphJsonFault(r, f[4], maniGraphFormValue);
 }
 
@@ -456,6 +444,11 @@ static const KindForm kForms[] = {
      {"kind", "inputs", "position", "points", "polar"},
      5,
      15u},
+    {"machine",
+     maniGraphNodeMachine,
+     {"kind", "inputs", "entry", "chainLimit", "transitions"},
+     5,
+     3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -623,6 +616,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         return Space(r, scope, f, n);
+    case maniGraphNodeMachine:
+        return maniGraphJsonMachine(r, scope, f + 2, n);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&
@@ -643,7 +638,7 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
                                       : maniGraphFormValue);
     }
     uint32_t form = 0;
-    while (form < FORMS && WordOf(r, kind, &kForms[form].name, 1) != 0)
+    while (form < FORMS && maniGraphJsonWord(r, kind, &kForms[form].name, 1) != 0)
     {
         ++form;
     }

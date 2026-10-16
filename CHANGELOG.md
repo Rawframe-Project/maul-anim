@@ -64,6 +64,18 @@ format.
   `maniBuildReasonSpaceTriangle`) or the points' Delaunay triangulation,
   made with exact integer predicates so every platform builds the same
   file; in the JSON form as `blendSpaceTriangles`.
+- State machines (mani-0023): `maniGraphNodeMachine` blends its states
+  (any subgraph, machines included) by weights its transitions set:
+  from a state or any state (`MANI_GRAPH_ANY_STATE`), in priority order
+  (no two equal among a state's candidates), when all their conditions
+  hold (bool, int and float comparisons, triggers consumed on firing,
+  time in state); cross-faded linearly or by smoothstep over seconds, an
+  interrupted fade going on from the weights it reached; interruption
+  none, by a lower priority value or by any; cooldowns; instant
+  transitions chained to a limit; entry from the start or where the
+  state was left. Machine state is saved and restored with the
+  instance; refusals name the transition (`maniBuildReasonTransition`);
+  in the JSON form as `machine`.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

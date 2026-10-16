@@ -8,6 +8,8 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_machine.h"
+#include "graph_machine_step.h"
 #include "graph_space.h"
 #include "root_motion.h"
 
@@ -173,6 +175,40 @@ static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNo
     }
 }
 
+// A machine stepped by its own time, then its states shared by their
+// weights; a state it entered from its start this step reached even at
+// weight 0, seeking 0, so its playheads start over. A seek above the
+// machine starts it over too.
+static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeState* s)
+{
+    maniGraphMachine m = {u->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
+    uint32_t* block =
+        (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + maniGraphMachineBlockAt(&m);
+    if ((s->flags & MANI_GRAPH_SEEKING) != 0)
+    {
+        maniGraphResetMachine(&m, block);
+    }
+    maniGraphEntered entered;
+    maniGraphStepMachine(&m, u->instance->cells, block, fabs(u->delta * (double)s->factor),
+                         &entered);
+    for (uint32_t k = 0; k < m.states; ++k)
+    {
+        float weight = maniGraphMachineWeight(block, k);
+        Share share = Pass(s, weight, weight);
+        bool restart = false;
+        for (uint32_t e = 0; e < entered.count; ++e)
+        {
+            restart = restart || entered.states[e] == k;
+        }
+        share.flags |= restart ? MANI_GRAPH_SEEKING : 0u;
+        share.seekTo = restart ? 0.0f : share.seekTo;
+        if (weight > 0.0f || restart)
+        {
+            Give(u, InputOf(u, record, k), share);
+        }
+    }
+}
+
 // The input a select's parameter chooses, clamped to its inputs.
 static uint32_t Chosen(const Update* u, const uint8_t* record)
 {
@@ -249,6 +285,10 @@ static void Weigh(const Update* u)
                  kind == maniGraphNodeBlendSpaceBands)
         {
             ShareSpace(u, record, s);
+        }
+        else if (kind == maniGraphNodeMachine)
+        {
+            ShareMachine(u, record, s);
         }
         else if (kind != maniGraphNodeClip)
         {

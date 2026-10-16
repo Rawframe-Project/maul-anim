@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "graph_machine_file.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/graph.h"
@@ -355,7 +356,10 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     {
         return Fail(n->at + 12);
     }
-    if (n->words != maniGraphDataWords(n->kind, n->count) || n->words > g->dataWords - dataAt)
+    uint32_t words = n->kind == maniGraphNodeMachine
+                         ? maniGraphMachineDataWords(g, n->data, g->dataWords - dataAt)
+                         : maniGraphDataWords(n->kind, n->count);
+    if (n->words != words || n->words > g->dataWords - dataAt)
     {
         return Fail(n->at + 16);
     }
@@ -390,10 +394,11 @@ static maniFileResult InputsValid(const maniGraph* g, const Node* n, uint32_t p,
 }
 
 maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_t inputsAt,
-                                   uint64_t dataAt)
+                                   uint64_t dataAt, uint32_t* machineWordsOut)
 {
     uint32_t inputAt = 0;
     uint32_t wordAt = 0;
+    uint32_t blockAt = 0;
     for (uint32_t p = 0; p < g->nodeCount; ++p)
     {
         Node n = LoadNode(g, p, nodesAt);
@@ -403,7 +408,9 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         {
             return r;
         }
-        uint32_t wrong = DataValid(g, &n);
+        bool machine = n.kind == maniGraphNodeMachine;
+        uint32_t wrong =
+            machine ? maniGraphMachineValid(g, n.data, n.count, blockAt) : DataValid(g, &n);
         if (wrong != UINT32_MAX)
         {
             return Fail(dataAt + 4 * (uint64_t)wrong);
@@ -415,7 +422,9 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         inputAt += n.count;
         wordAt += n.words;
+        blockAt += machine ? MANI_GRAPH_BLOCK_SIZE(n.count, Word(g, n.data + 2)) : 0u;
     }
+    *machineWordsOut = blockAt;
     if (inputAt != g->inputCount)
     {
         return Fail(inputsAt);

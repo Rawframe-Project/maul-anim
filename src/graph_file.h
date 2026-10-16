@@ -78,8 +78,29 @@ enum
 // two overlapping, by Euler's formula.
 #define MANI_GRAPH_MAX_TRIANGLES(n) (2u * (n) - 5u)
 
+// A state machine's data words: its entry state, chain limit, transition
+// count and the first word of its block in an instance's machine state;
+// then per transition, in priority order (the source's order among
+// equals), its from (a state or MANI_GRAPH_ANY_STATE), to, priority,
+// flags (interruption, entry << 4, fade << 8), duration and cooldown
+// (binary32), first condition (counted from the node's first) and
+// condition count; then per condition its kind, parameter, compare and
+// value (the bits of a bool, int or binary32).
+#define MANI_GRAPH_MACHINE_WORDS    4u
+#define MANI_GRAPH_TRANSITION_WORDS 8u
+#define MANI_GRAPH_CONDITION_WORDS  4u
+// A machine's block in an instance: its current state, the transition
+// running (MANI_GRAPH_NO_TRANSITION for none), the fade's elapsed seconds
+// (binary32), the seconds in the current state (binary64, two words) and
+// a zero word; per state its weight and its weight when the fade began;
+// per transition the seconds since it fired (+inf before it has).
+#define MANI_GRAPH_BLOCK_WORDS   6u
+#define MANI_GRAPH_NO_TRANSITION 0xFFFFFFFFu
+#define MANI_GRAPH_BLOCK_SIZE(states, transitions)                                                 \
+    (MANI_GRAPH_BLOCK_WORDS + 2u * (states) + (transitions))
+
 // The data words a node of a kind with n inputs holds; 0 for an unknown
-// kind.
+// kind and for a state machine, whose words its transitions count.
 uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount);
 
 // The inputs a kind takes: at least minOut, at most the return (0 with

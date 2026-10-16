@@ -240,3 +240,17 @@ bool maniGraphJsonScalar(maniGraphReader* r, const maniGraphScope* scope, uint32
     return maniGraphJsonMembers(r, value, kKeys, 1, 1u, &found) &&
            maniGraphJsonRefer(r, &scope->parameters, found, &out->parameter);
 }
+
+uint32_t maniGraphJsonWord(const maniGraphReader* r, uint32_t value, const char* const* words,
+                           uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (r->json->values[value].kind == maniJsonString &&
+            maniJsonStringEquals(r->json, value, words[k], strlen(words[k])))
+        {
+            return k;
+        }
+    }
+    return count;
+}

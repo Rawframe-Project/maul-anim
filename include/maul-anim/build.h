@@ -198,6 +198,11 @@ extern "C"
         // clockwise or degenerate, or overlapping an earlier one; item is
         // the node, other the triangle.
         maniBuildReasonSpaceTriangle = 33,
+        // A state machine's transition (or one of its conditions) out of
+        // range, to its own source, or of a priority an earlier candidate
+        // of the same state shares; item is the node, other the
+        // transition.
+        maniBuildReasonTransition = 34,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

@@ -55,11 +55,14 @@ runtime allocates (mani-0001).
   are set by index with their declared type: ints and floats clamped to
   their bounds, quaternions normalized, anything not finite refused.
 - **Saved state:** a 24-byte header (magic, the graph's identity, the
-  size) and the cells in little-endian order, without pointers;
-  restoring checks it as external bytes (every value as setting it
-  would keep it, a quaternion unit within 1e-5, weights finite and not
-  negative, playheads finite, a select's word below its inputs) and
-  starts the cursors over, which cache nothing a pose depends on.
+  size) and the cells in little-endian order, then every state
+  machine's block word by word, without pointers; restoring checks it as
+  external bytes (every value as setting it would keep it, a quaternion
+  unit within 1e-5, weights finite and not negative, playheads finite, a
+  select's word below its inputs; a machine's current state in range,
+  its running transition one into that state, clocks finite and not
+  negative, weights 0 to 1, timers not negative) and starts the cursors
+  over, which cache nothing a pose depends on.
 
 - **Update:** weights are shared from the output down, in reverse node
   order: a normalized blend by its weights over their total (or over
@@ -156,6 +159,35 @@ runtime allocates (mani-0001).
   are clockwise, degenerate or overlapping (`maniBuildReasonSpaceTriangle`,
   other the triangle); opening checks the points, the stored order and
   each triangle's corners.
+- **State machines** (`maniGraphNodeMachine`) take their states as
+  inputs and output one normalized blend of them by per-state weights
+  the instance keeps. A transition runs from a state, or from any state,
+  to another; the candidates are the current state's and the any-state
+  ones, in priority order (lower first; the builder refuses equal
+  priorities among a state's candidates, and the file keeps the
+  transitions sorted, so a crafted tie still plays the same everywhere),
+  and the first whose conditions all hold fires. A condition compares a
+  bool (equal or not), an int (any order) or a float (no equality)
+  parameter with a value, reads a trigger (consumed when its transition
+  fires), or asks for a time in the current state. A machine decides at
+  the start of an update from what the updates before it left, as
+  Unreal's does: its clocks advance by its time (a time scale above it
+  counts), a fade whose time is up completes, then transitions fire. A
+  cross-fade to D over T seconds keeps each state's weight at its start
+  and moves D's to 1 and every other to 0 along a linear or smoothstep
+  curve, so a fade interrupted goes on from the weights it reached:
+  continuous, with no pose kept and no stack of transitions. A running
+  transition allows interruption by none, by a lower priority value, or
+  by any. Cooldowns hold a transition back for seconds after it fires;
+  a transition of no duration completes at once and the machine looks
+  again, at most its chain limit (1 to 16, 4 by default) per update.
+  States of weight 0 neither advance nor evaluate; one entered from its
+  start (the default entry, when it is entered at weight 0) has its
+  playheads set to 0 as a seek does, and a nested machine so entered
+  starts at its entry; one still weighted keeps its time, and "keep"
+  entries always do. Each machine's block (current state, running
+  transition, clocks, two weights per state, a timer per transition)
+  lies in the instance after the cursors and joins the saved state.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

@@ -84,10 +84,10 @@ static inline void Rehash(uint8_t* file)
     maniStoreU64(file + 40, maniGraphComputeIdentity(sections, sizes));
 }
 
-// The file of the graph last made, its node p's data word k set to value:
-// refused at data word want.
-static inline bool RefusedAtWordOf(const maniGraph* g, uint32_t p, uint32_t k, uint32_t value,
-                                   uint32_t want)
+// The file of the graph last made, its node p's data word k set to value,
+// opened; the data word's file offset at k in atOut.
+static inline maniFileResult Crafted(const maniGraph* g, uint32_t p, uint32_t k, uint32_t value,
+                                     uint64_t* atOut)
 {
     maniContainer c;
     const uint8_t* data = NULL;
@@ -103,9 +103,18 @@ static inline bool RefusedAtWordOf(const maniGraph* g, uint32_t p, uint32_t k, u
     memcpy(s_crafted, s_file, s_size);
     maniStoreU32(s_crafted + at + 4 * (uint64_t)(first + k), value);
     Rehash(s_crafted);
+    *atOut = at + 4 * (uint64_t)first;
     maniGraph crafted;
-    maniFileResult r = maniOpenGraph(s_crafted, s_size, &crafted);
-    uint64_t offset = at + 4 * (uint64_t)(first + want);
+    return maniOpenGraph(s_crafted, s_size, &crafted);
+}
+
+// Refused at data word want.
+static inline bool RefusedAtWordOf(const maniGraph* g, uint32_t p, uint32_t k, uint32_t value,
+                                   uint32_t want)
+{
+    uint64_t at = 0;
+    maniFileResult r = Crafted(g, p, k, value, &at);
+    uint64_t offset = at + 4 * (uint64_t)want;
     if (r.result != mani_errorFormat || r.offset != offset)
     {
         printf("  refused at %llu, expected %llu\n", (unsigned long long)r.offset,

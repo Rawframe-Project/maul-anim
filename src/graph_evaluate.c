@@ -8,6 +8,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_machine.h"
 #include "graph_space.h"
 #include "pose_memory.h"
 
@@ -215,6 +216,30 @@ static void Space(const Evaluation* e, const uint8_t* record, maniPose* out, boo
     }
 }
 
+// A state machine: its states of weight above 0, blended by its weights.
+static void Machine(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
+{
+    maniGraphMachine m = {e->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
+    const uint32_t* block =
+        (const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt) +
+        maniGraphMachineBlockAt(&m);
+    uint32_t count = 0;
+    for (uint32_t k = 0; k < m.states; ++k)
+    {
+        float weight = maniGraphMachineWeight(block, k);
+        const maniPose* input = InputPose(e, record, k);
+        if (weight > 0.0f && input != NULL)
+        {
+            e->layers[count++] = (maniBlendLayer){input, weight, NULL};
+        }
+    }
+    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                     out) != mani_success)
+    {
+        Neutral(e, out, difference);
+    }
+}
+
 static void Mask(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
 {
     uint32_t bones = e->graph->skeletonBoneCount;
@@ -301,6 +326,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         Space(e, record, out, difference);
+        return;
+    case maniGraphNodeMachine:
+        Machine(e, record, out, difference);
         return;
     default:
     {

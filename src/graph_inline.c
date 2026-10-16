@@ -29,6 +29,8 @@ typedef struct Totals
     uint64_t weights;
     uint64_t clips;
     uint64_t groups;
+    uint64_t transitions;
+    uint64_t conditions;
 } Totals;
 
 static uint32_t WeightCount(const maniGraphNodeSource* node)
@@ -38,6 +40,34 @@ static uint32_t WeightCount(const maniGraphNodeSource* node)
         return node->inputCount;
     }
     return node->kind == maniGraphNodeAdditive && node->inputCount > 0 ? node->inputCount - 1 : 0;
+}
+
+// A machine's transitions and conditions, when its counts are in range
+// (out of range, the check refuses them, and Remap copies none).
+static bool MachineCopied(const maniGraphNodeSource* node)
+{
+    const maniGraphMachineNodeSource* m = &node->machine;
+    bool ok = node->kind == maniGraphNodeMachine && m->transitions != NULL &&
+              m->transitionCount <= MANI_GRAPH_MAX_TRANSITIONS;
+    for (uint32_t k = 0; k < m->transitionCount && ok; ++k)
+    {
+        ok = m->transitions[k].conditionCount <= MANI_GRAPH_MAX_CONDITIONS &&
+             (m->transitions[k].conditions != NULL || m->transitions[k].conditionCount == 0);
+    }
+    return ok;
+}
+
+static void Transitions(const maniGraphNodeSource* node, Totals* t)
+{
+    if (!MachineCopied(node))
+    {
+        return;
+    }
+    t->transitions += node->machine.transitionCount;
+    for (uint32_t k = 0; k < node->machine.transitionCount; ++k)
+    {
+        t->conditions += node->machine.transitions[k].conditionCount;
+    }
 }
 
 // What a source and its subgraphs hold; false past the depth or with a
@@ -55,6 +85,7 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
         const maniGraphNodeSource* node = &source->nodes[i];
         t->inputs += node->inputCount;
         t->weights += WeightCount(node);
+        Transitions(node, t);
         if (node->kind != maniGraphNodeSubgraph)
         {
             continue;
@@ -98,11 +129,15 @@ typedef struct Flat
     maniGraphScalar* weights;
     maniGraphClipSource* clips;
     maniGraphSyncGroupSource* groups;
+    maniGraphTransitionSource* transitions;
+    maniGraphConditionSource* conditions;
     uint32_t nodeCount;
     uint32_t inputCount;
     uint32_t weightCount;
     uint32_t clipCount;
     uint32_t groupCount;
+    uint32_t transitionCount;
+    uint32_t conditionCount;
     uint32_t reserved;
 } Flat;
 
@@ -179,6 +214,32 @@ static maniGraphScalar Scalar(const Scope* s, maniGraphScalar v)
     return (maniGraphScalar){Resolve(s, v.parameter), v.value};
 }
 
+// A machine's transitions copied, their conditions' parameters as the
+// root reads them.
+static void RemapMachine(const Scope* s, Flat* f, maniGraphNodeSource* node)
+{
+    if (!MachineCopied(node))
+    {
+        return;
+    }
+    maniGraphMachineNodeSource* m = &node->machine;
+    maniGraphTransitionSource* to = f->transitions + f->transitionCount;
+    for (uint32_t k = 0; k < m->transitionCount; ++k)
+    {
+        to[k] = m->transitions[k];
+        maniGraphConditionSource* c = f->conditions + f->conditionCount;
+        for (uint32_t j = 0; j < to[k].conditionCount; ++j)
+        {
+            c[j] = to[k].conditions[j];
+            c[j].parameter = Resolve(s, c[j].parameter);
+        }
+        to[k].conditions = to[k].conditionCount > 0 ? c : NULL;
+        f->conditionCount += to[k].conditionCount;
+    }
+    m->transitions = to;
+    f->transitionCount += m->transitionCount;
+}
+
 // A node's parameters, clip, sync group and weights as the root reads
 // them.
 static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
@@ -234,6 +295,9 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         p->y = Scalar(s, p->y);
         return;
     }
+    case maniGraphNodeMachine:
+        RemapMachine(s, f, node);
+        return;
     default:
         return;
     }
@@ -312,18 +376,22 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
     }
-    Totals t = {source->nodeCount, 0, 0, 0, 0};
+    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0};
     if (!Count(source, 0, &t) || t.inputs > UINT32_MAX || t.weights > UINT32_MAX ||
-        t.clips > MANI_GRAPH_MAX_CLIPS || t.groups > MANI_GRAPH_MAX_SYNC_GROUPS)
+        t.clips > MANI_GRAPH_MAX_CLIPS || t.groups > MANI_GRAPH_MAX_SYNC_GROUPS ||
+        t.transitions > UINT32_MAX || t.conditions > UINT32_MAX)
     {
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
-    size_t sizes[5] = {
-        (size_t)t.nodes * sizeof(maniGraphNodeSource), (size_t)t.inputs * sizeof(uint32_t),
-        (size_t)t.weights * sizeof(maniGraphScalar), (size_t)t.clips * sizeof(maniGraphClipSource),
-        (size_t)t.groups * sizeof(maniGraphSyncGroupSource)};
+    size_t sizes[7] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
+                       (size_t)t.inputs * sizeof(uint32_t),
+                       (size_t)t.weights * sizeof(maniGraphScalar),
+                       (size_t)t.clips * sizeof(maniGraphClipSource),
+                       (size_t)t.groups * sizeof(maniGraphSyncGroupSource),
+                       (size_t)t.transitions * sizeof(maniGraphTransitionSource),
+                       (size_t)t.conditions * sizeof(maniGraphConditionSource)};
     size_t total = 0;
-    for (int k = 0; k < 5; ++k)
+    for (int k = 0; k < 7; ++k)
     {
         sizes[k] = (sizes[k] + 7u) & ~(size_t)7u;
         total += sizes[k];
@@ -333,14 +401,16 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_errorCapacity, maniBuildReasonNone, 0, 0};
     }
-    void* parts[5];
+    void* parts[7];
     size_t at = 0;
-    for (int k = 0; k < 5; ++k)
+    for (int k = 0; k < 7; ++k)
     {
         parts[k] = block + at;
         at += sizes[k];
     }
-    Flat f = {parts[0], parts[1], parts[2], parts[3], parts[4], source->nodeCount, 0, 0, 0, 0, 0};
+    Flat f = {
+        parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], source->nodeCount,
+        0,        0,        0,        0,        0,        0,        0};
     for (uint32_t k = 0; k < source->clipCount && source->clips != NULL; ++k)
     {
         f.clips[f.clipCount++] = source->clips[k];

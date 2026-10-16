@@ -21,8 +21,9 @@
 // state's size (u64), then 16 bytes per parameter and per node.
 #define MANI_GRAPH_STATE_MAGIC       0x5453474Du
 #define MANI_GRAPH_STATE_HEADER_SIZE 24u
-#define MANI_GRAPH_VALUE_SIZE        16u
-#define MANI_GRAPH_NODE_STATE_SIZE   16u
+// After them, every state machine's block, a little-endian word each.
+#define MANI_GRAPH_VALUE_SIZE      16u
+#define MANI_GRAPH_NODE_STATE_SIZE 16u
 
 struct maniGraphBinding
 {
@@ -88,7 +89,8 @@ typedef union maniGraphCell
 
 // The instance's cells follow it, a value per parameter, a state per
 // node, a state per sync group; then, at cursorsAt, a cursor per clip
-// node in node order.
+// node in node order; then, at machinesAt, every state machine's block
+// (the graph's machineWords words).
 struct maniGraphInstance
 {
     uint32_t stamp;
@@ -96,6 +98,7 @@ struct maniGraphInstance
     const maniGraphBinding* binding;
     size_t size;
     size_t cursorsAt;
+    size_t machinesAt;
     maniGraphCell cells[];
 };
 

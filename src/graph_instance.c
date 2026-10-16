@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "graph_machine.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -48,14 +49,46 @@ static size_t CursorsAt(const maniGraph* graph)
     return offsetof(maniGraphInstance, cells) + cells * sizeof(maniGraphCell);
 }
 
+static size_t MachinesAt(const maniGraphBinding* binding)
+{
+    const maniGraph* graph = &binding->graph;
+    return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize;
+}
+
 size_t maniGraphInstanceSize(const maniGraphBinding* binding)
 {
     if (!BindingValid(binding))
     {
         return 0;
     }
-    const maniGraph* graph = &binding->graph;
-    return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize;
+    size_t words = binding->graph.machineWords;
+    return MachinesAt(binding) + ((4 * words + 7u) & ~(size_t)7u);
+}
+
+// The machine node p's view, or none (states 0) for another kind.
+static maniGraphMachine MachineAt(const maniGraph* graph, uint32_t p)
+{
+    const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+    bool machine = maniLoadU16(e) == maniGraphNodeMachine;
+    return (maniGraphMachine){graph, maniLoadU32(e + 12), machine ? maniLoadU32(e + 8) : 0u};
+}
+
+static uint32_t* Blocks(maniGraphInstance* instance)
+{
+    return (uint32_t*)((uint8_t*)instance + instance->machinesAt);
+}
+
+static void ResetMachines(maniGraphInstance* instance)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        maniGraphMachine m = MachineAt(graph, p);
+        if (m.states > 0)
+        {
+            maniGraphResetMachine(&m, Blocks(instance) + maniGraphMachineBlockAt(&m));
+        }
+    }
 }
 
 static const uint8_t* ParameterEntry(const maniGraph* graph, uint32_t parameter)
@@ -118,11 +151,13 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     instance->binding = binding;
     instance->size = needed;
     instance->cursorsAt = CursorsAt(graph);
+    instance->machinesAt = MachinesAt(binding);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
         instance->cells[i].value = LoadValue(ParameterEntry(graph, i) + 24);
     }
     ResetCursors(instance);
+    ResetMachines(instance);
     *instanceOut = instance;
     return mani_success;
 }
@@ -230,7 +265,8 @@ size_t maniGraphStateSize(const maniGraphBinding* binding)
         return 0;
     }
     size_t cells = (size_t)binding->graph.parameterCount + binding->graph.nodeCount;
-    return MANI_GRAPH_STATE_HEADER_SIZE + cells * MANI_GRAPH_VALUE_SIZE;
+    return MANI_GRAPH_STATE_HEADER_SIZE + cells * MANI_GRAPH_VALUE_SIZE +
+           4 * (size_t)binding->graph.machineWords;
 }
 
 static void StoreF32(uint8_t* p, float value)
@@ -270,6 +306,11 @@ maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, s
         uint64_t bits = 0;
         memcpy(&bits, &s->time, sizeof bits);
         maniStoreU64(p + 8, bits);
+    }
+    const uint32_t* blocks = Blocks((maniGraphInstance*)instance);
+    for (uint32_t w = 0; w < graph->machineWords; ++w, p += 4)
+    {
+        maniStoreU32(p, blocks[w]);
     }
     return mani_success;
 }
@@ -359,6 +400,16 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
             return Fail(at);
         }
     }
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        maniGraphMachine m = MachineAt(graph, p);
+        uint64_t block = at + 4 * (uint64_t)maniGraphMachineBlockAt(&m);
+        uint32_t wrong = m.states > 0 ? maniGraphSavedBlockValid(&m, b + block) : UINT32_MAX;
+        if (wrong != UINT32_MAX)
+        {
+            return Fail(block + 4 * (uint64_t)wrong);
+        }
+    }
     return (maniFileResult){mani_success, 0, 0};
 }
 
@@ -388,6 +439,11 @@ maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void*
         memcpy(&s->weight, &bits, sizeof s->weight);
         s->word = maniLoadU32(p + 4);
         memcpy(&s->time, &timeBits, sizeof s->time);
+    }
+    uint32_t* blocks = Blocks(instance);
+    for (uint32_t w = 0; w < graph->machineWords; ++w, p += 4)
+    {
+        blocks[w] = maniLoadU32(p);
     }
     ResetCursors(instance);
     return r;

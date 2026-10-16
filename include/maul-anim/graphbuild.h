@@ -155,6 +155,107 @@ extern "C"
         maniGraphNodeSubgraph = 64,
     };
 
+    // How a condition compares a parameter with its value.
+    typedef uint32_t maniGraphCompare;
+    enum
+    {
+        maniGraphCompareEqual = 0,
+        maniGraphCompareNotEqual = 1,
+        maniGraphCompareLess = 2,
+        maniGraphCompareAtMost = 3,
+        maniGraphCompareGreater = 4,
+        maniGraphCompareAtLeast = 5,
+    };
+
+    // What a transition's condition tests.
+    typedef uint32_t maniGraphConditionKind;
+    enum
+    {
+        // A bool, int or float parameter compared with value (bool: equal
+        // or not equal; float: no equality).
+        maniGraphConditionParameter = 0,
+        // A trigger parameter set; the transition firing consumes it.
+        maniGraphConditionTrigger = 1,
+        // At least value.f seconds (finite, not negative) since the
+        // machine entered its current state.
+        maniGraphConditionTimeInState = 2,
+    };
+
+    // A condition of a transition: its kind, the parameter it reads, how
+    // it compares and the value it compares with.
+    typedef struct maniGraphConditionSource
+    {
+        maniGraphConditionKind kind;
+        uint32_t parameter;
+        maniGraphCompare compare;
+        uint32_t reserved;
+        maniGraphValue value;
+    } maniGraphConditionSource;
+
+    // While a transition runs, which others may fire.
+    typedef uint32_t maniGraphInterruption;
+    enum
+    {
+        // None until it completes.
+        maniGraphInterruptionNone = 0,
+        // Those of a lower priority value.
+        maniGraphInterruptionHigher = 1,
+        // Any whose conditions hold.
+        maniGraphInterruptionAny = 2,
+    };
+
+    // How a transition's destination state takes up its time.
+    typedef uint32_t maniGraphEntry;
+    enum
+    {
+        // From its start: every playhead below it set to 0 when it is
+        // entered at weight 0 (one still weighted keeps its time).
+        maniGraphEntryRestart = 0,
+        // Where it was left.
+        maniGraphEntryKeep = 1,
+    };
+
+    // The curve of a cross-fade over its elapsed fraction.
+    typedef uint32_t maniGraphFade;
+    enum
+    {
+        maniGraphFadeLinear = 0,
+        maniGraphFadeSmoothstep = 1,
+    };
+
+    // A transition of a state machine: from a state (or
+    // MANI_GRAPH_ANY_STATE) to another, its priority (lower first; no two
+    // equal among a state's own and the any-state transitions), its
+    // interruption, entry and fade, the fade's duration in seconds (0
+    // completes at once), the seconds before it may fire again, and its
+    // conditions (all must hold; none fires at once).
+    typedef struct maniGraphTransitionSource
+    {
+        uint32_t from;
+        uint32_t to;
+        uint32_t priority;
+        maniGraphInterruption interruption;
+        maniGraphEntry entry;
+        maniGraphFade fade;
+        float duration;
+        float cooldown;
+        const maniGraphConditionSource* conditions;
+        uint32_t conditionCount;
+        uint32_t reserved;
+    } maniGraphTransitionSource;
+
+    // A state machine node: its inputs are its states; the state it
+    // starts in, its transitions, and the most transitions it takes in
+    // one update (1 to MANI_GRAPH_MAX_CHAIN; 0 for 4).
+    typedef struct maniGraphMachineNodeSource
+    {
+        const maniGraphTransitionSource* transitions;
+        uint32_t transitionCount;
+        uint32_t entry;
+        uint32_t chainLimit;
+        uint32_t reserved;
+    } maniGraphMachineNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -233,6 +334,7 @@ extern "C"
             maniGraphBlendSpace1DNodeSource blendSpace1D;
             maniGraphBandsNodeSource bands;
             maniGraphTrianglesNodeSource triangulated;
+            maniGraphMachineNodeSource machine;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
@@ -327,7 +429,10 @@ extern "C"
     /// and defaultWeight 0; a chain's subtree false; a seek's time 0; a
     /// 1D space's period 0, a banded space's polar false, a triangulated
     /// space's triangles none (its Delaunay triangulation), a position's
-    /// y 0; parameters, clips and syncGroups empty). Each clip slot name, at
+    /// y 0; a machine's entry 0, chainLimit 0 (4) and transitions empty; a
+    /// transition's priority 0, interruption "none", entry "restart", fade
+    /// "linear", duration and cooldown 0 and conditions empty; parameters,
+    /// clips and syncGroups empty). Each clip slot name, at
     /// any nesting, takes the host's clip of that name (the first of
     /// equal names). The source read is then built as maniBuildGraph
     /// builds it.
