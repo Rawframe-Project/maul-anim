@@ -145,7 +145,7 @@ static void Parameters(void)
     s_parameters[4] = Parameter("aim", maniGraphParameterVec2, Value(0.1f, -0.2f, 0, 0));
     s_parameters[5] = Parameter("dir", maniGraphParameterVec3, Value(1e21f, 1e-7f, -0.0f, 0));
     s_parameters[6] = Parameter("look", maniGraphParameterQuat, Value(0, 0, 0.38268343f, 2));
-    s_parameters[7] = Parameter("say \"hi\"\\\n\t\x01\xc3\xa9", maniGraphParameterFloat,
+    s_parameters[7] = Parameter("say \"hi\"\\\n\t\x01\x1f\xc3\xa9", maniGraphParameterFloat,
                                 Value(123456789.0f, 0, 0, 0));
     s_parameters[8] = Parameter("mix", maniGraphParameterFloat, Value(0.5f, 0, 0, 0));
     s_parameters[8].bounded = 1;
@@ -207,7 +207,7 @@ static const char kExpected[] =
     "    {\"name\": \"aim\", \"type\": \"vec2\", \"default\": [0.1, -0.2]},\n"
     "    {\"name\": \"dir\", \"type\": \"vec3\", \"default\": [1e+21, 1e-7, -0]},\n"
     "    {\"name\": \"look\", \"type\": \"quat\", \"default\": [0, 0, 0.38268343, 2]},\n"
-    "    {\"name\": \"say \\\"hi\\\"\\\\\\n\\t\\u0001\xc3\xa9"
+    "    {\"name\": \"say \\\"hi\\\"\\\\\\n\\t\\u0001\\u001f\xc3\xa9"
     "\", \"type\": \"float\", \"default\": 123456790},\n"
     "    {\"name\": \"mix\", \"type\": \"float\", \"default\": 0.5, \"minimum\": 0, \"maximum\": "
     "1}\n"
@@ -338,7 +338,28 @@ static void TestRoundTrip(void)
           "read back bit for bit");
 }
 
-// Members left out take their off values.
+// A source with an empty list, as written.
+static const char kMinimal[] =
+    "{\n"
+    "  \"format\": \"maul-anim graph\",\n"
+    "  \"version\": 1,\n"
+    "  \"parameters\": [\n"
+    "    {\"name\": \"q\", \"type\": \"quat\", \"default\": [0, 0, 0, 1]},\n"
+    "    {\"name\": \"n\", \"type\": \"int\", \"default\": 0}\n"
+    "  ],\n"
+    "  \"clips\": [\n"
+    "    \"walk\"\n"
+    "  ],\n"
+    "  \"syncGroups\": [],\n"
+    "  \"nodes\": [\n"
+    "    {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": null, \"speed\": 1, \"loop\": "
+    "\"clip\", \"leader\": false}\n"
+    "  ],\n"
+    "  \"output\": 0\n"
+    "}\n";
+
+// Members left out take their off values: a parameter's default, a clip
+// node's group, speed, loop and leader; written out in full.
 static void TestDefaults(void)
 {
     static const char kShort[] =
@@ -359,6 +380,40 @@ static void TestDefaults(void)
     maniBuildResult r = Read(kShort, s_read, &size);
     CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
           "the short form");
+    size = Write(&source, &r);
+    CHECK(r.result == mani_success && size == sizeof kMinimal - 1 &&
+              memcmp(s_text, kMinimal, size) == 0,
+          "an empty list on one line");
+}
+
+// A seek's time, a mask's chains and default weight, a blend's direct
+// and a sync group's allEvents left out.
+static void TestNodeDefaults(void)
+{
+    static const char kText[] =
+        "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": \"t\", "
+        "\"type\": \"trigger\"}], \"clips\": [\"walk\"], \"syncGroups\": [{\"name\": \"g\"}], "
+        "\"nodes\": [{\"kind\": \"seek\", \"inputs\": [1], \"trigger\": \"t\"}, {\"kind\": "
+        "\"mask\", \"inputs\": [2, 3]}, {\"kind\": \"blend\", \"inputs\": [3], \"weights\": "
+        "[1]}, {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": \"g\"}], \"output\": 0}";
+    static const uint32_t kSeek[1] = {1};
+    static const uint32_t kMask[2] = {2, 3};
+    static const uint32_t kBlend[1] = {3};
+    static const maniGraphScalar kOne[1] = {{MANI_NO_PARAMETER, 1.0f}};
+    maniGraphParameterSource trigger = Parameter("t", maniGraphParameterTrigger, Int(0));
+    maniGraphClipSource slot = {&s_clips[0], "walk", 4, 0};
+    maniGraphSyncGroupSource group = {"g", 1, 0};
+    maniGraphNodeSource nodes[4] = {
+        {maniGraphNodeSeek, 1, kSeek, .seek = {0, LITERAL(0.0f)}},
+        {maniGraphNodeMask, 2, kMask, .mask = {NULL, 0, 0.0f}},
+        {maniGraphNodeBlend, 1, kBlend, .blend = {kOne, 0, 0}},
+        {maniGraphNodeClip, 0, NULL, .clip = {0, 0, LITERAL(1.0f), maniGraphLoopClip, 0}}};
+    maniGraphSource source = {&s_skeleton, &trigger, &slot, &group, nodes, 1, 1, 1, 4, 0, 0};
+    size_t want = Built(&source);
+    size_t size = 0;
+    maniBuildResult r = Read(kText, s_read, &size);
+    CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
+          "node members left out");
 }
 
 // A text refused: the reason, the fault and the byte offset of the
@@ -377,7 +432,15 @@ typedef struct Refusal
 #define NODE "{\"kind\": \"clip\", \"clip\": \"walk\"}"
 
 static const Refusal kRefusals[] = {
-    {TOP WALK "\"nodes\": [", maniBuildReasonJson, 1, NULL, 0},
+    {TOP WALK "\"nodes\": [x]}", maniBuildReasonJson, 1, "x]", 1},
+    {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"int\", \"default\": 2147483648}], " WALK
+         "\"nodes\": [" NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "2147483648", 1},
+    {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
+         "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"parameters\": [{\"name\": \"r\", "
+         "\"type\": \"float\"}], " WALK "\"nodes\": [" NODE
+         "], \"output\": 0}, \"parameters\": {}}], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMissing, "{}", 1},
     {TOP WALK "\"nodes\": [" NODE "], \"output\": 0, \"bogus\": 1}", maniBuildReasonForm,
      maniGraphFormMember, "\"bogus", 1},
     {TOP WALK "\"nodes\": [" NODE "], \"output\": 0, \"output\": 0}", maniBuildReasonForm,
@@ -467,10 +530,6 @@ static void TestReadRefusals(void)
         if (c->marker != NULL)
         {
             ok = ok && r.other == c->other && r.item == OffsetOf(c->text, c->marker, c->occurrence);
-        }
-        else if (c->reason == maniBuildReasonJson)
-        {
-            ok = ok && r.other == c->other;
         }
         if (!ok)
         {
@@ -594,6 +653,7 @@ int main(int argc, char** argv)
     TestAllocationFailure();
     TestRoundTrip();
     TestDefaults();
+    TestNodeDefaults();
     TestReadRefusals();
     return s_failures == 0 ? 0 : 1;
 }
