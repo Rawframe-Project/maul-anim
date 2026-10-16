@@ -277,6 +277,27 @@ extern "C"
         const uint32_t* finals;
     } maniGraphMachineNodeSource;
 
+    // A one-shot node: inputs base and shot. The fire trigger restarts
+    // the shot and fades it in over fadeIn seconds; it fades out over
+    // fadeOut seconds when its leading clip (the clip node beneath the
+    // shot of greatest effective weight), not repeating, has no more
+    // than fadeOut seconds of clip time left, or when the fade-out
+    // trigger is set; the abort trigger stops it at once (both triggers
+    // optional, MANI_NO_PARAMETER for none). The first set of abort, fire
+    // and fade-out acts; each is consumed when read. Both fades follow
+    // curve; mask, when not NULL, weighs the shot per bone (NULL: the
+    // whole body).
+    typedef struct maniGraphOneShotNodeSource
+    {
+        uint32_t fire;
+        uint32_t fadeOutTrigger;
+        uint32_t abort;
+        maniGraphFade curve;
+        float fadeIn;
+        float fadeOut;
+        const maniGraphMaskNodeSource* mask;
+    } maniGraphOneShotNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -356,6 +377,7 @@ extern "C"
             maniGraphBandsNodeSource bands;
             maniGraphTrianglesNodeSource triangulated;
             maniGraphMachineNodeSource machine;
+            maniGraphOneShotNodeSource oneShot;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
@@ -450,9 +472,11 @@ extern "C"
     /// and defaultWeight 0; a chain's subtree false; a seek's time 0; a
     /// 1D space's period 0, a banded space's polar false, a triangulated
     /// space's triangles none (its Delaunay triangulation), a position's
-    /// y 0; a machine's entry 0, chainLimit 0 (4), transitions and finals empty; a
-    /// transition's priority 0, interruption "none", entry "restart", fade
-    /// "linear", duration and cooldown 0 and conditions empty; parameters,
+    /// y 0; a machine's entry 0, chainLimit 0 (4), transitions and finals
+    /// empty; a transition's priority 0, interruption "none", entry
+    /// "restart", fade "linear", duration and cooldown 0 and conditions
+    /// empty; a one-shot's fadeOutTrigger and abort none, curve "linear",
+    /// fadeIn and fadeOut 0, mask none (the whole body); parameters,
     /// clips and syncGroups empty). Each clip slot name, at
     /// any nesting, takes the host's clip of that name (the first of
     /// equal names). The source read is then built as maniBuildGraph

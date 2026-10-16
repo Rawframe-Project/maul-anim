@@ -335,6 +335,39 @@ static bool Mask(Reader* r, const uint32_t* f, maniGraphMaskNodeSource* m)
     return f[3] == ABSENT || maniGraphJsonFloat(r, f[3], &m->defaultWeight);
 }
 
+// A one-shot: fire, and optionally fadeOutTrigger and abort, triggers by
+// name; curve "linear" | "smoothstep"; fadeIn and fadeOut seconds; mask
+// {"chains", "defaultWeight"} as a mask node's (left out: the whole
+// body).
+static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneShotNodeSource* s)
+{
+    static const char* const kCurves[] = {"linear", "smoothstep"};
+    static const char* const kMask[] = {"chains", "defaultWeight"};
+    *s = (maniGraphOneShotNodeSource){0, MANI_NO_PARAMETER, MANI_NO_PARAMETER, 0, 0.0f, 0.0f, NULL};
+    s->curve = f[5] == ABSENT ? 0u : maniGraphJsonWord(r, f[5], kCurves, 2);
+    if (!maniGraphJsonRefer(r, &scope->parameters, f[2], &s->fire) ||
+        (f[3] != ABSENT && !maniGraphJsonRefer(r, &scope->parameters, f[3], &s->fadeOutTrigger)) ||
+        (f[4] != ABSENT && !maniGraphJsonRefer(r, &scope->parameters, f[4], &s->abort)) ||
+        (s->curve >= 2 && !maniGraphJsonFault(r, f[5], maniGraphFormValue)) ||
+        (f[6] != ABSENT && !maniGraphJsonFloat(r, f[6], &s->fadeIn)) ||
+        (f[7] != ABSENT && !maniGraphJsonFloat(r, f[7], &s->fadeOut)))
+    {
+        return false;
+    }
+    if (f[8] == ABSENT)
+    {
+        return true;
+    }
+    uint32_t members[4] = {ABSENT, ABSENT, ABSENT, ABSENT};
+    maniGraphMaskNodeSource* mask = maniArenaTake(&r->arena, 1, sizeof(maniGraphMaskNodeSource));
+    if (mask == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    s->mask = mask;
+    return maniGraphJsonMembers(r, f[8], kMask, 2, 0u, members + 2) && Mask(r, members, mask);
+}
+
 static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraphClipNodeSource* c)
 {
     static const char* const kLoops[] = {"clip", "clamp", "repeat"};
@@ -416,7 +449,7 @@ typedef struct KindForm
 {
     const char* name;
     maniGraphNodeKind kind;
-    const char* keys[6];
+    const char* keys[9];
     uint32_t count;
     uint32_t required;
 } KindForm;
@@ -449,6 +482,11 @@ static const KindForm kForms[] = {
      {"kind", "inputs", "entry", "chainLimit", "transitions", "finals"},
      6,
      3u},
+    {"oneShot",
+     maniGraphNodeOneShot,
+     {"kind", "inputs", "fire", "fadeOutTrigger", "abort", "curve", "fadeIn", "fadeOut", "mask"},
+     9,
+     7u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -618,6 +656,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return Space(r, scope, f, n);
     case maniGraphNodeMachine:
         return maniGraphJsonMachine(r, scope, f + 2, n);
+    case maniGraphNodeOneShot:
+        return Shot(r, scope, f, &n->oneShot);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&
@@ -647,7 +687,7 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
         return maniGraphJsonFault(r, kind, maniGraphFormValue);
     }
     const KindForm* k = &kForms[form];
-    uint32_t f[6];
+    uint32_t f[9];
     if (!maniGraphJsonMembers(r, object, k->keys, k->count, k->required, f))
     {
         return false;

@@ -268,6 +268,38 @@ static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
     PutFloat(w, m->defaultWeight);
 }
 
+// A one-shot's triggers (those it has), curve, fades and mask (when it
+// has one).
+static void PutShot(Writer* w, const maniGraphSource* source, const maniGraphOneShotNodeSource* s)
+{
+    static const char* const kKeys[3] = {"fire", "fadeOutTrigger", "abort"};
+    const uint32_t triggers[3] = {s->fire, s->fadeOutTrigger, s->abort};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        if (triggers[k] != MANI_NO_PARAMETER)
+        {
+            PutKey(w, kKeys[k]);
+            PutParameterName(w, source, triggers[k]);
+            PutText(w, ", ");
+        }
+    }
+    PutKey(w, "curve");
+    PutText(w, s->curve == maniGraphFadeSmoothstep ? "\"smoothstep\", " : "\"linear\", ");
+    PutKey(w, "fadeIn");
+    PutFloat(w, s->fadeIn);
+    PutText(w, ", ");
+    PutKey(w, "fadeOut");
+    PutFloat(w, s->fadeOut);
+    if (s->mask != NULL)
+    {
+        PutText(w, ", ");
+        PutKey(w, "mask");
+        PutText(w, "{");
+        PutMaskNode(w, s->mask);
+        PutText(w, "}");
+    }
+}
+
 static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, bool top);
 
 // A blend space's position: a vec2 parameter, or x (and, in a plane,
@@ -509,6 +541,9 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeMask:
         PutMaskNode(w, &n->mask);
         return;
+    case maniGraphNodeOneShot:
+        PutShot(w, source, &n->oneShot);
+        return;
     case maniGraphNodeAdditive:
         PutKey(w, "weights");
         PutScalars(w, source, n->additive.weights, n->inputCount - 1);
@@ -568,7 +603,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "blendSpace1D",
                                          "blendSpaceTriangles",
                                          "blendSpaceBands",
-                                         "machine"};
+                                         "machine",
+                                         "oneShot"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

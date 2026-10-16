@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_machine.h"
+#include "graph_shot.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -78,15 +79,30 @@ static uint32_t* Blocks(maniGraphInstance* instance)
     return (uint32_t*)((uint8_t*)instance + instance->machinesAt);
 }
 
+// The one-shot node p's block's first word, or UINT32_MAX for another
+// kind.
+static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
+{
+    const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+    maniGraphShot shot = {graph, maniLoadU32(e + 12), 0};
+    return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
+                                                  : UINT32_MAX;
+}
+
 static void ResetMachines(maniGraphInstance* instance)
 {
     const maniGraph* graph = &instance->binding->graph;
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         maniGraphMachine m = MachineAt(graph, p);
+        uint32_t shot = ShotBlockAt(graph, p);
         if (m.states > 0)
         {
             maniGraphResetMachine(&m, Blocks(instance) + maniGraphMachineBlockAt(&m));
+        }
+        else if (shot != UINT32_MAX)
+        {
+            maniGraphResetShot(Blocks(instance) + shot);
         }
     }
 }
@@ -403,8 +419,15 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         maniGraphMachine m = MachineAt(graph, p);
-        uint64_t block = at + 4 * (uint64_t)maniGraphMachineBlockAt(&m);
-        uint32_t wrong = m.states > 0 ? maniGraphSavedBlockValid(&m, b + block) : UINT32_MAX;
+        uint32_t shot = ShotBlockAt(graph, p);
+        uint32_t first = m.states > 0 ? maniGraphMachineBlockAt(&m) : shot;
+        if (first == UINT32_MAX)
+        {
+            continue;
+        }
+        uint64_t block = at + 4 * (uint64_t)first;
+        uint32_t wrong = m.states > 0 ? maniGraphSavedBlockValid(&m, b + block)
+                                      : maniGraphSavedShotValid(b + block);
         if (wrong != UINT32_MAX)
         {
             return Fail(block + 4 * (uint64_t)wrong);

@@ -100,6 +100,9 @@ extern "C"
         // A state machine: its inputs are its states, blended by the
         // weights its transitions give them.
         maniGraphNodeMachine = 11,
+        // A one-shot: a shot (input 1) played over a base (input 0) when
+        // a trigger fires it, faded in and out by its weight.
+        maniGraphNodeOneShot = 12,
     };
 
     // A graph over a file's bytes, which the caller keeps alive and
@@ -348,8 +351,8 @@ extern "C"
                                                              maniGraphValue* valueOut);
 
     /// Returns the bytes an instance's saved state takes: its parameters,
-    /// its nodes' state and its state machines', with the graph's
-    /// identity.
+    /// its nodes' state and its state machines' and one-shots', with the
+    /// graph's identity.
     ///
     /// @param binding  A binding.
     /// @return The size; 0 for a NULL binding.
@@ -371,9 +374,9 @@ extern "C"
                                                              void* out, size_t capacity);
 
     /// Restores a saved state, checked as external bytes: the graph's
-    /// identity, the size, every parameter in form and every node's and
-    /// state machine's state finite and in range. The instance's cursors start over (they cache
-    /// nothing a pose depends on).
+    /// identity, the size, every parameter in form and every node's, state
+    /// machine's and one-shot's state finite and in range. The instance's
+    /// cursors start over (they cache nothing a pose depends on).
     ///
     /// @param instance  An instance of the graph the state was saved from.
     /// @param bytes     The state.

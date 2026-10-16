@@ -280,10 +280,9 @@ static maniBuildResult CheckClipNode(const maniGraphSource* source, const maniGr
               : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }
 
-static maniBuildResult CheckMaskNode(const maniGraphSource* source, const maniGraphNodeSource* n,
-                                     uint32_t node)
+static maniBuildResult CheckMask(const maniGraphSource* source, const maniGraphMaskNodeSource* m,
+                                 uint32_t node)
 {
-    const maniGraphMaskNodeSource* m = &n->mask;
     if (m->chainCount > 0 && m->chains == NULL)
     {
         return maniGraphRefuse(maniBuildReasonNode, node, 0);
@@ -305,6 +304,30 @@ static maniBuildResult CheckMaskNode(const maniGraphSource* source, const maniGr
     return ok ? Outcome(mani_success) : maniGraphRefuse(maniBuildReasonWeight, node, m->chainCount);
 }
 
+static bool Seconds(float value)
+{
+    return isfinite(value) && value >= 0.0f;
+}
+
+// A one-shot: a fire trigger, optional fade-out and abort triggers, a
+// curve, fades in seconds, an optional mask.
+static maniBuildResult CheckShotNode(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                     uint32_t node)
+{
+    const maniGraphOneShotNodeSource* s = &n->oneShot;
+    maniGraphParameterType trigger = maniGraphParameterTrigger;
+    bool ok = ParameterOf(source, s->fire, trigger, trigger) &&
+              (s->fadeOutTrigger == MANI_NO_PARAMETER ||
+               ParameterOf(source, s->fadeOutTrigger, trigger, trigger)) &&
+              (s->abort == MANI_NO_PARAMETER || ParameterOf(source, s->abort, trigger, trigger)) &&
+              s->curve <= maniGraphFadeSmoothstep && Seconds(s->fadeIn) && Seconds(s->fadeOut);
+    if (!ok)
+    {
+        return maniGraphRefuse(maniBuildReasonNode, node, 0);
+    }
+    return s->mask != NULL ? CheckMask(source, s->mask, node) : Outcome(mani_success);
+}
+
 // A node's own fields, by kind.
 static maniBuildResult CheckFields(const maniGraphSource* source, const maniGraphNodeSource* n,
                                    uint32_t node)
@@ -319,7 +342,9 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
                                     : CheckWeights(source, n->blend.weights, count, node,
                                                    n->blend.direct != 0 ? 1.0f : HUGE_VALF);
     case maniGraphNodeMask:
-        return CheckMaskNode(source, n, node);
+        return CheckMask(source, &n->mask, node);
+    case maniGraphNodeOneShot:
+        return CheckShotNode(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -366,22 +391,25 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
         return r;
     }
     bool machine = n->kind == maniGraphNodeMachine;
+    bool shot = n->kind == maniGraphNodeOneShot;
     uint32_t transitions = machine ? n->machine.transitionCount : 0u;
     tally->inputCount += n->inputCount;
     tally->dataWords +=
-        machine ? maniGraphMachineSourceWords(n) : maniGraphDataWords(n->kind, n->inputCount);
+        machine ? maniGraphMachineSourceWords(n)
+                : (shot ? MANI_GRAPH_SHOT_WORDS : maniGraphDataWords(n->kind, n->inputCount));
     tally->machineWords +=
         machine ? MANI_GRAPH_BLOCK_SIZE(n->inputCount, transitions, maniGraphMachineConditions(n))
-                : 0u;
-    tally->listeners += machine && maniGraphMachineListens(n) ? 1u : 0u;
+                : (shot ? MANI_GRAPH_SHOT_BLOCK_WORDS : 0u);
+    tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
+    tally->maskCount += shot && n->oneShot.mask != NULL ? 1u : 0u;
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
     tally->maskCount += n->kind == maniGraphNodeMask ? 1u : 0u;
     return r;
 }
 
-// The clip lists of the machines that listen: their words, and the
-// longest list.
+// The clip lists of the machines that listen and of the one-shots: their
+// words, and the longest list.
 static maniBuildResult TallyLists(const maniGraphSource* source, const maniAllocator* allocator,
                                   maniGraphTally* tally)
 {
@@ -397,7 +425,9 @@ static maniBuildResult TallyLists(const maniGraphSource* source, const maniAlloc
     {
         const maniGraphNodeSource* node = &source->nodes[v];
         bool listens = node->kind == maniGraphNodeMachine && maniGraphMachineListens(node);
-        for (uint32_t k = 0; k < (listens ? node->inputCount : 0u); ++k)
+        bool shot = node->kind == maniGraphNodeOneShot;
+        // A machine lists per state; a one-shot beneath its shot.
+        for (uint32_t k = shot ? 1u : 0u; k < (listens || shot ? node->inputCount : 0u); ++k)
         {
             uint32_t count = maniGraphReachClips(&reach, node->inputs[k], NULL, NULL);
             tally->dataWords += count;

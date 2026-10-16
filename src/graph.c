@@ -59,6 +59,7 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
         *minOut = 0;
         return 0;
     case maniGraphNodeMask:
+    case maniGraphNodeOneShot:
         *minOut = 2;
         return 2;
     case maniGraphNodeAdditive:

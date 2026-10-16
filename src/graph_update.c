@@ -11,6 +11,8 @@
 #include "graph_machine.h"
 #include "graph_machine_listen.h"
 #include "graph_machine_step.h"
+#include "graph_shot.h"
+#include "graph_shot_step.h"
 #include "graph_space.h"
 #include "root_motion.h"
 
@@ -221,6 +223,56 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     }
 }
 
+// A one-shot a parent reached stepped by its own time, then its base and
+// shot shared as a mask of the shot's weight times the mask's per-bone
+// weights (1 without one) shares them; a shot fire restarted reached
+// even at weight 0, seeking 0. A seek above it stops the shot.
+static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
+{
+    if ((s->flags & MANI_GRAPH_REACHED) == 0)
+    {
+        return;
+    }
+    maniGraphShot shot = {u->graph, maniLoadU32(record + 12), 0};
+    uint32_t* block = (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) +
+                      maniGraphShotWord(&shot, maniGraphShotBlock);
+    if ((s->flags & MANI_GRAPH_SEEKING) != 0)
+    {
+        maniGraphResetShot(block);
+    }
+    bool restart =
+        maniGraphStepShot(&shot, u->instance->cells, block, fabs(u->delta * (double)s->factor));
+    float w = 0.0f;
+    memcpy(&w, &block[maniGraphShotWeight], sizeof w);
+    float most = 1.0f;
+    float least = 1.0f;
+    float root = 1.0f;
+    uint32_t mask = maniGraphShotWord(&shot, maniGraphShotMask);
+    if (mask != MANI_GRAPH_NO_MASK)
+    {
+        uint32_t bones = u->graph->skeletonBoneCount;
+        const uint8_t* weights = u->graph->maskWeights + 4 * (size_t)mask * bones;
+        most = 0.0f;
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            float m = 0.0f;
+            memcpy(&m, weights + 4 * (size_t)b, sizeof m);
+            most = m > most ? m : most;
+            least = m < least ? m : least;
+            root = b == u->binding->rootMotionBone ? m : root;
+        }
+    }
+    Give(u, InputOf(u, record, 0), Pass(s, 1.0f - w * least, 1.0f - w * root));
+    if (w > 0.0f || restart)
+    {
+        Share share = Pass(s, w * most, w * root);
+        share.flags =
+            restart ? (share.flags | MANI_GRAPH_SEEKING) & ~MANI_GRAPH_PHASE : share.flags;
+        share.seekTo = restart ? 0.0f : share.seekTo;
+        Give(u, InputOf(u, record, 1), share);
+    }
+}
+
 // The input a select's parameter chooses, clamped to its inputs.
 static uint32_t Chosen(const Update* u, const uint8_t* record)
 {
@@ -301,6 +353,10 @@ static void Weigh(const Update* u)
         else if (kind == maniGraphNodeMachine)
         {
             ShareMachine(u, record, s);
+        }
+        else if (kind == maniGraphNodeOneShot)
+        {
+            ShareShot(u, record, s);
         }
         else if (kind != maniGraphNodeClip)
         {

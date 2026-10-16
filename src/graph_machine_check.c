@@ -268,6 +268,17 @@ static uint32_t PutTransitions(uint8_t* data, uint32_t at, const maniGraphNodeSo
     return conditions;
 }
 
+uint32_t maniGraphSortedClips(maniGraphMachineWork* work, uint32_t from, uint32_t* nearestOut)
+{
+    uint32_t count = maniGraphReachClips(work->reach, from, work->clips, nearestOut);
+    for (uint32_t c = 0; c < count; ++c)
+    {
+        work->keys[c] = work->clips[c];
+    }
+    maniSortByKey(work->keys, count, work->order, work->scratch);
+    return count;
+}
+
 // Per state its final flag, nearest machine and clip list (a listening
 // machine's), then the lists, each in node order.
 static uint32_t PutStates(uint8_t* data, uint32_t at, const maniGraphNodeSource* n,
@@ -285,13 +296,7 @@ static uint32_t PutStates(uint8_t* data, uint32_t at, const maniGraphNodeSource*
             final = final || m->finals[f] == k;
         }
         uint32_t nearest = MANI_GRAPH_NO_NODE;
-        uint32_t count =
-            listens ? maniGraphReachClips(work->reach, n->inputs[k], work->clips, &nearest) : 0u;
-        for (uint32_t c = 0; c < count; ++c)
-        {
-            work->keys[c] = work->clips[c];
-        }
-        maniSortByKey(work->keys, count, work->order, work->scratch);
+        uint32_t count = listens ? maniGraphSortedClips(work, n->inputs[k], &nearest) : 0u;
         for (uint32_t c = 0; c < count; ++c)
         {
             (void)Put(data, lists + first + c, work->clips[work->order[c]]);

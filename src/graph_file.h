@@ -113,8 +113,23 @@ enum
 #define MANI_GRAPH_BLOCK_SIZE(states, transitions, conditions)                                     \
     (MANI_GRAPH_BLOCK_WORDS + 2u * (states) + (transitions) + ((conditions) + 31u) / 32u)
 
+// A one-shot's data words: its fire, fade-out and abort triggers
+// (MANI_NO_PARAMETER for the last two when absent), its curve, fade-in and
+// fade-out seconds (binary32), its mask (MANI_GRAPH_NO_MASK for the whole
+// body), the first word of its block in an instance's machine state, and
+// the count of the clip nodes beneath its shot, then those nodes in node
+// order.
+#define MANI_GRAPH_SHOT_WORDS 9u
+#define MANI_GRAPH_NO_MASK    0xFFFFFFFFu
+// A one-shot's block: its phase (idle, fading in, playing, fading out),
+// the fade's elapsed seconds, the weight when the fade began and its
+// weight (binary32), then the clip seconds its leading clip had left
+// after the update before (binary64, +inf for none or repeating).
+#define MANI_GRAPH_SHOT_BLOCK_WORDS 6u
+
 // The data words a node of a kind with n inputs holds; 0 for an unknown
-// kind and for a state machine, whose words its transitions count.
+// kind, a state machine and a one-shot, whose words their contents
+// count.
 uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount);
 
 // The inputs a kind takes: at least minOut, at most the return (0 with

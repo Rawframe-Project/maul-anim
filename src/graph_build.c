@@ -371,6 +371,48 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
 }
 
 // A node's data words, by kind; a mask's weights made.
+// A mask's per-bone weights, the next in the masks section.
+static void PutMask(const maniGraphSource* source, const maniGraphMaskNodeSource* m, Layout* lay)
+{
+    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    // Checked already: the chains' bones and weights are in range.
+    (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight, lay->weights,
+                        bones);
+    memcpy(lay->sections[7] + 4 * (size_t)lay->maskAt * bones, lay->weights, 4 * (size_t)bones);
+    ++lay->maskAt;
+}
+
+// A one-shot's words, its mask's weights, and its block taken.
+static uint32_t PutShot(const maniGraphSource* source, const maniGraphNodeSource* node, uint8_t* d,
+                        uint32_t at, Layout* lay)
+{
+    const maniGraphOneShotNodeSource* s = &node->oneShot;
+    uint32_t count = maniGraphSortedClips(&lay->machine, node->inputs[1], NULL);
+    float fades[2] = {s->fadeIn, s->fadeOut};
+    uint32_t bits[2];
+    memcpy(bits, fades, sizeof bits);
+    const uint32_t words[9] = {s->fire,
+                               s->fadeOutTrigger,
+                               s->abort,
+                               s->curve,
+                               bits[0],
+                               bits[1],
+                               s->mask != NULL ? lay->maskAt : MANI_GRAPH_NO_MASK,
+                               lay->blockAt,
+                               count};
+    at = PutWords(d, at, words, 9);
+    for (uint32_t c = 0; c < count; ++c)
+    {
+        at = PutWords(d, at, &lay->machine.clips[lay->machine.order[c]], 1);
+    }
+    if (s->mask != NULL)
+    {
+        PutMask(source, s->mask, lay);
+    }
+    lay->blockAt += MANI_GRAPH_SHOT_BLOCK_WORDS;
+    return at;
+}
+
 static void PutData(const maniGraphSource* source, const maniGraphNodeSource* node, Layout* lay)
 {
     uint8_t* d = lay->sections[4];
@@ -394,14 +436,12 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeMask)
     {
-        uint32_t bones = maniSkeletonBoneCount(source->skeleton);
-        const maniGraphMaskNodeSource* m = &node->mask;
-        // Checked already: the chains' bones and weights are in range.
-        (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight,
-                            lay->weights, bones);
-        memcpy(lay->sections[7] + 4 * (size_t)lay->maskAt * bones, lay->weights, 4 * (size_t)bones);
         at = PutWords(d, at, &lay->maskAt, 1);
-        ++lay->maskAt;
+        PutMask(source, &node->mask, lay);
+    }
+    else if (node->kind == maniGraphNodeOneShot)
+    {
+        at = PutShot(source, node, d, at, lay);
     }
     else if (node->kind == maniGraphNodeSelect)
     {
@@ -450,9 +490,9 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         }
         uint32_t first = lay->dataAt;
         PutData(source, node, lay);
-        maniStoreU32(e + 16, node->kind == maniGraphNodeMachine
-                                 ? lay->dataAt - first
-                                 : maniGraphDataWords(node->kind, node->inputCount));
+        bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot;
+        maniStoreU32(e + 16, counted ? lay->dataAt - first
+                                     : maniGraphDataWords(node->kind, node->inputCount));
     }
 }
 

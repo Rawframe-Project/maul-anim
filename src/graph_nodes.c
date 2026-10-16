@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_machine_file.h"
+#include "graph_shot.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/graph.h"
@@ -356,9 +357,12 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     {
         return Fail(n->at + 12);
     }
-    uint32_t words = n->kind == maniGraphNodeMachine
-                         ? maniGraphMachineDataWords(g, n->data, n->count, g->dataWords - dataAt)
-                         : maniGraphDataWords(n->kind, n->count);
+    uint32_t available = g->dataWords - dataAt;
+    uint32_t words = maniGraphDataWords(n->kind, n->count);
+    words = n->kind == maniGraphNodeMachine
+                ? maniGraphMachineDataWords(g, n->data, n->count, available)
+                : (n->kind == maniGraphNodeOneShot ? maniGraphShotDataWords(g, n->data, available)
+                                                   : words);
     if (n->words != words || n->words > g->dataWords - dataAt)
     {
         return Fail(n->at + 16);
@@ -409,8 +413,10 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
             return r;
         }
         bool machine = n.kind == maniGraphNodeMachine;
-        uint32_t wrong =
-            machine ? maniGraphMachineValid(g, p, n.data, n.count, blockAt) : DataValid(g, &n);
+        bool shot = n.kind == maniGraphNodeOneShot;
+        uint32_t wrong = shot ? maniGraphShotValid(g, p, n.data, blockAt) : UINT32_MAX;
+        wrong = machine ? maniGraphMachineValid(g, p, n.data, n.count, blockAt)
+                        : (shot ? wrong : DataValid(g, &n));
         if (wrong != UINT32_MAX)
         {
             return Fail(dataAt + 4 * (uint64_t)wrong);
@@ -422,8 +428,9 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         inputAt += n.count;
         wordAt += n.words;
-        blockAt +=
-            machine ? MANI_GRAPH_BLOCK_SIZE(n.count, Word(g, n.data + 2), Word(g, n.data + 4)) : 0u;
+        blockAt += machine
+                       ? MANI_GRAPH_BLOCK_SIZE(n.count, Word(g, n.data + 2), Word(g, n.data + 4))
+                       : (shot ? MANI_GRAPH_SHOT_BLOCK_WORDS : 0u);
     }
     *machineWordsOut = blockAt;
     if (inputAt != g->inputCount)

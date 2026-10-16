@@ -211,6 +211,23 @@ runtime allocates (mani-0001).
   state entered at weight 0 to the leading clip's position, each clip
   at that fraction of its own duration. Event names are kept as their
   64-bit hashes, as clips keep them.
+- **One-shots** (`maniGraphNodeOneShot`) take a base and a shot. Like a
+  machine, a one-shot that a parent reached decides at the start of an
+  update: its fade clock advances (a fade in settles to playing at 1, a
+  fade out to idle at 0), then its triggers are read and consumed, the
+  first set of abort, fire and fade-out acting. Abort stops the shot at
+  once; fire starts the shot over (a seek to 0 below it) and fades it in
+  from the weight it has, so firing again never pops; fade-out fades it
+  out from its weight. Without a trigger, a shot whose leading clip (as
+  a machine's, beneath the shot), not repeating, has no more clip time
+  left than the fade-out's seconds fades out, as Unreal's montages
+  begin their blend-out by position. The shot's weight w, times an
+  optional mask's per-bone weights, shares and blends as a mask node of
+  those weights does: bit for bit the same pose. A seek above a
+  one-shot stops its shot. Its block (phase, fade clock, fade-start
+  weight, weight, clip seconds left) lies with the machines' and joins
+  the saved state, which refuses a phase out of range and a weight its
+  phase does not allow.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`

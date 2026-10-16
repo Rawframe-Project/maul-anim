@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Positions are normalized playheads; a clip of no duration stays at 0.
-// The whole loops a repeating clip wrapped come from where its playhead
+// A one-shot records its leading clip's clip seconds left. The whole
+// loops a repeating clip wrapped come from where its playhead
 // landed, so a crossing at a loop's end counts in one update only. A
 // clip's events heard are the stretches its update listed: the same
 // ranges, the same whole loops.
@@ -13,6 +14,7 @@
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
+#include "graph_shot.h"
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
@@ -219,6 +221,38 @@ static void Keep(const Listen* l, uint32_t p)
     Hear(l, &m, block, k);
 }
 
+// A one-shot a parent reached: the clip seconds its leading clip has left
+// toward the end it moves to (+inf for none or repeating).
+static void KeepShot(const Listen* l, uint32_t p)
+{
+    if ((Node(l, p)->flags & MANI_GRAPH_REACHED) == 0)
+    {
+        return;
+    }
+    maniGraphShot shot = {l->graph, maniLoadU32(Record(l, p) + 12), 0};
+    uint32_t leading = MANI_GRAPH_NO_NODE;
+    float most = 0.0f;
+    for (uint32_t i = 0; i < maniGraphShotWord(&shot, maniGraphShotClips); ++i)
+    {
+        uint32_t clip = maniGraphShotClip(&shot, i);
+        float weight = Node(l, clip)->weight;
+        if (leading == MANI_GRAPH_NO_NODE || weight > most)
+        {
+            leading = clip;
+            most = weight;
+        }
+    }
+    double left = HUGE_VAL;
+    if (leading != MANI_GRAPH_NO_NODE)
+    {
+        const maniGraphNodeState* s = Node(l, leading);
+        maniClip c = ClipOf(l, leading);
+        left = Repeats(&c) ? HUGE_VAL : (s->step < 0.0 ? s->time : (double)c.duration - s->time);
+    }
+    uint32_t* block = l->blocks + maniGraphShotWord(&shot, maniGraphShotBlock);
+    maniGraphSetBlockDouble(block, maniGraphShotRemaining, left > 0.0 ? left : 0.0);
+}
+
 void maniGraphListen(const maniGraph* graph, const maniClip* const* clips,
                      maniGraphInstance* instance)
 {
@@ -226,13 +260,15 @@ void maniGraphListen(const maniGraph* graph, const maniClip* const* clips,
                 (uint32_t*)((uint8_t*)instance + instance->machinesAt)};
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
-        if (maniLoadU16(Record(&l, p)) == maniGraphNodeMachine)
+        uint32_t kind = maniLoadU16(Record(&l, p));
+        maniGraphMachine m = MachineAt(&l, p);
+        if (kind == maniGraphNodeMachine && maniGraphMachineListening(&m))
         {
-            maniGraphMachine m = MachineAt(&l, p);
-            if (maniGraphMachineListening(&m))
-            {
-                Keep(&l, p);
-            }
+            Keep(&l, p);
+        }
+        else if (kind == maniGraphNodeOneShot)
+        {
+            KeepShot(&l, p);
         }
     }
 }

@@ -85,6 +85,12 @@ format.
   state (`maniGraphConditionEvent`); `maniGraphEntryMatch` enters a
   state at the leading clip's normalized phase. A machine no parent
   reaches does not step, so its triggers wait.
+- One-shots (mani-0023): `maniGraphNodeOneShot` plays a shot over a
+  base. A fire trigger starts the shot over and fades it in from its
+  weight; it fades out when its leading clip has the fade-out's seconds
+  of clip time left, or on a fade-out trigger; an abort trigger stops it
+  at once. An optional mask weighs the shot per bone. Its state is saved
+  and restored with the instance; in the JSON form as `oneShot`.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

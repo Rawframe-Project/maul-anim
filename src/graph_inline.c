@@ -300,6 +300,11 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
     case maniGraphNodeMachine:
         RemapMachine(s, f, node);
         return;
+    case maniGraphNodeOneShot:
+        node->oneShot.fire = Resolve(s, node->oneShot.fire);
+        node->oneShot.fadeOutTrigger = Resolve(s, node->oneShot.fadeOutTrigger);
+        node->oneShot.abort = Resolve(s, node->oneShot.abort);
+        return;
     default:
         return;
     }

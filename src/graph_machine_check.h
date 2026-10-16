@@ -58,6 +58,10 @@ typedef struct maniGraphMachineWork
     maniGraphReach* reach;
 } maniGraphMachineWork;
 
+// The clip nodes from a node down, as maniGraphReachClips finds them,
+// their places in work's clips taken in node order by work's order.
+uint32_t maniGraphSortedClips(maniGraphMachineWork* work, uint32_t from, uint32_t* nearestOut);
+
 // Writes a checked machine node's words at data word at of data, its
 // block at word block of an instance's machine state; returns the word
 // after them.

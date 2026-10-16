@@ -6,7 +6,8 @@
 // it of greatest effective weight, the first of equals), where it was
 // and is and the whole loops it wrapped, the loops since the state was
 // entered, whether the state finished, and the event names its clips
-// listed; the machine's next update decides on them.
+// listed; a one-shot's leading clip's clip seconds left; the next update
+// decides on them.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_MACHINE_LISTEN_H
 #define MAUL_ANIM_SRC_GRAPH_MACHINE_LISTEN_H
@@ -16,8 +17,8 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 
-// Records every listening machine of an instance whose clips moved,
-// clips the binding's in slot order.
+// Records every listening machine and every one-shot of an instance
+// whose clips moved, clips the binding's in slot order.
 void maniGraphListen(const maniGraph* graph, const maniClip* const* clips,
                      maniGraphInstance* instance);
 

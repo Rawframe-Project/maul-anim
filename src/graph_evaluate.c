@@ -9,6 +9,7 @@
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
+#include "graph_shot.h"
 #include "graph_space.h"
 #include "pose_memory.h"
 
@@ -267,6 +268,46 @@ static void Mask(const Evaluation* e, const uint8_t* record, maniPose* out, bool
     }
 }
 
+// A one-shot: per bone the shot at its weight times the mask's (1
+// without one), the base at the rest, as a mask node of those weights.
+static void Shot(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
+{
+    maniGraphShot shot = {e->graph, maniLoadU32(record + 12), 0};
+    const uint32_t* block =
+        (const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt) +
+        maniGraphShotWord(&shot, maniGraphShotBlock);
+    float w = 0.0f;
+    memcpy(&w, &block[maniGraphShotWeight], sizeof w);
+    uint32_t bones = e->graph->skeletonBoneCount;
+    uint32_t mask = maniGraphShotWord(&shot, maniGraphShotMask);
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        float m = 1.0f;
+        if (mask != MANI_GRAPH_NO_MASK)
+        {
+            memcpy(&m, e->graph->maskWeights + 4 * ((size_t)mask * bones + b), sizeof m);
+        }
+        e->inside[b] = w * m;
+        e->outside[b] = 1.0f - e->inside[b];
+    }
+    uint32_t count = 0;
+    const maniPose* base = InputPose(e, record, 0);
+    const maniPose* played = InputPose(e, record, 1);
+    if (played != NULL && w > 0.0f)
+    {
+        e->layers[count++] = (maniBlendLayer){played, 1.0f, e->inside};
+    }
+    if (base != NULL)
+    {
+        e->layers[count++] = (maniBlendLayer){base, 1.0f, e->outside};
+    }
+    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                     out) != mani_success)
+    {
+        Neutral(e, out, difference);
+    }
+}
+
 static void Additive(const Evaluation* e, const uint8_t* record, maniPose* out)
 {
     uint32_t d = maniLoadU32(record + 12);
@@ -326,6 +367,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
         Space(e, record, out, difference);
+        return;
+    case maniGraphNodeOneShot:
+        Shot(e, record, out, difference);
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);
