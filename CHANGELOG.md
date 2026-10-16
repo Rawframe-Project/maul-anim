@@ -132,6 +132,10 @@ format.
   and `maniBuildGraphJson` take the host's databases; the node's block
   joins the saved state; subgraphs join databases by identity; the
   JSON form writes a "databases" list and "match" nodes.
+- Trajectory prediction (mani-0024): `maniAdvanceTrajectory` moves a
+  simulated root toward a desired velocity and rotation by Holden's
+  critically damped springs in closed form; `maniTrajectoryFeatures`
+  gives a sample's values for a database's trajectory channels.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

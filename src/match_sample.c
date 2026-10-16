@@ -37,22 +37,6 @@ static maniMatchPlace Locate(const maniClip* clip, const maniMatchEntrySource* e
     return maniMatchLocate(clip, span, t, step);
 }
 
-static maniVec3 Axis(maniMatchAxis axis)
-{
-    float sign = axis >= maniMatchAxisNegativeX ? -1.0f : 1.0f;
-    uint32_t a = axis % 3;
-    return (maniVec3){a == 0 ? sign : 0.0f, a == 1 ? sign : 0.0f, a == 2 ? sign : 0.0f};
-}
-
-// A vector on the ground plane: its two components besides the up axis.
-static void Ground(maniVec3 v, maniMatchAxis up, float* out)
-{
-    const float c[3] = {v.x, v.y, v.z};
-    uint32_t a = up % 3;
-    out[0] = c[a == 0 ? 1 : 0];
-    out[1] = c[a == 2 ? 1 : 2];
-}
-
 static bool Model(maniMatchSampler* s, const maniClip* clip, float time, uint32_t bone,
                   maniTransform* out)
 {
@@ -115,7 +99,8 @@ static bool Facing(maniMatchSampler* s, const maniClip* clip, maniMatchPlace p,
     {
         return false;
     }
-    *out = maniQuatRotate(p.move.rotation, maniQuatRotate(m.rotation, Axis(c->axis)));
+    *out =
+        maniQuatRotate(p.move.rotation, maniQuatRotate(m.rotation, maniMatchAxisVector(c->axis)));
     return true;
 }
 
@@ -152,10 +137,11 @@ static bool Channel(maniMatchSampler* s, uint32_t e, uint32_t c, float t, float 
         ok = Facing(s, clip, p, ch, &v);
         break;
     case maniMatchTrajectoryPosition:
-        Ground(p.move.translation, src->up, out);
+        maniMatchGround(p.move.translation, src->up, out);
         return true;
     case maniMatchTrajectoryFacing:
-        Ground(maniQuatRotate(p.move.rotation, Axis(src->forward)), src->up, out);
+        maniMatchGround(maniQuatRotate(p.move.rotation, maniMatchAxisVector(src->forward)), src->up,
+                        out);
         return true;
     default:
         return Float(s, clip, p.time, s->tracks[(size_t)c * src->entryCount + e], out);

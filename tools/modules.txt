@@ -38,6 +38,7 @@ match_file:
 match: bytes container match_file text
 match_search: bytes match_file
 match_move:
+trajectory: elementary_float match_move vecmath
 match_sample: match match_file match_move vecmath
 match_build: allocator builder bytes container match match_file match_sample text
 clip_file:

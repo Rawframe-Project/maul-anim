@@ -9,6 +9,7 @@
 #include "match_move.h"
 
 #include "maul-anim/clip.h"
+#include "maul-anim/match.h"
 #include "maul-anim/rootmotion.h"
 
 #include <math.h>
@@ -95,4 +96,19 @@ maniMatchPlace maniMatchLocate(const maniClip* clip, maniMatchSpan span, float t
     float at = (float)(x < (double)span.start ? (double)span.start
                                               : (x > (double)span.end ? (double)span.end : x));
     return (maniMatchPlace){at, 0, 0.0, Move(clip, t, at - t)};
+}
+
+maniVec3 maniMatchAxisVector(maniMatchAxis axis)
+{
+    float sign = axis >= maniMatchAxisNegativeX ? -1.0f : 1.0f;
+    uint32_t a = axis % 3;
+    return (maniVec3){a == 0 ? sign : 0.0f, a == 1 ? sign : 0.0f, a == 2 ? sign : 0.0f};
+}
+
+void maniMatchGround(maniVec3 v, maniMatchAxis up, float* out)
+{
+    const float c[3] = {v.x, v.y, v.z};
+    uint32_t a = up % 3;
+    out[0] = c[a == 0 ? 1 : 0];
+    out[1] = c[a == 2 ? 1 : 2];
 }

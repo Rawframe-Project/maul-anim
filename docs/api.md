@@ -1120,6 +1120,20 @@ MANI_NODISCARD MANI_API maniResult maniPaletteRows(const maniAffine* palette, ui
 ```
 Writes a palette for shaders: each matrix as three rows of four floats (row-major 3x4), the translation last in each row.  @param palette  count matrices, as maniComputePalette writes them. @param count    The number of matrices. @param rows     Receives 12 floats a matrix. @return `mani_success`; `mani_errorInvalid` for a NULL pointer with a count. @par Thread safety Safe from any thread.
 
+## `trajectory.h`
+
+A character's trajectory predicted for motion matching (mani-0024): Holden's critically damped springs, in closed form, take a simulated root toward a desired velocity and rotation; its samples, predicted or recorded, become the query values of a database's trajectory channels.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniAdvanceTrajectory(maniTrajectory* trajectory, const maniTrajectoryGoal* goal, float seconds);
+```
+Moves a trajectory by seconds toward its goal, each spring in closed form (y = 2 ln 2 / (half-life + 1e-5); the position's with its acceleration, Holden's simulation_positions_update; the rotation's on the shorter arc, his simple_spring_damper_exact), in binary32: one advance is many shorter ones up to rounding, so a prediction t seconds ahead is a copy advanced by t.  @param trajectory  The trajectory; finite, its rotation unit within 1e-3. @param goal        Finite, its rotation not zero (normalized), its half-lives not negative. @param seconds     Finite, not negative. @return `mani_success`; `mani_errorInvalid` for a NULL argument or one out of range (the trajectory then unchanged). @par Thread safety Safe from any thread; the trajectory is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniTrajectoryFeatures(const maniMotionDatabase* database, const maniTrajectory* root, const maniTrajectory* sample, float* positionOut, float* facingOut);
+```
+Gives a sample's trajectory values as a database measures its trajectories: the sample's offset from the root and the database's forward axis turned by the sample's rotation, both in the root's frame, on the ground plane (the two axes besides the database's up axis, in order); the values of a trajectory position and a trajectory facing query parameter.  @param database     An opened database. @param root         The character's root now (its position and rotation; the rest unread). @param sample       A sample predicted ahead or recorded behind. @param positionOut  Receives 2 values, or NULL. @param facingOut    Receives 2 values, or NULL. @return `mani_success`; `mani_errorInvalid` for a NULL database, root or sample. @par Thread safety Safe from any thread.
+
 ---
 
-212 functions across 15 headers.
+214 functions across 16 headers.

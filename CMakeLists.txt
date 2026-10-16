@@ -82,6 +82,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/match.c
     src/match_search.c
     src/match_move.c
+    src/trajectory.c
     src/pose.c
     src/scalar.c
     src/skeleton.c
@@ -156,6 +157,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(match_search WHITEBOX)
         maul_add_test(graph_match WHITEBOX)
         maul_add_test(graph_match_file WHITEBOX)
+        maul_add_test(trajectory WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

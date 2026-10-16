@@ -36,27 +36,6 @@ enum
     Decay = 19,
 };
 
-static maniQuat Shorter(maniQuat q)
-{
-    return q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q;
-}
-
-// The scaled axis-angle of a turn.
-static maniVec3 Log(maniQuat q)
-{
-    q = Shorter(q);
-    maniVec3 xyz = {q.x, q.y, q.z};
-    float s = maniVec3Length(xyz);
-    return s > 0.0f ? maniVec3Scale(xyz, 2.0f * maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0};
-}
-
-static maniQuat Exp(maniVec3 v)
-{
-    float angle = maniVec3Length(v);
-    return angle > 0.0f ? maniQuatFromAxisAngle(maniVec3Scale(v, 1.0f / angle), angle)
-                        : maniQuatIdentity();
-}
-
 // A scale axis's logarithm, or none (0, false) when not positive.
 static bool LogScale(float s, float* out)
 {
@@ -132,8 +111,10 @@ void maniGraphDeadCapture(uint32_t* block, const maniGraphInertia* node, float* 
         maniGraphTrsKeep(block, capture + Origin, x);
         Channel(block, capture, node, maniVec3Scale(maniVec3Sub(x.t, p.t), rate),
                 maniVec3Sub(in.t, x.t));
-        maniVec3 turn = maniVec3Scale(Log(maniQuatMul(x.r, maniQuatConjugate(p.r))), rate);
-        Channel(block, capture + 3, node, turn, Log(maniQuatMul(in.r, maniQuatConjugate(x.r))));
+        maniVec3 turn =
+            maniVec3Scale(maniQuatToRotationVector(maniQuatMul(x.r, maniQuatConjugate(p.r))), rate);
+        Channel(block, capture + 3, node, turn,
+                maniQuatToRotationVector(maniQuatMul(in.r, maniQuatConjugate(x.r))));
         maniVec3 speed;
         maniVec3 distance;
         Scales(x.s, p.s, in.s, rate, &speed, &distance);
@@ -188,7 +169,7 @@ void maniGraphDeadApply(const uint32_t* block, const maniGraphInertia* node, flo
         maniGraphTrs x = maniGraphTrsKept(block, capture + Origin);
         maniVec3 s = Carried(block, capture + 6, t);
         x.t = maniVec3Add(x.t, Carried(block, capture, t));
-        x.r = maniQuatMul(Exp(Carried(block, capture + 3, t)), x.r);
+        x.r = maniQuatMul(maniQuatFromRotationVector(Carried(block, capture + 3, t)), x.r);
         x.s = (maniVec3){Grow(x.s.x, s.x), Grow(x.s.y, s.y), Grow(x.s.z, s.z)};
         maniGraphTrsWrite(slot, (maniGraphTrs){Lerp(x.t, in.t, w), maniQuatSlerp(x.r, in.r, w),
                                                Lerp(x.s, in.s, w)});

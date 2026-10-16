@@ -97,6 +97,13 @@ maniQuat maniQuatSlerp(maniQuat a, maniQuat b, float t);
 // The turn by angle radians about a unit axis.
 maniQuat maniQuatFromAxisAngle(maniVec3 axis, float angle);
 
+// A turn's scaled axis-angle on the shorter arc: its axis times its
+// angle (0 for no turn).
+maniVec3 maniQuatToRotationVector(maniQuat q);
+
+// The turn of a scaled axis-angle (the identity for 0).
+maniQuat maniQuatFromRotationVector(maniVec3 v);
+
 // The shortest turn taking the unit direction from onto the unit direction
 // to; opposite directions turn half way about an axis perpendicular to
 // from. Always a unit quaternion, even for a zero or non-finite input.

@@ -100,6 +100,21 @@ maniQuat maniQuatFromAxisAngle(maniVec3 axis, float angle)
     return (maniQuat){axis.x * s, axis.y * s, axis.z * s, c};
 }
 
+maniVec3 maniQuatToRotationVector(maniQuat q)
+{
+    q = q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q;
+    maniVec3 xyz = {q.x, q.y, q.z};
+    float s = maniVec3Length(xyz);
+    return s > 0.0f ? maniVec3Scale(xyz, 2.0f * maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0};
+}
+
+maniQuat maniQuatFromRotationVector(maniVec3 v)
+{
+    float angle = maniVec3Length(v);
+    return angle > 0.0f ? maniQuatFromAxisAngle(maniVec3Scale(v, 1.0f / angle), angle)
+                        : maniQuatIdentity();
+}
+
 maniQuat maniQuatBetween(maniVec3 from, maniVec3 to)
 {
     // The turn from from onto the unit half-vector h between the two is

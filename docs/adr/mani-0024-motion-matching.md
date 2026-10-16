@@ -91,6 +91,19 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   it and the picks. Subgraphs join databases by identity, with the
   clips they list; the JSON form names database slots in a
   `databases` list and the node's database, trigger and query by name.
+- **The predictor** (`maniAdvanceTrajectory`): Holden's controller's
+  critically damped springs in closed form, a host's simulated root
+  (position, velocity, acceleration, rotation, angular velocity) moved
+  toward a desired velocity and rotation, each with a half-life
+  (y = 2 ln 2 / (h + 1e-5), his halflife_to_damping), in binary32 with
+  the library's exponential rather than his approximation, so the bits
+  are the same everywhere. One advance equals many shorter ones up to
+  rounding, so a prediction t seconds ahead is a copy advanced by t.
+  `maniTrajectoryFeatures` turns a predicted or recorded sample into
+  the values of a trajectory position and facing parameter as the
+  database measures its own: offset and turned forward axis in the
+  root's frame, on the database's ground plane. Past times come from
+  the host's record, as in Holden's controller.
 - **The file** (container kind 8): the channels and their times, the
   clips by identity, the entries, the normalization, the normalized
   features frame by frame, and bounds over runs of 16 and 64 frames
@@ -104,8 +117,8 @@ A database costs one pass over its clips at build and a check of every
 byte when opened. Hosts tune by weights and entries, not code; a
 database matches its skeleton and clips by identity, so a host cannot
 pair it with others. A node's search costs its database's pruned scan
-once a period, not every frame. The trajectory predictor builds on
-this record.
+once a period, not every frame. A host feeding the node needs no
+predictor of its own, but may use any that writes the parameters.
 
 Opening is fuzzed; every check is tested against a file changed at its
 byte. A node's saved block is fuzzed through a restore, an update and
