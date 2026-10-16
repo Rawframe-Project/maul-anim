@@ -11,6 +11,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 #include "maul-anim/skinning.h"
@@ -25,6 +26,28 @@ extern "C"
 
     // An opened glTF document.
     typedef struct maniGltf maniGltf;
+
+    // One clip's settings for maniGltfBuildClip and maniFbxBuildClip
+    // (mani-0022), beside the document's options.
+    typedef struct maniImportClipOptions
+    {
+        // Samples per second; 0 for the format's default.
+        float sampleRate;
+        maniLoopPolicy loop;
+        // maniAdditiveNone, or the basis a difference clip is taken from.
+        maniAdditiveBasis additive;
+        uint32_t reserved;
+        // The root motion to take out, or NULL: a bone of the opened
+        // skeleton, axes in the output's basis.
+        const maniRootMotionSource* rootMotion;
+    } maniImportClipOptions;
+
+    // The format's rate, clamped, not additive, no root motion.
+    static inline maniImportClipOptions maniDefaultImportClipOptions(void)
+    {
+        maniImportClipOptions options = {0.0f, maniLoopClamp, maniAdditiveNone, 0, NULL};
+        return options;
+    }
 
     // An opened FBX document: its tree, read from the caller's bytes.
     typedef struct maniFbx maniFbx;
@@ -352,28 +375,32 @@ extern "C"
     /// `KHR_animation_pointer` channels to anything but nodes, each as
     /// float tracks; the basis change applied and, with placement folded,
     /// the nodes above the root composed in. The duration is the
-    /// animation's latest key over every channel.
+    /// animation's latest key over every channel. The clip's root motion,
+    /// if any, is taken out as maniBuildClip takes it.
     ///
     /// @param builder     The builder.
     /// @param gltf        The document, its buffers supplied.
     /// @param animation   The animation.
     /// @param skeleton    An opened skeleton.
     /// @param options     The options the skeleton was built with.
-    /// @param sampleRate  Samples per second; 0 for 30.
-    /// @param loop        The clip's loop policy.
+    /// @param clipOptions The clip's settings; sample rate 0 for 30.
     /// @param boundOut    Receives how many of the animation's channels the
     ///                    clip holds. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, an
-    /// animation past the count or options out of range;
-    /// `mani_errorFormat` with a reason (Data with the channel as item for
-    /// keys the clip builder refuses); `mani_errorCapacity` when the
-    /// allocator fails.
+    /// animation past the count, options out of range, or a clip setting
+    /// out of range (a rate not finite or negative, a loop, basis or
+    /// root motion source field out of range, a root motion bone past the
+    /// skeleton); `mani_errorFormat` with a reason (Data with the channel
+    /// as item for keys the clip builder refuses; Build with the build
+    /// reason as item for anything else it refuses, such as a root motion
+    /// bone the animation leaves without a track); `mani_errorCapacity`
+    /// when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult
     maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
                       const maniSkeleton* skeleton, const maniGltfOptions* options,
-                      float sampleRate, maniLoopPolicy loop, uint32_t* boundOut);
+                      const maniImportClipOptions* clipOptions, uint32_t* boundOut);
 
     /// Reads the document's `VRMC_springBone` extension (version 1.0) as
     /// spring bone sources on an opened skeleton (mani-0011): colliders,
@@ -912,31 +939,34 @@ extern "C"
     /// placement folded, the placement composed into the root; a channel
     /// that never leaves the skeleton's rest is left out. Other numbers a
     /// bone's model animates become float tracks named `bone/property`
-    /// (`/0` to `/2` added for vectors).
+    /// (`/0` to `/2` added for vectors). The clip's root motion, if any,
+    /// is taken out as maniBuildClip takes it (its bone's track then keeps
+    /// translation and rotation).
     ///
     /// @param builder     The builder.
     /// @param fbx         The document.
     /// @param clip        The clip, below maniFbxClipCount.
     /// @param skeleton    An opened skeleton.
     /// @param options     The options the skeleton was built with.
-    /// @param sampleRate  Samples per second; 0 for the scene's frame rate
-    ///                    up to 120, else 30.
-    /// @param loop        The clip's loop policy.
+    /// @param clipOptions The clip's settings; sample rate 0 for the
+    ///                    scene's frame rate up to 120, else 30.
     /// @param boundOut    Receives how many of the stack's channel bindings
     ///                    drive models the clip reads. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// clip past the count, a rate not finite or negative, or options out
-    /// of range; `mani_errorFormat` with a reason (Property with the clip
+    /// clip past the count, options out of range, or a clip setting out
+    /// of range (as maniGltfBuildClip); `mani_errorFormat` with a reason (Property with the clip
     /// as item for a stack's curves or channels refused, or with the model
     /// for an animated integer input out of range; Matrix with the model
     /// for a local that does not decompose at a sample; Name with the
-    /// model for a repeated float track name; Build for a timing the
-    /// builder refuses); `mani_errorCapacity` when the allocator fails.
+    /// model for a repeated float track name; Build with the build reason
+    /// as item for a timing, basis or root motion the builder refuses);
+    /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildClip(
-        maniBuilder* builder, const maniFbx* fbx, uint32_t clip, const maniSkeleton* skeleton,
-        const maniFbxOptions* options, float sampleRate, maniLoopPolicy loop, uint32_t* boundOut);
+    MANI_NODISCARD MANI_API maniImportResult
+    maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
+                     const maniSkeleton* skeleton, const maniFbxOptions* options,
+                     const maniImportClipOptions* clipOptions, uint32_t* boundOut);
 
     /// Returns where a model skeleton's root hangs, as
     /// maniFbxSkeletonPlacement.

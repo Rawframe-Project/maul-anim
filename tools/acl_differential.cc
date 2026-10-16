@@ -540,13 +540,14 @@ int main(int argc, char** argv)
     double worst[4] = {0, 0, 0, 0};
     std::printf("%u bones, %zu clips at %.0f samples a second, %.4f m at %.2f m\n",
                 maniSkeletonBoneCount(&skeleton), clips.size(), D(kRate), D(kPrecision), D(kShell));
+    maniImportClipOptions clipOptions = maniDefaultImportClipOptions();
+    clipOptions.sampleRate = kRate;
     for (uint32_t k = 0; k < clips.size(); ++k)
     {
         Clip& c = clips[k];
         uint32_t length = 0;
         const char* name = maniFbxClipName(fbx, k, &length);
-        if (maniFbxBuildClip(run.builder, fbx, k, &skeleton, &options, kRate, maniLoopClamp,
-                             nullptr)
+        if (maniFbxBuildClip(run.builder, fbx, k, &skeleton, &options, &clipOptions, nullptr)
                     .result != mani_success ||
             !CopyBuilt(run.builder, &c.full) ||
             maniOpenClip(c.full.data(), c.full.size, &c.fullClip).result != mani_success ||

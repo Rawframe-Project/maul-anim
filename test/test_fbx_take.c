@@ -258,7 +258,9 @@ static bool Build(maniBuilder* builder, const maniFbx* fbx, uint32_t stack, mani
     return maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success &&
-           maniFbxBuildClip(builder, fbx, stack, skeleton, &options, 0.0f, maniLoopClamp, NULL)
+           maniFbxBuildClip(builder, fbx, stack, skeleton, &options,
+                            &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                            NULL)
                    .result == mani_success &&
            maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
            maniOpenClip(s_clipFile, size, clip).result == mani_success;
@@ -339,7 +341,9 @@ static void TestTracks(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     uint32_t bound = 0;
     CHECK(built &&
-              maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, &bound)
+              maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+                               &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                               &bound)
                       .result == mani_success &&
               bound == 5,
           "the model channels bound, not an attribute's");

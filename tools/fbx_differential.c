@@ -801,7 +801,8 @@ static void CompareClip(Context* c, uint32_t k)
     maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
     if (stack != NULL)
     {
-        r = maniFbxBuildClip(c->builder, c->fbx, k, &c->skeleton, &options, 0.0f, maniLoopClamp,
+        r = maniFbxBuildClip(c->builder, c->fbx, k, &c->skeleton, &options,
+                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                              NULL);
     }
     bool built = r.result == mani_success && Copy(c->builder, &blob) &&

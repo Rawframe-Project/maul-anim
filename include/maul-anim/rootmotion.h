@@ -10,6 +10,8 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -130,6 +132,27 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniBlendRootMotion(const maniRootMove* moves,
                                                            const float* weights, uint32_t count,
                                                            maniRootMove* moveOut);
+
+    /// Puts a clip's root motion back onto its bone, in a pose sampled
+    /// from the clip at the same time, for a host that keeps the motion
+    /// in the pose: the bone's local becomes the motion at the time
+    /// composed with it (translation m_t + m_r t, rotation m_r r, scale
+    /// kept), and the model is marked stale. The time is clamped to
+    /// [0, duration] (NaN is 0), as sampling clamps it. A clip without root
+    /// motion leaves the pose unchanged.
+    ///
+    /// @param clip      An opened clip.
+    /// @param skeleton  The clip's skeleton.
+    /// @param time      The time in seconds.
+    /// @param pose      A pose of the skeleton, not a difference pose.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton that is not the clip's or the pose's, or a difference
+    /// pose (nothing written).
+    /// @par Thread safety
+    /// Safe from any thread; the pose is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniRestoreRootMotion(const maniClip* clip,
+                                                             const maniSkeleton* skeleton,
+                                                             float time, maniPose* pose);
 
     /// Reads the source a clip's root motion was taken from.
     ///

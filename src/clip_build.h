@@ -9,8 +9,25 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/import.h"
+#include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stdint.h>
+
+// An importer's clip settings in range for a skeleton: a rate finite and
+// not negative, a loop and basis known, reserved 0, a root motion source
+// valid with its bone in the skeleton.
+bool maniImportClipOptionsValid(const maniImportClipOptions* options, const maniSkeleton* skeleton);
+
+// A clip source from an importer's tracks and its clip settings.
+static inline void maniApplyImportClipOptions(const maniImportClipOptions* options,
+                                              maniClipSource* source)
+{
+    source->loop = options->loop;
+    source->additive = options->additive;
+    source->rootMotion = options->rootMotion;
+}
 
 // Checks a channel of keys of dimension 1, 3 or 4; a refusal names item
 // and has list (0 for bone tracks) or-ed into its reason.

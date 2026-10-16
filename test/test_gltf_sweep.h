@@ -65,8 +65,9 @@ static inline TestOutcome GltfSweepWork(maniBuilder* builder, void* context)
     outcome = outcome == testDone ? GltfSweepSkeleton(builder, gltf, &skeleton) : outcome;
     if (outcome == testDone && sweep->animation != UINT32_MAX)
     {
-        r = maniGltfBuildClip(builder, gltf, sweep->animation, &skeleton, &options, 0.0f,
-                              maniLoopClamp, NULL);
+        r = maniGltfBuildClip(builder, gltf, sweep->animation, &skeleton, &options,
+                              &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                              NULL);
         outcome = TestOutcomeOf(r.result);
     }
     if (outcome == testDone && sweep->skin != UINT32_MAX)

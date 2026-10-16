@@ -16,6 +16,7 @@
 #include "bytes.h"
 #include "clip_file.h"
 #include "container.h"
+#include "pose_memory.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -482,6 +483,83 @@ static void TestBlend(void)
           "composing with no move");
 }
 
+static float TransformApart(maniTransform a, maniTransform b)
+{
+    float worst = fmaxf(
+        fabsf(a.translation.x - b.translation.x),
+        fmaxf(fabsf(a.translation.y - b.translation.y), fabsf(a.translation.z - b.translation.z)));
+    float dot = a.rotation.x * b.rotation.x + a.rotation.y * b.rotation.y +
+                a.rotation.z * b.rotation.z + a.rotation.w * b.rotation.w;
+    worst = fmaxf(worst, 1.0f - fabsf(dot));
+    return fmaxf(worst, fabsf(a.scale.x - b.scale.x));
+}
+
+static bool SameTransform(maniTransform a, maniTransform b)
+{
+    return a.translation.x == b.translation.x && a.translation.y == b.translation.y &&
+           a.translation.z == b.translation.z && a.rotation.x == b.rotation.x &&
+           a.rotation.y == b.rotation.y && a.rotation.z == b.rotation.z &&
+           a.rotation.w == b.rotation.w && a.scale.x == b.scale.x && a.scale.y == b.scale.y &&
+           a.scale.z == b.scale.z;
+}
+
+// Restored at the samples, the hips are the source's; between them close
+// to it; the other bones untouched.
+static void TestRestore(void)
+{
+    maniRootMotionSource walk = Walk();
+    maniClip clip;
+    maniClip without;
+    CHECK(BuildBoth(&walk) && OpenBoth(&clip, &without), "builds");
+    maniPose* a = NULL;
+    maniPose* b = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &a) == mani_success &&
+              maniInitPose(&s_skeleton, s_plainMemory, sizeof s_plainMemory, &b) == mani_success,
+          "poses");
+    static const float kAt[7] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 9.0f, -1.0f};
+    float worst = 0.0f;
+    float between = 0.0f;
+    for (int i = 0; i < 9; ++i)
+    {
+        float time = i < 7 ? kAt[i] : 0.1f + 0.4f * (float)(i - 7);
+        CHECK(maniSampleClip(&clip, &s_skeleton, time, a) == mani_success &&
+                  maniRestoreRootMotion(&clip, &s_skeleton, time, a) == mani_success &&
+                  maniSampleClip(&without, &s_skeleton, time, b) == mani_success,
+              "restores");
+        float apart = TransformApart(maniPoseLocal(a, 0), maniPoseLocal(b, 0));
+        if (i < 7)
+        {
+            worst = fmaxf(worst, apart);
+        }
+        else
+        {
+            between = fmaxf(between, apart);
+        }
+        worst = fmaxf(worst, TransformApart(maniPoseLocal(a, 1), maniPoseLocal(b, 1)));
+    }
+    CHECK(worst < 2e-6f, "restored at the samples: the source's hips");
+    CHECK(between < 1e-4f, "restored between samples: close to the source's hips");
+    if (worst >= 2e-6f || between >= 1e-4f)
+    {
+        printf("  restored apart by %g, between by %g\n", (double)worst, (double)between);
+    }
+    // Without root motion: unchanged.
+    CHECK(maniSampleClip(&without, &s_skeleton, 0.3f, b) == mani_success, "samples");
+    maniTransform before = maniPoseLocal(b, 0);
+    CHECK(maniRestoreRootMotion(&without, &s_skeleton, 0.3f, b) == mani_success &&
+              SameTransform(before, maniPoseLocal(b, 0)),
+          "a clip without root motion leaves the pose");
+    CHECK(maniRestoreRootMotion(NULL, &s_skeleton, 0.0f, a) == mani_errorInvalid &&
+              maniRestoreRootMotion(&clip, NULL, 0.0f, a) == mani_errorInvalid &&
+              maniRestoreRootMotion(&clip, &s_skeleton, 0.0f, NULL) == mani_errorInvalid,
+          "misuses");
+    maniPoseSetKind(a, true);
+    before = maniPoseLocal(a, 0);
+    CHECK(maniRestoreRootMotion(&clip, &s_skeleton, 0.5f, a) == mani_errorInvalid &&
+              SameTransform(before, maniPoseLocal(a, 0)),
+          "a difference pose refused, untouched");
+}
+
 static void ExpectRefused(const maniRootMotionSource* root, maniAdditiveBasis additive,
                           const char* what)
 {
@@ -648,6 +726,7 @@ int main(int argc, char** argv)
     TestCompressed();
     TestMoves();
     TestBlend();
+    TestRestore();
     TestBuildRefusals();
     TestOpenRefusals();
     TestPinned();

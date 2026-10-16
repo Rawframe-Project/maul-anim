@@ -27,6 +27,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
 #include "maul-anim/morph.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 
@@ -180,9 +181,13 @@ static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* 
         maniFbxReleaseAnimation(fbx, &a);
         if (seconds <= 10.0)
         {
+            // The second with the root's whole motion taken out.
             uint32_t bound = 0;
-            (void)maniFbxBuildClip(builder, fbx, k, skeleton, options, k == 1 ? 7.0f : 0.0f,
-                                   maniLoopClamp, &bound);
+            maniRootMotionSource root = {0, 7, maniRootRotationWhole, 0, 1, 0, 1, 0};
+            maniImportClipOptions settings = maniDefaultImportClipOptions();
+            settings.sampleRate = k == 1 ? 7.0f : 0.0f;
+            settings.rootMotion = k == 1 ? &root : NULL;
+            (void)maniFbxBuildClip(builder, fbx, k, skeleton, options, &settings, &bound);
         }
     }
 }

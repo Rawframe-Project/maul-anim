@@ -14,6 +14,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 
@@ -132,9 +133,15 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
             (void)maniGltfReadSprings(gltf, &skeleton, &options[o], &springs);
             for (uint32_t a = 0; a < maniGltfAnimationCount(gltf); ++a)
             {
+                // Every other animation with the root's travel and turn
+                // taken out as root motion.
                 uint32_t bound = 0;
-                (void)maniGltfBuildClip(builder, gltf, a, &skeleton, &options[o], 10.0f,
-                                        maniLoopClamp, &bound);
+                maniRootMotionSource root = {0, 7, maniRootRotationTwist, 1, 0, 1, a & 2u, 0};
+                maniImportClipOptions settings = maniDefaultImportClipOptions();
+                settings.sampleRate = 10.0f;
+                settings.rootMotion = (a & 1u) != 0 ? &root : NULL;
+                (void)maniGltfBuildClip(builder, gltf, a, &skeleton, &options[o], &settings,
+                                        &bound);
             }
         }
     }

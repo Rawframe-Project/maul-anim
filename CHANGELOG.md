@@ -22,6 +22,10 @@ format.
   of wraps either way (the period's move composed by squaring);
   `maniComposeRootMotion`, `maniBlendRootMotion` and
   `maniRootMoveIdentity` compose and blend moves.
+- `maniRestoreRootMotion` puts a clip's root motion back onto its bone
+  in a sampled pose (mani-0022).
+- Imported clips may carry root motion and an additive basis
+  (`maniImportClipOptions`, mani-0022).
 - The library skeleton: the build, the family rules and tools, the
   version and result API (`maniGetVersion`, `maniResultName`) and the
   library profile.
@@ -102,3 +106,10 @@ format.
   numbered); `maniFbxMorphCount`,
   `maniFbxMorphModel`, `maniFbxMorphTargetCount` and
   `maniFbxMorphWeights` describe the sets and their rest weights.
+
+### Changed
+
+- `maniGltfBuildClip` and `maniFbxBuildClip` take a
+  `maniImportClipOptions` (`maniDefaultImportClipOptions`) in place of
+  their sample rate and loop arguments; `maniGltfBuildClip` now refuses
+  a rate not finite or negative as a misuse.

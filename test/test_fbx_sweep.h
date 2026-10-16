@@ -61,7 +61,8 @@ static inline TestOutcome FbxSweepWork(maniBuilder* builder, void* context)
     outcome = outcome == testDone ? FbxSweepSkeleton(builder, fbx, &skeleton) : outcome;
     if (outcome == testDone && sweep->stack != UINT32_MAX)
     {
-        r = maniFbxBuildClip(builder, fbx, sweep->stack, &skeleton, &options, 0.0f, maniLoopClamp,
+        r = maniFbxBuildClip(builder, fbx, sweep->stack, &skeleton, &options,
+                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                              NULL);
         outcome = TestOutcomeOf(r.result);
     }

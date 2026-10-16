@@ -15,7 +15,9 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/rootmotion.h"
+#include "maul-anim/skeleton.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -305,5 +307,25 @@ maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, 
     *moveOut = (maniRootMove){
         {(float)(t[0] / total), (float)(t[1] / total), (float)(t[2] / total)},
         maniQuatNormalize((maniQuat){(float)q[0], (float)q[1], (float)q[2], (float)q[3]})};
+    return mani_success;
+}
+
+maniResult maniRestoreRootMotion(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                                 maniPose* pose)
+{
+    if (!maniClipFits(clip, skeleton, pose) || maniPoseIsDifference(pose))
+    {
+        return mani_errorInvalid;
+    }
+    if (clip->rootMotion == NULL)
+    {
+        return mani_success;
+    }
+    uint32_t bone = maniLoadU32(clip->rootMotion);
+    maniRootMove m = At(clip, time);
+    maniTransform local = maniPoseLocal(pose, bone);
+    local.translation = maniVec3Add(m.translation, maniQuatRotate(m.rotation, local.translation));
+    local.rotation = maniQuatNormalize(maniQuatMul(m.rotation, local.rotation));
+    maniPoseSetLocal(pose, bone, local);
     return mani_success;
 }

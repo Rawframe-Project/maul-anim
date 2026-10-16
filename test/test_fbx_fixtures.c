@@ -222,7 +222,8 @@ static bool UseClip(Fixture* f, uint32_t k)
     options.foldPlacement = 1;
     size_t size = 0;
     bool built =
-        maniFbxBuildClip(f->builder, f->fbx, k, &f->skeleton, &options, 0.0f, maniLoopClamp, NULL)
+        maniFbxBuildClip(f->builder, f->fbx, k, &f->skeleton, &options,
+                         &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
                 .result == mani_success &&
         maniCopyBuilt(f->builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, &f->clip).result == mani_success;

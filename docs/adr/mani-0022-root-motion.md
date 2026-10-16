@@ -52,8 +52,18 @@ do not add up, and a misnamed source that silently moves nothing.
   turned into the hemisphere of the first weighted one, as poses blend
   (weights of 0 count for nothing, all 0 give no move).
 
-Restoring the motion into a pose and the importers' options follow in
-this record as they land (item 7).
+- **Restored** into a pose (`maniRestoreRootMotion`) for a host that
+  keeps root motion in the pose: the bone of a pose sampled at a time
+  becomes the motion at that time composed with it, scale kept; a
+  difference pose is refused.
+- **Imported:** `maniGltfBuildClip` and `maniFbxBuildClip` take a
+  per-clip `maniImportClipOptions` (sample rate, loop, additive basis,
+  root motion source) in place of their rate and loop arguments, as
+  Unity and Unreal set these per clip; the source names a bone of the
+  opened skeleton, axes in the output's basis, and the clip builder
+  takes the motion out. A source out of range is a misuse; one the
+  builder refuses (a bone the animation leaves without a track) is
+  reported as Build with the build reason as item.
 
 ## Consequences
 

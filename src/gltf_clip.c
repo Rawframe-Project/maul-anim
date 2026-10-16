@@ -576,7 +576,8 @@ static maniImportResult FromBuild(const Build* b, maniBuildResult r)
     uint32_t reason = r.reason & 0xFFu;
     bool floats = list == maniBuildReasonFloatTrack;
     bool onTrack = (list == 0 || floats) && reason != maniBuildReasonTiming &&
-                   reason != maniBuildReasonKind && reason != maniBuildReasonCount;
+                   reason != maniBuildReasonKind && reason != maniBuildReasonCount &&
+                   reason != maniBuildReasonRootMotion;
     uint32_t channel = floats && r.item < b->floatCount    ? b->floatChannel[r.item]
                        : !floats && r.item < b->trackCount ? b->trackChannel[r.item]
                                                            : 0;
@@ -588,7 +589,8 @@ static maniImportResult FromBuild(const Build* b, maniBuildResult r)
     return ChannelFail(b, name ? maniImportReasonName : maniImportReasonData, channel);
 }
 
-static maniImportResult Run(maniBuilder* builder, Build* b, maniLoopPolicy loop, uint32_t* boundOut)
+static maniImportResult Run(maniBuilder* builder, Build* b, const maniImportClipOptions* clip,
+                            uint32_t* boundOut)
 {
     maniImportResult r = ReadChannels(b);
     if (r.result == mani_success)
@@ -626,21 +628,22 @@ static maniImportResult Run(maniBuilder* builder, Build* b, maniLoopPolicy loop,
                              .floatTracks = b->floats,
                              .boneTrackCount = b->trackCount,
                              .floatTrackCount = b->floatCount,
-                             .loop = loop,
                              .sampleRate = b->rate,
                              .duration = b->duration};
+    maniApplyImportClipOptions(clip, &source);
     return FromBuild(b, maniBuildClip(builder, &source));
 }
 
 maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
                                    const maniSkeleton* skeleton, const maniGltfOptions* options,
-                                   float sampleRate, maniLoopPolicy loop, uint32_t* boundOut)
+                                   const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
     if (builder == NULL)
     {
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
     }
     if (gltf == NULL || skeleton == NULL || options == NULL || !maniGltfOptionsValid(options) ||
+        clipOptions == NULL || !maniImportClipOptionsValid(clipOptions, skeleton) ||
         animation >= gltf->animationCount)
     {
         ++builder->misuses;
@@ -655,9 +658,9 @@ maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, u
                .skeleton = skeleton,
                .options = options,
                .animation = animation,
-               .rate = sampleRate == 0.0f ? 30.0f : sampleRate};
+               .rate = clipOptions->sampleRate == 0.0f ? 30.0f : clipOptions->sampleRate};
     b.rootNode = RootNode(&b);
-    maniImportResult r = Run(builder, &b, loop, boundOut);
+    maniImportResult r = Run(builder, &b, clipOptions, boundOut);
     maniArenaRelease(&b.arena);
     return r;
 }

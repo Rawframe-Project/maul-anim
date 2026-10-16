@@ -259,8 +259,9 @@ static bool Build(maniBuilder* builder, const char* text, const char* const* nam
     }
     right =
         right &&
-        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, bound).result ==
-            mani_success &&
+        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+                         &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, bound)
+                .result == mani_success &&
         maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, clip).result == mani_success;
     maniCloseFbx(fbx);
@@ -709,7 +710,9 @@ static void TestShapeOwners(void)
         maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
         maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success)
     {
-        r = maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, NULL);
+        r = maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                             NULL);
     }
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
               r.offset == (uint64_t)(hollow - unnamed),

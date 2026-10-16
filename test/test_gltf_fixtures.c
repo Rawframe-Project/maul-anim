@@ -170,9 +170,11 @@ static void CheckTrack(const FixtureTrack* t)
     CHECK(open, t->file);
     maniGltfOptions options = maniDefaultGltfOptions();
     uint32_t bound = 0;
-    bool built = open && maniGltfBuildClip(builder, gltf, t->animation, &skeleton, &options, 30.0f,
-                                           maniLoopClamp, &bound)
-                                 .result == mani_success;
+    bool built =
+        open && maniGltfBuildClip(
+                    builder, gltf, t->animation, &skeleton, &options,
+                    &(maniImportClipOptions){.sampleRate = 30.0f, .loop = maniLoopClamp}, &bound)
+                        .result == mani_success;
     maniClip clip;
     size_t clipSize = 0;
     built = built &&
@@ -243,7 +245,9 @@ static void TestExternalBuffers(void)
           "the skin");
     uint32_t bound = 0;
     CHECK(gltf != NULL &&
-              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 30.0f, maniLoopClamp, &bound)
+              maniGltfBuildClip(
+                  builder, gltf, 0, &skeleton, &options,
+                  &(maniImportClipOptions){.sampleRate = 30.0f, .loop = maniLoopClamp}, &bound)
                       .result == mani_success &&
               bound == 1,
           "the clip");

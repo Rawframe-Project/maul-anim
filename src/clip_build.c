@@ -21,9 +21,12 @@
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/import.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
+#include <stdbool.h>
 #include <stdckdint.h>
 #include <string.h>
 
@@ -760,4 +763,14 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
     maniRelease(&builder->allocator, previous, 4 * (size_t)source->boneTrackCount + 1,
                 sizeof(float), 8);
     return r;
+}
+
+bool maniImportClipOptionsValid(const maniImportClipOptions* options, const maniSkeleton* skeleton)
+{
+    const maniRootMotionSource* root = options->rootMotion;
+    return isfinite(options->sampleRate) && options->sampleRate >= 0.0f &&
+           options->loop <= maniLoopRepeat && options->additive <= maniAdditiveFirstFrame &&
+           options->reserved == 0 &&
+           (root == NULL ||
+            (maniRootMotionSourceValid(root) && root->bone < maniSkeletonBoneCount(skeleton)));
 }

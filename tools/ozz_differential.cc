@@ -494,10 +494,12 @@ int main(int argc, char** argv)
     }
     std::vector<Bytes> files(maniFbxClipCount(fbx));
     run.clips.resize(files.size());
+    maniImportClipOptions clipOptions = maniDefaultImportClipOptions();
+    clipOptions.sampleRate = kRate;
     for (uint32_t k = 0; k < files.size(); ++k)
     {
-        if (maniFbxBuildClip(builder, fbx, k, &skeleton, &options, kRate, maniLoopClamp, nullptr)
-                    .result != mani_success ||
+        if (maniFbxBuildClip(builder, fbx, k, &skeleton, &options, &clipOptions, nullptr).result !=
+                mani_success ||
             !CopyBuilt(builder, &files[k]) ||
             maniOpenClip(files[k].data(), files[k].size, &run.clips[k]).result != mani_success)
         {

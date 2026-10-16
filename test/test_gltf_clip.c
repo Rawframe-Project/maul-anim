@@ -17,6 +17,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/import.h"
 #include "maul-anim/pose.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
@@ -271,8 +272,9 @@ static void TestLocals(void)
     CHECK(length == 4 && memcmp(name, "walk", 4) == 0, "its name");
     CHECK(maniGltfAnimationName(gltf, 1, &length) == NULL && length == 0, "past the count");
     uint32_t bound = 0;
-    maniImportResult r =
-        maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopRepeat, &bound);
+    maniImportResult r = maniGltfBuildClip(
+        builder, gltf, 0, &skeleton, &options,
+        &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopRepeat}, &bound);
     CHECK(r.result == mani_success, "builds");
     if (r.result != mani_success)
     {
@@ -321,6 +323,96 @@ static void TestLocals(void)
     maniDestroyBuilder(builder);
 }
 
+static maniImportResult BuildWith(maniBuilder* builder, maniGltf* gltf,
+                                  const maniSkeleton* skeleton, maniImportClipOptions clipOptions)
+{
+    maniGltfOptions options = maniDefaultGltfOptions();
+    return maniGltfBuildClip(builder, gltf, 0, skeleton, &options, &clipOptions, NULL);
+}
+
+// The hip's turn about y taken out as root motion and restored; the clip
+// settings checked; an additive clip.
+static void TestClipOptions(void)
+{
+    Document(NULL, NULL, "");
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = Open(builder);
+    maniGltfOptions options = maniDefaultGltfOptions();
+    maniSkeleton skeleton;
+    CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
+    uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
+    maniRootMotionSource turn = {hip, 0, maniRootRotationTwist, 1, 0, 0, 0, 0};
+    maniImportClipOptions settings = maniDefaultImportClipOptions();
+    settings.sampleRate = 10.0f;
+    settings.rootMotion = &turn;
+    maniClip clip;
+    CHECK(BuildWith(builder, gltf, &skeleton, settings).result == mani_success &&
+              OpenClip(builder, &clip),
+          "builds with root motion");
+    maniRootMotionSource read;
+    maniRootMove move;
+    CHECK(maniClipRootMotionSource(&clip, &read) && read.bone == hip &&
+              maniClipRootMotion(&clip, 0.0f, 1.0f, &move) == mani_success &&
+              Near(move.rotation.y, sqrt(0.5), 1e-6) && Near(move.rotation.w, sqrt(0.5), 1e-6),
+          "the quarter turn taken out");
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    double q[4];
+    HipRotation(0.6, q);
+    CHECK(maniSampleClip(&clip, &skeleton, 0.6f, pose) == mani_success &&
+              Near(maniPoseLocal(pose, hip).rotation.w, 1.0, 1e-6),
+          "in place");
+    CHECK(maniRestoreRootMotion(&clip, &skeleton, 0.6f, pose) == mani_success &&
+              Near(maniPoseLocal(pose, hip).rotation.y, q[1], 1e-6) &&
+              Near(maniPoseLocal(pose, hip).rotation.w, q[3], 1e-6),
+          "restored");
+    // The leg is not animated: the builder refuses it.
+    turn.bone = maniSkeletonFindBone(&skeleton, "leg", 3);
+    maniImportResult r = BuildWith(builder, gltf, &skeleton, settings);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuild &&
+              r.item == maniBuildReasonRootMotion,
+          "a root motion bone without a track");
+    turn.bone = hip;
+    settings.additive = maniAdditiveRest;
+    r = BuildWith(builder, gltf, &skeleton, settings);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuild &&
+              r.item == maniBuildReasonRootMotion,
+          "root motion on an additive clip");
+    settings.rootMotion = NULL;
+    CHECK(BuildWith(builder, gltf, &skeleton, settings).result == mani_success &&
+              OpenClip(builder, &clip) && maniClipAdditiveBasis(&clip) == maniAdditiveRest,
+          "an additive clip");
+    uint32_t misuses = maniBuilderMisuses(builder);
+    maniImportClipOptions bad[8];
+    for (int i = 0; i < 8; ++i)
+    {
+        bad[i] = maniDefaultImportClipOptions();
+    }
+    maniRootMotionSource past = {maniSkeletonBoneCount(&skeleton), 1, 0, 0, 0, 0, 0, 0};
+    maniRootMotionSource none = {hip, 0, maniRootRotationNone, 0, 0, 0, 0, 0};
+    bad[0].sampleRate = -1.0f;
+    bad[1].sampleRate = NAN;
+    bad[2].loop = 2;
+    bad[3].additive = 3;
+    bad[4].reserved = 1;
+    bad[5].rootMotion = &past;
+    bad[6].rootMotion = &none;
+    bad[7].sampleRate = INFINITY;
+    bool refused = true;
+    for (int i = 0; i < 8; ++i)
+    {
+        refused =
+            refused && BuildWith(builder, gltf, &skeleton, bad[i]).result == mani_errorInvalid;
+    }
+    CHECK(refused && maniBuilderMisuses(builder) == misuses + 8, "settings out of range");
+    CHECK(maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, NULL, NULL).result ==
+              mani_errorInvalid,
+          "no settings");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
 // B M B^-1 for the signed permutation x' = x, y' = -z, z' = y.
 static maniAffine ZUp(maniAffine a)
 {
@@ -354,8 +446,9 @@ static void TestFoldedModels(void)
     maniSkeleton skeleton;
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     uint32_t bound = 0;
-    maniImportResult r =
-        maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, &bound);
+    maniImportResult r = maniGltfBuildClip(
+        builder, gltf, 0, &skeleton, &options,
+        &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, &bound);
     CHECK(r.result == mani_success && bound == 6, "the scene's channel composed in");
     maniClip clip;
     CHECK(OpenClip(builder, &clip), "opens");
@@ -413,7 +506,9 @@ static void TestAnotherRig(void)
     maniSkeleton skeleton;
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 1, &options, &skeleton), "the prop");
     uint32_t bound = 0;
-    CHECK(maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 0.0f, maniLoopClamp, &bound)
+    CHECK(maniGltfBuildClip(builder, gltf, 0, &skeleton, &options,
+                            &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                            &bound)
                   .result == mani_success,
           "builds");
     CHECK(bound == 2, "the prop's channel and the pointer");
@@ -427,15 +522,21 @@ static void TestAnotherRig(void)
     CHECK(maniSampleClip(&clip, &skeleton, 0.5f, pose) == mani_success, "samples");
     CHECK(Near(maniPoseLocal(pose, 0).translation.x, 3.5, 1e-6), "the prop moves");
     // Misuse.
-    CHECK(maniGltfBuildClip(builder, gltf, 1, &skeleton, &options, 0, 0, NULL).result ==
-              mani_errorInvalid,
+    CHECK(maniGltfBuildClip(builder, gltf, 1, &skeleton, &options,
+                            &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                            NULL)
+                  .result == mani_errorInvalid,
           "an animation past the count");
-    CHECK(maniGltfBuildClip(builder, gltf, 0, NULL, &options, 0, 0, NULL).result ==
-              mani_errorInvalid,
+    CHECK(maniGltfBuildClip(builder, gltf, 0, NULL, &options,
+                            &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                            NULL)
+                  .result == mani_errorInvalid,
           "no skeleton");
     CHECK(maniBuilderMisuses(builder) == 2, "misuses");
-    CHECK(maniGltfBuildClip(NULL, gltf, 0, &skeleton, &options, 0, 0, NULL).result ==
-              mani_errorInvalid,
+    CHECK(maniGltfBuildClip(NULL, gltf, 0, &skeleton, &options,
+                            &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                            NULL)
+                  .result == mani_errorInvalid,
           "no builder");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -538,8 +639,9 @@ static void TestRefusals(void)
         maniGltfOptions options = maniDefaultGltfOptions();
         maniSkeleton skeleton;
         CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
-        maniImportResult r =
-            maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL);
+        maniImportResult r = maniGltfBuildClip(
+            builder, gltf, 0, &skeleton, &options,
+            &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, NULL);
         CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonName,
               "a float name twice");
         maniCloseGltf(gltf);
@@ -556,18 +658,20 @@ static void TestRefusals(void)
         maniSkeleton skeleton;
         CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &fold, &skeleton),
               "the rest has no shear");
-        maniImportResult r =
-            maniGltfBuildClip(builder, gltf, 0, &skeleton, &fold, 10.0f, maniLoopClamp, NULL);
+        maniImportResult r = maniGltfBuildClip(
+            builder, gltf, 0, &skeleton, &fold,
+            &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, NULL);
         const char* channel = strstr(s_json, "{\"sampler\":0");
         CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonMatrix && r.item == 0 &&
                   r.offset == (uint64_t)(channel - s_json),
               "a folded shear");
         maniGltfOptions report = maniDefaultGltfOptions();
-        CHECK(
-            gltf != NULL && BuildSkeleton(builder, gltf, 0, &report, &skeleton) &&
-                maniGltfBuildClip(builder, gltf, 0, &skeleton, &report, 10.0f, maniLoopClamp, NULL)
-                        .result == mani_success,
-            "reported placement: the clip holds the hip alone");
+        CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &report, &skeleton) &&
+                  maniGltfBuildClip(
+                      builder, gltf, 0, &skeleton, &report,
+                      &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, NULL)
+                          .result == mani_success,
+              "reported placement: the clip holds the hip alone");
         maniCloseGltf(gltf);
         maniDestroyBuilder(builder);
     }
@@ -584,8 +688,9 @@ static void TestRefusals(void)
     maniGltfOptions options = maniDefaultGltfOptions();
     maniSkeleton skeleton;
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
-    maniImportResult r =
-        maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL);
+    maniImportResult r = maniGltfBuildClip(
+        builder, gltf, 0, &skeleton, &options,
+        &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, NULL);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData && r.item == 0,
           "a key before 0");
     maniCloseGltf(gltf);
@@ -619,7 +724,9 @@ static void TestAllowed(void)
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     uint32_t bound = 0;
     CHECK(gltf != NULL &&
-              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, &bound)
+              maniGltfBuildClip(
+                  builder, gltf, 0, &skeleton, &options,
+                  &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, &bound)
                       .result == mani_success &&
               bound == 7,
           "builds");
@@ -662,7 +769,9 @@ static void ExpectIndexNames(const char* names, const char* what)
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     maniClip clip;
     CHECK(gltf != NULL &&
-              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL)
+              maniGltfBuildClip(
+                  builder, gltf, 0, &skeleton, &options,
+                  &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, NULL)
                       .result == mani_success &&
               OpenClip(builder, &clip),
           "builds");
@@ -687,7 +796,9 @@ static void TestFoldedStatic(void)
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     maniClip clip;
     CHECK(gltf != NULL &&
-              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, 10.0f, maniLoopClamp, NULL)
+              maniGltfBuildClip(
+                  builder, gltf, 0, &skeleton, &options,
+                  &(maniImportClipOptions){.sampleRate = 10.0f, .loop = maniLoopClamp}, NULL)
                       .result == mani_success &&
               OpenClip(builder, &clip),
           "builds");
@@ -740,5 +851,6 @@ int main(void)
     ExpectIndexNames("\"smile\"],\"x\":[0", "too few target names");
     ExpectIndexNames("\"smile\",\"\"     ", "an empty target name");
     TestFoldedStatic();
+    TestClipOptions();
     return s_failures == 0 ? 0 : 1;
 }

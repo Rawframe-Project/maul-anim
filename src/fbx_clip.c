@@ -497,11 +497,11 @@ static maniImportResult Prepare(Clip* c, uint32_t clip)
                : r;
 }
 
-static maniImportResult Run(maniBuilder* builder, Clip* c, uint32_t clip, float sampleRate,
-                            maniLoopPolicy loop, uint32_t* boundOut)
+static maniImportResult Run(maniBuilder* builder, Clip* c, uint32_t clip,
+                            const maniImportClipOptions* settings, uint32_t* boundOut)
 {
     maniImportResult r = Prepare(c, clip);
-    r = r.result == mani_success ? Timing(c, sampleRate) : r;
+    r = r.result == mani_success ? Timing(c, settings->sampleRate) : r;
     r = r.result == mani_success ? Sample(c) : r;
     r = r.result == mani_success ? BoneTracks(c) : r;
     r = r.result == mani_success ? FloatTracks(c) : r;
@@ -518,21 +518,23 @@ static maniImportResult Run(maniBuilder* builder, Clip* c, uint32_t clip, float 
                              .floatTracks = c->floats,
                              .boneTrackCount = c->trackCount,
                              .floatTrackCount = c->floatCount,
-                             .loop = loop,
                              .sampleRate = c->rate,
                              .duration = c->duration};
+    maniApplyImportClipOptions(settings, &source);
     return FromBuild(c, maniBuildClip(builder, &source));
 }
 
 maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
                                   const maniSkeleton* skeleton, const maniFbxOptions* options,
-                                  float sampleRate, maniLoopPolicy loop, uint32_t* boundOut)
+                                  const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
-    bool usable = maniFbxUsable(builder, fbx, options,
-                                fbx != NULL && skeleton != NULL && clip < fbx->stackCount &&
-                                    isfinite(sampleRate) && sampleRate >= 0.0f);
-    // fbx is not NULL when usable; said again for the analyzer.
-    if (!usable || fbx == NULL)
+    bool usable =
+        maniFbxUsable(builder, fbx, options,
+                      fbx != NULL && skeleton != NULL && clip < fbx->stackCount &&
+                          clipOptions != NULL && maniImportClipOptionsValid(clipOptions, skeleton));
+    // fbx and clipOptions are not NULL when usable; said again for the
+    // analyzer.
+    if (!usable || fbx == NULL || clipOptions == NULL)
     {
         return Invalid();
     }
@@ -545,7 +547,7 @@ maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint
               .options = options,
               .basis = maniFbxBasis(fbx, options),
               .arena = maniArenaMake(&fbx->allocator)};
-    maniImportResult r = Run(builder, &c, clip, sampleRate, loop, boundOut);
+    maniImportResult r = Run(builder, &c, clip, clipOptions, boundOut);
     maniFbxReleaseSampler(&c.sampler);
     if (c.animation.layers != NULL || c.animation.channels != NULL)
     {

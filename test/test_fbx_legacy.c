@@ -266,12 +266,13 @@ static void TestStacks(void)
     for (uint32_t k = 0; built && k < 2; ++k)
     {
         maniClip clip;
-        bool rows =
-            maniFbxBuildClip(builder, fbx, k, &skeleton, &options, 0.0f, maniLoopClamp, NULL)
-                    .result == mani_success &&
-            maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
-            maniOpenClip(s_clipFile, size, &clip).result == mani_success &&
-            Near((double)maniClipDuration(&clip), 1.0);
+        bool rows = maniFbxBuildClip(
+                        builder, fbx, k, &skeleton, &options,
+                        &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
+                            .result == mani_success &&
+                    maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+                    maniOpenClip(s_clipFile, size, &clip).result == mani_success &&
+                    Near((double)maniClipDuration(&clip), 1.0);
         for (size_t r = 0; rows && r < sizeof kRows / sizeof kRows[0]; ++r)
         {
             rows = kRows[r].stack != k || RowMatches(&clip, &skeleton, &kRows[r]);
@@ -327,8 +328,9 @@ static void TestSkinAndShape(void)
     maniClip clip;
     bool clipped =
         built &&
-        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, 0.0f, maniLoopClamp, NULL).result ==
-            mani_success &&
+        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+                         &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
+                .result == mani_success &&
         maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, &clip).result == mani_success;
     float value = -1.0f;
