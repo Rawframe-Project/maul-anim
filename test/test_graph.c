@@ -23,6 +23,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
@@ -849,6 +850,92 @@ static void TestRootMotion(void)
           "clips moving different bones refused");
 }
 
+static _Alignas(32) uint8_t s_scratch[65536];
+static _Alignas(32) uint8_t s_poseMemory[6][4096];
+
+static maniPose* PoseAt(int i)
+{
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory[i], sizeof s_poseMemory[i], &pose) == mani_success,
+          "a pose");
+    return pose;
+}
+
+static bool SamePose(const maniPose* a, const maniPose* b)
+{
+    bool same = true;
+    for (uint32_t bone = 0; bone < 3; ++bone)
+    {
+        maniTransform x = maniPoseLocal(a, bone);
+        maniTransform y = maniPoseLocal(b, bone);
+        same = same && memcmp(&x, &y, sizeof x) == 0;
+    }
+    return same;
+}
+
+// The pose the test graph should give: walk and run at 0.6, blended a
+// third and two thirds on the spine and arm, the walk (the select's
+// choice) on the hips, and the wave at 0.4 added.
+static void Reference(maniPose* out)
+{
+    maniPose* walk = PoseAt(1);
+    maniPose* run = PoseAt(2);
+    maniPose* blend = PoseAt(3);
+    maniPose* wave = PoseAt(4);
+    float inside[3];
+    float outside[3];
+    const maniMaskChain chain = {1, 1.0f, true};
+    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3) == mani_success, "mask");
+    for (int b = 0; b < 3; ++b)
+    {
+        outside[b] = 1.0f - inside[b];
+    }
+    CHECK(maniSampleClip(&s_clips[0], &s_skeleton, 0.6f, walk) == mani_success &&
+              maniSampleClip(&s_clips[1], &s_skeleton, 0.6f, run) == mani_success &&
+              maniSampleClip(&s_clips[2], &s_skeleton, 0.4f, wave) == mani_success,
+          "samples");
+    const maniBlendLayer two[2] = {{walk, 0.5f / 1.5f, NULL}, {run, 1.0f / 1.5f, NULL}};
+    const maniBlendLayer masked[2] = {{blend, 1.0f, inside}, {walk, 1.0f, outside}};
+    const maniBlendLayer layer = {wave, 1.0f, NULL};
+    CHECK(maniBlendPoses(&s_skeleton, two, 2, MANI_BLEND_THRESHOLD, blend) == mani_success &&
+              maniBlendPoses(&s_skeleton, masked, 2, MANI_BLEND_THRESHOLD, out) == mani_success &&
+              maniAddPoses(&s_skeleton, out, &layer, 1) == mani_success,
+          "the reference");
+}
+
+static void TestEvaluate(void)
+{
+    maniGraph g;
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NewInstance(&g, &binding);
+    size_t size = maniGraphScratchSize(binding);
+    maniPose* pose = PoseAt(0);
+    maniPose* rest = PoseAt(5);
+    CHECK(size > 0 && size <= sizeof s_scratch &&
+              maniEvaluateGraph(instance, s_scratch, size, pose) == mani_success &&
+              SamePose(pose, rest),
+          "the rest before the first update");
+    maniPose* expected = PoseAt(5);
+    Reference(expected);
+    CHECK(maniUpdateGraph(instance, 0.4f, NULL, 0, NULL, NULL) == mani_success &&
+              maniEvaluateGraph(instance, s_scratch, size, pose) == mani_success &&
+              SamePose(pose, expected),
+          "the graph's pose, bit for bit with the blending functions'");
+    // Again, with the scratch's poses already made, and from a copy.
+    memcpy(s_copyMemory, s_instanceMemory, maniGraphInstanceSize(binding));
+    maniGraphInstance* copy = (maniGraphInstance*)(void*)s_copyMemory;
+    maniPose* again = PoseAt(1);
+    CHECK(maniEvaluateGraph(copy, s_scratch, size, again) == mani_success &&
+              SamePose(again, expected),
+          "a copy evaluates the same");
+    CHECK(maniEvaluateGraph(instance, s_scratch, size - 1, pose) == mani_errorCapacity &&
+              maniEvaluateGraph(instance, s_scratch + 16, size, pose) == mani_errorInvalid &&
+              maniEvaluateGraph(NULL, s_scratch, size, pose) == mani_errorInvalid &&
+              maniEvaluateGraph(instance, s_scratch, size, NULL) == mani_errorInvalid &&
+              maniGraphScratchSize(NULL) == 0,
+          "misuses");
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -891,6 +978,7 @@ int main(int argc, char** argv)
     TestWeights();
     TestEvents();
     TestRootMotion();
+    TestEvaluate();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

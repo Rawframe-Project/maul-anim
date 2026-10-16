@@ -378,6 +378,16 @@ MANI_NODISCARD MANI_API maniResult maniUpdateGraph(maniGraphInstance* instance, 
 ```
 Moves an instance through time: shares each node's weight down from the output (normalized blends, masks by their largest bone weight, additive layers by their weights, the selected input), moves every clip node's playhead by the step times its speed and the time scales above it (a seek whose trigger is set moving its playheads to its time instead, and consuming the trigger), lists the events clip nodes weighed past MANI_GRAPH_EVENT_THRESHOLD pass in node order, and blends the clips' root motion by the weights the output gives it (masks by their weight at the root motion bone, additive layers none).  @param instance      An instance. @param delta         The step in seconds, finite, either sign. @param events        Receives up to capacity events. May be NULL with a capacity of 0. @param capacity      The events events holds. @param eventCountOut Receives the true count, which may pass the capacity (saturating at UINT32_MAX). May be NULL. @param rootMotionOut Receives the update's root motion. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL instance, events NULL with a capacity, or a step not finite (nothing changed). @par Thread safety Safe from any thread; the instance is used by one thread at a time.
 
+```c
+size_t maniGraphScratchSize(const maniGraphBinding* binding);
+```
+Returns the bytes of the scratch an evaluation of a bound graph's instances needs: a pose per slot and room for one node's layers. One scratch serves any number of instances, one at a time.  @param binding  A binding. @return The size; 0 for a NULL binding. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size, maniPose* pose);
+```
+Writes an instance's pose as its last update weighed it: each node of weight above 0, in order, into its slot (a clip sampled at its playhead through its cursor; blends, masks and additive layers by the blending functions over their weighed inputs; a select, time scale or seek passing its input on), then the output's. The rest pose before the first update.  @param instance  An instance. @param scratch   At least maniGraphScratchSize bytes, MANI_GRAPH_SCRATCH_ALIGNMENT-aligned, used by one thread at a time. @param size      The scratch's size. @param pose      A pose of the graph's skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL or misaligned argument or a pose of another skeleton; `mani_errorCapacity` when the scratch is too small. @par Thread safety Safe from any thread; the instance, scratch and pose are used by one thread at a time.
+
 ## `graphbuild.h`
 
 Building a graph file (mani-0023), offline: a graph's parameters, clip slots, sync groups and nodes, checked against one skeleton and its clips, ordered so each node follows its inputs, its poses given slots, and written.
@@ -1019,4 +1029,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-193 functions across 13 headers.
+195 functions across 13 headers.

@@ -34,7 +34,8 @@ struct maniGraphBinding
     size_t cursorSize;
     // The bone the clips' root motion names (MANI_NO_BONE for none).
     uint32_t rootMotionBone;
-    uint32_t reserved2;
+    // The most inputs a node takes: the layers evaluation lists at once.
+    uint32_t maxInputs;
     // The clip each slot binds, in slot order.
     const maniClip* clips[];
 };

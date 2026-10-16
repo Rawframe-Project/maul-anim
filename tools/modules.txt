@@ -42,6 +42,7 @@ graph: bytes container graph_file graph_nodes text
 graph_instance: bytes graph_file
 graph_bind: bytes graph_file graph_instance
 graph_update: bytes graph_file graph_instance root_motion
+graph_evaluate: bytes graph_file graph_instance pose_memory
 clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes

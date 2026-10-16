@@ -119,7 +119,12 @@ maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
     }
     binding->stamp = MANI_GRAPH_BINDING_STAMP;
     binding->reserved = 0;
-    binding->reserved2 = 0;
+    binding->maxInputs = 0;
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        uint32_t n = maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 8);
+        binding->maxInputs = n > binding->maxInputs ? n : binding->maxInputs;
+    }
     binding->skeleton = skeleton;
     binding->cursorSize = CursorSize(binding);
     *bindingOut = binding;

@@ -28,6 +28,11 @@ format.
   them), lists the events clip nodes pass across any number of wraps
   (counted past the buffer), and blends the clips' root motion by the
   weights the output gives it.
+- Graph evaluation (mani-0023): `maniEvaluateGraph` writes an
+  instance's pose through a per-thread scratch
+  (`maniGraphScratchSize`): every weighed node in order into its slot
+  (clips through their cursors, blends, masks and additive layers by the
+  blending functions, bit for bit), unweighed nodes skipped.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

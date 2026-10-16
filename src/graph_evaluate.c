@@ -1,0 +1,332 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// Evaluating a graph instance (mani-0023): each weighed node in order
+// writes its slot's pose from its inputs' slots, through a scratch of a
+// pose per slot made once for the binding it last served.
+
+#include "bytes.h"
+#include "graph_file.h"
+#include "graph_instance.h"
+#include "pose_memory.h"
+
+#include "maul-anim/base.h"
+#include "maul-anim/blend.h"
+#include "maul-anim/clip.h"
+#include "maul-anim/graph.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+#define SCRATCH_STAMP 0x4D475343u
+#define HEADER_SIZE   64u
+
+// The scratch's head: whom its poses were made for.
+typedef struct Head
+{
+    uint32_t stamp;
+    uint32_t slotCount;
+    const maniGraphBinding* binding;
+    uint64_t identity;
+} Head;
+
+static size_t Round(size_t size)
+{
+    return (size + MANI_GRAPH_SCRATCH_ALIGNMENT - 1) / MANI_GRAPH_SCRATCH_ALIGNMENT *
+           MANI_GRAPH_SCRATCH_ALIGNMENT;
+}
+
+// Where the scratch's parts begin: layers, bone weights, then the poses.
+typedef struct Parts
+{
+    size_t layersAt;
+    size_t weightsAt;
+    size_t posesAt;
+    size_t poseSize;
+    size_t size;
+} Parts;
+
+static Parts PartsOf(const maniGraphBinding* binding)
+{
+    Parts parts;
+    parts.layersAt = HEADER_SIZE;
+    parts.weightsAt = parts.layersAt + Round((size_t)binding->maxInputs * sizeof(maniBlendLayer));
+    parts.posesAt =
+        parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float));
+    parts.poseSize = maniPoseSize(binding->skeleton);
+    parts.size = parts.posesAt + (size_t)binding->graph.slotCount * parts.poseSize;
+    return parts;
+}
+
+size_t maniGraphScratchSize(const maniGraphBinding* binding)
+{
+    if (binding == NULL || binding->stamp != MANI_GRAPH_BINDING_STAMP)
+    {
+        return 0;
+    }
+    return PartsOf(binding).size;
+}
+
+typedef struct Evaluation
+{
+    maniGraphInstance* instance;
+    const maniGraphBinding* binding;
+    const maniGraph* graph;
+    uint8_t* scratch;
+    Parts parts;
+    maniBlendLayer* layers;
+    float* inside;
+    float* outside;
+} Evaluation;
+
+static maniPose* Slot(const Evaluation* e, uint32_t slot)
+{
+    void* memory = e->scratch + e->parts.posesAt + (size_t)slot * e->parts.poseSize;
+    return memory;
+}
+
+static const uint8_t* Record(const Evaluation* e, uint32_t p)
+{
+    return e->graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+}
+
+static maniGraphNodeState* State(const Evaluation* e, uint32_t p)
+{
+    return &e->instance->cells[e->graph->parameterCount + p].node;
+}
+
+static uint32_t Word(const Evaluation* e, uint32_t at)
+{
+    return maniLoadU32(e->graph->data + 4 * (size_t)at);
+}
+
+static float Scalar(const Evaluation* e, uint32_t at)
+{
+    uint32_t parameter = Word(e, at);
+    if (parameter != MANI_NO_PARAMETER)
+    {
+        return e->instance->cells[parameter].value.f[0];
+    }
+    uint32_t bits = Word(e, at + 1);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
+static uint32_t InputOf(const Evaluation* e, const uint8_t* record, uint32_t k)
+{
+    return maniLoadU32(e->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
+}
+
+// An input's pose, or NULL when its last update left it unweighed.
+static const maniPose* InputPose(const Evaluation* e, const uint8_t* record, uint32_t k)
+{
+    uint32_t input = InputOf(e, record, k);
+    if (!(State(e, input)->weight > 0.0f))
+    {
+        return NULL;
+    }
+    return Slot(e, maniLoadU32(Record(e, input) + 20));
+}
+
+// The poses made for this binding, once.
+static void Prepare(Evaluation* e)
+{
+    void* memory = e->scratch;
+    Head* head = memory;
+    if (head->stamp == SCRATCH_STAMP && head->binding == e->binding &&
+        head->identity == e->graph->identity)
+    {
+        return;
+    }
+    for (uint32_t slot = 0; slot < e->graph->slotCount; ++slot)
+    {
+        maniPose* pose = NULL;
+        (void)maniInitPose(e->binding->skeleton, Slot(e, slot), e->parts.poseSize, &pose);
+    }
+    *head = (Head){SCRATCH_STAMP, e->graph->slotCount, e->binding, e->graph->identity};
+}
+
+// A pose of no weight: the rest, or the difference of nothing.
+static void Neutral(const Evaluation* e, maniPose* out, bool difference)
+{
+    (void)maniPoseSetRest(out, e->binding->skeleton);
+    if (difference)
+    {
+        (void)maniPoseDifference(e->binding->skeleton, out, out, out);
+    }
+}
+
+static void Blend(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    uint32_t n = maniLoadU32(record + 8);
+    bool direct = Word(e, d) != 0;
+    float total = 0.0f;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        float v = Scalar(e, d + 1 + 2 * k);
+        total += v > 0.0f ? v : 0.0f;
+    }
+    float scale = direct || total < MANI_BLEND_THRESHOLD ? 1.0f : 1.0f / total;
+    uint32_t count = 0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        float v = Scalar(e, d + 1 + 2 * k) * scale;
+        v = v > 0.0f ? (v < 1.0f ? v : 1.0f) : 0.0f;
+        const maniPose* input = InputPose(e, record, k);
+        if (v > 0.0f && input != NULL)
+        {
+            e->layers[count++] = (maniBlendLayer){input, v, NULL};
+        }
+    }
+    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                     out) != mani_success)
+    {
+        Neutral(e, out, difference);
+    }
+}
+
+static void Mask(const Evaluation* e, const uint8_t* record, maniPose* out, bool difference)
+{
+    uint32_t bones = e->graph->skeletonBoneCount;
+    uint32_t mask = Word(e, maniLoadU32(record + 12));
+    memcpy(e->inside, e->graph->maskWeights + 4 * (size_t)mask * bones, 4 * (size_t)bones);
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        e->outside[b] = 1.0f - e->inside[b];
+    }
+    uint32_t count = 0;
+    const maniPose* inside = InputPose(e, record, 0);
+    const maniPose* outside = InputPose(e, record, 1);
+    if (inside != NULL)
+    {
+        e->layers[count++] = (maniBlendLayer){inside, 1.0f, e->inside};
+    }
+    if (outside != NULL)
+    {
+        e->layers[count++] = (maniBlendLayer){outside, 1.0f, e->outside};
+    }
+    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                     out) != mani_success)
+    {
+        Neutral(e, out, difference);
+    }
+}
+
+static void Additive(const Evaluation* e, const uint8_t* record, maniPose* out)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    uint32_t n = maniLoadU32(record + 8);
+    const maniPose* base = InputPose(e, record, 0);
+    if (base == NULL)
+    {
+        Neutral(e, out, false);
+        return;
+    }
+    maniPoseCopy(out, base);
+    uint32_t count = 0;
+    for (uint32_t k = 1; k < n; ++k)
+    {
+        float v = Scalar(e, d + 2 * (k - 1));
+        v = v > 0.0f ? (v < 1.0f ? v : 1.0f) : 0.0f;
+        const maniPose* layer = InputPose(e, record, k);
+        if (v > 0.0f && layer != NULL)
+        {
+            e->layers[count++] = (maniBlendLayer){layer, v, NULL};
+        }
+    }
+    (void)maniAddPoses(e->binding->skeleton, out, e->layers, count);
+}
+
+// A clip node's pose: its clip at its playhead, through its cursor.
+static void Sample(const Evaluation* e, const uint8_t* record, uint32_t cursor, maniPose* out,
+                   const maniGraphNodeState* s)
+{
+    const maniClip* clip = e->binding->clips[Word(e, maniLoadU32(record + 12))];
+    void* memory =
+        (uint8_t*)e->instance + e->instance->cursorsAt + (size_t)cursor * e->binding->cursorSize;
+    maniClipCursor* c = memory;
+    (void)maniSampleClipCursor(c, clip, e->binding->skeleton, (float)s->time, out);
+}
+
+static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
+{
+    const uint8_t* record = Record(e, p);
+    maniPose* out = Slot(e, maniLoadU32(record + 20));
+    bool difference = (maniLoadU16(record + 2) & MANI_GRAPH_DIFFERENCE) != 0;
+    switch (maniLoadU16(record))
+    {
+    case maniGraphNodeClip:
+        Sample(e, record, cursor, out, State(e, p));
+        return;
+    case maniGraphNodeBlend:
+        Blend(e, record, out, difference);
+        return;
+    case maniGraphNodeMask:
+        Mask(e, record, out, difference);
+        return;
+    case maniGraphNodeAdditive:
+        Additive(e, record, out);
+        return;
+    default:
+    {
+        uint32_t k = maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0;
+        const maniPose* input = InputPose(e, record, k);
+        if (input != NULL)
+        {
+            maniPoseCopy(out, input);
+        }
+        else
+        {
+            Neutral(e, out, difference);
+        }
+        return;
+    }
+    }
+}
+
+maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
+                             maniPose* pose)
+{
+    if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP || scratch == NULL ||
+        (uintptr_t)scratch % MANI_GRAPH_SCRATCH_ALIGNMENT != 0 ||
+        !maniPoseMatches(pose, instance->binding->skeleton))
+    {
+        return mani_errorInvalid;
+    }
+    const maniGraphBinding* binding = instance->binding;
+    Evaluation e = {instance, binding, &binding->graph, scratch, PartsOf(binding), NULL,
+                    NULL,     NULL};
+    if (size < e.parts.size)
+    {
+        return mani_errorCapacity;
+    }
+    void* layers = e.scratch + e.parts.layersAt;
+    void* weights = e.scratch + e.parts.weightsAt;
+    e.layers = layers;
+    e.inside = weights;
+    e.outside = e.inside + e.graph->skeletonBoneCount;
+    uint32_t last = e.graph->nodeCount - 1;
+    if (!(State(&e, last)->weight > 0.0f))
+    {
+        return maniPoseSetRest(pose, binding->skeleton);
+    }
+    Prepare(&e);
+    uint32_t cursor = 0;
+    for (uint32_t p = 0; p <= last; ++p)
+    {
+        bool clip = maniLoadU16(Record(&e, p)) == maniGraphNodeClip;
+        if (State(&e, p)->weight > 0.0f)
+        {
+            EvaluateNode(&e, p, cursor);
+        }
+        cursor += clip ? 1u : 0u;
+    }
+    maniPoseCopy(pose, Slot(&e, maniLoadU32(Record(&e, last) + 20)));
+    return mani_success;
+}

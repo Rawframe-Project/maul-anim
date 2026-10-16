@@ -158,6 +158,13 @@ void maniPoseMarkStale(maniPose* pose)
     pose->modelCurrent = 0;
 }
 
+void maniPoseCopy(maniPose* to, const maniPose* from)
+{
+    memcpy(Locals(to), ConstLocals(from), (size_t)from->groups * kGroupFloats * sizeof(float));
+    to->difference = from->difference;
+    to->modelCurrent = 0;
+}
+
 void maniPoseSetKind(maniPose* pose, bool difference)
 {
     pose->difference = difference ? 1u : 0u;

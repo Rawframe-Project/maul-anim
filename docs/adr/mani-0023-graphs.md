@@ -79,7 +79,18 @@ runtime allocates (mani-0001).
   root motion bone, which the binding fixes) and additive layers
   (none); a clip without root motion adds the move of no motion.
 
-Evaluation follows in this record as it lands (item 8).
+- **Evaluation:** a scratch per thread holds a pose per slot (made once
+  for the binding it last served), one node's layers and two bone weight
+  rows. Each node the last update weighed writes its slot in order: a
+  clip node samples its clip at its playhead through its cursor; a
+  blend calls the blending function over its weighed inputs with
+  normalized (or direct) weights; a mask blends its inside by the mask's
+  bone weights and its outside by their remainders; an additive node
+  copies its base and adds its weighed layers; a select, time scale or
+  seek copies its input. A node whose weighed inputs are none gives the
+  rest (or the difference of nothing). Before the first update, or with
+  the output unweighed, the pose is the rest. The result equals the
+  blending functions applied by hand, bit for bit.
 
 ## Consequences
 

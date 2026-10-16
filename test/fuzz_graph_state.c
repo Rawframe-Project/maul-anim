@@ -6,7 +6,7 @@
 // and a select over a clip and a time scale of it. The bytes are tried as
 // they are, then with the header made right so they reach the checks
 // behind it, then with the quaternion parameter made a unit one; a
-// restored state saves back to the same bytes and updates. Run as
+// restored state saves back to the same bytes, updates and evaluates. Run as
 // fuzz_graph_state <corpus dir>.
 
 #include "maul-anim/base.h"
@@ -14,6 +14,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -30,6 +31,9 @@ static _Alignas(16) uint8_t s_graphFile[4096];
 static _Alignas(8) uint8_t s_binding[512];
 static _Alignas(8) uint8_t s_instance[2048];
 static uint8_t s_saved[1024];
+static _Alignas(32) uint8_t s_scratch[16384];
+static _Alignas(32) uint8_t s_poseMemory[1024];
+static maniPose* s_pose;
 static maniSkeleton s_skeleton;
 static maniClip s_clip;
 static maniGraph s_graph;
@@ -111,6 +115,8 @@ static void Setup(void)
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
     s_stateSize = ok ? maniGraphStateSize(binding) : 0;
+    ok = ok && maniGraphScratchSize(binding) <= sizeof s_scratch &&
+         maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success;
     if (!ok || s_stateSize > sizeof s_saved)
     {
         abort();
@@ -133,8 +139,10 @@ static void Exercise(const uint8_t* bytes, size_t size)
     maniGraphEvent events[4];
     uint32_t count = 0;
     maniRootMove move;
-    if (maniUpdateGraph(s_live, 0.37f, events, 4, &count, &move) != mani_success ||
-        maniUpdateGraph(s_live, -5.5f, events, 4, &count, &move) != mani_success)
+    if (maniEvaluateGraph(s_live, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
+        maniUpdateGraph(s_live, 0.37f, events, 4, &count, &move) != mani_success ||
+        maniUpdateGraph(s_live, -5.5f, events, 4, &count, &move) != mani_success ||
+        maniEvaluateGraph(s_live, s_scratch, sizeof s_scratch, s_pose) != mani_success)
     {
         abort();
     }

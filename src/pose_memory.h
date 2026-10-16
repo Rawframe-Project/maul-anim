@@ -31,6 +31,10 @@ float* maniPoseLocals(maniPose* pose);
 const float* maniPoseLocalsRead(const maniPose* pose);
 void maniPoseMarkStale(maniPose* pose);
 
+// Copies the locals and kind of a pose of the same skeleton, marking the
+// model stale.
+void maniPoseCopy(maniPose* to, const maniPose* from);
+
 // Records what the locals hold: a difference or a pose of the skeleton.
 void maniPoseSetKind(maniPose* pose, bool difference);
 

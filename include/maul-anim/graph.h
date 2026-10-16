@@ -11,6 +11,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
@@ -411,6 +412,40 @@ extern "C"
                                                        maniGraphEvent* events, uint32_t capacity,
                                                        uint32_t* eventCountOut,
                                                        maniRootMove* rootMotionOut);
+
+#define MANI_GRAPH_SCRATCH_ALIGNMENT 32u
+
+    /// Returns the bytes of the scratch an evaluation of a bound graph's
+    /// instances needs: a pose per slot and room for one node's layers.
+    /// One scratch serves any number of instances, one at a time.
+    ///
+    /// @param binding  A binding.
+    /// @return The size; 0 for a NULL binding.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniGraphScratchSize(const maniGraphBinding* binding);
+
+    /// Writes an instance's pose as its last update weighed it: each node
+    /// of weight above 0, in order, into its slot (a clip sampled at its
+    /// playhead through its cursor; blends, masks and additive layers by
+    /// the blending functions over their weighed inputs; a select, time
+    /// scale or seek passing its input on), then the output's. The rest
+    /// pose before the first update.
+    ///
+    /// @param instance  An instance.
+    /// @param scratch   At least maniGraphScratchSize bytes,
+    ///                  MANI_GRAPH_SCRATCH_ALIGNMENT-aligned, used by one
+    ///                  thread at a time.
+    /// @param size      The scratch's size.
+    /// @param pose      A pose of the graph's skeleton.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL or
+    /// misaligned argument or a pose of another skeleton;
+    /// `mani_errorCapacity` when the scratch is too small.
+    /// @par Thread safety
+    /// Safe from any thread; the instance, scratch and pose are used by
+    /// one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch,
+                                                         size_t size, maniPose* pose);
 
 #ifdef __cplusplus
 }
