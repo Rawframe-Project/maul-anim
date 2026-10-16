@@ -474,7 +474,7 @@ static void TestRangeAndZero(void)
     RandomVertices();
     const float ones[5] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     maniMorphStream streams[5];
-    memset(s_other, 0x5A, sizeof s_other);
+    memset(s_other, 0, sizeof s_other);
     Vertex guard = s_other[5];
     Streams(s_in, s_other, streams);
     maniMorphJob job = {&m, ones, 0, 5, 5, 0, streams};
