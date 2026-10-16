@@ -39,7 +39,7 @@ static Exact FromFloat(float f)
     uint32_t exponent = (bits >> 23) & 0xFFu;
     uint32_t mantissa = bits & 0x7FFFFFu;
     uint32_t shift = exponent == 0 ? 0 : exponent - 1;
-    uint64_t m = exponent == 0 ? mantissa : (mantissa | 0x800000u);
+    uint64_t m = exponent == 0 ? mantissa : mantissa + 0x800000u;
     uint32_t at = shift / 32;
     uint64_t moved = m << (shift % 32);
     e.limb[at] = (uint32_t)moved;

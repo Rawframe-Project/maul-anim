@@ -237,8 +237,8 @@ static uint32_t TrianglesValid(const maniGraph* g, uint32_t d, uint32_t n)
         uint32_t a = Word(g, corners + 3 * t);
         uint32_t b = Word(g, corners + 3 * t + 1);
         uint32_t c = Word(g, corners + 3 * t + 2);
-        bool ok =
-            t < count ? a < n && b < n && c < n && a != b && b != c && a != c : (a | b | c) == 0;
+        bool ok = t < count ? a < n && b < n && c < n && a != b && b != c && a != c
+                            : a == 0 && b == 0 && c == 0;
         wrong = ok ? UINT32_MAX : corners + 3 * t;
     }
     return wrong;

@@ -77,8 +77,8 @@ static float Point(const Space* s, uint32_t k)
 // Between inputs a and b (points pa < pb), at x within them.
 static void Between(float* weights, uint32_t a, uint32_t b, float pa, float pb, float x)
 {
+    // pa <= x <= pb, and rounding keeps the order, so t is in [0, 1].
     float t = (x - pa) / (pb - pa);
-    t = t > 0.0f ? (t < 1.0f ? t : 1.0f) : 0.0f;
     weights[a] = 1.0f - t;
     weights[b] = t;
 }
@@ -132,27 +132,32 @@ static void Line(const Space* s, float x, float* weights)
     Between(weights, a, b, Point(s, a), Point(s, b), x);
 }
 
-// The signed angle from a to b, 0 with a zero vector.
-static float Angle(float ax, float ay, float bx, float by)
+// The signed turn from direction a to direction b, in [-pi, pi]; 0 when
+// either is the origin's.
+static float Turn(float a, float b, bool origin)
 {
-    bool zero = (ax == 0.0f && ay == 0.0f) || (bx == 0.0f && by == 0.0f);
-    return zero ? 0.0f : maniAtan2(ax * by - ay * bx, ax * bx + ay * by);
+    float d = origin ? 0.0f : b - a;
+    return d > 3.14159265f ? d - 6.28318531f : (d < -3.14159265f ? d + 6.28318531f : d);
 }
 
-// A banded space's points, and per point (polar) its magnitude and the
-// angle from it to the position.
+// A banded space's points, and per point (polar) its magnitude and
+// direction, whether it is the origin (whose direction no turn uses),
+// and the position's.
 typedef struct Points
 {
     float p[2 * MANI_GRAPH_MAX_SPACE_POINTS];
     float magnitude[MANI_GRAPH_MAX_SPACE_POINTS];
-    float toPosition[MANI_GRAPH_MAX_SPACE_POINTS];
+    float direction[MANI_GRAPH_MAX_SPACE_POINTS];
+    bool origin[MANI_GRAPH_MAX_SPACE_POINTS];
     float at[2];
     float atMagnitude;
+    float atDirection;
+    bool atOrigin;
     bool polar;
 } Points;
 
 // The band vectors from point i to point j and to the position, polar
-// (magnitudes over the pair's mean, twice the angle) or cartesian.
+// (magnitudes over the pair's mean, twice the turn) or cartesian.
 static void Bands(const Points* q, uint32_t i, uint32_t j, float* vij, float* vip)
 {
     const float* pi = q->p + 2 * i;
@@ -167,9 +172,9 @@ static void Bands(const Points* q, uint32_t i, uint32_t j, float* vij, float* vi
     }
     float mean = (q->magnitude[i] + q->magnitude[j]) * 0.5f;
     vij[0] = (q->magnitude[j] - q->magnitude[i]) / mean;
-    vij[1] = 2.0f * Angle(pi[0], pi[1], pj[0], pj[1]);
+    vij[1] = 2.0f * Turn(q->direction[i], q->direction[j], q->origin[i] || q->origin[j]);
     vip[0] = (q->atMagnitude - q->magnitude[i]) / mean;
-    vip[1] = 2.0f * q->toPosition[i];
+    vip[1] = 2.0f * Turn(q->direction[i], q->atDirection, q->origin[i] || q->atOrigin);
 }
 
 // The nearest point to the position, the first of equals.
@@ -268,13 +273,16 @@ static void Banded(const Space* s, const float* at, float* weights)
     q.at[0] = at[0];
     q.at[1] = at[1];
     q.atMagnitude = sqrtf(at[0] * at[0] + at[1] * at[1]);
+    q.atDirection = maniAtan2(at[1], at[0]);
+    q.atOrigin = at[0] == 0.0f && at[1] == 0.0f;
     for (uint32_t k = 0; k < n; ++k)
     {
         float* pk = q.p + 2 * k;
         pk[0] = Point(s, 2 * k);
         pk[1] = Point(s, 2 * k + 1);
         q.magnitude[k] = sqrtf(pk[0] * pk[0] + pk[1] * pk[1]);
-        q.toPosition[k] = Angle(pk[0], pk[1], at[0], at[1]);
+        q.direction[k] = maniAtan2(pk[1], pk[0]);
+        q.origin[k] = pk[0] == 0.0f && pk[1] == 0.0f;
     }
     float sum = 0.0f;
     for (uint32_t i = 0; i < n; ++i)

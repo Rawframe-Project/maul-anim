@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Blend spaces (mani-0023): a 1D space's weights between its points,
-// held at its ends and wrapped across its seam; gradient bands,
-// cartesian and polar, against weights worked by hand from Johansen's
-// equations; a vec2 parameter for the position; a space evaluated as the
-// blending functions blend; the builder's refusals and opening's checks;
-// a space in a subgraph; the JSON form round trip. Run as
+// held at its ends and wrapped across its seam, one point alone; gradient
+// bands, cartesian and polar, against weights worked by hand from
+// Johansen's equations or (speed and direction together) from a binary64
+// model of them; a vec2 parameter for the position; a space evaluated as
+// the blending functions blend; the builder's refusals and opening's
+// checks; a space in a subgraph; the JSON form round trip. Run as
 // test_graph_space --seed <graph file> <json file> it writes the round
 // trip's file and text, seeds of the fuzz targets.
 
@@ -68,6 +69,18 @@ static void TestLine(void)
     CHECK(At(instance, &g, -1.5f, kSeam, 3), "wrapped from below");
     CHECK(At(instance, &g, 6.5f, kSeam, 3), "wrapped from above");
     CHECK(At(instance, &g, 1.25f, kBetween, 3), "inside, as without the period");
+    static const uint32_t kOne[1] = {1};
+    static const float kPoint[1] = {0.5f};
+    maniGraphParameterSource x = Parameter("x", maniGraphParameterFloat, Float(0.0f));
+    maniGraphNodeSource alone[2] = {
+        {maniGraphNodeBlendSpace1D, 1, kOne,
+         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.0f)}, kPoint, 2.0f, 0}},
+        ClipNode(0, 1.0f, maniGraphLoopClip)};
+    instance = Make(
+        (maniGraphSource){.parameters = &x, .nodes = alone, .parameterCount = 1, .nodeCount = 2},
+        &g);
+    static const float kAll[1] = {1};
+    CHECK(At(instance, &g, 1.75f, kAll, 1), "one point, wrapped: all of it");
 }
 
 // Points (0, 0), (1, 0) and (0, 1), or an idle at the origin, a walk
@@ -130,6 +143,35 @@ static void TestBands(void)
     Set(instance, 2, maniGraphParameterVec2, at);
     Update(instance, 0.0f);
     CHECK(Weights(instance, &g, kHalfway, 3), "the position from a vec2 parameter");
+}
+
+// Polar bands over an idle, walks forward and left, a run forward and a
+// step back to the right, at positions where both the speed and the
+// direction part of the bands count: weights from a binary64 model of
+// Johansen's equations.
+static void TestPolarMixed(void)
+{
+    static const uint32_t kInputs[5] = {1, 2, 3, 4, 5};
+    static const float kPoints[10] = {0, 0, 1, 0, 0, 1, 2, 0, 0.5f, -0.75f};
+    maniGraphParameterSource parameters[2] = {Parameter("x", maniGraphParameterFloat, Float(0)),
+                                              Parameter("y", maniGraphParameterFloat, Float(0))};
+    maniGraphNodeSource nodes[6] = {
+        {maniGraphNodeBlendSpaceBands, 5, kInputs,
+         .bands = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, kPoints, 1, 0}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip),
+        ClipNode(3, 1.0f, maniGraphLoopClip),
+        ClipNode(4, 1.0f, maniGraphLoopClip),
+        ClipNode(5, 1.0f, maniGraphLoopClip)};
+    maniGraph g;
+    maniGraphInstance* instance = Make(
+        (maniGraphSource){
+            .parameters = parameters, .nodes = nodes, .parameterCount = 2, .nodeCount = 6},
+        &g);
+    static const float kLeft[5] = {0, 0.52623480f, 0.19500120f, 0.27876400f, 0};
+    CHECK(AtPoint(instance, &g, 1.25f, 0.5f, kLeft, 5), "polar: ahead and to the left");
+    static const float kRight[5] = {0.27527111f, 0.37477646f, 0, 0, 0.34995243f};
+    CHECK(AtPoint(instance, &g, 0.5f, -0.25f, kRight, 5), "polar: slow and to the right");
 }
 
 static _Alignas(32) uint8_t s_scratch[65536];
@@ -383,6 +425,7 @@ int main(int argc, char** argv)
     }
     TestLine();
     TestBands();
+    TestPolarMixed();
     TestEvaluated();
     TestRefusals();
     TestOpenRefusals();

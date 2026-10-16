@@ -201,6 +201,16 @@ each kind, takes 75,128 instructions a step, the cost of its samples,
 blends and copies. Nothing at runtime allocates: binding, instance and
 scratch are the caller's memory, sized by the functions that name them.
 
+A blend space's weights are cheap at the usual sizes: an update of 25
+clips under a 1D space takes 7,029 instructions, under triangles 13,334,
+under cartesian bands 28,558 and polar bands 43,501 (a plain blend of
+the same clips, all weighted, 13,155). Bands grow with the square of
+the points, every pair's band being the method: 2.0 million
+instructions at 256 points, 3.6 million polar, where each point's
+direction is taken once and a pair's turn is the difference of two.
+Lines and triangles grow linearly. The builder's exact triangulation of
+a 16 by 16 grid, every cell a tie, takes 15 ms.
+
 Every check, choice and refusal is tested against a change made to its
 line: of 203 such changes to the graph's sources, the JSON forms and
 the binary32 writer, every one is caught but seven that cannot change a

@@ -180,8 +180,8 @@ static void Repoint(maniTriangulation* m, uint32_t x, uint32_t a, uint32_t b, ui
 }
 
 // Flips the edge of t opposite slot i when the far point lies strictly
-// inside the circle through t's corners; true if it did.
-static bool Flip(Sweep* s, uint32_t t, uint32_t i, uint32_t* tail)
+// inside the circle through t's corners.
+static void Flip(Sweep* s, uint32_t t, uint32_t i, uint32_t* tail)
 {
     maniTriangulation* m = s->m;
     uint32_t o = m->t[t].n[i];
@@ -192,7 +192,7 @@ static bool Flip(Sweep* s, uint32_t t, uint32_t i, uint32_t* tail)
     uint32_t d = m->t[o].v[j];
     if (maniExactInCircle(P(s, a), P(s, b), P(s, c), P(s, d)) <= 0)
     {
-        return false;
+        return;
     }
     uint32_t ab = m->t[t].n[(i + 2) % 3];
     uint32_t ca = m->t[t].n[(i + 1) % 3];
@@ -206,7 +206,6 @@ static bool Flip(Sweep* s, uint32_t t, uint32_t i, uint32_t* tail)
     Push(m, tail, t, 2);
     Push(m, tail, o, 0);
     Push(m, tail, o, 1);
-    return true;
 }
 
 // Flips until every edge is locally Delaunay: a queue of edges, each in
@@ -231,7 +230,7 @@ static void Flips(Sweep* s)
         m->queued[e] = 0;
         if (m->t[e / 3].n[e % 3] != NONE)
         {
-            (void)Flip(s, e / 3, e % 3, &tail);
+            Flip(s, e / 3, e % 3, &tail);
         }
     }
 }
@@ -242,7 +241,7 @@ uint32_t maniTriangulate(const float* points, uint32_t n, maniTriangulation* m)
     m->count = 0;
     for (uint32_t k = 0; k < n; ++k)
     {
-        m->keys[k] = maniFloatKey(points[2 * k]) << 32 | maniFloatKey(points[2 * k + 1]);
+        m->keys[k] = (maniFloatKey(points[2 * k]) << 32) + maniFloatKey(points[2 * k + 1]);
     }
     maniSortByKey(m->keys, n, m->order, m->scratch);
     uint32_t k = 2;
