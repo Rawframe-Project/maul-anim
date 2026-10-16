@@ -180,6 +180,16 @@ extern "C"
         // that is a difference or a layer that is a pose, or an output of
         // differences; item is the node, other the input's place.
         maniBuildReasonDifference = 29,
+        // A text that is not JSON (RFC 8259); item is the byte offset of the
+        // first byte found wrong, other what broke: 1 the grammar or text
+        // past the value, 2 nesting deeper than 128, 3 a text of 4 GiB or
+        // more, 4 bytes not UTF-8, 5 an escape not defined or a lone
+        // surrogate, 6 a control character in a string.
+        maniBuildReasonJson = 30,
+        // JSON that is not the form a text reader takes; item is the byte
+        // offset of the value at fault (of an object missing a member),
+        // other the kind of fault (maniGraphForm for graphs).
+        maniBuildReasonForm = 31,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

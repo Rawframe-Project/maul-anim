@@ -16,6 +16,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/skeleton.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -244,6 +245,59 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniWriteGraphJson(maniBuilder* builder,
                                                                const maniGraphSource* source);
+
+    // Why a JSON text is not a graph's form: the other of a
+    // maniBuildReasonForm refusal.
+    typedef uint32_t maniGraphForm;
+    enum
+    {
+        // A member the object does not take.
+        maniGraphFormMember = 1,
+        // A member given twice.
+        maniGraphFormRepeat = 2,
+        // A member the object needs is missing.
+        maniGraphFormMissing = 3,
+        // A value of the wrong kind, count or range.
+        maniGraphFormValue = 4,
+        // A name no parameter, clip slot, sync group or bone of the graph
+        // has.
+        maniGraphFormName = 5,
+        // A format not "maul-anim graph" or a version not 1.
+        maniGraphFormVersion = 6,
+        // A clip slot the host's clips do not name.
+        maniGraphFormUnbound = 7,
+    };
+
+    /// Builds a graph file from its JSON text form, as maniWriteGraphJson
+    /// writes it: members an object does not take are refused; those with
+    /// an off value may be left out (a parameter's default: false, 0, the
+    /// zero vector or the identity quaternion; bounds, both or neither;
+    /// allEvents false; a clip node's syncGroup null, speed 1, loop
+    /// "clip", leader false; a blend's direct false; a mask's chains empty
+    /// and defaultWeight 0; a chain's subtree false; a seek's time 0;
+    /// parameters, clips and syncGroups empty). Each clip slot name, at
+    /// any nesting, takes the host's clip of that name (the first of
+    /// equal names). The source read is then built as maniBuildGraph
+    /// builds it.
+    ///
+    /// @param builder    The builder.
+    /// @param text       The UTF-8 text (a leading byte order mark
+    ///                   skipped); may be NULL when length is 0.
+    /// @param length     The text's length in bytes.
+    /// @param skeleton   The graph's skeleton; mask chains name its bones.
+    /// @param clips      count clips with their slot names; may be NULL
+    ///                   when count is 0.
+    /// @param count      The number of clips.
+    /// @return As maniBuildGraph, items by place in the text's lists; or
+    /// `mani_errorInvalid` with maniBuildReasonJson or
+    /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(maniBuilder* builder,
+                                                               const char* text, size_t length,
+                                                               const maniSkeleton* skeleton,
+                                                               const maniGraphClipSource* clips,
+                                                               uint32_t count);
 
 #ifdef __cplusplus
 }

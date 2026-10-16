@@ -55,6 +55,8 @@ graph_check: allocator container graph_file sort text
 graph_inline: allocator graph_check
 graph_build: allocator builder bytes container graph_check graph_file graph_inline
 graph_json: allocator builder decimal_format
+graph_json_read: arena container decimal json sort
+graph_json_graph: arena builder graph_json_read json
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 clip_shell: additive

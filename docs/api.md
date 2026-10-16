@@ -402,6 +402,11 @@ MANI_NODISCARD MANI_API maniBuildResult maniWriteGraphJson(maniBuilder* builder,
 ```
 Writes a graph source as its JSON text form (UTF-8, two-space indents, a line per list item, ending in a new line), building it first: a source maniBuildGraph refuses is refused the same way and not written. Parameters, clip slots, sync groups and the bones of mask chains are written by name, nodes and the output by their place in the source, subgraphs as nested graphs with their parameters mapped by name, and numbers as the shortest text that reads back to the same binary32 (ECMAScript's layout). The text is kept in place of any file or text kept before; maniCopyBuilt copies it.  @param builder  The builder. @param source   The graph. @return As maniBuildGraph. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length, const maniSkeleton* skeleton, const maniGraphClipSource* clips, uint32_t count);
+```
+Builds a graph file from its JSON text form, as maniWriteGraphJson writes it: members an object does not take are refused; those with an off value may be left out (a parameter's default: false, 0, the zero vector or the identity quaternion; bounds, both or neither; allEvents false; a clip node's syncGroup null, speed 1, loop "clip", leader false; a blend's direct false; a mask's chains empty and defaultWeight 0; a chain's subtree false; a seek's time 0; parameters, clips and syncGroups empty). Each clip slot name, at any nesting, takes the host's clip of that name (the first of equal names). The source read is then built as maniBuildGraph builds it.  @param builder    The builder. @param text       The UTF-8 text (a leading byte order mark skipped); may be NULL when length is 0. @param length     The text's length in bytes. @param skeleton   The graph's skeleton; mask chains name its bones. @param clips      count clips with their slot names; may be NULL when count is 0. @param count      The number of clips. @return As maniBuildGraph, items by place in the text's lists; or `mani_errorInvalid` with maniBuildReasonJson or maniBuildReasonForm (other a maniGraphForm), item the byte offset. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `import.h`
 
 glTF 2.0 import (mani-0008), offline: a document opened from JSON or GLB bytes the caller keeps alive, its external buffers supplied by the host, then skeletons, skins and clips built from it.
@@ -1034,4 +1039,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-196 functions across 13 headers.
+197 functions across 13 headers.

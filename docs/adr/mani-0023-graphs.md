@@ -132,6 +132,16 @@ runtime allocates (mani-0001).
   diff. Numbers are the shortest decimal that reads back to the same
   binary32, in ECMAScript's layout, found with integers only (`-0`
   kept), so one source has one text on every platform.
+- **Reading the text:** `maniBuildGraphJson` takes the text, the
+  skeleton and the host's clips with their slot names, and builds the
+  file as `maniBuildGraph` does. Members are strict (one not taken, or
+  given twice, is refused); those whose off value is natural (false,
+  null, 0, an empty list, speed 1, loop "clip", the identity quaternion)
+  may be left out. Names resolve through tables sorted by hash, so a
+  hostile text costs n log n. A text that is not JSON is refused as
+  `Json`, one that is not the form as `Form`, each with the byte offset
+  of the fault and its kind; the text a source writes reads back to the
+  bytes the source builds.
 
 ## Consequences
 

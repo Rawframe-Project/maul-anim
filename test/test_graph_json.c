@@ -4,7 +4,12 @@
 // The JSON text form of graphs (mani-0023): a source with every node
 // kind, every parameter type and a subgraph written as the pinned text;
 // a source that does not build refused as the build refuses it; the
-// allocator failing at each allocation.
+// allocator failing at each allocation. Run as test_graph_json --seed
+// <file> it writes the pinned text, the seed of the fuzz target.
+
+// The seed writer uses fopen, which the Microsoft C library deprecates;
+// the request comes before any header that reaches the C library.
+#define _CRT_SECURE_NO_WARNINGS
 
 #include "test_harness.h"
 
@@ -291,6 +296,201 @@ static void TestRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+static _Alignas(16) uint8_t s_built[16384];
+static _Alignas(16) uint8_t s_read[16384];
+
+static const maniGraphClipSource kHost[3] = {
+    {&s_clips[0], "walk", 4, 0}, {&s_clips[1], "run", 3, 0}, {&s_clips[2], "wave", 4, 0}};
+
+// A text built against the host's clips, its file copied into out.
+static maniBuildResult Read(const char* text, uint8_t* out, size_t* sizeOut)
+{
+    maniBuilder* builder = NewBuilder(NULL);
+    maniBuildResult r = maniBuildGraphJson(builder, text, strlen(text), &s_skeleton, kHost, 3);
+    *sizeOut = 0;
+    if (r.result == mani_success)
+    {
+        CHECK(maniCopyBuilt(builder, out, 16384, sizeOut) == mani_success, "copies");
+    }
+    maniDestroyBuilder(builder);
+    return r;
+}
+
+static size_t Built(const maniGraphSource* source)
+{
+    maniBuilder* builder = NewBuilder(NULL);
+    size_t size = 0;
+    CHECK(maniBuildGraph(builder, source).result == mani_success &&
+              maniCopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
+          "built");
+    maniDestroyBuilder(builder);
+    return size;
+}
+
+// The pinned text reads back to the bytes its source builds.
+static void TestRoundTrip(void)
+{
+    maniGraphSource source = Source();
+    size_t want = Built(&source);
+    size_t size = 0;
+    maniBuildResult r = Read(kExpected, s_read, &size);
+    CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
+          "read back bit for bit");
+}
+
+// Members left out take their off values.
+static void TestDefaults(void)
+{
+    static const char kShort[] =
+        "\xEF\xBB\xBF{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": "
+        "[{\"name\": \"q\", \"type\": \"quat\"}, {\"name\": \"n\", \"type\": \"int\"}], "
+        "\"clips\": [\"walk\"], \"nodes\": [{\"kind\": \"clip\", \"clip\": \"walk\"}], "
+        "\"output\": 0}";
+    maniGraphParameterSource parameters[2] = {
+        Parameter("q", maniGraphParameterQuat, Value(0, 0, 0, 1)),
+        Parameter("n", maniGraphParameterInt, Int(0))};
+    maniGraphClipSource slot = {&s_clips[0], "walk", 4, 0};
+    maniGraphNodeSource node = {
+        maniGraphNodeClip, 0, NULL,
+        .clip = {0, MANI_NO_SYNC_GROUP, LITERAL(1.0f), maniGraphLoopClip, 0}};
+    maniGraphSource source = {&s_skeleton, parameters, &slot, NULL, &node, 2, 1, 0, 1, 0, 0};
+    size_t want = Built(&source);
+    size_t size = 0;
+    maniBuildResult r = Read(kShort, s_read, &size);
+    CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
+          "the short form");
+}
+
+// A text refused: the reason, the fault and the byte offset of the
+// marker's occurrence (inside a string's quotes).
+typedef struct Refusal
+{
+    const char* text;
+    maniBuildReason reason;
+    uint32_t other;
+    const char* marker;
+    uint32_t occurrence;
+} Refusal;
+
+#define TOP  "{\"format\": \"maul-anim graph\", \"version\": 1, "
+#define WALK "\"clips\": [\"walk\"], "
+#define NODE "{\"kind\": \"clip\", \"clip\": \"walk\"}"
+
+static const Refusal kRefusals[] = {
+    {TOP WALK "\"nodes\": [", maniBuildReasonJson, 1, NULL, 0},
+    {TOP WALK "\"nodes\": [" NODE "], \"output\": 0, \"bogus\": 1}", maniBuildReasonForm,
+     maniGraphFormMember, "\"bogus", 1},
+    {TOP WALK "\"nodes\": [" NODE "], \"output\": 0, \"output\": 0}", maniBuildReasonForm,
+     maniGraphFormRepeat, "\"output", 2},
+    {TOP WALK "\"output\": 0}", maniBuildReasonForm, maniGraphFormMissing, "{", 1},
+    {TOP WALK "\"nodes\": [" NODE "], \"output\": -1}", maniBuildReasonForm, maniGraphFormValue,
+     "-1", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"clip\", \"clip\": \"jog\"}], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormName, "\"jog", 1},
+    {"{\"format\": \"maul-anim graph\", \"version\": 2, " WALK "\"nodes\": [" NODE
+     "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormVersion, "2,", 1},
+    {"{\"format\": \"other\", \"version\": 1, " WALK "\"nodes\": [" NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormVersion, "\"other", 1},
+    {TOP "\"clips\": [\"jog\"], \"nodes\": [" NODE "], \"output\": 0}", maniBuildReasonForm,
+     maniGraphFormUnbound, "\"jog", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"dance\"}], \"output\": 0}", maniBuildReasonForm,
+     maniGraphFormValue, "\"dance", 1},
+    {TOP WALK "\"nodes\": [{\"clip\": \"walk\"}], \"output\": 0}", maniBuildReasonForm,
+     maniGraphFormMissing, "{\"clip", 1},
+    {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"float\", \"minimum\": 0}], " WALK
+         "\"nodes\": [" NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMissing, "{\"name", 1},
+    {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"bool\", \"minimum\": 0, \"maximum\": "
+         "1}], " WALK "\"nodes\": [" NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMember, "\"minimum", 1},
+    {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"vec4\"}], " WALK "\"nodes\": [" NODE
+         "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "\"vec4", 1},
+    {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"vec2\", \"default\": [1]}], " WALK
+         "\"nodes\": [" NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[1]", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"clip\", \"clip\": \"walk\", \"speed\": 1e39}], "
+              "\"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "1e39", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"clip\", \"clip\": \"walk\", \"loop\": \"twice\"}], "
+              "\"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "\"twice", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"blend\", \"inputs\": [1, 1], \"weights\": [1]}, " NODE
+              "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[1]", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"mask\", \"inputs\": [1, 1], \"chains\": [{\"bone\": "
+              "\"tail\", \"weight\": 1}]}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormName, "\"tail", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"timeScale\", \"inputs\": [1], \"scale\": "
+              "{\"parameter\": \"pace\"}}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormName, "\"pace", 1},
+    {TOP WALK "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"format\": \"x\"}}], "
+              "\"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMember, "\"format\": \"x", 1},
+    {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
+         "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"parameters\": [{\"name\": \"r\", "
+         "\"type\": \"float\"}], " WALK "\"nodes\": [" NODE "], \"output\": 0}}], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMissing, "{\"kind\": \"subgraph", 1},
+    {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
+         "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"parameters\": [{\"name\": \"r\", "
+         "\"type\": \"float\"}], " WALK "\"nodes\": [" NODE
+         "], \"output\": 0}, \"parameters\": {\"r\": \"p\", \"r\": \"p\"}}], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormRepeat, "\"r\": \"p\"", 2},
+    // Read, then refused by the build: a select on a float.
+    {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
+         "\"nodes\": [{\"kind\": \"select\", \"inputs\": [1, 1], \"parameter\": \"p\"}, " NODE
+         "], \"output\": 0}",
+     maniBuildReasonNode, 0, NULL, 0},
+};
+
+// The byte offset of a marker's occurrence, inside a string's quotes.
+static uint32_t OffsetOf(const char* text, const char* marker, uint32_t occurrence)
+{
+    const char* at = text - 1;
+    for (uint32_t k = 0; k < occurrence && at != NULL; ++k)
+    {
+        at = strstr(at + 1, marker);
+    }
+    return at == NULL ? UINT32_MAX : (uint32_t)(at - text) + (marker[0] == '"' ? 1u : 0u);
+}
+
+static void TestReadRefusals(void)
+{
+    uint32_t wrong = 0;
+    for (size_t i = 0; i < sizeof kRefusals / sizeof kRefusals[0]; ++i)
+    {
+        const Refusal* c = &kRefusals[i];
+        size_t size = 0;
+        maniBuildResult r = Read(c->text, s_read, &size);
+        bool ok = r.result == mani_errorInvalid && r.reason == c->reason;
+        if (c->marker != NULL)
+        {
+            ok = ok && r.other == c->other && r.item == OffsetOf(c->text, c->marker, c->occurrence);
+        }
+        else if (c->reason == maniBuildReasonJson)
+        {
+            ok = ok && r.other == c->other;
+        }
+        if (!ok)
+        {
+            printf("case %zu: %d %u %u %u\n", i, (int)r.result, r.reason, r.item, r.other);
+            ++wrong;
+        }
+    }
+    CHECK(wrong == 0, "each text refused at its offset");
+    maniBuilder* builder = NewBuilder(NULL);
+    CHECK(maniBuildGraphJson(NULL, "", 0, &s_skeleton, NULL, 0).result == mani_errorInvalid,
+          "no builder");
+    CHECK(maniBuildGraphJson(builder, NULL, 1, &s_skeleton, NULL, 0).result == mani_errorInvalid &&
+              maniBuildGraphJson(builder, "", 0, NULL, NULL, 0).result == mani_errorInvalid &&
+              maniBuildGraphJson(builder, "", 0, &s_skeleton, NULL, 1).result ==
+                  mani_errorInvalid &&
+              maniBuilderMisuses(builder) == 3,
+          "misuses");
+    maniDestroyBuilder(builder);
+}
+
 // An allocator failing at one allocation, counting the live blocks;
 // aligned by hand (no aligned_alloc everywhere): the block's start just
 // before what it returns.
@@ -331,43 +531,69 @@ static void FailingFree(void* memory, size_t size, size_t alignment, void* conte
     --f->live;
 }
 
-// Each allocation failing in turn: Capacity and nothing kept, nothing
-// leaked; then one run with none failing.
-static void TestAllocationFailure(void)
+// One run with the failAt-th allocation failing (none past the count):
+// whether one failed, and whether it failed cleanly (Capacity, nothing
+// kept, nothing leaked; success when none failed).
+static bool FailOnce(bool reading, uint32_t failAt, bool* cleanOut)
 {
     maniGraphSource source = Source();
-    bool clean = true;
-    uint32_t failAt = 0;
-    for (;; ++failAt)
-    {
-        Failing f = {0, UINT32_MAX, 0};
-        maniAllocator allocator = {FailingAlloc, FailingFree, &f};
-        maniBuilder* builder = NewBuilder(&allocator);
-        f.failAt = f.calls + failAt;
-        maniBuildResult r = maniWriteGraphJson(builder, &source);
-        size_t size = 1;
-        bool failed = f.calls > f.failAt;
-        if (failed)
-        {
-            clean = clean && r.result == mani_errorCapacity &&
-                    maniCopyBuilt(builder, NULL, 0, &size) == mani_errorInvalid;
-        }
-        maniDestroyBuilder(builder);
-        clean = clean && f.live == 0;
-        if (!failed)
-        {
-            CHECK(r.result == mani_success, "written with no failure");
-            break;
-        }
-    }
-    CHECK(clean && failAt > 2, "each failure Capacity, nothing kept or leaked");
+    Failing f = {0, UINT32_MAX, 0};
+    maniAllocator allocator = {FailingAlloc, FailingFree, &f};
+    maniBuilder* builder = NewBuilder(&allocator);
+    f.failAt = f.calls + failAt;
+    maniBuildResult r = reading ? maniBuildGraphJson(builder, kExpected, sizeof kExpected - 1,
+                                                     &s_skeleton, kHost, 3)
+                                : maniWriteGraphJson(builder, &source);
+    size_t size = 1;
+    bool failed = f.calls > f.failAt;
+    bool clean = failed ? r.result == mani_errorCapacity &&
+                              maniCopyBuilt(builder, NULL, 0, &size) == mani_errorInvalid
+                        : r.result == mani_success;
+    maniDestroyBuilder(builder);
+    *cleanOut = clean && f.live == 0;
+    return failed;
 }
 
-int main(void)
+// Each allocation of the writer, then of the reader, failing in turn.
+static void TestAllocationFailure(void)
 {
+    for (int reading = 0; reading < 2; ++reading)
+    {
+        bool clean = true;
+        uint32_t failAt = 0;
+        bool once = true;
+        while (FailOnce(reading != 0, failAt, &once))
+        {
+            clean = clean && once;
+            ++failAt;
+        }
+        CHECK(clean && once && failAt > 2, "each failure Capacity, nothing kept or leaked");
+    }
+}
+
+static int WriteSeed(const char* path)
+{
+    FILE* out = fopen(path, "wb");
+    if (out == NULL)
+    {
+        return 1;
+    }
+    size_t written = fwrite(kExpected, 1, sizeof kExpected - 1, out);
+    return fclose(out) == 0 && written == sizeof kExpected - 1 ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc == 3 && strcmp(argv[1], "--seed") == 0)
+    {
+        return WriteSeed(argv[2]);
+    }
     Open();
     TestWrite();
     TestRefusals();
     TestAllocationFailure();
+    TestRoundTrip();
+    TestDefaults();
+    TestReadRefusals();
     return s_failures == 0 ? 0 : 1;
 }

@@ -45,6 +45,10 @@ format.
   source as JSON once it builds, names in place of indices (bones of
   mask chains included), subgraphs nested, a line per item, numbers as
   the shortest text that reads back to the same binary32.
+- `maniBuildGraphJson` builds a graph from its JSON form against the
+  host's clips by slot name, members strict, off values optional; texts
+  that are not JSON or not the form are refused with the byte offset
+  (`maniBuildReasonJson`, `maniBuildReasonForm`, `maniGraphForm`).
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its
