@@ -1,0 +1,502 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// Building a graph file (mani-0023): the checked source's nodes ordered
+// depth first from the output (each after its inputs, taken in order),
+// each marked as giving poses or differences, each given a slot reused
+// once its last reader has run, and every section written.
+
+#include "allocator.h"
+#include "builder.h"
+#include "bytes.h"
+#include "container.h"
+#include "graph_check.h"
+#include "graph_file.h"
+
+#include "maul-anim/base.h"
+#include "maul-anim/blend.h"
+#include "maul-anim/build.h"
+#include "maul-anim/clip.h"
+#include "maul-anim/graph.h"
+#include "maul-anim/graphbuild.h"
+#include "maul-anim/skeleton.h"
+
+#include <math.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+#define WORK_ARRAYS 9u
+
+// Per node, by source index unless said: its place in the order (and the
+// order itself, by place), its search state, the search's stack and next
+// inputs, its last reader's place, its slot, the free slots, and whether
+// it gives differences.
+typedef struct Work
+{
+    uint32_t* order;
+    uint32_t* position;
+    uint32_t* state;
+    uint32_t* stack;
+    uint32_t* next;
+    uint32_t* lastReader;
+    uint32_t* slot;
+    uint32_t* freeSlots;
+    uint32_t* difference;
+    uint32_t slotCount;
+} Work;
+
+static maniBuildResult Outcome(maniResult result)
+{
+    return (maniBuildResult){result, maniBuildReasonNone, 0, 0};
+}
+
+// Depth first from the output: each node after its inputs. Refuses a
+// cycle (the node whose input closes it) and a node not reached.
+static maniBuildResult Order(const maniGraphSource* source, Work* w)
+{
+    uint32_t n = source->nodeCount;
+    memset(w->state, 0, n * sizeof(uint32_t));
+    uint32_t depth = 1;
+    uint32_t placed = 0;
+    w->stack[0] = source->output;
+    w->next[0] = 0;
+    w->state[source->output] = 1;
+    while (depth > 0)
+    {
+        uint32_t v = w->stack[depth - 1];
+        const maniGraphNodeSource* node = &source->nodes[v];
+        uint32_t k = w->next[depth - 1];
+        if (k == node->inputCount)
+        {
+            --depth;
+            w->state[v] = 2;
+            w->position[v] = placed;
+            w->order[placed++] = v;
+            continue;
+        }
+        w->next[depth - 1] = k + 1;
+        uint32_t u = node->inputs[k];
+        if (w->state[u] == 1)
+        {
+            return maniGraphRefuse(maniBuildReasonCycle, v, k);
+        }
+        if (w->state[u] == 0)
+        {
+            w->state[u] = 1;
+            w->stack[depth] = u;
+            w->next[depth++] = 0;
+        }
+    }
+    for (uint32_t v = 0; v < n; ++v)
+    {
+        if (w->state[v] == 0)
+        {
+            return maniGraphRefuse(maniBuildReasonUnreachable, v, 0);
+        }
+    }
+    return Outcome(mani_success);
+}
+
+// Whether a node gives differences, from its inputs'; refuses a mix.
+static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
+{
+    const maniGraphNodeSource* node = &source->nodes[v];
+    if (node->kind == maniGraphNodeClip)
+    {
+        const maniClip* clip = source->clips[node->clip.clip].clip;
+        w->difference[v] = maniClipAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u;
+        return Outcome(mani_success);
+    }
+    bool additive = node->kind == maniGraphNodeAdditive;
+    uint32_t first = w->difference[node->inputs[0]];
+    if (additive && first != 0)
+    {
+        return maniGraphRefuse(maniBuildReasonDifference, v, 0);
+    }
+    for (uint32_t k = 1; k < node->inputCount; ++k)
+    {
+        uint32_t d = w->difference[node->inputs[k]];
+        if (additive ? d == 0 : d != first)
+        {
+            return maniGraphRefuse(maniBuildReasonDifference, v, k);
+        }
+    }
+    w->difference[v] = first;
+    return Outcome(mani_success);
+}
+
+// Slots over the order: a node's slot is taken before its inputs' are
+// freed, so it is never one of theirs.
+static void Slots(const maniGraphSource* source, Work* w)
+{
+    uint32_t n = source->nodeCount;
+    for (uint32_t p = 0; p < n; ++p)
+    {
+        const maniGraphNodeSource* node = &source->nodes[w->order[p]];
+        w->lastReader[w->order[p]] = p == n - 1 ? n : 0;
+        for (uint32_t k = 0; k < node->inputCount; ++k)
+        {
+            w->lastReader[node->inputs[k]] = p;
+        }
+    }
+    uint32_t freeCount = 0;
+    w->slotCount = 0;
+    for (uint32_t p = 0; p < n; ++p)
+    {
+        uint32_t v = w->order[p];
+        w->slot[v] = freeCount > 0 ? w->freeSlots[--freeCount] : w->slotCount++;
+        const maniGraphNodeSource* node = &source->nodes[v];
+        for (uint32_t k = 0; k < node->inputCount; ++k)
+        {
+            uint32_t u = node->inputs[k];
+            if (w->lastReader[u] == p)
+            {
+                w->freeSlots[freeCount++] = w->slot[u];
+                w->lastReader[u] = n + 1;
+            }
+        }
+    }
+}
+
+// The sections' bytes, laid out in one block.
+typedef struct Layout
+{
+    uint8_t* block;
+    size_t blockSize;
+    uint8_t* sections[MANI_GRAPH_SECTIONS];
+    uint64_t sizes[MANI_GRAPH_SECTIONS];
+    uint64_t namesAt;
+    // One mask's weights before they are copied in.
+    float* weights;
+    uint32_t dataAt;
+    uint32_t inputAt;
+    uint32_t maskAt;
+} Layout;
+
+static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint32_t bones,
+                const maniAllocator* allocator, Layout* lay)
+{
+    lay->sizes[0] = MANI_GRAPH_HEADER_SIZE;
+    lay->sizes[1] = (uint64_t)source->parameterCount * MANI_GRAPH_PARAMETER_SIZE;
+    lay->sizes[2] = (uint64_t)source->nodeCount * MANI_GRAPH_NODE_SIZE;
+    lay->sizes[3] = 4 * (uint64_t)tally->inputCount;
+    lay->sizes[4] = 4 * (uint64_t)tally->dataWords;
+    lay->sizes[5] = (uint64_t)source->clipCount * MANI_GRAPH_CLIP_SIZE;
+    lay->sizes[6] = (uint64_t)source->syncGroupCount * MANI_GRAPH_SYNC_GROUP_SIZE;
+    lay->sizes[7] = 4 * (uint64_t)tally->maskCount * bones;
+    lay->sizes[8] = tally->namesSize;
+    uint64_t total = 0;
+    for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
+    {
+        total += (lay->sizes[s] + 7u) & ~(uint64_t)7u;
+    }
+    if (total > SIZE_MAX)
+    {
+        return false;
+    }
+    lay->blockSize = (size_t)total;
+    lay->block = maniAllocate(allocator, lay->blockSize, 1, 8);
+    if (lay->block == NULL)
+    {
+        return false;
+    }
+    memset(lay->block, 0, lay->blockSize);
+    uint64_t at = 0;
+    for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
+    {
+        lay->sections[s] = lay->block + at;
+        at += (lay->sizes[s] + 7u) & ~(uint64_t)7u;
+    }
+    return true;
+}
+
+// A name into the names section, its offset, length and hash after it.
+static void PutName(Layout* lay, const char* name, uint32_t length, uint8_t* entry)
+{
+    memcpy(lay->sections[8] + lay->namesAt, name, length);
+    maniStoreU32(entry, (uint32_t)lay->namesAt);
+    maniStoreU32(entry + 4, length);
+    lay->namesAt += length;
+}
+
+static void PutFloat(uint8_t* p, float value)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &value, sizeof bits);
+    maniStoreU32(p, bits);
+}
+
+static void PutParameter(Layout* lay, const maniGraphParameterSource* p, uint8_t* e)
+{
+    maniStoreU32(e, p->type);
+    maniStoreU32(e + 4, p->bounded != 0 ? MANI_GRAPH_BOUNDED : 0u);
+    PutName(lay, p->name, p->nameLength, e + 8);
+    maniStoreU64(e + 16, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)p->name, p->nameLength));
+    maniGraphParameterType t = p->type;
+    if (t == maniGraphParameterInt)
+    {
+        maniStoreU32(e + 24, (uint32_t)p->defaultValue.i);
+        maniStoreU32(e + 40, p->bounded != 0 ? (uint32_t)p->minimum.i : 0u);
+        maniStoreU32(e + 44, p->bounded != 0 ? (uint32_t)p->maximum.i : 0u);
+        return;
+    }
+    if (t == maniGraphParameterBool || t == maniGraphParameterTrigger)
+    {
+        maniStoreU32(e + 24, p->defaultValue.b);
+        return;
+    }
+    uint32_t n = t == maniGraphParameterFloat  ? 1u
+                 : t == maniGraphParameterVec2 ? 2u
+                 : t == maniGraphParameterVec3 ? 3u
+                                               : 4u;
+    double length = 0.0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        length += (double)p->defaultValue.f[k] * (double)p->defaultValue.f[k];
+    }
+    double scale = t == maniGraphParameterQuat ? 1.0 / sqrt(length) : 1.0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        PutFloat(e + 24 + 4 * k, (float)((double)p->defaultValue.f[k] * scale));
+    }
+    if (p->bounded != 0)
+    {
+        PutFloat(e + 40, p->minimum.f[0]);
+        PutFloat(e + 44, p->maximum.f[0]);
+    }
+}
+
+static uint32_t PutScalar(uint8_t* data, uint32_t at, maniGraphScalar s)
+{
+    maniStoreU32(data + 4 * (size_t)at, s.parameter);
+    PutFloat(data + 4 * (size_t)at + 4, s.parameter == MANI_NO_PARAMETER ? s.value : 0.0f);
+    return at + 2;
+}
+
+static uint32_t PutWords(uint8_t* data, uint32_t at, const uint32_t* words, uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        maniStoreU32(data + 4 * (size_t)(at + k), words[k]);
+    }
+    return at + count;
+}
+
+// A node's data words, by kind; a mask's weights made.
+static void PutData(const maniGraphSource* source, const maniGraphNodeSource* node, Layout* lay)
+{
+    uint8_t* d = lay->sections[4];
+    uint32_t at = lay->dataAt;
+    uint32_t n = node->inputCount;
+    if (node->kind == maniGraphNodeClip)
+    {
+        const maniGraphClipNodeSource* c = &node->clip;
+        const uint32_t words[4] = {c->clip, c->syncGroup, c->loop, c->flags};
+        at = PutScalar(d, PutWords(d, at, words, 4), c->speed);
+    }
+    else if (node->kind == maniGraphNodeBlend || node->kind == maniGraphNodeAdditive)
+    {
+        bool blend = node->kind == maniGraphNodeBlend;
+        at = blend ? PutWords(d, at, &node->blend.direct, 1) : at;
+        const maniGraphScalar* weights = blend ? node->blend.weights : node->additive.weights;
+        for (uint32_t k = 0; k < (blend ? n : n - 1); ++k)
+        {
+            at = PutScalar(d, at, weights[k]);
+        }
+    }
+    else if (node->kind == maniGraphNodeMask)
+    {
+        uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+        const maniGraphMaskNodeSource* m = &node->mask;
+        // Checked already: the chains' bones and weights are in range.
+        (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight,
+                            lay->weights, bones);
+        memcpy(lay->sections[7] + 4 * (size_t)lay->maskAt * bones, lay->weights, 4 * (size_t)bones);
+        at = PutWords(d, at, &lay->maskAt, 1);
+        ++lay->maskAt;
+    }
+    else if (node->kind == maniGraphNodeSelect)
+    {
+        at = PutWords(d, at, &node->select.parameter, 1);
+    }
+    else if (node->kind == maniGraphNodeTimeScale)
+    {
+        at = PutScalar(d, at, node->timeScale.scale);
+    }
+    else
+    {
+        at = PutScalar(d, PutWords(d, at, &node->seek.trigger, 1), node->seek.time);
+    }
+    lay->dataAt = at;
+}
+
+static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
+{
+    for (uint32_t p = 0; p < source->nodeCount; ++p)
+    {
+        uint32_t v = w->order[p];
+        const maniGraphNodeSource* node = &source->nodes[v];
+        uint8_t* e = lay->sections[2] + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        maniStoreU16(e, (uint16_t)node->kind);
+        maniStoreU16(e + 2, (uint16_t)(w->difference[v] != 0 ? MANI_GRAPH_DIFFERENCE : 0u));
+        maniStoreU32(e + 4, lay->inputAt);
+        maniStoreU32(e + 8, node->inputCount);
+        maniStoreU32(e + 12, lay->dataAt);
+        maniStoreU32(e + 16, maniGraphDataWords(node->kind, node->inputCount));
+        maniStoreU32(e + 20, w->slot[v]);
+        for (uint32_t k = 0; k < node->inputCount; ++k)
+        {
+            maniStoreU32(lay->sections[3] + 4 * (size_t)lay->inputAt++,
+                         w->position[node->inputs[k]]);
+        }
+        PutData(source, node, lay);
+    }
+}
+
+static void PutLists(const maniGraphSource* source, Layout* lay)
+{
+    for (uint32_t i = 0; i < source->parameterCount; ++i)
+    {
+        PutParameter(lay, &source->parameters[i],
+                     lay->sections[1] + (size_t)i * MANI_GRAPH_PARAMETER_SIZE);
+    }
+    for (uint32_t i = 0; i < source->clipCount; ++i)
+    {
+        const maniGraphClipSource* c = &source->clips[i];
+        uint8_t* e = lay->sections[5] + (size_t)i * MANI_GRAPH_CLIP_SIZE;
+        maniStoreU64(e, maniClipIdentity(c->clip));
+        maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)c->name, c->nameLength));
+        PutName(lay, c->name, c->nameLength, e + 16);
+        bool difference = maniClipAdditiveBasis(c->clip) != maniAdditiveNone;
+        maniStoreU32(e + 24, difference ? MANI_GRAPH_DIFFERENCE : 0u);
+    }
+    for (uint32_t i = 0; i < source->syncGroupCount; ++i)
+    {
+        const maniGraphSyncGroupSource* g = &source->syncGroups[i];
+        uint8_t* e = lay->sections[6] + (size_t)i * MANI_GRAPH_SYNC_GROUP_SIZE;
+        maniStoreU64(e, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)g->name, g->nameLength));
+        PutName(lay, g->name, g->nameLength, e + 8);
+        maniStoreU32(e + 16, g->flags);
+    }
+}
+
+static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally,
+                      uint32_t slotCount, uint8_t* h)
+{
+    maniStoreU64(h, maniSkeletonIdentity(source->skeleton));
+    const uint32_t counts[9] = {maniSkeletonBoneCount(source->skeleton),
+                                source->parameterCount,
+                                source->nodeCount,
+                                tally->inputCount,
+                                tally->dataWords,
+                                source->clipCount,
+                                source->syncGroupCount,
+                                tally->maskCount,
+                                slotCount};
+    for (uint32_t k = 0; k < 9; ++k)
+    {
+        maniStoreU32(h + 8 + 4 * k, counts[k]);
+    }
+}
+
+// Writes the container and gives it to the builder.
+static maniBuildResult Keep(maniBuilder* builder, const Layout* lay)
+{
+    // Empty sections are left out, as every kind leaves them.
+    maniSectionSource sections[MANI_GRAPH_SECTIONS];
+    uint32_t count = 0;
+    for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
+    {
+        if (lay->sizes[s] > 0)
+        {
+            sections[count++] = (maniSectionSource){s + 1, lay->sections[s], lay->sizes[s]};
+        }
+    }
+    const uint8_t* data[MANI_GRAPH_SECTIONS];
+    for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
+    {
+        data[s] = lay->sections[s];
+    }
+    uint64_t identity = maniGraphComputeIdentity(data, lay->sizes);
+    uint64_t fileSize = 0;
+    uint8_t* file = NULL;
+    if (maniContainerSize(sections, count, &fileSize) && fileSize <= SIZE_MAX)
+    {
+        file = maniAllocate(&builder->allocator, (size_t)fileSize, 1, 8);
+    }
+    if (file == NULL)
+    {
+        return Outcome(mani_errorCapacity);
+    }
+    maniWriteContainer(file, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, identity, sections, count);
+    maniBuilderKeep(builder, maniKindGraph, file, (size_t)fileSize, NULL, 0);
+    return Outcome(mani_success);
+}
+
+static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source,
+                             const maniGraphTally* tally, const Work* w)
+{
+    Layout lay = {0};
+    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    lay.weights = maniAllocate(&builder->allocator, bones, sizeof(float), 4);
+    if (lay.weights == NULL || !Lay(source, tally, bones, &builder->allocator, &lay))
+    {
+        maniRelease(&builder->allocator, lay.weights, bones, sizeof(float), 4);
+        return Outcome(mani_errorCapacity);
+    }
+    PutHeader(source, tally, w->slotCount, lay.sections[0]);
+    PutLists(source, &lay);
+    PutNodes(source, w, &lay);
+    maniBuildResult r = Keep(builder, &lay);
+    maniRelease(&builder->allocator, lay.block, lay.blockSize, 1, 8);
+    maniRelease(&builder->allocator, lay.weights, bones, sizeof(float), 4);
+    return r;
+}
+
+// Orders, marks and slots the checked source's nodes, then writes it.
+static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* source,
+                               const maniGraphTally* tally)
+{
+    size_t n = source->nodeCount;
+    uint32_t* block = maniAllocate(&builder->allocator, WORK_ARRAYS * n, sizeof(uint32_t), 4);
+    if (block == NULL)
+    {
+        return Outcome(mani_errorCapacity);
+    }
+    Work w = {block,         block + n,     block + 2 * n, block + 3 * n, block + 4 * n,
+              block + 5 * n, block + 6 * n, block + 7 * n, block + 8 * n, 0};
+    maniBuildResult r = Order(source, &w);
+    for (uint32_t p = 0; p < n && r.result == mani_success; ++p)
+    {
+        r = Kind(source, w.order[p], &w);
+    }
+    if (r.result == mani_success && w.difference[source->output] != 0)
+    {
+        r = maniGraphRefuse(maniBuildReasonDifference, source->output, 0);
+    }
+    if (r.result == mani_success)
+    {
+        Slots(source, &w);
+        r = Write(builder, source, tally, &w);
+    }
+    maniRelease(&builder->allocator, block, WORK_ARRAYS * n, sizeof(uint32_t), 4);
+    return r;
+}
+
+maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source)
+{
+    if (builder == NULL)
+    {
+        return Outcome(mani_errorInvalid);
+    }
+    if (source == NULL || source->skeleton == NULL)
+    {
+        ++builder->misuses;
+        return Outcome(mani_errorInvalid);
+    }
+    maniGraphTally tally;
+    maniBuildResult r = maniCheckGraphSource(source, &builder->allocator, &tally);
+    return r.result == mani_success ? Arrange(builder, source, &tally) : r;
+}

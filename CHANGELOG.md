@@ -10,6 +10,12 @@ format.
 
 ### Added
 
+- Graph files (mani-0023): `maniBuildGraph` builds a graph against a
+  skeleton and its clips (parameters, clip slots, sync groups, and
+  clip, blend, mask, additive, select, time scale and seek nodes as a
+  DAG), ordering the nodes, marking poses and differences and reusing
+  pose slots; `maniOpenGraph` opens one in place with every record
+  checked; parameters and clip slots are read by name and index.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// Checking a graph source as its build does (mani-0023): every
+// parameter, clip slot, sync group and node on its own; the order and
+// the kinds of what nodes give are the build's.
+
+#ifndef MAUL_ANIM_SRC_GRAPH_CHECK_H
+#define MAUL_ANIM_SRC_GRAPH_CHECK_H
+
+#include "allocator.h"
+
+#include "maul-anim/build.h"
+#include "maul-anim/graphbuild.h"
+
+#include <stdint.h>
+
+// What a checked source needs written: its inputs, data words, masks and
+// names' bytes.
+typedef struct maniGraphTally
+{
+    uint64_t namesSize;
+    uint32_t inputCount;
+    uint32_t dataWords;
+    uint32_t maskCount;
+    uint32_t reserved;
+} maniGraphTally;
+
+maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t other);
+
+// Checks the source's counts, parameters, clips, sync groups and nodes;
+// Capacity when the allocator fails.
+maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAllocator* allocator,
+                                     maniGraphTally* tallyOut);
+
+#endif // MAUL_ANIM_SRC_GRAPH_CHECK_H

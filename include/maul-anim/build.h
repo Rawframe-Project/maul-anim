@@ -95,7 +95,8 @@ extern "C"
         maniBuildReasonCount = 1,
         // A parent index out of range, or a bone its own parent.
         maniBuildReasonParent = 2,
-        // A bone no root reaches: on a cycle of parents, or below one.
+        // A bone no root reaches: on a cycle of parents, or below one; a
+        // graph node on a cycle of inputs.
         maniBuildReasonCycle = 3,
         // An empty name, a NULL one, or one that is not UTF-8.
         maniBuildReasonName = 4,
@@ -127,9 +128,10 @@ extern "C"
         // An additive clip's basis with a scale component of 0 on a bone
         // whose track has scale keys.
         maniBuildReasonBasis = 15,
-        // A weight below 0, a dual quaternion weight outside 0 to 1, or a
+        // A weight below 0, a dual quaternion weight outside 0 to 1, a
         // morph target's full weight not finite, 0 or not above the
-        // channel's previous.
+        // channel's previous, or a mask chain's weight outside 0 to 1 (item
+        // the node, other the chain).
         maniBuildReasonWeight = 16,
         // A joint given twice for one vertex with weight; other is the
         // earlier influence.
@@ -151,12 +153,42 @@ extern "C"
         // an additive clip, or a motion translation beyond 2^64; item is
         // the bone.
         maniBuildReasonRootMotion = 22,
+        // A graph parameter (mani-0023) of an unknown type, or whose
+        // default or bounds are out of form: not finite, a minimum above
+        // the maximum, the default outside them, a quaternion of zero
+        // length, a bool or trigger not 0 or 1; item is the parameter.
+        maniBuildReasonParameter = 23,
+        // A graph's clip slot without a clip, with a clip of another
+        // skeleton, or with a clip an earlier slot (other) has.
+        maniBuildReasonClip = 24,
+        // A graph node of an unknown kind, with an input count its kind
+        // does not take, or with a field out of range: a clip slot, sync
+        // group, loop or flags; a select's parameter not int or bool; a
+        // seek's not a trigger; item is the node.
+        maniBuildReasonNode = 25,
+        // A node's input past the node count or the node itself, or the
+        // output past the count; item is the node, other the input's place.
+        maniBuildReasonInput = 26,
+        // A node the output does not reach.
+        maniBuildReasonUnreachable = 27,
+        // A node's number naming a parameter past the count or not a
+        // float, or a literal not finite or out of its range (a weight
+        // below 0, a direct or additive weight above 1); item is the node,
+        // other the number's place among its numbers.
+        maniBuildReasonScalar = 28,
+        // A node mixing poses and differences, an additive node's base
+        // that is a difference or a layer that is a pose, or an output of
+        // differences; item is the node, other the input's place.
+        maniBuildReasonDifference = 29,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
         maniBuildReasonDiscreteTrack = 0x200,
         maniBuildReasonEvent = 0x300,
         maniBuildReasonMarker = 0x400,
+        maniBuildReasonParameterList = 0x500,
+        maniBuildReasonClipList = 0x600,
+        maniBuildReasonSyncGroupList = 0x700,
     };
 
     // A build's outcome: the status and, when the source was refused

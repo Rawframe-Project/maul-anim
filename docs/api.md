@@ -269,6 +269,74 @@ maniClipEvent maniClipMarkerAt(const maniClip* clip, uint32_t index);
 ```
 Returns a sync marker; markers are in increasing time.  @param clip   An opened clip. @param index  The marker. @return The marker, or a zeroed one for an index past the count. @par Thread safety Safe from any thread.
 
+## `graph.h`
+
+Graphs (mani-0023): a graph file built offline against one skeleton, opened in place, bound to its clips, and played by instances in caller memory. Its nodes form a DAG stored in topological order, each after its inputs, the output last.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut);
+```
+Opens a graph file in place: checks the container, every record, index, count, float and name, and that every node's inputs come before it.  @param bytes     The file, 16-byte aligned. @param size      Its size in bytes; bytes past the file are ignored. @param graphOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniGraphIdentity(const maniGraph* graph);
+```
+Returns the graph's identity, the hash of its contents.  @param graph  An opened graph. @return The identity; 0 for a NULL graph. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniGraphSkeletonIdentity(const maniGraph* graph);
+```
+Returns the identity of the skeleton the graph was built against.  @param graph  An opened graph. @return The identity; 0 for a NULL graph. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphNodeCount(const maniGraph* graph);
+```
+Returns the number of nodes.  @param graph  An opened graph. @return The count; 0 for a NULL graph. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphParameterCount(const maniGraph* graph);
+```
+Returns the number of parameters.  @param graph  An opened graph. @return The count; 0 for a NULL graph. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphFindParameter(const maniGraph* graph, const char* name, size_t length);
+```
+Finds a parameter by its name.  @param graph   An opened graph. @param name    The name's bytes, UTF-8. @param length  Its length in bytes. @return The parameter, or MANI_NO_PARAMETER. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniGraphParameterTypeOf(const maniGraph* graph, uint32_t parameter, maniGraphParameterType* typeOut);
+```
+Returns a parameter's type.  @param graph      An opened graph. @param parameter  The parameter. @param typeOut    Receives the type. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a parameter past the count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniGraphParameterName(const maniGraph* graph, uint32_t parameter, uint32_t* lengthOut);
+```
+Returns a parameter's name, its bytes inside the file.  @param graph      An opened graph. @param parameter  The parameter. @param lengthOut  Receives the name's length; 0 past the count. @return The name, not terminated, or NULL past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphClipCount(const maniGraph* graph);
+```
+Returns the number of clip slots the graph plays.  @param graph  An opened graph. @return The count; 0 for a NULL graph. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniGraphClipIdentity(const maniGraph* graph, uint32_t clip);
+```
+Returns the identity of the clip a slot names.  @param graph  An opened graph. @param clip   The slot. @return The clip's identity; 0 past the count. @par Thread safety Safe from any thread.
+
+```c
+const char* maniGraphClipName(const maniGraph* graph, uint32_t clip, uint32_t* lengthOut);
+```
+Returns the name a slot gives its clip, its bytes inside the file.  @param graph      An opened graph. @param clip       The slot. @param lengthOut  Receives the name's length; 0 past the count. @return The name, not terminated, or NULL past the count. @par Thread safety Safe from any thread.
+
+## `graphbuild.h`
+
+Building a graph file (mani-0023), offline: a graph's parameters, clip slots, sync groups and nodes, checked against one skeleton and its clips, ordered so each node follows its inputs, its poses given slots, and written.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source);
+```
+Builds a graph file: checks every parameter, clip slot, sync group and node, orders the nodes so each follows its inputs (the output last, the source's order kept where it may be), makes each mask's bone weights, marks each node as giving poses or differences, gives each node's pose a slot reused once its last reader has run, and keeps the file in place of any built before.  @param builder  The builder. @param source   The graph. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse) or with the reason, the item and another the reason names for a refused source: Count (more items than the named limits, or none of nodes), Name, DuplicateName and NameHash with the list bits of parameters, clips or sync groups, Parameter, Clip, Node, Input, Cycle, Unreachable, Scalar, Weight and Difference; and `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `import.h`
 
 glTF 2.0 import (mani-0008), offline: a document opened from JSON or GLB bytes the caller keeps alive, its external buffers supplied by the host, then skeletons, skins and clips built from it.
@@ -901,4 +969,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-171 functions across 11 headers.
+183 functions across 13 headers.
