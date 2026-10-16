@@ -39,6 +39,8 @@ root_motion: bytes clip_file clip_view vecmath
 graph_file:
 graph_nodes: bytes graph_file
 graph: bytes container graph_file graph_nodes text
+graph_instance: bytes graph_file
+graph_bind: bytes graph_file graph_instance
 clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes

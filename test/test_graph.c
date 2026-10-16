@@ -14,6 +14,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "graph_file.h"
+#include "graph_instance.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -494,6 +495,174 @@ static void TestOpenRefusals(void)
           "misuses");
 }
 
+static _Alignas(8) uint8_t s_bindingMemory[256];
+static _Alignas(8) uint8_t s_instanceMemory[8192];
+static _Alignas(8) uint8_t s_copyMemory[8192];
+static uint8_t s_state[1024];
+static uint8_t s_craftedState[1024];
+
+// The test graph built, opened and bound; NULL when any step fails.
+static maniGraphBinding* Bound(maniGraph* g)
+{
+    maniGraphSource source = Source();
+    const maniClip* clips[4] = {&s_clips[2], NULL, &s_clips[0], &s_clips[1]};
+    maniGraphBinding* binding = NULL;
+    bool ok = Build(&source).result == mani_success &&
+              maniOpenGraph(s_file, s_size, g).result == mani_success &&
+              maniBindGraph(g, &s_skeleton, clips, 4, s_bindingMemory, sizeof s_bindingMemory,
+                            &binding, NULL) == mani_success;
+    return ok ? binding : NULL;
+}
+
+static void TestBind(void)
+{
+    maniGraph g;
+    maniGraphBinding* binding = Bound(&g);
+    CHECK(binding != NULL && maniGraphBindingSize(&g) <= sizeof s_bindingMemory, "binds");
+    const maniClip* missing[2] = {&s_clips[0], &s_clips[2]};
+    maniGraphBinding* none = NULL;
+    uint32_t unbound = 0;
+    CHECK(maniBindGraph(&g, &s_skeleton, missing, 2, s_bindingMemory, sizeof s_bindingMemory, &none,
+                        &unbound) == mani_errorInvalid &&
+              unbound == 1 && none == NULL,
+          "a slot no clip binds: the run");
+    const maniClip* clips[3] = {&s_clips[0], &s_clips[1], &s_clips[2]};
+    CHECK(maniBindGraph(&g, &s_skeleton, clips, 3, s_bindingMemory, 8, &none, NULL) ==
+                  mani_errorCapacity &&
+              maniBindGraph(&g, &s_skeleton, clips, 3, s_bindingMemory + 4,
+                            sizeof s_bindingMemory - 4, &none, NULL) == mani_errorInvalid &&
+              maniBindGraph(NULL, &s_skeleton, clips, 3, s_bindingMemory, sizeof s_bindingMemory,
+                            &none, NULL) == mani_errorInvalid,
+          "misuses");
+    maniGraph other = g;
+    other.skeletonIdentity ^= 1;
+    CHECK(maniBindGraph(&other, &s_skeleton, clips, 3, s_bindingMemory, sizeof s_bindingMemory,
+                        &none, NULL) == mani_errorInvalid,
+          "another skeleton");
+}
+
+static maniGraphValue Get(const maniGraphInstance* instance, uint32_t parameter)
+{
+    maniGraphValue v = {{0}};
+    CHECK(maniGetGraphParameter(instance, parameter, &v) == mani_success, "gets");
+    return v;
+}
+
+static void TestParameters(void)
+{
+    maniGraph g;
+    maniGraphBinding* binding = Bound(&g);
+    maniGraphInstance* instance = NULL;
+    size_t size = maniGraphInstanceSize(binding);
+    CHECK(binding != NULL && size <= sizeof s_instanceMemory &&
+              maniInitGraphInstance(binding, s_instanceMemory, size, &instance) == mani_success,
+          "an instance");
+    CHECK(Get(instance, 0).f[0] == 1.0f && Get(instance, 1).f[0] == 0.5f &&
+              Get(instance, 4).b == 1 && Get(instance, 5).f[3] == 1.0f,
+          "defaults");
+    CHECK(maniSetGraphParameter(instance, 0, maniGraphParameterFloat, Float(5, 0, 0, 0)) ==
+                  mani_success &&
+              Get(instance, 0).f[0] == 2.0f,
+          "a float clamped to its maximum");
+    CHECK(maniSetGraphParameter(instance, 2, maniGraphParameterInt, Int(-7)) == mani_success &&
+              Get(instance, 2).i == 0,
+          "an int clamped to its minimum");
+    CHECK(maniSetGraphParameter(instance, 5, maniGraphParameterQuat, Float(0, 3, 0, 4)) ==
+                  mani_success &&
+              Get(instance, 5).f[1] == 0.6f && Get(instance, 5).f[3] == 0.8f,
+          "a quaternion normalized");
+    CHECK(maniSetGraphParameter(instance, 3, maniGraphParameterTrigger, Int(1)) == mani_success &&
+              Get(instance, 3).b == 1,
+          "a trigger set");
+    maniGraphValue before = Get(instance, 1);
+    CHECK(maniSetGraphParameter(instance, 1, maniGraphParameterInt, Int(1)) == mani_errorInvalid &&
+              maniSetGraphParameter(instance, 1, maniGraphParameterFloat,
+                                    Float(INFINITY, 0, 0, 0)) == mani_errorInvalid &&
+              maniSetGraphParameter(instance, 4, maniGraphParameterBool, Int(2)) ==
+                  mani_errorInvalid &&
+              maniSetGraphParameter(instance, 5, maniGraphParameterQuat, Float(0, 0, 0, 0)) ==
+                  mani_errorInvalid &&
+              maniSetGraphParameter(instance, 6, maniGraphParameterFloat, Float(0, 0, 0, 0)) ==
+                  mani_errorInvalid &&
+              maniSetGraphParameter(NULL, 1, maniGraphParameterFloat, Float(0, 0, 0, 0)) ==
+                  mani_errorInvalid &&
+              Get(instance, 1).f[0] == before.f[0],
+          "values refused, nothing changed");
+    CHECK(maniInitGraphInstance(binding, s_instanceMemory, size - 1, &instance) ==
+                  mani_errorCapacity &&
+              maniInitGraphInstance(binding, s_instanceMemory + 4, size, &instance) ==
+                  mani_errorInvalid &&
+              maniGraphInstanceSize(NULL) == 0,
+          "instance misuses");
+}
+
+static void ExpectState(uint64_t offset, uint32_t value, uint64_t want, const char* what,
+                        maniGraphInstance* instance, size_t size)
+{
+    memcpy(s_craftedState, s_state, size);
+    maniStoreU32(s_craftedState + offset, value);
+    maniFileResult r = maniRestoreGraphInstance(instance, s_craftedState, size);
+    CHECK(r.result == mani_errorFormat && r.offset == want, what);
+}
+
+static void TestSaveRestore(void)
+{
+    maniGraph g;
+    maniGraphBinding* binding = Bound(&g);
+    maniGraphInstance* instance = NULL;
+    size_t size = maniGraphInstanceSize(binding);
+    CHECK(binding != NULL &&
+              maniInitGraphInstance(binding, s_instanceMemory, size, &instance) == mani_success,
+          "an instance");
+    CHECK(maniSetGraphParameter(instance, 1, maniGraphParameterFloat, Float(0.25f, 0, 0, 0)) ==
+                  mani_success &&
+              maniSetGraphParameter(instance, 5, maniGraphParameterQuat, Float(1, 2, 3, 4)) ==
+                  mani_success,
+          "parameters set");
+    // A node's state as an update would leave it: the select on its
+    // second input, a clip's playhead moved.
+    maniGraphNodeState* states = &instance->cells[g.parameterCount].node;
+    states[3].word = 1;
+    states[3].weight = 0.5f;
+    states[0].time = 12.75;
+    size_t stateSize = maniGraphStateSize(binding);
+    CHECK(stateSize == MANI_GRAPH_STATE_HEADER_SIZE + 15 * 16 && stateSize <= sizeof s_state &&
+              maniSaveGraphInstance(instance, s_state, stateSize) == mani_success &&
+              maniSaveGraphInstance(instance, s_state, stateSize - 1) == mani_errorCapacity,
+          "saves");
+    memcpy(s_copyMemory, s_instanceMemory, size);
+    maniGraphInstance* copy = (maniGraphInstance*)(void*)s_copyMemory;
+    maniGraphInstance* fresh = NULL;
+    CHECK(maniInitGraphInstance(binding, s_instanceMemory, size, &fresh) == mani_success &&
+              Get(fresh, 1).f[0] == 0.5f && Get(copy, 1).f[0] == 0.25f,
+          "a memcpy is a copy, the original made over");
+    CHECK(maniRestoreGraphInstance(fresh, s_state, stateSize).result == mani_success &&
+              Get(fresh, 1).f[0] == 0.25f && Get(fresh, 5).f[0] == Get(copy, 5).f[0] &&
+              fresh->cells[g.parameterCount + 3].node.word == 1 &&
+              fresh->cells[g.parameterCount + 0].node.time == 12.75,
+          "restored");
+    uint64_t first = MANI_GRAPH_STATE_HEADER_SIZE;
+    uint64_t nodes = first + 6 * 16;
+    ExpectState(0, 0, 0, "another magic", fresh, stateSize);
+    ExpectState(4, 1, 4, "a word not zero", fresh, stateSize);
+    ExpectState(8, 1, 8, "another graph", fresh, stateSize);
+    ExpectState(16, 1, 16, "another size", fresh, stateSize);
+    ExpectState(first, 0x40400000u, first, "a float past its bounds", fresh, stateSize);
+    ExpectState(first + 2 * 16 + 4, 1, first + 2 * 16, "an int's unused word", fresh, stateSize);
+    ExpectState(first + 4 * 16, 2, first + 4 * 16, "a bool of 2", fresh, stateSize);
+    ExpectState(first + 5 * 16, 0x40000000u, first + 5 * 16, "a quaternion not unit", fresh,
+                stateSize);
+    ExpectState(nodes + 3 * 16 + 4, 2, nodes + 3 * 16, "a select past its inputs", fresh,
+                stateSize);
+    ExpectState(nodes + 2 * 16 + 4, 1, nodes + 2 * 16, "a word on a blend", fresh, stateSize);
+    ExpectState(nodes, 0xBF800000u, nodes, "a negative weight", fresh, stateSize);
+    ExpectState(nodes + 12, 0x7FF00000u, nodes, "a playhead not finite", fresh, stateSize);
+    CHECK(maniRestoreGraphInstance(fresh, s_state, stateSize - 1).result == mani_errorFormat &&
+              maniRestoreGraphInstance(NULL, s_state, stateSize).result == mani_errorInvalid &&
+              Get(fresh, 1).f[0] == 0.25f,
+          "a short state; the instance unchanged by refusals");
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -530,6 +699,9 @@ int main(int argc, char** argv)
     TestNodeRefusals();
     TestShapeRefusals();
     TestOpenRefusals();
+    TestBind();
+    TestParameters();
+    TestSaveRestore();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

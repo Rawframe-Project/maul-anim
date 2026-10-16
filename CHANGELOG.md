@@ -16,6 +16,13 @@ format.
   DAG), ordering the nodes, marking poses and differences and reusing
   pose slots; `maniOpenGraph` opens one in place with every record
   checked; parameters and clip slots are read by name and index.
+- Graph bindings and instances (mani-0023): `maniBindGraph` binds a
+  graph's clip slots to the host's clips by identity in caller memory;
+  `maniInitGraphInstance` makes an instance in caller memory that a
+  `memcpy` copies; `maniSetGraphParameter` and `maniGetGraphParameter`
+  set (clamped, normalized, checked) and read parameters;
+  `maniSaveGraphInstance` and `maniRestoreGraphInstance` save a state
+  without pointers and restore it after checking it as external bytes.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

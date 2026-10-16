@@ -10,7 +10,10 @@
 #define MAUL_ANIM_GRAPH_H
 
 #include "maul-anim/base.h"
+#include "maul-anim/clip.h"
+#include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -215,6 +218,149 @@ extern "C"
     /// Safe from any thread.
     MANI_API const char* maniGraphClipName(const maniGraph* graph, uint32_t clip,
                                            uint32_t* lengthOut);
+
+    // A graph bound to its skeleton and clips, in caller memory: shared by
+    // every instance of the graph, read only.
+    typedef struct maniGraphBinding maniGraphBinding;
+
+    // An instance of a bound graph, in caller memory: its parameters and
+    // the state of its nodes.
+    typedef struct maniGraphInstance maniGraphInstance;
+
+#define MANI_GRAPH_BINDING_ALIGNMENT  8u
+#define MANI_GRAPH_INSTANCE_ALIGNMENT 8u
+
+    /// Returns the bytes a binding of the graph needs.
+    ///
+    /// @param graph  An opened graph.
+    /// @return The size; 0 for a NULL graph.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniGraphBindingSize(const maniGraph* graph);
+
+    /// Binds a graph to its skeleton and clips: each clip slot to the
+    /// clip of its identity among clips (in any order, others ignored),
+    /// each of the graph's skeleton and of the kind the slot was built
+    /// with. The graph, skeleton and clips must outlive the binding.
+    ///
+    /// @param graph       An opened graph.
+    /// @param skeleton    The skeleton the graph was built against.
+    /// @param clips       count opened clips.
+    /// @param count       The number of clips.
+    /// @param memory      At least maniGraphBindingSize bytes,
+    ///                    MANI_GRAPH_BINDING_ALIGNMENT-aligned.
+    /// @param size        The memory's size.
+    /// @param bindingOut  Receives the binding.
+    /// @param unboundOut  Receives the first slot left unbound on failure
+    ///                    (MANI_NO_TRACK otherwise). May be NULL.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL or
+    /// misaligned argument, a skeleton that is not the graph's, or a slot
+    /// no clip binds; `mani_errorCapacity` when the memory is too small.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniBindGraph(const maniGraph* graph,
+                                                     const maniSkeleton* skeleton,
+                                                     const maniClip* const* clips, uint32_t count,
+                                                     void* memory, size_t size,
+                                                     maniGraphBinding** bindingOut,
+                                                     uint32_t* unboundOut);
+
+    /// Returns the bytes an instance of a bound graph needs.
+    ///
+    /// @param binding  A binding.
+    /// @return The size; 0 for a NULL binding.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniGraphInstanceSize(const maniGraphBinding* binding);
+
+    /// Makes an instance in caller memory: parameters at their defaults,
+    /// every playhead at 0, nothing weighed until the first update. The
+    /// instance holds no pointer into itself, so a `memcpy` of its bytes
+    /// is a copy.
+    ///
+    /// @param binding      A binding, which must outlive the instance.
+    /// @param memory       At least maniGraphInstanceSize bytes,
+    ///                     MANI_GRAPH_INSTANCE_ALIGNMENT-aligned.
+    /// @param size         The memory's size.
+    /// @param instanceOut  Receives the instance.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL or
+    /// misaligned argument; `mani_errorCapacity` when the memory is too
+    /// small.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniInitGraphInstance(const maniGraphBinding* binding,
+                                                             void* memory, size_t size,
+                                                             maniGraphInstance** instanceOut);
+
+    /// Sets a parameter: bool and trigger 0 or 1 (b), int (i) and float
+    /// (f[0]) clamped to their bounds, the vectors (f) finite, a
+    /// quaternion (f) normalized.
+    ///
+    /// @param instance   An instance.
+    /// @param parameter  The parameter.
+    /// @param type       Its type, as the graph declares it.
+    /// @param value      The value.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// parameter past the count, a type that is not the parameter's, or a
+    /// value out of form (not finite, a bool past 1, a quaternion of zero
+    /// length; nothing changed).
+    /// @par Thread safety
+    /// Safe from any thread; the instance is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSetGraphParameter(maniGraphInstance* instance,
+                                                             uint32_t parameter,
+                                                             maniGraphParameterType type,
+                                                             maniGraphValue value);
+
+    /// Reads a parameter's value.
+    ///
+    /// @param instance   An instance.
+    /// @param parameter  The parameter.
+    /// @param valueOut   Receives the value.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
+    /// a parameter past the count.
+    /// @par Thread safety
+    /// Safe from any thread; the instance is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniGetGraphParameter(const maniGraphInstance* instance,
+                                                             uint32_t parameter,
+                                                             maniGraphValue* valueOut);
+
+    /// Returns the bytes an instance's saved state takes: its parameters
+    /// and its nodes' state, with the graph's identity.
+    ///
+    /// @param binding  A binding.
+    /// @return The size; 0 for a NULL binding.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniGraphStateSize(const maniGraphBinding* binding);
+
+    /// Writes an instance's state as bytes that hold no pointer, to be
+    /// restored into any instance of the same graph.
+    ///
+    /// @param instance  An instance.
+    /// @param out       At least maniGraphStateSize bytes.
+    /// @param capacity  The bytes out holds.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorCapacity` when capacity is too small (nothing written).
+    /// @par Thread safety
+    /// Safe from any thread; the instance is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSaveGraphInstance(const maniGraphInstance* instance,
+                                                             void* out, size_t capacity);
+
+    /// Restores a saved state, checked as external bytes: the graph's
+    /// identity, the size, every parameter in form and every node's state
+    /// finite and in range. The instance's cursors start over (they cache
+    /// nothing a pose depends on).
+    ///
+    /// @param instance  An instance of the graph the state was saved from.
+    /// @param bytes     The state.
+    /// @param size      Its size in bytes.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorFormat` with the offset of the first byte found wrong
+    /// (the instance unchanged).
+    /// @par Thread safety
+    /// Safe from any thread; the instance is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance,
+                                                                    const void* bytes, size_t size);
 
 #ifdef __cplusplus
 }

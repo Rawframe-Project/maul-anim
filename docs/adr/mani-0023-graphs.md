@@ -45,8 +45,23 @@ runtime allocates (mani-0001).
   identity. A file that passes but was not made by the builder can give
   a wrong pose, never an unsafe access.
 
-Binding, instances, update and evaluation follow in this record as
-they land (item 8).
+- **Binding:** each clip slot is bound to the host's clip of its
+  identity, of the graph's skeleton and of the slot's kind, in caller
+  memory of a size the graph states; one binding serves every instance.
+- **Instances:** caller memory of a size the binding states: a 16-byte
+  cell per parameter and per node (its effective weight, a word its
+  kind keeps, its playhead in binary64), then a cursor per clip node.
+  Nothing points into the instance, so a `memcpy` copies it. Parameters
+  are set by index with their declared type: ints and floats clamped to
+  their bounds, quaternions normalized, anything not finite refused.
+- **Saved state:** a 24-byte header (magic, the graph's identity, the
+  size) and the cells in little-endian order, without pointers;
+  restoring checks it as external bytes (every value as setting it
+  would keep it, a quaternion unit within 1e-5, weights finite and not
+  negative, playheads finite, a select's word below its inputs) and
+  starts the cursors over, which cache nothing a pose depends on.
+
+Update and evaluation follow in this record as they land (item 8).
 
 ## Consequences
 
