@@ -10,6 +10,7 @@
 #include "graph_inertia_apply.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
+#include "graph_match.h"
 #include "graph_shot.h"
 #include "graph_space.h"
 #include "pose_memory.h"
@@ -362,6 +363,34 @@ static void Sample(const Evaluation* e, const uint8_t* record, uint32_t cursor, 
     (void)maniSampleClipCursor(c, clip, e->binding->skeleton, (float)s->time, out);
 }
 
+// A motion matching node's pose: its entry's clip at its playhead,
+// through its cursor; the neutral pose with no entry.
+static void SampleMatch(const Evaluation* e, const uint8_t* record, uint32_t cursor, maniPose* out,
+                        const maniGraphNodeState* s)
+{
+    uint32_t data = maniLoadU32(record + 12);
+    uint32_t slot = Word(e, data + maniGraphMatchDatabase);
+    uint32_t entry =
+        ((const uint32_t*)((const uint8_t*)e->instance +
+                           e->instance->machinesAt))[Word(e, data + maniGraphMatchBlock) +
+                                                     maniGraphMatchEntry];
+    maniMatchEntry m;
+    if (maniMotionDatabaseEntry(maniGraphBoundDatabase(e->binding, slot), entry, &m) !=
+        mani_success)
+    {
+        Neutral(e, out, false);
+        return;
+    }
+    const uint8_t* d = e->graph->databases + (size_t)slot * MANI_GRAPH_DATABASE_SIZE;
+    uint32_t clipSlot =
+        maniLoadU32(e->graph->databaseClips + 4 * (size_t)(maniLoadU32(d + 24) + m.clip));
+    void* memory =
+        (uint8_t*)e->instance + e->instance->cursorsAt + (size_t)cursor * e->binding->cursorSize;
+    maniClipCursor* c = memory;
+    (void)maniSampleClipCursor(c, e->binding->clips[clipSlot], e->binding->skeleton, (float)s->time,
+                               out);
+}
+
 static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
 {
     const uint8_t* record = Record(e, p);
@@ -371,6 +400,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     {
     case maniGraphNodeClip:
         Sample(e, record, cursor, out, State(e, p));
+        return;
+    case maniGraphNodeMatch:
+        SampleMatch(e, record, cursor, out, State(e, p));
         return;
     case maniGraphNodeBlend:
         Blend(e, record, out, difference);
@@ -442,7 +474,8 @@ maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t 
     uint32_t cursor = 0;
     for (uint32_t p = 0; p <= last; ++p)
     {
-        bool clip = maniLoadU16(Record(&e, p)) == maniGraphNodeClip;
+        uint32_t kind = maniLoadU16(Record(&e, p));
+        bool clip = kind == maniGraphNodeClip || kind == maniGraphNodeMatch;
         if (State(&e, p)->weight > 0.0f)
         {
             EvaluateNode(&e, p, cursor);

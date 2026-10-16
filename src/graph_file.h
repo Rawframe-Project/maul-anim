@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The graph file's layout (mani-0023), shared by its view and its
-// builder: kind 3 of the container. Records are little-endian; names are
+// The graph file's layout (mani-0023, mani-0024), shared by its view and
+// its builder: kind 3 of the container. Records are little-endian; names are
 // offsets into the names section; nodes are in topological order, each
 // after its inputs, the output last.
 
@@ -12,13 +12,13 @@
 #include <stdint.h>
 
 #define MANI_GRAPH_FORMAT_VERSION 1u
-#define MANI_GRAPH_SECTIONS       9u
+#define MANI_GRAPH_SECTIONS       11u
 
 enum
 {
     // The skeleton's identity (u64), then u32 each: its bone count, the
-    // parameter, node, input, data word, clip, sync group, mask and slot
-    // counts, and 0.
+    // parameter, node, input, data word, clip, sync group, mask, slot,
+    // database and database clip counts, and 0.
     maniGraphTagHeader = 1,
     // MANI_GRAPH_PARAMETER_SIZE each: type, flags (bit 0 bounded), name
     // offset and length (u32 each), name hash (u64), default (16 bytes),
@@ -41,15 +41,23 @@ enum
     maniGraphTagSyncGroups = 7,
     // A binary32 per bone per mask, 0 to 1.
     maniGraphTagMaskWeights = 8,
+    // MANI_GRAPH_DATABASE_SIZE each: identity, name hash (u64 each), name
+    // offset and length, its first clip in the database clips and its
+    // clip count (u32 each).
+    maniGraphTagDatabases = 9,
+    // u32 each: the clip slot of each database's clip, in its order, the
+    // databases one after another.
+    maniGraphTagDatabaseClips = 10,
     // The names' bytes, UTF-8.
-    maniGraphTagNames = 9,
+    maniGraphTagNames = 11,
 };
 
-#define MANI_GRAPH_HEADER_SIZE     48u
+#define MANI_GRAPH_HEADER_SIZE     56u
 #define MANI_GRAPH_PARAMETER_SIZE  48u
 #define MANI_GRAPH_NODE_SIZE       32u
 #define MANI_GRAPH_CLIP_SIZE       32u
 #define MANI_GRAPH_SYNC_GROUP_SIZE 24u
+#define MANI_GRAPH_DATABASE_SIZE   32u
 
 // A parameter's and a node's flags.
 #define MANI_GRAPH_BOUNDED    1u
@@ -134,6 +142,16 @@ enum
 // machine state.
 #define MANI_GRAPH_INERTIA_WORDS 8u
 // Its block in an instance is laid out in graph_inertia.h.
+
+// A motion matching node's data words: its database slot, trigger
+// (MANI_NO_PARAMETER for none), period, jump threshold, end exclusion
+// and history time, continuing bias and transition cost (binary32), its
+// history count, its required and excluded tags (a parameter or
+// MANI_NO_PARAMETER, then the literal bits, each), its request's
+// duration as a scalar, the first word of its block in an instance's
+// machine state, its query count, then each query parameter.
+#define MANI_GRAPH_MATCH_WORDS 17u
+// Its block in an instance is laid out in graph_match.h.
 
 // The data words a node of a kind with n inputs holds; 0 for an unknown
 // kind, a state machine and a one-shot, whose words their contents

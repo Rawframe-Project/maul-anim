@@ -15,6 +15,8 @@
 #include "graph_inertia.h"
 #include "graph_inline.h"
 #include "graph_machine_check.h"
+#include "graph_match.h"
+#include "graph_match_check.h"
 #include "sort.h"
 #include "triangulate.h"
 
@@ -24,6 +26,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
@@ -108,6 +111,11 @@ static maniBuildResult Order(const maniGraphSource* source, Work* w)
 static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
 {
     const maniGraphNodeSource* node = &source->nodes[v];
+    if (node->kind == maniGraphNodeMatch)
+    {
+        w->difference[v] = 0;
+        return Outcome(mani_success);
+    }
     if (node->kind == maniGraphNodeClip)
     {
         const maniClip* clip = source->clips[node->clip.clip].clip;
@@ -203,7 +211,9 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
     lay->sizes[5] = (uint64_t)source->clipCount * MANI_GRAPH_CLIP_SIZE;
     lay->sizes[6] = (uint64_t)source->syncGroupCount * MANI_GRAPH_SYNC_GROUP_SIZE;
     lay->sizes[7] = 4 * (uint64_t)tally->maskCount * bones;
-    lay->sizes[8] = tally->namesSize;
+    lay->sizes[8] = (uint64_t)source->databaseCount * MANI_GRAPH_DATABASE_SIZE;
+    lay->sizes[9] = 4 * tally->databaseClips;
+    lay->sizes[10] = tally->namesSize;
     uint64_t total = 0;
     for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
     {
@@ -232,7 +242,7 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
 // A name into the names section, its offset, length and hash after it.
 static void PutName(Layout* lay, const char* name, uint32_t length, uint8_t* entry)
 {
-    memcpy(lay->sections[8] + lay->namesAt, name, length);
+    memcpy(lay->sections[10] + lay->namesAt, name, length);
     maniStoreU32(entry, (uint32_t)lay->namesAt);
     maniStoreU32(entry + 4, length);
     lay->namesAt += length;
@@ -414,6 +424,22 @@ static uint32_t PutShot(const maniGraphSource* source, const maniGraphNodeSource
     return at;
 }
 
+// A motion matching node's words, and its block taken.
+static uint32_t PutMatch(uint8_t* d, uint32_t at, const maniGraphMatchNodeSource* m, Layout* lay)
+{
+    const uint32_t head[2] = {m->database, m->trigger};
+    const float numbers[6] = {m->period,      m->jumpThreshold,  m->endExclusion,
+                              m->historyTime, m->continuingBias, m->transitionCost};
+    const uint32_t tags[5] = {m->historyCount, m->requiredTags.parameter, m->requiredTags.value,
+                              m->excludedTags.parameter, m->excludedTags.value};
+    const uint32_t tail[2] = {lay->blockAt, m->queryCount};
+    at = PutFloats(d, PutWords(d, at, head, 2), numbers, 6);
+    at = PutScalar(d, PutWords(d, at, tags, 5), m->duration);
+    at = PutWords(d, PutWords(d, at, tail, 2), m->query, m->queryCount);
+    lay->blockAt += MANI_GRAPH_MATCH_BLOCK_WORDS;
+    return at;
+}
+
 static void PutData(const maniGraphSource* source, const maniGraphNodeSource* node, Layout* lay)
 {
     uint8_t* d = lay->sections[4];
@@ -453,6 +479,10 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
         at = PutWords(d, PutFloats(d, at, halfLives, 3), &lay->blockAt, 1);
         lay->blockAt +=
             MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton), s->method);
+    }
+    else if (node->kind == maniGraphNodeMatch)
+    {
+        at = PutMatch(d, at, &node->match, lay);
     }
     else if (node->kind == maniGraphNodeSelect)
     {
@@ -501,7 +531,8 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         }
         uint32_t first = lay->dataAt;
         PutData(source, node, lay);
-        bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot;
+        bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot ||
+                       node->kind == maniGraphNodeMatch;
         maniStoreU32(e + 16, counted ? lay->dataAt - first
                                      : maniGraphDataWords(node->kind, node->inputCount));
     }
@@ -532,22 +563,40 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         PutName(lay, g->name, g->nameLength, e + 8);
         maniStoreU32(e + 16, g->flags);
     }
+    uint32_t first = 0;
+    for (uint32_t i = 0; i < source->databaseCount; ++i)
+    {
+        const maniGraphDatabaseSource* b = &source->databases[i];
+        uint8_t* e = lay->sections[8] + (size_t)i * MANI_GRAPH_DATABASE_SIZE;
+        maniStoreU64(e, maniMotionDatabaseIdentity(b->database));
+        maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)b->name, b->nameLength));
+        PutName(lay, b->name, b->nameLength, e + 16);
+        maniStoreU32(e + 24, first);
+        maniStoreU32(e + 28, b->database->clipCount);
+        for (uint32_t c = 0; c < b->database->clipCount; ++c, ++first)
+        {
+            maniStoreU32(lay->sections[9] + 4 * (size_t)first,
+                         maniGraphDatabaseClipSlot(source, b->database, c));
+        }
+    }
 }
 
 static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally,
                       uint32_t slotCount, uint8_t* h)
 {
     maniStoreU64(h, maniSkeletonIdentity(source->skeleton));
-    const uint32_t counts[9] = {maniSkeletonBoneCount(source->skeleton),
-                                source->parameterCount,
-                                source->nodeCount,
-                                tally->inputCount,
-                                (uint32_t)tally->dataWords,
-                                source->clipCount,
-                                source->syncGroupCount,
-                                tally->maskCount,
-                                slotCount};
-    for (uint32_t k = 0; k < 9; ++k)
+    const uint32_t counts[11] = {maniSkeletonBoneCount(source->skeleton),
+                                 source->parameterCount,
+                                 source->nodeCount,
+                                 tally->inputCount,
+                                 (uint32_t)tally->dataWords,
+                                 source->clipCount,
+                                 source->syncGroupCount,
+                                 tally->maskCount,
+                                 slotCount,
+                                 source->databaseCount,
+                                 (uint32_t)tally->databaseClips};
+    for (uint32_t k = 0; k < 11; ++k)
     {
         maniStoreU32(h + 8 + 4 * k, counts[k]);
     }

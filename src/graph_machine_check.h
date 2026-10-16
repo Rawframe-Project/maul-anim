@@ -23,8 +23,9 @@ maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniG
 // another kind too).
 uint32_t maniGraphFirstInertial(const maniGraphNodeSource* n);
 
-// Refuses a machine's first inertial transition when the machine is
-// reached from the output on a path through no inertialize node; stamp
+// Refuses a machine's first inertial transition, or a motion matching
+// node, reached from the output on a path through no inertialize node;
+// stamp
 // (zeroed) and stack hold a word per node.
 maniBuildResult maniCheckGraphInertial(const maniGraphSource* source, uint32_t* stamp,
                                        uint32_t* stack);

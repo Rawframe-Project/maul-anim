@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Checking a graph source (mani-0023): counts, names, parameters, clip
-// slots, sync groups and each node on its own.
+// slots, sync groups, database slots and each node on its own.
 
 #include "graph_check.h"
 
@@ -11,6 +11,8 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_machine_check.h"
+#include "graph_match.h"
+#include "graph_match_check.h"
 #include "graph_space_check.h"
 #include "sort.h"
 #include "text.h"
@@ -50,16 +52,19 @@ enum
     kParameters = 0,
     kClips = 1,
     kSyncGroups = 2,
+    kDatabases = 3,
 };
 
-static const maniBuildReason s_lists[3] = {maniBuildReasonParameterList, maniBuildReasonClipList,
-                                           maniBuildReasonSyncGroupList};
+static const maniBuildReason s_lists[4] = {maniBuildReasonParameterList, maniBuildReasonClipList,
+                                           maniBuildReasonSyncGroupList,
+                                           maniBuildReasonDatabaseList};
 
 static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
 {
-    return list == kParameters ? source->parameterCount
-           : list == kClips    ? source->clipCount
-                               : source->syncGroupCount;
+    return list == kParameters   ? source->parameterCount
+           : list == kClips      ? source->clipCount
+           : list == kSyncGroups ? source->syncGroupCount
+                                 : source->databaseCount;
 }
 
 static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32_t i,
@@ -74,6 +79,11 @@ static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32
     {
         *lengthOut = source->clips[i].nameLength;
         return source->clips[i].name;
+    }
+    if (list == kDatabases)
+    {
+        *lengthOut = source->databases[i].nameLength;
+        return source->databases[i].name;
     }
     *lengthOut = source->syncGroups[i].nameLength;
     return source->syncGroups[i].name;
@@ -363,6 +373,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return CheckShotNode(source, n, node);
     case maniGraphNodeInertialize:
         return CheckInertialize(source, n, node);
+    case maniGraphNodeMatch:
+        return maniCheckGraphMatch(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -399,6 +411,8 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
     case maniGraphNodeInertialize:
         return MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton),
                                         n->inertialize.method);
+    case maniGraphNodeMatch:
+        return MANI_GRAPH_MATCH_BLOCK_WORDS;
     default:
         return 0;
     }
@@ -430,12 +444,14 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
     bool shot = n->kind == maniGraphNodeOneShot;
     uint32_t transitions = machine ? n->machine.transitionCount : 0u;
     tally->inputCount += n->inputCount;
+    bool match = n->kind == maniGraphNodeMatch;
     tally->dataWords +=
         machine ? maniGraphMachineSourceWords(n)
                 : (shot ? MANI_GRAPH_SHOT_WORDS : maniGraphDataWords(n->kind, n->inputCount));
+    tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u;
     tally->machineWords += BlockWords(source, n);
     tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
-    tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX ? 1u : 0u;
+    tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match ? 1u : 0u;
     tally->maskCount += shot && n->oneShot.mask != NULL ? 1u : 0u;
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
@@ -496,7 +512,9 @@ static bool CountsValid(const maniGraphSource* source)
            source->clipCount <= MANI_GRAPH_MAX_CLIPS &&
            (source->clipCount == 0 || source->clips != NULL) &&
            source->syncGroupCount <= MANI_GRAPH_MAX_SYNC_GROUPS &&
-           (source->syncGroupCount == 0 || source->syncGroups != NULL);
+           (source->syncGroupCount == 0 || source->syncGroups != NULL) &&
+           source->databaseCount <= MANI_GRAPH_MAX_DATABASES &&
+           (source->databaseCount == 0 || source->databases != NULL);
 }
 
 maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAllocator* allocator,
@@ -508,7 +526,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
     maniBuildResult r = Outcome(mani_success);
-    for (uint32_t list = kParameters; list <= kSyncGroups && r.result == mani_success; ++list)
+    for (uint32_t list = kParameters; list <= kDatabases && r.result == mani_success; ++list)
     {
         r = CheckNames(source, list, allocator, &tallyOut->namesSize);
     }
@@ -518,6 +536,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     }
     r = r.result == mani_success ? CheckClips(source, allocator) : r;
     r = r.result == mani_success ? CheckSyncGroups(source) : r;
+    r = r.result == mani_success ? maniCheckGraphDatabases(source, &tallyOut->databaseClips) : r;
     for (uint32_t i = 0; i < source->nodeCount && r.result == mani_success; ++i)
     {
         r = CheckNode(source, i, tallyOut);

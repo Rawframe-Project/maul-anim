@@ -14,6 +14,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
 #include <stddef.h>
@@ -57,6 +58,19 @@ extern "C"
         uint32_t nameLength;
         uint32_t reserved;
     } maniGraphClipSource;
+
+    // A motion database slot: an opened database of the graph's skeleton,
+    // each database once, every clip it lists among the graph's clip
+    // slots, and a name for it (UTF-8, not empty, unique among the
+    // graph's databases). The graph keeps the database's identity and its
+    // clips' slots; binding finds the database by its identity.
+    typedef struct maniGraphDatabaseSource
+    {
+        const maniMotionDatabase* database;
+        const char* name;
+        uint32_t nameLength;
+        uint32_t reserved;
+    } maniGraphDatabaseSource;
 
     // A sync group's flags.
     enum
@@ -336,6 +350,47 @@ extern "C"
         float halfLifeMax;
     } maniGraphInertializeNodeSource;
 
+    // Tags a motion matching node reads: the bits of an int parameter, or
+    // value when parameter is MANI_NO_PARAMETER.
+    typedef struct maniGraphTags
+    {
+        uint32_t parameter;
+        uint32_t value;
+    } maniGraphTags;
+
+    // A motion matching node: no inputs; it plays its database slot's
+    // frames. Its query is its continuing frame's bone channels and, for
+    // each time of each trajectory and float track channel in channel
+    // order, a parameter (queryCount of them: vec2 on the ground plane
+    // for trajectory positions and facings, float for float tracks). It
+    // searches when period seconds (above 0) have passed since its last
+    // search, when its trigger is set (MANI_NO_PARAMETER for none), when
+    // a clamped entry reaches its end, and when it has no entry. A search
+    // takes the continuing bias and transition cost (finite), the jump
+    // threshold, end exclusion and history time (seconds, not negative),
+    // the last historyCount picks (0 to MANI_MATCH_MAX_HISTORY) and the
+    // tags (maniSearchMotionDatabase). On a jump it requests duration
+    // seconds of the nearest inertialize node above it, which the build
+    // requires on every path from the output. It moves by the time its
+    // parents give it, forward.
+    typedef struct maniGraphMatchNodeSource
+    {
+        uint32_t database;
+        uint32_t trigger;
+        const uint32_t* query;
+        uint32_t queryCount;
+        uint32_t historyCount;
+        float period;
+        float jumpThreshold;
+        float endExclusion;
+        float historyTime;
+        float continuingBias;
+        float transitionCost;
+        maniGraphTags requiredTags;
+        maniGraphTags excludedTags;
+        maniGraphScalar duration;
+    } maniGraphMatchNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -385,8 +440,9 @@ extern "C"
         uint32_t reserved;
     } maniGraphTrianglesNodeSource;
 
-    // A subgraph node: the graph (of the same skeleton; its clips joined
-    // to this graph's by identity, its sync groups by name), and for each
+    // A subgraph node: the graph (of the same skeleton; its clips and
+    // databases joined to this graph's by identity, its sync groups by
+    // name), and for each
     // of its parameters the parameter of this graph it reads, of the same
     // type. It takes no inputs.
     typedef struct maniGraphSubgraphNodeSource
@@ -417,6 +473,7 @@ extern "C"
             maniGraphMachineNodeSource machine;
             maniGraphOneShotNodeSource oneShot;
             maniGraphInertializeNodeSource inertialize;
+            maniGraphMatchNodeSource match;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
@@ -435,13 +492,14 @@ extern "C"
         uint32_t syncGroupCount;
         uint32_t nodeCount;
         uint32_t output;
-        uint32_t reserved;
+        uint32_t databaseCount;
+        const maniGraphDatabaseSource* databases;
     };
 
     /// Builds a graph file: inlines subgraphs (their nodes after the
     /// source's, in order, nested ones after them; refusals name nodes by
-    /// their place there), checks every parameter, clip slot, sync group
-    /// and node, orders the nodes so each follows its inputs (the output
+    /// their place there), checks every parameter, clip slot, sync group,
+    /// database slot and node, orders the nodes so each follows its inputs (the output
     /// last, the source's order kept where it may be), makes each mask's
     /// bone weights, marks each node as giving poses or differences, gives
     /// each node's pose a slot reused once its last reader has run, and
@@ -453,7 +511,8 @@ extern "C"
     /// misuse) or with the reason, the item and another the reason names
     /// for a refused source: Count (more items than the named limits, or
     /// none of nodes), Name, DuplicateName and NameHash with the list
-    /// bits of parameters, clips or sync groups, Parameter, Clip, Node,
+    /// bits of parameters, clips, sync groups or databases, Parameter,
+    /// Clip, Database, Node,
     /// Input, Cycle, Unreachable, Scalar, Weight and Difference; and
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
@@ -464,7 +523,8 @@ extern "C"
     /// Writes a graph source as its JSON text form (UTF-8, two-space
     /// indents, a line per list item, ending in a new line), building it
     /// first: a source maniBuildGraph refuses is refused the same way and
-    /// not written. Parameters, clip slots, sync groups and the bones of
+    /// not written. Parameters, clip slots, sync groups, database slots
+    /// (a "databases" list, when the graph has any) and the bones of
     /// mask chains are written by name, nodes and the output by their
     /// place in the source, subgraphs as nested graphs with their
     /// parameters mapped by name, and numbers as the shortest text that
@@ -493,12 +553,13 @@ extern "C"
         maniGraphFormMissing = 3,
         // A value of the wrong kind, count or range.
         maniGraphFormValue = 4,
-        // A name no parameter, clip slot, sync group or bone of the graph
-        // has.
+        // A name no parameter, clip slot, sync group, database slot or
+        // bone of the graph has.
         maniGraphFormName = 5,
         // A format not "maul-anim graph" or a version not 1.
         maniGraphFormVersion = 6,
-        // A clip slot the host's clips do not name.
+        // A clip slot the host's clips do not name, or a database slot
+        // the host's databases do not.
         maniGraphFormUnbound = 7,
     };
 
@@ -518,11 +579,15 @@ extern "C"
     /// fadeIn and fadeOut 0, mask none (the whole body); an
     /// inertialize node's trigger none, method "inertialization",
     /// duration 0 and, for "deadBlending", halfLifeScale 0.3, halfLifeMin
-    /// 0.1 and halfLifeMax 1.0; parameters,
-    /// clips and syncGroups empty). Each clip slot name, at
-    /// any nesting, takes the host's clip of that name (the first of
-    /// equal names). The source read is then built as maniBuildGraph
-    /// builds it.
+    /// 0.1 and halfLifeMax 1.0; a motion matching node's trigger none,
+    /// query empty, period 0.1, jumpThreshold, endExclusion, historyTime,
+    /// continuingBias, transitionCost and historyCount 0, requiredTags
+    /// and excludedTags 0 (a whole number, or {"parameter": name}) and
+    /// duration 0; parameters, clips, syncGroups and databases empty).
+    /// Each clip slot name, at any nesting, takes the host's clip of that
+    /// name, and each database slot name the host's database of that name
+    /// (the first of equal names). The source read is then built as
+    /// maniBuildGraph builds it.
     ///
     /// @param builder    The builder.
     /// @param text       The UTF-8 text (a leading byte order mark
@@ -532,16 +597,18 @@ extern "C"
     /// @param clips      count clips with their slot names; may be NULL
     ///                   when count is 0.
     /// @param count      The number of clips.
+    /// @param databases  databaseCount databases with their slot names;
+    ///                   may be NULL when databaseCount is 0.
+    /// @param databaseCount The number of databases.
     /// @return As maniBuildGraph, items by place in the text's lists; or
     /// `mani_errorInvalid` with maniBuildReasonJson or
     /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(maniBuilder* builder,
-                                                               const char* text, size_t length,
-                                                               const maniSkeleton* skeleton,
-                                                               const maniGraphClipSource* clips,
-                                                               uint32_t count);
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(
+        maniBuilder* builder, const char* text, size_t length, const maniSkeleton* skeleton,
+        const maniGraphClipSource* clips, uint32_t count, const maniGraphDatabaseSource* databases,
+        uint32_t databaseCount);
 
 #ifdef __cplusplus
 }

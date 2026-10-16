@@ -16,6 +16,8 @@
 // frame and cost bit for bit. Ties go to the continuing frame, then to
 // the lowest frame.
 
+#include "match_search.h"
+
 #include "bytes.h"
 #include "match_file.h"
 
@@ -253,6 +255,12 @@ static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
 maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query,
                                     maniMatchResult* resultOut)
 {
+    return maniMatchSearch(database, query, false, resultOut);
+}
+
+maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQuery* query,
+                           bool normalized, maniMatchResult* resultOut)
+{
     if (database == NULL || query == NULL || resultOut == NULL || !QueryValid(database, query))
     {
         return mani_errorInvalid;
@@ -263,7 +271,7 @@ maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const ma
     {
         float offset = LoadF32(database->normalization + 4 * (size_t)j);
         float scale = LoadF32(database->normalization + 4 * (size_t)(n + j));
-        s.query[j] = (query->features[j] - offset) / scale;
+        s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale;
     }
     for (uint32_t k = 0; k < query->historyCount; ++k)
     {

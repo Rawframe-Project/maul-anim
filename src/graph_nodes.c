@@ -11,6 +11,7 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_machine_file.h"
+#include "graph_match.h"
 #include "graph_shot.h"
 
 #include "maul-anim/base.h"
@@ -309,6 +310,10 @@ static uint32_t NodeFlags(const maniGraph* g, uint32_t p)
 // Whether a node gives differences as its inputs (or clip) make it.
 static bool KindValid(const maniGraph* g, const Node* n)
 {
+    if (n->kind == maniGraphNodeMatch)
+    {
+        return n->flags == 0;
+    }
     if (n->kind == maniGraphNodeClip)
     {
         const uint8_t* clip = g->clips + (size_t)Word(g, n->data) * MANI_GRAPH_CLIP_SIZE;
@@ -338,7 +343,7 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
 {
     uint32_t low = 0;
     uint32_t high = maniGraphInputRange(n->kind, &low);
-    if (n->kind != maniGraphNodeClip && high == 0)
+    if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch && high == 0)
     {
         return Fail(n->at);
     }
@@ -364,6 +369,7 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
                 ? maniGraphMachineDataWords(g, n->data, n->count, available)
                 : (n->kind == maniGraphNodeOneShot ? maniGraphShotDataWords(g, n->data, available)
                                                    : words);
+    words = n->kind == maniGraphNodeMatch ? maniGraphMatchDataWords(g, n->data, available) : words;
     if (n->words != words || n->words > g->dataWords - dataAt)
     {
         return Fail(n->at + 16);
@@ -410,6 +416,8 @@ static uint32_t WordsValid(const maniGraph* g, const Node* n, uint32_t p, uint32
         return maniGraphShotValid(g, p, n->data, blockAt);
     case maniGraphNodeInertialize:
         return maniGraphInertiaValid(g, n->data, blockAt);
+    case maniGraphNodeMatch:
+        return maniGraphMatchValid(g, n->data, blockAt);
     default:
         return DataValid(g, n);
     }
@@ -427,6 +435,8 @@ static uint32_t BlockWords(const maniGraph* g, const Node* n)
     case maniGraphNodeInertialize:
         return MANI_GRAPH_INERTIA_BLOCK(g->skeletonBoneCount,
                                         Word(g, n->data + maniGraphInertiaMethod));
+    case maniGraphNodeMatch:
+        return MANI_GRAPH_MATCH_BLOCK_WORDS;
     default:
         return 0;
     }

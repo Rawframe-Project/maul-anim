@@ -164,6 +164,10 @@ maniBuildResult maniCheckGraphInertial(const maniGraphSource* source, uint32_t* 
         {
             return Refuse(maniBuildReasonTransition, v, t);
         }
+        if (node->kind == maniGraphNodeMatch)
+        {
+            return Refuse(maniBuildReasonNode, v, 0);
+        }
         for (uint32_t k = 0; k < (node->kind == maniGraphNodeInertialize ? 0u : node->inputCount);
              ++k)
         {

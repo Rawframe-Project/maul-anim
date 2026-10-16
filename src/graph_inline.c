@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Subgraphs inlined at build (mani-0023): counted first, then emitted
-// scope by scope, each scope mapping its nodes, parameters, clips and
-// sync groups into the flat source.
+// scope by scope, each scope mapping its nodes, parameters, clips,
+// databases and sync groups into the flat source.
 
 #include "graph_inline.h"
 
@@ -15,6 +15,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -31,6 +32,8 @@ typedef struct Totals
     uint64_t groups;
     uint64_t transitions;
     uint64_t conditions;
+    uint64_t databases;
+    uint64_t queries;
 } Totals;
 
 static uint32_t WeightCount(const maniGraphNodeSource* node)
@@ -40,6 +43,15 @@ static uint32_t WeightCount(const maniGraphNodeSource* node)
         return node->inputCount;
     }
     return node->kind == maniGraphNodeAdditive && node->inputCount > 0 ? node->inputCount - 1 : 0;
+}
+
+// A motion matching node's query, when its count is in range (out of
+// range, the check refuses it, and Remap copies none).
+static uint32_t QueryCount(const maniGraphNodeSource* node)
+{
+    bool copied = node->kind == maniGraphNodeMatch && node->match.query != NULL &&
+                  node->match.queryCount <= MANI_MATCH_MAX_FEATURES;
+    return copied ? node->match.queryCount : 0u;
 }
 
 // A machine's transitions and conditions, when its counts are in range
@@ -80,11 +92,13 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
     }
     t->clips += source->clipCount;
     t->groups += source->syncGroupCount;
+    t->databases += source->databaseCount;
     for (uint32_t i = 0; i < source->nodeCount; ++i)
     {
         const maniGraphNodeSource* node = &source->nodes[i];
         t->inputs += node->inputCount;
         t->weights += WeightCount(node);
+        t->queries += QueryCount(node);
         Transitions(node, t);
         if (node->kind != maniGraphNodeSubgraph)
         {
@@ -131,6 +145,8 @@ typedef struct Flat
     maniGraphSyncGroupSource* groups;
     maniGraphTransitionSource* transitions;
     maniGraphConditionSource* conditions;
+    maniGraphDatabaseSource* databases;
+    uint32_t* queries;
     uint32_t nodeCount;
     uint32_t inputCount;
     uint32_t weightCount;
@@ -138,6 +154,8 @@ typedef struct Flat
     uint32_t groupCount;
     uint32_t transitionCount;
     uint32_t conditionCount;
+    uint32_t databaseCount;
+    uint32_t queryCount;
     uint32_t reserved;
 } Flat;
 
@@ -187,6 +205,39 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
     }
     f->clips[f->clipCount] = *c;
     return f->clipCount++;
+}
+
+static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
+{
+    if (s->outer == NULL || slot >= s->graph->databaseCount)
+    {
+        return slot;
+    }
+    const maniGraphDatabaseSource* d = &s->graph->databases[slot];
+    uint64_t identity = maniMotionDatabaseIdentity(d->database);
+    for (uint32_t k = 0; k < f->databaseCount; ++k)
+    {
+        if (f->databases[k].database != NULL &&
+            maniMotionDatabaseIdentity(f->databases[k].database) == identity)
+        {
+            return k;
+        }
+    }
+    // Its clips join the root's too, whether or not a clip node plays
+    // them.
+    for (uint32_t k = 0; k < s->graph->clipCount && d->database != NULL; ++k)
+    {
+        const maniClip* clip = s->graph->clips[k].clip;
+        for (uint32_t c = 0; c < d->database->clipCount && clip != NULL; ++c)
+        {
+            if (maniMotionDatabaseClipIdentity(d->database, c) == maniClipIdentity(clip))
+            {
+                (void)ClipSlot(s, f, k);
+            }
+        }
+    }
+    f->databases[f->databaseCount] = *d;
+    return f->databaseCount++;
 }
 
 static uint32_t GroupSlot(const Scope* s, Flat* f, uint32_t group)
@@ -242,12 +293,33 @@ static void RemapMachine(const Scope* s, Flat* f, maniGraphNodeSource* node)
     f->transitionCount += m->transitionCount;
 }
 
+// A motion matching node's database, parameters and query as the root
+// reads them.
+static void RemapMatch(const Scope* s, Flat* f, maniGraphMatchNodeSource* m, uint32_t queries)
+{
+    m->database = DatabaseSlot(s, f, m->database);
+    m->trigger = Resolve(s, m->trigger);
+    m->requiredTags.parameter = Resolve(s, m->requiredTags.parameter);
+    m->excludedTags.parameter = Resolve(s, m->excludedTags.parameter);
+    m->duration = Scalar(s, m->duration);
+    uint32_t* to = f->queries + f->queryCount;
+    for (uint32_t q = 0; q < queries; ++q)
+    {
+        to[q] = Resolve(s, m->query[q]);
+    }
+    f->queryCount += queries;
+    m->query = queries > 0 ? to : m->query;
+}
+
 // A node's parameters, clip, sync group and weights as the root reads
 // them.
 static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
 {
     switch (node->kind)
     {
+    case maniGraphNodeMatch:
+        RemapMatch(s, f, &node->match, QueryCount(node));
+        return;
     case maniGraphNodeClip:
         node->clip.clip = ClipSlot(s, f, node->clip.clip);
         node->clip.syncGroup = GroupSlot(s, f, node->clip.syncGroup);
@@ -387,22 +459,25 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
     }
-    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0};
+    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0};
     if (!Count(source, 0, &t) || t.inputs > UINT32_MAX || t.weights > UINT32_MAX ||
         t.clips > MANI_GRAPH_MAX_CLIPS || t.groups > MANI_GRAPH_MAX_SYNC_GROUPS ||
-        t.transitions > UINT32_MAX || t.conditions > UINT32_MAX)
+        t.transitions > UINT32_MAX || t.conditions > UINT32_MAX ||
+        t.databases > MANI_GRAPH_MAX_DATABASES || t.queries > UINT32_MAX)
     {
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
-    size_t sizes[7] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
+    size_t sizes[9] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
                        (size_t)t.inputs * sizeof(uint32_t),
                        (size_t)t.weights * sizeof(maniGraphScalar),
                        (size_t)t.clips * sizeof(maniGraphClipSource),
                        (size_t)t.groups * sizeof(maniGraphSyncGroupSource),
                        (size_t)t.transitions * sizeof(maniGraphTransitionSource),
-                       (size_t)t.conditions * sizeof(maniGraphConditionSource)};
+                       (size_t)t.conditions * sizeof(maniGraphConditionSource),
+                       (size_t)t.databases * sizeof(maniGraphDatabaseSource),
+                       (size_t)t.queries * sizeof(uint32_t)};
     size_t total = 0;
-    for (int k = 0; k < 7; ++k)
+    for (int k = 0; k < 9; ++k)
     {
         sizes[k] = (sizes[k] + 7u) & ~(size_t)7u;
         total += sizes[k];
@@ -412,16 +487,27 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_errorCapacity, maniBuildReasonNone, 0, 0};
     }
-    void* parts[7];
+    void* parts[9];
     size_t at = 0;
-    for (int k = 0; k < 7; ++k)
+    for (int k = 0; k < 9; ++k)
     {
         parts[k] = block + at;
         at += sizes[k];
     }
-    Flat f = {
-        parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], source->nodeCount,
-        0,        0,        0,        0,        0,        0,        0};
+    Flat f = {.nodes = parts[0],
+              .inputs = parts[1],
+              .weights = parts[2],
+              .clips = parts[3],
+              .groups = parts[4],
+              .transitions = parts[5],
+              .conditions = parts[6],
+              .databases = parts[7],
+              .queries = parts[8],
+              .nodeCount = source->nodeCount};
+    for (uint32_t k = 0; k < source->databaseCount && source->databases != NULL; ++k)
+    {
+        f.databases[f.databaseCount++] = source->databases[k];
+    }
     for (uint32_t k = 0; k < source->clipCount && source->clips != NULL; ++k)
     {
         f.clips[f.clipCount++] = source->clips[k];
@@ -440,6 +526,8 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     out->source.clipCount = f.clipCount;
     out->source.syncGroups = f.groups;
     out->source.syncGroupCount = f.groupCount;
+    out->source.databases = f.databases;
+    out->source.databaseCount = f.databaseCount;
     return r;
 }
 

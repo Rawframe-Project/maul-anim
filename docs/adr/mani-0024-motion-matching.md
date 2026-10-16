@@ -66,6 +66,31 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   (Holden's ignored surroundings and range ends, Unreal's pose jump
   threshold and reselect history; looping entries measured around
   their span the shorter way).
+- **The node** (`maniGraphNodeMatch`): a graph lists database slots
+  beside its clip slots, each database's clips among the clip slots
+  (the file keeps their slots), so binding adds only the databases,
+  matched by identity and checked against the slot's clips and the
+  query of every node searching it. A node names its slot, a trigger,
+  a parameter per trajectory and float time (vec2 or float, in channel
+  order), the search period, the search's costs, times, history count
+  and tags (literal or an int parameter's bits), and a duration. It
+  moves forward by the time its parents give it (no speed of its own):
+  a looping entry wraps, its events and root motion taken over each
+  stretch; a clamped one stops at its end. It searches when it has no
+  entry, its clamped entry reached its end, its trigger is set or its
+  period passed. The query's bone channels are the continuing frame's
+  features as the database keeps them, its other channels the
+  parameters, normalized; at a clamped end the continuing frame is no
+  candidate (Holden's controller). A pick other than the continuing
+  frame is jumped to and kept in the history, and, when the node had
+  an entry, requests its duration of the nearest inertialize node
+  above, which the builder requires on every path from the output.
+  It takes a clip cursor as clip nodes do and joins no sync group and
+  no machine's clip list. Its block (entry, period clock, picks) joins
+  the saved state, whose restore checks the entry, the playhead within
+  it and the picks. Subgraphs join databases by identity, with the
+  clips they list; the JSON form names database slots in a
+  `databases` list and the node's database, trigger and query by name.
 - **The file** (container kind 8): the channels and their times, the
   clips by identity, the entries, the normalization, the normalized
   features frame by frame, and bounds over runs of 16 and 64 frames
@@ -78,8 +103,10 @@ everywhere (mani-0001), its assets are views over the caller's bytes
 A database costs one pass over its clips at build and a check of every
 byte when opened. Hosts tune by weights and entries, not code; a
 database matches its skeleton and clips by identity, so a host cannot
-pair it with others. The search, the graph node and the trajectory
-predictor build on this record.
+pair it with others. A node's search costs its database's pruned scan
+once a period, not every frame. The trajectory predictor builds on
+this record.
 
 Opening is fuzzed; every check is tested against a file changed at its
-byte.
+byte. A node's saved block is fuzzed through a restore, an update and
+an evaluation; its JSON form is fuzzed with a host database.

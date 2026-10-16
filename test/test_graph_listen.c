@@ -514,8 +514,8 @@ static bool RoundTrip(const maniGraphSource* source)
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
               maniWriteGraphJson(builder, source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(builder, s_text, s_textSize, &s_skeleton, kSlots, CLIPS).result ==
-                  mani_success &&
+              maniBuildGraphJson(builder, s_text, s_textSize, &s_skeleton, kSlots, CLIPS, NULL, 0)
+                      .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     s_text[ok ? s_textSize : 0] = 0;
@@ -525,7 +525,8 @@ static bool RoundTrip(const maniGraphSource* source)
 static maniBuildResult Read(const char* text)
 {
     maniBuilder* builder = NewBuilder();
-    maniBuildResult r = maniBuildGraphJson(builder, text, strlen(text), &s_skeleton, kSlots, CLIPS);
+    maniBuildResult r =
+        maniBuildGraphJson(builder, text, strlen(text), &s_skeleton, kSlots, CLIPS, NULL, 0);
     maniDestroyBuilder(builder);
     return r;
 }
@@ -544,7 +545,8 @@ static void TestJson(void)
         ClipNode(4, 1.0f, maniGraphLoopClamp),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     Parameters();
-    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 2, CLIPS, 0, 4, 0, 0};
+    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 2, CLIPS, 0, 4, 0,
+                              0,           NULL};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "\"entry\": \"match\"") != NULL &&
               strstr(s_text, "\"conditions\": [{\"phase\": 0.5}, {\"finished\": true}, "

@@ -30,13 +30,18 @@ typedef struct maniGraphTally
     uint32_t maxTransitions;
     uint32_t listeners;
     uint32_t longestList;
-    // The machines with an inertial transition.
+    // The machines with an inertial transition and the motion matching
+    // nodes.
     uint32_t inertial;
+    uint32_t reserved;
+    // The clips the databases list.
+    uint64_t databaseClips;
 } maniGraphTally;
 
 maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t other);
 
-// Checks the source's counts, parameters, clips, sync groups and nodes;
+// Checks the source's counts, parameters, clips, sync groups, databases
+// and nodes;
 // Capacity when the allocator fails.
 maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAllocator* allocator,
                                      maniGraphTally* tallyOut);

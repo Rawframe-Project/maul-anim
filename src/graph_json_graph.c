@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A graph source read from its JSON form (mani-0023): parameters, clip
-// slots bound to the host's clips by name, sync groups, nodes by kind
-// and nested subgraphs, each list's names in a table before the nodes
-// refer to them; then built as maniBuildGraph builds any source.
+// slots bound to the host's clips by name, sync groups, database slots
+// bound to the host's databases by name (mani-0024), nodes by kind and
+// nested subgraphs, each list's names in a table before the nodes refer
+// to them; then built as maniBuildGraph builds any source.
 
 #include "maul-anim/graph.h"
 
@@ -195,6 +196,44 @@ static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
     out->clips = c;
     out->clipCount = list.count;
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->clips);
+}
+
+// Database slots by name, each bound to the host's database of that
+// name.
+static bool Databases(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+{
+    List list;
+    if (!Begin(r, value, &list))
+    {
+        return false;
+    }
+    maniGraphDatabaseSource* d =
+        maniArenaTake(&r->arena, list.count, sizeof(maniGraphDatabaseSource));
+    if (d == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    uint32_t e = value;
+    for (uint32_t i = 0; i < list.count; ++i)
+    {
+        e = maniGraphJsonNext(r->json, e, i == 0);
+        d[i] = (maniGraphDatabaseSource){0};
+        if (!maniGraphJsonName(r, e, &d[i].name, &d[i].nameLength))
+        {
+            return false;
+        }
+        uint32_t host = maniGraphJsonLookup(&r->hostDatabaseNames, d[i].name, d[i].nameLength);
+        if (host == ABSENT)
+        {
+            return maniGraphJsonFault(r, e, maniGraphFormUnbound);
+        }
+        d[i].database = r->hostDatabases[host].database;
+        list.names[i] = d[i].name;
+        list.lengths[i] = d[i].nameLength;
+    }
+    out->databases = d;
+    out->databaseCount = list.count;
+    return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->databases);
 }
 
 static bool SyncGroups(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
@@ -390,6 +429,73 @@ static bool Inertialize(Reader* r, const Scope* scope, const uint32_t* f,
            (f[7] == ABSENT || maniGraphJsonFloat(r, f[7], &s->halfLifeMax));
 }
 
+// Tags: a whole number from 0 to 2^32 - 1, or {"parameter": name}.
+static bool Tags(Reader* r, const Scope* scope, uint32_t value, maniGraphTags* out)
+{
+    *out = (maniGraphTags){MANI_NO_PARAMETER, 0};
+    if (r->json->values[value].kind == maniJsonNumber)
+    {
+        int64_t bits = 0;
+        bool whole = maniJsonInteger(r->json, value, 0, UINT32_MAX, &bits);
+        out->value = (uint32_t)bits;
+        return whole || maniGraphJsonFault(r, value, maniGraphFormValue);
+    }
+    static const char* const kKeys[] = {"parameter"};
+    uint32_t found = 0;
+    return maniGraphJsonMembers(r, value, kKeys, 1, 1u, &found) &&
+           maniGraphJsonRefer(r, &scope->parameters, found, &out->parameter);
+}
+
+// A query: an array of parameters by name.
+static bool Query(Reader* r, const Scope* scope, uint32_t value, maniGraphMatchNodeSource* m)
+{
+    if (!maniGraphJsonArray(r, value, &m->queryCount))
+    {
+        return false;
+    }
+    uint32_t* query = maniArenaTake(&r->arena, m->queryCount, sizeof(uint32_t));
+    if (query == NULL && m->queryCount > 0)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    uint32_t e = value;
+    for (uint32_t q = 0; q < m->queryCount; ++q)
+    {
+        e = maniGraphJsonNext(r->json, e, q == 0);
+        if (!maniGraphJsonRefer(r, &scope->parameters, e, &query[q]))
+        {
+            return false;
+        }
+    }
+    m->query = query;
+    return true;
+}
+
+// A motion matching node (f the members of its form): its database by
+// name; its trigger none, query empty, period 0.1 s (Holden's and
+// Unreal's), the other numbers, tags and duration 0 when left out.
+static bool Match(Reader* r, const Scope* scope, const uint32_t* f, maniGraphMatchNodeSource* m)
+{
+    *m = (maniGraphMatchNodeSource){.trigger = MANI_NO_PARAMETER,
+                                    .period = 0.1f,
+                                    .requiredTags = {MANI_NO_PARAMETER, 0},
+                                    .excludedTags = {MANI_NO_PARAMETER, 0},
+                                    .duration = {MANI_NO_PARAMETER, 0.0f}};
+    float* numbers[6] = {&m->period,      &m->jumpThreshold,  &m->endExclusion,
+                         &m->historyTime, &m->continuingBias, &m->transitionCost};
+    bool ok = maniGraphJsonRefer(r, &scope->databases, f[1], &m->database) &&
+              (f[2] == ABSENT || maniGraphJsonRefer(r, &scope->parameters, f[2], &m->trigger)) &&
+              (f[3] == ABSENT || Query(r, scope, f[3], m));
+    for (uint32_t k = 0; k < 6 && ok; ++k)
+    {
+        ok = f[4 + k] == ABSENT || maniGraphJsonFloat(r, f[4 + k], numbers[k]);
+    }
+    return ok && (f[10] == ABSENT || maniGraphJsonIndex(r, f[10], &m->historyCount)) &&
+           (f[11] == ABSENT || Tags(r, scope, f[11], &m->requiredTags)) &&
+           (f[12] == ABSENT || Tags(r, scope, f[12], &m->excludedTags)) &&
+           (f[13] == ABSENT || maniGraphJsonScalar(r, scope, f[13], &m->duration));
+}
+
 static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraphClipNodeSource* c)
 {
     static const char* const kLoops[] = {"clip", "clamp", "repeat"};
@@ -471,7 +577,7 @@ typedef struct KindForm
 {
     const char* name;
     maniGraphNodeKind kind;
-    const char* keys[9];
+    const char* keys[14];
     uint32_t count;
     uint32_t required;
 } KindForm;
@@ -514,6 +620,13 @@ static const KindForm kForms[] = {
      {"kind", "inputs", "trigger", "method", "duration", "halfLifeScale", "halfLifeMin",
       "halfLifeMax"},
      8,
+     3u},
+    {"match",
+     maniGraphNodeMatch,
+     {"kind", "database", "trigger", "query", "period", "jumpThreshold", "endExclusion",
+      "historyTime", "continuingBias", "transitionCost", "historyCount", "requiredTags",
+      "excludedTags", "duration"},
+     14,
      3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
@@ -688,6 +801,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return Shot(r, scope, f, &n->oneShot);
     case maniGraphNodeInertialize:
         return Inertialize(r, scope, f, &n->inertialize);
+    case maniGraphNodeMatch:
+        return Match(r, scope, f, &n->match);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&
@@ -717,14 +832,15 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
         return maniGraphJsonFault(r, kind, maniGraphFormValue);
     }
     const KindForm* k = &kForms[form];
-    uint32_t f[9];
+    uint32_t f[14];
     if (!maniGraphJsonMembers(r, object, k->keys, k->count, k->required, f))
     {
         return false;
     }
     *n = (maniGraphNodeSource){0};
     n->kind = k->kind;
-    bool takesInputs = k->kind != maniGraphNodeClip && k->kind != maniGraphNodeSubgraph;
+    bool takesInputs = k->kind != maniGraphNodeClip && k->kind != maniGraphNodeMatch &&
+                       k->kind != maniGraphNodeSubgraph;
     return (!takesInputs || Inputs(r, f[1], n)) && Fields(r, scope, object, f, n);
 }
 
@@ -770,11 +886,11 @@ static bool Header(Reader* r, const uint32_t* f)
 static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope)
 {
     static const char* const kKeys[] = {"format",     "version", "parameters", "clips",
-                                        "syncGroups", "nodes",   "output"};
+                                        "syncGroups", "nodes",   "output",     "databases"};
     // A nested graph takes the keys after format and version.
     uint32_t skip = top ? 0u : 2u;
-    uint32_t f[7];
-    if (!maniGraphJsonMembers(r, object, kKeys + skip, 7 - skip, 0x60u >> skip | (top ? 3u : 0u),
+    uint32_t f[8];
+    if (!maniGraphJsonMembers(r, object, kKeys + skip, 8 - skip, 0x60u >> skip | (top ? 3u : 0u),
                               f + skip) ||
         (top && !Header(r, f)))
     {
@@ -782,8 +898,25 @@ static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out
     }
     *out = (maniGraphSource){.skeleton = r->skeleton};
     return Parameters(r, f[2], out, scope) && Clips(r, f[3], out, scope) &&
-           SyncGroups(r, f[4], out, scope) && Nodes(r, f[5], out, scope) &&
-           maniGraphJsonIndex(r, f[6], &out->output);
+           SyncGroups(r, f[4], out, scope) && Databases(r, f[7], out, scope) &&
+           Nodes(r, f[5], out, scope) && maniGraphJsonIndex(r, f[6], &out->output);
+}
+
+// The host's databases' names in a table.
+static bool HostDatabases(Reader* r, const maniGraphDatabaseSource* databases, uint32_t count)
+{
+    const char** names = (const char**)maniArenaTake(&r->arena, count, sizeof(const char*));
+    uint32_t* lengths = maniArenaTake(&r->arena, count, sizeof(uint32_t));
+    if (names == NULL || lengths == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        names[i] = databases[i].name;
+        lengths[i] = databases[i].name != NULL ? databases[i].nameLength : 0u;
+    }
+    return maniGraphJsonTable(r, names, lengths, count, &r->hostDatabaseNames);
 }
 
 // The host's clips' names in a table.
@@ -805,13 +938,15 @@ static bool Host(Reader* r, const maniGraphClipSource* clips, uint32_t count)
 
 maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
                                    const maniSkeleton* skeleton, const maniGraphClipSource* clips,
-                                   uint32_t count)
+                                   uint32_t count, const maniGraphDatabaseSource* databases,
+                                   uint32_t databaseCount)
 {
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
-    if ((text == NULL && length > 0) || skeleton == NULL || (clips == NULL && count > 0))
+    if ((text == NULL && length > 0) || skeleton == NULL || (clips == NULL && count > 0) ||
+        (databases == NULL && databaseCount > 0))
     {
         ++builder->misuses;
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
@@ -826,10 +961,16 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
                    : (maniBuildResult){mani_errorInvalid, maniBuildReasonJson,
                                        (uint32_t)read.offset, read.reason};
     }
-    Reader r = {&json, maniArenaMake(&builder->allocator), skeleton, clips, {0}, {0}};
+    Reader r = {.json = &json,
+                .arena = maniArenaMake(&builder->allocator),
+                .skeleton = skeleton,
+                .hostClips = clips,
+                .hostDatabases = databases};
     maniGraphSource source;
     Scope scope;
-    maniBuildResult result = Host(&r, clips, count) && ReadGraph(&r, 0, true, &source, &scope)
+    maniBuildResult result = Host(&r, clips, count) &&
+                                     HostDatabases(&r, databases, databaseCount) &&
+                                     ReadGraph(&r, 0, true, &source, &scope)
                                  ? maniBuildGraph(builder, &source)
                                  : r.fault;
     maniArenaRelease(&r.arena);

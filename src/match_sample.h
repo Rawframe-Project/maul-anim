@@ -7,6 +7,8 @@
 #ifndef MAUL_ANIM_SRC_MATCH_SAMPLE_H
 #define MAUL_ANIM_SRC_MATCH_SAMPLE_H
 
+#include "match_move.h"
+
 #include "maul-anim/clip.h"
 #include "maul-anim/matchbuild.h"
 #include "maul-anim/pose.h"

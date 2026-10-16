@@ -2,16 +2,19 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Updating a graph instance (mani-0023): weights shared down from the
-// output in reverse node order, then every clip node's playhead moved in
-// node order, its events listed and its root motion blended.
+// output in reverse node order, then every clip node's and motion
+// matching node's playhead moved in node order, its events listed and its
+// root motion blended.
 
 #include "bytes.h"
+#include "graph_emit.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
 #include "graph_machine_listen.h"
 #include "graph_machine_step.h"
+#include "graph_match_step.h"
 #include "graph_shot.h"
 #include "graph_shot_step.h"
 #include "graph_space.h"
@@ -30,21 +33,7 @@
 #include <stdint.h>
 #include <string.h>
 
-// The most whole loops a step lists or counts, as moves bound them.
-#define MAX_WRAPS 4294967296.0
-
-typedef struct Update
-{
-    maniGraphInstance* instance;
-    const maniGraph* graph;
-    const maniGraphBinding* binding;
-    double delta;
-    maniGraphEvent* events;
-    uint32_t capacity;
-    uint32_t reserved;
-    uint64_t count;
-    maniRootMotionSum root;
-} Update;
+typedef maniGraphUpdate Update;
 
 static maniGraphNodeState* Node(const Update* u, uint32_t p)
 {
@@ -58,7 +47,7 @@ static const uint8_t* Record(const Update* u, uint32_t p)
 
 static uint32_t Word(const Update* u, uint32_t at)
 {
-    return maniLoadU32(u->graph->data + 4 * (size_t)at);
+    return maniGraphUpdateWord(u, at);
 }
 
 static uint32_t InputOf(const Update* u, const uint8_t* record, uint32_t k)
@@ -66,18 +55,9 @@ static uint32_t InputOf(const Update* u, const uint8_t* record, uint32_t k)
     return maniLoadU32(u->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
 }
 
-// A scalar's value: its float parameter's, or its literal.
 static float Scalar(const Update* u, uint32_t at)
 {
-    uint32_t parameter = Word(u, at);
-    if (parameter != MANI_NO_PARAMETER)
-    {
-        return u->instance->cells[parameter].value.f[0];
-    }
-    uint32_t bits = Word(u, at + 1);
-    float value = 0.0f;
-    memcpy(&value, &bits, sizeof value);
-    return value;
+    return maniGraphUpdateScalar(u, at);
 }
 
 // What a parent hands an input: shares of its weights, and its time
@@ -194,19 +174,6 @@ static uint32_t* BlockAt(const Update* u, uint32_t first)
     return (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + first;
 }
 
-// An inertialize node's request of seconds: the least of an update's.
-static void Request(const Update* u, uint32_t node, float seconds)
-{
-    if (node == MANI_GRAPH_NO_NODE || !(seconds >= 0.0f))
-    {
-        return;
-    }
-    uint32_t* block =
-        BlockAt(u, Word(u, maniLoadU32(Record(u, node) + 12) + maniGraphInertiaBlock));
-    float pending = maniGraphInertiaGet(block, maniGraphInertiaPending);
-    maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending);
-}
-
 // A machine a parent reached stepped by its own time, then its states
 // shared by their weights; a state it entered at weight 0 this step by a
 // restart or a match reached even so, seeking 0 or the leading clip's
@@ -228,7 +195,7 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     maniGraphEntered entered;
     maniGraphStepMachine(&m, u->instance->cells, block, fabs(u->delta * (double)s->factor),
                          &entered);
-    Request(u, s->inertia, entered.inertia);
+    maniGraphRequest(u, s->inertia, entered.inertia);
     for (uint32_t k = 0; k < m.states; ++k)
     {
         float weight = maniGraphMachineWeight(block, k);
@@ -328,7 +295,7 @@ static void ShareInertia(const Update* u, const uint8_t* record, const maniGraph
     if (trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0)
     {
         u->instance->cells[trigger].value.b = 0;
-        Request(u, p, Scalar(u, d + maniGraphInertiaDurationScalar));
+        maniGraphRequest(u, p, Scalar(u, d + maniGraphInertiaDurationScalar));
     }
     Share share = Pass(s, 1.0f, 1.0f);
     share.inertia = p;
@@ -427,7 +394,7 @@ static void Weigh(const Update* u)
         {
             ShareInertia(u, record, s, p);
         }
-        else if (kind != maniGraphNodeClip)
+        else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch)
         {
             ShareOne(u, record, s);
         }
@@ -461,76 +428,29 @@ static double Place(const maniClip* clip, double t)
     return w < d ? w : 0.0;
 }
 
-// The events of one stretch within the clip, listed while the buffer
-// lasts and counted.
-static void Emit(Update* u, uint32_t node, const maniClip* clip, double from, double to)
-{
-    uint32_t first = 0;
-    uint32_t count = 0;
-    maniClipEventRange(clip, (float)from, (float)to, &first, &count);
-    const maniGraphNodeState* s = Node(u, node);
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        if (u->count < u->capacity)
-        {
-            maniClipEvent e = maniClipEventAt(clip, first + k);
-            u->events[u->count] =
-                (maniGraphEvent){node,       Word(u, maniLoadU32(Record(u, node) + 12)),
-                                 first + k,  e.payload,
-                                 e.nameHash, s->weight,
-                                 e.time,     to >= from ? 1 : -1,
-                                 0};
-        }
-        u->count += u->count < UINT32_MAX ? 1u : 0u;
-    }
-}
-
-// Whole loops between the ends: listed while the buffer lasts, counted
-// beyond it.
-static void EmitLoops(Update* u, uint32_t node, const maniClip* clip, double loops, bool forward)
-{
-    double d = (double)clip->duration;
-    double from = forward ? 0.0 : d;
-    double to = forward ? d : 0.0;
-    uint32_t first = 0;
-    uint32_t perLoop = 0;
-    maniClipEventRange(clip, (float)from, (float)to, &first, &perLoop);
-    uint64_t n = (uint64_t)(loops < MAX_WRAPS ? loops : MAX_WRAPS);
-    for (uint64_t k = 0; k < n; ++k)
-    {
-        if (u->count >= u->capacity || perLoop == 0)
-        {
-            // At most 2^32 loops of fewer than 2^32 events: no overflow.
-            u->count += (n - k) * perLoop;
-            u->count = u->count < UINT32_MAX ? u->count : UINT32_MAX;
-            return;
-        }
-        Emit(u, node, clip, from, to);
-    }
-}
-
 // The events a playhead passes from t0 over step, across wraps.
-static void Events(Update* u, uint32_t node, const maniClip* clip, double t0, double step)
+static void Events(Update* u, uint32_t node, uint32_t slot, const maniClip* clip, double t0,
+                   double step)
 {
     double t1 = t0 + step;
     double d = (double)clip->duration;
     if (!Repeats(clip))
     {
-        Emit(u, node, clip, t0, Place(clip, t1));
+        maniGraphEmit(u, node, slot, clip, t0, Place(clip, t1));
         return;
     }
     double wraps = floor(t1 / d);
     if (wraps == 0.0)
     {
-        Emit(u, node, clip, t0, t1);
+        maniGraphEmit(u, node, slot, clip, t0, t1);
         return;
     }
     bool forward = wraps > 0.0;
     double loops = fabs(wraps) - 1.0;
-    Emit(u, node, clip, t0, forward ? d : 0.0);
-    EmitLoops(u, node, clip, loops, forward);
+    maniGraphEmit(u, node, slot, clip, t0, forward ? d : 0.0);
+    maniGraphEmitLoops(u, node, slot, clip, forward ? 0.0 : d, forward ? d : 0.0, loops);
     double rest = t1 - wraps * d;
-    Emit(u, node, clip, forward ? 0.0 : d, rest);
+    maniGraphEmit(u, node, slot, clip, forward ? 0.0 : d, rest);
 }
 
 // How a clip node moves this update: from t0 by step, or set to t0 by a
@@ -916,7 +836,7 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
         if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD)
         {
             s->flags |= MANI_GRAPH_LISTED;
-            Events(u, p, &clip, m.t0, m.step);
+            Events(u, p, Word(u, data), &clip, m.t0, m.step);
         }
         if (s->rootWeight > 0.0f)
         {
@@ -953,6 +873,10 @@ maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEv
         if (maniLoadU16(record) == maniGraphNodeClip)
         {
             Advance(&u, p, record);
+        }
+        else if (maniLoadU16(record) == maniGraphNodeMatch)
+        {
+            maniGraphAdvanceMatch(&u, p);
         }
     }
     maniGraphListen(u.graph, binding->clips, instance);

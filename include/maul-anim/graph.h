@@ -11,6 +11,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
+#include "maul-anim/match.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
@@ -29,13 +30,14 @@ extern "C"
 #define MANI_NO_PARAMETER 0xFFFFFFFFu
 // A clip node in no sync group.
 #define MANI_NO_SYNC_GROUP 0xFFFFFFFFu
-// Named limits: nodes, inputs of one node, parameters, clips and sync
-// groups of one graph.
+// Named limits: nodes, inputs of one node, parameters, clips, sync
+// groups and motion databases of one graph.
 #define MANI_GRAPH_MAX_NODES       65536u
 #define MANI_GRAPH_MAX_INPUTS      4096u
 #define MANI_GRAPH_MAX_PARAMETERS  65536u
 #define MANI_GRAPH_MAX_CLIPS       65536u
 #define MANI_GRAPH_MAX_SYNC_GROUPS 65536u
+#define MANI_GRAPH_MAX_DATABASES   256u
 // The most points (and inputs) a blend space has.
 #define MANI_GRAPH_MAX_SPACE_POINTS 256u
 // The most transitions of one state machine, conditions of one
@@ -106,6 +108,10 @@ extern "C"
         // An inertialize node: its input with the discontinuities
         // requested beneath it eased out over the requested time.
         maniGraphNodeInertialize = 13,
+        // A motion matching node: plays the frame of a motion database
+        // that best matches its query, searching again as it plays; no
+        // inputs.
+        maniGraphNodeMatch = 14,
     };
 
     // A graph over a file's bytes, which the caller keeps alive and
@@ -121,6 +127,8 @@ extern "C"
         const uint8_t* clips;
         const uint8_t* syncGroups;
         const uint8_t* maskWeights;
+        const uint8_t* databases;
+        const uint8_t* databaseClips;
         const uint8_t* names;
         uint64_t identity;
         uint64_t skeletonIdentity;
@@ -135,6 +143,8 @@ extern "C"
         uint32_t maskCount;
         uint32_t slotCount;
         uint32_t machineWords;
+        uint32_t databaseCount;
+        uint32_t databaseClipCount;
     } maniGraph;
 
     /// Opens a graph file in place: checks the container, every record,
@@ -247,6 +257,36 @@ extern "C"
     MANI_API const char* maniGraphClipName(const maniGraph* graph, uint32_t clip,
                                            uint32_t* lengthOut);
 
+    /// Returns the number of motion database slots the graph's motion
+    /// matching nodes search.
+    ///
+    /// @param graph  An opened graph.
+    /// @return The count; 0 for a NULL graph.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphDatabaseCount(const maniGraph* graph);
+
+    /// Returns the identity of the motion database a slot names.
+    ///
+    /// @param graph     An opened graph.
+    /// @param database  The slot.
+    /// @return The database's identity; 0 past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniGraphDatabaseIdentity(const maniGraph* graph, uint32_t database);
+
+    /// Returns the name a slot gives its motion database, its bytes inside
+    /// the file.
+    ///
+    /// @param graph      An opened graph.
+    /// @param database   The slot.
+    /// @param lengthOut  Receives the name's length; 0 past the count.
+    /// @return The name, not terminated, or NULL past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database,
+                                               uint32_t* lengthOut);
+
     // A graph bound to its skeleton and clips, in caller memory: shared by
     // every instance of the graph, read only.
     typedef struct maniGraphBinding maniGraphBinding;
@@ -266,33 +306,39 @@ extern "C"
     /// Safe from any thread.
     MANI_API size_t maniGraphBindingSize(const maniGraph* graph);
 
-    /// Binds a graph to its skeleton and clips: each clip slot to the
-    /// clip of its identity among clips (in any order, others ignored),
-    /// each of the graph's skeleton and of the kind the slot was built
-    /// with. The graph, skeleton and clips must outlive the binding.
+    /// Binds a graph to its skeleton, clips and motion databases: each
+    /// clip slot to the clip of its identity among clips (in any order,
+    /// others ignored), each of the graph's skeleton and of the kind the
+    /// slot was built with; each database slot to the database of its
+    /// identity among databases, of the graph's skeleton, whose clips are
+    /// the slots the graph lists for it and whose channels take the
+    /// graph's query parameters. The graph, skeleton, clips and databases
+    /// must outlive the binding.
     ///
-    /// @param graph       An opened graph.
-    /// @param skeleton    The skeleton the graph was built against.
-    /// @param clips       count opened clips.
-    /// @param count       The number of clips.
-    /// @param memory      At least maniGraphBindingSize bytes,
-    ///                    MANI_GRAPH_BINDING_ALIGNMENT-aligned.
-    /// @param size        The memory's size.
-    /// @param bindingOut  Receives the binding.
-    /// @param unboundOut  Receives the first slot left unbound on failure
-    ///                    (MANI_NO_TRACK otherwise). May be NULL.
+    /// @param graph          An opened graph.
+    /// @param skeleton       The skeleton the graph was built against.
+    /// @param clips          count opened clips.
+    /// @param count          The number of clips.
+    /// @param databases      databaseCount opened databases.
+    /// @param databaseCount  The number of databases.
+    /// @param memory         At least maniGraphBindingSize bytes,
+    ///                       MANI_GRAPH_BINDING_ALIGNMENT-aligned.
+    /// @param size           The memory's size.
+    /// @param bindingOut     Receives the binding.
+    /// @param unboundOut     Receives the first slot left unbound on
+    ///                       failure: a clip slot, or the graph's clip
+    ///                       count plus a database slot (MANI_NO_TRACK
+    ///                       otherwise). May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL or
     /// misaligned argument, a skeleton that is not the graph's, a slot no
-    /// clip binds, or clips whose root motion names different bones;
-    /// `mani_errorCapacity` when the memory is too small.
+    /// clip or database binds, or clips whose root motion names different
+    /// bones; `mani_errorCapacity` when the memory is too small.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniBindGraph(const maniGraph* graph,
-                                                     const maniSkeleton* skeleton,
-                                                     const maniClip* const* clips, uint32_t count,
-                                                     void* memory, size_t size,
-                                                     maniGraphBinding** bindingOut,
-                                                     uint32_t* unboundOut);
+    MANI_NODISCARD MANI_API maniResult maniBindGraph(
+        const maniGraph* graph, const maniSkeleton* skeleton, const maniClip* const* clips,
+        uint32_t count, const maniMotionDatabase* const* databases, uint32_t databaseCount,
+        void* memory, size_t size, maniGraphBinding** bindingOut, uint32_t* unboundOut);
 
     /// Returns the bytes an instance of a bound graph needs.
     ///

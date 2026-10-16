@@ -3,8 +3,8 @@
 //
 // Inlining a graph source's subgraphs at build (mani-0023): each
 // subgraph node replaced by the subgraph's output, its other nodes
-// appended, its parameters read through the node's map, its clips joined
-// by identity and its sync groups by name.
+// appended, its parameters read through the node's map, its clips and
+// databases joined by identity and its sync groups by name.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_INLINE_H
 #define MAUL_ANIM_SRC_GRAPH_INLINE_H

@@ -121,6 +121,17 @@ format.
   changing the result, with a continuing bias, a transition cost,
   entry biases, tag masks, and exclusions near the continuing frame,
   at clamped ends and around up to eight earlier picks.
+- Motion matching nodes (mani-0024): `maniGraphNodeMatch` plays a
+  database's frames, searching on a period, on a trigger, at a clamped
+  entry's end and with no entry, its query the continuing frame's bone
+  channels and parameters for its trajectory and float channels; a
+  jump requests inertialization of the inertialize node above, which
+  the build requires. Graphs list database slots (`maniGraphDatabaseSource`,
+  `maniGraphDatabaseCount`, `maniGraphDatabaseIdentity`,
+  `maniGraphDatabaseName`) whose clips are clip slots; `maniBindGraph`
+  and `maniBuildGraphJson` take the host's databases; the node's block
+  joins the saved state; subgraphs join databases by identity; the
+  JSON form writes a "databases" list and "match" nodes.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

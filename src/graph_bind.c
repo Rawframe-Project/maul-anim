@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Binding a graph to its skeleton and clips (mani-0023): each clip slot
-// found by identity among the host's clips, in caller memory.
+// Binding a graph to its skeleton, clips and motion databases (mani-0023,
+// mani-0024): each slot found by identity among the host's, in caller
+// memory. A database's clips must be the slots the graph lists for it,
+// its skeleton the graph's, and its channels must take the query of
+// every node searching it, so a file naming a database by identity
+// cannot pair it with a query or clips it was not built for.
 
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_match.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/match.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
@@ -24,7 +30,8 @@ size_t maniGraphBindingSize(const maniGraph* graph)
     {
         return 0;
     }
-    return offsetof(maniGraphBinding, clips) + (size_t)graph->clipCount * sizeof(const maniClip*);
+    return offsetof(maniGraphBinding, clips) + (size_t)graph->clipCount * sizeof(const maniClip*) +
+           (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*);
 }
 
 // The clip of the slot's identity among clips, of the graph's skeleton
@@ -43,6 +50,68 @@ static const maniClip* Find(const maniGraph* graph, uint32_t slot, const maniCli
             (maniClipAdditiveBasis(clip) != maniAdditiveNone) == difference)
         {
             return clip;
+        }
+    }
+    return NULL;
+}
+
+// Whether a database takes the slot: its clips the slot's, in order, and
+// the query of every node searching the slot.
+static bool DatabaseFits(const maniGraph* graph, uint32_t slot, const maniMotionDatabase* d)
+{
+    const uint8_t* e = graph->databases + (size_t)slot * MANI_GRAPH_DATABASE_SIZE;
+    uint32_t first = maniLoadU32(e + 24);
+    uint32_t count = maniLoadU32(e + 28);
+    if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count)
+    {
+        return false;
+    }
+    for (uint32_t c = 0; c < count; ++c)
+    {
+        uint32_t clip = maniLoadU32(graph->databaseClips + 4 * (size_t)(first + c));
+        if (maniMotionDatabaseClipIdentity(d, c) != maniGraphClipIdentity(graph, clip))
+        {
+            return false;
+        }
+    }
+    uint32_t types[MANI_MATCH_MAX_FEATURES];
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        const uint8_t* words = graph->data + 4 * (size_t)maniLoadU32(record + 12);
+        if (maniLoadU16(record) != maniGraphNodeMatch ||
+            maniLoadU32(words + 4 * maniGraphMatchDatabase) != slot)
+        {
+            continue;
+        }
+        uint32_t queries = maniLoadU32(words + 4 * maniGraphMatchQueryCount);
+        for (uint32_t q = 0; q < queries; ++q)
+        {
+            uint32_t parameter = maniLoadU32(words + 4 * (size_t)(maniGraphMatchQuery + q));
+            types[q] =
+                maniLoadU32(graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE);
+        }
+        if (!maniGraphQueryFits(d, types, queries))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The database of the slot's identity among databases that takes it;
+// NULL for none.
+static const maniMotionDatabase* FindDatabase(const maniGraph* graph, uint32_t slot,
+                                              const maniMotionDatabase* const* databases,
+                                              uint32_t count)
+{
+    uint64_t identity = maniGraphDatabaseIdentity(graph, slot);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const maniMotionDatabase* d = databases[i];
+        if (d != NULL && maniMotionDatabaseIdentity(d) == identity)
+        {
+            return DatabaseFits(graph, slot, d) ? d : NULL;
         }
     }
     return NULL;
@@ -80,16 +149,40 @@ static bool RootMotionBone(maniGraphBinding* binding)
     return true;
 }
 
+// Each database slot bound; false with the first left unbound.
+static bool BindDatabases(maniGraphBinding* binding, const maniMotionDatabase* const* databases,
+                          uint32_t count, uint32_t* unboundOut)
+{
+    const maniGraph* graph = &binding->graph;
+    const maniMotionDatabase** slots = maniGraphBoundDatabases(binding);
+    for (uint32_t s = 0; s < graph->databaseCount; ++s)
+    {
+        slots[s] = FindDatabase(graph, s, databases, count);
+        if (slots[s] == NULL)
+        {
+            if (unboundOut != NULL)
+            {
+                *unboundOut = graph->clipCount + s;
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
 maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
-                         const maniClip* const* clips, uint32_t count, void* memory, size_t size,
-                         maniGraphBinding** bindingOut, uint32_t* unboundOut)
+                         const maniClip* const* clips, uint32_t count,
+                         const maniMotionDatabase* const* databases, uint32_t databaseCount,
+                         void* memory, size_t size, maniGraphBinding** bindingOut,
+                         uint32_t* unboundOut)
 {
     if (unboundOut != NULL)
     {
         *unboundOut = MANI_NO_TRACK;
     }
-    if (graph == NULL || skeleton == NULL || (clips == NULL && count > 0) || memory == NULL ||
-        bindingOut == NULL || (uintptr_t)memory % MANI_GRAPH_BINDING_ALIGNMENT != 0 ||
+    if (graph == NULL || skeleton == NULL || (clips == NULL && count > 0) ||
+        (databases == NULL && databaseCount > 0) || memory == NULL || bindingOut == NULL ||
+        (uintptr_t)memory % MANI_GRAPH_BINDING_ALIGNMENT != 0 ||
         maniSkeletonIdentity(skeleton) != graph->skeletonIdentity ||
         maniSkeletonBoneCount(skeleton) != graph->skeletonBoneCount)
     {
@@ -113,7 +206,7 @@ maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
             return mani_errorInvalid;
         }
     }
-    if (!RootMotionBone(binding))
+    if (!BindDatabases(binding, databases, databaseCount, unboundOut) || !RootMotionBone(binding))
     {
         return mani_errorInvalid;
     }

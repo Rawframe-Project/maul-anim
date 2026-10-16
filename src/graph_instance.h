@@ -9,6 +9,7 @@
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
 #include <stddef.h>
@@ -37,9 +38,24 @@ struct maniGraphBinding
     uint32_t rootMotionBone;
     // The most inputs a node takes: the layers evaluation lists at once.
     uint32_t maxInputs;
-    // The clip each slot binds, in slot order.
+    // The clip each slot binds, in slot order; then the database each
+    // database slot binds, read by maniGraphBoundDatabase.
     const maniClip* clips[];
 };
+
+// The databases a binding's database slots bind, in slot order: after its
+// clips.
+static inline const maniMotionDatabase** maniGraphBoundDatabases(maniGraphBinding* binding)
+{
+    return (const maniMotionDatabase**)(uint8_t*)(binding->clips + binding->graph.clipCount);
+}
+
+static inline const maniMotionDatabase* maniGraphBoundDatabase(const maniGraphBinding* binding,
+                                                               uint32_t slot)
+{
+    const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
+    return ((const maniMotionDatabase* const*)at)[slot];
+}
 
 // A node's flags during an update: its time factor set from a parent, a
 // seek above it firing (to a normalized time with phase), and a clip's

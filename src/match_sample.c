@@ -30,80 +30,11 @@
 #include <stdint.h>
 #include <string.h>
 
-// A time placed in an entry: the clip time, and the root's move from the
-// frame's time to it.
-typedef struct Place
+static maniMatchPlace Locate(const maniClip* clip, const maniMatchEntrySource* e, float t,
+                             double step)
 {
-    float time;
-    maniRootMove move;
-} Place;
-
-static maniRootMove Move(const maniClip* clip, float from, float step)
-{
-    maniRootMove move = maniRootMoveIdentity();
-    return maniClipRootMotion(clip, from, step, &move) == mani_success ? move
-                                                                       : maniRootMoveIdentity();
-}
-
-// k whole spans of move w, by doubling.
-static maniRootMove Repeat(maniRootMove w, uint64_t k)
-{
-    maniRootMove r = maniRootMoveIdentity();
-    while (k > 0)
-    {
-        r = (k & 1u) != 0 ? maniComposeRootMotion(r, w) : r;
-        w = maniComposeRootMotion(w, w);
-        k >>= 1;
-    }
-    return r;
-}
-
-// Forward from t by step (>= 0) in a looping entry.
-static Place Ahead(const maniClip* clip, const maniMatchEntrySource* e, float t, double step)
-{
-    double span = (double)e->end - (double)e->start;
-    double toEnd = (double)e->end - (double)t;
-    if (step < toEnd)
-    {
-        return (Place){(float)((double)t + step), Move(clip, t, (float)step)};
-    }
-    double rest = step - toEnd;
-    double whole = floor(rest / span);
-    double last = rest - whole * span;
-    maniRootMove move = Move(clip, t, (float)toEnd);
-    move = maniComposeRootMotion(move, Repeat(Move(clip, e->start, (float)span), (uint64_t)whole));
-    move = maniComposeRootMotion(move, Move(clip, e->start, (float)last));
-    return (Place){(float)((double)e->start + last), move};
-}
-
-// Backward from t by step (<= 0) in a looping entry.
-static Place Behind(const maniClip* clip, const maniMatchEntrySource* e, float t, double step)
-{
-    double span = (double)e->end - (double)e->start;
-    double toStart = (double)e->start - (double)t;
-    if (step >= toStart)
-    {
-        return (Place){(float)((double)t + step), Move(clip, t, (float)step)};
-    }
-    double rest = toStart - step;
-    double whole = floor(rest / span);
-    double last = rest - whole * span;
-    maniRootMove move = Move(clip, t, (float)toStart);
-    move = maniComposeRootMotion(move, Repeat(Move(clip, e->end, (float)-span), (uint64_t)whole));
-    move = maniComposeRootMotion(move, Move(clip, e->end, (float)-last));
-    return (Place){(float)((double)e->end - last), move};
-}
-
-static Place Locate(const maniClip* clip, const maniMatchEntrySource* e, float t, double step)
-{
-    if ((e->flags & MANI_MATCH_LOOP) != 0)
-    {
-        return step >= 0.0 ? Ahead(clip, e, t, step) : Behind(clip, e, t, step);
-    }
-    double x = (double)t + step;
-    float at = (float)(x < (double)e->start ? (double)e->start
-                                            : (x > (double)e->end ? (double)e->end : x));
-    return (Place){at, Move(clip, t, at - t)};
+    maniMatchSpan span = {e->start, e->end, (e->flags & MANI_MATCH_LOOP) != 0};
+    return maniMatchLocate(clip, span, t, step);
 }
 
 static maniVec3 Axis(maniMatchAxis axis)
@@ -143,7 +74,7 @@ static bool Model(maniMatchSampler* s, const maniClip* clip, float time, uint32_
     return true;
 }
 
-static bool Position(maniMatchSampler* s, const maniClip* clip, Place p, uint32_t bone,
+static bool Position(maniMatchSampler* s, const maniClip* clip, maniMatchPlace p, uint32_t bone,
                      maniVec3* out)
 {
     maniTransform m;
@@ -159,8 +90,8 @@ static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchE
                      float t, double step, uint32_t bone, maniVec3* out)
 {
     double h = 1.0 / (double)s->source->sampleRate;
-    Place before = Locate(clip, e, t, step - h);
-    Place after = Locate(clip, e, t, step + h);
+    maniMatchPlace before = Locate(clip, e, t, step - h);
+    maniMatchPlace after = Locate(clip, e, t, step + h);
     maniVec3 a;
     maniVec3 b;
     if (!Position(s, clip, before, bone, &a) || !Position(s, clip, after, bone, &b))
@@ -176,7 +107,7 @@ static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchE
     return true;
 }
 
-static bool Facing(maniMatchSampler* s, const maniClip* clip, Place p,
+static bool Facing(maniMatchSampler* s, const maniClip* clip, maniMatchPlace p,
                    const maniMatchChannelSource* c, maniVec3* out)
 {
     maniTransform m;
@@ -206,7 +137,7 @@ static bool Channel(maniMatchSampler* s, uint32_t e, uint32_t c, float t, float 
     const maniMatchEntrySource* entry = &src->entries[e];
     const maniMatchChannelSource* ch = &src->channels[c];
     const maniClip* clip = src->clips[entry->clip];
-    Place p = Locate(clip, entry, t, (double)time);
+    maniMatchPlace p = Locate(clip, entry, t, (double)time);
     maniVec3 v = {0.0f, 0.0f, 0.0f};
     bool ok = true;
     switch (ch->kind)

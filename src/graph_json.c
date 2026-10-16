@@ -3,9 +3,10 @@
 //
 // A graph source written as its JSON text form (mani-0023): built first,
 // so only a source that builds is written; then each list item on a line
-// of its own, parameters, clips, sync groups and bones by name, nodes by
-// their place in the source, subgraphs as nested graphs, and numbers as
-// the shortest binary32 text. Counted once, then written.
+// of its own, parameters, clips, sync groups, databases (mani-0024, when
+// it has any) and bones by name, nodes by their place in the source,
+// subgraphs as nested graphs, and numbers as the shortest binary32 text.
+// Counted once, then written.
 
 #include "allocator.h"
 #include "builder.h"
@@ -330,6 +331,66 @@ static void PutShot(Writer* w, const maniGraphSource* source, const maniGraphOne
     }
 }
 
+// Tags: their bits, or {"parameter": name}.
+static void PutTags(Writer* w, const maniGraphSource* source, maniGraphTags tags)
+{
+    if (tags.parameter == MANI_NO_PARAMETER)
+    {
+        PutUnsigned(w, tags.value);
+        return;
+    }
+    PutText(w, "{");
+    PutKey(w, "parameter");
+    PutParameterName(w, source, tags.parameter);
+    PutText(w, "}");
+}
+
+// A motion matching node: its database by name, its trigger (when it has
+// one), its query's parameters, its numbers, tags and duration.
+static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMatchNodeSource* m)
+{
+    const maniGraphDatabaseSource* d = &source->databases[m->database];
+    PutKey(w, "database");
+    PutString(w, d->name, d->nameLength);
+    PutText(w, ", ");
+    if (m->trigger != MANI_NO_PARAMETER)
+    {
+        PutKey(w, "trigger");
+        PutParameterName(w, source, m->trigger);
+        PutText(w, ", ");
+    }
+    PutKey(w, "query");
+    PutText(w, "[");
+    for (uint32_t q = 0; q < m->queryCount; ++q)
+    {
+        PutText(w, q > 0 ? ", " : "");
+        PutParameterName(w, source, m->query[q]);
+    }
+    PutText(w, "]");
+    static const char* const kKeys[6] = {"period",      "jumpThreshold",  "endExclusion",
+                                         "historyTime", "continuingBias", "transitionCost"};
+    const float values[6] = {m->period,      m->jumpThreshold,  m->endExclusion,
+                             m->historyTime, m->continuingBias, m->transitionCost};
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        PutText(w, ", ");
+        PutKey(w, kKeys[k]);
+        PutFloat(w, values[k]);
+    }
+    PutText(w, ", ");
+    PutKey(w, "historyCount");
+    PutUnsigned(w, m->historyCount);
+    PutText(w, ", ");
+    PutKey(w, "requiredTags");
+    PutTags(w, source, m->requiredTags);
+    PutText(w, ", ");
+    PutKey(w, "excludedTags");
+    PutTags(w, source, m->excludedTags);
+    PutText(w, ", ");
+    PutKey(w, "duration");
+    PutScalar(w, source, m->duration);
+}
+
 static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, bool top);
 
 // A blend space's position: a vec2 parameter, or x (and, in a plane,
@@ -577,6 +638,9 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeInertialize:
         PutInertialize(w, source, &n->inertialize);
         return;
+    case maniGraphNodeMatch:
+        PutMatch(w, source, &n->match);
+        return;
     case maniGraphNodeAdditive:
         PutKey(w, "weights");
         PutScalars(w, source, n->additive.weights, n->inputCount - 1);
@@ -638,7 +702,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "blendSpaceBands",
                                          "machine",
                                          "oneShot",
-                                         "inertialize"};
+                                         "inertialize",
+                                         "match"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 
@@ -650,7 +715,8 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
     PutText(w, "\"");
     PutText(w, KindName(n->kind));
     PutText(w, "\", ");
-    if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeSubgraph)
+    if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch &&
+        n->kind != maniGraphNodeSubgraph)
     {
         PutKey(w, "inputs");
         PutText(w, "[");
@@ -671,7 +737,7 @@ static void PutList(Writer* w, const maniGraphSource* source, const char* key, u
                     uint32_t depth)
 {
     uint32_t counts[] = {source->parameterCount, source->clipCount, source->syncGroupCount,
-                         source->nodeCount};
+                         source->nodeCount, source->databaseCount};
     Line(w, depth);
     PutKey(w, key);
     PutText(w, "[");
@@ -686,6 +752,10 @@ static void PutList(Writer* w, const maniGraphSource* source, const char* key, u
         else if (list == 1)
         {
             PutString(w, source->clips[i].name, source->clips[i].nameLength);
+        }
+        else if (list == 4)
+        {
+            PutString(w, source->databases[i].name, source->databases[i].nameLength);
         }
         else if (list == 2)
         {
@@ -725,6 +795,10 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
     PutList(w, source, "parameters", 0, depth + 1);
     PutList(w, source, "clips", 1, depth + 1);
     PutList(w, source, "syncGroups", 2, depth + 1);
+    if (source->databaseCount > 0)
+    {
+        PutList(w, source, "databases", 4, depth + 1);
+    }
     PutList(w, source, "nodes", 3, depth + 1);
     Line(w, depth + 1);
     PutKey(w, "output");

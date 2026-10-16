@@ -2,18 +2,29 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Restoring a graph instance's saved state (mani-0023) from any bytes,
-// into an instance of a small graph made once: parameters of every type
-// and a select over a clip and a time scale of it. The bytes are tried as
-// they are, then with the header made right so they reach the checks
-// behind it, then with the quaternion parameter made a unit one; a
-// restored state saves back to the same bytes, updates and evaluates. Run as
-// fuzz_graph_state <corpus dir>.
+// into an instance of a small graph made once: parameters of every type,
+// a select over a clip and a time scale of it, blended with an
+// inertialize node over a motion matching node (mani-0024) searching a
+// database of the clip (a looping and a clamped entry, tags from the int
+// parameter). The bytes are tried as they are, then with the header made
+// right so they reach the checks behind it, then with the quaternion
+// parameter made a unit one, then with the inertialize node's block as
+// a fresh instance has it, so the motion matching node's reaches its
+// checks; a restored state saves back to the same bytes, updates and
+// evaluates. Run as fuzz_graph_state <corpus dir>.
+
+#include "bytes.h"
+#include "graph_file.h"
+#include "graph_inertia.h"
+#include "graph_instance.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/match.h"
+#include "maul-anim/matchbuild.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
@@ -28,9 +39,15 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 static _Alignas(16) uint8_t s_skeletonFile[1024];
 static _Alignas(16) uint8_t s_clipFile[4096];
 static _Alignas(16) uint8_t s_graphFile[4096];
+static _Alignas(16) uint8_t s_databaseFile[8192];
 static _Alignas(8) uint8_t s_binding[512];
-static _Alignas(8) uint8_t s_instance[2048];
-static uint8_t s_saved[1024];
+static _Alignas(8) uint8_t s_instance[4096];
+static uint8_t s_saved[2048];
+static uint8_t s_fresh[2048];
+static maniMotionDatabase s_database;
+// The inertialize node's block in a state: its offset and size.
+static size_t s_eased;
+static size_t s_easedSize;
 static _Alignas(32) uint8_t s_scratch[16384];
 static _Alignas(32) uint8_t s_poseMemory[1024];
 static maniPose* s_pose;
@@ -68,6 +85,23 @@ static bool MakeClip(maniBuilder* builder)
            maniOpenClip(s_clipFile, size, &s_clip).result == mani_success;
 }
 
+// The clip's frames: looping (tags 1) and clamped (tags 2), the root's
+// position now their channel.
+static bool MakeDatabase(maniBuilder* builder)
+{
+    static const float kNow[1] = {0.0f};
+    const maniClip* clips[1] = {&s_clip};
+    const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
+    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
+                                             {0, 0, 0.0f, 1.0f, 0.5f, 2u}};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,       1, 1,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ};
+    size_t size = 0;
+    return maniBuildMotionDatabase(builder, &source).result == mani_success &&
+           Built(builder, s_databaseFile, sizeof s_databaseFile, &size) &&
+           maniOpenMotionDatabase(s_databaseFile, size, &s_database).result == mani_success;
+}
+
 static maniGraphParameterSource Parameter(const char* name, maniGraphParameterType type)
 {
     maniGraphParameterSource p = {name, (uint32_t)strlen(name), type, {{0}}, {{0}}, {{0}}, 0, 0};
@@ -86,15 +120,35 @@ static bool MakeGraph(maniBuilder* builder)
         Parameter("v3", maniGraphParameterVec3),  Parameter("q", maniGraphParameterQuat),
         Parameter("t", maniGraphParameterTrigger)};
     const maniGraphClipSource clip = {&s_clip, "c", 1, 0};
+    const maniGraphDatabaseSource database = {&s_database, "d", 1, 0};
     static const uint32_t kClip[1] = {0};
     static const uint32_t kChoices[2] = {0, 1};
-    const maniGraphNodeSource nodes[3] = {
+    static const uint32_t kMatch[1] = {3};
+    static const uint32_t kBlend[2] = {2, 4};
+    static const maniGraphScalar kHalves[2] = {{MANI_NO_PARAMETER, 0.5f},
+                                               {MANI_NO_PARAMETER, 0.5f}};
+    const maniGraphMatchNodeSource match = {.database = 0,
+                                            .trigger = 6,
+                                            .historyCount = 3,
+                                            .period = 0.2f,
+                                            .jumpThreshold = 0.1f,
+                                            .endExclusion = 0.1f,
+                                            .historyTime = 0.3f,
+                                            .requiredTags = {1, 0},
+                                            .excludedTags = {MANI_NO_PARAMETER, 0},
+                                            .duration = {2, 0.0f}};
+    const maniGraphNodeSource nodes[6] = {
         {maniGraphNodeClip, 0, NULL,
          .clip = {0, MANI_NO_SYNC_GROUP, {2, 0.0f}, maniGraphLoopClip, 0}},
         {maniGraphNodeTimeScale, 1, kClip, .timeScale = {{MANI_NO_PARAMETER, 2.0f}}},
         {maniGraphNodeSelect, 2, kChoices, .select = {1}},
+        {maniGraphNodeMatch, 0, NULL, .match = match},
+        {maniGraphNodeInertialize, 1, kMatch,
+         .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
+        {maniGraphNodeBlend, 2, kBlend, .blend = {kHalves, 0, 0}},
     };
-    maniGraphSource source = {&s_skeleton, parameters, &clip, NULL, nodes, 7, 1, 0, 3, 2, 0};
+    maniGraphSource source = {&s_skeleton, parameters, &clip, NULL, nodes, 7,
+                              1,           0,          6,     5,    1,     &database};
     size_t size = 0;
     return maniBuildGraph(builder, &source).result == mani_success &&
            Built(builder, s_graphFile, sizeof s_graphFile, &size) &&
@@ -106,20 +160,34 @@ static void Setup(void)
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
     const maniClip* clips[1] = {&s_clip};
+    const maniMotionDatabase* databases[1] = {&s_database};
     maniGraphBinding* binding = NULL;
     bool ok =
         maniCreateBuilder(&def, &builder) == mani_success && MakeClip(builder) &&
-        MakeGraph(builder) &&
-        maniBindGraph(&s_graph, &s_skeleton, clips, 1, s_binding, sizeof s_binding, &binding,
-                      NULL) == mani_success &&
+        MakeDatabase(builder) && MakeGraph(builder) &&
+        maniBindGraph(&s_graph, &s_skeleton, clips, 1, databases, 1, s_binding, sizeof s_binding,
+                      &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
     s_stateSize = ok ? maniGraphStateSize(binding) : 0;
     ok = ok && maniGraphScratchSize(binding) <= sizeof s_scratch &&
          maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success;
-    if (!ok || s_stateSize > sizeof s_saved)
+    if (!ok || s_stateSize > sizeof s_saved ||
+        maniSaveGraphInstance(s_live, s_fresh, sizeof s_fresh) != mani_success)
     {
         abort();
+    }
+    for (uint32_t p = 0; p < s_graph.nodeCount; ++p)
+    {
+        const uint8_t* e = s_graph.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        if (maniLoadU16(e) == maniGraphNodeInertialize)
+        {
+            uint32_t block = maniLoadU32(s_graph.data +
+                                         4 * (size_t)(maniLoadU32(e + 12) + maniGraphInertiaBlock));
+            s_eased = MANI_GRAPH_STATE_HEADER_SIZE +
+                      (size_t)(s_graph.parameterCount + s_graph.nodeCount) * 16 + 4 * (size_t)block;
+            s_easedSize = 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(1, 0);
+        }
     }
 }
 
@@ -179,6 +247,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     // so the rest reaches a whole restore.
     const float identityQuat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     memcpy(copy + 24 + 5 * 16, identityQuat, sizeof identityQuat);
+    Exercise(copy, s_stateSize);
+    memcpy(copy + s_eased, s_fresh + s_eased, s_easedSize);
     Exercise(copy, s_stateSize);
     free(copy);
     return 0;

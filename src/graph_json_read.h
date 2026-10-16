@@ -37,6 +37,8 @@ typedef struct maniGraphReader
     const maniSkeleton* skeleton;
     const maniGraphClipSource* hostClips;
     maniNameTable host;
+    const maniGraphDatabaseSource* hostDatabases;
+    maniNameTable hostDatabaseNames;
     // The first fault: Capacity, or a refusal with its offset.
     maniBuildResult fault;
 } maniGraphReader;
@@ -47,6 +49,7 @@ typedef struct maniGraphScope
     maniNameTable parameters;
     maniNameTable clips;
     maniNameTable syncGroups;
+    maniNameTable databases;
     const maniGraphParameterSource* sources;
 } maniGraphScope;
 

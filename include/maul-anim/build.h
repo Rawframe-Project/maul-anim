@@ -164,7 +164,11 @@ extern "C"
         // A graph node of an unknown kind, with an input count its kind
         // does not take, or with a field out of range: a clip slot, sync
         // group, loop or flags; a select's parameter not int or bool; a
-        // seek's not a trigger; item is the node.
+        // seek's not a trigger; a motion matching node's database slot,
+        // trigger, query (a parameter past the count or of the wrong type,
+        // or not one per trajectory and float time of the database), tags,
+        // history count or times out of range, or a path from the output
+        // to it through no inertialize node; item is the node.
         maniBuildReasonNode = 25,
         // A node's input past the node count or the node itself, or the
         // output past the count; item is the node, other the input's place.
@@ -218,6 +222,11 @@ extern "C"
         // A float track channel whose track an entry's clip lacks; item is
         // the channel, other the entry.
         maniBuildReasonMissingTrack = 38,
+        // A graph's database slot without a database, with one of another
+        // skeleton or one an earlier slot (other) has, or with one listing
+        // a clip no clip slot has (other is the database's clip); item is
+        // the slot.
+        maniBuildReasonDatabase = 39,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -227,6 +236,7 @@ extern "C"
         maniBuildReasonParameterList = 0x500,
         maniBuildReasonClipList = 0x600,
         maniBuildReasonSyncGroupList = 0x700,
+        maniBuildReasonDatabaseList = 0x800,
     };
 
     // A build's outcome: the status and, when the source was refused

@@ -58,6 +58,7 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     switch (kind)
     {
     case maniGraphNodeClip:
+    case maniGraphNodeMatch:
         *minOut = 0;
         return 0;
     case maniGraphNodeMask:
@@ -170,15 +171,15 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
     }
     const uint8_t* h = s->data[0];
     uint64_t at = s->at[0];
-    uint32_t counts[10];
-    for (uint32_t k = 0; k < 10; ++k)
+    uint32_t counts[12];
+    for (uint32_t k = 0; k < 12; ++k)
     {
         counts[k] = maniLoadU32(h + 8 + 4 * k);
     }
     // Bones, parameters, nodes, inputs, data words, clips, sync groups,
-    // masks, slots, and the zero word.
-    const uint32_t lows[10] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0};
-    const uint32_t highs[10] = {MANI_MAX_BONES,
+    // masks, slots, databases, database clips, and the zero word.
+    const uint32_t lows[12] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0};
+    const uint32_t highs[12] = {MANI_MAX_BONES,
                                 MANI_GRAPH_MAX_PARAMETERS,
                                 MANI_GRAPH_MAX_NODES,
                                 MANI_GRAPH_MAX_NODES * MANI_GRAPH_MAX_INPUTS,
@@ -187,8 +188,10 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                                 MANI_GRAPH_MAX_SYNC_GROUPS,
                                 MANI_GRAPH_MAX_NODES,
                                 MANI_GRAPH_MAX_NODES,
+                                MANI_GRAPH_MAX_DATABASES,
+                                MANI_GRAPH_MAX_DATABASES * MANI_GRAPH_MAX_CLIPS,
                                 0};
-    for (uint32_t k = 0; k < 10; ++k)
+    for (uint32_t k = 0; k < 12; ++k)
     {
         if (counts[k] < lows[k] || counts[k] > highs[k])
         {
@@ -204,7 +207,9 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                      .clipCount = counts[5],
                      .syncGroupCount = counts[6],
                      .maskCount = counts[7],
-                     .slotCount = counts[8]};
+                     .slotCount = counts[8],
+                     .databaseCount = counts[9],
+                     .databaseClipCount = counts[10]};
     return kOk;
 }
 
@@ -219,6 +224,8 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
         (uint64_t)g->clipCount * MANI_GRAPH_CLIP_SIZE,
         (uint64_t)g->syncGroupCount * MANI_GRAPH_SYNC_GROUP_SIZE,
         4 * (uint64_t)g->maskCount * g->skeletonBoneCount,
+        (uint64_t)g->databaseCount * MANI_GRAPH_DATABASE_SIZE,
+        4 * (uint64_t)g->databaseClipCount,
     };
     for (uint32_t k = 0; k < MANI_GRAPH_SECTIONS - 2; ++k)
     {
@@ -234,8 +241,10 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
     g->clips = s->data[5];
     g->syncGroups = s->data[6];
     g->maskWeights = s->data[7];
-    g->names = s->data[8];
-    g->namesSize = s->sizes[8];
+    g->databases = s->data[8];
+    g->databaseClips = s->data[9];
+    g->names = s->data[10];
+    g->namesSize = s->sizes[10];
     return kOk;
 }
 
@@ -389,6 +398,46 @@ static maniFileResult CheckMaskWeights(const maniGraph* g, uint64_t at)
     return kOk;
 }
 
+// Every database's name, its clips following the one before's (one at
+// least), each a clip slot giving poses.
+static maniFileResult CheckDatabases(const maniGraph* g, uint64_t at, uint64_t clipsAt)
+{
+    uint32_t next = 0;
+    for (uint32_t i = 0; i < g->databaseCount; ++i)
+    {
+        const uint8_t* e = g->databases + (size_t)i * MANI_GRAPH_DATABASE_SIZE;
+        uint64_t here = at + (uint64_t)i * MANI_GRAPH_DATABASE_SIZE;
+        uint32_t count = maniLoadU32(e + 28);
+        if (!NameValid(g, e + 16, e + 8))
+        {
+            return Fail(here + 16);
+        }
+        if (maniLoadU32(e + 24) != next)
+        {
+            return Fail(here + 24);
+        }
+        if (count == 0 || count > g->databaseClipCount - next)
+        {
+            return Fail(here + 28);
+        }
+        next += count;
+    }
+    if (next != g->databaseClipCount)
+    {
+        return Fail(clipsAt);
+    }
+    for (uint32_t k = 0; k < g->databaseClipCount; ++k)
+    {
+        uint32_t slot = maniLoadU32(g->databaseClips + 4 * (size_t)k);
+        if (slot >= g->clipCount ||
+            maniLoadU32(g->clips + (size_t)slot * MANI_GRAPH_CLIP_SIZE + 24) != 0)
+        {
+            return Fail(clipsAt + 4 * (uint64_t)k);
+        }
+    }
+    return kOk;
+}
+
 maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
 {
     if (graphOut == NULL)
@@ -410,6 +459,7 @@ maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut
     r = r.result == mani_success ? CheckClips(&g, s.at[5]) : r;
     r = r.result == mani_success ? CheckSyncGroups(&g, s.at[6]) : r;
     r = r.result == mani_success ? CheckMaskWeights(&g, s.at[7]) : r;
+    r = r.result == mani_success ? CheckDatabases(&g, s.at[8], s.at[9]) : r;
     r = r.result == mani_success
             ? maniCheckGraphNodes(&g, s.at[2], s.at[3], s.at[4], &g.machineWords)
             : r;
@@ -526,4 +576,32 @@ const char* maniGraphClipName(const maniGraph* graph, uint32_t clip, uint32_t* l
         return NULL;
     }
     return EntryName(graph, graph->clips + (size_t)clip * MANI_GRAPH_CLIP_SIZE + 16, lengthOut);
+}
+
+uint32_t maniGraphDatabaseCount(const maniGraph* graph)
+{
+    return graph != NULL ? graph->databaseCount : 0;
+}
+
+uint64_t maniGraphDatabaseIdentity(const maniGraph* graph, uint32_t database)
+{
+    if (graph == NULL || database >= graph->databaseCount)
+    {
+        return 0;
+    }
+    return maniLoadU64(graph->databases + (size_t)database * MANI_GRAPH_DATABASE_SIZE);
+}
+
+const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database, uint32_t* lengthOut)
+{
+    if (graph == NULL || database >= graph->databaseCount)
+    {
+        if (lengthOut != NULL)
+        {
+            *lengthOut = 0;
+        }
+        return NULL;
+    }
+    return EntryName(graph, graph->databases + (size_t)database * MANI_GRAPH_DATABASE_SIZE + 16,
+                     lengthOut);
 }

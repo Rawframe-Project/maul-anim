@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Reading a graph's JSON form (mani-0023) against a fixed skeleton and
-// three clips named walk, run and wave: any text is refused or built,
-// and a graph built opens. Run as fuzz_graph_json <corpus dir>; the seed
+// Reading a graph's JSON form (mani-0023) against a fixed skeleton,
+// three clips named walk, run and wave and a motion database named moves
+// of the walk and run (mani-0024): any text is refused or built, and a
+// graph built opens. Run as fuzz_graph_json <corpus dir>; the seed
 // comes from test_graph_json --seed <file>.
 
 #include "maul-anim/base.h"
@@ -11,6 +12,8 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/match.h"
+#include "maul-anim/matchbuild.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -23,6 +26,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
 static _Alignas(16) uint8_t s_file[1u << 20];
+static _Alignas(16) uint8_t s_databaseFile[8192];
+static maniMotionDatabase s_database;
 static maniSkeleton s_skeleton;
 static maniClip s_clips[3];
 static maniBuilder* s_builder;
@@ -35,6 +40,23 @@ static const maniBoneSource kBones[3] = {
 
 static const maniGraphClipSource kHost[3] = {
     {&s_clips[0], "walk", 4, 0}, {&s_clips[1], "run", 3, 0}, {&s_clips[2], "wave", 4, 0}};
+static const maniGraphDatabaseSource kHostDatabase[1] = {{&s_database, "moves", 5, 0}};
+
+// The walk and the run, the hips' position now their channel.
+static bool MakeDatabase(void)
+{
+    static const float kNow[1] = {0.0f};
+    const maniClip* clips[2] = {&s_clips[0], &s_clips[1]};
+    const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
+    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
+                                             {1, 0, 0.0f, 1.0f, 0.0f, 2u}};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,       2, 1,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ};
+    size_t size = 0;
+    return maniBuildMotionDatabase(s_builder, &source).result == mani_success &&
+           maniCopyBuilt(s_builder, s_databaseFile, sizeof s_databaseFile, &size) == mani_success &&
+           maniOpenMotionDatabase(s_databaseFile, size, &s_database).result == mani_success;
+}
 
 // The skeleton and clips, as test_graph_json makes them.
 static void Setup(void)
@@ -70,6 +92,10 @@ static void Setup(void)
             abort();
         }
     }
+    if (!MakeDatabase())
+    {
+        abort();
+    }
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
@@ -78,8 +104,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     {
         Setup();
     }
-    maniBuildResult r =
-        maniBuildGraphJson(s_builder, (const char*)data, size, &s_skeleton, kHost, 3);
+    maniBuildResult r = maniBuildGraphJson(s_builder, (const char*)data, size, &s_skeleton, kHost,
+                                           3, kHostDatabase, 1);
     if (r.result != mani_success)
     {
         bool text = r.reason == maniBuildReasonJson || r.reason == maniBuildReasonForm;

@@ -269,12 +269,17 @@ runtime allocates (mani-0001).
   `smoothstep(t / T)`. The half-lives are the node's (0.3, 0.1 and 1.0
   in the JSON form by default; inertialization takes them all 0). Its
   capture keeps 28 words a bone where inertialization's keeps 18.
+- **Motion matching** (`maniGraphNodeMatch`) is a leaf that searches a
+  motion database a graph lists beside its clips and requests its
+  jumps of the inertialize node above, which the builder requires as
+  it does for inertial transitions; mani-0024 records it.
 - **Text form:** `maniWriteGraphJson` writes a source as JSON after
   building it, so only a source that builds is written; the builder
   keeps the text as it keeps files. The top object carries `format`
   ("maul-anim graph") and `version` (1), then `parameters` (name, type,
   default, and bounds when bounded), `clips` (slot names), `syncGroups`
-  (name, `allEvents`), `nodes` and `output`. Nodes name their kind and
+  (name, `allEvents`), `databases` (slot names, when the graph has
+  any), `nodes` and `output`. Nodes name their kind and
   list their inputs by place in `nodes`; parameters, clip slots, sync
   groups and the bones of mask chains are named, never indexed, so a
   file survives a reimport that changes identities or bone order. A
@@ -285,7 +290,8 @@ runtime allocates (mani-0001).
   binary32, in ECMAScript's layout, found with integers only (`-0`
   kept), so one source has one text on every platform.
 - **Reading the text:** `maniBuildGraphJson` takes the text, the
-  skeleton and the host's clips with their slot names, and builds the
+  skeleton and the host's clips and databases with their slot names,
+  and builds the
   file as `maniBuildGraph` does. Members are strict (one not taken, or
   given twice, is refused); those whose off value is natural (false,
   null, 0, an empty list, speed 1, loop "clip", the identity quaternion)

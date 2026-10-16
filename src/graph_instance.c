@@ -11,6 +11,7 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_machine.h"
+#include "graph_match.h"
 #include "graph_shot.h"
 
 #include "maul-anim/base.h"
@@ -33,14 +34,15 @@ static bool BindingValid(const maniGraphBinding* binding)
     return binding != NULL && binding->stamp == MANI_GRAPH_BINDING_STAMP;
 }
 
+// The nodes that sample clips through a cursor: clip and motion matching
+// nodes.
 static uint32_t ClipNodeCount(const maniGraph* graph)
 {
     uint32_t count = 0;
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
-        count += maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeClip
-                     ? 1u
-                     : 0u;
+        uint32_t kind = maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE);
+        count += kind == maniGraphNodeClip || kind == maniGraphNodeMatch ? 1u : 0u;
     }
     return count;
 }
@@ -80,8 +82,8 @@ static uint32_t* Blocks(maniGraphInstance* instance)
     return (uint32_t*)((uint8_t*)instance + instance->machinesAt);
 }
 
-// The one-shot or inertialize node p's block's first word, or UINT32_MAX
-// for another kind.
+// The one-shot, inertialize or motion matching node p's block's first
+// word, or UINT32_MAX for another kind.
 static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
 {
     const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
@@ -90,6 +92,10 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
     {
         return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphInertiaBlock));
     }
+    if (maniLoadU16(e) == maniGraphNodeMatch)
+    {
+        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphMatchBlock));
+    }
     return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
                                                   : UINT32_MAX;
 }
@@ -97,6 +103,11 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
 static bool Inertial(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeInertialize;
+}
+
+static bool Matching(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeMatch;
 }
 
 // Inertialize node p as its words give it.
@@ -121,6 +132,10 @@ static void ResetMachines(maniGraphInstance* instance)
         {
             maniGraphInertia node = InertiaAt(graph, p);
             maniGraphResetInertia(Blocks(instance) + shot, &node);
+        }
+        else if (shot != UINT32_MAX && Matching(graph, p))
+        {
+            maniGraphResetMatch(Blocks(instance) + shot);
         }
         else if (shot != UINT32_MAX)
         {
@@ -403,6 +418,49 @@ static maniFileResult Fail(uint64_t offset)
     return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
+// A motion matching node's saved block, with its saved playhead.
+static uint32_t SavedMatchValid(const maniGraphBinding* binding, uint32_t p, const uint8_t* b,
+                                const uint8_t* block)
+{
+    const maniGraph* graph = &binding->graph;
+    uint32_t data = maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
+    uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphMatchDatabase));
+    uint64_t at = MANI_GRAPH_STATE_HEADER_SIZE +
+                  (uint64_t)(graph->parameterCount + p) * MANI_GRAPH_VALUE_SIZE;
+    uint64_t bits = maniLoadU64(b + at + 8);
+    double time = 0.0;
+    memcpy(&time, &bits, sizeof time);
+    return maniGraphSavedMatchValid(block, graph, data, maniGraphBoundDatabase(binding, slot),
+                                    time);
+}
+
+// Every node's block in a saved state, the blocks starting at at.
+static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8_t* b, uint64_t at)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        maniGraphMachine m = MachineAt(graph, p);
+        uint32_t shot = ShotBlockAt(graph, p);
+        uint32_t first = m.states > 0 ? maniGraphMachineBlockAt(&m) : shot;
+        if (first == UINT32_MAX)
+        {
+            continue;
+        }
+        uint64_t block = at + 4 * (uint64_t)first;
+        maniGraphInertia node = InertiaAt(graph, p);
+        uint32_t wrong = m.states > 0         ? maniGraphSavedBlockValid(&m, b + block)
+                         : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, &node)
+                         : Matching(graph, p) ? SavedMatchValid(instance->binding, p, b, b + block)
+                                              : maniGraphSavedShotValid(b + block);
+        if (wrong != UINT32_MAX)
+        {
+            return Fail(block + 4 * (uint64_t)wrong);
+        }
+    }
+    return (maniFileResult){mani_success, 0, 0};
+}
+
 static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_t* b, size_t size)
 {
     const maniGraph* graph = &instance->binding->graph;
@@ -438,26 +496,7 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
             return Fail(at);
         }
     }
-    for (uint32_t p = 0; p < graph->nodeCount; ++p)
-    {
-        maniGraphMachine m = MachineAt(graph, p);
-        uint32_t shot = ShotBlockAt(graph, p);
-        uint32_t first = m.states > 0 ? maniGraphMachineBlockAt(&m) : shot;
-        if (first == UINT32_MAX)
-        {
-            continue;
-        }
-        uint64_t block = at + 4 * (uint64_t)first;
-        maniGraphInertia node = InertiaAt(graph, p);
-        uint32_t wrong = m.states > 0         ? maniGraphSavedBlockValid(&m, b + block)
-                         : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, &node)
-                                              : maniGraphSavedShotValid(b + block);
-        if (wrong != UINT32_MAX)
-        {
-            return Fail(block + 4 * (uint64_t)wrong);
-        }
-    }
-    return (maniFileResult){mani_success, 0, 0};
+    return CheckBlocks(instance, b, at);
 }
 
 maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void* bytes, size_t size)
