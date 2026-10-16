@@ -34,6 +34,10 @@ centers_build: allocator builder bytes container elementary_float influence_file
 morph_file:
 morph: bytes container morph_file
 morph_build: allocator builder bytes container morph_file sort text
+match_file:
+match: bytes container match_file text
+match_sample: match match_file vecmath
+match_build: allocator builder bytes container match match_file match_sample text
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:

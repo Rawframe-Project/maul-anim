@@ -190,6 +190,8 @@ jobs:
           build/test_graph_listen --seed corpus-fuzz_graph/listen.graph corpus-fuzz_graph_json/listen.json
           build/test_graph_shot --seed corpus-fuzz_graph/shot.graph corpus-fuzz_graph_json/shot.json
           build/test_graph_inertia --seed corpus-fuzz_graph/inertia.graph corpus-fuzz_graph_json/inertia.json
+          mkdir -p corpus-fuzz_match
+          build/test_match --seed corpus-fuzz_match/sample.match
           mkdir -p corpus-fuzz_json
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf

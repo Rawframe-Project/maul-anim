@@ -43,10 +43,10 @@ once on their own threads.
   functions of `<math.h>`.
 - **Commit areas:** `api`, `bench`, `blend`, `build`, `ci`, `clip`,
   `compress`, `docs`, `format`, `graph`, `ik`, `import`, `machine`,
-  `math`, `pose`, `retarget`, `rootmotion`, `sample`, `skeleton`,
-  `skin`, `tests`, `tools`, `transition`. `skin` (skins, influences,
-  skinning and morph targets, mani-0021) joined when that scope's work
-  began.
+  `match`, `math`, `pose`, `retarget`, `rootmotion`, `sample`,
+  `skeleton`, `skin`, `tests`, `tools`, `transition`. `skin` (skins,
+  influences, skinning and morph targets, mani-0021) joined when that
+  scope's work began; `match` (motion matching, mani-0024) likewise.
 
 ## Consequences
 

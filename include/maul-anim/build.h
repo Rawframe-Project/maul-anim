@@ -203,6 +203,21 @@ extern "C"
         // of the same state shares; item is the node, other the
         // transition.
         maniBuildReasonTransition = 34,
+        // A motion database's channel of an unknown kind or axis, a bone
+        // past the skeleton, no times or too many, a time not finite or
+        // past MANI_MATCH_MAX_REACH, a weight not above 0, or a float
+        // track with no name; item is the channel.
+        maniBuildReasonChannel = 35,
+        // A motion database's entry naming a clip past the clips, with
+        // unknown flags, a span not finite or outside its clip (or empty
+        // when it loops), or a cost bias not finite; item is the entry.
+        maniBuildReasonEntry = 36,
+        // A motion database's channel whose features never vary; item is
+        // the channel.
+        maniBuildReasonSpread = 37,
+        // A float track channel whose track an entry's clip lacks; item is
+        // the channel, other the entry.
+        maniBuildReasonMissingTrack = 38,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

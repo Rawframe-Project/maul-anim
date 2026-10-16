@@ -698,6 +698,69 @@ MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fb
 ```
 Returns where a model skeleton's root hangs, as maniFbxSkeletonPlacement.  @param fbx           The document. @param model         The root model. @param options       The options. @param placementOut  Receives the placement. @return As maniFbxSkeletonPlacement. @par Thread safety Safe from any thread.
 
+## `match.h`
+
+Motion matching (mani-0024): a motion database built offline from a skeleton's clips, opened in place. Each frame of the database is a clip at a time; its features describe the pose and the root's path around that time in the root's space, normalized per channel, so a search compares a query's features with every frame's.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size, maniMotionDatabase* databaseOut);
+```
+Opens a motion database file in place: checks the container, every record, count and float, that each entry's frames follow from its span and the rate, and that every bound is its run's exact minimum or maximum.  @param bytes       The file, 16-byte aligned. @param size        Its size in bytes; bytes past the file are ignored. @param databaseOut Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database);
+```
+Returns a database's identity: the hash of its sections.  @param database  An opened database, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniMotionDatabaseSkeletonIdentity(const maniMotionDatabase* database);
+```
+Returns the identity of the skeleton a database was built for.  @param database  An opened database, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniMotionDatabaseClipIdentity(const maniMotionDatabase* database, uint32_t clip);
+```
+Returns the identity of a database's clip.  @param database  An opened database. @param clip      The clip's index. @return The identity; 0 for NULL or an index past the clips. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database, uint32_t channel, maniMatchChannel* channelOut);
+```
+Reads a database's channel.  @param database    An opened database. @param channel     The channel's index. @param channelOut  Receives the channel. @return `mani_success`; `mani_errorInvalid` for a NULL argument or an index past the channels. @par Thread safety Safe from any thread.
+
+```c
+const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database, uint32_t channel, uint32_t* lengthOut);
+```
+Returns a float track channel's name.  @param database   An opened database. @param channel    The channel's index. @param lengthOut  Receives the name's length in bytes, or NULL. @return The name, UTF-8, not terminated; NULL for a NULL database, an index past the channels or a channel of another kind. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniMotionDatabaseEntry(const maniMotionDatabase* database, uint32_t entry, maniMatchEntry* entryOut);
+```
+Reads a database's entry.  @param database  An opened database. @param entry     The entry's index. @param entryOut  Receives the entry. @return `mani_success`; `mani_errorInvalid` for a NULL argument or an index past the entries. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t frame, uint32_t* entryOut, float* timeOut);
+```
+Finds a frame's entry and its clip time.  @param database  An opened database. @param frame     The frame. @param entryOut  Receives the entry's index. @param timeOut   Receives the clip time, seconds. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a frame past the frames. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniMotionDatabaseFeatures( const maniMotionDatabase* database, uint32_t frame, float* featuresOut);
+```
+Reads a frame's features, normalized: (value - offset) / scale.  @param database     An opened database. @param frame        The frame. @param featuresOut  Receives the database's feature count of values. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a frame past the frames. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniMotionDatabaseNormalization( const maniMotionDatabase* database, float* offsetsOut, float* scalesOut);
+```
+Reads a database's normalization: per feature, the offset taken from a value and the scale it is divided by.  @param database  An opened database. @param offsetsOut Receives the feature count of offsets, or NULL. @param scalesOut  Receives the feature count of scales, or NULL. @return `mani_success`; `mani_errorInvalid` for a NULL database. @par Thread safety Safe from any thread.
+
+## `matchbuild.h`
+
+Building motion databases (mani-0024): channels sampled from a skeleton's clips at a rate, normalized per channel as Holden's reference does, with bounds over runs of frames for the search.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildMotionDatabase(maniBuilder* builder, const maniMotionDatabaseSource* source);
+```
+Builds a motion database: samples every entry's frames, each channel at each of its times (clamped to the entry's ends, or wrapped when it loops), in the root's space at the frame (the clip's root motion carrying the root between times; a bone's velocity the difference of its positions a frame either side over their time apart), normalizes each channel, and bounds every run of 16 and 64 frames. Keeps the file in place of any built before.  @param builder  The builder. @param source   The database. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonTiming` (the rate), `maniBuildReasonOption` (the axes), `maniBuildReasonCount` (no channels, clips or entries, too many, or past MANI_MATCH_MAX_FRAMES frames or MANI_MATCH_MAX_FEATURES features), `maniBuildReasonJoint` (a clip of another skeleton or additive; item the clip), `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry` (item the entry), `maniBuildReasonMissingTrack` (a float track an entry's clip lacks; item the channel, other the entry), `maniBuildReasonSpread` (a channel that never varies; item the channel); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `morph.h`
 
 Morph targets (mani-0021): a mesh primitive's blend shapes over the caller's bytes. Named channels, each one or more targets at increasing full weights (glTF's targets have one at 1; FBX's in-betweens several), each target deltas for some of the file's attributes (positions, normals, tangents, texture coordinate and color sets), dense or sparse.
@@ -1039,4 +1102,4 @@ Writes a palette for shaders: each matrix as three rows of four floats (row-majo
 
 ---
 
-197 functions across 13 headers.
+208 functions across 15 headers.

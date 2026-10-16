@@ -44,6 +44,7 @@ enum
     maniKindSkin = 5,
     maniKindInfluences = 6,
     maniKindMorphTargets = 7,
+    maniKindMotionDatabase = 8,
 };
 
 // An opened container: a view over the caller's bytes.

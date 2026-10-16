@@ -28,3 +28,4 @@ are listed in [README.md](README.md).
 | [mani-0021](mani-0021-skinning.md) | Skinning and morph targets | Accepted |
 | [mani-0022](mani-0022-root-motion.md) | Root motion | Accepted |
 | [mani-0023](mani-0023-graphs.md) | Graphs | Accepted |
+| [mani-0024](mani-0024-motion-matching.md) | Motion matching | Accepted |

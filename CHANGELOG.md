@@ -107,6 +107,15 @@ format.
   each axis decaying with Holden's half-life (`halfLifeScale` times the
   distance over the speed, between `halfLifeMin` and `halfLifeMax`),
   and cross-fades it into its input by a smoothstep.
+- Motion databases (mani-0024): `maniBuildMotionDatabase` samples a
+  skeleton's clips at a rate into frames of weighted channels (bone
+  positions, velocities and facings, the root's travel and facing at
+  times ahead and behind, float tracks) in the root's space, each
+  channel normalized on its own, over entries that loop or clamp and
+  carry cost biases, tags and a no-jump flag; `maniOpenMotionDatabase`
+  opens one in place with every byte checked and the bounds over runs
+  of 16 and 64 frames recomputed; channels, entries, frames, features
+  and the normalization read back.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its
