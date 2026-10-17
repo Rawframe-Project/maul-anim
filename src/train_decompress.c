@@ -10,6 +10,7 @@
 #include "train_adam.h"
 #include "train_data.h"
 #include "train_decompress_loss.h"
+#include "train_kinematics.h"
 #include "train_net.h"
 #include "train_random.h"
 #include "train_tasks.h"
@@ -56,18 +57,26 @@ static bool ChunkArrays(const maniAllocator* a, maniTrainDecompress* t, bool rel
 {
     bool ok = true;
     size_t chunk = MANI_TRAIN_CHUNK;
-    size_t sizes[6] = {chunk * (size_t)t->compressor.valueCount,
-                       chunk * (size_t)t->decompressor.valueCount,
-                       chunk * t->decompressor.sizes[t->decompressor.layerCount],
-                       chunk * t->decompressor.sizes[0],
-                       chunk * t->compressor.sizes[t->compressor.layerCount],
-                       2 * chunk * t->widest};
+    size_t bones = t->data->boneCount;
+    size_t sizes[11] = {chunk * (size_t)t->compressor.valueCount,
+                        chunk * (size_t)t->decompressor.valueCount,
+                        chunk * t->decompressor.sizes[t->decompressor.layerCount],
+                        chunk * t->decompressor.sizes[0],
+                        chunk * t->compressor.sizes[t->compressor.layerCount],
+                        2 * chunk * t->widest,
+                        chunk * t->decompressor.sizes[t->decompressor.layerCount],
+                        chunk * bones * MANI_TRAIN_KINEMATIC_FLOATS,
+                        chunk * bones * MANI_TRAIN_CHARACTER_FLOATS,
+                        chunk * bones * MANI_TRAIN_CHARACTER_FLOATS,
+                        12 * bones};
     for (uint32_t k = 0; k < t->chunkCount; ++k)
     {
         maniTrainDecompressChunk* c = &t->chunks[k];
-        float** arrays[6] = {&c->compressorValues, &c->decompressorValues, &c->outputGradient,
-                             &c->inputGradient,    &c->latentGradient,     &c->scratch};
-        for (uint32_t i = 0; i < 6; ++i)
+        float** arrays[11] = {&c->compressorValues,  &c->decompressorValues, &c->outputGradient,
+                              &c->inputGradient,     &c->latentGradient,     &c->scratch,
+                              &c->outputs,           &c->kinematics,         &c->character,
+                              &c->characterGradient, &c->kinematicScratch};
+        for (uint32_t i = 0; i < 11; ++i)
         {
             if (release)
             {

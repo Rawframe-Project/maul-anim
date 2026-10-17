@@ -11,8 +11,11 @@
 // L1: the local positions (75), the rotation columns (10), the scales
 // (10), the root's velocities (2 each), the float tracks and events (2),
 // the local positions' and columns' velocities across a pair (10, 1.75),
-// and the latent values' L1 (0.1), L2 (0.1) and change a second (0.01);
-// each term the mean over its values, as torch.mean.
+// character space's translations and columns (15, 5) and their
+// velocities across a pair (2, 0.75), through the character pass
+// (train_kinematics), and the latent values' L1 (0.1), L2 (0.1) and
+// change a second (0.01); each term the mean over its values, as
+// torch.mean.
 
 #ifndef MAUL_ANIM_SRC_TRAIN_DECOMPRESS_H
 #define MAUL_ANIM_SRC_TRAIN_DECOMPRESS_H

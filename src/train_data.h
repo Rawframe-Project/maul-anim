@@ -84,6 +84,8 @@ typedef struct maniTrainData
     float* scales;
     // The first frame of each pair of consecutive frames of one entry.
     uint32_t* pairs;
+    // Each bone's parent, MANI_NO_BONE for a root (lower indices first).
+    uint32_t* parents;
 } maniTrainData;
 
 // The data of a source whose clips and names are the database's (checked

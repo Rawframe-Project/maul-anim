@@ -2217,7 +2217,7 @@ dl-position | src/train_decompress_loss.c | return j % 9 < 3 ? 75.0f / (frames *
 dl-scale | src/train_decompress_loss.c | return 10.0f / (frames * 3.0f * (float)d->scaledBoneCount); | return 1.0f / (frames * 3.0f * (float)d->scaledBoneCount);
 dl-root | src/train_decompress_loss.c | return j < 6 ? 2.0f / (frames * 3.0f) | return j < 6 ? 1.0f / (frames * 3.0f)
 dl-denormalize | src/train_decompress_loss.c | y[s] = yn[(size_t)s * o + j] * t->outputScales[j] + t->outputOffsets[j]; | y[s] = yn[(size_t)s * o + j] + t->outputOffsets[j];
-dl-chain | src/train_decompress_loss.c | gradient[(size_t)s * o + j] *= t->outputScales[j]; | gradient[(size_t)s * o + j] *= 1.0f;
+dl-chain | src/train_decompress_loss.c | c->outputGradient[(size_t)s * o + j] *= t->outputScales[j]; | c->outputGradient[(size_t)s * o + j] *= 1.0f;
 dl-latent | src/train_decompress_loss.c | loss += 0.1f / frames * fabsf(x) + 0.1f / frames * x * x; | loss += 0.1f / frames * fabsf(x);
 dl-latent-grad | src/train_decompress_loss.c | gradient[(size_t)s * latent + k] += 0.1f / frames * Sign(x) + 0.2f / frames * x; | gradient[(size_t)s * latent + k] += 0.1f / frames * Sign(x);
 dl-change | src/train_decompress_loss.c | float g = 0.01f / pairs * Sign(diff) / seconds; | float g = 0.01f / pairs * Sign(diff);
@@ -2225,3 +2225,26 @@ dl-input | src/train_decompress_loss.c | x[i] = (row[i] - t->inputOffsets[i]) / 
 dl-latent-in | src/train_decompress_loss.c | memcpy(x + n, z + (size_t)s * latent, sizeof(float) * latent); | memset(x + n, 0, sizeof(float) * latent);
 dl-velocity | src/train_decompress_loss.c | float v = j % 9 < 3 ? 10.0f / ((float)batchPairs * 3.0f * (float)d->boneCount) | float v = j % 9 < 3 ? 1.0f / ((float)batchPairs * 3.0f * (float)d->boneCount)
 dl-velocity-grad | src/train_decompress_loss.c | gradient[(size_t)(2 * p + 1) * o + j] += v * Sign(diff) / d->frameSeconds; | gradient[(size_t)(2 * p + 1) * o + j] += v * Sign(diff);
+
+# The first stage's character space and its backward pass (mani-0025).
+tk-first | src/train_kinematics.c | w[kRotation + i] = x[i] / first; | w[kRotation + i] = x[i];
+tk-third | src/train_kinematics.c | w[kRotation + 6 + i] = u[i] / cross; | w[kRotation + 6 + i] = u[i];
+tk-second | src/train_kinematics.c | Cross(w + kRotation + 6, w + kRotation, w + kRotation + 3); | Cross(w + kRotation, w + kRotation + 6, w + kRotation + 3);
+tk-scale | src/train_kinematics.c | local[k] = w[kRotation + k] * w[kScale + k / 3]; | local[k] = w[kRotation + k];
+tk-parent-position | src/train_kinematics.c | w[kPosition + i] += p[kPosition + i]; | w[kPosition + i] += 0.0f;
+tk-offset | src/train_kinematics.c | offset[i] = w[kPosition + i] - root[kPosition + i]; | offset[i] = w[kPosition + i];
+tk-root-position | src/train_kinematics.c | g[9 + i] -= turned[i]; | g[9 + i] -= 0.0f;
+tk-root-turn | src/train_kinematics.c | offset * q[j] + w[kModel + i] * q[3 + j] + w[kModel + 3 + i] * q[6 + j]; | w[kModel + i] * q[3 + j] + w[kModel + 3 + i] * q[6 + j];
+tk-c1-c2 | src/train_kinematics.c | Cross(c0, gr + 3, t); | Cross(gr + 3, c0, t);
+tk-c1-c0 | src/train_kinematics.c | Cross(gr + 3, c2, t); | Cross(c2, gr + 3, t);
+tk-u | src/train_kinematics.c | gu[i] = (gr[6 + i] - c2[i] * along) / w[kCrossLength]; | gu[i] = gr[6 + i] / w[kCrossLength];
+tk-u-c0 | src/train_kinematics.c | Cross(w + kSecond, gu, t); | Cross(gu, w + kSecond, t);
+tk-u-second | src/train_kinematics.c | Cross(gu, c0, gy); | Cross(c0, gu, gy);
+tk-x | src/train_kinematics.c | gx[i] = (gr[i] - c0[i] * along) / w[kFirstLength]; | gx[i] = gr[i] / w[kFirstLength];
+tk-parent-translation | src/train_kinematics.c | ApplyTransposed(p + kModel, gb + 9, gt); | memcpy(gt, gb + 9, sizeof gt);
+tk-parent-model-t | src/train_kinematics.c | float sum = gb[9 + r] * w[kTranslation + c]; | float sum = 0.0f;
+tk-parent-model | src/train_kinematics.c | sum += gb[3 * k + r] * (w[kRotation + 3 * k + c] * w[kScale + k]); | sum += gb[3 * k + r] * w[kRotation + 3 * k + c];
+tk-parent-carry | src/train_kinematics.c | gp[9 + c] += gb[9 + c]; | gp[9 + c] += 0.0f;
+tk-gr-scale | src/train_kinematics.c | gr[3 * c + r] = gl[3 * c + r] * w[kScale + c]; | gr[3 * c + r] = gl[3 * c + r];
+tk-gs | src/train_kinematics.c | gs[c] = Dot(w + kRotation + 3 * c, gl + 3 * c); | gs[c] = 0.0f;
+tk-root-add | src/train_kinematics.c | gr[k] += rootGradient[k]; | gr[k] += 0.0f;

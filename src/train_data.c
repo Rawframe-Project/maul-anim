@@ -328,6 +328,7 @@ void maniTrainDataRelease(const maniAllocator* allocator, maniTrainData* data)
     maniRelease(allocator, data->scaledBones, (size_t)data->boneCount + 1, sizeof(uint32_t), 4);
     maniRelease(allocator, data->scales, 3 * (size_t)data->boneCount, sizeof(float), 4);
     maniRelease(allocator, data->pairs, frames + 1, sizeof(uint32_t), 4);
+    maniRelease(allocator, data->parents, (size_t)data->boneCount + 1, sizeof(uint32_t), 4);
     *data = (maniTrainData){0};
 }
 
@@ -345,9 +346,14 @@ bool maniTrainDataBuild(const maniAllocator* allocator, const maniTrainDataSourc
     d.scaledBones = maniAllocate(allocator, (size_t)d.boneCount + 1, sizeof(uint32_t), 4);
     d.scales = maniAllocate(allocator, 3 * (size_t)d.boneCount, sizeof(float), 4);
     d.pairs = maniAllocate(allocator, frames + 1, sizeof(uint32_t), 4);
+    d.parents = maniAllocate(allocator, (size_t)d.boneCount + 1, sizeof(uint32_t), 4);
+    for (uint32_t b = 0; d.parents != NULL && b < d.boneCount; ++b)
+    {
+        d.parents[b] = maniSkeletonParent(source->skeleton, b);
+    }
     Sampler p;
     bool ok = InitSampler(allocator, source, &p) && d.scaledBones != NULL && d.scales != NULL &&
-              d.pairs != NULL;
+              d.pairs != NULL && d.parents != NULL;
     if (ok)
     {
         memset(d.scaledBones, 0, sizeof(uint32_t) * d.boneCount);

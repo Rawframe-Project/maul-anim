@@ -6,21 +6,24 @@
 // and root velocity as the clip gives them, the events' states, the
 // pairs); the Compressor and Decompressor trained, the loss falling; the
 // same bits whatever order a host runs the chunks in; a chunk's loss
-// against Holden's terms computed apart, and its gradient against
-// central differences of it; every frame's latent values. A database of
-// the walk and a sway gives a scaled bone, a float track, an event
-// across a loop's wrap, local velocities and character space.
+// against Holden's terms computed apart (character space composed
+// through a pose the library builds), and its gradient against central
+// differences of it; every frame's latent values. A database of the walk
+// and a sway gives scaled bones, a float track, an event across a loop's
+// wrap, a turning root, local velocities and character space.
 
 #include "graph_match_fixture.h"
 #include "train_data.h"
 #include "train_decompress.h"
 #include "train_decompress_loss.h"
+#include "train_kinematics.h"
 #include "train_net.h"
 #include "train_random.h"
 
 #include "maul-anim/learnedbuild.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 static _Alignas(16) uint8_t s_boneFile[1 << 15];
@@ -324,6 +327,141 @@ static void TestHosts(void)
     maniTrainDataRelease(&kAllocator, &d);
 }
 
+// A rotation from two columns, made orthonormal from the first, in
+// binary64: Shepperd's method.
+static maniQuat FromColumns(const float* x, const float* y)
+{
+    double c[3][3];
+    double xd[3] = {(double)x[0], (double)x[1], (double)x[2]};
+    double yd[3] = {(double)y[0], (double)y[1], (double)y[2]};
+    double lx = sqrt(xd[0] * xd[0] + xd[1] * xd[1] + xd[2] * xd[2]);
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        c[0][i] = xd[i] / lx;
+    }
+    double u[3] = {c[0][1] * yd[2] - c[0][2] * yd[1], c[0][2] * yd[0] - c[0][0] * yd[2],
+                   c[0][0] * yd[1] - c[0][1] * yd[0]};
+    double lu = sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        c[2][i] = u[i] / lu;
+    }
+    c[1][0] = c[2][1] * c[0][2] - c[2][2] * c[0][1];
+    c[1][1] = c[2][2] * c[0][0] - c[2][0] * c[0][2];
+    c[1][2] = c[2][0] * c[0][1] - c[2][1] * c[0][0];
+    double trace = c[0][0] + c[1][1] + c[2][2];
+    double q[4];
+    if (trace > 0.0)
+    {
+        q[0] = c[1][2] - c[2][1];
+        q[1] = c[2][0] - c[0][2];
+        q[2] = c[0][1] - c[1][0];
+        q[3] = 1.0 + trace;
+    }
+    else if (c[0][0] >= c[1][1] && c[0][0] >= c[2][2])
+    {
+        q[0] = 1.0 + c[0][0] - c[1][1] - c[2][2];
+        q[1] = c[0][1] + c[1][0];
+        q[2] = c[2][0] + c[0][2];
+        q[3] = c[1][2] - c[2][1];
+    }
+    else if (c[1][1] >= c[2][2])
+    {
+        q[0] = c[0][1] + c[1][0];
+        q[1] = 1.0 + c[1][1] - c[0][0] - c[2][2];
+        q[2] = c[1][2] + c[2][1];
+        q[3] = c[2][0] - c[0][2];
+    }
+    else
+    {
+        q[0] = c[2][0] + c[0][2];
+        q[1] = c[1][2] + c[2][1];
+        q[2] = 1.0 + c[2][2] - c[0][0] - c[1][1];
+        q[3] = c[0][1] - c[1][0];
+    }
+    double l = sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    return (maniQuat){(float)(q[0] / l), (float)(q[1] / l), (float)(q[2] / l), (float)(q[3] / l)};
+}
+
+// A frame's character values from outputs y, through a pose the library
+// composes: per bone the translation from bone 0, then two columns.
+static void Character(const maniTrainData* d, const float* y, double* out)
+{
+    static _Alignas(32) uint8_t memory[4096];
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, memory, sizeof memory, &pose) == mani_success, "a pose");
+    uint32_t scaled = 0;
+    for (uint32_t b = 0; b < d->boneCount; ++b)
+    {
+        const float* o = y + 9 * b;
+        bool given = scaled < d->scaledBoneCount && d->scaledBones[scaled] == b;
+        const float* scale = given ? y + 9 * d->boneCount + 3 * scaled++ : d->scales + 3 * b;
+        maniPoseSetLocal(pose, b,
+                         (maniTransform){maniVec3Make(o[0], o[1], o[2]), FromColumns(o + 3, o + 6),
+                                         maniVec3Make(scale[0], scale[1], scale[2])});
+    }
+    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "composed");
+    maniQuat undo = maniQuatConjugate(maniPoseLocal(pose, 0).rotation);
+    maniAffine root = maniPoseModel(pose, 0);
+    for (uint32_t b = 0; b < d->boneCount; ++b)
+    {
+        maniAffine m = maniPoseModel(pose, b);
+        maniVec3 v[3] = {
+            maniVec3Make(m.m[9] - root.m[9], m.m[10] - root.m[10], m.m[11] - root.m[11]),
+            maniVec3Make(m.m[0], m.m[1], m.m[2]), maniVec3Make(m.m[3], m.m[4], m.m[5])};
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            maniVec3 r = maniQuatRotate(undo, v[k]);
+            out[9 * b + 3 * k] = (double)r.x;
+            out[9 * b + 3 * k + 1] = (double)r.y;
+            out[9 * b + 3 * k + 2] = (double)r.z;
+        }
+    }
+}
+
+// The character terms of chunk 0: translations (15) and columns (5),
+// and their velocities across each pair (2, 0.75).
+static double CharacterTerms(const maniTrainData* d, const uint32_t* f, double y[4][64])
+{
+    double q[4][27];
+    double bones = (double)d->boneCount;
+    for (uint32_t s = 0; s < 4; ++s)
+    {
+        float row[64];
+        for (uint32_t j = 0; j < d->outputCount; ++j)
+        {
+            row[j] = (float)y[s][j];
+        }
+        Character(d, row, q[s]);
+    }
+    double loss = 0.0;
+    for (uint32_t b = 0; b < d->boneCount; ++b)
+    {
+        for (uint32_t i = 0; i < 9; ++i)
+        {
+            bool position = i < 3;
+            uint32_t at = d->groupStarts[position ? maniTrainGroupCharacterPosition
+                                                  : maniTrainGroupCharacterColumns] +
+                          (position ? 3 * b + i : 6 * b + i - 3);
+            double w = position ? 15.0 / (4 * 3 * bones) : 5.0 / (4 * 6 * bones);
+            double v = position ? 2.0 / (2 * 3 * bones) : 0.75 / (2 * 6 * bones);
+            double target[4];
+            for (uint32_t s = 0; s < 4; ++s)
+            {
+                target[s] = (double)d->inputs[(size_t)f[s] * d->inputCount + at];
+                loss += w * fabs(q[s][9 * b + i] - target[s]);
+            }
+            for (uint32_t p = 0; p < 2; ++p)
+            {
+                double moved = q[2 * p + 1][9 * b + i] - q[2 * p][9 * b + i];
+                double want = target[2 * p + 1] - target[2 * p];
+                loss += v * fabs((moved - want) / (double)d->frameSeconds);
+            }
+        }
+    }
+    return loss;
+}
+
 // Holden's loss of chunk 0, in binary64 from the chunk's values: each
 // term the mean over its values times its weight.
 static double Reference(const maniTrainDecompress* t, const maniTrainData* d)
@@ -376,7 +514,7 @@ static double Reference(const maniTrainDecompress* t, const maniTrainData* d)
             loss += 0.01 / (2 * latent) * fabs(change);
         }
     }
-    return loss;
+    return loss + CharacterTerms(d, f, y);
 }
 
 // The latent values' own gradient (the chunk's gradient by them less the
@@ -458,6 +596,10 @@ static void CheckChunk(const maniTrainData* d, const char* name)
     CHECK(NormalizationMatches(&t, d), "the normalization");
     float loss = ChunkLoss(&t);
     double want = Reference(&t, d);
+    if (!(fabs((double)loss - want) <= 1e-4 * want))
+    {
+        printf("  loss %.9g, Holden's terms %.9g\n", (double)loss, want);
+    }
     CHECK(fabs((double)loss - want) <= 1e-4 * want, name);
     CHECK(LatentTermsMatch(&t, d), "the latent terms' gradient");
     static float gradient[8192];
@@ -512,6 +654,65 @@ static void TestGradient(void)
     maniTrainDataRelease(&kAllocator, &d);
 }
 
+// The character pass's gradient by its outputs against central
+// differences: three bones in a chain, bones 1 and 2 scaled, random
+// outputs and a random linear loss of the character values.
+static void TestKinematics(void)
+{
+    static uint32_t parents[3] = {MANI_NO_BONE, 0, 1};
+    static uint32_t scaled[2] = {1, 2};
+    static float scales[9] = {1.5f, 0.75f, 1.25f, 1, 1, 1, 1, 1, 1};
+    maniTrainData d = {.boneCount = 3,
+                       .scaledBoneCount = 2,
+                       .scaledBones = scaled,
+                       .scales = scales,
+                       .parents = parents};
+    maniTrainRandom r;
+    maniTrainSeed(&r, 21);
+    float y[33];
+    float c[27];
+    for (uint32_t k = 0; k < 33; ++k)
+    {
+        y[k] = 2.0f * maniTrainUniform(&r) - 1.0f;
+    }
+    for (uint32_t k = 27; k < 33; ++k)
+    {
+        y[k] += 1.5f;
+    }
+    for (uint32_t k = 0; k < 27; ++k)
+    {
+        c[k] = 2.0f * maniTrainUniform(&r) - 1.0f;
+    }
+    float work[3 * MANI_TRAIN_KINEMATIC_FLOATS];
+    float character[27];
+    float gradient[33];
+    float scratch[36];
+    memset(gradient, 0, sizeof gradient);
+    maniTrainKinematics(&d, y, work, character);
+    maniTrainKinematicsBackward(&d, work, c, gradient, scratch);
+    bool near = true;
+    for (uint32_t k = 0; k < 33; ++k)
+    {
+        float kept = y[k];
+        double sums[2];
+        for (uint32_t side = 0; side < 2; ++side)
+        {
+            y[k] = kept + (side == 0 ? 3e-3f : -3e-3f);
+            maniTrainKinematics(&d, y, work, character);
+            sums[side] = 0.0;
+            for (uint32_t i = 0; i < 27; ++i)
+            {
+                sums[side] += (double)c[i] * (double)character[i];
+            }
+        }
+        y[k] = kept;
+        double step = (double)(kept + 3e-3f) - (double)(kept - 3e-3f);
+        double slope = (sums[0] - sums[1]) / step;
+        near = near && fabs((double)gradient[k] - slope) <= 2e-3 * (1.0 + fabs(slope));
+    }
+    CHECK(near, "the character pass's gradient as central differences");
+}
+
 int main(void)
 {
     Open();
@@ -523,5 +724,6 @@ int main(void)
     TestTrain();
     TestHosts();
     TestGradient();
+    TestKinematics();
     return s_failures == 0 ? 0 : 1;
 }

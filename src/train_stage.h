@@ -37,6 +37,13 @@ typedef struct maniTrainDecompressChunk
     float* inputGradient;
     float* latentGradient;
     float* scratch;
+    // The outputs denormalized; the character pass's work, values and
+    // their gradient, and its backward scratch.
+    float* outputs;
+    float* kinematics;
+    float* character;
+    float* characterGradient;
+    float* kinematicScratch;
     float* gradients;
     float loss;
     uint32_t pairs[MANI_TRAIN_PAIRS];

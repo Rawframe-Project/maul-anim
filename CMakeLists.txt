@@ -109,7 +109,7 @@ if(MAUL_ANIM_OFFLINE)
                                      src/morph_build.c src/graph_check.c src/graph_space_check.c src/graph_machine_check.c src/graph_match_check.c src/exact.c src/triangulate.c src/graph_build.c src/graph_inline.c src/graph_json.c src/graph_json_read.c src/graph_json_graph.c src/graph_json_machine.c
                                      src/match_sample.c src/match_build.c src/learned_build.c
                                      src/train_random.c src/train_net.c src/train_adam.c src/train_tasks.c
-                                     src/train_data.c src/train_decompress.c src/train_decompress_loss.c)
+                                     src/train_data.c src/train_decompress.c src/train_decompress_loss.c src/train_kinematics.c)
 endif()
 maul_configure_library(maul-anim)
 # sqrtf need not set errno, which the library never reads: square roots
