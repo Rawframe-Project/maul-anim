@@ -3,10 +3,10 @@
 //
 // Spring bones' external force (mani-0026) on the fixture's chain: a
 // force moves the chain as gravity of the same size and direction does,
-// in the world whatever the character's turn, scaled with the head; a
-// wind changing every frame moves alike at 30, 60 and 144 Hz hosts, the
-// force interpolated between calls; a force not finite is refused and a
-// saved state's force is checked.
+// in the world whatever the character's turn, scaled with the head, at
+// the reference's step and at another; a wind changing every frame moves
+// alike at 30, 60 and 144 Hz hosts, the force interpolated between calls;
+// a force not finite is refused and a saved state's force is checked.
 
 #include "spring_fixture.h"
 #include "spring_state.h"
@@ -41,19 +41,23 @@ static void TestAsGravity(void)
     const maniTransform turned = {
         {0.3f, 0.0f, 0.0f}, {0.70710678f, 0.0f, 0.0f, 0.70710678f}, {1.0f, 1.0f, 1.0f}};
     const maniTransform* places[2] = {NULL, &turned};
-    for (int scaled = 0; scaled < 2; ++scaled)
+    for (int scaled = 0; scaled < 3; ++scaled)
     {
         for (int p = 0; p < 2; ++p)
         {
-            Still();
-            s_b0Scale = scaled != 0 ? (maniVec3){1.5f, 1.5f, 1.5f} : s_b0Scale;
+            // The third pass steps at 120 Hz: a step's share of the force
+            // is no longer the reference frame's.
             Config c = kStill;
+            c.rate = scaled == 2 ? 120.0f : 0.0f;
+            Still();
+            s_b0Scale = scaled == 1 ? (maniVec3){1.5f, 1.5f, 1.5f} : s_b0Scale;
             c.gravity = 1.5f;
             MakeSet(&c);
             maniVec3 gravity = After(90, places[p]);
             Still();
-            s_b0Scale = scaled != 0 ? (maniVec3){1.5f, 1.5f, 1.5f} : s_b0Scale;
-            MakeSet(&kStill);
+            s_b0Scale = scaled == 1 ? (maniVec3){1.5f, 1.5f, 1.5f} : s_b0Scale;
+            c.gravity = 0.0f;
+            MakeSet(&c);
             s_force = (maniVec3){0.0f, -1.5f, 0.0f};
             s_forced = true;
             maniVec3 forced = After(90, places[p]);

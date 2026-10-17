@@ -2477,7 +2477,7 @@ sp-length | src/spring_step.c | float length = maniVec3Length(maniVec3Sub(tail, 
 sp-pull | src/spring_step.c | maniVec3 pull = maniVec3Normalize(maniVec3Sub(tail, head), kUp); | maniVec3 pull = maniVec3Normalize(maniVec3Sub(h.tail, h.position), kUp);
 sp-frame-chain | src/spring_step.c | maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror)); | maniQuatMul(h.rotation, maniSpringMirror(local, h.mirror));
 sp-frame-mirror | src/spring_step.c | maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror)); | maniQuatMul(maniQuatMul(chain->rotation, h.rotation), local);
-sp-gravity-place | src/spring_step.c | maniQuatRotate(maniQuatConjugate(s->place.rotation), FileVec(e + maniSpringJointGravity)); | FileVec(e + maniSpringJointGravity);
+sp-gravity-place | src/spring_step.c | maniVec3 gravity = maniQuatRotate(maniQuatConjugate(s->place.rotation), world); | maniVec3 gravity = world;
 sp-drag | src/spring_step.c | maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f - drag)); | maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f));
 sp-stiff-scale | src/spring_step.c | next = maniVec3Add(next, maniVec3Scale(pull, stiffness * h.scale)); | next = maniVec3Add(next, maniVec3Scale(pull, stiffness));
 sp-gravity-scale | src/spring_step.c | next = maniVec3Add(next, maniVec3Scale(gravity, h.scale)); | next = maniVec3Add(next, gravity);
@@ -2567,7 +2567,7 @@ ss-compute | src/spring_state.c | return maniPoseModelCurrent(pose) || maniCompu
 ss-placement | src/spring_state.c | place = *placement; | (void)placement;
 ss-delta | src/spring_state.c | if (state == NULL || pose == NULL || !isfinite(delta) || !PlacementValid(&place) || | if (state == NULL || pose == NULL || !PlacementValid(&place) ||
 ss-normalize | src/spring_state.c | place.rotation = maniQuatNormalize(place.rotation); | (void)0;
-ss-fabs | src/spring_state.c | maniSpringStepBlock(state->set, block, block + state->words, pose, &place, fabs((double)delta)); | maniSpringStepBlock(state->set, block, block + state->words, pose, &place, (double)delta);
+ss-fabs | src/spring_state.c | fabs((double)delta)); | (double)delta);
 ss-reset | src/spring_state.c | memset(maniSpringBlock(state), 0, 4 * (size_t)state->words); | (void)state;
 ss-saved-size | src/spring_state.c | return set == NULL ? 0 : MANI_SPRING_STATE_HEADER_SIZE + 4 * (size_t)maniSpringBlockWords(set); | return set == NULL ? 0 : 4 * (size_t)maniSpringBlockWords(set);
 ss-save-cap | src/spring_state.c | if (capacity < size) | if (false)
@@ -2640,8 +2640,8 @@ gn-valid-set | src/graph_spring.c | if (Word(g, data + maniGraphSpringSet) >= g-
 gn-valid-param | src/graph_spring.c | if (!ParameterOf(g, Word(g, data + maniGraphSpringPosition + k), types[k])) | if (false)
 gn-param-type | src/graph_spring.c | maniLoadU32(g->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE) == type); | true);
 gn-valid-block | src/graph_spring.c | if (Word(g, data + maniGraphSpringBlock) != block) | if (false)
-gn-valid-low | src/graph_spring.c | return words >= maniSpringJoints && words <= MANI_GRAPH_SPRING_MAX_WORDS | return words <= MANI_GRAPH_SPRING_MAX_WORDS
-gn-valid-high | src/graph_spring.c | return words >= maniSpringJoints && words <= MANI_GRAPH_SPRING_MAX_WORDS | return words >= maniSpringJoints
+gn-valid-low | src/graph_spring.c | if (words < maniSpringJoints || words > MANI_GRAPH_SPRING_MAX_WORDS) | if (words > MANI_GRAPH_SPRING_MAX_WORDS)
+gn-valid-high | src/graph_spring.c | if (words < maniSpringJoints || words > MANI_GRAPH_SPRING_MAX_WORDS) | if (words < maniSpringJoints)
 gn-fits | src/graph_spring.c | return maniSpringBlockWords(set) == Word(g, data + maniGraphSpringStateWords); | return true;
 gn-saved-neg | src/graph_spring.c | if (!(pending >= 0.0 && isfinite(pending))) | if (!isfinite(pending))
 gn-saved-inf | src/graph_spring.c | if (!(pending >= 0.0 && isfinite(pending))) | if (!(pending >= 0.0))
@@ -2658,7 +2658,7 @@ gn-check-max | src/graph_check.c | MANI_GRAPH_SPRING_MAX_WORDS; | UINT32_MAX;
 gn-check-param | src/graph_check.c | ok = parameters[k] == MANI_NO_PARAMETER || | ok = true ||
 gn-eval-position | src/graph_evaluate.c | t.translation = (maniVec3){f[0], f[1], f[2]}; | (void)f;
 gn-eval-rotation | src/graph_evaluate.c | t.rotation = maniQuatNormalize((maniQuat){f[0], f[1], f[2], f[3]}); | t.rotation = (maniQuat){f[0], f[1], f[2], f[3]};
-gn-eval-spring | src/graph_evaluate.c | maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, out); | (void)set;
+gn-eval-spring | src/graph_evaluate.c | maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, push, out); | (void)set;
 gn-update-clear | src/graph_update.c | u->instance->cells[reset].value.b = 0; | (void)reset;
 gn-update-fired | src/graph_update.c | bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0; | bool fired = false;
 gn-update-seek | src/graph_update.c | if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0) | if (fired)
@@ -2739,3 +2739,19 @@ sw-keep-joint | src/spring_step.c | work + maniSpringNowJointAt(j) + maniSpringN
 sw-keep-bones | src/spring_step.c | 4 * (size_t)(set->colliderCount + set->springCount) * MANI_SPRING_BONE_WORDS); | 4 * (size_t)set->colliderCount * MANI_SPRING_BONE_WORDS);
 sw-work-size | src/spring_state.c | return maniSpringShapeAt(set, set->colliderCount); | return maniSpringShapeAt(set, 0);
 sw-room-spring | src/graph_instance.c | need = 4 * (size_t)maniGraphSpringWorkWords(maniGraphBoundSpringSet(binding, slot)); | need = 0;
+
+# Spring bones' external force (src/spring*.c, the graph's spring node)
+sf-forcing-store | src/spring_build.c | StoreF32(e + maniSpringJointForcing, (float)forcing); | StoreF32(e + maniSpringJointForcing, 0.0f);
+sf-forcing-finite | src/spring.c | uint32_t wrong = FirstNotFinite(e + maniSpringJointForcing, 13); | uint32_t wrong = FirstNotFinite(e + maniSpringJointHitRadius, 12);
+sf-forcing-sign | src/spring.c | if (!(LoadF32(e + maniSpringJointForcing) >= 0.0f)) | if (false)
+sf-apply | src/spring_step.c | maniVec3Scale(s->force, FileFloat(e + maniSpringJointForcing))); | maniVec3Scale(s->force, 1.0f / 60.0f));
+sf-lerp | src/spring_step.c | Lerp(maniSpringVec(block, maniSpringForce), force, f)}; | force};
+sf-keep | src/spring_step.c | maniSpringSetVec(block, maniSpringForce, force); | (void)force;
+sf-saved | src/spring_state.c | wrong = wrong != kValid ? wrong : FiniteRun(bytes, maniSpringForce, 3); | wrong = wrong;
+sf-finite-x | src/spring_state.c | !isfinite(push.x) || !isfinite(push.y) || !isfinite(push.z) || !ModelReady(state, pose)) | !isfinite(push.y) || !isfinite(push.z) || !ModelReady(state, pose))
+sf-null | src/spring_state.c | push = *force; | (void)force;
+sf-node-param | src/graph_spring.c | return ParameterOf(g, Word(g, data + maniGraphSpringForce), maniGraphParameterVec3) | return true
+sf-node-read | src/graph_evaluate.c | push = (maniVec3){f[0], f[1], f[2]}; | push = (maniVec3){f[0], f[1], 0.0f};
+sf-check | src/graph_check.c | const uint32_t parameters[4] = {s->position, s->rotation, s->reset, s->force}; | const uint32_t parameters[4] = {s->position, s->rotation, s->reset, MANI_NO_PARAMETER};
+sf-inline | src/graph_inline.c | node->spring.force = Resolve(s, node->spring.force); | (void)s;
+sf-json-key | src/graph_json.c | const char* const keys[4] = {"position", "rotation", "reset", "force"}; | const char* const keys[4] = {"position", "rotation", "reset", "wind"};
