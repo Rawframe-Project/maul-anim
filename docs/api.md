@@ -111,6 +111,11 @@ MANI_NODISCARD MANI_API maniResult maniCompressClip(maniBuilder* builder, const 
 Compresses a full-precision clip into the builder (mani-0019): default and constant channels folded, segments of about 16 samples, ranges over the clip and the segment, and per segment the fewest bits that keep every bone's shell and every float track within its tolerance at every sample. The same input gives the same bytes on every platform.  @param builder    The builder. @param clip       A full-precision clip. @param skeleton   Its skeleton. @param options    The tolerances. @param reportOut  Receives the report. May be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a compressed clip, a skeleton not the clip's, or a tolerance not finite and above 0; `mani_errorCapacity` when the allocator fails. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildSpringSet(maniBuilder* builder, const maniSpringSetSource* source);
+```
+Builds a spring set (mani-0026): the source checked (bones, shapes, chains and centers as VRMC_springBone and its extensions require, every value in its range), each joint's drag, stiffness and gravity converted from a frame of the reference rate to a step of the step rate, colliders listed per spring.  @param builder  A builder; its last output is replaced on success. @param source   The set's source. @return `mani_success`; `mani_errorInvalid` with the reason, item and other for a refused source (or NULL arguments, a misuse); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
 ```
 Copies the last built file, or the last written text, into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open a file's copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file or text, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding neither. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -1262,6 +1267,40 @@ MANI_NODISCARD MANI_API maniResult maniPaletteRows(const maniAffine* palette, ui
 ```
 Writes a palette for shaders: each matrix as three rows of four floats (row-major 3x4), the translation last in each row.  @param palette  count matrices, as maniComputePalette writes them. @param count    The number of matrices. @param rows     Receives 12 floats a matrix. @return `mani_success`; `mani_errorInvalid` for a NULL pointer with a count. @par Thread safety Safe from any thread.
 
+## `spring.h`
+
+Spring bones (mani-0026): chains of bones that sway behind the motion as VRMC_springBone 1.0 defines them, with its extended colliders (inside spheres and capsules, planes) and angle limits (cones, hinges, spherical limits). A set is built offline for one skeleton, its per-frame values converted to a fixed step, and opened in place.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* setOut);
+```
+Opens a spring set file in place: checks the container and every record (bones within the skeleton's count, shapes, chains each joint above the next as far as the file can tell, links, names, every float finite and in its range).  @param bytes   The file, 16-byte aligned. @param size    Its size in bytes; bytes past the file are ignored. @param setOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniSpringSetIdentity(const maniSpringSet* set);
+```
+Returns a set's identity: the hash of its sections.  @param set  An opened set, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniSpringSetSkeletonIdentity(const maniSpringSet* set);
+```
+Returns the identity of the skeleton a set was built for.  @param set  An opened set, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniSpringSetSpringCount(const maniSpringSet* set);
+```
+Returns the number of springs (chains) in a set.  @param set  An opened set, or NULL. @return The count; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring, uint32_t* lengthOut);
+```
+Returns a spring's name, its bytes inside the set (not terminated).  @param set        An opened set. @param spring     The spring's index. @param lengthOut  Receives the name's length in bytes (0 when the spring has none or the call fails). May be NULL. @return The name's first byte; NULL for a NULL set or an index past the springs, and an empty name's position for none. @par Thread safety Safe from any thread.
+
+```c
+float maniSpringSetStepRate(const maniSpringSet* set, float* referenceRateOut);
+```
+Returns the rate a set steps at (steps a second), and the rate its source's values were per frame of.  @param set               An opened set, or NULL. @param referenceRateOut  Receives the reference rate. May be NULL. @return The step rate; 0 for NULL. @par Thread safety Safe from any thread.
+
 ## `trajectory.h`
 
 A character's trajectory predicted for motion matching (mani-0024): Holden's critically damped springs, in closed form, take a simulated root toward a desired velocity and rotation; its samples, predicted or recorded, become the query values of a database's trajectory channels.
@@ -1278,4 +1317,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-240 functions across 19 headers.
+247 functions across 20 headers.

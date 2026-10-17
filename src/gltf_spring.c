@@ -314,7 +314,10 @@ static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
 static maniImportResult ReadJoint(const Reader* r, uint32_t value, uint32_t item, uint32_t* node,
                                   maniSpringJointSource* j)
 {
-    *j = (maniSpringJointSource){.stiffness = 1.0f, .gravityDirection = {0, -1, 0}, .drag = 0.5f};
+    *j = (maniSpringJointSource){.stiffness = 1.0f,
+                                 .gravityDirection = {0, -1, 0},
+                                 .drag = 0.5f,
+                                 .limitRotation = {0, 0, 0, 1}};
     if (r->gltf->json.values[value].kind != maniJsonObject)
     {
         return Fail(r, maniImportReasonProperty, value, item);

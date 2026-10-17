@@ -247,6 +247,25 @@ extern "C"
         // A graph's model slot without a model, with one of another
         // skeleton or one an earlier slot (other) has; item is the slot.
         maniBuildReasonModel = 42,
+        // A spring set's collider (item) on a bone out of range, of an
+        // unknown shape, inside as a plane, with a radius negative or a
+        // value not finite, or a plane's normal not of length 1.
+        maniBuildReasonCollider = 43,
+        // A spring set's collider group (item) naming a collider out of
+        // range at its entry other.
+        maniBuildReasonColliderGroup = 44,
+        // A spring set's spring (item) of fewer than two joints, a joint
+        // (other) on a bone out of range or not below the joint before
+        // it, a group out of range (other the entry, past the joints), or
+        // a center neither the first joint nor above it, or one on or
+        // below another spring's joint (other the joint count).
+        maniBuildReasonSpring = 45,
+        // A spring set's joint (other) of a spring (item) with a value
+        // outside its range: hit radius, stiffness or gravity power
+        // negative, drag outside 0 to 1, a gravity direction not finite,
+        // an unknown limit, a limit's angle negative or not finite or its
+        // rotation not of length 1.
+        maniBuildReasonSpringJoint = 46,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -258,6 +277,7 @@ extern "C"
         maniBuildReasonSyncGroupList = 0x700,
         maniBuildReasonDatabaseList = 0x800,
         maniBuildReasonModelList = 0x900,
+        maniBuildReasonSpringList = 0xA00,
     };
 
     // A build's outcome: the status and, when the source was refused
@@ -646,10 +666,15 @@ extern "C"
     {
         maniColliderSphere = 0,
         maniColliderCapsule = 1,
+        // VRMC_springBone_extended_collider's plane.
+        maniColliderPlane = 2,
     };
 
-    // A collider on a bone: a sphere at offset, or a capsule from offset
-    // to tail, both in the bone's local space.
+    // A collider on a bone: a sphere at offset, a capsule from offset to
+    // tail, or a plane through offset whose unit normal is tail, in the
+    // bone's local space. A sphere or capsule keeps tails out of it, or
+    // in it when inside is 1 (the extended collider's inside shapes); a
+    // plane keeps them on its normal's side.
     typedef struct maniColliderSource
     {
         uint32_t bone;
@@ -657,7 +682,7 @@ extern "C"
         maniVec3 offset;
         maniVec3 tail;
         float radius;
-        uint32_t reserved;
+        uint32_t inside;
     } maniColliderSource;
 
     // Colliders that springs collide with together.
@@ -669,8 +694,25 @@ extern "C"
         const uint32_t* colliders;
     } maniColliderGroupSource;
 
+    // A spring joint's angle limit (VRMC_springBone_limit): none, a cone
+    // (angle), a hinge (angle, turning about the limit's x only) or a
+    // spherical limit (pitch about x, yaw about z), each opening along
+    // the limit's +y.
+    typedef uint32_t maniSpringLimit;
+    enum
+    {
+        maniSpringLimitNone = 0,
+        maniSpringLimitCone = 1,
+        maniSpringLimitHinge = 2,
+        maniSpringLimitSpherical = 3,
+    };
+
     // A spring chain's joint: a bone and the motion of the segment it
-    // heads (the last joint is only a tail), as VRM defines them.
+    // heads (the last joint is only a tail), as VRM defines them, per
+    // frame of the set's reference rate; its limit's angles in radians
+    // (angle the cone's or hinge's, or the spherical limit's pitch; yaw
+    // the spherical limit's) and the rotation from the limit's default
+    // orientation. The last joint's limit is ignored.
     typedef struct maniSpringJointSource
     {
         uint32_t bone;
@@ -680,6 +722,11 @@ extern "C"
         maniVec3 gravityDirection;
         // Air resistance, 0 to 1.
         float drag;
+        maniSpringLimit limit;
+        float limitAngle;
+        float limitYaw;
+        uint32_t reserved;
+        maniQuat limitRotation;
     } maniSpringJointSource;
 
     // A chain of joints, each an ancestor of the next, colliding with
@@ -696,7 +743,10 @@ extern "C"
         uint32_t center;
     } maniSpringSource;
 
-    // A skeleton's spring bones: colliders, collider groups, springs.
+    // A skeleton's spring bones: colliders, collider groups, springs;
+    // the rate its joints' values are per frame of (0 for 60 Hz) and the
+    // rate it steps at (0 for the reference rate), both up to
+    // MANI_SPRING_MAX_RATE.
     typedef struct maniSpringSetSource
     {
         const maniSkeleton* skeleton;
@@ -706,8 +756,28 @@ extern "C"
         uint32_t colliderCount;
         uint32_t colliderGroupCount;
         uint32_t springCount;
+        float referenceRate;
+        float stepRate;
         uint32_t reserved;
     } maniSpringSetSource;
+
+#define MANI_SPRING_MAX_RATE 1000.0f
+
+    /// Builds a spring set (mani-0026): the source checked (bones, shapes,
+    /// chains and centers as VRMC_springBone and its extensions require,
+    /// every value in its range), each joint's drag, stiffness and gravity
+    /// converted from a frame of the reference rate to a step of the step
+    /// rate, colliders listed per spring.
+    ///
+    /// @param builder  A builder; its last output is replaced on success.
+    /// @param source   The set's source.
+    /// @return `mani_success`; `mani_errorInvalid` with the reason, item
+    /// and other for a refused source (or NULL arguments, a misuse);
+    /// `mani_errorCapacity` when memory runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildSpringSet(maniBuilder* builder,
+                                                               const maniSpringSetSource* source);
 
     /// Copies the last built file, or the last written text, into caller
     /// memory.

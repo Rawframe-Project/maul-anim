@@ -47,6 +47,7 @@ enum
     maniKindMotionDatabase = 8,
     maniKindLearnedModel = 9,
     maniKindLearnedCheckpoint = 10,
+    maniKindSpringSet = 11,
 };
 
 // An opened container: a view over the caller's bytes.

@@ -165,6 +165,14 @@ format.
   inertialization requested above it; the Decompressor gives the pose,
   the root motion and events; saved states, subgraphs and the JSON form
   carry it.
+- Spring sets (mani-0026): `maniBuildSpringSet` builds a skeleton's
+  spring bones (VRMC_springBone 1.0 with its extended colliders, inside
+  spheres and capsules and planes, and its cone, hinge and spherical
+  limits), each joint's drag, stiffness and gravity converted from a
+  frame of a reference rate (60 Hz by default) to a fixed step;
+  `maniOpenSpringSet` opens one in place with every record checked.
+  `maniColliderSource` gains the plane shape and inside colliders,
+  `maniSpringJointSource` the limits, `maniSpringSetSource` the rates.
 - Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
   the host's task system, through which the library's parallel work
   will run, results never depending on how the host splits it.

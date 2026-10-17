@@ -42,9 +42,12 @@ trajectory: elementary_float match_move vecmath
 match_sample: match match_file match_move vecmath
 match_build: allocator builder bytes container match match_file match_sample text
 learned_file:
+spring_file:
+spring: bytes container spring_file text
 learned: bytes container learned_file match_file text
 learned_eval: bytes learned_file vecmath
 learned_build: allocator builder bytes container learned_file match_file text
+spring_build: allocator builder bytes container scalar spring_file text vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:
