@@ -2040,12 +2040,12 @@ gc-tags | src/graph_match_check.c | (ParameterOf(source, tags.parameter, maniGra
 gc-period | src/graph_match_check.c | isfinite(m->period) && m->period > 0.0f && Seconds(m->jumpThreshold) && | isfinite(m->period) && Seconds(m->jumpThreshold) &&
 gc-history | src/graph_match_check.c | isfinite(m->transitionCost) && m->historyCount <= MANI_MATCH_MAX_HISTORY && | isfinite(m->transitionCost) &&
 gc-duration | src/graph_match_check.c | ? Seconds(d.value) | ? isfinite(d.value)
-gb-size | src/graph_bind.c | (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*); | 0;
+gb-size | src/graph_bind.c | (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*) + | 0 +
 # gb-skeleton survives, equivalent: a database whose clips are the
 # graph's, identities alike, is of the graph's skeleton.
 gb-skeleton | src/graph_bind.c | if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count) | if (d->clipCount != count)
 gb-clips | src/graph_bind.c | if (maniMotionDatabaseClipIdentity(d, c) != maniGraphClipIdentity(graph, clip)) | if (false)
-gb-query | src/graph_bind.c | if (!maniGraphQueryFits(d, types, queries)) | if (false)
+gb-query | src/graph_bind.c | if (!maniGraphQueryFits(d, d->channelCount, maniGraphDatabaseChannel, types, queries)) | if (false)
 gb-fits | src/graph_bind.c | return DatabaseFits(graph, slot, d) ? d : NULL; | return d;
 gb-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + s; | *unboundOut = s;
 g-db-first | src/graph.c | if (maniLoadU32(e + 24) != next) | if (false)
@@ -2057,9 +2057,9 @@ gn-flags | src/graph_nodes.c | return n->flags == 0; | return true;
 gn-words | src/graph_nodes.c | words = n->kind == maniGraphNodeMatch ? maniGraphMatchDataWords(g, n->data, available) : words; | words = words;
 gn-block | src/graph_nodes.c | return MANI_GRAPH_MATCH_BLOCK_WORDS; | return 0;
 gk-words | src/graph_check.c | tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u; | tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS : 0u;
-gk-inertial | src/graph_check.c | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match ? 1u : 0u; | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX ? 1u : 0u;
+gk-inertial | src/graph_check.c | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match || learned ? 1u : 0u; | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || learned ? 1u : 0u;
 gk-count | src/graph_check.c | source->databaseCount <= MANI_GRAPH_MAX_DATABASES && | true &&
-gmc-match | src/graph_machine_check.c | if (node->kind == maniGraphNodeMatch) | if (false)
+gmc-match | src/graph_machine_check.c | if (node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned) | if (node->kind == maniGraphNodeLearned)
 gi-join | src/graph_inline.c | ? maniMotionDatabaseIdentity(other) == maniMotionDatabaseIdentity(d->database) | ? false
 gi-clips | src/graph_inline.c | (void)ClipSlot(s, f, k); | (void)k;
 gi-database | src/graph_inline.c | m->database = DatabaseSlot(s, f, m->database); | m->database = m->database;
@@ -2070,8 +2070,10 @@ gi-query | src/graph_inline.c | to[q] = Resolve(s, m->query[q]); | to[q] = m->qu
 gj-list | src/graph_json.c | if (source->databaseCount > 0) | if (false)
 gj-trigger | src/graph_json.c | if (m->trigger != MANI_NO_PARAMETER) | if (false)
 gj-tags | src/graph_json.c | if (tags.parameter == MANI_NO_PARAMETER) | if (true)
-gr-period | src/graph_json_graph.c | .period = 0.1f, | .period = 1.0f,
-gr-tags-range | src/graph_json_graph.c | bool whole = maniJsonInteger(r->json, value, 0, UINT32_MAX, &bits); | bool whole = maniJsonInteger(r->json, value, 0, INT32_MAX, &bits);
+# gr-period was dropped: the period's default line is now in
+# src/graph_json_search.c twice (match and learned nodes), which the
+# runner cannot address; the JSON tests read both defaults.
+gr-tags-range | src/graph_json_search.c | bool whole = maniJsonInteger(r->json, value, 0, UINT32_MAX, &bits); | bool whole = maniJsonInteger(r->json, value, 0, INT32_MAX, &bits);
 gr-inputs | src/graph_json_graph.c | bool takesInputs = k->kind != maniGraphNodeClip && k->kind != maniGraphNodeMatch && | bool takesInputs = k->kind != maniGraphNodeClip &&
 # ge-cursor survives, equivalent: the cursors are caches of a clip's
 # last key, two nodes sharing one sample alike.
@@ -2109,7 +2111,7 @@ le-narrow-scale | src/learned_eval.c | float x = from[i] * LoadF32(scales + 4 * 
 le-narrow-row | src/learned_eval.c | const uint8_t* row = w + 2 * (size_t)i * outputs; | const uint8_t* row = w + 2 * (size_t)i;
 le-narrow-sign | src/learned_eval.c | to[o] += x * (float)(int16_t)maniLoadU16(row + 2 * (size_t)o); | to[o] += x * (float)maniLoadU16(row + 2 * (size_t)o);
 le-normalize | src/learned_eval.c | a[i] = (input[i] - LoadF32(v + 4 * (size_t)i)) / LoadF32(v + 4 * ((size_t)w.in + i)); | a[i] = input[i] - LoadF32(v + 4 * (size_t)i);
-le-relu-last | src/learned_eval.c | if (l + 1 < w.firstLayer + w.layerCount) | if (true)
+le-relu-last | src/learned_eval.c | if (!last) | if (true)
 le-relu | src/learned_eval.c | b[o] = b[o] > 0.0f ? b[o] : 0.0f; | b[o] = b[o];
 le-advance | src/learned_eval.c | v += 4 * ((size_t)count + (narrow ? inputs : 0u)); | v += 4 * (size_t)count;
 le-denormalize | src/learned_eval.c | a[o] = a[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o); | a[o] = a[o] + LoadF32(outputs + 4 * (size_t)o);
@@ -2363,14 +2365,14 @@ lc-option | src/learned_checkpoint.c | o->seed, | 0,
 lc-events | src/learned_checkpoint.c | return HashNames(hash, s->events, s->eventCount); | return hash;
 lc-filters | src/learned_checkpoint.c | for (uint32_t p = 0; p < s->projectorCount; ++p) | for (uint32_t p = 0; p < 0; ++p)
 lc-begun | src/learned_checkpoint.c | maniStoreU32(progress + 4, t->begun ? 1u : 0u); | maniStoreU32(progress + 4, 1u);
-lc-loss | src/learned_checkpoint.c | maniStoreU32(progress + 16, Bits(t->loss)); | maniStoreU32(progress + 16, 0);
-lc-random | src/learned_checkpoint.c | maniStoreU64(progress + 24 + 8 * k, t->random.s[k]); | maniStoreU64(progress + 24 + 8 * k, t->random.s[0]);
+lc-loss | src/learned_checkpoint.c | maniStoreU32(progress + 16, t->begun ? Bits(t->loss) : 0u); | maniStoreU32(progress + 16, 0u);
+lc-random | src/learned_checkpoint.c | maniStoreU64(progress + 24 + 8 * k, t->begun ? t->random.s[k] : 0u); | maniStoreU64(progress + 24 + 8 * k, t->begun ? t->random.s[0] : 0u);
 lc-capacity | src/learned_checkpoint.c | if (!maniContainerSize(sections, count, &size) || size > capacity) | if (!maniContainerSize(sections, count, &size))
 ls-identity | src/learned_restore.c | if (c.identity != trainer->signature) | if (false)
-ls-stage | src/learned_restore.c | const bool valid[5] = {p->stage <= t->stageCount, begun <= 1 && (working || !p->begun), | const bool valid[5] = {true, begun <= 1 && (working || !p->begun),
-ls-working | src/learned_restore.c | const bool valid[5] = {p->stage <= t->stageCount, begun <= 1 && (working || !p->begun), | const bool valid[5] = {p->stage <= t->stageCount, begun <= 1,
+ls-stage | src/learned_restore.c | const bool valid[6] = {p->stage <= t->stageCount, | const bool valid[6] = {true,
+ls-working | src/learned_restore.c | begun <= 1 && (working || !p->begun), | begun <= 1,
 ls-iteration | src/learned_restore.c | p->iteration <= t->source.options.iterations && | true &&
-ls-loss | src/learned_restore.c | fabsf(p->loss) < HUGE_VALF, maniLoadU32(bytes + 20) == 0}; | true, maniLoadU32(bytes + 20) == 0};
+ls-loss | src/learned_restore.c | fabsf(p->loss) < HUGE_VALF && (p->begun || maniLoadU32(bytes + 16) == 0), | (p->begun || maniLoadU32(bytes + 16) == 0),
 ls-positive | src/learned_restore.c | if (!(fabsf(x) < HUGE_VALF) || (positive && x < 0.0f) || zero) | if (!(fabsf(x) < HUGE_VALF) || zero)
 ls-zero | src/learned_restore.c | if (!(fabsf(x) < HUGE_VALF) || (positive && x < 0.0f) || zero) | if (!(fabsf(x) < HUGE_VALF) || (positive && x < 0.0f))
 ls-sections | src/learned_restore.c | if (c->sectionCount != sections) | if (c->sectionCount < sections)
