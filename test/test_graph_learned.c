@@ -395,6 +395,10 @@ static void TestNoProjector(void)
     Update(instance, 0.25f);
     CHECK(Zero(LearnedBlock(instance, &g, 0), BLOCK_WORDS) && State(instance, &g, 0)->time == 0.0,
           "no Projector: no state");
+    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+              maniPoseSetRest(s_learnedPose, &s_skeleton) == mani_success &&
+              SamePose(s_pose, s_learnedPose),
+          "weighed with no state: the rest pose");
     v.i = 1;
     Set(instance, 2, maniGraphParameterInt, v);
     Update(instance, 0.0f);

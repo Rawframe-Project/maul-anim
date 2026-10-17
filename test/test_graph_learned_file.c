@@ -207,9 +207,26 @@ static void TestLongQuery(void)
     uint64_t at = 0;
     maniFileResult r = Crafted(&g, 0, maniGraphLearnedQueryCount, MANI_MATCH_MAX_FEATURES + 1, &at);
     CHECK(r.result == mani_errorFormat && r.offset < at, "refused before the node's words");
+    // The record's word count made to agree: still refused at it.
+    maniContainer c;
+    const uint8_t* bytes = NULL;
+    uint64_t size = 0;
+    uint64_t records = 0;
+    CHECK(
+        maniOpenContainer(s_crafted, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
+                mani_success &&
+            maniContainerSection(&c, maniGraphTagNodes, &bytes, &size, &records),
+        "the nodes");
+    maniStoreU32(s_crafted + records + 16, MANI_GRAPH_LEARNED_WORDS + MANI_MATCH_MAX_FEATURES + 1);
+    Rehash(s_crafted);
+    maniGraph crafted;
+    r = maniOpenGraph(s_crafted, s_size, &crafted);
+    CHECK(r.result == mani_errorFormat && r.offset == records + 16,
+          "a query count past the features, its words counted");
 }
 
-// A model whose Decompressor is wider (24), in its own bytes; built
+// A model whose Decompressor is wider (48, past its 39 outputs), in its
+// own bytes; built
 // before the fixture's model, whose bytes Build reuses.
 static _Alignas(16) uint8_t s_wideFile[65536];
 static maniLearnedModel s_wide;
@@ -218,14 +235,13 @@ static void OpenWide(void)
 {
     MakeNetworks();
     static maniLearnedLayerSource layers[2];
-    static const uint32_t kWide[3] = {STATE, 24, OUTPUTS};
+    static const uint32_t kWide[3] = {STATE, 48, OUTPUTS};
     maniLearnedNetworkSource wide = Network(layers, kWide, 2);
     maniLearnedModelSource source = Source();
     source.decompressor = &wide;
     CHECK(Build(&source).result == mani_success && s_modelSize <= sizeof s_wideFile, "built");
     memcpy(s_wideFile, s_model, s_modelSize);
-    CHECK(maniOpenLearnedModel(s_wideFile, s_modelSize, &s_wide).result == mani_success &&
-              maniLearnedScratchSize(&s_wide) > maniLearnedScratchSize(&s_learned),
+    CHECK(maniOpenLearnedModel(s_wideFile, s_modelSize, &s_wide).result == mani_success,
           "a wider model");
 }
 
@@ -269,6 +285,7 @@ static void TestRoom(bool wideFirst)
     maniGraphInstance* instance = MakeLearned(source, &g);
     const maniGraphBinding* binding = instance->binding;
     size_t room = (Need(&s_wide) + 7u) & ~(size_t)7u;
+    CHECK(room > Need(&s_learned), "the wider model needs more");
     CHECK(maniGraphLearnedRoom(binding) == room &&
               maniGraphInstanceSize(binding) == instance->learnedAt + room,
           "the room the wider model needs");
