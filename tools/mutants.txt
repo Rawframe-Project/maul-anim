@@ -2755,3 +2755,38 @@ sf-node-read | src/graph_evaluate.c | push = (maniVec3){f[0], f[1], f[2]}; | pus
 sf-check | src/graph_check.c | const uint32_t parameters[4] = {s->position, s->rotation, s->reset, s->force}; | const uint32_t parameters[4] = {s->position, s->rotation, s->reset, MANI_NO_PARAMETER};
 sf-inline | src/graph_inline.c | node->spring.force = Resolve(s, node->spring.force); | (void)s;
 sf-json-key | src/graph_json.c | const char* const keys[4] = {"position", "rotation", "reset", "force"}; | const char* const keys[4] = {"position", "rotation", "reset", "wind"};
+
+# Ragdoll profiles, bodies and poses (mani-0027): all killed; ro-used-capsule
+# by the tests reading a profile its mutant refuses.
+ro-unit-low | src/ragdoll.c | return lengthSquared >= 0.998f && lengthSquared <= 1.002f; | return lengthSquared <= 1.002f;
+ro-bones-zero | src/ragdoll.c | if (out->boneCount < 1 || out->boneCount > MANI_MAX_BONES) | if (out->boneCount > MANI_MAX_BONES)
+ro-bodies-over | src/ragdoll.c | if (out->bodyCount < 1 || out->bodyCount > out->boneCount) | if (out->bodyCount < 1)
+ro-header-zero | src/ragdoll.c | return maniLoadU32(h + 44) == 0 ? kOk : Fail(at + 44); | return kOk;
+ro-shape-unknown | src/ragdoll.c | if (shape > maniRagdollBox) | if (shape > 3)
+ro-used-capsule | src/ragdoll.c | uint32_t used = shape == maniRagdollSphere ? 1u : shape == maniRagdollCapsule ? 2u : 3u; | uint32_t used = shape == maniRagdollSphere ? 1u : 3u;
+ro-mass | src/ragdoll.c | return LoadF32(e + maniRagdollBodyMass) > 0.0f ? kOk : Fail(at + maniRagdollBodyMass); | return LoadF32(e + maniRagdollBodyMass) >= 0.0f ? kOk : Fail(at + maniRagdollBodyMass);
+ro-twist-low | src/ragdoll.c | if (!(low >= -PI_F && low <= high)) | if (!(low <= high))
+ro-twist-high | src/ragdoll.c | if (!(high <= PI_F)) | if (false)
+ro-swing | src/ragdoll.c | if (!(swing >= 0.0f && swing <= PI_F)) | if (!(swing >= 0.0f))
+ro-drive | src/ragdoll.c | if (!(LoadF32(e + maniRagdollBodyDrive + 4 * k) >= 0.0f)) | if (false)
+ro-bone-order | src/ragdoll.c | if (bone >= r->boneCount || (i > 0 && bone <= before)) | if (bone >= r->boneCount || (i > 0 && bone < before))
+ro-parent | src/ragdoll.c | if (i == 0 ? parent != MANI_NO_BONE : parent >= i) | if (i == 0 ? parent != MANI_NO_BONE : parent > i)
+ro-zero-words | src/ragdoll.c | bool zero = k == 20 || k >= maniRagdollBodyEnd; | bool zero = k == 20;
+ro-names-total | src/ragdoll.c | if (f.result == mani_success && name != r->nameBytes) | if (false)
+ro-identity | src/ragdoll.c | if (maniRagdollComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
+rb-taken | src/ragdoll_build.c | if (w->bones[b->bone].bodyOf != 0) | if (false)
+rb-second-root | src/ragdoll_build.c | if (isRoot && root != MANI_NO_BONE) | if (false)
+rb-parent-joint | src/ragdoll_build.c | StoreRigid(e + maniRagdollBodyParentJoint, Compose(Inverse(BodyFrame(parent, w)), model)); | StoreRigid(e + maniRagdollBodyParentJoint, Compose(BodyFrame(parent, w), model));
+rb-inverse-sign | src/ragdoll_build.c | return (Rigid){maniVec3Scale(maniQuatRotate(r, a.t), -1.0f), r}; | return (Rigid){maniQuatRotate(r, a.t), r};
+rb-models-parent | src/ragdoll_build.c | parent != MANI_NO_BONE ? maniAffineMul(&bones[parent].affine, &local) : local; | local;
+rb-index | src/ragdoll_build.c | uint32_t parent = ancestor != MANI_NO_BONE ? w->bones[ancestor].indexOf : MANI_NO_BONE; | uint32_t parent = ancestor != MANI_NO_BONE ? w->bones[ancestor].bodyOf - 1 : MANI_NO_BONE;
+rp-rate | src/ragdoll_pose.c | b.linearVelocity = maniVec3Scale(maniVec3Sub(now.t, then.t), rate); | b.linearVelocity = maniVec3Sub(now.t, then.t);
+rp-relative | src/ragdoll_pose.c | maniVec3 relative = maniVec3Sub(child->angularVelocity, parent->angularVelocity); | maniVec3 relative = child->angularVelocity;
+rp-back | src/ragdoll_pose.c | jointsOut[i] = (maniRagdollJointTarget){turn, maniQuatRotate(back, relative)}; | jointsOut[i] = (maniRagdollJointTarget){turn, relative};
+rp-unit | src/ragdoll_pose.c | return l >= 0.998f && l <= 1.002f; | return l >= 0.998f;
+rp-local-t | src/ragdoll_pose.c | t = maniAffineTransformPoint(&inverse, want.t); | t = want.t;
+rp-mark | src/ragdoll_pose.c | maniPoseMarkModelCurrent(poseOut); | (void)poseOut;
+rp-model | src/ragdoll_pose.c | maniAffine model = parent != MANI_NO_BONE ? maniAffineMul(&parentModel, &own) : own; | maniAffine model = own;
+ro-perpendicular | src/ragdoll.c | !(fabsf(f.x * u.x + f.y * u.y + f.z * u.z) <= 1e-3f)) | !(fabsf(f.x * u.x + f.y * u.y + f.z * u.z) <= 2.0f))
+rb-perpendicular | src/ragdoll_build.c | Unit(maniVec3Dot(u, u)) && fabsf(maniVec3Dot(f, u)) <= 1e-3f; | Unit(maniVec3Dot(u, u));
+rp-seconds | src/ragdoll_pose.c | (!PoseUsable(ragdoll, previous) || !(seconds > 0.0f) || !Finite(seconds)))) | (!PoseUsable(ragdoll, previous) || !Finite(seconds))))

@@ -357,6 +357,8 @@ static void TestOpen(void)
         {h + 8, 0, h + 8},
         {h + 8, MANI_MAX_BONES + 1, h + 8},
         {h + 8, 5, a},
+        {h + 8, 4, h + 12},
+        {h + 16, 32, h + 16},
         {h + 12, 0, h + 12},
         {h + 12, 9, h + 12},
         {h + 12, 6, h + 12},

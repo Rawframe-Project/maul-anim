@@ -202,6 +202,16 @@ static void TestJointTargets(void)
     bodies[3].angularVelocity = (maniVec3){0.0f, 1.0f, 0.0f};
     CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5) == mani_success, "spinning");
     maniVec3 w = joints[4].angularVelocity;
+    // About the parent joint frame's axes: the world's (0, 2, 0) turned
+    // back by that frame's rotation.
+    maniRagdollBody elbow;
+    CHECK(maniRagdollReadBody(&s_ragdoll, 4, &elbow) == mani_success, "the elbow");
+    maniQuat frame = Mul(bodies[3].rotation, elbow.parentJointRotation);
+    maniQuat back = {-frame.x, -frame.y, -frame.z, frame.w};
+    maniQuat turned = Mul(Mul(back, (maniQuat){0.0f, 2.0f, 0.0f, 0.0f}), frame);
+    CHECK(VecApart(w, (maniVec3){turned.x, turned.y, turned.z}) < 1e-5f &&
+              VecApart(w, (maniVec3){0.0f, 2.0f, 0.0f}) > 0.1f,
+          "in the parent joint's frame");
     CHECK(fabsf(Length(w) - 2.0f) < 1e-5f && joints[2].angularVelocity.y == 0.0f &&
               fabsf(Length(joints[3].angularVelocity) - 1.0f) < 1e-5f &&
               joints[0].rotation.w == 1.0f,
