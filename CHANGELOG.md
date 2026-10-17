@@ -136,6 +136,14 @@ format.
   simulated root toward a desired velocity and rotation by Holden's
   critically damped springs in closed form; `maniTrajectoryFeatures`
   gives a sample's values for a database's trajectory channels.
+- Learned motion matching models (mani-0025): `maniBuildLearnedModel`
+  builds a model of a Decompressor, a Stepper and Projectors (one a
+  tag filter) over a motion database's schema, with binary32 or 16-bit
+  weights; `maniOpenLearnedModel` opens one in place with every record
+  checked; `maniLearnedProject`, `maniLearnedStep` and
+  `maniLearnedDecompress` evaluate it with the same bits on every
+  target (the pose from two rotation columns, root motion, float
+  tracks and events' states).
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

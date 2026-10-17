@@ -713,6 +713,84 @@ MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fb
 ```
 Returns where a model skeleton's root hangs, as maniFbxSkeletonPlacement.  @param fbx           The document. @param model         The root model. @param options       The options. @param placementOut  Receives the placement. @return As maniFbxSkeletonPlacement. @par Thread safety Safe from any thread.
 
+## `learned.h`
+
+Learned motion matching (mani-0025): a model of three networks that stands in for a motion database and its clips. The Projector maps a query to the state of the nearest frame it learned (its features and latent values), the Stepper moves a state one step on, and the Decompressor gives the pose, the root's motion, the float tracks and the events' states of a state. Models are built offline and opened in place; every evaluation gives the same bits on every target.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedModel* modelOut);
+```
+Opens a model file in place: checks the container, every record, count and float, that each network's layers chain and fit its role (the Decompressor from a state to the outputs, the Stepper from a state to a state's rate of change, each Projector from features to a state), and the names.  @param bytes     The file, 16-byte aligned. @param size      Its size in bytes; bytes past the file are ignored. @param modelOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniLearnedModelIdentity(const maniLearnedModel* model);
+```
+Returns a model's identity: the hash of its sections.  @param model  An opened model, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniLearnedModelSkeletonIdentity(const maniLearnedModel* model);
+```
+Returns the identity of the skeleton a model was built for.  @param model  An opened model, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniLearnedModelDatabaseIdentity(const maniLearnedModel* model);
+```
+Returns the identity of the motion database a model learned.  @param model  An opened model, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniLearnedModelChannel(const maniLearnedModel* model, uint32_t channel, maniMatchChannel* channelOut);
+```
+Reads a channel of the database a model learned (a query is laid out as that database's features).  @param model       An opened model. @param channel     The channel's index. @param channelOut  Receives the channel. @return `mani_success`; `mani_errorInvalid` for a NULL argument or an index past the channels. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniLearnedModelNormalization(const maniLearnedModel* model, float* offsetsOut, float* scalesOut);
+```
+Reads the normalization of the database a model learned: per feature, the offset taken from a value and the scale it is divided by.  @param model       An opened model. @param offsetsOut  Receives the feature count of offsets, or NULL. @param scalesOut   Receives the feature count of scales, or NULL. @return `mani_success`; `mani_errorInvalid` for a NULL model. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniLearnedModelProjector(const maniLearnedModel* model, uint32_t projector, uint32_t* requiredOut, uint32_t* excludedOut);
+```
+Reads the tag filter a Projector learned: an entry's tags held all of required and none of excluded for its frames to be targets.  @param model        An opened model. @param projector    The Projector's index. @param requiredOut  Receives the required tags, or NULL. @param excludedOut  Receives the excluded tags, or NULL. @return `mani_success`; `mani_errorInvalid` for a NULL model or an index past the Projectors. @par Thread safety Safe from any thread.
+
+```c
+const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32_t track, uint32_t* lengthOut);
+```
+Returns the name of a float track a model gives.  @param model      An opened model. @param track      The track's index. @param lengthOut  Receives the name's length in bytes, or NULL. @return The name, UTF-8, not terminated; NULL for a NULL model or an index past the tracks. @par Thread safety Safe from any thread.
+
+```c
+const char* maniLearnedModelEventName(const maniLearnedModel* model, uint32_t event, uint32_t* lengthOut);
+```
+Returns the name of an event a model gives the state of.  @param model      An opened model. @param event      The event's index. @param lengthOut  Receives the name's length in bytes, or NULL. @return The name, UTF-8, not terminated; NULL for a NULL model or an index past the events. @par Thread safety Safe from any thread.
+
+```c
+size_t maniLearnedScratchSize(const maniLearnedModel* model);
+```
+Returns the bytes of scratch memory an evaluation of the model needs.  @param model  An opened model, or NULL. @return The size; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query, float* stateOut, void* scratch, size_t scratchSize);
+```
+Projects a query onto the state of the nearest frame a Projector learned.  @param model        An opened model. @param projector    The Projector's index. @param query        The model's feature count of features, normalized as the database's. @param stateOut     Receives the state. @param scratch      Scratch memory, 4-byte aligned. @param scratchSize  Its size: at least maniLearnedScratchSize. @return `mani_success`; `mani_errorInvalid` for a NULL argument, an index past the Projectors, a query value not finite, misaligned or too little scratch. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* scratch, size_t scratchSize);
+```
+Moves a state one step on: adds the Stepper's rate of change times one step's seconds (1 / the model's step rate).  @param model        An opened model. @param state        The state, moved in place. @param scratch      Scratch memory, 4-byte aligned. @param scratchSize  Its size: at least maniLearnedScratchSize. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a state value not finite, misaligned or too little scratch. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniLearnedDecompress(const maniLearnedModel* model, const float* state, maniLearnedOutput* output, void* scratch, size_t scratchSize);
+```
+Decompresses a state: every bone's translation, its rotation from two matrix columns (made orthonormal, the first kept), its scale (given, or the constant the model keeps), and the rest of the outputs.  @param model        An opened model. @param state        The state. @param output       Receives what the Decompressor gives. @param scratch      Scratch memory, 4-byte aligned. @param scratchSize  Its size: at least maniLearnedScratchSize. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a state value not finite, a pose of another bone count or holding a difference, misaligned or too little scratch. @par Thread safety Safe from any thread.
+
+## `learnedbuild.h`
+
+Building learned motion matching models (mani-0025) from networks' weights: what a trainer gives, or networks trained elsewhere.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildLearnedModel(maniBuilder* builder, const maniLearnedModelSource* source);
+```
+Builds a model: checks the networks' shapes against their roles and every value, copies the database's channels, normalization and axes, and writes the weights as asked (16-bit: each input's weights divided by the largest of their magnitudes over 32767, rounded to nearest, ties to even, that scale kept).  @param builder  The builder. @param source   The model. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonDatabase` (a database of another skeleton), `maniBuildReasonTiming` (the step rate), `maniBuildReasonOption` (the latent count or weight format), `maniBuildReasonCount` (no Projector, or a list past its limit), `maniBuildReasonJoint` (a scaled bone past the skeleton or not increasing; item its place), `maniBuildReasonNotFinite` (a bone's scale; item the bone), `maniBuildReasonNetwork` (item the network: 0 the Decompressor, 1 the Stepper, 2 + p Projector p; other its layer, or its layer count for its normalization), `maniBuildReasonFloatTrack` or `maniBuildReasonEvent` combined with `maniBuildReasonName` or `maniBuildReasonDuplicateName`; `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `match.h`
 
 Motion matching (mani-0024): a motion database built offline from a skeleton's clips, opened in place. Each frame of the database is a clip at a time; its features describe the pose and the root's path around that time in the root's space, normalized per channel, so a search compares a query's features with every frame's.
@@ -1136,4 +1214,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-214 functions across 16 headers.
+228 functions across 18 headers.

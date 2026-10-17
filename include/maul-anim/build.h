@@ -227,6 +227,14 @@ extern "C"
         // a clip no clip slot has (other is the database's clip); item is
         // the slot.
         maniBuildReasonDatabase = 39,
+        // A learned model's network (mani-0025) with no layers or more
+        // than MANI_LEARNED_MAX_LAYERS, a layer of no inputs or outputs or
+        // past MANI_LEARNED_MAX_WIDTH, layers that do not chain, a first
+        // input or last output count its role does not take, weights past
+        // MANI_LEARNED_MAX_WEIGHTS in all, or a value not finite or a
+        // scale of 0; item is the network, other the layer (the layer
+        // count for the normalization).
+        maniBuildReasonNetwork = 40,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
