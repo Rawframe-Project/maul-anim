@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The graph file's layout (mani-0023, mani-0024), shared by its view and
+// The graph file's layout (mani-0023, mani-0024, mani-0025), shared by its view and
 // its builder: kind 3 of the container. Records are little-endian; names are
 // offsets into the names section; nodes are in topological order, each
 // after its inputs, the output last.
@@ -12,13 +12,13 @@
 #include <stdint.h>
 
 #define MANI_GRAPH_FORMAT_VERSION 1u
-#define MANI_GRAPH_SECTIONS       11u
+#define MANI_GRAPH_SECTIONS       12u
 
 enum
 {
     // The skeleton's identity (u64), then u32 each: its bone count, the
     // parameter, node, input, data word, clip, sync group, mask, slot,
-    // database and database clip counts, and 0.
+    // database, database clip and model counts.
     maniGraphTagHeader = 1,
     // MANI_GRAPH_PARAMETER_SIZE each: type, flags (bit 0 bounded), name
     // offset and length (u32 each), name hash (u64), default (16 bytes),
@@ -50,6 +50,9 @@ enum
     maniGraphTagDatabaseClips = 10,
     // The names' bytes, UTF-8.
     maniGraphTagNames = 11,
+    // MANI_GRAPH_MODEL_SIZE each: identity, name hash (u64 each), name
+    // offset and length (u32 each).
+    maniGraphTagModels = 12,
 };
 
 #define MANI_GRAPH_HEADER_SIZE     56u
@@ -58,6 +61,7 @@ enum
 #define MANI_GRAPH_CLIP_SIZE       32u
 #define MANI_GRAPH_SYNC_GROUP_SIZE 24u
 #define MANI_GRAPH_DATABASE_SIZE   32u
+#define MANI_GRAPH_MODEL_SIZE      24u
 
 // A parameter's and a node's flags.
 #define MANI_GRAPH_BOUNDED    1u

@@ -3,7 +3,8 @@
 //
 // A graph source read from its JSON form (mani-0023): parameters, clip
 // slots bound to the host's clips by name, sync groups, database slots
-// bound to the host's databases by name (mani-0024), nodes by kind and
+// bound to the host's databases by name (mani-0024), model slots bound to
+// the host's models by name (mani-0025), nodes by kind and
 // nested subgraphs, each list's names in a table before the nodes refer
 // to them; then built as maniBuildGraph builds any source.
 
@@ -234,6 +235,42 @@ static bool Databases(Reader* r, uint32_t value, maniGraphSource* out, Scope* sc
     out->databases = d;
     out->databaseCount = list.count;
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->databases);
+}
+
+// Model slots by name, each bound to the host's model of that name.
+static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+{
+    List list;
+    if (!Begin(r, value, &list))
+    {
+        return false;
+    }
+    maniGraphModelSource* m = maniArenaTake(&r->arena, list.count, sizeof(maniGraphModelSource));
+    if (m == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    uint32_t e = value;
+    for (uint32_t i = 0; i < list.count; ++i)
+    {
+        e = maniGraphJsonNext(r->json, e, i == 0);
+        m[i] = (maniGraphModelSource){0};
+        if (!maniGraphJsonName(r, e, &m[i].name, &m[i].nameLength))
+        {
+            return false;
+        }
+        uint32_t host = maniGraphJsonLookup(&r->hostModelNames, m[i].name, m[i].nameLength);
+        if (host == ABSENT)
+        {
+            return maniGraphJsonFault(r, e, maniGraphFormUnbound);
+        }
+        m[i].model = r->hostModels[host].model;
+        list.names[i] = m[i].name;
+        list.lengths[i] = m[i].nameLength;
+    }
+    out->models = m;
+    out->modelCount = list.count;
+    return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->models);
 }
 
 static bool SyncGroups(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
@@ -885,12 +922,12 @@ static bool Header(Reader* r, const uint32_t* f)
 
 static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope)
 {
-    static const char* const kKeys[] = {"format",     "version", "parameters", "clips",
-                                        "syncGroups", "nodes",   "output",     "databases"};
+    static const char* const kKeys[] = {"format", "version", "parameters", "clips", "syncGroups",
+                                        "nodes",  "output",  "databases",  "models"};
     // A nested graph takes the keys after format and version.
     uint32_t skip = top ? 0u : 2u;
-    uint32_t f[8];
-    if (!maniGraphJsonMembers(r, object, kKeys + skip, 8 - skip, 0x60u >> skip | (top ? 3u : 0u),
+    uint32_t f[9];
+    if (!maniGraphJsonMembers(r, object, kKeys + skip, 9 - skip, 0x60u >> skip | (top ? 3u : 0u),
                               f + skip) ||
         (top && !Header(r, f)))
     {
@@ -899,54 +936,21 @@ static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out
     *out = (maniGraphSource){.skeleton = r->skeleton};
     return Parameters(r, f[2], out, scope) && Clips(r, f[3], out, scope) &&
            SyncGroups(r, f[4], out, scope) && Databases(r, f[7], out, scope) &&
-           Nodes(r, f[5], out, scope) && maniGraphJsonIndex(r, f[6], &out->output);
-}
-
-// The host's databases' names in a table.
-static bool HostDatabases(Reader* r, const maniGraphDatabaseSource* databases, uint32_t count)
-{
-    const char** names = (const char**)maniArenaTake(&r->arena, count, sizeof(const char*));
-    uint32_t* lengths = maniArenaTake(&r->arena, count, sizeof(uint32_t));
-    if (names == NULL || lengths == NULL)
-    {
-        return maniGraphJsonNoMemory(r);
-    }
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        names[i] = databases[i].name;
-        lengths[i] = databases[i].name != NULL ? databases[i].nameLength : 0u;
-    }
-    return maniGraphJsonTable(r, names, lengths, count, &r->hostDatabaseNames);
-}
-
-// The host's clips' names in a table.
-static bool Host(Reader* r, const maniGraphClipSource* clips, uint32_t count)
-{
-    const char** names = (const char**)maniArenaTake(&r->arena, count, sizeof(const char*));
-    uint32_t* lengths = maniArenaTake(&r->arena, count, sizeof(uint32_t));
-    if (names == NULL || lengths == NULL)
-    {
-        return maniGraphJsonNoMemory(r);
-    }
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        names[i] = clips[i].name;
-        lengths[i] = clips[i].name != NULL ? clips[i].nameLength : 0u;
-    }
-    return maniGraphJsonTable(r, names, lengths, count, &r->host);
+           Models(r, f[8], out, scope) && Nodes(r, f[5], out, scope) &&
+           maniGraphJsonIndex(r, f[6], &out->output);
 }
 
 maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
-                                   const maniSkeleton* skeleton, const maniGraphClipSource* clips,
-                                   uint32_t count, const maniGraphDatabaseSource* databases,
-                                   uint32_t databaseCount)
+                                   const maniGraphNamedAssets* assets)
 {
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
-    if ((text == NULL && length > 0) || skeleton == NULL || (clips == NULL && count > 0) ||
-        (databases == NULL && databaseCount > 0))
+    const maniGraphNamedAssets* a = assets;
+    if ((text == NULL && length > 0) || a == NULL || a->skeleton == NULL ||
+        (a->clips == NULL && a->clipCount > 0) || (a->databases == NULL && a->databaseCount > 0) ||
+        (a->models == NULL && a->modelCount > 0))
     {
         ++builder->misuses;
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
@@ -963,16 +967,21 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
     }
     Reader r = {.json = &json,
                 .arena = maniArenaMake(&builder->allocator),
-                .skeleton = skeleton,
-                .hostClips = clips,
-                .hostDatabases = databases};
+                .skeleton = a->skeleton,
+                .hostClips = a->clips,
+                .hostDatabases = a->databases,
+                .hostModels = a->models};
     maniGraphSource source;
     Scope scope;
-    maniBuildResult result = Host(&r, clips, count) &&
-                                     HostDatabases(&r, databases, databaseCount) &&
-                                     ReadGraph(&r, 0, true, &source, &scope)
-                                 ? maniBuildGraph(builder, &source)
-                                 : r.fault;
+    maniBuildResult result =
+        maniGraphJsonHostNames(&r, a->clips, sizeof *a->clips, a->clipCount, &r.host) &&
+                maniGraphJsonHostNames(&r, a->databases, sizeof *a->databases, a->databaseCount,
+                                       &r.hostDatabaseNames) &&
+                maniGraphJsonHostNames(&r, a->models, sizeof *a->models, a->modelCount,
+                                       &r.hostModelNames) &&
+                ReadGraph(&r, 0, true, &source, &scope)
+            ? maniBuildGraph(builder, &source)
+            : r.fault;
     maniArenaRelease(&r.arena);
     maniReleaseJson(&builder->allocator, &json);
     return result;

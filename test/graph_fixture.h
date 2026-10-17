@@ -31,7 +31,7 @@
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[CLIPS][8192];
 static _Alignas(16) uint8_t s_file[16384];
-static _Alignas(8) uint8_t s_bindingMemory[256];
+static _Alignas(8) uint8_t s_bindingMemory[512];
 static _Alignas(8) uint8_t s_instanceMemory[8192];
 static maniSkeleton s_skeleton;
 static maniClip s_clips[CLIPS];
@@ -189,8 +189,9 @@ static inline maniGraphInstance* Make(maniGraphSource source, maniGraph* g)
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
-              maniBindGraph(g, &s_skeleton, clips, CLIPS, NULL, 0, s_bindingMemory,
-                            sizeof s_bindingMemory, &binding, NULL) == mani_success &&
+              maniBindGraph(g, &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, CLIPS, 0, 0, 0},
+                            s_bindingMemory, sizeof s_bindingMemory, &binding,
+                            NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &instance) == mani_success,
           "a graph");

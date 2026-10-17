@@ -147,8 +147,8 @@ static bool MakeGraph(maniBuilder* builder)
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
         {maniGraphNodeBlend, 2, kBlend, .blend = {kHalves, 0, 0}},
     };
-    maniGraphSource source = {&s_skeleton, parameters, &clip, NULL, nodes, 7,
-                              1,           0,          6,     5,    1,     &database};
+    maniGraphSource source = {&s_skeleton, parameters, &clip, NULL,      nodes, 7, 1,   0,
+                              6,           5,          1,     &database, 0,     0, NULL};
     size_t size = 0;
     return maniBuildGraph(builder, &source).result == mani_success &&
            Built(builder, s_graphFile, sizeof s_graphFile, &size) &&
@@ -165,8 +165,8 @@ static void Setup(void)
     bool ok =
         maniCreateBuilder(&def, &builder) == mani_success && MakeClip(builder) &&
         MakeDatabase(builder) && MakeGraph(builder) &&
-        maniBindGraph(&s_graph, &s_skeleton, clips, 1, databases, 1, s_binding, sizeof s_binding,
-                      &binding, NULL) == mani_success &&
+        maniBindGraph(&s_graph, &(maniGraphAssets){&s_skeleton, clips, databases, NULL, 1, 1, 0, 0},
+                      s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
     s_stateSize = ok ? maniGraphStateSize(binding) : 0;

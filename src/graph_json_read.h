@@ -17,6 +17,7 @@
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 // Names of a list, findable by their bytes: the items sorted by the
@@ -39,6 +40,8 @@ typedef struct maniGraphReader
     maniNameTable host;
     const maniGraphDatabaseSource* hostDatabases;
     maniNameTable hostDatabaseNames;
+    const maniGraphModelSource* hostModels;
+    maniNameTable hostModelNames;
     // The first fault: Capacity, or a refusal with its offset.
     maniBuildResult fault;
 } maniGraphReader;
@@ -50,8 +53,15 @@ typedef struct maniGraphScope
     maniNameTable clips;
     maniNameTable syncGroups;
     maniNameTable databases;
+    maniNameTable models;
     const maniGraphParameterSource* sources;
 } maniGraphScope;
+
+// The names of count host slot sources (clip, database or model sources,
+// each its asset, then its name and length, stride bytes apart) in a
+// table; false when the arena fails.
+bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride, uint32_t count,
+                            maniNameTable* out);
 
 // Records a fault at a value's first byte; returns false.
 bool maniGraphJsonFault(maniGraphReader* r, uint32_t value, maniGraphForm form);

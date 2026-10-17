@@ -145,12 +145,13 @@ static void TestBind(void)
     }
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
-    CHECK(maniBindGraph(&g, &s_skeleton, clips, CLIPS, NULL, 0, s_matchBinding,
-                        sizeof s_matchBinding, &binding, &unbound) == mani_errorInvalid &&
+    CHECK(maniBindGraph(&g, &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, CLIPS, 0, 0, 0},
+                        s_matchBinding, sizeof s_matchBinding, &binding,
+                        &unbound) == mani_errorInvalid &&
               unbound == CLIPS,
           "no database: the database slot unbound");
-    CHECK(maniBindGraph(&g, &s_skeleton, clips, CLIPS, NULL, 1, s_matchBinding,
-                        sizeof s_matchBinding, &binding, NULL) == mani_errorInvalid,
+    CHECK(maniBindGraph(&g, &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, CLIPS, 1, 0, 0},
+                        s_matchBinding, sizeof s_matchBinding, &binding, NULL) == mani_errorInvalid,
           "a count without databases");
     CHECK(maniGraphDatabaseCount(&g) == 1 &&
               maniGraphDatabaseIdentity(&g, 0) == maniMotionDatabaseIdentity(&s_database) &&
@@ -264,8 +265,9 @@ static bool Unbindable(uint32_t tag, uint64_t offset, uint32_t value)
     const maniMotionDatabase* databases[1] = {&s_database};
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
-    return maniBindGraph(&crafted, &s_skeleton, clips, CLIPS, databases, 1, s_matchBinding,
-                         sizeof s_matchBinding, &binding, &unbound) == mani_errorInvalid &&
+    return maniBindGraph(
+               &crafted, &(maniGraphAssets){&s_skeleton, clips, databases, NULL, CLIPS, 1, 0, 0},
+               s_matchBinding, sizeof s_matchBinding, &binding, &unbound) == mani_errorInvalid &&
            unbound == CLIPS;
 }
 
@@ -387,8 +389,9 @@ static void TestSubgraph(void)
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &g).result == mani_success &&
               maniGraphClipCount(&g) == 2 && maniGraphDatabaseCount(&g) == 1 &&
-              maniBindGraph(&g, &s_skeleton, clips, 2, databases, 1, s_matchBinding,
-                            sizeof s_matchBinding, &binding, NULL) == mani_success &&
+              maniBindGraph(&g, &(maniGraphAssets){&s_skeleton, clips, databases, NULL, 2, 1, 0, 0},
+                            s_matchBinding, sizeof s_matchBinding, &binding,
+                            NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &instance) == mani_success,
           "the subgraph's database and clips joined");
@@ -466,8 +469,9 @@ static bool RoundTrip(const maniGraphSource* source)
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
               maniWriteGraphJson(builder, source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(builder, s_text, s_textSize, &s_skeleton, kSlots, CLIPS,
-                                 kDatabaseSlot, 1)
+              maniBuildGraphJson(
+                  builder, s_text, s_textSize,
+                  &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, CLIPS, 1, 0, 0})
                       .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
@@ -478,8 +482,9 @@ static bool RoundTrip(const maniGraphSource* source)
 static maniBuildResult Read(const char* text)
 {
     maniBuilder* builder = NewBuilder();
-    maniBuildResult r = maniBuildGraphJson(builder, text, strlen(text), &s_skeleton, kSlots, CLIPS,
-                                           kDatabaseSlot, 1);
+    maniBuildResult r = maniBuildGraphJson(
+        builder, text, strlen(text),
+        &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, CLIPS, 1, 0, 0});
     maniDestroyBuilder(builder);
     return r;
 }
@@ -557,8 +562,9 @@ static bool Defaults(void)
     maniBuilder* builder = NewBuilder();
     bool ok = maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniBuildGraphJson(builder, kText, sizeof kText - 1, &s_skeleton, kSlots, CLIPS,
-                                 kDatabaseSlot, 1)
+              maniBuildGraphJson(
+                  builder, kText, sizeof kText - 1,
+                  &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, CLIPS, 1, 0, 0})
                       .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);

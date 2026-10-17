@@ -9,6 +9,7 @@
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
@@ -39,7 +40,8 @@ struct maniGraphBinding
     // The most inputs a node takes: the layers evaluation lists at once.
     uint32_t maxInputs;
     // The clip each slot binds, in slot order; then the database each
-    // database slot binds, read by maniGraphBoundDatabase.
+    // database slot binds, read by maniGraphBoundDatabase; then the model
+    // each model slot binds, read by maniGraphBoundModel.
     const maniClip* clips[];
 };
 
@@ -55,6 +57,22 @@ static inline const maniMotionDatabase* maniGraphBoundDatabase(const maniGraphBi
 {
     const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
     return ((const maniMotionDatabase* const*)at)[slot];
+}
+
+// The models a binding's model slots bind, in slot order: after its
+// databases.
+static inline const maniLearnedModel** maniGraphBoundModels(maniGraphBinding* binding)
+{
+    return (const maniLearnedModel**)(uint8_t*)(maniGraphBoundDatabases(binding) +
+                                                binding->graph.databaseCount);
+}
+
+static inline const maniLearnedModel* maniGraphBoundModel(const maniGraphBinding* binding,
+                                                          uint32_t slot)
+{
+    const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
+    at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
+    return ((const maniLearnedModel* const*)at)[slot];
 }
 
 // A node's flags during an update: its time factor set from a parent, a

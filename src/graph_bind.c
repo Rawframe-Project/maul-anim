@@ -16,6 +16,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
@@ -31,7 +32,8 @@ size_t maniGraphBindingSize(const maniGraph* graph)
         return 0;
     }
     return offsetof(maniGraphBinding, clips) + (size_t)graph->clipCount * sizeof(const maniClip*) +
-           (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*);
+           (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*) +
+           (size_t)graph->modelCount * sizeof(const maniLearnedModel*);
 }
 
 // The clip of the slot's identity among clips, of the graph's skeleton
@@ -170,24 +172,59 @@ static bool BindDatabases(maniGraphBinding* binding, const maniMotionDatabase* c
     return true;
 }
 
-maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
-                         const maniClip* const* clips, uint32_t count,
-                         const maniMotionDatabase* const* databases, uint32_t databaseCount,
-                         void* memory, size_t size, maniGraphBinding** bindingOut,
-                         uint32_t* unboundOut)
+// Each model slot bound to the model of its identity, of the graph's
+// skeleton; false with the first left unbound.
+static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
+                       uint32_t* unboundOut)
+{
+    const maniGraph* graph = &binding->graph;
+    const maniLearnedModel** slots = maniGraphBoundModels(binding);
+    for (uint32_t s = 0; s < graph->modelCount; ++s)
+    {
+        uint64_t identity = maniGraphModelIdentity(graph, s);
+        slots[s] = NULL;
+        for (uint32_t i = 0; i < assets->modelCount && slots[s] == NULL; ++i)
+        {
+            const maniLearnedModel* m = assets->models[i];
+            bool fits = m != NULL && maniLearnedModelIdentity(m) == identity &&
+                        maniLearnedModelSkeletonIdentity(m) == graph->skeletonIdentity;
+            slots[s] = fits ? m : NULL;
+        }
+        if (slots[s] == NULL)
+        {
+            if (unboundOut != NULL)
+            {
+                *unboundOut = graph->clipCount + graph->databaseCount + s;
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
+{
+    return a != NULL && a->skeleton != NULL && (a->clips != NULL || a->clipCount == 0) &&
+           (a->databases != NULL || a->databaseCount == 0) &&
+           (a->models != NULL || a->modelCount == 0) &&
+           maniSkeletonIdentity(a->skeleton) == graph->skeletonIdentity &&
+           maniSkeletonBoneCount(a->skeleton) == graph->skeletonBoneCount;
+}
+
+maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, void* memory,
+                         size_t size, maniGraphBinding** bindingOut, uint32_t* unboundOut)
 {
     if (unboundOut != NULL)
     {
         *unboundOut = MANI_NO_TRACK;
     }
-    if (graph == NULL || skeleton == NULL || (clips == NULL && count > 0) ||
-        (databases == NULL && databaseCount > 0) || memory == NULL || bindingOut == NULL ||
-        (uintptr_t)memory % MANI_GRAPH_BINDING_ALIGNMENT != 0 ||
-        maniSkeletonIdentity(skeleton) != graph->skeletonIdentity ||
-        maniSkeletonBoneCount(skeleton) != graph->skeletonBoneCount)
+    if (graph == NULL || memory == NULL || bindingOut == NULL ||
+        (uintptr_t)memory % MANI_GRAPH_BINDING_ALIGNMENT != 0 || !AssetsValid(graph, assets))
     {
         return mani_errorInvalid;
     }
+    const maniClip* const* clips = assets->clips;
+    uint32_t count = assets->clipCount;
     if (size < maniGraphBindingSize(graph))
     {
         return mani_errorCapacity;
@@ -206,7 +243,8 @@ maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
             return mani_errorInvalid;
         }
     }
-    if (!BindDatabases(binding, databases, databaseCount, unboundOut) || !RootMotionBone(binding))
+    if (!BindDatabases(binding, assets->databases, assets->databaseCount, unboundOut) ||
+        !BindModels(binding, assets, unboundOut) || !RootMotionBone(binding))
     {
         return mani_errorInvalid;
     }
@@ -218,7 +256,7 @@ maniResult maniBindGraph(const maniGraph* graph, const maniSkeleton* skeleton,
         uint32_t n = maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 8);
         binding->maxInputs = n > binding->maxInputs ? n : binding->maxInputs;
     }
-    binding->skeleton = skeleton;
+    binding->skeleton = assets->skeleton;
     binding->cursorSize = CursorSize(binding);
     *bindingOut = binding;
     return mani_success;

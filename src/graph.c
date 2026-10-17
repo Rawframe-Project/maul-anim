@@ -177,7 +177,7 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
         counts[k] = maniLoadU32(h + 8 + 4 * k);
     }
     // Bones, parameters, nodes, inputs, data words, clips, sync groups,
-    // masks, slots, databases, database clips, and the zero word.
+    // masks, slots, databases, database clips and models.
     const uint32_t lows[12] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0};
     const uint32_t highs[12] = {MANI_MAX_BONES,
                                 MANI_GRAPH_MAX_PARAMETERS,
@@ -190,7 +190,7 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                                 MANI_GRAPH_MAX_NODES,
                                 MANI_GRAPH_MAX_DATABASES,
                                 MANI_GRAPH_MAX_DATABASES * MANI_GRAPH_MAX_CLIPS,
-                                0};
+                                MANI_GRAPH_MAX_MODELS};
     for (uint32_t k = 0; k < 12; ++k)
     {
         if (counts[k] < lows[k] || counts[k] > highs[k])
@@ -209,14 +209,16 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                      .maskCount = counts[7],
                      .slotCount = counts[8],
                      .databaseCount = counts[9],
-                     .databaseClipCount = counts[10]};
+                     .databaseClipCount = counts[10],
+                     .modelCount = counts[11]};
     return kOk;
 }
 
 // Every section of the size the header's counts give.
 static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
 {
-    const uint64_t sizes[MANI_GRAPH_SECTIONS - 1] = {
+    // Sections 2 to 10, then 12; the names' size is free.
+    const uint64_t sizes[MANI_GRAPH_SECTIONS - 2] = {
         (uint64_t)g->parameterCount * MANI_GRAPH_PARAMETER_SIZE,
         (uint64_t)g->nodeCount * MANI_GRAPH_NODE_SIZE,
         4 * (uint64_t)g->inputCount,
@@ -226,12 +228,14 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
         4 * (uint64_t)g->maskCount * g->skeletonBoneCount,
         (uint64_t)g->databaseCount * MANI_GRAPH_DATABASE_SIZE,
         4 * (uint64_t)g->databaseClipCount,
+        (uint64_t)g->modelCount * MANI_GRAPH_MODEL_SIZE,
     };
     for (uint32_t k = 0; k < MANI_GRAPH_SECTIONS - 2; ++k)
     {
-        if (s->sizes[k + 1] != sizes[k])
+        uint32_t section = k < 9 ? k + 1 : k + 2;
+        if (s->sizes[section] != sizes[k])
         {
-            return Fail(s->entry[k + 1]);
+            return Fail(s->entry[section]);
         }
     }
     g->parameters = s->data[1];
@@ -245,6 +249,7 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
     g->databaseClips = s->data[9];
     g->names = s->data[10];
     g->namesSize = s->sizes[10];
+    g->models = s->data[11];
     return kOk;
 }
 
@@ -438,6 +443,20 @@ static maniFileResult CheckDatabases(const maniGraph* g, uint64_t at, uint64_t c
     return kOk;
 }
 
+// Every model's name.
+static maniFileResult CheckModels(const maniGraph* g, uint64_t at)
+{
+    for (uint32_t i = 0; i < g->modelCount; ++i)
+    {
+        const uint8_t* e = g->models + (size_t)i * MANI_GRAPH_MODEL_SIZE;
+        if (!NameValid(g, e + 16, e + 8))
+        {
+            return Fail(at + (uint64_t)i * MANI_GRAPH_MODEL_SIZE + 16);
+        }
+    }
+    return kOk;
+}
+
 maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
 {
     if (graphOut == NULL)
@@ -460,6 +479,7 @@ maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut
     r = r.result == mani_success ? CheckSyncGroups(&g, s.at[6]) : r;
     r = r.result == mani_success ? CheckMaskWeights(&g, s.at[7]) : r;
     r = r.result == mani_success ? CheckDatabases(&g, s.at[8], s.at[9]) : r;
+    r = r.result == mani_success ? CheckModels(&g, s.at[11]) : r;
     r = r.result == mani_success
             ? maniCheckGraphNodes(&g, s.at[2], s.at[3], s.at[4], &g.machineWords)
             : r;
@@ -604,4 +624,31 @@ const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database, uin
     }
     return EntryName(graph, graph->databases + (size_t)database * MANI_GRAPH_DATABASE_SIZE + 16,
                      lengthOut);
+}
+
+uint32_t maniGraphModelCount(const maniGraph* graph)
+{
+    return graph != NULL ? graph->modelCount : 0;
+}
+
+uint64_t maniGraphModelIdentity(const maniGraph* graph, uint32_t model)
+{
+    if (graph == NULL || model >= graph->modelCount)
+    {
+        return 0;
+    }
+    return maniLoadU64(graph->models + (size_t)model * MANI_GRAPH_MODEL_SIZE);
+}
+
+const char* maniGraphModelName(const maniGraph* graph, uint32_t model, uint32_t* lengthOut)
+{
+    if (graph == NULL || model >= graph->modelCount)
+    {
+        if (lengthOut != NULL)
+        {
+            *lengthOut = 0;
+        }
+        return NULL;
+    }
+    return EntryName(graph, graph->models + (size_t)model * MANI_GRAPH_MODEL_SIZE + 16, lengthOut);
 }

@@ -72,6 +72,18 @@ extern "C"
         uint32_t reserved;
     } maniGraphDatabaseSource;
 
+    // A learned model slot: an opened learned model (mani-0025) of the
+    // graph's skeleton, each model once, and a name for it (UTF-8, not
+    // empty, unique among the graph's models). The graph keeps the
+    // model's identity; binding finds the model by it.
+    typedef struct maniGraphModelSource
+    {
+        const maniLearnedModel* model;
+        const char* name;
+        uint32_t nameLength;
+        uint32_t reserved;
+    } maniGraphModelSource;
+
     // A sync group's flags.
     enum
     {
@@ -494,13 +506,17 @@ extern "C"
         uint32_t output;
         uint32_t databaseCount;
         const maniGraphDatabaseSource* databases;
+        uint32_t modelCount;
+        uint32_t reserved;
+        const maniGraphModelSource* models;
     };
 
     /// Builds a graph file: inlines subgraphs (their nodes after the
     /// source's, in order, nested ones after them; refusals name nodes by
     /// their place there), checks every parameter, clip slot, sync group,
-    /// database slot and node, orders the nodes so each follows its inputs (the output
-    /// last, the source's order kept where it may be), makes each mask's
+    /// database slot, model slot and node, orders the nodes so each
+    /// follows its inputs (the output last, the source's order kept where
+    /// it may be), makes each mask's
     /// bone weights, marks each node as giving poses or differences, gives
     /// each node's pose a slot reused once its last reader has run, and
     /// keeps the file in place of any built before.
@@ -511,8 +527,8 @@ extern "C"
     /// misuse) or with the reason, the item and another the reason names
     /// for a refused source: Count (more items than the named limits, or
     /// none of nodes), Name, DuplicateName and NameHash with the list
-    /// bits of parameters, clips, sync groups or databases, Parameter,
-    /// Clip, Database, Node,
+    /// bits of parameters, clips, sync groups, databases or models,
+    /// Parameter, Clip, Database, Model, Node,
     /// Input, Cycle, Unreachable, Scalar, Weight and Difference; and
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
@@ -524,7 +540,8 @@ extern "C"
     /// indents, a line per list item, ending in a new line), building it
     /// first: a source maniBuildGraph refuses is refused the same way and
     /// not written. Parameters, clip slots, sync groups, database slots
-    /// (a "databases" list, when the graph has any) and the bones of
+    /// (a "databases" list, when the graph has any), model slots (a
+    /// "models" list, when it has any) and the bones of
     /// mask chains are written by name, nodes and the output by their
     /// place in the source, subgraphs as nested graphs with their
     /// parameters mapped by name, and numbers as the shortest text that
@@ -553,15 +570,31 @@ extern "C"
         maniGraphFormMissing = 3,
         // A value of the wrong kind, count or range.
         maniGraphFormValue = 4,
-        // A name no parameter, clip slot, sync group, database slot or
-        // bone of the graph has.
+        // A name no parameter, clip slot, sync group, database slot, model
+        // slot or bone of the graph has.
         maniGraphFormName = 5,
         // A format not "maul-anim graph" or a version not 1.
         maniGraphFormVersion = 6,
-        // A clip slot the host's clips do not name, or a database slot
-        // the host's databases do not.
+        // A clip slot the host's clips do not name, a database slot the
+        // host's databases do not, or a model slot the host's models do
+        // not.
         maniGraphFormUnbound = 7,
     };
+
+    // What a graph's JSON text names: its skeleton, and clips, databases
+    // and models with their slot names; each list may be NULL when its
+    // count is 0.
+    typedef struct maniGraphNamedAssets
+    {
+        const maniSkeleton* skeleton;
+        const maniGraphClipSource* clips;
+        const maniGraphDatabaseSource* databases;
+        const maniGraphModelSource* models;
+        uint32_t clipCount;
+        uint32_t databaseCount;
+        uint32_t modelCount;
+        uint32_t reserved;
+    } maniGraphNamedAssets;
 
     /// Builds a graph file from its JSON text form, as maniWriteGraphJson
     /// writes it: members an object does not take are refused; those with
@@ -583,32 +616,28 @@ extern "C"
     /// query empty, period 0.1, jumpThreshold, endExclusion, historyTime,
     /// continuingBias, transitionCost and historyCount 0, requiredTags
     /// and excludedTags 0 (a whole number, or {"parameter": name}) and
-    /// duration 0; parameters, clips, syncGroups and databases empty).
-    /// Each clip slot name, at any nesting, takes the host's clip of that
-    /// name, and each database slot name the host's database of that name
-    /// (the first of equal names). The source read is then built as
+    /// duration 0; parameters, clips, syncGroups, databases and models
+    /// empty). Each clip slot name, at any nesting, takes the host's clip
+    /// of that name, each database slot name the host's database of that
+    /// name and each model slot name the host's model of that name (the
+    /// first of equal names). The source read is then built as
     /// maniBuildGraph builds it.
     ///
     /// @param builder    The builder.
     /// @param text       The UTF-8 text (a leading byte order mark
     ///                   skipped); may be NULL when length is 0.
     /// @param length     The text's length in bytes.
-    /// @param skeleton   The graph's skeleton; mask chains name its bones.
-    /// @param clips      count clips with their slot names; may be NULL
-    ///                   when count is 0.
-    /// @param count      The number of clips.
-    /// @param databases  databaseCount databases with their slot names;
-    ///                   may be NULL when databaseCount is 0.
-    /// @param databaseCount The number of databases.
+    /// @param assets     The graph's skeleton (mask chains name its
+    ///                   bones), and the clips, databases and models with
+    ///                   their slot names.
     /// @return As maniBuildGraph, items by place in the text's lists; or
     /// `mani_errorInvalid` with maniBuildReasonJson or
     /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(
-        maniBuilder* builder, const char* text, size_t length, const maniSkeleton* skeleton,
-        const maniGraphClipSource* clips, uint32_t count, const maniGraphDatabaseSource* databases,
-        uint32_t databaseCount);
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(maniBuilder* builder,
+                                                               const char* text, size_t length,
+                                                               const maniGraphNamedAssets* assets);
 
 #ifdef __cplusplus
 }

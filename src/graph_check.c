@@ -23,6 +23,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/learned.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
@@ -53,18 +54,20 @@ enum
     kClips = 1,
     kSyncGroups = 2,
     kDatabases = 3,
+    kModels = 4,
 };
 
-static const maniBuildReason s_lists[4] = {maniBuildReasonParameterList, maniBuildReasonClipList,
+static const maniBuildReason s_lists[5] = {maniBuildReasonParameterList, maniBuildReasonClipList,
                                            maniBuildReasonSyncGroupList,
-                                           maniBuildReasonDatabaseList};
+                                           maniBuildReasonDatabaseList, maniBuildReasonModelList};
 
 static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
 {
     return list == kParameters   ? source->parameterCount
            : list == kClips      ? source->clipCount
            : list == kSyncGroups ? source->syncGroupCount
-                                 : source->databaseCount;
+           : list == kDatabases  ? source->databaseCount
+                                 : source->modelCount;
 }
 
 static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32_t i,
@@ -84,6 +87,11 @@ static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32
     {
         *lengthOut = source->databases[i].nameLength;
         return source->databases[i].name;
+    }
+    if (list == kModels)
+    {
+        *lengthOut = source->models[i].nameLength;
+        return source->models[i].name;
     }
     *lengthOut = source->syncGroups[i].nameLength;
     return source->syncGroups[i].name;
@@ -232,6 +240,28 @@ static maniBuildResult CheckClips(const maniGraphSource* source, const maniAlloc
     return found < 0   ? Outcome(mani_errorCapacity)
            : found > 0 ? maniGraphRefuse(maniBuildReasonClip, high, low)
                        : Outcome(mani_success);
+}
+
+// Every model slot: a model of the skeleton, each model once.
+static maniBuildResult CheckModels(const maniGraphSource* source)
+{
+    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    for (uint32_t i = 0; i < source->modelCount; ++i)
+    {
+        const maniLearnedModel* m = source->models[i].model;
+        if (m == NULL || maniLearnedModelSkeletonIdentity(m) != skeleton)
+        {
+            return maniGraphRefuse(maniBuildReasonModel, i, 0);
+        }
+        for (uint32_t k = 0; k < i; ++k)
+        {
+            if (maniLearnedModelIdentity(source->models[k].model) == maniLearnedModelIdentity(m))
+            {
+                return maniGraphRefuse(maniBuildReasonModel, i, k);
+            }
+        }
+    }
+    return Outcome(mani_success);
 }
 
 static maniBuildResult CheckSyncGroups(const maniGraphSource* source)
@@ -514,7 +544,9 @@ static bool CountsValid(const maniGraphSource* source)
            source->syncGroupCount <= MANI_GRAPH_MAX_SYNC_GROUPS &&
            (source->syncGroupCount == 0 || source->syncGroups != NULL) &&
            source->databaseCount <= MANI_GRAPH_MAX_DATABASES &&
-           (source->databaseCount == 0 || source->databases != NULL);
+           (source->databaseCount == 0 || source->databases != NULL) &&
+           source->modelCount <= MANI_GRAPH_MAX_MODELS &&
+           (source->modelCount == 0 || source->models != NULL);
 }
 
 maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAllocator* allocator,
@@ -526,7 +558,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
     maniBuildResult r = Outcome(mani_success);
-    for (uint32_t list = kParameters; list <= kDatabases && r.result == mani_success; ++list)
+    for (uint32_t list = kParameters; list <= kModels && r.result == mani_success; ++list)
     {
         r = CheckNames(source, list, allocator, &tallyOut->namesSize);
     }
@@ -537,6 +569,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     r = r.result == mani_success ? CheckClips(source, allocator) : r;
     r = r.result == mani_success ? CheckSyncGroups(source) : r;
     r = r.result == mani_success ? maniCheckGraphDatabases(source, &tallyOut->databaseClips) : r;
+    r = r.result == mani_success ? CheckModels(source) : r;
     for (uint32_t i = 0; i < source->nodeCount && r.result == mani_success; ++i)
     {
         r = CheckNode(source, i, tallyOut);

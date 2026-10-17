@@ -152,6 +152,10 @@ format.
   the same bits with any thread count; `maniSaveLearnedCheckpoint` and
   `maniRestoreLearnedCheckpoint` stop and resume to the same bits;
   `maniBuildLearnedModelFromTrainer` builds the model.
+- Learned model slots in graphs (mani-0025): `maniGraphModelSource`,
+  `maniGraphModelCount`, `maniGraphModelIdentity` and
+  `maniGraphModelName`; binding finds each slot's model by identity;
+  the JSON form writes a "models" list.
 - Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
   the host's task system, through which the library's parallel work
   will run, results never depending on how the host splits it.
@@ -254,6 +258,9 @@ format.
 
 ### Changed
 
+- `maniBindGraph` takes the graph's skeleton, clips, databases and
+  models in one `maniGraphAssets`, and `maniBuildGraphJson` its named
+  ones in one `maniGraphNamedAssets`, in place of their argument lists.
 - A graph update no longer moves the clip nodes no parent reached and
   no sync group holds, which could not move: a state machine of 16
   states costs less than a blend of its clips (mani-0023).

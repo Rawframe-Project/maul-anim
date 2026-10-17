@@ -736,8 +736,8 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
 static void PutList(Writer* w, const maniGraphSource* source, const char* key, uint32_t list,
                     uint32_t depth)
 {
-    uint32_t counts[] = {source->parameterCount, source->clipCount, source->syncGroupCount,
-                         source->nodeCount, source->databaseCount};
+    uint32_t counts[] = {source->parameterCount, source->clipCount,     source->syncGroupCount,
+                         source->nodeCount,      source->databaseCount, source->modelCount};
     Line(w, depth);
     PutKey(w, key);
     PutText(w, "[");
@@ -756,6 +756,10 @@ static void PutList(Writer* w, const maniGraphSource* source, const char* key, u
         else if (list == 4)
         {
             PutString(w, source->databases[i].name, source->databases[i].nameLength);
+        }
+        else if (list == 5)
+        {
+            PutString(w, source->models[i].name, source->models[i].nameLength);
         }
         else if (list == 2)
         {
@@ -798,6 +802,10 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
     if (source->databaseCount > 0)
     {
         PutList(w, source, "databases", 4, depth + 1);
+    }
+    if (source->modelCount > 0)
+    {
+        PutList(w, source, "models", 5, depth + 1);
     }
     PutList(w, source, "nodes", 3, depth + 1);
     Line(w, depth + 1);

@@ -14,6 +14,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -148,6 +149,34 @@ bool maniGraphJsonTable(maniGraphReader* r, const char* const* names, const uint
     }
     *tableOut = (maniNameTable){keys, items, names, lengths, count};
     return true;
+}
+
+// The slot sources share their names' places.
+static_assert(offsetof(maniGraphDatabaseSource, name) == offsetof(maniGraphClipSource, name) &&
+                  offsetof(maniGraphModelSource, name) == offsetof(maniGraphClipSource, name) &&
+                  offsetof(maniGraphDatabaseSource, nameLength) ==
+                      offsetof(maniGraphClipSource, nameLength) &&
+                  offsetof(maniGraphModelSource, nameLength) ==
+                      offsetof(maniGraphClipSource, nameLength),
+              "slot sources name alike");
+
+bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride, uint32_t count,
+                            maniNameTable* out)
+{
+    const char** names = (const char**)maniArenaTake(&r->arena, count, sizeof(const char*));
+    uint32_t* lengths = maniArenaTake(&r->arena, count, sizeof(uint32_t));
+    if (names == NULL || lengths == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const uint8_t* item = (const uint8_t*)items + (size_t)i * stride;
+        memcpy((void*)&names[i], item + offsetof(maniGraphClipSource, name), sizeof names[i]);
+        memcpy(&lengths[i], item + offsetof(maniGraphClipSource, nameLength), sizeof lengths[i]);
+        lengths[i] = names[i] != NULL ? lengths[i] : 0u;
+    }
+    return maniGraphJsonTable(r, names, lengths, count, out);
 }
 
 uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, uint32_t length)

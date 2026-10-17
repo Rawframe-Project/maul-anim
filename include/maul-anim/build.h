@@ -242,6 +242,9 @@ extern "C"
         // A learned model trainer's Projector whose tag filter no frame of
         // an entry a jump may reach passes; item is the Projector.
         maniBuildReasonTags = 41,
+        // A graph's model slot without a model, with one of another
+        // skeleton or one an earlier slot (other) has; item is the slot.
+        maniBuildReasonModel = 42,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -252,6 +255,7 @@ extern "C"
         maniBuildReasonClipList = 0x600,
         maniBuildReasonSyncGroupList = 0x700,
         maniBuildReasonDatabaseList = 0x800,
+        maniBuildReasonModelList = 0x900,
     };
 
     // A build's outcome: the status and, when the source was refused

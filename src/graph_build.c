@@ -26,6 +26,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
@@ -214,6 +215,7 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
     lay->sizes[8] = (uint64_t)source->databaseCount * MANI_GRAPH_DATABASE_SIZE;
     lay->sizes[9] = 4 * tally->databaseClips;
     lay->sizes[10] = tally->namesSize;
+    lay->sizes[11] = (uint64_t)source->modelCount * MANI_GRAPH_MODEL_SIZE;
     uint64_t total = 0;
     for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
     {
@@ -579,13 +581,21 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
                          maniGraphDatabaseClipSlot(source, b->database, c));
         }
     }
+    for (uint32_t i = 0; i < source->modelCount; ++i)
+    {
+        const maniGraphModelSource* m = &source->models[i];
+        uint8_t* e = lay->sections[11] + (size_t)i * MANI_GRAPH_MODEL_SIZE;
+        maniStoreU64(e, maniLearnedModelIdentity(m->model));
+        maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)m->name, m->nameLength));
+        PutName(lay, m->name, m->nameLength, e + 16);
+    }
 }
 
 static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally,
                       uint32_t slotCount, uint8_t* h)
 {
     maniStoreU64(h, maniSkeletonIdentity(source->skeleton));
-    const uint32_t counts[11] = {maniSkeletonBoneCount(source->skeleton),
+    const uint32_t counts[12] = {maniSkeletonBoneCount(source->skeleton),
                                  source->parameterCount,
                                  source->nodeCount,
                                  tally->inputCount,
@@ -595,8 +605,9 @@ static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally
                                  tally->maskCount,
                                  slotCount,
                                  source->databaseCount,
-                                 (uint32_t)tally->databaseClips};
-    for (uint32_t k = 0; k < 11; ++k)
+                                 (uint32_t)tally->databaseClips,
+                                 source->modelCount};
+    for (uint32_t k = 0; k < 12; ++k)
     {
         maniStoreU32(h + 8 + 4 * k, counts[k]);
     }
