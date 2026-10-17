@@ -24,7 +24,9 @@
 #include "maul-anim/spring.h"
 
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
@@ -574,6 +576,69 @@ static void TestOpen(void)
     CHECK(maniOpenSpringSet(s_crafted, s_size, &set).offset == 40, "another identity");
 }
 
+// A file whose sections agree with a header of more springs than
+// MANI_MAX_BONES (one joint each): refused at the count.
+static void TestTooManySprings(void)
+{
+    uint32_t springs = MANI_MAX_BONES + 1;
+    uint8_t header[MANI_SPRING_HEADER_SIZE] = {0};
+    maniStoreU64(header, maniSkeletonIdentity(&s_skeleton));
+    const uint32_t counts[6] = {9, 0, springs, springs, 0, 0};
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        maniStoreU32(header + 8 + 4 * k, counts[k]);
+    }
+    maniStoreU32(header + 32, 0x42700000u); // 60.0f
+    maniStoreU32(header + 36, 0x42700000u);
+    size_t springBytes = (size_t)springs * MANI_SPRING_SPRING_SIZE;
+    size_t jointBytes = (size_t)springs * MANI_SPRING_JOINT_SIZE;
+    uint8_t* records = calloc(springBytes + jointBytes, 1);
+    CHECK(records != NULL, "memory");
+    if (records == NULL)
+    {
+        return;
+    }
+    for (uint32_t i = 0; i < springs; ++i)
+    {
+        uint8_t* e = records + (size_t)i * MANI_SPRING_SPRING_SIZE;
+        maniStoreU32(e, i);
+        maniStoreU32(e + 4, 1);
+        maniStoreU32(e + 16, MANI_NO_BONE);
+        uint8_t* j = records + springBytes + (size_t)i * MANI_SPRING_JOINT_SIZE;
+        maniStoreU32(j + maniSpringJointTail, 1);
+        maniStoreU32(j + maniSpringJointFrame + 12, 0x3F800000u); // 1.0f
+    }
+    const maniSectionSource sections[3] = {
+        {maniSpringTagHeader, header, sizeof header},
+        {maniSpringTagSprings, records, springBytes},
+        {maniSpringTagJoints, records + springBytes, jointBytes}};
+    const uint8_t* data[MANI_SPRING_SECTIONS] = {header,  records, records, records + springBytes,
+                                                 records, records};
+    const uint64_t sizes[MANI_SPRING_SECTIONS] = {sizeof header, 0, springBytes, jointBytes, 0, 0};
+    uint64_t fileSize = 0;
+    CHECK(maniContainerSize(sections, 3, &fileSize), "the size");
+    uint8_t* block = malloc((size_t)fileSize + 16);
+    uint8_t* file = block != NULL ? block + (16 - (uintptr_t)block % 16) % 16 : NULL;
+    if (file != NULL)
+    {
+        maniWriteContainer(file, maniKindSpringSet, MANI_SPRING_FORMAT_VERSION,
+                           maniSpringComputeIdentity(data, sizes), sections, 3);
+        maniSpringSet set;
+        maniFileResult r = maniOpenSpringSet(file, (size_t)fileSize, &set);
+        uint64_t at = 0;
+        maniContainer c;
+        const uint8_t* h = NULL;
+        uint64_t size = 0;
+        CHECK(maniOpenContainer(file, (size_t)fileSize, maniKindSpringSet, 1, &c).result ==
+                      mani_success &&
+                  maniContainerSection(&c, maniSpringTagHeader, &h, &size, &at) &&
+                  r.result == mani_errorFormat && r.offset == at + 16,
+              "more springs than a skeleton's bones");
+    }
+    free(block);
+    free(records);
+}
+
 static int WriteSeed(const char* path)
 {
     maniSpringSetSource source = Source();
@@ -599,6 +664,7 @@ int main(int argc, char** argv)
     TestSpringRefusals();
     TestJointRefusals();
     TestOpen();
+    TestTooManySprings();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }
