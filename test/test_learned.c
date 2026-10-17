@@ -6,10 +6,11 @@
 // plain evaluation in the same order (normalized inputs, biases, each
 // nonzero input times its weights, ReLU, denormalized outputs); the
 // Stepper's step; the Decompressor's pose (rotations from two columns,
-// made orthonormal, parallel and zero columns included), scales, root
-// motion, float tracks and events; 16-bit weights rounded to nearest
-// even input by input, near the binary32 model; the builder's refusals;
-// opening's checks of every record against a file changed at its byte.
+// made orthonormal, parallel and zero columns included, near half turns
+// to 1e-6), scales (1 when none given), root motion, float tracks and
+// events; 16-bit weights rounded to nearest even input by input, near
+// the binary32 model; the builder's refusals; opening's checks of every
+// record against a file changed at its byte.
 // Run as test_learned --seed <file> it writes the model, fuzz_learned's
 // seed.
 
@@ -353,6 +354,24 @@ static void TestEvaluateRefusals(void)
               maniInitPose(&s_skeleton, other, sizeof other, &difference) == mani_success &&
               maniPoseDifference(&s_skeleton, pose, pose, difference) == mani_success,
           "poses");
+    // A pose of a one-bone skeleton.
+    static _Alignas(16) uint8_t oneFile[1024];
+    static _Alignas(32) uint8_t onePose[1024];
+    static const maniBoneSource kBone = {"hips", 4, -1, {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}};
+    const maniSkeletonSource oneSource = {&kBone, 1, 0};
+    maniSkeleton one;
+    maniPose* small = NULL;
+    size_t oneSize = 0;
+    maniBuilder* builder = NewBuilder();
+    CHECK(maniBuildSkeleton(builder, &oneSource).result == mani_success &&
+              maniCopyBuilt(builder, oneFile, sizeof oneFile, &oneSize) == mani_success &&
+              maniOpenSkeleton(oneFile, oneSize, &one).result == mani_success &&
+              maniInitPose(&one, onePose, sizeof onePose, &small) == mani_success,
+          "a one-bone pose");
+    maniDestroyBuilder(builder);
+    maniLearnedOutput mismatched = {small, NULL, NULL, {0, 0, 0}, {0, 0, 0}};
+    CHECK(maniLearnedDecompress(&m, state, &mismatched, s_scratch, need) == mani_errorInvalid,
+          "a pose of another bone count");
     maniLearnedOutput out = {difference, NULL, NULL, {0, 0, 0}, {0, 0, 0}};
     maniLearnedOutput plain = {pose, NULL, NULL, {0, 0, 0}, {0, 0, 0}};
     CHECK(maniLearnedDecompress(&m, state, &out, s_scratch, need) == mani_errorInvalid &&
@@ -366,12 +385,13 @@ static void TestEvaluateRefusals(void)
 
 // A Decompressor whose outputs are its biases: no weights that count,
 // its normalization none.
-static float s_biases[OUTPUTS];
-static float s_zeros[STATE * OUTPUTS];
-static const float kOnes[OUTPUTS] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+static float s_biases[48];
+static float s_zeros[STATE * 48];
+static const float kOnes[48] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-static maniQuat Rotation(const maniLearnedModel* m, uint32_t bone)
+static maniTransform Local(const maniLearnedModel* m, uint32_t bone)
 {
     maniPose* pose = NULL;
     float state[STATE] = {1, 1, 1, 1, 1};
@@ -380,7 +400,43 @@ static maniQuat Rotation(const maniLearnedModel* m, uint32_t bone)
     maniLearnedOutput out = {pose, NULL, NULL, {0, 0, 0}, {0, 0, 0}};
     CHECK(maniLearnedDecompress(m, state, &out, s_scratch, sizeof s_scratch) == mani_success,
           "decompressed");
-    return maniPoseLocal(pose, bone).rotation;
+    return maniPoseLocal(pose, bone);
+}
+
+static maniQuat Rotation(const maniLearnedModel* m, uint32_t bone)
+{
+    return Local(m, bone).rotation;
+}
+
+// Turns of 179.9 degrees about x, y and z on bones 0 to 2: each near a
+// half turn, where only the largest of Shepperd's four candidates keeps
+// the precision.
+static void TestHalfTurns(const maniLearnedModelSource* source)
+{
+    double angle = 179.9 * 3.14159265358979323846 / 180.0;
+    float c = (float)cos(angle);
+    float sn = (float)sin(angle);
+    const float columns[3][6] = {{1, 0, 0, 0, c, sn}, {c, 0, -sn, 0, 1, 0}, {c, sn, 0, -sn, c, 0}};
+    for (uint32_t b = 0; b < 3; ++b)
+    {
+        memcpy(s_biases + 9 * b + 3, columns[b], sizeof columns[b]);
+    }
+    maniLearnedModel m;
+    CHECK(Opened(source, &m), "built and opened");
+    double half = sin(angle / 2.0);
+    double w = cos(angle / 2.0);
+    bool near = true;
+    for (uint32_t b = 0; b < 3; ++b)
+    {
+        maniQuat q = Rotation(&m, b);
+        const float axis[3] = {q.x, q.y, q.z};
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            near = near && fabs((double)axis[k] - (k == b ? half : 0.0)) <= 1e-6;
+        }
+        near = near && fabs((double)q.w - w) <= 1e-6;
+    }
+    CHECK(near, "near half turns about x, y and z to 1e-6");
 }
 
 static void TestColumns(void)
@@ -424,6 +480,19 @@ static void TestColumns(void)
     x = maniQuatRotate(q, maniVec3Make(1, 0, 0));
     y = maniQuatRotate(q, maniVec3Make(0, 1, 0));
     CHECK(fabsf(x.z - 1.0f) <= 1e-6f && fabsf(y.y - 1.0f) <= 1e-6f, "x to z, y kept");
+    // Parallel columns whose least axis is z: the third column is the
+    // first crossed with z.
+    const float parallel[6] = {0.6f, 0.8f, 0, 1.2f, 1.6f, 0};
+    memcpy(s_biases + 3, parallel, sizeof parallel);
+    CHECK(Opened(&source, &m), "built and opened");
+    maniVec3 z = maniQuatRotate(Rotation(&m, 0), maniVec3Make(0, 0, 1));
+    CHECK(fabsf(z.x - 0.8f) <= 1e-6f && fabsf(z.y + 0.6f) <= 1e-6f && fabsf(z.z) <= 1e-6f,
+          "parallel columns: the least axis crossed");
+    TestHalfTurns(&source);
+    source.scales = NULL;
+    CHECK(Opened(&source, &m), "built and opened");
+    maniTransform t = Local(&m, 0);
+    CHECK(t.scale.x == 1.0f && t.scale.y == 1.0f && t.scale.z == 1.0f, "no scales given: 1");
     memset(s_biases, 0, sizeof s_biases);
 }
 
@@ -843,24 +912,26 @@ static void TestOpenRecords(void)
 
 static void TestOpenNames(void)
 {
+    static const maniLearnedNameSource kTrack[1] = {{"xy", 2, 0}};
     static const maniLearnedNameSource kTwo[2] = {{"ab", 2, 0}, {"cd", 2, 0}};
     maniLearnedModelSource source = Source();
+    source.floatTracks = kTrack;
     source.events = kTwo;
     CHECK(Build(&source).result == mani_success, "built");
-    // Records: speed (0, 5), ab (5, 2), cd (7, 2).
+    // Records: xy (0, 2), ab (2, 2), cd (4, 2).
     CHECK(WordRefused(maniLearnedTagNames, 0, 1, 0), "a name not where the last ended");
     CHECK(WordRefused(maniLearnedTagNames, 4, 0, 4), "an empty name");
     CHECK(WordRefused(maniLearnedTagNames, 4, 100, 4), "a name past the bytes");
     CHECK(WordRefusedIn(maniLearnedTagNames, 20, 1, maniLearnedTagNameBytes, UINT64_MAX),
           "names short of the bytes");
     uint8_t bad[1] = {0xFF};
-    CHECK(RefusedIn(maniLearnedTagNameBytes, 5, bad, 1, maniLearnedTagNames, 12),
+    CHECK(RefusedIn(maniLearnedTagNameBytes, 2, bad, 1, maniLearnedTagNames, 12),
           "a name not UTF-8");
-    CHECK(RefusedIn(maniLearnedTagNameBytes, 7, "ab", 2, maniLearnedTagNames, 20),
+    CHECK(RefusedIn(maniLearnedTagNameBytes, 4, "ab", 2, maniLearnedTagNames, 20),
           "an event's name twice");
     uint64_t at = 0;
-    CHECK(Changed(maniLearnedTagNameBytes, 0, "cdxyz", 5, true, &at).result == mani_success,
-          "one name in two lists");
+    CHECK(Changed(maniLearnedTagNameBytes, 0, "ab", 2, true, &at).result == mani_success,
+          "a float track's name an event's too");
 }
 
 static void TestOpenNarrow(void)
@@ -879,6 +950,29 @@ static void TestOpenNarrow(void)
     uint64_t at = 0;
     CHECK(Changed(maniLearnedTagWeights, 0, any, 2, true, &at).result == mani_success,
           "any 16-bit weight");
+}
+
+// A model of two scaled bones (a Decompressor of its biases) whose
+// second Projector's two layers each fit its role: a scaled bone not
+// after the last, and a layer no network counts.
+static void TestOpenShapes(void)
+{
+    static const uint32_t kTwoScaled[2] = {1, 2};
+    static const uint32_t kSpare[3] = {FEATURES, STATE, STATE};
+    const maniLearnedLayerSource layer = {s_zeros, s_biases, STATE, 42};
+    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1, 0};
+    maniLearnedLayerSource spare[2];
+    maniLearnedProjectorSource projectors[2] = {s_projectors[0], {Network(spare, kSpare, 2), 0, 0}};
+    maniLearnedModelSource source = Source();
+    source.decompressor = &fixed;
+    source.scaledBones = kTwoScaled;
+    source.scaledBoneCount = 2;
+    source.projectors = projectors;
+    CHECK(Build(&source).result == mani_success, "built");
+    CHECK(WordRefused(maniLearnedTagBones, 4, 1, 4), "scaled bones not increasing");
+    CHECK(WordRefusedIn(maniLearnedTagNetworks, 3 * MANI_LEARNED_NETWORK_SIZE, 1,
+                        maniLearnedTagHeader, 52),
+          "a layer no network counts");
 }
 
 static bool WriteFile(const char* path, const void* data, size_t size)
@@ -914,5 +1008,6 @@ int main(int argc, char** argv)
     TestOpenRecords();
     TestOpenNames();
     TestOpenNarrow();
+    TestOpenShapes();
     return s_failures == 0 ? 0 : 1;
 }

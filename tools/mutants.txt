@@ -2096,3 +2096,69 @@ tr-inverse | src/trajectory.c | maniQuat inverse = maniQuatConjugate(root->rotat
 tr-forward | src/trajectory.c | maniVec3 forward = maniQuatRotate(sample->rotation, maniMatchAxisVector(database->forward)); | maniVec3 forward = maniMatchAxisVector(database->forward);
 mm-ground | src/match_move.c | out[1] = c[a == 2 ? 1 : 2]; | out[1] = c[2];
 mm-sign | src/match_move.c | float sign = axis >= maniMatchAxisNegativeX ? -1.0f : 1.0f; | float sign = 1.0f;
+
+# Learned motion matching models: their view, evaluation and builder
+# (mani-0025).
+le-locate-values | src/learned_eval.c | w.values += 2 * (uint64_t)w.in + 2 * (uint64_t)w.out; | w.values += 2 * (uint64_t)w.in;
+le-locate-narrow | src/learned_eval.c | w.values += outputs + (narrow ? inputs : 0u); | w.values += outputs;
+le-locate-weights | src/learned_eval.c | w.weights += inputs * outputs; | w.weights += outputs;
+le-locate-first | src/learned_eval.c | w.firstLayer += w.layerCount; | w.firstLayer += 1;
+le-bias | src/learned_eval.c | to[o] = LoadF32(values + 4 * (size_t)o); | to[o] = 0.0f;
+le-row | src/learned_eval.c | const uint8_t* row = w + 4 * (size_t)i * outputs; | const uint8_t* row = w + 4 * (size_t)i;
+le-narrow-scale | src/learned_eval.c | float x = from[i] * LoadF32(scales + 4 * (size_t)i); | float x = from[i];
+le-narrow-row | src/learned_eval.c | const uint8_t* row = w + 2 * (size_t)i * outputs; | const uint8_t* row = w + 2 * (size_t)i;
+le-narrow-sign | src/learned_eval.c | to[o] += x * (float)(int16_t)maniLoadU16(row + 2 * (size_t)o); | to[o] += x * (float)maniLoadU16(row + 2 * (size_t)o);
+le-normalize | src/learned_eval.c | a[i] = (input[i] - LoadF32(v + 4 * (size_t)i)) / LoadF32(v + 4 * ((size_t)w.in + i)); | a[i] = input[i] - LoadF32(v + 4 * (size_t)i);
+le-relu-last | src/learned_eval.c | if (l + 1 < w.firstLayer + w.layerCount) | if (true)
+le-relu | src/learned_eval.c | b[o] = b[o] > 0.0f ? b[o] : 0.0f; | b[o] = b[o];
+le-advance | src/learned_eval.c | v += 4 * ((size_t)count + (narrow ? inputs : 0u)); | v += 4 * (size_t)count;
+le-denormalize | src/learned_eval.c | a[o] = a[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o); | a[o] = a[o] + LoadF32(outputs + 4 * (size_t)o);
+le-scratch | src/learned_eval.c | return model != NULL ? 2 * sizeof(float) * (size_t)model->widest : 0; | return model != NULL ? sizeof(float) * (size_t)model->widest : 0;
+le-aligned | src/learned_eval.c | return scratch != NULL && (uintptr_t)scratch % sizeof(float) == 0 && | return scratch != NULL &&
+le-finite | src/learned_eval.c | if (!(fabsf(values[k]) < HUGE_VALF)) | if (false)
+le-projector | src/learned_eval.c | if (model == NULL || query == NULL || stateOut == NULL || projector >= model->projectorCount || | if (model == NULL || query == NULL || stateOut == NULL ||
+le-step | src/learned_eval.c | state[k] += seconds * rate[k]; | state[k] += rate[k];
+le-c0 | src/learned_eval.c | maniVec3 c0 = maniVec3Normalize(x, maniVec3Make(1.0f, 0.0f, 0.0f)); | maniVec3 c0 = maniVec3Normalize(x, maniVec3Make(0.0f, 1.0f, 0.0f));
+le-least | src/learned_eval.c | maniVec3 least = fabsf(c0.x) <= fabsf(c0.y) && fabsf(c0.x) <= fabsf(c0.z) | maniVec3 least = fabsf(c0.x) <= fabsf(c0.y)
+le-c2 | src/learned_eval.c | maniVec3 c2 = maniVec3Normalize(maniVec3Cross(c0, y), square); | maniVec3 c2 = maniVec3Normalize(maniVec3Cross(c0, y), least);
+le-w-branch | src/learned_eval.c | if (trace >= c0.x && trace >= c1.y && trace >= c2.z) | if (trace >= c0.x && trace >= c1.y)
+le-x-branch | src/learned_eval.c | else if (c0.x >= c1.y && c0.x >= c2.z) | else if (c0.x >= c1.y)
+le-x-quat | src/learned_eval.c | q = (maniQuat){1.0f + c0.x - c1.y - c2.z, c0.y + c1.x, c2.x + c0.z, c1.z - c2.y}; | q = (maniQuat){1.0f + c0.x - c1.y - c2.z, c0.y + c1.x, c2.x + c0.z, c2.y - c1.z};
+le-y-quat | src/learned_eval.c | q = (maniQuat){c0.y + c1.x, 1.0f + c1.y - c0.x - c2.z, c1.z + c2.y, c2.x - c0.z}; | q = (maniQuat){c0.y + c1.x, 1.0f + c1.y - c0.x - c2.z, c1.z + c2.y, c0.z - c2.x};
+le-z-quat | src/learned_eval.c | q = (maniQuat){c2.x + c0.z, c1.z + c2.y, 1.0f + c2.z - c0.x - c1.y, c0.y - c1.x}; | q = (maniQuat){c2.x + c0.z, c1.z + c2.y, 1.0f + c2.z - c0.x - c1.y, c1.x - c0.y};
+le-w-sign | src/learned_eval.c | return q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q; | return q;
+le-scaled | src/learned_eval.c | if (next < m->scaledBoneCount && maniLoadU32(m->bones + 4 * (size_t)next) == b) | if (next < m->scaledBoneCount)
+le-pose-difference | src/learned_eval.c | maniPoseIsDifference(output->pose)))) | false)))
+le-pose-bones | src/learned_eval.c | (output->pose != NULL && (maniPoseBoneCount(output->pose) != model->boneCount || | (output->pose != NULL && (false ||
+lv-scaled-count | src/learned.c | high = k == 5 ? counts[0] : high; | high = k == 5 ? MANI_MAX_BONES : high;
+lv-layers-low | src/learned.c | uint32_t low = k < 9 ? lows[k] : networks; | uint32_t low = k < 9 ? lows[k] : 0u;
+lv-axes | src/learned.c | maniLoadU32(h + 68) % 3 != maniLoadU32(h + 64) % 3}; | true};
+lv-channel-bone | src/learned.c | bone ? maniLoadU32(e + 4) < m->boneCount : maniLoadU32(e + 4) == 0, | true,
+lv-time-reach | src/learned.c | if (!(fabsf(LoadF32(m->times + 4 * (size_t)t)) <= MANI_MATCH_MAX_REACH)) | if (false)
+lv-norm-scale | src/learned.c | if (!(f < m->featureCount ? Finite(v) : v > 0.0f && v < HUGE_VALF)) | if (!Finite(v))
+lv-bone-order | src/learned.c | if (bone >= m->boneCount || (k > 0 && bone <= maniLoadU32(m->bones + 4 * (size_t)k - 4))) | if (bone >= m->boneCount)
+lv-net-tags | src/learned.c | projector || maniLoadU32(e + 4) == 0, | true,
+lv-chain | src/learned.c | if (inputs != previous) | if (false)
+lv-last | src/learned.c | if (outputs < 1 || outputs > MANI_LEARNED_MAX_WIDTH || (last && outputs != out)) | if (outputs < 1 || outputs > MANI_LEARNED_MAX_WIDTH)
+lv-widest | src/learned.c | m->widest = outputs > m->widest ? outputs : m->widest; | m->widest = m->widest;
+lv-layers-total | src/learned.c | return first == m->layerCount ? kOk : Fail(s->at[0] + 52); | return kOk;
+lv-in-scale | src/learned.c | if (!Finite(x) || (scale && x == 0.0f)) | if (!Finite(x))
+lv-row-scale | src/learned.c | if (!Finite(x) || (k >= biases && x < 0.0f)) | if (!Finite(x))
+lv-pad | src/learned.c | if (!wide && r.result == mani_success && count % 2 != 0 && | if (!wide && r.result == mani_success && false &&
+lv-name-at | src/learned.c | if (maniLoadU32(e) != at) | if (false)
+lv-name-dup | src/learned.c | if (maniLoadU32(o + 4) == length && | if (false &&
+lv-name-list | src/learned.c | uint32_t listStart = k < m->floatTrackCount ? 0u : m->floatTrackCount; | uint32_t listStart = 0u;
+lv-name-total | src/learned.c | return at == m->nameBytesSize ? kOk : Fail(s->entry[maniLearnedTagNameBytes - 1]); | return kOk;
+lv-identity | src/learned.c | if (maniLearnedComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
+lb-role-in | src/learned_build.c | *in = n < MANI_LEARNED_PROJECTORS ? state : features; | *in = state;
+lb-chain | src/learned_build.c | bool shape = l->inputCount == previous && l->outputCount >= 1 && | bool shape = l->outputCount >= 1 &&
+lb-weights-finite | src/learned_build.c | if (t->weights > MANI_LEARNED_MAX_WEIGHTS || !AllFinite(l->weights, weights) || | if (t->weights > MANI_LEARNED_MAX_WEIGHTS ||
+lb-scale-zero | src/learned_build.c | valid = w->inputScales[i] != 0.0f; | valid = true;
+lb-name-dup | src/learned_build.c | if (names[j].length == a->length && memcmp(names[j].name, a->name, a->length) == 0) | if (false)
+lb-skeleton | src/learned_build.c | if (maniMotionDatabaseSkeletonIdentity(s->database) != maniSkeletonIdentity(s->skeleton)) | if (false)
+lb-bone-order | src/learned_build.c | if (s->scaledBones[k] >= bones || (k > 0 && s->scaledBones[k] <= s->scaledBones[k - 1])) | if (s->scaledBones[k] >= bones)
+lb-scales-default | src/learned_build.c | StoreF32(scales + 4 * (size_t)k, s->scales != NULL ? s->scales[k] : 1.0f); | StoreF32(scales + 4 * (size_t)k, s->scales != NULL ? s->scales[k] : 0.0f);
+lb-round-tie | src/learned_build.c | if (part > 0.5f || (part == 0.5f && fmodf(low, 2.0f) != 0.0f)) | if (part >= 0.5f)
+lb-round-up | src/learned_build.c | if (part > 0.5f || (part == 0.5f && fmodf(low, 2.0f) != 0.0f)) | if (part == 0.5f && fmodf(low, 2.0f) != 0.0f)
+lb-largest | src/learned_build.c | largest = fabsf(row[o]) > largest ? fabsf(row[o]) : largest; | largest = fabsf(row[o]);
+lb-tags | src/learned_build.c | projector ? s->projectors[n - MANI_LEARNED_PROJECTORS].requiredTags : 0); | 0);
