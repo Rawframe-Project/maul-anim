@@ -88,10 +88,9 @@ host splits time.
   at faster hosts, the tails going on with heads that the pose moved
   (interpolating between the last two steps, Fiedler's render, lagged a
   step and pointed tails behind moving heads). Its local rotation turns
-  by `P* q P`, q
-  the model-space turn and P its parent's model rotation as the chain
-  has turned it, mirrored (`D q D`, D the scale's signs) under a parent
-  whose model scale is a mirror. A mirrored head mirrors its limit's
+  by `P* q P`, q the model-space turn and P its parent's model rotation
+  as the chain has turned it, mirrored (`D q D`, D the scale's signs)
+  under a parent whose model scale is a mirror. A mirrored head mirrors its limit's
   frame likewise; the limits are alike under the x mirror a model
   scale holds.
 - **Spring set slots in graphs:** a graph lists its spring sets as it
@@ -124,14 +123,16 @@ rate than 60 Hz says so in its reference rate. Between steps the
 output is a short extrapolation, which may cross a collider or limit by
 up to a step's motion until the next step. VRM's push and then length
 lets a tail pressed on a collider back in by a little, as in the
-reference. Measured on 128 joints in 16 chains with 6 colliders and
-cone limits (GCC 14 -O2): about 703,000 instructions a frame at a 60 Hz
-host (one step), 995,000 at 30 Hz (two), 532,000 at 144 Hz (a step
-every 2.4 frames), so about 290,000 a step and 410,000 a call, a
-quarter of it all in the polar decompositions of the bones read; the
-state is 16 KB, the set 8.7 KB. Reading each bone once took a frame
-from 1.62 million instructions. A seek beneath a spring node jumps its input without
+reference. A seek beneath a spring node jumps its input without
 dropping the motion; the reset trigger is the host's for such cuts.
+
+Measured on 128 joints in 16 chains with 6 colliders and cone limits
+(GCC 14 -O2): about 703,000 instructions a frame at a 60 Hz host (one
+step), 995,000 at 30 Hz (two), 532,000 at 144 Hz (a step every 2.4
+frames), so about 290,000 a step and 410,000 a call, a quarter of the
+frame in the polar decompositions of the bones read; the state is
+16 KB, the set 8.7 KB. Reading each bone once took a frame from 1.62
+million instructions.
 
 Opening is fuzzed; every check is tested against a file changed at its
 byte; the conversion is tested against its binary64 formula. The steps
@@ -146,8 +147,11 @@ of mixed deltas with a reset and a seek, and over a blend under a time
 scale with updates summed and backward; its saved block (a rotation
 restored off unit length included), refusals, opening's checks (blocks
 past 2^32 words included), binding, JSON form and subgraphs; the graph
-state and JSON fuzz targets' hosts hold one. The importer is tested on every
-shape and limit, the fallbacks kept, a last joint's malformed limit
-unread, each refusal at its value, and the limit's frame against glTF's
-under a proper, a mirrored and a turned and mirrored basis; its sources
-build.
+state and JSON fuzz targets' hosts hold one. The importer is tested on
+every shape and limit, the fallbacks kept, a last joint's malformed
+limit unread, each refusal at its value, and the limit's frame against
+glTF's under proper, mirrored and turned bases; its sources build.
+About 280 hand-picked mutants of the sets, states, graph slots and
+node, the importer and the work area are killed but five, each noted
+with its reason in `tools/mutants.txt` (three equivalent, one equal
+within rounding, one bound untested for its cost).
