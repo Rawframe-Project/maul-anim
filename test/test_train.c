@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The trainer's core (mani-0025): the generator against its authors'
-// published outputs and its ranges; a network's gradients (ReLU and ELU,
-// by its parameters and its inputs) against central differences of a
-// binary64 forward pass; a batch's gradient the same bits whatever order
-// and grouping the host runs its chunks in; AdamW with amsgrad against
-// the formula in binary64; a small network fit to a sine, the same bits
-// on a second run.
+// reference outputs, Lemire's and Box and Muller's values, and its
+// ranges; a network's start within PyTorch's bounds and its gradients
+// over two samples (ReLU and ELU, by its parameters and its inputs)
+// against central differences of a binary64 forward pass; a batch's gradient the same bits whatever
+// order and grouping the host runs its chunks in; AdamW with amsgrad against the formula in
+// binary64; a small network fit to a sine, the same bits on a second run.
 
 #include "test_harness.h"
 #include "train_adam.h"
@@ -27,6 +27,39 @@ static void TestRandom(void)
     maniTrainRandom r;
     maniTrainSeed(&r, 0);
     CHECK(r.s[0] == 0xE220A8397B1DCDAFull, "SplitMix64's first output");
+    // xoshiro256** from the state 1, 2, 3, 4: its reference outputs.
+    r = (maniTrainRandom){{1, 2, 3, 4}};
+    const uint64_t kOutputs[5] = {11520, 0, 1509978240, 1215971899390074240ull,
+                                  1216172134540287360ull};
+    bool reference = true;
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        reference = reference && maniTrainNext(&r) == kOutputs[k];
+    }
+    CHECK(reference, "xoshiro256**'s reference outputs");
+    // Lemire's multiplication from the same state: the high words of
+    // the top 32 bits times 7.
+    r = (maniTrainRandom){{1, 2, 3, 4}};
+    const uint32_t kBelow[5] = {0, 0, 0, 6, 3};
+    bool below = true;
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        below = below && maniTrainBelow(&r, 7) == kBelow[k];
+    }
+    CHECK(below, "values below 7 by Lemire's multiplication");
+    // Box and Muller's from two uniform values, u = 1 - the first.
+    bool gaussian = true;
+    maniTrainSeed(&r, 99);
+    for (int k = 0; k < 100; ++k)
+    {
+        maniTrainRandom copy = r;
+        double u = 1.0 - (double)maniTrainUniform(&copy);
+        double v = (double)maniTrainUniform(&copy);
+        double want = sqrt(-2.0 * log(u)) * cos(6.283185307179586 * v);
+        gaussian =
+            gaussian && fabs((double)maniTrainGaussian(&r) - want) <= 1e-5 * (1.0 + fabs(want));
+    }
+    CHECK(gaussian, "Gaussian values as Box and Muller's");
     maniTrainRandom a;
     maniTrainRandom b;
     maniTrainSeed(&a, 1234);
@@ -41,9 +74,9 @@ static void TestRandom(void)
         same = same && maniTrainNext(&a) == maniTrainNext(&b);
         float u = maniTrainUniform(&a);
         ranged = ranged && u >= 0.0f && u < 1.0f;
-        uint32_t below = maniTrainBelow(&a, 3);
-        ranged = ranged && below < 3;
-        counts[below < 3 ? below : 0] += 1;
+        uint32_t three = maniTrainBelow(&a, 3);
+        ranged = ranged && three < 3;
+        counts[three < 3 ? three : 0] += 1;
         float g = maniTrainGaussian(&a);
         ranged = ranged && fabsf(g) < 10.0f;
         sum += (double)g;
@@ -107,24 +140,29 @@ static bool GradientsMatch(maniTrainActivation activation)
     maniTrainRandom r;
     maniTrainSeed(&r, 7);
     maniTrainNetStart(&n, s_parameters, &r);
-    const float input[3] = {0.7f, -0.3f, 0.45f};
-    const float c[2] = {1.5f, -0.75f};
+    // Two samples: their losses summed, sum(c * out) each.
+    const float input[6] = {0.7f, -0.3f, 0.45f, -0.2f, 0.9f, 0.1f};
+    const float c[4] = {1.5f, -0.75f, -0.5f, 1.25f};
     memcpy(s_values, input, sizeof input);
-    maniTrainForward(&n, s_parameters, s_values, 1);
+    maniTrainForward(&n, s_parameters, s_values, 2);
     maniTrainTranspose(&n, s_parameters, s_transposed);
     memset(s_gradients, 0, sizeof s_gradients);
-    float inputGradient[3];
-    maniTrainBackward(&n, s_transposed, s_values, c, 1, s_gradients, inputGradient, s_scratch);
+    float inputGradient[6];
+    maniTrainBackward(&n, s_transposed, s_values, c, 2, s_gradients, inputGradient, s_scratch);
     static double p[4096];
-    double x[3];
-    double cd[2] = {(double)c[0], (double)c[1]};
+    double x[6];
+    double cd[4];
     for (uint64_t k = 0; k < n.parameterCount; ++k)
     {
         p[k] = (double)s_parameters[k];
     }
-    for (uint32_t i = 0; i < 3; ++i)
+    for (uint32_t i = 0; i < 6; ++i)
     {
         x[i] = (double)input[i];
+    }
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        cd[i] = (double)c[i];
     }
     const double h = 1e-6;
     bool ok = true;
@@ -132,23 +170,33 @@ static bool GradientsMatch(maniTrainActivation activation)
     {
         double kept = p[k];
         p[k] = kept + h;
-        double up = Loss(&n, p, x, cd);
+        double up = Loss(&n, p, x, cd) + Loss(&n, p, x + 3, cd + 2);
         p[k] = kept - h;
-        double down = Loss(&n, p, x, cd);
+        double down = Loss(&n, p, x, cd) + Loss(&n, p, x + 3, cd + 2);
         p[k] = kept;
         double want = (up - down) / (2.0 * h);
         ok = ok && fabs((double)s_gradients[k] - want) <= 1e-4 * (1.0 + fabs(want));
     }
-    for (uint32_t i = 0; i < 3; ++i)
+    for (uint32_t i = 0; i < 6; ++i)
     {
         double kept = x[i];
         x[i] = kept + h;
-        double up = Loss(&n, p, x, cd);
+        double up = Loss(&n, p, x + 3 * (i / 3), cd + 2 * (i / 3));
         x[i] = kept - h;
-        double down = Loss(&n, p, x, cd);
+        double down = Loss(&n, p, x + 3 * (i / 3), cd + 2 * (i / 3));
         x[i] = kept;
         double want = (up - down) / (2.0 * h);
         ok = ok && fabs((double)inputGradient[i] - want) <= 1e-4 * (1.0 + fabs(want));
+    }
+    // PyTorch's start: every value within 1 / sqrt(its layer's inputs).
+    for (uint32_t l = 0; l < n.layerCount; ++l)
+    {
+        float bound = 1.0f / sqrtf((float)n.sizes[l]);
+        uint64_t count = (uint64_t)n.sizes[l] * n.sizes[l + 1] + n.sizes[l + 1];
+        for (uint64_t k = 0; k < count; ++k)
+        {
+            ok = ok && fabsf(s_parameters[n.offsets[l] + k]) <= bound;
+        }
     }
     return ok;
 }
@@ -161,10 +209,16 @@ static void TestGradients(void)
     const uint32_t zero[3] = {3, 0, 2};
     const uint32_t wide[3] = {3, MANI_LEARNED_MAX_WIDTH + 1, 2};
     const uint32_t fine[3] = {3, 4, 2};
+    uint32_t many[MANI_LEARNED_MAX_LAYERS + 2];
+    for (uint32_t k = 0; k < MANI_LEARNED_MAX_LAYERS + 2; ++k)
+    {
+        many[k] = 2;
+    }
     CHECK(!maniTrainNetInit(&n, zero, 2, maniTrainRelu) &&
               !maniTrainNetInit(&n, wide, 2, maniTrainRelu) &&
               !maniTrainNetInit(&n, fine, 0, maniTrainRelu) &&
-              !maniTrainNetInit(&n, fine, MANI_LEARNED_MAX_LAYERS + 1, maniTrainRelu) &&
+              !maniTrainNetInit(&n, many, MANI_LEARNED_MAX_LAYERS + 1, maniTrainRelu) &&
+              maniTrainNetInit(&n, many, MANI_LEARNED_MAX_LAYERS, maniTrainRelu) &&
               maniTrainNetInit(&n, fine, 2, maniTrainRelu) &&
               n.parameterCount == 3 * 4 + 4 + 4 * 2 + 2 && n.valueCount == 9 && n.widest == 4,
           "shapes and limits");

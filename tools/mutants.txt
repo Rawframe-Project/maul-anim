@@ -2162,3 +2162,38 @@ lb-round-tie | src/learned_build.c | if (part > 0.5f || (part == 0.5f && fmodf(l
 lb-round-up | src/learned_build.c | if (part > 0.5f || (part == 0.5f && fmodf(low, 2.0f) != 0.0f)) | if (part == 0.5f && fmodf(low, 2.0f) != 0.0f)
 lb-largest | src/learned_build.c | largest = fabsf(row[o]) > largest ? fabsf(row[o]) : largest; | largest = fabsf(row[o]);
 lb-tags | src/learned_build.c | projector ? s->projectors[n - MANI_LEARNED_PROJECTORS].requiredTags : 0); | 0);
+
+# The learned models' trainer: generator, dense passes, AdamW, chunks
+# (mani-0025).
+tr-split-add | src/train_random.c | uint64_t z = (*x += 0x9E3779B97F4A7C15ull); | uint64_t z = (*x += 0x9E3779B97F4A7C16ull);
+tr-split-mix | src/train_random.c | z = (z ^ (z >> 27)) * 0x94D049BB133111EBull; | z = (z ^ (z >> 26)) * 0x94D049BB133111EBull;
+tr-rotate | src/train_random.c | uint64_t result = Rotate(s[1] * 5, 7) * 9; | uint64_t result = Rotate(s[1] * 5, 8) * 9;
+tr-shift | src/train_random.c | uint64_t t = s[1] << 17; | uint64_t t = s[1] << 16;
+tr-rotate-45 | src/train_random.c | s[3] = Rotate(s[3], 45); | s[3] = Rotate(s[3], 44);
+tr-uniform | src/train_random.c | return (float)(maniTrainNext(r) >> 40) * 0x1.0p-24f; | return (float)(maniTrainNext(r) >> 39) * 0x1.0p-24f;
+tr-below | src/train_random.c | return (uint32_t)(m >> 32); | return (uint32_t)m % n;
+tr-gauss-u | src/train_random.c | float u = 1.0f - maniTrainUniform(r); | float u = maniTrainUniform(r) + 0x1.0p-24f;
+tr-gauss-two | src/train_random.c | return sqrtf(-2.0f * maniLogF(u)) * cosine; | return sqrtf(-maniLogF(u)) * cosine;
+tn-width | src/train_net.c | if (sizes[l] < 1 || sizes[l] > MANI_LEARNED_MAX_WIDTH) | if (sizes[l] < 1)
+tn-layers | src/train_net.c | if (layerCount < 1 || layerCount > MANI_LEARNED_MAX_LAYERS) | if (layerCount < 1)
+tn-bound | src/train_net.c | float bound = 1.0f / sqrtf((float)n->sizes[l]); | float bound = 1.0f;
+tn-elu | src/train_net.c | return activation == maniTrainElu ? maniExpF(x) - 1.0f : 0.0f; | return activation == maniTrainElu ? maniExpF(x) : 0.0f;
+tn-last | src/train_net.c | for (uint32_t o = 0; !last && o < out; ++o) | for (uint32_t o = 0; o < out; ++o)
+tn-slope-elu | src/train_net.c | return activation == maniTrainElu ? y + 1.0f : 0.0f; | return activation == maniTrainElu ? 1.0f : 0.0f;
+tn-bias-grad | src/train_net.c | db[o] += d[o]; | db[o] = d[o];
+tn-weight-grad | src/train_net.c | row[o] += xs[i] * d[o]; | row[o] = xs[i] * d[o];
+tn-propagate | src/train_net.c | d[i] += g * column[i]; | d[i] = g * column[i];
+tn-slope | src/train_net.c | dz[k] = dx[k] * Slope(n->activation, x[k]); | dz[k] = dx[k];
+tn-input-grad | src/train_net.c | Propagate(n, l, transposed, dz, count, l == 0 ? inputGradient : dx); | Propagate(n, l, transposed, dz, count, dx);
+ta-keep | src/train_adam.c | float keep = 1.0f - rate * a->decay; | float keep = 1.0f;
+ta-size | src/train_adam.c | float size = (float)((double)rate / (1.0 - Power((double)a->beta1, step))); | float size = rate;
+ta-root | src/train_adam.c | float root = (float)sqrt(1.0 - Power((double)a->beta2, step)); | float root = 1.0f;
+ta-power | src/train_adam.c | result *= x; | result *= 1.0;
+ta-square | src/train_adam.c | x *= x; | x *= 1.0;
+ta-moment | src/train_adam.c | m[k] += (g - m[k]) * first; | m[k] = g;
+ta-second | src/train_adam.c | v[k] = v[k] * a->beta2 + g * g * second; | v[k] = g * g;
+ta-largest | src/train_adam.c | largest[k] = v[k] > largest[k] ? v[k] : largest[k]; | largest[k] = v[k];
+ta-epsilon | src/train_adam.c | float denominator = sqrtf(largest[k]) / root + a->epsilon; | float denominator = sqrtf(largest[k]) / root;
+tt-hooks | src/train_tasks.c | if (hooks == NULL || hooks->enqueueTask == NULL) | if (hooks == NULL)
+tt-finish | src/train_tasks.c | if (handle != NULL && hooks->finishTask != NULL) | if (false)
+tt-sum | src/train_tasks.c | for (uint32_t c = 1; c < chunkCount; ++c) | for (uint32_t c = 2; c < chunkCount; ++c)
