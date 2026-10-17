@@ -27,6 +27,7 @@
 #include "maul-anim/graphbuild.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -57,11 +58,12 @@ enum
     kSyncGroups = 2,
     kDatabases = 3,
     kModels = 4,
+    kSpringSets = 5,
 };
 
-static const maniBuildReason s_lists[5] = {maniBuildReasonParameterList, maniBuildReasonClipList,
-                                           maniBuildReasonSyncGroupList,
-                                           maniBuildReasonDatabaseList, maniBuildReasonModelList};
+static const maniBuildReason s_lists[6] = {
+    maniBuildReasonParameterList, maniBuildReasonClipList,  maniBuildReasonSyncGroupList,
+    maniBuildReasonDatabaseList,  maniBuildReasonModelList, maniBuildReasonSpringSetList};
 
 static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
 {
@@ -69,7 +71,8 @@ static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
            : list == kClips      ? source->clipCount
            : list == kSyncGroups ? source->syncGroupCount
            : list == kDatabases  ? source->databaseCount
-                                 : source->modelCount;
+           : list == kModels     ? source->modelCount
+                                 : source->springSetCount;
 }
 
 static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32_t i,
@@ -94,6 +97,11 @@ static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32
     {
         *lengthOut = source->models[i].nameLength;
         return source->models[i].name;
+    }
+    if (list == kSpringSets)
+    {
+        *lengthOut = source->springSets[i].nameLength;
+        return source->springSets[i].name;
     }
     *lengthOut = source->syncGroups[i].nameLength;
     return source->syncGroups[i].name;
@@ -260,6 +268,28 @@ static maniBuildResult CheckModels(const maniGraphSource* source)
             if (maniLearnedModelIdentity(source->models[k].model) == maniLearnedModelIdentity(m))
             {
                 return maniGraphRefuse(maniBuildReasonModel, i, k);
+            }
+        }
+    }
+    return Outcome(mani_success);
+}
+
+// Every spring set slot: a set of the skeleton, each set once.
+static maniBuildResult CheckSpringSets(const maniGraphSource* source)
+{
+    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    for (uint32_t i = 0; i < source->springSetCount; ++i)
+    {
+        const maniSpringSet* p = source->springSets[i].set;
+        if (p == NULL || maniSpringSetSkeletonIdentity(p) != skeleton)
+        {
+            return maniGraphRefuse(maniBuildReasonSpringSetSlot, i, 0);
+        }
+        for (uint32_t k = 0; k < i; ++k)
+        {
+            if (maniSpringSetIdentity(source->springSets[k].set) == maniSpringSetIdentity(p))
+            {
+                return maniGraphRefuse(maniBuildReasonSpringSetSlot, i, k);
             }
         }
     }
@@ -557,7 +587,9 @@ static bool CountsValid(const maniGraphSource* source)
            source->databaseCount <= MANI_GRAPH_MAX_DATABASES &&
            (source->databaseCount == 0 || source->databases != NULL) &&
            source->modelCount <= MANI_GRAPH_MAX_MODELS &&
-           (source->modelCount == 0 || source->models != NULL);
+           (source->modelCount == 0 || source->models != NULL) &&
+           source->springSetCount <= MANI_GRAPH_MAX_SPRING_SETS &&
+           (source->springSetCount == 0 || source->springSets != NULL);
 }
 
 maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAllocator* allocator,
@@ -569,7 +601,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
     maniBuildResult r = Outcome(mani_success);
-    for (uint32_t list = kParameters; list <= kModels && r.result == mani_success; ++list)
+    for (uint32_t list = kParameters; list <= kSpringSets && r.result == mani_success; ++list)
     {
         r = CheckNames(source, list, allocator, &tallyOut->namesSize);
     }
@@ -581,6 +613,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     r = r.result == mani_success ? CheckSyncGroups(source) : r;
     r = r.result == mani_success ? maniCheckGraphDatabases(source, &tallyOut->databaseClips) : r;
     r = r.result == mani_success ? CheckModels(source) : r;
+    r = r.result == mani_success ? CheckSpringSets(source) : r;
     for (uint32_t i = 0; i < source->nodeCount && r.result == mani_success; ++i)
     {
         r = CheckNode(source, i, tallyOut);

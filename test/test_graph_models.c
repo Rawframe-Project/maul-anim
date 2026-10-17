@@ -33,8 +33,8 @@ static maniGraphNodeSource s_nodes[1];
 static maniGraphSource Graph(const maniGraphModelSource* models, uint32_t count)
 {
     s_nodes[0] = ClipNode(0, 1.0f, maniGraphLoopRepeat);
-    maniGraphSource source = {&s_skeleton, NULL, kSlots, NULL,          s_nodes, 0, CLIPS, 0,
-                              1,           0,    1,      kDatabaseSlot, count,   0, models};
+    maniGraphSource source = {&s_skeleton, NULL, kSlots, NULL,          s_nodes, 0, CLIPS,  0,
+                              1,           0,    1,      kDatabaseSlot, count,   0, models, NULL};
     return source;
 }
 
@@ -176,7 +176,7 @@ static void TestBind(void)
     maniLearnedModel stranger = s_learned;
     stranger.skeletonIdentity ^= 1;
     const maniLearnedModel* models[3] = {&stranger, &s_other, &s_learned};
-    maniGraphAssets assets = {&s_skeleton, clips, databases, models, CLIPS, 1, 3, 0};
+    maniGraphAssets assets = {&s_skeleton, clips, databases, models, NULL, CLIPS, 1, 3, 0};
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
     CHECK(maniGraphBindingSize(&g) <= sizeof s_binding &&
@@ -198,7 +198,7 @@ static void TestBind(void)
     CHECK(maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, NULL) ==
               mani_errorInvalid,
           "no models");
-    assets = (maniGraphAssets){NULL, clips, databases, models, CLIPS, 1, 3, 0};
+    assets = (maniGraphAssets){NULL, clips, databases, models, NULL, CLIPS, 1, 3, 0};
     CHECK(maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, NULL) ==
                   mani_errorInvalid &&
               maniBindGraph(&g, NULL, s_binding, sizeof s_binding, &binding, NULL) ==
@@ -233,7 +233,7 @@ static void TestJson(void)
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "\"models\": [\n    \"steps\"\n  ],") != NULL, "a models list by name");
-    maniGraphNamedAssets assets = {&s_skeleton, kSlots, kDatabaseSlot, slots, CLIPS, 1, 1, 0};
+    maniGraphNamedAssets assets = {&s_skeleton, kSlots, kDatabaseSlot, slots, NULL, CLIPS, 1, 1, 0};
     maniGraph read;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success &&
               maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==

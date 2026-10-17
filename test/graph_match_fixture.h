@@ -122,7 +122,7 @@ static inline maniGraphInstance* MakeMatch(maniGraphSource source, maniGraph* g)
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(
-                  g, &(maniGraphAssets){&s_skeleton, clips, databases, NULL, CLIPS, 1, 0, 0},
+                  g, &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, CLIPS, 1, 0, 0},
                   s_matchBinding, sizeof s_matchBinding, &binding, NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &instance) == mani_success,

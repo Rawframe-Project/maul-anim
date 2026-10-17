@@ -357,7 +357,7 @@ static void TestSubgraph(void)
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(4, 1.0f, maniGraphLoopClip)};
     maniGraphSource sub = {&s_skeleton, &inner, kSlots, NULL, nodes, 1, CLIPS, 0,
-                           3,           0,      0,      NULL, 0,     0, NULL};
+                           3,           0,      0,      NULL, 0,     0, NULL,  NULL};
     Parameters();
     static const uint32_t kMap[1] = {3};
     maniGraphNodeSource node = {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
@@ -366,9 +366,10 @@ static void TestSubgraph(void)
     flat[0].oneShot.fire = 3;
     static _Alignas(16) uint8_t files[2][16384];
     size_t sizes[2] = {0, 0};
-    const maniGraphSource sources[2] = {
-        {&s_skeleton, s_parameters, kSlots, NULL, &node, 4, CLIPS, 0, 1, 0, 0, NULL, 0, 0, NULL},
-        {&s_skeleton, s_parameters, kSlots, NULL, flat, 4, CLIPS, 0, 3, 0, 0, NULL, 0, 0, NULL}};
+    const maniGraphSource sources[2] = {{&s_skeleton, s_parameters, kSlots, NULL, &node, 4, CLIPS,
+                                         0, 1, 0, 0, NULL, 0, 0, NULL, NULL},
+                                        {&s_skeleton, s_parameters, kSlots, NULL, flat, 4, CLIPS, 0,
+                                         3, 0, 0, NULL, 0, 0, NULL, NULL}};
     for (int k = 0; k < 2; ++k)
     {
         maniBuilder* builder = NewBuilder();
@@ -458,15 +459,15 @@ static bool RoundTrip(const maniGraphSource* source)
 {
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
-    bool ok =
-        maniBuildGraph(builder, source).result == mani_success &&
-        maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-        maniWriteGraphJson(builder, source).result == mani_success &&
-        maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-        maniBuildGraphJson(builder, s_text, s_textSize,
-                           &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, CLIPS, 0, 0, 0})
-                .result == mani_success &&
-        maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    bool ok = maniBuildGraph(builder, source).result == mani_success &&
+              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+              maniWriteGraphJson(builder, source).result == mani_success &&
+              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
+              maniBuildGraphJson(
+                  builder, s_text, s_textSize,
+                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0})
+                      .result == mani_success &&
+              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     s_text[ok ? s_textSize : 0] = 0;
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;
@@ -477,7 +478,7 @@ static maniBuildResult Read(const char* text)
     maniBuilder* builder = NewBuilder();
     maniBuildResult r = maniBuildGraphJson(
         builder, text, strlen(text),
-        &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, CLIPS, 0, 0, 0});
+        &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0});
     maniDestroyBuilder(builder);
     return r;
 }
@@ -495,8 +496,8 @@ static void TestJson(void)
                                     ClipNode(0, 1.0f, maniGraphLoopRepeat),
                                     ClipNode(4, 1.0f, maniGraphLoopClamp)};
     Parameters();
-    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 4, CLIPS, 0, 3, 0,
-                              0,           NULL,         0,      0,    NULL};
+    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 4,   CLIPS, 0, 3, 0,
+                              0,           NULL,         0,      0,    NULL,  NULL};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "\"kind\": \"oneShot\", \"inputs\": [1, 2], \"fire\": \"fire\", "
                          "\"fadeOutTrigger\": \"out\", \"abort\": \"abort\", \"curve\": "

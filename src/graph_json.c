@@ -774,13 +774,36 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
     PutText(w, "}");
 }
 
+// The name of a clip (list 1), database (4), model (5) or spring set (6)
+// slot.
+static void PutSlotName(Writer* w, const maniGraphSource* source, uint32_t list, uint32_t i)
+{
+    if (list == 1)
+    {
+        PutString(w, source->clips[i].name, source->clips[i].nameLength);
+    }
+    else if (list == 4)
+    {
+        PutString(w, source->databases[i].name, source->databases[i].nameLength);
+    }
+    else if (list == 5)
+    {
+        PutString(w, source->models[i].name, source->models[i].nameLength);
+    }
+    else
+    {
+        PutString(w, source->springSets[i].name, source->springSets[i].nameLength);
+    }
+}
+
 // A list's opening, its items each on a line, and its closing; an empty
 // list on one line.
 static void PutList(Writer* w, const maniGraphSource* source, const char* key, uint32_t list,
                     uint32_t depth)
 {
     uint32_t counts[] = {source->parameterCount, source->clipCount,     source->syncGroupCount,
-                         source->nodeCount,      source->databaseCount, source->modelCount};
+                         source->nodeCount,      source->databaseCount, source->modelCount,
+                         source->springSetCount};
     Line(w, depth);
     PutKey(w, key);
     PutText(w, "[");
@@ -792,17 +815,9 @@ static void PutList(Writer* w, const maniGraphSource* source, const char* key, u
         {
             PutParameter(w, &source->parameters[i]);
         }
-        else if (list == 1)
+        else if (list == 1 || list >= 4)
         {
-            PutString(w, source->clips[i].name, source->clips[i].nameLength);
-        }
-        else if (list == 4)
-        {
-            PutString(w, source->databases[i].name, source->databases[i].nameLength);
-        }
-        else if (list == 5)
-        {
-            PutString(w, source->models[i].name, source->models[i].nameLength);
+            PutSlotName(w, source, list, i);
         }
         else if (list == 2)
         {
@@ -849,6 +864,10 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
     if (source->modelCount > 0)
     {
         PutList(w, source, "models", 5, depth + 1);
+    }
+    if (source->springSetCount > 0)
+    {
+        PutList(w, source, "springSets", 6, depth + 1);
     }
     PutList(w, source, "nodes", 3, depth + 1);
     Line(w, depth + 1);

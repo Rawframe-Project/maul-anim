@@ -189,9 +189,9 @@ static inline maniGraphInstance* Make(maniGraphSource source, maniGraph* g)
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
-              maniBindGraph(g, &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, CLIPS, 0, 0, 0},
-                            s_bindingMemory, sizeof s_bindingMemory, &binding,
-                            NULL) == mani_success &&
+              maniBindGraph(
+                  g, &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0},
+                  s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &instance) == mani_success,
           "a graph");

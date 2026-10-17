@@ -81,6 +81,11 @@ host splits time.
   whose model scale is a mirror. A mirrored head mirrors its limit's
   frame likewise; the limits are alike under the x mirror a model
   scale holds.
+- **Spring set slots in graphs:** a graph lists its spring sets as it
+  lists learned models (an opened set of its skeleton, a name; section
+  tag 13, its count in the header, now 64 bytes), bound by identity
+  through `maniGraphAssets`; the JSON form names them in a "springSets"
+  list; subgraphs carry them.
 - **Saved states** (`MSST`, the set's identity, the size, the block)
   are checked as external bytes on restore: every float finite,
   rotations unit within a thousandth, scales not negative, the clock in

@@ -238,16 +238,20 @@ static bool Databases(Reader* r, uint32_t value, maniGraphSource* out, Scope* sc
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->databases);
 }
 
-// Model slots by name, each bound to the host's model of that name.
-static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+// Model or spring set slots by name, each the host's slot of that name
+// (stride bytes each, its asset first): the slots in itemsOut, their
+// count in countOut, their names in table.
+static bool HostSlots(Reader* r, uint32_t value, const void* host, size_t stride,
+                      const maniNameTable* hostNames, const void** itemsOut, uint32_t* countOut,
+                      maniNameTable* table)
 {
     List list;
     if (!Begin(r, value, &list))
     {
         return false;
     }
-    maniGraphModelSource* m = maniArenaTake(&r->arena, list.count, sizeof(maniGraphModelSource));
-    if (m == NULL)
+    uint8_t* items = maniArenaTake(&r->arena, list.count, stride);
+    if (items == NULL)
     {
         return maniGraphJsonNoMemory(r);
     }
@@ -255,23 +259,38 @@ static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope
     for (uint32_t i = 0; i < list.count; ++i)
     {
         e = maniGraphJsonNext(r->json, e, i == 0);
-        m[i] = (maniGraphModelSource){0};
-        if (!maniGraphJsonName(r, e, &m[i].name, &m[i].nameLength))
+        if (!maniGraphJsonName(r, e, &list.names[i], &list.lengths[i]))
         {
             return false;
         }
-        uint32_t host = maniGraphJsonLookup(&r->hostModelNames, m[i].name, m[i].nameLength);
-        if (host == ABSENT)
+        uint32_t found = maniGraphJsonLookup(hostNames, list.names[i], list.lengths[i]);
+        if (found == ABSENT)
         {
             return maniGraphJsonFault(r, e, maniGraphFormUnbound);
         }
-        m[i].model = r->hostModels[host].model;
-        list.names[i] = m[i].name;
-        list.lengths[i] = m[i].nameLength;
+        memcpy(items + (size_t)i * stride, (const uint8_t*)host + (size_t)found * stride, stride);
     }
-    out->models = m;
-    out->modelCount = list.count;
-    return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->models);
+    *itemsOut = items;
+    *countOut = list.count;
+    return maniGraphJsonTable(r, list.names, list.lengths, list.count, table);
+}
+
+static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+{
+    const void* items = NULL;
+    bool ok = HostSlots(r, value, r->hostModels, sizeof(maniGraphModelSource), &r->hostModelNames,
+                        &items, &out->modelCount, &scope->models);
+    out->models = items;
+    return ok;
+}
+
+static bool SpringSets(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+{
+    const void* items = NULL;
+    bool ok = HostSlots(r, value, r->hostSpringSets, sizeof(maniGraphSpringSetSource),
+                        &r->hostSpringSetNames, &items, &out->springSetCount, &scope->springSets);
+    out->springSets = items;
+    return ok;
 }
 
 static bool SyncGroups(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
@@ -864,12 +883,12 @@ static bool Header(Reader* r, const uint32_t* f)
 
 static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope)
 {
-    static const char* const kKeys[] = {"format", "version", "parameters", "clips", "syncGroups",
-                                        "nodes",  "output",  "databases",  "models"};
+    static const char* const kKeys[] = {"format", "version", "parameters", "clips",  "syncGroups",
+                                        "nodes",  "output",  "databases",  "models", "springSets"};
     // A nested graph takes the keys after format and version.
     uint32_t skip = top ? 0u : 2u;
-    uint32_t f[9];
-    if (!maniGraphJsonMembers(r, object, kKeys + skip, 9 - skip, 0x60u >> skip | (top ? 3u : 0u),
+    uint32_t f[10];
+    if (!maniGraphJsonMembers(r, object, kKeys + skip, 10 - skip, 0x60u >> skip | (top ? 3u : 0u),
                               f + skip) ||
         (top && !Header(r, f)))
     {
@@ -878,8 +897,8 @@ static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out
     *out = (maniGraphSource){.skeleton = r->skeleton};
     return Parameters(r, f[2], out, scope) && Clips(r, f[3], out, scope) &&
            SyncGroups(r, f[4], out, scope) && Databases(r, f[7], out, scope) &&
-           Models(r, f[8], out, scope) && Nodes(r, f[5], out, scope) &&
-           maniGraphJsonIndex(r, f[6], &out->output);
+           Models(r, f[8], out, scope) && SpringSets(r, f[9], out, scope) &&
+           Nodes(r, f[5], out, scope) && maniGraphJsonIndex(r, f[6], &out->output);
 }
 
 maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
@@ -892,7 +911,8 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
     const maniGraphNamedAssets* a = assets;
     if ((text == NULL && length > 0) || a == NULL || a->skeleton == NULL ||
         (a->clips == NULL && a->clipCount > 0) || (a->databases == NULL && a->databaseCount > 0) ||
-        (a->models == NULL && a->modelCount > 0))
+        (a->models == NULL && a->modelCount > 0) ||
+        (a->springSets == NULL && a->springSetCount > 0))
     {
         ++builder->misuses;
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
@@ -912,7 +932,8 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
                 .skeleton = a->skeleton,
                 .hostClips = a->clips,
                 .hostDatabases = a->databases,
-                .hostModels = a->models};
+                .hostModels = a->models,
+                .hostSpringSets = a->springSets};
     maniGraphSource source;
     Scope scope;
     maniBuildResult result =
@@ -921,6 +942,8 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
                                        &r.hostDatabaseNames) &&
                 maniGraphJsonHostNames(&r, a->models, sizeof *a->models, a->modelCount,
                                        &r.hostModelNames) &&
+                maniGraphJsonHostNames(&r, a->springSets, sizeof *a->springSets, a->springSetCount,
+                                       &r.hostSpringSetNames) &&
                 ReadGraph(&r, 0, true, &source, &scope)
             ? maniBuildGraph(builder, &source)
             : r.fault;

@@ -173,6 +173,12 @@ format.
   `maniOpenSpringSet` opens one in place with every record checked.
   `maniColliderSource` gains the plane shape and inside colliders,
   `maniSpringJointSource` the limits, `maniSpringSetSource` the rates.
+- Spring set slots in graphs (mani-0026): `maniGraphSpringSetSource`,
+  `maniGraphSpringSetCount`, `maniGraphSpringSetIdentity` and
+  `maniGraphSpringSetName`; binding finds each slot's set by identity
+  through `maniGraphAssets`; the JSON form writes a "springSets" list.
+  The graph file gains section 13 and a 64-byte header; graph files
+  built before do not open.
 - Spring states (mani-0026): `maniInitSpringState` makes a character's
   spring motion in caller memory; `maniStepSprings` runs the fixed
   steps due toward an animated pose and the character's placement in

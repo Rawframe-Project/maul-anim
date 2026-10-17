@@ -36,6 +36,7 @@ typedef struct Totals
     uint64_t databases;
     uint64_t queries;
     uint64_t models;
+    uint64_t springSets;
 } Totals;
 
 static uint32_t WeightCount(const maniGraphNodeSource* node)
@@ -98,6 +99,7 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
     t->groups += source->syncGroupCount;
     t->databases += source->databaseCount;
     t->models += source->modelCount;
+    t->springSets += source->springSetCount;
     for (uint32_t i = 0; i < source->nodeCount; ++i)
     {
         const maniGraphNodeSource* node = &source->nodes[i];
@@ -153,6 +155,7 @@ typedef struct Flat
     maniGraphDatabaseSource* databases;
     uint32_t* queries;
     maniGraphModelSource* models;
+    maniGraphSpringSetSource* springSets;
     uint32_t nodeCount;
     uint32_t inputCount;
     uint32_t weightCount;
@@ -163,6 +166,7 @@ typedef struct Flat
     uint32_t databaseCount;
     uint32_t queryCount;
     uint32_t modelCount;
+    uint32_t springSetCount;
 } Flat;
 
 static uint32_t Place(const Scope* s, uint32_t j)
@@ -503,7 +507,7 @@ static bool TotalsFit(const Totals* t)
            t->clips <= MANI_GRAPH_MAX_CLIPS && t->groups <= MANI_GRAPH_MAX_SYNC_GROUPS &&
            t->transitions <= UINT32_MAX && t->conditions <= UINT32_MAX &&
            t->databases <= MANI_GRAPH_MAX_DATABASES && t->queries <= UINT32_MAX &&
-           t->models <= MANI_GRAPH_MAX_MODELS;
+           t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS;
 }
 
 // The root's slots and sync groups first, as it lists them.
@@ -512,6 +516,10 @@ static void CopyRoot(const maniGraphSource* source, Flat* f)
     for (uint32_t k = 0; k < source->modelCount && source->models != NULL; ++k)
     {
         f->models[f->modelCount++] = source->models[k];
+    }
+    for (uint32_t k = 0; k < source->springSetCount && source->springSets != NULL; ++k)
+    {
+        f->springSets[f->springSetCount++] = source->springSets[k];
     }
     for (uint32_t k = 0; k < source->databaseCount && source->databases != NULL; ++k)
     {
@@ -535,12 +543,12 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
     }
-    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     if (!Count(source, 0, &t) || !TotalsFit(&t))
     {
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
-    size_t sizes[10] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
+    size_t sizes[11] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
                         (size_t)t.inputs * sizeof(uint32_t),
                         (size_t)t.weights * sizeof(maniGraphScalar),
                         (size_t)t.clips * sizeof(maniGraphClipSource),
@@ -549,9 +557,10 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
                         (size_t)t.conditions * sizeof(maniGraphConditionSource),
                         (size_t)t.databases * sizeof(maniGraphDatabaseSource),
                         (size_t)t.queries * sizeof(uint32_t),
-                        (size_t)t.models * sizeof(maniGraphModelSource)};
+                        (size_t)t.models * sizeof(maniGraphModelSource),
+                        (size_t)t.springSets * sizeof(maniGraphSpringSetSource)};
     size_t total = 0;
-    for (int k = 0; k < 10; ++k)
+    for (int k = 0; k < 11; ++k)
     {
         sizes[k] = (sizes[k] + 7u) & ~(size_t)7u;
         total += sizes[k];
@@ -561,9 +570,9 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_errorCapacity, maniBuildReasonNone, 0, 0};
     }
-    void* parts[10];
+    void* parts[11];
     size_t at = 0;
-    for (int k = 0; k < 10; ++k)
+    for (int k = 0; k < 11; ++k)
     {
         parts[k] = block + at;
         at += sizes[k];
@@ -578,6 +587,7 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
               .databases = parts[7],
               .queries = parts[8],
               .models = parts[9],
+              .springSets = parts[10],
               .nodeCount = source->nodeCount};
     CopyRoot(source, &f);
     Scope root = {source, NULL, NULL, 0, 0};
@@ -594,6 +604,8 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     out->source.databaseCount = f.databaseCount;
     out->source.models = f.models;
     out->source.modelCount = f.modelCount;
+    out->source.springSets = f.springSets;
+    out->source.springSetCount = f.springSetCount;
     return r;
 }
 

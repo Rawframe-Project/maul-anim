@@ -12,6 +12,7 @@
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -41,7 +42,8 @@ struct maniGraphBinding
     uint32_t maxInputs;
     // The clip each slot binds, in slot order; then the database each
     // database slot binds, read by maniGraphBoundDatabase; then the model
-    // each model slot binds, read by maniGraphBoundModel.
+    // each model slot binds, read by maniGraphBoundModel; then the spring
+    // set each spring set slot binds, read by maniGraphBoundSpringSet.
     const maniClip* clips[];
 };
 
@@ -73,6 +75,23 @@ static inline const maniLearnedModel* maniGraphBoundModel(const maniGraphBinding
     const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
     at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
     return ((const maniLearnedModel* const*)at)[slot];
+}
+
+// The spring sets a binding's spring set slots bind, in slot order:
+// after its models.
+static inline const maniSpringSet** maniGraphBoundSpringSets(maniGraphBinding* binding)
+{
+    return (const maniSpringSet**)(uint8_t*)(maniGraphBoundModels(binding) +
+                                             binding->graph.modelCount);
+}
+
+static inline const maniSpringSet* maniGraphBoundSpringSet(const maniGraphBinding* binding,
+                                                           uint32_t slot)
+{
+    const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
+    at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
+    at += (size_t)binding->graph.modelCount * sizeof(const maniLearnedModel*);
+    return ((const maniSpringSet* const*)at)[slot];
 }
 
 // A node's flags during an update: its time factor set from a parent, a

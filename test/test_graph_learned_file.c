@@ -128,7 +128,7 @@ static bool Unbindable(const maniGraph* g, uint32_t k, uint32_t value)
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
     return maniBindGraph(&crafted,
-                         &(maniGraphAssets){&s_skeleton, clips, NULL, models, CLIPS, 0, 1, 0},
+                         &(maniGraphAssets){&s_skeleton, clips, NULL, models, NULL, CLIPS, 0, 1, 0},
                          s_learnedBinding, sizeof s_learnedBinding, &binding,
                          &unbound) == mani_errorInvalid &&
            unbound == CLIPS;
@@ -415,7 +415,8 @@ static char s_text[16384];
 static size_t s_builtSize;
 static size_t s_textSize;
 
-static const maniGraphNamedAssets kNamed = {&s_skeleton, kSlots, NULL, kModelSlot, CLIPS, 0, 1, 0};
+static const maniGraphNamedAssets kNamed = {&s_skeleton, kSlots, NULL, kModelSlot, NULL,
+                                            CLIPS,       0,      1,    0};
 
 static bool RoundTrip(const maniGraphSource* source)
 {

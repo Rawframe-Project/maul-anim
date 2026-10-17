@@ -42,6 +42,8 @@ typedef struct maniGraphReader
     maniNameTable hostDatabaseNames;
     const maniGraphModelSource* hostModels;
     maniNameTable hostModelNames;
+    const maniGraphSpringSetSource* hostSpringSets;
+    maniNameTable hostSpringSetNames;
     // The first fault: Capacity, or a refusal with its offset.
     maniBuildResult fault;
 } maniGraphReader;
@@ -54,12 +56,13 @@ typedef struct maniGraphScope
     maniNameTable syncGroups;
     maniNameTable databases;
     maniNameTable models;
+    maniNameTable springSets;
     const maniGraphParameterSource* sources;
 } maniGraphScope;
 
-// The names of count host slot sources (clip, database or model sources,
-// each its asset, then its name and length, stride bytes apart) in a
-// table; false when the arena fails.
+// The names of count host slot sources (clip, database, model or spring
+// set sources, each its asset, then its name and length, stride bytes
+// apart) in a table; false when the arena fails.
 bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride, uint32_t count,
                             maniNameTable* out);
 

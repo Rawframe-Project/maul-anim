@@ -157,6 +157,9 @@ static_assert(offsetof(maniGraphDatabaseSource, name) == offsetof(maniGraphClipS
                   offsetof(maniGraphDatabaseSource, nameLength) ==
                       offsetof(maniGraphClipSource, nameLength) &&
                   offsetof(maniGraphModelSource, nameLength) ==
+                      offsetof(maniGraphClipSource, nameLength) &&
+                  offsetof(maniGraphSpringSetSource, name) == offsetof(maniGraphClipSource, name) &&
+                  offsetof(maniGraphSpringSetSource, nameLength) ==
                       offsetof(maniGraphClipSource, nameLength),
               "slot sources name alike");
 

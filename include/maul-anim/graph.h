@@ -16,6 +16,7 @@
 #include "maul-anim/pose.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -40,6 +41,7 @@ extern "C"
 #define MANI_GRAPH_MAX_SYNC_GROUPS 65536u
 #define MANI_GRAPH_MAX_DATABASES   256u
 #define MANI_GRAPH_MAX_MODELS      256u
+#define MANI_GRAPH_MAX_SPRING_SETS 256u
 // The most points (and inputs) a blend space has.
 #define MANI_GRAPH_MAX_SPACE_POINTS 256u
 // The most transitions of one state machine, conditions of one
@@ -142,6 +144,7 @@ extern "C"
         const uint8_t* databaseClips;
         const uint8_t* names;
         const uint8_t* models;
+        const uint8_t* springSets;
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
@@ -158,7 +161,7 @@ extern "C"
         uint32_t databaseCount;
         uint32_t databaseClipCount;
         uint32_t modelCount;
-        uint32_t reserved;
+        uint32_t springSetCount;
     } maniGraph;
 
     /// Opens a graph file in place: checks the container, every record,
@@ -331,6 +334,36 @@ extern "C"
     MANI_API const char* maniGraphModelName(const maniGraph* graph, uint32_t model,
                                             uint32_t* lengthOut);
 
+    /// Returns the number of spring set slots the graph's spring nodes
+    /// read.
+    ///
+    /// @param graph  An opened graph.
+    /// @return The count; 0 for a NULL graph.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphSpringSetCount(const maniGraph* graph);
+
+    /// Returns the identity of the spring set a slot names.
+    ///
+    /// @param graph  An opened graph.
+    /// @param slot   The slot.
+    /// @return The set's identity; 0 past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniGraphSpringSetIdentity(const maniGraph* graph, uint32_t slot);
+
+    /// Returns the name a slot gives its spring set, its bytes inside the
+    /// file.
+    ///
+    /// @param graph      An opened graph.
+    /// @param slot       The slot.
+    /// @param lengthOut  Receives the name's length; 0 past the count.
+    /// @return The name, not terminated, or NULL past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot,
+                                                uint32_t* lengthOut);
+
     // A graph bound to its skeleton and clips, in caller memory: shared by
     // every instance of the graph, read only.
     typedef struct maniGraphBinding maniGraphBinding;
@@ -351,18 +384,19 @@ extern "C"
     MANI_API size_t maniGraphBindingSize(const maniGraph* graph);
 
     // What a graph binds to: its skeleton, and opened clips, motion
-    // databases and learned models in any order (others ignored); each
-    // list may be NULL when its count is 0.
+    // databases, learned models and spring sets in any order (others
+    // ignored); each list may be NULL when its count is 0.
     typedef struct maniGraphAssets
     {
         const maniSkeleton* skeleton;
         const maniClip* const* clips;
         const maniMotionDatabase* const* databases;
         const maniLearnedModel* const* models;
+        const maniSpringSet* const* springSets;
         uint32_t clipCount;
         uint32_t databaseCount;
         uint32_t modelCount;
-        uint32_t reserved;
+        uint32_t springSetCount;
     } maniGraphAssets;
 
     /// Binds a graph to its assets: each clip slot to the clip of its
@@ -371,21 +405,24 @@ extern "C"
     /// identity among the databases, of the graph's skeleton, whose clips
     /// are the slots the graph lists for it and whose channels take the
     /// graph's query parameters; each model slot to the learned model of
-    /// its identity among the models, of the graph's skeleton. The graph
-    /// and its assets must outlive the binding.
+    /// its identity among the models, of the graph's skeleton; each
+    /// spring set slot to the spring set of its identity among the sets,
+    /// of the graph's skeleton. The graph and its assets must outlive the
+    /// binding.
     ///
     /// @param graph       An opened graph.
     /// @param assets      The skeleton the graph was built against, and
-    ///                    the clips, databases and models.
+    ///                    the clips, databases, models and spring sets.
     /// @param memory      At least maniGraphBindingSize bytes,
     ///                    MANI_GRAPH_BINDING_ALIGNMENT-aligned.
     /// @param size        The memory's size.
     /// @param bindingOut  Receives the binding.
     /// @param unboundOut  Receives the first slot left unbound on failure:
     ///                    a clip slot, the graph's clip count plus a
-    ///                    database slot, or the clip and database counts
-    ///                    plus a model slot (MANI_NO_TRACK otherwise). May
-    ///                    be NULL.
+    ///                    database slot, the clip and database counts
+    ///                    plus a model slot, or the clip, database and
+    ///                    model counts plus a spring set slot
+    ///                    (MANI_NO_TRACK otherwise). May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL or
     /// misaligned argument, a list NULL with a count, a skeleton that is
     /// not the graph's, a slot no asset binds, or clips whose root motion

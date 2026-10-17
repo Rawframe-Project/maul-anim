@@ -266,6 +266,9 @@ extern "C"
         // an unknown limit, a limit's angle negative or not finite or its
         // rotation not of length 1.
         maniBuildReasonSpringJoint = 46,
+        // A graph's spring set slot without a set, with one of another
+        // skeleton or one an earlier slot (other) has; item is the slot.
+        maniBuildReasonSpringSetSlot = 47,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -278,6 +281,7 @@ extern "C"
         maniBuildReasonDatabaseList = 0x800,
         maniBuildReasonModelList = 0x900,
         maniBuildReasonSpringList = 0xA00,
+        maniBuildReasonSpringSetList = 0xB00,
     };
 
     // A build's outcome: the status and, when the source was refused

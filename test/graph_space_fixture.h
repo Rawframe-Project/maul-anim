@@ -51,7 +51,7 @@ static inline maniBuildResult BuildOnly(const maniGraphNodeSource* nodes, uint32
 {
     maniGraphSource source = {&s_skeleton, parameters, kSlots, NULL, nodes, parameterCount,
                               CLIPS,       0,          count,  0,    0,     NULL,
-                              0,           0,          NULL};
+                              0,           0,          NULL,   NULL};
     maniBuilder* builder = NewBuilder();
     maniBuildResult r = maniBuildGraph(builder, &source);
     maniDestroyBuilder(builder);
