@@ -2308,3 +2308,73 @@ tp-required | src/train_projector.c | .requiredTags = t->requiredTags, | .requir
 tp-norm-in | src/train_projector.c | (c->queries[(size_t)s * f + j] - solo->inputOffsets[j]) / solo->inputScales[j]; | (c->queries[(size_t)s * f + j] - solo->inputOffsets[j]);
 tp-denorm | src/train_projector.c | y[j] = y[j] * solo->outputScales[j] + solo->outputOffsets[j]; | y[j] = y[j] + solo->outputOffsets[j];
 tp-chunk-grad | src/train_projector.c | float* gradients = solo->gradients + (size_t)(c - t->chunks) * (size_t)solo->net.parameterCount; | float* gradients = solo->gradients;
+
+# Learned motion matching training: the public trainer, its checkpoints
+# and the model built from it (mani-0025).
+# lt-shape-elu survives, equivalent: the trainer reads a shape's sizes
+# and counts only; the first stage makes its own networks, the
+# Compressor's ELU among them.
+lt-shape-elu | src/learned_train.c | return maniTrainNetInit(net, sizes, hidden[n] + 1, n == 0 ? maniTrainElu : maniTrainRelu); | return maniTrainNetInit(net, sizes, hidden[n] + 1, maniTrainRelu);
+lt-shape-out | src/learned_train.c | sizes[hidden[n] + 1] = out[n]; | sizes[hidden[n] + 1] = in[n];
+lt-latent | src/learned_train.c | const bool valid[12] = {o->latentCount >= 1 && o->latentCount <= MANI_LEARNED_MAX_LATENT, | const bool valid[12] = {o->latentCount <= MANI_LEARNED_MAX_LATENT,
+# lt-width survives, equivalent: a width past MANI_LEARNED_MAX_WIDTH
+# makes no network shape, refused with the same item.
+lt-width | src/learned_train.c | o->hiddenWidth >= 1 && o->hiddenWidth <= MANI_LEARNED_MAX_WIDTH, | o->hiddenWidth >= 1,
+lt-layers | src/learned_train.c | o->stepperLayers < MANI_LEARNED_MAX_LAYERS, | o->stepperLayers <= MANI_LEARNED_MAX_LAYERS,
+lt-batch-mod | src/learned_train.c | o->batchSize % MANI_TRAIN_CHUNK == 0, | o->batchSize % 2 == 0,
+lt-batch-max | src/learned_train.c | o->batchSize <= MANI_LEARNED_MAX_BATCH && | o->batchSize <= MANI_LEARNED_MAX_BATCH + 4 &&
+# lt-window survives, equivalent: no window below 2 frames fits an entry,
+# refused with the same item.
+lt-window | src/learned_train.c | o->stepperWindow >= 2 && o->stepperWindow <= MANI_LEARNED_MAX_WINDOW, | o->stepperWindow <= MANI_LEARNED_MAX_WINDOW,
+lt-iterations | src/learned_train.c | o->iterations >= 1, | true,
+lt-rate | src/learned_train.c | o->learningRate > 0.0f && o->learningRate < HUGE_VALF, | o->learningRate >= 0.0f && o->learningRate < HUGE_VALF,
+lt-seconds | src/learned_train.c | o->eventSeconds >= 0.0f && o->eventSeconds < HUGE_VALF}; | o->eventSeconds < HUGE_VALF};
+lt-option-item | src/learned_train.c | return Refuse(maniBuildReasonOption, k, 0); | return Refuse(maniBuildReasonOption, 0, 0);
+lt-skeleton | src/learned_train.c | if (maniMotionDatabaseSkeletonIdentity(d) != maniSkeletonIdentity(s->skeleton)) | if (false)
+lt-clip-count | src/learned_train.c | if (s->clipCount != d->clipCount) | if (s->clipCount > d->clipCount)
+lt-clip-id | src/learned_train.c | maniClipIdentity(s->clips[k]) != maniMotionDatabaseClipIdentity(d, k)) | false)
+lt-count | src/learned_train.c | if (s->projectorCount < 1 || s->projectorCount > MANI_LEARNED_MAX_PROJECTORS || | if (s->projectorCount > MANI_LEARNED_MAX_PROJECTORS ||
+lt-events-max | src/learned_train.c | s->eventCount > MANI_LEARNED_MAX_EVENTS) | false)
+lt-names | src/learned_train.c | ? maniLearnedCheckNames(s->events, s->eventCount, maniBuildReasonEvent) | ? kOk
+lt-tags | src/learned_train.c | r = maniTrainAnyFrame(d, f->required, f->excluded) ? kOk | r = true ? kOk
+lt-copies | src/learned_train.c | uint64_t copies = n == 0 ? 0u : (n == 3 ? s->projectorCount : 1u); | uint64_t copies = n == 0 ? 0u : 1u;
+lt-weights | src/learned_train.c | if (weights > MANI_LEARNED_MAX_WEIGHTS) | if (weights > 2 * (uint64_t)MANI_LEARNED_MAX_WEIGHTS)
+lt-windows | src/learned_train.c | if (maniTrainWindows(d, s->options.stepperWindow, NULL) == 0) | if (false)
+lt-given | src/learned_train.c | s->projectors != NULL && (s->floatTracks != NULL || s->floatTrackCount == 0) && | (s->floatTracks != NULL || s->floatTrackCount == 0) &&
+lt-version | src/learned_train.c | if (def->version != MANI_ABI_VERSION) | if (false)
+lt-hooks | src/learned_train.c | bool hooks = (def->tasks.enqueueTask == NULL) == (def->tasks.finishTask == NULL); | bool hooks = true;
+lt-cookie | src/learned_train.c | return def->cookie == MANI_LEARNED_TRAINER_DEF_COOKIE && maniAllocatorValid(&def->allocator) && | return maniAllocatorValid(&def->allocator) &&
+lr-seed | src/learned_train_run.c | maniTrainSeed(&t->random, o->seed + t->stage); | maniTrainSeed(&t->random, o->seed);
+lr-filter | src/learned_train_run.c | const maniLearnedTagFilter* f = &t->source.projectors[t->stage - MANI_LEARNED_PROJECTORS]; | const maniLearnedTagFilter* f = &t->source.projectors[0];
+lr-begun | src/learned_train_run.c | t->begun = ok; | t->begun = true;
+lr-in-scale | src/learned_train_run.c | k->inputScales[i] = 1.0f; | k->inputScales[i] = 2.0f;
+lr-out-first | src/learned_train_run.c | uint32_t out = k->net.sizes[k->net.layerCount]; | uint32_t out = 1;
+lr-solo-in | src/learned_train_run.c | memcpy(k->inputScales, s->inputScales, sizeof(float) * in); | memcpy(k->inputScales, s->outputScales, sizeof(float) * in);
+lr-stage | src/learned_train_run.c | t->stage += 1; | t->stage += 2;
+lr-decay | src/learned_train_run.c | double x = 0.99; | double x = 0.98;
+lr-thousand | src/learned_train_run.c | for (uint64_t k = (step - 1) / 1000; k > 0; k >>= 1) | for (uint64_t k = step / 1000; k > 0; k >>= 1)
+lr-square | src/learned_train_run.c | x *= x; | x *= 0.99;
+lr-end | src/learned_train_run.c | if (t->begun && t->iteration == t->source.options.iterations) | if (t->begun && t->iteration > t->source.options.iterations)
+lr-zero | src/learned_train_run.c | if (iterations == 0) | if (false)
+lr-count | src/learned_train_run.c | iterations -= 1; | iterations -= 0 + (t->iteration % 2);
+lr-misuse | src/learned_train_run.c | ++builder->misuses; | (void)builder;
+lr-bias | src/learned_train_run.c | layers[l] = (maniLearnedLayerSource){w, w + (size_t)in * o, in, o}; | layers[l] = (maniLearnedLayerSource){w, w, in, o};
+lc-option | src/learned_checkpoint.c | o->seed, | 0,
+lc-events | src/learned_checkpoint.c | return HashNames(hash, s->events, s->eventCount); | return hash;
+lc-filters | src/learned_checkpoint.c | for (uint32_t p = 0; p < s->projectorCount; ++p) | for (uint32_t p = 0; p < 0; ++p)
+lc-begun | src/learned_checkpoint.c | maniStoreU32(progress + 4, t->begun ? 1u : 0u); | maniStoreU32(progress + 4, 1u);
+lc-loss | src/learned_checkpoint.c | maniStoreU32(progress + 16, Bits(t->loss)); | maniStoreU32(progress + 16, 0);
+lc-random | src/learned_checkpoint.c | maniStoreU64(progress + 24 + 8 * k, t->random.s[k]); | maniStoreU64(progress + 24 + 8 * k, t->random.s[0]);
+lc-capacity | src/learned_checkpoint.c | if (!maniContainerSize(sections, count, &size) || size > capacity) | if (!maniContainerSize(sections, count, &size))
+ls-identity | src/learned_restore.c | if (c.identity != trainer->signature) | if (false)
+ls-stage | src/learned_restore.c | const bool valid[5] = {p->stage <= t->stageCount, begun <= 1 && (working || !p->begun), | const bool valid[5] = {true, begun <= 1 && (working || !p->begun),
+ls-working | src/learned_restore.c | const bool valid[5] = {p->stage <= t->stageCount, begun <= 1 && (working || !p->begun), | const bool valid[5] = {p->stage <= t->stageCount, begun <= 1,
+ls-iteration | src/learned_restore.c | p->iteration <= t->source.options.iterations && | true &&
+ls-loss | src/learned_restore.c | fabsf(p->loss) < HUGE_VALF, maniLoadU32(bytes + 20) == 0}; | true, maniLoadU32(bytes + 20) == 0};
+ls-positive | src/learned_restore.c | if (!(fabsf(x) < HUGE_VALF) || (positive && x < 0.0f) || zero) | if (!(fabsf(x) < HUGE_VALF) || zero)
+ls-zero | src/learned_restore.c | if (!(fabsf(x) < HUGE_VALF) || (positive && x < 0.0f) || zero) | if (!(fabsf(x) < HUGE_VALF) || (positive && x < 0.0f))
+ls-sections | src/learned_restore.c | if (c->sectionCount != sections) | if (c->sectionCount < sections)
+ls-moments | src/learned_restore.c | r = Floats(c, kTagParameters + k, count, k >= 2, 0, 0, &p->training[k]); | r = Floats(c, kTagParameters + k, count, k >= 3, 0, 0, &p->training[k]);
+ls-random | src/learned_restore.c | t->random = p->random; | (void)p->random;
+ls-loss-set | src/learned_restore.c | t->loss = p->loss; | t->loss = 0.0f;
+ls-latents | src/learned_restore.c | memcpy(t->latents, p->latents, sizeof(float) * frames); | memset(t->latents, 0, sizeof(float) * frames);

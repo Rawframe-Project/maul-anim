@@ -4,17 +4,23 @@
 // The learned model trainer (mani-0025) over a database of the walk (tag
 // 1) and the run (tag 2): its def and source refused for each fault
 // with its reason and item; its stages and report; the model built from
-// it, whose Stepper and Projectors give the trainer's own bits and whose
-// file is the same on any host; checkpoints at any point restored to
-// the same model, and refused when of another source, damaged or out of
-// form; memory running out at creation, a stage's beginning or a
-// restore.
+// it, whose networks give the trainer's own bits and whose file is the
+// same on any host; the learning rate's decay, each stage's generator
+// and filter, and the Decompressor kept, against the stages run alone;
+// checkpoints at any point restored to the same model and loss, and
+// refused when of another source, damaged or out of form; memory
+// running out at creation, a stage's beginning or a restore.
 
 #include "container.h"
 #include "graph_match_fixture.h"
 #include "learned_file.h"
 #include "learned_train.h"
+#include "train_decompress.h"
 #include "train_net.h"
+#include "train_projector.h"
+#include "train_random.h"
+#include "train_solo.h"
+#include "train_stepper.h"
 
 #include "maul-anim/learned.h"
 #include "maul-anim/learnedbuild.h"
@@ -27,6 +33,7 @@
 static _Alignas(16) uint8_t s_boneFile[1 << 15];
 static maniMotionDatabase s_bones;
 static const maniClip* s_trainClips[2];
+static const maniAllocator kAllocator = {NULL, NULL, NULL};
 static const maniLearnedTagFilter kFilters[2] = {{0, 0}, {2, 0}};
 static const maniLearnedNameSource kEvents[2] = {{"left", 4, 0}, {"right", 5, 0}};
 
@@ -155,6 +162,7 @@ static void TestDef(void)
     def.allocator.free = Free;
     CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,
           "an allocator with one function");
+    def = maniDefaultLearnedTrainerDef();
     s.projectors = NULL;
     CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid && t == NULL,
           "no filters");
@@ -214,8 +222,12 @@ static void TestOptions(void)
     s = base;
     s.options.hiddenWidth = 16384;
     s.options.projectorLayers = 2;
-    CHECK(RefusedFor(&s, maniBuildReasonOption, 1), "weights past the limit in all");
-    s.options.projectorLayers = 1;
+    CHECK(RefusedFor(&s, maniBuildReasonOption, 1), "one network's weights past the limit");
+    // Two Projectors of 12,000 by 12,000 weights each: under the limit
+    // alone, past it together.
+    s.options.hiddenWidth = 12000;
+    CHECK(RefusedFor(&s, maniBuildReasonOption, 1), "the model's weights past the limit");
+    s.projectorCount = 1;
     t = Create(&def, &s);
     maniDestroyLearnedTrainer(t);
 }
@@ -399,6 +411,125 @@ static void TestModelBits(void)
     }
     CHECK(step, "the model's Stepper gives the trainer's bits");
     CHECK(project, "its Projectors give the trainer's bits");
+    // The Decompressor: 27 bone values, the root's six, two events.
+    static _Alignas(32) uint8_t memory[4096];
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, memory, sizeof memory, &pose) == mani_success, "a pose");
+    bool decompress = true;
+    for (uint32_t f = 0; f < t->data.frameCount; f += 4)
+    {
+        float state[9];
+        float want[35];
+        float events[2];
+        memcpy(state, t->data.features + f * 5, 5 * sizeof(float));
+        memcpy(state + 5, t->latents + f * 4, 4 * sizeof(float));
+        Forward(&t->networks[0], state, want);
+        maniLearnedOutput output = {pose, NULL, events, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+        decompress = decompress && maniLearnedDecompress(&model, state, &output, scratch,
+                                                         sizeof scratch) == mani_success;
+        for (uint32_t b = 0; b < 3; ++b)
+        {
+            maniVec3 x = maniPoseLocal(pose, b).translation;
+            decompress = decompress && x.x == want[9 * b] && x.y == want[9 * b + 1] &&
+                         x.z == want[9 * b + 2];
+        }
+        decompress = decompress && output.rootVelocity.x == want[27] &&
+                     output.rootVelocity.z == want[29] &&
+                     output.rootAngularVelocity.y == want[31] && events[0] == want[33] &&
+                     events[1] == want[34];
+    }
+    CHECK(decompress, "its Decompressor gives the trainer's bits");
+    maniDestroyLearnedTrainer(t);
+}
+
+// The first stage's 4,001 iterations as the stage's own steps at the
+// rate times 0.99 to the whole thousands before each.
+static void TestRate(void)
+{
+    maniLearnedTrainerSource s = Source();
+    s.options.iterations = 5000;
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 4001, &report) == mani_success && report.stage == 0 &&
+              report.iteration == 4001,
+          "4,001 iterations");
+    maniTrainRandom r;
+    maniTrainSeed(&r, 7);
+    const maniTrainDecompressShape shape = {4, 8, 1, 1, 4, 0};
+    maniTrainDecompress own;
+    CHECK(maniTrainDecompressInit(&kAllocator, &t->data, &shape, &r, &own), "the stage alone");
+    for (uint64_t step = 1; step <= 4001; ++step)
+    {
+        float rate = (float)((double)0.003f * pow(0.99, (double)((step - 1) / 1000)));
+        (void)maniTrainDecompressStep(&own, &t->data, &r, NULL, step, rate);
+    }
+    CHECK(own.count == t->decompress.count &&
+              memcmp(own.parameters, t->decompress.parameters, sizeof(float) * own.count) == 0,
+          "the learning rate decayed every 1,000 iterations");
+    maniTrainDecompressRelease(&kAllocator, &own);
+    maniDestroyLearnedTrainer(t);
+}
+
+// A trained stage's first iteration as the stage's own: the Stepper's
+// generator seeded by the seed plus 1, the second Projector's by the
+// seed plus 3, with its filter.
+static void TestStageSeeds(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 31, &report) == mani_success && report.stage == 1 &&
+              report.iteration == 1,
+          "the Stepper's first iteration");
+    maniTrainRandom r;
+    maniTrainSeed(&r, 7);
+    const maniTrainDecompressShape first = {4, 8, 1, 1, 4, 0};
+    maniTrainDecompress own;
+    CHECK(maniTrainDecompressInit(&kAllocator, &t->data, &first, &r, &own), "the stage alone");
+    for (uint64_t step = 1; step <= 30; ++step)
+    {
+        (void)maniTrainDecompressStep(&own, &t->data, &r, NULL, step, 0.003f);
+    }
+    const maniTrainKept* k = &t->networks[0];
+    uint32_t out = k->net.sizes[k->net.layerCount];
+    bool kept = k->net.parameterCount == own.decompressor.parameterCount && out == 35 &&
+                memcmp(k->parameters, own.parameters + own.compressor.parameterCount,
+                       sizeof(float) * k->net.parameterCount) == 0 &&
+                memcmp(k->outputOffsets, own.outputOffsets, sizeof(float) * out) == 0 &&
+                memcmp(k->outputScales, own.outputScales, sizeof(float) * out) == 0;
+    for (uint32_t i = 0; i < k->net.sizes[0]; ++i)
+    {
+        kept = kept && k->inputOffsets[i] == 0.0f && k->inputScales[i] == 1.0f;
+    }
+    CHECK(kept, "the Decompressor kept: its parameters, its inputs as they are");
+    maniTrainDecompressRelease(&kAllocator, &own);
+    maniTrainSeed(&r, 8);
+    maniTrainSoloShape shape = {4, 8, 1, 4, 4, 0};
+    maniTrainStepper stepper;
+    CHECK(maniTrainStepperInit(&kAllocator, &t->data, t->latents, &shape, &r, &stepper),
+          "the Stepper alone");
+    (void)maniTrainStepperStep(&stepper, &r, NULL, 1, 0.003f);
+    uint64_t count = stepper.solo.net.parameterCount;
+    CHECK(memcmp(stepper.solo.parameters, t->stepper.solo.parameters, sizeof(float) * count) == 0,
+          "the Stepper's generator: the seed plus 1");
+    maniTrainStepperRelease(&kAllocator, &stepper);
+    CHECK(maniTrainLearned(t, 60, &report) == mani_success && report.stage == 3 &&
+              report.iteration == 1,
+          "the second Projector's first iteration");
+    maniTrainSeed(&r, 10);
+    shape.window = 0;
+    maniTrainProjector projector;
+    CHECK(maniTrainProjectorInit(&kAllocator, &s_bones, &t->data, t->latents, &shape, 2, 0, &r,
+                                 &projector),
+          "the Projector alone");
+    (void)maniTrainProjectorStep(&projector, &r, NULL, 1, 0.003f);
+    count = projector.solo.net.parameterCount;
+    CHECK(memcmp(projector.solo.parameters, t->projector.solo.parameters, sizeof(float) * count) ==
+              0,
+          "the second Projector's generator and filter");
+    maniTrainProjectorRelease(&kAllocator, &projector);
     maniDestroyLearnedTrainer(t);
 }
 
@@ -431,6 +562,7 @@ static bool Resumed(uint64_t stop, size_t* sizeOut)
     maniLearnedTrainer* a = Create(&def, &s);
     maniLearnedTrainerReport report;
     bool ok = maniTrainLearned(a, stop, &report) == mani_success;
+    float loss = report.loss;
     size_t size = maniLearnedCheckpointSize(a);
     ok = ok && size <= sizeof s_checkpoint &&
          maniSaveLearnedCheckpoint(a, s_checkpoint, size - 1) == mani_errorCapacity &&
@@ -438,7 +570,8 @@ static bool Resumed(uint64_t stop, size_t* sizeOut)
     maniDestroyLearnedTrainer(a);
     maniLearnedTrainer* b = Create(&def, &s);
     ok = ok && maniTrainLearned(b, 3, &report) == mani_success;
-    ok = ok && maniRestoreLearnedCheckpoint(b, s_checkpoint, size).result == mani_success;
+    ok = ok && maniRestoreLearnedCheckpoint(b, s_checkpoint, size).result == mani_success &&
+         maniTrainLearned(b, 0, &report) == mani_success && report.loss == loss;
     ok = ok && maniTrainLearned(b, 1000, &report) == mani_success && report.stage == 4;
     Build(b, 1, maniLearnedWeightsFloat32);
     maniDestroyLearnedTrainer(b);
@@ -538,6 +671,11 @@ static void TestRestoreRefused(void)
     other.eventCount = 0;
     size = Checkpoint(&other, 5);
     CHECK(RefusedAt(t, size, 40), "of other events");
+    static const maniLearnedTagFilter kOther[2] = {{0, 0}, {1, 0}};
+    other = s;
+    other.projectors = kOther;
+    size = Checkpoint(&other, 5);
+    CHECK(RefusedAt(t, size, 40), "of other filters");
     size = Checkpoint(&s, 45);
     uint64_t progress = SectionAt(1);
     s_checkpoint[size - 1] ^= 1;
@@ -564,6 +702,10 @@ static void TestRestoreRefused(void)
         maniStoreU32(s_checkpoint + fields[k], kept);
     }
     CHECK(all, "the progress out of form");
+    maniStoreU32(s_checkpoint + progress, 4);
+    WriteHash(size);
+    CHECK(RefusedAt(t, size, progress + 4), "a stage begun past the last");
+    maniStoreU32(s_checkpoint + progress, 1);
     uint64_t v = SectionAt(5) + 8;
     StoreF32(s_checkpoint + v, -1.0f);
     WriteHash(size);
@@ -636,6 +778,8 @@ int main(void)
     TestSource();
     TestStages();
     TestModelBits();
+    TestRate();
+    TestStageSeeds();
     TestHosts();
     TestCheckpoints();
     TestRestoreRefused();
