@@ -207,7 +207,13 @@ static void TestBind(void)
     assets.skeleton = &s_skeleton;
     CHECK(maniBindGraph(&g, &assets, s_binding, maniGraphBindingSize(&g) - 1, &binding, NULL) ==
               mani_errorCapacity,
-          "the model's pointer counted in the binding's size");
+          "less than the binding's size");
+    size_t size = maniGraphBindingSize(&g);
+    source = Graph(NULL, 0);
+    CHECK(BuildGraph(&source).result == mani_success &&
+              maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
+              size == maniGraphBindingSize(&g) + sizeof(const maniLearnedModel*),
+          "a model's pointer counted in the binding's size");
 }
 
 static char s_text[16384];
@@ -235,6 +241,12 @@ static void TestJson(void)
               maniOpenGraph(s_graphFile, s_graphSize, &read).result == mani_success &&
               read.identity == identity,
           "read back to the same graph");
+    const maniGraphModelSource unnamed[2] = {{&s_other, NULL, 5, 0}, {&s_learned, "steps", 5, 0}};
+    assets.models = unnamed;
+    assets.modelCount = 2;
+    CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success,
+          "a host model without a name passed over");
+    assets.modelCount = 1;
     const maniGraphModelSource other[1] = {{&s_learned, "jumps", 5, 0}};
     assets.models = other;
     maniBuildResult r = maniBuildGraphJson(builder, s_text, size, &assets);

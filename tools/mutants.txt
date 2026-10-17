@@ -2378,3 +2378,26 @@ ls-moments | src/learned_restore.c | r = Floats(c, kTagParameters + k, count, k 
 ls-random | src/learned_restore.c | t->random = p->random; | (void)p->random;
 ls-loss-set | src/learned_restore.c | t->loss = p->loss; | t->loss = 0.0f;
 ls-latents | src/learned_restore.c | memcpy(t->latents, p->latents, sizeof(float) * frames); | memset(t->latents, 0, sizeof(float) * frames);
+
+# Learned model slots in graphs (mani-0025).
+gm-check-null | src/graph_check.c | if (m == NULL || maniLearnedModelSkeletonIdentity(m) != skeleton) | if (m == NULL)
+gm-check-dup | src/graph_check.c | if (maniLearnedModelIdentity(source->models[k].model) == maniLearnedModelIdentity(m)) | if (false)
+gm-check-count | src/graph_check.c | source->modelCount <= MANI_GRAPH_MAX_MODELS && | source->modelCount <= MANI_GRAPH_MAX_MODELS + 1 &&
+gm-check-list | src/graph_check.c | (source->modelCount == 0 || source->models != NULL); | true;
+gm-names | src/graph_check.c | for (uint32_t list = kParameters; list <= kModels && r.result == mani_success; ++list) | for (uint32_t list = kParameters; list <= kDatabases && r.result == mani_success; ++list)
+gm-build-id | src/graph_build.c | maniStoreU64(e, maniLearnedModelIdentity(m->model)); | maniStoreU64(e, 0);
+gm-build-size | src/graph_build.c | lay->sizes[11] = (uint64_t)source->modelCount * MANI_GRAPH_MODEL_SIZE; | lay->sizes[11] = 0;
+gm-header | src/graph_build.c | source->modelCount}; | 0};
+gm-open-max | src/graph.c | MANI_GRAPH_MAX_MODELS}; | UINT32_MAX};
+gm-open-size | src/graph.c | uint32_t section = k < 9 ? k + 1 : k + 2; | uint32_t section = k + 1;
+gm-open-name | src/graph.c | r = r.result == mani_success ? CheckModels(&g, s.at[11]) : r; | (void)CheckModels;
+gm-accessor | src/graph.c | return maniLoadU64(graph->models + (size_t)model * MANI_GRAPH_MODEL_SIZE); | return maniLoadU64(graph->models);
+gm-bind-size | src/graph_bind.c | (size_t)graph->modelCount * sizeof(const maniLearnedModel*); | 0;
+gm-bind-skeleton | src/graph_bind.c | maniLearnedModelSkeletonIdentity(m) == graph->skeletonIdentity; | true;
+gm-bind-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + graph->databaseCount + s; | *unboundOut = graph->clipCount + s;
+gm-bind-list | src/graph_bind.c | (a->models != NULL || a->modelCount == 0) && | true &&
+gm-bind-models | src/graph_bind.c | !BindModels(binding, assets, unboundOut) || !RootMotionBone(binding)) | !RootMotionBone(binding))
+gm-json-write | src/graph_json.c | if (source->modelCount > 0) | if (source->modelCount > 1)
+gm-json-unbound | src/graph_json_graph.c | uint32_t host = maniGraphJsonLookup(&r->hostModelNames, m[i].name, m[i].nameLength); | uint32_t host = 0;
+gm-json-list | src/graph_json_graph.c | (a->models == NULL && a->modelCount > 0)) | false)
+gm-host-null | src/graph_json_read.c | lengths[i] = names[i] != NULL ? lengths[i] : 0u; | (void)0;
