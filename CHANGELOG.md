@@ -156,6 +156,13 @@ format.
   `maniGraphModelCount`, `maniGraphModelIdentity` and
   `maniGraphModelName`; binding finds each slot's model by identity;
   the JSON form writes a "models" list.
+- Learned motion matching nodes (mani-0025): `maniGraphNodeLearned`
+  plays a model slot's state, stepped at the model's rate and
+  interpolated between steps, projected from its query parameters at
+  its period or trigger and replaced past its transition cost with an
+  inertialization requested above it; the Decompressor gives the pose,
+  the root motion and events; saved states, subgraphs and the JSON form
+  carry it.
 - Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
   the host's task system, through which the library's parallel work
   will run, results never depending on how the host splits it.

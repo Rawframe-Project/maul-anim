@@ -391,6 +391,45 @@ static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMa
     PutScalar(w, source, m->duration);
 }
 
+// A learned node: its model by name, its trigger (when it has one), its
+// query's parameters, its period and transition cost, tags and duration.
+static void PutLearned(Writer* w, const maniGraphSource* source,
+                       const maniGraphLearnedNodeSource* l)
+{
+    const maniGraphModelSource* m = &source->models[l->model];
+    PutKey(w, "model");
+    PutString(w, m->name, m->nameLength);
+    PutText(w, ", ");
+    if (l->trigger != MANI_NO_PARAMETER)
+    {
+        PutKey(w, "trigger");
+        PutParameterName(w, source, l->trigger);
+        PutText(w, ", ");
+    }
+    PutKey(w, "query");
+    PutText(w, "[");
+    for (uint32_t q = 0; q < l->queryCount; ++q)
+    {
+        PutText(w, q > 0 ? ", " : "");
+        PutParameterName(w, source, l->query[q]);
+    }
+    PutText(w, "], ");
+    PutKey(w, "period");
+    PutFloat(w, l->period);
+    PutText(w, ", ");
+    PutKey(w, "transitionCost");
+    PutFloat(w, l->transitionCost);
+    PutText(w, ", ");
+    PutKey(w, "requiredTags");
+    PutTags(w, source, l->requiredTags);
+    PutText(w, ", ");
+    PutKey(w, "excludedTags");
+    PutTags(w, source, l->excludedTags);
+    PutText(w, ", ");
+    PutKey(w, "duration");
+    PutScalar(w, source, l->duration);
+}
+
 static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, bool top);
 
 // A blend space's position: a vec2 parameter, or x (and, in a plane,
@@ -641,6 +680,9 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeMatch:
         PutMatch(w, source, &n->match);
         return;
+    case maniGraphNodeLearned:
+        PutLearned(w, source, &n->learned);
+        return;
     case maniGraphNodeAdditive:
         PutKey(w, "weights");
         PutScalars(w, source, n->additive.weights, n->inputCount - 1);
@@ -703,7 +745,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "machine",
                                          "oneShot",
                                          "inertialize",
-                                         "match"};
+                                         "match",
+                                         "learned"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 
@@ -716,7 +759,7 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
     PutText(w, KindName(n->kind));
     PutText(w, "\", ");
     if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch &&
-        n->kind != maniGraphNodeSubgraph)
+        n->kind != maniGraphNodeLearned && n->kind != maniGraphNodeSubgraph)
     {
         PutKey(w, "inputs");
         PutText(w, "[");

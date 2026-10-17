@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
+#include "graph_learned.h"
 #include "graph_machine_file.h"
 #include "graph_match.h"
 #include "graph_shot.h"
@@ -310,7 +311,7 @@ static uint32_t NodeFlags(const maniGraph* g, uint32_t p)
 // Whether a node gives differences as its inputs (or clip) make it.
 static bool KindValid(const maniGraph* g, const Node* n)
 {
-    if (n->kind == maniGraphNodeMatch)
+    if (n->kind == maniGraphNodeMatch || n->kind == maniGraphNodeLearned)
     {
         return n->flags == 0;
     }
@@ -343,7 +344,8 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
 {
     uint32_t low = 0;
     uint32_t high = maniGraphInputRange(n->kind, &low);
-    if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch && high == 0)
+    if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch &&
+        n->kind != maniGraphNodeLearned && high == 0)
     {
         return Fail(n->at);
     }
@@ -370,6 +372,8 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
                 : (n->kind == maniGraphNodeOneShot ? maniGraphShotDataWords(g, n->data, available)
                                                    : words);
     words = n->kind == maniGraphNodeMatch ? maniGraphMatchDataWords(g, n->data, available) : words;
+    words =
+        n->kind == maniGraphNodeLearned ? maniGraphLearnedDataWords(g, n->data, available) : words;
     if (n->words != words || n->words > g->dataWords - dataAt)
     {
         return Fail(n->at + 16);
@@ -418,6 +422,8 @@ static uint32_t WordsValid(const maniGraph* g, const Node* n, uint32_t p, uint32
         return maniGraphInertiaValid(g, n->data, blockAt);
     case maniGraphNodeMatch:
         return maniGraphMatchValid(g, n->data, blockAt);
+    case maniGraphNodeLearned:
+        return maniGraphLearnedValid(g, n->data, blockAt);
     default:
         return DataValid(g, n);
     }
@@ -437,6 +443,8 @@ static uint32_t BlockWords(const maniGraph* g, const Node* n)
                                         Word(g, n->data + maniGraphInertiaMethod));
     case maniGraphNodeMatch:
         return MANI_GRAPH_MATCH_BLOCK_WORDS;
+    case maniGraphNodeLearned:
+        return maniGraphLearnedBlockWords(g, n->data);
     default:
         return 0;
     }

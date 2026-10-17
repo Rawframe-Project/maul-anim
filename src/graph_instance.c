@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
+#include "graph_learned.h"
 #include "graph_machine.h"
 #include "graph_match.h"
 #include "graph_shot.h"
@@ -59,14 +60,42 @@ static size_t MachinesAt(const maniGraphBinding* binding)
     return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize;
 }
 
+static size_t LearnedAt(const maniGraphBinding* binding)
+{
+    size_t words = binding->graph.machineWords;
+    return MachinesAt(binding) + ((4 * words + 7u) & ~(size_t)7u);
+}
+
+size_t maniGraphLearnedRoom(const maniGraphBinding* binding)
+{
+    const maniGraph* graph = &binding->graph;
+    size_t room = 0;
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        if (maniLoadU16(e) != maniGraphNodeLearned)
+        {
+            continue;
+        }
+        uint32_t slot =
+            maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphLearnedModel));
+        const maniLearnedModel* m = maniGraphBoundModel(binding, slot);
+        size_t tail =
+            (size_t)m->outputCount - 9 * (size_t)m->boneCount - 3 * (size_t)m->scaledBoneCount;
+        size_t need = maniLearnedScratchSize(m) +
+                      sizeof(float) * ((size_t)m->featureCount + m->latentCount + tail);
+        room = need > room ? need : room;
+    }
+    return (room + 7u) & ~(size_t)7u;
+}
+
 size_t maniGraphInstanceSize(const maniGraphBinding* binding)
 {
     if (!BindingValid(binding))
     {
         return 0;
     }
-    size_t words = binding->graph.machineWords;
-    return MachinesAt(binding) + ((4 * words + 7u) & ~(size_t)7u);
+    return LearnedAt(binding) + maniGraphLearnedRoom(binding);
 }
 
 // The machine node p's view, or none (states 0) for another kind.
@@ -96,6 +125,10 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
     {
         return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphMatchBlock));
     }
+    if (maniLoadU16(e) == maniGraphNodeLearned)
+    {
+        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphLearnedBlock));
+    }
     return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
                                                   : UINT32_MAX;
 }
@@ -108,6 +141,16 @@ static bool Inertial(const maniGraph* graph, uint32_t p)
 static bool Matching(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeMatch;
+}
+
+static bool Learning(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned;
+}
+
+static uint32_t DataOf(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
 }
 
 // Inertialize node p as its words give it.
@@ -136,6 +179,10 @@ static void ResetMachines(maniGraphInstance* instance)
         else if (shot != UINT32_MAX && Matching(graph, p))
         {
             maniGraphResetMatch(Blocks(instance) + shot);
+        }
+        else if (shot != UINT32_MAX && Learning(graph, p))
+        {
+            maniGraphResetLearned(graph, DataOf(graph, p), Blocks(instance) + shot);
         }
         else if (shot != UINT32_MAX)
         {
@@ -205,6 +252,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     instance->size = needed;
     instance->cursorsAt = CursorsAt(graph);
     instance->machinesAt = MachinesAt(binding);
+    instance->learnedAt = LearnedAt(binding);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
         instance->cells[i].value = LoadValue(ParameterEntry(graph, i) + 24);
@@ -449,10 +497,18 @@ static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8
         }
         uint64_t block = at + 4 * (uint64_t)first;
         maniGraphInertia node = InertiaAt(graph, p);
+        uint32_t data = DataOf(graph, p);
+        const maniLearnedModel* model =
+            Learning(graph, p)
+                ? maniGraphBoundModel(
+                      instance->binding,
+                      maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)))
+                : NULL;
         uint32_t wrong = m.states > 0         ? maniGraphSavedBlockValid(&m, b + block)
                          : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, &node)
                          : Matching(graph, p) ? SavedMatchValid(instance->binding, p, b, b + block)
-                                              : maniGraphSavedShotValid(b + block);
+                         : model != NULL ? maniGraphSavedLearnedValid(b + block, graph, data, model)
+                                         : maniGraphSavedShotValid(b + block);
         if (wrong != UINT32_MAX)
         {
             return Fail(block + 4 * (uint64_t)wrong);

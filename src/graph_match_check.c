@@ -99,7 +99,8 @@ static bool QueryValid(const maniGraphSource* source, const maniGraphMatchNodeSo
         uint32_t p = m->query[q];
         types[q] = p < source->parameterCount ? source->parameters[p].type : UINT32_MAX;
     }
-    return maniGraphQueryFits(source->databases[m->database].database, types, m->queryCount);
+    const maniMotionDatabase* d = source->databases[m->database].database;
+    return maniGraphQueryFits(d, d->channelCount, maniGraphDatabaseChannel, types, m->queryCount);
 }
 
 static bool Seconds(float value)

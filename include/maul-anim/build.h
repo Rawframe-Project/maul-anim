@@ -240,7 +240,9 @@ extern "C"
         // count for the normalization).
         maniBuildReasonNetwork = 40,
         // A learned model trainer's Projector whose tag filter no frame of
-        // an entry a jump may reach passes; item is the Projector.
+        // an entry a jump may reach passes (item the Projector), or a
+        // graph's learned node whose literal tags are no filter of its
+        // model's Projectors (item the node).
         maniBuildReasonTags = 41,
         // A graph's model slot without a model, with one of another
         // skeleton or one an earlier slot (other) has; item is the slot.

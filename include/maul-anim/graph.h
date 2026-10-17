@@ -114,6 +114,10 @@ extern "C"
         // that best matches its query, searching again as it plays; no
         // inputs.
         maniGraphNodeMatch = 14,
+        // A learned motion matching node: plays the state of a learned
+        // model, stepping it on and projecting its query again as it
+        // plays; no inputs.
+        maniGraphNodeLearned = 15,
     };
 
     // A graph over a file's bytes, which the caller keeps alive and
@@ -490,16 +494,19 @@ extern "C"
 // An event fires only from a clip node weighed past this.
 #define MANI_GRAPH_EVENT_THRESHOLD 1e-5f
 
-    // An event a clip node passed in an update.
+    // An event a clip node passed in an update, or one a learned node's
+    // model raised.
     typedef struct maniGraphEvent
     {
-        // The clip node, its clip slot and the event's index in the clip.
+        // The clip node, its clip slot and the event's index in the clip;
+        // for a learned node, MANI_NO_TRACK and the index in its model.
         uint32_t node;
         uint32_t clip;
         uint32_t event;
         int32_t payload;
         uint64_t nameHash;
-        // The node's effective weight and the event's time in its clip.
+        // The node's effective weight and the event's time in its clip
+        // (a learned node's: its time since it began).
         float weight;
         float time;
         // 1 passed forward, -1 backward.
@@ -512,11 +519,12 @@ extern "C"
     /// additive layers by their weights, the selected input), moves every
     /// clip node's playhead by the step times its speed and the time
     /// scales above it (a seek whose trigger is set moving its playheads to
-    /// its time instead, and consuming the trigger), lists the events clip
-    /// nodes weighed past MANI_GRAPH_EVENT_THRESHOLD pass in node order,
-    /// and blends the clips' root motion by the weights the output gives it
-    /// (masks by their weight at the root motion bone, additive layers
-    /// none).
+    /// its time instead, and consuming the trigger), moves learned nodes'
+    /// states (stepped, projected), lists the events clip nodes and
+    /// learned nodes' models weighed past MANI_GRAPH_EVENT_THRESHOLD give
+    /// in node order, and blends the clips' and learned nodes' root motion
+    /// by the weights the output gives it (masks by their weight at the
+    /// root motion bone, additive layers none).
     ///
     /// @param instance      An instance.
     /// @param delta         The step in seconds, finite, either sign.
@@ -549,7 +557,8 @@ extern "C"
 
     /// Writes an instance's pose as its last update weighed it: each node
     /// of weight above 0, in order, into its slot (a clip sampled at its
-    /// playhead through its cursor; blends, masks and additive layers by
+    /// playhead through its cursor; a learned node's model decompressed
+    /// at its state; blends, masks and additive layers by
     /// the blending functions over their weighed inputs; a select, time
     /// scale or seek passing its input on), then the output's. The rest
     /// pose before the first update.

@@ -67,9 +67,19 @@ void maniGraphResetMatch(uint32_t* block);
 uint32_t maniGraphSavedMatchValid(const uint8_t* bytes, const maniGraph* g, uint32_t data,
                                   const maniMotionDatabase* database, double time);
 
-// Whether a database's channels take a node's query: per trajectory and
+// A list of channels: a database's or a learned model's (its database's).
+typedef maniResult maniGraphChannelFn(const void* owner, uint32_t channel,
+                                      maniMatchChannel* channelOut);
+
+// maniMotionDatabaseChannel, and maniLearnedModelChannel, as such.
+maniResult maniGraphDatabaseChannel(const void* database, uint32_t channel,
+                                    maniMatchChannel* channelOut);
+maniResult maniGraphModelChannel(const void* model, uint32_t channel, maniMatchChannel* channelOut);
+
+// Whether channelCount channels take a node's query: per trajectory and
 // float time in channel order, a parameter of the type given (vec2 or
 // float). types holds the query's parameters' types.
-bool maniGraphQueryFits(const maniMotionDatabase* database, const uint32_t* types, uint32_t count);
+bool maniGraphQueryFits(const void* owner, uint32_t channelCount, maniGraphChannelFn* channel,
+                        const uint32_t* types, uint32_t count);
 
 #endif // MAUL_ANIM_SRC_GRAPH_MATCH_H

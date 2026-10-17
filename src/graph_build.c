@@ -14,6 +14,7 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_inline.h"
+#include "graph_learned.h"
 #include "graph_machine_check.h"
 #include "graph_match.h"
 #include "graph_match_check.h"
@@ -112,7 +113,7 @@ static maniBuildResult Order(const maniGraphSource* source, Work* w)
 static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
 {
     const maniGraphNodeSource* node = &source->nodes[v];
-    if (node->kind == maniGraphNodeMatch)
+    if (node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned)
     {
         w->difference[v] = 0;
         return Outcome(mani_success);
@@ -442,6 +443,23 @@ static uint32_t PutMatch(uint8_t* d, uint32_t at, const maniGraphMatchNodeSource
     return at;
 }
 
+static uint32_t PutLearned(const maniGraphSource* source, uint8_t* d, uint32_t at,
+                           const maniGraphLearnedNodeSource* l, Layout* lay)
+{
+    const maniLearnedModel* m = source->models[l->model].model;
+    uint32_t states = m->featureCount + m->latentCount;
+    const uint32_t head[2] = {l->model, l->trigger};
+    const float numbers[2] = {l->period, l->transitionCost};
+    const uint32_t tags[4] = {l->requiredTags.parameter, l->requiredTags.value,
+                              l->excludedTags.parameter, l->excludedTags.value};
+    const uint32_t tail[5] = {lay->blockAt, states, m->featureCount, m->eventCount, l->queryCount};
+    at = PutFloats(d, PutWords(d, at, head, 2), numbers, 2);
+    at = PutScalar(d, PutWords(d, at, tags, 4), l->duration);
+    at = PutWords(d, PutWords(d, at, tail, 5), l->query, l->queryCount);
+    lay->blockAt += MANI_GRAPH_LEARNED_BLOCK_WORDS(states, m->eventCount);
+    return at;
+}
+
 static void PutData(const maniGraphSource* source, const maniGraphNodeSource* node, Layout* lay)
 {
     uint8_t* d = lay->sections[4];
@@ -485,6 +503,10 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     else if (node->kind == maniGraphNodeMatch)
     {
         at = PutMatch(d, at, &node->match, lay);
+    }
+    else if (node->kind == maniGraphNodeLearned)
+    {
+        at = PutLearned(source, d, at, &node->learned, lay);
     }
     else if (node->kind == maniGraphNodeSelect)
     {
@@ -534,7 +556,7 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         uint32_t first = lay->dataAt;
         PutData(source, node, lay);
         bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot ||
-                       node->kind == maniGraphNodeMatch;
+                       node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned;
         maniStoreU32(e + 16, counted ? lay->dataAt - first
                                      : maniGraphDataWords(node->kind, node->inputCount));
     }

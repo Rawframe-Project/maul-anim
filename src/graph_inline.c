@@ -15,6 +15,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
@@ -34,6 +35,7 @@ typedef struct Totals
     uint64_t conditions;
     uint64_t databases;
     uint64_t queries;
+    uint64_t models;
 } Totals;
 
 static uint32_t WeightCount(const maniGraphNodeSource* node)
@@ -45,13 +47,15 @@ static uint32_t WeightCount(const maniGraphNodeSource* node)
     return node->kind == maniGraphNodeAdditive && node->inputCount > 0 ? node->inputCount - 1 : 0;
 }
 
-// A motion matching node's query, when its count is in range (out of
-// range, the check refuses it, and Remap copies none).
+// A motion matching or learned node's query, when its count is in range
+// (out of range, the check refuses it, and Remap copies none).
 static uint32_t QueryCount(const maniGraphNodeSource* node)
 {
-    bool copied = node->kind == maniGraphNodeMatch && node->match.query != NULL &&
-                  node->match.queryCount <= MANI_MATCH_MAX_FEATURES;
-    return copied ? node->match.queryCount : 0u;
+    bool match = node->kind == maniGraphNodeMatch;
+    bool learned = node->kind == maniGraphNodeLearned;
+    const uint32_t* query = match ? node->match.query : (learned ? node->learned.query : NULL);
+    uint32_t count = match ? node->match.queryCount : (learned ? node->learned.queryCount : 0u);
+    return query != NULL && count <= MANI_MATCH_MAX_FEATURES ? count : 0u;
 }
 
 // A machine's transitions and conditions, when its counts are in range
@@ -93,6 +97,7 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
     t->clips += source->clipCount;
     t->groups += source->syncGroupCount;
     t->databases += source->databaseCount;
+    t->models += source->modelCount;
     for (uint32_t i = 0; i < source->nodeCount; ++i)
     {
         const maniGraphNodeSource* node = &source->nodes[i];
@@ -147,6 +152,7 @@ typedef struct Flat
     maniGraphConditionSource* conditions;
     maniGraphDatabaseSource* databases;
     uint32_t* queries;
+    maniGraphModelSource* models;
     uint32_t nodeCount;
     uint32_t inputCount;
     uint32_t weightCount;
@@ -156,7 +162,7 @@ typedef struct Flat
     uint32_t conditionCount;
     uint32_t databaseCount;
     uint32_t queryCount;
-    uint32_t reserved;
+    uint32_t modelCount;
 } Flat;
 
 static uint32_t Place(const Scope* s, uint32_t j)
@@ -240,6 +246,25 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
     return f->databaseCount++;
 }
 
+static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
+{
+    if (s->outer == NULL || slot >= s->graph->modelCount)
+    {
+        return slot;
+    }
+    const maniGraphModelSource* m = &s->graph->models[slot];
+    uint64_t identity = m->model != NULL ? maniLearnedModelIdentity(m->model) : 0;
+    for (uint32_t k = 0; k < f->modelCount && m->model != NULL; ++k)
+    {
+        if (f->models[k].model != NULL && maniLearnedModelIdentity(f->models[k].model) == identity)
+        {
+            return k;
+        }
+    }
+    f->models[f->modelCount] = *m;
+    return f->modelCount++;
+}
+
 static uint32_t GroupSlot(const Scope* s, Flat* f, uint32_t group)
 {
     if (s->outer == NULL || group >= s->graph->syncGroupCount)
@@ -311,6 +336,23 @@ static void RemapMatch(const Scope* s, Flat* f, maniGraphMatchNodeSource* m, uin
     m->query = queries > 0 ? to : m->query;
 }
 
+// A learned node's model, parameters and query as the root reads them.
+static void RemapLearned(const Scope* s, Flat* f, maniGraphLearnedNodeSource* l, uint32_t queries)
+{
+    l->model = ModelSlot(s, f, l->model);
+    l->trigger = Resolve(s, l->trigger);
+    l->requiredTags.parameter = Resolve(s, l->requiredTags.parameter);
+    l->excludedTags.parameter = Resolve(s, l->excludedTags.parameter);
+    l->duration = Scalar(s, l->duration);
+    uint32_t* to = f->queries + f->queryCount;
+    for (uint32_t q = 0; q < queries; ++q)
+    {
+        to[q] = Resolve(s, l->query[q]);
+    }
+    f->queryCount += queries;
+    l->query = queries > 0 ? to : l->query;
+}
+
 // A node's parameters, clip, sync group and weights as the root reads
 // them.
 static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
@@ -319,6 +361,9 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
     {
     case maniGraphNodeMatch:
         RemapMatch(s, f, &node->match, QueryCount(node));
+        return;
+    case maniGraphNodeLearned:
+        RemapLearned(s, f, &node->learned, QueryCount(node));
         return;
     case maniGraphNodeClip:
         node->clip.clip = ClipSlot(s, f, node->clip.clip);
@@ -451,6 +496,37 @@ static maniBuildResult Emit(const Scope* s, Flat* f, const maniSkeleton* skeleto
     return r;
 }
 
+// The totals within the lists' limits.
+static bool TotalsFit(const Totals* t)
+{
+    return t->inputs <= UINT32_MAX && t->weights <= UINT32_MAX &&
+           t->clips <= MANI_GRAPH_MAX_CLIPS && t->groups <= MANI_GRAPH_MAX_SYNC_GROUPS &&
+           t->transitions <= UINT32_MAX && t->conditions <= UINT32_MAX &&
+           t->databases <= MANI_GRAPH_MAX_DATABASES && t->queries <= UINT32_MAX &&
+           t->models <= MANI_GRAPH_MAX_MODELS;
+}
+
+// The root's slots and sync groups first, as it lists them.
+static void CopyRoot(const maniGraphSource* source, Flat* f)
+{
+    for (uint32_t k = 0; k < source->modelCount && source->models != NULL; ++k)
+    {
+        f->models[f->modelCount++] = source->models[k];
+    }
+    for (uint32_t k = 0; k < source->databaseCount && source->databases != NULL; ++k)
+    {
+        f->databases[f->databaseCount++] = source->databases[k];
+    }
+    for (uint32_t k = 0; k < source->clipCount && source->clips != NULL; ++k)
+    {
+        f->clips[f->clipCount++] = source->clips[k];
+    }
+    for (uint32_t k = 0; k < source->syncGroupCount && source->syncGroups != NULL; ++k)
+    {
+        f->groups[f->groupCount++] = source->syncGroups[k];
+    }
+}
+
 maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAllocator* allocator,
                                     maniGraphFlat* out)
 {
@@ -459,25 +535,23 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
     }
-    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0};
-    if (!Count(source, 0, &t) || t.inputs > UINT32_MAX || t.weights > UINT32_MAX ||
-        t.clips > MANI_GRAPH_MAX_CLIPS || t.groups > MANI_GRAPH_MAX_SYNC_GROUPS ||
-        t.transitions > UINT32_MAX || t.conditions > UINT32_MAX ||
-        t.databases > MANI_GRAPH_MAX_DATABASES || t.queries > UINT32_MAX)
+    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    if (!Count(source, 0, &t) || !TotalsFit(&t))
     {
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
-    size_t sizes[9] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
-                       (size_t)t.inputs * sizeof(uint32_t),
-                       (size_t)t.weights * sizeof(maniGraphScalar),
-                       (size_t)t.clips * sizeof(maniGraphClipSource),
-                       (size_t)t.groups * sizeof(maniGraphSyncGroupSource),
-                       (size_t)t.transitions * sizeof(maniGraphTransitionSource),
-                       (size_t)t.conditions * sizeof(maniGraphConditionSource),
-                       (size_t)t.databases * sizeof(maniGraphDatabaseSource),
-                       (size_t)t.queries * sizeof(uint32_t)};
+    size_t sizes[10] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
+                        (size_t)t.inputs * sizeof(uint32_t),
+                        (size_t)t.weights * sizeof(maniGraphScalar),
+                        (size_t)t.clips * sizeof(maniGraphClipSource),
+                        (size_t)t.groups * sizeof(maniGraphSyncGroupSource),
+                        (size_t)t.transitions * sizeof(maniGraphTransitionSource),
+                        (size_t)t.conditions * sizeof(maniGraphConditionSource),
+                        (size_t)t.databases * sizeof(maniGraphDatabaseSource),
+                        (size_t)t.queries * sizeof(uint32_t),
+                        (size_t)t.models * sizeof(maniGraphModelSource)};
     size_t total = 0;
-    for (int k = 0; k < 9; ++k)
+    for (int k = 0; k < 10; ++k)
     {
         sizes[k] = (sizes[k] + 7u) & ~(size_t)7u;
         total += sizes[k];
@@ -487,9 +561,9 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_errorCapacity, maniBuildReasonNone, 0, 0};
     }
-    void* parts[9];
+    void* parts[10];
     size_t at = 0;
-    for (int k = 0; k < 9; ++k)
+    for (int k = 0; k < 10; ++k)
     {
         parts[k] = block + at;
         at += sizes[k];
@@ -503,19 +577,9 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
               .conditions = parts[6],
               .databases = parts[7],
               .queries = parts[8],
+              .models = parts[9],
               .nodeCount = source->nodeCount};
-    for (uint32_t k = 0; k < source->databaseCount && source->databases != NULL; ++k)
-    {
-        f.databases[f.databaseCount++] = source->databases[k];
-    }
-    for (uint32_t k = 0; k < source->clipCount && source->clips != NULL; ++k)
-    {
-        f.clips[f.clipCount++] = source->clips[k];
-    }
-    for (uint32_t k = 0; k < source->syncGroupCount && source->syncGroups != NULL; ++k)
-    {
-        f.groups[f.groupCount++] = source->syncGroups[k];
-    }
+    CopyRoot(source, &f);
     Scope root = {source, NULL, NULL, 0, 0};
     maniBuildResult r = Emit(&root, &f, source->skeleton);
     out->block = block;
@@ -528,6 +592,8 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     out->source.syncGroupCount = f.groupCount;
     out->source.databases = f.databases;
     out->source.databaseCount = f.databaseCount;
+    out->source.models = f.models;
+    out->source.modelCount = f.modelCount;
     return r;
 }
 

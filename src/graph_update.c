@@ -11,6 +11,7 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
+#include "graph_learned_step.h"
 #include "graph_machine.h"
 #include "graph_machine_listen.h"
 #include "graph_machine_step.h"
@@ -394,7 +395,8 @@ static void Weigh(const Update* u)
         {
             ShareInertia(u, record, s, p);
         }
-        else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch)
+        else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch &&
+                 kind != maniGraphNodeLearned)
         {
             ShareOne(u, record, s);
         }
@@ -877,6 +879,10 @@ maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEv
         else if (maniLoadU16(record) == maniGraphNodeMatch)
         {
             maniGraphAdvanceMatch(&u, p);
+        }
+        else if (maniLoadU16(record) == maniGraphNodeLearned)
+        {
+            maniGraphAdvanceLearned(&u, p);
         }
     }
     maniGraphListen(u.graph, binding->clips, instance);

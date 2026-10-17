@@ -403,6 +403,37 @@ extern "C"
         maniGraphScalar duration;
     } maniGraphMatchNodeSource;
 
+    // A learned motion matching node (mani-0025): no inputs; it plays its
+    // model slot's state. Its query is its state's features with, for
+    // each time of each trajectory and float track channel of the model's
+    // database in channel order, a parameter (queryCount of them: vec2
+    // on the ground plane for trajectory positions and facings, float for
+    // float tracks). It steps its state at the model's rate, the state
+    // between steps taken between the two last, and projects its query
+    // with no state, when its trigger is set (MANI_NO_PARAMETER for none)
+    // and when period seconds (above 0) have passed since its last
+    // projection, through the model's Projector whose filter equals its
+    // tags (none such: no projection; literal tags must name one). A
+    // projection whose features lie farther than transitionCost (finite,
+    // not negative) from the state's becomes the state, and then the
+    // node requests duration seconds of the nearest inertialize node
+    // above it, which the build requires on every path from the output.
+    // It moves by the time its parents give it, forward, and gives the
+    // root's motion and the events whose states rise past 0.5.
+    typedef struct maniGraphLearnedNodeSource
+    {
+        uint32_t model;
+        uint32_t trigger;
+        const uint32_t* query;
+        uint32_t queryCount;
+        float period;
+        float transitionCost;
+        uint32_t reserved;
+        maniGraphTags requiredTags;
+        maniGraphTags excludedTags;
+        maniGraphScalar duration;
+    } maniGraphLearnedNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -486,6 +517,7 @@ extern "C"
             maniGraphOneShotNodeSource oneShot;
             maniGraphInertializeNodeSource inertialize;
             maniGraphMatchNodeSource match;
+            maniGraphLearnedNodeSource learned;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;

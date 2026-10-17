@@ -9,6 +9,8 @@
 // that order in binary32 with no contraction, so the bits are the same on
 // every target, vectorized or not.
 
+#include "learned_eval.h"
+
 #include "bytes.h"
 #include "learned_file.h"
 #include "vecmath.h"
@@ -79,11 +81,13 @@ static Network Locate(const maniLearnedModel* m, uint32_t n)
     return w;
 }
 
-// One layer: to = biases + each input of from times its weights.
-static void Layer(const maniLearnedModel* m, uint32_t inputs, uint32_t outputs,
-                  const uint8_t* values, uint64_t weights, const float* from, float* to)
+// Outputs first to end of one layer: to = biases + each input of from
+// times its weights.
+static void Layer(const maniLearnedModel* m, uint32_t inputs, uint32_t outputs, uint32_t first,
+                  uint32_t end, const uint8_t* values, uint64_t weights, const float* from,
+                  float* to)
 {
-    for (uint32_t o = 0; o < outputs; ++o)
+    for (uint32_t o = first; o < end; ++o)
     {
         to[o] = LoadF32(values + 4 * (size_t)o);
     }
@@ -98,7 +102,7 @@ static void Layer(const maniLearnedModel* m, uint32_t inputs, uint32_t outputs,
                 continue;
             }
             const uint8_t* row = w + 4 * (size_t)i * outputs;
-            for (uint32_t o = 0; o < outputs; ++o)
+            for (uint32_t o = first; o < end; ++o)
             {
                 to[o] += x * LoadF32(row + 4 * (size_t)o);
             }
@@ -115,17 +119,21 @@ static void Layer(const maniLearnedModel* m, uint32_t inputs, uint32_t outputs,
             continue;
         }
         const uint8_t* row = w + 2 * (size_t)i * outputs;
-        for (uint32_t o = 0; o < outputs; ++o)
+        for (uint32_t o = first; o < end; ++o)
         {
             to[o] += x * (float)(int16_t)maniLoadU16(row + 2 * (size_t)o);
         }
     }
 }
 
-// Network n on input; returns its outputs, which lie in the scratch.
-static float* Evaluate(const maniLearnedModel* m, uint32_t n, const float* input, float* scratch)
+// Network n on input, its last layer's outputs from first to end only (end
+// past them meaning all); returns its outputs (those at their places),
+// which lie in the scratch.
+static float* EvaluatePart(const maniLearnedModel* m, uint32_t n, const float* input,
+                           uint32_t first, uint32_t end, float* scratch)
 {
     Network w = Locate(m, n);
+    end = end < w.out ? end : w.out;
     float* a = scratch;
     float* b = scratch + m->widest;
     const uint8_t* v = m->values + 4 * w.values;
@@ -141,8 +149,9 @@ static float* Evaluate(const maniLearnedModel* m, uint32_t n, const float* input
     {
         uint32_t inputs = LayerSize(m, l, 0);
         uint32_t count = LayerSize(m, l, 1);
-        Layer(m, inputs, count, v, weights, a, b);
-        if (l + 1 < w.firstLayer + w.layerCount)
+        bool last = l + 1 == w.firstLayer + w.layerCount;
+        Layer(m, inputs, count, last ? first : 0u, last ? end : count, v, weights, a, b);
+        if (!last)
         {
             for (uint32_t o = 0; o < count; ++o)
             {
@@ -155,11 +164,25 @@ static float* Evaluate(const maniLearnedModel* m, uint32_t n, const float* input
         a = b;
         b = t;
     }
-    for (uint32_t o = 0; o < w.out; ++o)
+    for (uint32_t o = first; o < end; ++o)
     {
         a[o] = a[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o);
     }
     return a;
+}
+
+static float* Evaluate(const maniLearnedModel* m, uint32_t n, const float* input, float* scratch)
+{
+    return EvaluatePart(m, n, input, 0, UINT32_MAX, scratch);
+}
+
+void maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
+                                 void* scratch)
+{
+    uint32_t first = 9 * model->boneCount + 3 * model->scaledBoneCount;
+    uint32_t end = model->outputCount;
+    const float* a = EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, first, end, scratch);
+    memcpy(out, a + first, sizeof(float) * (size_t)(end - first));
 }
 
 size_t maniLearnedScratchSize(const maniLearnedModel* model)

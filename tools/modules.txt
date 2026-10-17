@@ -64,25 +64,28 @@ learned_restore: allocator bytes container learned_file learned_train train_net 
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:
-graph_nodes: bytes graph_file graph_inertia graph_machine_file graph_match graph_shot
+graph_nodes: bytes graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot
 graph_machine_file: bytes graph_file
 graph: bytes container graph_file graph_nodes text
-graph_instance: bytes graph_file graph_inertia graph_machine graph_match graph_shot
+graph_instance: bytes graph_file graph_inertia graph_learned graph_machine graph_match graph_shot
 graph_shot: bytes graph_file
 graph_match: bytes graph_file
+graph_learned: bytes graph_file graph_match
+graph_learned_check: graph_match
 graph_inertia: bytes graph_file pose_memory vecmath
 graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar vecmath
 graph_inertia_apply: graph_dead_blend graph_file graph_inertia pose_memory scalar vecmath
 graph_shot_step: graph_file graph_instance graph_shot
 graph_emit: bytes graph_file graph_inertia graph_instance root_motion
 graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_file match_move match_search root_motion
+graph_learned_step: bytes container graph_emit graph_file graph_instance graph_learned learned_eval match_file root_motion vecmath
 graph_machine: bytes graph_file
 graph_machine_step: bytes graph_file graph_instance graph_machine
-graph_bind: bytes graph_file graph_instance graph_match
+graph_bind: bytes graph_file graph_instance graph_learned graph_match
 graph_space: bytes graph_file graph_instance scalar
 graph_machine_listen: bytes graph_file graph_instance graph_machine graph_shot
-graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space root_motion
-graph_evaluate: bytes graph_file graph_inertia graph_inertia_apply graph_instance graph_machine graph_match graph_shot graph_space pose_memory
+graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space root_motion
+graph_evaluate: bytes graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space pose_memory
 clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes
@@ -91,18 +94,19 @@ clip_cursor: clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
 root_motion_build: allocator bytes clip_file quat64
 clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
-graph_check: allocator container graph_file graph_inertia graph_machine_check graph_match graph_match_check graph_space_check sort text
+graph_check: allocator container graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check sort text
 graph_space_check: exact graph_file
 graph_machine_check: bytes graph_file sort
 graph_match_check: graph_match
 exact:
 triangulate: exact sort
 graph_inline: allocator graph_check
-graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_machine_check graph_match graph_match_check sort triangulate
+graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check sort triangulate
 graph_json: allocator builder decimal_format
 graph_json_read: arena container decimal json sort
-graph_json_graph: arena builder graph_json_machine graph_json_read json
+graph_json_graph: arena builder graph_json_machine graph_json_read graph_json_search json
 graph_json_machine: arena graph_json_read json
+graph_json_search: arena graph_json_read json
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 clip_shell: additive

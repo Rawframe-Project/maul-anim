@@ -16,6 +16,7 @@
 #include "graph_file.h"
 
 #include "maul-anim/graph.h"
+#include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 
 #include <math.h>
@@ -188,13 +189,25 @@ uint32_t maniGraphSavedMatchValid(const uint8_t* bytes, const maniGraph* g, uint
     return UINT32_MAX;
 }
 
-bool maniGraphQueryFits(const maniMotionDatabase* database, const uint32_t* types, uint32_t count)
+maniResult maniGraphDatabaseChannel(const void* database, uint32_t channel,
+                                    maniMatchChannel* channelOut)
+{
+    return maniMotionDatabaseChannel(database, channel, channelOut);
+}
+
+maniResult maniGraphModelChannel(const void* model, uint32_t channel, maniMatchChannel* channelOut)
+{
+    return maniLearnedModelChannel(model, channel, channelOut);
+}
+
+bool maniGraphQueryFits(const void* owner, uint32_t channelCount, maniGraphChannelFn* channel,
+                        const uint32_t* types, uint32_t count)
 {
     uint32_t q = 0;
-    for (uint32_t c = 0; c < database->channelCount; ++c)
+    for (uint32_t c = 0; c < channelCount; ++c)
     {
         maniMatchChannel ch;
-        if (maniMotionDatabaseChannel(database, c, &ch) != mani_success)
+        if (channel(owner, c, &ch) != mani_success)
         {
             return false;
         }

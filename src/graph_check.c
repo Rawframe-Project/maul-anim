@@ -10,6 +10,8 @@
 #include "container.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
+#include "graph_learned.h"
+#include "graph_learned_check.h"
 #include "graph_machine_check.h"
 #include "graph_match.h"
 #include "graph_match_check.h"
@@ -405,6 +407,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return CheckInertialize(source, n, node);
     case maniGraphNodeMatch:
         return maniCheckGraphMatch(source, n, node);
+    case maniGraphNodeLearned:
+        return maniCheckGraphLearned(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -443,6 +447,11 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
                                         n->inertialize.method);
     case maniGraphNodeMatch:
         return MANI_GRAPH_MATCH_BLOCK_WORDS;
+    case maniGraphNodeLearned:
+    {
+        const maniLearnedModel* m = source->models[n->learned.model].model;
+        return MANI_GRAPH_LEARNED_BLOCK_WORDS(m->featureCount + m->latentCount, m->eventCount);
+    }
     default:
         return 0;
     }
@@ -475,13 +484,15 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
     uint32_t transitions = machine ? n->machine.transitionCount : 0u;
     tally->inputCount += n->inputCount;
     bool match = n->kind == maniGraphNodeMatch;
+    bool learned = n->kind == maniGraphNodeLearned;
     tally->dataWords +=
         machine ? maniGraphMachineSourceWords(n)
                 : (shot ? MANI_GRAPH_SHOT_WORDS : maniGraphDataWords(n->kind, n->inputCount));
     tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u;
+    tally->dataWords += learned ? MANI_GRAPH_LEARNED_WORDS + n->learned.queryCount : 0u;
     tally->machineWords += BlockWords(source, n);
     tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
-    tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match ? 1u : 0u;
+    tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match || learned ? 1u : 0u;
     tally->maskCount += shot && n->oneShot.mask != NULL ? 1u : 0u;
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;

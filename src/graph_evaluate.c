@@ -9,6 +9,7 @@
 #include "graph_file.h"
 #include "graph_inertia_apply.h"
 #include "graph_instance.h"
+#include "graph_learned.h"
 #include "graph_machine.h"
 #include "graph_match.h"
 #include "graph_shot.h"
@@ -391,6 +392,32 @@ static void SampleMatch(const Evaluation* e, const uint8_t* record, uint32_t cur
                                out);
 }
 
+// A learned node's pose: its model's Decompressor at its state, worked
+// in the instance's room; the neutral pose with no state.
+static void SampleLearned(const Evaluation* e, const uint8_t* record, maniPose* out)
+{
+    uint32_t data = maniLoadU32(record + 12);
+    const maniLearnedModel* m =
+        maniGraphBoundModel(e->binding, Word(e, data + maniGraphLearnedModel));
+    const uint32_t* block =
+        (const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt) +
+        Word(e, data + maniGraphLearnedBlock);
+    if (block[maniGraphLearnedHas] == 0)
+    {
+        Neutral(e, out, false);
+        return;
+    }
+    float* room = (float*)((uint8_t*)e->instance + e->instance->learnedAt);
+    size_t scratchSize = maniLearnedScratchSize(m);
+    float* state = room + scratchSize / 4;
+    maniGraphLearnedState(block, m->featureCount + m->latentCount, m->stepRate, state);
+    maniLearnedOutput output = {out, NULL, NULL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    if (maniLearnedDecompress(m, state, &output, room, scratchSize) != mani_success)
+    {
+        Neutral(e, out, false);
+    }
+}
+
 static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
 {
     const uint8_t* record = Record(e, p);
@@ -403,6 +430,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodeMatch:
         SampleMatch(e, record, cursor, out, State(e, p));
+        return;
+    case maniGraphNodeLearned:
+        SampleLearned(e, record, out);
         return;
     case maniGraphNodeBlend:
         Blend(e, record, out, difference);

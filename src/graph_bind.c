@@ -11,6 +11,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_learned.h"
 #include "graph_match.h"
 
 #include "maul-anim/base.h"
@@ -93,7 +94,7 @@ static bool DatabaseFits(const maniGraph* graph, uint32_t slot, const maniMotion
             types[q] =
                 maniLoadU32(graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE);
         }
-        if (!maniGraphQueryFits(d, types, queries))
+        if (!maniGraphQueryFits(d, d->channelCount, maniGraphDatabaseChannel, types, queries))
         {
             return false;
         }
@@ -172,8 +173,30 @@ static bool BindDatabases(maniGraphBinding* binding, const maniMotionDatabase* c
     return true;
 }
 
-// Each model slot bound to the model of its identity, of the graph's
-// skeleton; false with the first left unbound.
+// Whether a model takes the slot: of the graph's skeleton, and taking
+// every learned node playing the slot.
+static bool ModelFits(const maniGraph* graph, uint32_t slot, const maniLearnedModel* m)
+{
+    if (maniLearnedModelSkeletonIdentity(m) != graph->skeletonIdentity)
+    {
+        return false;
+    }
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        uint32_t data = maniLoadU32(record + 12);
+        if (maniLoadU16(record) == maniGraphNodeLearned &&
+            maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)) == slot &&
+            !maniGraphLearnedFits(graph, data, m))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Each model slot bound to the model of its identity that takes it;
+// false with the first left unbound.
 static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
                        uint32_t* unboundOut)
 {
@@ -186,8 +209,8 @@ static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
         for (uint32_t i = 0; i < assets->modelCount && slots[s] == NULL; ++i)
         {
             const maniLearnedModel* m = assets->models[i];
-            bool fits = m != NULL && maniLearnedModelIdentity(m) == identity &&
-                        maniLearnedModelSkeletonIdentity(m) == graph->skeletonIdentity;
+            bool fits =
+                m != NULL && maniLearnedModelIdentity(m) == identity && ModelFits(graph, s, m);
             slots[s] = fits ? m : NULL;
         }
         if (slots[s] == NULL)
