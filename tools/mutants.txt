@@ -1476,7 +1476,7 @@ ev-weights-room | src/graph_evaluate.c | parts.weightsAt + Round(2 * (size_t)bin
 bd-cycle | src/graph_build.c | if (w->state[u] == 1) | if (false)
 bd-unreachable | src/graph_build.c | if (w->state[v] == 0) | if (false)
 bd-clip-difference | src/graph_build.c | w->difference[v] = maniClipAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u; | w->difference[v] = 0u;
-bd-additive-base | src/graph_build.c | if (additive && first != 0) | if (false)
+bd-additive-base | src/graph_build.c | if ((additive || node->kind == maniGraphNodeSpring) && first != 0) | if (false)
 bd-mix | src/graph_build.c | if (additive ? d == 0 : d != first) | if (additive && d == 0)
 bd-output-difference | src/graph_build.c | if (r.result == mani_success && w.difference[source->output] != 0) | if (false)
 bd-slot-reuse | src/graph_build.c | w->freeSlots[freeCount++] = w->slot[u]; | (void)0;
@@ -1589,7 +1589,7 @@ in-size-cursors | src/graph_instance.c | return CursorsAt(graph) + (size_t)ClipN
 il-depth | src/graph_inline.c | if (depth > MANI_GRAPH_MAX_DEPTH || source->nodeCount == 0 || source->nodes == NULL) | if (source->nodeCount == 0 || source->nodes == NULL)
 il-place-output | src/graph_inline.c | return j == out ? s->place : s->base + j - (j > out ? 1u : 0u); | return j == out ? s->place : s->base + j;
 il-parameter-map | src/graph_inline.c | parameter = s->parameters[parameter]; | parameter = parameter + 0;
-il-clip-join | src/graph_inline.c | if (f->clips[k].clip != NULL && maniClipIdentity(f->clips[k].clip) == identity) | if (false)
+il-clip-join | src/graph_inline.c | if (other != NULL && c->clip != NULL ? maniClipIdentity(other) == maniClipIdentity(c->clip) | if (other != NULL && c->clip != NULL ? false
 il-group-join | src/graph_inline.c | memcmp(h->name, g->name, g->nameLength) == 0) | false)
 il-subgraph-type | src/graph_inline.c | s->graph->parameters[p].type != sub->parameters[k].type) | false)
 il-subgraph-skeleton | src/graph_inline.c | maniSkeletonIdentity(sub->skeleton) != maniSkeletonIdentity(skeleton) || | false ||
@@ -2060,7 +2060,7 @@ gk-words | src/graph_check.c | tally->dataWords += match ? MANI_GRAPH_MATCH_WORD
 gk-inertial | src/graph_check.c | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match ? 1u : 0u; | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX ? 1u : 0u;
 gk-count | src/graph_check.c | source->databaseCount <= MANI_GRAPH_MAX_DATABASES && | true &&
 gmc-match | src/graph_machine_check.c | if (node->kind == maniGraphNodeMatch) | if (false)
-gi-join | src/graph_inline.c | if (f->databases[k].database != NULL && | if (false &&
+gi-join | src/graph_inline.c | ? maniMotionDatabaseIdentity(other) == maniMotionDatabaseIdentity(d->database) | ? false
 gi-clips | src/graph_inline.c | (void)ClipSlot(s, f, k); | (void)k;
 gi-database | src/graph_inline.c | m->database = DatabaseSlot(s, f, m->database); | m->database = m->database;
 gi-trigger | src/graph_inline.c | m->trigger = Resolve(s, m->trigger); | m->trigger = m->trigger;
@@ -2078,7 +2078,7 @@ gr-inputs | src/graph_json_graph.c | bool takesInputs = k->kind != maniGraphNode
 ge-cursor | src/graph_evaluate.c | bool clip = kind == maniGraphNodeClip || kind == maniGraphNodeMatch; | bool clip = kind == maniGraphNodeClip;
 gs-count | src/graph_instance.c | count += kind == maniGraphNodeClip || kind == maniGraphNodeMatch ? 1u : 0u; | count += kind == maniGraphNodeClip ? 1u : 0u;
 gs-reset | src/graph_instance.c | maniGraphResetMatch(Blocks(instance) + shot); | (void)shot;
-gs-saved | src/graph_instance.c | : Matching(graph, p) ? SavedMatchValid(instance->binding, p, b, b + block) | : Matching(graph, p) ? UINT32_MAX
+gs-saved | src/graph_instance.c | : Matching(graph, p)  ? SavedMatchValid(binding, p, b, block) | : Matching(graph, p)  ? UINT32_MAX
 tr-unit | src/trajectory.c | return Finite4(q) && fabsf(maniQuatDot(q, q) - 1.0f) <= 2e-3f; | return Finite4(q);
 tr-seconds | src/trajectory.c | seconds >= 0.0f; | true;
 tr-rate | src/trajectory.c | return 2.0f * LN2 / (halfLife + 1e-5f); | return LN2 / (halfLife + 1e-5f);
@@ -2622,7 +2622,7 @@ gs-open-size | src/graph.c | (uint64_t)g->springSetCount * MANI_GRAPH_SPRING_SET
 gs-open-name | src/graph.c | MANI_GRAPH_SPRING_SET_SIZE, s.at[12]) | MANI_GRAPH_SPRING_SET_SIZE, s.at[11])
 gs-accessor | src/graph.c | return maniLoadU64(graph->springSets + (size_t)slot * MANI_GRAPH_SPRING_SET_SIZE); | return maniLoadU64(graph->springSets);
 gs-bind-size | src/graph_bind.c | (size_t)graph->springSetCount * sizeof(const maniSpringSet*); | 0;
-gs-bind-skeleton | src/graph_bind.c | maniSpringSetSkeletonIdentity(p) == graph->skeletonIdentity; | true;
+gs-bind-skeleton | src/graph_bind.c | if (maniSpringSetSkeletonIdentity(set) != graph->skeletonIdentity) | if (false)
 gs-bind-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + graph->databaseCount + graph->modelCount + s; | *unboundOut = graph->clipCount + s;
 gs-bind-list | src/graph_bind.c | (a->springSets != NULL || a->springSetCount == 0) && | true &&
 gs-bind-sets | src/graph_bind.c | !BindModels(binding, assets, unboundOut) || !BindSpringSets(binding, assets, unboundOut) || | !BindModels(binding, assets, unboundOut) ||
@@ -2630,3 +2630,57 @@ gs-json-write | src/graph_json.c | if (source->springSetCount > 0) | if (source-
 gs-json-list | src/graph_json_graph.c | (a->springSets == NULL && a->springSetCount > 0)) | false)
 gs-inline-copy | src/graph_inline.c | f->springSets[f->springSetCount++] = source->springSets[k]; | (void)k;
 gs-inline-fit | src/graph_inline.c | t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS; | t->models <= MANI_GRAPH_MAX_MODELS;
+
+# Graph spring nodes (src/graph_spring.c and the graph's files that
+# take the node) and the subgraph slots' joins (src/graph_inline.c)
+gn-valid-set | src/graph_spring.c | if (Word(g, data + maniGraphSpringSet) >= g->springSetCount) | if (false)
+gn-valid-param | src/graph_spring.c | if (!ParameterOf(g, Word(g, data + maniGraphSpringPosition + k), types[k])) | if (false)
+gn-param-type | src/graph_spring.c | maniLoadU32(g->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE) == type); | true);
+gn-valid-block | src/graph_spring.c | if (Word(g, data + maniGraphSpringBlock) != block) | if (false)
+gn-valid-low | src/graph_spring.c | return words >= maniSpringJoints && words <= MANI_GRAPH_SPRING_MAX_WORDS | return words <= MANI_GRAPH_SPRING_MAX_WORDS
+gn-valid-high | src/graph_spring.c | return words >= maniSpringJoints && words <= MANI_GRAPH_SPRING_MAX_WORDS | return words >= maniSpringJoints
+gn-fits | src/graph_spring.c | return maniSpringBlockWords(set) == Word(g, data + maniGraphSpringStateWords); | return true;
+gn-saved-neg | src/graph_spring.c | if (!(pending >= 0.0 && isfinite(pending))) | if (!isfinite(pending))
+gn-saved-inf | src/graph_spring.c | if (!(pending >= 0.0 && isfinite(pending))) | if (!(pending >= 0.0))
+gn-saved-state | src/graph_spring.c | return wrong == UINT64_MAX ? UINT32_MAX : maniGraphSpringState + (uint32_t)(wrong / 4); | return UINT32_MAX;
+gn-saved-at | src/graph_spring.c | return wrong == UINT64_MAX ? UINT32_MAX : maniGraphSpringState + (uint32_t)(wrong / 4); | return wrong == UINT64_MAX ? UINT32_MAX : (uint32_t)(wrong / 4);
+gn-add | src/graph_spring.c | SetPending(block, Pending(block) + seconds); | SetPending(block, seconds);
+gn-reset | src/graph_spring.c | memset(block, 0, 4 * (size_t)maniGraphSpringBlockWords(g, data)); | memset(block, 0, 8);
+gn-pose-clear | src/graph_spring.c | SetPending(block, 0.0); | (void)block;
+gn-pose-model | src/graph_spring.c | if (maniComputeModel(pose, skeleton) != mani_success) | if (false)
+gn-apply | src/graph_spring.c | maniSpringApplyBlock(set, skeleton, state, pose); | (void)state;
+gn-bind-fits | src/graph_bind.c | !maniGraphSpringFits(graph, data, set)) | false)
+gn-bind-slot | src/graph_bind.c | maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet)) == slot && | true &&
+gn-check-max | src/graph_check.c | MANI_GRAPH_SPRING_MAX_WORDS; | UINT32_MAX;
+gn-check-param | src/graph_check.c | ok = parameters[k] == MANI_NO_PARAMETER || | ok = true ||
+gn-eval-position | src/graph_evaluate.c | t.translation = (maniVec3){f[0], f[1], f[2]}; | (void)f;
+gn-eval-rotation | src/graph_evaluate.c | t.rotation = maniQuatNormalize((maniQuat){f[0], f[1], f[2], f[3]}); | t.rotation = (maniQuat){f[0], f[1], f[2], f[3]};
+gn-eval-spring | src/graph_evaluate.c | maniGraphSpringPose(set, e->binding->skeleton, block, &placement, out); | (void)set;
+gn-update-clear | src/graph_update.c | u->instance->cells[reset].value.b = 0; | (void)reset;
+gn-update-fired | src/graph_update.c | bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0; | bool fired = false;
+gn-update-seek | src/graph_update.c | if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0) | if (fired)
+gn-update-factor | src/graph_update.c | maniGraphSpringAdd(block, fabs(u->delta * (double)s->factor)); | maniGraphSpringAdd(block, fabs(u->delta));
+gn-update-abs | src/graph_update.c | maniGraphSpringAdd(block, fabs(u->delta * (double)s->factor)); | maniGraphSpringAdd(block, u->delta * (double)s->factor);
+gn-instance-block | src/graph_instance.c | return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphSpringBlock)); | return UINT32_MAX;
+gn-instance-saved | src/graph_instance.c | : Springing(graph, p) ? SavedSpringValid(binding, p, block) | : Springing(graph, p) ? UINT32_MAX
+gn-nodes-flags | src/graph_nodes.c | return n->flags == 0 && NodeFlags(g, Input(g, n->first)) == 0; | return n->flags == 0;
+gn-nodes-overflow | src/graph_nodes.c | if (block > UINT32_MAX - blockAt) | if (false)
+gn-nodes-valid | src/graph_nodes.c | return maniGraphSpringValid(g, n->data, blockAt); | return UINT32_MAX;
+gn-inline-position | src/graph_inline.c | node->spring.position = Resolve(s, node->spring.position); | (void)s;
+gn-inline-reset | src/graph_inline.c | node->spring.reset = Resolve(s, node->spring.reset); | (void)s;
+gn-inline-set | src/graph_inline.c | node->spring.springSet = SpringSetSlot(s, f, node->spring.springSet); | (void)f;
+gn-json-put | src/graph_json.c | PutParameterName(w, source, parameters[k]); | (void)parameters;
+gn-json-none | src/graph_json_graph.c | *parameters[k] = MANI_NO_PARAMETER; | (void)parameters;
+gn-json-absent | src/graph_json_graph.c | if (f[3 + k] != ABSENT && | if (false &&
+gn-build-words | src/graph_build.c | lay->blockAt += maniGraphSpringState + words; | lay->blockAt += words;
+gn-build-difference | src/graph_build.c | if ((additive || node->kind == maniGraphNodeSpring) && first != 0) | if (additive && first != 0)
+gl-inline-join | src/graph_inline.c | ? maniLearnedModelIdentity(other) == maniLearnedModelIdentity(m->model) | ? false
+gn-inline-join | src/graph_inline.c | ? maniSpringSetIdentity(other) == maniSpringSetIdentity(p->set) | ? false
+# gn-check-words survives, untested for its cost: the builder's bound on
+# a graph's block words is passed by spring nodes only with 256 of a
+# state of 2^24 words (a set of about a million joints); opening's
+# like bound is tested with crafted words (gn-nodes-overflow).
+gn-check-words | src/graph_check.c | (uint32_t)maniGraphSpringSetWords(source->springSets[n->spring.springSet].set); | 0;
+# gn-instance-reset survives, equivalent: a new instance is all 0
+# before its nodes are reset, and a spring block's reset is all 0.
+gn-instance-reset | src/graph_instance.c | maniGraphResetSpring(graph, DataOf(graph, p), Blocks(instance) + shot); | (void)shot;

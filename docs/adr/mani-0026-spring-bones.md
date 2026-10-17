@@ -123,6 +123,8 @@ the same one at the origin; a character on its back against gravity
 turned in the set; colliders and limits on a mirrored bone; and every
 check of a saved state against bytes changed at its word. The graph
 node is tested against the standalone state bit for bit over 90 frames
-of mixed deltas with a reset and a seek; its saved block, refusals,
-opening's checks, binding, JSON form and subgraphs; the graph state and
-JSON fuzz targets' hosts hold one.
+of mixed deltas with a reset and a seek, and over a blend under a time
+scale with updates summed and backward; its saved block (a rotation
+restored off unit length included), refusals, opening's checks (blocks
+past 2^32 words included), binding, JSON form and subgraphs; the graph
+state and JSON fuzz targets' hosts hold one.
