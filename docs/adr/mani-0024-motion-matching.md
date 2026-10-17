@@ -122,6 +122,17 @@ pair it with others. A node's search costs its database's pruned scan
 once a period, not every frame. A host feeding the node needs no
 predictor of its own, but may use any that writes the parameters.
 
+Measured in instructions (a Release build, GCC 14 `-O2`), on clips of
+ten seconds at 30 frames a second with Holden's 27 features and a query
+near a frame of the data: an exact search of a minute of data (1,806
+frames) takes 15,545, of ten minutes 114,221 and of an hour 665,424,
+about six a frame of data against a plain scan's two hundred
+(368,160, 3,651,469 and 21,892,070), with the same picks bit for bit.
+A graph frame of the predictor's query, an update searching every
+0.1 s at 60 frames a second and the evaluation of an inertialize node
+over the node takes 53,276 on the ten-minute database, the searches
+about 19,000 of it on average.
+
 Opening is fuzzed; every check is tested against a file changed at its
 byte. A node's saved block is fuzzed through a restore, an update and
 an evaluation; its JSON form is fuzzed with a host database.

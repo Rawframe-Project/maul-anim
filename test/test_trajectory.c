@@ -5,8 +5,8 @@
 // formulas in binary64 over random states, goals and steps; one advance
 // against many shorter ones; a trajectory settling on its goal; the
 // refusals, leaving it unchanged; a sample's values as the database
-// measures its own (the walk's root half a second ahead), and turned
-// with the root.
+// measures its own (the walk's root half a second ahead), turned with
+// the root, and on the ground of a database of up z and forward -x.
 
 #include "graph_match_fixture.h"
 #include "vecmath.h"
@@ -222,6 +222,38 @@ static void TestFeatures(void)
           "turned with the root: half a second straight ahead");
 }
 
+// A database of up z and forward -x: the ground plane x and y, forward
+// -x the facing of no turn.
+static _Alignas(16) uint8_t s_zFile[1 << 15];
+
+static void TestAxes(void)
+{
+    static const maniMatchChannelSource kChannel = {
+        maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f};
+    const maniClip* clips[1] = {&s_clips[0]};
+    const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u};
+    maniMotionDatabaseSource source = {
+        &s_skeleton, clips, &kChannel, &entry,         1,
+        1,           1,     10.0f,     maniMatchAxisZ, maniMatchAxisNegativeX};
+    maniMotionDatabase d;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_zFile, sizeof s_zFile, &size) == mani_success &&
+              maniOpenMotionDatabase(s_zFile, size, &d).result == mani_success,
+          "a database of up z");
+    maniDestroyBuilder(builder);
+    maniTrajectory root = {{1, 2, 3}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0, 1}, {0, 0, 0}};
+    maniTrajectory ahead = root;
+    ahead.position = (maniVec3){1.5f, 2.25f, 12.0f};
+    float position[2];
+    float facing[2];
+    CHECK(maniTrajectoryFeatures(&d, &root, &ahead, position, facing) == mani_success &&
+              position[0] == 0.5f && position[1] == 0.25f && facing[0] == -1.0f &&
+              facing[1] == 0.0f,
+          "on the ground of up z, facing -x");
+}
+
 int main(void)
 {
     Open();
@@ -230,5 +262,6 @@ int main(void)
     TestSettles();
     TestRefusals();
     TestFeatures();
+    TestAxes();
     return s_failures == 0 ? 0 : 1;
 }

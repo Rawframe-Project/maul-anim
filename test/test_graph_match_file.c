@@ -9,9 +9,9 @@
 // their clip slots and every node word; a state saved and restored
 // playing alike, and each word of a saved block checked; a subgraph's
 // database and its clips joined at inlining; the JSON form, round trip
-// and refusals. Run as test_graph_match_file --seed <graph file> <json
-// file> it writes the round trip's file and text, seeds of the fuzz
-// targets.
+// and refusals; a float parameter querying a float track. Run as
+// test_graph_match_file --seed <graph file> <json file> it writes the
+// round trip's file and text, seeds of the fuzz targets.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -235,6 +235,16 @@ static void TestOpen(void)
     (void)CraftedAt(maniGraphTagDatabaseClips, 0, 0, &clipsAt);
     CHECK(refused == clipsAt, "fewer clips than the list");
     CHECK(RefusedAtByte(maniGraphTagNodes, 2, 1, 2), "a node of differences");
+    // A literal duration and tags from the int parameter tags.
+    maniGraphNodeSource literal = MatchNode(1.0f);
+    literal.match.duration = (maniGraphScalar){MANI_NO_PARAMETER, 0.25f};
+    literal.match.requiredTags = (maniGraphTags){2, 0};
+    (void)Matching(literal, &g);
+    CHECK(RefusedAtWordOf(&g, 0, maniGraphMatchDurationScalar + 1, 0xBF800000u,
+                          maniGraphMatchDurationScalar),
+          "a negative literal duration");
+    CHECK(RefusedAtWordOf(&g, 0, maniGraphMatchRequiredTags + 1, 1, maniGraphMatchRequiredTags),
+          "a tags parameter's literal not 0");
 }
 
 // The graph last made with a word of a section set: it opens, and
@@ -591,6 +601,55 @@ static void TestJsonForms(void)
     }
 }
 
+// A database of a float track: clip 7 made again with a float track
+// speed, the database's one channel its value now, the query the float
+// parameter d. Last, for clip 7 changes.
+static _Alignas(16) uint8_t s_speedFile[1 << 14];
+
+static void TestFloatQuery(void)
+{
+    static const float kTimes[2] = {0.0f, 1.0f};
+    static const float kWalk[6] = {0, 1, 0, 1, 1, 0};
+    static const float kSpeed[2] = {0.0f, 1.0f};
+    static const float kNow[1] = {0.0f};
+    static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
+    static const uint32_t kSpeedQuery[1] = {3};
+    const maniBoneTrackSource walk = {
+        0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone};
+    const maniFloatTrackSource speed = {
+        "speed", 5, 0, {kTimes, kSpeed, 2, maniInterpolationLinear}};
+    maniBuilder* builder = NewBuilder();
+    OpenClip(builder, 7,
+             (maniClipSource){.boneTracks = &walk, .floatTracks = &speed, .floatTrackCount = 1});
+    const maniClip* clips[1] = {&s_clips[7]};
+    const maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
+    const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       &entry,        1, 1,
+                                       1,           10.0f, maniMatchAxisY, maniMatchAxisZ};
+    maniMotionDatabase d;
+    size_t size = 0;
+    CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_speedFile, sizeof s_speedFile, &size) == mani_success &&
+              maniOpenMotionDatabase(s_speedFile, size, &d).result == mani_success,
+          "a database of speed");
+    maniDestroyBuilder(builder);
+    const maniGraphDatabaseSource slot[1] = {{&d, "speeds", 6, 0}};
+    maniGraphNodeSource node = MatchNode(1.0f);
+    node.match.query = kSpeedQuery;
+    MatchParameters();
+    maniGraphNodeSource nodes[2] = {node, Above(0)};
+    maniGraph g;
+    CHECK(MakeMatch((maniGraphSource){.parameters = s_matchParameters,
+                                      .nodes = nodes,
+                                      .parameterCount = 4,
+                                      .nodeCount = 2,
+                                      .output = 1,
+                                      .databaseCount = 1,
+                                      .databases = slot},
+                    &g) != NULL,
+          "a float parameter for a float track");
+}
+
 static bool WriteFile(const char* path, const void* data, size_t size)
 {
     FILE* out = fopen(path, "wb");
@@ -623,5 +682,6 @@ int main(int argc, char** argv)
     TestSubgraphMapped();
     TestJson();
     TestJsonForms();
+    TestFloatQuery();
     return s_failures == 0 ? 0 : 1;
 }

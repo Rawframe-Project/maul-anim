@@ -1953,3 +1953,146 @@ id-prev | src/graph_dead_blend.c | maniGraphTrs p = maniGraphTrsHeld(block, befo
 im-swap | src/graph_inertia_apply.c | flags ^= again ? 0u : (uint32_t)maniGraphInertiaLastSecond; | flags ^= 0u;
 im-copy | src/graph_inertia_apply.c | memcpy(block + maniGraphInertiaHistory(block, node->bones, true), locals, | memcpy(block + maniGraphInertiaHistory(block, node->bones, false), locals,
 id-grow | src/graph_dead_blend.c | return carried != 0.0f ? s * maniExpF(carried) : s; | return s;
+
+# Motion matching: the database clip map, the search, the graph node and
+# the trajectory predictor (mani-0024).
+ms-entryof | src/match_search.c | low = first <= frame ? mid : low; | low = first < frame ? mid : low;
+ms-required | src/match_search.c | return (e->tags & s->q->requiredTags) == s->q->requiredTags && | return (e->tags & s->q->requiredTags) != 0 &&
+ms-excluded | src/match_search.c | (e->tags & s->q->excludedTags) == 0; | true;
+ms-apart-loop | src/match_search.c | frames = loop && e->count - frames < frames ? e->count - frames : frames; | frames = frames;
+ms-current | src/match_search.c | if (current != MANI_MATCH_NO_FRAME && frame == current) | if (false)
+ms-jump | src/match_search.c | Apart(s->d, e, frame, current) < (double)q->jumpThreshold) | Apart(s->d, e, frame, current) < 2.0 * (double)q->jumpThreshold)
+ms-history-entry | src/match_search.c | if (s->historyEntries[k] == entry && | if (true &&
+ms-history-time | src/match_search.c | Apart(s->d, e, frame, q->history[k]) < (double)q->historyTime) | Apart(s->d, e, frame, q->history[k]) < 0.0)
+ms-end | src/match_search.c | (double)s->q->endExclusion) | 0.0)
+ms-box-gap | src/match_search.c | float gap = q - near; | float gap = q - a;
+ms-best-strict | src/match_search.c | s->best = cost < s->bestCost ? i : s->best; | s->best = cost <= s->bestCost ? i : s->best;
+ms-constant | src/match_search.c | float constant = s->q->transitionCost + e->bias; | float constant = e->bias;
+ms-valid-negative | src/match_search.c | if (!(fabsf(seconds[k]) < HUGE_VALF) || (k >= 2 && seconds[k] < 0.0f)) | if (!(fabsf(seconds[k]) < HUGE_VALF))
+ms-valid-history | src/match_search.c | q->historyCount > MANI_MATCH_MAX_HISTORY) | false)
+ms-normalize | src/match_search.c | s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale; | s.query[j] = normalized ? query->features[j] : query->features[j] - offset;
+ms-normalized | src/match_search.c | s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale; | s.query[j] = (query->features[j] - offset) / scale;
+ms-continuing | src/match_search.c | if (Candidate(&s, &e)) | if (true)
+ms-continuing-bias | src/match_search.c | s.bestCost = Frame(&s, query->current, query->continuingBias + e.bias); | s.bestCost = Frame(&s, query->current, query->continuingBias);
+ms-nojump | src/match_search.c | if (Candidate(&s, &e) && (e.flags & MANI_MATCH_NO_JUMP) == 0) | if (Candidate(&s, &e))
+mf-within | src/match.c | return loop ? time < end : time <= end; | return time <= end;
+mf-less | src/match.c | return n - 1; | return n;
+mf-more | src/match.c | return Within(maniMatchFrameTime(start, n, rate), end, loop) ? n + 1 : n; | return n;
+st-seek | src/graph_match_step.c | maniGraphResetMatch(block); | (void)block;
+st-weight | src/graph_match_step.c | if (!(s->weight > 0.0f)) | if (false)
+st-factor | src/graph_match_step.c | double step = fabs(u->delta * (double)s->factor); | double step = fabs(u->delta);
+st-clock | src/graph_match_step.c | double clock = (double)FloatOf(block[maniGraphMatchClock]) + step; | double clock = step;
+st-consume | src/graph_match_step.c | u->instance->cells[trigger].value.b = 0; | u->instance->cells[trigger].value.b = 1;
+st-due-ended | src/graph_match_step.c | bool due = block[maniGraphMatchEntry] == MANI_GRAPH_MATCH_NO_ENTRY || ended || triggered || | bool due = block[maniGraphMatchEntry] == MANI_GRAPH_MATCH_NO_ENTRY || triggered ||
+st-clock-reset | src/graph_match_step.c | block[maniGraphMatchClock] = BitsOf(due ? 0.0f : (float)clock); | block[maniGraphMatchClock] = BitsOf((float)clock);
+st-ended-current | src/graph_match_step.c | .current = ended ? MANI_MATCH_NO_FRAME : current, | .current = current,
+st-same | src/graph_match_step.c | r.frame != current) | true)
+st-had | src/graph_match_step.c | if (had) | if (true)
+st-next | src/graph_match_step.c | m->block[maniGraphMatchNext] = next + 1 < history ? next + 1 : 0u; | m->block[maniGraphMatchNext] = next + 1;
+st-picks | src/graph_match_step.c | m->block[maniGraphMatchPicks] = picks < history ? picks + 1 : picks; | m->block[maniGraphMatchPicks] = picks + 1;
+st-loop | src/graph_match_step.c | bool loop = (e.flags & MANI_MATCH_LOOP) != 0; | bool loop = false;
+st-ended | src/graph_match_step.c | return !loop && !(at.time < e.end); | return false;
+st-events | src/graph_match_step.c | if (s->weight > MANI_GRAPH_EVENT_THRESHOLD) | if (false)
+st-events-loops | src/graph_match_step.c | maniGraphEmitLoops(m->u, m->p, slot, clip, (double)e->start, (double)e->end, at->wraps - 1.0); | (void)clip;
+st-events-first | src/graph_match_step.c | maniGraphEmit(m->u, m->p, slot, clip, t0, (double)e->end); | (void)t0;
+st-root | src/graph_match_step.c | maniRootMotionSumAdd(&m->u->root, &at.move, (double)s->rootWeight); | (void)at;
+st-floor | src/graph_match_step.c | double k = floor((t - (double)e.start) * (double)rate); | double k = 0.0;
+st-up | src/graph_match_step.c | if (n < last && (double)maniMatchFrameTime(e.start, n + 1, rate) <= t) | if (false)
+st-query-scale | src/graph_match_step.c | out[j] = (v->f[i] - offset) / scale; | out[j] = v->f[i] - offset;
+st-query-bones | src/graph_match_step.c | if (maniMotionDatabaseFeatures(d, current, out) != mani_success) | if (true)
+st-tags | src/graph_match_step.c | : (uint32_t)m->u->instance->cells[parameter].value.i; | : 0u;
+st-duration | src/graph_match_step.c | maniGraphUpdateScalar(m->u, m->data + maniGraphMatchDurationScalar)); | 0.5f);
+# st-clamp survives, equivalent: an entry's span lies within its clip,
+# so the playhead never meets the clip's own end, where clamp and repeat
+# differ.
+st-clamp | src/graph_match_step.c | clip.loop = maniLoopClamp; | (void)clip;
+gm-numbers-period | src/graph_match.c | bool ok = isfinite(v) && (cost || v >= 0.0f) && (k != maniGraphMatchPeriod || v > 0.0f); | bool ok = isfinite(v) && (cost || v >= 0.0f);
+gm-numbers-sign | src/graph_match.c | bool ok = isfinite(v) && (cost || v >= 0.0f) && (k != maniGraphMatchPeriod || v > 0.0f); | bool ok = isfinite(v) && (k != maniGraphMatchPeriod || v > 0.0f);
+gm-tags-literal | src/graph_match.c | (ParameterType(g, parameter) == maniGraphParameterInt && Word(g, at + 1) == 0); | ParameterType(g, parameter) == maniGraphParameterInt;
+gm-slot | src/graph_match.c | if (Word(g, data + maniGraphMatchDatabase) >= g->databaseCount) | if (false)
+gm-trigger | src/graph_match.c | trigger == MANI_NO_PARAMETER || ParameterType(g, trigger) == maniGraphParameterTrigger; | true;
+gm-history | src/graph_match.c | if (Word(g, data + maniGraphMatchHistoryCount) > MANI_MATCH_MAX_HISTORY) | if (false)
+gm-duration | src/graph_match.c | bool literal = parameter == MANI_NO_PARAMETER && isfinite(value) && value >= 0.0f; | bool literal = parameter == MANI_NO_PARAMETER && isfinite(value);
+gm-block | src/graph_match.c | if (Word(g, data + maniGraphMatchBlock) != block) | if (false)
+gm-query-type | src/graph_match.c | if (type != maniGraphParameterVec2 && type != maniGraphParameterFloat) | if (false)
+gm-reset | src/graph_match.c | block[maniGraphMatchEntry] = MANI_GRAPH_MATCH_NO_ENTRY; | block[maniGraphMatchEntry] = 0;
+gm-saved-time | src/graph_match.c | time >= (double)e.start && time <= (double)e.end; | time >= (double)e.start;
+gm-saved-entry | src/graph_match.c | if (entry != MANI_GRAPH_MATCH_NO_ENTRY && !TimeValid(database, entry, time)) | if (false)
+gm-saved-clock | src/graph_match.c | if (!(isfinite(clock) && clock >= 0.0f)) | if (!isfinite(clock))
+gm-saved-picks | src/graph_match.c | if (picks > history) | if (false)
+gm-saved-next | src/graph_match.c | if (history > 0 ? next >= history || (picks < history && next != picks) : next != 0) | if (history > 0 ? next >= history : next != 0)
+gm-saved-unused | src/graph_match.c | if (k < picks ? frame >= database->frameCount : frame != 0) | if (k < picks ? frame >= database->frameCount : false)
+gm-saved-frames | src/graph_match.c | if (k < picks ? frame >= database->frameCount : frame != 0) | if (k < picks ? false : frame != 0)
+gm-fits-type | src/graph_match.c | if (q >= count || types[q] != type) | if (q >= count)
+gm-fits-count | src/graph_match.c | return q == count; | return true;
+gm-fits-floats | src/graph_match.c | if (!vector && ch.kind != maniMatchFloatTrack) | if (!vector)
+# gc-skeleton survives, equivalent: a database of another skeleton is
+# of clips of it, which no clip slot holds; the clip slot check refuses
+# it alike, for the same slot.
+gc-skeleton | src/graph_match_check.c | if (d == NULL || maniMotionDatabaseSkeletonIdentity(d) != skeleton) | if (d == NULL)
+gc-twice | src/graph_match_check.c | if (maniMotionDatabaseIdentity(source->databases[k].database) == | if (false && maniMotionDatabaseIdentity(source->databases[k].database) ==
+gc-clip | src/graph_match_check.c | if (maniGraphDatabaseClipSlot(source, d, c) == UINT32_MAX) | if (false)
+# gc-additive survives, equivalent: databases refuse additive clips, so
+# a slot holding a database's clip is never one of differences.
+gc-additive | src/graph_match_check.c | maniClipAdditiveBasis(c) == maniAdditiveNone) | true)
+gc-query-null | src/graph_match_check.c | (m->queryCount > 0 && m->query == NULL)) | false)
+gc-tags | src/graph_match_check.c | (ParameterOf(source, tags.parameter, maniGraphParameterInt) && tags.value == 0); | ParameterOf(source, tags.parameter, maniGraphParameterInt);
+gc-period | src/graph_match_check.c | isfinite(m->period) && m->period > 0.0f && Seconds(m->jumpThreshold) && | isfinite(m->period) && Seconds(m->jumpThreshold) &&
+gc-history | src/graph_match_check.c | isfinite(m->transitionCost) && m->historyCount <= MANI_MATCH_MAX_HISTORY && | isfinite(m->transitionCost) &&
+gc-duration | src/graph_match_check.c | ? Seconds(d.value) | ? isfinite(d.value)
+gb-size | src/graph_bind.c | (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*); | 0;
+# gb-skeleton survives, equivalent: a database whose clips are the
+# graph's, identities alike, is of the graph's skeleton.
+gb-skeleton | src/graph_bind.c | if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count) | if (d->clipCount != count)
+gb-clips | src/graph_bind.c | if (maniMotionDatabaseClipIdentity(d, c) != maniGraphClipIdentity(graph, clip)) | if (false)
+gb-query | src/graph_bind.c | if (!maniGraphQueryFits(d, types, queries)) | if (false)
+gb-fits | src/graph_bind.c | return DatabaseFits(graph, slot, d) ? d : NULL; | return d;
+gb-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + s; | *unboundOut = s;
+g-db-first | src/graph.c | if (maniLoadU32(e + 24) != next) | if (false)
+g-db-count | src/graph.c | if (count == 0 || count > g->databaseClipCount - next) | if (count > g->databaseClipCount - next)
+g-db-total | src/graph.c | if (next != g->databaseClipCount) | if (false)
+g-db-slot | src/graph.c | if (slot >= g->clipCount || | if (false ||
+g-db-diff | src/graph.c | maniLoadU32(g->clips + (size_t)slot * MANI_GRAPH_CLIP_SIZE + 24) != 0) | false)
+gn-flags | src/graph_nodes.c | return n->flags == 0; | return true;
+gn-words | src/graph_nodes.c | words = n->kind == maniGraphNodeMatch ? maniGraphMatchDataWords(g, n->data, available) : words; | words = words;
+gn-block | src/graph_nodes.c | return MANI_GRAPH_MATCH_BLOCK_WORDS; | return 0;
+gk-words | src/graph_check.c | tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u; | tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS : 0u;
+gk-inertial | src/graph_check.c | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match ? 1u : 0u; | tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX ? 1u : 0u;
+gk-count | src/graph_check.c | source->databaseCount <= MANI_GRAPH_MAX_DATABASES && | true &&
+gmc-match | src/graph_machine_check.c | if (node->kind == maniGraphNodeMatch) | if (false)
+gi-join | src/graph_inline.c | if (f->databases[k].database != NULL && | if (false &&
+gi-clips | src/graph_inline.c | (void)ClipSlot(s, f, k); | (void)k;
+gi-database | src/graph_inline.c | m->database = DatabaseSlot(s, f, m->database); | m->database = m->database;
+gi-trigger | src/graph_inline.c | m->trigger = Resolve(s, m->trigger); | m->trigger = m->trigger;
+gi-tags | src/graph_inline.c | m->requiredTags.parameter = Resolve(s, m->requiredTags.parameter); | m->requiredTags.parameter = m->requiredTags.parameter;
+gi-duration | src/graph_inline.c | m->duration = Scalar(s, m->duration); | m->duration = m->duration;
+gi-query | src/graph_inline.c | to[q] = Resolve(s, m->query[q]); | to[q] = m->query[q];
+gj-list | src/graph_json.c | if (source->databaseCount > 0) | if (false)
+gj-trigger | src/graph_json.c | if (m->trigger != MANI_NO_PARAMETER) | if (false)
+gj-tags | src/graph_json.c | if (tags.parameter == MANI_NO_PARAMETER) | if (true)
+gr-period | src/graph_json_graph.c | .period = 0.1f, | .period = 1.0f,
+gr-tags-range | src/graph_json_graph.c | bool whole = maniJsonInteger(r->json, value, 0, UINT32_MAX, &bits); | bool whole = maniJsonInteger(r->json, value, 0, INT32_MAX, &bits);
+gr-inputs | src/graph_json_graph.c | bool takesInputs = k->kind != maniGraphNodeClip && k->kind != maniGraphNodeMatch && | bool takesInputs = k->kind != maniGraphNodeClip &&
+# ge-cursor survives, equivalent: the cursors are caches of a clip's
+# last key, two nodes sharing one sample alike.
+ge-cursor | src/graph_evaluate.c | bool clip = kind == maniGraphNodeClip || kind == maniGraphNodeMatch; | bool clip = kind == maniGraphNodeClip;
+gs-count | src/graph_instance.c | count += kind == maniGraphNodeClip || kind == maniGraphNodeMatch ? 1u : 0u; | count += kind == maniGraphNodeClip ? 1u : 0u;
+gs-reset | src/graph_instance.c | maniGraphResetMatch(Blocks(instance) + shot); | (void)shot;
+gs-saved | src/graph_instance.c | : Matching(graph, p) ? SavedMatchValid(instance->binding, p, b, b + block) | : Matching(graph, p) ? UINT32_MAX
+tr-unit | src/trajectory.c | return Finite4(q) && fabsf(maniQuatDot(q, q) - 1.0f) <= 2e-3f; | return Finite4(q);
+tr-seconds | src/trajectory.c | seconds >= 0.0f; | true;
+tr-rate | src/trajectory.c | return 2.0f * LN2 / (halfLife + 1e-5f); | return LN2 / (halfLife + 1e-5f);
+tr-j1 | src/trajectory.c | maniVec3 j1 = Mix(t->acceleration, 1.0f, j0, y); | maniVec3 j1 = j0;
+tr-position | src/trajectory.c | t->position = maniVec3Add(t->position, maniVec3Add(moved, maniVec3Scale(g->velocity, dt))); | t->position = maniVec3Add(t->position, moved);
+tr-velocity | src/trajectory.c | t->velocity = maniVec3Add(maniVec3Scale(Mix(j0, 1.0f, j1, dt), e), g->velocity); | t->velocity = g->velocity;
+tr-acceleration | src/trajectory.c | t->acceleration = maniVec3Scale(Mix(t->acceleration, 1.0f, j1, -y * dt), e); | t->acceleration = maniVec3Scale(t->acceleration, e);
+# tr-goal survives, equivalent: the offset's rotation vector takes its
+# angle by atan2, alike for a quaternion and its multiple, and the
+# result is normalized.
+tr-goal | src/trajectory.c | maniQuat goal = maniQuatNormalize(g->rotation); | maniQuat goal = g->rotation;
+tr-angular-j1 | src/trajectory.c | maniVec3 j1 = Mix(t->angularVelocity, 1.0f, j0, y); | maniVec3 j1 = t->angularVelocity;
+tr-angular | src/trajectory.c | t->angularVelocity = maniVec3Scale(Mix(t->angularVelocity, 1.0f, j1, -y * dt), e); | t->angularVelocity = t->angularVelocity;
+tr-inverse | src/trajectory.c | maniQuat inverse = maniQuatConjugate(root->rotation); | maniQuat inverse = root->rotation;
+tr-forward | src/trajectory.c | maniVec3 forward = maniQuatRotate(sample->rotation, maniMatchAxisVector(database->forward)); | maniVec3 forward = maniMatchAxisVector(database->forward);
+mm-ground | src/match_move.c | out[1] = c[a == 2 ? 1 : 2]; | out[1] = c[2];
+mm-sign | src/match_move.c | float sign = axis >= maniMatchAxisNegativeX ? -1.0f : 1.0f; | float sign = 1.0f;

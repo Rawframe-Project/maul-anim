@@ -9,7 +9,9 @@
 // clamped entry's end searched from no continuing frame, the end
 // exclusion and the history keeping picks off the frames just left;
 // required tags; a seek above clearing the node; a bone channel's query
-// taken from the continuing frame, against the search itself.
+// taken from the continuing frame, against the search itself; a
+// normalized query taken as it is; the continuing frame of a restored
+// playhead between binary32 and binary64 frame times.
 
 #include "graph_match_fixture.h"
 #include "match_search.h"
@@ -56,6 +58,21 @@ static void TestPlay(void)
               NearF(maniPoseLocal(s_pose, 0).translation.x,
                     (double)maniPoseLocal(s_clipPose, 0).translation.x),
           "the walk's pose at its playhead");
+    // The run moves its hips in the pose (the walk's root motion leaves
+    // them still): its pose at the node's playhead.
+    maniGraphNodeSource running = MatchNode(10.0f);
+    running.match.requiredTags = (maniGraphTags){MANI_NO_PARAMETER, 2};
+    maniGraph h;
+    maniGraphInstance* run = Matching(running, &h);
+    Update(run, 0.0f);
+    Update(run, 0.4f);
+    CHECK(Playing(run, &h, 0, 1, 0.4) &&
+              maniEvaluateGraph(run, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+              fabs((double)maniPoseLocal(s_pose, 0).translation.x - 1.2) <= 1e-5,
+          "the run's pose at its playhead");
+    instance = Matching(MatchNode(10.0f), &g);
+    Update(instance, 0.0f);
+    (void)maniUpdateGraph(instance, 0.25f, NULL, 0, NULL, &move);
     maniGraphEvent events[4];
     uint32_t count = 0;
     CHECK(maniUpdateGraph(instance, 0.9f, events, 4, &count, &move) == mani_success &&
@@ -92,8 +109,18 @@ static void TestPeriod(void)
               (eased[maniGraphInertiaFlags] & maniGraphInertiaActive) != 0 &&
               maniGraphInertiaGet(eased, maniGraphInertiaDuration) == 0.25f,
           "the jump eased out");
+    const uint32_t* block = NodeBlock(instance, &g, 0, maniGraphMatchBlock);
+    CHECK(block[maniGraphMatchClock] == 0, "the clock started over by the search");
     Update(instance, 0.05f);
-    CHECK(Playing(instance, &g, 0, 1, 0.05), "the run plays on, its clock started over");
+    CHECK(Playing(instance, &g, 0, 1, 0.05) && block[maniGraphMatchClock] == 0x3D4CCCCDu,
+          "the run plays on, its clock at a twentieth");
+    // Walking on: every walk frame ties, so the continuing one wins and
+    // nothing is jumped to or requested.
+    instance = Matching(MatchNode(0.1f), &g);
+    Update(instance, 0.0f);
+    Update(instance, 0.15f);
+    CHECK(Playing(instance, &g, 0, 0, 0.15) && isinf(Pending(instance, &g, 1)),
+          "the continuing frame kept: no jump, no request");
 }
 
 static void TestTrigger(void)
@@ -270,6 +297,21 @@ static void TestContinuing(void)
     }
     maniMatchQuery q = {.features = features, .current = current, .endExclusion = 0.2f};
     maniMatchResult r;
+    // A raw query normalized by hand searches as the raw one does.
+    const float raw[5] = {0.4f, 1.1f, -0.2f, 0.3f, 0.05f};
+    float normalized[5];
+    for (uint32_t j = 0; j < 5; ++j)
+    {
+        normalized[j] = (raw[j] - offsets[j]) / scales[j];
+    }
+    maniMatchQuery rq = {.features = raw, .current = MANI_MATCH_NO_FRAME};
+    maniMatchQuery nq = {.features = normalized, .current = MANI_MATCH_NO_FRAME};
+    maniMatchResult rr;
+    maniMatchResult nr;
+    CHECK(maniSearchMotionDatabase(&bones, &rq, &rr) == mani_success &&
+              maniMatchSearch(&bones, &nq, true, &nr) == mani_success && rr.frame == nr.frame &&
+              memcmp(&rr.cost, &nr.cost, sizeof rr.cost) == 0,
+          "a normalized query taken as it is");
     float time = (float)t;
     CHECK(maniMatchSearch(&bones, &q, true, &r) == mani_success &&
               (r.frame == current ||
@@ -279,6 +321,57 @@ static void TestContinuing(void)
     Set(instance, 1, maniGraphParameterTrigger, Int(1));
     Update(instance, 0.0f);
     CHECK(Playing(instance, &g, 0, entry, (double)time), "the node's pick is the search's");
+}
+
+// The continuing frame of a playhead restored on a frame time whose
+// binary64 product with the rate falls short of it (0.7f in the run:
+// 6.9999998...): frame 17, so with the continuing frame priced out the
+// pick is a neighbor of it, 16 or 18.
+static uint8_t s_saved[4096];
+static _Alignas(16) uint8_t s_neighborFile[1 << 15];
+
+static void TestContinuingFrame(void)
+{
+    static const float kNow[1] = {0.0f};
+    const maniMatchChannelSource channels[2] = {
+        {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f},
+        {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
+    maniMotionDatabase bones;
+    BuildDatabase(channels, 2, s_neighborFile, sizeof s_neighborFile, &bones);
+    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5, 0}};
+    MatchParameters();
+    maniGraphNodeSource node = MatchNode(10.0f);
+    node.match.continuingBias = 1000.0f;
+    node.match.endExclusion = 0.0f;
+    node.match.requiredTags = (maniGraphTags){MANI_NO_PARAMETER, 2};
+    maniGraphNodeSource nodes[2] = {node, Above(0)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeMatch((maniGraphSource){.parameters = s_matchParameters,
+                                                              .nodes = nodes,
+                                                              .parameterCount = 4,
+                                                              .nodeCount = 2,
+                                                              .output = 1,
+                                                              .databaseCount = 1,
+                                                              .databases = slot},
+                                            &g);
+    Ahead(instance, 0.0f, 0.0f);
+    Update(instance, 0.0f);
+    size_t size = maniGraphStateSize(instance->binding);
+    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved) == mani_success, "saved");
+    uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
+    uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
+    double at = (double)0.7f;
+    uint64_t bits = 0;
+    memcpy(&bits, &at, sizeof bits);
+    maniStoreU32(s_saved + block + 4 * maniGraphMatchEntry, 1);
+    maniStoreU64(s_saved + time, bits);
+    CHECK(maniRestoreGraphInstance(instance, s_saved, size).result == mani_success, "restored");
+    Set(instance, 1, maniGraphParameterTrigger, Int(1));
+    Update(instance, 0.0f);
+    double t = State(instance, &g, 0)->time;
+    CHECK(EntryOf(instance, &g, 0) == 1 &&
+              (fabs(t - (double)0.6f) <= 1e-9 || fabs(t - (double)0.8f) <= 1e-9),
+          "a neighbor of frame 17");
 }
 
 int main(void)
@@ -298,5 +391,6 @@ int main(void)
     TestScaled();
     TestWraps();
     TestContinuing();
+    TestContinuingFrame();
     return s_failures == 0 ? 0 : 1;
 }
