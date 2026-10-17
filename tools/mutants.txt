@@ -1398,7 +1398,7 @@ gl-root-build | src/gltf_clip.c | reason != maniBuildReasonRootMotion; | true;
 
 # Graph updates (src/graph_update.c): weights, playheads, loops, events,
 # root motion, sync groups by phase and by markers.
-up-scalar-literal | src/graph_update.c | if (parameter != MANI_NO_PARAMETER) | if (false)
+up-scalar-literal | src/graph_emit.h | if (parameter != MANI_NO_PARAMETER) | if (false)
 up-give-root-sum | src/graph_update.c | s->rootWeight += share.rootWeight; | s->rootWeight = share.rootWeight;
 up-give-weight-sum | src/graph_update.c | s->weight += share.weight; | s->weight = share.weight;
 up-give-first-parent | src/graph_update.c | if ((s->flags & MANI_GRAPH_REACHED) == 0) | if (true)
@@ -1424,9 +1424,9 @@ up-output-root | src/graph_update.c | output->rootWeight = 1.0f; | output->rootW
 up-clip-loop-override | src/graph_update.c | clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat); | clip.loop = loop == 0 ? clip.loop : maniLoopRepeat;
 up-place-negative | src/graph_update.c | w = w < 0.0 ? w + d : w; | w = w * 1.0;
 up-place-clamp-low | src/graph_update.c | return t < 0.0 ? 0.0 : (t > d ? d : t); | return t > d ? d : t;
-up-event-direction | src/graph_update.c | e.time,     to >= from ? 1 : -1, | e.time,     1,
-up-event-weight | src/graph_update.c | e.nameHash, s->weight, | e.nameHash, 1.0f,
-up-loops-count | src/graph_update.c | u->count += (n - k) * perLoop; | u->count += perLoop;
+up-event-direction | src/graph_emit.c | s->weight, e.time, to >= from ? 1 : -1, 0}; | s->weight, e.time, 1, 0};
+up-event-weight | src/graph_emit.c | s->weight, e.time, to >= from ? 1 : -1, 0}; | 1.0f, e.time, to >= from ? 1 : -1, 0};
+up-loops-count | src/graph_emit.c | u->count += (n - k) * perLoop; | u->count += perLoop;
 up-events-no-wrap | src/graph_update.c | if (wraps == 0.0) | if (false)
 up-events-loops | src/graph_update.c | double loops = fabs(wraps) - 1.0; | double loops = fabs(wraps);
 up-events-rest | src/graph_update.c | double rest = t1 - wraps * d; | double rest = t1;
@@ -1919,8 +1919,8 @@ ih-min | src/graph_inertia.c | dead ? v[1] > 0.0f && v[1] < HUGE_VALF : v[1] == 
 ih-max | src/graph_inertia.c | dead ? v[2] >= v[1] && v[2] < HUGE_VALF : v[2] == 0.0f}; | dead ? v[2] < HUGE_VALF : v[2] == 0.0f};
 iw-method | src/graph_inertia.c | if (method > maniGraphDeadBlending) | if (method > 2u)
 iw-block | src/graph_inertia.c | return Word(g, data + maniGraphInertiaBlock) == block ? UINT32_MAX | return Word(g, data + maniGraphInertiaBlock) >= block ? UINT32_MAX
-id-log-zero | src/graph_dead_blend.c | return s > 0.0f ? maniVec3Scale(xyz, 2.0f * maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0}; | return s > 0.0f ? maniVec3Scale(xyz, maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0};
-id-log-shorter | src/graph_dead_blend.c | q = Shorter(q); | q = q;
+id-log-zero | src/vecmath.c | return s > 0.0f ? maniVec3Scale(xyz, 2.0f * maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0}; | return s > 0.0f ? maniVec3Scale(xyz, maniAtan2(s, q.w) / s) : (maniVec3){0, 0, 0};
+id-log-shorter | src/vecmath.c | q = q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q; | q = q;
 # id-logscale survives, equivalent: the logarithm of an axis not positive
 # is never read, its flag false.
 id-logscale | src/graph_dead_blend.c | *out = s > 0.0f ? maniLogF(s) : 0.0f; | *out = s > 0.0f ? maniLogF(s) : 1.0f;
@@ -1934,18 +1934,18 @@ id-scale-speed | src/graph_dead_blend.c | v[k] = positive && earlier ? (lx - lp)
 id-scale-dist | src/graph_dead_blend.c | d[k] = positive && target ? li - lx : 0.0f; | d[k] = positive && target ? lx - li : 0.0f;
 id-rate | src/graph_dead_blend.c | float rate = moving && dt > 0.0f ? 1.0f / dt : 0.0f; | float rate = moving ? 1.0f / dt : 0.0f;
 id-t-dist | src/graph_dead_blend.c | maniVec3Sub(in.t, x.t)); | maniVec3Sub(x.t, in.t));
-id-turn | src/graph_dead_blend.c | maniVec3 turn = maniVec3Scale(Log(maniQuatMul(x.r, maniQuatConjugate(p.r))), rate); | maniVec3 turn = maniVec3Scale(Log(maniQuatMul(p.r, maniQuatConjugate(x.r))), rate);
-id-turn-dist | src/graph_dead_blend.c | Channel(block, capture + 3, node, turn, Log(maniQuatMul(in.r, maniQuatConjugate(x.r)))); | Channel(block, capture + 3, node, turn, Log(maniQuatMul(x.r, maniQuatConjugate(in.r))));
+id-turn | src/graph_dead_blend.c | maniVec3Scale(maniQuatToRotationVector(maniQuatMul(x.r, maniQuatConjugate(p.r))), rate); | maniVec3Scale(maniQuatToRotationVector(maniQuatMul(p.r, maniQuatConjugate(x.r))), rate);
+id-turn-dist | src/graph_dead_blend.c | maniQuatToRotationVector(maniQuatMul(in.r, maniQuatConjugate(x.r)))); | maniQuatToRotationVector(maniQuatMul(x.r, maniQuatConjugate(in.r))));
 id-carry | src/graph_dead_blend.c | return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : v * t; | return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : 0.0f;
 id-carry-exp | src/graph_dead_blend.c | return y > 0.0f ? v * (1.0f - maniExpF(-y * t)) / y : v * t; | return y > 0.0f ? v * t : v * t;
 id-smooth | src/graph_dead_blend.c | float w = u * u * (3.0f - 2.0f * u); | float w = u;
-id-rot-exp | src/graph_dead_blend.c | x.r = maniQuatMul(Exp(Carried(block, capture + 3, t)), x.r); | x.r = x.r;
+id-rot-exp | src/graph_dead_blend.c | x.r = maniQuatMul(maniQuatFromRotationVector(Carried(block, capture + 3, t)), x.r); | x.r = x.r;
 id-scale-exp | src/graph_dead_blend.c | x.s = (maniVec3){Grow(x.s.x, s.x), Grow(x.s.y, s.y), Grow(x.s.z, s.z)}; | x.s = (maniVec3){Grow(x.s.x, s.x), x.s.y, Grow(x.s.z, s.z)};
 iu-seek | src/graph_update.c | maniGraphResetInertia(block, &node); | (void)node;
 iu-serial | src/graph_update.c | block[maniGraphInertiaSerial] += 1u; | block[maniGraphInertiaSerial] += 2u;
 iu-step | src/graph_update.c | float step = (float)fabs(u->delta * (double)s->factor); | float step = (float)fabs(u->delta);
 iu-consume | src/graph_update.c | u->instance->cells[trigger].value.b = 0; | u->instance->cells[trigger].value.b = 1;
-iu-least | src/graph_update.c | maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending); | maniGraphInertiaSet(block, maniGraphInertiaPending, seconds);
+iu-least | src/graph_emit.c | maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending); | maniGraphInertiaSet(block, maniGraphInertiaPending, seconds);
 iu-nearest | src/graph_update.c | share.inertia = p; | share.inertia = s->inertia;
 ims-done | src/graph_machine_step.c | bool done = !(elapsed < duration) || Transition(m, running, 3) >> 8 == maniGraphFadeInertial; | bool done = !(elapsed < duration);
 ims-least | src/graph_machine_step.c | if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial && duration < entered->inertia) | if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial)

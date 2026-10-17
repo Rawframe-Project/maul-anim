@@ -85,6 +85,14 @@ static void TestDatabaseRefusals(void)
           "two slots of one name");
     CHECK(RefusedAs(BuildMatch(nodes, 2, NULL, 1, kSlots, CLIPS), maniBuildReasonCount, 0, 0),
           "a count without slots");
+    static maniGraphDatabaseSource many[MANI_GRAPH_MAX_DATABASES + 1];
+    for (uint32_t k = 0; k <= MANI_GRAPH_MAX_DATABASES; ++k)
+    {
+        many[k] = kDatabaseSlot[0];
+    }
+    CHECK(RefusedAs(BuildMatch(nodes, 2, many, MANI_GRAPH_MAX_DATABASES + 1, kSlots, CLIPS),
+                    maniBuildReasonCount, 0, 0),
+          "more slots than the limit");
     CHECK(
         RefusedAs(BuildMatch(nodes, 1, kDatabaseSlot, 1, kSlots, CLIPS), maniBuildReasonNode, 0, 0),
         "no inertialize node above");
@@ -112,6 +120,9 @@ static void TestNodeRefusals(void)
     n[9].match.queryCount = 2;
     n[10].match.queryCount = 0;
     n[11].match.historyTime = NAN;
+    maniGraphNodeSource unlisted = MatchNode(1.0f);
+    unlisted.match.query = NULL;
+    CHECK(RefusedAs(NodeBuilt(unlisted), maniBuildReasonNode, 0, 0), "a query count, no query");
     for (int k = 0; k < 12; ++k)
     {
         CHECK(RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0), "a field refused");
@@ -218,6 +229,46 @@ static void TestOpen(void)
     uint64_t at = 0;
     maniFileResult r = Crafted(&g, 0, maniGraphMatchQueryCount, 2, &at);
     CHECK(r.result == mani_errorFormat, "a query count past the words");
+    uint64_t databases = 0;
+    uint64_t clipsAt = 0;
+    uint64_t refused = CraftedAt(maniGraphTagDatabases, 28, 1, &databases);
+    (void)CraftedAt(maniGraphTagDatabaseClips, 0, 0, &clipsAt);
+    CHECK(refused == clipsAt, "fewer clips than the list");
+    CHECK(RefusedAtByte(maniGraphTagNodes, 2, 1, 2), "a node of differences");
+}
+
+// The graph last made with a word of a section set: it opens, and
+// binding it refuses its database slot.
+static bool Unbindable(uint32_t tag, uint64_t offset, uint32_t value)
+{
+    uint64_t at = 0;
+    maniGraph crafted;
+    CHECK(CraftedAt(tag, offset, value, &at) == 0 &&
+              maniOpenGraph(s_crafted, s_size, &crafted).result == mani_success,
+          "a crafted graph opens");
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniMotionDatabase* databases[1] = {&s_database};
+    maniGraphBinding* binding = NULL;
+    uint32_t unbound = 0;
+    return maniBindGraph(&crafted, &s_skeleton, clips, CLIPS, databases, 1, s_matchBinding,
+                         sizeof s_matchBinding, &binding, &unbound) == mani_errorInvalid &&
+           unbound == CLIPS;
+}
+
+// Files that open but name a database its slot does not fit: its clips
+// in other slots, a query parameter of the wrong type.
+static void TestUnfit(void)
+{
+    maniGraph g;
+    (void)Matching(MatchNode(1.0f), &g);
+    CHECK(Unbindable(maniGraphTagDatabaseClips, 0, 1), "the walk's place given the run");
+    uint32_t data = maniLoadU32(g.nodes + 12);
+    CHECK(Unbindable(maniGraphTagData, 4 * (uint64_t)(data + maniGraphMatchQuery), 3),
+          "a float parameter where the trajectory wants a vec2");
 }
 
 static _Alignas(8) uint8_t s_other[8192];
@@ -261,20 +312,34 @@ static void TestSaved(void)
     CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
               s_saved[0][block + 4 * maniGraphMatchPicks] == 2,
           "saved with two picks");
-    const uint32_t kBad[6][3] = {{block + 4 * maniGraphMatchEntry, 2, 0},
+    const uint32_t kBad[7][3] = {{block + 4 * maniGraphMatchEntry, 2, 0},
                                  {time + 4, 0x40140000u, 0},
                                  {block + 4 * maniGraphMatchClock, 0xBF800000u, 1},
                                  {block + 4 * maniGraphMatchPicks, 3, 2},
                                  {block + 4 * maniGraphMatchNext, 2, 3},
+                                 {block + 4 * maniGraphMatchHistory, 21, 4},
                                  {block + 4 * (maniGraphMatchHistory + 2), 1, 6}};
-    for (int k = 0; k < 6; ++k)
+    for (int k = 0; k < 7; ++k)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + kBad[k][0], kBad[k][1]);
         maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        if (r.result != mani_errorFormat || r.offset != block + 4 * kBad[k][2])
+        {
+            printf("  saved %d refused %d at %llu, want %u\n", k, (int)r.result,
+                   (unsigned long long)r.offset, block + 4 * kBad[k][2]);
+        }
         CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kBad[k][2],
               "a saved block refused at its word");
     }
+    // One pick kept of two: the next place must follow it.
+    memcpy(s_saved[1], s_saved[0], size);
+    maniStoreU32(s_saved[1] + block + 4 * maniGraphMatchPicks, 1);
+    maniStoreU32(s_saved[1] + block + 4 * maniGraphMatchNext, 0);
+    maniStoreU32(s_saved[1] + block + 4 * (maniGraphMatchHistory + 1), 0);
+    maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+    CHECK(r.result == mani_errorFormat && r.offset == block + 4 * maniGraphMatchNext,
+          "the next place not after the picks");
 }
 
 // A subgraph holding the node and the database, its clips the walk and
@@ -320,6 +385,61 @@ static void TestSubgraph(void)
     maniDestroyBuilder(builder);
     Update(instance, 0.0f);
     CHECK(Playing(instance, &g, 0, 0, 0.0), "the walk");
+}
+
+// The subgraph's parameters mapped to the root's in reverse, its
+// database joined to the root's second: every reference remapped.
+static _Alignas(16) uint8_t s_boneFile[1 << 15];
+
+static void TestSubgraphMapped(void)
+{
+    static const float kNow[1] = {0.0f};
+    const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
+    maniMotionDatabase bones;
+    BuildDatabase(&channel, 1, s_boneFile, sizeof s_boneFile, &bones);
+    MatchParameters();
+    maniGraphParameterSource reversed[4] = {s_matchParameters[3], s_matchParameters[2],
+                                            s_matchParameters[1], s_matchParameters[0]};
+    static const uint32_t kMap[4] = {3, 2, 1, 0};
+    maniGraphNodeSource inner[1] = {MatchNode(1.0f)};
+    inner[0].match.requiredTags = (maniGraphTags){2, 0};
+    maniGraphSource sub = {.skeleton = &s_skeleton,
+                           .parameters = s_matchParameters,
+                           .clips = kSlots,
+                           .nodes = inner,
+                           .parameterCount = 4,
+                           .clipCount = 2,
+                           .nodeCount = 1,
+                           .databaseCount = 1,
+                           .databases = kDatabaseSlot};
+    const maniGraphDatabaseSource both[2] = {{&bones, "bones", 5, 0}, kDatabaseSlot[0]};
+    maniGraphNodeSource outer[2] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kMap}},
+                                    Above(0)};
+    maniGraphSource root = {.skeleton = &s_skeleton,
+                            .parameters = reversed,
+                            .clips = kSlots,
+                            .nodes = outer,
+                            .parameterCount = 4,
+                            .clipCount = 2,
+                            .nodeCount = 2,
+                            .output = 1,
+                            .databaseCount = 2,
+                            .databases = both};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    maniGraph g;
+    CHECK(maniBuildGraph(builder, &root).result == mani_success &&
+              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniOpenGraph(s_file, size, &g).result == mani_success &&
+              maniGraphDatabaseCount(&g) == 2,
+          "the subgraph's database joined to the root's");
+    maniDestroyBuilder(builder);
+    CHECK(DataWord(&g, 0, maniGraphMatchDatabase) == 1 &&
+              DataWord(&g, 0, maniGraphMatchTrigger) == 2 &&
+              DataWord(&g, 0, maniGraphMatchRequiredTags) == 1 &&
+              DataWord(&g, 0, maniGraphMatchDurationScalar) == 0 &&
+              DataWord(&g, 0, maniGraphMatchQuery) == 3,
+          "the database, trigger, tags, duration and query as the root names them");
 }
 
 static uint8_t s_built[16384];
@@ -397,9 +517,48 @@ static void TestJson(void)
     "[\"ahead\"]"
 #define TAIL "}, {\"kind\": \"inertialize\", \"inputs\": [0]}], \"output\": 1}"
 
+// The text with members left out builds what the source of their
+// defaults builds.
+static bool Defaults(void)
+{
+    static const uint32_t kOne[1] = {0};
+    maniGraphParameterSource ahead = Parameter("ahead", maniGraphParameterVec2, Int(0));
+    maniGraphNodeSource nodes[2] = {{maniGraphNodeMatch, 0, NULL,
+                                     .match = {.trigger = MANI_NO_PARAMETER,
+                                               .query = kOne,
+                                               .queryCount = 1,
+                                               .period = 0.1f,
+                                               .requiredTags = {MANI_NO_PARAMETER, 0},
+                                               .excludedTags = {MANI_NO_PARAMETER, 0},
+                                               .duration = {MANI_NO_PARAMETER, 0.0f}}},
+                                    Above(0)};
+    maniGraphSource source = {.skeleton = &s_skeleton,
+                              .parameters = &ahead,
+                              .clips = kSlots,
+                              .nodes = nodes,
+                              .parameterCount = 1,
+                              .clipCount = 2,
+                              .nodeCount = 2,
+                              .output = 1,
+                              .databaseCount = 1,
+                              .databases = kDatabaseSlot};
+    static const char kText[] = HEAD TAIL;
+    size_t readSize = 0;
+    maniBuilder* builder = NewBuilder();
+    bool ok = maniBuildGraph(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+              maniBuildGraphJson(builder, kText, sizeof kText - 1, &s_skeleton, kSlots, CLIPS,
+                                 kDatabaseSlot, 1)
+                      .result == mani_success &&
+              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    maniDestroyBuilder(builder);
+    return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;
+}
+
 static void TestJsonForms(void)
 {
     CHECK(Read(HEAD TAIL).result == mani_success, "members left out");
+    CHECK(Defaults(), "left out, the defaults: a period of 0.1, the rest none or 0");
     static const struct
     {
         const char* text;
@@ -458,8 +617,10 @@ int main(int argc, char** argv)
     TestNodeRefusals();
     TestBind();
     TestOpen();
+    TestUnfit();
     TestSaved();
     TestSubgraph();
+    TestSubgraphMapped();
     TestJson();
     TestJsonForms();
     return s_failures == 0 ? 0 : 1;

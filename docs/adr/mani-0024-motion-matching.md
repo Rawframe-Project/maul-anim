@@ -74,7 +74,9 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   a parameter per trajectory and float time (vec2 or float, in channel
   order), the search period, the search's costs, times, history count
   and tags (literal or an int parameter's bits), and a duration. It
-  moves forward by the time its parents give it (no speed of its own):
+  moves forward by the time its parents give it (no speed of its own),
+  and only while weighed (one under a state or select not chosen
+  neither moves nor searches; a seek above clears it even so):
   a looping entry wraps, its events and root motion taken over each
   stretch; a clamped one stops at its end. It searches when it has no
   entry, its clamped entry reached its end, its trigger is set or its

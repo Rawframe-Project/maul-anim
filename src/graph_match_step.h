@@ -13,7 +13,8 @@
 
 #include <stdint.h>
 
-// Moves motion matching node p. One no parent reached stays where it is.
+// Moves motion matching node p. One no parent reached, or reached with
+// no weight, stays where it is.
 void maniGraphAdvanceMatch(maniGraphUpdate* u, uint32_t p);
 
 #endif // MAUL_ANIM_SRC_GRAPH_MATCH_STEP_H

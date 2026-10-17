@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A node reached moves forward by the magnitude of its time factor times
-// the update's delta, through its entry: a looping one wraps from its end
+// A node reached with a weight moves forward by the magnitude of its time
+// factor times the update's delta, through its entry (one unweighed, as
+// under a state or select not chosen, stays and does not search; a seek
+// above clears it even so): a looping one wraps from its end
 // to its start (events of each stretch listed, the root's move composed
 // across), a clamped one stops at its end. A seek above it clears it.
 // Then it searches when it has no entry, its clamped entry reached its
@@ -268,6 +270,12 @@ void maniGraphAdvanceMatch(maniGraphUpdate* u, uint32_t p)
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetMatch(block);
+    }
+    if (!(s->weight > 0.0f))
+    {
+        s->from = s->time;
+        s->step = 0.0;
+        return;
     }
     double step = fabs(u->delta * (double)s->factor);
     bool ended = Play(&m, step);

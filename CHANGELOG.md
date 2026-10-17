@@ -122,7 +122,7 @@ format.
   entry biases, tag masks, and exclusions near the continuing frame,
   at clamped ends and around up to eight earlier picks.
 - Motion matching nodes (mani-0024): `maniGraphNodeMatch` plays a
-  database's frames, searching on a period, on a trigger, at a clamped
+  database's frames while weighed, searching on a period, on a trigger, at a clamped
   entry's end and with no entry, its query the continuing frame's bone
   channels and parameters for its trajectory and float channels; a
   jump requests inertialization of the inertialize node above, which

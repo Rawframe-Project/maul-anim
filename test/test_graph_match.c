@@ -142,6 +142,68 @@ static void TestEnd(void)
           "one pick kept, over the oldest");
 }
 
+// Under a select: not chosen it stays as it is, unweighed; chosen,
+// through a time scale of 2, it moves twice as far.
+static void TestScaled(void)
+{
+    MatchParameters();
+    static const uint32_t kScaled[1] = {0};
+    static const uint32_t kChoices[2] = {2, 1};
+    maniGraphNodeSource nodes[5] = {
+        MatchNode(10.0f),
+        {maniGraphNodeTimeScale, 1, kScaled, .timeScale = {LITERAL(2.0f)}},
+        ClipNode(1, 1.0f, maniGraphLoopRepeat),
+        {maniGraphNodeSelect, 2, kChoices, .select = {2}},
+        Above(3)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeMatch((maniGraphSource){.parameters = s_matchParameters,
+                                                              .nodes = nodes,
+                                                              .parameterCount = 4,
+                                                              .nodeCount = 5,
+                                                              .output = 4},
+                                            &g);
+    // The select's first input, the run, is placed first: the node is 1.
+    CHECK(maniLoadU16(g.nodes + MANI_GRAPH_NODE_SIZE) == maniGraphNodeMatch, "the node at 1");
+    Update(instance, 0.5f);
+    CHECK(EntryOf(instance, &g, 1) == MANI_GRAPH_MATCH_NO_ENTRY &&
+              State(instance, &g, 1)->time == 0.0,
+          "unweighed: no search, no move");
+    maniGraphValue one = {{0}};
+    one.i = 1;
+    Set(instance, 2, maniGraphParameterInt, one);
+    Update(instance, 0.0f);
+    Update(instance, 0.1f);
+    CHECK(Playing(instance, &g, 1, 0, 0.2), "reached at twice the time");
+}
+
+// A step of more than two loops lists the steps a clip node playing the
+// walk lists.
+static void TestWraps(void)
+{
+    maniGraphEvent matched[16];
+    maniGraphEvent played[16];
+    uint32_t matchedCount = 0;
+    uint32_t playedCount = 0;
+    maniGraph g;
+    maniGraphInstance* instance = Matching(MatchNode(10.0f), &g);
+    Update(instance, 0.0f);
+    Update(instance, 0.25f);
+    CHECK(maniUpdateGraph(instance, 2.3f, matched, 16, &matchedCount, NULL) == mani_success,
+          "matched");
+    maniGraphNodeSource clip[1] = {ClipNode(0, 1.0f, maniGraphLoopRepeat)};
+    instance = Make((maniGraphSource){.nodes = clip, .nodeCount = 1}, &g);
+    Update(instance, 0.25f);
+    CHECK(maniUpdateGraph(instance, 2.3f, played, 16, &playedCount, NULL) == mani_success,
+          "played");
+    bool same = matchedCount == playedCount && matchedCount >= 4;
+    for (uint32_t k = 0; k < matchedCount && same; ++k)
+    {
+        same = matched[k].payload == played[k].payload && matched[k].time == played[k].time &&
+               matched[k].direction == played[k].direction;
+    }
+    CHECK(same, "the steps of every loop");
+}
+
 static void TestSeek(void)
 {
     MatchParameters();
@@ -233,6 +295,8 @@ int main(void)
     TestTrigger();
     TestEnd();
     TestSeek();
+    TestScaled();
+    TestWraps();
     TestContinuing();
     return s_failures == 0 ? 0 : 1;
 }

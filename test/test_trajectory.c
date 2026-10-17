@@ -139,6 +139,14 @@ static void TestSettles(void)
               Close(t.acceleration, (D3){0, 0, 0}, 1e-5) &&
               fabsf(maniQuatDot(t.rotation, left)) >= 1.0f - 1e-6f,
           "settled on the goal");
+    maniTrajectory unit = once;
+    maniTrajectory scaled = once;
+    maniTrajectoryGoal doubled = g;
+    doubled.rotation = (maniQuat){2.0f * left.x, 2.0f * left.y, 2.0f * left.z, 2.0f * left.w};
+    CHECK(maniAdvanceTrajectory(&unit, &g, 0.2f) == mani_success &&
+              maniAdvanceTrajectory(&scaled, &doubled, 0.2f) == mani_success &&
+              memcmp(&unit, &scaled, sizeof unit) == 0,
+          "a goal's rotation normalized");
     maniTrajectory still = t;
     CHECK(maniAdvanceTrajectory(&still, &g, 0.0f) == mani_success &&
               Close(still.position, D(t.position), 1e-6),
