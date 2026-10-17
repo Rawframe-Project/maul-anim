@@ -45,14 +45,50 @@ host splits time.
   turn from +y, 180° about x for exactly -y) and the limit's rotation.
 - `maniOpenSpringSet` opens a file in place, every record checked;
   the skeleton the set was built for is checked where a state is made.
+- **The state** is a block of 32-bit words after a small header in
+  caller memory, holding no pointer in the block, so a graph instance
+  can hold it and a save copies it: per joint its tail now and a step
+  before, and the last call's inputs (heads, tails, colliders' and
+  centers' bones in model space, the placement), with the time since
+  the last step as binary64.
+- **Steps:** `maniStepSprings` runs the steps due at the step rate, at
+  most `MANI_SPRING_MAX_STEPS` a call (a longer delta loses the rest,
+  as fixed-step physics does), each with its inputs interpolated
+  between the last call's and this one's at its time (positions
+  linearly, rotations along the shorter arc), so the motion does not
+  depend on how a host splits time. Per spring, from the root:
+  `next = now + (now - before)(1 - drag) + stiffness * the pose's
+  direction + gravity`, both times the head's largest absolute scale;
+  then the bone's length from the head, the limit, and for each
+  collider in order a push and the length and limit again, as VRM
+  orders them. The pose's direction and length are read through the
+  rigid motion that the turns above have made, so the result is the
+  reference's, which reads each joint's turned parent. Gravity is in
+  the world; tails keep in the center bone's space, or in model space
+  as the last step placed it, carried into each step's placement, so
+  the character's motion in the world sways them. The first step
+  places every tail where the pose puts it.
+- **Output:** `maniApplySprings` turns each joint by `R* q R` on its
+  local rotation, q the model-space turn toward its tail and R its
+  model rotation, toward the tails between the last two steps at the
+  time short of a step (a step behind, smooth at any host rate).
+- **Saved states** (`MSST`, the set's identity, the size, the block)
+  are checked as external bytes on restore: every float finite,
+  rotations unit within a thousandth, scales not negative, the clock in
+  its step, zeros without motion.
 
 ## Consequences
 
 A set's motion is decided once at build from its source and rates, and
 plays the same on hosts of any frame rate; content tuned at another
-rate than 60 Hz says so in its reference rate. The runtime (the state,
-the steps with colliders, limits and centers, the output between
-steps) and a graph node follow in this record as they are built.
+rate than 60 Hz says so in its reference rate. Output lags the
+simulation by up to a step, the cost of smooth motion at any host rate.
+VRM's push and then length lets a tail pressed on a collider back in by
+a little, as in the reference. A graph node follows in this record as
+it is built.
 
 Opening is fuzzed; every check is tested against a file changed at its
-byte; the conversion is tested against its binary64 formula.
+byte; the conversion is tested against its binary64 formula. The steps
+are tested against a binary64 reference of the update, at host rates
+of 30, 60 and 144 Hz with the character still and moving, and every
+check of a saved state against bytes changed at its word.

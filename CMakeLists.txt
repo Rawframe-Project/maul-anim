@@ -87,6 +87,10 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/trajectory.c
     src/learned.c
     src/spring.c
+    src/spring_state.c
+    src/spring_step.c
+    src/spring_apply.c
+    src/spring_shape.c
     src/learned_eval.c
     src/pose.c
     src/scalar.c
@@ -170,6 +174,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_learned WHITEBOX)
         maul_add_test(graph_learned_file WHITEBOX)
         maul_add_test(spring WHITEBOX)
+        maul_add_test(spring_motion WHITEBOX)
         maul_add_test(trajectory WHITEBOX)
         maul_add_test(learned WHITEBOX)
         maul_add_test(train WHITEBOX)

@@ -11,6 +11,8 @@
 #define MAUL_ANIM_SPRING_H
 
 #include "maul-anim/base.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -103,6 +105,132 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API float maniSpringSetStepRate(const maniSpringSet* set, float* referenceRateOut);
+
+// The most steps a spring state takes in one call: a longer delta plays
+// as this many steps' seconds and loses the rest, as fixed-step
+// simulations lose time past their limit.
+#define MANI_SPRING_MAX_STEPS 20u
+
+// The alignment a spring state's memory needs.
+#define MANI_SPRING_STATE_ALIGNMENT 8u
+
+    // The motion of a set's joints for one character: in caller memory, a
+    // memcpy copies it (it points only at its set and skeleton).
+    typedef struct maniSpringState maniSpringState;
+
+    /// Returns the bytes a set's state needs.
+    ///
+    /// @param set  An opened set.
+    /// @return The size; 0 for NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniSpringStateSize(const maniSpringSet* set);
+
+    /// Makes a state for a set in caller memory, with no motion yet: the
+    /// first step places every tail where the pose puts it.
+    ///
+    /// @param set       An opened set, which must outlive the state.
+    /// @param skeleton  The skeleton the set was built for, which must
+    ///                  outlive the state.
+    /// @param memory    At least maniSpringStateSize bytes,
+    ///                  MANI_SPRING_STATE_ALIGNMENT aligned.
+    /// @param size      Its size.
+    /// @param stateOut  Receives the state (at memory).
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
+    /// misaligned memory or a skeleton of another identity;
+    /// `mani_errorCapacity` for too little memory.
+    /// @par Thread safety
+    /// Safe from any thread; the state is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniInitSpringState(const maniSpringSet* set,
+                                                           const maniSkeleton* skeleton,
+                                                           void* memory, size_t size,
+                                                           maniSpringState** stateOut);
+
+    /// Moves a state on by delta seconds (its magnitude, at most
+    /// MANI_SPRING_MAX_STEPS steps' seconds) toward a pose: runs the steps
+    /// due at the set's step rate, each with the pose and placement
+    /// interpolated between the last call's and these at its time
+    /// (positions linearly, rotations along the shorter arc); time short
+    /// of a step is kept for the next call. Tails move by inertia less
+    /// drag, toward the pose's direction by stiffness and by gravity in
+    /// the world, keep their bone's length, leave colliders (or stay
+    /// inside inside ones) and keep within their limits; a spring with a
+    /// center bone carries its inertia in the center's space.
+    ///
+    /// @param state      A state.
+    /// @param pose       The animated pose at the end of delta (its model
+    ///                   space computed when stale).
+    /// @param placement  The character's place in the world at the end of
+    ///                   delta (translation and rotation; its scale is not
+    ///                   read), or NULL for the identity.
+    /// @param delta      The time in seconds, finite, either sign.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL state or
+    /// pose, a pose of another bone count or holding a difference, or a
+    /// delta or placement not finite.
+    /// @par Thread safety
+    /// Safe from any thread; the state and pose are used by one thread at
+    /// a time.
+    MANI_NODISCARD MANI_API maniResult maniStepSprings(maniSpringState* state, maniPose* pose,
+                                                       const maniTransform* placement, float delta);
+
+    /// Turns each spring joint of a pose toward its tail: the tails
+    /// interpolated between the last two steps at the time short of a
+    /// step, carried into the placement of the last call. Joints with no
+    /// motion yet keep the pose's rotation.
+    ///
+    /// @param state  A state.
+    /// @param pose   The pose the last step took (its model space computed
+    ///               when stale); joints' local rotations are written.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
+    /// a pose of another bone count or holding a difference.
+    /// @par Thread safety
+    /// Safe from any thread; the state and pose are used by one thread at
+    /// a time.
+    MANI_NODISCARD MANI_API maniResult maniApplySprings(const maniSpringState* state,
+                                                        maniPose* pose);
+
+    /// Drops a state's motion: the next step places every tail where the
+    /// pose puts it (a teleport).
+    ///
+    /// @param state  A state, or NULL (nothing done).
+    /// @par Thread safety
+    /// Safe from any thread; the state is used by one thread at a time.
+    MANI_API void maniResetSprings(maniSpringState* state);
+
+    /// Returns the bytes a state's saved form takes.
+    ///
+    /// @param set  An opened set.
+    /// @return The size; 0 for NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API size_t maniSpringSavedSize(const maniSpringSet* set);
+
+    /// Saves a state without pointers: its set's identity and its values.
+    ///
+    /// @param state     A state.
+    /// @param out       At least maniSpringSavedSize bytes.
+    /// @param capacity  Their size.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorCapacity` for too small a buffer.
+    /// @par Thread safety
+    /// Safe from any thread; the state is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSaveSpringState(const maniSpringState* state, void* out,
+                                                           size_t capacity);
+
+    /// Restores a saved state after checking it as external bytes: the
+    /// set's identity, the size, every value finite and in its range,
+    /// rotations of length 1, no values but zeros without motion.
+    ///
+    /// @param state  A state of the same set.
+    /// @param bytes  The saved bytes.
+    /// @param size   Their size.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorFormat` with the offset of the first byte found wrong
+    /// (the state unchanged).
+    /// @par Thread safety
+    /// Safe from any thread; the state is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniFileResult maniRestoreSpringState(maniSpringState* state,
+                                                                  const void* bytes, size_t size);
 
 #ifdef __cplusplus
 }
