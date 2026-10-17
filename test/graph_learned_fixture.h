@@ -16,6 +16,8 @@
 
 static maniLearnedModel s_learned;
 static const maniGraphModelSource kModelSlot[1] = {{&s_learned, "steps", 5, 0}};
+// The model MakeLearned binds slot 0 to.
+static const maniLearnedModel* s_bound = &s_learned;
 static _Alignas(8) uint8_t s_learnedBinding[1024];
 
 // The events are the Decompressor's last two outputs.
@@ -49,8 +51,9 @@ static inline maniGraphNodeSource LearnedNode(float period, float cost)
     return (maniGraphNodeSource){maniGraphNodeLearned, 0, NULL, .learned = l};
 }
 
-// The source (the fixture's clip slots and the model slot added) built,
-// opened, bound and instanced.
+// The source (the fixture's clip slots added, and its model slot unless
+// it lists at most four) built, opened, bound to its slots' models and
+// instanced.
 static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* g)
 {
     source.skeleton = &s_skeleton;
@@ -63,7 +66,13 @@ static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* 
     {
         clips[c] = &s_clips[c];
     }
-    const maniLearnedModel* models[1] = {&s_learned};
+    // Each slot's model, s_bound for the fixture's.
+    const maniLearnedModel* models[4];
+    for (uint32_t k = 0; k < source.modelCount && k < 4; ++k)
+    {
+        const maniLearnedModel* m = source.models[k].model;
+        models[k] = m == &s_learned ? s_bound : m;
+    }
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     maniGraphBinding* binding = NULL;
@@ -71,7 +80,9 @@ static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* 
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
-              maniBindGraph(g, &(maniGraphAssets){&s_skeleton, clips, NULL, models, CLIPS, 0, 1, 0},
+              maniBindGraph(g,
+                            &(maniGraphAssets){&s_skeleton, clips, NULL, models, CLIPS, 0,
+                                               source.modelCount, 0},
                             s_learnedBinding, sizeof s_learnedBinding, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,

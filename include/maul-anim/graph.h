@@ -120,6 +120,11 @@ extern "C"
         maniGraphNodeLearned = 15,
     };
 
+// The most steps of its model a learned node takes in one update: a
+// longer update plays as this many steps' seconds and loses the rest, as
+// fixed-step simulations lose time past their limit.
+#define MANI_GRAPH_LEARNED_MAX_STEPS 20u
+
     // A graph over a file's bytes, which the caller keeps alive and
     // unchanged while the view is used. Its fields are the library's; read
     // a graph through the functions below. A view is immutable and
@@ -520,7 +525,8 @@ extern "C"
     /// clip node's playhead by the step times its speed and the time
     /// scales above it (a seek whose trigger is set moving its playheads to
     /// its time instead, and consuming the trigger), moves learned nodes'
-    /// states (stepped, projected), lists the events clip nodes and
+    /// states (stepped, at most MANI_GRAPH_LEARNED_MAX_STEPS steps an
+    /// update, and projected), lists the events clip nodes and
     /// learned nodes' models weighed past MANI_GRAPH_EVENT_THRESHOLD give
     /// in node order, and blends the clips' and learned nodes' root motion
     /// by the weights the output gives it (masks by their weight at the

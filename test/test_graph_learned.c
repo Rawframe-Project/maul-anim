@@ -127,7 +127,8 @@ static void Events(Reference* r, const float* events, Expected* x)
 static Expected Advance(Reference* r, float delta, bool triggered, const float* ahead)
 {
     Expected x = {.turn = {0.0f, 0.0f, 0.0f, 1.0f}};
-    double step = fabs((double)delta);
+    double most = MANI_GRAPH_LEARNED_MAX_STEPS / (double)s_learned.stepRate;
+    double step = fabs((double)delta) < most ? fabs((double)delta) : most;
     bool had = r->has;
     if (had)
     {
@@ -210,6 +211,22 @@ static bool Matches(maniGraphInstance* instance, const maniGraph* g, const Refer
     return ok;
 }
 
+static bool SamePose(const maniPose* a, const maniPose* b)
+{
+    for (uint32_t k = 0; k < maniPoseBoneCount(a); ++k)
+    {
+        maniTransform t = maniPoseLocal(a, k);
+        maniTransform u = maniPoseLocal(b, k);
+        if (!(NearF(t.translation.x, (double)u.translation.x) &&
+              NearF(t.translation.y, (double)u.translation.y) &&
+              NearF(t.rotation.w, (double)u.rotation.w) && NearF(t.scale.x, (double)u.scale.x)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 // The pose at the node's interpolated state.
 static bool Posed(maniGraphInstance* instance, const Reference* r)
 {
@@ -221,18 +238,7 @@ static bool Posed(maniGraphInstance* instance, const Reference* r)
     {
         return false;
     }
-    for (uint32_t b = 0; b < maniPoseBoneCount(s_pose); ++b)
-    {
-        maniTransform t = maniPoseLocal(s_pose, b);
-        maniTransform u = maniPoseLocal(s_learnedPose, b);
-        if (!(NearF(t.translation.x, (double)u.translation.x) &&
-              NearF(t.translation.y, (double)u.translation.y) &&
-              NearF(t.rotation.w, (double)u.rotation.w) && NearF(t.scale.x, (double)u.scale.x)))
-        {
-            return false;
-        }
-    }
-    return true;
+    return SamePose(s_pose, s_learnedPose);
 }
 
 // The updates of a script: its steps (either sign), the query ahead and
@@ -249,7 +255,8 @@ static const Script kScript[] = {
     {0.05f, {0.0f, 0.0f}, false},  {0.3f, {0.0f, 0.0f}, false},   {-0.02f, {0.2f, -0.3f}, false},
     {0.004f, {0.2f, -0.3f}, true}, {0.1f, {0.6f, 0.2f}, false},   {0.0f, {0.6f, 0.2f}, true},
     {0.07f, {-0.4f, 0.5f}, false}, {0.13f, {-0.4f, 0.5f}, false}, {0.25f, {0.5f, 0.0f}, false},
-    {0.033f, {0.1f, 0.0f}, false}, {0.5f, {0.3f, 0.3f}, false},   {0.016f, {0.3f, 0.3f}, false}};
+    {0.033f, {0.1f, 0.0f}, false}, {0.5f, {0.3f, 0.3f}, false},   {0.016f, {0.3f, 0.3f}, false},
+    {1e30f, {0.2f, 0.1f}, false},  {0.32f, {0.2f, 0.1f}, false},  {-3.0f, {0.4f, 0.0f}, false}};
 
 #define SCRIPTED (sizeof kScript / sizeof kScript[0])
 
@@ -290,9 +297,9 @@ static uint32_t Play(maniGraphInstance* instance, const maniGraph* g, Reference*
 
 static void TestReference(void)
 {
-    const float kCosts[3] = {0.0f, 0.5f, 1e30f};
+    const float kCosts[5] = {0.0f, 0.5f, 0.7f, 1.2f, 1e30f};
     uint32_t listed = 0;
-    for (int c = 0; c < 3; ++c)
+    for (int c = 0; c < 5; ++c)
     {
         maniGraph g;
         maniGraphInstance* instance = Learning(LearnedNode(0.1f, kCosts[c]), &g);
@@ -302,23 +309,149 @@ static void TestReference(void)
     CHECK(listed > 0, "events listed");
 }
 
+static bool Zero(const uint32_t* words, uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (words[k] != 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+#define BLOCK_WORDS (4 + 2 * STATE + 1)
+
 static void TestFirst(void)
 {
     maniGraph g;
+    // Memory not cleared: the instance's start clears the block.
+    memset(s_instanceMemory, 0xA5, sizeof s_instanceMemory);
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.0f), &g);
-    const uint32_t* block = LearnedBlock(instance, &g, 0);
-    CHECK(block[maniGraphLearnedHas] == 0 &&
-              maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
-          "no state before the first update");
+    uint32_t* block = LearnedBlock(instance, &g, 0);
+    CHECK(Zero(block, BLOCK_WORDS) &&
+              maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+              maniPoseSetRest(s_learnedPose, &s_skeleton) == mani_success &&
+              SamePose(s_pose, s_learnedPose),
+          "no state before the first update: the rest pose");
     Update(instance, 0.0f);
     CHECK(block[maniGraphLearnedHas] == 1 && isinf(Pending(instance, &g, 1)),
           "the first projection requests nothing");
+    // Projected again where it stands: no farther than a cost of 0.
+    uint32_t before[BLOCK_WORDS];
+    memcpy(before, block, sizeof before);
+    Set(instance, 1, maniGraphParameterTrigger, Int(1));
+    Update(instance, 0.0f);
+    CHECK(memcmp(before, block, sizeof before) == 0 && isinf(Pending(instance, &g, 1)),
+          "a projection at the state kept, nothing requested");
     maniGraphValue v;
     Set(instance, 1, maniGraphParameterTrigger, Int(1));
     Update(instance, 0.01f);
     CHECK(maniGetGraphParameter(instance, 1, &v) == mani_success && v.b == 0,
           "the trigger consumed");
     CHECK(maniGraphLearnedFits(&g, maniLoadU32(g.nodes + 12), &s_learned), "the model fits");
+}
+
+// A model stepping 64 times a second: an update of exactly a step's
+// seconds takes the step, the clock back at 0.
+static void TestWholeStep(void)
+{
+    maniLearnedModel fast = s_learned;
+    fast.stepRate = 64.0f;
+    s_bound = &fast;
+    maniGraph g;
+    maniGraphInstance* instance = Learning(LearnedNode(10.0f, 0.0f), &g);
+    s_bound = &s_learned;
+    Update(instance, 0.0f);
+    const uint32_t* block = LearnedBlock(instance, &g, 0);
+    uint32_t after[STATE];
+    memcpy(after, block + maniGraphLearnedBefore + STATE, sizeof after);
+    Update(instance, 0.015625f);
+    CHECK(Bits64(block + maniGraphLearnedClock) == 0.0 &&
+              memcmp(after, block + maniGraphLearnedBefore, sizeof after) == 0,
+          "a whole step taken");
+    for (int k = 0; k < 3; ++k)
+    {
+        Update(instance, 1e30f);
+    }
+    CHECK(Bits64(block + maniGraphLearnedClock) == 0.0 &&
+              State(instance, &g, 0)->time == 0.015625 + 3.0 * 20 * 0.015625,
+          "long updates: twenty steps each");
+}
+
+// Tags of no Projector's (2 required, none excluded): nothing projected,
+// the block left clear however long the update.
+static void TestNoProjector(void)
+{
+    maniGraphNodeSource node = LearnedNode(0.1f, 0.0f);
+    node.learned.requiredTags = (maniGraphTags){2, 0};
+    maniGraph g;
+    maniGraphInstance* instance = Learning(node, &g);
+    maniGraphValue v = {{0}};
+    v.i = 2;
+    Set(instance, 2, maniGraphParameterInt, v);
+    Update(instance, 0.0f);
+    Update(instance, 0.25f);
+    CHECK(Zero(LearnedBlock(instance, &g, 0), BLOCK_WORDS) && State(instance, &g, 0)->time == 0.0,
+          "no Projector: no state");
+    v.i = 1;
+    Set(instance, 2, maniGraphParameterInt, v);
+    Update(instance, 0.0f);
+    CHECK(LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1, "the first Projector's tags");
+}
+
+// A direct blend of the node and a clip by weight w; node 3 inertializes.
+static maniGraphInstance* Blended(float w, maniGraph* g)
+{
+    MatchParameters();
+    static const uint32_t kInputs[2] = {0, 1};
+    static maniGraphScalar weights[2];
+    weights[0] = LITERAL(w);
+    weights[1] = LITERAL(1.0f);
+    maniGraphNodeSource nodes[4] = {LearnedNode(0.1f, 0.5f),
+                                    ClipNode(0, 1.0f, maniGraphLoopRepeat),
+                                    {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 1, 0}},
+                                    Above(2)};
+    return MakeLearned((maniGraphSource){.parameters = s_matchParameters,
+                                         .nodes = nodes,
+                                         .parameterCount = 4,
+                                         .nodeCount = 4,
+                                         .output = 3},
+                       g);
+}
+
+// Weighed 0, the node is left alone; weighed below the event threshold,
+// it plays but lists no events.
+static void TestFaint(void)
+{
+    maniGraph g;
+    maniGraphInstance* instance = Blended(0.0f, &g);
+    Update(instance, 0.0f);
+    Update(instance, 0.1f);
+    CHECK(Zero(LearnedBlock(instance, &g, 0), BLOCK_WORDS), "weighed 0: no state");
+    instance = Blended(1e-6f, &g);
+    Reference r = {.period = 0.1f, .cost = 0.5f};
+    uint32_t listed = 0;
+    uint32_t rose = 0;
+    for (uint32_t k = 0; k < SCRIPTED; ++k)
+    {
+        const Script* s = &kScript[k];
+        Ahead(instance, s->ahead[0], s->ahead[1]);
+        maniGraphEvent events[4];
+        uint32_t count = 0;
+        CHECK(maniUpdateGraph(instance, s->delta, events, 4, &count, NULL) == mani_success,
+              "updated");
+        Expected x = Advance(&r, s->delta, false, s->ahead);
+        for (uint32_t e = 0; e < count && e < 4; ++e)
+        {
+            listed += events[e].node == 0 ? 1u : 0u;
+        }
+        rose += x.count;
+    }
+    CHECK(rose > 0 && listed == 0 &&
+              LearnedBlock(instance, &g, 0)[maniGraphLearnedBefore + 2 * STATE] == r.bits,
+          "events rising, none listed");
 }
 
 // A select between the node and a clip: the node unselected is left
@@ -433,17 +566,18 @@ static void TestSaved(void)
                      4 * (4 + 2 * STATE + 1)) == 0,
           "playing alike");
     CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success, "saved");
-    const uint32_t kBad[9][3] = {
+    const uint32_t kBad[10][3] = {
         {maniGraphLearnedHas, 2, maniGraphLearnedHas},
         {maniGraphLearnedClock + 1, 0xBFF00000u, maniGraphLearnedClock},
         {maniGraphLearnedClock + 1, 0x3FA00000u, maniGraphLearnedClock},
         {maniGraphLearnedClock + 1, 0x7FF80000u, maniGraphLearnedClock},
         {maniGraphLearnedSince, 0x7FC00000u, maniGraphLearnedSince},
         {maniGraphLearnedSince, 0xBF800000u, maniGraphLearnedSince},
+        {maniGraphLearnedSince, 0x7F800000u, maniGraphLearnedSince},
         {maniGraphLearnedBefore + 2, 0x7FC00000u, maniGraphLearnedBefore + 2},
         {maniGraphLearnedBefore + STATE, 0x7F800000u, maniGraphLearnedBefore + STATE},
         {maniGraphLearnedBefore + 2 * STATE, 4, maniGraphLearnedBefore + 2 * STATE}};
-    for (int k = 0; k < 9; ++k)
+    for (int k = 0; k < 10; ++k)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
@@ -473,6 +607,9 @@ int main(void)
           "poses");
     TestFirst();
     TestReference();
+    TestWholeStep();
+    TestNoProjector();
+    TestFaint();
     TestWeightless();
     TestSeek();
     TestSaved();

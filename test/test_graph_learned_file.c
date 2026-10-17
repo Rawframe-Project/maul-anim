@@ -88,6 +88,12 @@ static void TestRefusals(void)
     t.learned.excludedTags = (maniGraphTags){MANI_NO_PARAMETER, 1};
     t.learned.requiredTags = (maniGraphTags){MANI_NO_PARAMETER, 2};
     CHECK(NodeBuilt(t).result == mani_success, "the second Projector's tags");
+    t.learned.requiredTags = (maniGraphTags){MANI_NO_PARAMETER, 1};
+    CHECK(RefusedAs(NodeBuilt(t), maniBuildReasonTags, 0, 0),
+          "the first Projector's required tags, the second's excluded");
+    t.learned.requiredTags = (maniGraphTags){MANI_NO_PARAMETER, 3};
+    t.learned.excludedTags = (maniGraphTags){2, 0};
+    CHECK(NodeBuilt(t).result == mani_success, "excluded tags from a parameter: any at update");
     t.learned.requiredTags = (maniGraphTags){2, 0};
     t.learned.excludedTags = (maniGraphTags){MANI_NO_PARAMETER, 7};
     CHECK(NodeBuilt(t).result == mani_success, "tags from a parameter: any at update");
@@ -126,12 +132,15 @@ static void TestOpen(void)
 {
     maniGraph g;
     (void)Learning(LearnedNode(0.1f, 0.0f), &g);
-    const uint32_t kWords[14][2] = {{maniGraphLearnedModel, 1},
+    const uint32_t kWords[17][2] = {{maniGraphLearnedModel, 1},
                                     {maniGraphLearnedTrigger, 0},
                                     {maniGraphLearnedPeriod, 0},
                                     {maniGraphLearnedPeriod, 0x7F800000u},
                                     {maniGraphLearnedTransitionCost, 0xBF800000u},
                                     {maniGraphLearnedTransitionCost, 0x7FC00000u},
+                                    {maniGraphLearnedTransitionCost, 0x7F800000u},
+                                    {maniGraphLearnedStates, 1},
+                                    {maniGraphLearnedEvents, MANI_LEARNED_MAX_EVENTS + 1},
                                     {maniGraphLearnedRequiredTags, 3},
                                     {maniGraphLearnedExcludedTags, 0},
                                     {maniGraphLearnedDurationScalar, 0},
@@ -140,7 +149,7 @@ static void TestOpen(void)
                                     {maniGraphLearnedFeatures, STATE},
                                     {maniGraphLearnedQuery, 1},
                                     {maniGraphLearnedQuery, 4}};
-    for (int k = 0; k < 14; ++k)
+    for (int k = 0; k < 17; ++k)
     {
         if (!RefusedAtWord(&g, 0, kWords[k][0], kWords[k][1]))
         {
@@ -169,6 +178,137 @@ static void TestOpen(void)
           "a tags parameter's literal not 0");
     CHECK(Crafted(&g, 0, maniGraphLearnedDurationScalar + 1, 0, &at).result == mani_success,
           "a literal duration of 0");
+}
+
+// A query count past MANI_MATCH_MAX_FEATURES with the words for it (a
+// blend's weights after the node's): refused at the node's record, before
+// any query word is read.
+static void TestLongQuery(void)
+{
+    MatchParameters();
+    static uint32_t inputs[600];
+    static maniGraphScalar weights[600];
+    for (uint32_t k = 0; k < 600; ++k)
+    {
+        inputs[k] = k == 0 ? 1u : 2u;
+        weights[k] = LITERAL(1.0f);
+    }
+    maniGraphNodeSource nodes[4] = {LearnedNode(0.1f, 0.0f),
+                                    Above(0),
+                                    ClipNode(0, 1.0f, maniGraphLoopRepeat),
+                                    {maniGraphNodeBlend, 600, inputs, .blend = {weights, 0, 0}}};
+    maniGraph g;
+    (void)MakeLearned((maniGraphSource){.parameters = s_matchParameters,
+                                        .nodes = nodes,
+                                        .parameterCount = 4,
+                                        .nodeCount = 4,
+                                        .output = 3},
+                      &g);
+    uint64_t at = 0;
+    maniFileResult r = Crafted(&g, 0, maniGraphLearnedQueryCount, MANI_MATCH_MAX_FEATURES + 1, &at);
+    CHECK(r.result == mani_errorFormat && r.offset < at, "refused before the node's words");
+}
+
+// A model whose Decompressor is wider (24), in its own bytes; built
+// before the fixture's model, whose bytes Build reuses.
+static _Alignas(16) uint8_t s_wideFile[65536];
+static maniLearnedModel s_wide;
+
+static void OpenWide(void)
+{
+    MakeNetworks();
+    static maniLearnedLayerSource layers[2];
+    static const uint32_t kWide[3] = {STATE, 24, OUTPUTS};
+    maniLearnedNetworkSource wide = Network(layers, kWide, 2);
+    maniLearnedModelSource source = Source();
+    source.decompressor = &wide;
+    CHECK(Build(&source).result == mani_success && s_modelSize <= sizeof s_wideFile, "built");
+    memcpy(s_wideFile, s_model, s_modelSize);
+    CHECK(maniOpenLearnedModel(s_wideFile, s_modelSize, &s_wide).result == mani_success &&
+              maniLearnedScratchSize(&s_wide) > maniLearnedScratchSize(&s_learned),
+          "a wider model");
+}
+
+// The room a model's node needs: its scratch, a state and its motion
+// outputs (the root's, the float tracks, the events).
+static size_t Need(const maniLearnedModel* m)
+{
+    size_t motion = 6 + (size_t)m->floatTrackCount + m->eventCount;
+    return maniLearnedScratchSize(m) + 4 * ((size_t)m->featureCount + m->latentCount + motion);
+}
+
+// Two nodes over two models, the wider first or last: the room the
+// wider needs, and both play.
+static void TestRoom(bool wideFirst)
+{
+    MatchParameters();
+    const maniGraphModelSource slots[2] = {{wideFirst ? &s_wide : &s_learned, "first", 5, 0},
+                                           {wideFirst ? &s_learned : &s_wide, "second", 6, 0}};
+    static const uint32_t kInputs[2] = {2, 3};
+    static const maniGraphScalar kWeights[2] = {{MANI_NO_PARAMETER, 1.0f},
+                                                {MANI_NO_PARAMETER, 1.0f}};
+    maniGraphNodeSource nodes[5] = {LearnedNode(0.1f, 0.0f),
+                                    LearnedNode(0.1f, 0.0f),
+                                    Above(0),
+                                    Above(1),
+                                    {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}}};
+    // Above keeps one input array: each its own here.
+    static const uint32_t kFirst[1] = {0};
+    static const uint32_t kSecond[1] = {1};
+    nodes[1].learned.model = 1;
+    nodes[2].inputs = kFirst;
+    nodes[3].inputs = kSecond;
+    maniGraphSource source = {.parameters = s_matchParameters,
+                              .nodes = nodes,
+                              .parameterCount = 4,
+                              .nodeCount = 5,
+                              .output = 4,
+                              .modelCount = 2,
+                              .models = slots};
+    maniGraph g;
+    maniGraphInstance* instance = MakeLearned(source, &g);
+    const maniGraphBinding* binding = instance->binding;
+    size_t room = (Need(&s_wide) + 7u) & ~(size_t)7u;
+    CHECK(maniGraphLearnedRoom(binding) == room &&
+              maniGraphInstanceSize(binding) == instance->learnedAt + room,
+          "the room the wider model needs");
+    Update(instance, 0.0f);
+    Update(instance, 0.05f);
+    uint32_t playing = 0;
+    for (uint32_t p = 0; p < g.nodeCount; ++p)
+    {
+        bool learned =
+            maniLoadU16(g.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned;
+        playing += learned && LearnedBlock(instance, &g, p)[maniGraphLearnedHas] == 1 ? 1u : 0u;
+    }
+    CHECK(playing == 2, "both playing");
+}
+
+// A graph whose first slot's model no node plays: bound whatever its
+// counts.
+static void TestIdleSlot(void)
+{
+    maniLearnedModel odd = s_learned;
+    odd.identity ^= 2;
+    odd.eventCount = 1;
+    const maniGraphModelSource slots[2] = {{&odd, "odd", 3, 0}, kModelSlot[0]};
+    maniGraphNodeSource node = LearnedNode(0.1f, 0.0f);
+    node.learned.model = 1;
+    MatchParameters();
+    maniGraphNodeSource nodes[2] = {node, Above(0)};
+    maniGraphSource source = {.parameters = s_matchParameters,
+                              .nodes = nodes,
+                              .parameterCount = 4,
+                              .nodeCount = 2,
+                              .output = 1,
+                              .modelCount = 2,
+                              .models = slots};
+    maniGraph g;
+    maniGraphInstance* instance = MakeLearned(source, &g);
+    Update(instance, 0.0f);
+    CHECK(maniGraphBoundModel(instance->binding, 0) == &odd &&
+              LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1,
+          "the idle slot bound, the node playing its own");
 }
 
 // Files that open but name a model the node does not fit.
@@ -388,12 +528,17 @@ int main(void)
 {
     Open();
     OpenDatabase();
+    OpenWide();
     OpenModel();
     s_other = s_learned;
     s_other.identity ^= 1;
     TestRefusals();
     TestOpen();
     TestUnfit();
+    TestLongQuery();
+    TestRoom(true);
+    TestRoom(false);
+    TestIdleSlot();
     TestSubgraph();
     TestJson();
     TestJsonForms();

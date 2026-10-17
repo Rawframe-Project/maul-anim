@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A node reached with a weight moves by the magnitude of its time factor
-// times the update's delta: its clock moves on, and each time a step's
-// seconds (1 / the model's rate, in binary64) pass, the state after the
-// last step becomes the state before it and the Stepper gives the next.
+// times the update's delta, at most MANI_GRAPH_LEARNED_MAX_STEPS steps'
+// seconds (1 / the model's rate, in binary64): its clock moves on, and
+// each time a step's seconds pass, the state after the last step becomes
+// the state before it and the Stepper gives the next.
 // It then projects when it has no state, its trigger is set (consumed)
 // or its period passed since the last projection: the query is the
 // state's features with its trajectory and float channels taken from its
@@ -300,7 +301,11 @@ void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
     {
         return;
     }
+    // Bounded: an update costs at most the limit's Stepper evaluations,
+    // and its root motion stays finite.
+    double most = MANI_GRAPH_LEARNED_MAX_STEPS / (double)m->stepRate;
     double step = fabs(u->delta * (double)s->factor);
+    step = step < most ? step : most;
     bool has = block[maniGraphLearnedHas] != 0;
     if (has)
     {

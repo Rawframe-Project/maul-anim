@@ -157,8 +157,9 @@ format.
   `maniGraphModelName`; binding finds each slot's model by identity;
   the JSON form writes a "models" list.
 - Learned motion matching nodes (mani-0025): `maniGraphNodeLearned`
-  plays a model slot's state, stepped at the model's rate and
-  interpolated between steps, projected from its query parameters at
+  plays a model slot's state, stepped at the model's rate (at most
+  `MANI_GRAPH_LEARNED_MAX_STEPS` steps an update, the rest of a longer
+  one lost) and interpolated between steps, projected from its query parameters at
   its period or trigger and replaced past its transition cost with an
   inertialization requested above it; the Decompressor gives the pose,
   the root motion and events; saved states, subgraphs and the JSON form
