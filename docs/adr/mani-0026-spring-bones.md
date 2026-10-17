@@ -86,6 +86,18 @@ host splits time.
   tag 13, its count in the header, now 64 bytes), bound by identity
   through `maniGraphAssets`; the JSON form names them in a "springSets"
   list; subgraphs carry them.
+- **The graph node** (kind 16): one input, a pose of the skeleton (not
+  differences); a spring set slot; position (vec3), rotation (quat)
+  and reset (trigger) parameters, each or none. The update adds the
+  time its parents give it (scaled, its magnitude) to the node's block;
+  its reset trigger and a seek above it drop the motion. The evaluation
+  steps the block with the input pose it has just computed and turns
+  the joints, giving the same bits as the standalone state over the
+  same poses, placements and deltas. The block (the time kept, binary64,
+  then the state's) is the instance's and saved with it, checked on
+  restore as the standalone state is; binding checks the set's state
+  words against the node's, at most 2^24. Subgraphs carry the node and
+  its slot; the JSON form names it "spring".
 - **Saved states** (`MSST`, the set's identity, the size, the block)
   are checked as external bytes on restore: every float finite,
   rotations unit within a thousandth, scales not negative, the clock in
@@ -97,10 +109,10 @@ A set's motion is decided once at build from its source and rates, and
 plays the same on hosts of any frame rate; content tuned at another
 rate than 60 Hz says so in its reference rate. Between steps the
 output is a short extrapolation, which may cross a collider or limit by
-up to a step's motion until the next step.
-VRM's push and then length lets a tail pressed on a collider back in by
-a little, as in the reference. A graph node follows in this record as
-it is built.
+up to a step's motion until the next step. VRM's push and then length
+lets a tail pressed on a collider back in by a little, as in the
+reference. A seek beneath a spring node jumps its input without
+dropping the motion; the reset trigger is the host's for such cuts.
 
 Opening is fuzzed; every check is tested against a file changed at its
 byte; the conversion is tested against its binary64 formula. The steps
@@ -109,4 +121,8 @@ of 30, 60 and 144 Hz with the character still, moving and turning, in
 model and center space; a character turned, moved and scaled against
 the same one at the origin; a character on its back against gravity
 turned in the set; colliders and limits on a mirrored bone; and every
-check of a saved state against bytes changed at its word.
+check of a saved state against bytes changed at its word. The graph
+node is tested against the standalone state bit for bit over 90 frames
+of mixed deltas with a reset and a seek; its saved block, refusals,
+opening's checks, binding, JSON form and subgraphs; the graph state and
+JSON fuzz targets' hosts hold one.

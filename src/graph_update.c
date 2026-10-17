@@ -19,6 +19,7 @@
 #include "graph_shot.h"
 #include "graph_shot_step.h"
 #include "graph_space.h"
+#include "graph_spring.h"
 #include "root_motion.h"
 
 #include "maul-anim/base.h"
@@ -342,6 +343,31 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
     Give(u, InputOf(u, record, 0), share);
 }
 
+// A spring node a parent reached: the time it moves by kept for its
+// evaluation, its motion dropped by a seek above it or its reset trigger;
+// its input reached as it was.
+static void ShareSpring(const Update* u, const uint8_t* record, maniGraphNodeState* s)
+{
+    if (!Reached(s))
+    {
+        return;
+    }
+    uint32_t d = maniLoadU32(record + 12);
+    uint32_t* block = BlockAt(u, Word(u, d + maniGraphSpringBlock));
+    uint32_t reset = Word(u, d + maniGraphSpringReset);
+    bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
+    if (fired)
+    {
+        u->instance->cells[reset].value.b = 0;
+    }
+    if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0)
+    {
+        maniGraphResetSpring(u->graph, d, block);
+    }
+    maniGraphSpringAdd(block, fabs(u->delta * (double)s->factor));
+    ShareOne(u, record, s);
+}
+
 // Weights from the output down: each node, last first, shares its own.
 static void Weigh(const Update* u)
 {
@@ -394,6 +420,10 @@ static void Weigh(const Update* u)
         else if (kind == maniGraphNodeInertialize)
         {
             ShareInertia(u, record, s, p);
+        }
+        else if (kind == maniGraphNodeSpring)
+        {
+            ShareSpring(u, record, s);
         }
         else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch &&
                  kind != maniGraphNodeLearned)

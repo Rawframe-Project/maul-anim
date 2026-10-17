@@ -3,8 +3,9 @@
 //
 // Reading a graph's JSON form (mani-0023) against a fixed skeleton,
 // three clips named walk, run and wave, a motion database named moves
-// of the walk and run (mani-0024) and a learned model named steps of it
-// (mani-0025): any text is refused or built, and a graph built opens.
+// of the walk and run (mani-0024), a learned model named steps of it
+// (mani-0025) and a spring set named hair from the spine to the arm
+// (mani-0026): any text is refused or built, and a graph built opens.
 // Run as fuzz_graph_json <corpus dir>; the seed comes from
 // test_graph_json --seed <file>.
 
@@ -18,6 +19,7 @@
 #include "maul-anim/match.h"
 #include "maul-anim/matchbuild.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,6 +33,8 @@ static _Alignas(16) uint8_t s_clipFiles[3][8192];
 static _Alignas(16) uint8_t s_file[1u << 20];
 static _Alignas(16) uint8_t s_databaseFile[8192];
 static _Alignas(16) uint8_t s_modelFile[8192];
+static _Alignas(16) uint8_t s_setFile[1024];
+static maniSpringSet s_set;
 static maniMotionDatabase s_database;
 static maniLearnedModel s_model;
 static maniSkeleton s_skeleton;
@@ -47,6 +51,28 @@ static const maniGraphClipSource kHost[3] = {
     {&s_clips[0], "walk", 4, 0}, {&s_clips[1], "run", 3, 0}, {&s_clips[2], "wave", 4, 0}};
 static const maniGraphDatabaseSource kHostDatabase[1] = {{&s_database, "moves", 5, 0}};
 static const maniGraphModelSource kHostModel[1] = {{&s_model, "steps", 5, 0}};
+static const maniGraphSpringSetSource kHostSet[1] = {{&s_set, "hair", 4, 0}};
+
+// A spring from the spine to the arm.
+static bool MakeSet(void)
+{
+    maniSpringJointSource joints[2];
+    for (uint32_t j = 0; j < 2; ++j)
+    {
+        joints[j] = (maniSpringJointSource){.bone = j + 1,
+                                            .stiffness = 0.5f,
+                                            .gravityPower = 1.0f,
+                                            .gravityDirection = {0.0f, -1.0f, 0.0f},
+                                            .drag = 0.3f,
+                                            .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
+    }
+    maniSpringSource spring = {"arm", 3, 2, joints, NULL, 0, MANI_NO_BONE};
+    maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f, 0};
+    size_t size = 0;
+    return maniBuildSpringSet(s_builder, &source).result == mani_success &&
+           maniCopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
+           maniOpenSpringSet(s_setFile, size, &s_set).result == mani_success;
+}
 
 // The walk and the run, the hips' position now their channel.
 static bool MakeDatabase(void)
@@ -98,8 +124,9 @@ static void Setup(void)
             abort();
         }
     }
-    if (!MakeDatabase() || !MakeFuzzModel(s_builder, &s_skeleton, &s_database, s_modelFile,
-                                          sizeof s_modelFile, &s_model))
+    if (!MakeDatabase() || !MakeSet() ||
+        !MakeFuzzModel(s_builder, &s_skeleton, &s_database, s_modelFile, sizeof s_modelFile,
+                       &s_model))
     {
         abort();
     }
@@ -111,9 +138,10 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     {
         Setup();
     }
-    maniBuildResult r = maniBuildGraphJson(
-        s_builder, (const char*)data, size,
-        &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, kHostModel, NULL, 3, 1, 1, 0});
+    maniBuildResult r =
+        maniBuildGraphJson(s_builder, (const char*)data, size,
+                           &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, kHostModel,
+                                                   kHostSet, 3, 1, 1, 1});
     if (r.result != mani_success)
     {
         bool text = r.reason == maniBuildReasonJson || r.reason == maniBuildReasonForm;

@@ -7,7 +7,10 @@
 // inertialize node over a motion matching node (mani-0024) searching a
 // database of the clip (a looping and a clamped entry, tags from the int
 // parameter) and another over a learned node (mani-0025) playing a
-// model of the database. The bytes are tried as they are, then with the
+// model of the database; the select under a spring node (mani-0026) of
+// a spring from the root to its child, placed by the vec3 and quat
+// parameters and reset by the trigger. The bytes are tried as they are,
+// then with the
 // header made right so they reach the checks behind it, then with the
 // quaternion parameter made a unit one, then with the inertialize
 // nodes' blocks as a fresh instance has them, so the searching nodes'
@@ -29,6 +32,7 @@
 #include "maul-anim/matchbuild.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -44,9 +48,11 @@ static _Alignas(16) uint8_t s_graphFile[4096];
 static _Alignas(16) uint8_t s_databaseFile[8192];
 static _Alignas(8) uint8_t s_binding[512];
 static _Alignas(8) uint8_t s_instance[4096];
-static uint8_t s_saved[2048];
-static uint8_t s_fresh[2048];
+static uint8_t s_saved[4096];
+static uint8_t s_fresh[4096];
 static _Alignas(16) uint8_t s_modelFile[8192];
+static _Alignas(16) uint8_t s_setFile[1024];
+static maniSpringSet s_set;
 static maniMotionDatabase s_database;
 static maniLearnedModel s_model;
 // The inertialize nodes' blocks in a state: their offsets and size.
@@ -68,11 +74,12 @@ static bool Built(maniBuilder* builder, uint8_t* out, size_t capacity, size_t* s
 
 static bool MakeClip(maniBuilder* builder)
 {
-    static const maniBoneSource kBone = {
-        "root", 4, -1, {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
+    static const maniBoneSource kBones[2] = {
+        {"root", 4, -1, {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
+        {"tip", 3, 0, {{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
     static const float kTimes[2] = {0.0f, 1.0f};
     static const float kValues[6] = {0, 0, 0, 1, 0, 0};
-    maniSkeletonSource skeleton = {&kBone, 1, 0};
+    maniSkeletonSource skeleton = {kBones, 2, 0};
     size_t size = 0;
     if (maniBuildSkeleton(builder, &skeleton).result != mani_success ||
         !Built(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ||
@@ -106,6 +113,27 @@ static bool MakeDatabase(maniBuilder* builder)
            maniOpenMotionDatabase(s_databaseFile, size, &s_database).result == mani_success;
 }
 
+// A spring from the root to its tip.
+static bool MakeSet(maniBuilder* builder)
+{
+    maniSpringJointSource joints[2];
+    for (uint32_t j = 0; j < 2; ++j)
+    {
+        joints[j] = (maniSpringJointSource){.bone = j,
+                                            .stiffness = 0.5f,
+                                            .gravityPower = 1.0f,
+                                            .gravityDirection = {0.0f, -1.0f, 0.0f},
+                                            .drag = 0.3f,
+                                            .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
+    }
+    maniSpringSource spring = {"s", 1, 2, joints, NULL, 0, MANI_NO_BONE};
+    maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f, 0};
+    size_t size = 0;
+    return maniBuildSpringSet(builder, &source).result == mani_success &&
+           Built(builder, s_setFile, sizeof s_setFile, &size) &&
+           maniOpenSpringSet(s_setFile, size, &s_set).result == mani_success;
+}
+
 static maniGraphParameterSource Parameter(const char* name, maniGraphParameterType type)
 {
     maniGraphParameterSource p = {name, (uint32_t)strlen(name), type, {{0}}, {{0}}, {{0}}, 0, 0};
@@ -130,7 +158,9 @@ static bool MakeGraph(maniBuilder* builder)
     static const uint32_t kChoices[2] = {0, 1};
     static const uint32_t kMatch[1] = {3};
     static const uint32_t kLearned[1] = {6};
-    static const uint32_t kBlend[3] = {2, 4, 7};
+    static const uint32_t kSelect[1] = {2};
+    static const uint32_t kBlend[3] = {8, 4, 7};
+    const maniGraphSpringSetSource set = {&s_set, "s", 1, 0};
     static const maniGraphScalar kThirds[3] = {
         {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}};
     const maniGraphMatchNodeSource match = {.database = 0,
@@ -149,7 +179,7 @@ static bool MakeGraph(maniBuilder* builder)
                                                 .requiredTags = {MANI_NO_PARAMETER, 0},
                                                 .excludedTags = {MANI_NO_PARAMETER, 0},
                                                 .duration = {2, 0.0f}};
-    const maniGraphNodeSource nodes[8] = {
+    const maniGraphNodeSource nodes[9] = {
         {maniGraphNodeClip, 0, NULL,
          .clip = {0, MANI_NO_SYNC_GROUP, {2, 0.0f}, maniGraphLoopClip, 0}},
         {maniGraphNodeTimeScale, 1, kClip, .timeScale = {{MANI_NO_PARAMETER, 2.0f}}},
@@ -161,6 +191,7 @@ static bool MakeGraph(maniBuilder* builder)
         {maniGraphNodeLearned, 0, NULL, .learned = learned},
         {maniGraphNodeInertialize, 1, kLearned,
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
+        {maniGraphNodeSpring, 1, kSelect, .spring = {0, 4, 5, 6}},
     };
     maniGraphSource source = {.skeleton = &s_skeleton,
                               .parameters = parameters,
@@ -168,12 +199,14 @@ static bool MakeGraph(maniBuilder* builder)
                               .nodes = nodes,
                               .parameterCount = 7,
                               .clipCount = 1,
-                              .nodeCount = 8,
+                              .nodeCount = 9,
                               .output = 5,
                               .databaseCount = 1,
                               .databases = &database,
                               .modelCount = 1,
-                              .models = &model};
+                              .models = &model,
+                              .springSetCount = 1,
+                              .springSets = &set};
     size_t size = 0;
     return maniBuildGraph(builder, &source).result == mani_success &&
            Built(builder, s_graphFile, sizeof s_graphFile, &size) &&
@@ -187,15 +220,16 @@ static void Setup(void)
     const maniClip* clips[1] = {&s_clip};
     const maniMotionDatabase* databases[1] = {&s_database};
     const maniLearnedModel* models[1] = {&s_model};
+    const maniSpringSet* sets[1] = {&s_set};
     maniGraphBinding* binding = NULL;
     bool ok =
         maniCreateBuilder(&def, &builder) == mani_success && MakeClip(builder) &&
         MakeDatabase(builder) &&
         MakeFuzzModel(builder, &s_skeleton, &s_database, s_modelFile, sizeof s_modelFile,
                       &s_model) &&
-        MakeGraph(builder) &&
+        MakeSet(builder) && MakeGraph(builder) &&
         maniBindGraph(&s_graph,
-                      &(maniGraphAssets){&s_skeleton, clips, databases, models, NULL, 1, 1, 1, 0},
+                      &(maniGraphAssets){&s_skeleton, clips, databases, models, sets, 1, 1, 1, 1},
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
@@ -218,7 +252,7 @@ static void Setup(void)
             s_eased[eased++] = MANI_GRAPH_STATE_HEADER_SIZE +
                                (size_t)(s_graph.parameterCount + s_graph.nodeCount) * 16 +
                                4 * (size_t)block;
-            s_easedSize = 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(1, 0);
+            s_easedSize = 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(s_graph.skeletonBoneCount, 0);
         }
     }
     if (eased != 2)

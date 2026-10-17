@@ -18,6 +18,7 @@
 #include "graph_machine_check.h"
 #include "graph_match.h"
 #include "graph_match_check.h"
+#include "graph_spring.h"
 #include "sort.h"
 #include "triangulate.h"
 
@@ -127,7 +128,7 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     }
     bool additive = node->kind == maniGraphNodeAdditive;
     uint32_t first = w->difference[node->inputs[0]];
-    if (additive && first != 0)
+    if ((additive || node->kind == maniGraphNodeSpring) && first != 0)
     {
         return maniGraphRefuse(maniBuildReasonDifference, v, 0);
     }
@@ -462,6 +463,32 @@ static uint32_t PutLearned(const maniGraphSource* source, uint8_t* d, uint32_t a
     return at;
 }
 
+// A spring node's words: its slot and parameters, its block, its set's
+// state words.
+static uint32_t PutSpring(const maniGraphSource* source, uint8_t* d, uint32_t at,
+                          const maniGraphSpringNodeSource* s, Layout* lay)
+{
+    uint32_t words = (uint32_t)maniGraphSpringSetWords(source->springSets[s->springSet].set);
+    const uint32_t head[MANI_GRAPH_SPRING_WORDS] = {s->springSet, s->position,  s->rotation,
+                                                    s->reset,     lay->blockAt, words};
+    lay->blockAt += maniGraphSpringState + words;
+    return PutWords(d, at, head, MANI_GRAPH_SPRING_WORDS);
+}
+
+// A blend's direct flag and weights, or an additive's weights.
+static uint32_t PutWeights(uint8_t* d, uint32_t at, const maniGraphNodeSource* node)
+{
+    uint32_t n = node->inputCount;
+    bool blend = node->kind == maniGraphNodeBlend;
+    at = blend ? PutWords(d, at, &node->blend.direct, 1) : at;
+    const maniGraphScalar* weights = blend ? node->blend.weights : node->additive.weights;
+    for (uint32_t k = 0; k < (blend ? n : n - 1); ++k)
+    {
+        at = PutScalar(d, at, weights[k]);
+    }
+    return at;
+}
+
 static void PutData(const maniGraphSource* source, const maniGraphNodeSource* node, Layout* lay)
 {
     uint8_t* d = lay->sections[4];
@@ -475,13 +502,7 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeBlend || node->kind == maniGraphNodeAdditive)
     {
-        bool blend = node->kind == maniGraphNodeBlend;
-        at = blend ? PutWords(d, at, &node->blend.direct, 1) : at;
-        const maniGraphScalar* weights = blend ? node->blend.weights : node->additive.weights;
-        for (uint32_t k = 0; k < (blend ? n : n - 1); ++k)
-        {
-            at = PutScalar(d, at, weights[k]);
-        }
+        at = PutWeights(d, at, node);
     }
     else if (node->kind == maniGraphNodeMask)
     {
@@ -509,6 +530,10 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     else if (node->kind == maniGraphNodeLearned)
     {
         at = PutLearned(source, d, at, &node->learned, lay);
+    }
+    else if (node->kind == maniGraphNodeSpring)
+    {
+        at = PutSpring(source, d, at, &node->spring, lay);
     }
     else if (node->kind == maniGraphNodeSelect)
     {

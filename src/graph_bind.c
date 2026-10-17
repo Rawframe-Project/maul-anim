@@ -13,6 +13,7 @@
 #include "graph_instance.h"
 #include "graph_learned.h"
 #include "graph_match.h"
+#include "graph_spring.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -227,8 +228,30 @@ static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
     return true;
 }
 
-// Each spring set slot bound to the set of its identity, of the graph's
-// skeleton; false with the first left unbound.
+// Whether a set takes the slot: of the graph's skeleton, and its state
+// the words of every spring node over the slot.
+static bool SpringSetFits(const maniGraph* graph, uint32_t slot, const maniSpringSet* set)
+{
+    if (maniSpringSetSkeletonIdentity(set) != graph->skeletonIdentity)
+    {
+        return false;
+    }
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        uint32_t data = maniLoadU32(record + 12);
+        if (maniLoadU16(record) == maniGraphNodeSpring &&
+            maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet)) == slot &&
+            !maniGraphSpringFits(graph, data, set))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Each spring set slot bound to the set of its identity that takes it;
+// false with the first left unbound.
 static bool BindSpringSets(maniGraphBinding* binding, const maniGraphAssets* assets,
                            uint32_t* unboundOut)
 {
@@ -241,8 +264,8 @@ static bool BindSpringSets(maniGraphBinding* binding, const maniGraphAssets* ass
         for (uint32_t i = 0; i < assets->springSetCount && slots[s] == NULL; ++i)
         {
             const maniSpringSet* p = assets->springSets[i];
-            bool fits = p != NULL && maniSpringSetIdentity(p) == identity &&
-                        maniSpringSetSkeletonIdentity(p) == graph->skeletonIdentity;
+            bool fits =
+                p != NULL && maniSpringSetIdentity(p) == identity && SpringSetFits(graph, s, p);
             slots[s] = fits ? p : NULL;
         }
         if (slots[s] == NULL)

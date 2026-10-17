@@ -393,6 +393,25 @@ static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMa
 
 // A learned node: its model by name, its trigger (when it has one), its
 // query's parameters, its period and transition cost, tags and duration.
+// A spring node's set by its slot's name, and the parameters it has.
+static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphSpringNodeSource* s)
+{
+    const maniGraphSpringSetSource* set = &source->springSets[s->springSet];
+    PutKey(w, "springSet");
+    PutString(w, set->name, set->nameLength);
+    const char* const keys[3] = {"position", "rotation", "reset"};
+    const uint32_t parameters[3] = {s->position, s->rotation, s->reset};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        if (parameters[k] != MANI_NO_PARAMETER)
+        {
+            PutText(w, ", ");
+            PutKey(w, keys[k]);
+            PutParameterName(w, source, parameters[k]);
+        }
+    }
+}
+
 static void PutLearned(Writer* w, const maniGraphSource* source,
                        const maniGraphLearnedNodeSource* l)
 {
@@ -683,6 +702,9 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeLearned:
         PutLearned(w, source, &n->learned);
         return;
+    case maniGraphNodeSpring:
+        PutSpring(w, source, &n->spring);
+        return;
     case maniGraphNodeAdditive:
         PutKey(w, "weights");
         PutScalars(w, source, n->additive.weights, n->inputCount - 1);
@@ -746,7 +768,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "oneShot",
                                          "inertialize",
                                          "match",
-                                         "learned"};
+                                         "learned",
+                                         "spring"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

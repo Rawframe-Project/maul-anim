@@ -14,6 +14,7 @@
 #include "graph_machine.h"
 #include "graph_match.h"
 #include "graph_shot.h"
+#include "graph_spring.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -111,8 +112,8 @@ static uint32_t* Blocks(maniGraphInstance* instance)
     return (uint32_t*)((uint8_t*)instance + instance->machinesAt);
 }
 
-// The one-shot, inertialize or motion matching node p's block's first
-// word, or UINT32_MAX for another kind.
+// The one-shot, inertialize, motion matching, learned or spring node p's
+// block's first word, or UINT32_MAX for another kind.
 static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
 {
     const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
@@ -128,6 +129,10 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
     if (maniLoadU16(e) == maniGraphNodeLearned)
     {
         return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphLearnedBlock));
+    }
+    if (maniLoadU16(e) == maniGraphNodeSpring)
+    {
+        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphSpringBlock));
     }
     return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
                                                   : UINT32_MAX;
@@ -146,6 +151,11 @@ static bool Matching(const maniGraph* graph, uint32_t p)
 static bool Learning(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned;
+}
+
+static bool Springing(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeSpring;
 }
 
 static uint32_t DataOf(const maniGraph* graph, uint32_t p)
@@ -183,6 +193,10 @@ static void ResetMachines(maniGraphInstance* instance)
         else if (shot != UINT32_MAX && Learning(graph, p))
         {
             maniGraphResetLearned(graph, DataOf(graph, p), Blocks(instance) + shot);
+        }
+        else if (shot != UINT32_MAX && Springing(graph, p))
+        {
+            maniGraphResetSpring(graph, DataOf(graph, p), Blocks(instance) + shot);
         }
         else if (shot != UINT32_MAX)
         {
@@ -482,6 +496,36 @@ static uint32_t SavedMatchValid(const maniGraphBinding* binding, uint32_t p, con
                                     time);
 }
 
+// A spring node's saved block, against its slot's set.
+static uint32_t SavedSpringValid(const maniGraphBinding* binding, uint32_t p, const uint8_t* block)
+{
+    const maniGraph* graph = &binding->graph;
+    uint32_t data = DataOf(graph, p);
+    uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet));
+    return maniGraphSavedSpringValid(block, maniGraphBoundSpringSet(binding, slot));
+}
+
+// The first wrong word of node p's saved block, m its machine (none if
+// it has no states), or UINT32_MAX.
+static uint32_t SavedBlockValid(const maniGraphBinding* binding, uint32_t p,
+                                const maniGraphMachine* m, const uint8_t* b, const uint8_t* block)
+{
+    const maniGraph* graph = &binding->graph;
+    maniGraphInertia node = InertiaAt(graph, p);
+    uint32_t data = DataOf(graph, p);
+    const maniLearnedModel* model =
+        Learning(graph, p)
+            ? maniGraphBoundModel(
+                  binding, maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)))
+            : NULL;
+    return m->states > 0         ? maniGraphSavedBlockValid(m, block)
+           : Inertial(graph, p)  ? maniGraphSavedInertiaValid(block, &node)
+           : Matching(graph, p)  ? SavedMatchValid(binding, p, b, block)
+           : Springing(graph, p) ? SavedSpringValid(binding, p, block)
+           : model != NULL       ? maniGraphSavedLearnedValid(block, graph, data, model)
+                                 : maniGraphSavedShotValid(block);
+}
+
 // Every node's block in a saved state, the blocks starting at at.
 static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8_t* b, uint64_t at)
 {
@@ -496,19 +540,7 @@ static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8
             continue;
         }
         uint64_t block = at + 4 * (uint64_t)first;
-        maniGraphInertia node = InertiaAt(graph, p);
-        uint32_t data = DataOf(graph, p);
-        const maniLearnedModel* model =
-            Learning(graph, p)
-                ? maniGraphBoundModel(
-                      instance->binding,
-                      maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)))
-                : NULL;
-        uint32_t wrong = m.states > 0         ? maniGraphSavedBlockValid(&m, b + block)
-                         : Inertial(graph, p) ? maniGraphSavedInertiaValid(b + block, &node)
-                         : Matching(graph, p) ? SavedMatchValid(instance->binding, p, b, b + block)
-                         : model != NULL ? maniGraphSavedLearnedValid(b + block, graph, data, model)
-                                         : maniGraphSavedShotValid(b + block);
+        uint32_t wrong = SavedBlockValid(instance->binding, p, &m, b, b + block);
         if (wrong != UINT32_MAX)
         {
             return Fail(block + 4 * (uint64_t)wrong);

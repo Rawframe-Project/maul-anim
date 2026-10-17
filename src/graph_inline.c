@@ -18,6 +18,7 @@
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -269,6 +270,25 @@ static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
     return f->modelCount++;
 }
 
+static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
+{
+    if (s->outer == NULL || slot >= s->graph->springSetCount)
+    {
+        return slot;
+    }
+    const maniGraphSpringSetSource* p = &s->graph->springSets[slot];
+    uint64_t identity = p->set != NULL ? maniSpringSetIdentity(p->set) : 0;
+    for (uint32_t k = 0; k < f->springSetCount && p->set != NULL; ++k)
+    {
+        if (f->springSets[k].set != NULL && maniSpringSetIdentity(f->springSets[k].set) == identity)
+        {
+            return k;
+        }
+    }
+    f->springSets[f->springSetCount] = *p;
+    return f->springSetCount++;
+}
+
 static uint32_t GroupSlot(const Scope* s, Flat* f, uint32_t group)
 {
     if (s->outer == NULL || group >= s->graph->syncGroupCount)
@@ -424,6 +444,12 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
     case maniGraphNodeInertialize:
         node->inertialize.trigger = Resolve(s, node->inertialize.trigger);
         node->inertialize.duration = Scalar(s, node->inertialize.duration);
+        return;
+    case maniGraphNodeSpring:
+        node->spring.springSet = SpringSetSlot(s, f, node->spring.springSet);
+        node->spring.position = Resolve(s, node->spring.position);
+        node->spring.rotation = Resolve(s, node->spring.rotation);
+        node->spring.reset = Resolve(s, node->spring.reset);
         return;
     case maniGraphNodeOneShot:
         node->oneShot.fire = Resolve(s, node->oneShot.fire);

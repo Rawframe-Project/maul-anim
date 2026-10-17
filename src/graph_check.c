@@ -16,6 +16,7 @@
 #include "graph_match.h"
 #include "graph_match_check.h"
 #include "graph_space_check.h"
+#include "graph_spring.h"
 #include "sort.h"
 #include "text.h"
 
@@ -416,6 +417,27 @@ static maniBuildResult CheckInertialize(const maniGraphSource* source, const man
               : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }
 
+// A spring node: a spring set slot whose state is not past
+// MANI_GRAPH_SPRING_MAX_WORDS, a vec3 position, a quat rotation and a
+// reset trigger, each or none.
+static maniBuildResult CheckSpring(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                   uint32_t node)
+{
+    const maniGraphSpringNodeSource* s = &n->spring;
+    const uint32_t parameters[3] = {s->position, s->rotation, s->reset};
+    const maniGraphParameterType types[3] = {maniGraphParameterVec3, maniGraphParameterQuat,
+                                             maniGraphParameterTrigger};
+    bool ok = s->springSet < source->springSetCount &&
+              maniGraphSpringSetWords(source->springSets[s->springSet].set) <=
+                  MANI_GRAPH_SPRING_MAX_WORDS;
+    for (uint32_t k = 0; k < 3 && ok; ++k)
+    {
+        ok = parameters[k] == MANI_NO_PARAMETER ||
+             ParameterOf(source, parameters[k], types[k], types[k]);
+    }
+    return ok ? Outcome(mani_success) : maniGraphRefuse(maniBuildReasonNode, node, 0);
+}
+
 // A node's own fields, by kind.
 static maniBuildResult CheckFields(const maniGraphSource* source, const maniGraphNodeSource* n,
                                    uint32_t node)
@@ -439,6 +461,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return maniCheckGraphMatch(source, n, node);
     case maniGraphNodeLearned:
         return maniCheckGraphLearned(source, n, node);
+    case maniGraphNodeSpring:
+        return CheckSpring(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -482,6 +506,9 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
         const maniLearnedModel* m = source->models[n->learned.model].model;
         return MANI_GRAPH_LEARNED_BLOCK_WORDS(m->featureCount + m->latentCount, m->eventCount);
     }
+    case maniGraphNodeSpring:
+        return maniGraphSpringState +
+               (uint32_t)maniGraphSpringSetWords(source->springSets[n->spring.springSet].set);
     default:
         return 0;
     }

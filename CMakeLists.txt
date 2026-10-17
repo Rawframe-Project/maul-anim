@@ -75,6 +75,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_match_step.c
     src/graph_learned.c
     src/graph_learned_step.c
+    src/graph_spring.c
     src/graph_space.c
     src/graph_update.c
     src/graph_evaluate.c
@@ -172,6 +173,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_match_file WHITEBOX)
         maul_add_test(graph_models WHITEBOX)
         maul_add_test(graph_springs WHITEBOX)
+        maul_add_test(graph_spring_node WHITEBOX)
         maul_add_test(graph_learned WHITEBOX)
         maul_add_test(graph_learned_file WHITEBOX)
         maul_add_test(spring WHITEBOX)

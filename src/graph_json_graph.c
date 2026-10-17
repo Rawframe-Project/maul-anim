@@ -464,6 +464,27 @@ static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneS
     return maniGraphJsonMembers(r, f[8], kMask, 2, 0u, members + 2) && Mask(r, members, mask);
 }
 
+// A spring node: its set by its slot's name; its position, rotation and
+// reset parameters by name, none when left out.
+static bool Spring(Reader* r, const Scope* scope, const uint32_t* f, maniGraphSpringNodeSource* s)
+{
+    uint32_t* parameters[3] = {&s->position, &s->rotation, &s->reset};
+    if (!maniGraphJsonRefer(r, &scope->springSets, f[2], &s->springSet))
+    {
+        return false;
+    }
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        *parameters[k] = MANI_NO_PARAMETER;
+        if (f[3 + k] != ABSENT &&
+            !maniGraphJsonRefer(r, &scope->parameters, f[3 + k], parameters[k]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 // An inertialize node; dead blending's half-lives default to Holden's.
 static bool Inertialize(Reader* r, const Scope* scope, const uint32_t* f,
                         maniGraphInertializeNodeSource* s)
@@ -624,6 +645,11 @@ static const KindForm kForms[] = {
       "excludedTags", "duration"},
      9,
      3u},
+    {"spring",
+     maniGraphNodeSpring,
+     {"kind", "inputs", "springSet", "position", "rotation", "reset"},
+     6,
+     7u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -801,6 +827,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return maniGraphJsonMatch(r, scope, f, &n->match);
     case maniGraphNodeLearned:
         return maniGraphJsonLearned(r, scope, f, &n->learned);
+    case maniGraphNodeSpring:
+        return Spring(r, scope, f, &n->spring);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

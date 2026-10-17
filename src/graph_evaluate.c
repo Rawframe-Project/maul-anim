@@ -14,7 +14,9 @@
 #include "graph_match.h"
 #include "graph_shot.h"
 #include "graph_space.h"
+#include "graph_spring.h"
 #include "pose_memory.h"
+#include "vecmath.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -392,6 +394,47 @@ static void SampleMatch(const Evaluation* e, const uint8_t* record, uint32_t cur
                                out);
 }
 
+// The character's place a spring node reads: its position and rotation
+// parameters, or the origin and the identity; the rotation normalized as
+// maniStepSprings normalizes it.
+static maniTransform Placement(const Evaluation* e, uint32_t data)
+{
+    maniTransform t = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
+    uint32_t position = Word(e, data + maniGraphSpringPosition);
+    uint32_t rotation = Word(e, data + maniGraphSpringRotation);
+    if (position != MANI_NO_PARAMETER)
+    {
+        const float* f = e->instance->cells[position].value.f;
+        t.translation = (maniVec3){f[0], f[1], f[2]};
+    }
+    if (rotation != MANI_NO_PARAMETER)
+    {
+        const float* f = e->instance->cells[rotation].value.f;
+        t.rotation = maniQuatNormalize((maniQuat){f[0], f[1], f[2], f[3]});
+    }
+    return t;
+}
+
+// A spring node: its input with its set's joints turned toward the tails
+// its block steps to.
+static void Spring(const Evaluation* e, const uint8_t* record, maniPose* out)
+{
+    const maniPose* input = InputPose(e, record, 0);
+    if (input == NULL)
+    {
+        Neutral(e, out, false);
+        return;
+    }
+    maniPoseCopy(out, input);
+    uint32_t data = maniLoadU32(record + 12);
+    uint32_t* block = (uint32_t*)((uint8_t*)e->instance + e->instance->machinesAt) +
+                      Word(e, data + maniGraphSpringBlock);
+    const maniSpringSet* set =
+        maniGraphBoundSpringSet(e->binding, Word(e, data + maniGraphSpringSet));
+    maniTransform placement = Placement(e, data);
+    maniGraphSpringPose(set, e->binding->skeleton, block, &placement, out);
+}
+
 // A learned node's pose: its model's Decompressor at its state, worked
 // in the instance's room; the neutral pose with no state.
 static void SampleLearned(const Evaluation* e, const uint8_t* record, maniPose* out)
@@ -453,6 +496,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodeInertialize:
         Inertia(e, record, out, difference);
+        return;
+    case maniGraphNodeSpring:
+        Spring(e, record, out);
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);

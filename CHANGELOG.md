@@ -179,6 +179,12 @@ format.
   through `maniGraphAssets`; the JSON form writes a "springSets" list.
   The graph file gains section 13 and a 64-byte header; graph files
   built before do not open.
+- Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
+  its input's joints of a spring set slot toward their tails, stepped
+  when the graph is evaluated by the time its parents gave it, at the
+  placement its vec3 and quat parameters give; its reset trigger and a
+  seek above it drop the motion; its state is saved and restored with
+  the instance's and checked; the JSON form names it "spring".
 - Spring states (mani-0026): `maniInitSpringState` makes a character's
   spring motion in caller memory; `maniStepSprings` runs the fixed
   steps due toward an animated pose and the character's placement in

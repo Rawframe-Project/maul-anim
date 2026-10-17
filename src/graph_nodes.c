@@ -14,6 +14,7 @@
 #include "graph_machine_file.h"
 #include "graph_match.h"
 #include "graph_shot.h"
+#include "graph_spring.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/graph.h"
@@ -315,6 +316,10 @@ static bool KindValid(const maniGraph* g, const Node* n)
     {
         return n->flags == 0;
     }
+    if (n->kind == maniGraphNodeSpring)
+    {
+        return n->flags == 0 && NodeFlags(g, Input(g, n->first)) == 0;
+    }
     if (n->kind == maniGraphNodeClip)
     {
         const uint8_t* clip = g->clips + (size_t)Word(g, n->data) * MANI_GRAPH_CLIP_SIZE;
@@ -424,6 +429,8 @@ static uint32_t WordsValid(const maniGraph* g, const Node* n, uint32_t p, uint32
         return maniGraphMatchValid(g, n->data, blockAt);
     case maniGraphNodeLearned:
         return maniGraphLearnedValid(g, n->data, blockAt);
+    case maniGraphNodeSpring:
+        return maniGraphSpringValid(g, n->data, blockAt);
     default:
         return DataValid(g, n);
     }
@@ -445,6 +452,8 @@ static uint32_t BlockWords(const maniGraph* g, const Node* n)
         return MANI_GRAPH_MATCH_BLOCK_WORDS;
     case maniGraphNodeLearned:
         return maniGraphLearnedBlockWords(g, n->data);
+    case maniGraphNodeSpring:
+        return maniGraphSpringBlockWords(g, n->data);
     default:
         return 0;
     }
@@ -477,7 +486,12 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         inputAt += n.count;
         wordAt += n.words;
-        blockAt += BlockWords(g, &n);
+        uint32_t block = BlockWords(g, &n);
+        if (block > UINT32_MAX - blockAt)
+        {
+            return Fail(dataAt + 4 * (uint64_t)n.data);
+        }
+        blockAt += block;
     }
     *machineWordsOut = blockAt;
     if (inputAt != g->inputCount)

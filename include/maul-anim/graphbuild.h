@@ -446,6 +446,26 @@ extern "C"
         maniGraphScalar duration;
     } maniGraphLearnedNodeSource;
 
+    // A spring bone node (mani-0026): one input, a pose of the skeleton
+    // (not differences), given with its spring set slot's joints turned
+    // toward their tails as maniApplySprings turns them. Its tails step
+    // at the set's step rate by the time its parents give it (its
+    // magnitude), when the graph is evaluated, toward the input pose just
+    // computed, at most MANI_SPRING_MAX_STEPS steps an evaluation. The
+    // character's place in the world is position (a vec3 parameter) and
+    // rotation (a quat parameter), MANI_NO_PARAMETER for the origin and
+    // the identity. Its reset trigger (MANI_NO_PARAMETER for none) and a
+    // seek above it drop the motion, as maniResetSprings does: the next
+    // evaluation places every tail where the input puts it. The set's
+    // state takes at most 2^24 words.
+    typedef struct maniGraphSpringNodeSource
+    {
+        uint32_t springSet;
+        uint32_t position;
+        uint32_t rotation;
+        uint32_t reset;
+    } maniGraphSpringNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -530,6 +550,7 @@ extern "C"
             maniGraphInertializeNodeSource inertialize;
             maniGraphMatchNodeSource match;
             maniGraphLearnedNodeSource learned;
+            maniGraphSpringNodeSource spring;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;
