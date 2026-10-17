@@ -13,8 +13,8 @@
 #include "bytes.h"
 #include "container.h"
 #include "graph_file.h"
-#include "graph_fixture.h"
 #include "graph_instance.h"
+#include "learned_fixture.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/graph.h"
@@ -32,6 +32,7 @@ static size_t s_graphSize;
 static _Alignas(16) uint8_t s_crafted[16384];
 static _Alignas(8) uint8_t s_binding[1024];
 static maniGraphNodeSource s_nodes[1];
+static maniLearnedModel s_learned;
 
 // Two sets of a spring from the spine to the arm, of two stiffnesses.
 static void OpenSets(void)
@@ -230,6 +231,37 @@ static void TestBind(void)
     CHECK(maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, NULL) ==
               mani_errorInvalid,
           "no sets");
+    // With a database and a model slot bound, the set's slot after them.
+    MakeNetworks();
+    maniLearnedModelSource model = Source();
+    CHECK(Opened(&model, &s_learned), "a model");
+    const maniGraphModelSource modelSlot[1] = {{&s_learned, "steps", 5, 0}};
+    source.databases = kDatabaseSlot;
+    source.databaseCount = 1;
+    source.models = modelSlot;
+    source.modelCount = 1;
+    CHECK(BuildGraph(&source).result == mani_success &&
+              maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success,
+          "a graph of a database, a model and a set");
+    const maniMotionDatabase* databases[1] = {&s_database};
+    const maniLearnedModel* models[1] = {&s_learned};
+    assets = (maniGraphAssets){.skeleton = &s_skeleton,
+                               .clips = clips,
+                               .databases = databases,
+                               .models = models,
+                               .springSets = sets,
+                               .clipCount = CLIPS,
+                               .databaseCount = 1,
+                               .modelCount = 1,
+                               .springSetCount = 2};
+    CHECK(maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, &unbound) ==
+                  mani_errorInvalid &&
+              unbound == CLIPS + 2,
+          "after the database and model slots");
+    source = Graph(slots, 1);
+    CHECK(BuildGraph(&source).result == mani_success &&
+              maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success,
+          "the graph of a set again");
     size_t size = maniGraphBindingSize(&g);
     source = Graph(NULL, 0);
     CHECK(BuildGraph(&source).result == mani_success &&
@@ -306,11 +338,17 @@ static void TestSubgraph(void)
               maniGraphSpringSetCount(&g) == 1 &&
               maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set),
           "the root's slots kept through inlining");
+    // The root's and the subgraph's lists past the limit together.
+    static maniGraphSpringSetSource s_many[MANI_GRAPH_MAX_SPRING_SETS];
+    inner.springSets = s_many;
+    inner.springSetCount = MANI_GRAPH_MAX_SPRING_SETS;
+    CHECK(RefusedFor(&outer, maniBuildReasonCount, 0, 0), "too many sets with a subgraph's");
 }
 
 int main(void)
 {
     Open();
+    OpenDatabase();
     OpenSets();
     TestBuild();
     TestOpen();

@@ -2383,23 +2383,23 @@ ls-latents | src/learned_restore.c | memcpy(t->latents, p->latents, sizeof(float
 gm-check-null | src/graph_check.c | if (m == NULL || maniLearnedModelSkeletonIdentity(m) != skeleton) | if (m == NULL)
 gm-check-dup | src/graph_check.c | if (maniLearnedModelIdentity(source->models[k].model) == maniLearnedModelIdentity(m)) | if (false)
 gm-check-count | src/graph_check.c | source->modelCount <= MANI_GRAPH_MAX_MODELS && | source->modelCount <= MANI_GRAPH_MAX_MODELS + 1 &&
-gm-check-list | src/graph_check.c | (source->modelCount == 0 || source->models != NULL); | true;
-gm-names | src/graph_check.c | for (uint32_t list = kParameters; list <= kModels && r.result == mani_success; ++list) | for (uint32_t list = kParameters; list <= kDatabases && r.result == mani_success; ++list)
-gm-build-id | src/graph_build.c | maniStoreU64(e, maniLearnedModelIdentity(m->model)); | maniStoreU64(e, 0);
+gm-check-list | src/graph_check.c | (source->modelCount == 0 || source->models != NULL) && | true &&
+gm-names | src/graph_check.c | for (uint32_t list = kParameters; list <= kSpringSets && r.result == mani_success; ++list) | for (uint32_t list = kParameters; list <= kDatabases && r.result == mani_success; ++list)
+gm-build-id | src/graph_build.c | maniLearnedModelIdentity(m->model), m->name, m->nameLength); | 0, m->name, m->nameLength);
 gm-build-size | src/graph_build.c | lay->sizes[11] = (uint64_t)source->modelCount * MANI_GRAPH_MODEL_SIZE; | lay->sizes[11] = 0;
-gm-header | src/graph_build.c | source->modelCount}; | 0};
-gm-open-max | src/graph.c | MANI_GRAPH_MAX_MODELS}; | UINT32_MAX};
+gm-header | src/graph_build.c | source->modelCount, | 0,
+gm-open-max | src/graph.c | MANI_GRAPH_MAX_MODELS, | UINT32_MAX,
 gm-open-size | src/graph.c | uint32_t section = k < 9 ? k + 1 : k + 2; | uint32_t section = k + 1;
-gm-open-name | src/graph.c | r = r.result == mani_success ? CheckModels(&g, s.at[11]) : r; | (void)CheckModels;
+gm-open-name | src/graph.c | ? CheckSlotNames(&g, g.models, g.modelCount, MANI_GRAPH_MODEL_SIZE, s.at[11]) | ? kOk
 gm-accessor | src/graph.c | return maniLoadU64(graph->models + (size_t)model * MANI_GRAPH_MODEL_SIZE); | return maniLoadU64(graph->models);
-gm-bind-size | src/graph_bind.c | (size_t)graph->modelCount * sizeof(const maniLearnedModel*); | 0;
-gm-bind-skeleton | src/graph_bind.c | maniLearnedModelSkeletonIdentity(m) == graph->skeletonIdentity; | true;
+gm-bind-size | src/graph_bind.c | (size_t)graph->modelCount * sizeof(const maniLearnedModel*) + | 0 +
+gm-bind-skeleton | src/graph_bind.c | if (maniLearnedModelSkeletonIdentity(m) != graph->skeletonIdentity) | if (false)
 gm-bind-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + graph->databaseCount + s; | *unboundOut = graph->clipCount + s;
 gm-bind-list | src/graph_bind.c | (a->models != NULL || a->modelCount == 0) && | true &&
-gm-bind-models | src/graph_bind.c | !BindModels(binding, assets, unboundOut) || !RootMotionBone(binding)) | !RootMotionBone(binding))
+gm-bind-models | src/graph_bind.c | !BindModels(binding, assets, unboundOut) || !BindSpringSets(binding, assets, unboundOut) || | !BindSpringSets(binding, assets, unboundOut) ||
 gm-json-write | src/graph_json.c | if (source->modelCount > 0) | if (source->modelCount > 1)
-gm-json-unbound | src/graph_json_graph.c | uint32_t host = maniGraphJsonLookup(&r->hostModelNames, m[i].name, m[i].nameLength); | uint32_t host = 0;
-gm-json-list | src/graph_json_graph.c | (a->models == NULL && a->modelCount > 0)) | false)
+gm-json-unbound | src/graph_json_graph.c | uint32_t found = maniGraphJsonLookup(hostNames, list.names[i], list.lengths[i]); | uint32_t found = 0;
+gm-json-list | src/graph_json_graph.c | (a->models == NULL && a->modelCount > 0) || | false ||
 gm-host-null | src/graph_json_read.c | lengths[i] = names[i] != NULL ? lengths[i] : 0u; | (void)0;
 
 # Spring sets, built and opened (mani-0026).
@@ -2606,3 +2606,27 @@ sp-clock-low | src/spring_step.c | clock = clock > 0.0 ? clock : 0.0; | clock = 
 ap-extrapolate | src/spring_apply.c | maniSpringVec(block, at + maniSpringTailNow), 1.0f + alpha); | maniSpringVec(block, at + maniSpringTailNow), alpha);
 ss-clock-neg | src/spring_state.c | if (!(clock >= 0.0 && clock < 1.0 / (double)set->stepRate)) | if (!(clock < 1.0 / (double)set->stepRate))
 ss-clock-step | src/spring_state.c | if (!(clock >= 0.0 && clock < 1.0 / (double)set->stepRate)) | if (!(clock >= 0.0))
+
+# Spring set slots in graphs (mani-0026).
+gs-check-null | src/graph_check.c | if (p == NULL || maniSpringSetSkeletonIdentity(p) != skeleton) | if (p == NULL)
+gs-check-dup | src/graph_check.c | if (maniSpringSetIdentity(source->springSets[k].set) == maniSpringSetIdentity(p)) | if (false)
+gs-check-count | src/graph_check.c | source->springSetCount <= MANI_GRAPH_MAX_SPRING_SETS && | source->springSetCount <= MANI_GRAPH_MAX_SPRING_SETS + 1 &&
+gs-check-list | src/graph_check.c | (source->springSetCount == 0 || source->springSets != NULL); | true;
+gs-names | src/graph_check.c | for (uint32_t list = kParameters; list <= kSpringSets && r.result == mani_success; ++list) | for (uint32_t list = kParameters; list <= kModels && r.result == mani_success; ++list)
+gs-build-size | src/graph_build.c | lay->sizes[12] = (uint64_t)source->springSetCount * MANI_GRAPH_SPRING_SET_SIZE; | lay->sizes[12] = 0;
+gs-build-id | src/graph_build.c | maniSpringSetIdentity(p->set), p->name, p->nameLength); | 0, p->name, p->nameLength);
+gs-header | src/graph_build.c | source->springSetCount}; | 0};
+gs-open-max | src/graph.c | MANI_GRAPH_MAX_SPRING_SETS, | UINT32_MAX,
+gs-open-zero | src/graph.c | const uint32_t lows[14] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0}; | const uint32_t lows[14] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+gs-open-size | src/graph.c | (uint64_t)g->springSetCount * MANI_GRAPH_SPRING_SET_SIZE, | 0,
+gs-open-name | src/graph.c | MANI_GRAPH_SPRING_SET_SIZE, s.at[12]) | MANI_GRAPH_SPRING_SET_SIZE, s.at[11])
+gs-accessor | src/graph.c | return maniLoadU64(graph->springSets + (size_t)slot * MANI_GRAPH_SPRING_SET_SIZE); | return maniLoadU64(graph->springSets);
+gs-bind-size | src/graph_bind.c | (size_t)graph->springSetCount * sizeof(const maniSpringSet*); | 0;
+gs-bind-skeleton | src/graph_bind.c | maniSpringSetSkeletonIdentity(p) == graph->skeletonIdentity; | true;
+gs-bind-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + graph->databaseCount + graph->modelCount + s; | *unboundOut = graph->clipCount + s;
+gs-bind-list | src/graph_bind.c | (a->springSets != NULL || a->springSetCount == 0) && | true &&
+gs-bind-sets | src/graph_bind.c | !BindModels(binding, assets, unboundOut) || !BindSpringSets(binding, assets, unboundOut) || | !BindModels(binding, assets, unboundOut) ||
+gs-json-write | src/graph_json.c | if (source->springSetCount > 0) | if (source->springSetCount > 1)
+gs-json-list | src/graph_json_graph.c | (a->springSets == NULL && a->springSetCount > 0)) | false)
+gs-inline-copy | src/graph_inline.c | f->springSets[f->springSetCount++] = source->springSets[k]; | (void)k;
+gs-inline-fit | src/graph_inline.c | t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS; | t->models <= MANI_GRAPH_MAX_MODELS;
