@@ -2210,8 +2210,8 @@ td-same | src/train_data.c | bool same = scale.x == first[0] && scale.y == first
 td-pairs | src/train_data.c | for (uint32_t k = 0; k + 1 < entry.frameCount; ++k) | for (uint32_t k = 0; k < entry.frameCount; ++k)
 td-root-spin | src/train_data.c | Put3(rest + 3, Rate(maniQuatToRotationVector(behind.rotation), | Put3(rest + 3, Rate(maniQuatToRotationVector(ahead.rotation),
 dc-batch | src/train_decompress.c | s->batchPairs % MANI_TRAIN_PAIRS != 0 || d->pairCount == 0) | d->pairCount == 0)
-dc-variance | src/train_decompress.c | double variance = squares / frames - mean * mean; | double variance = squares / frames;
-dc-group-one | src/train_decompress.c | scales[j] = deviation > 0.0f ? deviation : 1.0f; | scales[j] = deviation;
+dc-variance | src/train_data.c | double variance = squares / frames - mean * mean; | double variance = squares / frames;
+dc-group-one | src/train_data.c | scales[j] = deviation > 0.0f ? deviation : 1.0f; | scales[j] = deviation;
 dc-latent-norm | src/train_decompress.c | x[i] = (row[i] - t->inputOffsets[i]) / t->inputScales[i]; | x[i] = row[i];
 dl-position | src/train_decompress_loss.c | return j % 9 < 3 ? 75.0f / (frames * 3.0f * (float)bones) | return j % 9 < 3 ? 70.0f / (frames * 3.0f * (float)bones)
 dl-scale | src/train_decompress_loss.c | return 10.0f / (frames * 3.0f * (float)d->scaledBoneCount); | return 1.0f / (frames * 3.0f * (float)d->scaledBoneCount);

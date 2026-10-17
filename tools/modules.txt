@@ -54,6 +54,9 @@ train_kinematics: train_data
 train_stage: train_data train_net
 train_decompress: allocator train_adam train_data train_decompress_loss train_kinematics train_net train_random train_stage train_tasks
 train_decompress_loss: train_data train_kinematics train_net train_stage
+train_solo: allocator train_adam train_net train_random train_tasks
+train_stepper: allocator train_data train_net train_random train_solo train_tasks
+train_projector: allocator match_search train_data train_net train_random train_solo train_tasks
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:

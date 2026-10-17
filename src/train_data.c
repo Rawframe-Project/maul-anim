@@ -18,6 +18,7 @@
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -377,4 +378,39 @@ bool maniTrainDataBuild(const maniAllocator* allocator, const maniTrainDataSourc
     }
     *dataOut = d;
     return true;
+}
+
+void maniTrainMeasure(const float* rows, uint32_t width, uint32_t frames, uint32_t first,
+                      uint32_t count, float* offsets, float* scales, bool group)
+{
+    double all = 0.0;
+    double allSquares = 0.0;
+    for (uint32_t j = first; j < first + count; ++j)
+    {
+        double sum = 0.0;
+        double squares = 0.0;
+        for (uint32_t f = 0; f < frames; ++f)
+        {
+            double x = (double)rows[(size_t)f * width + j];
+            sum += x;
+            squares += x * x;
+        }
+        double mean = sum / frames;
+        double variance = squares / frames - mean * mean;
+        offsets[j] = (float)mean;
+        scales[j] = (float)sqrt(variance > 0.0 ? variance : 0.0);
+        all += sum;
+        allSquares += squares;
+    }
+    if (group && count > 0)
+    {
+        double n = (double)frames * count;
+        double mean = all / n;
+        double variance = allSquares / n - mean * mean;
+        float deviation = (float)sqrt(variance > 0.0 ? variance : 0.0);
+        for (uint32_t j = first; j < first + count; ++j)
+        {
+            scales[j] = deviation > 0.0f ? deviation : 1.0f;
+        }
+    }
 }

@@ -97,4 +97,11 @@ bool maniTrainDataBuild(const maniAllocator* allocator, const maniTrainDataSourc
 // Releases what maniTrainDataBuild allocated.
 void maniTrainDataRelease(const maniAllocator* allocator, maniTrainData* data);
 
+// Values first to first + count of rows (frames rows of width values):
+// each value's mean and deviation over the rows (population, in
+// binary64) into offsets and scales; with group, every scale is instead
+// the deviation over all those values together, 1 where it is 0.
+void maniTrainMeasure(const float* rows, uint32_t width, uint32_t frames, uint32_t first,
+                      uint32_t count, float* offsets, float* scales, bool group);
+
 #endif // MAUL_ANIM_SRC_TRAIN_DATA_H

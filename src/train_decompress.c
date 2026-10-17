@@ -17,7 +17,6 @@
 
 #include "maul-anim/base.h"
 
-#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -134,52 +133,15 @@ void maniTrainDecompressRelease(const maniAllocator* allocator, maniTrainDecompr
     *t = (maniTrainDecompress){0};
 }
 
-// Per value: the mean and the deviation over the frames (population),
-// in binary64; a group's deviation over all its values.
-static void Measure(const float* rows, uint32_t width, uint32_t frames, uint32_t first,
-                    uint32_t count, float* offsets, float* scales, bool group)
-{
-    double all = 0.0;
-    double allSquares = 0.0;
-    for (uint32_t j = first; j < first + count; ++j)
-    {
-        double sum = 0.0;
-        double squares = 0.0;
-        for (uint32_t f = 0; f < frames; ++f)
-        {
-            double x = (double)rows[(size_t)f * width + j];
-            sum += x;
-            squares += x * x;
-        }
-        double mean = sum / frames;
-        double variance = squares / frames - mean * mean;
-        offsets[j] = (float)mean;
-        scales[j] = (float)sqrt(variance > 0.0 ? variance : 0.0);
-        all += sum;
-        allSquares += squares;
-    }
-    if (group && count > 0)
-    {
-        double n = (double)frames * count;
-        double mean = all / n;
-        double variance = allSquares / n - mean * mean;
-        float deviation = (float)sqrt(variance > 0.0 ? variance : 0.0);
-        for (uint32_t j = first; j < first + count; ++j)
-        {
-            scales[j] = deviation > 0.0f ? deviation : 1.0f;
-        }
-    }
-}
-
 static void Normalize(maniTrainDecompress* t, const maniTrainData* d)
 {
-    Measure(d->outputs, d->outputCount, d->frameCount, 0, d->outputCount, t->outputOffsets,
-            t->outputScales, false);
+    maniTrainMeasure(d->outputs, d->outputCount, d->frameCount, 0, d->outputCount, t->outputOffsets,
+                     t->outputScales, false);
     for (uint32_t g = 0; g < maniTrainGroupCount; ++g)
     {
         uint32_t first = d->groupStarts[g];
-        Measure(d->inputs, d->inputCount, d->frameCount, first, d->groupStarts[g + 1] - first,
-                t->inputOffsets, t->inputScales, true);
+        maniTrainMeasure(d->inputs, d->inputCount, d->frameCount, first,
+                         d->groupStarts[g + 1] - first, t->inputOffsets, t->inputScales, true);
     }
 }
 
