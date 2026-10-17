@@ -399,7 +399,11 @@ void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, const maniPo
         StorePlace(block, maniSpringStepPlacement, s.place);
         ++steps;
     }
+    // Rounding can leave the time a hair outside a step: below it, the
+    // next step comes on time; at it, just short of it, so it comes at
+    // the next call.
     clock = clock + e - (double)steps * seconds;
-    SetClock(block, clock >= 0.0 && clock < seconds ? clock : 0.0);
+    clock = clock > 0.0 ? clock : 0.0;
+    SetClock(block, clock < seconds ? clock : seconds * (1.0 - 0x1p-52));
     KeepInputs(set, block, pose, now);
 }

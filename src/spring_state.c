@@ -232,7 +232,8 @@ static uint64_t Moving(const maniSpringSet* set, const uint8_t* bytes)
     uint64_t bits = maniLoadU64(bytes + 4 * maniSpringClock);
     double clock = 0.0;
     memcpy(&clock, &bits, sizeof clock);
-    if (!(isfinite(clock) && clock >= 0.0 && clock * (double)set->stepRate < 1.0))
+    // As the steps keep it (NaN and the infinities fail one or the other).
+    if (!(clock >= 0.0 && clock < 1.0 / (double)set->stepRate))
     {
         return maniSpringClock;
     }

@@ -68,9 +68,14 @@ host splits time.
   as the last step placed it, carried into each step's placement, so
   the character's motion in the world sways them. The first step
   places every tail where the pose puts it.
-- **Output:** `maniApplySprings` turns each joint toward the tails
-  between the last two steps at the time short of a step (a step
-  behind, smooth at any host rate): its local rotation by `P* q P`, q
+- **Output:** `maniApplySprings` turns each joint toward the last
+  step's tails moved on at their velocity for the time since that step:
+  the last step's own at a host rate the step rate divides (no lag
+  behind the steps), continuous to the second difference across a step
+  at faster hosts, the tails going on with heads that the pose moved
+  (interpolating between the last two steps, Fiedler's render, lagged a
+  step and pointed tails behind moving heads). Its local rotation turns
+  by `P* q P`, q
   the model-space turn and P its parent's model rotation as the chain
   has turned it, mirrored (`D q D`, D the scale's signs) under a parent
   whose model scale is a mirror. A mirrored head mirrors its limit's
@@ -85,8 +90,9 @@ host splits time.
 
 A set's motion is decided once at build from its source and rates, and
 plays the same on hosts of any frame rate; content tuned at another
-rate than 60 Hz says so in its reference rate. Output lags the
-simulation by up to a step, the cost of smooth motion at any host rate.
+rate than 60 Hz says so in its reference rate. Between steps the
+output is a short extrapolation, which may cross a collider or limit by
+up to a step's motion until the next step.
 VRM's push and then length lets a tail pressed on a collider back in by
 a little, as in the reference. A graph node follows in this record as
 it is built.

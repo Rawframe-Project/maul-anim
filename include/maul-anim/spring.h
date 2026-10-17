@@ -173,10 +173,11 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniStepSprings(maniSpringState* state, maniPose* pose,
                                                        const maniTransform* placement, float delta);
 
-    /// Turns each spring joint of a pose toward its tail: the tails
-    /// interpolated between the last two steps at the time short of a
-    /// step, carried into the placement of the last call. Joints with no
-    /// motion yet keep the pose's rotation.
+    /// Turns each spring joint of a pose toward its tail: the last step's
+    /// tails moved on at their velocity for the time since that step (the
+    /// last step's own at a host rate the step rate divides), carried into
+    /// the placement of the last call. Joints with no motion yet keep the
+    /// pose's rotation.
     ///
     /// @param state  A state.
     /// @param pose   The pose the last step took (its model space computed

@@ -2,9 +2,12 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Turning spring joints toward their tails (mani-0026). Each spring's
-// tails are taken between the last two steps, at the time the last call
-// ran past the last step (so the motion is smooth whatever the host's
-// rate, a step behind), and carried into the last call's placement.
+// tails are the last step's moved on at their velocity (the last two
+// steps') for the time the last call ran past it, and carried into the
+// last call's placement: the last step's own at a host rate the step
+// rate divides, so the output does not lag the steps, and continuous
+// to the second difference across a step at faster hosts. Between
+// steps the tails go on with their heads, which the pose has moved.
 // Joints turn from the root of each chain: a joint's turn in model space
 // q, with its parent's model rotation P (turned with the chain), turns
 // its local rotation by P* q P, mirrored when the parent's scale is a
@@ -111,7 +114,7 @@ static void ApplySpring(const Apply* a, uint32_t spring)
         maniVec3 from = maniVec3Normalize(maniVec3Sub(tail, p), kUp);
         uint64_t at = maniSpringJointAt(j);
         maniVec3 sim = Lerp(maniSpringVec(block, at + maniSpringTailBefore),
-                            maniSpringVec(block, at + maniSpringTailNow), alpha);
+                            maniSpringVec(block, at + maniSpringTailNow), 1.0f + alpha);
         sim = center != MANI_NO_BONE
                   ? maniAffineTransformPoint(&space, sim)
                   : maniVec3Add(maniQuatRotate(carry.rotation, sim), carry.translation);
@@ -129,7 +132,7 @@ void maniSpringApplyBlock(const maniSpringSet* set, const maniSkeleton* skeleton
     {
         return;
     }
-    // The clock is below a step, so the fraction below 1.
+    // The clock is below a step, so the fraction at most 1.
     Apply a = {set, skeleton, block, pose,
                (float)(maniSpringClockOf(block) * (double)set->stepRate)};
     for (uint32_t i = 0; i < set->springCount; ++i)
