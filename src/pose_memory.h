@@ -58,4 +58,13 @@ static inline void maniPoseSlotPut(float* slot, uint32_t first, const float* val
 // The model matrices, twelve floats a bone in bone order.
 const float* maniPoseModelData(const maniPose* pose);
 
+// The pose is of a skeleton of this identity and bone count, not a
+// difference (a profile or set built for it names both).
+bool maniPoseOfSkeleton(const maniPose* pose, uint64_t identity, uint32_t boneCount);
+
+// Writes a bone's model matrix; a pass writing every bone's, parents
+// first, then marks the model current.
+void maniPoseStoreModel(maniPose* pose, uint32_t bone, const maniAffine* model);
+void maniPoseMarkModelCurrent(maniPose* pose);
+
 #endif // MAUL_ANIM_SRC_POSE_MEMORY_H

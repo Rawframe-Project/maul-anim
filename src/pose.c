@@ -274,6 +274,22 @@ const float* maniPoseModelData(const maniPose* pose)
     return ConstModels(pose);
 }
 
+bool maniPoseOfSkeleton(const maniPose* pose, uint64_t identity, uint32_t boneCount)
+{
+    return pose != NULL && pose->tag == kPoseTag && pose->identity == identity &&
+           pose->boneCount == boneCount && pose->difference == 0;
+}
+
+void maniPoseStoreModel(maniPose* pose, uint32_t bone, const maniAffine* model)
+{
+    memcpy(Models(pose) + (size_t)bone * kModelFloats, model->m, sizeof model->m);
+}
+
+void maniPoseMarkModelCurrent(maniPose* pose)
+{
+    pose->modelCurrent = 1;
+}
+
 bool maniPoseModelCurrent(const maniPose* pose)
 {
     return pose->modelCurrent != 0;

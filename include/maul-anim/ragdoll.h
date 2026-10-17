@@ -12,6 +12,8 @@
 #define MAUL_ANIM_RAGDOLL_H
 
 #include "maul-anim/base.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -142,6 +144,102 @@ extern "C"
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniRagdollReadBody(const maniRagdoll* ragdoll,
                                                            uint32_t body, maniRagdollBody* bodyOut);
+
+    // A body's place in the world (its frame's origin and rotation) and
+    // its motion there: meters a second and radians a second about the
+    // world's axes.
+    typedef struct maniRagdollBodyState
+    {
+        maniVec3 position;
+        maniQuat rotation;
+        maniVec3 linearVelocity;
+        maniVec3 angularVelocity;
+    } maniRagdollBodyState;
+
+    // A joint's motor target: the joint's frame in the child body turned
+    // in its frame in the parent body, and that turn's angular velocity
+    // about the parent joint frame's axes.
+    typedef struct maniRagdollJointTarget
+    {
+        maniQuat rotation;
+        maniVec3 angularVelocity;
+    } maniRagdollJointTarget;
+
+    /// Places a profile's bodies where a pose puts them: each body's
+    /// frame on its bone's model frame (its scale left out) under the
+    /// character's placement (its scale left out too: a profile is in the
+    /// skeleton's units). With the pose before, its placement and the
+    /// seconds between, each body's velocities are the differences over
+    /// that time, the angular one the shortest turn's; without, they are
+    /// 0. Kinematic bodies and world-space drives take these.
+    ///
+    /// @param ragdoll    An opened profile.
+    /// @param pose       A pose of the profile's skeleton, its model
+    ///                   matrices current.
+    /// @param placement  The character in the world; NULL for the
+    ///                   identity.
+    /// @param previous   The pose a moment before, its model current; NULL
+    ///                   for no velocities.
+    /// @param previousPlacement  Its placement; NULL for the identity.
+    /// @param seconds    The time between the two, above 0 and finite when
+    ///                   previous is given.
+    /// @param bodiesOut  Receives a state per body, in the profile's order.
+    /// @param count      The number of states bodiesOut holds.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// pose of another skeleton, a difference or one whose model is not
+    /// current, a placement not finite, seconds out of range;
+    /// `mani_errorCapacity` when count is under the body count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniRagdollBodiesFromPose(
+        const maniRagdoll* ragdoll, const maniPose* pose, const maniTransform* placement,
+        const maniPose* previous, const maniTransform* previousPlacement, float seconds,
+        maniRagdollBodyState* bodiesOut, uint32_t count);
+
+    /// Works out each joint's motor target from bodies' states: the
+    /// child's joint frame in the parent's, and the child's angular
+    /// velocity less the parent's about the parent joint frame's axes.
+    /// The root's entry is the identity and 0.
+    ///
+    /// @param ragdoll    An opened profile.
+    /// @param bodies     A state per body, in the profile's order.
+    /// @param jointsOut  Receives a target per body.
+    /// @param count      The number of targets jointsOut holds (and of
+    ///                   states bodies holds).
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorCapacity` when count is under the body count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll,
+                                                               const maniRagdollBodyState* bodies,
+                                                               maniRagdollJointTarget* jointsOut,
+                                                               uint32_t count);
+
+    /// Makes a pose from bodies' places: a bone with a body takes its
+    /// model frame from the body's, the body's frame taken off, under
+    /// the placement, and its local scale from the reference; a bone
+    /// without one keeps the reference's local transform below its
+    /// parent. The model matrices are composed. Velocities are not read.
+    ///
+    /// @param ragdoll    An opened profile.
+    /// @param skeleton   Its skeleton.
+    /// @param bodies     A state per body, in the profile's order: positions
+    ///                   finite, rotations of length 1 within a thousandth.
+    /// @param count      The number of states bodies holds.
+    /// @param placement  The character in the world; NULL for the identity.
+    /// @param reference  A pose of the skeleton for the bones without
+    ///                   bodies and the scales; may be poseOut.
+    /// @param poseOut    Receives the pose.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton or pose of another skeleton, a difference, a placement or
+    /// a body's place not finite or a rotation not of length 1;
+    /// `mani_errorCapacity` when count is under the body count.
+    /// @par Thread safety
+    /// Safe from any thread; the poses are used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniRagdollPoseFromBodies(
+        const maniRagdoll* ragdoll, const maniSkeleton* skeleton,
+        const maniRagdollBodyState* bodies, uint32_t count, const maniTransform* placement,
+        const maniPose* reference, maniPose* poseOut);
 
 #ifdef __cplusplus
 }

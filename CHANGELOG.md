@@ -193,6 +193,13 @@ format.
   worked out from the rest pose, and the root body's facing and up
   axes; `maniOpenRagdoll` opens one in place with every record checked
   and `maniRagdollReadBody` reads its bodies by bone.
+- Ragdoll bodies and poses (mani-0027): `maniRagdollBodiesFromPose`
+  places a profile's bodies where a pose puts them under the
+  character's placement, with velocities from the pose before;
+  `maniRagdollJointTargets` gives each joint's motor target (rotation
+  and angular velocity in the parent's joint frame);
+  `maniRagdollPoseFromBodies` makes a pose from the bodies' places, the
+  bones without bodies keeping a reference pose's locals.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the

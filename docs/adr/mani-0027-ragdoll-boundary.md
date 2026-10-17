@@ -36,9 +36,28 @@ drives with stiffness, damping and a largest force.
   half angles in [0, π]; a drive's stiffness, damping and largest
   torque (all 0 for none). The root body's facing and up axes in its
   frame, unit and perpendicular, are kept for getting up.
-- **Targets, velocities and poses from bodies, pose inputs in graphs,
-  getting up and the OMI importer** follow in the order given; each
-  part is added to this record as it lands.
+- **Bodies from poses:** each body's frame in the world is its bone's
+  model frame (the pose's model matrix, its scale left out) under the
+  placement's translation and rotation (its scale left out too: a
+  profile is in the skeleton's units), then the body's frame. With the
+  pose before, its placement and the seconds between, a body's linear
+  velocity is the difference of its positions over the time and its
+  angular velocity the rotation vector of the shortest turn between
+  its rotations over the time, as Jolt's kinematic drive and
+  world-space drives take them.
+- **Joint targets:** per joint, the child's joint frame turned in the
+  parent's (w kept at least 0) and the child's angular velocity less
+  the parent's about the parent joint frame's axes: the local motor
+  targets of Jolt's swing-twist constraint and Unreal's local mode.
+- **Poses from bodies:** bones in order; a bone with a body takes the
+  model frame the body's place gives with the body's frame taken off,
+  its local translation through the parent's model matrix inverted,
+  its local rotation through the parent's rotation, its scale from a
+  reference pose; a bone without one keeps the reference's local (no
+  reorienting of chains between bodies). The model matrices are made
+  in the same pass as `maniComputeModel` makes them.
+- **Pose inputs in graphs, getting up and the OMI importer** follow;
+  each part is added to this record as it lands.
 - **Not here:** the solver, collision, creating and stepping the bodies
   (the host's engine); shapes other than the three primitives (a host
   attaches its own); inertia tensors (each engine derives them from
@@ -52,7 +71,13 @@ so one skeleton serves both sides without a mapper. A profile is tied
 to its skeleton by identity and its joints to the rest pose: a
 skeleton with another rest pose needs its profile built again.
 
+Under a parent with a scale not the same on every axis, a bone's model
+frame from a body is met as nearly as a translation, rotation and
+scale can (the shear is the parent's).
+
 Opening is fuzzed; every check is tested against a file changed at its
 byte; the builder's refusals are tested with their reasons; each
 joint's two frames are tested to meet in the rest pose under turned
-and scaled bones.
+and scaled bones. Bodies placed from a bent pose under a turned
+placement make the pose back within float rounding; velocities, joint
+targets at rest and bent, and every refusal are tested.

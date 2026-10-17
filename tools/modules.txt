@@ -55,6 +55,7 @@ spring_build: allocator builder bytes container scalar spring_file spring_frame 
 spring_frame: vecmath
 ragdoll_file:
 ragdoll: bytes container ragdoll_file text
+ragdoll_pose: bytes decompose pose_memory ragdoll_file vecmath
 ragdoll_build: allocator builder bytes container decompose ragdoll_file text vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
