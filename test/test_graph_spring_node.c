@@ -486,6 +486,11 @@ static void TestSubgraph(void)
               maniGraphSpringSetCount(&g) == 1 &&
               maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set),
           "the subgraph's set slot carried");
+    // A slot without its set under two spring nodes: one slot, refused.
+    static const maniGraphSpringSetSource kNone[1] = {{NULL, "none", 4, 0}};
+    s_nodes[2] = (maniGraphNodeSource){maniGraphNodeSpring, 1, kSecond, .spring = kSpring};
+    inner.springSets = kNone;
+    CHECK(RefusedFor(&outer, maniBuildReasonSpringSetSlot, 0), "a subgraph's slot without its set");
 }
 
 static bool WriteFile(const char* path, const void* data, size_t size)

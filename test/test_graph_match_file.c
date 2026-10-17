@@ -400,6 +400,21 @@ static void TestSubgraph(void)
     maniDestroyBuilder(builder);
     Update(instance, 0.0f);
     CHECK(Playing(instance, &g, 0, 0, 0.0), "the walk");
+    // A slot without its database under two match nodes: one slot,
+    // refused.
+    static const maniGraphDatabaseSource kNone[1] = {{NULL, "none", 4, 0}};
+    static const uint32_t kTwo[2] = {1, 2};
+    static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
+    maniGraphNodeSource two[3] = {
+        {maniGraphNodeBlend, 2, kTwo, .blend = {kHalves, 0, 0}}, MatchNode(1.0f), MatchNode(1.0f)};
+    sub.nodes = two;
+    sub.nodeCount = 3;
+    sub.databases = kNone;
+    builder = NewBuilder();
+    maniBuildResult r = maniBuildGraph(builder, &root);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonDatabase && r.item == 0,
+          "a subgraph's slot without its database");
+    maniDestroyBuilder(builder);
 }
 
 // The subgraph's parameters mapped to the root's in reverse, its

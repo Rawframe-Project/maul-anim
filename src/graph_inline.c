@@ -199,6 +199,10 @@ static uint32_t Resolve(const Scope* s, uint32_t parameter)
     return parameter;
 }
 
+// A subgraph's slot joins the flat slot of its asset's identity, or the
+// first flat slot without an asset if it has none (the checks refuse
+// it): Totals counts a slot once for every subgraph node, so the slots
+// joined never outnumber it.
 static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
 {
     if (s->outer == NULL || slot >= s->graph->clipCount)
@@ -206,10 +210,11 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
         return slot;
     }
     const maniGraphClipSource* c = &s->graph->clips[slot];
-    uint64_t identity = c->clip != NULL ? maniClipIdentity(c->clip) : 0;
     for (uint32_t k = 0; k < f->clipCount; ++k)
     {
-        if (f->clips[k].clip != NULL && maniClipIdentity(f->clips[k].clip) == identity)
+        const maniClip* other = f->clips[k].clip;
+        if (other != NULL && c->clip != NULL ? maniClipIdentity(other) == maniClipIdentity(c->clip)
+                                             : other == c->clip)
         {
             return k;
         }
@@ -225,11 +230,12 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
         return slot;
     }
     const maniGraphDatabaseSource* d = &s->graph->databases[slot];
-    uint64_t identity = maniMotionDatabaseIdentity(d->database);
     for (uint32_t k = 0; k < f->databaseCount; ++k)
     {
-        if (f->databases[k].database != NULL &&
-            maniMotionDatabaseIdentity(f->databases[k].database) == identity)
+        const maniMotionDatabase* other = f->databases[k].database;
+        if (other != NULL && d->database != NULL
+                ? maniMotionDatabaseIdentity(other) == maniMotionDatabaseIdentity(d->database)
+                : other == d->database)
         {
             return k;
         }
@@ -258,10 +264,12 @@ static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
         return slot;
     }
     const maniGraphModelSource* m = &s->graph->models[slot];
-    uint64_t identity = m->model != NULL ? maniLearnedModelIdentity(m->model) : 0;
-    for (uint32_t k = 0; k < f->modelCount && m->model != NULL; ++k)
+    for (uint32_t k = 0; k < f->modelCount; ++k)
     {
-        if (f->models[k].model != NULL && maniLearnedModelIdentity(f->models[k].model) == identity)
+        const maniLearnedModel* other = f->models[k].model;
+        if (other != NULL && m->model != NULL
+                ? maniLearnedModelIdentity(other) == maniLearnedModelIdentity(m->model)
+                : other == m->model)
         {
             return k;
         }
@@ -277,10 +285,12 @@ static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
         return slot;
     }
     const maniGraphSpringSetSource* p = &s->graph->springSets[slot];
-    uint64_t identity = p->set != NULL ? maniSpringSetIdentity(p->set) : 0;
-    for (uint32_t k = 0; k < f->springSetCount && p->set != NULL; ++k)
+    for (uint32_t k = 0; k < f->springSetCount; ++k)
     {
-        if (f->springSets[k].set != NULL && maniSpringSetIdentity(f->springSets[k].set) == identity)
+        const maniSpringSet* other = f->springSets[k].set;
+        if (other != NULL && p->set != NULL
+                ? maniSpringSetIdentity(other) == maniSpringSetIdentity(p->set)
+                : other == p->set)
         {
             return k;
         }

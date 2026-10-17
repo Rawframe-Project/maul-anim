@@ -406,6 +406,19 @@ static void TestSubgraph(void)
     Update(instance, 0.0f);
     CHECK(maniGraphModelCount(&g) == 1 && LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1,
           "one slot for both, played");
+    // A slot without its model under two learned nodes: one slot, refused.
+    static const maniGraphModelSource kNone[1] = {{NULL, "none", 4, 0}};
+    static const uint32_t kTwo[2] = {1, 2};
+    static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
+    maniGraphNodeSource two[3] = {{maniGraphNodeBlend, 2, kTwo, .blend = {kHalves, 0, 0}},
+                                  LearnedNode(0.1f, 0.0f),
+                                  LearnedNode(0.1f, 0.0f)};
+    sub.nodes = two;
+    sub.nodeCount = 3;
+    sub.models = kNone;
+    maniBuildResult r = maniBuildGraph(builder, &root);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonModel && r.item == 0,
+          "a subgraph's slot without its model");
     maniDestroyBuilder(builder);
 }
 

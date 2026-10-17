@@ -562,6 +562,14 @@ static void TestSubgraphs(void)
     outer[1].inputCount = 1;
     outer[1].inputs = kScale;
     CHECK(Refused(source, maniBuildReasonNode, 1, 0), "a subgraph node with inputs");
+    // A slot without its clip under two clip nodes: one slot, refused.
+    static const maniGraphClipSource kNone[1] = {{NULL, "none", 4, 0}};
+    outer[1].inputCount = 0;
+    outer[1].inputs = NULL;
+    inner[2] = ClipNode(0, 1.0f, maniGraphLoopClip);
+    sub.clips = kNone;
+    sub.clipCount = 1;
+    CHECK(Refused(source, maniBuildReasonClip, CLIPS, 0), "a subgraph's slot without its clip");
 }
 
 // A binding's cursors as large as its largest clip's, and its layers as

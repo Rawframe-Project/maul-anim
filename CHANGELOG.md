@@ -40,7 +40,9 @@ format.
   repeat and share one (names matched, a follower placed where the
   leader's names and fraction are); `maniGraphNodeSubgraph` inlines
   another graph source at build, its parameters read through a map,
-  its clips joined by identity and its sync groups by name.
+  its clips joined by identity and its sync groups by name; slots
+  without their asset join one slot, which is refused (they could
+  overrun the flattened lists).
 - Graph text form (mani-0023): `maniWriteGraphJson` writes a graph
   source as JSON once it builds, names in place of indices (bones of
   mask chains included), subgraphs nested, a line per item, numbers as
