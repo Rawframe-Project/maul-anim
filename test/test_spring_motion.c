@@ -123,7 +123,7 @@ static void Reference(uint32_t steps, V tails[2])
 static V SavedTail(const maniSpringState* state, uint32_t joint)
 {
     CHECK(maniSaveSpringState(state, s_saved[0], sizeof s_saved[0]) == mani_success, "saved");
-    const uint8_t* p = s_saved[0] + 24 + 4 * (18 + 17 * (size_t)joint);
+    const uint8_t* p = s_saved[0] + 24 + 4 * (21 + 17 * (size_t)joint);
     float v[3];
     for (int k = 0; k < 3; ++k)
     {
@@ -541,7 +541,7 @@ static void TestApplied(void)
         CHECK(Frame(state, 1.0f / 64.0f, &place), "a frame");
         for (uint32_t j = 0; j < 2; ++j)
         {
-            uint64_t at = 18 + 17 * (uint64_t)j;
+            uint64_t at = 21 + 17 * (uint64_t)j;
             maniVec3 before = {SavedFloat(state, at), SavedFloat(state, at + 1),
                                SavedFloat(state, at + 2)};
             float d = Distance(Position(s_b[j + 1]), before);

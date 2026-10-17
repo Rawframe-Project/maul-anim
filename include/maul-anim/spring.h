@@ -148,12 +148,13 @@ extern "C"
 
     /// Moves a state on by delta seconds (its magnitude, at most
     /// MANI_SPRING_MAX_STEPS steps' seconds) toward a pose: runs the steps
-    /// due at the set's step rate, each with the pose and placement
+    /// due at the set's step rate, each with the pose, placement and force
     /// interpolated between the last call's and these at its time
-    /// (positions linearly, rotations along the shorter arc); time short
-    /// of a step is kept for the next call. Tails move by inertia less
-    /// drag, toward the pose's direction by stiffness and by gravity in
-    /// the world, keep their bone's length, leave colliders (or stay
+    /// (positions and forces linearly, rotations along the shorter arc);
+    /// time short of a step is kept for the next call. Tails move by
+    /// inertia less drag, toward the pose's direction by stiffness and by
+    /// gravity and the external force in the world (mani-0026), keep
+    /// their bone's length, leave colliders (or stay
     /// inside inside ones) and keep within their limits; a spring with a
     /// center bone carries its inertia in the center's space.
     ///
@@ -163,15 +164,19 @@ extern "C"
     /// @param placement  The character's place in the world at the end of
     ///                   delta (translation and rotation; its scale is not
     ///                   read), or NULL for the identity.
+    /// @param force      A force in the world on every joint at the end of
+    ///                   delta (wind), in gravity's units (a length a
+    ///                   second, times the head's scale), or NULL for none.
     /// @param delta      The time in seconds, finite, either sign.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL state or
     /// pose, a pose of another bone count or holding a difference, or a
-    /// delta or placement not finite.
+    /// delta, placement or force not finite.
     /// @par Thread safety
     /// Safe from any thread; the state and pose are used by one thread at
     /// a time.
     MANI_NODISCARD MANI_API maniResult maniStepSprings(maniSpringState* state, maniPose* pose,
-                                                       const maniTransform* placement, float delta);
+                                                       const maniTransform* placement,
+                                                       const maniVec3* force, float delta);
 
     /// Turns each spring joint of a pose toward its tail: the last step's
     /// tails moved on at their velocity for the time since that step (the

@@ -232,10 +232,14 @@ static maniFileResult Joint(const Sections* s, const maniSpringSet* set, uint32_
     {
         return Fail(at + maniSpringJointLimit);
     }
-    uint32_t wrong = FirstNotFinite(e + 16, 12);
-    if (maniLoadU32(e + 12) != 0 || wrong != 0)
+    uint32_t wrong = FirstNotFinite(e + maniSpringJointForcing, 13);
+    if (wrong != 0)
     {
-        return Fail(wrong != 0 ? at + 16 + wrong - 1 : at + 12);
+        return Fail(at + maniSpringJointForcing + wrong - 1);
+    }
+    if (!(LoadF32(e + maniSpringJointForcing) >= 0.0f))
+    {
+        return Fail(at + maniSpringJointForcing);
     }
     float drag = LoadF32(e + maniSpringJointDrag);
     if (!(LoadF32(e + maniSpringJointHitRadius) >= 0.0f))

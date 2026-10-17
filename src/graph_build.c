@@ -469,8 +469,8 @@ static uint32_t PutSpring(const maniGraphSource* source, uint8_t* d, uint32_t at
                           const maniGraphSpringNodeSource* s, Layout* lay)
 {
     uint32_t words = (uint32_t)maniGraphSpringSetWords(source->springSets[s->springSet].set);
-    const uint32_t head[MANI_GRAPH_SPRING_WORDS] = {s->springSet, s->position,  s->rotation,
-                                                    s->reset,     lay->blockAt, words};
+    const uint32_t head[MANI_GRAPH_SPRING_WORDS] = {
+        s->springSet, s->position, s->rotation, s->reset, lay->blockAt, words, s->force};
     lay->blockAt += maniGraphSpringState + words;
     return PutWords(d, at, head, MANI_GRAPH_SPRING_WORDS);
 }

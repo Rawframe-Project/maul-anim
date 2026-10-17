@@ -58,9 +58,13 @@ uint32_t maniGraphSpringValid(const maniGraph* g, uint32_t data, uint32_t block)
         return data + maniGraphSpringBlock;
     }
     uint32_t words = Word(g, data + maniGraphSpringStateWords);
-    return words >= maniSpringJoints && words <= MANI_GRAPH_SPRING_MAX_WORDS
+    if (words < maniSpringJoints || words > MANI_GRAPH_SPRING_MAX_WORDS)
+    {
+        return data + maniGraphSpringStateWords;
+    }
+    return ParameterOf(g, Word(g, data + maniGraphSpringForce), maniGraphParameterVec3)
                ? UINT32_MAX
-               : data + maniGraphSpringStateWords;
+               : data + maniGraphSpringForce;
 }
 
 uint64_t maniGraphSpringSetWords(const maniSpringSet* set)
@@ -124,7 +128,8 @@ uint64_t maniGraphSpringWorkWords(const maniSpringSet* set)
 }
 
 void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton, uint32_t* block,
-                         uint32_t* work, const maniTransform* placement, maniPose* pose)
+                         uint32_t* work, const maniTransform* placement, maniVec3 force,
+                         maniPose* pose)
 {
     if (maniComputeModel(pose, skeleton) != mani_success)
     {
@@ -133,6 +138,6 @@ void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton,
     double pending = Pending(block);
     SetPending(block, 0.0);
     uint32_t* state = block + maniGraphSpringState;
-    maniSpringStepBlock(set, state, work, pose, placement, pending);
+    maniSpringStepBlock(set, state, work, pose, placement, force, pending);
     maniSpringApplyBlock(set, skeleton, state, pose);
 }

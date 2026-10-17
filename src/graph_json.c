@@ -399,9 +399,9 @@ static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphS
     const maniGraphSpringSetSource* set = &source->springSets[s->springSet];
     PutKey(w, "springSet");
     PutString(w, set->name, set->nameLength);
-    const char* const keys[3] = {"position", "rotation", "reset"};
-    const uint32_t parameters[3] = {s->position, s->rotation, s->reset};
-    for (uint32_t k = 0; k < 3; ++k)
+    const char* const keys[4] = {"position", "rotation", "reset", "force"};
+    const uint32_t parameters[4] = {s->position, s->rotation, s->reset, s->force};
+    for (uint32_t k = 0; k < 4; ++k)
     {
         if (parameters[k] != MANI_NO_PARAMETER)
         {

@@ -172,7 +172,8 @@ format.
   spheres and capsules and planes, and its cone, hinge and spherical
   limits), each joint's drag, stiffness and gravity converted from a
   frame of a reference rate (60 Hz by default) to a fixed step;
-  `maniOpenSpringSet` opens one in place with every record checked.
+  `maniOpenSpringSet` opens one in place with every record checked
+  (format 2: each joint keeps the factor a force is converted by).
   `maniColliderSource` gains the plane shape and inside colliders,
   `maniSpringJointSource` the limits, `maniSpringSetSource` the rates.
   `maniGltfReadSprings` reads both extensions (one of another version
@@ -187,13 +188,15 @@ format.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the
-  placement its vec3 and quat parameters give; its reset trigger and a
-  seek above it drop the motion; its state is saved and restored with
+  placement its vec3 and quat parameters give, under the force its
+  third vec3 parameter gives; its reset trigger and a seek above it drop
+  the motion; its state is saved and restored with
   the instance's and checked; the JSON form names it "spring".
 - Spring states (mani-0026): `maniInitSpringState` makes a character's
   spring motion in caller memory; `maniStepSprings` runs the fixed
   steps due toward an animated pose and the character's placement in
-  the world, both interpolated between calls, with colliders, limits
+  the world and an external force there (wind), all interpolated
+  between calls, with colliders, limits
   and center bones (under mirrored bones too); `maniApplySprings`
   turns the joints toward the last step's tails, moved on at their
   velocity between steps; `maniResetSprings`, `maniSaveSpringState`

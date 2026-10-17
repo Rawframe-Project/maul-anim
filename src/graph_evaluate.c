@@ -432,8 +432,15 @@ static void Spring(const Evaluation* e, const uint8_t* record, maniPose* out)
     const maniSpringSet* set =
         maniGraphBoundSpringSet(e->binding, Word(e, data + maniGraphSpringSet));
     maniTransform placement = Placement(e, data);
+    uint32_t force = Word(e, data + maniGraphSpringForce);
+    maniVec3 push = {0.0f, 0.0f, 0.0f};
+    if (force != MANI_NO_PARAMETER)
+    {
+        const float* f = e->instance->cells[force].value.f;
+        push = (maniVec3){f[0], f[1], f[2]};
+    }
     uint32_t* work = (uint32_t*)((uint8_t*)e->instance + e->instance->roomAt);
-    maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, out);
+    maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, push, out);
 }
 
 // A learned node's pose: its model's Decompressor at its state, worked

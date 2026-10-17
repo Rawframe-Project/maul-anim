@@ -1,23 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring bone nodes (mani-0026): over the walk, under a seek, a node of
-// a spring from the spine to the arm gives, frame by frame, the same bits
+// Spring bone nodes (mani-0026): over the walk, under a seek, a node of a
+// spring from the spine to the arm gives, frame by frame, the same bits
 // as the walk alone stepped by a standalone spring state at the same
-// placement; its reset trigger and the seek above it drop the motion as
-// maniResetSprings does; over a blend and under a time scale, with two
-// updates to an evaluation and backward ones, it steps by the scaled
-// times summed and made positive; a rotation restored off unit length is
-// normalized; a saved state restores to the same motion and its spring
-// block is checked; the builder's refusals (slot, parameter types, an
-// input of differences, a set's state past the limit, the input count),
-// opening's checks of its words and flags, its input's, and of blocks
-// past 2^32 words; binding's of the set's state against the node's
-// words, a slot no node uses free of them; the JSON form written and
-// read back; a subgraph's spring nodes, parameters and set slot carried
-// into its graph. Run as test_graph_spring_node --seed <graph file>
-// <json file> it writes the graph's file and text, seeds of the fuzz
-// targets.
+// placement and wind; its reset trigger and the seek above it drop the
+// motion as maniResetSprings does; over a blend and under a time scale,
+// with two updates to an evaluation and backward ones, it steps by the
+// scaled times summed and made positive; a rotation restored off unit
+// length is normalized; a saved state restores to the same motion and its
+// spring block is checked; the builder's refusals (slot, parameter types,
+// an input of differences, a set's state past the limit, the input
+// count), opening's checks of its words and flags, its input's, and of
+// blocks past 2^32 words; binding's of the set's state against the node's
+// words, a slot no node uses free of them; the JSON form written and read
+// back; a subgraph's spring nodes, parameters and set slot carried into
+// its graph. Run as test_graph_spring_node --seed <graph file> <json
+// file> it writes the graph's file and text, seeds of the fuzz targets.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -95,9 +94,9 @@ static void OpenSet(void)
     MakeSet(s_setFiles[1], sizeof s_setFiles[1], 1, &s_other);
 }
 
-// Parameters: a placement's position and rotation, a reset trigger and a
-// seek's.
-static maniGraphParameterSource s_parameters[4];
+// Parameters: a placement's position and rotation, a reset trigger, a
+// seek's, a wind.
+static maniGraphParameterSource s_parameters[5];
 static maniGraphNodeSource s_nodes[3];
 static const uint32_t kFirst[1] = {0};
 static const uint32_t kSecond[1] = {1};
@@ -109,6 +108,7 @@ static void Parameters(void)
     s_parameters[1] = Parameter("turn", maniGraphParameterQuat, identity);
     s_parameters[2] = Parameter("drop", maniGraphParameterTrigger, Int(0));
     s_parameters[3] = Parameter("jump", maniGraphParameterTrigger, Int(0));
+    s_parameters[4] = Parameter("wind", maniGraphParameterVec3, Float(0.0f));
 }
 
 // The walk, a spring node over it, a seek over the spring node.
@@ -122,7 +122,7 @@ static maniGraphSource SpringGraph(maniGraphSpringNodeSource spring)
                              .parameters = s_parameters,
                              .clips = kSlots,
                              .nodes = s_nodes,
-                             .parameterCount = 4,
+                             .parameterCount = 5,
                              .clipCount = 1,
                              .nodeCount = 3,
                              .output = 2,
@@ -130,7 +130,7 @@ static maniGraphSource SpringGraph(maniGraphSpringNodeSource spring)
                              .springSets = kSetSlot};
 }
 
-static const maniGraphSpringNodeSource kSpring = {0, 0, 1, 2};
+static const maniGraphSpringNodeSource kSpring = {0, 0, 1, 2, 4};
 
 static maniBuildResult Build(const maniGraphSource* source, Made* m, size_t* sizeOut)
 {
@@ -215,6 +215,15 @@ static maniTransform Place(Made* m, uint32_t i)
     return t;
 }
 
+// The wind of frame i, set on the graph's parameter.
+static maniVec3 Wind(Made* m, uint32_t i)
+{
+    maniVec3 w = {0.0f, 0.5f * cosf(0.2f * (float)i), 2.0f * sinf(0.3f * (float)i)};
+    maniGraphValue v = {{w.x, w.y, w.z, 0.0f}};
+    CHECK(maniSetGraphParameter(m->live, 4, maniGraphParameterVec3, v) == mani_success, "wind");
+    return w;
+}
+
 static void Fire(Made* m, uint32_t trigger)
 {
     maniGraphValue on = {{0}};
@@ -248,6 +257,7 @@ static void TestSame(void)
     {
         float delta = i % 3 == 0 ? 1.0f / 30.0f : 1.0f / 90.0f;
         maniTransform place = Place(&s_made[0], i);
+        maniVec3 wind = Wind(&s_made[0], i);
         if (i == 40)
         {
             Fire(&s_made[0], 2);
@@ -262,7 +272,7 @@ static void TestSame(void)
         CHECK(Evaluated(&s_made[0], delta, graphPose) && Evaluated(&s_made[1], delta, walk),
               "a frame");
         maniQuat raw = maniPoseLocal(walk, 1).rotation;
-        CHECK(maniStepSprings(state, walk, &place, delta) == mani_success &&
+        CHECK(maniStepSprings(state, walk, &place, &wind, delta) == mani_success &&
                   maniApplySprings(state, walk) == mani_success,
               "stepped");
         maniQuat turned = maniPoseLocal(walk, 1).rotation;
@@ -330,7 +340,7 @@ static void TestTimes(void)
         CHECK(Evaluated(&s_made[0], delta, graphPose) && Evaluated(&s_made[1], delta, blended),
               "a frame");
         float seconds = (float)updates * 0.5f * fabsf(delta);
-        CHECK(maniStepSprings(state, blended, &place, seconds) == mani_success &&
+        CHECK(maniStepSprings(state, blended, &place, NULL, seconds) == mani_success &&
                   maniApplySprings(state, blended) == mani_success,
               "stepped");
         same = same && SameLocals(graphPose, blended);
@@ -379,7 +389,7 @@ static void TestRestoredTurn(void)
     {
         CHECK(Evaluated(&s_made[0], 1.0f / 60.0f, graphPose) &&
                   Evaluated(&s_made[1], 1.0f / 60.0f, walk) &&
-                  maniStepSprings(state, walk, &place, 1.0f / 60.0f) == mani_success &&
+                  maniStepSprings(state, walk, &place, NULL, 1.0f / 60.0f) == mani_success &&
                   maniApplySprings(state, walk) == mani_success,
               "a frame");
         same = same && SameLocals(graphPose, walk);
@@ -458,14 +468,17 @@ static void TestRefusals(void)
     s.springSet = 1;
     maniGraphSource source = SpringGraph(s);
     CHECK(RefusedFor(&source, maniBuildReasonNode, 1), "a slot past the sets");
-    const maniGraphSpringNodeSource wrong[3] = {{0, 2, 1, 2}, {0, 0, 0, 2}, {0, 0, 1, 1}};
-    for (int k = 0; k < 3; ++k)
+    const maniGraphSpringNodeSource wrong[4] = {{0, 2, 1, 2, MANI_NO_PARAMETER},
+                                                {0, 0, 0, 2, MANI_NO_PARAMETER},
+                                                {0, 0, 1, 1, MANI_NO_PARAMETER},
+                                                {0, 0, 1, 2, 1}};
+    for (int k = 0; k < 4; ++k)
     {
         source = SpringGraph(wrong[k]);
         CHECK(RefusedFor(&source, maniBuildReasonNode, 1), "a parameter of another type");
     }
-    source = SpringGraph(
-        (maniGraphSpringNodeSource){0, MANI_NO_PARAMETER, MANI_NO_PARAMETER, MANI_NO_PARAMETER});
+    source = SpringGraph((maniGraphSpringNodeSource){0, MANI_NO_PARAMETER, MANI_NO_PARAMETER,
+                                                     MANI_NO_PARAMETER, MANI_NO_PARAMETER});
     size_t size = 0;
     CHECK(Build(&source, &s_made[0], &size).result == mani_success, "no parameters");
     source = SpringGraph(kSpring);
@@ -536,13 +549,15 @@ static void TestOpen(void)
     uint64_t record = nodes + (uint64_t)SpringAt(&g) * MANI_GRAPH_NODE_SIZE;
     uint64_t words = data + 4 * (uint64_t)maniLoadU32(s_made[0].file + record + 12);
     uint32_t state = maniLoadU32(s_made[0].file + words + 4 * maniGraphSpringStateWords);
-    CHECK(state == 18 + 17 + 10, "the set's state words: a joint and a spring");
+    CHECK(state == 21 + 17 + 10, "the set's state words: a joint and a spring");
     CHECK(RefusedAt(size, words, 1, words) && RefusedAt(size, words + 4, 1, words + 4) &&
               RefusedAt(size, words + 8, 0, words + 8) &&
               RefusedAt(size, words + 12, 0, words + 12) &&
               RefusedAt(size, words + 16, 1, words + 16) &&
               RefusedAt(size, words + 20, 17, words + 20) &&
-              RefusedAt(size, words + 20, MANI_GRAPH_SPRING_MAX_WORDS + 1, words + 20),
+              RefusedAt(size, words + 20, MANI_GRAPH_SPRING_MAX_WORDS + 1, words + 20) &&
+              RefusedAt(size, words + 24, 1, words + 24) &&
+              RefusedAt(size, words + 24, 5, words + 24),
           "the words checked");
     CHECK(RefusedAt(size, record, 1u << 16 | maniGraphNodeSpring, record + 2), "differences");
     // The walk's clip node and slot made differences: the spring node's
@@ -676,9 +691,9 @@ static void TestJson(void)
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
-    CHECK(strstr(s_text,
-                 "{\"kind\": \"spring\", \"inputs\": [0], \"springSet\": \"hair\", "
-                 "\"position\": \"place\", \"rotation\": \"turn\", \"reset\": \"drop\"}") != NULL,
+    CHECK(strstr(s_text, "{\"kind\": \"spring\", \"inputs\": [0], \"springSet\": \"hair\", "
+                         "\"position\": \"place\", \"rotation\": \"turn\", \"reset\": \"drop\", "
+                         "\"force\": \"wind\"}") != NULL,
           "a spring node by its set's and parameters' names");
     maniGraphNamedAssets assets = {.skeleton = &s_skeleton,
                                    .clips = kSlots,
@@ -692,8 +707,8 @@ static void TestJson(void)
               maniOpenGraph(s_made[1].file, size, &read).result == mani_success &&
               read.identity == identity,
           "read back to the same graph");
-    source = SpringGraph(
-        (maniGraphSpringNodeSource){0, MANI_NO_PARAMETER, MANI_NO_PARAMETER, MANI_NO_PARAMETER});
+    source = SpringGraph((maniGraphSpringNodeSource){0, MANI_NO_PARAMETER, MANI_NO_PARAMETER,
+                                                     MANI_NO_PARAMETER, MANI_NO_PARAMETER});
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
@@ -709,18 +724,18 @@ static void TestSubgraph(void)
     // The spring graph as a subgraph of a graph without set slots,
     // mapping its parameters to the outer's, in reverse.
     maniGraphSource inner = SpringGraph(kSpring);
-    static const uint32_t kMap[4] = {3, 2, 1, 0};
-    maniGraphParameterSource outerParameters[4];
-    for (uint32_t k = 0; k < 4; ++k)
+    static const uint32_t kMap[5] = {4, 3, 2, 1, 0};
+    maniGraphParameterSource outerParameters[5];
+    for (uint32_t k = 0; k < 5; ++k)
     {
-        outerParameters[k] = s_parameters[3 - k];
+        outerParameters[k] = s_parameters[4 - k];
     }
     maniGraphNodeSource node = {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                 .subgraph = {&inner, kMap}};
     maniGraphSource outer = {.skeleton = &s_skeleton,
                              .parameters = outerParameters,
                              .nodes = &node,
-                             .parameterCount = 4,
+                             .parameterCount = 5,
                              .nodeCount = 1};
     size_t size = 0;
     maniGraph g;
@@ -730,9 +745,10 @@ static void TestSubgraph(void)
               maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set),
           "the subgraph's set slot carried");
     uint32_t data = maniLoadU32(g.nodes + (size_t)SpringAt(&g) * MANI_GRAPH_NODE_SIZE + 12);
-    CHECK(maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringPosition)) == 3 &&
-              maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringRotation)) == 2 &&
-              maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringReset)) == 1,
+    CHECK(maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringPosition)) == 4 &&
+              maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringRotation)) == 3 &&
+              maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringReset)) == 2 &&
+              maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringForce)) == 0,
           "its parameters the outer's");
     // Two spring nodes over the slot: one slot, the blocks one after the
     // other.

@@ -21,7 +21,8 @@
 // A node's data words (graph_file.h): its spring set slot, its position
 // (a vec3 parameter or MANI_NO_PARAMETER), rotation (a quat parameter
 // or MANI_NO_PARAMETER) and reset trigger (or MANI_NO_PARAMETER), its
-// block's first word, and the words of its set's spring state.
+// block's first word, the words of its set's spring state, and its force
+// (a vec3 parameter or MANI_NO_PARAMETER).
 enum
 {
     maniGraphSpringSet = 0,
@@ -30,6 +31,7 @@ enum
     maniGraphSpringReset = 3,
     maniGraphSpringBlock = 4,
     maniGraphSpringStateWords = 5,
+    maniGraphSpringForce = 6,
 };
 
 // The most words a node's spring state takes (64 MiB): a set past it is
@@ -72,9 +74,11 @@ void maniGraphResetSpring(const maniGraph* g, uint32_t data, uint32_t* block);
 uint64_t maniGraphSpringWorkWords(const maniSpringSet* set);
 
 // Steps the block by the time it keeps toward pose, a pose of the
-// skeleton, at placement (its rotation unit), working in work, and
-// turns the pose's joints toward their tails.
+// skeleton, at placement (its rotation unit) under force (finite, in the
+// world), working in work, and turns the pose's joints toward their
+// tails.
 void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton, uint32_t* block,
-                         uint32_t* work, const maniTransform* placement, maniPose* pose);
+                         uint32_t* work, const maniTransform* placement, maniVec3 force,
+                         maniPose* pose);
 
 #endif // MAUL_ANIM_SRC_GRAPH_SPRING_H

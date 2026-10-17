@@ -326,6 +326,7 @@ static void LayJoint(const maniSpringSetSource* s, const maniSpringJointSource* 
     maniStoreU32(e + maniSpringJointHead, j->bone);
     maniStoreU32(e + maniSpringJointTail, tail);
     maniStoreU32(e + maniSpringJointLimit, j->limit);
+    StoreF32(e + maniSpringJointForcing, (float)forcing);
     StoreF32(e + maniSpringJointHitRadius, j->hitRadius);
     StoreF32(e + maniSpringJointDrag, (float)drag);
     StoreF32(e + maniSpringJointStiffness, (float)((double)j->stiffness * forcing));

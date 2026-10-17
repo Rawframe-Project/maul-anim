@@ -79,7 +79,7 @@ static void TestSaveRestore(void)
     maniSpringState* a = NewState(0);
     maniSpringState* b = NewState(1);
     size_t size = maniSpringSavedSize(&s_set);
-    CHECK(size == 24 + 4 * (18 + 2 * 17 + 10 * 4) && maniSpringSavedSize(NULL) == 0,
+    CHECK(size == 24 + 4 * (21 + 2 * 17 + 10 * 4) && maniSpringSavedSize(NULL) == 0,
           "the saved size");
     CHECK(Frames(a, 1.0f / 50.0f, 30), "frames");
     CHECK(maniSaveSpringState(a, s_saved[0], size - 1) == mani_errorCapacity &&
@@ -93,8 +93,8 @@ static void TestSaveRestore(void)
               memcmp(s_saved[0], other, size) == 0,
           "a restored state moves as the saved one");
     // The header, then the block's words (byte 24 + 4 * word).
-    uint64_t joint1 = 24 + 4 * (18 + 17);
-    uint64_t collider = 24 + 4 * (18 + 2 * 17);
+    uint64_t joint1 = 24 + 4 * (21 + 17);
+    uint64_t collider = 24 + 4 * (21 + 2 * 17);
     uint64_t center = collider + 4 * 30;
     CHECK(RefusedAt(b, 0, 0, 0) && RefusedAt(b, 4, 1, 4) && RefusedAt(b, 8, 1, 8) &&
               RefusedAt(b, 16, (uint32_t)size + 4, 16) && RefusedAt(b, 24, 2, 24) &&
@@ -178,13 +178,13 @@ static void TestRefusals(void)
     state = NewState(0);
     maniTransform bad = {{NAN, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
     maniTransform flat = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}};
-    CHECK(maniStepSprings(NULL, s_pose, NULL, 0.1f) == mani_errorInvalid &&
-              maniStepSprings(state, NULL, NULL, 0.1f) == mani_errorInvalid &&
-              maniStepSprings(state, s_pose, NULL, NAN) == mani_errorInvalid &&
-              maniStepSprings(state, s_pose, NULL, INFINITY) == mani_errorInvalid &&
-              maniStepSprings(state, s_pose, &bad, 0.1f) == mani_errorInvalid &&
-              maniStepSprings(state, s_pose, &flat, 0.1f) == mani_errorInvalid &&
-              maniStepSprings(state, s_lonePose, NULL, 0.1f) == mani_errorInvalid &&
+    CHECK(maniStepSprings(NULL, s_pose, NULL, NULL, 0.1f) == mani_errorInvalid &&
+              maniStepSprings(state, NULL, NULL, NULL, 0.1f) == mani_errorInvalid &&
+              maniStepSprings(state, s_pose, NULL, NULL, NAN) == mani_errorInvalid &&
+              maniStepSprings(state, s_pose, NULL, NULL, INFINITY) == mani_errorInvalid &&
+              maniStepSprings(state, s_pose, &bad, NULL, 0.1f) == mani_errorInvalid &&
+              maniStepSprings(state, s_pose, &flat, NULL, 0.1f) == mani_errorInvalid &&
+              maniStepSprings(state, s_lonePose, NULL, NULL, 0.1f) == mani_errorInvalid &&
               maniApplySprings(NULL, s_pose) == mani_errorInvalid &&
               maniApplySprings(state, NULL) == mani_errorInvalid &&
               maniApplySprings(state, s_lonePose) == mani_errorInvalid,
@@ -193,7 +193,7 @@ static void TestRefusals(void)
     CHECK(maniInitPose(&s_skeleton, s_differenceMemory, sizeof s_differenceMemory, &difference) ==
                   mani_success &&
               maniPoseDifference(&s_skeleton, s_pose, s_pose, difference) == mani_success &&
-              maniStepSprings(state, difference, NULL, 0.1f) == mani_errorInvalid &&
+              maniStepSprings(state, difference, NULL, NULL, 0.1f) == mani_errorInvalid &&
               maniApplySprings(state, difference) == mani_errorInvalid,
           "a difference refused");
     // Applying before any step leaves the pose; a stale model is composed.
@@ -315,10 +315,10 @@ static void TestScaleWords(void)
     maniSpringState* state = NewState(0);
     s_rootLocal.scale = (maniVec3){1.0f, 2.0f, 3.0f};
     CHECK(Frame(state, 1.0f / 60.0f, NULL), "a frame");
-    float z = SavedFloat(state, 18 + 13);
+    float z = SavedFloat(state, 21 + 13);
     s_rootLocal.scale = (maniVec3){1.0f, 3.0f, 2.0f};
     CHECK(Frame(state, 1.0f / 60.0f, NULL), "a frame");
-    float y = SavedFloat(state, 18 + 13);
+    float y = SavedFloat(state, 21 + 13);
     Still();
     CHECK(fabsf(z - 3.0f) < 1e-5f && fabsf(y - 3.0f) < 1e-5f, "the largest scale");
 }
@@ -359,7 +359,7 @@ static void TestKeptInputs(void)
     b1.rotation = (maniQuat){0.0f, sinf(0.3f), 0.0f, cosf(0.3f)};
     b1.scale = (maniVec3){1.0f, 1.5f, 1.0f};
     maniPoseSetLocal(s_pose, s_b[1], b1);
-    CHECK(maniStepSprings(state, s_pose, NULL, 1.0f / 60.0f) == mani_success, "stepped");
+    CHECK(maniStepSprings(state, s_pose, NULL, NULL, 1.0f / 60.0f) == mani_success, "stepped");
     const uint32_t* block = maniSpringConstBlock(state);
     bool same = true;
     for (uint32_t j = 0; j < s_set.jointCount; ++j)

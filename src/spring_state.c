@@ -89,21 +89,27 @@ static bool ModelReady(const maniSpringState* state, maniPose* pose)
 }
 
 maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTransform* placement,
-                           float delta)
+                           const maniVec3* force, float delta)
 {
     maniTransform place = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
+    maniVec3 push = {0.0f, 0.0f, 0.0f};
     if (placement != NULL)
     {
         place = *placement;
     }
+    if (force != NULL)
+    {
+        push = *force;
+    }
     if (state == NULL || pose == NULL || !isfinite(delta) || !PlacementValid(&place) ||
-        !ModelReady(state, pose))
+        !isfinite(push.x) || !isfinite(push.y) || !isfinite(push.z) || !ModelReady(state, pose))
     {
         return mani_errorInvalid;
     }
     place.rotation = maniQuatNormalize(place.rotation);
     uint32_t* block = maniSpringBlock(state);
-    maniSpringStepBlock(state->set, block, block + state->words, pose, &place, fabs((double)delta));
+    maniSpringStepBlock(state->set, block, block + state->words, pose, &place, push,
+                        fabs((double)delta));
     return mani_success;
 }
 
@@ -246,6 +252,7 @@ static uint64_t Moving(const maniSpringSet* set, const uint8_t* bytes)
     }
     uint64_t wrong = Placed(bytes, maniSpringPlacement, false);
     wrong = wrong != kValid ? wrong : Placed(bytes, maniSpringStepPlacement, false);
+    wrong = wrong != kValid ? wrong : FiniteRun(bytes, maniSpringForce, 3);
     for (uint32_t j = 0; wrong == kValid && j < set->jointCount; ++j)
     {
         wrong = Joint(bytes, maniSpringJointAt(j));

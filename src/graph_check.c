@@ -424,13 +424,13 @@ static maniBuildResult CheckSpring(const maniGraphSource* source, const maniGrap
                                    uint32_t node)
 {
     const maniGraphSpringNodeSource* s = &n->spring;
-    const uint32_t parameters[3] = {s->position, s->rotation, s->reset};
-    const maniGraphParameterType types[3] = {maniGraphParameterVec3, maniGraphParameterQuat,
-                                             maniGraphParameterTrigger};
+    const uint32_t parameters[4] = {s->position, s->rotation, s->reset, s->force};
+    const maniGraphParameterType types[4] = {maniGraphParameterVec3, maniGraphParameterQuat,
+                                             maniGraphParameterTrigger, maniGraphParameterVec3};
     bool ok = s->springSet < source->springSetCount &&
               maniGraphSpringSetWords(source->springSets[s->springSet].set) <=
                   MANI_GRAPH_SPRING_MAX_WORDS;
-    for (uint32_t k = 0; k < 3 && ok; ++k)
+    for (uint32_t k = 0; k < 4 && ok; ++k)
     {
         ok = parameters[k] == MANI_NO_PARAMETER ||
              ParameterOf(source, parameters[k], types[k], types[k]);

@@ -163,9 +163,10 @@ enum
 
 // A spring bone node's data words: its spring set slot, position,
 // rotation and reset parameters (MANI_NO_PARAMETER for none), the first
-// word of its block in an instance's machine state and its set's state
-// words; the words and block are laid out in graph_spring.h.
-#define MANI_GRAPH_SPRING_WORDS 6u
+// word of its block in an instance's machine state, its set's state
+// words and its force parameter (or none); the words and block are laid
+// out in graph_spring.h.
+#define MANI_GRAPH_SPRING_WORDS 7u
 
 // The data words a node of a kind with n inputs holds; 0 for an unknown
 // kind, a state machine and a one-shot, whose words their contents

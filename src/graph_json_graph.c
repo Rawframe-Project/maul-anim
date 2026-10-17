@@ -464,16 +464,16 @@ static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneS
     return maniGraphJsonMembers(r, f[8], kMask, 2, 0u, members + 2) && Mask(r, members, mask);
 }
 
-// A spring node: its set by its slot's name; its position, rotation and
-// reset parameters by name, none when left out.
+// A spring node: its set by its slot's name; its position, rotation,
+// reset and force parameters by name, none when left out.
 static bool Spring(Reader* r, const Scope* scope, const uint32_t* f, maniGraphSpringNodeSource* s)
 {
-    uint32_t* parameters[3] = {&s->position, &s->rotation, &s->reset};
+    uint32_t* parameters[4] = {&s->position, &s->rotation, &s->reset, &s->force};
     if (!maniGraphJsonRefer(r, &scope->springSets, f[2], &s->springSet))
     {
         return false;
     }
-    for (uint32_t k = 0; k < 3; ++k)
+    for (uint32_t k = 0; k < 4; ++k)
     {
         *parameters[k] = MANI_NO_PARAMETER;
         if (f[3 + k] != ABSENT &&
@@ -647,8 +647,8 @@ static const KindForm kForms[] = {
      3u},
     {"spring",
      maniGraphNodeSpring,
-     {"kind", "inputs", "springSet", "position", "rotation", "reset"},
-     6,
+     {"kind", "inputs", "springSet", "position", "rotation", "reset", "force"},
+     7,
      7u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };

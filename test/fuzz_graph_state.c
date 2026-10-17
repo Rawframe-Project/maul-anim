@@ -191,7 +191,7 @@ static bool MakeGraph(maniBuilder* builder)
         {maniGraphNodeLearned, 0, NULL, .learned = learned},
         {maniGraphNodeInertialize, 1, kLearned,
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
-        {maniGraphNodeSpring, 1, kSelect, .spring = {0, 4, 5, 6}},
+        {maniGraphNodeSpring, 1, kSelect, .spring = {0, 4, 5, 6, 4}},
     };
     maniGraphSource source = {.skeleton = &s_skeleton,
                               .parameters = parameters,

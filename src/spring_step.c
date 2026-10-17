@@ -9,7 +9,8 @@
 // joints from the root to the leaves, as VRM orders them:
 //
 //   next = now + (now - before)(1 - drag) + stiffness * the pose's
-//          direction + gravity, both times the head's scale,
+//          direction + gravity + the external force at the joint's
+//          share, all three times the head's scale,
 //
 // then the bone's length, the limit, and for each collider a push and
 // the length and limit again. The joints below a turned joint turn with
@@ -130,7 +131,8 @@ static maniTransform LerpTransform(maniTransform a, maniTransform b, float f)
 
 // What a step reads: the set, the block (last call's inputs), the work
 // area (this call's, and the colliders' shapes at the step), the
-// fraction of the way between them, the placements.
+// fraction of the way between them, the placements, the external force
+// in the world.
 typedef struct Step
 {
     const maniSpringSet* set;
@@ -139,6 +141,7 @@ typedef struct Step
     float fraction;
     Place place;
     Place last;
+    maniVec3 force;
 } Step;
 
 static maniVec3 PosePosition(const maniPose* pose, uint32_t bone)
@@ -289,8 +292,11 @@ static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, c
                       FileFloat(e + maniSpringJointFrame + 12)};
     maniQuat frame =
         maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror));
-    maniVec3 gravity =
-        maniQuatRotate(maniQuatConjugate(s->place.rotation), FileVec(e + maniSpringJointGravity));
+    // Gravity and the external force, both in the world, the force at
+    // the joint's share of a step.
+    maniVec3 world = maniVec3Add(FileVec(e + maniSpringJointGravity),
+                                 maniVec3Scale(s->force, FileFloat(e + maniSpringJointForcing)));
+    maniVec3 gravity = maniQuatRotate(maniQuatConjugate(s->place.rotation), world);
     float drag = FileFloat(e + maniSpringJointDrag);
     float stiffness = FileFloat(e + maniSpringJointStiffness);
     maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f - drag));
@@ -369,8 +375,10 @@ static Place PlaceAt(const uint32_t* block, Place now, float f)
 // This call's inputs kept as the next call's last: the joints' head
 // position, rotation and largest scale and tail position (the work
 // area's first eleven words in the block's order), the bones.
-static void KeepInputs(const maniSpringSet* set, uint32_t* block, const uint32_t* work, Place now)
+static void KeepInputs(const maniSpringSet* set, uint32_t* block, const uint32_t* work, Place now,
+                       maniVec3 force)
 {
+    maniSpringSetVec(block, maniSpringForce, force);
     for (uint32_t j = 0; j < set->jointCount; ++j)
     {
         memcpy(block + maniSpringJointAt(j) + maniSpringHeadPosition,
@@ -383,9 +391,9 @@ static void KeepInputs(const maniSpringSet* set, uint32_t* block, const uint32_t
 
 // The first call: every tail where the pose puts it, at rest.
 static void Begin(const maniSpringSet* set, uint32_t* block, const uint32_t* work,
-                  const maniPose* pose, Place now)
+                  const maniPose* pose, Place now, maniVec3 force)
 {
-    KeepInputs(set, block, work, now);
+    KeepInputs(set, block, work, now, force);
     StorePlace(block, maniSpringStepPlacement, now);
     for (uint32_t i = 0; i < set->springCount; ++i)
     {
@@ -419,13 +427,14 @@ static void SetClock(uint32_t* block, double v)
 }
 
 void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, uint32_t* work,
-                         const maniPose* pose, const maniTransform* placement, double step)
+                         const maniPose* pose, const maniTransform* placement, maniVec3 force,
+                         double step)
 {
     Place now = {placement->translation, placement->rotation};
     ReadInputs(set, work, pose);
     if (block[maniSpringHas] == 0)
     {
-        Begin(set, block, work, pose, now);
+        Begin(set, block, work, pose, now, force);
     }
     double seconds = 1.0 / (double)set->stepRate;
     double most = MANI_SPRING_MAX_STEPS * seconds;
@@ -436,8 +445,13 @@ void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, uint32_t* wo
          t = (double)(steps + 1) * seconds - clock)
     {
         float f = e > 0.0 ? (float)(t / e) : 1.0f;
-        Step s = {
-            set, block, work, f, PlaceAt(block, now, f), LoadPlace(block, maniSpringStepPlacement)};
+        Step s = {set,
+                  block,
+                  work,
+                  f,
+                  PlaceAt(block, now, f),
+                  LoadPlace(block, maniSpringStepPlacement),
+                  Lerp(maniSpringVec(block, maniSpringForce), force, f)};
         Shapes(&s);
         for (uint32_t i = 0; i < set->springCount; ++i)
         {
@@ -452,5 +466,5 @@ void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, uint32_t* wo
     clock = clock + e - (double)steps * seconds;
     clock = clock > 0.0 ? clock : 0.0;
     SetClock(block, clock < seconds ? clock : seconds * (1.0 - 0x1p-52));
-    KeepInputs(set, block, work, now);
+    KeepInputs(set, block, work, now, force);
 }

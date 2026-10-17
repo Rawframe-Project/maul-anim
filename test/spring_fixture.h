@@ -185,12 +185,16 @@ static maniTransform s_rootLocal = {
     {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
 static maniVec3 s_b0Scale = {1.0f, 1.0f, 1.0f};
 static maniQuat s_b1Rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+// The external force each frame takes when s_forced.
+static maniVec3 s_force = {0.0f, 0.0f, 0.0f};
+static bool s_forced = false;
 
 static inline void Still(void)
 {
     s_rootLocal = (maniTransform){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
     s_b0Scale = (maniVec3){1.0f, 1.0f, 1.0f};
     s_b1Rotation = (maniQuat){0.0f, 0.0f, 0.0f, 1.0f};
+    s_forced = false;
 }
 
 // One host frame: the pose at rest with its root at s_rootLocal, b0's
@@ -206,7 +210,8 @@ static inline bool Frame(maniSpringState* state, float delta, const maniTransfor
     maniTransform b1 = maniPoseLocal(s_pose, s_b[1]);
     b1.rotation = s_b1Rotation;
     maniPoseSetLocal(s_pose, s_b[1], b1);
-    ok = ok && maniStepSprings(state, s_pose, placement, delta) == mani_success;
+    ok = ok && maniStepSprings(state, s_pose, placement, s_forced ? &s_force : NULL, delta) ==
+                   mani_success;
     ok = ok && maniApplySprings(state, s_pose) == mani_success;
     return ok && maniComputeModel(s_pose, &s_skeleton) == mani_success;
 }

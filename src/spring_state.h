@@ -12,7 +12,8 @@
 //    2  the time since the last step, binary64 (two words), in [0, step)
 //    4  the last call's placement: position (3), rotation (4)
 //   11  the last step's placement: position (3), rotation (4)
-//   18  per joint MANI_SPRING_JOINT_WORDS: the tail now (3) and a step
+//   18  the last call's external force, in the world (3)
+//   21  per joint MANI_SPRING_JOINT_WORDS: the tail now (3) and a step
 //       before (3); the last call's inputs: the head's position (3),
 //       rotation (4) and largest absolute scale (1), the tail's position
 //       (3), in model space
@@ -51,7 +52,8 @@ enum
     maniSpringClock = 2,
     maniSpringPlacement = 4,
     maniSpringStepPlacement = 11,
-    maniSpringJoints = 18,
+    maniSpringForce = 18,
+    maniSpringJoints = 21,
 };
 
 // Joint word offsets.
@@ -218,9 +220,11 @@ uint64_t maniSpringBlockValid(const maniSpringSet* set, const uint8_t* bytes);
 
 // Moves a block on by step seconds (at most MANI_SPRING_MAX_STEPS
 // steps'), toward a pose whose model space is current, at a placement
-// whose rotation is unit, working in work (maniSpringWorkWords words).
+// whose rotation is unit, with a finite external force in the world,
+// working in work (maniSpringWorkWords words).
 void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, uint32_t* work,
-                         const maniPose* pose, const maniTransform* placement, double step);
+                         const maniPose* pose, const maniTransform* placement, maniVec3 force,
+                         double step);
 
 // Turns a pose's spring joints toward the block's tails; a pose of the
 // skeleton whose model space is current, left stale.

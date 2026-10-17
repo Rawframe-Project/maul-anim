@@ -67,11 +67,12 @@ host splits time.
 - **Steps:** `maniStepSprings` runs the steps due at the step rate, at
   most `MANI_SPRING_MAX_STEPS` a call (a longer delta loses the rest,
   as fixed-step physics does), each with its inputs interpolated
-  between the last call's and this one's at its time (positions
-  linearly, rotations along the shorter arc), so the motion does not
+  between the last call's and this one's at its time (positions and
+  the external force linearly, rotations along the shorter arc), so the motion does not
   depend on how a host splits time. Per spring, from the root:
   `next = now + (now - before)(1 - drag) + stiffness * the pose's
-  direction + gravity`, both times the head's largest absolute scale;
+  direction + gravity + force`, the three times the head's largest
+  absolute scale;
   then the bone's length from the head, the limit, and for each
   collider in order a push and the length and limit again, as VRM
   orders them. The pose's direction and length are read through the
@@ -98,9 +99,15 @@ host splits time.
   tag 13, its count in the header, now 64 bytes), bound by identity
   through `maniGraphAssets`; the JSON form names them in a "springSets"
   list; subgraphs carry them.
+- **External force:** one world vector per call (wind), in gravity's
+  units, added to every joint's gravity and converted with it: its
+  share of a step is the joint's forcing factor h (dh / d), which the
+  file keeps per joint, times the head's scale, as UniVRM's and Godot's
+  external forces are gravity's companions. An axis lock is the
+  limit's hinge with an angle of π.
 - **The graph node** (kind 16): one input, a pose of the skeleton (not
-  differences); a spring set slot; position (vec3), rotation (quat)
-  and reset (trigger) parameters, each or none. The update adds the
+  differences); a spring set slot; position (vec3), rotation (quat),
+  reset (trigger) and force (vec3) parameters, each or none. The update adds the
   time its parents give it (scaled, its magnitude) to the node's block;
   its reset trigger and a seek above it drop the motion. The evaluation
   steps the block with the input pose it has just computed and turns
@@ -150,7 +157,11 @@ past 2^32 words included), binding, JSON form and subgraphs; the graph
 state and JSON fuzz targets' hosts hold one. The importer is tested on
 every shape and limit, the fallbacks kept, a last joint's malformed
 limit unread, each refusal at its value, and the limit's frame against
-glTF's under proper, mirrored and turned bases; its sources build.
+glTF's under proper, mirrored and turned bases; its sources build. The
+external force moves a chain as gravity of its size, in the world
+under a turned and a scaled character, and a wind changing every frame
+moves alike at 30, 60 and 144 Hz; the graph node takes it bit for bit
+as the standalone state.
 About 280 hand-picked mutants of the sets, states, graph slots and
 node, the importer and the work area are killed but five, each noted
 with its reason in `tools/mutants.txt` (three equivalent, one equal

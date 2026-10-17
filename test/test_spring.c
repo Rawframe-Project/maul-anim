@@ -247,8 +247,9 @@ static void TestConversion(void)
             const uint8_t* j = JointRecord(&set, 2 + k);
             CHECK(Near(LoadFloat(j + maniSpringJointDrag), dh) &&
                       Near(LoadFloat(j + maniSpringJointStiffness), forcing) &&
-                      Near(LoadFloat(j + maniSpringJointGravity + 4), -0.5 * forcing),
-                  "the drag, stiffness and gravity a step");
+                      Near(LoadFloat(j + maniSpringJointGravity + 4), -0.5 * forcing) &&
+                      Near(LoadFloat(j + maniSpringJointForcing), forcing),
+                  "the drag, stiffness, gravity and forcing factor a step");
         }
     }
     maniSpringSetSource source = Source();
@@ -258,7 +259,8 @@ static void TestConversion(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenSpringSet(s_file, s_size, &set).result == mani_success &&
               LoadFloat(JointRecord(&set, 3) + maniSpringJointDrag) == 1.0f &&
-              Near(LoadFloat(JointRecord(&set, 3) + maniSpringJointStiffness), 1.0 / 120.0),
+              Near(LoadFloat(JointRecord(&set, 3) + maniSpringJointStiffness), 1.0 / 120.0) &&
+              Near(LoadFloat(JointRecord(&set, 3) + maniSpringJointForcing), 1.0 / 120.0),
           "a drag of 1: nothing carried over, the forcing a step's");
 }
 
@@ -456,7 +458,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
     memcpy(s_crafted, s_file, s_size);
     maniStoreU32(s_crafted + offset, value);
     maniContainer c;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindSpringSet, 1, &c).result == mani_success,
+    CHECK(maniOpenContainer(s_file, s_size, maniKindSpringSet, MANI_SPRING_FORMAT_VERSION, &c)
+                  .result == mani_success,
           "the container");
     static const uint8_t kEmpty = 0;
     const uint8_t* data[MANI_SPRING_SECTIONS];
@@ -490,7 +493,8 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindSpringSet, 1, &c).result == mani_success &&
+    CHECK(maniOpenContainer(s_file, s_size, maniKindSpringSet, MANI_SPRING_FORMAT_VERSION, &c)
+                      .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "the section");
     return at;
@@ -545,7 +549,8 @@ static void TestOpen(void)
         {j + 64, 0, j + 64},
         {j + 4, s_hair[0], j + 4},
         {j + 8, 4, j + 8},
-        {j + 12, 1, j + 12},
+        {j + 12, Bits(-1.0f), j + 12},
+        {j + 12, Bits(INFINITY), j + 12},
         {j + 24, Bits(INFINITY), j + 24},
         {j + 16, Bits(-1.0f), j + 16},
         {j + 20, Bits(1.5f), j + 20},
@@ -629,8 +634,9 @@ static void TestTooManySprings(void)
         maniContainer c;
         const uint8_t* h = NULL;
         uint64_t size = 0;
-        CHECK(maniOpenContainer(file, (size_t)fileSize, maniKindSpringSet, 1, &c).result ==
-                      mani_success &&
+        CHECK(maniOpenContainer(file, (size_t)fileSize, maniKindSpringSet,
+                                MANI_SPRING_FORMAT_VERSION, &c)
+                          .result == mani_success &&
                   maniContainerSection(&c, maniSpringTagHeader, &h, &size, &at) &&
                   r.result == mani_errorFormat && r.offset == at + 16,
               "more springs than a skeleton's bones");

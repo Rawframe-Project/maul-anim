@@ -460,6 +460,7 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         node->spring.position = Resolve(s, node->spring.position);
         node->spring.rotation = Resolve(s, node->spring.rotation);
         node->spring.reset = Resolve(s, node->spring.reset);
+        node->spring.force = Resolve(s, node->spring.force);
         return;
     case maniGraphNodeOneShot:
         node->oneShot.fire = Resolve(s, node->oneShot.fire);

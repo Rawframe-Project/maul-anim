@@ -456,14 +456,16 @@ extern "C"
     // rotation (a quat parameter), MANI_NO_PARAMETER for the origin and
     // the identity. Its reset trigger (MANI_NO_PARAMETER for none) and a
     // seek above it drop the motion, as maniResetSprings does: the next
-    // evaluation places every tail where the input puts it. The set's
-    // state takes at most 2^24 words.
+    // evaluation places every tail where the input puts it. Its force (a
+    // vec3 parameter, MANI_NO_PARAMETER for none) is the external force
+    // maniStepSprings takes. The set's state takes at most 2^24 words.
     typedef struct maniGraphSpringNodeSource
     {
         uint32_t springSet;
         uint32_t position;
         uint32_t rotation;
         uint32_t reset;
+        uint32_t force;
     } maniGraphSpringNodeSource;
 
     typedef struct maniGraphSource maniGraphSource;

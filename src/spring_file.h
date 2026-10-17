@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#define MANI_SPRING_FORMAT_VERSION 1u
+#define MANI_SPRING_FORMAT_VERSION 2u
 #define MANI_SPRING_SECTIONS       6u
 
 enum
@@ -30,8 +30,10 @@ enum
     // link count, center bone (MANI_NO_BONE for none), name offset, name
     // length, 0 (u32 each).
     maniSpringTagSprings = 3,
-    // MANI_SPRING_JOINT_SIZE each: head bone, tail bone, limit, 0 (u32
-    // each); then binary32: hit radius, drag, stiffness, gravity (3), the
+    // MANI_SPRING_JOINT_SIZE each: head bone, tail bone, limit (u32
+    // each); then binary32: the forcing factor (a force's share of a
+    // step per unit, finite and not negative), hit radius, drag,
+    // stiffness, gravity (3), the
     // limit's angle and yaw (clamped to their ranges), the limit's frame
     // in the head's space (a unit quaternion x, y, z, w: the turn from +y
     // to the head's rest direction to its tail, then the limit's
@@ -54,6 +56,7 @@ enum
     maniSpringJointHead = 0,
     maniSpringJointTail = 4,
     maniSpringJointLimit = 8,
+    maniSpringJointForcing = 12,
     maniSpringJointHitRadius = 16,
     maniSpringJointDrag = 20,
     maniSpringJointStiffness = 24,
