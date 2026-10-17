@@ -144,6 +144,14 @@ format.
   `maniLearnedDecompress` evaluate it with the same bits on every
   target (the pose from two rotation columns, root motion, float
   tracks and events' states).
+- Training learned motion matching models in the library (mani-0025):
+  `maniCreateLearnedTrainer` takes a motion database, its clips and
+  skeleton, the Projectors' tag filters and Holden's options;
+  `maniTrainLearned` trains the Compressor and Decompressor, the
+  Stepper and each Projector in turn with Holden's losses and AdamW,
+  the same bits with any thread count; `maniSaveLearnedCheckpoint` and
+  `maniRestoreLearnedCheckpoint` stop and resume to the same bits;
+  `maniBuildLearnedModelFromTrainer` builds the model.
 - Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
   the host's task system, through which the library's parallel work
   will run, results never depending on how the host splits it.

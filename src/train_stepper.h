@@ -66,6 +66,11 @@ bool maniTrainStepperInit(const maniAllocator* allocator, const maniTrainData* d
 
 void maniTrainStepperRelease(const maniAllocator* allocator, maniTrainStepper* t);
 
+// The windows of window frames within one entry: their first frames into
+// starts (unless NULL), in frame order; returns their count, 0 for a
+// window below 2.
+uint32_t maniTrainWindows(const maniTrainData* d, uint32_t window, uint32_t* starts);
+
 // One iteration: the batch's windows drawn from the generator, the
 // chunks run on the hooks, an AdamW step (number step, from 1) at rate.
 // Returns the batch's loss.

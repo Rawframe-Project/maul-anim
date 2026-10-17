@@ -69,18 +69,22 @@ void maniTrainStepperRelease(const maniAllocator* allocator, maniTrainStepper* t
     *t = (maniTrainStepper){0};
 }
 
-// The windows of t->window frames within one entry: a pair's first frame
-// whose next window - 2 pairs follow it frame by frame.
-static void Windows(maniTrainStepper* t, const maniTrainData* d)
+uint32_t maniTrainWindows(const maniTrainData* d, uint32_t window, uint32_t* starts)
 {
-    uint32_t span = t->window - 2;
-    for (uint32_t p = 0; p + span < d->pairCount; ++p)
+    uint32_t span = window - 2;
+    uint32_t count = 0;
+    for (uint32_t p = 0; window >= 2 && p + span < d->pairCount; ++p)
     {
         if (d->pairs[p + span] - d->pairs[p] == span)
         {
-            t->windowStarts[t->windowCount++] = d->pairs[p];
+            if (starts != NULL)
+            {
+                starts[count] = d->pairs[p];
+            }
+            count += 1;
         }
     }
+    return count;
 }
 
 // The input's offsets and group deviations over the frames' states; the
@@ -162,7 +166,7 @@ bool maniTrainStepperInit(const maniAllocator* allocator, const maniTrainData* d
         maniTrainStepperRelease(allocator, t);
         return false;
     }
-    Windows(t, data);
+    t->windowCount = maniTrainWindows(data, t->window, t->windowStarts);
     bool ok = t->windowCount > 0 &&
               maniTrainSoloInit(allocator, sizes, shape->hiddenLayers + 1,
                                 shape->batch / MANI_TRAIN_CHUNK, r, &t->solo) &&

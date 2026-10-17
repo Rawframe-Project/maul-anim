@@ -159,7 +159,10 @@ extern "C"
         // length, a bool or trigger not 0 or 1; item is the parameter.
         maniBuildReasonParameter = 23,
         // A graph's clip slot without a clip, with a clip of another
-        // skeleton, or with a clip an earlier slot (other) has.
+        // skeleton, or with a clip an earlier slot (other) has. A learned
+        // model trainer's clip whose identity is not its database's (item
+        // the clip), or a clip count not the database's (item the count,
+        // other the database's).
         maniBuildReasonClip = 24,
         // A graph node of an unknown kind, with an input count its kind
         // does not take, or with a field out of range: a clip slot, sync
@@ -225,7 +228,8 @@ extern "C"
         // A graph's database slot without a database, with one of another
         // skeleton or one an earlier slot (other) has, or with one listing
         // a clip no clip slot has (other is the database's clip); item is
-        // the slot.
+        // the slot. A learned model's or trainer's database of another
+        // skeleton (item 0).
         maniBuildReasonDatabase = 39,
         // A learned model's network (mani-0025) with no layers or more
         // than MANI_LEARNED_MAX_LAYERS, a layer of no inputs or outputs or
@@ -235,6 +239,9 @@ extern "C"
         // scale of 0; item is the network, other the layer (the layer
         // count for the normalization).
         maniBuildReasonNetwork = 40,
+        // A learned model trainer's Projector whose tag filter no frame of
+        // an entry a jump may reach passes; item is the Projector.
+        maniBuildReasonTags = 41,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

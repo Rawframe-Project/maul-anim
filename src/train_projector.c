@@ -63,9 +63,7 @@ void maniTrainProjectorRelease(const maniAllocator* allocator, maniTrainProjecto
     *t = (maniTrainProjector){0};
 }
 
-// Whether a frame passes the tags: an entry with the tags, frames, and
-// jumps into it allowed.
-static bool AnyFrame(const maniMotionDatabase* database, uint32_t required, uint32_t excluded)
+bool maniTrainAnyFrame(const maniMotionDatabase* database, uint32_t required, uint32_t excluded)
 {
     for (uint32_t e = 0; e < database->entryCount; ++e)
     {
@@ -131,7 +129,7 @@ bool maniTrainProjectorInit(const maniAllocator* allocator, const maniMotionData
                               .latents = latents};
     uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1];
     uint32_t f = data->featureCount;
-    if (!AnyFrame(database, requiredTags, excludedTags) ||
+    if (!maniTrainAnyFrame(database, requiredTags, excludedTags) ||
         !maniTrainSoloSizes(shape, f, f + shape->latentCount, sizes))
     {
         return false;

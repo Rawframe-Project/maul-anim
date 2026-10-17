@@ -6,6 +6,8 @@
 // names), the database's channels, times, normalization and axes copied,
 // and the file written, 16-bit weights quantized input by input.
 
+#include "learned_build.h"
+
 #include "allocator.h"
 #include "builder.h"
 #include "bytes.h"
@@ -221,6 +223,13 @@ static maniBuildResult CheckModel(const maniLearnedModelSource* s)
         }
     }
     return kOk;
+}
+
+maniBuildResult maniLearnedCheckNames(const maniLearnedNameSource* names, uint32_t count,
+                                      maniBuildReason list)
+{
+    Totals totals = {0, 0, 0, 0};
+    return CheckNames(names, count, list, &totals);
 }
 
 static maniBuildResult Check(const maniLearnedModelSource* s, Totals* t)

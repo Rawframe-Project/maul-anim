@@ -2257,10 +2257,10 @@ to-batch | src/train_solo.c | shape->batch % MANI_TRAIN_CHUNK != 0) | shape->bat
 to-zero-m | src/train_solo.c | memset(s->m, 0, sizeof(float) * count); | memset(s->m, 0, sizeof(float));
 to-zero-grad | src/train_solo.c | memset(s->gradients, 0, sizeof(float) * (size_t)s->net.parameterCount * s->chunkCount); | memset(s->gradients, 0, sizeof(float) * (size_t)s->net.parameterCount);
 to-sum | src/train_solo.c | maniTrainSum(s->gradients, s->chunkCount, s->net.parameterCount, s->sum); | maniTrainSum(s->gradients, 1, s->net.parameterCount, s->sum);
-ts-span | src/train_stepper.c | uint32_t span = t->window - 2; | uint32_t span = t->window - 1;
+ts-span | src/train_stepper.c | uint32_t span = window - 2; | uint32_t span = window - 1;
 ts-window-test | src/train_stepper.c | if (d->pairs[p + span] - d->pairs[p] == span) | if (d->pairs[p + span] - d->pairs[p] <= span + 2)
-# ts-window-min survives, equivalent: a window of 1 makes the span wrap,
-# so no pair starts a window and the stage is refused for that.
+# ts-window-min survives, equivalent: maniTrainWindows finds no window
+# below 2 frames, and the stage is refused for that.
 ts-window-min | src/train_stepper.c | if (shape->window < 2 || !maniTrainSoloSizes(shape, states, states, sizes)) | if (!maniTrainSoloSizes(shape, states, states, sizes))
 ts-none | src/train_stepper.c | bool ok = t->windowCount > 0 && | bool ok = true &&
 ts-in-group | src/train_stepper.c | maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, true); | maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, false);

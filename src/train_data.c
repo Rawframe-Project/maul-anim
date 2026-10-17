@@ -369,7 +369,10 @@ bool maniTrainDataBuild(const maniAllocator* allocator, const maniTrainDataSourc
     {
         ok = Row(&p, &d, f);
     }
-    Pairs(database, &d);
+    if (ok)
+    {
+        Pairs(database, &d);
+    }
     ReleaseSampler(allocator, &p);
     if (!ok)
     {

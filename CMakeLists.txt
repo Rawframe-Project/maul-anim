@@ -110,7 +110,8 @@ if(MAUL_ANIM_OFFLINE)
                                      src/match_sample.c src/match_build.c src/learned_build.c
                                      src/train_random.c src/train_net.c src/train_adam.c src/train_tasks.c
                                      src/train_data.c src/train_decompress.c src/train_decompress_loss.c src/train_kinematics.c
-                                     src/train_solo.c src/train_stepper.c src/train_projector.c)
+                                     src/train_solo.c src/train_stepper.c src/train_projector.c
+                                     src/learned_train.c src/learned_train_run.c src/learned_checkpoint.c src/learned_restore.c)
 endif()
 maul_configure_library(maul-anim)
 # sqrtf need not set errno, which the library never reads: square roots
@@ -167,6 +168,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(train WHITEBOX)
         maul_add_test(train_decompress WHITEBOX)
         maul_add_test(train_stages WHITEBOX)
+        maul_add_test(learned_train WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

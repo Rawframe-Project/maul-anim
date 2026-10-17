@@ -791,6 +791,55 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildLearnedModel(maniBuilder* build
 ```
 Builds a model: checks the networks' shapes against their roles and every value, copies the database's channels, normalization and axes, and writes the weights as asked (16-bit: each input's weights divided by the largest of their magnitudes over 32767, rounded to nearest, ties to even, that scale kept).  @param builder  The builder. @param source   The model. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonDatabase` (a database of another skeleton), `maniBuildReasonTiming` (the step rate), `maniBuildReasonOption` (the latent count or weight format), `maniBuildReasonCount` (no Projector, or a list past its limit), `maniBuildReasonJoint` (a scaled bone past the skeleton or not increasing; item its place), `maniBuildReasonNotFinite` (a bone's scale; item the bone), `maniBuildReasonNetwork` (item the network: 0 the Decompressor, 1 the Stepper, 2 + p Projector p; other its layer, or its layer count for its normalization), `maniBuildReasonFloatTrack` or `maniBuildReasonEvent` combined with `maniBuildReasonName` or `maniBuildReasonDuplicateName`; `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
+## `learnedtrain.h`
+
+Training learned motion matching models (mani-0025) in the library, from a motion database, its clips and skeleton: Holden's networks, losses and optimizer, the same bits on every platform, with any thread count and across checkpoints.
+
+```c
+static inline maniLearnedTrainerDef maniDefaultLearnedTrainerDef(void);
+```
+Returns a trainer def with every setting at its default.  @return The def, with a valid cookie. @par Thread safety Safe from any thread.
+
+```c
+static inline maniLearnedTrainerOptions maniDefaultLearnedTrainerOptions(void);
+```
+Returns Holden's options.  @return The options. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniCreateLearnedTrainer( const maniLearnedTrainerDef* def, const maniLearnedTrainerSource* source, maniLearnedTrainer** trainerOut);
+```
+Makes a trainer: checks the def and source, and samples the training data from the database's clips at its frames. The source's objects and arrays must outlive the trainer.  @param def        The def. @param source     What to train on, and how. @param trainerOut Receives the trainer, or NULL on failure. @return `mani_success`; `mani_errorVersion` for a def built against another major or minor version; `mani_errorInvalid` for a NULL argument, a def without its cookie, an allocator or task hooks with one function, a list missing, or with the reason and item for a refused source: `maniBuildReasonOption` (item the option's place in the options: a count, width or layer count past its limit, a batch not a multiple of 4 or past MANI_LEARNED_MAX_BATCH, a window below 2, past MANI_LEARNED_MAX_WINDOW or longer than every entry, no iterations, a rate or seconds not finite or negative; item 1 for networks past MANI_LEARNED_MAX_WEIGHTS), `maniBuildReasonDatabase` (a database of another skeleton), `maniBuildReasonClip` (item the clip whose identity is not the database's; the clip count and the database's as item and other when they differ), `maniBuildReasonTiming` (a database rate past MANI_LEARNED_MAX_RATE), `maniBuildReasonCount` (no Projector, or a list past its limit), `maniBuildReasonTags` (item the Projector), `maniBuildReasonFloatTrack` or `maniBuildReasonEvent` combined with `maniBuildReasonName` or `maniBuildReasonDuplicateName`; `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread.
+
+```c
+void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer);
+```
+Destroys a trainer.  @param trainer  The trainer, or NULL. @par Thread safety Safe from any thread; the trainer is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations, maniLearnedTrainerReport* reportOut);
+```
+Trains on: up to iterations iterations, stage after stage. A stage whose iterations are all done ends (its network kept, the rest of its memory released) and the next begins when it first runs; the first stage's end gives every frame's latent values.  @param trainer    The trainer. @param iterations Iterations to run at most; 0 only reports. @param reportOut  Receives the progress. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorCapacity` when memory runs out as a stage begins or ends (the trainer keeps its progress, and a later call goes on). @par Thread safety Safe from any thread; the trainer is used by one thread at a time. Its chunks run on the def's task hooks.
+
+```c
+size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer);
+```
+Returns the size of a checkpoint of the trainer as it is now.  @param trainer  The trainer. @return The size in bytes; 0 for NULL. @par Thread safety Safe from any thread; the trainer is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* bytes, size_t capacity);
+```
+Writes a checkpoint of the trainer: its progress, generator, networks and AdamW moments, under the signature of its source and options.  @param trainer  The trainer. @param bytes    Receives the checkpoint. @param capacity The size of bytes. @return `mani_success`; `mani_errorInvalid` for a NULL argument; `mani_errorCapacity` when bytes holds less than maniLearnedCheckpointSize. @par Thread safety Safe from any thread; the trainer is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const void* bytes, size_t size);
+```
+Restores a checkpoint into a trainer of the same source and options, replacing its progress; training on gives the same bits as training through.  @param trainer  The trainer. @param bytes    The checkpoint, 16-byte aligned. @param size     Its size. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong (the identity's, 40, for a checkpoint of another source or options); `mani_errorVersion` for a newer format; `mani_errorCapacity` when memory runs out (the trainer then starts over). @par Thread safety Safe from any thread; the trainer is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildLearnedModelFromTrainer( maniBuilder* builder, const maniLearnedTrainer* trainer, maniLearnedWeights weightFormat);
+```
+Builds the model a trainer has trained, every stage done, through maniBuildLearnedModel: its step rate the database's sample rate.  @param builder      The builder. @param trainer      The trainer. @param weightFormat How the file keeps the weights. @return As maniBuildLearnedModel; `mani_errorInvalid` for a NULL argument or a trainer with a stage to run. @par Thread safety Safe from any thread; the builder is used by one thread at a time. The trainer is not trained meanwhile.
+
 ## `match.h`
 
 Motion matching (mani-0024): a motion database built offline from a skeleton's clips, opened in place. Each frame of the database is a clip at a time; its features describe the pose and the root's path around that time in the root's space, normalized per channel, so a search compares a query's features with every frame's.
@@ -1214,4 +1263,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-228 functions across 18 headers.
+237 functions across 19 headers.

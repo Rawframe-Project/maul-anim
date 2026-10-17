@@ -68,6 +68,10 @@ bool maniTrainProjectorInit(const maniAllocator* allocator, const maniMotionData
 
 void maniTrainProjectorRelease(const maniAllocator* allocator, maniTrainProjector* t);
 
+// Whether a frame passes the tags: an entry with all of required, none
+// of excluded, frames, and jumps into it allowed.
+bool maniTrainAnyFrame(const maniMotionDatabase* database, uint32_t required, uint32_t excluded);
+
 // One iteration: the batch's queries drawn from the generator, the
 // chunks run on the hooks, an AdamW step (number step, from 1) at rate.
 // Returns the batch's loss.

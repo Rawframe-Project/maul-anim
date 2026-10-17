@@ -1,0 +1,644 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// The learned model trainer (mani-0025) over a database of the walk (tag
+// 1) and the run (tag 2): its def and source refused for each fault
+// with its reason and item; its stages and report; the model built from
+// it, whose Stepper and Projectors give the trainer's own bits and whose
+// file is the same on any host; checkpoints at any point restored to
+// the same model, and refused when of another source, damaged or out of
+// form; memory running out at creation, a stage's beginning or a
+// restore.
+
+#include "container.h"
+#include "graph_match_fixture.h"
+#include "learned_file.h"
+#include "learned_train.h"
+#include "train_net.h"
+
+#include "maul-anim/learned.h"
+#include "maul-anim/learnedbuild.h"
+#include "maul-anim/learnedtrain.h"
+
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
+static _Alignas(16) uint8_t s_boneFile[1 << 15];
+static maniMotionDatabase s_bones;
+static const maniClip* s_trainClips[2];
+static const maniLearnedTagFilter kFilters[2] = {{0, 0}, {2, 0}};
+static const maniLearnedNameSource kEvents[2] = {{"left", 4, 0}, {"right", 5, 0}};
+
+static void OpenBones(void)
+{
+    static const float kNow[1] = {0.0f};
+    const maniMatchChannelSource channels[2] = {
+        {maniMatchBonePosition, 2, 0, 1, kNow, NULL, 0, 1.0f},
+        {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
+    BuildDatabase(channels, 2, s_boneFile, sizeof s_boneFile, &s_bones);
+    s_trainClips[0] = &s_clips[0];
+    s_trainClips[1] = &s_clips[1];
+}
+
+// Latent 4, hidden 8, one hidden layer each, batch 4, window 4, 30
+// iterations a stage.
+static maniLearnedTrainerSource Source(void)
+{
+    maniLearnedTrainerSource s = {
+        &s_skeleton, &s_bones, s_trainClips, kFilters, NULL, kEvents, 2, 2, 0, 2, {0}};
+    s.options = maniDefaultLearnedTrainerOptions();
+    s.options.latentCount = 4;
+    s.options.hiddenWidth = 8;
+    s.options.compressorLayers = 1;
+    s.options.decompressorLayers = 1;
+    s.options.stepperLayers = 1;
+    s.options.projectorLayers = 1;
+    s.options.batchSize = 4;
+    s.options.stepperWindow = 4;
+    s.options.iterations = 30;
+    s.options.seed = 7;
+    s.options.learningRate = 0.003f;
+    return s;
+}
+
+static maniLearnedTrainer* Create(const maniLearnedTrainerDef* def,
+                                  const maniLearnedTrainerSource* source)
+{
+    maniLearnedTrainer* t = NULL;
+    maniBuildResult r = maniCreateLearnedTrainer(def, source, &t);
+    CHECK(r.result == mani_success && t != NULL, "a trainer");
+    return t;
+}
+
+static bool RefusedFor(const maniLearnedTrainerSource* s, maniBuildReason reason, uint32_t item)
+{
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = (maniLearnedTrainer*)&def;
+    maniBuildResult r = maniCreateLearnedTrainer(&def, s, &t);
+    return r.result == mani_errorInvalid && r.reason == reason && r.item == item && t == NULL;
+}
+
+// A host that runs ranges of one item, last first.
+static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+{
+    (void)minRange;
+    (void)user;
+    for (int32_t k = count; k-- > 0;)
+    {
+        task(k, k + 1, context);
+    }
+    return NULL;
+}
+
+static void Finish(void* task, void* user)
+{
+    (void)task;
+    (void)user;
+}
+
+// An allocator that fails from its limit-th allocation on, aligning by
+// hand (no aligned_alloc on every target).
+typedef struct Budget
+{
+    uint32_t count;
+    uint32_t limit;
+} Budget;
+
+static void* Allocate(size_t size, size_t alignment, void* context)
+{
+    Budget* b = context;
+    if (b->count >= b->limit)
+    {
+        return NULL;
+    }
+    b->count += 1;
+    uint8_t* raw = malloc(size + alignment + sizeof(void*));
+    if (raw == NULL)
+    {
+        return NULL;
+    }
+    uintptr_t at = ((uintptr_t)(raw + sizeof(void*)) + alignment - 1) & ~(uintptr_t)(alignment - 1);
+    memcpy((void*)(at - sizeof(void*)), &raw, sizeof raw);
+    return (void*)at;
+}
+
+static void Free(void* memory, size_t size, size_t alignment, void* context)
+{
+    (void)size;
+    (void)alignment;
+    (void)context;
+    void* raw = NULL;
+    memcpy(&raw, (uint8_t*)memory - sizeof(void*), sizeof raw);
+    free(raw);
+}
+
+static void TestDef(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = NULL;
+    CHECK(maniCreateLearnedTrainer(&def, &s, NULL).result == mani_errorInvalid &&
+              maniCreateLearnedTrainer(NULL, &s, &t).result == mani_errorInvalid &&
+              maniCreateLearnedTrainer(&def, NULL, &t).result == mani_errorInvalid,
+          "NULL arguments");
+    def.version += 1;
+    CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorVersion, "another version");
+    def = maniDefaultLearnedTrainerDef();
+    def.cookie = 0;
+    CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid, "no cookie");
+    def = maniDefaultLearnedTrainerDef();
+    def.tasks.finishTask = Finish;
+    CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,
+          "task hooks with one function");
+    def = maniDefaultLearnedTrainerDef();
+    def.allocator.free = Free;
+    CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,
+          "an allocator with one function");
+    s.projectors = NULL;
+    CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid && t == NULL,
+          "no filters");
+}
+
+static void TestOptions(void)
+{
+    const maniLearnedTrainerSource base = Source();
+    maniLearnedTrainerSource s = base;
+    bool all = true;
+    uint32_t* counts[8] = {&s.options.latentCount,      &s.options.hiddenWidth,
+                           &s.options.compressorLayers, &s.options.decompressorLayers,
+                           &s.options.stepperLayers,    &s.options.projectorLayers,
+                           &s.options.batchSize,        &s.options.stepperWindow};
+    const uint32_t bad[8][2] = {{0, MANI_LEARNED_MAX_LATENT + 1},
+                                {0, MANI_LEARNED_MAX_WIDTH + 1},
+                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
+                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
+                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
+                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
+                                {6, MANI_LEARNED_MAX_BATCH + 4},
+                                {1, MANI_LEARNED_MAX_WINDOW + 1}};
+    for (uint32_t k = 0; k < 8; ++k)
+    {
+        for (uint32_t b = 0; b < 2; ++b)
+        {
+            s = base;
+            *counts[k] = bad[k][b];
+            all = all && RefusedFor(&s, maniBuildReasonOption, k);
+        }
+    }
+    CHECK(all, "counts past their limits, with their places");
+    s = base;
+    s.options.batchSize = 0;
+    CHECK(RefusedFor(&s, maniBuildReasonOption, 6), "an empty batch");
+    s = base;
+    s.options.iterations = 0;
+    CHECK(RefusedFor(&s, maniBuildReasonOption, 8), "no iterations");
+    const float rates[3] = {0.0f, -1.0f, HUGE_VALF};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        s = base;
+        s.options.learningRate = rates[k];
+        all = all && RefusedFor(&s, maniBuildReasonOption, 10);
+        s = base;
+        s.options.eventSeconds = k == 0 ? -0.5f : rates[k];
+        all = all && RefusedFor(&s, maniBuildReasonOption, 11);
+    }
+    CHECK(all, "a rate or seconds out of range");
+    s = base;
+    s.options.stepperWindow = 12;
+    CHECK(RefusedFor(&s, maniBuildReasonOption, 7), "a window longer than every entry");
+    s.options.stepperWindow = 11;
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniDestroyLearnedTrainer(t);
+    s = base;
+    s.options.hiddenWidth = 16384;
+    s.options.projectorLayers = 2;
+    CHECK(RefusedFor(&s, maniBuildReasonOption, 1), "weights past the limit in all");
+    s.options.projectorLayers = 1;
+    t = Create(&def, &s);
+    maniDestroyLearnedTrainer(t);
+}
+
+static void TestSource(void)
+{
+    const maniLearnedTrainerSource base = Source();
+    maniLearnedTrainerSource s = base;
+    static _Alignas(16) uint8_t file[4096];
+    maniSkeleton other;
+    maniSkeletonSource source = {kBones, 2, 0};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenSkeleton(file, size, &other).result == mani_success,
+          "another skeleton");
+    maniDestroyBuilder(builder);
+    s.skeleton = &other;
+    CHECK(RefusedFor(&s, maniBuildReasonDatabase, 0), "a database of another skeleton");
+    s = base;
+    s.clipCount = 1;
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = NULL;
+    maniBuildResult r = maniCreateLearnedTrainer(&def, &s, &t);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonClip && r.item == 1 &&
+              r.other == 2,
+          "a clip count not the database's");
+    const maniClip* swapped[2] = {&s_clips[1], &s_clips[0]};
+    s = base;
+    s.clips = swapped;
+    CHECK(RefusedFor(&s, maniBuildReasonClip, 0), "clips out of the database's order");
+    const maniClip* missing[2] = {&s_clips[0], NULL};
+    s.clips = missing;
+    CHECK(RefusedFor(&s, maniBuildReasonClip, 1), "a clip missing");
+    s = base;
+    s.projectorCount = 0;
+    CHECK(RefusedFor(&s, maniBuildReasonCount, 0), "no Projector");
+    s = base;
+    s.eventCount = MANI_LEARNED_MAX_EVENTS + 1;
+    CHECK(RefusedFor(&s, maniBuildReasonCount, 0), "too many events");
+    const maniLearnedTagFilter filters[2] = {{0, 0}, {4, 0}};
+    s = base;
+    s.projectors = filters;
+    CHECK(RefusedFor(&s, maniBuildReasonTags, 1), "a filter no frame passes");
+    const maniLearnedNameSource twice[2] = {{"left", 4, 0}, {"left", 4, 0}};
+    s = base;
+    s.events = twice;
+    CHECK(RefusedFor(&s, maniBuildReasonEvent | maniBuildReasonDuplicateName, 1),
+          "an event named twice");
+    const maniLearnedNameSource empty[1] = {{"", 0, 0}};
+    s = base;
+    s.floatTracks = empty;
+    s.floatTrackCount = 1;
+    CHECK(RefusedFor(&s, maniBuildReasonFloatTrack | maniBuildReasonName, 0),
+          "a float track without a name");
+}
+
+static _Alignas(16) uint8_t s_model[2][1 << 16];
+static size_t s_modelSize[2];
+
+// The model a finished trainer gives, into s_model[slot].
+static void Build(const maniLearnedTrainer* t, uint32_t slot, maniLearnedWeights format)
+{
+    maniBuilder* builder = NewBuilder();
+    CHECK(maniBuildLearnedModelFromTrainer(builder, t, format).result == mani_success &&
+              maniCopyBuilt(builder, s_model[slot], sizeof s_model[slot], &s_modelSize[slot]) ==
+                  mani_success,
+          "the model");
+    maniDestroyBuilder(builder);
+}
+
+static void TestStages(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 0, &report) == mani_success && report.stage == 0 &&
+              report.stageCount == 4 && report.iteration == 0 && report.loss == 0.0f && !t->begun,
+          "nothing run: stage 0 not begun");
+    maniBuilder* builder = NewBuilder();
+    CHECK(maniBuildLearnedModelFromTrainer(builder, t, maniLearnedWeightsFloat32).result ==
+                  mani_errorInvalid &&
+              maniBuilderMisuses(builder) == 1,
+          "no model before every stage is done");
+    CHECK(maniBuildLearnedModelFromTrainer(builder, NULL, maniLearnedWeightsFloat32).result ==
+                  mani_errorInvalid &&
+              maniBuildLearnedModelFromTrainer(NULL, t, maniLearnedWeightsFloat32).result ==
+                  mani_errorInvalid &&
+              maniBuilderMisuses(builder) == 2,
+          "NULL arguments");
+    maniDestroyBuilder(builder);
+    CHECK(maniTrainLearned(t, 29, &report) == mani_success && report.stage == 0 &&
+              report.iteration == 29 && report.loss > 0.0f && t->latents == NULL,
+          "29 iterations of stage 0");
+    CHECK(maniTrainLearned(t, 1, &report) == mani_success && report.stage == 1 &&
+              report.iteration == 0 && report.loss == 0.0f && t->latents != NULL && !t->begun &&
+              t->networks[0].parameters != NULL,
+          "stage 0 ends with its last iteration");
+    CHECK(maniTrainLearned(t, 31, &report) == mani_success && report.stage == 2 &&
+              report.iteration == 1 && t->networks[1].parameters != NULL,
+          "the Stepper's 30, then the first Projector's first");
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4 &&
+              report.stageCount == 4 && report.iteration == 0 && !t->begun,
+          "every stage done");
+    CHECK(maniTrainLearned(t, 5, &report) == mani_success && report.stage == 4,
+          "nothing more to run");
+    CHECK(maniTrainLearned(NULL, 1, &report) == mani_errorInvalid &&
+              maniTrainLearned(t, 1, NULL) == mani_errorInvalid,
+          "NULL arguments");
+    Build(t, 0, maniLearnedWeightsFloat32);
+    maniLearnedModel model;
+    CHECK(maniOpenLearnedModel(s_model[0], s_modelSize[0], &model).result == mani_success &&
+              model.projectorCount == 2 && model.latentCount == 4 && model.stepRate == 10.0f &&
+              model.featureCount == 5 && model.eventCount == 2,
+          "the model opens");
+    Build(t, 1, maniLearnedWeightsInt16);
+    CHECK(maniOpenLearnedModel(s_model[1], s_modelSize[1], &model).result == mani_success &&
+              model.weightFormat == maniLearnedWeightsInt16,
+          "its 16-bit form");
+    maniDestroyLearnedTrainer(t);
+    maniDestroyLearnedTrainer(NULL);
+}
+
+// A kept network's forward pass from raw inputs to raw outputs, as the
+// trainer computes it.
+static void Forward(const maniTrainKept* k, const float* in, float* out)
+{
+    static float values[256];
+    uint32_t n = k->net.sizes[0];
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        values[i] = (in[i] - k->inputOffsets[i]) / k->inputScales[i];
+    }
+    maniTrainForward(&k->net, k->parameters, values, 1);
+    const float* y = values + maniTrainLayerAt(&k->net, k->net.layerCount, 1);
+    for (uint32_t o = 0; o < k->net.sizes[k->net.layerCount]; ++o)
+    {
+        out[o] = y[o] * k->outputScales[o] + k->outputOffsets[o];
+    }
+}
+
+static void TestModelBits(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4, "trained");
+    Build(t, 0, maniLearnedWeightsFloat32);
+    maniLearnedModel model;
+    CHECK(maniOpenLearnedModel(s_model[0], s_modelSize[0], &model).result == mani_success,
+          "the model");
+    static float scratch[1024];
+    bool step = true;
+    bool project = true;
+    for (uint32_t f = 0; f < t->data.frameCount; f += 3)
+    {
+        float state[9];
+        float want[9];
+        float rate[9];
+        memcpy(state, t->data.features + f * 5, 5 * sizeof(float));
+        memcpy(state + 5, t->latents + f * 4, 4 * sizeof(float));
+        Forward(&t->networks[1], state, rate);
+        for (uint32_t j = 0; j < 9; ++j)
+        {
+            want[j] = state[j] + t->data.frameSeconds * rate[j];
+        }
+        step = step && maniLearnedStep(&model, state, scratch, sizeof scratch) == mani_success &&
+               memcmp(state, want, sizeof want) == 0;
+        for (uint32_t p = 0; p < 2; ++p)
+        {
+            float out[9];
+            Forward(&t->networks[2 + p], t->data.features + f * 5, want);
+            project = project &&
+                      maniLearnedProject(&model, p, t->data.features + f * 5, out, scratch,
+                                         sizeof scratch) == mani_success &&
+                      memcmp(out, want, sizeof out) == 0;
+        }
+    }
+    CHECK(step, "the model's Stepper gives the trainer's bits");
+    CHECK(project, "its Projectors give the trainer's bits");
+    maniDestroyLearnedTrainer(t);
+}
+
+static void TestHosts(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained alone");
+    Build(t, 0, maniLearnedWeightsFloat32);
+    maniDestroyLearnedTrainer(t);
+    def.tasks = (maniTaskHooks){Backwards, Finish, NULL};
+    t = Create(&def, &s);
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained on a host");
+    Build(t, 1, maniLearnedWeightsFloat32);
+    maniDestroyLearnedTrainer(t);
+    CHECK(s_modelSize[0] == s_modelSize[1] && memcmp(s_model[0], s_model[1], s_modelSize[0]) == 0,
+          "the same model on any host");
+}
+
+static _Alignas(16) uint8_t s_checkpoint[1 << 17];
+
+// Trains to stop, checkpoints, restores into a new trainer and trains it
+// through; its model into s_model[1].
+static bool Resumed(uint64_t stop, size_t* sizeOut)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* a = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    bool ok = maniTrainLearned(a, stop, &report) == mani_success;
+    size_t size = maniLearnedCheckpointSize(a);
+    ok = ok && size <= sizeof s_checkpoint &&
+         maniSaveLearnedCheckpoint(a, s_checkpoint, size - 1) == mani_errorCapacity &&
+         maniSaveLearnedCheckpoint(a, s_checkpoint, size) == mani_success;
+    maniDestroyLearnedTrainer(a);
+    maniLearnedTrainer* b = Create(&def, &s);
+    ok = ok && maniTrainLearned(b, 3, &report) == mani_success;
+    ok = ok && maniRestoreLearnedCheckpoint(b, s_checkpoint, size).result == mani_success;
+    ok = ok && maniTrainLearned(b, 1000, &report) == mani_success && report.stage == 4;
+    Build(b, 1, maniLearnedWeightsFloat32);
+    maniDestroyLearnedTrainer(b);
+    *sizeOut = size;
+    return ok && s_modelSize[0] == s_modelSize[1] &&
+           memcmp(s_model[0], s_model[1], s_modelSize[0]) == 0;
+}
+
+static void TestCheckpoints(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained through");
+    Build(t, 0, maniLearnedWeightsFloat32);
+    maniDestroyLearnedTrainer(t);
+    // Not begun, in the first stage, at the stages' ends, in the Stepper,
+    // in each Projector, done.
+    const uint64_t stops[8] = {0, 12, 30, 47, 60, 75, 99, 120};
+    size_t sizes[8];
+    bool all = true;
+    for (uint32_t k = 0; k < 8; ++k)
+    {
+        all = all && Resumed(stops[k], &sizes[k]);
+    }
+    CHECK(all, "a checkpoint at any point resumes to the same model");
+    CHECK(sizes[1] > sizes[0] && sizes[2] < sizes[1] && sizes[7] < sizes[6],
+          "a stage's moments only while it trains");
+    CHECK(maniLearnedCheckpointSize(NULL) == 0 &&
+              maniSaveLearnedCheckpoint(NULL, s_checkpoint, sizeof s_checkpoint) ==
+                  mani_errorInvalid,
+          "NULL arguments");
+}
+
+// The checkpoint of a trainer of s after stop iterations, its size.
+static size_t Checkpoint(const maniLearnedTrainerSource* s, uint64_t stop)
+{
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, stop, &report) == mani_success, "trained");
+    size_t size = maniLearnedCheckpointSize(t);
+    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint) == mani_success, "saved");
+    maniDestroyLearnedTrainer(t);
+    return size;
+}
+
+// The payload hash written again after a crafted change.
+static void WriteHash(size_t size)
+{
+    maniStoreU64(s_checkpoint + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_checkpoint + 64, (uint64_t)size - 64));
+}
+
+// A section's offset by tag.
+static uint64_t SectionAt(uint32_t tag)
+{
+    uint32_t count = maniLoadU32(s_checkpoint + 12);
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        const uint8_t* entry = s_checkpoint + 64 + 24 * (size_t)k;
+        if (maniLoadU32(entry) == tag)
+        {
+            return maniLoadU64(entry + 8);
+        }
+    }
+    return 0;
+}
+
+static bool RefusedAt(maniLearnedTrainer* t, size_t size, uint64_t offset)
+{
+    maniFileResult r = maniRestoreLearnedCheckpoint(t, s_checkpoint, size);
+    return r.result == mani_errorFormat && r.offset == offset;
+}
+
+static void StoreF32(uint8_t* p, float x)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &x, sizeof bits);
+    maniStoreU32(p, bits);
+}
+
+static void TestRestoreRefused(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 40, &report) == mani_success && report.stage == 1, "trained");
+    maniLearnedTrainerSource other = s;
+    other.options.seed = 8;
+    size_t size = Checkpoint(&other, 5);
+    CHECK(RefusedAt(t, size, 40), "a checkpoint of another seed");
+    other = s;
+    other.events = NULL;
+    other.eventCount = 0;
+    size = Checkpoint(&other, 5);
+    CHECK(RefusedAt(t, size, 40), "of other events");
+    size = Checkpoint(&s, 45);
+    uint64_t progress = SectionAt(1);
+    s_checkpoint[size - 1] ^= 1;
+    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_errorFormat,
+          "a damaged byte");
+    s_checkpoint[size - 1] ^= 1;
+    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size - 16).result == mani_errorFormat,
+          "a cut file");
+    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint + 1, size - 1).result == mani_errorInvalid &&
+              maniRestoreLearnedCheckpoint(NULL, s_checkpoint, size).result == mani_errorInvalid &&
+              maniRestoreLearnedCheckpoint(t, NULL, size).result == mani_errorInvalid,
+          "misaligned bytes and NULL arguments");
+    // Crafted: each field of the progress out of form, a moment negative,
+    // a parameter not finite, an input scale of 0.
+    const uint64_t fields[5] = {progress, progress + 4, progress + 8, progress + 16, progress + 20};
+    const uint32_t values[5] = {5, 2, 31, 0x7F800000u, 1};
+    bool all = true;
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        uint32_t kept = maniLoadU32(s_checkpoint + fields[k]);
+        maniStoreU32(s_checkpoint + fields[k], values[k]);
+        WriteHash(size);
+        all = all && RefusedAt(t, size, fields[k]);
+        maniStoreU32(s_checkpoint + fields[k], kept);
+    }
+    CHECK(all, "the progress out of form");
+    uint64_t v = SectionAt(5) + 8;
+    StoreF32(s_checkpoint + v, -1.0f);
+    WriteHash(size);
+    CHECK(RefusedAt(t, size, v), "a negative second moment");
+    StoreF32(s_checkpoint + v, 0.0f);
+    uint64_t p = SectionAt(3) + 4;
+    StoreF32(s_checkpoint + p, NAN);
+    WriteHash(size);
+    CHECK(RefusedAt(t, size, p), "a parameter not finite");
+    StoreF32(s_checkpoint + p, 0.0f);
+    maniTrainNet net;
+    CHECK(maniLearnedTrainerShape(t, 1, &net), "the Decompressor's shape");
+    uint64_t scale = SectionAt(16) + 4 * (net.parameterCount + net.sizes[0]) + 8;
+    StoreF32(s_checkpoint + scale, 0.0f);
+    WriteHash(size);
+    CHECK(RefusedAt(t, size, scale), "an input scale of 0");
+    StoreF32(s_checkpoint + scale, 1.0f);
+    WriteHash(size);
+    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_success &&
+              maniTrainLearned(t, 0, &report) == mani_success && report.stage == 1 &&
+              report.iteration == 15,
+          "restored: the Stepper's 15th iteration");
+    maniDestroyLearnedTrainer(t);
+}
+
+static void TestMemory(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    Budget budget = {0, 0};
+    def.allocator = (maniAllocator){Allocate, Free, &budget};
+    maniLearnedTrainer* t = NULL;
+    uint32_t refused = 0;
+    for (budget.limit = 0; budget.limit < 200; ++budget.limit)
+    {
+        budget.count = 0;
+        maniBuildResult r = maniCreateLearnedTrainer(&def, &s, &t);
+        if (r.result == mani_success)
+        {
+            break;
+        }
+        refused += r.result == mani_errorCapacity && t == NULL ? 1u : 0u;
+    }
+    CHECK(t != NULL && refused == budget.limit, "creation refused until memory suffices");
+    budget.limit = budget.count;
+    maniLearnedTrainerReport report;
+    CHECK(maniTrainLearned(t, 1, &report) == mani_errorCapacity && report.stage == 0 &&
+              report.iteration == 0,
+          "no memory to begin a stage");
+    budget.limit = UINT32_MAX;
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
+          "then trained through");
+    Build(t, 1, maniLearnedWeightsFloat32);
+    size_t size = maniLearnedCheckpointSize(t);
+    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint) == mani_success, "saved");
+    budget.limit = budget.count;
+    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_errorCapacity &&
+              maniTrainLearned(t, 0, &report) == mani_success && report.stage == 0,
+          "no memory to restore: the trainer starts over");
+    budget.limit = UINT32_MAX;
+    maniDestroyLearnedTrainer(t);
+}
+
+int main(void)
+{
+    Open();
+    OpenBones();
+    TestDef();
+    TestOptions();
+    TestSource();
+    TestStages();
+    TestModelBits();
+    TestHosts();
+    TestCheckpoints();
+    TestRestoreRefused();
+    TestMemory();
+    return s_failures == 0 ? 0 : 1;
+}
