@@ -136,7 +136,7 @@ static maniSpringSetSource Source(void)
     const uint32_t groups[2][2] = {{0, 1}, {1, 0}};
     memcpy(s_springGroups, groups, sizeof groups);
     s_springs[0] =
-        (maniSpringSource){"hair", 4, 3, s_hairJoints, s_springGroups[0], 2, MANI_NO_BONE};
+        (maniSpringSource){"hairs", 5, 3, s_hairJoints, s_springGroups[0], 2, MANI_NO_BONE};
     s_springs[1] = (maniSpringSource){"tail", 4, 3, s_tailJoints, s_springGroups[1], 1, s_hips};
     return (maniSpringSetSource){&s_skeleton, s_colliders, s_groups, s_springs, 4, 2, 2, 0, 0, 0};
 }
@@ -337,7 +337,10 @@ static void TestColliderRefusals(void)
     CHECK(Refused(&s, maniBuildReasonCollider, 2, 0), "a plane's normal not of length 1");
     s = Source();
     s_colliders[2].tail = (maniVec3){0.0f, 1.0005f, 0.0f};
-    CHECK(maniBuildSpringSet(s_builder, &s).result == mani_success,
+    maniSpringSet set;
+    CHECK(Build(&s).result == mani_success &&
+              maniOpenSpringSet(s_file, s_size, &set).result == mani_success &&
+              LoadFloat(set.colliders + 2 * MANI_SPRING_COLLIDER_SIZE + 32) == 1.0f,
           "a normal within a thousandth, made unit");
     s = Source();
     s_groupLists[1][2] = 4;
@@ -387,6 +390,16 @@ static void TestSpringRefusals(void)
     s_springs[0].name = "\xff";
     s_springs[0].nameLength = 1;
     CHECK(Refused(&s, maniBuildReasonSpringList | maniBuildReasonName, 0, 0), "a name not UTF-8");
+    // The hair from the head to its last bone, three bones apart.
+    s = Source();
+    s_hairJoints[1].bone = s_head;
+    s_springs[0].joints = &s_hairJoints[1];
+    s_springs[0].jointCount = 2;
+    CHECK(maniBuildSpringSet(s_builder, &s).result == mani_success,
+          "a joint three bones below the one before");
+    s = Source();
+    s.referenceRate = 2000.0f;
+    CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "a reference rate past the limit");
     s = Source();
     s.referenceRate = -1.0f;
     CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "a negative reference rate");
@@ -501,11 +514,12 @@ static void TestOpen(void)
     const uint64_t kWords[][3] = {
         {h + 8, 0, h + 8},
         {h + 16, 70000, h + 16},
+        {n + 8, 0xFF6Cu, n + 9},
         {h + 32, 0, h + 32},
         {h + 36, Bits(2000.0f), h + 36},
         {h + 40, 1, h + 40},
         {h + 12, 3, h + 12},
-        {h + 28, 9, h + 28},
+        {h + 28, 13, h + 28},
         {c, 9, c},
         {c + 4, 3, c + 4},
         {c + 2 * 48 + 8, 1, c + 2 * 48 + 8},
@@ -522,7 +536,7 @@ static void TestOpen(void)
         {s + 12, 9, s + 12},
         {s + 16, 9, s + 16},
         {s + 20, 1, s + 20},
-        {s + 24, 9, s + 24},
+        {s + 24, 10, s + 24},
         {s + 28, 1, s + 28},
         {s + 32 + 4, 1, h + 20},
         {j, 9, j},

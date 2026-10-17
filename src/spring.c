@@ -104,10 +104,6 @@ static maniFileResult Header(const Sections* s, maniSpringSet* out)
     {
         return Fail(at + 8);
     }
-    if (out->springCount > MANI_MAX_BONES)
-    {
-        return Fail(at + 16);
-    }
     for (uint32_t k = 0; k < 2; ++k)
     {
         float rate = LoadF32(h + 32 + 4 * k);
