@@ -2401,3 +2401,208 @@ gm-json-write | src/graph_json.c | if (source->modelCount > 0) | if (source->mod
 gm-json-unbound | src/graph_json_graph.c | uint32_t host = maniGraphJsonLookup(&r->hostModelNames, m[i].name, m[i].nameLength); | uint32_t host = 0;
 gm-json-list | src/graph_json_graph.c | (a->models == NULL && a->modelCount > 0)) | false)
 gm-host-null | src/graph_json_read.c | lengths[i] = names[i] != NULL ? lengths[i] : 0u; | (void)0;
+
+# Spring sets, built and opened (mani-0026).
+sb-unit-lo | src/spring_build.c | return lengthSquared >= 0.998f && lengthSquared <= 1.002f; | return lengthSquared <= 1.002f;
+sb-col-bone | src/spring_build.c | bool ok = c->bone < s->skeleton->boneCount && c->shape <= maniColliderPlane && c->inside <= 1 && | bool ok = c->bone <= s->skeleton->boneCount && c->shape <= maniColliderPlane && c->inside <= 1 &&
+sb-col-plane-inside | src/spring_build.c | !(plane && c->inside != 0) && Finite(c->radius) && c->radius >= 0.0f && | Finite(c->radius) && c->radius >= 0.0f &&
+sb-col-plane-unit | src/spring_build.c | (!plane || Unit(maniVec3Dot(c->tail, c->tail))); | true;
+sb-group | src/spring_build.c | if (group->colliders == NULL || group->colliders[k] >= s->colliderCount) | if (group->colliders == NULL)
+sb-above-depth | src/spring_build.c | for (uint32_t depth = 0; b != MANI_NO_BONE && depth < skeleton->boneCount; ++depth) | for (uint32_t depth = 0; b != MANI_NO_BONE && depth < 2; ++depth)
+sb-joint-drag | src/spring_build.c | FiniteVec(j->gravityDirection) && j->drag >= 0.0f && j->drag <= 1.0f; | FiniteVec(j->gravityDirection) && j->drag >= 0.0f;
+sb-joint-last | src/spring_build.c | if (!values || last || j->limit == maniSpringLimitNone) | if (!values || j->limit == maniSpringLimitNone)
+sb-joint-yaw | src/spring_build.c | bool yaw = j->limit != maniSpringLimitSpherical || (Finite(j->limitYaw) && j->limitYaw >= 0.0f); | bool yaw = true;
+sb-joint-unit | src/spring_build.c | Unit(maniQuatDot(q, q)); | true;
+sb-ancestry | src/spring_build.c | (k > 0 && !Above(skeleton, spring->joints[k - 1].bone, bone))) | false)
+sb-owner | src/spring_build.c | if (w->boneOwner[bone] != 0) | if (false)
+sb-count | src/spring_build.c | if (spring->jointCount < 2 || spring->joints == NULL) | if (spring->jointCount < 1 || spring->joints == NULL)
+sb-name | src/spring_build.c | (spring->name == NULL || !maniValidUtf8((const uint8_t*)spring->name, spring->nameLength))) | spring->name == NULL)
+sb-group-range | src/spring_build.c | if (spring->colliderGroups == NULL || spring->colliderGroups[g] >= s->colliderGroupCount) | if (spring->colliderGroups == NULL)
+sb-center-first | src/spring_build.c | bool placed = c < s->skeleton->boneCount && (c == first || Above(s->skeleton, c, first)); | bool placed = c < s->skeleton->boneCount;
+sb-center-owner | src/spring_build.c | placed = w->boneOwner[b] == 0 || w->boneOwner[b] == i + 1; | placed = true;
+sb-links-dedupe | src/spring_build.c | if (w->colliderMark[c] == i + 1) | if (false)
+sb-ref-rate | src/spring_build.c | if (!(reference > 0.0f && reference <= MANI_SPRING_MAX_RATE)) | if (!(reference > 0.0f))
+sb-step-rate | src/spring_build.c | if (!(step > 0.0f && step <= MANI_SPRING_MAX_RATE)) | if (!(step > 0.0f))
+sb-convert-pow | src/spring_build.c | double dh = drag >= 1.0 ? 1.0 : 1.0 - maniPowDouble(1.0 - drag, x); | double dh = drag >= 1.0 ? 1.0 : drag;
+sb-convert-zero | src/spring_build.c | *forcing = h * (drag > 0.0 ? dh / drag : x); | *forcing = h * (drag > 0.0 ? dh / drag : 1.0);
+sb-plane-normalize | src/spring_build.c | ? maniVec3Normalize(c->tail, maniVec3Make(0.0f, 0.0f, 1.0f)) | ? c->tail
+sb-yaw-clamp | src/spring_build.c | float yaw = j->limitYaw < pi / 2.0f ? j->limitYaw : pi / 2.0f; | float yaw = j->limitYaw;
+sb-angle-clamp | src/spring_build.c | float angle = j->limitAngle < pi ? j->limitAngle : pi; | float angle = j->limitAngle;
+sb-turn-neg | src/spring_build.c | maniQuat turn = axis.y == -1.0f | maniQuat turn = false
+so-bones | src/spring.c | if (out->boneCount < 1 || out->boneCount > MANI_MAX_BONES) | if (out->boneCount > MANI_MAX_BONES)
+so-springs | src/spring.c | if (out->springCount > MANI_MAX_BONES) | if (false)
+so-zero | src/spring.c | return maniLoadU64(h + 40) == 0 ? kOk : Fail(at + 40); | return kOk;
+so-pad | src/spring.c | if (s->data[5][k] != 0) | if (false)
+so-col-inside | src/spring.c | if (inside > 1 || (shape == maniColliderPlane && inside != 0)) | if (inside > 1)
+so-col-normal | src/spring.c | if (shape == maniColliderPlane && !Unit(nx * nx + ny * ny + nz * nz)) | if (false)
+so-col-radius | src/spring.c | if (!(LoadF32(e + 40) >= 0.0f)) | if (false)
+so-limit-none | src/spring.c | if (!(angle >= 0.0f && angle <= pi) || (limit == maniSpringLimitNone && angle != 0.0f)) | if (!(angle >= 0.0f && angle <= pi))
+so-frame | src/spring.c | bool frame = limit == maniSpringLimitNone ? identity : Unit(x * x + y * y + z * z + w * w); | bool frame = true;
+so-head-prev | src/spring.c | if (head >= set->boneCount || (previous != MANI_NO_BONE && head != previous)) | if (head >= set->boneCount)
+so-tail-head | src/spring.c | if (tail >= set->boneCount || tail == head) | if (tail >= set->boneCount)
+so-drag | src/spring.c | if (!(drag >= 0.0f && drag <= 1.0f)) | if (!(drag >= 0.0f))
+so-utf8 | src/spring.c | if (!maniValidUtf8(s->data[5] + r->name, length)) | if (false)
+so-runs | src/spring.c | if (runs.joint != set->jointCount || runs.link != set->linkCount || runs.name != set->nameBytes) | if (false)
+so-link | src/spring.c | if (maniLoadU32(s->data[4] + 4 * (size_t)k) >= set->colliderCount) | if (false)
+so-identity | src/spring.c | if (maniSpringComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
+
+# Spring states: steps, output, saved states, shapes and limits
+# (mani-0026).
+sp-lerp | src/spring_step.c | return maniVec3Add(a, maniVec3Scale(maniVec3Sub(b, a), f)); | return maniVec3Add(a, maniVec3Scale(maniVec3Sub(b, a), 1.0f));
+sp-move | src/spring_step.c | return maniVec3Add(maniQuatRotate(r->rotation, x), r->translation); | return maniVec3Add(x, r->translation);
+sp-turn-at | src/spring_step.c | maniVec3 t = maniVec3Add(maniQuatRotate(q, maniVec3Sub(r->translation, p)), p); | maniVec3 t = r->translation;
+sp-turn-rot | src/spring_step.c | return (Rigid){maniQuatNormalize(maniQuatMul(q, r->rotation)), t}; | return (Rigid){r->rotation, t};
+sp-largest-y | src/spring_step.c | float m = x > y ? x : y; | float m = x;
+sp-largest-z | src/spring_step.c | return m > z ? m : z; | return m;
+sp-carry-from | src/spring_step.c | maniVec3 world = maniVec3Add(from.position, maniQuatRotate(from.rotation, x)); | maniVec3 world = maniVec3Add(from.position, x);
+sp-carry-to | src/spring_step.c | return maniQuatRotate(maniQuatConjugate(to.rotation), maniVec3Sub(world, to.position)); | return maniVec3Sub(world, to.position);
+sp-head-rot | src/spring_step.c | maniQuatNlerp(maniSpringQuat(s->block, at + maniSpringHeadRotation), now.rotation, f), | now.rotation,
+sp-head-pos | src/spring_step.c | Lerp(maniSpringVec(s->block, at + maniSpringHeadPosition), now.translation, f), | now.translation,
+sp-head-scale | src/spring_step.c | f * (LargestScale(now.scale) - maniSpringWord(s->block, at + maniSpringHeadScale)), | f * (1.0f - maniSpringWord(s->block, at + maniSpringHeadScale)),
+sp-head-mirror | src/spring_step.c | now.scale}; | (maniVec3){1.0f, 1.0f, 1.0f}};
+sp-shape-lerp | src/spring_step.c | now, s->fraction); | now, 1.0f);
+sp-normal-sign | src/spring_step.c | float sign = k.x * k.y * k.z < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
+sp-normal-x | src/spring_step.c | maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign); | maniVec3Make(tail.x, tail.y, tail.z), sign);
+sp-shape-offset | src/spring_step.c | return (maniSpringShape){maniAffineTransformPoint(&m, FileVec(e + 16)), | return (maniSpringShape){FileVec(e + 16),
+sp-shape-plane | src/spring_step.c | ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp) | ? tail
+sp-shape-radius | src/spring_step.c | FileFloat(e + 40) * LargestScale(t.scale), shape, maniLoadU32(e + 8)}; | FileFloat(e + 40), shape, maniLoadU32(e + 8)};
+sp-shape-inside | src/spring_step.c | FileFloat(e + 40) * LargestScale(t.scale), shape, maniLoadU32(e + 8)}; | FileFloat(e + 40) * LargestScale(t.scale), shape, 0};
+sp-keep-limit | src/spring_step.c | if (limit != maniSpringLimitNone) | if (false)
+sp-keep-in | src/spring_step.c | maniVec3 local = maniQuatRotate(maniQuatConjugate(frame), direction); | maniVec3 local = direction;
+sp-keep-out | src/spring_step.c | direction = maniQuatRotate(frame, local); | direction = local;
+sp-keep-yaw | src/spring_step.c | FileFloat(joint + maniSpringJointYaw), local); | FileFloat(joint + maniSpringJointAngle), local);
+sp-keep-length | src/spring_step.c | return maniVec3Add(head, maniVec3Scale(direction, length)); | return maniVec3Add(head, direction);
+sp-length | src/spring_step.c | float length = maniVec3Length(maniVec3Sub(tail, head)); | float length = 0.5f;
+sp-pull | src/spring_step.c | maniVec3 pull = maniVec3Normalize(maniVec3Sub(tail, head), kUp); | maniVec3 pull = maniVec3Normalize(maniVec3Sub(h.tail, h.position), kUp);
+sp-frame-chain | src/spring_step.c | maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror)); | maniQuatMul(h.rotation, maniSpringMirror(local, h.mirror));
+sp-frame-mirror | src/spring_step.c | maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror)); | maniQuatMul(maniQuatMul(chain->rotation, h.rotation), local);
+sp-gravity-place | src/spring_step.c | maniQuatRotate(maniQuatConjugate(s->place.rotation), FileVec(e + maniSpringJointGravity)); | FileVec(e + maniSpringJointGravity);
+sp-drag | src/spring_step.c | maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f - drag)); | maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f));
+sp-stiff-scale | src/spring_step.c | next = maniVec3Add(next, maniVec3Scale(pull, stiffness * h.scale)); | next = maniVec3Add(next, maniVec3Scale(pull, stiffness));
+sp-gravity-scale | src/spring_step.c | next = maniVec3Add(next, maniVec3Scale(gravity, h.scale)); | next = maniVec3Add(next, gravity);
+sp-hit-scale | src/spring_step.c | float radius = FileFloat(e + maniSpringJointHitRadius) * h.scale; | float radius = FileFloat(e + maniSpringJointHitRadius);
+sp-links | src/spring_step.c | for (uint32_t k = 0; k < maniLoadU32(spring + 12); ++k) | for (uint32_t k = 0; k < 0; ++k)
+sp-push | src/spring_step.c | next = maniVec3Sub(next, maniVec3Scale(direction, distance)); | next = maniVec3Add(next, maniVec3Scale(direction, distance));
+sp-center-none | src/spring_step.c | if (center == MANI_NO_BONE) | if (true)
+sp-center-lerp | src/spring_step.c | LerpTransform(BoneWords(s->block, maniSpringCenterAt(s->set, spring)), now, s->fraction); | LerpTransform(now, now, s->fraction);
+sp-centered | src/spring_step.c | bool centered = CenterOf(s, spring, &center) && maniAffineInverse(&center, &inverse); | bool centered = false;
+sp-now-carry | src/spring_step.c | now = centered ? maniAffineTransformPoint(&center, now) : Carry(s->last, s->place, now); | now = centered ? maniAffineTransformPoint(&center, now) : now;
+sp-turn | src/spring_step.c | chain = TurnAbout(&chain, maniQuatBetween(pull, turned), head); | (void)turned;
+sp-store-before | src/spring_step.c | centered ? maniAffineTransformPoint(&inverse, now) : now); | centered ? maniAffineTransformPoint(&inverse, next) : next);
+sp-store-now | src/spring_step.c | centered ? maniAffineTransformPoint(&inverse, next) : next); | centered ? next : next);
+sp-place-pos | src/spring_step.c | return (Place){Lerp(last.position, now.position, f), | return (Place){now.position,
+sp-place-rot | src/spring_step.c | maniQuatNlerp(last.rotation, now.rotation, f)}; | now.rotation};
+sp-keep-headrot | src/spring_step.c | maniSpringSetQuat(block, at + maniSpringHeadRotation, head.rotation); | maniSpringSetQuat(block, at + maniSpringHeadRotation, maniQuatIdentity());
+sp-keep-headscale | src/spring_step.c | maniSpringSetWord(block, at + maniSpringHeadScale, LargestScale(head.scale)); | maniSpringSetWord(block, at + maniSpringHeadScale, 1.0f);
+sp-keep-collider | src/spring_step.c | SetBoneWords(block, maniSpringColliderAt(set, c), maniPoseModelTransform(pose, bone)); | (void)bone;
+sp-keep-center | src/spring_step.c | SetBoneWords(block, maniSpringCenterAt(set, i), maniPoseModelTransform(pose, center)); | (void)center;
+sp-keep-place | src/spring_step.c | StorePlace(block, maniSpringPlacement, now); | (void)now;
+sp-begin-center | src/spring_step.c | (void)maniAffineInverse(&m, &inverse); | (void)m;
+sp-begin-before | src/spring_step.c | maniSpringSetVec(block, maniSpringJointAt(j) + maniSpringTailBefore, tail); | (void)tail;
+sp-begin-has | src/spring_step.c | block[maniSpringHas] = 1; | block[maniSpringHas] = 0;
+sp-clock-hi | src/spring_step.c | block[maniSpringClock + 1] = (uint32_t)(bits >> 32); | block[maniSpringClock + 1] = 0;
+sp-most | src/spring_step.c | double e = step < most ? step : most; | double e = step;
+sp-loop | src/spring_step.c | for (double t = seconds - clock; t <= e && steps < MANI_SPRING_MAX_STEPS; | for (double t = seconds - clock; t < e && steps < MANI_SPRING_MAX_STEPS;
+sp-fraction | src/spring_step.c | float f = e > 0.0 ? (float)(t / e) : 1.0f; | float f = 1.0f;
+sp-step-place | src/spring_step.c | StorePlace(block, maniSpringStepPlacement, s.place); | (void)s;
+sp-clock-keep | src/spring_step.c | clock = clock + e - (double)steps * seconds; | clock = e - (double)steps * seconds;
+sp-clock-range | src/spring_step.c | SetClock(block, clock < seconds ? clock : seconds * (1.0 - 0x1p-52)); | SetClock(block, clock < seconds ? clock : 0.0);
+ap-carry-rot | src/spring_apply.c | return (Carry){maniQuatNormalize(maniQuatMul(back, sr)), | return (Carry){sr,
+ap-carry-t | src/spring_apply.c | maniQuatRotate(back, maniVec3Sub(sp, cp))}; | maniVec3Sub(sp, cp)};
+ap-move | src/spring_apply.c | return maniVec3Add(maniQuatRotate(c->rotation, x), c->translation); | return maniVec3Add(x, c->translation);
+ap-above | src/spring_apply.c | maniQuat above = maniQuatNormalize(maniQuatMul(chain->rotation, parent.rotation)); | maniQuat above = parent.rotation;
+ap-in-parent | src/spring_apply.c | maniQuat inParent = maniQuatMul(maniQuatMul(maniQuatConjugate(above), q), above); | maniQuat inParent = q;
+ap-mirror | src/spring_apply.c | maniQuatNormalize(maniQuatMul(maniSpringMirror(inParent, parent.scale), local.rotation)); | maniQuatNormalize(maniQuatMul(inParent, local.rotation));
+ap-order | src/spring_apply.c | maniQuatNormalize(maniQuatMul(maniSpringMirror(inParent, parent.scale), local.rotation)); | maniQuatNormalize(maniQuatMul(local.rotation, maniSpringMirror(inParent, parent.scale)));
+ap-alpha-lerp | src/spring_apply.c | maniSpringVec(block, at + maniSpringTailNow), 1.0f + alpha); | maniSpringVec(block, at + maniSpringTailNow), 1.0f);
+ap-center | src/spring_apply.c | sim = center != MANI_NO_BONE | sim = false
+ap-turn | src/spring_apply.c | Turn(a, &chain, bone, turn); | (void)bone;
+ap-moved | src/spring_apply.c | maniVec3 moved = maniVec3Add(maniQuatRotate(turn, maniVec3Sub(chain.translation, p)), p); | maniVec3 moved = chain.translation;
+ap-chain-rot | src/spring_apply.c | chain = (Chain){maniQuatNormalize(maniQuatMul(turn, chain.rotation)), moved}; | chain = (Chain){chain.rotation, moved};
+ap-has | src/spring_apply.c | if (block[maniSpringHas] == 0) | if (false)
+ap-alpha | src/spring_apply.c | (float)(maniSpringClockOf(block) * (double)set->stepRate)}; | 0.0f};
+sh-capsule | src/spring_shape.c | if (s->shape != maniColliderCapsule) | if (true)
+sh-before | src/spring_shape.c | if (!(length > 0.0f) || along < 0.0f) | if (!(length > 0.0f))
+sh-point | src/spring_shape.c | if (!(length > 0.0f) || along < 0.0f) | if (along < 0.0f)
+sh-end | src/spring_shape.c | return along > length ? maniVec3Sub(delta, axis) | return false ? maniVec3Sub(delta, axis)
+sh-plane-r | src/spring_shape.c | *distanceOut = maniVec3Dot(delta, s->tail) - jointRadius; | *distanceOut = maniVec3Dot(delta, s->tail);
+sh-plane | src/spring_shape.c | if (s->shape == maniColliderPlane) | if (false)
+sh-inside | src/spring_shape.c | if (s->inside != 0) | if (false)
+sh-inside-r | src/spring_shape.c | *distanceOut = s->radius - jointRadius - length; | *distanceOut = s->radius + jointRadius - length;
+sh-out-r | src/spring_shape.c | *distanceOut = length - s->radius - jointRadius; | *distanceOut = length - s->radius;
+sh-up | src/spring_shape.c | maniVec3 direction = maniVec3Normalize(delta, kUp); | maniVec3 direction = maniVec3Normalize(delta, (maniVec3){1.0f, 0.0f, 0.0f});
+sh-cone-in | src/spring_shape.c | if (!(d.y < c)) | if (false)
+sh-cone-down | src/spring_shape.c | if (!(horizontal > 0.0f)) | if (false)
+sh-cone-scale | src/spring_shape.c | float scale = side / sqrtf(horizontal); | float scale = side;
+sh-hinge-x | src/spring_shape.c | if (!(projected > 0.0f)) | if (false)
+sh-hinge-norm | src/spring_shape.c | maniVec3 h = maniVec3Make(0.0f, d.y / length, d.z / length); | maniVec3 h = maniVec3Make(0.0f, d.y, d.z);
+sh-hinge-in | src/spring_shape.c | if (!(h.y < c)) | if (false)
+sh-hinge-side | src/spring_shape.c | return maniVec3Make(0.0f, c, h.z < 0.0f ? -side : side); | return maniVec3Make(0.0f, c, side);
+sh-sph-down | src/spring_shape.c | if (d.y == -1.0f) | if (false)
+sh-sph-pitch | src/spring_shape.c | pitch = maniAtan2(d.z, d.y); | pitch = 0.0f;
+sh-sph-pclamp | src/spring_shape.c | pitch = fabsf(pitch) > pitchLimit ? copysignf(pitchLimit, pitch) : pitch; | pitch = fabsf(pitch) > pitchLimit ? pitchLimit : pitch;
+sh-sph-yclamp | src/spring_shape.c | yaw = fabsf(yaw) > yawLimit ? copysignf(yawLimit, yaw) : yaw; | yaw = fabsf(yaw) > yawLimit ? yawLimit : yaw;
+sh-sph-out | src/spring_shape.c | return maniVec3Make(maniSin(yaw), cy * maniCos(pitch), cy * maniSin(pitch)); | return maniVec3Make(maniSin(yaw), maniCos(pitch), cy * maniSin(pitch));
+sh-cone | src/spring_shape.c | return Cone(direction, angle); | return direction;
+sh-hinge | src/spring_shape.c | return Hinge(direction, angle); | return direction;
+sh-sph | src/spring_shape.c | return Spherical(direction, angle, yaw); | return Spherical(direction, angle, angle);
+ss-words | src/spring_state.c | return maniSpringCenterAt(set, set->springCount); | return maniSpringCenterAt(set, 0);
+ss-size-null | src/spring_state.c | if (set == NULL) | if (false)
+ss-round | src/spring_state.c | return (size + MANI_SPRING_STATE_ALIGNMENT - 1) & ~(size_t)(MANI_SPRING_STATE_ALIGNMENT - 1); | return size;
+ss-align | src/spring_state.c | (uintptr_t)memory % MANI_SPRING_STATE_ALIGNMENT != 0 || | false ||
+ss-identity | src/spring_state.c | maniSkeletonIdentity(skeleton) != set->skeletonIdentity || | false ||
+ss-count | src/spring_state.c | maniSkeletonBoneCount(skeleton) != set->boneCount) | false)
+ss-capacity | src/spring_state.c | if (size < need) | if (false)
+ss-zero | src/spring_state.c | memset(memory, 0, need); | (void)need;
+ss-place-x | src/spring_state.c | return isfinite(p.x) && isfinite(p.y) && isfinite(p.z) && isfinite(length) && length > 0.0f; | return isfinite(p.y) && isfinite(p.z) && isfinite(length) && length > 0.0f;
+ss-place-len | src/spring_state.c | return isfinite(p.x) && isfinite(p.y) && isfinite(p.z) && isfinite(length) && length > 0.0f; | return isfinite(p.x) && isfinite(p.y) && isfinite(p.z) && isfinite(length);
+ss-model-count | src/spring_state.c | if (maniPoseBoneCount(pose) != state->set->boneCount || maniPoseIsDifference(pose)) | if (maniPoseIsDifference(pose))
+# ss-model-diff survives, equivalent: maniComputeModel refuses a
+# difference, whose model is never current (each write marks it stale).
+ss-model-diff | src/spring_state.c | if (maniPoseBoneCount(pose) != state->set->boneCount || maniPoseIsDifference(pose)) | if (maniPoseBoneCount(pose) != state->set->boneCount)
+ss-compute | src/spring_state.c | return maniPoseModelCurrent(pose) || maniComputeModel(pose, state->skeleton) == mani_success; | return true;
+ss-placement | src/spring_state.c | place = *placement; | (void)placement;
+ss-delta | src/spring_state.c | if (state == NULL || pose == NULL || !isfinite(delta) || !PlacementValid(&place) || | if (state == NULL || pose == NULL || !PlacementValid(&place) ||
+ss-normalize | src/spring_state.c | place.rotation = maniQuatNormalize(place.rotation); | (void)0;
+ss-fabs | src/spring_state.c | maniSpringStepBlock(state->set, maniSpringBlock(state), pose, &place, fabs((double)delta)); | maniSpringStepBlock(state->set, maniSpringBlock(state), pose, &place, (double)delta);
+ss-reset | src/spring_state.c | memset(maniSpringBlock(state), 0, 4 * (size_t)state->words); | (void)state;
+ss-saved-size | src/spring_state.c | return set == NULL ? 0 : MANI_SPRING_STATE_HEADER_SIZE + 4 * (size_t)maniSpringBlockWords(set); | return set == NULL ? 0 : 4 * (size_t)maniSpringBlockWords(set);
+ss-save-cap | src/spring_state.c | if (capacity < size) | if (false)
+ss-magic | src/spring_state.c | maniStoreU32(p, MANI_SPRING_STATE_MAGIC); | maniStoreU32(p, 0);
+ss-identity-out | src/spring_state.c | maniStoreU64(p + 8, state->set->identity); | maniStoreU64(p + 8, 0);
+ss-finite | src/spring_state.c | if (!isfinite(v)) | if (false)
+ss-rot-low | src/spring_state.c | return length > 0.998f && length < 1.002f ? kValid : at; | return length < 1.002f ? kValid : at;
+ss-rot-high | src/spring_state.c | return length > 0.998f && length < 1.002f ? kValid : at; | return length > 0.998f ? kValid : at;
+ss-rot-finite | src/spring_state.c | uint64_t wrong = FiniteRun(bytes, at, 4); | uint64_t wrong = kValid;
+ss-placed-rot | src/spring_state.c | wrong = wrong != kValid ? wrong : Rotation(bytes, at + 3); | wrong = wrong;
+ss-placed-scale | src/spring_state.c | return wrong != kValid || !scaled ? wrong : FiniteRun(bytes, at + 7, 3); | return wrong;
+ss-joint-head | src/spring_state.c | uint64_t wrong = FiniteRun(bytes, at, maniSpringHeadRotation); | uint64_t wrong = kValid;
+ss-joint-rot | src/spring_state.c | wrong = wrong != kValid ? wrong : Rotation(bytes, at + maniSpringHeadRotation); | wrong = wrong;
+ss-scale-neg | src/spring_state.c | if (wrong == kValid && !(FloatAt(bytes, at + maniSpringHeadScale) >= 0.0f && | if (wrong == kValid && !(true &&
+ss-scale-inf | src/spring_state.c | isfinite(FloatAt(bytes, at + maniSpringHeadScale)))) | true))
+ss-joint-tail | src/spring_state.c | return wrong != kValid ? wrong : FiniteRun(bytes, at + maniSpringTailPosition, 3); | return wrong;
+ss-center-has | src/spring_state.c | return Placed(bytes, at, true); | return kValid;
+ss-center-zero | src/spring_state.c | if (maniLoadU32(bytes + 4 * (at + i)) != 0) | if (false)
+ss-place | src/spring_state.c | uint64_t wrong = Placed(bytes, maniSpringPlacement, false); | uint64_t wrong = kValid;
+ss-step-place | src/spring_state.c | wrong = wrong != kValid ? wrong : Placed(bytes, maniSpringStepPlacement, false); | wrong = wrong;
+ss-joints | src/spring_state.c | wrong = Joint(bytes, maniSpringJointAt(j)); | wrong = kValid;
+ss-colliders | src/spring_state.c | wrong = Placed(bytes, maniSpringColliderAt(set, c), true); | wrong = kValid;
+ss-centers | src/spring_state.c | wrong = Center(set, bytes, i); | wrong = kValid;
+ss-has | src/spring_state.c | if (has > 1) | if (has > 2)
+ss-reserved | src/spring_state.c | if (maniLoadU32(bytes + 4) != 0) | if (false)
+ss-moving-bytes | src/spring_state.c | return wrong == kValid ? kValid : 4 * wrong; | return wrong;
+ss-zeros | src/spring_state.c | if (maniLoadU32(bytes + 4 * w) != 0) | if (false)
+ss-r-magic | src/spring_state.c | if (size < MANI_SPRING_STATE_HEADER_SIZE || maniLoadU32(b) != MANI_SPRING_STATE_MAGIC) | if (maniLoadU32(b) != MANI_SPRING_STATE_MAGIC)
+ss-r-reserved | src/spring_state.c | if (maniLoadU32(b + 4) != 0) | if (false)
+ss-r-identity | src/spring_state.c | if (maniLoadU64(b + 8) != state->set->identity) | if (false)
+ss-r-size | src/spring_state.c | if (maniLoadU64(b + 16) != expected || size < expected) | if (maniLoadU64(b + 16) != expected)
+ss-r-size2 | src/spring_state.c | if (maniLoadU64(b + 16) != expected || size < expected) | if (size < expected)
+ss-r-copy | src/spring_state.c | block[w] = maniLoadU32(b + MANI_SPRING_STATE_HEADER_SIZE + 4 * w); | block[w] = 0;
+sp-clock-high | src/spring_step.c | SetClock(block, clock < seconds ? clock : seconds * (1.0 - 0x1p-52)); | SetClock(block, clock);
+# sp-clock-low survives, equivalent as far as known: no clock and delta
+# near a step (2.7 million tried) round below zero; kept so a saved
+# clock is in range whatever the rounding.
+sp-clock-low | src/spring_step.c | clock = clock > 0.0 ? clock : 0.0; | clock = clock;
+ap-extrapolate | src/spring_apply.c | maniSpringVec(block, at + maniSpringTailNow), 1.0f + alpha); | maniSpringVec(block, at + maniSpringTailNow), alpha);
+ss-clock-neg | src/spring_state.c | if (!(clock >= 0.0 && clock < 1.0 / (double)set->stepRate)) | if (!(clock < 1.0 / (double)set->stepRate))
+ss-clock-step | src/spring_state.c | if (!(clock >= 0.0 && clock < 1.0 / (double)set->stepRate)) | if (!(clock >= 0.0))

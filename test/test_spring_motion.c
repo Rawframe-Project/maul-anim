@@ -581,11 +581,12 @@ static void TestLyingMoving(void)
 {
     // A character on its back moving in the world, its tails between
     // steps (240 Hz): as one upright moving likewise in its own space
-    // with gravity along +z.
+    // with gravity along +z, at every frame.
     maniQuat back = {1.41421356f, 0.0f, 0.0f, 1.41421356f};
     Config side = kSwing;
     side.gravityDirection = (maniVec3){0.0f, 0.0f, 1.0f};
-    maniVec3 want[2];
+    static maniVec3 s_upright[240];
+    float worst = 0.0f;
     for (int run = 0; run < 2; ++run)
     {
         MakeSet(run == 0 ? &side : &kSwing);
@@ -602,10 +603,15 @@ static void TestLyingMoving(void)
                 place = (maniTransform){world, back, {1, 1, 1}};
             }
             CHECK(Frame(state, 1.0f / 240.0f, &place), "a frame");
+            if (run == 0)
+            {
+                s_upright[i - 1] = Position(s_b[2]);
+            }
+            float d = Distance(Position(s_b[2]), s_upright[i - 1]);
+            worst = d > worst ? d : worst;
         }
-        want[run] = Position(s_b[2]);
     }
-    CHECK(Distance(want[0], want[1]) < 1e-5f, "moving on its back");
+    CHECK(worst < 1e-5f, "moving on its back");
 }
 
 int main(void)
