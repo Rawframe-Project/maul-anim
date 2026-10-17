@@ -393,6 +393,14 @@ static void TestSaved(void)
     CHECK(Instanced(&springy, &s_made[0]) && Instanced(&springy, &s_made[2]), "two instances");
     maniPose* a = PoseAt(0);
     maniPose* b = PoseAt(1);
+    // The room the spring node works in holds what another node left
+    // there; nothing of it reaches the block.
+    const maniGraphInstance* live = s_made[0].live;
+    CHECK(maniGraphRoom(s_made[0].bound) >= 4 * (size_t)maniGraphSpringWorkWords(&s_set) &&
+              maniGraphInstanceSize(s_made[0].bound) ==
+                  live->roomAt + maniGraphRoom(s_made[0].bound),
+          "the room holds the set's work area");
+    memset((uint8_t*)s_made[0].live + live->roomAt, 0xFF, maniGraphRoom(s_made[0].bound));
     for (uint32_t i = 1; i <= 20; ++i)
     {
         (void)Place(&s_made[0], i);

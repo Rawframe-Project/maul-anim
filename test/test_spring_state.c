@@ -3,10 +3,12 @@
 //
 // Spring states (mani-0026) on the fixture's chain: the colliders' and
 // limits' cases, the step bound, reset, save and restore with every
-// check of the saved bytes, and the calls' refusals.
+// check of the saved bytes, the calls' refusals, the work area's size
+// and the inputs a call keeps for the next.
 
 #include "spring_fixture.h"
 #include "spring_shape.h"
+#include "spring_state.h"
 
 #include "maul-anim/blend.h"
 
@@ -148,6 +150,14 @@ static void TestRefusals(void)
     CHECK(maniSpringStateSize(&odd) % MANI_SPRING_STATE_ALIGNMENT == 0, "rounded up");
     CHECK(size > 0 && size % MANI_SPRING_STATE_ALIGNMENT == 0 && maniSpringStateSize(NULL) == 0,
           "the state's size, a multiple of its alignment");
+    // The block, then the work area: per joint its head, per collider
+    // and spring a bone, per collider a shape.
+    uint64_t work = 14u * odd.jointCount + 10u * odd.colliderCount + 10u * odd.springCount +
+                    9u * odd.colliderCount;
+    CHECK(maniSpringWorkWords(&odd) == work &&
+              maniSpringStateSize(&odd) >=
+                  sizeof(maniSpringState) + 4 * (size_t)(maniSpringBlockWords(&odd) + work),
+          "room for the block and the work area");
     CHECK(maniInitSpringState(&more, &s_skeleton, s_memory[0], size, &state) == mani_errorInvalid,
           "a set of more bones than the skeleton");
     CHECK(maniInitSpringState(NULL, &s_skeleton, s_memory[0], size, &state) == mani_errorInvalid &&
@@ -335,6 +345,45 @@ static void TestClockRounding(void)
     CHECK(maniRestoreSpringState(state, s_saved[1], size).result == mani_success, "and restorable");
 }
 
+// A call keeps the pose it read as the next call's last inputs: each
+// joint's head position, rotation and largest scale and its tail's
+// position, each collider's bone, as the pose's model space holds them.
+static void TestKeptInputs(void)
+{
+    Config c = kSwing;
+    c.collider = 1;
+    MakeSet(&c);
+    maniSpringState* state = NewState(0);
+    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    maniTransform b1 = maniPoseLocal(s_pose, s_b[1]);
+    b1.rotation = (maniQuat){0.0f, sinf(0.3f), 0.0f, cosf(0.3f)};
+    b1.scale = (maniVec3){1.0f, 1.5f, 1.0f};
+    maniPoseSetLocal(s_pose, s_b[1], b1);
+    CHECK(maniStepSprings(state, s_pose, NULL, 1.0f / 60.0f) == mani_success, "stepped");
+    const uint32_t* block = maniSpringConstBlock(state);
+    bool same = true;
+    for (uint32_t j = 0; j < s_set.jointCount; ++j)
+    {
+        const uint8_t* e = s_set.joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+        maniTransform head = maniPoseModelTransform(s_pose, maniLoadU32(e + maniSpringJointHead));
+        maniAffine tail = maniPoseModel(s_pose, maniLoadU32(e + maniSpringJointTail));
+        uint64_t at = maniSpringJointAt(j);
+        maniVec3 p = maniSpringVec(block, at + maniSpringHeadPosition);
+        maniQuat q = maniSpringQuat(block, at + maniSpringHeadRotation);
+        maniVec3 t = maniSpringVec(block, at + maniSpringTailPosition);
+        float largest =
+            fabsf(head.scale.x) > fabsf(head.scale.y) ? fabsf(head.scale.x) : fabsf(head.scale.y);
+        largest = fabsf(head.scale.z) > largest ? fabsf(head.scale.z) : largest;
+        same = same && memcmp(&p, &head.translation, sizeof p) == 0 &&
+               memcmp(&q, &head.rotation, sizeof q) == 0 &&
+               maniSpringWord(block, at + maniSpringHeadScale) == largest && t.x == tail.m[9] &&
+               t.y == tail.m[10] && t.z == tail.m[11];
+    }
+    maniTransform bone = maniPoseModelTransform(s_pose, maniLoadU32(s_set.colliders));
+    maniVec3 kept = maniSpringVec(block, maniSpringColliderAt(&s_set, 0) + 7);
+    CHECK(same && memcmp(&kept, &bone.scale, sizeof kept) == 0, "the inputs kept as read");
+}
+
 int main(void)
 {
     Setup();
@@ -346,6 +395,7 @@ int main(void)
     TestRefusals();
     TestScaleWords();
     TestClockRounding();
+    TestKeptInputs();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

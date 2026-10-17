@@ -2457,10 +2457,10 @@ sp-largest-y | src/spring_step.c | float m = x > y ? x : y; | float m = x;
 sp-largest-z | src/spring_step.c | return m > z ? m : z; | return m;
 sp-carry-from | src/spring_step.c | maniVec3 world = maniVec3Add(from.position, maniQuatRotate(from.rotation, x)); | maniVec3 world = maniVec3Add(from.position, x);
 sp-carry-to | src/spring_step.c | return maniQuatRotate(maniQuatConjugate(to.rotation), maniVec3Sub(world, to.position)); | return maniVec3Sub(world, to.position);
-sp-head-rot | src/spring_step.c | maniQuatNlerp(maniSpringQuat(s->block, at + maniSpringHeadRotation), now.rotation, f), | now.rotation,
-sp-head-pos | src/spring_step.c | Lerp(maniSpringVec(s->block, at + maniSpringHeadPosition), now.translation, f), | now.translation,
-sp-head-scale | src/spring_step.c | f * (LargestScale(now.scale) - maniSpringWord(s->block, at + maniSpringHeadScale)), | f * (1.0f - maniSpringWord(s->block, at + maniSpringHeadScale)),
-sp-head-mirror | src/spring_step.c | now.scale}; | (maniVec3){1.0f, 1.0f, 1.0f}};
+sp-head-rot | src/spring_step.c | maniQuatNlerp(maniSpringQuat(s->block, at + maniSpringHeadRotation), | maniQuatNlerp(maniSpringQuat(w, now + maniSpringNowRotation),
+sp-head-pos | src/spring_step.c | return (Head){Lerp(maniSpringVec(s->block, at + maniSpringHeadPosition), | return (Head){Lerp(maniSpringVec(w, now + maniSpringNowPosition),
+sp-head-scale | src/spring_step.c | scale + f * (maniSpringWord(w, now + maniSpringNowLargest) - scale), | scale + f * (1.0f - scale),
+sp-head-mirror | src/spring_step.c | maniSpringVec(w, now + maniSpringNowScale)}; | (maniVec3){1.0f, 1.0f, 1.0f}};
 sp-shape-lerp | src/spring_step.c | now, s->fraction); | now, 1.0f);
 sp-normal-sign | src/spring_step.c | float sign = k.x * k.y * k.z < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
 sp-normal-x | src/spring_step.c | maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign); | maniVec3Make(tail.x, tail.y, tail.z), sign);
@@ -2493,10 +2493,12 @@ sp-store-before | src/spring_step.c | centered ? maniAffineTransformPoint(&inver
 sp-store-now | src/spring_step.c | centered ? maniAffineTransformPoint(&inverse, next) : next); | centered ? next : next);
 sp-place-pos | src/spring_step.c | return (Place){Lerp(last.position, now.position, f), | return (Place){now.position,
 sp-place-rot | src/spring_step.c | maniQuatNlerp(last.rotation, now.rotation, f)}; | now.rotation};
-sp-keep-headrot | src/spring_step.c | maniSpringSetQuat(block, at + maniSpringHeadRotation, head.rotation); | maniSpringSetQuat(block, at + maniSpringHeadRotation, maniQuatIdentity());
-sp-keep-headscale | src/spring_step.c | maniSpringSetWord(block, at + maniSpringHeadScale, LargestScale(head.scale)); | maniSpringSetWord(block, at + maniSpringHeadScale, 1.0f);
-sp-keep-collider | src/spring_step.c | SetBoneWords(block, maniSpringColliderAt(set, c), maniPoseModelTransform(pose, bone)); | (void)bone;
-sp-keep-center | src/spring_step.c | SetBoneWords(block, maniSpringCenterAt(set, i), maniPoseModelTransform(pose, center)); | (void)center;
+sp-keep-headrot | src/spring_step.c | maniSpringSetQuat(work, at + maniSpringNowRotation, head.rotation); | maniSpringSetQuat(work, at + maniSpringNowRotation, maniQuatIdentity());
+# sp-keep-headscale was folded into sw-largest and sw-center-read when the
+# inputs moved to the work area (a call reads each bone once).
+sp-keep-collider | src/spring_step.c | SetBoneWords(work, maniSpringNowColliderAt(set, c), maniPoseModelTransform(pose, bone)); | (void)bone;
+# sp-keep-center was folded into sw-largest and sw-center-read when the
+# inputs moved to the work area (a call reads each bone once).
 sp-keep-place | src/spring_step.c | StorePlace(block, maniSpringPlacement, now); | (void)now;
 sp-begin-center | src/spring_step.c | (void)maniAffineInverse(&m, &inverse); | (void)m;
 sp-begin-before | src/spring_step.c | maniSpringSetVec(block, maniSpringJointAt(j) + maniSpringTailBefore, tail); | (void)tail;
@@ -2565,7 +2567,7 @@ ss-compute | src/spring_state.c | return maniPoseModelCurrent(pose) || maniCompu
 ss-placement | src/spring_state.c | place = *placement; | (void)placement;
 ss-delta | src/spring_state.c | if (state == NULL || pose == NULL || !isfinite(delta) || !PlacementValid(&place) || | if (state == NULL || pose == NULL || !PlacementValid(&place) ||
 ss-normalize | src/spring_state.c | place.rotation = maniQuatNormalize(place.rotation); | (void)0;
-ss-fabs | src/spring_state.c | maniSpringStepBlock(state->set, maniSpringBlock(state), pose, &place, fabs((double)delta)); | maniSpringStepBlock(state->set, maniSpringBlock(state), pose, &place, (double)delta);
+ss-fabs | src/spring_state.c | maniSpringStepBlock(state->set, block, block + state->words, pose, &place, fabs((double)delta)); | maniSpringStepBlock(state->set, block, block + state->words, pose, &place, (double)delta);
 ss-reset | src/spring_state.c | memset(maniSpringBlock(state), 0, 4 * (size_t)state->words); | (void)state;
 ss-saved-size | src/spring_state.c | return set == NULL ? 0 : MANI_SPRING_STATE_HEADER_SIZE + 4 * (size_t)maniSpringBlockWords(set); | return set == NULL ? 0 : 4 * (size_t)maniSpringBlockWords(set);
 ss-save-cap | src/spring_state.c | if (capacity < size) | if (false)
@@ -2656,7 +2658,7 @@ gn-check-max | src/graph_check.c | MANI_GRAPH_SPRING_MAX_WORDS; | UINT32_MAX;
 gn-check-param | src/graph_check.c | ok = parameters[k] == MANI_NO_PARAMETER || | ok = true ||
 gn-eval-position | src/graph_evaluate.c | t.translation = (maniVec3){f[0], f[1], f[2]}; | (void)f;
 gn-eval-rotation | src/graph_evaluate.c | t.rotation = maniQuatNormalize((maniQuat){f[0], f[1], f[2], f[3]}); | t.rotation = (maniQuat){f[0], f[1], f[2], f[3]};
-gn-eval-spring | src/graph_evaluate.c | maniGraphSpringPose(set, e->binding->skeleton, block, &placement, out); | (void)set;
+gn-eval-spring | src/graph_evaluate.c | maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, out); | (void)set;
 gn-update-clear | src/graph_update.c | u->instance->cells[reset].value.b = 0; | (void)reset;
 gn-update-fired | src/graph_update.c | bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0; | bool fired = false;
 gn-update-seek | src/graph_update.c | if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0) | if (fired)
@@ -2723,3 +2725,17 @@ gx-turn-special | src/spring_frame.c | return axis.y == -1.0f ? (maniQuat){1.0f,
 # which gave R bit for bit on the tests' joints; the shortcut keeps a
 # rotation as written by construction.
 gx-basis-never | src/gltf_spring.c | if (BasisKept(o)) | if (false)
+
+# Spring steps' work area (src/spring_step.c, src/spring_state.c, src/graph_instance.c)
+sw-largest | src/spring_step.c | maniSpringSetWord(work, at + maniSpringNowLargest, LargestScale(head.scale)); | maniSpringSetWord(work, at + maniSpringNowLargest, 1.0f);
+sw-scale | src/spring_step.c | maniSpringSetVec(work, at + maniSpringNowScale, head.scale); | (void)head;
+sw-center-zero | src/spring_step.c | memset(work + at, 0, 4 * (size_t)MANI_SPRING_BONE_WORDS); | (void)at;
+sw-center-read | src/spring_step.c | SetBoneWords(work, at, maniPoseModelTransform(pose, center)); | (void)center;
+sw-shapes | src/spring_step.c | Shapes(&s); | (void)s;
+sw-shape-radius | src/spring_step.c | maniSpringSetWord(s->work, at + 6, shape.radius); | maniSpringSetWord(s->work, at + 6, 0.0f);
+sw-shape-inside | src/spring_step.c | s->work[at + 8] = shape.inside; | s->work[at + 8] = 0;
+sw-shape-kind | src/spring_step.c | s->work[at + 7] = shape.shape; | s->work[at + 7] = 0;
+sw-keep-joint | src/spring_step.c | work + maniSpringNowJointAt(j) + maniSpringNowPosition, 11 * sizeof(uint32_t)); | work + maniSpringNowJointAt(j) + maniSpringNowPosition, 10 * sizeof(uint32_t));
+sw-keep-bones | src/spring_step.c | 4 * (size_t)(set->colliderCount + set->springCount) * MANI_SPRING_BONE_WORDS); | 4 * (size_t)set->colliderCount * MANI_SPRING_BONE_WORDS);
+sw-work-size | src/spring_state.c | return maniSpringShapeAt(set, set->colliderCount); | return maniSpringShapeAt(set, 0);
+sw-room-spring | src/graph_instance.c | need = 4 * (size_t)maniGraphSpringWorkWords(maniGraphBoundSpringSet(binding, slot)); | need = 0;
