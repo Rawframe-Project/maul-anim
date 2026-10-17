@@ -29,13 +29,19 @@ uint64_t maniSpringBlockWords(const maniSpringSet* set)
     return maniSpringCenterAt(set, set->springCount);
 }
 
+uint64_t maniSpringWorkWords(const maniSpringSet* set)
+{
+    return maniSpringShapeAt(set, set->colliderCount);
+}
+
 size_t maniSpringStateSize(const maniSpringSet* set)
 {
     if (set == NULL)
     {
         return 0;
     }
-    size_t size = sizeof(maniSpringState) + 4 * (size_t)maniSpringBlockWords(set);
+    size_t size = sizeof(maniSpringState) +
+                  4 * (size_t)(maniSpringBlockWords(set) + maniSpringWorkWords(set));
     return (size + MANI_SPRING_STATE_ALIGNMENT - 1) & ~(size_t)(MANI_SPRING_STATE_ALIGNMENT - 1);
 }
 
@@ -96,7 +102,8 @@ maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTra
         return mani_errorInvalid;
     }
     place.rotation = maniQuatNormalize(place.rotation);
-    maniSpringStepBlock(state->set, maniSpringBlock(state), pose, &place, fabs((double)delta));
+    uint32_t* block = maniSpringBlock(state);
+    maniSpringStepBlock(state->set, block, block + state->words, pose, &place, fabs((double)delta));
     return mani_success;
 }
 

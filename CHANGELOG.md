@@ -198,7 +198,8 @@ format.
   turns the joints toward the last step's tails, moved on at their
   velocity between steps; `maniResetSprings`, `maniSaveSpringState`
   and `maniRestoreSpringState` (checked as external bytes) keep and
-  move the motion.
+  move the motion. A call reads each bone once into a work area in the
+  state (and a spring node's in the graph instance's room), not saved.
 - Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
   the host's task system, through which the library's parallel work
   will run, results never depending on how the host splits it.

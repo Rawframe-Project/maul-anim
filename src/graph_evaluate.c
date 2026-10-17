@@ -432,7 +432,8 @@ static void Spring(const Evaluation* e, const uint8_t* record, maniPose* out)
     const maniSpringSet* set =
         maniGraphBoundSpringSet(e->binding, Word(e, data + maniGraphSpringSet));
     maniTransform placement = Placement(e, data);
-    maniGraphSpringPose(set, e->binding->skeleton, block, &placement, out);
+    uint32_t* work = (uint32_t*)((uint8_t*)e->instance + e->instance->roomAt);
+    maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, out);
 }
 
 // A learned node's pose: its model's Decompressor at its state, worked
@@ -450,7 +451,7 @@ static void SampleLearned(const Evaluation* e, const uint8_t* record, maniPose* 
         Neutral(e, out, false);
         return;
     }
-    float* room = (float*)((uint8_t*)e->instance + e->instance->learnedAt);
+    float* room = (float*)((uint8_t*)e->instance + e->instance->roomAt);
     size_t scratchSize = maniLearnedScratchSize(m);
     float* state = room + scratchSize / 4;
     maniGraphLearnedState(block, m->featureCount + m->latentCount, m->stepRate, state);

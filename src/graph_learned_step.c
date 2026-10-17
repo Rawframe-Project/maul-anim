@@ -286,7 +286,7 @@ void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
                       maniGraphUpdateWord(u, data + maniGraphLearnedBlock);
     const maniLearnedModel* m =
         maniGraphBoundModel(u->binding, maniGraphUpdateWord(u, data + maniGraphLearnedModel));
-    float* room = (float*)((uint8_t*)u->instance + u->instance->learnedAt);
+    float* room = (float*)((uint8_t*)u->instance + u->instance->roomAt);
     size_t scratchSize = maniLearnedScratchSize(m);
     // The scratch is whole floats; the state follows it.
     size_t stateAt = scratchSize / 4;

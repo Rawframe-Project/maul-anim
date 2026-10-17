@@ -61,30 +61,35 @@ static size_t MachinesAt(const maniGraphBinding* binding)
     return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize;
 }
 
-static size_t LearnedAt(const maniGraphBinding* binding)
+static size_t RoomAt(const maniGraphBinding* binding)
 {
     size_t words = binding->graph.machineWords;
     return MachinesAt(binding) + ((4 * words + 7u) & ~(size_t)7u);
 }
 
-size_t maniGraphLearnedRoom(const maniGraphBinding* binding)
+size_t maniGraphRoom(const maniGraphBinding* binding)
 {
     const maniGraph* graph = &binding->graph;
     size_t room = 0;
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
-        if (maniLoadU16(e) != maniGraphNodeLearned)
+        uint32_t data = maniLoadU32(e + 12);
+        size_t need = 0;
+        if (maniLoadU16(e) == maniGraphNodeLearned)
         {
-            continue;
+            uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel));
+            const maniLearnedModel* m = maniGraphBoundModel(binding, slot);
+            size_t tail =
+                (size_t)m->outputCount - 9 * (size_t)m->boneCount - 3 * (size_t)m->scaledBoneCount;
+            need = maniLearnedScratchSize(m) +
+                   sizeof(float) * ((size_t)m->featureCount + m->latentCount + tail);
         }
-        uint32_t slot =
-            maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphLearnedModel));
-        const maniLearnedModel* m = maniGraphBoundModel(binding, slot);
-        size_t tail =
-            (size_t)m->outputCount - 9 * (size_t)m->boneCount - 3 * (size_t)m->scaledBoneCount;
-        size_t need = maniLearnedScratchSize(m) +
-                      sizeof(float) * ((size_t)m->featureCount + m->latentCount + tail);
+        else if (maniLoadU16(e) == maniGraphNodeSpring)
+        {
+            uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet));
+            need = 4 * (size_t)maniGraphSpringWorkWords(maniGraphBoundSpringSet(binding, slot));
+        }
         room = need > room ? need : room;
     }
     return (room + 7u) & ~(size_t)7u;
@@ -96,7 +101,7 @@ size_t maniGraphInstanceSize(const maniGraphBinding* binding)
     {
         return 0;
     }
-    return LearnedAt(binding) + maniGraphLearnedRoom(binding);
+    return RoomAt(binding) + maniGraphRoom(binding);
 }
 
 // The machine node p's view, or none (states 0) for another kind.
@@ -266,7 +271,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     instance->size = needed;
     instance->cursorsAt = CursorsAt(graph);
     instance->machinesAt = MachinesAt(binding);
-    instance->learnedAt = LearnedAt(binding);
+    instance->roomAt = RoomAt(binding);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
         instance->cells[i].value = LoadValue(ParameterEntry(graph, i) + 24);

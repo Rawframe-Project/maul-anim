@@ -153,8 +153,9 @@ typedef union maniGraphCell
 // The instance's cells follow it, a value per parameter, a state per
 // node, a state per sync group; then, at cursorsAt, a cursor per clip
 // node in node order; then, at machinesAt, every state machine's block
-// (the graph's machineWords words); then, at learnedAt, the room a
-// learned node's update evaluates its model in (maniGraphLearnedRoom).
+// (the graph's machineWords words); then, at roomAt, the room a
+// learned node's update evaluates its model in and a spring node's
+// evaluation works in (maniGraphRoom), kept by neither between calls.
 struct maniGraphInstance
 {
     uint32_t stamp;
@@ -163,14 +164,14 @@ struct maniGraphInstance
     size_t size;
     size_t cursorsAt;
     size_t machinesAt;
-    size_t learnedAt;
+    size_t roomAt;
     maniGraphCell cells[];
 };
 
-// The bytes a learned node of the binding needs to evaluate its model: a
-// model's scratch, its state and its Decompressor's outputs after the
-// bones', the most any learned node's model takes (a multiple of 8; 0
-// without learned nodes).
-size_t maniGraphLearnedRoom(const maniGraphBinding* binding);
+// The bytes the instance's room needs: for a learned node, its model's
+// scratch, its state and its Decompressor's outputs after the bones';
+// for a spring node, its set's work area; the most any node takes (a
+// multiple of 8; 0 without learned or spring nodes).
+size_t maniGraphRoom(const maniGraphBinding* binding);
 
 #endif // MAUL_ANIM_SRC_GRAPH_INSTANCE_H

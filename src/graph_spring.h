@@ -68,10 +68,13 @@ void maniGraphSpringAdd(uint32_t* block, double seconds);
 // puts it.
 void maniGraphResetSpring(const maniGraph* g, uint32_t data, uint32_t* block);
 
+// The words a set's step works in (the instance's room holds them).
+uint64_t maniGraphSpringWorkWords(const maniSpringSet* set);
+
 // Steps the block by the time it keeps toward pose, a pose of the
-// skeleton, at placement (its rotation unit), and turns the pose's
-// joints toward their tails.
+// skeleton, at placement (its rotation unit), working in work, and
+// turns the pose's joints toward their tails.
 void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton, uint32_t* block,
-                         const maniTransform* placement, maniPose* pose);
+                         uint32_t* work, const maniTransform* placement, maniPose* pose);
 
 #endif // MAUL_ANIM_SRC_GRAPH_SPRING_H

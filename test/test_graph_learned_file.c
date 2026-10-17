@@ -292,8 +292,8 @@ static void TestRoom(bool wideFirst)
     const maniGraphBinding* binding = instance->binding;
     size_t room = (Need(&s_wide) + 7u) & ~(size_t)7u;
     CHECK(room > Need(&s_learned), "the wider model needs more");
-    CHECK(maniGraphLearnedRoom(binding) == room &&
-              maniGraphInstanceSize(binding) == instance->learnedAt + room,
+    CHECK(maniGraphRoom(binding) == room &&
+              maniGraphInstanceSize(binding) == instance->roomAt + room,
           "the room the wider model needs");
     Update(instance, 0.0f);
     Update(instance, 0.05f);

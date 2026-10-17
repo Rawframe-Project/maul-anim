@@ -118,8 +118,13 @@ void maniGraphResetSpring(const maniGraph* g, uint32_t data, uint32_t* block)
     memset(block, 0, 4 * (size_t)maniGraphSpringBlockWords(g, data));
 }
 
+uint64_t maniGraphSpringWorkWords(const maniSpringSet* set)
+{
+    return maniSpringWorkWords(set);
+}
+
 void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton, uint32_t* block,
-                         const maniTransform* placement, maniPose* pose)
+                         uint32_t* work, const maniTransform* placement, maniPose* pose)
 {
     if (maniComputeModel(pose, skeleton) != mani_success)
     {
@@ -128,6 +133,6 @@ void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton,
     double pending = Pending(block);
     SetPending(block, 0.0);
     uint32_t* state = block + maniGraphSpringState;
-    maniSpringStepBlock(set, state, pose, placement, pending);
+    maniSpringStepBlock(set, state, work, pose, placement, pending);
     maniSpringApplyBlock(set, skeleton, state, pose);
 }

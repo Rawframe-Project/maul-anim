@@ -128,13 +128,14 @@ static maniTransform LerpTransform(maniTransform a, maniTransform b, float f)
                            maniQuatNlerp(a.rotation, b.rotation, f), Lerp(a.scale, b.scale, f)};
 }
 
-// What a step reads: the set, the block (last call's inputs), the pose
-// (this call's), the fraction of the way between them, the placements.
+// What a step reads: the set, the block (last call's inputs), the work
+// area (this call's, and the colliders' shapes at the step), the
+// fraction of the way between them, the placements.
 typedef struct Step
 {
     const maniSpringSet* set;
     uint32_t* block;
-    const maniPose* pose;
+    uint32_t* work;
     float fraction;
     Place place;
     Place last;
@@ -144,6 +145,41 @@ static maniVec3 PosePosition(const maniPose* pose, uint32_t bone)
 {
     maniAffine m = maniPoseModel(pose, bone);
     return maniAffineTransformPoint(&m, maniVec3Make(0.0f, 0.0f, 0.0f));
+}
+
+// This call's inputs into the work area, each bone decomposed once.
+static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose* pose)
+{
+    for (uint32_t j = 0; j < set->jointCount; ++j)
+    {
+        const uint8_t* e = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+        maniTransform head = maniPoseModelTransform(pose, maniLoadU32(e + maniSpringJointHead));
+        uint64_t at = maniSpringNowJointAt(j);
+        maniSpringSetVec(work, at + maniSpringNowPosition, head.translation);
+        maniSpringSetQuat(work, at + maniSpringNowRotation, head.rotation);
+        maniSpringSetWord(work, at + maniSpringNowLargest, LargestScale(head.scale));
+        maniSpringSetVec(work, at + maniSpringNowTail,
+                         PosePosition(pose, maniLoadU32(e + maniSpringJointTail)));
+        maniSpringSetVec(work, at + maniSpringNowScale, head.scale);
+    }
+    for (uint32_t c = 0; c < set->colliderCount; ++c)
+    {
+        uint32_t bone = maniLoadU32(set->colliders + (size_t)c * MANI_SPRING_COLLIDER_SIZE);
+        SetBoneWords(work, maniSpringNowColliderAt(set, c), maniPoseModelTransform(pose, bone));
+    }
+    for (uint32_t i = 0; i < set->springCount; ++i)
+    {
+        uint32_t center = maniLoadU32(set->springs + (size_t)i * MANI_SPRING_SPRING_SIZE + 16);
+        uint64_t at = maniSpringNowCenterAt(set, i);
+        if (center != MANI_NO_BONE)
+        {
+            SetBoneWords(work, at, maniPoseModelTransform(pose, center));
+        }
+        else
+        {
+            memset(work + at, 0, 4 * (size_t)MANI_SPRING_BONE_WORDS);
+        }
+    }
 }
 
 // A joint's inputs at the step: its head and the pose's tail.
@@ -159,25 +195,26 @@ typedef struct Head
 
 static Head HeadAt(const Step* s, uint32_t joint)
 {
-    const uint8_t* e = s->set->joints + (size_t)joint * MANI_SPRING_JOINT_SIZE;
     uint64_t at = maniSpringJointAt(joint);
-    maniTransform now = maniPoseModelTransform(s->pose, maniLoadU32(e + maniSpringJointHead));
+    uint64_t now = maniSpringNowJointAt(joint);
+    const uint32_t* w = s->work;
     float f = s->fraction;
-    return (Head){
-        Lerp(maniSpringVec(s->block, at + maniSpringHeadPosition), now.translation, f),
-        maniQuatNlerp(maniSpringQuat(s->block, at + maniSpringHeadRotation), now.rotation, f),
-        maniSpringWord(s->block, at + maniSpringHeadScale) +
-            f * (LargestScale(now.scale) - maniSpringWord(s->block, at + maniSpringHeadScale)),
-        Lerp(maniSpringVec(s->block, at + maniSpringTailPosition),
-             PosePosition(s->pose, maniLoadU32(e + maniSpringJointTail)), f),
-        now.scale};
+    float scale = maniSpringWord(s->block, at + maniSpringHeadScale);
+    return (Head){Lerp(maniSpringVec(s->block, at + maniSpringHeadPosition),
+                       maniSpringVec(w, now + maniSpringNowPosition), f),
+                  maniQuatNlerp(maniSpringQuat(s->block, at + maniSpringHeadRotation),
+                                maniSpringQuat(w, now + maniSpringNowRotation), f),
+                  scale + f * (maniSpringWord(w, now + maniSpringNowLargest) - scale),
+                  Lerp(maniSpringVec(s->block, at + maniSpringTailPosition),
+                       maniSpringVec(w, now + maniSpringNowTail), f),
+                  maniSpringVec(w, now + maniSpringNowScale)};
 }
 
 // A collider in model space at the step.
-static maniSpringShape ShapeAt(const Step* s, uint32_t collider)
+static maniSpringShape ShapeOf(const Step* s, uint32_t collider)
 {
     const uint8_t* e = s->set->colliders + (size_t)collider * MANI_SPRING_COLLIDER_SIZE;
-    maniTransform now = maniPoseModelTransform(s->pose, maniLoadU32(e));
+    maniTransform now = BoneWords(s->work, maniSpringNowColliderAt(s->set, collider));
     maniTransform t = LerpTransform(BoneWords(s->block, maniSpringColliderAt(s->set, collider)),
                                     now, s->fraction);
     maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
@@ -194,6 +231,28 @@ static maniSpringShape ShapeAt(const Step* s, uint32_t collider)
                                  ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp)
                                  : maniAffineTransformPoint(&m, tail),
                              FileFloat(e + 40) * LargestScale(t.scale), shape, maniLoadU32(e + 8)};
+}
+
+// Every collider's shape at the step, made once for all its joints.
+static void Shapes(const Step* s)
+{
+    for (uint32_t c = 0; c < s->set->colliderCount; ++c)
+    {
+        maniSpringShape shape = ShapeOf(s, c);
+        uint64_t at = maniSpringShapeAt(s->set, c);
+        maniSpringSetVec(s->work, at, shape.offset);
+        maniSpringSetVec(s->work, at + 3, shape.tail);
+        maniSpringSetWord(s->work, at + 6, shape.radius);
+        s->work[at + 7] = shape.shape;
+        s->work[at + 8] = shape.inside;
+    }
+}
+
+static maniSpringShape ShapeAt(const Step* s, uint32_t collider)
+{
+    uint64_t at = maniSpringShapeAt(s->set, collider);
+    return (maniSpringShape){maniSpringVec(s->work, at), maniSpringVec(s->work, at + 3),
+                             maniSpringWord(s->work, at + 6), s->work[at + 7], s->work[at + 8]};
 }
 
 // The tail kept at length from the head, within the limit.
@@ -265,7 +324,7 @@ static bool CenterOf(const Step* s, uint32_t spring, maniAffine* centerOut)
     {
         return false;
     }
-    maniTransform now = maniPoseModelTransform(s->pose, center);
+    maniTransform now = BoneWords(s->work, maniSpringNowCenterAt(s->set, spring));
     maniTransform t =
         LerpTransform(BoneWords(s->block, maniSpringCenterAt(s->set, spring)), now, s->fraction);
     *centerOut = maniAffineFromTrs(t.translation, t.rotation, t.scale);
@@ -307,40 +366,26 @@ static Place PlaceAt(const uint32_t* block, Place now, float f)
                    maniQuatNlerp(last.rotation, now.rotation, f)};
 }
 
-// This call's inputs kept as the next call's last.
-static void KeepInputs(const maniSpringSet* set, uint32_t* block, const maniPose* pose, Place now)
+// This call's inputs kept as the next call's last: the joints' head
+// position, rotation and largest scale and tail position (the work
+// area's first eleven words in the block's order), the bones.
+static void KeepInputs(const maniSpringSet* set, uint32_t* block, const uint32_t* work, Place now)
 {
     for (uint32_t j = 0; j < set->jointCount; ++j)
     {
-        const uint8_t* e = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
-        maniTransform head = maniPoseModelTransform(pose, maniLoadU32(e + maniSpringJointHead));
-        uint64_t at = maniSpringJointAt(j);
-        maniSpringSetVec(block, at + maniSpringHeadPosition, head.translation);
-        maniSpringSetQuat(block, at + maniSpringHeadRotation, head.rotation);
-        maniSpringSetWord(block, at + maniSpringHeadScale, LargestScale(head.scale));
-        maniSpringSetVec(block, at + maniSpringTailPosition,
-                         PosePosition(pose, maniLoadU32(e + maniSpringJointTail)));
+        memcpy(block + maniSpringJointAt(j) + maniSpringHeadPosition,
+               work + maniSpringNowJointAt(j) + maniSpringNowPosition, 11 * sizeof(uint32_t));
     }
-    for (uint32_t c = 0; c < set->colliderCount; ++c)
-    {
-        uint32_t bone = maniLoadU32(set->colliders + (size_t)c * MANI_SPRING_COLLIDER_SIZE);
-        SetBoneWords(block, maniSpringColliderAt(set, c), maniPoseModelTransform(pose, bone));
-    }
-    for (uint32_t i = 0; i < set->springCount; ++i)
-    {
-        uint32_t center = maniLoadU32(set->springs + (size_t)i * MANI_SPRING_SPRING_SIZE + 16);
-        if (center != MANI_NO_BONE)
-        {
-            SetBoneWords(block, maniSpringCenterAt(set, i), maniPoseModelTransform(pose, center));
-        }
-    }
+    memcpy(block + maniSpringColliderAt(set, 0), work + maniSpringNowColliderAt(set, 0),
+           4 * (size_t)(set->colliderCount + set->springCount) * MANI_SPRING_BONE_WORDS);
     StorePlace(block, maniSpringPlacement, now);
 }
 
 // The first call: every tail where the pose puts it, at rest.
-static void Begin(const maniSpringSet* set, uint32_t* block, const maniPose* pose, Place now)
+static void Begin(const maniSpringSet* set, uint32_t* block, const uint32_t* work,
+                  const maniPose* pose, Place now)
 {
-    KeepInputs(set, block, pose, now);
+    KeepInputs(set, block, work, now);
     StorePlace(block, maniSpringStepPlacement, now);
     for (uint32_t i = 0; i < set->springCount; ++i)
     {
@@ -373,13 +418,14 @@ static void SetClock(uint32_t* block, double v)
     block[maniSpringClock + 1] = (uint32_t)(bits >> 32);
 }
 
-void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, const maniPose* pose,
-                         const maniTransform* placement, double step)
+void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, uint32_t* work,
+                         const maniPose* pose, const maniTransform* placement, double step)
 {
     Place now = {placement->translation, placement->rotation};
+    ReadInputs(set, work, pose);
     if (block[maniSpringHas] == 0)
     {
-        Begin(set, block, pose, now);
+        Begin(set, block, work, pose, now);
     }
     double seconds = 1.0 / (double)set->stepRate;
     double most = MANI_SPRING_MAX_STEPS * seconds;
@@ -391,7 +437,8 @@ void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, const maniPo
     {
         float f = e > 0.0 ? (float)(t / e) : 1.0f;
         Step s = {
-            set, block, pose, f, PlaceAt(block, now, f), LoadPlace(block, maniSpringStepPlacement)};
+            set, block, work, f, PlaceAt(block, now, f), LoadPlace(block, maniSpringStepPlacement)};
+        Shapes(&s);
         for (uint32_t i = 0; i < set->springCount; ++i)
         {
             StepSpring(&s, i);
@@ -405,5 +452,5 @@ void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, const maniPo
     clock = clock + e - (double)steps * seconds;
     clock = clock > 0.0 ? clock : 0.0;
     SetClock(block, clock < seconds ? clock : seconds * (1.0 - 0x1p-52));
-    KeepInputs(set, block, pose, now);
+    KeepInputs(set, block, work, now);
 }

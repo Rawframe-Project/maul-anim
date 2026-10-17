@@ -108,8 +108,7 @@ static void ApplySpring(const Apply* a, uint32_t spring)
     {
         const uint8_t* r = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
         uint32_t bone = maniLoadU32(r + maniSpringJointHead);
-        maniTransform head = maniPoseModelTransform(pose, bone);
-        maniVec3 p = Move(&chain, head.translation);
+        maniVec3 p = Move(&chain, PosePosition(pose, bone));
         maniVec3 tail = Move(&chain, PosePosition(pose, maniLoadU32(r + maniSpringJointTail)));
         maniVec3 from = maniVec3Normalize(maniVec3Sub(tail, p), kUp);
         uint64_t at = maniSpringJointAt(j);

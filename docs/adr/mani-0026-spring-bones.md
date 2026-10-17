@@ -60,7 +60,10 @@ host splits time.
   can hold it and a save copies it: per joint its tail now and a step
   before, and the last call's inputs (heads, tails, colliders' and
   centers' bones in model space, the placement), with the time since
-  the last step as binary64.
+  the last step as binary64. A call works in an area after the block,
+  no part of it or of a saved state (a graph instance's room holds a
+  node's): each bone it reads decomposed once, and each collider's
+  shape made once a step for all the joints that test it.
 - **Steps:** `maniStepSprings` runs the steps due at the step rate, at
   most `MANI_SPRING_MAX_STEPS` a call (a longer delta loses the rest,
   as fixed-step physics does), each with its inputs interpolated
@@ -121,7 +124,13 @@ rate than 60 Hz says so in its reference rate. Between steps the
 output is a short extrapolation, which may cross a collider or limit by
 up to a step's motion until the next step. VRM's push and then length
 lets a tail pressed on a collider back in by a little, as in the
-reference. A seek beneath a spring node jumps its input without
+reference. Measured on 128 joints in 16 chains with 6 colliders and
+cone limits (GCC 14 -O2): about 703,000 instructions a frame at a 60 Hz
+host (one step), 995,000 at 30 Hz (two), 532,000 at 144 Hz (a step
+every 2.4 frames), so about 290,000 a step and 410,000 a call, a
+quarter of it all in the polar decompositions of the bones read; the
+state is 16 KB, the set 8.7 KB. Reading each bone once took a frame
+from 1.62 million instructions. A seek beneath a spring node jumps its input without
 dropping the motion; the reset trigger is the host's for such cuts.
 
 Opening is fuzzed; every check is tested against a file changed at its
