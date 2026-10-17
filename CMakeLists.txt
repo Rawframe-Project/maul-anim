@@ -107,7 +107,8 @@ if(MAUL_ANIM_OFFLINE)
                                      src/fbx.c src/fbx_anim.c src/fbx_ascii.c src/fbx_binary.c src/fbx_blend.c src/fbx_clip.c src/fbx_clip_state.c src/fbx_curve.c src/fbx_helpers.c src/fbx_influences.c src/fbx_morph.c src/fbx_keys.c src/fbx_legacy.c src/fbx_model.c src/fbx_object.c src/fbx_options.c src/fbx_sample.c src/fbx_skeleton.c src/fbx_skin.c src/fbx_take.c src/fbx_tracks.c src/fbx_transform.c src/fbx_units.c src/fbx_value.c src/fbx_world.c src/sort.c
                                      src/skin_build.c src/influences_build.c src/centers_build.c
                                      src/morph_build.c src/graph_check.c src/graph_space_check.c src/graph_machine_check.c src/graph_match_check.c src/exact.c src/triangulate.c src/graph_build.c src/graph_inline.c src/graph_json.c src/graph_json_read.c src/graph_json_graph.c src/graph_json_machine.c
-                                     src/match_sample.c src/match_build.c src/learned_build.c)
+                                     src/match_sample.c src/match_build.c src/learned_build.c
+                                     src/train_random.c src/train_net.c src/train_adam.c src/train_tasks.c)
 endif()
 maul_configure_library(maul-anim)
 # sqrtf need not set errno, which the library never reads: square roots
@@ -161,6 +162,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_match_file WHITEBOX)
         maul_add_test(trajectory WHITEBOX)
         maul_add_test(learned WHITEBOX)
+        maul_add_test(train WHITEBOX)
         maul_add_test(blend WHITEBOX)
         maul_add_test(json WHITEBOX)
         maul_add_test(gltf WHITEBOX)

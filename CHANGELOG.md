@@ -144,6 +144,9 @@ format.
   `maniLearnedDecompress` evaluate it with the same bits on every
   target (the pose from two rotation columns, root motion, float
   tracks and events' states).
+- Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
+  the host's task system, through which the library's parallel work
+  will run, results never depending on how the host splits it.
 - Root motion taken out at build (mani-0022): a clip source may name a
   bone (`maniRootMotionSource`), whose translation along chosen axes
   and rotation (whole, or the twist about an axis) from its rest, its

@@ -45,6 +45,10 @@ learned_file:
 learned: bytes container learned_file match_file text
 learned_eval: bytes learned_file vecmath
 learned_build: allocator builder bytes container learned_file match_file text
+train_random: elementary_float
+train_net: elementary_float train_random
+train_adam:
+train_tasks:
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:

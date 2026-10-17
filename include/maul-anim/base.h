@@ -95,6 +95,33 @@ extern "C"
         void* context;
     } maniAllocator;
 
+    // A range of work items, [startIndex, endIndex), run by the host on any
+    // thread. The library passes taskContext through unchanged.
+    typedef void maniTaskFn(int32_t startIndex, int32_t endIndex, void* taskContext);
+
+    // Hands the host itemCount items of work: the host splits [0, itemCount)
+    // into ranges of at least minRange items (the last may be shorter),
+    // runs task once on each range, on any thread and in any order, and
+    // returns a handle that finishTask waits on. A host that ran every range
+    // before returning may return NULL, and finishTask is then not called.
+    // Results never depend on the split or the order: each item writes only
+    // its own slots.
+    typedef void* maniEnqueueTaskFn(maniTaskFn* task, int32_t itemCount, int32_t minRange,
+                                    void* taskContext, void* userContext);
+
+    // Waits until every range of the work behind userTask has run.
+    typedef void maniFinishTaskFn(void* userTask, void* userContext);
+
+    // The host's task system, which an owner object takes in its def; both
+    // hooks NULL (the default) runs every item on the calling thread.
+    typedef struct maniTaskHooks
+    {
+        maniEnqueueTaskFn* enqueueTask;
+        maniFinishTaskFn* finishTask;
+        // Passed to enqueueTask and finishTask as their userContext.
+        void* userContext;
+    } maniTaskHooks;
+
     // A vector or a position, binary32.
     typedef struct maniVec3
     {
