@@ -49,6 +49,10 @@ train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:
 train_tasks:
+train_data: allocator match_move vecmath
+train_stage: train_data train_net
+train_decompress: allocator train_adam train_data train_decompress_loss train_net train_random train_stage train_tasks
+train_decompress_loss: train_data train_net train_stage
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:
