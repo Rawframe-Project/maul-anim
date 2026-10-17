@@ -13,11 +13,14 @@
 #include "gltf_names.h"
 #include "gltf_property.h"
 #include "json.h"
+#include "spring_frame.h"
+#include "vecmath.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
 #include "maul-anim/skeleton.h"
 
+#include <math.h>
 #include <string.h>
 
 typedef struct Reader
@@ -99,6 +102,117 @@ static maniImportResult Vector(const Reader* r, uint32_t object, const char* nam
     maniGltfBasisVector(r->options, v, true);
     *out = (maniVec3){v[0], v[1], v[2]};
     return result;
+}
+
+// A number member that must be present, in [minimum, maximum].
+static maniImportResult RequiredNumber(const Reader* r, uint32_t object, const char* name,
+                                       float minimum, float maximum, uint32_t item, float* out)
+{
+    uint32_t value = MANI_JSON_NONE;
+    maniImportResult result =
+        maniGltfMember(&r->gltf->g, object, name, maniJsonNumber, true, item, &value);
+    return result.result == mani_success ? Number(r, object, name, minimum, maximum, item, out)
+                                         : result;
+}
+
+// Within a thousandth of length 1, as the spring builder takes it.
+static bool Unit(float lengthSquared)
+{
+    return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
+}
+
+// A unit quaternion member (x, y, z, w), its default when absent; not
+// moved into the output's basis.
+static maniImportResult Quat(const Reader* r, uint32_t object, const char* name, uint32_t item,
+                             maniQuat* out)
+{
+    const maniJson* json = &r->gltf->json;
+    uint32_t array = MANI_JSON_NONE;
+    maniImportResult result =
+        maniGltfMember(&r->gltf->g, object, name, maniJsonArray, false, item, &array);
+    if (result.result != mani_success || array == MANI_JSON_NONE)
+    {
+        return result;
+    }
+    if (json->values[array].count != 4)
+    {
+        return Fail(r, maniImportReasonProperty, array, item);
+    }
+    float q[4];
+    uint32_t element = array + 1;
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        uint64_t bits = 0;
+        if (!maniJsonBinary(json, element, maniBinary32, &bits))
+        {
+            return Fail(r, maniImportReasonProperty, element, item);
+        }
+        uint32_t word = (uint32_t)bits;
+        memcpy(&q[k], &word, sizeof word);
+        element = json->values[element].next;
+    }
+    maniQuat v = {q[0], q[1], q[2], q[3]};
+    if (!Unit(maniQuatDot(v, v)))
+    {
+        return Fail(r, maniImportReasonProperty, array, item);
+    }
+    *out = v;
+    return result;
+}
+
+// An extension in an object's extensions: *out its object, or
+// MANI_JSON_NONE when absent or of a version other than 1.0 (ignored,
+// as a reader without the extension would); a version not a string is
+// refused.
+static maniImportResult Extension(const Reader* r, uint32_t object, const char* name, uint32_t item,
+                                  uint32_t* out)
+{
+    const maniGltfJson* g = &r->gltf->g;
+    uint32_t extensions = MANI_JSON_NONE;
+    uint32_t extension = MANI_JSON_NONE;
+    uint32_t version = MANI_JSON_NONE;
+    *out = MANI_JSON_NONE;
+    maniImportResult result =
+        maniGltfMember(g, object, "extensions", maniJsonObject, false, item, &extensions);
+    if (result.result == mani_success && extensions != MANI_JSON_NONE)
+    {
+        result = maniGltfMember(g, extensions, name, maniJsonObject, false, item, &extension);
+    }
+    if (result.result != mani_success || extension == MANI_JSON_NONE)
+    {
+        return result;
+    }
+    result = maniGltfMember(g, extension, "specVersion", maniJsonString, true, item, &version);
+    if (result.result == mani_success && maniJsonStringEquals(&r->gltf->json, version, "1.0", 3))
+    {
+        *out = extension;
+    }
+    return result;
+}
+
+// The one member of object named in names (count of them), its index in
+// *kindOut and its value in *valueOut; none or more than one refused.
+static maniImportResult OneOf(const Reader* r, uint32_t object, const char* const* names,
+                              uint32_t count, uint32_t item, uint32_t* kindOut, uint32_t* valueOut)
+{
+    uint32_t found = 0;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        uint32_t value = MANI_JSON_NONE;
+        maniImportResult result =
+            maniGltfMember(&r->gltf->g, object, names[k], maniJsonObject, false, item, &value);
+        if (result.result != mani_success)
+        {
+            return result;
+        }
+        if (value != MANI_JSON_NONE)
+        {
+            *kindOut = k;
+            *valueOut = value;
+            ++found;
+        }
+    }
+    return found == 1 ? maniImportSuccess() : Fail(r, maniImportReasonProperty, object, item);
 }
 
 // A node member as a bone of the skeleton; *nodeOut gets the node.
@@ -226,6 +340,59 @@ static maniImportResult ReadShape(const Reader* r, uint32_t collider, uint32_t i
     return result;
 }
 
+// A collider's VRMC_springBone_extended_collider shape in place of its
+// fallback: a sphere or capsule, outside or inside, or a plane (its
+// unit normal in tail).
+static maniImportResult ReadExtendedShape(const Reader* r, uint32_t collider, uint32_t item,
+                                          maniColliderSource* c)
+{
+    static const char* const kShapes[3] = {"sphere", "capsule", "plane"};
+    uint32_t extension = MANI_JSON_NONE;
+    uint32_t shape = MANI_JSON_NONE;
+    maniImportResult result =
+        Extension(r, collider, "VRMC_springBone_extended_collider", item, &extension);
+    if (result.result == mani_success && extension != MANI_JSON_NONE)
+    {
+        result =
+            maniGltfMember(&r->gltf->g, extension, "shape", maniJsonObject, false, item, &shape);
+    }
+    if (result.result != mani_success || shape == MANI_JSON_NONE)
+    {
+        return result;
+    }
+    uint32_t kind = 0;
+    uint32_t body = MANI_JSON_NONE;
+    result = OneOf(r, shape, kShapes, 3, item, &kind, &body);
+    if (result.result != mani_success)
+    {
+        return result;
+    }
+    bool plane = kind == maniColliderPlane;
+    *c = (maniColliderSource){
+        .bone = c->bone, .shape = kind, .tail = {0.0f, 0.0f, plane ? 1.0f : 0.0f}};
+    result = Vector(r, body, "offset", item, &c->offset);
+    if (result.result == mani_success && !plane)
+    {
+        bool inside = false;
+        result = Number(r, body, "radius", 0.0f, 3.4e38f, item, &c->radius);
+        if (result.result == mani_success)
+        {
+            result = maniGltfBool(&r->gltf->g, body, "inside", item, &inside);
+        }
+        c->inside = inside ? 1u : 0u;
+    }
+    if (result.result == mani_success && kind != maniColliderSphere)
+    {
+        result = Vector(r, body, plane ? "normal" : "tail", item, &c->tail);
+    }
+    if (result.result == mani_success && plane && !Unit(maniVec3Dot(c->tail, c->tail)))
+    {
+        uint32_t at = maniJsonFind(&r->gltf->json, body, "normal", 6);
+        return Fail(r, maniImportReasonProperty, at, item);
+    }
+    return result;
+}
+
 static maniImportResult ReadColliders(Reader* r, uint32_t extension)
 {
     const maniGltfJson* g = &r->gltf->g;
@@ -254,6 +421,10 @@ static maniImportResult ReadColliders(Reader* r, uint32_t extension)
         if (result.result == mani_success)
         {
             result = ReadShape(r, value, i, &colliders[i]);
+        }
+        if (result.result == mani_success)
+        {
+            result = ReadExtendedShape(r, value, i, &colliders[i]);
         }
         value = r->gltf->json.values[value].next;
     }
@@ -311,8 +482,48 @@ static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
     return false;
 }
 
-static maniImportResult ReadJoint(const Reader* r, uint32_t value, uint32_t item, uint32_t* node,
+// A joint's VRMC_springBone_limit: a cone, hinge or spherical limit, its
+// angles as written (the builder clamps them) and its rotation.
+static maniImportResult ReadLimit(const Reader* r, uint32_t joint, uint32_t item,
                                   maniSpringJointSource* j)
+{
+    static const char* const kLimits[3] = {"cone", "hinge", "spherical"};
+    uint32_t extension = MANI_JSON_NONE;
+    uint32_t limit = MANI_JSON_NONE;
+    maniImportResult result = Extension(r, joint, "VRMC_springBone_limit", item, &extension);
+    if (result.result == mani_success && extension != MANI_JSON_NONE)
+    {
+        result =
+            maniGltfMember(&r->gltf->g, extension, "limit", maniJsonObject, true, item, &limit);
+    }
+    if (result.result != mani_success || limit == MANI_JSON_NONE)
+    {
+        return result;
+    }
+    uint32_t kind = 0;
+    uint32_t body = MANI_JSON_NONE;
+    result = OneOf(r, limit, kLimits, 3, item, &kind, &body);
+    if (result.result != mani_success)
+    {
+        return result;
+    }
+    j->limit = kind + 1;
+    bool spherical = j->limit == maniSpringLimitSpherical;
+    result =
+        RequiredNumber(r, body, spherical ? "pitch" : "angle", 0.0f, 3.4e38f, item, &j->limitAngle);
+    if (result.result == mani_success && spherical)
+    {
+        result = RequiredNumber(r, body, "yaw", 0.0f, 3.4e38f, item, &j->limitYaw);
+    }
+    if (result.result == mani_success)
+    {
+        result = Quat(r, body, "rotation", item, &j->limitRotation);
+    }
+    return result;
+}
+
+static maniImportResult ReadJoint(const Reader* r, uint32_t value, uint32_t item, bool last,
+                                  uint32_t* node, maniSpringJointSource* j)
 {
     *j = (maniSpringJointSource){.stiffness = 1.0f,
                                  .gravityDirection = {0, -1, 0},
@@ -343,7 +554,80 @@ static maniImportResult ReadJoint(const Reader* r, uint32_t value, uint32_t item
     {
         result = Number(r, value, "dragForce", 0.0f, 1.0f, item, &j->drag);
     }
+    // The last joint is only a tail: its limit is ignored, unread.
+    if (result.result == mani_success && !last)
+    {
+        result = ReadLimit(r, value, item, j);
+    }
     return result;
+}
+
+// Whether the options change no axis.
+static bool BasisKept(const maniGltfOptions* options)
+{
+    return options->axes[0] == maniAxisX && options->axes[1] == maniAxisY &&
+           options->axes[2] == maniAxisZ;
+}
+
+static maniVec3 BasisAxis(const maniGltfOptions* options, float x, float y, float z)
+{
+    float v[3] = {x, y, z};
+    maniGltfBasisVector(options, v, true);
+    return (maniVec3){v[0], v[1], v[2]};
+}
+
+// The rotation of a matrix of columns c0, c1, c2, a rotation whose
+// entries are 0 or ±1.
+static maniQuat FromColumns(maniVec3 c0, maniVec3 c1, maniVec3 c2)
+{
+    float trace = c0.x + c1.y + c2.z;
+    if (trace > 0.0f)
+    {
+        float s = 2.0f * sqrtf(trace + 1.0f);
+        return (maniQuat){(c1.z - c2.y) / s, (c2.x - c0.z) / s, (c0.y - c1.x) / s, 0.25f * s};
+    }
+    if (c0.x > c1.y && c0.x > c2.z)
+    {
+        float s = 2.0f * sqrtf(1.0f + c0.x - c1.y - c2.z);
+        return (maniQuat){0.25f * s, (c1.x + c0.y) / s, (c2.x + c0.z) / s, (c1.z - c2.y) / s};
+    }
+    if (c1.y > c2.z)
+    {
+        float s = 2.0f * sqrtf(1.0f + c1.y - c0.x - c2.z);
+        return (maniQuat){(c1.x + c0.y) / s, 0.25f * s, (c2.y + c1.z) / s, (c2.x - c0.z) / s};
+    }
+    float s = 2.0f * sqrtf(1.0f + c2.z - c0.x - c1.y);
+    return (maniQuat){(c2.x + c0.z) / s, (c2.y + c1.z) / s, 0.25f * s, (c0.y - c1.x) / s};
+}
+
+// A limit's rotation R from glTF's basis B to the output's: the frame
+// the builder makes, the turn from +y to the output's rest direction a'
+// times R', is B F M with F = D(a) R glTF's frame and M the mirror of
+// the limit's x when det B < 0, so R' = D'(a')* Arc(B y, a') (B R B*) (B M).
+static maniQuat LimitRotation(const Reader* r, uint32_t head, uint32_t tail, maniQuat rotation)
+{
+    const maniGltfOptions* o = r->options;
+    if (BasisKept(o))
+    {
+        return rotation;
+    }
+    maniVec3 bx = BasisAxis(o, 1.0f, 0.0f, 0.0f);
+    maniVec3 by = BasisAxis(o, 0.0f, 1.0f, 0.0f);
+    maniVec3 bz = BasisAxis(o, 0.0f, 0.0f, 1.0f);
+    bool mirror = maniVec3Dot(maniVec3Cross(bx, by), bz) < 0.0f;
+    maniVec3 a = maniSpringRestDirection(r->skeleton, head, tail);
+    maniVec3 opposite = maniVec3Scale(by, -1.0f);
+    // B D(a) B* turns B y onto a' as D(a) turns y onto a; half a turn
+    // about B x for a' opposite B y, as D's about x.
+    maniQuat arc = a.x == opposite.x && a.y == opposite.y && a.z == opposite.z
+                       ? (maniQuat){bx.x, bx.y, bx.z, 0.0f}
+                       : maniQuatBetween(by, a);
+    float q[4] = {rotation.x, rotation.y, rotation.z, rotation.w};
+    maniGltfBasisQuat(o, q);
+    maniQuat turned = {q[0], q[1], q[2], q[3]};
+    maniQuat k = FromColumns(mirror ? maniVec3Scale(bx, -1.0f) : bx, by, bz);
+    maniQuat frame = maniQuatMul(maniQuatMul(arc, turned), k);
+    return maniQuatNormalize(maniQuatMul(maniQuatConjugate(maniSpringTurnFromY(a)), frame));
 }
 
 // A spring's joints: each an ancestor of the next, none in an earlier
@@ -375,7 +659,7 @@ static maniImportResult ReadJoints(Reader* r, uint32_t spring, uint32_t item, ui
     for (uint32_t k = 0; result.result == mani_success && k < n; ++k)
     {
         uint32_t node = MANI_JSON_NONE;
-        result = ReadJoint(r, value, item, &node, &joints[k]);
+        result = ReadJoint(r, value, item, k + 1 == n, &node, &joints[k]);
         if (result.result != mani_success)
         {
             return result;
@@ -392,6 +676,14 @@ static maniImportResult ReadJoints(Reader* r, uint32_t spring, uint32_t item, ui
         *firstNode = k == 0 ? node : *firstNode;
         previous = node;
         value = json->values[value].next;
+    }
+    for (uint32_t k = 0; k + 1 < n; ++k)
+    {
+        if (joints[k].limit != maniSpringLimitNone)
+        {
+            joints[k].limitRotation =
+                LimitRotation(r, joints[k].bone, joints[k + 1].bone, joints[k].limitRotation);
+        }
     }
     s->joints = joints;
     s->jointCount = n;

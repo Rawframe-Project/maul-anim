@@ -206,6 +206,7 @@ jobs:
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf
           build/test_gltf --seed corpus-fuzz_gltf/sample.glb
+          build/test_gltf_spring_extensions --seed corpus-fuzz_gltf/springs.gltf
           cp test/data/gltf/*.glb test/data/gltf/*.gltf corpus-fuzz_gltf/
           mkdir -p corpus-fuzz_fbx
           build/test_fbx --seed corpus-fuzz_fbx/sample.fbx

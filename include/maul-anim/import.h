@@ -405,9 +405,14 @@ extern "C"
     /// Reads the document's `VRMC_springBone` extension (version 1.0) as
     /// spring bone sources on an opened skeleton (mani-0011): colliders,
     /// collider groups and springs, nodes found by bone name, offsets,
-    /// tails and gravity directions in the output's basis. A document
-    /// without the extension gives an empty set. The arrays are the
-    /// document's until the next call or maniCloseGltf.
+    /// tails and gravity directions in the output's basis. Colliders'
+    /// `VRMC_springBone_extended_collider` and joints'
+    /// `VRMC_springBone_limit` (version 1.0; another version is ignored)
+    /// give inside spheres and capsules, planes and limits, a limit's
+    /// rotation such that its frame is glTF's in the output's basis
+    /// (mani-0026); a last joint's limit is ignored. A document without
+    /// the extension gives an empty set. The arrays are the document's
+    /// until the next call or maniCloseGltf.
     ///
     /// @param gltf      The document.
     /// @param skeleton  An opened skeleton holding the springs' nodes.

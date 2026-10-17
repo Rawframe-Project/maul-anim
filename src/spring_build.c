@@ -18,6 +18,7 @@
 #include "container.h"
 #include "scalar.h"
 #include "spring_file.h"
+#include "spring_frame.h"
 #include "text.h"
 #include "vecmath.h"
 
@@ -295,31 +296,11 @@ static void LayColliders(const maniSpringSetSource* s, uint8_t* out)
     }
 }
 
-// The head's rest direction to its tail, in the head's space: the
-// tail's rest translation carried up through the bones between them.
-static maniVec3 RestDirection(const maniSkeleton* skeleton, uint32_t head, uint32_t tail)
-{
-    maniTransform t = maniSkeletonRest(skeleton, tail);
-    maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    for (uint32_t b = maniSkeletonParent(skeleton, tail); b != head && b != MANI_NO_BONE;
-         b = maniSkeletonParent(skeleton, b))
-    {
-        maniTransform r = maniSkeletonRest(skeleton, b);
-        maniAffine p = maniAffineFromTrs(r.translation, r.rotation, r.scale);
-        m = maniAffineMul(&p, &m);
-    }
-    maniVec3 at = maniAffineTransformPoint(&m, maniVec3Make(0.0f, 0.0f, 0.0f));
-    return maniVec3Normalize(at, maniVec3Make(0.0f, 1.0f, 0.0f));
-}
-
 // The limit's frame in the head's space: the turn from +y to the rest
-// direction (180° about x for exactly -y), then the limit's rotation.
+// direction, then the limit's rotation.
 static maniQuat LimitFrame(maniVec3 axis, maniQuat rotation)
 {
-    maniQuat turn = axis.y == -1.0f
-                        ? (maniQuat){1.0f, 0.0f, 0.0f, 0.0f}
-                        : maniQuatNormalize((maniQuat){axis.z, 0.0f, -axis.x, axis.y + 1.0f});
-    return maniQuatMul(turn, maniQuatNormalize(rotation));
+    return maniQuatMul(maniSpringTurnFromY(axis), maniQuatNormalize(rotation));
 }
 
 // The step's share of the reference's motion: the drag and the factor on
@@ -356,9 +337,9 @@ static void LayJoint(const maniSpringSetSource* s, const maniSpringJointSource* 
     bool limited = j->limit != maniSpringLimitNone;
     StoreF32(e + maniSpringJointAngle, limited ? angle : 0.0f);
     StoreF32(e + maniSpringJointYaw, j->limit == maniSpringLimitSpherical ? yaw : 0.0f);
-    maniQuat frame = limited
-                         ? LimitFrame(RestDirection(s->skeleton, j->bone, tail), j->limitRotation)
-                         : maniQuatIdentity();
+    maniQuat frame =
+        limited ? LimitFrame(maniSpringRestDirection(s->skeleton, j->bone, tail), j->limitRotation)
+                : maniQuatIdentity();
     StoreF32(e + maniSpringJointFrame, frame.x);
     StoreF32(e + maniSpringJointFrame + 4, frame.y);
     StoreF32(e + maniSpringJointFrame + 8, frame.z);

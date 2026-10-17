@@ -51,7 +51,8 @@ spring_apply: bytes spring_file spring_state vecmath
 learned: bytes container learned_file match_file text
 learned_eval: bytes learned_file vecmath
 learned_build: allocator builder bytes container learned_file match_file text
-spring_build: allocator builder bytes container scalar spring_file text vecmath
+spring_build: allocator builder bytes container scalar spring_file spring_frame text vecmath
+spring_frame: vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:
@@ -164,7 +165,7 @@ fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
 fbx_document: hierarchy names
 fbx_value: allocator fbx_ascii fbx_binary fbx_document inflate
-gltf_spring: arena gltf_basis gltf_document gltf_names gltf_property json
+gltf_spring: arena gltf_basis gltf_document gltf_names gltf_property json spring_frame vecmath
 gltf_buffer: allocator gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_document gltf_property json
 

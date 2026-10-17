@@ -175,6 +175,9 @@ format.
   `maniOpenSpringSet` opens one in place with every record checked.
   `maniColliderSource` gains the plane shape and inside colliders,
   `maniSpringJointSource` the limits, `maniSpringSetSource` the rates.
+  `maniGltfReadSprings` reads both extensions (one of another version
+  leaves the collider's fallback shape and the joint unlimited), a
+  limit's frame carried through the options' basis change.
 - Spring set slots in graphs (mani-0026): `maniGraphSpringSetSource`,
   `maniGraphSpringSetCount`, `maniGraphSpringSetIdentity` and
   `maniGraphSpringSetName`; binding finds each slot's set by identity

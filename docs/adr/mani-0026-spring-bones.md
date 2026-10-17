@@ -43,6 +43,16 @@ host splits time.
 - **Limits** keep their angles clamped as the extension says and a
   frame per joint built from the head's rest direction to its tail (the
   turn from +y, 180° about x for exactly -y) and the limit's rotation.
+- **Import:** `maniGltfReadSprings` (mani-0011) reads a collider's
+  `VRMC_springBone_extended_collider` in place of its fallback shape
+  and a joint's `VRMC_springBone_limit` but the last's, each of version
+  1.0 (another version is ignored, as a reader without it would, which
+  the fallback exporters write is for), every value in its range and
+  each refusal at its value. Under a basis change B the limit's frame
+  must be glTF's frame F carried over, B F M with M the mirror of the
+  limit's x when det B < 0 (every limit is symmetric in x), so the
+  rotation read is turned to give that frame from the output's rest
+  direction; with no basis change it is kept as written.
 - `maniOpenSpringSet` opens a file in place, every record checked;
   the skeleton the set was built for is checked where a state is made.
 - **The state** is a block of 32-bit words after a small header in
@@ -127,4 +137,8 @@ of mixed deltas with a reset and a seek, and over a blend under a time
 scale with updates summed and backward; its saved block (a rotation
 restored off unit length included), refusals, opening's checks (blocks
 past 2^32 words included), binding, JSON form and subgraphs; the graph
-state and JSON fuzz targets' hosts hold one.
+state and JSON fuzz targets' hosts hold one. The importer is tested on every
+shape and limit, the fallbacks kept, a last joint's malformed limit
+unread, each refusal at its value, and the limit's frame against glTF's
+under a proper, a mirrored and a turned and mirrored basis; its sources
+build.
