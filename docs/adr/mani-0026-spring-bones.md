@@ -68,10 +68,14 @@ host splits time.
   as the last step placed it, carried into each step's placement, so
   the character's motion in the world sways them. The first step
   places every tail where the pose puts it.
-- **Output:** `maniApplySprings` turns each joint by `R* q R` on its
-  local rotation, q the model-space turn toward its tail and R its
-  model rotation, toward the tails between the last two steps at the
-  time short of a step (a step behind, smooth at any host rate).
+- **Output:** `maniApplySprings` turns each joint toward the tails
+  between the last two steps at the time short of a step (a step
+  behind, smooth at any host rate): its local rotation by `P* q P`, q
+  the model-space turn and P its parent's model rotation as the chain
+  has turned it, mirrored (`D q D`, D the scale's signs) under a parent
+  whose model scale is a mirror. A mirrored head mirrors its limit's
+  frame likewise; the limits are alike under the x mirror a model
+  scale holds.
 - **Saved states** (`MSST`, the set's identity, the size, the block)
   are checked as external bytes on restore: every float finite,
   rotations unit within a thousandth, scales not negative, the clock in
@@ -89,6 +93,9 @@ it is built.
 
 Opening is fuzzed; every check is tested against a file changed at its
 byte; the conversion is tested against its binary64 formula. The steps
-are tested against a binary64 reference of the update, at host rates
-of 30, 60 and 144 Hz with the character still and moving, and every
+are tested against a binary64 reference of the update; at host rates
+of 30, 60 and 144 Hz with the character still, moving and turning, in
+model and center space; a character turned, moved and scaled against
+the same one at the origin; a character on its back against gravity
+turned in the set; colliders and limits on a mirrored bone; and every
 check of a saved state against bytes changed at its word.

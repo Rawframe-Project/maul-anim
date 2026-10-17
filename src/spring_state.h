@@ -138,6 +138,19 @@ static inline void maniSpringSetQuat(uint32_t* block, uint64_t at, maniQuat q)
     maniSpringSetWord(block, at + 3, q.w);
 }
 
+// A rotation seen through a model scale's mirror: D q D for D the
+// scale's signs, so a turn above a mirrored bone is the mirror of the
+// turn below it (the identity without a mirror).
+static inline maniQuat maniSpringMirror(maniQuat q, maniVec3 scale)
+{
+    float x = scale.x < 0.0f ? -1.0f : 1.0f;
+    float y = scale.y < 0.0f ? -1.0f : 1.0f;
+    float z = scale.z < 0.0f ? -1.0f : 1.0f;
+    float det = x * y * z;
+    maniQuat m = {q.x * x * det, q.y * y * det, q.z * z * det, q.w};
+    return m;
+}
+
 // The time since the last step.
 static inline double maniSpringClockOf(const uint32_t* block)
 {
@@ -159,8 +172,9 @@ uint64_t maniSpringBlockValid(const maniSpringSet* set, const uint8_t* bytes);
 void maniSpringStepBlock(const maniSpringSet* set, uint32_t* block, const maniPose* pose,
                          const maniTransform* placement, double step);
 
-// Turns a pose's spring joints toward the block's tails; a pose whose
-// model space is current, left stale.
-void maniSpringApplyBlock(const maniSpringSet* set, const uint32_t* block, maniPose* pose);
+// Turns a pose's spring joints toward the block's tails; a pose of the
+// skeleton whose model space is current, left stale.
+void maniSpringApplyBlock(const maniSpringSet* set, const maniSkeleton* skeleton,
+                          const uint32_t* block, maniPose* pose);
 
 #endif // MAUL_ANIM_SRC_SPRING_STATE_H

@@ -177,10 +177,11 @@ format.
   spring motion in caller memory; `maniStepSprings` runs the fixed
   steps due toward an animated pose and the character's placement in
   the world, both interpolated between calls, with colliders, limits
-  and center bones; `maniApplySprings` turns the joints toward the
-  tails between the last two steps; `maniResetSprings`,
-  `maniSaveSpringState` and `maniRestoreSpringState` (checked as
-  external bytes) keep and move the motion.
+  and center bones (under mirrored bones too); `maniApplySprings`
+  turns the joints toward the tails between the last two steps;
+  `maniResetSprings`, `maniSaveSpringState` and
+  `maniRestoreSpringState` (checked as external bytes) keep and move
+  the motion.
 - Task hooks (`maniTaskHooks`, `maniEnqueueTaskFn`, `maniFinishTaskFn`):
   the host's task system, through which the library's parallel work
   will run, results never depending on how the host splits it.

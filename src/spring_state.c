@@ -106,7 +106,7 @@ maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
     {
         return mani_errorInvalid;
     }
-    maniSpringApplyBlock(state->set, maniSpringConstBlock(state), pose);
+    maniSpringApplyBlock(state->set, state->skeleton, maniSpringConstBlock(state), pose);
     return mani_success;
 }
 

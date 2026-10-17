@@ -127,8 +127,7 @@ static maniVec3 Spherical(maniVec3 d, float pitchLimit, float yawLimit)
     {
         pitch = maniAtan2(d.z, d.y);
     }
-    float x = d.x < -1.0f ? -1.0f : (d.x > 1.0f ? 1.0f : d.x);
-    float yaw = maniAtan2(x, Root(1.0f - x * x));
+    float yaw = maniAtan2(d.x, Root(1.0f - d.x * d.x));
     pitch = fabsf(pitch) > pitchLimit ? copysignf(pitchLimit, pitch) : pitch;
     yaw = fabsf(yaw) > yawLimit ? copysignf(yawLimit, yaw) : yaw;
     float cy = maniCos(yaw);

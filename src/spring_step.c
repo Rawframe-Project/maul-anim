@@ -153,6 +153,8 @@ typedef struct Head
     maniQuat rotation;
     float scale;
     maniVec3 tail;
+    // The pose's scale, for its mirror.
+    maniVec3 mirror;
 } Head;
 
 static Head HeadAt(const Step* s, uint32_t joint)
@@ -167,7 +169,8 @@ static Head HeadAt(const Step* s, uint32_t joint)
         maniSpringWord(s->block, at + maniSpringHeadScale) +
             f * (LargestScale(now.scale) - maniSpringWord(s->block, at + maniSpringHeadScale)),
         Lerp(maniSpringVec(s->block, at + maniSpringTailPosition),
-             PosePosition(s->pose, maniLoadU32(e + maniSpringJointTail)), f)};
+             PosePosition(s->pose, maniLoadU32(e + maniSpringJointTail)), f),
+        now.scale};
 }
 
 // A collider in model space at the step.
@@ -220,11 +223,13 @@ static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, c
     maniVec3 tail = Move(chain, h.tail);
     float length = maniVec3Length(maniVec3Sub(tail, head));
     maniVec3 pull = maniVec3Normalize(maniVec3Sub(tail, head), kUp);
-    maniQuat frame = maniQuatMul(maniQuatMul(chain->rotation, h.rotation),
-                                 (maniQuat){FileFloat(e + maniSpringJointFrame),
-                                            FileFloat(e + maniSpringJointFrame + 4),
-                                            FileFloat(e + maniSpringJointFrame + 8),
-                                            FileFloat(e + maniSpringJointFrame + 12)});
+    // The limit's frame in the head's space, mirrored with the head: the
+    // limits are alike under the x mirror a model scale holds.
+    maniQuat local = {FileFloat(e + maniSpringJointFrame), FileFloat(e + maniSpringJointFrame + 4),
+                      FileFloat(e + maniSpringJointFrame + 8),
+                      FileFloat(e + maniSpringJointFrame + 12)};
+    maniQuat frame =
+        maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror));
     maniVec3 gravity =
         maniQuatRotate(maniQuatConjugate(s->place.rotation), FileVec(e + maniSpringJointGravity));
     float drag = FileFloat(e + maniSpringJointDrag);

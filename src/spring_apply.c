@@ -6,9 +6,10 @@
 // ran past the last step (so the motion is smooth whatever the host's
 // rate, a step behind), and carried into the last call's placement.
 // Joints turn from the root of each chain: a joint's turn in model space
-// q, with its model rotation R, is its local rotation times R* q R, so
-// the parent's rotation need not be known; the joints below turn with it
-// by the rigid motion carried down the chain, as the steps do.
+// q, with its parent's model rotation P (turned with the chain), turns
+// its local rotation by P* q P, mirrored when the parent's scale is a
+// mirror; the joints below turn with it by the rigid motion carried down
+// the chain, as the steps do.
 
 #include "bytes.h"
 #include "spring_file.h"
@@ -17,6 +18,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
 
 #include <stdbool.h>
@@ -64,9 +66,35 @@ static maniVec3 Move(const Chain* c, maniVec3 x)
     return maniVec3Add(maniQuatRotate(c->rotation, x), c->translation);
 }
 
-static void ApplySpring(const maniSpringSet* set, const uint32_t* block, maniPose* pose,
-                        uint32_t spring, float alpha)
+// What applying a spring reads.
+typedef struct Apply
 {
+    const maniSpringSet* set;
+    const maniSkeleton* skeleton;
+    const uint32_t* block;
+    maniPose* pose;
+    float alpha;
+} Apply;
+
+// A joint's head bone turned by q in model space, its parent's rotation
+// the chain's turn of the pose's.
+static void Turn(const Apply* a, const Chain* chain, uint32_t bone, maniQuat q)
+{
+    maniTransform parent = maniPoseModelTransform(a->pose, maniSkeletonParent(a->skeleton, bone));
+    maniQuat above = maniQuatNormalize(maniQuatMul(chain->rotation, parent.rotation));
+    maniQuat inParent = maniQuatMul(maniQuatMul(maniQuatConjugate(above), q), above);
+    maniTransform local = maniPoseLocal(a->pose, bone);
+    local.rotation =
+        maniQuatNormalize(maniQuatMul(maniSpringMirror(inParent, parent.scale), local.rotation));
+    maniPoseSetLocal(a->pose, bone, local);
+}
+
+static void ApplySpring(const Apply* a, uint32_t spring)
+{
+    const maniSpringSet* set = a->set;
+    const uint32_t* block = a->block;
+    maniPose* pose = a->pose;
+    float alpha = a->alpha;
     const uint8_t* e = set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE;
     uint32_t center = maniLoadU32(e + 16);
     maniAffine space = maniPoseModel(pose, center);
@@ -79,7 +107,6 @@ static void ApplySpring(const maniSpringSet* set, const uint32_t* block, maniPos
         uint32_t bone = maniLoadU32(r + maniSpringJointHead);
         maniTransform head = maniPoseModelTransform(pose, bone);
         maniVec3 p = Move(&chain, head.translation);
-        maniQuat rotation = maniQuatNormalize(maniQuatMul(chain.rotation, head.rotation));
         maniVec3 tail = Move(&chain, PosePosition(pose, maniLoadU32(r + maniSpringJointTail)));
         maniVec3 from = maniVec3Normalize(maniVec3Sub(tail, p), kUp);
         uint64_t at = maniSpringJointAt(j);
@@ -89,25 +116,24 @@ static void ApplySpring(const maniSpringSet* set, const uint32_t* block, maniPos
                   ? maniAffineTransformPoint(&space, sim)
                   : maniVec3Add(maniQuatRotate(carry.rotation, sim), carry.translation);
         maniQuat turn = maniQuatBetween(from, maniVec3Normalize(maniVec3Sub(sim, p), from));
-        maniTransform local = maniPoseLocal(pose, bone);
-        maniQuat inBone = maniQuatMul(maniQuatMul(maniQuatConjugate(rotation), turn), rotation);
-        local.rotation = maniQuatNormalize(maniQuatMul(local.rotation, inBone));
-        maniPoseSetLocal(pose, bone, local);
+        Turn(a, &chain, bone, turn);
         maniVec3 moved = maniVec3Add(maniQuatRotate(turn, maniVec3Sub(chain.translation, p)), p);
         chain = (Chain){maniQuatNormalize(maniQuatMul(turn, chain.rotation)), moved};
     }
 }
 
-void maniSpringApplyBlock(const maniSpringSet* set, const uint32_t* block, maniPose* pose)
+void maniSpringApplyBlock(const maniSpringSet* set, const maniSkeleton* skeleton,
+                          const uint32_t* block, maniPose* pose)
 {
     if (block[maniSpringHas] == 0)
     {
         return;
     }
-    float alpha = (float)(maniSpringClockOf(block) * (double)set->stepRate);
-    alpha = alpha < 1.0f ? alpha : 1.0f;
+    // The clock is below a step, so the fraction below 1.
+    Apply a = {set, skeleton, block, pose,
+               (float)(maniSpringClockOf(block) * (double)set->stepRate)};
     for (uint32_t i = 0; i < set->springCount; ++i)
     {
-        ApplySpring(set, block, pose, i, alpha);
+        ApplySpring(&a, i);
     }
 }
