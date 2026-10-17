@@ -2428,7 +2428,6 @@ sb-convert-zero | src/spring_build.c | *forcing = h * (drag > 0.0 ? dh / drag : 
 sb-plane-normalize | src/spring_build.c | ? maniVec3Normalize(c->tail, maniVec3Make(0.0f, 0.0f, 1.0f)) | ? c->tail
 sb-yaw-clamp | src/spring_build.c | float yaw = j->limitYaw < pi / 2.0f ? j->limitYaw : pi / 2.0f; | float yaw = j->limitYaw;
 sb-angle-clamp | src/spring_build.c | float angle = j->limitAngle < pi ? j->limitAngle : pi; | float angle = j->limitAngle;
-sb-turn-neg | src/spring_build.c | maniQuat turn = axis.y == -1.0f | maniQuat turn = false
 so-bones | src/spring.c | if (out->boneCount < 1 || out->boneCount > MANI_MAX_BONES) | if (out->boneCount > MANI_MAX_BONES)
 so-springs | src/spring.c | if (out->springCount > MANI_MAX_BONES) | if (false)
 so-zero | src/spring.c | return maniLoadU64(h + 40) == 0 ? kOk : Fail(at + 40); | return kOk;
@@ -2684,3 +2683,41 @@ gn-check-words | src/graph_check.c | (uint32_t)maniGraphSpringSetWords(source->s
 # gn-instance-reset survives, equivalent: a new instance is all 0
 # before its nodes are reset, and a spring block's reset is all 0.
 gn-instance-reset | src/graph_instance.c | maniGraphResetSpring(graph, DataOf(graph, p), Blocks(instance) + shot); | (void)shot;
+
+# VRM spring bone extensions read (src/gltf_spring.c, src/spring_frame.c)
+gx-required | src/gltf_spring.c | maniGltfMember(&r->gltf->g, object, name, maniJsonNumber, true, item, &value); | maniGltfMember(&r->gltf->g, object, name, maniJsonNumber, false, item, &value);
+gx-unit-low | src/gltf_spring.c | return lengthSquared >= 0.998f && lengthSquared <= 1.002f; | return lengthSquared <= 1.002f;
+gx-unit-high | src/gltf_spring.c | return lengthSquared >= 0.998f && lengthSquared <= 1.002f; | return lengthSquared >= 0.998f;
+gx-quat-count | src/gltf_spring.c | if (json->values[array].count != 4) | if (json->values[array].count < 3)
+gx-quat-unit | src/gltf_spring.c | if (!Unit(maniQuatDot(v, v))) | if (false)
+gx-quat-store | src/gltf_spring.c | *out = v; | (void)v;
+gx-version | src/gltf_spring.c | if (result.result == mani_success && maniJsonStringEquals(&r->gltf->json, version, "1.0", 3)) | if (result.result == mani_success)
+gx-version-kind | src/gltf_spring.c | result = maniGltfMember(g, extension, "specVersion", maniJsonString, true, item, &version); | result = maniGltfMember(g, extension, "specVersion", maniJsonString, false, item, &version);
+gx-one-of | src/gltf_spring.c | return found == 1 ? maniImportSuccess() : Fail(r, maniImportReasonProperty, object, item); | return found >= 1 ? maniImportSuccess() : Fail(r, maniImportReasonProperty, object, item);
+gx-one-of-none | src/gltf_spring.c | return found == 1 ? maniImportSuccess() : Fail(r, maniImportReasonProperty, object, item); | return found <= 1 ? maniImportSuccess() : Fail(r, maniImportReasonProperty, object, item);
+gx-plane-default | src/gltf_spring.c | .bone = c->bone, .shape = kind, .tail = {0.0f, 0.0f, plane ? 1.0f : 0.0f}}; | .bone = c->bone, .shape = kind, .tail = {0.0f, 0.0f, 0.0f}};
+gx-inside | src/gltf_spring.c | c->inside = inside ? 1u : 0u; | c->inside = 0u;
+gx-tail-kind | src/gltf_spring.c | if (result.result == mani_success && kind != maniColliderSphere) | if (result.result == mani_success && plane)
+gx-normal-unit | src/gltf_spring.c | if (result.result == mani_success && plane && !Unit(maniVec3Dot(c->tail, c->tail))) | if (false)
+gx-extended-call | src/gltf_spring.c | result = ReadExtendedShape(r, value, i, &colliders[i]); | (void)value;
+gx-limit-required | src/gltf_spring.c | maniGltfMember(&r->gltf->g, extension, "limit", maniJsonObject, true, item, &limit); | maniGltfMember(&r->gltf->g, extension, "limit", maniJsonObject, false, item, &limit);
+gx-limit-kind | src/gltf_spring.c | j->limit = kind + 1; | j->limit = kind;
+gx-yaw | src/gltf_spring.c | result = RequiredNumber(r, body, "yaw", 0.0f, 3.4e38f, item, &j->limitYaw); | (void)body;
+gx-rotation | src/gltf_spring.c | result = Quat(r, body, "rotation", item, &j->limitRotation); | (void)body;
+gx-last | src/gltf_spring.c | if (result.result == mani_success && !last) | if (result.result == mani_success)
+gx-basis-kept | src/gltf_spring.c | if (BasisKept(o)) | if (true)
+gx-mirror | src/gltf_spring.c | bool mirror = maniVec3Dot(maniVec3Cross(bx, by), bz) < 0.0f; | bool mirror = false;
+gx-arc-opposite | src/gltf_spring.c | ? (maniQuat){bx.x, bx.y, bx.z, 0.0f} | ? maniQuatBetween(by, a)
+gx-conj | src/gltf_spring.c | maniGltfBasisQuat(o, q); | (void)o;
+gx-k | src/gltf_spring.c | maniQuat k = FromColumns(mirror ? maniVec3Scale(bx, -1.0f) : bx, by, bz); | maniQuat k = maniQuatIdentity();
+gx-frame-turn | src/gltf_spring.c | return maniQuatNormalize(maniQuatMul(maniQuatConjugate(maniSpringTurnFromY(a)), frame)); | return maniQuatNormalize(frame);
+gx-limit-loop | src/gltf_spring.c | if (joints[k].limit != maniSpringLimitNone) | if (false)
+gx-trace | src/gltf_spring.c | if (trace > 0.0f) | if (false)
+gx-col-x | src/gltf_spring.c | if (c0.x > c1.y && c0.x > c2.z) | if (false)
+gx-col-y | src/gltf_spring.c | if (c1.y > c2.z) | if (false)
+gx-turn-special | src/spring_frame.c | return axis.y == -1.0f ? (maniQuat){1.0f, 0.0f, 0.0f, 0.0f} | return false ? (maniQuat){1.0f, 0.0f, 0.0f, 0.0f}
+# gx-basis-never survives, equivalent within rounding: with no basis
+# change the general path is D'(a)* Arc(y, a) R, the same turn undone,
+# which gave R bit for bit on the tests' joints; the shortcut keeps a
+# rotation as written by construction.
+gx-basis-never | src/gltf_spring.c | if (BasisKept(o)) | if (false)

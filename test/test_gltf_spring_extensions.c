@@ -38,113 +38,47 @@ static _Alignas(16) uint8_t s_setFile[16384];
 #define LIMIT(limit)    "\"extensions\":{\"VRMC_springBone_limit\":" limit "}"
 #define FAR_SPHERE      "\"shape\":{\"sphere\":{\"offset\":[0,-10000,0],\"radius\":0}}"
 
-static const char kColliders[] = "[{\"node\":4," FAR_SPHERE "," EXTENDED(
-    "{\"specVersion\":\"1.0\",\"shape\":{\"sphere\":{\"offset\":[0,0.1,0],"
-    "\"radius\":0.3,"
-    "\"inside\":true}}}") "},"
-                          "{\"node\":0," FAR_SPHERE "," EXTENDED(
-                              "{\"specVersion\":\"1.0\",\"shape\":{"
-                              "\"capsule\":{\"offset\":[0,"
-                              "0.1,0],\"radius\":0.2,"
-                              "\"tail\":[0,0.5,0],\"inside\":true}}"
-                              "}") "},"
-                                   "{\"node\":0,\"shape\":{"
-                                   "\"sphere\":{\"offset\":"
-                                   "[0,-1000,0],\"radius\":"
-                                   "1000}}," EXTENDED(
-                                       "{\"specVersion\":"
-                                       "\"1.0\",\"shape\":{"
-                                       "\"plane\":{"
-                                       "\"offset\":[0,0.5,"
-                                       "0],\"normal\":[0,1,"
-                                       "0]}}}") "},"
-                                                "{\"node\":"
-                                                "4,"
-                                                "\"shape\":"
-                                                "{\"sphere"
-                                                "\":{"
-                                                "\"radius\""
-                                                ":0.05}}"
-                                                "," EXTENDED(
-                                                    "{\"spe"
-                                                    "cVersi"
-                                                    "on\":"
-                                                    "\"2."
-                                                    "0\","
-                                                    "\"shap"
-                                                    "e\":{"
-                                                    "\"plan"
-                                                    "e\":{}"
-                                                    "}}") "},"
-                                                          "{\"node\""
-                                                          ":4,"
-                                                          "\"shape\""
-                                                          ":{"
-                                                          "\"capsule"
-                                                          "\":{"
-                                                          "\"radius"
-                                                          "\":0.06,"
-                                                          "\"tail\":"
-                                                          "[0,0.1,0]"
-                                                          "}}"
-                                                          "," EXTENDED(
-                                                              "{\"sp"
-                                                              "ecVer"
-                                                              "sion"
-                                                              "\":"
-                                                              "\"1."
-                                                              "0\"}") "},"
-                                                                      "{\"node\":4,\"shape\":{"
-                                                                      "\"sphere\":{}}," EXTENDED(
-                                                                          "{\"specVersion\":\"1."
-                                                                          "0\",\"shape\":{"
-                                                                          "\"plane\":{}}}") "}]";
+// clang-format off
+static const char kColliders[] =
+    "[{\"node\":4," FAR_SPHERE ","
+    EXTENDED("{\"specVersion\":\"1.0\",\"shape\":{\"sphere\":{\"offset\":[0,0.1,0],"
+             "\"radius\":0.3,\"inside\":true}}}") "},"
+    "{\"node\":0," FAR_SPHERE ","
+    EXTENDED("{\"specVersion\":\"1.0\",\"shape\":{\"capsule\":{\"offset\":[0,0.1,0],"
+             "\"radius\":0.2,\"tail\":[0,0.5,0],\"inside\":true}}}") "},"
+    "{\"node\":0,\"shape\":{\"sphere\":{\"offset\":[0,-1000,0],\"radius\":1000}},"
+    EXTENDED("{\"specVersion\":\"1.0\",\"shape\":{\"plane\":{\"offset\":[0,0.5,0],"
+             "\"normal\":[0,1,0]}}}") "},"
+    "{\"node\":4,\"shape\":{\"sphere\":{\"radius\":0.05}},"
+    EXTENDED("{\"specVersion\":\"2.0\",\"shape\":{\"plane\":{}}}") "},"
+    "{\"node\":4,\"shape\":{\"capsule\":{\"radius\":0.06,\"tail\":[0,0.1,0]}},"
+    EXTENDED("{\"specVersion\":\"1.0\"}") "},"
+    "{\"node\":4,\"shape\":{\"sphere\":{}},"
+    EXTENDED("{\"specVersion\":\"1.0\",\"shape\":{\"plane\":{}}}") "}]";
 
 static const char kSprings[] =
     "[{\"joints\":["
-    "{\"node\":0," LIMIT(
-        "{\"specVersion\":\"1.0\",\"limit\":{\"cone\":{\"angle\":0.5,"
-        "\"rotation\":[0,0,0.38268343,0.9238795]}}}") "},"
-                                                      "{\"node\":1," LIMIT(
-                                                          "{\"specVersion\":\"1.0\","
-                                                          "\"limit\":{\"hinge\":{\"angle\":"
-                                                          "4}}}") "},"
-                                                                  "{\"node\":2," LIMIT(
-                                                                      "{\"specVersion\":"
-                                                                      "\"1.0\",\"limit\":{"
-                                                                      "\"spherical\":{"
-                                                                      "\"pitch\":0.3,"
-                                                                      "\"yaw\":0.2,"
-                                                                      "\"rotation\":[0."
-                                                                      "25881905,0,0,0."
-                                                                      "9659258]}}}") "},"
-                                                                                     "{\"no"
-                                                                                     "de\":"
-                                                                                     "3"
-                                                                                     "," LIMIT(
-                                                                                         "{"
-                                                                                         "\"specVer"
-                                                                                         "sion\":"
-                                                                                         "\"1.0\","
-                                                                                         "\"limit\""
-                                                                                         ":5}") "}]"
-                                                                                                "},"
-                                                                                                "{"
-                                                                                                "\""
-                                                                                                "jo"
-                                                                                                "in"
-                                                                                                "ts"
-                                                                                                "\""
-                                                                                                ":["
-                                                                                                "{"
-                                                                                                "\""
-                                                                                                "no"
-                                                                                                "de"
-                                                                                                "\""
-                                                                                                ":4"
-                                                                                                "," LIMIT(
-                                                                                                    "{\"specVersion\":\"1.1\",\"limit\":{}}") "},"
-                                                                                                                                              "{\"node\":5}]}]";
+    "{\"node\":0,"
+    LIMIT("{\"specVersion\":\"1.0\",\"limit\":{\"cone\":{\"angle\":0.5,"
+          "\"rotation\":[0,0,0.38268343,0.9238795]}}}") "},"
+    "{\"node\":1,"
+    LIMIT("{\"specVersion\":\"1.0\",\"limit\":{\"hinge\":{\"angle\":4}}}") "},"
+    "{\"node\":2,"
+    LIMIT("{\"specVersion\":\"1.0\",\"limit\":{\"spherical\":{\"pitch\":0.3,\"yaw\":0.2,"
+          "\"rotation\":[0.25881905,0,0,0.9659258]}}}") "},"
+    "{\"node\":3,"
+    LIMIT("{\"specVersion\":\"1.0\",\"limit\":5}") "}]},"
+    "{\"joints\":[{\"node\":4,"
+    LIMIT("{\"specVersion\":\"1.0\",\"limit\":{\"cone\":{\"angle\":0.7,"
+          "\"rotation\":[0.25881905,0,0,0.9659258]}}}") "},"
+    "{\"node\":5}]}]";
+
+// A limit of another version on a spring's first joint.
+static const char kOtherVersion[] =
+    "[{\"joints\":[{\"node\":1,"
+    LIMIT("{\"specVersion\":\"1.1\",\"limit\":{}}") "},"
+    "{\"node\":2}]}]";
+// clang-format on
 
 static void Document(const char* colliders, const char* springs)
 {
@@ -267,8 +201,15 @@ static void TestLimits(void)
               QuatIs(j[2].limitRotation, 0.25881905f, 0.0f, 0.0f, 0.9659258f),
           "a spherical limit's pitch and yaw");
     CHECK(j[3].limit == maniSpringLimitNone, "the last joint's limit ignored, unread");
-    CHECK(set.springs[1].joints[0].limit == maniSpringLimitNone, "another version: no limit");
+    CHECK(set.springs[1].joints[0].limit == maniSpringLimitCone, "a cone down -y");
     CHECK(Builds(builder, &set), "built");
+    maniCloseGltf(gltf);
+    Document("[]", kOtherVersion);
+    gltf = Open(builder);
+    CHECK(Skeleton(builder, gltf, &options, 0, &skeleton) &&
+              maniGltfReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
+              set.springs[0].joints[0].limit == maniSpringLimitNone,
+          "another version: no limit, its body unread");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
@@ -300,14 +241,22 @@ static void TestLimitBasis(const maniGltfOptions* basis, bool mirror, const char
               Skeleton(builder, gltf, basis, 1, &changed) &&
               maniGltfReadSprings(gltf, &plain, &options, &set).result == mani_success,
           "read");
-    maniSpringJointSource joints[4];
-    memcpy(joints, set.springs[0].joints, sizeof joints);
+    // Spring 0's three limits, then spring 1's, whose rest direction is
+    // -y: half a turn from +y.
+    maniSpringJointSource joints[6];
+    memcpy(joints, set.springs[0].joints, 4 * sizeof *joints);
+    memcpy(joints + 4, set.springs[1].joints, 2 * sizeof *joints);
     CHECK(maniGltfReadSprings(gltf, &changed, basis, &set).result == mani_success, "read again");
+    maniSpringJointSource read[6];
+    memcpy(read, set.springs[0].joints, 4 * sizeof *read);
+    memcpy(read + 4, set.springs[1].joints, 2 * sizeof *read);
     bool same = true;
-    for (int k = 0; k < 3; ++k)
+    const int limited[4] = {0, 1, 2, 4};
+    for (int n = 0; n < 4; ++n)
     {
+        int k = limited[n];
         maniQuat f = Frame(&plain, joints, k);
-        maniQuat g = Frame(&changed, set.springs[0].joints, k);
+        maniQuat g = Frame(&changed, read, k);
         const maniVec3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
         for (int i = 0; i < 3; ++i)
         {
@@ -354,17 +303,19 @@ static const char kPlain[] = "[{\"joints\":[{\"node\":1},{\"node\":2}]}]";
 static void TestRefusals(void)
 {
     char colliders[512];
-    const char* shapes[5][3] = {
+    const char* shapes[7][3] = {
         {"{\"specVersion\":1}", "1}", "a version not a string"},
+        {"{\"shape\":{\"plane\":{}}}", NULL, "no version"},
+        {"{\"specVersion\":\"1.0\",\"shape\":{\"plane\":{\"normal\":[0,0.5,0]}}}", "[0,0.5,0]",
+         "a normal too short"},
         {"{\"specVersion\":\"1.0\",\"shape\":{\"sphere\":{},\"plane\":{}}}", "{\"sphere\":{},",
          "two shapes"},
         {"{\"specVersion\":\"1.0\",\"shape\":{}}", "{}}}}]", "no shape in a shape"},
         {"{\"specVersion\":\"1.0\",\"shape\":{\"plane\":{\"normal\":[0,2,0]}}}", "[0,2,0]",
          "a normal not unit"},
         {"{\"specVersion\":\"1.0\",\"shape\":{\"sphere\":{\"inside\":1}}}", "1}}",
-         "inside not a "
-         "boolean"}};
-    for (int k = 0; k < 5; ++k)
+         "inside not a boolean"}};
+    for (int k = 0; k < 7; ++k)
     {
         snprintf(colliders, sizeof colliders,
                  "[{\"node\":4,\"shape\":{\"sphere\":{}},\"extensions\":{"
@@ -377,7 +328,9 @@ static void TestRefusals(void)
                   "\"capsule\":{\"radius\":-1}}}}}]",
                   kPlain, "-1}", "a negative radius");
     char springs[512];
-    const char* limits[7][3] = {
+    const char* limits[8][3] = {
+        {"{\"specVersion\":\"1.0\",\"limit\":{\"cone\":{\"angle\":1,\"rotation\":[0,0,0,0.5]}}}",
+         "[0,0,0,0.5]", "a rotation too short"},
         {"{\"specVersion\":\"1.0\"}", NULL, "no limit"},
         {"{\"specVersion\":\"1.0\",\"limit\":{\"cone\":{\"angle\":1},\"hinge\":{\"angle\":1}}}",
          "{\"cone\"", "two limits"},
@@ -390,7 +343,7 @@ static void TestRefusals(void)
          "[0,0,0,2]", "a rotation not unit"},
         {"{\"specVersion\":\"1.0\",\"limit\":{\"cone\":{\"angle\":1,\"rotation\":[0,0,1]}}}",
          "[0,0,1]", "three numbers for a rotation"}};
-    for (int k = 0; k < 7; ++k)
+    for (int k = 0; k < 8; ++k)
     {
         snprintf(springs, sizeof springs,
                  "[{\"joints\":[{\"node\":1,\"extensions\":{\"VRMC_springBone_limit\":%s}},"
@@ -427,6 +380,10 @@ int main(int argc, char** argv)
     TestLimitBasis(&mirrored, true, "x mirrored: the frame carried, its x mirrored");
     maniGltfOptions turned = {{maniAxisZ, maniAxisX, maniAxisNegativeY}, 0};
     TestLimitBasis(&turned, true, "axes turned and mirrored");
+    maniGltfOptions aboutX = {{maniAxisX, maniAxisNegativeY, maniAxisNegativeZ}, 0};
+    TestLimitBasis(&aboutX, false, "half a turn about x");
+    maniGltfOptions aboutY = {{maniAxisNegativeX, maniAxisY, maniAxisNegativeZ}, 0};
+    TestLimitBasis(&aboutY, false, "half a turn about y");
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
