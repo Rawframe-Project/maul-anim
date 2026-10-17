@@ -5,7 +5,8 @@
 // 10 whose identity is the trainer's signature. Sections:
 //
 //    1  progress: stage (u32), whether it has begun (u32), iterations
-//       (u64), the last loss (f32), 0 (u32), the generator (4 u64)
+//       (u64), the last loss (f32), 0 (u32), the generator (4 u64); the
+//       iterations, loss and generator 0 while the stage has not begun
 //    2  every frame's latent values, once the first stage has ended
 //    3  the stage in training's parameters, 4 its first moments, 5 its
 //       second moments, 6 their largest, while it trains
@@ -120,11 +121,12 @@ static uint32_t Sections(const maniLearnedTrainer* t, uint8_t* progress,
     maniStoreU32(progress, t->stage);
     maniStoreU32(progress + 4, t->begun ? 1u : 0u);
     maniStoreU64(progress + 8, t->iteration);
-    maniStoreU32(progress + 16, Bits(t->loss));
+    // A stage not begun has no loss or generator yet: 0.
+    maniStoreU32(progress + 16, t->begun ? Bits(t->loss) : 0u);
     maniStoreU32(progress + 20, 0);
     for (uint32_t k = 0; k < 4; ++k)
     {
-        maniStoreU64(progress + 24 + 8 * k, t->random.s[k]);
+        maniStoreU64(progress + 24 + 8 * k, t->begun ? t->random.s[k] : 0u);
     }
     uint32_t count = 0;
     sections[count++] = (maniSectionSource){kTagProgress, progress, PROGRESS_SIZE};

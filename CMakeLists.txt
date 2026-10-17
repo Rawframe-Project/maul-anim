@@ -229,7 +229,7 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton skin influences morph clip graph graph_state graph_json match learned json gltf fbx)
+    foreach(area skeleton skin influences morph clip graph graph_state graph_json match learned checkpoint json gltf fbx)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
         # Internal readers (JSON) are fuzzed through their own headers.

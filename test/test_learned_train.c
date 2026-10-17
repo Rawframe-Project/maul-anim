@@ -9,8 +9,16 @@
 // and filter, and the Decompressor kept, against the stages run alone;
 // checkpoints at any point restored to the same model and loss, and
 // refused when of another source, damaged or out of form; memory
-// running out at creation, a stage's beginning or a restore.
+// running out at creation, a stage's beginning or a restore. Run as
+// test_learned_train --seed <file> it writes the checkpoint fuzz
+// target's seed: its host's trainer stopped in its first Projector's
+// stage.
 
+// The seed writer uses fopen, which the Microsoft C library deprecates;
+// the request comes before any header that reaches the C library.
+#define _CRT_SECURE_NO_WARNINGS
+
+#include "checkpoint_host.h"
 #include "container.h"
 #include "graph_match_fixture.h"
 #include "learned_file.h"
@@ -27,6 +35,7 @@
 #include "maul-anim/learnedtrain.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -728,6 +737,45 @@ static void TestRestoreRefused(void)
               maniTrainLearned(t, 0, &report) == mani_success && report.stage == 1 &&
               report.iteration == 15,
           "restored: the Stepper's 15th iteration");
+    // A stage begun: its generator not all 0.
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        maniStoreU64(s_checkpoint + progress + 24 + 8 * k, 0);
+    }
+    WriteHash(size);
+    CHECK(RefusedAt(t, size, progress + 24), "a generator of 0 in a stage begun");
+    // A stage not begun: its loss and generator 0.
+    size = Checkpoint(&s, 0);
+    progress = SectionAt(1);
+    const uint64_t unset[2] = {progress + 16, progress + 24};
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        maniStoreU32(s_checkpoint + unset[k], 1);
+        WriteHash(size);
+        CHECK(RefusedAt(t, size, unset[k]), "a loss or generator before the stage began");
+        maniStoreU32(s_checkpoint + unset[k], 0);
+    }
+    maniDestroyLearnedTrainer(t);
+}
+
+// Checkpoints restored save back to the same bytes: before training, in
+// a stage, and between stages.
+static void TestCanonical(void)
+{
+    maniLearnedTrainerSource s = Source();
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    maniLearnedTrainer* t = Create(&def, &s);
+    static uint8_t again[sizeof s_checkpoint];
+    const uint64_t stops[4] = {0, 7, 30, 45};
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        size_t size = Checkpoint(&s, stops[k]);
+        CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_success &&
+                  maniLearnedCheckpointSize(t) == size &&
+                  maniSaveLearnedCheckpoint(t, again, sizeof again) == mani_success &&
+                  memcmp(again, s_checkpoint, size) == 0,
+              "saved back alike");
+    }
     maniDestroyLearnedTrainer(t);
 }
 
@@ -769,8 +817,33 @@ static void TestMemory(void)
     maniDestroyLearnedTrainer(t);
 }
 
-int main(void)
+static CheckpointHost s_host;
+
+// The host's trainer after eight iterations: the third stage's second.
+static int WriteSeed(const char* path)
 {
+    maniLearnedTrainer* trainer = MakeCheckpointHost(&s_host);
+    maniLearnedTrainerReport report;
+    size_t size = trainer != NULL ? maniLearnedCheckpointSize(trainer) : 0;
+    uint8_t* bytes = NULL;
+    bool ok = trainer != NULL && maniTrainLearned(trainer, 8, &report) == mani_success &&
+              report.stage == 2 && (size = maniLearnedCheckpointSize(trainer)) > 0 &&
+              (bytes = malloc(size)) != NULL &&
+              maniSaveLearnedCheckpoint(trainer, bytes, size) == mani_success;
+    FILE* file = ok ? fopen(path, "wb") : NULL;
+    ok = file != NULL && fwrite(bytes, 1, size, file) == size;
+    ok = file != NULL && fclose(file) == 0 && ok;
+    free(bytes);
+    maniDestroyLearnedTrainer(trainer);
+    return ok ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc == 3 && strcmp(argv[1], "--seed") == 0)
+    {
+        return WriteSeed(argv[2]);
+    }
     Open();
     OpenBones();
     TestDef();
@@ -783,6 +856,7 @@ int main(void)
     TestHosts();
     TestCheckpoints();
     TestRestoreRefused();
+    TestCanonical();
     TestMemory();
     return s_failures == 0 ? 0 : 1;
 }

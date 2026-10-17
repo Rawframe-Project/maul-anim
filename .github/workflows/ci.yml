@@ -147,7 +147,8 @@ jobs:
 
   # Each fuzz target runs for one minute on every push, from its seed:
   # the skeleton, skin and clip loaders (full and compressed clips), the
-  # graph files and their JSON form, the JSON reader and the glTF and FBX
+  # graph files and their JSON form, learned models and training
+  # checkpoints, the JSON reader and the glTF and FBX
   # documents from their tests' sample files (with the fixtures of
   # test/data/gltf and test/data/fbx).
   fuzz:
@@ -191,10 +192,13 @@ jobs:
           build/test_graph_shot --seed corpus-fuzz_graph/shot.graph corpus-fuzz_graph_json/shot.json
           build/test_graph_inertia --seed corpus-fuzz_graph/inertia.graph corpus-fuzz_graph_json/inertia.json
           build/test_graph_match_file --seed corpus-fuzz_graph/match.graph corpus-fuzz_graph_json/match.json
+          build/test_graph_learned_file --seed corpus-fuzz_graph/learned.graph corpus-fuzz_graph_json/learned.json
           mkdir -p corpus-fuzz_match
           build/test_match --seed corpus-fuzz_match/sample.match
           mkdir -p corpus-fuzz_learned
           build/test_learned --seed corpus-fuzz_learned/sample.model
+          mkdir -p corpus-fuzz_checkpoint
+          build/test_learned_train --seed corpus-fuzz_checkpoint/sample.ckpt
           mkdir -p corpus-fuzz_json
           build/test_json --seed corpus-fuzz_json/sample.json
           mkdir -p corpus-fuzz_gltf

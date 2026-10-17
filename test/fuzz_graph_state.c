@@ -6,14 +6,16 @@
 // a select over a clip and a time scale of it, blended with an
 // inertialize node over a motion matching node (mani-0024) searching a
 // database of the clip (a looping and a clamped entry, tags from the int
-// parameter). The bytes are tried as they are, then with the header made
-// right so they reach the checks behind it, then with the quaternion
-// parameter made a unit one, then with the inertialize node's block as
-// a fresh instance has it, so the motion matching node's reaches its
-// checks; a restored state saves back to the same bytes, updates and
-// evaluates. Run as fuzz_graph_state <corpus dir>.
+// parameter) and another over a learned node (mani-0025) playing a
+// model of the database. The bytes are tried as they are, then with the
+// header made right so they reach the checks behind it, then with the
+// quaternion parameter made a unit one, then with the inertialize
+// nodes' blocks as a fresh instance has them, so the searching nodes'
+// reach their checks; a restored state saves back to the same bytes,
+// updates and evaluates. Run as fuzz_graph_state <corpus dir>.
 
 #include "bytes.h"
+#include "fuzz_model.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
@@ -44,9 +46,11 @@ static _Alignas(8) uint8_t s_binding[512];
 static _Alignas(8) uint8_t s_instance[4096];
 static uint8_t s_saved[2048];
 static uint8_t s_fresh[2048];
+static _Alignas(16) uint8_t s_modelFile[8192];
 static maniMotionDatabase s_database;
-// The inertialize node's block in a state: its offset and size.
-static size_t s_eased;
+static maniLearnedModel s_model;
+// The inertialize nodes' blocks in a state: their offsets and size.
+static size_t s_eased[2];
 static size_t s_easedSize;
 static _Alignas(32) uint8_t s_scratch[16384];
 static _Alignas(32) uint8_t s_poseMemory[1024];
@@ -121,12 +125,14 @@ static bool MakeGraph(maniBuilder* builder)
         Parameter("t", maniGraphParameterTrigger)};
     const maniGraphClipSource clip = {&s_clip, "c", 1, 0};
     const maniGraphDatabaseSource database = {&s_database, "d", 1, 0};
+    const maniGraphModelSource model = {&s_model, "m", 1, 0};
     static const uint32_t kClip[1] = {0};
     static const uint32_t kChoices[2] = {0, 1};
     static const uint32_t kMatch[1] = {3};
-    static const uint32_t kBlend[2] = {2, 4};
-    static const maniGraphScalar kHalves[2] = {{MANI_NO_PARAMETER, 0.5f},
-                                               {MANI_NO_PARAMETER, 0.5f}};
+    static const uint32_t kLearned[1] = {6};
+    static const uint32_t kBlend[3] = {2, 4, 7};
+    static const maniGraphScalar kThirds[3] = {
+        {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}};
     const maniGraphMatchNodeSource match = {.database = 0,
                                             .trigger = 6,
                                             .historyCount = 3,
@@ -137,7 +143,13 @@ static bool MakeGraph(maniBuilder* builder)
                                             .requiredTags = {1, 0},
                                             .excludedTags = {MANI_NO_PARAMETER, 0},
                                             .duration = {2, 0.0f}};
-    const maniGraphNodeSource nodes[6] = {
+    const maniGraphLearnedNodeSource learned = {.trigger = 6,
+                                                .period = 0.3f,
+                                                .transitionCost = 0.1f,
+                                                .requiredTags = {MANI_NO_PARAMETER, 0},
+                                                .excludedTags = {MANI_NO_PARAMETER, 0},
+                                                .duration = {2, 0.0f}};
+    const maniGraphNodeSource nodes[8] = {
         {maniGraphNodeClip, 0, NULL,
          .clip = {0, MANI_NO_SYNC_GROUP, {2, 0.0f}, maniGraphLoopClip, 0}},
         {maniGraphNodeTimeScale, 1, kClip, .timeScale = {{MANI_NO_PARAMETER, 2.0f}}},
@@ -145,10 +157,23 @@ static bool MakeGraph(maniBuilder* builder)
         {maniGraphNodeMatch, 0, NULL, .match = match},
         {maniGraphNodeInertialize, 1, kMatch,
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
-        {maniGraphNodeBlend, 2, kBlend, .blend = {kHalves, 0, 0}},
+        {maniGraphNodeBlend, 3, kBlend, .blend = {kThirds, 0, 0}},
+        {maniGraphNodeLearned, 0, NULL, .learned = learned},
+        {maniGraphNodeInertialize, 1, kLearned,
+         .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
     };
-    maniGraphSource source = {&s_skeleton, parameters, &clip, NULL,      nodes, 7, 1,   0,
-                              6,           5,          1,     &database, 0,     0, NULL};
+    maniGraphSource source = {.skeleton = &s_skeleton,
+                              .parameters = parameters,
+                              .clips = &clip,
+                              .nodes = nodes,
+                              .parameterCount = 7,
+                              .clipCount = 1,
+                              .nodeCount = 8,
+                              .output = 5,
+                              .databaseCount = 1,
+                              .databases = &database,
+                              .modelCount = 1,
+                              .models = &model};
     size_t size = 0;
     return maniBuildGraph(builder, &source).result == mani_success &&
            Built(builder, s_graphFile, sizeof s_graphFile, &size) &&
@@ -161,11 +186,16 @@ static void Setup(void)
     maniBuilder* builder = NULL;
     const maniClip* clips[1] = {&s_clip};
     const maniMotionDatabase* databases[1] = {&s_database};
+    const maniLearnedModel* models[1] = {&s_model};
     maniGraphBinding* binding = NULL;
     bool ok =
         maniCreateBuilder(&def, &builder) == mani_success && MakeClip(builder) &&
-        MakeDatabase(builder) && MakeGraph(builder) &&
-        maniBindGraph(&s_graph, &(maniGraphAssets){&s_skeleton, clips, databases, NULL, 1, 1, 0, 0},
+        MakeDatabase(builder) &&
+        MakeFuzzModel(builder, &s_skeleton, &s_database, s_modelFile, sizeof s_modelFile,
+                      &s_model) &&
+        MakeGraph(builder) &&
+        maniBindGraph(&s_graph,
+                      &(maniGraphAssets){&s_skeleton, clips, databases, models, 1, 1, 1, 0},
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
@@ -177,17 +207,23 @@ static void Setup(void)
     {
         abort();
     }
+    uint32_t eased = 0;
     for (uint32_t p = 0; p < s_graph.nodeCount; ++p)
     {
         const uint8_t* e = s_graph.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
-        if (maniLoadU16(e) == maniGraphNodeInertialize)
+        if (maniLoadU16(e) == maniGraphNodeInertialize && eased < 2)
         {
             uint32_t block = maniLoadU32(s_graph.data +
                                          4 * (size_t)(maniLoadU32(e + 12) + maniGraphInertiaBlock));
-            s_eased = MANI_GRAPH_STATE_HEADER_SIZE +
-                      (size_t)(s_graph.parameterCount + s_graph.nodeCount) * 16 + 4 * (size_t)block;
+            s_eased[eased++] = MANI_GRAPH_STATE_HEADER_SIZE +
+                               (size_t)(s_graph.parameterCount + s_graph.nodeCount) * 16 +
+                               4 * (size_t)block;
             s_easedSize = 4 * (size_t)MANI_GRAPH_INERTIA_BLOCK(1, 0);
         }
+    }
+    if (eased != 2)
+    {
+        abort();
     }
 }
 
@@ -248,7 +284,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     const float identityQuat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     memcpy(copy + 24 + 5 * 16, identityQuat, sizeof identityQuat);
     Exercise(copy, s_stateSize);
-    memcpy(copy + s_eased, s_fresh + s_eased, s_easedSize);
+    memcpy(copy + s_eased[0], s_fresh + s_eased[0], s_easedSize);
+    memcpy(copy + s_eased[1], s_fresh + s_eased[1], s_easedSize);
     Exercise(copy, s_stateSize);
     free(copy);
     return 0;

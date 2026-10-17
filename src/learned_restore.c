@@ -79,12 +79,19 @@ static maniFileResult ReadProgress(const maniLearnedTrainer* t, const maniContai
         p->random.s[k] = maniLoadU64(bytes + 24 + 8 * k);
     }
     bool working = p->begun && p->stage < t->stageCount;
-    const bool valid[5] = {p->stage <= t->stageCount, begun <= 1 && (working || !p->begun),
+    // A stage not begun: no loss or generator yet; one begun: a generator
+    // not all 0 (xoshiro's one state that never leaves itself, on which
+    // drawing below a bound would never end).
+    bool fresh = (p->random.s[0] | p->random.s[1] | p->random.s[2] | p->random.s[3]) == 0;
+    const bool valid[6] = {p->stage <= t->stageCount,
+                           begun <= 1 && (working || !p->begun),
                            p->iteration <= t->source.options.iterations &&
                                (p->begun || p->iteration == 0),
-                           fabsf(p->loss) < HUGE_VALF, maniLoadU32(bytes + 20) == 0};
-    const uint32_t offsets[5] = {0, 4, 8, 16, 20};
-    for (uint32_t k = 0; k < 5; ++k)
+                           fabsf(p->loss) < HUGE_VALF && (p->begun || maniLoadU32(bytes + 16) == 0),
+                           maniLoadU32(bytes + 20) == 0,
+                           p->begun != fresh};
+    const uint32_t offsets[6] = {0, 4, 8, 16, 20, 24};
+    for (uint32_t k = 0; k < 6; ++k)
     {
         if (!valid[k])
         {

@@ -2,10 +2,13 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Reading a graph's JSON form (mani-0023) against a fixed skeleton,
-// three clips named walk, run and wave and a motion database named moves
-// of the walk and run (mani-0024): any text is refused or built, and a
-// graph built opens. Run as fuzz_graph_json <corpus dir>; the seed
-// comes from test_graph_json --seed <file>.
+// three clips named walk, run and wave, a motion database named moves
+// of the walk and run (mani-0024) and a learned model named steps of it
+// (mani-0025): any text is refused or built, and a graph built opens.
+// Run as fuzz_graph_json <corpus dir>; the seed comes from
+// test_graph_json --seed <file>.
+
+#include "fuzz_model.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -27,7 +30,9 @@ static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
 static _Alignas(16) uint8_t s_file[1u << 20];
 static _Alignas(16) uint8_t s_databaseFile[8192];
+static _Alignas(16) uint8_t s_modelFile[8192];
 static maniMotionDatabase s_database;
+static maniLearnedModel s_model;
 static maniSkeleton s_skeleton;
 static maniClip s_clips[3];
 static maniBuilder* s_builder;
@@ -41,6 +46,7 @@ static const maniBoneSource kBones[3] = {
 static const maniGraphClipSource kHost[3] = {
     {&s_clips[0], "walk", 4, 0}, {&s_clips[1], "run", 3, 0}, {&s_clips[2], "wave", 4, 0}};
 static const maniGraphDatabaseSource kHostDatabase[1] = {{&s_database, "moves", 5, 0}};
+static const maniGraphModelSource kHostModel[1] = {{&s_model, "steps", 5, 0}};
 
 // The walk and the run, the hips' position now their channel.
 static bool MakeDatabase(void)
@@ -92,7 +98,8 @@ static void Setup(void)
             abort();
         }
     }
-    if (!MakeDatabase())
+    if (!MakeDatabase() || !MakeFuzzModel(s_builder, &s_skeleton, &s_database, s_modelFile,
+                                          sizeof s_modelFile, &s_model))
     {
         abort();
     }
@@ -106,7 +113,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
     maniBuildResult r = maniBuildGraphJson(
         s_builder, (const char*)data, size,
-        &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, NULL, 3, 1, 0, 0});
+        &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, kHostModel, 3, 1, 1, 0});
     if (r.result != mani_success)
     {
         bool text = r.reason == maniBuildReasonJson || r.reason == maniBuildReasonForm;

@@ -7,7 +7,13 @@
 // opening's checks of every node word; binding's refusal of a model the
 // node's counts or query do not fit; a subgraph's model joined at
 // inlining, every reference remapped; the JSON form, round trip, its
-// defaults and refusals.
+// defaults and refusals. Run as test_graph_learned_file --seed <graph
+// file> <json file> it writes the round trip's file and text, seeds of
+// the fuzz targets.
+
+// The seed writer uses fopen, which the Microsoft C library deprecates;
+// the request comes before any header that reaches the C library.
+#define _CRT_SECURE_NO_WARNINGS
 
 #include "graph_learned_fixture.h"
 
@@ -541,7 +547,18 @@ static void TestJsonForms(void)
     }
 }
 
-int main(void)
+static bool WriteFile(const char* path, const void* data, size_t size)
+{
+    FILE* out = fopen(path, "wb");
+    if (out == NULL)
+    {
+        return false;
+    }
+    size_t written = fwrite(data, 1, size, out);
+    return fclose(out) == 0 && written == size;
+}
+
+int main(int argc, char** argv)
 {
     Open();
     OpenDatabase();
@@ -549,6 +566,13 @@ int main(void)
     OpenModel();
     s_other = s_learned;
     s_other.identity ^= 1;
+    if (argc == 4 && strcmp(argv[1], "--seed") == 0)
+    {
+        TestJson();
+        bool ok = s_failures == 0 && WriteFile(argv[2], s_built, s_builtSize) &&
+                  WriteFile(argv[3], s_text, s_textSize);
+        return ok ? 0 : 1;
+    }
     TestRefusals();
     TestOpen();
     TestUnfit();

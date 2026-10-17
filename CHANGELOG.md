@@ -150,7 +150,8 @@ format.
   `maniTrainLearned` trains the Compressor and Decompressor, the
   Stepper and each Projector in turn with Holden's losses and AdamW,
   the same bits with any thread count; `maniSaveLearnedCheckpoint` and
-  `maniRestoreLearnedCheckpoint` stop and resume to the same bits;
+  `maniRestoreLearnedCheckpoint` stop and resume to the same bits (a
+  restored checkpoint saves back to the same sections);
   `maniBuildLearnedModelFromTrainer` builds the model.
 - Learned model slots in graphs (mani-0025): `maniGraphModelSource`,
   `maniGraphModelCount`, `maniGraphModelIdentity` and
