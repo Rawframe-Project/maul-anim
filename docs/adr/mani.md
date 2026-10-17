@@ -31,3 +31,4 @@ are listed in [README.md](README.md).
 | [mani-0024](mani-0024-motion-matching.md) | Motion matching | Accepted |
 | [mani-0025](mani-0025-learned-motion-matching.md) | Learned motion matching | Accepted |
 | [mani-0026](mani-0026-spring-bones.md) | Spring bones | Accepted |
+| [mani-0027](mani-0027-ragdoll-boundary.md) | The ragdoll boundary | Accepted |

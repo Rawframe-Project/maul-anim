@@ -12,6 +12,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/morph.h"
+#include "maul-anim/ragdoll.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
@@ -269,6 +270,20 @@ extern "C"
         // A graph's spring set slot without a set, with one of another
         // skeleton or one an earlier slot (other) has; item is the slot.
         maniBuildReasonSpringSetSlot = 47,
+        // A ragdoll's body (item, in the source's order) on a bone out of
+        // range or one an earlier body (other) takes, of an unknown shape,
+        // a size or mass not positive and finite (a sphere's and
+        // capsule's unused sizes 0), a frame not finite or its rotation
+        // not of length 1, or a second root (other the first).
+        maniBuildReasonRagdollBody = 48,
+        // A ragdoll's joint (item the child body): its frame not finite or
+        // its rotation not of length 1, its twist range outside [-pi, pi]
+        // or empty, a swing half angle outside [0, pi], or a drive value
+        // negative or not finite.
+        maniBuildReasonRagdollJoint = 49,
+        // A ragdoll's facing or up axis not of length 1, or the two not
+        // perpendicular (within a thousandth).
+        maniBuildReasonRagdollAxes = 50,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,
@@ -782,6 +797,74 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSpringSet(maniBuilder* builder,
                                                                const maniSpringSetSource* source);
+
+    // A ragdoll body's joint to its parent body (mani-0027): its frame in
+    // the body (the parent's frame of it is the same place in the rest
+    // pose), swing-twist limits about the frame's axes and an optional
+    // drive. A root's joint is ignored.
+    typedef struct maniRagdollJointSource
+    {
+        maniVec3 translation;
+        maniQuat rotation;
+        // Twist about x within [twistMin, twistMax] in [-pi, pi]; swing
+        // about y and z within half angles in [0, pi].
+        float twistMin;
+        float twistMax;
+        float swingY;
+        float swingZ;
+        // Stiffness, damping and the largest torque, at least 0; all 0
+        // for no drive.
+        float driveStiffness;
+        float driveDamping;
+        float driveMaxTorque;
+        uint32_t reserved;
+    } maniRagdollJointSource;
+
+    // A body on a bone: its frame in the bone's model frame (rotation of
+    // length 1), its shape at the frame's origin (maniRagdollShape's
+    // sizes) and mass, its joint to the body of the bone's nearest
+    // ancestor with one, an optional name (UTF-8).
+    typedef struct maniRagdollBodySource
+    {
+        const char* name;
+        uint32_t nameLength;
+        uint32_t bone;
+        maniVec3 frameTranslation;
+        maniQuat frameRotation;
+        maniRagdollShape shape;
+        maniVec3 size;
+        float mass;
+        maniRagdollJointSource joint;
+    } maniRagdollBodySource;
+
+    // A skeleton's ragdoll: its bodies in any order (one, the root, with
+    // no ancestor body; every other below it), and the root body's facing
+    // (out of the chest) and up axes in its frame, for getting up.
+    typedef struct maniRagdollSource
+    {
+        const maniSkeleton* skeleton;
+        const maniRagdollBodySource* bodies;
+        uint32_t bodyCount;
+        uint32_t reserved;
+        maniVec3 facing;
+        maniVec3 up;
+    } maniRagdollSource;
+
+    /// Builds a ragdoll profile (mani-0027): the source checked (bones,
+    /// one root, shapes, sizes, masses, frames, limits, drives, the axes),
+    /// the bodies ordered by bone, each joint's frame in its parent body
+    /// worked out from the skeleton's rest pose.
+    ///
+    /// @param builder  A builder; its last output is replaced on success.
+    /// @param source   The profile's source.
+    /// @return `mani_success`; `mani_errorInvalid` with the reason, item
+    /// and other for a refused source (or NULL arguments, a misuse;
+    /// maniBuildReasonCount for no bodies or more than the skeleton's
+    /// bones); `mani_errorCapacity` when memory runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildRagdoll(maniBuilder* builder,
+                                                             const maniRagdollSource* source);
 
     /// Copies the last built file, or the last written text, into caller
     /// memory.

@@ -116,6 +116,11 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildSpringSet(maniBuilder* builder,
 Builds a spring set (mani-0026): the source checked (bones, shapes, chains and centers as VRMC_springBone and its extensions require, every value in its range), each joint's drag, stiffness and gravity converted from a frame of the reference rate to a step of the step rate, colliders listed per spring.  @param builder  A builder; its last output is replaced on success. @param source   The set's source. @return `mani_success`; `mani_errorInvalid` with the reason, item and other for a refused source (or NULL arguments, a misuse); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildRagdoll(maniBuilder* builder, const maniRagdollSource* source);
+```
+Builds a ragdoll profile (mani-0027): the source checked (bones, one root, shapes, sizes, masses, frames, limits, drives, the axes), the bodies ordered by bone, each joint's frame in its parent body worked out from the skeleton's rest pose.  @param builder  A builder; its last output is replaced on success. @param source   The profile's source. @return `mani_success`; `mani_errorInvalid` with the reason, item and other for a refused source (or NULL arguments, a misuse; maniBuildReasonCount for no bodies or more than the skeleton's bones); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
+```c
 MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut);
 ```
 Copies the last built file, or the last written text, into caller memory.  @param builder   The builder. @param bufferOut Receives the bytes: at least capacity bytes; may be NULL when capacity is 0. Open a file's copy from a 16-byte aligned address. @param capacity  The buffer's size in bytes. @param sizeOut   Receives the size in bytes. May be NULL. @return `mani_success`; `mani_errorCapacity` when the buffer is smaller than the file or text, with the size still written; `mani_errorInvalid` for a NULL builder, a NULL buffer with a positive capacity, or a builder holding neither. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
@@ -1096,6 +1101,35 @@ maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone);
 ```
 Returns a bone's model matrix, as last composed, split as maniDecomposeAffine splits it.  @param pose  The pose. @param bone  The bone. @return The transform, or the identity for a bone past the count or a matrix that is not finite. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
+## `ragdoll.h`
+
+Ragdoll profiles (mani-0027): a skeleton's ragdoll as data a host maps onto its own physics engine: bodies on a subset of the bones, each with its frame, a primitive shape and a mass, and a swing-twist joint to its parent body with limits and an optional drive. A profile is built offline for one skeleton and opened in place; the library never simulates it.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragdollOut);
+```
+Opens a ragdoll profile file in place: checks the container and every record (bones within the skeleton's count and increasing, parents before children, one root, shapes, sizes and masses positive, frames finite with unit rotations, limits and drives in range, names, the root's facing and up axes unit and perpendicular).  @param bytes      The file, 16-byte aligned. @param size       Its size in bytes; bytes past the file are ignored. @param ragdollOut Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniRagdollIdentity(const maniRagdoll* ragdoll);
+```
+Returns a profile's identity: the hash of its sections.  @param ragdoll  An opened profile, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniRagdollSkeletonIdentity(const maniRagdoll* ragdoll);
+```
+Returns the identity of the skeleton a profile was built for.  @param ragdoll  An opened profile, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniRagdollBodyCount(const maniRagdoll* ragdoll);
+```
+Returns the number of bodies in a profile.  @param ragdoll  An opened profile, or NULL. @return The count, at least 1; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniRagdollReadBody(const maniRagdoll* ragdoll, uint32_t body, maniRagdollBody* bodyOut);
+```
+Reads a body of a profile, in the order the profile keeps them (by bone, parents first).  @param ragdoll  An opened profile. @param body     The body's index. @param bodyOut  Receives the body. @return `mani_success`; `mani_errorInvalid` for a NULL argument or an index past the bodies. @par Thread safety Safe from any thread.
+
 ## `rootmotion.h`
 
 Root motion (mani-0022): the move a clip's declared bone makes, taken out of the bone at build and kept beside the clip, so the clip plays in place and the host moves the character by the moves it reads.
@@ -1372,4 +1406,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-258 functions across 20 headers.
+264 functions across 21 headers.

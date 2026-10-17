@@ -185,6 +185,14 @@ format.
   through `maniGraphAssets`; the JSON form writes a "springSets" list.
   The graph file gains section 13 and a 64-byte header; graph files
   built before do not open.
+- Ragdoll profiles (mani-0027): `maniBuildRagdoll` builds a skeleton's
+  ragdoll for a host's physics engine: bodies on a subset of the bones
+  (a frame, a sphere, capsule or box, a mass, a name), each joined to
+  the body of its bone's nearest ancestor with one by a swing-twist
+  joint with limits and an optional drive, its frame in the parent body
+  worked out from the rest pose, and the root body's facing and up
+  axes; `maniOpenRagdoll` opens one in place with every record checked
+  and `maniRagdollReadBody` reads its bodies by bone.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the

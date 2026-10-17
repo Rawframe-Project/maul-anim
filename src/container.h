@@ -48,6 +48,7 @@ enum
     maniKindLearnedModel = 9,
     maniKindLearnedCheckpoint = 10,
     maniKindSpringSet = 11,
+    maniKindRagdoll = 12,
 };
 
 // An opened container: a view over the caller's bytes.
