@@ -2197,3 +2197,31 @@ ta-epsilon | src/train_adam.c | float denominator = sqrtf(largest[k]) / root + a
 tt-hooks | src/train_tasks.c | if (hooks == NULL || hooks->enqueueTask == NULL) | if (hooks == NULL)
 tt-finish | src/train_tasks.c | if (handle != NULL && hooks->finishTask != NULL) | if (false)
 tt-sum | src/train_tasks.c | for (uint32_t c = 1; c < chunkCount; ++c) | for (uint32_t c = 2; c < chunkCount; ++c)
+
+# The trainer's first stage: training data, the Compressor and
+# Decompressor (mani-0025).
+td-apart | src/train_data.c | loop ? (float)(2.0 * h) : (float)((double)p->places[1].time - (double)p->places[2].time); | loop ? (float)h : (float)((double)p->places[1].time - (double)p->places[2].time);
+td-behind | src/train_data.c | p->places[2] = maniMatchLocate(p->clip, span, p->time, -h); | p->places[2] = maniMatchLocate(p->clip, span, p->time, 0.0);
+td-undo | src/train_data.c | maniQuat undo = maniQuatConjugate(maniPoseLocal(pose, 0).rotation); | maniQuat undo = maniPoseLocal(pose, 0).rotation;
+td-wrap | src/train_data.c | since += loop && since < 0.0 ? (double)duration : 0.0; | since += 0.0;
+td-near | src/train_data.c | bool near = since >= 0.0 && since < (double)s->eventSeconds; | bool near = since >= 0.0 && since <= (double)s->eventSeconds;
+td-name | src/train_data.c | state = near && SameName(event.name, event.nameLength, &s->events[k]) ? 1.0f : state; | state = near ? 1.0f : state;
+td-same | src/train_data.c | bool same = scale.x == first[0] && scale.y == first[1] && scale.z == first[2]; | bool same = scale.x == first[0];
+td-pairs | src/train_data.c | for (uint32_t k = 0; k + 1 < entry.frameCount; ++k) | for (uint32_t k = 0; k < entry.frameCount; ++k)
+td-root-spin | src/train_data.c | Put3(rest + 3, Rate(maniQuatToRotationVector(behind.rotation), | Put3(rest + 3, Rate(maniQuatToRotationVector(ahead.rotation),
+dc-batch | src/train_decompress.c | s->batchPairs % MANI_TRAIN_PAIRS != 0 || d->pairCount == 0) | d->pairCount == 0)
+dc-variance | src/train_decompress.c | double variance = squares / frames - mean * mean; | double variance = squares / frames;
+dc-group-one | src/train_decompress.c | scales[j] = deviation > 0.0f ? deviation : 1.0f; | scales[j] = deviation;
+dc-latent-norm | src/train_decompress.c | x[i] = (row[i] - t->inputOffsets[i]) / t->inputScales[i]; | x[i] = row[i];
+dl-position | src/train_decompress_loss.c | return j % 9 < 3 ? 75.0f / (frames * 3.0f * (float)bones) | return j % 9 < 3 ? 70.0f / (frames * 3.0f * (float)bones)
+dl-scale | src/train_decompress_loss.c | return 10.0f / (frames * 3.0f * (float)d->scaledBoneCount); | return 1.0f / (frames * 3.0f * (float)d->scaledBoneCount);
+dl-root | src/train_decompress_loss.c | return j < 6 ? 2.0f / (frames * 3.0f) | return j < 6 ? 1.0f / (frames * 3.0f)
+dl-denormalize | src/train_decompress_loss.c | y[s] = yn[(size_t)s * o + j] * t->outputScales[j] + t->outputOffsets[j]; | y[s] = yn[(size_t)s * o + j] + t->outputOffsets[j];
+dl-chain | src/train_decompress_loss.c | gradient[(size_t)s * o + j] *= t->outputScales[j]; | gradient[(size_t)s * o + j] *= 1.0f;
+dl-latent | src/train_decompress_loss.c | loss += 0.1f / frames * fabsf(x) + 0.1f / frames * x * x; | loss += 0.1f / frames * fabsf(x);
+dl-latent-grad | src/train_decompress_loss.c | gradient[(size_t)s * latent + k] += 0.1f / frames * Sign(x) + 0.2f / frames * x; | gradient[(size_t)s * latent + k] += 0.1f / frames * Sign(x);
+dl-change | src/train_decompress_loss.c | float g = 0.01f / pairs * Sign(diff) / seconds; | float g = 0.01f / pairs * Sign(diff);
+dl-input | src/train_decompress_loss.c | x[i] = (row[i] - t->inputOffsets[i]) / t->inputScales[i]; | x[i] = row[i] - t->inputOffsets[i];
+dl-latent-in | src/train_decompress_loss.c | memcpy(x + n, z + (size_t)s * latent, sizeof(float) * latent); | memset(x + n, 0, sizeof(float) * latent);
+dl-velocity | src/train_decompress_loss.c | float v = j % 9 < 3 ? 10.0f / ((float)batchPairs * 3.0f * (float)d->boneCount) | float v = j % 9 < 3 ? 1.0f / ((float)batchPairs * 3.0f * (float)d->boneCount)
+dl-velocity-grad | src/train_decompress_loss.c | gradient[(size_t)(2 * p + 1) * o + j] += v * Sign(diff) / d->frameSeconds; | gradient[(size_t)(2 * p + 1) * o + j] += v * Sign(diff);
