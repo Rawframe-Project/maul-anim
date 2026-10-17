@@ -2248,3 +2248,63 @@ tk-parent-carry | src/train_kinematics.c | gp[9 + c] += gb[9 + c]; | gp[9 + c] +
 tk-gr-scale | src/train_kinematics.c | gr[3 * c + r] = gl[3 * c + r] * w[kScale + c]; | gr[3 * c + r] = gl[3 * c + r];
 tk-gs | src/train_kinematics.c | gs[c] = Dot(w + kRotation + 3 * c, gl + 3 * c); | gs[c] = 0.0f;
 tk-root-add | src/train_kinematics.c | gr[k] += rootGradient[k]; | gr[k] += 0.0f;
+
+# Learned motion matching training, the Stepper and the Projectors
+# (mani-0025).
+to-hidden | src/train_solo.c | sizes[l] = shape->hiddenWidth; | sizes[l] = shape->hiddenWidth + 1;
+to-out | src/train_solo.c | sizes[shape->hiddenLayers + 1] = out; | sizes[shape->hiddenLayers + 1] = in;
+to-batch | src/train_solo.c | shape->batch % MANI_TRAIN_CHUNK != 0) | shape->batch % 2 != 0)
+to-zero-m | src/train_solo.c | memset(s->m, 0, sizeof(float) * count); | memset(s->m, 0, sizeof(float));
+to-zero-grad | src/train_solo.c | memset(s->gradients, 0, sizeof(float) * (size_t)s->net.parameterCount * s->chunkCount); | memset(s->gradients, 0, sizeof(float) * (size_t)s->net.parameterCount);
+to-sum | src/train_solo.c | maniTrainSum(s->gradients, s->chunkCount, s->net.parameterCount, s->sum); | maniTrainSum(s->gradients, 1, s->net.parameterCount, s->sum);
+ts-span | src/train_stepper.c | uint32_t span = t->window - 2; | uint32_t span = t->window - 1;
+ts-window-test | src/train_stepper.c | if (d->pairs[p + span] - d->pairs[p] == span) | if (d->pairs[p + span] - d->pairs[p] <= span + 2)
+# ts-window-min survives, equivalent: a window of 1 makes the span wrap,
+# so no pair starts a window and the stage is refused for that.
+ts-window-min | src/train_stepper.c | if (shape->window < 2 || !maniTrainSoloSizes(shape, states, states, sizes)) | if (!maniTrainSoloSizes(shape, states, states, sizes))
+ts-none | src/train_stepper.c | bool ok = t->windowCount > 0 && | bool ok = true &&
+ts-in-group | src/train_stepper.c | maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, true); | maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, false);
+ts-rate-feature | src/train_stepper.c | row[j] = (d->features[(a + 1) * f + j] - d->features[a * f + j]) / t->seconds; | row[j] = (d->features[(a + 1) * f + j] - d->features[a * f + j]);
+ts-rate-latent | src/train_stepper.c | row[f + j] = (t->latents[(a + 1) * l + j] - t->latents[a * l + j]) / t->seconds; | row[f + j] = (t->latents[(a + 2) * l + j] - t->latents[a * l + j]) / t->seconds;
+ts-draw | src/train_stepper.c | t->chunks[k].windows[s] = t->windowStarts[maniTrainBelow(r, t->windowCount)]; | t->chunks[k].windows[s] = t->windowStarts[maniTrainBelow(r, t->windowCount - 1)];
+ts-loss-sum | src/train_stepper.c | loss += t->chunks[k].loss; | loss = t->chunks[k].loss;
+ts-truth | src/train_stepper.c | : t->latents[(size_t)frame * t->latentCount + (j - f)]; | : t->latents[(size_t)frame * t->latentCount + j % f];
+ts-start | src/train_stepper.c | c->states[(size_t)s * n + j] = Truth(t, c->windows[s], j); | c->states[(size_t)s * n + j] = Truth(t, c->windows[s] + 1, j);
+ts-norm-in | src/train_stepper.c | values[i] = (from[i] - solo->inputOffsets[i % n]) / solo->inputScales[i % n]; | values[i] = (from[i] - solo->inputOffsets[i % n]) * solo->inputScales[i % n];
+ts-denorm | src/train_stepper.c | float y = values[out + i] * solo->outputScales[i % n] + solo->outputOffsets[i % n]; | float y = values[out + i] * solo->outputScales[i % n];
+ts-advance | src/train_stepper.c | to[i] = from[i] + t->seconds * y; | to[i] = from[i] + y;
+ts-w | src/train_stepper.c | float w = (feature ? 2.0f : 7.5f) / (batch * (float)t->window * width); | float w = (feature ? 7.5f : 2.0f) / (batch * (float)t->window * width);
+ts-v | src/train_stepper.c | float v = (feature ? 0.2f : 0.5f) / (batch * (float)(t->window - 1) * width); | float v = (feature ? 0.2f : 0.5f) / (batch * (float)t->window * width);
+ts-batch | src/train_stepper.c | float batch = (float)(t->solo.chunkCount * MANI_TRAIN_CHUNK); | float batch = (float)MANI_TRAIN_CHUNK;
+ts-grad-value | src/train_stepper.c | c->stateGradient[at] = w * Sign(diff); | c->stateGradient[at] = w * diff;
+ts-rate | src/train_stepper.c | float rate = ((c->states[at] - c->states[last]) - (truth - before)) / t->seconds; | float rate = ((c->states[at] - c->states[last]) - truth) / t->seconds;
+ts-g | src/train_stepper.c | float g = v * Sign(rate) / t->seconds; | float g = v * Sign(rate);
+ts-g-at | src/train_stepper.c | c->stateGradient[at] += g; | c->stateGradient[at] += 0.0f;
+ts-g-last | src/train_stepper.c | c->stateGradient[last] -= g; | c->stateGradient[last] += g;
+ts-before | src/train_stepper.c | before = truth; | before = 0.0f;
+ts-chunk-grad | src/train_stepper.c | float* gradients = solo->gradients + (size_t)(c - t->chunks) * (size_t)solo->net.parameterCount; | float* gradients = solo->gradients;
+ts-out-grad | src/train_stepper.c | c->outputGradient[i] = after[i] * t->seconds * solo->outputScales[i % n]; | c->outputGradient[i] = after[i] * solo->outputScales[i % n];
+ts-carry | src/train_stepper.c | before[i] = before[i] + after[i] + c->inputGradient[i] / solo->inputScales[i % n]; | before[i] = before[i] + c->inputGradient[i] / solo->inputScales[i % n];
+ts-carry-scale | src/train_stepper.c | before[i] = before[i] + after[i] + c->inputGradient[i] / solo->inputScales[i % n]; | before[i] = before[i] + after[i] + c->inputGradient[i];
+tp-any-required | src/train_projector.c | (entry.tags & required) == required && (entry.tags & excluded) == 0 && | (entry.tags & excluded) == 0 &&
+tp-any-excluded | src/train_projector.c | (entry.tags & required) == required && (entry.tags & excluded) == 0 && | (entry.tags & required) == required &&
+tp-any-jump | src/train_projector.c | (entry.flags & MANI_MATCH_NO_JUMP) == 0 && entry.frameCount > 0) | entry.frameCount > 0)
+tp-noise | src/train_projector.c | t->noise[j] += 1.0f; | t->noise[j] += 0.5f;
+tp-out-scale | src/train_projector.c | s->outputScales[j] = t->noise[j]; | s->outputScales[j] = 1.0f;
+tp-in-group | src/train_projector.c | maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, true); | maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, false);
+tp-frame | src/train_projector.c | uint32_t frame = maniTrainBelow(r, t->data->frameCount); | uint32_t frame = maniTrainBelow(r, t->data->frameCount - 1);
+tp-query | src/train_projector.c | q[j] = t->data->features[(size_t)frame * f + j] + t->noise[j] * spread * gaussian; | q[j] = t->data->features[(size_t)frame * f + j] + t->noise[j] * gaussian;
+tp-distance | src/train_projector.c | sum += d * d; | sum += fabsf(d);
+tp-wx | src/train_projector.c | float wx = 1.0f / (batch * (float)f); | float wx = 1.0f / batch;
+tp-wz | src/train_projector.c | float wz = 5.0f / (batch * (float)l); | float wz = 1.0f / (batch * (float)l);
+tp-wd | src/train_projector.c | float wd = 0.3f / batch; | float wd = 0.3f;
+tp-gap | src/train_projector.c | float gap = apart - Distance(q, x, f); | float gap = apart;
+tp-diff | src/train_projector.c | float diff = y[j] - (j < f ? x[j] : z[j - f]); | float diff = y[j] - (j < f ? x[j] : z[j]);
+tp-gd | src/train_projector.c | g[j] += wd * Sign(gap) * ((y[j] - q[j]) / apart); | g[j] += wd * Sign(gap) * (y[j] - q[j]);
+tp-gd-guard | src/train_projector.c | if (j < f && apart > 0.0f) | if (j < f)
+tp-g-scale | src/train_projector.c | g[j] *= solo->outputScales[j]; | g[j] *= 1.0f;
+tp-loss-gap | src/train_projector.c | return loss + wd * fabsf(gap); | return loss;
+tp-required | src/train_projector.c | .requiredTags = t->requiredTags, | .requiredTags = 0,
+tp-norm-in | src/train_projector.c | (c->queries[(size_t)s * f + j] - solo->inputOffsets[j]) / solo->inputScales[j]; | (c->queries[(size_t)s * f + j] - solo->inputOffsets[j]);
+tp-denorm | src/train_projector.c | y[j] = y[j] * solo->outputScales[j] + solo->outputOffsets[j]; | y[j] = y[j] + solo->outputOffsets[j];
+tp-chunk-grad | src/train_projector.c | float* gradients = solo->gradients + (size_t)(c - t->chunks) * (size_t)solo->net.parameterCount; | float* gradients = solo->gradients;

@@ -3,22 +3,26 @@
 //
 // A learned model's Stepper and Projector stages (mani-0025), over a
 // database of the walk (tag 1) and the run (tag 2) and made-up latent
-// values: the Stepper's windows (none across entries), normalization, a
-// chunk's loss against Holden's terms computed apart in binary64 (its
-// own forward pass and roll-out), its gradient against central
-// differences of that, the windows drawn, the loss falling and the same
-// bits on any host; the Projector's normalization and noise, its
-// queries drawn as Holden's, its targets the nearest frames passing its
-// tags, its loss and gradient as the Stepper's, the loss falling, the
-// same bits on any host, and tags no frame passes refused.
+// values (more than the features): the Stepper's windows (none across
+// entries), normalization, a chunk's loss against Holden's terms
+// computed apart in binary64 (its own forward pass and roll-out), its
+// gradient against central differences of that, the windows drawn, a
+// step's AdamW update by the chunks' gradients summed, the loss falling
+// and the same bits on any host; the Projector's normalization and
+// noise, its queries drawn as Holden's, its targets the nearest frames
+// passing its tags, its loss and gradient as the Stepper's, a finite
+// gradient where the output is the query, the loss falling, the same
+// bits on any host, and tags no frame a jump reaches passes refused.
 
 #include "graph_match_fixture.h"
+#include "train_adam.h"
 #include "train_data.h"
 #include "train_net.h"
 #include "train_projector.h"
 #include "train_random.h"
 #include "train_solo.h"
 #include "train_stepper.h"
+#include "train_tasks.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -27,7 +31,12 @@
 static _Alignas(16) uint8_t s_boneFile[1 << 15];
 static maniMotionDatabase s_bones;
 static const maniAllocator kAllocator = {NULL, NULL, NULL};
-static float s_latents[21 * 3];
+// Latent values a frame (more than the features, five), and a state's
+// values.
+#define LATENT 6u
+#define STATE  (5u + LATENT)
+
+static float s_latents[21 * LATENT];
 
 // The walk (looping, 10 frames, tag 1) and the run (clamped, 11, tag
 // 2): the arm's position now and the root half a second ahead.
@@ -40,9 +49,9 @@ static void OpenBones(void)
     BuildDatabase(channels, 2, s_boneFile, sizeof s_boneFile, &s_bones);
     for (uint32_t f = 0; f < 21; ++f)
     {
-        for (uint32_t k = 0; k < 3; ++k)
+        for (uint32_t k = 0; k < LATENT; ++k)
         {
-            s_latents[f * 3 + k] = (float)(k + 1) * sinf(0.7f * (float)f + (float)k);
+            s_latents[f * LATENT + k] = 4.0f * (float)(k + 1) * sinf(0.7f * (float)f + (float)k);
         }
     }
 }
@@ -56,8 +65,8 @@ static bool Data(maniTrainData* d)
     return maniTrainDataBuild(&kAllocator, &source, d);
 }
 
-// Latent 3, hidden 12 by 2, batch 8 (two chunks), window 4.
-static const maniTrainSoloShape kShape = {3, 12, 2, 8, 4, 0};
+// Latent LATENT, hidden 12 by 2, batch 8 (two chunks), window 4.
+static const maniTrainSoloShape kShape = {LATENT, 12, 2, 8, 4, 0};
 
 // A host that runs ranges of one item, last first.
 static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
@@ -138,11 +147,46 @@ static bool Close(float value, double want)
     return fabs((double)value - want) <= 1e-5 * (1.0 + fabs(want));
 }
 
+// After one step from fresh moments: the parameters as AdamW moves the
+// kept ones by the chunks' gradients summed in order, and the loss the
+// chunks' sum.
+static bool OneStep(const maniTrainSolo* s, const float* before, float loss, const float* losses)
+{
+    static float sum[4096];
+    static float p[4096];
+    static float m[4096];
+    static float v[4096];
+    static float largest[4096];
+    uint64_t count = s->net.parameterCount;
+    if (count > 4096)
+    {
+        return false;
+    }
+    maniTrainSum(s->gradients, s->chunkCount, count, sum);
+    memcpy(p, before, sizeof(float) * count);
+    memset(m, 0, sizeof(float) * count);
+    memset(v, 0, sizeof(float) * count);
+    memset(largest, 0, sizeof(float) * count);
+    maniTrainAdam adam = maniTrainAdamDefaults();
+    maniTrainAdamStep(&adam, 1, 0.001f, p, sum, m, v, largest, count);
+    float want = 0.0f;
+    for (uint32_t k = 0; k < s->chunkCount; ++k)
+    {
+        want += losses[k];
+    }
+    bool chunks = false;
+    for (uint64_t k = 0; s->chunkCount == 2 && k < count; ++k)
+    {
+        chunks = chunks || sum[k] != s->gradients[k];
+    }
+    return chunks && loss == want && memcmp(p, s->parameters, sizeof(float) * count) == 0;
+}
+
 // --- The Stepper ---
 
 static double StepperTruth(const maniTrainData* d, uint32_t frame, uint32_t j)
 {
-    return j < 5 ? (double)d->features[frame * 5 + j] : (double)s_latents[frame * 3 + j - 5];
+    return j < 5 ? (double)d->features[frame * 5 + j] : (double)s_latents[frame * LATENT + j - 5];
 }
 
 // Holden's terms for chunk 0's windows, rolled out in binary64.
@@ -154,21 +198,21 @@ static double StepperReference(const maniTrainStepper* t, const maniTrainData* d
     double loss = 0.0;
     for (uint32_t w = 0; w < 4; ++w)
     {
-        double state[4][8];
-        for (uint32_t j = 0; j < 8; ++j)
+        double state[4][STATE];
+        for (uint32_t j = 0; j < STATE; ++j)
         {
             state[0][j] = StepperTruth(d, c->windows[w], j);
         }
         for (uint32_t k = 1; k < 4; ++k)
         {
-            double x[8];
-            double y[8];
-            for (uint32_t j = 0; j < 8; ++j)
+            double x[STATE];
+            double y[STATE];
+            for (uint32_t j = 0; j < STATE; ++j)
             {
                 x[j] = (state[k - 1][j] - (double)s->inputOffsets[j]) / (double)s->inputScales[j];
             }
             Dense(&s->net, s->parameters, x, y);
-            for (uint32_t j = 0; j < 8; ++j)
+            for (uint32_t j = 0; j < STATE; ++j)
             {
                 double rate = y[j] * (double)s->outputScales[j] + (double)s->outputOffsets[j];
                 state[k][j] = state[k - 1][j] + dt * rate;
@@ -176,10 +220,10 @@ static double StepperReference(const maniTrainStepper* t, const maniTrainData* d
         }
         for (uint32_t k = 0; k < 4; ++k)
         {
-            for (uint32_t j = 0; j < 8; ++j)
+            for (uint32_t j = 0; j < STATE; ++j)
             {
                 double truth = StepperTruth(d, c->windows[w] + k, j);
-                double width = j < 5 ? 5.0 : 3.0;
+                double width = j < 5 ? 5.0 : LATENT;
                 loss += (j < 5 ? 2.0 : 7.5) / (8 * 4 * width) * fabs(state[k][j] - truth);
                 if (k == 0)
                 {
@@ -205,27 +249,27 @@ static void SetWindows(maniTrainStepper* t)
 static bool StepperNormalized(const maniTrainStepper* t, const maniTrainData* d)
 {
     const maniTrainSolo* s = &t->solo;
-    double means[8];
-    double deviations[8];
+    double means[STATE];
+    double deviations[STATE];
     Moments(d->features, 5, 21, 0, 5, true, means, deviations);
-    Moments(s_latents, 3, 21, 0, 3, true, means + 5, deviations + 5);
+    Moments(s_latents, LATENT, 21, 0, LATENT, true, means + 5, deviations + 5);
     bool ok = true;
-    for (uint32_t j = 0; j < 8; ++j)
+    for (uint32_t j = 0; j < STATE; ++j)
     {
         ok = ok && Close(s->inputOffsets[j], means[j]) && Close(s->inputScales[j], deviations[j]);
     }
-    float rates[19 * 8];
+    float rates[19 * STATE];
     for (uint32_t p = 0; p < 19; ++p)
     {
-        for (uint32_t j = 0; j < 8; ++j)
+        for (uint32_t j = 0; j < STATE; ++j)
         {
             uint32_t a = d->pairs[p];
-            rates[p * 8 + j] = (float)((StepperTruth(d, a + 1, j) - StepperTruth(d, a, j)) /
-                                       (double)d->frameSeconds);
+            rates[p * STATE + j] = (float)((StepperTruth(d, a + 1, j) - StepperTruth(d, a, j)) /
+                                           (double)d->frameSeconds);
         }
     }
-    Moments(rates, 8, 19, 0, 8, false, means, deviations);
-    for (uint32_t j = 0; j < 8; ++j)
+    Moments(rates, STATE, 19, 0, STATE, false, means, deviations);
+    for (uint32_t j = 0; j < STATE; ++j)
     {
         ok = ok && Close(s->outputOffsets[j], means[j]) && Close(s->outputScales[j], deviations[j]);
     }
@@ -247,11 +291,16 @@ static void TestStepperWindows(void)
     }
     CHECK(starts, "the windows of 4 frames within one entry");
     CHECK(t.seconds == 0.1f && t.solo.chunkCount == 2 && t.solo.net.layerCount == 3 &&
-              t.solo.net.sizes[0] == 8 && t.solo.net.sizes[1] == 12 && t.solo.net.sizes[3] == 8,
+              t.solo.net.sizes[0] == STATE && t.solo.net.sizes[1] == 12 &&
+              t.solo.net.sizes[3] == STATE,
           "the network's shape");
     CHECK(StepperNormalized(&t, &d), "the normalization");
     maniTrainRandom copy = r;
-    (void)maniTrainStepperStep(&t, &r, NULL, 1, 0.001f);
+    static float before[4096];
+    memcpy(before, t.solo.parameters, sizeof(float) * t.solo.net.parameterCount);
+    float loss = maniTrainStepperStep(&t, &r, NULL, 1, 0.001f);
+    float losses[2] = {t.chunks[0].loss, t.chunks[1].loss};
+    CHECK(OneStep(&t.solo, before, loss, losses), "a step: AdamW by the chunks' gradients summed");
     bool drawn = true;
     for (uint32_t k = 0; k < 2; ++k)
     {
@@ -280,7 +329,7 @@ static void TestStepperWindows(void)
     maniTrainDataRelease(&kAllocator, &d);
 }
 
-// gradient's values above 0.002 every seventh against central differences
+// gradient's values above 0.002 every third against central differences
 // of reference.
 static bool AsDifferences(float* parameters, const float* gradient, uint64_t count,
                           double (*reference)(const void*, const maniTrainData*), const void* stage,
@@ -288,15 +337,15 @@ static bool AsDifferences(float* parameters, const float* gradient, uint64_t cou
 {
     uint32_t checked = 0;
     bool ok = true;
-    for (uint64_t k = 0; k < count; k += 7)
+    for (uint64_t k = 0; k < count; k += 3)
     {
         if (fabsf(gradient[k]) < 0.002f)
         {
             continue;
         }
         float kept = parameters[k];
-        float up = kept + 1e-3f;
-        float down = kept - 1e-3f;
+        float up = kept + 1e-5f;
+        float down = kept - 1e-5f;
         parameters[k] = up;
         double high = reference(stage, d);
         parameters[k] = down;
@@ -417,7 +466,7 @@ static double ProjectorReference(const maniTrainProjector* t, const maniTrainDat
         const float* q = c->queries + k * 5;
         uint32_t target = Nearest(d, q);
         double x[5];
-        double y[8];
+        double y[STATE];
         for (uint32_t j = 0; j < 5; ++j)
         {
             x[j] = ((double)q[j] - (double)s->inputOffsets[j]) / (double)s->inputScales[j];
@@ -425,11 +474,11 @@ static double ProjectorReference(const maniTrainProjector* t, const maniTrainDat
         Dense(&s->net, s->parameters, x, y);
         double apart = 0.0;
         double wanted = 0.0;
-        for (uint32_t j = 0; j < 8; ++j)
+        for (uint32_t j = 0; j < STATE; ++j)
         {
             y[j] = y[j] * (double)s->outputScales[j] + (double)s->outputOffsets[j];
             double truth = StepperTruth(d, target, j);
-            loss += (j < 5 ? 1.0 / (8 * 5) : 5.0 / (8 * 3)) * fabs(y[j] - truth);
+            loss += (j < 5 ? 1.0 / (8 * 5) : 5.0 / (8 * LATENT)) * fabs(y[j] - truth);
             apart += j < 5 ? (y[j] - (double)q[j]) * (y[j] - (double)q[j]) : 0.0;
             wanted += j < 5 ? (truth - (double)q[j]) * (truth - (double)q[j]) : 0.0;
         }
@@ -446,15 +495,15 @@ static double ProjectorOf(const void* stage, const maniTrainData* d)
 static bool ProjectorNormalized(const maniTrainProjector* t, const maniTrainData* d)
 {
     const maniTrainSolo* s = &t->solo;
-    double means[8];
-    double deviations[8];
+    double means[STATE];
+    double deviations[STATE];
     double group[5];
     double groupDeviation[5];
     Moments(d->features, 5, 21, 0, 5, false, means, deviations);
-    Moments(s_latents, 3, 21, 0, 3, false, means + 5, deviations + 5);
+    Moments(s_latents, LATENT, 21, 0, LATENT, false, means + 5, deviations + 5);
     Moments(d->features, 5, 21, 0, 5, true, group, groupDeviation);
     bool ok = true;
-    for (uint32_t j = 0; j < 8; ++j)
+    for (uint32_t j = 0; j < STATE; ++j)
     {
         ok = ok && Close(s->outputOffsets[j], means[j]) && Close(s->outputScales[j], deviations[j]);
     }
@@ -475,11 +524,15 @@ static void TestProjectorQueries(void)
     maniTrainProjector t;
     CHECK(maniTrainProjectorInit(&kAllocator, &s_bones, &d, s_latents, &kShape, 2, 0, &r, &t),
           "the stage");
-    CHECK(t.solo.net.sizes[0] == 5 && t.solo.net.sizes[3] == 8 && t.solo.chunkCount == 2,
+    CHECK(t.solo.net.sizes[0] == 5 && t.solo.net.sizes[3] == STATE && t.solo.chunkCount == 2,
           "the network's shape");
     CHECK(ProjectorNormalized(&t, &d), "the normalization and noise");
     maniTrainRandom copy = r;
-    (void)maniTrainProjectorStep(&t, &r, NULL, 1, 0.001f);
+    static float before[4096];
+    memcpy(before, t.solo.parameters, sizeof(float) * t.solo.net.parameterCount);
+    float loss = maniTrainProjectorStep(&t, &r, NULL, 1, 0.001f);
+    float losses[2] = {t.chunks[0].loss, t.chunks[1].loss};
+    CHECK(OneStep(&t.solo, before, loss, losses), "a step: AdamW by the chunks' gradients summed");
     bool drawn = true;
     bool targets = true;
     for (uint32_t k = 0; k < 2; ++k)
@@ -549,6 +602,67 @@ static void TestProjectorChunk(void)
     maniTrainDataRelease(&kAllocator, &d);
 }
 
+// The bones database again with the run an entry no jump reaches.
+static void TestProjectorNoJump(void)
+{
+    static _Alignas(16) uint8_t file[1 << 15];
+    static const float kNow[1] = {0.0f};
+    const maniMatchChannelSource channels[2] = {
+        {maniMatchBonePosition, 2, 0, 1, kNow, NULL, 0, 1.0f},
+        {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
+    const maniClip* clips[2] = {&s_clips[0], &s_clips[1]};
+    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
+                                             {1, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 2u}};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       entries,       2, 2,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    maniMotionDatabase database;
+    CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenMotionDatabase(file, size, &database).result == mani_success,
+          "a database of a run no jump reaches");
+    maniDestroyBuilder(builder);
+    maniTrainData d;
+    CHECK(Data(&d), "the data");
+    maniTrainRandom r;
+    maniTrainSeed(&r, 9);
+    maniTrainProjector t;
+    CHECK(!maniTrainProjectorInit(&kAllocator, &database, &d, s_latents, &kShape, 2, 0, &r, &t),
+          "tags only an entry no jump reaches has");
+    CHECK(maniTrainProjectorInit(&kAllocator, &database, &d, s_latents, &kShape, 1, 0, &r, &t),
+          "the walk's tags");
+    maniTrainProjectorRelease(&kAllocator, &t);
+    maniTrainDataRelease(&kAllocator, &d);
+}
+
+// A query the output equals: the distance 0, its derivative 0.
+static void TestProjectorAtQuery(void)
+{
+    maniTrainData d;
+    CHECK(Data(&d), "the data");
+    maniTrainRandom r;
+    maniTrainSeed(&r, 9);
+    maniTrainProjector t;
+    CHECK(maniTrainProjectorInit(&kAllocator, &s_bones, &d, s_latents, &kShape, 0, 0, &r, &t),
+          "the stage");
+    memset(t.solo.parameters, 0, sizeof(float) * t.solo.net.parameterCount);
+    for (uint32_t s = 0; s < 4; ++s)
+    {
+        memcpy(t.chunks[0].queries + s * 5, t.solo.outputOffsets, 5 * sizeof(float));
+    }
+    maniTrainSoloPrepare(&t.solo);
+    maniTrainProjectorRun(&t, &t.chunks[0]);
+    bool finite = true;
+    for (uint64_t k = 0; k < t.solo.net.parameterCount; ++k)
+    {
+        finite = finite && fabsf(t.solo.gradients[k]) < 1e30f;
+    }
+    CHECK(finite, "a finite gradient where the output is the query");
+    maniTrainProjectorRelease(&kAllocator, &t);
+    maniTrainDataRelease(&kAllocator, &d);
+}
+
 static void TestProjectorTrain(void)
 {
     maniTrainData d;
@@ -590,6 +704,8 @@ int main(void)
     TestStepperTrain();
     TestProjectorQueries();
     TestProjectorChunk();
+    TestProjectorNoJump();
+    TestProjectorAtQuery();
     TestProjectorTrain();
     return s_failures == 0 ? 0 : 1;
 }
