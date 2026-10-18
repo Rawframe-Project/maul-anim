@@ -6,7 +6,10 @@
 // in the world whatever the character's turn, scaled with the head, at
 // the reference's step and at another; a wind changing every frame moves
 // alike at 30, 60 and 144 Hz hosts, the force interpolated between calls;
-// a force not finite is refused and a saved state's force is checked.
+// a steady force steady from the first call, and from the first after a
+// reset, at 30 and 120 Hz hosts; no force ramping down as a zero force,
+// stopped at once by a call of no time; a force not finite is refused
+// and a saved state's force is checked.
 
 #include "spring_fixture.h"
 #include "spring_state.h"
@@ -97,6 +100,65 @@ static void TestHostRates(void)
           "a changing wind alike at every host rate");
 }
 
+// The chain's last tail after a second of a steady force from the first
+// call (or the first after a reset, a half second of another force
+// before it) at a host rate.
+static maniVec3 AfterSteady(uint32_t rate, bool reset)
+{
+    maniSpringState* state = NewState(0);
+    s_forced = true;
+    if (reset)
+    {
+        s_force = (maniVec3){2.0f, 0.0f, 0.0f};
+        CHECK(Frames(state, 1.0f / 60.0f, 30), "frames before");
+        maniResetSprings(state);
+    }
+    s_force = (maniVec3){0.0f, 0.0f, 3.0f};
+    CHECK(Frames(state, 1.0f / (float)rate, rate), "a second of a steady force");
+    Still();
+    return Position(s_b[2]);
+}
+
+static void TestFirstCall(void)
+{
+    // The first call has no last force and takes its own for both ends:
+    // a steady force is steady from the first step at any host rate.
+    MakeSet(&kStill);
+    maniVec3 at30 = AfterSteady(30, false);
+    maniVec3 calm = After(60, NULL);
+    CHECK(Distance(at30, calm) > 0.05f && Distance(AfterSteady(120, false), at30) < 1e-5f,
+          "a steady force from the first call alike at two rates");
+    CHECK(Distance(AfterSteady(30, true), at30) < 1e-5f &&
+              Distance(AfterSteady(120, true), at30) < 1e-5f,
+          "and from the first call after a reset");
+}
+
+static void TestNoForce(void)
+{
+    // No force after one ramps it down over the call; a call of no time
+    // without it first stops it at once.
+    MakeSet(&kStill);
+    maniVec3 tails[3];
+    for (int k = 0; k < 3; ++k)
+    {
+        maniSpringState* state = NewState(0);
+        s_forced = true;
+        s_force = (maniVec3){0.0f, 0.0f, 3.0f};
+        CHECK(Frames(state, 1.0f / 60.0f, 30), "frames in a force");
+        s_forced = k == 2;
+        s_force = (maniVec3){0.0f, 0.0f, 0.0f};
+        if (k == 1)
+        {
+            CHECK(Frame(state, 0.0f, NULL), "a call of no time without a force");
+        }
+        CHECK(Frame(state, 0.25f, NULL), "a call without a force");
+        tails[k] = Position(s_b[2]);
+    }
+    Still();
+    CHECK(Distance(tails[0], tails[1]) > 1e-3f && Distance(tails[0], tails[2]) == 0.0f,
+          "no force ramps down as a zero force does; stopped at once by a call of no time");
+}
+
 static void TestRefusalsAndSaved(void)
 {
     MakeSet(&kStill);
@@ -129,6 +191,8 @@ int main(void)
     Setup();
     TestAsGravity();
     TestHostRates();
+    TestFirstCall();
+    TestNoForce();
     TestRefusalsAndSaved();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;

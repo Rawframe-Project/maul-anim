@@ -109,8 +109,7 @@ static Rigid BodyFrame(const maniRagdoll* ragdoll, const maniPose* pose, Rigid p
     return (Rigid){body.t, maniQuatNormalize(body.r)};
 }
 
-// The shortest turn: q and -q turn alike; the one with w >= 0 turns at
-// most half a turn.
+// The turn with w at least 0: q and -q turn alike.
 static maniQuat Shortest(maniQuat q)
 {
     return q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q;
@@ -149,7 +148,9 @@ maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose*
             Rigid then = BodyFrame(ragdoll, previous, before, i);
             float rate = 1.0f / seconds;
             b.linearVelocity = maniVec3Scale(maniVec3Sub(now.t, then.t), rate);
-            maniQuat turn = Shortest(maniQuatMul(now.r, maniQuatConjugate(then.r)));
+            // The rotation vector is the shorter turn's (at most half a
+            // turn).
+            maniQuat turn = maniQuatMul(now.r, maniQuatConjugate(then.r));
             b.angularVelocity = maniVec3Scale(maniQuatToRotationVector(turn), rate);
         }
         bodiesOut[i] = b;

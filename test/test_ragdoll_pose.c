@@ -284,6 +284,18 @@ static void TestJointTargets(void)
           "targets bent");
     float angle = 2.0f * acosf(fminf(1.0f, joints[4].rotation.w));
     CHECK(fabsf(angle - 1.2f) < 1e-4f && joints[4].rotation.w >= 0.0f, "the elbow's angle");
+    // A body's rotation as its negation, the same turn: the targets the
+    // same, w still at least 0.
+    maniRagdollJointTarget negated[5];
+    maniQuat q = bodies[4].rotation;
+    bodies[4].rotation = (maniQuat){-q.x, -q.y, -q.z, -q.w};
+    CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, negated, 5) == mani_success &&
+              negated[4].rotation.x == joints[4].rotation.x &&
+              negated[4].rotation.y == joints[4].rotation.y &&
+              negated[4].rotation.z == joints[4].rotation.z &&
+              negated[4].rotation.w == joints[4].rotation.w,
+          "a rotation's sign does not reach its target");
+    bodies[4].rotation = q;
     bodies[4].angularVelocity = (maniVec3){0.0f, 3.0f, 0.0f};
     bodies[3].angularVelocity = (maniVec3){0.0f, 1.0f, 0.0f};
     CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5) == mani_success, "spinning");

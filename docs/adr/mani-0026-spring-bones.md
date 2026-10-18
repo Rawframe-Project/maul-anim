@@ -103,7 +103,11 @@ host splits time.
   units, added to every joint's gravity and converted with it: its
   share of a step is the joint's forcing factor h (dh / d), which the
   file keeps per joint, times the head's scale, as UniVRM's and Godot's
-  external forces are gravity's companions. An axis lock is the
+  external forces are gravity's companions. The first call of a new or
+  reset state takes its force for both ends, as its placement, so a
+  steady wind is steady from the first step at any host rate; no force
+  is a zero force, ramping down over the call after one, and a call of
+  no time without one first stops it at once. An axis lock is the
   limit's hinge with an angle of π.
 - **The graph node** (kind 16): one input, a pose of the skeleton (not
   differences); a spring set slot; position (vec3), rotation (quat),
@@ -160,7 +164,9 @@ limit unread, each refusal at its value, and the limit's frame against
 glTF's under proper, mirrored and turned bases; its sources build. The
 external force moves a chain as gravity of its size, in the world
 under a turned and a scaled character, and a wind changing every frame
-moves alike at 30, 60 and 144 Hz; the graph node takes it bit for bit
+moves alike at 30, 60 and 144 Hz, a steady one from the first call
+(and the first after a reset) alike at 30 and 120 Hz; no force ramps
+down as a zero force does; the graph node takes it bit for bit
 as the standalone state.
 About 280 hand-picked mutants of the sets, states, graph slots and
 node, the importer and the work area are killed but five, each noted

@@ -2862,7 +2862,6 @@ dr-translation | src/decompose.c | *translationOut = (maniVec3){matrix->m[9], ma
 rp-normalize-body | src/ragdoll_pose.c | return (Rigid){body.t, maniQuatNormalize(body.r)}; | return body;
 
 # Ragdoll cuts, the half turn and the limits' bounds (mani-0027)
-rp-shortest | src/ragdoll_pose.c | maniQuat turn = Shortest(maniQuatMul(now.r, maniQuatConjugate(then.r))); | maniQuat turn = maniQuatMul(now.r, maniQuatConjugate(then.r));
 rp-target-shortest | src/ragdoll_pose.c | maniQuat turn = Shortest(maniQuatNormalize(maniQuatMul(back, inChild.r))); | maniQuat turn = maniQuatNormalize(maniQuatMul(back, inChild.r));
 rp-previous-placement | src/ragdoll_pose.c | Rigid then = BodyFrame(ragdoll, previous, before, i); | Rigid then = BodyFrame(ragdoll, previous, place, i);
 rb-twist-low-pi | src/ragdoll_build.c | return FiniteVec(j->translation) && UnitQuat(j->rotation) && j->twistMin >= -PI_F && | return FiniteVec(j->translation) && UnitQuat(j->rotation) && j->twistMin >= -3.15f &&
@@ -2872,3 +2871,6 @@ rb-swing-z-pi | src/ragdoll_build.c | j->swingY <= PI_F && j->swingZ >= 0.0f && 
 ro-twist-low-pi | src/ragdoll.c | if (!(low >= -PI_F && low <= high)) | if (!(low >= -3.15f && low <= high))
 ro-twist-high-pi | src/ragdoll.c | if (!(high <= PI_F)) | if (!(high <= 3.15f))
 ro-swing-pi | src/ragdoll.c | if (!(swing >= 0.0f && swing <= PI_F)) | if (!(swing >= 0.0f && swing <= 3.15f))
+
+# Spring bones: the first call's force (mani-0026)
+sf-begin-force | src/spring_step.c | Begin(set, block, work, pose, now, force); | Begin(set, block, work, pose, now, (maniVec3){0.0f, 0.0f, 0.0f});

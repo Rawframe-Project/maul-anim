@@ -350,6 +350,10 @@ format.
   teleport, a switched clip, the first frame), bounds the angular
   velocity at half a turn a step, names each value's units and states
   every limit's range as it is checked (mani-0027).
+- `maniStepSprings` and `maniResetSprings` say that the first call of a
+  new or reset state takes its force for both ends and that no force
+  ramps down over the call (a call of no time stops it at once)
+  (mani-0026).
 - `maniBindGraph` takes the graph's skeleton, clips, databases and
   models in one `maniGraphAssets`, and `maniBuildGraphJson` its named
   ones in one `maniGraphNamedAssets`, in place of their argument lists.

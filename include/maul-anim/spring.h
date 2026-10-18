@@ -166,7 +166,11 @@ extern "C"
     ///                   read), or NULL for the identity.
     /// @param force      A force in the world on every joint at the end of
     ///                   delta (wind), in gravity's units (a length a
-    ///                   second, times the head's scale), or NULL for none.
+    ///                   second, times the head's scale), or NULL for none
+    ///                   (a zero force: after a force it ramps down over
+    ///                   the call; a call of no time without one first
+    ///                   stops it at once). The first call of a new or
+    ///                   reset state takes its force for both ends.
     /// @param delta      The time in seconds, finite, either sign.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL state or
     /// pose, a pose of another bone count or holding a difference, or a
@@ -196,7 +200,8 @@ extern "C"
                                                         maniPose* pose);
 
     /// Drops a state's motion: the next step places every tail where the
-    /// pose puts it (a teleport).
+    /// pose puts it (a teleport) and takes its placement and force as the
+    /// last call's.
     ///
     /// @param state  A state, or NULL (nothing done).
     /// @par Thread safety
