@@ -371,4 +371,10 @@ Of 78 changes to the inertialize node and dead blending, every one is
 caught but two that cannot change a result (the pending word a reset
 writes, which the next evaluation drops unread, and the logarithm of a
 scale axis not positive, never read).
-Opening, saved state and the JSON reader are fuzzed.
+Opening, saved state and the JSON reader are fuzzed. The JSON
+reader's corpus starts with a graph whose subgraph holds another, the
+three carrying every slot kind (clips, a motion database, a learned
+model, a spring set) and every parameter type, so the inliner runs
+under the fuzzer from its first input; the same graph is a test (each
+slot once, every node inlined, every allocation failing in turn) that
+runs under the address and undefined behavior sanitizers in CI.
