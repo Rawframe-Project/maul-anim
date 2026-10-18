@@ -76,6 +76,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_learned.c
     src/graph_learned_step.c
     src/graph_spring.c
+    src/graph_chain.c
     src/graph_space.c
     src/graph_update.c
     src/graph_evaluate.c
@@ -201,6 +202,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(ik_ccd)
         maul_add_test(ik_limit WHITEBOX)
         maul_add_test(ik_fabrik)
+        maul_add_test(graph_chain_node WHITEBOX)
         maul_add_test(graph_ik_node WHITEBOX)
         maul_add_test(ragdoll_getup WHITEBOX)
         maul_add_test(trajectory WHITEBOX)

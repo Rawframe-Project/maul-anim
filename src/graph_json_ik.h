@@ -36,4 +36,17 @@ bool maniGraphJsonAim(maniGraphReader* r, const maniGraphScope* scope, const uin
 void maniGraphJsonPutIk(maniGraphWriter* w, const maniGraphSource* source,
                         const maniGraphNodeSource* n);
 
+// A chain node's members (in the order kind, inputs, root, end, goal,
+// iterations, a FABRIK node's pole or a CCD node's step, rotation,
+// tolerance, rotationWeight, weight, limits) into s: no pole, step 0, no
+// rotation, tolerance 0, weights 1 and no limits when left out; limits a
+// list of one object per turning bone.
+bool maniGraphJsonChain(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
+                        bool fabrik, maniGraphChainNodeSource* s);
+
+// A chain node's members after its inputs: its pole, rotation and
+// limits when it has them, a CCD node's step, every other member always.
+void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
+                           const maniGraphNodeSource* n);
+
 #endif // MAUL_ANIM_SRC_GRAPH_JSON_IK_H

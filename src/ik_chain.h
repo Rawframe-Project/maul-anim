@@ -33,6 +33,17 @@ typedef struct maniIkChain
     uint32_t count;
 } maniIkChain;
 
+// The chain's bones root first into bones; their count, or 0 when the
+// root is not an ancestor of the end (or is the end) or the path passes
+// MANI_IK_CHAIN_MAX_BONES.
+uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t end,
+                         uint32_t* bones);
+
+// Whether a chain's count - 1 limits, one per turning bone, are valid:
+// known kinds, numbers in range, no hinge along its bone's axis.
+bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count,
+                            const maniJointLimit* limits);
+
 // Whether the solve fits the pose: its bones a chain within
 // MANI_IK_CHAIN_MAX_BONES, its limits valid, its numbers in range; a
 // pole is allowed when poles is true, a step when steps is.

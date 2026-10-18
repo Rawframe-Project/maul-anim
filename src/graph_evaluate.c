@@ -6,6 +6,7 @@
 // pose per slot made once for the binding it last served.
 
 #include "bytes.h"
+#include "graph_chain.h"
 #include "graph_file.h"
 #include "graph_inertia_apply.h"
 #include "graph_instance.h"
@@ -538,6 +539,53 @@ static void Aim(const Evaluation* e, const uint8_t* record, maniPose* out)
     (void)maniSolveAim(out, e->binding->skeleton, &s, NULL);
 }
 
+// A chain node: its input with its chain solved; the input when the
+// solve refuses (a crafted file's bones not a chain, or its limits not
+// one per turning bone).
+static void Chain(const Evaluation* e, const uint8_t* record, maniPose* out, bool fabrik)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    if (!IkInput(e, record, d + maniGraphChainWeight, out))
+    {
+        return;
+    }
+    maniJointLimit limits[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t count = Word(e, d + maniGraphChainLimitCount);
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        limits[k] = maniGraphChainLimit(e->graph, d, k);
+    }
+    uint32_t rotation = Word(e, d + maniGraphChainRotation);
+    maniQuat wanted = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (rotation != MANI_NO_PARAMETER)
+    {
+        const float* f = e->instance->cells[rotation].value.f;
+        wanted = (maniQuat){f[0], f[1], f[2], f[3]};
+    }
+    float tolerance = 0.0f;
+    float step = 0.0f;
+    uint32_t bits[2] = {Word(e, d + maniGraphChainTolerance), Word(e, d + maniGraphChainStep)};
+    memcpy(&tolerance, &bits[0], sizeof tolerance);
+    memcpy(&step, &bits[1], sizeof step);
+    maniChainSolve s = {.root = Word(e, d),
+                        .end = Word(e, d + 1),
+                        .limits = count > 0 ? limits : NULL,
+                        .goal = Vector(e, Word(e, d + maniGraphChainGoal)),
+                        .pole = Vector(e, Word(e, d + maniGraphChainPole)),
+                        .rotation = wanted,
+                        .iterations = Word(e, d + maniGraphChainIterations),
+                        .tolerance = tolerance,
+                        .step = step,
+                        .rotationWeight =
+                            rotation != MANI_NO_PARAMETER
+                                ? Clamped(e, d + maniGraphChainRotationWeight, 0.0f, 1.0f)
+                                : 0.0f,
+                        .weight = Clamped(e, d + maniGraphChainWeight, 0.0f, 1.0f)};
+    const maniSkeleton* skeleton = e->binding->skeleton;
+    (void)(fabrik ? maniSolveFabrik(out, skeleton, &s, NULL)
+                  : maniSolveCcd(out, skeleton, &s, NULL));
+}
+
 // A learned node's pose: its model's Decompressor at its state, worked
 // in the instance's room; the neutral pose with no state.
 static void SampleLearned(const Evaluation* e, const uint8_t* record, maniPose* out)
@@ -611,6 +659,10 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodeAim:
         Aim(e, record, out);
+        return;
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        Chain(e, record, out, maniLoadU16(record) == maniGraphNodeFabrik);
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);

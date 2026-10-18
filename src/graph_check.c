@@ -17,6 +17,7 @@
 #include "graph_match_check.h"
 #include "graph_space_check.h"
 #include "graph_spring.h"
+#include "ik_chain.h"
 #include "ik_frame.h"
 #include "sort.h"
 #include "text.h"
@@ -536,6 +537,46 @@ static maniBuildResult CheckAim(const maniGraphSource* source, const maniGraphNo
               : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }
 
+// The words of a chain node's limits: one limit per turning bone, or
+// none.
+static uint32_t ChainLimitWords(const maniGraphSource* source, const maniGraphNodeSource* n)
+{
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t count = n->chain.limits != NULL
+                         ? maniIkChainPath(source->skeleton, n->chain.root, n->chain.end, bones)
+                         : 0u;
+    return count > 0 ? MANI_GRAPH_LIMIT_WORDS * (count - 1) : 0u;
+}
+
+// A chain node: a chain of the skeleton, its limits one per turning bone
+// (or none) and valid, a vec3 goal, a FABRIK node's pole a vec3 or none
+// (a CCD node's none), a quat rotation or none, its iterations,
+// tolerance and step (0 for FABRIK) in range, its weights in [0, 1].
+static maniBuildResult CheckChain(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                  uint32_t node)
+{
+    const maniGraphChainNodeSource* s = &n->chain;
+    bool fabrik = n->kind == maniGraphNodeFabrik;
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t boneCount = maniSkeletonBoneCount(source->skeleton);
+    uint32_t count = s->root < boneCount && s->end < boneCount
+                         ? maniIkChainPath(source->skeleton, s->root, s->end, bones)
+                         : 0u;
+    maniGraphParameterType quat = maniGraphParameterQuat;
+    bool ok =
+        count > 0 &&
+        (s->limits == NULL || maniIkChainLimitsValid(source->skeleton, bones, count, s->limits)) &&
+        GoalValid(source, s->goal, fabrik ? s->pole : MANI_NO_PARAMETER) &&
+        (fabrik || s->pole == MANI_NO_PARAMETER) &&
+        (s->rotation == MANI_NO_PARAMETER || ParameterOf(source, s->rotation, quat, quat)) &&
+        s->iterations >= 1 && s->iterations <= MANI_IK_MAX_ITERATIONS && s->tolerance >= 0.0f &&
+        Finite(s->tolerance) && s->step >= 0.0f && s->step <= MANI_AIM_MAX_CONE &&
+        (!fabrik || s->step == 0.0f);
+    maniBuildResult r = ok ? CheckScalar(source, s->rotationWeight, node, 0, 0.0f, 1.0f)
+                           : maniGraphRefuse(maniBuildReasonNode, node, 0);
+    return r.result == mani_success ? CheckScalar(source, s->weight, node, 1, 0.0f, 1.0f) : r;
+}
+
 // A node's own fields, by kind.
 static maniBuildResult CheckFields(const maniGraphSource* source, const maniGraphNodeSource* n,
                                    uint32_t node)
@@ -565,6 +606,9 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return CheckTwoBone(source, n, node);
     case maniGraphNodeAim:
         return CheckAim(source, n, node);
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        return CheckChain(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -654,6 +698,9 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
                 : (shot ? MANI_GRAPH_SHOT_WORDS : maniGraphDataWords(n->kind, n->inputCount));
     tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u;
     tally->dataWords += learned ? MANI_GRAPH_LEARNED_WORDS + n->learned.queryCount : 0u;
+    tally->dataWords += n->kind == maniGraphNodeCcd || n->kind == maniGraphNodeFabrik
+                            ? MANI_GRAPH_CHAIN_WORDS + ChainLimitWords(source, n)
+                            : 0u;
     tally->machineWords += BlockWords(source, n);
     tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
     tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match || learned ? 1u : 0u;

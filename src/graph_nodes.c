@@ -8,6 +8,7 @@
 #include "graph_nodes.h"
 
 #include "bytes.h"
+#include "graph_chain.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_learned.h"
@@ -415,6 +416,9 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
         return TwoBoneValid(g, d);
     case maniGraphNodeAim:
         return AimValid(g, d);
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        return maniGraphChainValid(g, d, n->kind == maniGraphNodeFabrik);
     default:
         type = Word(g, d) < g->parameterCount ? ParameterType(g, Word(g, d)) : UINT32_MAX;
         return type == maniGraphParameterTrigger ? ScalarsValid(g, d + 1, 1, -HUGE_VALF, HUGE_VALF)
@@ -441,7 +445,8 @@ static bool KindValid(const maniGraph* g, const Node* n)
         return n->flags == 0;
     }
     if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeTwoBone ||
-        n->kind == maniGraphNodeAim)
+        n->kind == maniGraphNodeAim || n->kind == maniGraphNodeCcd ||
+        n->kind == maniGraphNodeFabrik)
     {
         return n->flags == 0 && NodeFlags(g, Input(g, n->first)) == 0;
     }
@@ -504,6 +509,9 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     words = n->kind == maniGraphNodeMatch ? maniGraphMatchDataWords(g, n->data, available) : words;
     words =
         n->kind == maniGraphNodeLearned ? maniGraphLearnedDataWords(g, n->data, available) : words;
+    words = n->kind == maniGraphNodeCcd || n->kind == maniGraphNodeFabrik
+                ? maniGraphChainDataWords(g, n->data, available)
+                : words;
     if (n->words != words || n->words > g->dataWords - dataAt)
     {
         return Fail(n->at + 16);

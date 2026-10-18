@@ -14,6 +14,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/ik.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
@@ -527,6 +528,34 @@ extern "C"
         maniGraphScalar weight;
     } maniGraphAimNodeSource;
 
+    // A chain IK node (mani-0030), CCD or FABRIK by its kind: one input, a
+    // pose of the skeleton (not differences), given with its chain solved
+    // as maniSolveCcd or maniSolveFabrik solves it: root and end bones,
+    // the root an ancestor of the end, at most MANI_IK_CHAIN_MAX_BONES
+    // on the path; its goal (a vec3 parameter, model space); a FABRIK
+    // node's pole (a vec3 parameter, MANI_NO_PARAMETER for none; none
+    // for CCD); the end's wanted rotation (a quat parameter,
+    // MANI_NO_PARAMETER for none); limits, one per turning bone (the
+    // path's bones but the end), or NULL for none; the iteration count,
+    // tolerance and a CCD node's step (0 for FABRIK) as maniChainSolve
+    // takes them; its rotation weight and weight (in [0, 1]) numbers or
+    // float parameters, a parameter's value clamped to [0, 1]. A weight
+    // of 0 passes the input.
+    typedef struct maniGraphChainNodeSource
+    {
+        uint32_t root;
+        uint32_t end;
+        uint32_t goal;
+        uint32_t pole;
+        uint32_t rotation;
+        uint32_t iterations;
+        const maniJointLimit* limits;
+        float tolerance;
+        float step;
+        maniGraphScalar rotationWeight;
+        maniGraphScalar weight;
+    } maniGraphChainNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -615,6 +644,7 @@ extern "C"
             maniGraphPoseNodeSource pose;
             maniGraphTwoBoneNodeSource twoBone;
             maniGraphAimNodeSource aim;
+            maniGraphChainNodeSource chain;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;

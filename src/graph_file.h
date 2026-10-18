@@ -203,9 +203,32 @@ enum
     maniGraphAimWeight = 32,
 };
 
+// A chain IK node's data words: its root and end bones, its goal (a
+// vec3 parameter), pole (a vec3 parameter or MANI_NO_PARAMETER, none
+// for CCD) and rotation (a quat parameter or MANI_NO_PARAMETER)
+// parameters, its iteration count, tolerance and step (binary32), its
+// rotation weight and weight as scalars, its limit count (0, or one per
+// turning bone), then each limit's MANI_GRAPH_LIMIT_WORDS: its kind, axis
+// (three binary32), cone, low, high, twist low and twist high
+// (binary32), unused fields 0.
+#define MANI_GRAPH_CHAIN_WORDS 13u
+#define MANI_GRAPH_LIMIT_WORDS 9u
+enum
+{
+    maniGraphChainGoal = 2,
+    maniGraphChainPole = 3,
+    maniGraphChainRotation = 4,
+    maniGraphChainIterations = 5,
+    maniGraphChainTolerance = 6,
+    maniGraphChainStep = 7,
+    maniGraphChainRotationWeight = 8,
+    maniGraphChainWeight = 10,
+    maniGraphChainLimitCount = 12,
+};
+
 // The data words a node of a kind with n inputs holds; 0 for an unknown
-// kind, a state machine and a one-shot, whose words their contents
-// count.
+// kind, a state machine, a one-shot and a chain IK node, whose words
+// their contents count.
 uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount);
 
 // The inputs a kind takes: at least minOut, at most the return (0 with

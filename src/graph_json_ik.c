@@ -6,6 +6,7 @@
 #include "arena.h"
 #include "graph_json_read.h"
 #include "graph_json_write.h"
+#include "ik_chain.h"
 #include "json.h"
 
 #include "maul-anim/base.h"
@@ -18,6 +19,7 @@
 #include <stdint.h>
 
 #define ABSENT MANI_JSON_NONE
+#define PI_F   3.14159265358979f
 
 // A bone of the reader's skeleton by name.
 static bool Bone(maniGraphReader* r, uint32_t value, uint32_t* out)
@@ -251,4 +253,189 @@ void maniGraphJsonPutIk(maniGraphWriter* w, const maniGraphSource* source,
         return;
     }
     PutTwoBone(w, source, &n->twoBone);
+}
+
+// A limit: {"kind": "none"}, {"kind": "cone", "cone": half angle,
+// "twist": [low, high]} (the twist free when left out) or {"kind":
+// "hinge", "axis": [x, y, z], "range": [low, high]}.
+static bool Limit(maniGraphReader* r, uint32_t object, maniJointLimit* l)
+{
+    static const char* const kKeys[] = {"kind", "cone", "twist", "axis", "range"};
+    static const char* const kKinds[] = {"none", "cone", "hinge"};
+    // The members each kind takes, by bit.
+    static const uint32_t kTakes[3] = {1u, 7u, 25u};
+    uint32_t f[5];
+    if (!maniGraphJsonMembers(r, object, kKeys, 5, 1u, f))
+    {
+        return false;
+    }
+    uint32_t kind = maniGraphJsonWord(r, f[0], kKinds, 3);
+    if (kind == 3)
+    {
+        return maniGraphJsonFault(r, f[0], maniGraphFormValue);
+    }
+    for (uint32_t k = 1; k < 5; ++k)
+    {
+        bool takes = (kTakes[kind] >> k & 1u) != 0;
+        bool needed = takes && k != 2;
+        if (f[k] != ABSENT && !takes)
+        {
+            return maniGraphJsonFault(r, f[k] - 1, maniGraphFormMember);
+        }
+        if (f[k] == ABSENT && needed)
+        {
+            return maniGraphJsonFault(r, object, maniGraphFormMissing);
+        }
+    }
+    float twist[2] = {-PI_F, PI_F};
+    float range[2] = {0.0f, 0.0f};
+    *l = (maniJointLimit){.kind = kind};
+    bool ok = (f[1] == ABSENT || maniGraphJsonFloat(r, f[1], &l->cone)) &&
+              (f[2] == ABSENT || maniGraphJsonFloats(r, f[2], twist, 2)) &&
+              Vector(r, f[3], &l->axis) &&
+              (f[4] == ABSENT || maniGraphJsonFloats(r, f[4], range, 2));
+    l->twistLow = kind == maniJointLimitCone ? twist[0] : 0.0f;
+    l->twistHigh = kind == maniJointLimitCone ? twist[1] : 0.0f;
+    l->low = range[0];
+    l->high = range[1];
+    return ok;
+}
+
+// The limits, one per turning bone of the chain from root to end.
+static bool Limits(maniGraphReader* r, uint32_t value, const maniGraphChainNodeSource* s,
+                   const maniJointLimit** out)
+{
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t count = 0;
+    if (!maniGraphJsonArray(r, value, &count))
+    {
+        return false;
+    }
+    uint32_t n = maniSkeletonBoneCount(r->skeleton);
+    uint32_t chain =
+        s->root < n && s->end < n ? maniIkChainPath(r->skeleton, s->root, s->end, bones) : 0u;
+    if (chain == 0 || count != chain - 1)
+    {
+        return maniGraphJsonFault(r, value, maniGraphFormValue);
+    }
+    maniJointLimit* limits = maniArenaTake(&r->arena, count, sizeof(maniJointLimit));
+    if (limits == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    uint32_t e = value;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        e = maniGraphJsonNext(r->json, e, k == 0);
+        if (!Limit(r, e, &limits[k]))
+        {
+            return false;
+        }
+    }
+    *out = limits;
+    return true;
+}
+
+bool maniGraphJsonChain(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
+                        bool fabrik, maniGraphChainNodeSource* s)
+{
+    const uint32_t* f = members;
+    *s = (maniGraphChainNodeSource){.pole = MANI_NO_PARAMETER,
+                                    .rotation = MANI_NO_PARAMETER,
+                                    .rotationWeight = {MANI_NO_PARAMETER, 1.0f},
+                                    .weight = {MANI_NO_PARAMETER, 1.0f}};
+    bool ok = Bone(r, f[2], &s->root) && Bone(r, f[3], &s->end) &&
+              maniGraphJsonRefer(r, &scope->parameters, f[4], &s->goal) &&
+              maniGraphJsonIndex(r, f[5], &s->iterations) &&
+              (f[6] == ABSENT || (fabrik ? maniGraphJsonRefer(r, &scope->parameters, f[6], &s->pole)
+                                         : maniGraphJsonFloat(r, f[6], &s->step))) &&
+              (f[7] == ABSENT || maniGraphJsonRefer(r, &scope->parameters, f[7], &s->rotation)) &&
+              (f[8] == ABSENT || maniGraphJsonFloat(r, f[8], &s->tolerance)) &&
+              (f[9] == ABSENT || maniGraphJsonScalar(r, scope, f[9], &s->rotationWeight)) &&
+              (f[10] == ABSENT || maniGraphJsonScalar(r, scope, f[10], &s->weight));
+    return ok && (f[11] == ABSENT || Limits(r, f[11], s, &s->limits));
+}
+
+static void PutPair(maniGraphWriter* w, const char* key, float a, float b)
+{
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, key);
+    maniGraphJsonPutText(w, "[");
+    maniGraphJsonPutFloat(w, a);
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutFloat(w, b);
+    maniGraphJsonPutText(w, "]");
+}
+
+static void PutLimit(maniGraphWriter* w, const maniJointLimit* l)
+{
+    static const char* const kKinds[3] = {"\"none\"", "\"cone\"", "\"hinge\""};
+    maniGraphJsonPutText(w, "{");
+    maniGraphJsonPutKey(w, "kind");
+    maniGraphJsonPutText(w, kKinds[l->kind]);
+    if (l->kind == maniJointLimitCone)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "cone");
+        maniGraphJsonPutFloat(w, l->cone);
+        PutPair(w, "twist", l->twistLow, l->twistHigh);
+    }
+    else if (l->kind == maniJointLimitHinge)
+    {
+        PutVector(w, "axis", l->axis);
+        PutPair(w, "range", l->low, l->high);
+    }
+    maniGraphJsonPutText(w, "}");
+}
+
+void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
+                           const maniGraphNodeSource* n)
+{
+    const maniGraphChainNodeSource* s = &n->chain;
+    maniGraphJsonPutKey(w, "root");
+    PutBone(w, s->root);
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "end");
+    PutBone(w, s->end);
+    PutGoal(w, source, s->goal, s->pole);
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "iterations");
+    maniGraphJsonPutUnsigned(w, s->iterations);
+    if (n->kind == maniGraphNodeCcd)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "step");
+        maniGraphJsonPutFloat(w, s->step);
+    }
+    if (s->rotation != MANI_NO_PARAMETER)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "rotation");
+        maniGraphJsonPutParameterName(w, source, s->rotation);
+    }
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "tolerance");
+    maniGraphJsonPutFloat(w, s->tolerance);
+    static const char* const kKeys[2] = {"rotationWeight", "weight"};
+    const maniGraphScalar weights[2] = {s->rotationWeight, s->weight};
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, kKeys[k]);
+        maniGraphJsonPutScalar(w, source, weights[k]);
+    }
+    if (s->limits == NULL)
+    {
+        return;
+    }
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t count = maniIkChainPath(w->skeleton, s->root, s->end, bones);
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "limits");
+    for (uint32_t k = 0; k + 1 < count; ++k)
+    {
+        maniGraphJsonPutText(w, k == 0 ? "[" : ", ");
+        PutLimit(w, &s->limits[k]);
+    }
+    maniGraphJsonPutText(w, "]");
 }

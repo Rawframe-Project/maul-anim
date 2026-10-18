@@ -27,6 +27,9 @@ format.
 - FABRIK chains (mani-0030): `maniSolveFabrik` bends the same chains by
   forward and backward reaching, limits applied as each bone turns in
   the forward pass, an optional pole for the chain's bend.
+- Chain IK graph nodes (mani-0030): CCD and FABRIK nodes solve their
+  input pose toward vec3 goal and pole parameters and a quat rotation
+  for the end, with limits per bone, in files, JSON and subgraphs.
 - IK graph nodes (mani-0029): two-bone and aim nodes solve their input
   pose toward vec3 goal and pole parameters, their twist, soften, cone
   and weight numbers or float parameters, in files, JSON and subgraphs.

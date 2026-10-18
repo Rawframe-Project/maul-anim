@@ -591,6 +591,10 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeAim:
         maniGraphJsonPutIk(w, source, n);
         return;
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        maniGraphJsonPutChain(w, source, n);
+        return;
     case maniGraphNodeSelect:
     case maniGraphNodePose:
         maniGraphJsonPutKey(w, "parameter");
@@ -656,7 +660,9 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "spring",
                                          "pose",
                                          "twoBone",
-                                         "aim"};
+                                         "aim",
+                                         "ccd",
+                                         "fabrik"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

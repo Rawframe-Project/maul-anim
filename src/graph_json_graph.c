@@ -641,6 +641,18 @@ static const KindForm kForms[] = {
       "weight"},
      11,
      63u},
+    {"ccd",
+     maniGraphNodeCcd,
+     {"kind", "inputs", "root", "end", "goal", "iterations", "step", "rotation", "tolerance",
+      "rotationWeight", "weight", "limits"},
+     12,
+     63u},
+    {"fabrik",
+     maniGraphNodeFabrik,
+     {"kind", "inputs", "root", "end", "goal", "iterations", "pole", "rotation", "tolerance",
+      "rotationWeight", "weight", "limits"},
+     12,
+     63u},
     {"aim",
      maniGraphNodeAim,
      {"kind", "inputs", "bones", "goal", "forward", "shares", "pole", "offset", "up", "twist",
@@ -700,6 +712,9 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return maniGraphJsonTwoBone(r, scope, f, &n->twoBone);
     case maniGraphNodeAim:
         return maniGraphJsonAim(r, scope, f, &n->aim);
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        return maniGraphJsonChain(r, scope, f, n->kind == maniGraphNodeFabrik, &n->chain);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

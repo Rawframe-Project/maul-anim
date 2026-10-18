@@ -23,9 +23,7 @@
 
 #define PI_F 3.14159265358979f
 
-// The chain's bones root first into bones; their count, or 0 when the
-// root is not an ancestor of the end or the path is too long.
-static uint32_t Path(const maniSkeleton* skeleton, uint32_t root, uint32_t end, uint32_t* bones)
+uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t end, uint32_t* bones)
 {
     uint32_t reversed[MANI_IK_CHAIN_MAX_BONES];
     uint32_t n = 0;
@@ -53,19 +51,12 @@ static bool Unit(float v)
     return v >= 0.0f && v <= 1.0f;
 }
 
-bool maniIkChainValid(const maniPose* pose, const maniSkeleton* skeleton,
-                      const maniChainSolve* solve, bool poles, bool steps)
+bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count,
+                            const maniJointLimit* limits)
 {
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
-    uint32_t n = maniSkeletonBoneCount(skeleton);
-    if (!maniIkPoseUsable(pose, skeleton) || solve->root >= n || solve->end >= n)
+    for (uint32_t k = 0; k + 1 < count; ++k)
     {
-        return false;
-    }
-    uint32_t count = Path(skeleton, solve->root, solve->end, bones);
-    for (uint32_t k = 0; k + 1 < count && solve->limits != NULL; ++k)
-    {
-        const maniJointLimit* limit = &solve->limits[k];
+        const maniJointLimit* limit = &limits[k];
         maniVec3 axis = maniSkeletonRest(skeleton, bones[k + 1]).translation;
         float along = maniVec3Length(axis);
         // A hinge along the bone's own axis is no hinge.
@@ -75,6 +66,23 @@ bool maniIkChainValid(const maniPose* pose, const maniSkeleton* skeleton,
         {
             return false;
         }
+    }
+    return true;
+}
+
+bool maniIkChainValid(const maniPose* pose, const maniSkeleton* skeleton,
+                      const maniChainSolve* solve, bool poles, bool steps)
+{
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t n = maniSkeletonBoneCount(skeleton);
+    if (!maniIkPoseUsable(pose, skeleton) || solve->root >= n || solve->end >= n)
+    {
+        return false;
+    }
+    uint32_t count = maniIkChainPath(skeleton, solve->root, solve->end, bones);
+    if (solve->limits != NULL && !maniIkChainLimitsValid(skeleton, bones, count, solve->limits))
+    {
+        return false;
     }
     maniQuat q = solve->rotation;
     float length = sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
@@ -89,7 +97,7 @@ bool maniIkChainValid(const maniPose* pose, const maniSkeleton* skeleton,
 void maniIkChainBegin(maniIkChain* chain, const maniPose* pose, const maniSkeleton* skeleton,
                       const maniChainSolve* solve)
 {
-    chain->count = Path(skeleton, solve->root, solve->end, chain->bones);
+    chain->count = maniIkChainPath(skeleton, solve->root, solve->end, chain->bones);
     chain->top = maniIkParentModel(pose, skeleton, solve->root);
     for (uint32_t k = 0; k < chain->count; ++k)
     {

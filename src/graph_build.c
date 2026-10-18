@@ -19,6 +19,7 @@
 #include "graph_match.h"
 #include "graph_match_check.h"
 #include "graph_spring.h"
+#include "ik_chain.h"
 #include "sort.h"
 #include "triangulate.h"
 
@@ -130,7 +131,8 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     }
     bool additive = node->kind == maniGraphNodeAdditive;
     bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeTwoBone ||
-                     node->kind == maniGraphNodeAim;
+                     node->kind == maniGraphNodeAim || node->kind == maniGraphNodeCcd ||
+                     node->kind == maniGraphNodeFabrik;
     uint32_t first = w->difference[node->inputs[0]];
     if ((additive || posesOnly) && first != 0)
     {
@@ -507,6 +509,49 @@ static uint32_t PutAim(uint8_t* d, uint32_t at, const maniGraphAimNodeSource* s)
     return PutScalar(d, PutScalar(d, PutScalar(d, at, s->twist), s->cone), s->weight);
 }
 
+// A chain node's words: its bones, parameters, counts and numbers, its
+// scalars, then its limits (one per turning bone, or none), each with
+// the words its kind leaves unused 0.
+static uint32_t PutChain(const maniGraphSource* source, uint8_t* d, uint32_t at,
+                         const maniGraphChainNodeSource* s)
+{
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t count = maniIkChainPath(source->skeleton, s->root, s->end, bones);
+    uint32_t limits = s->limits != NULL ? count - 1 : 0u;
+    const uint32_t head[6] = {s->root, s->end, s->goal, s->pole, s->rotation, s->iterations};
+    const float numbers[2] = {s->tolerance, s->step};
+    at = PutFloats(d, PutWords(d, at, head, 6), numbers, 2);
+    at = PutScalar(d, PutScalar(d, at, s->rotationWeight), s->weight);
+    at = PutWords(d, at, &limits, 1);
+    for (uint32_t k = 0; k < limits; ++k)
+    {
+        const maniJointLimit* l = &s->limits[k];
+        bool cone = l->kind == maniJointLimitCone;
+        bool hinge = l->kind == maniJointLimitHinge;
+        const float words[8] = {hinge ? l->axis.x : 0.0f,  hinge ? l->axis.y : 0.0f,
+                                hinge ? l->axis.z : 0.0f,  cone ? l->cone : 0.0f,
+                                hinge ? l->low : 0.0f,     hinge ? l->high : 0.0f,
+                                cone ? l->twistLow : 0.0f, cone ? l->twistHigh : 0.0f};
+        at = PutFloats(d, PutWords(d, at, &l->kind, 1), words, 8);
+    }
+    return at;
+}
+
+// An IK node's words (kinds two-bone to FABRIK), by its kind.
+static uint32_t PutIk(const maniGraphSource* source, uint8_t* d, uint32_t at,
+                      const maniGraphNodeSource* node)
+{
+    switch (node->kind)
+    {
+    case maniGraphNodeTwoBone:
+        return PutTwoBone(d, at, &node->twoBone);
+    case maniGraphNodeAim:
+        return PutAim(d, at, &node->aim);
+    default:
+        return PutChain(source, d, at, &node->chain);
+    }
+}
+
 // A blend's direct flag and weights, or an additive's weights.
 static uint32_t PutWeights(uint8_t* d, uint32_t at, const maniGraphNodeSource* node)
 {
@@ -575,10 +620,9 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     {
         at = PutWords(d, at, &node->pose.parameter, 1);
     }
-    else if (node->kind == maniGraphNodeTwoBone || node->kind == maniGraphNodeAim)
+    else if (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeFabrik)
     {
-        at = node->kind == maniGraphNodeAim ? PutAim(d, at, &node->aim)
-                                            : PutTwoBone(d, at, &node->twoBone);
+        at = PutIk(source, d, at, node);
     }
     else if (node->kind == maniGraphNodeTimeScale)
     {
@@ -624,7 +668,8 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         uint32_t first = lay->dataAt;
         PutData(source, node, lay);
         bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot ||
-                       node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned;
+                       node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned ||
+                       node->kind == maniGraphNodeCcd || node->kind == maniGraphNodeFabrik;
         maniStoreU32(e + 16, counted ? lay->dataAt - first
                                      : maniGraphDataWords(node->kind, node->inputCount));
     }

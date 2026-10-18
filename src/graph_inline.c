@@ -408,6 +408,38 @@ static void RemapWeights(const Scope* s, Flat* f, maniGraphNodeSource* node)
     }
 }
 
+// An IK node's parameters and scalars as the root reads them.
+static void RemapIk(const Scope* s, maniGraphNodeSource* node)
+{
+    switch (node->kind)
+    {
+    case maniGraphNodeTwoBone:
+        node->twoBone.goal = Resolve(s, node->twoBone.goal);
+        node->twoBone.pole = Resolve(s, node->twoBone.pole);
+        node->twoBone.twist = Scalar(s, node->twoBone.twist);
+        node->twoBone.soften = Scalar(s, node->twoBone.soften);
+        node->twoBone.weight = Scalar(s, node->twoBone.weight);
+        return;
+    case maniGraphNodeAim:
+        node->aim.goal = Resolve(s, node->aim.goal);
+        node->aim.pole = Resolve(s, node->aim.pole);
+        node->aim.twist = Scalar(s, node->aim.twist);
+        node->aim.cone = Scalar(s, node->aim.cone);
+        node->aim.weight = Scalar(s, node->aim.weight);
+        return;
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        node->chain.goal = Resolve(s, node->chain.goal);
+        node->chain.pole = Resolve(s, node->chain.pole);
+        node->chain.rotation = Resolve(s, node->chain.rotation);
+        node->chain.rotationWeight = Scalar(s, node->chain.rotationWeight);
+        node->chain.weight = Scalar(s, node->chain.weight);
+        return;
+    default:
+        return;
+    }
+}
+
 // A node's parameters, clip, sync group and weights as the root reads
 // them.
 static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
@@ -470,18 +502,10 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         node->spring.force = Resolve(s, node->spring.force);
         return;
     case maniGraphNodeTwoBone:
-        node->twoBone.goal = Resolve(s, node->twoBone.goal);
-        node->twoBone.pole = Resolve(s, node->twoBone.pole);
-        node->twoBone.twist = Scalar(s, node->twoBone.twist);
-        node->twoBone.soften = Scalar(s, node->twoBone.soften);
-        node->twoBone.weight = Scalar(s, node->twoBone.weight);
-        return;
     case maniGraphNodeAim:
-        node->aim.goal = Resolve(s, node->aim.goal);
-        node->aim.pole = Resolve(s, node->aim.pole);
-        node->aim.twist = Scalar(s, node->aim.twist);
-        node->aim.cone = Scalar(s, node->aim.cone);
-        node->aim.weight = Scalar(s, node->aim.weight);
+    case maniGraphNodeCcd:
+    case maniGraphNodeFabrik:
+        RemapIk(s, node);
         return;
     case maniGraphNodeOneShot:
         node->oneShot.fire = Resolve(s, node->oneShot.fire);

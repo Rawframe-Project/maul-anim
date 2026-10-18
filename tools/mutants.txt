@@ -2989,7 +2989,7 @@ gik-ev-cone | src/graph_evaluate.c | .cone = Clamped(e, d + maniGraphAimCone, 0.
 gik-ev-shares | src/graph_evaluate.c | memcpy(&s.shares[k], &bits, sizeof bits); | s.shares[k] = 1.0f;
 gik-bd-hinge | src/graph_build.c | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3); | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 2) + 1;
 gik-bd-equal | src/graph_build.c | shares[k] = s->shares != NULL ? s->shares[k] : 1.0f; | shares[k] = s->shares != NULL ? s->shares[k] : 0.5f;
-gik-bd-posesonly | src/graph_build.c | node->kind == maniGraphNodeAim; | false;
+gik-bd-posesonly | src/graph_build.c | node->kind == maniGraphNodeAim || node->kind == maniGraphNodeCcd || | node->kind == maniGraphNodeCcd ||
 gik-in-goal | src/graph_inline.c | node->twoBone.goal = Resolve(s, node->twoBone.goal); | (void)0;
 gik-in-aim-goal | src/graph_inline.c | node->aim.goal = Resolve(s, node->aim.goal); | (void)0;
 gik-in-aim-weight | src/graph_inline.c | node->aim.weight = Scalar(s, node->aim.weight); | (void)0;

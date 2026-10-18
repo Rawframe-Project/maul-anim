@@ -136,6 +136,12 @@ extern "C"
         // An aim IK node: its input with a bone, or a chain sharing the
         // turn, aimed at a goal.
         maniGraphNodeAim = 19,
+        // A CCD IK node: its input with a chain bent toward a goal by
+        // cyclic coordinate descent within its bones' limits.
+        maniGraphNodeCcd = 20,
+        // A FABRIK IK node: its input with a chain bent toward a goal by
+        // forward and backward reaching within its bones' limits.
+        maniGraphNodeFabrik = 21,
     };
 
 // The most steps of its model a learned node takes in one update: a

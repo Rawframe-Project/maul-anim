@@ -57,6 +57,21 @@ frame's result, which a stateless solve cannot.
 - **Weight:** every bone's correction from its input local weighted
   from the identity, as the other solvers'.
 
+- **Graph nodes:** CCD (20) and FABRIK (21), one input each, a pose
+  (differences refused at build and on open). The goal and a FABRIK
+  node's pole are vec3 parameters, the end's rotation a quat parameter
+  (each pole and rotation optional); the iteration count, tolerance,
+  step and limits are fixed in the node; the rotation weight and weight
+  are numbers or float parameters, clamped to [0, 1] when evaluated. A
+  node holds one limit per turning bone or none, each with the words
+  its kind leaves unused 0, so a limit has one form in a file. The build
+  checks the chain and its limits against the skeleton; opening, which
+  has no parents, checks each limit as a solve would and the bones in
+  range, and a crafted file whose chain is not one passes its input.
+  The JSON form names bones and parameters by name and writes each limit
+  as an object of its kind (none, a cone with its twist, a hinge with
+  its axis and range).
+
 ## Consequences
 
 Tests on a tail of five bones: goals within reach reached within the
@@ -80,3 +95,12 @@ running all 64 iterations with tolerance 0, the result finite, within
 the hinges and its bits pinned (the same in every build and on every
 platform CI runs); a solve on its own reached result unchanged; the
 end's rotation; weight 0; the refusals.
+
+The nodes' tests over the hips, spine and arm: each node's output its
+input solved by its solver bit for bit, with a cone and a hinge, the
+end's rotation by a weight parameter, weights clamped from 4 and -1, a
+pole; both inside a subgraph reading the outer goal and weight; the
+JSON form read back to the same file and a limit list of the wrong
+length refused; every build refusal with its reason and every file
+refusal at its word, 32 limits refused by the node's word count; a
+crafted chain passing its input.
