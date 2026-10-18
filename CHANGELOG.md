@@ -214,6 +214,13 @@ format.
   gives the placement on the ground under the root body, turned to look
   where the head lay face down and toward the feet face up, and whether
   the body lies face up, for the host to pick its get-up clip.
+- Ragdolls from glTF (mani-0027): `maniGltfReadRagdoll` reads the
+  `OMI_physics_body`, `OMI_physics_shape` and `OMI_physics_joint`
+  extensions into a ragdoll source: dynamic and kinematic bodies on the
+  skeleton's bones with their box, sphere or capsule colliders and
+  masses, joints as twist and swing limits with their drives; what a
+  profile cannot hold refused at its value with the new
+  `maniImportReasonUnsupported`.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the

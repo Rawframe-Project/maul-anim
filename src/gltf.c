@@ -289,6 +289,7 @@ void maniCloseGltf(maniGltf* gltf)
     }
     maniAllocator allocator = gltf->allocator;
     maniArenaRelease(&gltf->springs);
+    maniArenaRelease(&gltf->ragdoll);
     maniGltfReleaseAnimations(gltf);
     maniGltfReleaseNames(gltf);
     maniGltfReleaseNodes(gltf);

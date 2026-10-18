@@ -98,6 +98,10 @@ extern "C"
         // normalized weights not summing to 255 or 65535 (offset: the
         // weights' accessor or array; item: the vertex).
         maniImportReasonInfluence = 17,
+        // A value the output cannot hold, refused where it stands rather
+        // than approximated: a ragdoll's cylinder shape, a soft joint
+        // limit (offset: the value; item: the body or joint).
+        maniImportReasonUnsupported = 18,
     };
 
     // An axis, or its negative.
@@ -427,6 +431,45 @@ extern "C"
                                                                  const maniSkeleton* skeleton,
                                                                  const maniGltfOptions* options,
                                                                  maniSpringSetSource* setOut);
+
+    /// Reads the document's `OMI_physics_body`, `OMI_physics_shape` and
+    /// `OMI_physics_joint` extensions as a ragdoll profile's source on an
+    /// opened skeleton (mani-0027). Each dynamic or kinematic body sits on
+    /// the bone of its node or of the node's nearest ancestor that is a
+    /// bone, its frame the frame of its one collider's node (rigid, in the
+    /// bone's model frame with scale left out), its shape that collider's
+    /// (a box's size halved, a sphere's radius, a capsule's height and
+    /// radius) times the node's scale, its mass the motion's. Each joint
+    /// joins a body to its nearest ancestor body: its frame the child
+    /// side's node's, every linear axis fixed, angular limits as twist
+    /// (x) and symmetric swings (y, z), and angular force-mode drives,
+    /// equal on their axes and without targets, as the drive. The root
+    /// body's facing and up axes are facing and up (glTF's basis, unit
+    /// and perpendicular) turned into its frame at rest. Inertia, initial
+    /// velocities, triggers, collision settings and materials are
+    /// ignored. A document without bodies on the skeleton gives an empty
+    /// source. The arrays are the document's until the next call or
+    /// maniCloseGltf.
+    ///
+    /// @param gltf       The document.
+    /// @param skeleton   An opened skeleton holding the bodies' bones.
+    /// @param options    The options the skeleton was built with.
+    /// @param facing     The character's facing (out of the chest) in
+    ///                   glTF's basis; +Z for glTF's convention.
+    /// @param up         Its up axis in glTF's basis; +Y for glTF's.
+    /// @param sourceOut  Receives the source.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
+    /// options out of range or axes not unit and perpendicular within a
+    /// thousandth; `mani_errorFormat` with a reason (Unsupported for what
+    /// a profile cannot hold); `mani_errorCapacity` when the allocator
+    /// fails.
+    /// @par Thread safety
+    /// Safe from any thread; the document is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniImportResult maniGltfReadRagdoll(maniGltf* gltf,
+                                                                 const maniSkeleton* skeleton,
+                                                                 const maniGltfOptions* options,
+                                                                 maniVec3 facing, maniVec3 up,
+                                                                 maniRagdollSource* sourceOut);
 
     /// Returns the number of meshes in the document.
     ///

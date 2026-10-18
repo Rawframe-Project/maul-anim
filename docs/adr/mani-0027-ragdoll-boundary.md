@@ -93,7 +93,33 @@ drives with stiffness, damping and a largest force.
   plane under the root body, model up on the normal, model forward on
   the heading, scale 1; a pose from bodies under it is the pose a
   get-up clip is blended from.
-- **The OMI importer** follows;
+- **The OMI importer:** `maniGltfReadRagdoll` reads the three OMI
+  extensions (Stage 1) on an opened skeleton. A dynamic or kinematic
+  body sits on the bone of its node or the node's nearest ancestor that
+  is a bone (bodies no bone holds, a scene's floor or props, are left
+  out); its frame is its one collider's node frame, rigid, in the
+  bone's model frame; its shape OMI's (a box's size halved, a sphere's
+  radius, a capsule's height between the caps' centers and its radius)
+  times that node's scale when even on the three axes. A joint joins a
+  body to its nearest ancestor body, either way round, its two sides'
+  frames together at rest within a thousandth; every linear axis
+  fixed; angular limits as twist (x, within [-pi, pi]) and symmetric
+  swings (y, z; a free axis pi); angular force-mode drives equal on the
+  three axes and without targets as the drive, an unbounded largest
+  force the largest finite float. The root's facing and up axes come
+  from the caller in glTF's basis. Refused at its value with
+  `maniImportReasonUnsupported`: static bodies on bones, a body without
+  one collider, uneven collider scale, cylinders, convex and triangle
+  meshes, tapered capsules, a center of mass off the origin, a gravity
+  factor, joints between bodies not parent and child or apart at rest,
+  a body without its joint, free or moving linear axes, soft limits,
+  asymmetric swings, linear or acceleration-mode drives, targets,
+  unequal drives. Ignored: inertia (the engines derive it), initial
+  velocities, triggers, collision settings and materials. Units stay
+  the file's; converting force-mode stiffness and damping to an
+  engine's frequency and damping ratio needs the inertia the engine
+  derives, and is the host's.
+- **Mutants, a benchmark and this record's end** follow;
   each part is added to this record as it lands.
 - **Not here:** the solver, collision, creating and stepping the bodies
   (the host's engine); shapes other than the three primitives (a host

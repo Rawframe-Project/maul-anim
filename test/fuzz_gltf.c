@@ -3,8 +3,9 @@
 //
 // Opening a glTF document (mani-0008) from any bytes, then reading every
 // accessor, with each external buffer given the input's own bytes when
-// they are long enough, and building every skeleton, skin and clip and
-// reading the spring bones, every mesh primitive's influences against
+// they are long enough, and building every skeleton, skin and clip,
+// reading the spring bones and building the ragdoll read (mani-0027),
+// every mesh primitive's influences against
 // each skin and its morph targets. Run as fuzz_gltf <corpus dir>;
 // the seed comes from test_gltf --seed <file>.
 
@@ -131,6 +132,15 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
             }
             maniSpringSetSource springs;
             (void)maniGltfReadSprings(gltf, &skeleton, &options[o], &springs);
+            // A ragdoll read is a source the builder takes or refuses.
+            maniRagdollSource ragdoll;
+            if (maniGltfReadRagdoll(gltf, &skeleton, &options[o], (maniVec3){0.0f, 0.0f, 1.0f},
+                                    (maniVec3){0.0f, 1.0f, 0.0f}, &ragdoll)
+                        .result == mani_success &&
+                ragdoll.bodyCount > 0)
+            {
+                (void)maniBuildRagdoll(builder, &ragdoll);
+            }
             for (uint32_t a = 0; a < maniGltfAnimationCount(gltf); ++a)
             {
                 // Every other animation with the root's travel and turn

@@ -126,6 +126,8 @@ struct maniGltf
     uint32_t meshCount;
     // What maniGltfReadSprings last gave.
     maniArena springs;
+    // What maniGltfReadRagdoll last gave.
+    maniArena ragdoll;
 };
 
 #endif // MAUL_ANIM_SRC_GLTF_DOCUMENT_H
