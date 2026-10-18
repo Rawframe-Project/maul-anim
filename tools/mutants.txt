@@ -2860,3 +2860,15 @@ dr-translation | src/decompose.c | *translationOut = (maniVec3){matrix->m[9], ma
 # Kept: the product of unit quaternions is unit within rounding, so the
 # one normalization a result changes no value a test can see.
 rp-normalize-body | src/ragdoll_pose.c | return (Rigid){body.t, maniQuatNormalize(body.r)}; | return body;
+
+# Ragdoll cuts, the half turn and the limits' bounds (mani-0027)
+rp-shortest | src/ragdoll_pose.c | maniQuat turn = Shortest(maniQuatMul(now.r, maniQuatConjugate(then.r))); | maniQuat turn = maniQuatMul(now.r, maniQuatConjugate(then.r));
+rp-target-shortest | src/ragdoll_pose.c | maniQuat turn = Shortest(maniQuatNormalize(maniQuatMul(back, inChild.r))); | maniQuat turn = maniQuatNormalize(maniQuatMul(back, inChild.r));
+rp-previous-placement | src/ragdoll_pose.c | Rigid then = BodyFrame(ragdoll, previous, before, i); | Rigid then = BodyFrame(ragdoll, previous, place, i);
+rb-twist-low-pi | src/ragdoll_build.c | return FiniteVec(j->translation) && UnitQuat(j->rotation) && j->twistMin >= -PI_F && | return FiniteVec(j->translation) && UnitQuat(j->rotation) && j->twistMin >= -3.15f &&
+rb-twist-high-pi | src/ragdoll_build.c | j->twistMin <= j->twistMax && j->twistMax <= PI_F && j->swingY >= 0.0f && | j->twistMin <= j->twistMax && j->twistMax <= 3.15f && j->swingY >= 0.0f &&
+rb-swing-y-pi | src/ragdoll_build.c | j->swingY <= PI_F && j->swingZ >= 0.0f && j->swingZ <= PI_F && drive; | j->swingY <= 3.15f && j->swingZ >= 0.0f && j->swingZ <= PI_F && drive;
+rb-swing-z-pi | src/ragdoll_build.c | j->swingY <= PI_F && j->swingZ >= 0.0f && j->swingZ <= PI_F && drive; | j->swingY <= PI_F && j->swingZ >= 0.0f && j->swingZ <= 3.15f && drive;
+ro-twist-low-pi | src/ragdoll.c | if (!(low >= -PI_F && low <= high)) | if (!(low >= -3.15f && low <= high))
+ro-twist-high-pi | src/ragdoll.c | if (!(high <= PI_F)) | if (!(high <= 3.15f))
+ro-swing-pi | src/ragdoll.c | if (!(swing >= 0.0f && swing <= PI_F)) | if (!(swing >= 0.0f && swing <= 3.15f))

@@ -6,7 +6,9 @@
 // with its frame, a primitive shape and a mass, and a swing-twist joint
 // to its parent body with limits and an optional drive. A profile is
 // built offline for one skeleton and opened in place; the library never
-// simulates it.
+// simulates it. Lengths are the skeleton's units, angles radians, times
+// seconds; masses and drives are the host engine's units, passed
+// through unconverted.
 
 #ifndef MAUL_ANIM_RAGDOLL_H
 #define MAUL_ANIM_RAGDOLL_H
@@ -76,9 +78,10 @@ extern "C"
         maniQuat jointRotation;
         maniVec3 parentJointTranslation;
         maniQuat parentJointRotation;
-        // Twist within [twistMin, twistMax] (radians, in [-pi, pi]);
-        // swing within an elliptic cone of half angles swingY and swingZ
-        // (in [0, pi]).
+        // Twist within [twistMin, twistMax] (radians, -pi <= twistMin <=
+        // twistMax <= pi; equal, the twist held there); swing within an
+        // elliptic cone of half angles swingY and swingZ (each in [0, pi]:
+        // 0 locks that axis, pi leaves it free).
         float twistMin;
         float twistMax;
         float swingY;
@@ -171,8 +174,14 @@ extern "C"
     /// character's placement (its scale left out too: a profile is in the
     /// skeleton's units). With the pose before, its placement and the
     /// seconds between, each body's velocities are the differences over
-    /// that time, the angular one the shortest turn's; without, they are
-    /// 0. Kinematic bodies and world-space drives take these.
+    /// that time, the angular one the shortest turn's (so at most pi over
+    /// seconds: a bone turning more than half a turn in one step reads as
+    /// the shorter turn the other way); without, they are 0. Kinematic
+    /// bodies and world-space drives take these. On a cut pass what the
+    /// step means: no previous pose on the first frame or a clip switched
+    /// without a blend (the bodies at rest); the current placement as
+    /// previousPlacement on a teleport (the animation's motion alone);
+    /// pose as previous for the placement's motion alone.
     ///
     /// @param ragdoll    An opened profile.
     /// @param pose       A pose of the profile's skeleton, its model

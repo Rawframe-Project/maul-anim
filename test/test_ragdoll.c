@@ -227,14 +227,18 @@ static void TestBodyRefusals(void)
 
 static void TestJointRefusals(void)
 {
+    // Each field's bad values, the float just past pi at each limit's
+    // bound and NaN in each limit among them.
     const struct
     {
         int field;
         float value;
     } kJoints[] = {
-        {0, NAN},      {1, INFINITY}, {2, 0.9f},   {3, NAN},       {4, -3.2f}, {4, 0.8f},
-        {5, 3.2f},     {6, -0.01f},   {6, 3.2f},   {7, -0.01f},    {7, 3.2f},  {8, -1.0f},
-        {8, INFINITY}, {9, -1.0f},    {10, -1.0f}, {10, INFINITY}, {9, NAN},
+        {0, NAN},         {1, INFINITY}, {2, 0.9f},         {3, NAN},         {4, -3.2f},
+        {4, 0.8f},        {5, 3.2f},     {6, -0.01f},       {6, 3.2f},        {7, -0.01f},
+        {7, 3.2f},        {8, -1.0f},    {8, INFINITY},     {9, -1.0f},       {10, -1.0f},
+        {10, INFINITY},   {9, NAN},      {4, -3.14159298f}, {5, 3.14159298f}, {6, 3.14159298f},
+        {7, 3.14159298f}, {4, NAN},      {5, NAN},          {6, NAN},         {7, NAN},
     };
     for (size_t k = 0; k < sizeof kJoints / sizeof kJoints[0]; ++k)
     {
@@ -398,6 +402,14 @@ static void TestOpen(void)
         {a + 128, Bits(3.2f), a + 128},
         {a + 132, Bits(-0.1f), a + 132},
         {a + 136, Bits(3.2f), a + 136},
+        {a + 124, Bits(-3.14159298f), a + 124},
+        {a + 128, Bits(3.14159298f), a + 128},
+        {a + 132, Bits(3.14159298f), a + 132},
+        {a + 136, Bits(3.14159298f), a + 136},
+        {a + 124, Bits(NAN), a + 124},
+        {a + 128, Bits(NAN), a + 128},
+        {a + 132, Bits(NAN), a + 132},
+        {a + 136, Bits(NAN), a + 136},
         {a + 140, Bits(-1.0f), a + 140},
         {a + 148, Bits(-1.0f), a + 148},
     };

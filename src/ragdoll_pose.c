@@ -109,6 +109,13 @@ static Rigid BodyFrame(const maniRagdoll* ragdoll, const maniPose* pose, Rigid p
     return (Rigid){body.t, maniQuatNormalize(body.r)};
 }
 
+// The shortest turn: q and -q turn alike; the one with w >= 0 turns at
+// most half a turn.
+static maniQuat Shortest(maniQuat q)
+{
+    return q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q;
+}
+
 static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)
 {
     return maniPoseOfSkeleton(pose, ragdoll->skeletonIdentity, ragdoll->boneCount) &&
@@ -142,9 +149,7 @@ maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose*
             Rigid then = BodyFrame(ragdoll, previous, before, i);
             float rate = 1.0f / seconds;
             b.linearVelocity = maniVec3Scale(maniVec3Sub(now.t, then.t), rate);
-            maniQuat turn = maniQuatMul(now.r, maniQuatConjugate(then.r));
-            // The shortest turn: q and -q turn alike.
-            turn = turn.w < 0.0f ? (maniQuat){-turn.x, -turn.y, -turn.z, -turn.w} : turn;
+            maniQuat turn = Shortest(maniQuatMul(now.r, maniQuatConjugate(then.r)));
             b.angularVelocity = maniVec3Scale(maniQuatToRotationVector(turn), rate);
         }
         bodiesOut[i] = b;
@@ -174,8 +179,7 @@ maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdoll
         Rigid inParent = Compose((Rigid){parent->position, parent->rotation},
                                  LoadRigid(e + maniRagdollBodyParentJoint));
         maniQuat back = maniQuatConjugate(inParent.r);
-        maniQuat turn = maniQuatNormalize(maniQuatMul(back, inChild.r));
-        turn = turn.w < 0.0f ? (maniQuat){-turn.x, -turn.y, -turn.z, -turn.w} : turn;
+        maniQuat turn = Shortest(maniQuatNormalize(maniQuatMul(back, inChild.r)));
         maniVec3 relative = maniVec3Sub(child->angularVelocity, parent->angularVelocity);
         jointsOut[i] = (maniRagdollJointTarget){turn, maniQuatRotate(back, relative)};
     }

@@ -806,14 +806,16 @@ extern "C"
     {
         maniVec3 translation;
         maniQuat rotation;
-        // Twist about x within [twistMin, twistMax] in [-pi, pi]; swing
-        // about y and z within half angles in [0, pi].
+        // Twist about x within [twistMin, twistMax], -pi <= twistMin <=
+        // twistMax <= pi (equal, the twist held there); swing about y and
+        // z within half angles each in [0, pi] (0 locks that axis, pi
+        // leaves it free).
         float twistMin;
         float twistMax;
         float swingY;
         float swingZ;
-        // Stiffness, damping and the largest torque, at least 0; all 0
-        // for no drive.
+        // Stiffness, damping and the largest torque, at least 0 and in
+        // the host engine's units (passed through); all 0 for no drive.
         float driveStiffness;
         float driveDamping;
         float driveMaxTorque;

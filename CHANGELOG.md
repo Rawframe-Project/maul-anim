@@ -346,6 +346,10 @@ format.
   normalize once a result: placing bodies from a pose takes about half
   the instructions, joint targets half, a pose from bodies a fifth
   fewer (mani-0027).
+- The ragdoll documentation says what a host passes on a cut (a
+  teleport, a switched clip, the first frame), bounds the angular
+  velocity at half a turn a step, names each value's units and states
+  every limit's range as it is checked (mani-0027).
 - `maniBindGraph` takes the graph's skeleton, clips, databases and
   models in one `maniGraphAssets`, and `maniBuildGraphJson` its named
   ones in one `maniGraphNamedAssets`, in place of their argument lists.

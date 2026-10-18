@@ -32,9 +32,13 @@ drives with stiffness, damping and a largest force.
   rest pose (each bone's rigid model frame M, the body's frame B = M F,
   the joint's B C, and in the parent P⁻¹ B C), so the joint is at rest
   in the rest pose; twist about the joint frame's x within
-  [min, max] ⊂ [-π, π], swing about y and z within an elliptic cone of
-  half angles in [0, π]; a drive's stiffness, damping and largest
-  torque (all 0 for none). The root body's facing and up axes in its
+  [min, max] ⊂ [-π, π] (min equal to max holds it there), swing about
+  y and z within an elliptic cone of half angles each in [0, π] (0
+  locks that axis, π leaves it free), each bound checked by the builder
+  and on opening; a drive's stiffness, damping and largest torque (all
+  0 for none). Lengths are the skeleton's units, angles radians, times
+  seconds; masses and drives are the host engine's units, passed
+  through, never converted or scaled. The root body's facing and up axes in its
   frame, unit and perpendicular, are kept for getting up.
 - **Bodies from poses:** each body's frame in the world is its bone's
   model frame (the pose's model matrix, its scale left out) under the
@@ -44,7 +48,14 @@ drives with stiffness, damping and a largest force.
   velocity is the difference of its positions over the time and its
   angular velocity the rotation vector of the shortest turn between
   its rotations over the time, as Jolt's kinematic drive and
-  world-space drives take them.
+  world-space drives take them. The shortest turn is at most half a
+  turn, so an angular velocity is at most π over the time: a bone
+  turning further in one step reads as the shorter turn the other way
+  (at 60 Hz, past 30 turns a second). On a cut the host passes what the
+  step means: no pose before on the first frame or a clip switched
+  without a blend (the bodies at rest), the current placement as the
+  one before on a teleport (the animation's motion alone, no spike),
+  the same pose before for the placement's motion alone.
 - **Joint targets:** per joint, the child's joint frame turned in the
   parent's (w kept at least 0) and the child's angular velocity less
   the parent's about the parent joint frame's axes: the local motor
@@ -163,5 +174,8 @@ Opening is fuzzed; every check is tested against a file changed at its
 byte; the builder's refusals are tested with their reasons; each
 joint's two frames are tested to meet in the rest pose under turned
 and scaled bones. Bodies placed from a bent pose under a turned
-placement make the pose back within float rounding; velocities, joint
-targets at rest and bent, and every refusal are tested.
+placement make the pose back within float rounding; velocities (a
+teleport passed as the current placement without a spike, the
+placement's motion alone, either side of the half turn), joint targets
+at rest and bent, every refusal and each limit's bound (the float just
+past π, NaN) are tested.

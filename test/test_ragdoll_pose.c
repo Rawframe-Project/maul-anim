@@ -5,7 +5,9 @@
 // placed from a bent pose under a turned placement and a pose made back
 // from them (every local within float rounding, the bones without bodies
 // the reference's exactly, the model current); velocities from the pose
-// before (a moved placement, a turned elbow); joint targets at rest (the
+// before (a moved placement, a turned elbow); on a cut (a teleport
+// passed as the current placement gives no spike; the placement's motion
+// alone); either side of the half turn; joint targets at rest (the
 // identity), for a bent elbow (its angle) and from bodies' angular
 // velocities; the refusals.
 
@@ -176,6 +178,90 @@ static void TestVelocities(void)
           "no velocities without the pose before");
 }
 
+// The pose before as pose k: now with the elbow angle less bent.
+static maniPose* ElbowBefore(int k, const maniPose* now, float angle)
+{
+    maniPose* then = s_poses[k];
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        maniPoseSetLocal(then, b, maniPoseLocal(now, b));
+    }
+    maniTransform elbow = maniPoseLocal(then, s_bone[kLowerArm]);
+    elbow.rotation = Mul(elbow.rotation, Turn((maniVec3){1.0f, 0.0f, 0.0f}, -angle));
+    maniPoseSetLocal(then, s_bone[kLowerArm], elbow);
+    CHECK(maniComputeModel(then, &s_skeleton) == mani_success, "the model");
+    return then;
+}
+
+static void TestCuts(void)
+{
+    maniPose* now = Bent(0, 0.5f);
+    maniPose* then = ElbowBefore(1, now, 0.02f);
+    // A teleport: the placement before far away and turned. Passed as
+    // it was, every body spikes; passed as the current placement, only
+    // the elbow's turn is left.
+    const maniTransform far = {
+        {80.0f, 0.5f, 40.0f}, {0.0f, 0.70710678f, 0.0f, 0.70710678f}, {1.0f, 1.0f, 1.0f}};
+    maniRagdollBodyState bodies[5];
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &far, 1.0f / 60.0f, bodies,
+                                    5) == mani_success &&
+              Length(bodies[0].linearVelocity) > 1000.0f,
+          "a teleport passed as it was spikes");
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &kPlace, 1.0f / 60.0f, bodies,
+                                    5) == mani_success,
+          "a teleport passed as the current placement");
+    bool still = true;
+    for (int i = 0; i < 4; ++i)
+    {
+        still = still && Length(bodies[i].linearVelocity) < 1e-3f &&
+                Length(bodies[i].angularVelocity) < 1e-3f;
+    }
+    CHECK(still && fabsf(Length(bodies[4].angularVelocity) - 1.2f) < 1e-2f &&
+              Length(bodies[4].linearVelocity) < 0.5f,
+          "no spike: the animation's motion alone");
+    // The placement's motion alone: the same pose before, the character
+    // 0.03 m back and turned 0.01 radians less about y.
+    maniTransform before = kPlace;
+    before.translation.x -= 0.03f;
+    before.rotation = Mul(Turn((maniVec3){0.0f, 1.0f, 0.0f}, -0.01f), kPlace.rotation);
+    maniRagdollBodyState placed[5];
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, now, &before, 0.1f, bodies, 5) ==
+                  mani_success &&
+              maniRagdollBodiesFromPose(&s_ragdoll, now, &before, NULL, NULL, 0.0f, placed, 5) ==
+                  mani_success,
+          "the placement's motion");
+    bool carried = true;
+    for (int i = 0; i < 5; ++i)
+    {
+        maniVec3 moved = {(bodies[i].position.x - placed[i].position.x) * 10.0f,
+                          (bodies[i].position.y - placed[i].position.y) * 10.0f,
+                          (bodies[i].position.z - placed[i].position.z) * 10.0f};
+        carried = carried && VecApart(bodies[i].linearVelocity, moved) < 1e-3f &&
+                  VecApart(bodies[i].angularVelocity, (maniVec3){0.0f, 0.1f, 0.0f}) < 1e-4f;
+    }
+    CHECK(carried, "every body carried by the placement alone");
+}
+
+static void TestHalfTurn(void)
+{
+    // The elbow turned 0.9 and 1.1 half turns in a second: the second
+    // reads as 0.9 the other way, the most a step can tell.
+    const float pi = 3.14159265f;
+    maniPose* now = Bent(0, 0.5f);
+    maniRagdollBodyState under[5];
+    maniRagdollBodyState over[5];
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, ElbowBefore(1, now, 0.9f * pi),
+                                    &kPlace, 1.0f, under, 5) == mani_success &&
+              maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, ElbowBefore(2, now, 1.1f * pi),
+                                        &kPlace, 1.0f, over, 5) == mani_success,
+          "a turn either side of the half turn");
+    maniVec3 a = under[4].angularVelocity;
+    maniVec3 b = over[4].angularVelocity;
+    CHECK(fabsf(Length(a) - 0.9f * pi) < 1e-3f && fabsf(Length(b) - 0.9f * pi) < 1e-3f &&
+              VecApart(a, (maniVec3){-b.x, -b.y, -b.z}) < 1e-3f,
+          "past a half turn the shorter turn the other way");
+}
+
 static void TestJointTargets(void)
 {
     maniRagdollBodyState bodies[5];
@@ -302,6 +388,8 @@ int main(void)
     Setup();
     TestRoundTrip();
     TestVelocities();
+    TestCuts();
+    TestHalfTurn();
     TestJointTargets();
     TestRefusals();
     maniDestroyBuilder(s_builder);
