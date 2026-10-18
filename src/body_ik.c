@@ -199,8 +199,10 @@ static size_t Rounded(size_t bytes)
 // the largest room a solver takes.
 static size_t ScratchBytes(uint32_t count, uint32_t effectors)
 {
+    size_t xpbd = maniBodyXpbdRoom(count, effectors);
+    size_t sdls = maniBodySdlsRoom(count, effectors);
     return Rounded(count * sizeof(maniBodyNode)) + Rounded(effectors * sizeof(maniBodyGoal)) +
-           Rounded(maniBodyXpbdRoom(count, effectors) * sizeof(float));
+           Rounded((xpbd > sdls ? xpbd : sdls) * sizeof(float));
 }
 
 size_t maniBodyIkScratchSize(const maniSkeleton* skeleton, const maniBodySolve* solve)

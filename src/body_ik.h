@@ -85,8 +85,9 @@ uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* so
 uint32_t maniBodyPartCount(const maniPose* pose, const maniSkeleton* skeleton,
                            const maniBodySolve* solve, const void* scratch, size_t scratchSize);
 
-// The XPBD solver's own floats for a part of count nodes.
+// Each solver's own floats for a part of count nodes.
 size_t maniBodyXpbdRoom(uint32_t count, uint32_t effectors);
+size_t maniBodySdlsRoom(uint32_t count, uint32_t effectors);
 
 // Lays out the part in the scratch and reads the input: frames,
 // offsets, axes, goals. The solve must be valid and the scratch at

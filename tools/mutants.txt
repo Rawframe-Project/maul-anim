@@ -3160,4 +3160,7 @@ bxp-miss-stretch | src/body_xpbd.c | return maniBodyMiss(part); | return 0.0f;
 bxp-miss-max | src/body_xpbd.c | worst = miss > worst ? miss : worst; | worst = miss;
 bxp-lock | src/body_xpbd.c | part->nodes[k].turn = part->nodes[part->nodes[k].parent].turn; | (void)0;
 bxp-stop | src/body_xpbd.c | for (uint32_t i = 0; i < solve->iterations && Miss(&part, solve, &b) > solve->tolerance; ++i) | for (uint32_t i = 0; i < solve->iterations; ++i)
+# Kept: strength 0's infinite compliance makes every correction NaN,
+# which a rotation vector turns into no turn and the next placing
+# drops; the guard is the protection, the pose the same.
 bxp-strength-zero | src/body_xpbd.c | if (solve->effectors[e].strength > 0.0f) | if (true)

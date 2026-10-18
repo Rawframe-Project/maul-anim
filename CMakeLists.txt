@@ -99,6 +99,8 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/ik_fabrik.c
     src/body_ik.c
     src/body_xpbd.c
+    src/body_sdls.c
+    src/jacobi_svd.c
     src/ragdoll_getup.c
     src/spring.c
     src/spring_state.c
@@ -206,6 +208,8 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(ik_fabrik)
         maul_add_test(body_xpbd)
         maul_add_test(body_prepare)
+        maul_add_test(body_sdls)
+        maul_add_test(jacobi_svd WHITEBOX)
         maul_add_test(graph_chain_node WHITEBOX)
         maul_add_test(graph_ik_node WHITEBOX)
         maul_add_test(ragdoll_getup WHITEBOX)

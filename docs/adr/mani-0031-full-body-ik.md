@@ -61,6 +61,31 @@ move by the last step's progress.
   its parent through the passes (its hard stiffness alone splits each
   correction with the bone above, which then turns within the pass),
   and it keeps its local bits.
+- **SDLS:** `maniSolveBodySdls` takes, each iteration, the Jacobian
+  of every effector's position and, with a rotation weight, its
+  rotation as a length (the rotation vector of its miss times its reach
+  from the top, the summed offsets, no less than the mean offset), by
+  three model axes at each part bone's origin (and three translations
+  for a free top); rows scaled by strength, columns by one minus
+  rotation stiffness (none for a locked bone or a held top), each miss
+  clamped to half the mean bone length. Buss and Kim's step with the
+  paper's hard clamps: for each singular triple, gamma_i = min(1, N_i /
+  M_i) pi/4 bounds the largest turn of alpha_i / sigma_i v_i, and the
+  sum's largest turn is bounded by pi/4 (translations unclamped, as the
+  paper's translational joints). Buss's code instead scales every
+  direction smoothly, never leaving one whole. The step is taken from
+  the tips up, each bone's turn turning the bones below it, so a locked
+  bone stays rigid with its parent exactly; limits follow from the top
+  down, a limited bone's change carried to the bones below it. Stretch
+  is refused: the solve keeps the part one rigid hierarchy.
+- **The decomposition:** one-sided Jacobi (Hestenes) on the Jacobian's
+  transpose, whose few columns are the effectors' rows: pairs rotated
+  by Rutishauser's tangent, dot products in binary64, a pair skipped
+  when its cosine is below sqrt(n) times binary32's unit roundoff, the
+  sweeps stopping when one rotates nothing or at 30, as LAPACK's
+  `sgesvj`. Every operation is an addition, a multiplication, a
+  division or a square root, each correctly rounded, in a fixed order
+  with contraction off, so the stop falls on the same sweep everywhere.
 - **Results:** each bone's local correction from its turn relative to
   its parent's, weighted from the identity as the other solvers';
   translations only for a moved top or stretched bones; "reached" is
@@ -97,6 +122,23 @@ a goal farther than the input or a locked bone; pre-pull leaving a top
 whose goal is in reach and moving one by exactly the excess past the
 reach; a branch bone's twist range unused; a part of 128 bones taken
 and one of 129 refused.
+
+SDLS's tests on the same figure: two hands reached where the pose
+puts them, lengths kept, the top held; a solve on its own result
+unchanged; weight 0 and strength 0 leaving the pose; a locked forearm
+kept, its hand reached; a cone held; a hand at its goal taking its
+rotation; a free top bringing an out-of-reach hand closer; stretch
+refused; goals at the top without a NaN; every bone locked keeping the
+pose; a solve short of convergence pinned bit for bit. One iteration
+on the left arm (three turning bones, a clamped miss) puts the hand
+within 1.1e-7 of a binary64 SDLS written in the test from the paper;
+with the arm hinged about z, an elbow pulled up and a hand pulled down
+end at squared misses of 1.28367e-3, where a search over both hinge
+angles finds 1.28367e-3 (the solve 3e-6 lower, finer than the search's
+grid). The decomposition on its own: random matrices of 9 by 4 to 120
+by 36 rebuilt from their factors and orthogonal within 2e-6, singular
+values within 2e-6 of binary64 Jacobi's, repeated and zero columns
+giving zeros without a NaN, a fixed matrix's 6 sweeps and bits pinned.
 
 On the tests' figure the two-hand solve's worse hand misses by 8.2e-2
 after 8 passes, 3.2e-3 after 32, 5.5e-5 after 64 and 1.2e-7 after 128,

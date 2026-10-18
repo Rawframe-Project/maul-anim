@@ -53,12 +53,17 @@ Full-body inverse kinematics (mani-0031): a part of a skeleton, every bone on a 
 ```c
 size_t maniBodyIkScratchSize(const maniSkeleton* skeleton, const maniBodySolve* solve);
 ```
-Returns the bytes of scratch memory a full-body solve needs, by either solver.  @param skeleton  The skeleton, or NULL. @param solve     The solve, or NULL. @return The size; 0 for NULL or a solve maniSolveBodyXpbd refuses. @par Thread safety Safe from any thread.
+Returns the bytes of scratch memory a full-body solve needs, by either solver (the larger of the two).  @param skeleton  The skeleton, or NULL. @param solve     The solve, or NULL. @return The size; 0 for NULL or a solve maniSolveBodyXpbd refuses. @par Thread safety Safe from any thread.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton, const maniBodySolve* solve, void* scratch, size_t scratchSize, bool* reachedOut);
 ```
 Bends the solved part of a pose toward its effectors' goals as rigid bodies (Müller et al.'s positional and angular corrections with XPBD compliance): each bone a body whose resistance to turning comes from its rotation stiffness, each joint holding a child's origin at its place in the parent (softly by position stiffness with stretch), each effector pulling its bone's origin and rotation by its strength, then limits; one Gauss-Seidel pass an iteration in a fixed order (effectors by index, joints from the tips up, stiffness, limits). Preferred angles, pull chains and pre-pull act first. The bones' rotations come from the bodies; their translations stay the input's unless stretching. Stops early once every effector lies within the tolerance. Strength and stiffness set the pose the passes converge to (XPBD's compliance means the same whatever the count only as the solve converges); short of convergence they have acted less, so the result changes with the iteration count.  @param pose         A pose of the skeleton (not a difference); the solved part's locals are written. @param skeleton     Its skeleton. @param solve        The solve. @param scratch      Scratch memory, 16-byte aligned. @param scratchSize  Its size: at least maniBodyIkScratchSize. @param reachedOut   Receives whether every effector lies within the tolerance of its goal at full weight; may be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL pose, skeleton, solve or scratch, a pose of another skeleton or a difference, a top or bone out of range, an effector not the top or below it, a bone twice among the effectors or the settings, a setting's bone off the solved part, counts out of range, a solved part past MANI_BODY_IK_MAX_BONES, a goal, rotation or preferred angle not finite, a rotation of length 0, a limit of an unknown kind or out of range, a weight, strength, pull chain or stiffness outside [0, 1], a tolerance below 0 or not finite, a top mode unknown, misaligned or too little scratch. @par Thread safety Safe from any thread; the pose and the scratch are used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton, const maniBodySolve* solve, void* scratch, size_t scratchSize, bool* reachedOut);
+```
+Bends the solved part of a pose toward its effectors' goals by selectively damped least squares (Buss and Kim): each iteration takes the Jacobian of every effector's position (and, with a rotation weight, its rotation, as a length: the angle times the effector's reach from the top) by three model axes per bone (and three translations for a free top), its rows scaled by strength and its columns by one minus rotation stiffness (a locked bone and a held top have none); decomposes it (one-sided Jacobi, at most 30 sweeps); and steps each singular direction by the most its effectors' movement allows, each bone's turn at most pi/4 an iteration; then limits. Each miss counts at most half the mean bone length. Preferred angles, pull chains and pre-pull act first. Stops early once every effector lies within the tolerance. Every length is kept: stretch is refused.  @param pose         A pose of the skeleton (not a difference); the solved part's locals are written. @param skeleton     Its skeleton. @param solve        The solve; its stretch must be false. @param scratch      Scratch memory, 16-byte aligned. @param scratchSize  Its size: at least maniBodyIkScratchSize. @param reachedOut   Receives whether every effector lies within the tolerance of its goal at full weight; may be NULL. @return `mani_success`; `mani_errorInvalid` as maniSolveBodyXpbd, and for stretch. @par Thread safety Safe from any thread; the pose and the scratch are used by one thread at a time.
 
 ## `build.h`
 
@@ -1484,4 +1489,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-278 functions across 23 headers.
+279 functions across 23 headers.

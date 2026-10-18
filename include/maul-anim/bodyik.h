@@ -125,7 +125,7 @@ extern "C"
     } maniBodySolve;
 
     /// Returns the bytes of scratch memory a full-body solve needs, by
-    /// either solver.
+    /// either solver (the larger of the two).
     ///
     /// @param skeleton  The skeleton, or NULL.
     /// @param solve     The solve, or NULL.
@@ -174,6 +174,40 @@ extern "C"
     /// Safe from any thread; the pose and the scratch are used by one
     /// thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSolveBodyXpbd(maniPose* pose,
+                                                         const maniSkeleton* skeleton,
+                                                         const maniBodySolve* solve, void* scratch,
+                                                         size_t scratchSize, bool* reachedOut);
+
+    /// Bends the solved part of a pose toward its effectors' goals by
+    /// selectively damped least squares (Buss and Kim): each iteration
+    /// takes the Jacobian of every effector's position (and, with a
+    /// rotation weight, its rotation, as a length: the angle times the
+    /// effector's reach from the top) by three model axes per bone (and
+    /// three translations for a free top), its rows scaled by strength
+    /// and its columns by one minus rotation stiffness (a locked bone
+    /// and a held top have none); decomposes it (one-sided Jacobi, at
+    /// most 30 sweeps); and steps each singular direction by the most
+    /// its effectors' movement allows, each bone's turn at most pi/4 an
+    /// iteration; then limits. Each miss counts at most half the mean
+    /// bone length. Preferred angles, pull chains and pre-pull act
+    /// first. Stops early once every effector lies within the
+    /// tolerance. Every length is kept: stretch is refused.
+    ///
+    /// @param pose         A pose of the skeleton (not a difference); the
+    ///                     solved part's locals are written.
+    /// @param skeleton     Its skeleton.
+    /// @param solve        The solve; its stretch must be false.
+    /// @param scratch      Scratch memory, 16-byte aligned.
+    /// @param scratchSize  Its size: at least maniBodyIkScratchSize.
+    /// @param reachedOut   Receives whether every effector lies within
+    ///                     the tolerance of its goal at full weight; may
+    ///                     be NULL.
+    /// @return `mani_success`; `mani_errorInvalid` as maniSolveBodyXpbd,
+    /// and for stretch.
+    /// @par Thread safety
+    /// Safe from any thread; the pose and the scratch are used by one
+    /// thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSolveBodySdls(maniPose* pose,
                                                          const maniSkeleton* skeleton,
                                                          const maniBodySolve* solve, void* scratch,
                                                          size_t scratchSize, bool* reachedOut);

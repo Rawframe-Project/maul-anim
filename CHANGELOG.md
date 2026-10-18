@@ -35,6 +35,11 @@ format.
   XPBD compliance: effector strength, rotation and position stiffness,
   limits, preferred angles, pull chains, a pinned, free or pre-pulled
   top, optional stretch, in caller scratch (`maniBodyIkScratchSize`).
+- Full-body IK by selectively damped least squares (mani-0031):
+  `maniSolveBodySdls` solves the same description in one least-squares
+  step an iteration (Buss and Kim, the paper's clamps, a one-sided
+  Jacobi decomposition whose sweeps stop the same on every platform),
+  every length kept.
 - IK graph nodes (mani-0029): two-bone and aim nodes solve their input
   pose toward vec3 goal and pole parameters, their twist, soften, cone
   and weight numbers or float parameters, in files, JSON and subgraphs.
