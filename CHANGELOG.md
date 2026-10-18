@@ -24,6 +24,9 @@ format.
   bone within an optional cone, twist or hinge limit relative to its
   rest (`maniJointLimit`), the end optionally turned to a wanted
   rotation.
+- FABRIK chains (mani-0030): `maniSolveFabrik` bends the same chains by
+  forward and backward reaching, limits applied as each bone turns in
+  the forward pass, an optional pole for the chain's bend.
 - IK graph nodes (mani-0029): two-bone and aim nodes solve their input
   pose toward vec3 goal and pole parameters, their twist, soften, cone
   and weight numbers or float parameters, in files, JSON and subgraphs.

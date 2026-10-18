@@ -27,6 +27,17 @@ frame's result, which a stateless solve cannot.
   direction to the goal, cut to the step bound, then limited; the
   frames below are recomposed before the next bone. A bone whose
   origin lies on the end or the goal turns nothing.
+- **FABRIK:** `maniSolveFabrik`'s backward pass places the end on the
+  goal and each joint at its bone's length from the one below it; its
+  forward pass, from the root, turns each bone by the shortest arc from
+  its direction onto the one toward its joint's backward place (its
+  twist kept), limits it and recomposes the frames below, so the next
+  joint stands where the turned bone puts it and the end agrees with
+  the rotations after every iteration. Limits act in the forward pass
+  only, where the parent's frame is final. An optional pole turns the
+  chain about the root-to-goal line first, so its bend (its middle
+  joints' offsets from that line) faces the pole, blended near the line
+  as the two-bone solve's.
 - **Stop:** an iteration count (1 to 256) and a tolerance, checked
   before each sweep; nothing carries between updates.
 - **Step bound:** each turn of a bone in a sweep cut to `step` radians
@@ -55,4 +66,17 @@ each bone's turn from its rest (hinged bones staying in their plane);
 the step bound bounding each bone's turn in a sweep; a solve on its own
 reached result unchanged bit for bit; the end taking the wanted rotation
 and half of it; weights 0 and 0.5; a goal at the root without a NaN;
-paths of 32 bones solved and 33 refused; every refusal.
+paths of 32 bones solved and 33 refused; every refusal. The limits on
+their own: a turn within its limit unchanged bit for bit, cones and
+hinges cutting as stated, a half-turn swing taken whole as the swing,
+turns just short of it approaching that result.
+
+FABRIK's tests on the same tail: goals reached with lengths kept; the
+joints' places after 1, 2 and 8 iterations within 2e-6 of a FABRIK in
+double precision written in the test from the paper; a goal out of
+reach straightening the chain; a pole on either side bending the chain
+toward it; cones never exceeded; hinges that make the goal unreachable
+running all 64 iterations with tolerance 0, the result finite, within
+the hinges and its bits pinned (the same in every build and on every
+platform CI runs); a solve on its own reached result unchanged; the
+end's rotation; weight 0; the refusals.

@@ -474,7 +474,7 @@ Builds a graph file from its JSON text form, as maniWriteGraphJson writes it: me
 
 ## `ik.h`
 
-Inverse kinematics on a pose (mani-0029, mani-0030): a two-bone chain bent to reach a goal and turned toward a pole; a bone aimed at a goal, or a chain of up to MANI_AIM_MAX_BONES sharing the turn (a look-at over spine, neck and head), its up toward a pole; a longer chain bent by CCD within its bones' limits. A solver reads the pose's locals, composes the model frames of its bones' root path itself (the pose's model need not be current), writes the corrected locals of the bones it turns and leaves the model stale. Goals and poles are in the model space of the pose; axes fixed to a bone are in that bone's local frame. Stateless: the result is a function of the pose and the inputs.
+Inverse kinematics on a pose (mani-0029, mani-0030): a two-bone chain bent to reach a goal and turned toward a pole; a bone aimed at a goal, or a chain of up to MANI_AIM_MAX_BONES sharing the turn (a look-at over spine, neck and head), its up toward a pole; a longer chain bent by CCD or FABRIK within its bones' limits. A solver reads the pose's locals, composes the model frames of its bones' root path itself (the pose's model need not be current), writes the corrected locals of the bones it turns and leaves the model stale. Goals and poles are in the model space of the pose; axes fixed to a bone are in that bone's local frame. Stateless: the result is a function of the pose and the inputs.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton, const maniTwoBoneSolve* solve, bool* reachedOut);
@@ -490,6 +490,11 @@ Aims a bone of a pose at a goal: its forward from its offset point turned onto t
 MANI_NODISCARD MANI_API maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton, const maniChainSolve* solve, bool* reachedOut);
 ```
 Bends a chain of a pose toward a goal by cyclic coordinate descent: each iteration sweeps from the end's parent to the root, each bone turning by the shortest arc that takes its direction to the end onto its direction to the goal (cut to the step bound), then limited. Stops early once the end lies within the tolerance; then the end bone turns toward the wanted rotation by its weight. A bone whose origin lies on the end or the goal turns nothing.  @param pose       A pose of the skeleton (not a difference); the chain's turning bones' and the end's locals are written. @param skeleton   Its skeleton. @param solve      The solve. @param reachedOut Receives whether the end lies within the tolerance of the goal at full weight; may be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL pose, skeleton or solve, a pose of another skeleton or a difference, bones out of range, a root not an ancestor of the end or a path past MANI_IK_CHAIN_MAX_BONES, a limit of an unknown kind or out of range or a hinge along its bone's axis, a goal, pole or rotation not finite, a pole not zero, a rotation of length 0, iterations out of range, a tolerance below 0 or not finite, a step outside [0, pi], a rotation weight or weight outside [0, 1]. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton, const maniChainSolve* solve, bool* reachedOut);
+```
+Bends a chain of a pose toward a goal by FABRIK (Aristidou and Lasenby): with a pole, the chain first turns about the root-to-goal line so its bend faces the pole (blended near the line); each iteration places the end on the goal and each joint at its bone's length from the one below it, back to the root, then from the root turns each bone by the shortest arc onto its joint's place (its twist kept), limited, the next joint where the turned bone puts it. Stops early once the end lies within the tolerance; then the end bone turns toward the wanted rotation by its weight.  @param pose       A pose of the skeleton (not a difference); the chain's turning bones' and the end's locals are written. @param skeleton   Its skeleton. @param solve      The solve; its step must be 0. @param reachedOut Receives whether the end lies within the tolerance of the goal at full weight; may be NULL. @return `mani_success`; `mani_errorInvalid` as maniSolveCcd, but for a pole other than zero, which FABRIK takes, and a step other than 0, which it refuses. @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
 ## `import.h`
 
@@ -1465,4 +1470,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-275 functions across 22 headers.
+276 functions across 22 headers.
