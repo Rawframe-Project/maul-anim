@@ -243,13 +243,27 @@ void maniBodyPlace(maniBodyPart* part)
     }
 }
 
+float maniBodyGoalMiss(const maniBodyPart* part, uint32_t e, maniVec3 origin)
+{
+    const maniBodyGoal* goal = &part->goals[e];
+    float miss = maniVec3Length(maniVec3Sub(origin, goal->position));
+    if (goal->turns == 0)
+    {
+        return miss;
+    }
+    maniQuat q =
+        maniQuatMul(goal->rotation, maniQuatConjugate(maniBodyRotation(&part->nodes[goal->node])));
+    q = q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q;
+    float turned = maniVec3Length(maniQuatToRotationVector(q)) * goal->reach;
+    return turned > miss ? turned : miss;
+}
+
 float maniBodyMiss(const maniBodyPart* part)
 {
     float worst = 0.0f;
     for (uint32_t e = 0; e < part->effectors; ++e)
     {
-        const maniBodyGoal* goal = &part->goals[e];
-        float miss = maniVec3Length(maniVec3Sub(part->nodes[goal->node].origin, goal->position));
+        float miss = maniBodyGoalMiss(part, e, part->nodes[part->goals[e].node].origin);
         worst = miss > worst ? miss : worst;
     }
     return worst;
@@ -302,12 +316,19 @@ void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton*
     {
         ReadNode(part, pose, skeleton, solve, list, k);
     }
+    float sum = 0.0f;
+    uint32_t lengths = 0;
     for (uint32_t k = count; k-- > 1;)
     {
         maniBodyNode* parent = &part->nodes[part->nodes[k].parent];
         parent->below += 1 + part->nodes[k].below;
         ++parent->children;
+        float l = maniVec3Length(part->nodes[k].offset);
+        sum += l;
+        lengths += l > 0.0f;
     }
+    part->mean = lengths > 0 ? sum / (float)lengths : 1.0f;
+    part->reserved = 0.0f;
     for (uint32_t e = 0; e < solve->effectorCount; ++e)
     {
         const maniBodyEffector* effector = &solve->effectors[e];
@@ -321,7 +342,14 @@ void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton*
         goal->rotation =
             maniQuatSlerp(maniIkRotation(&node->frame), maniQuatNormalize(effector->rotation),
                           effector->rotationWeight);
-        goal->reserved = 0;
+        goal->turns = effector->rotationWeight > 0.0f;
+        goal->reach = 0.0f;
+        for (uint32_t k = goal->node; k != 0; k = part->nodes[k].parent)
+        {
+            goal->reach += maniVec3Length(part->nodes[k].offset);
+        }
+        goal->reach = goal->reach > part->mean ? goal->reach : part->mean;
+        goal->reserved = 0.0f;
     }
 }
 

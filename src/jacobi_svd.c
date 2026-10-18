@@ -81,8 +81,8 @@ uint32_t maniJacobiSvd(float* a, uint32_t n, uint32_t m, float* w, float* sigma)
                 double alpha = Dot(ap, ap, n);
                 double beta = Dot(aq, aq, n);
                 double gamma = Dot(ap, aq, n);
-                if (!(alpha > 0.0) || !(beta > 0.0) ||
-                    !(fabs(gamma) > tol * sqrt(alpha) * sqrt(beta)))
+                // A zero column's cosine test reads 0 > 0: skipped too.
+                if (!(fabs(gamma) > tol * sqrt(alpha) * sqrt(beta)))
                 {
                     continue;
                 }

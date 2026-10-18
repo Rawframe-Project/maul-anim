@@ -8,7 +8,8 @@
 // keeping its local bits, its hand reached; a cone on a forearm held; a
 // hand taking a wanted rotation; a free top bringing an out-of-reach
 // hand closer; stretch refused; goals at the top and nearly every bone
-// locked without a NaN; a solve's bits pinned. Then the arm alone, a
+// locked without a NaN; a free top taking its wanted rotation; two
+// solves' bits pinned, one from the straight rest with a free top. Then the arm alone, a
 // chain of three turning bones: one iteration's joints within 1e-5 of a
 // binary64 SDLS written here from the paper; on two bones bent about z
 // by hinges, two effectors pulling apart end where a brute-force search
@@ -29,6 +30,7 @@
 #include <string.h>
 
 #define PINNED_SDLS_HASH 0x21099bba1e67ca8bull
+#define PINNED_FREE_HASH 0xb7607b5dc8c659b2ull
 
 static bool Sdls(maniPose* pose, const maniBodySolve* s, bool* reached)
 {
@@ -143,6 +145,41 @@ static void TestTopAndEdges(void)
     CHECK(Sdls(s_pose, &s, NULL) && Same(s_pose, s_other), "every bone locked: the pose kept");
 }
 
+// A free top as the effector, its rotation wanted: its rotation rows
+// scaled by the mean bone length, as its reach is none.
+static void TestTopRotation(void)
+{
+    Bent(s_pose);
+    maniBodyEffector top = {.bone = kHips,
+                            .position = At(s_pose, kHips),
+                            .rotation = Turn((maniVec3){0.0f, 1.0f, 0.0f}, 0.6f),
+                            .positionWeight = 1.0f,
+                            .rotationWeight = 1.0f,
+                            .strength = 1.0f};
+    maniBodySolve s = {.top = kHips,
+                       .topMode = maniBodyTopFree,
+                       .effectors = &top,
+                       .effectorCount = 1,
+                       .iterations = 64,
+                       .tolerance = 1e-4f,
+                       .weight = 1.0f};
+    CHECK(Sdls(s_pose, &s, NULL) && maniComputeModel(s_pose, &s_skeleton) == mani_success &&
+              Angle(maniPoseModelTransform(s_pose, kHips).rotation, top.rotation) < 1e-2f,
+          "a free top turned to its wanted rotation");
+}
+
+// A hash of the pose's locals.
+static uint64_t Hash(const maniPose* pose)
+{
+    uint64_t hash = MANI_HASH_INIT;
+    for (uint32_t b = 0; b < BONES; ++b)
+    {
+        maniTransform t = maniPoseLocal(pose, b);
+        hash = maniHash64(hash, &t, (int32_t)sizeof t);
+    }
+    return hash;
+}
+
 static void TestPinned(void)
 {
     Bent(s_pose);
@@ -161,16 +198,21 @@ static void TestPinned(void)
     s.iterations = 8;
     s.tolerance = 0.0f;
     CHECK(Sdls(s_pose, &s, NULL), "the pinned solve");
-    uint64_t hash = MANI_HASH_INIT;
-    for (uint32_t b = 0; b < BONES; ++b)
+    uint64_t hash = Hash(s_pose);
+    // From the rest (straight arms, small singular values), a free top
+    // and goals out of reach (the step's clamps acting on turns and
+    // moves together), four iterations.
+    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    s = Solve((maniVec3){1.6f, 1.9f, 0.4f}, (maniVec3){-1.5f, 0.9f, -0.3f});
+    s.topMode = maniBodyTopFree;
+    s.iterations = 4;
+    s.tolerance = 0.0f;
+    CHECK(Sdls(s_pose, &s, NULL), "the pinned free solve");
+    uint64_t free = Hash(s_pose);
+    CHECK(hash == PINNED_SDLS_HASH && free == PINNED_FREE_HASH, "the same bits on every platform");
+    if (hash != PINNED_SDLS_HASH || free != PINNED_FREE_HASH)
     {
-        maniTransform t = maniPoseLocal(s_pose, b);
-        hash = maniHash64(hash, &t, (int32_t)sizeof t);
-    }
-    CHECK(hash == PINNED_SDLS_HASH, "the same bits on every platform");
-    if (hash != PINNED_SDLS_HASH)
-    {
-        printf("pinned 0x%016llx\n", (unsigned long long)hash);
+        printf("pinned 0x%016llx 0x%016llx\n", (unsigned long long)hash, (unsigned long long)free);
     }
 }
 
@@ -463,6 +505,7 @@ int main(void)
     TestWeights();
     TestLockLimitRotation();
     TestTopAndEdges();
+    TestTopRotation();
     TestPinned();
     TestReference();
     TestLeastSquares();

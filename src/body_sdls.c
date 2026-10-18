@@ -92,18 +92,6 @@ static void Scales(const maniBodyPart* part, const maniBodySolve* solve, const S
     }
 }
 
-// The summed offsets from the top to node k, no less than the mean
-// offset (so an effector on the top still has rotation rows).
-static float Reach(const maniBodyPart* part, uint32_t k, float mean)
-{
-    float reach = 0.0f;
-    for (; k != 0; k = part->nodes[k].parent)
-    {
-        reach += maniVec3Length(part->nodes[k].offset);
-    }
-    return reach > mean ? reach : mean;
-}
-
 static maniVec3 Clamped(maniVec3 v, float most)
 {
     float l = maniVec3Length(v);
@@ -139,7 +127,7 @@ static void Rows(const maniBodyPart* part, const maniBodySolve* solve, const Sdl
     const maniBodyGoal* goal = &part->goals[e];
     const maniBodyNode* node = &part->nodes[goal->node];
     float weight = solve->effectors[e].strength;
-    float reach = Reach(part, goal->node, 2.0f * most);
+    float reach = goal->reach;
     float turns = solve->effectors[e].rotationWeight > 0.0f ? reach : 0.0f;
     Misses(part, solve, s, e, most, reach);
     float* rows = s->a + (size_t)6u * e * s->n;
@@ -305,20 +293,6 @@ static void Limits(maniBodyPart* part, const maniSkeleton* skeleton, const maniB
     maniBodyPlace(part);
 }
 
-// Half the mean of the part's nonzero offsets, the most a miss counts.
-static float MostMiss(const maniBodyPart* part)
-{
-    float sum = 0.0f;
-    uint32_t lengths = 0;
-    for (uint32_t k = 1; k < part->count; ++k)
-    {
-        float l = maniVec3Length(part->nodes[k].offset);
-        sum += l;
-        lengths += l > 0.0f;
-    }
-    return lengths > 0 ? 0.5f * sum / (float)lengths : 0.5f;
-}
-
 maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton,
                              const maniBodySolve* solve, void* scratch, size_t scratchSize,
                              bool* reachedOut)
@@ -332,7 +306,8 @@ maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton,
     maniBodyBegin(&part, pose, skeleton, solve, scratch, count);
     Sdls s = Lay(&part);
     Scales(&part, solve, &s);
-    float most = MostMiss(&part);
+    // Half the mean bone length: the most a miss counts.
+    float most = 0.5f * part.mean;
     maniBodyPrepare(&part, solve);
     for (uint32_t i = 0; i < solve->iterations && maniBodyMiss(&part) > solve->tolerance; ++i)
     {

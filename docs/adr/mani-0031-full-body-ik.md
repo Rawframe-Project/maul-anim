@@ -88,8 +88,14 @@ move by the last step's progress.
   with contraction off, so the stop falls on the same sweep everywhere.
 - **Results:** each bone's local correction from its turn relative to
   its parent's, weighted from the identity as the other solvers';
-  translations only for a moved top or stretched bones; "reached" is
-  every effector within the tolerance at full weight. A bone whose turn
+  translations only for a moved top or stretched bones. An effector's
+  miss is the larger of its distance from its goal and, wanting a
+  rotation, its rotation's angle from the goal's times its reach (the
+  summed offsets from the top, no less than the mean offset: the
+  length SDLS scales rotation rows by); both solvers stop on it, and
+  "reached" is every miss within the tolerance at full weight. Found by
+  a free top as the effector, its position met and its rotation not:
+  a stop on distance alone never ran an iteration. A bone whose turn
   relative to its parent is exactly none keeps its bits, so a solve on
   its own reached result changes nothing.
 

@@ -117,8 +117,11 @@ extern "C"
         // Whether bones may leave their places in their parents (by
         // their position stiffness); false keeps every length.
         bool stretch;
-        // The solve stops once every effector lies this near its goal; 0
-        // for every iteration.
+        // The solve stops once every effector misses by no more than
+        // this; 0 for every iteration. An effector's miss is its distance
+        // from its goal and, wanting a rotation, its rotation's angle from
+        // the goal's times its reach (the summed offsets from the top to
+        // it, no less than the part's mean offset), whichever is larger.
         float tolerance;
         // In [0, 1]: the corrections' share, 1 for all of them.
         float weight;
@@ -157,9 +160,9 @@ extern "C"
     /// @param solve        The solve.
     /// @param scratch      Scratch memory, 16-byte aligned.
     /// @param scratchSize  Its size: at least maniBodyIkScratchSize.
-    /// @param reachedOut   Receives whether every effector lies within
-    ///                     the tolerance of its goal at full weight; may
-    ///                     be NULL.
+    /// @param reachedOut   Receives whether every effector misses by no
+    ///                     more than the tolerance at full weight; may be
+    ///                     NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL pose,
     /// skeleton, solve or scratch, a pose of another skeleton or a
     /// difference, a top or bone out of range, an effector not the top
@@ -199,9 +202,9 @@ extern "C"
     /// @param solve        The solve; its stretch must be false.
     /// @param scratch      Scratch memory, 16-byte aligned.
     /// @param scratchSize  Its size: at least maniBodyIkScratchSize.
-    /// @param reachedOut   Receives whether every effector lies within
-    ///                     the tolerance of its goal at full weight; may
-    ///                     be NULL.
+    /// @param reachedOut   Receives whether every effector misses by no
+    ///                     more than the tolerance at full weight; may be
+    ///                     NULL.
     /// @return `mani_success`; `mani_errorInvalid` as maniSolveBodyXpbd,
     /// and for stretch.
     /// @par Thread safety

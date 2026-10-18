@@ -3164,3 +3164,43 @@ bxp-stop | src/body_xpbd.c | for (uint32_t i = 0; i < solve->iterations && Miss(
 # which a rotation vector turns into no turn and the next placing
 # drops; the guard is the protection, the pose the same.
 bxp-strength-zero | src/body_xpbd.c | if (solve->effectors[e].strength > 0.0f) | if (true)
+jsv-dot64 | src/jacobi_svd.c | sum += (double)a[k] * (double)b[k]; | sum += (double)(a[k] * b[k]);
+jsv-rot-a | src/jacobi_svd.c | ap[k] = (float)(c * x - s * y); | ap[k] = (float)(c * x + s * y);
+jsv-rot-w | src/jacobi_svd.c | wp[k] = (float)(c * x - s * y); | wp[k] = (float)(c * x + s * y);
+jsv-w-identity | src/jacobi_svd.c | w[(size_t)i * m + i] = 1.0f; | (void)0;
+jsv-tol | src/jacobi_svd.c | double tol = sqrt((double)n) * (double)MANI_JACOBI_EPSILON; | double tol = 0.0;
+# Kept: every test matrix converges well inside 30 sweeps; the cap
+# bounds the work should binary32 storage stall above the tolerance.
+jsv-cap | src/jacobi_svd.c | while (rotated && sweeps < MANI_JACOBI_MAX_SWEEPS) | while (rotated)
+jsv-stop | src/jacobi_svd.c | rotated = true; | (void)0;
+jsv-tangent | src/jacobi_svd.c | double t = (zeta >= 0.0 ? 1.0 : -1.0) / (fabs(zeta) + sqrt(1.0 + zeta * zeta)); | double t = 1.0 / (fabs(zeta) + sqrt(1.0 + zeta * zeta));
+jsv-cos | src/jacobi_svd.c | double c = 1.0 / sqrt(1.0 + t * t); | double c = 1.0;
+sdl-held | src/body_sdls.c | scale = k == 0 && solve->topMode != maniBodyTopFree ? 0.0f : scale; | (void)0;
+sdl-stiff | src/body_sdls.c | float scale = setting != NULL ? 1.0f - setting->rotationStiffness : 1.0f; | float scale = 1.0f;
+sdl-free-move | src/body_sdls.c | s->scale[3u * part->count + axis] = solve->topMode == maniBodyTopFree ? 1.0f : 0.0f; | s->scale[3u * part->count + axis] = 0.0f;
+sdl-clamp | src/body_sdls.c | return l > most ? maniVec3Scale(v, most / l) : v; | return v;
+# Kept: without a rotation weight the rotation rows of the Jacobian are
+# zero, and the decomposition never mixes a zero column in, so the
+# step never reads those misses.
+sdl-rot-off | src/body_sdls.c | maniVec3 rotation = effector->rotationWeight > 0.0f | maniVec3 rotation = true
+sdl-miss-weight | src/body_sdls.c | s->miss[6u * e + r] = misses[r] * effector->strength; | s->miss[6u * e + r] = misses[r];
+sdl-turns | src/body_sdls.c | float turns = solve->effectors[e].rotationWeight > 0.0f ? reach : 0.0f; | float turns = reach;
+sdl-col-weight | src/body_sdls.c | float w = weight * s->scale[column]; | float w = weight;
+sdl-free-col | src/body_sdls.c | rows[(size_t)axis * s->n + column] = weight * s->scale[column]; | (void)0;
+sdl-rho | src/body_sdls.c | sum += sqrtf(x * x + y * y + z * z); | sum += fabsf(x) + fabsf(y) + fabsf(z);
+sdl-clamp-rot | src/body_sdls.c | v[j] = j < rotations ? v[j] * scale : v[j]; | v[j] = v[j] * scale;
+sdl-small | src/body_sdls.c | if (!(sigma > 1e-6f * largest)) | if (!(sigma > 0.0f))
+sdl-gamma | src/body_sdls.c | float gamma = moved > spread ? GAMMA_MAX * spread / moved : GAMMA_MAX; | float gamma = GAMMA_MAX;
+sdl-moved | src/body_sdls.c | moved /= sigma * sigma; | moved /= sigma;
+sdl-phi | src/body_sdls.c | s->phi[j] = alpha * b[j] / (sigma * sigma); | s->phi[j] = alpha * b[j] / sigma;
+sdl-take-order | src/body_sdls.c | for (uint32_t k = part->count; k-- > 0;) | for (uint32_t k = 0; k < part->count; ++k)
+sdl-take-scale | src/body_sdls.c | maniVec3 v = maniVec3Make(s->step[3u * k] * s->scale[3u * k], | maniVec3 v = maniVec3Make(s->step[3u * k],
+sdl-top-move | src/body_sdls.c | part->nodes[0].origin = maniVec3Add(part->nodes[0].origin, moved); | (void)0;
+sdl-limit-carry | src/body_sdls.c | part->nodes[j].turn = maniQuatNormalize(maniQuatMul(change, part->nodes[j].turn)); | (void)0;
+sdl-limit-same | src/body_sdls.c | if (after.x == before.x && after.y == before.y && after.z == before.z && | if (false &&
+sdl-most | src/body_sdls.c | float most = 0.5f * part.mean; | float most = 1e30f;
+sdl-stretch | src/body_sdls.c | if (count == 0 || solve->stretch) | if (count == 0)
+sdl-stop | src/body_sdls.c | for (uint32_t i = 0; i < solve->iterations && maniBodyMiss(&part) > solve->tolerance; ++i) | for (uint32_t i = 0; i < solve->iterations; ++i)
+sdl-zero-a | src/body_sdls.c | s.a[k] = 0.0f; | (void)0;
+bik-miss-turns | src/body_ik.c | if (goal->turns == 0) | if (true)
+bik-miss-reach | src/body_ik.c | goal->reach = goal->reach > part->mean ? goal->reach : part->mean; | (void)0;

@@ -231,8 +231,7 @@ static float Miss(maniBodyPart* part, const maniBodySolve* solve, const Bodies* 
     float worst = 0.0f;
     for (uint32_t e = 0; e < part->effectors; ++e)
     {
-        const maniBodyGoal* goal = &part->goals[e];
-        float miss = maniVec3Length(maniVec3Sub(b->placed[goal->node], goal->position));
+        float miss = maniBodyGoalMiss(part, e, b->placed[part->goals[e].node]);
         worst = miss > worst ? miss : worst;
     }
     return worst;

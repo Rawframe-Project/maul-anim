@@ -62,7 +62,12 @@ typedef struct maniBodyGoal
     maniVec3 position;
     // Its bone's slot on the part.
     uint32_t node;
-    uint32_t reserved;
+    // Whether it wants a rotation (a rotation weight above 0).
+    uint32_t turns;
+    // The summed offsets from the top to its bone, no less than the
+    // part's mean offset: what a rotation miss is a length by.
+    float reach;
+    float reserved;
 } maniBodyGoal;
 
 // The solved part in the caller's scratch.
@@ -74,6 +79,9 @@ typedef struct maniBodyPart
     float* room;
     uint32_t count;
     uint32_t effectors;
+    // The mean of the part's nonzero offsets (1 for none).
+    float mean;
+    float reserved;
 } maniBodyPart;
 
 // The part's size in nodes for a solve valid on the skeleton, 0 for one
@@ -112,7 +120,12 @@ void maniBodyTurn(maniBodyPart* part, uint32_t k, maniQuat turn);
 // Node k's local rotation now, from its turn and its parent's.
 maniQuat maniBodyLocal(const maniBodyPart* part, uint32_t k);
 
-// The largest distance from an effector's origin to its goal.
+// Effector e's miss with its bone's origin at origin: the larger of its
+// distance from the goal and, wanting a rotation, its rotation's angle
+// from the goal's times its reach.
+float maniBodyGoalMiss(const maniBodyPart* part, uint32_t e, maniVec3 origin);
+
+// The largest effector miss.
 float maniBodyMiss(const maniBodyPart* part);
 
 // Takes the steps before the solve: preferred angles by compression,
