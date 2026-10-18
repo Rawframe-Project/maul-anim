@@ -3087,3 +3087,73 @@ gch-rotation-weight | src/graph_chain.c | if (!WeightValid(g, data + maniGraphCh
 gch-limits-loop | src/graph_chain.c | uint32_t wrong = LimitValid(g, data, k); | uint32_t wrong = UINT32_MAX;
 gev-limit-path | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (false)
 gev-limit-none | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (count + 1 != path)
+bik-unit | src/body_ik.c | return v >= 0.0f && v <= 1.0f; | return v >= 0.0f;
+bik-find-eq | src/body_ik.c | return low < count && list[low] == bone ? low : count; | return low < count ? low : count;
+bik-add-full | src/body_ik.c | if (*count == MANI_BODY_IK_MAX_BONES) | if (false)
+bik-below-top | src/body_ik.c | if (b >= n || (b != solve->top && !maniIkAbove(skeleton, solve->top, b))) | if (b >= n)
+bik-axis-several | src/body_ik.c | if (child != MANI_BODY_NONE) | if (false)
+bik-eff-rotation | src/body_ik.c | float length = sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w); | float length = 1.0f;
+bik-set-off-part | src/body_ik.c | if (slot == count || !maniIkLimitValid(&s->limit) || !FiniteVec(s->preferred) || | if (!maniIkLimitValid(&s->limit) || !FiniteVec(s->preferred) ||
+bik-set-hinge | src/body_ik.c | maniVec3Length(maniVec3Cross(s->limit.axis, axis)) >= 1e-3f; | true;
+# Kept: no effector leaves the part empty, refused anyway; the check
+# names the refusal.
+bik-head-count | src/body_ik.c | return solve->effectors != NULL && solve->effectorCount >= 1 && | return solve->effectors != NULL &&
+bik-head-max | src/body_ik.c | solve->effectorCount <= MANI_BODY_IK_MAX_EFFECTORS && | true &&
+bik-head-bones | src/body_ik.c | (solve->bones != NULL || solve->boneCount == 0) && | true &&
+bik-head-mode | src/body_ik.c | solve->topMode <= maniBodyTopPrePull; | true;
+bik-eff-twice | src/body_ik.c | count = solve->effectors[f].bone == solve->effectors[e].bone ? 0 : count; | count = count;
+bik-eff-valid | src/body_ik.c | count = EffectorValid(&solve->effectors[e]) ? count : 0; | count = count;
+bik-set-twice | src/body_ik.c | count = solve->bones[t].bone == solve->bones[s].bone ? 0 : count; | count = count;
+bik-align | src/body_ik.c | if (pose == NULL || skeleton == NULL || scratch == NULL || ((uintptr_t)scratch & 15u) != 0 || | if (pose == NULL || skeleton == NULL || scratch == NULL ||
+bik-scratch-size | src/body_ik.c | return count > 0 && scratchSize >= ScratchBytes(count, solve->effectorCount) ? count : 0; | return count;
+bik-place-turn | src/body_ik.c | node->origin = maniVec3Add(parent->origin, maniQuatRotate(parent->turn, node->offset)); | node->origin = maniVec3Add(parent->origin, node->offset);
+bik-miss-max | src/body_ik.c | worst = miss > worst ? miss : worst; | worst = miss;
+bik-goal-weight | src/body_ik.c | goal->position = maniVec3Add(from, maniVec3Scale(maniVec3Sub(to, from), w)); | goal->position = to;
+bik-turn-below | src/body_ik.c | uint32_t end = k + 1 + part->nodes[k].below; | uint32_t end = k + 1;
+bik-comp-range | src/body_ik.c | if (goal->node <= k || goal->node > k + node->below) | if (goal->node <= k)
+bik-comp-clamp | src/body_ik.c | c = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c); | c = c > 1.0f ? 1.0f : c;
+bik-pref-skip | src/body_ik.c | if (s == NULL || compression[k] == 0.0f || s->rotationStiffness >= 1.0f) | if (s == NULL || compression[k] == 0.0f)
+# Kept: a pull chain reaches a held top only when the top is the
+# effector, whose arc from its own origin is none.
+bik-turns-top | src/body_ik.c | return (k != 0 || solve->topMode == maniBodyTopFree) && | return true &&
+bik-pull-branch | src/body_ik.c | while (k != 0 && part->nodes[part->nodes[k].parent].children == 1 && | while (k != 0 &&
+bik-pull-weight | src/body_ik.c | maniQuat arc = maniIkWeighted(maniQuatBetween(now, wanted), solve->effectors[e].pullChain); | maniQuat arc = maniQuatBetween(now, wanted);
+bik-pre-reach | src/body_ik.c | if (distance > reach && strength > 0.0f) | if (strength > 0.0f)
+bik-pre-excess | src/body_ik.c | sum = maniVec3Add(sum, maniVec3Scale(line, strength * (distance - reach) / distance)); | sum = maniVec3Add(sum, maniVec3Scale(line, strength));
+bik-pre-mode | src/body_ik.c | if (solve->topMode == maniBodyTopPrePull) | if (false)
+# Kept: maniIkLimit gives a limit of no kind's turn back unchanged,
+# so the early return only saves the work.
+bik-limit-none | src/body_ik.c | if (s == NULL || s->limit.kind == maniJointLimitNone) | if (s == NULL)
+bik-limit-same | src/body_ik.c | if (limited.x == r.x && limited.y == r.y && limited.z == r.z && limited.w == r.w) | if (false)
+bik-limit-parent | src/body_ik.c | maniQuatMul(parentTurn, maniIkFromParent(correction, &node->parentFrame))); | maniIkFromParent(correction, &node->parentFrame));
+bik-vec-turn | src/body_ik.c | d = maniQuatRotate(maniQuatConjugate(part->nodes[node->parent].turn), d); | (void)0;
+bik-reached-weight | src/body_ik.c | bool reached = maniBodyMiss(part) <= solve->tolerance && solve->weight >= 1.0f; | bool reached = maniBodyMiss(part) <= solve->tolerance;
+bik-fin-locked | src/body_ik.c | bool locked = s != NULL && s->rotationStiffness >= 1.0f; | bool locked = false;
+bik-fin-unturned | src/body_ik.c | if (!locked && (relative.x != 0.0f || relative.y != 0.0f || relative.z != 0.0f)) | if (!locked)
+bik-fin-stretch | src/body_ik.c | if ((k == 0 || solve->stretch) && maniVec3Dot(moved, moved) > 0.0f) | if (k == 0 && maniVec3Dot(moved, moved) > 0.0f)
+bik-fin-weight | src/body_ik.c | maniVec3 d = maniVec3Scale(InParentVector(part, k, moved), solve->weight); | maniVec3 d = InParentVector(part, k, moved);
+bxp-zero-joint | src/body_xpbd.c | b.joint[k] = 0.0f; | (void)0;
+bxp-zero-pull | src/body_xpbd.c | b.pull[e] = 0.0f; | (void)0;
+bxp-leaf | src/body_xpbd.c | b->inverseInertia[k] = part->nodes[k].children == 0 && square > b->inverseInertia[k] | b->inverseInertia[k] = false
+bxp-floor | src/body_xpbd.c | square = square > 0.01f * mean * mean ? square : 0.01f * mean * mean; | square = square > 0.0f ? square : 1.0f;
+bxp-held | src/body_xpbd.c | bool held = k == 0 && solve->topMode != maniBodyTopFree; | bool held = false;
+bxp-free-held | src/body_xpbd.c | bool held = k == 0 && solve->topMode != maniBodyTopFree; | bool held = k == 0;
+bxp-inertia | src/body_xpbd.c | b->inverseInertia[k] = held ? 0.0f : 2.0f / square; | b->inverseInertia[k] = held ? 0.0f : 1.0f / square;
+bxp-compliance | src/body_xpbd.c | return (1.0f - strength) / strength; | return 0.0f;
+bxp-eff-mass | src/body_xpbd.c | if (c > 0.0f && m > 0.0f) | if (c > 0.0f)
+bxp-eff-lambda | src/body_xpbd.c | float dl = (-c - alpha * b->pull[2u * e]) / (m + alpha); | float dl = -c / (m + alpha);
+bxp-eff-rot-off | src/body_xpbd.c | if (!(effector->rotationWeight > 0.0f) || !(inertia > 0.0f)) | if (true)
+bxp-eff-rot-lambda | src/body_xpbd.c | float dl = (-c - alpha * b->pull[2u * e + 1u]) / (inertia + alpha); | float dl = -c / (inertia + alpha);
+bxp-joint-stretch | src/body_xpbd.c | float alpha = solve->stretch ? 1.0f - (s != NULL ? s->positionStiffness : 0.0f) : 0.0f; | float alpha = solve->stretch ? 1.0f : 0.0f;
+bxp-joint-turned | src/body_xpbd.c | maniVec3 r = maniQuatRotate(parent->turn, child->offset); | maniVec3 r = child->offset;
+bxp-joint-mass | src/body_xpbd.c | child->origin = maniVec3Add(child->origin, maniVec3Scale(impulse, b->inverseMass[k])); | (void)0;
+bxp-joint-parent | src/body_xpbd.c | parent->origin = maniVec3Sub(parent->origin, maniVec3Scale(impulse, b->inverseMass[p])); | (void)0;
+bxp-joint-spin | src/body_xpbd.c | Spin(parent, maniVec3Scale(maniVec3Cross(r, impulse), -b->inverseInertia[p])); | (void)0;
+bxp-stiff-skip | src/body_xpbd.c | if (s == NULL || !(s->rotationStiffness > 0.0f) || !(w > 0.0f)) | if (true)
+bxp-stiff-child | src/body_xpbd.c | Spin(child, maniVec3Scale(v, -dl * b->inverseInertia[k] / c)); | (void)0;
+bxp-stiff-parent | src/body_xpbd.c | Spin(parent, maniVec3Scale(v, dl * b->inverseInertia[p] / c)); | (void)0;
+bxp-miss-stretch | src/body_xpbd.c | return maniBodyMiss(part); | return 0.0f;
+bxp-miss-max | src/body_xpbd.c | worst = miss > worst ? miss : worst; | worst = miss;
+bxp-lock | src/body_xpbd.c | part->nodes[k].turn = part->nodes[part->nodes[k].parent].turn; | (void)0;
+bxp-stop | src/body_xpbd.c | for (uint32_t i = 0; i < solve->iterations && Miss(&part, solve, &b) > solve->tolerance; ++i) | for (uint32_t i = 0; i < solve->iterations; ++i)
+bxp-strength-zero | src/body_xpbd.c | if (solve->effectors[e].strength > 0.0f) | if (true)

@@ -1,185 +1,39 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body XPBD solve (mani-0031) on a figure of hips, spine,
-// chest, two arms of three bones and a leg of three: both hands at
-// reachable goals reached with every length kept; a solve on its own
-// reached result unchanged bit for bit; weight 0 and strength 0
-// leaving the pose; a locked forearm keeping its local rotation; a cone
-// on a forearm never exceeded; a hand taking a wanted rotation; a goal
-// out of reach: stretch, a free top and pre-pull each bringing the hand
-// closer (pre-pull moving the top unturned); a pulled chain starting
-// closer; preferred angles choosing a straight leg's bend; a stiff spine
-// turning less; goals at the hips and nearly every bone locked without
-// a NaN; the scratch size and its refusals; the description's refusals.
+// The full-body XPBD solve (mani-0031) on the figure (body_figure.h):
+// both hands at reachable goals reached with every length kept; a solve
+// on its own reached result unchanged bit for bit; weight 0 and
+// strength 0 leaving the pose; a locked forearm keeping its local
+// rotation, its hand reached where the pose puts it; a cone on a
+// forearm held, wider limits changing no bit; a hand taking a wanted
+// rotation; a goal out of reach: stretch, a free top and pre-pull each
+// bringing the hand closer; stretching, a reached hand where the pose
+// puts it, position stiffness 1 keeping lengths against a compliant
+// effector, strength 0 leaving the pose; a free top at weight 0.5
+// moving half as far; one unreached effector or weight 0.5 not reached;
+// a position weight of 0.5 stopping halfway; a weaker effector stopping
+// further against stiff bones; a stiff spine turning less; a solve short
+// of convergence pinned with and without stretch, the same on reused
+// scratch; an effector on the held top; goals at the hips and nearly
+// every bone locked without a NaN; the scratch size and its refusals;
+// the description's refusals.
 
-#include "test_harness.h"
+#include "body_figure.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/bodyik.h"
-#include "maul-anim/build.h"
 #include "maul-anim/ik.h"
 #include "maul-anim/pose.h"
-#include "maul-anim/skeleton.h"
 
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
-#define BONES 13u
-
-enum
-{
-    kRoot,
-    kHips,
-    kSpine,
-    kChest,
-    kArmL,
-    kForeL,
-    kHandL,
-    kArmR,
-    kForeR,
-    kHandR,
-    kThigh,
-    kShin,
-    kFoot,
-};
-
-static _Alignas(16) uint8_t s_skeletonFile[8192];
-static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_memory[2][8192];
-static _Alignas(16) uint8_t s_scratch[65536];
-static maniSkeleton s_skeleton;
-static maniPose* s_pose;
-static maniPose* s_other;
-
-static maniQuat Turn(maniVec3 axis, float angle)
-{
-    float s = sinf(0.5f * angle);
-    return (maniQuat){axis.x * s, axis.y * s, axis.z * s, cosf(0.5f * angle)};
-}
-
-static float Distance(maniVec3 a, maniVec3 b)
-{
-    float x = a.x - b.x;
-    float y = a.y - b.y;
-    float z = a.z - b.z;
-    return sqrtf(x * x + y * y + z * z);
-}
-
-static float Angle(maniQuat a, maniQuat b)
-{
-    float d = fabsf(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
-    return 2.0f * acosf(d > 1.0f ? 1.0f : d);
-}
-
-static maniVec3 At(maniPose* pose, uint32_t bone)
-{
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "the model");
-    return maniPoseModelTransform(pose, bone).translation;
-}
-
-static void Setup(void)
-{
-    static const char* const kNames[BONES] = {"root",  "hips",  "spine", "chest", "armL",
-                                              "foreL", "handL", "armR",  "foreR", "handR",
-                                              "thigh", "shin",  "foot"};
-    static const int32_t kParents[BONES] = {-1, 0, 1, 2, 3, 4, 5, 3, 7, 8, 1, 10, 11};
-    static const maniVec3 kOffsets[BONES] = {
-        {0.0f, 0.0f, 0.0f},  {0.0f, 1.0f, 0.0f},   {0.0f, 0.2f, 0.0f},  {0.0f, 0.25f, 0.0f},
-        {0.15f, 0.2f, 0.0f}, {0.3f, 0.0f, 0.0f},   {0.25f, 0.0f, 0.0f}, {-0.15f, 0.2f, 0.0f},
-        {-0.3f, 0.0f, 0.0f}, {-0.25f, 0.0f, 0.0f}, {0.1f, -0.1f, 0.0f}, {0.0f, -0.45f, 0.0f},
-        {0.0f, -0.45f, 0.0f}};
-    maniBoneSource bones[BONES];
-    for (uint32_t b = 0; b < BONES; ++b)
-    {
-        bones[b] = (maniBoneSource){kNames[b],
-                                    (uint32_t)strlen(kNames[b]),
-                                    kParents[b],
-                                    {kOffsets[b], {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
-    }
-    maniBuilderDef def = maniDefaultBuilderDef();
-    maniBuilder* builder = NULL;
-    maniSkeletonSource source = {bones, BONES, 0};
-    size_t size = 0;
-    CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
-              maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
-                  mani_success &&
-              maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
-          "the skeleton");
-    maniDestroyBuilder(builder);
-    CHECK(maniInitPose(&s_skeleton, s_memory[0], sizeof s_memory[0], &s_pose) == mani_success &&
-              maniInitPose(&s_skeleton, s_memory[1], sizeof s_memory[1], &s_other) == mani_success,
-          "the poses");
-}
-
-// The figure at rest, its arms and leg bent a little.
-static void Bent(maniPose* pose)
-{
-    CHECK(maniPoseSetRest(pose, &s_skeleton) == mani_success, "rest");
-    const uint32_t bent[4] = {kForeL, kForeR, kShin, kSpine};
-    for (int k = 0; k < 4; ++k)
-    {
-        maniTransform t = maniPoseLocal(pose, bent[k]);
-        t.rotation = Turn((maniVec3){0.0f, 0.6f, 0.8f}, 0.3f);
-        maniPoseSetLocal(pose, bent[k], t);
-    }
-}
-
-static maniBodyEffector s_effectors[2];
-
-// Both hands toward goals, from the hips, pinned.
-static maniBodySolve Solve(maniVec3 left, maniVec3 right)
-{
-    s_effectors[0] = (maniBodyEffector){.bone = kHandL,
-                                        .position = left,
-                                        .rotation = {0.0f, 0.0f, 0.0f, 1.0f},
-                                        .positionWeight = 1.0f,
-                                        .strength = 1.0f};
-    s_effectors[1] = s_effectors[0];
-    s_effectors[1].bone = kHandR;
-    s_effectors[1].position = right;
-    return (maniBodySolve){.top = kHips,
-                           .topMode = maniBodyTopPinned,
-                           .effectors = s_effectors,
-                           .effectorCount = 2,
-                           .iterations = 128,
-                           .tolerance = 1e-3f,
-                           .weight = 1.0f};
-}
-
-static bool Solved(maniPose* pose, const maniBodySolve* s, bool* reached)
-{
-    size_t size = maniBodyIkScratchSize(&s_skeleton, s);
-    return size > 0 && size <= sizeof s_scratch &&
-           maniSolveBodyXpbd(pose, &s_skeleton, s, s_scratch, size, reached) == mani_success;
-}
-
-static bool LengthsKept(maniPose* pose, maniPose* input)
-{
-    bool kept = true;
-    for (uint32_t b = 2; b < BONES; ++b)
-    {
-        uint32_t p = maniSkeletonParent(&s_skeleton, b);
-        float now = Distance(At(pose, b), At(pose, p));
-        float was = Distance(At(input, b), At(input, p));
-        kept = kept && fabsf(now - was) < 1e-5f;
-    }
-    return kept;
-}
-
-static bool Same(const maniPose* a, const maniPose* b)
-{
-    bool same = true;
-    for (uint32_t k = 0; k < BONES; ++k)
-    {
-        maniTransform x = maniPoseLocal(a, k);
-        maniTransform y = maniPoseLocal(b, k);
-        same = same && memcmp(&x, &y, sizeof x) == 0;
-    }
-    return same;
-}
+#define PINNED_XPBD_HASH    0x5a53c9fc1d9f9338ull
+#define PINNED_STRETCH_HASH 0x93daaf7ec7c39085ull
 
 static void TestReach(void)
 {
@@ -233,6 +87,8 @@ static void TestLockAndLimit(void)
     maniQuat locked[2] = {maniPoseLocal(s_pose, kForeL).rotation,
                           maniPoseLocal(s_other, kForeL).rotation};
     CHECK(memcmp(&locked[0], &locked[1], sizeof locked[0]) == 0, "the locked forearm kept");
+    CHECK(Distance(At(s_pose, kHandL), s_effectors[0].position) <= 1e-3f,
+          "the hand under a locked forearm reached where the pose puts it");
     maniQuat t = maniPoseLocal(s_pose, kForeR).rotation;
     t = t.w < 0.0f ? (maniQuat){-t.x, -t.y, -t.z, -t.w} : t;
     // The forearm's axis is the hand's direction at rest, -x.
@@ -254,14 +110,6 @@ static void TestRotation(void)
           "a rotation goal");
     CHECK(Angle(maniPoseModelTransform(s_pose, kHandL).rotation, s_effectors[0].rotation) < 1e-2f,
           "the hand takes the wanted rotation");
-}
-
-// The left hand alone toward goal, from the hips.
-static maniBodySolve Left(maniVec3 goal)
-{
-    maniBodySolve s = Solve(goal, goal);
-    s.effectorCount = 1;
-    return s;
 }
 
 static void TestStretchAndTop(void)
@@ -364,16 +212,189 @@ static void TestStiffness(void)
     CHECK(free > 1e-2f && held < 0.5f * free, "a stiff spine turns less");
 }
 
-static bool Finite(const maniPose* pose)
+// An unreached left hand before a reached right: not reached; weight
+// 0.5: not reached; a position weight of 0.5: the hand halfway.
+static void TestReachedAndWeights(void)
 {
-    bool finite = true;
-    for (uint32_t b = 0; b < BONES; ++b)
+    Bent(s_pose);
+    maniBodySolve s = Solve((maniVec3){1.8f, 1.5f, 0.2f}, (maniVec3){-0.5f, 1.6f, 0.2f});
+    bool r = true;
+    CHECK(Solved(s_pose, &s, &r) && !r, "one hand out of reach: not reached");
+    Bent(s_pose);
+    s = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
+    s.weight = 0.5f;
+    r = true;
+    CHECK(Solved(s_pose, &s, &r) && !r, "weight 0.5: not reached");
+    Bent(s_pose);
+    Bent(s_other);
+    maniVec3 from = At(s_other, kHandL);
+    maniVec3 to = {0.6f, 1.2f, 0.3f};
+    s = Left(to);
+    s_effectors[0].positionWeight = 0.5f;
+    CHECK(Solved(s_pose, &s, NULL), "a position weight of 0.5");
+    maniVec3 half = {0.5f * (from.x + to.x), 0.5f * (from.y + to.y), 0.5f * (from.z + to.z)};
+    CHECK(Distance(At(s_pose, kHandL), half) <= 1e-3f, "the hand halfway");
+}
+
+// Cones and twists wider than any turn change no bit.
+static void TestWideLimits(void)
+{
+    Bent(s_pose);
+    Bent(s_other);
+    maniBodySolve s = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
+    s.iterations = 16;
+    CHECK(Solved(s_other, &s, NULL), "unlimited");
+    maniBodyBone wide[2];
+    const uint32_t fore[2] = {kForeL, kForeR};
+    for (int k = 0; k < 2; ++k)
     {
-        maniTransform t = maniPoseLocal(pose, b);
-        finite = finite && isfinite(t.rotation.x) && isfinite(t.rotation.w) &&
-                 isfinite(t.translation.x) && isfinite(t.translation.y);
+        wide[k] = (maniBodyBone){
+            .bone = fore[k],
+            .limit = {
+                .kind = maniJointLimitCone, .cone = 3.1f, .twistLow = -3.1f, .twistHigh = 3.1f}};
     }
-    return finite;
+    s.bones = wide;
+    s.boneCount = 2;
+    CHECK(Solved(s_pose, &s, NULL) && Same(s_pose, s_other), "wide limits change no bit");
+}
+
+static void TestStretchDetails(void)
+{
+    maniVec3 goal = {0.6f, 1.2f, 0.3f};
+    Bent(s_pose);
+    maniBodySolve s = Left(goal);
+    s.stretch = true;
+    bool r = false;
+    CHECK(Solved(s_pose, &s, &r) && r && Distance(At(s_pose, kHandL), goal) <= 1e-3f,
+          "stretching, a reached hand where the pose puts it");
+    maniVec3 far = {1.8f, 1.5f, 0.2f};
+    Bent(s_pose);
+    Bent(s_other);
+    s = Left(far);
+    s.stretch = true;
+    maniBodyBone held[5];
+    const uint32_t part[5] = {kSpine, kChest, kArmL, kForeL, kHandL};
+    for (int k = 0; k < 5; ++k)
+    {
+        held[k] = (maniBodyBone){.bone = part[k], .positionStiffness = 1.0f};
+    }
+    s.bones = held;
+    s.boneCount = 5;
+    s.iterations = 256;
+    // A compliant effector: hard joints and a hard effector out of reach
+    // pull against each other without end.
+    s_effectors[0].strength = 0.5f;
+    CHECK(Solved(s_pose, &s, NULL), "stretch held by position stiffness");
+    float worst = 0.0f;
+    for (int k = 0; k < 5; ++k)
+    {
+        uint32_t p = maniSkeletonParent(&s_skeleton, part[k]);
+        float now = Distance(At(s_pose, part[k]), At(s_pose, p));
+        float was = Distance(At(s_other, part[k]), At(s_other, p));
+        worst = fmaxf(worst, fabsf(now - was));
+    }
+    CHECK(worst < 1e-2f, "position stiffness 1 keeps lengths");
+    Bent(s_pose);
+    s = Left(far);
+    s.stretch = true;
+    s_effectors[0].strength = 0.0f;
+    CHECK(Solved(s_pose, &s, NULL) && Finite(s_pose) && Same(s_pose, s_other),
+          "strength 0 with stretch leaves the pose");
+}
+
+// A free top at weight 0.5 moves half as far as at 1.
+static void TestHalfMove(void)
+{
+    maniVec3 far = {1.8f, 1.5f, 0.2f};
+    Bent(s_pose);
+    maniBodySolve s = Left(far);
+    s.topMode = maniBodyTopFree;
+    CHECK(Solved(s_pose, &s, NULL), "a free top");
+    maniVec3 full = maniPoseLocal(s_pose, kHips).translation;
+    Bent(s_pose);
+    Bent(s_other);
+    s.weight = 0.5f;
+    CHECK(Solved(s_pose, &s, NULL), "half of it");
+    maniVec3 was = maniPoseLocal(s_other, kHips).translation;
+    maniVec3 half = maniPoseLocal(s_pose, kHips).translation;
+    maniVec3 want = {was.x + 0.5f * (full.x - was.x), was.y + 0.5f * (full.y - was.y),
+                     was.z + 0.5f * (full.z - was.z)};
+    CHECK(Distance(half, want) < 1e-6f, "the top moved half as far");
+}
+
+// Strength against stiff arm bones: the weaker effector stops short.
+static void TestStrength(void)
+{
+    maniVec3 goal = {0.9f, 1.1f, 0.5f};
+    maniBodyBone stiff[2] = {{.bone = kArmL, .rotationStiffness = 0.5f},
+                             {.bone = kForeL, .rotationStiffness = 0.5f}};
+    float miss[2];
+    const float strengths[2] = {1.0f, 0.3f};
+    for (int k = 0; k < 2; ++k)
+    {
+        Bent(s_pose);
+        maniBodySolve s = Left(goal);
+        s_effectors[0].strength = strengths[k];
+        s.bones = stiff;
+        s.boneCount = 2;
+        s.iterations = 256;
+        s.tolerance = 0.0f;
+        CHECK(Solved(s_pose, &s, NULL), "against stiffness");
+        miss[k] = Distance(At(s_pose, kHandL), goal);
+    }
+    CHECK(miss[1] > miss[0] + 1e-3f, "a weaker effector stops further from its goal");
+}
+
+// Every compliance, a stiffness, a limit and a rotation weight, short
+// of convergence, without stretch and twice with it on the same
+// scratch: the second the same as the first, both pinned.
+static void TestPinned(void)
+{
+    uint64_t hashes[3];
+    for (int run = 0; run < 3; ++run)
+    {
+        Bent(s_pose);
+        maniBodySolve s = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
+        s_effectors[0].strength = 0.5f;
+        s_effectors[1].strength = 0.8f;
+        s_effectors[1].rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, -0.8f);
+        s_effectors[1].rotationWeight = 0.5f;
+        maniBodyBone bones[2] = {
+            {.bone = kSpine, .rotationStiffness = 0.5f},
+            {.bone = kForeR,
+             .limit = {
+                 .kind = maniJointLimitCone, .cone = 0.4f, .twistLow = -0.2f, .twistHigh = 0.2f}}};
+        s.bones = bones;
+        s.boneCount = 2;
+        s.iterations = 16;
+        s.tolerance = 0.0f;
+        s.stretch = run > 0;
+        CHECK(Solved(s_pose, &s, NULL), "the pinned solve");
+        hashes[run] = MANI_HASH_INIT;
+        for (uint32_t b = 0; b < BONES; ++b)
+        {
+            maniTransform t = maniPoseLocal(s_pose, b);
+            hashes[run] = maniHash64(hashes[run], &t, (int32_t)sizeof t);
+        }
+    }
+    CHECK(hashes[2] == hashes[1], "a second solve on the same scratch the same");
+    CHECK(hashes[0] == PINNED_XPBD_HASH && hashes[1] == PINNED_STRETCH_HASH,
+          "the same bits on every platform");
+    if (hashes[0] != PINNED_XPBD_HASH || hashes[1] != PINNED_STRETCH_HASH)
+    {
+        printf("pinned 0x%016llx 0x%016llx\n", (unsigned long long)hashes[0],
+               (unsigned long long)hashes[1]);
+    }
+    Bent(s_pose);
+    maniBodySolve s = Solve(At(s_pose, kHandL), (maniVec3){-0.5f, 1.6f, 0.2f});
+    maniBodyEffector both[2] = {s_effectors[0], s_effectors[1]};
+    both[0].bone = kHips;
+    both[0].position = (maniVec3){0.5f, 0.5f, 0.5f};
+    s.effectors = both;
+    Bent(s_other);
+    CHECK(Solved(s_pose, &s, NULL) && Finite(s_pose), "an effector on the held top");
+    maniTransform hips[2] = {maniPoseLocal(s_pose, kHips), maniPoseLocal(s_other, kHips)};
+    CHECK(memcmp(&hips[0], &hips[1], sizeof hips[0]) == 0, "the held top unmoved");
 }
 
 static void TestEdges(void)
@@ -504,6 +525,12 @@ int main(void)
     TestPullChain();
     TestPreferred();
     TestStiffness();
+    TestReachedAndWeights();
+    TestWideLimits();
+    TestStretchDetails();
+    TestHalfMove();
+    TestStrength();
+    TestPinned();
     TestEdges();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
