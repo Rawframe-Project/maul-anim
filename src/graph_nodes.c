@@ -288,6 +288,9 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
         return type == maniGraphParameterInt || type == maniGraphParameterBool ? UINT32_MAX : d;
     case maniGraphNodeTimeScale:
         return ScalarsValid(g, d, 1, -HUGE_VALF, HUGE_VALF);
+    case maniGraphNodePose:
+        type = Word(g, d) < g->parameterCount ? ParameterType(g, Word(g, d)) : UINT32_MAX;
+        return type == maniGraphParameterPose ? UINT32_MAX : d;
     case maniGraphNodeBlendSpace1D:
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
@@ -312,7 +315,8 @@ static uint32_t NodeFlags(const maniGraph* g, uint32_t p)
 // Whether a node gives differences as its inputs (or clip) make it.
 static bool KindValid(const maniGraph* g, const Node* n)
 {
-    if (n->kind == maniGraphNodeMatch || n->kind == maniGraphNodeLearned)
+    if (n->kind == maniGraphNodeMatch || n->kind == maniGraphNodeLearned ||
+        n->kind == maniGraphNodePose)
     {
         return n->flags == 0;
     }
@@ -350,7 +354,7 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     uint32_t low = 0;
     uint32_t high = maniGraphInputRange(n->kind, &low);
     if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch &&
-        n->kind != maniGraphNodeLearned && high == 0)
+        n->kind != maniGraphNodeLearned && n->kind != maniGraphNodePose && high == 0)
     {
         return Fail(n->at);
     }

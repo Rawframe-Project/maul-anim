@@ -115,7 +115,8 @@ static maniBuildResult Order(const maniGraphSource* source, Work* w)
 static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
 {
     const maniGraphNodeSource* node = &source->nodes[v];
-    if (node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned)
+    if (node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned ||
+        node->kind == maniGraphNodePose)
     {
         w->difference[v] = 0;
         return Outcome(mani_success);
@@ -538,6 +539,10 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     else if (node->kind == maniGraphNodeSelect)
     {
         at = PutWords(d, at, &node->select.parameter, 1);
+    }
+    else if (node->kind == maniGraphNodePose)
+    {
+        at = PutWords(d, at, &node->pose.parameter, 1);
     }
     else if (node->kind == maniGraphNodeTimeScale)
     {

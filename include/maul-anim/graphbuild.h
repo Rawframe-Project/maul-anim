@@ -468,6 +468,16 @@ extern "C"
         uint32_t force;
     } maniGraphSpringNodeSource;
 
+    // A pose input node (mani-0027): no inputs, the pose its pose
+    // parameter holds as the host last set it (the skeleton's rest until
+    // set). Blended over the animation by a blend or mask node, it lays a
+    // ragdoll over the whole body or part of it; an inertialize node
+    // above eases the way back.
+    typedef struct maniGraphPoseNodeSource
+    {
+        uint32_t parameter;
+    } maniGraphPoseNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -553,6 +563,7 @@ extern "C"
             maniGraphMatchNodeSource match;
             maniGraphLearnedNodeSource learned;
             maniGraphSpringNodeSource spring;
+            maniGraphPoseNodeSource pose;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;

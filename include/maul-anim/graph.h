@@ -127,6 +127,9 @@ extern "C"
         // A spring bone node: its input with a spring set's joints turned
         // toward their tails, which sway behind its motion.
         maniGraphNodeSpring = 16,
+        // A pose input node: the pose a pose parameter holds (a
+        // ragdoll's, say); no inputs.
+        maniGraphNodePose = 17,
     };
 
 // The most steps of its model a learned node takes in one update: a

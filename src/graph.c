@@ -39,6 +39,8 @@ uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount)
         return MANI_GRAPH_TIME_SCALE_WORDS;
     case maniGraphNodeSeek:
         return MANI_GRAPH_SEEK_WORDS;
+    case maniGraphNodePose:
+        return MANI_GRAPH_POSE_WORDS;
     case maniGraphNodeInertialize:
         return MANI_GRAPH_INERTIA_WORDS;
     case maniGraphNodeSpring:
@@ -62,6 +64,7 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeClip:
     case maniGraphNodeMatch:
     case maniGraphNodeLearned:
+    case maniGraphNodePose:
         *minOut = 0;
         return 0;
     case maniGraphNodeMask:

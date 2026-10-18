@@ -479,6 +479,11 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
                    : maniGraphRefuse(maniBuildReasonNode, node, 0);
     case maniGraphNodeTimeScale:
         return CheckScalar(source, n->timeScale.scale, node, 0, -HUGE_VALF, HUGE_VALF);
+    case maniGraphNodePose:
+        return ParameterOf(source, n->pose.parameter, maniGraphParameterPose,
+                           maniGraphParameterPose)
+                   ? Outcome(mani_success)
+                   : maniGraphRefuse(maniBuildReasonNode, node, 0);
     case maniGraphNodeBlendSpace1D:
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:

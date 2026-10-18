@@ -176,6 +176,10 @@ struct maniGraphInstance
 float* maniGraphPoseLocals(maniGraphInstance* instance, uint32_t parameter);
 const float* maniGraphPoseLocalsRead(const maniGraphInstance* instance, uint32_t parameter);
 
+// A pose parameter's pose into out, a pose of the skeleton: a pose (not
+// differences), its model stale.
+void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, maniPose* out);
+
 // The bytes the instance's room needs: for a learned node, its model's
 // scratch, its state and its Decompressor's outputs after the bones';
 // for a spring node, its set's work area; the most any node takes (a

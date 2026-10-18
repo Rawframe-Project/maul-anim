@@ -121,7 +121,7 @@ static const uint32_t kSubMap[1] = {0};
 static maniGraphParameterSource s_parameters[10];
 static maniGraphClipSource s_clipSlots[2];
 static maniGraphSyncGroupSource s_groups[1];
-static maniGraphNodeSource s_nodes[9];
+static maniGraphNodeSource s_nodes[10];
 static maniGraphScalar s_blendWeights[2];
 static maniGraphScalar s_layerWeights[1];
 static maniMaskChain s_chains[2];
@@ -130,6 +130,7 @@ static const uint32_t kTimeInputs[1] = {2};
 static const uint32_t kSeekInputs[1] = {3};
 static const uint32_t kMaskInputs[2] = {4, 5};
 static const uint32_t kPairInputs[2] = {7, 8};
+static const uint32_t kSelectInputs[2] = {7, 9};
 
 static void Parameters(void)
 {
@@ -187,7 +188,7 @@ static maniGraphSource Source(void)
         (maniGraphNodeSource){maniGraphNodeMask, 2, kMaskInputs, .mask = {s_chains, 2, 0.1f}};
     s_nodes[4] =
         (maniGraphNodeSource){maniGraphNodeBlend, 2, kPairInputs, .blend = {s_blendWeights, 0, 0}};
-    s_nodes[5] = (maniGraphNodeSource){maniGraphNodeSelect, 2, kPairInputs, .select = {1}};
+    s_nodes[5] = (maniGraphNodeSource){maniGraphNodeSelect, 2, kSelectInputs, .select = {1}};
     s_nodes[6] = (maniGraphNodeSource){
         maniGraphNodeClip, 0, NULL,
         .clip = {1, MANI_NO_SYNC_GROUP, LITERAL(1.0f), maniGraphLoopRepeat, 0}};
@@ -196,9 +197,10 @@ static maniGraphSource Source(void)
         .clip = {0, 0, LITERAL(-1.5f), maniGraphLoopClamp, maniGraphClipLeader}};
     s_nodes[8] = (maniGraphNodeSource){(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                        .subgraph = {&s_sub, kSubMap}};
-    return (maniGraphSource){
-        &s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 10,  2, 1, 9, 0,
-        0,           NULL,         0,           0,        NULL,    NULL};
+    s_nodes[9] = (maniGraphNodeSource){maniGraphNodePose, 0, NULL, .pose = {9}};
+    return (maniGraphSource){&s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 10, 2,
+                             1,           10,           0,           0,        NULL,    0,  0,
+                             NULL,        NULL};
 }
 
 static const char kExpected[] =
@@ -237,7 +239,7 @@ static const char kExpected[] =
     "\"defaultWeight\": 0.1},\n"
     "    {\"kind\": \"blend\", \"inputs\": [7, 8], \"weights\": [{\"parameter\": \"mix\"}, 0.75], "
     "\"direct\": false},\n"
-    "    {\"kind\": \"select\", \"inputs\": [7, 8], \"parameter\": \"gait\"},\n"
+    "    {\"kind\": \"select\", \"inputs\": [7, 9], \"parameter\": \"gait\"},\n"
     "    {\"kind\": \"clip\", \"clip\": \"wave\", \"syncGroup\": null, \"speed\": 1, \"loop\": "
     "\"repeat\", \"leader\": false},\n"
     "    {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": \"feet\", \"speed\": -1.5, "
@@ -257,7 +259,8 @@ static const char kExpected[] =
     "{\"parameter\": \"rate\"}, \"loop\": \"clip\", \"leader\": false}\n"
     "      ],\n"
     "      \"output\": 0\n"
-    "    }}\n"
+    "    }},\n"
+    "    {\"kind\": \"pose\", \"parameter\": \"ragdoll\"}\n"
     "  ],\n"
     "  \"output\": 0\n"
     "}\n";

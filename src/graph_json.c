@@ -717,6 +717,10 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutKey(w, "parameter");
         PutParameterName(w, source, n->select.parameter);
         return;
+    case maniGraphNodePose:
+        PutKey(w, "parameter");
+        PutParameterName(w, source, n->pose.parameter);
+        return;
     case maniGraphNodeTimeScale:
         PutKey(w, "scale");
         PutScalar(w, source, n->timeScale.scale);
@@ -773,7 +777,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "inertialize",
                                          "match",
                                          "learned",
-                                         "spring"};
+                                         "spring",
+                                         "pose"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 
@@ -786,7 +791,8 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
     PutText(w, KindName(n->kind));
     PutText(w, "\", ");
     if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch &&
-        n->kind != maniGraphNodeLearned && n->kind != maniGraphNodeSubgraph)
+        n->kind != maniGraphNodeLearned && n->kind != maniGraphNodePose &&
+        n->kind != maniGraphNodeSubgraph)
     {
         PutKey(w, "inputs");
         PutText(w, "[");

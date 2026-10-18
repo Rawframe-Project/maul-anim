@@ -74,7 +74,8 @@ enum
 // Node data words. A clip node: slot, sync group, loop, flags, speed (a
 // scalar). A blend: direct, then a scalar per input. A mask: its mask. An
 // additive node: a scalar per layer. A select: its parameter. A time
-// scale: the scale. A seek: the trigger, then the time. A blend space:
+// scale: the scale. A seek: the trigger, then the time. A pose input:
+// its pose parameter. A blend space:
 // its position (a vec2 parameter or MANI_NO_PARAMETER, then x and y as
 // scalars, literal 0 with a vec2 and a 1D space's y), a word (a 1D
 // space's period, a binary32; a banded space's polar flag; a triangulated
@@ -88,6 +89,7 @@ enum
 #define MANI_GRAPH_SELECT_WORDS     1u
 #define MANI_GRAPH_TIME_SCALE_WORDS 2u
 #define MANI_GRAPH_SEEK_WORDS       3u
+#define MANI_GRAPH_POSE_WORDS       1u
 #define MANI_GRAPH_POSITION_WORDS   5u
 #define MANI_GRAPH_SPACE_WORDS      6u
 // The most triangles that n points (3 or more) can be corners of with no

@@ -656,6 +656,7 @@ static const KindForm kForms[] = {
      {"kind", "inputs", "springSet", "position", "rotation", "reset", "force"},
      7,
      7u},
+    {"pose", maniGraphNodePose, {"kind", "parameter"}, 2, 3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -817,6 +818,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
                        &n->additive.weights);
     case maniGraphNodeSelect:
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->select.parameter);
+    case maniGraphNodePose:
+        return maniGraphJsonRefer(r, &scope->parameters, f[1], &n->pose.parameter);
     case maniGraphNodeTimeScale:
         return maniGraphJsonScalar(r, scope, f[2], &n->timeScale.scale);
     case maniGraphNodeBlendSpace1D:
@@ -872,7 +875,8 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
     *n = (maniGraphNodeSource){0};
     n->kind = k->kind;
     bool takesInputs = k->kind != maniGraphNodeClip && k->kind != maniGraphNodeMatch &&
-                       k->kind != maniGraphNodeLearned && k->kind != maniGraphNodeSubgraph;
+                       k->kind != maniGraphNodeLearned && k->kind != maniGraphNodePose &&
+                       k->kind != maniGraphNodeSubgraph;
     return (!takesInputs || Inputs(r, f[1], n)) && Fields(r, scope, object, f, n);
 }
 

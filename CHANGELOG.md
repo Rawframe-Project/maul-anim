@@ -205,6 +205,11 @@ format.
   (a ragdoll's, say) and reads with `maniGetGraphPose`, the rest pose
   until set; kept in the saved state and checked on restore; written
   and read in the JSON form as `"type": "pose"` with no default.
+- Pose input nodes in graphs (mani-0027): `maniGraphNodePose` gives the
+  pose its pose parameter holds, so a blend node lays a ragdoll over the
+  animation by a weight and a mask node over part of the body; named
+  `"pose"` in the JSON form; inside a subgraph it reads the outer
+  parameter its own maps to.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the

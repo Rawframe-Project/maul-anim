@@ -508,6 +508,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     case maniGraphNodeSpring:
         Spring(e, record, out);
         return;
+    case maniGraphNodePose:
+        maniGraphPoseInput(e->instance, Word(e, maniLoadU32(record + 12)), out);
+        return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);
         return;

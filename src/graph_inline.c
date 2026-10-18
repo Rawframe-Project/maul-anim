@@ -387,6 +387,27 @@ static void RemapLearned(const Scope* s, Flat* f, maniGraphLearnedNodeSource* l,
     l->query = queries > 0 ? to : l->query;
 }
 
+// A blend's or an additive node's weights as the root reads them.
+static void RemapWeights(const Scope* s, Flat* f, maniGraphNodeSource* node)
+{
+    bool blend = node->kind == maniGraphNodeBlend;
+    const maniGraphScalar* from = blend ? node->blend.weights : node->additive.weights;
+    maniGraphScalar* to = f->weights + f->weightCount;
+    for (uint32_t k = 0; k < WeightCount(node) && from != NULL; ++k)
+    {
+        to[k] = Scalar(s, from[k]);
+    }
+    f->weightCount += WeightCount(node);
+    if (blend)
+    {
+        node->blend.weights = from != NULL ? to : NULL;
+    }
+    else
+    {
+        node->additive.weights = from != NULL ? to : NULL;
+    }
+}
+
 // A node's parameters, clip, sync group and weights as the root reads
 // them.
 static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
@@ -406,27 +427,13 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         return;
     case maniGraphNodeBlend:
     case maniGraphNodeAdditive:
-    {
-        bool blend = node->kind == maniGraphNodeBlend;
-        const maniGraphScalar* from = blend ? node->blend.weights : node->additive.weights;
-        maniGraphScalar* to = f->weights + f->weightCount;
-        for (uint32_t k = 0; k < WeightCount(node) && from != NULL; ++k)
-        {
-            to[k] = Scalar(s, from[k]);
-        }
-        f->weightCount += WeightCount(node);
-        if (blend)
-        {
-            node->blend.weights = from != NULL ? to : NULL;
-        }
-        else
-        {
-            node->additive.weights = from != NULL ? to : NULL;
-        }
+        RemapWeights(s, f, node);
         return;
-    }
     case maniGraphNodeSelect:
         node->select.parameter = Resolve(s, node->select.parameter);
+        return;
+    case maniGraphNodePose:
+        node->pose.parameter = Resolve(s, node->pose.parameter);
         return;
     case maniGraphNodeTimeScale:
         node->timeScale.scale = Scalar(s, node->timeScale.scale);

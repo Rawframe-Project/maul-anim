@@ -68,6 +68,15 @@ drives with stiffness, damping and a largest force.
   pose parameter's locals bone by bone after the state machines'
   blocks, checked on restore (every word finite, rotations of length 1
   within a thousandth).
+- **The pose input node:** kind 17, no inputs, one data word (its pose
+  parameter, checked at build and on open), a pose (never differences)
+  copied from the instance's at evaluation. It holds no time: nothing
+  beneath it plays, so it leads no sync group, passes no events and
+  gives no root motion (the ragdoll's placement is the host's). A
+  ragdoll is laid over the animation with the blend node (a weight
+  parameter) or the mask node (a partial ragdoll), with nothing new.
+  A select, weight, blend space position or condition reading a pose
+  parameter is refused, each checking its own types.
 - **Getting up and the OMI importer** follow;
   each part is added to this record as it lands.
 - **Not here:** the solver, collision, creating and stepping the bodies

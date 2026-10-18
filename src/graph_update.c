@@ -426,7 +426,7 @@ static void Weigh(const Update* u)
             ShareSpring(u, record, s);
         }
         else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch &&
-                 kind != maniGraphNodeLearned)
+                 kind != maniGraphNodeLearned && kind != maniGraphNodePose)
         {
             ShareOne(u, record, s);
         }

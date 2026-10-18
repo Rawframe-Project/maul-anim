@@ -441,6 +441,14 @@ maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter
     return mani_success;
 }
 
+void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, maniPose* out)
+{
+    maniPoseSetKind(out, false);
+    memcpy(maniPoseLocals(out), maniGraphPoseLocalsRead(instance, parameter),
+           PoseBytes(instance->binding));
+    maniPoseMarkStale(out);
+}
+
 // A pose parameter of the instance's graph.
 static bool PoseParameter(const maniGraphInstance* instance, uint32_t parameter)
 {
@@ -469,10 +477,7 @@ maniResult maniGetGraphPose(const maniGraphInstance* instance, uint32_t paramete
     {
         return mani_errorInvalid;
     }
-    maniPoseSetKind(poseOut, false);
-    memcpy(maniPoseLocals(poseOut), maniGraphPoseLocalsRead(instance, parameter),
-           PoseBytes(instance->binding));
-    maniPoseMarkStale(poseOut);
+    maniGraphPoseInput(instance, parameter, poseOut);
     return mani_success;
 }
 
