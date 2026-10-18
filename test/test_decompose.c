@@ -7,8 +7,9 @@
 // factor (its transpose times the matrix is symmetric); degenerate
 // matrices still split into finite values; results pinned. The rigid
 // split (mani-0027): without shear, mirrors included, maniDecompose's
-// rotation within rounding; with shear, its bits; the identity for a
-// matrix not finite.
+// rotation within rounding; with shear, a small one in each pair of
+// columns alone among them, its bits; the identity for a matrix not
+// finite.
 
 #include "decompose.h"
 #include "test_harness.h"
@@ -307,6 +308,26 @@ static void TestRigid(void)
             same && maniDecompose(&m, &d) && memcmp(&rotation, &d.rotation, sizeof rotation) == 0;
     }
     CHECK(same, "with shear: maniDecompose's rotation, its bits");
+    // A small shear in one pair of columns only, each pair: still the
+    // iteration's bits (the fast path takes orthogonal columns alone).
+    bool pairs = true;
+    for (int pair = 0; pair < 3; ++pair)
+    {
+        for (int step = 1; step <= 9; ++step)
+        {
+            maniAffine m = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
+            int from = pair == 2 ? 1 : 0;
+            int to = pair == 0 ? 1 : 2;
+            m.m[3 * to + from] = 0.01f * (float)step;
+            maniTransform d = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
+            maniVec3 translation;
+            maniQuat rotation;
+            maniDecomposeRigid(&m, &translation, &rotation);
+            pairs = pairs && maniDecompose(&m, &d) &&
+                    memcmp(&rotation, &d.rotation, sizeof rotation) == 0;
+        }
+    }
+    CHECK(pairs, "a small shear in each pair of columns: maniDecompose's bits");
     maniAffine bad = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
     bad.m[4] = NAN;
     maniVec3 translation;

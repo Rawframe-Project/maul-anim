@@ -1501,7 +1501,7 @@ ck-name-hash-or-same | src/graph_check.c | bool same = lengthA == lengthB && mem
 ck-int-order | src/graph_check.c | (p->minimum.i <= p->maximum.i && p->defaultValue.i >= p->minimum.i && | (p->defaultValue.i >= p->minimum.i &&
 ck-bool-default | src/graph_check.c | ok = p->defaultValue.b <= 1u; | ok = true;
 ck-quat-length | src/graph_check.c | ok = ok && (t != maniGraphParameterQuat || (length > 0.0 && isfinite(length))); | ok = ok && true;
-ck-bounded-type | src/graph_check.c | bool ok = t <= maniGraphParameterTrigger && p->bounded <= (number ? 1u : 0u); | bool ok = t <= maniGraphParameterTrigger && p->bounded <= 1u;
+ck-bounded-type | src/graph_check.c | bool ok = t <= maniGraphParameterPose && p->bounded <= (number ? 1u : 0u); | bool ok = t <= maniGraphParameterPose && p->bounded <= 1u;
 ck-clip-skeleton | src/graph_check.c | if (clip == NULL || maniClipSkeletonIdentity(clip) != skeleton) | if (clip == NULL)
 ck-clip-twice | src/graph_check.c | int found = FindRepeat(keys, n > 1 ? n : 0, allocator, &low, &high); | int found = 0;
 ck-sync-flags | src/graph_check.c | if ((source->syncGroups[i].flags & ~(uint32_t)maniGraphSyncAllEvents) != 0) | if (false)
@@ -1553,7 +1553,7 @@ gf-bool-range | src/graph.c | return maniLoadU32(v) <= 1u && zeroBounds; | retur
 gf-int-order | src/graph.c | return bounded ? low <= high && d >= low && d <= high : zeroBounds; | return bounded ? d >= low && d <= high : zeroBounds;
 gf-quat-unit | src/graph.c | if (type == maniGraphParameterQuat && fabs(length - 1.0) > 1e-5) | if (false)
 gf-float-bounds-finite | src/graph.c | return Finite(v + 16) && Finite(v + 20) && low <= high && d >= low && d <= high; | return low <= high && d >= low && d <= high;
-gf-parameter-type | src/graph.c | if (type > maniGraphParameterTrigger) | if (false)
+gf-parameter-type | src/graph.c | if (type > maniGraphParameterPose) | if (false)
 gf-parameter-flags | src/graph.c | if (flags > (number ? MANI_GRAPH_BOUNDED : 0u)) | if (flags > MANI_GRAPH_BOUNDED)
 gf-clip-flags | src/graph.c | if (maniLoadU32(e + 24) > MANI_GRAPH_DIFFERENCE || maniLoadU32(e + 28) != 0) | if (maniLoadU32(e + 28) != 0)
 gf-group-flags | src/graph.c | if (maniLoadU32(e + 16) > 1u || maniLoadU32(e + 20) != 0) | if (maniLoadU32(e + 20) != 0)
@@ -1574,7 +1574,7 @@ in-quat-zero | src/graph_instance.c | if (!(length > 0.0) || !isfinite(length)) 
 in-float-finite | src/graph_instance.c | if (!isfinite(v->f[k])) | if (false)
 in-bool-range | src/graph_instance.c | return out.b <= 1u; | return true;
 in-int-clamp | src/graph_instance.c | out.i = bounded ? (v->i < low ? low : (v->i > high ? high : v->i)) : v->i; | out.i = v->i;
-in-set-type | src/graph_instance.c | if (maniLoadU32(entry) != type || !Canonical(type, entry, &value)) | if (!Canonical(type, entry, &value))
+in-set-type | src/graph_instance.c | if (maniLoadU32(entry) != type || type == maniGraphParameterPose || | if (type == maniGraphParameterPose ||
 in-save-capacity | src/graph_instance.c | if (capacity < size) | if (false)
 in-restore-reserved | src/graph_instance.c | if (maniLoadU32(b + 4) != 0) | if (false)
 in-restore-identity | src/graph_instance.c | if (maniLoadU64(b + 8) != graph->identity) | if (false)
@@ -2790,3 +2790,73 @@ rp-model | src/ragdoll_pose.c | maniAffine model = parent != MANI_NO_BONE ? mani
 ro-perpendicular | src/ragdoll.c | !(fabsf(f.x * u.x + f.y * u.y + f.z * u.z) <= 1e-3f)) | !(fabsf(f.x * u.x + f.y * u.y + f.z * u.z) <= 2.0f))
 rb-perpendicular | src/ragdoll_build.c | Unit(maniVec3Dot(u, u)) && fabsf(maniVec3Dot(f, u)) <= 1e-3f; | Unit(maniVec3Dot(u, u));
 rp-seconds | src/ragdoll_pose.c | (!PoseUsable(ragdoll, previous) || !(seconds > 0.0f) || !Finite(seconds)))) | (!PoseUsable(ragdoll, previous) || !Finite(seconds))))
+
+# Ragdolls: getting up (src/ragdoll_getup.c)
+gu-unit-high | src/ragdoll_getup.c | return l >= 0.998f && l <= 1.002f; | return l >= 0.998f;
+gu-perp | src/ragdoll_getup.c | fabsf(maniVec3Dot(g->forward, g->up)) <= 1e-3f; | fabsf(maniVec3Dot(g->forward, g->up)) <= 1e-2f;
+gu-body-unit | src/ragdoll_getup.c | Finite3((maniVec3){r.x, r.y, r.z}) && l >= 0.998f && l <= 1.002f; | Finite3((maniVec3){r.x, r.y, r.z}) && l >= 0.998f;
+gu-opposite | src/ragdoll_getup.c | if (w < 1e-6f) | if (false)
+gu-capacity | src/ragdoll_getup.c | if (count < ragdoll->bodyCount) | if (count < 1)
+gu-tie | src/ragdoll_getup.c | bool faceUp = maniVec3Dot(chest, n) >= 0.0f; | bool faceUp = maniVec3Dot(chest, n) > 0.0f;
+gu-reverse | src/ragdoll_getup.c | head = faceUp ? maniVec3Scale(head, -1.0f) : head; | head = head;
+gu-chest-plane | src/ragdoll_getup.c | chest = maniVec3Scale(OnPlane(chest, n), fabsf(maniVec3Dot(up, n))); | chest = maniVec3Scale(chest, fabsf(maniVec3Dot(up, n)));
+gu-weight | src/ragdoll_getup.c | chest = maniVec3Scale(OnPlane(chest, n), fabsf(maniVec3Dot(up, n))); | chest = OnPlane(chest, n);
+gu-sum | src/ragdoll_getup.c | maniVec3 heading = maniVec3Add(head, chest); | maniVec3 heading = head;
+gu-fallback | src/ragdoll_getup.c | heading = maniVec3Dot(head, head) >= 1e-6f ? head : chest; | heading = chest;
+gu-lift | src/ragdoll_getup.c | maniQuat turn = maniQuatMul(TurnAbout(n, forward, heading), lift); | maniQuat turn = TurnAbout(n, forward, heading);
+gu-drop | src/ragdoll_getup.c | maniVec3 at = maniVec3Sub(p, maniVec3Scale(n, maniVec3Dot(maniVec3Sub(p, ground->point), n))); | maniVec3 at = maniVec3Sub(p, maniVec3Scale(n, maniVec3Dot(p, n)));
+# Pose parameters and the pose input node (src/graph_*.c)
+gp-canonical | src/graph_instance.c | if (type == maniGraphParameterPose) | if (false)
+gp-set-refuse | src/graph_instance.c | if (maniLoadU32(entry) != type || type == maniGraphParameterPose || | if (maniLoadU32(entry) != type ||
+gp-kind | src/graph_instance.c | maniPoseSetKind(out, false); | (void)out;
+gp-stale | src/graph_instance.c | maniPoseMarkStale(out); | (void)out;
+gp-difference | src/graph_instance.c | !maniPoseMatches(pose, instance->binding->skeleton) || maniPoseIsDifference(pose)) | !maniPoseMatches(pose, instance->binding->skeleton))
+gp-rest | src/graph_instance.c | RestPoses(instance); | (void)instance;
+gp-save | src/graph_instance.c | SavePoses(instance, p); | (void)p;
+gp-restore | src/graph_instance.c | RestorePoses(instance, p); | (void)p;
+gp-length | src/graph_instance.c | return length > 0.998f && length < 1.002f ? UINT32_MAX : 3u; | return length > 0.998f ? UINT32_MAX : 3u;
+gp-room | src/graph_instance.c | return PosesAt(binding) + PosesBefore(graph, graph->parameterCount) * PoseBytes(binding); | return PosesAt(binding);
+gp-node-word | src/graph_nodes.c | return type == maniGraphParameterPose ? UINT32_MAX : d; | return UINT32_MAX;
+gp-inline | src/graph_inline.c | node->pose.parameter = Resolve(s, node->pose.parameter); | node->pose.parameter = node->pose.parameter;
+gp-build | src/graph_build.c | at = PutWords(d, at, &node->pose.parameter, 1); | at = at + 1;
+gp-update | src/graph_update.c | kind != maniGraphNodeLearned && kind != maniGraphNodePose) | kind != maniGraphNodeLearned)
+gp-check | src/graph_check.c | return ParameterOf(source, n->pose.parameter, maniGraphParameterPose, | return ParameterOf(source, n->pose.parameter, maniGraphParameterFloat,
+gp-evaluate | src/graph_evaluate.c | maniGraphPoseInput(e->instance, Word(e, maniLoadU32(record + 12)), out); | Neutral(e, out, false);
+# The OMI importer (src/gltf_ragdoll*.c)
+gr-rigid-turn | src/gltf_ragdoll.c | return (maniGltfRigid){maniQuatRotate(back, maniVec3Sub(b.t, a.t)), | return (maniGltfRigid){maniVec3Sub(b.t, a.t),
+gr-even | src/gltf_ragdoll.c | return least > 0.0f && most - least <= 1e-3f * most; | return least > 0.0f;
+gr-scale | src/gltf_ragdoll.c | float k = (scale.x + scale.y + scale.z) / 3.0f; | float k = 1.0f;
+gr-half | src/gltf_ragdoll.c | b->size = kind == 0   ? (maniVec3){0.5f * size[0], 0.5f * size[1], 0.5f * size[2]} | b->size = kind == 0   ? (maniVec3){size[0], size[1], size[2]}
+gr-taper | src/gltf_ragdoll.c | if (result.result == mani_success && top != *radius) | if (false)
+gr-height | src/gltf_ragdoll.c | if (result.result == mani_success && !(*height >= 0.0f)) | if (false)
+gr-static | src/gltf_ragdoll.c | if (still) | if (false)
+gr-ours | src/gltf_ragdoll.c | if (bone == MANI_NO_BONE) | if (false)
+gr-gravity | src/gltf_ragdoll.c | if (result.result == mani_success && gravity != 1.0f) | if (false)
+gr-center-count | src/gltf_ragdoll.c | bool zero = json->values[center].count == 3; | bool zero = true;
+gr-mass | src/gltf_ragdoll.c | if (result.result == mani_success && !(*massOut > 0.0f)) | if (false)
+gr-second | src/gltf_ragdoll.c | if (b->shape != UINT32_MAX) | if (false)
+gr-collider | src/gltf_ragdoll.c | if (r->bodies[i].shape == UINT32_MAX) | if (false)
+gr-frame | src/gltf_ragdoll.c | maniGltfRigid frame = maniGltfRigidIn(bone, world); | maniGltfRigid frame = world;
+gr-owners | src/gltf_ragdoll.c | while (n != MANI_JSON_NONE && own[n] == UINT32_MAX) | while (false)
+gr-facing | src/gltf_ragdoll.c | return maniQuatRotate(maniQuatConjugate(root), (maniVec3){v[0], v[1], v[2]}); | return (maniVec3){v[0], v[1], v[2]};
+gr-basis | src/gltf_ragdoll.c | maniGltfBasisVector(r->options, v, true); | (void)v;
+gr-twice | src/gltf_ragdoll_joint.c | if ((!aChild && !bChild) || jointed[aChild ? a : b] != 0) | if (!aChild && !bChild)
+gr-together | src/gltf_ragdoll_joint.c | return maniVec3Dot(d, d) <= 1e-6f && sine <= 5e-4f; | return maniVec3Dot(d, d) <= 1e-6f;
+gr-pinned | src/gltf_ragdoll_joint.c | if (l.linear != 7u) | if (false)
+gr-linear-zero | src/gltf_ragdoll_joint.c | if (linear != 0 && (low != 0.0f || high != 0.0f)) | if (false)
+gr-soft | src/gltf_ragdoll_joint.c | if (stiffness >= 0.0f) | if (false)
+gr-axis-twice | src/gltf_ragdoll_joint.c | if (low > high || (angular & l->angular) != 0) | if (low > high)
+gr-twist-clamp | src/gltf_ragdoll_joint.c | j->twistMin = Larger(l.low[0], -PI_F); | j->twistMin = l.low[0];
+gr-swing-clamp | src/gltf_ragdoll_joint.c | j->swingY = Smaller(l.high[1], PI_F); | j->swingY = l.high[1];
+gr-unbounded | src/gltf_ragdoll_joint.c | d.maxTorque = d.maxTorque < 0.0f ? FLT_MAX : d.maxTorque; | d.maxTorque = d.maxTorque;
+gr-all-axes | src/gltf_ragdoll_joint.c | bool same = mask == 7u; | bool same = true;
+gr-no-drive | src/gltf_ragdoll_joint.c | j->driveMaxTorque = none ? 0.0f : drives[0].maxTorque; | j->driveMaxTorque = drives[0].maxTorque;
+# The rigid split (src/decompose.c) and one normalization (src/ragdoll_pose.c)
+dr-orthogonal | src/decompose.c | fabs(Dot3(a, a + 3)) <= 1e-6 * lengths[0] * lengths[1] && | fabs(Dot3(a, a + 3)) <= 1e-1 * lengths[0] * lengths[1] &&
+dr-fallback | src/decompose.c | if (!orthogonal) | if (!finite)
+dr-mirror | src/decompose.c | if (Determinant(q) < 0.0) | if (false)
+dr-reciprocal | src/decompose.c | double inverse = 1.0 / lengths[c]; | double inverse = 1.0;
+dr-translation | src/decompose.c | *translationOut = (maniVec3){matrix->m[9], matrix->m[10], matrix->m[11]}; | *translationOut = (maniVec3){matrix->m[9], matrix->m[10], 0.0f};
+# Kept: the product of unit quaternions is unit within rounding, so the
+# one normalization a result changes no value a test can see.
+rp-normalize-body | src/ragdoll_pose.c | return (Rigid){body.t, maniQuatNormalize(body.r)}; | return body;

@@ -123,8 +123,25 @@ drives with stiffness, damping and a largest force.
   the file's; converting force-mode stiffness and damping to an
   engine's frequency and damping ratio needs the inertia the engine
   derives, and is the host's.
-- **Mutants, a benchmark and this record's end** follow;
-  each part is added to this record as it lands.
+- **Mutants:** 65 of the profile's checks and arithmetic are in the
+  registry. Their first run found the getting-up heading's flaw (the
+  plain sum above, before its weighting), a drive read before it was
+  set, and cases no test held; each is fixed and tested. One is kept
+  as equivalent with its reason: a body's frame normalized once more
+  changes no bit the tests or a host can see.
+- **The cost:** a chain of 64 bones with a body on every fourth, a
+  Release build, instructions a frame: bodies from a pose 10,788,
+  with velocities 26,472, the joints' motor targets 4,376, a pose
+  from the bodies 41,000. Jolt's `SkeletonMapper` on the same chain:
+  `MapReverse` 807 (a copy of sixteen matrices, the quaternions left
+  to `Ragdoll::SetPose`), `Map` 7,631. Most of the first cost was the
+  polar factor of every body's bone matrix; a rigid split now takes
+  the columns divided by their lengths when they are orthogonal, the
+  polar factor exactly, and iterates only under shear (mani-0004's
+  decomposition; the answers are the same within rounding). What is
+  left of a pose from bodies is its scalar pass over every bone, one
+  bone at a time; a pass over the pose's groups of eight bones is its
+  next step.
 - **Not here:** the solver, collision, creating and stepping the bodies
   (the host's engine); shapes other than the three primitives (a host
   attaches its own); inertia tensors (each engine derives them from

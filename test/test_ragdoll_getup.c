@@ -9,7 +9,7 @@
 // body turned about its side from -130 to 130 degrees looking the same
 // way throughout; inverted at 135 degrees and at 142, where the weighed
 // sum vanishes; on its side and rolled either way; exactly opposite the
-// model's forward; other
+// model's forward; tilted and twisted, both terms apart; other
 // model axes; a tilted ground; a pose from bodies under the placement
 // placing the bodies back; the refusals.
 
@@ -184,6 +184,32 @@ static void TestSide(void)
           "exactly opposite the model's forward: half a turn about the normal");
 }
 
+// Tilted 45 degrees forward and twisted about its own up axis: both
+// terms count and point apart, the heading the head's way plus the
+// chest's weighed by how upright the body stands (the documented sum,
+// worked here in binary64).
+static void TestTwisted(void)
+{
+    static const float kTwists[3] = {0.6f, 1.2f, -0.9f};
+    bool ok = true;
+    for (int k = 0; k < 3; ++k)
+    {
+        maniQuat turn = Mul(Turn(kX, 0.78539819f), Turn(kY, kTwists[k]));
+        Lie((maniVec3){0.0f, 0.3f, 0.0f}, turn);
+        maniRagdollGetUp up = GetUp(&kGround);
+        maniVec3 head = Rotate(turn, kY);
+        maniVec3 chest = Rotate(turn, kZ);
+        double sign = (double)chest.y >= 0.0 ? -1.0 : 1.0;
+        double weight = fabs((double)head.y);
+        double x = sign * (double)head.x + weight * (double)chest.x;
+        double z = sign * (double)head.z + weight * (double)chest.z;
+        double length = sqrt(x * x + z * z);
+        maniVec3 want = {(float)(x / length), 0.0f, (float)(z / length)};
+        ok = ok && up.faceUp == (chest.y >= 0.0f) && Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, want);
+    }
+    CHECK(ok, "tilted and twisted: the head's way plus the chest's, weighed");
+}
+
 // Unreal's model axes (+x forward, +z up) in the Y-up world; a ground
 // tilted toward +z through another point.
 static void TestFrames(void)
@@ -300,6 +326,7 @@ int main(void)
     TestLying();
     TestSweep();
     TestSide();
+    TestTwisted();
     TestFrames();
     TestRoundTrip();
     TestRefusals();
