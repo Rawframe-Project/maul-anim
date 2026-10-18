@@ -1,0 +1,58 @@
+# mani-0030. CCD and FABRIK chains with joint limits
+
+Status: Accepted
+
+## Context
+
+Tails, spines, tentacles and fingers want a chain of more than two
+bones bent toward a goal, and a knee or an elbow wants its bend held to
+one axis and a range. Godot 4.6 (`CCDIK3D`, `FABRIK3D`), Unity's Chain
+IK and Unreal's CCDIK and FABRIK nodes name a chain by its root and end
+bones and stop at a tolerance or an iteration count; Godot limits bone
+directions only, Unreal's CCDIK one angle per joint, Unity and Unreal's
+FABRIK nothing. Godot's solvers stay steady by carrying the last
+frame's result, which a stateless solve cannot.
+
+## Decision
+
+- **A chain by its ends:** `maniChainSolve` names a root and an end,
+  an ancestor of it, every bone of the path between in the chain (at
+  most `MANI_IK_CHAIN_MAX_BONES`, 32, the end included); the bones from
+  the root to the end's parent turn so the end's origin reaches the
+  goal. The solvers work on locals by the root path, as the two-bone
+  solve's (mani-0029).
+- **CCD:** `maniSolveCcd` sweeps from the end's parent to the root each
+  iteration (Wang and Chen's order, n turns a sweep), each bone turned
+  by the shortest arc taking its direction to the end onto its
+  direction to the goal, cut to the step bound, then limited; the
+  frames below are recomposed before the next bone. A bone whose
+  origin lies on the end or the goal turns nothing.
+- **Stop:** an iteration count (1 to 256) and a tolerance, checked
+  before each sweep; nothing carries between updates.
+- **Step bound:** each turn of a bone in a sweep cut to `step` radians
+  (0 for none), the damping that keeps CCD's first turns near the end
+  from curling the chain, stateless where Godot's comes from the last
+  frame.
+- **Joint limits:** `maniJointLimit` bounds a bone's local rotation
+  relative to its rest local (the rest's rotation then a turn r), r
+  split into a swing and a twist about the bone's axis, the next bone's
+  rest offset: a cone bounds the swing's angle and the twist to a
+  range; a hinge keeps only r's turn about its axis, within its range.
+  A turn within its limit comes back unchanged. A bone whose next bone
+  lies at its origin has no axis; its whole turn is its swing.
+- **The end's rotation:** a wanted model rotation for the end bone,
+  taken by `rotationWeight` once the chain is solved, as Unity's tip
+  rotation weight and Unreal's effector rotation source.
+- **Weight:** every bone's correction from its input local weighted
+  from the identity, as the other solvers'.
+
+## Consequences
+
+Tests on a tail of five bones: goals within reach reached within the
+tolerance with every length kept; a goal out of reach straightens the
+chain toward it; cones, twists and hinges never exceeded, read back from
+each bone's turn from its rest (hinged bones staying in their plane);
+the step bound bounding each bone's turn in a sweep; a solve on its own
+reached result unchanged bit for bit; the end taking the wanted rotation
+and half of it; weights 0 and 0.5; a goal at the root without a NaN;
+paths of 32 bones solved and 33 refused; every refusal.

@@ -92,6 +92,9 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/ik.c
     src/ik_frame.c
     src/ik_aim.c
+    src/ik_limit.c
+    src/ik_chain.c
+    src/ik_ccd.c
     src/ragdoll_getup.c
     src/spring.c
     src/spring_state.c
@@ -194,6 +197,8 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(ragdoll_pose WHITEBOX)
         maul_add_test(ik_two_bone)
         maul_add_test(ik_aim)
+        maul_add_test(ik_ccd)
+        maul_add_test(ik_limit WHITEBOX)
         maul_add_test(graph_ik_node WHITEBOX)
         maul_add_test(ragdoll_getup WHITEBOX)
         maul_add_test(trajectory WHITEBOX)

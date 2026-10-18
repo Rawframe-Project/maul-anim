@@ -18,6 +18,12 @@ format.
   (from an offset point) onto a goal, its up toward a pole, or spreads
   the turn over a chain of up to 8 bones by shares, within an optional
   cone.
+- CCD chains (mani-0030): `maniSolveCcd` bends a chain of up to 32
+  bones, named by its root and end, toward a goal by cyclic coordinate
+  descent with a step bound, an iteration count and a tolerance, each
+  bone within an optional cone, twist or hinge limit relative to its
+  rest (`maniJointLimit`), the end optionally turned to a wanted
+  rotation.
 - IK graph nodes (mani-0029): two-bone and aim nodes solve their input
   pose toward vec3 goal and pole parameters, their twist, soften, cone
   and weight numbers or float parameters, in files, JSON and subgraphs.

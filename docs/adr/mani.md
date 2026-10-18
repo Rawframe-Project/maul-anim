@@ -34,3 +34,4 @@ are listed in [README.md](README.md).
 | [mani-0027](mani-0027-ragdoll-boundary.md) | The ragdoll boundary | Accepted |
 | [mani-0028](mani-0028-calls-back-in.md) | Calls back in from the host's code | Accepted |
 | [mani-0029](mani-0029-ik-nodes.md) | Two-bone, aim and look-at | Accepted |
+| [mani-0030](mani-0030-ik-chains.md) | CCD and FABRIK chains with joint limits | Accepted |

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Inverse kinematics on a pose (mani-0029): a two-bone chain bent to
-// reach a goal and turned toward a pole; a bone aimed at a goal, or a
-// chain of up to MANI_AIM_MAX_BONES sharing the turn (a look-at over
-// spine, neck and head), its up toward a pole. A solver reads the pose's
+// Inverse kinematics on a pose (mani-0029, mani-0030): a two-bone chain
+// bent to reach a goal and turned toward a pole; a bone aimed at a goal,
+// or a chain of up to MANI_AIM_MAX_BONES sharing the turn (a look-at
+// over spine, neck and head), its up toward a pole; a longer chain bent
+// by CCD within its bones' limits. A solver reads the pose's
 // locals, composes the model frames of its bones' root path itself (the
 // pose's model need not be current), writes the corrected locals of the
 // bones it turns and leaves the model stale. Goals and poles are in the
@@ -143,6 +144,109 @@ extern "C"
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton,
                                                     const maniAimSolve* solve, bool* reachedOut);
+
+// The most bones a CCD or FABRIK chain holds, its end included.
+#define MANI_IK_CHAIN_MAX_BONES 32u
+// The most iterations a chain solve takes.
+#define MANI_IK_MAX_ITERATIONS 256u
+
+    // How a joint limit bounds a bone's rotation.
+    typedef uint32_t maniJointLimitKind;
+    enum
+    {
+        // Free.
+        maniJointLimitNone = 0,
+        // The swing within a cone, the twist within a range.
+        maniJointLimitCone = 1,
+        // A turn about one axis within a range, nothing else.
+        maniJointLimitHinge = 2,
+    };
+
+    // A bone's limit, on its local rotation relative to its rest local
+    // rotation (the rest's rotation then this turn), split into a swing
+    // and a twist about the bone's axis: the direction of the next bone
+    // of the chain at rest, in the bone's frame. A bone whose next bone
+    // lies at its origin has no axis; its whole turn is its swing, as is
+    // a half turn about an axis perpendicular to the bone's (the bone
+    // pointing opposite its rest direction), where the split has no
+    // twist.
+    typedef struct maniJointLimit
+    {
+        maniJointLimitKind kind;
+        uint32_t reserved;
+        // A hinge's axis in the bone's rest frame, of length 1 within a
+        // thousandth and not along the bone's axis; unused by a cone.
+        maniVec3 axis;
+        // A cone's half angle, in [0, pi].
+        float cone;
+        // A hinge's angle range about its axis, low <= high in [-pi, pi].
+        float low;
+        float high;
+        // A cone's twist range about the bone's axis, low <= high in
+        // [-pi, pi]; -pi and pi for none.
+        float twistLow;
+        float twistHigh;
+    } maniJointLimit;
+
+    // A chain solve: the root bone and the end bone, an ancestor of it,
+    // every bone of the path between in the chain (at most
+    // MANI_IK_CHAIN_MAX_BONES, the end included); the bones from the
+    // root to the end's parent turn so the end's origin reaches the goal.
+    typedef struct maniChainSolve
+    {
+        uint32_t root;
+        uint32_t end;
+        // One limit per turning bone, the root's first, or NULL for none.
+        const maniJointLimit* limits;
+        // Where the end's origin should be, in model space.
+        maniVec3 goal;
+        // FABRIK's pole: a model-space direction the chain's bend turns
+        // toward, from the root; zero for none. CCD takes none (zero).
+        maniVec3 pole;
+        // The end bone's wanted model rotation, taken by rotationWeight.
+        maniQuat rotation;
+        // From 1 to MANI_IK_MAX_ITERATIONS.
+        uint32_t iterations;
+        uint32_t reserved;
+        // The solve stops once the end lies this near the goal; 0 for
+        // every iteration.
+        float tolerance;
+        // CCD's bound on each turn of a bone in one sweep, radians in
+        // [0, pi]; 0 for none. FABRIK takes none (0).
+        float step;
+        // In [0, 1]: the share of rotation the end takes; 0 for none.
+        float rotationWeight;
+        // In [0, 1]: the corrections' share, 1 for all of them.
+        float weight;
+    } maniChainSolve;
+
+    /// Bends a chain of a pose toward a goal by cyclic coordinate descent:
+    /// each iteration sweeps from the end's parent to the root, each bone
+    /// turning by the shortest arc that takes its direction to the end
+    /// onto its direction to the goal (cut to the step bound), then
+    /// limited. Stops early once the end lies within the tolerance; then
+    /// the end bone turns toward the wanted rotation by its weight. A
+    /// bone whose origin lies on the end or the goal turns nothing.
+    ///
+    /// @param pose       A pose of the skeleton (not a difference); the
+    ///                   chain's turning bones' and the end's locals are
+    ///                   written.
+    /// @param skeleton   Its skeleton.
+    /// @param solve      The solve.
+    /// @param reachedOut Receives whether the end lies within the
+    ///                   tolerance of the goal at full weight; may be
+    ///                   NULL.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL pose,
+    /// skeleton or solve, a pose of another skeleton or a difference,
+    /// bones out of range, a root not an ancestor of the end or a path
+    /// past MANI_IK_CHAIN_MAX_BONES, a limit of an unknown kind or out of
+    /// range or a hinge along its bone's axis, a goal, pole or rotation not finite, a pole not
+    /// zero, a rotation of length 0, iterations out of range, a tolerance below 0 or not finite, a
+    /// step outside [0, pi], a rotation weight or weight outside [0, 1].
+    /// @par Thread safety
+    /// Safe from any thread; the pose is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton,
+                                                    const maniChainSolve* solve, bool* reachedOut);
 
 #ifdef __cplusplus
 }
