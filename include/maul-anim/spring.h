@@ -185,8 +185,10 @@ extern "C"
     /// Turns each spring joint of a pose toward its tail: the last step's
     /// tails moved on at their velocity for the time since that step (the
     /// last step's own at a host rate the step rate divides), carried into
-    /// the placement of the last call. Joints with no motion yet keep the
-    /// pose's rotation.
+    /// the placement of the last call, then pushed out of their colliders
+    /// as the last call left them (where a step left a tail inside one,
+    /// the output is pushed further than the step's own). Joints with no
+    /// motion yet keep the pose's rotation.
     ///
     /// @param state  A state.
     /// @param pose   The pose the last step took (its model space computed

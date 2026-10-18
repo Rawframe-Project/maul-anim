@@ -13,6 +13,7 @@
 
 #include "spring_shape.h"
 
+#include "bytes.h"
 #include "scalar.h"
 #include "spring_file.h"
 #include "vecmath.h"
@@ -23,8 +24,51 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 static const maniVec3 kUp = {0.0f, 1.0f, 0.0f};
+
+float maniSpringFileFloat(const uint8_t* p)
+{
+    uint32_t bits = maniLoadU32(p);
+    float v = 0.0f;
+    memcpy(&v, &bits, sizeof v);
+    return v;
+}
+
+maniVec3 maniSpringFileVec(const uint8_t* p)
+{
+    return maniVec3Make(maniSpringFileFloat(p), maniSpringFileFloat(p + 4),
+                        maniSpringFileFloat(p + 8));
+}
+
+float maniSpringLargestScale(maniVec3 s)
+{
+    float x = fabsf(s.x);
+    float y = fabsf(s.y);
+    float z = fabsf(s.z);
+    float m = x > y ? x : y;
+    return m > z ? m : z;
+}
+
+maniSpringShape maniSpringShapeOf(const uint8_t* collider, maniTransform t)
+{
+    const uint8_t* e = collider;
+    maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
+    uint32_t shape = maniLoadU32(e + 4);
+    maniVec3 tail = maniSpringFileVec(e + 28);
+    // A normal turns with the inverse transpose: the cofactors' signs
+    // kept by the determinant's, so no division by a zero scale.
+    maniVec3 k = t.scale;
+    float sign = k.x * k.y * k.z < 0.0f ? -1.0f : 1.0f;
+    maniVec3 normal = maniVec3Scale(
+        maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign);
+    return (maniSpringShape){
+        maniAffineTransformPoint(&m, maniSpringFileVec(e + 16)),
+        shape == maniColliderPlane ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp)
+                                   : maniAffineTransformPoint(&m, tail),
+        maniSpringFileFloat(e + 40) * maniSpringLargestScale(t.scale), shape, maniLoadU32(e + 8)};
+}
 
 // The tail's offset from the shape's nearest axis point: from the offset
 // for a sphere, from the segment for a capsule.

@@ -8,6 +8,10 @@
 // rate divides, so the output does not lag the steps, and continuous
 // to the second difference across a step at faster hosts. Between
 // steps the tails go on with their heads, which the pose has moved.
+// Each tail is put at its bone's length toward that point and pushed
+// out of its spring's colliders as they stand at the last call's end,
+// as a step pushes, so a tail moved on does not cross one; the state is
+// only read.
 // Joints turn from the root of each chain: a joint's turn in model space
 // q, with its parent's model rotation P (turned with the chain), turns
 // its local rotation by P* q P, mirrored when the parent's scale is a
@@ -16,6 +20,7 @@
 
 #include "bytes.h"
 #include "spring_file.h"
+#include "spring_shape.h"
 #include "spring_state.h"
 #include "vecmath.h"
 
@@ -92,6 +97,51 @@ static void Turn(const Apply* a, const Chain* chain, uint32_t bone, maniQuat q)
     maniPoseSetLocal(a->pose, bone, local);
 }
 
+// A spring's colliders as they stand at the last call's end, the first
+// SHAPES made once for all its joints.
+#define SHAPES 16u
+
+typedef struct Shapes
+{
+    const Apply* a;
+    const uint8_t* spring;
+    maniSpringShape first[SHAPES];
+} Shapes;
+
+static maniSpringShape LinkShape(const Shapes* s, uint32_t k)
+{
+    const maniSpringSet* set = s->a->set;
+    uint32_t c = maniLoadU32(set->links + 4 * (size_t)(maniLoadU32(s->spring + 8) + k));
+    return maniSpringShapeOf(set->colliders + (size_t)c * MANI_SPRING_COLLIDER_SIZE,
+                             maniSpringBoneWords(s->a->block, maniSpringColliderAt(set, c)));
+}
+
+static void MakeShapes(Shapes* s)
+{
+    uint32_t count = maniLoadU32(s->spring + 12);
+    for (uint32_t k = 0; k < count && k < SHAPES; ++k)
+    {
+        s->first[k] = LinkShape(s, k);
+    }
+}
+
+// A tail of the joint's radius pushed out of the spring's colliders (or
+// back into inside ones), in the order the steps take them.
+static maniVec3 PushOut(const Shapes* s, maniVec3 tail, float radius)
+{
+    for (uint32_t k = 0; k < maniLoadU32(s->spring + 12); ++k)
+    {
+        maniSpringShape shape = k < SHAPES ? s->first[k] : LinkShape(s, k);
+        maniVec3 direction;
+        float distance = 0.0f;
+        if (maniSpringCollide(&shape, tail, radius, &direction, &distance))
+        {
+            tail = maniVec3Sub(tail, maniVec3Scale(direction, distance));
+        }
+    }
+    return tail;
+}
+
 static void ApplySpring(const Apply* a, uint32_t spring)
 {
     const maniSpringSet* set = a->set;
@@ -103,6 +153,8 @@ static void ApplySpring(const Apply* a, uint32_t spring)
     maniAffine space = maniPoseModel(pose, center);
     Carry carry = CarryOf(block);
     Chain chain = {maniQuatIdentity(), maniVec3Make(0.0f, 0.0f, 0.0f)};
+    Shapes shapes = {.a = a, .spring = e};
+    MakeShapes(&shapes);
     uint32_t first = maniLoadU32(e);
     for (uint32_t j = first; j < first + maniLoadU32(e + 4); ++j)
     {
@@ -117,7 +169,15 @@ static void ApplySpring(const Apply* a, uint32_t spring)
         sim = center != MANI_NO_BONE
                   ? maniAffineTransformPoint(&space, sim)
                   : maniVec3Add(maniQuatRotate(carry.rotation, sim), carry.translation);
-        maniQuat turn = maniQuatBetween(from, maniVec3Normalize(maniVec3Sub(sim, p), from));
+        // At the bone's length toward the moved tail, then out of the
+        // colliders: the steps' tails are, but a tail moved on between
+        // steps can cross a collider by as far as it moves.
+        maniVec3 to = maniVec3Normalize(maniVec3Sub(sim, p), from);
+        maniVec3 shown = maniVec3Add(p, maniVec3Scale(to, maniVec3Length(maniVec3Sub(tail, p))));
+        float radius = maniSpringFileFloat(r + maniSpringJointHitRadius) *
+                       maniSpringWord(block, at + maniSpringHeadScale);
+        shown = PushOut(&shapes, shown, radius);
+        maniQuat turn = maniQuatBetween(from, maniVec3Normalize(maniVec3Sub(shown, p), to));
         Turn(a, &chain, bone, turn);
         maniVec3 moved = maniVec3Add(maniQuatRotate(turn, maniVec3Sub(chain.translation, p)), p);
         chain = (Chain){maniQuatNormalize(maniQuatMul(turn, chain.rotation)), moved};

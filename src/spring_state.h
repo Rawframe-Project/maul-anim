@@ -190,6 +190,13 @@ static inline void maniSpringSetQuat(uint32_t* block, uint64_t at, maniQuat q)
     maniSpringSetWord(block, at + 3, q.w);
 }
 
+// A bone's transform as the block keeps it at word at.
+static inline maniTransform maniSpringBoneWords(const uint32_t* block, uint64_t at)
+{
+    return (maniTransform){maniSpringVec(block, at), maniSpringQuat(block, at + 3),
+                           maniSpringVec(block, at + 7)};
+}
+
 // A rotation seen through a model scale's mirror: D q D for D the
 // scale's signs, so a turn above a mirrored bone is the mirror of the
 // turn below it (the identity without a mirror).

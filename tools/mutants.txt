@@ -2453,25 +2453,25 @@ sp-lerp | src/spring_step.c | return maniVec3Add(a, maniVec3Scale(maniVec3Sub(b,
 sp-move | src/spring_step.c | return maniVec3Add(maniQuatRotate(r->rotation, x), r->translation); | return maniVec3Add(x, r->translation);
 sp-turn-at | src/spring_step.c | maniVec3 t = maniVec3Add(maniQuatRotate(q, maniVec3Sub(r->translation, p)), p); | maniVec3 t = r->translation;
 sp-turn-rot | src/spring_step.c | return (Rigid){maniQuatNormalize(maniQuatMul(q, r->rotation)), t}; | return (Rigid){r->rotation, t};
-sp-largest-y | src/spring_step.c | float m = x > y ? x : y; | float m = x;
-sp-largest-z | src/spring_step.c | return m > z ? m : z; | return m;
+sp-largest-y | src/spring_shape.c | float m = x > y ? x : y; | float m = x;
+sp-largest-z | src/spring_shape.c | return m > z ? m : z; | return m;
 sp-carry-from | src/spring_step.c | maniVec3 world = maniVec3Add(from.position, maniQuatRotate(from.rotation, x)); | maniVec3 world = maniVec3Add(from.position, x);
 sp-carry-to | src/spring_step.c | return maniQuatRotate(maniQuatConjugate(to.rotation), maniVec3Sub(world, to.position)); | return maniVec3Sub(world, to.position);
 sp-head-rot | src/spring_step.c | maniQuatNlerp(maniSpringQuat(s->block, at + maniSpringHeadRotation), | maniQuatNlerp(maniSpringQuat(w, now + maniSpringNowRotation),
 sp-head-pos | src/spring_step.c | return (Head){Lerp(maniSpringVec(s->block, at + maniSpringHeadPosition), | return (Head){Lerp(maniSpringVec(w, now + maniSpringNowPosition),
 sp-head-scale | src/spring_step.c | scale + f * (maniSpringWord(w, now + maniSpringNowLargest) - scale), | scale + f * (1.0f - scale),
 sp-head-mirror | src/spring_step.c | maniSpringVec(w, now + maniSpringNowScale)}; | (maniVec3){1.0f, 1.0f, 1.0f}};
-sp-shape-lerp | src/spring_step.c | now, s->fraction); | now, 1.0f);
-sp-normal-sign | src/spring_step.c | float sign = k.x * k.y * k.z < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
-sp-normal-x | src/spring_step.c | maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign); | maniVec3Make(tail.x, tail.y, tail.z), sign);
-sp-shape-offset | src/spring_step.c | return (maniSpringShape){maniAffineTransformPoint(&m, FileVec(e + 16)), | return (maniSpringShape){FileVec(e + 16),
-sp-shape-plane | src/spring_step.c | ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp) | ? tail
-sp-shape-radius | src/spring_step.c | FileFloat(e + 40) * LargestScale(t.scale), shape, maniLoadU32(e + 8)}; | FileFloat(e + 40), shape, maniLoadU32(e + 8)};
-sp-shape-inside | src/spring_step.c | FileFloat(e + 40) * LargestScale(t.scale), shape, maniLoadU32(e + 8)}; | FileFloat(e + 40) * LargestScale(t.scale), shape, 0};
+sp-shape-lerp | src/spring_step.c | s->fraction)); | 1.0f));
+sp-normal-sign | src/spring_shape.c | float sign = k.x * k.y * k.z < 0.0f ? -1.0f : 1.0f; | float sign = 1.0f;
+sp-normal-x | src/spring_shape.c | maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign); | maniVec3Make(tail.x, tail.y, tail.z), sign);
+sp-shape-offset | src/spring_shape.c | maniAffineTransformPoint(&m, maniSpringFileVec(e + 16)), | maniSpringFileVec(e + 16),
+sp-shape-plane | src/spring_shape.c | shape == maniColliderPlane ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp) | shape == maniColliderPlane ? tail
+sp-shape-radius | src/spring_shape.c | maniSpringFileFloat(e + 40) * maniSpringLargestScale(t.scale), shape, maniLoadU32(e + 8)}; | maniSpringFileFloat(e + 40), shape, maniLoadU32(e + 8)};
+sp-shape-inside | src/spring_shape.c | maniSpringFileFloat(e + 40) * maniSpringLargestScale(t.scale), shape, maniLoadU32(e + 8)}; | maniSpringFileFloat(e + 40) * maniSpringLargestScale(t.scale), shape, 0};
 sp-keep-limit | src/spring_step.c | if (limit != maniSpringLimitNone) | if (false)
 sp-keep-in | src/spring_step.c | maniVec3 local = maniQuatRotate(maniQuatConjugate(frame), direction); | maniVec3 local = direction;
 sp-keep-out | src/spring_step.c | direction = maniQuatRotate(frame, local); | direction = local;
-sp-keep-yaw | src/spring_step.c | FileFloat(joint + maniSpringJointYaw), local); | FileFloat(joint + maniSpringJointAngle), local);
+sp-keep-yaw | src/spring_step.c | maniSpringFileFloat(joint + maniSpringJointYaw), local); | maniSpringFileFloat(joint + maniSpringJointAngle), local);
 sp-keep-length | src/spring_step.c | return maniVec3Add(head, maniVec3Scale(direction, length)); | return maniVec3Add(head, direction);
 sp-length | src/spring_step.c | float length = maniVec3Length(maniVec3Sub(tail, head)); | float length = 0.5f;
 sp-pull | src/spring_step.c | maniVec3 pull = maniVec3Normalize(maniVec3Sub(tail, head), kUp); | maniVec3 pull = maniVec3Normalize(maniVec3Sub(h.tail, h.position), kUp);
@@ -2481,11 +2481,11 @@ sp-gravity-place | src/spring_step.c | maniVec3 gravity = maniQuatRotate(maniQua
 sp-drag | src/spring_step.c | maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f - drag)); | maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f));
 sp-stiff-scale | src/spring_step.c | next = maniVec3Add(next, maniVec3Scale(pull, stiffness * h.scale)); | next = maniVec3Add(next, maniVec3Scale(pull, stiffness));
 sp-gravity-scale | src/spring_step.c | next = maniVec3Add(next, maniVec3Scale(gravity, h.scale)); | next = maniVec3Add(next, gravity);
-sp-hit-scale | src/spring_step.c | float radius = FileFloat(e + maniSpringJointHitRadius) * h.scale; | float radius = FileFloat(e + maniSpringJointHitRadius);
+sp-hit-scale | src/spring_step.c | float radius = maniSpringFileFloat(e + maniSpringJointHitRadius) * h.scale; | float radius = maniSpringFileFloat(e + maniSpringJointHitRadius);
 sp-links | src/spring_step.c | for (uint32_t k = 0; k < maniLoadU32(spring + 12); ++k) | for (uint32_t k = 0; k < 0; ++k)
 sp-push | src/spring_step.c | next = maniVec3Sub(next, maniVec3Scale(direction, distance)); | next = maniVec3Add(next, maniVec3Scale(direction, distance));
 sp-center-none | src/spring_step.c | if (center == MANI_NO_BONE) | if (true)
-sp-center-lerp | src/spring_step.c | LerpTransform(BoneWords(s->block, maniSpringCenterAt(s->set, spring)), now, s->fraction); | LerpTransform(now, now, s->fraction);
+sp-center-lerp | src/spring_step.c | maniSpringBoneWords(s->block, maniSpringCenterAt(s->set, spring)), now, s->fraction); | now, now, s->fraction);
 sp-centered | src/spring_step.c | bool centered = CenterOf(s, spring, &center) && maniAffineInverse(&center, &inverse); | bool centered = false;
 sp-now-carry | src/spring_step.c | now = centered ? maniAffineTransformPoint(&center, now) : Carry(s->last, s->place, now); | now = centered ? maniAffineTransformPoint(&center, now) : now;
 sp-turn | src/spring_step.c | chain = TurnAbout(&chain, maniQuatBetween(pull, turned), head); | (void)turned;
@@ -2727,7 +2727,7 @@ gx-turn-special | src/spring_frame.c | return axis.y == -1.0f ? (maniQuat){1.0f,
 gx-basis-never | src/gltf_spring.c | if (BasisKept(o)) | if (false)
 
 # Spring steps' work area (src/spring_step.c, src/spring_state.c, src/graph_instance.c)
-sw-largest | src/spring_step.c | maniSpringSetWord(work, at + maniSpringNowLargest, LargestScale(head.scale)); | maniSpringSetWord(work, at + maniSpringNowLargest, 1.0f);
+sw-largest | src/spring_step.c | maniSpringSetWord(work, at + maniSpringNowLargest, maniSpringLargestScale(head.scale)); | maniSpringSetWord(work, at + maniSpringNowLargest, 1.0f);
 sw-scale | src/spring_step.c | maniSpringSetVec(work, at + maniSpringNowScale, head.scale); | (void)head;
 sw-center-zero | src/spring_step.c | memset(work + at, 0, 4 * (size_t)MANI_SPRING_BONE_WORDS); | (void)at;
 sw-center-read | src/spring_step.c | SetBoneWords(work, at, maniPoseModelTransform(pose, center)); | (void)center;
@@ -2744,7 +2744,7 @@ sw-room-spring | src/graph_instance.c | need = 4 * (size_t)maniGraphSpringWorkWo
 sf-forcing-store | src/spring_build.c | StoreF32(e + maniSpringJointForcing, (float)forcing); | StoreF32(e + maniSpringJointForcing, 0.0f);
 sf-forcing-finite | src/spring.c | uint32_t wrong = FirstNotFinite(e + maniSpringJointForcing, 13); | uint32_t wrong = FirstNotFinite(e + maniSpringJointHitRadius, 12);
 sf-forcing-sign | src/spring.c | if (!(LoadF32(e + maniSpringJointForcing) >= 0.0f)) | if (false)
-sf-apply | src/spring_step.c | maniVec3Scale(s->force, FileFloat(e + maniSpringJointForcing))); | maniVec3Scale(s->force, 1.0f / 60.0f));
+sf-apply | src/spring_step.c | maniVec3Scale(s->force, maniSpringFileFloat(e + maniSpringJointForcing))); | maniVec3Scale(s->force, 1.0f / 60.0f));
 sf-lerp | src/spring_step.c | Lerp(maniSpringVec(block, maniSpringForce), force, f)}; | force};
 sf-keep | src/spring_step.c | maniSpringSetVec(block, maniSpringForce, force); | (void)force;
 sf-saved | src/spring_state.c | wrong = wrong != kValid ? wrong : FiniteRun(bytes, maniSpringForce, 3); | wrong = wrong;
@@ -2874,3 +2874,5 @@ ro-swing-pi | src/ragdoll.c | if (!(swing >= 0.0f && swing <= PI_F)) | if (!(swi
 
 # Spring bones: the first call's force (mani-0026)
 sf-begin-force | src/spring_step.c | Begin(set, block, work, pose, now, force); | Begin(set, block, work, pose, now, (maniVec3){0.0f, 0.0f, 0.0f});
+sa-push-out | src/spring_apply.c | shown = PushOut(&shapes, shown, radius); | shown = PushOut(&shapes, shown, radius * 0.0f - 10.0f);
+sa-cached | src/spring_apply.c | maniSpringShape shape = k < SHAPES ? s->first[k] : LinkShape(s, k); | maniSpringShape shape = LinkShape(s, 0);

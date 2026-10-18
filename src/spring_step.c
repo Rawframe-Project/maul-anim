@@ -39,19 +39,6 @@
 
 static const maniVec3 kUp = {0.0f, 1.0f, 0.0f};
 
-static float FileFloat(const uint8_t* p)
-{
-    uint32_t bits = maniLoadU32(p);
-    float v = 0.0f;
-    memcpy(&v, &bits, sizeof v);
-    return v;
-}
-
-static maniVec3 FileVec(const uint8_t* p)
-{
-    return maniVec3Make(FileFloat(p), FileFloat(p + 4), FileFloat(p + 8));
-}
-
 static maniVec3 Lerp(maniVec3 a, maniVec3 b, float f)
 {
     return maniVec3Add(a, maniVec3Scale(maniVec3Sub(b, a), f));
@@ -74,15 +61,6 @@ static Rigid TurnAbout(const Rigid* r, maniQuat q, maniVec3 p)
 {
     maniVec3 t = maniVec3Add(maniQuatRotate(q, maniVec3Sub(r->translation, p)), p);
     return (Rigid){maniQuatNormalize(maniQuatMul(q, r->rotation)), t};
-}
-
-static float LargestScale(maniVec3 s)
-{
-    float x = fabsf(s.x);
-    float y = fabsf(s.y);
-    float z = fabsf(s.z);
-    float m = x > y ? x : y;
-    return m > z ? m : z;
 }
 
 // A placement: translation and rotation.
@@ -108,12 +86,6 @@ static maniVec3 Carry(Place from, Place to, maniVec3 x)
 {
     maniVec3 world = maniVec3Add(from.position, maniQuatRotate(from.rotation, x));
     return maniQuatRotate(maniQuatConjugate(to.rotation), maniVec3Sub(world, to.position));
-}
-
-static maniTransform BoneWords(const uint32_t* block, uint64_t at)
-{
-    return (maniTransform){maniSpringVec(block, at), maniSpringQuat(block, at + 3),
-                           maniSpringVec(block, at + 7)};
 }
 
 static void SetBoneWords(uint32_t* block, uint64_t at, maniTransform t)
@@ -160,7 +132,7 @@ static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose*
         uint64_t at = maniSpringNowJointAt(j);
         maniSpringSetVec(work, at + maniSpringNowPosition, head.translation);
         maniSpringSetQuat(work, at + maniSpringNowRotation, head.rotation);
-        maniSpringSetWord(work, at + maniSpringNowLargest, LargestScale(head.scale));
+        maniSpringSetWord(work, at + maniSpringNowLargest, maniSpringLargestScale(head.scale));
         maniSpringSetVec(work, at + maniSpringNowTail,
                          PosePosition(pose, maniLoadU32(e + maniSpringJointTail)));
         maniSpringSetVec(work, at + maniSpringNowScale, head.scale);
@@ -217,23 +189,10 @@ static Head HeadAt(const Step* s, uint32_t joint)
 static maniSpringShape ShapeOf(const Step* s, uint32_t collider)
 {
     const uint8_t* e = s->set->colliders + (size_t)collider * MANI_SPRING_COLLIDER_SIZE;
-    maniTransform now = BoneWords(s->work, maniSpringNowColliderAt(s->set, collider));
-    maniTransform t = LerpTransform(BoneWords(s->block, maniSpringColliderAt(s->set, collider)),
-                                    now, s->fraction);
-    maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    uint32_t shape = maniLoadU32(e + 4);
-    maniVec3 tail = FileVec(e + 28);
-    // A normal turns with the inverse transpose: the cofactors' signs
-    // kept by the determinant's, so no division by a zero scale.
-    maniVec3 k = t.scale;
-    float sign = k.x * k.y * k.z < 0.0f ? -1.0f : 1.0f;
-    maniVec3 normal = maniVec3Scale(
-        maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign);
-    return (maniSpringShape){maniAffineTransformPoint(&m, FileVec(e + 16)),
-                             shape == maniColliderPlane
-                                 ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp)
-                                 : maniAffineTransformPoint(&m, tail),
-                             FileFloat(e + 40) * LargestScale(t.scale), shape, maniLoadU32(e + 8)};
+    maniTransform now = maniSpringBoneWords(s->work, maniSpringNowColliderAt(s->set, collider));
+    return maniSpringShapeOf(
+        e, LerpTransform(maniSpringBoneWords(s->block, maniSpringColliderAt(s->set, collider)), now,
+                         s->fraction));
 }
 
 // Every collider's shape at the step, made once for all its joints.
@@ -267,8 +226,8 @@ static maniVec3 Keep(const uint8_t* joint, maniQuat frame, maniVec3 head, maniVe
     if (limit != maniSpringLimitNone)
     {
         maniVec3 local = maniQuatRotate(maniQuatConjugate(frame), direction);
-        local = maniSpringLimitDirection(limit, FileFloat(joint + maniSpringJointAngle),
-                                         FileFloat(joint + maniSpringJointYaw), local);
+        local = maniSpringLimitDirection(limit, maniSpringFileFloat(joint + maniSpringJointAngle),
+                                         maniSpringFileFloat(joint + maniSpringJointYaw), local);
         direction = maniQuatRotate(frame, local);
     }
     return maniVec3Add(head, maniVec3Scale(direction, length));
@@ -287,23 +246,25 @@ static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, c
     maniVec3 pull = maniVec3Normalize(maniVec3Sub(tail, head), kUp);
     // The limit's frame in the head's space, mirrored with the head: the
     // limits are alike under the x mirror a model scale holds.
-    maniQuat local = {FileFloat(e + maniSpringJointFrame), FileFloat(e + maniSpringJointFrame + 4),
-                      FileFloat(e + maniSpringJointFrame + 8),
-                      FileFloat(e + maniSpringJointFrame + 12)};
+    maniQuat local = {maniSpringFileFloat(e + maniSpringJointFrame),
+                      maniSpringFileFloat(e + maniSpringJointFrame + 4),
+                      maniSpringFileFloat(e + maniSpringJointFrame + 8),
+                      maniSpringFileFloat(e + maniSpringJointFrame + 12)};
     maniQuat frame =
         maniQuatMul(maniQuatMul(chain->rotation, h.rotation), maniSpringMirror(local, h.mirror));
     // Gravity and the external force, both in the world, the force at
     // the joint's share of a step.
-    maniVec3 world = maniVec3Add(FileVec(e + maniSpringJointGravity),
-                                 maniVec3Scale(s->force, FileFloat(e + maniSpringJointForcing)));
+    maniVec3 world =
+        maniVec3Add(maniSpringFileVec(e + maniSpringJointGravity),
+                    maniVec3Scale(s->force, maniSpringFileFloat(e + maniSpringJointForcing)));
     maniVec3 gravity = maniQuatRotate(maniQuatConjugate(s->place.rotation), world);
-    float drag = FileFloat(e + maniSpringJointDrag);
-    float stiffness = FileFloat(e + maniSpringJointStiffness);
+    float drag = maniSpringFileFloat(e + maniSpringJointDrag);
+    float stiffness = maniSpringFileFloat(e + maniSpringJointStiffness);
     maniVec3 next = maniVec3Add(now, maniVec3Scale(maniVec3Sub(now, before), 1.0f - drag));
     next = maniVec3Add(next, maniVec3Scale(pull, stiffness * h.scale));
     next = maniVec3Add(next, maniVec3Scale(gravity, h.scale));
     next = Keep(e, frame, head, next, pull, length);
-    float radius = FileFloat(e + maniSpringJointHitRadius) * h.scale;
+    float radius = maniSpringFileFloat(e + maniSpringJointHitRadius) * h.scale;
     uint32_t first = maniLoadU32(spring + 8);
     for (uint32_t k = 0; k < maniLoadU32(spring + 12); ++k)
     {
@@ -330,9 +291,9 @@ static bool CenterOf(const Step* s, uint32_t spring, maniAffine* centerOut)
     {
         return false;
     }
-    maniTransform now = BoneWords(s->work, maniSpringNowCenterAt(s->set, spring));
-    maniTransform t =
-        LerpTransform(BoneWords(s->block, maniSpringCenterAt(s->set, spring)), now, s->fraction);
+    maniTransform now = maniSpringBoneWords(s->work, maniSpringNowCenterAt(s->set, spring));
+    maniTransform t = LerpTransform(
+        maniSpringBoneWords(s->block, maniSpringCenterAt(s->set, spring)), now, s->fraction);
     *centerOut = maniAffineFromTrs(t.translation, t.rotation, t.scale);
     return true;
 }

@@ -7,7 +7,8 @@
 // rates of 30, 60 and 144 Hz (still, moving, turning), the character's
 // motion in the world swaying it, a center bone carrying it, a ball, a
 // floor and cones kept (on a mirrored bone too), a turned, moved and
-// scaled character moving alike, gravity in the world.
+// scaled character moving alike, gravity in the world; tails between
+// steps kept out of a ball driven into them.
 
 #include "spring_fixture.h"
 
@@ -577,6 +578,54 @@ static void TestColliderRates(void)
           "a collider moving with the chain at every host rate");
 }
 
+// The output's worst crossing into the ball at a 144 Hz host over a
+// second of the root swept sideways (0.3 at hertz times a second) and
+// tipped, which drives the ball into the hanging tails: the ball's center
+// from the animated root, b0 a unit above it.
+static float Crossing(float hertz)
+{
+    maniSpringState* state = NewState(0);
+    float worst = -1.0f;
+    for (uint32_t i = 1; i <= 144; ++i)
+    {
+        float a = 6.2831853f * hertz * (float)i / 144.0f;
+        s_rootLocal.translation = (maniVec3){0.3f * sinf(a), 0.0f, 0.0f};
+        s_rootLocal.rotation = (maniQuat){0.0f, 0.0f, sinf(0.25f * a), cosf(0.25f * a)};
+        CHECK(Frame(state, 1.0f / 144.0f, NULL), "a frame");
+        maniQuat q = s_rootLocal.rotation;
+        maniVec3 b = {kBall.x, kBall.y, 0.0f};
+        // b turned about z by q.
+        float c = q.w * q.w - q.z * q.z;
+        float n = 2.0f * q.w * q.z;
+        maniVec3 ball = {c * b.x - n * b.y + s_rootLocal.translation.x, n * b.x + c * b.y, 0.0f};
+        for (int k = 1; k < 3; ++k)
+        {
+            float cross = kBallRadius + kHit - Distance(Position(s_b[k]), ball);
+            worst = cross > worst ? cross : worst;
+        }
+    }
+    Still();
+    return worst;
+}
+
+static void TestBetweenSteps(void)
+{
+    // Between steps the output moves the tails on, which can carry them
+    // into a collider by as far as they move (2.3 and 3.1 cm here); they
+    // are pushed out as the steps' are, within rounding of the steps'.
+    MakeSet(&(Config){0.5f,
+                      1.0f,
+                      0.2f,
+                      maniSpringLimitNone,
+                      0.0f,
+                      MANI_NO_BONE,
+                      1,
+                      {0.0f, 0.0f, 0.0f},
+                      0.0f,
+                      0.0f});
+    CHECK(Crossing(0.5f) < 3e-3f && Crossing(2.0f) < 3e-3f, "tails between steps out of the ball");
+}
+
 static void TestLyingMoving(void)
 {
     // A character on its back moving in the world, its tails between
@@ -635,6 +684,7 @@ int main(void)
     TestExactRate();
     TestApplied();
     TestColliderRates();
+    TestBetweenSteps();
     TestLyingMoving();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;

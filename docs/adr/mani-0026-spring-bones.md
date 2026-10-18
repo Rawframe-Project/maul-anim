@@ -131,10 +131,14 @@ host splits time.
 A set's motion is decided once at build from its source and rates, and
 plays the same on hosts of any frame rate; content tuned at another
 rate than 60 Hz says so in its reference rate. Between steps the
-output is a short extrapolation, which may cross a collider or limit by
-up to a step's motion until the next step. VRM's push and then length
-lets a tail pressed on a collider back in by a little, as in the
-reference. A seek beneath a spring node jumps its input without
+output is a short extrapolation, its tails pushed out of their
+colliders as the last call left them (on the fixture's chain driven
+into a ball at 144 and 240 Hz hosts, a crossing of 2 to 4 cm becomes
+1 to 2 mm, for about a sixth more instructions a frame); it may still
+pass a limit by up to a step's motion until the next step. VRM's push
+and then length lets a tail pressed on a collider back in by a little,
+as in the reference; a tail held between a collider and its bone's
+length stays inside at the steps, which the output's push moves out. A seek beneath a spring node jumps its input without
 dropping the motion; the reset trigger is the host's for such cuts.
 
 Measured on 128 joints in 16 chains with 6 colliders and cone limits

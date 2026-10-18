@@ -341,6 +341,10 @@ format.
 
 ### Changed
 
+- `maniApplySprings` (and the spring node) push the tails it moves on
+  between steps out of their colliders, as the steps do: at hosts
+  faster than the step rate hair no longer passes into a collider by
+  up to a step's motion (mani-0026).
 - Ragdoll conversions split each bone's matrix without iterating when
   its columns are orthogonal (every matrix but a sheared one) and
   normalize once a result: placing bodies from a pose takes about half
