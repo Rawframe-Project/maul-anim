@@ -32,7 +32,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         const char* name = maniGraphParameterName(&graph, p, &length);
         maniGraphParameterType type = 0;
         if (name == NULL || maniGraphParameterTypeOf(&graph, p, &type) != 0 ||
-            type > maniGraphParameterTrigger || maniGraphFindParameter(&graph, name, length) > p)
+            type > maniGraphParameterPose || maniGraphFindParameter(&graph, name, length) > p)
         {
             abort();
         }
