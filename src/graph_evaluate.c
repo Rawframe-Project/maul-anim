@@ -22,6 +22,7 @@
 #include "maul-anim/blend.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/ik.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
@@ -443,6 +444,100 @@ static void Spring(const Evaluation* e, const uint8_t* record, maniPose* out)
     maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, push, out);
 }
 
+// A vec3 parameter's value, or zero for none.
+static maniVec3 Vector(const Evaluation* e, uint32_t parameter)
+{
+    if (parameter == MANI_NO_PARAMETER)
+    {
+        return (maniVec3){0.0f, 0.0f, 0.0f};
+    }
+    const float* f = e->instance->cells[parameter].value.f;
+    return (maniVec3){f[0], f[1], f[2]};
+}
+
+// Three binary32 data words from at.
+static maniVec3 Axis(const Evaluation* e, uint32_t at)
+{
+    float f[3];
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        uint32_t bits = Word(e, at + k);
+        memcpy(&f[k], &bits, sizeof bits);
+    }
+    return (maniVec3){f[0], f[1], f[2]};
+}
+
+// A scalar clamped from low to high (a parameter's value may lie past).
+static float Clamped(const Evaluation* e, uint32_t at, float low, float high)
+{
+    float v = Scalar(e, at);
+    return v < low ? low : (v > high ? high : v);
+}
+
+// The input of an IK node copied to out; false with none (out then
+// neutral) or a weight of 0 at data word weightAt.
+static bool IkInput(const Evaluation* e, const uint8_t* record, uint32_t weightAt, maniPose* out)
+{
+    const maniPose* input = InputPose(e, record, 0);
+    if (input == NULL)
+    {
+        Neutral(e, out, false);
+        return false;
+    }
+    maniPoseCopy(out, input);
+    return Clamped(e, weightAt, 0.0f, 1.0f) > 0.0f;
+}
+
+// A two-bone node: its input with its chain solved; the input when the
+// solve refuses (a crafted file's bones not each an ancestor of the
+// next).
+static void TwoBone(const Evaluation* e, const uint8_t* record, maniPose* out)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    if (!IkInput(e, record, d + maniGraphTwoBoneWeight, out))
+    {
+        return;
+    }
+    maniTwoBoneSolve s = {Word(e, d),
+                          Word(e, d + 1),
+                          Word(e, d + 2),
+                          0,
+                          Vector(e, Word(e, d + maniGraphTwoBoneGoal)),
+                          Vector(e, Word(e, d + maniGraphTwoBonePole)),
+                          Axis(e, d + maniGraphTwoBoneHinge),
+                          Scalar(e, d + maniGraphTwoBoneTwist),
+                          Clamped(e, d + maniGraphTwoBoneSoften, 0.0f, 1.0f),
+                          Clamped(e, d + maniGraphTwoBoneWeight, 0.0f, 1.0f)};
+    (void)maniSolveTwoBone(out, e->binding->skeleton, &s, NULL);
+}
+
+// An aim node: its input with its bones aimed; the input when the solve
+// refuses.
+static void Aim(const Evaluation* e, const uint8_t* record, maniPose* out)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    if (!IkInput(e, record, d + maniGraphAimWeight, out))
+    {
+        return;
+    }
+    maniAimSolve s = {.count = Word(e, d),
+                      .goal = Vector(e, Word(e, d + maniGraphAimGoal)),
+                      .pole = Vector(e, Word(e, d + maniGraphAimPole)),
+                      .forward = Axis(e, d + maniGraphAimForward),
+                      .offset = Axis(e, d + maniGraphAimOffset),
+                      .up = Axis(e, d + maniGraphAimUp),
+                      .twist = Scalar(e, d + maniGraphAimTwist),
+                      .cone = Clamped(e, d + maniGraphAimCone, 0.0f, MANI_AIM_MAX_CONE),
+                      .weight = Clamped(e, d + maniGraphAimWeight, 0.0f, 1.0f)};
+    for (uint32_t k = 0; k < MANI_AIM_MAX_BONES; ++k)
+    {
+        uint32_t bits = Word(e, d + maniGraphAimShares + k);
+        s.bones[k] = Word(e, d + maniGraphAimBones + k);
+        memcpy(&s.shares[k], &bits, sizeof bits);
+    }
+    (void)maniSolveAim(out, e->binding->skeleton, &s, NULL);
+}
+
 // A learned node's pose: its model's Decompressor at its state, worked
 // in the instance's room; the neutral pose with no state.
 static void SampleLearned(const Evaluation* e, const uint8_t* record, maniPose* out)
@@ -510,6 +605,12 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodePose:
         maniGraphPoseInput(e->instance, Word(e, maniLoadU32(record + 12)), out);
+        return;
+    case maniGraphNodeTwoBone:
+        TwoBone(e, record, out);
+        return;
+    case maniGraphNodeAim:
+        Aim(e, record, out);
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);

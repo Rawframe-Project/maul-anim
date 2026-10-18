@@ -69,6 +69,20 @@ local poses.
   false.
 - **Weight:** each correction computed at full weight on the pose as
   the chain turns, then each weighted on the input pose.
+- **Graph nodes:** two kinds after the pose node, two-bone (18) and aim
+  (19), each with one input, a pose: differences below are refused at
+  build and on open. The goal and the pole are vec3 parameters (the
+  pole optional), set by the host each frame from its world; the hinge,
+  forward, offset and up are numbers fixed in the node, in the bone's
+  frame; twist, soften, cone and weight are numbers or float parameters,
+  a parameter's value clamped into its range when evaluated (soften and
+  weight to [0, 1], the cone to [0, `MANI_AIM_MAX_CONE`]). An aim's
+  shares left out are equal. A weight of 0 passes the input unsolved.
+  The build checks each bone is an ancestor of the next against the
+  skeleton; a file holds no parents, so opening checks only that the
+  bones are in range, and a crafted file whose chain is not one passes
+  its input. The JSON form names bones and parameters by name; a
+  subgraph maps its parameters as every node's.
 
 ## Consequences
 
@@ -110,3 +124,12 @@ ozz weights an aim by lerping from the identity without first making w
 positive (unlike its two-bone job), so a weighted turn with w below 0
 goes the long way there; the comparison weights ozz's full turn as its
 two-bone job does.
+
+Node tests on the graph's hips, spine and arm under a walk: each node's
+output is its input solved by the solver itself bit for bit, through
+weights 0, 0.5 and 3 (clamped to 1), no pole, a soften and a cone
+clamped from parameters past their ranges, shares left out and given;
+both nodes inside a subgraph reading the outer goal; every refusal at
+build with its reason and on open at its word; a crafted chain passing
+its input; the JSON form pinned, read back to the same file and its
+members' defaults.

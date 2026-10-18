@@ -478,6 +478,55 @@ extern "C"
         uint32_t parameter;
     } maniGraphPoseNodeSource;
 
+    // A two-bone IK node (mani-0029): one input, a pose of the skeleton
+    // (not differences), given with its chain solved as maniSolveTwoBone
+    // solves it: start, middle and end bones of the skeleton, each an
+    // ancestor of the next; its goal (a vec3 parameter, in the model
+    // space of the pose) and pole (a vec3 parameter, MANI_NO_PARAMETER for
+    // none); the middle bone's hinge (finite, zero for none); its twist
+    // (finite), soften and weight (in [0, 1]) numbers or float parameters,
+    // a parameter's soften and weight clamped to [0, 1]. A weight of 0
+    // passes the input.
+    typedef struct maniGraphTwoBoneNodeSource
+    {
+        uint32_t start;
+        uint32_t middle;
+        uint32_t end;
+        uint32_t goal;
+        uint32_t pole;
+        uint32_t reserved;
+        maniVec3 hinge;
+        maniGraphScalar twist;
+        maniGraphScalar soften;
+        maniGraphScalar weight;
+    } maniGraphTwoBoneNodeSource;
+
+    // An aim IK node (mani-0029): one input, a pose of the skeleton (not
+    // differences), given with its bones aimed as maniSolveAim aims them:
+    // count bones (1 to MANI_AIM_MAX_BONES) of the skeleton, each an
+    // ancestor of the next, the aiming bone last; their shares (at least
+    // 0, finite, not all 0), or NULL for equal shares; its goal and pole
+    // parameters as a two-bone node's; the aiming bone's forward (of
+    // length 1), offset and up (finite) in its local frame; its twist
+    // (finite), cone (in [0, MANI_AIM_MAX_CONE]) and weight (in [0, 1])
+    // numbers or float parameters, a parameter's cone and weight clamped.
+    // A weight of 0 passes the input.
+    typedef struct maniGraphAimNodeSource
+    {
+        const uint32_t* bones;
+        const float* shares;
+        uint32_t count;
+        uint32_t goal;
+        uint32_t pole;
+        uint32_t reserved;
+        maniVec3 forward;
+        maniVec3 offset;
+        maniVec3 up;
+        maniGraphScalar twist;
+        maniGraphScalar cone;
+        maniGraphScalar weight;
+    } maniGraphAimNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -564,6 +613,8 @@ extern "C"
             maniGraphLearnedNodeSource learned;
             maniGraphSpringNodeSource spring;
             maniGraphPoseNodeSource pose;
+            maniGraphTwoBoneNodeSource twoBone;
+            maniGraphAimNodeSource aim;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;

@@ -121,7 +121,7 @@ static const uint32_t kSubMap[1] = {0};
 static maniGraphParameterSource s_parameters[10];
 static maniGraphClipSource s_clipSlots[2];
 static maniGraphSyncGroupSource s_groups[1];
-static maniGraphNodeSource s_nodes[10];
+static maniGraphNodeSource s_nodes[12];
 static maniGraphScalar s_blendWeights[2];
 static maniGraphScalar s_layerWeights[1];
 static maniMaskChain s_chains[2];
@@ -130,7 +130,11 @@ static const uint32_t kTimeInputs[1] = {2};
 static const uint32_t kSeekInputs[1] = {3};
 static const uint32_t kMaskInputs[2] = {4, 5};
 static const uint32_t kPairInputs[2] = {7, 8};
-static const uint32_t kSelectInputs[2] = {7, 9};
+static const uint32_t kSelectInputs[2] = {7, 11};
+static const uint32_t kTwoBoneInputs[1] = {9};
+static const uint32_t kAimInputs[1] = {10};
+static const uint32_t kAimBones[2] = {1, 2};
+static const float kAimShares[2] = {0.25f, 1.0f};
 
 static void Parameters(void)
 {
@@ -198,8 +202,32 @@ static maniGraphSource Source(void)
     s_nodes[8] = (maniGraphNodeSource){(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                        .subgraph = {&s_sub, kSubMap}};
     s_nodes[9] = (maniGraphNodeSource){maniGraphNodePose, 0, NULL, .pose = {9}};
+    s_nodes[10] = (maniGraphNodeSource){maniGraphNodeTwoBone, 1, kTwoBoneInputs,
+                                        .twoBone = {0,
+                                                    1,
+                                                    2,
+                                                    5,
+                                                    MANI_NO_PARAMETER,
+                                                    0,
+                                                    {0.0f, 0.0f, 1.0f},
+                                                    LITERAL(0.5f),
+                                                    LITERAL(0.9f),
+                                                    (maniGraphScalar){8, 0.0f}}};
+    s_nodes[11] = (maniGraphNodeSource){maniGraphNodeAim, 1, kAimInputs,
+                                        .aim = {kAimBones,
+                                                kAimShares,
+                                                2,
+                                                5,
+                                                5,
+                                                0,
+                                                {0.0f, 0.0f, 1.0f},
+                                                {0.0f, 0.125f, 0.0f},
+                                                {0.0f, 1.0f, 0.0f},
+                                                (maniGraphScalar){0, 0.0f},
+                                                LITERAL(1.5f),
+                                                LITERAL(1.0f)}};
     return (maniGraphSource){&s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 10, 2,
-                             1,           10,           0,           0,        NULL,    0,  0,
+                             1,           12,           0,           0,        NULL,    0,  0,
                              NULL,        NULL};
 }
 
@@ -239,7 +267,7 @@ static const char kExpected[] =
     "\"defaultWeight\": 0.1},\n"
     "    {\"kind\": \"blend\", \"inputs\": [7, 8], \"weights\": [{\"parameter\": \"mix\"}, 0.75], "
     "\"direct\": false},\n"
-    "    {\"kind\": \"select\", \"inputs\": [7, 9], \"parameter\": \"gait\"},\n"
+    "    {\"kind\": \"select\", \"inputs\": [7, 11], \"parameter\": \"gait\"},\n"
     "    {\"kind\": \"clip\", \"clip\": \"wave\", \"syncGroup\": null, \"speed\": 1, \"loop\": "
     "\"repeat\", \"leader\": false},\n"
     "    {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": \"feet\", \"speed\": -1.5, "
@@ -260,7 +288,14 @@ static const char kExpected[] =
     "      ],\n"
     "      \"output\": 0\n"
     "    }},\n"
-    "    {\"kind\": \"pose\", \"parameter\": \"ragdoll\"}\n"
+    "    {\"kind\": \"pose\", \"parameter\": \"ragdoll\"},\n"
+    "    {\"kind\": \"twoBone\", \"inputs\": [9], \"start\": \"hips\", \"middle\": \"spine\", "
+    "\"end\": \"arm\", \"goal\": \"dir\", \"hinge\": [0, 0, 1], \"twist\": 0.5, \"soften\": 0.9, "
+    "\"weight\": {\"parameter\": \"mix\"}},\n"
+    "    {\"kind\": \"aim\", \"inputs\": [10], \"bones\": [\"spine\", \"arm\"], \"shares\": "
+    "[0.25, 1], \"goal\": \"dir\", \"pole\": \"dir\", \"forward\": [0, 0, 1], \"offset\": [0, "
+    "0.125, 0], \"up\": [0, 1, 0], \"twist\": {\"parameter\": \"speed\"}, \"cone\": 1.5, "
+    "\"weight\": 1}\n"
     "  ],\n"
     "  \"output\": 0\n"
     "}\n";
@@ -434,6 +469,58 @@ static void TestNodeDefaults(void)
           "node members left out");
 }
 
+// A two-bone node's pole, hinge, twist, soften and weight and an aim
+// node's shares, pole, offset, up, twist, cone and weight left out.
+static void TestIkDefaults(void)
+{
+    static const char kText[] =
+        "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": \"g\", "
+        "\"type\": \"vec3\"}], \"clips\": [\"walk\"], \"nodes\": [{\"kind\": \"aim\", "
+        "\"inputs\": [1], \"bones\": [\"arm\"], \"goal\": \"g\", \"forward\": [1, 0, 0]}, "
+        "{\"kind\": \"twoBone\", \"inputs\": [2], \"start\": \"hips\", \"middle\": "
+        "\"spine\", \"end\": \"arm\", \"goal\": \"g\"}, {\"kind\": \"clip\", \"clip\": "
+        "\"walk\"}], \"output\": 0}";
+    static const uint32_t kAim[1] = {1};
+    static const uint32_t kKnee[1] = {2};
+    static const uint32_t kArm[1] = {2};
+    maniGraphParameterSource goal = Parameter("g", maniGraphParameterVec3, Value(0, 0, 0, 0));
+    maniGraphClipSource slot = {&s_clips[0], "walk", 4, 0};
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeAim, 1, kAim,
+         .aim = {kArm,
+                 NULL,
+                 1,
+                 0,
+                 MANI_NO_PARAMETER,
+                 0,
+                 {1.0f, 0.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f},
+                 LITERAL(0.0f),
+                 LITERAL(0.0f),
+                 LITERAL(1.0f)}},
+        {maniGraphNodeTwoBone, 1, kKnee,
+         .twoBone = {0,
+                     1,
+                     2,
+                     0,
+                     MANI_NO_PARAMETER,
+                     0,
+                     {0.0f, 0.0f, 0.0f},
+                     LITERAL(0.0f),
+                     LITERAL(1.0f),
+                     LITERAL(1.0f)}},
+        {maniGraphNodeClip, 0, NULL,
+         .clip = {0, MANI_NO_SYNC_GROUP, LITERAL(1.0f), maniGraphLoopClip, 0}}};
+    maniGraphSource source = {&s_skeleton, &goal, &slot, NULL, nodes, 1, 1,    0,
+                              3,           0,     0,     NULL, 0,     0, NULL, NULL};
+    size_t want = Built(&source);
+    size_t size = 0;
+    maniBuildResult r = Read(kText, s_read, &size);
+    CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
+          "IK members left out");
+}
+
 // A text refused: the reason, the fault and the byte offset of the
 // marker's occurrence (inside a string's quotes).
 typedef struct Refusal
@@ -448,6 +535,8 @@ typedef struct Refusal
 #define TOP  "{\"format\": \"maul-anim graph\", \"version\": 1, "
 #define WALK "\"clips\": [\"walk\"], "
 #define NODE "{\"kind\": \"clip\", \"clip\": \"walk\"}"
+#define GOAL "\"parameters\": [{\"name\": \"g\", \"type\": \"vec3\"}], "
+#define AIM  "{\"kind\": \"aim\", \"inputs\": [1], \"goal\": \"g\", \"forward\": [1, 0, 0], "
 
 static const Refusal kRefusals[] = {
     {TOP WALK "\"nodes\": [x]}", maniBuildReasonJson, 1, "x]", 1},
@@ -553,6 +642,24 @@ static const Refusal kRefusals[] = {
          "\"nodes\": [{\"kind\": \"select\", \"inputs\": [1, 1], \"parameter\": \"p\"}, " NODE
          "], \"output\": 0}",
      maniBuildReasonNode, 0, NULL, 0},
+    {TOP GOAL WALK "\"nodes\": [" AIM "\"bones\": []}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[]", 1},
+    {TOP GOAL WALK "\"nodes\": [" AIM
+                   "\"bones\": [\"arm\", \"arm\", \"arm\", \"arm\", \"arm\", \"arm\", "
+                   "\"arm\", \"arm\", \"arm\"]}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[\"arm\", \"arm\", \"arm\", \"arm\"", 1},
+    {TOP GOAL WALK "\"nodes\": [" AIM "\"bones\": [\"leg\"]}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormName, "\"leg\"", 1},
+    {TOP GOAL WALK "\"nodes\": [" AIM "\"bones\": [\"arm\"], \"shares\": [1, 2]}, " NODE
+                   "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[1, 2]", 1},
+    {TOP GOAL WALK "\"nodes\": [{\"kind\": \"twoBone\", \"inputs\": [1], \"start\": "
+                   "\"hips\", \"middle\": \"spine\", \"end\": \"arm\"}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMissing, "{\"kind\": \"twoBone\"", 1},
+    {TOP GOAL WALK "\"nodes\": [{\"kind\": \"twoBone\", \"inputs\": [1], \"start\": "
+                   "\"hips\", \"middle\": \"spine\", \"end\": \"arm\", \"goal\": \"g\", "
+                   "\"hinge\": [0, 1]}, " NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormValue, "[0, 1]", 1},
 };
 
 // The byte offset of a marker's occurrence, inside a string's quotes.
@@ -713,6 +820,7 @@ int main(int argc, char** argv)
     TestRoundTrip();
     TestDefaults();
     TestNodeDefaults();
+    TestIkDefaults();
     TestReadRefusals();
     return s_failures == 0 ? 0 : 1;
 }

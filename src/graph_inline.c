@@ -469,6 +469,20 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         node->spring.reset = Resolve(s, node->spring.reset);
         node->spring.force = Resolve(s, node->spring.force);
         return;
+    case maniGraphNodeTwoBone:
+        node->twoBone.goal = Resolve(s, node->twoBone.goal);
+        node->twoBone.pole = Resolve(s, node->twoBone.pole);
+        node->twoBone.twist = Scalar(s, node->twoBone.twist);
+        node->twoBone.soften = Scalar(s, node->twoBone.soften);
+        node->twoBone.weight = Scalar(s, node->twoBone.weight);
+        return;
+    case maniGraphNodeAim:
+        node->aim.goal = Resolve(s, node->aim.goal);
+        node->aim.pole = Resolve(s, node->aim.pole);
+        node->aim.twist = Scalar(s, node->aim.twist);
+        node->aim.cone = Scalar(s, node->aim.cone);
+        node->aim.weight = Scalar(s, node->aim.weight);
+        return;
     case maniGraphNodeOneShot:
         node->oneShot.fire = Resolve(s, node->oneShot.fire);
         node->oneShot.fadeOutTrigger = Resolve(s, node->oneShot.fadeOutTrigger);

@@ -17,8 +17,10 @@
 #include "graph_match_check.h"
 #include "graph_space_check.h"
 #include "graph_spring.h"
+#include "ik_frame.h"
 #include "sort.h"
 #include "text.h"
+#include "vecmath.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -26,6 +28,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/ik.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -445,6 +448,94 @@ static maniBuildResult CheckSpring(const maniGraphSource* source, const maniGrap
     return ok ? Outcome(mani_success) : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }
 
+// Bones of the skeleton, each an ancestor of the next.
+static bool ChainValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (bones[k] >= maniSkeletonBoneCount(skeleton) ||
+            (k > 0 && !maniIkAbove(skeleton, bones[k - 1], bones[k])))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool FiniteVector(maniVec3 v)
+{
+    return Finite(v.x) && Finite(v.y) && Finite(v.z);
+}
+
+// A goal a vec3 parameter, a pole one or none.
+static bool GoalValid(const maniGraphSource* source, uint32_t goal, uint32_t pole)
+{
+    maniGraphParameterType vec3 = maniGraphParameterVec3;
+    return ParameterOf(source, goal, vec3, vec3) &&
+           (pole == MANI_NO_PARAMETER || ParameterOf(source, pole, vec3, vec3));
+}
+
+// The twist, then a number from 0 to high, then the weight.
+static maniBuildResult CheckIkScalars(const maniGraphSource* source, const maniGraphScalar* s,
+                                      float high, uint32_t node)
+{
+    maniBuildResult r = CheckScalar(source, s[0], node, 0, -HUGE_VALF, HUGE_VALF);
+    r = r.result == mani_success ? CheckScalar(source, s[1], node, 1, 0.0f, high) : r;
+    return r.result == mani_success ? CheckScalar(source, s[2], node, 2, 0.0f, 1.0f) : r;
+}
+
+// A two-bone node: its chain, goal and pole, a finite hinge, a finite
+// twist, soften and weight in [0, 1].
+static maniBuildResult CheckTwoBone(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                    uint32_t node)
+{
+    const maniGraphTwoBoneNodeSource* s = &n->twoBone;
+    const uint32_t bones[3] = {s->start, s->middle, s->end};
+    const maniGraphScalar scalars[3] = {s->twist, s->soften, s->weight};
+    bool ok = ChainValid(source->skeleton, bones, 3) && GoalValid(source, s->goal, s->pole) &&
+              FiniteVector(s->hinge);
+    return ok ? CheckIkScalars(source, scalars, 1.0f, node)
+              : maniGraphRefuse(maniBuildReasonNode, node, 0);
+}
+
+// Shares at least 0, finite, not all 0 and of a finite sum; NULL for
+// equal ones.
+static bool SharesValid(const float* shares, uint32_t count)
+{
+    if (shares == NULL)
+    {
+        return true;
+    }
+    float total = 0.0f;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (!(shares[k] >= 0.0f) || !Finite(shares[k]))
+        {
+            return false;
+        }
+        total += shares[k];
+    }
+    return total > 0.0f && Finite(total);
+}
+
+// An aim node: 1 to MANI_AIM_MAX_BONES bones of a chain, its shares,
+// goal and pole, a forward of length 1 within a thousandth, offset and
+// up finite, a finite twist, a cone in [0, MANI_AIM_MAX_CONE], a weight
+// in [0, 1].
+static maniBuildResult CheckAim(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                uint32_t node)
+{
+    const maniGraphAimNodeSource* s = &n->aim;
+    const maniGraphScalar scalars[3] = {s->twist, s->cone, s->weight};
+    bool ok = s->bones != NULL && s->count > 0 && s->count <= MANI_AIM_MAX_BONES &&
+              ChainValid(source->skeleton, s->bones, s->count) &&
+              SharesValid(s->shares, s->count) && GoalValid(source, s->goal, s->pole) &&
+              fabsf(maniVec3Length(s->forward) - 1.0f) <= 1e-3f && FiniteVector(s->offset) &&
+              FiniteVector(s->up);
+    return ok ? CheckIkScalars(source, scalars, MANI_AIM_MAX_CONE, node)
+              : maniGraphRefuse(maniBuildReasonNode, node, 0);
+}
+
 // A node's own fields, by kind.
 static maniBuildResult CheckFields(const maniGraphSource* source, const maniGraphNodeSource* n,
                                    uint32_t node)
@@ -470,6 +561,10 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return maniCheckGraphLearned(source, n, node);
     case maniGraphNodeSpring:
         return CheckSpring(source, n, node);
+    case maniGraphNodeTwoBone:
+        return CheckTwoBone(source, n, node);
+    case maniGraphNodeAim:
+        return CheckAim(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:

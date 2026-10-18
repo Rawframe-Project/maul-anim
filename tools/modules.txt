@@ -81,7 +81,7 @@ learned_restore: allocator bytes container host_code learned_file learned_train 
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:
-graph_nodes: bytes graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring
+graph_nodes: bytes graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring vecmath
 graph_machine_file: bytes graph_file
 graph: bytes container graph_file graph_nodes text
 graph_instance: bytes graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring pose_memory
@@ -112,7 +112,7 @@ clip_cursor: clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
 root_motion_build: allocator bytes clip_file quat64
 clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
-graph_check: allocator container graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring sort text
+graph_check: allocator container graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring ik_frame sort text vecmath
 graph_space_check: exact graph_file
 graph_machine_check: bytes graph_file sort
 graph_match_check: graph_match
@@ -120,10 +120,11 @@ exact:
 triangulate: exact sort
 graph_inline: allocator graph_check
 graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_spring sort triangulate
-graph_json: allocator builder graph_json_write
+graph_json: allocator builder graph_json_ik graph_json_write
+graph_json_ik: arena graph_json_read graph_json_write json
 graph_json_write: decimal_format
 graph_json_read: arena container decimal json sort
-graph_json_graph: arena builder graph_json_machine graph_json_read graph_json_search graph_json_space json
+graph_json_graph: arena builder graph_json_ik graph_json_machine graph_json_read graph_json_search graph_json_space json
 graph_json_space: arena graph_json_read json
 graph_json_machine: arena graph_json_read json
 graph_json_search: arena graph_json_read json

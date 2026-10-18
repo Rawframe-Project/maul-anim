@@ -18,6 +18,9 @@ format.
   (from an offset point) onto a goal, its up toward a pole, or spreads
   the turn over a chain of up to 8 bones by shares, within an optional
   cone.
+- IK graph nodes (mani-0029): two-bone and aim nodes solve their input
+  pose toward vec3 goal and pole parameters, their twist, soften, cone
+  and weight numbers or float parameters, in files, JSON and subgraphs.
 - `mani_errorState`: a builder's functions, closing a document opened
   with it, and training, restoring and destroying a learned trainer
   refuse a call back in from the object's allocator or task hooks,

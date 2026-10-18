@@ -25,8 +25,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PI_F 3.14159265358979f
-
 // The direction the aiming bone's forward takes from its origin so that
 // its line through the offset point passes through the goal t (from the
 // origin); false when the offset lies further from the forward line than
@@ -110,8 +108,8 @@ static bool Valid(const maniPose* pose, const maniSkeleton* skeleton, const mani
     float length = maniVec3Length(s->forward);
     return total > 0.0f && isfinite(total) && fabsf(length - 1.0f) <= 1e-3f &&
            maniIkFiniteVec(s->goal) && maniIkFiniteVec(s->pole) && maniIkFiniteVec(s->offset) &&
-           maniIkFiniteVec(s->up) && isfinite(s->twist) && s->cone >= 0.0f && s->cone <= PI_F &&
-           s->weight >= 0.0f && s->weight <= 1.0f;
+           maniIkFiniteVec(s->up) && isfinite(s->twist) && s->cone >= 0.0f &&
+           s->cone <= MANI_AIM_MAX_CONE && s->weight >= 0.0f && s->weight <= 1.0f;
 }
 
 maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* solve,

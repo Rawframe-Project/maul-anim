@@ -1476,7 +1476,7 @@ ev-weights-room | src/graph_evaluate.c | parts.weightsAt + Round(2 * (size_t)bin
 bd-cycle | src/graph_build.c | if (w->state[u] == 1) | if (false)
 bd-unreachable | src/graph_build.c | if (w->state[v] == 0) | if (false)
 bd-clip-difference | src/graph_build.c | w->difference[v] = maniClipAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u; | w->difference[v] = 0u;
-bd-additive-base | src/graph_build.c | if ((additive || node->kind == maniGraphNodeSpring) && first != 0) | if (false)
+bd-additive-base | src/graph_build.c | if ((additive || posesOnly) && first != 0) | if (false)
 bd-mix | src/graph_build.c | if (additive ? d == 0 : d != first) | if (additive && d == 0)
 bd-output-difference | src/graph_build.c | if (r.result == mani_success && w.difference[source->output] != 0) | if (false)
 bd-slot-reuse | src/graph_build.c | w->freeSlots[freeCount++] = w->slot[u]; | (void)0;
@@ -1597,9 +1597,9 @@ il-subgraph-inputs | src/graph_inline.c | if (node->inputCount != 0 || sub->skel
 il-subgraph-output | src/graph_inline.c | sub->output >= sub->nodeCount || | false ||
 
 # The graph JSON writer (src/graph_json.c).
-js-control-escape | src/graph_json.c | else if (c < 0x20u) | else if (false)
-js-hex-high | src/graph_json.c | char escape[6] = {'\\', 'u', '0', '0', kHex[c >> 4], kHex[c & 15u]}; | char escape[6] = {'\\', 'u', '0', '0', '0', kHex[c & 15u]};
-js-int-negative | src/graph_json.c | PutUnsigned(w, value < 0 ? (uint64_t)(-(int64_t)value) : (uint64_t)value); | PutUnsigned(w, (uint64_t)value);
+js-control-escape | src/graph_json_write.c | else if (c < 0x20u) | else if (false)
+js-hex-high | src/graph_json_write.c | char escape[6] = {'\\', 'u', '0', '0', kHex[c >> 4], kHex[c & 15u]}; | char escape[6] = {'\\', 'u', '0', '0', '0', kHex[c & 15u]};
+js-int-negative | src/graph_json_write.c | maniGraphJsonPutUnsigned(w, value < 0 ? (uint64_t)(-(int64_t)value) : (uint64_t)value); | maniGraphJsonPutUnsigned(w, (uint64_t)value);
 js-empty-list | src/graph_json.c | if (counts[list] > 0) | if (true)
 js-bounds | src/graph_json.c | if (p->bounded != 0) | if (false)
 js-clear-on-failure | src/graph_json.c | maniBuilderClear(builder); | (void)0;
@@ -1736,7 +1736,7 @@ sb-authored | src/graph_build.c | (void)PutWords(d, at + 1 + 2 * n, s->triangles
 sb-reserve | src/graph_build.c | return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n); | return at + 3 * count;
 sj-omit-delaunay | src/graph_json.c | if (s->triangleCount == 0) | if (false)
 sj-plane-y | src/graph_json.c | if (plane) | if (true)
-sj-three | src/graph_json_graph.c | if (three != 3) | if (false)
+sj-three | src/graph_json_space.c | if (three != 3) | if (false)
 sp-turn-origin | src/graph_space.c | float d = origin ? 0.0f : b - a; | float d = b - a;
 sp-turn-wrap-high | src/graph_space.c | return d > 3.14159265f ? d - 6.28318531f : (d < -3.14159265f ? d + 6.28318531f : d); | return d < -3.14159265f ? d + 6.28318531f : d;
 sp-turn-wrap-low | src/graph_space.c | return d > 3.14159265f ? d - 6.28318531f : (d < -3.14159265f ? d + 6.28318531f : d); | return d > 3.14159265f ? d - 6.28318531f : d;
@@ -2672,11 +2672,11 @@ gn-nodes-valid | src/graph_nodes.c | return maniGraphSpringValid(g, n->data, blo
 gn-inline-position | src/graph_inline.c | node->spring.position = Resolve(s, node->spring.position); | (void)s;
 gn-inline-reset | src/graph_inline.c | node->spring.reset = Resolve(s, node->spring.reset); | (void)s;
 gn-inline-set | src/graph_inline.c | node->spring.springSet = SpringSetSlot(s, f, node->spring.springSet); | (void)f;
-gn-json-put | src/graph_json.c | PutParameterName(w, source, parameters[k]); | (void)parameters;
+gn-json-put | src/graph_json.c | maniGraphJsonPutParameterName(w, source, parameters[k]); | (void)parameters;
 gn-json-none | src/graph_json_graph.c | *parameters[k] = MANI_NO_PARAMETER; | (void)parameters;
 gn-json-absent | src/graph_json_graph.c | if (f[3 + k] != ABSENT && | if (false &&
 gn-build-words | src/graph_build.c | lay->blockAt += maniGraphSpringState + words; | lay->blockAt += words;
-gn-build-difference | src/graph_build.c | if ((additive || node->kind == maniGraphNodeSpring) && first != 0) | if (additive && first != 0)
+gn-build-difference | src/graph_build.c | if ((additive || posesOnly) && first != 0) | if (additive && first != 0)
 gl-inline-join | src/graph_inline.c | ? maniLearnedModelIdentity(other) == maniLearnedModelIdentity(m->model) | ? false
 gn-inline-join | src/graph_inline.c | ? maniSpringSetIdentity(other) == maniSpringSetIdentity(p->set) | ? false
 # gn-check-words survives, untested for its cost: the builder's bound on
@@ -2930,5 +2930,5 @@ aim-slerp | src/ik_aim.c | turn = share >= 1.0f ? turn : maniQuatSlerp(maniQuatI
 aim-weight | src/ik_aim.c | if (solve->weight < 1.0f) | if (false)
 aim-forward-unit | src/ik_aim.c | return total > 0.0f && isfinite(total) && fabsf(length - 1.0f) <= 1e-3f && | return total > 0.0f && isfinite(total) &&
 aim-ancestor | src/ik_aim.c | (k > 0 && !maniIkAbove(skeleton, s->bones[k - 1], s->bones[k]))) | (false))
-aim-cone-range | src/ik_aim.c | maniIkFiniteVec(s->up) && isfinite(s->twist) && s->cone >= 0.0f && s->cone <= PI_F && | maniIkFiniteVec(s->up) && isfinite(s->twist) && s->cone >= 0.0f &&
+aim-cone-range | src/ik_aim.c | s->cone <= MANI_AIM_MAX_CONE && s->weight >= 0.0f && s->weight <= 1.0f; | s->weight >= 0.0f && s->weight <= 1.0f;
 aim-reached | src/ik_aim.c | *reachedOut = aimed && inside && solve->weight >= 1.0f; | *reachedOut = aimed && solve->weight >= 1.0f;

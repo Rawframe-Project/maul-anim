@@ -130,6 +130,12 @@ extern "C"
         // A pose input node: the pose a pose parameter holds (a
         // ragdoll's, say); no inputs.
         maniGraphNodePose = 17,
+        // A two-bone IK node: its input with a chain of two bones bent
+        // to reach a goal.
+        maniGraphNodeTwoBone = 18,
+        // An aim IK node: its input with a bone, or a chain sharing the
+        // turn, aimed at a goal.
+        maniGraphNodeAim = 19,
     };
 
 // The most steps of its model a learned node takes in one update: a

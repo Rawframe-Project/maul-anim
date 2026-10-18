@@ -28,6 +28,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/ik.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
@@ -128,8 +129,10 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
         return Outcome(mani_success);
     }
     bool additive = node->kind == maniGraphNodeAdditive;
+    bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeTwoBone ||
+                     node->kind == maniGraphNodeAim;
     uint32_t first = w->difference[node->inputs[0]];
-    if ((additive || node->kind == maniGraphNodeSpring) && first != 0)
+    if ((additive || posesOnly) && first != 0)
     {
         return maniGraphRefuse(maniBuildReasonDifference, v, 0);
     }
@@ -476,6 +479,34 @@ static uint32_t PutSpring(const maniGraphSource* source, uint8_t* d, uint32_t at
     return PutWords(d, at, head, MANI_GRAPH_SPRING_WORDS);
 }
 
+// A two-bone node's words: its bones and parameters, hinge and scalars.
+static uint32_t PutTwoBone(uint8_t* d, uint32_t at, const maniGraphTwoBoneNodeSource* s)
+{
+    const uint32_t head[5] = {s->start, s->middle, s->end, s->goal, s->pole};
+    const float hinge[3] = {s->hinge.x, s->hinge.y, s->hinge.z};
+    at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3);
+    return PutScalar(d, PutScalar(d, PutScalar(d, at, s->twist), s->soften), s->weight);
+}
+
+// An aim node's words: its count and parameters, its bones and shares
+// (1 each for equal ones) with zeros past the count, axes and scalars.
+static uint32_t PutAim(uint8_t* d, uint32_t at, const maniGraphAimNodeSource* s)
+{
+    uint32_t bones[MANI_AIM_MAX_BONES] = {0};
+    float shares[MANI_AIM_MAX_BONES] = {0};
+    for (uint32_t k = 0; k < s->count; ++k)
+    {
+        bones[k] = s->bones[k];
+        shares[k] = s->shares != NULL ? s->shares[k] : 1.0f;
+    }
+    const uint32_t head[3] = {s->count, s->goal, s->pole};
+    const float axes[9] = {s->forward.x, s->forward.y, s->forward.z, s->offset.x, s->offset.y,
+                           s->offset.z,  s->up.x,      s->up.y,      s->up.z};
+    at = PutWords(d, PutWords(d, at, head, 3), bones, MANI_AIM_MAX_BONES);
+    at = PutFloats(d, PutFloats(d, at, shares, MANI_AIM_MAX_BONES), axes, 9);
+    return PutScalar(d, PutScalar(d, PutScalar(d, at, s->twist), s->cone), s->weight);
+}
+
 // A blend's direct flag and weights, or an additive's weights.
 static uint32_t PutWeights(uint8_t* d, uint32_t at, const maniGraphNodeSource* node)
 {
@@ -543,6 +574,11 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     else if (node->kind == maniGraphNodePose)
     {
         at = PutWords(d, at, &node->pose.parameter, 1);
+    }
+    else if (node->kind == maniGraphNodeTwoBone || node->kind == maniGraphNodeAim)
+    {
+        at = node->kind == maniGraphNodeAim ? PutAim(d, at, &node->aim)
+                                            : PutTwoBone(d, at, &node->twoBone);
     }
     else if (node->kind == maniGraphNodeTimeScale)
     {

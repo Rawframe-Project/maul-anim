@@ -12,6 +12,7 @@
 
 #include "arena.h"
 #include "builder.h"
+#include "graph_json_ik.h"
 #include "graph_json_machine.h"
 #include "graph_json_read.h"
 #include "graph_json_search.h"
@@ -634,6 +635,18 @@ static const KindForm kForms[] = {
      7,
      7u},
     {"pose", maniGraphNodePose, {"kind", "parameter"}, 2, 3u},
+    {"twoBone",
+     maniGraphNodeTwoBone,
+     {"kind", "inputs", "start", "middle", "end", "goal", "pole", "hinge", "twist", "soften",
+      "weight"},
+     11,
+     63u},
+    {"aim",
+     maniGraphNodeAim,
+     {"kind", "inputs", "bones", "goal", "forward", "shares", "pole", "offset", "up", "twist",
+      "cone", "weight"},
+     12,
+     31u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -683,6 +696,10 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return maniGraphJsonLearned(r, scope, f, &n->learned);
     case maniGraphNodeSpring:
         return Spring(r, scope, f, &n->spring);
+    case maniGraphNodeTwoBone:
+        return maniGraphJsonTwoBone(r, scope, f, &n->twoBone);
+    case maniGraphNodeAim:
+        return maniGraphJsonAim(r, scope, f, &n->aim);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

@@ -10,6 +10,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "graph_json_ik.h"
 #include "graph_json_write.h"
 
 #include "maul-anim/base.h"
@@ -260,8 +261,6 @@ static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMa
     maniGraphJsonPutScalar(w, source, m->duration);
 }
 
-// A learned node: its model by name, its trigger (when it has one), its
-// query's parameters, its period and transition cost, tags and duration.
 // A spring node's set by its slot's name, and the parameters it has.
 static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphSpringNodeSource* s)
 {
@@ -281,6 +280,8 @@ static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphS
     }
 }
 
+// A learned node: its model by name, its trigger (when it has one), its
+// query's parameters, its period and transition cost, tags and duration.
 static void PutLearned(Writer* w, const maniGraphSource* source,
                        const maniGraphLearnedNodeSource* l)
 {
@@ -541,6 +542,21 @@ static void PutSubgraphNode(Writer* w, const maniGraphSource* source,
 }
 
 // A node's own fields, by kind, after its kind and inputs.
+// A blend's weights and direct flag, or an additive's weights.
+static void PutWeights(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n)
+{
+    maniGraphJsonPutKey(w, "weights");
+    if (n->kind == maniGraphNodeAdditive)
+    {
+        maniGraphJsonPutScalars(w, source, n->additive.weights, n->inputCount - 1);
+        return;
+    }
+    maniGraphJsonPutScalars(w, source, n->blend.weights, n->inputCount);
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "direct");
+    maniGraphJsonPutBool(w, n->blend.direct != 0);
+}
+
 static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n,
                       uint32_t depth)
 {
@@ -550,11 +566,8 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutClipNode(w, source, &n->clip);
         return;
     case maniGraphNodeBlend:
-        maniGraphJsonPutKey(w, "weights");
-        maniGraphJsonPutScalars(w, source, n->blend.weights, n->inputCount);
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "direct");
-        maniGraphJsonPutBool(w, n->blend.direct != 0);
+    case maniGraphNodeAdditive:
+        PutWeights(w, source, n);
         return;
     case maniGraphNodeMask:
         PutMaskNode(w, &n->mask);
@@ -574,17 +587,15 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeSpring:
         PutSpring(w, source, &n->spring);
         return;
-    case maniGraphNodeAdditive:
-        maniGraphJsonPutKey(w, "weights");
-        maniGraphJsonPutScalars(w, source, n->additive.weights, n->inputCount - 1);
+    case maniGraphNodeTwoBone:
+    case maniGraphNodeAim:
+        maniGraphJsonPutIk(w, source, n);
         return;
     case maniGraphNodeSelect:
-        maniGraphJsonPutKey(w, "parameter");
-        maniGraphJsonPutParameterName(w, source, n->select.parameter);
-        return;
     case maniGraphNodePose:
         maniGraphJsonPutKey(w, "parameter");
-        maniGraphJsonPutParameterName(w, source, n->pose.parameter);
+        maniGraphJsonPutParameterName(
+            w, source, n->kind == maniGraphNodePose ? n->pose.parameter : n->select.parameter);
         return;
     case maniGraphNodeTimeScale:
         maniGraphJsonPutKey(w, "scale");
@@ -643,7 +654,9 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "match",
                                          "learned",
                                          "spring",
-                                         "pose"};
+                                         "pose",
+                                         "twoBone",
+                                         "aim"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

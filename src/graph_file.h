@@ -170,6 +170,39 @@ enum
 // out in graph_spring.h.
 #define MANI_GRAPH_SPRING_WORDS 7u
 
+// A two-bone IK node's data words: its start, middle and end bones, its
+// goal parameter (a vec3), pole parameter (a vec3 or MANI_NO_PARAMETER),
+// hinge (three binary32), then its twist, soften and weight as scalars.
+#define MANI_GRAPH_TWO_BONE_WORDS 14u
+enum
+{
+    maniGraphTwoBoneGoal = 3,
+    maniGraphTwoBonePole = 4,
+    maniGraphTwoBoneHinge = 5,
+    maniGraphTwoBoneTwist = 8,
+    maniGraphTwoBoneSoften = 10,
+    maniGraphTwoBoneWeight = 12,
+};
+
+// An aim IK node's data words: its bone count, goal and pole parameters
+// (as a two-bone node's), MANI_AIM_MAX_BONES bones then as many shares
+// (binary32), those past the count 0, its forward, offset and up (three
+// binary32 each), then its twist, cone and weight as scalars.
+#define MANI_GRAPH_AIM_WORDS 34u
+enum
+{
+    maniGraphAimGoal = 1,
+    maniGraphAimPole = 2,
+    maniGraphAimBones = 3,
+    maniGraphAimShares = 11,
+    maniGraphAimForward = 19,
+    maniGraphAimOffset = 22,
+    maniGraphAimUp = 25,
+    maniGraphAimTwist = 28,
+    maniGraphAimCone = 30,
+    maniGraphAimWeight = 32,
+};
+
 // The data words a node of a kind with n inputs holds; 0 for an unknown
 // kind, a state machine and a one-shot, whose words their contents
 // count.

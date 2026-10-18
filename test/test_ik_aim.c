@@ -225,6 +225,47 @@ static void TestChain(void)
     }
 }
 
+static float Angle(maniQuat a, maniQuat b)
+{
+    float d = fabsf(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+    return 2.0f * acosf(d > 1.0f ? 1.0f : d);
+}
+
+static void TestShares(void)
+{
+    // Equal shares: the spine turns a third of the head's own aim turn.
+    maniVec3 goal = {1.5f, 0.8f, 1.0f};
+    Posed(s_pose);
+    Posed(s_other);
+    maniAimSolve one = Head(goal, (maniVec3){0.0f, 1.0f, 0.0f});
+    CHECK(maniSolveAim(s_other, &s_skeleton, &one, NULL) == mani_success, "the head alone");
+    float whole = Angle(maniPoseLocal(s_other, s_bone[kHead]).rotation,
+                        Turn((maniVec3){0.0f, 0.0f, 1.0f}, 0.0f));
+    maniAimSolve s = one;
+    s.count = 3;
+    for (int b = 0; b < 3; ++b)
+    {
+        s.bones[b] = s_bone[kSpine + b];
+        s.shares[b] = 1.0f / 3.0f;
+    }
+    maniQuat spine = maniPoseLocal(s_pose, s_bone[kSpine]).rotation;
+    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "shared");
+    float third = Angle(maniPoseLocal(s_pose, s_bone[kSpine]).rotation, spine);
+    CHECK(fabsf(third - whole / 3.0f) < 1e-4f && whole > 0.5f, "the first bone's share");
+    // Shares 0.5, 0.5, 0: the neck takes all that is left, the head only
+    // the little its place below the neck needs.
+    Posed(s_pose);
+    s.shares[0] = 0.5f;
+    s.shares[1] = 0.5f;
+    s.shares[2] = 0.0f;
+    maniQuat head = maniPoseLocal(s_pose, s_bone[kHead]).rotation;
+    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success &&
+              Off(s_pose, goal, false) < 1e-3f,
+          "aimed by spine and neck");
+    CHECK(Angle(maniPoseLocal(s_pose, s_bone[kHead]).rotation, head) < 0.1f * whole,
+          "the head left with little");
+}
+
 static void TestCone(void)
 {
     // A goal behind: the forward stops 0.5 from the input's.
@@ -235,7 +276,11 @@ static void TestCone(void)
     bool r = true;
     CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "coned");
     maniVec3 after = Rotate(Model(s_pose, kHead).rotation, (maniVec3){0.0f, 0.0f, 1.0f});
-    CHECK(fabsf(acosf(Dot(before, after)) - 0.5f) < 1e-3f, "the forward at the cone's edge");
+    maniVec3 toward = Sub((maniVec3){0.2f, 1.5f, -2.0f}, Model(s_pose, kHead).translation);
+    float was = acosf(Dot(before, toward) / Length(toward));
+    float now = acosf(Dot(after, toward) / Length(toward));
+    CHECK(fabsf(acosf(Dot(before, after)) - 0.5f) < 1e-3f && fabsf(was - now - 0.5f) < 1e-3f,
+          "the forward at the cone's edge, toward the goal");
     // Within the cone: aimed.
     Posed(s_pose);
     s.goal = (maniVec3){-0.4f, 1.3f, 2.0f};
@@ -339,6 +384,7 @@ int main(void)
     Setup();
     TestAim();
     TestChain();
+    TestShares();
     TestCone();
     TestPoleSweep();
     TestEdges();

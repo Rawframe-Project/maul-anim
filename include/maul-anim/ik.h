@@ -82,6 +82,8 @@ extern "C"
 
 // The most bones an aim spreads its turn over.
 #define MANI_AIM_MAX_BONES 8u
+// The widest cone an aim takes, pi radians.
+#define MANI_AIM_MAX_CONE 3.14159265358979f
 
     // An aim: count bones, an ancestor first and the aiming bone last,
     // each an ancestor of the next; one for an aim at a single bone.
@@ -108,8 +110,8 @@ extern "C"
         maniVec3 up;
         // A turn about the aim line, radians.
         float twist;
-        // In (0, pi]: the largest turn of the forward from the input
-        // pose's; 0 for none.
+        // In (0, MANI_AIM_MAX_CONE]: the largest turn of the forward
+        // from the input pose's; 0 for none.
         float cone;
         // In [0, 1]: the corrections' share, 1 for all of them.
         float weight;
@@ -134,7 +136,8 @@ extern "C"
     /// count of 0 or past MANI_AIM_MAX_BONES, bones out of range or not
     /// each an ancestor of the next, shares negative, not finite or all
     /// 0, a forward not of length 1 within a thousandth, a goal, pole,
-    /// offset, up or twist not finite, a cone outside [0, pi], a weight
+    /// offset, up or twist not finite, a cone outside [0,
+    /// MANI_AIM_MAX_CONE], a weight
     /// outside [0, 1].
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
