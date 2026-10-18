@@ -1,0 +1,321 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Sirac Ozmen
+//
+// The IK differential (mani-0029): random two-bone chains (random
+// bone lengths and turns, the hinge random, goals in and out of reach,
+// softening and weights, twists) solved by ozz-animation 0.17.0's
+// IKTwoBoneJob and by maniSolveTwoBone, the middle and end bones'
+// model positions compared. Poles within a sine of 0.1 of the goal line
+// are left out: there ozz flips and Maul Anim blends to the chain's own
+// plane (mani-0029); so are goals within a twentieth of the chain's
+// length of the start (ozz turns the start toward them, Maul Anim does
+// not) and weighted corrections of nearly half a turn (which way the
+// weight turns is rounding's in both). Hinges lie perpendicular to the
+// chain's bend plane, as a joint's do. Prints the worst difference over
+// the chain's length and each solver's own error (the end's miss of a
+// reachable goal, the middle's distance from the pole's plane); fails
+// when the two differ past 5e-4 (ozz turns to the pole's plane from the
+// cosine alone, off it by about 1e-4) or 2e-3 for softened goals (ozz
+// softens with reciprocal estimates of about 12 bits), when "reached"
+// differs, or when Maul Anim's own error passes 1e-5.
+//
+// usage: ik_differential [cases]
+
+#include "maul-anim/base.h"
+#include "maul-anim/build.h"
+#include "maul-anim/ik.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
+#include "ozz/animation/runtime/ik_two_bone_job.h"
+#include "ozz/base/maths/simd_math.h"
+#include "ozz/base/maths/simd_quaternion.h"
+
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+
+namespace
+{
+
+alignas(16) uint8_t g_skeletonFile[4096];
+alignas(64) uint8_t g_memory[2][4096];
+uint64_t g_random = 0x9E3779B97F4A7C15ull;
+
+float Random()
+{
+    g_random ^= g_random << 13;
+    g_random ^= g_random >> 7;
+    g_random ^= g_random << 17;
+    return static_cast<float>(g_random >> 40) / 16777216.0f;
+}
+
+float Spread(float low, float high)
+{
+    return low + (high - low) * Random();
+}
+
+maniVec3 Direction()
+{
+    for (;;)
+    {
+        maniVec3 v = {Spread(-1, 1), Spread(-1, 1), Spread(-1, 1)};
+        float l = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+        if (l > 0.1f && l <= 1.0f)
+        {
+            return {v.x / l, v.y / l, v.z / l};
+        }
+    }
+}
+
+maniQuat Turn(maniVec3 axis, float angle)
+{
+    float s = std::sin(0.5f * angle);
+    return {axis.x * s, axis.y * s, axis.z * s, std::cos(0.5f * angle)};
+}
+
+maniQuat Mul(maniQuat a, maniQuat b)
+{
+    return {a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+            a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+            a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z};
+}
+
+ozz::math::Float4x4 ToOzz(const maniAffine& a)
+{
+    using ozz::math::simd_float4::Load;
+    return {{Load(a.m[0], a.m[1], a.m[2], 0.0f), Load(a.m[3], a.m[4], a.m[5], 0.0f),
+             Load(a.m[6], a.m[7], a.m[8], 0.0f), Load(a.m[9], a.m[10], a.m[11], 1.0f)}};
+}
+
+maniVec3 Position(maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
+{
+    if (maniComputeModel(pose, skeleton) != mani_success)
+    {
+        std::abort();
+    }
+    maniAffine m = maniPoseModel(pose, bone);
+    return {m.m[9], m.m[10], m.m[11]};
+}
+
+float Apart(maniVec3 a, maniVec3 b)
+{
+    float x = a.x - b.x;
+    float y = a.y - b.y;
+    float z = a.z - b.z;
+    return std::sqrt(x * x + y * y + z * z);
+}
+
+} // namespace
+
+int main(int argc, char** argv)
+{
+    long cases = argc > 1 ? std::atol(argv[1]) : 100000;
+    const maniBoneSource bones[4] = {{"root", 4, -1, {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
+                                     {"start", 5, 0, {{0, 1, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
+                                     {"middle", 6, 1, {{0, -0.5f, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
+                                     {"end", 3, 2, {{0, -0.5f, 0}, {0, 0, 0, 1}, {1, 1, 1}}}};
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = nullptr;
+    maniSkeletonSource source = {bones, 4, 0};
+    size_t size = 0;
+    maniSkeleton skeleton;
+    maniPose* ours = nullptr;
+    maniPose* theirs = nullptr;
+    if (maniCreateBuilder(&def, &builder) != mani_success ||
+        maniBuildSkeleton(builder, &source).result != mani_success ||
+        maniCopyBuilt(builder, g_skeletonFile, sizeof g_skeletonFile, &size) != mani_success ||
+        maniOpenSkeleton(g_skeletonFile, size, &skeleton).result != mani_success ||
+        maniInitPose(&skeleton, g_memory[0], sizeof g_memory[0], &ours) != mani_success ||
+        maniInitPose(&skeleton, g_memory[1], sizeof g_memory[1], &theirs) != mani_success)
+    {
+        std::fprintf(stderr, "setup failed\n");
+        return 1;
+    }
+    maniDestroyBuilder(builder);
+    // Softened goals apart: ozz softens with reciprocal estimates
+    // (RcpEstX, about 12 bits), Maul Anim divides.
+    float worst = 0.0f;
+    float worstSoftened = 0.0f;
+    // Each solver's own error on reachable goals at full weight: the end's
+    // miss, and the middle's distance from the pole's plane (no twist),
+    // over the chain's length.
+    float missOurs = 0.0f;
+    float missTheirs = 0.0f;
+    float planeOurs = 0.0f;
+    float planeTheirs = 0.0f;
+    long compared = 0;
+    long reachDiffers = 0;
+    long halfTurns = 0;
+    for (long c = 0; c < cases; ++c)
+    {
+        // Random lengths and turns for the start and middle, the end
+        // bone's offset from the middle along a random direction.
+        maniTransform locals[4] = {{{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}},
+                                   {{0, 1, 0}, Turn(Direction(), Spread(-3, 3)), {1, 1, 1}},
+                                   {{0, 0, 0}, Turn(Direction(), Spread(-3, 3)), {1, 1, 1}},
+                                   {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}};
+        maniVec3 d = Direction();
+        float la = Spread(0.2f, 1.0f);
+        locals[2].translation = {d.x * la, d.y * la, d.z * la};
+        d = Direction();
+        float lb = Spread(0.2f, 1.0f);
+        locals[3].translation = {d.x * lb, d.y * lb, d.z * lb};
+        for (uint32_t b = 0; b < 4; ++b)
+        {
+            maniPoseSetLocal(ours, b, locals[b]);
+            maniPoseSetLocal(theirs, b, locals[b]);
+        }
+        maniVec3 start = Position(ours, &skeleton, 1);
+        maniVec3 dir = Direction();
+        float reach = (la + lb) * Spread(0.0f, 1.3f);
+        maniVec3 goal = {start.x + dir.x * reach, start.y + dir.y * reach, start.z + dir.z * reach};
+        maniVec3 pole = Direction();
+        float along = pole.x * dir.x + pole.y * dir.y + pole.z * dir.z;
+        // A goal within a twentieth of the chain's length of the start
+        // leaves the start unturned here and turns it toward the goal in
+        // ozz (mani-0029): left out.
+        if (1.0f - along * along < 0.01f || reach < 0.05f * (la + lb))
+        {
+            continue;
+        }
+        // The hinge perpendicular to the chain's bend plane, either way
+        // (a chain bent backward against it too), in the middle's frame:
+        // a hinge is an axis of the joint; off the plane the two solvers
+        // define the plane's turn differently.
+        maniVec3 middle = Position(ours, &skeleton, 2);
+        maniVec3 end = Position(ours, &skeleton, 3);
+        maniVec3 a = {middle.x - start.x, middle.y - start.y, middle.z - start.z};
+        maniVec3 b = {end.x - middle.x, end.y - middle.y, end.z - middle.z};
+        maniVec3 n = {b.y * a.z - b.z * a.y, b.z * a.x - b.x * a.z, b.x * a.y - b.y * a.x};
+        float nl = std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+        if (nl < 1e-3f * la * lb)
+        {
+            continue;
+        }
+        float side = Random() < 0.5f ? 1.0f : -1.0f;
+        maniQuat r = maniPoseModelTransform(ours, 2).rotation;
+        maniQuat back = {-r.x, -r.y, -r.z, r.w};
+        maniQuat v =
+            Mul(Mul(back, maniQuat{n.x / nl * side, n.y / nl * side, n.z / nl * side, 0}), r);
+        maniVec3 hinge = {v.x, v.y, v.z};
+        float soften = Random() < 0.5f ? 1.0f : 0.8f;
+        float weight = Random() < 0.5f ? 1.0f : 0.5f;
+        float twist = Random() < 0.5f ? 0.0f : Spread(-1, 1);
+
+        maniTwoBoneSolve solve = {1, 2, 3, 0, goal, pole, hinge, twist, soften, weight};
+        bool reachedOurs = false;
+        if (maniSolveTwoBone(ours, &skeleton, &solve, &reachedOurs) != mani_success)
+        {
+            std::fprintf(stderr, "case %ld refused\n", c);
+            return 1;
+        }
+
+        if (maniComputeModel(theirs, &skeleton) != mani_success)
+        {
+            return 1;
+        }
+        const ozz::math::Float4x4 models[3] = {ToOzz(maniPoseModel(theirs, 1)),
+                                               ToOzz(maniPoseModel(theirs, 2)),
+                                               ToOzz(maniPoseModel(theirs, 3))};
+        ozz::animation::IKTwoBoneJob job;
+        job.target = ozz::math::simd_float4::Load(goal.x, goal.y, goal.z, 1.0f);
+        job.mid_axis = ozz::math::simd_float4::Load(hinge.x, hinge.y, hinge.z, 0.0f);
+        job.pole_vector = ozz::math::simd_float4::Load(pole.x, pole.y, pole.z, 0.0f);
+        job.twist_angle = twist;
+        job.soften = soften;
+        job.weight = weight;
+        job.start_joint = &models[0];
+        job.mid_joint = &models[1];
+        job.end_joint = &models[2];
+        ozz::math::SimdQuaternion corrections[2];
+        bool reachedTheirs = false;
+        job.start_joint_correction = &corrections[0];
+        job.mid_joint_correction = &corrections[1];
+        job.reached = &reachedTheirs;
+        if (!job.Run())
+        {
+            std::fprintf(stderr, "ozz refused case %ld\n", c);
+            return 1;
+        }
+        // A correction of nearly half a turn has w near 0, its sign (which
+        // way a weight below 1 turns) a matter of rounding in both: those
+        // weighted are left out, judged on ozz's full corrections.
+        bool halfTurn = false;
+        if (weight < 1.0f)
+        {
+            ozz::animation::IKTwoBoneJob full = job;
+            ozz::math::SimdQuaternion whole[2];
+            full.weight = 1.0f;
+            full.start_joint_correction = &whole[0];
+            full.mid_joint_correction = &whole[1];
+            full.reached = nullptr;
+            if (!full.Run())
+            {
+                return 1;
+            }
+            for (uint32_t k = 0; k < 2; ++k)
+            {
+                float q[4];
+                ozz::math::StorePtrU(whole[k].xyzw, q);
+                halfTurn = halfTurn || std::fabs(q[3]) < 0.05f;
+            }
+        }
+        if (halfTurn)
+        {
+            ++halfTurns;
+            continue;
+        }
+        for (uint32_t k = 0; k < 2; ++k)
+        {
+            float q[4];
+            ozz::math::StorePtrU(corrections[k].xyzw, q);
+            maniTransform t = maniPoseLocal(theirs, k + 1);
+            t.rotation = Mul(t.rotation, maniQuat{q[0], q[1], q[2], q[3]});
+            maniPoseSetLocal(theirs, k + 1, t);
+        }
+        float scale = la + lb;
+        float apart =
+            std::fmax(Apart(Position(ours, &skeleton, 2), Position(theirs, &skeleton, 2)),
+                      Apart(Position(ours, &skeleton, 3), Position(theirs, &skeleton, 3))) /
+            scale;
+        bool softened = soften < 1.0f && reach > soften * scale;
+        float& into = softened ? worstSoftened : worst;
+        into = std::fmax(into, apart);
+        if (weight >= 1.0f && soften >= 1.0f && reachedOurs)
+        {
+            missOurs = std::fmax(missOurs, Apart(Position(ours, &skeleton, 3), goal) / scale);
+            missTheirs = std::fmax(missTheirs, Apart(Position(theirs, &skeleton, 3), goal) / scale);
+        }
+        if (weight >= 1.0f && soften >= 1.0f && reachedOurs && twist == 0.0f)
+        {
+            maniVec3 u = {goal.x - start.x, goal.y - start.y, goal.z - start.z};
+            maniVec3 n = {u.y * pole.z - u.z * pole.y, u.z * pole.x - u.x * pole.z,
+                          u.x * pole.y - u.y * pole.x};
+            float nl = std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z) * scale;
+            maniVec3 k[2] = {Position(ours, &skeleton, 2), Position(theirs, &skeleton, 2)};
+            float off[2];
+            for (int i = 0; i < 2; ++i)
+            {
+                off[i] = std::fabs((k[i].x - start.x) * n.x + (k[i].y - start.y) * n.y +
+                                   (k[i].z - start.z) * n.z) /
+                         nl;
+            }
+            planeOurs = std::fmax(planeOurs, off[0]);
+            planeTheirs = std::fmax(planeTheirs, off[1]);
+        }
+        reachDiffers += reachedOurs != reachedTheirs;
+        ++compared;
+    }
+    std::printf("two-bone: %ld cases compared, worst difference %.3g of the chain's length "
+                "(%.3g softened), reached differs in %ld; %ld weighted half turns left out\n"
+                "  own errors, Maul Anim / ozz: the end's miss %.3g / %.3g, the middle off the "
+                "pole's plane %.3g / %.3g\n",
+                compared, static_cast<double>(worst), static_cast<double>(worstSoftened),
+                reachDiffers, halfTurns, static_cast<double>(missOurs),
+                static_cast<double>(missTheirs), static_cast<double>(planeOurs),
+                static_cast<double>(planeTheirs));
+    bool agree = worst <= 5e-4f && worstSoftened <= 2e-3f && reachDiffers == 0;
+    return agree && missOurs <= 1e-5f && planeOurs <= 1e-5f ? 0 : 1;
+}

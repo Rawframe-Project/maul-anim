@@ -6,8 +6,10 @@
 # and times printed, every bone within the precision required. The ozz
 # differential (mani-0020): the same clips sampled and blended, with
 # masks and additive layers, by ozz's BlendingJob and by Maul Anim,
-# compared to binary32 rounding and timed. Weekly and by hand, not on
-# every commit: they fetch and build ufbx, ACL and ozz-animation.
+# compared to binary32 rounding and timed. The IK differential
+# (mani-0029): random two-bone chains solved by ozz's IKTwoBoneJob and
+# by Maul Anim. Weekly and by hand, not on every commit: they fetch and
+# build ufbx, ACL and ozz-animation.
 name: differential
 
 on:
@@ -105,3 +107,24 @@ jobs:
           f=build/_deps/ozz-src/media/fbx/quaternius/ual.fbx
           echo "42f16a4ed61d1e9f5fc7c2526894c5487148ac6ba82b64281ceb7943570f3c37  $f" | sha256sum -c -
           build/ozz_differential "$f"
+
+  ik:
+    name: ik-ozz
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        timeout-minutes: 15
+        run: |
+          sudo apt-get $APT_OPTIONS update -q
+          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 ninja-build
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMAUL_ANIM_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -DMAUL_ANIM_DIFFERENTIAL=ON -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+      - name: Build
+        run: cmake --build build --target ik_differential -j 4
+      - name: Random chains
+        run: build/ik_differential 1000000

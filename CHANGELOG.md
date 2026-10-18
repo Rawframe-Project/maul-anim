@@ -10,6 +10,10 @@ format.
 
 ### Added
 
+- Two-bone inverse kinematics (mani-0029): `maniSolveTwoBone` bends a
+  chain of three bones of a pose to reach a model-space goal, its bend
+  toward a pole that never flips near the goal line, with an optional
+  hinge, twist, softening and weight, reading and writing locals only.
 - `mani_errorState`: a builder's functions, closing a document opened
   with it, and training, restoring and destroying a learned trainer
   refuse a call back in from the object's allocator or task hooks,

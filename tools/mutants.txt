@@ -2887,3 +2887,28 @@ hc-builder-destroy | src/builder.c | if (builder == NULL || maniBuilderCalledBac
 hc-trainer-destroy | src/learned_train.c | if (trainer == NULL || maniHostCalledBack(&trainer->host)) | if (trainer == NULL)
 hc-train | src/learned_train_run.c | if (trainer != NULL && maniHostCalledBack(&trainer->host)) | if (false)
 hc-restore-trainer | src/learned_restore.c | if (trainer != NULL && maniHostCalledBack(&trainer->host)) | if (false)
+
+# Two-bone IK (src/ik.c, mani-0029)
+ik-mirror | src/ik.c | return Mirrored(parent) ? (maniQuat){r.x, -r.y, -r.z, r.w} : r; | return r;
+ik-det | src/ik.c | return det < 0.0f; | return det > 0.0f;
+ik-half-sign | src/ik.c | x = s < 0.0f ? -x : x; | x = s < 0.0f ? -x : -x;
+ik-half-cos | src/ik.c | if (c >= 0.0f) | if (false)
+ik-reached | src/ik.c | *reached = distance <= da && distance > fabsf(lengthA - lengthB); | *reached = distance <= da;
+ik-soften-curve | src/ik.c | float ratio = 81.0f / (op2 * op2); | float ratio = 81.0f / (op2 * op);
+ik-soften-off | src/ik.c | if (distance > da && distance > 0.0f && ds > 0.0f) | if (false)
+ik-hinge-frame | src/ik.c | return maniVec3Normalize(maniQuatRotate(r, solve->hinge), zero); | return maniVec3Normalize(solve->hinge, zero);
+ik-bend-sign | src/ik.c | maniVec3 bend = maniVec3Cross(b, a); | maniVec3 bend = maniVec3Cross(a, b);
+ik-straight | src/ik.c | if (maniVec3Dot(bend, bend) > 1e-12f * scale) | if (true)
+ik-cw | src/ik.c | float cw = 1.0f - below / (2.0f * lab); | float cw = 1.0f - below / lab;
+ik-sw | src/ik.c | float sw = goal >= l || goal <= fabsf(d) ? 0.0f : sqrtf(below * above) / (2.0f * lab); | float sw = goal >= l || goal <= fabsf(d) ? 0.0f : sqrtf(below * above) / lab;
+ik-back | src/ik.c | sc = maniVec3Dot(maniVec3Cross(a, h), b) < 0.0f ? -sc : sc; | sc = maniVec3Dot(maniVec3Cross(a, h), b) < 0.0f ? sc : -sc;
+ik-plane-blend | src/ik.c | float w = sine >= POLE_SINE ? 1.0f : sine / POLE_SINE; | float w = 1.0f;
+ik-plane-side | src/ik.c | maniVec3 wanted = maniVec3Normalize(maniVec3Cross(u, p), zero); | maniVec3 wanted = maniVec3Normalize(maniVec3Cross(p, u), zero);
+ik-plane-none | src/ik.c | turnStart = maniQuatMul(plane, turnStart); | (void)plane;
+ik-twist | src/ik.c | turnStart = maniQuatMul(maniQuatFromAxisAngle(u, solve->twist), turnStart); | turnStart = maniQuatMul(maniQuatFromAxisAngle(u, -solve->twist), turnStart);
+ik-weight | src/ik.c | return weight >= 1.0f ? q : maniQuatNlerp(maniQuatIdentity(), q, weight); | return q;
+ik-goal-start | src/ik.c | turnStart = maniQuatIdentity(); | (void)turnStart;
+ik-ancestor | src/ik.c | Above(skeleton, s->middle, s->end) && FiniteVec(s->goal) && FiniteVec(s->pole) && | FiniteVec(s->goal) && FiniteVec(s->pole) &&
+ik-soften-range | src/ik.c | FiniteVec(s->hinge) && isfinite(s->twist) && s->soften >= 0.0f && s->soften <= 1.0f && | FiniteVec(s->hinge) && isfinite(s->twist) && s->soften >= 0.0f &&
+ik-start-parent | src/ik.c | above != MANI_NO_BONE ? Below(pose, skeleton, MANI_NO_BONE, above) : kIdentity; | kIdentity;
+ik-reached-weight | src/ik.c | *reachedOut = reached && solve->weight >= 1.0f; | *reachedOut = reached;
