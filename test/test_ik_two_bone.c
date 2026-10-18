@@ -149,6 +149,44 @@ static void TestReach(void)
     CHECK(toward, "the knee toward the pole");
 }
 
+static void TestSides(void)
+{
+    // The knee bent forward, poles to the side and behind: the bend turns
+    // to them; a knee folded nearly shut opened past a right angle.
+    const maniVec3 poles[3] = {{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.2f}, {0.1f, 0.0f, -1.0f}};
+    maniVec3 goal = {0.05f, 0.45f, 0.05f};
+    bool toward = true;
+    for (int k = 0; k < 3; ++k)
+    {
+        Bent(s_pose, 0.4f, 0.0f);
+        maniTwoBoneSolve solve = Solve(goal, poles[k]);
+        CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &solve, NULL) == mani_success, "solved");
+        maniVec3 hip = At(s_pose, kHip);
+        maniVec3 knee = At(s_pose, kKnee);
+        maniVec3 u = {goal.x - hip.x, goal.y - hip.y, goal.z - hip.z};
+        float l = u.x * u.x + u.y * u.y + u.z * u.z;
+        maniVec3 d = {knee.x - hip.x, knee.y - hip.y, knee.z - hip.z};
+        float along = (d.x * u.x + d.y * u.y + d.z * u.z) / l;
+        maniVec3 off = {d.x - along * u.x, d.y - along * u.y, d.z - along * u.z};
+        toward = toward && off.x * poles[k].x + off.y * poles[k].y + off.z * poles[k].z > 0.0f &&
+                 Distance(At(s_pose, kAnkle), goal) < 1e-5f;
+    }
+    CHECK(toward, "the bend turned to a pole aside or behind");
+    Bent(s_pose, 2.8f, 0.0f);
+    goal = (maniVec3){0.0f, 0.15f, 0.2f};
+    maniTwoBoneSolve solve = Solve(goal, (maniVec3){0.0f, 0.0f, 1.0f});
+    bool r = false;
+    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &solve, &r) == mani_success && r &&
+              Distance(At(s_pose, kAnkle), goal) < 1e-5f,
+          "a folded knee opened past a right angle");
+    // Closer than the bones' difference (0.05): folded, not reached.
+    Bent(s_pose, 0.4f, 0.0f);
+    solve = Solve((maniVec3){0.0f, 0.98f, 0.0f}, (maniVec3){0.0f, 0.0f, 1.0f});
+    r = true;
+    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &solve, &r) == mani_success && !r,
+          "a goal inside the bones' difference not reached");
+}
+
 static void TestOutOfReach(void)
 {
     // 2 m away: straight toward it, not reached; softened, short of it.
@@ -308,8 +346,8 @@ static void TestRefusals(void)
 {
     Bent(s_pose, 0.4f, 0.0f);
     maniTwoBoneSolve good = Solve((maniVec3){0.1f, 0.3f, 0.2f}, (maniVec3){0.0f, 0.0f, 1.0f});
-    maniTwoBoneSolve bad[9];
-    for (int k = 0; k < 9; ++k)
+    maniTwoBoneSolve bad[10];
+    for (int k = 0; k < 10; ++k)
     {
         bad[k] = good;
     }
@@ -322,10 +360,11 @@ static void TestRefusals(void)
     bad[6].twist = INFINITY;
     bad[7].soften = 1.5f;
     bad[8].weight = -0.1f;
+    bad[9].end = s_bone[kHip];
     bool refused = maniSolveTwoBone(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
                    maniSolveTwoBone(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
                    maniSolveTwoBone(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid;
-    for (int k = 0; k < 9; ++k)
+    for (int k = 0; k < 10; ++k)
     {
         refused =
             refused && maniSolveTwoBone(s_pose, &s_skeleton, &bad[k], NULL) == mani_errorInvalid;
@@ -337,6 +376,7 @@ int main(void)
 {
     Setup();
     TestReach();
+    TestSides();
     TestOutOfReach();
     TestIdempotent();
     TestPoleSweep();

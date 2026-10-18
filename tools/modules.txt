@@ -57,7 +57,9 @@ spring_frame: vecmath
 ragdoll_file:
 ragdoll: bytes container ragdoll_file text
 ragdoll_pose: bytes decompose pose_memory ragdoll_file vecmath
-ik: decompose pose_memory vecmath
+ik: ik_frame vecmath
+ik_frame: decompose pose_memory vecmath
+ik_aim: ik_frame scalar vecmath
 ragdoll_getup: vecmath
 ragdoll_build: allocator builder bytes container decompose ragdoll_file text vecmath
 train_random: elementary_float

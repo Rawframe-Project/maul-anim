@@ -14,6 +14,10 @@ format.
   chain of three bones of a pose to reach a model-space goal, its bend
   toward a pole that never flips near the goal line, with an optional
   hinge, twist, softening and weight, reading and writing locals only.
+- Aim and look-at (mani-0029): `maniSolveAim` turns a bone's forward
+  (from an offset point) onto a goal, its up toward a pole, or spreads
+  the turn over a chain of up to 8 bones by shares, within an optional
+  cone.
 - `mani_errorState`: a builder's functions, closing a document opened
   with it, and training, restoring and destroying a learned trainer
   refuse a call back in from the object's allocator or task hooks,

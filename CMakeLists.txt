@@ -90,6 +90,8 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/ragdoll.c
     src/ragdoll_pose.c
     src/ik.c
+    src/ik_frame.c
+    src/ik_aim.c
     src/ragdoll_getup.c
     src/spring.c
     src/spring_state.c
@@ -191,6 +193,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(ragdoll WHITEBOX)
         maul_add_test(ragdoll_pose WHITEBOX)
         maul_add_test(ik_two_bone)
+        maul_add_test(ik_aim)
         maul_add_test(ragdoll_getup WHITEBOX)
         maul_add_test(trajectory WHITEBOX)
         maul_add_test(learned WHITEBOX)
@@ -331,7 +334,8 @@ if(MAUL_ANIM_DIFFERENTIAL)
     maul_apply_flags(ozz_differential)
     set_source_files_properties(${MAUL_OZZ_SOURCES} PROPERTIES COMPILE_OPTIONS -w)
     # The IK differential (mani-0029): ozz's two IK jobs and its math.
-    set(MAUL_OZZ_IK_SOURCES src/animation/runtime/ik_two_bone_job.cc src/base/maths/simd_math.cc)
+    set(MAUL_OZZ_IK_SOURCES src/animation/runtime/ik_two_bone_job.cc
+                              src/animation/runtime/ik_aim_job.cc src/base/maths/simd_math.cc)
     list(TRANSFORM MAUL_OZZ_IK_SOURCES PREPEND ${ozz_SOURCE_DIR}/)
     add_executable(ik_differential tools/ik_differential.cc ${MAUL_OZZ_IK_SOURCES})
     set_target_properties(ik_differential PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The IK differential (mani-0029): random two-bone chains (random
-// bone lengths and turns, the hinge random, goals in and out of reach,
-// softening and weights, twists) solved by ozz-animation 0.17.0's
-// IKTwoBoneJob and by maniSolveTwoBone, the middle and end bones'
-// model positions compared. Poles within a sine of 0.1 of the goal line
+// bone lengths and turns, goals in and out of reach, softening and
+// weights, twists) solved by ozz-animation 0.17.0's IKTwoBoneJob and by
+// maniSolveTwoBone, the middle and end bones' model positions compared;
+// then random bones aimed by its IKAimJob and by maniSolveAim (below). Poles within a sine of 0.1 of the goal line
 // are left out: there ozz flips and Maul Anim blends to the chain's own
 // plane (mani-0029); so are goals within a twentieth of the chain's
 // length of the start (ozz turns the start toward them, Maul Anim does
@@ -26,6 +26,7 @@
 #include "maul-anim/ik.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
+#include "ozz/animation/runtime/ik_aim_job.h"
 #include "ozz/animation/runtime/ik_two_bone_job.h"
 #include "ozz/base/maths/simd_math.h"
 #include "ozz/base/maths/simd_quaternion.h"
@@ -105,6 +106,206 @@ float Apart(maniVec3 a, maniVec3 b)
     float y = a.y - b.y;
     float z = a.z - b.z;
     return std::sqrt(x * x + y * y + z * z);
+}
+
+// The turn taking a onto b, both non-zero (the half-vector method).
+maniQuat Between(maniVec3 a, maniVec3 b)
+{
+    float la = std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+    float lb = std::sqrt(b.x * b.x + b.y * b.y + b.z * b.z);
+    maniVec3 h = {a.x / la + b.x / lb, a.y / la + b.y / lb, a.z / la + b.z / lb};
+    float lh = std::sqrt(h.x * h.x + h.y * h.y + h.z * h.z);
+    h = {h.x / lh, h.y / lh, h.z / lh};
+    maniVec3 u = {a.x / la, a.y / la, a.z / la};
+    return {u.y * h.z - u.z * h.y, u.z * h.x - u.x * h.z, u.x * h.y - u.y * h.x,
+            u.x * h.x + u.y * h.y + u.z * h.z};
+}
+
+maniVec3 Rotate(maniQuat q, maniVec3 v)
+{
+    maniQuat p = Mul(Mul(q, maniQuat{v.x, v.y, v.z, 0.0f}), maniQuat{-q.x, -q.y, -q.z, q.w});
+    return {p.x, p.y, p.z};
+}
+
+float Sine(maniVec3 a, maniVec3 b)
+{
+    maniVec3 c = {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+    return std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z) /
+           (std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z) * std::sqrt(b.x * b.x + b.y * b.y + b.z * b.z));
+}
+
+// Random bones aimed by ozz's IKAimJob and by maniSolveAim: the turned
+// bones' model rotations compared, and each one's miss of the goal (the
+// forward line through the offset point, over the goal's distance).
+// Poles and up axes (once the forward is on the goal) within a sine of
+// 0.1 of the aim line, goals within 0.2 of the bone and weighted turns of
+// nearly half a turn are left out; weighted turns are compared with
+// ozz's full turn weighted as its two-bone job weights.
+bool AimDifferential(maniPose* ours, maniPose* theirs, const maniSkeleton* skeleton, long cases)
+{
+    float worst = 0.0f;
+    float missOurs = 0.0f;
+    float missTheirs = 0.0f;
+    float planeOurs = 0.0f;
+    float planeTheirs = 0.0f;
+    long compared = 0;
+    long reachDiffers = 0;
+    for (long c = 0; c < cases; ++c)
+    {
+        maniTransform local = {{Spread(-1, 1), Spread(0, 2), Spread(-1, 1)},
+                               Turn(Direction(), Spread(-3, 3)),
+                               {1, 1, 1}};
+        maniPoseSetLocal(ours, 1, local);
+        maniPoseSetLocal(theirs, 1, local);
+        if (maniComputeModel(theirs, skeleton) != mani_success)
+        {
+            return false;
+        }
+        maniAffine model = maniPoseModel(theirs, 1);
+        maniVec3 origin = {model.m[9], model.m[10], model.m[11]};
+        maniVec3 forward = Direction();
+        maniVec3 up = Direction();
+        maniVec3 offset = {0, 0, 0};
+        if (Random() < 0.5f)
+        {
+            maniVec3 d = Direction();
+            float l = Spread(0.0f, 0.3f);
+            offset = {d.x * l, d.y * l, d.z * l};
+        }
+        maniVec3 dir = Direction();
+        float distance = Spread(0.2f, 3.0f);
+        maniVec3 goal = {origin.x + dir.x * distance, origin.y + dir.y * distance,
+                         origin.z + dir.z * distance};
+        maniVec3 pole = Direction();
+        float twist = Random() < 0.5f ? 0.0f : Spread(-1, 1);
+        float weight = Random() < 0.5f ? 1.0f : 0.5f;
+        // The up axis once the forward is on the goal.
+        maniVec3 f = Rotate(local.rotation, forward);
+        maniVec3 o = Rotate(local.rotation, offset);
+        float ao = f.x * o.x + f.y * o.y + f.z * o.z;
+        float ac2 = o.x * o.x + o.y * o.y + o.z * o.z - ao * ao;
+        float r2 = distance * distance;
+        if (Sine(pole, dir) < 0.1f || ac2 > r2)
+        {
+            continue;
+        }
+        float ai = std::sqrt(r2 - ac2) - ao;
+        maniVec3 aimed = {o.x + f.x * ai, o.y + f.y * ai, o.z + f.z * ai};
+        maniVec3 upAimed = Rotate(Between(aimed, dir), Rotate(local.rotation, up));
+        if (Sine(upAimed, dir) < 0.1f)
+        {
+            continue;
+        }
+        maniAimSolve solve = {};
+        solve.bones[0] = 1;
+        solve.shares[0] = 1.0f;
+        solve.count = 1;
+        solve.goal = goal;
+        solve.pole = pole;
+        solve.forward = forward;
+        solve.offset = offset;
+        solve.up = up;
+        solve.twist = twist;
+        solve.weight = weight;
+        bool reachedOurs = false;
+        if (maniSolveAim(ours, skeleton, &solve, &reachedOurs) != mani_success)
+        {
+            return false;
+        }
+        const ozz::math::Float4x4 joint = ToOzz(model);
+        ozz::animation::IKAimJob job;
+        job.target = ozz::math::simd_float4::Load(goal.x, goal.y, goal.z, 1.0f);
+        job.forward = ozz::math::simd_float4::Load(forward.x, forward.y, forward.z, 0.0f);
+        job.offset = ozz::math::simd_float4::Load(offset.x, offset.y, offset.z, 1.0f);
+        job.up = ozz::math::simd_float4::Load(up.x, up.y, up.z, 0.0f);
+        job.pole_vector = ozz::math::simd_float4::Load(pole.x, pole.y, pole.z, 0.0f);
+        job.twist_angle = twist;
+        job.weight = 1.0f;
+        job.joint = &joint;
+        ozz::math::SimdQuaternion correction;
+        bool reachedTheirs = false;
+        job.joint_correction = &correction;
+        job.reached = &reachedTheirs;
+        if (!job.Run())
+        {
+            return false;
+        }
+        float q[4];
+        ozz::math::StorePtrU(correction.xyzw, q);
+        if (weight < 1.0f)
+        {
+            // ozz weights its aim by lerping the turn from the identity
+            // without first making w positive (ik_aim_job.cc, unlike its
+            // two-bone job), so a turn with w below 0 goes the long way,
+            // and normalizes the result by an estimate: the full
+            // correction is weighted here as its two-bone job does.
+            if (std::fabs(q[3]) < 0.05f)
+            {
+                continue;
+            }
+            float sign = q[3] < 0.0f ? -1.0f : 1.0f;
+            for (int k = 0; k < 4; ++k)
+            {
+                q[k] = (k == 3 ? 1.0f - weight : 0.0f) + weight * sign * q[k];
+            }
+            reachedTheirs = false;
+        }
+        float ql = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+        for (float& v : q)
+        {
+            v /= ql;
+        }
+        maniTransform t = local;
+        t.rotation = Mul(t.rotation, maniQuat{q[0], q[1], q[2], q[3]});
+        maniPoseSetLocal(theirs, 1, t);
+        maniQuat a = maniPoseLocal(ours, 1).rotation;
+        maniQuat b = t.rotation;
+        float dot = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+        float angle = 2.0f * std::acos(std::fmin(1.0f, dot));
+        worst = std::fmax(worst, angle);
+        reachDiffers += reachedOurs != reachedTheirs;
+        if (weight >= 1.0f && reachedOurs)
+        {
+            maniQuat rotations[2] = {a, b};
+            float miss[2];
+            for (int k = 0; k < 2; ++k)
+            {
+                maniVec3 ff = Rotate(rotations[k], forward);
+                maniVec3 oo = Rotate(rotations[k], offset);
+                maniVec3 from = {origin.x + oo.x, origin.y + oo.y, origin.z + oo.z};
+                maniVec3 g = {goal.x - from.x, goal.y - from.y, goal.z - from.z};
+                float along = g.x * ff.x + g.y * ff.y + g.z * ff.z;
+                maniVec3 off = {g.x - ff.x * along, g.y - ff.y * along, g.z - ff.z * along};
+                miss[k] = std::sqrt(off.x * off.x + off.y * off.y + off.z * off.z) / distance;
+            }
+            missOurs = std::fmax(missOurs, miss[0]);
+            missTheirs = std::fmax(missTheirs, miss[1]);
+            if (twist == 0.0f)
+            {
+                // The up axis's sine to the plane of the aim line and the
+                // pole.
+                maniVec3 n = {dir.y * pole.z - dir.z * pole.y, dir.z * pole.x - dir.x * pole.z,
+                              dir.x * pole.y - dir.y * pole.x};
+                float nl = std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+                float off[2];
+                for (int k = 0; k < 2; ++k)
+                {
+                    maniVec3 uu = Rotate(rotations[k], up);
+                    off[k] = std::fabs(uu.x * n.x + uu.y * n.y + uu.z * n.z) / nl;
+                }
+                planeOurs = std::fmax(planeOurs, off[0]);
+                planeTheirs = std::fmax(planeTheirs, off[1]);
+            }
+        }
+        ++compared;
+    }
+    std::printf("aim: %ld cases compared, worst difference %.3g radians, reached differs in %ld\n"
+                "  own errors, Maul Anim / ozz: the forward's miss %.3g / %.3g of the goal's "
+                "distance, the up axis off the pole's plane %.3g / %.3g\n",
+                compared, static_cast<double>(worst), reachDiffers, static_cast<double>(missOurs),
+                static_cast<double>(missTheirs), static_cast<double>(planeOurs),
+                static_cast<double>(planeTheirs));
+    return worst <= 3e-3f && reachDiffers == 0 && missOurs <= 1e-5f && planeOurs <= 1e-5f;
 }
 
 } // namespace
@@ -317,5 +518,6 @@ int main(int argc, char** argv)
                 static_cast<double>(missTheirs), static_cast<double>(planeOurs),
                 static_cast<double>(planeTheirs));
     bool agree = worst <= 5e-4f && worstSoftened <= 2e-3f && reachDiffers == 0;
-    return agree && missOurs <= 1e-5f && planeOurs <= 1e-5f ? 0 : 1;
+    bool aim = AimDifferential(ours, theirs, &skeleton, cases);
+    return agree && missOurs <= 1e-5f && planeOurs <= 1e-5f && aim ? 0 : 1;
 }

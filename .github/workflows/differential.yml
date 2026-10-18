@@ -7,8 +7,8 @@
 # differential (mani-0020): the same clips sampled and blended, with
 # masks and additive layers, by ozz's BlendingJob and by Maul Anim,
 # compared to binary32 rounding and timed. The IK differential
-# (mani-0029): random two-bone chains solved by ozz's IKTwoBoneJob and
-# by Maul Anim. Weekly and by hand, not on every commit: they fetch and
+# (mani-0029): random two-bone chains and aims solved by ozz's
+# IKTwoBoneJob and IKAimJob and by Maul Anim. Weekly and by hand, not on every commit: they fetch and
 # build ufbx, ACL and ozz-animation.
 name: differential
 
