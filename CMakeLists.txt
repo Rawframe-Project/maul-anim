@@ -89,6 +89,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/learned.c
     src/ragdoll.c
     src/ragdoll_pose.c
+    src/ragdoll_getup.c
     src/spring.c
     src/spring_state.c
     src/spring_step.c
@@ -186,6 +187,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(spring_force WHITEBOX)
         maul_add_test(ragdoll WHITEBOX)
         maul_add_test(ragdoll_pose WHITEBOX)
+        maul_add_test(ragdoll_getup WHITEBOX)
         maul_add_test(trajectory WHITEBOX)
         maul_add_test(learned WHITEBOX)
         maul_add_test(train WHITEBOX)

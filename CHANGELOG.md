@@ -210,6 +210,10 @@ format.
   animation by a weight and a mask node over part of the body; named
   `"pose"` in the JSON form; inside a subgraph it reads the outer
   parameter its own maps to.
+- Getting up from a ragdoll (mani-0027): `maniRagdollGetUpPlacement`
+  gives the placement on the ground under the root body, turned to look
+  where the head lay face down and toward the feet face up, and whether
+  the body lies face up, for the host to pick its get-up clip.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the

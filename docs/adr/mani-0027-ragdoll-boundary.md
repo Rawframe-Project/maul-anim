@@ -77,7 +77,23 @@ drives with stiffness, damping and a largest force.
   parameter) or the mask node (a partial ragdoll), with nothing new.
   A select, weight, blend space position or condition reading a pose
   parameter is refused, each checking its own types.
-- **Getting up and the OMI importer** follow;
+- **Getting up:** `maniRagdollGetUpPlacement` takes the bodies and a
+  ground the host names (a point on it, its unit normal, and the
+  character's model forward and up axes, which no library convention
+  fixes). Face up when the root body's facing (out of the chest) points
+  along the normal or across it (ties face up, as Advanced Locomotion
+  System's roll test). The heading is the root body's up axis (toward
+  the head) on the ground's plane, reversed face up, plus the facing on
+  the plane: lying, the character stands looking where its head lay
+  (face down) or toward its feet (face up), as Advanced Locomotion
+  System's yaw (the pelvis's, less 180 degrees face up); upright, where
+  its chest faces. The sum is continuous through upright, where one
+  axis's yaw is undefined; it vanishes only inverted at 135 degrees,
+  where the longer projection is taken. The placement stands on the
+  plane under the root body, model up on the normal, model forward on
+  the heading, scale 1; a pose from bodies under it is the pose a
+  get-up clip is blended from.
+- **The OMI importer** follows;
   each part is added to this record as it lands.
 - **Not here:** the solver, collision, creating and stepping the bodies
   (the host's engine); shapes other than the three primitives (a host

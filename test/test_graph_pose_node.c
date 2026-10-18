@@ -21,20 +21,21 @@ static _Alignas(32) uint8_t s_poseMemory[2][4096];
 static _Alignas(16) uint8_t s_crafted[16384];
 static maniPose* s_pose;
 static maniPose* s_out;
-static maniGraphParameterSource s_parameters[4];
+static maniGraphParameterSource s_parameters[5];
 static maniTransform s_walk[3];
 
 // Parameters: 0 a float (the ragdoll's weight, 1), 1 a pose, 2 a bool,
-// 3 a float (the walk's weight, 1).
+// 3 a float (the walk's weight, 1), 4 a trigger (getting up).
 static maniGraphSource PoseSource(const maniGraphNodeSource* nodes, uint32_t count)
 {
     s_parameters[0] = Parameter("weight", maniGraphParameterFloat, Float(1.0f));
     s_parameters[1] = Parameter("ragdoll", maniGraphParameterPose, Int(0));
     s_parameters[2] = Parameter("lean", maniGraphParameterBool, Int(0));
     s_parameters[3] = Parameter("walk", maniGraphParameterFloat, Float(1.0f));
+    s_parameters[4] = Parameter("getUp", maniGraphParameterTrigger, Int(0));
     return (maniGraphSource){.parameters = s_parameters,
                              .nodes = nodes,
-                             .parameterCount = 4,
+                             .parameterCount = 5,
                              .nodeCount = count,
                              .output = count - 1};
 }
@@ -170,6 +171,57 @@ static void TestMasked(void)
           "the spine's subtree the ragdoll's, the hips the walk's");
 }
 
+// The hips' translation after an update of delta.
+static maniVec3 Hips(maniGraphInstance* instance, float delta)
+{
+    Update(instance, delta);
+    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
+          "evaluated");
+    return maniPoseLocal(s_out, 0).translation;
+}
+
+static double Gap(maniVec3 a, maniVec3 b)
+{
+    double x = (double)a.x - (double)b.x;
+    double y = (double)a.y - (double)b.y;
+    double z = (double)a.z - (double)b.z;
+    return sqrt(x * x + y * y + z * z);
+}
+
+// Getting up: a machine leaves the ragdoll for the walk on the trigger
+// with an inertial transition of half a second under an inertialize
+// node: just after, the hips are still near the ragdoll's; past the
+// half second they are the walk's as it plays alone from its start.
+static void TestWayBack(void)
+{
+    static const maniGraphConditionSource kGo[1] = {
+        {maniGraphConditionTrigger, 4, 0, 0, {{0}}, NULL}};
+    static const maniGraphTransitionSource kUp[1] = {{0, 1, 0, maniGraphInterruptionNone,
+                                                      maniGraphEntryRestart, maniGraphFadeInertial,
+                                                      0.5f, 0.0f, kGo, 1, 0}};
+    static const uint32_t kStates[2] = {0, 1};
+    static const uint32_t kMachine[1] = {2};
+    maniGraph g;
+    maniGraphNodeSource alone[1] = {ClipNode(0, 1.0f, maniGraphLoopRepeat)};
+    maniGraphInstance* walk = Make(PoseSource(alone, 1), &g);
+    maniVec3 walkStart = Hips(walk, 0.02f);
+    maniVec3 walkEnd = Hips(walk, 0.6f);
+    maniGraphNodeSource nodes[4] = {
+        PoseNode(1), ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        (maniGraphNodeSource){maniGraphNodeMachine, 2, kStates, .machine = {kUp, 1, 0, 0, 0, NULL}},
+        (maniGraphNodeSource){
+            maniGraphNodeInertialize, 1, kMachine,
+            .inertialize = {MANI_NO_PARAMETER, 0, LITERAL(0.0f), 0.0f, 0.0f, 0.0f}}};
+    maniGraphInstance* instance = Make(PoseSource(nodes, 4), &g);
+    SetRagdoll(instance);
+    CHECK(Gap(Hips(instance, 0.3f), Moved(0).translation) < 1e-6, "the ragdoll before");
+    Set(instance, 4, maniGraphParameterTrigger, Int(1));
+    maniVec3 after = Hips(instance, 0.02f);
+    CHECK(Gap(after, Moved(0).translation) < 0.05 * Gap(walkStart, Moved(0).translation),
+          "just after: near the ragdoll, not the walk");
+    CHECK(Gap(Hips(instance, 0.6f), walkEnd) < 1e-5, "past the half second: the walk alone");
+}
+
 // A pose node in a subgraph reads the outer pose parameter its own maps
 // to.
 static void TestSubgraph(void)
@@ -220,7 +272,7 @@ static void TestBuildRefusals(void)
     nodes[1] = PoseNode(0);
     r = Built(PoseSource(nodes, 2));
     CHECK(RefusedAt(r, 1) && r.reason == maniBuildReasonNode, "a pose node reading a float");
-    nodes[1] = PoseNode(4);
+    nodes[1] = PoseNode(5);
     CHECK(RefusedAt(Built(PoseSource(nodes, 2)), 1), "a pose node past the parameters");
     static const uint32_t kPair[2] = {0, 1};
     nodes[1] = ClipNode(1, 1.0f, maniGraphLoopRepeat);
@@ -291,7 +343,7 @@ static void TestFileRefusals(void)
     uint32_t data = maniLoadU32(g.nodes + 12);
     size_t at = (size_t)(g.data - s_file) + 4 * (size_t)data;
     CHECK(maniLoadU32(s_file + at) == 1, "the node's word is its parameter");
-    static const uint32_t kWrong[2] = {0, 4};
+    static const uint32_t kWrong[2] = {0, 5};
     for (int k = 0; k < 2; ++k)
     {
         memcpy(s_crafted, s_file, size);
@@ -316,6 +368,7 @@ int main(void)
     TestBlended();
     TestMasked();
     TestSubgraph();
+    TestWayBack();
     TestBuildRefusals();
     TestFileRefusals();
     return s_failures == 0 ? 0 : 1;

@@ -1155,6 +1155,11 @@ MANI_NODISCARD MANI_API maniResult maniRagdollPoseFromBodies( const maniRagdoll*
 ```
 Makes a pose from bodies' places: a bone with a body takes its model frame from the body's, the body's frame taken off, under the placement, and its local scale from the reference; a bone without one keeps the reference's local transform below its parent. The model matrices are composed. Velocities are not read.  @param ragdoll    An opened profile. @param skeleton   Its skeleton. @param bodies     A state per body, in the profile's order: positions finite, rotations of length 1 within a thousandth. @param count      The number of states bodies holds. @param placement  The character in the world; NULL for the identity. @param reference  A pose of the skeleton for the bones without bodies and the scales; may be poseOut. @param poseOut    Receives the pose. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton or pose of another skeleton, a difference, a placement or a body's place not finite or a rotation not of length 1; `mani_errorCapacity` when count is under the body count. @par Thread safety Safe from any thread; the poses are used by one thread at a time.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies, uint32_t count, const maniRagdollGround* ground, maniRagdollGetUp* out);
+```
+Works out where a ragdoll gets up. The body lies face up when the root body's facing axis (out of the chest) points along the normal or across it. The heading is the root body's up axis (toward the head) on the ground's plane, reversed face up, plus its facing axis on the plane, so the character stands looking where its head lay face down and toward its feet face up, and where its chest faces upright; when that sum is shorter than a thousandth, the longer of the two. The placement stands on the plane under the root body, its model up along the normal and its model forward along the heading, scale 1. A pose from the bodies under it (maniRagdollPoseFromBodies) is the ragdoll in the character's new frame, to blend a get-up clip from.  @param ragdoll  An opened profile. @param bodies   A state per body, in the profile's order: positions finite, rotations of length 1 within a thousandth. @param count    The number of states bodies holds. @param ground   The ground and the character's axes. @param out      Receives the placement and whether it lies face up. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a body's place not finite or its rotation not of length 1, the ground not finite, its normal or the axes not of length 1 within a thousandth or the axes not perpendicular within a thousandth; `mani_errorCapacity` when count is under the body count. @par Thread safety Safe from any thread.
+
 ## `rootmotion.h`
 
 Root motion (mani-0022): the move a clip's declared bone makes, taken out of the bone at build and kept beside the clip, so the clip plays in place and the host moves the character by the moves it reads.
@@ -1431,4 +1436,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-269 functions across 21 headers.
+270 functions across 21 headers.

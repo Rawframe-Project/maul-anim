@@ -15,6 +15,7 @@
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -240,6 +241,56 @@ extern "C"
         const maniRagdoll* ragdoll, const maniSkeleton* skeleton,
         const maniRagdollBodyState* bodies, uint32_t count, const maniTransform* placement,
         const maniPose* reference, maniPose* poseOut);
+
+    // Where a ragdoll gets up: the ground's plane (a point on it and its
+    // unit normal, in the world) and the character's model forward and
+    // up axes (unit, perpendicular), which name the placement's frame.
+    typedef struct maniRagdollGround
+    {
+        maniVec3 point;
+        maniVec3 normal;
+        maniVec3 forward;
+        maniVec3 up;
+    } maniRagdollGround;
+
+    // The placement to get up at and how the body lies.
+    typedef struct maniRagdollGetUp
+    {
+        maniTransform placement;
+        bool faceUp;
+    } maniRagdollGetUp;
+
+    /// Works out where a ragdoll gets up. The body lies face up when the
+    /// root body's facing axis (out of the chest) points along the
+    /// normal or across it. The heading is the root body's up axis
+    /// (toward the head) on the ground's plane, reversed face up, plus
+    /// its facing axis on the plane, so the character stands looking
+    /// where its head lay face down and toward its feet face up, and
+    /// where its chest faces upright; when that sum is shorter than a
+    /// thousandth, the longer of the two. The placement stands on the
+    /// plane under the root body, its model up along the normal and its
+    /// model forward along the heading, scale 1. A pose from the bodies
+    /// under it (maniRagdollPoseFromBodies) is the ragdoll in the
+    /// character's new frame, to blend a get-up clip from.
+    ///
+    /// @param ragdoll  An opened profile.
+    /// @param bodies   A state per body, in the profile's order: positions
+    ///                 finite, rotations of length 1 within a thousandth.
+    /// @param count    The number of states bodies holds.
+    /// @param ground   The ground and the character's axes.
+    /// @param out      Receives the placement and whether it lies face up.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// body's place not finite or its rotation not of length 1, the
+    /// ground not finite, its normal or the axes not of length 1 within a
+    /// thousandth or the axes not perpendicular within a thousandth;
+    /// `mani_errorCapacity` when count is under the body count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_NODISCARD MANI_API maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll,
+                                                                 const maniRagdollBodyState* bodies,
+                                                                 uint32_t count,
+                                                                 const maniRagdollGround* ground,
+                                                                 maniRagdollGetUp* out);
 
 #ifdef __cplusplus
 }
