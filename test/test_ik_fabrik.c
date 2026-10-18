@@ -6,10 +6,11 @@
 // after 1, 2 and 8 iterations those of a FABRIK in double precision
 // written here from Aristidou and Lasenby's pseudocode; a goal out of
 // reach straightening the chain; a pole turning the bend toward itself
-// either way; cone limits never exceeded; hinges that make the goal
-// unreachable running the iterations out with tolerance 0, the result's
-// bits pinned; a solve on its own reached result unchanged; the end
-// taking the wanted rotation; weight 0; the refusals.
+// either way, the pole's turn coming before the first pass; a bone of
+// length 0 left as it was; cone limits never exceeded; hinges that make
+// the goal unreachable running the iterations out with tolerance 0, the
+// result's bits pinned; a solve on its own reached result unchanged; the
+// end taking the wanted rotation; weight 0; the refusals.
 
 #include "test_harness.h"
 
@@ -28,11 +29,13 @@
 #define BONES              6u
 #define PINNED_HINGED_HASH 0xb218228bca0511d3ull
 
-static _Alignas(16) uint8_t s_skeletonFile[8192];
-static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_memory[2][8192];
+static _Alignas(16) uint8_t s_skeletonFile[2][8192];
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_memory[3][8192];
 static maniSkeleton s_skeleton;
+static maniSkeleton s_short;
 static maniPose* s_pose;
 static maniPose* s_other;
+static maniPose* s_shortPose;
 
 static maniQuat Turn(maniVec3 axis, float angle)
 {
@@ -54,13 +57,15 @@ static maniVec3 At(maniPose* pose, uint32_t bone)
     return maniPoseModelTransform(pose, bone).translation;
 }
 
-static void Setup(void)
+// The tail of bones 0.3 along y from their parents; the bone short, if
+// any, at its parent's origin.
+static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32_t shortBone)
 {
     static const char* const kNames[BONES] = {"root", "a", "b", "c", "d", "e"};
     maniBoneSource bones[BONES];
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        float y = b == 0 ? 0.0f : 0.3f;
+        float y = b == 0 || b == shortBone ? 0.0f : 0.3f;
         bones[b] =
             (maniBoneSource){kNames[b],
                              (uint32_t)strlen(kNames[b]),
@@ -73,13 +78,20 @@ static void Setup(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
-                  mani_success &&
-              maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
-          "the skeleton");
+              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniOpenSkeleton(file, size, skeleton).result == mani_success,
+          "a skeleton");
     maniDestroyBuilder(builder);
+}
+
+static void Setup(void)
+{
+    Build(&s_skeleton, s_skeletonFile[0], sizeof s_skeletonFile[0], BONES);
+    Build(&s_short, s_skeletonFile[1], sizeof s_skeletonFile[1], 3);
     CHECK(maniInitPose(&s_skeleton, s_memory[0], sizeof s_memory[0], &s_pose) == mani_success &&
-              maniInitPose(&s_skeleton, s_memory[1], sizeof s_memory[1], &s_other) == mani_success,
+              maniInitPose(&s_skeleton, s_memory[1], sizeof s_memory[1], &s_other) ==
+                  mani_success &&
+              maniInitPose(&s_short, s_memory[2], sizeof s_memory[2], &s_shortPose) == mani_success,
           "the poses");
 }
 
@@ -256,6 +268,52 @@ static void TestPole(void)
     }
 }
 
+// A pole solve of one iteration is the pole's turn, a solve whose
+// tolerance takes the start, then a pass without a pole: the joints the
+// same but for rounding.
+static void TestPoleFirst(void)
+{
+    maniVec3 goal = {0.6f, 0.6f, 0.0f};
+    Bent(s_pose);
+    maniChainSolve s = Solve(goal);
+    s.pole = (maniVec3){0.0f, 0.0f, -1.0f};
+    s.iterations = 1;
+    s.tolerance = 0.0f;
+    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "a pole, one pass");
+    Bent(s_other);
+    maniChainSolve turn = s;
+    turn.tolerance = 100.0f;
+    maniChainSolve pass = s;
+    pass.pole = (maniVec3){0.0f, 0.0f, 0.0f};
+    CHECK(maniSolveFabrik(s_other, &s_skeleton, &turn, NULL) == mani_success &&
+              maniSolveFabrik(s_other, &s_skeleton, &pass, NULL) == mani_success,
+          "the pole's turn, then a pass");
+    float worst = 0.0f;
+    for (uint32_t b = 1; b < BONES; ++b)
+    {
+        worst = fmaxf(worst, Distance(At(s_pose, b), At(s_other, b)));
+    }
+    CHECK(worst < 1e-5f, "the pass starts from the pole's turn");
+}
+
+// A bone of length 0 has no direction to turn: left as it was.
+static void TestShortBone(void)
+{
+    CHECK(maniPoseSetRest(s_shortPose, &s_short) == mani_success, "short rest");
+    for (uint32_t b = 1; b < BONES; ++b)
+    {
+        maniTransform t = maniPoseLocal(s_shortPose, b);
+        t.rotation = Turn((maniVec3){0.6f, 0.0f, 0.8f}, 0.15f);
+        maniPoseSetLocal(s_shortPose, b, t);
+    }
+    maniTransform before = maniPoseLocal(s_shortPose, 2);
+    maniChainSolve s = Solve((maniVec3){0.3f, 0.5f, 0.2f});
+    bool r = false;
+    CHECK(maniSolveFabrik(s_shortPose, &s_short, &s, &r) == mani_success && r, "reached");
+    maniTransform after = maniPoseLocal(s_shortPose, 2);
+    CHECK(memcmp(&before, &after, sizeof before) == 0, "the bone of length 0 left as it was");
+}
+
 static maniQuat FromRest(maniPose* pose, uint32_t bone)
 {
     maniQuat t = maniPoseLocal(pose, bone).rotation;
@@ -404,6 +462,8 @@ int main(void)
     TestReference();
     TestOutOfReach();
     TestPole();
+    TestPoleFirst();
+    TestShortBone();
     TestLimits();
     TestHingedOut();
     TestIdempotent();

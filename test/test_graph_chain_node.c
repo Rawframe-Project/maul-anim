@@ -8,7 +8,8 @@
 // limits carried; both inside a subgraph through its mapping; the JSON
 // form read back to the same file; refused at build (differences,
 // bones, parameters, numbers, limits) and at open at the first wrong
-// word; a crafted file whose bones are not a chain passing its input.
+// word; a crafted file whose bones are not a chain, or whose limits are
+// not one per turning bone, passing its input.
 // Run as test_graph_chain_node --seed <graph file> <json file> it writes
 // a graph of both nodes, its file and text, seeds of the fuzz targets.
 
@@ -388,17 +389,18 @@ static void TestFile(void)
     at = Built1(ChainNode(maniGraphNodeFabrik, kFirst, kFabrik), &size, &record);
     CHECK(WordRefused(size, at, 7, Bits(0.1f), 7), "a FABRIK node's step");
     CHECK(WordRefused(size, at, 3, 2, 3), "a pole reading a float");
+    CHECK(WordRefused(size, at, 9, Bits(1.5f), 8), "a rotation weight past 1");
 }
 
-// A crafted CCD node whose root is below its end opens and passes its
-// input.
-static void TestCraftedChain(void)
+// Whether a CCD node of s, crafted to root and end, opens, binds and
+// passes its input.
+static bool CraftedPasses(maniGraphChainNodeSource s, uint32_t root, uint32_t end)
 {
     size_t size = 0;
     size_t record = 0;
-    size_t at = Built1(ChainNode(maniGraphNodeCcd, kFirst, kCcd), &size, &record);
-    maniStoreU32(s_file + at, 2);
-    maniStoreU32(s_file + at + 4, 0);
+    size_t at = Built1(ChainNode(maniGraphNodeCcd, kFirst, s), &size, &record);
+    maniStoreU32(s_file + at, root);
+    maniStoreU32(s_file + at + 4, end);
     Rehash(s_file, size);
     maniGraph g;
     const maniClip* clips[CLIPS];
@@ -417,7 +419,17 @@ static void TestCraftedChain(void)
           "opened and bound");
     Update(instance, 0.3f);
     Evaluate(instance);
-    CHECK(Matches(true), "the input passed");
+    return Matches(true);
+}
+
+// Crafted CCD nodes open and pass their input: a root below the end; one
+// limit on a path made of three bones, which turns two.
+static void TestCraftedChain(void)
+{
+    CHECK(CraftedPasses(kCcd, 2, 0), "a root below its end: the input passed");
+    maniGraphChainNodeSource s = kCcd;
+    s.root = 1;
+    CHECK(CraftedPasses(s, 0, 2), "one limit for two turning bones: the input passed");
 }
 
 // The source of both nodes in a row.

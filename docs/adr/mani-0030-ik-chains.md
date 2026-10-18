@@ -77,20 +77,26 @@ frame's result, which a stateless solve cannot.
 Tests on a tail of five bones: goals within reach reached within the
 tolerance with every length kept; a goal out of reach straightens the
 chain toward it; cones, twists and hinges never exceeded, read back from
-each bone's turn from its rest (hinged bones staying in their plane);
-the step bound bounding each bone's turn in a sweep; a solve on its own
-reached result unchanged bit for bit; the end taking the wanted rotation
-and half of it; weights 0 and 0.5; a goal at the root without a NaN;
-paths of 32 bones solved and 33 refused; every refusal. The limits on
-their own: a turn within its limit unchanged bit for bit, cones and
-hinges cutting as stated, a half-turn swing taken whole as the swing,
-turns just short of it approaching that result.
+each bone's turn from its rest (hinged bones staying in their plane),
+also on a tail along x whose bones rest turned; limits of no kind
+solving as none bit for bit; the step bound bounding each bone's turn
+in a sweep; a solve on its own reached result unchanged bit for bit;
+the end taking the wanted rotation and half of it; weights 0 and 0.5; a
+goal at the root without a NaN and the root unturned; a goal within the
+tolerance leaving the pose bit for bit, one at the end reached with
+tolerance 0; paths of 32 bones solved and 33 refused; every refusal.
+The limits on their own: a turn within its limit unchanged bit for bit,
+cones and hinges cutting as stated, a turn's negation limited as the
+turn, a half-turn swing taken whole as the swing, turns just short of
+it approaching that result, a bone of no axis ignoring its twist
+range.
 
 FABRIK's tests on the same tail: goals reached with lengths kept; the
 joints' places after 1, 2 and 8 iterations within 2e-6 of a FABRIK in
 double precision written in the test from the paper; a goal out of
 reach straightening the chain; a pole on either side bending the chain
-toward it; cones never exceeded; hinges that make the goal unreachable
+toward it, its turn coming before the first pass; a bone of length 0
+left as it was; cones never exceeded; hinges that make the goal unreachable
 running all 64 iterations with tolerance 0, the result finite, within
 the hinges and its bits pinned (the same in every build and on every
 platform CI runs); a solve on its own reached result unchanged; the
@@ -103,4 +109,15 @@ pole; both inside a subgraph reading the outer goal and weight; the
 JSON form read back to the same file and a limit list of the wrong
 length refused; every build refusal with its reason and every file
 refusal at its word, 32 limits refused by the node's word count; a
-crafted chain passing its input.
+crafted chain passing its input, and a crafted chain whose limits are
+not one per turning bone of the bound skeleton's path passing it too
+(the evaluator checks the count against the path before it reads a
+limit).
+
+The IK differential times both chains on the start, middle and end
+(a three-bone chain from rest with the middle bent 0.8 radians, 256
+random goals within reach, 16 iterations at most, tolerance 1e-4): a
+CCD solve takes 3600 ns and a FABRIK solve 3800 ns (clang 20, -O3, one
+core of the test machine under a load average near 170), each about 8
+to 9 iterations on average, about 400 ns an iteration, near a two-bone
+solve's 490 ns. ozz has no chain solver to time against.

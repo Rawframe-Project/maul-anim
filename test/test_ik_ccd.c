@@ -5,10 +5,13 @@
 // 0.3 under a root: goals within reach reached within the tolerance
 // with every length kept; one out of reach straightens the chain toward
 // it; cone, twist and hinge limits never exceeded, read back from each
-// bone's turn from its rest; the step bound bounding each bone's turn in
-// a sweep; a solve on its own reached result unchanged bit for bit; the
-// end taking the wanted rotation; weights 0 and 0.5; a goal at the root
-// left without a NaN; the refusals, a path of 33 bones among them.
+// bone's turn from its rest, on a chain along x resting turned too;
+// limits of no kind solving as none bit for bit; the step bound bounding
+// each bone's turn in a sweep; a solve on its own reached result
+// unchanged bit for bit; the end taking the wanted rotation; weights 0
+// and 0.5; a goal at the root left without a NaN, the root unturned; a
+// goal within the tolerance leaving the pose, one at the end reached
+// with tolerance 0; the refusals, a path of 33 bones among them.
 
 #include "test_harness.h"
 
@@ -27,18 +30,29 @@
 #define BONES 6u
 #define LONG  34u
 
-static _Alignas(16) uint8_t s_skeletonFile[2][8192];
-static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_memory[3][8192];
+static _Alignas(16) uint8_t s_skeletonFile[3][8192];
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_memory[5][8192];
 static maniSkeleton s_skeleton;
 static maniSkeleton s_long;
+static maniSkeleton s_turned;
 static maniPose* s_pose;
 static maniPose* s_other;
 static maniPose* s_longPose;
+static maniPose* s_turnedPose;
+static maniPose* s_turnedOther;
 
 static maniQuat Turn(maniVec3 axis, float angle)
 {
     float s = sinf(0.5f * angle);
     return (maniQuat){axis.x * s, axis.y * s, axis.z * s, cosf(0.5f * angle)};
+}
+
+static maniQuat Mul(maniQuat a, maniQuat b)
+{
+    return (maniQuat){a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+                      a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+                      a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+                      a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z};
 }
 
 static float Distance(maniVec3 a, maniVec3 b)
@@ -55,8 +69,10 @@ static maniVec3 At(maniPose* pose, uint32_t bone)
     return maniPoseModelTransform(pose, bone).translation;
 }
 
-// A chain of count bones under a root, each 0.3 along y from its parent.
-static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32_t count)
+// A chain of count bones under a root, each 0.3 along y from its parent;
+// turned, each 0.3 along x resting turned 0.4 about z.
+static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32_t count,
+                  bool turned)
 {
     static char names[LONG][4];
     maniBoneSource bones[LONG];
@@ -65,12 +81,14 @@ static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32
         names[b][0] = 'b';
         names[b][1] = (char)('a' + b / 26);
         names[b][2] = (char)('a' + b % 26);
-        float y = b == 0 ? 0.0f : 0.3f;
-        bones[b] =
-            (maniBoneSource){names[b],
-                             3,
-                             (int32_t)b - 1,
-                             {{0.0f, y, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
+        float d = b == 0 ? 0.0f : 0.3f;
+        maniTransform rest = {{0.0f, d, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
+        if (turned && b > 0)
+        {
+            rest.translation = (maniVec3){d, 0.0f, 0.0f};
+            rest.rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, 0.4f);
+        }
+        bones[b] = (maniBoneSource){names[b], 3, (int32_t)b - 1, rest};
     }
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
@@ -86,12 +104,17 @@ static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32
 
 static void Setup(void)
 {
-    Build(&s_skeleton, s_skeletonFile[0], sizeof s_skeletonFile[0], BONES);
-    Build(&s_long, s_skeletonFile[1], sizeof s_skeletonFile[1], LONG);
+    Build(&s_skeleton, s_skeletonFile[0], sizeof s_skeletonFile[0], BONES, false);
+    Build(&s_long, s_skeletonFile[1], sizeof s_skeletonFile[1], LONG, false);
+    Build(&s_turned, s_skeletonFile[2], sizeof s_skeletonFile[2], BONES, true);
     CHECK(maniInitPose(&s_skeleton, s_memory[0], sizeof s_memory[0], &s_pose) == mani_success &&
               maniInitPose(&s_skeleton, s_memory[1], sizeof s_memory[1], &s_other) ==
                   mani_success &&
-              maniInitPose(&s_long, s_memory[2], sizeof s_memory[2], &s_longPose) == mani_success,
+              maniInitPose(&s_long, s_memory[2], sizeof s_memory[2], &s_longPose) == mani_success &&
+              maniInitPose(&s_turned, s_memory[3], sizeof s_memory[3], &s_turnedPose) ==
+                  mani_success &&
+              maniInitPose(&s_turned, s_memory[4], sizeof s_memory[4], &s_turnedOther) ==
+                  mani_success,
           "the poses");
 }
 
@@ -163,10 +186,10 @@ static void TestOutOfReach(void)
 }
 
 // A bone's turn from its rest.
-static maniQuat FromRest(maniPose* pose, uint32_t bone)
+static maniQuat FromRest(const maniSkeleton* skeleton, maniPose* pose, uint32_t bone)
 {
     maniQuat q = maniPoseLocal(pose, bone).rotation;
-    maniQuat r = maniSkeletonRest(&s_skeleton, bone).rotation;
+    maniQuat r = maniSkeletonRest(skeleton, bone).rotation;
     maniQuat t = {r.w * q.x - r.x * q.w - r.y * q.z + r.z * q.y,
                   r.w * q.y + r.x * q.z - r.y * q.w - r.z * q.x,
                   r.w * q.z - r.x * q.y + r.y * q.x - r.z * q.w,
@@ -192,7 +215,7 @@ static void TestLimits(void)
     bool within = true;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
-        maniQuat t = FromRest(s_pose, b);
+        maniQuat t = FromRest(&s_skeleton, s_pose, b);
         float twist = 2.0f * atan2f(t.y, t.w);
         maniQuat twistQ = Turn((maniVec3){0.0f, 1.0f, 0.0f}, twist);
         maniQuat swing = {t.x * twistQ.w - t.w * twistQ.x - t.y * twistQ.z + t.z * twistQ.y,
@@ -215,7 +238,7 @@ static void TestLimits(void)
     within = true;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
-        maniQuat t = FromRest(s_pose, b);
+        maniQuat t = FromRest(&s_skeleton, s_pose, b);
         float angle = 2.0f * atan2f(t.x, t.w);
         within = within && fabsf(t.y) < 1e-6f && fabsf(t.z) < 1e-6f && angle >= -0.2f - 1e-5f &&
                  angle <= 0.6f + 1e-5f;
@@ -223,6 +246,71 @@ static void TestLimits(void)
     CHECK(within, "each turns about the hinge alone within its range");
     maniVec3 end = At(s_pose, BONES - 1);
     CHECK(fabsf(end.x) < 1e-5f, "the chain stays in the hinges' plane");
+}
+
+// The turned chain bent a little off its rest about y and z.
+static void TurnedBent(maniPose* pose)
+{
+    CHECK(maniPoseSetRest(pose, &s_turned) == mani_success, "turned rest");
+    for (uint32_t b = 1; b < BONES; ++b)
+    {
+        maniTransform t = maniPoseLocal(pose, b);
+        t.rotation = Mul(t.rotation, Turn((maniVec3){0.0f, 0.6f, 0.8f}, 0.15f));
+        maniPoseSetLocal(pose, b, t);
+    }
+}
+
+// Whether two poses of the skeleton have the same local bits.
+static bool SameLocals(const maniPose* a, const maniPose* b)
+{
+    bool same = true;
+    for (uint32_t k = 0; k < BONES; ++k)
+    {
+        maniTransform x = maniPoseLocal(a, k);
+        maniTransform y = maniPoseLocal(b, k);
+        same = same && memcmp(&x, &y, sizeof x) == 0;
+    }
+    return same;
+}
+
+// The turned chain, its bones along x resting turned about z, under a
+// cone of 0.3 with a twist of +-0.1: each turn from rest split about the
+// bone's own axis, x, has its swing within 0.3 and twist within 0.1.
+// Limits all of no kind solve as none, bit for bit.
+static void TestTurnedRest(void)
+{
+    maniJointLimit limits[BONES - 2];
+    for (uint32_t k = 0; k < BONES - 2; ++k)
+    {
+        limits[k] = (maniJointLimit){
+            .kind = maniJointLimitCone, .cone = 0.3f, .twistLow = -0.1f, .twistHigh = 0.1f};
+    }
+    TurnedBent(s_turnedPose);
+    maniChainSolve s = Solve((maniVec3){0.2f, 0.9f, 0.5f});
+    s.limits = limits;
+    CHECK(maniSolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success, "turned, limited");
+    bool within = true;
+    for (uint32_t b = 1; b < BONES - 1; ++b)
+    {
+        maniQuat t = FromRest(&s_turned, s_turnedPose, b);
+        float twist = 2.0f * atan2f(t.x, t.w);
+        maniQuat twistQ = Turn((maniVec3){1.0f, 0.0f, 0.0f}, -twist);
+        float swingAngle = 2.0f * acosf(fminf(1.0f, fabsf(Mul(t, twistQ).w)));
+        within = within && swingAngle <= 0.3f + 1e-4f && fabsf(twist) <= 0.1f + 1e-4f;
+    }
+    CHECK(within, "limits about each bone's own axis from its rest");
+    for (uint32_t k = 0; k < BONES - 2; ++k)
+    {
+        limits[k] = (maniJointLimit){.kind = maniJointLimitNone};
+    }
+    TurnedBent(s_turnedPose);
+    TurnedBent(s_turnedOther);
+    maniChainSolve free = s;
+    free.limits = NULL;
+    CHECK(maniSolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success &&
+              maniSolveCcd(s_turnedOther, &s_turned, &free, NULL) == mani_success &&
+              SameLocals(s_turnedPose, s_turnedOther),
+          "limits of no kind solve as none");
 }
 
 // The angle between two unit rotations.
@@ -262,14 +350,7 @@ static void TestIdempotent(void)
         maniPoseSetLocal(s_other, b, maniPoseLocal(s_pose, b));
     }
     CHECK(maniSolveCcd(s_other, &s_skeleton, &s, &r) == mani_success && r, "again");
-    bool same = true;
-    for (uint32_t b = 0; b < BONES; ++b)
-    {
-        maniTransform x = maniPoseLocal(s_pose, b);
-        maniTransform y = maniPoseLocal(s_other, b);
-        same = same && memcmp(&x, &y, sizeof x) == 0;
-    }
-    CHECK(same, "a solve on its own reached result unchanged");
+    CHECK(SameLocals(s_pose, s_other), "a solve on its own reached result unchanged");
 }
 
 static void TestEndRotation(void)
@@ -317,8 +398,12 @@ static void TestWeight(void)
 static void TestEdges(void)
 {
     Bent(s_pose);
+    Bent(s_other);
     maniChainSolve s = Solve(At(s_pose, 1));
     CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "a goal at the root");
+    maniTransform root[2] = {maniPoseLocal(s_pose, 1), maniPoseLocal(s_other, 1)};
+    CHECK(memcmp(&root[0], &root[1], sizeof root[0]) == 0,
+          "the root, its direction to the goal none, left as it was");
     bool finite = true;
     for (uint32_t b = 0; b < BONES; ++b)
     {
@@ -326,6 +411,21 @@ static void TestEdges(void)
         finite = finite && isfinite(q.x) && isfinite(q.y) && isfinite(q.z) && isfinite(q.w);
     }
     CHECK(finite, "no NaN");
+    Bent(s_pose);
+    Bent(s_other);
+    maniVec3 end = At(s_pose, BONES - 1);
+    s = Solve((maniVec3){end.x + 0.01f, end.y, end.z});
+    s.tolerance = 0.05f;
+    bool r = false;
+    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+              SameLocals(s_pose, s_other),
+          "a goal within the tolerance: reached, the pose left as it was");
+    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    s = Solve(At(s_pose, BONES - 1));
+    s.tolerance = 0.0f;
+    r = false;
+    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r,
+          "a goal at the end with tolerance 0 reached");
     CHECK(maniPoseSetRest(s_longPose, &s_long) == mani_success, "the long pose");
     maniChainSolve l = Solve((maniVec3){1.0f, 2.0f, 0.0f});
     l.root = 1;
@@ -403,6 +503,7 @@ int main(void)
     TestReach();
     TestOutOfReach();
     TestLimits();
+    TestTurnedRest();
     TestStep();
     TestIdempotent();
     TestEndRotation();

@@ -16,7 +16,8 @@
 // 2e-3 for softened goals (ozz softens with reciprocal estimates of about 12 bits), when "reached"
 // differs, or when Maul Anim's own error passes 1e-5.
 //
-// Then times both: nanoseconds a two-bone solve and an aim take.
+// Then times both: nanoseconds a two-bone solve and an aim take; then
+// Maul Anim's CCD and FABRIK chains alone.
 //
 // usage: ik_differential [cases [timing repetitions]]
 
@@ -418,6 +419,67 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
                 oursTwo / n * 1e9, ozzTwo / n * 1e9, oursAim / n * 1e9, ozzAim / n * 1e9);
 }
 
+// Nanoseconds a CCD and a FABRIK solve take on the chain of the start,
+// middle and end, 16 iterations at most with a tolerance of 1e-4, over
+// 256 random goals within reach repeated reps times, each solve from the
+// rest with the middle bent; ozz has no chain solver to time against.
+void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps)
+{
+    constexpr int kCases = 256;
+    static maniVec3 goals[kCases];
+    if (maniPoseSetRest(pose, skeleton) != mani_success)
+    {
+        return;
+    }
+    maniTransform t = maniPoseLocal(pose, 2);
+    t.rotation = Turn(Direction(), 0.8f);
+    maniPoseSetLocal(pose, 2, t);
+    maniTransform bent[4];
+    for (uint32_t b = 0; b < 4; ++b)
+    {
+        bent[b] = maniPoseLocal(pose, b);
+    }
+    maniVec3 start = Position(pose, skeleton, 1);
+    for (int c = 0; c < kCases; ++c)
+    {
+        maniVec3 d = Direction();
+        float reach = Spread(0.1f, 0.9f);
+        goals[c] = {start.x + d.x * reach, start.y + d.y * reach, start.z + d.z * reach};
+    }
+    double seconds[2] = {0.0, 0.0};
+    float sink = 0.0f;
+    for (int solver = 0; solver < 2; ++solver)
+    {
+        double t0 = Now();
+        for (long r = 0; r < reps; ++r)
+        {
+            for (int c = 0; c < kCases; ++c)
+            {
+                for (uint32_t b = 1; b < 4; ++b)
+                {
+                    maniPoseSetLocal(pose, b, bent[b]);
+                }
+                maniChainSolve s = {};
+                s.root = 1;
+                s.end = 3;
+                s.goal = goals[c];
+                s.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+                s.iterations = 16;
+                s.tolerance = 1e-4f;
+                s.weight = 1.0f;
+                (void)(solver == 0 ? maniSolveCcd(pose, skeleton, &s, nullptr)
+                                   : maniSolveFabrik(pose, skeleton, &s, nullptr));
+                sink += maniPoseLocal(pose, 2).rotation.x;
+            }
+        }
+        seconds[solver] = Now() - t0;
+    }
+    g_sink = sink;
+    double n = static_cast<double>(reps) * kCases;
+    std::printf("ns a chain solve of 3 bones, 16 iterations at most: CCD %.0f, FABRIK %.0f\n",
+                seconds[0] / n * 1e9, seconds[1] / n * 1e9);
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -632,5 +694,6 @@ int main(int argc, char** argv)
     bool agree = worst <= 5e-4f && worstSoftened <= 2e-3f && reachDiffers == 0;
     bool aim = AimDifferential(ours, theirs, &skeleton, cases);
     Timings(ours, &skeleton, reps);
+    ChainTimings(ours, &skeleton, reps);
     return agree && missOurs <= 1e-5f && planeOurs <= 1e-5f && aim ? 0 : 1;
 }

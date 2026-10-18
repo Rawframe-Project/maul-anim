@@ -16,6 +16,7 @@
 #include "graph_shot.h"
 #include "graph_space.h"
 #include "graph_spring.h"
+#include "ik_chain.h"
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -540,8 +541,8 @@ static void Aim(const Evaluation* e, const uint8_t* record, maniPose* out)
 }
 
 // A chain node: its input with its chain solved; the input when the
-// solve refuses (a crafted file's bones not a chain, or its limits not
-// one per turning bone).
+// solve refuses (a crafted file's bones not a chain) or its limits are
+// not one per turning bone of the bound skeleton's path.
 static void Chain(const Evaluation* e, const uint8_t* record, maniPose* out, bool fabrik)
 {
     uint32_t d = maniLoadU32(record + 12);
@@ -549,8 +550,15 @@ static void Chain(const Evaluation* e, const uint8_t* record, maniPose* out, boo
     {
         return;
     }
-    maniJointLimit limits[MANI_IK_CHAIN_MAX_BONES];
+    const maniSkeleton* skeleton = e->binding->skeleton;
+    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t path = maniIkChainPath(skeleton, Word(e, d), Word(e, d + 1), bones);
     uint32_t count = Word(e, d + maniGraphChainLimitCount);
+    if (count != 0 && count + 1 != path)
+    {
+        return;
+    }
+    maniJointLimit limits[MANI_IK_CHAIN_MAX_BONES] = {0};
     for (uint32_t k = 0; k < count; ++k)
     {
         limits[k] = maniGraphChainLimit(e->graph, d, k);
@@ -581,7 +589,6 @@ static void Chain(const Evaluation* e, const uint8_t* record, maniPose* out, boo
                                 ? Clamped(e, d + maniGraphChainRotationWeight, 0.0f, 1.0f)
                                 : 0.0f,
                         .weight = Clamped(e, d + maniGraphChainWeight, 0.0f, 1.0f)};
-    const maniSkeleton* skeleton = e->binding->skeleton;
     (void)(fabrik ? maniSolveFabrik(out, skeleton, &s, NULL)
                   : maniSolveCcd(out, skeleton, &s, NULL));
 }

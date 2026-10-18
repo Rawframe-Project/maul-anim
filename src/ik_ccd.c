@@ -22,13 +22,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// The shortest arc from a onto b, cut to step radians (0 for no cut).
+// The shortest arc from a onto b, cut to step radians (0 for no cut);
+// the arc's w is the cosine of half its angle, at least 0.
 static maniQuat Arc(maniVec3 a, maniVec3 b, float step)
 {
     maniQuat turn = maniQuatBetween(a, b);
     if (step > 0.0f)
     {
-        turn = maniIkWeighted(turn, 1.0f);
         maniVec3 v = {turn.x, turn.y, turn.z};
         float angle = 2.0f * maniAtan2(maniVec3Length(v), turn.w);
         turn = angle > step ? maniQuatSlerp(maniQuatIdentity(), turn, step / angle) : turn;

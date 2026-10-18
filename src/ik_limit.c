@@ -53,8 +53,8 @@ static maniQuat About(maniVec3 u, float angle)
     return (maniQuat){u.x * s, u.y * s, u.z * s, c};
 }
 
-// r's twist about unit axis u, w at least 0; the identity when r is half
-// a turn about an axis perpendicular to u.
+// r's twist about unit axis u, w at least 0 as r's is; the identity when
+// r is half a turn about an axis perpendicular to u.
 static maniQuat Twist(maniQuat r, maniVec3 u)
 {
     float d = r.x * u.x + r.y * u.y + r.z * u.z;
@@ -63,7 +63,7 @@ static maniQuat Twist(maniQuat r, maniVec3 u)
     {
         return maniQuatIdentity();
     }
-    float inverse = r.w < 0.0f ? -1.0f / l : 1.0f / l;
+    float inverse = 1.0f / l;
     return (maniQuat){u.x * d * inverse, u.y * d * inverse, u.z * d * inverse, r.w * inverse};
 }
 
@@ -101,8 +101,9 @@ maniQuat maniIkLimit(const maniJointLimit* limit, maniVec3 axis, maniQuat r)
     }
     bool hasAxis = maniVec3Dot(axis, axis) > 0.0f;
     maniQuat twist = hasAxis ? Twist(r, axis) : maniQuatIdentity();
+    // The swing's w is r.w twist.w plus the vector parts' dot, (r.w^2 +
+    // d^2) / l = l with d and l Twist's: at least 0 with no flip.
     maniQuat swing = maniQuatMul(r, maniQuatConjugate(twist));
-    swing = swing.w < 0.0f ? (maniQuat){-swing.x, -swing.y, -swing.z, -swing.w} : swing;
     maniQuat limitedSwing = ClampSwing(swing, limit->cone);
     maniQuat limitedTwist =
         hasAxis ? ClampTwist(twist, axis, limit->twistLow, limit->twistHigh) : twist;

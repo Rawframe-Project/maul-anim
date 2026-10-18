@@ -7,7 +7,8 @@
 // half turn about an axis perpendicular to the bone's (the bone pointing
 // opposite its rest direction) has no twist, its whole turn the swing,
 // and turns just short of it limit to results that approach that one; a
-// bone of no axis takes its whole turn as the swing.
+// turn's negation limits as the turn; a bone of no axis takes its whole
+// turn as the swing, its twist range unused.
 
 #include "ik_limit.h"
 #include "test_harness.h"
@@ -62,6 +63,32 @@ static void TestCone(void)
     maniQuat limited = maniIkLimit(&cone, kY, r);
     maniQuat want = Mul(Turn(kX, 0.4f), Turn(kY, 0.2f));
     CHECK(Angle(limited, want) < 1e-5f, "swing cut to the cone about its axis, twist to its range");
+    limited = maniIkLimit(&cone, kY, Turn(kX, 0.6f));
+    CHECK(Angle(limited, Turn(kX, 0.4f)) < 1e-5f, "a swing short of twice the cone cut too");
+}
+
+static maniQuat Negated(maniQuat q)
+{
+    return (maniQuat){-q.x, -q.y, -q.z, -q.w};
+}
+
+// The flip to w at least 0 makes a negation exactly the turn: the same
+// bits back.
+static bool SameLimited(const maniJointLimit* limit, maniQuat r)
+{
+    maniQuat a = maniIkLimit(limit, kY, r);
+    maniQuat b = maniIkLimit(limit, kY, Negated(r));
+    return memcmp(&a, &b, sizeof a) == 0;
+}
+
+static void TestSign(void)
+{
+    maniJointLimit cone = {
+        .kind = maniJointLimitCone, .cone = 0.4f, .twistLow = -0.1f, .twistHigh = 0.2f};
+    CHECK(SameLimited(&cone, Mul(Turn(kX, 1.2f), Turn(kY, 0.5f))),
+          "a cone: a turn's negation limited as the turn");
+    maniJointLimit hinge = {.kind = maniJointLimitHinge, .axis = kX, .low = -0.5f, .high = 0.3f};
+    CHECK(SameLimited(&hinge, Turn(kX, -0.9f)), "a hinge: a turn's negation limited as the turn");
 }
 
 static void TestHinge(void)
@@ -104,6 +131,11 @@ static void TestNoAxis(void)
         .kind = maniJointLimitCone, .cone = 0.3f, .twistLow = -0.1f, .twistHigh = 0.1f};
     maniQuat limited = maniIkLimit(&cone, kNone, Turn(kY, 1.0f));
     CHECK(Angle(limited, Turn(kY, 0.3f)) < 1e-5f, "no axis: the whole turn is the swing");
+    maniJointLimit wide = {
+        .kind = maniJointLimitCone, .cone = 3.0f, .twistLow = 0.2f, .twistHigh = 0.5f};
+    maniQuat r = Turn((maniVec3){0.6f, 0.0f, 0.8f}, 0.7f);
+    limited = maniIkLimit(&wide, kNone, r);
+    CHECK(memcmp(&limited, &r, sizeof r) == 0, "no axis: a twist range without 0 unused");
 }
 
 int main(void)
@@ -111,6 +143,7 @@ int main(void)
     TestWithin();
     TestCone();
     TestHinge();
+    TestSign();
     TestHalfTurn();
     TestNoAxis();
     return s_failures == 0 ? 0 : 1;
