@@ -3014,3 +3014,76 @@ ikf-rotation-norm | src/ik_frame.c | return maniQuatNormalize(f->rotation); | re
 ikf-below-top | src/ik_frame.c | if (bone == top) | if (false)
 aim-carry-path | src/ik_aim.c | below = maniIkBelow(pose, skeleton, above, maniSkeletonParent(skeleton, bone)); | below = maniIkBelow(pose, skeleton, above, above);
 aim-carry-turned | src/ik_aim.c | local = maniIkLocal(pose, above); | local = maniIkLocal(pose, bone);
+ikl-cone-range | src/ik_limit.c | return Within(limit->cone, 0.0f, PI_F) && Within(limit->twistLow, -PI_F, PI_F) && | return Within(limit->twistLow, -PI_F, PI_F) &&
+ikl-twist-order | src/ik_limit.c | Within(limit->twistHigh, limit->twistLow, PI_F); | Within(limit->twistHigh, -PI_F, PI_F);
+ikl-hinge-unit | src/ik_limit.c | return fabsf(maniVec3Length(limit->axis) - 1.0f) <= 1e-3f && | return maniVec3Length(limit->axis) > 0.0f &&
+ikl-hinge-order | src/ik_limit.c | Within(limit->low, -PI_F, PI_F) && Within(limit->high, limit->low, PI_F); | Within(limit->low, -PI_F, PI_F) && Within(limit->high, -PI_F, PI_F);
+ikl-kind | src/ik_limit.c | return false; | return true;
+ikl-about-half | src/ik_limit.c | maniSinCos(0.5f * angle, &s, &c); | maniSinCos(angle, &s, &c);
+ikl-twist-zero | src/ik_limit.c | if (!(l > 0.0f)) | if (false)
+ikl-clamp-low | src/ik_limit.c | float clamped = angle < low ? low : (angle > high ? high : angle); | float clamped = angle > high ? high : angle;
+ikl-clamp-high | src/ik_limit.c | float clamped = angle < low ? low : (angle > high ? high : angle); | float clamped = angle < low ? low : angle;
+ikl-swing-cut | src/ik_limit.c | if (!(2.0f * maniAtan2(sine, s.w) > cone)) | if (!(maniAtan2(sine, s.w) > cone))
+ikl-r-sign | src/ik_limit.c | r = r.w < 0.0f ? (maniQuat){-r.x, -r.y, -r.z, -r.w} : r; | (void)0;
+ikl-hinge-swing | src/ik_limit.c | return ClampTwist(Twist(r, u), u, limit->low, limit->high); | return ClampTwist(r, u, limit->low, limit->high);
+ikl-has-axis | src/ik_limit.c | bool hasAxis = maniVec3Dot(axis, axis) > 0.0f; | bool hasAxis = true;
+ikl-swing-order | src/ik_limit.c | maniQuat swing = maniQuatMul(r, maniQuatConjugate(twist)); | maniQuat swing = maniQuatMul(maniQuatConjugate(twist), r);
+ikl-twist-limit | src/ik_limit.c | hasAxis ? ClampTwist(twist, axis, limit->twistLow, limit->twistHigh) : twist; | twist;
+ikl-recompose | src/ik_limit.c | return maniQuatNormalize(maniQuatMul(limitedSwing, limitedTwist)); | return maniQuatNormalize(maniQuatMul(limitedTwist, limitedSwing));
+ikc-path-max | src/ik_chain.c | if (n == MANI_IK_CHAIN_MAX_BONES) | if (n == MANI_IK_CHAIN_MAX_BONES + 1)
+ikc-path-one | src/ik_chain.c | return n > 1 ? n : 0; | return n;
+ikc-parallel | src/ik_chain.c | !(maniVec3Length(maniVec3Cross(limit->axis, axis)) >= 1e-3f * along); | false;
+ikc-limits-valid | src/ik_chain.c | if (!maniIkLimitValid(limit) || parallel) | if (parallel)
+# Kept: a root or end past the skeleton finds no path, since the
+# parent of a bone past it is none; the check names the refusal.
+ikc-range | src/ik_chain.c | if (!maniIkPoseUsable(pose, skeleton) || solve->root >= n || solve->end >= n) | if (!maniIkPoseUsable(pose, skeleton))
+ikc-limits-null | src/ik_chain.c | if (solve->limits != NULL && !maniIkChainLimitsValid(skeleton, bones, count, solve->limits)) | if (false)
+ikc-rotation | src/ik_chain.c | (poles || noPole) && length > 0.0f && isfinite(length) && solve->iterations >= 1 && | (poles || noPole) && solve->iterations >= 1 &&
+ikc-iterations | src/ik_chain.c | solve->iterations <= MANI_IK_MAX_ITERATIONS && solve->tolerance >= 0.0f && | solve->tolerance >= 0.0f &&
+ikc-step | src/ik_chain.c | isfinite(solve->tolerance) && solve->step >= 0.0f && solve->step <= PI_F && | isfinite(solve->tolerance) && solve->step >= 0.0f &&
+ikc-steps | src/ik_chain.c | (steps || solve->step == 0.0f) && Unit(solve->rotationWeight) && Unit(solve->weight); | Unit(solve->rotationWeight) && Unit(solve->weight);
+ikc-axis | src/ik_chain.c | chain->axes[k] = maniVec3Normalize(next, maniVec3Make(0.0f, 0.0f, 0.0f)); | chain->axes[k] = maniVec3Make(0.0f, 1.0f, 0.0f);
+ikc-no-limit | src/ik_chain.c | if (solve->limits == NULL || solve->limits[k].kind == maniJointLimitNone) | if (solve->limits == NULL)
+ikc-rest | src/ik_chain.c | maniQuat r = maniQuatNormalize(maniQuatMul(maniQuatConjugate(rest), t.rotation)); | maniQuat r = t.rotation;
+ikc-reached | src/ik_chain.c | bool reached = maniVec3Length(miss) <= solve->tolerance; | bool reached = maniVec3Length(miss) < solve->tolerance;
+ikc-rotation-weight | src/ik_chain.c | turn = maniIkWeighted(turn, solve->rotationWeight); | turn = maniIkWeighted(turn, 1.0f);
+ikc-rotation-off | src/ik_chain.c | if (solve->rotationWeight > 0.0f) | if (true)
+ikc-weight | src/ik_chain.c | if (solve->weight < 1.0f) | if (false)
+ikc-weight-reached | src/ik_chain.c | return reached && solve->weight >= 1.0f; | return reached;
+ccd-step-off | src/ik_ccd.c | if (step > 0.0f) | if (false)
+ccd-step-angle | src/ik_ccd.c | turn = angle > step ? maniQuatSlerp(maniQuatIdentity(), turn, step / angle) : turn; | turn = angle > step ? maniQuatSlerp(maniQuatIdentity(), turn, 0.5f) : turn;
+ccd-stop | src/ik_ccd.c | if (maniVec3Length(maniVec3Sub(maniIkChainEnd(&chain), solve->goal)) <= solve->tolerance) | if (false)
+ccd-order | src/ik_ccd.c | for (uint32_t k = chain.count - 1; k-- > 0;) | for (uint32_t k = chain.count - 1; k-- > 1;)
+ccd-skip | src/ik_ccd.c | if (!(maniVec3Dot(toEnd, toEnd) > 0.0f) || !(maniVec3Dot(toGoal, toGoal) > 0.0f)) | if (false)
+ccd-frames | src/ik_ccd.c | maniIkChainFrames(&chain, pose, k); | (void)0;
+ccd-reached-out | src/ik_ccd.c | *reachedOut = reached; | *reachedOut = true;
+fab-pole-off | src/ik_fabrik.c | if (!(length > 0.0f) || maniVec3Dot(solve->pole, solve->pole) == 0.0f) | if (true)
+fab-pole-bend | src/ik_fabrik.c | maniQuat turn = maniIkPlane(u, maniVec3Cross(u, bend), solve->pole); | maniQuat turn = maniIkPlane(u, maniVec3Cross(bend, u), solve->pole);
+fab-pole-frames | src/ik_fabrik.c | maniIkChainFrames(chain, pose, 0); | (void)0;
+fab-back-goal | src/ik_fabrik.c | places[last] = goal; | places[last] = maniIkOrigin(&chain->frames[last]);
+fab-back-length | src/ik_fabrik.c | places[k] = maniVec3Add(places[k + 1], maniVec3Scale(d, lengths[k])); | places[k] = maniVec3Add(places[k + 1], maniVec3Scale(d, lengths[k + 1]));
+fab-stop | src/ik_fabrik.c | if (maniVec3Length(maniVec3Sub(maniIkChainEnd(&chain), solve->goal)) <= solve->tolerance) | if (false)
+fab-backward | src/ik_fabrik.c | Backward(&chain, lengths, solve->goal, places); | (void)Backward;
+fab-skip | src/ik_fabrik.c | if (!(maniVec3Dot(now, now) > 0.0f) || !(maniVec3Dot(wanted, wanted) > 0.0f)) | if (false)
+fab-frames | src/ik_fabrik.c | maniIkChainFrames(&chain, pose, k); | (void)0;
+fab-valid-poles | src/ik_fabrik.c | !maniIkChainValid(pose, skeleton, solve, true, false)) | !maniIkChainValid(pose, skeleton, solve, true, true))
+gch-optional | src/graph_chain.c | return optional; | return true;
+gch-type | src/graph_chain.c | maniLoadU32(g->parameters + (size_t)p * MANI_GRAPH_PARAMETER_SIZE) == type; | true;
+gch-weight-bits | src/graph_chain.c | return ParameterValid(g, at, maniGraphParameterFloat, false) && Word(g, at + 1) == 0; | return ParameterValid(g, at, maniGraphParameterFloat, false);
+gch-weight-range | src/graph_chain.c | return v >= 0.0f && v <= 1.0f; | return v >= 0.0f;
+# Kept: a count of 32 or more cannot match the record's word count
+# in a file the builder lays out, and the evaluator reads limits only
+# when the count is one per turning bone of a path of at most 32.
+gch-words-max | src/graph_chain.c | return limits < MANI_IK_CHAIN_MAX_BONES && limits <= room | return limits <= room
+gch-limit-kind | src/graph_chain.c | if (limit.kind > maniJointLimitHinge) | if (false)
+gch-unused | src/graph_chain.c | if ((kUnused[limit.kind] >> w & 1u) != 0 && Word(g, at + w) != 0) | if (false)
+gch-limit-valid | src/graph_chain.c | return maniIkLimitValid(&limit) ? UINT32_MAX : at + 1; | return UINT32_MAX;
+gch-bones | src/graph_chain.c | if (Word(g, data + k) >= g->skeletonBoneCount) | if (Word(g, data + k) > g->skeletonBoneCount)
+gch-ccd-pole | src/graph_chain.c | bool none = k == 1 && !fabrik; | bool none = false;
+gch-iterations | src/graph_chain.c | if (iterations < 1 || iterations > MANI_IK_MAX_ITERATIONS) | if (iterations < 1)
+gch-tolerance | src/graph_chain.c | if (!(tolerance >= 0.0f) || !isfinite(tolerance)) | if (!(tolerance >= 0.0f))
+gch-step | src/graph_chain.c | if (!(step >= 0.0f && step <= PI_F) || (fabrik && Word(g, data + maniGraphChainStep) != 0)) | if (!(step >= 0.0f && step <= PI_F))
+gch-rotation-weight | src/graph_chain.c | if (!WeightValid(g, data + maniGraphChainRotationWeight)) | if (false)
+gch-limits-loop | src/graph_chain.c | uint32_t wrong = LimitValid(g, data, k); | uint32_t wrong = UINT32_MAX;
+gev-limit-path | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (false)
+gev-limit-none | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (count + 1 != path)

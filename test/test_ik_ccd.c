@@ -248,6 +248,13 @@ static void TestLimits(void)
     CHECK(fabsf(end.x) < 1e-5f, "the chain stays in the hinges' plane");
 }
 
+// The angle between two unit rotations.
+static float Angle(maniQuat a, maniQuat b)
+{
+    float d = fabsf(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+    return 2.0f * acosf(d > 1.0f ? 1.0f : d);
+}
+
 // The turned chain bent a little off its rest about y and z.
 static void TurnedBent(maniPose* pose)
 {
@@ -276,7 +283,8 @@ static bool SameLocals(const maniPose* a, const maniPose* b)
 // The turned chain, its bones along x resting turned about z, under a
 // cone of 0.3 with a twist of +-0.1: each turn from rest split about the
 // bone's own axis, x, has its swing within 0.3 and twist within 0.1.
-// Limits all of no kind solve as none, bit for bit.
+// Limits all of no kind solve as none, bit for bit; limits wider than
+// every turn from rest as none but for rounding.
 static void TestTurnedRest(void)
 {
     maniJointLimit limits[BONES - 2];
@@ -311,13 +319,20 @@ static void TestTurnedRest(void)
               maniSolveCcd(s_turnedOther, &s_turned, &free, NULL) == mani_success &&
               SameLocals(s_turnedPose, s_turnedOther),
           "limits of no kind solve as none");
-}
-
-// The angle between two unit rotations.
-static float Angle(maniQuat a, maniQuat b)
-{
-    float d = fabsf(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
-    return 2.0f * acosf(d > 1.0f ? 1.0f : d);
+    for (uint32_t k = 0; k < BONES - 2; ++k)
+    {
+        limits[k] = (maniJointLimit){
+            .kind = maniJointLimitCone, .cone = 3.1f, .twistLow = -3.1f, .twistHigh = 3.1f};
+    }
+    TurnedBent(s_turnedPose);
+    CHECK(maniSolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success, "wide limits");
+    float worst = 0.0f;
+    for (uint32_t b = 1; b < BONES; ++b)
+    {
+        worst = fmaxf(worst, Angle(maniPoseLocal(s_turnedPose, b).rotation,
+                                   maniPoseLocal(s_turnedOther, b).rotation));
+    }
+    CHECK(worst < 1e-3f, "limits wider than every turn from rest solve as none");
 }
 
 static void TestStep(void)
