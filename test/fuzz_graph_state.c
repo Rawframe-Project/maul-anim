@@ -9,7 +9,8 @@
 // parameter) and another over a learned node (mani-0025) playing a
 // model of the database; the select under a spring node (mani-0026) of
 // a spring from the root to its child, placed by the vec3 and quat
-// parameters and reset by the trigger. The bytes are tried as they are,
+// parameters and reset by the trigger; the pose parameter is saved
+// after the machines' blocks. The bytes are tried as they are,
 // then with the
 // header made right so they reach the checks behind it, then with the
 // quaternion parameter made a unit one, then with the inertialize
@@ -146,11 +147,11 @@ static maniGraphParameterSource Parameter(const char* name, maniGraphParameterTy
 
 static bool MakeGraph(maniBuilder* builder)
 {
-    const maniGraphParameterSource parameters[7] = {
-        Parameter("b", maniGraphParameterBool),   Parameter("i", maniGraphParameterInt),
-        Parameter("f", maniGraphParameterFloat),  Parameter("v2", maniGraphParameterVec2),
-        Parameter("v3", maniGraphParameterVec3),  Parameter("q", maniGraphParameterQuat),
-        Parameter("t", maniGraphParameterTrigger)};
+    const maniGraphParameterSource parameters[8] = {
+        Parameter("b", maniGraphParameterBool),    Parameter("i", maniGraphParameterInt),
+        Parameter("f", maniGraphParameterFloat),   Parameter("v2", maniGraphParameterVec2),
+        Parameter("v3", maniGraphParameterVec3),   Parameter("q", maniGraphParameterQuat),
+        Parameter("t", maniGraphParameterTrigger), Parameter("p", maniGraphParameterPose)};
     const maniGraphClipSource clip = {&s_clip, "c", 1, 0};
     const maniGraphDatabaseSource database = {&s_database, "d", 1, 0};
     const maniGraphModelSource model = {&s_model, "m", 1, 0};
@@ -197,7 +198,7 @@ static bool MakeGraph(maniBuilder* builder)
                               .parameters = parameters,
                               .clips = &clip,
                               .nodes = nodes,
-                              .parameterCount = 7,
+                              .parameterCount = 8,
                               .clipCount = 1,
                               .nodeCount = 9,
                               .output = 5,

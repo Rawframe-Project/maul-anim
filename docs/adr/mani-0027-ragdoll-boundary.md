@@ -56,7 +56,19 @@ drives with stiffness, damping and a largest force.
   reference pose; a bone without one keeps the reference's local (no
   reorienting of chains between bodies). The model matrices are made
   in the same pass as `maniComputeModel` makes them.
-- **Pose inputs in graphs, getting up and the OMI importer** follow;
+- **Pose inputs in graphs:** a graph parameter of a seventh type,
+  pose, rather than a list of its own: a parameter already has a name
+  unique in the graph, lookup by name and index, a place in the source,
+  the file, the JSON form (`"type": "pose"`, no default) and a
+  subgraph's parameter mapping. Its value is 0. The instance keeps a
+  pose of the graph's skeleton per pose parameter, the rest pose at
+  creation; the host sets one with `maniSetGraphPose` (a pose, not a
+  difference, its locals copied) and reads it with `maniGetGraphPose`;
+  `maniSetGraphParameter` refuses the type. The saved state keeps each
+  pose parameter's locals bone by bone after the state machines'
+  blocks, checked on restore (every word finite, rotations of length 1
+  within a thousandth).
+- **Getting up and the OMI importer** follow;
   each part is added to this record as it lands.
 - **Not here:** the solver, collision, creating and stepping the bodies
   (the host's engine); shapes other than the three primitives (a host

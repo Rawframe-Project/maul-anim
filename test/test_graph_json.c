@@ -118,7 +118,7 @@ static const uint32_t kSubMap[1] = {0};
 // 1 the time scale (a seek); 2 the seek (a mask); 3 the mask (a blend on
 // the spine, a select elsewhere); 4 the blend and 5 the select, each of
 // walk and the subgraph; 6 the wave; 7 walk; 8 the subgraph.
-static maniGraphParameterSource s_parameters[9];
+static maniGraphParameterSource s_parameters[10];
 static maniGraphClipSource s_clipSlots[2];
 static maniGraphSyncGroupSource s_groups[1];
 static maniGraphNodeSource s_nodes[9];
@@ -150,6 +150,7 @@ static void Parameters(void)
     s_parameters[8] = Parameter("mix", maniGraphParameterFloat, Value(0.5f, 0, 0, 0));
     s_parameters[8].bounded = 1;
     s_parameters[8].maximum = Value(1, 0, 0, 0);
+    s_parameters[9] = Parameter("ragdoll", maniGraphParameterPose, Int(0));
 }
 
 static maniGraphSource Source(void)
@@ -196,7 +197,7 @@ static maniGraphSource Source(void)
     s_nodes[8] = (maniGraphNodeSource){(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                        .subgraph = {&s_sub, kSubMap}};
     return (maniGraphSource){
-        &s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 9,   2, 1, 9, 0,
+        &s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 10,  2, 1, 9, 0,
         0,           NULL,         0,           0,        NULL,    NULL};
 }
 
@@ -217,7 +218,8 @@ static const char kExpected[] =
     "    {\"name\": \"say \\\"hi\\\"\\\\\\n\\t\\u0001\\u001f\xc3\xa9"
     "\", \"type\": \"float\", \"default\": 123456790},\n"
     "    {\"name\": \"mix\", \"type\": \"float\", \"default\": 0.5, \"minimum\": 0, \"maximum\": "
-    "1}\n"
+    "1},\n"
+    "    {\"name\": \"ragdoll\", \"type\": \"pose\"}\n"
     "  ],\n"
     "  \"clips\": [\n"
     "    \"walk\",\n"
@@ -480,6 +482,9 @@ static const Refusal kRefusals[] = {
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"bool\", \"minimum\": 0, \"maximum\": "
          "1}], " WALK "\"nodes\": [" NODE "], \"output\": 0}",
      maniBuildReasonForm, maniGraphFormMember, "\"minimum", 1},
+    {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"pose\", \"default\": 0}], " WALK
+         "\"nodes\": [" NODE "], \"output\": 0}",
+     maniBuildReasonForm, maniGraphFormMember, "\"default", 1},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"vec4\"}], " WALK "\"nodes\": [" NODE
          "], \"output\": 0}",
      maniBuildReasonForm, maniGraphFormValue, "\"vec4", 1},

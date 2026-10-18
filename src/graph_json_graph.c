@@ -86,15 +86,16 @@ static bool Value(Reader* r, maniGraphParameterType type, uint32_t value, maniGr
 static bool Parameter(Reader* r, uint32_t object, maniGraphParameterSource* p)
 {
     static const char* const kKeys[] = {"name", "type", "default", "minimum", "maximum"};
-    static const char* const kTypes[] = {"bool", "int", "float", "vec2", "vec3", "quat", "trigger"};
+    static const char* const kTypes[] = {"bool", "int",  "float",   "vec2",
+                                         "vec3", "quat", "trigger", "pose"};
     uint32_t f[5];
     if (!maniGraphJsonMembers(r, object, kKeys, 5, 3u, f) ||
         !maniGraphJsonName(r, f[0], &p->name, &p->nameLength))
     {
         return false;
     }
-    p->type = maniGraphJsonWord(r, f[1], kTypes, 7);
-    if (p->type == 7)
+    p->type = maniGraphJsonWord(r, f[1], kTypes, 8);
+    if (p->type == 8)
     {
         return maniGraphJsonFault(r, f[1], maniGraphFormValue);
     }
@@ -106,6 +107,11 @@ static bool Parameter(Reader* r, uint32_t object, maniGraphParameterSource* p)
     if (f[3] != ABSENT && !number)
     {
         return maniGraphJsonFault(r, f[3] - 1, maniGraphFormMember);
+    }
+    if (f[2] != ABSENT && p->type == maniGraphParameterPose)
+    {
+        // A pose parameter has no default: the rest pose stands for it.
+        return maniGraphJsonFault(r, f[2] - 1, maniGraphFormMember);
     }
     p->defaultValue = p->type == maniGraphParameterQuat ? (maniGraphValue){{0.0f, 0.0f, 0.0f, 1.0f}}
                                                         : (maniGraphValue){{0}};

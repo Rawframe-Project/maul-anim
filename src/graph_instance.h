@@ -153,7 +153,9 @@ typedef union maniGraphCell
 // The instance's cells follow it, a value per parameter, a state per
 // node, a state per sync group; then, at cursorsAt, a cursor per clip
 // node in node order; then, at machinesAt, every state machine's block
-// (the graph's machineWords words); then, at roomAt, the room a
+// (the graph's machineWords words); then, at posesAt, every pose
+// parameter's locals in parameter order (maniGraphPoseLocals); then, at
+// roomAt, the room a
 // learned node's update evaluates its model in and a spring node's
 // evaluation works in (maniGraphRoom), kept by neither between calls.
 struct maniGraphInstance
@@ -164,9 +166,15 @@ struct maniGraphInstance
     size_t size;
     size_t cursorsAt;
     size_t machinesAt;
+    size_t posesAt;
     size_t roomAt;
     maniGraphCell cells[];
 };
+
+// A pose parameter's locals in the instance, in a pose's layout (groups
+// of MANI_POSE_GROUP_BONES bones, MANI_POSE_COMPONENTS floats each).
+float* maniGraphPoseLocals(maniGraphInstance* instance, uint32_t parameter);
+const float* maniGraphPoseLocalsRead(const maniGraphInstance* instance, uint32_t parameter);
 
 // The bytes the instance's room needs: for a learned node, its model's
 // scratch, its state and its Decompressor's outputs after the bones';

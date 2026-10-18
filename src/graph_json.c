@@ -162,7 +162,8 @@ static void PutScalars(Writer* w, const maniGraphSource* source, const maniGraph
     PutText(w, "]");
 }
 
-static const char* const kTypes[] = {"bool", "int", "float", "vec2", "vec3", "quat", "trigger"};
+static const char* const kTypes[] = {"bool", "int",  "float",   "vec2",
+                                     "vec3", "quat", "trigger", "pose"};
 
 // A parameter's value of its type: true or false, an integer, a number
 // or an array of 2 to 4 numbers.
@@ -201,9 +202,12 @@ static void PutParameter(Writer* w, const maniGraphParameterSource* p)
     PutText(w, ", ");
     PutKey(w, "type");
     PutString(w, kTypes[p->type], (uint32_t)strlen(kTypes[p->type]));
-    PutText(w, ", ");
-    PutKey(w, "default");
-    PutValue(w, p->type, p->defaultValue);
+    if (p->type != maniGraphParameterPose)
+    {
+        PutText(w, ", ");
+        PutKey(w, "default");
+        PutValue(w, p->type, p->defaultValue);
+    }
     if (p->bounded != 0)
     {
         PutText(w, ", ");

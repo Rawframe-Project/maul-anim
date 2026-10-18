@@ -65,6 +65,10 @@ extern "C"
         // Normalized when set.
         maniGraphParameterQuat = 5,
         maniGraphParameterTrigger = 6,
+        // A pose of the graph's skeleton the host sets with
+        // maniSetGraphPose (a ragdoll's, say), the rest pose until set;
+        // read by pose input nodes. Its value is 0.
+        maniGraphParameterPose = 7,
     };
 
     // A parameter's value: f for float (f[0]) and the vectors, i for int,
@@ -484,6 +488,35 @@ extern "C"
                                                              maniGraphParameterType type,
                                                              maniGraphValue value);
 
+    /// Sets a pose parameter to a pose's local transforms (copied).
+    ///
+    /// @param instance   An instance.
+    /// @param parameter  A parameter of type maniGraphParameterPose.
+    /// @param pose       A pose of the graph's skeleton, not a difference.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// parameter past the count or of another type, or a pose of another
+    /// skeleton or a difference (nothing changed).
+    /// @par Thread safety
+    /// Safe from any thread; the instance and pose are used by one
+    /// thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniSetGraphPose(maniGraphInstance* instance,
+                                                        uint32_t parameter, const maniPose* pose);
+
+    /// Reads a pose parameter's local transforms into a pose.
+    ///
+    /// @param instance   An instance.
+    /// @param parameter  A parameter of type maniGraphParameterPose.
+    /// @param poseOut    A pose of the graph's skeleton; it becomes a pose
+    ///                   (not a difference), its model not current.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// parameter past the count or of another type, or a pose of another
+    /// skeleton.
+    /// @par Thread safety
+    /// Safe from any thread; the instance and pose are used by one
+    /// thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniGetGraphPose(const maniGraphInstance* instance,
+                                                        uint32_t parameter, maniPose* poseOut);
+
     /// Reads a parameter's value.
     ///
     /// @param instance   An instance.
@@ -498,8 +531,9 @@ extern "C"
                                                              maniGraphValue* valueOut);
 
     /// Returns the bytes an instance's saved state takes: its parameters,
-    /// its nodes' state and its state machines' and one-shots', with the
-    /// graph's identity.
+    /// its nodes' state, its state machines' and one-shots', and its pose
+    /// parameters' locals (the skeleton's bones), with the graph's
+    /// identity.
     ///
     /// @param binding  A binding.
     /// @return The size; 0 for a NULL binding.
@@ -521,8 +555,10 @@ extern "C"
                                                              void* out, size_t capacity);
 
     /// Restores a saved state, checked as external bytes: the graph's
-    /// identity, the size, every parameter in form and every node's, state
-    /// machine's and one-shot's state finite and in range. The instance's
+    /// identity, the size, every parameter in form, every node's, state
+    /// machine's and one-shot's state finite and in range, and every pose
+    /// parameter's locals finite with rotations of length 1 within a
+    /// thousandth. The instance's
     /// cursors start over (they cache nothing a pose depends on).
     ///
     /// @param instance  An instance of the graph the state was saved from.

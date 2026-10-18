@@ -283,13 +283,20 @@ static bool Finite(const uint8_t* p)
     return (maniLoadU32(p) & 0x7F800000u) != 0x7F800000u;
 }
 
+// The words of a value its type uses: none for a pose.
+static uint32_t UsedWords(uint32_t type)
+{
+    return type == maniGraphParameterVec2   ? 2u
+           : type == maniGraphParameterVec3 ? 3u
+           : type == maniGraphParameterQuat ? 4u
+           : type == maniGraphParameterPose ? 0u
+                                            : 1u;
+}
+
 // A parameter's default and bounds in form, its unused bytes zero.
 static bool ValueValid(uint32_t type, bool bounded, const uint8_t* v)
 {
-    uint32_t used = type == maniGraphParameterVec2   ? 2u
-                    : type == maniGraphParameterVec3 ? 3u
-                    : type == maniGraphParameterQuat ? 4u
-                                                     : 1u;
+    uint32_t used = UsedWords(type);
     for (uint32_t k = used; k < 4; ++k)
     {
         bool zero = maniLoadU32(v + 4 * k) == 0;
@@ -343,7 +350,7 @@ static maniFileResult CheckParameters(const maniGraph* g, uint64_t at)
         uint32_t type = maniLoadU32(e);
         uint32_t flags = maniLoadU32(e + 4);
         bool number = type == maniGraphParameterInt || type == maniGraphParameterFloat;
-        if (type > maniGraphParameterTrigger)
+        if (type > maniGraphParameterPose)
         {
             return Fail(here);
         }

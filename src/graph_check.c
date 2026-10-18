@@ -199,8 +199,15 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
 {
     maniGraphParameterType t = p->type;
     bool number = t == maniGraphParameterInt || t == maniGraphParameterFloat;
-    bool ok = t <= maniGraphParameterTrigger && p->bounded <= (number ? 1u : 0u);
-    if (ok && number)
+    bool ok = t <= maniGraphParameterPose && p->bounded <= (number ? 1u : 0u);
+    if (ok && t == maniGraphParameterPose)
+    {
+        // A pose parameter's value is 0.
+        uint32_t words[4];
+        memcpy(words, &p->defaultValue, sizeof words);
+        ok = (words[0] | words[1] | words[2] | words[3]) == 0;
+    }
+    else if (ok && number)
     {
         ok = NumberInForm(p);
     }

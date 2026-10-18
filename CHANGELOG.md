@@ -200,6 +200,11 @@ format.
   and angular velocity in the parent's joint frame);
   `maniRagdollPoseFromBodies` makes a pose from the bodies' places, the
   bones without bodies keeping a reference pose's locals.
+- Pose parameters in graphs (mani-0027): `maniGraphParameterPose`, a
+  pose of the graph's skeleton the host sets with `maniSetGraphPose`
+  (a ragdoll's, say) and reads with `maniGetGraphPose`, the rest pose
+  until set; kept in the saved state and checked on restore; written
+  and read in the JSON form as `"type": "pose"` with no default.
 - Spring bone nodes in graphs (mani-0026): `maniGraphNodeSpring` turns
   its input's joints of a spring set slot toward their tails, stepped
   when the graph is evaluated by the time its parents gave it, at the

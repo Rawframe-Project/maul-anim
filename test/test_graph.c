@@ -465,7 +465,7 @@ static void TestOpenRefusals(void)
                  "too many database clips");
     ExpectFormat(header + 52, MANI_GRAPH_MAX_MODELS + 1, header + 52, "too many models");
     ExpectFormat(header + 52, 1, 12, "a model counted without its section");
-    ExpectFormat(parameters, 7, parameters, "a parameter of an unknown type");
+    ExpectFormat(parameters, 8, parameters, "a parameter of an unknown type");
     ExpectFormat(parameters + 3 * MANI_GRAPH_PARAMETER_SIZE + 4, 1,
                  parameters + 3 * MANI_GRAPH_PARAMETER_SIZE + 4, "bounds on a trigger");
     ExpectFormat(parameters + MANI_GRAPH_PARAMETER_SIZE + 12, 99,

@@ -670,7 +670,8 @@ extern "C"
     /// Builds a graph file from its JSON text form, as maniWriteGraphJson
     /// writes it: members an object does not take are refused; those with
     /// an off value may be left out (a parameter's default: false, 0, the
-    /// zero vector or the identity quaternion; bounds, both or neither;
+    /// zero vector or the identity quaternion, and none for a pose
+    /// parameter; bounds, both or neither;
     /// allEvents false; a clip node's syncGroup null, speed 1, loop
     /// "clip", leader false; a blend's direct false; a mask's chains empty
     /// and defaultWeight 0; a chain's subtree false; a seek's time 0; a

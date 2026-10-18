@@ -15,10 +15,13 @@
 #include "graph_match.h"
 #include "graph_shot.h"
 #include "graph_spring.h"
+#include "pose_memory.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/skeleton.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -61,10 +64,79 @@ static size_t MachinesAt(const maniGraphBinding* binding)
     return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize;
 }
 
-static size_t RoomAt(const maniGraphBinding* binding)
+static const uint8_t* ParameterEntry(const maniGraph* graph, uint32_t parameter)
+{
+    return graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE;
+}
+
+static size_t PosesAt(const maniGraphBinding* binding)
 {
     size_t words = binding->graph.machineWords;
     return MachinesAt(binding) + ((4 * words + 7u) & ~(size_t)7u);
+}
+
+// The bytes a pose parameter's locals take: the skeleton's groups.
+static size_t PoseBytes(const maniGraphBinding* binding)
+{
+    size_t groups = ((size_t)maniSkeletonBoneCount(binding->skeleton) + MANI_POSE_GROUP_BONES - 1) /
+                    MANI_POSE_GROUP_BONES;
+    return groups * MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS * sizeof(float);
+}
+
+// The number of pose parameters before parameter (all of them for the
+// count).
+static uint32_t PosesBefore(const maniGraph* graph, uint32_t parameter)
+{
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < parameter; ++i)
+    {
+        const uint8_t* e = graph->parameters + (size_t)i * MANI_GRAPH_PARAMETER_SIZE;
+        n += maniLoadU32(e) == maniGraphParameterPose ? 1u : 0u;
+    }
+    return n;
+}
+
+static size_t RoomAt(const maniGraphBinding* binding)
+{
+    const maniGraph* graph = &binding->graph;
+    return PosesAt(binding) + PosesBefore(graph, graph->parameterCount) * PoseBytes(binding);
+}
+
+float* maniGraphPoseLocals(maniGraphInstance* instance, uint32_t parameter)
+{
+    const maniGraphBinding* b = instance->binding;
+    size_t at = instance->posesAt + PosesBefore(&b->graph, parameter) * PoseBytes(b);
+    return (float*)((uint8_t*)instance + at);
+}
+
+const float* maniGraphPoseLocalsRead(const maniGraphInstance* instance, uint32_t parameter)
+{
+    const maniGraphBinding* b = instance->binding;
+    size_t at = instance->posesAt + PosesBefore(&b->graph, parameter) * PoseBytes(b);
+    return (const float*)((const uint8_t*)instance + at);
+}
+
+// Every pose parameter at the skeleton's rest.
+static void RestPoses(maniGraphInstance* instance)
+{
+    const maniGraphBinding* b = instance->binding;
+    uint32_t bones = maniSkeletonBoneCount(b->skeleton);
+    for (uint32_t i = 0; i < b->graph.parameterCount; ++i)
+    {
+        if (maniLoadU32(ParameterEntry(&b->graph, i)) != maniGraphParameterPose)
+        {
+            continue;
+        }
+        float* locals = maniGraphPoseLocals(instance, i);
+        for (uint32_t bone = 0; bone < bones; ++bone)
+        {
+            maniTransform t = maniSkeletonRest(b->skeleton, bone);
+            const float values[MANI_POSE_COMPONENTS] = {
+                t.translation.x, t.translation.y, t.translation.z, t.rotation.x, t.rotation.y,
+                t.rotation.z,    t.rotation.w,    t.scale.x,       t.scale.y,    t.scale.z};
+            maniPoseSlotPut(maniPoseSlot(locals, bone), 0, values, MANI_POSE_COMPONENTS);
+        }
+    }
 }
 
 size_t maniGraphRoom(const maniGraphBinding* binding)
@@ -210,11 +282,6 @@ static void ResetMachines(maniGraphInstance* instance)
     }
 }
 
-static const uint8_t* ParameterEntry(const maniGraph* graph, uint32_t parameter)
-{
-    return graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE;
-}
-
 static maniGraphValue LoadValue(const uint8_t* p)
 {
     maniGraphValue v;
@@ -271,6 +338,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     instance->size = needed;
     instance->cursorsAt = CursorsAt(graph);
     instance->machinesAt = MachinesAt(binding);
+    instance->posesAt = PosesAt(binding);
     instance->roomAt = RoomAt(binding);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
@@ -278,6 +346,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     }
     ResetCursors(instance);
     ResetMachines(instance);
+    RestPoses(instance);
     *instanceOut = instance;
     return mani_success;
 }
@@ -333,6 +402,11 @@ static bool Canonical(maniGraphParameterType type, const uint8_t* entry, maniGra
 {
     bool bounded = (maniLoadU32(entry + 4) & MANI_GRAPH_BOUNDED) != 0;
     maniGraphValue out = {{0}};
+    if (type == maniGraphParameterPose)
+    {
+        *v = out;
+        return true;
+    }
     if (type == maniGraphParameterBool || type == maniGraphParameterTrigger)
     {
         out.b = v->b;
@@ -358,11 +432,47 @@ maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter
         return mani_errorInvalid;
     }
     const uint8_t* entry = ParameterEntry(&instance->binding->graph, parameter);
-    if (maniLoadU32(entry) != type || !Canonical(type, entry, &value))
+    if (maniLoadU32(entry) != type || type == maniGraphParameterPose ||
+        !Canonical(type, entry, &value))
     {
         return mani_errorInvalid;
     }
     instance->cells[parameter].value = value;
+    return mani_success;
+}
+
+// A pose parameter of the instance's graph.
+static bool PoseParameter(const maniGraphInstance* instance, uint32_t parameter)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    return parameter < graph->parameterCount &&
+           maniLoadU32(ParameterEntry(graph, parameter)) == maniGraphParameterPose;
+}
+
+maniResult maniSetGraphPose(maniGraphInstance* instance, uint32_t parameter, const maniPose* pose)
+{
+    if (!InstanceValid(instance) || !PoseParameter(instance, parameter) ||
+        !maniPoseMatches(pose, instance->binding->skeleton) || maniPoseIsDifference(pose))
+    {
+        return mani_errorInvalid;
+    }
+    memcpy(maniGraphPoseLocals(instance, parameter), maniPoseLocalsRead(pose),
+           PoseBytes(instance->binding));
+    return mani_success;
+}
+
+maniResult maniGetGraphPose(const maniGraphInstance* instance, uint32_t parameter,
+                            maniPose* poseOut)
+{
+    if (!InstanceValid(instance) || !PoseParameter(instance, parameter) ||
+        !maniPoseMatches(poseOut, instance->binding->skeleton))
+    {
+        return mani_errorInvalid;
+    }
+    maniPoseSetKind(poseOut, false);
+    memcpy(maniPoseLocals(poseOut), maniGraphPoseLocalsRead(instance, parameter),
+           PoseBytes(instance->binding));
+    maniPoseMarkStale(poseOut);
     return mani_success;
 }
 
@@ -384,9 +494,13 @@ size_t maniGraphStateSize(const maniGraphBinding* binding)
     {
         return 0;
     }
-    size_t cells = (size_t)binding->graph.parameterCount + binding->graph.nodeCount;
+    const maniGraph* graph = &binding->graph;
+    size_t cells = (size_t)graph->parameterCount + graph->nodeCount;
+    // Each pose parameter's locals, the skeleton's bones' (no padding).
+    size_t poses = (size_t)PosesBefore(graph, graph->parameterCount) *
+                   maniSkeletonBoneCount(binding->skeleton) * MANI_POSE_COMPONENTS * 4;
     return MANI_GRAPH_STATE_HEADER_SIZE + cells * MANI_GRAPH_VALUE_SIZE +
-           4 * (size_t)binding->graph.machineWords;
+           4 * (size_t)graph->machineWords + poses;
 }
 
 static void StoreF32(uint8_t* p, float value)
@@ -394,6 +508,33 @@ static void StoreF32(uint8_t* p, float value)
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
     maniStoreU32(p, bits);
+}
+
+// Each pose parameter's locals, bone by bone, after the machines'
+// blocks.
+static void SavePoses(const maniGraphInstance* instance, uint8_t* p)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    uint32_t bones = maniSkeletonBoneCount(instance->binding->skeleton);
+    for (uint32_t i = 0; i < graph->parameterCount; ++i)
+    {
+        if (maniLoadU32(ParameterEntry(graph, i)) != maniGraphParameterPose)
+        {
+            continue;
+        }
+        const float* locals = maniGraphPoseLocalsRead(instance, i);
+        for (uint32_t bone = 0; bone < bones; ++bone)
+        {
+            const float* slot = locals +
+                                (size_t)(bone / MANI_POSE_GROUP_BONES) *
+                                    (MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS) +
+                                bone % MANI_POSE_GROUP_BONES;
+            for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c, p += 4)
+            {
+                StoreF32(p, slot[c * MANI_POSE_GROUP_BONES]);
+            }
+        }
+    }
 }
 
 maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, size_t capacity)
@@ -432,6 +573,7 @@ maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, s
     {
         maniStoreU32(p, blocks[w]);
     }
+    SavePoses(instance, p);
     return mani_success;
 }
 
@@ -554,6 +696,49 @@ static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8
     return (maniFileResult){mani_success, 0, 0};
 }
 
+static float SavedF32(const uint8_t* p)
+{
+    uint32_t bits = maniLoadU32(p);
+    float v = 0.0f;
+    memcpy(&v, &bits, sizeof v);
+    return v;
+}
+
+// The first word of a saved bone's locals out of form (a word not
+// finite, a rotation not of length 1 within a thousandth), or
+// UINT32_MAX.
+static uint32_t SavedLocalsWrong(const uint8_t* p)
+{
+    float f[MANI_POSE_COMPONENTS];
+    for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c)
+    {
+        f[c] = SavedF32(p + 4 * c);
+        if (!isfinite(f[c]))
+        {
+            return c;
+        }
+    }
+    float length = f[3] * f[3] + f[4] * f[4] + f[5] * f[5] + f[6] * f[6];
+    return length > 0.998f && length < 1.002f ? UINT32_MAX : 3u;
+}
+
+// Each pose parameter's saved locals, from at.
+static maniFileResult CheckPoses(const maniGraphInstance* instance, const uint8_t* b, uint64_t at)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    uint64_t bones = (uint64_t)PosesBefore(graph, graph->parameterCount) *
+                     maniSkeletonBoneCount(instance->binding->skeleton);
+    for (uint64_t bone = 0; bone < bones; ++bone, at += 4 * MANI_POSE_COMPONENTS)
+    {
+        uint32_t wrong = SavedLocalsWrong(b + at);
+        if (wrong != UINT32_MAX)
+        {
+            return Fail(at + 4 * (uint64_t)wrong);
+        }
+    }
+    return (maniFileResult){mani_success, 0, 0};
+}
+
 static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_t* b, size_t size)
 {
     const maniGraph* graph = &instance->binding->graph;
@@ -589,7 +774,36 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
             return Fail(at);
         }
     }
-    return CheckBlocks(instance, b, at);
+    maniFileResult r = CheckBlocks(instance, b, at);
+    if (r.result != mani_success)
+    {
+        return r;
+    }
+    return CheckPoses(instance, b, at + 4 * (uint64_t)graph->machineWords);
+}
+
+// Each pose parameter's locals from the saved bytes (checked).
+static void RestorePoses(maniGraphInstance* instance, const uint8_t* p)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    uint32_t bones = maniSkeletonBoneCount(instance->binding->skeleton);
+    for (uint32_t i = 0; i < graph->parameterCount; ++i)
+    {
+        if (maniLoadU32(ParameterEntry(graph, i)) != maniGraphParameterPose)
+        {
+            continue;
+        }
+        float* locals = maniGraphPoseLocals(instance, i);
+        for (uint32_t bone = 0; bone < bones; ++bone)
+        {
+            float values[MANI_POSE_COMPONENTS];
+            for (uint32_t c = 0; c < MANI_POSE_COMPONENTS; ++c, p += 4)
+            {
+                values[c] = SavedF32(p);
+            }
+            maniPoseSlotPut(maniPoseSlot(locals, bone), 0, values, MANI_POSE_COMPONENTS);
+        }
+    }
 }
 
 maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void* bytes, size_t size)
@@ -624,6 +838,7 @@ maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void*
     {
         blocks[w] = maniLoadU32(p);
     }
+    RestorePoses(instance, p);
     ResetCursors(instance);
     return r;
 }
