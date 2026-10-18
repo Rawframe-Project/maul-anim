@@ -342,6 +342,29 @@ static void TestTwistAndMirror(void)
           "the goal reached under a mirrored root, the knee toward the pole");
 }
 
+// A knee scaled on z alone, the shin set off along z so the scale moves
+// it: the goal still reached (the knee's frame composed as a matrix,
+// not as a rotation alone).
+static void TestScaled(void)
+{
+    const maniVec3 goals[2] = {{0.1f, 0.3f, 0.2f}, {-0.2f, 0.5f, 0.3f}};
+    for (int g = 0; g < 2; ++g)
+    {
+        Bent(s_pose, 0.4f, 0.3f);
+        maniTransform knee = maniPoseLocal(s_pose, s_bone[kKnee]);
+        knee.scale = (maniVec3){1.0f, 1.0f, 2.0f};
+        maniPoseSetLocal(s_pose, s_bone[kKnee], knee);
+        maniTransform shin = maniPoseLocal(s_pose, s_bone[kShin]);
+        shin.translation.z = 0.1f;
+        maniPoseSetLocal(s_pose, s_bone[kShin], shin);
+        maniTwoBoneSolve solve = Solve(goals[g], (maniVec3){0.0f, 0.0f, 1.0f});
+        bool r = false;
+        CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &solve, &r) == mani_success && r &&
+                  Distance(At(s_pose, kAnkle), goals[g]) < 1e-5f,
+              "the goal reached under a knee scaled on z");
+    }
+}
+
 static void TestRefusals(void)
 {
     Bent(s_pose, 0.4f, 0.0f);
@@ -382,6 +405,7 @@ int main(void)
     TestPoleSweep();
     TestEdges();
     TestTwistAndMirror();
+    TestScaled();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

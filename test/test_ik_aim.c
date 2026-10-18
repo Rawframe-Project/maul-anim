@@ -225,6 +225,27 @@ static void TestChain(void)
     }
 }
 
+// A chain of the spine and the head, the turned neck between them left
+// out of it: the head ends aimed.
+static void TestGap(void)
+{
+    const maniVec3 goals[2] = {{1.5f, 0.8f, 1.0f}, {-0.5f, 2.5f, 0.6f}};
+    for (int g = 0; g < 2; ++g)
+    {
+        Posed(s_pose);
+        maniAimSolve s = Head(goals[g], (maniVec3){0.0f, 1.0f, 0.0f});
+        s.count = 2;
+        s.bones[0] = s_bone[kSpine];
+        s.bones[1] = s_bone[kHead];
+        s.shares[0] = 1.0f;
+        s.shares[1] = 1.0f;
+        bool r = false;
+        CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+                  Off(s_pose, goals[g], false) < 1e-3f,
+              "a chain with a bone between its bones ends aimed");
+    }
+}
+
 static float Angle(maniQuat a, maniQuat b)
 {
     float d = fabsf(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
@@ -384,6 +405,7 @@ int main(void)
     Setup();
     TestAim();
     TestChain();
+    TestGap();
     TestShares();
     TestCone();
     TestPoleSweep();

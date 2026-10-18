@@ -2998,3 +2998,19 @@ gik-js-count | src/graph_json_ik.c | if (s->count == 0 || s->count > MANI_AIM_MA
 gik-js-name | src/graph_json_ik.c | return *out != MANI_NO_BONE || maniGraphJsonFault(r, value, maniGraphFormName); | return true;
 gik-js-shares | src/graph_json_ik.c | if (s->shares != NULL) | if (false)
 gik-js-pole | src/graph_json_ik.c | if (pole != MANI_NO_PARAMETER) | if (false)
+# The IK frames composed as quaternions while unscaled (mani-0029).
+# Kept: every frame as a matrix gives the same solves within rounding,
+# only slower.
+ikf-local-rigid | src/ik_frame.c | if (t.scale.x == 1.0f && t.scale.y == 1.0f && t.scale.z == 1.0f) | if (false)
+ikf-local-x | src/ik_frame.c | if (t.scale.x == 1.0f && t.scale.y == 1.0f && t.scale.z == 1.0f) | if (t.scale.x == 1.0f)
+ikf-local-z | src/ik_frame.c | if (t.scale.x == 1.0f && t.scale.y == 1.0f && t.scale.z == 1.0f) | if (t.scale.x == 1.0f && t.scale.y == 1.0f)
+ikf-mul-b | src/ik_frame.c | if (!a->scaled && !b->scaled) | if (!a->scaled)
+ikf-mul-a | src/ik_frame.c | if (!a->scaled && !b->scaled) | if (!b->scaled)
+ikf-mul-order | src/ik_frame.c | maniVec3Add(a->origin, maniQuatRotate(a->rotation, b->origin))}; | maniVec3Add(b->origin, maniQuatRotate(b->rotation, a->origin))};
+ikf-origin | src/ik_frame.c | return f->scaled ? maniVec3Make(f->affine.m[9], f->affine.m[10], f->affine.m[11]) : f->origin; | return f->origin;
+# Kept: a pose's locals are unit, so their product is unit within
+# rounding and the normalization changes no value a test can see.
+ikf-rotation-norm | src/ik_frame.c | return maniQuatNormalize(f->rotation); | return f->rotation;
+ikf-below-top | src/ik_frame.c | if (bone == top) | if (false)
+aim-carry-path | src/ik_aim.c | below = maniIkBelow(pose, skeleton, above, maniSkeletonParent(skeleton, bone)); | below = maniIkBelow(pose, skeleton, above, above);
+aim-carry-turned | src/ik_aim.c | local = maniIkLocal(pose, above); | local = maniIkLocal(pose, bone);
