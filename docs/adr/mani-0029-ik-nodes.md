@@ -69,6 +69,12 @@ local poses.
   false.
 - **Weight:** each correction computed at full weight on the pose as
   the chain turns, then each weighted on the input pose.
+- **Frames without decomposition:** while every scale composed along
+  the path is exactly 1 (most rigs), frames compose as a rotation and an
+  origin and a bone's model rotation is read off directly; a bone with
+  any other scale switches the frame to affine matrices and the rigid
+  decomposition. An aim over a chain carries its parent frame down the
+  chain as the bones turn instead of walking from the root for each.
 - **Graph nodes:** two kinds after the pose node, two-bone (18) and aim
   (19), each with one input, a pose: differences below are refused at
   build and on open. The goal and the pole are vec3 parameters (the
@@ -133,3 +139,13 @@ both nodes inside a subgraph reading the outer goal; every refusal at
 build with its reason and on open at its word; a crafted chain passing
 its input; the JSON form pinned, read back to the same file and its
 members' defaults.
+
+The differential times both on the same random chains (a root above
+the start, goals within reach): a two-bone solve takes 490 ns here and
+176 ns in ozz's job, an aim 387 ns here and 104 ns in ozz (clang 20,
+-O3, one core of the test machine). The figures here include composing
+the root path's frames from the pose's locals; ozz's are its job alone
+on model matrices its caller computed before, in SIMD with estimated
+reciprocals. Composing frames as quaternions while the path is
+unscaled took the two-bone solve from 632 ns and the aim, its parent
+frame carried down the chain, from 624 ns.

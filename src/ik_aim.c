@@ -44,7 +44,7 @@ static bool Aimed(maniVec3 forward, maniVec3 offset, maniVec3 t, maniVec3* aimed
 
 // The model-space turn of the aiming bone, about its origin, that aims
 // it at the goal; the identity when the goal cannot be aimed at.
-static maniQuat Turn(const maniAimSolve* s, const maniAffine* aiming, maniVec3 goal, bool* aimed)
+static maniQuat Turn(const maniAimSolve* s, const maniIkFrame* aiming, maniVec3 goal, bool* aimed)
 {
     maniQuat q = maniIkRotation(aiming);
     maniVec3 t = maniVec3Sub(goal, maniIkOrigin(aiming));
@@ -63,7 +63,7 @@ static maniQuat Turn(const maniAimSolve* s, const maniAffine* aiming, maniVec3 g
 
 // The goal bent onto the cone's edge about the aiming bone's input
 // forward line, when further from it than the cone allows.
-static maniVec3 Coned(const maniAimSolve* s, const maniAffine* aiming, bool* inside)
+static maniVec3 Coned(const maniAimSolve* s, const maniIkFrame* aiming, bool* inside)
 {
     *inside = true;
     maniQuat q = maniIkRotation(aiming);
@@ -120,11 +120,11 @@ maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const mani
         return mani_errorInvalid;
     }
     uint32_t last = solve->bones[solve->count - 1];
-    maniAffine parent = maniIkParentModel(pose, skeleton, solve->bones[0]);
-    maniAffine local = maniIkLocal(pose, solve->bones[0]);
-    maniAffine frame = maniAffineMul(&parent, &local);
-    maniAffine below = maniIkBelow(pose, skeleton, solve->bones[0], last);
-    maniAffine aiming = maniAffineMul(&frame, &below);
+    maniIkFrame parent = maniIkParentModel(pose, skeleton, solve->bones[0]);
+    maniIkFrame local = maniIkLocal(pose, solve->bones[0]);
+    maniIkFrame frame = maniIkMul(&parent, &local);
+    maniIkFrame below = maniIkBelow(pose, skeleton, solve->bones[0], last);
+    maniIkFrame aiming = maniIkMul(&frame, &below);
     bool inside = true;
     maniVec3 goal = Coned(solve, &aiming, &inside);
     float remaining = 0.0f;
@@ -138,11 +138,20 @@ maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const mani
     for (uint32_t k = 0; k < solve->count; ++k)
     {
         uint32_t bone = solve->bones[k];
-        parent = maniIkParentModel(pose, skeleton, bone);
-        local = maniIkLocal(pose, bone);
-        frame = maniAffineMul(&parent, &local);
-        below = maniIkBelow(pose, skeleton, bone, last);
-        aiming = maniAffineMul(&frame, &below);
+        if (k > 0)
+        {
+            // The parent's frame carried down from the bone above, as it
+            // turned, rather than walked from the root again.
+            uint32_t above = solve->bones[k - 1];
+            local = maniIkLocal(pose, above);
+            frame = maniIkMul(&parent, &local);
+            below = maniIkBelow(pose, skeleton, above, maniSkeletonParent(skeleton, bone));
+            parent = maniIkMul(&frame, &below);
+            local = maniIkLocal(pose, bone);
+            frame = maniIkMul(&parent, &local);
+            below = maniIkBelow(pose, skeleton, bone, last);
+            aiming = maniIkMul(&frame, &below);
+        }
         maniQuat turn = Turn(solve, &aiming, goal, &aimed);
         float share = k + 1 == solve->count ? 1.0f
                       : remaining > 0.0f    ? solve->shares[k] / remaining

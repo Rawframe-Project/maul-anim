@@ -2932,3 +2932,69 @@ aim-forward-unit | src/ik_aim.c | return total > 0.0f && isfinite(total) && fabs
 aim-ancestor | src/ik_aim.c | (k > 0 && !maniIkAbove(skeleton, s->bones[k - 1], s->bones[k]))) | (false))
 aim-cone-range | src/ik_aim.c | s->cone <= MANI_AIM_MAX_CONE && s->weight >= 0.0f && s->weight <= 1.0f; | s->weight >= 0.0f && s->weight <= 1.0f;
 aim-reached | src/ik_aim.c | *reachedOut = aimed && inside && solve->weight >= 1.0f; | *reachedOut = aimed && solve->weight >= 1.0f;
+# The IK graph nodes (mani-0029): opening, the build, evaluation,
+# subgraph mapping and the JSON form.
+gik-vec-optional | src/graph_nodes.c | return (optional && parameter == MANI_NO_PARAMETER) || | return (parameter == MANI_NO_PARAMETER) ||
+gik-vec-type | src/graph_nodes.c | (parameter < g->parameterCount && ParameterType(g, parameter) == maniGraphParameterVec3); | (parameter < g->parameterCount);
+gik-finite | src/graph_nodes.c | if (!isfinite(WordFloat(g, at + k))) | if (false)
+gik-tb-bones | src/graph_nodes.c | if (Word(g, d + k) >= g->skeletonBoneCount) | if (Word(g, d + k) > g->skeletonBoneCount)
+gik-tb-goal | src/graph_nodes.c | if (!VectorValid(g, d + maniGraphTwoBoneGoal, false)) | if (!VectorValid(g, d + maniGraphTwoBoneGoal, true))
+gik-tb-pole | src/graph_nodes.c | if (!VectorValid(g, d + maniGraphTwoBonePole, true)) | if (false)
+gik-tb-hinge | src/graph_nodes.c | uint32_t wrong = FiniteFrom(g, d + maniGraphTwoBoneHinge, 3); | uint32_t wrong = FiniteFrom(g, d + maniGraphTwoBoneHinge, 1);
+gik-tb-twist | src/graph_nodes.c | : ScalarsValid(g, d + maniGraphTwoBoneTwist, 1, -HUGE_VALF, HUGE_VALF); | : UINT32_MAX;
+gik-tb-soften | src/graph_nodes.c | return wrong != UINT32_MAX ? wrong : ScalarsValid(g, d + maniGraphTwoBoneSoften, 2, 0.0f, 1.0f); | return wrong != UINT32_MAX ? wrong : ScalarsValid(g, d + maniGraphTwoBoneSoften, 1, 0.0f, 1.0f);
+gik-aim-bone-range | src/graph_nodes.c | if (k < count ? bone >= g->skeletonBoneCount : bone != 0) | if (k < count ? bone > g->skeletonBoneCount : bone != 0)
+gik-aim-bone-past | src/graph_nodes.c | if (k < count ? bone >= g->skeletonBoneCount : bone != 0) | if (k < count && bone >= g->skeletonBoneCount)
+gik-aim-share-neg | src/graph_nodes.c | k < count ? share >= 0.0f && isfinite(share) : Word(g, d + maniGraphAimShares + k) == 0; | k < count ? isfinite(share) : Word(g, d + maniGraphAimShares + k) == 0;
+gik-aim-share-past | src/graph_nodes.c | k < count ? share >= 0.0f && isfinite(share) : Word(g, d + maniGraphAimShares + k) == 0; | k < count ? share >= 0.0f && isfinite(share) : true;
+gik-aim-total | src/graph_nodes.c | return total > 0.0f && isfinite(total) ? UINT32_MAX : d + maniGraphAimShares; | return isfinite(total) ? UINT32_MAX : d + maniGraphAimShares;
+gik-aim-count-zero | src/graph_nodes.c | if (count == 0 || count > MANI_AIM_MAX_BONES) | if (count > MANI_AIM_MAX_BONES)
+gik-aim-count-max | src/graph_nodes.c | if (count == 0 || count > MANI_AIM_MAX_BONES) | if (count == 0)
+gik-aim-goal | src/graph_nodes.c | if (!VectorValid(g, d + maniGraphAimGoal, false)) | if (false)
+gik-aim-pole | src/graph_nodes.c | if (!VectorValid(g, d + maniGraphAimPole, true)) | if (false)
+gik-aim-axes | src/graph_nodes.c | wrong = wrong != UINT32_MAX ? wrong : FiniteFrom(g, d + maniGraphAimForward, 9); | wrong = wrong != UINT32_MAX ? wrong : FiniteFrom(g, d + maniGraphAimForward, 3);
+gik-aim-unit | src/graph_nodes.c | if (!(fabsf(maniVec3Length(forward) - 1.0f) <= 1e-3f)) | if (false)
+gik-aim-cone | src/graph_nodes.c | : ScalarsValid(g, d + maniGraphAimCone, 1, 0.0f, MANI_AIM_MAX_CONE); | : ScalarsValid(g, d + maniGraphAimCone, 1, 0.0f, HUGE_VALF);
+gik-aim-weight | src/graph_nodes.c | return wrong != UINT32_MAX ? wrong : ScalarsValid(g, d + maniGraphAimWeight, 1, 0.0f, 1.0f); | return wrong;
+# Kept: an IK node must not be the output (which gives poses) to read
+# differences on open, and no source the build accepts gives that shape
+# to craft from; the solvers refuse a difference pose, passing it.
+gik-kind-input | src/graph_nodes.c | if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeTwoBone || | if (n->kind == maniGraphNodeSpring ||
+gik-chk-range | src/graph_check.c | if (bones[k] >= maniSkeletonBoneCount(skeleton) || | if (false ||
+gik-chk-above | src/graph_check.c | (k > 0 && !maniIkAbove(skeleton, bones[k - 1], bones[k]))) | (false))
+gik-chk-goal | src/graph_check.c | return ParameterOf(source, goal, vec3, vec3) && | return goal != MANI_NO_PARAMETER &&
+gik-chk-pole | src/graph_check.c | (pole == MANI_NO_PARAMETER || ParameterOf(source, pole, vec3, vec3)); | (true);
+gik-chk-twist | src/graph_check.c | maniBuildResult r = CheckScalar(source, s[0], node, 0, -HUGE_VALF, HUGE_VALF); | maniBuildResult r = {mani_success, 0, 0, 0};
+gik-chk-high | src/graph_check.c | r = r.result == mani_success ? CheckScalar(source, s[1], node, 1, 0.0f, high) : r; | r = r.result == mani_success ? CheckScalar(source, s[1], node, 1, 0.0f, HUGE_VALF) : r;
+gik-chk-weight | src/graph_check.c | return r.result == mani_success ? CheckScalar(source, s[2], node, 2, 0.0f, 1.0f) : r; | return r;
+gik-chk-hinge | src/graph_check.c | FiniteVector(s->hinge); | true;
+gik-chk-share-neg | src/graph_check.c | if (!(shares[k] >= 0.0f) || !Finite(shares[k])) | if (!Finite(shares[k]))
+gik-chk-share-total | src/graph_check.c | return total > 0.0f && Finite(total); | return Finite(total);
+gik-chk-bones-null | src/graph_check.c | bool ok = s->bones != NULL && s->count > 0 && s->count <= MANI_AIM_MAX_BONES && | bool ok = s->bones != NULL && s->count <= MANI_AIM_MAX_BONES &&
+gik-chk-unit | src/graph_check.c | fabsf(maniVec3Length(s->forward) - 1.0f) <= 1e-3f && FiniteVector(s->offset) && | FiniteVector(s->offset) &&
+gik-chk-up | src/graph_check.c | FiniteVector(s->up); | true;
+gik-chk-cone | src/graph_check.c | return ok ? CheckIkScalars(source, scalars, MANI_AIM_MAX_CONE, node) | return ok ? CheckIkScalars(source, scalars, HUGE_VALF, node)
+gik-ev-pole | src/graph_evaluate.c | return (maniVec3){0.0f, 0.0f, 0.0f}; | return (maniVec3){0.0f, 0.0f, 1.0f};
+gik-ev-clamp-low | src/graph_evaluate.c | return v < low ? low : (v > high ? high : v); | return v > high ? high : v;
+gik-ev-clamp-high | src/graph_evaluate.c | return v < low ? low : (v > high ? high : v); | return v < low ? low : v;
+# Kept: a solve at weight 0 leaves the input bit for bit; the early
+# return only skips its cost.
+gik-ev-neutral | src/graph_evaluate.c | return Clamped(e, weightAt, 0.0f, 1.0f) > 0.0f; | return true;
+gik-ev-twist | src/graph_evaluate.c | Scalar(e, d + maniGraphTwoBoneTwist), | 0.0f,
+gik-ev-soften | src/graph_evaluate.c | Clamped(e, d + maniGraphTwoBoneSoften, 0.0f, 1.0f), | Scalar(e, d + maniGraphTwoBoneSoften),
+gik-ev-hinge | src/graph_evaluate.c | Axis(e, d + maniGraphTwoBoneHinge), | (maniVec3){0.0f, 0.0f, 0.0f},
+gik-ev-offset | src/graph_evaluate.c | .offset = Axis(e, d + maniGraphAimOffset), | .offset = Axis(e, d + maniGraphAimUp),
+gik-ev-aim-twist | src/graph_evaluate.c | .twist = Scalar(e, d + maniGraphAimTwist), | .twist = 0.0f,
+gik-ev-cone | src/graph_evaluate.c | .cone = Clamped(e, d + maniGraphAimCone, 0.0f, MANI_AIM_MAX_CONE), | .cone = Clamped(e, d + maniGraphAimCone, 0.0f, 1.0f),
+gik-ev-shares | src/graph_evaluate.c | memcpy(&s.shares[k], &bits, sizeof bits); | s.shares[k] = 1.0f;
+gik-bd-hinge | src/graph_build.c | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3); | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 2) + 1;
+gik-bd-equal | src/graph_build.c | shares[k] = s->shares != NULL ? s->shares[k] : 1.0f; | shares[k] = s->shares != NULL ? s->shares[k] : 0.5f;
+gik-bd-posesonly | src/graph_build.c | node->kind == maniGraphNodeAim; | false;
+gik-in-goal | src/graph_inline.c | node->twoBone.goal = Resolve(s, node->twoBone.goal); | (void)0;
+gik-in-aim-goal | src/graph_inline.c | node->aim.goal = Resolve(s, node->aim.goal); | (void)0;
+gik-in-aim-weight | src/graph_inline.c | node->aim.weight = Scalar(s, node->aim.weight); | (void)0;
+gik-js-twist | src/graph_json_ik.c | if (f[1 + k] != ABSENT && !maniGraphJsonScalar(r, scope, f[1 + k], &scalars[k])) | if (f[1 + k] != ABSENT && !maniGraphJsonScalar(r, scope, f[1 + k], &scalars[0]))
+gik-js-count | src/graph_json_ik.c | if (s->count == 0 || s->count > MANI_AIM_MAX_BONES) | if (s->count == 0)
+gik-js-name | src/graph_json_ik.c | return *out != MANI_NO_BONE || maniGraphJsonFault(r, value, maniGraphFormName); | return true;
+gik-js-shares | src/graph_json_ik.c | if (s->shares != NULL) | if (false)
+gik-js-pole | src/graph_json_ik.c | if (pole != MANI_NO_PARAMETER) | if (false)

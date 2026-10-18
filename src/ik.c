@@ -54,7 +54,7 @@ static maniVec3 Soften(maniVec3 goal, float lengthA, float lengthB, float soften
 // The middle's opening axis in model space: the hinge given, else the
 // chain's bend plane, else (straight) a perpendicular from the middle
 // bone's x or z.
-static maniVec3 Hinge(const maniTwoBoneSolve* solve, const maniAffine* middle, maniVec3 a,
+static maniVec3 Hinge(const maniTwoBoneSolve* solve, const maniIkFrame* middle, maniVec3 a,
                       maniVec3 b)
 {
     maniVec3 zero = maniVec3Make(0.0f, 0.0f, 0.0f);
@@ -129,16 +129,16 @@ maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
     {
         return mani_errorInvalid;
     }
-    maniAffine startParent = maniIkParentModel(pose, skeleton, solve->start);
-    maniAffine local = maniIkLocal(pose, solve->start);
-    maniAffine start = maniAffineMul(&startParent, &local);
-    maniAffine path =
+    maniIkFrame startParent = maniIkParentModel(pose, skeleton, solve->start);
+    maniIkFrame local = maniIkLocal(pose, solve->start);
+    maniIkFrame start = maniIkMul(&startParent, &local);
+    maniIkFrame path =
         maniIkBelow(pose, skeleton, solve->start, maniSkeletonParent(skeleton, solve->middle));
-    maniAffine middleParent = maniAffineMul(&start, &path);
+    maniIkFrame middleParent = maniIkMul(&start, &path);
     local = maniIkLocal(pose, solve->middle);
-    maniAffine middle = maniAffineMul(&middleParent, &local);
+    maniIkFrame middle = maniIkMul(&middleParent, &local);
     path = maniIkBelow(pose, skeleton, solve->middle, solve->end);
-    maniAffine end = maniAffineMul(&middle, &path);
+    maniIkFrame end = maniIkMul(&middle, &path);
 
     maniVec3 s = maniIkOrigin(&start);
     maniVec3 m = maniIkOrigin(&middle);

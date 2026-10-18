@@ -5,21 +5,20 @@
 // bone lengths and turns, goals in and out of reach, softening and
 // weights, twists) solved by ozz-animation 0.17.0's IKTwoBoneJob and by
 // maniSolveTwoBone, the middle and end bones' model positions compared;
-// then random bones aimed by its IKAimJob and by maniSolveAim (below). Poles within a sine of 0.1 of the goal line
-// are left out: there ozz flips and Maul Anim blends to the chain's own
-// plane (mani-0029); so are goals within a twentieth of the chain's
-// length of the start (ozz turns the start toward them, Maul Anim does
-// not) and weighted corrections of nearly half a turn (which way the
-// weight turns is rounding's in both). Hinges lie perpendicular to the
-// chain's bend plane, as a joint's do. Prints the worst difference over
-// the chain's length and each solver's own error (the end's miss of a
-// reachable goal, the middle's distance from the pole's plane); fails
-// when the two differ past 5e-4 (ozz turns to the pole's plane from the
-// cosine alone, off it by about 1e-4) or 2e-3 for softened goals (ozz
-// softens with reciprocal estimates of about 12 bits), when "reached"
+// then random bones aimed by its IKAimJob and by maniSolveAim (below). Poles within a sine of 0.1
+// of the goal line are left out: there ozz flips and Maul Anim blends to the chain's own plane
+// (mani-0029); so are goals within a twentieth of the chain's length of the start (ozz turns the
+// start toward them, Maul Anim does not) and weighted corrections of nearly half a turn (which way
+// the weight turns is rounding's in both). Hinges lie perpendicular to the chain's bend plane, as a
+// joint's do. Prints the worst difference over the chain's length and each solver's own error (the
+// end's miss of a reachable goal, the middle's distance from the pole's plane); fails when the two
+// differ past 5e-4 (ozz turns to the pole's plane from the cosine alone, off it by about 1e-4) or
+// 2e-3 for softened goals (ozz softens with reciprocal estimates of about 12 bits), when "reached"
 // differs, or when Maul Anim's own error passes 1e-5.
 //
-// usage: ik_differential [cases]
+// Then times both: nanoseconds a two-bone solve and an aim take.
+//
+// usage: ik_differential [cases [timing repetitions]]
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -31,6 +30,7 @@
 #include "ozz/base/maths/simd_math.h"
 #include "ozz/base/maths/simd_quaternion.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -131,7 +131,8 @@ float Sine(maniVec3 a, maniVec3 b)
 {
     maniVec3 c = {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
     return std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z) /
-           (std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z) * std::sqrt(b.x * b.x + b.y * b.y + b.z * b.z));
+           (std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z) *
+            std::sqrt(b.x * b.x + b.y * b.y + b.z * b.z));
 }
 
 // Random bones aimed by ozz's IKAimJob and by maniSolveAim: the turned
@@ -308,11 +309,121 @@ bool AimDifferential(maniPose* ours, maniPose* theirs, const maniSkeleton* skele
     return worst <= 3e-3f && reachDiffers == 0 && missOurs <= 1e-5f && planeOurs <= 1e-5f;
 }
 
+double Now()
+{
+    using Clock = std::chrono::steady_clock;
+    return std::chrono::duration<double>(Clock::now().time_since_epoch()).count();
+}
+
+// A sink the timed loops write to, so no solve is dropped.
+volatile float g_sink = 0.0f;
+
+// Nanoseconds a solve takes, over 256 random chains with goals in reach
+// repeated reps times: Maul Anim's from the pose's locals (composing the
+// root path itself), ozz's jobs on model matrices computed before the
+// clock starts (their caller's model pass not counted). The two-bone
+// solve, then an aim at the end bone.
+void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
+{
+    constexpr int kCases = 256;
+    static maniTwoBoneSolve twoBone[kCases];
+    static maniAimSolve aim[kCases];
+    static ozz::math::Float4x4 models[kCases][3];
+    for (int c = 0; c < kCases; ++c)
+    {
+        maniTransform t = maniPoseLocal(pose, 2);
+        t.rotation = Turn(Direction(), Spread(0.2f, 2.5f));
+        maniPoseSetLocal(pose, 2, t);
+        if (maniComputeModel(pose, skeleton) != mani_success)
+        {
+            return;
+        }
+        for (uint32_t b = 0; b < 3; ++b)
+        {
+            models[c][b] = ToOzz(maniPoseModel(pose, b + 1));
+        }
+        maniVec3 start = Position(pose, skeleton, 1);
+        maniVec3 d = Direction();
+        float reach = Spread(0.2f, 0.9f);
+        maniVec3 goal = {start.x + d.x * reach, start.y + d.y * reach, start.z + d.z * reach};
+        twoBone[c] = {1, 2, 3, 0, goal, Direction(), {0, 0, 1}, 0.0f, 1.0f, 1.0f};
+        aim[c] = {{3},       {1.0f},    1,         0,    goal, Direction(),
+                  {1, 0, 0}, {0, 0, 0}, {0, 1, 0}, 0.0f, 0.0f, 1.0f};
+    }
+    float sink = 0.0f;
+    double t0 = Now();
+    for (long r = 0; r < reps; ++r)
+    {
+        for (int c = 0; c < kCases; ++c)
+        {
+            (void)maniSolveTwoBone(pose, skeleton, &twoBone[c], nullptr);
+        }
+        sink += maniPoseLocal(pose, 2).rotation.x;
+    }
+    double oursTwo = Now() - t0;
+    t0 = Now();
+    for (long r = 0; r < reps; ++r)
+    {
+        for (int c = 0; c < kCases; ++c)
+        {
+            ozz::animation::IKTwoBoneJob job;
+            const maniTwoBoneSolve& s = twoBone[c];
+            job.target = ozz::math::simd_float4::Load(s.goal.x, s.goal.y, s.goal.z, 1.0f);
+            job.mid_axis = ozz::math::simd_float4::Load(0.0f, 0.0f, 1.0f, 0.0f);
+            job.pole_vector = ozz::math::simd_float4::Load(s.pole.x, s.pole.y, s.pole.z, 0.0f);
+            job.start_joint = &models[c][0];
+            job.mid_joint = &models[c][1];
+            job.end_joint = &models[c][2];
+            ozz::math::SimdQuaternion corrections[2];
+            job.start_joint_correction = &corrections[0];
+            job.mid_joint_correction = &corrections[1];
+            (void)job.Run();
+            sink += ozz::math::GetX(corrections[1].xyzw);
+        }
+    }
+    double ozzTwo = Now() - t0;
+    t0 = Now();
+    for (long r = 0; r < reps; ++r)
+    {
+        for (int c = 0; c < kCases; ++c)
+        {
+            (void)maniSolveAim(pose, skeleton, &aim[c], nullptr);
+        }
+        sink += maniPoseLocal(pose, 3).rotation.x;
+    }
+    double oursAim = Now() - t0;
+    t0 = Now();
+    for (long r = 0; r < reps; ++r)
+    {
+        for (int c = 0; c < kCases; ++c)
+        {
+            ozz::animation::IKAimJob job;
+            const maniAimSolve& s = aim[c];
+            job.target = ozz::math::simd_float4::Load(s.goal.x, s.goal.y, s.goal.z, 1.0f);
+            job.forward = ozz::math::simd_float4::x_axis();
+            job.up = ozz::math::simd_float4::y_axis();
+            job.pole_vector = ozz::math::simd_float4::Load(s.pole.x, s.pole.y, s.pole.z, 0.0f);
+            job.joint = &models[c][2];
+            ozz::math::SimdQuaternion correction;
+            job.joint_correction = &correction;
+            (void)job.Run();
+            sink += ozz::math::GetX(correction.xyzw);
+        }
+    }
+    double ozzAim = Now() - t0;
+    g_sink = sink;
+    double n = static_cast<double>(reps) * kCases;
+    std::printf("ns a solve, Maul Anim from locals / ozz on given models: two-bone %.0f / %.0f, "
+                "aim %.0f / %.0f\n",
+                oursTwo / n * 1e9, ozzTwo / n * 1e9, oursAim / n * 1e9, ozzAim / n * 1e9);
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
     long cases = argc > 1 ? std::atol(argv[1]) : 100000;
+    long reps = argc > 2 ? std::atol(argv[2]) : 2000;
     const maniBoneSource bones[4] = {{"root", 4, -1, {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
                                      {"start", 5, 0, {{0, 1, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
                                      {"middle", 6, 1, {{0, -0.5f, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
@@ -492,16 +603,17 @@ int main(int argc, char** argv)
         if (weight >= 1.0f && soften >= 1.0f && reachedOurs && twist == 0.0f)
         {
             maniVec3 u = {goal.x - start.x, goal.y - start.y, goal.z - start.z};
-            maniVec3 n = {u.y * pole.z - u.z * pole.y, u.z * pole.x - u.x * pole.z,
-                          u.x * pole.y - u.y * pole.x};
-            float nl = std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z) * scale;
+            maniVec3 normal = {u.y * pole.z - u.z * pole.y, u.z * pole.x - u.x * pole.z,
+                               u.x * pole.y - u.y * pole.x};
+            float length =
+                std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z) * scale;
             maniVec3 k[2] = {Position(ours, &skeleton, 2), Position(theirs, &skeleton, 2)};
             float off[2];
             for (int i = 0; i < 2; ++i)
             {
-                off[i] = std::fabs((k[i].x - start.x) * n.x + (k[i].y - start.y) * n.y +
-                                   (k[i].z - start.z) * n.z) /
-                         nl;
+                off[i] = std::fabs((k[i].x - start.x) * normal.x + (k[i].y - start.y) * normal.y +
+                                   (k[i].z - start.z) * normal.z) /
+                         length;
             }
             planeOurs = std::fmax(planeOurs, off[0]);
             planeTheirs = std::fmax(planeTheirs, off[1]);
@@ -519,5 +631,6 @@ int main(int argc, char** argv)
                 static_cast<double>(planeTheirs));
     bool agree = worst <= 5e-4f && worstSoftened <= 2e-3f && reachDiffers == 0;
     bool aim = AimDifferential(ours, theirs, &skeleton, cases);
+    Timings(ours, &skeleton, reps);
     return agree && missOurs <= 1e-5f && planeOurs <= 1e-5f && aim ? 0 : 1;
 }

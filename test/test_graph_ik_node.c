@@ -202,6 +202,18 @@ static void TestTwoBone(void)
     Evaluate(instance);
     TwoBone(kNone, 0.0f, 0.0f, 1.0f);
     CHECK(Matches(false), "no pole, softening -1 clamped to 0");
+    maniGraphTwoBoneNodeSource hinged = kKnee;
+    hinged.hinge = (maniVec3){0.6f, 0.0f, 0.8f};
+    nodes[1] = TwoBoneNode(kFirst, hinged);
+    instance = Make(IkSource(nodes, 2), &g);
+    Update(instance, 0.3f);
+    Evaluate(instance);
+    Rest();
+    maniTwoBoneSolve h = {0, 1, 2, 0, {0.6f, 1.2f, 0.3f}, kPole, hinged.hinge, 0.25f, 0.8f, 1.0f};
+    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &h, NULL) == mani_success, "the reference");
+    bool matched = Matches(false);
+    TwoBone(kPole, 0.25f, 0.8f, 1.0f);
+    CHECK(matched && !Matches(false), "a hinge, unlike none");
 }
 
 // The look-at's node: the solve of its input, its shares equal when
@@ -239,15 +251,18 @@ static void TestAim(void)
     CHECK(Matches(false), "shares as given");
 }
 
-// Both nodes in a subgraph read the outer goal their own maps to.
+// Both nodes in a subgraph read the outer goal and weight their own
+// map to, at other places.
 static void TestSubgraph(void)
 {
-    static maniGraphParameterSource inner[1];
+    static maniGraphParameterSource inner[2];
     static maniGraphNodeSource innerNodes[3];
-    static const uint32_t kMap[1] = {0};
+    static const uint32_t kMap[2] = {3, 0};
     static const uint32_t kSecond[1] = {1};
-    inner[0] = Parameter("target", maniGraphParameterVec3, Vec(0.0f, 0.0f, 0.0f));
+    inner[0] = Parameter("w", maniGraphParameterFloat, Float(0.0f));
+    inner[1] = Parameter("target", maniGraphParameterVec3, Vec(0.0f, 0.0f, 0.0f));
     maniGraphTwoBoneNodeSource knee = kKnee;
+    knee.goal = 1;
     knee.pole = MANI_NO_PARAMETER;
     knee.twist = LITERAL(0.0f);
     knee.weight = LITERAL(1.0f);
@@ -255,14 +270,15 @@ static void TestSubgraph(void)
     look.bones = &kChain[2];
     look.count = 1;
     look.pole = MANI_NO_PARAMETER;
+    look.goal = 1;
     look.cone = LITERAL(0.0f);
-    look.weight = LITERAL(0.5f);
+    look.weight = (maniGraphScalar){0, 0.0f};
     innerNodes[0] = ClipNode(0, 1.0f, maniGraphLoopRepeat);
     innerNodes[1] = TwoBoneNode(kFirst, knee);
     innerNodes[2] = AimNode(kSecond, look);
     static maniGraphSource sub;
     sub = (maniGraphSource){
-        .parameters = inner, .nodes = innerNodes, .parameterCount = 1, .nodeCount = 3, .output = 2};
+        .parameters = inner, .nodes = innerNodes, .parameterCount = 2, .nodeCount = 3, .output = 2};
     sub.skeleton = &s_skeleton;
     sub.clips = kSlots;
     sub.clipCount = CLIPS;
@@ -271,6 +287,7 @@ static void TestSubgraph(void)
                                                           0, NULL, .subgraph = {&sub, kMap}}};
     maniGraphInstance* instance = Make(IkSource(nodes, 1), &g);
     Update(instance, 0.3f);
+    Set(instance, 3, maniGraphParameterFloat, Float(0.5f));
     Evaluate(instance);
     Rest();
     maniTwoBoneSolve s = {
@@ -290,7 +307,7 @@ static void TestSubgraph(void)
     CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &s, NULL) == mani_success &&
               maniSolveAim(s_pose, &s_skeleton, &a, NULL) == mani_success,
           "the reference");
-    CHECK(Matches(false), "the outer goal through the mapping");
+    CHECK(Matches(false), "the outer goal and weight through the mapping");
 }
 
 static maniBuildResult Built(maniGraphSource source)
@@ -381,6 +398,7 @@ static void TestTwoBoneRefusals(void)
 // pi.
 static void TestAimRefusals(void)
 {
+    maniGraphNodeSource nodes[4];
     static const uint32_t kNine[9] = {0, 1, 2, 2, 2, 2, 2, 2, 2};
     static const uint32_t kBack[2] = {1, 0};
     static const float kNegative[3] = {1.0f, -1.0f, 1.0f};
@@ -400,6 +418,19 @@ static void TestAimRefusals(void)
     s.bones = kBack;
     s.count = 2;
     CHECK(LookRefused(s, maniBuildReasonNode), "bones not each an ancestor of the next");
+    static const uint32_t kPast[1] = {3};
+    s = kLook;
+    s.bones = kPast;
+    s.count = 1;
+    CHECK(LookRefused(s, maniBuildReasonNode), "a bone past the skeleton");
+    static const uint32_t kLayered[2] = {2, 1};
+    static const maniGraphScalar kWhole[1] = {LITERAL(1.0f)};
+    nodes[0] = ClipNode(2, 1.0f, maniGraphLoopRepeat);
+    nodes[1] = AimNode(kFirst, kLook);
+    nodes[2] = ClipNode(0, 1.0f, maniGraphLoopRepeat);
+    nodes[3] = (maniGraphNodeSource){maniGraphNodeAdditive, 2, kLayered, .additive = {kWhole}};
+    CHECK(RefusedAt(Built(IkSource(nodes, 4)), 1, maniBuildReasonDifference),
+          "differences in, as an additive's layer");
     s = kLook;
     s.bones = kNine + 2;
     s.count = 1;
@@ -546,6 +577,10 @@ static void TestAimFile(void)
     CHECK(WordRefused(size, at, 19, Bits(1.01f), 19), "a forward not of length 1");
     CHECK(WordRefused(size, at, 26, Bits(NAN), 26), "an up not finite");
     CHECK(WordRefused(size, at, 31, Bits(3.2f), 30), "a cone past pi");
+    CHECK(WordRefused(size, at, 33, Bits(1.0f), 32), "a weight's parameter with literal bits");
+    CHECK(maniLoadU32(s_file + at + 4 * 11) == Bits(1.0f) &&
+              maniLoadU32(s_file + at + 4 * 13) == Bits(1.0f),
+          "shares left out stored as 1");
     memcpy(s_crafted, s_file, size);
     for (uint32_t k = 0; k < 3; ++k)
     {
@@ -555,6 +590,35 @@ static void TestAimFile(void)
     maniGraph crafted;
     maniFileResult r = maniOpenGraph(s_crafted, size, &crafted);
     CHECK(r.result == mani_errorFormat && r.offset == at + 4 * 11, "shares all 0");
+}
+
+// A crafted file whose IK node reads differences (its input clip made
+// the additive wave, both nodes marked as giving differences) refused at
+// open, as the build refuses its source.
+static void TestDifferenceFile(void)
+{
+    maniGraphNodeSource nodes[2] = {TwoBoneNode(kFirst, kKnee), AimNode(kFirst, kLook)};
+    for (int k = 0; k < 2; ++k)
+    {
+        size_t size = 0;
+        (void)Built1(nodes[k], &size);
+        maniGraph g;
+        CHECK(maniOpenGraph(s_file, size, &g).result == mani_success, "opened");
+        size_t records = (size_t)(g.nodes - s_file);
+        size_t clipWord = (size_t)(g.data - s_file) + 4 * (size_t)maniLoadU32(g.nodes + 12);
+        memcpy(s_crafted, s_file, size);
+        maniStoreU32(s_crafted + clipWord, 2);
+        maniStoreU16(s_crafted + records + 2, 1);
+        maniStoreU16(s_crafted + records + MANI_GRAPH_NODE_SIZE + 2, 1);
+        Rehash(s_crafted, size);
+        maniGraph crafted;
+        CHECK(maniOpenGraph(s_crafted, size, &crafted).result == mani_errorFormat,
+              "differences into an IK node refused");
+        maniStoreU16(s_crafted + records + MANI_GRAPH_NODE_SIZE + 2, 0);
+        Rehash(s_crafted, size);
+        CHECK(maniOpenGraph(s_crafted, size, &crafted).result == mani_errorFormat,
+              "a pose node over differences refused");
+    }
 }
 
 // A crafted two-bone node whose bones are not each an ancestor of the
@@ -641,6 +705,7 @@ int main(int argc, char** argv)
     TestAimRefusals();
     TestTwoBoneFile();
     TestAimFile();
+    TestDifferenceFile();
     TestCraftedChain();
     return s_failures == 0 ? 0 : 1;
 }

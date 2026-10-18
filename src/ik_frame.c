@@ -25,7 +25,7 @@
 // blends toward the chain's own.
 #define POLE_SINE 0.05f
 
-static const maniAffine kIdentity = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
+static const maniIkFrame kIdentity = {.rotation = {0.0f, 0.0f, 0.0f, 1.0f}};
 
 bool maniIkFiniteVec(maniVec3 v)
 {
@@ -38,22 +38,51 @@ bool maniIkPoseUsable(const maniPose* pose, const maniSkeleton* skeleton)
            !maniPoseIsDifference(pose);
 }
 
-maniAffine maniIkLocal(const maniPose* pose, uint32_t bone)
+maniIkFrame maniIkLocal(const maniPose* pose, uint32_t bone)
 {
     maniTransform t = maniPoseLocal(pose, bone);
-    return maniAffineFromTrs(t.translation, t.rotation, t.scale);
+    if (t.scale.x == 1.0f && t.scale.y == 1.0f && t.scale.z == 1.0f)
+    {
+        return (maniIkFrame){.rotation = t.rotation, .origin = t.translation};
+    }
+    return (maniIkFrame){.affine = maniAffineFromTrs(t.translation, t.rotation, t.scale),
+                         .scaled = true};
+}
+
+static maniAffine Affine(const maniIkFrame* f)
+{
+    return f->scaled ? f->affine
+                     : maniAffineFromTrs(f->origin, f->rotation, maniVec3Make(1.0f, 1.0f, 1.0f));
+}
+
+maniIkFrame maniIkMul(const maniIkFrame* a, const maniIkFrame* b)
+{
+    if (!a->scaled && !b->scaled)
+    {
+        return (maniIkFrame){.rotation = maniQuatMul(a->rotation, b->rotation),
+                             .origin =
+                                 maniVec3Add(a->origin, maniQuatRotate(a->rotation, b->origin))};
+    }
+    maniAffine x = Affine(a);
+    maniAffine y = Affine(b);
+    return (maniIkFrame){.affine = maniAffineMul(&x, &y), .scaled = true};
 }
 
 // A bone's frame in its ancestor top's frame (the model's for
 // MANI_NO_BONE): the locals below top composed.
-maniAffine maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint32_t top,
-                       uint32_t bone)
+maniIkFrame maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint32_t top,
+                        uint32_t bone)
 {
-    maniAffine m = kIdentity;
-    for (uint32_t b = bone; b != top; b = maniSkeletonParent(skeleton, b))
+    if (bone == top)
     {
-        maniAffine local = maniIkLocal(pose, b);
-        m = maniAffineMul(&local, &m);
+        return kIdentity;
+    }
+    maniIkFrame m = maniIkLocal(pose, bone);
+    for (uint32_t b = maniSkeletonParent(skeleton, bone); b != top;
+         b = maniSkeletonParent(skeleton, b))
+    {
+        maniIkFrame local = maniIkLocal(pose, b);
+        m = maniIkMul(&local, &m);
     }
     return m;
 }
@@ -71,22 +100,31 @@ bool maniIkAbove(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone)
     return false;
 }
 
-maniVec3 maniIkOrigin(const maniAffine* m)
+maniVec3 maniIkOrigin(const maniIkFrame* f)
 {
-    return maniVec3Make(m->m[9], m->m[10], m->m[11]);
+    return f->scaled ? maniVec3Make(f->affine.m[9], f->affine.m[10], f->affine.m[11]) : f->origin;
 }
 
-maniQuat maniIkRotation(const maniAffine* m)
+maniQuat maniIkRotation(const maniIkFrame* f)
 {
+    if (!f->scaled)
+    {
+        return maniQuatNormalize(f->rotation);
+    }
     maniVec3 t;
     maniQuat q;
-    maniDecomposeRigid(m, &t, &q);
+    maniDecomposeRigid(&f->affine, &t, &q);
     return q;
 }
 
-static bool Mirrored(const maniAffine* m)
+// Whether a frame mirrors: never without scales.
+static bool Mirrored(const maniIkFrame* f)
 {
-    const float* a = m->m;
+    if (!f->scaled)
+    {
+        return false;
+    }
+    const float* a = f->affine.m;
     float det = a[0] * (a[4] * a[8] - a[5] * a[7]) - a[3] * (a[1] * a[8] - a[2] * a[7]) +
                 a[6] * (a[1] * a[5] - a[2] * a[4]);
     return det < 0.0f;
@@ -95,7 +133,7 @@ static bool Mirrored(const maniAffine* m)
 // A model-space turn as a correction of a bone's local rotation under a
 // parent frame: P* q P, mirrored through x under a mirrored parent (the
 // mirror the decomposition gives).
-maniQuat maniIkInParent(maniQuat q, const maniAffine* parent)
+maniQuat maniIkInParent(maniQuat q, const maniIkFrame* parent)
 {
     maniQuat p = maniIkRotation(parent);
     maniQuat r = maniQuatMul(maniQuatMul(maniQuatConjugate(p), q), p);
@@ -175,7 +213,7 @@ void maniIkCorrect(maniPose* pose, uint32_t bone, maniQuat correction)
     maniPoseSetLocal(pose, bone, t);
 }
 
-maniAffine maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
+maniIkFrame maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
 {
     uint32_t parent = maniSkeletonParent(skeleton, bone);
     return parent != MANI_NO_BONE ? maniIkBelow(pose, skeleton, MANI_NO_BONE, parent) : kIdentity;

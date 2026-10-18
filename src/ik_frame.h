@@ -16,29 +16,49 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// A frame: a rotation and an origin while every scale composed into it
+// is exactly 1 (composed as quaternions, its rotation read without a
+// decomposition), else an affine matrix (scaled true).
+typedef struct maniIkFrame
+{
+    union
+    {
+        maniAffine affine;
+        struct
+        {
+            maniQuat rotation;
+            maniVec3 origin;
+        };
+    };
+    bool scaled;
+} maniIkFrame;
+
+// Frame a, then b within it.
+maniIkFrame maniIkMul(const maniIkFrame* a, const maniIkFrame* b);
+
 // A bone's frame in its ancestor top's frame (the model's for
 // MANI_NO_BONE): the locals below top composed; the identity for top
 // itself.
-maniAffine maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint32_t top,
-                       uint32_t bone);
+maniIkFrame maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint32_t top,
+                        uint32_t bone);
 
 // The model frame of a bone's parent; the identity for a root.
-maniAffine maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone);
+maniIkFrame maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone);
 
-// A bone's local matrix.
-maniAffine maniIkLocal(const maniPose* pose, uint32_t bone);
+// A bone's local frame.
+maniIkFrame maniIkLocal(const maniPose* pose, uint32_t bone);
 
 // Whether ancestor is a strict ancestor of bone.
 bool maniIkAbove(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone);
 
 // A frame's origin and rigid rotation.
-maniVec3 maniIkOrigin(const maniAffine* m);
-maniQuat maniIkRotation(const maniAffine* m);
+maniVec3 maniIkOrigin(const maniIkFrame* f);
+maniQuat maniIkRotation(const maniIkFrame* f);
 
 // A model-space turn as the correction of a bone's local rotation under
 // its parent's model frame: P* q P, mirrored through x under a mirrored
 // parent.
-maniQuat maniIkInParent(maniQuat q, const maniAffine* parent);
+maniQuat maniIkInParent(maniQuat q, const maniIkFrame* parent);
 
 // The turn about unit axis u by the angle of cosine c and sine s (any
 // common scale), without losing digits at small or near-half turns.
