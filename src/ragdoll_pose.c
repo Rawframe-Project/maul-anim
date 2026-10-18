@@ -33,10 +33,10 @@ typedef struct Rigid
 
 static const Rigid kIdentity = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
 
-static Rigid Compose(Rigid a, Rigid b)
+// a after b, its rotation not normalized: each result is, once.
+static inline Rigid Compose(Rigid a, Rigid b)
 {
-    return (Rigid){maniVec3Add(a.t, maniQuatRotate(a.r, b.t)),
-                   maniQuatNormalize(maniQuatMul(a.r, b.r))};
+    return (Rigid){maniVec3Add(a.t, maniQuatRotate(a.r, b.t)), maniQuatMul(a.r, b.r)};
 }
 
 static Rigid Inverse(Rigid a)
@@ -95,9 +95,9 @@ static bool Placement(const maniTransform* placement, Rigid* out)
 // A bone's model frame from a matrix, its scale left out.
 static Rigid Split(const maniAffine* m)
 {
-    maniTransform t = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
-    (void)maniDecompose(m, &t);
-    return (Rigid){t.translation, maniQuatNormalize(t.rotation)};
+    Rigid out;
+    maniDecomposeRigid(m, &out.t, &out.r);
+    return out;
 }
 
 // Body i's frame in the world from a pose.
@@ -105,8 +105,8 @@ static Rigid BodyFrame(const maniRagdoll* ragdoll, const maniPose* pose, Rigid p
 {
     const uint8_t* e = Record(ragdoll, i);
     maniAffine model = maniPoseModel(pose, maniLoadU32(e + maniRagdollBodyBone));
-    Rigid bone = Compose(place, Split(&model));
-    return Compose(bone, LoadRigid(e + maniRagdollBodyFrame));
+    Rigid body = Compose(Compose(place, Split(&model)), LoadRigid(e + maniRagdollBodyFrame));
+    return (Rigid){body.t, maniQuatNormalize(body.r)};
 }
 
 static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)

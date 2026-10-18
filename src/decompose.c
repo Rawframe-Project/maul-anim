@@ -249,6 +249,57 @@ bool maniDecompose(const maniAffine* matrix, maniTransform* out)
     return true;
 }
 
+static double Dot3(const double* a, const double* b)
+{
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+void maniDecomposeRigid(const maniAffine* matrix, maniVec3* translationOut, maniQuat* rotationOut)
+{
+    double a[9];
+    bool finite = true;
+    for (int i = 0; i < 12; ++i)
+    {
+        finite = finite && Finite(matrix->m[i]);
+    }
+    for (int i = 0; i < 9; ++i)
+    {
+        a[i] = (double)matrix->m[i];
+    }
+    double lengths[3] = {Length(a), Length(a + 3), Length(a + 6)};
+    bool orthogonal = finite && lengths[0] > 0.0 && lengths[1] > 0.0 && lengths[2] > 0.0 &&
+                      fabs(Dot3(a, a + 3)) <= 1e-6 * lengths[0] * lengths[1] &&
+                      fabs(Dot3(a, a + 6)) <= 1e-6 * lengths[0] * lengths[2] &&
+                      fabs(Dot3(a + 3, a + 6)) <= 1e-6 * lengths[1] * lengths[2];
+    *translationOut = (maniVec3){matrix->m[9], matrix->m[10], matrix->m[11]};
+    if (!orthogonal)
+    {
+        maniTransform t = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
+        (void)maniDecompose(matrix, &t);
+        *translationOut = t.translation;
+        *rotationOut = t.rotation;
+        return;
+    }
+    double q[9];
+    for (int c = 0; c < 3; ++c)
+    {
+        double inverse = 1.0 / lengths[c];
+        for (int k = 0; k < 3; ++k)
+        {
+            q[3 * c + k] = a[3 * c + k] * inverse;
+        }
+    }
+    if (Determinant(q) < 0.0)
+    {
+        // A mirror: x's column negated, as maniDecompose gives it.
+        for (int k = 0; k < 3; ++k)
+        {
+            q[k] = -q[k];
+        }
+    }
+    *rotationOut = ToQuaternion(q);
+}
+
 static float ColumnLength(const maniAffine* a, uint32_t c)
 {
     const float* v = a->m + 3 * c;

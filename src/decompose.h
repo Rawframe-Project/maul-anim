@@ -21,4 +21,11 @@ bool maniDecompose(const maniAffine* matrix, maniTransform* out);
 // not finite.
 bool maniDecomposeExact(const maniAffine* matrix, maniTransform* out);
 
+// A matrix's rigid part, its translation and maniDecompose's rotation
+// (mani-0027): when every two columns are orthogonal within a relative
+// 1e-6 the polar factor is the columns over their lengths (one negated
+// for a mirror, as maniDecompose's), taken without iterating; otherwise
+// maniDecompose's. The identity rotation for a matrix not finite.
+void maniDecomposeRigid(const maniAffine* matrix, maniVec3* translationOut, maniQuat* rotationOut);
+
 #endif // MAUL_ANIM_SRC_DECOMPOSE_H

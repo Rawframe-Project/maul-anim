@@ -5,8 +5,12 @@
 // gives the matrix back, mirrors included; without shear the rotation and
 // scale are the ones composed; with shear the rotation is the polar
 // factor (its transpose times the matrix is symmetric); degenerate
-// matrices still split into finite values; results pinned.
+// matrices still split into finite values; results pinned. The rigid
+// split (mani-0027): without shear, mirrors included, maniDecompose's
+// rotation within rounding; with shear, its bits; the identity for a
+// matrix not finite.
 
+#include "decompose.h"
 #include "test_harness.h"
 #include "vecmath.h"
 
@@ -261,6 +265,57 @@ static void TestPinned(void)
     }
 }
 
+static bool SameTurn(maniQuat a, maniQuat b, double tolerance)
+{
+    double dot = (double)a.x * (double)b.x + (double)a.y * (double)b.y + (double)a.z * (double)b.z +
+                 (double)a.w * (double)b.w;
+    return fabs(fabs(dot) - 1.0) <= tolerance;
+}
+
+static void TestRigid(void)
+{
+    bool near = true;
+    for (int i = 0; i < 500; ++i)
+    {
+        float mirror = (i % 5) == 0 ? -1.0f : 1.0f;
+        maniTransform t = {{Uniform(-5, 5), Uniform(-5, 5), Uniform(-5, 5)},
+                           RandomRotation(),
+                           {mirror * Uniform(0.3f, 3), Uniform(0.3f, 3), Uniform(0.3f, 3)}};
+        maniAffine m = Compose(&t);
+        maniTransform d = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
+        maniVec3 translation;
+        maniQuat rotation;
+        maniDecomposeRigid(&m, &translation, &rotation);
+        near = near && maniDecompose(&m, &d) && SameTurn(rotation, d.rotation, 1e-6) &&
+               memcmp(&translation, &d.translation, sizeof translation) == 0;
+    }
+    CHECK(near, "without shear, mirrors included: maniDecompose's rotation within rounding");
+    bool same = true;
+    for (int i = 0; i < 200; ++i)
+    {
+        maniTransform parent = {
+            {0, 0, 0}, RandomRotation(), {Uniform(0.3f, 3), Uniform(0.3f, 3), Uniform(0.3f, 3)}};
+        maniTransform child = {{Uniform(-1, 1), 0, 0}, RandomRotation(), {1, 1, 1}};
+        maniAffine p = Compose(&parent);
+        maniAffine c = Compose(&child);
+        maniAffine m = maniAffineMul(&p, &c);
+        maniTransform d = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
+        maniVec3 translation;
+        maniQuat rotation;
+        maniDecomposeRigid(&m, &translation, &rotation);
+        same =
+            same && maniDecompose(&m, &d) && memcmp(&rotation, &d.rotation, sizeof rotation) == 0;
+    }
+    CHECK(same, "with shear: maniDecompose's rotation, its bits");
+    maniAffine bad = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
+    bad.m[4] = NAN;
+    maniVec3 translation;
+    maniQuat rotation;
+    maniDecomposeRigid(&bad, &translation, &rotation);
+    CHECK(rotation.x == 0.0f && rotation.y == 0.0f && rotation.z == 0.0f && rotation.w == 1.0f,
+          "not finite: the identity");
+}
+
 int main(void)
 {
     TestRecomposesWithoutShear();
@@ -270,5 +325,6 @@ int main(void)
     TestTinyAxisIsZero();
     TestRefusals();
     TestPinned();
+    TestRigid();
     return s_failures == 0 ? 0 : 1;
 }

@@ -341,6 +341,11 @@ format.
 
 ### Changed
 
+- Ragdoll conversions split each bone's matrix without iterating when
+  its columns are orthogonal (every matrix but a sheared one) and
+  normalize once a result: placing bodies from a pose takes about half
+  the instructions, joint targets half, a pose from bodies a fifth
+  fewer (mani-0027).
 - `maniBindGraph` takes the graph's skeleton, clips, databases and
   models in one `maniGraphAssets`, and `maniBuildGraphJson` its named
   ones in one `maniGraphNamedAssets`, in place of their argument lists.
