@@ -2359,7 +2359,7 @@ lr-square | src/learned_train_run.c | x *= x; | x *= 0.99;
 lr-end | src/learned_train_run.c | if (t->begun && t->iteration == t->source.options.iterations) | if (t->begun && t->iteration > t->source.options.iterations)
 lr-zero | src/learned_train_run.c | if (iterations == 0) | if (false)
 lr-count | src/learned_train_run.c | iterations -= 1; | iterations -= 0 + (t->iteration % 2);
-lr-misuse | src/learned_train_run.c | ++builder->misuses; | (void)builder;
+lr-misuse | src/learned_train_run.c | maniBuilderMisuse(builder); | (void)builder;
 lr-bias | src/learned_train_run.c | layers[l] = (maniLearnedLayerSource){w, w + (size_t)in * o, in, o}; | layers[l] = (maniLearnedLayerSource){w, w, in, o};
 lc-option | src/learned_checkpoint.c | o->seed, | 0,
 lc-events | src/learned_checkpoint.c | return HashNames(hash, s->events, s->eventCount); | return hash;
@@ -2876,3 +2876,14 @@ ro-swing-pi | src/ragdoll.c | if (!(swing >= 0.0f && swing <= PI_F)) | if (!(swi
 sf-begin-force | src/spring_step.c | Begin(set, block, work, pose, now, force); | Begin(set, block, work, pose, now, (maniVec3){0.0f, 0.0f, 0.0f});
 sa-push-out | src/spring_apply.c | shown = PushOut(&shapes, shown, radius); | shown = PushOut(&shapes, shown, radius * 0.0f - 10.0f);
 sa-cached | src/spring_apply.c | maniSpringShape shape = k < SHAPES ? s->first[k] : LinkShape(s, k); | maniSpringShape shape = LinkShape(s, 0);
+
+# Calls back in from the host's code (mani-0028)
+hc-called-back | src/host_code.c | if (host == NULL || !atomic_load_explicit(&host->running, memory_order_relaxed)) | if (true)
+hc-count | src/host_code.h | atomic_fetch_add_explicit(&host->misuses, 1u, memory_order_relaxed); | atomic_fetch_add_explicit(&host->misuses, 0u, memory_order_relaxed);
+hc-restore | src/host_code.c | atomic_store_explicit(&host->running, was, memory_order_relaxed); | atomic_store_explicit(&host->running, true, memory_order_relaxed);
+hc-no-hooks | src/host_code.c | task(0, itemCount, taskContext); | (void)taskContext;
+hc-allocator-only | src/host_code.c | return allocator->alloc == Alloc && maniHostCalledBack(allocator->context); | return false;
+hc-builder-destroy | src/builder.c | if (builder == NULL || maniBuilderCalledBack(builder)) | if (builder == NULL)
+hc-trainer-destroy | src/learned_train.c | if (trainer == NULL || maniHostCalledBack(&trainer->host)) | if (trainer == NULL)
+hc-train | src/learned_train_run.c | if (trainer != NULL && maniHostCalledBack(&trainer->host)) | if (false)
+hc-restore-trainer | src/learned_restore.c | if (trainer != NULL && maniHostCalledBack(&trainer->host)) | if (false)

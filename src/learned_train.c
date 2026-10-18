@@ -200,7 +200,7 @@ static maniResult CheckDef(const maniLearnedTrainerDef* def)
 
 void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer)
 {
-    if (trainer == NULL)
+    if (trainer == NULL || maniHostCalledBack(&trainer->host))
     {
         return;
     }
@@ -209,8 +209,15 @@ void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer)
     const maniAllocator* a = &trainer->allocator;
     maniRelease(a, trainer->networks, (size_t)trainer->stageCount, sizeof(maniTrainKept), 8);
     maniTrainDataRelease(a, &trainer->data);
-    maniAllocator allocator = trainer->allocator;
+    // The block itself straight to the host's: the library's allocator
+    // marks the trainer after the host's call returns.
+    maniAllocator allocator = trainer->host.allocator;
     maniRelease(&allocator, trainer, 1, sizeof(maniLearnedTrainer), alignof(maniLearnedTrainer));
+}
+
+uint32_t maniLearnedTrainerMisuses(const maniLearnedTrainer* trainer)
+{
+    return trainer != NULL ? maniHostMisuses(&trainer->host) : 0;
 }
 
 maniBuildResult maniCreateLearnedTrainer(const maniLearnedTrainerDef* def,
@@ -240,10 +247,11 @@ maniBuildResult maniCreateLearnedTrainer(const maniLearnedTrainerDef* def,
     {
         return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
     }
-    *t = (maniLearnedTrainer){.allocator = def->allocator,
-                              .tasks = def->tasks,
-                              .source = *source,
+    *t = (maniLearnedTrainer){.source = *source,
                               .stageCount = MANI_LEARNED_PROJECTORS + source->projectorCount};
+    maniHostCodeInit(&t->host, &def->allocator, &def->tasks);
+    t->allocator = maniHostAllocator(&t->host);
+    t->tasks = maniHostTasks(&t->host);
     const maniTrainDataSource data = {source->skeleton,
                                       source->database,
                                       source->clips,

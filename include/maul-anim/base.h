@@ -74,6 +74,9 @@ extern "C"
         // A file of a format version, or a def stamped by headers, this
         // library does not read.
         mani_errorVersion = -4,
+        // The call is not allowed now: a function of an object called
+        // back in from the host's code that object runs (mani-0028).
+        mani_errorState = -5,
     };
 
     // The result of reading external bytes: the status and, for
@@ -88,6 +91,8 @@ extern "C"
     // The allocator an owner object takes in its def and keeps for its
     // lifetime. Alignment is a power of two. A zeroed allocator means the C
     // library's functions, which serve alignments up to that of max_align_t.
+    // Its functions call no function of the object they serve: one that
+    // does is refused with mani_errorState (mani-0028).
     typedef struct maniAllocator
     {
         void* (*alloc)(size_t size, size_t alignment, void* context);
@@ -114,6 +119,8 @@ extern "C"
 
     // The host's task system, which an owner object takes in its def; both
     // hooks NULL (the default) runs every item on the calling thread.
+    // enqueueTask and finishTask call no function of the object they
+    // serve: one that does is refused with mani_errorState (mani-0028).
     typedef struct maniTaskHooks
     {
         maniEnqueueTaskFn* enqueueTask;

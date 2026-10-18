@@ -10,6 +10,11 @@ format.
 
 ### Added
 
+- `mani_errorState`: a builder's functions, closing a document opened
+  with it, and training, restoring and destroying a learned trainer
+  refuse a call back in from the object's allocator or task hooks,
+  counting one misuse; `maniLearnedTrainerMisuses` reads a trainer's
+  count (mani-0028).
 - Graph files (mani-0023): `maniBuildGraph` builds a graph against a
   skeleton and its clips (parameters, clip slots, sync groups, and
   clip, blend, mask, additive, select, time scale and seek nodes as a

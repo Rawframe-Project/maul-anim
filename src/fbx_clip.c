@@ -17,6 +17,7 @@
 
 #include "arena.h"
 #include "basis.h"
+#include "builder.h"
 #include "clip_build.h"
 #include "clip_file.h"
 #include "decompose.h"
@@ -528,6 +529,10 @@ maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint
                                   const maniSkeleton* skeleton, const maniFbxOptions* options,
                                   const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     bool usable =
         maniFbxUsable(builder, fbx, options,
                       fbx != NULL && skeleton != NULL && clip < fbx->stackCount &&

@@ -28,7 +28,7 @@ bool maniFbxUsable(maniBuilder* builder, const maniFbx* fbx, const maniFbxOption
     }
     if (fbx == NULL || options == NULL || !maniFbxOptionsValid(options) || !inRange)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return false;
     }
     return true;

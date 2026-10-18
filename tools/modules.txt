@@ -10,10 +10,11 @@ bytes:
 container: bytes
 inflate:
 allocator:
+host_code: allocator
 text:
 skeleton_file:
 skeleton: bytes container skeleton_file text
-builder: allocator container
+builder: allocator container host_code
 skeleton_build: allocator builder bytes container skeleton_file text
 elementary_float:
 pose: bytes decompose pose_memory vecmath
@@ -70,10 +71,10 @@ train_decompress_loss: train_data train_kinematics train_net train_stage
 train_solo: allocator train_adam train_net train_random train_tasks
 train_stepper: allocator train_data train_net train_random train_solo train_tasks
 train_projector: allocator match_search train_data train_net train_random train_solo train_tasks
-learned_train: allocator learned_build learned_file train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
-learned_train_run: allocator builder learned_file learned_train train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
+learned_train: allocator host_code learned_build learned_file train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
+learned_train_run: allocator builder host_code learned_file learned_train train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
 learned_checkpoint: bytes container learned_file learned_train train_decompress train_net train_random train_solo
-learned_restore: allocator bytes container learned_file learned_train train_net train_random
+learned_restore: allocator bytes container host_code learned_file learned_train train_net train_random
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:
@@ -132,9 +133,9 @@ decimal_format: decimal
 json: allocator decimal text
 gltf_property: json
 gltf_document: arena gltf_property hierarchy json names
-gltf: allocator arena builder bytes gltf_animation gltf_buffer gltf_document gltf_layout gltf_names gltf_node gltf_property json
+gltf: allocator arena builder bytes gltf_animation gltf_buffer gltf_document gltf_layout gltf_names gltf_node gltf_property host_code json
 arena: allocator
-gltf_mesh: arena decimal gltf_animation gltf_basis gltf_document gltf_layout gltf_property json
+gltf_mesh: arena builder decimal gltf_animation gltf_basis gltf_document gltf_layout gltf_property json
 gltf_clip: arena builder clip_build clip_file decompose gltf_animation gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json vecmath
 gltf_animation: allocator arena container gltf_document gltf_property json sort
 gltf_basis: basis
@@ -145,7 +146,7 @@ gltf_skeleton: allocator builder gltf_basis gltf_document gltf_layout gltf_names
 sort:
 names: allocator container sort
 hierarchy: allocator
-fbx: allocator builder fbx_anim fbx_ascii fbx_binary fbx_document fbx_legacy fbx_model fbx_object fbx_units
+fbx: allocator builder fbx_anim fbx_ascii fbx_binary fbx_document fbx_legacy fbx_model fbx_object fbx_units host_code
 fbx_model: allocator fbx_document fbx_object fbx_value hierarchy names
 fbx_object: allocator container fbx_ascii fbx_document fbx_value sort
 fbx_transform: fbx_document fbx_object fbx_value scalar
@@ -158,14 +159,14 @@ fbx_blend: allocator fbx_document fbx_model fbx_object fbx_value sort
 fbx_anim: allocator fbx_curve fbx_document fbx_object fbx_transform fbx_value quat64 scalar sort
 fbx_options: basis builder fbx_document
 fbx_sample: allocator fbx_anim fbx_document fbx_model fbx_transform fbx_world
-fbx_clip: arena basis clip_build clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_take fbx_tracks fbx_transform fbx_value fbx_world
+fbx_clip: arena basis builder clip_build clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_take fbx_tracks fbx_transform fbx_value fbx_world
 fbx_clip_state: arena basis fbx_anim fbx_document fbx_sample fbx_world
 fbx_skeleton: allocator basis builder decompose fbx_document fbx_helpers fbx_model fbx_options fbx_transform fbx_units fbx_world
 fbx_take: allocator fbx_anim fbx_document fbx_keys fbx_object fbx_value
 fbx_tracks: arena fbx_anim fbx_blend fbx_clip_state fbx_document fbx_model fbx_object fbx_skin fbx_transform fbx_value
-fbx_influences: arena fbx_document fbx_object fbx_skin fbx_value sort
-fbx_morph: arena basis fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_value sort
-fbx_skin: allocator basis fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world
+fbx_influences: arena builder fbx_document fbx_object fbx_skin fbx_value sort
+fbx_morph: arena basis builder fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_value sort
+fbx_skin: allocator basis builder fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
 fbx_document: hierarchy names

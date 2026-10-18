@@ -108,7 +108,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
 # library, compiled when MAUL_ANIM_OFFLINE is on; tools/modules.txt keeps
 # the runtime from using it.
 if(MAUL_ANIM_OFFLINE)
-    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/clip_build.c src/quat64.c src/root_motion_build.c
+    target_sources(maul-anim PRIVATE src/allocator.c src/builder.c src/host_code.c src/clip_build.c src/quat64.c src/root_motion_build.c
                                      src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/decimal_format.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c src/gltf_mesh.c
@@ -161,6 +161,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph WHITEBOX)
         maul_add_test(graph_json)
         maul_add_test(graph_nested)
+        maul_add_test(reentry)
         maul_add_test(graph_update WHITEBOX)
         maul_add_test(graph_build WHITEBOX)
         maul_add_test(graph_space WHITEBOX)

@@ -7,6 +7,7 @@
 // positions, normals and tangents in the output's basis.
 
 #include "arena.h"
+#include "builder.h"
 #include "decimal.h"
 #include "gltf_animation.h"
 #include "gltf_basis.h"
@@ -453,6 +454,10 @@ static maniImportResult BuildInfluences(maniBuilder* builder, const maniGltf* gl
 maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
                                          uint32_t primitive, const maniSkin* skin)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     uint32_t p = gltf == NULL ? MANI_JSON_NONE : Primitive(gltf, mesh, primitive);
     if (builder == NULL || skin == NULL || p == MANI_JSON_NONE)
     {
@@ -799,6 +804,10 @@ maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf*
                                            uint32_t mesh, uint32_t primitive,
                                            const maniGltfOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     uint32_t p = gltf == NULL ? MANI_JSON_NONE : Primitive(gltf, mesh, primitive);
     uint32_t targets = p == MANI_JSON_NONE ? MANI_JSON_NONE : Targets(gltf, p);
     if (builder == NULL || options == NULL || targets == MANI_JSON_NONE ||

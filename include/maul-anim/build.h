@@ -26,7 +26,10 @@ extern "C"
 {
 #endif
 
-    // A builder: one owner object for every kind of file.
+    // A builder: one owner object for every kind of file. Every function
+    // taking a builder, and closing a document opened with one, refuses a
+    // call back in from the builder's allocator with mani_errorState and
+    // counts one misuse (mani-0028).
     typedef struct maniBuilder maniBuilder;
 
     typedef struct maniBuilderDef
@@ -71,7 +74,8 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniCreateBuilder(const maniBuilderDef* def,
                                                          maniBuilder** builderOut);
 
-    /// Destroys a builder and the file it holds.
+    /// Destroys a builder and the file it holds. Called back in from the
+    /// builder's allocator it destroys nothing and counts one misuse.
     ///
     /// @param builder  The builder, or NULL.
     /// @par Thread safety
@@ -79,7 +83,8 @@ extern "C"
     MANI_API void maniDestroyBuilder(maniBuilder* builder);
 
     /// Returns how many calls on the builder were refused for invalid
-    /// arguments (conventions section 8).
+    /// arguments (conventions section 8) or as calls back in from its
+    /// allocator (mani-0028).
     ///
     /// @param builder  The builder.
     /// @return The count.

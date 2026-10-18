@@ -638,6 +638,10 @@ maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, u
                                    const maniSkeleton* skeleton, const maniGltfOptions* options,
                                    const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (builder == NULL)
     {
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
@@ -646,7 +650,7 @@ maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, u
         clipOptions == NULL || !maniImportClipOptionsValid(clipOptions, skeleton) ||
         animation >= gltf->animationCount)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
     }
     if (boundOut != NULL)

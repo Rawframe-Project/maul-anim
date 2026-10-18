@@ -607,6 +607,10 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
 
 maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
@@ -614,7 +618,7 @@ maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSourc
     if (source == NULL || (source->channels == NULL && source->channelCount > 0) ||
         (source->attributes == NULL && source->attributeCount > 0))
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     uint32_t targetCount = 0;

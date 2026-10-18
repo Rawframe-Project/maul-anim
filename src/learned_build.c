@@ -476,13 +476,17 @@ static bool Given(const maniLearnedModelSource* s)
 
 maniBuildResult maniBuildLearnedModel(maniBuilder* builder, const maniLearnedModelSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     if (source == NULL || !Given(source))
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     Totals totals = {0, 0, 0, 0};

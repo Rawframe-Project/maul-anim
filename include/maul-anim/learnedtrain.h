@@ -25,7 +25,10 @@ extern "C"
 {
 #endif
 
-    // A trainer: the networks of one model in training.
+    // A trainer: the networks of one model in training. Training,
+    // restoring and destroying refuse a call back in from the trainer's
+    // allocator or task hooks with mani_errorState and count one misuse
+    // (mani-0028).
     typedef struct maniLearnedTrainer maniLearnedTrainer;
 
     typedef struct maniLearnedTrainerDef
@@ -168,12 +171,22 @@ extern "C"
         const maniLearnedTrainerDef* def, const maniLearnedTrainerSource* source,
         maniLearnedTrainer** trainerOut);
 
-    /// Destroys a trainer.
+    /// Destroys a trainer. Called back in from the trainer's allocator or
+    /// task hooks it destroys nothing and counts one misuse (mani-0028).
     ///
     /// @param trainer  The trainer, or NULL.
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
     MANI_API void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer);
+
+    /// The misuses counted on a trainer: calls back in from its allocator
+    /// or task hooks, which are refused with mani_errorState (mani-0028).
+    ///
+    /// @param trainer  A trainer, or NULL (0).
+    /// @return The count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniLearnedTrainerMisuses(const maniLearnedTrainer* trainer);
 
     /// Trains on: up to iterations iterations, stage after stage. A stage
     /// whose iterations are all done ends (its network kept, the rest of

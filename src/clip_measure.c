@@ -220,13 +220,17 @@ static bool Matches(Measure* m)
 maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, const maniClip* clip,
                            maniClipReport* reportOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return mani_errorState;
+    }
     if (builder == NULL)
     {
         return mani_errorInvalid;
     }
     if (source == NULL || source->skeleton == NULL || clip == NULL || reportOut == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return mani_errorInvalid;
     }
     const maniAllocator* a = &builder->allocator;

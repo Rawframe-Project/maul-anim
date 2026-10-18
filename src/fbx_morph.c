@@ -14,6 +14,7 @@
 
 #include "arena.h"
 #include "basis.h"
+#include "builder.h"
 #include "fbx_blend.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
@@ -634,6 +635,10 @@ static maniImportResult BuildMorph(maniBuilder* builder, Morph* m)
 maniImportResult maniFbxBuildMorphTargets(maniBuilder* builder, const maniFbx* fbx, uint32_t morph,
                                           const maniFbxOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     if (!maniFbxUsable(builder, fbx, options, object != MANI_FBX_NONE) || fbx == NULL)
     {

@@ -225,13 +225,17 @@ static maniBuildResult Write(maniBuilder* builder, const maniInfluenceSource* s,
 
 maniBuildResult maniBuildInfluences(maniBuilder* builder, const maniInfluenceSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     if (source == NULL || source->skin == NULL || source->offsets == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     uint32_t groups = 0;

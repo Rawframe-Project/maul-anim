@@ -455,13 +455,17 @@ static bool Given(const maniSpringSetSource* s)
 
 maniBuildResult maniBuildSpringSet(maniBuilder* builder, const maniSpringSetSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     if (source == NULL || !Given(source))
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     if (source->springCount > MANI_MAX_BONES)

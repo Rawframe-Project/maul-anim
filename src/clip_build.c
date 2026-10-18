@@ -707,13 +707,17 @@ maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen
 
 maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Outcome(mani_errorInvalid);
     }
     if (source == NULL || source->skeleton == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Outcome(mani_errorInvalid);
     }
     Plan plan = {0};

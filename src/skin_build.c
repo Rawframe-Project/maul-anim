@@ -54,13 +54,17 @@ static maniBuildResult Check(const maniSkinSource* source)
 
 maniBuildResult maniBuildSkin(maniBuilder* builder, const maniSkinSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);
     }
     if (source == NULL || source->skeleton == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);
     }
     maniBuildResult result = Check(source);

@@ -35,7 +35,9 @@ maniResult maniCreateBuilder(const maniBuilderDef* def, maniBuilder** builderOut
     {
         return mani_errorCapacity;
     }
-    *builder = (maniBuilder){.allocator = def->allocator};
+    *builder = (maniBuilder){0};
+    maniHostCodeInit(&builder->host, &def->allocator, NULL);
+    builder->allocator = maniHostAllocator(&builder->host);
     *builderOut = builder;
     return mani_success;
 }
@@ -65,29 +67,35 @@ void maniBuilderKeep(maniBuilder* builder, uint32_t kind, uint8_t* file, size_t 
 
 void maniDestroyBuilder(maniBuilder* builder)
 {
-    if (builder == NULL)
+    if (builder == NULL || maniBuilderCalledBack(builder))
     {
         return;
     }
     maniBuilderClear(builder);
-    maniAllocator allocator = builder->allocator;
+    // The block itself straight to the host's: the library's allocator
+    // marks the builder after the host's call returns.
+    maniAllocator allocator = builder->host.allocator;
     maniRelease(&allocator, builder, 1, sizeof(maniBuilder), alignof(maniBuilder));
 }
 
 uint32_t maniBuilderMisuses(const maniBuilder* builder)
 {
-    return builder->misuses;
+    return maniHostMisuses(&builder->host);
 }
 
 maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return mani_errorState;
+    }
     if (builder == NULL)
     {
         return mani_errorInvalid;
     }
     if ((bufferOut == NULL && capacity > 0) || builder->kind == 0)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return mani_errorInvalid;
     }
     if (sizeOut != NULL)
@@ -108,13 +116,17 @@ maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
 maniResult maniCopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
                                  uint32_t* countOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return mani_errorState;
+    }
     if (builder == NULL)
     {
         return mani_errorInvalid;
     }
     if ((boneOut == NULL && capacity > 0) || builder->kind != maniKindSkeleton)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return mani_errorInvalid;
     }
     if (countOut != NULL)

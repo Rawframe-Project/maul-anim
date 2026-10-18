@@ -14,6 +14,7 @@
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_units.h"
+#include "host_code.h"
 
 #include "maul-anim/import.h"
 
@@ -58,6 +59,10 @@ static maniImportResult Open(maniFbx* fbx)
 
 maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (fbxOut != NULL)
     {
         *fbxOut = NULL;
@@ -68,7 +73,7 @@ maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t siz
     }
     if (bytes == NULL || fbxOut == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
     }
     maniFbx* fbx = maniAllocate(&builder->allocator, 1, sizeof(maniFbx), 8);
@@ -92,7 +97,9 @@ maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t siz
 
 void maniCloseFbx(maniFbx* fbx)
 {
-    if (fbx == NULL)
+    // A close from the builder's allocator, which the document shares, is
+    // refused and counted on the builder (mani-0028).
+    if (fbx == NULL || maniHostAllocatorCalledBack(&fbx->allocator))
     {
         return;
     }

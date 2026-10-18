@@ -249,6 +249,10 @@ static void Iterate(maniLearnedTrainer* t)
 maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations,
                             maniLearnedTrainerReport* reportOut)
 {
+    if (trainer != NULL && maniHostCalledBack(&trainer->host))
+    {
+        return mani_errorState;
+    }
     if (trainer == NULL || reportOut == NULL)
     {
         return mani_errorInvalid;
@@ -300,13 +304,17 @@ maniBuildResult maniBuildLearnedModelFromTrainer(maniBuilder* builder,
                                                  const maniLearnedTrainer* trainer,
                                                  maniLearnedWeights weightFormat)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
     if (trainer == NULL || trainer->stage < trainer->stageCount)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
     const maniLearnedTrainer* t = trainer;

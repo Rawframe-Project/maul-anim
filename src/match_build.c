@@ -516,6 +516,10 @@ static maniBuildResult Build(maniBuilder* builder, Work* w)
 maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
                                         const maniMotionDatabaseSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
@@ -529,7 +533,7 @@ maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
     }
     if (!lists || source->skeleton == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     Totals totals = {0, 0, 0, 0};

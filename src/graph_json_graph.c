@@ -942,6 +942,10 @@ static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out
 maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
                                    const maniGraphNamedAssets* assets)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
@@ -952,7 +956,7 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
         (a->models == NULL && a->modelCount > 0) ||
         (a->springSets == NULL && a->springSetCount > 0))
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
     maniJson json;

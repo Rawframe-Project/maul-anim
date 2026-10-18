@@ -9,6 +9,7 @@
 // per-vertex blend weights (BlendIndexes, BlendWeights) for the method.
 
 #include "arena.h"
+#include "builder.h"
 #include "fbx_document.h"
 #include "fbx_object.h"
 #include "fbx_skin.h"
@@ -350,6 +351,10 @@ static maniImportResult BuildInfluences(maniBuilder* builder, Read* r, const man
 maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
                                         const maniSkin* built)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (builder == NULL || fbx == NULL || built == NULL || skin >= fbx->skinCount)
     {
         return Invalid();

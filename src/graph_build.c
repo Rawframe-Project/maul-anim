@@ -810,13 +810,17 @@ static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* sour
 
 maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Outcome(mani_errorInvalid);
     }
     if (source == NULL || source->skeleton == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Outcome(mani_errorInvalid);
     }
     maniGraphFlat flat;

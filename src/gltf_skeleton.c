@@ -171,7 +171,7 @@ static bool Usable(maniBuilder* builder, const maniGltf* gltf, const maniGltfOpt
     }
     if (gltf == NULL || options == NULL || !maniGltfOptionsValid(options) || !inRange)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return false;
     }
     return true;
@@ -180,6 +180,10 @@ static bool Usable(maniBuilder* builder, const maniGltf* gltf, const maniGltfOpt
 maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* gltf,
                                        uint32_t skeleton, const maniGltfOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (!Usable(builder, gltf, options, gltf != NULL && skeleton < gltf->skeletonCount))
     {
         return Invalid();
@@ -199,6 +203,10 @@ maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* glt
 maniImportResult maniGltfBuildNodeSkeleton(maniBuilder* builder, const maniGltf* gltf,
                                            uint32_t node, const maniGltfOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (!Usable(builder, gltf, options, gltf != NULL && node < gltf->nodeCount))
     {
         return Invalid();
@@ -290,6 +298,10 @@ static maniImportResult ReadInverseBinds(const maniGltf* gltf, uint32_t skin,
 maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin,
                                    const maniSkeleton* skeleton, const maniGltfOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (!Usable(builder, gltf, options, gltf != NULL && skin < gltf->skinCount && skeleton != NULL))
     {
         return Invalid();

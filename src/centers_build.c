@@ -347,6 +347,10 @@ static maniBuildResult Write(maniBuilder* builder, const maniInfluences* v, cons
 
 maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);
@@ -354,7 +358,7 @@ maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* s
     if (source == NULL || source->influences == NULL || source->positions == NULL ||
         (source->triangles == NULL && source->triangleCount > 0))
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);
     }
     maniBuildResult r = Check(source);

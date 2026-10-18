@@ -369,6 +369,10 @@ static Build NewBuild(const maniFbx* fbx, const maniFbxOptions* options, uint32_
 maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
                                       const maniFbxOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     bool usable =
         maniFbxUsable(builder, fbx, options, fbx != NULL && skeleton < fbx->skeletonCount);
     // fbx is not NULL when usable; said again for the analyzer.
@@ -412,6 +416,10 @@ static void MarkSubtree(Build* b)
 maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
                                            const maniFbxOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     bool usable = maniFbxUsable(builder, fbx, options, fbx != NULL && model < fbx->modelCount);
     // fbx is not NULL when usable; said again for the analyzer.
     if (!usable || fbx == NULL)

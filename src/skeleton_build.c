@@ -398,13 +398,17 @@ static maniBuildResult Build(maniBuilder* builder, const maniSkeletonSource* sou
 
 maniBuildResult maniBuildSkeleton(maniBuilder* builder, const maniSkeletonSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Outcome(mani_errorInvalid);
     }
     if (source == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Outcome(mani_errorInvalid);
     }
     maniBuildResult result = CheckBones(source);

@@ -15,6 +15,7 @@
 #include "gltf_names.h"
 #include "gltf_node.h"
 #include "gltf_property.h"
+#include "host_code.h"
 #include "json.h"
 
 #include "maul-anim/import.h"
@@ -251,6 +252,10 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
 maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t size,
                               maniGltf** gltfOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     if (gltfOut != NULL)
     {
         *gltfOut = NULL;
@@ -261,7 +266,7 @@ maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t si
     }
     if (bytes == NULL || gltfOut == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
     }
     maniGltf* gltf = maniAllocate(&builder->allocator, 1, sizeof(maniGltf), 8);
@@ -283,7 +288,9 @@ maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t si
 
 void maniCloseGltf(maniGltf* gltf)
 {
-    if (gltf == NULL)
+    // A close from the builder's allocator, which the document shares, is
+    // refused and counted on the builder (mani-0028).
+    if (gltf == NULL || maniHostAllocatorCalledBack(&gltf->allocator))
     {
         return;
     }

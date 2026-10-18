@@ -63,12 +63,12 @@ Makes a builder from a def.  @param def        The def. @param builderOut Receiv
 ```c
 void maniDestroyBuilder(maniBuilder* builder);
 ```
-Destroys a builder and the file it holds.  @param builder  The builder, or NULL. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+Destroys a builder and the file it holds. Called back in from the builder's allocator it destroys nothing and counts one misuse.  @param builder  The builder, or NULL. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
 uint32_t maniBuilderMisuses(const maniBuilder* builder);
 ```
-Returns how many calls on the builder were refused for invalid arguments (conventions section 8).  @param builder  The builder. @return The count. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+Returns how many calls on the builder were refused for invalid arguments (conventions section 8) or as calls back in from its allocator (mani-0028).  @param builder  The builder. @return The count. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ```c
 MANI_NODISCARD MANI_API maniBuildResult maniBuildSkeleton(maniBuilder* builder, const maniSkeletonSource* source);
@@ -868,7 +868,12 @@ Makes a trainer: checks the def and source, and samples the training data from t
 ```c
 void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer);
 ```
-Destroys a trainer.  @param trainer  The trainer, or NULL. @par Thread safety Safe from any thread; the trainer is used by one thread at a time.
+Destroys a trainer. Called back in from the trainer's allocator or task hooks it destroys nothing and counts one misuse (mani-0028).  @param trainer  The trainer, or NULL. @par Thread safety Safe from any thread; the trainer is used by one thread at a time.
+
+```c
+uint32_t maniLearnedTrainerMisuses(const maniLearnedTrainer* trainer);
+```
+The misuses counted on a trainer: calls back in from its allocator or task hooks, which are refused with mani_errorState (mani-0028).  @param trainer  A trainer, or NULL (0). @return The count. @par Thread safety Safe from any thread.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations, maniLearnedTrainerReport* reportOut);
@@ -1441,4 +1446,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-271 functions across 21 headers.
+272 functions across 21 headers.

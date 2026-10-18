@@ -559,6 +559,10 @@ maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
                             const maniSkeleton* skeleton, const maniCompressOptions* options,
                             maniCompressReport* reportOut)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return mani_errorState;
+    }
     if (builder == NULL)
     {
         return mani_errorInvalid;
@@ -568,7 +572,7 @@ maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
         clip->skeletonBoneCount != maniSkeletonBoneCount(skeleton) ||
         !OptionsValid(options, clip->skeletonBoneCount, clip->floatTrackCount))
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return mani_errorInvalid;
     }
     uint32_t subs = 3 * clip->trackCount + clip->floatTrackCount;

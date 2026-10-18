@@ -215,6 +215,10 @@ static bool Apply(maniLearnedTrainer* t, const Progress* p)
 maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const void* bytes,
                                             size_t size)
 {
+    if (trainer != NULL && maniHostCalledBack(&trainer->host))
+    {
+        return (maniFileResult){mani_errorState, 0, 0};
+    }
     if (trainer == NULL || bytes == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};

@@ -912,6 +912,10 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
 
 maniBuildResult maniWriteGraphJson(maniBuilder* builder, const maniGraphSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result != mani_success)
     {

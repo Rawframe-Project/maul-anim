@@ -372,13 +372,17 @@ static maniBuildResult Write(maniBuilder* builder, const maniRagdollSource* s, W
 
 maniBuildResult maniBuildRagdoll(maniBuilder* builder, const maniRagdollSource* source)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     if (source == NULL || source->skeleton == NULL || source->bodies == NULL)
     {
-        ++builder->misuses;
+        maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
     uint32_t bones = maniSkeletonBoneCount(source->skeleton);

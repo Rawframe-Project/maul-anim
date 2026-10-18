@@ -13,6 +13,7 @@
 
 #include "allocator.h"
 #include "basis.h"
+#include "builder.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
 #include "fbx_object.h"
@@ -472,6 +473,10 @@ static maniImportResult Build(maniBuilder* builder, Skin* s, const maniSkeleton*
 maniImportResult maniFbxBuildSkin(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
                                   const maniSkeleton* skeleton, const maniFbxOptions* options)
 {
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+    }
     bool usable = maniFbxUsable(builder, fbx, options,
                                 fbx != NULL && skin < fbx->skinCount && skeleton != NULL);
     // fbx is not NULL when usable; said again for the analyzer.

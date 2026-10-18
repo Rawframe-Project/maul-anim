@@ -10,6 +10,7 @@
 #ifndef MAUL_ANIM_SRC_LEARNED_TRAIN_H
 #define MAUL_ANIM_SRC_LEARNED_TRAIN_H
 
+#include "host_code.h"
 #include "train_data.h"
 #include "train_decompress.h"
 #include "train_net.h"
@@ -37,8 +38,12 @@ typedef struct maniTrainKept
 
 struct maniLearnedTrainer
 {
+    // The allocator and task hooks the training uses: the host's, the
+    // trainer marked while they run (mani-0028).
     maniAllocator allocator;
     maniTaskHooks tasks;
+    // The host's allocator and hooks, the mark and the misuses.
+    maniHostCode host;
     maniLearnedTrainerSource source;
     maniTrainData data;
     uint64_t signature;
