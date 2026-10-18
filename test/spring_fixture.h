@@ -114,6 +114,10 @@ static const maniVec3 kBall = {0.35f, 0.65f, 0.0f};
 static const float kBallRadius = 0.15f;
 static const float kFloor = 0.7f;
 static const float kShell = 0.6f;
+// Far spheres a set may list before the ball in its group, past the
+// colliders an apply makes once for a spring's joints.
+#define kCrowd 17u
+static bool s_crowd = false;
 
 static inline void MakeSet(const Config* c)
 {
@@ -136,17 +140,28 @@ static inline void MakeSet(const Config* c)
                                             .limitYaw = c->yaw,
                                             .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
     }
-    const maniColliderSource colliders[3] = {
+    maniColliderSource colliders[3 + kCrowd] = {
         {s_b[0], maniColliderSphere, {kBall.x, kBall.y - 1.0f, 0.0f}, {0, 0, 0}, kBallRadius, 0},
         {s_b[0], maniColliderPlane, {0.0f, kFloor - 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, 0.0f, 0},
         {s_b[0], maniColliderSphere, {0.0f, 0.0f, 0.0f}, {0, 0, 0}, kShell, 1}};
-    const uint32_t members[3] = {0, 1, 2};
+    // The ball's group: the ball alone, or with s_crowd the far spheres
+    // before it.
+    uint32_t members[3 + kCrowd + 1] = {0, 1, 2};
+    for (uint32_t k = 0; k < kCrowd; ++k)
+    {
+        colliders[3 + k] = (maniColliderSource){
+            s_b[0], maniColliderSphere, {0.0f, -10.0f, (float)k}, {0, 0, 0}, 0.01f, 0};
+        members[3 + k] = 3 + k;
+    }
+    members[3 + kCrowd] = 0;
     const maniColliderGroupSource groups[3] = {
-        {"ball", 4, 1, &members[0]}, {"floor", 5, 1, &members[1]}, {"shell", 5, 1, &members[2]}};
+        {"ball", 4, s_crowd ? kCrowd + 1 : 1, s_crowd ? &members[3] : &members[0]},
+        {"floor", 5, 1, &members[1]},
+        {"shell", 5, 1, &members[2]}};
     uint32_t chosen[1] = {c->collider != 0 ? c->collider - 1 : 0};
     maniSpringSource spring = {"chain",  5, 3, joints, chosen, c->collider != 0 ? 1u : 0u,
                                c->center};
-    maniSpringSetSource source = {&s_skeleton, colliders, groups, &spring, 3,
+    maniSpringSetSource source = {&s_skeleton, colliders, groups, &spring, s_crowd ? 3 + kCrowd : 3,
                                   3,           1,         0.0f,   c->rate, 0};
     size_t size = 0;
     CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success &&

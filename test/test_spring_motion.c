@@ -624,6 +624,20 @@ static void TestBetweenSteps(void)
                       0.0f,
                       0.0f});
     CHECK(Crossing(0.5f) < 3e-3f && Crossing(2.0f) < 3e-3f, "tails between steps out of the ball");
+    // The ball the 18th of its spring's colliders.
+    s_crowd = true;
+    MakeSet(&(Config){0.5f,
+                      1.0f,
+                      0.2f,
+                      maniSpringLimitNone,
+                      0.0f,
+                      MANI_NO_BONE,
+                      1,
+                      {0.0f, 0.0f, 0.0f},
+                      0.0f,
+                      0.0f});
+    s_crowd = false;
+    CHECK(Crossing(2.0f) < 3e-3f, "and out of a ball past a spring's first colliders");
 }
 
 static void TestLyingMoving(void)
