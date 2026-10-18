@@ -264,10 +264,12 @@ extern "C"
     /// root body's facing axis (out of the chest) points along the
     /// normal or across it. The heading is the root body's up axis
     /// (toward the head) on the ground's plane, reversed face up, plus
-    /// its facing axis on the plane, so the character stands looking
-    /// where its head lay face down and toward its feet face up, and
-    /// where its chest faces upright; when that sum is shorter than a
-    /// thousandth, the longer of the two. The placement stands on the
+    /// its facing axis on the plane weighed by how upright the up axis
+    /// stands (its component along the normal), so the character stands
+    /// looking where its head lay face down and toward its feet face up
+    /// (on its back, front or side), and where its chest faces upright;
+    /// when that sum is shorter than a thousandth (the two cancel, the
+    /// body inverted), the head's way alone. The placement stands on the
     /// plane under the root body, its model up along the normal and its
     /// model forward along the heading, scale 1. A pose from the bodies
     /// under it (maniRagdollPoseFromBodies) is the ragdoll in the

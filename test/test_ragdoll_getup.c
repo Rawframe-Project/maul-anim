@@ -7,7 +7,9 @@
 // the head lay) and face up (toward the feet), and face up turned a
 // quarter and a half (opposite the model's forward); the
 // body turned about its side from -130 to 130 degrees looking the same
-// way throughout; inverted at 135 degrees, where the sum vanishes; other
+// way throughout; inverted at 135 degrees and at 142, where the weighed
+// sum vanishes; on its side and rolled either way; exactly opposite the
+// model's forward; other
 // model axes; a tilted ground; a pose from bodies under the placement
 // placing the bodies back; the refusals.
 
@@ -142,7 +144,44 @@ static void TestSweep(void)
     Lie((maniVec3){0.0f, 0.3f, 0.0f}, Turn(kX, 2.3561945f));
     maniRagdollGetUp up = GetUp(&kGround);
     CHECK(!up.faceUp && Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, kZ),
-          "inverted at 135 degrees: the head's projection");
+          "inverted at 135 degrees: still the head's way");
+    // About 142 degrees, sin t = cos^2 t: the weighted sum vanishes and
+    // the longer projection (the head's) is taken.
+    Lie((maniVec3){0.0f, 0.3f, 0.0f}, Turn(kX, 2.4753533f));
+    up = GetUp(&kGround);
+    CHECK(!up.faceUp && Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, kZ),
+          "inverted at 142 degrees: the head's projection");
+}
+
+// On its side (turned a quarter about z: the head at -x, the chest
+// facing +z, across the normal): face up by the tie and looking toward
+// the feet, as ALS has it; rolled a little forward, face down and
+// looking where the head lies; a little back, face up again.
+static void TestSide(void)
+{
+    static const struct
+    {
+        float roll;
+        bool faceUp;
+        float x;
+        const char* what;
+    } kCases[3] = {{0.0f, true, 1.0f, "on its side: toward the feet"},
+                   {0.17f, false, -1.0f, "rolled forward: where the head lies"},
+                   {-0.17f, true, 1.0f, "rolled back: toward the feet"}};
+    for (int k = 0; k < 3; ++k)
+    {
+        Lie((maniVec3){0.0f, 0.3f, 0.0f}, Mul(Turn(kX, kCases[k].roll), Turn(kZ, 1.5707964f)));
+        maniRagdollGetUp up = GetUp(&kGround);
+        CHECK(up.faceUp == kCases[k].faceUp &&
+                  Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, (maniVec3){kCases[k].x, 0.0f, 0.0f}),
+              kCases[k].what);
+    }
+    // Face up with the head exactly at +z (half a turn about (0, 1, 1)):
+    // the heading exactly opposite the model's forward.
+    Lie((maniVec3){0.0f, 0.3f, 0.0f}, (maniQuat){0.0f, 0.70710677f, 0.70710677f, 0.0f});
+    maniRagdollGetUp up = GetUp(&kGround);
+    CHECK(up.faceUp && Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, (maniVec3){0.0f, 0.0f, -1.0f}),
+          "exactly opposite the model's forward: half a turn about the normal");
 }
 
 // Unreal's model axes (+x forward, +z up) in the Y-up world; a ground
@@ -260,6 +299,7 @@ int main(void)
     TestUpright();
     TestLying();
     TestSweep();
+    TestSide();
     TestFrames();
     TestRoundTrip();
     TestRefusals();

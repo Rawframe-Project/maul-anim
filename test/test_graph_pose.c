@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Pose parameters (mani-0027): the rest pose until set; a pose set and
+// Pose parameters (mani-0027): the rest pose until set, their bytes set
+// aside in the instance; a pose set and
 // read back, the other pose parameter untouched; a parameter of another
 // type, past the count, a difference or another skeleton's pose refused;
 // the value calls refusing the type; the saved state holding each pose
@@ -88,6 +89,12 @@ static void TestSetAndGet(void)
     maniGraph g;
     maniGraphInstance* instance = PoseGraph(&g);
     CHECK(AtRest(instance, 1) && AtRest(instance, 3), "the rest pose until set");
+    // Two poses of one group of bones each, between the machines' blocks
+    // and the room, inside the instance.
+    CHECK(instance->roomAt - instance->posesAt ==
+                  2 * MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS * sizeof(float) &&
+              instance->posesAt >= instance->machinesAt && instance->size >= instance->roomAt,
+          "the poses' bytes set aside before the room");
     MovePose();
     CHECK(maniSetGraphPose(instance, 1, s_pose) == mani_success, "set");
     CHECK(AsMoved(instance, 1) && AtRest(instance, 3), "read back, the other untouched");

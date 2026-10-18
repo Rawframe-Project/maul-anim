@@ -84,12 +84,16 @@ drives with stiffness, damping and a largest force.
   along the normal or across it (ties face up, as Advanced Locomotion
   System's roll test). The heading is the root body's up axis (toward
   the head) on the ground's plane, reversed face up, plus the facing on
-  the plane: lying, the character stands looking where its head lay
-  (face down) or toward its feet (face up), as Advanced Locomotion
-  System's yaw (the pelvis's, less 180 degrees face up); upright, where
-  its chest faces. The sum is continuous through upright, where one
-  axis's yaw is undefined; it vanishes only inverted at 135 degrees,
-  where the longer projection is taken. The placement stands on the
+  the plane weighed by how upright the up axis stands (its component
+  along the normal): lying on its back, front or side, the character
+  stands looking where its head lay (face down) or toward its feet
+  (face up), exactly Advanced Locomotion System's yaw (the pelvis's,
+  less 180 degrees face up); upright, where its chest faces. The sum is
+  continuous through upright, where one axis's yaw is undefined; it
+  vanishes only inverted at about 142 degrees, its terms equal and
+  opposite, where the head's projection is taken. (The unweighed sum,
+  first built, headed 45 degrees off on a side; mutation testing found
+  it.) The placement stands on the
   plane under the root body, model up on the normal, model forward on
   the heading, scale 1; a pose from bodies under it is the pose a
   get-up clip is blended from.

@@ -306,7 +306,7 @@ static maniImportResult ReadDrives(const maniGltfRagdollReader* r, uint32_t sett
                                    maniRagdollJointSource* j)
 {
     const maniJson* json = &r->gltf->json;
-    Drive drives[AXES];
+    Drive drives[AXES] = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     uint32_t mask = 0;
     uint32_t array = MANI_JSON_NONE;
     maniImportResult result =

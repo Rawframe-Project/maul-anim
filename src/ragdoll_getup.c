@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Getting up from a ragdoll (mani-0027): face up or down from the root
-// body's facing along the ground's normal; the heading from its up and
-// facing axes on the ground's plane; the placement on the plane under
-// the root body, the character's model axes turned onto the normal and
-// the heading.
+// body's facing along the ground's normal; the heading from its up axis
+// on the ground's plane and its facing, weighed by how upright the body
+// stands; the placement on the plane under the root body, the
+// character's model axes turned onto the normal and the heading.
 
 #include "vecmath.h"
 
@@ -91,13 +91,16 @@ maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll, const maniRagdo
     maniQuat r = maniQuatNormalize(root->rotation);
     maniVec3 chest = maniQuatRotate(r, ragdoll->facing);
     bool faceUp = maniVec3Dot(chest, n) >= 0.0f;
-    maniVec3 head = OnPlane(maniQuatRotate(r, ragdoll->up), n);
+    maniVec3 up = maniQuatRotate(r, ragdoll->up);
+    maniVec3 head = OnPlane(up, n);
     head = faceUp ? maniVec3Scale(head, -1.0f) : head;
-    chest = OnPlane(chest, n);
+    // The chest's say as much as the body stands: none lying, all upright.
+    chest = maniVec3Scale(OnPlane(chest, n), fabsf(maniVec3Dot(up, n)));
     maniVec3 heading = maniVec3Add(head, chest);
     if (maniVec3Dot(heading, heading) < 1e-6f)
     {
-        heading = maniVec3Dot(head, head) >= maniVec3Dot(chest, chest) ? head : chest;
+        // The two cancel, equal and opposite: the head's way, as ALS's.
+        heading = maniVec3Dot(head, head) >= 1e-6f ? head : chest;
     }
     heading = maniVec3Normalize(heading, heading);
     // The model up onto the normal, then about the normal the model

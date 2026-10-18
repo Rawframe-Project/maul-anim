@@ -296,6 +296,14 @@ static const Refusal kRefusals[] = {
      ",{\"type\":\"angular\",\"mode\":\"force\",\"axis\":2,\"stiffness\":50,\"damping\":5,"
      "\"maxForce\":100,\"velocityTarget\":0}",
      "", maniImportReasonUnsupported, "[{\"type\":\"angular\"", "drives on two axes only"},
+    {"\"drives\"",
+     "\"stiffness\":50,\"damping\":5,\"maxForce\":100},{\"type\":\"angular\",\"mode\":\"force\","
+     "\"axis\":1,\"stiffness\":50,\"damping\":5,\"maxForce\":100,\"positionTarget\":0},"
+     "{\"type\":\"angular\",\"mode\":\"force\",\"axis\":2,\"stiffness\":50,\"damping\":5,"
+     "\"maxForce\":100,\"velocityTarget\":0}",
+     "\"stiffness\":0,\"damping\":0,\"maxForce\":0},{\"type\":\"angular\",\"mode\":\"force\","
+     "\"axis\":1,\"stiffness\":0,\"damping\":0,\"maxForce\":0}",
+     maniImportReasonUnsupported, "[{\"type\":\"angular\"", "zero drives on two axes only"},
     {"\"headBody\"", "\"scale\":[2,2,2]", "\"scale\":[2,1,2]", maniImportReasonUnsupported,
      "{\"shape\":2}", "a collider scaled unevenly"},
     {"\"chestJoint\"", "[0,-0.3,0]", "[0,-0.2,0]", maniImportReasonUnsupported, "{\"joint\":0",
