@@ -140,6 +140,13 @@ maniQuat maniIkInParent(maniQuat q, const maniIkFrame* parent)
     return Mirrored(parent) ? (maniQuat){r.x, -r.y, -r.z, r.w} : r;
 }
 
+maniQuat maniIkFromParent(maniQuat c, const maniIkFrame* parent)
+{
+    maniQuat p = maniIkRotation(parent);
+    c = Mirrored(parent) ? (maniQuat){c.x, -c.y, -c.z, c.w} : c;
+    return maniQuatMul(maniQuatMul(p, c), maniQuatConjugate(p));
+}
+
 // The turn by the angle whose cosine and sine are c and s (any common
 // scale) about unit axis u: the half angle's sine from the sine where
 // the cosine is positive, from the cosine elsewhere, so neither small nor

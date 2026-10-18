@@ -46,6 +46,20 @@ MANI_NODISCARD MANI_API maniResult maniAddPoses(const maniSkeleton* skeleton, ma
 ```
 Applies differences to a pose in order, each bone at its layer weight times its bone weight (both 0 to 1): `t + w d_t`, `r nlerp(1, d_r, w)` (the difference's turn taken the short way), `s (1 + w (d_s - 1))` per axis, a factor between 1 and `d_s`.  @param skeleton  The poses' skeleton. @param pose      A pose of the skeleton, changed in place. @param layers    count layers, each a difference. @param count     The number of layers. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a pose of another skeleton, a difference as the pose, a layer not a difference, or a weight outside 0 to 1 (the pose unchanged). @par Thread safety Safe from any thread; the pose is used by one thread at a time.
 
+## `bodyik.h`
+
+Full-body inverse kinematics (mani-0031): a part of a skeleton, every bone on a path from a top bone to one of several effectors, bent so the effectors reach their goals, within per-bone stiffness and limits. One description, two solvers over it: position-based rigid bodies with XPBD compliance (fast, stiffness meaning the same at any iteration count as the solve converges) and selectively damped least squares (Buss and Kim; every effector in one least-squares step, no damping constant). Both start from the input pose on every call and keep nothing between calls; the caller lends the scratch memory. As the other solvers (ik.h), they read the pose's locals, compose the model frames of the bones they need, write the locals of the bones they move and leave the model stale. Goals are in the model space of the pose; angles and axes fixed to a bone are in its parent's frame unless stated.
+
+```c
+size_t maniBodyIkScratchSize(const maniSkeleton* skeleton, const maniBodySolve* solve);
+```
+Returns the bytes of scratch memory a full-body solve needs, by either solver.  @param skeleton  The skeleton, or NULL. @param solve     The solve, or NULL. @return The size; 0 for NULL or a solve maniSolveBodyXpbd refuses. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton, const maniBodySolve* solve, void* scratch, size_t scratchSize, bool* reachedOut);
+```
+Bends the solved part of a pose toward its effectors' goals as rigid bodies (Müller et al.'s positional and angular corrections with XPBD compliance): each bone a body whose resistance to turning comes from its rotation stiffness, each joint holding a child's origin at its place in the parent (softly by position stiffness with stretch), each effector pulling its bone's origin and rotation by its strength, then limits; one Gauss-Seidel pass an iteration in a fixed order (effectors by index, joints from the tips up, stiffness, limits). Preferred angles, pull chains and pre-pull act first. The bones' rotations come from the bodies; their translations stay the input's unless stretching. Stops early once every effector lies within the tolerance. Strength and stiffness set the pose the passes converge to (XPBD's compliance means the same whatever the count only as the solve converges); short of convergence they have acted less, so the result changes with the iteration count.  @param pose         A pose of the skeleton (not a difference); the solved part's locals are written. @param skeleton     Its skeleton. @param solve        The solve. @param scratch      Scratch memory, 16-byte aligned. @param scratchSize  Its size: at least maniBodyIkScratchSize. @param reachedOut   Receives whether every effector lies within the tolerance of its goal at full weight; may be NULL. @return `mani_success`; `mani_errorInvalid` for a NULL pose, skeleton, solve or scratch, a pose of another skeleton or a difference, a top or bone out of range, an effector not the top or below it, a bone twice among the effectors or the settings, a setting's bone off the solved part, counts out of range, a solved part past MANI_BODY_IK_MAX_BONES, a goal, rotation or preferred angle not finite, a rotation of length 0, a limit of an unknown kind or out of range, a weight, strength, pull chain or stiffness outside [0, 1], a tolerance below 0 or not finite, a top mode unknown, misaligned or too little scratch. @par Thread safety Safe from any thread; the pose and the scratch are used by one thread at a time.
+
 ## `build.h`
 
 The offline side: a builder turns source data into the library's files (mani-0003), which it keeps until the next build for a copy into caller memory. A builder allocates through the allocator of its def and is built only when MAUL_ANIM_OFFLINE is on.
@@ -1470,4 +1484,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-276 functions across 22 headers.
+278 functions across 23 headers.

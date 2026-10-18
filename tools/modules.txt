@@ -64,6 +64,8 @@ ik_limit: scalar vecmath
 ik_chain: ik_frame ik_limit vecmath
 ik_ccd: ik_chain ik_frame scalar vecmath
 ik_fabrik: ik_chain ik_frame vecmath
+body_ik: ik_frame ik_limit vecmath
+body_xpbd: body_ik vecmath
 graph_chain: bytes graph_file ik_limit
 ragdoll_getup: vecmath
 ragdoll_build: allocator builder bytes container decompose ragdoll_file text vecmath

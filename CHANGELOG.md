@@ -30,6 +30,11 @@ format.
 - Chain IK graph nodes (mani-0030): CCD and FABRIK nodes solve their
   input pose toward vec3 goal and pole parameters and a quat rotation
   for the end, with limits per bone, in files, JSON and subgraphs.
+- Full-body IK (mani-0031): `maniSolveBodyXpbd` bends every bone on
+  the paths from a top bone to up to 32 effectors as rigid bodies with
+  XPBD compliance: effector strength, rotation and position stiffness,
+  limits, preferred angles, pull chains, a pinned, free or pre-pulled
+  top, optional stretch, in caller scratch (`maniBodyIkScratchSize`).
 - IK graph nodes (mani-0029): two-bone and aim nodes solve their input
   pose toward vec3 goal and pole parameters, their twist, soften, cone
   and weight numbers or float parameters, in files, JSON and subgraphs.

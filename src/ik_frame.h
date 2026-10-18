@@ -60,6 +60,10 @@ maniQuat maniIkRotation(const maniIkFrame* f);
 // parent.
 maniQuat maniIkInParent(maniQuat q, const maniIkFrame* parent);
 
+// The model-space turn a local correction under its parent's model
+// frame makes: maniIkInParent undone, P c P*.
+maniQuat maniIkFromParent(maniQuat c, const maniIkFrame* parent);
+
 // The turn about unit axis u by the angle of cosine c and sine s (any
 // common scale), without losing digits at small or near-half turns.
 maniQuat maniIkHalf(maniVec3 u, float c, float s);
