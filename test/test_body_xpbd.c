@@ -32,8 +32,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_XPBD_HASH    0x5a53c9fc1d9f9338ull
-#define PINNED_STRETCH_HASH 0x93daaf7ec7c39085ull
+#define PINNED_XPBD_HASH    0x72e28de6487494d9ull
+#define PINNED_STRETCH_HASH 0xe053c588a138683aull
 
 static void TestReach(void)
 {
@@ -66,9 +66,11 @@ static void TestWeights(void)
     s.weight = 1.0f;
     s_effectors[0].strength = 0.0f;
     s_effectors[1].strength = 0.0f;
+    s_effectors[1].rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, 1.0f);
+    s_effectors[1].rotationWeight = 1.0f;
     bool r = true;
     CHECK(Solved(s_pose, &s, &r) && !r && Same(s_pose, s_other),
-          "strength 0 pulls nothing, unreached");
+          "strength 0 pulls nothing, nor turns, unreached");
 }
 
 static void TestLockAndLimit(void)
@@ -217,9 +219,16 @@ static void TestStiffness(void)
 static void TestReachedAndWeights(void)
 {
     Bent(s_pose);
+    // The trunk locked, so the right hand reaches whatever the left does.
     maniBodySolve s = Solve((maniVec3){1.8f, 1.5f, 0.2f}, (maniVec3){-0.5f, 1.6f, 0.2f});
+    maniBodyBone trunk[2] = {{.bone = kSpine, .rotationStiffness = 1.0f},
+                             {.bone = kChest, .rotationStiffness = 1.0f}};
+    s.bones = trunk;
+    s.boneCount = 2;
     bool r = true;
-    CHECK(Solved(s_pose, &s, &r) && !r, "one hand out of reach: not reached");
+    CHECK(Solved(s_pose, &s, &r) && !r &&
+              Distance(At(s_pose, kHandR), s_effectors[1].position) <= 1e-3f,
+          "one hand out of reach, the other reached: not reached");
     Bent(s_pose);
     s = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
     s.weight = 0.5f;
@@ -359,13 +368,14 @@ static void TestPinned(void)
         s_effectors[1].strength = 0.8f;
         s_effectors[1].rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, -0.8f);
         s_effectors[1].rotationWeight = 0.5f;
-        maniBodyBone bones[2] = {
+        maniBodyBone bones[3] = {
             {.bone = kSpine, .rotationStiffness = 0.5f},
+            {.bone = kForeL, .rotationStiffness = 0.5f},
             {.bone = kForeR,
              .limit = {
                  .kind = maniJointLimitCone, .cone = 0.4f, .twistLow = -0.2f, .twistHigh = 0.2f}}};
         s.bones = bones;
-        s.boneCount = 2;
+        s.boneCount = 3;
         s.iterations = 16;
         s.tolerance = 0.0f;
         s.stretch = run > 0;
@@ -392,7 +402,9 @@ static void TestPinned(void)
     both[0].position = (maniVec3){0.5f, 0.5f, 0.5f};
     s.effectors = both;
     Bent(s_other);
-    CHECK(Solved(s_pose, &s, NULL) && Finite(s_pose), "an effector on the held top");
+    CHECK(Solved(s_pose, &s, NULL) && Finite(s_pose) &&
+              Distance(At(s_pose, kHandR), both[1].position) <= 1e-3f,
+          "an effector on the held top, the other still reached");
     maniTransform hips[2] = {maniPoseLocal(s_pose, kHips), maniPoseLocal(s_other, kHips)};
     CHECK(memcmp(&hips[0], &hips[1], sizeof hips[0]) == 0, "the held top unmoved");
 }

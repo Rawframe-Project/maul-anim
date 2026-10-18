@@ -56,8 +56,11 @@ move by the last step's progress.
   local rotation. Corrections are Müller et al.'s, turns taken whole by
   rotation vectors. Without stretch every origin is placed from the
   turns again after each pass, so what a correction moved without
-  turning is dropped and every length is exact. A locked bone takes its
-  parent's turn exactly at the end and keeps its local bits.
+  turning is dropped and every length is exact. After each pass a
+  locked bone takes its parent's turn exactly, so it stays rigid with
+  its parent through the passes (its hard stiffness alone splits each
+  correction with the bone above, which then turns within the pass),
+  and it keeps its local bits.
 - **Results:** each bone's local correction from its turn relative to
   its parent's, weighted from the identity as the other solvers';
   translations only for a moved top or stretched bones; "reached" is
@@ -70,13 +73,30 @@ move by the last step's progress.
 Tests on a figure of hips, spine, chest, two arms and a leg: two
 hands reached within 1e-3 with every length kept and the pinned top
 held; a solve on its own result unchanged bit for bit; weight 0 and
-strength 0 leaving the pose; a locked forearm keeping its local bits;
-a cone on a forearm held; a hand taking its goal rotation; for a goal
-out of reach, stretch, a free top and pre-pull each bringing the hand
-closer (pre-pull moving the top without turning it); a pulled chain
-starting closer after one pass; preferred angles choosing which way a
-straight leg folds; a stiff spine turning less than a free one; goals
+strength 0 (with a rotation goal too) leaving the pose; a locked
+forearm keeping its local bits, its hand reached where the pose puts
+it; with the trunk locked, one hand reached while the other is out of
+reach, and the solve not reached; a cone on a forearm held, limits
+wider than any turn changing no bit; a hand taking its goal rotation;
+for a goal out of reach, stretch, a free top and pre-pull each
+bringing the hand closer; stretching, a reached hand where the pose
+puts it, position stiffness 1 keeping lengths against a compliant
+effector; a free top at weight 0.5 moving exactly half as far; a
+position weight of 0.5 stopping halfway; a weaker effector stopping
+further against stiff bones; an effector on the held top leaving it,
+the other effector still reached; a solve short of convergence (every
+compliance, two stiff bones, a limit, a rotation weight) pinned bit for
+bit with and without stretch, the same again on reused scratch; goals
 at the top and nearly every bone locked without a NaN; every refusal.
+The steps before the passes, seen through solves of strength 0 (the
+passes then move nothing): a pulled chain aimed exactly at its goal
+from its first bone, its shape and the other arm kept, half a pull
+turning half the angle; preferred angles turning a bone by exactly its
+compression times its angles, and not at all for another limb's goal,
+a goal farther than the input or a locked bone; pre-pull leaving a top
+whose goal is in reach and moving one by exactly the excess past the
+reach; a branch bone's twist range unused; a part of 128 bones taken
+and one of 129 refused.
 
 On the tests' figure the two-hand solve's worse hand misses by 8.2e-2
 after 8 passes, 3.2e-3 after 32, 5.5e-5 after 64 and 1.2e-7 after 128,

@@ -159,12 +159,16 @@ static void TestPrePull(void)
 }
 
 // A cone on the chest (a branch, no axis) whose twist range leaves out
-// 0, goals where the hands are: the twist range is unused.
+// 0, goals just off the hands: the twist range is unused.
 static void TestBranchAxis(void)
 {
     Bent(s_pose);
     Bent(s_other);
-    maniBodySolve s = Solve(At(s_pose, kHandL), At(s_pose, kHandR));
+    maniVec3 left = At(s_pose, kHandL);
+    maniVec3 right = At(s_pose, kHandR);
+    // Goals just off the hands, so the passes (and the limits) run.
+    maniBodySolve s = Solve((maniVec3){left.x + 1e-3f, left.y, left.z},
+                            (maniVec3){right.x - 1e-3f, right.y, right.z});
     s.iterations = 4;
     s.tolerance = 0.0f;
     maniBodyBone chest = {

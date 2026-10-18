@@ -3111,6 +3111,8 @@ bik-miss-max | src/body_ik.c | worst = miss > worst ? miss : worst; | worst = mi
 bik-goal-weight | src/body_ik.c | goal->position = maniVec3Add(from, maniVec3Scale(maniVec3Sub(to, from), w)); | goal->position = to;
 bik-turn-below | src/body_ik.c | uint32_t end = k + 1 + part->nodes[k].below; | uint32_t end = k + 1;
 bik-comp-range | src/body_ik.c | if (goal->node <= k || goal->node > k + node->below) | if (goal->node <= k)
+# Kept: the most compression starts at 0, so a negative one (a goal
+# farther than the input) never counts.
 bik-comp-clamp | src/body_ik.c | c = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c); | c = c > 1.0f ? 1.0f : c;
 bik-pref-skip | src/body_ik.c | if (s == NULL || compression[k] == 0.0f || s->rotationStiffness >= 1.0f) | if (s == NULL || compression[k] == 0.0f)
 # Kept: a pull chain reaches a held top only when the top is the
@@ -3135,6 +3137,8 @@ bik-fin-weight | src/body_ik.c | maniVec3 d = maniVec3Scale(InParentVector(part,
 bxp-zero-joint | src/body_xpbd.c | b.joint[k] = 0.0f; | (void)0;
 bxp-zero-pull | src/body_xpbd.c | b.pull[e] = 0.0f; | (void)0;
 bxp-leaf | src/body_xpbd.c | b->inverseInertia[k] = part->nodes[k].children == 0 && square > b->inverseInertia[k] | b->inverseInertia[k] = false
+# Kept: the floor holds only for a bone of no length; either form keeps
+# its inertia finite, and how fast it turns no test can see.
 bxp-floor | src/body_xpbd.c | square = square > 0.01f * mean * mean ? square : 0.01f * mean * mean; | square = square > 0.0f ? square : 1.0f;
 bxp-held | src/body_xpbd.c | bool held = k == 0 && solve->topMode != maniBodyTopFree; | bool held = false;
 bxp-free-held | src/body_xpbd.c | bool held = k == 0 && solve->topMode != maniBodyTopFree; | bool held = k == 0;

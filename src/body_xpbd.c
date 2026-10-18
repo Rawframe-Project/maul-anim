@@ -9,13 +9,15 @@
 // joint, from the tips up, holds a child's origin at its place on the
 // parent (with stretch, compliance 1 - the child's position stiffness);
 // each stiff bone's rotation is held to its parent's with compliance
-// (1 - stiffness) / stiffness; then limits. One Gauss-Seidel pass an
-// iteration in that order, every multiplier from 0 each call. Turns are
-// taken whole by rotation vectors (Müller's linearized update is their
-// first order). Without stretch the joints are rigid, so after each
-// pass every origin is placed from the turns again: what a correction
-// moved without turning is dropped, and lengths are exact. A locked
-// bone takes its parent's turn exactly at the end.
+// (1 - stiffness) / stiffness; then limits; then each locked bone takes
+// its parent's turn exactly, so it stays rigid with its parent through
+// every pass (its hard stiffness alone splits a correction with the
+// bone above, which then turns within the pass). One Gauss-Seidel pass
+// an iteration in that order, every multiplier from 0 each call. Turns
+// are taken whole by rotation vectors (Müller's linearized update is
+// their first order). Without stretch the joints are rigid, so after
+// each pass every origin is placed from the turns again: what a
+// correction moved without turning is dropped, and lengths are exact.
 
 #include "body_ik.h"
 #include "vecmath.h"
@@ -278,15 +280,11 @@ maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
         {
             maniBodyLimit(&part, skeleton, solve, k);
         }
+        Lock(&part, solve);
         if (!solve->stretch)
         {
             maniBodyPlace(&part);
         }
-    }
-    Lock(&part, solve);
-    if (!solve->stretch)
-    {
-        maniBodyPlace(&part);
     }
     bool reached = maniBodyFinish(&part, pose, solve);
     if (reachedOut != NULL)
