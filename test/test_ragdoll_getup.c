@@ -4,7 +4,8 @@
 // Getting up from a ragdoll (mani-0027) on the fixture's profile (the
 // pelvis the root body, facing +z, up +y): upright (face up by the tie,
 // looking where the chest faces), turned; lying face down (looking where
-// the head lay) and face up (toward the feet), and face up turned; the
+// the head lay) and face up (toward the feet), and face up turned a
+// quarter and a half (opposite the model's forward); the
 // body turned about its side from -130 to 130 degrees looking the same
 // way throughout; inverted at 135 degrees, where the sum vanishes; other
 // model axes; a tilted ground; a pose from bodies under the placement
@@ -117,6 +118,10 @@ static void TestLying(void)
     up = GetUp(&kGround);
     CHECK(up.faceUp && Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, kX),
           "face up turned a quarter: the head at -x, looking along +x");
+    Lie((maniVec3){0.0f, 0.3f, 0.0f}, Mul(Turn(kY, 3.1415927f), Turn(kX, -1.5707964f)));
+    up = GetUp(&kGround);
+    CHECK(up.faceUp && Placed(up, (maniVec3){0.0f, 0.1f, 0.0f}, (maniVec3){0.0f, 0.0f, -1.0f}),
+          "face up, the head at +z: looking along -z, half a turn from the model's forward");
 }
 
 // Turned about its side from -130 to 130 degrees, the body looks along

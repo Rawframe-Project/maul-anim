@@ -4,7 +4,8 @@
 // The OMI physics extensions as a ragdoll source (mani-0027): a pelvis,
 // spine, chest and head skeleton with bodies on the pelvis (a box on a
 // turned child collider), the chest (a capsule on its own node) and the
-// head (a sphere on a node scaled by 2), joints from the chest to the
+// head (a sphere on a node turned a quarter about z and scaled by 2),
+// joints from the chest to the
 // pelvis (limited, driven) and from the head to the chest (a pin), and a
 // floor and a crate no bone holds, left out; frames, sizes, limits,
 // drives and the root's axes read; the source built; every refusal at
@@ -23,6 +24,7 @@
 #include "maul-anim/ragdoll.h"
 #include "maul-anim/skeleton.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -59,12 +61,14 @@ static const char kDocument[] =
     "{\"name\":\"chestJoint\",\"translation\":[0,-0.3,0],"
     "\"extensions\":{\"OMI_physics_joint\":{\"joint\":0,\"connectedNode\":12,"
     "\"enableCollision\":true}}},"
-    "{\"name\":\"headBody\",\"translation\":[0,0.1,0],\"scale\":[2,2,2],\"children\":[13],"
+    "{\"name\":\"headBody\",\"translation\":[0,0.1,0],\"rotation\":[0,0,0.70710677,0.70710677],"
+    "\"scale\":[2,2,2],\"children\":[13],"
     "\"extensions\":{\"OMI_physics_body\":{\"motion\":{\"type\":\"dynamic\",\"mass\":5},"
     "\"collider\":{\"shape\":2}}}},"
     "{\"name\":\"chestSide\",\"translation\":[0,0.2,0]},"
     "{\"name\":\"pelvisSide\",\"translation\":[0,0.25,0]},"
-    "{\"name\":\"headJoint\",\"translation\":[0,-0.05,0],"
+    "{\"name\":\"headJoint\",\"translation\":[-0.05,0,0],"
+    "\"rotation\":[0,0,-0.70710677,0.70710677],"
     "\"extensions\":{\"OMI_physics_joint\":{\"joint\":1,\"connectedNode\":11}}}"
     "],"
     "\"skins\":[{\"joints\":[0,1,2,3]}],"
@@ -166,8 +170,8 @@ static void TestRead(void)
           "the chest: a capsule");
     CHECK(head->shape == maniRagdollSphere && NearV(head->size, 0.2, 0.0, 0.0) &&
               NearV(head->frameTranslation, 0.0, 0.1, 0.0) &&
-              NearQ(head->frameRotation, 0.0, 0.0, 0.0, 1.0),
-          "the head: a sphere twice its radius, its frame rigid");
+              NearQ(head->frameRotation, 0.0, 0.0, 0.70710677, 0.70710677),
+          "the head: a sphere twice its radius, its frame rigid and turned");
     const maniRagdollJointSource* j = &chest->joint;
     CHECK(NearV(j->translation, 0.0, -0.3, 0.0) && NearQ(j->rotation, 0.0, 0.0, 0.0, 1.0) &&
               j->twistMin == -0.5f && j->twistMax == 0.7f && j->swingY == 0.4f && j->swingZ == 0.4f,
@@ -175,9 +179,11 @@ static void TestRead(void)
     CHECK(j->driveStiffness == 50.0f && j->driveDamping == 5.0f && j->driveMaxTorque == 100.0f,
           "its drive");
     j = &head->joint;
-    CHECK(NearV(j->translation, 0.0, -0.1, 0.0) && j->twistMin == -3.14159265f &&
-              j->twistMax == 3.14159265f && j->swingY == 3.14159265f && j->swingZ == 3.14159265f &&
-              j->driveStiffness == 0.0f && j->driveMaxTorque == 0.0f,
+    CHECK(NearV(j->translation, -0.1, 0.0, 0.0) &&
+              NearQ(j->rotation, 0.0, 0.0, -0.70710677, 0.70710677) &&
+              j->twistMin == -3.14159265f && j->twistMax == 3.14159265f &&
+              j->swingY == 3.14159265f && j->swingZ == 3.14159265f && j->driveStiffness == 0.0f &&
+              j->driveMaxTorque == 0.0f,
           "the head's pin: every angle free, no drive");
     CHECK(NearV(source.facing, -1.0, 0.0, 0.0) && NearV(source.up, 0.0, 1.0, 0.0),
           "facing and up in the pelvis body's turned frame");
@@ -273,6 +279,23 @@ static const Refusal kRefusals[] = {
      "0.12", "a tapered capsule"},
     {"\"radiusBottom\"", ",\"radiusTop\":0.1", "", maniImportReasonUnsupported, "0.1}",
      "a tapered capsule by the top's default"},
+    {"\"capsule\":{", "\"height\":0.2", "\"height\":-0.2", maniImportReasonProperty, "-0.2",
+     "a negative height"},
+    {"\"pelvisBody\"", "[0,0,0]", "[0,0]", maniImportReasonUnsupported, "[0,0]",
+     "a center of mass of two numbers"},
+    {"\"chestBody\"", "\"collider\":{\"shape\":1},", "", maniImportReasonUnsupported,
+     "{\"motion\":{\"type\":\"kinematic\"", "a body without a collider"},
+    {"\"chestSide\"", "\"translation\":[0,0.2,0]}",
+     "\"translation\":[0,0.2,0],\"extensions\":{\"OMI_physics_joint\":{\"joint\":1,"
+     "\"connectedNode\":13}}}",
+     maniImportReasonUnsupported, "{\"joint\":1,\"connectedNode\":11", "a second joint on a body"},
+    {"\"chestJoint\"", "\"translation\":[0,-0.3,0]",
+     "\"translation\":[0,-0.3,0],\"rotation\":[0,0,0.002,0.999998]", maniImportReasonUnsupported,
+     "{\"joint\":0", "a joint's sides turned apart at rest"},
+    {"\"drives\"",
+     ",{\"type\":\"angular\",\"mode\":\"force\",\"axis\":2,\"stiffness\":50,\"damping\":5,"
+     "\"maxForce\":100,\"velocityTarget\":0}",
+     "", maniImportReasonUnsupported, "[{\"type\":\"angular\"", "drives on two axes only"},
     {"\"headBody\"", "\"scale\":[2,2,2]", "\"scale\":[2,1,2]", maniImportReasonUnsupported,
      "{\"shape\":2}", "a collider scaled unevenly"},
     {"\"chestJoint\"", "[0,-0.3,0]", "[0,-0.2,0]", maniImportReasonUnsupported, "{\"joint\":0",
@@ -350,6 +373,60 @@ static void TestRefusals(void)
     }
 }
 
+// text with every `from` replaced by `to`, into out.
+static void ReplaceAll(const char* text, const char* from, const char* to, char* out,
+                       size_t capacity)
+{
+    size_t n = 0;
+    size_t length = strlen(from);
+    for (const char* at = text; *at != '\0' && n + 1 < capacity;)
+    {
+        if (strncmp(at, from, length) == 0)
+        {
+            n += (size_t)snprintf(out + n, capacity - n, "%s", to);
+            at += length;
+        }
+        else
+        {
+            out[n++] = *at++;
+        }
+    }
+    out[n < capacity ? n : capacity - 1] = '\0';
+}
+
+// The chest's drive with no largest force (the largest finite float),
+// and with stiffness and damping 0 (no drive at all).
+static void TestDriveValues(void)
+{
+    static const struct
+    {
+        const char* from;
+        const char* to;
+        float stiffness;
+        float maxTorque;
+        const char* what;
+    } kCases[2] = {{",\"maxForce\":100", "", 50.0f, FLT_MAX, "unbounded: the largest finite float"},
+                   {"\"stiffness\":50,\"damping\":5", "\"stiffness\":0,\"damping\":0", 0.0f, 0.0f,
+                    "stiffness and damping 0: no drive"}};
+    maniGltfOptions options = maniDefaultGltfOptions();
+    for (int k = 0; k < 2; ++k)
+    {
+        ReplaceAll(kDocument, kCases[k].from, kCases[k].to, s_variant, sizeof s_variant);
+        maniBuilder* builder = NewBuilder();
+        maniSkeleton skeleton;
+        maniGltf* gltf = Open(builder, s_variant, &options, &skeleton);
+        maniRagdollSource source;
+        bool read = maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
+                    mani_success;
+        const maniRagdollJointSource* j = read ? &source.bodies[1].joint : NULL;
+        CHECK(j != NULL && j->driveStiffness == kCases[k].stiffness &&
+                  j->driveMaxTorque == kCases[k].maxTorque,
+              kCases[k].what);
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
+}
+
 // Without the extensions: an empty source; a second read replaces the
 // first.
 static void TestNone(void)
@@ -393,6 +470,7 @@ int main(int argc, char** argv)
     TestRead();
     TestBasis();
     TestRefusals();
+    TestDriveValues();
     TestNone();
     return s_failures == 0 ? 0 : 1;
 }
