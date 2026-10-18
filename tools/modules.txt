@@ -120,9 +120,11 @@ exact:
 triangulate: exact sort
 graph_inline: allocator graph_check
 graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_spring sort triangulate
-graph_json: allocator builder decimal_format
+graph_json: allocator builder graph_json_write
+graph_json_write: decimal_format
 graph_json_read: arena container decimal json sort
-graph_json_graph: arena builder graph_json_machine graph_json_read graph_json_search json
+graph_json_graph: arena builder graph_json_machine graph_json_read graph_json_search graph_json_space json
+graph_json_space: arena graph_json_read json
 graph_json_machine: arena graph_json_read json
 graph_json_search: arena graph_json_read json
 clip_build_named: allocator builder bytes clip_build clip_file container sort text

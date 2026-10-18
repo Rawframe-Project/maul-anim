@@ -15,6 +15,7 @@
 #include "graph_json_machine.h"
 #include "graph_json_read.h"
 #include "graph_json_search.h"
+#include "graph_json_space.h"
 #include "json.h"
 
 #include "maul-anim/base.h"
@@ -32,30 +33,6 @@ typedef maniGraphReader Reader;
 typedef maniGraphScope Scope;
 
 #define ABSENT MANI_JSON_NONE
-
-// count numbers into out.
-static bool Floats(Reader* r, uint32_t value, float* out, uint32_t count)
-{
-    uint32_t n = 0;
-    if (!maniGraphJsonArray(r, value, &n))
-    {
-        return false;
-    }
-    if (n != count)
-    {
-        return maniGraphJsonFault(r, value, maniGraphFormValue);
-    }
-    uint32_t e = value;
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        e = maniGraphJsonNext(r->json, e, k == 0);
-        if (!maniGraphJsonFloat(r, e, &out[k]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
 
 // A value of a parameter's type.
 static bool Value(Reader* r, maniGraphParameterType type, uint32_t value, maniGraphValue* out)
@@ -80,7 +57,7 @@ static bool Value(Reader* r, maniGraphParameterType type, uint32_t value, maniGr
         return maniGraphJsonFloat(r, value, &out->f[0]);
     }
     uint32_t n = type == maniGraphParameterVec2 ? 2u : (type == maniGraphParameterVec3 ? 3u : 4u);
-    return Floats(r, value, out->f, n);
+    return maniGraphJsonFloats(r, value, out->f, n);
 }
 
 static bool Parameter(Reader* r, uint32_t object, maniGraphParameterSource* p)
@@ -662,138 +639,6 @@ static const KindForm kForms[] = {
 
 #define FORMS (sizeof kForms / sizeof kForms[0])
 
-// A blend space's position: {"vector": name}, or {"x": number, "y":
-// number} with y 0 when left out.
-static bool Position(Reader* r, const Scope* scope, uint32_t value, bool plane,
-                     maniGraphPosition* p)
-{
-    static const char* const kKeys[] = {"vector", "x", "y"};
-    uint32_t f[3] = {ABSENT, ABSENT, ABSENT};
-    *p = (maniGraphPosition){
-        MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.0f}, {MANI_NO_PARAMETER, 0.0f}};
-    if (!maniGraphJsonMembers(r, value, kKeys, plane ? 3u : 2u, 0u, f))
-    {
-        return false;
-    }
-    if (f[0] != ABSENT)
-    {
-        uint32_t extra = f[1] != ABSENT ? f[1] : f[2];
-        return extra == ABSENT ? maniGraphJsonRefer(r, &scope->parameters, f[0], &p->vector)
-                               : maniGraphJsonFault(r, extra - 1, maniGraphFormMember);
-    }
-    if (f[1] == ABSENT)
-    {
-        return maniGraphJsonFault(r, value, maniGraphFormMissing);
-    }
-    return maniGraphJsonScalar(r, scope, f[1], &p->x) &&
-           (f[2] == ABSENT || maniGraphJsonScalar(r, scope, f[2], &p->y));
-}
-
-// A blend space's points: count numbers, or count [x, y] pairs.
-static bool Points(Reader* r, uint32_t value, uint32_t count, bool pairs, const float** out)
-{
-    uint32_t n = 0;
-    if (!maniGraphJsonArray(r, value, &n))
-    {
-        return false;
-    }
-    if (n != count)
-    {
-        return maniGraphJsonFault(r, value, maniGraphFormValue);
-    }
-    float* points = maniArenaTake(&r->arena, pairs ? 2 * (size_t)count : count, sizeof(float));
-    if (points == NULL)
-    {
-        return maniGraphJsonNoMemory(r);
-    }
-    uint32_t e = value;
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        e = maniGraphJsonNext(r->json, e, k == 0);
-        bool ok = pairs ? Floats(r, e, points + 2 * k, 2) : maniGraphJsonFloat(r, e, &points[k]);
-        if (!ok)
-        {
-            return false;
-        }
-    }
-    *out = points;
-    return true;
-}
-
-// Authored triangles: a list (not empty) of three inputs each.
-static bool Triangles(Reader* r, uint32_t value, maniGraphTrianglesNodeSource* s)
-{
-    uint32_t count = 0;
-    if (!maniGraphJsonArray(r, value, &count))
-    {
-        return false;
-    }
-    uint32_t* corners =
-        count > 0 ? maniArenaTake(&r->arena, 3 * (size_t)count, sizeof(uint32_t)) : NULL;
-    if (count == 0)
-    {
-        return maniGraphJsonFault(r, value, maniGraphFormValue);
-    }
-    if (corners == NULL)
-    {
-        return maniGraphJsonNoMemory(r);
-    }
-    uint32_t e = value;
-    for (uint32_t t = 0; t < count; ++t)
-    {
-        e = maniGraphJsonNext(r->json, e, t == 0);
-        uint32_t three = 0;
-        if (!maniGraphJsonArray(r, e, &three))
-        {
-            return false;
-        }
-        if (three != 3)
-        {
-            return maniGraphJsonFault(r, e, maniGraphFormValue);
-        }
-        uint32_t c = e;
-        for (uint32_t k = 0; k < 3; ++k)
-        {
-            c = maniGraphJsonNext(r->json, c, k == 0);
-            if (!maniGraphJsonIndex(r, c, &corners[3 * t + k]))
-            {
-                return false;
-            }
-        }
-    }
-    s->triangles = corners;
-    s->triangleCount = count;
-    return true;
-}
-
-static bool Space(Reader* r, const Scope* scope, const uint32_t* f, maniGraphNodeSource* n)
-{
-    if (n->kind == maniGraphNodeBlendSpaceTriangles)
-    {
-        maniGraphTrianglesNodeSource* s = &n->triangulated;
-        s->triangles = NULL;
-        s->triangleCount = 0;
-        return Position(r, scope, f[2], true, &s->position) &&
-               Points(r, f[3], n->inputCount, true, &s->points) &&
-               (f[4] == ABSENT || Triangles(r, f[4], s));
-    }
-    if (n->kind == maniGraphNodeBlendSpace1D)
-    {
-        maniGraphBlendSpace1DNodeSource* s = &n->blendSpace1D;
-        s->period = 0.0f;
-        return Position(r, scope, f[2], false, &s->position) &&
-               Points(r, f[3], n->inputCount, false, &s->points) &&
-               (f[4] == ABSENT || maniGraphJsonFloat(r, f[4], &s->period));
-    }
-    maniGraphBandsNodeSource* s = &n->bands;
-    bool polar = false;
-    bool ok = Position(r, scope, f[2], true, &s->position) &&
-              Points(r, f[3], n->inputCount, true, &s->points) &&
-              (f[4] == ABSENT || maniGraphJsonBool(r, f[4], &polar));
-    s->polar = polar ? 1u : 0u;
-    return ok;
-}
-
 // A node's fields of its kind (f the members of kForms[form]).
 static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t* f,
                    maniGraphNodeSource* n)
@@ -825,7 +670,7 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
     case maniGraphNodeBlendSpace1D:
     case maniGraphNodeBlendSpaceTriangles:
     case maniGraphNodeBlendSpaceBands:
-        return Space(r, scope, f, n);
+        return maniGraphJsonSpace(r, scope, f, n);
     case maniGraphNodeMachine:
         return maniGraphJsonMachine(r, scope, f + 2, n);
     case maniGraphNodeOneShot:

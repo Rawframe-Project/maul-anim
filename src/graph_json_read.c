@@ -237,6 +237,29 @@ bool maniGraphJsonFloat(maniGraphReader* r, uint32_t value, float* out)
     return true;
 }
 
+bool maniGraphJsonFloats(maniGraphReader* r, uint32_t value, float* out, uint32_t count)
+{
+    uint32_t n = 0;
+    if (!maniGraphJsonArray(r, value, &n))
+    {
+        return false;
+    }
+    if (n != count)
+    {
+        return maniGraphJsonFault(r, value, maniGraphFormValue);
+    }
+    uint32_t e = value;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        e = maniGraphJsonNext(r->json, e, k == 0);
+        if (!maniGraphJsonFloat(r, e, &out[k]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool maniGraphJsonBool(maniGraphReader* r, uint32_t value, bool* out)
 {
     if (!IsKind(r, value, maniJsonTrue) && !IsKind(r, value, maniJsonFalse))

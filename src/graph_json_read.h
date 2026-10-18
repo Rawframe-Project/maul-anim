@@ -110,6 +110,9 @@ uint32_t maniGraphJsonWord(const maniGraphReader* r, uint32_t value, const char*
 bool maniGraphJsonFloat(maniGraphReader* r, uint32_t value, float* out);
 bool maniGraphJsonBool(maniGraphReader* r, uint32_t value, bool* out);
 
+// An array of count numbers into out.
+bool maniGraphJsonFloats(maniGraphReader* r, uint32_t value, float* out, uint32_t count);
+
 // A whole number from 0 to UINT32_MAX - 1.
 bool maniGraphJsonIndex(maniGraphReader* r, uint32_t value, uint32_t* out);
 
