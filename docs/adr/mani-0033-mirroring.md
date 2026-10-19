@@ -56,4 +56,11 @@ rule's partner taken or not pairing back, a rule's empty find, unknown
 place, replace not UTF-8 or reserved word, a reference not finite or of
 length 0, an unknown axis, a name paired twice, empty or not UTF-8, and
 the misuses); every crafted word refused at its offset. A fuzz target
-opens maps and reads every partner and name.
+opens maps and reads every partner and name. The pose's tests turn that
+rig's every bone and mirror it across each axis: every bone but the
+prop at its partner's model position reflected, turned by its partner's
+model rotation mirrored and carried to its own reference axes; the
+rest's model rotations kept; mirroring twice giving the pose back; in
+place equal to apart; the partner's scale; moves reflected; the
+refusals (another skeleton or bone count, a pose of another skeleton, a
+difference).

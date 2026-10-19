@@ -4,7 +4,8 @@
 // Mirror maps (mani-0033) of a rig with left and right clavicles, arms,
 // hands and legs and a prop under the right hand: bones paired by
 // suffix rules (the prop to itself, so the hierarchy's first unmatched
-// bone), pairs before rules, names paired both ways and by the rules
+// bone), prefix and anywhere rules, a rule naming no bone giving way,
+// pairs before rules, names paired both ways and by the rules
 // (a repeat with the same partner kept once); every builder refusal with
 // its item; the file opened, its readers, and every crafted word refused
 // at its offset.
@@ -190,6 +191,51 @@ static void TestPairs(void)
           "no rules: each bone its own");
 }
 
+static bool Partners(const maniMirrorMapSource* source, const uint32_t (*pairs)[2], uint32_t count)
+{
+    maniMirrorMap map;
+    if (Build(source, &map).result != mani_success)
+    {
+        return false;
+    }
+    uint32_t paired = 0;
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        uint32_t want = b;
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            want = pairs[i][0] == b ? pairs[i][1] : pairs[i][1] == b ? pairs[i][0] : want;
+        }
+        paired += maniMirrorPartner(&map, b) == want ? 1u : 0u;
+    }
+    return paired == kBones;
+}
+
+static void TestRulePlaces(void)
+{
+    maniMirrorMapSource source = Source();
+    source.nameCount = 0;
+    // Prefixes of other lengths: each hand with its side's leg.
+    const maniMirrorRuleSource prefix[2] = {{"hand", 4, maniMirrorPrefix, "leg", 3, 0},
+                                            {"leg", 3, maniMirrorPrefix, "hand", 4, 0}};
+    source.rules = prefix;
+    const uint32_t hands[2][2] = {{kHandL, kLegL}, {kHandR, kLegR}};
+    CHECK(Partners(&source, hands, 2), "prefix rules of other lengths");
+    // Anywhere: the first L or R of the name.
+    const maniMirrorRuleSource anywhere[2] = {{"L", 1, maniMirrorAnywhere, "R", 1, 0},
+                                              {"R", 1, maniMirrorAnywhere, "L", 1, 0}};
+    source.rules = anywhere;
+    const uint32_t sides[5][2] = {
+        {kClavL, kClavR}, {kArmL, kArmR}, {kHandL, kHandR}, {kLegL, kLegR}, {kPropR, kPropR}};
+    CHECK(Partners(&source, sides, 5), "anywhere rules");
+    // A first rule that matches but names no bone gives way to the next.
+    const maniMirrorRuleSource next[3] = {
+        {"L", 1, maniMirrorSuffix, "X", 1, 0}, kRules[0], kRules[1]};
+    source.rules = next;
+    source.ruleCount = 3;
+    CHECK(Partners(&source, sides, 5), "a rule naming no bone gives way");
+}
+
 static bool Refused(const maniMirrorMapSource* source, maniBuildReason reason, uint32_t item,
                     uint32_t other)
 {
@@ -214,6 +260,14 @@ static void TestPairRefusals(void)
     source.pairs = twice;
     source.pairCount = 2;
     CHECK(Refused(&source, maniBuildReasonMirrorPair, kLegL, kLegR), "a bone in two pairs");
+    const maniMirrorPairSource firstFar[1] = {{kBones, kHead}};
+    source.pairs = firstFar;
+    source.pairCount = 1;
+    CHECK(Refused(&source, maniBuildReasonMirrorPair, kBones, 0), "a first bone past the rig");
+    const maniMirrorPairSource firstTwice[2] = {{kLegL, kLegR}, {kLegL, kArmL}};
+    source.pairs = firstTwice;
+    source.pairCount = 2;
+    CHECK(Refused(&source, maniBuildReasonMirrorPair, kLegL, kLegR), "a first bone in two pairs");
     // The left arm paired with the right leg: the right arm's rule names
     // the left arm, taken.
     const maniMirrorPairSource taken[1] = {{kArmL, kLegR}};
@@ -274,6 +328,9 @@ static void TestOtherRefusals(void)
     source.names = names;
     source.nameCount = 1;
     CHECK(Refused(&source, maniBuildReasonMirrorName, 1, 0), "a listed name not UTF-8");
+    const maniMirrorNameSource reserved[1] = {{"footL", 5, 1}};
+    source.names = reserved;
+    CHECK(Refused(&source, maniBuildReasonMirrorName, 1, 0), "a listed name's reserved word");
     maniBuilder* builder = NewBuilder();
     source = Source();
     CHECK(maniBuildMirrorMap(NULL, &source).result == mani_errorInvalid, "a NULL builder");
@@ -335,7 +392,9 @@ static void TestFile(void)
     CHECK(RefusedAt(arm, kBones, arm), "a partner past the bones");
     CHECK(RefusedAt(arm + 4, 1, arm + 4), "a bone's word not 0");
     CHECK(RefusedAt(arm + 8, 0x7F800000u, arm + 8), "a correction not finite");
+    CHECK(RefusedAt(arm + 28, 0x7F800000u, arm + 28), "a later component not finite");
     CHECK(RefusedAt(arm + 24, 0x40000000u, arm + 24), "a correction not of length 1");
+    CHECK(RefusedAt(h + 20, kHead, 40), "a fitting change against the identity");
     // The second name's hash made the first's.
     memcpy(s_crafted, s_file, s_size);
     memcpy(s_crafted + names + MANI_MIRROR_NAME_SIZE, s_file + names, 8);
@@ -383,6 +442,7 @@ int main(int argc, char** argv)
         return Seed(argv[2]) && s_failures == 0 ? 0 : 1;
     }
     TestPairs();
+    TestRulePlaces();
     TestPairRefusals();
     TestOtherRefusals();
     TestFile();

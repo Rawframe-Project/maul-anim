@@ -81,6 +81,7 @@ retarget_bake: allocator builder bytes clip_build clip_file clip_view retarget_f
 mirror_file:
 mirror: bytes container mirror_file text
 mirror_build: allocator builder bytes container mirror_file sort text vecmath
+mirror_pose: bytes mirror_file pose_memory vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:

@@ -129,6 +129,41 @@ extern "C"
     MANI_API const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t length,
                                         size_t* lengthOut);
 
+    /// Mirrors a pose: each bone takes its partner's local (its own when
+    /// unpaired), the translation's component along the normal negated
+    /// and turned by the bone's correction from its partner's parent's
+    /// reference frame mirrored to its parent's, the rotation mirrored
+    /// between the corrections into its own reference axes, the scale as
+    /// it is. On a mirror-symmetric hierarchy each bone's model position
+    /// is its partner's reflected and its model rotation its partner's
+    /// mirrored, carried to its own reference axes, so the rest's model
+    /// rotations stay; mirroring twice gives the pose back. Writes every
+    /// local of out and leaves its model stale.
+    ///
+    /// @param map       An opened map.
+    /// @param skeleton  The map's skeleton.
+    /// @param in        A pose of it (not a difference).
+    /// @param out       A pose of it; may be in.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton whose identity or bone count is not the map's, a pose of
+    /// another skeleton, or a difference.
+    /// @par Thread safety
+    /// Safe from any thread; out is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniMirrorPose(const maniMirrorMap* map,
+                                                      const maniSkeleton* skeleton,
+                                                      const maniPose* in, maniPose* out);
+
+    /// Mirrors a root motion move: its translation's component along the
+    /// normal negated, its rotation mirrored (the turn the reflection makes
+    /// of it).
+    ///
+    /// @param map   An opened map, or NULL (the move unchanged).
+    /// @param move  The move.
+    /// @return The mirrored move.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1070,6 +1070,16 @@ const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t le
 ```
 Returns the partner of a float track's, event's or marker's name: the name the map pairs it with, or the name itself.  @param map        An opened map. @param name       The name's UTF-8 bytes; may be NULL when length is 0. @param length     The name's length in bytes. @param lengthOut  Receives the partner's length. May be NULL. @return The partner's bytes inside the map, not terminated, or name itself when unpaired (or for a NULL map). @par Thread safety Safe from any thread.
 
+```c
+MANI_NODISCARD MANI_API maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton, const maniPose* in, maniPose* out);
+```
+Mirrors a pose: each bone takes its partner's local (its own when unpaired), the translation's component along the normal negated and turned by the bone's correction from its partner's parent's reference frame mirrored to its parent's, the rotation mirrored between the corrections into its own reference axes, the scale as it is. On a mirror-symmetric hierarchy each bone's model position is its partner's reflected and its model rotation its partner's mirrored, carried to its own reference axes, so the rest's model rotations stay; mirroring twice gives the pose back. Writes every local of out and leaves its model stale.  @param map       An opened map. @param skeleton  The map's skeleton. @param in        A pose of it (not a difference). @param out       A pose of it; may be in. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton whose identity or bone count is not the map's, a pose of another skeleton, or a difference. @par Thread safety Safe from any thread; out is used by one thread at a time.
+
+```c
+maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move);
+```
+Mirrors a root motion move: its translation's component along the normal negated, its rotation mirrored (the turn the reflection makes of it).  @param map   An opened map, or NULL (the move unchanged). @param move  The move. @return The mirrored move. @par Thread safety Safe from any thread.
+
 ## `mirrorbuild.h`
 
 Building mirror maps (mani-0033): a skeleton's bones paired by explicit pairs and by find/replace rules on their names, a reference pose, a plane, and the names of float tracks, events and markers paired the same way, laid out as each bone's partner and corrections so that mirroring at runtime only composes rotations. Offline.
@@ -1610,4 +1620,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-300 functions across 27 headers.
+302 functions across 27 headers.

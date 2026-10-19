@@ -64,6 +64,10 @@ format.
   float track, event and marker names; `maniOpenMirrorMap` opens it,
   `maniMirrorPartner`, `maniMirrorName` and
   `maniMirrorMapUnmatchedBone` read it.
+- Mirrored poses (mani-0033): `maniMirrorPose` gives each bone its
+  partner's local reflected and carried through the map's corrections,
+  in place or into another pose; `maniMirrorRootMotion` reflects a root
+  motion move.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by
