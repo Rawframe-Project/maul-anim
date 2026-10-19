@@ -43,6 +43,15 @@ global rotations with a sign pattern that fits his rig only.
   partner its partner's parent); the map records the first bone that
   breaks it (a prop under one hand, say) without refusing it, and such
   a bone takes its partner's local turn mirrored.
+- **Clips:** a mirrored clip is baked on the clip's grid by the same
+  core as a retargeted clip: each sample mirrored (an additive clip's
+  differences added to the rest, mirrored, taken from the rest
+  mirrored), every float track, discrete track, event and marker name
+  renamed by the name pairs, the root motion moved to its bone's
+  partner. A stored move is in its bone's parent's frame, so it is
+  reflected and carried by the partner's A (`A t`, `A r A^-1`; the
+  identity for a root) and the declared axes follow A; a graph's moves
+  are in the model and are only reflected.
 
 ## Consequences
 
@@ -63,4 +72,9 @@ model rotation mirrored and carried to its own reference axes; the
 rest's model rotations kept; mirroring twice giving the pose back; in
 place equal to apart; the partner's scale; moves reflected; the
 refusals (another skeleton or bone count, a pose of another skeleton, a
-difference).
+difference). The clip's tests bake a clip of that rig with float, discrete,
+event and marker names: every sample the mirror of the clip's, the
+bits pinned, baked twice the clip; names renamed and values kept;
+additive clips of both bases; root motion on the root reflected and on
+the left arm moved to the right arm, its model change reflected and its
+axes all taken; the refusals.

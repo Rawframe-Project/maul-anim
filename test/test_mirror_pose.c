@@ -67,17 +67,19 @@ static const maniBoneSource kRig[kBones] = {
 static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
                                                {"R", 1, maniMirrorSuffix, "L", 1, 0}};
 
-static _Alignas(16) uint8_t s_skeletonFile[2][4096];
+static _Alignas(16) uint8_t s_skeletonFile[3][4096];
 static _Alignas(16) uint8_t s_file[3][4096];
-static _Alignas(32) uint8_t s_poseMemory[5][2048];
+static _Alignas(32) uint8_t s_poseMemory[6][2048];
 static maniSkeleton s_skeleton;
 static maniSkeleton s_other;
+static maniSkeleton s_moved;
 static maniMirrorMap s_maps[3];
 static maniPose* s_in;
 static maniPose* s_out;
 static maniPose* s_back;
 static maniPose* s_place;
 static maniPose* s_otherPose;
+static maniPose* s_movedPose;
 
 static maniBuilder* NewBuilder(void)
 {
@@ -104,6 +106,10 @@ static void Setup(void)
 {
     OpenSkeleton(kRig, kBones, s_skeletonFile[0], &s_skeleton);
     OpenSkeleton(kRig, kBones - 1, s_skeletonFile[1], &s_other);
+    maniBoneSource moved[kBones];
+    memcpy(moved, kRig, sizeof moved);
+    moved[kHead].rest.translation.y = 0.35f;
+    OpenSkeleton(moved, kBones, s_skeletonFile[2], &s_moved);
     for (uint32_t axis = 0; axis < 3; ++axis)
     {
         maniMirrorMapSource source = {
@@ -127,6 +133,9 @@ static void Setup(void)
     CHECK(maniInitPose(&s_other, s_poseMemory[4], sizeof s_poseMemory[4], &s_otherPose) ==
               mani_success,
           "the other rig's pose");
+    CHECK(maniInitPose(&s_moved, s_poseMemory[5], sizeof s_poseMemory[5], &s_movedPose) ==
+              mani_success,
+          "the moved rig's pose");
 }
 
 static maniQuat Mul(maniQuat a, maniQuat b)
@@ -325,6 +334,8 @@ static void TestRefusals(void)
           "a NULL argument");
     CHECK(maniMirrorPose(map, &s_other, s_otherPose, s_otherPose) == mani_errorInvalid,
           "another skeleton");
+    CHECK(maniMirrorPose(map, &s_moved, s_movedPose, s_movedPose) == mani_errorInvalid,
+          "another skeleton of the bone count");
     CHECK(maniMirrorPose(map, &s_skeleton, s_otherPose, s_out) == mani_errorInvalid &&
               maniMirrorPose(map, &s_skeleton, s_in, s_otherPose) == mani_errorInvalid,
           "a pose of another skeleton");

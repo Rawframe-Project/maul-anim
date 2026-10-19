@@ -68,6 +68,11 @@ format.
   partner's local reflected and carried through the map's corrections,
   in place or into another pose; `maniMirrorRootMotion` reflects a root
   motion move.
+- Mirrored clips (mani-0033): `maniBuildMirroredClip` bakes a clip's
+  mirror on its grid, additive clips mirrored from the rest mirrored,
+  float tracks, discrete tracks, events and markers renamed by the
+  map's name pairs, root motion moved to its bone's partner with its
+  moves reflected in the model.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

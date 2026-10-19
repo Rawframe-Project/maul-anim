@@ -3317,8 +3317,8 @@ rtp-difference | src/retarget_pose.c | maniPoseMatches(sourcePose, source) && !m
 rtp-target-match | src/retarget_pose.c | maniPoseMatches(targetPose, target); | true;
 rtp-kind | src/retarget_pose.c | maniPoseSetKind(targetPose, false); | (void)0;
 
-# Baking clips through a map (src/retarget_bake.c, the given root motion
-# in src/clip_build.c)
+# Baking clips through a map (src/retarget_bake.c, the bake core in
+# src/clip_bake.c, the given root motion in src/clip_build.c)
 rtk-follower-kind | src/retarget_motion.c | if (maniLoadU32(e + maniRetargetPlanKind) == maniRetargetPlanOne && | if (maniLoadU32(e + maniRetargetPlanKind) != maniRetargetPlanReference &&
 rtk-follower-a | src/retarget_motion.c | maniLoadU32(e + maniRetargetPlanA) == a) | true)
 rtk-root-given | src/retarget_bake.c | b->root = s->rootMotionBone != MANI_NO_BONE ? s->rootMotionBone | b->root = false ? s->rootMotionBone
@@ -3332,29 +3332,29 @@ rtk-frame-target | src/retarget_motion.c | if (parentT != MANI_NO_BONE) | if (fa
 rtk-turn-conj | src/retarget_motion.c | m.turn = maniQuatMul(maniQuatConjugate(m.targetFrame), m.sourceFrame); | m.turn = maniQuatMul(m.targetFrame, m.sourceFrame);
 rtk-move-scale | src/retarget_motion.c | maniVec3 model = maniRetargetRootMotion(motion->map, maniQuatRotate(motion->sourceFrame, t)); | maniVec3 model = maniQuatRotate(motion->sourceFrame, t);
 rtk-move-back | src/retarget_motion.c | return maniQuatRotate(maniQuatConjugate(motion->targetFrame), model); | return model;
-rtk-move-sample | src/retarget_bake.c | MANI_ROOT_MOTION_PERIOD_SIZE + 4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k; | MANI_ROOT_MOTION_PERIOD_SIZE;
+rtk-move-sample | src/clip_bake.c | MANI_ROOT_MOTION_PERIOD_SIZE + 4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k; | MANI_ROOT_MOTION_PERIOD_SIZE;
 rtk-move-turn | src/retarget_motion.c | maniQuat r = maniQuatMul(maniQuatMul(motion->turn, maniQuatNormalize(move.rotation)), | maniQuat r = maniQuatMul(maniQuatMul(maniQuatIdentity(), maniQuatNormalize(move.rotation)),
-rtk-axis-pick | src/retarget_bake.c | j = a[2] > a[j] ? 2u : j; | j = a[2] > a[0] ? 2u : j;
-rtk-axis-off | src/retarget_bake.c | return off <= 1e-4f * a[j] ? j : 3u; | return j;
+rtk-axis-pick | src/clip_bake.c | j = a[2] > a[j] ? 2u : j; | j = a[2] > a[0] ? 2u : j;
+rtk-axis-off | src/clip_bake.c | return off <= 1e-4f * a[j] ? j : 3u; | return j;
 rtk-declared-skip | src/retarget_bake.c | if (((s.translationAxes >> i) & 1u) == 0) | if (false)
-rtk-declared-zero | src/retarget_bake.c | v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->motion.turn, Unit(i)) : v; | (void)v;
+rtk-declared-zero | src/retarget_bake.c | v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->motion.turn, maniBakeUnit(i)) : v; | (void)v;
 rtk-declared-all | src/retarget_bake.c | axes |= j < 3 ? 1u << j : 7u; | axes |= j < 3 ? 1u << j : 0u;
-rtk-declared-twist | src/retarget_bake.c | uint32_t j = AxisOf(maniQuatRotate(b->motion.turn, Unit(s.twistAxis))); | uint32_t j = s.twistAxis;
+rtk-declared-twist | src/retarget_bake.c | uint32_t j = maniBakeAxisOf(maniQuatRotate(b->motion.turn, maniBakeUnit(s.twistAxis))); | uint32_t j = s.twistAxis;
 rtk-declared-whole | src/retarget_bake.c | s.rotation = j < 3 ? maniRootRotationTwist : maniRootRotationWhole; | s.rotation = maniRootRotationTwist;
 rtk-declared-bone | src/retarget_bake.c | s.bone = b->root; | (void)b;
-rtk-additive-add | src/retarget_bake.c | r = r == mani_success ? maniAddPoses(s->source, b->poses[1], &layer, 1) : r; | (void)layer;
-rtk-additive-difference | src/retarget_bake.c | r = r == mani_success ? maniPoseDifference(s->target, b->poses[2], b->poses[3], b->poses[2]) | r = r == mani_success ? maniPoseDifference(s->target, b->poses[2], b->poses[4], b->poses[2])
-rtk-additive-onto | src/retarget_bake.c | return r == mani_success ? maniAddPoses(s->target, b->poses[4], &layer, 1) : r; | return r;
-rtk-sample-pose | src/retarget_bake.c | const maniPose* pose = b->poses[additive ? 4 : 2]; | const maniPose* pose = b->poses[2];
-rtk-sample-floats | src/retarget_bake.c | b->floatValues[(size_t)i * n + k] = b->sampleFloats[i]; | b->floatValues[(size_t)i * n + k] = b->sampleFloats[0];
-rtk-rest-all | src/retarget_bake.c | if (memcmp(values + dimension * k, rest, dimension * sizeof(float)) != 0) | if (memcmp(values, rest, dimension * sizeof(float)) != 0)
-rtk-rest-root | src/retarget_bake.c | bool root = bone == b->root; | bool root = false;
-rtk-rest-scale | src/retarget_bake.c | Channel(b, v + 7 * n, !AtRest(v + 7 * n, 3, n, c))}; | Channel(b, v + 7 * n, false)};
-rtk-float-step | src/retarget_bake.c | interpolation}}; | maniInterpolationLinear}};
-rtk-discrete-first | src/retarget_bake.c | const uint8_t* key = clip->discreteKeys + (size_t)(first + j) * MANI_CLIP_KEY_SIZE; | const uint8_t* key = clip->discreteKeys + (size_t)j * MANI_CLIP_KEY_SIZE;
-rtk-marker-index | src/retarget_bake.c | i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, i - events); | i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, 0);
-rtk-basis | src/retarget_bake.c | r = maniRetargetPose(b->s->map, b->s->source, b->poses[1], b->s->target, b->poses[3], | r = maniRetargetPose(b->s->map, b->s->source, b->poses[1], b->s->target, b->poses[4],
-rtk-refuse-basis | src/retarget_bake.c | return Result(mani_errorInvalid, maniBuildReasonBasis, 0, 0); | return Result(mani_success, maniBuildReasonNone, 0, 0);
+rtk-additive-add | src/clip_bake.c | r = r == mani_success ? maniAddPoses(s->from, b->poses[1], &layer, 1) : r; | (void)layer;
+rtk-additive-difference | src/clip_bake.c | r = r == mani_success ? maniPoseDifference(s->to, b->poses[2], b->poses[3], b->poses[2]) : r; | r = r == mani_success ? maniPoseDifference(s->to, b->poses[2], b->poses[4], b->poses[2]) : r;
+rtk-additive-onto | src/clip_bake.c | return r == mani_success ? maniAddPoses(s->to, b->poses[4], &layer, 1) : r; | return r;
+rtk-sample-pose | src/clip_bake.c | const maniPose* pose = b->poses[additive ? 4 : 2]; | const maniPose* pose = b->poses[2];
+rtk-sample-floats | src/clip_bake.c | b->floatValues[(size_t)i * n + k] = b->sampleFloats[i]; | b->floatValues[(size_t)i * n + k] = b->sampleFloats[0];
+rtk-rest-all | src/clip_bake.c | if (memcmp(values + dimension * k, rest, dimension * sizeof(float)) != 0) | if (memcmp(values, rest, dimension * sizeof(float)) != 0)
+rtk-rest-root | src/clip_bake.c | bool root = bone == b->root; | bool root = false;
+rtk-rest-scale | src/clip_bake.c | Channel(b, v + 7 * n, !AtRest(v + 7 * n, 3, n, c))}; | Channel(b, v + 7 * n, false)};
+rtk-float-step | src/clip_bake.c | interpolation}}; | maniInterpolationLinear}};
+rtk-discrete-first | src/clip_bake.c | const uint8_t* key = clip->discreteKeys + (size_t)(first + j) * MANI_CLIP_KEY_SIZE; | const uint8_t* key = clip->discreteKeys + (size_t)j * MANI_CLIP_KEY_SIZE;
+rtk-marker-index | src/clip_bake.c | i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, i - events); | i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, 0);
+rtk-basis | src/clip_bake.c | r = b->s->carry(b->s->context, b->poses[1], b->poses[3], b->scratch, b->scratchSize); | r = b->s->carry(b->s->context, b->poses[1], b->poses[4], b->scratch, b->scratchSize);
+rtk-refuse-basis | src/clip_bake.c | return Result(mani_errorInvalid, maniBuildReasonBasis, 0, 0); | return Result(mani_success, maniBuildReasonNone, 0, 0);
 rtk-match-source | src/retarget_bake.c | if (maniSkeletonIdentity(s->source) != m->sourceIdentity || | if (false ||
 rtk-match-clip | src/retarget_bake.c | if (s->clip->skeletonIdentity != m->sourceIdentity || | if (false ||
 rtk-usable-reserved | src/retarget_bake.c | s->clip != NULL && s->reserved == 0; | s->clip != NULL;
@@ -3389,3 +3389,92 @@ rtg-eval-additive | src/graph_evaluate.c | if (!maniPoseIsDifference(poses[0])) 
 rtg-eval-base | src/graph_evaluate.c | (void)maniPoseDifference(skeleton, out, poses[2], out); | (void)out;
 rtg-update-carried | src/graph_update.c | move = Carried(u, Word(u, data), &clip, move); | (void)move;
 rtg-json-map | src/graph_json_graph.c | c[i].map = r->hostClips[host].map; | c[i].map = NULL;
+
+# Mirror maps (src/mirror_build.c, src/mirror.c)
+rmm-rule-empty | src/mirror_build.c | if (r->findLength == 0 || r->place > maniMirrorAnywhere || r->reserved != 0 || | if (r->place > maniMirrorAnywhere || r->reserved != 0 ||
+rmm-rule-place | src/mirror_build.c | if (r->findLength == 0 || r->place > maniMirrorAnywhere || r->reserved != 0 || | if (r->findLength == 0 || r->reserved != 0 ||
+rmm-ref-unit | src/mirror_build.c | if (!finite || !(length >= 0.998f && length <= 1.002f)) | if (!finite)
+rmm-ref-finite | src/mirror_build.c | if (!finite || !(length >= 0.998f && length <= 1.002f)) | if (!(length >= 0.998f && length <= 1.002f))
+rmm-prefix | src/mirror_build.c | at = memcmp(name, r->find, f) == 0 ? 0u : UINT32_MAX; | at = UINT32_MAX;
+rmm-suffix | src/mirror_build.c | at = memcmp(name + length - f, r->find, f) == 0 ? length - f : UINT32_MAX; | at = UINT32_MAX;
+rmm-anywhere | src/mirror_build.c | at = memcmp(name + i, r->find, f) == 0 ? i : UINT32_MAX; | at = UINT32_MAX;
+rmm-replace-len | src/mirror_build.c | *lengthOut = length - f + r->replaceLength; | *lengthOut = length;
+rmm-rule-next | src/mirror_build.c | if (bone != MANI_NO_BONE) | if (true)
+rmm-pair-range | src/mirror_build.c | if (a >= w->count || b >= w->count) | if (b >= w->count)
+rmm-pair-item | src/mirror_build.c | return Refuse(maniBuildReasonMirrorPair, a < w->count ? b : a, 0); | return Refuse(maniBuildReasonMirrorPair, b, 0);
+rmm-pair-twice | src/mirror_build.c | if (w->partner[a] != MANI_NO_BONE || w->partner[b] != MANI_NO_BONE) | if (w->partner[b] != MANI_NO_BONE)
+rmm-pair-twice-item | src/mirror_build.c | uint32_t twice = w->partner[a] != MANI_NO_BONE ? a : b; | uint32_t twice = b;
+rmm-backpair | src/mirror_build.c | if (w->candidate[c] != b) | if (false)
+rmm-unmatched | src/mirror_build.c | bool matched = p == MANI_NO_BONE ? q == MANI_NO_BONE : q == w->partner[p]; | bool matched = true;
+rmm-name-empty | src/mirror_build.c | return length > 0 && Utf8(name, length) ? kOk : Refuse(maniBuildReasonMirrorName, item, 0); | return Utf8(name, length) ? kOk : Refuse(maniBuildReasonMirrorName, item, 0);
+rmm-name-second | src/mirror_build.c | r = r.result == mani_success ? CheckName(p->second, p->secondLength, i) : r; | (void)p;
+rmm-name-reserved | src/mirror_build.c | if (r.result != mani_success || n->reserved != 0) | if (r.result != mani_success)
+rmm-header-unmatched | src/mirror_build.c | maniStoreU32(h + 20, w->unmatched); | maniStoreU32(h + 20, MANI_NO_BONE);
+rmo-axis | src/mirror.c | if (m->axis > maniMirrorAxisZ) | if (false)
+rmo-unmatched | src/mirror.c | if (unmatched != MANI_NO_BONE && unmatched >= m->boneCount) | if (false)
+rmo-zero | src/mirror.c | if (maniLoadU32(h + k) != 0) | if (false)
+rmo-pairback | src/mirror.c | maniLoadU32(s->data[1] + (size_t)partner * MANI_MIRROR_BONE_SIZE) != b) | false)
+rmo-pad | src/mirror.c | if (maniLoadU32(e + 4) != 0) | if (false)
+rmo-quat-b | src/mirror.c | wrong = wrong != 0 ? wrong : QuatWrong(e + 24, at + 24); | wrong = wrong;
+rmo-unit | src/mirror.c | return length >= 0.998 && length <= 1.002 ? 0u : at; | return 0u;
+rmo-finite | src/mirror.c | if (!(fabsf(v) < HUGE_VALF)) | if (false)
+rmo-names-order | src/mirror.c | if (i > 0 && maniLoadU64(e) <= maniLoadU64(e - MANI_MIRROR_NAME_SIZE)) | if (false)
+rmo-name-len | src/mirror.c | if (length == 0 || offset > s->sizes[3] || length > s->sizes[3] - offset) | if (offset > s->sizes[3] || length > s->sizes[3] - offset)
+rmo-name-hash | src/mirror.c | maniHashBytes(MANI_HASH_INIT, name, length) != maniLoadU64(e + 8)) | false)
+rmo-identity | src/mirror.c | if (maniMirrorComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
+rmo-lookup | src/mirror.c | if (at < hash) | if (at > hash)
+
+# Mirrored poses (src/mirror_pose.c)
+rmp-reflect-x | src/mirror_pose.c | return maniVec3Make(axis == maniMirrorAxisX ? -v.x : v.x, axis == maniMirrorAxisY ? -v.y : v.y, | return maniVec3Make(v.x, axis == maniMirrorAxisY ? -v.y : v.y,
+rmp-reflect-y | src/mirror_pose.c | return maniVec3Make(axis == maniMirrorAxisX ? -v.x : v.x, axis == maniMirrorAxisY ? -v.y : v.y, | return maniVec3Make(axis == maniMirrorAxisX ? -v.x : v.x, v.y,
+rmp-reflect-z | src/mirror_pose.c | axis == maniMirrorAxisZ ? -v.z : v.z); | v.z);
+rmp-mirror-x | src/mirror_pose.c | return (maniQuat){axis == maniMirrorAxisX ? q.x : -q.x, axis == maniMirrorAxisY ? q.y : -q.y, | return (maniQuat){-q.x, axis == maniMirrorAxisY ? q.y : -q.y,
+rmp-mirror-y | src/mirror_pose.c | return (maniQuat){axis == maniMirrorAxisX ? q.x : -q.x, axis == maniMirrorAxisY ? q.y : -q.y, | return (maniQuat){axis == maniMirrorAxisX ? q.x : -q.x, -q.y,
+rmp-mirror-z | src/mirror_pose.c | axis == maniMirrorAxisZ ? q.z : -q.z, q.w}; | -q.z, q.w};
+rmp-slot-group | src/mirror_pose.c | (size_t)(bone / MANI_POSE_GROUP_BONES) * (MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS) + | (size_t)(bone / MANI_POSE_GROUP_BONES) * (MANI_POSE_GROUP_BONES) +
+rmp-a-load | src/mirror_pose.c | maniQuat a = LoadQuat(e + 8); | maniQuat a = LoadQuat(e + 24);
+rmp-b-load | src/mirror_pose.c | maniQuat b = LoadQuat(e + 24); | maniQuat b = LoadQuat(e + 8);
+rmp-a-t | src/mirror_pose.c | maniVec3 t = maniQuatRotate(a, Reflect(maniVec3Make(partner[0], partner[1], partner[2]), axis)); | maniVec3 t = Reflect(maniVec3Make(partner[0], partner[1], partner[2]), axis);
+rmp-a-q | src/mirror_pose.c | q = maniQuatMul(maniQuatMul(a, q), b); | q = maniQuatMul(q, b);
+rmp-b-q | src/mirror_pose.c | q = maniQuatMul(maniQuatMul(a, q), b); | q = maniQuatMul(a, q);
+rmp-scale | src/mirror_pose.c | maniPoseSlotPut(slot, 7, partner + 7, 3); | maniPoseSlotPut(slot, 7, partner + 7, 2);
+rmp-null | src/mirror_pose.c | if (map == NULL || skeleton == NULL || | if (map == NULL ||
+rmp-identity | src/mirror_pose.c | maniSkeletonIdentity(skeleton) != map->skeletonIdentity || | false ||
+rmp-count | src/mirror_pose.c | maniSkeletonBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) || | !maniPoseMatches(in, skeleton) ||
+rmp-in | src/mirror_pose.c | maniSkeletonBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) || | maniSkeletonBoneCount(skeleton) != map->boneCount ||
+rmp-out | src/mirror_pose.c | !maniPoseMatches(out, skeleton) || maniPoseIsDifference(in)) | maniPoseIsDifference(in))
+rmp-difference | src/mirror_pose.c | !maniPoseMatches(out, skeleton) || maniPoseIsDifference(in)) | !maniPoseMatches(out, skeleton))
+rmp-skip | src/mirror_pose.c | if (m < b) | if (m < b && false)
+rmp-own | src/mirror_pose.c | MirrorLocal(map->bones + (size_t)m * MANI_MIRROR_BONE_SIZE, map->axis, own, | MirrorLocal(map->bones + (size_t)m * MANI_MIRROR_BONE_SIZE, map->axis, partner,
+rmp-own-record | src/mirror_pose.c | MirrorLocal(map->bones + (size_t)m * MANI_MIRROR_BONE_SIZE, map->axis, own, | MirrorLocal(map->bones + (size_t)b * MANI_MIRROR_BONE_SIZE, map->axis, own,
+rmp-kind | src/mirror_pose.c | maniPoseSetKind(out, false); | (void)0;
+rmp-stale | src/mirror_pose.c | maniPoseMarkStale(out); | (void)0;
+rmp-move-null | src/mirror_pose.c | if (map == NULL) | if (false)
+rmp-move-t | src/mirror_pose.c | return (maniRootMove){Reflect(move.translation, map->axis), Mirror(move.rotation, map->axis)}; | return (maniRootMove){move.translation, Mirror(move.rotation, map->axis)};
+rmp-move-q | src/mirror_pose.c | return (maniRootMove){Reflect(move.translation, map->axis), Mirror(move.rotation, map->axis)}; | return (maniRootMove){Reflect(move.translation, map->axis), move.rotation};
+
+# Mirrored clips (src/mirror_bake.c)
+rmc-carry | src/mirror_bake.c | return maniMirrorPose(s->map, s->skeleton, in, out); | return maniMirrorPose(s->map, s->skeleton, in, out) == mani_success ? maniPoseSetRest(out, s->skeleton) : mani_errorInvalid;
+rmc-move-reflect | src/mirror_bake.c | maniRootMove m = maniMirrorRootMotion(b->s->map, move); | maniRootMove m = move;
+rmc-move-t | src/mirror_bake.c | m.translation = maniQuatRotate(b->a, m.translation); | (void)0;
+rmc-move-r | src/mirror_bake.c | m.rotation = maniQuatMul(maniQuatMul(b->a, m.rotation), maniQuatConjugate(b->a)); | m.rotation = maniQuatMul(b->a, m.rotation);
+rmc-rename-length | src/mirror_bake.c | *length = (uint32_t)made; | (void)made;
+rmc-a-partner | src/mirror_bake.c | const uint8_t* e = map->bones + (size_t)partner * MANI_MIRROR_BONE_SIZE + 8; | const uint8_t* e = map->bones + (size_t)s.bone * MANI_MIRROR_BONE_SIZE + 8;
+rmc-a-record | src/mirror_bake.c | const uint8_t* e = map->bones + (size_t)partner * MANI_MIRROR_BONE_SIZE + 8; | const uint8_t* e = map->bones + (size_t)partner * MANI_MIRROR_BONE_SIZE + 24;
+rmc-axes-skip | src/mirror_bake.c | axes |= ((s.translationAxes >> i) & 1u) == 0 ? 0u : j < 3 ? 1u << j : 7u; | axes |= j < 3 ? 1u << j : 7u;
+rmc-axes-all | src/mirror_bake.c | axes |= ((s.translationAxes >> i) & 1u) == 0 ? 0u : j < 3 ? 1u << j : 7u; | axes |= ((s.translationAxes >> i) & 1u) == 0 ? 0u : j < 3 ? 1u << j : 0u;
+rmc-axes-kept | src/mirror_bake.c | s.translationAxes = axes; | (void)axes;
+rmc-twist | src/mirror_bake.c | uint32_t j = maniBakeAxisOf(maniQuatRotate(b->a, maniBakeUnit(s.twistAxis))); | uint32_t j = s.twistAxis;
+rmc-twist-whole | src/mirror_bake.c | s.rotation = j < 3 ? maniRootRotationTwist : maniRootRotationWhole; | s.rotation = maniRootRotationTwist;
+rmc-bone | src/mirror_bake.c | s.bone = partner; | (void)partner;
+rmc-usable-map | src/mirror_bake.c | return s != NULL && s->map != NULL && s->skeleton != NULL && s->clip != NULL && | return s != NULL && s->skeleton != NULL && s->clip != NULL &&
+rmc-usable-reserved | src/mirror_bake.c | s->reserved == 0; | true;
+rmc-match-skeleton | src/mirror_bake.c | if (maniSkeletonIdentity(s->skeleton) != m->skeletonIdentity || | if (false ||
+rmc-match-count | src/mirror_bake.c | maniSkeletonBoneCount(s->skeleton) != m->boneCount) | false)
+rmc-match-clip | src/mirror_bake.c | if (s->clip->skeletonIdentity != m->skeletonIdentity || | if (false ||
+rmc-match-clip-other | src/mirror_bake.c | return Result(mani_errorInvalid, maniBuildReasonMirrorClip, 0, 1); | return Result(mani_errorInvalid, maniBuildReasonMirrorClip, 0, 0);
+rmc-rename | src/mirror_bake.c | .rename = Rename}; | .rename = NULL};
+cbk-rename-float | src/clip_bake.c | const char* name = Renamed(b, maniClipFloatTrackName(clip, i, &length), &length); | const char* name = maniClipFloatTrackName(clip, i, &length);
+cbk-rename-discrete | src/clip_bake.c | const char* name = Renamed(b, maniClipDiscreteTrackName(clip, i, &length), &length); | const char* name = maniClipDiscreteTrackName(clip, i, &length);
+cbk-rename-event | src/clip_bake.c | const char* name = Renamed(b, e.name, &length); | const char* name = e.name;
+cbk-root | src/clip_bake.c | b.root = maniClipRootMotionSource(kind->clip, &from) ? kind->declared.bone : MANI_NO_BONE; | b.root = MANI_NO_BONE;

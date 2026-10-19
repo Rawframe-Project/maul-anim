@@ -328,6 +328,9 @@ extern "C"
         // past the pairs; other the earlier): empty or not UTF-8, or
         // paired twice with different partners.
         maniBuildReasonMirrorName = 59,
+        // A clip to mirror (other 0 the skeleton, 1 the clip): a skeleton
+        // not its map's, a clip not of the map's skeleton.
+        maniBuildReasonMirrorClip = 60,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

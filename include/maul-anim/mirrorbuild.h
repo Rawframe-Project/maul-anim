@@ -12,6 +12,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/clip.h"
 #include "maul-anim/mirror.h"
 #include "maul-anim/skeleton.h"
 
@@ -110,6 +111,45 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildMirrorMap(maniBuilder* builder,
                                                                const maniMirrorMapSource* source);
+
+    // A clip to mirror. reserved must be 0.
+    typedef struct maniMirrorClipSource
+    {
+        const maniMirrorMap* map;
+        const maniSkeleton* skeleton;
+        const maniClip* clip;
+        uint32_t reserved;
+    } maniMirrorClipSource;
+
+    /// Builds a full-precision clip of a clip mirrored (bake it once,
+    /// play it as any clip), and keeps it in the builder. The clip keeps
+    /// the clip's sample rate, duration, loop policy and additive basis.
+    /// At each sample the pose is mirrored by maniMirrorPose; a channel
+    /// that is the rest at every sample is left out. An additive clip's
+    /// differences are each added to the rest, mirrored, and taken as
+    /// differences from the rest mirrored. Float tracks keep their values
+    /// at the samples and their interpolation; discrete tracks, events
+    /// and markers are copied; every name is renamed by maniMirrorName.
+    /// Root motion moves to the root motion bone's partner: each stored
+    /// move (in the bone's parent's frame) reflected as
+    /// maniMirrorRootMotion reflects it and turned into the partner's
+    /// parent's frame mirrored, its source's axes following that turn
+    /// (all axes, and the whole rotation, where it takes an axis off the
+    /// axes).
+    ///
+    /// @param builder  The builder.
+    /// @param source   The clip to mirror.
+    /// @return `mani_success`; `mani_errorInvalid` with
+    /// `maniBuildReasonNone` for a NULL builder, source or field, or
+    /// reserved not 0; `maniBuildReasonMirrorClip` (other 0 the skeleton,
+    /// 1 the clip: a skeleton not the map's, a clip not of the map's
+    /// skeleton); `maniBuildReasonBasis` for an additive clip whose
+    /// difference from its basis mirrored is not finite;
+    /// `mani_errorCapacity` when memory runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult
+    maniBuildMirroredClip(maniBuilder* builder, const maniMirrorClipSource* source);
 
 #ifdef __cplusplus
 }
