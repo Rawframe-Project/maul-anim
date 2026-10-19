@@ -14,6 +14,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "bytes.h"
+#include "clip_build.h"
 #include "clip_file.h"
 #include "container.h"
 #include "pose_memory.h"
@@ -678,6 +679,53 @@ static void TestBuildRefusals(void)
     CHECK(Build(&far, s_crafted, &size).result == mani_success, "a translation not taken");
 }
 
+// Root motion given to the clip builder, as retargeting bakes it: the
+// moves written as they come and the bone's channels kept; refused
+// beside the source's own, on a bone without keyed translation and
+// rotation, in an additive clip, or with a move count not the samples'.
+static void TestGiven(void)
+{
+    static double moves[5 * 7];
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        const double move[7] = {0.25 * k, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+        memcpy(moves + 7 * k, move, sizeof move);
+    }
+    maniRootMotionWork work = {Walk(), moves, 5};
+    maniClipSource source = Source(NULL);
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    maniClip clip;
+    maniRootMove move;
+    maniPose* pose = NULL;
+    CHECK(maniBuildClipMoved(builder, &source, &work).result == mani_success &&
+              maniCopyBuilt(builder, s_crafted, sizeof s_crafted, &size) == mani_success &&
+              maniOpenClip(s_crafted, size, &clip).result == mani_success &&
+              maniClipRootMotion(&clip, 0.0f, 1.0f, &move) == mani_success &&
+              fabsf(move.translation.x - 1.0f) < 1e-6f &&
+              maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success &&
+              maniSampleClip(&clip, &s_skeleton, 1.0f, pose) == mani_success &&
+              maniPoseLocal(pose, 0).translation.z == 4.0f,
+          "given moves written, the bone kept");
+    maniRootMotionSource own = Walk();
+    source.rootMotion = &own;
+    maniBuildResult r = maniBuildClipMoved(builder, &source, &work);
+    CHECK(r.reason == maniBuildReasonRootMotion, "given beside the source's own");
+    source.rootMotion = NULL;
+    work.source.bone = 1;
+    r = maniBuildClipMoved(builder, &source, &work);
+    CHECK(r.reason == maniBuildReasonRootMotion && r.item == 1, "a bone without translation keys");
+    work.source.bone = 0;
+    source.additive = maniAdditiveRest;
+    r = maniBuildClipMoved(builder, &source, &work);
+    CHECK(r.reason == maniBuildReasonRootMotion, "an additive clip");
+    source.additive = maniAdditiveNone;
+    work.sampleCount = 4;
+    r = maniBuildClipMoved(builder, &source, &work);
+    CHECK(r.reason == maniBuildReasonRootMotion, "a move short");
+    maniDestroyBuilder(builder);
+}
+
 // Where a section of s_file begins.
 static uint64_t SectionAt(uint32_t tag)
 {
@@ -800,6 +848,7 @@ int main(int argc, char** argv)
     TestRestore();
     TestStartTurned();
     TestBuildRefusals();
+    TestGiven();
     TestOpenRefusals();
     TestPinned();
     return s_failures == 0 ? 0 : 1;

@@ -3316,3 +3316,47 @@ rtp-source-id | src/retarget_pose.c | maniSkeletonIdentity(source) == map->sourc
 rtp-difference | src/retarget_pose.c | maniPoseMatches(sourcePose, source) && !maniPoseIsDifference(sourcePose) && | maniPoseMatches(sourcePose, source) &&
 rtp-target-match | src/retarget_pose.c | maniPoseMatches(targetPose, target); | true;
 rtp-kind | src/retarget_pose.c | maniPoseSetKind(targetPose, false); | (void)0;
+
+# Baking clips through a map (src/retarget_bake.c, the given root motion
+# in src/clip_build.c)
+rtk-follower-kind | src/retarget_bake.c | if (maniLoadU32(e + maniRetargetPlanKind) == maniRetargetPlanOne && | if (maniLoadU32(e + maniRetargetPlanKind) != maniRetargetPlanReference &&
+rtk-follower-a | src/retarget_bake.c | maniLoadU32(e + maniRetargetPlanA) == a) | true)
+rtk-root-given | src/retarget_bake.c | b->root = s->rootMotionBone != MANI_NO_BONE ? s->rootMotionBone : Follower(s->map, from.bone); | b->root = Follower(s->map, from.bone);
+# rtk-root-range survives, equivalent: a bone at the target's count goes
+# on to the clip builder, which refuses it with the same reason and item
+# (the parent lookup bounds it).
+rtk-root-range | src/retarget_bake.c | if (b->root >= s->map->targetBoneCount) | if (b->root > s->map->targetBoneCount)
+rtk-root-item | src/retarget_bake.c | return Result(mani_errorInvalid, maniBuildReasonRootMotion, s->rootMotionBone, 0); | return Result(mani_errorInvalid, maniBuildReasonRootMotion, 0, 0);
+rtk-frame-source | src/retarget_bake.c | parentS == MANI_NO_BONE | true
+rtk-frame-target | src/retarget_bake.c | parentT == MANI_NO_BONE | true
+rtk-turn-conj | src/retarget_bake.c | b->turn = maniQuatMul(maniQuatConjugate(b->targetFrame), b->sourceFrame); | b->turn = maniQuatMul(b->targetFrame, b->sourceFrame);
+rtk-move-scale | src/retarget_bake.c | maniVec3 model = maniRetargetRootMotion(b->s->map, maniQuatRotate(b->sourceFrame, t)); | maniVec3 model = maniQuatRotate(b->sourceFrame, t);
+rtk-move-back | src/retarget_bake.c | return maniQuatRotate(maniQuatConjugate(b->targetFrame), model); | return model;
+rtk-move-sample | src/retarget_bake.c | MANI_ROOT_MOTION_PERIOD_SIZE + 4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k; | MANI_ROOT_MOTION_PERIOD_SIZE;
+rtk-move-turn | src/retarget_bake.c | maniQuatMul(b->turn, maniQuatNormalize(LoadQuat(p + 12))), maniQuatConjugate(b->turn))); | maniQuatNormalize(LoadQuat(p + 12)), maniQuatIdentity()));
+rtk-axis-pick | src/retarget_bake.c | j = a[2] > a[j] ? 2u : j; | j = a[2] > a[0] ? 2u : j;
+rtk-axis-off | src/retarget_bake.c | return off <= 1e-4f * a[j] ? j : 3u; | return j;
+rtk-declared-skip | src/retarget_bake.c | if (((s.translationAxes >> i) & 1u) == 0) | if (false)
+rtk-declared-zero | src/retarget_bake.c | v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->turn, Unit(i)) : v; | (void)v;
+rtk-declared-all | src/retarget_bake.c | axes |= j < 3 ? 1u << j : 7u; | axes |= j < 3 ? 1u << j : 0u;
+rtk-declared-twist | src/retarget_bake.c | uint32_t j = AxisOf(maniQuatRotate(b->turn, Unit(s.twistAxis))); | uint32_t j = s.twistAxis;
+rtk-declared-whole | src/retarget_bake.c | s.rotation = j < 3 ? maniRootRotationTwist : maniRootRotationWhole; | s.rotation = maniRootRotationTwist;
+rtk-declared-bone | src/retarget_bake.c | s.bone = b->root; | (void)b;
+rtk-additive-add | src/retarget_bake.c | r = r == mani_success ? maniAddPoses(s->source, b->poses[1], &layer, 1) : r; | (void)layer;
+rtk-additive-difference | src/retarget_bake.c | r = r == mani_success ? maniPoseDifference(s->target, b->poses[2], b->poses[3], b->poses[2]) | r = r == mani_success ? maniPoseDifference(s->target, b->poses[2], b->poses[4], b->poses[2])
+rtk-additive-onto | src/retarget_bake.c | return r == mani_success ? maniAddPoses(s->target, b->poses[4], &layer, 1) : r; | return r;
+rtk-sample-pose | src/retarget_bake.c | const maniPose* pose = b->poses[additive ? 4 : 2]; | const maniPose* pose = b->poses[2];
+rtk-sample-floats | src/retarget_bake.c | b->floatValues[(size_t)i * n + k] = b->sampleFloats[i]; | b->floatValues[(size_t)i * n + k] = b->sampleFloats[0];
+rtk-rest-all | src/retarget_bake.c | if (memcmp(values + dimension * k, rest, dimension * sizeof(float)) != 0) | if (memcmp(values, rest, dimension * sizeof(float)) != 0)
+rtk-rest-root | src/retarget_bake.c | bool root = bone == b->root; | bool root = false;
+rtk-rest-scale | src/retarget_bake.c | Channel(b, v + 7 * n, !AtRest(v + 7 * n, 3, n, c))}; | Channel(b, v + 7 * n, false)};
+rtk-float-step | src/retarget_bake.c | interpolation}}; | maniInterpolationLinear}};
+rtk-discrete-first | src/retarget_bake.c | const uint8_t* key = clip->discreteKeys + (size_t)(first + j) * MANI_CLIP_KEY_SIZE; | const uint8_t* key = clip->discreteKeys + (size_t)j * MANI_CLIP_KEY_SIZE;
+rtk-marker-index | src/retarget_bake.c | i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, i - events); | i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, 0);
+rtk-basis | src/retarget_bake.c | r = maniRetargetPose(b->s->map, b->s->source, b->poses[1], b->s->target, b->poses[3], | r = maniRetargetPose(b->s->map, b->s->source, b->poses[1], b->s->target, b->poses[4],
+rtk-refuse-basis | src/retarget_bake.c | return Result(mani_errorInvalid, maniBuildReasonBasis, 0, 0); | return Result(mani_success, maniBuildReasonNone, 0, 0);
+rtk-match-source | src/retarget_bake.c | if (maniSkeletonIdentity(s->source) != m->sourceIdentity || | if (false ||
+rtk-match-clip | src/retarget_bake.c | if (s->clip->skeletonIdentity != m->sourceIdentity || | if (false ||
+rtk-usable-reserved | src/retarget_bake.c | s->clip != NULL && s->reserved == 0; | s->clip != NULL;
+rtk-given-root | src/clip_build.c | bool valid = source->rootMotion == NULL && source->additive == maniAdditiveNone && | bool valid = source->additive == maniAdditiveNone &&
+rtk-given-keys | src/clip_build.c | return t != NULL && t->translation.keyCount > 0 && t->rotation.keyCount > 0 | return t != NULL

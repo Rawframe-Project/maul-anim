@@ -7,8 +7,9 @@
 // step), discrete tracks, events and markers kept; channels at the
 // target's rest left out; additive clips (rest and first-frame bases)
 // as differences carried from the source's rest; root motion's moves
-// scaled, and turned with their axes into a turned parent's frame (all
-// axes and the whole rotation where the turn leaves the axes); the
+// scaled, and turned with their axes into a turned parent's frame and
+// out of one (all axes and the whole rotation where the turn leaves the
+// axes, the axes kept where a scale of 0 takes them to nothing); the
 // refusals; the baked clip's bits pinned, the same on every platform.
 
 #include "test_harness.h"
@@ -29,11 +30,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_IDENTITY 0x981eca0313382b7aull
+#define PINNED_IDENTITY 0x078d598aed232ca6ull
 
 static _Alignas(16) uint8_t s_skeletonFiles[6][4096];
-static _Alignas(16) uint8_t s_mapFiles[3][16384];
-static _Alignas(16) uint8_t s_clipFiles[3][65536];
+static _Alignas(16) uint8_t s_mapFiles[5][16384];
+static _Alignas(16) uint8_t s_clipFiles[4][65536];
 static _Alignas(16) uint8_t s_baked[65536];
 static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[6][4096];
 static _Alignas(16) uint8_t s_scratch[8192];
@@ -46,6 +47,8 @@ static maniSkeleton s_turnedTarget;
 static maniRetargetMap s_map;
 static maniRetargetMap s_chainsOnly;
 static maniRetargetMap s_turnedMap;
+static maniRetargetMap s_flat;
+static maniRetargetMap s_flatHand;
 static maniPose* s_in;
 static maniPose* s_whole;
 static maniPose* s_out;
@@ -117,6 +120,9 @@ static const float kBlink[3] = {0.0f, 1.0f, 0.25f};
 static const float kFlag[2] = {0.0f, 1.0f};
 static const float kFootTimes[3] = {0.0f, 0.4f, 0.8f};
 static const int32_t kFoot[3] = {1, 2, -3};
+static const float kGripTimes[2] = {0.0f, 0.6f};
+static const int32_t kGrip[2] = {5, 6};
+static const float kArmMove[9] = {0.2f, 0.1f, 0.0f, 0.25f, 0.1f, 0.05f, 0.3f, 0.12f, 0.1f};
 static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
 
 static maniChannelSource Keys(const float* values)
@@ -193,6 +199,21 @@ static void Setup(void)
     maniRetargetMapSource turned = {
         .source = &s_turnedSource, .target = &s_turnedTarget, .matchNames = true};
     Map(&turned, 2, &s_turnedMap);
+    // No horizontal scale; and the target's forearm at a scale of 0.
+    maniRetargetPelvisSource flat = kPelvis;
+    flat.horizontal = 0.0f;
+    source.matchNames = true;
+    source.pelvis = &flat;
+    Map(&source, 3, &s_flat);
+    maniTransform reference[10];
+    for (uint32_t b = 0; b < 10; ++b)
+    {
+        reference[b] = maniSkeletonRest(&s_target, b);
+    }
+    reference[7].scale.x = 0.0f;
+    source.pelvis = &kPelvis;
+    source.targetReference = reference;
+    Map(&source, 4, &s_flatHand);
     const maniSkeleton* skeletons[6] = {&s_source, &s_source, &s_target,
                                         &s_target, &s_target, &s_turnedSource};
     maniPose** poses[6] = {&s_in, &s_whole, &s_out, &s_base, &s_expected, &s_turnedIn};
@@ -204,45 +225,49 @@ static void Setup(void)
     }
 }
 
-// Builds and opens a clip of the main source in slot, with root motion
-// on the root bone or not.
-static void SourceClip(maniAdditiveBasis additive, bool moving, int slot, maniClip* out)
+// Builds and opens a clip of a source rig in slot, with root motion on
+// a bone (the root's twist about y, another's whole rotation) or none:
+// the arm then moving, s2 then tracked.
+static void SourceClip(const maniSkeleton* skeleton, maniAdditiveBasis additive, uint32_t root,
+                       int slot, maniClip* out)
 {
-    const maniBoneTrackSource tracks[5] = {{0, 0, Keys(kRootMove), Keys(kYaw), kNone},
-                                           {1, 0, Keys(kHipsMove), Keys(kHipsTilt), kNone},
-                                           {2, 0, kNone, Keys(kSpine), kNone},
-                                           {5, 0, kNone, Keys(kArm), kNone},
-                                           {6, 0, kNone, kNone, Keys(kHand)}};
+    const maniBoneTrackSource tracks[6] = {
+        {0, 0, Keys(kRootMove), Keys(kYaw), kNone},
+        {1, 0, Keys(kHipsMove), Keys(kHipsTilt), kNone},
+        {2, 0, kNone, Keys(kSpine), kNone},
+        {5, 0, root == 5 ? Keys(kArmMove) : kNone, Keys(kArm), kNone},
+        {6, 0, kNone, kNone, Keys(kHand)},
+        {3, 0, kNone, Keys(kSpine), kNone}};
     const maniFloatTrackSource floats[2] = {
         {"blink", 5, 0, Keys(kBlink)}, {"flag", 4, 0, {kTimes, kFlag, 2, maniInterpolationStep}}};
-    const maniDiscreteTrackSource discrete[1] = {{"foot", 4, 3, kFootTimes, kFoot}};
+    const maniDiscreteTrackSource discrete[2] = {{"foot", 4, 3, kFootTimes, kFoot},
+                                                 {"grip", 4, 2, kGripTimes, kGrip}};
     const maniEventSource events[2] = {{0.25f, 7, "step", 4, 0}, {0.75f, 9, "step", 4, 0}};
     const maniEventSource markers[2] = {{0.0f, 0, "L", 1, 0}, {0.5f, 0, "R", 1, 0}};
-    const maniRootMotionSource root = {0,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
-                                       0};
-    maniClipSource source = {&s_source,
-                             tracks,
-                             floats,
-                             discrete,
-                             events,
-                             markers,
-                             5,
-                             2,
-                             1,
-                             2,
-                             2,
-                             maniLoopRepeat,
-                             30.0f,
-                             1.0f,
-                             additive,
-                             0,
-                             moving ? &root : NULL};
+    const maniRootMotionSource motion = {root,
+                                         maniRootAxisX | maniRootAxisZ,
+                                         root == 0 ? maniRootRotationTwist : maniRootRotationWhole,
+                                         1,
+                                         maniRootReferenceRest,
+                                         maniRootReferenceRest,
+                                         0,
+                                         0};
+    maniClipSource source = {.skeleton = skeleton,
+                             .boneTracks = tracks,
+                             .floatTracks = floats,
+                             .discreteTracks = discrete,
+                             .events = events,
+                             .markers = markers,
+                             .boneTrackCount = root == 3 ? 6 : 5,
+                             .floatTrackCount = 2,
+                             .discreteTrackCount = 2,
+                             .eventCount = 2,
+                             .markerCount = 2,
+                             .loop = maniLoopRepeat,
+                             .sampleRate = 30.0f,
+                             .duration = 1.0f,
+                             .additive = additive,
+                             .rootMotion = root != MANI_NO_BONE ? &motion : NULL};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, &source).result == mani_success &&
@@ -326,7 +351,7 @@ static void TestSamples(void)
 {
     maniClip source;
     maniClip baked;
-    SourceClip(maniAdditiveNone, false, 0, &source);
+    SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip bakes");
     CHECK(maniClipSampleCount(&baked) == 31 && maniClipSampleRate(&baked) == 30.0f &&
@@ -351,7 +376,7 @@ static void TestNamed(void)
 {
     maniClip source;
     maniClip baked;
-    SourceClip(maniAdditiveNone, false, 0, &source);
+    SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip bakes");
     bool floats = maniClipFloatTrackCount(&baked) == 2;
@@ -365,11 +390,11 @@ static void TestNamed(void)
                  fabsf(a[0] - b[0]) < 1e-6f && a[1] == b[1];
     }
     CHECK(floats, "float tracks kept, the step one a step");
-    bool discrete = maniClipDiscreteTrackCount(&baked) == 1;
-    for (int i = 0; discrete && i < 4; ++i)
+    bool discrete = maniClipDiscreteTrackCount(&baked) == 2;
+    for (int i = 0; discrete && i < 8; ++i)
     {
-        discrete = maniClipDiscreteValue(&baked, 0, times[i]) ==
-                   maniClipDiscreteValue(&source, 0, times[i]);
+        discrete = maniClipDiscreteValue(&baked, (uint32_t)i % 2, times[i / 2]) ==
+                   maniClipDiscreteValue(&source, (uint32_t)i % 2, times[i / 2]);
     }
     CHECK(discrete, "discrete tracks copied");
     bool timed = maniClipEventCount(&baked) == 2 && maniClipMarkerCount(&baked) == 2;
@@ -390,7 +415,7 @@ static void TestLeftOut(void)
 {
     maniClip source;
     maniClip baked;
-    SourceClip(maniAdditiveNone, false, 0, &source);
+    SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniRetargetClipSource s = Source(&s_chainsOnly, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip bakes");
     // root and head unmapped, the hand past the one-to-one arm chain's
@@ -410,7 +435,7 @@ static void TestCompressed(void)
     maniClip source;
     maniClip small;
     maniClip baked;
-    SourceClip(maniAdditiveNone, false, 0, &source);
+    SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniBuilder* builder = NewBuilder();
     maniCompressOptions options = maniDefaultCompressOptions();
     size_t size = 0;
@@ -454,7 +479,7 @@ static void TestAdditive(void)
     {
         maniClip source;
         maniClip baked;
-        SourceClip(bases[i], false, 1, &source);
+        SourceClip(&s_source, bases[i], MANI_NO_BONE, 1, &source);
         maniRetargetClipSource s = Source(&s_map, &source);
         CHECK(Bake(&s, &baked).result == mani_success, "an additive clip bakes");
         CHECK(maniClipAdditiveBasis(&baked) == bases[i], "the basis kept");
@@ -473,7 +498,7 @@ static void TestRootMotion(void)
 {
     maniClip source;
     maniClip baked;
-    SourceClip(maniAdditiveNone, true, 0, &source);
+    SourceClip(&s_source, maniAdditiveNone, 0, 0, &source);
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip with root motion bakes");
     maniRootMotionSource declared;
@@ -568,6 +593,79 @@ static void TestTurned(void)
           "the moves turned");
 }
 
+static maniQuat Conj(maniQuat q)
+{
+    return (maniQuat){-q.x, -q.y, -q.z, q.w};
+}
+
+static maniVec3 Turn(maniQuat q, maniVec3 v)
+{
+    maniQuat p = Mul(Mul(q, (maniQuat){v.x, v.y, v.z, 0.0f}), Conj(q));
+    return (maniVec3){p.x, p.y, p.z};
+}
+
+// A bone's rest model rotation: its root path's rest rotations.
+static maniQuat RestModel(const maniSkeleton* skeleton, uint32_t bone)
+{
+    maniQuat q = {0.0f, 0.0f, 0.0f, 1.0f};
+    for (uint32_t b = bone; b != MANI_NO_BONE; b = maniSkeletonParent(skeleton, b))
+    {
+        q = Mul(maniSkeletonRest(skeleton, b).rotation, q);
+    }
+    return q;
+}
+
+// The arm's motion (from its rest, so the move from the start is the
+// sample's) into the upper arm, under chests whose rests turn apart:
+// into the model by the source chest's frame, scaled, out by the
+// target's; the rotation turned between the frames.
+static void TestTurnedSource(void)
+{
+    maniClip source;
+    maniClip baked;
+    SourceClip(&s_source, maniAdditiveNone, 5, 3, &source);
+    maniRetargetClipSource s = Source(&s_map, &source);
+    maniRootMotionSource declared;
+    CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
+              declared.bone == 6 && declared.translationAxes == 7 &&
+              declared.rotation == maniRootRotationWhole,
+          "the arm's motion on the upper arm, off the axes");
+    maniQuat from = RestModel(&s_source, 4);
+    maniQuat to = RestModel(&s_target, 5);
+    maniQuat g = Mul(Conj(to), from);
+    bool moves = true;
+    const float ends[2] = {0.5f, 1.0f};
+    for (int i = 0; i < 2; ++i)
+    {
+        maniRootMove a;
+        maniRootMove b;
+        moves =
+            moves && maniClipRootMotion(&source, 0.0f, ends[i], &a) == mani_success &&
+            maniClipRootMotion(&baked, 0.0f, ends[i], &b) == mani_success &&
+            Gap(b.translation,
+                Turn(Conj(to), maniRetargetRootMotion(&s_map, Turn(from, a.translation)))) < 1e-5 &&
+            QuatDot(b.rotation, Mul(Mul(g, a.rotation), Conj(g))) > 1.0 - 1e-10;
+    }
+    CHECK(moves, "the moves carried through both chests' frames");
+}
+
+// No horizontal scale: the walk's axes still x and z, though its
+// horizontal moves are scaled to nothing.
+static void TestFlat(void)
+{
+    maniClip source;
+    maniClip baked;
+    SourceClip(&s_source, maniAdditiveNone, 0, 0, &source);
+    maniRetargetClipSource s = Source(&s_flat, &source);
+    maniRootMotionSource declared;
+    maniRootMove move;
+    CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
+              declared.translationAxes == (maniRootAxisX | maniRootAxisZ) &&
+              maniClipRootMotion(&baked, 0.0f, 1.0f, &move) == mani_success &&
+              move.translation.x == 0.0f && move.translation.z == 0.0f,
+          "the axes kept where the scale takes them to nothing");
+}
+
 static maniBuildResult Refused(maniRetargetClipSource s)
 {
     maniClip baked;
@@ -579,7 +677,7 @@ static void TestRefusals(void)
     maniClip source;
     maniClip moving;
     maniClip baked;
-    SourceClip(maniAdditiveNone, false, 0, &source);
+    SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniBuilder* builder = NewBuilder();
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(maniBuildRetargetedClip(NULL, &s).result == mani_errorInvalid, "a NULL builder");
@@ -609,7 +707,7 @@ static void TestRefusals(void)
     s = Source(&s_map, &source);
     s.rootMotionBone = 10;
     CHECK(Refused(s).result == mani_success, "a bone for no root motion ignored");
-    SourceClip(maniAdditiveNone, true, 1, &moving);
+    SourceClip(&s_source, maniAdditiveNone, 0, 1, &moving);
     s = Source(&s_map, &moving);
     s.rootMotionBone = 10;
     r = Refused(s);
@@ -618,6 +716,21 @@ static void TestRefusals(void)
     r = Refused(s);
     CHECK(r.reason == maniBuildReasonRootMotion && r.item == MANI_NO_BONE,
           "no bone follows the root motion bone");
+    // s2 is the second source of two target spine bones, alone of none.
+    SourceClip(&s_source, maniAdditiveNone, 3, 1, &moving);
+    s = Source(&s_map, &moving);
+    r = Refused(s);
+    CHECK(r.reason == maniBuildReasonRootMotion && r.item == MANI_NO_BONE,
+          "no bone follows the root motion bone alone");
+    SourceClip(&s_otherSource, maniAdditiveNone, MANI_NO_BONE, 1, &moving);
+    s = Source(&s_map, &moving);
+    r = Refused(s);
+    CHECK(r.reason == maniBuildReasonRetargetClip && r.other == 2, "a clip of another source");
+    SourceClip(&s_source, maniAdditiveRest, MANI_NO_BONE, 1, &moving);
+    s = Source(&s_flatHand, &moving);
+    r = Refused(s);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonBasis,
+          "an additive clip over a basis of scale 0");
 }
 
 int main(void)
@@ -630,6 +743,8 @@ int main(void)
     TestAdditive();
     TestRootMotion();
     TestTurned();
+    TestTurnedSource();
+    TestFlat();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

@@ -450,11 +450,9 @@ static maniBuildResult Build(maniBuilder* builder, Bake* b)
     maniResult r = mani_success;
     if (clip->additive != maniAdditiveNone)
     {
-        // The basis: the source's rest carried.
-        r = maniPoseSetRest(b->poses[1], b->s->source);
-        r = r == mani_success ? maniRetargetPose(b->s->map, b->s->source, b->poses[1], b->s->target,
-                                                 b->poses[3], b->scratch, b->scratchSize)
-                              : r;
+        // The basis: the source's rest (the pose as made) carried.
+        r = maniRetargetPose(b->s->map, b->s->source, b->poses[1], b->s->target, b->poses[3],
+                             b->scratch, b->scratchSize);
     }
     for (uint32_t k = 0; r == mani_success && k < b->samples; ++k)
     {

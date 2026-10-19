@@ -132,14 +132,22 @@ pelvis, a bending spine, a turning arm and a scaling hand: every one
 of its 31 samples within 1e-5 (rotations within 1e-10 of their dot
 product's 1) of the transfer of the source's, from the full-precision
 and the compressed source; the timing kept; a linear float track's
-values and a step one's steps, a discrete track, two events and two
+values and a step one's steps, two discrete tracks, two events and two
 markers kept; a map of chains and the pelvis only leaving the root,
 the head and the hand past the arm chain's source out (7 tracks of
 10); rest and first-frame additive clips' differences carried from the
 source's rest; root motion's moves over three spans the source's
 scaled, with the poses in place; a root whose rest turns a quarter
 about x turning the hips' x and z axes into x and y and the yaw twist
-into one about z, the moves turned with them; a bone under turned
-parents declaring all axes and the whole rotation; the refusals (each
-skeleton and the clip of another identity, a root motion bone past the
-target, none following); the baked clip's identity pinned.
+into one about z, the moves turned with them; the arm's motion under
+chests whose rests turn apart carried into the model and out again,
+off the axes, so all axes and the whole rotation declared; a
+horizontal scale of 0 keeping the walk's axes; the refusals (each
+skeleton and the clip of another identity of the same count, a root
+motion bone past the target, none following it alone, an additive
+clip over a basis of scale 0); the baked clip's identity pinned. Their
+first mutants found a two-source plan taken for a follower, the source
+frame, the zero-scale axes, a second discrete track's keys, the
+clip's identity check (its count caught the target's clip) and the clip
+builder's checks of given motion
+untested.
