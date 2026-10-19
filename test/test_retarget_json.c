@@ -271,6 +271,8 @@ static const Refusal kRefusals[] = {
     {TOP PAIR("\"rotationWeight\": 1, \"translation\": \"moved\""), maniBuildReasonForm,
      maniGraphFormValue, "\"moved", 1},
     {TOP PAIR("\"rotationWeight\": true"), maniBuildReasonForm, maniGraphFormValue, "true", 1},
+    {TOP PAIR("\"translation\": \"own\""), maniBuildReasonForm, maniGraphFormMissing, "{\"target",
+     1},
     {TOP PAIR("\"rotationWeight\": 1, \"scale\": 1"), maniBuildReasonForm, maniGraphFormValue, "1}",
      1},
     {TOP "\"pairs\": [{\"target\": \"hips\", \"source\": \"head\", \"rotationWeight\": 1}]}",
@@ -284,6 +286,9 @@ static const Refusal kRefusals[] = {
     {TOP "\"pelvis\": {\"source\": \"hips\", \"target\": \"pelvis\", \"up\": [0, 1], "
          "\"horizontal\": 1, \"vertical\": 1, \"translationWeight\": 1, \"rotationWeight\": 1}}",
      maniBuildReasonForm, maniGraphFormValue, "[0, 1]", 1},
+    {TOP "\"pelvis\": {\"source\": \"hips\", \"target\": \"pelvis\", \"up\": [0, 1, 0], "
+         "\"horizontal\": 1, \"translationWeight\": 1, \"rotationWeight\": 1}}",
+     maniBuildReasonForm, maniGraphFormMissing, "{\"source", 1},
     {TOP "\"pelvis\": {\"source\": \"pelvis\", \"target\": \"pelvis\", \"up\": [0, 1, 0], "
          "\"horizontal\": 1, \"vertical\": 1, \"translationWeight\": 1, \"rotationWeight\": 1}}",
      maniBuildReasonForm, maniGraphFormName, "\"pelvis\", \"target", 1},

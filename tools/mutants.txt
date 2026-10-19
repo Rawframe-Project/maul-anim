@@ -3542,3 +3542,51 @@ rmd-bind | src/graph_bind.c | (mirror != 0 && mirror != graph->mirrorMapIdentity
 rmd-evaluate | src/graph_evaluate.c | if ((m.flags & MANI_MATCH_MIRRORED) != 0) | if (false)
 rmd-events | src/graph_match_step.c | u->events[i].nameHash = maniMirrorNameHash(u->binding->mirrorMap, u->events[i].nameHash); | (void)u;
 rmd-move | src/graph_match_step.c | maniRootMove move = (e.flags & MANI_MATCH_MIRRORED) != 0 | maniRootMove move = false
+
+# The maps' JSON form (src/map_json.c, src/retarget_json.c, src/mirror_json.c)
+mj-open-capacity | src/map_json.c | *result = read.result == mani_errorCapacity | *result = read.result != mani_errorCapacity
+mj-header-format | src/map_json.c | maniJsonStringEquals(r->json, f[0], format, strlen(format)); | maniJsonStringEquals(r->json, f[0], format, strlen(format) - 1);
+mj-header-version | src/map_json.c | return maniJsonInteger(r->json, f[1], 1, 1, &version) || | return maniJsonInteger(r->json, f[1], 1, 2, &version) ||
+mj-count-absent | src/map_json.c | return value == ABSENT || maniGraphJsonArray(r, value, countOut); | return value != ABSENT && maniGraphJsonArray(r, value, countOut);
+mj-word-unknown | src/map_json.c | if (word == count) | if (word > count)
+mj-word-out | src/map_json.c | *out = word; | (void)word;
+mj-entry-repeat | src/map_json.c | if (seen[bone] != 0) | if (seen[bone] > 1)
+mj-entry-seen | src/map_json.c | seen[bone] = 1; | seen[bone] = 0;
+mj-entry-scale | src/map_json.c | !Floats(r, f[3], scale, 3)) | !Floats(r, f[1], scale, 3))
+mj-entry-w | src/map_json.c | {rotation[0], rotation[1], rotation[2], rotation[3]}, | {rotation[0], rotation[1], rotation[2], rotation[2]},
+mj-ref-rest | src/map_json.c | pose[b] = maniSkeletonRest(r->skeleton, b); | pose[b] = maniSkeletonRest(r->skeleton, 0);
+mj-ref-seen | src/map_json.c | seen[b] = 0; | seen[b] = 1;
+mj-put-at-rest | src/map_json.c | if (AtRest(w->skeleton, b, t)) | if (!AtRest(w->skeleton, b, t))
+mj-at-rest | src/map_json.c | same = same && a[k] == b[k]; | same = same && (k > 4 || a[k] == b[k]);
+mj-item-comma | src/map_json.c | maniGraphJsonPutText(w, i > 0 ? "," : ""); | maniGraphJsonPutText(w, i > 1 ? "," : "");
+mj-close-line | src/map_json.c | if (count > 0) | if (count > 1)
+mj-close-last | src/map_json.c | maniGraphJsonPutText(w, last ? "]" : "],"); | maniGraphJsonPutText(w, "],");
+mj-floats-comma | src/map_json.c | maniGraphJsonPutText(w, k > 0 ? ", " : ""); | maniGraphJsonPutText(w, k > 1 ? ", " : "");
+mj-keep-size | src/map_json.c | maniBuilderKeep(builder, MANI_BUILT_TEXT, (uint8_t*)text, size, NULL, 0); | maniBuilderKeep(builder, MANI_BUILT_TEXT, (uint8_t*)text, size - 1, NULL, 0);
+rj-pair-required | src/retarget_json.c | return maniGraphJsonMembers(r, object, kKeys, 5, 0x7u, f) && | return maniGraphJsonMembers(r, object, kKeys, 5, 0x3u, f) &&
+rj-pair-translation | src/retarget_json.c | *p = (maniRetargetPairSource){.translation = maniRetargetTranslationOwn}; | *p = (maniRetargetPairSource){.translation = maniRetargetTranslationScaled};
+rj-pair-scale | src/retarget_json.c | (f[4] == ABSENT || maniGraphJsonBool(r, f[4], &p->scale)); | (f[4] != ABSENT && maniGraphJsonBool(r, f[4], &p->scale));
+rj-chain-required | src/retarget_json.c | return maniGraphJsonMembers(r, object, kKeys, 8, 0x3Fu, f) && | return maniGraphJsonMembers(r, object, kKeys, 8, 0x1Fu, f) &&
+rj-chain-translation | src/retarget_json.c | *c = (maniRetargetChainSource){.translation = maniRetargetTranslationOwn}; | *c = (maniRetargetChainSource){.translation = maniRetargetTranslationScaled};
+rj-chain-side | src/retarget_json.c | BoneOf(r, sides->target, f[2], &c->targetStart) && | BoneOf(r, sides->source, f[2], &c->targetStart) &&
+rj-chain-scale | src/retarget_json.c | (f[7] == ABSENT || maniGraphJsonBool(r, f[7], &c->scale)); | (f[7] != ABSENT && maniGraphJsonBool(r, f[7], &c->scale));
+rj-pelvis-null | src/retarget_json.c | if (object == ABSENT || r->json->values[object].kind == maniJsonNull) | if (object == ABSENT)
+rj-pelvis-required | src/retarget_json.c | maniGraphJsonMembers(r, object, kKeys, 9, 0x19Fu, f) && | maniGraphJsonMembers(r, object, kKeys, 9, 0x18Fu, f) &&
+rj-pelvis-up | src/retarget_json.c | p->up = (maniVec3){up[0], up[1], up[2]}; | p->up = (maniVec3){up[0], up[2], up[1]};
+rj-target-reference | src/retarget_json.c | r->skeleton = sides->target; | r->skeleton = sides->source;
+rj-match-names | src/retarget_json.c | (f[7] == ABSENT || maniGraphJsonBool(r, f[7], &out->matchNames)); | (f[7] == ABSENT);
+rj-misuse | src/retarget_json.c | if ((text == NULL && length > 0) || source == NULL || target == NULL) | if ((text == NULL && length > 0) || source == NULL)
+rj-put-skeleton | src/retarget_json.c | w->skeleton = skeleton; | (void)skeleton;
+rj-put-translation | src/retarget_json.c | PutWord(w, "translation", kTranslations[p->translation]); | PutWord(w, "translation", kTranslations[0]);
+rj-put-rotation | src/retarget_json.c | PutWord(w, "rotation", kRotations[c->rotation]); | PutWord(w, "rotation", kRotations[1]);
+mm-required | src/mirror_json.c | maniGraphJsonMembers(r, 0, kKeys, 8, 0x7u, f) && maniMapJsonHeader(r, f, kFormat) && | maniGraphJsonMembers(r, 0, kKeys, 8, 0x3u, f) && maniMapJsonHeader(r, f, kFormat) &&
+mm-axis | src/mirror_json.c | maniMapJsonWord(r, f[2], kAxes, 3, &out->axis) && | maniMapJsonWord(r, f[2], kAxes, 2, &out->axis) &&
+mm-place | src/mirror_json.c | maniMapJsonWord(r, f[1], kPlaces, 3, &rule->place) && | maniMapJsonWord(r, f[1], kPlaces, 2, &rule->place) &&
+mm-rule-zero | src/mirror_json.c | *rule = (maniMirrorRuleSource){0}; | *rule = (maniMirrorRuleSource){.reserved = 1};
+mm-name-zero | src/mirror_json.c | *n = (maniMirrorNameSource){0}; | *n = (maniMirrorNameSource){.reserved = 1};
+mm-pair-second | src/mirror_json.c | maniGraphJsonBone(r, f[0], &p->first) && maniGraphJsonBone(r, f[1], &p->second); | maniGraphJsonBone(r, f[0], &p->first) && maniGraphJsonBone(r, f[0], &p->second);
+mm-name-pair-second | src/mirror_json.c | maniGraphJsonName(r, f[1], &p->second, &p->secondLength); | maniGraphJsonName(r, f[0], &p->second, &p->secondLength);
+mm-misuse | src/mirror_json.c | if ((text == NULL && length > 0) || skeleton == NULL) | if (skeleton == NULL)
+mm-put-axis | src/mirror_json.c | maniGraphJsonPutText(w, kAxes[s->axis]); | maniGraphJsonPutText(w, kAxes[0]);
+mm-put-names-last | src/mirror_json.c | maniMapJsonPutClose(w, s->nameCount, true); | maniMapJsonPutClose(w, s->nameCount, false);
+mm-put-place | src/mirror_json.c | maniGraphJsonPutText(w, kPlaces[rule->place]); | maniGraphJsonPutText(w, kPlaces[0]);
