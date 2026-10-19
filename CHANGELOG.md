@@ -8,6 +8,14 @@ format.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-19
+
+The first release: the whole scope of the library, built and tested.
+Compressed size and compression time meet their targets against ACL;
+random access, forward playback, blending and the model pass do not
+yet meet theirs against ACL and ozz-animation (record mani-0036), and
+1.0.0 waits on them.
+
 ### Added
 
 - A guide (`docs/guide.md`) through the library in the order a program

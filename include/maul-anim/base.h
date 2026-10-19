@@ -18,8 +18,8 @@ extern "C"
 
 // The library version. CMake reads it from here.
 #define MANI_VERSION_MAJOR 0
-#define MANI_VERSION_MINOR 0
-#define MANI_VERSION_PATCH 1
+#define MANI_VERSION_MINOR 1
+#define MANI_VERSION_PATCH 0
 
 // The major and minor version a def is stamped with by its default
 // function; a call taking a def built against another refuses it with

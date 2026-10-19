@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_MORPH_FILE 0x1e05bc5c3d0f7b09ull
+#define PINNED_MORPH_FILE 0xb58e3605b0fc9a01ull
 #define PINNED_MORPH_JOB  0x505a297b9b1d7aabull
 
 enum

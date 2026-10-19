@@ -44,9 +44,10 @@ bytes, and instances live in the caller's memory.
 
 ## Status
 
-Not released yet: every part of the scope is built and tested, and the
-first release, 0.1.0, is being prepared. Before 1.0.0 any minor
-release may change the API, the ABI and the file formats. This skeleton
+0.1.0, the first release: every part of the scope built and tested;
+the targets against the rivals and where each stands are in record
+mani-0036. Before 1.0.0 any minor release may change the API, the ABI
+and the file formats. This skeleton
 has 321 public functions.
 
 ## Using it

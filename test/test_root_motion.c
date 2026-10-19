@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_ROOT_HASH 0xcfd51c694f3e10e9ull
+#define PINNED_ROOT_HASH 0x1b6f555d7ba77c7eull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[16384];
