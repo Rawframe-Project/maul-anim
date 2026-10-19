@@ -224,7 +224,7 @@ void maniGraphEvaluateBody(const maniGraphEvaluation* e, const uint8_t* record, 
     at += maniGraphBodyRounded(settings * sizeof(maniBodyBone));
     // The room holds every body node's arrays (maniGraphBodyRoom); the
     // check keeps a room short of them from being written past.
-    size_t have = e->instance->size - e->instance->roomAt;
+    size_t have = e->instance->cachesAt - e->instance->roomAt;
     if (at > have)
     {
         return;

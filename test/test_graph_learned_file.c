@@ -278,7 +278,8 @@ static size_t Cache(const maniLearnedModel* m)
 }
 
 // Two nodes over two models, the wider first or last: the room the
-// wider needs, each node's cache after it in node order, and both play.
+// wider needs, then the caches' table and each node's cache in node
+// order (none for the other kinds), and both play.
 static void TestRoom(bool wideFirst)
 {
     MatchParameters();
@@ -312,22 +313,30 @@ static void TestRoom(bool wideFirst)
     CHECK(room > Need(&s_learned), "the wider model needs more");
     const maniLearnedModel* first = wideFirst ? &s_wide : &s_learned;
     const maniLearnedModel* second = wideFirst ? &s_learned : &s_wide;
+    size_t table = 4 * (size_t)g.nodeCount;
     CHECK(maniGraphRoom(binding) == room && instance->cachesAt == instance->roomAt + room &&
-              maniGraphInstanceSize(binding) == instance->cachesAt + Cache(first) + Cache(second),
-          "the room the wider model needs");
+              maniGraphInstanceSize(binding) ==
+                  instance->cachesAt + table + Cache(first) + Cache(second),
+          "the room the wider model needs, then the caches' table and the caches");
     uint32_t at[2] = {0, 0};
     uint32_t found = 0;
-    for (uint32_t p = 0; p < g.nodeCount && found < 2; ++p)
+    bool others = true;
+    for (uint32_t p = 0; p < g.nodeCount; ++p)
     {
-        if (maniLoadU16(g.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned)
+        bool learned =
+            maniLoadU16(g.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned;
+        if (learned && found < 2)
         {
-            at[found++] = p;
+            at[found] = p;
+            found += 1;
         }
+        others = others && (learned || maniGraphLearnedCache(instance, p) == NULL);
     }
     const maniLearnedModel* earlier = BoundModelOf(instance, &g, at[0]);
-    CHECK(found == 2 && maniLearnedHiddenCount(first) > 0 &&
+    CHECK(found == 2 && others && maniLearnedHiddenCount(first) > 0 &&
               (uint8_t*)maniGraphLearnedCache(instance, at[0]) ==
-                  (uint8_t*)instance + instance->cachesAt &&
+                  (uint8_t*)instance + instance->cachesAt + table &&
+
               (uint8_t*)maniGraphLearnedCache(instance, at[1]) ==
                   (uint8_t*)maniGraphLearnedCache(instance, at[0]) + Cache(earlier),
           "each node's cache in node order");

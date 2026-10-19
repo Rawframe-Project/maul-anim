@@ -159,12 +159,12 @@ static size_t CacheFloats(const maniLearnedModel* m)
     return hidden > 0 ? 1u + (size_t)m->featureCount + m->latentCount + hidden : 0u;
 }
 
-// The floats of the learned nodes' caches before node before.
-static size_t CachesBefore(const maniGraphBinding* binding, uint32_t before)
+// The floats of every learned node's cache.
+static size_t Caches(const maniGraphBinding* binding)
 {
     const maniGraph* graph = &binding->graph;
     size_t floats = 0;
-    for (uint32_t p = 0; p < before; ++p)
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
         if (maniLoadU16(e) == maniGraphNodeLearned)
@@ -175,15 +175,38 @@ static size_t CachesBefore(const maniGraphBinding* binding, uint32_t before)
     return floats;
 }
 
-float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node)
+// Each node's cache's place in floats after the table (UINT32_MAX for
+// none), into the table at cachesAt; nothing without caches.
+static void PlaceCaches(maniGraphInstance* instance)
 {
     const maniGraphBinding* binding = instance->binding;
-    const uint8_t* e = binding->graph.nodes + (size_t)node * MANI_GRAPH_NODE_SIZE;
-    if (CacheFloats(LearnedModel(binding, maniLoadU32(e + 12))) == 0)
+    const maniGraph* graph = &binding->graph;
+    if (instance->cachesAt == instance->size)
+    {
+        return;
+    }
+    uint32_t* table = (uint32_t*)((uint8_t*)instance + instance->cachesAt);
+    uint32_t at = 0;
+    for (uint32_t p = 0; p < graph->nodeCount; ++p)
+    {
+        const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        size_t floats = maniLoadU16(e) == maniGraphNodeLearned
+                            ? CacheFloats(LearnedModel(binding, maniLoadU32(e + 12)))
+                            : 0u;
+        table[p] = floats > 0 ? at : UINT32_MAX;
+        at += (uint32_t)floats;
+    }
+}
+
+float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node)
+{
+    if (instance->cachesAt == instance->size)
     {
         return NULL;
     }
-    return (float*)((uint8_t*)instance + instance->cachesAt) + CachesBefore(binding, node);
+    uint32_t* table = (uint32_t*)((uint8_t*)instance + instance->cachesAt);
+    uint32_t at = table[node];
+    return at != UINT32_MAX ? (float*)(table + instance->binding->graph.nodeCount) + at : NULL;
 }
 
 size_t maniGraphRoom(const maniGraphBinding* binding)
@@ -223,8 +246,11 @@ size_t maniGraphInstanceSize(const maniGraphBinding* binding)
     {
         return 0;
     }
-    return RoomAt(binding) + maniGraphRoom(binding) +
-           sizeof(float) * CachesBefore(binding, binding->graph.nodeCount);
+    // The caches after a table of their places, one word a node, when any
+    // node has one.
+    size_t caches = Caches(binding);
+    size_t table = caches > 0 ? binding->graph.nodeCount : 0u;
+    return RoomAt(binding) + maniGraphRoom(binding) + sizeof(float) * (table + caches);
 }
 
 // The machine node p's view, or none (states 0) for another kind.
@@ -412,6 +438,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     ResetCursors(instance);
     ResetMachines(instance);
     RestPoses(instance);
+    PlaceCaches(instance);
     *instanceOut = instance;
     return mani_success;
 }

@@ -197,8 +197,10 @@ typedef union maniGraphCell
 // roomAt, the room a
 // learned node's update evaluates its model in and a spring or
 // full-body node's evaluation works in (maniGraphRoom), kept by none
-// between calls; then, at cachesAt, each learned node's cache in node
-// order (maniGraphLearnedCache), not saved.
+// between calls; then, at cachesAt, when any learned node has a cache,
+// a word a node giving its cache's place in floats after the words
+// (UINT32_MAX for none), then each learned node's cache in node order
+// (maniGraphLearnedCache), not saved.
 struct maniGraphInstance
 {
     uint32_t stamp;
@@ -233,9 +235,10 @@ size_t maniGraphRoom(const maniGraphBinding* binding);
 // Learned node node's cache: a word, 0 until its update keeps a state
 // and 1 after; the state its update decompressed at (its model's
 // features and latents); the Decompressor's hidden values there
-// (maniLearnedHiddenCount), for its evaluation at the same state. NULL
-// for a Decompressor of one layer. A pure function of the state, so
-// restores leave it right.
+// (maniLearnedHiddenCount), for its evaluation at the same state; found
+// through the table at cachesAt. NULL for a node of another kind or a
+// Decompressor of one layer. A pure function of the state, so restores
+// leave it right.
 float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node);
 
 #endif // MAUL_ANIM_SRC_GRAPH_INSTANCE_H
