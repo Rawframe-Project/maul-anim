@@ -37,3 +37,4 @@ are listed in [README.md](README.md).
 | [mani-0030](mani-0030-ik-chains.md) | CCD and FABRIK chains with joint limits | Accepted |
 | [mani-0031](mani-0031-full-body-ik.md) | Full-body IK | Accepted |
 | [mani-0032](mani-0032-retargeting.md) | Retargeting | Accepted |
+| [mani-0033](mani-0033-mirroring.md) | Mirroring | Accepted |

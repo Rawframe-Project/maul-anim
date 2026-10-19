@@ -208,6 +208,8 @@ jobs:
           build/test_ragdoll --seed corpus-fuzz_ragdoll/sample.ragdoll
           mkdir -p corpus-fuzz_retarget
           build/test_retarget_map --seed corpus-fuzz_retarget/sample.retarget
+          mkdir -p corpus-fuzz_mirror
+          build/test_mirror_map --seed corpus-fuzz_mirror/sample.mirror
           mkdir -p corpus-fuzz_checkpoint
           build/test_learned_train --seed corpus-fuzz_checkpoint/sample.ckpt
           mkdir -p corpus-fuzz_json

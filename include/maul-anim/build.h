@@ -314,6 +314,20 @@ extern "C"
         // 2 the clip): a skeleton not its map's, a clip not of the map's
         // source.
         maniBuildReasonRetargetClip = 55,
+        // A mirror map's reference pose: the bone's (item) local not
+        // finite or its rotation not of length 1.
+        maniBuildReasonMirrorReference = 56,
+        // A mirror map's bone (item) and partner (other): a bone out of
+        // range or in two pairs, a pair's bone a rule's partner pairs
+        // with, or a rule's partner whose own rules name another bone.
+        maniBuildReasonMirrorPair = 57,
+        // A mirror map's rule (item): an empty find, an unknown place,
+        // a find or replace not UTF-8.
+        maniBuildReasonMirrorRule = 58,
+        // A mirror map's name (item: a name pair, then a listed name
+        // past the pairs; other the earlier): empty or not UTF-8, or
+        // paired twice with different partners.
+        maniBuildReasonMirrorName = 59,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

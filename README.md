@@ -32,7 +32,8 @@ It covers:
 - **Physics-driven poses:** spring bones, and the boundary to any
   physics engine for ragdolls and physical animation.
 - **Retargeting** between skeletons with different rests and
-  proportions.
+  proportions, and **mirroring** across the body's plane on any rig's
+  joint orientations.
 - **Offline:** glTF 2.0 and FBX importers, builders, the compressor,
   and a text form for graphs, behind the `MAUL_ANIM_OFFLINE` option;
   the runtime builds without them.
@@ -44,7 +45,7 @@ bytes, and instances live in the caller's memory.
 ## Status
 
 Not released. The design is decided; the library is built in slices.
-This skeleton has 292 public functions.
+This skeleton has 300 public functions.
 
 ## Building
 

@@ -57,6 +57,13 @@ format.
   rest left out, additive clips carried as differences, float and
   discrete tracks, events and markers kept, and root motion's moves
   scaled and turned into the target bone's parent's frame.
+- Mirror maps (mani-0033): `maniBuildMirrorMap` pairs a skeleton's
+  bones by explicit pairs and find/replace rules on their names, folds
+  the reference pose into two corrections a bone so rigs whose left and
+  right bones have unmirrored axes mirror to their reference, and pairs
+  float track, event and marker names; `maniOpenMirrorMap` opens it,
+  `maniMirrorPartner`, `maniMirrorName` and
+  `maniMirrorMapUnmatchedBone` read it.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

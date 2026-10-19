@@ -1031,6 +1031,54 @@ MANI_NODISCARD MANI_API maniBuildResult maniBuildMotionDatabase(maniBuilder* bui
 ```
 Builds a motion database: samples every entry's frames, each channel at each of its times (clamped to the entry's ends, or wrapped when it loops), in the root's space at the frame (the clip's root motion carrying the root between times; a bone's velocity the difference of its positions a frame either side over their time apart), normalizes each channel, and bounds every run of 16 and 64 frames. Keeps the file in place of any built before.  @param builder  The builder. @param source   The database. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonTiming` (the rate), `maniBuildReasonOption` (the axes), `maniBuildReasonCount` (no channels, clips or entries, too many, or past MANI_MATCH_MAX_FRAMES frames or MANI_MATCH_MAX_FEATURES features), `maniBuildReasonJoint` (a clip of another skeleton or additive; item the clip), `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry` (item the entry), `maniBuildReasonMissingTrack` (a float track an entry's clip lacks; item the channel, other the entry), `maniBuildReasonSpread` (a channel that never varies; item the channel); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
+## `mirror.h`
+
+Mirror maps (mani-0033): how poses of a skeleton are mirrored across a plane through the model's origin. A map is built offline for its skeleton (mirrorbuild.h) and opened in place; each bone takes its partner's local (its own when unpaired) carried through the reference pose's model rotations, so rigs whose left and right bones do not have mirrored axes mirror to their reference.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* mapOut);
+```
+Opens a mirror map file in place: checks the container, the header (the skeleton's identity and bone count, the axis, the name count, the first unmatched bone), every bone's partner (within the count, pairing back) and corrections (finite, of length 1), and every name pair (by increasing hash, its partner's name inside the names, UTF-8, of its hash).  @param bytes   The file, 16-byte aligned. @param size    Its size in bytes; bytes past the file are ignored. @param mapOut  Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniMirrorMapIdentity(const maniMirrorMap* map);
+```
+Returns a map's identity: the hash of its sections.  @param map  An opened map, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniMirrorMapSkeletonIdentity(const maniMirrorMap* map);
+```
+Returns the identity of the skeleton a map mirrors.  @param map  An opened map, or NULL. @return The skeleton's identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+maniMirrorAxis maniMirrorMapAxis(const maniMirrorMap* map);
+```
+Returns the axis a map's plane is normal to.  @param map  An opened map, or NULL. @return maniMirrorAxisX, Y or Z; maniMirrorAxisX for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMirrorPartner(const maniMirrorMap* map, uint32_t bone);
+```
+Returns a bone's partner: the bone it takes its mirrored local from (itself when unpaired).  @param map   An opened map, or NULL. @param bone  A bone of the map's skeleton. @return The partner; MANI_NO_BONE for NULL or a bone past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniMirrorMapUnmatchedBone(const maniMirrorMap* map);
+```
+Returns the first bone whose parent's partner is not its partner's parent: where the hierarchy is not mirror-symmetric, so that its mirrored pose is its partner's local turn mirrored rather than its partner's model turn.  @param map  An opened map, or NULL. @return The bone; MANI_NO_BONE for a symmetric hierarchy or NULL. @par Thread safety Safe from any thread.
+
+```c
+const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t length, size_t* lengthOut);
+```
+Returns the partner of a float track's, event's or marker's name: the name the map pairs it with, or the name itself.  @param map        An opened map. @param name       The name's UTF-8 bytes; may be NULL when length is 0. @param length     The name's length in bytes. @param lengthOut  Receives the partner's length. May be NULL. @return The partner's bytes inside the map, not terminated, or name itself when unpaired (or for a NULL map). @par Thread safety Safe from any thread.
+
+## `mirrorbuild.h`
+
+Building mirror maps (mani-0033): a skeleton's bones paired by explicit pairs and by find/replace rules on their names, a reference pose, a plane, and the names of float tracks, events and markers paired the same way, laid out as each bone's partner and corrections so that mirroring at runtime only composes rotations. Offline.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildMirrorMap(maniBuilder* builder, const maniMirrorMapSource* source);
+```
+Builds a mirror map file (kind 13) from a source and keeps it in the builder. A rule's partner must pair back by the rules (or be left to the rules by the pairs). The map records the first bone whose parent's partner is not its partner's parent, without refusing it.  @param builder  The builder. @param source   The map. @return `mani_success`; `mani_errorInvalid` with `maniBuildReasonNone` for a NULL builder, source or skeleton, a count without its list, or reserved not 0; `maniBuildReasonOption` for an unknown axis; `maniBuildReasonMirrorReference` (item the bone); `maniBuildReasonMirrorRule` (item the rule); `maniBuildReasonMirrorPair` (item the bone, other its partner); `maniBuildReasonMirrorName` (item the name, other the earlier); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `morph.h`
 
 Morph targets (mani-0021): a mesh primitive's blend shapes over the caller's bytes. Named channels, each one or more targets at increasing full weights (glTF's targets have one at 1; FBX's in-betweens several), each target deltas for some of the file's attributes (positions, normals, tangents, texture coordinate and color sets), dense or sparse.
@@ -1562,4 +1610,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-292 functions across 25 headers.
+300 functions across 27 headers.
