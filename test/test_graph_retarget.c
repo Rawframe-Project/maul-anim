@@ -25,6 +25,7 @@
 #include "maul-anim/retargetbuild.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -33,7 +34,7 @@
 #include <string.h>
 
 static _Alignas(16) uint8_t s_skeletonFiles[4][4096];
-static _Alignas(16) uint8_t s_mapFiles[3][16384];
+static _Alignas(16) uint8_t s_mapFiles[4][16384];
 static _Alignas(16) uint8_t s_clipFiles[2][65536];
 static _Alignas(16) uint8_t s_graphFile[65536];
 static _Alignas(16) uint8_t s_crafted[65536];
@@ -41,7 +42,7 @@ static _Alignas(16) uint8_t s_text[65536];
 static _Alignas(MANI_GRAPH_BINDING_ALIGNMENT) uint8_t s_bindingMemory[8192];
 static _Alignas(MANI_GRAPH_INSTANCE_ALIGNMENT) uint8_t s_instanceMemory[65536];
 static _Alignas(MANI_GRAPH_SCRATCH_ALIGNMENT) uint8_t s_scratch[131072];
-static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[6][4096];
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[7][4096];
 static _Alignas(16) uint8_t s_transfer[8192];
 static size_t s_graphSize;
 static maniSkeleton s_source;
@@ -51,6 +52,7 @@ static maniSkeleton s_otherTarget;
 static maniRetargetMap s_map;
 static maniRetargetMap s_chainsOnly;
 static maniRetargetMap s_elsewhere;
+static maniRetargetMap s_fromOther;
 static maniClip s_walk;
 static maniClip s_lean;
 static maniPose* s_in;
@@ -59,6 +61,7 @@ static maniPose* s_out;
 static maniPose* s_base;
 static maniPose* s_expected;
 static maniPose* s_layer;
+static maniPose* s_otherIn;
 
 typedef struct Bone
 {
@@ -226,11 +229,14 @@ static void Setup(void)
     source.matchNames = true;
     source.target = &s_otherTarget;
     Map(&source, 2, &s_elsewhere);
+    source.source = &s_otherSource;
+    source.target = &s_target;
+    Map(&source, 3, &s_fromOther);
     Clips();
-    const maniSkeleton* skeletons[6] = {&s_source, &s_source, &s_target,
-                                        &s_target, &s_target, &s_target};
-    maniPose** poses[6] = {&s_in, &s_whole, &s_out, &s_base, &s_expected, &s_layer};
-    for (int i = 0; i < 6; ++i)
+    const maniSkeleton* skeletons[7] = {&s_source, &s_source, &s_target,     &s_target,
+                                        &s_target, &s_target, &s_otherSource};
+    maniPose** poses[7] = {&s_in, &s_whole, &s_out, &s_base, &s_expected, &s_layer, &s_otherIn};
+    for (int i = 0; i < 7; ++i)
     {
         CHECK(maniInitPose(skeletons[i], s_poseMemory[i], sizeof s_poseMemory[i], poses[i]) ==
                   mani_success,
@@ -499,6 +505,37 @@ static void TestBindRefusals(void)
     CHECK(maniBindGraph(&g, &wrong, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
               mani_errorInvalid,
           "maps NULL with a count");
+    // With a spring set slot, the map slot's place after it.
+    static _Alignas(16) uint8_t setFile[4096];
+    const maniSpringJointSource joints[2] = {{.bone = 7, .stiffness = 1.0f},
+                                             {.bone = 8, .stiffness = 1.0f}};
+    const maniSpringSource spring = {"arm", 3, 2, joints, NULL, 0, MANI_NO_BONE};
+    const maniSpringSetSource setSource = {
+        .skeleton = &s_target, .springs = &spring, .springCount = 1};
+    maniBuilder* builder = NewBuilder();
+    size_t setSize = 0;
+    maniSpringSet set;
+    CHECK(maniBuildSpringSet(builder, &setSource).result == mani_success &&
+              maniCopyBuilt(builder, setFile, sizeof setFile, &setSize) == mani_success &&
+              maniOpenSpringSet(setFile, setSize, &set).result == mani_success,
+          "a spring set");
+    maniDestroyBuilder(builder);
+    const maniGraphSpringSetSource slot = {&set, "arm", 3, 0};
+    source = Graph(&s_map, &s_map);
+    source.springSets = &slot;
+    source.springSetCount = 1;
+    CHECK(BuildGraph(&source).result == mani_success &&
+              maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success,
+          "a graph of a spring set slot");
+    const maniSpringSet* sets[1] = {&set};
+    maniGraphAssets withSet = Assets(NULL, 0, sources, 2);
+    withSet.springSets = sets;
+    withSet.springSetCount = 1;
+    uint32_t place = 0;
+    CHECK(maniBindGraph(&g, &withSet, s_bindingMemory, sizeof s_bindingMemory, &binding, &place) ==
+                  mani_errorInvalid &&
+              place == 3,
+          "the map slot past the spring set");
     // No target bone follows the source's root alone.
     source = Graph(&s_chainsOnly, &s_chainsOnly);
     CHECK(BuildGraph(&source).result == mani_success, "a graph through the chains' map builds");
@@ -510,6 +547,75 @@ static void TestBindRefusals(void)
                             &unbound) == mani_errorInvalid &&
               unbound == MANI_NO_TRACK,
           "root motion no target bone follows");
+}
+
+// Two graphs whose maps take different source rigs, evaluated in turn
+// with one scratch: each carries its own clip.
+static void TestSharedScratch(void)
+{
+    static _Alignas(16) uint8_t file[4096];
+    static _Alignas(16) uint8_t otherGraph[16384];
+    static _Alignas(MANI_GRAPH_BINDING_ALIGNMENT) uint8_t otherBinding[8192];
+    static _Alignas(MANI_GRAPH_INSTANCE_ALIGNMENT) uint8_t otherInstance[16384];
+    const maniBoneTrackSource spine[1] = {{2, 0, kNone, Keys(kSpine), kNone}};
+    const maniClipSource bend = {
+        .skeleton = &s_otherSource, .boneTracks = spine, .boneTrackCount = 1, .sampleRate = 30.0f};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    maniClip clip;
+    CHECK(maniBuildClip(builder, &bend).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenClip(file, size, &clip).result == mani_success,
+          "a clip of the other rig");
+    maniDestroyBuilder(builder);
+    // The other graph: that clip alone through its map.
+    maniGraphSource source = Graph(&s_fromOther, &s_fromOther);
+    s_clips[0].clip = &clip;
+    source.clipCount = 1;
+    source.nodeCount = 1;
+    source.output = 0;
+    maniGraph other;
+    CHECK(BuildGraph(&source).result == mani_success, "the other graph builds");
+    memcpy(otherGraph, s_graphFile, s_graphSize);
+    const maniClip* clips[1] = {&clip};
+    const maniRetargetMap* maps[1] = {&s_fromOther};
+    const maniSkeleton* sources[1] = {&s_otherSource};
+    maniGraphAssets assets = {.skeleton = &s_target,
+                              .clips = clips,
+                              .clipCount = 1,
+                              .maps = maps,
+                              .sourceSkeletons = sources,
+                              .mapCount = 1,
+                              .sourceSkeletonCount = 1};
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* b = NULL;
+    CHECK(maniOpenGraph(otherGraph, s_graphSize, &other).result == mani_success &&
+              maniBindGraph(&other, &assets, otherBinding, sizeof otherBinding, &binding, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(binding, otherInstance, sizeof otherInstance, &b) ==
+                  mani_success,
+          "the other graph bound");
+    source = Graph(&s_map, &s_map);
+    maniGraph g;
+    maniGraphInstance* a = NULL;
+    CHECK(BuildGraph(&source).result == mani_success &&
+              maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success && Bound(&g, &a),
+          "the walk's graph bound");
+    bool same = true;
+    for (int k = 0; k < 3; ++k)
+    {
+        float t = 0.1f * (float)(k + 1);
+        same = same && maniUpdateGraph(a, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+               maniEvaluateGraph(a, s_scratch, sizeof s_scratch, s_out) == mani_success &&
+               Expected(t) && Same(s_out, s_expected);
+        same = same && maniUpdateGraph(b, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+               maniEvaluateGraph(b, s_scratch, sizeof s_scratch, s_out) == mani_success &&
+               maniSampleClip(&clip, &s_otherSource, t, s_otherIn) == mani_success &&
+               maniRetargetPose(&s_fromOther, &s_otherSource, s_otherIn, &s_target, s_expected,
+                                s_transfer, sizeof s_transfer) == mani_success &&
+               Same(s_out, s_expected);
+    }
+    CHECK(same, "each graph its own clip carried");
 }
 
 static uint64_t SectionAt(uint32_t tag)
@@ -632,6 +738,7 @@ int main(void)
     TestBuildRefusals();
     TestTooManyMaps();
     TestBindRefusals();
+    TestSharedScratch();
     TestOpen();
     TestJson();
     TestSubgraph();

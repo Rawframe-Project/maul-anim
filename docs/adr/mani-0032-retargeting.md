@@ -177,8 +177,10 @@ scaled; the map slot read back; the builder's refusals (a map for
 another target, a source clip without a map, clips of the target and
 of a rig of the source's count through the map, a map past 256), the
 binder's (no map, no source skeleton, one of another rig,
-only a map for another target, maps NULL with a count, root motion no
-target bone follows) and the opener's (a map slot past the maps, a map
+only a map for another target, maps NULL with a count, the map slot's
+place after a spring set slot, root motion no target bone follows);
+two graphs whose maps take different source rigs evaluated in turn
+with one scratch, each carrying its own clip; the opener's (a map slot past the maps, a map
 twice); the JSON form built back to the same file; a subgraph playing
 the walk through the same map joining its slot, through another map
 taking one of its own.
