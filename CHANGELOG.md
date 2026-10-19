@@ -24,6 +24,12 @@ format.
 - Morph targets apply in about two fifths fewer instructions (2,110,783
   against 3,468,492 a frame of a 10,000-vertex face), with the same
   bits.
+- A motion matching node's query takes its continuing frame's bone
+  features interpolated to the playhead, toward the entry's next frame,
+  not the frame at or before it, which lagged the displayed pose by up
+  to a frame period at update rates other than the database's, and its
+  search scores the continuing frame by those features (record
+  mani-0024). Picks the lag decided change.
 
 ## [0.1.0] - 2026-10-19
 

@@ -88,4 +88,8 @@ local, the job from 2.17 to 1.035 of a hand loop's instructions at
 `-O2`, mani-0021); the graph's to 105,000 at `-O2` and 129,000 at `-O3`
 (104,881 and 128,424: the turn limit node, mani-0037, about 2,600 bytes
 at `-O2`, and the IK and full-body evaluation in a module of its own,
-1,442, its small readers inlined there as well as in the evaluation).
+1,442, its small readers inlined there as well as in the evaluation),
+then to 106,000 and 130,000 (105,844 and 129,578: the motion matching
+node's continuing frame interpolated to its playhead and scored there,
+mani-0024, about 850 bytes of the node's search at `-O2`, which moved
+18% to 33% of settled picks off the pose on screen before).

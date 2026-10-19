@@ -181,10 +181,11 @@ static uint32_t Stop(const Search* s, const Entry* e)
     return e->first + m;
 }
 
-static float Frame(const Search* s, uint32_t frame, float constant)
+// The cost of features f (a frame's in the database, or the continuing
+// frame's a caller gives) plus constant, stopped once it reaches the best.
+static float Cost(const Search* s, const uint8_t* f, float constant)
 {
     uint32_t n = s->featureCount;
-    const uint8_t* f = s->d->features + 4 * (size_t)frame * n;
     float best = s->bestCost;
     float cost = constant;
     for (uint32_t j = 0; j < n; ++j)
@@ -197,6 +198,11 @@ static float Frame(const Search* s, uint32_t frame, float constant)
         }
     }
     return cost;
+}
+
+static float Frame(const Search* s, uint32_t frame, float constant)
+{
+    return Cost(s, s->d->features + 4 * (size_t)frame * s->featureCount, constant);
 }
 
 // Run r's box at level 0 (the small runs) or 1 (the large): its bound
@@ -301,11 +307,17 @@ static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
 maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query,
                                     maniMatchResult* resultOut)
 {
-    return maniMatchSearch(database, query, false, resultOut);
+    return maniMatchSearchFrom(database, query, false, NULL, resultOut);
 }
 
 maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQuery* query,
                            bool normalized, maniMatchResult* resultOut)
+{
+    return maniMatchSearchFrom(database, query, normalized, NULL, resultOut);
+}
+
+maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMatchQuery* query,
+                               bool normalized, const float* continuing, maniMatchResult* resultOut)
 {
     if (database == NULL || query == NULL || resultOut == NULL || !QueryValid(database, query))
     {
@@ -346,7 +358,10 @@ maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQu
         Entry e = EntryAt(database, EntryOf(database, query->current));
         if (Candidate(&s, &e))
         {
-            s.bestCost = Frame(&s, query->current, query->continuingBias + e.bias);
+            const uint8_t* f = continuing != NULL
+                                   ? (const uint8_t*)continuing
+                                   : database->features + 4 * (size_t)query->current * n;
+            s.bestCost = Cost(&s, f, query->continuingBias + e.bias);
             s.best = query->current;
         }
     }

@@ -18,4 +18,11 @@
 maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQuery* query,
                            bool normalized, maniMatchResult* resultOut);
 
+// maniMatchSearch with the continuing frame scored by continuing (its
+// features, normalized; NULL for the database's): a node playing between
+// frames scores its continuing frame as at its playhead (mani-0024).
+maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMatchQuery* query,
+                               bool normalized, const float* continuing,
+                               maniMatchResult* resultOut);
+
 #endif // MAUL_ANIM_SRC_MATCH_SEARCH_H

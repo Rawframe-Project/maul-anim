@@ -81,7 +81,22 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   stretch; a clamped one stops at its end. It searches when it has no
   entry, its clamped entry reached its end, its trigger is set or its
   period passed. The query's bone channels are the continuing frame's
-  features as the database keeps them, its other channels the
+  features as the database keeps them, interpolated to the playhead
+  toward the entry's next frame (a looping entry's last frame toward
+  its first, at the entry's end; a clamped entry's last frame alone):
+  `a + w (b - a)` in binary32, `w` the playhead's place between the two
+  frames' times. The continuing frame alone lagged the displayed pose
+  by up to a frame period at any update rate but the database's, and
+  that staleness moved the pick in 29% to 94% of settled searches;
+  interpolated, the features come within 0.01 (squared, normalized) of
+  the displayed pose's on clips keyed at the database's rate. The
+  search scores the continuing frame by the same interpolated features,
+  so playing on costs no bone difference (scored by its own, it paid
+  for being behind its playhead and the node jumped 10% to 43% more
+  often); it stays the current frame for the exclusions. A query
+  from the displayed pose itself is not taken: while an inertialization
+  eases, what it adds is the easing's offset, a frame late, with a
+  pose history in the saved state. Its other channels are the
   parameters, normalized; at a clamped end the continuing frame is no
   candidate (Holden's controller). A pick other than the continuing
   frame is jumped to and kept in the history, and, when the node had

@@ -391,7 +391,8 @@ extern "C"
     } maniGraphTags;
 
     // A motion matching node: no inputs; it plays its database slot's
-    // frames. Its query is its continuing frame's bone channels and, for
+    // frames. Its query is its continuing frame's bone channels,
+    // interpolated to the playhead toward its entry's next frame, and, for
     // each time of each trajectory and float track channel in channel
     // order, a parameter (queryCount of them: vec2 on the ground plane
     // for trajectory positions and facings, float for float tracks). It

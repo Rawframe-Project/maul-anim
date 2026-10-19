@@ -10,9 +10,12 @@
 // Then it searches when it has no entry, its clamped entry reached its
 // end, its trigger is set (consumed) or its period passed since the last
 // search. The query's bone channels are the continuing frame's features
-// as the database keeps them (normalized; 0, their mean, with no entry);
+// as the database keeps them (normalized; 0, their mean, with no entry),
+// interpolated to the playhead toward the entry's next frame (mani-0024);
 // its trajectory and float channels its parameters, normalized as the
-// database's. At a clamped end the continuing frame is not a candidate
+// database's. The continuing frame is scored as at the playhead too, its
+// features interpolated the same way, so playing on costs no bone
+// difference. At a clamped end the continuing frame is not a candidate
 // (Holden's controller searches from none there), so the end exclusion
 // keeps it from picking frames it cannot play. A pick other than the
 // continuing frame is jumped to, kept in the history, and, when the node
@@ -149,28 +152,51 @@ static bool Play(const Match* m, double step)
 }
 
 // The frame of the entry playing: the last whose time is at most the
-// playhead (MANI_MATCH_NO_FRAME with no entry).
-static uint32_t Continuing(const Match* m)
+// playhead (MANI_MATCH_NO_FRAME with no entry); the frame after it (a
+// looping entry's first after its last, at the entry's end; a clamped
+// entry's last itself) and the playhead's place between their times.
+typedef struct Continuing
 {
+    uint32_t frame;
+    uint32_t next;
+    float weight;
+} Continuing;
+
+static Continuing ContinuingOf(const Match* m)
+{
+    Continuing c = {MANI_MATCH_NO_FRAME, MANI_MATCH_NO_FRAME, 0.0f};
     maniMatchEntry e;
     if (maniMotionDatabaseEntry(m->d, m->block[maniGraphMatchEntry], &e) != mani_success)
     {
-        return MANI_MATCH_NO_FRAME;
+        return c;
     }
     float rate = m->d->sampleRate;
     double t = m->s->time;
     double k = floor((t - (double)e.start) * (double)rate);
     uint32_t last = e.frameCount - 1;
     uint32_t n = k <= 0.0 ? 0u : (k >= (double)last ? last : (uint32_t)k);
-    if (n < last && (double)maniMatchFrameTime(e.start, n + 1, rate) <= t)
+    // The guess settled by the frames' binary32 times: one step either
+    // way at most.
+    double from = (double)maniMatchFrameTime(e.start, n, rate);
+    double to = n < last ? (double)maniMatchFrameTime(e.start, n + 1, rate) : (double)e.end;
+    if (n < last && to <= t)
     {
-        ++n;
+        n += 1;
+        from = to;
+        to = n < last ? (double)maniMatchFrameTime(e.start, n + 1, rate) : (double)e.end;
     }
-    else if (n > 0 && (double)maniMatchFrameTime(e.start, n, rate) > t)
+    else if (n > 0 && from > t)
     {
-        --n;
+        n -= 1;
+        to = from;
+        from = (double)maniMatchFrameTime(e.start, n, rate);
     }
-    return e.firstFrame + n;
+    bool loop = (e.flags & MANI_MATCH_LOOP) != 0;
+    c.frame = e.firstFrame + n;
+    c.next = n < last ? c.frame + 1 : (loop ? e.firstFrame : c.frame);
+    double w = to > from && c.next != c.frame ? (t - from) / (to - from) : 0.0;
+    c.weight = (float)(w > 0.0 ? (w < 1.0 ? w : 1.0) : 0.0);
+    return c;
 }
 
 static float LoadF32(const uint8_t* p)
@@ -180,16 +206,26 @@ static float LoadF32(const uint8_t* p)
     return v;
 }
 
-// The query: the continuing frame's bone channels, the parameters'
-// trajectory and float channels, normalized.
-static void Query(const Match* m, uint32_t current, float* out)
+// The continuing frame's features interpolated to the playhead
+// (mani-0024) into here; the query into out: their bone channels, the
+// parameters' trajectory and float channels, normalized.
+static void Query(const Match* m, Continuing at, float* here, float* out)
 {
     const maniMotionDatabase* d = m->d;
     uint32_t n = d->featureCount;
-    if (maniMotionDatabaseFeatures(d, current, out) != mani_success)
+    float next[MANI_MATCH_MAX_FEATURES];
+    if (maniMotionDatabaseFeatures(d, at.frame, here) != mani_success)
     {
-        memset(out, 0, (size_t)n * sizeof(float));
+        memset(here, 0, (size_t)n * sizeof(float));
     }
+    else if (at.weight > 0.0f && maniMotionDatabaseFeatures(d, at.next, next) == mani_success)
+    {
+        for (uint32_t j = 0; j < n; ++j)
+        {
+            here[j] += at.weight * (next[j] - here[j]);
+        }
+    }
+    memcpy(out, here, (size_t)n * sizeof(float));
     uint32_t q = 0;
     for (uint32_t c = 0; c < d->channelCount; ++c)
     {
@@ -251,8 +287,10 @@ static void Jump(const Match* m, uint32_t frame)
 static void Search(const Match* m, bool ended)
 {
     float features[MANI_MATCH_MAX_FEATURES];
-    uint32_t current = Continuing(m);
-    Query(m, current, features);
+    float here[MANI_MATCH_MAX_FEATURES];
+    Continuing c = ContinuingOf(m);
+    uint32_t current = c.frame;
+    Query(m, c, here, features);
     maniMatchQuery q = {
         .features = features,
         .current = ended ? MANI_MATCH_NO_FRAME : current,
@@ -267,8 +305,8 @@ static void Search(const Match* m, bool ended)
     };
     memcpy(q.history, m->block + maniGraphMatchHistory, sizeof q.history);
     maniMatchResult r;
-    if (maniMatchSearch(m->d, &q, true, &r) == mani_success && r.frame != MANI_MATCH_NO_FRAME &&
-        r.frame != current)
+    if (maniMatchSearchFrom(m->d, &q, true, here, &r) == mani_success &&
+        r.frame != MANI_MATCH_NO_FRAME && r.frame != current)
     {
         Jump(m, r.frame);
     }

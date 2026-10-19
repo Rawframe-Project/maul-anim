@@ -11,7 +11,8 @@
 // required tags; a seek above clearing the node; a bone channel's query
 // taken from the continuing frame, against the search itself; a
 // normalized query taken as it is; the continuing frame of a restored
-// playhead between binary32 and binary64 frame times.
+// playhead between binary32 and binary64 frame times; the query
+// interpolated to a playhead between frames, clamped and looping.
 
 #include "graph_match_fixture.h"
 #include "match_search.h"
@@ -432,6 +433,87 @@ static void TestContinuingFrame(void)
           "a neighbor of frame 17");
 }
 
+// The playhead between two frames (mani-0024). On the run (its hips' x
+// 3 t, frames 0.3 apart) at 0.79 s the continuing frame (0.7) is scored
+// as at the playhead, so the node plays on where the frame's own
+// features (2.1 against the query's 2.37) would lose to the frame at
+// 0.8; with the continuing frame priced out, the query at 0.75 (2.25,
+// interpolated toward the next frame) picks the frame at 0.8, where the
+// continuing frame's own features lie half way to 0.6. On a looping
+// entry (x t, frames to 0.9, its bone channel alone) at 0.93 s the last
+// frame's features are interpolated toward the first's, 0.63, and pick
+// the frame at 0.6 (the last frame's own, 0.9, would pick 0.8).
+static _Alignas(16) uint8_t s_runFile[1 << 15];
+static _Alignas(16) uint8_t s_loopFile[1 << 15];
+
+// The node restored on entry at time, then searched; its query the
+// parameter ahead, or none.
+static double Searched(const maniMotionDatabase* d, uint32_t tags, uint32_t entry, double at,
+                       bool ahead, float bias, uint32_t* entryOut)
+{
+    const maniGraphDatabaseSource slot[1] = {{d, "bones", 5, 0}};
+    MatchParameters();
+    maniGraphNodeSource node = MatchNode(10.0f);
+    node.match.endExclusion = 0.0f;
+    node.match.requiredTags = (maniGraphTags){MANI_NO_PARAMETER, tags};
+    node.match.queryCount = ahead ? 1u : 0u;
+    node.match.continuingBias = bias;
+    maniGraphNodeSource nodes[2] = {node, Above(0)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeMatch((maniGraphSource){.parameters = s_matchParameters,
+                                                              .nodes = nodes,
+                                                              .parameterCount = 4,
+                                                              .nodeCount = 2,
+                                                              .output = 1,
+                                                              .databaseCount = 1,
+                                                              .databases = slot},
+                                            &g);
+    Ahead(instance, 0.0f, 0.0f);
+    Update(instance, 0.0f);
+    size_t size = maniGraphStateSize(instance->binding);
+    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved) == mani_success, "saved");
+    uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
+    uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
+    uint64_t bits = 0;
+    memcpy(&bits, &at, sizeof bits);
+    maniStoreU32(s_saved + block + 4 * maniGraphMatchEntry, entry);
+    maniStoreU64(s_saved + time, bits);
+    CHECK(maniRestoreGraphInstance(instance, s_saved, size).result == mani_success, "restored");
+    Set(instance, 1, maniGraphParameterTrigger, Int(1));
+    Update(instance, 0.0f);
+    *entryOut = EntryOf(instance, &g, 0);
+    return State(instance, &g, 0)->time;
+}
+
+static void TestInterpolated(void)
+{
+    static const float kNow[1] = {0.0f};
+    const maniMatchChannelSource channels[2] = {
+        {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f},
+        {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
+    maniMotionDatabase run;
+    BuildDatabase(channels, 2, s_runFile, sizeof s_runFile, &run);
+    uint32_t entry = 0;
+    double t = Searched(&run, 2, 1, 0.79, true, 0.0f, &entry);
+    CHECK(entry == 1 && t == (double)0.79f, "the continuing frame scored at the playhead");
+    t = Searched(&run, 2, 1, 0.75, true, 1000.0f, &entry);
+    CHECK(entry == 1 && t == (double)0.8f, "the query toward the run's next frame");
+    const maniClip* clips[1] = {&s_clips[3]};
+    const maniMatchEntrySource loop = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       &loop,          1,   1,
+                                       1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
+    maniMotionDatabase looped;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_loopFile, sizeof s_loopFile, &size) == mani_success &&
+              maniOpenMotionDatabase(s_loopFile, size, &looped).result == mani_success,
+          "a looping database");
+    maniDestroyBuilder(builder);
+    t = Searched(&looped, 1, 0, 0.93, false, 1000.0f, &entry);
+    CHECK(entry == 0 && t == (double)0.6f, "a loop's last frame toward its first");
+}
+
 int main(void)
 {
     Open();
@@ -450,6 +532,7 @@ int main(void)
     TestWraps();
     TestContinuing();
     TestContinuingFrame();
+    TestInterpolated();
     TestMirrored();
     return s_failures == 0 ? 0 : 1;
 }
