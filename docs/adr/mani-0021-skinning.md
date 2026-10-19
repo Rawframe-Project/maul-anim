@@ -77,3 +77,12 @@ binds to the wrong skin only by an identity collision. Sorting and
 renormalizing once at build make every job independent of the
 source's order. A weight track finds its target without the host
 knowing which format produced it.
+
+Measured in instructions (GCC 14, a Release build), a frame of a face
+of 10,000 vertices with positions and normals interleaved, 52 sparse
+targets and 2 dense, about 20 weighed: the job takes 2,110,783 at
+`-O3` and 2,285,396 at `-O2`, against 1,861,146 and 2,207,347 for the
+loop a host writes by hand for that one layout (strides and widths
+fixed when compiled), with the same bits every frame: 1.134 and 1.035
+of it. The rest is what a general job carries: strides, widths and
+ranges read at run time.

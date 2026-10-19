@@ -13,6 +13,9 @@ format.
 - The motion matching search costs about a tenth fewer instructions
   (600,877 against 665,424 a search of an hour of data), with the same
   picks.
+- Morph targets apply in about two fifths fewer instructions (2,110,783
+  against 3,468,492 a frame of a 10,000-vertex face), with the same
+  bits.
 
 ## [0.1.0] - 2026-10-19
 

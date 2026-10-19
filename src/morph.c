@@ -735,23 +735,58 @@ static uint32_t LowerBound(const uint8_t* indices, uint32_t count, uint32_t vert
     return low;
 }
 
-// One stream's view of one target: the deltas' stride and the floats it
-// adds a vertex.
+// One stream's view of one target, read once so the stores through the
+// output (bytes, which may alias anything) reload nothing: where vertex
+// 0 of the range is written, the output stride, the deltas' stride, the
+// floats a vertex takes and the weight.
 typedef struct Apply
 {
-    const maniMorphStream* stream;
+    uint8_t* out;
+    size_t outStride;
     size_t stride;
     uint32_t floats;
     float weight;
 } Apply;
 
-static void AddDelta(const Apply* a, uint32_t i, const uint8_t* delta)
+static void AddFloat(uint8_t* out, const uint8_t* delta, float weight)
 {
-    uint8_t* out = (uint8_t*)a->stream->out + (size_t)i * a->stream->outStride;
-    for (uint32_t k = 0; k < a->floats; ++k)
+    float x = LoadF32(out) + LoadF32(delta) * weight;
+    memcpy(out, &x, sizeof x);
+}
+
+static inline void AddDelta(Apply a, uint32_t i, const uint8_t* delta)
+{
+    uint8_t* out = a.out + (size_t)i * a.outStride;
+    if (a.floats == 3)
     {
-        float x = LoadF32(out + 4 * k) + LoadF32(delta + 4 * k) * a->weight;
-        memcpy(out + 4 * k, &x, sizeof x);
+        // Written out: positions and normals, unrolled at every level.
+        AddFloat(out, delta, a.weight);
+        AddFloat(out + 4, delta + 4, a.weight);
+        AddFloat(out + 8, delta + 8, a.weight);
+        return;
+    }
+    for (uint32_t k = 0; k < a.floats; ++k)
+    {
+        AddFloat(out + 4 * k, delta + 4 * k, a.weight);
+    }
+}
+
+// A target's dense or sparse deltas over the range [first, end).
+static void AddVertices(Apply a, const uint8_t* deltas, const uint8_t* indices, uint32_t count,
+                        uint32_t first, uint32_t end)
+{
+    if (indices == NULL)
+    {
+        for (uint32_t v = first; v < end; ++v)
+        {
+            AddDelta(a, v - first, deltas + a.stride * v);
+        }
+        return;
+    }
+    uint32_t stop = LowerBound(indices, count, end);
+    for (uint32_t i = LowerBound(indices, count, first); i < stop; ++i)
+    {
+        AddDelta(a, maniLoadU32(indices + 4 * (size_t)i) - first, deltas + a.stride * i);
     }
 }
 
@@ -766,28 +801,13 @@ static void AddTarget(const maniMorphJob* job, uint32_t t, const maniMorphStream
     }
     const uint8_t* deltas = SlotDeltas(m, e, slot);
     uint32_t width = maniMorphWidth(s->semantic);
-    Apply a = {s, 4 * (size_t)width, s->components < width ? s->components : width,
-               job->weights[t]};
-    uint32_t end = job->first + job->count;
-    if (maniLoadU32(e + 12) == MANI_MORPH_DENSE)
-    {
-        for (uint32_t v = job->first; v < end; ++v)
-        {
-            AddDelta(&a, v - job->first, deltas + a.stride * v);
-        }
-        return;
-    }
-    const uint8_t* indices = m->indices + 4 * maniLoadU64(e + 16);
+    Apply a = {(uint8_t*)s->out, s->outStride, 4 * (size_t)width,
+               s->components < width ? s->components : width, job->weights[t]};
+    bool dense = maniLoadU32(e + 12) == MANI_MORPH_DENSE;
+    const uint8_t* indices = dense ? NULL : m->indices + 4 * maniLoadU64(e + 16);
     uint32_t count = maniLoadU32(e + 8);
-    for (uint32_t i = LowerBound(indices, count, job->first); i < count; ++i)
-    {
-        uint32_t v = maniLoadU32(indices + 4 * (size_t)i);
-        if (v >= end)
-        {
-            break;
-        }
-        AddDelta(&a, v - job->first, deltas + a.stride * i);
-    }
+    uint32_t end = job->first + job->count;
+    AddVertices(a, deltas, indices, count, job->first, end);
 }
 
 // x, y, z to unit length; zero when the length is 0 or past binary32's
@@ -806,18 +826,40 @@ static void Renormalize(uint8_t* p)
     memcpy(p, v, sizeof v);
 }
 
+// A vertex's floats from in to out, read whole before written (as
+// memmove, for a vertex that overlaps itself).
+static void CopyVertex(uint8_t* out, const uint8_t* in, uint32_t floats)
+{
+    float v[4];
+    memcpy(v, in, 4 * (size_t)floats);
+    memcpy(out, v, 4 * (size_t)floats);
+}
+
 // One stream over the range: copied, its attribute's targets added in
-// order, directions renormalized.
+// order, directions renormalized. The stream's fields are read once: the
+// stores go through bytes, which may alias them.
 static void ApplyStream(const maniMorphJob* job, const maniMorphStream* s)
 {
-    size_t width = 4 * (size_t)s->components;
-    for (uint32_t i = 0; i < job->count && s->in != s->out; ++i)
+    uint8_t* out = (uint8_t*)s->out;
+    const uint8_t* in = (const uint8_t*)s->in;
+    size_t inStride = s->inStride;
+    size_t outStride = s->outStride;
+    uint32_t floats = s->components;
+    uint32_t count = job->count;
+    for (uint32_t i = 0; i < count && in != out; ++i)
     {
-        memmove((uint8_t*)s->out + (size_t)i * s->outStride,
-                (const uint8_t*)s->in + (size_t)i * s->inStride, width);
+        if (floats == 3)
+        {
+            CopyVertex(out + (size_t)i * outStride, in + (size_t)i * inStride, 3);
+        }
+        else
+        {
+            CopyVertex(out + (size_t)i * outStride, in + (size_t)i * inStride, floats);
+        }
     }
     uint32_t slot = Slot(job->targets, s);
-    for (uint32_t t = 0; slot < MANI_MORPH_MAX_ATTRIBUTES && t < job->targets->targetCount; ++t)
+    uint32_t targetCount = job->targets->targetCount;
+    for (uint32_t t = 0; slot < MANI_MORPH_MAX_ATTRIBUTES && t < targetCount; ++t)
     {
         if (job->weights[t] != 0.0f)
         {
@@ -825,9 +867,9 @@ static void ApplyStream(const maniMorphJob* job, const maniMorphStream* s)
         }
     }
     bool direction = s->semantic == maniMorphNormal || s->semantic == maniMorphTangent;
-    for (uint32_t i = 0; i < job->count && direction; ++i)
+    for (uint32_t i = 0; i < count && direction; ++i)
     {
-        Renormalize((uint8_t*)s->out + (size_t)i * s->outStride);
+        Renormalize(out + (size_t)i * outStride);
     }
 }
 
