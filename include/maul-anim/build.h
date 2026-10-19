@@ -157,7 +157,8 @@ extern "C"
         // A root motion source (mani-0022): a bone outside the skeleton
         // or without a track, no channel chosen, a field out of range,
         // an additive clip, or a motion translation beyond 2^64; item is
-        // the bone.
+        // the bone. A retargeted clip's root motion bone past the target's
+        // bones, or none that follows the source's (item MANI_NO_BONE).
         maniBuildReasonRootMotion = 22,
         // A graph parameter (mani-0023) of an unknown type, or whose
         // default or bounds are out of form: not finite, a minimum above
@@ -306,6 +307,10 @@ extern "C"
         // mapped before, the up axis not of length 1, a factor, blend or
         // weight out of range, a reference pelvis at or below height 0.
         maniBuildReasonRetargetPelvis = 54,
+        // A clip to retarget (other 0 the source skeleton, 1 the target,
+        // 2 the clip): a skeleton not its map's, a clip not of the map's
+        // source.
+        maniBuildReasonRetargetClip = 55,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

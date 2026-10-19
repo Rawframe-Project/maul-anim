@@ -7,6 +7,8 @@
 #ifndef MAUL_ANIM_SRC_CLIP_BUILD_H
 #define MAUL_ANIM_SRC_CLIP_BUILD_H
 
+#include "root_motion_build.h"
+
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -81,5 +83,13 @@ maniBuildResult maniLayClipNamed(maniBuilder* builder, const maniClipSource* sou
                                  float rate, uint32_t sampleCount, maniClipNamedLayout* layout);
 
 void maniReleaseClipNamed(maniBuilder* builder, maniClipNamedLayout* layout);
+
+// Builds a clip as maniBuildClip does, with root motion given (NULL for
+// none) in place of the source's (which must be NULL): its source and
+// moves written as they are, its bone's channels kept as they come. The
+// bone must have keyed translation and rotation, and the clip be one of
+// poses with a move per sample; else the reason is root motion.
+maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* source,
+                                   const maniRootMotionWork* given);
 
 #endif // MAUL_ANIM_SRC_CLIP_BUILD_H

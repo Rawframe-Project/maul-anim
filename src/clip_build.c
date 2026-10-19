@@ -579,12 +579,38 @@ static maniResult TakeRoot(maniBuilder* builder, const maniClipSource* source,
     return r;
 }
 
-// Takes the root motion (if any) out, then writes the file; seen holds
-// each bone's track index + 1.
+// Writes the file with root motion given as it is, the bone's channels
+// kept as they come.
+static maniBuildResult WriteGiven(maniBuilder* builder, const maniClipSource* source, Plan* plan,
+                                  const maniClipNamedLayout* named, float* previous,
+                                  const maniRootMotionWork* given)
+{
+    uint64_t size = maniRootMotionSize(plan->sampleCount);
+    uint8_t* bytes = maniAllocate(&builder->allocator, (size_t)size, 1, 8);
+    if (bytes == NULL)
+    {
+        return Outcome(mani_errorCapacity);
+    }
+    plan->rootMotionBytes = bytes;
+    maniBuildResult r = maniRootMotionWrite(given, bytes)
+                            ? Write(builder, source, plan, named, previous)
+                            : Refuse(maniBuildReasonRootMotion, given->source.bone, 0);
+    plan->rootMotionBytes = NULL;
+    maniRelease(&builder->allocator, bytes, (size_t)size, 1, 8);
+    return r;
+}
+
+// Takes the root motion (if any) out, or writes the given one, then
+// writes the file; seen holds each bone's track index + 1.
 static maniBuildResult WriteWithRootMotion(maniBuilder* builder, const maniClipSource* source,
                                            Plan* plan, const maniClipNamedLayout* named,
-                                           float* previous, const uint32_t* seen)
+                                           float* previous, const uint32_t* seen,
+                                           const maniRootMotionWork* given)
 {
+    if (given != NULL)
+    {
+        return WriteGiven(builder, source, plan, named, previous, given);
+    }
     if (source->rootMotion == NULL)
     {
         return Write(builder, source, plan, named, previous);
@@ -705,12 +731,38 @@ maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen
     return maniCheckClipNamedDuration(source, timing.duration);
 }
 
+// Given root motion: a source without its own, a clip of poses, a valid
+// source whose bone has keyed translation and rotation, a move a sample.
+static maniBuildResult CheckGiven(const maniClipSource* source, const uint32_t* seen,
+                                  uint32_t sampleCount, const maniRootMotionWork* given)
+{
+    if (given == NULL)
+    {
+        return Outcome(mani_success);
+    }
+    const maniRootMotionSource* s = &given->source;
+    bool valid = source->rootMotion == NULL && source->additive == maniAdditiveNone &&
+                 maniRootMotionSourceValid(s) &&
+                 s->bone < maniSkeletonBoneCount(source->skeleton) && seen[s->bone] != 0 &&
+                 given->sampleCount == sampleCount;
+    const maniBoneTrackSource* t = valid ? &source->boneTracks[seen[s->bone] - 1] : NULL;
+    return t != NULL && t->translation.keyCount > 0 && t->rotation.keyCount > 0
+               ? Outcome(mani_success)
+               : Refuse(maniBuildReasonRootMotion, s->bone, 0);
+}
+
 maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
         return maniBuildCalledBack();
     }
+    return maniBuildClipMoved(builder, source, NULL);
+}
+
+maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* source,
+                                   const maniRootMotionWork* given)
+{
     if (builder == NULL)
     {
         return Outcome(mani_errorInvalid);
@@ -740,6 +792,7 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
         plan.duration = timing.duration;
         plan.rate = timing.rate;
         plan.sampleCount = timing.sampleCount;
+        r = r.result == mani_success ? CheckGiven(source, scratch, plan.sampleCount, given) : r;
     }
     maniClipNamedLayout named = {0};
     if (r.result == mani_success)
@@ -760,7 +813,7 @@ maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source
                     maniChannelFloats(Mask(source, &source->boneTracks[index - 1]));
             }
         }
-        r = WriteWithRootMotion(builder, source, &plan, &named, previous, scratch);
+        r = WriteWithRootMotion(builder, source, &plan, &named, previous, scratch, given);
         maniReleaseClipNamed(builder, &named);
     }
     maniRelease(&builder->allocator, scratch, words, sizeof(uint32_t), 8);

@@ -57,6 +57,34 @@ scales with the characters' heights, and IK goals after the transfer.
   `maniRetargetRootMotion` scales a root motion delta the same way.
   The caller lends scratch for a rotation per bone of both skeletons
   and a matrix per target bone; nothing is kept.
+- **Baking clips** (`maniBuildRetargetedClip`, offline): a clip of the
+  source becomes a full-precision clip of the target on the same grid
+  (rate, duration, loop policy, additive basis): each sample's pose
+  carried by the transfer into linear keys at the sample times, a
+  channel left out where it is the target's rest at every sample; a
+  compressed source is sampled as it plays. An additive clip's
+  differences are each added to the source's rest, carried, and taken
+  as differences from the source's rest carried (so the source's rest
+  carries to no difference), then stored against the target's rest;
+  the first-frame basis keeps its zero first sample. Float tracks keep
+  their samples and interpolation (a step stays a step); discrete
+  tracks, events and markers are copied. Root motion carries as the
+  source's stored moves, not extracted again: a translation turned
+  from the root motion bone's parent's reference model frame into the
+  model, scaled by `maniRetargetRootMotion`, and turned into the
+  target bone's parent's frame, a rotation turned between the two
+  frames; the target bone is the first that follows the source's alone
+  or one the caller names. The declared axes follow the same map, and
+  where it takes an axis off the axes (a parent's frame turned by
+  other than quarter turns, or the up axis tilted against unequal
+  scales) all three axes and the whole rotation are declared, which
+  stays true of the moves. Unreal's retargeter copies the source
+  root's motion scaled by the relative height (or makes it from the
+  target's pelvis), and Godot divides position tracks, the root's
+  among them, by the hips' height at import and multiplies them by
+  the target's: both scale the root's translation by the heights.
+  Carrying the stored moves does the same, independent of the root
+  bone's translation mode and exact at the samples.
 - **Building** checks the references (finite, rotations within a
   thousandth of length 1), pairs, chains, the pelvis and names in that
   order, each target bone mapped once; refusals name the item and, for
@@ -98,3 +126,20 @@ short or misaligned) and the output marked a pose; a transfer's bits
 pinned, the same under gcc and clang. Its first mutants found the
 first rig too regular to tell the reference turns, the parents' paths
 and the weights apart.
+
+The bake's tests carry a clip with a moving, turning root, a tilting
+pelvis, a bending spine, a turning arm and a scaling hand: every one
+of its 31 samples within 1e-5 (rotations within 1e-10 of their dot
+product's 1) of the transfer of the source's, from the full-precision
+and the compressed source; the timing kept; a linear float track's
+values and a step one's steps, a discrete track, two events and two
+markers kept; a map of chains and the pelvis only leaving the root,
+the head and the hand past the arm chain's source out (7 tracks of
+10); rest and first-frame additive clips' differences carried from the
+source's rest; root motion's moves over three spans the source's
+scaled, with the poses in place; a root whose rest turns a quarter
+about x turning the hips' x and z axes into x and y and the yaw twist
+into one about z, the moves turned with them; a bone under turned
+parents declaring all axes and the whole rotation; the refusals (each
+skeleton and the clip of another identity, a root motion bone past the
+target, none following); the baked clip's identity pinned.

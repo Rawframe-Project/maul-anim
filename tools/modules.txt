@@ -76,6 +76,7 @@ retarget_file:
 retarget: bytes container retarget_file
 retarget_pose: bytes pose_memory retarget_file vecmath
 retarget_build: allocator builder bytes container ik_chain retarget_file vecmath
+retarget_bake: allocator builder bytes clip_build clip_file clip_view retarget_file root_motion_build vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:

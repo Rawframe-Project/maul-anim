@@ -51,6 +51,12 @@ format.
   target's own lengths kept, translations scaled or carried through the
   parents' reference frames, the pelvis scaled by parts;
   `maniRetargetRootMotion` scales root motion the same way.
+- Clip retargeting (mani-0032): `maniBuildRetargetedClip` bakes a clip
+  of the source into a full-precision clip of the target through a
+  map, each sample carried by the pose transfer, channels left at the
+  rest left out, additive clips carried as differences, float and
+  discrete tracks, events and markers kept, and root motion's moves
+  scaled and turned into the target bone's parent's frame.
 - Full-body IK by SDLS 2.4 to 9 times fewer instructions an iteration
   (mani-0031): its decomposition keeps each column's length and skips
   the zero rotation rows, with the same bits.

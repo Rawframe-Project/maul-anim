@@ -11,6 +11,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/clip.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 
@@ -117,6 +118,54 @@ extern "C"
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult
     maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMapSource* source);
+
+    // A clip to retarget: an opened map, its two skeletons and an opened
+    // clip of its source; and the target bone that takes the clip's
+    // root motion, or MANI_NO_BONE for the first target bone that
+    // follows the root motion bone alone.
+    typedef struct maniRetargetClipSource
+    {
+        const maniRetargetMap* map;
+        const maniSkeleton* source;
+        const maniSkeleton* target;
+        const maniClip* clip;
+        uint32_t rootMotionBone;
+        uint32_t reserved;
+    } maniRetargetClipSource;
+
+    /// Builds a full-precision clip of the target from a clip of the
+    /// source through a map (bake it once, play it as any clip), and
+    /// keeps it in the builder. The clip keeps the source clip's sample
+    /// rate, duration, loop policy and additive basis. At each sample
+    /// the source's pose is made a pose of the target by
+    /// maniRetargetPose; a channel that is the target's rest at every
+    /// sample is left out. An additive clip's differences are each added
+    /// to the source's rest, carried, and taken as differences from the
+    /// source's rest carried. Float tracks keep their values at the
+    /// samples and their interpolation (linear or step); discrete
+    /// tracks, events and markers are copied. Root motion carries as
+    /// moves: each translation's horizontal and vertical parts scaled as
+    /// maniRetargetRootMotion scales them, both turned from the root
+    /// motion bone's parent's reference frame to the target bone's
+    /// parent's; its source's axes follow that turn (all axes, and the
+    /// whole rotation, where it takes an axis off the axes).
+    ///
+    /// @param builder  The builder.
+    /// @param source   The clip to retarget.
+    /// @return `mani_success`; `mani_errorInvalid` with
+    /// `maniBuildReasonNone` for a NULL builder, source or field, or
+    /// reserved not 0; `maniBuildReasonRetargetClip` (other 0 the source
+    /// skeleton, 1 the target, 2 the clip: a skeleton not the map's, a
+    /// clip not of the source); `maniBuildReasonRootMotion` (item the
+    /// target bone: past the target's bones, or MANI_NO_BONE where no
+    /// bone follows the root motion bone alone);
+    /// `maniBuildReasonBasis` for an additive clip whose difference
+    /// from its basis carried is not finite (a scale component of 0 in
+    /// the basis); `mani_errorCapacity` when memory runs out.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult
+    maniBuildRetargetedClip(maniBuilder* builder, const maniRetargetClipSource* source);
 
 #ifdef __cplusplus
 }
