@@ -114,7 +114,7 @@ graph_shot: bytes graph_file
 graph_match: bytes graph_file
 graph_learned: bytes graph_file graph_match
 graph_spring: bytes graph_file spring_state
-graph_turn: bytes graph_file scalar vecmath
+graph_turn: bytes graph_file pose_memory scalar vecmath
 graph_learned_check: graph_match
 graph_inertia: bytes graph_file pose_memory vecmath
 graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar vecmath

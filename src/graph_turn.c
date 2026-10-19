@@ -12,6 +12,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "pose_memory.h"
 #include "scalar.h"
 #include "vecmath.h"
 
@@ -173,22 +174,28 @@ void maniGraphTurnPose(uint32_t* block, const float* weights, float speed, const
     uint32_t bones = list != NULL ? count : maniPoseBoneCount(pose);
     float seconds = (float)Pending(block);
     SetPending(block, 0.0);
+    // The rotations read and written in place (components 3 to 6 of a
+    // bone's slot), the model marked stale once.
+    float* locals = maniPoseLocals(pose);
     for (uint32_t i = 0; i < bones; ++i)
     {
         uint32_t b = list != NULL ? list[i] : i;
-        maniTransform local = maniPoseLocal(pose, b);
+        float* slot = maniPoseSlot(locals, b) + 3 * MANI_POSE_GROUP_BONES;
+        maniQuat q = {slot[0], slot[MANI_POSE_GROUP_BONES], slot[2 * MANI_POSE_GROUP_BONES],
+                      slot[3 * MANI_POSE_GROUP_BONES]};
         maniQuat p = Held(block, b);
         bool held = p.x != 0.0f || p.y != 0.0f || p.z != 0.0f || p.w != 0.0f;
         float weight = weights != NULL ? weights[b] : 1.0f;
         bool turned = false;
         if (held && weight > 0.0f)
         {
-            local.rotation = Turn(p, local.rotation, weight * speed * seconds, &turned);
-            maniPoseSetLocal(pose, b, local);
+            q = Turn(p, q, weight * speed * seconds, &turned);
+            const float v[4] = {q.x, q.y, q.z, q.w};
+            maniPoseSlotPut(slot, 0, v, 4);
         }
         // A turned rotation is unit and kept as given, so a held bone
         // gives the same bits again; an input is kept normalized (the
         // identity for one of no length).
-        Hold(block, b, turned ? local.rotation : maniQuatNormalize(local.rotation));
+        Hold(block, b, turned ? q : maniQuatNormalize(q));
     }
 }

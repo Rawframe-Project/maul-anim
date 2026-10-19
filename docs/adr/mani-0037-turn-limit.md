@@ -59,8 +59,11 @@ weight instead: no bound, and spring bones (mani-0026) already sway.
 
 A host bounds any jump in a graph by placing one node above the
 sources it distrusts, and a bone can be limited to a fraction of the
-speed. A limited bone costs about 300 instructions in a frame, a free
-one about 190 (the relative turn and its angle). Positions are not
+speed. Measured in a graph frame (GCC 14 `-O3`, 53 bones, two clips
+blended: 31,400 instructions), a turn limit node over the blend adds
+13,600 with every bone within its budget and 21,482 with every turning
+bone limited: 257 and 405 a bone, its copy of the input and its update
+included; its rotations are read and written in the pose's memory. Positions are not
 limited (a root's travel is root motion's), and limits are local, so a
 parent's turn never spends its children's budget.
 
