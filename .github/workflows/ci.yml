@@ -102,6 +102,34 @@ jobs:
           git diff --exit-code docs/api.md || { echo "docs/api.md is stale: run tools/gen_api.py"; exit 1; }
           grep -q "$COUNT public functions" README.md || { echo "README says the wrong function count ($COUNT)"; exit 1; }
 
+  # The runtime's text by part at -O2 and -O3 (GCC 14), reported against
+  # tools/size-budget.txt (record 0013: checked at release, mani-0036),
+  # and the runtime's allocator symbols, which must be none.
+  size:
+    name: size
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install compilers
+        timeout-minutes: 15
+        run: |
+          sudo apt-get $APT_OPTIONS update -q
+          sudo apt-get $APT_OPTIONS install -y -q gcc-14 ninja-build
+      - name: Runtime builds
+        run: |
+          for level in O2 O3; do
+            cmake -B build-$level -G Ninja -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_BUILD_TYPE=Release \
+              "-DCMAKE_C_FLAGS_RELEASE=-$level -DNDEBUG" -DMAUL_ANIM_OFFLINE=OFF \
+              -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+            cmake --build build-$level -j 4
+          done
+      - name: Text by part
+        run: |
+          for level in O2 O3; do
+            echo "== -$level"
+            python3 tools/size_report.py build-$level/libmaul-anim.a
+          done
+
   windows-clang-cl:
     name: windows-clang-cl
     runs-on: windows-latest

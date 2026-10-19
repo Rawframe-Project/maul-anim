@@ -1,0 +1,69 @@
+# mani-0036. The targets at release and the size budget
+
+Status: Accepted
+
+## Context
+
+The library profile (mani-0001) holds Maul Anim to measured targets
+against the best open rivals: ACL for compressed size, compression time
+and sampling, ozz-animation for blending, the model pass and code size,
+and no allocation at runtime. Each is reported by a benchmark or a
+differential job; a missed one has to be closed or moved by a recorded
+decision before a release. With every part of the scope built, the
+targets were measured together.
+
+ozz-animation 0.17.0's runtime (its animation and base libraries,
+every job and the archive reader) is 69,698 bytes of text at `-O2` and
+74,225 at `-O3`, its own Release (GCC 14, x86-64).
+
+## Decision
+
+- **Where the targets stand.** Compressed clips: 4,197 bytes a second
+  at a largest error of 0.0999 mm, against ACL's 3,920 at 0.306 mm on
+  the same 67.7 s (1.071 of its bytes at a third of its error), met.
+  Compression: 0.23 s against ACL's 1.73 s, met. No allocation at
+  runtime: met (below). A pose at a random clip and time and forward
+  playback (2.4 and 2.0 times ACL's instructions), the blend of two
+  poses (268 ns against ozz's 128 on CI's runner) and the model pass
+  (about 1,100 ns against ozz's 588) are not met: they wait on vector
+  code through the family's eight-lane header, which keeps the scalar
+  and vector results the same bits. They stay targets for 1.0.0; each
+  release before it publishes their measured ratios in its notes.
+- **The size budget.** `tools/size_report.py` reads a runtime-only
+  archive (`MAUL_ANIM_OFFLINE` off) with `size(1)` and groups its
+  objects into the parts `tools/size-budget.txt` lists: the core
+  (sampling, blending, the model pass and palettes, with skeletons,
+  skinning and root motion, and every module they use), the graph, IK,
+  full-body IK, springs, the ragdoll seam, retargeting, mirroring,
+  motion matching, learned matching, morph targets and the binary32
+  elementary functions. A module no part takes is reported as unplaced.
+  Each part has a ceiling at `-O2` and at `-O3` (GCC 14): its measure
+  rounded up to the next thousand bytes, the core's at `-O2` ozz's own
+  69,698. CI's size job reports both levels on every push; `--check`
+  holds them at release. A ceiling is lowered when a part shrinks past
+  a thousand bytes and raised only by a decision recorded here.
+- **The core against ozz.** At `-O2` the core is 69,357 bytes, under
+  ozz's 69,698. At `-O3` it is 91,414 against 74,225: the compiler
+  unrolls and inlines the eight-lane loops of blending, skinning and
+  compressed sampling, and that code buys 18% fewer instructions in a
+  two-pose blend (8,826 against 10,749) and 12% in the model pass
+  (11,957 against 13,563) on 53 bones. The trade is kept: a host that
+  needs the smallest runtime builds with `-O2` and gets ozz's size, one
+  that needs speed gets `-O3`'s; both are held by ceilings.
+- **No allocation, by symbols.** The same tool fails when the runtime
+  archive names `malloc`, `calloc`, `realloc`, `free`,
+  `aligned_alloc` or `posix_memalign`. This covers every runtime path,
+  where a counting allocator in tests covers only the calls a test
+  makes.
+
+## Consequences
+
+The release checklist (`docs/releasing.md`) runs the size check and the
+differential jobs on the release commit and puts the table of targets
+in the notes. Sizes at the time of this record (`-O2`, `-O3`): core
+69,357 and 91,414; graph 100,842 and 124,321; IK 30,070 and 33,431;
+full-body IK 25,565 and 31,983; springs 28,155 and 30,091; ragdoll
+14,449 and 15,896; retargeting 11,637 and 12,764; mirroring 4,858 and
+5,234; matching 15,910 and 18,294; learned matching 10,261 and 15,020;
+morph targets 5,946 and 6,246; elementary functions 5,954 and 6,130;
+in all 323,004 and 390,824.

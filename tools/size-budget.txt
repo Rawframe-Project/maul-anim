@@ -1,0 +1,49 @@
+# The runtime's parts and their text ceilings (mani-0036), read by
+# tools/size_report.py. "PART: MODULES" lists a part's modules; the core
+# also takes every module its modules use that no other part lists.
+# "ceiling PART LEVEL BYTES" holds a part's text at -O2 or -O3 (GCC 14,
+# x86-64, a runtime-only Release build): set at its measure rounded up to
+# the next thousand bytes, lowered when a part shrinks past a thousand,
+# raised only by a decision recorded in mani-0036.
+#
+# The core is the measure against ozz-animation's runtime (69,698
+# bytes at -O2, 74,225 at -O3): sampling, blending, the model pass and
+# palettes, with skeletons, skinning and root motion.
+
+core: base clip clip_tracks clip_cursor clip_compressed blend additive mask pose skin skinning influences skeleton fpenv hash
+graph: graph graph_bind graph_body graph_chain graph_dead_blend graph_emit graph_evaluate graph_inertia graph_inertia_apply graph_inspect graph_instance graph_learned graph_learned_step graph_machine graph_machine_file graph_machine_listen graph_machine_step graph_match graph_match_step graph_nodes graph_shot graph_shot_step graph_space graph_spring graph_subset graph_update
+ik: ik ik_aim ik_ccd ik_chain ik_fabrik ik_frame ik_limit
+bodyik: body_ik body_sdls body_xpbd jacobi_svd
+springs: spring spring_apply spring_shape spring_state spring_step
+ragdoll: ragdoll ragdoll_getup ragdoll_pose
+retarget: retarget retarget_motion retarget_pose
+mirror: mirror mirror_pose
+match: match match_move match_search trajectory
+learned: learned learned_eval
+morph: morph
+elementary: elementary_float
+
+ceiling core       O2 69698
+ceiling graph      O2 101000
+ceiling ik         O2 31000
+ceiling bodyik     O2 26000
+ceiling springs    O2 29000
+ceiling ragdoll    O2 15000
+ceiling retarget   O2 12000
+ceiling mirror     O2 5000
+ceiling match      O2 16000
+ceiling learned    O2 11000
+ceiling morph      O2 6000
+ceiling elementary O2 6000
+ceiling core       O3 92000
+ceiling graph      O3 125000
+ceiling ik         O3 34000
+ceiling bodyik     O3 32000
+ceiling springs    O3 31000
+ceiling ragdoll    O3 16000
+ceiling retarget   O3 13000
+ceiling mirror     O3 6000
+ceiling match      O3 19000
+ceiling learned    O3 16000
+ceiling morph      O3 7000
+ceiling elementary O3 7000

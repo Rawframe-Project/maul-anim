@@ -40,3 +40,4 @@ are listed in [README.md](README.md).
 | [mani-0033](mani-0033-mirroring.md) | Mirroring | Accepted |
 | [mani-0034](mani-0034-map-json.md) | The JSON form of maps | Accepted |
 | [mani-0035](mani-0035-introspection-and-subsets.md) | Introspection and subsets | Accepted |
+| [mani-0036](mani-0036-targets-and-size.md) | The targets at release and the size budget | Accepted |
