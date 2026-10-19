@@ -11,6 +11,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -35,6 +36,8 @@ struct maniGraphBinding
     uint32_t reserved;
     maniGraph graph;
     const maniSkeleton* skeleton;
+    // The mirror map the graph names, or NULL.
+    const maniMirrorMap* mirrorMap;
     // The bytes each clip node's cursor takes (a multiple of 8).
     size_t cursorSize;
     // The bone the clips' root motion names (MANI_NO_BONE for none).

@@ -129,6 +129,17 @@ extern "C"
     MANI_API const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t length,
                                         size_t* lengthOut);
 
+    /// Returns the hash of a name's partner from the name's hash, for
+    /// names kept hashed (events, markers): the hash of the name the map
+    /// pairs it with, or the hash itself.
+    ///
+    /// @param map   An opened map, or NULL (the hash itself).
+    /// @param hash  The name's hash, as maniClipEvent's nameHash holds it.
+    /// @return The partner's hash.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniMirrorNameHash(const maniMirrorMap* map, uint64_t hash);
+
     /// Mirrors a pose: each bone takes its partner's local (its own when
     /// unpaired), the translation's component along the normal negated
     /// and turned by the bone's correction from its partner's parent's

@@ -29,7 +29,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     maniBuildResult r =
         maniBuildGraphJson(s_builder, (const char*)data, size,
                            &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, kHostModel,
-                                                   kHostSet, 3, 1, 1, 1});
+                                                   kHostSet, 3, 1, 1, 1, NULL});
     if (r.result != mani_success)
     {
         bool text = r.reason == maniBuildReasonJson || r.reason == maniBuildReasonForm;

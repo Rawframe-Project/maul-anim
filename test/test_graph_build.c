@@ -267,7 +267,7 @@ static void TestTwoMasks(void)
           "each mask its own weights");
 }
 
-static _Alignas(8) uint8_t s_chainBinding[256];
+static _Alignas(8) uint8_t s_chainBinding[512];
 static _Alignas(8) uint8_t s_chainInstance[8192];
 static _Alignas(32) uint8_t s_scratch[65536];
 static _Alignas(32) uint8_t s_poses[4][16384];
@@ -303,7 +303,7 @@ static void TestChainMask(void)
                 &g) &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
-                                               NULL, 0, 0},
+                                               NULL, 0, 0, NULL},
                             s_chainBinding, sizeof s_chainBinding, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_chainInstance, sizeof s_chainInstance, &instance) ==
@@ -432,8 +432,8 @@ static bool BuildCrafted(void)
                                      .clip = {0, 0, {0, 0.0f}, maniGraphLoopClip, 0}};
     nodes[8] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
                                      .clip = {1, 0, LITERAL(1.0f), maniGraphLoopClip, 0}};
-    maniGraphSource source = {&s_skeleton, parameters, kSlots, &kGroup, nodes, 5, CLIPS, 1,
-                              9,           0,          0,      NULL,    0,     0, NULL,  NULL};
+    maniGraphSource source = {&s_skeleton, parameters, kSlots, &kGroup, nodes, 5,    CLIPS, 1,   9,
+                              0,           0,          NULL,   0,       0,     NULL, NULL,  NULL};
     maniBuilder* builder = NewBuilder();
     bool ok = maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success;
@@ -466,7 +466,8 @@ static void TestOpenRefusals(void)
     CHECK(Edit(Word(8, 0), 0, Word(8, 0)), "a select by a float");
     CHECK(Edit(Record(3), 1, Record(3) + 2), "a clip node of differences marked as poses");
     CHECK(Edit(Record(4), 0x00010004u, Record(4) + 2), "an additive node marked differences");
-    CHECK(Edit(Record(0), 0x00020001u, Record(0) + 2), "flags past differences");
+    CHECK(Edit(Record(0), 0x00040001u, Record(0) + 2), "flags past differences and mirroring");
+    CHECK(Edit(Record(0), 0x00020001u, Record(2) + 2), "a node mirrored under no mirror node");
     CHECK(Edit(Record(8) + 8, 3, Record(8) + 8), "inputs past the section");
     CHECK(Edit(Record(0) + 24, 1, Record(0) + 24), "a record's reserved word");
     CHECK(Edit(Record(8) + 8, 1, SectionAt(maniGraphTagInputs)), "inputs left over");
@@ -495,8 +496,8 @@ static void TestOpenRefusals(void)
     // The output a clip node of the wave, marked as differences: the
     // output gives differences.
     maniGraphNodeSource walk = ClipNode(0, 1.0f, maniGraphLoopClip);
-    maniGraphSource single = {&s_skeleton, NULL, kSlots, NULL, &walk, 0, CLIPS, 0,
-                              1,           0,    0,      NULL, 0,     0, NULL,  NULL};
+    maniGraphSource single = {&s_skeleton, NULL, kSlots, NULL, &walk, 0,    CLIPS, 0,   1,
+                              0,           0,    NULL,   0,    0,     NULL, NULL,  NULL};
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildGraph(builder, &single).result == mani_success &&
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success,
@@ -519,8 +520,8 @@ static void TestSubgraphs(void)
     maniGraphNodeSource inner[3] = {{maniGraphNodeBlend, 2, kInner, .blend = {kWeights, 0, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
-    maniGraphSource sub = {&s_skeleton, &x, kLegs, NULL, inner, 1, 2,    0,
-                           3,           0,  0,     NULL, 0,     0, NULL, NULL};
+    maniGraphSource sub = {&s_skeleton, &x, kLegs, NULL, inner, 1,    2,    0,   3,
+                           0,           0,  NULL,  0,    0,     NULL, NULL, NULL};
     maniGraphParameterSource parameters[2] = {Parameter("a", maniGraphParameterFloat, Float(0.0f)),
                                               Parameter("b", maniGraphParameterFloat, Float(0.5f))};
     static const uint32_t kMap[1] = {1};
@@ -600,7 +601,7 @@ static void TestBindingRoom(void)
                 &g) &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
-                                               NULL, 0, 0},
+                                               NULL, 0, 0, NULL},
                             s_chainBinding, sizeof s_chainBinding, &binding, NULL) == mani_success,
           "bound");
     size_t largest = (maniClipCursorSize(&s_chainClips[2]) + 7u) & ~(size_t)7u;

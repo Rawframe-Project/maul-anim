@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_IDENTITY 0xf4a0cdc747914c81ull
+#define PINNED_IDENTITY 0xce69ae49dfe9be99ull
 
 enum
 {
@@ -71,6 +71,8 @@ static const maniBoneSource kRig[kBones] = {
 static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
                                                {"R", 1, maniMirrorSuffix, "L", 1, 0}};
 // The names the clip uses, paired by the rules.
+// A pair of names of different lengths.
+static const maniMirrorNamePairSource kNamePairs[1] = {{"jump", 4, 7, "hopOver"}};
 static const maniMirrorNameSource kNames[5] = {
     {"blinkL", 6, 0}, {"footL", 5, 0}, {"stepL", 5, 0}, {"L", 1, 0}, {"R", 1, 0}};
 
@@ -90,13 +92,14 @@ static const float kFootTimes[3] = {0.0f, 0.4f, 0.8f};
 static const int32_t kFoot[3] = {1, 2, -3};
 static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
 
-static _Alignas(16) uint8_t s_skeletonFiles[2][4096];
+static _Alignas(16) uint8_t s_skeletonFiles[3][4096];
 static _Alignas(16) uint8_t s_mapFile[4096];
 static _Alignas(16) uint8_t s_clipFile[65536];
 static _Alignas(16) uint8_t s_baked[2][65536];
 static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[5][2048];
 static maniSkeleton s_skeleton;
 static maniSkeleton s_other;
+static maniSkeleton s_moved;
 static maniMirrorMap s_map;
 static maniPose* s_in;
 static maniPose* s_out;
@@ -117,10 +120,11 @@ static maniBuilder* NewBuilder(void)
     return builder;
 }
 
-static void OpenSkeleton(uint32_t count, uint8_t* file, maniSkeleton* out)
+static void OpenSkeleton(const maniBoneSource* bones, uint32_t count, uint8_t* file,
+                         maniSkeleton* out)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kRig, count, 0};
+    maniSkeletonSource source = {bones, count, 0};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, file, 4096, &size) == mani_success &&
@@ -131,12 +135,18 @@ static void OpenSkeleton(uint32_t count, uint8_t* file, maniSkeleton* out)
 
 static void Setup(void)
 {
-    OpenSkeleton(kBones, s_skeletonFiles[0], &s_skeleton);
-    OpenSkeleton(kBones - 1, s_skeletonFiles[1], &s_other);
+    OpenSkeleton(kRig, kBones, s_skeletonFiles[0], &s_skeleton);
+    OpenSkeleton(kRig, kBones - 1, s_skeletonFiles[1], &s_other);
+    maniBoneSource moved[kBones];
+    memcpy(moved, kRig, sizeof moved);
+    moved[kHead].rest.translation.y = 0.35f;
+    OpenSkeleton(moved, kBones, s_skeletonFiles[2], &s_moved);
     maniMirrorMapSource source = {.skeleton = &s_skeleton,
                                   .rules = kRules,
+                                  .namePairs = kNamePairs,
                                   .names = kNames,
                                   .ruleCount = 2,
+                                  .namePairCount = 1,
                                   .nameCount = 5,
                                   .axis = maniMirrorAxisX};
     maniBuilder* builder = NewBuilder();
@@ -156,8 +166,8 @@ static void Setup(void)
 }
 
 // The clip: the root and hips moving and turning, the left clavicle and
-// arm turning, the right hand scaling; root motion on a bone (the
-// root's twist about y, the left arm's whole rotation) or none.
+// arm turning, the right hand scaling; root motion on a bone (its twist
+// about y) or none.
 static void Clip(maniAdditiveBasis additive, uint32_t root, maniClip* out)
 {
     const maniBoneTrackSource tracks[6] = {
@@ -174,8 +184,7 @@ static void Clip(maniAdditiveBasis additive, uint32_t root, maniClip* out)
     const maniEventSource markers[2] = {{0.0f, 0, "L", 1, 0}, {0.5f, 0, "R", 1, 0}};
     const maniRootMotionSource motion = {root,
                                          maniRootAxisX | maniRootAxisZ,
-                                         root == kRoot ? maniRootRotationTwist
-                                                       : maniRootRotationWhole,
+                                         maniRootRotationTwist,
                                          1,
                                          maniRootReferenceRest,
                                          maniRootReferenceRest,
@@ -351,7 +360,7 @@ static void TestNamed(void)
     maniClipEvent right = maniClipMarkerAt(&baked, 1);
     CHECK(maniClipEventCount(&baked) == 2 && step.time == 0.25f && step.payload == 7 &&
               Named(step.name, step.nameLength, "stepR") && jump.payload == 9 &&
-              Named(jump.name, jump.nameLength, "jump"),
+              Named(jump.name, jump.nameLength, "hopOver"),
           "events renamed");
     CHECK(maniClipMarkerCount(&baked) == 2 && left.time == 0.0f &&
               Named(left.name, left.nameLength, "R") && right.time == 0.5f &&
@@ -473,7 +482,7 @@ static void TestRootMotion(void)
     CHECK(maniClipRootMotionSource(&baked, &declared) && declared.bone == kArmR &&
               declared.translationAxes == (maniRootAxisX | maniRootAxisY | maniRootAxisZ) &&
               declared.rotation == maniRootRotationWhole,
-          "on the partner, the axes off the axes all taken");
+          "on the partner, the axes and twist off the axes all taken");
     CHECK(MovesMirrored(&clip, &baked, kArmL), "the arm's moves reflected in the model");
 }
 
@@ -487,6 +496,10 @@ static void TestRefusals(void)
     maniBuildResult r = Bake(&s, 0, &baked);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonMirrorClip && r.other == 0,
           "a skeleton not the map's");
+    s.skeleton = &s_moved;
+    r = Bake(&s, 0, &baked);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonMirrorClip && r.other == 0,
+          "a skeleton of the bone count not the map's");
     maniMirrorMap counted = s_map;
     counted.boneCount = kBones + 1;
     s = Source(&clip);

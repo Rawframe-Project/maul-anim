@@ -97,7 +97,7 @@ static inline maniGraphNodeSource Above(uint32_t input)
 
 static const maniGraphDatabaseSource kDatabaseSlot[1] = {{&s_database, "moves", 5, 0}};
 
-static _Alignas(8) uint8_t s_matchBinding[512];
+static _Alignas(8) uint8_t s_matchBinding[1024];
 
 // The source (the fixture's clip slots and the database slot added)
 // built, opened, bound and instanced.
@@ -123,7 +123,7 @@ static inline maniGraphInstance* MakeMatch(maniGraphSource source, maniGraph* g)
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(g,
                             &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, CLIPS, 1,
-                                               0, 0, NULL, NULL, 0, 0},
+                                               0, 0, NULL, NULL, 0, 0, source.mirrorMap},
                             s_matchBinding, sizeof s_matchBinding, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,

@@ -21,6 +21,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/rootmotion.h"
@@ -362,6 +363,31 @@ static bool BindSpringSets(maniGraphBinding* binding, const maniGraphAssets* ass
     return true;
 }
 
+// The mirror map the graph names, of its identity and the graph's
+// skeleton; false with it unbound.
+static bool BindMirror(maniGraphBinding* binding, const maniMirrorMap* map, uint32_t* unboundOut)
+{
+    const maniGraph* graph = &binding->graph;
+    binding->mirrorMap = NULL;
+    if (graph->mirrorMapIdentity == 0)
+    {
+        return true;
+    }
+    if (map != NULL && map->identity == graph->mirrorMapIdentity &&
+        map->skeletonIdentity == graph->skeletonIdentity &&
+        map->boneCount == graph->skeletonBoneCount)
+    {
+        binding->mirrorMap = map;
+        return true;
+    }
+    if (unboundOut != NULL)
+    {
+        *unboundOut = graph->clipCount + graph->databaseCount + graph->modelCount +
+                      graph->springSetCount + graph->mapCount;
+    }
+    return false;
+}
+
 static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
 {
     return a != NULL && a->skeleton != NULL && (a->clips != NULL || a->clipCount == 0) &&
@@ -413,7 +439,7 @@ maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, 
     }
     if (!BindDatabases(binding, assets->databases, assets->databaseCount, unboundOut) ||
         !BindModels(binding, assets, unboundOut) || !BindSpringSets(binding, assets, unboundOut) ||
-        !RootMotionBone(binding))
+        !BindMirror(binding, assets->mirrorMap, unboundOut) || !RootMotionBone(binding))
     {
         return mani_errorInvalid;
     }

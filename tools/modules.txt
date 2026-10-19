@@ -142,7 +142,8 @@ graph_match_check: graph_match
 exact:
 triangulate: exact sort
 graph_inline: allocator graph_check
-graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_spring ik_chain sort triangulate
+graph_mirror: graph_check
+graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_mirror graph_spring ik_chain sort triangulate
 graph_json: allocator builder graph_json_body graph_json_ik graph_json_write
 graph_json_ik: arena graph_json_read graph_json_write ik_chain json
 graph_json_body: arena graph_json_ik graph_json_read graph_json_write json

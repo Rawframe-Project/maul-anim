@@ -18,6 +18,7 @@
 #include "maul-anim/graphbuild.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -173,6 +174,8 @@ typedef struct Flat
     maniGraphModelSource* models;
     maniGraphSpringSetSource* springSets;
     maniGraphEffectorSource* effectors;
+    // The mirror map: the root's, or the first subgraph's naming one.
+    const maniMirrorMap* mirrorMap;
     uint32_t nodeCount;
     uint32_t inputCount;
     uint32_t weightCount;
@@ -602,6 +605,12 @@ static maniBuildResult EmitNode(const Scope* s, Flat* f, const maniSkeleton* ske
             return maniGraphRefuse(maniBuildReasonNode, place, 0);
         }
         const maniGraphSource* sub = node.subgraph.graph;
+        if (sub->mirrorMap != NULL && f->mirrorMap != NULL &&
+            sub->mirrorMap->identity != f->mirrorMap->identity)
+        {
+            return maniGraphRefuse(maniBuildReasonMirrorGraph, place, 0);
+        }
+        f->mirrorMap = f->mirrorMap != NULL ? f->mirrorMap : sub->mirrorMap;
         Scope inner = {sub, node.subgraph.parameters, s, place, f->nodeCount};
         f->nodeCount += sub->nodeCount - 1;
         return Emit(&inner, f, skeleton);
@@ -720,6 +729,7 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
               .models = parts[9],
               .springSets = parts[10],
               .effectors = parts[11],
+              .mirrorMap = source->mirrorMap,
               .nodeCount = source->nodeCount};
     CopyRoot(source, &f);
     Scope root = {source, NULL, NULL, 0, 0};
@@ -738,6 +748,7 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     out->source.modelCount = f.modelCount;
     out->source.springSets = f.springSets;
     out->source.springSetCount = f.springSetCount;
+    out->source.mirrorMap = f.mirrorMap;
     return r;
 }
 

@@ -73,6 +73,13 @@ format.
   float tracks, discrete tracks, events and markers renamed by the
   map's name pairs, root motion moved to its bone's partner with its
   moves reflected in the model.
+- Graph mirror nodes (mani-0033): `maniGraphNodeMirror` mirrors its
+  input through the graph's mirror map (`maniGraphSource.mirrorMap`,
+  bound from `maniGraphAssets.mirrorMap`, read by
+  `maniGraphMirrorMapIdentity`); the clip, match and learned nodes
+  beneath it give their moves reflected and their events and sync
+  markers renamed, with `maniMirrorNameHash` for hashed names; the
+  graph format is version 3.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

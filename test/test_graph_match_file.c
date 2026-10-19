@@ -147,14 +147,14 @@ static void TestBind(void)
     uint32_t unbound = 0;
     CHECK(maniBindGraph(&g,
                         &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0,
-                                           NULL, NULL, 0, 0},
+                                           NULL, NULL, 0, 0, NULL},
                         s_matchBinding, sizeof s_matchBinding, &binding,
                         &unbound) == mani_errorInvalid &&
               unbound == CLIPS,
           "no database: the database slot unbound");
     CHECK(maniBindGraph(&g,
                         &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 1, 0, 0,
-                                           NULL, NULL, 0, 0},
+                                           NULL, NULL, 0, 0, NULL},
                         s_matchBinding, sizeof s_matchBinding, &binding, NULL) == mani_errorInvalid,
           "a count without databases");
     CHECK(maniGraphDatabaseCount(&g) == 1 &&
@@ -271,7 +271,7 @@ static bool Unbindable(uint32_t tag, uint64_t offset, uint32_t value)
     uint32_t unbound = 0;
     return maniBindGraph(&crafted,
                          &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, CLIPS, 1, 0,
-                                            0, NULL, NULL, 0, 0},
+                                            0, NULL, NULL, 0, 0, NULL},
                          s_matchBinding, sizeof s_matchBinding, &binding,
                          &unbound) == mani_errorInvalid &&
            unbound == CLIPS;
@@ -397,7 +397,7 @@ static void TestSubgraph(void)
               maniGraphClipCount(&g) == 2 && maniGraphDatabaseCount(&g) == 1 &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, 2, 1, 0,
-                                               0, NULL, NULL, 0, 0},
+                                               0, NULL, NULL, 0, 0, NULL},
                             s_matchBinding, sizeof s_matchBinding, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
@@ -494,7 +494,7 @@ static bool RoundTrip(const maniGraphSource* source)
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
               maniBuildGraphJson(builder, s_text, s_textSize,
                                  &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL,
-                                                         NULL, CLIPS, 1, 0, 0})
+                                                         NULL, CLIPS, 1, 0, 0, NULL})
                       .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
@@ -505,9 +505,10 @@ static bool RoundTrip(const maniGraphSource* source)
 static maniBuildResult Read(const char* text)
 {
     maniBuilder* builder = NewBuilder();
-    maniBuildResult r = maniBuildGraphJson(
-        builder, text, strlen(text),
-        &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, NULL, CLIPS, 1, 0, 0});
+    maniBuildResult r =
+        maniBuildGraphJson(builder, text, strlen(text),
+                           &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, NULL,
+                                                   CLIPS, 1, 0, 0, NULL});
     maniDestroyBuilder(builder);
     return r;
 }
@@ -587,7 +588,7 @@ static bool Defaults(void)
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
               maniBuildGraphJson(builder, kText, sizeof kText - 1,
                                  &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL,
-                                                         NULL, CLIPS, 1, 0, 0})
+                                                         NULL, CLIPS, 1, 0, 0, NULL})
                       .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);

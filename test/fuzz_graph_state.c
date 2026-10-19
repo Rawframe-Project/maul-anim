@@ -231,7 +231,7 @@ static void Setup(void)
         MakeSet(builder) && MakeGraph(builder) &&
         maniBindGraph(&s_graph,
                       &(maniGraphAssets){&s_skeleton, clips, databases, models, sets, 1, 1, 1, 1,
-                                         NULL, NULL, 0, 0},
+                                         NULL, NULL, 0, 0, NULL},
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);

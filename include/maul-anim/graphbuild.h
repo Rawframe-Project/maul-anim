@@ -17,6 +17,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/ik.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -655,7 +656,7 @@ extern "C"
 
     // A subgraph node: the graph (of the same skeleton; its clips and
     // databases joined to this graph's by identity, its sync groups by
-    // name), and for each
+    // name, its mirror map this graph's or none), and for each
     // of its parameters the parameter of this graph it reads, of the same
     // type. It takes no inputs.
     typedef struct maniGraphSubgraphNodeSource
@@ -718,6 +719,9 @@ extern "C"
         uint32_t springSetCount;
         const maniGraphModelSource* models;
         const maniGraphSpringSetSource* springSets;
+        // The mirror map (mani-0033) of the graph's skeleton its mirror
+        // nodes mirror through; NULL for none.
+        const maniMirrorMap* mirrorMap;
     };
 
     /// Builds a graph file: inlines subgraphs (their nodes after the
@@ -728,7 +732,8 @@ extern "C"
     /// so each
     /// follows its inputs (the output last, the source's order kept where
     /// it may be), makes each mask's
-    /// bone weights, marks each node as giving poses or differences, gives
+    /// bone weights, marks each node as giving poses or differences and as
+    /// mirrored or not (the parity of the mirror nodes above it), gives
     /// each node's pose a slot reused once its last reader has run, and
     /// keeps the file in place of any built before.
     ///
@@ -740,7 +745,8 @@ extern "C"
     /// none of nodes), Name, DuplicateName and NameHash with the list
     /// bits of parameters, clips, sync groups, databases, models or
     /// spring sets, Parameter, Clip, Database, Model, SpringSetSlot, Node,
-    /// Input, Cycle, Unreachable, Scalar, Weight and Difference; and
+    /// Input, Cycle, Unreachable, Scalar, Weight, Difference and
+    /// MirrorGraph; and
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
@@ -807,6 +813,8 @@ extern "C"
         uint32_t databaseCount;
         uint32_t modelCount;
         uint32_t springSetCount;
+        // The mirror map every graph read takes, or NULL.
+        const maniMirrorMap* mirrorMap;
     } maniGraphNamedAssets;
 
     /// Builds a graph file from its JSON text form, as maniWriteGraphJson
@@ -835,7 +843,8 @@ extern "C"
     /// host's clip of that name (and its map), each database slot name the host's
     /// database of that name, each model slot name the host's model of
     /// that name and each spring set slot name the host's spring set of
-    /// that name (the first of equal names). The source read is then built
+    /// that name (the first of equal names); every graph read takes the
+    /// host's mirror map. The source read is then built
     /// as maniBuildGraph builds it.
     ///
     /// @param builder    The builder.
@@ -843,8 +852,9 @@ extern "C"
     ///                   skipped); may be NULL when length is 0.
     /// @param length     The text's length in bytes.
     /// @param assets     The graph's skeleton (mask chains name its
-    ///                   bones), and the clips, databases, models and
-    ///                   spring sets with their slot names.
+    ///                   bones), the clips, databases, models and
+    ///                   spring sets with their slot names, and the
+    ///                   mirror map.
     /// @return As maniBuildGraph, items by place in the text's lists; or
     /// `mani_errorInvalid` with maniBuildReasonJson or
     /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.

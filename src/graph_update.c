@@ -548,6 +548,13 @@ static uint32_t NextMember(const Update* u, uint32_t g, uint32_t from)
     return UINT32_MAX;
 }
 
+// A marker's name as node p plays its clip: its partner's under a
+// mirror.
+static uint64_t MarkerName(const Update* u, uint32_t p, const maniClip* clip, uint32_t k)
+{
+    return maniGraphNodeName(u, p, maniClipMarkerAt(clip, k).nameHash);
+}
+
 // Whether every member's clip has a marker of the name.
 static bool InAll(const Update* u, uint32_t g, uint64_t hash)
 {
@@ -557,7 +564,7 @@ static bool InAll(const Update* u, uint32_t g, uint64_t hash)
         bool found = false;
         for (uint32_t k = 0; k < clip->markerCount && !found; ++k)
         {
-            found = maniClipMarkerAt(clip, k).nameHash == hash;
+            found = MarkerName(u, p, clip, k) == hash;
         }
         if (!found)
         {
@@ -567,14 +574,14 @@ static bool InAll(const Update* u, uint32_t g, uint64_t hash)
     return true;
 }
 
-static bool Common(const Update* u, uint32_t g, const maniClip* clip, uint32_t k)
+static bool Common(const Update* u, uint32_t g, uint32_t p, const maniClip* clip, uint32_t k)
 {
-    return InAll(u, g, maniClipMarkerAt(clip, k).nameHash);
+    return InAll(u, g, MarkerName(u, p, clip, k));
 }
 
 // A group syncs by markers when every member repeats and the leader has
 // a marker every member has.
-static bool ByMarkers(const Update* u, uint32_t g, const maniClip* leader)
+static bool ByMarkers(const Update* u, uint32_t g, uint32_t lead, const maniClip* leader)
 {
     for (uint32_t p = NextMember(u, g, 0); p != UINT32_MAX; p = NextMember(u, g, p + 1))
     {
@@ -586,7 +593,7 @@ static bool ByMarkers(const Update* u, uint32_t g, const maniClip* leader)
     }
     for (uint32_t k = 0; k < leader->markerCount; ++k)
     {
-        if (Common(u, g, leader, k))
+        if (Common(u, g, lead, leader, k))
         {
             return true;
         }
@@ -603,14 +610,14 @@ static double Along(double a, double b, bool backward, double d)
 }
 
 // The common marker after k in the direction of play, cyclic.
-static uint32_t NextCommon(const Update* u, uint32_t g, const maniClip* clip, uint32_t k,
-                           bool backward)
+static uint32_t NextCommon(const Update* u, uint32_t g, uint32_t p, const maniClip* clip,
+                           uint32_t k, bool backward)
 {
     uint32_t n = clip->markerCount;
     for (uint32_t step = 1; step <= n; ++step)
     {
         uint32_t i = backward ? (k + n - step % n) % n : (k + step) % n;
-        if (Common(u, g, clip, i))
+        if (Common(u, g, p, clip, i))
         {
             return i;
         }
@@ -621,13 +628,14 @@ static uint32_t NextCommon(const Update* u, uint32_t g, const maniClip* clip, ui
 // The common marker last passed at t in the direction of play: before t
 // going forward, after it going back, cyclic (one at t is still ahead,
 // as the event windows have it).
-static uint32_t Passed(const Update* u, uint32_t g, const maniClip* clip, double t, bool backward)
+static uint32_t Passed(const Update* u, uint32_t g, uint32_t p, const maniClip* clip, double t,
+                       bool backward)
 {
     uint32_t found = UINT32_MAX;
     double best = 0.0;
     for (uint32_t k = 0; k < clip->markerCount; ++k)
     {
-        if (!Common(u, g, clip, k))
+        if (!Common(u, g, p, clip, k))
         {
             continue;
         }
@@ -650,7 +658,8 @@ static double MarkerTime(const maniClip* clip, uint32_t k)
 
 // The common markers a playhead passes from t0 over step: forward those
 // at times in [t0, t1), backward in (t1, t0], across wraps.
-static double CountPassed(const Update* u, uint32_t g, const maniClip* clip, double t0, double step)
+static double CountPassed(const Update* u, uint32_t g, uint32_t p, const maniClip* clip, double t0,
+                          double step)
 {
     double d = (double)clip->duration;
     bool backward = step < 0.0;
@@ -660,7 +669,7 @@ static double CountPassed(const Update* u, uint32_t g, const maniClip* clip, dou
     double count = 0.0;
     for (uint32_t k = 0; k < clip->markerCount; ++k)
     {
-        if (!Common(u, g, clip, k))
+        if (!Common(u, g, p, clip, k))
         {
             continue;
         }
@@ -684,7 +693,7 @@ static void LeaderMotion(const Update* u, uint32_t g)
     group->flags |= m.seeking ? MANI_GRAPH_LEADER_SEEKING : 0u;
     group->phase = d > 0.0 ? m.t0 / d : 0.0;
     group->delta = d > 0.0 ? m.step / d : 0.0;
-    if (!m.seeking && ByMarkers(u, g, &clip))
+    if (!m.seeking && ByMarkers(u, g, group->leader, &clip))
     {
         group->flags |= MANI_GRAPH_MARKERS;
         group->phase = m.t0;
@@ -745,34 +754,31 @@ typedef struct Between
     double fraction;
 } Between;
 
-static Between PositionAt(const Update* u, uint32_t g, const maniClip* clip, double t,
+static Between PositionAt(const Update* u, uint32_t g, uint32_t p, const maniClip* clip, double t,
                           bool backward)
 {
-    uint32_t previous = Passed(u, g, clip, t, backward);
-    uint32_t next = NextCommon(u, g, clip, previous, backward);
+    uint32_t previous = Passed(u, g, p, clip, t, backward);
+    uint32_t next = NextCommon(u, g, p, clip, previous, backward);
     double behind = Along(MarkerTime(clip, previous), t, backward, (double)clip->duration);
     return (Between){previous, next, behind / Span(clip, previous, next, backward)};
-}
-
-static uint64_t NameOf(const maniClip* clip, uint32_t k)
-{
-    return maniClipMarkerAt(clip, k).nameHash;
 }
 
 // The follower's place matching the leader's: of its pairs of markers
 // with the leader's two names, the place at the leader's fraction nearest
 // to t0; t0 when it has none.
-static double Match(const Update* u, uint32_t g, const maniClip* clip, const maniClip* leader,
-                    Between want, double t0, bool backward)
+static double Match(const Update* u, uint32_t g, uint32_t p, const maniClip* clip,
+                    const maniClip* leader, Between want, double t0, bool backward)
 {
+    uint32_t lead = Group(u, g)->leader;
     double d = (double)clip->duration;
     double best = t0;
     double nearest = d;
     for (uint32_t i = 0; i < clip->markerCount; ++i)
     {
-        uint32_t j = NextCommon(u, g, clip, i, backward);
-        if (!Common(u, g, clip, i) || NameOf(clip, i) != NameOf(leader, want.previous) ||
-            NameOf(clip, j) != NameOf(leader, want.next))
+        uint32_t j = NextCommon(u, g, p, clip, i, backward);
+        if (!Common(u, g, p, clip, i) ||
+            MarkerName(u, p, clip, i) != MarkerName(u, lead, leader, want.previous) ||
+            MarkerName(u, p, clip, j) != MarkerName(u, lead, leader, want.next))
         {
             continue;
         }
@@ -795,21 +801,24 @@ static double Match(const Update* u, uint32_t g, const maniClip* clip, const man
 // (at most a loop) until its markers carry the leader's final names, to
 // the leader's final fraction. Its start, and the distance it moves in
 // the direction of play.
-static double FollowMarkers(const Update* u, uint32_t g, const maniClip* clip, double* t0)
+static double FollowMarkers(const Update* u, uint32_t g, uint32_t p, const maniClip* clip,
+                            double* t0)
 {
     const maniGraphGroupState* group = Group(u, g);
-    maniClip leader = ClipOf(u, maniLoadU32(Record(u, group->leader) + 12));
+    uint32_t lead = group->leader;
+    maniClip leader = ClipOf(u, maniLoadU32(Record(u, lead) + 12));
     bool backward = group->delta < 0.0;
-    Between start = PositionAt(u, g, &leader, group->phase, backward);
-    Between end = PositionAt(u, g, &leader, Place(&leader, group->phase + group->delta), backward);
-    double pass = CountPassed(u, g, &leader, group->phase, group->delta);
-    *t0 = Match(u, g, clip, &leader, start, *t0, backward);
-    Between at = PositionAt(u, g, clip, *t0, backward);
+    Between start = PositionAt(u, g, lead, &leader, group->phase, backward);
+    Between end =
+        PositionAt(u, g, lead, &leader, Place(&leader, group->phase + group->delta), backward);
+    double pass = CountPassed(u, g, lead, &leader, group->phase, group->delta);
+    *t0 = Match(u, g, p, clip, &leader, start, *t0, backward);
+    Between at = PositionAt(u, g, p, clip, *t0, backward);
     double travelled = -at.fraction * Span(clip, at.previous, at.next, backward);
     double perLoop = 0.0;
     for (uint32_t k = 0; k < clip->markerCount; ++k)
     {
-        perLoop += Common(u, g, clip, k) ? 1.0 : 0.0;
+        perLoop += Common(u, g, p, clip, k) ? 1.0 : 0.0;
     }
     if (perLoop > 0.0 && pass > 2.0 * perLoop)
     {
@@ -822,15 +831,16 @@ static double FollowMarkers(const Update* u, uint32_t g, const maniClip* clip, d
     uint64_t limit = steps + (uint64_t)perLoop;
     for (uint64_t done = 0; done < limit; ++done)
     {
-        bool match = NameOf(clip, at.previous) == NameOf(&leader, end.previous) &&
-                     NameOf(clip, at.next) == NameOf(&leader, end.next);
+        bool match =
+            MarkerName(u, p, clip, at.previous) == MarkerName(u, lead, &leader, end.previous) &&
+            MarkerName(u, p, clip, at.next) == MarkerName(u, lead, &leader, end.next);
         if (done >= steps && match)
         {
             break;
         }
         travelled += Span(clip, at.previous, at.next, backward);
         at.previous = at.next;
-        at.next = NextCommon(u, g, clip, at.next, backward);
+        at.next = NextCommon(u, g, p, clip, at.next, backward);
     }
     return travelled + end.fraction * Span(clip, at.previous, at.next, backward);
 }
@@ -838,7 +848,7 @@ static double FollowMarkers(const Update* u, uint32_t g, const maniClip* clip, d
 // A follower's motion: by markers, or as far through its clip as the
 // leader through its own from the leader's phase; its events only when
 // the group asks.
-static Motion Follow(const Update* u, uint32_t g, const maniClip* clip, double t0)
+static Motion Follow(const Update* u, uint32_t g, uint32_t p, const maniClip* clip, double t0)
 {
     const maniGraphGroupState* group = Group(u, g);
     double d = (double)clip->duration;
@@ -848,7 +858,7 @@ static Motion Follow(const Update* u, uint32_t g, const maniClip* clip, double t
     if ((group->flags & MANI_GRAPH_MARKERS) != 0)
     {
         double start = t0;
-        double distance = FollowMarkers(u, g, clip, &start);
+        double distance = FollowMarkers(u, g, p, clip, &start);
         bool backward = group->delta < 0.0;
         return (Motion){start, backward ? -distance : distance, false, all && distance >= 0.0};
     }
@@ -874,7 +884,7 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
     if (group < u->graph->syncGroupCount && Group(u, group)->leader != p &&
         Group(u, group)->leader != UINT32_MAX)
     {
-        m = Follow(u, group, &clip, s->time);
+        m = Follow(u, group, p, &clip, s->time);
     }
     maniRootMove move = maniRootMoveIdentity();
     s->from = m.t0;
@@ -889,7 +899,7 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
         if (s->rootWeight > 0.0f)
         {
             (void)maniClipRootMotion(&clip, (float)m.t0, (float)m.step, &move);
-            move = Carried(u, Word(u, data), &clip, move);
+            move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move));
         }
     }
     s->time = Place(&clip, m.t0 + m.step);

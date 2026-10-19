@@ -14,6 +14,7 @@
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/rootmotion.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -70,5 +71,12 @@ void maniGraphEmitLoops(maniGraphUpdate* u, uint32_t node, uint32_t slot, const 
 // An inertialize node's request of seconds (none for MANI_GRAPH_NO_NODE
 // or seconds not at least 0): the least of an update's.
 void maniGraphRequest(const maniGraphUpdate* u, uint32_t node, float seconds);
+
+// A node's move and an event or marker name of its clip (or model) as
+// the update gives them: reflected and renamed through the bound mirror
+// map when the node is under an odd number of mirror nodes, else as
+// they are.
+maniRootMove maniGraphNodeMove(const maniGraphUpdate* u, uint32_t node, maniRootMove move);
+uint64_t maniGraphNodeName(const maniGraphUpdate* u, uint32_t node, uint64_t hash);
 
 #endif // MAUL_ANIM_SRC_GRAPH_EMIT_H

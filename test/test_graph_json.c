@@ -172,7 +172,8 @@ static maniGraphSource Source(void)
                               1,           0,
                               0,           NULL,
                               0,           0,
-                              NULL,        NULL};
+                              NULL,        NULL,
+                              NULL};
     Parameters();
     s_clipSlots[0] = (maniGraphClipSource){&s_clips[0], "walk", 4, 0, NULL};
     s_clipSlots[1] = (maniGraphClipSource){&s_clips[2], "wave", 4, 0, NULL};
@@ -228,7 +229,7 @@ static maniGraphSource Source(void)
                                                 LITERAL(1.0f)}};
     return (maniGraphSource){&s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 10, 2,
                              1,           12,           0,           0,        NULL,    0,  0,
-                             NULL,        NULL};
+                             NULL,        NULL,         NULL};
 }
 
 static const char kExpected[] =
@@ -356,7 +357,7 @@ static maniBuildResult Read(const char* text, uint8_t* out, size_t* sizeOut)
     maniBuilder* builder = NewBuilder(NULL);
     maniBuildResult r = maniBuildGraphJson(
         builder, text, strlen(text),
-        &(maniGraphNamedAssets){&s_skeleton, kHost, NULL, NULL, NULL, 3, 0, 0, 0});
+        &(maniGraphNamedAssets){&s_skeleton, kHost, NULL, NULL, NULL, 3, 0, 0, 0, NULL});
     *sizeOut = 0;
     if (r.result == mani_success)
     {
@@ -424,8 +425,8 @@ static void TestDefaults(void)
     maniGraphNodeSource node = {
         maniGraphNodeClip, 0, NULL,
         .clip = {0, MANI_NO_SYNC_GROUP, LITERAL(1.0f), maniGraphLoopClip, 0}};
-    maniGraphSource source = {&s_skeleton, parameters, &slot, NULL, &node, 2, 1,    0,
-                              1,           0,          0,     NULL, 0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, parameters, &slot, NULL, &node, 2,    1,    0,   1,
+                              0,           0,          NULL,  0,    0,     NULL, NULL, NULL};
     size_t want = Built(&source);
     size_t size = 0;
     maniBuildResult r = Read(kShort, s_read, &size);
@@ -461,8 +462,8 @@ static void TestNodeDefaults(void)
         {maniGraphNodeMask, 2, kMask, .mask = {&kSpine, 1, 0.0f}},
         {maniGraphNodeBlend, 1, kBlend, .blend = {kOne, 0, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {0, 0, LITERAL(1.0f), maniGraphLoopClip, 0}}};
-    maniGraphSource source = {&s_skeleton, &trigger, &slot, &group, nodes, 1, 1,    1,
-                              4,           0,        0,     NULL,   0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, &trigger, &slot, &group, nodes, 1,    1,    1,   4,
+                              0,           0,        NULL,  0,      0,     NULL, NULL, NULL};
     size_t want = Built(&source);
     size_t size = 0;
     maniBuildResult r = Read(kText, s_read, &size);
@@ -513,8 +514,8 @@ static void TestIkDefaults(void)
                      LITERAL(1.0f)}},
         {maniGraphNodeClip, 0, NULL,
          .clip = {0, MANI_NO_SYNC_GROUP, LITERAL(1.0f), maniGraphLoopClip, 0}}};
-    maniGraphSource source = {&s_skeleton, &goal, &slot, NULL, nodes, 1, 1,    0,
-                              3,           0,     0,     NULL, 0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, &goal, &slot, NULL, nodes, 1,    1,    0,   3,
+                              0,           0,     NULL,  0,    0,     NULL, NULL, NULL};
     size_t want = Built(&source);
     size_t size = 0;
     maniBuildResult r = Read(kText, s_read, &size);
@@ -696,22 +697,24 @@ static void TestReadRefusals(void)
     CHECK(wrong == 0, "each text refused at its offset");
     maniBuilder* builder = NewBuilder(NULL);
     CHECK(maniBuildGraphJson(
-              NULL, "", 0, &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 0, 0, 0, 0})
+              NULL, "", 0,
+              &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 0, 0, 0, 0, NULL})
                   .result == mani_errorInvalid,
           "no builder");
-    CHECK(
-        maniBuildGraphJson(builder, NULL, 1,
-                           &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 0, 0, 0, 0})
-                    .result == mani_errorInvalid &&
-            maniBuildGraphJson(builder, "", 0,
-                               &(maniGraphNamedAssets){NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0})
-                    .result == mani_errorInvalid &&
-            maniBuildGraphJson(
-                builder, "", 0,
-                &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 1, 0, 0, 0})
-                    .result == mani_errorInvalid &&
-            maniBuilderMisuses(builder) == 3,
-        "misuses");
+    CHECK(maniBuildGraphJson(
+              builder, NULL, 1,
+              &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 0, 0, 0, 0, NULL})
+                      .result == mani_errorInvalid &&
+              maniBuildGraphJson(
+                  builder, "", 0,
+                  &(maniGraphNamedAssets){NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, NULL})
+                      .result == mani_errorInvalid &&
+              maniBuildGraphJson(
+                  builder, "", 0,
+                  &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 1, 0, 0, 0, NULL})
+                      .result == mani_errorInvalid &&
+              maniBuilderMisuses(builder) == 3,
+          "misuses");
     maniDestroyBuilder(builder);
 }
 
@@ -765,11 +768,11 @@ static bool FailOnce(bool reading, uint32_t failAt, bool* cleanOut)
     maniAllocator allocator = {FailingAlloc, FailingFree, &f};
     maniBuilder* builder = NewBuilder(&allocator);
     f.failAt = f.calls + failAt;
-    maniBuildResult r = reading
-                            ? maniBuildGraphJson(builder, kExpected, sizeof kExpected - 1,
-                                                 &(maniGraphNamedAssets){&s_skeleton, kHost, NULL,
-                                                                         NULL, NULL, 3, 0, 0, 0})
-                            : maniWriteGraphJson(builder, &source);
+    maniBuildResult r =
+        reading ? maniBuildGraphJson(builder, kExpected, sizeof kExpected - 1,
+                                     &(maniGraphNamedAssets){&s_skeleton, kHost, NULL, NULL, NULL,
+                                                             3, 0, 0, 0, NULL})
+                : maniWriteGraphJson(builder, &source);
     size_t size = 1;
     bool failed = f.calls > f.failAt;
     bool clean = failed ? r.result == mani_errorCapacity &&

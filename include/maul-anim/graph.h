@@ -13,6 +13,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/rootmotion.h"
@@ -150,6 +151,11 @@ extern "C"
         maniGraphNodeBodyXpbd = 22,
         // A full-body IK node by selectively damped least squares.
         maniGraphNodeBodySdls = 23,
+        // A mirror node (mani-0033): its input's pose mirrored through the
+        // graph's mirror map; the clip, match and learned nodes beneath it
+        // give their moves reflected and their events and sync markers
+        // renamed.
+        maniGraphNodeMirror = 24,
     };
 
 // The most steps of its model a learned node takes in one update: a
@@ -179,6 +185,7 @@ extern "C"
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
+        uint64_t mirrorMapIdentity;
         uint32_t skeletonBoneCount;
         uint32_t parameterCount;
         uint32_t nodeCount;
@@ -415,6 +422,15 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot);
 
+    /// Returns the identity of the graph's mirror map (mani-0033), which
+    /// its mirror nodes mirror through.
+    ///
+    /// @param graph  An opened graph.
+    /// @return The map's identity; 0 for a graph without one, or NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniGraphMirrorMapIdentity(const maniGraph* graph);
+
     /// Returns the identity of the skeleton a map slot's map takes poses
     /// from: the skeleton its clips are of, which binding needs.
     ///
@@ -473,6 +489,7 @@ extern "C"
         const maniSkeleton* const* sourceSkeletons;
         uint32_t mapCount;
         uint32_t sourceSkeletonCount;
+        const maniMirrorMap* mirrorMap;
     } maniGraphAssets;
 
     /// Binds a graph to its assets: each map slot to the retargeting map
@@ -486,13 +503,14 @@ extern "C"
     /// graph's query parameters; each model slot to the learned model of
     /// its identity among the models, of the graph's skeleton; each
     /// spring set slot to the spring set of its identity among the sets,
-    /// of the graph's skeleton. The graph and its assets must outlive the
+    /// of the graph's skeleton; a graph's mirror map to the assets' mirror
+    /// map, of its identity. The graph and its assets must outlive the
     /// binding.
     ///
     /// @param graph       An opened graph.
     /// @param assets      The skeleton the graph was built against, and
-    ///                    the clips, databases, models, spring sets, maps
-    ///                    and source skeletons.
+    ///                    the clips, databases, models, spring sets, maps,
+    ///                    source skeletons and mirror map.
     /// @param memory      At least maniGraphBindingSize bytes,
     ///                    MANI_GRAPH_BINDING_ALIGNMENT-aligned.
     /// @param size        The memory's size.
@@ -502,7 +520,8 @@ extern "C"
     ///                    database slot, the clip and database counts
     ///                    plus a model slot, the clip, database and
     ///                    model counts plus a spring set slot, or those
-    ///                    and the spring set count plus a map slot
+    ///                    and the spring set count plus a map slot, or
+    ///                    those and the map count for the mirror map
     ///                    (MANI_NO_TRACK otherwise). May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL or
     /// misaligned argument, a list NULL with a count, a skeleton that is

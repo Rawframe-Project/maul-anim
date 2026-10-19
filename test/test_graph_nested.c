@@ -78,7 +78,7 @@ static maniBuildResult BuildText(maniBuilder* builder)
 {
     return maniBuildGraphJson(builder, kText, sizeof kText - 1,
                               &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, kHostModel,
-                                                      kHostSet, 3, 1, 1, 1});
+                                                      kHostSet, 3, 1, 1, 1, NULL});
 }
 
 static size_t s_size;

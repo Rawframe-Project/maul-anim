@@ -84,6 +84,7 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
         return MANI_GRAPH_MAX_INPUTS;
     case maniGraphNodeTimeScale:
     case maniGraphNodeSeek:
+    case maniGraphNodeMirror:
     case maniGraphNodeInertialize:
     case maniGraphNodeSpring:
     case maniGraphNodeTwoBone:
@@ -239,8 +240,9 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
 // Every section of the size the header's counts give.
 static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
 {
-    // Sections 2 to 10, then 12 to 14; the names' size is free.
-    const uint64_t sizes[MANI_GRAPH_SECTIONS - 2] = {
+    // Sections 2 to 10, then 12 to 14; the names' size is free, the
+    // mirror's below.
+    const uint64_t sizes[MANI_GRAPH_SECTIONS - 3] = {
         (uint64_t)g->parameterCount * MANI_GRAPH_PARAMETER_SIZE,
         (uint64_t)g->nodeCount * MANI_GRAPH_NODE_SIZE,
         4 * (uint64_t)g->inputCount,
@@ -254,7 +256,7 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
         (uint64_t)g->springSetCount * MANI_GRAPH_SPRING_SET_SIZE,
         (uint64_t)g->mapCount * MANI_GRAPH_MAP_SIZE,
     };
-    for (uint32_t k = 0; k < MANI_GRAPH_SECTIONS - 2; ++k)
+    for (uint32_t k = 0; k < MANI_GRAPH_SECTIONS - 3; ++k)
     {
         uint32_t section = k < 9 ? k + 1 : k + 2;
         if (s->sizes[section] != sizes[k])
@@ -276,6 +278,16 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
     g->models = s->data[11];
     g->springSets = s->data[12];
     g->maps = s->data[13];
+    // The mirror map's identity, not 0, or nothing.
+    if (s->sizes[14] != 0 && s->sizes[14] != 8)
+    {
+        return Fail(s->entry[14]);
+    }
+    g->mirrorMapIdentity = s->sizes[14] != 0 ? maniLoadU64(s->data[14]) : 0;
+    if (s->sizes[14] != 0 && g->mirrorMapIdentity == 0)
+    {
+        return Fail(s->at[14]);
+    }
     return kOk;
 }
 
@@ -755,6 +767,11 @@ uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot)
         return 0;
     }
     return maniLoadU64(graph->maps + (size_t)slot * MANI_GRAPH_MAP_SIZE);
+}
+
+uint64_t maniGraphMirrorMapIdentity(const maniGraph* graph)
+{
+    return graph != NULL ? graph->mirrorMapIdentity : 0;
 }
 
 uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot)

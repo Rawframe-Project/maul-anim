@@ -16,11 +16,69 @@
 #include "graph_match_fixture.h"
 #include "match_search.h"
 
+#include "maul-anim/mirror.h"
+#include "maul-anim/mirrorbuild.h"
+
 static _Alignas(32) uint8_t s_scratch[65536];
 static _Alignas(32) uint8_t s_poseMemory[4096];
 static _Alignas(32) uint8_t s_clipPoseMemory[4096];
 static maniPose* s_pose;
 static maniPose* s_clipPose;
+
+// The walk under a mirror node: each move the plain node's reflected
+// (after the first, the walk to the left).
+static void TestMirrored(void)
+{
+    static _Alignas(16) uint8_t file[4096];
+    const maniMirrorMapSource ms = {.skeleton = &s_skeleton, .axis = maniMirrorAxisX};
+    maniMirrorMap map;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildMirrorMap(builder, &ms).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenMirrorMap(file, size, &map).result == mani_success,
+          "a mirror map");
+    maniDestroyBuilder(builder);
+    MatchParameters();
+    static const uint32_t kMatch[1] = {0};
+    // The node under an inertialize node, which a jump requests; then a
+    // mirror between them.
+    maniGraphNodeSource nodes[3] = {MatchNode(0.1f), Above(0), Above(1)};
+    nodes[1] = (maniGraphNodeSource){maniGraphNodeMirror, 1, kMatch, .clip = {0}};
+    static const uint32_t kMirror[1] = {1};
+    nodes[2].inputs = kMirror;
+    maniGraphNodeSource plainNodes[2] = {MatchNode(0.1f), Above(0)};
+    maniGraphSource source = {.parameters = s_matchParameters,
+                              .nodes = plainNodes,
+                              .parameterCount = 4,
+                              .nodeCount = 2,
+                              .output = 1};
+    maniGraph g;
+    maniGraphInstance* instance = MakeMatch(source, &g);
+    maniRootMove plain[6];
+    for (int k = 0; k < 6; ++k)
+    {
+        (void)maniUpdateGraph(instance, 0.15f, NULL, 0, NULL, &plain[k]);
+    }
+    source.nodes = nodes;
+    source.nodeCount = 3;
+    source.output = 2;
+    source.mirrorMap = &map;
+    instance = MakeMatch(source, &g);
+    bool reflected = true;
+    for (int k = 0; k < 6; ++k)
+    {
+        maniRootMove move;
+        maniRootMove want = maniMirrorRootMotion(&map, plain[k]);
+        reflected = reflected &&
+                    maniUpdateGraph(instance, 0.15f, NULL, 0, NULL, &move) == mani_success &&
+                    NearF(move.translation.x, (double)want.translation.x) &&
+                    NearF(move.translation.z, (double)want.translation.z) &&
+                    NearF(move.rotation.y, (double)want.rotation.y) &&
+                    (k == 0 || want.translation.x < 0.0f);
+    }
+    CHECK(reflected, "each move the plain node's reflected");
+}
 
 static void TestFirst(void)
 {
@@ -392,5 +450,6 @@ int main(void)
     TestWraps();
     TestContinuing();
     TestContinuingFrame();
+    TestMirrored();
     return s_failures == 0 ? 0 : 1;
 }

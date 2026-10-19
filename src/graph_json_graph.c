@@ -675,6 +675,7 @@ static const KindForm kForms[] = {
       "tolerance", "weight"},
      10,
      31u},
+    {"mirror", maniGraphNodeMirror, {"kind", "inputs"}, 2, 3u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -734,6 +735,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
     case maniGraphNodeBodyXpbd:
     case maniGraphNodeBodySdls:
         return maniGraphJsonBody(r, scope, f, &n->body);
+    case maniGraphNodeMirror:
+        return true;
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&
@@ -828,7 +831,7 @@ static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out
     {
         return false;
     }
-    *out = (maniGraphSource){.skeleton = r->skeleton};
+    *out = (maniGraphSource){.skeleton = r->skeleton, .mirrorMap = r->mirrorMap};
     return Parameters(r, f[2], out, scope) && Clips(r, f[3], out, scope) &&
            SyncGroups(r, f[4], out, scope) && Databases(r, f[7], out, scope) &&
            Models(r, f[8], out, scope) && SpringSets(r, f[9], out, scope) &&
@@ -871,7 +874,8 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
                 .hostClips = a->clips,
                 .hostDatabases = a->databases,
                 .hostModels = a->models,
-                .hostSpringSets = a->springSets};
+                .hostSpringSets = a->springSets,
+                .mirrorMap = a->mirrorMap};
     maniGraphSource source;
     Scope scope;
     maniBuildResult result =

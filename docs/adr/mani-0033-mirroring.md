@@ -52,6 +52,15 @@ global rotations with a sign pattern that fits his rig only.
   reflected and carried by the partner's A (`A t`, `A r A^-1`; the
   identity for a root) and the declared axes follow A; a graph's moves
   are in the model and are only reflected.
+- **Graphs:** a graph names at most one mirror map, of its skeleton
+  (kept by identity, bound like its other assets; a subgraph's is the
+  graph's or taken by it). A mirror node mirrors its input's pose in
+  place and takes poses only. The builder marks each node with the
+  parity of the mirror nodes above it and refuses a node reached both
+  mirrored and not; the update reads the mark, so a mirrored clip,
+  match or learned node gives its moves reflected and its events and
+  sync markers renamed by hash (a mirrored walk follows its unmirrored
+  leader foot for foot), and two mirrors cancel.
 
 ## Consequences
 
@@ -77,4 +86,13 @@ event and marker names: every sample the mirror of the clip's, the
 bits pinned, baked twice the clip; names renamed and values kept;
 additive clips of both bases; root motion on the root reflected and on
 the left arm moved to the right arm, its model change reflected and its
-axes all taken; the refusals.
+axes and twist all taken; the refusals. The graph's tests play a walk
+under one mirror node (each pose the walk's mirrored, each move
+reflected, its events renamed) and under two (the walk as it is), a
+mirrored walk following its leader by its renamed markers half a loop
+on, the map read back, every builder refusal (no map, a map of another
+rig, a node reached both ways, differences, a subgraph's other map),
+the binder's (no map, another, a crafted view of another rig) and the
+opener's (an identity of 0, a section of 4 bytes, a mirror node
+without the section), the JSON form built back the same, and
+subgraphs taking the map.

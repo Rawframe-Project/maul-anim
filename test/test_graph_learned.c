@@ -15,6 +15,9 @@
 #include "graph_learned_fixture.h"
 #include "vecmath.h"
 
+#include "maul-anim/mirror.h"
+#include "maul-anim/mirrorbuild.h"
+
 #include <stdio.h>
 
 static _Alignas(32) uint8_t s_scratch[65536];
@@ -323,6 +326,80 @@ static bool Zero(const uint32_t* words, uint32_t count)
 
 #define BLOCK_WORDS (4 + 2 * STATE + 1)
 
+// The node under a mirror node: each move the plain node's reflected,
+// each event the plain node's renamed (left and right paired).
+static void TestMirrored(void)
+{
+    static _Alignas(16) uint8_t file[4096];
+    static const maniMirrorNamePairSource kPairs[1] = {{"left", 4, 5, "right"}};
+    const maniMirrorMapSource ms = {
+        .skeleton = &s_skeleton, .namePairs = kPairs, .namePairCount = 1, .axis = maniMirrorAxisX};
+    maniMirrorMap map;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildMirrorMap(builder, &ms).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenMirrorMap(file, size, &map).result == mani_success,
+          "a mirror map");
+    maniDestroyBuilder(builder);
+    MatchParameters();
+    static const uint32_t kNode[1] = {0};
+    static const uint32_t kMirror[1] = {1};
+    maniGraphNodeSource plainNodes[2] = {LearnedNode(0.1f, 0.0f), Above(0)};
+    maniGraphSource source = {.parameters = s_matchParameters,
+                              .nodes = plainNodes,
+                              .parameterCount = 4,
+                              .nodeCount = 2,
+                              .output = 1};
+    maniGraph g;
+    maniGraphInstance* instance = MakeLearned(source, &g);
+    enum
+    {
+        kUpdates = 12
+    };
+    maniRootMove plain[kUpdates];
+    maniGraphEvent heard[kUpdates][2];
+    uint32_t counts[kUpdates];
+    uint32_t total = 0;
+    for (int k = 0; k < kUpdates; ++k)
+    {
+        (void)maniUpdateGraph(instance, 0.05f, heard[k], 2, &counts[k], &plain[k]);
+        total += counts[k];
+    }
+    maniGraphNodeSource nodes[3] = {LearnedNode(0.1f, 0.0f), Above(0), Above(0)};
+    nodes[1] = (maniGraphNodeSource){maniGraphNodeMirror, 1, kNode, .clip = {0}};
+    nodes[2].inputs = kMirror;
+    source.nodes = nodes;
+    source.nodeCount = 3;
+    source.output = 2;
+    source.mirrorMap = &map;
+    instance = MakeLearned(source, &g);
+    bool moves = true;
+    bool events = total > 0;
+    for (int k = 0; k < kUpdates; ++k)
+    {
+        maniRootMove move;
+        maniGraphEvent got[2];
+        uint32_t count = 0;
+        maniRootMove want = maniMirrorRootMotion(&map, plain[k]);
+        moves = moves && maniUpdateGraph(instance, 0.05f, got, 2, &count, &move) == mani_success &&
+                NearF(move.translation.x, (double)want.translation.x) &&
+                NearF(move.translation.y, (double)want.translation.y) &&
+                NearF(move.translation.z, (double)want.translation.z) &&
+                NearF(move.rotation.x, (double)want.rotation.x) &&
+                NearF(move.rotation.y, (double)want.rotation.y) &&
+                NearF(move.rotation.z, (double)want.rotation.z);
+        events = events && count == counts[k];
+        for (uint32_t i = 0; events && i < count && i < 2; ++i)
+        {
+            events = got[i].nameHash == maniMirrorNameHash(&map, heard[k][i].nameHash) &&
+                     got[i].nameHash != heard[k][i].nameHash;
+        }
+    }
+    CHECK(moves, "each move the plain node's reflected");
+    CHECK(events, "each event the plain node's renamed");
+}
+
 static void TestFirst(void)
 {
     maniGraph g;
@@ -617,5 +694,6 @@ int main(void)
     TestWeightless();
     TestSeek();
     TestSaved();
+    TestMirrored();
     return s_failures == 0 ? 0 : 1;
 }

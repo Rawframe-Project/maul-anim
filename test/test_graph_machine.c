@@ -606,8 +606,8 @@ static void TestSubgraph(void)
         {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
-    maniGraphSource sub = {&s_skeleton, &inner, kSlots, NULL, nodes, 1, CLIPS, 0,
-                           3,           0,      0,      NULL, 0,     0, NULL,  NULL};
+    maniGraphSource sub = {&s_skeleton, &inner, kSlots, NULL, nodes, 1,    CLIPS, 0,   3,
+                           0,           0,      NULL,   0,    0,     NULL, NULL,  NULL};
     maniGraphParameterSource outer[2] = {Parameter("a", maniGraphParameterFloat, Float(0)),
                                          Parameter("speed", maniGraphParameterFloat, Float(0))};
     static const uint32_t kMap[1] = {1};
@@ -620,9 +620,10 @@ static void TestSubgraph(void)
     flat[0].machine.transitions = flatT;
     static _Alignas(16) uint8_t files[2][16384];
     size_t sizes[2] = {0, 0};
-    const maniGraphSource sources[2] = {
-        {&s_skeleton, outer, kSlots, NULL, &node, 2, CLIPS, 0, 1, 0, 0, NULL, 0, 0, NULL, NULL},
-        {&s_skeleton, outer, kSlots, NULL, flat, 2, CLIPS, 0, 3, 0, 0, NULL, 0, 0, NULL, NULL}};
+    const maniGraphSource sources[2] = {{&s_skeleton, outer, kSlots, NULL, &node, 2, CLIPS, 0, 1, 0,
+                                         0, NULL, 0, 0, NULL, NULL, NULL},
+                                        {&s_skeleton, outer, kSlots, NULL, flat, 2, CLIPS, 0, 3, 0,
+                                         0, NULL, 0, 0, NULL, NULL, NULL}};
     for (int k = 0; k < 2; ++k)
     {
         maniBuilder* builder = NewBuilder();
@@ -650,9 +651,9 @@ static bool RoundTrip(const maniGraphSource* source)
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
               maniWriteGraphJson(builder, source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(
-                  builder, s_text, s_textSize,
-                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0})
+              maniBuildGraphJson(builder, s_text, s_textSize,
+                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
+                                                         CLIPS, 0, 0, 0, NULL})
                       .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
@@ -665,7 +666,7 @@ static maniBuildResult Read(const char* text)
     maniBuilder* builder = NewBuilder();
     maniBuildResult r = maniBuildGraphJson(
         builder, text, strlen(text),
-        &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0});
+        &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL});
     maniDestroyBuilder(builder);
     return r;
 }
@@ -692,8 +693,8 @@ static void TestJson(void)
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip)};
-    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 4,   CLIPS, 0, 4, 0,
-                              0,           NULL,         0,      0,    NULL,  NULL};
+    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 4,    CLIPS, 0, 4, 0,
+                              0,           NULL,         0,      0,    NULL,  NULL, NULL};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "\"entry\": 1, \"chainLimit\": 6, \"transitions\": [{\"from\": 0, "
                          "\"to\": 1, \"priority\": 2, \"interruption\": \"higher\", "

@@ -281,8 +281,8 @@ static void TestSubgraph(void)
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip),
                                     ClipNode(3, 1.0f, maniGraphLoopClip)};
-    maniGraphSource sub = {&s_skeleton, inner, kSlots, NULL, nodes, 2, CLIPS, 0,
-                           4,           0,     0,      NULL, 0,     0, NULL,  NULL};
+    maniGraphSource sub = {&s_skeleton, inner, kSlots, NULL, nodes, 2,    CLIPS, 0,   4,
+                           0,           0,     NULL,   0,    0,     NULL, NULL,  NULL};
     maniGraphParameterSource outer[3] = {Parameter("a", maniGraphParameterFloat, Float(0)),
                                          Parameter("x", maniGraphParameterFloat, Float(0)),
                                          Parameter("y", maniGraphParameterFloat, Float(0))};
@@ -293,9 +293,10 @@ static void TestSubgraph(void)
     flat[0].triangulated.position = (maniGraphPosition){MANI_NO_PARAMETER, 0, {1, 0.0f}, {2, 0.0f}};
     static _Alignas(16) uint8_t files[2][16384];
     size_t sizes[2] = {0, 0};
-    const maniGraphSource sources[2] = {
-        {&s_skeleton, outer, kSlots, NULL, &node, 3, CLIPS, 0, 1, 0, 0, NULL, 0, 0, NULL, NULL},
-        {&s_skeleton, outer, kSlots, NULL, flat, 3, CLIPS, 0, 4, 0, 0, NULL, 0, 0, NULL, NULL}};
+    const maniGraphSource sources[2] = {{&s_skeleton, outer, kSlots, NULL, &node, 3, CLIPS, 0, 1, 0,
+                                         0, NULL, 0, 0, NULL, NULL, NULL},
+                                        {&s_skeleton, outer, kSlots, NULL, flat, 3, CLIPS, 0, 4, 0,
+                                         0, NULL, 0, 0, NULL, NULL, NULL}};
     for (int k = 0; k < 2; ++k)
     {
         maniBuilder* builder = NewBuilder();
@@ -335,8 +336,8 @@ static void TestJson(void)
         {maniGraphNodeBlendSpaceTriangles, 4, kSecond,
          .triangulated = {{1, 0, LITERAL(0.0f), LITERAL(0.0f)}, kSquare, kHalves, 2, 0}},
         {maniGraphNodeBlend, 2, kOutput, .blend = {kHalf, 0, 0}}};
-    maniGraphSource source = {&s_skeleton, parameters, kSlots, NULL, nodes, 2, CLIPS, 0,
-                              7,           6,          0,      NULL, 0,     0, NULL,  NULL};
+    maniGraphSource source = {&s_skeleton, parameters, kSlots, NULL, nodes, 2,    CLIPS, 0,   7,
+                              6,           0,          NULL,   0,    0,     NULL, NULL,  NULL};
     static _Alignas(16) uint8_t read[16384];
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
@@ -344,9 +345,9 @@ static void TestJson(void)
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text, &s_textSize) == mani_success &&
-              maniBuildGraphJson(
-                  builder, s_text, s_textSize,
-                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0})
+              maniBuildGraphJson(builder, s_text, s_textSize,
+                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
+                                                         CLIPS, 0, 0, 0, NULL})
                       .result == mani_success &&
               maniCopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
           "written and read");

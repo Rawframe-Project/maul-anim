@@ -598,7 +598,7 @@ static bool CraftedPasses(uint32_t w, uint32_t value)
     CHECK(maniOpenGraph(s_file, size, &g).result == mani_success &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
@@ -645,7 +645,7 @@ static bool TextRefused(maniBuilder* builder, const char* from, const char* to, 
     }
     size_t head = (size_t)(found - s_text);
     (void)snprintf(edited, sizeof edited, "%.*s%s%s", (int)head, s_text, to, found + strlen(from));
-    maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0};
+    maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL};
     maniBuildResult r = maniBuildGraphJson(builder, edited, strlen(edited), &assets);
     return r.result == mani_errorInvalid && r.reason == maniBuildReasonForm && r.other == form;
 }
@@ -667,7 +667,7 @@ static void TestJson(void)
               maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
           "built and written");
     s_text[length < sizeof s_text ? length : sizeof s_text - 1] = '\0';
-    maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0};
+    maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL};
     CHECK(maniBuildGraphJson(builder, s_text, length, &assets).result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &read) == mani_success &&
               read == size && memcmp(s_read, s_file, size) == 0,

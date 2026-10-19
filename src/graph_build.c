@@ -18,6 +18,7 @@
 #include "graph_machine_check.h"
 #include "graph_match.h"
 #include "graph_match_check.h"
+#include "graph_mirror.h"
 #include "graph_spring.h"
 #include "ik_chain.h"
 #include "sort.h"
@@ -41,7 +42,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define WORK_ARRAYS 9u
+#define WORK_ARRAYS 10u
 
 // Per node, by source index unless said: its place in the order (and the
 // order itself, by place), its search state, the search's stack and next
@@ -58,6 +59,9 @@ typedef struct Work
     uint32_t* slot;
     uint32_t* freeSlots;
     uint32_t* difference;
+    // 0 not yet reached, 1 under an even number of mirror nodes, 2 an
+    // odd.
+    uint32_t* mirrored;
     uint32_t slotCount;
 } Work;
 
@@ -130,8 +134,8 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
         return Outcome(mani_success);
     }
     bool additive = node->kind == maniGraphNodeAdditive;
-    bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeTwoBone ||
-                     (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeBodySdls);
+    bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeMirror ||
+                     (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls);
     uint32_t first = w->difference[node->inputs[0]];
     if ((additive || posesOnly) && first != 0)
     {
@@ -226,6 +230,7 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
     lay->sizes[11] = (uint64_t)source->modelCount * MANI_GRAPH_MODEL_SIZE;
     lay->sizes[12] = (uint64_t)source->springSetCount * MANI_GRAPH_SPRING_SET_SIZE;
     lay->sizes[13] = (uint64_t)tally->mapCount * MANI_GRAPH_MAP_SIZE;
+    lay->sizes[14] = source->mirrorMap != NULL ? 8u : 0u;
     uint64_t total = 0;
     for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
     {
@@ -676,7 +681,7 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
         lay->blockAt += MANI_GRAPH_BLOCK_SIZE(n, node->machine.transitionCount,
                                               maniGraphMachineConditions(node));
     }
-    else
+    else if (node->kind == maniGraphNodeSeek)
     {
         at = PutScalar(d, PutWords(d, at, &node->seek.trigger, 1), node->seek.time);
     }
@@ -691,7 +696,9 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         const maniGraphNodeSource* node = &source->nodes[v];
         uint8_t* e = lay->sections[2] + (size_t)p * MANI_GRAPH_NODE_SIZE;
         maniStoreU16(e, (uint16_t)node->kind);
-        maniStoreU16(e + 2, (uint16_t)(w->difference[v] != 0 ? MANI_GRAPH_DIFFERENCE : 0u));
+        uint32_t flags = w->difference[v] != 0 ? MANI_GRAPH_DIFFERENCE : 0u;
+        flags |= w->mirrored[v] == 2 ? MANI_GRAPH_MIRRORED : 0u;
+        maniStoreU16(e + 2, (uint16_t)flags);
         maniStoreU32(e + 4, lay->inputAt);
         maniStoreU32(e + 8, node->inputCount);
         maniStoreU32(e + 12, lay->dataAt);
@@ -797,6 +804,10 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         }
     }
     PutSlots(source, lay);
+    if (source->mirrorMap != NULL)
+    {
+        maniStoreU64(lay->sections[14], source->mirrorMap->identity);
+    }
 }
 
 static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally,
@@ -925,8 +936,17 @@ static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* sour
     {
         return Outcome(mani_errorCapacity);
     }
-    Work w = {block,         block + n,     block + 2 * n, block + 3 * n, block + 4 * n,
-              block + 5 * n, block + 6 * n, block + 7 * n, block + 8 * n, 0};
+    Work w = {block,
+              block + n,
+              block + 2 * n,
+              block + 3 * n,
+              block + 4 * n,
+              block + 5 * n,
+              block + 6 * n,
+              block + 7 * n,
+              block + 8 * n,
+              block + 9 * n,
+              0};
     maniBuildResult r = Order(source, &w);
     for (uint32_t p = 0; p < n && r.result == mani_success; ++p)
     {
@@ -936,6 +956,7 @@ static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* sour
     {
         r = maniGraphRefuse(maniBuildReasonDifference, source->output, 0);
     }
+    r = r.result == mani_success ? maniGraphMirrorParity(source, w.order, w.mirrored) : r;
     if (r.result == mani_success)
     {
         Slots(source, &w);

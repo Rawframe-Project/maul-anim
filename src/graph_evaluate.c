@@ -747,6 +747,18 @@ static void SampleLearned(const Evaluation* e, const uint8_t* record, maniPose* 
     }
 }
 
+// A mirror node: its input's pose mirrored (both of the bound skeleton,
+// the map bound to it).
+static void Mirror(const Evaluation* e, const uint8_t* record, maniPose* out)
+{
+    const maniPose* input = InputPose(e, record, 0);
+    const maniGraphBinding* b = e->binding;
+    if (input == NULL || maniMirrorPose(b->mirrorMap, b->skeleton, input, out) != mani_success)
+    {
+        Neutral(e, out, false);
+    }
+}
+
 static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
 {
     const uint8_t* record = Record(e, p);
@@ -805,6 +817,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);
+        return;
+    case maniGraphNodeMirror:
+        Mirror(e, record, out);
         return;
     default:
     {

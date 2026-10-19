@@ -645,6 +645,8 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
     case maniGraphNodeMachine:
         PutMachine(w, source, &n->machine);
         return;
+    case maniGraphNodeMirror:
+        return;
     case maniGraphNodeSeek:
         maniGraphJsonPutKey(w, "trigger");
         maniGraphJsonPutParameterName(w, source, n->seek.trigger);
@@ -682,7 +684,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "ccd",
                                          "fabrik",
                                          "bodyXpbd",
-                                         "bodySdls"};
+                                         "bodySdls",
+                                         "mirror"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 
@@ -705,7 +708,8 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
             maniGraphJsonPutText(w, k > 0 ? ", " : "");
             maniGraphJsonPutUnsigned(w, n->inputs[k]);
         }
-        maniGraphJsonPutText(w, "], ");
+        // A mirror node takes no other members.
+        maniGraphJsonPutText(w, n->kind == maniGraphNodeMirror ? "]" : "], ");
     }
     PutFields(w, source, n, depth);
     maniGraphJsonPutText(w, "}");

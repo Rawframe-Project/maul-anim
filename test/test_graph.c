@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_GRAPH_HASH 0xad752641406e353cull
+#define PINNED_GRAPH_HASH 0x00c5c40ea974b959ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -186,8 +186,8 @@ static maniGraphSource Source(void)
     s_nodes[8] = (maniGraphNodeSource){maniGraphNodeSeek, 1, kSeekInputs,
                                        .seek = {3, {MANI_NO_PARAMETER, 0.25f}}};
     return (maniGraphSource){
-        &s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 6,   3, 1, 9, 1,
-        0,           NULL,         0,           0,        NULL,    NULL};
+        &s_skeleton, s_parameters, s_clipSlots, s_groups, s_nodes, 6,    3,   1, 9, 1,
+        0,           NULL,         0,           0,        NULL,    NULL, NULL};
 }
 
 static maniBuildResult Build(const maniGraphSource* source)
@@ -520,10 +520,10 @@ static maniGraphBinding* Bound(maniGraph* g)
     bool ok =
         Build(&source).result == mani_success &&
         maniOpenGraph(s_file, s_size, g).result == mani_success &&
-        maniBindGraph(
-            g,
-            &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, 4, 0, 0, 0, NULL, NULL, 0, 0},
-            s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) == mani_success;
+        maniBindGraph(g,
+                      &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, 4, 0, 0, 0, NULL,
+                                         NULL, 0, 0, NULL},
+                      s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) == mani_success;
     return ok ? binding : NULL;
 }
 
@@ -537,7 +537,7 @@ static void TestBind(void)
     uint32_t unbound = 0;
     CHECK(maniBindGraph(&g,
                         &(maniGraphAssets){&s_skeleton, missing, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
-                                           NULL, 0, 0},
+                                           NULL, 0, 0, NULL},
                         s_bindingMemory, sizeof s_bindingMemory, &none,
                         &unbound) == mani_errorInvalid &&
               unbound == 1 && none == NULL,
@@ -545,16 +545,16 @@ static void TestBind(void)
     const maniClip* clips[3] = {&s_clips[0], &s_clips[1], &s_clips[2]};
     CHECK(maniBindGraph(&g,
                         &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, 3, 0, 0, 0, NULL,
-                                           NULL, 0, 0},
+                                           NULL, 0, 0, NULL},
                         s_bindingMemory, 8, &none, NULL) == mani_errorCapacity &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, 3, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory + 4, sizeof s_bindingMemory - 4, &none,
                             NULL) == mani_errorInvalid &&
               maniBindGraph(NULL,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, 3, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &none,
                             NULL) == mani_errorInvalid,
           "misuses");
@@ -562,7 +562,7 @@ static void TestBind(void)
     other.skeletonIdentity ^= 1;
     CHECK(maniBindGraph(&other,
                         &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, 3, 0, 0, 0, NULL,
-                                           NULL, 0, 0},
+                                           NULL, 0, 0, NULL},
                         s_bindingMemory, sizeof s_bindingMemory, &none, NULL) == mani_errorInvalid,
           "another skeleton");
 }
@@ -839,8 +839,8 @@ static void TestRootMotion(void)
         {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, one, maniGraphLoopClip, 0}},
         {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}},
     };
-    maniGraphSource source = {&s_skeleton, parameters, clips, NULL, nodes, 1, 2,    0,
-                              3,           2,          0,     NULL, 0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, parameters, clips, NULL, nodes, 1,    2,    0,   3,
+                              2,           0,          NULL,  0,    0,     NULL, NULL, NULL};
     maniGraph g;
     const maniClip* bound[2] = {&s_rootClips[0], &s_rootClips[1]};
     maniGraphBinding* binding = NULL;
@@ -849,7 +849,7 @@ static void TestRootMotion(void)
               maniOpenGraph(s_file, s_size, &g).result == mani_success &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 2, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
@@ -872,7 +872,7 @@ static void TestRootMotion(void)
               maniOpenGraph(s_file, s_size, &g).result == mani_success &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 2, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_errorInvalid,
           "clips moving different bones refused");
@@ -1013,8 +1013,8 @@ static maniGraphInstance* SyncInstance(uint32_t groupFlags, uint32_t longFlags, 
     nodes[1] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
                                      .clip = {1, 0, one, maniGraphLoopClip, longFlags}};
     nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}};
-    maniGraphSource source = {&s_skeleton, parameters, clips, groups, nodes, 1, 2,    1,
-                              3,           2,          0,     NULL,   0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, parameters, clips, groups, nodes, 1,    2,    1,   3,
+                              2,           0,          NULL,  0,      0,     NULL, NULL, NULL};
     const maniClip* bound[2] = {&s_clips[0], &s_long};
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
@@ -1022,7 +1022,7 @@ static maniGraphInstance* SyncInstance(uint32_t groupFlags, uint32_t longFlags, 
               maniOpenGraph(s_file, s_size, g).result == mani_success &&
               maniBindGraph(g,
                             &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 2, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
@@ -1078,8 +1078,9 @@ static void TestSubgraph(void)
         {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
         {maniGraphNodeBlend, 2, kPair, .blend = {kWeights, 0, 0}},
     };
-    static const maniGraphSource kInner = {
-        &s_skeleton, kPace, kLegs, NULL, kLocomotion, 1, 2, 0, 3, 2, 0, NULL, 0, 0, NULL, NULL};
+    static const maniGraphSource kInner = {&s_skeleton, kPace, kLegs, NULL, kLocomotion, 1,
+                                           2,           0,     3,     2,    0,           NULL,
+                                           0,           0,     NULL,  NULL, NULL};
     // The middle graph: the inner one, time scaled.
     static const uint32_t kPaceMap[1] = {0};
     static const uint32_t kFirst[1] = {0};
@@ -1087,8 +1088,8 @@ static void TestSubgraph(void)
         {maniGraphNodeSubgraph, 0, NULL, .subgraph = {&kInner, kPaceMap}},
         {maniGraphNodeTimeScale, 1, kFirst, .timeScale = {{MANI_NO_PARAMETER, 1.5f}}},
     };
-    static const maniGraphSource kOuter = {&s_skeleton, kPace, NULL, NULL, kMiddle, 1, 0,    0,
-                                           2,           1,     0,    NULL, 0,       0, NULL, NULL};
+    static const maniGraphSource kOuter = {
+        &s_skeleton, kPace, NULL, NULL, kMiddle, 1, 0, 0, 2, 1, 0, NULL, 0, 0, NULL, NULL, NULL};
     // The top: the middle graph with the wave added.
     maniGraphParameterSource top[1] = {
         Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0))};
@@ -1101,8 +1102,8 @@ static void TestSubgraph(void)
         {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
         {maniGraphNodeAdditive, 2, kLayers, .additive = {layerWeights}},
     };
-    maniGraphSource source = {&s_skeleton, top, waves, NULL, nodes, 1, 1,    0,
-                              3,           2,   0,     NULL, 0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, top, waves, NULL, nodes, 1,    1,    0,   3,
+                              2,           0,   NULL,  0,    0,     NULL, NULL, NULL};
     // The same written flat: walk, run, blend, time scale, wave, output.
     const maniGraphClipSource flatClips[3] = {{&s_clips[2], "wave", 4, 0, NULL},
                                               {&s_clips[0], "walk", 4, 0, NULL},
@@ -1118,8 +1119,8 @@ static void TestSubgraph(void)
         {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
         {maniGraphNodeAdditive, 2, kFlatAdd, .additive = {layerWeights}},
     };
-    maniGraphSource flatSource = {&s_skeleton, top, flatClips, NULL, flat, 1, 3,    0,
-                                  6,           5,   0,         NULL, 0,    0, NULL, NULL};
+    maniGraphSource flatSource = {&s_skeleton, top, flatClips, NULL, flat, 1,    3,    0,   6,
+                                  5,           0,   NULL,      0,    0,    NULL, NULL, NULL};
     size_t flatSize = 0;
     maniGraph flatGraph;
     CHECK(Build(&flatSource).result == mani_success, "the flat graph builds");
@@ -1146,7 +1147,7 @@ static void TestSubgraph(void)
             same &&
             maniBindGraph(graphs[k],
                           &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 3, 0, 0, 0, NULL,
-                                             NULL, 0, 0},
+                                             NULL, 0, 0, NULL},
                           bindings[k], sizeof bindings[k], &b[k], NULL) == mani_success &&
             maniInitGraphInstance(b[k], instances[k], sizeof instances[k], &i[k]) == mani_success &&
             maniSetGraphParameter(i[k], 0, maniGraphParameterFloat, Float(2, 0, 0, 0)) ==
@@ -1216,8 +1217,8 @@ static void TestMarkerSync(void)
         {maniGraphNodeClip, 0, NULL, .clip = {1, 0, one, maniGraphLoopClip, 0}},
         {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}},
     };
-    maniGraphSource source = {&s_skeleton, NULL, clips, groups, nodes, 0, 2,    1,
-                              3,           2,    0,     NULL,   0,     0, NULL, NULL};
+    maniGraphSource source = {&s_skeleton, NULL, clips, groups, nodes, 0,    2,    1,   3,
+                              2,           0,    NULL,  0,      0,     NULL, NULL, NULL};
     maniGraph g;
     const maniClip* bound[2] = {&s_feet[0], &s_feet[1]};
     maniGraphBinding* binding = NULL;
@@ -1226,7 +1227,7 @@ static void TestMarkerSync(void)
               maniOpenGraph(s_file, s_size, &g).result == mani_success &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 2, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,

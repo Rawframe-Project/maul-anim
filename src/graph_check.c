@@ -32,6 +32,7 @@
 #include "maul-anim/graphbuild.h"
 #include "maul-anim/ik.h"
 #include "maul-anim/learned.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -676,6 +677,9 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
                    : maniGraphRefuse(maniBuildReasonNode, node, 0);
     case maniGraphNodeTimeScale:
         return CheckScalar(source, n->timeScale.scale, node, 0, -HUGE_VALF, HUGE_VALF);
+    case maniGraphNodeMirror:
+        return source->mirrorMap != NULL ? Outcome(mani_success)
+                                         : maniGraphRefuse(maniBuildReasonMirrorGraph, node, 1);
     case maniGraphNodePose:
         return ParameterOf(source, n->pose.parameter, maniGraphParameterPose,
                            maniGraphParameterPose)
@@ -851,6 +855,14 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     r = r.result == mani_success ? maniCheckGraphDatabases(source, &tallyOut->databaseClips) : r;
     r = r.result == mani_success ? CheckModels(source) : r;
     r = r.result == mani_success ? CheckSpringSets(source) : r;
+    // The mirror map, of the skeleton.
+    const maniMirrorMap* mirror = source->mirrorMap;
+    if (r.result == mani_success && mirror != NULL &&
+        (mirror->skeletonIdentity != maniSkeletonIdentity(source->skeleton) ||
+         mirror->boneCount != maniSkeletonBoneCount(source->skeleton)))
+    {
+        r = maniGraphRefuse(maniBuildReasonMirrorGraph, 0, 0);
+    }
     for (uint32_t i = 0; i < source->nodeCount && r.result == mani_success; ++i)
     {
         r = CheckNode(source, i, tallyOut);

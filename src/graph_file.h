@@ -11,8 +11,8 @@
 
 #include <stdint.h>
 
-#define MANI_GRAPH_FORMAT_VERSION 2u
-#define MANI_GRAPH_SECTIONS       14u
+#define MANI_GRAPH_FORMAT_VERSION 3u
+#define MANI_GRAPH_SECTIONS       15u
 
 enum
 {
@@ -25,7 +25,8 @@ enum
     // minimum and maximum (4 bytes each, for int and float).
     maniGraphTagParameters = 2,
     // MANI_GRAPH_NODE_SIZE each: kind (u16), flags (u16, bit 0 gives
-    // differences), first input, input count, first data word, data word
+    // differences, bit 1 under an odd number of mirror nodes), first
+    // input, input count, first data word, data word
     // count, slot (u32 each), zero (8 bytes).
     maniGraphTagNodes = 3,
     // u32 each: a node before its reader.
@@ -60,6 +61,9 @@ enum
     // MANI_GRAPH_MAP_SIZE each: a retargeting map's identity and its
     // source skeleton's (u64 each), each map once.
     maniGraphTagMaps = 14,
+    // The mirror map's identity (u64) when the graph has one, else
+    // nothing.
+    maniGraphTagMirror = 15,
 };
 
 #define MANI_GRAPH_HEADER_SIZE     64u
@@ -78,6 +82,9 @@ enum
 // A parameter's and a node's flags.
 #define MANI_GRAPH_BOUNDED    1u
 #define MANI_GRAPH_DIFFERENCE 1u
+#define MANI_GRAPH_MIRRORED   2u
+// Every flag a node may carry.
+#define MANI_GRAPH_NODE_FLAGS (MANI_GRAPH_DIFFERENCE | MANI_GRAPH_MIRRORED)
 
 // Node data words. A clip node: slot, sync group, loop, flags, speed (a
 // scalar). A blend: direct, then a scalar per input. A mask: its mask. An

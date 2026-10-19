@@ -331,6 +331,12 @@ extern "C"
         // A clip to mirror (other 0 the skeleton, 1 the clip): a skeleton
         // not its map's, a clip not of the map's skeleton.
         maniBuildReasonMirrorClip = 60,
+        // A graph's mirroring (other 0 its mirror map of another skeleton,
+        // item 0, or a subgraph's map not the graph's, item the subgraph
+        // node; 1 a mirror node without a map, item the node; 2 a node
+        // reached both through an odd and an even number of mirror
+        // nodes, item the node).
+        maniBuildReasonMirrorGraph = 61,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

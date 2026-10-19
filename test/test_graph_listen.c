@@ -514,9 +514,9 @@ static bool RoundTrip(const maniGraphSource* source)
               maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
               maniWriteGraphJson(builder, source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(
-                  builder, s_text, s_textSize,
-                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0})
+              maniBuildGraphJson(builder, s_text, s_textSize,
+                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
+                                                         CLIPS, 0, 0, 0, NULL})
                       .result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
@@ -529,7 +529,7 @@ static maniBuildResult Read(const char* text)
     maniBuilder* builder = NewBuilder();
     maniBuildResult r = maniBuildGraphJson(
         builder, text, strlen(text),
-        &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0});
+        &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL});
     maniDestroyBuilder(builder);
     return r;
 }
@@ -548,8 +548,8 @@ static void TestJson(void)
         ClipNode(4, 1.0f, maniGraphLoopClamp),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     Parameters();
-    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 2,   CLIPS, 0, 4, 0,
-                              0,           NULL,         0,      0,    NULL,  NULL};
+    maniGraphSource source = {&s_skeleton, s_parameters, kSlots, NULL, nodes, 2,    CLIPS, 0, 4, 0,
+                              0,           NULL,         0,      0,    NULL,  NULL, NULL};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "\"entry\": \"match\"") != NULL &&
               strstr(s_text, "\"conditions\": [{\"phase\": 0.5}, {\"finished\": true}, "

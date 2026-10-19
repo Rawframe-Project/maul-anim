@@ -15,6 +15,8 @@
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/mirror.h"
+#include "maul-anim/rootmotion.h"
 
 #include <stdint.h>
 
@@ -33,9 +35,15 @@ void maniGraphEmit(maniGraphUpdate* u, uint32_t node, uint32_t slot, const maniC
         if (u->count < u->capacity)
         {
             maniClipEvent e = maniClipEventAt(clip, first + k);
-            u->events[u->count] =
-                (maniGraphEvent){node,      slot,   first + k,           e.payload, e.nameHash,
-                                 s->weight, e.time, to >= from ? 1 : -1, 0};
+            u->events[u->count] = (maniGraphEvent){node,
+                                                   slot,
+                                                   first + k,
+                                                   e.payload,
+                                                   maniGraphNodeName(u, node, e.nameHash),
+                                                   s->weight,
+                                                   e.time,
+                                                   to >= from ? 1 : -1,
+                                                   0};
         }
         u->count += u->count < UINT32_MAX ? 1u : 0u;
     }
@@ -72,4 +80,20 @@ void maniGraphRequest(const maniGraphUpdate* u, uint32_t node, float seconds)
                       maniGraphUpdateWord(u, data + maniGraphInertiaBlock);
     float pending = maniGraphInertiaGet(block, maniGraphInertiaPending);
     maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending);
+}
+
+static bool Mirrored(const maniGraphUpdate* u, uint32_t node)
+{
+    return (maniLoadU16(u->graph->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE + 2) &
+            MANI_GRAPH_MIRRORED) != 0;
+}
+
+maniRootMove maniGraphNodeMove(const maniGraphUpdate* u, uint32_t node, maniRootMove move)
+{
+    return Mirrored(u, node) ? maniMirrorRootMotion(u->binding->mirrorMap, move) : move;
+}
+
+uint64_t maniGraphNodeName(const maniGraphUpdate* u, uint32_t node, uint64_t hash)
+{
+    return Mirrored(u, node) ? maniMirrorNameHash(u->binding->mirrorMap, hash) : hash;
 }

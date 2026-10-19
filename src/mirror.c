@@ -245,6 +245,32 @@ uint32_t maniMirrorMapUnmatchedBone(const maniMirrorMap* map)
     return map != NULL ? maniLoadU32(map->header + 20) : MANI_NO_BONE;
 }
 
+// The name record of a hash; NULL for none.
+static const uint8_t* Find(const maniMirrorMap* map, uint64_t hash)
+{
+    uint32_t low = 0;
+    uint32_t high = map->nameCount;
+    while (low < high)
+    {
+        uint32_t mid = low + (high - low) / 2;
+        const uint8_t* e = map->names + (size_t)mid * MANI_MIRROR_NAME_SIZE;
+        uint64_t at = maniLoadU64(e);
+        if (at == hash)
+        {
+            return e;
+        }
+        if (at < hash)
+        {
+            low = mid + 1;
+        }
+        else
+        {
+            high = mid;
+        }
+    }
+    return NULL;
+}
+
 const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t length,
                            size_t* lengthOut)
 {
@@ -256,30 +282,20 @@ const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t le
     {
         return name;
     }
-    uint64_t hash = maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
-    uint32_t low = 0;
-    uint32_t high = map->nameCount;
-    while (low < high)
+    const uint8_t* e = Find(map, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));
+    if (e == NULL)
     {
-        uint32_t mid = low + (high - low) / 2;
-        const uint8_t* e = map->names + (size_t)mid * MANI_MIRROR_NAME_SIZE;
-        uint64_t at = maniLoadU64(e);
-        if (at == hash)
-        {
-            if (lengthOut != NULL)
-            {
-                *lengthOut = maniLoadU32(e + 20);
-            }
-            return (const char*)map->strings + maniLoadU32(e + 16);
-        }
-        if (at < hash)
-        {
-            low = mid + 1;
-        }
-        else
-        {
-            high = mid;
-        }
+        return name;
     }
-    return name;
+    if (lengthOut != NULL)
+    {
+        *lengthOut = maniLoadU32(e + 20);
+    }
+    return (const char*)map->strings + maniLoadU32(e + 16);
+}
+
+uint64_t maniMirrorNameHash(const maniMirrorMap* map, uint64_t hash)
+{
+    const uint8_t* e = map != NULL ? Find(map, hash) : NULL;
+    return e != NULL ? maniLoadU64(e + 8) : hash;
 }

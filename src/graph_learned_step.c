@@ -243,6 +243,7 @@ static void Outputs(const Learned* l, double step)
         maniVec3 v = {l->motion[0] * seconds, l->motion[1] * seconds, l->motion[2] * seconds};
         maniVec3 w = {l->motion[3] * seconds, l->motion[4] * seconds, l->motion[5] * seconds};
         maniRootMove move = {v, maniQuatFromRotationVector(w)};
+        move = maniGraphNodeMove(l->u, l->p, move);
         maniRootMotionSumAdd(&l->u->root, &move, (double)s->rootWeight);
     }
     uint32_t* bits = l->block + maniGraphLearnedBefore + 2 * l->states;
@@ -263,7 +264,8 @@ static void Outputs(const Learned* l, double step)
         {
             uint32_t length = 0;
             const char* name = maniLearnedModelEventName(m, e, &length);
-            uint64_t hash = maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
+            uint64_t hash = maniGraphNodeName(
+                u, l->p, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));
             u->events[u->count] =
                 (maniGraphEvent){l->p, MANI_NO_TRACK, e, 0, hash, s->weight, (float)s->time, 1, 0};
         }

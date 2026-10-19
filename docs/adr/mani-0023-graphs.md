@@ -36,8 +36,8 @@ runtime allocates (mani-0001).
   and per-bone weights), additive (a base and layers with weights),
   select (by an int or bool parameter), time scale, and seek (by a
   trigger, to a time).
-- **The file** (kind graph, format version 2 since retargeting maps
-  joined it, mani-0032): a header of counts and the skeleton's
+- **The file** (kind graph, format version 3 since retargeting maps
+  and then the mirror map joined it, mani-0032 and mani-0033): a header of counts and the skeleton's
   identity, then parameters, node records, inputs, node data words,
   clip slots (each with its map slot or none), sync groups, mask
   weights, names and the sections later kinds added. Opening

@@ -193,7 +193,7 @@ static inline maniGraphInstance* Make(maniGraphSource source, maniGraph* g)
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(g,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,

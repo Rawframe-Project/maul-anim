@@ -120,7 +120,8 @@ static bool Play(const Match* m, double step)
     }
     if (s->rootWeight > 0.0f)
     {
-        maniRootMotionSumAdd(&m->u->root, &at.move, (double)s->rootWeight);
+        maniRootMove move = maniGraphNodeMove(m->u, m->p, at.move);
+        maniRootMotionSumAdd(&m->u->root, &move, (double)s->rootWeight);
     }
     s->step = step;
     s->time = (double)at.time;

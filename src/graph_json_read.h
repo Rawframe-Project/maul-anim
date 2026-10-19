@@ -14,6 +14,7 @@
 
 #include "maul-anim/build.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -43,6 +44,7 @@ typedef struct maniGraphReader
     const maniGraphModelSource* hostModels;
     maniNameTable hostModelNames;
     const maniGraphSpringSetSource* hostSpringSets;
+    const maniMirrorMap* mirrorMap;
     maniNameTable hostSpringSetNames;
     // The first fault: Capacity, or a refusal with its offset.
     maniBuildResult fault;

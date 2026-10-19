@@ -406,6 +406,8 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
         return type == maniGraphParameterInt || type == maniGraphParameterBool ? UINT32_MAX : d;
     case maniGraphNodeTimeScale:
         return ScalarsValid(g, d, 1, -HUGE_VALF, HUGE_VALF);
+    case maniGraphNodeMirror:
+        return UINT32_MAX;
     case maniGraphNodePose:
         type = Word(g, d) < g->parameterCount ? ParameterType(g, Word(g, d)) : UINT32_MAX;
         return type == maniGraphParameterPose ? UINT32_MAX : d;
@@ -435,45 +437,70 @@ static uint32_t Input(const maniGraph* g, uint32_t at)
     return maniLoadU32(g->inputs + 4 * (size_t)at);
 }
 
-static uint32_t NodeFlags(const maniGraph* g, uint32_t p)
+// A node's difference flag.
+static uint32_t Difference(const maniGraph* g, uint32_t p)
 {
-    return maniLoadU16(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 2);
+    return maniLoadU16(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 2) & MANI_GRAPH_DIFFERENCE;
 }
 
 // Whether a node gives differences as its inputs (or clip) make it.
-static bool KindValid(const maniGraph* g, const Node* n)
+static bool DifferenceValid(const maniGraph* g, const Node* n)
 {
+    uint32_t own = n->flags & MANI_GRAPH_DIFFERENCE;
     if (n->kind == maniGraphNodeMatch || n->kind == maniGraphNodeLearned ||
         n->kind == maniGraphNodePose)
     {
-        return n->flags == 0;
+        return own == 0;
     }
-    // The kinds that solve a pose of the skeleton: springs and IK.
-    if (n->kind == maniGraphNodeSpring ||
+    // The kinds that take and give poses only: springs, IK and mirrors.
+    if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeMirror ||
         (n->kind >= maniGraphNodeTwoBone && n->kind <= maniGraphNodeBodySdls))
     {
-        return n->flags == 0 && NodeFlags(g, Input(g, n->first)) == 0;
+        return own == 0 && Difference(g, Input(g, n->first)) == 0;
     }
     if (n->kind == maniGraphNodeClip)
     {
         const uint8_t* clip = g->clips + (size_t)Word(g, n->data) * MANI_GRAPH_CLIP_SIZE;
-        return n->flags == maniLoadU32(clip + 24);
+        return own == maniLoadU32(clip + 24);
     }
     bool additive = n->kind == maniGraphNodeAdditive;
-    uint32_t first = NodeFlags(g, Input(g, n->first));
-    if (additive ? first != 0 || n->flags != 0 : n->flags != first)
+    uint32_t first = Difference(g, Input(g, n->first));
+    if (additive ? first != 0 || own != 0 : own != first)
     {
         return false;
     }
     for (uint32_t k = 1; k < n->count; ++k)
     {
-        uint32_t d = NodeFlags(g, Input(g, n->first + k));
+        uint32_t d = Difference(g, Input(g, n->first + k));
         if (additive ? d == 0 : d != first)
         {
             return false;
         }
     }
     return true;
+}
+
+// Whether each input is mirrored as the node is, a mirror node's the
+// other way.
+static bool MirroredValid(const maniGraph* g, const Node* n)
+{
+    uint32_t want = (n->flags & MANI_GRAPH_MIRRORED) ^
+                    (n->kind == maniGraphNodeMirror ? MANI_GRAPH_MIRRORED : 0u);
+    for (uint32_t k = 0; k < n->count; ++k)
+    {
+        uint32_t u = Input(g, n->first + k);
+        uint32_t flags = maniLoadU16(g->nodes + (size_t)u * MANI_GRAPH_NODE_SIZE + 2);
+        if ((flags & MANI_GRAPH_MIRRORED) != want)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool KindValid(const maniGraph* g, const Node* n)
+{
+    return DifferenceValid(g, n) && MirroredValid(g, n);
 }
 
 // The record's fields, laid out after the nodes before it (inputs and
@@ -488,9 +515,13 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     {
         return Fail(n->at);
     }
-    if (n->flags > MANI_GRAPH_DIFFERENCE)
+    if (n->flags > MANI_GRAPH_NODE_FLAGS)
     {
         return Fail(n->at + 2);
+    }
+    if (n->kind == maniGraphNodeMirror && g->mirrorMapIdentity == 0)
+    {
+        return Fail(n->at);
     }
     if (n->first != inputAt)
     {

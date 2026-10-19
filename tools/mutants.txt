@@ -1424,8 +1424,8 @@ up-output-root | src/graph_update.c | output->rootWeight = 1.0f; | output->rootW
 up-clip-loop-override | src/graph_update.c | clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat); | clip.loop = loop == 0 ? clip.loop : maniLoopRepeat;
 up-place-negative | src/graph_update.c | w = w < 0.0 ? w + d : w; | w = w * 1.0;
 up-place-clamp-low | src/graph_update.c | return t < 0.0 ? 0.0 : (t > d ? d : t); | return t > d ? d : t;
-up-event-direction | src/graph_emit.c | s->weight, e.time, to >= from ? 1 : -1, 0}; | s->weight, e.time, 1, 0};
-up-event-weight | src/graph_emit.c | s->weight, e.time, to >= from ? 1 : -1, 0}; | 1.0f, e.time, to >= from ? 1 : -1, 0};
+up-event-direction | src/graph_emit.c | to >= from ? 1 : -1, | 1,
+up-event-weight | src/graph_emit.c | s->weight, | 1.0f,
 up-loops-count | src/graph_emit.c | u->count += (n - k) * perLoop; | u->count += perLoop;
 up-events-no-wrap | src/graph_update.c | if (wraps == 0.0) | if (false)
 up-events-loops | src/graph_update.c | double loops = fabs(wraps) - 1.0; | double loops = fabs(wraps);
@@ -1436,7 +1436,7 @@ up-leader-first-equal | src/graph_update.c | group->leader == UINT32_MAX || Node
 up-leader-declared-kept | src/graph_update.c | if ((group->flags & MANI_GRAPH_DECLARED) == 0 && (declared || heavier)) | if (declared || heavier)
 up-follow-events | src/graph_update.c | return (Motion){Place(clip, group->phase * d), group->delta * d, seeking, all && !seeking}; | return (Motion){Place(clip, group->phase * d), group->delta * d, seeking, !seeking};
 up-follow-marker-events | src/graph_update.c | return (Motion){start, backward ? -distance : distance, false, all && distance >= 0.0}; | return (Motion){start, backward ? -distance : distance, false, distance >= 0.0};
-up-leader-markers | src/graph_update.c | if (!m.seeking && ByMarkers(u, g, &clip)) | if (false)
+up-leader-markers | src/graph_update.c | if (!m.seeking && ByMarkers(u, g, group->leader, &clip)) | if (false)
 up-markers-repeat | src/graph_update.c | if (!Repeats(&clip)) | if (false)
 up-along-wrap | src/graph_update.c | return x < 0.0 ? x + d : x; | return x;
 up-passed-at-ahead | src/graph_update.c | behind = behind > 0.0 ? behind : d; | behind = behind * 1.0;
@@ -1486,7 +1486,7 @@ bd-bound-scalar-zero | src/graph_build.c | PutFloat(data + 4 * (size_t)at + 4, s
 bd-int-unbounded-zero | src/graph_build.c | maniStoreU32(e + 40, p->bounded != 0 ? (uint32_t)p->minimum.i : 0u); | maniStoreU32(e + 40, (uint32_t)p->minimum.i);
 bd-mask-index | src/graph_build.c | ++lay->maskAt; | (void)0;
 bd-input-position | src/graph_build.c | w->position[node->inputs[k]]); | node->inputs[k]);
-bd-node-difference | src/graph_build.c | maniStoreU16(e + 2, (uint16_t)(w->difference[v] != 0 ? MANI_GRAPH_DIFFERENCE : 0u)); | maniStoreU16(e + 2, 0u);
+bd-node-difference | src/graph_build.c | uint32_t flags = w->difference[v] != 0 ? MANI_GRAPH_DIFFERENCE : 0u; | uint32_t flags = 0u;
 bd-slot-difference | src/graph_build.c | maniStoreU32(e + 24, difference ? MANI_GRAPH_DIFFERENCE : 0u); | maniStoreU32(e + 24, 0u);
 bd-empty-sections | src/graph_build.c | if (lay->sizes[s] > 0) | if (true)
 
@@ -1526,11 +1526,11 @@ nd-clip-loop | src/graph_nodes.c | if (Word(g, d + 2) > 2u) | if (false)
 nd-clip-flags | src/graph_nodes.c | if (flags > 1u || (!grouped && flags != 0)) | if (flags > 1u)
 nd-mask-index | src/graph_nodes.c | return Word(g, d) < g->maskCount ? UINT32_MAX : d; | return UINT32_MAX;
 nd-select-type | src/graph_nodes.c | return type == maniGraphParameterInt || type == maniGraphParameterBool ? UINT32_MAX : d; | return UINT32_MAX;
-nd-kind-clip | src/graph_nodes.c | return n->flags == maniLoadU32(clip + 24); | return true;
-nd-kind-additive | src/graph_nodes.c | if (additive ? first != 0 || n->flags != 0 : n->flags != first) | if (additive ? first != 0 : n->flags != first)
+nd-kind-clip | src/graph_nodes.c | return own == maniLoadU32(clip + 24); | return true;
+nd-kind-additive | src/graph_nodes.c | if (additive ? first != 0 || own != 0 : own != first) | if (additive ? first != 0 : own != first)
 # Equivalent: nd-flags (flags past differences fail the kind check at
 # the same byte, every node's flags compared with 0 or 1).
-nd-flags | src/graph_nodes.c | if (n->flags > MANI_GRAPH_DIFFERENCE) | if (false)
+nd-flags | src/graph_nodes.c | if (n->flags > MANI_GRAPH_NODE_FLAGS) | if (false)
 nd-first | src/graph_nodes.c | if (n->first != inputAt) | if (false)
 nd-count | src/graph_nodes.c | if (n->count < low || n->count > high || n->count > g->inputCount - inputAt) | if (n->count < low || n->count > high)
 nd-slot | src/graph_nodes.c | if (n->slot >= g->slotCount) | if (false)
@@ -1995,7 +1995,7 @@ st-ended | src/graph_match_step.c | return !loop && !(at.time < e.end); | return
 st-events | src/graph_match_step.c | if (s->weight > MANI_GRAPH_EVENT_THRESHOLD) | if (false)
 st-events-loops | src/graph_match_step.c | maniGraphEmitLoops(m->u, m->p, slot, clip, (double)e->start, (double)e->end, at->wraps - 1.0); | (void)clip;
 st-events-first | src/graph_match_step.c | maniGraphEmit(m->u, m->p, slot, clip, t0, (double)e->end); | (void)t0;
-st-root | src/graph_match_step.c | maniRootMotionSumAdd(&m->u->root, &at.move, (double)s->rootWeight); | (void)at;
+st-root | src/graph_match_step.c | maniRootMotionSumAdd(&m->u->root, &move, (double)s->rootWeight); | (void)move;
 st-floor | src/graph_match_step.c | double k = floor((t - (double)e.start) * (double)rate); | double k = 0.0;
 st-up | src/graph_match_step.c | if (n < last && (double)maniMatchFrameTime(e.start, n + 1, rate) <= t) | if (false)
 st-query-scale | src/graph_match_step.c | out[j] = (v->f[i] - offset) / scale; | out[j] = v->f[i] - offset;
@@ -2053,7 +2053,7 @@ g-db-count | src/graph.c | if (count == 0 || count > g->databaseClipCount - next
 g-db-total | src/graph.c | if (next != g->databaseClipCount) | if (false)
 g-db-slot | src/graph.c | if (slot >= g->clipCount || | if (false ||
 g-db-diff | src/graph.c | maniLoadU32(g->clips + (size_t)slot * MANI_GRAPH_CLIP_SIZE + 24) != 0) | false)
-gn-flags | src/graph_nodes.c | return n->flags == 0; | return true;
+gn-flags | src/graph_nodes.c | return own == 0; | return true;
 gn-words | src/graph_nodes.c | words = n->kind == maniGraphNodeMatch ? maniGraphMatchDataWords(g, n->data, available) : words; | words = words;
 gn-block | src/graph_nodes.c | return MANI_GRAPH_MATCH_BLOCK_WORDS; | return 0;
 gk-words | src/graph_check.c | tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u; | tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS : 0u;
@@ -2666,7 +2666,7 @@ gn-update-factor | src/graph_update.c | maniGraphSpringAdd(block, fabs(u->delta 
 gn-update-abs | src/graph_update.c | maniGraphSpringAdd(block, fabs(u->delta * (double)s->factor)); | maniGraphSpringAdd(block, u->delta * (double)s->factor);
 gn-instance-block | src/graph_instance.c | return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphSpringBlock)); | return UINT32_MAX;
 gn-instance-saved | src/graph_instance.c | : Springing(graph, p) ? SavedSpringValid(binding, p, block) | : Springing(graph, p) ? UINT32_MAX
-gn-nodes-flags | src/graph_nodes.c | return n->flags == 0 && NodeFlags(g, Input(g, n->first)) == 0; | return n->flags == 0;
+gn-nodes-flags | src/graph_nodes.c | return own == 0 && Difference(g, Input(g, n->first)) == 0; | return own == 0;
 gn-nodes-overflow | src/graph_nodes.c | if (block > UINT32_MAX - blockAt) | if (false)
 gn-nodes-valid | src/graph_nodes.c | return maniGraphSpringValid(g, n->data, blockAt); | return UINT32_MAX;
 gn-inline-position | src/graph_inline.c | node->spring.position = Resolve(s, node->spring.position); | (void)s;
@@ -2989,7 +2989,7 @@ gik-ev-cone | src/graph_evaluate.c | .cone = Clamped(e, d + maniGraphAimCone, 0.
 gik-ev-shares | src/graph_evaluate.c | memcpy(&s.shares[k], &bits, sizeof bits); | s.shares[k] = 1.0f;
 gik-bd-hinge | src/graph_build.c | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3); | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 2) + 1;
 gik-bd-equal | src/graph_build.c | shares[k] = s->shares != NULL ? s->shares[k] : 1.0f; | shares[k] = s->shares != NULL ? s->shares[k] : 0.5f;
-gik-bd-posesonly | src/graph_build.c | bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeTwoBone || | bool posesOnly = node->kind == maniGraphNodeSpring ||
+gik-bd-posesonly | src/graph_build.c | (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeBodySdls);
 gik-in-goal | src/graph_inline.c | node->twoBone.goal = Resolve(s, node->twoBone.goal); | (void)0;
 gik-in-aim-goal | src/graph_inline.c | node->aim.goal = Resolve(s, node->aim.goal); | (void)0;
 gik-in-aim-weight | src/graph_inline.c | node->aim.weight = Scalar(s, node->aim.weight); | (void)0;
@@ -3227,7 +3227,7 @@ gbc-pos-weight | src/graph_body_check.c | if (!WeightValid(source, f->positionWe
 gbc-zero | src/graph_body_check.c | return WeightValid(source, f->rotationWeight) && (!none || zero) | return WeightValid(source, f->rotationWeight)
 gbc-stretch | src/graph_body_check.c | (s->stretch && n->kind != maniGraphNodeBodyXpbd)) | false)
 gbc-scratch | src/graph_body_check.c | if (maniBodyIkScratchSize(source->skeleton, &solve) == 0) | if (false)
-gbu-poses-only | src/graph_build.c | (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeFabrik);
+gbu-poses-only | src/graph_build.c | (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeFabrik);
 gbu-counted | src/graph_build.c | (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeFabrik);
 gbu-zero | src/graph_build.c | at = PutScalar(d, at, f->rotation == MANI_NO_PARAMETER ? zero : f->rotationWeight); | at = PutScalar(d, at, f->rotationWeight);
 gin-count | src/graph_inline.c | t->effectors += EffectorCount(node); | t->effectors += 0;
@@ -3387,7 +3387,7 @@ rtg-eval-matches | src/graph_evaluate.c | if (!maniPoseMatches(poses[0], pair->s
 rtg-eval-mapped | src/graph_evaluate.c | if (pair != NULL) | if (false)
 rtg-eval-additive | src/graph_evaluate.c | if (!maniPoseIsDifference(poses[0])) | if (true)
 rtg-eval-base | src/graph_evaluate.c | (void)maniPoseDifference(skeleton, out, poses[2], out); | (void)out;
-rtg-update-carried | src/graph_update.c | move = Carried(u, Word(u, data), &clip, move); | (void)move;
+rtg-update-carried | src/graph_update.c | move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move)); | move = maniGraphNodeMove(u, p, move);
 rtg-json-map | src/graph_json_graph.c | c[i].map = r->hostClips[host].map; | c[i].map = NULL;
 
 # Mirror maps (src/mirror_build.c, src/mirror.c)
@@ -3478,3 +3478,44 @@ cbk-rename-float | src/clip_bake.c | const char* name = Renamed(b, maniClipFloat
 cbk-rename-discrete | src/clip_bake.c | const char* name = Renamed(b, maniClipDiscreteTrackName(clip, i, &length), &length); | const char* name = maniClipDiscreteTrackName(clip, i, &length);
 cbk-rename-event | src/clip_bake.c | const char* name = Renamed(b, e.name, &length); | const char* name = e.name;
 cbk-root | src/clip_bake.c | b.root = maniClipRootMotionSource(kind->clip, &from) ? kind->declared.bone : MANI_NO_BONE; | b.root = MANI_NO_BONE;
+
+# Graph mirror nodes (mani-0033)
+rgm-data-words | src/graph_nodes.c | case maniGraphNodeMirror: | case 0x7FFF:
+rgm-poses-only | src/graph_nodes.c | if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeMirror || | if (n->kind == maniGraphNodeSpring ||
+rgm-want-own | src/graph_nodes.c | uint32_t want = (n->flags & MANI_GRAPH_MIRRORED) ^ | uint32_t want = 0u ^
+rgm-want-kind | src/graph_nodes.c | (n->kind == maniGraphNodeMirror ? MANI_GRAPH_MIRRORED : 0u); | 0u;
+rgm-edge | src/graph_nodes.c | if ((flags & MANI_GRAPH_MIRRORED) != want) | if (false)
+rgm-flags-past | src/graph_nodes.c | if (n->flags > MANI_GRAPH_NODE_FLAGS) | if (n->flags > 7u)
+rgm-no-map | src/graph_nodes.c | if (n->kind == maniGraphNodeMirror && g->mirrorMapIdentity == 0) | if (false)
+rgm-emit-name | src/graph_emit.c | maniGraphNodeName(u, node, e.nameHash), | e.nameHash,
+rgm-mirrored-flag | src/graph_emit.c | MANI_GRAPH_MIRRORED) != 0; | MANI_GRAPH_DIFFERENCE) != 0;
+rgm-move | src/graph_emit.c | return Mirrored(u, node) ? maniMirrorRootMotion(u->binding->mirrorMap, move) : move; | return move;
+rgm-name | src/graph_emit.c | return Mirrored(u, node) ? maniMirrorNameHash(u->binding->mirrorMap, hash) : hash; | return hash;
+rgm-build-poses | src/graph_build.c | bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeMirror || | bool posesOnly = node->kind == maniGraphNodeSpring ||
+rgm-build-section | src/graph_build.c | lay->sizes[14] = source->mirrorMap != NULL ? 8u : 0u; | lay->sizes[14] = 0u;
+rgm-build-flag | src/graph_build.c | flags |= w->mirrored[v] == 2 ? MANI_GRAPH_MIRRORED : 0u; | flags |= 0u;
+rgm-build-parity | src/graph_mirror.c | uint32_t want = node->kind == maniGraphNodeMirror ? 3u - mirrored[v] : mirrored[v]; | uint32_t want = mirrored[v];
+rgm-build-both | src/graph_mirror.c | if (mirrored[u] != 0 && mirrored[u] != want) | if (false)
+rgm-build-item | src/graph_mirror.c | return maniGraphRefuse(maniBuildReasonMirrorGraph, u, 2); | return maniGraphRefuse(maniBuildReasonMirrorGraph, v, 2);
+rgm-json-close | src/graph_json.c | maniGraphJsonPutText(w, n->kind == maniGraphNodeMirror ? "]" : "], "); | maniGraphJsonPutText(w, "], ");
+rgm-open-size | src/graph.c | if (s->sizes[14] != 0 && s->sizes[14] != 8) | if (false)
+rgm-open-identity | src/graph.c | if (s->sizes[14] != 0 && g->mirrorMapIdentity == 0) | if (false)
+rgm-reader | src/graph.c | return graph != NULL ? graph->mirrorMapIdentity : 0; | return 0;
+rgm-json-map | src/graph_json_graph.c | *out = (maniGraphSource){.skeleton = r->skeleton, .mirrorMap = r->mirrorMap}; | *out = (maniGraphSource){.skeleton = r->skeleton};
+rgm-check-node | src/graph_check.c | return source->mirrorMap != NULL ? Outcome(mani_success) | return true ? Outcome(mani_success)
+rgm-check-identity | src/graph_check.c | (mirror->skeletonIdentity != maniSkeletonIdentity(source->skeleton) || | (false ||
+rgm-check-count | src/graph_check.c | mirror->boneCount != maniSkeletonBoneCount(source->skeleton))) | false))
+rgm-bind-none | src/graph_bind.c | if (graph->mirrorMapIdentity == 0) | if (false)
+rgm-bind-identity | src/graph_bind.c | if (map != NULL && map->identity == graph->mirrorMapIdentity && | if (map != NULL &&
+rgm-bind-skeleton | src/graph_bind.c | map->skeletonIdentity == graph->skeletonIdentity && | true &&
+rgm-bind-count | src/graph_bind.c | map->boneCount == graph->skeletonBoneCount) | true)
+rgm-inline-other | src/graph_inline.c | sub->mirrorMap->identity != f->mirrorMap->identity) | false)
+rgm-inline-take | src/graph_inline.c | f->mirrorMap = f->mirrorMap != NULL ? f->mirrorMap : sub->mirrorMap; | (void)sub;
+rgm-inline-out | src/graph_inline.c | out->source.mirrorMap = f.mirrorMap; | (void)f;
+rgm-marker-name | src/graph_update.c | return maniGraphNodeName(u, p, maniClipMarkerAt(clip, k).nameHash); | return maniClipMarkerAt(clip, k).nameHash;
+rgm-advance-move | src/graph_update.c | move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move)); | move = Carried(u, Word(u, data), &clip, move);
+rgm-learned-move | src/graph_learned_step.c | move = maniGraphNodeMove(l->u, l->p, move); | (void)0;
+rgm-match-move | src/graph_match_step.c | maniRootMove move = maniGraphNodeMove(m->u, m->p, at.move); | maniRootMove move = at.move;
+rgm-evaluate | src/graph_evaluate.c | if (input == NULL || maniMirrorPose(b->mirrorMap, b->skeleton, input, out) != mani_success) | if (input == NULL || maniPoseSetRest(out, b->skeleton) != mani_success)
+rmn-hash | src/mirror.c | return e != NULL ? maniLoadU64(e + 8) : hash; | return hash;
+rgm-learned-name | src/graph_learned_step.c | uint64_t hash = maniGraphNodeName( | uint64_t hash = (

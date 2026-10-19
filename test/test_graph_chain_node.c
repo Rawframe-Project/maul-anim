@@ -413,7 +413,7 @@ static bool CraftedPasses(maniGraphChainNodeSource s, uint32_t root, uint32_t en
     CHECK(maniOpenGraph(s_file, size, &g).result == mani_success &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0,
-                                               NULL, NULL, 0, 0},
+                                               NULL, NULL, 0, 0, NULL},
                             s_bindingMemory, sizeof s_bindingMemory, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
@@ -463,7 +463,7 @@ static void TestJson(void)
               maniWriteGraphJson(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
           "built and written");
-    maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0};
+    maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL};
     CHECK(maniBuildGraphJson(builder, s_text, length, &assets).result == mani_success &&
               maniCopyBuilt(builder, s_read, sizeof s_read, &read) == mani_success &&
               read == size && memcmp(s_read, s_file, size) == 0,
