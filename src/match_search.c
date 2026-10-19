@@ -69,7 +69,9 @@ static uint32_t EntryOf(const maniMotionDatabase* d, uint32_t frame)
 }
 
 // What a search holds: the database, the query, the normalized query,
-// the earlier picks' entries, the best so far.
+// the earlier picks' entries, the best so far, per level of runs (small,
+// large) where its boxes' lows start and how far past a low its high
+// is, and the exclusions' times as frames apart.
 typedef struct Search
 {
     const maniMotionDatabase* d;
@@ -78,6 +80,12 @@ typedef struct Search
     uint32_t historyEntries[MANI_MATCH_MAX_HISTORY];
     uint32_t best;
     float bestCost;
+    const uint8_t* lows[2];
+    size_t highs[2];
+    uint32_t jumpFrames;
+    uint32_t historyFrames;
+    uint32_t featureCount;
+    uint32_t historyCount;
 } Search;
 
 static bool Candidate(const Search* s, const Entry* e)
@@ -86,14 +94,33 @@ static bool Candidate(const Search* s, const Entry* e)
            (e->tags & s->q->excludedTags) == 0;
 }
 
-// Frames a and b of one entry apart, in seconds: around a looping one's
-// span the shorter way.
-static double Apart(const maniMotionDatabase* d, const Entry* e, uint32_t a, uint32_t b)
+// Frames a and b of one entry apart: around a looping one's span the
+// shorter way.
+static uint32_t Apart(const Entry* e, uint32_t a, uint32_t b)
 {
     uint32_t frames = a > b ? a - b : b - a;
     bool loop = (e->flags & MANI_MATCH_LOOP) != 0;
-    frames = loop && e->count - frames < frames ? e->count - frames : frames;
-    return (double)frames / (double)d->sampleRate;
+    return loop && e->count - frames < frames ? e->count - frames : frames;
+}
+
+// The fewest frames apart that are not nearer than seconds: frames
+// apart are nearer exactly when fewer (frames / rate grows with the
+// frames), so the count is guessed from the times and settled by that
+// test; the frame count when every distance in the database is nearer.
+static uint32_t FramesApart(const maniMotionDatabase* d, float seconds)
+{
+    double rate = (double)d->sampleRate;
+    double guess = (double)seconds * rate;
+    uint32_t k = guess >= (double)d->frameCount ? d->frameCount : (uint32_t)guess;
+    while (k > 0 && (double)(k - 1) / rate >= (double)seconds)
+    {
+        --k;
+    }
+    while (k < d->frameCount && (double)k / rate < (double)seconds)
+    {
+        ++k;
+    }
+    return k;
 }
 
 // Excluded: near the continuing frame on its entry, or near an earlier
@@ -107,14 +134,13 @@ static bool Excluded(const Search* s, uint32_t entry, const Entry* e, uint32_t f
         return true;
     }
     if (current != MANI_MATCH_NO_FRAME && current >= e->first && current - e->first < e->count &&
-        Apart(s->d, e, frame, current) < (double)q->jumpThreshold)
+        Apart(e, frame, current) < s->jumpFrames)
     {
         return true;
     }
-    for (uint32_t k = 0; k < q->historyCount; ++k)
+    for (uint32_t k = 0; k < s->historyCount; ++k)
     {
-        if (s->historyEntries[k] == entry &&
-            Apart(s->d, e, frame, q->history[k]) < (double)q->historyTime)
+        if (s->historyEntries[k] == entry && Apart(e, frame, q->history[k]) < s->historyFrames)
         {
             return true;
         }
@@ -122,51 +148,67 @@ static bool Excluded(const Search* s, uint32_t entry, const Entry* e, uint32_t f
     return false;
 }
 
+// Whether a clamped entry's frame m (from its first) is within the end
+// exclusion of its end; once one is, every later one is (each step is
+// monotone).
+static bool NearEnd(const Search* s, const Entry* e, uint32_t m)
+{
+    double t = (double)e->start + (double)m / (double)s->d->sampleRate;
+    return (double)e->end - t < (double)s->q->endExclusion;
+}
+
 // The frames of an entry a search reaches: a clamped entry's frames
-// within the end exclusion of its end left out.
+// within the end exclusion of its end left out. The first excluded
+// frame is guessed from the times and then settled by NearEnd, so the
+// guess's rounding never moves it.
 static uint32_t Stop(const Search* s, const Entry* e)
 {
-    uint32_t stop = e->first + e->count;
     if ((e->flags & MANI_MATCH_LOOP) != 0)
     {
-        return stop;
+        return e->first + e->count;
     }
-    double rate = (double)s->d->sampleRate;
-    while (stop > e->first &&
-           (double)e->end - ((double)e->start + (double)(stop - 1 - e->first) / rate) <
-               (double)s->q->endExclusion)
+    double guess =
+        ((double)e->end - (double)s->q->endExclusion - (double)e->start) * (double)s->d->sampleRate;
+    uint32_t m = guess <= 0.0 ? 0 : guess >= (double)e->count ? e->count : (uint32_t)guess;
+    while (m > 0 && NearEnd(s, e, m - 1))
     {
-        --stop;
+        --m;
     }
-    return stop;
+    while (m < e->count && !NearEnd(s, e, m))
+    {
+        ++m;
+    }
+    return e->first + m;
 }
 
 static float Frame(const Search* s, uint32_t frame, float constant)
 {
-    uint32_t n = s->d->featureCount;
+    uint32_t n = s->featureCount;
     const uint8_t* f = s->d->features + 4 * (size_t)frame * n;
+    float best = s->bestCost;
     float cost = constant;
-    for (uint32_t j = 0; j < n && cost < s->bestCost; ++j)
+    for (uint32_t j = 0; j < n; ++j)
     {
         float d = s->query[j] - LoadF32(f + 4 * (size_t)j);
         cost += d * d;
+        if (cost >= best)
+        {
+            break;
+        }
     }
     return cost;
 }
 
-// Run r's box of runs of size frames: its bound from the constant.
-static float Box(const Search* s, uint32_t size, uint32_t r, float constant)
+// Run r's box at level 0 (the small runs) or 1 (the large): its bound
+// from the constant.
+static float Box(const Search* s, uint32_t level, uint32_t r, float constant)
 {
-    const maniMotionDatabase* d = s->d;
-    uint32_t n = d->featureCount;
-    uint32_t runs = maniMatchRuns(d->frameCount, size);
-    uint64_t first = size == MANI_MATCH_SMALL_RUN
-                         ? 0
-                         : 2 * (uint64_t)maniMatchRuns(d->frameCount, MANI_MATCH_SMALL_RUN) * n;
-    const uint8_t* low = d->bounds + 4 * (first + (uint64_t)r * n);
-    const uint8_t* high = low + 4 * (uint64_t)runs * n;
+    uint32_t n = s->featureCount;
+    const uint8_t* low = s->lows[level] + 4 * (size_t)r * n;
+    const uint8_t* high = low + s->highs[level];
+    float best = s->bestCost;
     float cost = constant;
-    for (uint32_t j = 0; j < n && cost < s->bestCost; ++j)
+    for (uint32_t j = 0; j < n; ++j)
     {
         float q = s->query[j];
         float a = LoadF32(low + 4 * (size_t)j);
@@ -174,6 +216,10 @@ static float Box(const Search* s, uint32_t size, uint32_t r, float constant)
         float near = q < a ? a : (q > b ? b : q);
         float gap = q - near;
         cost += gap * gap;
+        if (cost >= best)
+        {
+            break;
+        }
     }
     return cost;
 }
@@ -188,7 +234,7 @@ static void ScanRun(Search* s, uint32_t entry, const Entry* e, uint32_t i, uint3
         uint32_t small = i / MANI_MATCH_SMALL_RUN;
         uint32_t smallEnd = (small + 1) * MANI_MATCH_SMALL_RUN;
         smallEnd = smallEnd < end ? smallEnd : end;
-        if (Box(s, MANI_MATCH_SMALL_RUN, small, constant) >= s->bestCost)
+        if (Box(s, 0, small, constant) >= s->bestCost)
         {
             i = smallEnd;
             continue;
@@ -211,7 +257,7 @@ static void Scan(Search* s, uint32_t entry, const Entry* e)
         uint32_t large = i / MANI_MATCH_LARGE_RUN;
         uint32_t end = (large + 1) * MANI_MATCH_LARGE_RUN;
         end = end < stop ? end : stop;
-        if (Box(s, MANI_MATCH_LARGE_RUN, large, constant) < s->bestCost)
+        if (Box(s, 1, large, constant) < s->bestCost)
         {
             ScanRun(s, entry, e, i, end, constant);
         }
@@ -265,15 +311,33 @@ maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQu
     {
         return mani_errorInvalid;
     }
-    Search s = {.d = database, .q = query, .best = MANI_MATCH_NO_FRAME, .bestCost = HUGE_VALF};
+    // Set field by field: an initializer would clear the whole query
+    // array, which the search reads only to the feature count (held
+    // here, with the picks' count, so every loop runs to the count its
+    // array was filled to).
+    Search s;
+    s.d = database;
+    s.q = query;
+    s.best = MANI_MATCH_NO_FRAME;
+    s.bestCost = HUGE_VALF;
     uint32_t n = database->featureCount;
+    s.featureCount = n;
+    s.historyCount = query->historyCount;
+    size_t smallRuns = maniMatchRuns(database->frameCount, MANI_MATCH_SMALL_RUN);
+    size_t largeRuns = maniMatchRuns(database->frameCount, MANI_MATCH_LARGE_RUN);
+    s.lows[0] = database->bounds;
+    s.lows[1] = database->bounds + 4 * 2 * smallRuns * n;
+    s.highs[0] = 4 * smallRuns * n;
+    s.highs[1] = 4 * largeRuns * n;
+    s.jumpFrames = FramesApart(database, query->jumpThreshold);
+    s.historyFrames = FramesApart(database, query->historyTime);
     for (uint32_t j = 0; j < n; ++j)
     {
         float offset = LoadF32(database->normalization + 4 * (size_t)j);
         float scale = LoadF32(database->normalization + 4 * (size_t)(n + j));
         s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale;
     }
-    for (uint32_t k = 0; k < query->historyCount; ++k)
+    for (uint32_t k = 0; k < s.historyCount; ++k)
     {
         s.historyEntries[k] = EntryOf(database, query->history[k]);
     }

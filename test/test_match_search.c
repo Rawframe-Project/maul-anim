@@ -328,6 +328,23 @@ static maniMatchResult Plain(const Layout* l, const maniMatchQuery* q)
 
 static float s_query[MAX_WIDTH];
 
+// A threshold in seconds: none, any, a whole number of frames (where
+// the frames apart that are nearer change), or past every frame.
+static float Seconds(void)
+{
+    switch (Next() % 5)
+    {
+    case 0:
+        return 0.0f;
+    case 1:
+        return (float)(Next() % 16) / RATE;
+    case 2:
+        return 1.0e6f;
+    default:
+        return Uniform(0.0f, 0.5f);
+    }
+}
+
 static maniMatchQuery RandomQuery(const Layout* l)
 {
     uint32_t n = 3 * l->channels;
@@ -346,9 +363,9 @@ static maniMatchQuery RandomQuery(const Layout* l)
                         .historyCount = Next() % (MANI_MATCH_MAX_HISTORY + 1),
                         .continuingBias = Next() % 2 == 0 ? 0.0f : Uniform(-0.5f, 0.5f),
                         .transitionCost = Next() % 2 == 0 ? 0.0f : Uniform(0.0f, 0.5f),
-                        .jumpThreshold = Next() % 2 == 0 ? 0.0f : Uniform(0.0f, 0.5f),
-                        .endExclusion = Next() % 2 == 0 ? 0.0f : Uniform(0.0f, 0.5f),
-                        .historyTime = Uniform(0.0f, 0.5f)};
+                        .jumpThreshold = Seconds(),
+                        .endExclusion = Seconds(),
+                        .historyTime = Seconds()};
     for (uint32_t k = 0; k < q.historyCount; ++k)
     {
         q.history[k] = Next() % l->frames;
@@ -383,6 +400,61 @@ static void TestAgainstScan(void)
     }
     CHECK(same, "the plain scan's frame and cost, bit for bit");
     CHECK(found > 5000, "most searches find a frame");
+}
+
+// Thresholds of whole frames, where the frames left out change: a
+// query at each of an entry's last frames, near the end and near a
+// continuing frame six back, against the plain scan.
+static void TestBoundaries(void)
+{
+    bool same = true;
+    uint32_t searches = 0;
+    for (int trial = 0; trial < 40; ++trial)
+    {
+        Randomize(&s_layout);
+        const Layout* l = &s_layout;
+        maniMotionDatabase d;
+        Write(l, &d);
+        uint32_t n = 3 * l->channels;
+        uint32_t first = 0;
+        for (uint32_t e = 0; e < l->entryCount; first += l->counts[e++])
+        {
+            uint32_t end = first + l->counts[e];
+            for (uint32_t f = end > first + 10 ? end - 10 : first; f < end; ++f)
+            {
+                for (uint32_t j = 0; j < n; ++j)
+                {
+                    s_query[j] = l->features[f * n + j] * l->scales[j] + l->offsets[j];
+                }
+                for (uint32_t k = 0; k < 13; ++k)
+                {
+                    maniMatchQuery q = {.features = s_query,
+                                        .current = MANI_MATCH_NO_FRAME,
+                                        .endExclusion = (float)k / RATE};
+                    if (k % 2 == 1)
+                    {
+                        q = (maniMatchQuery){.features = s_query,
+                                             .current = f >= first + 6 ? f - 6 : first,
+                                             .continuingBias = 100.0f,
+                                             .jumpThreshold = (float)k / RATE};
+                    }
+                    maniMatchResult want = Plain(l, &q);
+                    maniMatchResult got = {0, 0.0f};
+                    bool ok = maniSearchMotionDatabase(&d, &q, &got) == mani_success &&
+                              got.frame == want.frame && memcmp(&got.cost, &want.cost, 4) == 0;
+                    if (!ok && same)
+                    {
+                        printf("  trial %d frame %u k %u: got %u, want %u\n", trial, f, k,
+                               got.frame, want.frame);
+                    }
+                    same = same && ok;
+                    ++searches;
+                }
+            }
+        }
+    }
+    CHECK(same, "the plain scan's frame at every whole-frame threshold");
+    CHECK(searches > 1000, "searched near every entry's end");
 }
 
 // Two entries of four frames: a clamped one (frames 0 to 3, tag 1) and
@@ -494,6 +566,7 @@ static void TestRefusals(void)
 int main(void)
 {
     TestAgainstScan();
+    TestBoundaries();
     TestRules();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;

@@ -8,6 +8,12 @@ format.
 
 ## [Unreleased]
 
+### Changed
+
+- The motion matching search costs about a tenth fewer instructions
+  (600,877 against 665,424 a search of an hour of data), with the same
+  picks.
+
 ## [0.1.0] - 2026-10-19
 
 The first release: the whole scope of the library, built and tested.
