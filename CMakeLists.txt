@@ -134,7 +134,7 @@ if(MAUL_ANIM_OFFLINE)
                                      src/clip_build_named.c src/clip_compress.c src/clip_measure.c src/clip_plan.c src/clip_search.c src/clip_shell.c src/decimal.c src/decimal_format.c src/inflate.c
                                      src/arena.c src/gltf.c src/gltf_animation.c src/basis.c src/gltf_basis.c
                                      src/gltf_clip.c src/gltf_mesh.c
-                                     src/gltf_buffer.c src/gltf_layout.c
+                                     src/gltf_buffer.c src/gltf_layout.c src/gltf_meshopt.c
                                      src/gltf_names.c src/hierarchy.c src/names.c src/gltf_node.c src/gltf_property.c
                                      src/gltf_rest.c src/gltf_skeleton.c src/gltf_spring.c src/gltf_ragdoll.c src/gltf_ragdoll_joint.c src/json.c src/skeleton_build.c
                                      src/fbx.c src/fbx_anim.c src/fbx_ascii.c src/fbx_binary.c src/fbx_blend.c src/fbx_clip.c src/fbx_clip_state.c src/fbx_curve.c src/fbx_helpers.c src/fbx_influences.c src/fbx_morph.c src/fbx_keys.c src/fbx_legacy.c src/fbx_model.c src/fbx_object.c src/fbx_options.c src/fbx_sample.c src/fbx_skeleton.c src/fbx_skin.c src/fbx_take.c src/fbx_tracks.c src/fbx_transform.c src/fbx_units.c src/fbx_value.c src/fbx_world.c src/sort.c
@@ -274,6 +274,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         # Khronos sample models in test/data/gltf; FBX scenes in
         # test/data/fbx against ufbx's values (mani-0018).
         maul_add_test(gltf_fixtures WHITEBOX)
+        maul_add_test(gltf_meshopt WHITEBOX)
         maul_add_test(gltf_mesh WHITEBOX)
         maul_add_test(fbx_influences)
         maul_add_test(fbx_morph)
@@ -304,7 +305,7 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton skin influences morph clip graph graph_state graph_json match learned checkpoint spring ragdoll retarget mirror map_json json gltf fbx)
+    foreach(area skeleton skin influences morph clip graph graph_state graph_json match learned checkpoint spring ragdoll retarget mirror map_json json gltf meshopt fbx)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
         # Internal readers (JSON) are fuzzed through their own headers.

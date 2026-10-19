@@ -218,5 +218,6 @@ gltf_ragdoll: arena decompose gltf_basis gltf_document gltf_names gltf_property 
 gltf_ragdoll_joint: arena gltf_document gltf_property gltf_ragdoll json vecmath
 gltf_buffer: allocator gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_document gltf_property json
+gltf_meshopt: bytes
 
 fbx_helpers: allocator clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_sample fbx_take fbx_transform fbx_world
