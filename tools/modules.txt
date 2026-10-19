@@ -153,6 +153,9 @@ graph_json_graph: arena builder graph_json_body graph_json_ik graph_json_machine
 graph_json_space: arena graph_json_read json
 graph_json_machine: arena graph_json_read json
 graph_json_search: arena graph_json_read json
+map_json: allocator arena builder graph_json_ik graph_json_read graph_json_write json
+retarget_json: arena builder graph_json_ik graph_json_read graph_json_write json map_json
+mirror_json: arena builder graph_json_ik graph_json_read graph_json_write json map_json
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build scalar
 clip_shell: additive

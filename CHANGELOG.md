@@ -86,6 +86,11 @@ format.
   from the partner tracks), read by
   `maniMotionDatabaseMirrorMapIdentity`; matching nodes play such
   entries mirrored; the database format is version 2.
+- The JSON form of maps (mani-0034): `maniWriteRetargetMapJson` and
+  `maniWriteMirrorMapJson` write a map's source as text after building
+  it, bones by name and each reference pose as the bones not at their
+  rest; `maniBuildRetargetMapJson` and `maniBuildMirrorMapJson` read
+  the text strictly, refusing at byte offsets, and build the same file.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

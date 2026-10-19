@@ -112,6 +112,46 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult maniBuildMirrorMap(maniBuilder* builder,
                                                                const maniMirrorMapSource* source);
 
+    /// Builds a mirror map as maniBuildMirrorMap does and, when it builds,
+    /// keeps its JSON text form in the builder in place of the file:
+    /// format "maul-anim mirror map", version 1; the axis ("x", "y",
+    /// "z"); the reference pose as the bones whose local is not the rest
+    /// bit for bit, by name, with translation, rotation and scale; bone
+    /// pairs by name; rules (find, place of "prefix", "suffix" or
+    /// "anywhere", replace); name pairs and names. Numbers as the
+    /// shortest text that reads back to the same float.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The map.
+    /// @return As maniBuildMirrorMap.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult
+    maniWriteMirrorMapJson(maniBuilder* builder, const maniMirrorMapSource* source);
+
+    /// Builds a mirror map file from its JSON text form, as
+    /// maniWriteMirrorMapJson writes it: members an object does not take
+    /// are refused; the reference, pairs, rules, name pairs and names
+    /// may be left out (empty), as may a reference entry's translation,
+    /// rotation or scale (its bone's rest). A bone the reference lists
+    /// twice is refused. The source read is then built as
+    /// maniBuildMirrorMap builds it.
+    ///
+    /// @param builder   The builder.
+    /// @param text      The UTF-8 text (a leading byte order mark
+    ///                  skipped); may be NULL when length is 0.
+    /// @param length    The text's length in bytes.
+    /// @param skeleton  The skeleton.
+    /// @return As maniBuildMirrorMap, items by place in the text's lists;
+    /// or `mani_errorInvalid` with maniBuildReasonNone for a NULL builder
+    /// or skeleton or a NULL text with a length, maniBuildReasonJson or
+    /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder,
+                                                                   const char* text, size_t length,
+                                                                   const maniSkeleton* skeleton);
+
     // A clip to mirror. reserved must be 0.
     typedef struct maniMirrorClipSource
     {

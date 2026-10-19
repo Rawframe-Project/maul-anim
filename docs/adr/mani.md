@@ -38,3 +38,4 @@ are listed in [README.md](README.md).
 | [mani-0031](mani-0031-full-body-ik.md) | Full-body IK | Accepted |
 | [mani-0032](mani-0032-retargeting.md) | Retargeting | Accepted |
 | [mani-0033](mani-0033-mirroring.md) | Mirroring | Accepted |
+| [mani-0034](mani-0034-map-json.md) | The JSON form of maps | Accepted |

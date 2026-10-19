@@ -119,6 +119,53 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult
     maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMapSource* source);
 
+    /// Builds a retargeting map as maniBuildRetargetMap does and, when it
+    /// builds, keeps its JSON text form in the builder in place of the
+    /// file: format "maul-anim retarget map", version 1; each reference
+    /// pose as the bones whose local is not the rest bit for bit, by
+    /// name, with translation, rotation and scale; pairs, chains and the
+    /// pelvis (null when none) with bones by name and modes as words
+    /// ("own", "scaled", "absolute"; "none", "interpolated", "oneToOne",
+    /// "oneToOneReversed"); matchNames. Numbers as the shortest text
+    /// that reads back to the same float.
+    ///
+    /// @param builder  The builder.
+    /// @param source   The map.
+    /// @return As maniBuildRetargetMap.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult
+    maniWriteRetargetMapJson(maniBuilder* builder, const maniRetargetMapSource* source);
+
+    /// Builds a retargeting map file from its JSON text form, as
+    /// maniWriteRetargetMapJson writes it: members an object does not
+    /// take are refused; the references, pairs and chains may be left
+    /// out (empty), as may the pelvis (none), matchNames (false), a
+    /// reference entry's translation, rotation or scale (its bone's
+    /// rest), a pair's or chain's translation ("own") and scale (false),
+    /// and the pelvis's absolute and toSource (zero). A bone a reference
+    /// lists twice is refused. The source read is then built as
+    /// maniBuildRetargetMap builds it.
+    ///
+    /// @param builder  The builder.
+    /// @param text     The UTF-8 text (a leading byte order mark skipped);
+    ///                 may be NULL when length is 0.
+    /// @param length   The text's length in bytes.
+    /// @param source   The source skeleton.
+    /// @param target   The target skeleton.
+    /// @return As maniBuildRetargetMap, items by place in the text's
+    /// lists; or `mani_errorInvalid` with maniBuildReasonNone for a NULL
+    /// builder or skeleton or a NULL text with a length, maniBuildReasonJson
+    /// or maniBuildReasonForm (other a maniGraphForm), item the byte
+    /// offset.
+    /// @par Thread safety
+    /// Safe from any thread; the builder is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniBuildResult maniBuildRetargetMapJson(maniBuilder* builder,
+                                                                     const char* text,
+                                                                     size_t length,
+                                                                     const maniSkeleton* source,
+                                                                     const maniSkeleton* target);
+
     // A clip to retarget: an opened map, its two skeletons and an opened
     // clip of its source; and the target bone that takes the clip's
     // root motion, or MANI_NO_BONE for the first target bone that

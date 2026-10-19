@@ -782,16 +782,18 @@ extern "C"
     {
         // A member the object does not take.
         maniGraphFormMember = 1,
-        // A member given twice.
+        // A member given twice, or a bone a map's reference lists twice.
         maniGraphFormRepeat = 2,
         // A member the object needs is missing.
         maniGraphFormMissing = 3,
         // A value of the wrong kind, count or range.
         maniGraphFormValue = 4,
         // A name no parameter, clip slot, sync group, database slot, model
-        // slot, spring set slot or bone of the graph has.
+        // slot, spring set slot or bone of the graph has, or no bone of a
+        // map's skeleton has.
         maniGraphFormName = 5,
-        // A format not "maul-anim graph" or a version not 1.
+        // A format not the form's ("maul-anim graph", "maul-anim retarget
+        // map" or "maul-anim mirror map") or a version not 1.
         maniGraphFormVersion = 6,
         // A clip slot the host's clips do not name, a database slot the
         // host's databases do not, a model slot the host's models do not,
