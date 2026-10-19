@@ -349,6 +349,15 @@ static void TestTwoBoneRefusals(void)
     maniGraphNodeSource nodes[3] = {ClipNode(2, 1.0f, maniGraphLoopRepeat),
                                     TwoBoneNode(kWave, kKnee)};
     CHECK(RefusedAt(Built(IkSource(nodes, 2)), 1, maniBuildReasonDifference), "differences in");
+    // Not the output: the node itself refuses them.
+    static const uint32_t kLayered[2] = {2, 1};
+    static const maniGraphScalar kWhole[1] = {LITERAL(1.0f)};
+    maniGraphNodeSource layered[4] = {
+        ClipNode(2, 1.0f, maniGraphLoopRepeat), TwoBoneNode(kWave, kKnee),
+        ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        (maniGraphNodeSource){maniGraphNodeAdditive, 2, kLayered, .additive = {kWhole}}};
+    CHECK(RefusedAt(Built(IkSource(layered, 4)), 1, maniBuildReasonDifference),
+          "differences in, as an additive's layer");
     nodes[0] = ClipNode(0, 1.0f, maniGraphLoopRepeat);
     nodes[1] = ClipNode(1, 1.0f, maniGraphLoopRepeat);
     nodes[2] = (maniGraphNodeSource){maniGraphNodeTwoBone, 2, kPair, .twoBone = kKnee};
