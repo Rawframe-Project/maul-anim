@@ -687,8 +687,14 @@ extern "C"
     {
         // The node's kind.
         maniGraphNodeKind kind;
-        // Its share of the output after the last update, 0 to 1 (0 for a
-        // node not reached, and for every node before the first update).
+        // Its share of the output after the last update (0 for a node not
+        // reached, and for every node before the first update): a blend's
+        // inputs their weights, normalized unless direct; a mask's first
+        // input the largest of its mask's weights over the bones and its
+        // second the largest of one minus them, so the two need not sum to
+        // 1; an additive node's base its own share and each layer its
+        // layer's weight times it. A node reached along several paths sums
+        // their shares and may pass 1.
         float weight;
         // A clip node's playhead in its clip and a motion matching node's
         // in its entry's clip, in seconds.
@@ -721,6 +727,8 @@ extern "C"
     /// node past the count.
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
+    /// It reads what the last update left, so it runs between updates, on
+    /// the thread that updates or after handing the instance over.
     MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance,
                                                             uint32_t node, maniGraphNodeView* out);
 

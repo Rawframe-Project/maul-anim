@@ -495,7 +495,7 @@ Reads a parameter's value.  @param instance   An instance. @param parameter  The
 ```c
 MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node, maniGraphNodeView* out);
 ```
-Reads what a node of an instance did in its last update, for a debugger: its share of the output, playhead, current state and transition under way. Reads only; the update keeps nothing more for it. reserved is 0.  @param instance  An instance. @param node      The node. @param out       The view. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a node past the count. @par Thread safety Safe from any thread; the instance is used by one thread at a time.
+Reads what a node of an instance did in its last update, for a debugger: its share of the output, playhead, current state and transition under way. Reads only; the update keeps nothing more for it. reserved is 0.  @param instance  An instance. @param node      The node. @param out       The view. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a node past the count. @par Thread safety Safe from any thread; the instance is used by one thread at a time. It reads what the last update left, so it runs between updates, on the thread that updates or after handing the instance over.
 
 ```c
 size_t maniGraphStateSize(const maniGraphBinding* binding);

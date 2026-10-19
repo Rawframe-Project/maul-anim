@@ -95,8 +95,9 @@ format.
   `maniGraphNodeInputCount`, `maniGraphNodeInput`, `maniGraphOutputNode`
   and `maniGraphNodeSourcePlace` (each node's place in its source, kept
   in the file: graph format version 4) draw a graph's tree;
-  `maniInspectGraphNode` reads what a node did in the last update (its
-  share of the output, playhead, a machine's state and transition under
+  `maniInspectGraphNode` reads, between updates, what a node did in
+  the last one (its share of the output, under a mask the largest over
+  the bones and summed over paths, playhead, a machine's state and transition under
   way with its fade, a one-shot's phase, an inertialization's easing, a
   matching node's entry).
 - Subset evaluation (mani-0035): `maniPlanGraphSubset` plans some bones

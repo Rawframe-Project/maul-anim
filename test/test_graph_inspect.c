@@ -7,7 +7,7 @@
 // node's share of the output, a clip's playhead, a select's input, a
 // machine's state and transition with its fade, a one-shot's phase and
 // weight, an inertialization's easing and a motion matching node's entry;
-// every refusal.
+// shares under a mask and an additive layer; every refusal.
 
 #include "graph_json_assets.h"
 #include "test_harness.h"
@@ -58,23 +58,37 @@ static maniGraphInstance* s_instance;
 // Each source place's node in the file.
 static uint32_t s_at[kPlaces];
 
-static void Open(void)
+// A mask over the spine and the arm at 0.75 (the hips 0) under an additive
+// layer of 0.6; then a mask with one clip on both sides.
+static const char kMasked[] =
+    "{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\", \"run\", "
+    "\"wave\"], \"nodes\": [{\"kind\": \"additive\", \"inputs\": [1, 4], \"weights\": [0.6]}, "
+    "{\"kind\": \"mask\", \"inputs\": [2, 3], \"chains\": [{\"bone\": \"spine\", \"weight\": "
+    "0.75}]}, {\"kind\": \"clip\", \"clip\": \"walk\"}, {\"kind\": \"clip\", \"clip\": \"run\"}, "
+    "{\"kind\": \"clip\", \"clip\": \"wave\"}], \"output\": 0}";
+static const char kTwice[] =
+    "{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\"], \"nodes\": "
+    "[{\"kind\": \"mask\", \"inputs\": [1, 1], \"chains\": [{\"bone\": \"spine\", \"weight\": "
+    "0.75}]}, {\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": 0}";
+
+// Builds, opens and binds a graph naming the first clips of the assets,
+// with an instance and a pose; s_at maps each source place to its node.
+static void Load(const char* text, size_t length, uint32_t clipCount, uint32_t places)
 {
-    SetupGraphAssets();
     size_t size = 0;
-    CHECK(maniBuildGraphJson(s_builder, kText, sizeof kText - 1,
+    CHECK(maniBuildGraphJson(s_builder, text, length,
                              &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, NULL, NULL,
-                                                     2, 1, 0, 0, NULL})
+                                                     clipCount, 1, 0, 0, NULL})
                       .result == mani_success &&
               maniCopyBuilt(s_builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &s_graph).result == mani_success,
           "the graph");
-    const maniClip* clips[2] = {&s_clips[0], &s_clips[1]};
+    const maniClip* clips[3] = {&s_clips[0], &s_clips[1], &s_clips[2]};
     const maniMotionDatabase* databases[1] = {&s_database};
     maniGraphBinding* binding = NULL;
     CHECK(maniBindGraph(&s_graph,
-                        &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, 2, 1, 0, 0,
-                                           NULL, NULL, 0, 0, NULL},
+                        &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, clipCount, 1,
+                                           0, 0, NULL, NULL, 0, 0, NULL},
                         s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &s_instance) == mani_success,
@@ -82,6 +96,11 @@ static void Open(void)
     CHECK(maniGraphScratchSize(binding) <= sizeof s_scratch &&
               maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success,
           "a pose");
+    for (uint32_t n = 0; n < places; ++n)
+    {
+        uint32_t place = maniGraphNodeSourcePlace(&s_graph, n);
+        s_at[place < kPlaces ? place : 0] = n;
+    }
 }
 
 // Each node's kind, inputs and place in the source.
@@ -221,12 +240,29 @@ static void TestRefusals(void)
           "refused");
 }
 
+// A mask's inputs take the largest of its weights and of one minus them,
+// an additive layer its weight times the node's; a node on two paths sums.
+static void TestShares(void)
+{
+    Load(kMasked, sizeof kMasked - 1, 3, 5);
+    Update(0.1f);
+    CHECK(Is(0, 1.0f, NONE, NONE, 0.0f) && Is(1, 1.0f, NONE, NONE, 0.0f) &&
+              Is(2, 0.75f, NONE, NONE, 0.0f) && Is(3, 1.0f, NONE, NONE, 0.0f) &&
+              Is(4, 0.6f, NONE, NONE, 0.0f),
+          "a mask's two sides and an additive layer");
+    Load(kTwice, sizeof kTwice - 1, 1, 2);
+    Update(0.1f);
+    CHECK(Is(1, 1.75f, NONE, NONE, 0.0f), "both sides of a mask summed");
+}
+
 int main(void)
 {
-    Open();
+    SetupGraphAssets();
+    Load(kText, sizeof kText - 1, 2, kPlaces);
     TestStructure();
     TestViews();
     TestRefusals();
+    TestShares();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

@@ -26,7 +26,11 @@ hit-test bones, a distant crowd's level of detail.
 - **Inspection:** `maniInspectGraphNode` fills a `maniGraphNodeView`
   from the state the update already keeps, adding nothing to the
   update: the kind; the node's share of the output after the last
-  update (0 when not reached and before the first update); a clip's or
+  update (0 when not reached and before the first update; under a mask
+  the largest of the mask's weights over the bones, or of one minus
+  them for its second input; an additive layer its layer's weight times
+  the node's; the shares of several paths summed, so it may pass 1),
+  read between updates; a clip's or
   matching node's playhead; a select's chosen input, a machine's
   current state (during a transition the state it leads to; the states
   it fades out keep their shares as nodes), a one-shot's phase or a
