@@ -10,6 +10,10 @@ format.
 
 ### Added
 
+- A guide (`docs/guide.md`) through the library in the order a program
+  uses it, each of its C snippets built and run by the tests, and the
+  release steps of the library's own (`docs/releasing.md`).
+
 - Two-bone inverse kinematics (mani-0029): `maniSolveTwoBone` bends a
   chain of three bones of a pose to reach a model-space goal, its bend
   toward a pole that never flips near the goal line, with an optional

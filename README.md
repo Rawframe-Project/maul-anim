@@ -44,8 +44,17 @@ bytes, and instances live in the caller's memory.
 
 ## Status
 
-Not released. The design is decided; the library is built in slices.
-This skeleton has 321 public functions.
+Not released yet: every part of the scope is built and tested, and the
+first release, 0.1.0, is being prepared. Before 1.0.0 any minor
+release may change the API, the ABI and the file formats. This skeleton
+has 321 public functions.
+
+## Using it
+
+[The guide](docs/guide.md) walks through the library in the order a
+program uses it, every snippet run by the tests; [the API
+reference](docs/api.md) describes every function. Releases follow
+[the release steps](docs/releasing.md).
 
 ## Building
 
