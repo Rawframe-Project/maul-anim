@@ -193,7 +193,7 @@ jobs:
   # graph files and their JSON form, learned models and training
   # checkpoints, the JSON reader and the glTF and FBX
   # documents from their tests' sample files (with the fixtures of
-  # test/data/gltf and test/data/fbx).
+  # test/data/gltf and test/data/fbx), and glTF's meshopt streams.
   fuzz:
     name: fuzz
     runs-on: ubuntu-24.04
@@ -265,6 +265,11 @@ jobs:
           build/test_gltf_spring_extensions --seed corpus-fuzz_gltf/springs.gltf
           build/test_gltf_ragdoll --seed corpus-fuzz_gltf/ragdoll.gltf
           cp test/data/gltf/*.glb test/data/gltf/*.gltf corpus-fuzz_gltf/
+          mkdir -p corpus-fuzz_meshopt
+          build/test_gltf_meshopt --seed corpus-fuzz_meshopt/attributes-v0.bin \
+            corpus-fuzz_meshopt/attributes-v1.bin corpus-fuzz_meshopt/triangles16.bin \
+            corpus-fuzz_meshopt/indices16.bin corpus-fuzz_meshopt/triangles32.bin \
+            corpus-fuzz_meshopt/indices32.bin
           mkdir -p corpus-fuzz_fbx
           build/test_fbx --seed corpus-fuzz_fbx/sample.fbx
           cp test/data/fbx/*.fbx corpus-fuzz_fbx/

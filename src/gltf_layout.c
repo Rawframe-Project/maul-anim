@@ -10,6 +10,7 @@
 
 #include "allocator.h"
 #include "bytes.h"
+#include "gltf_compression.h"
 #include "gltf_document.h"
 #include "gltf_property.h"
 #include "json.h"
@@ -56,8 +57,10 @@ static maniImportResult ReadView(maniGltf* gltf, uint32_t value, uint32_t i)
         at = maniJsonFind(g->json, value, "byteLength", 10);
         return maniImportFail(maniImportReasonLayout, maniGltfOffset(g, at), i);
     }
-    *v = (maniGltfView){v->buffer, (uint32_t)stride, (uint64_t)offset, (uint64_t)length};
-    return maniImportSuccess();
+    v->stride = (uint32_t)stride;
+    v->offset = (uint64_t)offset;
+    v->length = (uint64_t)length;
+    return maniGltfReadCompression(gltf, value, i);
 }
 
 // A type's rows and columns: SCALAR, VEC2 to VEC4, MAT2 to MAT4.
@@ -271,6 +274,10 @@ maniImportResult maniGltfReadLayout(maniGltf* gltf)
     {
         return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
     }
+    if (count > 0)
+    {
+        memset(gltf->views, 0, (size_t)count * sizeof(maniGltfView));
+    }
     gltf->viewCount = count;
     uint32_t value = array + 1;
     for (uint32_t i = 0; i < count; ++i)
@@ -367,21 +374,22 @@ static maniImportResult ReadElement(const maniGltfAccessor* a, const uint8_t* p,
     return maniImportSuccess();
 }
 
-// A view's bytes, or a Pending refusal (at the accessor) for an external
-// buffer not given.
+// A view's bytes (a compressed view's decoded), or a Pending refusal (at
+// the accessor) for an external buffer not given.
 static maniImportResult ViewBytes(const maniGltf* gltf, uint32_t view, uint32_t item,
                                   const uint8_t** bytesOut, uint64_t* atOut)
 {
     const maniGltfView* v = &gltf->views[view];
     const maniGltfBuffer* b = &gltf->buffers[v->buffer];
+    const uint8_t* data = v->source != MANI_JSON_NONE ? v->decoded : b->data;
     *bytesOut = NULL;
     *atOut = 0;
-    if (b->data == NULL)
+    if (data == NULL)
     {
         uint64_t at = maniGltfOffset(&gltf->g, gltf->accessors[item].value);
         return maniImportFail(maniImportReasonPending, at, item);
     }
-    *bytesOut = b->data + v->offset;
+    *bytesOut = v->source != MANI_JSON_NONE ? data : data + v->offset;
     *atOut = v->offset;
     return maniImportSuccess();
 }

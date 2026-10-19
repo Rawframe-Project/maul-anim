@@ -5,11 +5,12 @@
 // first buffer without a URI; `data:` URIs (RFC 2397, base64 by RFC 4648
 // or percent-encoded) decoded into the document, their media type one
 // of the two the specification allows; any other URI, or none, left for
-// the host to supply.
+// the host to supply; a meshopt fallback buffer never read.
 
 #include "gltf_buffer.h"
 
 #include "allocator.h"
+#include "gltf_compression.h"
 #include "gltf_document.h"
 #include "gltf_property.h"
 #include "json.h"
@@ -200,11 +201,15 @@ static maniImportResult ReadBuffer(maniGltf* gltf, uint32_t value, uint32_t i, u
     {
         r = maniGltfMember(g, value, "uri", maniJsonString, false, i, &uri);
     }
-    if (r.result != mani_success)
+    if (r.result == mani_success)
+    {
+        r = maniGltfReadFallback(gltf, value, i);
+    }
+    b->byteLength = (uint64_t)byteLength;
+    if (r.result != mani_success || b->fallback != 0)
     {
         return r;
     }
-    b->byteLength = (uint64_t)byteLength;
     if (uri == MANI_JSON_NONE)
     {
         if (i == 0 && gltf->bin != NULL)

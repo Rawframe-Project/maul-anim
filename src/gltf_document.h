@@ -34,6 +34,8 @@ typedef struct maniGltfBuffer
     char* uri;
     uint32_t uriLength;
     bool external;
+    // Marked a meshopt fallback: 0, or 1 for EXT and 2 for KHR; never read.
+    uint8_t fallback;
 } maniGltfBuffer;
 
 typedef struct maniGltfView
@@ -42,6 +44,19 @@ typedef struct maniGltfView
     uint32_t stride;
     uint64_t offset;
     uint64_t length;
+    // A meshopt stream (gltf_compression.h): its buffer (MANI_JSON_NONE
+    // for none), range, element count and stride, mode, filter, and
+    // whether KHR's; the decoded bytes, owned, length of them, NULL until
+    // the stream's buffer arrives.
+    uint32_t source;
+    uint32_t count;
+    uint64_t sourceOffset;
+    uint64_t sourceLength;
+    uint8_t* decoded;
+    uint16_t elementStride;
+    uint8_t mode;
+    uint8_t filter;
+    bool khr;
 } maniGltfView;
 
 // glTF's component types, in the order of their codes 5120 to 5126.

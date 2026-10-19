@@ -15,8 +15,19 @@ Each is dedicated to the public domain under CC0 1.0,
 | `SimpleSkinEmbedded.gltf` | SimpleSkin, glTF-Embedded (`SimpleSkin.gltf` there) | Marco Hutter |
 | `SimpleSkin/` | SimpleSkin, glTF | Marco Hutter |
 
-`tools/gen_gltf_expect.py` reads them to write the values
-`test/test_gltf_fixtures.c` checks.
+Three are those models compressed by gltfpack (meshoptimizer, MIT,
+commit `f0a684f1`), with `EXT_meshopt_compression` or
+`KHR_meshopt_compression`; they stay under CC0:
+
+| File | Made by |
+| --- | --- |
+| `InterpolationTest-meshopt.glb` and `InterpolationTest-meshopt.fallback.bin` | `gltfpack -i InterpolationTest.glb -o InterpolationTest-meshopt.glb -noq -cf -kn` |
+| `InterpolationTest-khr.glb` | `gltfpack -i InterpolationTest.glb -o InterpolationTest-khr.glb -cc -ce khr -kn` |
+| `SimpleSkin-khr.glb` | `gltfpack -i SimpleSkinEmbedded.gltf -o SimpleSkin-khr.glb -cc -ce khr -kn` |
+
+`tools/gen_gltf_expect.py` reads them (a compressed file from its
+uncompressed fallback) to write the values `test/test_gltf_fixtures.c`
+checks; `test/test_gltf_compression.c` reads the compressed ones.
 
 SHA-256 of each file:
 
@@ -30,4 +41,8 @@ ff21b1bc3d0abbe53f7665060ec6c22d873b6e85a7669171a2b6b8ae01c39347  SimpleSkin/Sim
 8d92e9888340eb98e82a65a1f8b037d9a1d9f09e5fd0b6ba6d40fd93700b3239  SimpleSkin/SimpleSkin.gltf
 5844ab221cd2ad367420a248f6387b46e5f8498604427730a37ee96b4d4ec599  SimpleSkin/SimpleSkin_inverseBindMatrices.bin
 413bc8a8c0da673df767874e6f05f0b00c9261756a08586b9d555bd5535414b5  SimpleSkin/SimpleSkin_skinningData.bin
+24d0ee909172ef3bbed568a63f5d6f8980636b2d530bc3c9ef2bc56077dbb86c  InterpolationTest-meshopt.glb
+180d834e1c4bc2763d069bb7e1b974b7918140ba99984840676cf95aeaf9688a  InterpolationTest-meshopt.fallback.bin
+ed5a9b5a3864b04ddf67f1277527b13d31023369be537983239606bed101f25b  InterpolationTest-khr.glb
+082d3e17aee50dd8a42b7e97bc372b2d722a7d50237c7124d611a2f467ee6672  SimpleSkin-khr.glb
 ```

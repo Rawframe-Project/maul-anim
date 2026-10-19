@@ -153,7 +153,12 @@ extern "C"
     /// magic), checking the container, the asset version, required
     /// extensions, buffers, buffer views and accessors. `data:` buffers
     /// are decoded into the document; external buffers wait for
-    /// maniGltfSupplyBuffer.
+    /// maniGltfSupplyBuffer. Buffer views compressed by
+    /// `EXT_meshopt_compression` or `KHR_meshopt_compression` are
+    /// decoded into the document once their streams' buffers are present
+    /// (here for GLB and `data:` ones); a refused stream gives
+    /// maniImportReasonData at its offset in its buffer, the view as the
+    /// item.
     ///
     /// @param builder  A builder; the document uses its allocator and
     ///                 must be closed before the builder is destroyed.
@@ -187,7 +192,9 @@ extern "C"
     /// Returns an external buffer's URI, as the JSON gives it after its
     /// escapes (a URI reference relative to the document; percent
     /// escapes are left to the host, which resolves it), or NULL for a
-    /// buffer the document holds (GLB or `data:`) or past the count.
+    /// buffer the document holds (GLB or `data:`), one it never reads (a
+    /// meshopt fallback, or a buffer without a URI that only compressed
+    /// views use) or past the count.
     ///
     /// @param gltf       The document.
     /// @param buffer     The buffer.
@@ -201,7 +208,9 @@ extern "C"
 
     /// Supplies an external buffer's bytes, which the caller keeps alive
     /// and unchanged while the document is open. They must hold the
-    /// buffer's `byteLength`; bytes past it are ignored.
+    /// buffer's `byteLength`; bytes past it are ignored. Meshopt streams
+    /// in them are decoded into the document; when one is refused the
+    /// buffer is left unsupplied.
     ///
     /// @param gltf    The document.
     /// @param buffer  An external buffer.
@@ -209,7 +218,9 @@ extern "C"
     /// @param size    Their size.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// a buffer that is not external; `mani_errorFormat` with
-    /// maniImportReasonBuffer for too few bytes.
+    /// maniImportReasonBuffer for too few bytes, or maniImportReasonData
+    /// for a refused stream; `mani_errorCapacity` when the allocator
+    /// fails.
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer,

@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "gltf_animation.h"
 #include "gltf_buffer.h"
+#include "gltf_compression.h"
 #include "gltf_document.h"
 #include "gltf_layout.h"
 #include "gltf_names.h"
@@ -32,6 +33,8 @@ static const char* const kKnownExtensions[] = {
     "KHR_animation_pointer",
     "KHR_mesh_quantization",
     "KHR_draco_mesh_compression",
+    "EXT_meshopt_compression",
+    "KHR_meshopt_compression",
     "KHR_texture_basisu",
     "KHR_texture_transform",
     "EXT_texture_webp",
@@ -236,6 +239,10 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
     }
     if (r.result == mani_success)
     {
+        r = maniGltfFinishCompression(gltf);
+    }
+    if (r.result == mani_success)
+    {
         r = maniGltfReadNodes(gltf);
     }
     if (r.result == mani_success)
@@ -301,6 +308,7 @@ void maniCloseGltf(maniGltf* gltf)
     maniGltfReleaseNames(gltf);
     maniGltfReleaseNodes(gltf);
     maniGltfReleaseBuffers(gltf);
+    maniGltfReleaseDecoded(gltf);
     maniRelease(&allocator, gltf->views, gltf->viewCount, sizeof(maniGltfView), 8);
     maniRelease(&allocator, gltf->accessors, gltf->accessorCount, sizeof(maniGltfAccessor), 8);
     maniReleaseJson(&allocator, &gltf->json);
@@ -339,7 +347,12 @@ maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const voi
         return maniImportFail(maniImportReasonBuffer, size, buffer);
     }
     gltf->buffers[buffer].data = bytes;
-    return maniImportSuccess();
+    maniImportResult r = maniGltfDecodeBuffer(gltf, buffer);
+    if (r.result != mani_success)
+    {
+        gltf->buffers[buffer].data = NULL;
+    }
+    return r;
 }
 
 uint32_t maniGltfSkeletonCount(const maniGltf* gltf)

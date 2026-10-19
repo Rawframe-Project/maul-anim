@@ -164,8 +164,8 @@ static void TestVersionsAndExtensions(void)
     ExpectRefusal(maniImportReasonJson, "x", maniJsonReasonSyntax, "the JSON's reason");
     snprintf(s_json, sizeof s_json,
              "{\"asset\":{\"version\":\"2.0\"},\"extensionsRequired\":"
-             "[\"KHR_mesh_quantization\",\"EXT_meshopt_compression\"]}");
-    ExpectRefusal(maniImportReasonExtension, "EXT_meshopt", 1, "an unread extension");
+             "[\"KHR_mesh_quantization\",\"EXT_unread_example\"]}");
+    ExpectRefusal(maniImportReasonExtension, "EXT_unread", 1, "an unread extension");
     snprintf(
         s_json, sizeof s_json,
         "{\"asset\":{\"version\":\"2.0\"},\"extensionsRequired\":[\"KHR_mesh_quantization\"]}");

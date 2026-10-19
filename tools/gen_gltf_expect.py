@@ -7,7 +7,9 @@
 # channel as glTF's Appendix C defines it, in binary64, at the sample
 # times the clip builder uses (rate 30, the duration the animation's last
 # key), and writes the values for test_gltf_fixtures.c. Independent of
-# the library: no code is shared.
+# the library: no code is shared. A file gltfpack compressed with meshopt
+# is read from its uncompressed fallback buffer, which the library never
+# reads, so its tracks check the library's decoding.
 #
 # usage: gen_gltf_expect.py > test/gltf_fixture_expect.h
 #        gen_gltf_expect.py --check   (the header matches)
@@ -22,7 +24,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "test", "data", "gltf")
 FILES = ["InterpolationTest.glb", "AnimatedMorphCube.glb", "SimpleMorph.gltf",
-         "SimpleSkinEmbedded.gltf"]
+         "SimpleSkinEmbedded.gltf", "InterpolationTest-meshopt.glb"]
 RATE = 30.0
 KINDS = {"translation": 0, "rotation": 1, "scale": 2, "weights": 3}
 
@@ -34,28 +36,47 @@ def f32(x):
 def load(name):
     path = os.path.join(DATA, name)
     raw = open(path, "rb").read()
+    binary = None
     if name.endswith(".glb"):
         length = struct.unpack_from("<I", raw, 12)[0]
         doc = json.loads(raw[20:20 + length])
         bin_length = struct.unpack_from("<I", raw, 20 + length)[0]
-        return doc, [raw[28 + length:28 + length + bin_length]]
-    doc = json.loads(raw)
+        binary = raw[28 + length:28 + length + bin_length]
+    else:
+        doc = json.loads(raw)
     buffers = []
-    for b in doc.get("buffers", []):
-        uri = b["uri"]
-        buffers.append(base64.b64decode(uri.split(",", 1)[1]) if uri.startswith("data:")
-                       else open(os.path.join(os.path.dirname(path), uri), "rb").read())
+    for i, b in enumerate(doc.get("buffers", [])):
+        uri = b.get("uri")
+        if uri is None:
+            assert i == 0 and binary is not None, "only a GLB's first buffer has no URI"
+            buffers.append(binary)
+        elif uri.startswith("data:"):
+            buffers.append(base64.b64decode(uri.split(",", 1)[1]))
+        else:
+            buffers.append(open(os.path.join(os.path.dirname(path), uri), "rb").read())
     return doc, buffers
+
+
+# Component types: struct format, size, and the divisor of a normalized
+# integer (glTF's table: max(c / d, -1) for signed types).
+COMPONENTS = {5120: ("b", 1, 127.0), 5121: ("B", 1, 255.0), 5122: ("h", 2, 32767.0),
+              5123: ("H", 2, 65535.0), 5126: ("f", 4, None)}
 
 
 def accessor(doc, buffers, index):
     a = doc["accessors"][index]
     view = doc["bufferViews"][a["bufferView"]]
     width = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[a["type"]]
-    assert a["componentType"] == 5126, "the fixtures hold floats"
+    form, size, divisor = COMPONENTS[a["componentType"]]
+    assert divisor is None or a.get("normalized", False), "floats or normalized integers"
+    stride = view.get("byteStride", size * width)
     offset = view.get("byteOffset", 0) + a.get("byteOffset", 0)
-    values = struct.unpack_from("<%df" % (a["count"] * width), buffers[view["buffer"]], offset)
-    return [list(values[k * width:(k + 1) * width]) for k in range(a["count"])]
+    rows = []
+    for k in range(a["count"]):
+        row = list(struct.unpack_from("<%d%s" % (width, form), buffers[view["buffer"]],
+                                      offset + k * stride))
+        rows.append(row if divisor is None else [max(c / divisor, -1.0) for c in row])
+    return rows
 
 
 def normalize(q):
