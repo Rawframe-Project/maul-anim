@@ -171,14 +171,13 @@ static maniFileResult Header(const Sections* s, maniRetargetMap* m)
     {
         return r;
     }
-    for (uint32_t w = 0; w < 2; ++w)
+    float ratio = LoadF32(h + maniRetargetHeaderRatio);
+    bool none = maniLoadU32(h + maniRetargetHeaderPelvisTarget) == MANI_NO_BONE;
+    if (!(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f))
     {
-        if (maniLoadU32(h + maniRetargetHeaderEnd + 4 * w) != 0)
-        {
-            return Fail(at + maniRetargetHeaderEnd + 4 * w);
-        }
+        return Fail(at + maniRetargetHeaderRatio);
     }
-    return kOk;
+    return maniLoadU32(h + maniRetargetHeaderEnd) == 0 ? kOk : Fail(at + maniRetargetHeaderEnd);
 }
 
 // The references: a rotation (or two) of length 1, the rest finite.

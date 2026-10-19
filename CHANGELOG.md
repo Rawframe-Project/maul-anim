@@ -45,6 +45,12 @@ format.
   (interpolated, one to one, reversed), the pelvis scaled by the
   reference heights, names and a reference pose per side, planned per
   target bone; `maniOpenRetargetMap` opens it in place.
+- Pose retargeting (mani-0032): `maniRetargetPose` makes a target pose
+  from a source pose through a map, each mapped bone's model turn from
+  its reference the source's (slerped along chains, weighted), the
+  target's own lengths kept, translations scaled or carried through the
+  parents' reference frames, the pelvis scaled by parts;
+  `maniRetargetRootMotion` scales root motion the same way.
 - Full-body IK by SDLS 2.4 to 9 times fewer instructions an iteration
   (mani-0031): its decomposition keeps each column's length and skips
   the zero rotation rows, with the same bits.

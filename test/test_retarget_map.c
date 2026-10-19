@@ -179,7 +179,8 @@ static void TestPlan(void)
               LoadF32(h + maniRetargetHeaderAbsolute + 4) == 1.0f &&
               LoadF32(h + maniRetargetHeaderToSource) == 0.25f &&
               LoadF32(h + maniRetargetHeaderSourcePelvis + 4) == 1.0f &&
-              LoadF32(h + maniRetargetHeaderTargetPelvis + 4) == 0.9f,
+              LoadF32(h + maniRetargetHeaderTargetPelvis + 4) == 0.9f &&
+              fabsf(LoadF32(h + maniRetargetHeaderRatio) - 0.9f) <= 1e-6f,
           "the pelvis: heights 1 and 0.9, the scales their ratio times the factors");
     // A pair on the head: the name leaves it.
     const maniRetargetPairSource head = {9, 4, 1.0f, maniRetargetTranslationOwn, false};
@@ -440,8 +441,10 @@ static void TestFile(void)
     CHECK(WordRefused(h + maniRetargetHeaderTargetPelvis + 4, Bits(INFINITY),
                       h + maniRetargetHeaderTargetPelvis + 4),
           "a pelvis position not finite");
-    CHECK(WordRefused(h + maniRetargetHeaderEnd + 4, 1, h + maniRetargetHeaderEnd + 4),
-          "a reserved word");
+    CHECK(WordRefused(h + maniRetargetHeaderEnd, 1, h + maniRetargetHeaderEnd), "a reserved word");
+    CHECK(WordRefused(h + maniRetargetHeaderRatio, Bits(0.0f), h + maniRetargetHeaderRatio) &&
+              WordRefused(h + maniRetargetHeaderRatio, Bits(INFINITY), h + maniRetargetHeaderRatio),
+          "a height ratio not positive and finite");
     CHECK(WordRefused(sb + MANI_RETARGET_SOURCE_SIZE * 3 + 12, Bits(0.5f),
                       sb + MANI_RETARGET_SOURCE_SIZE * 3) &&
               WordRefused(tb + MANI_RETARGET_TARGET_SIZE * 2 + 20, Bits(NAN),
@@ -491,7 +494,8 @@ static void TestFile(void)
                       h + maniRetargetHeaderHorizontal) &&
               WordRefused(h + maniRetargetHeaderUp + 4, Bits(-1.0f), h + maniRetargetHeaderUp) &&
               WordRefused(h + maniRetargetHeaderSourcePelvis, Bits(0.5f),
-                          h + maniRetargetHeaderSourcePelvis),
+                          h + maniRetargetHeaderSourcePelvis) &&
+              WordRefused(h + maniRetargetHeaderRatio, Bits(0.5f), h + maniRetargetHeaderRatio),
           "no pelvis: scales 1, the axis +y, the rest 0");
 }
 

@@ -1237,6 +1237,21 @@ uint64_t maniRetargetMapTargetIdentity(const maniRetargetMap* map);
 ```
 Returns the identity of the skeleton a map makes poses for.  @param map  An opened map, or NULL. @return The target skeleton's identity; 0 for NULL. @par Thread safety Safe from any thread.
 
+```c
+size_t maniRetargetScratchSize(const maniRetargetMap* map);
+```
+Returns the scratch maniRetargetPose takes with a map: a rotation for every bone of both skeletons and a model matrix for every target bone.  @param map  An opened map, or NULL. @return The bytes; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniRetargetPose( const maniRetargetMap* map, const maniSkeleton* source, const maniPose* sourcePose, const maniSkeleton* target, maniPose* targetPose, void* scratch, size_t scratchSize);
+```
+Makes a pose of the target from a pose of the source through a map. Each bone's model rotation is the product of its root path's local rotations. A mapped target bone's model rotation is the source bone's times the inverse of the source's reference model rotation (two source bones' such turns slerped at the bone's place), slerped from no turn by its weight, times the target's reference model rotation; its local rotation is taken against its parent's as just made. An unmapped bone keeps its reference local. Translations are the target reference's, or the source's change from its reference (scaled by the pelvis height ratio) or the source's own, turned from the source parent's reference model frame to the target parent's; a bone whose scale carries takes its reference's times the source's over the source reference's, per axis. The pelvis's model position is the target reference's plus the source pelvis's change from its reference, its horizontal and vertical parts scaled by the map's scales, blended per model axis toward the unscaled change and then toward the source pelvis's position, weighted from the reference. Writes every local of the target pose and leaves its model stale.  @param map          An opened map. @param source       The map's source skeleton. @param sourcePose   A pose of the source (not a difference). @param target       The map's target skeleton. @param targetPose   A pose of the target; its locals are written. @param scratch      Scratch memory, 16-byte aligned. @param scratchSize  Its size: at least maniRetargetScratchSize. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a skeleton whose identity is not the map's, a pose of another skeleton, a source pose of differences, misaligned or too little scratch. @par Thread safety Safe from any thread; the target pose and the scratch are used by one thread at a time.
+
+```c
+maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta);
+```
+Scales a root motion delta (model space) of the source for the target: its part along the map's up axis by the vertical scale, the rest by the horizontal scale (both 1 without a pelvis).  @param map    An opened map, or NULL (the delta unchanged). @param delta  The source's root motion translation. @return The target's. @par Thread safety Safe from any thread.
+
 ## `retargetbuild.h`
 
 Building retargeting maps (mani-0032): bone pairs, chains of any lengths on each side, the pelvis and a reference pose per skeleton, checked against both skeletons and laid out as each target bone's plan, so the transfer at runtime only composes rotations. Offline.
@@ -1522,4 +1537,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-284 functions across 25 headers.
+287 functions across 25 headers.

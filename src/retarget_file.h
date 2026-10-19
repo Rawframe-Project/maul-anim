@@ -40,8 +40,9 @@ enum
 // both without one); binary32: the up axis (3), the horizontal and
 // vertical scales (the height ratio times the factors), the absolute
 // blends (3), the source blends (3), the translation weight, the source
-// and target reference pelvis positions (3 each); two 0 words. Without a
-// pelvis the axis is +y, the scales 1 and every other number 0.
+// and target reference pelvis positions (3 each), the height ratio; a 0
+// word. Without a pelvis the axis is +y, the scales and the ratio 1 and
+// every other number 0.
 enum
 {
     maniRetargetHeaderSourceIdentity = 0,
@@ -58,7 +59,8 @@ enum
     maniRetargetHeaderTranslationWeight = 76,
     maniRetargetHeaderSourcePelvis = 80,
     maniRetargetHeaderTargetPelvis = 92,
-    maniRetargetHeaderEnd = 104,
+    maniRetargetHeaderRatio = 104,
+    maniRetargetHeaderEnd = 108,
 };
 
 // A target bone's plan: u32 its kind; u32 source bones a and b; binary32

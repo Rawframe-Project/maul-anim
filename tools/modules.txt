@@ -74,6 +74,7 @@ ragdoll_getup: vecmath
 ragdoll_build: allocator builder bytes container decompose ragdoll_file text vecmath
 retarget_file:
 retarget: bytes container retarget_file
+retarget_pose: bytes pose_memory retarget_file vecmath
 retarget_build: allocator builder bytes container ik_chain retarget_file vecmath
 train_random: elementary_float
 train_net: elementary_float train_random

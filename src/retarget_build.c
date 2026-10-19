@@ -355,6 +355,7 @@ static void LayHeader(const maniRetargetMapSource* s, const Work* w, uint8_t* h)
                        : maniVec3Make(0.0f, 1.0f, 0.0f));
     StoreF32(h + maniRetargetHeaderHorizontal, p != NULL ? w->ratio * p->horizontal : 1.0f);
     StoreF32(h + maniRetargetHeaderVertical, p != NULL ? w->ratio * p->vertical : 1.0f);
+    StoreF32(h + maniRetargetHeaderRatio, w->ratio);
     if (p != NULL)
     {
         StoreVec(h + maniRetargetHeaderAbsolute, p->absolute);
