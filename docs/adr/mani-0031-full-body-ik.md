@@ -98,6 +98,24 @@ move by the last step's progress.
   a stop on distance alone never ran an iteration. A bone whose turn
   relative to its parent is exactly none keeps its bits, so a solve on
   its own reached result changes nothing.
+- **Graph nodes:** XPBD (22) and SDLS (23), one input each, a pose
+  (differences refused at build and on open). Each effector's position
+  goal is a vec3 parameter and its rotation goal a quat parameter or
+  none, its weights numbers or float parameters clamped to [0, 1] when
+  evaluated (an effector without a rotation keeps its rotation weight
+  the number 0, so it has one form in a file); the top, mode, stretch,
+  iterations, tolerance, strengths, pull chains and settings are fixed
+  in the node, the node's weight a number or a float parameter. The
+  build checks the whole description as the solve would on the
+  skeleton, with the goals in place; opening, which has no parents,
+  checks every word in range (a setting's limit as a chain node's) and
+  a crafted file whose bones make no part passes its input. The node
+  lays its effectors, its settings and the solve's scratch in the
+  instance's room from a 16-byte boundary; the room is sized at
+  instancing from the part the top and the effectors' bones make, so
+  evaluation allocates nothing. The JSON form names bones and
+  parameters by name, the mode as "pinned", "free" or "prePull", and
+  settings' limits as a chain node's.
 
 ## Consequences
 
@@ -157,3 +175,15 @@ at 3, 2.4e-3 at 4), and running the joints from the tips up a little
 from the tips up). Strength and stiffness set the pose
 the passes converge to; short of it the result changes with the
 count, so a caller who raises the count gets a pose nearer the goals.
+
+The nodes' tests over the hips, spine and arm: each node's output its
+input solved by its solver bit for bit, with two effectors (one with a
+rotation weighted by a parameter, one without a rotation), a setting
+with a cone and stiffness, a free top, a goal moved, weights clamped
+from 4 and -1; both inside a subgraph reading the outer goal and
+weight; the JSON form read back to the same file, a rotation weight
+without a rotation, an unknown mode and settings not a list refused;
+every build refusal with its reason (a scalar's at its place) and
+every file refusal at its word, counts that do not match the node's
+words refused there; a crafted top above no effector and an effector's
+bone twice passing the input, a crafted free top still solving.

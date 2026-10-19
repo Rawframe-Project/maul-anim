@@ -90,6 +90,8 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeAim:
     case maniGraphNodeCcd:
     case maniGraphNodeFabrik:
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
         *minOut = 1;
         return 1;
     case maniGraphNodeBlendSpace1D:

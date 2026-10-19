@@ -226,9 +226,55 @@ enum
     maniGraphChainLimitCount = 12,
 };
 
+// A full-body IK node's data words: its top bone and mode, stretch (0
+// or 1, 0 for SDLS), iteration count and tolerance (binary32), its
+// weight as a scalar, its effector and setting counts; then each
+// effector's MANI_GRAPH_EFFECTOR_WORDS: its bone, position (a vec3
+// parameter) and rotation (a quat parameter or MANI_NO_PARAMETER)
+// parameters, its position and rotation weights as scalars (the
+// rotation weight the number 0 without a rotation), its strength and
+// pull chain (binary32); then each setting's MANI_GRAPH_SETTING_WORDS:
+// its bone, its limit's MANI_GRAPH_LIMIT_WORDS as a chain node's, its
+// preferred angles (three binary32) and its rotation and position
+// stiffness (binary32).
+#define MANI_GRAPH_BODY_WORDS     9u
+#define MANI_GRAPH_EFFECTOR_WORDS 9u
+#define MANI_GRAPH_SETTING_WORDS  15u
+enum
+{
+    maniGraphBodyTop = 0,
+    maniGraphBodyMode = 1,
+    maniGraphBodyStretch = 2,
+    maniGraphBodyIterations = 3,
+    maniGraphBodyTolerance = 4,
+    maniGraphBodyWeight = 5,
+    maniGraphBodyEffectorCount = 7,
+    maniGraphBodySettingCount = 8,
+};
+// An effector's words, from its first.
+enum
+{
+    maniGraphEffectorBone = 0,
+    maniGraphEffectorPosition = 1,
+    maniGraphEffectorRotation = 2,
+    maniGraphEffectorPositionWeight = 3,
+    maniGraphEffectorRotationWeight = 5,
+    maniGraphEffectorStrength = 7,
+    maniGraphEffectorPull = 8,
+};
+// A setting's words, from its first.
+enum
+{
+    maniGraphSettingBone = 0,
+    maniGraphSettingLimit = 1,
+    maniGraphSettingPreferred = 10,
+    maniGraphSettingRotationStiffness = 13,
+    maniGraphSettingPositionStiffness = 14,
+};
+
 // The data words a node of a kind with n inputs holds; 0 for an unknown
-// kind, a state machine, a one-shot and a chain IK node, whose words
-// their contents count.
+// kind, a state machine, a one-shot, a chain IK and a full-body IK node,
+// whose words their contents count.
 uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount);
 
 // The inputs a kind takes: at least minOut, at most the return (0 with

@@ -35,8 +35,7 @@ static float WordFloat(const maniGraph* g, uint32_t at)
     return value;
 }
 
-// A parameter of the type, or none when optional.
-static bool ParameterValid(const maniGraph* g, uint32_t at, uint32_t type, bool optional)
+bool maniGraphIkParameterValid(const maniGraph* g, uint32_t at, uint32_t type, bool optional)
 {
     uint32_t p = Word(g, at);
     if (p == MANI_NO_PARAMETER)
@@ -47,12 +46,12 @@ static bool ParameterValid(const maniGraph* g, uint32_t at, uint32_t type, bool 
            maniLoadU32(g->parameters + (size_t)p * MANI_GRAPH_PARAMETER_SIZE) == type;
 }
 
-// A float parameter with literal bits 0, or a literal in [0, 1].
-static bool WeightValid(const maniGraph* g, uint32_t at)
+bool maniGraphIkWeightValid(const maniGraph* g, uint32_t at)
 {
     if (Word(g, at) != MANI_NO_PARAMETER)
     {
-        return ParameterValid(g, at, maniGraphParameterFloat, false) && Word(g, at + 1) == 0;
+        return maniGraphIkParameterValid(g, at, maniGraphParameterFloat, false) &&
+               Word(g, at + 1) == 0;
     }
     float v = WordFloat(g, at + 1);
     return v >= 0.0f && v <= 1.0f;
@@ -71,9 +70,8 @@ uint32_t maniGraphChainDataWords(const maniGraph* g, uint32_t data, uint32_t ava
                : 0;
 }
 
-maniJointLimit maniGraphChainLimit(const maniGraph* g, uint32_t data, uint32_t k)
+maniJointLimit maniGraphLimitAt(const maniGraph* g, uint32_t at)
 {
-    uint32_t at = data + MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * k;
     return (maniJointLimit){Word(g, at),
                             0,
                             {WordFloat(g, at + 1), WordFloat(g, at + 2), WordFloat(g, at + 3)},
@@ -84,12 +82,14 @@ maniJointLimit maniGraphChainLimit(const maniGraph* g, uint32_t data, uint32_t k
                             WordFloat(g, at + 8)};
 }
 
-// The first of limit k's words wrong, or UINT32_MAX: its kind first, its
-// unused words 0.
-static uint32_t LimitValid(const maniGraph* g, uint32_t data, uint32_t k)
+maniJointLimit maniGraphChainLimit(const maniGraph* g, uint32_t data, uint32_t k)
 {
-    uint32_t at = data + MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * k;
-    maniJointLimit limit = maniGraphChainLimit(g, data, k);
+    return maniGraphLimitAt(g, data + MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * k);
+}
+
+uint32_t maniGraphLimitValid(const maniGraph* g, uint32_t at)
+{
+    maniJointLimit limit = maniGraphLimitAt(g, at);
     if (limit.kind > maniJointLimitHinge)
     {
         return at;
@@ -123,7 +123,7 @@ uint32_t maniGraphChainValid(const maniGraph* g, uint32_t data, bool fabrik)
     {
         bool none = k == 1 && !fabrik;
         bool ok = none ? Word(g, data + parameters[k]) == MANI_NO_PARAMETER
-                       : ParameterValid(g, data + parameters[k], types[k], k > 0);
+                       : maniGraphIkParameterValid(g, data + parameters[k], types[k], k > 0);
         if (!ok)
         {
             return data + parameters[k];
@@ -144,18 +144,19 @@ uint32_t maniGraphChainValid(const maniGraph* g, uint32_t data, bool fabrik)
     {
         return data + maniGraphChainStep;
     }
-    if (!WeightValid(g, data + maniGraphChainRotationWeight))
+    if (!maniGraphIkWeightValid(g, data + maniGraphChainRotationWeight))
     {
         return data + maniGraphChainRotationWeight;
     }
-    if (!WeightValid(g, data + maniGraphChainWeight))
+    if (!maniGraphIkWeightValid(g, data + maniGraphChainWeight))
     {
         return data + maniGraphChainWeight;
     }
     uint32_t limits = Word(g, data + maniGraphChainLimitCount);
     for (uint32_t k = 0; k < limits; ++k)
     {
-        uint32_t wrong = LimitValid(g, data, k);
+        uint32_t wrong =
+            maniGraphLimitValid(g, data + MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * k);
         if (wrong != UINT32_MAX)
         {
             return wrong;

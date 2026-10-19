@@ -6,6 +6,7 @@
 // pose per slot made once for the binding it last served.
 
 #include "bytes.h"
+#include "graph_body.h"
 #include "graph_chain.h"
 #include "graph_file.h"
 #include "graph_inertia_apply.h"
@@ -22,6 +23,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
+#include "maul-anim/bodyik.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/ik.h"
@@ -457,6 +459,26 @@ static maniVec3 Vector(const Evaluation* e, uint32_t parameter)
     return (maniVec3){f[0], f[1], f[2]};
 }
 
+// A quat parameter's value, or no turn for none.
+static maniQuat Rotation(const Evaluation* e, uint32_t parameter)
+{
+    if (parameter == MANI_NO_PARAMETER)
+    {
+        return (maniQuat){0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    const float* f = e->instance->cells[parameter].value.f;
+    return (maniQuat){f[0], f[1], f[2], f[3]};
+}
+
+// A binary32 data word.
+static float Number(const Evaluation* e, uint32_t at)
+{
+    uint32_t bits = Word(e, at);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
 // Three binary32 data words from at.
 static maniVec3 Axis(const Evaluation* e, uint32_t at)
 {
@@ -564,26 +586,15 @@ static void Chain(const Evaluation* e, const uint8_t* record, maniPose* out, boo
         limits[k] = maniGraphChainLimit(e->graph, d, k);
     }
     uint32_t rotation = Word(e, d + maniGraphChainRotation);
-    maniQuat wanted = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (rotation != MANI_NO_PARAMETER)
-    {
-        const float* f = e->instance->cells[rotation].value.f;
-        wanted = (maniQuat){f[0], f[1], f[2], f[3]};
-    }
-    float tolerance = 0.0f;
-    float step = 0.0f;
-    uint32_t bits[2] = {Word(e, d + maniGraphChainTolerance), Word(e, d + maniGraphChainStep)};
-    memcpy(&tolerance, &bits[0], sizeof tolerance);
-    memcpy(&step, &bits[1], sizeof step);
     maniChainSolve s = {.root = Word(e, d),
                         .end = Word(e, d + 1),
                         .limits = count > 0 ? limits : NULL,
                         .goal = Vector(e, Word(e, d + maniGraphChainGoal)),
                         .pole = Vector(e, Word(e, d + maniGraphChainPole)),
-                        .rotation = wanted,
+                        .rotation = Rotation(e, rotation),
                         .iterations = Word(e, d + maniGraphChainIterations),
-                        .tolerance = tolerance,
-                        .step = step,
+                        .tolerance = Number(e, d + maniGraphChainTolerance),
+                        .step = Number(e, d + maniGraphChainStep),
                         .rotationWeight =
                             rotation != MANI_NO_PARAMETER
                                 ? Clamped(e, d + maniGraphChainRotationWeight, 0.0f, 1.0f)
@@ -591,6 +602,64 @@ static void Chain(const Evaluation* e, const uint8_t* record, maniPose* out, boo
                         .weight = Clamped(e, d + maniGraphChainWeight, 0.0f, 1.0f)};
     (void)(fabrik ? maniSolveFabrik(out, skeleton, &s, NULL)
                   : maniSolveCcd(out, skeleton, &s, NULL));
+}
+
+// Effector k of the body node whose words begin at d, its goals and
+// weights the parameters' values now.
+static maniBodyEffector Effector(const Evaluation* e, uint32_t d, uint32_t k)
+{
+    uint32_t at = maniGraphBodyEffectorAt(d, k);
+    return (maniBodyEffector){
+        .bone = Word(e, at + maniGraphEffectorBone),
+        .position = Vector(e, Word(e, at + maniGraphEffectorPosition)),
+        .rotation = Rotation(e, Word(e, at + maniGraphEffectorRotation)),
+        .positionWeight = Clamped(e, at + maniGraphEffectorPositionWeight, 0.0f, 1.0f),
+        .rotationWeight = Clamped(e, at + maniGraphEffectorRotationWeight, 0.0f, 1.0f),
+        .strength = Number(e, at + maniGraphEffectorStrength),
+        .pullChain = Number(e, at + maniGraphEffectorPull)};
+}
+
+// A full-body node: its input with the body solved, its effectors,
+// settings and the solve's scratch laid in the instance's room from a
+// 16-byte boundary; the input when the solve refuses (a crafted file's
+// bones not a part the solve takes, a goal not finite).
+static void Body(const Evaluation* e, const uint8_t* record, maniPose* out, bool sdls)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    if (!IkInput(e, record, d + maniGraphBodyWeight, out))
+    {
+        return;
+    }
+    uint32_t count = Word(e, d + maniGraphBodyEffectorCount);
+    uint32_t settings = Word(e, d + maniGraphBodySettingCount);
+    uint8_t* room = (uint8_t*)e->instance + e->instance->roomAt;
+    size_t at = (16u - (uintptr_t)room % 16u) % 16u;
+    maniBodyEffector* effectors = (void*)(room + at);
+    at += maniGraphBodyRounded(count * sizeof(maniBodyEffector));
+    maniBodyBone* bones = (void*)(room + at);
+    at += maniGraphBodyRounded(settings * sizeof(maniBodyBone));
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        effectors[k] = Effector(e, d, k);
+    }
+    for (uint32_t k = 0; k < settings; ++k)
+    {
+        bones[k] = maniGraphBodySetting(e->graph, d, k);
+    }
+    const maniBodySolve s = {.top = Word(e, d + maniGraphBodyTop),
+                             .topMode = (maniBodyTopMode)Word(e, d + maniGraphBodyMode),
+                             .effectors = effectors,
+                             .bones = bones,
+                             .effectorCount = count,
+                             .boneCount = settings,
+                             .iterations = Word(e, d + maniGraphBodyIterations),
+                             .stretch = Word(e, d + maniGraphBodyStretch) != 0,
+                             .tolerance = Number(e, d + maniGraphBodyTolerance),
+                             .weight = Clamped(e, d + maniGraphBodyWeight, 0.0f, 1.0f)};
+    size_t left = e->instance->size - e->instance->roomAt - at;
+    const maniSkeleton* skeleton = e->binding->skeleton;
+    (void)(sdls ? maniSolveBodySdls(out, skeleton, &s, room + at, left, NULL)
+                : maniSolveBodyXpbd(out, skeleton, &s, room + at, left, NULL));
 }
 
 // A learned node's pose: its model's Decompressor at its state, worked
@@ -670,6 +739,10 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     case maniGraphNodeCcd:
     case maniGraphNodeFabrik:
         Chain(e, record, out, maniLoadU16(record) == maniGraphNodeFabrik);
+        return;
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
+        Body(e, record, out, maniLoadU16(record) == maniGraphNodeBodySdls);
         return;
     case maniGraphNodeMachine:
         Machine(e, record, out, difference);

@@ -8,6 +8,7 @@
 #include "graph_instance.h"
 
 #include "bytes.h"
+#include "graph_body.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_learned.h"
@@ -161,6 +162,10 @@ size_t maniGraphRoom(const maniGraphBinding* binding)
         {
             uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet));
             need = 4 * (size_t)maniGraphSpringWorkWords(maniGraphBoundSpringSet(binding, slot));
+        }
+        else if (maniLoadU16(e) == maniGraphNodeBodyXpbd || maniLoadU16(e) == maniGraphNodeBodySdls)
+        {
+            need = maniGraphBodyRoom(graph, data, binding->skeleton);
         }
         room = need > room ? need : room;
     }

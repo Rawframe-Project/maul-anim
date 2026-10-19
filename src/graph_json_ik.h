@@ -11,7 +11,9 @@
 #include "graph_json_read.h"
 #include "graph_json_write.h"
 
+#include "maul-anim/base.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/ik.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -48,5 +50,21 @@ bool maniGraphJsonChain(maniGraphReader* r, const maniGraphScope* scope, const u
 // limits when it has them, a CCD node's step, every other member always.
 void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
                            const maniGraphNodeSource* n);
+
+// A bone of the reader's skeleton by name.
+bool maniGraphJsonBone(maniGraphReader* r, uint32_t value, uint32_t* out);
+
+// [x, y, z] into v, v as it is when value is MANI_JSON_NONE.
+bool maniGraphJsonVector(maniGraphReader* r, uint32_t value, maniVec3* v);
+
+// A limit: {"kind": "none"}, {"kind": "cone", "cone": half angle,
+// "twist": [low, high]} (the twist free when left out) or {"kind":
+// "hinge", "axis": [x, y, z], "range": [low, high]}.
+bool maniGraphJsonLimit(maniGraphReader* r, uint32_t object, maniJointLimit* l);
+
+// A bone's name; ", key: [x, y, z]"; a limit's object.
+void maniGraphJsonPutBone(maniGraphWriter* w, uint32_t bone);
+void maniGraphJsonPutVector(maniGraphWriter* w, const char* key, maniVec3 v);
+void maniGraphJsonPutLimit(maniGraphWriter* w, const maniJointLimit* l);
 
 #endif // MAUL_ANIM_SRC_GRAPH_JSON_IK_H

@@ -12,6 +12,7 @@
 
 #include "arena.h"
 #include "builder.h"
+#include "graph_json_body.h"
 #include "graph_json_ik.h"
 #include "graph_json_machine.h"
 #include "graph_json_read.h"
@@ -659,6 +660,18 @@ static const KindForm kForms[] = {
       "cone", "weight"},
      12,
      31u},
+    {"bodyXpbd",
+     maniGraphNodeBodyXpbd,
+     {"kind", "inputs", "top", "effectors", "iterations", "topMode", "bones", "stretch",
+      "tolerance", "weight"},
+     10,
+     31u},
+    {"bodySdls",
+     maniGraphNodeBodySdls,
+     {"kind", "inputs", "top", "effectors", "iterations", "topMode", "bones", "stretch",
+      "tolerance", "weight"},
+     10,
+     31u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -715,6 +728,9 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
     case maniGraphNodeCcd:
     case maniGraphNodeFabrik:
         return maniGraphJsonChain(r, scope, f, n->kind == maniGraphNodeFabrik, &n->chain);
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
+        return maniGraphJsonBody(r, scope, f, &n->body);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

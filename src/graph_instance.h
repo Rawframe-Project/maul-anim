@@ -156,8 +156,9 @@ typedef union maniGraphCell
 // (the graph's machineWords words); then, at posesAt, every pose
 // parameter's locals in parameter order (maniGraphPoseLocals); then, at
 // roomAt, the room a
-// learned node's update evaluates its model in and a spring node's
-// evaluation works in (maniGraphRoom), kept by neither between calls.
+// learned node's update evaluates its model in and a spring or
+// full-body node's evaluation works in (maniGraphRoom), kept by none
+// between calls.
 struct maniGraphInstance
 {
     uint32_t stamp;
@@ -182,8 +183,10 @@ void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, m
 
 // The bytes the instance's room needs: for a learned node, its model's
 // scratch, its state and its Decompressor's outputs after the bones';
-// for a spring node, its set's work area; the most any node takes (a
-// multiple of 8; 0 without learned or spring nodes).
+// for a spring node, its set's work area; for a full-body node, its
+// effectors, settings and solve's scratch from a 16-byte boundary; the
+// most any node takes (a multiple of 8; 0 without learned, spring or
+// full-body nodes).
 size_t maniGraphRoom(const maniGraphBinding* binding);
 
 #endif // MAUL_ANIM_SRC_GRAPH_INSTANCE_H

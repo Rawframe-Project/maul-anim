@@ -8,6 +8,7 @@
 #include "graph_nodes.h"
 
 #include "bytes.h"
+#include "graph_body.h"
 #include "graph_chain.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
@@ -419,6 +420,9 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
     case maniGraphNodeCcd:
     case maniGraphNodeFabrik:
         return maniGraphChainValid(g, d, n->kind == maniGraphNodeFabrik);
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
+        return maniGraphBodyValid(g, d, n->kind == maniGraphNodeBodySdls);
     default:
         type = Word(g, d) < g->parameterCount ? ParameterType(g, Word(g, d)) : UINT32_MAX;
         return type == maniGraphParameterTrigger ? ScalarsValid(g, d + 1, 1, -HUGE_VALF, HUGE_VALF)
@@ -444,9 +448,9 @@ static bool KindValid(const maniGraph* g, const Node* n)
     {
         return n->flags == 0;
     }
-    if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeTwoBone ||
-        n->kind == maniGraphNodeAim || n->kind == maniGraphNodeCcd ||
-        n->kind == maniGraphNodeFabrik)
+    // The kinds that solve a pose of the skeleton: springs and IK.
+    if (n->kind == maniGraphNodeSpring ||
+        (n->kind >= maniGraphNodeTwoBone && n->kind <= maniGraphNodeBodySdls))
     {
         return n->flags == 0 && NodeFlags(g, Input(g, n->first)) == 0;
     }
@@ -511,6 +515,9 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
         n->kind == maniGraphNodeLearned ? maniGraphLearnedDataWords(g, n->data, available) : words;
     words = n->kind == maniGraphNodeCcd || n->kind == maniGraphNodeFabrik
                 ? maniGraphChainDataWords(g, n->data, available)
+                : words;
+    words = n->kind == maniGraphNodeBodyXpbd || n->kind == maniGraphNodeBodySdls
+                ? maniGraphBodyDataWords(g, n->data, available)
                 : words;
     if (n->words != words || n->words > g->dataWords - dataAt)
     {

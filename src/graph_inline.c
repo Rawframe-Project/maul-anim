@@ -11,6 +11,7 @@
 #include "graph_check.h"
 
 #include "maul-anim/base.h"
+#include "maul-anim/bodyik.h"
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
@@ -38,6 +39,7 @@ typedef struct Totals
     uint64_t queries;
     uint64_t models;
     uint64_t springSets;
+    uint64_t effectors;
 } Totals;
 
 static uint32_t WeightCount(const maniGraphNodeSource* node)
@@ -58,6 +60,17 @@ static uint32_t QueryCount(const maniGraphNodeSource* node)
     const uint32_t* query = match ? node->match.query : (learned ? node->learned.query : NULL);
     uint32_t count = match ? node->match.queryCount : (learned ? node->learned.queryCount : 0u);
     return query != NULL && count <= MANI_MATCH_MAX_FEATURES ? count : 0u;
+}
+
+// A full-body node's effectors, when their count is in range (out of
+// range, the check refuses them, and Remap copies none).
+static uint32_t EffectorCount(const maniGraphNodeSource* node)
+{
+    bool body = node->kind == maniGraphNodeBodyXpbd || node->kind == maniGraphNodeBodySdls;
+    return body && node->body.effectors != NULL &&
+                   node->body.effectorCount <= MANI_BODY_IK_MAX_EFFECTORS
+               ? node->body.effectorCount
+               : 0u;
 }
 
 // A machine's transitions and conditions, when its counts are in range
@@ -107,6 +120,7 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
         t->inputs += node->inputCount;
         t->weights += WeightCount(node);
         t->queries += QueryCount(node);
+        t->effectors += EffectorCount(node);
         Transitions(node, t);
         if (node->kind != maniGraphNodeSubgraph)
         {
@@ -157,6 +171,7 @@ typedef struct Flat
     uint32_t* queries;
     maniGraphModelSource* models;
     maniGraphSpringSetSource* springSets;
+    maniGraphEffectorSource* effectors;
     uint32_t nodeCount;
     uint32_t inputCount;
     uint32_t weightCount;
@@ -168,6 +183,7 @@ typedef struct Flat
     uint32_t queryCount;
     uint32_t modelCount;
     uint32_t springSetCount;
+    uint32_t effectorCount;
 } Flat;
 
 static uint32_t Place(const Scope* s, uint32_t j)
@@ -408,6 +424,24 @@ static void RemapWeights(const Scope* s, Flat* f, maniGraphNodeSource* node)
     }
 }
 
+// A full-body node's effectors, their parameters and scalars as the
+// root reads them, and its weight.
+static void RemapBody(const Scope* s, Flat* f, maniGraphBodyNodeSource* b, uint32_t effectors)
+{
+    maniGraphEffectorSource* to = f->effectors + f->effectorCount;
+    for (uint32_t e = 0; e < effectors; ++e)
+    {
+        to[e] = b->effectors[e];
+        to[e].position = Resolve(s, to[e].position);
+        to[e].rotation = Resolve(s, to[e].rotation);
+        to[e].positionWeight = Scalar(s, to[e].positionWeight);
+        to[e].rotationWeight = Scalar(s, to[e].rotationWeight);
+    }
+    f->effectorCount += effectors;
+    b->effectors = effectors > 0 ? to : b->effectors;
+    b->weight = Scalar(s, b->weight);
+}
+
 // An IK node's parameters and scalars as the root reads them.
 static void RemapIk(const Scope* s, maniGraphNodeSource* node)
 {
@@ -507,6 +541,10 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
     case maniGraphNodeFabrik:
         RemapIk(s, node);
         return;
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
+        RemapBody(s, f, &node->body, EffectorCount(node));
+        return;
     case maniGraphNodeOneShot:
         node->oneShot.fire = Resolve(s, node->oneShot.fire);
         node->oneShot.fadeOutTrigger = Resolve(s, node->oneShot.fadeOutTrigger);
@@ -589,7 +627,8 @@ static bool TotalsFit(const Totals* t)
            t->clips <= MANI_GRAPH_MAX_CLIPS && t->groups <= MANI_GRAPH_MAX_SYNC_GROUPS &&
            t->transitions <= UINT32_MAX && t->conditions <= UINT32_MAX &&
            t->databases <= MANI_GRAPH_MAX_DATABASES && t->queries <= UINT32_MAX &&
-           t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS;
+           t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS &&
+           t->effectors <= UINT32_MAX;
 }
 
 // The root's slots and sync groups first, as it lists them.
@@ -625,12 +664,12 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
     }
-    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     if (!Count(source, 0, &t) || !TotalsFit(&t))
     {
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
-    size_t sizes[11] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
+    size_t sizes[12] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
                         (size_t)t.inputs * sizeof(uint32_t),
                         (size_t)t.weights * sizeof(maniGraphScalar),
                         (size_t)t.clips * sizeof(maniGraphClipSource),
@@ -640,9 +679,10 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
                         (size_t)t.databases * sizeof(maniGraphDatabaseSource),
                         (size_t)t.queries * sizeof(uint32_t),
                         (size_t)t.models * sizeof(maniGraphModelSource),
-                        (size_t)t.springSets * sizeof(maniGraphSpringSetSource)};
+                        (size_t)t.springSets * sizeof(maniGraphSpringSetSource),
+                        (size_t)t.effectors * sizeof(maniGraphEffectorSource)};
     size_t total = 0;
-    for (int k = 0; k < 11; ++k)
+    for (int k = 0; k < 12; ++k)
     {
         sizes[k] = (sizes[k] + 7u) & ~(size_t)7u;
         total += sizes[k];
@@ -652,9 +692,9 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     {
         return (maniBuildResult){mani_errorCapacity, maniBuildReasonNone, 0, 0};
     }
-    void* parts[11];
+    void* parts[12];
     size_t at = 0;
-    for (int k = 0; k < 11; ++k)
+    for (int k = 0; k < 12; ++k)
     {
         parts[k] = block + at;
         at += sizes[k];
@@ -670,6 +710,7 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
               .queries = parts[8],
               .models = parts[9],
               .springSets = parts[10],
+              .effectors = parts[11],
               .nodeCount = source->nodeCount};
     CopyRoot(source, &f);
     Scope root = {source, NULL, NULL, 0, 0};

@@ -8,6 +8,7 @@
 
 #include "allocator.h"
 #include "container.h"
+#include "graph_body_check.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_learned.h"
@@ -548,6 +549,18 @@ static uint32_t ChainLimitWords(const maniGraphSource* source, const maniGraphNo
     return count > 0 ? MANI_GRAPH_LIMIT_WORDS * (count - 1) : 0u;
 }
 
+// The data words of a chain or full-body node, by its counts; 0 for
+// other kinds.
+static uint32_t IkWords(const maniGraphSource* source, const maniGraphNodeSource* n)
+{
+    if (n->kind == maniGraphNodeCcd || n->kind == maniGraphNodeFabrik)
+    {
+        return MANI_GRAPH_CHAIN_WORDS + ChainLimitWords(source, n);
+    }
+    bool body = n->kind == maniGraphNodeBodyXpbd || n->kind == maniGraphNodeBodySdls;
+    return body ? maniGraphBodySourceWords(n) : 0u;
+}
+
 // A chain node: a chain of the skeleton, its limits one per turning bone
 // (or none) and valid, a vec3 goal, a FABRIK node's pole a vec3 or none
 // (a CCD node's none), a quat rotation or none, its iterations,
@@ -609,6 +622,9 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
     case maniGraphNodeCcd:
     case maniGraphNodeFabrik:
         return CheckChain(source, n, node);
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
+        return maniCheckGraphBody(source, n, node);
     case maniGraphNodeAdditive:
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
@@ -698,9 +714,7 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
                 : (shot ? MANI_GRAPH_SHOT_WORDS : maniGraphDataWords(n->kind, n->inputCount));
     tally->dataWords += match ? MANI_GRAPH_MATCH_WORDS + n->match.queryCount : 0u;
     tally->dataWords += learned ? MANI_GRAPH_LEARNED_WORDS + n->learned.queryCount : 0u;
-    tally->dataWords += n->kind == maniGraphNodeCcd || n->kind == maniGraphNodeFabrik
-                            ? MANI_GRAPH_CHAIN_WORDS + ChainLimitWords(source, n)
-                            : 0u;
+    tally->dataWords += IkWords(source, n);
     tally->machineWords += BlockWords(source, n);
     tally->listeners += (machine && maniGraphMachineListens(n)) || shot ? 1u : 0u;
     tally->inertial += maniGraphFirstInertial(n) != UINT32_MAX || match || learned ? 1u : 0u;

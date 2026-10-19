@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Chain IK nodes' words (mani-0030): their count from the limit count,
-// checked on open, and a node's limits read back.
+// checked on open, and a node's limits read back; the checks the
+// full-body nodes share (a limit's words wherever they lie, parameters,
+// weights).
 
 #ifndef MAUL_ANIM_SRC_GRAPH_CHAIN_H
 #define MAUL_ANIM_SRC_GRAPH_CHAIN_H
@@ -29,5 +31,19 @@ uint32_t maniGraphChainValid(const maniGraph* g, uint32_t data, bool fabrik);
 
 // Limit k of the node whose words begin at data.
 maniJointLimit maniGraphChainLimit(const maniGraph* g, uint32_t data, uint32_t k);
+
+// The limit whose MANI_GRAPH_LIMIT_WORDS begin at word at.
+maniJointLimit maniGraphLimitAt(const maniGraph* g, uint32_t at);
+
+// The first wrong word of the limit at word at, or UINT32_MAX: its kind
+// known, its unused words 0, its numbers as a solve takes them.
+uint32_t maniGraphLimitValid(const maniGraph* g, uint32_t at);
+
+// Whether word at names a parameter of the type, or none when optional.
+bool maniGraphIkParameterValid(const maniGraph* g, uint32_t at, uint32_t type, bool optional);
+
+// Whether the scalar at words at is a float parameter with literal bits
+// 0, or a literal in [0, 1].
+bool maniGraphIkWeightValid(const maniGraph* g, uint32_t at);
 
 #endif // MAUL_ANIM_SRC_GRAPH_CHAIN_H

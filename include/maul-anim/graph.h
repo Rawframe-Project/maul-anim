@@ -142,6 +142,12 @@ extern "C"
         // A FABRIK IK node: its input with a chain bent toward a goal by
         // forward and backward reaching within its bones' limits.
         maniGraphNodeFabrik = 21,
+        // A full-body IK node by rigid bodies (XPBD): its input with the
+        // bones from a top bone to several effectors bent toward their
+        // goals.
+        maniGraphNodeBodyXpbd = 22,
+        // A full-body IK node by selectively damped least squares.
+        maniGraphNodeBodySdls = 23,
     };
 
 // The most steps of its model a learned node takes in one update: a

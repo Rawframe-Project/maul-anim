@@ -11,6 +11,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
+#include "maul-anim/bodyik.h"
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
@@ -18,6 +19,7 @@
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -556,6 +558,48 @@ extern "C"
         maniGraphScalar weight;
     } maniGraphChainNodeSource;
 
+    // A full-body node's effector (mani-0031): its bone; its position
+    // goal (a vec3 parameter, model space) and rotation goal (a quat
+    // parameter, MANI_NO_PARAMETER for none, whose rotation weight is
+    // then the number 0); its position and rotation weights (in [0, 1])
+    // numbers or float parameters, a parameter's value clamped to [0, 1];
+    // its strength and pull-chain weight as maniBodyEffector takes them.
+    typedef struct maniGraphEffectorSource
+    {
+        uint32_t bone;
+        uint32_t position;
+        uint32_t rotation;
+        uint32_t reserved;
+        maniGraphScalar positionWeight;
+        maniGraphScalar rotationWeight;
+        float strength;
+        float pullChain;
+    } maniGraphEffectorSource;
+
+    // A full-body IK node (mani-0031), XPBD or SDLS by its kind: one
+    // input, a pose of the skeleton (not differences), given with the
+    // bones from its top to its effectors solved as maniSolveBodyXpbd or
+    // maniSolveBodySdls solves them: the top and its mode; the effectors
+    // (1 to MANI_BODY_IK_MAX_EFFECTORS); bone settings as maniBodyBone
+    // (NULL for none); stretch (XPBD only), the iteration count and
+    // tolerance as maniBodySolve takes them; its weight (in [0, 1]) a
+    // number or a float parameter, a parameter's value clamped to [0, 1].
+    // A weight of 0 passes the input, as does a solve the bound skeleton
+    // refuses.
+    typedef struct maniGraphBodyNodeSource
+    {
+        uint32_t top;
+        maniBodyTopMode topMode;
+        const maniGraphEffectorSource* effectors;
+        const maniBodyBone* bones;
+        uint32_t effectorCount;
+        uint32_t boneCount;
+        uint32_t iterations;
+        bool stretch;
+        float tolerance;
+        maniGraphScalar weight;
+    } maniGraphBodyNodeSource;
+
     typedef struct maniGraphSource maniGraphSource;
 
     // Where a blend space reads its position: a vec2 parameter, or when
@@ -645,6 +689,7 @@ extern "C"
             maniGraphTwoBoneNodeSource twoBone;
             maniGraphAimNodeSource aim;
             maniGraphChainNodeSource chain;
+            maniGraphBodyNodeSource body;
             maniGraphSubgraphNodeSource subgraph;
         };
     } maniGraphNodeSource;

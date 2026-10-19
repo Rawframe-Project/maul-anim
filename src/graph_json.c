@@ -10,6 +10,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "graph_json_body.h"
 #include "graph_json_ik.h"
 #include "graph_json_write.h"
 
@@ -557,6 +558,23 @@ static void PutWeights(Writer* w, const maniGraphSource* source, const maniGraph
     maniGraphJsonPutBool(w, n->blend.direct != 0);
 }
 
+// An IK node's members after its inputs, by its kind.
+static void PutIkNode(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n)
+{
+    if (n->kind == maniGraphNodeCcd || n->kind == maniGraphNodeFabrik)
+    {
+        maniGraphJsonPutChain(w, source, n);
+    }
+    else if (n->kind == maniGraphNodeBodyXpbd || n->kind == maniGraphNodeBodySdls)
+    {
+        maniGraphJsonPutBody(w, source, n);
+    }
+    else
+    {
+        maniGraphJsonPutIk(w, source, n);
+    }
+}
+
 static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n,
                       uint32_t depth)
 {
@@ -589,11 +607,11 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         return;
     case maniGraphNodeTwoBone:
     case maniGraphNodeAim:
-        maniGraphJsonPutIk(w, source, n);
-        return;
     case maniGraphNodeCcd:
     case maniGraphNodeFabrik:
-        maniGraphJsonPutChain(w, source, n);
+    case maniGraphNodeBodyXpbd:
+    case maniGraphNodeBodySdls:
+        PutIkNode(w, source, n);
         return;
     case maniGraphNodeSelect:
     case maniGraphNodePose:
@@ -662,7 +680,9 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "twoBone",
                                          "aim",
                                          "ccd",
-                                         "fabrik"};
+                                         "fabrik",
+                                         "bodyXpbd",
+                                         "bodySdls"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

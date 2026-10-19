@@ -40,6 +40,10 @@ format.
   step an iteration (Buss and Kim, the paper's clamps, a one-sided
   Jacobi decomposition whose sweeps stop the same on every platform),
   every length kept.
+- Full-body IK graph nodes (mani-0031): XPBD and SDLS nodes solve their
+  input pose toward vec3 position and quat rotation parameters per
+  effector, with bone settings, in files, JSON and subgraphs, their
+  scratch in the instance's room.
 - IK graph nodes (mani-0029): two-bone and aim nodes solve their input
   pose toward vec3 goal and pole parameters, their twist, soften, cone
   and weight numbers or float parameters, in files, JSON and subgraphs.
