@@ -37,14 +37,21 @@ hit-test bones, a distant crowd's level of detail.
 - **Subsets:** `maniPlanGraphSubset` turns a strictly increasing bone
   list into a plan in caller memory (`maniGraphSubsetSize` bytes): the
   bones to compute and write (`maniGraphSubsetBones`: the listed ones
-  and their ancestors, so the model pass of the listed bones is right;
-  every bone for a graph with a mirror, IK, spring or full-body node, a
-  mirror map or retargeted clips) and the pose groups holding them.
+  and their ancestors, so the model pass of the listed bones is right,
+  closed to a fixed point under what the nodes read to write them:
+  under a mirror map each bone's partner; for an IK node writing a
+  planned bone its chain; for a spring node its set's joints, tails,
+  colliders' bones and centers; for a full-body node its paths from its
+  top to its effectors), the pose groups holding them, and whether each
+  node runs (a node of those kinds writing no planned bone passes its
+  input on).
   `maniEvaluateGraphSubset` evaluates as `maniEvaluateGraph` but blends
   and adds only the plan's groups and samples clips only at the plan's
   bones (by random access, the cursor's bits), writing the plan's bones
   bit for bit as a full evaluation does and leaving every other bone of
-  the pose as it was. The update is unchanged.
+  the pose as it was. Retargeted clips are transferred whole (their
+  plans read source bones of another skeleton). The update is
+  unchanged.
 
 ## Consequences
 
@@ -52,8 +59,9 @@ hit-test bones, a distant crowd's level of detail.
   instance, mapping each node back to its authored place, without the
   library keeping names or bookkeeping at runtime.
 - Introspection costs nothing when unused: it reads the instance.
-- A subset's spring joints and inertialization offsets outside the
-  plan are not advanced; bones joining a later plan start from what
-  they last had, as a level of detail switch does elsewhere.
+- A spring set none of whose joints is planned is not stepped, and an
+  inertialization keeps its offsets and output outside the plan's
+  groups; bones joining a later plan start from what they last had, as
+  a level of detail switch does elsewhere.
 - A graph file of format version 3 is not opened; graphs are rebuilt
   from their sources, as before the first release.

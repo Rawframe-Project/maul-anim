@@ -99,7 +99,7 @@ static _Alignas(32) uint32_t s_deadBlock[MANI_GRAPH_INERTIA_BLOCK(3, 1)];
 // (positive before) takes no speed and holds.
 static void TestDeadScale(void)
 {
-    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f};
+    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f, NULL};
     maniGraphResetInertia(s_deadBlock, &node);
     maniGraphTrs last = {{0, 0, 0}, {0, 0, 0, 1}, {2.0f, 2.0f, -1.0f}};
     maniGraphTrs before = {{0, 0, 0}, {0, 0, 0, 1}, {1.8f, 1.8f, 1.5f}};
@@ -131,7 +131,7 @@ static float DeadAt(uint32_t k)
 // captured for dead blending.
 static void DeadCaptures(maniGraphTrs last, maniGraphTrs before, maniTransform input, float dt)
 {
-    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f};
+    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f, NULL};
     maniGraphResetInertia(s_deadBlock, &node);
     maniGraphTrsHold(s_deadBlock, maniGraphInertiaHistory(s_deadBlock, 3, true), 0, last);
     maniGraphTrsHold(s_deadBlock, maniGraphInertiaHistory(s_deadBlock, 3, false), 0, before);
@@ -152,7 +152,7 @@ static void TestDeadTurn(void)
     double y = log(2.0) / 0.12;
     CHECK(fabs((double)DeadAt(15) + 1.0) < 1e-3 && fabs((double)DeadAt(24) - y) < 1e-2,
           "a turn's speed and half-life on the shorter arc");
-    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f};
+    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f, NULL};
     maniGraphDeadApply(s_deadBlock, &node, maniPoseLocals(s_pose), 0.1f, 0.5f);
     maniTransform x = maniPoseLocal(s_pose, 0);
     double angle = (0.4 - (1.0 - exp(-y * 0.1)) / y) * (1.0 - 0.104);
@@ -176,7 +176,7 @@ static void TestDeadEdges(void)
     DeadCaptures(last, before, (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}, 0.1f);
     uint32_t at = CaptureAt(maniGraphDeadBlending, 0);
     maniGraphInertiaSet(s_deadBlock, at + 19, 0.0f);
-    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f};
+    maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f, NULL};
     maniGraphDeadApply(s_deadBlock, &node, maniPoseLocals(s_pose), 0.1f, 0.5f);
     CHECK(NearF(maniPoseLocal(s_pose, 0).translation.x, (1.0 + 1.0 * 0.1) * (1.0 - 0.104)),
           "no decay: the speed carried on");

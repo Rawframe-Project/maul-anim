@@ -131,6 +131,10 @@ static void Capture(uint32_t* block, const maniGraphInertia* node, float* locals
     uint32_t beforeAt = maniGraphInertiaHistory(block, node->bones, false);
     for (uint32_t b = 0; b < node->bones; ++b)
     {
+        if (!maniGraphInertiaEvaluates(node, b))
+        {
+            continue;
+        }
         maniGraphTrs in = maniGraphTrsRead(maniPoseSlot(locals, b));
         maniGraphTrs last = maniGraphTrsHeld(block, lastAt, b);
         maniGraphTrs before = moving ? maniGraphTrsHeld(block, beforeAt, b) : last;
@@ -150,6 +154,10 @@ static void Apply(const uint32_t* block, const maniGraphInertia* node, float* lo
 {
     for (uint32_t b = 0; b < node->bones; ++b)
     {
+        if (!maniGraphInertiaEvaluates(node, b))
+        {
+            continue;
+        }
         uint32_t capture = maniGraphInertiaCapture(node, b);
         float* slot = maniPoseSlot(locals, b);
         maniGraphTrs x = maniGraphTrsRead(slot);
@@ -178,8 +186,17 @@ static void Remember(uint32_t* block, const maniGraphInertia* node, const float*
     }
     flags ^= again ? 0u : (uint32_t)maniGraphInertiaLastSecond;
     block[maniGraphInertiaFlags] = flags | maniGraphInertiaLastKept;
-    memcpy(block + maniGraphInertiaHistory(block, node->bones, true), locals,
-           4 * (size_t)MANI_GRAPH_INERTIA_HISTORY(node->bones));
+    // A group's components, kept a group at a time.
+    size_t group = (size_t)MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS;
+    uint32_t* history = block + maniGraphInertiaHistory(block, node->bones, true);
+    for (uint32_t b = 0; b < node->bones; b += MANI_POSE_GROUP_BONES)
+    {
+        if (maniGraphInertiaEvaluates(node, b))
+        {
+            size_t at = (size_t)b * MANI_POSE_COMPONENTS;
+            memcpy(history + at, locals + at, 4 * group);
+        }
+    }
     block[maniGraphInertiaLastSerial] = serial;
     block[maniGraphInertiaLastStep] = block[maniGraphInertiaStep];
 }

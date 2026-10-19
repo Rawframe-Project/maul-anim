@@ -101,8 +101,10 @@ format.
   matching node's entry).
 - Subset evaluation (mani-0035): `maniPlanGraphSubset` plans some bones
   of a binding once (`maniGraphSubsetSize` bytes of caller memory), the
-  listed bones closed under their ancestors (every bone where a node
-  writes a bone from others), read by `maniGraphSubsetBones`;
+  listed bones closed under their ancestors and what the nodes read to
+  write them (a mirror's partners, an IK chain, a spring set's joints
+  and colliders, a full-body node's paths), read by
+  `maniGraphSubsetBones`;
   `maniEvaluateGraphSubset` writes those bones bit for bit as
   `maniEvaluateGraph` does, blending only the plan's pose groups and
   sampling only its bones.

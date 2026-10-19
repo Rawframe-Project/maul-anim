@@ -876,10 +876,13 @@ extern "C"
 
     /// Plans the evaluation of some bones (a server's hit-test bones, a
     /// distant crowd's level of detail): the bones listed, every ancestor
-    /// of them, and every bone the graph's nodes read to write them (a
-    /// graph with mirror, IK, spring or full-body nodes, a mirror map or
-    /// retargeted clips plans every bone). Made once, used by any instance
-    /// of the binding.
+    /// of them, and every bone the graph's nodes read to write them, to a
+    /// fixed point: under a mirror map each planned bone's partner; for an
+    /// IK node writing a planned bone its chain; for a spring node its
+    /// set's joints, tails, colliders' bones and centers; for a full-body
+    /// node its paths from its top to its effectors. A node of these kinds
+    /// writing no planned bone does not run under the plan. Made once,
+    /// used by any instance of the binding.
     ///
     /// @param binding  A binding.
     /// @param bones    The bones, strictly increasing; may be NULL when
@@ -899,8 +902,8 @@ extern "C"
                                                            void* memory, size_t size,
                                                            maniGraphSubset** planOut);
 
-    /// Returns the bones a plan evaluates and writes: the listed bones and
-    /// their ancestors (every bone for a graph planning every bone),
+    /// Returns the bones a plan evaluates and writes: the listed bones,
+    /// their ancestors and what the graph's nodes read to write them,
     /// strictly increasing.
     ///
     /// @param plan      A plan.
@@ -910,13 +913,15 @@ extern "C"
     /// Safe from any thread.
     MANI_API const uint32_t* maniGraphSubsetBones(const maniGraphSubset* plan, uint32_t* countOut);
 
-    /// Writes the plan's bones (maniGraphSubsetBones: the listed ones and
-    /// their ancestors, so the model pass of the listed bones is right) of
-    /// an instance's pose as maniEvaluateGraph writes them, bit for bit,
-    /// computing no more than the plan needs; every other bone is left as
-    /// it was. A spring set's joints and an inertialization's offsets
-    /// outside the plan are not advanced; bones joining a later plan start
-    /// from what they last had.
+    /// Writes the plan's bones (maniGraphSubsetBones: with the listed ones'
+    /// ancestors, so their model pass is right) of an instance's pose as
+    /// maniEvaluateGraph writes them, bit for bit, computing no more than
+    /// the plan needs; every other bone is left as it was. A node of a
+    /// kind that writes bones from others and writes no planned bone
+    /// passes its input on (a spring set not stepped), and an
+    /// inertialization keeps its offsets and output outside the plan's
+    /// groups as they were, so bones joining a later plan start from what
+    /// they last had. Retargeted clips are transferred whole.
     ///
     /// @param instance  An instance.
     /// @param plan      A plan of the instance's binding.

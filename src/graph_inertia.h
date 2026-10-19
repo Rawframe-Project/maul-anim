@@ -73,7 +73,9 @@ enum
     (MANI_GRAPH_INERTIA_HEADER + 2u * MANI_GRAPH_INERTIA_HISTORY(bones) +                          \
      MANI_GRAPH_INERTIA_CAPTURE_WORDS(method) * (bones))
 
-// An inertialize node as its words give it.
+// An inertialize node as its words give it, and the groups of
+// MANI_POSE_GROUP_BONES bones a subset evaluates (NULL for all,
+// mani-0035): captures, easing and the kept output touch only those.
 typedef struct maniGraphInertia
 {
     uint32_t bones;
@@ -81,7 +83,14 @@ typedef struct maniGraphInertia
     float halfLifeScale;
     float halfLifeMin;
     float halfLifeMax;
+    const uint8_t* groups;
 } maniGraphInertia;
+
+// Whether bone b's group is evaluated.
+static inline bool maniGraphInertiaEvaluates(const maniGraphInertia* node, uint32_t b)
+{
+    return node->groups == NULL || node->groups[b / MANI_POSE_GROUP_BONES] != 0;
+}
 
 // The node whose data words begin at data, of g's bones.
 maniGraphInertia maniGraphInertiaOf(const maniGraph* g, uint32_t data);

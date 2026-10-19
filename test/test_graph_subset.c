@@ -17,8 +17,11 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
+#include "maul-anim/mirror.h"
+#include "maul-anim/mirrorbuild.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
+#include "maul-anim/spring.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -47,6 +50,13 @@ static maniClip s_clips[kClips];
 static maniGraph s_graph;
 static maniGraphBinding* s_bound;
 static maniGraphInstance* s_live[2];
+static _Alignas(16) uint8_t s_mirrorFile[8192];
+static maniMirrorMap s_mirrorMap;
+// The mirror map a graph opened next names, or NULL.
+static const maniMirrorMap* s_mirror;
+static _Alignas(16) uint8_t s_springFile[8192];
+static maniSpringSet s_springSet;
+static const maniGraphSpringSetSource kHostSets[1] = {{&s_springSet, "tail", 4, 0}};
 static maniPose* s_pose[2];
 
 static maniBuilder* NewBuilder(void)
@@ -57,11 +67,12 @@ static maniBuilder* NewBuilder(void)
     return builder;
 }
 
-// A tree: a spine of 8 bones from the root, two arms of 6 from its fourth
-// and fifth bones.
+// A tree in its depth-first order (the builder's, so names are indices):
+// a spine b0 to b3, an arm b4 to b9 from b3, the spine on from b3 as b10
+// to b13, an arm b14 to b19 from b11.
 static int32_t Parent(uint32_t b)
 {
-    return b == 0 ? -1 : b == 8 ? 3 : b == 14 ? 4 : (int32_t)b - 1;
+    return b == 0 ? -1 : b == 4 || b == 10 ? 3 : b == 14 ? 11 : (int32_t)b - 1;
 }
 
 static void Rig(void)
@@ -124,6 +135,41 @@ static void Rig(void)
                   maniOpenClip(s_clipFiles[c], size, &s_clips[c]).result == mani_success,
               "a clip");
     }
+    // The arms paired, b4 to b9 with b14 to b19.
+    maniMirrorPairSource pairs[6];
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        pairs[k] = (maniMirrorPairSource){4 + k, 14 + k};
+    }
+    maniMirrorMapSource mirror = {
+        .skeleton = &s_skeleton, .pairs = pairs, .pairCount = 6, .axis = maniMirrorAxisX};
+    CHECK(maniBuildMirrorMap(builder, &mirror).result == mani_success &&
+              maniCopyBuilt(builder, s_mirrorFile, sizeof s_mirrorFile, &size) == mani_success &&
+              maniOpenMirrorMap(s_mirrorFile, size, &s_mirrorMap).result == mani_success,
+          "the mirror map");
+    // A spring down the second arm's end, colliding with a sphere on the
+    // spine's end.
+    maniSpringJointSource joints[4];
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        joints[k] = (maniSpringJointSource){.bone = 16 + k,
+                                            .hitRadius = 0.02f,
+                                            .stiffness = 0.5f,
+                                            .gravityPower = 0.2f,
+                                            .gravityDirection = {0.0f, -1.0f, 0.0f},
+                                            .drag = 0.4f,
+                                            .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
+    }
+    static const uint32_t kGroup[1] = {0};
+    maniColliderSource collider = {.bone = 13, .radius = 0.1f};
+    maniColliderGroupSource group = {"spine", 5, 1, kGroup};
+    static const uint32_t kGroups[1] = {0};
+    maniSpringSource spring = {"tail", 4, 4, joints, kGroups, 1, MANI_NO_BONE};
+    maniSpringSetSource set = {&s_skeleton, &collider, &group, &spring, 1, 1, 1, 0.0f, 0.0f, 0};
+    CHECK(maniBuildSpringSet(builder, &set).result == mani_success &&
+              maniCopyBuilt(builder, s_springFile, sizeof s_springFile, &size) == mani_success &&
+              maniOpenSpringSet(s_springFile, size, &s_springSet).result == mani_success,
+          "the spring set");
     maniDestroyBuilder(builder);
 }
 
@@ -137,9 +183,11 @@ static bool Open(const char* text)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     const maniClip* clips[kClips] = {&s_clips[0], &s_clips[1], &s_clips[2]};
-    maniBuildResult built = maniBuildGraphJson(
-        builder, text, strlen(text),
-        &(maniGraphNamedAssets){&s_skeleton, kHost, NULL, NULL, NULL, kClips, 0, 0, 0, NULL});
+    const maniSpringSet* sets[1] = {&s_springSet};
+    maniBuildResult built =
+        maniBuildGraphJson(builder, text, strlen(text),
+                           &(maniGraphNamedAssets){&s_skeleton, kHost, NULL, NULL, kHostSets,
+                                                   kClips, 0, 0, 1, s_mirror});
     if (built.result != mani_success)
     {
         printf("refused: reason %u item %u other %u\n", built.reason, built.item, built.other);
@@ -148,8 +196,8 @@ static bool Open(const char* text)
               maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) == mani_success &&
               maniOpenGraph(s_graphFile, size, &s_graph).result == mani_success &&
               maniBindGraph(&s_graph,
-                            &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, kClips, 0, 0,
-                                               0, NULL, NULL, 0, 0, NULL},
+                            &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, sets, kClips, 0, 0,
+                                               1, NULL, NULL, 0, 0, s_mirror},
                             s_binding, sizeof s_binding, &s_bound, NULL) == mani_success &&
               maniGraphScratchSize(s_bound) <= sizeof s_scratch;
     maniDestroyBuilder(builder);
@@ -185,12 +233,11 @@ static const char kLocal[] = HEAD
     "\"run\", \"speed\": 0.5}, {\"kind\": \"clip\", \"clip\": \"walk\", \"speed\": 0.7}, "
     "{\"kind\": \"clip\", \"clip\": \"run\", \"speed\": 1.3}], \"output\": 0}";
 
-// A two-bone IK node over the arm: every bone planned.
-static const char kIk[] =
-    "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": \"goal\", "
-    "\"type\": \"vec3\", \"default\": [0.3, 0.9, 0.2]}], \"clips\": [\"walk\"], \"nodes\": "
-    "[{\"kind\": \"twoBone\", \"inputs\": [1], \"start\": \"b9\", \"middle\": \"b10\", \"end\": "
-    "\"b11\", \"goal\": \"goal\"}, {\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": 0}";
+// One IK node over a clip, the node at the file's end.
+#define IK(node)                                                                                   \
+    "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": \"goal\", "     \
+    "\"type\": \"vec3\", \"default\": [0.3, 0.9, 0.2]}], \"clips\": [\"walk\"], \"nodes\": [" node \
+    ", {\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": 0}"
 
 static void Set(uint32_t parameter, maniGraphParameterType type, int32_t value)
 {
@@ -262,10 +309,10 @@ static void TestLocal(void)
     // The arm's end (ancestors 0 to 3, then 8 to 13) and a spine bone.
     static const uint32_t kListed[2] = {6, 13};
     maniGraphSubset* plan = Plan(kListed, 2);
-    static const uint32_t kPlanned[13] = {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13};
+    static const uint32_t kPlanned[11] = {0, 1, 2, 3, 4, 5, 6, 10, 11, 12, 13};
     uint32_t count = 0;
     const uint32_t* planned = maniGraphSubsetBones(plan, &count);
-    CHECK(count == 13 && memcmp(planned, kPlanned, sizeof kPlanned) == 0,
+    CHECK(count == 11 && memcmp(planned, kPlanned, sizeof kPlanned) == 0,
           "the listed bones and their ancestors");
     const uint8_t* groups = maniGraphSubsetGroups(plan);
     CHECK(plan->groups == 3 && groups[0] == 1 && groups[1] == 1 && groups[2] == 0,
@@ -278,7 +325,7 @@ static void TestLocal(void)
                 mani_success;
     for (uint32_t b = 0; b < kBones && rest; ++b)
     {
-        bool isPlanned = b != 7 && b < 14;
+        bool isPlanned = (b <= 6) || (b >= 10 && b <= 13);
         rest =
             Same(maniPoseLocal(s_pose[1], b), isPlanned ? maniSkeletonRest(&s_skeleton, b) : kMark);
     }
@@ -308,14 +355,127 @@ static void TestLocal(void)
     CHECK(Step(plan, 0.2f), "no bone");
 }
 
+// The bones a plan of listed bones holds, whether its last node runs,
+// and agreement with a full evaluation over a few updates.
+static bool Planned(const uint32_t* listed, uint32_t count, const uint32_t* want, uint32_t wanted,
+                    bool runs)
+{
+    maniGraphSubset* plan = Plan(listed, count);
+    uint32_t n = 0;
+    const uint32_t* bones = maniGraphSubsetBones(plan, &n);
+    bool ok = n == wanted && memcmp(bones, want, 4 * (size_t)n) == 0 &&
+              maniGraphSubsetRuns(plan, maniGraphOutputNode(&s_graph)) == runs;
+    if (!ok)
+    {
+        printf("planned:");
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            printf(" %u", bones[i]);
+        }
+        printf("\n");
+    }
+    return ok && Step(plan, 0.1f) && Step(plan, 0.25f) && Step(plan, 0.4f);
+}
+
+// The first arm's b8 and its ancestors.
+static const uint32_t kArm[9] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+
 static void TestIk(void)
 {
-    CHECK(Open(kIk), "the graph with an IK node");
-    static const uint32_t kListed[1] = {11};
-    maniGraphSubset* plan = Plan(kListed, 1);
-    uint32_t count = 0;
-    CHECK(maniGraphSubsetBones(plan, &count) != NULL && count == kBones, "every bone planned");
-    CHECK(Step(plan, 0.1f) && Step(plan, 0.25f), "every bone planned, the listed one bit for bit");
+    static const uint32_t kEnd[1] = {8};
+    static const uint32_t kBelow[1] = {9};
+    static const uint32_t kBelowPlan[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    static const uint32_t kSpine[1] = {12};
+    static const uint32_t kSpinePlan[7] = {0, 1, 2, 3, 10, 11, 12};
+    static const char* const kNodes[4] = {
+        IK("{\"kind\": \"twoBone\", \"inputs\": [1], \"start\": \"b6\", \"middle\": \"b7\", "
+           "\"end\": \"b8\", \"goal\": \"goal\"}"),
+        IK("{\"kind\": \"aim\", \"inputs\": [1], \"bones\": [\"b7\", \"b8\"], \"goal\": "
+           "\"goal\", \"forward\": [1, 0, 0]}"),
+        IK("{\"kind\": \"ccd\", \"inputs\": [1], \"root\": \"b5\", \"end\": \"b8\", \"goal\": "
+           "\"goal\", \"iterations\": 4}"),
+        IK("{\"kind\": \"fabrik\", \"inputs\": [1], \"root\": \"b5\", \"end\": \"b8\", "
+           "\"goal\": \"goal\", \"iterations\": 4}")};
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        CHECK(Open(kNodes[k]), "a graph with an IK node");
+        CHECK(Planned(kEnd, 1, kArm, 9, true), "its chain's end: the chain, which runs");
+        CHECK(Planned(kBelow, 1, kBelowPlan, 10, true), "a bone below the chain: it runs");
+        CHECK(Planned(kSpine, 1, kSpinePlan, 7, false), "a bone apart: it passes its input on");
+    }
+    // An aim over the arm's last two bones, one above them listed: it
+    // writes no planned bone.
+    static const uint32_t kFore[1] = {7};
+    CHECK(Open(IK("{\"kind\": \"aim\", \"inputs\": [1], \"bones\": [\"b8\", \"b9\"], "
+                  "\"goal\": \"goal\", \"forward\": [1, 0, 0]}")) &&
+              Planned(kFore, 1, kArm, 8, false),
+          "a chain below the listed bones does not run");
+    // A chain IK along the spine (b2, b3, b10, b11), an arm bone from b3
+    // listed: the chain writes b2 and b3, so its whole path is planned.
+    static const uint32_t kSpineChain[9] = {0, 1, 2, 3, 4, 5, 6, 10, 11};
+    static const uint32_t kNine[1] = {6};
+    CHECK(Open(IK("{\"kind\": \"ccd\", \"inputs\": [1], \"root\": \"b2\", \"end\": \"b11\", "
+                  "\"goal\": \"goal\", \"iterations\": 4}")) &&
+              Planned(kNine, 1, kSpineChain, 9, true),
+          "a chain one of whose bones is planned brings its whole path");
+}
+
+// A mirror node: each planned bone brings its partner.
+static void TestMirror(void)
+{
+    s_mirror = &s_mirrorMap;
+    static const uint32_t kEnd[1] = {8};
+    static const uint32_t kBoth[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 14, 15, 16, 17, 18};
+    static const uint32_t kSpine[1] = {12};
+    static const uint32_t kSpinePlan[7] = {0, 1, 2, 3, 10, 11, 12};
+    CHECK(Open("{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\"], "
+               "\"nodes\": [{\"kind\": \"mirror\", \"inputs\": [1]}, {\"kind\": \"clip\", "
+               "\"clip\": \"walk\"}], \"output\": 0}") &&
+              Planned(kEnd, 1, kBoth, 16, true) && Planned(kSpine, 1, kSpinePlan, 7, true),
+          "a bone of an arm brings its partner and the partner's ancestors");
+    s_mirror = NULL;
+}
+
+// A spring node writing a planned joint brings its joints, tails,
+// colliders' bones and their ancestors; one writing none does not run.
+static void TestSprings(void)
+{
+    static const uint32_t kJoint[1] = {17};
+    static const uint32_t kSet[14] = {0, 1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+    static const uint32_t kArmA[1] = {6};
+    static const uint32_t kArmAPlan[7] = {0, 1, 2, 3, 4, 5, 6};
+    CHECK(Open("{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\"], "
+               "\"springSets\": [\"tail\"], \"nodes\": [{\"kind\": \"spring\", \"inputs\": [1], "
+               "\"springSet\": \"tail\"}, {\"kind\": \"clip\", \"clip\": \"walk\"}], "
+               "\"output\": 0}") &&
+              Planned(kJoint, 1, kSet, 14, true) && Planned(kArmA, 1, kArmAPlan, 7, false),
+          "a spring's joints, tails and colliders");
+}
+
+// A full-body node writing a planned bone brings its paths from its top
+// to its effectors.
+static void TestBody(void)
+{
+    static const uint32_t kSpine[1] = {12};
+    static const uint32_t kPaths[17] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 14, 15, 16, 17, 18};
+    static const uint32_t kRoot[1] = {1};
+    static const uint32_t kRootPlan[2] = {0, 1};
+    for (int sdls = 0; sdls < 2; ++sdls)
+    {
+        char text[1024];
+        snprintf(text, sizeof text,
+                 "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": "
+                 "[{\"name\": \"left\", \"type\": \"vec3\", \"default\": [0.5, 1, 0]}, "
+                 "{\"name\": \"right\", \"type\": \"vec3\", \"default\": [-0.5, 1.2, 0]}], "
+                 "\"clips\": [\"walk\"], \"nodes\": [{\"kind\": \"%s\", \"inputs\": [1], "
+                 "\"top\": \"b3\", \"effectors\": [{\"bone\": \"b8\", \"position\": "
+                 "\"left\"}, {\"bone\": \"b18\", \"position\": \"right\"}], \"iterations\": "
+                 "4}, {\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": 0}",
+                 sdls != 0 ? "bodySdls" : "bodyXpbd");
+        CHECK(Open(text) && Planned(kSpine, 1, kPaths, 17, true) &&
+                  Planned(kRoot, 1, kRootPlan, 2, false),
+              "a full-body node's paths");
+    }
 }
 
 static void TestRefusals(void)
@@ -380,6 +540,9 @@ int main(void)
     Rig();
     TestLocal();
     TestIk();
+    TestMirror();
+    TestSprings();
+    TestBody();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

@@ -247,7 +247,7 @@ static _Alignas(32) uint8_t s_inputMemory[4096];
 // set by hand; one evaluation captures and applies 0.1 s in.
 static void Captures(maniGraphTrs last, maniGraphTrs before, maniTransform input, maniPose* in)
 {
-    maniGraphInertia node = {3, maniGraphInertialization, 0.0f, 0.0f, 0.0f};
+    maniGraphInertia node = {3, maniGraphInertialization, 0.0f, 0.0f, 0.0f, NULL};
     maniGraphResetInertia(s_block, &node);
     for (uint32_t b = 0; b < 3; ++b)
     {

@@ -464,7 +464,7 @@ static maniBuildResult CheckInertialize(const maniGraphSource* source, const man
 {
     const maniGraphInertializeNodeSource* s = &n->inertialize;
     maniGraphParameterType trigger = maniGraphParameterTrigger;
-    maniGraphInertia lives = {0, s->method, s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
+    maniGraphInertia lives = {0, s->method, s->halfLifeScale, s->halfLifeMin, s->halfLifeMax, NULL};
     bool ok =
         (s->trigger == MANI_NO_PARAMETER || ParameterOf(source, s->trigger, trigger, trigger)) &&
         s->method <= maniGraphDeadBlending && maniGraphHalfLivesValid(&lives) == UINT32_MAX;

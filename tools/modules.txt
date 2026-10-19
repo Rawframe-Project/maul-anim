@@ -109,7 +109,7 @@ graph_machine_file: bytes graph_file
 graph: bytes container graph_file graph_nodes text
 graph_instance: bytes graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring pose_memory
 graph_inspect: bytes graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
-graph_subset: bytes graph_file graph_instance pose_memory
+graph_subset: bytes graph_file graph_instance graph_spring pose_memory spring_file
 graph_shot: bytes graph_file
 graph_match: bytes graph_file
 graph_learned: bytes graph_file graph_match

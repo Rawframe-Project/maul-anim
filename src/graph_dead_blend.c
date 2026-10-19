@@ -103,6 +103,10 @@ void maniGraphDeadCapture(uint32_t* block, const maniGraphInertia* node, float* 
     uint32_t beforeAt = maniGraphInertiaHistory(block, node->bones, false);
     for (uint32_t b = 0; b < node->bones; ++b)
     {
+        if (!maniGraphInertiaEvaluates(node, b))
+        {
+            continue;
+        }
         maniGraphTrs in = maniGraphTrsRead(maniPoseSlot(locals, b));
         maniGraphTrs x = maniGraphTrsHeld(block, lastAt, b);
         // With no speed the rate zeroes every difference from it.
@@ -163,6 +167,10 @@ void maniGraphDeadApply(const uint32_t* block, const maniGraphInertia* node, flo
     float w = u * u * (3.0f - 2.0f * u);
     for (uint32_t b = 0; b < node->bones; ++b)
     {
+        if (!maniGraphInertiaEvaluates(node, b))
+        {
+            continue;
+        }
         uint32_t capture = maniGraphInertiaCapture(node, b);
         float* slot = maniPoseSlot(locals, b);
         maniGraphTrs in = maniGraphTrsRead(slot);

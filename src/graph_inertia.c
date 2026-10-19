@@ -45,10 +45,12 @@ static uint32_t Word(const maniGraph* g, uint32_t at)
 
 maniGraphInertia maniGraphInertiaOf(const maniGraph* g, uint32_t data)
 {
-    return (maniGraphInertia){g->skeletonBoneCount, Word(g, data + maniGraphInertiaMethod),
+    return (maniGraphInertia){g->skeletonBoneCount,
+                              Word(g, data + maniGraphInertiaMethod),
                               FloatOf(Word(g, data + maniGraphInertiaHalfLifeScale)),
                               FloatOf(Word(g, data + maniGraphInertiaHalfLifeMin)),
-                              FloatOf(Word(g, data + maniGraphInertiaHalfLifeMax))};
+                              FloatOf(Word(g, data + maniGraphInertiaHalfLifeMax)),
+                              NULL};
 }
 
 maniGraphTrs maniGraphTrsRead(const float* slot)

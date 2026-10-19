@@ -347,6 +347,7 @@ static void Inertia(const Evaluation* e, const uint8_t* record, maniPose* out, b
         return;
     }
     maniGraphInertia node = maniGraphInertiaOf(e->graph, data);
+    node.groups = e->groups;
     maniGraphInertiaEvaluate(block, &node, input, out);
 }
 
@@ -784,6 +785,21 @@ static void Mirror(const Evaluation* e, const uint8_t* record, maniPose* out)
     }
 }
 
+// Input k passed on, or the neutral pose without it.
+static void PassOn(const Evaluation* e, const uint8_t* record, uint32_t k, maniPose* out,
+                   bool difference)
+{
+    const maniPose* input = InputPose(e, record, k);
+    if (input != NULL)
+    {
+        maniPoseCopy(out, input);
+    }
+    else
+    {
+        Neutral(e, out, difference);
+    }
+}
+
 static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
 {
     const uint8_t* record = Record(e, p);
@@ -847,19 +863,9 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
         Mirror(e, record, out);
         return;
     default:
-    {
-        uint32_t k = maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0;
-        const maniPose* input = InputPose(e, record, k);
-        if (input != NULL)
-        {
-            maniPoseCopy(out, input);
-        }
-        else
-        {
-            Neutral(e, out, difference);
-        }
+        PassOn(e, record, maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0, out,
+               difference);
         return;
-    }
     }
 }
 
@@ -931,9 +937,17 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
     uint32_t cursor = 0;
     for (uint32_t p = 0; p <= last; ++p)
     {
-        uint32_t kind = maniLoadU16(Record(&e, p));
+        const uint8_t* record = Record(&e, p);
+        uint32_t kind = maniLoadU16(record);
         bool clip = kind == maniGraphNodeClip || kind == maniGraphNodeMatch;
-        if (State(&e, p)->weight > 0.0f)
+        bool weighed = State(&e, p)->weight > 0.0f;
+        if (weighed && plan != NULL && !maniGraphSubsetRuns(plan, p))
+        {
+            // Writing no planned bone: its input on, its state untouched.
+            PassOn(&e, record, 0, Slot(&e, maniLoadU32(record + 20)),
+                   (maniLoadU16(record + 2) & MANI_GRAPH_DIFFERENCE) != 0);
+        }
+        else if (weighed)
         {
             EvaluateNode(&e, p, cursor);
         }

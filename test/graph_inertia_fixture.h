@@ -108,7 +108,7 @@ static inline uint32_t* Block(maniGraphInstance* instance, const maniGraph* g, u
 // three bones).
 static inline uint32_t CaptureAt(uint32_t method, uint32_t b)
 {
-    maniGraphInertia node = {3, method, 0.0f, 0.0f, 0.0f};
+    maniGraphInertia node = {3, method, 0.0f, 0.0f, 0.0f, NULL};
     return maniGraphInertiaCapture(&node, b);
 }
 
