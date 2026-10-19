@@ -190,6 +190,30 @@ static void Carry(const Transfer* x, uint32_t bone, uint32_t a, uint32_t transla
     }
 }
 
+// A bone in its source's frame: its source's local as it is (the
+// translation when absolute, or its reference plus the scaled change;
+// the scale when carried) over its reference local.
+static maniTransform SameFrame(const Transfer* x, uint32_t b, uint32_t a, maniQuat above,
+                               uint32_t translation, bool scale, maniTransform local)
+{
+    const maniTransform given = maniPoseLocal(x->sourcePose, a);
+    local.rotation = given.rotation;
+    x->targetModels[b] = maniQuatMul(above, local.rotation);
+    if (translation == maniRetargetTranslationAbsolute)
+    {
+        local.translation = given.translation;
+    }
+    else if (translation == maniRetargetTranslationScaled)
+    {
+        float ratio = LoadF32(x->map->header + maniRetargetHeaderRatio);
+        local.translation =
+            maniVec3Add(local.translation,
+                        maniVec3Scale(maniVec3Sub(given.translation, local.translation), ratio));
+    }
+    local.scale = scale ? given.scale : local.scale;
+    return local;
+}
+
 // Target bone b's local by its plan; its model rotation and matrix kept.
 static maniTransform Bone(const Transfer* x, uint32_t b)
 {
@@ -205,6 +229,13 @@ static maniTransform Bone(const Transfer* x, uint32_t b)
         return local;
     }
     uint32_t a = maniLoadU32(e + maniRetargetPlanA);
+    uint32_t translation = maniLoadU32(e + maniRetargetPlanTranslation);
+    uint32_t flags = maniLoadU32(e + maniRetargetPlanFlags);
+    bool scale = (flags & MANI_RETARGET_PLAN_SCALE) != 0;
+    if ((flags & MANI_RETARGET_PLAN_SAME) != 0)
+    {
+        return SameFrame(x, b, a, above, translation, scale, local);
+    }
     maniQuat delta = Delta(x, a);
     if (kind == maniRetargetPlanTwo)
     {
@@ -215,8 +246,6 @@ static maniTransform Bone(const Transfer* x, uint32_t b)
     delta = weight < 1.0f ? maniQuatSlerp(maniQuatIdentity(), delta, weight) : delta;
     x->targetModels[b] = maniQuatNormalize(maniQuatMul(delta, LoadQuat(t)));
     local.rotation = maniQuatNormalize(maniQuatMul(maniQuatConjugate(above), x->targetModels[b]));
-    uint32_t translation = maniLoadU32(e + maniRetargetPlanTranslation);
-    bool scale = (maniLoadU32(e + maniRetargetPlanFlags) & MANI_RETARGET_PLAN_SCALE) != 0;
     if (translation != maniRetargetPlanPelvis)
     {
         Carry(x, b, a, translation, scale, &local);

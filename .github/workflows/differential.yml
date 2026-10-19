@@ -8,8 +8,12 @@
 # masks and additive layers, by ozz's BlendingJob and by Maul Anim,
 # compared to binary32 rounding and timed. The IK differential
 # (mani-0029): random two-bone chains and aims solved by ozz's
-# IKTwoBoneJob and IKAimJob and by Maul Anim. Weekly and by hand, not on every commit: they fetch and
-# build ufbx, ACL and ozz-animation.
+# IKTwoBoneJob and IKAimJob and by Maul Anim. The retargeting
+# differential (mani-0032): random poses of a humanoid retargeted to
+# another by Godot 4.7.2's RetargetModifier3D, run headless, and by Maul
+# Anim, the model rotations compared. Weekly and by hand, not on every
+# commit: they fetch and build ufbx, ACL and ozz-animation, and fetch
+# Godot.
 name: differential
 
 on:
@@ -128,3 +132,42 @@ jobs:
         run: cmake --build build --target ik_differential -j 4
       - name: Random chains
         run: build/ik_differential 1000000
+
+  retarget:
+    name: retarget-godot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GODOT: Godot_v4.7.2-stable_linux.x86_64
+      # The release's SHA512-SUMS.txt entry for the zip.
+      GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        timeout-minutes: 15
+        run: |
+          sudo apt-get $APT_OPTIONS update -q
+          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 ninja-build
+      - name: Fetch Godot
+        timeout-minutes: 10
+        run: |
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/$GODOT.zip"
+          echo "$GODOT_SHA512  godot.zip" | sha512sum -c -
+          unzip -q godot.zip
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMAUL_ANIM_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -DMAUL_ANIM_DIFFERENTIAL=ON -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+      - name: Build
+        run: cmake --build build --target retarget_godot -j 4
+      - name: Random poses
+        run: |
+          mkdir -p godot-project
+          printf 'config_version=5\n' > godot-project/project.godot
+          cp tools/retarget_godot.gd godot-project/
+          build/retarget_godot write "$PWD/in.txt" 500
+          timeout 300 "./$GODOT" --headless --path godot-project --script retarget_godot.gd \
+            -- "$PWD/in.txt" "$PWD/out.txt"
+          build/retarget_godot check in.txt out.txt

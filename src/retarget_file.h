@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 
-#define MANI_RETARGET_FORMAT_VERSION 1u
+#define MANI_RETARGET_FORMAT_VERSION 2u
 #define MANI_RETARGET_SECTIONS       4u
 
 enum
@@ -92,8 +92,12 @@ enum
 // The pelvis's translation, past maniRetargetTranslation's values.
 #define maniRetargetPlanPelvis 3u
 
-// Plan flags: the scale carries.
+// Plan flags: the scale carries; the bone's frame is its source's (a
+// one-source plan of weight 1 whose reference local is its source's, bit
+// for bit, under a parent that is its source's parent's likewise, or both
+// roots), so its local carries as it is.
 #define MANI_RETARGET_PLAN_SCALE 1u
+#define MANI_RETARGET_PLAN_SAME  2u
 
 // The identity: maniHash64 over the sections in tag order, absent ones
 // adding nothing.

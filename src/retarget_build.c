@@ -394,6 +394,41 @@ static void LayBones(const Work* w, uint8_t* source, uint8_t* target, uint8_t* p
     }
 }
 
+static bool SameBits(const maniTransform* a, const maniTransform* b)
+{
+    static_assert(sizeof *a == 10 * sizeof(uint32_t), "ten words");
+    uint32_t x[10];
+    uint32_t y[10];
+    memcpy(x, a, sizeof x);
+    memcpy(y, b, sizeof y);
+    return memcmp(x, y, sizeof x) == 0;
+}
+
+// Each target bone whose frame is its source bone's: one source at weight
+// 1, the same reference local bit for bit, and a parent likewise (parents
+// come first) or both roots.
+static void MarkSame(const maniRetargetMapSource* s, Work* w)
+{
+    for (uint32_t b = 0; b < w->targetCount; ++b)
+    {
+        Plan* p = &w->plan[b];
+        if (!p->mapped || p->kind != maniRetargetPlanOne || p->weight != 1.0f ||
+            p->translation == maniRetargetPlanPelvis ||
+            !SameBits(&w->source[p->a].local, &w->target[b].local))
+        {
+            continue;
+        }
+        uint32_t pb = maniSkeletonParent(s->target, b);
+        uint32_t pa = maniSkeletonParent(s->source, p->a);
+        bool parents = pb == MANI_NO_BONE
+                           ? pa == MANI_NO_BONE
+                           : pa != MANI_NO_BONE &&
+                                 (w->plan[pb].flags & MANI_RETARGET_PLAN_SAME) != 0 &&
+                                 w->plan[pb].a == pa;
+        p->flags |= parents ? MANI_RETARGET_PLAN_SAME : 0u;
+    }
+}
+
 static maniBuildResult Write(maniBuilder* builder, const maniRetargetMapSource* s, const Work* w)
 {
     const uint64_t sizes[MANI_RETARGET_SECTIONS] = {
@@ -474,6 +509,10 @@ maniBuildResult maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMap
     w.target = w.source + w.sourceCount;
     w.plan = (void*)(w.target + w.targetCount);
     maniBuildResult r = Check(source, &w);
+    if (r.result == mani_success)
+    {
+        MarkSame(source, &w);
+    }
     r = r.result == mani_success ? Write(builder, source, &w) : r;
     maniRelease(&builder->allocator, block, bytes, 1, 8);
     return r;

@@ -241,7 +241,10 @@ static uint32_t PlanWrong(const uint8_t* e, const maniRetargetMap* m, uint32_t b
         reference ? weight == 0.0f && !signbit(weight) : Share(weight),
         pelvis ? translation == maniRetargetPlanPelvis
                : translation <= (reference ? 0u : (uint32_t)maniRetargetTranslationAbsolute),
-        flags <= (reference || pelvis ? 0u : MANI_RETARGET_PLAN_SCALE)};
+        flags <= (reference || pelvis ? 0u
+                  : kind == maniRetargetPlanOne && weight == 1.0f
+                      ? MANI_RETARGET_PLAN_SCALE | MANI_RETARGET_PLAN_SAME
+                      : MANI_RETARGET_PLAN_SCALE)};
     for (uint32_t k = 0; k < 7; ++k)
     {
         if (!ok[k])

@@ -32,7 +32,7 @@
 
 #define PINNED_HASH 0x0c1461ad38a9a3fdull
 
-static _Alignas(16) uint8_t s_skeletonFiles[4][4096];
+static _Alignas(16) uint8_t s_skeletonFiles[6][4096];
 static _Alignas(16) uint8_t s_file[16384];
 static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[4][4096];
 static _Alignas(16) uint8_t s_scratch[8192];
@@ -104,8 +104,9 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
                                       (uint32_t)strlen(bones[b].name),
                                       bones[b].parent,
                                       {bones[b].offset, bones[b].rotation, {1, 1, 1}}};
-        // The source's hand rests scaled.
-        sources[b].rest.scale.x = side == 0 && b == 6 ? 0.5f : 1.0f;
+        // The source's hand rests scaled, and the invariant rigs' (sides 4
+        // and 5).
+        sources[b].rest.scale.x = (side == 0 || side >= 4) && b == 6 ? 0.5f : 1.0f;
     }
     maniBuilder* builder = NewBuilder();
     maniSkeletonSource source = {sources, count, 0};
@@ -506,10 +507,143 @@ static void TestPinned(void)
     }
 }
 
+// The hips as a plain pelvis: its height ratio scales translations.
+static const maniRetargetPelvisSource kHips = {
+    1, 1, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 1.0f, 1.0f};
+
+// A map of every source bone to the bone of its place, from source to
+// target, the hips by the pelvis when one is given.
+static void PairMap(const maniSkeleton* from, const maniSkeleton* to,
+                    maniRetargetTranslation translation, const maniRetargetPelvisSource* pelvis,
+                    uint8_t* file, size_t capacity, maniRetargetMap* out)
+{
+    maniRetargetPairSource pairs[8];
+    uint32_t count = 0;
+    for (uint32_t b = 0; b < 8; ++b)
+    {
+        if (pelvis == NULL || b != pelvis->target)
+        {
+            pairs[count++] = (maniRetargetPairSource){b, b, 1.0f, translation, true};
+        }
+    }
+    maniRetargetMapSource source = {
+        .source = from, .target = to, .pairs = pairs, .pelvis = pelvis, .pairCount = count};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildRetargetMap(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniOpenRetargetMap(file, size, out).result == mani_success,
+          "a map of pairs");
+    maniDestroyBuilder(builder);
+}
+
+// Whether two poses of a skeleton's first eight bones agree: turns within
+// tol, translations and scales within tol times scale.
+static bool Agree(const maniPose* a, const maniPose* b, float scale, double tol)
+{
+    bool same = true;
+    for (uint32_t k = 0; k < 8; ++k)
+    {
+        maniTransform x = maniPoseLocal(a, k);
+        maniTransform y = maniPoseLocal(b, k);
+        same = same && Near(FromQuat(x.rotation), FromQuat(y.rotation), tol) &&
+               fabs((double)(x.translation.x * scale - y.translation.x)) <= tol &&
+               fabs((double)(x.translation.y * scale - y.translation.y)) <= tol &&
+               fabs((double)(x.translation.z * scale - y.translation.z)) <= tol &&
+               fabs((double)(x.scale.x - y.scale.x)) <= tol &&
+               fabs((double)(x.scale.y - y.scale.y)) <= tol &&
+               fabs((double)(x.scale.z - y.scale.z)) <= tol;
+    }
+    return same;
+}
+
+// Whether two poses of the source hold the same locals, bit for bit.
+static bool SameLocals(const maniPose* a, const maniPose* b)
+{
+    bool same = true;
+    for (uint32_t k = 0; k < 8; ++k)
+    {
+        maniTransform x = maniPoseLocal(a, k);
+        maniTransform y = maniPoseLocal(b, k);
+        uint32_t u[10];
+        uint32_t v[10];
+        static_assert(sizeof x == sizeof u, "ten words");
+        memcpy(u, &x, sizeof u);
+        memcpy(v, &y, sizeof v);
+        same = same && memcmp(u, v, sizeof u) == 0;
+    }
+    return same;
+}
+
+static _Alignas(16) uint8_t s_pairFiles[3][4096];
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_invariantPoses[2][4096];
+
+// The transfer's invariants: a rig to itself is the identity (each bone in
+// its source's frame carries its local as it is); to the rig
+// scaled uniformly, the same turns with translations scaled (by the
+// pelvis's height ratio, so the map has one); a map and
+// its inverse between rigs whose rests turn differently return the pose.
+static void TestInvariants(void)
+{
+    Bone doubled[8];
+    Bone turned[8];
+    memcpy(doubled, kSource, sizeof doubled);
+    memcpy(turned, kSource, sizeof turned);
+    for (uint32_t b = 0; b < 8; ++b)
+    {
+        doubled[b].offset = (maniVec3){2.0f * kSource[b].offset.x, 2.0f * kSource[b].offset.y,
+                                       2.0f * kSource[b].offset.z};
+    }
+    turned[2].rotation = (maniQuat)REST;
+    turned[5].rotation = (maniQuat){0.0f, 0.70710678f, 0.0f, 0.70710678f};
+    turned[6].rotation = (maniQuat){0.5f, 0.5f, 0.5f, 0.5f};
+    maniSkeleton twice;
+    maniSkeleton other;
+    Skeleton(doubled, 8, 4, &twice);
+    Skeleton(turned, 8, 5, &other);
+    maniRetargetMap self;
+    maniRetargetMap scaled;
+    maniRetargetMap there;
+    maniRetargetMap back;
+    PairMap(&s_source, &s_source, maniRetargetTranslationAbsolute, NULL, s_pairFiles[0], 4096,
+            &self);
+    PairMap(&s_source, &twice, maniRetargetTranslationScaled, &kHips, s_pairFiles[1], 4096,
+            &scaled);
+    PairMap(&s_source, &other, maniRetargetTranslationScaled, NULL, s_pairFiles[2], 4096, &there);
+    static _Alignas(16) uint8_t backFile[4096];
+    PairMap(&other, &s_source, maniRetargetTranslationScaled, NULL, backFile, sizeof backFile,
+            &back);
+    maniPose* same = NULL;
+    maniPose* mid = NULL;
+    CHECK(maniInitPose(&s_source, s_invariantPoses[0], sizeof s_invariantPoses[0], &same) ==
+              mani_success,
+          "a pose of the source");
+    Posed();
+    CHECK(maniRetargetPose(&self, &s_source, s_in, &s_source, same, s_scratch, sizeof s_scratch) ==
+                  mani_success &&
+              SameLocals(s_in, same),
+          "a rig to itself: the identity, bit for bit");
+    CHECK(maniInitPose(&twice, s_invariantPoses[1], sizeof s_invariantPoses[1], &mid) ==
+                  mani_success &&
+              maniRetargetPose(&scaled, &s_source, s_in, &twice, mid, s_scratch,
+                               sizeof s_scratch) == mani_success &&
+              Agree(s_in, mid, 2.0f, 1e-6),
+          "to the rig scaled twice: the same turns, translations doubled");
+    CHECK(maniInitPose(&other, s_invariantPoses[1], sizeof s_invariantPoses[1], &mid) ==
+                  mani_success &&
+              maniRetargetPose(&there, &s_source, s_in, &other, mid, s_scratch, sizeof s_scratch) ==
+                  mani_success &&
+              maniRetargetPose(&back, &other, mid, &s_source, same, s_scratch, sizeof s_scratch) ==
+                  mani_success &&
+              Agree(s_in, same, 1.0f, 1e-5),
+          "there and back between rigs whose rests turn otherwise: the pose");
+}
+
 int main(void)
 {
     Setup();
     TestReference();
+    TestInvariants();
     TestTurns();
     TestTranslations();
     TestRefusals();

@@ -49,7 +49,11 @@ scales with the characters' heights, and IK goals after the transfer.
   height ratio, turned from the source parent's reference model frame
   to the target parent's (Godot's local form for translations); an
   absolute one the source's own, turned the same; a carried scale its
-  reference's times the source's over the source reference's. The
+  reference's times the source's over the source reference's. A bone
+  in its source's frame (one source at weight 1, its reference local
+  the source's bit for bit, its parent likewise or both roots, marked
+  at build; map format version 2) carries the source's local as it is
+  instead, so a rig mapped to itself transfers bit for bit. The
   pelvis's model position is the target reference's plus the source
   pelvis's change, its horizontal and vertical parts scaled, blended
   per model axis toward the unscaled change and then the source's own
@@ -112,6 +116,18 @@ scales with the characters' heights, and IK goals after the transfer.
   is checked where the map is used, by their identities.
 
 ## Consequences
+
+The invariants are tested on their own: a rig to itself bit for bit; to
+the rig scaled twice (a pelvis giving the ratio) the same turns with
+translations doubled; a map and its inverse between rigs whose rests
+turn otherwise returning the pose within 1e-5. The Godot differential
+(`tools/retarget_godot.c` and `.gd`, the weekly workflow's
+retarget-godot job): a 53-bone humanoid and a 60-bone one whose bones
+rest turned at random on each side, mapped by name, 500 random poses
+through Godot 4.7.2's RetargetModifier3D in its global mode, run
+headless, and through the library: every target bone's model rotation
+within 1.6e-6 radians (the job fails past 1e-5); a pose's output
+compared against the next pose's is refused.
 
 The tests build maps between a source of three spine bones and a
 two-bone arm and a target of four spine bones and a three-bone arm:
@@ -195,7 +211,8 @@ spine, neck and arm chains, the pelvis and names. The transfer took
 every target bone that only the pelvis's parent's inverse reads; that
 matrix is now taken from the locals made so far, and the transfer
 takes 33,427 (about 7 microseconds) with the same bits, its scratch a
-rotation a bone. About a third of what remains is normalizing each
+rotation a bone; 34,330 with the check for bones in their source's
+frame. About a third of what remains is normalizing each
 bone's model and local rotations in binary64, kept. A graph's mapped
 clip node updated and evaluated takes 44,738 against 12,474 for the
 baked clip played natively; baking the one-second clip at 30 Hz takes

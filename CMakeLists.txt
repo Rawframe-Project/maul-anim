@@ -385,6 +385,11 @@ if(MAUL_ANIM_DIFFERENTIAL)
     target_link_libraries(ik_differential PRIVATE maul-anim)
     maul_apply_flags(ik_differential)
     set_source_files_properties(${MAUL_OZZ_IK_SOURCES} PROPERTIES COMPILE_OPTIONS -w)
+    # The Godot differential of retargeting (mani-0032): rigs and poses
+    # for Godot's RetargetModifier3D, its results checked.
+    add_executable(retarget_godot tools/retarget_godot.c)
+    target_link_libraries(retarget_godot PRIVATE maul-anim)
+    maul_apply_flags(retarget_godot)
 endif()
 
 if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)

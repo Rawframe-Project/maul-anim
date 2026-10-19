@@ -157,7 +157,8 @@ static void TestPlan(void)
     const uint32_t none = MANI_NO_BONE;
     const uint32_t one = maniRetargetPlanOne;
     const uint32_t two = maniRetargetPlanTwo;
-    CHECK(PlanIs(&m, 0, one, 0, none, 0.0f, 1.0f, 0, 0), "the root by name");
+    CHECK(PlanIs(&m, 0, one, 0, none, 0.0f, 1.0f, 0, MANI_RETARGET_PLAN_SAME),
+          "the root by name, in its source's frame (both rest at the origin)");
     CHECK(PlanIs(&m, 1, one, 1, none, 0.0f, 0.75f, maniRetargetPlanPelvis, 0),
           "the pelvis: its rotation weight, its own translation");
     // Source places 0, 0.5, 1; target 0, 1/3, 2/3, 1.
@@ -464,11 +465,12 @@ static void TestFile(void)
               WordRefused(one + 8, 3, one + 8) && WordRefused(one + 12, Bits(0.5f), one + 12) &&
               WordRefused(one + 12, Bits(-0.0f), one + 12) &&
               WordRefused(one + 16, Bits(1.5f), one + 16) && WordRefused(one + 20, 3, one + 20) &&
-              WordRefused(one + 24, 2, one + 24) && WordRefused(one + 28, 1, one + 28),
+              WordRefused(one + 24, 4, one + 24) && WordRefused(one + 28, 1, one + 28),
           "a one-source plan: kind, bones, place, weight, translation, flags, its 0 word");
     CHECK(WordRefused(two + 8, 2, two + 8) && WordRefused(two + 12, Bits(1.0f), two + 12) &&
-              WordRefused(two + 12, Bits(0.0f), two + 12),
-          "a two-source plan: b equal to a, a place not inside (0, 1)");
+              WordRefused(two + 12, Bits(0.0f), two + 12) &&
+              WordRefused(two + 24, MANI_RETARGET_PLAN_SAME, two + 24),
+          "a two-source plan: b equal to a, a place not inside (0, 1), in a source's frame");
     CHECK(WordRefused(ref + 4, 0, ref + 4) && WordRefused(ref + 16, Bits(-0.0f), ref + 16) &&
               WordRefused(ref + 20, 1, ref + 20) && WordRefused(ref + 24, 1, ref + 24),
           "a reference plan: a bone, a weight, a translation, flags");

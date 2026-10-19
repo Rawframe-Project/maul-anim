@@ -49,7 +49,9 @@ format.
   from a source pose through a map, each mapped bone's model turn from
   its reference the source's (slerped along chains, weighted), the
   target's own lengths kept, translations scaled or carried through the
-  parents' reference frames, the pelvis scaled by parts;
+  parents' reference frames, the pelvis scaled by parts; a bone whose
+  reference and parent are its source's carries its local as it is, so
+  a rig mapped to itself transfers bit for bit (map format version 2);
   `maniRetargetRootMotion` scales root motion the same way.
 - Clip retargeting (mani-0032): `maniBuildRetargetedClip` bakes a clip
   of the source into a full-precision clip of the target through a
