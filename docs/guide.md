@@ -357,7 +357,10 @@ The offline side (built with `MAUL_ANIM_OFFLINE`, on by default) holds
 the builders, compression and the importers. glTF 2.0 files (JSON or
 GLB) give skeletons, skins, influences, morph targets, clips and spring
 bones; FBX files (binary or ASCII, `maniOpenFbx`) the same through the
-same calls.
+same calls. How the importers read or refuse each case of a file is
+listed in records mani-0007 to mani-0011 (glTF: JSON and numbers, the
+document, skeletons and skins, animations, spring bones) and mani-0012
+to mani-0018 (FBX).
 
 ```c
 maniGltf* gltf = NULL;
