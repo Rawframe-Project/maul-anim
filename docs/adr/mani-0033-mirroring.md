@@ -112,3 +112,15 @@ track missing), the opener's (an identity of 0, a section of 4 bytes,
 a mirrored entry without the section), and a graph playing the
 mirrored entry mirrored and, under a mirror node, as it is, with its
 build and bind refusals.
+
+Timings, by instruction count: a 54-bone humanoid (three spine bones,
+a neck and head, five three-bone fingers a hand, legs to the toes)
+whose left and right sides rest on unmirrored axes, paired by suffix
+rules. Mirroring a pose takes 12,428 instructions (about 230 a bone,
+some 3 microseconds): two quaternion products and a rotation a bone,
+no model pass, about what a native clip node's update and sample
+cost, so a graph's mirror node adds about one clip node a frame.
+Baking a one-second clip at 30 Hz takes 2.35 million; a database
+of a walk and the walk mirrored takes 9.01 million to build against
+7.15 million for two plain entries, the mirrored entry's poses
+mirrored as they are sampled.
