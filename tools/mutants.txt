@@ -1460,7 +1460,7 @@ ev-additive-no-base | src/graph_evaluate.c | if (base == NULL) | if (false)
 # Equivalent: ev-additive-zero-layer (maniAddPoses skips a layer of
 # weight 0).
 ev-additive-zero-layer | src/graph_evaluate.c | if (v > 0.0f && layer != NULL) | if (layer != NULL)
-ev-select-word | src/graph_evaluate.c | uint32_t k = maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0; | uint32_t k = 0;
+ev-select-word | src/graph_evaluate.c | PassOn(e, record, maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0, out, | PassOn(e, record, 0, out,
 ev-neutral-difference | src/graph_evaluate.c | if (difference) | if (false)
 ev-input-unweighed | src/graph_evaluate.c | if (!(State(e, input)->weight > 0.0f)) | if (false)
 ev-cursor-clips-only | src/graph_evaluate.c | cursor += clip ? 1u : 0u; | cursor += 1u;
@@ -1468,7 +1468,7 @@ ev-output-unweighed | src/graph_evaluate.c | if (!(State(&e, last)->weight > 0.0
 # Equivalent: ev-prepare-binding (another binding of the same graph,
 # identity checked, has the same skeleton and the same slots).
 ev-prepare-binding | src/graph_evaluate.c | if (head->stamp == SCRATCH_STAMP && head->binding == e->binding && | if (head->stamp == SCRATCH_STAMP &&
-ev-sample-time | src/graph_evaluate.c | (void)maniSampleClipCursor(c, clip, e->binding->skeleton, (float)s->time, out); | (void)maniSampleClipCursor(c, clip, e->binding->skeleton, 0.0f, out);
+ev-sample-time | src/graph_evaluate.c | SampleClip(e, c, clip, (float)s->time, out); | SampleClip(e, c, clip, 0.0f, out);
 ev-scratch-size | src/graph_evaluate.c | if (size < e.parts.size) | if (false)
 ev-weights-room | src/graph_evaluate.c | parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float)); | parts.weightsAt + Round((size_t)binding->graph.skeletonBoneCount * sizeof(float));
 
@@ -1951,7 +1951,7 @@ ims-done | src/graph_machine_step.c | bool done = !(elapsed < duration) || Trans
 ims-least | src/graph_machine_step.c | if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial && duration < entered->inertia) | if (Transition(m, t, 3) >> 8 == maniGraphFadeInertial)
 id-prev | src/graph_dead_blend.c | maniGraphTrs p = maniGraphTrsHeld(block, beforeAt, b); | maniGraphTrs p = x;
 im-swap | src/graph_inertia_apply.c | flags ^= again ? 0u : (uint32_t)maniGraphInertiaLastSecond; | flags ^= 0u;
-im-copy | src/graph_inertia_apply.c | memcpy(block + maniGraphInertiaHistory(block, node->bones, true), locals, | memcpy(block + maniGraphInertiaHistory(block, node->bones, false), locals,
+im-copy | src/graph_inertia_apply.c | uint32_t* history = block + maniGraphInertiaHistory(block, node->bones, true); | uint32_t* history = block + maniGraphInertiaHistory(block, node->bones, false);
 id-grow | src/graph_dead_blend.c | return carried != 0.0f ? s * maniExpF(carried) : s; | return s;
 
 # Motion matching: the database clip map, the search, the graph node and
@@ -3617,3 +3617,47 @@ gi-time-any | src/graph_inspect.c | if (v.kind == maniGraphNodeClip || v.kind ==
 gi-select | src/graph_inspect.c | v.current = s->word; | v.current = 0;
 gi-place-build | src/graph_build.c | maniStoreU32(e + 24, v); | maniStoreU32(e + 24, p);
 gi-place-open | src/graph_nodes.c | if (maniLoadU32(n->entry + 24) >= g->nodeCount) | if (maniLoadU32(n->entry + 24) > g->nodeCount)
+
+# Subset plans and their evaluation (src/graph_subset.c, src/graph_evaluate.c, blend and add over groups)
+gs-groups-round | src/graph_subset.c | return (bones + MANI_POSE_GROUP_BONES - 1u) / MANI_POSE_GROUP_BONES; | return bones / MANI_POSE_GROUP_BONES;
+gs-size | src/graph_subset.c | size_t size = NodesAt(bones) + nodes; | size_t size = NodesAt(bones);
+gs-bones-range | src/graph_subset.c | if (bones[i] >= boneCount || (i > 0 && bones[i] <= bones[i - 1])) | if (bones[i] > boneCount || (i > 0 && bones[i] <= bones[i - 1]))
+gs-bones-order | src/graph_subset.c | if (bones[i] >= boneCount || (i > 0 && bones[i] <= bones[i - 1])) | if (bones[i] >= boneCount || (i > 0 && bones[i] < bones[i - 1]))
+gs-align | src/graph_subset.c | (uintptr_t)memory % MANI_GRAPH_SUBSET_ALIGNMENT != 0 || planOut == NULL || | planOut == NULL ||
+gs-capacity | src/graph_subset.c | if (size < SizeOf(boneCount, binding->graph.nodeCount)) | if (size < SizeOf(boneCount, binding->graph.nodeCount) - 8)
+gs-group-flag | src/graph_subset.c | groups[list[i] / MANI_POSE_GROUP_BONES] = 1; | groups[list[i] / MANI_POSE_GROUP_BONES] = 0;
+gs-group-clear | src/graph_subset.c | memset(groups, 0, plan->groups); | (void)groups;
+gs-bones-count | src/graph_subset.c | *countOut = valid ? plan->count : 0u; | *countOut = plan != NULL ? plan->count : 0u;
+# Equivalent: a clip's cursor gives random access's bits (mani-0018), so sampling
+# every bone through it changes only what is computed.
+gs-sample | src/graph_evaluate.c | if (e->plan == NULL) | if (true)
+gs-kind | src/graph_evaluate.c | maniPoseSetKind(out, maniClipAdditiveBasis(clip) != maniAdditiveNone); | maniPoseSetKind(out, false);
+gs-write | src/graph_evaluate.c | maniPoseSetLocal(pose, bones[i], maniPoseLocal(slot, bones[i])); | maniPoseSetLocal(pose, bones[i], maniPoseLocal(slot, 0));
+gs-rest | src/graph_evaluate.c | maniPoseSetLocal(pose, bones[i], maniSkeletonRest(skeleton, bones[i])); | (void)skeleton;
+gs-rest-plan | src/graph_evaluate.c | RestPlanned(plan, binding->skeleton, pose); | (void)maniPoseSetRest(pose, binding->skeleton);
+gs-eval-binding | src/graph_evaluate.c | instance->stamp != MANI_GRAPH_INSTANCE_STAMP || plan->binding != instance->binding || | instance->stamp != MANI_GRAPH_INSTANCE_STAMP ||
+gs-eval-stamp | src/graph_evaluate.c | if (plan == NULL || plan->stamp != MANI_GRAPH_SUBSET_STAMP || instance == NULL || | if (plan == NULL || instance == NULL ||
+gs-blend-groups | src/blend.c | if (groups != NULL && groups[first / LANES] == 0) | if (groups != NULL && groups[first / LANES] != 0)
+gs-add-groups | src/additive.c | if (groups != NULL && groups[bone / MANI_POSE_GROUP_BONES] == 0) | if (groups != NULL && groups[bone / MANI_POSE_GROUP_BONES] != 0)
+
+# Subset closures and what a subset leaves (src/graph_subset.c, inertialization over groups)
+gd-ancestors | src/graph_subset.c | b = maniSkeletonParent(c->skeleton, b)) | b = c->bones)
+gd-grew | src/graph_subset.c | c->grew = true; | c->grew = false;
+gd-marked | src/graph_subset.c | return bone < c->bones && c->marks[bone] != 0; | return bone < c->bones;
+gd-see | src/graph_subset.c | v->found = v->found || Marked(v->closure, bone); | v->found = Marked(v->closure, bone);
+gd-path-stop | src/graph_subset.c | if (b == to) | if (false)
+gd-tail | src/graph_subset.c | See(v, maniLoadU32(joint + maniSpringJointTail)); | (void)joint;
+gd-colliders | src/graph_subset.c | See(v, maniLoadU32(set->colliders + (size_t)k * MANI_SPRING_COLLIDER_SIZE)); | (void)set;
+gd-two-bone | src/graph_subset.c | for (uint32_t k = 0; k < 3; ++k) | for (uint32_t k = 0; k < 2; ++k)
+gd-aim-count | src/graph_subset.c | for (uint32_t k = 0; k < Word(graph, d); ++k) | for (uint32_t k = 0; k < 1; ++k)
+gd-chain | src/graph_subset.c | Path(v, Word(graph, d + 1), Word(graph, d)); | Path(v, Word(graph, d + 1), Word(graph, d + 1));
+gd-body-top | src/graph_subset.c | uint32_t top = Word(graph, d + maniGraphBodyTop); | uint32_t top = Word(graph, d + MANI_GRAPH_BODY_WORDS);
+gd-body-count | src/graph_subset.c | for (uint32_t k = 0; k < Word(graph, d + maniGraphBodyEffectorCount); ++k) | for (uint32_t k = 0; k < 1; ++k)
+gd-reads | src/graph_subset.c | if (Bones(&writes, graph, p, false) && writes.found) | if (Bones(&writes, graph, p, false))
+gd-partner | src/graph_subset.c | Mark(c, maniMirrorPartner(map, b)); | Mark(c, b);
+gd-fixed | src/graph_subset.c | } while (c.grew); | } while (false);
+gd-runs | src/graph_subset.c | nodes[p] = !Bones(&writes, graph, p, false) || writes.found ? 1u : 0u; | nodes[p] = 1u;
+gd-runs-local | src/graph_subset.c | nodes[p] = !Bones(&writes, graph, p, false) || writes.found ? 1u : 0u; | nodes[p] = writes.found ? 1u : 0u;
+gd-pass-on | src/graph_evaluate.c | if (weighed && plan != NULL && !maniGraphSubsetRuns(plan, p)) | if (false)
+gd-inertia-groups | src/graph_evaluate.c | node.groups = e->groups; | node.groups = NULL;
+gd-inertia-capture | src/graph_inertia.h | return node->groups == NULL || node->groups[b / MANI_POSE_GROUP_BONES] != 0; | return true;

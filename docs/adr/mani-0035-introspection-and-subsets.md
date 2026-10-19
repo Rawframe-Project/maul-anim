@@ -65,3 +65,12 @@ hit-test bones, a distant crowd's level of detail.
   a level of detail switch does elsewhere.
 - A graph file of format version 3 is not opened; graphs are rebuilt
   from their sources, as before the first release.
+
+Timings, by instruction count, GCC 14 at -O2: a 54-bone humanoid playing
+a blend of two clips under an additive layer, an update and an
+evaluation a step. A whole evaluation takes 53,198 instructions; a
+plan of the head, the hands and the feet (22 bones with their
+ancestors, in 5 of the pose's 7 groups) 38,444; a plan of the head (8
+bones, one group) 17,981. The update alone takes 2,226. A plan costs
+by the groups it touches, since blending and adding run a group of
+eight bones at once, and sampling by the bones it lists.

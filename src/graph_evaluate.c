@@ -869,7 +869,8 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     }
 }
 
-// Each planned bone of slot into pose, the pose made of slot's kind.
+// Each planned bone of slot into pose, the pose made a pose (a graph's
+// output never gives differences: refused at build).
 static void WritePlanned(const maniGraphSubset* plan, const maniPose* slot, maniPose* pose)
 {
     const uint32_t* bones = maniGraphSubsetList(plan);
@@ -877,7 +878,7 @@ static void WritePlanned(const maniGraphSubset* plan, const maniPose* slot, mani
     {
         maniPoseSetLocal(pose, bones[i], maniPoseLocal(slot, bones[i]));
     }
-    maniPoseSetKind(pose, maniPoseIsDifference(slot));
+    maniPoseSetKind(pose, false);
     maniPoseMarkStale(pose);
 }
 

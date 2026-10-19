@@ -9,6 +9,10 @@
 // update, and every other bone keeps what it had; a graph with an IK node
 // plans every bone and still agrees; every refusal.
 
+#include "bytes.h"
+#include "graph_file.h"
+#include "graph_inertia.h"
+#include "graph_instance.h"
 #include "graph_subset.h"
 #include "test_harness.h"
 
@@ -42,6 +46,9 @@ static _Alignas(16) uint8_t s_graphFile[65536];
 static _Alignas(16) uint8_t s_binding[1u << 16];
 static _Alignas(16) uint8_t s_instances[2][1u << 18];
 static _Alignas(64) uint8_t s_scratch[1u << 18];
+// The subset's own scratch: what a whole evaluation leaves in a shared
+// one would hide a group the subset skipped wrongly.
+static _Alignas(64) uint8_t s_subsetScratch[1u << 18];
 static _Alignas(64) uint8_t s_poses[2][8192];
 static _Alignas(8) uint8_t s_plan[4096];
 static char s_names[kBones][8];
@@ -276,8 +283,8 @@ static bool Step(const maniGraphSubset* plan, float delta)
     }
     ok = ok &&
          maniEvaluateGraph(s_live[0], s_scratch, sizeof s_scratch, s_pose[0]) == mani_success &&
-         maniEvaluateGraphSubset(s_live[1], plan, s_scratch, sizeof s_scratch, s_pose[1]) ==
-             mani_success;
+         maniEvaluateGraphSubset(s_live[1], plan, s_subsetScratch, sizeof s_subsetScratch,
+                                 s_pose[1]) == mani_success;
     uint32_t next = 0;
     for (uint32_t b = 0; b < kBones && ok; ++b)
     {
@@ -293,14 +300,58 @@ static bool Step(const maniGraphSubset* plan, float delta)
     return ok && maniPoseIsDifference(s_pose[0]) == maniPoseIsDifference(s_pose[1]);
 }
 
+// A plan in memory filled with 0xFF first: no byte of it may be left
+// unwritten, and none past maniGraphSubsetSize written.
 static maniGraphSubset* Plan(const uint32_t* bones, uint32_t count)
 {
     maniGraphSubset* plan = NULL;
-    CHECK(maniGraphSubsetSize(s_bound) <= sizeof s_plan &&
-              maniPlanGraphSubset(s_bound, bones, count, s_plan, sizeof s_plan, &plan) ==
-                  mani_success,
+    size_t size = maniGraphSubsetSize(s_bound);
+    memset(s_plan, 0xFF, sizeof s_plan);
+    CHECK(size + 64 <= sizeof s_plan &&
+              maniPlanGraphSubset(s_bound, bones, count, s_plan, size, &plan) == mani_success,
           "planned");
+    bool kept = true;
+    for (size_t i = size; i < size + 64; ++i)
+    {
+        kept = kept && s_plan[i] == 0xFF;
+    }
+    CHECK(kept, "nothing written past the plan's size");
     return plan;
+}
+
+// The words of the second instance's output inertialization outside
+// the plan's groups (the last group, bones 16 to 19): both kept outputs
+// and the bones' captures.
+enum
+{
+    kKept = 2 * MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS + 4 * 18
+};
+
+static void Outside(uint32_t* words)
+{
+    const uint8_t* record =
+        s_graph.nodes + (size_t)maniGraphOutputNode(&s_graph) * MANI_GRAPH_NODE_SIZE;
+    uint32_t data = maniLoadU32(record + 12);
+    const uint32_t* block = (const uint32_t*)((const uint8_t*)s_live[1] + s_live[1]->machinesAt) +
+                            maniLoadU32(s_graph.data + 4 * ((size_t)data + maniGraphInertiaBlock));
+    maniGraphInertia node = maniGraphInertiaOf(&s_graph, data);
+    uint32_t n = 0;
+    uint32_t group = 2 * MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS;
+    for (int last = 0; last < 2; ++last)
+    {
+        uint32_t at = maniGraphInertiaHistory(block, kBones, last != 0) + group;
+        for (uint32_t k = 0; k < MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS; ++k)
+        {
+            words[n++] = block[at + k];
+        }
+    }
+    for (uint32_t b = 16; b < kBones; ++b)
+    {
+        for (uint32_t k = 0; k < 18; ++k)
+        {
+            words[n++] = block[maniGraphInertiaCapture(&node, b) + k];
+        }
+    }
 }
 
 static void TestLocal(void)
@@ -321,8 +372,8 @@ static void TestLocal(void)
     {
         maniPoseSetLocal(s_pose[1], b, kMark);
     }
-    bool rest = maniEvaluateGraphSubset(s_live[1], plan, s_scratch, sizeof s_scratch, s_pose[1]) ==
-                mani_success;
+    bool rest = maniEvaluateGraphSubset(s_live[1], plan, s_subsetScratch, sizeof s_subsetScratch,
+                                        s_pose[1]) == mani_success;
     for (uint32_t b = 0; b < kBones && rest; ++b)
     {
         bool isPlanned = (b <= 6) || (b >= 10 && b <= 13);
@@ -330,6 +381,11 @@ static void TestLocal(void)
             Same(maniPoseLocal(s_pose[1], b), isPlanned ? maniSkeletonRest(&s_skeleton, b) : kMark);
     }
     CHECK(rest, "before the first update, the rest at the plan's bones alone");
+    // The second instance, evaluated only through the plan, never writes
+    // its inertialization outside the plan's groups: as made, all zero.
+    static uint32_t before[kKept];
+    static uint32_t after[kKept];
+    Outside(before);
     bool ok = true;
     ok = ok && Step(plan, 0.0f);
     ok = ok && Step(plan, 0.1f);
@@ -340,6 +396,9 @@ static void TestLocal(void)
     Set(0, maniGraphParameterInt, 1);
     ok = ok && Step(plan, 0.3f) && Step(plan, 0.7f);
     CHECK(ok, "the listed bones bit for bit, the rest untouched, update after update");
+    Outside(after);
+    CHECK(memcmp(before, after, sizeof before) == 0,
+          "an inertialization's outputs and captures outside the plan kept");
     // One bone of the last group alone, then every bone.
     static const uint32_t kLast[1] = {19};
     plan = Plan(kLast, 1);
@@ -402,6 +461,10 @@ static void TestIk(void)
         CHECK(Planned(kEnd, 1, kArm, 9, true), "its chain's end: the chain, which runs");
         CHECK(Planned(kBelow, 1, kBelowPlan, 10, true), "a bone below the chain: it runs");
         CHECK(Planned(kSpine, 1, kSpinePlan, 7, false), "a bone apart: it passes its input on");
+        // A two-bone node's middle or an aim's first bone alone: the rest
+        // of the chain is read.
+        static const uint32_t kMiddle[1] = {7};
+        CHECK(k > 1 || Planned(kMiddle, 1, kArm, 9, true), "a chain's first bones bring its end");
     }
     // An aim over the arm's last two bones, one above them listed: it
     // writes no planned bone.
@@ -436,6 +499,11 @@ static void TestMirror(void)
     s_mirror = NULL;
 }
 
+static const char kSpringGraph[] =
+    "{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\"], \"springSets\": "
+    "[\"tail\"], \"nodes\": [{\"kind\": \"spring\", \"inputs\": [1], \"springSet\": "
+    "\"tail\"}, {\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": 0}";
+
 // A spring node writing a planned joint brings its joints, tails,
 // colliders' bones and their ancestors; one writing none does not run.
 static void TestSprings(void)
@@ -444,12 +512,41 @@ static void TestSprings(void)
     static const uint32_t kSet[14] = {0, 1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
     static const uint32_t kArmA[1] = {6};
     static const uint32_t kArmAPlan[7] = {0, 1, 2, 3, 4, 5, 6};
-    CHECK(Open("{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\"], "
-               "\"springSets\": [\"tail\"], \"nodes\": [{\"kind\": \"spring\", \"inputs\": [1], "
-               "\"springSet\": \"tail\"}, {\"kind\": \"clip\", \"clip\": \"walk\"}], "
-               "\"output\": 0}") &&
-              Planned(kJoint, 1, kSet, 14, true) && Planned(kArmA, 1, kArmAPlan, 7, false),
+    CHECK(Open(kSpringGraph) && Planned(kJoint, 1, kSet, 14, true) &&
+              Planned(kArmA, 1, kArmAPlan, 7, false),
           "a spring's joints, tails and colliders");
+    // Passing its input on, the spring is not stepped: whole again, the
+    // instance matches one only updated meanwhile.
+    static _Alignas(16) uint8_t memory[1u << 18];
+    maniGraphInstance* reference = NULL;
+    CHECK(Open(kSpringGraph) &&
+              maniInitGraphInstance(s_bound, memory, sizeof memory, &reference) == mani_success,
+          "a reference instance");
+    maniGraphSubset* plan = Plan(kArmA, 1);
+    maniGraphInstance* both[2] = {s_live[1], reference};
+    bool same = true;
+    for (int frame = 0; frame < 5; ++frame)
+    {
+        for (int i = 0; i < 2; ++i)
+        {
+            uint32_t events = 0;
+            maniRootMove move;
+            same = same && maniUpdateGraph(both[i], 0.05f, NULL, 0, &events, &move) == mani_success;
+        }
+        bool whole = frame == 0 || frame == 4;
+        same = same &&
+               (whole ? maniEvaluateGraph(s_live[1], s_subsetScratch, sizeof s_subsetScratch,
+                                          s_pose[1])
+                      : maniEvaluateGraphSubset(s_live[1], plan, s_subsetScratch,
+                                                sizeof s_subsetScratch, s_pose[1])) == mani_success;
+        same = same && (!whole || maniEvaluateGraph(reference, s_scratch, sizeof s_scratch,
+                                                    s_pose[0]) == mani_success);
+    }
+    for (uint32_t b = 0; b < kBones && same; ++b)
+    {
+        same = Same(maniPoseLocal(s_pose[0], b), maniPoseLocal(s_pose[1], b));
+    }
+    CHECK(same, "a spring passing its input on is not stepped");
 }
 
 // A full-body node writing a planned bone brings its paths from its top
@@ -476,6 +573,25 @@ static void TestBody(void)
                   Planned(kRoot, 1, kRootPlan, 2, false),
               "a full-body node's paths");
     }
+}
+
+// A closure needing several passes: the listed arm's partners reach an
+// aim chain, whose last bone's partner is in the first arm.
+static void TestFixedPoint(void)
+{
+    s_mirror = &s_mirrorMap;
+    static const uint32_t kListed[1] = {8};
+    static const uint32_t kPlan[18] = {0, 1,  2,  3,  4,  5,  6,  7,  8,
+                                       9, 10, 11, 14, 15, 16, 17, 18, 19};
+    CHECK(Open("{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": "
+               "\"goal\", \"type\": \"vec3\", \"default\": [0.3, 0.9, 0.2]}], \"clips\": "
+               "[\"walk\"], \"nodes\": [{\"kind\": \"mirror\", \"inputs\": [1]}, {\"kind\": "
+               "\"aim\", \"inputs\": [2], \"bones\": [\"b18\", \"b19\"], \"goal\": \"goal\", "
+               "\"forward\": [1, 0, 0]}, {\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": "
+               "0}") &&
+              Planned(kListed, 1, kPlan, 18, true),
+          "partners, then the aim's chain, then its partners");
+    s_mirror = NULL;
 }
 
 static void TestRefusals(void)
@@ -509,7 +625,17 @@ static void TestRefusals(void)
     CHECK(maniGraphSubsetBones(NULL, &count) == NULL && count == 0 &&
               maniGraphSubsetBones((const maniGraphSubset*)s_scratch, NULL) == NULL,
           "no plan, no bones");
+    count = 7;
+    CHECK(maniGraphSubsetBones((const maniGraphSubset*)s_scratch, &count) == NULL && count == 0,
+          "memory that is no plan, no bones");
     plan = Plan(NULL, 0);
+    // A plan whose stamp is gone.
+    static _Alignas(8) uint8_t unstamped[4096];
+    memcpy(unstamped, s_plan, sizeof unstamped);
+    memset(unstamped, 0, 4);
+    CHECK(maniEvaluateGraphSubset(s_live[0], (const maniGraphSubset*)unstamped, s_scratch,
+                                  sizeof s_scratch, s_pose[0]) == mani_errorInvalid,
+          "a plan without its stamp");
     static _Alignas(8) uint8_t kNever[64];
     CHECK(maniEvaluateGraphSubset(s_live[0], NULL, s_scratch, sizeof s_scratch, s_pose[0]) ==
                   mani_errorInvalid &&
@@ -543,6 +669,7 @@ int main(void)
     TestMirror();
     TestSprings();
     TestBody();
+    TestFixedPoint();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
