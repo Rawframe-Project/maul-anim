@@ -622,7 +622,7 @@ static maniBodyEffector Effector(const Evaluation* e, uint32_t d, uint32_t k)
 // A full-body node: its input with the body solved, its effectors,
 // settings and the solve's scratch laid in the instance's room from a
 // 16-byte boundary; the input when the solve refuses (a crafted file's
-// bones not a part the solve takes, a goal not finite).
+// bones not a part the solve takes, a goal not finite, a room short).
 static void Body(const Evaluation* e, const uint8_t* record, maniPose* out, bool sdls)
 {
     uint32_t d = maniLoadU32(record + 12);
@@ -638,6 +638,13 @@ static void Body(const Evaluation* e, const uint8_t* record, maniPose* out, bool
     at += maniGraphBodyRounded(count * sizeof(maniBodyEffector));
     maniBodyBone* bones = (void*)(room + at);
     at += maniGraphBodyRounded(settings * sizeof(maniBodyBone));
+    // The room holds every body node's arrays (maniGraphBodyRoom); the
+    // check keeps a room short of them from being written past.
+    size_t have = e->instance->size - e->instance->roomAt;
+    if (at > have)
+    {
+        return;
+    }
     for (uint32_t k = 0; k < count; ++k)
     {
         effectors[k] = Effector(e, d, k);
@@ -656,10 +663,9 @@ static void Body(const Evaluation* e, const uint8_t* record, maniPose* out, bool
                              .stretch = Word(e, d + maniGraphBodyStretch) != 0,
                              .tolerance = Number(e, d + maniGraphBodyTolerance),
                              .weight = Clamped(e, d + maniGraphBodyWeight, 0.0f, 1.0f)};
-    size_t left = e->instance->size - e->instance->roomAt - at;
     const maniSkeleton* skeleton = e->binding->skeleton;
-    (void)(sdls ? maniSolveBodySdls(out, skeleton, &s, room + at, left, NULL)
-                : maniSolveBodyXpbd(out, skeleton, &s, room + at, left, NULL));
+    (void)(sdls ? maniSolveBodySdls(out, skeleton, &s, room + at, have - at, NULL)
+                : maniSolveBodyXpbd(out, skeleton, &s, room + at, have - at, NULL));
 }
 
 // A learned node's pose: its model's Decompressor at its state, worked

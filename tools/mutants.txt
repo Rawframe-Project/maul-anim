@@ -2632,7 +2632,7 @@ gs-bind-sets | src/graph_bind.c | !BindModels(binding, assets, unboundOut) || !B
 gs-json-write | src/graph_json.c | if (source->springSetCount > 0) | if (source->springSetCount > 1)
 gs-json-list | src/graph_json_graph.c | (a->springSets == NULL && a->springSetCount > 0)) | false)
 gs-inline-copy | src/graph_inline.c | f->springSets[f->springSetCount++] = source->springSets[k]; | (void)k;
-gs-inline-fit | src/graph_inline.c | t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS; | t->models <= MANI_GRAPH_MAX_MODELS;
+gs-inline-fit | src/graph_inline.c | t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS && | t->models <= MANI_GRAPH_MAX_MODELS &&
 
 # Graph spring nodes (src/graph_spring.c and the graph's files that
 # take the node) and the subgraph slots' joins (src/graph_inline.c)
@@ -2959,7 +2959,7 @@ gik-aim-weight | src/graph_nodes.c | return wrong != UINT32_MAX ? wrong : Scalar
 # Kept: an IK node must not be the output (which gives poses) to read
 # differences on open, and no source the build accepts gives that shape
 # to craft from; the solvers refuse a difference pose, passing it.
-gik-kind-input | src/graph_nodes.c | if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeTwoBone || | if (n->kind == maniGraphNodeSpring ||
+gik-kind-input | src/graph_nodes.c | (n->kind >= maniGraphNodeTwoBone && n->kind <= maniGraphNodeBodySdls)) | (n->kind >= maniGraphNodeAim && n->kind <= maniGraphNodeBodySdls))
 gik-chk-range | src/graph_check.c | if (bones[k] >= maniSkeletonBoneCount(skeleton) || | if (false ||
 gik-chk-above | src/graph_check.c | (k > 0 && !maniIkAbove(skeleton, bones[k - 1], bones[k]))) | (false))
 gik-chk-goal | src/graph_check.c | return ParameterOf(source, goal, vec3, vec3) && | return goal != MANI_NO_PARAMETER &&
@@ -2989,7 +2989,7 @@ gik-ev-cone | src/graph_evaluate.c | .cone = Clamped(e, d + maniGraphAimCone, 0.
 gik-ev-shares | src/graph_evaluate.c | memcpy(&s.shares[k], &bits, sizeof bits); | s.shares[k] = 1.0f;
 gik-bd-hinge | src/graph_build.c | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3); | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 2) + 1;
 gik-bd-equal | src/graph_build.c | shares[k] = s->shares != NULL ? s->shares[k] : 1.0f; | shares[k] = s->shares != NULL ? s->shares[k] : 0.5f;
-gik-bd-posesonly | src/graph_build.c | node->kind == maniGraphNodeAim || node->kind == maniGraphNodeCcd || | node->kind == maniGraphNodeCcd ||
+gik-bd-posesonly | src/graph_build.c | bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeTwoBone || | bool posesOnly = node->kind == maniGraphNodeSpring ||
 gik-in-goal | src/graph_inline.c | node->twoBone.goal = Resolve(s, node->twoBone.goal); | (void)0;
 gik-in-aim-goal | src/graph_inline.c | node->aim.goal = Resolve(s, node->aim.goal); | (void)0;
 gik-in-aim-weight | src/graph_inline.c | node->aim.weight = Scalar(s, node->aim.weight); | (void)0;
@@ -3069,7 +3069,7 @@ fab-frames | src/ik_fabrik.c | maniIkChainFrames(&chain, pose, k); | (void)0;
 fab-valid-poles | src/ik_fabrik.c | !maniIkChainValid(pose, skeleton, solve, true, false)) | !maniIkChainValid(pose, skeleton, solve, true, true))
 gch-optional | src/graph_chain.c | return optional; | return true;
 gch-type | src/graph_chain.c | maniLoadU32(g->parameters + (size_t)p * MANI_GRAPH_PARAMETER_SIZE) == type; | true;
-gch-weight-bits | src/graph_chain.c | return ParameterValid(g, at, maniGraphParameterFloat, false) && Word(g, at + 1) == 0; | return ParameterValid(g, at, maniGraphParameterFloat, false);
+gch-weight-bits | src/graph_chain.c | Word(g, at + 1) == 0; | true;
 gch-weight-range | src/graph_chain.c | return v >= 0.0f && v <= 1.0f; | return v >= 0.0f;
 # Kept: a count of 32 or more cannot match the record's word count
 # in a file the builder lays out, and the evaluator reads limits only
@@ -3083,8 +3083,8 @@ gch-ccd-pole | src/graph_chain.c | bool none = k == 1 && !fabrik; | bool none = 
 gch-iterations | src/graph_chain.c | if (iterations < 1 || iterations > MANI_IK_MAX_ITERATIONS) | if (iterations < 1)
 gch-tolerance | src/graph_chain.c | if (!(tolerance >= 0.0f) || !isfinite(tolerance)) | if (!(tolerance >= 0.0f))
 gch-step | src/graph_chain.c | if (!(step >= 0.0f && step <= PI_F) || (fabrik && Word(g, data + maniGraphChainStep) != 0)) | if (!(step >= 0.0f && step <= PI_F))
-gch-rotation-weight | src/graph_chain.c | if (!WeightValid(g, data + maniGraphChainRotationWeight)) | if (false)
-gch-limits-loop | src/graph_chain.c | uint32_t wrong = LimitValid(g, data, k); | uint32_t wrong = UINT32_MAX;
+gch-rotation-weight | src/graph_chain.c | if (!maniGraphIkWeightValid(g, data + maniGraphChainRotationWeight)) | if (false)
+gch-limits-loop | src/graph_chain.c | maniGraphLimitValid(g, data + MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * k); | UINT32_MAX;
 gev-limit-path | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (false)
 gev-limit-none | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (count + 1 != path)
 bik-unit | src/body_ik.c | return v >= 0.0f && v <= 1.0f; | return v >= 0.0f;
@@ -3204,3 +3204,42 @@ sdl-stop | src/body_sdls.c | for (uint32_t i = 0; i < solve->iterations && maniB
 sdl-zero-a | src/body_sdls.c | s.a[k] = 0.0f; | (void)0;
 bik-miss-turns | src/body_ik.c | if (goal->turns == 0) | if (true)
 bik-miss-reach | src/body_ik.c | goal->reach = goal->reach > part->mean ? goal->reach : part->mean; | (void)0;
+
+# Full-body IK graph nodes (mani-0031): words, build checks, inlining,
+# evaluation, room and JSON
+gbd-eff-min | src/graph_body.c | if (effectors < 1 || effectors > MANI_BODY_IK_MAX_EFFECTORS || | if (effectors > MANI_BODY_IK_MAX_EFFECTORS ||
+gbd-settings-max | src/graph_body.c | settings > MANI_BODY_IK_MAX_BONES) | false)
+gbd-words-room | src/graph_body.c | return words <= available ? words : 0; | return words;
+gbd-eff-bone | src/graph_body.c | if (Word(g, at + maniGraphEffectorBone) >= g->skeletonBoneCount) | if (false)
+gbd-rot-none | src/graph_body.c | (none && (Word(g, w) != MANI_NO_PARAMETER || Word(g, w + 1) != 0))) | (none && Word(g, w + 1) != 0))
+gbd-rot-bits | src/graph_body.c | (none && (Word(g, w) != MANI_NO_PARAMETER || Word(g, w + 1) != 0))) | (none && Word(g, w) != MANI_NO_PARAMETER))
+gbd-strength | src/graph_body.c | if (!UnitAt(g, at + maniGraphEffectorStrength)) | if (false)
+gbd-pull | src/graph_body.c | return UnitAt(g, at + maniGraphEffectorPull) ? UINT32_MAX : at + maniGraphEffectorPull; | return UINT32_MAX;
+gbd-set-bone | src/graph_body.c | if (Word(g, at + maniGraphSettingBone) >= g->skeletonBoneCount) | if (false)
+gbd-set-limit | src/graph_body.c | uint32_t wrong = maniGraphLimitValid(g, at + maniGraphSettingLimit); | uint32_t wrong = UINT32_MAX;
+gbd-preferred | src/graph_body.c | if (!isfinite(WordFloat(g, at + maniGraphSettingPreferred + c))) | if (false)
+gbd-rot-stiff | src/graph_body.c | if (!UnitAt(g, at + maniGraphSettingRotationStiffness)) | if (false)
+gbd-stretch-sdls | src/graph_body.c | stretch == 0 || (stretch == 1 && !sdls), | stretch == 0 || stretch == 1,
+gbd-room-scratch | src/graph_body.c | maniBodyIkScratchSize(skeleton, &solve); | 0u;
+gbc-position | src/graph_body_check.c | bool ok = ParameterIs(source, f->position, maniGraphParameterVec3) && | bool ok = true &&
+gbc-rotation | src/graph_body_check.c | (none || ParameterIs(source, f->rotation, maniGraphParameterQuat)); | true;
+gbc-pos-weight | src/graph_body_check.c | if (!WeightValid(source, f->positionWeight)) | if (false)
+gbc-zero | src/graph_body_check.c | return WeightValid(source, f->rotationWeight) && (!none || zero) | return WeightValid(source, f->rotationWeight)
+gbc-stretch | src/graph_body_check.c | (s->stretch && n->kind != maniGraphNodeBodyXpbd)) | false)
+gbc-scratch | src/graph_body_check.c | if (maniBodyIkScratchSize(source->skeleton, &solve) == 0) | if (false)
+gbu-poses-only | src/graph_build.c | (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeFabrik);
+gbu-counted | src/graph_build.c | (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeFabrik);
+gbu-zero | src/graph_build.c | at = PutScalar(d, at, f->rotation == MANI_NO_PARAMETER ? zero : f->rotationWeight); | at = PutScalar(d, at, f->rotationWeight);
+gin-count | src/graph_inline.c | t->effectors += EffectorCount(node); | t->effectors += 0;
+gin-position | src/graph_inline.c | to[e].position = Resolve(s, to[e].position); | to[e].position = to[e].position;
+gin-rotation | src/graph_inline.c | to[e].rotation = Resolve(s, to[e].rotation); | to[e].rotation = to[e].rotation;
+gin-pos-weight | src/graph_inline.c | to[e].positionWeight = Scalar(s, to[e].positionWeight); | to[e].positionWeight = to[e].positionWeight;
+gin-rot-weight | src/graph_inline.c | to[e].rotationWeight = Scalar(s, to[e].rotationWeight); | to[e].rotationWeight = to[e].rotationWeight;
+gin-weight | src/graph_inline.c | b->weight = Scalar(s, b->weight); | b->weight = b->weight;
+gev-align | src/graph_evaluate.c | size_t at = (16u - (uintptr_t)room % 16u) % 16u; | size_t at = 0;
+gev-rot-weight | src/graph_evaluate.c | .rotationWeight = Clamped(e, at + maniGraphEffectorRotationWeight, 0.0f, 1.0f), | .rotationWeight = 1.0f,
+gev-settings | src/graph_evaluate.c | bones[k] = maniGraphBodySetting(e->graph, d, k); | bones[k] = (maniBodyBone){.bone = bones[k].bone};
+gin-room | src/graph_instance.c | else if (maniLoadU16(e) == maniGraphNodeBodyXpbd || maniLoadU16(e) == maniGraphNodeBodySdls) | else if (false)
+gjb-rot-member | src/graph_json_body.c | if (f[4] != ABSENT && f[2] == ABSENT) | if (false)
+gjb-mode | src/graph_json_body.c | if (mode == 3) | if (false)
+gjb-count | src/graph_json_body.c | return (*count >= least && *count <= most) || maniGraphJsonFault(r, value, maniGraphFormValue); | return true;

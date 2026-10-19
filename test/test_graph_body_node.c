@@ -6,7 +6,9 @@
 // an SDLS node's as maniSolveBodySdls, bit for bit, the effectors' goals
 // and rotation read from parameters, weights clamped (0 passing the
 // input); settings carried; both inside a subgraph through its mapping;
-// the JSON form read back to the same file; refused at build
+// the room the instance keeps holding the node's need; the word count
+// refusing counts out of range and words past those available; the JSON
+// form read back to the same file; refused at build
 // (differences, bones, parameters, numbers, settings, stretch for SDLS)
 // and at open at the first wrong word; a crafted file whose bones make
 // no part passing its input.
@@ -19,8 +21,10 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "graph_body.h"
 #include "graph_file.h"
 #include "graph_fixture.h"
+#include "graph_instance.h"
 
 #include "maul-anim/bodyik.h"
 #include "maul-anim/build.h"
@@ -202,6 +206,11 @@ static void TestXpbd(void)
     Evaluate(instance);
     Reference(false, &kXpbd, 1.0f, 1.0f, false);
     CHECK(Matches(false) && !Matches(true), "the walk solved by XPBD");
+    uint32_t data = maniLoadU32(g.nodes + MANI_GRAPH_NODE_SIZE + 12);
+    size_t need = maniGraphBodyRoom(&g, data, &s_skeleton);
+    CHECK(need > 15 + 2 * sizeof(maniBodyEffector) + sizeof(maniBodyBone) &&
+              instance->size - instance->roomAt >= need,
+          "the instance's room holds the node's arrays and scratch");
     Set(instance, 3, maniGraphParameterFloat, Float(0.5f));
     Set(instance, 2, maniGraphParameterFloat, Float(4.0f));
     Evaluate(instance);
@@ -235,16 +244,24 @@ static void TestSdls(void)
 // to, at other places.
 static void TestSubgraph(void)
 {
-    static maniGraphParameterSource inner[2];
+    static maniGraphParameterSource inner[4];
     static maniGraphNodeSource innerNodes[3];
-    static const uint32_t kMap[2] = {3, 0};
+    static const uint32_t kMap[4] = {3, 0, 5, 2};
     static const uint32_t kSecond[1] = {1};
+    // The XPBD node's effector reads its rotation and both weights from
+    // the outer parameters too.
+    static const maniGraphEffectorSource kAimed[1] = {
+        {2, 1, 2, 0, {3, 0.0f}, {3, 0.0f}, 1.0f, 0.0f}};
     static const maniGraphEffectorSource kTarget[1] = {
         {2, 1, MANI_NO_PARAMETER, 0, LITERAL(1.0f), LITERAL(0.0f), 1.0f, 0.0f}};
+    static const maniGraphEffectorSource kOuter[1] = {
+        {2, 0, 5, 0, LITERAL(0.75f), LITERAL(0.75f), 1.0f, 0.0f}};
     inner[0] = Parameter("w", maniGraphParameterFloat, Float(0.0f));
     inner[1] = Parameter("target", maniGraphParameterVec3, Vec(0.0f, 0.0f, 0.0f, 0.0f));
+    inner[2] = Parameter("aim", maniGraphParameterQuat, Vec(0.0f, 0.0f, 0.0f, 1.0f));
+    inner[3] = Parameter("v", maniGraphParameterFloat, Float(0.0f));
     maniGraphBodyNodeSource xpbd = kXpbd;
-    xpbd.effectors = kTarget;
+    xpbd.effectors = kAimed;
     xpbd.effectorCount = 1;
     xpbd.weight = (maniGraphScalar){0, 0.0f};
     maniGraphBodyNodeSource sdls = kSdls;
@@ -254,7 +271,7 @@ static void TestSubgraph(void)
     innerNodes[2] = BodyNode(maniGraphNodeBodySdls, kSecond, sdls);
     static maniGraphSource sub;
     sub = (maniGraphSource){
-        .parameters = inner, .nodes = innerNodes, .parameterCount = 2, .nodeCount = 3, .output = 2};
+        .parameters = inner, .nodes = innerNodes, .parameterCount = 4, .nodeCount = 3, .output = 2};
     sub.skeleton = &s_skeleton;
     sub.clips = kSlots;
     sub.clipCount = CLIPS;
@@ -264,14 +281,15 @@ static void TestSubgraph(void)
     maniGraphInstance* instance = Make(BodySource(nodes, 1), &g);
     Update(instance, 0.3f);
     Set(instance, 3, maniGraphParameterFloat, Float(0.5f));
+    Set(instance, 2, maniGraphParameterFloat, Float(0.75f));
     Evaluate(instance);
-    // The references read the outer goal (parameter 0) where the inner
-    // nodes read their target.
-    xpbd.effectors = kHand;
-    xpbd.weight = (maniGraphScalar){3, 0.0f};
+    // The references read the outer parameters where the inner nodes
+    // read their own.
+    xpbd.effectors = kOuter;
+    xpbd.weight = LITERAL(0.5f);
     Reference(false, &xpbd, 0.0f, 0.5f, false);
     Reference(true, &kSdls, 0.0f, 1.0f, true);
-    CHECK(Matches(false), "the outer goal and weight through the mapping");
+    CHECK(Matches(false), "the outer goals and weights through the mapping");
 }
 
 static maniBuildResult Built(maniGraphSource source)
@@ -527,6 +545,39 @@ static void TestFile(void)
     CHECK(WordRefused(size, at, 2, 1, 2, record), "an SDLS node's stretch");
 }
 
+// A rotation weight of -0 with no rotation built as the number 0, so the
+// file opens.
+static void TestNegativeZero(void)
+{
+    maniGraphEffectorSource effectors[2] = {kTwo[0], kTwo[1]};
+    effectors[1].rotationWeight = LITERAL(-0.0f);
+    maniGraphBodyNodeSource s = kXpbd;
+    s.effectors = effectors;
+    size_t size = 0;
+    size_t record = 0;
+    size_t at = Built1(BodyNode(maniGraphNodeBodyXpbd, kFirst, s), &size, &record);
+    CHECK(maniLoadU32(s_file + at + 4 * 24) == 0, "-0 written as 0");
+}
+
+// The word count on its own: the counts' ranges and the words available.
+static void TestWords(void)
+{
+    static _Alignas(8) uint8_t words[4 * MANI_GRAPH_BODY_WORDS];
+    maniGraph g = {.data = words};
+    const uint32_t counts[5][3] = {
+        {2, 1, 42}, {2, 1, 41}, {0, 1, 1000}, {33, 0, 1000}, {2, 129, 4000}};
+    const uint32_t want[5] = {42, 0, 0, 0, 0};
+    int right = 0;
+    for (int k = 0; k < 5; ++k)
+    {
+        maniStoreU32(words + 4 * maniGraphBodyEffectorCount, counts[k][0]);
+        maniStoreU32(words + 4 * maniGraphBodySettingCount, counts[k][1]);
+        right += maniGraphBodyDataWords(&g, 0, counts[k][2]) == want[k];
+    }
+    CHECK(right == 5 && maniGraphBodyDataWords(&g, 0, MANI_GRAPH_BODY_WORDS - 1) == 0,
+          "counts out of range and words past those available give 0");
+}
+
 // Whether the XPBD node with word w set to value opens, binds and
 // passes its input.
 static bool CraftedPasses(uint32_t w, uint32_t value)
@@ -598,7 +649,8 @@ static bool TextRefused(maniBuilder* builder, const char* from, const char* to, 
 }
 
 // Written as JSON, read back to the same file; a rotation weight with no
-// rotation, an unknown mode and no effectors refused.
+// rotation, an unknown mode, settings not a list and no effectors
+// refused.
 static void TestJson(void)
 {
     maniGraphNodeSource nodes[3];
@@ -629,6 +681,24 @@ static void TestJson(void)
     CHECK(TextRefused(builder, "\"iterations\": 8", "\"iterations\": 8, \"bones\": 3",
                       maniGraphFormValue),
           "settings not a list refused");
+    // The SDLS node's one effector cut out: an empty list.
+    const char* last = NULL;
+    for (const char* p = strstr(s_text, "\"effectors\": ["); p != NULL;
+         p = strstr(p + 1, "\"effectors\": ["))
+    {
+        last = p;
+    }
+    const char* end = last != NULL ? strchr(last, ']') : NULL;
+    static char list[1024];
+    size_t span = end != NULL ? (size_t)(end - last) + 1 : 0;
+    if (span > 0 && span < sizeof list)
+    {
+        memcpy(list, last, span);
+        list[span] = '\0';
+    }
+    CHECK(span > 0 && span < sizeof list &&
+              TextRefused(builder, list, "\"effectors\": []", maniGraphFormValue),
+          "no effectors refused");
     maniDestroyBuilder(builder);
 }
 
@@ -677,6 +747,8 @@ int main(int argc, char** argv)
     TestSubgraph();
     TestBuildRefusals();
     TestFile();
+    TestNegativeZero();
+    TestWords();
     TestCraftedBody();
     TestJson();
     return s_failures == 0 ? 0 : 1;
