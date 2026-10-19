@@ -13,9 +13,15 @@
 # ceiling only ever comes down.
 #
 # The runtime allocates nothing (mani-0001): the archive may name no
-# allocator (nm(1)'s undefined symbols), checked on every run.
+# allocator (nm(1)'s undefined symbols; NM names another nm, such as
+# llvm-nm for a Windows library), checked on every run. The names are
+# every C library and Windows CRT function that returns memory to free,
+# read as ELF, COFF (with or without __imp_) and Mach-O (one leading
+# underscore) spell them. --allocators runs that check alone, for a
+# platform without size(1).
 #
 # usage: size_report.py <libmaul-anim.a> [--check O2|O3]
+#        size_report.py <archive> --allocators
 
 import os
 import subprocess
@@ -75,14 +81,38 @@ def read_sizes(archive):
     return sizes
 
 
-ALLOCATORS = ("malloc", "calloc", "realloc", "free", "aligned_alloc", "posix_memalign")
+ALLOCATORS = frozenset((
+    # C and POSIX
+    "malloc", "calloc", "realloc", "reallocarray", "free", "aligned_alloc",
+    "posix_memalign", "memalign", "valloc", "pvalloc", "strdup", "strndup",
+    "wcsdup", "asprintf", "vasprintf", "getline", "getdelim", "open_memstream",
+    # The Windows CRT
+    "_aligned_malloc", "_aligned_realloc", "_aligned_recalloc", "_aligned_free",
+    "_aligned_offset_malloc", "_recalloc", "_expand", "_malloca", "_freea",
+    "_strdup", "_wcsdup", "_mbsdup",
+))
+
+
+def spellings(symbol):
+    """A symbol and the names it may stand for: without COFF's import
+    prefix, and without Mach-O's leading underscore."""
+    names = {symbol}
+    if symbol.startswith("__imp_"):
+        names.add(symbol[len("__imp_"):])
+    names.update(n[1:] for n in list(names) if n.startswith("_"))
+    return names
 
 
 def allocators(archive):
     """The allocator functions the archive calls."""
-    out = subprocess.run(["nm", "-u", archive], capture_output=True, text=True, check=True).stdout
-    named = {line.split()[-1] for line in out.splitlines() if line.strip().startswith("U ")}
-    return sorted(named.intersection(ALLOCATORS))
+    nm = os.environ.get("NM", "nm")
+    out = subprocess.run([nm, "-u", archive], capture_output=True, text=True, check=True).stdout
+    called = set()
+    for line in out.splitlines():
+        words = line.split()
+        if len(words) == 2 and words[0] == "U":
+            called.update(spellings(words[1]).intersection(ALLOCATORS))
+    return sorted(called)
 
 
 def place(parts, uses, sizes):
@@ -107,10 +137,15 @@ def place(parts, uses, sizes):
 def main():
     args = sys.argv[1:]
     level = None
+    if len(args) == 2 and args[1] == "--allocators":
+        called = allocators(args[0])
+        print("allocation: " + (", ".join(called) if called else "none"))
+        return 1 if called else 0
     if len(args) == 3 and args[1] == "--check" and args[2] in ("O2", "O3"):
         level = args[2]
     elif len(args) != 1:
-        sys.exit("usage: size_report.py <libmaul-anim.a> [--check O2|O3]")
+        sys.exit("usage: size_report.py <libmaul-anim.a> [--check O2|O3]\n"
+                 "       size_report.py <archive> --allocators")
     uses = read_modules()
     parts, ceilings = read_budget()
     sizes = read_sizes(args[0])

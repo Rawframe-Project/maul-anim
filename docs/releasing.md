@@ -11,7 +11,9 @@ and before the tag.
    runtime-only Release build (`-DMAUL_ANIM_OFFLINE=OFF`) at `-O2` and
    at `-O3` with GCC 14 passes `tools/size_report.py <archive> --check
    O2` and `--check O3`: every part within its ceiling in
-   `tools/size-budget.txt`, no module unplaced, no allocator symbol.
+   `tools/size-budget.txt`, no module unplaced, no allocator symbol
+   (CI's size and Windows jobs check the Clang 20 and clang-cl
+   archives too).
    The two tables go into the release's notes. A part over its ceiling
    blocks the release until it shrinks or a decision in mani-0036
    raises the ceiling.

@@ -104,7 +104,9 @@ jobs:
 
   # The runtime's text by part at -O2 and -O3 (GCC 14), reported against
   # tools/size-budget.txt (record 0013: checked at release, mani-0036),
-  # and the runtime's allocator symbols, which must be none.
+  # and the runtime's allocator symbols, which must be none: here for
+  # GCC 14 at both levels and Clang 20, and under clang-cl in the Windows
+  # job.
   size:
     name: size
     runs-on: ubuntu-24.04
@@ -115,6 +117,7 @@ jobs:
         run: |
           sudo apt-get $APT_OPTIONS update -q
           sudo apt-get $APT_OPTIONS install -y -q gcc-14 ninja-build
+          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20
       - name: Runtime builds
         run: |
           for level in O2 O3; do
@@ -123,12 +126,17 @@ jobs:
               -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
             cmake --build build-$level -j 4
           done
+          cmake -B build-clang -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_BUILD_TYPE=Release \
+            -DMAUL_ANIM_OFFLINE=OFF -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+          cmake --build build-clang -j 4
       - name: Text by part
         run: |
           for level in O2 O3; do
             echo "== -$level"
             python3 tools/size_report.py build-$level/libmaul-anim.a
           done
+      - name: Allocators under Clang
+        run: python3 tools/size_report.py build-clang/libmaul-anim.a --allocators
 
   windows-clang-cl:
     name: windows-clang-cl
@@ -148,6 +156,13 @@ jobs:
           set -o pipefail
           ctest --test-dir build -C Release --output-on-failure --timeout 300 2>&1 | tee ctest.log
           if grep -q "(Skipped)" ctest.log; then echo "::error::a test was skipped"; exit 1; fi
+      # The runtime alone, its allocator symbols read by llvm-nm (mani-0036).
+      - name: Runtime allocators
+        run: |
+          cmake -B build-runtime -T ClangCL -D${PREFIX}_WERROR=ON -DMAUL_ANIM_OFFLINE=OFF \
+            -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+          cmake --build build-runtime --config Release -j 4
+          NM=llvm-nm python tools/size_report.py build-runtime/Release/maul-anim.lib --allocators
       # The public headers alone under MSVC's cl, as C17 and C++17 with
       # /W4 /WX, which cannot build the library itself (family record 0008).
       - name: Headers under MSVC

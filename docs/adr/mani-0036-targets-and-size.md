@@ -51,10 +51,21 @@ every job and the archive reader) is 69,698 bytes of text at `-O2` and
   needs the smallest runtime builds with `-O2` and gets ozz's size, one
   that needs speed gets `-O3`'s; both are held by ceilings.
 - **No allocation, by symbols.** The same tool fails when the runtime
-  archive names `malloc`, `calloc`, `realloc`, `free`,
-  `aligned_alloc` or `posix_memalign`. This covers every runtime path,
-  where a counting allocator in tests covers only the calls a test
-  makes.
+  archive names any function that returns memory to free: the C and
+  POSIX allocators (`malloc`, `calloc`, `realloc`, `reallocarray`,
+  `free`, `aligned_alloc`, `posix_memalign`, `memalign`, `valloc`,
+  `pvalloc`), those that allocate a result (`strdup`, `strndup`,
+  `wcsdup`, `asprintf`, `vasprintf`, `getline`, `getdelim`,
+  `open_memstream`), and the Windows CRT's (`_aligned_malloc`,
+  `_aligned_realloc`, `_aligned_recalloc`, `_aligned_free`,
+  `_aligned_offset_malloc`, `_recalloc`, `_expand`, `_malloca`,
+  `_freea`, `_strdup`, `_wcsdup`, `_mbsdup`), read as ELF, COFF (with
+  or without its `__imp_` prefix) and Mach-O spell them. CI runs it on
+  the runtime archive of GCC 14 at `-O2` and `-O3` and of Clang 20 on
+  Linux, and of clang-cl on Windows (`llvm-nm`); only the
+  floating-point guard's register access differs by platform, and it
+  calls nothing. This covers every runtime path, where a counting
+  allocator in tests covers only the calls a test makes.
 
 ## Consequences
 
