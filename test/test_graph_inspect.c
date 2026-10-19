@@ -29,15 +29,18 @@ static const char kText[] =
     "{\"format\": \"maul-anim graph\", \"version\": 1, \"parameters\": [{\"name\": \"pick\", "
     "\"type\": \"int\"}, {\"name\": \"jump\", \"type\": \"trigger\"}, {\"name\": \"fire\", "
     "\"type\": \"trigger\"}, {\"name\": \"blink\", \"type\": \"trigger\"}, {\"name\": \"go\", "
-    "\"type\": \"trigger\"}], \"clips\": [\"walk\", \"run\"], \"databases\": [\"moves\"], "
+    "\"type\": \"trigger\"}, {\"name\": \"back\", \"type\": \"trigger\"}], \"clips\": [\"walk\", "
+    "\"run\"], \"databases\": [\"moves\"], "
     "\"nodes\": [{\"kind\": \"inertialize\", \"inputs\": [1], \"trigger\": \"blink\", "
     "\"duration\": 0.4}, {\"kind\": \"blend\", \"inputs\": [2, 5], \"weights\": [0.5, 0.5]}, "
     "{\"kind\": \"oneShot\", \"inputs\": [3, 4], \"fire\": \"fire\", \"fadeIn\": 0.2, "
     "\"fadeOut\": 0.2}, {\"kind\": \"machine\", \"inputs\": [6, 7], \"transitions\": "
-    "[{\"from\": 0, \"to\": 1, \"duration\": 0.5, \"conditions\": [{\"trigger\": \"jump\"}]}]}, "
+    "[{\"from\": 1, \"to\": 0, \"conditions\": [{\"trigger\": \"back\"}]}, "
+    "{\"from\": 0, \"to\": 1, \"duration\": 0.5, \"conditions\": [{\"trigger\": \"jump\"}]}]}, "
     "{\"kind\": \"clip\", \"clip\": \"run\"}, {\"kind\": \"select\", \"inputs\": [8, 9], "
     "\"parameter\": \"pick\"}, {\"kind\": \"clip\", \"clip\": \"walk\"}, {\"kind\": \"clip\", "
-    "\"clip\": \"run\"}, {\"kind\": \"match\", \"database\": \"moves\", \"trigger\": \"go\"}, "
+    "\"clip\": \"run\"}, {\"kind\": \"match\", \"database\": \"moves\", \"trigger\": \"go\", "
+    "\"period\": 10}, "
     "{\"kind\": \"clip\", \"clip\": \"walk\"}], \"output\": 0}";
 
 enum
@@ -119,6 +122,10 @@ static void TestStructure(void)
               maniGraphNodeSourcePlace(NULL, 0) == MANI_GRAPH_NONE &&
               maniGraphNodeSourcePlace(&s_graph, kPlaces) == MANI_GRAPH_NONE,
           "past the counts");
+    // A count one short: its last node is there to be read wrongly.
+    maniGraph shorter = s_graph;
+    shorter.nodeCount = kPlaces - 1;
+    CHECK(maniGraphNodeKindOf(&shorter, kPlaces - 1) == 0, "the count bounds the kind");
 }
 
 static maniGraphNodeView View(uint32_t place)
@@ -180,20 +187,20 @@ static void TestViews(void)
           "playheads of clips and the match node only");
     Set(1, maniGraphParameterTrigger, 1);
     Update(0.1f);
-    CHECK(Is(3, 0.5f, 1, 0, 0.0f) && Is(6, 0.5f, NONE, NONE, 0.0f), "a transition fired");
+    CHECK(Is(3, 0.5f, 1, 1, 0.0f) && Is(6, 0.5f, NONE, NONE, 0.0f), "a transition fired");
     Update(0.1f);
-    CHECK(Is(3, 0.5f, 1, 0, 0.2f) && Is(6, 0.4f, NONE, NONE, 0.0f) && Is(7, 0.1f, NONE, NONE, 0.0f),
+    CHECK(Is(3, 0.5f, 1, 1, 0.2f) && Is(6, 0.4f, NONE, NONE, 0.0f) && Is(7, 0.1f, NONE, NONE, 0.0f),
           "its fade a fifth along, the states' shares with it");
     Set(2, maniGraphParameterTrigger, 1);
     Update(0.1f);
-    CHECK(Is(2, 0.5f, 1, NONE, 0.0f) && Is(3, 0.5f, 1, 0, 0.4f), "a one-shot fired");
+    CHECK(Is(2, 0.5f, 1, NONE, 0.0f) && Is(3, 0.5f, 1, 1, 0.4f), "a one-shot fired");
     Set(3, maniGraphParameterTrigger, 1);
     Update(0.1f);
     CHECK(Is(2, 0.5f, 1, NONE, 0.5f) && Is(4, 0.25f, NONE, NONE, 0.0f) &&
-              Is(3, 0.25f, 1, 0, 0.6f) && Is(0, 1.0f, NONE, NONE, 0.25f),
+              Is(3, 0.25f, 1, 1, 0.6f) && Is(0, 1.0f, NONE, NONE, 0.25f),
           "fading in, its shot's share; an inertialization begun");
     Update(0.1f);
-    CHECK(Is(2, 0.5f, 2, NONE, 1.0f) && Is(3, 0.0f, 1, 0, 0.8f) && Is(0, 1.0f, NONE, NONE, 0.5f),
+    CHECK(Is(2, 0.5f, 2, NONE, 1.0f) && Is(3, 0.0f, 1, 1, 0.8f) && Is(0, 1.0f, NONE, NONE, 0.5f),
           "playing, its base out of the output");
     Set(0, maniGraphParameterInt, 1);
     Update(0.1f);
@@ -206,7 +213,9 @@ static void TestViews(void)
 static void TestRefusals(void)
 {
     maniGraphNodeView v;
+    static _Alignas(16) uint8_t kNever[256];
     CHECK(maniInspectGraphNode(NULL, 0, &v) == mani_errorInvalid &&
+              maniInspectGraphNode((const maniGraphInstance*)kNever, 0, &v) == mani_errorInvalid &&
               maniInspectGraphNode(s_instance, kPlaces, &v) == mani_errorInvalid &&
               maniInspectGraphNode(s_instance, 0, NULL) == mani_errorInvalid,
           "refused");

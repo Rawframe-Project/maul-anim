@@ -1534,7 +1534,7 @@ nd-flags | src/graph_nodes.c | if (n->flags > MANI_GRAPH_NODE_FLAGS) | if (false
 nd-first | src/graph_nodes.c | if (n->first != inputAt) | if (false)
 nd-count | src/graph_nodes.c | if (n->count < low || n->count > high || n->count > g->inputCount - inputAt) | if (n->count < low || n->count > high)
 nd-slot | src/graph_nodes.c | if (n->slot >= g->slotCount) | if (false)
-nd-reserved | src/graph_nodes.c | if (maniLoadU64(n->entry + 24) != 0) | if (false)
+nd-reserved | src/graph_nodes.c | if (maniLoadU32(n->entry + 28) != 0) | if (false)
 nd-input-order | src/graph_nodes.c | if (u >= p) | if (u > p)
 nd-input-slot | src/graph_nodes.c | if (maniLoadU32(g->nodes + (size_t)u * MANI_GRAPH_NODE_SIZE + 20) == n->slot) | if (false)
 nd-last-flags | src/graph_nodes.c | if (!KindValid(g, &n) || (last && n.flags != 0)) | if (!KindValid(g, &n))
@@ -3590,3 +3590,30 @@ mm-misuse | src/mirror_json.c | if ((text == NULL && length > 0) || skeleton == 
 mm-put-axis | src/mirror_json.c | maniGraphJsonPutText(w, kAxes[s->axis]); | maniGraphJsonPutText(w, kAxes[0]);
 mm-put-names-last | src/mirror_json.c | maniMapJsonPutClose(w, s->nameCount, true); | maniMapJsonPutClose(w, s->nameCount, false);
 mm-put-place | src/mirror_json.c | maniGraphJsonPutText(w, kPlaces[rule->place]); | maniGraphJsonPutText(w, kPlaces[0]);
+
+# Graph structure and inspection (src/graph_inspect.c, the source place in graph_build.c and graph_nodes.c)
+gi-kind-range | src/graph_inspect.c | return graph != NULL && node < graph->nodeCount ? maniLoadU16(Record(graph, node)) : 0u; | return graph != NULL && node <= graph->nodeCount ? maniLoadU16(Record(graph, node)) : 0u;
+gi-count-range | src/graph_inspect.c | return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 8) : 0u; | return graph != NULL ? maniLoadU32(Record(graph, node) + 8) : 0u;
+gi-count-word | src/graph_inspect.c | return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 8) : 0u; | return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 12) : 0u;
+gi-input-range | src/graph_inspect.c | if (input >= maniGraphNodeInputCount(graph, node)) | if (input > maniGraphNodeInputCount(graph, node))
+gi-input-first | src/graph_inspect.c | return maniLoadU32(graph->inputs + 4 * ((size_t)first + input)); | return maniLoadU32(graph->inputs + 4 * ((size_t)input));
+gi-output | src/graph_inspect.c | return graph != NULL && graph->nodeCount > 0 ? graph->nodeCount - 1 : MANI_GRAPH_NONE; | return graph != NULL && graph->nodeCount > 0 ? 0 : MANI_GRAPH_NONE;
+gi-place-range | src/graph_inspect.c | return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 24) | return graph != NULL ? maniLoadU32(Record(graph, node) + 24)
+gi-progress | src/graph_inspect.c | return duration > 0.0f ? elapsed / duration : 1.0f; | return duration > 0.0f ? elapsed : 1.0f;
+gi-machine-current | src/graph_inspect.c | v->current = block[maniGraphBlockCurrent]; | v->current = 0;
+gi-machine-running | src/graph_inspect.c | if (t != MANI_GRAPH_NO_TRANSITION) | if (true)
+gi-machine-transition | src/graph_inspect.c | v->transition = t; | v->transition = 0;
+gi-machine-duration | src/graph_inspect.c | FloatOf(maniGraphMachineTransition(&m, t, 4))); | FloatOf(maniGraphMachineTransition(&m, t, 5)));
+gi-shot-phase | src/graph_inspect.c | v->current = block[maniGraphShotPhase]; | v->current = block[maniGraphShotPhase] & 1u;
+gi-shot-weight | src/graph_inspect.c | v->progress = FloatOf(block[maniGraphShotWeight]); | v->progress = FloatOf(block[maniGraphShotStart]);
+gi-inertia-active | src/graph_inspect.c | bool active = (block[maniGraphInertiaFlags] & maniGraphInertiaActive) != 0; | bool active = true;
+gi-inertia-elapsed | src/graph_inspect.c | v->progress = active ? Progress(maniGraphInertiaGet(block, maniGraphInertiaElapsed), | v->progress = active ? Progress(maniGraphInertiaGet(block, maniGraphInertiaStep),
+gi-match-entry | src/graph_inspect.c | v->current = blocks[Word(graph, data, maniGraphMatchBlock) + maniGraphMatchEntry]; | v->current = blocks[Word(graph, data, maniGraphMatchBlock) + maniGraphMatchClock];
+gi-inspect-range | src/graph_inspect.c | node >= instance->binding->graph.nodeCount) | node > instance->binding->graph.nodeCount)
+gi-inspect-stamp | src/graph_inspect.c | if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP || out == NULL || | if (instance == NULL || out == NULL ||
+gi-time-match | src/graph_inspect.c | if (v.kind == maniGraphNodeClip || v.kind == maniGraphNodeMatch) | if (v.kind == maniGraphNodeClip)
+# Equivalent: only clip and motion matching nodes ever write a playhead.
+gi-time-any | src/graph_inspect.c | if (v.kind == maniGraphNodeClip || v.kind == maniGraphNodeMatch) | if (true)
+gi-select | src/graph_inspect.c | v.current = s->word; | v.current = 0;
+gi-place-build | src/graph_build.c | maniStoreU32(e + 24, v); | maniStoreU32(e + 24, p);
+gi-place-open | src/graph_nodes.c | if (maniLoadU32(n->entry + 24) >= g->nodeCount) | if (maniLoadU32(n->entry + 24) > g->nodeCount)
