@@ -3289,7 +3289,7 @@ rtb-ratio | src/retarget_build.c | w->ratio = ht / hs; | w->ratio = 1.0f;
 rtb-scale-flag | src/retarget_build.c | scale ? MANI_RETARGET_PLAN_SCALE : 0u, | 0u,
 
 # Retargeted poses (mani-0032): the transfer, the pelvis, the refusals
-rtp-scratch-affine | src/retarget_pose.c | sizeof(maniAffine) * map->targetBoneCount; | 0u;
+rtp-scratch-target | src/retarget_pose.c | return sizeof(maniQuat) * ((size_t)map->sourceBoneCount + map->targetBoneCount); | return sizeof(maniQuat) * (size_t)map->sourceBoneCount;
 rtp-up-split | src/retarget_pose.c | maniVec3 vertical = maniVec3Scale(up, maniVec3Dot(up, delta)); | maniVec3 vertical = maniVec3Scale(up, 0.0f);
 rtp-delta-conj | src/retarget_pose.c | return maniQuatMul(x->sourceModels[a], maniQuatConjugate(SourceModel(x->map, a))); | return x->sourceModels[a];
 rtp-lerp | src/retarget_pose.c | return a + (b - a) * t; | return a;

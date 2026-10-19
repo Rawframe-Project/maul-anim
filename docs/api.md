@@ -1260,7 +1260,7 @@ Returns the identity of the skeleton a map makes poses for.  @param map  An open
 ```c
 size_t maniRetargetScratchSize(const maniRetargetMap* map);
 ```
-Returns the scratch maniRetargetPose takes with a map: a rotation for every bone of both skeletons and a model matrix for every target bone.  @param map  An opened map, or NULL. @return The bytes; 0 for NULL. @par Thread safety Safe from any thread.
+Returns the scratch maniRetargetPose takes with a map: a rotation for every bone of both skeletons.  @param map  An opened map, or NULL. @return The bytes; 0 for NULL. @par Thread safety Safe from any thread.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniRetargetPose( const maniRetargetMap* map, const maniSkeleton* source, const maniPose* sourcePose, const maniSkeleton* target, maniPose* targetPose, void* scratch, size_t scratchSize);

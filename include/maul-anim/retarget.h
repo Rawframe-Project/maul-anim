@@ -110,8 +110,7 @@ extern "C"
     MANI_API uint64_t maniRetargetMapTargetIdentity(const maniRetargetMap* map);
 
     /// Returns the scratch maniRetargetPose takes with a map: a rotation
-    /// for every bone of both skeletons and a model matrix for every
-    /// target bone.
+    /// for every bone of both skeletons.
     ///
     /// @param map  An opened map, or NULL.
     /// @return The bytes; 0 for NULL.

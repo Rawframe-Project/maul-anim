@@ -409,6 +409,10 @@ format.
 
 ### Changed
 
+- `maniRetargetPose` takes a third fewer instructions (33 thousand
+  for a 60-bone humanoid) with the same results, and its scratch is a
+  rotation a bone: the pelvis's parent's matrix comes from the locals
+  made so far instead of a matrix for every target bone (mani-0032).
 - The graph file is format version 2 (mani-0032): its header's last
   word counts map slots and a clip slot's last word names its map
   slot; `maniGraph`, `maniGraphAssets` and `maniGraphClipSource` gain

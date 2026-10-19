@@ -68,8 +68,7 @@ size_t maniRetargetScratchSize(const maniRetargetMap* map)
     {
         return 0;
     }
-    return sizeof(maniQuat) * ((size_t)map->sourceBoneCount + map->targetBoneCount) +
-           sizeof(maniAffine) * map->targetBoneCount;
+    return sizeof(maniQuat) * ((size_t)map->sourceBoneCount + map->targetBoneCount);
 }
 
 maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
@@ -92,9 +91,9 @@ typedef struct Transfer
     const maniSkeleton* source;
     const maniPose* sourcePose;
     const maniSkeleton* target;
+    const maniPose* targetPose;
     maniQuat* sourceModels;
     maniQuat* targetModels;
-    maniAffine* targetAffines;
 } Transfer;
 
 // Source bone a's turn from its reference, in the model.
@@ -108,18 +107,25 @@ static float Lerp(float a, float b, float t)
     return a + (b - a) * t;
 }
 
-// A source bone's model position (the full transforms of its root path).
-static maniVec3 SourcePosition(const Transfer* x, uint32_t bone)
+// A bone's model matrix: the full transforms of its root path in a pose.
+static maniAffine PathMatrix(const maniSkeleton* skeleton, const maniPose* pose, uint32_t bone)
 {
-    maniTransform t = maniPoseLocal(x->sourcePose, bone);
+    maniTransform t = maniPoseLocal(pose, bone);
     maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    for (uint32_t p = maniSkeletonParent(x->source, bone); p != MANI_NO_BONE;
-         p = maniSkeletonParent(x->source, p))
+    for (uint32_t p = maniSkeletonParent(skeleton, bone); p != MANI_NO_BONE;
+         p = maniSkeletonParent(skeleton, p))
     {
-        t = maniPoseLocal(x->sourcePose, p);
+        t = maniPoseLocal(pose, p);
         maniAffine parent = maniAffineFromTrs(t.translation, t.rotation, t.scale);
         m = maniAffineMul(&parent, &m);
     }
+    return m;
+}
+
+// A source bone's model position.
+static maniVec3 SourcePosition(const Transfer* x, uint32_t bone)
+{
+    maniAffine m = PathMatrix(x->source, x->sourcePose, bone);
     return maniVec3Make(m.m[9], m.m[10], m.m[11]);
 }
 
@@ -217,8 +223,11 @@ static maniTransform Bone(const Transfer* x, uint32_t b)
         return local;
     }
     maniVec3 placed = PelvisPosition(x, a);
+    // Its parent's matrix from the locals made so far.
+    maniAffine matrix =
+        parent != MANI_NO_BONE ? PathMatrix(x->target, x->targetPose, parent) : (maniAffine){{0}};
     maniAffine inverse;
-    if (parent != MANI_NO_BONE && maniAffineInverse(&x->targetAffines[parent], &inverse))
+    if (parent != MANI_NO_BONE && maniAffineInverse(&matrix, &inverse))
     {
         placed = maniAffineTransformPoint(&inverse, placed);
     }
@@ -254,9 +263,9 @@ maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* sour
                   source,
                   sourcePose,
                   target,
+                  targetPose,
                   sourceModels,
-                  sourceModels + map->sourceBoneCount,
-                  (void*)(sourceModels + map->sourceBoneCount + map->targetBoneCount)};
+                  sourceModels + map->sourceBoneCount};
     for (uint32_t b = 0; b < map->sourceBoneCount; ++b)
     {
         maniQuat q = maniPoseLocal(sourcePose, b).rotation;
@@ -265,12 +274,7 @@ maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* sour
     }
     for (uint32_t b = 0; b < map->targetBoneCount; ++b)
     {
-        maniTransform local = Bone(&x, b);
-        uint32_t parent = maniSkeletonParent(target, b);
-        maniAffine own = maniAffineFromTrs(local.translation, local.rotation, local.scale);
-        x.targetAffines[b] =
-            parent == MANI_NO_BONE ? own : maniAffineMul(&x.targetAffines[parent], &own);
-        maniPoseSetLocal(targetPose, b, local);
+        maniPoseSetLocal(targetPose, b, Bone(&x, b));
     }
     maniPoseSetKind(targetPose, false);
     return mani_success;

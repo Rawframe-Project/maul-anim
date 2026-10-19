@@ -55,8 +55,9 @@ scales with the characters' heights, and IK goals after the transfer.
   per model axis toward the unscaled change and then the source's own
   position, weighted, and taken into its parent's frame as made.
   `maniRetargetRootMotion` scales a root motion delta the same way.
-  The caller lends scratch for a rotation per bone of both skeletons
-  and a matrix per target bone; nothing is kept.
+  The caller lends scratch for a rotation per bone of both skeletons;
+  the pelvis's parent's matrix is taken from the locals made so far;
+  nothing is kept.
 - **Baking clips** (`maniBuildRetargetedClip`, offline): a clip of the
   source becomes a full-precision clip of the target on the same grid
   (rate, duration, loop policy, additive basis): each sample's pose
@@ -184,3 +185,21 @@ with one scratch, each carrying its own clip; the opener's (a map slot past the 
 twice); the JSON form built back to the same file; a subgraph playing
 the walk through the same map joining its slot, through another map
 taking one of its own.
+
+Timings, by instruction count (wall times taken on a loaded machine):
+a 53-bone humanoid source (three spine bones, a neck, five three-bone
+fingers a hand) to a 60-bone target (five spine bones, two neck bones,
+a twist bone in each upper arm and forearm), mapped by interpolated
+spine, neck and arm chains, the pelvis and names. The transfer took
+49,056 instructions, a third of them composing a model matrix for
+every target bone that only the pelvis's parent's inverse reads; that
+matrix is now taken from the locals made so far, and the transfer
+takes 33,427 (about 7 microseconds) with the same bits, its scratch a
+rotation a bone. About a third of what remains is normalizing each
+bone's model and local rotations in binary64, kept. A graph's mapped
+clip node updated and evaluated takes 44,738 against 12,474 for the
+baked clip played natively; baking the one-second clip at 30 Hz takes
+2.8 million. The budget: a humanoid's transfer within 50 thousand
+instructions (about 0.01 milliseconds) on one core, met; a crowd that
+shares clips bakes them, a character that plays another rig's clips
+live pays about three native clip samples more a frame.
