@@ -181,6 +181,14 @@ static void TestPlan(void)
               LoadF32(h + maniRetargetHeaderSourcePelvis + 4) == 1.0f &&
               LoadF32(h + maniRetargetHeaderTargetPelvis + 4) == 0.9f,
           "the pelvis: heights 1 and 0.9, the scales their ratio times the factors");
+    // A pair on the head: the name leaves it.
+    const maniRetargetPairSource head = {9, 4, 1.0f, maniRetargetTranslationOwn, false};
+    source.pairs = &head;
+    source.pairCount = 1;
+    CHECK(Build(&source).result == mani_success &&
+              maniOpenRetargetMap(s_file, s_size, &m).result == mani_success &&
+              PlanIs(&m, 9, one, 4, none, 0.0f, 1.0f, 0, 0),
+          "a name never overrides a pair");
     // Reversed, without names or a pelvis: from the end.
     maniRetargetChainSource reversed = kArm;
     reversed.rotation = maniRetargetRotationOneToOneReversed;
@@ -227,6 +235,42 @@ static void TestReference(void)
     CHECK(PlanIs(&m, 3, maniRetargetPlanTwo, 3, 4, 0.2f, 1.0f, 0, 0) &&
               PlanIs(&m, 4, maniRetargetPlanTwo, 3, 4, 0.6f, 1.0f, 0, 0),
           "the places from its lengths");
+}
+
+// A target chain of no length placed by index; two source bones at one
+// place give a target bone there the later one.
+static void TestPlaces(void)
+{
+    maniTransform target[10];
+    maniTransform source[8];
+    for (uint32_t b = 0; b < 10; ++b)
+    {
+        target[b] = maniSkeletonRest(&s_target, b);
+    }
+    for (uint32_t b = 0; b < 8; ++b)
+    {
+        source[b] = maniSkeletonRest(&s_source, b);
+    }
+    for (uint32_t b = 3; b <= 5; ++b)
+    {
+        target[b].translation = (maniVec3){0.0f, 0.0f, 0.0f};
+    }
+    maniRetargetMapSource map = Map(&kSpine, 1);
+    map.targetReference = target;
+    maniRetargetMap m;
+    CHECK(Build(&map).result == mani_success &&
+              maniOpenRetargetMap(s_file, s_size, &m).result == mani_success &&
+              PlanIs(&m, 3, maniRetargetPlanTwo, 2, 3, 2.0f / 3.0f, 1.0f, 0, 0) &&
+              PlanIs(&m, 4, maniRetargetPlanTwo, 3, 4, 1.0f / 3.0f, 1.0f, 0, 0),
+          "a chain of no length: places by index");
+    // s2 on s1: source places 0, 0, 1; the target's start at 0 takes s2.
+    source[3].translation = (maniVec3){0.0f, 0.0f, 0.0f};
+    map = Map(&kSpine, 1);
+    map.sourceReference = source;
+    CHECK(Build(&map).result == mani_success &&
+              maniOpenRetargetMap(s_file, s_size, &m).result == mani_success &&
+              PlanIs(&m, 2, maniRetargetPlanOne, 3, MANI_NO_BONE, 0.0f, 1.0f, 0, 0),
+          "two source bones at one place: the later");
 }
 
 static bool Refused(const maniRetargetMapSource* source, maniBuildReason reason, uint32_t item,
@@ -405,6 +449,9 @@ static void TestFile(void)
               WordRefused(tb + MANI_RETARGET_TARGET_SIZE * 2 + 40, Bits(INFINITY),
                           tb + MANI_RETARGET_TARGET_SIZE * 2 + 40),
           "references: a rotation not of length 1, numbers not finite");
+    CHECK(WordRefused(tb + MANI_RETARGET_TARGET_SIZE * 2 + 52, Bits(NAN),
+                      tb + MANI_RETARGET_TARGET_SIZE * 2 + 52),
+          "a reference's last number not finite");
     // Target bone 3 (two sources), 2 (one), 8 (reference), 1 (the pelvis).
     size_t two = p + 3 * MANI_RETARGET_PLAN_SIZE;
     size_t one = p + 2 * MANI_RETARGET_PLAN_SIZE;
@@ -420,11 +467,19 @@ static void TestFile(void)
               WordRefused(two + 12, Bits(0.0f), two + 12),
           "a two-source plan: b equal to a, a place not inside (0, 1)");
     CHECK(WordRefused(ref + 4, 0, ref + 4) && WordRefused(ref + 16, Bits(-0.0f), ref + 16) &&
-              WordRefused(ref + 20, 1, ref + 20),
-          "a reference plan: a bone, a weight, a translation");
+              WordRefused(ref + 20, 1, ref + 20) && WordRefused(ref + 24, 1, ref + 24),
+          "a reference plan: a bone, a weight, a translation, flags");
     CHECK(WordRefused(pel, maniRetargetPlanTwo, pel) && WordRefused(pel + 4, 2, pel + 4) &&
-              WordRefused(pel + 20, 0, pel + 20),
-          "the pelvis's plan: one source, the pelvis's, its translation");
+              WordRefused(pel + 20, 0, pel + 20) && WordRefused(pel + 24, 1, pel + 24),
+          "the pelvis's plan: one source, the pelvis's, its translation, no flags");
+    // A word changed and only the payload's hash made right: the
+    // identity no longer the sections'.
+    memcpy(s_crafted, s_file, s_size);
+    maniStoreU32(s_crafted + one + 16, Bits(0.25f));
+    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniFileResult identity = maniOpenRetargetMap(s_crafted, s_size, &m);
+    CHECK(identity.result == mani_errorFormat && identity.offset == 40,
+          "an identity not the sections' refused");
     // Without a pelvis its fixed form.
     source = (maniRetargetMapSource){
         .source = &s_source, .target = &s_target, .chains = &kSpine, .chainCount = 1};
@@ -468,6 +523,7 @@ int main(int argc, char** argv)
     }
     TestPlan();
     TestReference();
+    TestPlaces();
     TestRefusals();
     TestFile();
     return s_failures == 0 ? 0 : 1;

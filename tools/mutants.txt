@@ -3251,3 +3251,37 @@ jsv-zero-skip | src/jacobi_svd.c | if (alpha == 0.0 || beta == 0.0) | if (false)
 jsv-norm-init | src/jacobi_svd.c | norms[i] = Dot(a + (size_t)i * n, a + (size_t)i * n, n); | norms[i] = 1.0;
 jsv-norm-p | src/jacobi_svd.c | norms[p] = Dot(ap, ap, n); | (void)0;
 jsv-norm-q | src/jacobi_svd.c | norms[q] = Dot(aq, aq, n); | (void)0;
+
+# Retargeting maps (mani-0032): the opener's one form, the builder's plans
+rtm-pelvis-range | src/retarget.c | if (!none && (source >= m->sourceBoneCount || target >= m->targetBoneCount)) | if (!none && target >= m->targetBoneCount)
+rtm-up-unit | src/retarget.c | if (!Unit(x * x + y * y + z * z) || (none && (x != 0.0f || y != 1.0f || z != 0.0f))) | if (none && (x != 0.0f || y != 1.0f || z != 0.0f))
+rtm-up-none | src/retarget.c | if (!Unit(x * x + y * y + z * z) || (none && (x != 0.0f || y != 1.0f || z != 0.0f))) | if (!Unit(x * x + y * y + z * z))
+rtm-scale-neg | src/retarget.c | if (!(scale >= 0.0f) || (none && scale != 1.0f)) | if (none && scale != 1.0f)
+rtm-scale-none | src/retarget.c | if (!(scale >= 0.0f) || (none && scale != 1.0f)) | if (!(scale >= 0.0f))
+rtm-share-range | src/retarget.c | bool share = w >= 7 || Share(v); | bool share = true;
+rtm-share-split | src/retarget.c | bool share = w >= 7 || Share(v); | bool share = w >= 6 || Share(v);
+rtm-none-zero | src/retarget.c | if (!share || (none && v != 0.0f)) | if (!share)
+rtm-count-min | src/retarget.c | if (m->sourceBoneCount < 1 || m->sourceBoneCount > MANI_MAX_BONES) | if (m->sourceBoneCount > MANI_MAX_BONES)
+rtm-end | src/retarget.c | if (maniLoadU32(h + maniRetargetHeaderEnd + 4 * w) != 0) | if (false)
+rtm-quat | src/retarget.c | if (wrong != 0) | if (false)
+rtm-floats | src/retarget.c | if (k < 6) | if (k < 5)
+rtm-kind-pelvis | src/retarget.c | kind <= maniRetargetPlanTwo && (!pelvis || kind == maniRetargetPlanOne), | kind <= maniRetargetPlanTwo,
+rtm-a-pelvis | src/retarget.c | reference ? a == MANI_NO_BONE : a < m->sourceBoneCount && (!pelvis || a == pelvisSource), | reference ? a == MANI_NO_BONE : a < m->sourceBoneCount,
+rtm-a-range | src/retarget.c | reference ? a == MANI_NO_BONE : a < m->sourceBoneCount && (!pelvis || a == pelvisSource), | reference ? a == MANI_NO_BONE : (!pelvis || a == pelvisSource),
+rtm-b-equal | src/retarget.c | two ? b < m->sourceBoneCount && b != a : b == MANI_NO_BONE, | two ? b < m->sourceBoneCount : b == MANI_NO_BONE,
+rtm-t-sign | src/retarget.c | two ? t > 0.0f && t < 1.0f : t == 0.0f && !signbit(t), | two ? t > 0.0f && t < 1.0f : t == 0.0f,
+rtm-t-one | src/retarget.c | two ? t > 0.0f && t < 1.0f : t == 0.0f && !signbit(t), | two ? t > 0.0f && t <= 1.0f : t == 0.0f && !signbit(t),
+rtm-w-sign | src/retarget.c | reference ? weight == 0.0f && !signbit(weight) : Share(weight), | reference ? weight == 0.0f : Share(weight),
+rtm-flags | src/retarget.c | flags <= (reference || pelvis ? 0u : MANI_RETARGET_PLAN_SCALE)}; | flags <= MANI_RETARGET_PLAN_SCALE};
+rtm-plan-end | src/retarget.c | return maniLoadU32(e + maniRetargetPlanEnd) == 0 ? UINT32_MAX : maniRetargetPlanEnd; | return UINT32_MAX;
+rtm-identity | src/retarget.c | if (maniRetargetComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
+rtb-unit | src/retarget_build.c | if (!finite || !Unit(maniQuatDot(q, q))) | if (!finite)
+rtb-pair-mapped | src/retarget_build.c | !w->plan[p->target].mapped && Share(p->rotationWeight) && | Share(p->rotationWeight) &&
+rtb-chain-mapped | src/retarget_build.c | if (w->plan[target[k]].mapped) | if (false)
+rtb-places-index | src/retarget_build.c | places[k] = along > 0.0f ? places[k] / along : (float)k / (float)(count - 1); | places[k] = places[k] / along;
+rtb-interp-j | src/retarget_build.c | while (j + 1 < count && v[j + 1] <= u) | while (j + 1 < count && v[j + 1] < u)
+rtb-reversed | src/retarget_build.c | return fromEnd < ns | return k < ns
+rtb-pelvis-height | src/retarget_build.c | if (!(hs > 0.0f) || !(ht > 0.0f) || !Finite(ht / hs)) | if (!Finite(ht / hs))
+rtb-names-mapped | src/retarget_build.c | w->plan[b].mapped ? MANI_NO_BONE : maniSkeletonFindBone(s->source, name, length); | maniSkeletonFindBone(s->source, name, length);
+rtb-ratio | src/retarget_build.c | w->ratio = ht / hs; | w->ratio = 1.0f;
+rtb-scale-flag | src/retarget_build.c | scale ? MANI_RETARGET_PLAN_SCALE : 0u, | 0u,
