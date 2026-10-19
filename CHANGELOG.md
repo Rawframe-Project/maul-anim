@@ -99,6 +99,13 @@ format.
   share of the output, playhead, a machine's state and transition under
   way with its fade, a one-shot's phase, an inertialization's easing, a
   matching node's entry).
+- Subset evaluation (mani-0035): `maniPlanGraphSubset` plans some bones
+  of a binding once (`maniGraphSubsetSize` bytes of caller memory), the
+  listed bones closed under their ancestors (every bone where a node
+  writes a bone from others), read by `maniGraphSubsetBones`;
+  `maniEvaluateGraphSubset` writes those bones bit for bit as
+  `maniEvaluateGraph` does, blending only the plan's pose groups and
+  sampling only its bones.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

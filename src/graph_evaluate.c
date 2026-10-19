@@ -5,6 +5,7 @@
 // writes its slot's pose from its inputs' slots, through a scratch of a
 // pose per slot made once for the binding it last served.
 
+#include "blend_groups.h"
 #include "bytes.h"
 #include "graph_body.h"
 #include "graph_chain.h"
@@ -17,6 +18,7 @@
 #include "graph_shot.h"
 #include "graph_space.h"
 #include "graph_spring.h"
+#include "graph_subset.h"
 #include "ik_chain.h"
 #include "pose_memory.h"
 #include "vecmath.h"
@@ -104,6 +106,9 @@ typedef struct Evaluation
     maniBlendLayer* layers;
     float* inside;
     float* outside;
+    // A subset's plan and its groups' flags, or NULL for every bone.
+    const maniGraphSubset* plan;
+    const uint8_t* groups;
 } Evaluation;
 
 static maniPose* Slot(const Evaluation* e, uint32_t slot)
@@ -207,8 +212,8 @@ static void Blend(const Evaluation* e, const uint8_t* record, maniPose* out, boo
             e->layers[count++] = (maniBlendLayer){input, v, NULL};
         }
     }
-    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
-                                     out) != mani_success)
+    if (count == 0 || maniBlendPosesIn(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                       out, e->groups) != mani_success)
     {
         Neutral(e, out, difference);
     }
@@ -230,8 +235,8 @@ static void Space(const Evaluation* e, const uint8_t* record, maniPose* out, boo
             e->layers[count++] = (maniBlendLayer){input, weights[k], NULL};
         }
     }
-    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
-                                     out) != mani_success)
+    if (count == 0 || maniBlendPosesIn(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                       out, e->groups) != mani_success)
     {
         Neutral(e, out, difference);
     }
@@ -254,8 +259,8 @@ static void Machine(const Evaluation* e, const uint8_t* record, maniPose* out, b
             e->layers[count++] = (maniBlendLayer){input, weight, NULL};
         }
     }
-    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
-                                     out) != mani_success)
+    if (count == 0 || maniBlendPosesIn(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                       out, e->groups) != mani_success)
     {
         Neutral(e, out, difference);
     }
@@ -281,8 +286,8 @@ static void Mask(const Evaluation* e, const uint8_t* record, maniPose* out, bool
     {
         e->layers[count++] = (maniBlendLayer){outside, 1.0f, e->outside};
     }
-    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
-                                     out) != mani_success)
+    if (count == 0 || maniBlendPosesIn(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                       out, e->groups) != mani_success)
     {
         Neutral(e, out, difference);
     }
@@ -321,8 +326,8 @@ static void Shot(const Evaluation* e, const uint8_t* record, maniPose* out, bool
     {
         e->layers[count++] = (maniBlendLayer){base, 1.0f, e->outside};
     }
-    if (count == 0 || maniBlendPoses(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
-                                     out) != mani_success)
+    if (count == 0 || maniBlendPosesIn(e->binding->skeleton, e->layers, count, MANI_BLEND_THRESHOLD,
+                                       out, e->groups) != mani_success)
     {
         Neutral(e, out, difference);
     }
@@ -367,7 +372,7 @@ static void Additive(const Evaluation* e, const uint8_t* record, maniPose* out)
             e->layers[count++] = (maniBlendLayer){layer, v, NULL};
         }
     }
-    (void)maniAddPoses(e->binding->skeleton, out, e->layers, count);
+    (void)maniAddPosesIn(e->binding->skeleton, out, e->layers, count, e->groups);
 }
 
 // A mapped clip's pose: sampled into a pose of the map's source and
@@ -405,6 +410,22 @@ static void SampleMapped(const Evaluation* e, const maniGraphBoundMapPair* pair,
     (void)maniPoseDifference(skeleton, out, poses[2], out);
 }
 
+// A clip at a time: through its cursor, or for a subset the plan's bones
+// by random access, the same bits (mani-0018's cursor), the pose made of
+// the clip's kind first.
+static void SampleClip(const Evaluation* e, maniClipCursor* c, const maniClip* clip, float time,
+                       maniPose* out)
+{
+    if (e->plan == NULL)
+    {
+        (void)maniSampleClipCursor(c, clip, e->binding->skeleton, time, out);
+        return;
+    }
+    maniPoseSetKind(out, maniClipAdditiveBasis(clip) != maniAdditiveNone);
+    (void)maniSampleClipBones(clip, e->binding->skeleton, time, maniGraphSubsetList(e->plan),
+                              e->plan->count, out);
+}
+
 // A clip node's pose: its clip at its playhead, through its cursor (and
 // its map).
 static void Sample(const Evaluation* e, const uint8_t* record, uint32_t cursor, maniPose* out,
@@ -421,7 +442,7 @@ static void Sample(const Evaluation* e, const uint8_t* record, uint32_t cursor, 
         SampleMapped(e, pair, c, clip, (float)s->time, out);
         return;
     }
-    (void)maniSampleClipCursor(c, clip, e->binding->skeleton, (float)s->time, out);
+    SampleClip(e, c, clip, (float)s->time, out);
 }
 
 // A motion matching node's pose: its entry's clip at its playhead,
@@ -448,8 +469,7 @@ static void SampleMatch(const Evaluation* e, const uint8_t* record, uint32_t cur
     void* memory =
         (uint8_t*)e->instance + e->instance->cursorsAt + (size_t)cursor * e->binding->cursorSize;
     maniClipCursor* c = memory;
-    (void)maniSampleClipCursor(c, e->binding->clips[clipSlot], e->binding->skeleton, (float)s->time,
-                               out);
+    SampleClip(e, c, e->binding->clips[clipSlot], (float)s->time, out);
     // A mirrored entry plays mirrored (its map bound as the graph's).
     if ((m.flags & MANI_MATCH_MIRRORED) != 0)
     {
@@ -843,8 +863,33 @@ static void EvaluateNode(const Evaluation* e, uint32_t p, uint32_t cursor)
     }
 }
 
-maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
-                             maniPose* pose)
+// Each planned bone of slot into pose, the pose made of slot's kind.
+static void WritePlanned(const maniGraphSubset* plan, const maniPose* slot, maniPose* pose)
+{
+    const uint32_t* bones = maniGraphSubsetList(plan);
+    for (uint32_t i = 0; i < plan->count; ++i)
+    {
+        maniPoseSetLocal(pose, bones[i], maniPoseLocal(slot, bones[i]));
+    }
+    maniPoseSetKind(pose, maniPoseIsDifference(slot));
+    maniPoseMarkStale(pose);
+}
+
+// The rest at each planned bone.
+static void RestPlanned(const maniGraphSubset* plan, const maniSkeleton* skeleton, maniPose* pose)
+{
+    const uint32_t* bones = maniGraphSubsetList(plan);
+    for (uint32_t i = 0; i < plan->count; ++i)
+    {
+        maniPoseSetLocal(pose, bones[i], maniSkeletonRest(skeleton, bones[i]));
+    }
+    maniPoseSetKind(pose, false);
+    maniPoseMarkStale(pose);
+}
+
+// Evaluates every bone, or a plan's.
+static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, void* scratch,
+                      size_t size, maniPose* pose)
 {
     if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP || scratch == NULL ||
         (uintptr_t)scratch % MANI_GRAPH_SCRATCH_ALIGNMENT != 0 ||
@@ -853,8 +898,16 @@ maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t 
         return mani_errorInvalid;
     }
     const maniGraphBinding* binding = instance->binding;
-    Evaluation e = {instance, binding, &binding->graph, scratch, PartsOf(binding), NULL,
-                    NULL,     NULL};
+    Evaluation e = {instance,
+                    binding,
+                    &binding->graph,
+                    scratch,
+                    PartsOf(binding),
+                    NULL,
+                    NULL,
+                    NULL,
+                    plan,
+                    plan != NULL ? maniGraphSubsetGroups(plan) : NULL};
     if (size < e.parts.size)
     {
         return mani_errorCapacity;
@@ -867,6 +920,11 @@ maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t 
     uint32_t last = e.graph->nodeCount - 1;
     if (!(State(&e, last)->weight > 0.0f))
     {
+        if (plan != NULL)
+        {
+            RestPlanned(plan, binding->skeleton, pose);
+            return mani_success;
+        }
         return maniPoseSetRest(pose, binding->skeleton);
     }
     Prepare(&e);
@@ -881,6 +939,32 @@ maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t 
         }
         cursor += clip ? 1u : 0u;
     }
-    maniPoseCopy(pose, Slot(&e, maniLoadU32(Record(&e, last) + 20)));
+    const maniPose* output = Slot(&e, maniLoadU32(Record(&e, last) + 20));
+    if (plan != NULL)
+    {
+        WritePlanned(plan, output, pose);
+    }
+    else
+    {
+        maniPoseCopy(pose, output);
+    }
     return mani_success;
+}
+
+maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
+                             maniPose* pose)
+{
+    return Run(instance, NULL, scratch, size, pose);
+}
+
+maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
+                                   void* scratch, size_t size, maniPose* pose)
+{
+    if (plan == NULL || plan->stamp != MANI_GRAPH_SUBSET_STAMP || instance == NULL ||
+        instance->stamp != MANI_GRAPH_INSTANCE_STAMP || plan->binding != instance->binding ||
+        plan->identity != instance->binding->graph.identity)
+    {
+        return mani_errorInvalid;
+    }
+    return Run(instance, plan, scratch, size, pose);
 }

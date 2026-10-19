@@ -34,6 +34,17 @@ hit-test bones, a distant crowd's level of detail.
   machine's fade or an inertialization has come (elapsed over
   duration) or a one-shot's weight. Fields a kind has no use for read
   as `MANI_GRAPH_NONE` or 0.
+- **Subsets:** `maniPlanGraphSubset` turns a strictly increasing bone
+  list into a plan in caller memory (`maniGraphSubsetSize` bytes): the
+  bones to compute and write (`maniGraphSubsetBones`: the listed ones
+  and their ancestors, so the model pass of the listed bones is right;
+  every bone for a graph with a mirror, IK, spring or full-body node, a
+  mirror map or retargeted clips) and the pose groups holding them.
+  `maniEvaluateGraphSubset` evaluates as `maniEvaluateGraph` but blends
+  and adds only the plan's groups and samples clips only at the plan's
+  bones (by random access, the cursor's bits), writing the plan's bones
+  bit for bit as a full evaluation does and leaving every other bone of
+  the pose as it was. The update is unchanged.
 
 ## Consequences
 
@@ -41,5 +52,8 @@ hit-test bones, a distant crowd's level of detail.
   instance, mapping each node back to its authored place, without the
   library keeping names or bookkeeping at runtime.
 - Introspection costs nothing when unused: it reads the instance.
+- A subset's spring joints and inertialization offsets outside the
+  plan are not advanced; bones joining a later plan start from what
+  they last had, as a level of detail switch does elsewhere.
 - A graph file of format version 3 is not opened; graphs are rebuilt
   from their sources, as before the first release.

@@ -9,6 +9,7 @@
 
 #include "maul-anim/blend.h"
 
+#include "blend_groups.h"
 #include "pose_memory.h"
 
 #include "maul-anim/base.h"
@@ -253,6 +254,12 @@ static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
 maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
                           uint32_t count, float threshold, maniPose* out)
 {
+    return maniBlendPosesIn(skeleton, layers, count, threshold, out, NULL);
+}
+
+maniResult maniBlendPosesIn(const maniSkeleton* skeleton, const maniBlendLayer* layers,
+                            uint32_t count, float threshold, maniPose* out, const uint8_t* groups)
+{
     bool difference = false;
     if (!Valid(skeleton, layers, count, threshold, out, &difference))
     {
@@ -262,6 +269,10 @@ maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* la
     uint32_t bones = skeleton->boneCount;
     for (uint32_t first = 0; first < bones; first += LANES)
     {
+        if (groups != NULL && groups[first / LANES] == 0)
+        {
+            continue;
+        }
         uint32_t lanes = bones - first < LANES ? bones - first : LANES;
         float* o = locals + (size_t)first * COMPONENTS;
         float w[LANES];

@@ -527,6 +527,26 @@ MANI_NODISCARD MANI_API maniResult maniEvaluateGraph(maniGraphInstance* instance
 ```
 Writes an instance's pose as its last update weighed it: each node of weight above 0, in order, into its slot (a clip sampled at its playhead through its cursor; a learned node's model decompressed at its state; blends, masks and additive layers by the blending functions over their weighed inputs; a select, time scale or seek passing its input on), then the output's. The rest pose before the first update.  @param instance  An instance. @param scratch   At least maniGraphScratchSize bytes, MANI_GRAPH_SCRATCH_ALIGNMENT-aligned, used by one thread at a time. @param size      The scratch's size. @param pose      A pose of the graph's skeleton. @return `mani_success`; `mani_errorInvalid` for a NULL or misaligned argument or a pose of another skeleton; `mani_errorCapacity` when the scratch is too small. @par Thread safety Safe from any thread; the instance, scratch and pose are used by one thread at a time.
 
+```c
+size_t maniGraphSubsetSize(const maniGraphBinding* binding);
+```
+Returns the bytes a subset plan of a binding takes, whatever its bones.  @param binding  A binding. @return The size; 0 for a NULL binding. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniPlanGraphSubset(const maniGraphBinding* binding, const uint32_t* bones, uint32_t count, void* memory, size_t size, maniGraphSubset** planOut);
+```
+Plans the evaluation of some bones (a server's hit-test bones, a distant crowd's level of detail): the bones listed, every ancestor of them, and every bone the graph's nodes read to write them (a graph with mirror, IK, spring or full-body nodes, a mirror map or retargeted clips plans every bone). Made once, used by any instance of the binding.  @param binding  A binding. @param bones    The bones, strictly increasing; may be NULL when count is 0. @param count    How many. @param memory   At least maniGraphSubsetSize bytes, MANI_GRAPH_SUBSET_ALIGNMENT-aligned. @param size     The memory's size. @param planOut  The plan, in memory. @return `mani_success`; `mani_errorInvalid` for a NULL or misaligned argument, bones out of range or not increasing; `mani_errorCapacity` when the memory is too small. @par Thread safety Safe from any thread; the memory is used by one thread at a time.
+
+```c
+const uint32_t* maniGraphSubsetBones(const maniGraphSubset* plan, uint32_t* countOut);
+```
+Returns the bones a plan evaluates and writes: the listed bones and their ancestors (every bone for a graph planning every bone), strictly increasing.  @param plan      A plan. @param countOut  Their count; 0 for a NULL plan. @return The bones, in the plan's memory; NULL for a NULL plan. @par Thread safety Safe from any thread.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan, void* scratch, size_t size, maniPose* pose);
+```
+Writes the plan's bones (maniGraphSubsetBones: the listed ones and their ancestors, so the model pass of the listed bones is right) of an instance's pose as maniEvaluateGraph writes them, bit for bit, computing no more than the plan needs; every other bone is left as it was. A spring set's joints and an inertialization's offsets outside the plan are not advanced; bones joining a later plan start from what they last had.  @param instance  An instance. @param plan      A plan of the instance's binding. @param scratch   As maniEvaluateGraph's. @param size      The scratch's size. @param pose      A pose of the graph's skeleton. @return As maniEvaluateGraph; `mani_errorInvalid` also for a NULL plan or one of another binding. @par Thread safety Safe from any thread; the instance, scratch and pose are used by one thread at a time.
+
 ## `graphbuild.h`
 
 Building a graph file (mani-0023), offline: a graph's parameters, clip slots, sync groups and nodes, checked against one skeleton and its clips, ordered so each node follows its inputs, its poses given slots, and written.
@@ -1690,4 +1710,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-316 functions across 27 headers.
+320 functions across 27 headers.

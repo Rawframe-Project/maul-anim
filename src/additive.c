@@ -7,6 +7,7 @@
 
 #include "additive.h"
 
+#include "blend_groups.h"
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -160,6 +161,12 @@ void maniAddTransform(maniTransform* t, const maniTransform* d, float w)
 maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const maniBlendLayer* layers,
                         uint32_t count)
 {
+    return maniAddPosesIn(skeleton, pose, layers, count, NULL);
+}
+
+maniResult maniAddPosesIn(const maniSkeleton* skeleton, maniPose* pose,
+                          const maniBlendLayer* layers, uint32_t count, const uint8_t* groups)
+{
     if (!AdditiveValid(skeleton, pose, layers, count))
     {
         return mani_errorInvalid;
@@ -167,6 +174,10 @@ maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const mani
     float* locals = maniPoseLocals(pose);
     for (uint32_t bone = 0; bone < skeleton->boneCount; ++bone)
     {
+        if (groups != NULL && groups[bone / MANI_POSE_GROUP_BONES] == 0)
+        {
+            continue;
+        }
         maniTransform t = Read(locals, bone);
         for (uint32_t i = 0; i < count; ++i)
         {
