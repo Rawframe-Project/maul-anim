@@ -92,7 +92,15 @@ over the caller's bytes (mani-0002).
   duration of inertialization above, as the motion matching node does.
   Its root moves by the Decompressor's velocities over the step, its
   events fire on their states' rising edges past 0.5, its pose is the
-  Decompressor's at the interpolated state. Its block (the two states,
+  Decompressor's at the interpolated state. The update keeps the
+  Decompressor's hidden values (the last layer's inputs) with the state
+  it decompressed at, in a cache of the node's in the instance outside
+  the saved state (a word set once kept, the state, the values: 4 bytes
+  each, 2,288 at Holden's sizes); the evaluation takes them when its
+  state is the same bits, else computes them, so its pose is the same
+  bits either way. The values are a function of the state alone, so a
+  restore leaves the cache right, and an instance starts with none
+  kept. Its block (the two states,
   the step and period clocks, the events' bits) is in the saved state;
   subgraphs carry their model slots; the JSON form writes it as
   "learned".
@@ -103,8 +111,10 @@ A model costs its networks' sizes in memory, not its data's; a frame
 costs a Decompressor evaluation, a share of a step and a share of a
 projection, whatever the data. Measured at Holden's sizes on a
 four-bone character (a 60 frames a second graph frame, projecting every
-0.1 s): about 607,000 instructions against the motion matching node's
-53,000 on ten minutes of data (145,000 on an hour), 11 times; the
+0.1 s, `-O3`): about 607,000 instructions against the motion matching node's
+53,000 on ten minutes of data (145,000 on an hour), 11 times, and
+544,000 with the hidden values kept from the update (a tenth fewer;
+1.92 and 1.70 million at `-O2`, which vectorizes less); the
 model 4.8 MB (2.4 MB with 16-bit weights, whose conversion costs 36%
 more instructions) against 0.37 MB of clips and database a minute, so
 it saves memory past about 13 minutes of such data, sooner as a

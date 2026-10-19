@@ -20,6 +20,7 @@
 #include "graph_spring.h"
 #include "graph_subset.h"
 #include "graph_turn.h"
+#include "learned_eval.h"
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -473,8 +474,10 @@ static void TurnLimit(const maniGraphEvaluation* e, const uint8_t* record, maniP
 }
 
 // A learned node's pose: its model's Decompressor at its state, worked
-// in the instance's room; the neutral pose with no state.
-static void SampleLearned(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out)
+// in the instance's room, the hidden values its update kept taken when
+// kept at the same state (the same bits); the neutral pose with no state.
+static void SampleLearned(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record,
+                          maniPose* out)
 {
     uint32_t data = maniLoadU32(record + 12);
     const maniLearnedModel* m =
@@ -490,9 +493,14 @@ static void SampleLearned(const maniGraphEvaluation* e, const uint8_t* record, m
     float* room = (float*)((uint8_t*)e->instance + e->instance->roomAt);
     size_t scratchSize = maniLearnedScratchSize(m);
     float* state = room + scratchSize / 4;
-    maniGraphLearnedState(block, m->featureCount + m->latentCount, m->stepRate, state);
+    uint32_t states = m->featureCount + m->latentCount;
+    maniGraphLearnedState(block, states, m->stepRate, state);
+    const float* cache = maniGraphLearnedCache(e->instance, p);
+    bool kept =
+        cache != NULL && cache[0] != 0.0f && memcmp(cache + 1, state, sizeof(float) * states) == 0;
     maniLearnedOutput output = {out, NULL, NULL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-    if (maniLearnedDecompress(m, state, &output, room, scratchSize) != mani_success)
+    if (maniLearnedDecompressFrom(m, state, &output, room, scratchSize,
+                                  kept ? cache + 1 + states : NULL) != mani_success)
     {
         maniGraphEvalNeutral(e, out, false);
     }
@@ -539,7 +547,7 @@ static void EvaluateNode(const maniGraphEvaluation* e, uint32_t p, uint32_t curs
         SampleMatch(e, record, cursor, out, maniGraphEvalState(e, p));
         return;
     case maniGraphNodeLearned:
-        SampleLearned(e, record, out);
+        SampleLearned(e, p, record, out);
         return;
     case maniGraphNodeBlend:
         Blend(e, record, out, difference);

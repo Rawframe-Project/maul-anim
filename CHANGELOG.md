@@ -18,6 +18,11 @@ format.
 
 ### Changed
 
+- A learned motion matching node's evaluation takes the Decompressor's
+  hidden values its update computed at the same state, with the same
+  bits: a tenth fewer instructions a frame (543,629 against 606,816 at
+  Holden's sizes, `-O3`). Each learned node's instance grows by its
+  cache (2,288 bytes at those sizes).
 - The motion matching search costs about a tenth fewer instructions
   (600,877 against 665,424 a search of an hour of data), with the same
   picks.

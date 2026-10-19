@@ -231,11 +231,19 @@ static void Project(const Learned* l)
     }
 }
 
-// The root's move and the events at the state.
+// The root's move and the events at the state; the Decompressor's hidden
+// values kept with the state for the evaluation.
 static void Outputs(const Learned* l, double step)
 {
     const maniLearnedModel* m = l->m;
-    maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch);
+    float* cache = maniGraphLearnedCache(l->u->instance, l->p);
+    maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch,
+                                cache != NULL ? cache + 1 + l->states : NULL);
+    if (cache != NULL)
+    {
+        cache[0] = 1.0f;
+        memcpy(cache + 1, l->state, sizeof(float) * l->states);
+    }
     maniGraphNodeState* s = l->s;
     if (s->rootWeight > 0.0f)
     {

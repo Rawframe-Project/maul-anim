@@ -16,6 +16,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "graph_learned_fixture.h"
+#include "learned_eval.h"
 
 #include <stdio.h>
 
@@ -260,8 +261,24 @@ static size_t Need(const maniLearnedModel* m)
     return maniLearnedScratchSize(m) + 4 * ((size_t)m->featureCount + m->latentCount + motion);
 }
 
+// Node p's bound model.
+static const maniLearnedModel* BoundModelOf(const maniGraphInstance* instance, const maniGraph* g,
+                                            uint32_t p)
+{
+    uint32_t data = maniLoadU32(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
+    return maniGraphBoundModel(instance->binding,
+                               maniLoadU32(g->data + 4 * (size_t)(data + maniGraphLearnedModel)));
+}
+
+// A learned node's cache: its kept word, its state and its
+// Decompressor's hidden values.
+static size_t Cache(const maniLearnedModel* m)
+{
+    return 4 * (1u + (size_t)m->featureCount + m->latentCount + maniLearnedHiddenCount(m));
+}
+
 // Two nodes over two models, the wider first or last: the room the
-// wider needs, and both play.
+// wider needs, each node's cache after it in node order, and both play.
 static void TestRoom(bool wideFirst)
 {
     MatchParameters();
@@ -293,9 +310,27 @@ static void TestRoom(bool wideFirst)
     const maniGraphBinding* binding = instance->binding;
     size_t room = (Need(&s_wide) + 7u) & ~(size_t)7u;
     CHECK(room > Need(&s_learned), "the wider model needs more");
-    CHECK(maniGraphRoom(binding) == room &&
-              maniGraphInstanceSize(binding) == instance->roomAt + room,
+    const maniLearnedModel* first = wideFirst ? &s_wide : &s_learned;
+    const maniLearnedModel* second = wideFirst ? &s_learned : &s_wide;
+    CHECK(maniGraphRoom(binding) == room && instance->cachesAt == instance->roomAt + room &&
+              maniGraphInstanceSize(binding) == instance->cachesAt + Cache(first) + Cache(second),
           "the room the wider model needs");
+    uint32_t at[2] = {0, 0};
+    uint32_t found = 0;
+    for (uint32_t p = 0; p < g.nodeCount && found < 2; ++p)
+    {
+        if (maniLoadU16(g.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned)
+        {
+            at[found++] = p;
+        }
+    }
+    const maniLearnedModel* earlier = BoundModelOf(instance, &g, at[0]);
+    CHECK(found == 2 && maniLearnedHiddenCount(first) > 0 &&
+              (uint8_t*)maniGraphLearnedCache(instance, at[0]) ==
+                  (uint8_t*)instance + instance->cachesAt &&
+              (uint8_t*)maniGraphLearnedCache(instance, at[1]) ==
+                  (uint8_t*)maniGraphLearnedCache(instance, at[0]) + Cache(earlier),
+          "each node's cache in node order");
     Update(instance, 0.0f);
     Update(instance, 0.05f);
     uint32_t playing = 0;

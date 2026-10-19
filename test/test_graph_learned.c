@@ -13,6 +13,7 @@
 // restored playing alike, and each word of a saved block checked.
 
 #include "graph_learned_fixture.h"
+#include "learned_eval.h"
 #include "vecmath.h"
 
 #include "maul-anim/mirror.h"
@@ -677,6 +678,96 @@ static void TestSaved(void)
           "both events' bits");
 }
 
+// Two poses' locals the same bits.
+static bool SameBits(const maniPose* a, const maniPose* b)
+{
+    for (uint32_t bone = 0; bone < maniPoseBoneCount(a); ++bone)
+    {
+        maniTransform t = maniPoseLocal(a, bone);
+        maniTransform u = maniPoseLocal(b, bone);
+        if (memcmp(&t, &u, sizeof t) != 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The Decompressor's hidden values the update keeps with its state: none
+// kept before the first update; after each update of the script the
+// cache holds the interpolated state, and the evaluation from it gives
+// the same bits as one computing them (the cache unkept, or kept at
+// another state with other hidden values); hidden values changed under
+// the same state change the pose, so the evaluation takes them.
+static void TestCache(void)
+{
+    maniGraph g;
+    maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
+    size_t size = maniGraphStateSize(instance->binding);
+    uint32_t hidden = maniLearnedHiddenCount(&s_learned);
+    float* cache = maniGraphLearnedCache(instance, 0);
+    static float kept[1 + STATE + 1024];
+    size_t bytes = sizeof(float) * (1 + STATE + hidden);
+    CHECK(hidden > 0 && hidden <= 1024 && cache != NULL && cache[0] == 0.0f &&
+              size <= sizeof s_saved[0],
+          "a cache, none kept");
+    uint32_t taken = 0;
+    for (uint32_t k = 0; k < SCRIPTED; ++k)
+    {
+        const Script* s = &kScript[k];
+        Ahead(instance, s->ahead[0], s->ahead[1]);
+        Set(instance, 1, maniGraphParameterTrigger, Int(s->trigger ? 1 : 0));
+        CHECK(maniUpdateGraph(instance, s->delta, NULL, 0, NULL, NULL) == mani_success, "updated");
+        const uint32_t* block = LearnedBlock(instance, &g, 0);
+        float state[STATE];
+        maniGraphLearnedState(block, STATE, s_learned.stepRate, state);
+        CHECK(block[maniGraphLearnedHas] == 1 && cache[0] == 1.0f &&
+                  memcmp(cache + 1, state, sizeof state) == 0,
+              "the cache at the state");
+        memcpy(kept, cache, bytes);
+        CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success,
+              "saved");
+        // None kept, though at the state, with other hidden values: computed.
+        cache[0] = 0.0f;
+        for (uint32_t i = 0; i < hidden; ++i)
+        {
+            cache[1 + STATE + i] += 1.0f;
+        }
+        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_learnedPose) ==
+                  mani_success,
+              "evaluated with none kept");
+        // Kept at another state, with other hidden values: computed.
+        CHECK(maniRestoreGraphInstance(instance, s_saved[0], size).result == mani_success,
+              "restored");
+        memcpy(cache, kept, bytes);
+        cache[1] = nextafterf(cache[1], HUGE_VALF);
+        for (uint32_t i = 0; i < hidden; ++i)
+        {
+            cache[1 + STATE + i] += 1.0f;
+        }
+        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+                  SameBits(s_pose, s_learnedPose),
+              "kept at another state, computed");
+        CHECK(maniRestoreGraphInstance(instance, s_saved[0], size).result == mani_success,
+              "restored");
+        memcpy(cache, kept, bytes);
+        for (uint32_t i = 0; i < hidden; ++i)
+        {
+            cache[1 + STATE + i] += 1.0f;
+        }
+        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
+              "evaluated at other hidden values");
+        taken += SameBits(s_pose, s_learnedPose) ? 0u : 1u;
+        CHECK(maniRestoreGraphInstance(instance, s_saved[0], size).result == mani_success,
+              "restored");
+        memcpy(cache, kept, bytes);
+        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+                  SameBits(s_pose, s_learnedPose),
+              "the cache's evaluation the same bits");
+    }
+    CHECK(taken == SCRIPTED, "the cache taken");
+}
+
 int main(void)
 {
     Open();
@@ -694,6 +785,7 @@ int main(void)
     TestWeightless();
     TestSeek();
     TestSaved();
+    TestCache();
     TestMirrored();
     return s_failures == 0 ? 0 : 1;
 }

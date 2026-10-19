@@ -92,4 +92,8 @@ at `-O2`, and the IK and full-body evaluation in a module of its own,
 then to 106,000 and 130,000 (105,844 and 129,578: the motion matching
 node's continuing frame interpolated to its playhead and scored there,
 mani-0024, about 850 bytes of the node's search at `-O2`, which moved
-18% to 33% of settled picks off the pose on screen before).
+18% to 33% of settled picks off the pose on screen before), then to
+107,000 and 131,000 (106,214 and 130,678: the learned node's
+Decompressor hidden values kept from its update for its evaluation,
+mani-0025, about 370 bytes at `-O2`, a tenth of a learned frame's
+instructions).

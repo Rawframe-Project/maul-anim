@@ -17,6 +17,7 @@
 #include "graph_shot.h"
 #include "graph_spring.h"
 #include "graph_turn.h"
+#include "learned_eval.h"
 #include "pose_memory.h"
 
 #include "maul-anim/base.h"
@@ -141,6 +142,50 @@ static void RestPoses(maniGraphInstance* instance)
     }
 }
 
+// A learned node's model.
+static const maniLearnedModel* LearnedModel(const maniGraphBinding* binding, uint32_t data)
+{
+    const maniGraph* graph = &binding->graph;
+    return maniGraphBoundModel(
+        binding, maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)));
+}
+
+// A learned node's cache in floats: a word set once kept (0 from the
+// instance's start), the state it was kept at, then its Decompressor's
+// hidden values; none for a Decompressor of one layer.
+static size_t CacheFloats(const maniLearnedModel* m)
+{
+    uint32_t hidden = maniLearnedHiddenCount(m);
+    return hidden > 0 ? 1u + (size_t)m->featureCount + m->latentCount + hidden : 0u;
+}
+
+// The floats of the learned nodes' caches before node before.
+static size_t CachesBefore(const maniGraphBinding* binding, uint32_t before)
+{
+    const maniGraph* graph = &binding->graph;
+    size_t floats = 0;
+    for (uint32_t p = 0; p < before; ++p)
+    {
+        const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        if (maniLoadU16(e) == maniGraphNodeLearned)
+        {
+            floats += CacheFloats(LearnedModel(binding, maniLoadU32(e + 12)));
+        }
+    }
+    return floats;
+}
+
+float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node)
+{
+    const maniGraphBinding* binding = instance->binding;
+    const uint8_t* e = binding->graph.nodes + (size_t)node * MANI_GRAPH_NODE_SIZE;
+    if (CacheFloats(LearnedModel(binding, maniLoadU32(e + 12))) == 0)
+    {
+        return NULL;
+    }
+    return (float*)((uint8_t*)instance + instance->cachesAt) + CachesBefore(binding, node);
+}
+
 size_t maniGraphRoom(const maniGraphBinding* binding)
 {
     const maniGraph* graph = &binding->graph;
@@ -152,8 +197,7 @@ size_t maniGraphRoom(const maniGraphBinding* binding)
         size_t need = 0;
         if (maniLoadU16(e) == maniGraphNodeLearned)
         {
-            uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel));
-            const maniLearnedModel* m = maniGraphBoundModel(binding, slot);
+            const maniLearnedModel* m = LearnedModel(binding, data);
             size_t tail =
                 (size_t)m->outputCount - 9 * (size_t)m->boneCount - 3 * (size_t)m->scaledBoneCount;
             need = maniLearnedScratchSize(m) +
@@ -179,7 +223,8 @@ size_t maniGraphInstanceSize(const maniGraphBinding* binding)
     {
         return 0;
     }
-    return RoomAt(binding) + maniGraphRoom(binding);
+    return RoomAt(binding) + maniGraphRoom(binding) +
+           sizeof(float) * CachesBefore(binding, binding->graph.nodeCount);
 }
 
 // The machine node p's view, or none (states 0) for another kind.
@@ -359,6 +404,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     instance->machinesAt = MachinesAt(binding);
     instance->posesAt = PosesAt(binding);
     instance->roomAt = RoomAt(binding);
+    instance->cachesAt = instance->roomAt + maniGraphRoom(binding);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
         instance->cells[i].value = LoadValue(ParameterEntry(graph, i) + 24);

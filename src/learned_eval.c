@@ -126,18 +126,30 @@ static void Layer(const maniLearnedModel* m, uint32_t inputs, uint32_t outputs, 
     }
 }
 
+// ReLU on count values in place.
+static void Rectify(float* values, uint32_t count)
+{
+    for (uint32_t o = 0; o < count; ++o)
+    {
+        values[o] = values[o] > 0.0f ? values[o] : 0.0f;
+    }
+}
+
 // Network n on input, its last layer's outputs from first to end only (end
 // past them meaning all); returns its outputs (those at their places),
-// which lie in the scratch.
+// which lie in the scratch. The last layer's inputs (a network of more
+// than one layer) are kept in keep as they are computed, or taken from
+// kept in place of every layer before the last.
 static float* EvaluatePart(const maniLearnedModel* m, uint32_t n, const float* input,
-                           uint32_t first, uint32_t end, float* scratch)
+                           uint32_t first, uint32_t end, float* scratch, float* keep,
+                           const float* kept)
 {
     Network w = Locate(m, n);
     end = end < w.out ? end : w.out;
     float* a = scratch;
     float* b = scratch + m->widest;
     const uint8_t* v = m->values + 4 * w.values;
-    for (uint32_t i = 0; i < w.in; ++i)
+    for (uint32_t i = 0; i < (kept != NULL ? 0u : w.in); ++i)
     {
         a[i] = (input[i] - LoadF32(v + 4 * (size_t)i)) / LoadF32(v + 4 * ((size_t)w.in + i));
     }
@@ -145,18 +157,16 @@ static float* EvaluatePart(const maniLearnedModel* m, uint32_t n, const float* i
     v += 8 * ((size_t)w.in + w.out);
     uint64_t weights = w.weights;
     bool narrow = m->weightFormat == maniLearnedWeightsInt16;
-    for (uint32_t l = w.firstLayer; l < w.firstLayer + w.layerCount; ++l)
+    uint32_t last = w.firstLayer + w.layerCount - 1;
+    // The hidden layers; reusing, only their places are passed.
+    for (uint32_t l = w.firstLayer; l < last; ++l)
     {
         uint32_t inputs = LayerSize(m, l, 0);
         uint32_t count = LayerSize(m, l, 1);
-        bool last = l + 1 == w.firstLayer + w.layerCount;
-        Layer(m, inputs, count, last ? first : 0u, last ? end : count, v, weights, a, b);
-        if (!last)
+        if (kept == NULL)
         {
-            for (uint32_t o = 0; o < count; ++o)
-            {
-                b[o] = b[o] > 0.0f ? b[o] : 0.0f;
-            }
+            Layer(m, inputs, count, 0u, count, v, weights, a, b);
+            Rectify(b, count);
         }
         v += 4 * ((size_t)count + (narrow ? inputs : 0u));
         weights += (uint64_t)inputs * count;
@@ -164,24 +174,37 @@ static float* EvaluatePart(const maniLearnedModel* m, uint32_t n, const float* i
         a = b;
         b = t;
     }
+    uint32_t inputs = LayerSize(m, last, 0);
+    if (keep != NULL)
+    {
+        memcpy(keep, a, sizeof(float) * inputs);
+    }
+    Layer(m, inputs, LayerSize(m, last, 1), first, end, v, weights, kept != NULL ? kept : a, b);
     for (uint32_t o = first; o < end; ++o)
     {
-        a[o] = a[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o);
+        b[o] = b[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o);
     }
-    return a;
+    return b;
 }
 
 static float* Evaluate(const maniLearnedModel* m, uint32_t n, const float* input, float* scratch)
 {
-    return EvaluatePart(m, n, input, 0, UINT32_MAX, scratch);
+    return EvaluatePart(m, n, input, 0, UINT32_MAX, scratch, NULL, NULL);
+}
+
+uint32_t maniLearnedHiddenCount(const maniLearnedModel* model)
+{
+    Network w = Locate(model, MANI_LEARNED_DECOMPRESSOR);
+    return w.layerCount > 1 ? LayerSize(model, w.firstLayer + w.layerCount - 1, 0) : 0u;
 }
 
 void maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
-                                 void* scratch)
+                                 void* scratch, float* hidden)
 {
     uint32_t first = 9 * model->boneCount + 3 * model->scaledBoneCount;
     uint32_t end = model->outputCount;
-    const float* a = EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, first, end, scratch);
+    const float* a =
+        EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, first, end, scratch, hidden, NULL);
     memcpy(out, a + first, sizeof(float) * (size_t)(end - first));
 }
 
@@ -308,6 +331,13 @@ static void Pose(const maniLearnedModel* m, const float* out, maniPose* pose)
 maniResult maniLearnedDecompress(const maniLearnedModel* model, const float* state,
                                  maniLearnedOutput* output, void* scratch, size_t scratchSize)
 {
+    return maniLearnedDecompressFrom(model, state, output, scratch, scratchSize, NULL);
+}
+
+maniResult maniLearnedDecompressFrom(const maniLearnedModel* model, const float* state,
+                                     maniLearnedOutput* output, void* scratch, size_t scratchSize,
+                                     const float* hidden)
+{
     uint32_t count = model != NULL ? model->featureCount + model->latentCount : 0;
     if (model == NULL || state == NULL || output == NULL ||
         !ScratchFits(model, scratch, scratchSize) || !AllFinite(state, count) ||
@@ -316,7 +346,8 @@ maniResult maniLearnedDecompress(const maniLearnedModel* model, const float* sta
     {
         return mani_errorInvalid;
     }
-    const float* out = Evaluate(model, MANI_LEARNED_DECOMPRESSOR, state, scratch);
+    const float* out =
+        EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, 0, UINT32_MAX, scratch, NULL, hidden);
     if (output->pose != NULL)
     {
         Pose(model, out, output->pose);
