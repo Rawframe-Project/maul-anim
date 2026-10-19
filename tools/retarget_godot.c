@@ -327,7 +327,7 @@ static int Check(const char* inPath, const char* outPath)
         for (int i = 0; i < t; ++i)
         {
             maniQuat r = maniPoseLocal(out, targetAt[i]).rotation;
-            Q local = {r.x, r.y, r.z, r.w};
+            Q local = {(double)r.x, (double)r.y, (double)r.z, (double)r.w};
             int parent = s_target.bones[i].parent;
             model[i] = parent < 0 ? local : Mul(model[parent], local);
             Q theirs;
