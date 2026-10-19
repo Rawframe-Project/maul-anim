@@ -311,6 +311,50 @@ static void TestMarks(void)
                   "more than a stream can hold");
 }
 
+// The edges of the rules: what they allow is opened.
+static void TestEdges(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = NULL;
+    Plain("\"buffer\":0,\"byteLength\":259,\"byteStride\":8,\"count\":37,\"mode\":\"ATTRIBUTES\","
+          "\"filter\":\"OCTAHEDRAL\"",
+          kFallback, "");
+    CHECK(Open(builder, &gltf).result == mani_success, "an octahedral filter on 8 bytes");
+    maniCloseGltf(gltf);
+    Plain("\"buffer\":0,\"byteLength\":259,\"byteStride\":2,\"count\":148,\"mode\":\"INDICES\","
+          "\"filter\":\"EXPONENTIAL\"",
+          kFallback, "");
+    ExpectRefusal(maniImportReasonLayout, "EXPONENTIAL\"", 0, 0,
+                  "an exponential filter on indices");
+    // Exactly 1,024 times the stream passes the rules; the stream itself
+    // then holds too few elements.
+    char second[64];
+    snprintf(second, sizeof second, "{\"byteLength\":%u}", 1024u * 259u);
+    Document((Doc){"EXT_meshopt_compression",
+                   "\"buffer\":0,\"byteLength\":259,\"byteStride\":8,\"count\":33152,"
+                   "\"mode\":\"ATTRIBUTES\"",
+                   second, "", 1024u * 259u, kAttributesV0, sizeof kAttributesV0, ""});
+    ExpectRefusal(maniImportReasonData, NULL, 0, 0, "1,024 times the stream is allowed");
+    // A buffer without a URI that holds a stream stays the host's, even
+    // when only its compressed view uses it.
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":296}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteLength\":296,\"extensions\":{"
+             "\"EXT_meshopt_compression\":{%s}}}]}",
+             kStream);
+    uint32_t length = 1;
+    CHECK(Open(builder, &gltf).result == mani_success &&
+              maniGltfBufferUri(gltf, 0, &length) != NULL && length == 0,
+          "a stream's buffer is the host's");
+    memset(s_stream, 0, 296);
+    memcpy(s_stream, kAttributesV0, sizeof kAttributesV0);
+    CHECK(gltf != NULL && maniGltfSupplyBuffer(gltf, 0, s_stream, 296).result == mani_success &&
+              Decoded(gltf, kAttributesV0Out, sizeof kAttributesV0Out),
+          "and decoded when supplied");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
 static void TestBothOnAView(void)
 {
     snprintf(s_json, sizeof s_json,
@@ -729,6 +773,7 @@ int main(void)
     TestModes();
     TestRules();
     TestMarks();
+    TestEdges();
     TestBothOnAView();
     TestBadStream();
     TestSupplied();
