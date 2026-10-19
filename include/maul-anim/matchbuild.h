@@ -104,7 +104,8 @@ extern "C"
     /// of another skeleton or additive; item the clip),
     /// `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry`
     /// (item the entry), `maniBuildReasonMissingTrack` (a float track an
-    /// entry's clip lacks; item the channel, other the entry),
+    /// entry's clip lacks, for a mirrored entry the track the mirror map
+    /// pairs the channel's with; item the channel, other the entry),
     /// `maniBuildReasonSpread` (a channel that never varies; item the
     /// channel), `maniBuildReasonMirrorDatabase` (a mirror map of another
     /// skeleton, item 0; a mirrored entry without one, item the entry);

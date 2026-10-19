@@ -111,6 +111,28 @@ static maniFileResult Header(const Sections* s, maniMirrorMap* m)
     return kOk;
 }
 
+// A bone's flags: known bits only, a permutation or the approximate flag
+// alone, the header's first unmatched bone the first flagged unmatched.
+static bool FlagsValid(uint32_t flags, uint32_t bone, uint32_t firstUnmatched)
+{
+    uint32_t known =
+        MANI_MIRROR_PERMUTATION | MANI_MIRROR_FLAG_APPROXIMATE | MANI_MIRROR_FLAG_UNMATCHED;
+    if ((flags & ~known) != 0 ||
+        ((flags & MANI_MIRROR_FLAG_APPROXIMATE) != 0 && (flags & MANI_MIRROR_PERMUTATION) != 0))
+    {
+        return false;
+    }
+    uint32_t used = 0;
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        uint32_t source = ((flags >> (2 * i)) & 3u) ^ i;
+        used |= source < 3 ? 1u << source : 8u;
+    }
+    bool unmatched = (flags & MANI_MIRROR_FLAG_UNMATCHED) != 0;
+    bool firstOrLater = bone >= firstUnmatched;
+    return used == 7u && (bone != firstUnmatched || unmatched) && (firstOrLater || !unmatched);
+}
+
 static maniFileResult Bones(const Sections* s, const maniMirrorMap* m)
 {
     if (s->sizes[1] != (uint64_t)m->boneCount * MANI_MIRROR_BONE_SIZE)
@@ -127,7 +149,7 @@ static maniFileResult Bones(const Sections* s, const maniMirrorMap* m)
         {
             return Fail(at);
         }
-        if (maniLoadU32(e + 4) != 0)
+        if (!FlagsValid(maniLoadU32(e + 4), b, maniLoadU32(s->data[0] + 20)))
         {
             return Fail(at + 4);
         }
@@ -238,6 +260,17 @@ uint32_t maniMirrorPartner(const maniMirrorMap* map, uint32_t bone)
         return MANI_NO_BONE;
     }
     return maniLoadU32(map->bones + (size_t)bone * MANI_MIRROR_BONE_SIZE);
+}
+
+uint32_t maniMirrorBoneFlags(const maniMirrorMap* map, uint32_t bone)
+{
+    if (map == NULL || bone >= map->boneCount)
+    {
+        return 0;
+    }
+    uint32_t flags = maniLoadU32(map->bones + (size_t)bone * MANI_MIRROR_BONE_SIZE + 4);
+    return ((flags & MANI_MIRROR_FLAG_UNMATCHED) != 0 ? MANI_MIRROR_BONE_UNMATCHED : 0u) |
+           ((flags & MANI_MIRROR_FLAG_APPROXIMATE) != 0 ? MANI_MIRROR_BONE_SCALE_APPROXIMATE : 0u);
 }
 
 uint32_t maniMirrorMapUnmatchedBone(const maniMirrorMap* map)

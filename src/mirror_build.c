@@ -63,11 +63,14 @@ static void StoreQuat(uint8_t* p, maniQuat q)
     StoreF32(p + 12, q.w);
 }
 
-// A name pair: the name's hash, its partner's bytes and the source item.
+// A name pair: the name's hash and bytes, its partner's bytes and the
+// source item.
 typedef struct Entry
 {
     uint64_t hash;
+    const char* name;
     const char* partner;
+    uint32_t nameLength;
     uint32_t length;
     uint32_t item;
 } Entry;
@@ -246,15 +249,20 @@ static maniBuildResult RulePairs(Work* w)
     return kOk;
 }
 
+// Whether bone b's parent's partner is not its partner's parent.
+static bool BoneUnmatched(const Work* w, uint32_t b)
+{
+    uint32_t p = maniSkeletonParent(w->s->skeleton, b);
+    uint32_t q = maniSkeletonParent(w->s->skeleton, w->partner[b]);
+    return p == MANI_NO_BONE ? q != MANI_NO_BONE : q != w->partner[p];
+}
+
 // The first bone whose parent's partner is not its partner's parent.
 static uint32_t Unmatched(const Work* w)
 {
     for (uint32_t b = 0; b < w->count; ++b)
     {
-        uint32_t p = maniSkeletonParent(w->s->skeleton, b);
-        uint32_t q = maniSkeletonParent(w->s->skeleton, w->partner[b]);
-        bool matched = p == MANI_NO_BONE ? q == MANI_NO_BONE : q == w->partner[p];
-        if (!matched)
+        if (BoneUnmatched(w, b))
         {
             return b;
         }
@@ -270,8 +278,13 @@ static maniBuildResult CheckName(const char* name, uint32_t length, uint32_t ite
 static void AddEntry(Work* w, const char* name, uint32_t length, const char* partner,
                      uint32_t partnerLength, uint32_t item)
 {
-    w->entries[w->entryCount++] = (Entry){
-        maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length), partner, partnerLength, item};
+    w->entries[w->entryCount++] =
+        (Entry){maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length),
+                name,
+                partner,
+                length,
+                partnerLength,
+                item};
 }
 
 // The name pairs both ways, then each listed name the rules pair.
@@ -315,8 +328,8 @@ static maniBuildResult Names(Work* w)
 }
 
 // The entries by hash, a name's repeats with the same partner dropped;
-// a refusal for one with another partner. order holds the sorted
-// indices.
+// a refusal for one with another partner, and for two names of one hash.
+// order holds the sorted indices.
 static maniBuildResult Sorted(Work* w, uint32_t* order, uint32_t* scratch, uint64_t* keys)
 {
     for (uint32_t i = 0; i < w->entryCount; ++i)
@@ -331,6 +344,11 @@ static maniBuildResult Sorted(Work* w, uint32_t* order, uint32_t* scratch, uint6
         const Entry* last = kept > 0 ? &w->entries[order[kept - 1]] : NULL;
         if (last != NULL && last->hash == e->hash)
         {
+            if (last->nameLength != e->nameLength ||
+                memcmp(last->name, e->name, e->nameLength) != 0)
+            {
+                return Refuse(maniBuildReasonNameHash, e->item, last->item);
+            }
             bool same =
                 last->length == e->length && memcmp(last->partner, e->partner, e->length) == 0;
             if (!same)
@@ -352,6 +370,55 @@ static maniQuat Mirror(maniQuat q, maniMirrorAxis axis)
                       axis == maniMirrorAxisZ ? q.z : -q.z, q.w};
 }
 
+// How far an entry of a turn's matrix may be from 0 or 1 in magnitude
+// for the turn to take axes to axes.
+static const double kAxisTolerance = 1e-4;
+
+static double Magnitude(double v)
+{
+    return v < 0.0 ? -v : v;
+}
+
+// A correction's scale flags: each axis i's source p(i) XOR i, two bits
+// each, when the turn takes axes to axes; MANI_MIRROR_FLAG_APPROXIMATE
+// otherwise. Column i of the turn's matrix holds where axis i goes.
+static uint32_t ScaleFlags(maniQuat c)
+{
+    double x = (double)c.x;
+    double y = (double)c.y;
+    double z = (double)c.z;
+    double w = (double)c.w;
+    const double r[3][3] = {
+        {1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)},
+        {2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)},
+        {2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)}};
+    uint32_t flags = 0;
+    uint32_t used = 0;
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        uint32_t source = 3;
+        for (uint32_t j = 0; j < 3; ++j)
+        {
+            double v = Magnitude(r[j][i]);
+            if (v > 1.0 - kAxisTolerance)
+            {
+                source = j;
+            }
+            else if (v >= kAxisTolerance)
+            {
+                return MANI_MIRROR_FLAG_APPROXIMATE;
+            }
+        }
+        if (source == 3 || ((used >> source) & 1u) != 0)
+        {
+            return MANI_MIRROR_FLAG_APPROXIMATE;
+        }
+        used |= 1u << source;
+        flags |= (source ^ i) << (2 * i);
+    }
+    return flags;
+}
+
 static void LayBones(const Work* w, uint8_t* bones)
 {
     const maniSkeleton* skeleton = w->s->skeleton;
@@ -365,9 +432,12 @@ static void LayBones(const Work* w, uint8_t* bones)
         maniQuat a = maniQuatMul(maniQuatConjugate(parentB), Mirror(parentM, w->s->axis));
         maniQuat c = maniQuatMul(maniQuatConjugate(Mirror(w->model[m], w->s->axis)), w->model[b]);
         uint8_t* e = bones + (size_t)b * MANI_MIRROR_BONE_SIZE;
+        c = maniQuatNormalize(c);
         maniStoreU32(e, m);
+        maniStoreU32(e + 4,
+                     ScaleFlags(c) | (BoneUnmatched(w, b) ? MANI_MIRROR_FLAG_UNMATCHED : 0u));
         StoreQuat(e + 8, maniQuatNormalize(a));
-        StoreQuat(e + 24, maniQuatNormalize(c));
+        StoreQuat(e + 24, c);
     }
 }
 

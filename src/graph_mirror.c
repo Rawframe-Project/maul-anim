@@ -32,7 +32,7 @@ maniBuildResult maniGraphMirrorParity(const maniGraphSource* source, const uint3
             uint32_t u = node->inputs[k];
             if (mirrored[u] != 0 && mirrored[u] != want)
             {
-                return maniGraphRefuse(maniBuildReasonMirrorGraph, u, 2);
+                return maniGraphRefuse(maniBuildReasonMirrorParity, u, v);
             }
             mirrored[u] = want;
         }

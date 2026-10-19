@@ -390,11 +390,22 @@ static void TestFile(void)
     uint64_t arm = bones + (uint64_t)kArmL * MANI_MIRROR_BONE_SIZE;
     CHECK(RefusedAt(arm, kHandR, arm), "a partner pairing back to another bone");
     CHECK(RefusedAt(arm, kBones, arm), "a partner past the bones");
-    CHECK(RefusedAt(arm + 4, 1, arm + 4), "a bone's word not 0");
+    uint32_t flags = maniLoadU32(s_file + arm + 4);
+    CHECK(RefusedAt(arm + 4, flags | 0x400u, arm + 4), "an unknown flag");
+    CHECK(RefusedAt(arm + 4, MANI_MIRROR_FLAG_APPROXIMATE | 2u, arm + 4),
+          "an approximate scale with a permutation");
+    CHECK(RefusedAt(arm + 4, 4u, arm + 4), "two axes from one");
+    CHECK(RefusedAt(arm + 4, 0x30u, arm + 4), "an axis past the three");
+    CHECK(maniLoadU32(s_file + h + 20) == kPropR &&
+              RefusedAt(arm + 4, flags | MANI_MIRROR_FLAG_UNMATCHED, arm + 4),
+          "a bone unmatched before the header's first");
     CHECK(RefusedAt(arm + 8, 0x7F800000u, arm + 8), "a correction not finite");
     CHECK(RefusedAt(arm + 28, 0x7F800000u, arm + 28), "a later component not finite");
     CHECK(RefusedAt(arm + 24, 0x40000000u, arm + 24), "a correction not of length 1");
-    CHECK(RefusedAt(h + 20, kHead, 40), "a fitting change against the identity");
+    uint64_t head = bones + (uint64_t)kHead * MANI_MIRROR_BONE_SIZE;
+    CHECK(RefusedAt(h + 20, kHead, head + 4), "the header's first unmatched bone not flagged");
+    CHECK(RefusedAt(arm + 8, maniLoadU32(s_file + arm + 8) ^ 0x80000000u, 40),
+          "a fitting change against the identity");
     // The second name's hash made the first's.
     memcpy(s_crafted, s_file, s_size);
     memcpy(s_crafted + names + MANI_MIRROR_NAME_SIZE, s_file + names, 8);

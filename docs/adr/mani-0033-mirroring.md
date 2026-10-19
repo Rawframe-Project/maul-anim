@@ -35,14 +35,22 @@ global rotations with a sign pattern that fits his rig only.
   products of the root path's local rotations.
 - **The pose** (Unreal's local form): bone b's mirrored local is
   `A mirror(T_m)` (the normal's component of its partner's translation
-  negated, turned) and `A mirror(Q_m) B`, its partner's scale as it is.
+  negated, turned) and `A mirror(Q_m) B`, its partner's scale carried
+  by B: `R(B)^T S_m R(B)`, an axis scale exactly when B takes axes to
+  axes (each axis then takes the partner's axis B maps to it, a
+  permutation found at build, every entry of R(B) within 1e-4 of 0 or
+  1 in magnitude), its diagonal otherwise (exact for a uniform scale,
+  the nearest axis scale for another; the bone is flagged).
   Since mirror distributes over products, this is Unreal's
   `P_b^-1 mirror(P_m Q_m R_m^-1) R_b` with the references folded in at
   build: two products and a rotation a bone, no model pass, no scratch.
   It is exact on a mirror-symmetric hierarchy (a bone's parent's
-  partner its partner's parent); the map records the first bone that
-  breaks it (a prop under one hand, say) without refusing it, and such
-  a bone takes its partner's local turn mirrored.
+  partner its partner's parent); the map flags every bone that breaks
+  it (a prop under one hand, say) and records the first, without
+  refusing them, and such a bone takes its partner's local turn
+  mirrored. `maniMirrorBoneFlags` reads a bone's flags (unmatched,
+  scale approximate). Two names of one hash are refused at build, a
+  name repeated with its partner kept once. Format version 2.
 - **Clips:** a mirrored clip is baked on the clip's grid by the same
   core as a retargeted clip: each sample mirrored (an additive clip's
   differences added to the rest, mirrored, taken from the rest
@@ -57,7 +65,9 @@ global rotations with a sign pattern that fits his rig only.
   graph's or taken by it). A mirror node mirrors its input's pose in
   place and takes poses only. The builder marks each node with the
   parity of the mirror nodes above it and refuses a node reached both
-  mirrored and not; the update reads the mark, so a mirrored clip,
+  mirrored and not (`maniBuildReasonMirrorParity`, naming the node and
+  the reader that reaches it the other way; a subgraph shared so takes
+  a second instance); the update reads the mark, so a mirrored clip,
   match or learned node gives its moves reflected and its events and
   sync markers renamed by hash (a mirrored walk follows its unmirrored
   leader foot for foot), and two mirrors cancel.
@@ -87,7 +97,10 @@ rig's every bone and mirror it across each axis: every bone but the
 prop at its partner's model position reflected, turned by its partner's
 model rotation mirrored and carried to its own reference axes; the
 rest's model rotations kept; mirroring twice giving the pose back; in
-place equal to apart; the partner's scale; moves reflected; the
+place equal to apart; a scale exact on the axes a quarter turn takes it
+to and back, the nearest axis scale under a 30 degree turn, every
+unmatched bone flagged and a turned pose of them finite and the same
+bits twice; moves reflected; the
 refusals (another skeleton or bone count, a pose of another skeleton, a
 difference). The clip's tests bake a clip of that rig with float, discrete,
 event and marker names: every sample the mirror of the clip's, the
@@ -99,7 +112,8 @@ under one mirror node (each pose the walk's mirrored, each move
 reflected, its events renamed) and under two (the walk as it is), a
 mirrored walk following its leader by its renamed markers half a loop
 on, the map read back, every builder refusal (no map, a map of another
-rig, a node reached both ways, differences, a subgraph's other map),
+rig, a node reached both ways by the mirror node, differences, a
+subgraph's other map),
 the binder's (no map, another, a crafted view of another rig) and the
 opener's (an identity of 0, a section of 4 bytes, a mirror node
 without the section), the JSON form built back the same, and
@@ -116,11 +130,14 @@ build and bind refusals.
 Timings, by instruction count: a 54-bone humanoid (three spine bones,
 a neck and head, five three-bone fingers a hand, legs to the toes)
 whose left and right sides rest on unmirrored axes, paired by suffix
-rules. Mirroring a pose takes 12,428 instructions (about 230 a bone,
-some 3 microseconds): two quaternion products and a rotation a bone,
+rules. Mirroring a pose takes 13,454 instructions (about 250 a bone,
+some 3 microseconds; 12,428 before the scale was carried by the
+correction): two quaternion products and a rotation a bone,
 no model pass, about what a native clip node's update and sample
 cost, so a graph's mirror node adds about one clip node a frame.
-Baking a one-second clip at 30 Hz takes 2.35 million; a database
-of a walk and the walk mirrored takes 9.01 million to build against
+Baking a one-second clip at 30 Hz takes 2.38 million; a database
+of a walk and the walk mirrored takes 9.17 million to build against
 7.15 million for two plain entries, the mirrored entry's poses
-mirrored as they are sampled.
+mirrored as they are sampled. A search over a database whose entries
+are each mirrored too costs what one over twice the plain data does
+(6.24 instructions a frame against 6.22, 225,273 for 36,120 frames).

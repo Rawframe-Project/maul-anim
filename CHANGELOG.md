@@ -62,11 +62,17 @@ format.
   the reference pose into two corrections a bone so rigs whose left and
   right bones have unmirrored axes mirror to their reference, and pairs
   float track, event and marker names; `maniOpenMirrorMap` opens it,
-  `maniMirrorPartner`, `maniMirrorName` and
-  `maniMirrorMapUnmatchedBone` read it.
+  `maniMirrorPartner`, `maniMirrorName`,
+  `maniMirrorMapUnmatchedBone` and `maniMirrorBoneFlags` (every bone
+  where the hierarchy is not symmetric, and where a scale is carried
+  approximately) read it; two names of one hash are refused.
+- A graph node reached both under a mirror node and not is refused
+  with `maniBuildReasonMirrorParity`, naming the node and the reader
+  that reaches it the other way (mani-0033).
 - Mirrored poses (mani-0033): `maniMirrorPose` gives each bone its
   partner's local reflected and carried through the map's corrections,
-  in place or into another pose; `maniMirrorRootMotion` reflects a root
+  its scale on the axes the correction takes it to, in place or into
+  another pose; `maniMirrorRootMotion` reflects a root
   motion move.
 - Mirrored clips (mani-0033): `maniBuildMirroredClip` bakes a clip's
   mirror on its grid, additive clips mirrored from the rest mirrored,

@@ -333,15 +333,20 @@ extern "C"
         maniBuildReasonMirrorClip = 60,
         // A graph's mirroring (other 0 its mirror map of another skeleton,
         // item 0, or a subgraph's map not the graph's, item the subgraph
-        // node; 1 a mirror node without a map, item the node; 2 a node
-        // reached both through an odd and an even number of mirror
-        // nodes, item the node; 3 a database slot whose mirrored entries
-        // play through another map or none, item the slot).
+        // node; 1 a mirror node without a map, item the node; 3 a database
+        // slot whose mirrored entries play through another map or none,
+        // item the slot).
         maniBuildReasonMirrorGraph = 61,
         // A motion database's mirroring: its mirror map of another
         // skeleton (item 0), or a mirrored entry without a map (item the
         // entry).
         maniBuildReasonMirrorDatabase = 62,
+        // A graph node reached both through an odd and an even number of
+        // mirror nodes (its moves and events would be needed both ways at
+        // once): item the node, other a reader that reaches it the other way
+        // from an earlier one. Give each way its own copy of the nodes
+        // beneath (a second subgraph instance).
+        maniBuildReasonMirrorParity = 63,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

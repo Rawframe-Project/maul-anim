@@ -4,8 +4,10 @@
 // Mirroring poses and root moves through a mirror map (mani-0033): each
 // bone takes its partner's local, the translation's normal component
 // negated and turned by the bone's A, the rotation mirrored between its A
-// and B, the scale as it is. A pair's two bones are read before either is
-// written, so a pose may be mirrored in place.
+// and B, the scale carried by B (each axis the partner's axis B takes
+// to it, or the diagonal of R(B)^T S R(B) where B takes no axis to an
+// axis). A pair's two bones are read before either is written, so a pose
+// may be mirrored in place.
 
 #include "bytes.h"
 #include "mirror_file.h"
@@ -62,6 +64,42 @@ static void ReadLocal(const float* locals, uint32_t bone, float local[MANI_POSE_
     }
 }
 
+// The partner's scale s carried by the bone's correction b: axis i takes
+// the partner's axis its flags name (a uniform scale as it is), or
+// sum_j R(b)_ji^2 s_j.
+static void CarryScale(uint32_t flags, maniQuat b, const float* s, float* out)
+{
+    // A uniform scale is every axis's, under any turn.
+    bool uniform = s[0] == s[1] && s[1] == s[2];
+    if (uniform || (flags & (MANI_MIRROR_FLAG_APPROXIMATE | MANI_MIRROR_PERMUTATION)) == 0)
+    {
+        out[0] = s[0];
+        out[1] = s[1];
+        out[2] = s[2];
+        return;
+    }
+    if ((flags & MANI_MIRROR_FLAG_APPROXIMATE) == 0)
+    {
+        for (uint32_t i = 0; i < 3; ++i)
+        {
+            out[i] = s[((flags >> (2 * i)) & 3u) ^ i];
+        }
+        return;
+    }
+    float x = b.x;
+    float y = b.y;
+    float z = b.z;
+    float w = b.w;
+    const float r[3][3] = {
+        {1.0f - 2.0f * (y * y + z * z), 2.0f * (x * y - z * w), 2.0f * (x * z + y * w)},
+        {2.0f * (x * y + z * w), 1.0f - 2.0f * (x * x + z * z), 2.0f * (y * z - x * w)},
+        {2.0f * (x * z - y * w), 2.0f * (y * z + x * w), 1.0f - 2.0f * (x * x + y * y)}};
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        out[i] = r[0][i] * r[0][i] * s[0] + r[1][i] * r[1][i] * s[1] + r[2][i] * r[2][i] * s[2];
+    }
+}
+
 // A bone's mirrored local (its record e) from its partner's.
 static void MirrorLocal(const uint8_t* e, maniMirrorAxis axis,
                         const float partner[MANI_POSE_COMPONENTS], float* slot)
@@ -71,9 +109,9 @@ static void MirrorLocal(const uint8_t* e, maniMirrorAxis axis,
     maniVec3 t = maniQuatRotate(a, Reflect(maniVec3Make(partner[0], partner[1], partner[2]), axis));
     maniQuat q = Mirror((maniQuat){partner[3], partner[4], partner[5], partner[6]}, axis);
     q = maniQuatMul(maniQuatMul(a, q), b);
-    const float turned[7] = {t.x, t.y, t.z, q.x, q.y, q.z, q.w};
-    maniPoseSlotPut(slot, 0, turned, 7);
-    maniPoseSlotPut(slot, 7, partner + 7, 3);
+    float turned[10] = {t.x, t.y, t.z, q.x, q.y, q.z, q.w};
+    CarryScale(maniLoadU32(e + 4), b, partner + 7, turned + 7);
+    maniPoseSlotPut(slot, 0, turned, 10);
 }
 
 maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,

@@ -157,7 +157,9 @@ extern "C"
         // A mirror node (mani-0033): its input's pose mirrored through the
         // graph's mirror map; the clip, match and learned nodes beneath it
         // give their moves reflected and their events and sync markers
-        // renamed.
+        // renamed. A node beneath one may not also be beneath a path
+        // without it (a subgraph shared by a mirrored and an unmirrored
+        // state takes a second instance).
         maniGraphNodeMirror = 24,
     };
 

@@ -19,6 +19,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// A bone's flags (maniMirrorBoneFlags): its parent's partner is not its
+// partner's parent; its scale is carried as the nearest axis scale.
+#define MANI_MIRROR_BONE_UNMATCHED         1u
+#define MANI_MIRROR_BONE_SCALE_APPROXIMATE 2u
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -53,7 +58,9 @@ extern "C"
     /// Opens a mirror map file in place: checks the container, the header
     /// (the skeleton's identity and bone count, the axis, the name count,
     /// the first unmatched bone), every bone's partner (within the count,
-    /// pairing back) and corrections (finite, of length 1), and every
+    /// pairing back), flags (a scale permutation or the approximate flag,
+    /// the first unmatched one the header's) and corrections (finite, of
+    /// length 1), and every
     /// name pair (by increasing hash, its partner's name inside the names,
     /// UTF-8, of its hash).
     ///
@@ -102,6 +109,23 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMirrorPartner(const maniMirrorMap* map, uint32_t bone);
+
+    /// Returns how a bone's mirrored local is made, as flags:
+    /// MANI_MIRROR_BONE_UNMATCHED when its parent's partner is not its
+    /// partner's parent (its mirrored pose is its partner's local turn
+    /// mirrored rather than its partner's model turn), and
+    /// MANI_MIRROR_BONE_SCALE_APPROXIMATE when the turn between its
+    /// reference frame and its partner's mirrored one takes no axis to an
+    /// axis, so a scale that differs between axes is carried as the
+    /// nearest axis scale (a uniform scale stays exact). Otherwise a scale
+    /// is exact, each axis taking the partner's axis the turn maps to it.
+    ///
+    /// @param map   An opened map, or NULL.
+    /// @param bone  A bone of the map's skeleton.
+    /// @return The flags; 0 for NULL or a bone past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniMirrorBoneFlags(const maniMirrorMap* map, uint32_t bone);
 
     /// Returns the first bone whose parent's partner is not its partner's
     /// parent: where the hierarchy is not mirror-symmetric, so that its

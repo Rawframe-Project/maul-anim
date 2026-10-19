@@ -300,13 +300,144 @@ static void TestPose(void)
         kept = kept && (b == kPropR || SameTurn(rest[b], out[b]));
     }
     CHECK(kept, "the rest's model rotations stay");
+}
+
+// A rig whose right arm rests a quarter turn about y from the left's, so
+// the turn between them takes axes to axes, and two bones without
+// partners under the arms, where the hierarchy is not symmetric.
+static const maniBoneSource kTurned[5] = {
+    {"root", 4, -1, {{0, 0, 0}, REST, {1, 1, 1}}},
+    {"armL", 4, 0, {{0.2f, 1, 0}, REST, {1, 1, 1}}},
+    {"extraL", 6, 1, {{0.1f, 0, 0}, REST, {1, 1, 1}}},
+    {"armR", 4, 0, {{-0.2f, 1, 0}, {0, 0.70710678f, 0, 0.70710678f}, {1, 1, 1}}},
+    {"tipR", 4, 3, {{0, 0, 0.1f}, REST, {1, 1, 1}}},
+};
+
+static _Alignas(16) uint8_t s_turnedFile[2][4096];
+static _Alignas(32) uint8_t s_turnedPoses[3][1024];
+
+// The scale's binary64 reference where the turn takes no axis to an axis:
+// the diagonal of R(B)^T S R(B), B = mirror(R_m)^-1 R_b at the rest.
+static maniVec3 Diagonal(maniQuat bq, maniVec3 s)
+{
+    double x = (double)bq.x;
+    double y = (double)bq.y;
+    double z = (double)bq.z;
+    double w = (double)bq.w;
+    const double r[3][3] = {
+        {1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)},
+        {2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)},
+        {2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)}};
+    double d[3];
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        d[i] = r[0][i] * r[0][i] * (double)s.x + r[1][i] * r[1][i] * (double)s.y +
+               r[2][i] * r[2][i] * (double)s.z;
+    }
+    return (maniVec3){(float)d[0], (float)d[1], (float)d[2]};
+}
+
+// Whether two transforms are the same bits.
+static bool SameBits(maniTransform a, maniTransform b)
+{
+    static_assert(sizeof a == 10 * sizeof(uint32_t), "ten words");
+    uint32_t x[10];
+    uint32_t y[10];
+    memcpy(x, &a, sizeof x);
+    memcpy(y, &b, sizeof y);
+    return memcmp(x, y, sizeof x) == 0;
+}
+
+static void TestScale(void)
+{
+    maniSkeleton turned;
+    maniMirrorMap map;
+    OpenSkeleton(kTurned, 5, s_turnedFile[0], &turned);
+    maniMirrorMapSource source = {.skeleton = &turned, .rules = kRules, .ruleCount = 2};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildMirrorMap(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_turnedFile[1], sizeof s_turnedFile[1], &size) ==
+                  mani_success &&
+              maniOpenMirrorMap(s_turnedFile[1], size, &map).result == mani_success,
+          "the turned rig's map");
+    maniDestroyBuilder(builder);
+    CHECK(maniMirrorBoneFlags(&map, 0) == 0 && maniMirrorBoneFlags(&map, 1) == 0 &&
+              maniMirrorBoneFlags(&map, 3) == 0 &&
+              maniMirrorBoneFlags(&map, 2) == MANI_MIRROR_BONE_UNMATCHED &&
+              maniMirrorBoneFlags(&map, 4) == MANI_MIRROR_BONE_UNMATCHED &&
+              maniMirrorMapUnmatchedBone(&map) == 2 && maniMirrorBoneFlags(&map, 5) == 0 &&
+              maniMirrorBoneFlags(NULL, 0) == 0,
+          "every bone where the hierarchy is not symmetric flagged, the first in the header");
+    maniPose* in = NULL;
+    maniPose* out = NULL;
+    maniPose* again = NULL;
+    CHECK(maniInitPose(&turned, s_turnedPoses[0], sizeof s_turnedPoses[0], &in) == mani_success &&
+              maniInitPose(&turned, s_turnedPoses[1], sizeof s_turnedPoses[1], &out) ==
+                  mani_success &&
+              maniInitPose(&turned, s_turnedPoses[2], sizeof s_turnedPoses[2], &again) ==
+                  mani_success &&
+              maniPoseSetRest(in, &turned) == mani_success,
+          "the turned rig's poses");
+    maniTransform arm = maniSkeletonRest(&turned, 1);
+    arm.scale = (maniVec3){2.0f, 3.0f, 4.0f};
+    maniPoseSetLocal(in, 1, arm);
+    CHECK(maniMirrorPose(&map, &turned, in, out) == mani_success, "mirrored");
+    maniVec3 scale = maniPoseLocal(out, 3).scale;
+    CHECK(scale.x == 4.0f && scale.y == 3.0f && scale.z == 2.0f,
+          "the partner's scale on the axes the quarter turn takes it to");
+    CHECK(maniMirrorPose(&map, &turned, out, again) == mani_success &&
+              maniPoseLocal(again, 1).scale.x == 2.0f && maniPoseLocal(again, 1).scale.y == 3.0f &&
+              maniPoseLocal(again, 1).scale.z == 4.0f,
+          "and back");
+    // The unmatched bones turned: a finite pose, the same bits twice.
+    for (uint32_t b = 0; b < 5; ++b)
+    {
+        maniTransform t = maniSkeletonRest(&turned, b);
+        t.rotation = Mul(t.rotation, Unit(0.2f + 0.1f * (float)b, -0.3f, 0.1f, 1.0f));
+        t.scale = (maniVec3){1.0f + 0.1f * (float)b, 1.0f, 0.5f};
+        maniPoseSetLocal(in, b, t);
+    }
+    CHECK(maniMirrorPose(&map, &turned, in, out) == mani_success &&
+              maniMirrorPose(&map, &turned, in, again) == mani_success,
+          "a turned pose mirrored twice");
+    bool finite = true;
+    for (uint32_t b = 0; b < 5; ++b)
+    {
+        maniTransform t = maniPoseLocal(out, b);
+        maniTransform u = maniPoseLocal(again, b);
+        finite = finite && isfinite(t.translation.x) && isfinite(t.translation.y) &&
+                 isfinite(t.translation.z) && isfinite(t.rotation.x) && isfinite(t.rotation.y) &&
+                 isfinite(t.rotation.z) && isfinite(t.rotation.w) && isfinite(t.scale.x) &&
+                 isfinite(t.scale.y) && isfinite(t.scale.z) && SameBits(t, u);
+    }
+    CHECK(finite, "finite, and the same bits each time");
+
+    // The main rig's hands: their clavicles rest 30 and 90 degrees turned,
+    // so the turn between the hands takes no axis to an axis.
+    maniQuat rest[kBones];
+    CHECK(maniPoseSetRest(s_in, &s_skeleton) == mani_success, "the rest");
+    ModelRotations(s_in, rest);
+    CHECK(maniMirrorBoneFlags(&s_maps[0], kHandR) == MANI_MIRROR_BONE_SCALE_APPROXIMATE &&
+              maniMirrorBoneFlags(&s_maps[0], kHead) == 0 &&
+              maniMirrorBoneFlags(&s_maps[0], kPropR) == MANI_MIRROR_BONE_UNMATCHED,
+          "the hands' scale approximate");
     maniTransform hand = maniSkeletonRest(&s_skeleton, kHandL);
     hand.scale = (maniVec3){2.0f, 3.0f, 4.0f};
     maniPoseSetLocal(s_in, kHandL, hand);
-    maniVec3 scale = (maniMirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
-                         ? maniPoseLocal(s_out, kHandR).scale
-                         : (maniVec3){0};
-    CHECK(scale.x == 2.0f && scale.y == 3.0f && scale.z == 4.0f, "the partner's scale");
+    maniVec3 want = Diagonal(Mul(Conjugate(MirrorQuat(rest[kHandL], 0)), rest[kHandR]), hand.scale);
+    scale = (maniMirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
+                ? maniPoseLocal(s_out, kHandR).scale
+                : (maniVec3){0};
+    CHECK(Near(scale.x, want.x) && Near(scale.y, want.y) && Near(scale.z, want.z) &&
+              !(Near(scale.x, 2.0f) && Near(scale.y, 3.0f) && Near(scale.z, 4.0f)),
+          "the nearest axis scale, the diagonal of the carried one");
+    hand.scale = (maniVec3){2.5f, 2.5f, 2.5f};
+    maniPoseSetLocal(s_in, kHandL, hand);
+    scale = (maniMirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
+                ? maniPoseLocal(s_out, kHandR).scale
+                : (maniVec3){0};
+    CHECK(scale.x == 2.5f && scale.y == 2.5f && scale.z == 2.5f, "a uniform scale exact");
 }
 
 static void TestMoves(void)
@@ -358,6 +489,7 @@ int main(void)
 {
     Setup();
     TestPose();
+    TestScale();
     TestMoves();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;

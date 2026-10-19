@@ -429,7 +429,8 @@ static void TestBuildRefusals(void)
     s_nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kBoth, .blend = {kHalves, 0, 0}};
     source.nodeCount = 3;
     source.output = 2;
-    CHECK(Refused(&source, maniBuildReasonMirrorGraph, 0, 2), "a node reached both ways");
+    CHECK(Refused(&source, maniBuildReasonMirrorParity, 0, 1),
+          "a node reached both ways, by the mirror node the other way");
     source = Graph(1, &s_map);
     s_nodes[0].clip.clip = 1;
     source.clipCount = 2;

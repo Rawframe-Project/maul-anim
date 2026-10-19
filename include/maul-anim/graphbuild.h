@@ -745,8 +745,10 @@ extern "C"
     /// none of nodes), Name, DuplicateName and NameHash with the list
     /// bits of parameters, clips, sync groups, databases, models or
     /// spring sets, Parameter, Clip, Database, Model, SpringSetSlot, Node,
-    /// Input, Cycle, Unreachable, Scalar, Weight, Difference and
-    /// MirrorGraph; and
+    /// Input, Cycle, Unreachable, Scalar, Weight, Difference, MirrorGraph
+    /// and MirrorParity (a node under both a mirrored and an unmirrored
+    /// path, item the node, other the reader reaching it the other way:
+    /// give each path its own copy of the nodes beneath); and
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
