@@ -79,14 +79,22 @@ stored and the places taken from its lengths; every builder refusal
 with its item; every crafted word refused at its offset. A fuzz target
 opens maps and reads every plan.
 
-The transfer's tests, over a target whose rests turn a spine bone and
-the upper arm: the source's reference giving the target's; on a posed
-source, each mapped bone's model turn from its reference the source
-bone's within 1e-11 of a binary64 one (the interpolated spine's middle
-bones the slerps at 2/3 and 1/3, a chain of weight 0.5 half the
-turns); unmapped and extra bones at their reference locals bit for
-bit and own translations kept; a scaled translation turned from the
-source arm's reference frame into the turned upper arm's and the
-scale carried; the pelvis scaled by parts and blended toward the
-absolute change and the source; root motion scaled; the refusals; a
-transfer's bits pinned, the same under gcc and clang.
+The transfer's tests, between rigs whose rests turn spine and arm bones
+on both sides, scale the source's hand and offset the target's root:
+the source's reference giving the target's (all but the pelvis's
+translation, which its source blend pulls toward the source's own
+place); on a posed source with a moved and turned root, each mapped
+bone's model turn from its reference the source bone's within 1e-11 of
+a binary64 one (the interpolated spine's middle bones the slerps at
+2/3 and 1/3, a chain of weight 0.5 half the turns); an extra bone at
+its reference local bit for bit and own translations kept; a reversed
+chain's reference bone between mapped ones; a scaled translation
+turned from the source arm's reference frame into the turned upper
+arm's and the scale's ratio carried; the pelvis by its formula in
+binary64 (scaled by parts, blended, weighted 0.75, under the turned
+root); root motion scaled; the refusals (another identity of the same
+count, a target pose of another rig, a source of differences, scratch
+short or misaligned) and the output marked a pose; a transfer's bits
+pinned, the same under gcc and clang. Its first mutants found the
+first rig too regular to tell the reference turns, the parents' paths
+and the weights apart.

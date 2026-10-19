@@ -3262,7 +3262,9 @@ rtm-share-range | src/retarget.c | bool share = w >= 7 || Share(v); | bool share
 rtm-share-split | src/retarget.c | bool share = w >= 7 || Share(v); | bool share = w >= 6 || Share(v);
 rtm-none-zero | src/retarget.c | if (!share || (none && v != 0.0f)) | if (!share)
 rtm-count-min | src/retarget.c | if (m->sourceBoneCount < 1 || m->sourceBoneCount > MANI_MAX_BONES) | if (m->sourceBoneCount > MANI_MAX_BONES)
-rtm-end | src/retarget.c | if (maniLoadU32(h + maniRetargetHeaderEnd + 4 * w) != 0) | if (false)
+rtm-end | src/retarget.c | return maniLoadU32(h + maniRetargetHeaderEnd) == 0 ? kOk : Fail(at + maniRetargetHeaderEnd); | return kOk;
+rtm-ratio | src/retarget.c | if (!(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f)) | if (none && ratio != 1.0f)
+rtm-ratio-none | src/retarget.c | if (!(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f)) | if (!(ratio > 0.0f) || !Finite(ratio))
 rtm-quat | src/retarget.c | if (wrong != 0) | if (false)
 rtm-floats | src/retarget.c | if (k < 6) | if (k < 5)
 rtm-kind-pelvis | src/retarget.c | kind <= maniRetargetPlanTwo && (!pelvis || kind == maniRetargetPlanOne), | kind <= maniRetargetPlanTwo,
@@ -3285,3 +3287,32 @@ rtb-pelvis-height | src/retarget_build.c | if (!(hs > 0.0f) || !(ht > 0.0f) || !
 rtb-names-mapped | src/retarget_build.c | w->plan[b].mapped ? MANI_NO_BONE : maniSkeletonFindBone(s->source, name, length); | maniSkeletonFindBone(s->source, name, length);
 rtb-ratio | src/retarget_build.c | w->ratio = ht / hs; | w->ratio = 1.0f;
 rtb-scale-flag | src/retarget_build.c | scale ? MANI_RETARGET_PLAN_SCALE : 0u, | 0u,
+
+# Retargeted poses (mani-0032): the transfer, the pelvis, the refusals
+rtp-scratch-affine | src/retarget_pose.c | sizeof(maniAffine) * map->targetBoneCount; | 0u;
+rtp-up-split | src/retarget_pose.c | maniVec3 vertical = maniVec3Scale(up, maniVec3Dot(up, delta)); | maniVec3 vertical = maniVec3Scale(up, 0.0f);
+rtp-delta-conj | src/retarget_pose.c | return maniQuatMul(x->sourceModels[a], maniQuatConjugate(SourceModel(x->map, a))); | return x->sourceModels[a];
+rtp-lerp | src/retarget_pose.c | return a + (b - a) * t; | return a;
+rtp-position-parents | src/retarget_pose.c | m = maniAffineMul(&parent, &m); | (void)parent;
+rtp-absolute | src/retarget_pose.c | float placed = Lerp(r[k] + Lerp(s[k], c[k], a[k]), n[k], o[k]); | float placed = Lerp(r[k] + s[k], n[k], o[k]);
+rtp-to-source | src/retarget_pose.c | float placed = Lerp(r[k] + Lerp(s[k], c[k], a[k]), n[k], o[k]); | float placed = r[k] + Lerp(s[k], c[k], a[k]);
+rtp-weight | src/retarget_pose.c | out[k] = Lerp(r[k], placed, weight); | out[k] = placed;
+rtp-ratio | src/retarget_pose.c | from = maniVec3Scale(maniVec3Sub(from, LoadVec(SourceBone(x->map, a) + 16)), ratio); | from = maniVec3Sub(from, LoadVec(SourceBone(x->map, a) + 16));
+rtp-ref-sub | src/retarget_pose.c | from = maniVec3Scale(maniVec3Sub(from, LoadVec(SourceBone(x->map, a) + 16)), ratio); | from = maniVec3Scale(from, ratio);
+rtp-frame-target | src/retarget_pose.c | maniQuatMul(maniQuatConjugate(TargetModel(x->map, maniSkeletonParent(x->target, bone))), | maniQuatMul(maniQuatIdentity(),
+rtp-frame-source | src/retarget_pose.c | SourceModel(x->map, maniSkeletonParent(x->source, a))); | maniQuatIdentity());
+rtp-absolute-mode | src/retarget_pose.c | ? maniVec3Add(local->translation, turned) | ? turned
+rtp-scale | src/retarget_pose.c | if (scale) | if (false)
+rtp-scale-ratio | src/retarget_pose.c | local->scale.x *= was.x != 0.0f ? now.x / was.x : 1.0f; | local->scale.x *= now.x;
+rtp-ref-model | src/retarget_pose.c | x->targetModels[b] = maniQuatMul(above, local.rotation); | x->targetModels[b] = local.rotation;
+rtp-two | src/retarget_pose.c | if (kind == maniRetargetPlanTwo) | if (false)
+rtp-weight-slerp | src/retarget_pose.c | delta = weight < 1.0f ? maniQuatSlerp(maniQuatIdentity(), delta, weight) : delta; | delta = delta;
+rtp-target-ref | src/retarget_pose.c | x->targetModels[b] = maniQuatNormalize(maniQuatMul(delta, LoadQuat(t))); | x->targetModels[b] = maniQuatNormalize(delta);
+rtp-local-above | src/retarget_pose.c | local.rotation = maniQuatNormalize(maniQuatMul(maniQuatConjugate(above), x->targetModels[b])); | local.rotation = maniQuatNormalize(x->targetModels[b]);
+rtp-pelvis-local | src/retarget_pose.c | placed = maniAffineTransformPoint(&inverse, placed); | (void)inverse;
+rtp-aligned | src/retarget_pose.c | targetPose != NULL && scratch != NULL && (uintptr_t)scratch % 16 == 0 && | targetPose != NULL && scratch != NULL &&
+rtp-size | src/retarget_pose.c | scratchSize >= maniRetargetScratchSize(map) && | true &&
+rtp-source-id | src/retarget_pose.c | maniSkeletonIdentity(source) == map->sourceIdentity && | true &&
+rtp-difference | src/retarget_pose.c | maniPoseMatches(sourcePose, source) && !maniPoseIsDifference(sourcePose) && | maniPoseMatches(sourcePose, source) &&
+rtp-target-match | src/retarget_pose.c | maniPoseMatches(targetPose, target); | true;
+rtp-kind | src/retarget_pose.c | maniPoseSetKind(targetPose, false); | (void)0;

@@ -11,8 +11,10 @@
 // translations kept, scaled through the parents' reference frames, the
 // scale carried; the pelvis's change scaled by parts with its absolute
 // and source blends; root motion scaled; the refusals; a transfer's bits
-// pinned, the same on every platform.
+// pinned, the same on every platform. The source's rests turn s1 and
+// the arm and scale the hand; the target's root rests off the origin.
 
+#include "pose_memory.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -28,14 +30,16 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_HASH 0x7fdf238cad7b91f1ull
+#define PINNED_HASH 0x0c1461ad38a9a3fdull
 
-static _Alignas(16) uint8_t s_skeletonFiles[2][4096];
+static _Alignas(16) uint8_t s_skeletonFiles[4][4096];
 static _Alignas(16) uint8_t s_file[16384];
-static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[2][4096];
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[4][4096];
 static _Alignas(16) uint8_t s_scratch[8192];
 static maniSkeleton s_source;
 static maniSkeleton s_target;
+static maniSkeleton s_otherSource;
+static maniSkeleton s_otherTarget;
 static maniRetargetMap s_map;
 static maniPose* s_in;
 static maniPose* s_out;
@@ -50,16 +54,23 @@ typedef struct Bone
 
 #define REST {0.0f, 0.0f, 0.0f, 1.0f}
 
+// s1 rests turned 20 degrees about x, the arm 30 about z; the hand's
+// rest scale is (0.5, 1, 1) (Skeleton below).
 static const Bone kSource[8] = {
-    {"root", -1, {0.0f, 0.0f, 0.0f}, REST}, {"hips", 0, {0.0f, 1.0f, 0.0f}, REST},
-    {"s1", 1, {0.0f, 0.2f, 0.0f}, REST},    {"s2", 2, {0.0f, 0.2f, 0.0f}, REST},
-    {"chest", 3, {0.0f, 0.2f, 0.0f}, REST}, {"armL", 4, {0.2f, 0.1f, 0.0f}, REST},
-    {"handL", 5, {0.3f, 0.0f, 0.0f}, REST}, {"head", 4, {0.0f, 0.3f, 0.0f}, REST}};
-
-// sp1 rests turned 30 degrees about z, the upper arm 90 about y; the
-// offsets below them are along their own turned frames.
-static const Bone kTarget[10] = {
     {"root", -1, {0.0f, 0.0f, 0.0f}, REST},
+    {"hips", 0, {0.0f, 1.0f, 0.0f}, REST},
+    {"s1", 1, {0.0f, 0.2f, 0.0f}, {0.17364818f, 0.0f, 0.0f, 0.98480775f}},
+    {"s2", 2, {0.0f, 0.2f, 0.0f}, REST},
+    {"chest", 3, {0.0f, 0.2f, 0.0f}, REST},
+    {"armL", 4, {0.2f, 0.1f, 0.0f}, {0.0f, 0.0f, 0.25881904f, 0.96592583f}},
+    {"handL", 5, {0.3f, 0.0f, 0.0f}, REST},
+    {"head", 4, {0.0f, 0.3f, 0.0f}, REST}};
+
+// The root rests off the origin; sp1 turned 30 degrees about z, the upper
+// arm 90 about y; the offsets below them are along their own turned
+// frames.
+static const Bone kTarget[10] = {
+    {"root", -1, {0.1f, 0.0f, 0.0f}, REST},
     {"pelvis", 0, {0.0f, 0.9f, 0.0f}, REST},
     {"sp1", 1, {0.0f, 0.15f, 0.0f}, {0.0f, 0.0f, 0.25881904f, 0.96592583f}},
     {"sp2", 2, {0.0f, 0.15f, 0.0f}, REST},
@@ -74,7 +85,7 @@ static const maniRetargetChainSource kChains[2] = {
     {2, 4, 2, 5, maniRetargetRotationInterpolated, 1.0f, maniRetargetTranslationOwn, false},
     {5, 6, 6, 8, maniRetargetRotationOneToOne, 0.5f, maniRetargetTranslationScaled, true}};
 static const maniRetargetPelvisSource kPelvis = {
-    1, 1, {0.0f, 1.0f, 0.0f}, 1.0f, 0.5f, {0.0f, 1.0f, 0.0f}, {0.25f, 0.0f, 0.0f}, 1.0f, 1.0f};
+    1, 1, {0.0f, 1.0f, 0.0f}, 1.0f, 0.5f, {0.0f, 1.0f, 0.0f}, {0.25f, 0.0f, 0.0f}, 0.75f, 1.0f};
 
 static maniBuilder* NewBuilder(void)
 {
@@ -93,6 +104,8 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
                                       (uint32_t)strlen(bones[b].name),
                                       bones[b].parent,
                                       {bones[b].offset, bones[b].rotation, {1, 1, 1}}};
+        // The source's hand rests scaled.
+        sources[b].rest.scale.x = side == 0 && b == 6 ? 0.5f : 1.0f;
     }
     maniBuilder* builder = NewBuilder();
     maniSkeletonSource source = {sources, count, 0};
@@ -109,6 +122,16 @@ static void Setup(void)
 {
     Skeleton(kSource, 8, 0, &s_source);
     Skeleton(kTarget, 10, 1, &s_target);
+    // Rigs of the same counts and other identities (their last bone
+    // moved).
+    Bone sourceBones[8];
+    Bone targetBones[10];
+    memcpy(sourceBones, kSource, sizeof sourceBones);
+    memcpy(targetBones, kTarget, sizeof targetBones);
+    sourceBones[7].offset.y = 0.4f;
+    targetBones[9].offset.y = 0.4f;
+    Skeleton(sourceBones, 8, 2, &s_otherSource);
+    Skeleton(targetBones, 10, 3, &s_otherTarget);
     maniRetargetMapSource source = {.source = &s_source,
                                     .target = &s_target,
                                     .chains = kChains,
@@ -197,6 +220,23 @@ static void Rotate(Q q, const double* v, double* out)
     out[2] = p.z;
 }
 
+// A bone's model position from its root path's rotations and
+// translations (their scales 1), from the pose or, for NULL, the rest.
+static void Point(const maniSkeleton* skeleton, const maniPose* pose, uint32_t bone, double* out)
+{
+    double p[3] = {0.0, 0.0, 0.0};
+    for (uint32_t b = bone; b != MANI_NO_BONE; b = maniSkeletonParent(skeleton, b))
+    {
+        maniTransform t = pose != NULL ? maniPoseLocal(pose, b) : maniSkeletonRest(skeleton, b);
+        double turned[3];
+        Rotate(FromQuat(t.rotation), p, turned);
+        p[0] = turned[0] + (double)t.translation.x;
+        p[1] = turned[1] + (double)t.translation.y;
+        p[2] = turned[2] + (double)t.translation.z;
+    }
+    memcpy(out, p, sizeof p);
+}
+
 // A bone's model rotation: its root path's local rotations' product.
 static Q Model(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
 {
@@ -240,6 +280,10 @@ static void Turned(uint32_t bone, maniQuat turn)
     maniPoseSetLocal(s_in, bone, t);
 }
 
+// The source's reference gives the target's, but for the pelvis's
+// translation: its source blend pulls it toward the source pelvis's own
+// place, which the target's root offset puts elsewhere (TestTranslations
+// checks it by its formula).
 static void TestReference(void)
 {
     CHECK(maniPoseSetRest(s_in, &s_source) == mani_success && Transfer(), "transferred");
@@ -248,10 +292,10 @@ static void TestReference(void)
     {
         maniTransform t = maniPoseLocal(s_out, b);
         maniTransform r = maniSkeletonRest(&s_target, b);
-        same = same && Near(FromQuat(t.rotation), FromQuat(r.rotation), 1e-12) &&
-               fabsf(t.translation.x - r.translation.x) <= 1e-6f &&
-               fabsf(t.translation.y - r.translation.y) <= 1e-6f &&
-               fabsf(t.translation.z - r.translation.z) <= 1e-6f;
+        bool placed = b == 1 || (fabsf(t.translation.x - r.translation.x) <= 1e-6f &&
+                                 fabsf(t.translation.y - r.translation.y) <= 1e-6f &&
+                                 fabsf(t.translation.z - r.translation.z) <= 1e-6f);
+        same = same && Near(FromQuat(t.rotation), FromQuat(r.rotation), 1e-12) && placed;
     }
     CHECK(same, "the source's reference gives the target's");
 }
@@ -261,6 +305,11 @@ static void TestReference(void)
 static void Posed(void)
 {
     CHECK(maniPoseSetRest(s_in, &s_source) == mani_success, "rest");
+    // The root moved and turned: the hips' model place moves with it.
+    maniTransform root = maniPoseLocal(s_in, 0);
+    root.translation = (maniVec3){0.05f, 0.0f, 0.02f};
+    maniPoseSetLocal(s_in, 0, root);
+    Turned(0, AxisAngle(0.0, 1.0, 0.0, 0.3));
     Turned(1, AxisAngle(0.0, 1.0, 0.0, 0.4));
     Turned(2, AxisAngle(1.0, 0.0, 0.0, 0.3));
     Turned(3, AxisAngle(0.0, 0.0, 1.0, -0.5));
@@ -295,8 +344,8 @@ static void TestTurns(void)
           "a chain of weight 0.5: half the turns");
     maniTransform extra = maniPoseLocal(s_out, 8);
     maniTransform rest = maniSkeletonRest(&s_target, 8);
-    CHECK(memcmp(&extra, &rest, sizeof extra) == 0 && Near(Turn(s_out, &s_target, 0), none, 0.0),
-          "unmapped and extra bones: their reference locals bit for bit");
+    CHECK(memcmp(&extra, &rest, sizeof extra) == 0,
+          "an extra bone: its reference local bit for bit");
     maniVec3 sp2 = maniPoseLocal(s_out, 3).translation;
     maniVec3 own = maniSkeletonRest(&s_target, 3).translation;
     CHECK(memcmp(&sp2, &own, sizeof sp2) == 0, "their own translations kept");
@@ -329,15 +378,37 @@ static void TestTranslations(void)
     CHECK(fabs((double)forearm.translation.x - ((double)rest.x + turned[0])) <= 1e-6 &&
               fabs((double)forearm.translation.y - ((double)rest.y + turned[1])) <= 1e-6 &&
               fabs((double)forearm.translation.z - ((double)rest.z + turned[2])) <= 1e-6 &&
-              fabsf(forearm.scale.x - 2.0f) <= 1e-6f && forearm.scale.y == 1.0f,
-          "a scaled translation through the parents' frames, the scale carried");
-    // The pelvis: x scaled by 0.9 (0.18), then a quarter of the way to
-    // the source's 0.2; y unscaled (its absolute blend 1): 0.1.
+              fabsf(forearm.scale.x - 4.0f) <= 1e-6f && forearm.scale.y == 1.0f,
+          "a scaled translation through the parents' frames, the scale's ratio carried");
+    // The pelvis in binary64: the source's change from its reference,
+    // horizontal by 0.9 and vertical unscaled (its absolute blend 1),
+    // x a quarter of the way to the source's own, weighted 0.75 from the
+    // target's reference, then into the target root's frame as posed.
+    double now[3];
+    double was[3];
+    double reference[3];
+    Point(&s_source, s_in, 1, now);
+    Point(&s_source, NULL, 1, was);
+    Point(&s_target, NULL, 1, reference);
+    double placed[3] = {reference[0] + 0.9 * (now[0] - was[0]), reference[1] + (now[1] - was[1]),
+                        reference[2] + 0.9 * (now[2] - was[2])};
+    placed[0] += 0.25 * (now[0] - placed[0]);
+    double model[3];
+    for (int k = 0; k < 3; ++k)
+    {
+        model[k] = reference[k] + 0.75 * (placed[k] - reference[k]);
+    }
+    maniTransform root = maniPoseLocal(s_out, 0);
+    double offset[3] = {model[0] - (double)root.translation.x,
+                        model[1] - (double)root.translation.y,
+                        model[2] - (double)root.translation.z};
+    double local[3];
+    Rotate(Conj(FromQuat(root.rotation)), offset, local);
     maniTransform pelvis = maniPoseLocal(s_out, 1);
-    double x = 0.18 + 0.25 * (0.2 - 0.18);
-    CHECK(fabs((double)pelvis.translation.x - x) <= 1e-6 &&
-              fabsf(pelvis.translation.y - 1.0f) <= 1e-6f && fabsf(pelvis.translation.z) <= 1e-6f,
-          "the pelvis: scaled by parts, blended to the absolute and the source");
+    CHECK(fabs((double)pelvis.translation.x - local[0]) <= 1e-6 &&
+              fabs((double)pelvis.translation.y - local[1]) <= 1e-6 &&
+              fabs((double)pelvis.translation.z - local[2]) <= 1e-6 && fabs(now[0] - was[0]) > 0.1,
+          "the pelvis: scaled by parts, blended, weighted, under the turned root");
     maniVec3 motion = maniRetargetRootMotion(&s_map, (maniVec3){1.0f, 0.5f, -2.0f});
     CHECK(fabsf(motion.x - 0.9f) <= 1e-6f && fabsf(motion.y - 0.225f) <= 1e-6f &&
               fabsf(motion.z + 1.8f) <= 1e-6f,
@@ -361,10 +432,65 @@ static void TestRefusals(void)
                                           s_out, s_scratch, sizeof s_scratch);
     maniResult none =
         maniRetargetPose(NULL, &s_source, s_in, &s_target, s_out, s_scratch, sizeof s_scratch);
+    maniPose* otherIn = NULL;
+    maniPose* otherOut = NULL;
+    CHECK(maniInitPose(&s_otherSource, s_poseMemory[2], sizeof s_poseMemory[2], &otherIn) ==
+                  mani_success &&
+              maniInitPose(&s_otherTarget, s_poseMemory[3], sizeof s_poseMemory[3], &otherOut) ==
+                  mani_success,
+          "poses of the other rigs");
+    maniResult otherSource = maniRetargetPose(&s_map, &s_otherSource, otherIn, &s_target, s_out,
+                                              s_scratch, sizeof s_scratch);
+    maniResult otherTarget =
+        maniRetargetPose(&s_map, &s_source, s_in, &s_target, otherOut, s_scratch, sizeof s_scratch);
+    maniPoseSetKind(s_in, true);
+    maniResult difference =
+        maniRetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch, sizeof s_scratch);
+    maniPoseSetKind(s_in, false);
+    CHECK(otherSource == mani_errorInvalid && otherTarget == mani_errorInvalid &&
+              difference == mani_errorInvalid,
+          "a source of another identity, a target pose of another rig, a source of differences");
+    maniPoseSetKind(s_out, true);
+    CHECK(Transfer() && !maniPoseIsDifference(s_out), "the output a pose, not differences");
     CHECK(wrong == mani_errorInvalid && small == mani_errorInvalid &&
               aligned == mani_errorInvalid && swapped == mani_errorInvalid &&
               none == mani_errorInvalid,
           "skeletons swapped, scratch short or misaligned, a pose of the other, no map");
+}
+
+// The arm chain reversed: the upper arm at its reference between the
+// turned chest and the mapped forearm, which still takes the source
+// arm's turn.
+static void TestReversed(void)
+{
+    maniRetargetChainSource chains[2] = {kChains[0], kChains[1]};
+    chains[1].rotation = maniRetargetRotationOneToOneReversed;
+    chains[1].rotationWeight = 1.0f;
+    maniRetargetMapSource source = {.source = &s_source,
+                                    .target = &s_target,
+                                    .chains = chains,
+                                    .pelvis = &kPelvis,
+                                    .chainCount = 2,
+                                    .matchNames = true};
+    static _Alignas(16) uint8_t file[16384];
+    maniRetargetMap map;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildRetargetMap(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenRetargetMap(file, size, &map).result == mani_success,
+          "a reversed map");
+    maniDestroyBuilder(builder);
+    Posed();
+    CHECK(maniRetargetPose(&map, &s_source, s_in, &s_target, s_out, s_scratch, sizeof s_scratch) ==
+              mani_success,
+          "transferred");
+    maniTransform upper = maniPoseLocal(s_out, 6);
+    maniTransform rest = maniSkeletonRest(&s_target, 6);
+    CHECK(memcmp(&upper, &rest, sizeof upper) == 0 &&
+              Near(Turn(s_out, &s_target, 7), Turn(s_in, &s_source, 5), 1e-11) &&
+              Near(Turn(s_out, &s_target, 8), Turn(s_in, &s_source, 6), 1e-11),
+          "a reference bone between mapped ones: the mapped ones' turns kept");
 }
 
 static void TestPinned(void)
@@ -388,6 +514,7 @@ int main(void)
     TestTurns();
     TestTranslations();
     TestRefusals();
+    TestReversed();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }
