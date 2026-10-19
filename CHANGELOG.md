@@ -40,6 +40,9 @@ format.
   step an iteration (Buss and Kim, the paper's clamps, a one-sided
   Jacobi decomposition whose sweeps stop the same on every platform),
   every length kept.
+- Full-body IK by SDLS 2.4 to 9 times fewer instructions an iteration
+  (mani-0031): its decomposition keeps each column's length and skips
+  the zero rotation rows, with the same bits.
 - Full-body IK graph nodes (mani-0031): XPBD and SDLS nodes solve their
   input pose toward vec3 position and quat rotation parameters per
   effector, with bone settings, in files, JSON and subgraphs, their

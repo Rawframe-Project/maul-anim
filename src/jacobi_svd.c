@@ -12,7 +12,10 @@
 // Rutishauser's tangent. Dot products accumulate in binary64, in a
 // fixed order; every operation is an addition, a multiplication, a
 // division or a square root, each correctly rounded, so the stop falls
-// on the same sweep on every platform.
+// on the same sweep on every platform. Each column's squared length is
+// kept and taken again only when a rotation changes the column, so it
+// is always what a fresh dot product would give; a pair with a zero
+// column (length 0, so its product 0 too) is skipped without one.
 
 #include "jacobi_svd.h"
 
@@ -65,6 +68,11 @@ uint32_t maniJacobiSvd(float* a, uint32_t n, uint32_t m, float* w, float* sigma)
     {
         w[(size_t)i * m + i] = 1.0f;
     }
+    double norms[MANI_JACOBI_MAX_COLUMNS];
+    for (uint32_t i = 0; i < m; ++i)
+    {
+        norms[i] = Dot(a + (size_t)i * n, a + (size_t)i * n, n);
+    }
     double tol = sqrt((double)n) * (double)MANI_JACOBI_EPSILON;
     uint32_t sweeps = 0;
     bool rotated = true;
@@ -76,12 +84,15 @@ uint32_t maniJacobiSvd(float* a, uint32_t n, uint32_t m, float* w, float* sigma)
         {
             for (uint32_t q = p + 1; q < m; ++q)
             {
+                double alpha = norms[p];
+                double beta = norms[q];
+                if (alpha == 0.0 || beta == 0.0)
+                {
+                    continue;
+                }
                 const float* ap = a + (size_t)p * n;
                 const float* aq = a + (size_t)q * n;
-                double alpha = Dot(ap, ap, n);
-                double beta = Dot(aq, aq, n);
                 double gamma = Dot(ap, aq, n);
-                // A zero column's cosine test reads 0 > 0: skipped too.
                 if (!(fabs(gamma) > tol * sqrt(alpha) * sqrt(beta)))
                 {
                     continue;
@@ -90,13 +101,15 @@ uint32_t maniJacobiSvd(float* a, uint32_t n, uint32_t m, float* w, float* sigma)
                 double t = (zeta >= 0.0 ? 1.0 : -1.0) / (fabs(zeta) + sqrt(1.0 + zeta * zeta));
                 double c = 1.0 / sqrt(1.0 + t * t);
                 Rotate(a, n, w, m, p, q, c, c * t);
+                norms[p] = Dot(ap, ap, n);
+                norms[q] = Dot(aq, aq, n);
                 rotated = true;
             }
         }
     }
     for (uint32_t i = 0; i < m; ++i)
     {
-        sigma[i] = (float)sqrt(Dot(a + (size_t)i * n, a + (size_t)i * n, n));
+        sigma[i] = (float)sqrt(norms[i]);
     }
     return sweeps;
 }

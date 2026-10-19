@@ -196,6 +196,15 @@ extern "C"
     /// first. Stops early once every effector lies within the
     /// tolerance. Every length is kept: stretch is refused.
     ///
+    /// The decomposition's work in an iteration grows with the square of
+    /// the rows (six an effector, those of an effector without a rotation
+    /// weight free) times the columns, so an iteration costs far more
+    /// than one of maniSolveBodyXpbd's: about 1.8 million instructions
+    /// for a 22-bone part with five effectors, 54 million for 128 bones
+    /// and 32 effectors without rotations (XPBD: 57 thousand and half a
+    /// million). The iteration count is the caller's budget: suited to
+    /// small parts, a few iterations, or work off the frame.
+    ///
     /// @param pose         A pose of the skeleton (not a difference); the
     ///                     solved part's locals are written.
     /// @param skeleton     Its skeleton.

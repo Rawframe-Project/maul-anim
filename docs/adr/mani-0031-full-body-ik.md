@@ -83,7 +83,10 @@ move by the last step's progress.
   by Rutishauser's tangent, dot products in binary64, a pair skipped
   when its cosine is below sqrt(n) times binary32's unit roundoff, the
   sweeps stopping when one rotates nothing or at 30, as LAPACK's
-  `sgesvj`. Every operation is an addition, a multiplication, a
+  `sgesvj`. Each column's squared length is kept and taken again only
+  after a rotation changes the column, so it is what a fresh dot
+  product gives, and a pair with a zero column (the rotation rows of an
+  effector without a rotation weight) is skipped without a product. Every operation is an addition, a multiplication, a
   division or a square root, each correctly rounded, in a fixed order
   with contraction off, so the stop falls on the same sweep everywhere.
 - **Results:** each bone's local correction from its turn relative to
@@ -175,6 +178,38 @@ at 3, 2.4e-3 at 4), and running the joints from the tips up a little
 from the tips up). Strength and stiffness set the pose
 the passes converge to; short of it the result changes with the
 count, so a caller who raises the count gets a pose nearer the goals.
+
+Timings (one core of the shared 24-core machine, gcc 14 -O3, the median
+of 101 solves from the input; instruction counts, which the machine's
+load leaves alone, first). The tests' figure, two hands: XPBD 21.8
+thousand instructions (4.1 microseconds) at 1 iteration, 197 thousand
+(43 microseconds) at 32; SDLS 116 thousand (14 microseconds) at 1, 1.31
+million (157 microseconds) at 32, where it has stopped. A humanoid
+(a 22-bone part from the hips, hands, feet and head as effectors, three
+with rotations; 16,560 bytes of scratch): XPBD 57 thousand
+instructions at 1 iteration, 165 thousand (36 microseconds) at 8, 532
+thousand (117 microseconds) at 32; SDLS 1.8 million an iteration, 13.8
+million (1.2 to 1.4 milliseconds) at 8. The worst description (128
+bones, 32 effectors, 478,896 bytes of scratch): XPBD 493 thousand
+instructions at 1 iteration, 1.8 million (0.36 milliseconds) at 16,
+22.5 million (4.6 milliseconds) at 256; SDLS 54 million (5.4
+milliseconds) an iteration without rotations, 1.3 seconds at 256, and
+4.7 billion at 16 with every rotation row. Keeping the columns' lengths
+took SDLS from 304 thousand to 116 thousand instructions an iteration
+on the figure, 4.4 million to 1.8 million on the humanoid and 496
+million to 54 million on the worst case (where half the rows are zero),
+every bit the same; four running sums in the dot product saved under
+2% of the instructions and were dropped.
+
+The budget: a humanoid solved in 8 iterations within 0.5 milliseconds
+on one core. XPBD meets it about fourteen times over, and its worst
+description stays under 5 milliseconds even at 256 iterations. SDLS
+misses it (an iteration of the humanoid takes about 0.2 milliseconds);
+its iterations are not capped by the description's size, which would
+make the count the caller gives mean less than it says, so its
+documentation states its cost and the count stays the caller's budget:
+SDLS for small parts, a few iterations or work off the frame, XPBD for
+the frame.
 
 The nodes' tests over the hips, spine and arm: each node's output its
 input solved by its solver bit for bit, with two effectors (one with a
