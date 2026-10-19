@@ -194,8 +194,9 @@ static Continuing ContinuingOf(const Match* m)
     bool loop = (e.flags & MANI_MATCH_LOOP) != 0;
     c.frame = e.firstFrame + n;
     c.next = n < last ? c.frame + 1 : (loop ? e.firstFrame : c.frame);
-    double w = to > from && c.next != c.frame ? (t - from) / (to - from) : 0.0;
-    c.weight = (float)(w > 0.0 ? (w < 1.0 ? w : 1.0) : 0.0);
+    // Within 0 and 1: the frame is the last at or before the playhead and
+    // its next the first after it.
+    c.weight = (float)(to > from && c.next != c.frame ? (t - from) / (to - from) : 0.0);
     return c;
 }
 

@@ -442,7 +442,9 @@ static void TestContinuingFrame(void)
 // continuing frame's own features lie half way to 0.6. On a looping
 // entry (x t, frames to 0.9, its bone channel alone) at 0.93 s the last
 // frame's features are interpolated toward the first's, 0.63, and pick
-// the frame at 0.6 (the last frame's own, 0.9, would pick 0.8).
+// the frame at 0.6 (the last frame's own, 0.9, would pick 0.8). A
+// playhead whose frame guess is settled up a frame takes that frame's
+// own features.
 static _Alignas(16) uint8_t s_runFile[1 << 15];
 static _Alignas(16) uint8_t s_loopFile[1 << 15];
 
@@ -498,6 +500,17 @@ static void TestInterpolated(void)
     CHECK(entry == 1 && t == (double)0.79f, "the continuing frame scored at the playhead");
     t = Searched(&run, 2, 1, 0.75, true, 1000.0f, &entry);
     CHECK(entry == 1 && t == (double)0.8f, "the query toward the run's next frame");
+    // A playhead on 0.7f, whose product with the rate falls short of 7:
+    // the guess settled up to the frame at 0.7f, weight 0, so with a bias
+    // between the frame at 0.8's cost from there (0.3 apart) and from half
+    // way (0.15) the node plays on.
+    float offsets[MANI_MATCH_MAX_FEATURES];
+    float scales[MANI_MATCH_MAX_FEATURES];
+    CHECK(maniMotionDatabaseNormalization(&run, offsets, scales) == mani_success, "scales");
+    double near = 0.15 / (double)scales[0];
+    double far = 0.3 / (double)scales[0];
+    t = Searched(&run, 2, 1, (double)0.7f, true, (float)(0.5 * (near * near + far * far)), &entry);
+    CHECK(entry == 1 && t == (double)0.7f, "settled up to a frame, its own features");
     const maniClip* clips[1] = {&s_clips[3]};
     const maniMatchEntrySource loop = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
     maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       &loop,          1,   1,
