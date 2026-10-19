@@ -33,12 +33,17 @@ typedef struct maniGraphTally
     // The machines with an inertial transition and the motion matching
     // nodes.
     uint32_t inertial;
-    uint32_t reserved;
+    // The map slots: one per distinct map the clips name.
+    uint32_t mapCount;
     // The clips the databases list.
     uint64_t databaseClips;
 } maniGraphTally;
 
 maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t other);
+
+// A map's slot among the count identities of ids, added when new (count
+// grows); MANI_GRAPH_MAX_MAPS when ids are full.
+uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity);
 
 // Checks the source's counts, parameters, clips, sync groups, databases
 // and nodes;

@@ -179,7 +179,7 @@ static void TestOpen(void)
     uint64_t sets = SectionAt(maniGraphTagSpringSets, &size);
     CHECK(size == 2 * MANI_GRAPH_SPRING_SET_SIZE, "two records");
     CHECK(RefusedAt(header + 56, MANI_GRAPH_MAX_SPRING_SETS + 1, header + 56), "too many sets");
-    CHECK(RefusedAt(header + 60, 1, header + 60), "the header's last word not zero");
+    CHECK(RefusedAt(header + 60, MANI_GRAPH_MAX_MAPS + 1, header + 60), "too many maps");
     // The sets' entry is the table's last.
     uint64_t entry = 64 + 24 * (uint64_t)(maniLoadU32(s_graphFile + 12) - 1) + 16;
     CHECK(RefusedAt(header + 56, 1, entry), "a count the section does not hold");

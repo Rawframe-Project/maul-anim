@@ -133,7 +133,7 @@ static void TestRefusals(void)
     named.parameterCount = 1;
     CHECK(Refused(named, maniBuildReasonParameterList | maniBuildReasonName, 0, 0),
           "a name not UTF-8");
-    maniGraphClipSource foreign = {&s_chainClips[0], "chain", 5, 0};
+    maniGraphClipSource foreign = {&s_chainClips[0], "chain", 5, 0, NULL};
     maniGraphSource other = one;
     other.clips = &foreign;
     other.clipCount = 1;
@@ -285,8 +285,8 @@ static void TestChainMask(void)
 {
     static const uint32_t kInputs[2] = {1, 2};
     static const maniMaskChain kChain = {5, 1.0f, true};
-    const maniGraphClipSource slots[2] = {{&s_chainClips[0], "a", 1, 0},
-                                          {&s_chainClips[1], "b", 1, 0}};
+    const maniGraphClipSource slots[2] = {{&s_chainClips[0], "a", 1, 0, NULL},
+                                          {&s_chainClips[1], "b", 1, 0, NULL}};
     maniGraphNodeSource nodes[3] = {{maniGraphNodeMask, 2, kInputs, .mask = {&kChain, 1, 0.0f}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
@@ -301,7 +301,9 @@ static void TestChainMask(void)
                                   .clipCount = 2,
                                   .nodeCount = 3},
                 &g) &&
-              maniBindGraph(&g, &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0},
+              maniBindGraph(&g,
+                            &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
+                                               NULL, 0, 0},
                             s_chainBinding, sizeof s_chainBinding, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_chainInstance, sizeof s_chainInstance, &instance) ==
@@ -511,8 +513,8 @@ static void TestSubgraphs(void)
 {
     static const uint32_t kInner[2] = {1, 2};
     static const maniGraphScalar kWeights[2] = {{0, 0.0f}, LITERAL(1.0f)};
-    static const maniGraphClipSource kLegs[2] = {{&s_clips[1], "run", 3, 0},
-                                                 {&s_clips[0], "walk", 4, 0}};
+    static const maniGraphClipSource kLegs[2] = {{&s_clips[1], "run", 3, 0, NULL},
+                                                 {&s_clips[0], "walk", 4, 0, NULL}};
     maniGraphParameterSource x = Parameter("x", maniGraphParameterFloat, Float(0.5f));
     maniGraphNodeSource inner[3] = {{maniGraphNodeBlend, 2, kInner, .blend = {kWeights, 0, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
@@ -563,7 +565,7 @@ static void TestSubgraphs(void)
     outer[1].inputs = kScale;
     CHECK(Refused(source, maniBuildReasonNode, 1, 0), "a subgraph node with inputs");
     // A slot without its clip under two clip nodes: one slot, refused.
-    static const maniGraphClipSource kNone[1] = {{NULL, "none", 4, 0}};
+    static const maniGraphClipSource kNone[1] = {{NULL, "none", 4, 0, NULL}};
     outer[1].inputCount = 0;
     outer[1].inputs = NULL;
     inner[2] = ClipNode(0, 1.0f, maniGraphLoopClip);
@@ -579,8 +581,8 @@ static void TestBindingRoom(void)
     static const uint32_t kScale[1] = {1};
     static const uint32_t kThree[3] = {2, 3, 4};
     static const maniGraphScalar kOnes[3] = {LITERAL(1.0f), LITERAL(1.0f), LITERAL(1.0f)};
-    const maniGraphClipSource slots[2] = {{&s_chainClips[2], "all", 3, 0},
-                                          {&s_chainClips[0], "one", 3, 0}};
+    const maniGraphClipSource slots[2] = {{&s_chainClips[2], "all", 3, 0, NULL},
+                                          {&s_chainClips[0], "one", 3, 0, NULL}};
     maniGraphNodeSource nodes[5] = {
         {maniGraphNodeTimeScale, 1, kScale, .timeScale = {LITERAL(1.0f)}},
         {maniGraphNodeBlend, 3, kThree, .blend = {kOnes, 0, 0}},
@@ -596,7 +598,9 @@ static void TestBindingRoom(void)
                                   .clipCount = 2,
                                   .nodeCount = 5},
                 &g) &&
-              maniBindGraph(&g, &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0},
+              maniBindGraph(&g,
+                            &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
+                                               NULL, 0, 0},
                             s_chainBinding, sizeof s_chainBinding, &binding, NULL) == mani_success,
           "bound");
     size_t largest = (maniClipCursorSize(&s_chainClips[2]) + 7u) & ~(size_t)7u;

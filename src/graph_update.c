@@ -20,6 +20,7 @@
 #include "graph_shot_step.h"
 #include "graph_space.h"
 #include "graph_spring.h"
+#include "retarget_motion.h"
 #include "root_motion.h"
 
 #include "maul-anim/base.h"
@@ -431,6 +432,21 @@ static void Weigh(const Update* u)
             ShareOne(u, record, s);
         }
     }
+}
+
+// A mapped clip's move carried as the map carries its root motion bone's
+// into the binding's; any other move as it is.
+static maniRootMove Carried(const Update* u, uint32_t slot, const maniClip* clip, maniRootMove move)
+{
+    const maniGraphBoundMapPair* pair = maniGraphClipMapPair(u->binding, slot);
+    maniRootMotionSource source;
+    if (pair == NULL || !maniClipRootMotionSource(clip, &source))
+    {
+        return move;
+    }
+    maniRetargetMotion motion = maniRetargetMotionOf(
+        pair->map, pair->source, source.bone, u->binding->skeleton, u->binding->rootMotionBone);
+    return maniRetargetMove(&motion, move);
 }
 
 // A clip node's clip, its loop as the node says.
@@ -873,6 +889,7 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
         if (s->rootWeight > 0.0f)
         {
             (void)maniClipRootMotion(&clip, (float)m.t0, (float)m.step, &move);
+            move = Carried(u, Word(u, data), &clip, move);
         }
     }
     s->time = Place(&clip, m.t0 + m.step);

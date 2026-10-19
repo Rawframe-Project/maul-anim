@@ -92,6 +92,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/ragdoll.c
     src/retarget.c
     src/retarget_pose.c
+    src/retarget_motion.c
     src/ragdoll_pose.c
     src/ik.c
     src/ik_frame.c
@@ -218,6 +219,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(retarget_map WHITEBOX)
         maul_add_test(retarget_pose WHITEBOX)
         maul_add_test(retarget_clip)
+        maul_add_test(graph_retarget WHITEBOX)
         maul_add_test(graph_ik_node WHITEBOX)
         maul_add_test(ragdoll_getup WHITEBOX)
         maul_add_test(trajectory WHITEBOX)

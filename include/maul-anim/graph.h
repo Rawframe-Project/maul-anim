@@ -14,6 +14,7 @@
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/pose.h"
+#include "maul-anim/retarget.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -42,6 +43,7 @@ extern "C"
 #define MANI_GRAPH_MAX_DATABASES   256u
 #define MANI_GRAPH_MAX_MODELS      256u
 #define MANI_GRAPH_MAX_SPRING_SETS 256u
+#define MANI_GRAPH_MAX_MAPS        256u
 // The most points (and inputs) a blend space has.
 #define MANI_GRAPH_MAX_SPACE_POINTS 256u
 // The most transitions of one state machine, conditions of one
@@ -173,6 +175,7 @@ extern "C"
         const uint8_t* names;
         const uint8_t* models;
         const uint8_t* springSets;
+        const uint8_t* maps;
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
@@ -190,6 +193,8 @@ extern "C"
         uint32_t databaseClipCount;
         uint32_t modelCount;
         uint32_t springSetCount;
+        uint32_t mapCount;
+        uint32_t reserved;
     } maniGraph;
 
     /// Opens a graph file in place: checks the container, every record,
@@ -392,6 +397,44 @@ extern "C"
     MANI_API const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot,
                                                 uint32_t* lengthOut);
 
+    /// Returns the number of retargeting map slots the graph's clips play
+    /// through (mani-0032): one for each map its clip slots name.
+    ///
+    /// @param graph  An opened graph.
+    /// @return The count; 0 for a NULL graph.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphMapCount(const maniGraph* graph);
+
+    /// Returns the identity of the retargeting map a slot names.
+    ///
+    /// @param graph  An opened graph.
+    /// @param slot   The slot.
+    /// @return The map's identity; 0 past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot);
+
+    /// Returns the identity of the skeleton a map slot's map takes poses
+    /// from: the skeleton its clips are of, which binding needs.
+    ///
+    /// @param graph  An opened graph.
+    /// @param slot   The slot.
+    /// @return The source skeleton's identity; 0 past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot);
+
+    /// Returns the map slot a clip slot plays through.
+    ///
+    /// @param graph  An opened graph.
+    /// @param clip   The clip slot.
+    /// @return The map slot; MANI_NO_TRACK for a clip of the graph's
+    /// skeleton or past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip);
+
     // A graph bound to its skeleton and clips, in caller memory: shared by
     // every instance of the graph, read only.
     typedef struct maniGraphBinding maniGraphBinding;
@@ -412,8 +455,9 @@ extern "C"
     MANI_API size_t maniGraphBindingSize(const maniGraph* graph);
 
     // What a graph binds to: its skeleton, and opened clips, motion
-    // databases, learned models and spring sets in any order (others
-    // ignored); each list may be NULL when its count is 0.
+    // databases, learned models, spring sets, retargeting maps and the
+    // maps' source skeletons in any order (others ignored); each list may
+    // be NULL when its count is 0.
     typedef struct maniGraphAssets
     {
         const maniSkeleton* skeleton;
@@ -425,11 +469,18 @@ extern "C"
         uint32_t databaseCount;
         uint32_t modelCount;
         uint32_t springSetCount;
+        const maniRetargetMap* const* maps;
+        const maniSkeleton* const* sourceSkeletons;
+        uint32_t mapCount;
+        uint32_t sourceSkeletonCount;
     } maniGraphAssets;
 
-    /// Binds a graph to its assets: each clip slot to the clip of its
-    /// identity among the clips, of the graph's skeleton and of the kind
-    /// the slot was built with; each database slot to the database of its
+    /// Binds a graph to its assets: each map slot to the retargeting map
+    /// of its identity among the maps, made for the graph's skeleton, and
+    /// to the map's source skeleton among the source skeletons; each clip
+    /// slot to the clip of its identity among the clips, of the graph's
+    /// skeleton (or its map's source) and of the kind the slot was built
+    /// with; each database slot to the database of its
     /// identity among the databases, of the graph's skeleton, whose clips
     /// are the slots the graph lists for it and whose channels take the
     /// graph's query parameters; each model slot to the learned model of
@@ -440,7 +491,8 @@ extern "C"
     ///
     /// @param graph       An opened graph.
     /// @param assets      The skeleton the graph was built against, and
-    ///                    the clips, databases, models and spring sets.
+    ///                    the clips, databases, models, spring sets, maps
+    ///                    and source skeletons.
     /// @param memory      At least maniGraphBindingSize bytes,
     ///                    MANI_GRAPH_BINDING_ALIGNMENT-aligned.
     /// @param size        The memory's size.
@@ -448,13 +500,15 @@ extern "C"
     /// @param unboundOut  Receives the first slot left unbound on failure:
     ///                    a clip slot, the graph's clip count plus a
     ///                    database slot, the clip and database counts
-    ///                    plus a model slot, or the clip, database and
-    ///                    model counts plus a spring set slot
+    ///                    plus a model slot, the clip, database and
+    ///                    model counts plus a spring set slot, or those
+    ///                    and the spring set count plus a map slot
     ///                    (MANI_NO_TRACK otherwise). May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL or
     /// misaligned argument, a list NULL with a count, a skeleton that is
     /// not the graph's, a slot no asset binds, or clips whose root motion
-    /// names different bones; `mani_errorCapacity` when the memory is too
+    /// names different bones (a mapped clip's naming the target bone
+    /// that follows its own alone, none refused); `mani_errorCapacity` when the memory is too
     /// small.
     /// @par Thread safety
     /// Safe from any thread.
@@ -649,7 +703,10 @@ extern "C"
 #define MANI_GRAPH_SCRATCH_ALIGNMENT 32u
 
     /// Returns the bytes of the scratch an evaluation of a bound graph's
-    /// instances needs: a pose per slot and room for one node's layers.
+    /// instances needs: a pose per slot, room for one node's layers and,
+    /// with map slots, for carrying one clip's pose (two poses of the
+    /// largest source skeleton, a pose of the graph's and the transfer's
+    /// scratch).
     /// One scratch serves any number of instances, one at a time.
     ///
     /// @param binding  A binding.

@@ -152,7 +152,7 @@ static bool MakeGraph(maniBuilder* builder)
         Parameter("f", maniGraphParameterFloat),   Parameter("v2", maniGraphParameterVec2),
         Parameter("v3", maniGraphParameterVec3),   Parameter("q", maniGraphParameterQuat),
         Parameter("t", maniGraphParameterTrigger), Parameter("p", maniGraphParameterPose)};
-    const maniGraphClipSource clip = {&s_clip, "c", 1, 0};
+    const maniGraphClipSource clip = {&s_clip, "c", 1, 0, NULL};
     const maniGraphDatabaseSource database = {&s_database, "d", 1, 0};
     const maniGraphModelSource model = {&s_model, "m", 1, 0};
     static const uint32_t kClip[1] = {0};
@@ -230,7 +230,8 @@ static void Setup(void)
                       &s_model) &&
         MakeSet(builder) && MakeGraph(builder) &&
         maniBindGraph(&s_graph,
-                      &(maniGraphAssets){&s_skeleton, clips, databases, models, sets, 1, 1, 1, 1},
+                      &(maniGraphAssets){&s_skeleton, clips, databases, models, sets, 1, 1, 1, 1,
+                                         NULL, NULL, 0, 0},
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);

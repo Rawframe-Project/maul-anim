@@ -150,7 +150,8 @@ static bool Parameters(Reader* r, uint32_t value, maniGraphSource* out, Scope* s
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->parameters);
 }
 
-// Clip slots by name, each bound to the host's clip of that name.
+// Clip slots by name, each bound to the host's clip of that name and
+// its map.
 static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     List list;
@@ -177,6 +178,8 @@ static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
             return maniGraphJsonFault(r, e, maniGraphFormUnbound);
         }
         c[i].clip = r->hostClips[host].clip;
+        c[i].reserved = 0;
+        c[i].map = r->hostClips[host].map;
         list.names[i] = c[i].name;
         list.lengths[i] = c[i].nameLength;
     }

@@ -82,7 +82,7 @@ static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* 
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(g,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, models, NULL, CLIPS, 0,
-                                               source.modelCount, 0},
+                                               source.modelCount, 0, NULL, NULL, 0, 0},
                             s_learnedBinding, sizeof s_learnedBinding, &binding,
                             NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,

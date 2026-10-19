@@ -195,7 +195,7 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
     }
     // Bones, parameters, nodes, inputs, data words, clips, sync groups,
     // masks, slots, databases, database clips, models, spring sets and
-    // the zero word.
+    // maps.
     const uint32_t lows[14] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0};
     const uint32_t highs[14] = {MANI_MAX_BONES,
                                 MANI_GRAPH_MAX_PARAMETERS,
@@ -210,7 +210,7 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                                 MANI_GRAPH_MAX_DATABASES * MANI_GRAPH_MAX_CLIPS,
                                 MANI_GRAPH_MAX_MODELS,
                                 MANI_GRAPH_MAX_SPRING_SETS,
-                                0};
+                                MANI_GRAPH_MAX_MAPS};
     for (uint32_t k = 0; k < 14; ++k)
     {
         if (counts[k] < lows[k] || counts[k] > highs[k])
@@ -231,14 +231,15 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                      .databaseCount = counts[9],
                      .databaseClipCount = counts[10],
                      .modelCount = counts[11],
-                     .springSetCount = counts[12]};
+                     .springSetCount = counts[12],
+                     .mapCount = counts[13]};
     return kOk;
 }
 
 // Every section of the size the header's counts give.
 static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
 {
-    // Sections 2 to 10, then 12 and 13; the names' size is free.
+    // Sections 2 to 10, then 12 to 14; the names' size is free.
     const uint64_t sizes[MANI_GRAPH_SECTIONS - 2] = {
         (uint64_t)g->parameterCount * MANI_GRAPH_PARAMETER_SIZE,
         (uint64_t)g->nodeCount * MANI_GRAPH_NODE_SIZE,
@@ -251,6 +252,7 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
         4 * (uint64_t)g->databaseClipCount,
         (uint64_t)g->modelCount * MANI_GRAPH_MODEL_SIZE,
         (uint64_t)g->springSetCount * MANI_GRAPH_SPRING_SET_SIZE,
+        (uint64_t)g->mapCount * MANI_GRAPH_MAP_SIZE,
     };
     for (uint32_t k = 0; k < MANI_GRAPH_SECTIONS - 2; ++k)
     {
@@ -273,6 +275,7 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
     g->namesSize = s->sizes[10];
     g->models = s->data[11];
     g->springSets = s->data[12];
+    g->maps = s->data[13];
     return kOk;
 }
 
@@ -393,9 +396,31 @@ static maniFileResult CheckClips(const maniGraph* g, uint64_t at)
         {
             return Fail(here + 16);
         }
-        if (maniLoadU32(e + 24) > MANI_GRAPH_DIFFERENCE || maniLoadU32(e + 28) != 0)
+        if (maniLoadU32(e + 24) > MANI_GRAPH_DIFFERENCE)
         {
             return Fail(here + 24);
+        }
+        uint32_t map = maniLoadU32(e + 28);
+        if (map != MANI_GRAPH_NO_MAP && map >= g->mapCount)
+        {
+            return Fail(here + 28);
+        }
+    }
+    return kOk;
+}
+
+// Each map once.
+static maniFileResult CheckMaps(const maniGraph* g, uint64_t at)
+{
+    for (uint32_t i = 0; i < g->mapCount; ++i)
+    {
+        uint64_t identity = maniLoadU64(g->maps + (size_t)i * MANI_GRAPH_MAP_SIZE);
+        for (uint32_t k = 0; k < i; ++k)
+        {
+            if (maniLoadU64(g->maps + (size_t)k * MANI_GRAPH_MAP_SIZE) == identity)
+            {
+                return Fail(at + (uint64_t)i * MANI_GRAPH_MAP_SIZE);
+            }
         }
     }
     return kOk;
@@ -507,6 +532,7 @@ maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut
     r = r.result == mani_success ? CheckSizes(&s, &g) : r;
     r = r.result == mani_success ? CheckParameters(&g, s.at[1]) : r;
     r = r.result == mani_success ? CheckClips(&g, s.at[5]) : r;
+    r = r.result == mani_success ? CheckMaps(&g, s.at[13]) : r;
     r = r.result == mani_success ? CheckSyncGroups(&g, s.at[6]) : r;
     r = r.result == mani_success ? CheckMaskWeights(&g, s.at[7]) : r;
     r = r.result == mani_success ? CheckDatabases(&g, s.at[8], s.at[9]) : r;
@@ -715,4 +741,37 @@ const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot, uint32
     }
     return EntryName(graph, graph->springSets + (size_t)slot * MANI_GRAPH_SPRING_SET_SIZE + 16,
                      lengthOut);
+}
+
+uint32_t maniGraphMapCount(const maniGraph* graph)
+{
+    return graph != NULL ? graph->mapCount : 0;
+}
+
+uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot)
+{
+    if (graph == NULL || slot >= graph->mapCount)
+    {
+        return 0;
+    }
+    return maniLoadU64(graph->maps + (size_t)slot * MANI_GRAPH_MAP_SIZE);
+}
+
+uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot)
+{
+    if (graph == NULL || slot >= graph->mapCount)
+    {
+        return 0;
+    }
+    return maniLoadU64(graph->maps + (size_t)slot * MANI_GRAPH_MAP_SIZE + 8);
+}
+
+uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip)
+{
+    if (graph == NULL || clip >= graph->clipCount)
+    {
+        return MANI_NO_TRACK;
+    }
+    uint32_t map = maniLoadU32(graph->clips + (size_t)clip * MANI_GRAPH_CLIP_SIZE + 28);
+    return map == MANI_GRAPH_NO_MAP ? MANI_NO_TRACK : map;
 }

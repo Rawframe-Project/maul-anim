@@ -1502,7 +1502,7 @@ ck-int-order | src/graph_check.c | (p->minimum.i <= p->maximum.i && p->defaultVa
 ck-bool-default | src/graph_check.c | ok = p->defaultValue.b <= 1u; | ok = true;
 ck-quat-length | src/graph_check.c | ok = ok && (t != maniGraphParameterQuat || (length > 0.0 && isfinite(length))); | ok = ok && true;
 ck-bounded-type | src/graph_check.c | bool ok = t <= maniGraphParameterPose && p->bounded <= (number ? 1u : 0u); | bool ok = t <= maniGraphParameterPose && p->bounded <= 1u;
-ck-clip-skeleton | src/graph_check.c | if (clip == NULL || maniClipSkeletonIdentity(clip) != skeleton) | if (clip == NULL)
+ck-clip-skeleton | src/graph_check.c | return maniClipSkeletonIdentity(c->clip) == skeleton; | return true;
 ck-clip-twice | src/graph_check.c | int found = FindRepeat(keys, n > 1 ? n : 0, allocator, &low, &high); | int found = 0;
 ck-sync-flags | src/graph_check.c | if ((source->syncGroups[i].flags & ~(uint32_t)maniGraphSyncAllEvents) != 0) | if (false)
 ck-scalar-range | src/graph_check.c | ? Finite(s.value) && s.value >= low && s.value <= high | ? Finite(s.value)
@@ -1555,13 +1555,13 @@ gf-quat-unit | src/graph.c | if (type == maniGraphParameterQuat && fabs(length -
 gf-float-bounds-finite | src/graph.c | return Finite(v + 16) && Finite(v + 20) && low <= high && d >= low && d <= high; | return low <= high && d >= low && d <= high;
 gf-parameter-type | src/graph.c | if (type > maniGraphParameterPose) | if (false)
 gf-parameter-flags | src/graph.c | if (flags > (number ? MANI_GRAPH_BOUNDED : 0u)) | if (flags > MANI_GRAPH_BOUNDED)
-gf-clip-flags | src/graph.c | if (maniLoadU32(e + 24) > MANI_GRAPH_DIFFERENCE || maniLoadU32(e + 28) != 0) | if (maniLoadU32(e + 28) != 0)
+gf-clip-flags | src/graph.c | if (maniLoadU32(e + 24) > MANI_GRAPH_DIFFERENCE) | if (false)
 gf-group-flags | src/graph.c | if (maniLoadU32(e + 16) > 1u || maniLoadU32(e + 20) != 0) | if (maniLoadU32(e + 20) != 0)
 gf-mask-weights | src/graph.c | if (!(w >= 0.0f && w <= 1.0f)) | if (!(w >= 0.0f))
 gf-identity | src/graph.c | if (maniGraphComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
 
 # Graph bindings (src/graph_bind.c).
-bn-root-conflict | src/graph_bind.c | if (binding->rootMotionBone != MANI_NO_BONE && binding->rootMotionBone != source.bone) | if (false)
+bn-root-conflict | src/graph_bind.c | (binding->rootMotionBone != MANI_NO_BONE && binding->rootMotionBone != bone)) | false)
 bn-cursor-largest | src/graph_bind.c | largest = size > largest ? size : largest; | largest = size;
 bn-max-inputs | src/graph_bind.c | binding->maxInputs = n > binding->maxInputs ? n : binding->maxInputs; | binding->maxInputs = n;
 bn-size | src/graph_bind.c | if (size < maniGraphBindingSize(graph)) | if (false)
@@ -1589,7 +1589,7 @@ in-size-cursors | src/graph_instance.c | return CursorsAt(graph) + (size_t)ClipN
 il-depth | src/graph_inline.c | if (depth > MANI_GRAPH_MAX_DEPTH || source->nodeCount == 0 || source->nodes == NULL) | if (source->nodeCount == 0 || source->nodes == NULL)
 il-place-output | src/graph_inline.c | return j == out ? s->place : s->base + j - (j > out ? 1u : 0u); | return j == out ? s->place : s->base + j;
 il-parameter-map | src/graph_inline.c | parameter = s->parameters[parameter]; | parameter = parameter + 0;
-il-clip-join | src/graph_inline.c | if (other != NULL && c->clip != NULL ? maniClipIdentity(other) == maniClipIdentity(c->clip) | if (other != NULL && c->clip != NULL ? false
+il-clip-join | src/graph_inline.c | ? maniClipIdentity(other) == maniClipIdentity(c->clip) | ? false
 il-group-join | src/graph_inline.c | memcmp(h->name, g->name, g->nameLength) == 0) | false)
 il-subgraph-type | src/graph_inline.c | s->graph->parameters[p].type != sub->parameters[k].type) | false)
 il-subgraph-skeleton | src/graph_inline.c | maniSkeletonIdentity(sub->skeleton) != maniSkeletonIdentity(skeleton) || | false ||
@@ -2618,13 +2618,13 @@ gs-check-list | src/graph_check.c | (source->springSetCount == 0 || source->spri
 gs-names | src/graph_check.c | for (uint32_t list = kParameters; list <= kSpringSets && r.result == mani_success; ++list) | for (uint32_t list = kParameters; list <= kModels && r.result == mani_success; ++list)
 gs-build-size | src/graph_build.c | lay->sizes[12] = (uint64_t)source->springSetCount * MANI_GRAPH_SPRING_SET_SIZE; | lay->sizes[12] = 0;
 gs-build-id | src/graph_build.c | maniSpringSetIdentity(p->set), p->name, p->nameLength); | 0, p->name, p->nameLength);
-gs-header | src/graph_build.c | source->springSetCount}; | 0};
+gs-header | src/graph_build.c | source->springSetCount, | 0,
 gs-open-max | src/graph.c | MANI_GRAPH_MAX_SPRING_SETS, | UINT32_MAX,
 gs-open-zero | src/graph.c | const uint32_t lows[14] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0}; | const uint32_t lows[14] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 gs-open-size | src/graph.c | (uint64_t)g->springSetCount * MANI_GRAPH_SPRING_SET_SIZE, | 0,
 gs-open-name | src/graph.c | MANI_GRAPH_SPRING_SET_SIZE, s.at[12]) | MANI_GRAPH_SPRING_SET_SIZE, s.at[11])
 gs-accessor | src/graph.c | return maniLoadU64(graph->springSets + (size_t)slot * MANI_GRAPH_SPRING_SET_SIZE); | return maniLoadU64(graph->springSets);
-gs-bind-size | src/graph_bind.c | (size_t)graph->springSetCount * sizeof(const maniSpringSet*); | 0;
+gs-bind-size | src/graph_bind.c | (size_t)graph->springSetCount * sizeof(const maniSpringSet*) + | 0 +
 gs-bind-skeleton | src/graph_bind.c | if (maniSpringSetSkeletonIdentity(set) != graph->skeletonIdentity) | if (false)
 gs-bind-unbound | src/graph_bind.c | *unboundOut = graph->clipCount + graph->databaseCount + graph->modelCount + s; | *unboundOut = graph->clipCount + s;
 gs-bind-list | src/graph_bind.c | (a->springSets != NULL || a->springSetCount == 0) && | true &&
@@ -3319,27 +3319,27 @@ rtp-kind | src/retarget_pose.c | maniPoseSetKind(targetPose, false); | (void)0;
 
 # Baking clips through a map (src/retarget_bake.c, the given root motion
 # in src/clip_build.c)
-rtk-follower-kind | src/retarget_bake.c | if (maniLoadU32(e + maniRetargetPlanKind) == maniRetargetPlanOne && | if (maniLoadU32(e + maniRetargetPlanKind) != maniRetargetPlanReference &&
-rtk-follower-a | src/retarget_bake.c | maniLoadU32(e + maniRetargetPlanA) == a) | true)
-rtk-root-given | src/retarget_bake.c | b->root = s->rootMotionBone != MANI_NO_BONE ? s->rootMotionBone : Follower(s->map, from.bone); | b->root = Follower(s->map, from.bone);
+rtk-follower-kind | src/retarget_motion.c | if (maniLoadU32(e + maniRetargetPlanKind) == maniRetargetPlanOne && | if (maniLoadU32(e + maniRetargetPlanKind) != maniRetargetPlanReference &&
+rtk-follower-a | src/retarget_motion.c | maniLoadU32(e + maniRetargetPlanA) == a) | true)
+rtk-root-given | src/retarget_bake.c | b->root = s->rootMotionBone != MANI_NO_BONE ? s->rootMotionBone | b->root = false ? s->rootMotionBone
 # rtk-root-range survives, equivalent: a bone at the target's count goes
 # on to the clip builder, which refuses it with the same reason and item
 # (the parent lookup bounds it).
 rtk-root-range | src/retarget_bake.c | if (b->root >= s->map->targetBoneCount) | if (b->root > s->map->targetBoneCount)
 rtk-root-item | src/retarget_bake.c | return Result(mani_errorInvalid, maniBuildReasonRootMotion, s->rootMotionBone, 0); | return Result(mani_errorInvalid, maniBuildReasonRootMotion, 0, 0);
-rtk-frame-source | src/retarget_bake.c | parentS == MANI_NO_BONE | true
-rtk-frame-target | src/retarget_bake.c | parentT == MANI_NO_BONE | true
-rtk-turn-conj | src/retarget_bake.c | b->turn = maniQuatMul(maniQuatConjugate(b->targetFrame), b->sourceFrame); | b->turn = maniQuatMul(b->targetFrame, b->sourceFrame);
-rtk-move-scale | src/retarget_bake.c | maniVec3 model = maniRetargetRootMotion(b->s->map, maniQuatRotate(b->sourceFrame, t)); | maniVec3 model = maniQuatRotate(b->sourceFrame, t);
-rtk-move-back | src/retarget_bake.c | return maniQuatRotate(maniQuatConjugate(b->targetFrame), model); | return model;
+rtk-frame-source | src/retarget_motion.c | if (parentS != MANI_NO_BONE) | if (false)
+rtk-frame-target | src/retarget_motion.c | if (parentT != MANI_NO_BONE) | if (false)
+rtk-turn-conj | src/retarget_motion.c | m.turn = maniQuatMul(maniQuatConjugate(m.targetFrame), m.sourceFrame); | m.turn = maniQuatMul(m.targetFrame, m.sourceFrame);
+rtk-move-scale | src/retarget_motion.c | maniVec3 model = maniRetargetRootMotion(motion->map, maniQuatRotate(motion->sourceFrame, t)); | maniVec3 model = maniQuatRotate(motion->sourceFrame, t);
+rtk-move-back | src/retarget_motion.c | return maniQuatRotate(maniQuatConjugate(motion->targetFrame), model); | return model;
 rtk-move-sample | src/retarget_bake.c | MANI_ROOT_MOTION_PERIOD_SIZE + 4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k; | MANI_ROOT_MOTION_PERIOD_SIZE;
-rtk-move-turn | src/retarget_bake.c | maniQuatMul(b->turn, maniQuatNormalize(LoadQuat(p + 12))), maniQuatConjugate(b->turn))); | maniQuatNormalize(LoadQuat(p + 12)), maniQuatIdentity()));
+rtk-move-turn | src/retarget_motion.c | maniQuat r = maniQuatMul(maniQuatMul(motion->turn, maniQuatNormalize(move.rotation)), | maniQuat r = maniQuatMul(maniQuatMul(maniQuatIdentity(), maniQuatNormalize(move.rotation)),
 rtk-axis-pick | src/retarget_bake.c | j = a[2] > a[j] ? 2u : j; | j = a[2] > a[0] ? 2u : j;
 rtk-axis-off | src/retarget_bake.c | return off <= 1e-4f * a[j] ? j : 3u; | return j;
 rtk-declared-skip | src/retarget_bake.c | if (((s.translationAxes >> i) & 1u) == 0) | if (false)
-rtk-declared-zero | src/retarget_bake.c | v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->turn, Unit(i)) : v; | (void)v;
+rtk-declared-zero | src/retarget_bake.c | v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->motion.turn, Unit(i)) : v; | (void)v;
 rtk-declared-all | src/retarget_bake.c | axes |= j < 3 ? 1u << j : 7u; | axes |= j < 3 ? 1u << j : 0u;
-rtk-declared-twist | src/retarget_bake.c | uint32_t j = AxisOf(maniQuatRotate(b->turn, Unit(s.twistAxis))); | uint32_t j = s.twistAxis;
+rtk-declared-twist | src/retarget_bake.c | uint32_t j = AxisOf(maniQuatRotate(b->motion.turn, Unit(s.twistAxis))); | uint32_t j = s.twistAxis;
 rtk-declared-whole | src/retarget_bake.c | s.rotation = j < 3 ? maniRootRotationTwist : maniRootRotationWhole; | s.rotation = maniRootRotationTwist;
 rtk-declared-bone | src/retarget_bake.c | s.bone = b->root; | (void)b;
 rtk-additive-add | src/retarget_bake.c | r = r == mani_success ? maniAddPoses(s->source, b->poses[1], &layer, 1) : r; | (void)layer;
@@ -3360,3 +3360,32 @@ rtk-match-clip | src/retarget_bake.c | if (s->clip->skeletonIdentity != m->sourc
 rtk-usable-reserved | src/retarget_bake.c | s->clip != NULL && s->reserved == 0; | s->clip != NULL;
 rtk-given-root | src/clip_build.c | bool valid = source->rootMotion == NULL && source->additive == maniAdditiveNone && | bool valid = source->additive == maniAdditiveNone &&
 rtk-given-keys | src/clip_build.c | return t != NULL && t->translation.keyCount > 0 && t->rotation.keyCount > 0 | return t != NULL
+
+# Graphs playing clips through retargeting maps (map slots in src/graph.c,
+# src/graph_check.c, src/graph_build.c, src/graph_inline.c,
+# src/graph_bind.c, src/graph_evaluate.c, src/graph_update.c,
+# src/graph_json_graph.c)
+rtg-open-count | src/graph.c | MANI_GRAPH_MAX_MAPS}; | 0};
+rtg-open-slot | src/graph.c | if (map != MANI_GRAPH_NO_MAP && map >= g->mapCount) | if (map != MANI_GRAPH_NO_MAP && map > g->mapCount)
+rtg-open-twice | src/graph.c | if (maniLoadU64(g->maps + (size_t)k * MANI_GRAPH_MAP_SIZE) == identity) | if (false)
+rtg-source-id | src/graph.c | return maniLoadU64(graph->maps + (size_t)slot * MANI_GRAPH_MAP_SIZE + 8); | return maniLoadU64(graph->maps + (size_t)slot * MANI_GRAPH_MAP_SIZE);
+rtg-slot-find | src/graph_check.c | if (ids[k] == identity) | if (false)
+rtg-slot-full | src/graph_check.c | if (*count == MANI_GRAPH_MAX_MAPS) | if (false)
+rtg-fits-target | src/graph_check.c | return map->targetIdentity == skeleton && | return true &&
+rtg-fits-source | src/graph_check.c | maniClipSkeletonIdentity(c->clip) == map->sourceIdentity && | true &&
+rtg-put-map | src/graph_build.c | maniStoreU32(e + 28, PutMap(c, lay, ids, &maps)); | maniStoreU32(e + 28, MANI_GRAPH_NO_MAP);
+rtg-put-source | src/graph_build.c | maniStoreU64(e + 8, c->map->sourceIdentity); | maniStoreU64(e + 8, 0);
+rtg-header-count | src/graph_build.c | tally->mapCount}; | 0};
+rtg-inline-map | src/graph_inline.c | if (same && MapIdentity(f->clips[k].map) == MapIdentity(c->map)) | if (same)
+rtg-bind-source | src/graph_bind.c | if (k != NULL && maniSkeletonIdentity(k) == map->sourceIdentity && | if (k != NULL &&
+rtg-bind-unbound | src/graph_bind.c | graph->springSetCount + s; | s;
+rtg-find-skeleton | src/graph_bind.c | const maniSkeleton* skeleton = pair != NULL ? pair->source : binding->skeleton; | const maniSkeleton* skeleton = binding->skeleton;
+rtg-root-follow | src/graph_bind.c | uint32_t bone = pair != NULL ? maniRetargetFollower(pair->map, source.bone) : source.bone; | uint32_t bone = source.bone;
+rtg-root-none | src/graph_bind.c | if (bone == MANI_NO_BONE || | if (false ||
+rtg-pose-size | src/graph_bind.c | binding->sourcePoseSize = pose > binding->sourcePoseSize ? pose : binding->sourcePoseSize; | binding->sourcePoseSize = binding->sourcePoseSize;
+rtg-eval-matches | src/graph_evaluate.c | if (!maniPoseMatches(poses[0], pair->source) || !maniPoseMatches(poses[1], pair->source) || | if (false ||
+rtg-eval-mapped | src/graph_evaluate.c | if (pair != NULL) | if (false)
+rtg-eval-additive | src/graph_evaluate.c | if (!maniPoseIsDifference(poses[0])) | if (true)
+rtg-eval-base | src/graph_evaluate.c | (void)maniPoseDifference(skeleton, out, poses[2], out); | (void)out;
+rtg-update-carried | src/graph_update.c | move = Carried(u, Word(u, data), &clip, move); | (void)move;
+rtg-json-map | src/graph_json_graph.c | c[i].map = r->hostClips[host].map; | c[i].map = NULL;

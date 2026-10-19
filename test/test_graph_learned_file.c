@@ -128,7 +128,8 @@ static bool Unbindable(const maniGraph* g, uint32_t k, uint32_t value)
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
     return maniBindGraph(&crafted,
-                         &(maniGraphAssets){&s_skeleton, clips, NULL, models, NULL, CLIPS, 0, 1, 0},
+                         &(maniGraphAssets){&s_skeleton, clips, NULL, models, NULL, CLIPS, 0, 1, 0,
+                                            NULL, NULL, 0, 0},
                          s_learnedBinding, sizeof s_learnedBinding, &binding,
                          &unbound) == mani_errorInvalid &&
            unbound == CLIPS;

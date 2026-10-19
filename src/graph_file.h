@@ -11,14 +11,14 @@
 
 #include <stdint.h>
 
-#define MANI_GRAPH_FORMAT_VERSION 1u
-#define MANI_GRAPH_SECTIONS       13u
+#define MANI_GRAPH_FORMAT_VERSION 2u
+#define MANI_GRAPH_SECTIONS       14u
 
 enum
 {
     // The skeleton's identity (u64), then u32 each: its bone count, the
     // parameter, node, input, data word, clip, sync group, mask, slot,
-    // database, database clip, model and spring set counts, zero.
+    // database, database clip, model, spring set and map counts.
     maniGraphTagHeader = 1,
     // MANI_GRAPH_PARAMETER_SIZE each: type, flags (bit 0 bounded), name
     // offset and length (u32 each), name hash (u64), default (16 bytes),
@@ -34,7 +34,8 @@ enum
     // index (MANI_NO_PARAMETER for a literal) and a binary32's bits.
     maniGraphTagData = 5,
     // MANI_GRAPH_CLIP_SIZE each: identity, name hash (u64 each), name
-    // offset and length, flags (bit 0 differences), zero (u32 each).
+    // offset and length, flags (bit 0 differences), map slot
+    // (MANI_GRAPH_NO_MAP for none) (u32 each).
     maniGraphTagClips = 6,
     // MANI_GRAPH_SYNC_GROUP_SIZE each: name hash (u64), name offset and
     // length, flags, zero (u32 each).
@@ -56,6 +57,9 @@ enum
     // MANI_GRAPH_SPRING_SET_SIZE each: identity, name hash (u64 each),
     // name offset and length (u32 each).
     maniGraphTagSpringSets = 13,
+    // MANI_GRAPH_MAP_SIZE each: a retargeting map's identity and its
+    // source skeleton's (u64 each), each map once.
+    maniGraphTagMaps = 14,
 };
 
 #define MANI_GRAPH_HEADER_SIZE     64u
@@ -66,6 +70,10 @@ enum
 #define MANI_GRAPH_DATABASE_SIZE   32u
 #define MANI_GRAPH_MODEL_SIZE      24u
 #define MANI_GRAPH_SPRING_SET_SIZE 24u
+#define MANI_GRAPH_MAP_SIZE        16u
+
+// A clip slot of the graph's skeleton: no map slot.
+#define MANI_GRAPH_NO_MAP 0xFFFFFFFFu
 
 // A parameter's and a node's flags.
 #define MANI_GRAPH_BOUNDED    1u

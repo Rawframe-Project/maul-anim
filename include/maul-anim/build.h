@@ -166,7 +166,10 @@ extern "C"
         // length, a bool or trigger not 0 or 1; item is the parameter.
         maniBuildReasonParameter = 23,
         // A graph's clip slot without a clip, with a clip of another
-        // skeleton, or with a clip an earlier slot (other) has. A learned
+        // skeleton (than the graph's, or its map's source), with a map
+        // not made for the graph's skeleton or past
+        // MANI_GRAPH_MAX_MAPS maps, or with a clip an earlier slot
+        // (other) has. A learned
         // model trainer's clip whose identity is not its database's (item
         // the clip), or a clip count not the database's (item the count,
         // other the database's).

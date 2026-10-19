@@ -57,6 +57,12 @@ format.
   rest left out, additive clips carried as differences, float and
   discrete tracks, events and markers kept, and root motion's moves
   scaled and turned into the target bone's parent's frame.
+- Retargeted playback in graphs (mani-0032): a clip slot may name a
+  retargeting map (`maniGraphClipSource.map`) to play a clip of the
+  map's source skeleton, carried at each evaluation; map slots read by
+  `maniGraphMapCount`, `maniGraphMapIdentity`,
+  `maniGraphMapSourceIdentity` and `maniGraphClipMap`, bound through
+  `maniGraphAssets.maps` and `sourceSkeletons`; root motion carried.
 - Full-body IK by SDLS 2.4 to 9 times fewer instructions an iteration
   (mani-0031): its decomposition keeps each column's length and skips
   the zero rotation rows, with the same bits.
@@ -403,6 +409,10 @@ format.
 
 ### Changed
 
+- The graph file is format version 2 (mani-0032): its header's last
+  word counts map slots and a clip slot's last word names its map
+  slot; `maniGraph`, `maniGraphAssets` and `maniGraphClipSource` gain
+  their map fields (binding takes a few bytes more).
 - `maniApplySprings` (and the spring node) push the tails it moves on
   between steps out of their colliders, as the steps do: at hosts
   faster than the step rate hair no longer passes into a collider by

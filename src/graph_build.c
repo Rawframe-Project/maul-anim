@@ -225,6 +225,7 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
     lay->sizes[10] = tally->namesSize;
     lay->sizes[11] = (uint64_t)source->modelCount * MANI_GRAPH_MODEL_SIZE;
     lay->sizes[12] = (uint64_t)source->springSetCount * MANI_GRAPH_SPRING_SET_SIZE;
+    lay->sizes[13] = (uint64_t)tally->mapCount * MANI_GRAPH_MAP_SIZE;
     uint64_t total = 0;
     for (uint32_t s = 0; s < MANI_GRAPH_SECTIONS; ++s)
     {
@@ -735,6 +736,22 @@ static void PutSlots(const maniGraphSource* source, Layout* lay)
     }
 }
 
+// A clip slot's map slot (MANI_GRAPH_NO_MAP without a map), the map's
+// record written in its slot; maps take slots as the clips first name
+// them.
+static uint32_t PutMap(const maniGraphClipSource* c, Layout* lay, uint64_t* ids, uint32_t* count)
+{
+    if (c->map == NULL)
+    {
+        return MANI_GRAPH_NO_MAP;
+    }
+    uint32_t slot = maniGraphMapSlotIn(ids, count, c->map->identity);
+    uint8_t* e = lay->sections[13] + (size_t)slot * MANI_GRAPH_MAP_SIZE;
+    maniStoreU64(e, c->map->identity);
+    maniStoreU64(e + 8, c->map->sourceIdentity);
+    return slot;
+}
+
 static void PutLists(const maniGraphSource* source, Layout* lay)
 {
     for (uint32_t i = 0; i < source->parameterCount; ++i)
@@ -742,6 +759,8 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         PutParameter(lay, &source->parameters[i],
                      lay->sections[1] + (size_t)i * MANI_GRAPH_PARAMETER_SIZE);
     }
+    uint64_t ids[MANI_GRAPH_MAX_MAPS] = {0};
+    uint32_t maps = 0;
     for (uint32_t i = 0; i < source->clipCount; ++i)
     {
         const maniGraphClipSource* c = &source->clips[i];
@@ -751,6 +770,7 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         PutName(lay, c->name, c->nameLength, e + 16);
         bool difference = maniClipAdditiveBasis(c->clip) != maniAdditiveNone;
         maniStoreU32(e + 24, difference ? MANI_GRAPH_DIFFERENCE : 0u);
+        maniStoreU32(e + 28, PutMap(c, lay, ids, &maps));
     }
     for (uint32_t i = 0; i < source->syncGroupCount; ++i)
     {
@@ -783,7 +803,7 @@ static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally
                       uint32_t slotCount, uint8_t* h)
 {
     maniStoreU64(h, maniSkeletonIdentity(source->skeleton));
-    const uint32_t counts[13] = {maniSkeletonBoneCount(source->skeleton),
+    const uint32_t counts[14] = {maniSkeletonBoneCount(source->skeleton),
                                  source->parameterCount,
                                  source->nodeCount,
                                  tally->inputCount,
@@ -795,8 +815,9 @@ static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally
                                  source->databaseCount,
                                  (uint32_t)tally->databaseClips,
                                  source->modelCount,
-                                 source->springSetCount};
-    for (uint32_t k = 0; k < 13; ++k)
+                                 source->springSetCount,
+                                 tally->mapCount};
+    for (uint32_t k = 0; k < 14; ++k)
     {
         maniStoreU32(h + 8 + 4 * k, counts[k]);
     }

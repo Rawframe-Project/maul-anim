@@ -11,6 +11,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
 
@@ -40,10 +41,18 @@ struct maniGraphBinding
     uint32_t rootMotionBone;
     // The most inputs a node takes: the layers evaluation lists at once.
     uint32_t maxInputs;
+    // The scratch evaluation carries a mapped clip's pose in: two poses
+    // of the largest source skeleton, a pose of the graph's and the
+    // largest transfer scratch, each part a multiple of
+    // MANI_POSE_ALIGNMENT (0 without map slots).
+    size_t sourcePoseSize;
+    size_t retargetScratchSize;
     // The clip each slot binds, in slot order; then the database each
     // database slot binds, read by maniGraphBoundDatabase; then the model
     // each model slot binds, read by maniGraphBoundModel; then the spring
-    // set each spring set slot binds, read by maniGraphBoundSpringSet.
+    // set each spring set slot binds, read by maniGraphBoundSpringSet;
+    // then the map each map slot binds and the map's source skeleton,
+    // read by maniGraphBoundMap.
     const maniClip* clips[];
 };
 
@@ -92,6 +101,33 @@ static inline const maniSpringSet* maniGraphBoundSpringSet(const maniGraphBindin
     at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
     at += (size_t)binding->graph.modelCount * sizeof(const maniLearnedModel*);
     return ((const maniSpringSet* const*)at)[slot];
+}
+
+// A map slot's map and its source skeleton: after the spring sets, a
+// pair a slot.
+typedef struct maniGraphBoundMapPair
+{
+    const maniRetargetMap* map;
+    const maniSkeleton* source;
+} maniGraphBoundMapPair;
+
+static inline const maniGraphBoundMapPair* maniGraphBoundMap(const maniGraphBinding* binding,
+                                                             uint32_t slot)
+{
+    const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
+    at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
+    at += (size_t)binding->graph.modelCount * sizeof(const maniLearnedModel*);
+    at += (size_t)binding->graph.springSetCount * sizeof(const maniSpringSet*);
+    return (const maniGraphBoundMapPair*)at + slot;
+}
+
+// The map pair a clip slot plays through; NULL for a clip of the graph's
+// skeleton.
+static inline const maniGraphBoundMapPair* maniGraphClipMapPair(const maniGraphBinding* binding,
+                                                                uint32_t clip)
+{
+    uint32_t slot = maniGraphClipMap(&binding->graph, clip);
+    return slot == MANI_NO_TRACK ? NULL : maniGraphBoundMap(binding, slot);
 }
 
 // A node's flags during an update: its time factor set from a parent, a

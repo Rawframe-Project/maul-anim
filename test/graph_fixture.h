@@ -161,9 +161,11 @@ static inline maniGraphParameterSource Parameter(const char* name, maniGraphPara
 #define LITERAL(x) ((maniGraphScalar){MANI_NO_PARAMETER, (x)})
 
 static const maniGraphClipSource kSlots[CLIPS] = {
-    {&s_clips[0], "walk", 4, 0},   {&s_clips[1], "run", 3, 0},   {&s_clips[2], "wave", 4, 0},
-    {&s_clips[3], "short", 5, 0},  {&s_clips[4], "long", 4, 0},  {&s_clips[5], "double", 6, 0},
-    {&s_clips[6], "triple", 6, 0}, {&s_clips[7], "turnA", 5, 0}, {&s_clips[8], "turnB", 5, 0}};
+    {&s_clips[0], "walk", 4, 0, NULL},   {&s_clips[1], "run", 3, 0, NULL},
+    {&s_clips[2], "wave", 4, 0, NULL},   {&s_clips[3], "short", 5, 0, NULL},
+    {&s_clips[4], "long", 4, 0, NULL},   {&s_clips[5], "double", 6, 0, NULL},
+    {&s_clips[6], "triple", 6, 0, NULL}, {&s_clips[7], "turnA", 5, 0, NULL},
+    {&s_clips[8], "turnB", 5, 0, NULL}};
 
 static inline maniGraphNodeSource ClipNode(uint32_t clip, float speed, maniGraphLoop loop)
 {
@@ -189,9 +191,11 @@ static inline maniGraphInstance* Make(maniGraphSource source, maniGraph* g)
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
-              maniBindGraph(
-                  g, &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0},
-                  s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) == mani_success &&
+              maniBindGraph(g,
+                            &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0,
+                                               NULL, NULL, 0, 0},
+                            s_bindingMemory, sizeof s_bindingMemory, &binding,
+                            NULL) == mani_success &&
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &instance) == mani_success,
           "a graph");

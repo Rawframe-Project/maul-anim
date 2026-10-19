@@ -14,6 +14,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "retarget_file.h"
+#include "retarget_motion.h"
 #include "root_motion_build.h"
 #include "vecmath.h"
 
@@ -76,11 +77,8 @@ typedef struct Bake
     size_t keys;
     // The target bone taking the root motion, MANI_NO_BONE without it.
     uint32_t root;
-    // The root motion bone's parent's reference model rotation on each
-    // side, and the turn from the source's frame to the target's.
-    maniQuat sourceFrame;
-    maniQuat targetFrame;
-    maniQuat turn;
+    // The frames its moves carry between.
+    maniRetargetMotion motion;
     float* times;
     float* values;
     float* floatValues;
@@ -184,21 +182,6 @@ static bool TakeLists(Bake* b)
            b->events != NULL && (b->root == MANI_NO_BONE || b->moves != NULL) && TakePoses(b);
 }
 
-// The first target bone that follows source bone a alone.
-static uint32_t Follower(const maniRetargetMap* map, uint32_t a)
-{
-    for (uint32_t t = 0; t < map->targetBoneCount; ++t)
-    {
-        const uint8_t* e = map->plan + (size_t)t * MANI_RETARGET_PLAN_SIZE;
-        if (maniLoadU32(e + maniRetargetPlanKind) == maniRetargetPlanOne &&
-            maniLoadU32(e + maniRetargetPlanA) == a)
-        {
-            return t;
-        }
-    }
-    return MANI_NO_BONE;
-}
-
 // The root motion's target bone and frames; a refusal for a bone past
 // the target's or none following the source's.
 static maniBuildResult PlaceRoot(Bake* b)
@@ -210,31 +193,14 @@ static maniBuildResult PlaceRoot(Bake* b)
     {
         return Result(mani_success, maniBuildReasonNone, 0, 0);
     }
-    b->root = s->rootMotionBone != MANI_NO_BONE ? s->rootMotionBone : Follower(s->map, from.bone);
+    b->root = s->rootMotionBone != MANI_NO_BONE ? s->rootMotionBone
+                                                : maniRetargetFollower(s->map, from.bone);
     if (b->root >= s->map->targetBoneCount)
     {
         return Result(mani_errorInvalid, maniBuildReasonRootMotion, s->rootMotionBone, 0);
     }
-    uint32_t parentS = maniSkeletonParent(s->source, from.bone);
-    uint32_t parentT = maniSkeletonParent(s->target, b->root);
-    b->sourceFrame =
-        parentS == MANI_NO_BONE
-            ? maniQuatIdentity()
-            : LoadQuat(s->map->sourceBones + (size_t)parentS * MANI_RETARGET_SOURCE_SIZE);
-    b->targetFrame =
-        parentT == MANI_NO_BONE
-            ? maniQuatIdentity()
-            : LoadQuat(s->map->targetBones + (size_t)parentT * MANI_RETARGET_TARGET_SIZE);
-    b->turn = maniQuatMul(maniQuatConjugate(b->targetFrame), b->sourceFrame);
+    b->motion = maniRetargetMotionOf(s->map, s->source, from.bone, s->target, b->root);
     return Result(mani_success, maniBuildReasonNone, 0, 0);
-}
-
-// A move's translation: to the model through the source's frame, scaled,
-// back through the target's.
-static maniVec3 MoveTranslation(const Bake* b, maniVec3 t)
-{
-    maniVec3 model = maniRetargetRootMotion(b->s->map, maniQuatRotate(b->sourceFrame, t));
-    return maniQuatRotate(maniQuatConjugate(b->targetFrame), model);
 }
 
 // Sample k's move, carried.
@@ -242,9 +208,11 @@ static void Move(const Bake* b, uint32_t k)
 {
     const uint8_t* p = b->s->clip->rootMotion + MANI_ROOT_MOTION_HEADER_SIZE +
                        MANI_ROOT_MOTION_PERIOD_SIZE + 4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k;
-    maniVec3 t = MoveTranslation(b, maniVec3Make(LoadF32(p), LoadF32(p + 4), LoadF32(p + 8)));
-    maniQuat r = maniQuatNormalize(maniQuatMul(
-        maniQuatMul(b->turn, maniQuatNormalize(LoadQuat(p + 12))), maniQuatConjugate(b->turn)));
+    maniRootMove move = {maniVec3Make(LoadF32(p), LoadF32(p + 4), LoadF32(p + 8)),
+                         LoadQuat(p + 12)};
+    move = maniRetargetMove(&b->motion, move);
+    maniVec3 t = move.translation;
+    maniQuat r = move.rotation;
     double* m = b->moves + 7 * (size_t)k;
     const float v[7] = {t.x, t.y, t.z, r.x, r.y, r.z, r.w};
     for (uint32_t i = 0; i < 7; ++i)
@@ -282,15 +250,15 @@ static maniRootMotionSource Declared(const Bake* b, maniRootMotionSource s)
         {
             continue;
         }
-        maniVec3 v = MoveTranslation(b, Unit(i));
-        v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->turn, Unit(i)) : v;
+        maniVec3 v = maniRetargetMotionTranslation(&b->motion, Unit(i));
+        v = maniVec3Length(v) < 1e-6f ? maniQuatRotate(b->motion.turn, Unit(i)) : v;
         uint32_t j = AxisOf(v);
         axes |= j < 3 ? 1u << j : 7u;
     }
     s.translationAxes = axes;
     if (s.rotation == maniRootRotationTwist)
     {
-        uint32_t j = AxisOf(maniQuatRotate(b->turn, Unit(s.twistAxis)));
+        uint32_t j = AxisOf(maniQuatRotate(b->motion.turn, Unit(s.twistAxis)));
         s.rotation = j < 3 ? maniRootRotationTwist : maniRootRotationWhole;
         s.twistAxis = j < 3 ? j : s.twistAxis;
     }

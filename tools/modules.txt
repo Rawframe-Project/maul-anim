@@ -75,8 +75,9 @@ ragdoll_build: allocator builder bytes container decompose ragdoll_file text vec
 retarget_file:
 retarget: bytes container retarget_file
 retarget_pose: bytes pose_memory retarget_file vecmath
+retarget_motion: bytes retarget_file vecmath
 retarget_build: allocator builder bytes container ik_chain retarget_file vecmath
-retarget_bake: allocator builder bytes clip_build clip_file clip_view retarget_file root_motion_build vecmath
+retarget_bake: allocator builder bytes clip_build clip_file clip_view retarget_file retarget_motion root_motion_build vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:
@@ -114,10 +115,10 @@ graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_f
 graph_learned_step: bytes container graph_emit graph_file graph_instance graph_learned learned_eval match_file root_motion vecmath
 graph_machine: bytes graph_file
 graph_machine_step: bytes graph_file graph_instance graph_machine
-graph_bind: bytes graph_file graph_instance graph_learned graph_match graph_spring
+graph_bind: bytes graph_file graph_instance graph_learned graph_match graph_spring retarget_motion
 graph_space: bytes graph_file graph_instance scalar
 graph_machine_listen: bytes graph_file graph_instance graph_machine graph_shot
-graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring root_motion
+graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring retarget_motion root_motion
 graph_evaluate: bytes graph_body graph_chain graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring ik_chain pose_memory vecmath
 clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory

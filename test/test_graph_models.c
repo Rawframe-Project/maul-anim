@@ -176,7 +176,8 @@ static void TestBind(void)
     maniLearnedModel stranger = s_learned;
     stranger.skeletonIdentity ^= 1;
     const maniLearnedModel* models[3] = {&stranger, &s_other, &s_learned};
-    maniGraphAssets assets = {&s_skeleton, clips, databases, models, NULL, CLIPS, 1, 3, 0};
+    maniGraphAssets assets = {&s_skeleton, clips, databases, models, NULL, CLIPS, 1,
+                              3,           0,     NULL,      NULL,   0,    0};
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
     CHECK(maniGraphBindingSize(&g) <= sizeof s_binding &&
@@ -198,7 +199,8 @@ static void TestBind(void)
     CHECK(maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, NULL) ==
               mani_errorInvalid,
           "no models");
-    assets = (maniGraphAssets){NULL, clips, databases, models, NULL, CLIPS, 1, 3, 0};
+    assets =
+        (maniGraphAssets){NULL, clips, databases, models, NULL, CLIPS, 1, 3, 0, NULL, NULL, 0, 0};
     CHECK(maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, NULL) ==
                   mani_errorInvalid &&
               maniBindGraph(&g, NULL, s_binding, sizeof s_binding, &binding, NULL) ==

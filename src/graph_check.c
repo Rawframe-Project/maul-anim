@@ -32,6 +32,7 @@
 #include "maul-anim/graphbuild.h"
 #include "maul-anim/ik.h"
 #include "maul-anim/learned.h"
+#include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
 
@@ -234,15 +235,56 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
     return ok ? Outcome(mani_success) : maniGraphRefuse(maniBuildReasonParameter, i, 0);
 }
 
-// Every clip slot: a clip of the skeleton, each clip once.
-static maniBuildResult CheckClips(const maniGraphSource* source, const maniAllocator* allocator)
+uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
+{
+    for (uint32_t k = 0; k < *count; ++k)
+    {
+        if (ids[k] == identity)
+        {
+            return k;
+        }
+    }
+    if (*count == MANI_GRAPH_MAX_MAPS)
+    {
+        return MANI_GRAPH_MAX_MAPS;
+    }
+    ids[*count] = identity;
+    return (*count)++;
+}
+
+// A clip slot's clip and map: a clip of the skeleton, or of the map's
+// source with a map made for the skeleton.
+static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c)
+{
+    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    const maniRetargetMap* map = c->map;
+    if (c->clip == NULL)
+    {
+        return false;
+    }
+    if (map == NULL)
+    {
+        return maniClipSkeletonIdentity(c->clip) == skeleton;
+    }
+    return map->targetIdentity == skeleton &&
+           map->targetBoneCount == maniSkeletonBoneCount(source->skeleton) &&
+           maniClipSkeletonIdentity(c->clip) == map->sourceIdentity &&
+           c->clip->skeletonBoneCount == map->sourceBoneCount;
+}
+
+// Every clip slot: a clip of the skeleton or of its map's source, each
+// clip once, at most MANI_GRAPH_MAX_MAPS maps.
+static maniBuildResult CheckClips(const maniGraphSource* source, const maniAllocator* allocator,
+                                  uint32_t* mapCountOut)
 {
     uint32_t n = source->clipCount;
-    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    uint64_t ids[MANI_GRAPH_MAX_MAPS] = {0};
     for (uint32_t i = 0; i < n; ++i)
     {
-        const maniClip* clip = source->clips[i].clip;
-        if (clip == NULL || maniClipSkeletonIdentity(clip) != skeleton)
+        const maniGraphClipSource* c = &source->clips[i];
+        if (!ClipFits(source, c) ||
+            (c->map != NULL &&
+             maniGraphMapSlotIn(ids, mapCountOut, c->map->identity) == MANI_GRAPH_MAX_MAPS))
         {
             return maniGraphRefuse(maniBuildReasonClip, i, 0);
         }
@@ -804,7 +846,7 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     {
         r = CheckParameter(&source->parameters[i], i);
     }
-    r = r.result == mani_success ? CheckClips(source, allocator) : r;
+    r = r.result == mani_success ? CheckClips(source, allocator, &tallyOut->mapCount) : r;
     r = r.result == mani_success ? CheckSyncGroups(source) : r;
     r = r.result == mani_success ? maniCheckGraphDatabases(source, &tallyOut->databaseClips) : r;
     r = r.result == mani_success ? CheckModels(source) : r;

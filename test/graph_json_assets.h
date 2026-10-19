@@ -47,8 +47,9 @@ static const maniBoneSource kBones[3] = {
     {"arm", 3, 1, {{0.3f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
 };
 
-static const maniGraphClipSource kHost[3] = {
-    {&s_clips[0], "walk", 4, 0}, {&s_clips[1], "run", 3, 0}, {&s_clips[2], "wave", 4, 0}};
+static const maniGraphClipSource kHost[3] = {{&s_clips[0], "walk", 4, 0, NULL},
+                                             {&s_clips[1], "run", 3, 0, NULL},
+                                             {&s_clips[2], "wave", 4, 0, NULL}};
 static const maniGraphDatabaseSource kHostDatabase[1] = {{&s_database, "moves", 5, 0}};
 static const maniGraphModelSource kHostModel[1] = {{&s_model, "steps", 5, 0}};
 static const maniGraphSpringSetSource kHostSet[1] = {{&s_set, "hair", 4, 0}};

@@ -14,12 +14,15 @@
 #include "graph_learned.h"
 #include "graph_match.h"
 #include "graph_spring.h"
+#include "retarget_motion.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/retarget.h"
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -37,22 +40,28 @@ size_t maniGraphBindingSize(const maniGraph* graph)
     return offsetof(maniGraphBinding, clips) + (size_t)graph->clipCount * sizeof(const maniClip*) +
            (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*) +
            (size_t)graph->modelCount * sizeof(const maniLearnedModel*) +
-           (size_t)graph->springSetCount * sizeof(const maniSpringSet*);
+           (size_t)graph->springSetCount * sizeof(const maniSpringSet*) +
+           (size_t)graph->mapCount * sizeof(maniGraphBoundMapPair);
 }
 
 // The clip of the slot's identity among clips, of the graph's skeleton
-// and of the slot's kind; NULL for none.
-static const maniClip* Find(const maniGraph* graph, uint32_t slot, const maniClip* const* clips,
-                            uint32_t count)
+// (its map's source for a mapped slot) and of the slot's kind; NULL for
+// none.
+static const maniClip* Find(const maniGraphBinding* binding, uint32_t slot,
+                            const maniClip* const* clips, uint32_t count)
 {
+    const maniGraph* graph = &binding->graph;
     const uint8_t* e = graph->clips + (size_t)slot * MANI_GRAPH_CLIP_SIZE;
     uint64_t identity = maniLoadU64(e);
     bool difference = maniLoadU32(e + 24) != 0;
+    const maniGraphBoundMapPair* pair = maniGraphClipMapPair(binding, slot);
+    const maniSkeleton* skeleton = pair != NULL ? pair->source : binding->skeleton;
     for (uint32_t i = 0; i < count; ++i)
     {
         const maniClip* clip = clips[i];
         if (clip != NULL && maniClipIdentity(clip) == identity &&
-            maniClipSkeletonIdentity(clip) == graph->skeletonIdentity &&
+            maniClipSkeletonIdentity(clip) == maniSkeletonIdentity(skeleton) &&
+            clip->skeletonBoneCount == maniSkeletonBoneCount(skeleton) &&
             (maniClipAdditiveBasis(clip) != maniAdditiveNone) == difference)
         {
             return clip;
@@ -134,8 +143,9 @@ static size_t CursorSize(const maniGraphBinding* binding)
     return (largest + 7u) & ~(size_t)7u;
 }
 
-// The one bone the clips' root motion names, into the binding; false
-// when two clips name different bones.
+// The one bone the clips' root motion names (a mapped clip's, the target
+// bone following its own alone), into the binding; false when two clips
+// name different bones or a mapped clip's has no follower.
 static bool RootMotionBone(maniGraphBinding* binding)
 {
     binding->rootMotionBone = MANI_NO_BONE;
@@ -146,11 +156,83 @@ static bool RootMotionBone(maniGraphBinding* binding)
         {
             continue;
         }
-        if (binding->rootMotionBone != MANI_NO_BONE && binding->rootMotionBone != source.bone)
+        const maniGraphBoundMapPair* pair = maniGraphClipMapPair(binding, s);
+        uint32_t bone = pair != NULL ? maniRetargetFollower(pair->map, source.bone) : source.bone;
+        if (bone == MANI_NO_BONE ||
+            (binding->rootMotionBone != MANI_NO_BONE && binding->rootMotionBone != bone))
         {
             return false;
         }
-        binding->rootMotionBone = source.bone;
+        binding->rootMotionBone = bone;
+    }
+    return true;
+}
+
+static size_t PoseRound(size_t size)
+{
+    return (size + MANI_POSE_ALIGNMENT - 1) / MANI_POSE_ALIGNMENT * MANI_POSE_ALIGNMENT;
+}
+
+// The map of a slot's identity among the maps, made for the graph's
+// skeleton; NULL for none.
+static const maniRetargetMap* FindMap(const maniGraph* graph, uint32_t slot,
+                                      const maniGraphAssets* assets)
+{
+    for (uint32_t i = 0; i < assets->mapCount; ++i)
+    {
+        const maniRetargetMap* m = assets->maps[i];
+        if (m != NULL && m->identity == maniGraphMapIdentity(graph, slot) &&
+            m->targetIdentity == graph->skeletonIdentity &&
+            m->targetBoneCount == graph->skeletonBoneCount)
+        {
+            return m;
+        }
+    }
+    return NULL;
+}
+
+// A map's source skeleton among the source skeletons; NULL for none.
+static const maniSkeleton* FindSource(const maniRetargetMap* map, const maniGraphAssets* assets)
+{
+    for (uint32_t i = 0; i < assets->sourceSkeletonCount; ++i)
+    {
+        const maniSkeleton* k = assets->sourceSkeletons[i];
+        if (k != NULL && maniSkeletonIdentity(k) == map->sourceIdentity &&
+            maniSkeletonBoneCount(k) == map->sourceBoneCount)
+        {
+            return k;
+        }
+    }
+    return NULL;
+}
+
+// Each map slot bound to its map and the map's source skeleton, the
+// scratch for carrying poses sized; false with the first left unbound.
+static bool BindMaps(maniGraphBinding* binding, const maniGraphAssets* assets, uint32_t* unboundOut)
+{
+    const maniGraph* graph = &binding->graph;
+    maniGraphBoundMapPair* pairs = (maniGraphBoundMapPair*)maniGraphBoundMap(binding, 0);
+    binding->sourcePoseSize = 0;
+    binding->retargetScratchSize = 0;
+    for (uint32_t s = 0; s < graph->mapCount; ++s)
+    {
+        const maniRetargetMap* map = FindMap(graph, s, assets);
+        const maniSkeleton* source = map != NULL ? FindSource(map, assets) : NULL;
+        if (source == NULL)
+        {
+            if (unboundOut != NULL)
+            {
+                *unboundOut = graph->clipCount + graph->databaseCount + graph->modelCount +
+                              graph->springSetCount + s;
+            }
+            return false;
+        }
+        pairs[s] = (maniGraphBoundMapPair){map, source};
+        size_t pose = PoseRound(maniPoseSize(source));
+        size_t scratch = PoseRound(maniRetargetScratchSize(map));
+        binding->sourcePoseSize = pose > binding->sourcePoseSize ? pose : binding->sourcePoseSize;
+        binding->retargetScratchSize =
+            scratch > binding->retargetScratchSize ? scratch : binding->retargetScratchSize;
     }
     return true;
 }
@@ -286,6 +368,8 @@ static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
            (a->databases != NULL || a->databaseCount == 0) &&
            (a->models != NULL || a->modelCount == 0) &&
            (a->springSets != NULL || a->springSetCount == 0) &&
+           (a->maps != NULL || a->mapCount == 0) &&
+           (a->sourceSkeletons != NULL || a->sourceSkeletonCount == 0) &&
            maniSkeletonIdentity(a->skeleton) == graph->skeletonIdentity &&
            maniSkeletonBoneCount(a->skeleton) == graph->skeletonBoneCount;
 }
@@ -310,9 +394,14 @@ maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, 
     }
     maniGraphBinding* binding = memory;
     binding->graph = *graph;
+    binding->skeleton = assets->skeleton;
+    if (!BindMaps(binding, assets, unboundOut))
+    {
+        return mani_errorInvalid;
+    }
     for (uint32_t s = 0; s < graph->clipCount; ++s)
     {
-        binding->clips[s] = Find(graph, s, clips, count);
+        binding->clips[s] = Find(binding, s, clips, count);
         if (binding->clips[s] == NULL)
         {
             if (unboundOut != NULL)
@@ -336,7 +425,6 @@ maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, 
         uint32_t n = maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 8);
         binding->maxInputs = n > binding->maxInputs ? n : binding->maxInputs;
     }
-    binding->skeleton = assets->skeleton;
     binding->cursorSize = CursorSize(binding);
     *bindingOut = binding;
     return mani_success;

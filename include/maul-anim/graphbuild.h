@@ -53,13 +53,17 @@ extern "C"
 
     // A clip slot: an opened clip of the graph's skeleton, each clip once,
     // and a name for it (UTF-8, not empty, unique in the graph). The graph
-    // keeps the clip's identity; binding finds the clip by it.
+    // keeps the clip's identity; binding finds the clip by it. With a map
+    // (mani-0032), the clip is of the map's source skeleton and plays
+    // carried through the map, which is made for the graph's skeleton;
+    // the graph keeps a map slot per map.
     typedef struct maniGraphClipSource
     {
         const maniClip* clip;
         const char* name;
         uint32_t nameLength;
         uint32_t reserved;
+        const maniRetargetMap* map;
     } maniGraphClipSource;
 
     // A motion database slot: an opened database of the graph's skeleton,
@@ -719,8 +723,9 @@ extern "C"
     /// Builds a graph file: inlines subgraphs (their nodes after the
     /// source's, in order, nested ones after them; refusals name nodes by
     /// their place there), checks every parameter, clip slot, sync group,
-    /// database slot, model slot, spring set slot and node, orders the
-    /// nodes so each
+    /// database slot, model slot, spring set slot and node, gives each
+    /// retargeting map the clip slots name a map slot, orders the nodes
+    /// so each
     /// follows its inputs (the output last, the source's order kept where
     /// it may be), makes each mask's
     /// bone weights, marks each node as giving poses or differences, gives
@@ -827,7 +832,7 @@ extern "C"
     /// and excludedTags 0 (a whole number, or {"parameter": name}) and
     /// duration 0; parameters, clips, syncGroups, databases, models and
     /// springSets empty). Each clip slot name, at any nesting, takes the
-    /// host's clip of that name, each database slot name the host's
+    /// host's clip of that name (and its map), each database slot name the host's
     /// database of that name, each model slot name the host's model of
     /// that name and each spring set slot name the host's spring set of
     /// that name (the first of equal names). The source read is then built

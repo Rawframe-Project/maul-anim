@@ -85,6 +85,22 @@ scales with the characters' heights, and IK goals after the transfer.
   the target's: both scale the root's translation by the heights.
   Carrying the stored moves does the same, independent of the root
   bone's translation mode and exact at the samples.
+- **Playing in graphs:** a graph's clip slot may name a map (the clip
+  then of the map's source); the graph keeps a map slot per map (its
+  identity and its source skeleton's) and each clip slot's map slot.
+  The map belongs to the slot, not the clip node, so every reader of
+  the slot (clip nodes, events, markers and sync, root motion) sees
+  one clip carried one way. Binding takes the maps and their source
+  skeletons; a mapped clip's root motion names the target bone that
+  follows its own alone (none refuses the binding). Evaluation samples
+  a mapped clip into a pose of the source and transfers it in a part of
+  the scratch sized at binding, its poses made once per source
+  skeleton; an additive clip is carried as the bake carries it, by two
+  transfers. Each update's move is carried as the bake carries the
+  stored ones, here on the move between two times: exact where the
+  move's starting rotation turns about the up axis or the scales are
+  equal. The JSON form needs nothing new: its clip slots are the
+  host's named clip sources, which carry their maps.
 - **Building** checks the references (finite, rotations within a
   thousandth of length 1), pairs, chains, the pelvis and names in that
   order, each target bone mapped once; refusals name the item and, for
@@ -151,3 +167,18 @@ frame, the zero-scale axes, a second discrete track's keys, the
 clip's identity check (its count caught the target's clip) and the clip
 builder's checks of given motion
 untested.
+
+The graph tests play a walk with root motion and an additive lean of
+the source, both mapped, under an additive node of the target's graph:
+over twelve updates of 0.1 s (one wrapping the loop) each pose within
+1e-5 (rotations within 1e-10 of their dot product's 1) of the walk
+carried plus the lean carried by two transfers, each move the walk's
+scaled; the map slot read back; the builder's refusals (a map for
+another target, a source clip without a map, clips of the target and
+of a rig of the source's count through the map, a map past 256), the
+binder's (no map, no source skeleton, one of another rig,
+only a map for another target, maps NULL with a count, root motion no
+target bone follows) and the opener's (a map slot past the maps, a map
+twice); the JSON form built back to the same file; a subgraph playing
+the walk through the same map joining its slot, through another map
+taking one of its own.

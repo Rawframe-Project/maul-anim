@@ -28,6 +28,7 @@
 #include "maul-anim/graph.h"
 #include "maul-anim/ik.h"
 #include "maul-anim/pose.h"
+#include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
@@ -53,13 +54,16 @@ static size_t Round(size_t size)
            MANI_GRAPH_SCRATCH_ALIGNMENT;
 }
 
-// Where the scratch's parts begin: layers, bone weights, then the poses.
+// Where the scratch's parts begin: layers, bone weights, the poses, then
+// with map slots the room a mapped clip's pose is carried in (two
+// source poses, a pose of the graph's skeleton, the transfer's scratch).
 typedef struct Parts
 {
     size_t layersAt;
     size_t weightsAt;
     size_t posesAt;
     size_t poseSize;
+    size_t retargetAt;
     size_t size;
 } Parts;
 
@@ -72,6 +76,12 @@ static Parts PartsOf(const maniGraphBinding* binding)
         parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float));
     parts.poseSize = maniPoseSize(binding->skeleton);
     parts.size = parts.posesAt + (size_t)binding->graph.slotCount * parts.poseSize;
+    parts.retargetAt = parts.size;
+    if (binding->sourcePoseSize > 0)
+    {
+        parts.size = parts.retargetAt + 2 * binding->sourcePoseSize + parts.poseSize +
+                     binding->retargetScratchSize;
+    }
     return parts;
 }
 
@@ -360,14 +370,57 @@ static void Additive(const Evaluation* e, const uint8_t* record, maniPose* out)
     (void)maniAddPoses(e->binding->skeleton, out, e->layers, count);
 }
 
-// A clip node's pose: its clip at its playhead, through its cursor.
+// A mapped clip's pose: sampled into a pose of the map's source and
+// carried; an additive clip's difference added to the source's rest,
+// carried, and taken from the source's rest carried. The room's poses
+// are made again only when they are not poses of their skeletons.
+static void SampleMapped(const Evaluation* e, const maniGraphBoundMapPair* pair, maniClipCursor* c,
+                         const maniClip* clip, float time, maniPose* out)
+{
+    uint8_t* at = e->scratch + e->parts.retargetAt;
+    size_t sourceSize = e->binding->sourcePoseSize;
+    maniPose* poses[3] = {(void*)at, (void*)(at + sourceSize), (void*)(at + 2 * sourceSize)};
+    void* scratch = at + 2 * sourceSize + e->parts.poseSize;
+    const maniSkeleton* skeleton = e->binding->skeleton;
+    if (!maniPoseMatches(poses[0], pair->source) || !maniPoseMatches(poses[1], pair->source) ||
+        !maniPoseMatches(poses[2], skeleton))
+    {
+        (void)maniInitPose(pair->source, poses[0], sourceSize, &poses[0]);
+        (void)maniInitPose(pair->source, poses[1], sourceSize, &poses[1]);
+        (void)maniInitPose(skeleton, poses[2], e->parts.poseSize, &poses[2]);
+    }
+    size_t size = e->binding->retargetScratchSize;
+    (void)maniSampleClipCursor(c, clip, pair->source, time, poses[0]);
+    if (!maniPoseIsDifference(poses[0]))
+    {
+        (void)maniRetargetPose(pair->map, pair->source, poses[0], skeleton, out, scratch, size);
+        return;
+    }
+    maniBlendLayer layer = {poses[0], 1.0f, NULL};
+    (void)maniPoseSetRest(poses[1], pair->source);
+    (void)maniAddPoses(pair->source, poses[1], &layer, 1);
+    (void)maniRetargetPose(pair->map, pair->source, poses[1], skeleton, out, scratch, size);
+    (void)maniPoseSetRest(poses[1], pair->source);
+    (void)maniRetargetPose(pair->map, pair->source, poses[1], skeleton, poses[2], scratch, size);
+    (void)maniPoseDifference(skeleton, out, poses[2], out);
+}
+
+// A clip node's pose: its clip at its playhead, through its cursor (and
+// its map).
 static void Sample(const Evaluation* e, const uint8_t* record, uint32_t cursor, maniPose* out,
                    const maniGraphNodeState* s)
 {
-    const maniClip* clip = e->binding->clips[Word(e, maniLoadU32(record + 12))];
+    uint32_t slot = Word(e, maniLoadU32(record + 12));
+    const maniClip* clip = e->binding->clips[slot];
     void* memory =
         (uint8_t*)e->instance + e->instance->cursorsAt + (size_t)cursor * e->binding->cursorSize;
     maniClipCursor* c = memory;
+    const maniGraphBoundMapPair* pair = maniGraphClipMapPair(e->binding, slot);
+    if (pair != NULL)
+    {
+        SampleMapped(e, pair, c, clip, (float)s->time, out);
+        return;
+    }
     (void)maniSampleClipCursor(c, clip, e->binding->skeleton, (float)s->time, out);
 }
 

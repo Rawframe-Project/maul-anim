@@ -36,9 +36,11 @@ runtime allocates (mani-0001).
   and per-bone weights), additive (a base and layers with weights),
   select (by an int or bool parameter), time scale, and seek (by a
   trigger, to a time).
-- **The file** (kind graph, format version 1): a header of counts and
-  the skeleton's identity, then parameters, node records, inputs, node
-  data words, clip slots, sync groups, mask weights and names. Opening
+- **The file** (kind graph, format version 2 since retargeting maps
+  joined it, mani-0032): a header of counts and the skeleton's
+  identity, then parameters, node records, inputs, node data words,
+  clip slots (each with its map slot or none), sync groups, mask
+  weights, names and the sections later kinds added. Opening
   checks every record as hostile input: kinds, counts, every input
   before its node and in another slot, data in range, what each node
   gives as its inputs make it, names and their hashes, and the
@@ -46,7 +48,8 @@ runtime allocates (mani-0001).
   a wrong pose, never an unsafe access.
 
 - **Binding:** each clip slot is bound to the host's clip of its
-  identity, of the graph's skeleton and of the slot's kind, in caller
+  identity, of the graph's skeleton (or of its map's source, mani-0032)
+  and of the slot's kind, in caller
   memory of a size the graph states; one binding serves every instance.
 - **Instances:** caller memory of a size the binding states: a 16-byte
   cell per parameter and per node (its effective weight, a word its

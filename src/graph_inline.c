@@ -18,6 +18,7 @@
 #include "maul-anim/graphbuild.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
+#include "maul-anim/retarget.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
 
@@ -215,7 +216,13 @@ static uint32_t Resolve(const Scope* s, uint32_t parameter)
     return parameter;
 }
 
-// A subgraph's slot joins the flat slot of its asset's identity, or the
+static uint64_t MapIdentity(const maniRetargetMap* map)
+{
+    return map != NULL ? map->identity : 0;
+}
+
+// A subgraph's slot joins the flat slot of its asset's identity (a clip's
+// through the same map), or the
 // first flat slot without an asset if it has none (the checks refuse
 // it): Totals counts a slot once for every subgraph node, so the slots
 // joined never outnumber it.
@@ -229,8 +236,10 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
     for (uint32_t k = 0; k < f->clipCount; ++k)
     {
         const maniClip* other = f->clips[k].clip;
-        if (other != NULL && c->clip != NULL ? maniClipIdentity(other) == maniClipIdentity(c->clip)
-                                             : other == c->clip)
+        bool same = other != NULL && c->clip != NULL
+                        ? maniClipIdentity(other) == maniClipIdentity(c->clip)
+                        : other == c->clip;
+        if (same && MapIdentity(f->clips[k].map) == MapIdentity(c->map))
         {
             return k;
         }
