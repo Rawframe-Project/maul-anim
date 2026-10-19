@@ -9,8 +9,9 @@
 // parameter) and another over a learned node (mani-0025) playing a
 // model of the database; the select under a spring node (mani-0026) of
 // a spring from the root to its child, placed by the vec3 and quat
-// parameters and reset by the trigger; the pose parameter is saved
-// after the machines' blocks. The bytes are tried as they are,
+// parameters and reset by the trigger, and a turn limit node over it
+// (mani-0037) at the float's speed, reset by the trigger; the pose
+// parameter is saved after the machines' blocks. The bytes are tried as they are,
 // then with the
 // header made right so they reach the checks behind it, then with the
 // quaternion parameter made a unit one, then with the inertialize
@@ -160,7 +161,8 @@ static bool MakeGraph(maniBuilder* builder)
     static const uint32_t kMatch[1] = {3};
     static const uint32_t kLearned[1] = {6};
     static const uint32_t kSelect[1] = {2};
-    static const uint32_t kBlend[3] = {8, 4, 7};
+    static const uint32_t kSpring[1] = {8};
+    static const uint32_t kBlend[3] = {9, 4, 7};
     const maniGraphSpringSetSource set = {&s_set, "s", 1, 0};
     static const maniGraphScalar kThirds[3] = {
         {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}};
@@ -180,7 +182,7 @@ static bool MakeGraph(maniBuilder* builder)
                                                 .requiredTags = {MANI_NO_PARAMETER, 0},
                                                 .excludedTags = {MANI_NO_PARAMETER, 0},
                                                 .duration = {2, 0.0f}};
-    const maniGraphNodeSource nodes[9] = {
+    const maniGraphNodeSource nodes[10] = {
         {maniGraphNodeClip, 0, NULL,
          .clip = {0, MANI_NO_SYNC_GROUP, {2, 0.0f}, maniGraphLoopClip, 0}},
         {maniGraphNodeTimeScale, 1, kClip, .timeScale = {{MANI_NO_PARAMETER, 2.0f}}},
@@ -193,6 +195,7 @@ static bool MakeGraph(maniBuilder* builder)
         {maniGraphNodeInertialize, 1, kLearned,
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
         {maniGraphNodeSpring, 1, kSelect, .spring = {0, 4, 5, 6, 4}},
+        {maniGraphNodeTurnLimit, 1, kSpring, .turnLimit = {{2, 0.0f}, 6, 0, NULL}},
     };
     maniGraphSource source = {.skeleton = &s_skeleton,
                               .parameters = parameters,
@@ -200,7 +203,7 @@ static bool MakeGraph(maniBuilder* builder)
                               .nodes = nodes,
                               .parameterCount = 8,
                               .clipCount = 1,
-                              .nodeCount = 9,
+                              .nodeCount = 10,
                               .output = 5,
                               .databaseCount = 1,
                               .databases = &database,

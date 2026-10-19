@@ -12,7 +12,13 @@
 // times; a saved state restores to the same motion and its block is
 // checked; the builder's refusals and opening's checks of the words; the
 // JSON form written and read back; a subgraph's parameters carried; a
-// file of format 4 still opens.
+// file of format 4 still opens; inspection gives its share. Run as
+// test_graph_turn --seed <graph file> <json file> it writes the graph's
+// file and text, seeds of the fuzz targets.
+
+// The seed writer uses fopen, which the Microsoft C library deprecates;
+// the request comes before any header that reaches the C library.
+#define _CRT_SECURE_NO_WARNINGS
 
 #include "bytes.h"
 #include "container.h"
@@ -248,9 +254,14 @@ static void TestStep(void)
     // the goal.
     Body(m, start, start, 0.0f);
     Set(m->live, 4, maniGraphParameterBool, Int(1));
-    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start), "the raw pose picked");
+    maniGraphNodeView view;
+    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start) &&
+              maniInspectGraphNode(m->live, 1, &view) == mani_success &&
+              view.kind == maniGraphNodeTurnLimit && view.weight == 0.0f,
+          "the raw pose picked, the node of no share");
     Set(m->live, 4, maniGraphParameterBool, Int(0));
-    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start),
+    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start) &&
+              maniInspectGraphNode(m->live, 1, &view) == mani_success && view.weight == 1.0f,
           "back from an update that did not reach it: the input as it is");
 }
 
@@ -517,9 +528,41 @@ static void TestOlder(void)
     CHECK(r.result == mani_errorVersion && r.offset == 6, "a newer format refused by version");
 }
 
-int main(void)
+static bool WriteFile(const char* path, const void* data, size_t size)
+{
+    FILE* out = fopen(path, "wb");
+    if (out == NULL)
+    {
+        return false;
+    }
+    size_t written = fwrite(data, 1, size, out);
+    return fclose(out) == 0 && written == size;
+}
+
+// The masked turn graph's file and JSON text.
+static bool Seed(const char* graphPath, const char* textPath)
+{
+    maniGraphTurnLimitNodeSource turn = kTurn;
+    turn.mask = &kMask;
+    maniGraphSource source = TurnGraph(turn);
+    size_t length = 0;
+    maniBuilder* builder = NewBuilder();
+    bool ok = Build(&source, &s_made[0]).result == mani_success &&
+              maniWriteGraphJson(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
+              WriteFile(graphPath, s_made[0].file, s_made[0].size) &&
+              WriteFile(textPath, s_text, length);
+    maniDestroyBuilder(builder);
+    return ok;
+}
+
+int main(int argc, char** argv)
 {
     Open();
+    if (argc == 4 && strcmp(argv[1], "--seed") == 0)
+    {
+        return Seed(argv[2], argv[3]) && s_failures == 0 ? 0 : 1;
+    }
     TestStep();
     TestMask();
     TestSubset();
