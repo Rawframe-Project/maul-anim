@@ -72,6 +72,9 @@ graph_chain: bytes graph_file ik_limit
 graph_body: bytes graph_chain graph_file
 ragdoll_getup: vecmath
 ragdoll_build: allocator builder bytes container decompose ragdoll_file text vecmath
+retarget_file:
+retarget: bytes container retarget_file
+retarget_build: allocator builder bytes container ik_chain retarget_file vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:

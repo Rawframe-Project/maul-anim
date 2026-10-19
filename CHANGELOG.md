@@ -40,6 +40,11 @@ format.
   step an iteration (Buss and Kim, the paper's clamps, a one-sided
   Jacobi decomposition whose sweeps stop the same on every platform),
   every length kept.
+- Retargeting maps (mani-0032): `maniBuildRetargetMap` builds a map
+  between two skeletons from bone pairs, chains of any lengths
+  (interpolated, one to one, reversed), the pelvis scaled by the
+  reference heights, names and a reference pose per side, planned per
+  target bone; `maniOpenRetargetMap` opens it in place.
 - Full-body IK by SDLS 2.4 to 9 times fewer instructions an iteration
   (mani-0031): its decomposition keeps each column's length and skips
   the zero rotation rows, with the same bits.

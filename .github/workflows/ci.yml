@@ -206,6 +206,8 @@ jobs:
           build/test_spring --seed corpus-fuzz_spring/sample.spring
           mkdir -p corpus-fuzz_ragdoll
           build/test_ragdoll --seed corpus-fuzz_ragdoll/sample.ragdoll
+          mkdir -p corpus-fuzz_retarget
+          build/test_retarget_map --seed corpus-fuzz_retarget/sample.retarget
           mkdir -p corpus-fuzz_checkpoint
           build/test_learned_train --seed corpus-fuzz_checkpoint/sample.ckpt
           mkdir -p corpus-fuzz_json

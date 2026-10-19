@@ -90,6 +90,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/trajectory.c
     src/learned.c
     src/ragdoll.c
+    src/retarget.c
     src/ragdoll_pose.c
     src/ik.c
     src/ik_frame.c
@@ -131,7 +132,7 @@ if(MAUL_ANIM_OFFLINE)
                                      src/fbx.c src/fbx_anim.c src/fbx_ascii.c src/fbx_binary.c src/fbx_blend.c src/fbx_clip.c src/fbx_clip_state.c src/fbx_curve.c src/fbx_helpers.c src/fbx_influences.c src/fbx_morph.c src/fbx_keys.c src/fbx_legacy.c src/fbx_model.c src/fbx_object.c src/fbx_options.c src/fbx_sample.c src/fbx_skeleton.c src/fbx_skin.c src/fbx_take.c src/fbx_tracks.c src/fbx_transform.c src/fbx_units.c src/fbx_value.c src/fbx_world.c src/sort.c
                                      src/skin_build.c src/influences_build.c src/centers_build.c
                                      src/morph_build.c src/graph_check.c src/graph_body_check.c src/graph_space_check.c src/graph_machine_check.c src/graph_match_check.c src/graph_learned_check.c src/exact.c src/triangulate.c src/graph_build.c src/graph_inline.c src/graph_json.c src/graph_json_write.c src/graph_json_read.c src/graph_json_graph.c src/graph_json_machine.c src/graph_json_search.c src/graph_json_space.c src/graph_json_ik.c src/graph_json_body.c
-                                     src/match_sample.c src/match_build.c src/learned_build.c src/spring_build.c src/spring_frame.c src/ragdoll_build.c
+                                     src/match_sample.c src/match_build.c src/learned_build.c src/spring_build.c src/spring_frame.c src/ragdoll_build.c src/retarget_build.c
                                      src/train_random.c src/train_net.c src/train_adam.c src/train_tasks.c
                                      src/train_data.c src/train_decompress.c src/train_decompress_loss.c src/train_kinematics.c
                                      src/train_solo.c src/train_stepper.c src/train_projector.c
@@ -213,6 +214,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(jacobi_svd WHITEBOX)
         maul_add_test(graph_chain_node WHITEBOX)
         maul_add_test(graph_body_node WHITEBOX)
+        maul_add_test(retarget_map WHITEBOX)
         maul_add_test(graph_ik_node WHITEBOX)
         maul_add_test(ragdoll_getup WHITEBOX)
         maul_add_test(trajectory WHITEBOX)
@@ -278,7 +280,7 @@ if(MAUL_ANIM_FUZZ)
     target_compile_options(maul-anim PRIVATE -fsanitize=fuzzer-no-link,address,undefined
                                              -fno-sanitize-recover=all)
     target_link_options(maul-anim PUBLIC -fsanitize=address,undefined)
-    foreach(area skeleton skin influences morph clip graph graph_state graph_json match learned checkpoint spring ragdoll json gltf fbx)
+    foreach(area skeleton skin influences morph clip graph graph_state graph_json match learned checkpoint spring ragdoll retarget json gltf fbx)
         add_executable(fuzz_${area} test/fuzz_${area}.c)
         target_link_libraries(fuzz_${area} PRIVATE maul-anim)
         # Internal readers (JSON) are fuzzed through their own headers.

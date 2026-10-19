@@ -289,6 +289,23 @@ extern "C"
         // A ragdoll's facing or up axis not of length 1, or the two not
         // perpendicular (within a thousandth).
         maniBuildReasonRagdollAxes = 50,
+        // A retargeting map's reference pose (other 0 the source's, 1 the
+        // target's): the bone's (item) local not finite or its rotation not
+        // of length 1.
+        maniBuildReasonRetargetReference = 51,
+        // A retargeting map's pair (item; other its target bone): a bone
+        // out of range or the target mapped before, a weight outside
+        // [0, 1], an unknown translation.
+        maniBuildReasonRetargetPair = 52,
+        // A retargeting map's chain (item; other a target bone mapped
+        // before, else 0): bones out of range, an end not below its start
+        // within MANI_IK_CHAIN_MAX_BONES, an unknown mode or translation,
+        // a weight outside [0, 1].
+        maniBuildReasonRetargetChain = 53,
+        // A retargeting map's pelvis: a bone out of range or its target
+        // mapped before, the up axis not of length 1, a factor, blend or
+        // weight out of range, a reference pelvis at or below height 0.
+        maniBuildReasonRetargetPelvis = 54,
         // The list a refused float track, discrete track, event or marker
         // is in: the reason's item indexes it. Bone tracks report plainly.
         maniBuildReasonFloatTrack = 0x100,

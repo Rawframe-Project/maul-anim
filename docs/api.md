@@ -1213,6 +1213,39 @@ MANI_NODISCARD MANI_API maniResult maniRagdollGetUpPlacement(const maniRagdoll* 
 ```
 Works out where a ragdoll gets up. The body lies face up when the root body's facing axis (out of the chest) points along the normal or across it. The heading is the root body's up axis (toward the head) on the ground's plane, reversed face up, plus its facing axis on the plane weighed by how upright the up axis stands (its component along the normal), so the character stands looking where its head lay face down and toward its feet face up (on its back, front or side), and where its chest faces upright; when that sum is shorter than a thousandth (the two cancel, the body inverted), the head's way alone. The placement stands on the plane under the root body, its model up along the normal and its model forward along the heading, scale 1. A pose from the bodies under it (maniRagdollPoseFromBodies) is the ragdoll in the character's new frame, to blend a get-up clip from.  @param ragdoll  An opened profile. @param bodies   A state per body, in the profile's order: positions finite, rotations of length 1 within a thousandth. @param count    The number of states bodies holds. @param ground   The ground and the character's axes. @param out      Receives the placement and whether it lies face up. @return `mani_success`; `mani_errorInvalid` for a NULL argument, a body's place not finite or its rotation not of length 1, the ground not finite, its normal or the axes not of length 1 within a thousandth or the axes not perpendicular within a thousandth; `mani_errorCapacity` when count is under the body count. @par Thread safety Safe from any thread.
 
+## `retarget.h`
+
+Retargeting maps (mani-0032): how poses of one skeleton (the source) become poses of another (the target). A map is built offline for its two skeletons (retargetbuild.h) and opened in place; each target bone takes its rotation from a source bone, from two neighbors along a chain, or keeps its reference, as a model-space turn from each side's reference pose.
+
+```c
+MANI_NODISCARD MANI_API maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetMap* mapOut);
+```
+Opens a retargeting map file in place: checks the container, the header (the skeletons' identities and bone counts, the pelvis's bones, axis and numbers), both reference poses (finite, rotations of length 1) and every target bone's plan (its kind, its source bones within the source's count, its place and weight in [0, 1], its translation and scale settings, unused words 0).  @param bytes  The file, 16-byte aligned. @param size   Its size in bytes; bytes past the file are ignored. @param mapOut Receives the view on success. @return `mani_success`; `mani_errorInvalid` for a NULL argument or misaligned bytes; `mani_errorFormat` with the offset of the first byte found wrong; `mani_errorVersion` for a newer format. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniRetargetMapIdentity(const maniRetargetMap* map);
+```
+Returns a map's identity: the hash of its sections.  @param map  An opened map, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniRetargetMapSourceIdentity(const maniRetargetMap* map);
+```
+Returns the identity of the skeleton a map takes poses from.  @param map  An opened map, or NULL. @return The source skeleton's identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint64_t maniRetargetMapTargetIdentity(const maniRetargetMap* map);
+```
+Returns the identity of the skeleton a map makes poses for.  @param map  An opened map, or NULL. @return The target skeleton's identity; 0 for NULL. @par Thread safety Safe from any thread.
+
+## `retargetbuild.h`
+
+Building retargeting maps (mani-0032): bone pairs, chains of any lengths on each side, the pelvis and a reference pose per skeleton, checked against both skeletons and laid out as each target bone's plan, so the transfer at runtime only composes rotations. Offline.
+
+```c
+MANI_NODISCARD MANI_API maniBuildResult maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMapSource* source);
+```
+Builds a retargeting map file (kind 4) from a source and keeps it in the builder. Each target bone is mapped once at most: by a pair, a chain, the pelvis or a name, in that order.  @param builder  The builder. @param source   The map. @return `mani_success`; `mani_errorInvalid` with `maniBuildReasonNone` for a NULL builder, source or skeleton, a count without its list; `maniBuildReasonRetargetReference` (item the bone, other 0 for the source's pose and 1 for the target's: a local not finite or its rotation not of length 1 within a thousandth); `maniBuildReasonRetargetPair` (item the pair, other the target bone: a bone out of range, a target bone mapped before, a weight outside [0, 1], an unknown translation); `maniBuildReasonRetargetChain` (item the chain, other the target bone mapped before or 0: bones out of range, an end not below its start or past MANI_IK_CHAIN_MAX_BONES from it, an unknown mode or translation, a weight outside [0, 1]); `maniBuildReasonRetargetPelvis` (a bone out of range or the target mapped before, an up axis not of length 1, a factor negative or not finite, a blend or weight outside [0, 1], a reference pelvis at or below height 0); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+
 ## `rootmotion.h`
 
 Root motion (mani-0022): the move a clip's declared bone makes, taken out of the bone at build and kept beside the clip, so the clip plays in place and the host moves the character by the moves it reads.
@@ -1489,4 +1522,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-279 functions across 23 headers.
+284 functions across 25 headers.
