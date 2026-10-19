@@ -12,6 +12,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/skeleton.h"
 
 #include <stdint.h>
@@ -43,7 +44,7 @@ extern "C"
 
     // An entry: a clip's span from start to end seconds (0 <= start <= end
     // <= the clip's duration; start < end for a looping one), its flags
-    // (MANI_MATCH_LOOP, MANI_MATCH_NO_JUMP), a cost added to its frames
+    // (MANI_MATCH_LOOP, MANI_MATCH_NO_JUMP, MANI_MATCH_MIRRORED), a cost added to its frames
     // (finite) and its tags (any 32 bits, for a search's filter). Its
     // frames are at start + k / sampleRate (in binary64, rounded to
     // binary32), every k whose time is at most end (before it when the
@@ -62,7 +63,9 @@ extern "C"
     // A database: the skeleton and clips (each the skeleton's, not
     // additive), the channels, the entries, the sample rate (above 0, at
     // most MANI_MATCH_MAX_RATE), the up axis whose plane is the ground and
-    // the forward axis a facing projects (on different axes).
+    // the forward axis a facing projects (on different axes), and the
+    // mirror map of the skeleton its mirrored entries play through (NULL
+    // when none is mirrored).
     typedef struct maniMotionDatabaseSource
     {
         const maniSkeleton* skeleton;
@@ -75,6 +78,7 @@ extern "C"
         float sampleRate;
         maniMatchAxis up;
         maniMatchAxis forward;
+        const maniMirrorMap* mirrorMap;
     } maniMotionDatabaseSource;
 
     /// Builds a motion database: samples every entry's frames, each
@@ -83,7 +87,11 @@ extern "C"
     /// clip's root motion carrying the root between times; a bone's
     /// velocity the difference of its positions a frame either side over
     /// their time apart), normalizes each channel, and bounds every run of
-    /// 16 and 64 frames. Keeps the file in place of any built before.
+    /// 16 and 64 frames. A mirrored entry's frames are sampled from its
+    /// clip's poses mirrored, its root moves reflected and each float
+    /// track channel from the track the map pairs its name with, as a
+    /// mirrored clip's would be. Keeps the file in place of any built
+    /// before.
     ///
     /// @param builder  The builder.
     /// @param source   The database.
@@ -98,7 +106,9 @@ extern "C"
     /// (item the entry), `maniBuildReasonMissingTrack` (a float track an
     /// entry's clip lacks; item the channel, other the entry),
     /// `maniBuildReasonSpread` (a channel that never varies; item the
-    /// channel); `mani_errorCapacity` when memory runs out.
+    /// channel), `maniBuildReasonMirrorDatabase` (a mirror map of another
+    /// skeleton, item 0; a mirrored entry without one, item the entry);
+    /// `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult

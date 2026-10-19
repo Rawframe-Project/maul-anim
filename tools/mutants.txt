@@ -2043,7 +2043,7 @@ gc-duration | src/graph_match_check.c | ? Seconds(d.value) | ? isfinite(d.value)
 gb-size | src/graph_bind.c | (size_t)graph->databaseCount * sizeof(const maniMotionDatabase*) + | 0 +
 # gb-skeleton survives, equivalent: a database whose clips are the
 # graph's, identities alike, is of the graph's skeleton.
-gb-skeleton | src/graph_bind.c | if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count) | if (d->clipCount != count)
+gb-skeleton | src/graph_bind.c | if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count || | if (d->clipCount != count ||
 gb-clips | src/graph_bind.c | if (maniMotionDatabaseClipIdentity(d, c) != maniGraphClipIdentity(graph, clip)) | if (false)
 gb-query | src/graph_bind.c | if (!maniGraphQueryFits(d, d->channelCount, maniGraphDatabaseChannel, types, queries)) | if (false)
 gb-fits | src/graph_bind.c | return DatabaseFits(graph, slot, d) ? d : NULL; | return d;
@@ -3515,7 +3515,30 @@ rgm-inline-out | src/graph_inline.c | out->source.mirrorMap = f.mirrorMap; | (vo
 rgm-marker-name | src/graph_update.c | return maniGraphNodeName(u, p, maniClipMarkerAt(clip, k).nameHash); | return maniClipMarkerAt(clip, k).nameHash;
 rgm-advance-move | src/graph_update.c | move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move)); | move = Carried(u, Word(u, data), &clip, move);
 rgm-learned-move | src/graph_learned_step.c | move = maniGraphNodeMove(l->u, l->p, move); | (void)0;
-rgm-match-move | src/graph_match_step.c | maniRootMove move = maniGraphNodeMove(m->u, m->p, at.move); | maniRootMove move = at.move;
+rgm-match-move | src/graph_match_step.c | move = maniGraphNodeMove(m->u, m->p, move); | (void)0;
 rgm-evaluate | src/graph_evaluate.c | if (input == NULL || maniMirrorPose(b->mirrorMap, b->skeleton, input, out) != mani_success) | if (input == NULL || maniPoseSetRest(out, b->skeleton) != mani_success)
 rmn-hash | src/mirror.c | return e != NULL ? maniLoadU64(e + 8) : hash; | return hash;
 rgm-learned-name | src/graph_learned_step.c | uint64_t hash = maniGraphNodeName( | uint64_t hash = (
+
+# Mirrored database entries (mani-0033)
+rmd-open-size | src/match.c | if (s->sizes[9] != 0 && s->sizes[9] != 8) | if (false)
+rmd-open-identity | src/match.c | if (s->sizes[9] != 0 && d->mirrorMapIdentity == 0) | if (false)
+rmd-open-needs-map | src/match.c | flags <= MANI_MATCH_ENTRY_FLAGS && (!mirrored || d->mirrorMapIdentity != 0), | flags <= MANI_MATCH_ENTRY_FLAGS,
+rmd-open-flags | src/match.c | flags <= MANI_MATCH_ENTRY_FLAGS && (!mirrored || d->mirrorMapIdentity != 0), | flags <= 15u && (!mirrored || d->mirrorMapIdentity != 0),
+rmd-reader | src/match.c | return database != NULL ? database->mirrorMapIdentity : 0; | return 0;
+rmd-track-partner | src/match_build.c | name = maniMirrorName(s->mirrorMap, name, length, &length); | (void)name;
+rmd-entry-flags | src/match_build.c | if (e->clip >= s->clipCount || e->flags > MANI_MATCH_ENTRY_FLAGS) | if (e->clip >= s->clipCount || e->flags > 15u)
+rmd-no-map | src/match_build.c | if ((entry->flags & MANI_MATCH_MIRRORED) != 0 && s->mirrorMap == NULL) | if (false)
+rmd-map-skeleton | src/match_build.c | if (map != NULL && (map->skeletonIdentity != maniSkeletonIdentity(s->skeleton) || | if (map != NULL && (false ||
+rmd-map-count | src/match_build.c | map->boneCount != maniSkeletonBoneCount(s->skeleton))) | false))
+rmd-section | src/match_build.c | mirrors ? 8u : 0u}; | 0u};
+rmd-mirrors | src/match_build.c | if ((s->entries[e].flags & MANI_MATCH_MIRRORED) != 0) | if (false)
+rmd-sample-move | src/match_sample.c | p.move = Mirrored(e) ? maniMirrorRootMotion(s->source->mirrorMap, p.move) : p.move; | (void)p;
+rmd-sample-cache | src/match_sample.c | bool sampled = s->sampledClip == clip && a == b && s->sampledMirrored == mirrored; | bool sampled = s->sampledClip == clip && a == b;
+rmd-sample-pose | src/match_sample.c | (mirrored && maniMirrorPose(s->source->mirrorMap, skeleton, s->pose, | (false && maniMirrorPose(s->source->mirrorMap, skeleton, s->pose,
+rmd-graph-check | src/graph_match_check.c | if (mirror != 0 && (source->mirrorMap == NULL || source->mirrorMap->identity != mirror)) | if (false)
+rmd-graph-check-other | src/graph_match_check.c | if (mirror != 0 && (source->mirrorMap == NULL || source->mirrorMap->identity != mirror)) | if (mirror != 0 && source->mirrorMap == NULL)
+rmd-bind | src/graph_bind.c | (mirror != 0 && mirror != graph->mirrorMapIdentity)) | false)
+rmd-evaluate | src/graph_evaluate.c | if ((m.flags & MANI_MATCH_MIRRORED) != 0) | if (false)
+rmd-events | src/graph_match_step.c | u->events[i].nameHash = maniMirrorNameHash(u->binding->mirrorMap, u->events[i].nameHash); | (void)u;
+rmd-move | src/graph_match_step.c | maniRootMove move = (e.flags & MANI_MATCH_MIRRORED) != 0 | maniRootMove move = false

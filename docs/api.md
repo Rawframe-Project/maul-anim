@@ -983,6 +983,11 @@ uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database);
 Returns a database's identity: the hash of its sections.  @param database  An opened database, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
 
 ```c
+uint64_t maniMotionDatabaseMirrorMapIdentity(const maniMotionDatabase* database);
+```
+Returns the identity of the mirror map a database's mirrored entries play through (mani-0033).  @param database  An opened database, or NULL. @return The map's identity; 0 for a database without mirrored entries, or NULL. @par Thread safety Safe from any thread.
+
+```c
 uint64_t maniMotionDatabaseSkeletonIdentity(const maniMotionDatabase* database);
 ```
 Returns the identity of the skeleton a database was built for.  @param database  An opened database, or NULL. @return The identity; 0 for NULL. @par Thread safety Safe from any thread.
@@ -1034,7 +1039,7 @@ Building motion databases (mani-0024): channels sampled from a skeleton's clips 
 ```c
 MANI_NODISCARD MANI_API maniBuildResult maniBuildMotionDatabase(maniBuilder* builder, const maniMotionDatabaseSource* source);
 ```
-Builds a motion database: samples every entry's frames, each channel at each of its times (clamped to the entry's ends, or wrapped when it loops), in the root's space at the frame (the clip's root motion carrying the root between times; a bone's velocity the difference of its positions a frame either side over their time apart), normalizes each channel, and bounds every run of 16 and 64 frames. Keeps the file in place of any built before.  @param builder  The builder. @param source   The database. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonTiming` (the rate), `maniBuildReasonOption` (the axes), `maniBuildReasonCount` (no channels, clips or entries, too many, or past MANI_MATCH_MAX_FRAMES frames or MANI_MATCH_MAX_FEATURES features), `maniBuildReasonJoint` (a clip of another skeleton or additive; item the clip), `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry` (item the entry), `maniBuildReasonMissingTrack` (a float track an entry's clip lacks; item the channel, other the entry), `maniBuildReasonSpread` (a channel that never varies; item the channel); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
+Builds a motion database: samples every entry's frames, each channel at each of its times (clamped to the entry's ends, or wrapped when it loops), in the root's space at the frame (the clip's root motion carrying the root between times; a bone's velocity the difference of its positions a frame either side over their time apart), normalizes each channel, and bounds every run of 16 and 64 frames. A mirrored entry's frames are sampled from its clip's poses mirrored, its root moves reflected and each float track channel from the track the map pairs its name with, as a mirrored clip's would be. Keeps the file in place of any built before.  @param builder  The builder. @param source   The database. @return `mani_success`; `mani_errorInvalid` for a NULL argument (a misuse), or with the reason and item for a refused source: `maniBuildReasonTiming` (the rate), `maniBuildReasonOption` (the axes), `maniBuildReasonCount` (no channels, clips or entries, too many, or past MANI_MATCH_MAX_FRAMES frames or MANI_MATCH_MAX_FEATURES features), `maniBuildReasonJoint` (a clip of another skeleton or additive; item the clip), `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry` (item the entry), `maniBuildReasonMissingTrack` (a float track an entry's clip lacks; item the channel, other the entry), `maniBuildReasonSpread` (a channel that never varies; item the channel), `maniBuildReasonMirrorDatabase` (a mirror map of another skeleton, item 0; a mirrored entry without one, item the entry); `mani_errorCapacity` when memory runs out. @par Thread safety Safe from any thread; the builder is used by one thread at a time.
 
 ## `mirror.h`
 
@@ -1635,4 +1640,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-305 functions across 27 headers.
+306 functions across 27 headers.

@@ -12,7 +12,9 @@
 // turned by its model rotation and the move. The trajectory is the move
 // itself on the ground plane: the two axes besides the up axis, in
 // order; a facing is the forward axis turned by the move's rotation,
-// projected the same way (not renormalized, as Holden's).
+// projected the same way (not renormalized, as Holden's). A mirrored
+// entry's poses are mirrored and its moves reflected through the
+// source's mirror map (mani-0033), as a mirrored clip's would be.
 
 #include "match_sample.h"
 
@@ -22,6 +24,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/match.h"
 #include "maul-anim/matchbuild.h"
+#include "maul-anim/mirror.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/rootmotion.h"
 
@@ -30,23 +33,33 @@
 #include <stdint.h>
 #include <string.h>
 
-static maniMatchPlace Locate(const maniClip* clip, const maniMatchEntrySource* e, float t,
-                             double step)
+static bool Mirrored(const maniMatchEntrySource* e)
 {
-    maniMatchSpan span = {e->start, e->end, (e->flags & MANI_MATCH_LOOP) != 0};
-    return maniMatchLocate(clip, span, t, step);
+    return (e->flags & MANI_MATCH_MIRRORED) != 0;
 }
 
-static bool Model(maniMatchSampler* s, const maniClip* clip, float time, uint32_t bone,
-                  maniTransform* out)
+static maniMatchPlace Locate(const maniMatchSampler* s, const maniClip* clip,
+                             const maniMatchEntrySource* e, float t, double step)
+{
+    maniMatchSpan span = {e->start, e->end, (e->flags & MANI_MATCH_LOOP) != 0};
+    maniMatchPlace p = maniMatchLocate(clip, span, t, step);
+    p.move = Mirrored(e) ? maniMirrorRootMotion(s->source->mirrorMap, p.move) : p.move;
+    return p;
+}
+
+static bool Model(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
+                  float time, uint32_t bone, maniTransform* out)
 {
     const maniSkeleton* skeleton = s->source->skeleton;
     uint32_t a = 0;
     uint32_t b = 0;
     memcpy(&a, &s->sampledTime, sizeof a);
     memcpy(&b, &time, sizeof b);
-    bool sampled = s->sampledClip == clip && a == b;
+    bool mirrored = Mirrored(e);
+    bool sampled = s->sampledClip == clip && a == b && s->sampledMirrored == mirrored;
     if (!sampled && (maniSampleClip(clip, skeleton, time, s->pose) != mani_success ||
+                     (mirrored && maniMirrorPose(s->source->mirrorMap, skeleton, s->pose,
+                                                 s->pose) != mani_success) ||
                      maniComputeModel(s->pose, skeleton) != mani_success))
     {
         s->sampledClip = NULL;
@@ -54,15 +67,16 @@ static bool Model(maniMatchSampler* s, const maniClip* clip, float time, uint32_
     }
     s->sampledClip = clip;
     s->sampledTime = time;
+    s->sampledMirrored = mirrored;
     *out = maniPoseModelTransform(s->pose, bone);
     return true;
 }
 
-static bool Position(maniMatchSampler* s, const maniClip* clip, maniMatchPlace p, uint32_t bone,
-                     maniVec3* out)
+static bool Position(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
+                     maniMatchPlace p, uint32_t bone, maniVec3* out)
 {
     maniTransform m;
-    if (!Model(s, clip, p.time, bone, &m))
+    if (!Model(s, clip, e, p.time, bone, &m))
     {
         return false;
     }
@@ -74,11 +88,11 @@ static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchE
                      float t, double step, uint32_t bone, maniVec3* out)
 {
     double h = 1.0 / (double)s->source->sampleRate;
-    maniMatchPlace before = Locate(clip, e, t, step - h);
-    maniMatchPlace after = Locate(clip, e, t, step + h);
+    maniMatchPlace before = Locate(s, clip, e, t, step - h);
+    maniMatchPlace after = Locate(s, clip, e, t, step + h);
     maniVec3 a;
     maniVec3 b;
-    if (!Position(s, clip, before, bone, &a) || !Position(s, clip, after, bone, &b))
+    if (!Position(s, clip, e, before, bone, &a) || !Position(s, clip, e, after, bone, &b))
     {
         return false;
     }
@@ -91,11 +105,11 @@ static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchE
     return true;
 }
 
-static bool Facing(maniMatchSampler* s, const maniClip* clip, maniMatchPlace p,
-                   const maniMatchChannelSource* c, maniVec3* out)
+static bool Facing(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
+                   maniMatchPlace p, const maniMatchChannelSource* c, maniVec3* out)
 {
     maniTransform m;
-    if (!Model(s, clip, p.time, c->bone, &m))
+    if (!Model(s, clip, e, p.time, c->bone, &m))
     {
         return false;
     }
@@ -122,19 +136,19 @@ static bool Channel(maniMatchSampler* s, uint32_t e, uint32_t c, float t, float 
     const maniMatchEntrySource* entry = &src->entries[e];
     const maniMatchChannelSource* ch = &src->channels[c];
     const maniClip* clip = src->clips[entry->clip];
-    maniMatchPlace p = Locate(clip, entry, t, (double)time);
+    maniMatchPlace p = Locate(s, clip, entry, t, (double)time);
     maniVec3 v = {0.0f, 0.0f, 0.0f};
     bool ok = true;
     switch (ch->kind)
     {
     case maniMatchBonePosition:
-        ok = Position(s, clip, p, ch->bone, &v);
+        ok = Position(s, clip, entry, p, ch->bone, &v);
         break;
     case maniMatchBoneVelocity:
         ok = Velocity(s, clip, entry, t, (double)time, ch->bone, &v);
         break;
     case maniMatchBoneFacing:
-        ok = Facing(s, clip, p, ch, &v);
+        ok = Facing(s, clip, entry, p, ch, &v);
         break;
     case maniMatchTrajectoryPosition:
         maniMatchGround(p.move.translation, src->up, out);

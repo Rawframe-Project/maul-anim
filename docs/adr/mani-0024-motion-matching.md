@@ -106,8 +106,10 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   database measures its own: offset and turned forward axis in the
   root's frame, on the database's ground plane. Past times come from
   the host's record, as in Holden's controller.
-- **The file** (container kind 8): the channels and their times, the
-  clips by identity, the entries, the normalization, the normalized
+- **The file** (container kind 8, format version 2 since mirrored
+  entries joined it, mani-0033): the channels and their times, the
+  clips by identity, the entries, the mirror map's identity when an
+  entry is mirrored, the normalization, the normalized
   features frame by frame, and bounds over runs of 16 and 64 frames
   (Holden's runs, crossing entries). Opening recomputes every bound
   and refuses one that is not its run's exact minimum or maximum, as

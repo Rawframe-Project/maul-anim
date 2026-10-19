@@ -80,6 +80,12 @@ format.
   beneath it give their moves reflected and their events and sync
   markers renamed, with `maniMirrorNameHash` for hashed names; the
   graph format is version 3.
+- Mirrored motion database entries (mani-0033): `MANI_MATCH_MIRRORED`
+  samples an entry's clip mirrored through the database source's
+  `mirrorMap` (features exactly a mirrored bake's, float track channels
+  from the partner tracks), read by
+  `maniMotionDatabaseMirrorMapIdentity`; matching nodes play such
+  entries mirrored; the database format is version 2.
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

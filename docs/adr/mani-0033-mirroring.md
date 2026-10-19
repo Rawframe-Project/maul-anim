@@ -61,6 +61,14 @@ global rotations with a sign pattern that fits his rig only.
   match or learned node gives its moves reflected and its events and
   sync markers renamed by hash (a mirrored walk follows its unmirrored
   leader foot for foot), and two mirrors cancel.
+- **Databases:** an entry flagged mirrored is its clip's span
+  mirrored through the database's mirror map (whose identity the file
+  keeps): its frames sampled with each pose mirrored, each move
+  reflected and each float track channel read from the partner track,
+  exactly a mirrored bake's features without the bake. A graph whose
+  database has mirrored entries names the same map; its matching node
+  plays a mirrored entry mirrored (pose, moves, events), combined with
+  the node's own mirror parity.
 
 ## Consequences
 
@@ -95,4 +103,12 @@ rig, a node reached both ways, differences, a subgraph's other map),
 the binder's (no map, another, a crafted view of another rig) and the
 opener's (an identity of 0, a section of 4 bytes, a mirror node
 without the section), the JSON form built back the same, and
-subgraphs taking the map.
+subgraphs taking the map. The database's tests build a walk and the
+walk mirrored and compare every frame with a database over the walk
+and its mirrored bake (bone positions, velocities and facings, the
+trajectory and its facing, a float track from its partner), the map
+kept, the builder's refusals (no map, a map of another rig, a partner
+track missing), the opener's (an identity of 0, a section of 4 bytes,
+a mirrored entry without the section), and a graph playing the
+mirrored entry mirrored and, under a mirror node, as it is, with its
+build and bind refusals.

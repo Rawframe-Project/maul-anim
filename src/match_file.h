@@ -12,8 +12,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_MATCH_FORMAT_VERSION 1u
-#define MANI_MATCH_SECTIONS       9u
+#define MANI_MATCH_FORMAT_VERSION 2u
+#define MANI_MATCH_SECTIONS       10u
 
 enum
 {
@@ -42,7 +42,13 @@ enum
     maniMatchTagBounds = 8,
     // The float tracks' names, UTF-8, end to end.
     maniMatchTagNames = 9,
+    // The mirror map's identity (u64) when an entry is mirrored, else
+    // nothing.
+    maniMatchTagMirror = 10,
 };
+
+// Every flag an entry may carry.
+#define MANI_MATCH_ENTRY_FLAGS (MANI_MATCH_LOOP | MANI_MATCH_NO_JUMP | MANI_MATCH_MIRRORED)
 
 #define MANI_MATCH_HEADER_SIZE  48u
 #define MANI_MATCH_CHANNEL_SIZE 40u

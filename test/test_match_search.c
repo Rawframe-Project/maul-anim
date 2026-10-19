@@ -166,7 +166,9 @@ static void Write(const Layout* l, maniMotionDatabase* d)
     at[7] = at[6] + 4 * (size_t)l->frames * n;
     at[8] = Bounds(l, at[7], MANI_MATCH_SMALL_RUN);
     at[8] = Bounds(l, at[8], MANI_MATCH_LARGE_RUN);
+    // No names, no mirror.
     at[9] = at[8];
+    at[10] = at[9];
     const uint8_t* data[MANI_MATCH_SECTIONS];
     uint64_t sizes[MANI_MATCH_SECTIONS];
     maniSectionSource sections[MANI_MATCH_SECTIONS];

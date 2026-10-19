@@ -35,6 +35,7 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/match.h"
+#include "maul-anim/mirror.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -81,8 +82,8 @@ static uint32_t ClipSlot(const Match* m, uint32_t clip)
 }
 
 // The events of a move from t0 by step through a span, across wraps.
-static void Events(const Match* m, uint32_t slot, const maniClip* clip, const maniMatchEntry* e,
-                   const maniMatchPlace* at)
+static void Stretches(const Match* m, uint32_t slot, const maniClip* clip, const maniMatchEntry* e,
+                      const maniMatchPlace* at)
 {
     double t0 = m->s->from;
     if (at->wraps == 0.0)
@@ -93,6 +94,21 @@ static void Events(const Match* m, uint32_t slot, const maniClip* clip, const ma
     maniGraphEmit(m->u, m->p, slot, clip, t0, (double)e->end);
     maniGraphEmitLoops(m->u, m->p, slot, clip, (double)e->start, (double)e->end, at->wraps - 1.0);
     maniGraphEmit(m->u, m->p, slot, clip, (double)e->start, (double)at->time);
+}
+
+// The events listed; a mirrored entry's renamed through the map (again
+// over the node's own renaming, which the map undoes).
+static void Events(const Match* m, uint32_t slot, const maniClip* clip, const maniMatchEntry* e,
+                   const maniMatchPlace* at)
+{
+    maniGraphUpdate* u = m->u;
+    uint64_t first = u->count;
+    Stretches(m, slot, clip, e, at);
+    for (uint64_t i = first;
+         (e->flags & MANI_MATCH_MIRRORED) != 0 && i < u->count && i < u->capacity; ++i)
+    {
+        u->events[i].nameHash = maniMirrorNameHash(u->binding->mirrorMap, u->events[i].nameHash);
+    }
 }
 
 // The playhead moved through its entry; whether a clamped entry reached
@@ -120,7 +136,11 @@ static bool Play(const Match* m, double step)
     }
     if (s->rootWeight > 0.0f)
     {
-        maniRootMove move = maniGraphNodeMove(m->u, m->p, at.move);
+        // A mirrored entry's move reflected, then the node's.
+        maniRootMove move = (e.flags & MANI_MATCH_MIRRORED) != 0
+                                ? maniMirrorRootMotion(m->u->binding->mirrorMap, at.move)
+                                : at.move;
+        move = maniGraphNodeMove(m->u, m->p, move);
         maniRootMotionSumAdd(&m->u->root, &move, (double)s->rootWeight);
     }
     s->step = step;

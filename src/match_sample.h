@@ -17,7 +17,7 @@
 #include <stdint.h>
 
 // What sampling a frame needs: the source, a pose of its skeleton (its
-// model kept for the clip and time it last sampled), room for the most
+// model kept for the clip, time and mirroring it last sampled), room for the most
 // float tracks a clip has, and per channel per entry the float track's
 // index in that entry's clip (channel-major, entries along; UINT32_MAX
 // for other kinds).
@@ -28,6 +28,7 @@ typedef struct maniMatchSampler
     float* floats;
     uint32_t floatCapacity;
     float sampledTime;
+    bool sampledMirrored;
     const maniClip* sampledClip;
     const uint32_t* tracks;
 } maniMatchSampler;

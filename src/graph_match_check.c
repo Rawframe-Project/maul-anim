@@ -59,6 +59,12 @@ maniBuildResult maniCheckGraphDatabases(const maniGraphSource* source, uint64_t*
         {
             return Refuse(maniBuildReasonDatabase, i, 0);
         }
+        // Mirrored entries play through the graph's mirror map.
+        uint64_t mirror = maniMotionDatabaseMirrorMapIdentity(d);
+        if (mirror != 0 && (source->mirrorMap == NULL || source->mirrorMap->identity != mirror))
+        {
+            return Refuse(maniBuildReasonMirrorGraph, i, 3);
+        }
         for (uint32_t k = 0; k < i; ++k)
         {
             if (maniMotionDatabaseIdentity(source->databases[k].database) ==

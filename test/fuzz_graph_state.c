@@ -106,8 +106,8 @@ static bool MakeDatabase(maniBuilder* builder)
     const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
     const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
                                              {0, 0, 0.0f, 1.0f, 0.5f, 2u}};
-    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,       1, 1,
-                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,        1,   1,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
     size_t size = 0;
     return maniBuildMotionDatabase(builder, &source).result == mani_success &&
            Built(builder, s_databaseFile, sizeof s_databaseFile, &size) &&

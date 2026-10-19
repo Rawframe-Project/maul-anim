@@ -234,7 +234,8 @@ static void TestAxes(void)
     const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u};
     maniMotionDatabaseSource source = {
         &s_skeleton, clips, &kChannel, &entry,         1,
-        1,           1,     10.0f,     maniMatchAxisZ, maniMatchAxisNegativeX};
+        1,           1,     10.0f,     maniMatchAxisZ, maniMatchAxisNegativeX,
+        NULL};
     maniMotionDatabase d;
     maniBuilder* builder = NewBuilder();
     size_t size = 0;

@@ -78,7 +78,9 @@ static bool DatabaseFits(const maniGraph* graph, uint32_t slot, const maniMotion
     const uint8_t* e = graph->databases + (size_t)slot * MANI_GRAPH_DATABASE_SIZE;
     uint32_t first = maniLoadU32(e + 24);
     uint32_t count = maniLoadU32(e + 28);
-    if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count)
+    uint64_t mirror = maniMotionDatabaseMirrorMapIdentity(d);
+    if (maniMotionDatabaseSkeletonIdentity(d) != graph->skeletonIdentity || d->clipCount != count ||
+        (mirror != 0 && mirror != graph->mirrorMapIdentity))
     {
         return false;
     }

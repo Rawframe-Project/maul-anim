@@ -100,8 +100,9 @@ static maniMotionDatabaseSource Source(void)
     s_entries[0] = (maniMatchEntrySource){0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.5f, 2u};
     s_entries[2] = (maniMatchEntrySource){2, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 4u};
-    return (maniMotionDatabaseSource){&s_skeleton, s_clipList, s_channels,     s_entries,     3, 4,
-                                      3,           10.0f,      maniMatchAxisY, maniMatchAxisZ};
+    return (maniMotionDatabaseSource){
+        &s_skeleton, s_clipList, s_channels,     s_entries,      3,   4,
+        3,           10.0f,      maniMatchAxisY, maniMatchAxisZ, NULL};
 }
 
 static _Alignas(16) uint8_t s_database[1 << 16];
@@ -301,8 +302,8 @@ static void TestFloatTrack(void)
     s_clipList[0] = &s_turn;
     maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     maniMatchEntrySource entry = {0, 0, 0.0f, 1.0f, 0.0f, 0u};
-    maniMotionDatabaseSource source = {&s_skeleton, s_clipList, &channel,       &entry,        1, 1,
-                                       1,           10.0f,      maniMatchAxisY, maniMatchAxisZ};
+    maniMotionDatabaseSource source = {&s_skeleton, s_clipList,     &channel,       &entry, 1, 1, 1,
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL};
     maniMotionDatabase d;
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
@@ -403,7 +404,7 @@ static void TestChannelRefusals(void)
 static void TestEntryRefusals(void)
 {
     const maniMatchEntrySource kBad[7] = {
-        {3, 0, 0.0f, 1.0f, 0.0f, 0u},  {0, 4, 0.0f, 1.0f, 0.0f, 0u},
+        {3, 0, 0.0f, 1.0f, 0.0f, 0u},  {0, 8, 0.0f, 1.0f, 0.0f, 0u},
         {0, 0, -0.1f, 1.0f, 0.0f, 0u}, {0, 0, 0.0f, 1.5f, 0.0f, 0u},
         {0, 0, 0.6f, 0.5f, 0.0f, 0u},  {0, MANI_MATCH_LOOP, 0.5f, 0.5f, 0.0f, 0u},
         {0, 0, 0.0f, 1.0f, NAN, 0u}};
@@ -414,6 +415,9 @@ static void TestEntryRefusals(void)
         CHECK(Refused(&s, maniBuildReasonEntry, 1, 0), "an entry refused");
     }
     maniMotionDatabaseSource s = Source();
+    s_entries[1].flags = MANI_MATCH_MIRRORED;
+    CHECK(Refused(&s, maniBuildReasonMirrorDatabase, 1, 0), "a mirrored entry without a map");
+    s = Source();
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.5f, 0.5f, 0.0f, 0u};
     CHECK(Build(&s).result == mani_success, "a clamped entry of one frame");
     // 4 / 30 in binary32 is a hair above it in binary64: the frame at

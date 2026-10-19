@@ -193,7 +193,7 @@ static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
     uint64_t features = d->featureCount;
     uint64_t runs = (uint64_t)maniMatchRuns(d->frameCount, MANI_MATCH_SMALL_RUN) +
                     maniMatchRuns(d->frameCount, MANI_MATCH_LARGE_RUN);
-    const uint64_t sizes[MANI_MATCH_SECTIONS - 2] = {
+    const uint64_t sizes[MANI_MATCH_SECTIONS - 3] = {
         (uint64_t)d->channelCount * MANI_MATCH_CHANNEL_SIZE,
         4 * (uint64_t)d->timeCount,
         8 * (uint64_t)d->clipCount,
@@ -201,7 +201,7 @@ static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
         8 * features,
         4 * features * d->frameCount,
         8 * features * runs};
-    for (uint32_t k = 0; k < MANI_MATCH_SECTIONS - 2; ++k)
+    for (uint32_t k = 0; k < MANI_MATCH_SECTIONS - 3; ++k)
     {
         if (s->sizes[k + 1] != sizes[k])
         {
@@ -217,6 +217,16 @@ static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
     d->bounds = s->data[7];
     d->names = s->data[8];
     d->namesSize = s->sizes[8];
+    // The mirror map's identity, not 0, or nothing.
+    if (s->sizes[9] != 0 && s->sizes[9] != 8)
+    {
+        return Fail(s->entry[9]);
+    }
+    d->mirrorMapIdentity = s->sizes[9] != 0 ? maniLoadU64(s->data[9]) : 0;
+    if (s->sizes[9] != 0 && d->mirrorMapIdentity == 0)
+    {
+        return Fail(s->at[9]);
+    }
     return kOk;
 }
 
@@ -307,17 +317,18 @@ static uint32_t EntryWrong(const maniMotionDatabase* d, const uint8_t* e, uint32
     float start = LoadF32(e + 8);
     float end = LoadF32(e + 12);
     bool loop = (flags & MANI_MATCH_LOOP) != 0;
+    bool mirrored = (flags & MANI_MATCH_MIRRORED) != 0;
     bool span = start >= 0.0f && start < HUGE_VALF;
-    const bool valid[8] = {maniLoadU32(e) < d->clipCount,
-                           flags <= (MANI_MATCH_LOOP | MANI_MATCH_NO_JUMP),
-                           span,
-                           end < HUGE_VALF && (loop ? end > start : end >= start),
-                           fabsf(LoadF32(e + 16)) < HUGE_VALF,
-                           true,
-                           maniLoadU32(e + 24) == frameAt,
-                           maniLoadU32(e + 28) ==
-                                   maniMatchEntryFrames(start, end, d->sampleRate, loop) &&
-                               maniLoadU32(e + 28) >= 1};
+    const bool valid[8] = {
+        maniLoadU32(e) < d->clipCount,
+        flags <= MANI_MATCH_ENTRY_FLAGS && (!mirrored || d->mirrorMapIdentity != 0),
+        span,
+        end < HUGE_VALF && (loop ? end > start : end >= start),
+        fabsf(LoadF32(e + 16)) < HUGE_VALF,
+        true,
+        maniLoadU32(e + 24) == frameAt,
+        maniLoadU32(e + 28) == maniMatchEntryFrames(start, end, d->sampleRate, loop) &&
+            maniLoadU32(e + 28) >= 1};
     for (uint32_t k = 0; k < 8; ++k)
     {
         if (!valid[k])
@@ -456,6 +467,11 @@ maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
 uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database)
 {
     return database != NULL ? database->identity : 0;
+}
+
+uint64_t maniMotionDatabaseMirrorMapIdentity(const maniMotionDatabase* database)
+{
+    return database != NULL ? database->mirrorMapIdentity : 0;
 }
 
 uint64_t maniMotionDatabaseSkeletonIdentity(const maniMotionDatabase* database)

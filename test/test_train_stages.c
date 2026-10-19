@@ -613,8 +613,8 @@ static void TestProjectorNoJump(void)
     const maniClip* clips[2] = {&s_clips[0], &s_clips[1]};
     const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
                                              {1, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 2u}};
-    maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       entries,       2, 2,
-                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       entries,        2,   2,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     maniMotionDatabase database;

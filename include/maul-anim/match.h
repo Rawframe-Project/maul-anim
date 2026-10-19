@@ -68,9 +68,11 @@ extern "C"
 #define MANI_MATCH_MAX_HISTORY 8u
 
 // An entry's flags: its times wrap from its end to its start (else they
-// clamp to its ends); its frames play but are never jumped to.
-#define MANI_MATCH_LOOP    1u
-#define MANI_MATCH_NO_JUMP 2u
+// clamp to its ends); its frames play but are never jumped to; its clip
+// plays mirrored through the database's mirror map (mani-0033).
+#define MANI_MATCH_LOOP     1u
+#define MANI_MATCH_NO_JUMP  2u
+#define MANI_MATCH_MIRRORED 4u
 
     // A channel as the database holds it: its kind, bone (bone kinds),
     // axis (a bone's facing), times (the first timeCount), weight, and its
@@ -118,6 +120,7 @@ extern "C"
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
+        uint64_t mirrorMapIdentity;
         uint32_t skeletonBoneCount;
         uint32_t frameCount;
         uint32_t featureCount;
@@ -154,6 +157,16 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database);
+
+    /// Returns the identity of the mirror map a database's mirrored
+    /// entries play through (mani-0033).
+    ///
+    /// @param database  An opened database, or NULL.
+    /// @return The map's identity; 0 for a database without mirrored
+    /// entries, or NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint64_t maniMotionDatabaseMirrorMapIdentity(const maniMotionDatabase* database);
 
     /// Returns the identity of the skeleton a database was built for.
     ///

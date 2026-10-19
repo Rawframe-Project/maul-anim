@@ -450,6 +450,11 @@ static void SampleMatch(const Evaluation* e, const uint8_t* record, uint32_t cur
     maniClipCursor* c = memory;
     (void)maniSampleClipCursor(c, e->binding->clips[clipSlot], e->binding->skeleton, (float)s->time,
                                out);
+    // A mirrored entry plays mirrored (its map bound as the graph's).
+    if ((m.flags & MANI_MATCH_MIRRORED) != 0)
+    {
+        (void)maniMirrorPose(e->binding->mirrorMap, e->binding->skeleton, out, out);
+    }
 }
 
 // The character's place a spring node reads: its position and rotation

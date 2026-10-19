@@ -77,7 +77,7 @@ static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChann
 
 static bool EntryValid(const maniMotionDatabaseSource* s, const maniMatchEntrySource* e)
 {
-    if (e->clip >= s->clipCount || e->flags > (MANI_MATCH_LOOP | MANI_MATCH_NO_JUMP))
+    if (e->clip >= s->clipCount || e->flags > MANI_MATCH_ENTRY_FLAGS)
     {
         return false;
     }
@@ -102,6 +102,21 @@ static maniBuildResult CheckClips(const maniMotionDatabaseSource* s)
     return kOk;
 }
 
+// The float track a channel reads in an entry's clip: the one of its
+// name, or of the name the map pairs it with for a mirrored entry;
+// MANI_NO_TRACK when the clip has none.
+static uint32_t TrackOf(const maniMotionDatabaseSource* s, const maniMatchChannelSource* ch,
+                        const maniMatchEntrySource* e)
+{
+    size_t length = ch->trackLength;
+    const char* name = ch->track;
+    if ((e->flags & MANI_MATCH_MIRRORED) != 0)
+    {
+        name = maniMirrorName(s->mirrorMap, name, length, &length);
+    }
+    return maniClipFindFloatTrack(s->clips[e->clip], name, length);
+}
+
 static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* t)
 {
     uint64_t features = 0;
@@ -117,8 +132,7 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
         t->names += ch->kind == maniMatchFloatTrack ? ch->trackLength : 0u;
         for (uint32_t e = 0; ch->kind == maniMatchFloatTrack && e < s->entryCount; ++e)
         {
-            const maniClip* clip = s->clips[s->entries[e].clip];
-            if (maniClipFindFloatTrack(clip, ch->track, ch->trackLength) == MANI_NO_TRACK)
+            if (TrackOf(s, ch, &s->entries[e]) == MANI_NO_TRACK)
             {
                 return Refuse(maniBuildReasonMissingTrack, c, e);
             }
@@ -141,6 +155,10 @@ static maniBuildResult CheckEntries(const maniMotionDatabaseSource* s, Totals* t
         if (!EntryValid(s, entry))
         {
             return Refuse(maniBuildReasonEntry, e, 0);
+        }
+        if ((entry->flags & MANI_MATCH_MIRRORED) != 0 && s->mirrorMap == NULL)
+        {
+            return Refuse(maniBuildReasonMirrorDatabase, e, 0);
         }
         frames += maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
                                        (entry->flags & MANI_MATCH_LOOP) != 0);
@@ -169,6 +187,12 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
         s->entryCount > MANI_MATCH_MAX_ENTRIES)
     {
         return Refuse(maniBuildReasonCount, 0, 0);
+    }
+    const maniMirrorMap* map = s->mirrorMap;
+    if (map != NULL && (map->skeletonIdentity != maniSkeletonIdentity(s->skeleton) ||
+                        map->boneCount != maniSkeletonBoneCount(s->skeleton)))
+    {
+        return Refuse(maniBuildReasonMirrorDatabase, 0, 0);
     }
     maniBuildResult r = CheckClips(s);
     r = r.result == mani_success ? CheckEntries(s, t) : r;
@@ -255,13 +279,10 @@ static bool Sample(Work* w)
         for (uint32_t e = 0; e < s->entryCount; ++e)
         {
             w->tracks[(size_t)c * s->entryCount + e] =
-                ch->kind == maniMatchFloatTrack
-                    ? maniClipFindFloatTrack(s->clips[s->entries[e].clip], ch->track,
-                                             ch->trackLength)
-                    : UINT32_MAX;
+                ch->kind == maniMatchFloatTrack ? TrackOf(s, ch, &s->entries[e]) : UINT32_MAX;
         }
     }
-    maniMatchSampler sampler = {s, pose, w->floats, w->floatCapacity, 0.0f, NULL, w->tracks};
+    maniMatchSampler sampler = {s, pose, w->floats, w->floatCapacity, 0.0f, false, NULL, w->tracks};
     float* out = w->features;
     bool ok = true;
     for (uint32_t e = 0; e < s->entryCount && ok; ++e)
@@ -423,10 +444,24 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
     maniStoreU32(header + 44, s->forward);
 }
 
+// Whether an entry is mirrored: the file then keeps the map's identity.
+static bool Mirrors(const maniMotionDatabaseSource* s)
+{
+    for (uint32_t e = 0; e < s->entryCount; ++e)
+    {
+        if ((s->entries[e].flags & MANI_MATCH_MIRRORED) != 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 static maniBuildResult Write(maniBuilder* builder, const Work* w)
 {
     const maniMotionDatabaseSource* s = w->source;
     const Totals* t = &w->totals;
+    bool mirrors = Mirrors(s);
     const uint64_t sizes[MANI_MATCH_SECTIONS] = {MANI_MATCH_HEADER_SIZE,
                                                  (uint64_t)s->channelCount *
                                                      MANI_MATCH_CHANNEL_SIZE,
@@ -436,7 +471,8 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
                                                  0,
                                                  0,
                                                  0,
-                                                 t->names};
+                                                 t->names,
+                                                 mirrors ? 8u : 0u};
     uint64_t own = 0;
     for (uint32_t i = 0; i < MANI_MATCH_SECTIONS; ++i)
     {
@@ -458,6 +494,10 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
     }
     (void)LayChannels(w, staging + sizes[0], staging + sizes[0] + sizes[1], (uint8_t*)data[8]);
     LayEntries(w, (uint8_t*)data[4], (uint8_t*)data[3], staging);
+    if (mirrors)
+    {
+        maniStoreU64((uint8_t*)data[9], s->mirrorMap->identity);
+    }
     data[5] = (const uint8_t*)w->normalization;
     lengths[5] = 8 * (uint64_t)t->features;
     data[6] = (const uint8_t*)w->features;
