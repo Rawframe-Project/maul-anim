@@ -10,6 +10,8 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "graph_build_ik.h"
+#include "graph_build_words.h"
 #include "graph_check.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
@@ -20,7 +22,7 @@
 #include "graph_match_check.h"
 #include "graph_mirror.h"
 #include "graph_spring.h"
-#include "ik_chain.h"
+#include "graph_turn.h"
 #include "sort.h"
 #include "triangulate.h"
 
@@ -30,7 +32,6 @@
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/graphbuild.h"
-#include "maul-anim/ik.h"
 #include "maul-anim/learned.h"
 #include "maul-anim/match.h"
 #include "maul-anim/skeleton.h"
@@ -135,6 +136,7 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     }
     bool additive = node->kind == maniGraphNodeAdditive;
     bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeMirror ||
+                     node->kind == maniGraphNodeTurnLimit ||
                      (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls);
     uint32_t first = w->difference[node->inputs[0]];
     if ((additive || posesOnly) && first != 0)
@@ -265,13 +267,6 @@ static void PutName(Layout* lay, const char* name, uint32_t length, uint8_t* ent
     lay->namesAt += length;
 }
 
-static void PutFloat(uint8_t* p, float value)
-{
-    uint32_t bits = 0;
-    memcpy(&bits, &value, sizeof bits);
-    maniStoreU32(p, bits);
-}
-
 static void PutParameter(Layout* lay, const maniGraphParameterSource* p, uint8_t* e)
 {
     maniStoreU32(e, p->type);
@@ -303,38 +298,13 @@ static void PutParameter(Layout* lay, const maniGraphParameterSource* p, uint8_t
     double scale = t == maniGraphParameterQuat ? 1.0 / sqrt(length) : 1.0;
     for (uint32_t k = 0; k < n; ++k)
     {
-        PutFloat(e + 24 + 4 * k, (float)((double)p->defaultValue.f[k] * scale));
+        maniGraphPutFloat(e + 24 + 4 * k, (float)((double)p->defaultValue.f[k] * scale));
     }
     if (p->bounded != 0)
     {
-        PutFloat(e + 40, p->minimum.f[0]);
-        PutFloat(e + 44, p->maximum.f[0]);
+        maniGraphPutFloat(e + 40, p->minimum.f[0]);
+        maniGraphPutFloat(e + 44, p->maximum.f[0]);
     }
-}
-
-static uint32_t PutScalar(uint8_t* data, uint32_t at, maniGraphScalar s)
-{
-    maniStoreU32(data + 4 * (size_t)at, s.parameter);
-    PutFloat(data + 4 * (size_t)at + 4, s.parameter == MANI_NO_PARAMETER ? s.value : 0.0f);
-    return at + 2;
-}
-
-static uint32_t PutWords(uint8_t* data, uint32_t at, const uint32_t* words, uint32_t count)
-{
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        maniStoreU32(data + 4 * (size_t)(at + k), words[k]);
-    }
-    return at + count;
-}
-
-static uint32_t PutFloats(uint8_t* data, uint32_t at, const float* values, uint32_t count)
-{
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        PutFloat(data + 4 * (size_t)(at + k), values[k]);
-    }
-    return at + count;
 }
 
 // A triangulated space's count, points and triangles (the authored ones,
@@ -349,14 +319,14 @@ static uint32_t PutTriangles(uint8_t* d, uint32_t at, const maniGraphTrianglesNo
         count = maniTriangulate(s->points, n, mesh);
         for (uint32_t t = 0; t < count; ++t)
         {
-            (void)PutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3);
+            (void)maniGraphPutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3);
         }
     }
     else
     {
-        (void)PutWords(d, at + 1 + 2 * n, s->triangles, 3 * count);
+        (void)maniGraphPutWords(d, at + 1 + 2 * n, s->triangles, 3 * count);
     }
-    at = PutFloats(d, PutWords(d, at, &count, 1), s->points, 2 * n);
+    at = maniGraphPutFloats(d, maniGraphPutWords(d, at, &count, 1), s->points, 2 * n);
     return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n);
 }
 
@@ -373,20 +343,21 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
                                          : &node->triangulated.position;
     bool vector = p->vector != MANI_NO_PARAMETER;
     const maniGraphScalar zero = {MANI_NO_PARAMETER, 0.0f};
-    at = PutWords(d, at, &p->vector, 1);
-    at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector || line ? zero : p->y);
+    at = maniGraphPutWords(d, at, &p->vector, 1);
+    at = maniGraphPutScalar(d, maniGraphPutScalar(d, at, vector ? zero : p->x),
+                            vector || line ? zero : p->y);
     uint32_t n = node->inputCount;
     if (bands)
     {
-        at = PutWords(d, at, &node->bands.polar, 1);
-        return PutFloats(d, at, node->bands.points, 2 * n);
+        at = maniGraphPutWords(d, at, &node->bands.polar, 1);
+        return maniGraphPutFloats(d, at, node->bands.points, 2 * n);
     }
     if (!line)
     {
         return PutTriangles(d, at, &node->triangulated, n, mesh);
     }
-    PutFloat(d + 4 * (size_t)at, node->blendSpace1D.period);
-    at = PutFloats(d, at + 1, node->blendSpace1D.points, n);
+    maniGraphPutFloat(d + 4 * (size_t)at, node->blendSpace1D.period);
+    at = maniGraphPutFloats(d, at + 1, node->blendSpace1D.points, n);
     uint64_t keys[MANI_GRAPH_MAX_SPACE_POINTS];
     uint32_t order[MANI_GRAPH_MAX_SPACE_POINTS];
     uint32_t scratch[MANI_GRAPH_MAX_SPACE_POINTS];
@@ -395,7 +366,7 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
         keys[k] = maniFloatKey(node->blendSpace1D.points[k]);
     }
     maniSortByKey(keys, n, order, scratch);
-    return PutWords(d, at, order, n);
+    return maniGraphPutWords(d, at, order, n);
 }
 
 // A node's data words, by kind; a mask's weights made.
@@ -428,10 +399,10 @@ static uint32_t PutShot(const maniGraphSource* source, const maniGraphNodeSource
                                s->mask != NULL ? lay->maskAt : MANI_GRAPH_NO_MASK,
                                lay->blockAt,
                                count};
-    at = PutWords(d, at, words, 9);
+    at = maniGraphPutWords(d, at, words, 9);
     for (uint32_t c = 0; c < count; ++c)
     {
-        at = PutWords(d, at, &lay->machine.clips[lay->machine.order[c]], 1);
+        at = maniGraphPutWords(d, at, &lay->machine.clips[lay->machine.order[c]], 1);
     }
     if (s->mask != NULL)
     {
@@ -450,9 +421,9 @@ static uint32_t PutMatch(uint8_t* d, uint32_t at, const maniGraphMatchNodeSource
     const uint32_t tags[5] = {m->historyCount, m->requiredTags.parameter, m->requiredTags.value,
                               m->excludedTags.parameter, m->excludedTags.value};
     const uint32_t tail[2] = {lay->blockAt, m->queryCount};
-    at = PutFloats(d, PutWords(d, at, head, 2), numbers, 6);
-    at = PutScalar(d, PutWords(d, at, tags, 5), m->duration);
-    at = PutWords(d, PutWords(d, at, tail, 2), m->query, m->queryCount);
+    at = maniGraphPutFloats(d, maniGraphPutWords(d, at, head, 2), numbers, 6);
+    at = maniGraphPutScalar(d, maniGraphPutWords(d, at, tags, 5), m->duration);
+    at = maniGraphPutWords(d, maniGraphPutWords(d, at, tail, 2), m->query, m->queryCount);
     lay->blockAt += MANI_GRAPH_MATCH_BLOCK_WORDS;
     return at;
 }
@@ -467,9 +438,9 @@ static uint32_t PutLearned(const maniGraphSource* source, uint8_t* d, uint32_t a
     const uint32_t tags[4] = {l->requiredTags.parameter, l->requiredTags.value,
                               l->excludedTags.parameter, l->excludedTags.value};
     const uint32_t tail[5] = {lay->blockAt, states, m->featureCount, m->eventCount, l->queryCount};
-    at = PutFloats(d, PutWords(d, at, head, 2), numbers, 2);
-    at = PutScalar(d, PutWords(d, at, tags, 4), l->duration);
-    at = PutWords(d, PutWords(d, at, tail, 5), l->query, l->queryCount);
+    at = maniGraphPutFloats(d, maniGraphPutWords(d, at, head, 2), numbers, 2);
+    at = maniGraphPutScalar(d, maniGraphPutWords(d, at, tags, 4), l->duration);
+    at = maniGraphPutWords(d, maniGraphPutWords(d, at, tail, 5), l->query, l->queryCount);
     lay->blockAt += MANI_GRAPH_LEARNED_BLOCK_WORDS(states, m->eventCount);
     return at;
 }
@@ -483,114 +454,38 @@ static uint32_t PutSpring(const maniGraphSource* source, uint8_t* d, uint32_t at
     const uint32_t head[MANI_GRAPH_SPRING_WORDS] = {
         s->springSet, s->position, s->rotation, s->reset, lay->blockAt, words, s->force};
     lay->blockAt += maniGraphSpringState + words;
-    return PutWords(d, at, head, MANI_GRAPH_SPRING_WORDS);
+    return maniGraphPutWords(d, at, head, MANI_GRAPH_SPRING_WORDS);
 }
 
-// A two-bone node's words: its bones and parameters, hinge and scalars.
-static uint32_t PutTwoBone(uint8_t* d, uint32_t at, const maniGraphTwoBoneNodeSource* s)
+// A turn limit node's words: its mask, speed and reset, its block; its
+// mask's weights made.
+static uint32_t PutTurn(const maniGraphSource* source, uint8_t* d, uint32_t at,
+                        const maniGraphTurnLimitNodeSource* s, Layout* lay)
 {
-    const uint32_t head[5] = {s->start, s->middle, s->end, s->goal, s->pole};
-    const float hinge[3] = {s->hinge.x, s->hinge.y, s->hinge.z};
-    at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3);
-    return PutScalar(d, PutScalar(d, PutScalar(d, at, s->twist), s->soften), s->weight);
-}
-
-// An aim node's words: its count and parameters, its bones and shares
-// (1 each for equal ones) with zeros past the count, axes and scalars.
-static uint32_t PutAim(uint8_t* d, uint32_t at, const maniGraphAimNodeSource* s)
-{
-    uint32_t bones[MANI_AIM_MAX_BONES] = {0};
-    float shares[MANI_AIM_MAX_BONES] = {0};
-    for (uint32_t k = 0; k < s->count; ++k)
+    uint32_t bits = 0;
+    memcpy(&bits, &s->speed.value, sizeof bits);
+    const uint32_t words[MANI_GRAPH_TURN_WORDS] = {
+        s->mask != NULL ? lay->maskAt : MANI_GRAPH_NO_MASK, s->speed.parameter,
+        s->speed.parameter == MANI_NO_PARAMETER ? bits : 0u, s->reset, lay->blockAt};
+    if (s->mask != NULL)
     {
-        bones[k] = s->bones[k];
-        shares[k] = s->shares != NULL ? s->shares[k] : 1.0f;
+        PutMask(source, s->mask, lay);
     }
-    const uint32_t head[3] = {s->count, s->goal, s->pole};
-    const float axes[9] = {s->forward.x, s->forward.y, s->forward.z, s->offset.x, s->offset.y,
-                           s->offset.z,  s->up.x,      s->up.y,      s->up.z};
-    at = PutWords(d, PutWords(d, at, head, 3), bones, MANI_AIM_MAX_BONES);
-    at = PutFloats(d, PutFloats(d, at, shares, MANI_AIM_MAX_BONES), axes, 9);
-    return PutScalar(d, PutScalar(d, PutScalar(d, at, s->twist), s->cone), s->weight);
+    lay->blockAt += maniGraphTurnBlockWords(maniSkeletonBoneCount(source->skeleton));
+    return maniGraphPutWords(d, at, words, MANI_GRAPH_TURN_WORDS);
 }
 
-// A limit's kind and numbers, the words its kind leaves unused 0.
-static uint32_t PutLimit(uint8_t* d, uint32_t at, const maniJointLimit* l)
+// An inertialize node's words: its trigger, method, duration and
+// half-lives, its block; its block taken.
+static uint32_t PutInertia(const maniGraphSource* source, uint8_t* d, uint32_t at,
+                           const maniGraphInertializeNodeSource* s, Layout* lay)
 {
-    bool cone = l->kind == maniJointLimitCone;
-    bool hinge = l->kind == maniJointLimitHinge;
-    const float words[8] = {hinge ? l->axis.x : 0.0f,  hinge ? l->axis.y : 0.0f,
-                            hinge ? l->axis.z : 0.0f,  cone ? l->cone : 0.0f,
-                            hinge ? l->low : 0.0f,     hinge ? l->high : 0.0f,
-                            cone ? l->twistLow : 0.0f, cone ? l->twistHigh : 0.0f};
-    return PutFloats(d, PutWords(d, at, &l->kind, 1), words, 8);
-}
-
-// A chain node's words: its bones, parameters, counts and numbers, its
-// scalars, then its limits (one per turning bone, or none), each with
-// the words its kind leaves unused 0.
-static uint32_t PutChain(const maniGraphSource* source, uint8_t* d, uint32_t at,
-                         const maniGraphChainNodeSource* s)
-{
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
-    uint32_t count = maniIkChainPath(source->skeleton, s->root, s->end, bones);
-    uint32_t limits = s->limits != NULL ? count - 1 : 0u;
-    const uint32_t head[6] = {s->root, s->end, s->goal, s->pole, s->rotation, s->iterations};
-    const float numbers[2] = {s->tolerance, s->step};
-    at = PutFloats(d, PutWords(d, at, head, 6), numbers, 2);
-    at = PutScalar(d, PutScalar(d, at, s->rotationWeight), s->weight);
-    at = PutWords(d, at, &limits, 1);
-    for (uint32_t k = 0; k < limits; ++k)
-    {
-        at = PutLimit(d, at, &s->limits[k]);
-    }
+    const float halfLives[3] = {s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
+    const uint32_t head[2] = {s->trigger, s->method};
+    at = maniGraphPutScalar(d, maniGraphPutWords(d, at, head, 2), s->duration);
+    at = maniGraphPutWords(d, maniGraphPutFloats(d, at, halfLives, 3), &lay->blockAt, 1);
+    lay->blockAt += MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton), s->method);
     return at;
-}
-
-// A full-body node's words: its head and counts, its effectors (the
-// rotation weight the number 0 without a rotation), then its settings.
-static uint32_t PutBody(uint8_t* d, uint32_t at, const maniGraphBodyNodeSource* s)
-{
-    const uint32_t head[4] = {s->top, (uint32_t)s->topMode, s->stretch ? 1u : 0u, s->iterations};
-    const uint32_t counts[2] = {s->effectorCount, s->boneCount};
-    at = PutScalar(d, PutFloats(d, PutWords(d, at, head, 4), &s->tolerance, 1), s->weight);
-    at = PutWords(d, at, counts, 2);
-    const maniGraphScalar zero = {.parameter = MANI_NO_PARAMETER, .value = 0.0f};
-    for (uint32_t e = 0; e < s->effectorCount; ++e)
-    {
-        const maniGraphEffectorSource* f = &s->effectors[e];
-        const uint32_t words[3] = {f->bone, f->position, f->rotation};
-        const float numbers[2] = {f->strength, f->pullChain};
-        at = PutScalar(d, PutWords(d, at, words, 3), f->positionWeight);
-        at = PutScalar(d, at, f->rotation == MANI_NO_PARAMETER ? zero : f->rotationWeight);
-        at = PutFloats(d, at, numbers, 2);
-    }
-    for (uint32_t k = 0; k < s->boneCount; ++k)
-    {
-        const maniBodyBone* b = &s->bones[k];
-        const float rest[5] = {b->preferred.x, b->preferred.y, b->preferred.z, b->rotationStiffness,
-                               b->positionStiffness};
-        at = PutFloats(d, PutLimit(d, PutWords(d, at, &b->bone, 1), &b->limit), rest, 5);
-    }
-    return at;
-}
-
-// An IK node's words (kinds two-bone to full-body SDLS), by its kind.
-static uint32_t PutIk(const maniGraphSource* source, uint8_t* d, uint32_t at,
-                      const maniGraphNodeSource* node)
-{
-    switch (node->kind)
-    {
-    case maniGraphNodeTwoBone:
-        return PutTwoBone(d, at, &node->twoBone);
-    case maniGraphNodeAim:
-        return PutAim(d, at, &node->aim);
-    case maniGraphNodeBodyXpbd:
-    case maniGraphNodeBodySdls:
-        return PutBody(d, at, &node->body);
-    default:
-        return PutChain(source, d, at, &node->chain);
-    }
 }
 
 // A blend's direct flag and weights, or an additive's weights.
@@ -598,11 +493,11 @@ static uint32_t PutWeights(uint8_t* d, uint32_t at, const maniGraphNodeSource* n
 {
     uint32_t n = node->inputCount;
     bool blend = node->kind == maniGraphNodeBlend;
-    at = blend ? PutWords(d, at, &node->blend.direct, 1) : at;
+    at = blend ? maniGraphPutWords(d, at, &node->blend.direct, 1) : at;
     const maniGraphScalar* weights = blend ? node->blend.weights : node->additive.weights;
     for (uint32_t k = 0; k < (blend ? n : n - 1); ++k)
     {
-        at = PutScalar(d, at, weights[k]);
+        at = maniGraphPutScalar(d, at, weights[k]);
     }
     return at;
 }
@@ -616,7 +511,7 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     {
         const maniGraphClipNodeSource* c = &node->clip;
         const uint32_t words[4] = {c->clip, c->syncGroup, c->loop, c->flags};
-        at = PutScalar(d, PutWords(d, at, words, 4), c->speed);
+        at = maniGraphPutScalar(d, maniGraphPutWords(d, at, words, 4), c->speed);
     }
     else if (node->kind == maniGraphNodeBlend || node->kind == maniGraphNodeAdditive)
     {
@@ -624,7 +519,7 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeMask)
     {
-        at = PutWords(d, at, &lay->maskAt, 1);
+        at = maniGraphPutWords(d, at, &lay->maskAt, 1);
         PutMask(source, &node->mask, lay);
     }
     else if (node->kind == maniGraphNodeOneShot)
@@ -633,13 +528,7 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeInertialize)
     {
-        const maniGraphInertializeNodeSource* s = &node->inertialize;
-        const float halfLives[3] = {s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
-        const uint32_t head[2] = {s->trigger, s->method};
-        at = PutScalar(d, PutWords(d, at, head, 2), s->duration);
-        at = PutWords(d, PutFloats(d, at, halfLives, 3), &lay->blockAt, 1);
-        lay->blockAt +=
-            MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton), s->method);
+        at = PutInertia(source, d, at, &node->inertialize, lay);
     }
     else if (node->kind == maniGraphNodeMatch)
     {
@@ -653,21 +542,25 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     {
         at = PutSpring(source, d, at, &node->spring, lay);
     }
+    else if (node->kind == maniGraphNodeTurnLimit)
+    {
+        at = PutTurn(source, d, at, &node->turnLimit, lay);
+    }
     else if (node->kind == maniGraphNodeSelect)
     {
-        at = PutWords(d, at, &node->select.parameter, 1);
+        at = maniGraphPutWords(d, at, &node->select.parameter, 1);
     }
     else if (node->kind == maniGraphNodePose)
     {
-        at = PutWords(d, at, &node->pose.parameter, 1);
+        at = maniGraphPutWords(d, at, &node->pose.parameter, 1);
     }
     else if (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls)
     {
-        at = PutIk(source, d, at, node);
+        at = maniGraphPutIk(source, d, at, node);
     }
     else if (node->kind == maniGraphNodeTimeScale)
     {
-        at = PutScalar(d, at, node->timeScale.scale);
+        at = maniGraphPutScalar(d, at, node->timeScale.scale);
     }
     else if (node->kind == maniGraphNodeBlendSpace1D ||
              node->kind == maniGraphNodeBlendSpaceBands ||
@@ -683,7 +576,8 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     }
     else if (node->kind == maniGraphNodeSeek)
     {
-        at = PutScalar(d, PutWords(d, at, &node->seek.trigger, 1), node->seek.time);
+        at = maniGraphPutScalar(d, maniGraphPutWords(d, at, &node->seek.trigger, 1),
+                                node->seek.time);
     }
     lay->dataAt = at;
 }

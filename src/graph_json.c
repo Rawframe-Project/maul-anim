@@ -202,6 +202,38 @@ static void PutShot(Writer* w, const maniGraphSource* source, const maniGraphOne
     }
 }
 
+// A turn limit node: its speed, its reset trigger and mask when it has
+// them.
+static void PutTurn(Writer* w, const maniGraphSource* source, const maniGraphTurnLimitNodeSource* s)
+{
+    maniGraphJsonPutKey(w, "speed");
+    maniGraphJsonPutScalar(w, source, s->speed);
+    if (s->reset != MANI_NO_PARAMETER)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "reset");
+        maniGraphJsonPutParameterName(w, source, s->reset);
+    }
+    if (s->mask != NULL)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "mask");
+        maniGraphJsonPutText(w, "{");
+        PutMaskNode(w, s->mask);
+        maniGraphJsonPutText(w, "}");
+    }
+}
+
+// A seek node: its trigger and time.
+static void PutSeek(Writer* w, const maniGraphSource* source, const maniGraphSeekNodeSource* s)
+{
+    maniGraphJsonPutKey(w, "trigger");
+    maniGraphJsonPutParameterName(w, source, s->trigger);
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "time");
+    maniGraphJsonPutScalar(w, source, s->time);
+}
+
 // Tags: their bits, or {"parameter": name}.
 static void PutTags(Writer* w, const maniGraphSource* source, maniGraphTags tags)
 {
@@ -647,12 +679,11 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         return;
     case maniGraphNodeMirror:
         return;
+    case maniGraphNodeTurnLimit:
+        PutTurn(w, source, &n->turnLimit);
+        return;
     case maniGraphNodeSeek:
-        maniGraphJsonPutKey(w, "trigger");
-        maniGraphJsonPutParameterName(w, source, n->seek.trigger);
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "time");
-        maniGraphJsonPutScalar(w, source, n->seek.time);
+        PutSeek(w, source, &n->seek);
         return;
     default:
         PutSubgraphNode(w, source, &n->subgraph, depth);
@@ -685,7 +716,8 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "fabrik",
                                          "bodyXpbd",
                                          "bodySdls",
-                                         "mirror"};
+                                         "mirror",
+                                         "turnLimit"};
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 

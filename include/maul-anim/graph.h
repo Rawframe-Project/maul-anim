@@ -161,6 +161,10 @@ extern "C"
         // without it (a subgraph shared by a mirrored and an unmirrored
         // state takes a second instance).
         maniGraphNodeMirror = 24,
+        // A turn limit node (mani-0037): its input with each chosen bone's
+        // rotation turned from the node's last output toward the input's
+        // by no more than a speed allows.
+        maniGraphNodeTurnLimit = 25,
     };
 
 // The most steps of its model a learned node takes in one update: a
@@ -931,7 +935,9 @@ extern "C"
     /// passes its input on (a spring set not stepped), and an
     /// inertialization keeps its offsets and output outside the plan's
     /// groups as they were, so bones joining a later plan start from what
-    /// they last had. Retargeted clips are transferred whole.
+    /// they last had; a turn limit node steps the planned bones only, the
+    /// others turning from what they last had when an evaluation next
+    /// computes them. Retargeted clips are transferred whole.
     ///
     /// @param instance  An instance.
     /// @param plan      A plan of the instance's binding.

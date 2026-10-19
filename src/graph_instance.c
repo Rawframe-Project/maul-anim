@@ -16,6 +16,7 @@
 #include "graph_match.h"
 #include "graph_shot.h"
 #include "graph_spring.h"
+#include "graph_turn.h"
 #include "pose_memory.h"
 
 #include "maul-anim/base.h"
@@ -216,6 +217,10 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
     {
         return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphSpringBlock));
     }
+    if (maniLoadU16(e) == maniGraphNodeTurnLimit)
+    {
+        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphTurnBlock));
+    }
     return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
                                                   : UINT32_MAX;
 }
@@ -238,6 +243,11 @@ static bool Learning(const maniGraph* graph, uint32_t p)
 static bool Springing(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeSpring;
+}
+
+static bool Turning(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeTurnLimit;
 }
 
 static uint32_t DataOf(const maniGraph* graph, uint32_t p)
@@ -279,6 +289,10 @@ static void ResetMachines(maniGraphInstance* instance)
         else if (shot != UINT32_MAX && Springing(graph, p))
         {
             maniGraphResetSpring(graph, DataOf(graph, p), Blocks(instance) + shot);
+        }
+        else if (shot != UINT32_MAX && Turning(graph, p))
+        {
+            maniGraphResetTurn(Blocks(instance) + shot, graph->skeletonBoneCount);
         }
         else if (shot != UINT32_MAX)
         {
@@ -679,6 +693,7 @@ static uint32_t SavedBlockValid(const maniGraphBinding* binding, uint32_t p,
            : Inertial(graph, p)  ? maniGraphSavedInertiaValid(block, &node)
            : Matching(graph, p)  ? SavedMatchValid(binding, p, b, block)
            : Springing(graph, p) ? SavedSpringValid(binding, p, block)
+           : Turning(graph, p)   ? maniGraphSavedTurnValid(block, graph->skeletonBoneCount)
            : model != NULL       ? maniGraphSavedLearnedValid(block, graph, data, model)
                                  : maniGraphSavedShotValid(block);
 }

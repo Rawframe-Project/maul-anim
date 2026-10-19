@@ -17,6 +17,7 @@
 #include "graph_match.h"
 #include "graph_shot.h"
 #include "graph_spring.h"
+#include "graph_turn.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -452,8 +453,10 @@ static bool DifferenceValid(const maniGraph* g, const Node* n)
     {
         return own == 0;
     }
-    // The kinds that take and give poses only: springs, IK and mirrors.
+    // The kinds that take and give poses only: springs, IK, mirrors and
+    // turn limits.
     if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeMirror ||
+        n->kind == maniGraphNodeTurnLimit ||
         (n->kind >= maniGraphNodeTwoBone && n->kind <= maniGraphNodeBodySdls))
     {
         return own == 0 && Difference(g, Input(g, n->first)) == 0;
@@ -606,6 +609,8 @@ static uint32_t WordsValid(const maniGraph* g, const Node* n, uint32_t p, uint32
         return maniGraphLearnedValid(g, n->data, blockAt);
     case maniGraphNodeSpring:
         return maniGraphSpringValid(g, n->data, blockAt);
+    case maniGraphNodeTurnLimit:
+        return maniGraphTurnValid(g, n->data, blockAt);
     default:
         return DataValid(g, n);
     }
@@ -629,6 +634,8 @@ static uint32_t BlockWords(const maniGraph* g, const Node* n)
         return maniGraphLearnedBlockWords(g, n->data);
     case maniGraphNodeSpring:
         return maniGraphSpringBlockWords(g, n->data);
+    case maniGraphNodeTurnLimit:
+        return maniGraphTurnBlockWords(g->skeletonBoneCount);
     default:
         return 0;
     }

@@ -45,6 +45,8 @@ uint32_t maniGraphDataWords(uint32_t kind, uint32_t inputCount)
         return MANI_GRAPH_INERTIA_WORDS;
     case maniGraphNodeSpring:
         return MANI_GRAPH_SPRING_WORDS;
+    case maniGraphNodeTurnLimit:
+        return MANI_GRAPH_TURN_WORDS;
     case maniGraphNodeTwoBone:
         return MANI_GRAPH_TWO_BONE_WORDS;
     case maniGraphNodeAim:
@@ -87,6 +89,7 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeMirror:
     case maniGraphNodeInertialize:
     case maniGraphNodeSpring:
+    case maniGraphNodeTurnLimit:
     case maniGraphNodeTwoBone:
     case maniGraphNodeAim:
     case maniGraphNodeCcd:

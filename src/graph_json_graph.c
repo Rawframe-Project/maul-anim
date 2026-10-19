@@ -452,6 +452,31 @@ static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneS
     return maniGraphJsonMembers(r, f[8], kMask, 2, 0u, members + 2) && Mask(r, members, mask);
 }
 
+// A turn limit node: its speed, its reset trigger by name (none when
+// left out), its mask (every bone at 1 when left out).
+static bool Turn(Reader* r, const Scope* scope, const uint32_t* f, maniGraphTurnLimitNodeSource* s)
+{
+    static const char* const kMask[] = {"chains", "defaultWeight"};
+    *s = (maniGraphTurnLimitNodeSource){{MANI_NO_PARAMETER, 0.0f}, MANI_NO_PARAMETER, 0, NULL};
+    if (!maniGraphJsonScalar(r, scope, f[2], &s->speed) ||
+        (f[3] != ABSENT && !maniGraphJsonRefer(r, &scope->parameters, f[3], &s->reset)))
+    {
+        return false;
+    }
+    if (f[4] == ABSENT)
+    {
+        return true;
+    }
+    uint32_t members[4] = {ABSENT, ABSENT, ABSENT, ABSENT};
+    maniGraphMaskNodeSource* mask = maniArenaTake(&r->arena, 1, sizeof(maniGraphMaskNodeSource));
+    if (mask == NULL)
+    {
+        return maniGraphJsonNoMemory(r);
+    }
+    s->mask = mask;
+    return maniGraphJsonMembers(r, f[4], kMask, 2, 0u, members + 2) && Mask(r, members, mask);
+}
+
 // A spring node: its set by its slot's name; its position, rotation,
 // reset and force parameters by name, none when left out.
 static bool Spring(Reader* r, const Scope* scope, const uint32_t* f, maniGraphSpringNodeSource* s)
@@ -676,6 +701,7 @@ static const KindForm kForms[] = {
      10,
      31u},
     {"mirror", maniGraphNodeMirror, {"kind", "inputs"}, 2, 3u},
+    {"turnLimit", maniGraphNodeTurnLimit, {"kind", "inputs", "speed", "reset", "mask"}, 5, 7u},
     {"subgraph", maniGraphNodeSubgraph, {"kind", "graph", "parameters"}, 3, 3u},
 };
 
@@ -737,6 +763,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
         return maniGraphJsonBody(r, scope, f, &n->body);
     case maniGraphNodeMirror:
         return true;
+    case maniGraphNodeTurnLimit:
+        return Turn(r, scope, f, &n->turnLimit);
     case maniGraphNodeSeek:
         n->seek.time = (maniGraphScalar){MANI_NO_PARAMETER, 0.0f};
         return maniGraphJsonRefer(r, &scope->parameters, f[2], &n->seek.trigger) &&

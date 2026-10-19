@@ -20,6 +20,7 @@
 #include "graph_shot_step.h"
 #include "graph_space.h"
 #include "graph_spring.h"
+#include "graph_turn.h"
 #include "retarget_motion.h"
 #include "root_motion.h"
 
@@ -369,6 +370,33 @@ static void ShareSpring(const Update* u, const uint8_t* record, maniGraphNodeSta
     ShareOne(u, record, s);
 }
 
+// A turn limit node: not reached, what it holds dropped (each bone takes
+// its input as it is when next evaluated); reached, the time it moves by kept
+// for its evaluation, its hold dropped by a seek above it or its reset
+// trigger; its input reached as it was.
+static void ShareTurn(const Update* u, const uint8_t* record, maniGraphNodeState* s)
+{
+    uint32_t d = maniLoadU32(record + 12);
+    uint32_t* block = BlockAt(u, Word(u, d + maniGraphTurnBlock));
+    if (!Reached(s))
+    {
+        maniGraphResetTurn(block, u->graph->skeletonBoneCount);
+        return;
+    }
+    uint32_t reset = Word(u, d + maniGraphTurnReset);
+    bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
+    if (fired)
+    {
+        u->instance->cells[reset].value.b = 0;
+    }
+    if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0)
+    {
+        maniGraphResetTurn(block, u->graph->skeletonBoneCount);
+    }
+    maniGraphTurnAdd(block, fabs(u->delta * (double)s->factor));
+    ShareOne(u, record, s);
+}
+
 // Weights from the output down: each node, last first, shares its own.
 static void Weigh(const Update* u)
 {
@@ -425,6 +453,10 @@ static void Weigh(const Update* u)
         else if (kind == maniGraphNodeSpring)
         {
             ShareSpring(u, record, s);
+        }
+        else if (kind == maniGraphNodeTurnLimit)
+        {
+            ShareTurn(u, record, s);
         }
         else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch &&
                  kind != maniGraphNodeLearned && kind != maniGraphNodePose)

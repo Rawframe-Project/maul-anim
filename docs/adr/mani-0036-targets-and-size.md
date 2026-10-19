@@ -78,3 +78,14 @@ full-body IK 25,565 and 31,983; springs 28,155 and 30,091; ragdoll
 5,234; matching 15,910 and 18,294; learned matching 10,261 and 15,020;
 morph targets 5,946 and 6,246; elementary functions 5,954 and 6,130;
 in all 323,004 and 390,824.
+
+Ceilings raised after 0.1.0, each for what it bought: matching's at
+`-O2` to 17,000 (16,182: the search's exclusions as frame counts and
+its end found by a guess settled by the same test, a tenth fewer
+instructions a search, mani-0024); morph targets' at `-O2` to 7,000
+(6,398: the three-float add written out and vertices copied through a
+local, the job from 2.17 to 1.035 of a hand loop's instructions at
+`-O2`, mani-0021); the graph's to 105,000 at `-O2` and 129,000 at `-O3`
+(104,881 and 128,424: the turn limit node, mani-0037, about 2,600 bytes
+at `-O2`, and the IK and full-body evaluation in a module of its own,
+1,442, its small readers inlined there as well as in the evaluation).

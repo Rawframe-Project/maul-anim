@@ -8,6 +8,14 @@ format.
 
 ## [Unreleased]
 
+### Added
+
+- A turn limit graph node (`maniGraphNodeTurnLimit`): its input with
+  each chosen bone's rotation turned from the node's last output toward
+  the input's by no more than a speed in radians a second, bones chosen
+  and weighted by mask chains; Godot's angular velocity limiter as a
+  node. The graph file format is version 5; version 4 files still open.
+
 ### Changed
 
 - The motion matching search costs about a tenth fewer instructions

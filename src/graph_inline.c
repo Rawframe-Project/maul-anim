@@ -547,6 +547,10 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
         node->spring.reset = Resolve(s, node->spring.reset);
         node->spring.force = Resolve(s, node->spring.force);
         return;
+    case maniGraphNodeTurnLimit:
+        node->turnLimit.speed = Scalar(s, node->turnLimit.speed);
+        node->turnLimit.reset = Resolve(s, node->turnLimit.reset);
+        return;
     case maniGraphNodeTwoBone:
     case maniGraphNodeAim:
     case maniGraphNodeCcd:

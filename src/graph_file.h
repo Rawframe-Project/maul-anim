@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#define MANI_GRAPH_FORMAT_VERSION 4u
+#define MANI_GRAPH_FORMAT_VERSION 5u
 #define MANI_GRAPH_SECTIONS       15u
 
 enum
@@ -185,6 +185,12 @@ enum
 // words and its force parameter (or none); the words and block are laid
 // out in graph_spring.h.
 #define MANI_GRAPH_SPRING_WORDS 7u
+
+// A turn limit node's data words: its mask (MANI_GRAPH_NO_MASK for every
+// bone at 1), its speed (a scalar), its reset trigger (or
+// MANI_NO_PARAMETER) and the first word of its block in an instance's
+// machine state; the words and block are laid out in graph_turn.h.
+#define MANI_GRAPH_TURN_WORDS 5u
 
 // A two-bone IK node's data words: its start, middle and end bones, its
 // goal parameter (a vec3), pole parameter (a vec3 or MANI_NO_PARAMETER),

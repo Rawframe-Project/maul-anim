@@ -18,6 +18,7 @@
 #include "graph_match_check.h"
 #include "graph_space_check.h"
 #include "graph_spring.h"
+#include "graph_turn.h"
 #include "ik_chain.h"
 #include "ik_frame.h"
 #include "sort.h"
@@ -493,6 +494,21 @@ static maniBuildResult CheckSpring(const maniGraphSource* source, const maniGrap
     return ok ? Outcome(mani_success) : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }
 
+// A turn limit node: a speed in radians a second, finite and not
+// negative, a reset trigger or none, an optional mask.
+static maniBuildResult CheckTurn(const maniGraphSource* source, const maniGraphNodeSource* n,
+                                 uint32_t node)
+{
+    const maniGraphTurnLimitNodeSource* s = &n->turnLimit;
+    if (s->reset != MANI_NO_PARAMETER &&
+        !ParameterOf(source, s->reset, maniGraphParameterTrigger, maniGraphParameterTrigger))
+    {
+        return maniGraphRefuse(maniBuildReasonNode, node, 0);
+    }
+    maniBuildResult r = CheckScalar(source, s->speed, node, 0, 0.0f, HUGE_VALF);
+    return r.result == mani_success && s->mask != NULL ? CheckMask(source, s->mask, node) : r;
+}
+
 // Bones of the skeleton, each an ancestor of the next.
 static bool ChainValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count)
 {
@@ -658,6 +674,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
         return maniCheckGraphLearned(source, n, node);
     case maniGraphNodeSpring:
         return CheckSpring(source, n, node);
+    case maniGraphNodeTurnLimit:
+        return CheckTurn(source, n, node);
     case maniGraphNodeTwoBone:
         return CheckTwoBone(source, n, node);
     case maniGraphNodeAim:
@@ -722,6 +740,8 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
     case maniGraphNodeSpring:
         return maniGraphSpringState +
                (uint32_t)maniGraphSpringSetWords(source->springSets[n->spring.springSet].set);
+    case maniGraphNodeTurnLimit:
+        return maniGraphTurnBlockWords(maniSkeletonBoneCount(source->skeleton));
     default:
         return 0;
     }
@@ -768,6 +788,7 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
     tally->maxTransitions =
         transitions > tally->maxTransitions ? transitions : tally->maxTransitions;
     tally->maskCount += n->kind == maniGraphNodeMask ? 1u : 0u;
+    tally->maskCount += n->kind == maniGraphNodeTurnLimit && n->turnLimit.mask != NULL ? 1u : 0u;
     return r;
 }
 

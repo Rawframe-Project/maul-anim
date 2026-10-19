@@ -104,16 +104,17 @@ learned_restore: allocator bytes container host_code learned_file learned_train 
 clip_file:
 root_motion: bytes clip_file clip_view vecmath
 graph_file:
-graph_nodes: bytes graph_body graph_chain graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring vecmath
+graph_nodes: bytes graph_body graph_chain graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring graph_turn vecmath
 graph_machine_file: bytes graph_file
 graph: bytes container graph_file graph_nodes text
-graph_instance: bytes graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring pose_memory
+graph_instance: bytes graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn pose_memory
 graph_inspect: bytes graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
 graph_subset: bytes graph_file graph_instance graph_spring pose_memory spring_file
 graph_shot: bytes graph_file
 graph_match: bytes graph_file
 graph_learned: bytes graph_file graph_match
 graph_spring: bytes graph_file spring_state
+graph_turn: bytes graph_file scalar vecmath
 graph_learned_check: graph_match
 graph_inertia: bytes graph_file pose_memory vecmath
 graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar vecmath
@@ -127,8 +128,10 @@ graph_machine_step: bytes graph_file graph_instance graph_machine
 graph_bind: bytes graph_file graph_instance graph_learned graph_match graph_spring retarget_motion
 graph_space: bytes graph_file graph_instance scalar
 graph_machine_listen: bytes graph_file graph_instance graph_machine graph_shot
-graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring retarget_motion root_motion
-graph_evaluate: blend_groups bytes graph_body graph_chain graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset ik_chain pose_memory vecmath
+graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring graph_turn retarget_motion root_motion
+graph_evaluation: bytes graph_file graph_instance graph_subset
+graph_evaluate_ik: bytes graph_body graph_chain graph_evaluation graph_file graph_instance ik_chain pose_memory vecmath
+graph_evaluate: blend_groups bytes graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn pose_memory vecmath
 clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes
@@ -137,7 +140,7 @@ clip_cursor: clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
 root_motion_build: allocator bytes clip_file quat64
 clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
-graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring ik_chain ik_frame sort text vecmath
+graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame sort text vecmath
 graph_space_check: exact graph_file
 graph_body_check: graph_file
 graph_machine_check: bytes graph_file sort
@@ -146,7 +149,9 @@ exact:
 triangulate: exact sort
 graph_inline: allocator graph_check
 graph_mirror: graph_check
-graph_build: allocator builder bytes container graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_mirror graph_spring ik_chain sort triangulate
+graph_build_words: bytes
+graph_build_ik: bytes graph_build_words graph_file ik_chain
+graph_build: allocator builder bytes container graph_build_ik graph_build_words graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_mirror graph_spring graph_turn sort triangulate
 graph_json: allocator builder graph_json_body graph_json_ik graph_json_write
 graph_json_ik: arena graph_json_read graph_json_write ik_chain json
 graph_json_body: arena graph_json_ik graph_json_read graph_json_write json
