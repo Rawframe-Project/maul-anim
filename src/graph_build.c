@@ -703,6 +703,7 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         maniStoreU32(e + 8, node->inputCount);
         maniStoreU32(e + 12, lay->dataAt);
         maniStoreU32(e + 20, w->slot[v]);
+        maniStoreU32(e + 24, v);
         for (uint32_t k = 0; k < node->inputCount; ++k)
         {
             maniStoreU32(lay->sections[3] + 4 * (size_t)lay->inputAt++,

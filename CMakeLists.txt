@@ -58,6 +58,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/elementary_float.c
     src/fpenv.c
     src/graph.c
+    src/graph_inspect.c
     src/graph_bind.c
     src/graph_instance.c
     src/graph_nodes.c
@@ -223,6 +224,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(retarget_clip)
         maul_add_test(graph_retarget WHITEBOX)
         maul_add_test(graph_mirror WHITEBOX)
+        maul_add_test(graph_inspect)
         maul_add_test(match_mirror WHITEBOX)
         maul_add_test(mirror_map WHITEBOX)
         maul_add_test(mirror_pose)

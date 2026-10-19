@@ -428,6 +428,31 @@ uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip);
 Returns the map slot a clip slot plays through.  @param graph  An opened graph. @param clip   The clip slot. @return The map slot; MANI_NO_TRACK for a clip of the graph's skeleton or past the count. @par Thread safety Safe from any thread.
 
 ```c
+maniGraphNodeKind maniGraphNodeKindOf(const maniGraph* graph, uint32_t node);
+```
+Returns a node's kind (mani-0035): with its inputs and the output node, what a debugger draws the graph's tree from. Nodes are in order, each after its inputs, subgraphs inlined.  @param graph  An opened graph. @param node   The node. @return Its kind; 0 for a NULL graph or past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphNodeInputCount(const maniGraph* graph, uint32_t node);
+```
+Returns how many inputs a node has (a machine's are its states, a one-shot's its base and shot).  @param graph  An opened graph. @param node   The node. @return The count; 0 for a NULL graph or past the count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphNodeInput(const maniGraph* graph, uint32_t node, uint32_t input);
+```
+Returns a node's input by its place among the node's inputs.  @param graph  An opened graph. @param node   The node. @param input  The place, below maniGraphNodeInputCount. @return The input node; MANI_GRAPH_NONE for a NULL graph or past a count. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphOutputNode(const maniGraph* graph);
+```
+Returns the node whose pose a graph gives: its last.  @param graph  An opened graph. @return The output node; MANI_GRAPH_NONE for NULL. @par Thread safety Safe from any thread.
+
+```c
+uint32_t maniGraphNodeSourcePlace(const maniGraph* graph, uint32_t node);
+```
+Returns a node's place in the source it was built from: the builder orders nodes after their inputs, so a file's node may sit elsewhere than its source's (and its JSON text's) place; subgraphs' nodes are numbered after the source's, as the builder's refusals name them.  @param graph  An opened graph. @param node   The node. @return The place; MANI_GRAPH_NONE for a NULL graph or past the count. @par Thread safety Safe from any thread.
+
+```c
 size_t maniGraphBindingSize(const maniGraph* graph);
 ```
 Returns the bytes a binding of the graph needs.  @param graph  An opened graph. @return The size; 0 for a NULL graph. @par Thread safety Safe from any thread.
@@ -466,6 +491,11 @@ Reads a pose parameter's local transforms into a pose.  @param instance   An ins
 MANI_NODISCARD MANI_API maniResult maniGetGraphParameter(const maniGraphInstance* instance, uint32_t parameter, maniGraphValue* valueOut);
 ```
 Reads a parameter's value.  @param instance   An instance. @param parameter  The parameter. @param valueOut   Receives the value. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a parameter past the count. @par Thread safety Safe from any thread; the instance is used by one thread at a time.
+
+```c
+MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node, maniGraphNodeView* out);
+```
+Reads what a node of an instance did in its last update, for a debugger: its share of the output, playhead, current state and transition under way. Reads only; the update keeps nothing more for it. reserved is 0.  @param instance  An instance. @param node      The node. @param out       The view. @return `mani_success`; `mani_errorInvalid` for a NULL argument or a node past the count. @par Thread safety Safe from any thread; the instance is used by one thread at a time.
 
 ```c
 size_t maniGraphStateSize(const maniGraphBinding* binding);
@@ -1660,4 +1690,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-310 functions across 27 headers.
+316 functions across 27 headers.

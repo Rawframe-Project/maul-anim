@@ -91,6 +91,14 @@ format.
   it, bones by name and each reference pose as the bones not at their
   rest; `maniBuildRetargetMapJson` and `maniBuildMirrorMapJson` read
   the text strictly, refusing at byte offsets, and build the same file.
+- Graph structure and inspection (mani-0035): `maniGraphNodeKindOf`,
+  `maniGraphNodeInputCount`, `maniGraphNodeInput`, `maniGraphOutputNode`
+  and `maniGraphNodeSourcePlace` (each node's place in its source, kept
+  in the file: graph format version 4) draw a graph's tree;
+  `maniInspectGraphNode` reads what a node did in the last update (its
+  share of the output, playhead, a machine's state and transition under
+  way with its fade, a one-shot's phase, an inertialization's easing, a
+  matching node's entry).
 - Retargeted playback in graphs (mani-0032): a clip slot may name a
   retargeting map (`maniGraphClipSource.map`) to play a clip of the
   map's source skeleton, carried at each evaluation; map slots read by

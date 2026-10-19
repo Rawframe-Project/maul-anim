@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_GRAPH_HASH 0x00c5c40ea974b959ull
+#define PINNED_GRAPH_HASH 0x4c316b726286ce69ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];

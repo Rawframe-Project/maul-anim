@@ -34,6 +34,9 @@ extern "C"
 #define MANI_NO_PARAMETER 0xFFFFFFFFu
 // A clip node in no sync group.
 #define MANI_NO_SYNC_GROUP 0xFFFFFFFFu
+// No node, input, state, transition or entry in an inspection
+// (mani-0035).
+#define MANI_GRAPH_NONE 0xFFFFFFFFu
 // Named limits: nodes, inputs of one node, parameters, clips, sync
 // groups and motion databases of one graph.
 #define MANI_GRAPH_MAX_NODES       65536u
@@ -451,6 +454,59 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip);
 
+    /// Returns a node's kind (mani-0035): with its inputs and the output
+    /// node, what a debugger draws the graph's tree from. Nodes are in
+    /// order, each after its inputs, subgraphs inlined.
+    ///
+    /// @param graph  An opened graph.
+    /// @param node   The node.
+    /// @return Its kind; 0 for a NULL graph or past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API maniGraphNodeKind maniGraphNodeKindOf(const maniGraph* graph, uint32_t node);
+
+    /// Returns how many inputs a node has (a machine's are its states, a
+    /// one-shot's its base and shot).
+    ///
+    /// @param graph  An opened graph.
+    /// @param node   The node.
+    /// @return The count; 0 for a NULL graph or past the count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphNodeInputCount(const maniGraph* graph, uint32_t node);
+
+    /// Returns a node's input by its place among the node's inputs.
+    ///
+    /// @param graph  An opened graph.
+    /// @param node   The node.
+    /// @param input  The place, below maniGraphNodeInputCount.
+    /// @return The input node; MANI_GRAPH_NONE for a NULL graph or past a
+    /// count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphNodeInput(const maniGraph* graph, uint32_t node, uint32_t input);
+
+    /// Returns the node whose pose a graph gives: its last.
+    ///
+    /// @param graph  An opened graph.
+    /// @return The output node; MANI_GRAPH_NONE for NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphOutputNode(const maniGraph* graph);
+
+    /// Returns a node's place in the source it was built from: the builder
+    /// orders nodes after their inputs, so a file's node may sit elsewhere
+    /// than its source's (and its JSON text's) place; subgraphs' nodes are
+    /// numbered after the source's, as the builder's refusals name them.
+    ///
+    /// @param graph  An opened graph.
+    /// @param node   The node.
+    /// @return The place; MANI_GRAPH_NONE for a NULL graph or past the
+    /// count.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniGraphNodeSourcePlace(const maniGraph* graph, uint32_t node);
+
     // A graph bound to its skeleton and clips, in caller memory: shared by
     // every instance of the graph, read only.
     typedef struct maniGraphBinding maniGraphBinding;
@@ -623,6 +679,50 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniGetGraphParameter(const maniGraphInstance* instance,
                                                              uint32_t parameter,
                                                              maniGraphValue* valueOut);
+
+    // What a node of an instance did in its last update (mani-0035), read
+    // from the state the update keeps. Fields a kind has no use for are
+    // MANI_GRAPH_NONE (words) or 0 (numbers).
+    typedef struct maniGraphNodeView
+    {
+        // The node's kind.
+        maniGraphNodeKind kind;
+        // Its share of the output after the last update, 0 to 1 (0 for a
+        // node not reached, and for every node before the first update).
+        float weight;
+        // A clip node's playhead in its clip and a motion matching node's
+        // in its entry's clip, in seconds.
+        double time;
+        // A select's chosen input; a machine's current state (during a
+        // transition, the state it leads to; the states it fades out keep
+        // their weights as nodes); a one-shot's phase (0 idle, 1 fading in,
+        // 2 playing, 3 fading out); a motion matching node's entry
+        // (MANI_GRAPH_NONE before it has one).
+        uint32_t current;
+        // A machine's transition under way, by its place in priority
+        // order.
+        uint32_t transition;
+        // How far along: a machine's fade under way and an inertialize
+        // node's easing, its elapsed time over its duration (1 for a
+        // duration of 0); a one-shot's weight.
+        float progress;
+        uint32_t reserved;
+    } maniGraphNodeView;
+
+    /// Reads what a node of an instance did in its last update, for a
+    /// debugger: its share of the output, playhead, current state and
+    /// transition under way. Reads only; the update keeps nothing more for
+    /// it. reserved is 0.
+    ///
+    /// @param instance  An instance.
+    /// @param node      The node.
+    /// @param out       The view.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
+    /// node past the count.
+    /// @par Thread safety
+    /// Safe from any thread; the instance is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance,
+                                                            uint32_t node, maniGraphNodeView* out);
 
     /// Returns the bytes an instance's saved state takes: its parameters,
     /// its nodes' state, its state machines' and one-shots', and its pose

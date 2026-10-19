@@ -558,9 +558,13 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     {
         return Fail(n->at + 20);
     }
-    if (maniLoadU64(n->entry + 24) != 0)
+    if (maniLoadU32(n->entry + 24) >= g->nodeCount)
     {
         return Fail(n->at + 24);
+    }
+    if (maniLoadU32(n->entry + 28) != 0)
+    {
+        return Fail(n->at + 28);
     }
     return kOk;
 }

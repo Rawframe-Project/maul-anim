@@ -469,7 +469,8 @@ static void TestOpenRefusals(void)
     CHECK(Edit(Record(0), 0x00040001u, Record(0) + 2), "flags past differences and mirroring");
     CHECK(Edit(Record(0), 0x00020001u, Record(2) + 2), "a node mirrored under no mirror node");
     CHECK(Edit(Record(8) + 8, 3, Record(8) + 8), "inputs past the section");
-    CHECK(Edit(Record(0) + 24, 1, Record(0) + 24), "a record's reserved word");
+    CHECK(Edit(Record(0) + 24, 0xFFFFu, Record(0) + 24), "a source place past the count");
+    CHECK(Edit(Record(0) + 28, 1, Record(0) + 28), "a record's reserved word");
     CHECK(Edit(Record(8) + 8, 1, SectionAt(maniGraphTagInputs)), "inputs left over");
     uint64_t parameters = SectionAt(maniGraphTagParameters);
     CHECK(Edit(parameters + 12, 0, parameters + 8), "an empty name");
