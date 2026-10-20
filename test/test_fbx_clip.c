@@ -897,11 +897,12 @@ static void TestRefusedHelper(void)
     CHECK(!HelperFrom("2,2,2", "9,9,9"), "none from a stack refused at Arm, after Spine");
 }
 
-// A three-model chain (Top, Spine, and Arm inheriting Rrs) and one stack whose curve node
-// gives a model's property the values given, with one curve on a
-// component when one is named: whether Spine gets a helper.
+// A three-model chain (Top, Spine, and Arm inheriting Rrs) and one
+// stack whose curve node gives a model's property the values given,
+// with one curve on a component when one is named: whether Spine gets a
+// helper.
 static bool HelperIn(const char* top, const char* spine, int arm, int model, const char* property,
-                     const char* values, const char* component, const char* keys)
+                     double x, double y, double z, const char* component, const char* keys)
 {
     char curve[512] = "";
     char link[128] = "";
@@ -915,10 +916,6 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
                  keys);
         snprintf(link, sizeof link, " C: \"OP\",211,210, \"d|%s\"\n", component);
     }
-    double x = 0;
-    double y = 0;
-    double z = 0;
-    CHECK(sscanf(values, "%lf,%lf,%lf", &x, &y, &z) == 3, "helper scene values");
     char text[4096];
     snprintf(
         text, sizeof text,
@@ -955,14 +952,14 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
 static void TestHelperScales(void)
 {
     static const char kScaled[] = "   P: \"Lcl Scaling\", \"Lcl Scaling\", \"\", \"A\",1,2,1\n";
-    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", "1,2,1", "", ""),
+    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", 1, 2, 1, "", ""),
           "a static scale not uniform in a stack: a helper");
-    CHECK(!HelperIn("", "", 45, 2, "Lcl Scaling", "2,2,2", "", ""), "a static uniform scale: none");
-    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", "1,1,1", "Y", "1,2"),
+    CHECK(!HelperIn("", "", 45, 2, "Lcl Scaling", 2, 2, 2, "", ""), "a static uniform scale: none");
+    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", 1, 1, 1, "Y", "1,2"),
           "a scale curve on one component: a helper");
-    CHECK(HelperIn("", kScaled, 0, 3, "Lcl Rotation", "0,0,0", "Z", "0,45"),
+    CHECK(HelperIn("", kScaled, 0, 3, "Lcl Rotation", 0, 0, 0, "Z", "0,45"),
           "a rest scale sheared by an animated rotation: a helper");
-    CHECK(!HelperIn("", kScaled, 0, 3, "Lcl Rotation", "0,0,0", "", ""),
+    CHECK(!HelperIn("", kScaled, 0, 3, "Lcl Rotation", 0, 0, 0, "", ""),
           "the same rotation still: none");
 }
 
