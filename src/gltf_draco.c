@@ -350,8 +350,10 @@ static bool Takes(const Value* v)
 // The attributes one decoder holds.
 static maniDracoStatus Describes(Decoder* d, Value** out, uint32_t* countOut)
 {
+    // Each attribute takes at least six bytes (its description and its
+    // decoder's type), a tighter bound than Google's five per byte left.
     uint32_t count = 0;
-    if (!maniDracoLeb32(&d->r, &count) || count == 0 || count > 5u * maniDracoLeft(&d->r))
+    if (!maniDracoLeb32(&d->r, &count) || count == 0 || count > maniDracoLeft(&d->r) / 6u)
     {
         return maniDracoInvalid;
     }
@@ -722,7 +724,12 @@ static void Original(Value* v, uint32_t entries)
 // One decoder's attributes, in Google's three passes.
 static maniDracoStatus DecodeValues(Decoder* d, Value* values, uint32_t count)
 {
+    // Every value count (points times at most 16 components) fits 32 bits.
     uint32_t entries = d->mesh->pointCount;
+    if (entries > UINT32_MAX / MANI_DRACO_MAX_COMPONENTS)
+    {
+        return maniDracoCapacity;
+    }
     maniDracoStatus s = maniDracoDone;
     for (uint32_t i = 0; s == maniDracoDone && i < count; ++i)
     {

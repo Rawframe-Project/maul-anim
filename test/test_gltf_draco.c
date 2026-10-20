@@ -4,8 +4,8 @@
 // The Draco decoder (mani-0021): the streams of test/data/draco, which
 // Google's encoder wrote, decoded to the FNV-1a 64 of Google's decoding
 // of each; the header's refusals and the point bound; every prefix and
-// every single byte changed decoded without fault; allocation failures
-// handled with nothing kept.
+// every single byte changed decoded without fault; an attribute count
+// bounded by the bytes; allocation failures handled with nothing kept.
 
 #include "arena.h"
 #include "gltf_draco.h"
@@ -161,6 +161,45 @@ static void TestDamage(void)
     }
 }
 
+// The largest block a decode asks for.
+static void* LargestAlloc(size_t size, size_t alignment, void* context)
+{
+    size_t* largest = context;
+    (void)alignment;
+    *largest = size > *largest ? size : *largest;
+    return malloc(size);
+}
+
+static void LargestFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    (void)size;
+    (void)alignment;
+    (void)context;
+    free(memory);
+}
+
+// A decoder's attribute count past what the bytes left can describe (six
+// bytes each) is refused before anything is allocated for it: 4,000
+// attributes over 1,000 bytes, a count Google's bound (five per byte)
+// allows, take no block their descriptions would need.
+static void TestAttributeCount(void)
+{
+    static const uint8_t kHead[] = {'D', 'R', 'A', 'C', 'O', 2, 2, 1, 0, 0, 0,
+                                    // No faces, one point, plain indices,
+                                    // one decoder of 4,000 attributes.
+                                    0, 1, 1, 1, 0xA0, 0x1F};
+    memset(s_copy, 0, 1000u + sizeof kHead);
+    memcpy(s_copy, kHead, sizeof kHead);
+    size_t largest = 0;
+    maniAllocator allocator = {LargestAlloc, LargestFree, &largest};
+    maniArena arena = maniArenaMake(&allocator);
+    maniDracoMesh m;
+    CHECK(maniDracoDecode(&arena, s_copy, 1000u + sizeof kHead, 1, &m) == maniDracoInvalid,
+          "more attributes than the bytes hold");
+    maniArenaRelease(&arena);
+    CHECK(largest < 4000u * sizeof(maniDracoAttribute), "nothing taken for them");
+}
+
 static void TestAllocationFailures(void)
 {
     size_t size = ReadStream("tube-seq-s0-q");
@@ -186,6 +225,7 @@ int main(void)
     TestStreams();
     TestHeader();
     TestDamage();
+    TestAttributeCount();
     TestAllocationFailures();
     return s_failures == 0 ? 0 : 1;
 }
