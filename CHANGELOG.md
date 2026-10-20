@@ -55,8 +55,8 @@ format.
   channels once a clip, a key's auto tangent is solved once when both
   sides' biases are equal, and a skin's influences are ordered by
   control point by counting rather than a merge sort; the helper check
-  reads a stack's Lcl Scaling channels first and the whole stack only
-  when some child could need a helper; integer arrays read as numbers
+  reads a 7.x stack's Lcl Scaling channels first and the whole stack
+  only when some child could need a helper; integer arrays read as numbers
   in one loop, objects are found by id through a sorted array of
   their keys, and a model whose inputs a sample leaves as they were
   keeps its local transform instead of composing it again.
