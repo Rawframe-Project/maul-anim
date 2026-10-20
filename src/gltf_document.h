@@ -145,4 +145,13 @@ struct maniGltf
     maniArena ragdoll;
 };
 
+// Whether an accessor of non-vertex data reads as packed: from no view,
+// a view without a stride, or one whose stride is its element size,
+// which reads the same bytes (mani-0008).
+static inline bool maniGltfPacked(const maniGltf* gltf, const maniGltfAccessor* a)
+{
+    return a->view == MANI_JSON_NONE || gltf->views[a->view].stride == 0 ||
+           gltf->views[a->view].stride == a->elementSize;
+}
+
 #endif // MAUL_ANIM_SRC_GLTF_DOCUMENT_H

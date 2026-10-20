@@ -163,6 +163,20 @@ static maniJsonResult ScanString(Scanner* s)
     size_t start = ++s->at;
     while (s->at < s->size)
     {
+        // A run of printable ASCII but the quote and backslash, read with
+        // the position in a local (a byte read may alias the scanner).
+        const uint8_t* text = s->text;
+        size_t at = s->at;
+        while (at < s->size && text[at] >= 0x20 && text[at] < 0x80 && text[at] != '"' &&
+               text[at] != '\\')
+        {
+            ++at;
+        }
+        s->at = at;
+        if (at == s->size)
+        {
+            break;
+        }
         uint8_t c = s->text[s->at];
         if (c == '"')
         {
@@ -505,6 +519,15 @@ bool maniJsonStringEquals(const maniJson* json, uint32_t string, const char* byt
     }
     const maniJsonValue* v = &json->values[string];
     const uint8_t* raw = json->text + v->start;
+    // Escapes only shorten a string, and without one it is its bytes.
+    if (v->length < length)
+    {
+        return false;
+    }
+    if (memchr(raw, '\\', v->length) == NULL)
+    {
+        return v->length == length && memcmp(raw, bytes, length) == 0;
+    }
     size_t at = 0;
     size_t matched = 0;
     while (at < v->length)
@@ -532,6 +555,17 @@ size_t maniJsonStringDecode(const maniJson* json, uint32_t string, uint8_t* out,
     size_t written = 0;
     while (at < v->length)
     {
+        // A run without escapes as it stands (the scan checked its UTF-8),
+        // when it fits; else a code point at a time, none split.
+        const uint8_t* slash = memchr(raw + at, '\\', v->length - at);
+        size_t run = (slash != NULL ? (size_t)(slash - raw) : v->length) - at;
+        if (run > 0 && run <= capacity - written)
+        {
+            memcpy(out + written, raw + at, run);
+            written += run;
+            at += run;
+            continue;
+        }
         uint8_t unit[4];
         size_t n = DecodeNext(raw, v->length, &at, unit);
         if (capacity - written < n)

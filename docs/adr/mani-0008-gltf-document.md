@@ -41,7 +41,12 @@ specification fixes exactly.
   multiples of 4), every accessor's span inside its view, offsets
   aligned to the component size, matrix columns of 1- and 2-byte
   components padded to 4 bytes, `normalized` refused on 32-bit types,
-  sparse indices of unsigned types from views without a stride.
+  sparse indices of unsigned types from views without a stride. A view
+  of other than vertex data (sparse parts, inverse binds, animation
+  samplers) may give a stride equal to its element size, read as none:
+  the specification forbids a stride there, but its read formula gives
+  one its meaning and the bytes read are the same, and exporters write
+  it (Sketchfab's among them); any other stride there is refused.
   Accessors read into binary32 with the specification's conversions
   for normalized integers, sparse replacements applied; indices not
   increasing, NaN and infinite floats refused where read, with the

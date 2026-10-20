@@ -136,3 +136,14 @@ lanes and estimated reciprocals, measured again with the eight-lane work
 above. The CCD and FABRIK chains no more than Godot 4.7.2's CCDIK3D and
 FABRIK3D on the same chains and iterations, met at 0.20 and 0.40 of its
 instructions.
+
+Targets added for the importers (mani-0008, mani-0012), in instructions
+at `-O2` and `-O3` (GCC 14) on the same files: opening a glTF document
+no more than cgltf 1.15's parse, buffer load and validation, met at 0.67
+to 0.89 and 0.64 to 0.81 on ozz's Khronos and Sketchfab samples (JSON
+strings scanned in runs, a string without escapes compared and copied
+as its bytes, base64 by a table); opening an FBX file no more than
+ufbx's load with all content ignored, met at 0.78 and 0.77 on ozz's
+Quaternius `ual.fbx` (a name of plain ASCII compared, hashed and copied
+as its bytes).
+

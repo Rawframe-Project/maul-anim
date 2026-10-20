@@ -203,7 +203,7 @@ static bool IsNormalizedOrFloat(const maniGltfAccessor* a)
 
 static bool Strided(const maniGltf* gltf, const maniGltfAccessor* a)
 {
-    return a->view != MANI_JSON_NONE && gltf->views[a->view].stride != 0;
+    return !maniGltfPacked(gltf, a);
 }
 
 // The output accessor against the target's row of the specification's

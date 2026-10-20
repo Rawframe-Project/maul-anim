@@ -44,22 +44,55 @@ static bool EqualsFolded(const uint8_t* text, size_t length, const char* word)
     return length == strlen(word) && StartsWithFolded(text, length, word);
 }
 
-// A base64 digit's value, or -1.
+// Each byte's base64 digit, 255 for none (RFC 4648's alphabet).
+static const uint8_t kDigits[256] = {
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 62,  255, 255, 255, 63,  52,  53,  54,  55,  56,  57,  58,  59,  60,
+    61,  255, 255, 255, 255, 255, 255, 255, 0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   10,
+    11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  255, 255, 255, 255,
+    255, 255, 26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,
+    43,  44,  45,  46,  47,  48,  49,  50,  51,  255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255,
+};
+
 static int32_t Base64Digit(uint8_t c)
 {
-    if (c >= 'A' && c <= 'Z')
+    return kDigits[c] == 255 ? -1 : (int32_t)kDigits[c];
+}
+
+// The groups before the last, none padded: four digits, three bytes, a
+// wrong digit found by the top bits of their union (a digit is below
+// 64); out holds at least 3 bytes for each 4 read (its caller sizes it
+// by the text); returns the bytes written, *atOut where it stopped.
+static size_t DecodeGroups(const uint8_t* text, size_t length, uint8_t* out, size_t* atOut)
+{
+    size_t written = 0;
+    size_t i = 0;
+    for (; i + 4 < length; i += 4)
     {
-        return c - 'A';
+        uint32_t a = kDigits[text[i]];
+        uint32_t b = kDigits[text[i + 1]];
+        uint32_t c = kDigits[text[i + 2]];
+        uint32_t d = kDigits[text[i + 3]];
+        if (((a | b | c | d) & 0xC0u) != 0)
+        {
+            break;
+        }
+        uint32_t group = a << 18 | b << 12 | c << 6 | d;
+        out[written] = (uint8_t)(group >> 16);
+        out[written + 1] = (uint8_t)(group >> 8);
+        out[written + 2] = (uint8_t)group;
+        written += 3;
     }
-    if (c >= 'a' && c <= 'z')
-    {
-        return c - 'a' + 26;
-    }
-    if (c >= '0' && c <= '9')
-    {
-        return c - '0' + 52;
-    }
-    return c == '+' ? 62 : (c == '/' ? 63 : -1);
+    *atOut = i;
+    return written;
 }
 
 // Decodes base64 with its padding (RFC 4648 section 4); returns the byte
@@ -71,8 +104,9 @@ static size_t DecodeBase64(const uint8_t* text, size_t length, uint8_t* out, siz
         *badOut = length;
         return SIZE_MAX;
     }
-    size_t written = 0;
-    for (size_t i = 0; i < length; i += 4)
+    size_t i = 0;
+    size_t written = DecodeGroups(text, length, out, &i);
+    for (; i < length; i += 4)
     {
         bool last = i + 4 == length;
         size_t pad = last ? (text[i + 3] == '=' ? (text[i + 2] == '=' ? 2 : 1) : 0) : 0;

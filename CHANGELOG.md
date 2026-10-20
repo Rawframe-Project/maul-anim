@@ -32,6 +32,14 @@ format.
 
 ### Changed
 
+- Opening a glTF or FBX file takes fewer instructions than cgltf's
+  parse, buffer load and validation and than ufbx's load with content
+  ignored, on the files measured (strings and base64 read in runs, FBX
+  names compared on their bytes when nothing in them needs decoding).
+- A glTF buffer view of non-vertex data (inverse binds, animation
+  samplers, sparse parts) whose `byteStride` equals its element size
+  reads as packed, as Sketchfab's exports need; another stride there is
+  refused as before.
 - A learned motion matching node's evaluation takes the Decompressor's
   hidden values its update computed at the same state, with the same
   bits: a tenth fewer instructions a frame (543,629 against 606,816 at

@@ -433,6 +433,16 @@ static void TestNamesAcrossExports(void)
     maniDestroyBuilder(builder);
 }
 
+static void ExpectOpens(const char* what)
+{
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = NULL;
+    maniImportResult r = maniOpenGltf(builder, s_json, strlen(s_json), &gltf);
+    CHECK(r.result == mani_success, what);
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
 static void ExpectRefusal(maniImportReason reason, const char* at, const char* what)
 {
     maniBuilder* builder = NewBuilder();
@@ -510,17 +520,29 @@ static void TestRefusals(void)
              "[{\"joints\":[0,1],\"inverseBindMatrices\":0}],\"accessors\":[{\"componentType\":"
              "5126,\"count\":1,\"type\":\"MAT4\"}]}");
     ExpectRefusal(maniImportReasonProperty, "0}]", "fewer inverse binds than joints");
-    char zeros[89];
-    memset(zeros, 'A', 86);
-    memcpy(zeros + 86, "==", 3);
-    snprintf(s_json, sizeof s_json,
-             "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{}],\"skins\":[{\"joints\":[0],"
-             "\"inverseBindMatrices\":0}],\"buffers\":[{\"byteLength\":64,\"uri\":"
-             "\"data:application/octet-stream;base64,%s\"}],\"bufferViews\":[{\"buffer\":0,"
-             "\"byteLength\":64,\"byteStride\":64}],\"accessors\":[{\"bufferView\":0,"
-             "\"componentType\":5126,\"count\":1,\"type\":\"MAT4\"}]}",
-             zeros);
-    ExpectRefusal(maniImportReasonLayout, "0}]", "inverse binds in a strided view");
+    // 144 zero bytes as base64; a stride of 64, the element's size, reads
+    // as none, one of 80 is refused.
+    char zeros[193];
+    memset(zeros, 'A', 192);
+    zeros[192] = 0;
+    for (int stride = 64; stride <= 80; stride += 16)
+    {
+        snprintf(s_json, sizeof s_json,
+                 "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{}],\"skins\":[{\"joints\":[0],"
+                 "\"inverseBindMatrices\":0}],\"buffers\":[{\"byteLength\":144,\"uri\":"
+                 "\"data:application/octet-stream;base64,%s\"}],\"bufferViews\":[{\"buffer\":0,"
+                 "\"byteLength\":144,\"byteStride\":%d}],\"accessors\":[{\"bufferView\":0,"
+                 "\"componentType\":5126,\"count\":1,\"type\":\"MAT4\"}]}",
+                 zeros, stride);
+        if (stride == 64)
+        {
+            ExpectOpens("inverse binds in a view of their own stride");
+        }
+        else
+        {
+            ExpectRefusal(maniImportReasonLayout, "0}]", "inverse binds in a strided view");
+        }
+    }
 }
 
 // A shear small beside the matrix's largest column is within the

@@ -14,7 +14,7 @@ skeleton (mani-0006).
 ## Decision
 
 - **Checked at open:** every sampler and channel: input accessors scalar
-  floats without a stride, outputs of the type the specification's
+  floats without a stride (or one of 4, read as none), outputs of the type the specification's
   table gives each target, key and frame counts (morph frames are one
   scalar per target, end to end), cubic splines of two keys or more,
   interpolation names, a TRS channel on a matrix node refused, a target

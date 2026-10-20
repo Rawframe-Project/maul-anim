@@ -72,7 +72,8 @@ extern "C"
         // A buffer's data: its URI, its encoding, or too few bytes.
         maniImportReasonBuffer = 7,
         // An accessor's or buffer view's layout: out of bounds, misaligned,
-        // a stride where none may be.
+        // a stride where none may be (but a non-vertex element's own
+        // size, read as none).
         maniImportReasonLayout = 8,
         // Data the specification forbids: NaN or infinite floats, sparse
         // indices not increasing.

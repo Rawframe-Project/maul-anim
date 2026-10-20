@@ -208,6 +208,20 @@ static bool Open(const maniFbx* fbx, uint32_t property, Reader* r)
     return true;
 }
 
+// A string whose decoded bytes are its raw ones: no entities to read and
+// every byte ASCII but NUL, so none is replaced.
+static bool Plain(const Reader* r)
+{
+    for (uint32_t k = 0; !r->entities && k < r->raw; ++k)
+    {
+        if (r->p[k] == 0 || r->p[k] >= 0x80)
+        {
+            return false;
+        }
+    }
+    return !r->entities;
+}
+
 static uint8_t Next(Reader* r)
 {
     return r->entities ? NextByte(r->p, r->raw, &r->at) : r->p[r->at++];
@@ -305,6 +319,18 @@ static size_t DecodeRange(const maniFbx* fbx, uint32_t property, uint64_t from, 
     {
         return 0;
     }
+    if (Plain(&t.r))
+    {
+        // Bytes from..to of the raw ones, as many as fit.
+        uint64_t end = to < t.r.raw ? to : t.r.raw;
+        size_t n = from < end ? (size_t)(end - from) : 0;
+        n = out != NULL && n > capacity ? capacity : n;
+        if (out != NULL && n > 0)
+        {
+            memcpy(out, t.r.p + from, n);
+        }
+        return n;
+    }
     size_t written = 0;
     uint8_t c[4];
     for (uint32_t n = NextCharacter(&t, c); n != 0; n = NextCharacter(&t, c))
@@ -357,6 +383,16 @@ bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* byte
     {
         return false;
     }
+    // A replaced byte grows to three, so the decoded string is never
+    // shorter than the raw one.
+    if (!t.r.entities && t.r.raw > length)
+    {
+        return false;
+    }
+    if (Plain(&t.r))
+    {
+        return t.r.raw == length && (length == 0 || memcmp(t.r.p, bytes, length) == 0);
+    }
     size_t matched = 0;
     uint8_t c[4];
     for (uint32_t n = NextCharacter(&t, c); n != 0; n = NextCharacter(&t, c))
@@ -389,6 +425,14 @@ uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property)
     {
         return h;
     }
+    if (Plain(&t.r))
+    {
+        for (uint32_t i = 0; i < t.r.raw; ++i)
+        {
+            h = maniHash64(h, t.r.p + i, 1);
+        }
+        return h;
+    }
     uint8_t c[4];
     for (uint32_t n = NextCharacter(&t, c); n != 0; n = NextCharacter(&t, c))
     {
@@ -407,6 +451,10 @@ bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b)
     if (!OpenText(fbx, a, 0, UINT64_MAX, &x) || !OpenText(fbx, b, 0, UINT64_MAX, &y))
     {
         return false;
+    }
+    if (Plain(&x.r) && Plain(&y.r))
+    {
+        return x.r.raw == y.r.raw && (x.r.raw == 0 || memcmp(x.r.p, y.r.p, x.r.raw) == 0);
     }
     uint8_t cx[4];
     uint8_t cy[4];

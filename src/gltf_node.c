@@ -115,7 +115,7 @@ uint32_t maniGltfJointNode(const maniGltf* gltf, uint32_t element)
 }
 
 // A skin's inverse binds: a MAT4 float accessor of at least one per
-// joint, from a view without a stride.
+// joint, from a packed view (a stride of 64 reads as none).
 static maniImportResult CheckInverseBinds(const maniGltf* gltf, uint32_t skin, uint32_t joints)
 {
     const maniGltfJson* g = &gltf->g;
@@ -132,7 +132,7 @@ static maniImportResult CheckInverseBinds(const maniGltf* gltf, uint32_t skin, u
     {
         return maniImportFail(maniImportReasonProperty, maniGltfOffset(g, at), skin);
     }
-    if (a->view != MANI_JSON_NONE && gltf->views[a->view].stride != 0)
+    if (!maniGltfPacked(gltf, a))
     {
         return maniImportFail(maniImportReasonLayout, maniGltfOffset(g, at), skin);
     }

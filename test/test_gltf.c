@@ -346,6 +346,38 @@ static void TestLayoutRefusals(void)
         "");
     ExpectRefusal(maniImportReasonLayout, "{\"bufferView\":0,\"componentType\":5121", 0,
                   "sparse indices from a strided view");
+    // Values in a view whose stride is their size read as packed; another
+    // stride is refused.
+    for (int stride = 4; stride <= 8; stride += 4)
+    {
+        char views[160];
+        snprintf(views, sizeof views,
+                 "{\"buffer\":0,\"byteLength\":64},{\"buffer\":0,\"byteLength\":64,"
+                 "\"byteStride\":%d}",
+                 stride);
+        Document(uri, views,
+                 "{\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\",\"sparse\":{\"count\":1,"
+                 "\"indices\":{\"bufferView\":0,\"byteOffset\":44,\"componentType\":5121},"
+                 "\"values\":{\"bufferView\":1,\"byteOffset\":48}}}",
+                 "");
+        if (stride == 4)
+        {
+            maniBuilder* b = NewBuilder();
+            maniGltf* g = NULL;
+            float values[2] = {0, 0};
+            CHECK(OpenJson(b, &g).result == mani_success &&
+                      maniGltfReadFloats(g, 0, values).result == mani_success && values[0] == 0 &&
+                      values[1] == 9,
+                  "sparse values in a view of their own stride");
+            maniCloseGltf(g);
+            maniDestroyBuilder(b);
+        }
+        else
+        {
+            ExpectRefusal(maniImportReasonLayout, "{\"bufferView\":1,\"byteOffset\":48", 0,
+                          "sparse values from a strided view");
+        }
+    }
     Document(
         uri, kViews,
         "{\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\",\"sparse\":{\"count\":3,"

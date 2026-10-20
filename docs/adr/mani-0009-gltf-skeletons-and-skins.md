@@ -51,7 +51,8 @@ make naive tree walks quadratic.
   (rotations also times det B), scales permuted, matrices conjugated.
 - **Skins** (`maniGltfBuildSkin`): joints found by name in an opened
   skeleton, inverse binds from a MAT4 float accessor without a stride
-  (identity when absent), repeated joints refused.
+  or with one of 64, read as none (identity when absent), repeated
+  joints refused.
 
 ## Consequences
 

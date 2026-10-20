@@ -82,14 +82,16 @@ static bool TypeShape(const maniGltfJson* g, uint32_t type, uint8_t* rows, uint8
 }
 
 // The view a span reads must hold it, at an aligned offset, with no
-// stride when `strideAllowed` is false; `at` is the offset to blame.
+// stride but `packed` when that is not 0 (a stride of the element size
+// reads as none); `at` is the offset to blame.
 static maniImportResult CheckSpan(const maniGltf* gltf, uint32_t view, uint64_t offset,
-                                  uint64_t span, uint32_t alignment, bool strideAllowed,
-                                  uint64_t at, uint32_t item)
+                                  uint64_t span, uint32_t alignment, uint32_t packed, uint64_t at,
+                                  uint32_t item)
 {
     const maniGltfView* v = &gltf->views[view];
     if (alignment == 0 || (v->offset + offset) % alignment != 0 ||
-        (!strideAllowed && v->stride != 0) || offset > v->length || span > v->length - offset)
+        (packed != 0 && v->stride != 0 && v->stride != packed) || offset > v->length ||
+        span > v->length - offset)
     {
         return maniImportFail(maniImportReasonLayout, at, item);
     }
@@ -149,12 +151,12 @@ static maniImportResult ReadSparse(maniGltf* gltf, uint32_t sparse, uint32_t i)
     a->sparseIndexOffset = (uint64_t)indexOffset;
     a->sparseValueOffset = (uint64_t)valueOffset;
     r = CheckSpan(gltf, a->sparseIndexView, a->sparseIndexOffset,
-                  (uint64_t)count * a->sparseIndexSize, a->sparseIndexSize, false,
+                  (uint64_t)count * a->sparseIndexSize, a->sparseIndexSize, a->sparseIndexSize,
                   maniGltfOffset(g, indices), i);
     if (r.result == mani_success)
     {
         r = CheckSpan(gltf, a->sparseValueView, a->sparseValueOffset,
-                      (uint64_t)count * a->elementSize, a->componentSize, false,
+                      (uint64_t)count * a->elementSize, a->componentSize, a->elementSize,
                       maniGltfOffset(g, values), i);
     }
     return r;
@@ -250,8 +252,8 @@ static maniImportResult ReadAccessor(maniGltf* gltf, uint32_t value, uint32_t i)
         {
             return maniImportFail(maniImportReasonLayout, maniGltfOffset(g, value), i);
         }
-        r = CheckSpan(gltf, a->view, a->offset, span, a->componentSize, true,
-                      maniGltfOffset(g, value), i);
+        r = CheckSpan(gltf, a->view, a->offset, span, a->componentSize, 0, maniGltfOffset(g, value),
+                      i);
     }
     if (r.result == mani_success && sparse != MANI_JSON_NONE)
     {

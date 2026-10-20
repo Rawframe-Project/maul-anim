@@ -144,7 +144,8 @@ static void Document(const char* samplers, const char* channels, const char* sce
         "{\"primitives\":[{\"attributes\":{}}]}],"
         "\"buffers\":[{\"byteLength\":%d,\"uri\":\"data:application/octet-stream;base64,%s\"}],"
         "\"bufferViews\":[{\"buffer\":0,\"byteLength\":%d},"
-        "{\"buffer\":0,\"byteOffset\":12,\"byteLength\":12,\"byteStride\":8}],"
+        "{\"buffer\":0,\"byteOffset\":12,\"byteLength\":12,\"byteStride\":8},"
+        "{\"buffer\":0,\"byteOffset\":12,\"byteLength\":8,\"byteStride\":4}],"
         "\"accessors\":["
         "{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"SCALAR\",\"min\":[0],"
         "\"max\":[1]},"
@@ -174,8 +175,10 @@ static void Document(const char* samplers, const char* channels, const char* sce
         "{\"bufferView\":0,\"byteOffset\":268,\"componentType\":5123,\"normalized\":true,"
         "\"count\":2,\"type\":\"VEC3\"},"
         "{\"bufferView\":0,\"componentType\":5126,\"count\":1,\"type\":\"SCALAR\"},"
-        // 15: two 4x4 matrices, for a pointer of sixteen components.
-        "{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"MAT4\"}"
+        // 15: two 4x4 matrices, for a pointer of sixteen components; 16:
+        // accessor 1's times in a view of their own stride.
+        "{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"MAT4\"},"
+        "{\"bufferView\":2,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"}"
         "],"
         "\"animations\":[{\"name\":\"walk\",\"samplers\":[%s],\"channels\":[%s]}]}",
         sceneExtra, (int)(kKeyFloats * sizeof(float)), digits, (int)(kKeyFloats * sizeof(float)),
@@ -611,6 +614,15 @@ static void TestRefusals(void)
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "times not floats");
     Document("{\"input\":11,\"output\":6}", kHipMove, "");
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "times strided");
+    Document("{\"input\":16,\"output\":6}", kHipMove, "");
+    {
+        maniBuilder* builder = NewBuilder();
+        maniGltf* gltf = NULL;
+        CHECK(maniOpenGltf(builder, s_json, strlen(s_json), &gltf).result == mani_success,
+              "times in a view of their own stride");
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
     Document("{\"input\":1,\"output\":13}", kHipMove, "");
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "a normalized translation");
     Document(kOne, "{\"sampler\":0,\"target\":{\"node\":1,\"path\":\"rotation\"}}", "");
