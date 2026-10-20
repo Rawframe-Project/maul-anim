@@ -49,8 +49,9 @@ format.
   the same files built and the same refusals: the helper check samples
   a stack only for the children a scale not uniform could shear, binary
   arrays read in one loop a type, the sampler finds each model's
-  channels once, and a model's transform properties are found in one
-  pass over its properties and its template's.
+  channels and the property each animates once a clip, and a model's
+  transform properties are found in one pass over its properties and
+  its template's.
 - JSON numbers (glTF, the graph, maps and the other JSON forms) and FBX
   ASCII numbers convert by Eisel and Lemire's method first, the exact
   multiprecision method kept for what it leaves open: the same bits,

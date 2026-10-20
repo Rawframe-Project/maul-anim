@@ -182,6 +182,7 @@ static void TestMatrices(void)
 }
 
 static char s_text[4096];
+static const char* s_template = "    P: \"ScalingPivot\", \"Vector3D\", \"Vector\", \"\",0,0,0\n";
 
 static maniBuilder* NewBuilder(void)
 {
@@ -191,17 +192,17 @@ static maniBuilder* NewBuilder(void)
     return builder;
 }
 
-// A document with one model holding the properties given.
+// A document with one model holding the properties given, its template
+// s_template's.
 static void Model(const char* properties)
 {
     snprintf(
         s_text, sizeof s_text,
         "; FBX 7.4.0 project file\n"
         "Definitions: {\n ObjectType: \"Model\" {\n  PropertyTemplate: \"FbxNode\" {\n"
-        "   Properties70: {\n    P: \"ScalingPivot\", \"Vector3D\", \"Vector\", \"\",0,0,0\n"
-        "   }\n  }\n }\n}\n"
+        "   Properties70: {\n%s   }\n  }\n }\n}\n"
         "Objects: {\n Model: 1, \"Model::m\", \"LimbNode\" {\n  Properties70: {\n%s  }\n }\n}\n",
-        properties);
+        s_template, properties);
 }
 
 static maniImportResult Local(maniFbxLocal* out)
@@ -211,7 +212,7 @@ static maniImportResult Local(maniFbxLocal* out)
     maniImportResult r = maniOpenFbx(builder, s_text, strlen(s_text), &fbx);
     if (r.result == mani_success)
     {
-        r = maniFbxModelLocal(fbx, 0, out);
+        r = maniFbxModelLocal(fbx, 0, NULL, out);
     }
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -294,6 +295,76 @@ static void TestChain(void)
     CHECK(Local(&local).result == mani_success &&
               Near((got = maniFbxTrsMatrix(&local.trs), &got), &identity, 0),
           "no properties: identity");
+}
+
+static bool Translation(double x, double y, double z)
+{
+    maniFbxLocal local;
+    return Local(&local).result == mani_success && local.trs.translation[0] == x &&
+           local.trs.translation[1] == y && local.trs.translation[2] == z;
+}
+
+// Which entry gives a property: the model's own, its later one when
+// given twice, else its template's; a name only alike is another.
+static void TestLookup(void)
+{
+    static const char kOwn[] =
+        "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,2,3\n";
+    s_template = "    P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",4,5,6\n";
+    Model("");
+    CHECK(Translation(4, 5, 6), "the template's when the model lacks it");
+    Model(kOwn);
+    CHECK(Translation(1, 2, 3), "the model's own over its template's");
+    Model("   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,2,3\n"
+          "   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",7,8,9\n");
+    CHECK(Translation(7, 8, 9), "a name given twice: the later");
+    Model("   P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",1,2,3\n"
+          "   P: \"Lcl Trans\", \"Lcl Translation\", \"\", \"A\",7,8,9\n"
+          "   P: \"Lcl Translations\", \"Lcl Translation\", \"\", \"A\",7,8,9\n");
+    CHECK(Translation(1, 2, 3), "names only alike: others");
+    s_template = "    P: \"ScalingPivot\", \"Vector3D\", \"Vector\", \"\",0,0,0\n";
+}
+
+// One cache through every object twice, of two templates (a property
+// in one only) and with a property of its own: each object's entries as
+// found without one.
+static void TestTemplateCache(void)
+{
+    snprintf(s_text, sizeof s_text,
+             "; FBX 7.4.0 project file\nDefinitions: {\n"
+             " ObjectType: \"Model\" {\n  PropertyTemplate: \"FbxNode\" {\n   Properties70: {\n"
+             "    P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",4,5,6\n"
+             "    P: \"Lcl Scaling\", \"Lcl Scaling\", \"\", \"A\",2,2,2\n   }\n  }\n }\n"
+             " ObjectType: \"Material\" {\n  PropertyTemplate: \"FbxSurfacePhong\" {\n"
+             "   Properties70: {\n"
+             "    P: \"Lcl Translation\", \"Lcl Translation\", \"\", \"A\",7,8,9\n   }\n  }\n }\n"
+             "}\nObjects: {\n Model: 1, \"Model::m\", \"LimbNode\" {\n  Properties70: {\n"
+             "   P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,45\n  }\n }\n"
+             " Material: 2, \"Material::x\", \"\" {\n }\n}\n");
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, s_text, strlen(s_text), &fbx).result == mani_success, "opens");
+    static const char* const kNames[3] = {"Lcl Translation", "Lcl Rotation", "Lcl Scaling"};
+    maniFbxTemplateCache cache;
+    maniFbxEmptyTemplateCache(&cache);
+    bool same = fbx != NULL && fbx->objectCount >= 2;
+    uint32_t templates = 0;
+    uint32_t own = 0;
+    for (uint32_t i = 0; same && i < 2 * fbx->objectCount; ++i)
+    {
+        uint32_t o = i % fbx->objectCount;
+        uint32_t entries[3];
+        maniFbxFindProperties(fbx, o, kNames, 3, &cache, entries);
+        for (uint32_t k = 0; k < 3; ++k)
+        {
+            same = same && entries[k] == maniFbxFindProperty(fbx, o, kNames[k], strlen(kNames[k]));
+        }
+        templates += entries[0] != MANI_FBX_NONE ? 1 : 0;
+        own += entries[1] != MANI_FBX_NONE ? 1 : 0;
+    }
+    CHECK(same && templates == 4 && own == 2, "a template cache: the same entries");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
 }
 
 static void ExpectRefusal(const char* properties, const char* at, const char* what)
@@ -408,6 +479,8 @@ int main(void)
     TestQuatEuler();
     TestMatrices();
     TestChain();
+    TestLookup();
+    TestTemplateCache();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

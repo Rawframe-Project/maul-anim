@@ -312,7 +312,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             (void)maniFbxParentConnections(fbx, o, &list);
             (void)maniFbxFindObject(fbx, fbx->objects[o].id);
             maniFbxLocal local;
-            (void)maniFbxModelLocal(fbx, o, &local);
+            (void)maniFbxModelLocal(fbx, o, NULL, &local);
             Curve(fbx, o);
             Blend(fbx, o);
         }

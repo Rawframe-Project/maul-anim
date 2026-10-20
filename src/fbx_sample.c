@@ -13,8 +13,8 @@
 #include "fbx_anim.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
+#include "fbx_object.h"
 #include "fbx_transform.h"
-#include "fbx_value.h"
 #include "fbx_world.h"
 
 #include <math.h>
@@ -34,8 +34,32 @@ void maniFbxReleaseSampler(maniFbxSampler* sampler)
         maniRelease(&fbx->allocator, sampler->order, n, sizeof(uint32_t), 4);
         maniRelease(&fbx->allocator, sampler->rest, n, sizeof(maniFbxLocalInputs), 8);
         maniRelease(&fbx->allocator, sampler->runs, 2 * n, sizeof(uint32_t), 4);
+        maniRelease(&fbx->allocator, sampler->inputs, (size_t)sampler->animation->channelCount + 1,
+                    1, 1);
     }
     memset(sampler, 0, sizeof *sampler);
+}
+
+// Each model channel of a run marked with the input it animates, its
+// name compared once here rather than at every sample.
+static void MarkInputs(const maniFbx* fbx, const maniFbxAnimation* animation, uint32_t first,
+                       uint32_t count, uint8_t* inputs)
+{
+    for (uint32_t i = first; i < first + count; ++i)
+    {
+        const maniFbxChannel* c = &animation->channels[i];
+        for (uint32_t k = 0; !c->attribute && k < maniFbxLocalVectors + maniFbxLocalIntegers; ++k)
+        {
+            const char* name = k < maniFbxLocalVectors
+                                   ? maniFbxLocalVectorNames[k]
+                                   : maniFbxLocalIntegerNames[k - maniFbxLocalVectors];
+            if (maniFbxChannelNameIs(fbx, c, name, strlen(name)))
+            {
+                inputs[i] = (uint8_t)k;
+                break;
+            }
+        }
+    }
 }
 
 maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation* animation,
@@ -48,24 +72,23 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
     out->order = maniAllocate(&fbx->allocator, n, sizeof(uint32_t), 4);
     out->rest = maniAllocate(&fbx->allocator, n, sizeof(maniFbxLocalInputs), 8);
     out->runs = maniAllocate(&fbx->allocator, 2 * n, sizeof(uint32_t), 4);
+    // One more than the channels, so never none.
+    size_t channels = (size_t)animation->channelCount + 1;
+    out->inputs = maniAllocate(&fbx->allocator, channels, 1, 1);
     uint32_t* stack = maniAllocate(&fbx->allocator, n, sizeof(uint32_t), 4);
-    maniImportResult r =
-        out->order != NULL && out->rest != NULL && out->runs != NULL && stack != NULL
-            ? maniFbxSuccess()
-            : Capacity();
-    for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
+    maniImportResult r = out->order != NULL && out->rest != NULL && out->runs != NULL &&
+                                 out->inputs != NULL && stack != NULL
+                             ? maniFbxSuccess()
+                             : Capacity();
+    if (out->inputs != NULL)
     {
-        const char* name = maniFbxLocalVectorNames[k];
-        out->hashes[k] = maniFbxNameHash(name, strlen(name));
-    }
-    for (uint32_t k = 0; k < maniFbxLocalIntegers; ++k)
-    {
-        const char* name = maniFbxLocalIntegerNames[k];
-        out->hashes[maniFbxLocalVectors + k] = maniFbxNameHash(name, strlen(name));
+        memset(out->inputs, maniFbxSamplerNone, channels);
     }
     // Each model is pushed once, by its parent, from the root (the
     // hierarchy is a forest, mani-0014).
     uint32_t height = 0;
+    maniFbxTemplateCache cache;
+    maniFbxEmptyTemplateCache(&cache);
     if (stack != NULL)
     {
         stack[height++] = fbx->modelCount;
@@ -76,9 +99,10 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
         if (v != fbx->modelCount)
         {
             out->order[out->count] = v;
-            r = maniFbxReadLocalInputs(fbx, fbx->models[v], &out->rest[out->count]);
+            r = maniFbxReadLocalInputs(fbx, fbx->models[v], &cache, &out->rest[out->count]);
             uint32_t* run = &out->runs[2 * out->count];
             run[1] = maniFbxAnimatedRun(animation, fbx->models[v], &run[0]);
+            MarkInputs(fbx, animation, run[0], run[1], out->inputs);
             ++out->count;
         }
         const uint32_t* children = NULL;
@@ -113,9 +137,8 @@ static bool Animate(const maniFbxSampler* s, uint32_t i, double time, maniFbxLoc
     for (uint32_t k = 0; k < maniFbxLocalIntegers; ++k)
     {
         double v[3] = {(double)in->integers[k], 0.0, 0.0};
-        const char* name = maniFbxLocalIntegerNames[k];
-        if (!maniFbxAnimateInRun(s->animation, s->fbx, first, count, name, strlen(name),
-                                 s->hashes[maniFbxLocalVectors + k], time, 0, v))
+        if (!maniFbxAnimateMarked(s->animation, s->fbx, first, count, s->inputs,
+                                  (uint8_t)(maniFbxLocalVectors + k), false, false, time, 0, v))
         {
             continue;
         }
@@ -131,9 +154,9 @@ static bool Animate(const maniFbxSampler* s, uint32_t i, double time, maniFbxLoc
     uint32_t compose = order == 6 ? 0 : (uint32_t)order;
     for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
     {
-        const char* name = maniFbxLocalVectorNames[k];
-        (void)maniFbxAnimateInRun(s->animation, s->fbx, first, count, name, strlen(name),
-                                  s->hashes[k], time, compose, in->vectors[k]);
+        (void)maniFbxAnimateMarked(s->animation, s->fbx, first, count, s->inputs, (uint8_t)k,
+                                   k == maniFbxLocalScaling, k == maniFbxLocalRotation, time,
+                                   compose, in->vectors[k]);
     }
     return true;
 }

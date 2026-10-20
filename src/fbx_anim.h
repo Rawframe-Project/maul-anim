@@ -128,10 +128,12 @@ bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fb
                             const char* name, size_t length, double time, uint32_t order,
                             double value[3]);
 // maniFbxAnimateProperty through the object's run already found
-// (maniFbxAnimatedRun) and the name's hash (maniFbxNameHash).
-bool maniFbxAnimateInRun(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
-                         uint32_t count, const char* name, size_t length, uint64_t hash,
-                         double time, uint32_t order, double value[3]);
+// (maniFbxAnimatedRun), its channels' names already matched: those
+// whose mark (one a channel of the animation) is the one given, the
+// property scale (Lcl Scaling) or rotation (Lcl Rotation) as said.
+bool maniFbxAnimateMarked(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
+                          uint32_t count, const uint8_t* marks, uint8_t mark, bool scale,
+                          bool rotation, double time, uint32_t order, double value[3]);
 bool maniFbxAnimateAttribute(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t model,
                              const char* name, size_t length, double time, double value[3]);
 

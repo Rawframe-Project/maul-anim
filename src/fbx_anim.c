@@ -762,6 +762,24 @@ size_t maniFbxChannelName(const maniFbx* fbx, const maniFbxChannel* channel, uin
     return maniFbxStringDecode(fbx, channel->name, out, capacity);
 }
 
+// A channel's value at a time applied: the base layer's taken, a later
+// layer's combined.
+static void Apply(const maniFbxAnimation* animation, const maniFbx* fbx, const maniFbxChannel* c,
+                  double time, bool scale, bool rotation, uint32_t order, double value[3])
+{
+    double v[3];
+    Evaluate(c, time, v);
+    if (c->layer == 0)
+    {
+        memcpy(value, v, sizeof v);
+    }
+    else
+    {
+        Combine(&animation->layers[c->layer], Weight(animation, fbx, c->layer, time), scale,
+                rotation, order, value, v);
+    }
+}
+
 // A property's value through a run of channels of one side: the model's
 // own or (6.x) its attribute's.
 static bool AnimateRun(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
@@ -775,23 +793,12 @@ static bool AnimateRun(const maniFbxAnimation* animation, const maniFbx* fbx, ui
     for (uint32_t i = first; i < first + count; ++i)
     {
         const maniFbxChannel* c = &animation->channels[i];
-        if (c->nameHash != hash || c->attribute != attribute ||
-            !maniFbxChannelNameIs(fbx, c, name, length))
+        if (c->nameHash == hash && c->attribute == attribute &&
+            maniFbxChannelNameIs(fbx, c, name, length))
         {
-            continue;
+            Apply(animation, fbx, c, time, scale, rotation, order, value);
+            animated = true;
         }
-        double v[3];
-        Evaluate(c, time, v);
-        if (c->layer == 0)
-        {
-            memcpy(value, v, sizeof v);
-        }
-        else
-        {
-            Combine(&animation->layers[c->layer], Weight(animation, fbx, c->layer, time), scale,
-                    rotation, order, value, v);
-        }
-        animated = true;
     }
     return animated;
 }
@@ -806,11 +813,20 @@ static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint3
                       time, order, attribute, value);
 }
 
-bool maniFbxAnimateInRun(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
-                         uint32_t count, const char* name, size_t length, uint64_t hash,
-                         double time, uint32_t order, double value[3])
+bool maniFbxAnimateMarked(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
+                          uint32_t count, const uint8_t* marks, uint8_t mark, bool scale,
+                          bool rotation, double time, uint32_t order, double value[3])
 {
-    return AnimateRun(animation, fbx, first, count, name, length, hash, time, order, false, value);
+    bool animated = false;
+    for (uint32_t i = first; i < first + count; ++i)
+    {
+        if (marks[i] == mark)
+        {
+            Apply(animation, fbx, &animation->channels[i], time, scale, rotation, order, value);
+            animated = true;
+        }
+    }
+    return animated;
 }
 
 bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,

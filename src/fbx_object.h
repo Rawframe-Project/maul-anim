@@ -60,10 +60,22 @@ size_t maniFbxObjectName(const maniFbx* fbx, uint32_t object, uint8_t* out, size
 // it. A name given twice is its later entry.
 uint32_t maniFbxFindProperty(const maniFbx* fbx, uint32_t object, const char* name, size_t length);
 
+// A template's entries for one list of names, kept while the objects
+// sharing it are read; empty at first (maniFbxEmptyTemplateCache).
+typedef struct maniFbxTemplateCache
+{
+    uint32_t properties;
+    uint32_t entries[32];
+} maniFbxTemplateCache;
+
+void maniFbxEmptyTemplateCache(maniFbxTemplateCache* cache);
+
 // Up to 32 names' entries at once, each as maniFbxFindProperty finds it,
-// in one pass over the object's properties and one over its template's.
+// in one pass over the object's properties and one over its template's;
+// with a cache (NULL for none) kept for these names, the template's pass
+// only when the template is not the one it holds.
 void maniFbxFindProperties(const maniFbx* fbx, uint32_t object, const char* const* names,
-                           uint32_t count, uint32_t* entries);
+                           uint32_t count, maniFbxTemplateCache* cache, uint32_t* entries);
 
 // An entry's k-th value (after its name, type, label and flags), as an
 // index into fbx->properties; MANI_FBX_NONE past its values or for no

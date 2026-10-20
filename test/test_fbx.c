@@ -921,6 +921,55 @@ static void TestValueRefusals(void)
     maniDestroyBuilder(builder);
 }
 
+static void Entry(const char* name, double v)
+{
+    Begin("P");
+    PropS(name, strlen(name));
+    PropS("Vector3D", 8);
+    PropS("Vector", 6);
+    PropS("", 0);
+    PropD(v);
+    PropD(v);
+    PropD(v);
+    End();
+}
+
+// A binary model's properties found together as one by one: names only
+// alike (a prefix, a longer name) are other properties.
+static void TestFindProperties(void)
+{
+    Start(7400, false);
+    Begin("Objects");
+    Begin("Model");
+    PropL(1);
+    PropS("m\0\1Model", 9);
+    PropS("LimbNode", 8);
+    Begin("Properties70");
+    Entry("RotationPivot", 1.0);
+    Entry("RotationPiv", 2.0);
+    Entry("RotationPivots", 3.0);
+    Entry("ScalingPivot", 4.0);
+    End();
+    End();
+    End();
+    Finish();
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "opens");
+    static const char* const kNames[3] = {"RotationPivot", "ScalingPivot", "RotationOffset"};
+    uint32_t entries[3];
+    maniFbxFindProperties(fbx, 0, kNames, 3, NULL, entries);
+    bool same = true;
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        same = same && entries[k] == maniFbxFindProperty(fbx, 0, kNames[k], strlen(kNames[k]));
+    }
+    CHECK(same && entries[0] != MANI_FBX_NONE && entries[2] == MANI_FBX_NONE,
+          "properties found together as one by one");
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 // A binary int16, negative.
 static void TestShortInteger(void)
 {
@@ -1022,6 +1071,7 @@ int main(int argc, char** argv)
     TestAsciiEdges();
     TestAsciiRefusals();
     TestShortInteger();
+    TestFindProperties();
     TestPlainStrings();
     return s_failures == 0 ? 0 : 1;
 }

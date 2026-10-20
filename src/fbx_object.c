@@ -439,8 +439,18 @@ static uint32_t FindAllIn(const maniFbx* fbx, uint32_t properties, const char* c
     return found;
 }
 
+void maniFbxEmptyTemplateCache(maniFbxTemplateCache* cache)
+{
+    // No template's entries: none.
+    cache->properties = MANI_FBX_NONE;
+    for (uint32_t k = 0; k < 32; ++k)
+    {
+        cache->entries[k] = MANI_FBX_NONE;
+    }
+}
+
 void maniFbxFindProperties(const maniFbx* fbx, uint32_t object, const char* const* names,
-                           uint32_t count, uint32_t* entries)
+                           uint32_t count, maniFbxTemplateCache* cache, uint32_t* entries)
 {
     size_t lengths[32];
     for (uint32_t k = 0; k < count; ++k)
@@ -450,7 +460,23 @@ void maniFbxFindProperties(const maniFbx* fbx, uint32_t object, const char* cons
     }
     const maniFbxObject* o = &fbx->objects[object];
     uint32_t own = FindAllIn(fbx, o->properties, names, lengths, count, 0, entries);
-    (void)FindAllIn(fbx, o->templateProperties, names, lengths, count, own, entries);
+    if (cache == NULL)
+    {
+        (void)FindAllIn(fbx, o->templateProperties, names, lengths, count, own, entries);
+        return;
+    }
+    // The names the object has are the object's; the others the
+    // template's, all found once for every object sharing it.
+    if (cache->properties != o->templateProperties)
+    {
+        maniFbxEmptyTemplateCache(cache);
+        (void)FindAllIn(fbx, o->templateProperties, names, lengths, count, 0, cache->entries);
+        cache->properties = o->templateProperties;
+    }
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        entries[k] = (own >> k & 1u) != 0 ? entries[k] : cache->entries[k];
+    }
 }
 
 uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k)

@@ -340,7 +340,7 @@ static void Rotation(const double v[maniFbxLocalVectors][3], uint32_t order, boo
 }
 
 maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
-                                        maniFbxLocalInputs* out)
+                                        maniFbxTemplateCache* cache, maniFbxLocalInputs* out)
 {
     static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRSrs};
     enum
@@ -354,7 +354,7 @@ maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
                                            : maniFbxLocalIntegerNames[k - maniFbxLocalVectors];
     }
     uint32_t entries[NAMES];
-    maniFbxFindProperties(fbx, object, names, NAMES, entries);
+    maniFbxFindProperties(fbx, object, names, NAMES, cache, entries);
     maniImportResult r = maniFbxSuccess();
     for (uint32_t k = 0; r.result == mani_success && k < maniFbxLocalVectors; ++k)
     {
@@ -404,10 +404,11 @@ void maniFbxComposeLocal(const maniFbxLocalInputs* in, maniFbxLocal* out)
     out->inherit = (uint32_t)in->integers[maniFbxLocalInherit];
 }
 
-maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxLocal* out)
+maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxTemplateCache* cache,
+                                   maniFbxLocal* out)
 {
     maniFbxLocalInputs in;
-    maniImportResult r = maniFbxReadLocalInputs(fbx, object, &in);
+    maniImportResult r = maniFbxReadLocalInputs(fbx, object, cache, &in);
     if (r.result == mani_success)
     {
         maniFbxComposeLocal(&in, out);

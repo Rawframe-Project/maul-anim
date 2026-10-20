@@ -9,6 +9,7 @@
 #define MAUL_ANIM_SRC_FBX_TRANSFORM_H
 
 #include "fbx_document.h"
+#include "fbx_object.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/import.h"
@@ -119,9 +120,10 @@ typedef struct maniFbxLocalInputs
 } maniFbxLocalInputs;
 
 // A model's inputs from its properties (and its template's); refused
-// as maniFbxModelLocal.
+// as maniFbxModelLocal. A cache (NULL for none) kept for these reads
+// finds a template shared by the models read once.
 maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
-                                        maniFbxLocalInputs* out);
+                                        maniFbxTemplateCache* cache, maniFbxLocalInputs* out);
 
 // Composes inputs whose integers are within their limits.
 void maniFbxComposeLocal(const maniFbxLocalInputs* in, maniFbxLocal* out);
@@ -130,8 +132,9 @@ void maniFbxComposeLocal(const maniFbxLocalInputs* in, maniFbxLocal* out);
 // Lcl translation, rotation and scaling with pivots, offsets, pre- and
 // post-rotation and the rotation order; refused (Property, item: the
 // object) for a value not finite or missing, or an order or inherit
-// type out of range.
-maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxLocal* out);
+// type out of range; a cache as maniFbxReadLocalInputs takes.
+maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxTemplateCache* cache,
+                                   maniFbxLocal* out);
 
 // A model's geometric transform (mani-0015): GeometricTranslation, XYZ
 // GeometricRotation and GeometricScaling as T R S, moving only the

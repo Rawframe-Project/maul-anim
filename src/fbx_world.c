@@ -12,6 +12,7 @@
 #include "allocator.h"
 #include "fbx_document.h"
 #include "fbx_model.h"
+#include "fbx_object.h"
 #include "fbx_transform.h"
 
 #include <string.h>
@@ -80,6 +81,8 @@ maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, const uint8_t* needed
     // (mani-0014), every model under the root.
     uint32_t height = 0;
     stack[height++] = n;
+    maniFbxTemplateCache cache;
+    maniFbxEmptyTemplateCache(&cache);
     maniImportResult r = maniFbxSuccess();
     while (r.result == mani_success && height > 0)
     {
@@ -87,7 +90,7 @@ maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, const uint8_t* needed
         if (v != n)
         {
             maniFbxLocal local;
-            r = maniFbxModelLocal(fbx, fbx->models[v], &local);
+            r = maniFbxModelLocal(fbx, fbx->models[v], &cache, &local);
             uint32_t parent = fbx->modelParents[v];
             if (r.result == mani_success)
             {
