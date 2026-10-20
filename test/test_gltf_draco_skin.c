@@ -5,7 +5,8 @@
 // Transform, with float weights (which its encoder quantizes to 12 bits)
 // and with normalized byte weights, gives the influences of the
 // uncompressed SimpleSkin vertex for vertex, in the order Draco gives
-// them, to half a quantization step; the extension's rules refused, each by a
+// them, to half a quantization step, and with a texture seam (more
+// points than values) each point its vertex's; the extension's rules refused, each by a
 // same-length change to the file's JSON; every byte of the stream
 // changed decoded without fault.
 
@@ -31,14 +32,17 @@
 #endif
 
 // SimpleSkin's vertices and the influences each holds at most.
-#define VERTICES 10u
-#define SLOTS    4u
+// The most vertices a test file holds, and influences a vertex holds.
+#define MAX_VERTICES 16u
+#define SLOTS        4u
 
 static _Alignas(16) uint8_t s_skeletonFile[16384];
 static _Alignas(16) uint8_t s_skinFile[16384];
 static _Alignas(16) uint8_t s_file[65536];
 static uint8_t s_bytes[8192];
 static size_t s_size;
+// The vertices the last import gave.
+static uint32_t s_vertices;
 
 // A vertex's influences, heaviest first.
 typedef struct Vertex
@@ -96,11 +100,12 @@ static maniImportResult Import(const uint8_t* bytes, size_t size, Vertex* vertic
     }
     if (ok && r.result == mani_success && vertices != NULL)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
-                  maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
-                  maniInfluencesVertexCount(&v) == VERTICES,
-              "influences open");
-        for (uint32_t i = 0; i < VERTICES; ++i)
+        bool opened = maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+                      maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
+                      maniInfluencesVertexCount(&v) <= MAX_VERTICES;
+        CHECK(opened, "influences open");
+        s_vertices = opened ? maniInfluencesVertexCount(&v) : 0;
+        for (uint32_t i = 0; i < s_vertices; ++i)
         {
             for (uint32_t k = 0; k < SLOTS; ++k)
             {
@@ -139,17 +144,38 @@ static bool Same(const Vertex* a, const Vertex* b, float tolerance)
     return true;
 }
 
-// Every vertex of a matched by its own vertex of b.
-static bool SameVertices(const Vertex* a, const Vertex* b, float tolerance)
+// Every vertex of a (na of them) matched by its own vertex of b (nb).
+static bool SameVertices(const Vertex* a, uint32_t na, const Vertex* b, uint32_t nb,
+                         float tolerance)
 {
-    bool used[VERTICES] = {false};
-    for (uint32_t i = 0; i < VERTICES; ++i)
+    bool used[MAX_VERTICES] = {false};
+    for (uint32_t i = 0; i < na; ++i)
     {
         bool found = false;
-        for (uint32_t j = 0; j < VERTICES && !found; ++j)
+        for (uint32_t j = 0; j < nb && !found; ++j)
         {
             found = !used[j] && Same(&a[i], &b[j], tolerance);
             used[j] = used[j] || found;
+        }
+        if (!found)
+        {
+            return false;
+        }
+    }
+    return na == nb;
+}
+
+// Every vertex of a found among b's, and every one of b's among a's.
+static bool Covers(const Vertex* a, uint32_t na, const Vertex* b, uint32_t nb, float tolerance)
+{
+    for (uint32_t i = 0; i < na + nb; ++i)
+    {
+        const Vertex* v = i < na ? &a[i] : &b[i - na];
+        const Vertex* other = i < na ? b : a;
+        bool found = false;
+        for (uint32_t j = 0; j < (i < na ? nb : na) && !found; ++j)
+        {
+            found = Same(v, &other[j], tolerance);
         }
         if (!found)
         {
@@ -161,20 +187,29 @@ static bool SameVertices(const Vertex* a, const Vertex* b, float tolerance)
 
 static void TestInfluences(void)
 {
-    Vertex plain[VERTICES];
-    Vertex packed[VERTICES];
+    Vertex plain[MAX_VERTICES];
+    Vertex packed[MAX_VERTICES];
     size_t size = ReadFile("SimpleSkinEmbedded.gltf");
-    CHECK(Import(s_bytes, size, plain).result == mani_success, "the plain skin");
+    CHECK(Import(s_bytes, size, plain).result == mani_success && s_vertices == 10,
+          "the plain skin");
     size = ReadFile("SimpleSkin-draco.glb");
     // The encoder quantizes float weights to 12 bits by default.
     CHECK(Import(s_bytes, size, packed).result == mani_success &&
-              SameVertices(plain, packed, 0.5f / 4095.0f + 1e-6f),
+              SameVertices(plain, 10, packed, s_vertices, 0.5f / 4095.0f + 1e-6f),
           "float weights: the plain skin's to a half step");
     size = ReadFile("SimpleSkin-draco-q.glb");
     CHECK(Import(s_bytes, size, packed).result == mani_success &&
-              SameVertices(plain, packed, 0.5f / 255.0f + 1e-6f),
+              SameVertices(plain, 10, packed, s_vertices, 0.5f / 255.0f + 1e-6f),
           "normalized byte weights: the plain skin's to a half step");
+    // A texture seam: twelve points over ten values of joints and weights.
+    size = ReadFile("SimpleSkinSeam-draco.glb");
+    CHECK(Import(s_bytes, size, packed).result == mani_success && s_vertices == 12 &&
+              Covers(plain, 10, packed, s_vertices, 0.5f / 4095.0f + 1e-6f),
+          "a seam: each point the influences of its vertex");
 }
+
+// Where the last change was made.
+static size_t s_changedAt;
 
 // The file with one part of its JSON replaced by text of the same length.
 static size_t Changed(const char* name, const char* from, const char* to)
@@ -187,6 +222,7 @@ static size_t Changed(const char* name, const char* from, const char* to)
         if (memcmp(s_bytes + i, from, n) == 0)
         {
             memcpy(s_bytes + i, to, n);
+            s_changedAt = i;
             return size;
         }
     }
@@ -202,23 +238,28 @@ static void TestRefusals(void)
         const char* to;
         maniImportReason reason;
         uint32_t item;
+        // The refusal's offset in the changed text, or -1 for elsewhere.
+        int32_t at;
         const char* what;
     } kChanges[] = {
         {"\"JOINTS_0\":1,\"WEIGHTS_0\":2}}", "\"JOINTS_0\":7,\"WEIGHTS_0\":2}}",
-         maniImportReasonProperty, 0, "a unique id not in the stream"},
+         maniImportReasonProperty, 0, 11, "a unique id not in the stream"},
         {"\"JOINTS_0\":1,\"WEIGHTS_0\":2}}", "\"JOINTS_0\":1,\"WEIGHTS_9\":2}}",
-         maniImportReasonProperty, 0, "a name not among the primitive's"},
+         maniImportReasonProperty, 0, 25, "a name not among the primitive's"},
         {"\"VEC4\",\"componentType\":5123", "\"VEC4\",\"componentType\":5121",
-         maniImportReasonProperty, 2, "a component type not the stream's"},
+         maniImportReasonProperty, 2, -1, "a component type not the stream's"},
         {"\"bufferView\":2,\"attributes\"", "\"bufferView\":1,\"attributes\"", maniImportReasonData,
-         1, "a view that is no stream"},
+         1, -1, "a view that is no stream"},
+        {"\"VEC3\",\"componentType\":5126", "\"VEC2\",\"componentType\":5126",
+         maniImportReasonProperty, 1, -1, "a component count not the stream's"},
     };
     for (size_t i = 0; i < sizeof kChanges / sizeof kChanges[0]; ++i)
     {
         size_t size = Changed("SimpleSkin-draco.glb", kChanges[i].from, kChanges[i].to);
         maniImportResult r = Import(s_bytes, size, NULL);
         CHECK(r.result == mani_errorFormat && r.reason == kChanges[i].reason &&
-                  r.item == kChanges[i].item,
+                  r.item == kChanges[i].item &&
+                  (kChanges[i].at < 0 || r.offset == s_changedAt + (size_t)kChanges[i].at),
               kChanges[i].what);
     }
     // Every attribute's count past the stream's ten points.

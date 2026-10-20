@@ -29,7 +29,7 @@ commit `f0a684f1`), with `EXT_meshopt_compression` or
 uncompressed fallback) to write the values `test/test_gltf_fixtures.c`
 checks; `test/test_gltf_compression.c` reads the compressed ones.
 
-Two are SimpleSkin compressed by glTF Transform (MIT; the CLI
+Three are SimpleSkin compressed by glTF Transform (MIT; the CLI
 `@gltf-transform/cli` 4.4.2 with its core at 4.5.1, Google's Draco
 encoder as `draco3dgltf`) with `KHR_draco_mesh_compression`; they stay
 under CC0, and `test/test_gltf_draco_skin.c` reads them:
@@ -38,6 +38,7 @@ under CC0, and `test/test_gltf_draco_skin.c` reads them:
 | --- | --- |
 | `SimpleSkin-draco.glb` | `gltf-transform draco SimpleSkinEmbedded.gltf SimpleSkin-draco.glb` |
 | `SimpleSkin-draco-q.glb` | `gltf-transform quantize SimpleSkinEmbedded.gltf q.glb --quantize-weight 8`, then `gltf-transform draco q.glb SimpleSkin-draco-q.glb` |
+| `SimpleSkinSeam-draco.glb` | the library research's `draco_skin_seam.py SimpleSkinEmbedded.gltf SimpleSkinSeam.gltf` (a texture coordinate added, vertex 4 split in two), then `gltf-transform draco SimpleSkinSeam.gltf SimpleSkinSeam-draco.glb` |
 
 SHA-256 of each file:
 
@@ -57,4 +58,5 @@ ff21b1bc3d0abbe53f7665060ec6c22d873b6e85a7669171a2b6b8ae01c39347  SimpleSkin/Sim
 5844ab221cd2ad367420a248f6387b46e5f8498604427730a37ee96b4d4ec599  SimpleSkin/SimpleSkin_inverseBindMatrices.bin
 413bc8a8c0da673df767874e6f05f0b00c9261756a08586b9d555bd5535414b5  SimpleSkin/SimpleSkin_skinningData.bin
 7d0c3f48d0510d101269cb4fdd3ee035eaada0e04809a0899e0b4cfe8c38e68f  SimpleSkinEmbedded.gltf
+f4d6949e316229860dc278cc98a012c4675ad23d725b415eb2b2fb341a674a4e  SimpleSkinSeam-draco.glb
 ```

@@ -50,6 +50,15 @@ static const Stream kStreams[] = {
     // Multi-parallelogram, which Google's decoder reads but its encoder no
     // longer writes.
     {"small-eb-s5-q-multi", 0xc81cc9914d042038ull, 15},
+    // A closed sphere: interior start faces, poles of valence 32 (valence's
+    // last context), a texture seam.
+    {"sphere-eb-s0-q", 0xde0d5d99fc04569eull, 823},
+    {"sphere-eb-s5-q", 0xde0d5d99fc04569eull, 823},
+    // Discs of 36 spokes: centres of every valence to 36.
+    {"fans-eb-s0-q", 0x35a3993d5a854b08ull, 1110},
+    // Positions alone: no attribute data, so merged vertices are removed.
+    {"bare-eb-s5-q", 0x2b546de8f78c883full, 91},
+    {"largebare-eb-s0-q", 0xcaf6bcf9cfe450e0ull, 631},
 };
 
 static uint8_t s_bytes[1u << 16];
