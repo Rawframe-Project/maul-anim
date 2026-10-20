@@ -66,12 +66,15 @@ static maniQuat Turn(const maniAimSolve* s, const maniIkFrame* aiming, maniVec3 
 static maniVec3 Coned(const maniAimSolve* s, const maniIkFrame* aiming, bool* inside)
 {
     *inside = true;
+    if (s->cone == 0.0f)
+    {
+        return s->goal;
+    }
     maniQuat q = maniIkRotation(aiming);
     maniVec3 o = maniIkOrigin(aiming);
     maniVec3 t = maniVec3Sub(s->goal, o);
     maniVec3 from;
-    if (s->cone == 0.0f ||
-        !Aimed(maniQuatRotate(q, s->forward), maniQuatRotate(q, s->offset), t, &from))
+    if (!Aimed(maniQuatRotate(q, s->forward), maniQuatRotate(q, s->offset), t, &from))
     {
         return s->goal;
     }

@@ -118,3 +118,21 @@ reciprocal and adds a half), triangles at 1.04 and 0.99 (the check that
 no FIFO entry is read before it is written, which meshoptimizer skips).
 meshoptimizer's vector decoder is measured with the eight-lane work
 above.
+
+Targets added for IK (mani-0029), in instructions at `-O2` and `-O3`
+(GCC 14) on the same solves with the same results: the two-bone and aim
+solves no more than ozz's cost of the same solve to its host (its job
+on model matrices, the corrections multiplied into its SoA locals, its
+model pass again from the chain's start), and over: the two-bone solve
+at 1.16 and 1.10 of it, the aim at 2.44 and 2.29. Composing the root
+path's frames and reading the pose's locals inline was measured and not
+kept: a twelfth fewer instructions cost a third more IK code with the
+helpers inline wherever called, and 1,300 to 2,600 bytes past the
+ceilings with them inline only in the root path, where the bytes buy
+less than other parts' raises did. What remains is the binary64 arc and
+normalizations that keep a turn exact near opposite directions (about a
+fifth of the aim), the inputs' checks, and scalar against ozz's four
+lanes and estimated reciprocals, measured again with the eight-lane work
+above. The CCD and FABRIK chains no more than Godot 4.7.2's CCDIK3D and
+FABRIK3D on the same chains and iterations, met at 0.20 and 0.40 of its
+instructions.
