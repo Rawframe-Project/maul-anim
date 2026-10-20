@@ -2,10 +2,12 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The Draco decoder (mani-0021): the streams of test/data/draco, which
-// Google's encoder wrote, decoded to the FNV-1a 64 of Google's decoding
-// of each; the header's refusals and the point bound; every prefix and
-// every single byte changed decoded without fault; an attribute count
-// bounded by the bytes; allocation failures handled with nothing kept.
+// Google's encoder wrote, sequential and Edgebreaker (standard and
+// valence, both traversals, every mesh prediction), decoded to the
+// FNV-1a 64 of Google's decoding of each; the header's and Edgebreaker
+// decoder headers' rules and the point bound; every prefix and every
+// single byte changed decoded without fault; an attribute count bounded
+// by the bytes; allocation failures handled with nothing kept.
 
 #include "arena.h"
 #include "gltf_draco.h"
@@ -29,9 +31,25 @@ typedef struct Stream
 } Stream;
 
 static const Stream kStreams[] = {
-    {"tube-seq-s0-q", 0x219a70d146566af7ull, 91},  {"tube-seq-s10-raw", 0xce868800d48e8e75ull, 91},
-    {"holes-seq-s5-q", 0xb1b17352a5ef68e1ull, 96}, {"small-seq-s8-raw", 0xc333ef5b10604b89ull, 15},
-    {"small-seq-s0-q", 0xdc3fab2093e67667ull, 15}, {"large-seq-s2-q", 0xd1a7235e94961974ull, 650},
+    {"tube-seq-s0-q", 0x219a70d146566af7ull, 91},
+    {"tube-seq-s10-raw", 0xce868800d48e8e75ull, 91},
+    {"holes-seq-s5-q", 0xb1b17352a5ef68e1ull, 96},
+    {"small-seq-s8-raw", 0xc333ef5b10604b89ull, 15},
+    {"small-seq-s0-q", 0xdc3fab2093e67667ull, 15},
+    {"large-seq-s2-q", 0xd1a7235e94961974ull, 650},
+    // Constrained multi-parallelogram, geometric normals, portable texture
+    // coordinates over their own table, prediction degree.
+    {"tube-eb-s0-q", 0x5a27bcb514878437ull, 91},
+    {"small-eb-s5-q", 0xe5ab3c15cad1b9f7ull, 15},
+    // Holes, a second component, a non-manifold edge.
+    {"holes-eb-s2-q", 0x1f7c27d3062e6385ull, 98},
+    // Valence.
+    {"large-eb-s0-q", 0x54d49231c7fe4420ull, 650},
+    {"largeholes-eb-s2-q", 0x875585b2196c9b99ull, 657},
+    {"small-eb-s10-q", 0x41ce2b514cc1cc07ull, 15},
+    // Multi-parallelogram, which Google's decoder reads but its encoder no
+    // longer writes.
+    {"small-eb-s5-q-multi", 0xc81cc9914d042038ull, 15},
 };
 
 static uint8_t s_bytes[1u << 16];
@@ -139,26 +157,67 @@ static void TestHeader(void)
     CHECK(Decode(s_bytes, 0, 15, NULL) == maniDracoInvalid, "no bytes");
 }
 
-// Every prefix and every byte changed (to its complement and to zero)
-// decoded without fault under the sanitizers; prefixes never give a
-// mesh shorter than the stream's.
-static void TestDamage(void)
+// Edgebreaker's decoder headers, at tube-eb-s0-q's byte 89: per decoder
+// its data id, kind and traversal (positions' data, vertex, prediction
+// degree; then attribute data 0 to 3, the second a corner attribute).
+static void TestDecoderHeaders(void)
 {
-    size_t size = ReadStream("small-seq-s0-q");
-    bool prefixes = true;
-    for (size_t n = 0; n < size; ++n)
+    size_t size = ReadStream("tube-eb-s0-q");
+    static const struct
     {
-        prefixes = prefixes && Decode(s_bytes, n, 15, NULL) != maniDracoDone;
+        size_t at;
+        uint8_t value;
+        maniDracoStatus status;
+        const char* what;
+    } kChanges[] = {
+        {89, 0x80, maniDracoDone, "any negative id is the positions' data"},
+        {96, 7, maniDracoDone, "any kind but 0 a corner attribute"},
+        {92, 0xFF, maniDracoInvalid, "two decoders of the positions' data"},
+        {92, 1, maniDracoInvalid, "an attribute data read twice"},
+        {92, 4, maniDracoInvalid, "an attribute data past the count"},
+        {91, 2, maniDracoInvalid, "an unknown traversal"},
+        {97, 1, maniDracoInvalid, "a corner attribute by prediction degree"},
+        {90, 1, maniDracoInvalid, "a corner attribute of the positions' data"},
+    };
+    for (size_t i = 0; i < sizeof kChanges / sizeof kChanges[0]; ++i)
+    {
+        uint64_t hash = 0;
+        memcpy(s_copy, s_bytes, size);
+        s_copy[kChanges[i].at] = kChanges[i].value;
+        maniDracoStatus st = Decode(s_copy, size, 91, &hash);
+        CHECK(st == kChanges[i].status && (st != maniDracoDone || hash == 0x5a27bcb514878437ull),
+              kChanges[i].what);
+    }
+}
+
+// Every prefix and every byte changed (to its complement and to zero),
+// for a byte step, decoded without fault under the sanitizers; prefixes
+// never give a mesh shorter than the stream's.
+static void Damage(const char* name, uint32_t points, size_t step)
+{
+    size_t size = ReadStream(name);
+    bool prefixes = true;
+    for (size_t n = 0; n < size; n += step)
+    {
+        prefixes = prefixes && Decode(s_bytes, n, points, NULL) != maniDracoDone;
     }
     CHECK(prefixes, "no prefix decodes");
-    for (size_t at = 0; at < size; ++at)
+    for (size_t at = 0; at < size; at += step)
     {
         memcpy(s_copy, s_bytes, size);
         s_copy[at] = (uint8_t)~s_copy[at];
-        (void)Decode(s_copy, size, 15, NULL);
+        (void)Decode(s_copy, size, points, NULL);
         s_copy[at] = 0;
-        (void)Decode(s_copy, size, 15, NULL);
+        (void)Decode(s_copy, size, points, NULL);
     }
+}
+
+static void TestDamage(void)
+{
+    Damage("small-seq-s0-q", 15, 1);
+    Damage("small-eb-s5-q", 15, 1);
+    Damage("tube-eb-s0-q", 91, 1);
+    Damage("large-eb-s0-q", 650, 5);
 }
 
 // The largest block a decode asks for.
@@ -200,9 +259,9 @@ static void TestAttributeCount(void)
     CHECK(largest < 4000u * sizeof(maniDracoAttribute), "nothing taken for them");
 }
 
-static void TestAllocationFailures(void)
+static void Sweep(const Stream* stream)
 {
-    size_t size = ReadStream("tube-seq-s0-q");
+    size_t size = ReadStream(stream->name);
     bool clean = true;
     bool done = false;
     for (int32_t calls = 0; !done && clean && calls < 4096; ++calls)
@@ -211,8 +270,8 @@ static void TestAllocationFailures(void)
         maniAllocator allocator = {TestBudgetAlloc, TestBudgetFree, &budget};
         maniArena arena = maniArenaMake(&allocator);
         maniDracoMesh m;
-        maniDracoStatus s = maniDracoDecode(&arena, s_bytes, size, 91, &m);
-        done = s == maniDracoDone && Dump(&m) == kStreams[0].hash;
+        maniDracoStatus s = maniDracoDecode(&arena, s_bytes, size, stream->points, &m);
+        done = s == maniDracoDone && Dump(&m) == stream->hash;
         clean = s != maniDracoInvalid;
         maniArenaRelease(&arena);
         clean = clean && budget.outstanding == 0;
@@ -220,10 +279,17 @@ static void TestAllocationFailures(void)
     CHECK(done && clean, "allocation failures handled, nothing kept");
 }
 
+static void TestAllocationFailures(void)
+{
+    Sweep(&kStreams[0]);
+    Sweep(&kStreams[6]);
+}
+
 int main(void)
 {
     TestStreams();
     TestHeader();
+    TestDecoderHeaders();
     TestDamage();
     TestAttributeCount();
     TestAllocationFailures();

@@ -3,10 +3,11 @@
 //
 // Draco bitstream 2.2's mesh decoding, the specification's order with
 // Google's decoder deciding where they differ (research 59): the header
-// and metadata, the connectivity, then each attribute decoder's
-// attributes: their portable values (raw, or symbols with a prediction
-// reverted), the data their transforms need, and the transform to their
-// own type. Integer arithmetic is in 32-bit two's complement without
+// and metadata, the connectivity (sequential, or Edgebreaker's), then
+// each attribute decoder's attributes, over Edgebreaker in its
+// traversal's order: their portable values (raw, or symbols with a
+// prediction reverted), the data their transforms need, and the
+// transform to their own type. Integer arithmetic is in 32-bit two's complement without
 // overflow (uint32_t, or int64_t where a sum is compared), so any input
 // is defined; floats are binary32 in Google's order.
 
@@ -14,7 +15,11 @@
 
 #include "arena.h"
 #include "bytes.h"
+#include "gltf_draco_edgebreaker.h"
+#include "gltf_draco_predict.h"
 #include "gltf_draco_read.h"
+#include "gltf_draco_transform.h"
+#include "gltf_draco_traverse.h"
 #include "sort.h"
 
 #include <math.h>
@@ -46,11 +51,20 @@ enum
     PredictionDifference = 0,
 };
 
-enum
+// An Edgebreaker attribute decoder: the table its traversal walks (an
+// attribute data's for a corner attribute, else the mesh's), how long its
+// vertex map is, the traversal; then its values' order and each point's
+// value.
+typedef struct Group
 {
-    TransformWrap = 1,
-    TransformOctahedron = 3,
-};
+    const maniDracoTable* table;
+    uint32_t mapSize;
+    uint8_t traversal;
+    maniDracoOrder order;
+    uint32_t* pointToValue;
+} Group;
+
+struct Value;
 
 typedef struct Decoder
 {
@@ -59,6 +73,12 @@ typedef struct Decoder
     uint32_t maxPoints;
     maniDracoMesh* mesh;
     uint8_t method;
+    // Edgebreaker's connectivity, its tables for the attributes; its
+    // attribute decoders; the first position (texture coordinates' and
+    // normals' parent).
+    maniDracoEdgebreaker eb;
+    Group* groups;
+    struct Value* position;
 } Decoder;
 
 // An attribute while it decodes: its sequential decoder, its portable
@@ -66,14 +86,14 @@ typedef struct Decoder
 typedef struct Value
 {
     maniDracoAttribute* a;
+    // Its values, and their portable form decoded (a parent may be read).
+    uint32_t entries;
+    bool ready;
     uint8_t decoder;
     int8_t scheme;
-    int8_t transform;
+    maniDracoTransform xf;
     uint32_t pcomps;
     uint32_t* portable;
-    int32_t wrapMin;
-    int32_t wrapMax;
-    int32_t octahedronMax;
     float minimum[MANI_DRACO_MAX_COMPONENTS];
     float range;
     uint8_t bits;
@@ -316,6 +336,19 @@ static maniDracoStatus SequentialConnectivity(Decoder* d)
     return maniDracoDone;
 }
 
+// Edgebreaker: the faces are the corners' points.
+static maniDracoStatus EdgebreakerConnectivity(Decoder* d)
+{
+    maniDracoStatus s = maniDracoReadEdgebreaker(&d->r, d->arena, d->maxPoints, &d->eb);
+    if (s == maniDracoDone)
+    {
+        d->mesh->faceCount = d->eb.mesh.corners / 3u;
+        d->mesh->pointCount = d->eb.pointCount;
+        d->mesh->faces = d->eb.cornerPoint;
+    }
+    return s;
+}
+
 // One attribute's description and its sequential decoder's type, as the
 // decoder it names may take it.
 static bool Describe(maniDracoReader* r, maniDracoAttribute* a)
@@ -390,129 +423,6 @@ static uint32_t Unzigzag(uint32_t v)
     return (v & 1u) != 0 ? ~(v >> 1) : (v >> 1);
 }
 
-static int32_t Clamp(int32_t v, int32_t lo, int32_t hi)
-{
-    return v > hi ? hi : (v < lo ? lo : v);
-}
-
-// The wrap transform: the prediction clamped into [min, max], the
-// correction added and wrapped back into it.
-static void Wrap(const Value* v, const uint32_t* pred, const uint32_t* corr, uint32_t* out)
-{
-    int64_t span = (int64_t)v->wrapMax - v->wrapMin + 1;
-    for (uint32_t c = 0; c < v->pcomps; ++c)
-    {
-        int64_t x = (int64_t)Clamp(Signed(pred[c]), v->wrapMin, v->wrapMax) + Signed(corr[c]);
-        x = x > v->wrapMax ? x - span : (x < v->wrapMin ? x + span : x);
-        out[c] = (uint32_t)(uint64_t)x;
-    }
-}
-
-static uint32_t Abs32(int32_t v)
-{
-    return v < 0 ? 0u - (uint32_t)v : (uint32_t)v;
-}
-
-// Octahedral coordinates centered on the origin folded across the
-// diamond's edge, in 32-bit wrapping arithmetic (Google's).
-static void InvertDiamond(int32_t center, int32_t* s, int32_t* t)
-{
-    int32_t ss = *s >= 0 && *t >= 0 ? 1 : (*s <= 0 && *t <= 0 ? -1 : (*s > 0 ? 1 : -1));
-    int32_t st = *s >= 0 && *t >= 0 ? 1 : (*s <= 0 && *t <= 0 ? -1 : (*t > 0 ? 1 : -1));
-    uint32_t cs = (uint32_t)(ss * center);
-    uint32_t ct = (uint32_t)(st * center);
-    uint32_t us = (uint32_t)*s + (uint32_t)*s - cs;
-    uint32_t ut = (uint32_t)*t + (uint32_t)*t - ct;
-    if (ss * st >= 0)
-    {
-        uint32_t temp = us;
-        us = 0u - ut;
-        ut = 0u - temp;
-    }
-    else
-    {
-        uint32_t temp = us;
-        us = ut;
-        ut = temp;
-    }
-    *s = Signed(us + cs) / 2;
-    *t = Signed(ut + ct) / 2;
-}
-
-static void Rotate(int32_t count, int32_t* s, int32_t* t)
-{
-    int32_t a = *s;
-    int32_t b = *t;
-    *s = count == 1 ? b
-                    : (count == 2 ? Signed(0u - (uint32_t)a)
-                                  : (count == 3 ? Signed(0u - (uint32_t)b) : a));
-    *t = count == 1 ? Signed(0u - (uint32_t)a)
-                    : (count == 2 ? Signed(0u - (uint32_t)b) : (count == 3 ? a : b));
-}
-
-static int32_t Rotation(int32_t s, int32_t t)
-{
-    if (s == 0)
-    {
-        return t == 0 ? 0 : (t > 0 ? 3 : 1);
-    }
-    if (s > 0)
-    {
-        return t >= 0 ? 2 : 1;
-    }
-    return t <= 0 ? 0 : 3;
-}
-
-static int32_t ModMax(int32_t x, int32_t center, int32_t max)
-{
-    return x > center ? Signed((uint32_t)x - (uint32_t)max)
-                      : (x < -center ? Signed((uint32_t)x + (uint32_t)max) : x);
-}
-
-// The canonicalized octahedral transform on a normal's two coordinates.
-static void Octahedron(const Value* v, const uint32_t* pred, const uint32_t* corr, uint32_t* out)
-{
-    int32_t max = v->octahedronMax;
-    int32_t center = (max - 1) / 2;
-    int32_t s = Signed(pred[0] - (uint32_t)center);
-    int32_t t = Signed(pred[1] - (uint32_t)center);
-    bool diamond = Abs32(s) + Abs32(t) <= (uint32_t)center;
-    if (!diamond)
-    {
-        InvertDiamond(center, &s, &t);
-    }
-    bool bottomLeft = (s == 0 && t == 0) || (s < 0 && t <= 0);
-    int32_t rotation = Rotation(s, t);
-    if (!bottomLeft)
-    {
-        Rotate(rotation, &s, &t);
-    }
-    int32_t os = ModMax(Signed((uint32_t)s + corr[0]), center, max);
-    int32_t ot = ModMax(Signed((uint32_t)t + corr[1]), center, max);
-    if (!bottomLeft)
-    {
-        Rotate((4 - rotation) % 4, &os, &ot);
-    }
-    if (!diamond)
-    {
-        InvertDiamond(center, &os, &ot);
-    }
-    out[0] = (uint32_t)os + (uint32_t)center;
-    out[1] = (uint32_t)ot + (uint32_t)center;
-}
-
-static void Transform(const Value* v, const uint32_t* pred, const uint32_t* corr, uint32_t* out)
-{
-    if (v->transform == TransformWrap)
-    {
-        Wrap(v, pred, corr, out);
-    }
-    else
-    {
-        Octahedron(v, pred, corr, out);
-    }
-}
-
 // The difference prediction reverted: each value from the previous one,
 // the first from zeros.
 static void Difference(const Value* v, uint32_t count)
@@ -523,35 +433,9 @@ static void Difference(const Value* v, uint32_t count)
     for (uint32_t i = 0; i < count; ++i)
     {
         memcpy(corr, v->portable + (size_t)i * n, n * sizeof(uint32_t));
-        Transform(v, i == 0 ? zeros : v->portable + (size_t)(i - 1) * n, corr,
-                  v->portable + (size_t)i * n);
+        maniDracoTransformApply(&v->xf, i == 0 ? zeros : v->portable + (size_t)(i - 1) * n, corr,
+                                v->portable + (size_t)i * n);
     }
-}
-
-// A prediction's transform data: wrap bounds, or the normal octahedron's
-// largest quantized value (odd, of 2 to 30 bits) and an unused center.
-static bool TransformData(maniDracoReader* r, Value* v)
-{
-    uint32_t a = 0;
-    uint32_t b = 0;
-    if (!maniDracoU32(r, &a) || !maniDracoU32(r, &b))
-    {
-        return false;
-    }
-    if (v->transform == TransformWrap)
-    {
-        v->wrapMin = Signed(a);
-        v->wrapMax = Signed(b);
-        return v->wrapMin <= v->wrapMax && (int64_t)v->wrapMax - v->wrapMin < INT32_MAX;
-    }
-    int32_t max = Signed(a);
-    uint32_t bits = 0;
-    for (uint32_t x = (uint32_t)max; x != 0; x >>= 1)
-    {
-        ++bits;
-    }
-    v->octahedronMax = (int32_t)((1u << (bits < 31 ? bits : 0)) - 1u);
-    return max > 0 && max % 2 != 0 && bits >= 2 && bits <= 30;
 }
 
 // The integer values: symbols, or raw of 0 to 4 bytes each.
@@ -585,9 +469,89 @@ static maniDracoStatus Integers(Decoder* d, Value* v, uint32_t count)
     return maniDracoDone;
 }
 
+// The first position as a prediction's parent: decoded before v, of
+// three portable components (Google's SetParentAttribute).
+static bool Parent(const Decoder* d, const Value* v)
+{
+    const Value* p = d->position;
+    return p != NULL && p != v && p->ready && p->pcomps == 3;
+}
+
+// The schemes the library reads (research 59): difference everywhere;
+// over Edgebreaker, the parallelograms and texture coordinates with wrap,
+// geometric normals with the octahedron, each with its transform.
+static bool Accepts(const Decoder* d, const Value* v, const Group* g, uint8_t transform)
+{
+    bool normals = v->decoder == DecoderNormals;
+    if (transform != (normals ? maniDracoOctahedron : maniDracoWrap))
+    {
+        return false;
+    }
+    switch (v->scheme)
+    {
+    case PredictionDifference:
+        return true;
+    case maniDracoParallelogram:
+    case maniDracoMultiParallelogram:
+    case maniDracoConstrained:
+        return g != NULL && !normals;
+    case maniDracoTexCoords:
+        return g != NULL && !normals && v->pcomps == 2 && Parent(d, v);
+    case maniDracoGeometricNormal:
+        return g != NULL && normals && Parent(d, v);
+    default:
+        return false;
+    }
+}
+
+static void Predictor(const Decoder* d, const Value* v, const Group* g, maniDracoPredictor* p)
+{
+    *p = (maniDracoPredictor){0};
+    p->scheme = (uint8_t)v->scheme;
+    p->components = v->pcomps;
+    p->table = g->table;
+    p->order = &g->order;
+    p->transform = maniDracoTransformApply;
+    p->context = &v->xf;
+    p->pointCount = d->mesh->pointCount;
+    if (Parent(d, v))
+    {
+        p->positions = d->position->portable;
+        p->positionOfPoint = d->position->a->pointToValue;
+        p->positionCount = d->position->entries;
+    }
+}
+
+// The prediction's data, the transform's, then the prediction reverted.
+static maniDracoStatus Revert(Decoder* d, Value* v, const Group* g, uint32_t entries)
+{
+    maniDracoPredictor p;
+    bool mesh = v->scheme != PredictionDifference;
+    if (mesh)
+    {
+        Predictor(d, v, g, &p);
+        maniDracoStatus s = maniDracoPredictData(&d->r, d->arena, &p, entries * v->pcomps);
+        if (s != maniDracoDone)
+        {
+            return s;
+        }
+    }
+    if (!maniDracoTransformRead(&d->r, &v->xf) || (mesh && !maniDracoPredictFlips(&d->r, &p)))
+    {
+        return maniDracoInvalid;
+    }
+    if (!mesh)
+    {
+        Difference(v, entries);
+        return maniDracoDone;
+    }
+    p.octahedronMax = v->xf.octahedronMax;
+    return maniDracoPredictRevert(&p, v->portable, entries) ? maniDracoDone : maniDracoInvalid;
+}
+
 // An integer-based attribute's portable values: its prediction, the
 // values, signed unless the octahedron's, and the prediction reverted.
-static maniDracoStatus Portable(Decoder* d, Value* v, uint32_t entries)
+static maniDracoStatus Portable(Decoder* d, Value* v, const Group* g, uint32_t entries)
 {
     uint8_t scheme = 0;
     uint8_t transform = 0;
@@ -597,12 +561,12 @@ static maniDracoStatus Portable(Decoder* d, Value* v, uint32_t entries)
     }
     v->scheme = (int8_t)scheme;
     if (v->scheme != PredictionNone &&
-        (v->scheme != PredictionDifference || !maniDracoU8(&d->r, &transform) ||
-         transform != (v->decoder == DecoderNormals ? TransformOctahedron : TransformWrap)))
+        (!maniDracoU8(&d->r, &transform) || !Accepts(d, v, g, transform)))
     {
         return maniDracoInvalid;
     }
-    v->transform = (int8_t)transform;
+    v->xf.type = (int8_t)transform;
+    v->xf.components = v->pcomps;
     uint32_t count = entries * v->pcomps;
     v->portable = maniArenaTake(d->arena, count, sizeof(uint32_t));
     if (v->portable == NULL)
@@ -610,19 +574,16 @@ static maniDracoStatus Portable(Decoder* d, Value* v, uint32_t entries)
         return maniDracoCapacity;
     }
     maniDracoStatus s = Integers(d, v, count);
-    bool positive = v->scheme != PredictionNone && v->transform == TransformOctahedron;
+    bool positive = v->scheme != PredictionNone && v->xf.type == maniDracoOctahedron;
     for (uint32_t i = 0; s == maniDracoDone && !positive && i < count; ++i)
     {
         v->portable[i] = Unzigzag(v->portable[i]);
     }
     if (s == maniDracoDone && v->scheme != PredictionNone)
     {
-        s = TransformData(&d->r, v) ? maniDracoDone : maniDracoInvalid;
-        if (s == maniDracoDone)
-        {
-            Difference(v, entries);
-        }
+        s = Revert(d, v, g, entries);
     }
+    v->ready = s == maniDracoDone;
     return s;
 }
 
@@ -721,37 +682,70 @@ static void Original(Value* v, uint32_t entries)
     }
 }
 
-// One decoder's attributes, in Google's three passes.
-static maniDracoStatus DecodeValues(Decoder* d, Value* values, uint32_t count)
+// An Edgebreaker decoder's order: its traversal, then each point's value.
+static maniDracoStatus Sequence(Decoder* d, Group* g)
 {
-    // Every value count (points times at most 16 components) fits 32 bits.
-    uint32_t entries = d->mesh->pointCount;
-    if (entries > UINT32_MAX / MANI_DRACO_MAX_COMPONENTS)
+    maniDracoStatus s = maniDracoTraverse(d->arena, g->table, d->eb.cornerPoint, g->mapSize,
+                                          g->traversal, &g->order);
+    if (s != maniDracoDone)
+    {
+        return s;
+    }
+    g->pointToValue = maniArenaTake(d->arena, d->mesh->pointCount, sizeof(uint32_t));
+    if (g->pointToValue == NULL)
     {
         return maniDracoCapacity;
     }
-    maniDracoStatus s = maniDracoDone;
+    return maniDracoPointValues(g->table, &g->order, d->eb.cornerPoint, d->mesh->pointCount,
+                                g->pointToValue)
+               ? maniDracoDone
+               : maniDracoInvalid;
+}
+
+// One attribute's first pass: its values raw (the generic decoder) or
+// their portable form.
+static maniDracoStatus FirstPass(Decoder* d, Value* v, const Group* g, uint32_t entries)
+{
+    maniDracoAttribute* a = v->a;
+    size_t bytes = (size_t)entries * a->components * maniDracoTypeSize(a->dataType);
+    v->entries = entries;
+    a->valueCount = entries;
+    a->pointToValue = g != NULL ? g->pointToValue : NULL;
+    a->values = maniArenaTake(d->arena, bytes, 1);
+    if (a->values == NULL)
+    {
+        return maniDracoCapacity;
+    }
+    if (v->decoder != DecoderGeneric)
+    {
+        return Portable(d, v, g, entries);
+    }
+    const uint8_t* raw = NULL;
+    if (!maniDracoBytes(&d->r, bytes, &raw))
+    {
+        return maniDracoInvalid;
+    }
+    if (bytes > 0)
+    {
+        memcpy(a->values, raw, bytes);
+    }
+    return maniDracoDone;
+}
+
+// One decoder's attributes, in Google's three passes: a value per point,
+// or over Edgebreaker, per vertex its traversal reaches.
+static maniDracoStatus DecodeValues(Decoder* d, Value* values, uint32_t count, Group* g)
+{
+    maniDracoStatus s = g != NULL ? Sequence(d, g) : maniDracoDone;
+    uint32_t entries = g != NULL ? g->order.count : d->mesh->pointCount;
+    // Every value count (points times at most 16 components) fits 32 bits.
+    if (s == maniDracoDone && entries > UINT32_MAX / MANI_DRACO_MAX_COMPONENTS)
+    {
+        return maniDracoCapacity;
+    }
     for (uint32_t i = 0; s == maniDracoDone && i < count; ++i)
     {
-        maniDracoAttribute* a = values[i].a;
-        size_t bytes = (size_t)entries * a->components * maniDracoTypeSize(a->dataType);
-        a->valueCount = entries;
-        a->values = maniArenaTake(d->arena, bytes, 1);
-        if (a->values == NULL)
-        {
-            return maniDracoCapacity;
-        }
-        if (values[i].decoder == DecoderGeneric)
-        {
-            const uint8_t* raw = NULL;
-            s = maniDracoBytes(&d->r, bytes, &raw) ? maniDracoDone : maniDracoInvalid;
-            if (s == maniDracoDone && bytes > 0)
-            {
-                memcpy(a->values, raw, bytes);
-            }
-            continue;
-        }
-        s = Portable(d, &values[i], entries);
+        s = FirstPass(d, &values[i], g, entries);
     }
     for (uint32_t i = 0; s == maniDracoDone && i < count; ++i)
     {
@@ -767,6 +761,60 @@ static maniDracoStatus DecodeValues(Decoder* d, Value* values, uint32_t count)
     return s;
 }
 
+// Edgebreaker's decoder headers: each one's data (negative the
+// positions', an attribute data once each), its kind (0 a vertex attribute over the
+// mesh's table, else a corner attribute over its data's, depth first)
+// and its traversal.
+static maniDracoStatus Groups(Decoder* d, uint32_t decoders)
+{
+    const maniDracoEdgebreaker* eb = &d->eb;
+    bool used[129] = {false};
+    d->groups = maniArenaTake(d->arena, decoders, sizeof(Group));
+    if (d->groups == NULL)
+    {
+        return maniDracoCapacity;
+    }
+    for (uint32_t i = 0; i < decoders; ++i)
+    {
+        Group* g = &d->groups[i];
+        uint8_t id = 0;
+        uint8_t kind = 0;
+        if (!maniDracoU8(&d->r, &id) || !maniDracoU8(&d->r, &kind) ||
+            !maniDracoU8(&d->r, &g->traversal) || g->traversal > maniDracoPredictionDegree)
+        {
+            return maniDracoInvalid;
+        }
+        // Google's decoder reads any negative data id as the positions'.
+        int32_t data = (int8_t)id < 0 ? -1 : (int8_t)id;
+        if (data >= (int32_t)eb->dataCount || used[data + 1] ||
+            (kind != 0 && (data < 0 || g->traversal != maniDracoDepthFirst)))
+        {
+            return maniDracoInvalid;
+        }
+        used[data + 1] = true;
+        const maniDracoTable* own = data >= 0 ? &eb->data[data] : &eb->mesh;
+        g->table = kind != 0 ? own : &eb->mesh;
+        g->mapSize = own->vertices > eb->mesh.vertices ? own->vertices : eb->mesh.vertices;
+    }
+    return maniDracoDone;
+}
+
+// The first position attribute, every decoder's described.
+static void FindPosition(Decoder* d, Value* const* values, const uint32_t* counts,
+                         uint32_t decoders)
+{
+    for (uint32_t i = 0; i < decoders; ++i)
+    {
+        for (uint32_t j = 0; j < counts[i]; ++j)
+        {
+            if (d->position == NULL && values[i][j].a->type == maniDracoPosition)
+            {
+                d->position = &values[i][j];
+            }
+        }
+    }
+}
+
 static maniDracoStatus Attributes(Decoder* d)
 {
     uint8_t decoders = 0;
@@ -774,18 +822,22 @@ static maniDracoStatus Attributes(Decoder* d)
     {
         return maniDracoInvalid;
     }
+    maniDracoStatus s = d->method == Edgebreaker ? Groups(d, decoders) : maniDracoDone;
     Value* values[256];
     uint32_t counts[256];
     uint32_t total = 0;
-    maniDracoStatus s = maniDracoDone;
     for (uint32_t i = 0; s == maniDracoDone && i < decoders; ++i)
     {
         s = Describes(d, &values[i], &counts[i]);
         total += s == maniDracoDone ? counts[i] : 0u;
     }
+    if (s == maniDracoDone)
+    {
+        FindPosition(d, values, counts, decoders);
+    }
     for (uint32_t i = 0; s == maniDracoDone && i < decoders; ++i)
     {
-        s = DecodeValues(d, values[i], counts[i]);
+        s = DecodeValues(d, values[i], counts[i], d->groups != NULL ? &d->groups[i] : NULL);
     }
     if (s != maniDracoDone)
     {
@@ -811,7 +863,7 @@ maniDracoStatus maniDracoDecode(maniArena* arena, const uint8_t* in, size_t size
                                 uint32_t maxPoints, maniDracoMesh* out)
 {
     *out = (maniDracoMesh){0};
-    Decoder d = {{in, in + size}, arena, maxPoints, out, 0};
+    Decoder d = {.r = {in, in + size}, .arena = arena, .maxPoints = maxPoints, .mesh = out};
     uint16_t flags = 0;
     maniDracoStatus s = Header(&d, &flags);
     if (s == maniDracoDone && (flags & METADATA_FLAG) != 0)
@@ -820,8 +872,7 @@ maniDracoStatus maniDracoDecode(maniArena* arena, const uint8_t* in, size_t size
     }
     if (s == maniDracoDone)
     {
-        // Edgebreaker comes with slice (d).
-        s = d.method == Sequential ? SequentialConnectivity(&d) : maniDracoInvalid;
+        s = d.method == Sequential ? SequentialConnectivity(&d) : EdgebreakerConnectivity(&d);
     }
     if (s == maniDracoDone)
     {

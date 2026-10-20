@@ -74,4 +74,29 @@ maniDracoStatus maniDracoRansTable(maniDracoReader* r, maniArena* arena, uint32_
 bool maniDracoRansStart(maniDracoReader* r, maniDracoRans* rans);
 uint32_t maniDracoRansRead(maniDracoRans* rans);
 
+// Bits read least significant first from a span of bytes; reading past
+// the span is invalid.
+typedef struct maniDracoBits
+{
+    const uint8_t* bytes;
+    uint64_t bit;
+    uint64_t size;
+} maniDracoBits;
+
+// n bits (at most 32) into out; false past the end.
+bool maniDracoBitsRead(maniDracoBits* b, uint32_t n, uint32_t* out);
+
+// rABS: binary decisions of one probability (Google's RAnsBitDecoder): a
+// probability byte, a LEB128 size and that many bytes read from their end.
+typedef struct maniDracoRabs
+{
+    const uint8_t* bytes;
+    uint32_t offset;
+    uint32_t state;
+    uint8_t zero;
+} maniDracoRabs;
+
+bool maniDracoRabsStart(maniDracoReader* r, maniDracoRabs* out);
+bool maniDracoRabsRead(maniDracoRabs* rabs);
+
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_READ_H

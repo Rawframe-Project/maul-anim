@@ -312,3 +312,68 @@ maniDracoStatus maniDracoSymbols(maniDracoReader* r, maniArena* arena, uint32_t 
     }
     return scheme == 0 ? Tagged(r, arena, count, components, out) : Raw(r, arena, count, out);
 }
+
+bool maniDracoBitsRead(maniDracoBits* b, uint32_t n, uint32_t* out)
+{
+    if (n > 32u || b->size * 8u - b->bit < n)
+    {
+        return false;
+    }
+    uint32_t v = 0;
+    for (uint32_t k = 0; k < n; ++k, ++b->bit)
+    {
+        v |= (uint32_t)((b->bytes[b->bit >> 3] >> (b->bit & 7u)) & 1u) << k;
+    }
+    *out = v;
+    return true;
+}
+
+// The rABS state's base and its bytes' radix.
+#define RABS_BASE      4096u
+#define RABS_PRECISION 256u
+
+bool maniDracoRabsStart(maniDracoReader* r, maniDracoRabs* out)
+{
+    uint32_t size = 0;
+    const uint8_t* bytes = NULL;
+    *out = (maniDracoRabs){0};
+    if (!maniDracoU8(r, &out->zero) || !maniDracoLeb32(r, &size) || size < 1 ||
+        !maniDracoBytes(r, size, &bytes))
+    {
+        return false;
+    }
+    // The state in the last 1 to 3 bytes, less the last byte's top bits.
+    uint32_t n = (uint32_t)(bytes[size - 1] >> 6) + 1u;
+    if (n > 3u || size < n)
+    {
+        return false;
+    }
+    uint32_t state = 0;
+    uint32_t mask = 0;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        state |= (uint32_t)bytes[size - n + k] << (8u * k);
+        mask = k == 0 ? 0x3Fu : (mask << 8) | 0xFFu;
+    }
+    out->bytes = bytes;
+    out->offset = size - n;
+    out->state = (state & mask) + RABS_BASE;
+    return out->state < RABS_BASE * IO_BASE;
+}
+
+bool maniDracoRabsRead(maniDracoRabs* rabs)
+{
+    // The probability of a one in 256ths, wrapping as Google's byte does.
+    uint32_t p = (uint8_t)(RABS_PRECISION - rabs->zero);
+    if (rabs->state < RABS_BASE && rabs->offset > 0)
+    {
+        rabs->state = rabs->state * IO_BASE + rabs->bytes[--rabs->offset];
+    }
+    uint32_t x = rabs->state;
+    uint32_t quotient = x / RABS_PRECISION;
+    uint32_t remainder = x % RABS_PRECISION;
+    uint32_t xn = quotient * p;
+    bool one = remainder < p;
+    rabs->state = one ? xn + remainder : x - xn - p;
+    return one;
+}
