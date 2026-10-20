@@ -403,6 +403,56 @@ uint32_t maniFbxFindProperty(const maniFbx* fbx, uint32_t object, const char* na
     return own != MANI_FBX_NONE ? own : FindIn(fbx, o->templateProperties, name, length);
 }
 
+// The names not in done into entries from one set of properties, each
+// its later entry; the names found, as bits.
+static uint32_t FindAllIn(const maniFbx* fbx, uint32_t properties, const char* const* names,
+                          const size_t* lengths, uint32_t count, uint32_t done, uint32_t* entries)
+{
+    uint32_t found = 0;
+    if (properties == MANI_FBX_NONE)
+    {
+        return found;
+    }
+    for (uint32_t e = fbx->nodes[properties].firstChild; e != MANI_FBX_NONE; e = fbx->nodes[e].next)
+    {
+        if (!maniFbxNameIs(fbx, e, "P", 1) && !maniFbxNameIs(fbx, e, "Property", 8))
+        {
+            continue;
+        }
+        uint32_t name = maniFbxNodeProperty(fbx, e, 0);
+        const uint8_t* bytes = NULL;
+        size_t length = 0;
+        // A plain name is compared on its bytes, as StringIs compares it.
+        bool plain = maniFbxPlainString(fbx, name, &bytes, &length);
+        for (uint32_t k = 0; k < count; ++k)
+        {
+            bool same = (done >> k & 1u) == 0 &&
+                        (plain ? length == lengths[k] && memcmp(bytes, names[k], length) == 0
+                               : StringIs(fbx, name, names[k], lengths[k]));
+            if (same)
+            {
+                entries[k] = e;
+                found |= 1u << k;
+            }
+        }
+    }
+    return found;
+}
+
+void maniFbxFindProperties(const maniFbx* fbx, uint32_t object, const char* const* names,
+                           uint32_t count, uint32_t* entries)
+{
+    size_t lengths[32];
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        lengths[k] = strlen(names[k]);
+        entries[k] = MANI_FBX_NONE;
+    }
+    const maniFbxObject* o = &fbx->objects[object];
+    uint32_t own = FindAllIn(fbx, o->properties, names, lengths, count, 0, entries);
+    (void)FindAllIn(fbx, o->templateProperties, names, lengths, count, own, entries);
+}
+
 uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k)
 {
     if (entry >= fbx->nodeCount)

@@ -20,6 +20,12 @@
 // as maniFbxStringDecode makes them.
 bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length);
 
+// A string property's bytes when they are its decoded ones (no entity
+// and every byte ASCII but NUL): what maniFbxStringEquals compares;
+// false for any other string, or no string.
+bool maniFbxPlainString(const maniFbx* fbx, uint32_t property, const uint8_t** bytes,
+                        size_t* length);
+
 // A name's hash: maniHash64 from MANI_HASH_INIT, a byte at a time.
 uint64_t maniFbxNameHash(const void* bytes, size_t length);
 

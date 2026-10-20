@@ -407,6 +407,19 @@ bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* byte
     return matched == length;
 }
 
+bool maniFbxPlainString(const maniFbx* fbx, uint32_t property, const uint8_t** bytes,
+                        size_t* length)
+{
+    Reader r;
+    if (!Open(fbx, property, &r) || !Plain(&r))
+    {
+        return false;
+    }
+    *bytes = r.p;
+    *length = r.raw;
+    return true;
+}
+
 uint64_t maniFbxNameHash(const void* bytes, size_t length)
 {
     const uint8_t* p = bytes;

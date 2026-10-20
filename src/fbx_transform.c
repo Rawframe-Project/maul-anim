@@ -269,12 +269,11 @@ static maniImportResult Refuse(const maniFbx* fbx, uint32_t property, uint32_t o
     return maniFbxFail(maniImportReasonProperty, at, object);
 }
 
-// A vector property, its default when the object and its template lack
-// it.
-static maniImportResult Vector(const maniFbx* fbx, uint32_t object, const char* name,
-                               double fallback, double out[3])
+// A vector property's entry read, its default for no entry (the object
+// and its template lack it).
+static maniImportResult VectorAt(const maniFbx* fbx, uint32_t object, uint32_t entry,
+                                 double fallback, double out[3])
 {
-    uint32_t entry = maniFbxFindProperty(fbx, object, name, strlen(name));
     for (uint32_t k = 0; k < 3; ++k)
     {
         out[k] = fallback;
@@ -289,11 +288,18 @@ static maniImportResult Vector(const maniFbx* fbx, uint32_t object, const char* 
     return maniFbxSuccess();
 }
 
-// An integer property in [0, maximum], its default when absent.
-static maniImportResult Integer(const maniFbx* fbx, uint32_t object, const char* name,
-                                int64_t maximum, int64_t fallback, int64_t* out)
+static maniImportResult Vector(const maniFbx* fbx, uint32_t object, const char* name,
+                               double fallback, double out[3])
 {
-    uint32_t entry = maniFbxFindProperty(fbx, object, name, strlen(name));
+    return VectorAt(fbx, object, maniFbxFindProperty(fbx, object, name, strlen(name)), fallback,
+                    out);
+}
+
+// An integer property's entry read in [0, maximum], its default for no
+// entry.
+static maniImportResult IntegerAt(const maniFbx* fbx, uint32_t object, uint32_t entry,
+                                  int64_t maximum, int64_t fallback, int64_t* out)
+{
     *out = fallback;
     uint32_t value = maniFbxPropertyValue(fbx, entry, 0);
     if (entry != MANI_FBX_NONE && !maniFbxInteger(fbx, value, 0, maximum, out))
@@ -337,16 +343,28 @@ maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
                                         maniFbxLocalInputs* out)
 {
     static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRSrs};
+    enum
+    {
+        NAMES = maniFbxLocalVectors + maniFbxLocalIntegers
+    };
+    const char* names[NAMES];
+    for (uint32_t k = 0; k < NAMES; ++k)
+    {
+        names[k] = k < maniFbxLocalVectors ? maniFbxLocalVectorNames[k]
+                                           : maniFbxLocalIntegerNames[k - maniFbxLocalVectors];
+    }
+    uint32_t entries[NAMES];
+    maniFbxFindProperties(fbx, object, names, NAMES, entries);
     maniImportResult r = maniFbxSuccess();
     for (uint32_t k = 0; r.result == mani_success && k < maniFbxLocalVectors; ++k)
     {
-        r = Vector(fbx, object, maniFbxLocalVectorNames[k], k == maniFbxLocalScaling ? 1.0 : 0.0,
-                   out->vectors[k]);
+        r = VectorAt(fbx, object, entries[k], k == maniFbxLocalScaling ? 1.0 : 0.0,
+                     out->vectors[k]);
     }
     for (uint32_t k = 0; r.result == mani_success && k < maniFbxLocalIntegers; ++k)
     {
-        r = Integer(fbx, object, maniFbxLocalIntegerNames[k], maniFbxLocalIntegerLimits[k],
-                    kDefaults[k], &out->integers[k]);
+        r = IntegerAt(fbx, object, entries[maniFbxLocalVectors + k], maniFbxLocalIntegerLimits[k],
+                      kDefaults[k], &out->integers[k]);
     }
     // Before 6.0 the Lcl values are the channels' defaults (mani-0017);
     // later files have no such rests.
