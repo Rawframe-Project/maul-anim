@@ -221,11 +221,7 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
     }
     else if (at.weight > 0.0f && maniMotionDatabaseFeatures(d, at.next, next) == mani_success)
     {
-        for (uint32_t j = 0; j < n; ++j)
-        {
-            here[j] += at.weight * (next[j] - here[j]);
-        }
-        maniMatchFacings(d, here);
+        maniGraphMatchBlend(d, here, next, at.weight);
     }
     memcpy(out, here, (size_t)n * sizeof(float));
     uint32_t q = 0;

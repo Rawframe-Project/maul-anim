@@ -13,9 +13,11 @@
 // normalized query taken as it is; the continuing frame of a restored
 // playhead between binary32 and binary64 frame times; the query
 // interpolated to a playhead between frames, clamped and looping; a
-// request for the other clip's travel taken at the first search.
+// request for the other clip's travel taken at the first search; a bone
+// facing made unit again after the blend.
 
 #include "graph_match_fixture.h"
+#include "graph_match_step.h"
 #include "match_search.h"
 
 #include "maul-anim/mirror.h"
@@ -584,6 +586,89 @@ static void TestLeaves(void)
     CHECK(SearchesToLeave(0.3f) == 0, "one nearer the walk kept on the walk");
 }
 
+// The node's blend on a bone facing channel over the fixture's turnA and
+// turnB (the spine held at two turns 52 degrees apart; the first bone
+// and axis whose facing varies): half way between the two frames whose
+// facings differ most, the facing unit again where the line alone falls
+// short.
+static _Alignas(16) uint8_t s_facingFile[1 << 15];
+
+static void TestFacingBlend(void)
+{
+    static const float kNow[1] = {0.0f};
+    const maniClip* clips[2] = {&s_clips[7], &s_clips[8]};
+    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
+                                             {1, 0, 0.0f, 1.0f, 0.0f, 2u}};
+    maniMotionDatabase d;
+    bool built = false;
+    for (uint32_t k = 0; k < 9 && !built; ++k)
+    {
+        const maniMatchChannelSource channel = {
+            maniMatchBoneFacing, k / 3, k % 3, 1, kNow, NULL, 0, 1.0f};
+        maniMotionDatabaseSource source = {
+            &s_skeleton, clips, &channel,       entries,        2,   1,
+            2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
+        maniBuilder* builder = NewBuilder();
+        size_t size = 0;
+        built = maniBuildMotionDatabase(builder, &source).result == mani_success &&
+                maniCopyBuilt(builder, s_facingFile, sizeof s_facingFile, &size) == mani_success &&
+                maniOpenMotionDatabase(s_facingFile, size, &d).result == mani_success;
+        maniDestroyBuilder(builder);
+    }
+    CHECK(built, "a facing channel that turns");
+    if (!built)
+    {
+        return;
+    }
+    float offsets[MANI_MATCH_MAX_FEATURES];
+    float scales[MANI_MATCH_MAX_FEATURES];
+    CHECK(maniMotionDatabaseNormalization(&d, offsets, scales) == mani_success, "scales");
+    float a[3];
+    float b[3];
+    float best[2][3];
+    double far = -1.0;
+    for (uint32_t f = 0; f + 1 < d.frameCount; ++f)
+    {
+        if (maniMotionDatabaseFeatures(&d, f, a) != mani_success ||
+            maniMotionDatabaseFeatures(&d, f + 1, b) != mani_success)
+        {
+            continue;
+        }
+        double dot = 0.0;
+        for (uint32_t i = 0; i < 3; ++i)
+        {
+            double s = (double)scales[i];
+            double o = (double)offsets[i];
+            dot += ((double)a[i] * s + o) * ((double)b[i] * s + o);
+        }
+        if (1.0 - dot > far)
+        {
+            far = 1.0 - dot;
+            memcpy(best[0], a, sizeof a);
+            memcpy(best[1], b, sizeof b);
+        }
+    }
+    float line[3];
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        line[i] = best[0][i] + 0.5f * (best[1][i] - best[0][i]);
+    }
+    maniGraphMatchBlend(&d, best[0], best[1], 0.5f);
+    double lineLength = 0.0;
+    double length = 0.0;
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        double s = (double)scales[i];
+        double o = (double)offsets[i];
+        double l = (double)line[i] * s + o;
+        double v = (double)best[0][i] * s + o;
+        lineLength += l * l;
+        length += v * v;
+    }
+    CHECK(sqrt(lineLength) < 1.0 - 1e-4 && fabs(sqrt(length) - 1.0) < 1e-5,
+          "the facing unit again where the line falls short");
+}
+
 int main(void)
 {
     Open();
@@ -604,6 +689,7 @@ int main(void)
     TestContinuingFrame();
     TestInterpolated();
     TestLeaves();
+    TestFacingBlend();
     TestMirrored();
     return s_failures == 0 ? 0 : 1;
 }

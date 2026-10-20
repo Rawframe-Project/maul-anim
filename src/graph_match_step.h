@@ -10,8 +10,24 @@
 #define MAUL_ANIM_SRC_GRAPH_MATCH_STEP_H
 
 #include "graph_emit.h"
+#include "match_search.h"
+
+#include "maul-anim/match.h"
 
 #include <stdint.h>
+
+// The continuing frame's features (normalized, in here) blended toward
+// the next frame's by w, as the query takes them at the playhead
+// (mani-0024): a + w (b - a) a feature, bone facings made unit again.
+static inline void maniGraphMatchBlend(const maniMotionDatabase* d, float* here, const float* next,
+                                       float w)
+{
+    for (uint32_t j = 0; j < d->featureCount; ++j)
+    {
+        here[j] += w * (next[j] - here[j]);
+    }
+    maniMatchFacings(d, here);
+}
 
 // Moves motion matching node p. One no parent reached, or reached with
 // no weight, stays where it is.
