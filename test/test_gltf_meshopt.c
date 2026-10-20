@@ -98,6 +98,25 @@ static void TestTriangleRules(void)
     uint8_t vertex[1 + 1 + 1 + 16] = {0xE1, 0xFE, 0x10};
     CHECK(!maniMeshoptDecode(out, 3, 4, maniMeshoptTriangles, false, vertex, sizeof vertex),
           "the vertex FIFO read before a write");
+    // After one triangle of new indices, three edges and three vertices
+    // are written: entry 2 of each the oldest, (1, 0) and 0; entry 3
+    // never written.
+    uint8_t oldest[1 + 2 + 16] = {0xE1, 0xF0, 0x22};
+    uint8_t pair[24];
+    CHECK(maniMeshoptDecode(pair, 6, 4, maniMeshoptTriangles, false, oldest, sizeof oldest) &&
+              maniLoadU32(pair + 12) == 1 && maniLoadU32(pair + 16) == 0 &&
+              maniLoadU32(pair + 20) == 0,
+          "the oldest edge and vertex written");
+    uint8_t edge3[1 + 2 + 16] = {0xE1, 0xF0, 0x30};
+    CHECK(!maniMeshoptDecode(pair, 6, 4, maniMeshoptTriangles, false, edge3, sizeof edge3),
+          "the edge entry past those written");
+    uint8_t vertex3[1 + 2 + 16] = {0xE1, 0xF0, 0x03};
+    CHECK(!maniMeshoptDecode(pair, 6, 4, maniMeshoptTriangles, false, vertex3, sizeof vertex3),
+          "the vertex entry past those written");
+    // 0xfe with Z = 4: vertex entry 3, read before the triangle's pushes.
+    uint8_t free3[1 + 2 + 1 + 16] = {0xE1, 0xF0, 0xFE, 0x40};
+    CHECK(!maniMeshoptDecode(pair, 6, 4, maniMeshoptTriangles, false, free3, sizeof free3),
+          "a free triangle's vertex entry past those written");
     // Two triangles: new indices (0, 1, 2), then 0x00, the edge pushed
     // last, (a, c) = (0, 2), with the next index.
     uint8_t two[1 + 2 + 16] = {0xE1, 0xF0, 0x00};
@@ -196,6 +215,18 @@ static void TestFilterCases(void)
     maniStoreU32(e, 0xFD000005u);
     maniMeshoptApplyFilter(e, 1, 4, maniMeshoptExponential);
     CHECK(maniLoadU32(e) == 0x3F200000u, "2^-3 * 5");
+    // Exponents below the normal ones: m * 2^-127 and m * 2^-128 are
+    // subnormal.
+    maniStoreU32(e, 0x81000003u);
+    maniMeshoptApplyFilter(e, 1, 4, maniMeshoptExponential);
+    CHECK(maniLoadU32(e) == 0x00C00000u, "2^-127 * 3");
+    maniStoreU32(e, 0x80000005u);
+    maniMeshoptApplyFilter(e, 1, 4, maniMeshoptExponential);
+    CHECK(maniLoadU32(e) == 0x00A00000u, "2^-128 * 5");
+    // Octahedral of 1.0 = 0: NaN throughout, stored as 0.
+    uint8_t z[4] = {5, 7, 0, 99};
+    maniMeshoptApplyFilter(z, 1, 4, maniMeshoptOctahedral);
+    CHECK(z[0] == 0 && z[1] == 0 && z[2] == 0 && z[3] == 99, "a NaN normal stored as 0");
     // Octahedral: x = 1 and 1.0 at 8 bits; the fourth passed through.
     uint8_t o[4] = {127, 0, 127, 99};
     maniMeshoptApplyFilter(o, 1, 4, maniMeshoptOctahedral);
