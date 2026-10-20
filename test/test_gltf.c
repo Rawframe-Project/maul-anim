@@ -392,22 +392,24 @@ static void TestLayoutRefusals(void)
     ExpectRefusal(maniImportReasonProperty, "5122", 0, "signed sparse indices");
 }
 
-// A data URI over the test buffer, its first base64 digit replaced, or
-// one digit appended.
-static void BadBase64(char replace, bool append)
+// A data URI over the test buffer, its base64 digit at replaced, or one
+// digit appended.
+static void BadBase64(size_t at, char replace, bool append)
 {
     char uri[256];
     snprintf(uri, sizeof uri, "%s%s", DataUri(), append ? "A" : "");
     char* digits = strchr(uri, ',') + 1;
-    digits[0] = replace != 0 ? replace : digits[0];
+    digits[at] = replace != 0 ? replace : digits[at];
     Document(uri, "", "", "");
 }
 
 static void TestBufferRefusals(void)
 {
-    BadBase64('*', false);
+    BadBase64(0, '*', false);
     ExpectRefusal(maniImportReasonBuffer, "data:", 0, "a digit not base64, enough of them");
-    BadBase64(0, true);
+    BadBase64(3, '*', false);
+    ExpectRefusal(maniImportReasonBuffer, "data:", 0, "a group's last digit not base64");
+    BadBase64(0, 0, true);
     ExpectRefusal(maniImportReasonBuffer, "data:", 0, "digits not in fours");
     {
         // 84 digits and one more, after a buffer whose longer URI leaves

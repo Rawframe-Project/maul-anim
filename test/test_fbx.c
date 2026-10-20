@@ -964,6 +964,48 @@ static int WriteSeed(const char* path)
     return failed | WriteFile(ascii);
 }
 
+// Binary strings read as their bytes when no byte needs making valid:
+// cut at a capacity, compared by their bytes; a NUL or a byte past ASCII
+// still made U+FFFD.
+static void TestPlainStrings(void)
+{
+    Start(7400, false);
+    Begin("S");
+    PropS("abc", 3);
+    PropS("abd", 3);
+    PropS("a\0b", 3);
+    PropS("a\x80"
+          "b",
+          3);
+    End();
+    Finish();
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "strings open");
+    uint32_t node = fbx != NULL ? maniFbxFindChild(fbx, 0, "S", 1) : MANI_FBX_NONE;
+    if (node != MANI_FBX_NONE)
+    {
+        uint32_t abc = maniFbxNodeProperty(fbx, node, 0);
+        uint32_t abd = maniFbxNodeProperty(fbx, node, 1);
+        uint8_t out[8] = {0};
+        CHECK(maniFbxStringDecode(fbx, abc, out, 2) == 2 && memcmp(out, "ab\0", 3) == 0,
+              "as many bytes as fit");
+        CHECK(!maniFbxSameString(fbx, abc, abd) && maniFbxSameString(fbx, abc, abc),
+              "as long, other bytes: not the same");
+        static const char kMade[] = "a\xEF\xBF\xBD"
+                                    "b";
+        for (uint32_t k = 2; k < 4; ++k)
+        {
+            uint32_t made = maniFbxNodeProperty(fbx, node, k);
+            CHECK(maniFbxStringDecode(fbx, made, out, sizeof out) == 5 &&
+                      memcmp(out, kMade, 5) == 0,
+                  k == 2 ? "a NUL made valid" : "a byte past ASCII made valid");
+        }
+    }
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -980,5 +1022,6 @@ int main(int argc, char** argv)
     TestAsciiEdges();
     TestAsciiRefusals();
     TestShortInteger();
+    TestPlainStrings();
     return s_failures == 0 ? 0 : 1;
 }

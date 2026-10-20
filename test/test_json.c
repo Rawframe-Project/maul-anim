@@ -175,6 +175,7 @@ static void TestRefusals(void)
         {"\"\xC3\x28\"", maniJsonReasonUtf8, 1},
         {"\"\xED\xA0\x80\"", maniJsonReasonUtf8, 1},
         {"\"\xC0\xAF\"", maniJsonReasonUtf8, 1},
+        {"\"a\x80\"", maniJsonReasonUtf8, 2},
         {"\xEF\xBB", maniJsonReasonSyntax, 0},
         {"\xEF\xBB\xBF\xEF\xBB\xBF{}", maniJsonReasonSyntax, 3},
     };
@@ -252,6 +253,23 @@ static void TestLayout(void)
     CHECK(v[maniJsonFind(&json, 0, "z", 1)].kind == maniJsonNull, "null");
     maniReleaseJson(&kDefault, &json);
     CHECK(json.values == NULL && json.count == 0, "released");
+}
+
+// Strings without an escape, compared and decoded as their bytes.
+static void TestPlainStrings(void)
+{
+    maniJson json;
+    CHECK(Read("[\"abc\",\"\"]", &json).result == mani_success, "plain strings read");
+    uint32_t abc = 1;
+    uint32_t empty = json.values[abc].next;
+    CHECK(maniJsonStringEquals(&json, abc, "abc", 3), "its bytes");
+    CHECK(!maniJsonStringEquals(&json, abc, "ab", 2), "a prefix is not equal");
+    CHECK(!maniJsonStringEquals(&json, abc, "abd", 3), "nor others as long");
+    CHECK(maniJsonStringEquals(&json, empty, "", 0), "the empty string");
+    uint8_t out[4] = {0};
+    CHECK(maniJsonStringDecode(&json, abc, out, 2) == 2 && memcmp(out, "ab\0", 3) == 0,
+          "as many bytes as fit");
+    maniReleaseJson(&kDefault, &json);
 }
 
 static void TestScalarsAndSpace(void)
@@ -355,6 +373,7 @@ int main(int argc, char** argv)
     TestRefusals();
     TestPrefixes();
     TestLayout();
+    TestPlainStrings();
     TestScalarsAndSpace();
     TestDepth();
     TestAllocationFailure();
