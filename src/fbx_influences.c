@@ -14,7 +14,6 @@
 #include "fbx_object.h"
 #include "fbx_skin.h"
 #include "fbx_value.h"
-#include "sort.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -259,18 +258,26 @@ static maniImportResult ReadBlend(Read* r, maniSkinningMethod method, float** ou
 // of one joint summed.
 static maniImportResult Lists(Read* r, uint32_t* offsets, uint32_t* joints, float* weights)
 {
-    uint64_t* keys = maniArenaTake(r->arena, r->count, sizeof(uint64_t));
     uint32_t* order = maniArenaTake(r->arena, r->count, sizeof(uint32_t));
-    uint32_t* scratch = maniArenaTake(r->arena, r->count, sizeof(uint32_t));
-    if (keys == NULL || order == NULL || scratch == NULL)
+    uint32_t* start = maniArenaTake(r->arena, (size_t)r->vertices + 1, sizeof(uint32_t));
+    if (order == NULL || start == NULL)
     {
         return Capacity();
     }
+    // Every entry's control point is below the count: each one's entries
+    // counted (from the arena's zeros), then placed in entry order.
     for (uint32_t i = 0; i < r->count; ++i)
     {
-        keys[i] = r->entries[i].vertex;
+        ++start[r->entries[i].vertex + 1];
     }
-    maniSortByKey(keys, r->count, order, scratch);
+    for (uint32_t v = 0; v < r->vertices; ++v)
+    {
+        start[v + 1] += start[v];
+    }
+    for (uint32_t i = 0; i < r->count; ++i)
+    {
+        order[start[r->entries[i].vertex]++] = i;
+    }
     uint32_t n = 0;
     uint32_t i = 0;
     for (uint32_t v = 0; v < r->vertices; ++v)
