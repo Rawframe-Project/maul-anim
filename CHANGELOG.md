@@ -83,6 +83,14 @@ format.
   continuing frame by those features (record mani-0024). Picks the lag
   decided change.
 
+### Fixed
+
+- A mirror map's listed name that its first matching rule leaves empty
+  (the whole name found and replaced by nothing) is refused as an empty
+  name (`maniBuildReasonMirrorName`, naming it); before, the map was
+  built with an empty partner that its own open refused. A fuzz target
+  found it.
+
 ## [0.1.0] - 2026-10-19
 
 The first release: the whole scope of the library, built and tested.

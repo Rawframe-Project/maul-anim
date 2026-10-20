@@ -331,6 +331,14 @@ static void TestOtherRefusals(void)
     const maniMirrorNameSource reserved[1] = {{"footL", 5, 1}};
     source.names = reserved;
     CHECK(Refused(&source, maniBuildReasonMirrorName, 1, 0), "a listed name's reserved word");
+    source = Source();
+    const maniMirrorRuleSource drop[1] = {{"L", 1, maniMirrorSuffix, "", 0, 0}};
+    const maniMirrorNameSource whole[1] = {{"L", 1, 0}};
+    source.rules = drop;
+    source.ruleCount = 1;
+    source.names = whole;
+    source.nameCount = 1;
+    CHECK(Refused(&source, maniBuildReasonMirrorName, 1, 0), "a listed name a rule empties");
     maniBuilder* builder = NewBuilder();
     source = Source();
     CHECK(maniBuildMirrorMap(NULL, &source).result == mani_errorInvalid, "a NULL builder");

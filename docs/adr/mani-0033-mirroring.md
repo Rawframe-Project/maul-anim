@@ -90,7 +90,8 @@ same partner kept once, an unpaired name returned as it is; every
 builder refusal with its item (a bone past the rig or in two pairs, a
 rule's partner taken or not pairing back, a rule's empty find, unknown
 place, replace not UTF-8 or reserved word, a reference not finite or of
-length 0, an unknown axis, a name paired twice, empty or not UTF-8, and
+length 0, an unknown axis, a name paired twice, empty (also as a rule
+leaves it) or not UTF-8, and
 the misuses); every crafted word refused at its offset. A fuzz target
 opens maps and reads every partner and name. The pose's tests turn that
 rig's every bone and mirror it across each axis: every bone but the

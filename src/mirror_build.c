@@ -318,6 +318,11 @@ static maniBuildResult Names(Work* w)
         {
             if (Apply(&s->rules[i], n->name, n->nameLength, out, &made))
             {
+                // A rule that empties the name makes no partner.
+                if (made == 0)
+                {
+                    return Refuse(maniBuildReasonMirrorName, item, 0);
+                }
                 AddEntry(w, n->name, n->nameLength, out, made, item);
                 w->textUsed += made;
                 break;
