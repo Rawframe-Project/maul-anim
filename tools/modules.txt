@@ -220,5 +220,7 @@ gltf_buffer: allocator gltf_compression gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_compression gltf_document gltf_property json
 gltf_meshopt: bytes
 gltf_compression: allocator gltf_document gltf_meshopt gltf_property json
+gltf_draco_read: arena bytes
+gltf_draco: arena bytes gltf_draco_read sort
 
 fbx_helpers: allocator clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_sample fbx_take fbx_transform fbx_world
