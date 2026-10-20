@@ -549,6 +549,10 @@ typedef struct Morph
     Semantic table[MANI_MORPH_MAX_ATTRIBUTES];
     maniMorphAttributeSource attributeSources[MANI_MORPH_MAX_ATTRIBUTES];
     uint32_t attributeCount;
+    // Each attribute's deltas for every vertex and the moved vertices,
+    // read into once a target and kept for the next.
+    float* full[MANI_MORPH_MAX_ATTRIBUTES];
+    uint32_t* moved;
 } Morph;
 
 // One target's semantics into the table: each the primitive has, the
@@ -628,8 +632,11 @@ static maniImportResult ReadAttribute(Morph* m, uint32_t target, uint32_t a, flo
     uint32_t low = semantic == maniMorphColor ? 3u : width;
     uint32_t accessor = 0;
     maniImportResult r = Accessor(m->gltf, target, s->name, low, width, m->vertices, &accessor);
-    float* raw =
-        r.result == mani_success ? maniArenaTake(m->arena, (size_t)m->vertices * 4, 4) : NULL;
+    if (r.result == mani_success && m->full[a] == NULL)
+    {
+        m->full[a] = maniArenaTake(m->arena, (size_t)m->vertices * 4, 4);
+    }
+    float* raw = r.result == mani_success ? m->full[a] : NULL;
     if (r.result == mani_success && raw == NULL)
     {
         return Capacity();
@@ -650,48 +657,110 @@ static maniImportResult ReadAttribute(Morph* m, uint32_t target, uint32_t a, flo
         memcpy(raw + 4 * (size_t)v, rgb, sizeof rgb);
         raw[4 * (size_t)v + 3] = 0.0f;
     }
-    for (uint32_t v = 0; semantic <= maniMorphTangent && v < m->vertices; ++v)
+    if (semantic <= maniMorphTangent)
     {
-        maniGltfBasisVector(m->options, raw + 3 * (size_t)v, true);
+        maniGltfBasisVectors(m->options, raw, m->vertices, true);
     }
     *out = raw;
     return maniImportSuccess();
 }
 
+// Each vertex's word in any made non-zero where its width floats hold a
+// delta not zero (a NaN counts, either zero does not), as `!= 0.0f`
+// tests them; a width constant in each loop, so each vectorizes.
+static void Moves(uint32_t* any, const float* full, uint32_t vertices, uint32_t width)
+{
+    const uint32_t mask = 0x7FFFFFFFu;
+    for (uint32_t v = 0; v < vertices; ++v)
+    {
+        uint32_t u[4] = {0, 0, 0, 0};
+        switch (width)
+        {
+        case 2:
+            memcpy(u, full + 2 * (size_t)v, 2 * sizeof(float));
+            break;
+        case 3:
+            memcpy(u, full + 3 * (size_t)v, 3 * sizeof(float));
+            break;
+        default:
+            memcpy(u, full + 4 * (size_t)v, 4 * sizeof(float));
+            break;
+        }
+        any[v] |= (u[0] | u[1] | u[2] | u[3]) & mask;
+    }
+}
+
+// The kept rows of width floats copied out in order.
+static void Rows(float* out, const float* full, const uint32_t* indices, uint32_t kept,
+                 uint32_t width)
+{
+    for (uint32_t i = 0; i < kept; ++i)
+    {
+        const float* row = full + width * (size_t)indices[i];
+        float* to = out + width * (size_t)i;
+        switch (width)
+        {
+        case 2:
+            memcpy(to, row, 2 * sizeof(float));
+            break;
+        case 3:
+            memcpy(to, row, 3 * sizeof(float));
+            break;
+        default:
+            memcpy(to, row, 4 * sizeof(float));
+            break;
+        }
+    }
+}
+
 // The vertices a target moves (a delta not zero) and their deltas packed.
 static maniImportResult Pack(Morph* m, float* const* full, maniMorphTargetSource* out)
 {
-    uint32_t* indices = maniArenaTake(m->arena, (size_t)m->vertices + 1, sizeof(uint32_t));
+    if (m->moved == NULL)
+    {
+        m->moved = maniArenaTake(m->arena, (size_t)m->vertices + 1, sizeof(uint32_t));
+    }
     const float** deltas =
         (const float**)maniArenaTake(m->arena, MANI_MORPH_MAX_ATTRIBUTES, sizeof(void*));
-    if (indices == NULL || deltas == NULL)
+    if (m->moved == NULL || deltas == NULL)
     {
         return Capacity();
     }
+    memset(m->moved, 0, (size_t)m->vertices * sizeof(uint32_t));
+    for (uint32_t a = 0; a < m->attributeCount; ++a)
+    {
+        if (full[a] != NULL)
+        {
+            Moves(m->moved, full[a], m->vertices, Width(m->table[a].attribute.semantic));
+        }
+    }
+    // The moved vertices' indices over the words, in place: the index
+    // written never passes the word read.
     uint32_t kept = 0;
     for (uint32_t v = 0; v < m->vertices; ++v)
     {
-        bool moves = false;
-        for (uint32_t a = 0; a < m->attributeCount; ++a)
-        {
-            uint32_t width = Width(m->table[a].attribute.semantic);
-            for (uint32_t k = 0; full[a] != NULL && k < width; ++k)
-            {
-                moves = moves || full[a][width * (size_t)v + k] != 0.0f;
-            }
-        }
-        indices[kept] = v;
-        kept += moves ? 1 : 0;
+        uint32_t moves = m->moved[v];
+        m->moved[kept] = v;
+        kept += moves != 0 ? 1 : 0;
     }
+    uint32_t* indices = maniArenaTake(m->arena, (size_t)kept + 1, sizeof(uint32_t));
+    if (indices == NULL)
+    {
+        return Capacity();
+    }
+    memcpy(indices, m->moved, (size_t)kept * sizeof(uint32_t));
     for (uint32_t a = 0; a < m->attributeCount; ++a)
     {
         uint32_t width = Width(m->table[a].attribute.semantic);
-        float* packed = full[a];
-        // Packing in place moves each kept vertex down, never past itself.
-        for (uint32_t i = 0; packed != NULL && i < kept; ++i)
+        float* packed = NULL;
+        if (full[a] != NULL)
         {
-            memmove(packed + width * (size_t)i, packed + width * (size_t)indices[i],
-                    width * sizeof(float));
+            packed = maniArenaTake(m->arena, (size_t)kept * width + 1, sizeof(float));
+            if (packed == NULL)
+            {
+                return Capacity();
+            }
+            Rows(packed, full[a], indices, kept, width);
         }
         deltas[a] = packed;
     }

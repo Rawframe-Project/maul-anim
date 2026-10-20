@@ -28,21 +28,31 @@ correctly rounded float in rare halfway cases.
   lexically preceding values for the same key").
 - **Numbers** convert when read, to what the property wants: a whole
   number in a range (a fraction refused, exponents and zero fractions
-  allowed as glTF allows them), binary32 or binary64. The conversion is
-  the multiprecision decimal method, with integer arithmetic only: the
-  digits kept in decimal (800 of them, and a sticky flag for any
-  nonzero digit dropped past them, which keeps the result exact for any
-  length), halved or doubled by shifts until the value lies in
-  [1/2, 1), then rounded half to even at the target format's width,
-  directly, so with one rounding. A value past the format's largest is
-  refused, never infinite.
+  allowed as glTF allows them), binary32 or binary64, with integer
+  arithmetic only. The conversion is Eisel and Lemire's method first
+  (Lemire 2021): the first 19 significant digits as an integer, times
+  the power of five truncated to 128 bits from a generated table
+  (`tools/gen_decimal_powers.py`, checked current by the gate), the
+  high word enough by Mushtak and Lemire's proof; past 19 digits the
+  result stands only when the next integer up rounds the same. What it
+  leaves open goes to the multiprecision decimal method: the digits
+  kept in decimal (800 of them, and a sticky flag for any nonzero digit
+  dropped past them, which keeps the result exact for any length),
+  halved or doubled by shifts until the value lies in [1/2, 1), then
+  rounded half to even at the target format's width, directly, so with
+  one rounding. A value past the format's largest is refused, never
+  infinite.
 
 ## Consequences
 
 Numbers read the same everywhere, under any floating-point environment,
-with no table and no C library. The method is slow next to Eisel and
-Lemire's, which does not matter for the few thousand numbers a glTF's
-JSON holds; its bulk data is binary. The tests check 1,399 cases
-against an exact rational oracle (`tools/gen_number_cases.py`), which
-agrees with Python's binary64 and glibc's binary32 conversions on every
-case.
+with no C library. The multiprecision method alone spent about 2,000
+instructions on each of the 17-digit numbers exporters write, two
+thirds of a large rig's skeleton read; the first method takes about a
+sixth of that, for a table of 10,416 bytes of import code, and the two
+agree on every one of 1,860,000 decimals of 1 to 40 digits and on the
+exact midpoints between adjacent values of both formats. The tests check
+the cases of an exact rational oracle (`tools/gen_number_cases.py`),
+which agrees with Python's binary64 and glibc's binary32 conversions on
+every case, and ties in the first 19 digits that a later digit breaks,
+which only the second method rounds right.

@@ -356,6 +356,82 @@ static bool Finite(float value)
     return (bits & 0x7F800000u) != 0x7F800000u;
 }
 
+// n packed components of a whole-number type converted as Component
+// converts them, a loop for each type.
+static void ConvertPacked(const maniGltfAccessor* a, const uint8_t* p, size_t n, float* out)
+{
+    bool normalized = a->normalized;
+    switch (a->component)
+    {
+    case maniGltfByte:
+        for (size_t k = 0; k < n; ++k)
+        {
+            out[k] = Component(maniGltfByte, normalized, p + k);
+        }
+        break;
+    case maniGltfUnsignedByte:
+        for (size_t k = 0; k < n; ++k)
+        {
+            out[k] = Component(maniGltfUnsignedByte, normalized, p + k);
+        }
+        break;
+    case maniGltfShort:
+        for (size_t k = 0; k < n; ++k)
+        {
+            out[k] = Component(maniGltfShort, normalized, p + 2 * k);
+        }
+        break;
+    case maniGltfUnsignedShort:
+        for (size_t k = 0; k < n; ++k)
+        {
+            out[k] = Component(maniGltfUnsignedShort, normalized, p + 2 * k);
+        }
+        break;
+    default:
+        for (size_t k = 0; k < n; ++k)
+        {
+            out[k] = Component(maniGltfUnsignedInt, normalized, p + 4 * k);
+        }
+        break;
+    }
+}
+
+// The first of n floats not finite, or n: blocks tested whole (so the
+// test vectorizes), a block holding one searched.
+static size_t FirstNotFinite(const float* values, size_t n)
+{
+    enum
+    {
+        BLOCK = 64
+    };
+    for (size_t start = 0; start < n; start += BLOCK)
+    {
+        size_t end = n - start < BLOCK ? n : start + BLOCK;
+        // Two floats a word: an exponent of all ones carries into its
+        // half's top bit, and no half carries into the other.
+        uint64_t any = 0;
+        size_t k = start;
+        for (; k + 2 <= end; k += 2)
+        {
+            uint64_t bits = 0;
+            memcpy(&bits, values + k, sizeof bits);
+            any |= ((bits & 0x7F8000007F800000u) + 0x0080000000800000u) & 0x8000000080000000u;
+        }
+        for (; k < end; ++k)
+        {
+            any |= Finite(values[k]) ? 0u : 1u;
+        }
+        for (size_t j = start; any != 0 && j < end; ++j)
+        {
+            if (!Finite(values[j]))
+            {
+                return j;
+            }
+        }
+    }
+    return n;
+}
+
 // One element at p (its first byte, at `at` in its buffer) into out.
 static maniImportResult ReadElement(const maniGltfAccessor* a, const uint8_t* p, uint64_t at,
                                     uint32_t item, float* out)
@@ -449,6 +525,25 @@ static maniImportResult ReadDense(const maniGltf* gltf, uint32_t accessor, float
     const maniGltfView* v = &gltf->views[a->view];
     uint64_t stride = v->stride != 0 ? v->stride : a->elementSize;
     size_t floats = (size_t)a->rows * a->columns;
+    bool packed = stride == floats * a->componentSize &&
+                  a->columnStride == (uint32_t)a->rows * a->componentSize;
+    if (packed && a->component != maniGltfFloat)
+    {
+        // Packed whole numbers, always finite: each converted in a loop
+        // of its own type.
+        ConvertPacked(a, bytes + a->offset, (size_t)a->count * floats, out);
+        return r;
+    }
+    if (packed)
+    {
+        // Packed floats: copied, then checked in order.
+        size_t n = (size_t)a->count * floats;
+        memcpy(out, bytes + a->offset, n * sizeof(float));
+        size_t bad = FirstNotFinite(out, n);
+        return bad == n ? r
+                        : maniImportFail(maniImportReasonData, at + a->offset + bad * sizeof(float),
+                                         accessor);
+    }
     for (uint32_t i = 0; r.result == mani_success && i < a->count; ++i)
     {
         uint64_t element = a->offset + (uint64_t)i * stride;

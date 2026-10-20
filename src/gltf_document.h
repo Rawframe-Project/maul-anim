@@ -137,6 +137,11 @@ struct maniGltf
     uint32_t* samplerValues;
     uint32_t* samplerStarts;
     uint32_t samplerTotal;
+    // Every channel as the open read it, animation a's from
+    // channelStarts[a].
+    struct maniGltfChannel* channels;
+    uint32_t* channelStarts;
+    uint32_t channelTotal;
     uint32_t* meshValues;
     uint32_t meshCount;
     // What maniGltfReadSprings last gave.

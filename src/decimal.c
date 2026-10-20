@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Decimal to binary by the multiprecision decimal method (mani-0007):
-// the number's digits kept in decimal, halved or doubled by shifts of up
-// to 60 bits until the value lies in [1/2, 1), the binary exponent
-// counted on the way, then the format's bits taken and rounded half to
-// even. 800 digits hold every halfway point between binary64 values
-// exactly; nonzero digits dropped past them only ever push a halfway
-// case up, which a sticky flag records. The method is the one Go's
-// strconv and wuffs describe; this is its own writing.
+// Decimal to binary (mani-0007), first by Eisel and Lemire's method
+// (Lemire 2021): the first 19 significant digits as an integer w, times
+// 5^q truncated to 128 bits from a table, the high word enough for those
+// digits (Mushtak and Lemire 2023); past 19 digits, w and w + 1 must
+// round alike. Otherwise by the multiprecision decimal method: the
+// number's digits kept in decimal, halved or doubled by shifts of up to
+// 60 bits until the value lies in [1/2, 1), the binary exponent counted
+// on the way, then the format's bits taken and rounded half to even. 800
+// digits hold every halfway point between binary64 values exactly;
+// nonzero digits dropped past them only ever push a halfway case up,
+// which a sticky flag records. The methods are the ones fast_float, Go's
+// strconv and wuffs describe; this is their own writing.
 
 #include "decimal.h"
+
+#include "bytes.h"
+
+#include "generated/decimal_powers.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -253,8 +261,302 @@ static int32_t PointShift(int32_t point)
     return point < 9 ? kPowers[point] : 27;
 }
 
-bool maniDecimalToBinary(const char* text, size_t length, maniBinaryFormat format,
-                         uint64_t* bitsOut)
+// A number as w x 10^q from its first 19 significant digits; `more` when
+// a later digit is not 0.
+typedef struct Short
+{
+    uint64_t w;
+    int64_t q;
+    bool negative;
+    bool more;
+} Short;
+
+// Past 19 significant digits: the first 19 taken, the rest counted into
+// q and noted when not 0, a digit at a time.
+static void ParseLong(const char* text, size_t length, size_t at, Short* s)
+{
+    bool fraction = false;
+    uint32_t taken = 0;
+    s->w = 0;
+    s->q = 0;
+    for (; at < length && text[at] != 'e' && text[at] != 'E'; ++at)
+    {
+        char c = text[at];
+        if (c == '.')
+        {
+            fraction = true;
+            continue;
+        }
+        uint32_t digit = (uint32_t)(c - '0');
+        if (taken == 0 && digit == 0)
+        {
+            s->q -= fraction ? 1 : 0;
+            continue;
+        }
+        if (taken < 19)
+        {
+            s->w = s->w * 10 + digit;
+            ++taken;
+            s->q -= fraction ? 1 : 0;
+        }
+        else
+        {
+            s->more = s->more || digit != 0;
+            s->q += fraction ? 0 : 1;
+        }
+    }
+}
+
+// Whether eight bytes are all ASCII digits: each byte's high half 3, and
+// adding 6 leaves it 3 only from '0' to '9'.
+static bool EightDigits(uint64_t v)
+{
+    return ((v & 0xF0F0F0F0F0F0F0F0u) | (((v + 0x0606060606060606u) & 0xF0F0F0F0F0F0F0F0u) >> 4)) ==
+           0x3333333333333333u;
+}
+
+// Eight ASCII digits, the first in the lowest byte, as their value: pairs,
+// then fours, then the eight, by three products.
+static uint64_t EightValue(uint64_t v)
+{
+    v -= 0x3030303030303030u;
+    v = v * 10 + (v >> 8);
+    const uint64_t mask = 0x000000FF000000FFu;
+    return (((v & mask) * 0x000F424000000064u) + (((v >> 16) & mask) * 0x0000271000000001u)) >> 32;
+}
+
+// Where a run of digits ends and w with them summed in.
+typedef struct Digits
+{
+    size_t at;
+    uint64_t w;
+} Digits;
+
+// Digits from at while they last, summed into w: eight at a time where
+// eight are there, then one at a time.
+static Digits ReadDigits(const char* text, size_t length, size_t at, uint64_t w)
+{
+    while (length - at >= 8 && EightDigits(maniLoadU64((const uint8_t*)text + at)))
+    {
+        w = w * 100000000u + EightValue(maniLoadU64((const uint8_t*)text + at));
+        at += 8;
+    }
+    for (; at < length && IsDigit(text[at]); ++at)
+    {
+        w = w * 10 + (uint64_t)(text[at] - '0');
+    }
+    return (Digits){at, w};
+}
+
+// The digits read in tight loops, the integer then the fraction, w
+// summed as it goes: exact while at most 19 digits are significant
+// (below 10^19, so below 2^64); past them, read again by ParseLong.
+static Short ParseShort(const char* text, size_t length)
+{
+    bool negative = length > 0 && text[0] == '-';
+    size_t first = negative ? 1 : 0;
+    Digits d = ReadDigits(text, length, first, 0);
+    size_t digits = d.at - first;
+    int64_t q = 0;
+    if (d.at < length && text[d.at] == '.')
+    {
+        size_t point = d.at + 1;
+        d = ReadDigits(text, length, point, d.w);
+        q = -(int64_t)(d.at - point);
+        digits += d.at - point;
+    }
+    Short s = {d.w, q, negative, false};
+    if (digits > 19)
+    {
+        // Leading zeros are not significant: count them before reading
+        // again.
+        size_t zeros = 0;
+        for (size_t k = first; k < d.at && (text[k] == '0' || text[k] == '.'); ++k)
+        {
+            zeros += text[k] == '0' ? 1 : 0;
+        }
+        if (digits - zeros > 19)
+        {
+            ParseLong(text, length, first, &s);
+        }
+    }
+    if (d.at < length)
+    {
+        s.q += ParseExponent(text, length, d.at + 1);
+    }
+    return s;
+}
+
+// a x b as two words: the compiler's 128-bit product where it has one,
+// else from 32-bit halves; the same words either way.
+static void Multiply(uint64_t a, uint64_t b, uint64_t* high, uint64_t* low)
+{
+#if defined(__SIZEOF_INT128__)
+    unsigned __int128 p = (unsigned __int128)a * b;
+    *low = (uint64_t)p;
+    *high = (uint64_t)(p >> 64);
+#else
+    uint64_t a0 = a & 0xFFFFFFFFu;
+    uint64_t a1 = a >> 32;
+    uint64_t b0 = b & 0xFFFFFFFFu;
+    uint64_t b1 = b >> 32;
+    uint64_t p00 = a0 * b0;
+    uint64_t p01 = a0 * b1;
+    uint64_t p10 = a1 * b0;
+    uint64_t p11 = a1 * b1;
+    uint64_t middle = (p00 >> 32) + (p01 & 0xFFFFFFFFu) + (p10 & 0xFFFFFFFFu);
+    *low = (middle << 32) | (p00 & 0xFFFFFFFFu);
+    *high = p11 + (p01 >> 32) + (p10 >> 32) + (middle >> 32);
+#endif
+}
+
+// x not 0: the compiler's count where it has one, else halves, quarters
+// and on, six steps.
+static uint32_t LeadingZeros(uint64_t x)
+{
+#if defined(__GNUC__) || defined(__clang__)
+    return (uint32_t)__builtin_clzll(x);
+#else
+    uint32_t n = 0;
+    for (uint32_t step = 32; step > 0; step >>= 1)
+    {
+        if ((x >> (64 - step)) == 0)
+        {
+            x <<= step;
+            n += step;
+        }
+    }
+    return n;
+#endif
+}
+
+// A format as the method reads it: its mantissa's stored bits, its
+// least exponent and its exponent field of all ones; the powers of ten
+// below which any w rounds to 0 and past which any w overflows; the
+// powers within which a product can fall exactly halfway.
+typedef struct Format
+{
+    int32_t mantissaBits;
+    int32_t minimumExponent;
+    int32_t infinite;
+    int32_t smallestPower;
+    int32_t largestPower;
+    int32_t evenLow;
+    int32_t evenHigh;
+} Format;
+
+static const Format kFormats[2] = {
+    {23, -127, 0xFF, -65, 38, -17, 10},
+    {52, -1023, 0x7FF, MANI_DECIMAL_SMALLEST_POWER, MANI_DECIMAL_LARGEST_POWER, -4, 23}};
+
+// w x 10^q (w not 0, q within the format's powers) as a mantissa and a
+// biased exponent: infinite for overflow, 0 and 0 for zero.
+static void Compute(const Format* f, uint64_t w, int64_t q, uint64_t* mantissaOut,
+                    int32_t* powerOut)
+{
+    uint32_t lz = LeadingZeros(w);
+    w <<= lz;
+    size_t index = 2 * (size_t)(q - MANI_DECIMAL_SMALLEST_POWER);
+    uint64_t high = 0;
+    uint64_t low = 0;
+    Multiply(w, kPowersOfFive[index], &high, &low);
+    uint64_t mask = UINT64_MAX >> (f->mantissaBits + 3);
+    if ((high & mask) == mask)
+    {
+        uint64_t high2 = 0;
+        uint64_t low2 = 0;
+        Multiply(w, kPowersOfFive[index + 1], &high2, &low2);
+        low += high2;
+        high += high2 > low ? 1u : 0u;
+    }
+    uint32_t upper = (uint32_t)(high >> 63);
+    uint32_t drop = upper + 64u - (uint32_t)f->mantissaBits - 3u;
+    uint64_t mantissa = high >> drop;
+    // floor(q log2 10), as floor(q log2 5) + q: exact for |q| below 400.
+    int32_t power = (int32_t)(((152170 + 65536) * q) >> 16) + 63 + (int32_t)upper - (int32_t)lz -
+                    f->minimumExponent;
+    if (power <= 0)
+    {
+        if (-power + 1 >= 64)
+        {
+            *mantissaOut = 0;
+            *powerOut = 0;
+            return;
+        }
+        mantissa >>= -power + 1;
+        mantissa += mantissa & 1u;
+        mantissa >>= 1;
+        *powerOut = mantissa < ((uint64_t)1 << f->mantissaBits) ? 0 : 1;
+        *mantissaOut = mantissa & (((uint64_t)1 << f->mantissaBits) - 1);
+        return;
+    }
+    // Halfway between two values only when nothing but zeros was dropped.
+    if (low <= 1 && q >= f->evenLow && q <= f->evenHigh && (mantissa & 3u) == 1u &&
+        (mantissa << drop) == high)
+    {
+        mantissa &= ~(uint64_t)1;
+    }
+    mantissa += mantissa & 1u;
+    mantissa >>= 1;
+    if (mantissa >= ((uint64_t)2 << f->mantissaBits))
+    {
+        mantissa = (uint64_t)1 << f->mantissaBits;
+        ++power;
+    }
+    mantissa &= ~((uint64_t)1 << f->mantissaBits);
+    if (power >= f->infinite)
+    {
+        power = f->infinite;
+        mantissa = 0;
+    }
+    *mantissaOut = mantissa;
+    *powerOut = power;
+}
+
+// The fast path's answer, or false when the exact method must decide (a
+// value past 19 digits whose neighbours round apart).
+static bool Fast(const char* text, size_t length, maniBinaryFormat format, bool* fitsOut,
+                 uint64_t* bitsOut)
+{
+    const Format* f = &kFormats[format == maniBinary32 ? 0 : 1];
+    Short s = ParseShort(text, length);
+    uint64_t sign =
+        s.negative ? (uint64_t)1 << (f->mantissaBits + (format == maniBinary32 ? 8 : 11)) : 0;
+    *fitsOut = true;
+    if (s.w == 0 || s.q < f->smallestPower)
+    {
+        *bitsOut = sign;
+        return true;
+    }
+    if (s.q > f->largestPower)
+    {
+        *fitsOut = false;
+        return true;
+    }
+    uint64_t mantissa = 0;
+    int32_t power = 0;
+    Compute(f, s.w, s.q, &mantissa, &power);
+    if (s.more)
+    {
+        uint64_t mantissa2 = 0;
+        int32_t power2 = 0;
+        Compute(f, s.w + 1, s.q, &mantissa2, &power2);
+        if (mantissa2 != mantissa || power2 != power)
+        {
+            return false;
+        }
+    }
+    if (power == f->infinite)
+    {
+        *fitsOut = false;
+        return true;
+    }
+    *bitsOut = sign | ((uint64_t)power << f->mantissaBits) | mantissa;
+    return true;
+}
+
+// The multiprecision method, for what the fast one leaves open.
+static bool Exact(const char* text, size_t length, maniBinaryFormat format, uint64_t* bitsOut)
 {
     const int32_t mantissaBits = format == maniBinary32 ? 23 : 52;
     const int32_t exponentBits = format == maniBinary32 ? 8 : 11;
@@ -318,6 +620,22 @@ bool maniDecimalToBinary(const char* text, size_t length, maniBinaryFormat forma
     uint64_t field = (uint64_t)(exponent - bias);
     *bitsOut = sign | (field << mantissaBits) | (mantissa & (((uint64_t)1 << mantissaBits) - 1));
     return true;
+}
+
+bool maniDecimalToBinary(const char* text, size_t length, maniBinaryFormat format,
+                         uint64_t* bitsOut)
+{
+    bool fits = true;
+    uint64_t bits = 0;
+    if (Fast(text, length, format, &fits, &bits))
+    {
+        if (fits)
+        {
+            *bitsOut = bits;
+        }
+        return fits;
+    }
+    return Exact(text, length, format, bitsOut);
 }
 
 bool maniDecimalToInteger(const char* text, size_t length, int64_t minimum, int64_t maximum,

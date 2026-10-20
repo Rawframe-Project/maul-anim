@@ -21,6 +21,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -247,6 +248,68 @@ static void TestAccessors(void)
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData && r.offset == 60 &&
               r.item == 7,
           "a NaN, at its buffer offset");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
+}
+
+// Packed floats are tested finite in blocks: the first value not finite
+// is named wherever it falls, a block's first, a word's either half, a
+// block past the first, as one at a time would name it.
+static void TestFiniteBlocks(void)
+{
+    float values[150];
+    for (int i = 0; i < 150; ++i)
+    {
+        values[i] = (float)i;
+    }
+    values[70] = INFINITY;
+    values[129] = NAN;
+    uint8_t bytes[sizeof values];
+    memcpy(bytes, values, sizeof values);
+    static char digits[1024];
+    Base64(bytes, sizeof bytes, digits);
+    snprintf(s_json, sizeof s_json,
+             "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":600,\"uri\":"
+             "\"data:application/octet-stream;base64,%s\"}],\"bufferViews\":[{\"buffer\":0,"
+             "\"byteLength\":600}],\"accessors\":["
+             "{\"bufferView\":0,\"componentType\":5126,\"count\":150,\"type\":\"SCALAR\"},"
+             "{\"bufferView\":0,\"byteOffset\":284,\"componentType\":5126,\"count\":79,"
+             "\"type\":\"SCALAR\"},"
+             "{\"bufferView\":0,\"byteOffset\":288,\"componentType\":5126,\"count\":78,"
+             "\"type\":\"SCALAR\"},"
+             "{\"bufferView\":0,\"componentType\":5126,\"count\":70,\"type\":\"SCALAR\"},"
+             "{\"bufferView\":0,\"byteOffset\":280,\"componentType\":5126,\"count\":1,"
+             "\"type\":\"SCALAR\"}]}",
+             digits);
+    maniBuilder* builder = NewBuilder();
+    maniGltf* gltf = NULL;
+    CHECK(OpenJson(builder, &gltf).result == mani_success, "opens");
+    if (gltf == NULL)
+    {
+        maniDestroyBuilder(builder);
+        return;
+    }
+    static float out[150];
+    static const struct
+    {
+        uint32_t accessor;
+        uint64_t offset;
+        const char* what;
+    } kCases[] = {
+        {0, 280, "an infinity in the second block, a word's first half"},
+        {1, 516, "a NaN at a word's first half of its accessor"},
+        {2, 516, "a NaN at a word's second half"},
+        {4, 280, "a block of one"},
+    };
+    for (size_t i = 0; i < sizeof kCases / sizeof kCases[0]; ++i)
+    {
+        maniImportResult r = maniGltfReadFloats(gltf, kCases[i].accessor, out);
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData &&
+                  r.offset == kCases[i].offset && r.item == kCases[i].accessor,
+              kCases[i].what);
+    }
+    CHECK(maniGltfReadFloats(gltf, 3, out).result == mani_success && out[69] == 69.0f,
+          "every value before the first not finite");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
@@ -675,6 +738,7 @@ int main(int argc, char** argv)
     TestVersionsAndExtensions();
     TestAccessors();
     TestStrideAndSparseOrder();
+    TestFiniteBlocks();
     TestLayoutRefusals();
     TestBufferRefusals();
     TestExternalBuffer();

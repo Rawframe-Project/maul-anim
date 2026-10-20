@@ -145,5 +145,20 @@ strings scanned in runs, a string without escapes compared and copied
 as its bytes, base64 by a table); opening an FBX file no more than
 ufbx's load with all content ignored, met at 0.78 and 0.77 on ozz's
 Quaternius `ual.fbx` (a name of plain ASCII compared, hashed and copied
-as its bytes).
+as its bytes). A host's path through a glTF file, the open and the reads
+of every part it holds (a skin's skeleton and the skin, influences,
+morph targets, clips), no more than cgltf's open and its unpack of the
+same accessors, with a host's plain packing loop for morph targets; the
+library's own build of each file is not counted (the same file built
+from cgltf's arrays is subtracted, byte for byte equal). Met for
+skeletons, skins, influences and clips at 0.74 and 0.95 at `-O2` and
+0.78 and 0.85 at `-O3` on CesiumMan and `ruby` (the basis change made
+once and skipped for the identity, packed accessors read whole, morph
+targets packed an attribute at a time, numbers by Eisel and Lemire's
+method first, channels kept from the open). Morph targets not met: 1.69
+and 1.54 on a synthetic face of 10,000 vertices and 54 targets, the rest
+the finite test glTF requires and the read's generality over widths and
+attributes; held at their measured cost, 43.8 million instructions at
+`-O2` for the face. Instructions understate cgltf's float unpack, a
+`memcpy`; timed runs decide where they disagree.
 

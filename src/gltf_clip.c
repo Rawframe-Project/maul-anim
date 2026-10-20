@@ -168,17 +168,14 @@ static void ToBasis(const Build* b, Bound* x)
 {
     size_t parts = x->c.interpolation == maniInterpolationCubicSpline ? 3 : 1;
     size_t vectors = parts * x->c.keys;
-    for (size_t i = 0; i < vectors; ++i)
+    if (x->c.target == maniGltfTargetRotation)
     {
-        if (x->c.target == maniGltfTargetRotation)
-        {
-            maniGltfBasisQuat(b->options, x->values + 4 * i);
-        }
-        else
-        {
-            maniGltfBasisVector(b->options, x->values + 3 * i,
-                                x->c.target == maniGltfTargetTranslation);
-        }
+        maniGltfBasisQuats(b->options, x->values, vectors);
+    }
+    else
+    {
+        maniGltfBasisVectors(b->options, x->values, vectors,
+                             x->c.target == maniGltfTargetTranslation);
     }
 }
 
@@ -191,27 +188,25 @@ static size_t OutputFloats(const maniGltf* gltf, const maniGltfChannel* c)
 // Every channel's keys (for the duration), and the kept ones' values.
 static maniImportResult ReadChannels(Build* b)
 {
-    uint32_t count = 0;
-    uint32_t channel = maniGltfAnimationChannels(b->gltf, b->animation, &count) + 1;
+    // The open read and checked every channel.
+    const maniGltfChannel* channels = b->gltf->channels + b->gltf->channelStarts[b->animation];
+    uint32_t count =
+        b->gltf->channelStarts[b->animation + 1] - b->gltf->channelStarts[b->animation];
     b->bound = maniArenaTake(&b->arena, count, sizeof(Bound));
     if (b->bound == NULL)
     {
         return Capacity();
     }
-    for (uint32_t i = 0; i < count; ++i, channel = b->gltf->json.values[channel].next)
+    for (uint32_t i = 0; i < count; ++i)
     {
-        Bound x = {.index = i};
-        maniImportResult r = maniGltfReadChannel(b->gltf, b->animation, channel, i, &x.c);
-        if (r.result != mani_success || x.c.target == maniGltfTargetIgnored)
+        Bound x = {.index = i, .c = channels[i]};
+        if (x.c.target == maniGltfTargetIgnored)
         {
-            if (r.result != mani_success)
-            {
-                return r;
-            }
             continue;
         }
         x.times = maniArenaTake(&b->arena, x.c.keys, sizeof(float));
-        r = x.times != NULL ? maniGltfReadFloats(b->gltf, x.c.input, x.times) : Capacity();
+        maniImportResult r =
+            x.times != NULL ? maniGltfReadFloats(b->gltf, x.c.input, x.times) : Capacity();
         if (r.result != mani_success)
         {
             return r;

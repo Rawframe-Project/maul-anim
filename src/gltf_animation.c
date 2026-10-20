@@ -338,7 +338,8 @@ static uint64_t TargetKey(const maniGltf* gltf, const maniGltfChannel* c, maniAr
     return maniHashBytes(MANI_HASH_INIT, text, n) | ((uint64_t)1 << 63);
 }
 
-static maniImportResult ReadAnimation(maniGltf* gltf, uint32_t a, maniArena* arena)
+static maniImportResult ReadAnimation(maniGltf* gltf, uint32_t a, maniArena* arena,
+                                      maniGltfChannel* kept)
 {
     const maniGltfJson* g = &gltf->g;
     uint32_t value = gltf->animationValues[a];
@@ -379,6 +380,7 @@ static maniImportResult ReadAnimation(maniGltf* gltf, uint32_t a, maniArena* are
         {
             return r;
         }
+        kept[c] = parsed;
         // Ignored channels never repeat a target.
         keys[c] = parsed.target == maniGltfTargetIgnored ? ((uint64_t)1 << 62) + c
                                                          : TargetKey(gltf, &parsed, arena);
@@ -534,11 +536,37 @@ maniImportResult maniGltfReadAnimations(maniGltf* gltf)
     {
         return r;
     }
+    // Room for every channel an animation's array holds; the arrays
+    // themselves are checked as each animation is read.
+    uint64_t total = 0;
+    for (uint32_t a = 0; a < count; ++a)
+    {
+        uint32_t channels = maniJsonFind(&gltf->json, gltf->animationValues[a], "channels", 8);
+        total += channels != MANI_JSON_NONE && gltf->json.values[channels].kind == maniJsonArray
+                     ? gltf->json.values[channels].count
+                     : 0;
+    }
+    gltf->channelTotal = (uint32_t)total;
+    gltf->channels = maniAllocate(&gltf->allocator, total + 1, sizeof(maniGltfChannel), 8);
+    gltf->channelStarts = maniAllocate(&gltf->allocator, (size_t)count + 1, sizeof(uint32_t), 8);
+    if (gltf->channels == NULL || gltf->channelStarts == NULL)
+    {
+        return Capacity();
+    }
     maniArena arena = maniArenaMake(&gltf->allocator);
+    uint32_t at = 0;
     for (uint32_t a = 0; r.result == mani_success && a < count; ++a)
     {
-        r = ReadAnimation(gltf, a, &arena);
+        gltf->channelStarts[a] = at;
+        r = ReadAnimation(gltf, a, &arena, gltf->channels + at);
+        if (r.result == mani_success)
+        {
+            uint32_t n = 0;
+            (void)maniGltfAnimationChannels(gltf, a, &n);
+            at += n;
+        }
     }
+    gltf->channelStarts[count] = at;
     maniArenaRelease(&arena);
     return r.result == mani_success ? ReadNames(gltf) : r;
 }
@@ -556,4 +584,8 @@ void maniGltfReleaseAnimations(maniGltf* gltf)
                 sizeof(uint32_t), 8);
     maniRelease(&gltf->allocator, gltf->meshValues, (size_t)gltf->meshCount + 1, sizeof(uint32_t),
                 8);
+    maniRelease(&gltf->allocator, gltf->channels, (size_t)gltf->channelTotal + 1,
+                sizeof(maniGltfChannel), 8);
+    maniRelease(&gltf->allocator, gltf->channelStarts, (size_t)gltf->animationCount + 1,
+                sizeof(uint32_t), 8);
 }

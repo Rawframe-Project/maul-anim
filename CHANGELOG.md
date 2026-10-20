@@ -32,6 +32,18 @@ format.
 
 ### Changed
 
+- Reading an opened glTF file's skins, influences, morph targets and
+  clips takes fewer instructions, with the same files built and the
+  same refusals: the basis change made once and skipped when it is the
+  identity, packed accessors read whole, morph targets packed without a
+  copy of every vertex for each target, channels kept from the open; a
+  host's open and reads cost less than cgltf's open and unpack on the
+  files measured, morph targets excepted (glTF's finite rule checked).
+- JSON numbers (glTF, the graph, maps and the other JSON forms) and FBX
+  ASCII numbers convert by Eisel and Lemire's method first, the exact
+  multiprecision method kept for what it leaves open: the same bits,
+  in about a sixth of the instructions for the 17 digits exporters
+  write.
 - Opening a glTF or FBX file takes fewer instructions than cgltf's
   parse, buffer load and validation and than ufbx's load with content
   ignored, on the files measured (strings and base64 read in runs, FBX

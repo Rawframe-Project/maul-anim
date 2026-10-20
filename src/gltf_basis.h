@@ -12,6 +12,7 @@
 #include "maul-anim/import.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
 // Axes each below 6 and a permutation of x, y and z; foldPlacement 0 or 1.
 bool maniGltfOptionsValid(const maniGltfOptions* options);
@@ -29,6 +30,10 @@ void maniGltfBasisVector(const maniGltfOptions* options, float v[3], bool signs)
 // A quaternion's four floats (or a rotation tangent's) in the output's
 // basis: the vector part permuted, signed and times det B.
 void maniGltfBasisQuat(const maniGltfOptions* options, float q[4]);
+
+// count vectors or quaternions in place, as the two above.
+void maniGltfBasisVectors(const maniGltfOptions* options, float* v, size_t count, bool signs);
+void maniGltfBasisQuats(const maniGltfOptions* options, float* q, size_t count);
 
 // A matrix in the output's basis: B M B^-1.
 maniAffine maniGltfBasisAffine(const maniGltfOptions* options, maniAffine a);

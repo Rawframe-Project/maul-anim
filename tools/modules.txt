@@ -170,7 +170,7 @@ clip_shell: additive
 clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_search clip_shell clip_view container
 clip_plan: allocator bytes clip_codec clip_file vecmath
 clip_search: allocator bytes clip_codec clip_file clip_plan clip_shell clip_view pose_memory
-decimal:
+decimal: bytes
 decimal_format: decimal
 json: allocator decimal text
 gltf_property: json

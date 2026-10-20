@@ -632,6 +632,15 @@ static void TestRefusals(void)
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "a cubic spline of one key");
     Document(kOne, "", "");
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "no channels");
+    // No channels member at all: refused, nothing read past the JSON.
+    Document(kOne, "", "");
+    char* channels = strstr(s_json, "\"channels\":[]");
+    CHECK(channels != NULL, "the document has an empty channels array");
+    if (channels != NULL)
+    {
+        channels[1] = 'x';
+        ExpectOpenRefusal(maniImportReasonProperty, NULL, "no channels member");
+    }
     Document("", kHipMove, "");
     ExpectOpenRefusal(maniImportReasonProperty, NULL, "no samplers");
     Document(kOne, kHipMove, "");

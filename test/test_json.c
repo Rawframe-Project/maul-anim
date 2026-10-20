@@ -63,6 +63,28 @@ static void TestNumbers(void)
     CHECK(maniDecimalToBinary(kTiny, sizeof kTiny - 1, maniBinary64, &bits) &&
               bits == 0x8000000000000000u,
           "a tiny one is -0");
+    // Ties to even; past 19 digits a tie in the first 19 broken by a later
+    // digit (the exact method's case), or no tie at all.
+    static const struct
+    {
+        const char* text;
+        maniBinaryFormat format;
+        uint64_t bits;
+    } kTies[] = {
+        {"9007199254740993", maniBinary64, 0x4340000000000000u},
+        {"9007199254740993.0000000000000001", maniBinary64, 0x4340000000000001u},
+        {"9007199254740992.9999999999999999", maniBinary64, 0x4340000000000000u},
+        {"16777217", maniBinary32, 0x4B800000u},
+        {"16777217.00000000000000000001", maniBinary32, 0x4B800001u},
+        {"16777219.00000000000000000001", maniBinary32, 0x4B800002u},
+        {"1.00000000000000000000000000001", maniBinary64, 0x3FF0000000000000u},
+    };
+    for (size_t i = 0; i < sizeof kTies / sizeof kTies[0]; ++i)
+    {
+        bits = 0;
+        bool ok = maniDecimalToBinary(kTies[i].text, strlen(kTies[i].text), kTies[i].format, &bits);
+        CHECK(ok && bits == kTies[i].bits, kTies[i].text);
+    }
 }
 
 static void TestFormat(void)
