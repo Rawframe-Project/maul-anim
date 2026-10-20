@@ -285,11 +285,15 @@ static void AutoTangents(const Decoder* d, uint32_t i, double time, double next,
     // differs from solving each side by under 1e-6 of a slope: not kept.
     if (before && after)
     {
-        float l = maniFbxAutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
-                                   d->weightLeft, weightRight, -*left, flags);
-        *right = maniFbxAutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
-                                  d->weightLeft, weightRight, *right, flags);
-        *left = l;
+        // The two sides differ only in their bias: solved once when the
+        // biases are equal (as they are unset).
+        float r = maniFbxAutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
+                                   d->weightLeft, weightRight, *right, flags);
+        *left = -*left == *right
+                    ? r
+                    : maniFbxAutoSlope(d->previousTime, time, next, v[i - 1], v[i], v[i + 1],
+                                       d->weightLeft, weightRight, -*left, flags);
+        *right = r;
     }
     else if (before)
     {
