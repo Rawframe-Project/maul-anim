@@ -107,16 +107,17 @@ encoder's fixtures, met at 0.87 to 0.99 at `-O2` and 0.78 to 0.90 at
 the dequantization and the difference prediction's loops by kind); the
 meshopt decoder (mani-0008) no more than meshoptimizer's scalar decoder
 (f0a684f1, `MESHOPTIMIZER_NO_SIMD`, at its `-O2`) on each stream kind
-gltfpack writes, met on attributes of both versions, index sequences and
+gltfpack writes, met on attributes of both versions, index sequences,
 the exponential filter (0.88 to 0.96 at `-O2`, 0.81 to 0.93 at `-O3`;
 groups and channels decoded for their widths, a LEB128 value bounded
-once), and over where the specification asks more: the octahedral
-filter's stream at 1.13 and 1.02, the quaternion's at 1.05 and 0.98
-(the formulas' divisions and rounding half away from zero, which keep
-the bits the same everywhere, where meshoptimizer multiplies by a
-reciprocal and adds a half), triangles at 1.04 and 0.99 (the check that
-no FIFO entry is read before it is written, which meshoptimizer skips).
-meshoptimizer's vector decoder is measured with the eight-lane work
+once) and triangles (0.989 and 0.996: the check that no FIFO entry is
+read before it is written, which meshoptimizer skips, made only until
+both FIFOs are full, after which no code can name an unwritten entry),
+and over where the specification asks more: the octahedral filter's
+stream at 1.13 and 1.02, the quaternion's at 1.05 and 0.98 (the
+formulas' divisions and rounding half away from zero, which keep the
+bits the same everywhere, where meshoptimizer multiplies by a
+reciprocal and adds a half). meshoptimizer's vector decoder is measured with the eight-lane work
 above.
 
 Targets added for IK (mani-0029), in instructions at `-O2` and `-O3`
@@ -131,7 +132,10 @@ helpers inline wherever called, and 1,300 to 2,600 bytes past the
 ceilings with them inline only in the root path, where the bytes buy
 less than other parts' raises did. What remains is the binary64 arc and
 normalizations that keep a turn exact near opposite directions (about a
-fifth of the aim), the inputs' checks, and scalar against ozz's four
+fifth of the aim; a binary32 half-vector arc, 90 instructions against
+130, misses the 1e-5 bound within 1.4 degrees of opposite and by up to
+2.4e-4 however its switch to a perpendicular axis is placed, so the
+arc stays binary64), the inputs' checks, and scalar against ozz's four
 lanes and estimated reciprocals, measured again with the eight-lane work
 above. The CCD and FABRIK chains no more than Godot 4.7.2's CCDIK3D and
 FABRIK3D on the same chains and iterations, met at 0.20 and 0.40 of its

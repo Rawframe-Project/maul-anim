@@ -377,12 +377,14 @@ static inline bool Index(Reader* r, Triangles* t, uint32_t* out)
 // A code 0xXY with X below 0xf: an edge from the FIFO and a third index.
 // Y below 0xd, the common codes, takes no branch on the data: the vertex
 // FIFO's next slot is written each time and kept only for a new index,
-// that slot being entry 15, which no code reads (13 at most).
-static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, uint32_t* tri)
+// that slot being entry 15, which no code reads (13 at most). Once both
+// FIFOs are full (16 written each), no entry a code names (edge 14,
+// vertex 12 at most) can be unwritten, so full skips the checks.
+static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, bool full, uint32_t* tri)
 {
     uint32_t x = code >> 4;
     uint32_t y = code & 15u;
-    if (x >= t->edgeAt)
+    if (!full && x >= t->edgeAt)
     {
         return false;
     }
@@ -391,7 +393,7 @@ static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, uint32_t* tri
     uint32_t c = 0;
     if (y < 0xDu)
     {
-        if (y != 0u && y >= t->vertexAt)
+        if (!full && y != 0u && y >= t->vertexAt)
         {
             return false;
         }
@@ -495,16 +497,23 @@ static inline bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride, c
     }
     Triangles t = {.edgeAt = 0};
     Reader r = {in + 1u + codes, table};
-    for (size_t i = 0; i < codes && ok; ++i)
+    size_t i = 0;
+    // Two passes of one loop: until both FIFOs are full, then the rest.
+    for (uint32_t pass = 0; pass < 2u; ++pass)
     {
-        uint8_t code = in[1u + i];
-        uint32_t tri[3] = {0, 0, 0};
-        ok = code < 0xF0u ? EdgeCode(&r, &t, code, tri) : FreeCode(&r, &t, code, table, tri);
-        if (ok)
+        bool full = pass == 1u;
+        for (; i < codes && ok && (full || t.edgeAt < 16u || t.vertexAt < 16u); ++i)
         {
-            Put(out, stride, 3u * i, tri[0]);
-            Put(out, stride, 3u * i + 1u, tri[1]);
-            Put(out, stride, 3u * i + 2u, tri[2]);
+            uint8_t code = in[1u + i];
+            uint32_t tri[3] = {0, 0, 0};
+            ok = code < 0xF0u ? EdgeCode(&r, &t, code, full, tri)
+                              : FreeCode(&r, &t, code, table, tri);
+            if (ok)
+            {
+                Put(out, stride, 3u * i, tri[0]);
+                Put(out, stride, 3u * i + 1u, tri[1]);
+                Put(out, stride, 3u * i + 2u, tri[2]);
+            }
         }
     }
     return ok && r.at == r.end;

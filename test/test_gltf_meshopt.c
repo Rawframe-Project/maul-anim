@@ -113,6 +113,16 @@ static void TestTriangleRules(void)
     uint8_t vertex3[1 + 2 + 16] = {0xE1, 0xF0, 0x03};
     CHECK(!maniMeshoptDecode(pair, 6, 4, maniMeshoptTriangles, false, vertex3, sizeof vertex3),
           "the vertex entry past those written");
+    // The edge FIFO full (17 written) while the vertex FIFO holds three:
+    // seven codes 0x01 (edge 0, vertex 1) push edges alone, then 0x0c
+    // names vertex entry 12, never written.
+    uint8_t full[1 + 9 + 16] = {0xE1, 0xF0, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x0C};
+    uint8_t many[27 * 4];
+    CHECK(!maniMeshoptDecode(many, 27, 4, maniMeshoptTriangles, false, full, sizeof full),
+          "a vertex entry unwritten after the edge FIFO is full");
+    full[9] = 0x02;
+    CHECK(maniMeshoptDecode(many, 27, 4, maniMeshoptTriangles, false, full, sizeof full),
+          "and one written");
     // 0xfe with Z = 4: vertex entry 3, read before the triangle's pushes.
     uint8_t free3[1 + 2 + 1 + 16] = {0xE1, 0xF0, 0xFE, 0x40};
     CHECK(!maniMeshoptDecode(pair, 6, 4, maniMeshoptTriangles, false, free3, sizeof free3),
