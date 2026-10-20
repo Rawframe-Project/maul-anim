@@ -113,15 +113,19 @@ static maniImportResult PropertyTracks(maniFbxClipState* c, uint32_t b,
     double rest[3];
     uint32_t width = Static(fbx, object, property, length, channel, rest);
     float* values = maniArenaTake(&c->arena, (size_t)c->sampleCount * width, sizeof(float));
-    if (values == NULL)
+    // The property's channels found once, not at every sample.
+    uint32_t first = 0;
+    uint32_t run = maniFbxAnimatedRun(&c->animation, object, &first);
+    uint32_t* matched = maniArenaTake(&c->arena, (size_t)run + 1, sizeof(uint32_t));
+    if (values == NULL || matched == NULL)
     {
         return Capacity();
     }
+    uint32_t n = maniFbxMatchChannels(&c->animation, fbx, first, run, property, length, matched);
     for (uint32_t s = 0; s < c->sampleCount; ++s)
     {
         double v[3] = {rest[0], rest[1], rest[2]};
-        (void)maniFbxAnimateProperty(&c->animation, fbx, object, property, length,
-                                     maniFbxClipStackTime(c, s), 0, v);
+        (void)maniFbxAnimateChannels(&c->animation, fbx, matched, n, maniFbxClipStackTime(c, s), v);
         for (uint32_t k = 0; k < width; ++k)
         {
             values[(size_t)k * c->sampleCount + s] = (float)v[k];

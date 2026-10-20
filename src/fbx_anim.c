@@ -813,6 +813,32 @@ static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint3
                       time, order, attribute, value);
 }
 
+uint32_t maniFbxMatchChannels(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
+                              uint32_t count, const char* name, size_t length, uint32_t* out)
+{
+    uint64_t hash = maniFbxNameHash(name, length);
+    uint32_t n = 0;
+    for (uint32_t i = first; i < first + count; ++i)
+    {
+        const maniFbxChannel* c = &animation->channels[i];
+        if (c->nameHash == hash && !c->attribute && maniFbxChannelNameIs(fbx, c, name, length))
+        {
+            out[n++] = i;
+        }
+    }
+    return n;
+}
+
+bool maniFbxAnimateChannels(const maniFbxAnimation* animation, const maniFbx* fbx,
+                            const uint32_t* channels, uint32_t count, double time, double value[3])
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        Apply(animation, fbx, &animation->channels[channels[k]], time, false, false, 0, value);
+    }
+    return count > 0;
+}
+
 bool maniFbxAnimateMarked(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
                           uint32_t count, const uint8_t* marks, uint8_t mark, bool scale,
                           bool rotation, double time, uint32_t order, double value[3])
