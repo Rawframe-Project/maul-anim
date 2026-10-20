@@ -107,6 +107,14 @@ encoder's fixtures, met at 0.87 to 0.99 at `-O2` and 0.78 to 0.90 at
 the dequantization and the difference prediction's loops by kind); the
 meshopt decoder (mani-0008) no more than meshoptimizer's scalar decoder
 (f0a684f1, `MESHOPTIMIZER_NO_SIMD`, at its `-O2`) on each stream kind
-gltfpack writes, not met yet (1.34 to 3.08 of it at `-O2`).
+gltfpack writes, met on attributes of both versions, index sequences and
+the exponential filter (0.88 to 0.96 at `-O2`, 0.81 to 0.93 at `-O3`;
+groups and channels decoded for their widths, a LEB128 value bounded
+once), and over where the specification asks more: the octahedral
+filter's stream at 1.13 and 1.02, the quaternion's at 1.05 and 0.98
+(the formulas' divisions and rounding half away from zero, which keep
+the bits the same everywhere, where meshoptimizer multiplies by a
+reciprocal and adds a half), triangles at 1.04 and 0.99 (the check that
+no FIFO entry is read before it is written, which meshoptimizer skips).
 meshoptimizer's vector decoder is measured with the eight-lane work
 above.

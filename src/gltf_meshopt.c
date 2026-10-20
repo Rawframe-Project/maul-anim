@@ -32,6 +32,30 @@ typedef struct Reader
     const uint8_t* end;
 } Reader;
 
+// A group's deltas at 1, 2 or 4 bits from p with its spare bytes from
+// extra, which has a whole group's bytes ahead of it: each spare byte is
+// read and taken only for a sentinel, as meshoptimizer's scalar path.
+static inline const uint8_t* Unpack(const uint8_t* p, const uint8_t* extra, int bits, uint8_t* out)
+{
+    uint32_t b = (uint32_t)bits;
+    uint32_t sentinel = (1u << b) - 1u;
+    uint32_t per = 8u / b;
+    for (uint32_t i = 0; i < GROUP / per; ++i)
+    {
+        uint32_t byte = p[i];
+        for (uint32_t k = 0; k < per; ++k)
+        {
+            // 1-bit deltas from the least significant bit, wider ones from
+            // the most.
+            uint32_t v = b == 1u ? (byte >> k) & 1u : (byte >> (8u - b * (k + 1u))) & sentinel;
+            uint32_t taken = v == sentinel ? 1u : 0u;
+            out[i * per + k] = taken != 0 ? *extra : (uint8_t)v;
+            extra += taken;
+        }
+    }
+    return extra;
+}
+
 // One group of 16 byte deltas at bits each (0, 1, 2, 4 or 8), a delta of
 // all ones taking the next byte after the packed ones.
 static bool Group(Reader* r, int bits, uint8_t* out)
@@ -52,6 +76,14 @@ static bool Group(Reader* r, int bits, uint8_t* out)
     {
         memcpy(out, p, GROUP);
         r->at = extra;
+        return true;
+    }
+    if ((size_t)(r->end - extra) >= GROUP)
+    {
+        // A constant width each, so each unpacks with constant shifts.
+        r->at = bits == 1   ? Unpack(p, extra, 1, out)
+                : bits == 2 ? Unpack(p, extra, 2, out)
+                            : Unpack(p, extra, 4, out);
         return true;
     }
     uint32_t sentinel = (1u << bits) - 1u;
@@ -103,54 +135,55 @@ static uint32_t Unzigzag(uint32_t v, uint32_t mask)
     return ((v & 1u) != 0 ? ~(v >> 1) : (v >> 1)) & mask;
 }
 
-static uint32_t Rotate(uint32_t v, uint32_t r)
-{
-    return (v << r) | (v >> ((32u - r) & 31u));
-}
-
-// An element's value of width bytes from its delta and the previous one.
-static uint32_t Value(uint32_t d, uint32_t p, uint32_t width, uint8_t mode)
-{
-    if (width == 4u)
-    {
-        return Rotate(d, (32u - (mode >> 4)) & 31u) ^ p;
-    }
-    uint32_t mask = width == 1u ? 0xFFu : 0xFFFFu;
-    return (Unzigzag(d, mask) + p) & mask;
-}
-
-// A channel's 4 byte positions turned from deltas into values: byte
-// deltas, 2-byte deltas or 4-byte XOR deltas rotated back.
+// A channel's 4 byte positions turned from deltas into values, written
+// for each width: byte deltas, 2-byte deltas or 4-byte XOR deltas rotated
+// back.
 static void Channel(const uint8_t (*deltas)[MAX_BLOCK], uint32_t n, uint32_t stride, uint32_t k,
                     uint8_t mode, uint8_t* last, uint8_t* out)
 {
-    uint32_t width = (mode & 15u) == 0 ? 1u : ((mode & 15u) == 1 ? 2u : 4u);
-    for (uint32_t h = 0; h < 4u; h += width)
+    uint8_t* o = out + k;
+    if ((mode & 15u) == 0)
     {
-        uint32_t p = 0;
-        for (uint32_t b = 0; b < width; ++b)
+        for (uint32_t h = 0; h < 4u; ++h)
         {
-            p |= (uint32_t)last[k + h + b] << (8u * b);
+            const uint8_t* d = deltas[h];
+            uint8_t p = last[k + h];
+            for (uint32_t i = 0; i < n; ++i)
+            {
+                uint8_t z = d[i];
+                p = (uint8_t)(p + (uint8_t)((z >> 1) ^ (0u - (z & 1u))));
+                o[(size_t)i * stride + h] = p;
+            }
         }
+    }
+    else if ((mode & 15u) == 1)
+    {
+        for (uint32_t h = 0; h < 4u; h += 2u)
+        {
+            const uint8_t* lo = deltas[h];
+            const uint8_t* hi = deltas[h + 1u];
+            uint16_t p = (uint16_t)(last[k + h] | (last[k + h + 1u] << 8));
+            for (uint32_t i = 0; i < n; ++i)
+            {
+                uint32_t z = lo[i] | ((uint32_t)hi[i] << 8);
+                p = (uint16_t)(p + (uint16_t)((z >> 1) ^ (0u - (z & 1u))));
+                maniStoreU16(o + (size_t)i * stride + h, p);
+            }
+        }
+    }
+    else
+    {
+        uint32_t r = (32u - (mode >> 4)) & 31u;
+        uint32_t p = maniLoadU32(last + k);
         for (uint32_t i = 0; i < n; ++i)
         {
-            uint32_t d = 0;
-            for (uint32_t b = 0; b < width; ++b)
-            {
-                d |= (uint32_t)deltas[h + b][i] << (8u * b);
-            }
-            uint32_t v = Value(d, p, width, mode);
-            for (uint32_t b = 0; b < width; ++b)
-            {
-                out[(size_t)i * stride + k + h + b] = (uint8_t)(v >> (8u * b));
-            }
-            p = v;
+            uint32_t z = deltas[0][i] | ((uint32_t)deltas[1][i] << 8) |
+                         ((uint32_t)deltas[2][i] << 16) | ((uint32_t)deltas[3][i] << 24);
+            p ^= (z << r) | (z >> ((32u - r) & 31u));
+            maniStoreU32(o + (size_t)i * stride, p);
         }
     }
-    for (uint32_t b = 0; b < 4u; ++b)
-    {
-        last[k + b] = out[(size_t)(n - 1u) * stride + k + b];
-    }
+    memcpy(last + k, out + (size_t)(n - 1u) * stride + k, 4u);
 }
 
 // One attribute block of n elements into out.
@@ -244,28 +277,42 @@ static bool Attributes(uint8_t* out, uint32_t count, uint32_t stride, bool v1, c
     return r.at == r.end;
 }
 
-// An unsigned LEB128 value of 1 to 5 bytes, bits past 32 dropped.
-static bool Leb(Reader* r, uint32_t* out)
+// An unsigned LEB128 value of 1 to 5 bytes, bits past 32 dropped. Its
+// first byte within the bounds, the rest read from the stream's tail
+// after them if need be (4 bytes at least in both readers), the value
+// then refused if it ended past them.
+static inline bool Leb(Reader* r, uint32_t* out)
 {
-    uint32_t v = 0;
-    for (uint32_t k = 0; k < 5u; ++k)
+    const uint8_t* p = r->at;
+    if (p >= r->end)
     {
-        if (r->at >= r->end)
+        return false;
+    }
+    uint32_t v = *p++;
+    if (v >= 128u)
+    {
+        v &= 127u;
+        uint32_t k = 1;
+        for (; k < 5u; ++k)
+        {
+            uint8_t b = *p++;
+            v |= (uint32_t)(b & 127u) << (7u * k);
+            if (b < 128u)
+            {
+                break;
+            }
+        }
+        if (k == 5u || p > r->end)
         {
             return false;
         }
-        uint8_t b = *r->at++;
-        v |= (uint32_t)(b & 127u) << (7u * k);
-        if (b < 128u)
-        {
-            *out = v;
-            return true;
-        }
     }
-    return false;
+    r->at = p;
+    *out = v;
+    return true;
 }
 
-static void Put(uint8_t* out, uint32_t stride, size_t i, uint32_t v)
+static inline void Put(uint8_t* out, uint32_t stride, size_t i, uint32_t v)
 {
     if (stride == 2u)
     {
@@ -278,15 +325,14 @@ static void Put(uint8_t* out, uint32_t stride, size_t i, uint32_t v)
 }
 
 // The triangle decoder's state: the FIFOs with how many entries each has
-// had written (at most 16 count), next and last.
+// had written (64 bits, never wrapping), next and last. Entry k of 16
+// (0 the most recent) has been written when k is below the count.
 typedef struct Triangles
 {
     uint32_t edges[16][2];
     uint32_t vertices[16];
-    uint32_t edgeAt;
-    uint32_t edgeWritten;
-    uint32_t vertexAt;
-    uint32_t vertexWritten;
+    uint64_t edgeAt;
+    uint64_t vertexAt;
     uint32_t next;
     uint32_t last;
 } Triangles;
@@ -296,20 +342,18 @@ static void PushEdge(Triangles* t, uint32_t a, uint32_t b)
     t->edges[t->edgeAt & 15u][0] = a;
     t->edges[t->edgeAt & 15u][1] = b;
     t->edgeAt += 1u;
-    t->edgeWritten += t->edgeWritten < 16u ? 1u : 0u;
 }
 
 static void PushVertex(Triangles* t, uint32_t v)
 {
     t->vertices[t->vertexAt & 15u] = v;
     t->vertexAt += 1u;
-    t->vertexWritten += t->vertexWritten < 16u ? 1u : 0u;
 }
 
 // Vertex FIFO entry k (0 the most recent).
 static bool Vertex(const Triangles* t, uint32_t k, uint32_t* out)
 {
-    if (k >= t->vertexWritten)
+    if (k >= t->vertexAt)
     {
         return false;
     }
@@ -318,7 +362,7 @@ static bool Vertex(const Triangles* t, uint32_t k, uint32_t* out)
 }
 
 // An index as a zigzag delta from last.
-static bool Index(Reader* r, Triangles* t, uint32_t* out)
+static inline bool Index(Reader* r, Triangles* t, uint32_t* out)
 {
     uint32_t v = 0;
     if (!Leb(r, &v))
@@ -331,45 +375,48 @@ static bool Index(Reader* r, Triangles* t, uint32_t* out)
 }
 
 // A code 0xXY with X below 0xf: an edge from the FIFO and a third index.
-static bool EdgeCode(Reader* r, Triangles* t, uint8_t code, uint32_t* tri)
+// Y below 0xd, the common codes, takes no branch on the data: the vertex
+// FIFO's next slot is written each time and kept only for a new index,
+// that slot being entry 15, which no code reads (13 at most).
+static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, uint32_t* tri)
 {
     uint32_t x = code >> 4;
     uint32_t y = code & 15u;
-    if (x >= t->edgeWritten)
+    if (x >= t->edgeAt)
     {
         return false;
     }
     uint32_t a = t->edges[(t->edgeAt - 1u - x) & 15u][0];
     uint32_t b = t->edges[(t->edgeAt - 1u - x) & 15u][1];
     uint32_t c = 0;
-    bool pushed = true;
-    if (y == 0u)
+    if (y < 0xDu)
     {
-        c = t->next++;
-    }
-    else if (y < 0xDu)
-    {
-        pushed = false;
-        if (!Vertex(t, y, &c))
+        if (y != 0u && y >= t->vertexAt)
         {
             return false;
         }
+        uint32_t fresh = y == 0u ? 1u : 0u;
+        uint32_t old = t->vertices[(t->vertexAt - 1u - y) & 15u];
+        c = fresh != 0u ? t->next : old;
+        t->next += fresh;
+        t->vertices[t->vertexAt & 15u] = c;
+        t->vertexAt += fresh;
     }
-    else if (y < 0xFu)
+    else
     {
-        c = y == 0xDu ? t->last - 1u : t->last + 1u;
-        t->last = c;
-    }
-    else if (!Index(r, t, &c))
-    {
-        return false;
+        if (y < 0xFu)
+        {
+            c = y == 0xDu ? t->last - 1u : t->last + 1u;
+            t->last = c;
+        }
+        else if (!Index(r, t, &c))
+        {
+            return false;
+        }
+        PushVertex(t, c);
     }
     PushEdge(t, c, b);
     PushEdge(t, a, c);
-    if (pushed)
-    {
-        PushVertex(t, c);
-    }
     tri[0] = a;
     tri[1] = b;
     tri[2] = c;
@@ -432,8 +479,8 @@ static bool FreeCode(Reader* r, Triangles* t, uint8_t code, const uint8_t* table
     return true;
 }
 
-static bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride, const uint8_t* in,
-                         size_t size)
+static inline bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride, const uint8_t* in,
+                                size_t size)
 {
     size_t codes = count / 3u;
     if (in[0] != 0xE1u || size < 1u + codes + 16u)
@@ -453,15 +500,18 @@ static bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride, const ui
         uint8_t code = in[1u + i];
         uint32_t tri[3] = {0, 0, 0};
         ok = code < 0xF0u ? EdgeCode(&r, &t, code, tri) : FreeCode(&r, &t, code, table, tri);
-        for (uint32_t k = 0; k < 3u && ok; ++k)
+        if (ok)
         {
-            Put(out, stride, 3u * i + k, tri[k]);
+            Put(out, stride, 3u * i, tri[0]);
+            Put(out, stride, 3u * i + 1u, tri[1]);
+            Put(out, stride, 3u * i + 2u, tri[2]);
         }
     }
     return ok && r.at == r.end;
 }
 
-static bool IndexList(uint8_t* out, uint32_t count, uint32_t stride, const uint8_t* in, size_t size)
+static inline bool IndexList(uint8_t* out, uint32_t count, uint32_t stride, const uint8_t* in,
+                             size_t size)
 {
     if (in[0] != 0xD1u || size < 1u + 4u)
     {
@@ -494,22 +544,44 @@ bool maniMeshoptDecode(uint8_t* out, uint32_t count, uint32_t stride, maniMeshop
     {
     case maniMeshoptAttributes:
         return Attributes(out, count, stride, v1, in, size);
+    // Each index width a copy of its own.
     case maniMeshoptTriangles:
-        return TriangleList(out, count, stride, in, size);
+        return stride == 2u ? TriangleList(out, count, 2u, in, size)
+                            : TriangleList(out, count, 4u, in, size);
     default:
-        return IndexList(out, count, stride, in, size);
+        return stride == 2u ? IndexList(out, count, 2u, in, size)
+                            : IndexList(out, count, 4u, in, size);
     }
 }
 
 // round(v) (halfway away from zero) as an integer within low and high,
 // 0 for NaN: invalid input gives an unspecified value, never an
-// out-of-range conversion.
+// out-of-range conversion. The bounds are integers, so clamping first
+// gives the same value; within them (65,535 at most) the conversion
+// truncates exactly and v less its truncation, f, is exact.
 static int32_t Rounded(float v, float low, float high)
 {
-    // Halfway away from zero: v - truncf(v) is exact.
-    float r = truncf(v);
-    r += fabsf(v - r) >= 0.5f ? copysignf(1.0f, v) : 0.0f;
-    return r >= low ? (r <= high ? (int32_t)r : (int32_t)high) : (r < low ? (int32_t)low : 0);
+    if (v >= low && v <= high)
+    {
+        // f + f is exact and below 2 in magnitude: it truncates to the
+        // step away from zero exactly when f is half a unit or more.
+        int32_t t = (int32_t)v;
+        float f = v - (float)t;
+        return t + (int32_t)(f + f);
+    }
+    return v > high ? (int32_t)high : (v < low ? (int32_t)low : 0);
+}
+
+// Rounded within -most and most, its range tested once.
+static int32_t RoundedSigned(float v, float most)
+{
+    if (fabsf(v) <= most)
+    {
+        int32_t t = (int32_t)v;
+        float f = v - (float)t;
+        return t + (int32_t)(f + f);
+    }
+    return v > most ? (int32_t)most : (v < -most ? -(int32_t)most : 0);
 }
 
 static int32_t Signed(const uint8_t* p, uint32_t bytes)
@@ -534,7 +606,7 @@ static void Store(uint8_t* p, uint32_t bytes, int32_t v)
     }
 }
 
-static void Octahedral(uint8_t* e, uint32_t bytes)
+static inline void Octahedral(uint8_t* e, uint32_t bytes)
 {
     float most = bytes == 1u ? 127.0f : 32767.0f;
     float one = (float)Signed(e + 2u * bytes, bytes);
@@ -548,29 +620,38 @@ static void Octahedral(uint8_t* e, uint32_t bytes)
     x /= len;
     y /= len;
     z /= len;
-    Store(e, bytes, Rounded(x * most, -most, most));
-    Store(e + bytes, bytes, Rounded(y * most, -most, most));
-    Store(e + 2u * bytes, bytes, Rounded(z * most, -most, most));
+    Store(e, bytes, RoundedSigned(x * most, most));
+    Store(e + bytes, bytes, RoundedSigned(y * most, most));
+    Store(e + 2u * bytes, bytes, RoundedSigned(z * most, most));
+}
+
+static int32_t Load16(const uint8_t* p)
+{
+    return (int32_t)(int16_t)maniLoadU16(p);
+}
+
+static void Store16(uint8_t* p, float v)
+{
+    maniStoreU16(p, (uint16_t)RoundedSigned(v * 32767.0f, 32767.0f));
 }
 
 static void Quaternion(uint8_t* e)
 {
     // 1 / sqrt(2) rounded to binary32.
     const float range = 0x1.6a09e6p-1f;
-    int32_t s = Signed(e + 6, 2u);
+    int32_t s = Load16(e + 6);
     float one = (float)(s | 3);
-    float x = (float)Signed(e, 2u) / one * range;
-    float y = (float)Signed(e + 2, 2u) / one * range;
-    float z = (float)Signed(e + 4, 2u) / one * range;
+    float x = (float)Load16(e) / one * range;
+    float y = (float)Load16(e + 2) / one * range;
+    float z = (float)Load16(e + 4) / one * range;
     float ww = 1.0f - x * x - y * y - z * z;
     float w = sqrtf(ww > 0.0f ? ww : 0.0f);
+    // The three after the largest component, then it in its place.
     uint32_t most = (uint32_t)s & 3u;
-    const float values[4] = {x, y, z, w};
-    const uint32_t places[4] = {(most + 1u) & 3u, (most + 2u) & 3u, (most + 3u) & 3u, most};
-    for (uint32_t k = 0; k < 4u; ++k)
-    {
-        Store(e + 2u * places[k], 2u, Rounded(values[k] * 32767.0f, -32767.0f, 32767.0f));
-    }
+    Store16(e + 2u * ((most + 1u) & 3u), x);
+    Store16(e + 2u * ((most + 2u) & 3u), y);
+    Store16(e + 2u * ((most + 3u) & 3u), z);
+    Store16(e + 2u * most, w);
 }
 
 static void Exponential(uint8_t* e)
@@ -578,13 +659,26 @@ static void Exponential(uint8_t* e)
     uint32_t v = maniLoadU32(e);
     int32_t ex = (int32_t)((v >> 24) ^ 0x80u) - 0x80;
     int32_t m = (int32_t)((v & 0xFFFFFFu) ^ 0x800000u) - 0x800000;
-    float f = ldexpf((float)m, ex);
+    // m times 2^ex: from its bits when 2^ex is normal, which rounds the
+    // product once as ldexpf does.
+    float f = 0.0f;
+    if (ex >= -126)
+    {
+        uint32_t power = (uint32_t)(ex + 127) << 23;
+        float scale = 0.0f;
+        memcpy(&scale, &power, sizeof scale);
+        f = (float)m * scale;
+    }
+    else
+    {
+        f = ldexpf((float)m, ex);
+    }
     uint32_t bits = 0;
     memcpy(&bits, &f, sizeof bits);
     maniStoreU32(e, bits);
 }
 
-static void Color(uint8_t* e, uint32_t bytes)
+static inline void Color(uint8_t* e, uint32_t bytes)
 {
     float most = bytes == 1u ? 255.0f : 65535.0f;
     uint32_t alpha = Unsigned(e + 3u * bytes, bytes);
@@ -610,26 +704,37 @@ static void Color(uint8_t* e, uint32_t bytes)
 void maniMeshoptApplyFilter(uint8_t* data, uint32_t count, uint32_t stride,
                             maniMeshoptFilter filter)
 {
-    for (uint32_t i = 0; i < count && filter != maniMeshoptNone; ++i)
+    // A loop a filter, each with its widths constant.
+    for (uint32_t i = 0; filter == maniMeshoptOctahedral && i < count; ++i)
     {
         uint8_t* e = data + (size_t)i * stride;
-        switch (filter)
+        if (stride == 4u)
         {
-        case maniMeshoptOctahedral:
-            Octahedral(e, stride / 4u);
-            break;
-        case maniMeshoptQuaternion:
-            Quaternion(e);
-            break;
-        case maniMeshoptExponential:
-            for (uint32_t k = 0; k < stride; k += 4u)
-            {
-                Exponential(e + k);
-            }
-            break;
-        default:
-            Color(e, stride / 4u);
-            break;
+            Octahedral(e, 1u);
+        }
+        else
+        {
+            Octahedral(e, 2u);
+        }
+    }
+    for (uint32_t i = 0; filter == maniMeshoptQuaternion && i < count; ++i)
+    {
+        Quaternion(data + (size_t)i * stride);
+    }
+    for (size_t k = 0; filter == maniMeshoptExponential && k < (size_t)count * stride; k += 4u)
+    {
+        Exponential(data + k);
+    }
+    for (uint32_t i = 0; filter == maniMeshoptColor && i < count; ++i)
+    {
+        uint8_t* e = data + (size_t)i * stride;
+        if (stride == 4u)
+        {
+            Color(e, 1u);
+        }
+        else
+        {
+            Color(e, 2u);
         }
     }
 }

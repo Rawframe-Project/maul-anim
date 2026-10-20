@@ -20,7 +20,8 @@ format.
 - glTF files whose buffer views `EXT_meshopt_compression` or
   `KHR_meshopt_compression` compress, as gltfpack writes them, import:
   every mode and filter of both extensions decoded by the library's own
-  decoder (the same bits as meshoptimizer's), once a stream's buffer is
+  decoder (the same bits as meshoptimizer's, in about its scalar
+  decoder's instructions), once a stream's buffer is
   present (at open, or when supplied); fallback buffers are never read
   or asked for.
 - A turn limit graph node (`maniGraphNodeTurnLimit`): its input with
