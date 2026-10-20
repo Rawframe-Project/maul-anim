@@ -28,8 +28,8 @@ format.
 - A turn limit graph node (`maniGraphNodeTurnLimit`): its input with
   each chosen bone's rotation turned from the node's last output toward
   the input's by no more than a speed in radians a second, bones chosen
-  and weighted by mask chains; Godot's angular velocity limiter as a
-  node. The graph file format is version 5; version 4 files still open.
+  and weighted by mask chains (a bone at 0.5 allowed twice the turn, at
+  0 left free); Godot's angular velocity limiter as a node. The graph file format is version 5; version 4 files still open.
 
 ### Changed
 
@@ -67,9 +67,10 @@ format.
 - A motion matching node's query takes its continuing frame's bone
   features interpolated to the playhead, toward the entry's next frame,
   not the frame at or before it, which lagged the displayed pose by up
-  to a frame period at update rates other than the database's, and its
-  search scores the continuing frame by those features (record
-  mani-0024). Picks the lag decided change.
+  to a frame period at update rates other than the database's, bone
+  facings made unit again after the blend, and its search scores the
+  continuing frame by those features (record mani-0024). Picks the lag
+  decided change.
 
 ## [0.1.0] - 2026-10-19
 

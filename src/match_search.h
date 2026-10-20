@@ -25,4 +25,11 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
                                bool normalized, const float* continuing,
                                maniMatchResult* resultOut);
 
+// Features normalized as the database keeps them, blended between two
+// frames (a + w (b - a) a feature): each bone facing, a direction, made
+// unit again in the database's raw units (unless shorter than a
+// thousandth: directions near opposite), as the blend of two unit
+// directions falls inside their arc (mani-0024).
+void maniMatchFacings(const maniMotionDatabase* database, float* features);
+
 #endif // MAUL_ANIM_SRC_MATCH_SEARCH_H

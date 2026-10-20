@@ -304,6 +304,40 @@ static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
     return true;
 }
 
+void maniMatchFacings(const maniMotionDatabase* database, float* features)
+{
+    uint32_t n = database->featureCount;
+    for (uint32_t c = 0; c < database->channelCount; ++c)
+    {
+        maniMatchChannel ch;
+        if (maniMotionDatabaseChannel(database, c, &ch) != mani_success ||
+            ch.kind != maniMatchBoneFacing)
+        {
+            continue;
+        }
+        for (uint32_t t = 0; t < ch.timeCount; ++t)
+        {
+            uint32_t at = ch.firstFeature + 3 * t;
+            float offset[3];
+            float scale[3];
+            float raw[3];
+            for (uint32_t i = 0; i < 3; ++i)
+            {
+                offset[i] = LoadF32(database->normalization + 4 * (size_t)(at + i));
+                scale[i] = LoadF32(database->normalization + 4 * (size_t)(n + at + i));
+                raw[i] = features[at + i] * scale[i] + offset[i];
+            }
+            float length = sqrtf((raw[0] * raw[0] + raw[1] * raw[1]) + raw[2] * raw[2]);
+            // Shorter, the directions were near opposite and the blend's
+            // direction is the rounding's.
+            for (uint32_t i = 0; i < 3 && length > 1e-3f; ++i)
+            {
+                features[at + i] = (raw[i] / length - offset[i]) / scale[i];
+            }
+        }
+    }
+}
+
 maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query,
                                     maniMatchResult* resultOut)
 {

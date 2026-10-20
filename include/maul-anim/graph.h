@@ -851,10 +851,12 @@ extern "C"
     /// Writes an instance's pose as its last update weighed it: each node
     /// of weight above 0, in order, into its slot (a clip sampled at its
     /// playhead through its cursor; a learned node's model decompressed
-    /// at its state; blends, masks and additive layers by
-    /// the blending functions over their weighed inputs; a select, time
-    /// scale or seek passing its input on), then the output's. The rest
-    /// pose before the first update.
+    /// at its state, taking the hidden values its last update kept when
+    /// the two states' bytes are equal: maniUpdateGraph writes that
+    /// cache, the evaluation only reads it; blends, masks and additive
+    /// layers by the blending functions over their weighed inputs; a
+    /// select, time scale or seek passing its input on), then the
+    /// output's. The rest pose before the first update.
     ///
     /// @param instance  An instance.
     /// @param scratch   At least maniGraphScratchSize bytes,

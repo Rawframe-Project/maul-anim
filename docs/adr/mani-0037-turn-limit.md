@@ -26,18 +26,22 @@ weight instead: no bound, and spring bones (mani-0026) already sway.
   most its budget; translations and scales pass. IK nodes keep no
   history and stay total (mani-0029 to mani-0031).
 - **Bones and weights from mask chains** (mani-0020's masks, optional):
-  a bone's weight scales the speed, 0 leaving it free, every bone at 1
-  without a mask. Godot's chains and its exclude switch are both a
-  choice of chains and a default weight.
+  a bone's weight is how much the limit holds, its budget the node's
+  over the weight (0.5 allows twice the turn, 0 leaves the bone free,
+  the budget growing without bound toward it), every bone at 1 without
+  a mask. Godot's chains and its exclude switch are both a choice of
+  chains and a default weight.
 - **Speed** a scalar in radians a second, finite and not negative as a
   literal; a parameter's value of 0, below 0 or not a number holds the
-  pose.
+  pose for as long as it lasts (the limit's end, as Godot's limiter
+  holds at a speed of 0); a high speed (`FLT_MAX` passes any turn) or
+  weights of 0 stop the limit.
 - **The step,** in binary32 with the library's functions: the relative
   turn `d = p^-1 q` on the shorter arc, its angle
-  `a = 2 atan2(|d.xyz|, d.w)`, the budget `b = w s t` (weight, speed,
-  the seconds the node's updates gave since its last evaluation, added
-  as magnitudes). Within the budget the input's rotation is given as it
-  is; otherwise `p (d.xyz sin(b/2) / |d.xyz|, cos(b/2))`, normalized:
+  `a = 2 atan2(|d.xyz|, d.w)`, the budget `b = s t / w` (speed, the
+  seconds the node's updates gave since its last evaluation, added as
+  magnitudes, over a weight above 0). Within the budget the input's
+  rotation is given as it is; otherwise `p (d.xyz sin(b/2) / |d.xyz|, cos(b/2))`, normalized:
   Godot's slerp to `b / a` in exact arithmetic, at about 300
   instructions a bone against the slerp's 540.
 - **State** in the instance: the seconds pending and a rotation a bone,

@@ -85,7 +85,14 @@ everywhere (mani-0001), its assets are views over the caller's bytes
   toward the entry's next frame (a looping entry's last frame toward
   its first, at the entry's end; a clamped entry's last frame alone):
   `a + w (b - a)` in binary32, `w` the playhead's place between the two
-  frames' times. The continuing frame alone lagged the displayed pose
+  frames' times. That line is the motion's for positions and
+  velocities; a bone facing is a direction, which the line cuts inside
+  its arc (short by `1 - cos(a/2)` half way between frames `a` radians
+  apart), so it is made unit again in the database's raw units, a
+  normalized blend turning along the arc, and left as blended when
+  shorter than a thousandth (facings near opposite, whose blend has no
+  direction but the rounding's). A channel kind added later that is a
+  rotation takes a rule of its own before it joins the query. The continuing frame alone lagged the displayed pose
   by up to a frame period at any update rate but the database's, and
   that staleness moved the pick in 29% to 94% of settled searches;
   interpolated, the features come within 0.01 (squared, normalized) of

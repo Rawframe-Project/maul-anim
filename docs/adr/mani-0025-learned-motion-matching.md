@@ -97,10 +97,15 @@ over the caller's bytes (mani-0002).
   it decompressed at, in a cache of the node's in the instance outside
   the saved state (a word set once kept, the state, the values: 4 bytes
   each, 2,288 at Holden's sizes); the evaluation takes them when its
-  state is the same bits, else computes them, so its pose is the same
-  bits either way. The values are a function of the state alone, so a
-  restore leaves the cache right, and an instance starts with none
-  kept. Its block (the two states,
+  state's bytes equal the kept state's (a byte compare of the floats,
+  not float equality: -0 against +0, or a NaN, differ in bytes, and only
+  equal bytes make the kept values right), else computes them in the
+  room, so its pose is the same bits either way. Only the update writes
+  the cache; the evaluation reads it. The values are a function of the
+  state alone, so a restore leaves the cache right, and an instance
+  starts with none kept. The cache's code is 989 bytes of text at `-O2`
+  and 2,184 at `-O3` (GCC 14, x86-64, the graph and learned parts) for
+  a learned frame 11.3% and 10.4% fewer instructions. Its block (the two states,
   the step and period clocks, the events' bits) is in the saved state;
   subgraphs carry their model slots; the JSON form writes it as
   "learned".

@@ -12,7 +12,8 @@
 // taken from the continuing frame, against the search itself; a
 // normalized query taken as it is; the continuing frame of a restored
 // playhead between binary32 and binary64 frame times; the query
-// interpolated to a playhead between frames, clamped and looping.
+// interpolated to a playhead between frames, clamped and looping; a
+// request for the other clip's travel taken at the first search.
 
 #include "graph_match_fixture.h"
 #include "match_search.h"
@@ -527,6 +528,62 @@ static void TestInterpolated(void)
     CHECK(entry == 0 && t == (double)0.6f, "a loop's last frame toward its first");
 }
 
+// A request answered (mani-0024): under bone and trajectory channels, the
+// walk playing, the parameter ahead set to x; the searches, one each
+// 0.1 s, until the node plays the run (0 for none in 20).
+static uint32_t SearchesToLeave(float x)
+{
+    static const float kNow[1] = {0.0f};
+    const maniMatchChannelSource channels[2] = {
+        {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f},
+        {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
+    maniMotionDatabase bones;
+    BuildDatabase(channels, 2, s_boneFile, sizeof s_boneFile, &bones);
+    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5, 0}};
+    MatchParameters();
+    maniGraphNodeSource nodes[2] = {MatchNode(0.1f), Above(0)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeMatch((maniGraphSource){.parameters = s_matchParameters,
+                                                              .nodes = nodes,
+                                                              .parameterCount = 4,
+                                                              .nodeCount = 2,
+                                                              .output = 1,
+                                                              .databaseCount = 1,
+                                                              .databases = slot},
+                                            &g);
+    Update(instance, 0.0f);
+    for (uint32_t i = 0; i < 10; ++i)
+    {
+        Update(instance, 0.1f);
+    }
+    CHECK(EntryOf(instance, &g, 0) == 0, "the walk playing");
+    Ahead(instance, x, 0.0f);
+    for (uint32_t k = 1; k <= 20; ++k)
+    {
+        Update(instance, 0.1f);
+        if (EntryOf(instance, &g, 0) == 1)
+        {
+            return k;
+        }
+    }
+    return 0;
+}
+
+// Every request nearer the run's travel (0) than the walk's (0.5) is
+// taken at the first search, and one nearer the walk is not, as when the
+// continuing frame was scored by its own features: playing on costs no
+// bone difference, but the trajectory still decides.
+static void TestLeaves(void)
+{
+    bool taken = true;
+    for (int i = 0; i <= 4; ++i)
+    {
+        taken = taken && SearchesToLeave(0.05f * (float)i) == 1;
+    }
+    CHECK(taken, "a request nearer the run taken at the first search");
+    CHECK(SearchesToLeave(0.3f) == 0, "one nearer the walk kept on the walk");
+}
+
 int main(void)
 {
     Open();
@@ -546,6 +603,7 @@ int main(void)
     TestContinuing();
     TestContinuingFrame();
     TestInterpolated();
+    TestLeaves();
     TestMirrored();
     return s_failures == 0 ? 0 : 1;
 }

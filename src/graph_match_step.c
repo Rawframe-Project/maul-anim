@@ -225,6 +225,7 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
         {
             here[j] += at.weight * (next[j] - here[j]);
         }
+        maniMatchFacings(d, here);
     }
     memcpy(out, here, (size_t)n * sizeof(float));
     uint32_t q = 0;

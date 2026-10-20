@@ -189,7 +189,9 @@ void maniGraphTurnPose(uint32_t* block, const float* weights, float speed, const
         bool turned = false;
         if (held && weight > 0.0f)
         {
-            q = Turn(p, q, weight * speed * seconds, &turned);
+            // The weight is how much the limit holds: the budget grows as
+            // it falls, without bound toward 0, where the bone is free.
+            q = Turn(p, q, speed * seconds / weight, &turned);
             const float v[4] = {q.x, q.y, q.z, q.w};
             maniPoseSlotPut(slot, 0, v, 4);
         }

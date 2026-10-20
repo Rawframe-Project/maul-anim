@@ -6,7 +6,8 @@
 // the seconds, about the shorter arc's axis (checked in binary64 against
 // the angles), a turn within the budget given bit for bit, a negated
 // quaternion taken as no turn, translations and scales passed; a bone at
-// mask weight 0 passes, a speed parameter of 0 or below holds; the reset
+// mask weight 0 passes and one at 0.5 turns twice as far, a speed
+// parameter of 0 or below holds and the largest passes; the reset
 // trigger, a seek above and an update that did not reach the node take
 // the input again; two updates to an evaluation, one backward, add their
 // times; a saved state restores to the same motion and its block is
@@ -32,6 +33,7 @@
 #include "maul-anim/graphbuild.h"
 #include "maul-anim/pose.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -241,6 +243,10 @@ static void TestStep(void)
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), held), "a speed of 0 holds");
     Set(m->live, 1, maniGraphParameterFloat, Float(-3.0f));
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), held), "a speed below 0 holds");
+    Set(m->live, 1, maniGraphParameterFloat, Float(FLT_MAX));
+    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start),
+          "the largest speed passes the input");
+    Set(m->live, 1, maniGraphParameterFloat, Float(-3.0f));
     // The reset trigger, a seek above, an update that did not reach it.
     Fire(m, 2);
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start), "the reset takes the input");
@@ -279,8 +285,8 @@ static void TestMask(void)
     CHECK(Evaluated(m, 0.1f, out), "a frame");
     Body(m, goal, goal, 0.0f);
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 1), goal) &&
-              fabs(Angle(start, RotationOf(out, 0)) - 0.05) < 2e-6,
-          "the spine at weight 0 passes, the hips at 0.5 turn half as far");
+              fabs(Angle(start, RotationOf(out, 0)) - 0.2) < 2e-6,
+          "the spine at weight 0 passes, the hips at 0.5 turn twice as far");
 }
 
 static _Alignas(8) uint8_t s_plan[4096];

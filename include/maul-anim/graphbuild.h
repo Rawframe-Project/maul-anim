@@ -479,12 +479,16 @@ extern "C"
 
     // A turn limit node (mani-0037): one input, a pose (not
     // differences), given with each bone's local rotation turned from the
-    // node's last output toward the input's by at most its weight in mask
-    // (NULL for every bone at weight 1; a weight of 0 leaves the bone as
-    // its input gives it) times speed (radians a second, finite and not
-    // negative; a parameter's value below 0 counts as 0) times the
-    // seconds its parents gave it since its last evaluation, about the
-    // shorter arc's axis; translations and scales pass. Its first
+    // node's last output toward the input's by at most speed (radians a
+    // second, finite and not negative; a parameter's value below 0 counts
+    // as 0) times the seconds its parents gave it since its last
+    // evaluation, over the bone's weight in mask (NULL for every bone at
+    // weight 1), about the shorter arc's axis; translations and scales
+    // pass. The weight is how much the limit holds: 0.5 allows twice the
+    // turn, 0 leaves the bone as its input gives it. A speed of 0 holds
+    // every bone of weight above 0 at the node's last output for as long
+    // as it lasts, as the limit's end; to stop limiting, set the speed
+    // high (FLT_MAX passes any turn) or the weights to 0. Its first
     // evaluation, the first after its reset trigger (MANI_NO_PARAMETER
     // for none) fires or a seek above it, and the first after an update
     // that did not reach it take the input as it is.

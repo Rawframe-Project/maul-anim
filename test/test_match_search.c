@@ -7,11 +7,13 @@
 // transition costs, tag masks, exclusions near the continuing frame, at
 // clamped ends and around earlier picks) give the plain scan's frame and
 // cost bit for bit; then each rule on a database small enough to name
-// its frames; and the refusals.
+// its frames; the refusals; and a blend between frames, bone facings made
+// unit again.
 
 #include "bytes.h"
 #include "container.h"
 #include "match_file.h"
+#include "match_search.h"
 #include "test_harness.h"
 
 #include "maul-anim/match.h"
@@ -49,6 +51,8 @@ static float Uniform(float low, float high)
 typedef struct Layout
 {
     uint32_t channels;
+    // Each channel's kind, a bone position unless set.
+    uint32_t kinds[MAX_WIDTH / 3];
     uint32_t entryCount;
     uint32_t frames;
     uint32_t flags[MAX_ENTRIES];
@@ -117,7 +121,7 @@ static uint8_t* Channels(const Layout* l, uint8_t* c)
     {
         uint8_t* e = c + (size_t)k * MANI_MATCH_CHANNEL_SIZE;
         memset(e, 0, MANI_MATCH_CHANNEL_SIZE);
-        const uint32_t words[7] = {maniMatchBonePosition, 0, 0, 1, k, 3 * k, 3};
+        const uint32_t words[7] = {l->kinds[k], 0, 0, 1, k, 3 * k, 3};
         for (uint32_t w = 0; w < 7; ++w)
         {
             maniStoreU32(e + 4 * w, words[w]);
@@ -563,11 +567,74 @@ static void TestRefusals(void)
           "refused searches");
 }
 
+// Half way from a to b, as a motion matching node blends.
+static void Blend(const maniMotionDatabase* d, const float* a, const float* b, float* out)
+{
+    for (uint32_t j = 0; j < 6; ++j)
+    {
+        out[j] = a[j] + 0.5f * (b[j] - a[j]);
+    }
+    maniMatchFacings(d, out);
+}
+
+// Two frames of a bone position (0 then 2 along x) and a bone facing (x
+// then y, then x then -x), normalized by offsets and a scale of 2: half
+// way, the position at 1 and the facing unit between x and y; opposite
+// facings, of no length half way but the rounding's, left as blended.
+static void TestBlend(void)
+{
+    Layout* l = &s_layout;
+    *l = (Layout){.channels = 2, .entryCount = 1, .frames = 2};
+    l->kinds[1] = maniMatchBoneFacing;
+    l->ends[0] = 1.0f / RATE;
+    l->counts[0] = maniMatchEntryFrames(0.0f, l->ends[0], RATE, false);
+    const float offsets[6] = {0.0f, 0.0f, 0.0f, 0.1f, -0.2f, 0.3f};
+    const float raw[2][6] = {{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+                             {2.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f}};
+    for (uint32_t j = 0; j < 6; ++j)
+    {
+        l->offsets[j] = offsets[j];
+        l->scales[j] = j < 3 ? 1.0f : 2.0f;
+        for (uint32_t f = 0; f < 2; ++f)
+        {
+            l->features[f * 6 + j] = (raw[f][j] - offsets[j]) / l->scales[j];
+        }
+    }
+    maniMotionDatabase d;
+    Write(l, &d);
+    float out[6];
+    Blend(&d, l->features, l->features + 6, out);
+    float facing[3];
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        facing[i] = out[3 + i] * 2.0f + offsets[3 + i];
+    }
+    double x = (double)facing[0];
+    double y = (double)facing[1];
+    double z = (double)facing[2];
+    double length = sqrt(x * x + y * y + z * z);
+    CHECK(out[0] == 1.0f && out[1] == 0.0f && fabs(length - 1.0) < 1e-6 &&
+              fabs(x - sqrt(0.5)) < 1e-6 && fabs(z) < 1e-6,
+          "the position blended, the facing unit half way");
+    float opposite[6];
+    memcpy(opposite, l->features + 6, sizeof opposite);
+    opposite[3] = (-1.0f - offsets[3]) / 2.0f;
+    opposite[4] = (0.0f - offsets[4]) / 2.0f;
+    Blend(&d, l->features, opposite, out);
+    bool blended = true;
+    for (uint32_t j = 3; j < 6; ++j)
+    {
+        blended = blended && out[j] == l->features[j] + 0.5f * (opposite[j] - l->features[j]);
+    }
+    CHECK(blended, "opposite facings left as blended");
+}
+
 int main(void)
 {
     TestAgainstScan();
     TestBoundaries();
     TestRules();
     TestRefusals();
+    TestBlend();
     return s_failures == 0 ? 0 : 1;
 }
