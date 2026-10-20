@@ -129,8 +129,10 @@ struct maniFbx
     // one has, kept but found by none.
     uint32_t skippedObjects;
     uint32_t duplicateObjects;
-    // Object indices sorted by id.
+    // Object indices sorted by id, and their ids' sort keys in that
+    // order (for the lookup's search).
     uint32_t* objectsById;
+    uint64_t* sortedIds;
     maniFbxConnection* connections;
     uint32_t connectionCount;
     uint32_t connectionCapacity;

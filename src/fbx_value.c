@@ -603,6 +603,50 @@ static maniImportResult Store(const maniFbx* fbx, const maniFbxProperty* p, cons
     return maniFbxSuccess();
 }
 
+// StoreAll's numbers: every element as a binary64; false for a type
+// it does not take or a value not finite.
+static bool StoreDoubles(const maniFbxProperty* p, const uint8_t* b, void* out)
+{
+    size_t n = p->count;
+    if (p->type == 'i')
+    {
+        double* o = out;
+        for (size_t i = 0; i < n; ++i)
+        {
+            o[i] = (double)(int32_t)maniLoadU32(b + 4 * i);
+        }
+        return true;
+    }
+    if (p->type == 'l')
+    {
+        double* o = out;
+        for (size_t i = 0; i < n; ++i)
+        {
+            o[i] = (double)(int64_t)maniLoadU64(b + 8 * i);
+        }
+        return true;
+    }
+    if (p->type == 'd' || p->type == 'f')
+    {
+        double* o = out;
+        for (size_t i = 0; p->type == 'd' && i < n; ++i)
+        {
+            o[i] = AsDouble(maniLoadU64(b + 8 * i));
+        }
+        for (size_t i = 0; p->type == 'f' && i < n; ++i)
+        {
+            o[i] = (double)AsFloat(maniLoadU32(b + 4 * i));
+        }
+        bool finite = true;
+        for (size_t i = 0; i < n; ++i)
+        {
+            finite &= Finite(o[i]);
+        }
+        return finite;
+    }
+    return false;
+}
+
 // Every element of a little-endian array at once, a loop a type: false
 // for a type it does not take, or a value not finite (left for Store to
 // find and refuse at its place).
@@ -637,25 +681,7 @@ static bool StoreAll(const maniFbxProperty* p, const Elements* e, Want want, voi
         }
         return true;
     }
-    if (want == WantDoubles && (p->type == 'd' || p->type == 'f'))
-    {
-        double* o = out;
-        for (size_t i = 0; p->type == 'd' && i < n; ++i)
-        {
-            o[i] = AsDouble(maniLoadU64(b + 8 * i));
-        }
-        for (size_t i = 0; p->type == 'f' && i < n; ++i)
-        {
-            o[i] = (double)AsFloat(maniLoadU32(b + 4 * i));
-        }
-        bool finite = true;
-        for (size_t i = 0; i < n; ++i)
-        {
-            finite &= Finite(o[i]);
-        }
-        return finite;
-    }
-    return false;
+    return want == WantDoubles && StoreDoubles(p, b, out);
 }
 
 // A text number as binary32 bits: from 7.2 on, the bits written as an

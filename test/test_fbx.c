@@ -258,7 +258,7 @@ static void Scene(uint32_t version, bool big)
     End();
     End();
     Begin("KeyTime");
-    const uint64_t times[3] = {0, 46186158000ull, 92372316000ull};
+    const uint64_t times[3] = {(uint64_t)-46186158000LL, 46186158000ull, 92372316000ull};
     PropArray('l', times, 3, 8);
     End();
     Begin("KeyValueFloat");
@@ -345,8 +345,12 @@ static void CheckScene(uint32_t version, bool big, const char* what)
     int64_t ticks[3];
     CHECK(maniFbxArrayCount(fbx, t) == 3 &&
               maniFbxReadIntegers(fbx, t, ticks).result == mani_success &&
-              ticks[1] == 46186158000LL && ticks[2] == 92372316000LL,
+              ticks[0] == -46186158000LL && ticks[1] == 46186158000LL && ticks[2] == 92372316000LL,
           "an int64 array");
+    double seconds[3];
+    CHECK(maniFbxReadDoubles(fbx, t, seconds).result == mani_success &&
+              seconds[0] == -46186158000.0 && seconds[2] == 92372316000.0,
+          "an int64 array as doubles, signed");
     const char* const keys[3] = {"Objects", "Model", "KeyValueFloat"};
     uint32_t k = maniFbxNodeProperty(fbx, Path(fbx, keys, 3), 0);
     double out[3];

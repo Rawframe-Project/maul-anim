@@ -56,7 +56,9 @@ format.
   sides' biases are equal, and a skin's influences are ordered by
   control point by counting rather than a merge sort; the helper check
   reads a stack's Lcl Scaling channels first and the whole stack only
-  when some child could need a helper.
+  when some child could need a helper; integer arrays read as numbers
+  in one loop, and objects are found by id through a sorted array of
+  their keys.
 - JSON numbers (glTF, the graph, maps and the other JSON forms) and FBX
   ASCII numbers convert by Eisel and Lemire's method first, the exact
   multiprecision method kept for what it leaves open: the same bits,

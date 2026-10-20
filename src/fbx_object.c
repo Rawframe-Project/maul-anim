@@ -73,8 +73,9 @@ maniImportResult maniFbxIndexObjects(maniFbx* fbx)
     uint64_t* keys = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint64_t), 8);
     uint32_t* scratch = Words(fbx, n);
     fbx->objectsById = Words(fbx, n);
+    fbx->sortedIds = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint64_t), 8);
     maniImportResult r = maniFbxSuccess();
-    if (keys == NULL || scratch == NULL || fbx->objectsById == NULL)
+    if (keys == NULL || scratch == NULL || fbx->objectsById == NULL || fbx->sortedIds == NULL)
     {
         r = Capacity();
     }
@@ -85,6 +86,10 @@ maniImportResult maniFbxIndexObjects(maniFbx* fbx)
     if (r.result == mani_success)
     {
         maniSortByKey(keys, n, fbx->objectsById, scratch);
+        for (uint32_t k = 0; k < n; ++k)
+        {
+            fbx->sortedIds[k] = keys[fbx->objectsById[k]];
+        }
     }
     // An id given twice is kept by its first object, as ufbx keeps it (the
     // sort is stable, the lookup finds the first); the others are counted.
@@ -105,8 +110,7 @@ uint32_t maniFbxFindObject(const maniFbx* fbx, int64_t id)
     while (low < high)
     {
         uint32_t mid = low + (high - low) / 2;
-        uint64_t at = SortKey(fbx->objects[fbx->objectsById[mid]].id);
-        if (at < key)
+        if (fbx->sortedIds[mid] < key)
         {
             low = mid + 1;
         }
@@ -115,9 +119,8 @@ uint32_t maniFbxFindObject(const maniFbx* fbx, int64_t id)
             high = mid;
         }
     }
-    return low < fbx->objectCount && fbx->objects[fbx->objectsById[low]].id == id
-               ? fbx->objectsById[low]
-               : MANI_FBX_NONE;
+    return low < fbx->objectCount && fbx->sortedIds[low] == key ? fbx->objectsById[low]
+                                                                : MANI_FBX_NONE;
 }
 
 // The node's Properties70 child, else its Properties60 one.
@@ -714,6 +717,7 @@ void maniFbxReleaseObjects(maniFbx* fbx)
     maniRelease(&fbx->allocator, fbx->connections, (size_t)fbx->connectionCapacity + 1,
                 sizeof(maniFbxConnection), 8);
     FreeWords(fbx, fbx->objectsById, fbx->objectCount);
+    maniRelease(&fbx->allocator, fbx->sortedIds, (size_t)fbx->objectCount + 1, sizeof(uint64_t), 8);
     maniRelease(&fbx->allocator, fbx->objects, (size_t)fbx->objectCapacity + 1,
                 sizeof(maniFbxObject), 8);
 }
