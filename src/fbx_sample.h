@@ -34,6 +34,12 @@ typedef struct maniFbxSampler
     maniFbxLocalInputs* rest;
     uint32_t* runs;
     uint8_t* inputs;
+    // Each model's inputs at its last sample and their local, kept so a
+    // sample that leaves them as they were composes nothing (set marks
+    // the models sampled once).
+    maniFbxLocalInputs* last;
+    maniFbxLocal* locals;
+    uint8_t* set;
     uint32_t count;
 } maniFbxSampler;
 
@@ -47,7 +53,9 @@ void maniFbxReleaseSampler(maniFbxSampler* sampler);
 
 // The needed models' worlds at a time in seconds, into worlds (one per
 // model); refused (Property, item: the model) for an animated integer
-// input not whole or out of its range.
+// input not whole or out of its range. It keeps each model's last
+// inputs and local in the sampler, so one sampler is used by one thread
+// at a time.
 maniImportResult maniFbxSampleWorlds(const maniFbxSampler* sampler, double time,
                                      maniFbxWorld* worlds);
 

@@ -20,6 +20,11 @@
 #include <math.h>
 #include <string.h>
 
+// The inputs compared bit for bit hold no padding.
+static_assert(sizeof(maniFbxLocalInputs) ==
+                  sizeof(double) * 3 * maniFbxLocalVectors + sizeof(int64_t) * maniFbxLocalIntegers,
+              "no padding");
+
 static maniImportResult Capacity(void)
 {
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
@@ -36,6 +41,9 @@ void maniFbxReleaseSampler(maniFbxSampler* sampler)
         maniRelease(&fbx->allocator, sampler->runs, 2 * n, sizeof(uint32_t), 4);
         maniRelease(&fbx->allocator, sampler->inputs, (size_t)sampler->animation->channelCount + 1,
                     1, 1);
+        maniRelease(&fbx->allocator, sampler->last, n, sizeof(maniFbxLocalInputs), 8);
+        maniRelease(&fbx->allocator, sampler->locals, n, sizeof(maniFbxLocal), 8);
+        maniRelease(&fbx->allocator, sampler->set, n, 1, 1);
     }
     memset(sampler, 0, sizeof *sampler);
 }
@@ -75,11 +83,19 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
     // One more than the channels, so never none.
     size_t channels = (size_t)animation->channelCount + 1;
     out->inputs = maniAllocate(&fbx->allocator, channels, 1, 1);
+    out->last = maniAllocate(&fbx->allocator, n, sizeof(maniFbxLocalInputs), 8);
+    out->locals = maniAllocate(&fbx->allocator, n, sizeof(maniFbxLocal), 8);
+    out->set = maniAllocate(&fbx->allocator, n, 1, 1);
     uint32_t* stack = maniAllocate(&fbx->allocator, n, sizeof(uint32_t), 4);
     maniImportResult r = out->order != NULL && out->rest != NULL && out->runs != NULL &&
-                                 out->inputs != NULL && stack != NULL
+                                 out->inputs != NULL && out->last != NULL && out->locals != NULL &&
+                                 out->set != NULL && stack != NULL
                              ? maniFbxSuccess()
                              : Capacity();
+    if (out->set != NULL)
+    {
+        memset(out->set, 0, n);
+    }
     if (out->inputs != NULL)
     {
         memset(out->inputs, maniFbxSamplerNone, channels);
@@ -175,9 +191,17 @@ maniImportResult maniFbxSampleWorlds(const maniFbxSampler* sampler, double time,
             return maniFbxFail(maniImportReasonProperty,
                                fbx->nodes[fbx->objects[object].node].nameOffset, v);
         }
-        maniFbxLocal local;
-        maniFbxComposeLocal(&in, &local);
-        maniFbxEvaluateModel(worlds, fbx->modelParents[v], &local, &worlds[v]);
+        // The inputs as at the last sample, bit for bit (the struct has
+        // no padding; a -0 for a 0 composes anew): the same local.
+        const unsigned char* now = (const unsigned char*)&in;
+        const unsigned char* then = (const unsigned char*)&sampler->last[i];
+        if (sampler->set[i] == 0 || memcmp(now, then, sizeof in) != 0)
+        {
+            sampler->last[i] = in;
+            maniFbxComposeLocal(&in, &sampler->locals[i]);
+            sampler->set[i] = 1;
+        }
+        maniFbxEvaluateModel(worlds, fbx->modelParents[v], &sampler->locals[i], &worlds[v]);
     }
     return maniFbxSuccess();
 }

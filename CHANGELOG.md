@@ -57,8 +57,9 @@ format.
   control point by counting rather than a merge sort; the helper check
   reads a stack's Lcl Scaling channels first and the whole stack only
   when some child could need a helper; integer arrays read as numbers
-  in one loop, and objects are found by id through a sorted array of
-  their keys.
+  in one loop, objects are found by id through a sorted array of
+  their keys, and a model whose inputs a sample leaves as they were
+  keeps its local transform instead of composing it again.
 - JSON numbers (glTF, the graph, maps and the other JSON forms) and FBX
   ASCII numbers convert by Eisel and Lemire's method first, the exact
   multiprecision method kept for what it leaves open: the same bits,
