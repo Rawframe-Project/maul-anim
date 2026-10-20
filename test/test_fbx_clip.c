@@ -998,6 +998,10 @@ static void TestHelperScales(void)
                    "\"OP\",121,120, \"d|X\"\n";
     CHECK(!HelperIn("", "", 45, 2, "Lcl Scaling", 1, 1, 1, "Y", "1,2"),
           "a stack refused elsewhere: skipped, its scale curve with it");
+    // No risky child: the scales read alone pass, and the skeleton is the
+    // one the whole read's refusal gave.
+    CHECK(!HelperIn("", "", 45, 2, "Lcl Rotation", 0, 0, 0, "Z", "0,90"),
+          "a stack refused elsewhere without a risky child: none");
     s_extraObjects = "";
     s_extraLinks = "";
 }

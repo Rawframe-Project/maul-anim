@@ -149,11 +149,11 @@ static uint32_t Risky(const maniFbx* fbx, const maniFbxAnimation* animation,
     return n;
 }
 
-// The children a stack's Lcl Scaling channels make risky, from a read
-// of those channels alone: none whatever the rest of the stack holds
-// (a refusal anywhere in it would skip it), so the whole stack is read
-// only when there are some. Capacity when the allocator fails, else
-// success.
+// The children a 7.x stack's Lcl Scaling channels make risky, from a
+// read of those channels alone: none whatever the rest of the stack
+// holds (a refusal anywhere in it would skip it), so the whole stack is
+// read only when there are some. Capacity when the allocator fails,
+// else success.
 static maniImportResult AnyRisky(const maniFbx* fbx, uint32_t k, const uint8_t* needed,
                                  const uint32_t* children, uint32_t count, const uint8_t* helper,
                                  uint8_t* mark, uint32_t* risky, uint32_t* left)
@@ -181,8 +181,12 @@ static maniImportResult CheckStack(const maniFbx* fbx, uint32_t k, const uint8_t
                                    maniFbxWorld* worlds, const uint32_t* children, uint32_t count,
                                    uint8_t* helper, uint8_t* mark, uint32_t* risky)
 {
-    uint32_t left = 0;
-    maniImportResult r = AnyRisky(fbx, k, needed, children, count, helper, mark, risky, &left);
+    // A 6.x take has no scale channels to read alone: it is read whole
+    // once.
+    uint32_t left = 1;
+    maniImportResult r = fbx->version >= 7000
+                             ? AnyRisky(fbx, k, needed, children, count, helper, mark, risky, &left)
+                             : maniFbxSuccess();
     if (r.result != mani_success || left == 0)
     {
         return r;
