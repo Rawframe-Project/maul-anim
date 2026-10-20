@@ -279,7 +279,10 @@ static void TestFiniteBlocks(void)
              "\"type\":\"SCALAR\"},"
              "{\"bufferView\":0,\"componentType\":5126,\"count\":70,\"type\":\"SCALAR\"},"
              "{\"bufferView\":0,\"byteOffset\":280,\"componentType\":5126,\"count\":1,"
-             "\"type\":\"SCALAR\"}]}",
+             "\"type\":\"SCALAR\"},"
+             "{\"bufferView\":0,\"byteOffset\":28,\"componentType\":5126,\"count\":80,"
+             "\"type\":\"SCALAR\"},"
+             "{\"bufferView\":0,\"componentType\":5125,\"count\":3,\"type\":\"SCALAR\"}]}",
              digits);
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = NULL;
@@ -300,6 +303,7 @@ static void TestFiniteBlocks(void)
         {1, 516, "a NaN at a word's first half of its accessor"},
         {2, 516, "a NaN at a word's second half"},
         {4, 280, "a block of one"},
+        {5, 280, "a block's last value"},
     };
     for (size_t i = 0; i < sizeof kCases / sizeof kCases[0]; ++i)
     {
@@ -310,6 +314,10 @@ static void TestFiniteBlocks(void)
     }
     CHECK(maniGltfReadFloats(gltf, 3, out).result == mani_success && out[69] == 69.0f,
           "every value before the first not finite");
+    // Whole numbers packed: each read from its own four bytes.
+    CHECK(maniGltfReadFloats(gltf, 6, out).result == mani_success && out[0] == 0.0f &&
+              out[1] == 1065353216.0f && out[2] == 1073741824.0f,
+          "unsigned 32-bit numbers, packed");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

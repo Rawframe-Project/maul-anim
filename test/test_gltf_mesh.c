@@ -77,6 +77,9 @@ static void Base64(const uint8_t* bytes, size_t size, char* out)
 //   7 target 1 TEXCOORD_0, snorm16  16 at 240
 //   8 target 1 COLOR_0, VEC3 float  48 at 256
 //   9 TEXCOORD_0, VEC2 float        32 at 304
+//  10 JOINTS_0's bytes as VEC4 unorm8
+//  11 VEC4 float over 148 to 212: vertex 0 moves only its fourth
+//     component, vertex 2 its third
 static const uint8_t kJoints0[16] = {0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0};
 static const uint8_t kWeights0[16] = {128, 127, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 51, 0, 0, 0};
 static const uint16_t kJoints1[16] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
@@ -148,7 +151,9 @@ static void Document(const char* names, const char* extra, const char* attribute
         "{\"bufferView\":0,\"byteOffset\":304,\"componentType\":5126,\"count\":4,\"type\":\"VEC2\"}"
         ","
         "{\"bufferView\":0,\"byteOffset\":48,\"componentType\":5121,\"normalized\":true,"
-        "\"count\":4,\"type\":\"VEC4\"}],"
+        "\"count\":4,\"type\":\"VEC4\"},"
+        "{\"bufferView\":0,\"byteOffset\":148,\"componentType\":5126,\"count\":4,"
+        "\"type\":\"VEC4\"}],"
         "\"nodes\":[{\"name\":\"root\",\"children\":[1]},"
         "{\"name\":\"tip\",\"translation\":[0,1,0]},"
         "{\"name\":\"body\",\"mesh\":0,\"skin\":0,\"weights\":[0.5,0.25]},"
@@ -369,6 +374,39 @@ static uint32_t Index(const maniMorphTargets* m, uint32_t t, uint32_t i)
     return maniLoadU32(m->indices + 4 * (maniLoadU64(e + 16) + i));
 }
 
+// A basis that only flips z is no identity: position deltas' z negated.
+static void TestMorphFlipZ(void)
+{
+    FillBuffer();
+    Document(kNames, "", kAttributes);
+    maniBuilder* builder = NewBuilder();
+    maniGltfOptions flip = {{maniAxisX, maniAxisY, maniAxisNegativeZ}, 0};
+    maniMorphTargets m;
+    CHECK(ImportMorph(builder, &flip, &m).result == mani_success, "imports with z flipped");
+    const float* d = Delta(&m, 0, 0, 2);
+    CHECK(Index(&m, 0, 2) == 3 && d[2] == 1.0f, "vertex 3's z negated");
+    maniDestroyBuilder(builder);
+}
+
+// A vertex whose only delta is a color's fourth component moves.
+static void TestMorphAlpha(void)
+{
+    FillBuffer();
+    s_targets = "{\"COLOR_0\":11}";
+    Document("", "", kAttributes);
+    s_targets = kTargets;
+    maniBuilder* builder = NewBuilder();
+    maniGltfOptions options = maniDefaultGltfOptions();
+    maniMorphTargets m;
+    CHECK(ImportMorph(builder, &options, &m).result == mani_success, "a color target imports");
+    const uint8_t* e = m.targets;
+    CHECK(maniLoadU32(e + 8) == 2 && Index(&m, 0, 0) == 0 && Index(&m, 0, 1) == 2,
+          "the vertex moving only alpha kept");
+    const float* alpha = Delta(&m, 0, 0, 0);
+    CHECK(alpha[0] == 0.0f && alpha[3] == 2.0f, "its delta");
+    maniDestroyBuilder(builder);
+}
+
 static void TestMorphTargets(void)
 {
     FillBuffer();
@@ -573,6 +611,8 @@ int main(void)
     TestInfluences();
     TestInfluenceRefusals();
     TestMorphTargets();
+    TestMorphAlpha();
+    TestMorphFlipZ();
     TestMorphRefusals();
     TestDracoMorph();
     TestFixtures();

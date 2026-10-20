@@ -64,7 +64,8 @@ static void TestNumbers(void)
               bits == 0x8000000000000000u,
           "a tiny one is -0");
     // Ties to even; past 19 digits a tie in the first 19 broken by a later
-    // digit (the exact method's case), or no tie at all.
+    // digit (the exact method's case), or no tie at all; the fast
+    // method's bounds.
     static const struct
     {
         const char* text;
@@ -78,6 +79,12 @@ static void TestNumbers(void)
         {"16777217.00000000000000000001", maniBinary32, 0x4B800001u},
         {"16777219.00000000000000000001", maniBinary32, 0x4B800002u},
         {"1.00000000000000000000000000001", maniBinary64, 0x3FF0000000000000u},
+        // Twenty significant digits after "0.": read again, not summed.
+        {"0.98765432109876543211", maniBinary64, 0x3FEF9ADD3C1BE9B8u},
+        // The least power the table holds: the least subnormal, not 0.
+        {"5000000000000000000e-342", maniBinary64, 0x0000000000000001u},
+        // A tie at the least power exact ties reach: to the even below.
+        {"562949953421312.0625", maniBinary64, 0x4300000000000000u},
     };
     for (size_t i = 0; i < sizeof kTies / sizeof kTies[0]; ++i)
     {
