@@ -7,7 +7,7 @@
 // two chains, centers on or above their chain's first joint and off
 // every other chain, every value in its range), each joint's drag,
 // stiffness and gravity converted from a frame of the reference rate to
-// a step of the step rate (research 42): with h the step's seconds and
+// a step of the step rate (mani-0026): with h the step's seconds and
 // f0 the reference rate, the drag dh = 1 - (1 - d)^(h f0), stiffness and
 // gravity times h dh / d (h² f0 when d = 0). Each spring lists the
 // colliders of its groups in order without repeats.
@@ -304,7 +304,7 @@ static maniQuat LimitFrame(maniVec3 axis, maniQuat rotation)
 }
 
 // The step's share of the reference's motion: the drag and the factor on
-// stiffness and gravity (research 42).
+// stiffness and gravity (mani-0026).
 static void Convert(double drag, double h, double f0, double* dragOut, double* forcing)
 {
     double x = h * f0;

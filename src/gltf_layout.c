@@ -473,3 +473,23 @@ maniImportResult maniGltfReadFloats(const maniGltf* gltf, uint32_t accessor, flo
     }
     return r;
 }
+
+maniImportResult maniGltfReadMapped(const maniGltf* gltf, uint32_t accessor, const uint8_t* values,
+                                    const uint32_t* map, uint32_t valueCount, uint64_t at,
+                                    float* out)
+{
+    const maniGltfAccessor* a = &gltf->accessors[accessor];
+    size_t floats = (size_t)a->rows * a->columns;
+    size_t size = (size_t)a->rows * a->componentSize;
+    maniImportResult r = maniImportSuccess();
+    for (uint32_t i = 0; r.result == mani_success && i < a->count; ++i)
+    {
+        uint32_t v = map != NULL ? map[i] : i;
+        if (v >= valueCount)
+        {
+            return maniImportFail(maniImportReasonData, at, accessor);
+        }
+        r = ReadElement(a, values + (size_t)v * size, at, accessor, out + i * floats);
+    }
+    return r;
+}

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Google's wrap and canonicalized normal octahedron decoding transforms
-// (d429de8, research 59), in its 32-bit wrapping arithmetic.
+// (d429de8, mani-0021), in its 32-bit wrapping arithmetic.
 
 #include "gltf_draco_transform.h"
 

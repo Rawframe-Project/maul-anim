@@ -550,7 +550,12 @@ extern "C"
     /// opened skin built from the glTF skin that deforms it (its joints
     /// in the skin's order): every `JOINTS_n` and `WEIGHTS_n` set read,
     /// zero weights dropped, then sorted and renormalized as
-    /// maniBuildInfluences does.
+    /// maniBuildInfluences does. A primitive `KHR_draco_mesh_compression`
+    /// compresses has its stream decoded: the sets the extension names
+    /// are read from it, in the stream's vertex order, each accessor
+    /// matching the decoded attribute (its count, component type and
+    /// component count; its `normalized` decides the values, Draco's
+    /// own flag is not read); the others are read from their views.
     ///
     /// @param builder    The builder.
     /// @param gltf       The document.
@@ -560,8 +565,11 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// a mesh or primitive past its count; `mani_errorFormat` with a
     /// reason: Property (no `JOINTS_0`, sets not paired, an accessor of
-    /// the wrong type or count), Extension (Draco-compressed),
-    /// Influence, Data, Pending, Build; `mani_errorCapacity` when the
+    /// the wrong type or count; a Draco extension without its view or
+    /// attributes, a name it gives not among the primitive's, a unique
+    /// id not in the stream, an accessor not matching its attribute),
+    /// Influence, Data (a Draco stream the decoder refuses, at its view),
+    /// Pending, Build; `mani_errorCapacity` when the
     /// allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.

@@ -321,7 +321,12 @@ static void TestInfluenceRefusals(void)
              "\"JOINTS_0\":0,\"WEIGHTS_0\":2");
     ExpectInfluences(maniImportReasonProperty, 0, "joints of VEC3");
     Document(kNames, "\"extensions\":{\"KHR_draco_mesh_compression\":{}},", kAttributes);
-    ExpectInfluences(maniImportReasonExtension, 0, "Draco");
+    ExpectInfluences(maniImportReasonProperty, 0, "a Draco extension without its view");
+    Document(kNames,
+             "\"extensions\":{\"KHR_draco_mesh_compression\":{\"bufferView\":0,"
+             "\"attributes\":{}}},",
+             kAttributes);
+    ExpectInfluences(maniImportReasonData, 0, "a Draco view that is no stream");
 }
 
 // The morph targets imported from the document, opened into m.

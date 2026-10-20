@@ -212,7 +212,7 @@ static void TestBuild(void)
           "a plane's normal, an inside sphere");
 }
 
-// The step's drag and forcing as research 42 gives them, in binary64.
+// The step's drag and forcing as mani-0026 gives them, in binary64.
 static void Expected(double drag, double h, double f0, double* dh, double* forcing)
 {
     *dh = drag >= 1.0 ? 1.0 : 1.0 - pow(1.0 - drag, h * f0);

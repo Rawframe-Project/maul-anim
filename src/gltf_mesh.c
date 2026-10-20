@@ -12,6 +12,7 @@
 #include "gltf_animation.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
+#include "gltf_draco_import.h"
 #include "gltf_layout.h"
 #include "gltf_property.h"
 #include "json.h"
@@ -185,16 +186,6 @@ maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float
     }
     memset(weightsOut, 0, (size_t)count * sizeof(float));
     return maniImportSuccess();
-}
-
-// A primitive compressed by Draco, whose attributes this importer cannot
-// read, refused.
-static maniImportResult NotDraco(const maniGltf* gltf, uint32_t primitive)
-{
-    uint32_t extensions = maniJsonFind(&gltf->json, primitive, "extensions", 10);
-    uint32_t draco = maniJsonFind(&gltf->json, extensions, "KHR_draco_mesh_compression", 26);
-    return draco == MANI_JSON_NONE ? maniImportSuccess()
-                                   : Fail(gltf, maniImportReasonExtension, draco, 0);
 }
 
 // The primitive's vertex count: its POSITION accessor's, or its first
@@ -382,7 +373,10 @@ static maniImportResult Gather(const maniGltf* gltf, const Sets* s, uint32_t v, 
     return maniImportSuccess();
 }
 
-static maniImportResult ReadSets(const maniGltf* gltf, maniArena* arena, Sets* s)
+// Each set's joints and weights, from a Draco primitive's stream where
+// the extension names them.
+static maniImportResult ReadSets(const maniGltf* gltf, const maniGltfDraco* draco, maniArena* arena,
+                                 Sets* s)
 {
     size_t floats = (size_t)s->count * s->vertices * 4;
     s->jointValues = maniArenaTake(arena, floats, sizeof(float));
@@ -395,10 +389,15 @@ static maniImportResult ReadSets(const maniGltf* gltf, maniArena* arena, Sets* s
     for (uint32_t set = 0; r.result == mani_success && set < s->count; ++set)
     {
         size_t at = (size_t)set * s->vertices * 4;
-        r = maniGltfReadFloats(gltf, s->joints[set], s->jointValues + at);
+        char joints[24];
+        char weights[24];
+        size_t jl = SetName(joints, "JOINTS_", set);
+        size_t wl = SetName(weights, "WEIGHTS_", set);
+        r = maniGltfDracoFloats(gltf, draco, joints, jl, s->joints[set], s->jointValues + at);
         if (r.result == mani_success)
         {
-            r = maniGltfReadFloats(gltf, s->weights[set], s->weightValues + at);
+            r = maniGltfDracoFloats(gltf, draco, weights, wl, s->weights[set],
+                                    s->weightValues + at);
         }
     }
     return r;
@@ -408,19 +407,21 @@ static maniImportResult BuildInfluences(maniBuilder* builder, const maniGltf* gl
                                         uint32_t primitive, const maniSkin* skin, maniArena* arena)
 {
     uint32_t attributes = MANI_JSON_NONE;
-    maniImportResult r = NotDraco(gltf, primitive);
-    if (r.result == mani_success)
-    {
-        r = maniGltfMember(&gltf->g, primitive, "attributes", maniJsonObject, true, 0, &attributes);
-    }
+    maniImportResult r =
+        maniGltfMember(&gltf->g, primitive, "attributes", maniJsonObject, true, 0, &attributes);
     Sets s = {0};
     if (r.result == mani_success)
     {
         r = FindSets(gltf, attributes, &s);
     }
+    maniGltfDraco draco;
     if (r.result == mani_success)
     {
-        r = ReadSets(gltf, arena, &s);
+        r = maniGltfDracoDecode(gltf, arena, primitive, attributes, s.vertices, &draco);
+    }
+    if (r.result == mani_success)
+    {
+        r = ReadSets(gltf, &draco, arena, &s);
     }
     if (r.result != mani_success)
     {
