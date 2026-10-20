@@ -152,6 +152,23 @@ static void TestInfluences(void)
               maniInfluencesDualQuaternionWeight(&v, 3) == 0.75f &&
               maniInfluencesDualQuaternionWeight(&v, 0) == 0.0f,
           "blend weights, 0 elsewhere for a Blend skin");
+    // Hips's index past the points as a negative or a fraction: skipped
+    // alike, the other points as before.
+    static const char* const kOthers[2] = {"-1", "2.5"};
+    for (int k = 0; k < 2; ++k)
+    {
+        char indexes[64];
+        snprintf(indexes, sizeof indexes, "  Indexes: *4 {\n   a: 0,1,1,%s\n  }\n", kOthers[k]);
+        maniInfluences o;
+        bool same = Import(Replace("  Indexes: *4 {\n   a: 0,1,1,9\n  }\n", indexes), &o).result ==
+                        mani_success &&
+                    maniInfluence(&o, 0, 0, &w0) == 0 && w0 == 1.0f &&
+                    maniInfluence(&o, 2, 0, &w0) == 1 && w0 == 1.0f;
+        (void)maniInfluence(&o, 2, 1, &w1);
+        (void)maniInfluence(&o, 3, 0, &w0);
+        CHECK(same && w1 == 0.0f && w0 == 0.0f,
+              k == 0 ? "a negative index skipped" : "a fractional index skipped");
+    }
 }
 
 static maniSkinningMethod Method(const char* text)

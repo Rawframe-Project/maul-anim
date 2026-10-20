@@ -901,6 +901,11 @@ static void TestRefusedHelper(void)
 // stack whose curve node gives a model's property the values given,
 // with one curve on a component when one is named: whether Spine gets a
 // helper.
+// More objects for HelperIn's scene, placed before its stack, and their
+// connections.
+static const char* s_extraObjects = "";
+static const char* s_extraLinks = "";
+
 static bool HelperIn(const char* top, const char* spine, int arm, int model, const char* property,
                      double x, double y, double z, const char* component, const char* keys)
 {
@@ -916,7 +921,7 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
                  keys);
         snprintf(link, sizeof link, " C: \"OP\",211,210, \"d|%s\"\n", component);
     }
-    char text[4096];
+    char text[8192];
     snprintf(
         text, sizeof text,
         "; FBX 7.4.0 project file\nObjects: {\n"
@@ -924,7 +929,7 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
         " Model: 2, \"Model::Spine\", \"LimbNode\" {\n  Properties70: {\n%s  }\n }\n"
         " Model: 3, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n   P: \"InheritType\", "
         "\"enum\", \"\", \"\",2\n   P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,%d\n"
-        "  }\n }\n"
+        "  }\n }\n%s"
         " AnimationStack: 200, \"AnimStack::Move\", \"\" {\n  Properties70: {\n   P: "
         "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
         "\"A\",46186158000\n  }\n }\n"
@@ -933,8 +938,8 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
         "\"d|X\", \"Number\", \"\", \"A\",%g\n   P: \"d|Y\", \"Number\", \"\", \"A\",%g\n   P: "
         "\"d|Z\", \"Number\", \"\", \"A\",%g\n  }\n }\n%s"
         "}\nConnections: {\n C: \"OO\",1,0\n C: \"OO\",2,1\n C: \"OO\",3,2\n C: "
-        "\"OO\",201,200\n C: \"OO\",210,201\n C: \"OP\",210,%d, \"%s\"\n%s}\n",
-        top, spine, arm, x, y, z, curve, model, property, link);
+        "\"OO\",201,200\n C: \"OO\",210,201\n C: \"OP\",210,%d, \"%s\"\n%s%s}\n",
+        top, spine, arm, s_extraObjects, x, y, z, curve, model, property, link, s_extraLinks);
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, text);
     maniFbxOptions options = maniDefaultFbxOptions();
@@ -947,8 +952,10 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
 }
 
 // The scales that may shear Arm under Spine in a stack, each found: a
-// static one not uniform, a curve on one component, and a rest one
-// sheared by an animated rotation below it. Uniform ones never shear.
+// static one not uniform, a curve on one component, a rest one sheared
+// by an animated rotation below it, a curve on the grandparent alone,
+// and a curve in a later stack alone. Uniform ones never shear, and a
+// stack refused elsewhere is skipped with its scales.
 static void TestHelperScales(void)
 {
     static const char kScaled[] = "   P: \"Lcl Scaling\", \"Lcl Scaling\", \"\", \"A\",1,2,1\n";
@@ -961,6 +968,38 @@ static void TestHelperScales(void)
           "a rest scale sheared by an animated rotation: a helper");
     CHECK(!HelperIn("", kScaled, 0, 3, "Lcl Rotation", 0, 0, 0, "", ""),
           "the same rotation still: none");
+    static const char kTurned[] = "   P: \"InheritType\", \"enum\", \"\", \"\",0\n"
+                                  "   P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,30\n";
+    CHECK(HelperIn("", kTurned, 45, 1, "Lcl Scaling", 1, 1, 1, "Y", "1,2"),
+          "a scale curve on the grandparent alone: a helper");
+    // A first stack turning Spine without a scale.
+    s_extraObjects =
+        " AnimationStack: 100, \"AnimStack::Still\", \"\" {\n  Properties70: {\n   P: "
+        "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
+        "\"A\",46186158000\n  }\n }\n"
+        " AnimationLayer: 101, \"AnimLayer::Base\", \"\" {\n }\n"
+        " AnimationCurveNode: 110, \"AnimCurveNode::R\", \"\" {\n  Properties70: {\n   P: "
+        "\"d|X\", \"Number\", \"\", \"A\",0\n   P: \"d|Y\", \"Number\", \"\", \"A\",0\n   P: "
+        "\"d|Z\", \"Number\", \"\", \"A\",30\n  }\n }\n";
+    s_extraLinks = " C: \"OO\",101,100\n C: \"OO\",110,101\n C: \"OP\",110,2, \"Lcl Rotation\"\n";
+    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", 1, 1, 1, "Y", "1,2"),
+          "a scale curve in a later stack alone: a helper");
+    CHECK(!HelperIn("", "", 45, 2, "Lcl Rotation", 0, 0, 0, "Z", "0,90"),
+          "two stacks without a scale: none");
+    // A curve on Top whose times run backward refuses the stack.
+    s_extraObjects =
+        " AnimationCurveNode: 120, \"AnimCurveNode::T\", \"\" {\n  Properties70: {\n   P: "
+        "\"d|X\", \"Number\", \"\", \"A\",0\n  }\n }\n"
+        " AnimationCurve: 121, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: "
+        "46186158000,0\n  }\n  KeyValueFloat: *2 {\n   a: 0,1\n  }\n  KeyAttrFlags: *1 {\n"
+        "   a: 4\n  }\n  KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: "
+        "*1 {\n   a: 2\n  }\n }\n";
+    s_extraLinks = " C: \"OO\",120,201\n C: \"OP\",120,1, \"Lcl Translation\"\n C: "
+                   "\"OP\",121,120, \"d|X\"\n";
+    CHECK(!HelperIn("", "", 45, 2, "Lcl Scaling", 1, 1, 1, "Y", "1,2"),
+          "a stack refused elsewhere: skipped, its scale curve with it");
+    s_extraObjects = "";
+    s_extraLinks = "";
 }
 
 static void TestAnimatedHelper(void)
