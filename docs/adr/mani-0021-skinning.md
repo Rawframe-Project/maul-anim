@@ -55,7 +55,12 @@ deltas applied before skinning, weighted by animated values.
   (bitstream 2.2, sequential and Edgebreaker, every prediction Google's
   encoder writes, Google's decoder as the reference where the
   specification is silent), each accessor matching its decoded
-  attribute as the extension asks. FBX's clusters' `Indexes` and `Weights` per control
+  attribute as the extension asks. Before the decoder takes any memory
+  for them, the stream's counts are bounded by the primitive's: its
+  points by its attributes' accessor count, its faces by its indices'
+  count (its vertex count without indices), and every other count by
+  those or by the bytes left, so a stream makes the importer take no more
+  than its primitive's accessors declare. FBX's clusters' `Indexes` and `Weights` per control
   point, as ufbx reads them (an index past the control points skipped,
   a vertex repeated in one cluster summed, a negative weight refused,
   weights renormalized as every source's are), `SkinningType` as the

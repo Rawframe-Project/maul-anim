@@ -28,8 +28,9 @@ typedef struct maniDracoEdgebreaker
     uint32_t pointCount;
 } maniDracoEdgebreaker;
 
-// Reads the connectivity at the reader, of at most maxPoints points.
+// Reads the connectivity at the reader, of at most maxPoints points and
+// maxFaces faces; counts past them are refused before anything is taken.
 maniDracoStatus maniDracoReadEdgebreaker(maniDracoReader* r, maniArena* arena, uint32_t maxPoints,
-                                         maniDracoEdgebreaker* out);
+                                         uint32_t maxFaces, maniDracoEdgebreaker* out);
 
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_EDGEBREAKER_H

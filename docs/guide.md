@@ -383,8 +383,16 @@ maniCloseGltf(gltf);
 ```
 
 A refused file says why: `read.reason` and `read.offset` name the
-problem and the byte. A full-precision clip compresses within an error
-you choose, measured on a shell of points around each bone:
+problem and the byte. A file cannot make an importer take more memory
+than the counts it declares: a compressed view at most 1,024 times its
+stream, a Draco stream's points and faces at most its primitive's
+accessors'. Counts themselves are the file's, so a host reading files it
+does not trust sets its ceiling in the builder's allocator, which is
+asked for every block with its size: a block it refuses fails the call
+with `mani_errorCapacity`, nothing kept.
+
+A full-precision clip compresses within an error you choose, measured on
+a shell of points around each bone:
 
 ```c
 maniCompressOptions tolerance = maniDefaultCompressOptions();   // 0.1 mm at 3 cm

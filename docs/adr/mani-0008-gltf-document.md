@@ -70,7 +70,10 @@ specification fixes exactly.
   never written, a malformed code table, a LEB128 value past 5 bytes)
   is refused as Data at its offset in its buffer, a supplied buffer
   then left unsupplied. Filters are the specification's binary32
-  formulas in a fixed order, the same bits on every platform.
+  formulas in a fixed order, the same bits on every platform; those
+  bits hold under the build's `-ffp-contract=off` and without fast math
+  (configuration stops on fast math in the flags), and a build that
+  changes either may round a filtered value otherwise.
 - **Refusals** (`maniImportResult`): the reason, the first byte found
   wrong (in the bytes given, or in a buffer's bytes for data), and the
   item. A string value's offset is its first byte after the quote.
@@ -83,4 +86,9 @@ found before any data is read, and any data error where it is read.
 Accessor `min` and `max` are never trusted. A compressed view costs the
 document its decoded size whether or not it is read, the size an
 uncompressed file would hold; decoding on first read would spare that
-memory but make every read path mutable.
+memory but make every read path mutable. No count a file declares is
+capped otherwise: an accessor without a view (zeros, or sparse values
+over zeros) costs its declared size as a stored one does. The host's
+allocator, asked for every block with its size, is the import's memory
+budget; a block it refuses fails the call with `mani_errorCapacity`,
+nothing kept.

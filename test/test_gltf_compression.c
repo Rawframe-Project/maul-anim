@@ -8,7 +8,12 @@
 // read, allocation failures; and three files gltfpack compressed
 // (test/data/gltf), their decoded views the bits meshoptimizer's own
 // decoder gives (bench/meshopt_files.py in the research), one's equal to
-// its uncompressed fallback, their skeletons, skins and clips built.
+// its uncompressed fallback, their skeletons, skins and clips built. Run
+// as test_gltf_compression --seed <file> it writes a document whose view
+// claims two gigabytes from a stream of 259 bytes, a seed of fuzz_gltf.
+
+// MSVC's CRT deprecates fopen, which the fixtures use: CMake defines
+// _CRT_SECURE_NO_WARNINGS for the fixture tests.
 
 #include "gltf_document.h"
 #include "gltf_layout.h"
@@ -104,6 +109,16 @@ static void Document(Doc d)
 static void Plain(const char* members, const char* second, const char* views)
 {
     Document((Doc){"EXT_meshopt_compression", members, second, views, 296, kAttributesV0,
+                   sizeof kAttributesV0, ""});
+}
+
+// A view of two gigabytes claimed by the 259-byte stream.
+static void HugeView(void)
+{
+    Document((Doc){"EXT_meshopt_compression",
+                   "\"buffer\":0,\"byteLength\":259,\"byteStride\":8,\"count\":250000000,"
+                   "\"mode\":\"ATTRIBUTES\"",
+                   "{\"byteLength\":2000000000}", "", 2000000000u, kAttributesV0,
                    sizeof kAttributesV0, ""});
 }
 
@@ -309,6 +324,9 @@ static void TestMarks(void)
                    second, "", 1024u * 259u + 8u, kAttributesV0, sizeof kAttributesV0, ""});
     ExpectRefusal(maniImportReasonLayout, "259,\"byteStride\":8,\"count\":33153", 0, 0,
                   "more than a stream can hold");
+    HugeView();
+    ExpectRefusal(maniImportReasonLayout, "259,\"byteStride\":8,\"count\":250000000", 0, 0,
+                  "two gigabytes from 259 bytes");
 }
 
 // The edges of the rules: what they allow is opened.
@@ -767,8 +785,21 @@ static void TestPackedSkin(void)
     free(bytes);
 }
 
-int main(void)
+static int WriteSeed(const char* path)
 {
+    HugeView();
+    FILE* file = fopen(path, "wb");
+    bool ok = file != NULL && fwrite(s_json, 1, strlen(s_json), file) == strlen(s_json);
+    ok = file != NULL && fclose(file) == 0 && ok;
+    return ok ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc >= 3 && strcmp(argv[1], "--seed") == 0)
+    {
+        return WriteSeed(argv[2]);
+    }
     TestDecodedAtOpen();
     TestModes();
     TestRules();

@@ -71,6 +71,7 @@ typedef struct Decoder
     maniDracoReader r;
     maniArena* arena;
     uint32_t maxPoints;
+    uint32_t maxFaces;
     maniDracoMesh* mesh;
     uint8_t method;
     // Edgebreaker's connectivity, its tables for the attributes; its
@@ -312,7 +313,7 @@ static maniDracoStatus SequentialConnectivity(Decoder* d)
     uint8_t method = 0;
     if (!maniDracoLeb32(&d->r, &m->faceCount) || !maniDracoLeb32(&d->r, &m->pointCount) ||
         m->faceCount > UINT32_MAX / 3u || m->faceCount > maniDracoLeft(&d->r) / 3u ||
-        m->pointCount > d->maxPoints || !maniDracoU8(&d->r, &method))
+        m->faceCount > d->maxFaces || m->pointCount > d->maxPoints || !maniDracoU8(&d->r, &method))
     {
         return maniDracoInvalid;
     }
@@ -339,7 +340,8 @@ static maniDracoStatus SequentialConnectivity(Decoder* d)
 // Edgebreaker: the faces are the corners' points.
 static maniDracoStatus EdgebreakerConnectivity(Decoder* d)
 {
-    maniDracoStatus s = maniDracoReadEdgebreaker(&d->r, d->arena, d->maxPoints, &d->eb);
+    maniDracoStatus s =
+        maniDracoReadEdgebreaker(&d->r, d->arena, d->maxPoints, d->maxFaces, &d->eb);
     if (s == maniDracoDone)
     {
         d->mesh->faceCount = d->eb.mesh.corners / 3u;
@@ -862,10 +864,14 @@ static maniDracoStatus Attributes(Decoder* d)
 }
 
 maniDracoStatus maniDracoDecode(maniArena* arena, const uint8_t* in, size_t size,
-                                uint32_t maxPoints, maniDracoMesh* out)
+                                uint32_t maxPoints, uint32_t maxFaces, maniDracoMesh* out)
 {
     *out = (maniDracoMesh){0};
-    Decoder d = {.r = {in, in + size}, .arena = arena, .maxPoints = maxPoints, .mesh = out};
+    Decoder d = {.r = {in, in + size},
+                 .arena = arena,
+                 .maxPoints = maxPoints,
+                 .maxFaces = maxFaces,
+                 .mesh = out};
     uint16_t flags = 0;
     maniDracoStatus s = Header(&d, &flags);
     if (s == maniDracoDone && (flags & METADATA_FLAG) != 0)

@@ -108,13 +108,17 @@ static void SetLeftMost(State* s, uint32_t v, uint32_t c)
     }
 }
 
-// The counts and the split events (bitstream 2.2: no hole events).
-static maniDracoStatus Counts(State* s, uint32_t* vertices, uint32_t* splitSymbols)
+// The counts and the split events (bitstream 2.2: no hole events): the
+// relations Google's decoder checks, and the caller's bounds (the points
+// are at least the vertices, as seams only split them).
+static maniDracoStatus Counts(State* s, uint32_t maxPoints, uint32_t maxFaces, uint32_t* vertices,
+                              uint32_t* splitSymbols)
 {
     uint8_t data = 0;
     if (!maniDracoU8(s->r, &s->method) || (s->method != Standard && s->method != Valence) ||
         !maniDracoLeb32(s->r, vertices) || !maniDracoLeb32(s->r, &s->faces) ||
-        s->faces > (uint32_t)INT32_MAX / 3u || *vertices > s->faces * 3u ||
+        *vertices > maxPoints || s->faces > maxFaces || s->faces > (uint32_t)INT32_MAX / 3u ||
+        *vertices > s->faces * 3u ||
         (uint64_t)*vertices * ((uint64_t)*vertices - 1u) / 2u < (uint64_t)s->faces * 3u / 2u ||
         !maniDracoU8(s->r, &data) || !maniDracoLeb32(s->r, &s->symbols) || s->faces < s->symbols ||
         s->faces > s->symbols + s->symbols / 3u || !maniDracoLeb32(s->r, splitSymbols) ||
@@ -129,8 +133,9 @@ static maniDracoStatus Counts(State* s, uint32_t* vertices, uint32_t* splitSymbo
 
 static maniDracoStatus SplitEvents(State* s)
 {
+    // Each event takes two bytes at least.
     uint32_t count = 0;
-    if (!maniDracoLeb32(s->r, &count) || count > s->faces)
+    if (!maniDracoLeb32(s->r, &count) || count > s->faces || count > maniDracoLeft(s->r) / 2u)
     {
         return maniDracoInvalid;
     }
@@ -759,7 +764,7 @@ static maniDracoStatus AttributeTables(State* s, maniDracoEdgebreaker* out)
 }
 
 maniDracoStatus maniDracoReadEdgebreaker(maniDracoReader* r, maniArena* arena, uint32_t maxPoints,
-                                         maniDracoEdgebreaker* out)
+                                         uint32_t maxFaces, maniDracoEdgebreaker* out)
 {
     *out = (maniDracoEdgebreaker){0};
     State s = {0};
@@ -768,7 +773,7 @@ maniDracoStatus maniDracoReadEdgebreaker(maniDracoReader* r, maniArena* arena, u
     s.t = &out->mesh;
     uint32_t vertices = 0;
     uint32_t splitSymbols = 0;
-    maniDracoStatus st = Counts(&s, &vertices, &splitSymbols);
+    maniDracoStatus st = Counts(&s, maxPoints, maxFaces, &vertices, &splitSymbols);
     st = st == maniDracoDone ? Allocate(&s) : st;
     st = st == maniDracoDone ? SplitEvents(&s) : st;
     st = st == maniDracoDone ? Traversal(&s) : st;

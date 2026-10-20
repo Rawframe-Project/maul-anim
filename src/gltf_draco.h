@@ -70,9 +70,10 @@ typedef struct maniDracoMesh
 // A data type's size in bytes, 0 for none.
 uint32_t maniDracoTypeSize(uint8_t dataType);
 
-// Decodes a Draco mesh of at most maxPoints points from size bytes,
+// Decodes a Draco mesh of at most maxPoints points and maxFaces faces
+// (larger counts refused before anything is taken for them) from size bytes,
 // everything it holds taken from the arena (released by the caller).
 maniDracoStatus maniDracoDecode(maniArena* arena, const uint8_t* in, size_t size,
-                                uint32_t maxPoints, maniDracoMesh* out);
+                                uint32_t maxPoints, uint32_t maxFaces, maniDracoMesh* out);
 
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_H

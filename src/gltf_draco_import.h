@@ -29,7 +29,8 @@ typedef struct maniGltfDraco
     maniDracoMesh mesh;
 } maniGltfDraco;
 
-// Decodes the primitive's stream, of at most vertices points, into the
+// Decodes the primitive's stream, of at most vertices points and as many
+// faces as the primitive's indices (its vertices without them), into the
 // arena, and checks each attribute the extension names against its
 // accessor; present is false for a primitive without the extension.
 maniImportResult maniGltfDracoDecode(const maniGltf* gltf, maniArena* arena, uint32_t primitive,

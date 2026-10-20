@@ -16,7 +16,8 @@ format.
   2.2, sequential and Edgebreaker meshes, every prediction scheme and
   transform; the same bits as Google's decoder, in fewer instructions on
   each sample and fixture group), each accessor checked against its
-  decoded attribute.
+  decoded attribute and the stream's points and faces bounded by the
+  primitive's accessors before anything is allocated for them.
 - glTF files whose buffer views `EXT_meshopt_compression` or
   `KHR_meshopt_compression` compress, as gltfpack writes them, import:
   every mode and filter of both extensions decoded by the library's own

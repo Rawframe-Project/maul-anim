@@ -5,9 +5,16 @@
 // Google's encoder wrote, sequential and Edgebreaker (standard and
 // valence, both traversals, every mesh prediction), decoded to the
 // FNV-1a 64 of Google's decoding of each; the header's and Edgebreaker
-// decoder headers' rules and the point bound; every prefix and every
-// single byte changed decoded without fault; an attribute count bounded
-// by the bytes; allocation failures handled with nothing kept.
+// decoder headers' rules and the point and face bounds; every prefix and
+// every single byte changed decoded without fault; an attribute count
+// bounded by the bytes; counts claimed past the bounds refused before
+// anything is taken, and without a bound refused by the host's
+// allocator with nothing kept; allocation failures handled with nothing
+// kept. Run as test_gltf_draco --seed <file>... it writes the claimed
+// counts' streams as fuzz_draco's seeds.
+
+// MSVC's CRT deprecates fopen, which the fixtures use: CMake defines
+// _CRT_SECURE_NO_WARNINGS for the fixture tests.
 
 #include "arena.h"
 #include "gltf_draco.h"
@@ -115,27 +122,45 @@ static uint64_t Dump(const maniDracoMesh* m)
     return h;
 }
 
-static maniDracoStatus Decode(const uint8_t* bytes, size_t size, uint32_t most, uint64_t* hash)
+// No face bound.
+#define ANY_FACES UINT32_MAX
+
+static maniDracoStatus DecodeFaces(const uint8_t* bytes, size_t size, uint32_t points,
+                                   uint32_t faces, uint64_t* hash, uint32_t* faceCount)
 {
     maniAllocator allocator = {0};
     maniArena arena = maniArenaMake(&allocator);
     maniDracoMesh m;
-    maniDracoStatus s = maniDracoDecode(&arena, bytes, size, most, &m);
+    maniDracoStatus s = maniDracoDecode(&arena, bytes, size, points, faces, &m);
     if (s == maniDracoDone && hash != NULL)
     {
         *hash = Dump(&m);
+    }
+    if (s == maniDracoDone && faceCount != NULL)
+    {
+        *faceCount = m.faceCount;
     }
     maniArenaRelease(&arena);
     return s;
 }
 
+static maniDracoStatus Decode(const uint8_t* bytes, size_t size, uint32_t points, uint64_t* hash)
+{
+    return DecodeFaces(bytes, size, points, ANY_FACES, hash, NULL);
+}
+
+// Each stream to Google's bits at its own point and face counts, and
+// refused at one fewer of either.
 static void TestStreams(void)
 {
     for (size_t i = 0; i < sizeof kStreams / sizeof kStreams[0]; ++i)
     {
         size_t size = ReadStream(kStreams[i].name);
         uint64_t hash = 0;
-        CHECK(Decode(s_bytes, size, kStreams[i].points, &hash) == maniDracoDone &&
+        uint32_t faces = 0;
+        CHECK(DecodeFaces(s_bytes, size, ANY_FACES, ANY_FACES, NULL, &faces) == maniDracoDone,
+              "the face count");
+        CHECK(DecodeFaces(s_bytes, size, kStreams[i].points, faces, &hash, NULL) == maniDracoDone &&
                   hash == kStreams[i].hash,
               "Google's decoding");
         if (hash != kStreams[i].hash)
@@ -144,6 +169,9 @@ static void TestStreams(void)
         }
         CHECK(Decode(s_bytes, size, kStreams[i].points - 1u, NULL) == maniDracoInvalid,
               "more points than allowed");
+        CHECK(DecodeFaces(s_bytes, size, kStreams[i].points, faces - 1u, NULL, NULL) ==
+                  maniDracoInvalid,
+              "more faces than allowed");
     }
 }
 
@@ -265,10 +293,130 @@ static void TestAttributeCount(void)
     maniAllocator allocator = {LargestAlloc, LargestFree, &largest};
     maniArena arena = maniArenaMake(&allocator);
     maniDracoMesh m;
-    CHECK(maniDracoDecode(&arena, s_copy, 1000u + sizeof kHead, 1, &m) == maniDracoInvalid,
+    CHECK(maniDracoDecode(&arena, s_copy, 1000u + sizeof kHead, 1, ANY_FACES, &m) ==
+              maniDracoInvalid,
           "more attributes than the bytes hold");
     maniArenaRelease(&arena);
     CHECK(largest < 4000u * sizeof(maniDracoAttribute), "nothing taken for them");
+}
+
+// Streams claiming counts their bytes cannot hold (a host's allocator
+// refusing blocks past 1 MiB, the largest asked for kept).
+typedef struct Capped
+{
+    size_t largest;
+    size_t outstanding;
+} Capped;
+
+static void* CappedAlloc(size_t size, size_t alignment, void* context)
+{
+    Capped* c = context;
+    (void)alignment;
+    c->largest = size > c->largest ? size : c->largest;
+    void* p = size <= (1u << 20) ? malloc(size) : NULL;
+    c->outstanding += p != NULL ? 1u : 0u;
+    return p;
+}
+
+static void CappedFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    Capped* c = context;
+    (void)size;
+    (void)alignment;
+    c->outstanding -= memory != NULL ? 1u : 0u;
+    free(memory);
+}
+
+// Edgebreaker: 50,000 vertices and 600 million faces in a few bytes (the
+// relations Google checks hold: 450 million symbols, no splits).
+static const uint8_t kClaimFaces[] = {'D',  'R',  'A', 'C',  'O',  2,    2,    1,    1,
+                                      0,    0,    0,   0xD0, 0x86, 0x03, 0x80, 0x8C, 0x8D,
+                                      0x9E, 0x02, 0,   0x80, 0xE9, 0xC9, 0xD6, 0x01, 0};
+// Edgebreaker: 50,000 vertices over 100,000 faces and 75,000 symbols.
+static const uint8_t kClaimVertices[] = {'D',  'R',  'A', 'C',  'O',  2,    2,    1,
+                                         1,    0,    0,   0,    0xD0, 0x86, 0x03, 0xA0,
+                                         0x8D, 0x06, 0,   0xF8, 0xC9, 0x04, 0};
+// Edgebreaker: four faces, three symbols, a split symbol, then four split
+// events with no bytes for them.
+static const uint8_t kClaimSplits[] = {'D', 'R', 'A', 'C', 'O', 2, 2, 1, 1,
+                                       0,   0,   0,   4,   4,   0, 3, 1, 4};
+// Edgebreaker: one split event whose source is past the symbols.
+static const uint8_t kSplitPastEnd[] = {'D', 'R', 'A', 'C', 'O', 2, 2,    1,    1, 0, 0, 0,
+                                        4,   4,   0,   3,   1,   1, 0xE8, 0x07, 0, 0, 0, 0};
+// Sequential: 20,000 faces of plain indices, ten points, the bytes
+// zeros (padded to 60,016 by the test).
+static const uint8_t kClaimSequential[] = {'D', 'R', 'A', 'C',  'O',  2,    2,  1,
+                                           0,   0,   0,   0xA0, 0x9C, 0x01, 10, 1};
+
+static const struct
+{
+    const char* what;
+    const uint8_t* bytes;
+    size_t size;
+} kClaims[] = {
+    {"faces", kClaimFaces, sizeof kClaimFaces},
+    {"vertices", kClaimVertices, sizeof kClaimVertices},
+    {"splits", kClaimSplits, sizeof kClaimSplits},
+    {"split past the end", kSplitPastEnd, sizeof kSplitPastEnd},
+    {"sequential", kClaimSequential, sizeof kClaimSequential},
+};
+
+static maniDracoStatus DecodeCapped(const uint8_t* bytes, size_t size, uint32_t points,
+                                    uint32_t faces, Capped* capped)
+{
+    *capped = (Capped){0};
+    maniAllocator allocator = {CappedAlloc, CappedFree, capped};
+    maniArena arena = maniArenaMake(&allocator);
+    maniDracoMesh m;
+    maniDracoStatus s = maniDracoDecode(&arena, bytes, size, points, faces, &m);
+    maniArenaRelease(&arena);
+    return s;
+}
+
+static void TestClaimedCounts(void)
+{
+    Capped c;
+    CHECK(DecodeCapped(kClaimFaces, sizeof kClaimFaces, 1u << 16, 1u << 17, &c) ==
+                  maniDracoInvalid &&
+              c.largest < (128u << 10),
+          "faces past the bound refused before anything is taken");
+    CHECK(DecodeCapped(kClaimFaces, sizeof kClaimFaces, 1u << 16, ANY_FACES, &c) ==
+                  maniDracoCapacity &&
+              c.largest >= 450000000u * sizeof(uint32_t) && c.outstanding == 0,
+          "without a face bound, the host's allocator refuses, nothing kept");
+    CHECK(DecodeCapped(kClaimVertices, sizeof kClaimVertices, 1000, ANY_FACES, &c) ==
+                  maniDracoInvalid &&
+              c.largest < (128u << 10),
+          "vertices past the points refused before anything is taken");
+    CHECK(DecodeCapped(kClaimSplits, sizeof kClaimSplits, 1000, 1000, &c) == maniDracoInvalid,
+          "split events past the bytes");
+    CHECK(DecodeCapped(kSplitPastEnd, sizeof kSplitPastEnd, 1000, 1000, &c) == maniDracoInvalid,
+          "a split source past the symbols");
+    memset(s_copy, 0, 60016u);
+    memcpy(s_copy, kClaimSequential, sizeof kClaimSequential);
+    CHECK(DecodeCapped(s_copy, 60016u, 10, 19999, &c) == maniDracoInvalid &&
+              c.largest < (128u << 10),
+          "sequential faces past the bound refused before anything is taken");
+    CHECK(DecodeCapped(s_copy, 60016u, 10, 20000, &c) == maniDracoInvalid &&
+              c.largest >= 20000u * 3u * sizeof(uint32_t),
+          "and at the bound read");
+}
+
+// The claimed counts' streams, a file each in kClaims's order.
+static int WriteSeeds(int count, char** paths)
+{
+    for (int k = 0; k < count && (size_t)k < sizeof kClaims / sizeof kClaims[0]; ++k)
+    {
+        FILE* file = fopen(paths[k], "wb");
+        bool ok =
+            file != NULL && fwrite(kClaims[k].bytes, 1, kClaims[k].size, file) == kClaims[k].size;
+        ok = file != NULL && fclose(file) == 0 && ok;
+        if (!ok)
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static void Sweep(const Stream* stream)
@@ -282,7 +430,7 @@ static void Sweep(const Stream* stream)
         maniAllocator allocator = {TestBudgetAlloc, TestBudgetFree, &budget};
         maniArena arena = maniArenaMake(&allocator);
         maniDracoMesh m;
-        maniDracoStatus s = maniDracoDecode(&arena, s_bytes, size, stream->points, &m);
+        maniDracoStatus s = maniDracoDecode(&arena, s_bytes, size, stream->points, ANY_FACES, &m);
         done = s == maniDracoDone && Dump(&m) == stream->hash;
         clean = s != maniDracoInvalid;
         maniArenaRelease(&arena);
@@ -297,13 +445,18 @@ static void TestAllocationFailures(void)
     Sweep(&kStreams[6]);
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
+    if (argc >= 3 && strcmp(argv[1], "--seed") == 0)
+    {
+        return WriteSeeds(argc - 2, argv + 2);
+    }
     TestStreams();
     TestHeader();
     TestDecoderHeaders();
     TestDamage();
     TestAttributeCount();
+    TestClaimedCounts();
     TestAllocationFailures();
     return s_failures == 0 ? 0 : 1;
 }

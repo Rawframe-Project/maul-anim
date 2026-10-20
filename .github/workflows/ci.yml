@@ -267,8 +267,12 @@ jobs:
           build/test_gltf_spring_extensions --seed corpus-fuzz_gltf/springs.gltf
           build/test_gltf_ragdoll --seed corpus-fuzz_gltf/ragdoll.gltf
           cp test/data/gltf/*.glb test/data/gltf/*.gltf corpus-fuzz_gltf/
+          build/test_gltf_compression --seed corpus-fuzz_gltf/huge-view.gltf
           mkdir -p corpus-fuzz_draco
           cp test/data/draco/*.drc corpus-fuzz_draco/
+          build/test_gltf_draco --seed corpus-fuzz_draco/claim-faces.drc \
+            corpus-fuzz_draco/claim-vertices.drc corpus-fuzz_draco/claim-splits.drc \
+            corpus-fuzz_draco/split-past-end.drc corpus-fuzz_draco/claim-sequential.drc
           mkdir -p corpus-fuzz_meshopt
           build/test_gltf_meshopt --seed corpus-fuzz_meshopt/attributes-v0.bin \
             corpus-fuzz_meshopt/attributes-v1.bin corpus-fuzz_meshopt/triangles16.bin \

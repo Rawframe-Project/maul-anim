@@ -128,6 +128,11 @@ maniImportResult maniGltfDracoDecode(const maniGltf* gltf, maniArena* arena, uin
     {
         r = maniGltfMember(&gltf->g, ext, "attributes", maniJsonObject, true, 0, &out->attributes);
     }
+    uint32_t indices = MANI_JSON_NONE;
+    if (r.result == mani_success)
+    {
+        r = maniGltfIndex(&gltf->g, primitive, "indices", false, gltf->accessorCount, 0, &indices);
+    }
     const uint8_t* bytes = NULL;
     if (r.result == mani_success)
     {
@@ -137,8 +142,12 @@ maniImportResult maniGltfDracoDecode(const maniGltf* gltf, maniArena* arena, uin
     {
         return r;
     }
+    // The faces the primitive draws: at most its indices (a list's a third,
+    // a strip's two fewer), or without them its vertices.
+    uint32_t faces = indices != MANI_JSON_NONE ? gltf->accessors[indices].count : vertices;
     const maniGltfView* v = &gltf->views[out->view];
-    maniDracoStatus s = maniDracoDecode(arena, bytes, (size_t)v->length, vertices, &out->mesh);
+    maniDracoStatus s =
+        maniDracoDecode(arena, bytes, (size_t)v->length, vertices, faces, &out->mesh);
     if (s != maniDracoDone)
     {
         return s == maniDracoCapacity

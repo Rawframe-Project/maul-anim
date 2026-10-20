@@ -6,9 +6,10 @@
 // and with normalized byte weights, gives the influences of the
 // uncompressed SimpleSkin vertex for vertex, in the order Draco gives
 // them, to half a quantization step, and with a texture seam (more
-// points than values) each point its vertex's; the extension's rules refused, each by a
-// same-length change to the file's JSON; every byte of the stream
-// changed decoded without fault.
+// points than values) each point its vertex's; the extension's rules
+// refused, each by a same-length change to the file's JSON, the stream's
+// faces bounded by the primitive's indices (its vertices without them);
+// every byte of the stream changed decoded without fault.
 
 // MSVC's CRT deprecates fopen, which the fixtures use: CMake defines
 // _CRT_SECURE_NO_WARNINGS for the fixture tests.
@@ -252,6 +253,8 @@ static void TestRefusals(void)
          1, -1, "a view that is no stream"},
         {"\"VEC3\",\"componentType\":5126", "\"VEC2\",\"componentType\":5126",
          maniImportReasonProperty, 1, -1, "a component count not the stream's"},
+        {"\"count\":24}", "\"count\":7 }", maniImportReasonData, 2, -1,
+         "fewer indices than the stream's eight faces"},
     };
     for (size_t i = 0; i < sizeof kChanges / sizeof kChanges[0]; ++i)
     {
@@ -274,6 +277,15 @@ static void TestRefusals(void)
     maniImportResult r = Import(s_bytes, size, NULL);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonProperty && r.item == 1,
           "accessors of more points than the stream's");
+    // The faces are bounded by the indices, or without them the vertices.
+    size = Changed("SimpleSkin-draco.glb", "\"count\":24}", "\"count\":8 }");
+    CHECK(Import(s_bytes, size, NULL).result == mani_success, "as many indices as faces");
+    size = Changed("SimpleSkin-draco.glb", "\"indices\":0,", "            ");
+    CHECK(Import(s_bytes, size, NULL).result == mani_success, "no indices, ten vertices");
+    size = Changed("SimpleSkin-draco.glb", "\"indices\":0,", "\"indices\":9,");
+    r = Import(s_bytes, size, NULL);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonIndex,
+          "indices that are no accessor");
 }
 
 // Every byte of the stream (view 2's 213 bytes, from its magic) changed
