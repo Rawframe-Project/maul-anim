@@ -84,8 +84,11 @@ over the caller's bytes (mani-0002).
   `MANI_GRAPH_LEARNED_MAX_STEPS` (20) steps an update, a longer update
   playing as 20 steps' seconds and losing the rest as fixed-step
   simulations do; between steps the node interpolates the last two
-  states. It projects its query (the state's features with the
-  trajectory and float channels taken from its parameters) when it has
+  states, and that state at the playhead is the one its query, its
+  transition's distance, its motion and its pose all read, so none lags
+  the others at any update rate. It projects its query (the state's
+  features with the trajectory and float channels taken from its
+  parameters) when it has
   no state, its trigger is set or its period passed, through the
   Projector whose filter equals its tags; a projection farther than the
   transition cost from the state replaces it and requests the node's
