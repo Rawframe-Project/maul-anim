@@ -229,4 +229,4 @@ gltf_draco_transform: gltf_draco_read
 gltf_draco_predict: arena gltf_draco_corner gltf_draco_read gltf_draco_traverse
 gltf_draco: arena bytes gltf_draco_edgebreaker gltf_draco_predict gltf_draco_read gltf_draco_transform gltf_draco_traverse sort
 
-fbx_helpers: allocator clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_sample fbx_take fbx_transform fbx_world
+fbx_helpers: allocator clip_file decompose fbx_anim fbx_clip_state fbx_curve fbx_document fbx_sample fbx_take fbx_transform fbx_world
