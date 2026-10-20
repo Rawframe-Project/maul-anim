@@ -43,10 +43,16 @@ specification fixes exactly.
   components padded to 4 bytes, `normalized` refused on 32-bit types,
   sparse indices of unsigned types from views without a stride. A view
   of other than vertex data (sparse parts, inverse binds, animation
-  samplers) may give a stride equal to its element size, read as none:
-  the specification forbids a stride there, but its read formula gives
-  one its meaning and the bytes read are the same, and exporters write
-  it (Sketchfab's among them); any other stride there is refused.
+  samplers) may give a stride equal to its element size, read as none.
+  This is a deliberate leniency, departing from the specification
+  (which forbids a stride there) and from glTF-Validator (which reports
+  `BUFFER_VIEW_INVALID_BYTE_STRIDE`,
+  `SKIN_IBM_ACCESSOR_WITH_BYTESTRIDE` and
+  `ANIMATION_SAMPLER_ACCESSOR_WITH_BYTESTRIDE` as errors): the
+  specification's read formula gives such a stride its meaning, the
+  bytes read are those no stride reads, the view's length is checked
+  as for no stride, and exporters write it (Sketchfab's among them).
+  Any other stride there is refused.
   Accessors read into binary32 with the specification's conversions
   for normalized integers, sparse replacements applied; indices not
   increasing, NaN and infinite floats refused where read, with the

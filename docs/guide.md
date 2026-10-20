@@ -277,7 +277,14 @@ maniResult solved = maniSolveTwoBone(pose, &skeleton, &reach, &reached);
 `maniSolveAim` turns a bone (or spreads the turn over a chain) to look
 at a goal; `maniSolveCcd` and `maniSolveFabrik` bend longer chains;
 `maniSolveBodyXpbd` and `maniSolveBodySdls` move a whole body toward
-several effectors at once, from a description built once.
+several effectors at once, from a description built once. XPBD is the
+one for every frame: a 22-bone humanoid with hands, feet and head as
+effectors takes about 36 microseconds at 8 iterations, 0.2% of a 60 Hz
+frame on the machine record mani-0031 measures on. SDLS takes every
+effector in one least-squares step (Buss and Kim), at about 1.8
+million instructions an iteration for the same part: 1.2 to 1.4
+milliseconds at 8 iterations, 7 to 8% of the frame. Use it for small
+parts and few iterations, or off the frame.
 
 ## Retargeting and mirroring
 

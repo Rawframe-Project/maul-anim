@@ -449,6 +449,35 @@ static void TestLayoutRefusals(void)
                           "sparse values from a strided view");
         }
     }
+    // Read as none, a stride of the element size leaves the view's checks
+    // as they are: values at 48 fit a view of 52 bytes, not one of 51.
+    for (int length = 51; length <= 52; ++length)
+    {
+        char views[160];
+        snprintf(views, sizeof views,
+                 "{\"buffer\":0,\"byteLength\":64},{\"buffer\":0,\"byteLength\":%d,"
+                 "\"byteStride\":4}",
+                 length);
+        Document(uri, views,
+                 "{\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\",\"sparse\":{\"count\":1,"
+                 "\"indices\":{\"bufferView\":0,\"byteOffset\":44,\"componentType\":5121},"
+                 "\"values\":{\"bufferView\":1,\"byteOffset\":48}}}",
+                 "");
+        if (length == 52)
+        {
+            maniBuilder* b = NewBuilder();
+            maniGltf* g = NULL;
+            CHECK(OpenJson(b, &g).result == mani_success,
+                  "a packed stride's view just long enough");
+            maniCloseGltf(g);
+            maniDestroyBuilder(b);
+        }
+        else
+        {
+            ExpectRefusal(maniImportReasonLayout, "{\"bufferView\":1,\"byteOffset\":48", 0,
+                          "and a byte short");
+        }
+    }
     Document(
         uri, kViews,
         "{\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\",\"sparse\":{\"count\":3,"
