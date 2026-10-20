@@ -7,7 +7,8 @@ tube of quads wrapped around a cylinder with a texture seam, the same
 with holes, a second component and a non-manifold edge (`holes`, and
 larger, `largeholes`; and with positions alone, `bare` and
 `largebare`), a closed sphere of 24 rings and 32 segments (`sphere`),
-thirty discs of 36 triangles around a centre (`fans`), a small one and a
+thirty discs of 36 triangles around a centre (`fans`), the tube with
+joint indices 254 to 257, past a byte (`rig`), a small one and a
 large one: positions, and but for the bare ones normals,
 texture coordinates (not the small one), joints as four unsigned shorts
 and weights as four floats.
@@ -37,6 +38,8 @@ c17a11166b1e9ec3d4c2497530e36cc7dbe21e4b12fbcafc68d84a5b82f6065d  fans-eb-s0-q.d
 73e41bfbd4e75294baa90969d4190af0c5fd1173e52e9051b6b3b4bb30a32197  large-seq-s2-q.drc
 091f489cb243267d6aeac8b95a75a1237d57290b55bf39191fa494d2bbd0bb35  largebare-eb-s0-q.drc
 6edd469fab99e96663637871211c082d2dac065e19920cbb0f8e35b67b1b30f1  largeholes-eb-s2-q.drc
+c3080b6cc39e9871e89d64950493b77c0c0a49a50f7008093fdf77c1b9d8fd4d  rig-eb-s0-q.drc
+c1496f7c7ec93b72e1acee994864ed73d29209d298dc784ca391ec7af1dad39f  rig-seq-s5-raw.drc
 0fda0fb6f3af61d64234167dc8ee0c5993c05894aa956ce9b74eb93850ec526d  small-eb-s10-q.drc
 048bbbb386c1908afdd4c732bc249c89093598ddc088f9f4083b9847f83ce3f9  small-eb-s5-q-multi.drc
 8dee036a3e65f754b7dd403908f5a84c9c3ed1901683e7817fc294c0f3134923  small-eb-s5-q.drc

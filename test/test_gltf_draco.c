@@ -59,6 +59,9 @@ static const Stream kStreams[] = {
     // Positions alone: no attribute data, so merged vertices are removed.
     {"bare-eb-s5-q", 0x2b546de8f78c883full, 91},
     {"largebare-eb-s0-q", 0xcaf6bcf9cfe450e0ull, 631},
+    // Joint indices 254 to 257, past a byte.
+    {"rig-eb-s0-q", 0x15b53b66f34ce8f7ull, 91},
+    {"rig-seq-s5-raw", 0x76c6de63c8255cf5ull, 91},
 };
 
 static uint8_t s_bytes[1u << 16];
