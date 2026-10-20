@@ -9,6 +9,7 @@
 #include "gltf_draco_read.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 static int32_t Signed(uint32_t u)
@@ -140,6 +141,22 @@ void maniDracoTransformApply(const void* transform, const uint32_t* pred, const 
     else
     {
         Octahedron(v, pred, corr, out);
+    }
+}
+
+void maniDracoTransformDifference(const maniDracoTransform* t, uint32_t* values, uint32_t count)
+{
+    static const uint32_t kZeros[16] = {0};
+    size_t n = t->components;
+    for (uint32_t i = 0; t->type == maniDracoWrap && i < count; ++i)
+    {
+        uint32_t* at = values + (size_t)i * n;
+        Wrap(t, i == 0 ? kZeros : at - n, at, at);
+    }
+    for (uint32_t i = 0; t->type != maniDracoWrap && i < count; ++i)
+    {
+        uint32_t* at = values + (size_t)i * n;
+        Octahedron(t, i == 0 ? kZeros : at - n, at, at);
     }
 }
 

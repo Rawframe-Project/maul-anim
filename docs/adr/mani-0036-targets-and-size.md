@@ -97,3 +97,16 @@ mani-0024, about 850 bytes of the node's search at `-O2`, which moved
 Decompressor hidden values kept from its update for its evaluation,
 mani-0025, about 370 bytes at `-O2`, a tenth of a learned frame's
 instructions).
+
+Targets added after 0.1.0, for the importer's decoders, in instructions
+at `-O2` and `-O3` (GCC 14) on the same streams with the same bits: the
+Draco decoder (mani-0021) no more than Google's decoder (d429de8, its
+Release build) on each skinned Khronos sample and each group of Google's
+encoder's fixtures, met at 0.87 to 0.99 at `-O2` and 0.78 to 0.90 at
+`-O3` (a symbol's search started from a coarse table of the precision,
+the dequantization and the difference prediction's loops by kind); the
+meshopt decoder (mani-0008) no more than meshoptimizer's scalar decoder
+(f0a684f1, `MESHOPTIMIZER_NO_SIMD`, at its `-O2`) on each stream kind
+gltfpack writes, not met yet (1.34 to 3.08 of it at `-O2`).
+meshoptimizer's vector decoder is measured with the eight-lane work
+above.

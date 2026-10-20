@@ -22,6 +22,30 @@
 #define IO_BASE 256u
 // The tagged coding's tags: 2^12 precision (Google's 5-bit symbols).
 #define TAG_BITS 12u
+// 2^8 buckets at most, never more than the 2^12 a precision has at least.
+#define MAX_BUCKETS 256u
+
+// rANS over a span of bytes read from its end, at a precision of
+// 2^bits (12 to 20), its symbols' cumulative probabilities from a table.
+typedef struct Rans
+{
+    const uint8_t* bytes;
+    uint32_t offset;
+    uint32_t state;
+    uint32_t base;
+    uint32_t bits;
+    // The symbols of non-zero probability: their values, probabilities
+    // and cumulative probabilities, count of them.
+    const uint32_t* values;
+    const uint32_t* probabilities;
+    const uint32_t* cumulative;
+    uint32_t count;
+    // The precision cut in buckets, as many as the symbols to 256, each
+    // holding the symbol its start falls in, then the last symbol: a
+    // remainder's symbol is between its bucket's and the next's.
+    const uint32_t* buckets;
+    uint32_t bucketShift;
+} Rans;
 
 bool maniDracoU8(maniDracoReader* r, uint8_t* out)
 {
@@ -126,10 +150,41 @@ static bool Entry(maniDracoReader* r, uint32_t* probability, uint32_t* zeros)
     return true;
 }
 
-maniDracoStatus maniDracoRansTable(maniDracoReader* r, maniArena* arena, uint32_t bits,
-                                   maniDracoRans* out)
+// A search's buckets (MAX_BUCKETS at most, about one a symbol) over a
+// table's count symbols of non-zero probability.
+static bool Buckets(maniArena* arena, const uint32_t* cumulative, uint32_t count, Rans* rans)
 {
-    *out = (maniDracoRans){0};
+    uint32_t log = 0;
+    while ((1u << log) < count && (1u << log) < MAX_BUCKETS)
+    {
+        ++log;
+    }
+    uint32_t n = 1u << log;
+    uint32_t* buckets = maniArenaTake(arena, n + 1u, sizeof(uint32_t));
+    if (buckets == NULL)
+    {
+        return false;
+    }
+    rans->bucketShift = rans->bits - log;
+    uint32_t at = 0;
+    for (uint32_t j = 0; j < n; ++j)
+    {
+        while (at + 1u < count && cumulative[at + 1u] <= j << rans->bucketShift)
+        {
+            ++at;
+        }
+        buckets[j] = at;
+    }
+    buckets[n] = count - 1u;
+    rans->buckets = buckets;
+    return true;
+}
+
+// Reads a symbol table (count symbols) for a precision of 2^bits, 12 to
+// 20.
+static maniDracoStatus RansTable(maniDracoReader* r, maniArena* arena, uint32_t bits, Rans* out)
+{
+    *out = (Rans){0};
     out->bits = bits;
     out->base = 4u << bits;
     uint32_t symbols = 0;
@@ -173,6 +228,10 @@ maniDracoStatus maniDracoRansTable(maniDracoReader* r, maniArena* arena, uint32_
     {
         return maniDracoInvalid;
     }
+    if (count > 0 && !Buckets(arena, cumulative, count, out))
+    {
+        return maniDracoCapacity;
+    }
     out->values = values;
     out->probabilities = probabilities;
     out->cumulative = cumulative;
@@ -180,7 +239,8 @@ maniDracoStatus maniDracoRansTable(maniDracoReader* r, maniArena* arena, uint32_
     return maniDracoDone;
 }
 
-bool maniDracoRansStart(maniDracoReader* r, maniDracoRans* rans)
+// Starts reading size bytes, which the reader then skips.
+static bool RansStart(maniDracoReader* r, Rans* rans)
 {
     uint64_t size = 0;
     const uint8_t* bytes = NULL;
@@ -209,7 +269,7 @@ bool maniDracoRansStart(maniDracoReader* r, maniDracoRans* rans)
     return rans->state < rans->base * IO_BASE;
 }
 
-uint32_t maniDracoRansRead(maniDracoRans* rans)
+static uint32_t RansRead(Rans* rans)
 {
     while (rans->state < rans->base && rans->offset > 0)
     {
@@ -217,9 +277,11 @@ uint32_t maniDracoRansRead(maniDracoRans* rans)
     }
     uint32_t quotient = rans->state >> rans->bits;
     uint32_t remainder = rans->state & ((1u << rans->bits) - 1u);
-    // The last symbol whose range starts at or below the remainder.
-    uint32_t lo = 0;
-    uint32_t hi = rans->count;
+    // The last symbol whose range starts at or below the remainder,
+    // between its bucket's first and the next bucket's.
+    uint32_t j = remainder >> rans->bucketShift;
+    uint32_t lo = rans->buckets[j];
+    uint32_t hi = rans->buckets[j + 1u] + 1u;
     while (hi - lo > 1u)
     {
         uint32_t mid = lo + (hi - lo) / 2u;
@@ -235,13 +297,13 @@ uint32_t maniDracoRansRead(maniDracoRans* rans)
 static maniDracoStatus Tagged(maniDracoReader* r, maniArena* arena, uint32_t count,
                               uint32_t components, uint32_t* out)
 {
-    maniDracoRans tags;
-    maniDracoStatus s = maniDracoRansTable(r, arena, TAG_BITS, &tags);
+    Rans tags;
+    maniDracoStatus s = RansTable(r, arena, TAG_BITS, &tags);
     if (s != maniDracoDone)
     {
         return s;
     }
-    if (!maniDracoRansStart(r, &tags) || tags.count == 0 || components == 0)
+    if (!RansStart(r, &tags) || tags.count == 0 || components == 0)
     {
         return maniDracoInvalid;
     }
@@ -249,7 +311,7 @@ static maniDracoStatus Tagged(maniDracoReader* r, maniArena* arena, uint32_t cou
     uint64_t available = (uint64_t)maniDracoLeft(r) * 8u;
     for (uint32_t i = 0; i < count; i += components)
     {
-        uint32_t length = maniDracoRansRead(&tags);
+        uint32_t length = RansRead(&tags);
         if (length > 32u)
         {
             return maniDracoInvalid;
@@ -281,19 +343,19 @@ static maniDracoStatus Raw(maniDracoReader* r, maniArena* arena, uint32_t count,
     }
     uint32_t bits = 3u * length / 2u;
     bits = bits < 12u ? 12u : (bits > 20u ? 20u : bits);
-    maniDracoRans rans;
-    maniDracoStatus s = maniDracoRansTable(r, arena, bits, &rans);
+    Rans rans;
+    maniDracoStatus s = RansTable(r, arena, bits, &rans);
     if (s != maniDracoDone)
     {
         return s;
     }
-    if (rans.count == 0 || !maniDracoRansStart(r, &rans))
+    if (rans.count == 0 || !RansStart(r, &rans))
     {
         return maniDracoInvalid;
     }
     for (uint32_t i = 0; i < count; ++i)
     {
-        out[i] = maniDracoRansRead(&rans);
+        out[i] = RansRead(&rans);
     }
     return maniDracoDone;
 }

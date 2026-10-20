@@ -39,4 +39,9 @@ bool maniDracoTransformRead(maniDracoReader* r, maniDracoTransform* t);
 void maniDracoTransformApply(const void* transform, const uint32_t* pred, const uint32_t* corr,
                              uint32_t* out);
 
+// The difference prediction reverted in place over count values of the
+// transform's components (16 at most): each from the one before, the
+// first from zeros.
+void maniDracoTransformDifference(const maniDracoTransform* t, uint32_t* values, uint32_t count);
+
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_TRANSFORM_H

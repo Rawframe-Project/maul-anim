@@ -423,21 +423,6 @@ static uint32_t Unzigzag(uint32_t v)
     return (v & 1u) != 0 ? ~(v >> 1) : (v >> 1);
 }
 
-// The difference prediction reverted: each value from the previous one,
-// the first from zeros.
-static void Difference(const Value* v, uint32_t count)
-{
-    uint32_t zeros[MANI_DRACO_MAX_COMPONENTS] = {0};
-    uint32_t n = v->pcomps;
-    uint32_t corr[MANI_DRACO_MAX_COMPONENTS];
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        memcpy(corr, v->portable + (size_t)i * n, n * sizeof(uint32_t));
-        maniDracoTransformApply(&v->xf, i == 0 ? zeros : v->portable + (size_t)(i - 1) * n, corr,
-                                v->portable + (size_t)i * n);
-    }
-}
-
 // The integer values: symbols, or raw of 0 to 4 bytes each.
 static maniDracoStatus Integers(Decoder* d, Value* v, uint32_t count)
 {
@@ -542,7 +527,7 @@ static maniDracoStatus Revert(Decoder* d, Value* v, const Group* g, uint32_t ent
     }
     if (!mesh)
     {
-        Difference(v, entries);
+        maniDracoTransformDifference(&v->xf, v->portable, entries);
         return maniDracoDone;
     }
     p.octahedronMax = v->xf.octahedronMax;
@@ -665,19 +650,36 @@ static void Original(Value* v, uint32_t entries)
         }
         return;
     }
-    float delta = v->range / (float)(int32_t)((1u << v->bits) - 1u);
-    for (size_t k = 0; k < (size_t)entries * a->components; ++k)
+    size_t n = a->components;
+    if (v->decoder == DecoderQuantization)
     {
-        uint32_t x = v->portable[k];
-        if (v->decoder == DecoderQuantization)
+        float delta = v->range / (float)(int32_t)((1u << v->bits) - 1u);
+        for (size_t i = 0; i < entries; ++i)
         {
-            StoreFloat(a->values + k * 4u,
-                       (float)Signed(x) * delta + v->minimum[k % a->components]);
-            continue;
+            for (size_t c = 0; c < n; ++c)
+            {
+                size_t k = i * n + c;
+                StoreFloat(a->values + k * 4u,
+                           (float)Signed(v->portable[k]) * delta + v->minimum[c]);
+            }
         }
-        for (uint32_t b = 0; b < size; ++b)
+        return;
+    }
+    for (size_t k = 0; k < (size_t)entries * n; ++k)
+    {
+        // 1, 2 or 4 bytes: integers of 32 bits at most (Takes).
+        uint32_t x = v->portable[k];
+        switch (size)
         {
-            a->values[k * size + b] = (uint8_t)(x >> (8u * b));
+        case 1:
+            a->values[k] = (uint8_t)x;
+            break;
+        case 2:
+            maniStoreU16(a->values + k * 2u, (uint16_t)x);
+            break;
+        default:
+            maniStoreU32(a->values + k * 4u, x);
+            break;
         }
     }
 }

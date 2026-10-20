@@ -50,30 +50,6 @@ static inline size_t maniDracoLeft(const maniDracoReader* r)
 maniDracoStatus maniDracoSymbols(maniDracoReader* r, maniArena* arena, uint32_t count,
                                  uint32_t components, uint32_t* out);
 
-// rANS over a span of bytes read from its end, at a precision of
-// 2^bits (12 to 20), its symbols' cumulative probabilities from a table.
-typedef struct maniDracoRans
-{
-    const uint8_t* bytes;
-    uint32_t offset;
-    uint32_t state;
-    uint32_t base;
-    uint32_t bits;
-    // The symbols of non-zero probability: their values, probabilities
-    // and cumulative probabilities, count of them.
-    const uint32_t* values;
-    const uint32_t* probabilities;
-    const uint32_t* cumulative;
-    uint32_t count;
-} maniDracoRans;
-
-// Reads a symbol table (count symbols) for a precision of 2^bits.
-maniDracoStatus maniDracoRansTable(maniDracoReader* r, maniArena* arena, uint32_t bits,
-                                   maniDracoRans* out);
-// Starts reading size bytes, which the reader then skips.
-bool maniDracoRansStart(maniDracoReader* r, maniDracoRans* rans);
-uint32_t maniDracoRansRead(maniDracoRans* rans);
-
 // Bits read least significant first from a span of bytes; reading past
 // the span is invalid.
 typedef struct maniDracoBits
