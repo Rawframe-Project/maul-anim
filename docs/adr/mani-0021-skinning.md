@@ -49,7 +49,9 @@ deltas applied before skinning, weighted by animated values.
   summing to 255 or 65535), float sums renormalized; glTF's morph
   targets over every attribute it morphs, channels named by
   `extras.targetNames` or the target's index so they meet the clips'
-  weight tracks. FBX's clusters' `Indexes` and `Weights` per control
+  weight tracks, a Draco-compressed primitive's too (Draco never holds
+  targets, which follow its decoded vertex order); a Draco primitive's
+  influences are refused until the importer decodes Draco. FBX's clusters' `Indexes` and `Weights` per control
   point, as ufbx reads them (an index past the control points skipped,
   a vertex repeated in one cluster summed, a negative weight refused,
   weights renormalized as every source's are), `SkinningType` as the

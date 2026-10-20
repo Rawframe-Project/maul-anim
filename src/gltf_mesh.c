@@ -759,14 +759,12 @@ static maniImportResult Channels(Morph* m, uint32_t mesh, const maniMorphTargetS
     return maniImportSuccess();
 }
 
+// A Draco primitive's targets are plain accessors in its decoded vertex
+// order, read as any other (mani-0021).
 static maniImportResult BuildMorph(maniBuilder* builder, Morph* m, uint32_t mesh)
 {
-    maniImportResult r = NotDraco(m->gltf, m->primitive);
-    if (r.result == mani_success)
-    {
-        r = maniGltfMember(&m->gltf->g, m->primitive, "attributes", maniJsonObject, true, 0,
-                           &m->attributes);
-    }
+    maniImportResult r = maniGltfMember(&m->gltf->g, m->primitive, "attributes", maniJsonObject,
+                                        true, 0, &m->attributes);
     if (r.result == mani_success)
     {
         r = VertexCount(m->gltf, m->attributes, &m->vertices);

@@ -438,6 +438,27 @@ static void ExpectMorph(maniImportReason reason, const char* what)
     maniDestroyBuilder(builder);
 }
 
+// A Draco primitive's targets are never compressed: its morph file is
+// the plain primitive's, byte for byte.
+static void TestDracoMorph(void)
+{
+    static uint8_t plain[sizeof s_file];
+    FillBuffer();
+    s_targets = kTargets;
+    maniBuilder* builder = NewBuilder();
+    maniGltfOptions options = maniDefaultGltfOptions();
+    maniMorphTargets m;
+    Document(kNames, "", kAttributes);
+    CHECK(ImportMorph(builder, &options, &m).result == mani_success, "the plain primitive");
+    size_t size = s_size;
+    memcpy(plain, s_file, size);
+    Document(kNames, "\"extensions\":{\"KHR_draco_mesh_compression\":{}},", kAttributes);
+    CHECK(ImportMorph(builder, &options, &m).result == mani_success && s_size == size &&
+              memcmp(plain, s_file, size) == 0,
+          "a Draco primitive's targets, the same file");
+    maniDestroyBuilder(builder);
+}
+
 static void TestMorphRefusals(void)
 {
     FillBuffer();
@@ -450,9 +471,6 @@ static void TestMorphRefusals(void)
     Document(kNames, "", kAttributes);
     ExpectMorph(maniImportReasonProperty, "a position delta of VEC4");
     s_targets = kTargets;
-    FillBuffer();
-    Document(kNames, "\"extensions\":{\"KHR_draco_mesh_compression\":{}},", kAttributes);
-    ExpectMorph(maniImportReasonExtension, "Draco");
     FillBuffer();
     float nan = NAN;
     memcpy(s_buffer + 144 + 4, &nan, 4);
@@ -551,6 +569,7 @@ int main(void)
     TestInfluenceRefusals();
     TestMorphTargets();
     TestMorphRefusals();
+    TestDracoMorph();
     TestFixtures();
     return s_failures == 0 ? 0 : 1;
 }

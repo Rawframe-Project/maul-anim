@@ -578,7 +578,8 @@ extern "C"
     /// positions, normals, tangents, texture coordinate and color sets
     /// read (other semantics left), positions, normals and tangents in
     /// the output's basis, VEC3 colors with alpha 0; a target keeps the
-    /// vertices it moves.
+    /// vertices it moves. A primitive `KHR_draco_mesh_compression`
+    /// compresses is read the same way: Draco never holds its targets.
     ///
     /// @param builder    The builder.
     /// @param gltf       The document.
@@ -589,8 +590,8 @@ extern "C"
     /// mesh or primitive past its count, a primitive without targets or
     /// options out of range; `mani_errorFormat` with a reason: Property
     /// (a semantic the primitive lacks, an accessor of the wrong type or
-    /// count, more than 32 attributes), Index, Extension (Draco), Data,
-    /// Pending, Build; `mani_errorCapacity` when the allocator fails.
+    /// count, more than 32 attributes), Index, Data, Pending, Build;
+    /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult

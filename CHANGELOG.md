@@ -10,6 +10,9 @@ format.
 
 ### Added
 
+- Morph targets of a glTF primitive that `KHR_draco_mesh_compression`
+  compresses import (Draco never holds targets); its influences are
+  still refused.
 - glTF files whose buffer views `EXT_meshopt_compression` or
   `KHR_meshopt_compression` compress, as gltfpack writes them, import:
   every mode and filter of both extensions decoded by the library's own
