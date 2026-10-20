@@ -10,6 +10,7 @@
 #include "fbx_value.h"
 
 #include "allocator.h"
+#include "bytes.h"
 #include "fbx_ascii.h"
 #include "fbx_binary.h"
 #include "fbx_document.h"
@@ -589,6 +590,61 @@ static maniImportResult Store(const maniFbx* fbx, const maniFbxProperty* p, cons
     return maniFbxSuccess();
 }
 
+// Every element of a little-endian array at once, a loop a type: false
+// for a type it does not take, or a value not finite (left for Store to
+// find and refuse at its place).
+static bool StoreAll(const maniFbxProperty* p, const Elements* e, Want want, void* out)
+{
+    const uint8_t* b = e->bytes;
+    size_t n = p->count;
+    if (want == WantBits && (p->type == 'f' || p->type == 'i'))
+    {
+        uint32_t* o = out;
+        for (size_t i = 0; i < n; ++i)
+        {
+            o[i] = maniLoadU32(b + 4 * i);
+        }
+        return true;
+    }
+    if (want == WantIntegers && p->type == 'l')
+    {
+        int64_t* o = out;
+        for (size_t i = 0; i < n; ++i)
+        {
+            o[i] = (int64_t)maniLoadU64(b + 8 * i);
+        }
+        return true;
+    }
+    if (want == WantIntegers && p->type == 'i')
+    {
+        int64_t* o = out;
+        for (size_t i = 0; i < n; ++i)
+        {
+            o[i] = (int32_t)maniLoadU32(b + 4 * i);
+        }
+        return true;
+    }
+    if (want == WantDoubles && (p->type == 'd' || p->type == 'f'))
+    {
+        double* o = out;
+        for (size_t i = 0; p->type == 'd' && i < n; ++i)
+        {
+            o[i] = AsDouble(maniLoadU64(b + 8 * i));
+        }
+        for (size_t i = 0; p->type == 'f' && i < n; ++i)
+        {
+            o[i] = (double)AsFloat(maniLoadU32(b + 4 * i));
+        }
+        bool finite = true;
+        for (size_t i = 0; i < n; ++i)
+        {
+            finite &= Finite(o[i]);
+        }
+        return finite;
+    }
+    return false;
+}
+
 // A text number as binary32 bits: from 7.2 on, the bits written as an
 // integer (FBX's KeyAttrDataFloat packs integers into floats); before,
 // a float's value.
@@ -649,6 +705,11 @@ static maniImportResult Read(const maniFbx* fbx, uint32_t property, Want want, v
     }
     Elements e;
     maniImportResult r = Decode(fbx, p, &e);
+    if (r.result == mani_success && !fbx->bigEndian && StoreAll(p, &e, want, out))
+    {
+        maniRelease(&fbx->allocator, e.owned, e.size + 1, 1, 8);
+        return maniFbxSuccess();
+    }
     for (size_t i = 0; r.result == mani_success && i < p->count; ++i)
     {
         r = Store(fbx, p, &e, i, want, out);

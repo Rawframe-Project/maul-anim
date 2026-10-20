@@ -762,17 +762,14 @@ size_t maniFbxChannelName(const maniFbx* fbx, const maniFbxChannel* channel, uin
     return maniFbxStringDecode(fbx, channel->name, out, capacity);
 }
 
-// A property's value through the channels of one side: the model's own
-// or (6.x) its attribute's.
-static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
-                    const char* name, size_t length, double time, uint32_t order, bool attribute,
-                    double value[3])
+// A property's value through a run of channels of one side: the model's
+// own or (6.x) its attribute's.
+static bool AnimateRun(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
+                       uint32_t count, const char* name, size_t length, uint64_t hash, double time,
+                       uint32_t order, bool attribute, double value[3])
 {
-    uint32_t first = 0;
-    uint32_t count = maniFbxAnimatedRun(animation, object, &first);
     bool scale = length == 11 && memcmp(name, "Lcl Scaling", 11) == 0;
     bool rotation = length == 12 && memcmp(name, "Lcl Rotation", 12) == 0;
-    uint64_t hash = maniFbxNameHash(name, length);
     bool animated = false;
     // The run is in layer order: one pass applies each layer's channel.
     for (uint32_t i = first; i < first + count; ++i)
@@ -797,6 +794,23 @@ static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint3
         animated = true;
     }
     return animated;
+}
+
+static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
+                    const char* name, size_t length, double time, uint32_t order, bool attribute,
+                    double value[3])
+{
+    uint32_t first = 0;
+    uint32_t count = maniFbxAnimatedRun(animation, object, &first);
+    return AnimateRun(animation, fbx, first, count, name, length, maniFbxNameHash(name, length),
+                      time, order, attribute, value);
+}
+
+bool maniFbxAnimateInRun(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
+                         uint32_t count, const char* name, size_t length, uint64_t hash,
+                         double time, uint32_t order, double value[3])
+{
+    return AnimateRun(animation, fbx, first, count, name, length, hash, time, order, false, value);
 }
 
 bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,

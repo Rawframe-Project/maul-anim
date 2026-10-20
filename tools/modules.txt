@@ -201,7 +201,7 @@ fbx_legacy: allocator fbx_document fbx_object fbx_take fbx_value
 fbx_blend: allocator fbx_document fbx_model fbx_object fbx_value sort
 fbx_anim: allocator fbx_curve fbx_document fbx_object fbx_transform fbx_value quat64 scalar sort
 fbx_options: basis builder fbx_document
-fbx_sample: allocator fbx_anim fbx_document fbx_model fbx_transform fbx_world
+fbx_sample: allocator fbx_anim fbx_document fbx_model fbx_transform fbx_value fbx_world
 fbx_clip: arena basis builder clip_build clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_take fbx_tracks fbx_transform fbx_value fbx_world
 fbx_clip_state: arena basis fbx_anim fbx_document fbx_sample fbx_world
 fbx_skeleton: allocator basis builder decompose fbx_document fbx_helpers fbx_model fbx_options fbx_transform fbx_units fbx_world
@@ -213,7 +213,7 @@ fbx_skin: allocator basis builder fbx_document fbx_model fbx_object fbx_options 
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
 fbx_document: hierarchy names
-fbx_value: allocator fbx_ascii fbx_binary fbx_document inflate
+fbx_value: allocator bytes fbx_ascii fbx_binary fbx_document inflate
 gltf_spring: arena gltf_basis gltf_document gltf_names gltf_property json spring_frame vecmath
 gltf_ragdoll: arena decompose gltf_basis gltf_document gltf_names gltf_property gltf_rest json vecmath
 gltf_ragdoll_joint: arena gltf_document gltf_property gltf_ragdoll json vecmath

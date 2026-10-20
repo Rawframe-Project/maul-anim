@@ -21,11 +21,15 @@ typedef struct maniFbxSampler
 {
     const maniFbx* fbx;
     const maniFbxAnimation* animation;
-    // The needed models, parents first, and their inputs at rest.
+    // The needed models, parents first, and their inputs at rest; each
+    // one's run of channels (its first and count); the inputs' names'
+    // hashes, vectors then integers.
     uint32_t* order;
     maniFbxLocalInputs* rest;
+    uint32_t* runs;
     uint32_t count;
     uint32_t reserved;
+    uint64_t hashes[maniFbxLocalVectors + maniFbxLocalIntegers];
 } maniFbxSampler;
 
 // Prepares to sample the models marked in needed (a byte per model; a

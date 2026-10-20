@@ -14,6 +14,7 @@
 #include "fbx_document.h"
 #include "fbx_model.h"
 #include "fbx_transform.h"
+#include "fbx_value.h"
 #include "fbx_world.h"
 
 #include <math.h>
@@ -32,6 +33,7 @@ void maniFbxReleaseSampler(maniFbxSampler* sampler)
     {
         maniRelease(&fbx->allocator, sampler->order, n, sizeof(uint32_t), 4);
         maniRelease(&fbx->allocator, sampler->rest, n, sizeof(maniFbxLocalInputs), 8);
+        maniRelease(&fbx->allocator, sampler->runs, 2 * n, sizeof(uint32_t), 4);
     }
     memset(sampler, 0, sizeof *sampler);
 }
@@ -45,9 +47,22 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
     size_t n = (size_t)fbx->modelCount + 1;
     out->order = maniAllocate(&fbx->allocator, n, sizeof(uint32_t), 4);
     out->rest = maniAllocate(&fbx->allocator, n, sizeof(maniFbxLocalInputs), 8);
+    out->runs = maniAllocate(&fbx->allocator, 2 * n, sizeof(uint32_t), 4);
     uint32_t* stack = maniAllocate(&fbx->allocator, n, sizeof(uint32_t), 4);
     maniImportResult r =
-        out->order != NULL && out->rest != NULL && stack != NULL ? maniFbxSuccess() : Capacity();
+        out->order != NULL && out->rest != NULL && out->runs != NULL && stack != NULL
+            ? maniFbxSuccess()
+            : Capacity();
+    for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
+    {
+        const char* name = maniFbxLocalVectorNames[k];
+        out->hashes[k] = maniFbxNameHash(name, strlen(name));
+    }
+    for (uint32_t k = 0; k < maniFbxLocalIntegers; ++k)
+    {
+        const char* name = maniFbxLocalIntegerNames[k];
+        out->hashes[maniFbxLocalVectors + k] = maniFbxNameHash(name, strlen(name));
+    }
     // Each model is pushed once, by its parent, from the root (the
     // hierarchy is a forest, mani-0014).
     uint32_t height = 0;
@@ -62,6 +77,8 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
         {
             out->order[out->count] = v;
             r = maniFbxReadLocalInputs(fbx, fbx->models[v], &out->rest[out->count]);
+            uint32_t* run = &out->runs[2 * out->count];
+            run[1] = maniFbxAnimatedRun(animation, fbx->models[v], &run[0]);
             ++out->count;
         }
         const uint32_t* children = NULL;
@@ -82,14 +99,23 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
     return r;
 }
 
-// A model's inputs at a time; false for an animated integer out of range.
-static bool Animate(const maniFbxSampler* s, uint32_t object, double time, maniFbxLocalInputs* in)
+// Model i's inputs at a time, through its run of channels; false for an
+// animated integer out of range. A model without channels keeps its
+// inputs at rest.
+static bool Animate(const maniFbxSampler* s, uint32_t i, double time, maniFbxLocalInputs* in)
 {
+    uint32_t first = s->runs[2 * i];
+    uint32_t count = s->runs[2 * i + 1];
+    if (count == 0)
+    {
+        return true;
+    }
     for (uint32_t k = 0; k < maniFbxLocalIntegers; ++k)
     {
         double v[3] = {(double)in->integers[k], 0.0, 0.0};
         const char* name = maniFbxLocalIntegerNames[k];
-        if (!maniFbxAnimateProperty(s->animation, s->fbx, object, name, strlen(name), time, 0, v))
+        if (!maniFbxAnimateInRun(s->animation, s->fbx, first, count, name, strlen(name),
+                                 s->hashes[maniFbxLocalVectors + k], time, 0, v))
         {
             continue;
         }
@@ -106,8 +132,8 @@ static bool Animate(const maniFbxSampler* s, uint32_t object, double time, maniF
     for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
     {
         const char* name = maniFbxLocalVectorNames[k];
-        (void)maniFbxAnimateProperty(s->animation, s->fbx, object, name, strlen(name), time,
-                                     compose, in->vectors[k]);
+        (void)maniFbxAnimateInRun(s->animation, s->fbx, first, count, name, strlen(name),
+                                  s->hashes[k], time, compose, in->vectors[k]);
     }
     return true;
 }
@@ -121,7 +147,7 @@ maniImportResult maniFbxSampleWorlds(const maniFbxSampler* sampler, double time,
         uint32_t v = sampler->order[i];
         uint32_t object = fbx->models[v];
         maniFbxLocalInputs in = sampler->rest[i];
-        if (!Animate(sampler, object, time, &in))
+        if (!Animate(sampler, i, time, &in))
         {
             return maniFbxFail(maniImportReasonProperty,
                                fbx->nodes[fbx->objects[object].node].nameOffset, v);
