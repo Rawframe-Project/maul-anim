@@ -10,6 +10,10 @@ format.
 
 ### Added
 
+- The guide's budget allocator, for hosts importing files they do not
+  trust where the system overcommits memory: a small file's viewless
+  accessors can ask for gigabytes, which `malloc` may grant and the
+  first write then fails to get.
 - glTF primitives that `KHR_draco_mesh_compression` compresses import:
   their morph targets (Draco never holds targets) and their influences,
   decoded from the Draco stream by the library's own decoder (bitstream

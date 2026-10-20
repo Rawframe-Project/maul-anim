@@ -86,6 +86,12 @@ jobs:
           set -o pipefail
           ctest --test-dir build --output-on-failure --timeout 300 2>&1 | tee ctest.log
           if grep -q "(Skipped)" ctest.log; then echo "::error::a test was skipped"; exit 1; fi
+      - name: An import past a memory limit
+        # Linux overcommits: with its address space limited, malloc must
+        # refuse a small file's gigabytes and the import fail with
+        # Capacity (the sanitizers reserve too much to run under a limit).
+        if: matrix.name == 'linux-gcc-14'
+        run: (ulimit -v 4194304 && build/test_guide_import --default-huge)
       - name: Package
         if: matrix.name == 'linux-shared'
         run: cmake --install build --prefix "$PWD/package"

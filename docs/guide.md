@@ -391,6 +391,54 @@ does not trust sets its ceiling in the builder's allocator, which is
 asked for every block with its size: a block it refuses fails the call
 with `mani_errorCapacity`, nothing kept.
 
+The C library's allocator is no ceiling on every system. Linux
+overcommits memory by default: `malloc` can succeed for a block larger
+than the machine holds, and the process is killed when the block is
+first written rather than the call refused. An accessor without a view
+(zeros, as Draco's primitives' are) costs its declared count however
+small the file: each is held to 16,777,216 elements, but one primitive
+may name many, so a file of two kilobytes can ask for gigabytes. Give
+such a host's builder an allocator with a budget:
+
+```c
+typedef struct Budget
+{
+    size_t used;
+    size_t limit;
+} Budget;
+
+static void* BudgetAlloc(size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    if (alignment > alignof(max_align_t) || size > budget->limit - budget->used)
+    {
+        return NULL;
+    }
+    void* memory = malloc(size);
+    budget->used += memory != NULL ? size : 0;
+    return memory;
+}
+
+static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    if (memory != NULL)
+    {
+        budget->used -= size;
+        free(memory);
+    }
+}
+```
+
+```c
+Budget budget = {0, (size_t)256 << 20};   // 256 MiB for one file's import
+maniBuilderDef guarded = maniDefaultBuilderDef();
+guarded.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
+maniBuilder* careful = NULL;
+maniResult created = maniCreateBuilder(&guarded, &careful);
+```
+
 A full-precision clip compresses within an error you choose, measured on
 a shell of points around each bone:
 

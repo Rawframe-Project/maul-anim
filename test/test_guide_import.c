@@ -3,9 +3,14 @@
 //
 // The guide's import and compression snippets (docs/guide.md, "Getting
 // data in"), as written there, over Khronos' SimpleSkin: its skeleton
-// and its animation imported, the clip compressed. MSVC's CRT deprecates
-// fopen, which reading the sample uses: CMake defines
-// _CRT_SECURE_NO_WARNINGS for the fixture tests.
+// and its animation imported, the clip compressed; and its budget
+// allocator, under which a file of under 2 KB asking for 8.6 GB of
+// viewless morph arrays is refused with Capacity, nothing kept. Run as test_guide_import
+// --default-huge it opens that file with the C library's allocator
+// alone, for CI to run under a memory limit (ulimit -v), where malloc
+// must refuse it too. MSVC's CRT deprecates fopen, which reading the
+// sample uses: CMake defines _CRT_SECURE_NO_WARNINGS for the fixture
+// tests.
 
 #include "test_harness.h"
 
@@ -15,10 +20,12 @@
 #include "maul-anim/import.h"
 #include "maul-anim/skeleton.h"
 
+#include <stdalign.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static _Alignas(16) uint8_t s_skeletonFile[1 << 14];
 static _Alignas(16) uint8_t s_clipFile[1 << 16];
@@ -43,8 +50,111 @@ static uint8_t* ReadFile(const char* name, size_t* sizeOut)
     return bytes;
 }
 
-int main(void)
+// clang-format off
+typedef struct Budget
 {
+    size_t used;
+    size_t limit;
+} Budget;
+
+static void* BudgetAlloc(size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    if (alignment > alignof(max_align_t) || size > budget->limit - budget->used)
+    {
+        return NULL;
+    }
+    void* memory = malloc(size);
+    budget->used += memory != NULL ? size : 0;
+    return memory;
+}
+
+static void BudgetFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    Budget* budget = context;
+    (void)alignment;
+    if (memory != NULL)
+    {
+        budget->used -= size;
+        free(memory);
+    }
+}
+// clang-format on
+
+// A primitive of 2^24 vertices without views (the most an accessor
+// without a view may hold) morphing 32 attributes, POSITION, NORMAL, 14
+// texture coordinates and 16 colors: a full array of 268 MB each, 8.6
+// GB live at once, asked for by under 2 KB.
+static char s_huge[4096];
+
+static size_t Huge(void)
+{
+    char attributes[2048];
+    size_t n = (size_t)snprintf(attributes, sizeof attributes, "\"POSITION\":0,\"NORMAL\":0");
+    for (int k = 0; k < 14; ++k)
+    {
+        n += (size_t)snprintf(attributes + n, sizeof attributes - n, ",\"TEXCOORD_%d\":1", k);
+    }
+    for (int k = 0; k < 16; ++k)
+    {
+        n += (size_t)snprintf(attributes + n, sizeof attributes - n, ",\"COLOR_%d\":2", k);
+    }
+    return (size_t)snprintf(
+        s_huge, sizeof s_huge,
+        "{\"asset\":{\"version\":\"2.0\"},\"accessors\":["
+        "{\"componentType\":5126,\"type\":\"VEC3\",\"count\":16777216},"
+        "{\"componentType\":5126,\"type\":\"VEC2\",\"count\":16777216},"
+        "{\"componentType\":5126,\"type\":\"VEC4\",\"count\":16777216}],"
+        "\"meshes\":[{\"primitives\":[{\"attributes\":{%s},\"targets\":[{%s}]}]}]}",
+        attributes, attributes);
+}
+
+// The huge file's morph targets built by a builder of def.
+static maniResult BuildHuge(const maniBuilderDef* def)
+{
+    maniBuilder* builder = NULL;
+    if (maniCreateBuilder(def, &builder) != mani_success)
+    {
+        return mani_errorCapacity;
+    }
+    maniGltf* gltf = NULL;
+    size_t size = Huge();
+    maniImportResult r = maniOpenGltf(builder, s_huge, size, &gltf);
+    maniGltfOptions options = maniDefaultGltfOptions();
+    if (r.result == mani_success)
+    {
+        r = maniGltfBuildMorphTargets(builder, gltf, 0, 0, &options);
+        maniCloseGltf(gltf);
+    }
+    maniDestroyBuilder(builder);
+    return r.result;
+}
+
+static void TestBudget(void)
+{
+    // clang-format off
+    Budget budget = {0, (size_t)256 << 20};   // 256 MiB for one file's import
+    maniBuilderDef guarded = maniDefaultBuilderDef();
+    guarded.allocator = (maniAllocator){BudgetAlloc, BudgetFree, &budget};
+    maniBuilder* careful = NULL;
+    maniResult created = maniCreateBuilder(&guarded, &careful);
+    // clang-format on
+    CHECK(created == mani_success, "a builder with a budget");
+    maniDestroyBuilder(careful);
+    CHECK(BuildHuge(&guarded) == mani_errorCapacity && budget.used == 0,
+          "a huge viewless count refused within the budget, nothing kept");
+}
+
+int main(int argc, char** argv)
+{
+    if (argc >= 2 && strcmp(argv[1], "--default-huge") == 0)
+    {
+        maniBuilderDef def = maniDefaultBuilderDef();
+        maniResult r = BuildHuge(&def);
+        printf("default allocator: %s\n", r == mani_errorCapacity ? "capacity" : "other");
+        return r == mani_errorCapacity ? 0 : 1;
+    }
+    TestBudget();
     size_t size = 0;
     uint8_t* bytes = ReadFile("SimpleSkinEmbedded.gltf", &size);
     CHECK(bytes != NULL, "SimpleSkin read");
