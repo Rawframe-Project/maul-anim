@@ -305,6 +305,7 @@ static void TestAttributeCount(void)
 typedef struct Capped
 {
     size_t largest;
+    size_t total;
     size_t outstanding;
 } Capped;
 
@@ -313,6 +314,7 @@ static void* CappedAlloc(size_t size, size_t alignment, void* context)
     Capped* c = context;
     (void)alignment;
     c->largest = size > c->largest ? size : c->largest;
+    c->total += size;
     void* p = size <= (1u << 20) ? malloc(size) : NULL;
     c->outstanding += p != NULL ? 1u : 0u;
     return p;
@@ -392,6 +394,17 @@ static void TestClaimedCounts(void)
           "split events past the bytes");
     CHECK(DecodeCapped(kSplitPastEnd, sizeof kSplitPastEnd, 1000, 1000, &c) == maniDracoInvalid,
           "a split source past the symbols");
+    // 300 vertices, 20,000 faces, 15,000 symbols, then a split event
+    // count and no bytes for them: 20,000 events take no more than one.
+    uint8_t events[] = {'D',  'R',  'A',  'C',  'O',  2, 2,    1,    1, 0,    0,    0,
+                        0xAC, 0x02, 0xA0, 0x9C, 0x01, 0, 0x98, 0x75, 0, 0xA0, 0x9C, 0x01};
+    Capped one;
+    CHECK(DecodeCapped(events, sizeof events, 1000, ANY_FACES, &c) == maniDracoInvalid,
+          "20,000 split events in no bytes");
+    events[sizeof events - 3] = 1;
+    CHECK(DecodeCapped(events, sizeof events - 2, 1000, ANY_FACES, &one) == maniDracoInvalid &&
+              c.total == one.total,
+          "refused before anything is taken for them");
     memset(s_copy, 0, 60016u);
     memcpy(s_copy, kClaimSequential, sizeof kClaimSequential);
     CHECK(DecodeCapped(s_copy, 60016u, 10, 19999, &c) == maniDracoInvalid &&
