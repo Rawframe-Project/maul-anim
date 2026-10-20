@@ -44,6 +44,12 @@ format.
   copy of every vertex for each target, channels kept from the open; a
   host's open and reads cost less than cgltf's open and unpack on the
   files measured, morph targets excepted (glTF's finite rule checked).
+- Reading an opened FBX file's skeletons, skins and clips takes a fifth
+  to nearly half fewer instructions on the files measured, with the same
+  files built and the same refusals: the helper check samples a stack
+  only for the children a scale not uniform could shear, binary arrays
+  read in one loop a type, and the sampler finds each model's channels
+  once.
 - JSON numbers (glTF, the graph, maps and the other JSON forms) and FBX
   ASCII numbers convert by Eisel and Lemire's method first, the exact
   multiprecision method kept for what it leaves open: the same bits,

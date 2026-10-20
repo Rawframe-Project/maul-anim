@@ -897,6 +897,75 @@ static void TestRefusedHelper(void)
     CHECK(!HelperFrom("2,2,2", "9,9,9"), "none from a stack refused at Arm, after Spine");
 }
 
+// A three-model chain (Top, Spine, and Arm inheriting Rrs) and one stack whose curve node
+// gives a model's property the values given, with one curve on a
+// component when one is named: whether Spine gets a helper.
+static bool HelperIn(const char* top, const char* spine, int arm, int model, const char* property,
+                     const char* values, const char* component, const char* keys)
+{
+    char curve[512] = "";
+    char link[128] = "";
+    if (component[0] != '\0')
+    {
+        snprintf(curve, sizeof curve,
+                 " AnimationCurve: 211, \"AnimCurve::\", \"\" {\n  KeyTime: *2 {\n   a: "
+                 "0,46186158000\n  }\n  KeyValueFloat: *2 {\n   a: %s\n  }\n  KeyAttrFlags: *1 {\n"
+                 "   a: 4\n  }\n  KeyAttrDataFloat: *4 {\n   a: 0,0,0,0\n  }\n  KeyAttrRefCount: "
+                 "*1 {\n   a: 2\n  }\n }\n",
+                 keys);
+        snprintf(link, sizeof link, " C: \"OP\",211,210, \"d|%s\"\n", component);
+    }
+    double x = 0;
+    double y = 0;
+    double z = 0;
+    CHECK(sscanf(values, "%lf,%lf,%lf", &x, &y, &z) == 3, "helper scene values");
+    char text[4096];
+    snprintf(
+        text, sizeof text,
+        "; FBX 7.4.0 project file\nObjects: {\n"
+        " Model: 1, \"Model::Top\", \"Null\" {\n  Properties70: {\n%s  }\n }\n"
+        " Model: 2, \"Model::Spine\", \"LimbNode\" {\n  Properties70: {\n%s  }\n }\n"
+        " Model: 3, \"Model::Arm\", \"LimbNode\" {\n  Properties70: {\n   P: \"InheritType\", "
+        "\"enum\", \"\", \"\",2\n   P: \"Lcl Rotation\", \"Lcl Rotation\", \"\", \"A\",0,0,%d\n"
+        "  }\n }\n"
+        " AnimationStack: 200, \"AnimStack::Move\", \"\" {\n  Properties70: {\n   P: "
+        "\"LocalStart\", \"KTime\", \"\", \"A\",0\n   P: \"LocalStop\", \"KTime\", \"\", "
+        "\"A\",46186158000\n  }\n }\n"
+        " AnimationLayer: 201, \"AnimLayer::Base\", \"\" {\n }\n"
+        " AnimationCurveNode: 210, \"AnimCurveNode::N\", \"\" {\n  Properties70: {\n   P: "
+        "\"d|X\", \"Number\", \"\", \"A\",%g\n   P: \"d|Y\", \"Number\", \"\", \"A\",%g\n   P: "
+        "\"d|Z\", \"Number\", \"\", \"A\",%g\n  }\n }\n%s"
+        "}\nConnections: {\n C: \"OO\",1,0\n C: \"OO\",2,1\n C: \"OO\",3,2\n C: "
+        "\"OO\",201,200\n C: \"OO\",210,201\n C: \"OP\",210,%d, \"%s\"\n%s}\n",
+        top, spine, arm, x, y, z, curve, model, property, link);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = Open(builder, text);
+    maniFbxOptions options = maniDefaultFbxOptions();
+    maniSkeleton skeleton;
+    bool helper = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+                  maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14) != MANI_NO_BONE;
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    return helper;
+}
+
+// The scales that may shear Arm under Spine in a stack, each found: a
+// static one not uniform, a curve on one component, and a rest one
+// sheared by an animated rotation below it. Uniform ones never shear.
+static void TestHelperScales(void)
+{
+    static const char kScaled[] = "   P: \"Lcl Scaling\", \"Lcl Scaling\", \"\", \"A\",1,2,1\n";
+    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", "1,2,1", "", ""),
+          "a static scale not uniform in a stack: a helper");
+    CHECK(!HelperIn("", "", 45, 2, "Lcl Scaling", "2,2,2", "", ""), "a static uniform scale: none");
+    CHECK(HelperIn("", "", 45, 2, "Lcl Scaling", "1,1,1", "Y", "1,2"),
+          "a scale curve on one component: a helper");
+    CHECK(HelperIn("", kScaled, 0, 3, "Lcl Rotation", "0,0,0", "Z", "0,45"),
+          "a rest scale sheared by an animated rotation: a helper");
+    CHECK(!HelperIn("", kScaled, 0, 3, "Lcl Rotation", "0,0,0", "", ""),
+          "the same rotation still: none");
+}
+
 static void TestAnimatedHelper(void)
 {
     maniBuilder* builder = NewBuilder();
@@ -1035,6 +1104,7 @@ int main(void)
     CheckWalk(0);
     CheckWalk(1);
     TestAnimatedHelper();
+    TestHelperScales();
     TestRefusedHelper();
     TestNames();
     TestRootMotion();

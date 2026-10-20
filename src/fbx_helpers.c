@@ -96,10 +96,11 @@ static bool SameComponent(const maniFbxChannel* c, uint32_t i, uint32_t j)
 }
 
 // Whether a model may carry a scale that is not uniform in a stack: its
-// own at rest, a Lcl Scaling channel whose three components are not one
-// curve (layers combine uniform scales into uniform ones), or an
-// InheritType channel. No other property scales: offsets and pivots
-// translate, rotations turn, geometric transforms are not inherited.
+// own at rest, or a Lcl Scaling channel whose three components are not
+// one curve (layers combine uniform scales into uniform ones). No other
+// property scales: offsets and pivots translate, rotations turn,
+// geometric transforms are not inherited, and an inherit type only
+// chooses which scales above reach a model, uniform when all are.
 static bool MayScale(const maniFbx* fbx, const maniFbxAnimation* animation, uint32_t object,
                      const maniFbxLocalInputs* rest)
 {
@@ -113,9 +114,8 @@ static bool MayScale(const maniFbx* fbx, const maniFbxAnimation* animation, uint
     for (uint32_t i = first; i < first + run; ++i)
     {
         const maniFbxChannel* c = &animation->channels[i];
-        bool scaling = maniFbxChannelNameIs(fbx, c, "Lcl Scaling", 11);
-        if ((scaling && !(SameComponent(c, 0, 1) && SameComponent(c, 0, 2))) ||
-            maniFbxChannelNameIs(fbx, c, "InheritType", 11))
+        if (maniFbxChannelNameIs(fbx, c, "Lcl Scaling", 11) &&
+            !(SameComponent(c, 0, 1) && SameComponent(c, 0, 2)))
         {
             return true;
         }
