@@ -149,23 +149,55 @@ static uint32_t Risky(const maniFbx* fbx, const maniFbxAnimation* animation,
     return n;
 }
 
+// The children a stack's Lcl Scaling channels make risky, from a read
+// of those channels alone: none whatever the rest of the stack holds
+// (a refusal anywhere in it would skip it), so the whole stack is read
+// only when there are some. Capacity when the allocator fails, else
+// success.
+static maniImportResult AnyRisky(const maniFbx* fbx, uint32_t k, const uint8_t* needed,
+                                 const uint32_t* children, uint32_t count, const uint8_t* helper,
+                                 uint8_t* mark, uint32_t* risky, uint32_t* left)
+{
+    *left = 0;
+    maniFbxAnimation scales;
+    maniImportResult r = maniFbxReadStackOf(fbx, k, "Lcl Scaling", 11, &scales);
+    if (r.result != mani_success)
+    {
+        return r.result == mani_errorCapacity ? r : maniFbxSuccess();
+    }
+    maniFbxSampler sampler;
+    r = maniFbxStartSampler(fbx, &scales, needed, &sampler);
+    *left = r.result == mani_success
+                ? Risky(fbx, &scales, &sampler, children, count, helper, mark, risky)
+                : 0;
+    maniFbxReleaseSampler(&sampler);
+    maniFbxReleaseAnimation(fbx, &scales);
+    return r.result == mani_errorCapacity ? r : maniFbxSuccess();
+}
+
 // One stack's grid; Capacity when the allocator fails, else success
 // (a refusal skips the stack).
 static maniImportResult CheckStack(const maniFbx* fbx, uint32_t k, const uint8_t* needed,
                                    maniFbxWorld* worlds, const uint32_t* children, uint32_t count,
                                    uint8_t* helper, uint8_t* mark, uint32_t* risky)
 {
+    uint32_t left = 0;
+    maniImportResult r = AnyRisky(fbx, k, needed, children, count, helper, mark, risky, &left);
+    if (r.result != mani_success || left == 0)
+    {
+        return r;
+    }
     maniFbxAnimation animation;
-    maniImportResult r = maniFbxReadStack(fbx, k, &animation);
+    r = maniFbxReadStack(fbx, k, &animation);
     if (r.result != mani_success)
     {
         return r.result == mani_errorCapacity ? r : maniFbxSuccess();
     }
     maniFbxSampler sampler;
     r = maniFbxStartSampler(fbx, &animation, needed, &sampler);
-    uint32_t left = r.result == mani_success
-                        ? Risky(fbx, &animation, &sampler, children, count, helper, mark, risky)
-                        : 0;
+    left = r.result == mani_success
+               ? Risky(fbx, &animation, &sampler, children, count, helper, mark, risky)
+               : 0;
     double rate = maniFbxDefaultRate(fbx);
     double tps = (double)fbx->settings.ticksPerSecond;
     double span = (double)animation.stop - (double)animation.start;

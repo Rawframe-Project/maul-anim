@@ -283,12 +283,19 @@ static maniImportResult NodeCurves(const maniFbx* fbx, uint32_t node, maniFbxCha
     return r;
 }
 
-// The property connections of a curve node to what it drives: counted
-// (out NULL) or bound as channels of a layer, never past capacity. A
-// node under several layers binds once in each, so the count can pass
-// 32 bits: it is kept in 64.
-static maniImportResult Bind(const maniFbx* fbx, uint32_t node, uint32_t layer, maniFbxChannel* out,
-                             uint64_t capacity, uint64_t* count)
+// The one property a read binds, or every one (name NULL).
+typedef struct Only
+{
+    const char* name;
+    size_t length;
+} Only;
+
+// The property connections of a curve node to what it drives (those to
+// the property only names): counted (out NULL) or bound as channels of
+// a layer, never past capacity. A node under several layers binds once
+// in each, so the count can pass 32 bits: it is kept in 64.
+static maniImportResult Bind(const maniFbx* fbx, uint32_t node, uint32_t layer, Only only,
+                             maniFbxChannel* out, uint64_t capacity, uint64_t* count)
 {
     const uint32_t* list = NULL;
     uint32_t n = maniFbxParentConnections(fbx, node, &list);
@@ -297,7 +304,9 @@ static maniImportResult Bind(const maniFbx* fbx, uint32_t node, uint32_t layer, 
     {
         const maniFbxConnection* c = &fbx->connections[list[i]];
         if (c->childProperty != MANI_FBX_NONE || c->parentProperty == MANI_FBX_NONE ||
-            c->parent >= fbx->objectCount)
+            c->parent >= fbx->objectCount ||
+            (only.name != NULL &&
+             !maniFbxStringEquals(fbx, c->parentProperty, only.name, only.length)))
         {
             continue;
         }
@@ -345,8 +354,8 @@ void maniFbxReleaseAnimation(const maniFbx* fbx, maniFbxAnimation* animation)
 }
 
 // Every layer's curve nodes bound: counted (out NULL) or read.
-static maniImportResult EachNode(const maniFbx* fbx, const maniFbxAnimation* a, maniFbxChannel* out,
-                                 uint64_t capacity, uint64_t* count)
+static maniImportResult EachNode(const maniFbx* fbx, const maniFbxAnimation* a, Only only,
+                                 maniFbxChannel* out, uint64_t capacity, uint64_t* count)
 {
     maniImportResult r = maniFbxSuccess();
     for (uint32_t l = 0; r.result == mani_success && l < a->layerCount; ++l)
@@ -363,7 +372,7 @@ static maniImportResult EachNode(const maniFbx* fbx, const maniFbxAnimation* a, 
         maniFbxEachChild(fbx, a->layers[l].object, VisitChild, &nodes);
         for (uint32_t i = 0; r.result == mani_success && i < nodes.count; ++i)
         {
-            r = Bind(fbx, nodes.objects[i], l, out, capacity, count);
+            r = Bind(fbx, nodes.objects[i], l, only, out, capacity, count);
         }
         maniRelease(&fbx->allocator, nodes.objects, (size_t)all + 1, sizeof(uint32_t), 4);
     }
@@ -558,10 +567,17 @@ static void Range(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* a)
 
 maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* out)
 {
+    return maniFbxReadAnimationOf(fbx, stack, NULL, 0, out);
+}
+
+maniImportResult maniFbxReadAnimationOf(const maniFbx* fbx, uint32_t stack, const char* name,
+                                        size_t length, maniFbxAnimation* out)
+{
+    Only only = {name, length};
     memset(out, 0, sizeof *out);
     maniImportResult r = ReadLayers(fbx, stack, out);
     uint64_t count = 0;
-    r = r.result == mani_success ? EachNode(fbx, out, NULL, 0, &count) : r;
+    r = r.result == mani_success ? EachNode(fbx, out, only, NULL, 0, &count) : r;
     // Indices and the sort's keys stay within 32 bits.
     r = r.result == mani_success && count >= UINT32_MAX ? Capacity() : r;
     if (r.result == mani_success)
@@ -575,7 +591,7 @@ maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFb
         memset(out->channels, 0, ((size_t)count + 1) * sizeof(maniFbxChannel));
         out->channelCount = (uint32_t)count;
         uint64_t filled = 0;
-        r = EachNode(fbx, out, out->channels, count, &filled);
+        r = EachNode(fbx, out, only, out->channels, count, &filled);
     }
     r = r.result == mani_success ? maniFbxSortChannels(fbx, out) : r;
     if (r.result != mani_success)

@@ -92,6 +92,10 @@ uint32_t maniFbxStackSource(const maniFbx* fbx, uint32_t k);
 // allocator fails. Channels come sorted by target, then layer, then
 // name hash.
 maniImportResult maniFbxReadAnimation(const maniFbx* fbx, uint32_t stack, maniFbxAnimation* out);
+// The same with only the channels of the property named (all for name
+// NULL); refused only where the whole read is.
+maniImportResult maniFbxReadAnimationOf(const maniFbx* fbx, uint32_t stack, const char* name,
+                                        size_t length, maniFbxAnimation* out);
 
 void maniFbxReleaseAnimation(const maniFbx* fbx, maniFbxAnimation* animation);
 

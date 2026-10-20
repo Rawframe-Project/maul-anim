@@ -54,7 +54,9 @@ format.
   its template's, a bone's other animated properties find their
   channels once a clip, a key's auto tangent is solved once when both
   sides' biases are equal, and a skin's influences are ordered by
-  control point by counting rather than a merge sort.
+  control point by counting rather than a merge sort; the helper check
+  reads a stack's Lcl Scaling channels first and the whole stack only
+  when some child could need a helper.
 - JSON numbers (glTF, the graph, maps and the other JSON forms) and FBX
   ASCII numbers convert by Eisel and Lemire's method first, the exact
   multiprecision method kept for what it leaves open: the same bits,

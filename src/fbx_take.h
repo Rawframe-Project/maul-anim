@@ -30,5 +30,10 @@ double maniFbxChannelDefault(const maniFbx* fbx, uint32_t component);
 // channel without its name, a property driven twice, or as its keys
 // are; Capacity when the allocator fails.
 maniImportResult maniFbxReadStack(const maniFbx* fbx, uint32_t k, maniFbxAnimation* out);
+// The same with only the channels of the property named from a 7.x
+// stack (a 6.x take is read whole); refused only where the whole read
+// is.
+maniImportResult maniFbxReadStackOf(const maniFbx* fbx, uint32_t k, const char* name, size_t length,
+                                    maniFbxAnimation* out);
 
 #endif // MAUL_ANIM_SRC_FBX_TAKE_H

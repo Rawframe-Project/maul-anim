@@ -316,3 +316,14 @@ maniImportResult maniFbxReadStack(const maniFbx* fbx, uint32_t k, maniFbxAnimati
     return fbx->version >= 7000 ? maniFbxReadAnimation(fbx, source, out)
                                 : ReadTake(fbx, source, out);
 }
+
+maniImportResult maniFbxReadStackOf(const maniFbx* fbx, uint32_t k, const char* name, size_t length,
+                                    maniFbxAnimation* out)
+{
+    uint32_t source = maniFbxStackSource(fbx, k);
+    if (source == MANI_FBX_NONE || fbx->version < 7000)
+    {
+        return maniFbxReadStack(fbx, k, out);
+    }
+    return maniFbxReadAnimationOf(fbx, source, name, length, out);
+}
