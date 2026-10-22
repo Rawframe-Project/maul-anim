@@ -57,7 +57,7 @@ every skeleton a clip fits shares its identity, which covers the rests.
 The clip tests play random clips of one group of bones and two through
 a cursor against random access, bit for bit, with rest rotations that
 are not exactly unit in binary32, -0 in rest translations, constant
-channels, and rotations turning past w = 0 so held samples meet on the
-longer arc; a mask that lets a rest through the interpolation, a lost
+channels, rotations turning past w = 0 so held samples meet on the
+longer arc, and additive clips (the pose's kind compared too); a mask that lets a rest through the interpolation, a lost
 sign, or a wrong mask row fails them. CI runs them on AVX2, NEON and
 the scalar build.

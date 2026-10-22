@@ -589,7 +589,8 @@ static void CursorWalk(const maniClip* clip, maniClipCursor* cursor)
         CHECK(maniSampleClipFloats(clip, t, fa, 4, &n) == mani_success, "floats");
         CHECK(maniSampleClipFloatsCursor(cursor, clip, t, fb, 4, &n) == mani_success,
               "cursor floats");
-        same = same && SameLocals(a, b) && memcmp(fa, fb, n * sizeof(float)) == 0;
+        same = same && SameLocals(a, b) && memcmp(fa, fb, n * sizeof(float)) == 0 &&
+               maniPoseIsDifference(a) == maniPoseIsDifference(b);
         t = t == t ? t : 0.0f;
     }
     CHECK(same, "the cursor plays random access's bits");
@@ -688,7 +689,7 @@ static void TestCursor(void)
 // Random clips through a cursor: one group of bones and two, rests
 // turned (not exactly unit in floats) with -0 in their translations,
 // constant channels, and rotations turning past w = 0 so samples meet
-// on the longer arc.
+// on the longer arc; every other clip additive.
 static void TestCursorRandom(void)
 {
     for (int round = 0; round < 24; ++round)
@@ -746,7 +747,8 @@ static void TestCursorRandom(void)
                                  .boneTracks = s_randomTracks,
                                  .boneTrackCount = tracks,
                                  .sampleRate = 30.0f,
-                                 .duration = 0.5f + 1.5f * Random()};
+                                 .duration = 0.5f + 1.5f * Random(),
+                                 .additive = round % 2 == 0 ? maniAdditiveNone : maniAdditiveRest};
         BuildFullFrom(&source);
         maniCompressOptions options = maniDefaultCompressOptions();
         CHECK(Compress(&options, NULL) == mani_success, "random compresses");

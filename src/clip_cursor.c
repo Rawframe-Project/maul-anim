@@ -31,6 +31,8 @@ struct maniClipCursor
     // the two in the pose's groups and the groups' masks.
     uint32_t capacity;
     uint32_t floats;
+    // The clip's bones, which size the samples held in groups.
+    uint32_t bones;
     uint32_t samples[2];
     uint32_t expanded[2];
     float values[];
@@ -102,7 +104,8 @@ maniResult maniInitClipCursor(void* memory, size_t size, maniClipCursor** cursor
 static bool Bind(maniClipCursor* cursor, const maniClip* clip)
 {
     size_t floats = CacheFloats(clip);
-    if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats)
+    if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats &&
+        cursor->bones == clip->skeletonBoneCount)
     {
         return true;
     }
@@ -113,6 +116,7 @@ static bool Bind(maniClipCursor* cursor, const maniClip* clip)
     cursor->clip = clip;
     cursor->identity = clip->identity;
     cursor->floats = (uint32_t)floats;
+    cursor->bones = clip->skeletonBoneCount;
     cursor->samples[0] = NO_SAMPLE;
     cursor->samples[1] = NO_SAMPLE;
     cursor->expanded[0] = NO_SAMPLE;
@@ -194,6 +198,7 @@ static void Lanes(maniClipCursor* cursor, const maniClip* clip, const maniSkelet
                                  masks + g * MASK_FLOATS, pair->alpha, locals + g * GROUP_FLOATS);
     }
     maniPoseMarkStale(pose);
+    maniPoseSetKind(pose, clip->additive != maniAdditiveNone);
 }
 #endif
 
