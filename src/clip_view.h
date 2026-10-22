@@ -102,6 +102,32 @@ static inline void maniSlotRest(float* slot, const maniSkeleton* skeleton, uint3
 // along increasing bones.
 bool maniBoneListed(const maniBoneList* list, uint32_t bone, uint32_t* next);
 
+// Every bone's (or listed bone's) slots at its rest, the identity for a
+// difference, as maniSlotRest writes them channel by channel.
+static inline void maniFillRests(float* locals, const maniSkeleton* skeleton, uint32_t bones,
+                                 bool identity, const maniBoneList* list)
+{
+    static const float kIdentity[MANI_POSE_COMPONENTS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                          0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    uint32_t next = 0;
+    for (uint32_t bone = 0; bone < bones; ++bone)
+    {
+        if (!maniBoneListed(list, bone, &next))
+        {
+            continue;
+        }
+        const float* rest = kIdentity;
+        float values[MANI_POSE_COMPONENTS];
+        if (!identity)
+        {
+            memcpy(values, skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
+                   sizeof values);
+            rest = values;
+        }
+        maniPoseSlotPut(maniPoseSlot(locals, bone), 0, rest, MANI_POSE_COMPONENTS);
+    }
+}
+
 // A compressed clip at a pair into a pose: every bone (or only the listed
 // ones, list not NULL) written once, its rest and then its channels; the
 // model marked stale.

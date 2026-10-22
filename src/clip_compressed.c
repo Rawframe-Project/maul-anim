@@ -438,8 +438,6 @@ typedef struct Reading
     const uint8_t* constant;
     const uint8_t* range;
     float alpha;
-    // An additive clip's channels without a form are the identity.
-    bool identity;
 } Reading;
 
 // Moves a walker past a sub-track of `width` components unread.
@@ -516,15 +514,13 @@ static void Nlerp(const float a[4], const float b[4], float alpha, float q[4])
     maniCodecNormalize(q);
 }
 
-// One channel (0 translation, 1 rotation, 2 scale) of a bone into its
-// slot: interpolated when stored, the rest otherwise.
-static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot,
-                    const maniSkeleton* skeleton, uint32_t bone)
+// One stored channel (0 translation, 1 rotation, 2 scale) of a bone into
+// its slot, interpolated.
+static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot)
 {
-    uint32_t form = Form(forms, channel);
     float va[4];
     float vb[4];
-    if (form == maniClipFormConstant)
+    if (Form(forms, channel) == maniClipFormConstant)
     {
         float kept[3];
         for (int k = 0; k < 3; ++k)
@@ -542,14 +538,9 @@ static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot,
         }
         memcpy(vb, va, sizeof va);
     }
-    else if (form == maniClipFormAnimated)
-    {
-        Animated(r, channel, Dropped(forms), va, vb);
-    }
     else
     {
-        maniSlotRest(slot, skeleton, bone, channel, r->identity);
-        return;
+        Animated(r, channel, Dropped(forms), va, vb);
     }
     float out[4];
     if (channel == 1)
@@ -572,35 +563,35 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
                  .cacheB = pair->cacheB,
                  .constant = clip->constants,
                  .range = clip->ranges,
-                 .identity = clip->additive != maniAdditiveNone,
                  .alpha = pair->alpha};
     if (pair->cacheA == NULL)
     {
         r.a = WalkerAt(clip, pair->first, false);
         r.b = WalkerAt(clip, pair->second, false);
     }
-    // Every bone (or listed one) written once, each channel from the clip
-    // or the rest; the tracks are in bone order.
+    // Every bone (or listed one) at rest, then each stored channel over
+    // its rest: the tracks are in bone order, each bone once (checked at
+    // open), and an unlisted bone's channels are passed unread.
     float* locals = maniPoseLocals(pose);
-    uint32_t track = 0;
+    maniFillRests(locals, skeleton, clip->skeletonBoneCount, clip->additive != maniAdditiveNone,
+                  list);
     uint32_t next = 0;
-    for (uint32_t bone = 0; bone < clip->skeletonBoneCount; ++bone)
+    for (uint32_t t = 0; t < clip->trackCount; ++t)
     {
-        bool tracked = track < clip->trackCount &&
-                       maniLoadU16(clip->tracks + (size_t)track * MANI_CLIP_TRACK_SIZE) == bone;
-        uint32_t forms = tracked ? clip->forms[track] : 0;
-        track += tracked ? 1 : 0;
+        uint32_t bone = maniLoadU16(clip->tracks + (size_t)t * MANI_CLIP_TRACK_SIZE);
+        uint32_t forms = clip->forms[t];
         bool wanted = maniBoneListed(list, bone, &next);
         float* slot = maniPoseSlot(locals, bone);
         for (uint32_t c = 0; c < 3; ++c)
         {
-            if (wanted)
+            uint32_t form = Form(forms, c);
+            if (!wanted)
             {
-                Channel(&r, forms, c, slot, skeleton, bone);
+                Skip(&r, form, c);
             }
-            else
+            else if (form >= maniClipFormConstant)
             {
-                Skip(&r, Form(forms, c), c);
+                Channel(&r, forms, c, slot);
             }
         }
     }

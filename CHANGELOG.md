@@ -42,6 +42,13 @@ format.
 
 ### Changed
 
+- Sampling a compressed clip takes fewer instructions on every build,
+  with the same poses: every bone is set to its rest at once and only
+  the channels the clip stores are read and interpolated, where each
+  channel was decided and written in turn. On `ual.fbx`, random access
+  takes 33,122 instructions a pose under GCC 14 and AVX2 (from 36,260)
+  and 32,746 under Clang 20 (from 43,978); a cursor on a scalar build
+  24,009 under GCC (from 27,113) and 26,408 under Clang (from 39,488).
 - Playing a compressed clip forward with a cursor takes about a quarter
   of the instructions on AVX2 and NEON builds, with the same poses: the
   cursor holds its two samples in the pose's groups of eight bones and
