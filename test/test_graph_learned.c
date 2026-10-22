@@ -676,6 +676,37 @@ static void TestSaved(void)
     maniStoreU32(s_saved[1] + block + 4 * (maniGraphLearnedBefore + 2 * STATE), 3);
     CHECK(maniRestoreGraphInstance(other, s_saved[1], size).result == mani_success,
           "both events' bits");
+    // A clock of a whole step, which the step would have taken.
+    double whole = 1.0 / (double)s_learned.stepRate;
+    uint64_t wholeBits = 0;
+    memcpy(&wholeBits, &whole, sizeof wholeBits);
+    memcpy(s_saved[1], s_saved[0], size);
+    maniStoreU32(s_saved[1] + block + 4 * maniGraphLearnedClock, (uint32_t)wholeBits);
+    maniStoreU32(s_saved[1] + block + 4 * (maniGraphLearnedClock + 1), (uint32_t)(wholeBits >> 32));
+    maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+    CHECK(r.result == mani_errorFormat && r.offset == block + 4 * maniGraphLearnedClock,
+          "a clock of a whole step");
+}
+
+// A reset clears every word of the node's block (the events' bits last,
+// whose stale "on" would hide an event starting after a seek), and no
+// word past it.
+static void TestReset(void)
+{
+    maniGraph g;
+    (void)Learning(LearnedNode(0.1f, 0.0f), &g);
+    uint32_t data = maniLoadU32(g.nodes + 12);
+    uint32_t words = maniGraphLearnedBlockWords(&g, data);
+    uint32_t block[64];
+    CHECK(words < 64, "a small block");
+    memset(block, 0xFF, sizeof block);
+    maniGraphResetLearned(&g, data, block);
+    bool cleared = true;
+    for (uint32_t k = 0; k < words; ++k)
+    {
+        cleared = cleared && block[k] == 0;
+    }
+    CHECK(cleared && block[words] == UINT32_MAX, "a reset clears its block, no more");
 }
 
 // Two poses' locals the same bits.
@@ -785,6 +816,7 @@ int main(void)
     TestWeightless();
     TestSeek();
     TestSaved();
+    TestReset();
     TestCache();
     TestMirrored();
     return s_failures == 0 ? 0 : 1;

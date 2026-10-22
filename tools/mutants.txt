@@ -3726,3 +3726,138 @@ ac-held-rest-mask | src/clip_compressed.c | mask[c * MANI_POSE_GROUP_BONES] = 0.
 # survived and are killed by cases added then (a shot masked below the
 # hips, an unturned bone's scale, a plan in its source's frame below
 # weight 1).
+
+# Turn limits (src/graph_turn.c, mani-0037), 2026-10-22: 29 mutants, run
+# on a plain build and under ASan and UBSan. Seven of the first
+# survivors are killed by cases added then (a reset of every bone, a
+# turn whose half is within the budget, the identity held, a long
+# input held normalized, weight 0 at speed 0, an infinite literal and
+# a parameter past the parameters in an opened file). SetPending(block,
+# 0.0) stands twice, so the reset's and the step's clearing of the
+# time are not written here.
+tu-valid-mask | src/graph_turn.c | if (mask != MANI_GRAPH_NO_MASK && mask >= g->maskCount) | if (false && mask >= g->maskCount)
+tu-valid-negative | src/graph_turn.c | bool literal = speed == MANI_NO_PARAMETER && isfinite(value) && value >= 0.0f; | bool literal = speed == MANI_NO_PARAMETER && isfinite(value);
+tu-valid-finite | src/graph_turn.c | bool literal = speed == MANI_NO_PARAMETER && isfinite(value) && value >= 0.0f; | bool literal = speed == MANI_NO_PARAMETER && value >= 0.0f;
+tu-valid-bits | src/graph_turn.c | if (!literal && !(speed != MANI_NO_PARAMETER && bits == 0 && | if (!literal && !(speed != MANI_NO_PARAMETER &&
+tu-valid-float | src/graph_turn.c | ParameterOf(g, speed, maniGraphParameterFloat))) | ParameterOf(g, speed, maniGraphParameterTrigger)))
+tu-valid-reset | src/graph_turn.c | if (!ParameterOf(g, Word(g, data + maniGraphTurnReset), maniGraphParameterTrigger)) | if (!ParameterOf(g, Word(g, data + maniGraphTurnReset), maniGraphParameterFloat))
+tu-valid-block | src/graph_turn.c | return Word(g, data + maniGraphTurnBlock) == block ? UINT32_MAX : data + maniGraphTurnBlock; | return Word(g, data + maniGraphTurnBlock) == block || true ? UINT32_MAX : data + maniGraphTurnBlock;
+tu-param-range | src/graph_turn.c | (parameter < g->parameterCount && | (true &&
+tu-saved-pending | src/graph_turn.c | if (!(pending >= 0.0 && isfinite(pending))) | if (!isfinite(pending))
+tu-saved-finite | src/graph_turn.c | if (!isfinite(q[k])) | if (false)
+tu-saved-unit | src/graph_turn.c | if (length != 0.0f && !(length >= 0.998f && length <= 1.002f)) | if (length != 0.0f && !(length >= 0.998f))
+tu-saved-zero | src/graph_turn.c | if (length != 0.0f && !(length >= 0.998f && length <= 1.002f)) | if (!(length >= 0.998f && length <= 1.002f))
+tu-add | src/graph_turn.c | SetPending(block, Pending(block) + seconds); | SetPending(block, seconds);
+tu-reset-rotations | src/graph_turn.c | memset(block + maniGraphTurnRotations, 0, 16 * (size_t)bones); | memset(block + maniGraphTurnRotations, 0, 16 * (size_t)(bones > 0));
+tu-shorter | src/graph_turn.c | if (d.w < 0.0f) | if (false)
+tu-half | src/graph_turn.c | float angle = 2.0f * maniAtan2(v, d.w); | float angle = maniAtan2(v, d.w);
+# tu-within survives, equivalent: at an angle of exactly the budget the
+# turn by the budget reaches the input, up to rounding.
+tu-within | src/graph_turn.c | if (angle <= budget) | if (angle < budget)
+tu-no-budget | src/graph_turn.c | if (!(budget > 0.0f)) | if (false && !(budget > 0.0f))
+tu-half-budget | src/graph_turn.c | maniSinCos(0.5f * budget, &s, &c); | maniSinCos(budget, &s, &c);
+tu-axis | src/graph_turn.c | float k = s / v; | float k = s;
+tu-normalize | src/graph_turn.c | return maniQuatNormalize(maniQuatMul(p, (maniQuat){d.x * k, d.y * k, d.z * k, c})); | return maniQuatMul(p, (maniQuat){d.x * k, d.y * k, d.z * k, c});
+tu-from | src/graph_turn.c | return maniQuatNormalize(maniQuatMul(p, (maniQuat){d.x * k, d.y * k, d.z * k, c})); | return maniQuatNormalize((maniQuat){d.x * k, d.y * k, d.z * k, c});
+# tu-list survives: a plan holds its bones' ancestors, so on the graph
+# fixture's chain of three bones every list starts at 0 and runs on;
+# a list that skips a bone needs a branching skeleton.
+tu-list | src/graph_turn.c | uint32_t b = list != NULL ? list[i] : i; | uint32_t b = i;
+tu-held | src/graph_turn.c | bool held = p.x != 0.0f || p.y != 0.0f || p.z != 0.0f || p.w != 0.0f; | bool held = p.x != 0.0f || p.y != 0.0f || p.z != 0.0f;
+tu-weight | src/graph_turn.c | float weight = weights != NULL ? weights[b] : 1.0f; | float weight = 1.0f + 0.0f * (weights != NULL ? weights[b] : 1.0f);
+tu-weight-zero | src/graph_turn.c | if (held && weight > 0.0f) | if (held)
+tu-budget-weight | src/graph_turn.c | q = Turn(p, q, speed * seconds / weight, &turned); | q = Turn(p, q, speed * seconds, &turned);
+# tu-hold-turned survives, equivalent: a turned rotation is already
+# normalized, and normalizing it again moves it by rounding at most.
+tu-hold-turned | src/graph_turn.c | Hold(block, b, turned ? q : maniQuatNormalize(q)); | Hold(block, b, maniQuatNormalize(q));
+tu-hold-normalized | src/graph_turn.c | Hold(block, b, turned ? q : maniQuatNormalize(q)); | Hold(block, b, q);
+
+# Learned matching nodes checked (src/graph_learned_check.c, mani-0029),
+# 2026-10-22: 23 mutants, run on a plain build and under ASan and UBSan.
+# An infinite cost and duration and a query past the features were
+# first missed and are killed by cases added then (the last only under
+# the sanitizers, whose stack check sees the types written past their
+# array).
+glc-param-range | src/graph_learned_check.c | return parameter < source->parameterCount && source->parameters[parameter].type == type; | return parameter < source->parameterCount && (source->parameters[parameter].type == type || true);
+glc-tags-zero | src/graph_learned_check.c | (ParameterOf(source, tags.parameter, maniGraphParameterInt) && tags.value == 0); | ParameterOf(source, tags.parameter, maniGraphParameterInt);
+glc-tags-type | src/graph_learned_check.c | (ParameterOf(source, tags.parameter, maniGraphParameterInt) && tags.value == 0); | (ParameterOf(source, tags.parameter, maniGraphParameterFloat) && tags.value == 0);
+# glc-query-max survives a plain build: the model refuses the long query
+# all the same; the sanitizers kill it.
+glc-query-max | src/graph_learned_check.c | if (l->queryCount > MANI_MATCH_MAX_FEATURES || (l->queryCount > 0 && l->query == NULL)) | if (l->queryCount > 0 && l->query == NULL)
+glc-query-null | src/graph_learned_check.c | if (l->queryCount > MANI_MATCH_MAX_FEATURES || (l->queryCount > 0 && l->query == NULL)) | if (l->queryCount > MANI_MATCH_MAX_FEATURES)
+# glc-query-type survives: a parameter past the parameters read as a
+# float is refused all the same by a model whose query is a vec2, the
+# fixture's only kind; a model asking a float would see it.
+glc-query-type | src/graph_learned_check.c | types[q] = p < source->parameterCount ? source->parameters[p].type : UINT32_MAX; | types[q] = p < source->parameterCount ? source->parameters[p].type : maniGraphParameterFloat;
+glc-query-fits | src/graph_learned_check.c | return maniGraphQueryFits(m, m->channelCount, maniGraphModelChannel, types, l->queryCount); | return maniGraphQueryFits(m, m->channelCount, maniGraphModelChannel, types, l->queryCount) || true;
+glc-known-parameter | src/graph_learned_check.c | if (l->requiredTags.parameter != MANI_NO_PARAMETER || | if (false ||
+glc-known-excluded | src/graph_learned_check.c | if (required == l->requiredTags.value && excluded == l->excludedTags.value) | if (required == l->requiredTags.value)
+glc-known-required | src/graph_learned_check.c | if (required == l->requiredTags.value && excluded == l->excludedTags.value) | if (excluded == l->excludedTags.value)
+glc-model | src/graph_learned_check.c | bool ok = l->model < source->modelCount && | bool ok = l->model <= source->modelCount &&
+glc-trigger | src/graph_learned_check.c | ParameterOf(source, l->trigger, maniGraphParameterTrigger)) && | ParameterOf(source, l->trigger, maniGraphParameterBool)) &&
+glc-period | src/graph_learned_check.c | isfinite(l->period) && l->period > 0.0f && isfinite(l->transitionCost) && | isfinite(l->period) && l->period >= 0.0f && isfinite(l->transitionCost) &&
+glc-period-finite | src/graph_learned_check.c | isfinite(l->period) && l->period > 0.0f && isfinite(l->transitionCost) && | l->period > 0.0f && isfinite(l->transitionCost) &&
+glc-cost-finite | src/graph_learned_check.c | isfinite(l->period) && l->period > 0.0f && isfinite(l->transitionCost) && | isfinite(l->period) && l->period > 0.0f &&
+glc-cost-sign | src/graph_learned_check.c | l->transitionCost >= 0.0f && TagsValid(source, l->requiredTags) && | TagsValid(source, l->requiredTags) &&
+glc-required-valid | src/graph_learned_check.c | l->transitionCost >= 0.0f && TagsValid(source, l->requiredTags) && | l->transitionCost >= 0.0f &&
+glc-excluded-valid | src/graph_learned_check.c | TagsValid(source, l->excludedTags) && QueryValid(source, l); | QueryValid(source, l);
+glc-query-valid | src/graph_learned_check.c | TagsValid(source, l->excludedTags) && QueryValid(source, l); | TagsValid(source, l->excludedTags) && (QueryValid(source, l) || true);
+glc-duration-sign | src/graph_learned_check.c | ? isfinite(d.value) && d.value >= 0.0f | ? isfinite(d.value)
+glc-duration-finite | src/graph_learned_check.c | ? isfinite(d.value) && d.value >= 0.0f | ? d.value >= 0.0f
+glc-duration-param | src/graph_learned_check.c | : ParameterOf(source, d.parameter, maniGraphParameterFloat); | : ParameterOf(source, d.parameter, maniGraphParameterInt);
+glc-tags-known | src/graph_learned_check.c | return TagsKnown(source, l) ? kOk : Refuse(maniBuildReasonTags, node, 0); | return TagsKnown(source, l) || true ? kOk : Refuse(maniBuildReasonTags, node, 0);
+
+# Learned matching nodes' words and state (src/graph_learned.c,
+# mani-0029), 2026-10-22: 43 mutants, run on a plain build and under
+# ASan and UBSan. Nine of the first survivors are killed by cases added
+# then (two words set at once for the features, the latent count, an
+# infinite and a negative literal duration, a model of another state
+# or event count, a saved clock of a whole step, a reset's every word).
+gl-param-range | src/graph_learned.c | return parameter < g->parameterCount | return true
+# gl-words-short and gl-words-room survive, equivalent in outcome: the
+# node table's check (graph_nodes.c) refuses words past the data all
+# the same; these keep the query count's read inside the data section.
+gl-words-short | src/graph_learned.c | if (available < MANI_GRAPH_LEARNED_WORDS) | if (false)
+gl-words-max | src/graph_learned.c | return queries <= MANI_MATCH_MAX_FEATURES && queries <= available - MANI_GRAPH_LEARNED_WORDS | return queries <= available - MANI_GRAPH_LEARNED_WORDS
+gl-words-room | src/graph_learned.c | return queries <= MANI_MATCH_MAX_FEATURES && queries <= available - MANI_GRAPH_LEARNED_WORDS | return queries <= MANI_MATCH_MAX_FEATURES
+gl-model | src/graph_learned.c | if (Word(g, data + maniGraphLearnedModel) >= g->modelCount) | if (Word(g, data + maniGraphLearnedModel) > g->modelCount)
+gl-trigger | src/graph_learned.c | if (trigger != MANI_NO_PARAMETER && ParameterType(g, trigger) != maniGraphParameterTrigger) | if (false && ParameterType(g, trigger) != maniGraphParameterTrigger)
+gl-period-zero | src/graph_learned.c | if (!(isfinite(period) && period > 0.0f)) | if (!(isfinite(period) && period >= 0.0f))
+gl-period-finite | src/graph_learned.c | if (!(isfinite(period) && period > 0.0f)) | if (!(period > 0.0f))
+gl-cost-finite | src/graph_learned.c | return isfinite(cost) && cost >= 0.0f ? UINT32_MAX : data + maniGraphLearnedTransitionCost; | return cost >= 0.0f ? UINT32_MAX : data + maniGraphLearnedTransitionCost;
+gl-cost-sign | src/graph_learned.c | return isfinite(cost) && cost >= 0.0f ? UINT32_MAX : data + maniGraphLearnedTransitionCost; | return isfinite(cost) ? UINT32_MAX : data + maniGraphLearnedTransitionCost;
+gl-tags-zero | src/graph_learned.c | (ParameterType(g, parameter) == maniGraphParameterInt && Word(g, at + 1) == 0); | ParameterType(g, parameter) == maniGraphParameterInt;
+gl-tags-both | src/graph_learned.c | for (uint32_t k = maniGraphLearnedRequiredTags; k <= maniGraphLearnedExcludedTags; k += 2) | for (uint32_t k = maniGraphLearnedRequiredTags; k < maniGraphLearnedExcludedTags; k += 2)
+gl-duration-finite | src/graph_learned.c | parameter == MANI_NO_PARAMETER && isfinite(FloatOf(bits)) && FloatOf(bits) >= 0.0f; | parameter == MANI_NO_PARAMETER && FloatOf(bits) >= 0.0f;
+gl-duration-sign | src/graph_learned.c | parameter == MANI_NO_PARAMETER && isfinite(FloatOf(bits)) && FloatOf(bits) >= 0.0f; | parameter == MANI_NO_PARAMETER && isfinite(FloatOf(bits));
+gl-duration-bits | src/graph_learned.c | if (!(literal || (ParameterType(g, parameter) == maniGraphParameterFloat && bits == 0))) | if (!(literal || ParameterType(g, parameter) == maniGraphParameterFloat))
+gl-block | src/graph_learned.c | if (Word(g, data + maniGraphLearnedBlock) != block) | if (Word(g, data + maniGraphLearnedBlock) != block && false)
+gl-states-low | src/graph_learned.c | if (states < 2 || states > MANI_GRAPH_LEARNED_MAX_STATES) | if (states > MANI_GRAPH_LEARNED_MAX_STATES)
+# gl-states-high survives, equivalent: the most states is the most
+# features and latent values, which their own checks bound.
+gl-states-high | src/graph_learned.c | if (states < 2 || states > MANI_GRAPH_LEARNED_MAX_STATES) | if (states < 2)
+gl-features-low | src/graph_learned.c | if (features < 1 || features > MANI_MATCH_MAX_FEATURES || features >= states || | if (features > MANI_MATCH_MAX_FEATURES || features >= states ||
+gl-features-high | src/graph_learned.c | if (features < 1 || features > MANI_MATCH_MAX_FEATURES || features >= states || | if (features < 1 || features >= states ||
+gl-features-latent | src/graph_learned.c | if (features < 1 || features > MANI_MATCH_MAX_FEATURES || features >= states || | if (features < 1 || features > MANI_MATCH_MAX_FEATURES ||
+gl-latent-max | src/graph_learned.c | states - features > MANI_LEARNED_MAX_LATENT) | false)
+gl-events | src/graph_learned.c | return Word(g, data + maniGraphLearnedEvents) <= MANI_LEARNED_MAX_EVENTS | return Word(g, data + maniGraphLearnedEvents) <= MANI_LEARNED_MAX_EVENTS + 1
+gl-query-type | src/graph_learned.c | wrong = type == maniGraphParameterVec2 || type == maniGraphParameterFloat | wrong = type == maniGraphParameterVec2 || type == maniGraphParameterInt
+gl-fit-states | src/graph_learned.c | if (Word(g, data + maniGraphLearnedStates) != model->featureCount + model->latentCount || | if (false ||
+gl-fit-features | src/graph_learned.c | Word(g, data + maniGraphLearnedFeatures) != model->featureCount || | false ||
+gl-fit-events | src/graph_learned.c | Word(g, data + maniGraphLearnedEvents) != model->eventCount) | false)
+gl-fit-query | src/graph_learned.c | return maniGraphQueryFits(model, model->channelCount, maniGraphModelChannel, types, queries); | return maniGraphQueryFits(model, model->channelCount, maniGraphModelChannel, types, queries) || true;
+gl-reset | src/graph_learned.c | memset(block, 0, sizeof(uint32_t) * maniGraphLearnedBlockWords(g, data)); | memset(block, 0, sizeof(uint32_t) * (maniGraphLearnedBlockWords(g, data) - 1));
+gl-saved-has | src/graph_learned.c | if (has > 1) | if (false)
+gl-saved-clock-sign | src/graph_learned.c | if (!(clock >= 0.0 && clock < 1.0 / (double)model->stepRate)) | if (!(clock < 1.0 / (double)model->stepRate))
+gl-saved-clock-step | src/graph_learned.c | if (!(clock >= 0.0 && clock < 1.0 / (double)model->stepRate)) | if (!(clock >= 0.0 && clock <= 1.0 / (double)model->stepRate))
+gl-saved-since-finite | src/graph_learned.c | if (!(isfinite(since) && since >= 0.0f)) | if (!(since >= 0.0f))
+gl-saved-since-sign | src/graph_learned.c | if (!(isfinite(since) && since >= 0.0f)) | if (!isfinite(since))
+gl-saved-state-finite | src/graph_learned.c | bool ok = state ? isfinite(FloatOf(w)) : (w & past) == 0; | bool ok = state ? true : (w & past) == 0;
+gl-saved-past | src/graph_learned.c | bool ok = state ? isfinite(FloatOf(w)) : (w & past) == 0; | bool ok = state ? isfinite(FloatOf(w)) : ((w & past) == 0 || true);
+gl-saved-past-bits | src/graph_learned.c | uint32_t past = state || 32 * (bit + 1) <= events ? 0u : ~0u << (events - 32 * bit); | uint32_t past = state || 32 * (bit + 1) <= events ? 0u : ~0u << (events - 32 * bit + 1);
+gl-saved-none-words | src/graph_learned.c | if (!ok || (has == 0 && w != 0)) | if (!ok)
+gl-saved-none-clock | src/graph_learned.c | if (has == 0 && clock != 0.0) | if (false)
+gl-saved-none-since | src/graph_learned.c | return has == 0 && since != 0.0f ? maniGraphLearnedSince : UINT32_MAX; | return UINT32_MAX;
+gl-state-fraction | src/graph_learned.c | float fraction = (float)(clock * (double)rate); | float fraction = (float)clock + 0.0f * rate;
+gl-state-after | src/graph_learned.c | float a = FloatOf(before[states + k]); | float a = FloatOf(before[k]);
+gl-state-lerp | src/graph_learned.c | out[k] = b + fraction * (a - b); | out[k] = b + (0.0f * fraction + 1.0f) * (a - b);

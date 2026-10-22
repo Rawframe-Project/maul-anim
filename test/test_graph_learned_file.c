@@ -62,8 +62,9 @@ static void TestRefusals(void)
 {
     static const uint32_t kFloat[1] = {3};
     static const uint32_t kTwo[2] = {0, 0};
-    maniGraphNodeSource n[12];
-    for (int k = 0; k < 12; ++k)
+    static const uint32_t kMany[MANI_MATCH_MAX_FEATURES + 1] = {0};
+    maniGraphNodeSource n[14];
+    for (int k = 0; k < 14; ++k)
     {
         n[k] = LearnedNode(0.1f, 0.0f);
     }
@@ -80,13 +81,18 @@ static void TestRefusals(void)
     n[9].learned.queryCount = 2;
     n[10].learned.queryCount = 0;
     n[11].learned.query = NULL;
-    for (int k = 0; k < 12; ++k)
+    n[12].learned.transitionCost = INFINITY;
+    n[13].learned.query = kMany;
+    n[13].learned.queryCount = MANI_MATCH_MAX_FEATURES + 1;
+    for (int k = 0; k < 14; ++k)
     {
         CHECK(RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0), "a field refused");
     }
     maniGraphNodeSource d = LearnedNode(0.1f, 0.0f);
     d.learned.duration = LITERAL(-1.0f);
     CHECK(RefusedAs(NodeBuilt(d), maniBuildReasonScalar, 0, 0), "a negative duration");
+    d.learned.duration = LITERAL(INFINITY);
+    CHECK(RefusedAs(NodeBuilt(d), maniBuildReasonScalar, 0, 0), "a duration not finite");
     d.learned.duration = (maniGraphScalar){0, 0.0f};
     CHECK(RefusedAs(NodeBuilt(d), maniBuildReasonScalar, 0, 0), "a duration not a float");
     maniGraphNodeSource t = LearnedNode(0.1f, 0.0f);
@@ -109,31 +115,47 @@ static void TestRefusals(void)
           "no inertialize node above");
 }
 
-// The file of the graph last made, a word set: it opens, and binding it
-// refuses its model slot (after the clips).
-static bool Unbindable(const maniGraph* g, uint32_t k, uint32_t value)
+// Binding a graph to the model refuses its model slot (after the clips).
+static bool RefusedModel(const maniGraph* crafted, const maniLearnedModel* model)
 {
-    uint64_t at = 0;
-    maniGraph crafted;
-    if (Crafted(g, 0, k, value, &at).result != mani_success ||
-        maniOpenGraph(s_crafted, s_size, &crafted).result != mani_success)
-    {
-        return false;
-    }
     const maniClip* clips[CLIPS];
     for (uint32_t c = 0; c < CLIPS; ++c)
     {
         clips[c] = &s_clips[c];
     }
-    const maniLearnedModel* models[1] = {&s_learned};
+    const maniLearnedModel* models[1] = {model};
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
-    return maniBindGraph(&crafted,
+    return maniBindGraph(crafted,
                          &(maniGraphAssets){&s_skeleton, clips, NULL, models, NULL, CLIPS, 0, 1, 0,
                                             NULL, NULL, 0, 0, NULL},
                          s_learnedBinding, sizeof s_learnedBinding, &binding,
                          &unbound) == mani_errorInvalid &&
            unbound == CLIPS;
+}
+
+// The file of the graph last made, a word set: it opens, and binding it
+// refuses its model slot.
+static bool Unbindable(const maniGraph* g, uint32_t k, uint32_t value)
+{
+    uint64_t at = 0;
+    maniGraph crafted;
+    return Crafted(g, 0, k, value, &at).result == mani_success &&
+           maniOpenGraph(s_crafted, s_size, &crafted).result == mani_success &&
+           RefusedModel(&crafted, &s_learned);
+}
+
+// Words k and k2 set in node 0 of the graph last made: refused at want.
+static bool RefusedAtWordsOf(const maniGraph* g, uint32_t k, uint32_t value, uint32_t k2,
+                             uint32_t value2, uint32_t want)
+{
+    uint64_t at = 0;
+    (void)Crafted(g, 0, k, value, &at);
+    maniStoreU32(s_crafted + at + 4 * (uint64_t)k2, value2);
+    Rehash(s_crafted);
+    maniGraph crafted;
+    maniFileResult r = maniOpenGraph(s_crafted, s_size, &crafted);
+    return r.result == mani_errorFormat && r.offset == at + 4 * (uint64_t)want;
 }
 
 static void TestOpen(void)
@@ -168,6 +190,13 @@ static void TestOpen(void)
     CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedDurationScalar + 1, 0xBF800000u,
                           maniGraphLearnedDurationScalar),
           "a duration parameter's literal not 0");
+    CHECK(RefusedAtWordsOf(&g, maniGraphLearnedFeatures, MANI_MATCH_MAX_FEATURES + 1,
+                           maniGraphLearnedStates, MANI_MATCH_MAX_FEATURES + 2,
+                           maniGraphLearnedFeatures),
+          "more features than a query holds");
+    CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedStates, FEATURES + MANI_LEARNED_MAX_LATENT + 1,
+                          maniGraphLearnedFeatures),
+          "more latent values than a model holds");
     uint64_t at = 0;
     CHECK(Crafted(&g, 0, maniGraphLearnedQueryCount, 2, &at).result == mani_errorFormat,
           "a query count past the words");
@@ -182,6 +211,12 @@ static void TestOpen(void)
     CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedDurationScalar + 1, 0xFF800000u,
                           maniGraphLearnedDurationScalar),
           "a literal duration not finite");
+    CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedDurationScalar + 1, 0x7F800000u,
+                          maniGraphLearnedDurationScalar),
+          "a literal duration of infinity");
+    CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedDurationScalar + 1, 0xBF800000u,
+                          maniGraphLearnedDurationScalar),
+          "a literal duration below 0");
     CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedRequiredTags + 1, 1, maniGraphLearnedRequiredTags),
           "a tags parameter's literal not 0");
     CHECK(Crafted(&g, 0, maniGraphLearnedDurationScalar + 1, 0, &at).result == mani_success,
@@ -386,6 +421,13 @@ static void TestUnfit(void)
     (void)Learning(LearnedNode(0.1f, 0.0f), &g);
     CHECK(Unbindable(&g, maniGraphLearnedQuery, 3), "a float parameter where it wants a vec2");
     CHECK(Unbindable(&g, maniGraphLearnedFeatures, FEATURES + 1), "a feature count not its");
+    // The state count follows from the features and the block, so a file
+    // that opens holds its own; a model of one more latent value differs.
+    maniLearnedModel wider = s_learned;
+    wider.latentCount += 1;
+    CHECK(RefusedModel(&g, &wider), "a model of another state count");
+    CHECK(Unbindable(&g, maniGraphLearnedEvents, DataWord(&g, 0, maniGraphLearnedEvents) + 1),
+          "an event count not its");
     CHECK(!Unbindable(&g, maniGraphLearnedQuery, 0), "the query as built binds");
 }
 

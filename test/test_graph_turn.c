@@ -27,6 +27,7 @@
 #include "graph_fixture.h"
 #include "graph_instance.h"
 #include "graph_turn.h"
+#include "vecmath.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/graph.h"
@@ -247,9 +248,13 @@ static void TestStep(void)
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start),
           "the largest speed passes the input");
     Set(m->live, 1, maniGraphParameterFloat, Float(-3.0f));
-    // The reset trigger, a seek above, an update that did not reach it.
+    // The reset trigger, a seek above, an update that did not reach it;
+    // the spine, held at the start, given the goal.
+    Body(m, start, goal, 0.0f);
     Fire(m, 2);
-    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start), "the reset takes the input");
+    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start) &&
+              Same(RotationOf(out, 1), goal),
+          "the reset takes the input, every bone's");
     Body(m, goal, start, 0.0f);
     CHECK(Evaluated(m, 0.1f, out) && Angle(RotationOf(out, 0), start) < 1e-6,
           "held again (the input kept normalized)");
@@ -269,6 +274,32 @@ static void TestStep(void)
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start) &&
               maniInspectGraphNode(m->live, 1, &view) == mani_success && view.weight == 1.0f,
           "back from an update that did not reach it: the input as it is");
+    // A turn of 0.15 at 1 radian a second over 0.1 s: turned by 0.1, the
+    // whole angle against the budget (its half is within it).
+    Set(m->live, 1, maniGraphParameterFloat, Float(1.0f));
+    Body(m, maniQuatMul(About(0.0f, 0.0f, 1.0f, 0.15f), start), start, 0.0f);
+    CHECK(Evaluated(m, 0.1f, out) && fabs(Angle(start, RotationOf(out, 0)) - 0.1) < 2e-6,
+          "a turn past the budget, not by half");
+    // The identity held (its x, y and z all 0) is held all the same.
+    Body(m, About(1.0f, 0.0f, 0.0f, 0.0f), start, 0.0f);
+    Fire(m, 2);
+    CHECK(Evaluated(m, 0.1f, out), "the identity taken");
+    Body(m, About(1.0f, 0.0f, 0.0f, 1.0f), start, 0.0f);
+    CHECK(Evaluated(m, 0.1f, out) &&
+              fabs(Angle(About(1.0f, 0.0f, 0.0f, 0.0f), RotationOf(out, 0)) - 0.1) < 2e-6,
+          "turned from the identity it held");
+    // An input of length 2, given as it is, held normalized.
+    Body(m, (maniQuat){2.0f * start.x, 2.0f * start.y, 2.0f * start.z, 2.0f * start.w}, start,
+         0.0f);
+    Fire(m, 2);
+    CHECK(Evaluated(m, 0.1f, out), "a long input taken");
+    Set(m->live, 1, maniGraphParameterFloat, Float(0.0f));
+    Body(m, goal, start, 0.0f);
+    CHECK(Evaluated(m, 0.1f, out), "held at a speed of 0");
+    maniQuat kept = RotationOf(out, 0);
+    double length = sqrt((double)kept.x * (double)kept.x + (double)kept.y * (double)kept.y +
+                         (double)kept.z * (double)kept.z + (double)kept.w * (double)kept.w);
+    CHECK(fabs(length - 1.0) < 1e-6 && Angle(kept, start) < 1e-6, "a long input held normalized");
 }
 
 static void TestMask(void)
@@ -287,6 +318,10 @@ static void TestMask(void)
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 1), goal) &&
               fabs(Angle(start, RotationOf(out, 0)) - 0.2) < 2e-6,
           "the spine at weight 0 passes, the hips at 0.5 turn twice as far");
+    Set(m->live, 1, maniGraphParameterFloat, Float(0.0f));
+    Body(m, start, start, 0.0f);
+    CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 1), start),
+          "the spine at weight 0 passes at a speed of 0");
 }
 
 static _Alignas(8) uint8_t s_plan[4096];
@@ -426,14 +461,15 @@ static void TestOpen(void)
     uint32_t data = maniLoadU32(g.nodes + 1 * (size_t)MANI_GRAPH_NODE_SIZE + 12);
     uint64_t at = (uint64_t)(g.data - s_made[0].file) + 4 * (uint64_t)data;
     // A mask past the masks, a speed parameter with a literal, a literal
-    // below 0, a reset not a trigger, a block not its own.
-    const uint32_t place[5] = {0, 2, 2, 3, 4};
-    const uint32_t value[5] = {1, 1, 0xBF800000u, 1, 7};
-    for (int k = 0; k < 5; ++k)
+    // below 0, a reset not a trigger, a block not its own, a literal
+    // infinite, a speed parameter past the parameters.
+    const uint32_t place[7] = {0, 2, 2, 3, 4, 2, 1};
+    const uint32_t value[7] = {1, 1, 0xBF800000u, 1, 7, 0x7F800000u, 1000};
+    for (int k = 0; k < 7; ++k)
     {
         static _Alignas(16) uint8_t copy[16384];
         memcpy(copy, s_made[0].file, s_made[0].size);
-        if (k == 2)
+        if (k == 2 || k == 5)
         {
             maniStoreU32(copy + at + 4, MANI_NO_PARAMETER);
         }
