@@ -556,6 +556,52 @@ static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot)
     maniPoseSlotPut(slot, maniChannelFirst(channel), out, 3);
 }
 
+// Every bone's (or listed bone's) slots at its rest, the identity for a
+// difference, as maniSlotRest writes them channel by channel; on a
+// vector backend, the whole groups of a whole pose's rests turned into
+// their rows at once.
+static void FillRests(float* locals, const maniSkeleton* skeleton, uint32_t bones, bool identity,
+                      const maniBoneList* list)
+{
+    static const float kIdentity[MANI_POSE_COMPONENTS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                          0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    uint32_t bone = 0;
+#if defined(MANI_CLIP_LANES)
+    const uint32_t lanes = MANI_POSE_GROUP_BONES;
+    for (; list == NULL && !identity && bone + lanes <= bones; bone += lanes)
+    {
+        float rests[MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS];
+        memcpy(rests, skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
+               sizeof rests);
+        float* group = locals + (size_t)bone * MANI_POSE_COMPONENTS;
+        for (uint32_t lane = 0; lane < lanes; ++lane)
+        {
+            for (uint32_t k = 0; k < MANI_POSE_COMPONENTS; ++k)
+            {
+                group[k * lanes + lane] = rests[lane * MANI_POSE_COMPONENTS + k];
+            }
+        }
+    }
+#endif
+    uint32_t next = 0;
+    for (; bone < bones; ++bone)
+    {
+        if (list != NULL && !maniBoneListed(list, bone, &next))
+        {
+            continue;
+        }
+        const float* rest = kIdentity;
+        float values[MANI_POSE_COMPONENTS];
+        if (!identity)
+        {
+            memcpy(values, skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
+                   sizeof values);
+            rest = values;
+        }
+        maniPoseSlotPut(maniPoseSlot(locals, bone), 0, rest, MANI_POSE_COMPONENTS);
+    }
+}
+
 #if defined(MANI_CLIP_LANES)
 // Up to eight stored rotations waiting for one pass on the lanes: their
 // kept components at both samples, dropped components and slots.
@@ -698,8 +744,7 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     rotations.count = 0;
 #endif
     float* locals = maniPoseLocals(pose);
-    maniFillRests(locals, skeleton, clip->skeletonBoneCount, clip->additive != maniAdditiveNone,
-                  list);
+    FillRests(locals, skeleton, clip->skeletonBoneCount, clip->additive != maniAdditiveNone, list);
     uint32_t next = 0;
     for (uint32_t t = 0; t < clip->trackCount; ++t)
     {
