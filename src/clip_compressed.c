@@ -557,16 +557,14 @@ static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot)
 }
 
 // Every bone's (or listed bone's) slots at its rest, the identity for a
-// difference, as maniSlotRest writes them channel by channel; on a
-// vector backend, the whole groups of a whole pose's rests turned into
-// their rows at once.
+// difference, as maniSlotRest writes them channel by channel; the whole
+// groups of a whole pose's rests turned into their rows at once.
 static void FillRests(float* locals, const maniSkeleton* skeleton, uint32_t bones, bool identity,
                       const maniBoneList* list)
 {
     static const float kIdentity[MANI_POSE_COMPONENTS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                                                           0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     uint32_t bone = 0;
-#if defined(MANI_CLIP_LANES)
     const uint32_t lanes = MANI_POSE_GROUP_BONES;
     for (; list == NULL && !identity && bone + lanes <= bones; bone += lanes)
     {
@@ -582,7 +580,6 @@ static void FillRests(float* locals, const maniSkeleton* skeleton, uint32_t bone
             }
         }
     }
-#endif
     uint32_t next = 0;
     for (; bone < bones; ++bone)
     {

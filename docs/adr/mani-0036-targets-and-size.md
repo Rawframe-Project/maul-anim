@@ -184,3 +184,18 @@ attributes; held at their measured cost, 43.8 million instructions at
 `-O2` for the face. Instructions understate cgltf's float unpack, a
 `memcpy`; timed runs decide where they disagree.
 
+Skinning, a part of its own (2026-10-22): ozz's 69,698 bytes are its
+animation and base libraries, and its skinning job is in its geometry
+library, outside that measure; the core counted skins, influences and
+the skinning job (10,712 bytes at `-O2`). They are now the part
+`skinning` (ceilings 11,000 and 14,000; 11,000 and 14,000 for AVX2), and
+the core is held like for like: 59,192 bytes at `-O2` under ozz's 69,698
+(its `-O3` ceiling lowered to 76,000 at 75,940; AVX2 63,308 and 75,819
+under 64,000 and 76,000). The core had come within 2 bytes of its
+ceiling, and the ceiling had begun to pick algorithms per backend (a
+rest fill by groups on vector backends, bone by bone on the scalar one);
+with the room, one fill serves every backend. From here, when a change
+to the core does not fit, the ceiling is raised by a decision recorded
+here that names what the bytes buy; the scalar and vector backends do
+not take different algorithms to fit it.
+

@@ -8,15 +8,18 @@
 # mani-0036.
 #
 # The core is the measure against ozz-animation's runtime (69,698
-# bytes at -O2, 74,225 at -O3): sampling, blending, the model pass and
-# palettes, with skeletons, skinning and root motion.
+# bytes at -O2, 74,225 at -O3, its animation and base libraries):
+# sampling, blending, the model pass and palettes, with skeletons and
+# root motion. Skinning is a part of its own, as ozz's skinning job is in
+# its geometry library, outside that measure (mani-0036).
 #
 # "ceiling PART O2-avx2|O3-avx2 BYTES" holds the AVX2 backend's archive
 # the same way (mani-0036 amendment, mani-0038): its vector kernels'
 # growth seen as each lands. The comparison with ozz stays on the scalar
 # build.
 
-core: base clip clip_tracks clip_cursor clip_compressed blend additive mask pose skin skinning influences skeleton fpenv hash cpu
+core: base clip clip_tracks clip_cursor clip_compressed blend additive mask pose skeleton fpenv hash cpu
+skinning: skin skinning influences
 graph: graph graph_bind graph_body graph_chain graph_dead_blend graph_emit graph_evaluate graph_evaluate_ik graph_inertia graph_inertia_apply graph_inspect graph_instance graph_learned graph_learned_step graph_machine graph_machine_file graph_machine_listen graph_machine_step graph_match graph_match_step graph_nodes graph_shot graph_shot_step graph_space graph_spring graph_subset graph_turn graph_update
 ik: ik ik_aim ik_ccd ik_chain ik_fabrik ik_frame ik_limit
 bodyik: body_ik body_sdls body_xpbd jacobi_svd
@@ -30,6 +33,7 @@ morph: morph
 elementary: elementary_float
 
 ceiling core       O2 69698
+ceiling skinning   O2 11000
 ceiling graph      O2 107000
 ceiling ik         O2 31000
 ceiling bodyik     O2 26000
@@ -41,7 +45,8 @@ ceiling match      O2 17000
 ceiling learned    O2 11000
 ceiling morph      O2 7000
 ceiling elementary O2 7000
-ceiling core       O3 92000
+ceiling core       O3 76000
+ceiling skinning   O3 14000
 ceiling graph      O3 131000
 ceiling ik         O3 34000
 ceiling bodyik     O3 32000
@@ -54,7 +59,8 @@ ceiling learned    O3 16000
 ceiling morph      O3 7000
 ceiling elementary O3 8000
 
-ceiling core       O2-avx2 74000
+ceiling core       O2-avx2 64000
+ceiling skinning   O2-avx2 11000
 ceiling graph      O2-avx2 107000
 ceiling ik         O2-avx2 29000
 ceiling bodyik     O2-avx2 26000
@@ -66,7 +72,8 @@ ceiling match      O2-avx2 17000
 ceiling learned    O2-avx2 11000
 ceiling morph      O2-avx2 7000
 ceiling elementary O2-avx2 6000
-ceiling core       O3-avx2 90000
+ceiling core       O3-avx2 76000
+ceiling skinning   O3-avx2 14000
 ceiling graph      O3-avx2 134000
 ceiling ik         O3-avx2 32000
 ceiling bodyik     O3-avx2 34000

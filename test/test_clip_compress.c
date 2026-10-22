@@ -415,7 +415,10 @@ static void TestNoRatePasses(void)
 
 // Random hierarchies and motion: every bone within its precision at
 // every sample, whatever the tolerances.
-#define RANDOM_BONES 12
+// Random skeletons draw 2 to RANDOM_DRAW - 1 bones; the arrays hold up
+// to RANDOM_BONES, for the batch tails' fixed counts.
+#define RANDOM_BONES 16
+#define RANDOM_DRAW  12
 static uint32_t s_random = 12345;
 static maniBoneSource s_randomBones[RANDOM_BONES];
 static float s_randomT[RANDOM_BONES][3 * KEYS];
@@ -496,7 +499,7 @@ static void TestRandomWithinPrecision(void)
     static const float kShells[3] = {0.01f, 0.03f, 0.1f};
     for (int round = 0; round < 24; ++round)
     {
-        uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_BONES - 2));
+        uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_DRAW - 2));
         RandomSkeleton(bones);
         uint32_t tracks = 0;
         for (uint32_t b = 0; b < bones; ++b)
@@ -751,7 +754,7 @@ static void TestCursorRandom(void)
 {
     for (int round = 0; round < 24; ++round)
     {
-        uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_BONES - 2));
+        uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_DRAW - 2));
         for (uint32_t b = 0; b < bones; ++b)
         {
             float x = Random() - 0.5f;
@@ -824,6 +827,83 @@ static void TestCursorRandom(void)
         CursorWalk(&packed, cursor);
         RandomSubset(&packed, bones);
     }
+    OpenSkeleton();
+}
+
+// Random access's rotations pass the lanes in batches of eight (on a
+// vector backend), the last one part full, its unused lanes never
+// written: clips rotating every bone of 7, 9 and 15 bones leave a last
+// batch of seven, one and seven, played against the cursor, whose held
+// groups never batch.
+static void TestBatchTails(void)
+{
+    static const uint32_t kTails[3] = {7, 9, 15};
+    for (int i = 0; i < 3; ++i)
+    {
+        uint32_t bones = kTails[i];
+        RandomSkeleton(bones);
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            RandomKeys(b);
+            s_randomTracks[b] =
+                (maniBoneTrackSource){b, 0, kNone, Linear(s_randomR[b], KEYS), kNone};
+        }
+        maniClipSource source = {.skeleton = &s_skeleton,
+                                 .boneTracks = s_randomTracks,
+                                 .boneTrackCount = bones,
+                                 .sampleRate = 30.0f,
+                                 .duration = 1.0f};
+        BuildFullFrom(&source);
+        maniCompressOptions options = maniDefaultCompressOptions();
+        CHECK(Compress(&options, NULL) == mani_success, "rotations compress");
+        maniClip packed;
+        CHECK(Open(&packed).result == mani_success, "opens");
+        maniClipCursor* cursor = NULL;
+        CHECK(maniInitClipCursor(s_cursorMemory, maniClipCursorSize(&packed), &cursor) ==
+                  mani_success,
+              "cursor");
+        CursorWalk(&packed, cursor);
+    }
+    OpenSkeleton();
+}
+
+// A clip of no tracks: every bone its rest, bit for bit as the skeleton
+// holds it (the identity for an additive clip), on 7, 9 and 12 bones: a
+// group of eight turned whole and the bones past it one by one, a
+// difference's bones one by one (mani-0036).
+static void TestRestFill(void)
+{
+    static const uint32_t kCounts[3] = {7, 9, 12};
+    const maniTransform identity = {
+        {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
+    bool right = true;
+    for (int i = 0; i < 6; ++i)
+    {
+        uint32_t bones = kCounts[i % 3];
+        bool additive = i >= 3;
+        RandomSkeleton(bones);
+        maniClipSource source = {.skeleton = &s_skeleton,
+                                 .boneTracks = NULL,
+                                 .boneTrackCount = 0,
+                                 .sampleRate = 30.0f,
+                                 .duration = 0.5f,
+                                 .additive = additive ? maniAdditiveRest : maniAdditiveNone};
+        BuildFullFrom(&source);
+        maniCompressOptions options = maniDefaultCompressOptions();
+        CHECK(Compress(&options, NULL) == mani_success, "a clip of rests compresses");
+        maniClip packed;
+        CHECK(Open(&packed).result == mani_success, "opens");
+        maniPose* pose = NULL;
+        CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &pose) == mani_success, "pose");
+        CHECK(maniSampleClip(&packed, &s_skeleton, 0.25f, pose) == mani_success, "samples");
+        for (uint32_t bone = 0; bone < bones; ++bone)
+        {
+            maniTransform want = additive ? identity : maniSkeletonRest(&s_skeleton, bone);
+            maniTransform got = maniPoseLocal(pose, bone);
+            right = right && memcmp(&want, &got, sizeof want) == 0;
+        }
+    }
+    CHECK(right, "a clip of rests samples every bone's rest bits");
     OpenSkeleton();
 }
 
@@ -1579,6 +1659,8 @@ int main(int argc, char** argv)
     TestAdditiveCompressed();
     TestCursor();
     TestCursorRandom();
+    TestBatchTails();
+    TestRestFill();
     TestSubsets();
     TestSameBytes();
     TestMisuse();
