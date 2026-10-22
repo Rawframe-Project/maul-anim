@@ -116,5 +116,9 @@ void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, 
 // animated bone channel, one per animated float track, in that order.
 uint32_t maniCompressedSampleFloats(const maniClip* clip);
 void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* out);
+// A decoded sample laid out as a pose's groups for the forward cursor,
+// with the masks of the channels the walk interpolates (clip_lanes.h).
+void maniExpandCompressedSample(const maniClip* clip, const maniSkeleton* skeleton,
+                                const float* cache, float* groups, float* masks);
 
 #endif // MAUL_ANIM_SRC_CLIP_VIEW_H

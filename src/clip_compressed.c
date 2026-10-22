@@ -11,6 +11,7 @@
 #include "bytes.h"
 #include "clip_codec.h"
 #include "clip_file.h"
+#include "clip_lanes.h"
 #include "clip_view.h"
 #include "container.h"
 #include "pose_memory.h"
@@ -605,6 +606,94 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     }
     maniPoseMarkStale(pose);
 }
+
+#if defined(MANI_CLIP_LANES)
+// A constant channel's value: a rotation rebuilt with its dropped
+// component.
+static void HeldConstant(const uint8_t* constant, uint32_t channel, uint32_t dropped, float* v)
+{
+    float kept[3];
+    for (int k = 0; k < 3; ++k)
+    {
+        kept[k] = LoadF32(constant + 4 * k);
+    }
+    if (channel == 1)
+    {
+        maniCodecRotation(kept, dropped, v);
+    }
+    else
+    {
+        memcpy(v, kept, sizeof kept);
+    }
+}
+
+// The lanes past the last bone: the identity, never interpolated.
+static void HeldPadding(uint32_t bones, float* groups, float* masks)
+{
+    static const float kIdentity[MANI_POSE_COMPONENTS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                          0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    for (uint32_t bone = bones; bone % MANI_POSE_GROUP_BONES != 0; ++bone)
+    {
+        maniPoseSlotPut(maniPoseSlot(groups, bone), 0, kIdentity, MANI_POSE_COMPONENTS);
+        for (uint32_t c = 0; c < 3; ++c)
+        {
+            masks[(size_t)(bone / MANI_POSE_GROUP_BONES) * 3 * MANI_POSE_GROUP_BONES +
+                  c * MANI_POSE_GROUP_BONES + bone % MANI_POSE_GROUP_BONES] = 0.0f;
+        }
+    }
+}
+
+// A held sample (maniDecodeCompressedSample's floats) in a pose's group
+// layout for the forward cursor: each channel the clip stores at its
+// value (a constant read, a rotation rebuilt), the others at rest as the
+// walk writes them, padding lanes the identity; in masks (three rows of
+// eight a group: translation, rotation, scale) all bits set where the
+// walk interpolates the channel, clear where it writes a rest.
+void maniExpandCompressedSample(const maniClip* clip, const maniSkeleton* skeleton,
+                                const float* cache, float* groups, float* masks)
+{
+    uint32_t bones = clip->skeletonBoneCount;
+    const uint8_t* constant = clip->constants;
+    bool identity = clip->additive != maniAdditiveNone;
+    uint32_t track = 0;
+    for (uint32_t bone = 0; bone < bones; ++bone)
+    {
+        float* slot = maniPoseSlot(groups, bone);
+        float* mask = masks + (size_t)(bone / MANI_POSE_GROUP_BONES) * 3 * MANI_POSE_GROUP_BONES +
+                      bone % MANI_POSE_GROUP_BONES;
+        bool tracked = track < clip->trackCount &&
+                       maniLoadU16(clip->tracks + (size_t)track * MANI_CLIP_TRACK_SIZE) == bone;
+        uint32_t forms = tracked ? clip->forms[track] : 0;
+        track += tracked ? 1 : 0;
+        for (uint32_t c = 0; c < 3; ++c)
+        {
+            uint32_t form = Form(forms, c);
+            uint32_t width = c == 1 ? 4 : 3;
+            float v[4];
+            if (form == maniClipFormConstant)
+            {
+                HeldConstant(constant, c, Dropped(forms), v);
+                constant += 12;
+            }
+            else if (form == maniClipFormAnimated)
+            {
+                memcpy(v, cache, width * sizeof(float));
+                cache += width;
+            }
+            else
+            {
+                maniSlotRest(slot, skeleton, bone, c, identity);
+                mask[c * MANI_POSE_GROUP_BONES] = 0.0f;
+                continue;
+            }
+            maniPoseSlotPut(slot, maniChannelFirst(c), v, width);
+            uint32_t all = UINT32_MAX;
+            memcpy(&mask[c * MANI_POSE_GROUP_BONES], &all, sizeof all);
+        }
+    }
+    HeldPadding(bones, groups, masks);
+}
+#endif
 
 // The walk over the float tracks.
 typedef struct FloatReading

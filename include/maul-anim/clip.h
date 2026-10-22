@@ -257,7 +257,9 @@ extern "C"
 #define MANI_CLIP_CURSOR_ALIGNMENT 8u
 
     /// Returns the bytes a cursor needs to play a clip: a cursor made for
-    /// a clip plays any clip that needs no more.
+    /// a clip plays any clip that needs no more. A build with a vector
+    /// backend (maniGetSimdBackend) also holds the two samples in the
+    /// pose's groups of eight bones, so the bytes depend on the backend.
     ///
     /// @param clip  An opened clip.
     /// @return The size in bytes; 0 for a NULL clip.

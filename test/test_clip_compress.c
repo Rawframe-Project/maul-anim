@@ -685,6 +685,83 @@ static void TestCursor(void)
           "not a cursor");
 }
 
+// Random clips through a cursor: one group of bones and two, rests
+// turned (not exactly unit in floats) with -0 in their translations,
+// constant channels, and rotations turning past w = 0 so samples meet
+// on the longer arc.
+static void TestCursorRandom(void)
+{
+    for (int round = 0; round < 24; ++round)
+    {
+        uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_BONES - 2));
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            float x = Random() - 0.5f;
+            float y = Random() - 0.5f;
+            float z = Random() - 0.5f;
+            float length = sqrtf(x * x + y * y + z * z) + 1e-3f;
+            StoreAxisAngle(s_randomR[b], x / length, y / length, z / length, 6.0f * Random());
+        }
+        RandomSkeleton(bones);
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            const float* q = s_randomR[b];
+            s_randomBones[b].rest.rotation = (maniQuat){q[0], q[1], q[2], q[3]};
+            s_randomBones[b].rest.translation.z =
+                b % 3 == 0 ? -0.0f : s_randomBones[b].rest.translation.z;
+        }
+        maniBuilder* builder = NewBuilder();
+        maniSkeletonSource skeleton = {s_randomBones, bones, 0};
+        CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success, "turned skeleton");
+        size_t size = 0;
+        CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+              "copies");
+        maniDestroyBuilder(builder);
+        CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
+        uint32_t tracks = 0;
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            RandomKeys(b);
+            float x = Random() - 0.5f;
+            float y = Random() - 0.5f;
+            float z = Random() - 0.5f;
+            float length = sqrtf(x * x + y * y + z * z) + 1e-3f;
+            bool still = Random() < 0.25f;
+            for (int k = 0; k < KEYS; ++k)
+            {
+                StoreAxisAngle(&s_randomR[b][4 * k], x / length, y / length, z / length,
+                               7.0f * sinf(3.0f * s_times[k]));
+                for (int c = 0; c < 3 && still; ++c)
+                {
+                    s_randomT[b][3 * k + c] = s_randomT[b][c];
+                }
+            }
+            bool any = s_randomTracks[b].translation.keyCount +
+                           s_randomTracks[b].rotation.keyCount + s_randomTracks[b].scale.keyCount >
+                       0;
+            s_randomTracks[tracks] = s_randomTracks[b];
+            tracks += any ? 1 : 0;
+        }
+        maniClipSource source = {.skeleton = &s_skeleton,
+                                 .boneTracks = s_randomTracks,
+                                 .boneTrackCount = tracks,
+                                 .sampleRate = 30.0f,
+                                 .duration = 0.5f + 1.5f * Random()};
+        BuildFullFrom(&source);
+        maniCompressOptions options = maniDefaultCompressOptions();
+        CHECK(Compress(&options, NULL) == mani_success, "random compresses");
+        maniClip packed;
+        CHECK(Open(&packed).result == mani_success, "opens");
+        maniClipCursor* cursor = NULL;
+        CHECK(maniClipCursorSize(&packed) <= sizeof s_cursorMemory, "cursor size");
+        CHECK(maniInitClipCursor(s_cursorMemory, maniClipCursorSize(&packed), &cursor) ==
+                  mani_success,
+              "cursor");
+        CursorWalk(&packed, cursor);
+    }
+    OpenSkeleton();
+}
+
 // Some bones sampled: those as the whole clip samples them, every other
 // one as it was.
 static void SubsetOf(const maniClip* clip)
@@ -1436,6 +1513,7 @@ int main(int argc, char** argv)
     TestBonePrecisions();
     TestAdditiveCompressed();
     TestCursor();
+    TestCursorRandom();
     TestSubsets();
     TestSameBytes();
     TestMisuse();

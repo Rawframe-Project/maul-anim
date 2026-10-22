@@ -42,6 +42,13 @@ format.
 
 ### Changed
 
+- Playing a compressed clip forward with a cursor takes about a quarter
+  of the instructions on AVX2 and NEON builds, with the same poses: the
+  cursor holds its two samples in the pose's groups of eight bones and
+  interpolates a group at a time (6,744 instructions a pose of
+  `ual.fbx` under GCC 14, from 25,777; 7,236 under Clang 20, from
+  35,883). The cursor needs more memory there (`maniClipCursorSize`);
+  scalar builds play as before (mani-0039).
 - Blending poses takes fewer instructions on every compiler, with the
   same results: each group of eight bones is summed and normalized on
   eight-lane vectors (3,148 instructions a blend of two poses under GCC

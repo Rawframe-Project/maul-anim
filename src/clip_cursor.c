@@ -4,8 +4,11 @@
 // The forward cursor (mani-0019): two cached
 // samples of a compressed clip, decoded once and interpolated by the
 // sampler's own code, so its poses are random access's bits. Bound to a
-// clip by identity and address, as ACL's context binds by a hash.
+// clip by identity and address, as ACL's context binds by a hash. On a
+// vector backend the samples are also held in the pose's groups, and a
+// pose is one interpolation a group (clip_lanes.h, mani-0039).
 
+#include "clip_lanes.h"
 #include "clip_view.h"
 #include "pose_memory.h"
 
@@ -23,16 +26,42 @@ struct maniClipCursor
     uint64_t identity;
     const maniClip* clip;
     uint32_t tag;
-    // The floats each of the two slots can hold, and holds for the clip.
+    // The floats the cursor can hold, and the decoded floats of one sample
+    // for the clip; after the two decoded samples, on a vector backend,
+    // the two in the pose's groups and the groups' masks.
     uint32_t capacity;
     uint32_t floats;
     uint32_t samples[2];
+    uint32_t expanded[2];
     float values[];
 };
+
+#define GROUP_FLOATS (MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS)
+#define MASK_FLOATS  (MANI_POSE_GROUP_BONES * 3)
+
+#if defined(MANI_CLIP_LANES)
+// A clip's pose groups.
+static size_t Groups(const maniClip* clip)
+{
+    return ((size_t)clip->skeletonBoneCount + MANI_POSE_GROUP_BONES - 1) / MANI_POSE_GROUP_BONES;
+}
+#endif
 
 static size_t CacheFloats(const maniClip* clip)
 {
     return clip->compressed ? maniCompressedSampleFloats(clip) : 0;
+}
+
+// The floats held for a clip: two decoded samples, and on a vector
+// backend two samples in groups and the masks.
+static size_t HeldFloats(const maniClip* clip, size_t floats)
+{
+#if defined(MANI_CLIP_LANES)
+    return floats > 0 ? 2 * floats + Groups(clip) * (2 * GROUP_FLOATS + MASK_FLOATS) : 0;
+#else
+    (void)clip;
+    return 2 * floats;
+#endif
 }
 
 size_t maniClipCursorSize(const maniClip* clip)
@@ -41,7 +70,7 @@ size_t maniClipCursorSize(const maniClip* clip)
     {
         return 0;
     }
-    return offsetof(maniClipCursor, values) + 2 * CacheFloats(clip) * sizeof(float);
+    return offsetof(maniClipCursor, values) + HeldFloats(clip, CacheFloats(clip)) * sizeof(float);
 }
 
 maniResult maniInitClipCursor(void* memory, size_t size, maniClipCursor** cursorOut)
@@ -55,12 +84,13 @@ maniResult maniInitClipCursor(void* memory, size_t size, maniClipCursor** cursor
     {
         return mani_errorCapacity;
     }
-    size_t slot = (size - header) / (2 * sizeof(float));
+    size_t floats = (size - header) / sizeof(float);
     maniClipCursor* cursor = memory;
     *cursor = (maniClipCursor){
         .tag = CURSOR_TAG,
-        .capacity = slot < UINT32_MAX ? (uint32_t)slot : UINT32_MAX,
+        .capacity = floats < UINT32_MAX ? (uint32_t)floats : UINT32_MAX,
         .samples = {NO_SAMPLE, NO_SAMPLE},
+        .expanded = {NO_SAMPLE, NO_SAMPLE},
     };
     *cursorOut = cursor;
     return mani_success;
@@ -76,7 +106,7 @@ static bool Bind(maniClipCursor* cursor, const maniClip* clip)
     {
         return true;
     }
-    if (floats > cursor->capacity)
+    if (HeldFloats(clip, floats) > cursor->capacity)
     {
         return false;
     }
@@ -85,6 +115,8 @@ static bool Bind(maniClipCursor* cursor, const maniClip* clip)
     cursor->floats = (uint32_t)floats;
     cursor->samples[0] = NO_SAMPLE;
     cursor->samples[1] = NO_SAMPLE;
+    cursor->expanded[0] = NO_SAMPLE;
+    cursor->expanded[1] = NO_SAMPLE;
     return true;
 }
 
@@ -133,6 +165,38 @@ static bool Valid(const maniClipCursor* cursor)
     return cursor != NULL && cursor->tag == CURSOR_TAG;
 }
 
+#if defined(MANI_CLIP_LANES)
+// The pair's samples laid out in groups once each, rests included (every
+// skeleton the clip fits has its identity, which covers the rests), then
+// one interpolation a group into the pose.
+static void Lanes(maniClipCursor* cursor, const maniClip* clip, const maniSkeleton* skeleton,
+                  const maniClipPair* pair, maniPose* pose)
+{
+    size_t floats = cursor->floats;
+    size_t held = Groups(clip) * GROUP_FLOATS;
+    float* groups = cursor->values + 2 * floats;
+    float* masks = groups + 2 * held;
+    for (uint32_t slot = 0; slot < 2; ++slot)
+    {
+        if (cursor->samples[slot] != NO_SAMPLE && cursor->expanded[slot] != cursor->samples[slot])
+        {
+            maniExpandCompressedSample(clip, skeleton, cursor->values + slot * floats,
+                                       groups + slot * held, masks);
+            cursor->expanded[slot] = cursor->samples[slot];
+        }
+    }
+    const float* a = groups + (pair->cacheA == cursor->values ? 0 : held);
+    const float* b = groups + (pair->cacheB == cursor->values ? 0 : held);
+    float* locals = maniPoseLocals(pose);
+    for (size_t g = 0; g < Groups(clip); ++g)
+    {
+        maniClipLanesInterpolate(a + g * GROUP_FLOATS, b + g * GROUP_FLOATS,
+                                 masks + g * MASK_FLOATS, pair->alpha, locals + g * GROUP_FLOATS);
+    }
+    maniPoseMarkStale(pose);
+}
+#endif
+
 maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
                                 const maniSkeleton* skeleton, float time, maniPose* pose)
 {
@@ -146,6 +210,13 @@ maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
     }
     maniClipPair pair = maniClipLocate(clip, time);
     Load(cursor, clip, &pair);
+#if defined(MANI_CLIP_LANES)
+    if (clip->compressed && cursor->floats > 0)
+    {
+        Lanes(cursor, clip, skeleton, &pair, pose);
+        return mani_success;
+    }
+#endif
     maniSampleClipPair(clip, skeleton, &pair, NULL, pose);
     return mani_success;
 }

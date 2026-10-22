@@ -138,8 +138,9 @@ graph_evaluate: blend_groups bytes graph_evaluate_ik graph_evaluation graph_file
 clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes
-clip_compressed: bytes clip_codec clip_file clip_view container pose_memory vecmath
-clip_cursor: clip_view pose_memory
+clip_lanes: blend_lanes pose_memory simd
+clip_compressed: bytes clip_codec clip_file clip_lanes clip_view container pose_memory vecmath
+clip_cursor: clip_lanes clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
 root_motion_build: allocator bytes clip_file quat64
 clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
