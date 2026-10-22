@@ -55,10 +55,10 @@ format.
   the channels the clip stores are read and interpolated, where each
   channel was decided and written in turn; on AVX2 and NEON builds the
   stored rotations are rebuilt, interpolated and normalized eight at a
-  time. On `ual.fbx`, random access takes 28,093 instructions a pose
-  under GCC 14 and AVX2 (from 36,260) and 28,470 under Clang 20 (from
-  43,978); a cursor on a scalar build 21,695 under GCC (from 27,113)
-  and 25,759 under Clang (from 39,488).
+  time. On `ual.fbx`, random access takes 27,079 instructions a pose
+  under GCC 14 and AVX2 (from 36,260) and 27,999 under Clang 20 (from
+  43,978); a cursor on a scalar build 20,557 under GCC (from 27,113)
+  and 24,057 under Clang (from 39,488).
 - Playing a compressed clip forward with a cursor takes about a quarter
   of the instructions on AVX2 and NEON builds, with the same poses: the
   cursor holds its two samples in the pose's groups of eight bones and

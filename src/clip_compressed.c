@@ -747,7 +747,7 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     {
         uint32_t bone = maniLoadU16(clip->tracks + (size_t)t * MANI_CLIP_TRACK_SIZE);
         uint32_t forms = clip->forms[t];
-        bool wanted = maniBoneListed(list, bone, &next);
+        bool wanted = list == NULL || maniBoneListed(list, bone, &next);
         float* slot = maniPoseSlot(locals, bone);
         for (uint32_t c = 0; c < 3; ++c)
         {
