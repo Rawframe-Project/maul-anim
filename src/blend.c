@@ -10,14 +10,13 @@
 #include "maul-anim/blend.h"
 
 #include "blend_groups.h"
+#include "blend_lanes.h"
 #include "pose_memory.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
-#include <float.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -74,6 +73,12 @@ static bool Valid(const maniSkeleton* skeleton, const maniBlendLayer* layers, ui
 static void GroupWeights(const maniBlendLayer* layer, uint32_t first, uint32_t lanes,
                          float w[LANES])
 {
+    if (lanes == LANES)
+    {
+        maniBlendLanesWeights(layer->weight,
+                              layer->boneWeights != NULL ? layer->boneWeights + first : NULL, w);
+        return;
+    }
     for (uint32_t k = 0; k < LANES; ++k)
     {
         w[k] = layer->weight;
@@ -81,42 +86,6 @@ static void GroupWeights(const maniBlendLayer* layer, uint32_t first, uint32_t l
     for (uint32_t k = 0; layer->boneWeights != NULL && k < lanes; ++k)
     {
         w[k] = layer->weight * layer->boneWeights[first + k];
-    }
-}
-
-// Adds a group of eight transforms at their shares into the output
-// group: a rotation negated where it points away from the sum so far.
-// The first layer starts the sums from 0 (0 + v, so a zero keeps its
-// sign as later sums would).
-static void Accumulate(float* restrict o, const float* restrict in, const float* restrict w,
-                       bool first)
-{
-    if (first)
-    {
-        for (uint32_t c = 0; c < COMPONENTS; ++c)
-        {
-            for (uint32_t k = 0; k < LANES; ++k)
-            {
-                o[c * LANES + k] = 0.0f + in[c * LANES + k] * w[k];
-            }
-        }
-        return;
-    }
-    float rw[LANES];
-    for (uint32_t k = 0; k < LANES; ++k)
-    {
-        float dot = ((o[3 * LANES + k] * in[3 * LANES + k] + o[4 * LANES + k] * in[4 * LANES + k]) +
-                     o[5 * LANES + k] * in[5 * LANES + k]) +
-                    o[6 * LANES + k] * in[6 * LANES + k];
-        rw[k] = dot < 0.0f ? -w[k] : w[k];
-    }
-    for (uint32_t c = 0; c < COMPONENTS; ++c)
-    {
-        const float* weights = c >= 3 && c < 7 ? rw : w;
-        for (uint32_t k = 0; k < LANES; ++k)
-        {
-            o[c * LANES + k] += in[c * LANES + k] * weights[k];
-        }
     }
 }
 
@@ -157,39 +126,6 @@ static void FillRest(float* o, const float* share, const maniSkeleton* skeleton,
         for (uint32_t c = 0; c < COMPONENTS; ++c)
         {
             o[c * LANES + k] += rest[c] * (c >= 3 && c < 7 ? rf : share[k]);
-        }
-    }
-}
-
-// Rotations normalized in place: to unit length, the identity for a
-// zero or overflowing sum.
-static void Normalize(float* o)
-{
-    float root[LANES];
-    for (uint32_t k = 0; k < LANES; ++k)
-    {
-        float x = o[3 * LANES + k];
-        float y = o[4 * LANES + k];
-        float z = o[5 * LANES + k];
-        float w = o[6 * LANES + k];
-        float squared = ((x * x + y * y) + z * z) + w * w;
-        root[k] = squared > 0.0f && squared <= FLT_MAX ? squared : -1.0f;
-    }
-    for (uint32_t k = 0; k < LANES; ++k)
-    {
-        root[k] = root[k] > 0.0f ? sqrtf(root[k]) : -1.0f;
-    }
-    float inverse[LANES];
-    for (uint32_t k = 0; k < LANES; ++k)
-    {
-        inverse[k] = 1.0f / (root[k] > 0.0f ? root[k] : 1.0f);
-    }
-    for (uint32_t c = 3; c < 7; ++c)
-    {
-        float fallback = c == 6 ? 1.0f : 0.0f;
-        for (uint32_t k = 0; k < LANES; ++k)
-        {
-            o[c * LANES + k] = root[k] > 0.0f ? o[c * LANES + k] * inverse[k] : fallback;
         }
     }
 }
@@ -235,17 +171,12 @@ static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
     for (uint32_t i = 0; i < count; ++i)
     {
         GroupWeights(&layers[i], first, lanes, w);
-        for (uint32_t k = 0; k < LANES; ++k)
-        {
-            total[k] += w[k];
-        }
+        maniBlendLanesAdd(total, w);
     }
+    maniBlendLanesShares(total, threshold, inverse, share);
     bool any = false;
     for (uint32_t k = 0; k < LANES; ++k)
     {
-        bool under = total[k] < threshold;
-        inverse[k] = 1.0f / (under ? threshold : total[k]);
-        share[k] = under && total[k] > 0.0f ? (threshold - total[k]) * inverse[k] : 0.0f;
         any |= share[k] > 0.0f;
     }
     return any;
@@ -288,12 +219,9 @@ maniResult maniBlendPosesIn(const maniSkeleton* skeleton, const maniBlendLayer* 
                 continue;
             }
             GroupWeights(&layers[i], first, lanes, w);
-            for (uint32_t k = 0; k < LANES; ++k)
-            {
-                w[k] *= inverse[k];
-            }
-            Accumulate(o, maniPoseLocalsRead(layers[i].pose) + (size_t)first * COMPONENTS, w,
-                       !started);
+            maniBlendLanesScale(w, inverse);
+            maniBlendLanesAccumulate(
+                o, maniPoseLocalsRead(layers[i].pose) + (size_t)first * COMPONENTS, w, !started);
             started = true;
         }
         if (started)
@@ -302,7 +230,7 @@ maniResult maniBlendPosesIn(const maniSkeleton* skeleton, const maniBlendLayer* 
             {
                 FillRest(o, share, skeleton, first, lanes, difference);
             }
-            Normalize(o);
+            maniBlendLanesNormalize(o);
         }
         Settle(o, total, skeleton, first, lanes, difference);
     }

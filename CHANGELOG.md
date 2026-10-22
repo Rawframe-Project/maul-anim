@@ -42,6 +42,10 @@ format.
 
 ### Changed
 
+- Blending poses takes fewer instructions on every compiler, with the
+  same results: each group of eight bones is summed and normalized on
+  eight-lane vectors (3,148 instructions a blend of two poses under GCC
+  14 and AVX2, from 7,631; 2,781 under Clang 20, from 3,423).
 - Inflating zlib streams, as FBX arrays are, takes about half the
   instructions, with every output byte the same: the fixed codes are
   constant tables and eight bytes are read at a time.

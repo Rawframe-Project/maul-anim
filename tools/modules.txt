@@ -25,7 +25,8 @@ basis:
 pose_memory:
 additive: blend_groups pose_memory vecmath
 blend_groups:
-blend: blend_groups pose_memory
+blend_lanes: pose_memory simd
+blend: blend_groups blend_lanes pose_memory
 mask:
 skin_file:
 skin: bytes container pose_memory skin_file vecmath
