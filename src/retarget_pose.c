@@ -198,7 +198,7 @@ static maniTransform SameFrame(const Transfer* x, uint32_t b, uint32_t a, maniQu
 {
     const maniTransform given = maniPoseLocal(x->sourcePose, a);
     local.rotation = given.rotation;
-    x->targetModels[b] = maniQuatMul(above, local.rotation);
+    x->targetModels[b] = maniQuatMul(above, given.rotation);
     if (translation == maniRetargetTranslationAbsolute)
     {
         local.translation = given.translation;

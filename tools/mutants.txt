@@ -369,7 +369,7 @@ prp-array-kind | src/gltf_property.c | if (values[element].kind != (uint32_t)kin
 lay-stride-four | src/gltf_layout.c | if (stride % 4 != 0 || stride > length) | if (stride > length)
 lay-view-bound | src/gltf_layout.c | if ((uint64_t)offset + (uint64_t)length > gltf->buffers[v->buffer].byteLength) | if (false)
 lay-align | src/gltf_layout.c | if (alignment == 0 || (v->offset + offset) % alignment != 0 || | if (alignment == 0 ||
-lay-span | src/gltf_layout.c | (!strideAllowed && v->stride != 0) || offset > v->length || span > v->length - offset) | (!strideAllowed && v->stride != 0) || offset > v->length)
+lay-span | src/gltf_layout.c | span > v->length - offset) | false)
 lay-normalized-int | src/gltf_layout.c | if (ComponentSize(code) == 0 || (a->normalized && code >= 5125)) | if (ComponentSize(code) == 0)
 lay-column-pad | src/gltf_layout.c | a->columnStride = a->columns > 1 ? (column + 3) / 4 * 4 : column; | a->columnStride = column;
 lay-offset-noview | src/gltf_layout.c | if (a->view == MANI_JSON_NONE && offsetAt != MANI_JSON_NONE) | if (false)
@@ -384,7 +384,7 @@ lay-sparse-range | src/gltf_layout.c | if (index >= a->count || (j > 0 && index 
 nod-two-parents | src/gltf_node.c | if (gltf->nodeParents[child] != MANI_JSON_NONE) | if (false)
 nod-cycle | src/hierarchy.c | if (v != MANI_NO_NODE && depth[v] == WALKING) | if (false)
 nod-ibm-count | src/gltf_node.c | if (a->rows != 4 || a->columns != 4 || a->component != maniGltfFloat || a->count < joints) | if (a->rows != 4 || a->columns != 4 || a->component != maniGltfFloat)
-nod-ibm-stride | src/gltf_node.c | if (a->view != MANI_JSON_NONE && gltf->views[a->view].stride != 0) | if (false)
+nod-ibm-stride | src/gltf_node.c | if (!maniGltfPacked(gltf, a)) | if (false)
 nod-joints-empty | src/gltf_node.c | if (r.result == mani_success && (count == 0 || count > MANI_MAX_BONES)) | if (r.result == mani_success && count > MANI_MAX_BONES)
 nod-joint-twice | src/gltf_node.c | if (stamp[node] == skin) | if (false)
 nod-union-low | src/hierarchy.c | sets[a > b ? a : b] = a < b ? a : b; | sets[a] = b;
@@ -461,7 +461,7 @@ fba-string-close | src/fbx_ascii.c | while (r->at < fbx->size && fbx->bytes[r->a
 
 # FBX objects, connections, properties and settings (mani-0013),
 # 2026-10-14: 23 mutants, all killed (one by a test added after the sweep).
-fbo-search | src/fbx_object.c | if (at < key) | if (at <= key)
+fbo-search | src/fbx_object.c | if (fbx->sortedIds[mid] < key) | if (fbx->sortedIds[mid] <= key)
 fbo-properties60 | src/fbx_object.c | return p != MANI_FBX_NONE ? p : maniFbxFindChild(fbx, node, "Properties60", 12); | return p;
 fbo-subclass-six | src/fbx_object.c | return maniFbxNodeProperty(fbx, node, fbx->version >= 7000 ? 2 : 1); | return maniFbxNodeProperty(fbx, node, 2);
 fbo-class-fbx | src/fbx_object.c | uint32_t skip = length >= 3 && memcmp(text, "Fbx", 3) == 0 ? 3 : 0; | uint32_t skip = 0;
@@ -502,7 +502,7 @@ fbt-integer | src/fbx_transform.c | if (entry != MANI_FBX_NONE && !maniFbxIntege
 fbt-space-order | src/fbx_transform.c | maniFbxEulerQuat(v[maniFbxLocalRotation], space ? order : 0, q); | maniFbxEulerQuat(v[maniFbxLocalRotation], order, q);
 fbt-post-inverse | src/fbx_transform.c | post[0] = -post[0]; | post[0] = post[0];
 fbt-pre | src/fbx_transform.c | maniFbxQuatMul(pre, q, q); | maniFbxQuatMul(q, pre, q);
-fbt-scaling-one | src/fbx_transform.c | r = Vector(fbx, object, maniFbxLocalVectorNames[k], k == maniFbxLocalScaling ? 1.0 : 0.0, | r = Vector(fbx, object, maniFbxLocalVectorNames[k], 0.0,
+fbt-scaling-one | src/fbx_transform.c | r = VectorAt(fbx, object, entries[k], k == maniFbxLocalScaling ? 1.0 : 0.0, | r = VectorAt(fbx, object, entries[k], 0.0,
 fbt-order-max | src/fbx_transform.c | const int64_t maniFbxLocalIntegerLimits[maniFbxLocalIntegers] = {6, 1, 1, 2}; | const int64_t maniFbxLocalIntegerLimits[maniFbxLocalIntegers] = {7, 1, 1, 2};
 fbt-inherit-max | src/fbx_transform.c | static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRSrs}; | static const int64_t kDefaults[maniFbxLocalIntegers] = {0, 1, 0, maniFbxInheritRrs};
 fbt-spheric | src/fbx_transform.c | Rotation(v, order == 6 ? 0 : (uint32_t)order, space, t->rotation); | Rotation(v, order == 6 ? 5 : (uint32_t)order, space, t->rotation);
@@ -710,7 +710,7 @@ fan-accumulation | src/fbx_anim.c | return (maniFbxLayer){object, mode, weight, 
 fan-component-y | src/fbx_anim.c | if (NameIs(fbx, property, "Y") || NameIs(fbx, property, "d|Y")) | if (NameIs(fbx, property, "Y"))
 fan-component-z | src/fbx_anim.c | return NameIs(fbx, property, "Z") || NameIs(fbx, property, "d|Z") ? 2 : 0; | return NameIs(fbx, property, "Z") ? 2 : 0;
 fan-node-values | src/fbx_anim.c | if (!Number(fbx, node, kNames[k], strlen(kNames[k]), &values[k / 2])) | if (false)
-fan-target-root | src/fbx_anim.c | c->parent >= fbx->objectCount) | false)
+fan-target-root | src/fbx_anim.c | c->parent >= fbx->objectCount || | false ||
 fan-sort-key | src/fbx_anim.c | keys[i] = ((uint64_t)c->target << 32) + c->layer; | keys[i] = (uint64_t)c->layer;
 fan-twice | src/fbx_anim.c | if (maniFbxSameChannelName(fbx, &a->channels[i], &a->channels[j])) | if (false)
 fan-take-name | src/fbx_anim.c | if (maniFbxNameIs(fbx, take, "Take", 4) && | if (true &&
@@ -735,8 +735,8 @@ sca-exp-terms | src/scalar.c | for (int32_t k = 20; k >= 1; --k) | for (int32_t 
 ftr-euler-gimbal | src/fbx_transform.c | if (fabs(e.t) < 0.999999999) | if (fabs(e.t) <= 1.0)
 ftr-euler-locked-sign | src/fbx_transform.c | radians[b] = e.t < 0.0 ? -1.5707963267948966 : 1.5707963267948966; | radians[b] = 1.5707963267948966;
 fan-count-cap | src/fbx_anim.c | r = r.result == mani_success && count >= UINT32_MAX ? Capacity() : r; | (void)0;
-fan-name-hash | src/fbx_anim.c | if (c->nameHash != hash || c->attribute != attribute || | if (c->attribute != attribute ||
-fan-name-equal | src/fbx_anim.c | !maniFbxChannelNameIs(fbx, c, name, length)) | false)
+fan-name-hash | src/fbx_anim.c | return a->target == b->target && a->layer == b->layer && a->nameHash == b->nameHash; | return a->target == b->target && a->layer == b->layer;
+fan-name-equal | src/fbx_anim.c | if (c->layer == layer && maniFbxChannelNameIs(fbx, c, name, length)) | if (c->layer == layer)
 fan-hash-first | src/fbx_anim.c | keys[i] = a->channels[i].nameHash; | keys[i] = 0;
 fan-channel-value | src/fbx_anim.c | !Number(fbx, node, (const char*)name, length, &channel->values[k])) | false)
 fbv-same-bytes | src/fbx_value.c | if (n != NextCharacter(&y, cy) || memcmp(cx, cy, n) != 0) | if (n != NextCharacter(&y, cy))
@@ -1033,15 +1033,15 @@ fhl-exact | src/fbx_helpers.c | return maniDecomposeExact(&affine, out); | retur
 fhl-check | src/fbx_helpers.c | if (helper[p] == 0 && !maniFbxCompensate(worlds, c, p, &unused)) | if (helper[p] == 0 && false)
 fhl-mark | src/fbx_helpers.c | helper[p] = 1; | helper[p] = 0;
 fhl-left | src/fbx_helpers.c | left = left || helper[p] == 0; | left = left || helper[p] != 0;
-# fhl-stack-refused survives, equivalent: a refused read leaves an empty
-# animation, whose one sample is the rest, already checked.
-fhl-stack-refused | src/fbx_helpers.c | if (r.result != mani_success) | if (r.result == mani_errorCapacity)
+# fhl-stack-refused dropped: it survived as equivalent (a refused read
+# leaves an empty animation, whose one sample is the rest, already
+# checked), and its line now appears twice in the file.
 fhl-span | src/fbx_helpers.c | maniClipSampleCountFor(span > 0.0 ? (float)(span / tps) : 0.0f, (float)rate, &samples); | maniClipSampleCountFor(0.0f, (float)rate, &samples);
 # fhl-stop-left survives, equivalent: it only stops sampling once no
 # child is left to check.
-fhl-stop-left | src/fbx_helpers.c | for (uint32_t s = 0; r.result == mani_success && timed && left && s < samples; ++s) | for (uint32_t s = 0; r.result == mani_success && timed && s < samples; ++s)
+fhl-stop-left | src/fbx_helpers.c | for (uint32_t s = 0; r.result == mani_success && timed && left > 0 && s < samples; ++s) | for (uint32_t s = 0; r.result == mani_success && timed && s < samples; ++s)
 fhl-grid | src/fbx_helpers.c | double time = maniFbxGridTime(fbx, &animation, rate, samples, s); | double time = maniFbxGridTime(fbx, &animation, rate, samples, 0);
-fhl-sampled | src/fbx_helpers.c | left = r.result == mani_success && CheckAt(fbx, worlds, children, count, helper); | left = CheckAt(fbx, worlds, children, count, helper);
+fhl-sampled | src/fbx_helpers.c | left = r.result == mani_success && CheckAt(fbx, worlds, risky, left, helper) ? left : 0; | left = CheckAt(fbx, worlds, risky, left, helper) ? left : 0;
 fhl-none | src/fbx_helpers.c | if (count == 0 || fbx->stackCount == 0) | if (count == 0 || fbx->stackCount != 0)
 fhl-stacks | src/fbx_helpers.c | for (uint32_t k = 0; r.result == mani_success && k < fbx->stackCount; ++k) | for (uint32_t k = 0; r.result == mani_success && k < 1; ++k)
 fsk-exact-list | src/fbx_skeleton.c | b->boneOf[exact++] = c; | b->boneOf[exact] = c;
@@ -1288,10 +1288,10 @@ mo-t | src/morph.c | out[prev] = 1.0f - t; | out[prev] = t;
 mo-neg | src/morph.c | lastNegative = Full(m, first, i) < 0.0f ? (int64_t)i : lastNegative; | lastNegative = lastNegative;
 mo-side | src/morph.c | if (weight > 0.0f) | if (weight >= 0.0f)
 mo-lower | src/morph.c | if (maniLoadU32(indices + 4 * (size_t)mid) < vertex) | if (maniLoadU32(indices + 4 * (size_t)mid) <= vertex)
-mo-end | src/morph.c | if (v >= end) | if (v > end)
+mo-end | src/morph.c | uint32_t stop = LowerBound(indices, count, end); | uint32_t stop = LowerBound(indices, count, end + 1);
 mo-mask | src/morph.c | if (((maniLoadU32(e + 4) >> slot) & 1u) == 0) | if (false)
-mo-components | src/morph.c | Apply a = {s, 4 * (size_t)width, s->components < width ? s->components : width, | Apply a = {s, 4 * (size_t)width, width,
-mo-copy | src/morph.c | for (uint32_t i = 0; i < job->count && s->in != s->out; ++i) | for (uint32_t i = 0; i + 1 < job->count && s->in != s->out; ++i)
+mo-components | src/morph.c | s->components < width ? s->components : width, job->weights[t]}; | width, job->weights[t]};
+mo-copy | src/morph.c | for (uint32_t i = 0; i < count && in != out; ++i) | for (uint32_t i = 0; i + 1 < count && in != out; ++i)
 mo-renorm | src/morph.c | bool direction = s->semantic == maniMorphNormal || s->semantic == maniMorphTangent; | bool direction = s->semantic == maniMorphNormal;
 mo-skip-zero | src/morph.c | if (job->weights[t] != 0.0f) | if (true)
 mb-runs | src/morph_build.c | if (n == 0 || indicesOut[n - 1] != v) | if (true)
@@ -1305,7 +1305,7 @@ gm-joint | src/gltf_mesh.c | if (j[k] >= (float)skinJoints || w[k] < 0.0f || rep
 gm-repeat | src/gltf_mesh.c | repeated = repeated || joints[i] == (uint32_t)j[k]; | repeated = false;
 gm-units | src/gltf_mesh.c | if (normalized && units != 65535u) | if (false)
 gm-byte | src/gltf_mesh.c | return a->component == maniGltfUnsignedByte ? 257u * (uint32_t)floorf(w * 255.0f + 0.5f) | return a->component == maniGltfUnsignedByte ? 256u * (uint32_t)floorf(w * 255.0f + 0.5f)
-gm-moves | src/gltf_mesh.c | kept += moves ? 1 : 0; | kept += 1;
+gm-moves | src/gltf_mesh.c | kept += moves != 0 ? 1 : 0; | kept += 1;
 gm-color | src/gltf_mesh.c | uint32_t low = semantic == maniMorphColor ? 3u : width; | uint32_t low = width;
 gm-width | src/gltf_mesh.c | return semantic == maniMorphTexcoord ? 2u : (semantic == maniMorphColor ? 4u : 3u); | return semantic == maniMorphTexcoord ? 2u : 3u;
 fi-dq | src/fbx_influences.c | if (TypeIs(fbx, skin, "DualQuaternion") && !blend) | if (TypeIs(fbx, skin, "DualQuaternion"))
@@ -1448,11 +1448,11 @@ ev-additive-no-base | src/graph_evaluate.c | if (base == NULL) | if (false)
 # Equivalent: ev-additive-zero-layer (maniAddPoses skips a layer of
 # weight 0).
 ev-additive-zero-layer | src/graph_evaluate.c | if (v > 0.0f && layer != NULL) | if (layer != NULL)
-ev-select-word | src/graph_evaluate.c | PassOn(e, record, maniLoadU16(record) == maniGraphNodeSelect ? State(e, p)->word : 0, out, | PassOn(e, record, 0, out,
-ev-neutral-difference | src/graph_evaluate.c | if (difference) | if (false)
-ev-input-unweighed | src/graph_evaluate.c | if (!(State(e, input)->weight > 0.0f)) | if (false)
+ev-select-word | src/graph_evaluate.c | maniLoadU16(record) == maniGraphNodeSelect ? maniGraphEvalState(e, p)->word : 0, out, | 0, out,
+ev-neutral-difference | src/graph_evaluation.h | if (difference) | if (false)
+ev-input-unweighed | src/graph_evaluation.h | if (!(maniGraphEvalState(e, input)->weight > 0.0f)) | if (false)
 ev-cursor-clips-only | src/graph_evaluate.c | cursor += clip ? 1u : 0u; | cursor += 1u;
-ev-output-unweighed | src/graph_evaluate.c | if (!(State(&e, last)->weight > 0.0f)) | if (false)
+ev-output-unweighed | src/graph_evaluate.c | if (!(maniGraphEvalState(&e, last)->weight > 0.0f)) | if (false)
 # Equivalent: ev-prepare-binding (another binding of the same graph,
 # identity checked, has the same skeleton and the same slots).
 ev-prepare-binding | src/graph_evaluate.c | if (head->stamp == SCRATCH_STAMP && head->binding == e->binding && | if (head->stamp == SCRATCH_STAMP &&
@@ -1470,7 +1470,7 @@ bd-output-difference | src/graph_build.c | if (r.result == mani_success && w.dif
 bd-slot-reuse | src/graph_build.c | w->freeSlots[freeCount++] = w->slot[u]; | (void)0;
 bd-slot-freed-once | src/graph_build.c | w->lastReader[u] = n + 1; | (void)0;
 bd-quat-normalized | src/graph_build.c | double scale = t == maniGraphParameterQuat ? 1.0 / sqrt(length) : 1.0; | double scale = 1.0;
-bd-bound-scalar-zero | src/graph_build.c | PutFloat(data + 4 * (size_t)at + 4, s.parameter == MANI_NO_PARAMETER ? s.value : 0.0f); | PutFloat(data + 4 * (size_t)at + 4, s.value);
+bd-bound-scalar-zero | src/graph_build_words.h | maniGraphPutFloat(data + 4 * (size_t)at + 4, s.parameter == MANI_NO_PARAMETER ? s.value : 0.0f); | maniGraphPutFloat(data + 4 * (size_t)at + 4, s.value);
 bd-int-unbounded-zero | src/graph_build.c | maniStoreU32(e + 40, p->bounded != 0 ? (uint32_t)p->minimum.i : 0u); | maniStoreU32(e + 40, (uint32_t)p->minimum.i);
 bd-mask-index | src/graph_build.c | ++lay->maskAt; | (void)0;
 bd-input-position | src/graph_build.c | w->position[node->inputs[k]]); | node->inputs[k]);
@@ -1718,9 +1718,9 @@ sn-pairs | src/graph_nodes.c | uint32_t wrong = PairsValid(g, d + MANI_GRAPH_SPA
 
 # Blend spaces built and written (src/graph_build.c, src/graph_json.c,
 # src/graph_json_graph.c).
-sb-line-y | src/graph_build.c | at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector || line ? zero : p->y); | at = PutScalar(d, PutScalar(d, at, vector ? zero : p->x), vector ? zero : p->y);
-sb-delaunay | src/graph_build.c | (void)PutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3); | (void)0;
-sb-authored | src/graph_build.c | (void)PutWords(d, at + 1 + 2 * n, s->triangles, 3 * count); | (void)0;
+sb-line-y | src/graph_build.c | vector || line ? zero : p->y); | vector ? zero : p->y);
+sb-delaunay | src/graph_build.c | (void)maniGraphPutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3); | (void)0;
+sb-authored | src/graph_build.c | (void)maniGraphPutWords(d, at + 1 + 2 * n, s->triangles, 3 * count); | (void)0;
 sb-reserve | src/graph_build.c | return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n); | return at + 3 * count;
 sj-omit-delaunay | src/graph_json.c | if (s->triangleCount == 0) | if (false)
 sj-plane-y | src/graph_json.c | if (plane) | if (true)
@@ -1785,7 +1785,7 @@ mu-shot-restart | src/graph_update.c | if (w > 0.0f || restart) | if (w > 0.0f)
 mu-match-flag | src/graph_update.c | share.flags |= match ? MANI_GRAPH_PHASE : 0u; | share.flags |= 0u;
 mu-phase-scale | src/graph_update.c | double scale = (s->flags & MANI_GRAPH_PHASE) != 0 ? (double)clip->duration : 1.0; | double scale = 1.0;
 mu-listed | src/graph_update.c | s->flags |= MANI_GRAPH_LISTED; | s->flags |= 0u;
-me-shot-mask | src/graph_evaluate.c | if (mask != MANI_GRAPH_NO_MASK) | if (false)
+me-shot-mask | src/graph_evaluate.c | memcpy(&m, e->graph->maskWeights + 4 * ((size_t)mask * bones + b), sizeof m); | (void)0;
 me-shot-w | src/graph_evaluate.c | e->inside[b] = w * m; | e->inside[b] = m;
 mf-nearest-kind | src/graph_machine_file.c | (!listens || nearest >= p || Kind(g, nearest) != maniGraphNodeMachine)) | (!listens || nearest >= p))
 mf-list-order | src/graph_machine_file.c | (c > 0 && clip <= Word(g, lists + first + c - 1))) | false)
@@ -1947,12 +1947,12 @@ id-grow | src/graph_dead_blend.c | return carried != 0.0f ? s * maniExpF(carried
 ms-entryof | src/match_search.c | low = first <= frame ? mid : low; | low = first < frame ? mid : low;
 ms-required | src/match_search.c | return (e->tags & s->q->requiredTags) == s->q->requiredTags && | return (e->tags & s->q->requiredTags) != 0 &&
 ms-excluded | src/match_search.c | (e->tags & s->q->excludedTags) == 0; | true;
-ms-apart-loop | src/match_search.c | frames = loop && e->count - frames < frames ? e->count - frames : frames; | frames = frames;
+ms-apart-loop | src/match_search.c | return loop && e->count - frames < frames ? e->count - frames : frames; | return frames;
 ms-current | src/match_search.c | if (current != MANI_MATCH_NO_FRAME && frame == current) | if (false)
-ms-jump | src/match_search.c | Apart(s->d, e, frame, current) < (double)q->jumpThreshold) | Apart(s->d, e, frame, current) < 2.0 * (double)q->jumpThreshold)
-ms-history-entry | src/match_search.c | if (s->historyEntries[k] == entry && | if (true &&
-ms-history-time | src/match_search.c | Apart(s->d, e, frame, q->history[k]) < (double)q->historyTime) | Apart(s->d, e, frame, q->history[k]) < 0.0)
-ms-end | src/match_search.c | (double)s->q->endExclusion) | 0.0)
+ms-jump | src/match_search.c | Apart(e, frame, current) < s->jumpFrames) | Apart(e, frame, current) < 2 * s->jumpFrames)
+ms-history-entry | src/match_search.c | if (s->historyEntries[k] == entry && Apart(e, frame, q->history[k]) < s->historyFrames) | if (Apart(e, frame, q->history[k]) < s->historyFrames)
+ms-history-time | src/match_search.c | if (s->historyEntries[k] == entry && Apart(e, frame, q->history[k]) < s->historyFrames) | if (s->historyEntries[k] == entry && false)
+ms-end | src/match_search.c | return (double)e->end - t < (double)s->q->endExclusion; | return false;
 ms-box-gap | src/match_search.c | float gap = q - near; | float gap = q - a;
 ms-best-strict | src/match_search.c | s->best = cost < s->bestCost ? i : s->best; | s->best = cost <= s->bestCost ? i : s->best;
 ms-constant | src/match_search.c | float constant = s->q->transitionCost + e->bias; | float constant = e->bias;
@@ -1961,7 +1961,7 @@ ms-valid-history | src/match_search.c | q->historyCount > MANI_MATCH_MAX_HISTORY
 ms-normalize | src/match_search.c | s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale; | s.query[j] = normalized ? query->features[j] : query->features[j] - offset;
 ms-normalized | src/match_search.c | s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale; | s.query[j] = (query->features[j] - offset) / scale;
 ms-continuing | src/match_search.c | if (Candidate(&s, &e)) | if (true)
-ms-continuing-bias | src/match_search.c | s.bestCost = Frame(&s, query->current, query->continuingBias + e.bias); | s.bestCost = Frame(&s, query->current, query->continuingBias);
+ms-continuing-bias | src/match_search.c | s.bestCost = Cost(&s, f, query->continuingBias + e.bias); | s.bestCost = Cost(&s, f, query->continuingBias);
 ms-nojump | src/match_search.c | if (Candidate(&s, &e) && (e.flags & MANI_MATCH_NO_JUMP) == 0) | if (Candidate(&s, &e))
 mf-within | src/match.c | return loop ? time < end : time <= end; | return time <= end;
 mf-less | src/match.c | return n - 1; | return n;
@@ -1974,20 +1974,20 @@ st-consume | src/graph_match_step.c | u->instance->cells[trigger].value.b = 0; |
 st-due-ended | src/graph_match_step.c | bool due = block[maniGraphMatchEntry] == MANI_GRAPH_MATCH_NO_ENTRY || ended || triggered || | bool due = block[maniGraphMatchEntry] == MANI_GRAPH_MATCH_NO_ENTRY || triggered ||
 st-clock-reset | src/graph_match_step.c | block[maniGraphMatchClock] = BitsOf(due ? 0.0f : (float)clock); | block[maniGraphMatchClock] = BitsOf((float)clock);
 st-ended-current | src/graph_match_step.c | .current = ended ? MANI_MATCH_NO_FRAME : current, | .current = current,
-st-same | src/graph_match_step.c | r.frame != current) | true)
+st-same | src/graph_match_step.c | r.frame != MANI_MATCH_NO_FRAME && r.frame != current) | r.frame != MANI_MATCH_NO_FRAME)
 st-had | src/graph_match_step.c | if (had) | if (true)
 st-next | src/graph_match_step.c | m->block[maniGraphMatchNext] = next + 1 < history ? next + 1 : 0u; | m->block[maniGraphMatchNext] = next + 1;
 st-picks | src/graph_match_step.c | m->block[maniGraphMatchPicks] = picks < history ? picks + 1 : picks; | m->block[maniGraphMatchPicks] = picks + 1;
-st-loop | src/graph_match_step.c | bool loop = (e.flags & MANI_MATCH_LOOP) != 0; | bool loop = false;
+st-loop | src/graph_match_step.c | c.next = n < last ? c.frame + 1 : (loop ? e.firstFrame : c.frame); | c.next = n < last ? c.frame + 1 : c.frame;
 st-ended | src/graph_match_step.c | return !loop && !(at.time < e.end); | return false;
 st-events | src/graph_match_step.c | if (s->weight > MANI_GRAPH_EVENT_THRESHOLD) | if (false)
 st-events-loops | src/graph_match_step.c | maniGraphEmitLoops(m->u, m->p, slot, clip, (double)e->start, (double)e->end, at->wraps - 1.0); | (void)clip;
 st-events-first | src/graph_match_step.c | maniGraphEmit(m->u, m->p, slot, clip, t0, (double)e->end); | (void)t0;
 st-root | src/graph_match_step.c | maniRootMotionSumAdd(&m->u->root, &move, (double)s->rootWeight); | (void)move;
 st-floor | src/graph_match_step.c | double k = floor((t - (double)e.start) * (double)rate); | double k = 0.0;
-st-up | src/graph_match_step.c | if (n < last && (double)maniMatchFrameTime(e.start, n + 1, rate) <= t) | if (false)
+st-up | src/graph_match_step.c | if (n < last && to <= t) | if (false)
 st-query-scale | src/graph_match_step.c | out[j] = (v->f[i] - offset) / scale; | out[j] = v->f[i] - offset;
-st-query-bones | src/graph_match_step.c | if (maniMotionDatabaseFeatures(d, current, out) != mani_success) | if (true)
+st-query-bones | src/graph_match_step.c | if (maniMotionDatabaseFeatures(d, at.frame, here) != mani_success) | if (true)
 st-tags | src/graph_match_step.c | : (uint32_t)m->u->instance->cells[parameter].value.i; | : 0u;
 st-duration | src/graph_match_step.c | maniGraphUpdateScalar(m->u, m->data + maniGraphMatchDurationScalar)); | 0.5f);
 # st-clamp survives, equivalent: an entry's span lies within its clip,
@@ -2099,10 +2099,10 @@ le-narrow-scale | src/learned_eval.c | float x = from[i] * LoadF32(scales + 4 * 
 le-narrow-row | src/learned_eval.c | const uint8_t* row = w + 2 * (size_t)i * outputs; | const uint8_t* row = w + 2 * (size_t)i;
 le-narrow-sign | src/learned_eval.c | to[o] += x * (float)(int16_t)maniLoadU16(row + 2 * (size_t)o); | to[o] += x * (float)maniLoadU16(row + 2 * (size_t)o);
 le-normalize | src/learned_eval.c | a[i] = (input[i] - LoadF32(v + 4 * (size_t)i)) / LoadF32(v + 4 * ((size_t)w.in + i)); | a[i] = input[i] - LoadF32(v + 4 * (size_t)i);
-le-relu-last | src/learned_eval.c | if (!last) | if (true)
-le-relu | src/learned_eval.c | b[o] = b[o] > 0.0f ? b[o] : 0.0f; | b[o] = b[o];
+le-relu-last | src/learned_eval.c | b[o] = b[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o); | b[o] = (b[o] > 0.0f ? b[o] : 0.0f) * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o);
+le-relu | src/learned_eval.c | values[o] = values[o] > 0.0f ? values[o] : 0.0f; | (void)0;
 le-advance | src/learned_eval.c | v += 4 * ((size_t)count + (narrow ? inputs : 0u)); | v += 4 * (size_t)count;
-le-denormalize | src/learned_eval.c | a[o] = a[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o); | a[o] = a[o] + LoadF32(outputs + 4 * (size_t)o);
+le-denormalize | src/learned_eval.c | b[o] = b[o] * LoadF32(outputs + 4 * ((size_t)w.out + o)) + LoadF32(outputs + 4 * (size_t)o); | b[o] = b[o] + LoadF32(outputs + 4 * (size_t)o);
 le-scratch | src/learned_eval.c | return model != NULL ? 2 * sizeof(float) * (size_t)model->widest : 0; | return model != NULL ? sizeof(float) * (size_t)model->widest : 0;
 le-aligned | src/learned_eval.c | return scratch != NULL && (uintptr_t)scratch % sizeof(float) == 0 && | return scratch != NULL &&
 le-finite | src/learned_eval.c | if (!(fabsf(values[k]) < HUGE_VALF)) | if (false)
@@ -2649,7 +2649,8 @@ gn-eval-rotation | src/graph_evaluate.c | t.rotation = maniQuatNormalize((maniQu
 gn-eval-spring | src/graph_evaluate.c | maniGraphSpringPose(set, e->binding->skeleton, block, work, &placement, push, out); | (void)set;
 gn-update-clear | src/graph_update.c | u->instance->cells[reset].value.b = 0; | (void)reset;
 gn-update-fired | src/graph_update.c | bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0; | bool fired = false;
-gn-update-seek | src/graph_update.c | if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0) | if (fired)
+gn-update-seek | src/graph_update.c | if (Consumed(u, Word(u, d + maniGraphSpringReset)) || (s->flags & MANI_GRAPH_SEEKING) != 0) | if (Consumed(u, Word(u, d + maniGraphSpringReset)))
+gn-update-turn-seek | src/graph_update.c | if (Consumed(u, Word(u, d + maniGraphTurnReset)) || (s->flags & MANI_GRAPH_SEEKING) != 0) | if (Consumed(u, Word(u, d + maniGraphTurnReset)))
 gn-update-factor | src/graph_update.c | maniGraphSpringAdd(block, fabs(u->delta * (double)s->factor)); | maniGraphSpringAdd(block, fabs(u->delta));
 gn-update-abs | src/graph_update.c | maniGraphSpringAdd(block, fabs(u->delta * (double)s->factor)); | maniGraphSpringAdd(block, u->delta * (double)s->factor);
 gn-instance-block | src/graph_instance.c | return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphSpringBlock)); | return UINT32_MAX;
@@ -2806,10 +2807,10 @@ gp-length | src/graph_instance.c | return length > 0.998f && length < 1.002f ? U
 gp-room | src/graph_instance.c | return PosesAt(binding) + PosesBefore(graph, graph->parameterCount) * PoseBytes(binding); | return PosesAt(binding);
 gp-node-word | src/graph_nodes.c | return type == maniGraphParameterPose ? UINT32_MAX : d; | return UINT32_MAX;
 gp-inline | src/graph_inline.c | node->pose.parameter = Resolve(s, node->pose.parameter); | node->pose.parameter = node->pose.parameter;
-gp-build | src/graph_build.c | at = PutWords(d, at, &node->pose.parameter, 1); | at = at + 1;
+gp-build | src/graph_build.c | at = maniGraphPutWords(d, at, &node->pose.parameter, 1); | at = at + 1;
 gp-update | src/graph_update.c | kind != maniGraphNodeLearned && kind != maniGraphNodePose) | kind != maniGraphNodeLearned)
 gp-check | src/graph_check.c | return ParameterOf(source, n->pose.parameter, maniGraphParameterPose, | return ParameterOf(source, n->pose.parameter, maniGraphParameterFloat,
-gp-evaluate | src/graph_evaluate.c | maniGraphPoseInput(e->instance, Word(e, maniLoadU32(record + 12)), out); | Neutral(e, out, false);
+gp-evaluate | src/graph_evaluate.c | maniGraphPoseInput(e->instance, maniGraphEvalWord(e, maniLoadU32(record + 12)), out); | maniGraphEvalNeutral(e, out, false);
 # The OMI importer (src/gltf_ragdoll*.c)
 gr-rigid-turn | src/gltf_ragdoll.c | return (maniGltfRigid){maniQuatRotate(back, maniVec3Sub(b.t, a.t)), | return (maniGltfRigid){maniVec3Sub(b.t, a.t),
 gr-even | src/gltf_ragdoll.c | return least > 0.0f && most - least <= 1e-3f * most; | return least > 0.0f;
@@ -2962,21 +2963,21 @@ gik-chk-bones-null | src/graph_check.c | bool ok = s->bones != NULL && s->count 
 gik-chk-unit | src/graph_check.c | fabsf(maniVec3Length(s->forward) - 1.0f) <= 1e-3f && FiniteVector(s->offset) && | FiniteVector(s->offset) &&
 gik-chk-up | src/graph_check.c | FiniteVector(s->up); | true;
 gik-chk-cone | src/graph_check.c | return ok ? CheckIkScalars(source, scalars, MANI_AIM_MAX_CONE, node) | return ok ? CheckIkScalars(source, scalars, HUGE_VALF, node)
-gik-ev-pole | src/graph_evaluate.c | return (maniVec3){0.0f, 0.0f, 0.0f}; | return (maniVec3){0.0f, 0.0f, 1.0f};
-gik-ev-clamp-low | src/graph_evaluate.c | return v < low ? low : (v > high ? high : v); | return v > high ? high : v;
-gik-ev-clamp-high | src/graph_evaluate.c | return v < low ? low : (v > high ? high : v); | return v < low ? low : v;
+gik-ev-pole | src/graph_evaluate_ik.c | return (maniVec3){0.0f, 0.0f, 0.0f}; | return (maniVec3){0.0f, 0.0f, 1.0f};
+gik-ev-clamp-low | src/graph_evaluate_ik.c | return v < low ? low : (v > high ? high : v); | return v > high ? high : v;
+gik-ev-clamp-high | src/graph_evaluate_ik.c | return v < low ? low : (v > high ? high : v); | return v < low ? low : v;
 # Kept: a solve at weight 0 leaves the input bit for bit; the early
 # return only skips its cost.
-gik-ev-neutral | src/graph_evaluate.c | return Clamped(e, weightAt, 0.0f, 1.0f) > 0.0f; | return true;
-gik-ev-twist | src/graph_evaluate.c | Scalar(e, d + maniGraphTwoBoneTwist), | 0.0f,
-gik-ev-soften | src/graph_evaluate.c | Clamped(e, d + maniGraphTwoBoneSoften, 0.0f, 1.0f), | Scalar(e, d + maniGraphTwoBoneSoften),
-gik-ev-hinge | src/graph_evaluate.c | Axis(e, d + maniGraphTwoBoneHinge), | (maniVec3){0.0f, 0.0f, 0.0f},
-gik-ev-offset | src/graph_evaluate.c | .offset = Axis(e, d + maniGraphAimOffset), | .offset = Axis(e, d + maniGraphAimUp),
-gik-ev-aim-twist | src/graph_evaluate.c | .twist = Scalar(e, d + maniGraphAimTwist), | .twist = 0.0f,
-gik-ev-cone | src/graph_evaluate.c | .cone = Clamped(e, d + maniGraphAimCone, 0.0f, MANI_AIM_MAX_CONE), | .cone = Clamped(e, d + maniGraphAimCone, 0.0f, 1.0f),
-gik-ev-shares | src/graph_evaluate.c | memcpy(&s.shares[k], &bits, sizeof bits); | s.shares[k] = 1.0f;
-gik-bd-hinge | src/graph_build.c | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 3); | at = PutFloats(d, PutWords(d, at, head, 5), hinge, 2) + 1;
-gik-bd-equal | src/graph_build.c | shares[k] = s->shares != NULL ? s->shares[k] : 1.0f; | shares[k] = s->shares != NULL ? s->shares[k] : 0.5f;
+gik-ev-neutral | src/graph_evaluate_ik.c | return Clamped(e, weightAt, 0.0f, 1.0f) > 0.0f; | return true;
+gik-ev-twist | src/graph_evaluate_ik.c | maniGraphEvalScalar(e, d + maniGraphTwoBoneTwist), | 0.0f,
+gik-ev-soften | src/graph_evaluate_ik.c | Clamped(e, d + maniGraphTwoBoneSoften, 0.0f, 1.0f), | Scalar(e, d + maniGraphTwoBoneSoften),
+gik-ev-hinge | src/graph_evaluate_ik.c | Axis(e, d + maniGraphTwoBoneHinge), | (maniVec3){0.0f, 0.0f, 0.0f},
+gik-ev-offset | src/graph_evaluate_ik.c | .offset = Axis(e, d + maniGraphAimOffset), | .offset = Axis(e, d + maniGraphAimUp),
+gik-ev-aim-twist | src/graph_evaluate_ik.c | .twist = maniGraphEvalScalar(e, d + maniGraphAimTwist), | .twist = 0.0f,
+gik-ev-cone | src/graph_evaluate_ik.c | .cone = Clamped(e, d + maniGraphAimCone, 0.0f, MANI_AIM_MAX_CONE), | .cone = Clamped(e, d + maniGraphAimCone, 0.0f, 1.0f),
+gik-ev-shares | src/graph_evaluate_ik.c | memcpy(&s.shares[k], &bits, sizeof bits); | s.shares[k] = 1.0f;
+gik-bd-hinge | src/graph_build_ik.c | at = maniGraphPutFloats(d, maniGraphPutWords(d, at, head, 5), hinge, 3); | at = maniGraphPutFloats(d, maniGraphPutWords(d, at, head, 5), hinge, 2) + 1;
+gik-bd-equal | src/graph_build_ik.c | shares[k] = s->shares != NULL ? s->shares[k] : 1.0f; | shares[k] = s->shares != NULL ? s->shares[k] : 0.5f;
 gik-bd-posesonly | src/graph_build.c | (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeAim && node->kind <= maniGraphNodeBodySdls);
 gik-in-goal | src/graph_inline.c | node->twoBone.goal = Resolve(s, node->twoBone.goal); | (void)0;
 gik-in-aim-goal | src/graph_inline.c | node->aim.goal = Resolve(s, node->aim.goal); | (void)0;
@@ -3073,8 +3074,8 @@ gch-tolerance | src/graph_chain.c | if (!(tolerance >= 0.0f) || !isfinite(tolera
 gch-step | src/graph_chain.c | if (!(step >= 0.0f && step <= PI_F) || (fabrik && Word(g, data + maniGraphChainStep) != 0)) | if (!(step >= 0.0f && step <= PI_F))
 gch-rotation-weight | src/graph_chain.c | if (!maniGraphIkWeightValid(g, data + maniGraphChainRotationWeight)) | if (false)
 gch-limits-loop | src/graph_chain.c | maniGraphLimitValid(g, data + MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * k); | UINT32_MAX;
-gev-limit-path | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (false)
-gev-limit-none | src/graph_evaluate.c | if (count != 0 && count + 1 != path) | if (count + 1 != path)
+gev-limit-path | src/graph_evaluate_ik.c | if (count != 0 && count + 1 != path) | if (false)
+gev-limit-none | src/graph_evaluate_ik.c | if (count != 0 && count + 1 != path) | if (count + 1 != path)
 bik-unit | src/body_ik.c | return v >= 0.0f && v <= 1.0f; | return v >= 0.0f;
 bik-find-eq | src/body_ik.c | return low < count && list[low] == bone ? low : count; | return low < count ? low : count;
 bik-add-full | src/body_ik.c | if (*count == MANI_BODY_IK_MAX_BONES) | if (false)
@@ -3217,16 +3218,16 @@ gbc-stretch | src/graph_body_check.c | (s->stretch && n->kind != maniGraphNodeBo
 gbc-scratch | src/graph_body_check.c | if (maniBodyIkScratchSize(source->skeleton, &solve) == 0) | if (false)
 gbu-poses-only | src/graph_build.c | (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeFabrik);
 gbu-counted | src/graph_build.c | (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeBodySdls); | (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeFabrik);
-gbu-zero | src/graph_build.c | at = PutScalar(d, at, f->rotation == MANI_NO_PARAMETER ? zero : f->rotationWeight); | at = PutScalar(d, at, f->rotationWeight);
+gbu-zero | src/graph_build_ik.c | at = maniGraphPutScalar(d, at, f->rotation == MANI_NO_PARAMETER ? zero : f->rotationWeight); | at = maniGraphPutScalar(d, at, f->rotationWeight);
 gin-count | src/graph_inline.c | t->effectors += EffectorCount(node); | t->effectors += 0;
 gin-position | src/graph_inline.c | to[e].position = Resolve(s, to[e].position); | to[e].position = to[e].position;
 gin-rotation | src/graph_inline.c | to[e].rotation = Resolve(s, to[e].rotation); | to[e].rotation = to[e].rotation;
 gin-pos-weight | src/graph_inline.c | to[e].positionWeight = Scalar(s, to[e].positionWeight); | to[e].positionWeight = to[e].positionWeight;
 gin-rot-weight | src/graph_inline.c | to[e].rotationWeight = Scalar(s, to[e].rotationWeight); | to[e].rotationWeight = to[e].rotationWeight;
 gin-weight | src/graph_inline.c | b->weight = Scalar(s, b->weight); | b->weight = b->weight;
-gev-align | src/graph_evaluate.c | size_t at = (16u - (uintptr_t)room % 16u) % 16u; | size_t at = 0;
-gev-rot-weight | src/graph_evaluate.c | .rotationWeight = Clamped(e, at + maniGraphEffectorRotationWeight, 0.0f, 1.0f), | .rotationWeight = 1.0f,
-gev-settings | src/graph_evaluate.c | bones[k] = maniGraphBodySetting(e->graph, d, k); | bones[k] = (maniBodyBone){.bone = bones[k].bone};
+gev-align | src/graph_evaluate_ik.c | size_t at = (16u - (uintptr_t)room % 16u) % 16u; | size_t at = 0;
+gev-rot-weight | src/graph_evaluate_ik.c | .rotationWeight = Clamped(e, at + maniGraphEffectorRotationWeight, 0.0f, 1.0f), | .rotationWeight = 1.0f,
+gev-settings | src/graph_evaluate_ik.c | bones[k] = maniGraphBodySetting(e->graph, d, k); | bones[k] = (maniBodyBone){.bone = bones[k].bone};
 gin-room | src/graph_instance.c | else if (maniLoadU16(e) == maniGraphNodeBodyXpbd || maniLoadU16(e) == maniGraphNodeBodySdls) | else if (false)
 gjb-rot-member | src/graph_json_body.c | if (f[4] != ABSENT && f[2] == ABSENT) | if (false)
 gjb-mode | src/graph_json_body.c | if (mode == 3) | if (false)
@@ -3262,7 +3263,8 @@ rtm-b-equal | src/retarget.c | two ? b < m->sourceBoneCount && b != a : b == MAN
 rtm-t-sign | src/retarget.c | two ? t > 0.0f && t < 1.0f : t == 0.0f && !signbit(t), | two ? t > 0.0f && t < 1.0f : t == 0.0f,
 rtm-t-one | src/retarget.c | two ? t > 0.0f && t < 1.0f : t == 0.0f && !signbit(t), | two ? t > 0.0f && t <= 1.0f : t == 0.0f && !signbit(t),
 rtm-w-sign | src/retarget.c | reference ? weight == 0.0f && !signbit(weight) : Share(weight), | reference ? weight == 0.0f : Share(weight),
-rtm-flags | src/retarget.c | flags <= (reference || pelvis ? 0u : MANI_RETARGET_PLAN_SCALE)}; | flags <= MANI_RETARGET_PLAN_SCALE};
+rtm-flags | src/retarget.c | flags <= (reference || pelvis ? 0u | flags <= (false ? 0u
+rtm-flags-same | src/retarget.c | : kind == maniRetargetPlanOne && weight == 1.0f | : kind == maniRetargetPlanOne
 rtm-plan-end | src/retarget.c | return maniLoadU32(e + maniRetargetPlanEnd) == 0 ? UINT32_MAX : maniRetargetPlanEnd; | return UINT32_MAX;
 rtm-identity | src/retarget.c | if (maniRetargetComputeIdentity(s.data, s.sizes) != c.identity) | if (false)
 rtb-unit | src/retarget_build.c | if (!finite || !Unit(maniQuatDot(q, q))) | if (!finite)
@@ -3293,6 +3295,7 @@ rtp-absolute-mode | src/retarget_pose.c | ? maniVec3Add(local->translation, turn
 rtp-scale | src/retarget_pose.c | if (scale) | if (false)
 rtp-scale-ratio | src/retarget_pose.c | local->scale.x *= was.x != 0.0f ? now.x / was.x : 1.0f; | local->scale.x *= now.x;
 rtp-ref-model | src/retarget_pose.c | x->targetModels[b] = maniQuatMul(above, local.rotation); | x->targetModels[b] = local.rotation;
+rtp-same-model | src/retarget_pose.c | x->targetModels[b] = maniQuatMul(above, given.rotation); | x->targetModels[b] = given.rotation;
 rtp-two | src/retarget_pose.c | if (kind == maniRetargetPlanTwo) | if (false)
 rtp-weight-slerp | src/retarget_pose.c | delta = weight < 1.0f ? maniQuatSlerp(maniQuatIdentity(), delta, weight) : delta; | delta = delta;
 rtp-target-ref | src/retarget_pose.c | x->targetModels[b] = maniQuatNormalize(maniQuatMul(delta, LoadQuat(t))); | x->targetModels[b] = maniQuatNormalize(delta);
@@ -3393,7 +3396,7 @@ rmm-pair-item | src/mirror_build.c | return Refuse(maniBuildReasonMirrorPair, a 
 rmm-pair-twice | src/mirror_build.c | if (w->partner[a] != MANI_NO_BONE || w->partner[b] != MANI_NO_BONE) | if (w->partner[b] != MANI_NO_BONE)
 rmm-pair-twice-item | src/mirror_build.c | uint32_t twice = w->partner[a] != MANI_NO_BONE ? a : b; | uint32_t twice = b;
 rmm-backpair | src/mirror_build.c | if (w->candidate[c] != b) | if (false)
-rmm-unmatched | src/mirror_build.c | bool matched = p == MANI_NO_BONE ? q == MANI_NO_BONE : q == w->partner[p]; | bool matched = true;
+rmm-unmatched | src/mirror_build.c | return p == MANI_NO_BONE ? q != MANI_NO_BONE : q != w->partner[p]; | return false;
 rmm-name-empty | src/mirror_build.c | return length > 0 && Utf8(name, length) ? kOk : Refuse(maniBuildReasonMirrorName, item, 0); | return Utf8(name, length) ? kOk : Refuse(maniBuildReasonMirrorName, item, 0);
 rmm-name-second | src/mirror_build.c | r = r.result == mani_success ? CheckName(p->second, p->secondLength, i) : r; | (void)p;
 rmm-name-reserved | src/mirror_build.c | if (r.result != mani_success || n->reserved != 0) | if (r.result != mani_success)
@@ -3402,7 +3405,7 @@ rmo-axis | src/mirror.c | if (m->axis > maniMirrorAxisZ) | if (false)
 rmo-unmatched | src/mirror.c | if (unmatched != MANI_NO_BONE && unmatched >= m->boneCount) | if (false)
 rmo-zero | src/mirror.c | if (maniLoadU32(h + k) != 0) | if (false)
 rmo-pairback | src/mirror.c | maniLoadU32(s->data[1] + (size_t)partner * MANI_MIRROR_BONE_SIZE) != b) | false)
-rmo-pad | src/mirror.c | if (maniLoadU32(e + 4) != 0) | if (false)
+rmo-flags | src/mirror.c | if (!FlagsValid(maniLoadU32(e + 4), b, maniLoadU32(s->data[0] + 20))) | if (false)
 rmo-quat-b | src/mirror.c | wrong = wrong != 0 ? wrong : QuatWrong(e + 24, at + 24); | wrong = wrong;
 rmo-unit | src/mirror.c | return length >= 0.998 && length <= 1.002 ? 0u : at; | return 0u;
 rmo-finite | src/mirror.c | if (!(fabsf(v) < HUGE_VALF)) | if (false)
@@ -3425,7 +3428,7 @@ rmp-b-load | src/mirror_pose.c | maniQuat b = LoadQuat(e + 24); | maniQuat b = L
 rmp-a-t | src/mirror_pose.c | maniVec3 t = maniQuatRotate(a, Reflect(maniVec3Make(partner[0], partner[1], partner[2]), axis)); | maniVec3 t = Reflect(maniVec3Make(partner[0], partner[1], partner[2]), axis);
 rmp-a-q | src/mirror_pose.c | q = maniQuatMul(maniQuatMul(a, q), b); | q = maniQuatMul(q, b);
 rmp-b-q | src/mirror_pose.c | q = maniQuatMul(maniQuatMul(a, q), b); | q = maniQuatMul(a, q);
-rmp-scale | src/mirror_pose.c | maniPoseSlotPut(slot, 7, partner + 7, 3); | maniPoseSlotPut(slot, 7, partner + 7, 2);
+rmp-scale | src/mirror_pose.c | out[2] = s[2]; | out[2] = s[1];
 rmp-null | src/mirror_pose.c | if (map == NULL || skeleton == NULL || | if (map == NULL ||
 rmp-identity | src/mirror_pose.c | maniSkeletonIdentity(skeleton) != map->skeletonIdentity || | false ||
 rmp-count | src/mirror_pose.c | maniSkeletonBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) || | !maniPoseMatches(in, skeleton) ||
@@ -3484,7 +3487,7 @@ rgm-build-section | src/graph_build.c | lay->sizes[14] = source->mirrorMap != NU
 rgm-build-flag | src/graph_build.c | flags |= w->mirrored[v] == 2 ? MANI_GRAPH_MIRRORED : 0u; | flags |= 0u;
 rgm-build-parity | src/graph_mirror.c | uint32_t want = node->kind == maniGraphNodeMirror ? 3u - mirrored[v] : mirrored[v]; | uint32_t want = mirrored[v];
 rgm-build-both | src/graph_mirror.c | if (mirrored[u] != 0 && mirrored[u] != want) | if (false)
-rgm-build-item | src/graph_mirror.c | return maniGraphRefuse(maniBuildReasonMirrorGraph, u, 2); | return maniGraphRefuse(maniBuildReasonMirrorGraph, v, 2);
+rgm-build-item | src/graph_mirror.c | return maniGraphRefuse(maniBuildReasonMirrorParity, u, v); | return maniGraphRefuse(maniBuildReasonMirrorParity, v, u);
 rgm-json-close | src/graph_json.c | maniGraphJsonPutText(w, n->kind == maniGraphNodeMirror ? "]" : "], "); | maniGraphJsonPutText(w, "], ");
 rgm-open-size | src/graph.c | if (s->sizes[14] != 0 && s->sizes[14] != 8) | if (false)
 rgm-open-identity | src/graph.c | if (s->sizes[14] != 0 && g->mirrorMapIdentity == 0) | if (false)

@@ -345,6 +345,17 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
     Give(u, InputOf(u, record, 0), share);
 }
 
+// Whether a reset trigger fired; a fired one is cleared.
+static bool Consumed(const Update* u, uint32_t reset)
+{
+    bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
+    if (fired)
+    {
+        u->instance->cells[reset].value.b = 0;
+    }
+    return fired;
+}
+
 // A spring node a parent reached: the time it moves by kept for its
 // evaluation, its motion dropped by a seek above it or its reset trigger;
 // its input reached as it was.
@@ -356,13 +367,7 @@ static void ShareSpring(const Update* u, const uint8_t* record, maniGraphNodeSta
     }
     uint32_t d = maniLoadU32(record + 12);
     uint32_t* block = BlockAt(u, Word(u, d + maniGraphSpringBlock));
-    uint32_t reset = Word(u, d + maniGraphSpringReset);
-    bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
-    if (fired)
-    {
-        u->instance->cells[reset].value.b = 0;
-    }
-    if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0)
+    if (Consumed(u, Word(u, d + maniGraphSpringReset)) || (s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetSpring(u->graph, d, block);
     }
@@ -383,13 +388,7 @@ static void ShareTurn(const Update* u, const uint8_t* record, maniGraphNodeState
         maniGraphResetTurn(block, u->graph->skeletonBoneCount);
         return;
     }
-    uint32_t reset = Word(u, d + maniGraphTurnReset);
-    bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
-    if (fired)
-    {
-        u->instance->cells[reset].value.b = 0;
-    }
-    if (fired || (s->flags & MANI_GRAPH_SEEKING) != 0)
+    if (Consumed(u, Word(u, d + maniGraphTurnReset)) || (s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetTurn(block, u->graph->skeletonBoneCount);
     }
