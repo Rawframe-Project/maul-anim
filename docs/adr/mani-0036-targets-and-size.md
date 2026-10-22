@@ -199,3 +199,11 @@ to the core does not fit, the ceiling is raised by a decision recorded
 here that names what the bytes buy; the scalar and vector backends do
 not take different algorithms to fit it.
 
+The core's `-O3` ceilings raised to 77,000 for the scalar and AVX2
+archives (76,404 and 76,283): the rests' group turn written component
+by component, which GCC compiles to fewer instructions (random access
+on ual 27,079 to 25,705 under GCC 14 `-O3` AVX2, 38,122 to 35,713 at
+`-O2`, the scalar build's 40,971 to 38,789 at `-O2`; Clang unchanged)
+at about 460 bytes of the `-O3` core; the `-O2` core, held against
+ozz, is 59,272.
+
