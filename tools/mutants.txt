@@ -1147,9 +1147,6 @@ cod-ext-step | src/clip_codec.c | e = maniCodecRangeByte(e) >= extent || e == 25
 cod-rebuild | src/clip_codec.h | float squared = ((1.0f - a * a) - b * b) - c * c; | float squared = (1.0f - a * a) - b * b;
 cod-rot-y | src/clip_codec.h | out[1] = dropped == 0 ? a : (dropped == 1 ? r : b); | out[1] = dropped == 1 ? r : b;
 cod-normalize-guard | src/clip_codec.h | if (!(squared > 0.0f && squared <= FLT_MAX)) | if (!(squared > 0.0f))
-cur-shape | src/clip_cursor.c | if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats) | if (cursor->clip == clip && cursor->identity == clip->identity)
-cur-identity | src/clip_cursor.c | if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats) | if (cursor->clip == clip && cursor->floats == floats)
-cur-capacity | src/clip_cursor.c | if (floats > cursor->capacity) | if (false)
 cur-slot-b | src/clip_cursor.c | b = pair->second == pair->first ? a : 1 - a; | b = 1 - a;
 cur-align | src/clip_cursor.c | if (memory == NULL || cursorOut == NULL || (uintptr_t)memory % MANI_CLIP_CURSOR_ALIGNMENT != 0) | if (memory == NULL || cursorOut == NULL)
 cur-tag | src/clip_cursor.c | return cursor != NULL && cursor->tag == CURSOR_TAG; | return cursor != NULL;
@@ -1187,24 +1184,16 @@ cod-seg-floor | src/clip_codec.c | float high = floorf(extent * 255.0f); | float
 # rewritten with its rest).
 bl-usable-low | src/blend.c | return w >= 0.0f && w <= 1.0f; | return w <= 1.0f;
 bl-usable-high | src/blend.c | return w >= 0.0f && w <= 1.0f; | return w >= 0.0f;
-bl-layer-out | src/blend.c | if (!maniPoseMatches(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) || | if (!maniPoseMatches(layer->pose, skeleton) || !Usable(layer->weight) ||
-bl-layer-kind | src/blend.c | maniPoseIsDifference(layer->pose) != difference) | false)
+bl-layer-out | src/blend.c | if (!maniPoseMatches(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) || | if (!maniPoseMatches(layer->pose, skeleton) || (layer->pose == out && false) || !Usable(layer->weight) ||
+bl-layer-kind | src/blend.c | maniPoseIsDifference(layer->pose) != difference) | (maniPoseIsDifference(layer->pose) != difference && false))
 bl-bone-weights | src/blend.c | if (!Usable(layer->boneWeights[b])) | if (false)
 bl-threshold-zero | src/blend.c | !(threshold > 0.0f)) | false)
 bl-group-bone | src/blend.c | w[k] = layer->weight * layer->boneWeights[first + k]; | w[k] = layer->boneWeights[first + k];
-bl-first-zero | src/blend.c | o[c * LANES + k] = 0.0f + in[c * LANES + k] * w[k]; | o[c * LANES + k] = in[c * LANES + k];
-bl-sign | src/blend.c | rw[k] = dot < 0.0f ? -w[k] : w[k]; | rw[k] = w[k];
-bl-rot-weights | src/blend.c | const float* weights = c >= 3 && c < 7 ? rw : w; | const float* weights = w;
 bl-fill-share | src/blend.c | if (!(share[k] > 0.0f)) | if (true)
-bl-fill-sign | src/blend.c | float rf = dot < 0.0f ? -share[k] : share[k]; | float rf = share[k];
-bl-norm-guard | src/blend.c | root[k] = squared > 0.0f && squared <= FLT_MAX ? squared : -1.0f; | root[k] = squared;
-bl-norm-fallback | src/blend.c | float fallback = c == 6 ? 1.0f : 0.0f; | float fallback = 0.0f;
+bl-fill-sign | src/blend.c | float rf = dot < 0.0f ? -share[k] : share[k]; | float rf = dot < 0.0f ? share[k] : share[k];
 bl-settle-any | src/blend.c | any |= total[k] == 0.0f; | any |= false;
 bl-settle-skip-lanes | src/blend.c | if (k < lanes && total[k] != 0.0f) | if (total[k] != 0.0f)
-bl-under | src/blend.c | bool under = total[k] < threshold; | bool under = false;
-bl-share-zero | src/blend.c | share[k] = under && total[k] > 0.0f ? (threshold - total[k]) * inverse[k] : 0.0f; | share[k] = under ? (threshold - total[k]) * inverse[k] : 0.0f;
 bl-skip-zero | src/blend.c | if (layers[i].weight == 0.0f) | if (false)
-bl-share-scale | src/blend.c | w[k] *= inverse[k]; | w[k] *= 1.0f;
 bl-started | src/blend.c | if (started) | if (true)
 bl-kind | src/blend.c | maniPoseSetKind(out, difference); | maniPoseSetKind(out, false);
 bl-stale | src/blend.c | maniPoseMarkStale(out); | (void)out;
@@ -1238,7 +1227,6 @@ ac-header | src/clip_build.c | maniStoreU32(header + 60, source->additive); | (v
 ac-identity | src/clip.c | clip->additive != maniAdditiveNone); | false);
 ac-kind-set | src/clip.c | maniPoseSetKind(pose, clip->additive != maniAdditiveNone); | maniPoseSetKind(pose, false);
 ac-subset-kind | src/clip.c | maniPoseIsDifference(pose) != (clip->additive != maniAdditiveNone)) | false)
-ac-comp-identity | src/clip_compressed.c | .identity = clip->additive != maniAdditiveNone, | .identity = false,
 ac-plan-default | src/clip_plan.c | p->clip->additive != 0 | false
 ac-compress-header | src/clip_compress.c | maniStoreU32(h + 60, c->additive); | (void)h;
 ac-shell-abs | src/clip_shell.c | if (!additive) | if (true)
@@ -3661,3 +3649,67 @@ gd-runs-local | src/graph_subset.c | nodes[p] = !Bones(&writes, graph, p, false)
 gd-pass-on | src/graph_evaluate.c | if (weighed && plan != NULL && !maniGraphSubsetRuns(plan, p)) | if (false)
 gd-inertia-groups | src/graph_evaluate.c | node.groups = e->groups; | node.groups = NULL;
 gd-inertia-capture | src/graph_inertia.h | return node->groups == NULL || node->groups[b / MANI_POSE_GROUP_BONES] != 0; | return true;
+
+# The cursor's bind and layout (src/clip_cursor.c, mani-0039), after
+# the samples in groups and the compact size: replaces cur-shape,
+# cur-identity and cur-capacity, whose lines moved.
+# 2026-10-22: these and the sections below to the end of the file run in
+# an AVX2 build (the vector forms) and a scalar build (the plain loops
+# and the walk): every one killed but the two named below. Seven first
+# written left a variable unused, which -Werror refuses, and one wrote a
+# mask the AVX2 select reads as clear; rewritten and killed. A compact
+# cursor taking the groups regardless of its memory survived until the
+# test held the bytes past its memory to a guard pattern.
+# cur-bones survives, equivalent through the API: a clip plays only on a
+# skeleton of its skeleton's identity, which fixes the bone count, so a
+# clip of the same identity and address and another bone count needs a
+# view the caller altered; the check guards that (the commit review's
+# ask). cur-pose-kind survives in a scalar build, where the group path
+# it mutates is not compiled; a vector build kills it.
+cur-bones | src/clip_cursor.c | cursor->bones == clip->skeletonBoneCount) | true)
+cur-floats | src/clip_cursor.c | if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats && | if (cursor->clip == clip && cursor->identity == clip->identity && true &&
+cur-identity | src/clip_cursor.c | if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats && | if (cursor->clip == clip && true && cursor->floats == floats &&
+cur-capacity | src/clip_cursor.c | if (HeldFloats(clip, floats, false) > cursor->capacity) | if (false)
+cur-groups-fit | src/clip_cursor.c | HeldFloats(clip, cursor->floats, true) <= cursor->capacity) | true)
+cur-expand-once | src/clip_cursor.c | if (cursor->samples[slot] != NO_SAMPLE && cursor->expanded[slot] != cursor->samples[slot]) | if (cursor->samples[slot] != NO_SAMPLE && cursor->expanded[slot] == NO_SAMPLE)
+cur-pose-kind | src/clip_cursor.c | maniPoseSetKind(pose, clip->additive != maniAdditiveNone); | maniPoseSetKind(pose, false);
+
+# The blend's group steps (src/blend_lanes.h, mani-0038): the scalar
+# backend's plain loops (run in a scalar build), replacing bl-* whose
+# lines left blend.c.
+bl-first-zero | src/blend_lanes.h | out[i] = 0.0f + in[i] * weights[i % lanes]; | out[i] = in[i] * weights[i % lanes];
+bl-sign | src/blend_lanes.h | rw[k] = dot < 0.0f ? -weights[k] : weights[k]; | rw[k] = dot < 0.0f ? weights[k] : weights[k];
+bl-rot-weights | src/blend_lanes.h | const float* w = c >= 3 && c < 7 ? rw : weights; | const float* w = c >= 3 && c < 3 ? rw : weights;
+bl-norm-guard | src/blend_lanes.h | bool ok = squared > 0.0f && squared < INFINITY; | bool ok = true;
+bl-norm-fallback | src/blend_lanes.h | group[6 * lanes + k] = ok ? w * inverse : 1.0f; | group[6 * lanes + k] = ok ? w * inverse : 0.0f;
+bl-under | src/blend_lanes.h | bool under = total[k] < threshold; | bool under = false;
+bl-share-zero | src/blend_lanes.h | share[k] = under && total[k] > 0.0f ? (threshold - total[k]) * inverse[k] : 0.0f; | share[k] = under ? (threshold - total[k]) * inverse[k] : 0.0f;
+bl-share-scale | src/blend_lanes.h | w[k] *= scale[k]; | w[k] *= scale[k] * 0.0f + 1.0f;
+
+# The same steps on eight lanes (run in an AVX2 or NEON build).
+blv-first-zero | src/blend_lanes.h | maniF8Store(out + c * lanes, maniF8Add(maniF8Zero(), v)); | maniF8Store(out + c * lanes, v);
+blv-sign | src/blend_lanes.h | manif8 rw = maniF8Select(maniF8LT(dot, maniF8Zero()), maniF8Neg(w), w); | manif8 rw = w;
+blv-share-takes | src/blend_lanes.h | manif8 takes = maniF8And(under, maniF8GT(t, maniF8Zero())); | manif8 takes = under;
+blv-share-scale | src/blend_lanes.h | maniF8Store(w, maniF8Mul(maniF8Load(w), maniF8Load(scale))); | maniF8Store(w, maniF8Mul(maniF8Load(scale), maniF8Load(scale)));
+
+# The cursor's step a group (src/clip_lanes.h, mani-0039; a vector
+# build).
+cl-mask-vector | src/clip_lanes.h | maniF8Store(out + c * lanes, maniF8Select(mask, lerp, va)); | maniF8Store(out + c * lanes, maniF8Select(mask, lerp, lerp));
+cl-mask-rotation | src/clip_lanes.h | maniF8Store(out + (3 + k) * lanes, maniF8Select(mask, q, ra[k])); | maniF8Store(out + (3 + k) * lanes, maniF8Select(mask, q, q));
+cl-arc-sign | src/clip_lanes.h | manif8 s = maniF8Select(maniF8LT(dot, maniF8Zero()), maniF8Set1(-1.0f), maniF8Set1(1.0f)); | manif8 s = maniF8Set1(1.0f);
+cl-mask-row | src/clip_lanes.h | manif8 mask = maniF8Load(masks + (c < 3 ? 0 : 2) * lanes); | manif8 mask = maniF8Load(masks + (c < 3 ? 0 : 1) * lanes);
+
+# The compressed walk (src/clip_compressed.c): rests first (the
+# public record mani-0036), the rotations' batch (a vector build) and
+# the cursor's held groups.
+ac-rests-identity | src/clip_compressed.c | FillRests(locals, skeleton, clip->skeletonBoneCount, clip->additive != maniAdditiveNone, list); | FillRests(locals, skeleton, clip->skeletonBoneCount, false, list);
+ac-rests-turn | src/clip_compressed.c | group[k * lanes + lane] = rests[lane * MANI_POSE_COMPONENTS + k]; | group[k * lanes + lane] = rests[k * lanes + lane];
+ac-rests-tail | src/clip_compressed.c | if (list != NULL && !maniBoneListed(list, bone, &next)) | if (list != NULL && !maniBoneListed(list, bone, &next) && false)
+ac-walk-unlisted | src/clip_compressed.c | if (!wanted) | if (!wanted && false)
+ac-walk-list | src/clip_compressed.c | bool wanted = list == NULL || maniBoneListed(list, bone, &next); | bool wanted = list == NULL || maniBoneListed(list, bone, &next) || true;
+ac-batch-tail | src/clip_compressed.c | if (rotations.count > 0) | if (rotations.count > 8)
+ac-batch-lanes | src/clip_compressed.c | for (uint32_t i = 0; i < batch->count; ++i) | for (uint32_t i = 0; i < MANI_POSE_GROUP_BONES; ++i)
+ac-batch-place | src/clip_compressed.c | q[1] = maniF8Select(d0, a, maniF8Select(d1, r, b)); | q[1] = maniF8Select(d0, a, maniF8Select(d1, b, r));
+ac-batch-sign | src/clip_compressed.c | manif8 s = maniF8Select(maniF8LT(dot, maniF8Zero()), maniF8Set1(-1.0f), maniF8Set1(1.0f)); | manif8 s = maniF8Set1(1.0f);
+ac-batch-constant | src/clip_compressed.c | memcpy(kb, ka, sizeof ka); | memcpy(kb, ka, sizeof ka - sizeof(float));
+ac-held-rest-mask | src/clip_compressed.c | mask[c * MANI_POSE_GROUP_BONES] = 0.0f; | mask[c * MANI_POSE_GROUP_BONES] = -NAN;

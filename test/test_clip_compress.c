@@ -675,7 +675,15 @@ static void TestCursor(void)
     CHECK(scalar ? compact == size : compact < size, "the groups' bytes");
     maniClipCursor* small2 = NULL;
     CHECK(maniInitClipCursor(s_cursorMemory, compact, &small2) == mani_success, "compact cursor");
+    // Nothing past its memory is written: a guard pattern after it stays.
+    memset(s_cursorMemory + compact, 0xA5, sizeof s_cursorMemory - compact);
     CursorWalk(&packed, small2);
+    bool guarded = true;
+    for (size_t i = compact; i < sizeof s_cursorMemory; ++i)
+    {
+        guarded = guarded && s_cursorMemory[i] == 0xA5;
+    }
+    CHECK(guarded, "a compact cursor stays within its memory");
     CHECK(maniInitClipCursor(s_cursorMemory, compact - sizeof(float), &small2) == mani_success,
           "too small a cursor");
     CHECK(maniSampleClipCursor(small2, &packed, &s_skeleton, 0.5f, pose) == mani_errorCapacity,
