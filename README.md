@@ -48,7 +48,7 @@ bytes, and instances live in the caller's memory.
 the targets against the rivals and where each stands are in record
 mani-0036. Before 1.0.0 any minor release may change the API, the ABI
 and the file formats. This skeleton
-has 321 public functions.
+has 324 public functions.
 
 ## Using it
 
@@ -67,6 +67,11 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build
 ```
+
+On x86-64 the library is built for AVX2 and FMA, which a program
+checks once with `maniCheckCpu` before any other call;
+`-DMAUL_ANIM_SIMD=scalar` builds the portable code, which gives the
+same results on any CPU (record mani-0038).
 
 ## Design
 

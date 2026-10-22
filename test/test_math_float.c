@@ -12,7 +12,9 @@
 
 #include <float.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 // SplitMix64: a fixed sequence, so every run checks the same inputs.
 static uint64_t Next(uint64_t* state)
@@ -189,6 +191,66 @@ static void TestSinCosNearQuadrantBoundaries(void)
     CHECK(worst <= 0.55, "sine and cosine within 0.55 ulp next to k pi / 2");
 }
 
+// The quiet NaN with its sign clear, by its bits.
+static bool IsCanonicalNan(float x)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &x, sizeof bits);
+    return bits == 0x7FC00000u;
+}
+
+static void TestSinCosNonFinite(void)
+{
+    static const float inputs[] = {HUGE_VALF, -HUGE_VALF, NAN, -NAN};
+    bool canonical = true;
+    for (size_t i = 0; i < sizeof inputs / sizeof inputs[0]; ++i)
+    {
+        float sine = 0.0f;
+        float cosine = 0.0f;
+        maniSinCosF(inputs[i], &sine, &cosine);
+        canonical = canonical && IsCanonicalNan(sine) && IsCanonicalNan(cosine);
+    }
+    CHECK(canonical, "a non-finite x gives the same quiet NaN on every target");
+}
+
+static void TestSinCosFarOut(void)
+{
+    // Every binade from the far reduction's start to the largest float,
+    // both signs, and the points Maul Anim found unbounded before.
+    uint64_t state = 16;
+    double worst = 0.0;
+    bool odd = true;
+    for (int e = 16; e <= 127; ++e)
+    {
+        for (int i = 0; i < 400; ++i)
+        {
+            float x = ldexpf(Uniform(&state, 1.0f, 2.0f), e);
+            if (!isfinite(x))
+            {
+                continue;
+            }
+            double error = SinCosError(x);
+            worst = error > worst ? error : worst;
+            float sine = 0.0f;
+            float cosine = 0.0f;
+            float negativeSine = 0.0f;
+            float negativeCosine = 0.0f;
+            maniSinCosF(x, &sine, &cosine);
+            maniSinCosF(-x, &negativeSine, &negativeCosine);
+            odd = odd && negativeSine == -sine && negativeCosine == cosine;
+        }
+    }
+    static const float points[] = {1e6f,    0x1.0p+25f, 1e10f,          3e20f,
+                                   FLT_MAX, 0x1.8p+16f, 0x1.7ffffep+16f};
+    for (size_t i = 0; i < sizeof points / sizeof points[0]; ++i)
+    {
+        double error = SinCosError(points[i]);
+        worst = error > worst ? error : worst;
+    }
+    CHECK(worst <= 0.85, "sine and cosine within 0.85 ulp out to the largest float");
+    CHECK(odd, "sine odd and cosine even out there");
+}
+
 static void TestSinCosOnTheUnitCircle(void)
 {
     uint64_t state = 15;
@@ -344,6 +406,8 @@ int main(void)
     TestSinCosSpecialValues();
     TestSinCosWithinOneUlp();
     TestSinCosNearQuadrantBoundaries();
+    TestSinCosNonFinite();
+    TestSinCosFarOut();
     TestSinCosOnTheUnitCircle();
     TestAtan2SpecialValues();
     TestAtan2WithinOneUlp();

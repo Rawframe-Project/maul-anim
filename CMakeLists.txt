@@ -38,6 +38,24 @@ include(cmake/CompilerFlags.cmake)
 include(cmake/Library.cmake)
 include(cmake/Testing.cmake)
 
+# x86-64 builds use AVX2 and FMA unless the portable scalar backend is
+# chosen; arm64 uses NEON through src/simd.h. Every backend gives the
+# same bits (mani-0038).
+set(MAUL_ANIM_SIMD "auto" CACHE STRING "SIMD backend: auto or scalar")
+set_property(CACHE MAUL_ANIM_SIMD PROPERTY STRINGS auto scalar)
+if(MAUL_ANIM_SIMD STREQUAL "scalar")
+    list(APPEND MAUL_EXTRA_DEFINITIONS MAUL_ANIM_SIMD_FORCE_SCALAR=1)
+elseif(NOT MAUL_ANIM_SIMD STREQUAL "auto")
+    message(FATAL_ERROR "MAUL_ANIM_SIMD is auto or scalar, not ${MAUL_ANIM_SIMD}")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64" AND NOT EMSCRIPTEN)
+    if(MSVC)
+        set(MAUL_ARCH_FLAGS /arch:AVX2)
+    else()
+        set(MAUL_ARCH_FLAGS -mavx2 -mfma)
+    endif()
+    list(APPEND MAUL_EXTRA_DEFINITIONS MAUL_ANIM_BUILT_FOR_AVX2=1)
+endif()
+
 if(MAUL_ANIM_BUILD_SHARED)
     set(MAUL_LIBRARY_KIND SHARED)
 else()
@@ -150,6 +168,26 @@ if(MAUL_ANIM_OFFLINE)
                                      src/learned_train.c src/learned_train_run.c src/learned_checkpoint.c src/learned_restore.c)
 endif()
 maul_configure_library(maul-anim)
+# The CPU check must run on CPUs the backend does not support, so it is
+# compiled without the architecture flags and linked into the library.
+# The public header comes first, so its export marks reach the
+# definitions in the family's cpu.c.
+add_library(maul-anim_cpu OBJECT src/cpu.c)
+set(maul_saved_arch_flags "${MAUL_ARCH_FLAGS}")
+set(MAUL_ARCH_FLAGS "")
+maul_apply_flags(maul-anim_cpu)
+set(MAUL_ARCH_FLAGS "${maul_saved_arch_flags}")
+target_include_directories(maul-anim_cpu PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src)
+if(MSVC)
+    target_compile_options(maul-anim_cpu PRIVATE /FImaul-anim/base.h)
+else()
+    target_compile_options(maul-anim_cpu PRIVATE -include maul-anim/base.h)
+endif()
+set_target_properties(maul-anim_cpu PROPERTIES C_VISIBILITY_PRESET hidden POSITION_INDEPENDENT_CODE ON)
+if(MAUL_ANIM_BUILD_SHARED)
+    target_compile_definitions(maul-anim_cpu PRIVATE MAUL_ANIM_SHARED maul_anim_EXPORTS)
+endif()
+target_sources(maul-anim PRIVATE $<TARGET_OBJECTS:maul-anim_cpu>)
 # sqrtf need not set errno, which the library never reads: square roots
 # then run four or eight at a time; no value changes (mani-0020).
 if(NOT MSVC)

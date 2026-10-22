@@ -13,6 +13,21 @@ maniVersion maniGetVersion(void);
 Returns the version of the library that was linked, which may differ from the MANI_VERSION macros a program was compiled with.  @return The library version. @par Thread safety Safe from any thread.
 
 ```c
+const char* maniGetSimdBackend(void);
+```
+Returns the backend the library's vector code was built for, set by the MAUL_ANIM_SIMD build option (mani-0038).  @return "avx2", "neon" or "scalar"; a static string. @par Thread safety Safe from any thread.
+
+```c
+int32_t maniCpuSupportsBackend(void);
+```
+Tells whether this CPU runs the backend the library was built for.  @return 1 when it does, else 0. @par Thread safety Safe from any thread.
+
+```c
+int32_t maniCheckCpu(const char** backend);
+```
+The CPU check a host makes once, before any other call into the library: an AVX2 build on a CPU without AVX2 and FMA would stop on its first vector instruction, so on 0 the host refuses to run or loads a scalar build. No job checks it again. This function and the two above are built without the backend's instructions and are safe to call on any CPU of the target architecture.  @param backend  Receives the backend's name, as maniGetSimdBackend returns it. May be NULL. @return 1 when this CPU runs the backend, else 0. @par Thread safety Safe from any thread. It keeps no state.
+
+```c
 uint64_t maniHash64(uint64_t seed, const void* data, int32_t byteCount);
 ```
 Hashes bytes into a 64-bit value, the hash the library's determinism checks are built on and a host can use to compare poses between machines: eight bytes a round, read in the host's byte order, xored in, multiplied by an odd constant and folded, the leftover bytes one at a time. Its constants are frozen.  @param seed       MANI_HASH_INIT, or a hash to continue. @param data       The bytes. May be NULL when byteCount is 0. @param byteCount  The number of bytes, at least 0. @return The hash. @par Thread safety Safe from any thread.
@@ -1715,4 +1730,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-321 functions across 27 headers.
+324 functions across 27 headers.

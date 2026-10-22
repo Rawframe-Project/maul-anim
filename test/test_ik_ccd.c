@@ -76,11 +76,21 @@ static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32
 {
     static char names[LONG][4];
     maniBoneSource bones[LONG];
-    for (uint32_t b = 0; b < count; ++b)
+    if (count > LONG)
+    {
+        CHECK(false, "a chain fits the names");
+        return;
+    }
+    // Every name, whatever the count: a fixed bound GCC's vectorizer can
+    // see, which a bound of count is not (its -mavx2 build warned).
+    for (uint32_t b = 0; b < LONG; ++b)
     {
         names[b][0] = 'b';
         names[b][1] = (char)('a' + b / 26);
         names[b][2] = (char)('a' + b % 26);
+    }
+    for (uint32_t b = 0; b < count; ++b)
+    {
         float d = b == 0 ? 0.0f : 0.3f;
         maniTransform rest = {{0.0f, d, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
         if (turned && b > 0)

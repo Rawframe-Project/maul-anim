@@ -35,11 +35,10 @@ float maniCbrtF(float x);
 // where x or y is 0, 1 or infinite; NaN for a negative x.
 float maniPowF(float x, float y);
 
-// The sine and cosine of x together, each within 1 ulp for |x| up to
-// 2^16 pi / 2 (about 1e5), where the reduction by pi / 2 is exact to
-// beyond float precision; past it the results stay bounded and the same
-// on every platform but lose accuracy. Both are NaN for an infinite or
-// NaN x.
+// The sine and cosine of x together, each within 1 ulp for every finite
+// x: below 1.5 2^16 the reduction by pi / 2 uses seven parts of it, past
+// that Payne and Hanek's, from 2 / pi's bits, exact for any float. Both
+// are a quiet NaN with its sign clear for an infinite or NaN x.
 void maniSinCosF(float x, float* sineOut, float* cosineOut);
 
 // The angle of the point (x, y) from the positive x axis, in radians

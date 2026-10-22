@@ -96,7 +96,11 @@ mani-0024, about 850 bytes of the node's search at `-O2`, which moved
 107,000 and 131,000 (106,214 and 130,678: the learned node's
 Decompressor hidden values kept from its update for its evaluation,
 mani-0025, about 370 bytes at `-O2`, a tenth of a learned frame's
-instructions).
+instructions); the elementary functions' to 7,000 at `-O2` and 8,000 at
+`-O3` (6,750 and 7,110: the family's sine and cosine within 1 ulp for
+every float, an exact reduction past 1.5 2^16 where the old one lost
+its bound near 1e6). From mani-0038 on, the ceilings hold the scalar
+backend's archives.
 
 Targets added after 0.1.0, for the importer's decoders, in instructions
 at `-O2` and `-O3` (GCC 14) on the same streams with the same bits: the

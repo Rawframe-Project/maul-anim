@@ -9,6 +9,8 @@
 #ifndef MANI_MATH_CONSTANTS_H
 #define MANI_MATH_CONSTANTS_H
 
+#include <stdint.h>
+
 // ln 2 to 40 bits: k times it is exact for |k| < 2^13.
 #define MANI_LN2_HI 0x1.62e42fefa4000p-1
 // ln 2 minus MANI_LN2_HI.
@@ -134,6 +136,28 @@ static const double s_atanEighthsLow[9] = {
     0x1.2419a87f2a458p-56,
     -0x1.8c34d25aadef6p-56,
     0x1.1a62633145c07p-55,
+};
+// 2 / pi's bits after the point, most significant first: a window of 192 from any bit a double's reduction starts at.
+static const uint64_t s_twoOverPi[19] = {
+    0xA2F9836E4E441529u,
+    0xFC2757D1F534DDC0u,
+    0xDB6295993C439041u,
+    0xFE5163ABDEBBC561u,
+    0xB7246E3A424DD2E0u,
+    0x06492EEA09D1921Cu,
+    0xFE1DEB1CB129A73Eu,
+    0xE88235F52EBB4484u,
+    0xE99C7026B45F7E41u,
+    0x3991D639835339F4u,
+    0x9C845F8BBDF9283Bu,
+    0x1FF897FFDE05980Fu,
+    0xEF2F118B5A0A6D1Fu,
+    0x6D367ECF27CB09B7u,
+    0x4F463F669E5FEA2Du,
+    0x7527BAC7EBE5F17Bu,
+    0x3D0739F78A5292EAu,
+    0x6BFB5FB11F8D5D08u,
+    0x56033046FC7B6BABu,
 };
 
 #endif

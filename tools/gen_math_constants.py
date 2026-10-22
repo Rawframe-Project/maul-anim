@@ -57,6 +57,35 @@ def atan(x):
     return total * (2 ** halvings)
 
 
+def two_over_pi_words(count):
+    """The first 64 * count bits of 2 / pi after the binary point, as
+    64-bit words, most significant first: pi from Machin's formula in
+    integers with 256 guard bits, so every bit is exact."""
+    bits = 64 * count
+    scale = bits + 256
+
+    def atan_inv(n):
+        x = (1 << scale) // n
+        total, k, n2 = x, 1, n * n
+        while x:
+            x //= n2
+            total += -(x // (2 * k + 1)) if k % 2 else x // (2 * k + 1)
+            k += 1
+        return total
+
+    pi_scaled = 16 * atan_inv(5) - 4 * atan_inv(239)
+    value = (1 << (bits + 1 + scale)) // pi_scaled
+    return [(value >> (64 * (count - 1 - i))) & ((1 << 64) - 1) for i in range(count)]
+
+
+def word_table(out, name, count, note):
+    out.append(f"// {note}")
+    out.append(f"static const uint64_t {name}[{count}] = {{")
+    for w in two_over_pi_words(count):
+        out.append(f"    0x{w:016X}u,")
+    out.append("};")
+
+
 def to_double(value):
     # The nearest binary64, ties to even: Python's float of a Fraction
     # is correctly rounded.
@@ -151,6 +180,9 @@ def lines():
     table("s_atanEighths", highs, "atan(k / 8) for k from 0 to 8.")
     table("s_atanEighthsLow", [to_double(v - exact(h)) for v, h in zip(eighths, highs)],
           "atan(k / 8) minus s_atanEighths[k].")
+    word_table(out, "s_twoOverPi", 19,
+               "2 / pi's bits after the point, most significant first: a window of "
+               "192 from any bit a double's reduction starts at.")
     return out
 
 
@@ -272,6 +304,11 @@ def lines_float():
     table("s_atanEighthsF", highs, "atan(k / 8) for k from 0 to 8.")
     table("s_atanEighthsLowF", [to_float(v - exact(h)) for v, h in zip(eighths, highs)],
           "atan(k / 8) minus s_atanEighthsF[k].")
+    word_table(out, "s_twoOverPiF", 4,
+               "2 / pi's bits after the point, most significant first: a window of "
+               "128 from any bit a float's reduction starts at.")
+    out.append("// pi / 2, the nearest double: the far reduction's last product.")
+    out.append(f"#define MANI_PIO2_BINARY64_F {to_double(pio2).hex()}")
     return out
 
 
@@ -287,6 +324,8 @@ def render(body, guard, kind, source):
         "",
         f"#ifndef {guard}",
         f"#define {guard}",
+        "",
+        "#include <stdint.h>",
         "",
     ]
     return "\n".join(head + body + ["", "#endif", ""])

@@ -22,6 +22,8 @@
 
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
 // sqrt(1/2), where the logarithm moves its mantissa into the upper half.
 static const float s_sqrtHalfF = 0x1.6a09e6p-1f;
@@ -318,12 +320,124 @@ static void SinCosKernelF(float r, float rLow, float* sineOut, float* cosineOut)
     *cosineOut = head + (headLow - halfLow + (cosineTail - r * rLow));
 }
 
+// From here k reaches 2^16 and the reduction by parts of pi / 2 stops
+// being exact; past it ReduceFarF takes over.
+static const float s_farAngleF = 0x1.8p+16f;
+
+// A quiet NaN with its sign clear, the same bits on every target (an
+// arithmetic NaN's sign differs between x86 and ARM).
+static float QuietNanF(void)
+{
+    const uint32_t bits = 0x7FC00000u;
+    float out = 0.0f;
+    memcpy(&out, &bits, sizeof out);
+    return out;
+}
+
+// 2^e as a double, for a normal result.
+static double PowerOfTwoF(int e)
+{
+    uint64_t bits = (uint64_t)(e + 1023) << 52;
+    double out = 0.0;
+    memcpy(&out, &bits, sizeof out);
+    return out;
+}
+
+// a b as a 128-bit product: its low word, the high in *highOut.
+static uint64_t Multiply64F(uint64_t a, uint64_t b, uint64_t* highOut)
+{
+    uint64_t aLow = a & 0xFFFFFFFFu;
+    uint64_t aHigh = a >> 32;
+    uint64_t bLow = b & 0xFFFFFFFFu;
+    uint64_t bHigh = b >> 32;
+    uint64_t lowLow = aLow * bLow;
+    uint64_t lowHigh = aLow * bHigh;
+    uint64_t highLow = aHigh * bLow;
+    uint64_t middle = (lowLow >> 32) + (lowHigh & 0xFFFFFFFFu) + (highLow & 0xFFFFFFFFu);
+    *highOut = aHigh * bHigh + (lowHigh >> 32) + (highLow >> 32) + (middle >> 32);
+    return middle << 32 | (lowLow & 0xFFFFFFFFu);
+}
+
+// The 64 bits of 2 / pi from bit `from` on (bit 1 the first after the
+// point), the first of them the most significant.
+static uint64_t TwoOverPiBitsF(int from)
+{
+    int word = (from - 1) / 64;
+    int offset = (from - 1) % 64;
+    uint64_t out = s_twoOverPiF[word] << offset;
+    return offset == 0 ? out : out | s_twoOverPiF[word + 1] >> (64 - offset);
+}
+
+// The 64 bits of p (four words, least significant first, the last 0)
+// from bit `from` up, for -64 < from < 192; bits below
+// 0 read as 0.
+static uint64_t ProductBitsF(const uint64_t* p, int from)
+{
+    if (from < 0)
+    {
+        return p[0] << -from;
+    }
+    int word = from / 64;
+    int offset = from % 64;
+    return offset == 0 ? p[word] : p[word] >> offset | p[word + 1] << (64 - offset);
+}
+
+// Payne and Hanek's reduction for x >= s_farAngleF, exact for every
+// finite float: x 2 / pi = n + f with |f| <= 1/2, from the window of
+// 128 bits of 2 / pi that the bits of x reach (those before it make
+// multiples of 4, those after it change f by under 2^-101). Returns n
+// modulo 4; r + rLow is f pi / 2, from f to 53 bits in binary64.
+static uint32_t ReduceFarF(float x, float* rOut, float* rLowOut)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &x, sizeof bits);
+    uint64_t mantissa = (bits & 0x7FFFFFu) | 0x800000u;
+    int e = (int)(bits >> 23) - 150; // x = mantissa 2^e
+    int start = e > 2 ? e - 1 : 1;
+    // x (2 / pi) = mantissa C 2^-point, C the window from bit start.
+    int point = start + 127 - e;
+    uint64_t c1 = TwoOverPiBitsF(start);
+    uint64_t c0 = TwoOverPiBitsF(start + 64);
+    uint64_t h0 = 0;
+    uint64_t h1 = 0;
+    uint64_t p[4];
+    p[0] = Multiply64F(mantissa, c0, &h0);
+    uint64_t l1 = Multiply64F(mantissa, c1, &h1);
+    p[1] = h0 + l1;
+    p[2] = h1 + (p[1] < h0 ? 1u : 0u);
+    p[3] = 0;
+    uint32_t n = (uint32_t)(ProductBitsF(p, point) & 3u);
+    uint64_t high = ProductBitsF(p, point - 64);
+    uint64_t low = ProductBitsF(p, point - 128);
+    // f at or past 1/2 rounds n up and is taken as f - 1.
+    bool negative = (high >> 63) != 0;
+    if (negative)
+    {
+        n = (n + 1) & 3u;
+        low = ~low + 1;
+        high = ~high + (low == 0 ? 1u : 0u);
+    }
+    // Normalized, the fraction's top 53 bits.
+    int shift = 0;
+    while (shift < 128 && (high >> 63) == 0)
+    {
+        high = high << 1 | low >> 63;
+        low <<= 1;
+        shift++;
+    }
+    double r = (double)(high >> 11) * PowerOfTwoF(-53 - shift) * MANI_PIO2_BINARY64_F;
+    r = negative ? -r : r;
+    *rOut = (float)r;
+    *rLowOut = (float)(r - (double)*rOut);
+    return n;
+}
+
 void maniSinCosF(float x, float* sineOut, float* cosineOut)
 {
     if (!isfinite(x))
     {
-        *sineOut = NAN;
-        *cosineOut = NAN;
+        *sineOut = QuietNanF();
+        *cosineOut = QuietNanF();
         return;
     }
     if (fabsf(x) < s_tinyAngleF)
@@ -332,30 +446,43 @@ void maniSinCosF(float x, float* sineOut, float* cosineOut)
         *cosineOut = 1.0f;
         return;
     }
-    float k = floorf(x * MANI_INV_PIO2_F + 0.5f);
-    // x - k p1 is exact (Sterbenz) and each k p an exact product for
-    // |k| < 2^16; the sums carry their errors in rLow.
-    float r = x - k * s_pio2PartsF[0];
+    float r = 0.0f;
     float rLow = 0.0f;
-    for (int i = 1; i < 6; ++i)
+    uint32_t quadrant = 0;
+    if (fabsf(x) < s_farAngleF)
     {
-        float error = 0.0f;
-        r = TwoSumF(r, -k * s_pio2PartsF[i], &error);
-        rLow += error;
+        float k = floorf(x * MANI_INV_PIO2_F + 0.5f);
+        // x - k p1 is exact (Sterbenz) and each k p an exact product for
+        // |k| < 2^16; the sums carry their errors in rLow.
+        r = x - k * s_pio2PartsF[0];
+        for (int i = 1; i < 6; ++i)
+        {
+            float error = 0.0f;
+            r = TwoSumF(r, -k * s_pio2PartsF[i], &error);
+            rLow += error;
+        }
+        // rLow is a few ulps of r at most, which the kernel takes to
+        // first order.
+        rLow -= k * s_pio2PartsF[6];
+        // The quadrant, from k modulo 4 computed exactly for any k.
+        float kModulo4 = fmodf(k, 4.0f);
+        quadrant = (uint32_t)(kModulo4 < 0.0f ? kModulo4 + 4.0f : kModulo4);
     }
-    // rLow is a few ulps of r at most, which the kernel takes to first
-    // order.
-    rLow -= k * s_pio2PartsF[6];
+    else
+    {
+        // -x reduces to -n and -f.
+        quadrant = ReduceFarF(fabsf(x), &r, &rLow);
+        if (x < 0.0f)
+        {
+            quadrant = (4u - quadrant) & 3u;
+            r = -r;
+            rLow = -rLow;
+        }
+    }
     float sine = 0.0f;
     float cosine = 0.0f;
     SinCosKernelF(r, rLow, &sine, &cosine);
-    // The quadrant, from k modulo 4 computed exactly for any k.
-    float quadrant = fmodf(k, 4.0f);
-    if (quadrant < 0.0f)
-    {
-        quadrant += 4.0f;
-    }
-    switch ((int)quadrant)
+    switch (quadrant)
     {
     case 0:
         *sineOut = sine;

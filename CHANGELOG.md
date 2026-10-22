@@ -10,6 +10,11 @@ format.
 
 ### Added
 
+- The SIMD backend and the CPU check: the `MAUL_ANIM_SIMD` option
+  (`auto`, AVX2 and FMA on x86-64 and NEON on arm64, or `scalar`),
+  and `maniGetSimdBackend`, `maniCpuSupportsBackend` and
+  `maniCheckCpu`, which a program calls once before any other call;
+  every backend gives the same results (mani-0038).
 - The guide's budget allocator, for hosts importing files they do not
   trust where the system overcommits memory: a small file's viewless
   accessors can ask for gigabytes, which `malloc` may grant and the
@@ -37,6 +42,9 @@ format.
 
 ### Changed
 
+- Inflating zlib streams, as FBX arrays are, takes about half the
+  instructions, with every output byte the same: the fixed codes are
+  constant tables and eight bytes are read at a time.
 - Reading an opened glTF file's skins, influences, morph targets and
   clips takes fewer instructions, with the same files built and the
   same refusals: the basis change made once and skipped when it is the

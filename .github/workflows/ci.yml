@@ -39,6 +39,7 @@ jobs:
           python3 tools/check_lengths.py
           python3 tools/gen_math_constants.py --check
           python3 tools/gen_decimal_powers.py --check
+          python3 tools/gen_inflate_tables.py --check
           python3 tools/check_guide.py
       - name: clang-tidy
         run: |
@@ -61,7 +62,7 @@ jobs:
           - { name: linux-clang-20,      os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Release, extra: "" }
           - { name: linux-clang-20-asan, os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Debug,   extra: "-DMAUL_ANIM_SANITIZE=ON" }
           - { name: linux-clang-20-tsan, os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Debug,   extra: "-DMAUL_ANIM_TSAN=ON" }
-          - { name: linux-shared,        os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Release, extra: "-DMAUL_ANIM_BUILD_SHARED=ON" }
+          - { name: linux-shared,        os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Release, extra: "-DMAUL_ANIM_BUILD_SHARED=ON -DMAUL_ANIM_SIMD=scalar" }
           - { name: linux-arm64-gcc-14,  os: ubuntu-24.04-arm, cc: gcc-14,   cxx: g++-14,     config: Release, extra: "" }
           - { name: macos-clang,         os: macos-15,         cc: clang,    cxx: clang++,    config: Release, extra: "" }
     steps:
@@ -127,11 +128,15 @@ jobs:
           sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20
       - name: Runtime builds
         run: |
+          # The budget's archives are the scalar backend's (mani-0038); the
+          # AVX2 ones are reported beside them.
           for level in O2 O3; do
-            cmake -B build-$level -G Ninja -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_BUILD_TYPE=Release \
-              "-DCMAKE_C_FLAGS_RELEASE=-$level -DNDEBUG" -DMAUL_ANIM_OFFLINE=OFF \
-              -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
-            cmake --build build-$level -j 4
+            for simd in scalar auto; do
+              cmake -B build-$level-$simd -G Ninja -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_BUILD_TYPE=Release \
+                "-DCMAKE_C_FLAGS_RELEASE=-$level -DNDEBUG" -DMAUL_ANIM_OFFLINE=OFF -DMAUL_ANIM_SIMD=$simd \
+                -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+              cmake --build build-$level-$simd -j 4
+            done
           done
           cmake -B build-clang -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_BUILD_TYPE=Release \
             -DMAUL_ANIM_OFFLINE=OFF -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
@@ -139,8 +144,10 @@ jobs:
       - name: Text by part
         run: |
           for level in O2 O3; do
-            echo "== -$level"
-            python3 tools/size_report.py build-$level/libmaul-anim.a
+            echo "== -$level, scalar (the budget's)"
+            python3 tools/size_report.py build-$level-scalar/libmaul-anim.a
+            echo "== -$level, AVX2"
+            python3 tools/size_report.py build-$level-auto/libmaul-anim.a
           done
       - name: Allocators under Clang
         run: python3 tools/size_report.py build-clang/libmaul-anim.a --allocators

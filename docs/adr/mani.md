@@ -42,3 +42,4 @@ are listed in [README.md](README.md).
 | [mani-0035](mani-0035-introspection-and-subsets.md) | Introspection and subsets | Accepted |
 | [mani-0036](mani-0036-targets-and-size.md) | The targets at release and the size budget | Accepted |
 | [mani-0037](mani-0037-turn-limit.md) | The turn limit node | Accepted |
+| [mani-0038](mani-0038-simd-backend.md) | The SIMD backend and the CPU check | Accepted |

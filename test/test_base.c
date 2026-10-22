@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Versions and result names.
+// Versions, result names and the SIMD backend.
 
 #include "test_harness.h"
 
@@ -27,9 +27,31 @@ static void TestResultNames(void)
     CHECK(strcmp(maniResultName(12345), "unknown result") == 0, "unknown name");
 }
 
+// The backend is the one the build chose, the three reports agree, and
+// every machine that runs the suites runs the backend it was built for.
+static void TestSimdBackend(void)
+{
+    const char* name = maniGetSimdBackend();
+#if defined(MAUL_ANIM_BUILT_FOR_AVX2)
+    CHECK(strcmp(name, "avx2") == 0, "an AVX2 build names avx2");
+#elif defined(MAUL_ANIM_SIMD_FORCE_SCALAR)
+    CHECK(strcmp(name, "scalar") == 0, "a scalar build names scalar");
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    CHECK(strcmp(name, "neon") == 0, "an arm64 build names neon");
+#else
+    CHECK(strcmp(name, "scalar") == 0, "another target names scalar");
+#endif
+    CHECK(maniCpuSupportsBackend() == 1, "this CPU runs the built backend");
+    const char* checked = NULL;
+    CHECK(maniCheckCpu(&checked) == 1, "the check passes");
+    CHECK(checked == name, "the check names the same static string");
+    CHECK(maniCheckCpu(NULL) == 1, "the check takes no name");
+}
+
 int main(void)
 {
     TestVersionMatchesHeader();
     TestResultNames();
+    TestSimdBackend();
     return s_failures == 0 ? 0 : 1;
 }

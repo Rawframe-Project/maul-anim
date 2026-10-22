@@ -179,6 +179,35 @@ extern "C"
     /// Safe from any thread.
     MANI_API maniVersion maniGetVersion(void);
 
+    /// Returns the backend the library's vector code was built for, set by
+    /// the MAUL_ANIM_SIMD build option (mani-0038).
+    ///
+    /// @return "avx2", "neon" or "scalar"; a static string.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API const char* maniGetSimdBackend(void);
+
+    /// Tells whether this CPU runs the backend the library was built for.
+    ///
+    /// @return 1 when it does, else 0.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API int32_t maniCpuSupportsBackend(void);
+
+    /// The CPU check a host makes once, before any other call into the
+    /// library: an AVX2 build on a CPU without AVX2 and FMA would stop on
+    /// its first vector instruction, so on 0 the host refuses to run or
+    /// loads a scalar build. No job checks it again. This function and the
+    /// two above are built without the backend's instructions and are safe
+    /// to call on any CPU of the target architecture.
+    ///
+    /// @param backend  Receives the backend's name, as maniGetSimdBackend
+    ///                 returns it. May be NULL.
+    /// @return 1 when this CPU runs the backend, else 0.
+    /// @par Thread safety
+    /// Safe from any thread. It keeps no state.
+    MANI_API int32_t maniCheckCpu(const char** backend);
+
     // The seed of a hash that starts from nothing.
 #define MANI_HASH_INIT 0xCBF29CE484222325ull
 

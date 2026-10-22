@@ -9,6 +9,8 @@
 #ifndef MANI_MATH_CONSTANTS_FLOAT_H
 #define MANI_MATH_CONSTANTS_FLOAT_H
 
+#include <stdint.h>
+
 // ln 2 to 16 bits: k times it is exact for |k| < 2^8.
 #define MANI_LN2_HI_F 0x1.62e4p-1f
 // ln 2 minus MANI_LN2_HI_F.
@@ -117,5 +119,14 @@ static const float s_atanEighthsLowF[9] = {
     0x1.5e118cp-27f,
     -0x1.777a5cp-26f,
 };
+// 2 / pi's bits after the point, most significant first: a window of 128 from any bit a float's reduction starts at.
+static const uint64_t s_twoOverPiF[4] = {
+    0xA2F9836E4E441529u,
+    0xFC2757D1F534DDC0u,
+    0xDB6295993C439041u,
+    0xFE5163ABDEBBC561u,
+};
+// pi / 2, the nearest double: the far reduction's last product.
+#define MANI_PIO2_BINARY64_F 0x1.921fb54442d18p+0
 
 #endif

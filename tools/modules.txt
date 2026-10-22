@@ -9,6 +9,8 @@ fpenv:
 bytes:
 container: bytes
 inflate:
+cpu:
+simd:
 allocator:
 host_code: allocator
 text:

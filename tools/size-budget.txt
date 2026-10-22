@@ -2,15 +2,16 @@
 # tools/size_report.py. "PART: MODULES" lists a part's modules; the core
 # also takes every module its modules use that no other part lists.
 # "ceiling PART LEVEL BYTES" holds a part's text at -O2 or -O3 (GCC 14,
-# x86-64, a runtime-only Release build): set at its measure rounded up to
-# the next thousand bytes, lowered when a part shrinks past a thousand,
-# raised only by a decision recorded in mani-0036.
+# x86-64, a runtime-only Release build of the scalar backend, mani-0038):
+# set at its measure rounded up to the next thousand bytes, lowered when
+# a part shrinks past a thousand, raised only by a decision recorded in
+# mani-0036.
 #
 # The core is the measure against ozz-animation's runtime (69,698
 # bytes at -O2, 74,225 at -O3): sampling, blending, the model pass and
 # palettes, with skeletons, skinning and root motion.
 
-core: base clip clip_tracks clip_cursor clip_compressed blend additive mask pose skin skinning influences skeleton fpenv hash
+core: base clip clip_tracks clip_cursor clip_compressed blend additive mask pose skin skinning influences skeleton fpenv hash cpu
 graph: graph graph_bind graph_body graph_chain graph_dead_blend graph_emit graph_evaluate graph_evaluate_ik graph_inertia graph_inertia_apply graph_inspect graph_instance graph_learned graph_learned_step graph_machine graph_machine_file graph_machine_listen graph_machine_step graph_match graph_match_step graph_nodes graph_shot graph_shot_step graph_space graph_spring graph_subset graph_turn graph_update
 ik: ik ik_aim ik_ccd ik_chain ik_fabrik ik_frame ik_limit
 bodyik: body_ik body_sdls body_xpbd jacobi_svd
@@ -34,7 +35,7 @@ ceiling mirror     O2 5000
 ceiling match      O2 17000
 ceiling learned    O2 11000
 ceiling morph      O2 7000
-ceiling elementary O2 6000
+ceiling elementary O2 7000
 ceiling core       O3 92000
 ceiling graph      O3 131000
 ceiling ik         O3 34000
@@ -46,4 +47,4 @@ ceiling mirror     O3 6000
 ceiling match      O3 19000
 ceiling learned    O3 16000
 ceiling morph      O3 7000
-ceiling elementary O3 7000
+ceiling elementary O3 8000
