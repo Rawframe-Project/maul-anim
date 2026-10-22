@@ -10,6 +10,12 @@ format.
 
 ### Added
 
+- `maniClipCursorCompactSize`: the smallest forward cursor for a clip.
+  On AVX2 and NEON builds `maniClipCursorSize`'s cursor also holds its
+  samples in the pose's groups (about 92 bytes a bone, a quarter of the
+  instructions going forward); a cursor given only the compact size
+  walks its samples instead, with the same poses, for hosts that keep
+  many (mani-0039).
 - The SIMD backend and the CPU check: the `MAUL_ANIM_SIMD` option
   (`auto`, AVX2 and FMA on x86-64 and NEON on arm64, or `scalar`),
   and `maniGetSimdBackend`, `maniCpuSupportsBackend` and

@@ -55,13 +55,15 @@ static size_t CacheFloats(const maniClip* clip)
 }
 
 // The floats held for a clip: two decoded samples, and on a vector
-// backend two samples in groups and the masks.
-static size_t HeldFloats(const maniClip* clip, size_t floats)
+// backend, when grouped, two samples in groups and the masks.
+static size_t HeldFloats(const maniClip* clip, size_t floats, bool grouped)
 {
 #if defined(MANI_CLIP_LANES)
-    return floats > 0 ? 2 * floats + Groups(clip) * (2 * GROUP_FLOATS + MASK_FLOATS) : 0;
+    size_t groups = grouped && floats > 0 ? Groups(clip) * (2 * GROUP_FLOATS + MASK_FLOATS) : 0;
+    return 2 * floats + groups;
 #else
     (void)clip;
+    (void)grouped;
     return 2 * floats;
 #endif
 }
@@ -72,7 +74,8 @@ size_t maniClipCursorSize(const maniClip* clip)
     {
         return 0;
     }
-    return offsetof(maniClipCursor, values) + HeldFloats(clip, CacheFloats(clip)) * sizeof(float);
+    return offsetof(maniClipCursor, values) +
+           HeldFloats(clip, CacheFloats(clip), true) * sizeof(float);
 }
 
 maniResult maniInitClipCursor(void* memory, size_t size, maniClipCursor** cursorOut)
@@ -109,7 +112,7 @@ static bool Bind(maniClipCursor* cursor, const maniClip* clip)
     {
         return true;
     }
-    if (HeldFloats(clip, floats) > cursor->capacity)
+    if (HeldFloats(clip, floats, false) > cursor->capacity)
     {
         return false;
     }
@@ -216,7 +219,10 @@ maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
     maniClipPair pair = maniClipLocate(clip, time);
     Load(cursor, clip, &pair);
 #if defined(MANI_CLIP_LANES)
-    if (clip->compressed && cursor->floats > 0)
+    // The groups when the memory holds them for this clip (mani-0039),
+    // else the decoded samples alone, walked: the same bits either way.
+    if (clip->compressed && cursor->floats > 0 &&
+        HeldFloats(clip, cursor->floats, true) <= cursor->capacity)
     {
         Lanes(cursor, clip, skeleton, &pair, pose);
         return mani_success;
@@ -245,4 +251,19 @@ maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor, const maniClip* cl
     Load(cursor, clip, &pair);
     maniSampleClipPairFloats(clip, &pair, values);
     return mani_success;
+}
+
+size_t maniClipCursorCompactSize(const maniClip* clip)
+{
+#if defined(MANI_CLIP_LANES)
+    if (clip == NULL)
+    {
+        return 0;
+    }
+    return offsetof(maniClipCursor, values) +
+           HeldFloats(clip, CacheFloats(clip), false) * sizeof(float);
+#else
+    // The scalar backend holds no groups: the one size.
+    return maniClipCursorSize(clip);
+#endif
 }

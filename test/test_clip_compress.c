@@ -663,6 +663,20 @@ static void TestCursor(void)
     CHECK(maniSampleClipFloatsCursor(small, &packed, 0.5f, values, 4, &n) == mani_errorCapacity &&
               n == 4,
           "too small for floats");
+    // The smallest cursor: no larger, the same bits; below it, refused.
+    size_t compact = maniClipCursorCompactSize(&packed);
+    CHECK(compact > 0 && maniClipCursorCompactSize(NULL) == 0, "compact size");
+    // Smaller where a vector backend holds the groups, the same on the
+    // scalar one.
+    bool scalar = strcmp(maniGetSimdBackend(), "scalar") == 0;
+    CHECK(scalar ? compact == size : compact < size, "the groups' bytes");
+    maniClipCursor* small2 = NULL;
+    CHECK(maniInitClipCursor(s_cursorMemory, compact, &small2) == mani_success, "compact cursor");
+    CursorWalk(&packed, small2);
+    CHECK(maniInitClipCursor(s_cursorMemory, compact - sizeof(float), &small2) == mani_success,
+          "too small a cursor");
+    CHECK(maniSampleClipCursor(small2, &packed, &s_skeleton, 0.5f, pose) == mani_errorCapacity,
+          "below the compact size");
     // Misuse.
     CHECK(maniClipCursorSize(NULL) == 0, "no clip");
     CHECK(maniInitClipCursor(NULL, size, &cursor) == mani_errorInvalid, "no memory");
@@ -684,6 +698,49 @@ static void TestCursor(void)
     CHECK(maniSampleClipCursor((maniClipCursor*)(void*)zeros, &packed, &s_skeleton, 0.5f, pose) ==
               mani_errorInvalid,
           "not a cursor");
+}
+
+// A random subset of a random clip's bones, its groups filled in part:
+// the listed bones as random access samples them, the others left.
+static void RandomSubset(const maniClip* clip, uint32_t bones)
+{
+    maniPose* a = NULL;
+    maniPose* b = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &a) == mani_success, "pose a");
+    CHECK(maniInitPose(&s_skeleton, s_poseB, sizeof s_poseB, &b) == mani_success, "pose b");
+    uint32_t list[RANDOM_BONES];
+    uint32_t count = 0;
+    for (uint32_t bone = 0; bone < bones; ++bone)
+    {
+        if (Random() < 0.5f)
+        {
+            list[count++] = bone;
+        }
+    }
+    const maniTransform marker = {{9.0f, 9.0f, 9.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {2.0f, 2.0f, 2.0f}};
+    bool right = true;
+    for (float t = 0.0f; t < clip->duration; t += 0.071f)
+    {
+        CHECK(maniSampleClip(clip, &s_skeleton, t, a) == mani_success, "samples");
+        // b of the clip's kind, then marked.
+        CHECK(maniSampleClip(clip, &s_skeleton, 0.0f, b) == mani_success, "kind");
+        for (uint32_t bone = 0; bone < bones; ++bone)
+        {
+            maniPoseSetLocal(b, bone, marker);
+        }
+        CHECK(maniSampleClipBones(clip, &s_skeleton, t, list, count, b) == mani_success,
+              "random subset");
+        uint32_t next = 0;
+        for (uint32_t bone = 0; bone < bones; ++bone)
+        {
+            bool listed = next < count && list[next] == bone;
+            next += listed ? 1 : 0;
+            maniTransform want = listed ? maniPoseLocal(a, bone) : marker;
+            maniTransform got = maniPoseLocal(b, bone);
+            right = right && memcmp(&want, &got, sizeof want) == 0;
+        }
+    }
+    CHECK(right, "a random subset: listed bones as random access, others left");
 }
 
 // Random clips through a cursor: one group of bones and two, rests
@@ -757,12 +814,15 @@ static void TestCursorRandom(void)
         CHECK(Compress(&options, NULL) == mani_success, "random compresses");
         maniClip packed;
         CHECK(Open(&packed).result == mani_success, "opens");
+        // Half the rounds through the smallest cursor, which walks its
+        // samples where the full one holds them in groups too.
         maniClipCursor* cursor = NULL;
-        CHECK(maniClipCursorSize(&packed) <= sizeof s_cursorMemory, "cursor size");
-        CHECK(maniInitClipCursor(s_cursorMemory, maniClipCursorSize(&packed), &cursor) ==
-                  mani_success,
-              "cursor");
+        size_t memory =
+            round % 4 < 2 ? maniClipCursorSize(&packed) : maniClipCursorCompactSize(&packed);
+        CHECK(memory <= sizeof s_cursorMemory, "cursor size");
+        CHECK(maniInitClipCursor(s_cursorMemory, memory, &cursor) == mani_success, "cursor");
         CursorWalk(&packed, cursor);
+        RandomSubset(&packed, bones);
     }
     OpenSkeleton();
 }

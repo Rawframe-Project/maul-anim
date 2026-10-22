@@ -48,7 +48,7 @@ bytes, and instances live in the caller's memory.
 the targets against the rivals and where each stands are in record
 mani-0036. Before 1.0.0 any minor release may change the API, the ABI
 and the file formats. This skeleton
-has 324 public functions.
+has 325 public functions.
 
 ## Using it
 

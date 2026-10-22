@@ -241,7 +241,12 @@ Samples some bones of the clip at a time, as maniSampleClip samples them; every 
 ```c
 size_t maniClipCursorSize(const maniClip* clip);
 ```
-Returns the bytes a cursor needs to play a clip: a cursor made for a clip plays any clip that needs no more. A build with a vector backend (maniGetSimdBackend) also holds the two samples in the pose's groups of eight bones, so the bytes depend on the backend.  @param clip  An opened clip. @return The size in bytes; 0 for a NULL clip. @par Thread safety Safe from any thread.
+Returns the bytes a cursor needs to play a clip: a cursor made for a clip plays any clip that needs no more. A build with a vector backend (maniGetSimdBackend) also holds the two samples in the pose's groups of eight bones, so the bytes depend on the backend; maniClipCursorCompactSize gives the smallest cursor's.  @param clip  An opened clip. @return The size in bytes; 0 for a NULL clip. @par Thread safety Safe from any thread.
+
+```c
+size_t maniClipCursorCompactSize(const maniClip* clip);
+```
+Returns the bytes of the smallest cursor that plays a clip: its two decoded samples alone. On a vector backend maniClipCursorSize's cursor also holds the samples in the pose's groups of eight bones, for fewer instructions a pose going forward, at about 92 bytes a bone more; a cursor whose memory holds less than that for the clip it plays walks its samples instead, with the same poses. A host that keeps many cursors may choose this size. On the scalar backend the two sizes are the same.  @param clip  An opened clip. @return The size in bytes; 0 for a NULL clip. @par Thread safety Safe from any thread.
 
 ```c
 MANI_NODISCARD MANI_API maniResult maniInitClipCursor(void* memory, size_t size, maniClipCursor** cursorOut);
@@ -1730,4 +1735,4 @@ Gives a sample's trajectory values as a database measures its trajectories: the 
 
 ---
 
-324 functions across 27 headers.
+325 functions across 27 headers.

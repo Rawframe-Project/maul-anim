@@ -43,8 +43,8 @@ eight (ten rows of eight floats a group), and the blend's kernels
   under Clang (39,714 against 39,481), and they took the core past
   ozz-animation's size, the ceiling of the size budget (mani-0036).
 - **Memory.** The bytes `maniClipCursorSize` returns include the two
-  group samples and the masks on a vector backend: for a 65-bone
-  skeleton, 9 groups, 6,624 bytes more.
+  group samples and the masks on a vector backend: 736 bytes a group of
+  eight bones, for ual's 53-bone skeleton 7 groups, 5,152 bytes more.
 
 ## Consequences
 
@@ -61,3 +61,20 @@ channels, rotations turning past w = 0 so held samples meet on the
 longer arc, and additive clips (the pose's kind compared too); a mask that lets a rest through the interpolation, a lost
 sign, or a wrong mask row fails them. CI runs them on AVX2, NEON and
 the scalar build.
+
+## Amendment, 2026-10-22: the small cursor at the host's choice
+
+The groups cost 92 bytes a bone, where the decoded samples cost about
+18 on ual's clips (the walk-order samples grow with a clip's animated
+channels, the groups with the skeleton's bones). ozz's sampling context
+takes about 116 bytes a track and ACL's decompression context 128 bytes
+in all. A crowd of 1,000 instances of a 1,000-bone rig would hold about
+110 MB of cursors with the groups and 18 MB without. So the layout is
+the host's, chosen by the memory it gives: `maniClipCursorCompactSize`
+reports the decoded samples' bytes, and a cursor plays a clip a group
+at a time only when its memory holds that clip's groups; otherwise it
+walks its decoded samples. Both give random access's bits, and the
+tests play random clips through both. Forward on ual, the compact
+cursor takes 21,209 instructions a pose under GCC 14 and AVX2 and
+25,545 under Clang 20 (6,334 and 6,274 with the groups; ACL's forward
+15,989 and 15,669). On the scalar backend the two sizes are the same.
