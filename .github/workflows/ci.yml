@@ -96,6 +96,20 @@ jobs:
       - name: Package
         if: matrix.name == 'linux-shared'
         run: cmake --install build --prefix "$PWD/package"
+      - name: Package consumer
+        # A program built against the installed package alone, by its CMake
+        # package and by pkg-config, makes the CPU check (mani-0038).
+        if: matrix.name == 'linux-shared'
+        run: |
+          cmake -S test/consumer -B build-consumer -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_PREFIX_PATH="$PWD/package"
+          cmake --build build-consumer
+          LD_LIBRARY_PATH="$PWD/package/lib" build-consumer/consumer
+          export PKG_CONFIG_PATH="$PWD/package/lib/pkgconfig"
+          pkg-config --print-variables maul-anim >/dev/null
+          ${{ matrix.cc }} -std=c17 test/consumer/main.c -DCONSUMER_BACKEND='"scalar"' \
+            $(pkg-config --cflags --libs maul-anim) -o consumer-pc
+          LD_LIBRARY_PATH="$PWD/package/lib" ./consumer-pc
 
   # The API reference is generated from the headers; it must match them,
   # and the README must give its function count.
@@ -177,6 +191,17 @@ jobs:
             -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
           cmake --build build-runtime --config Release -j 4
           NM=llvm-nm python tools/size_report.py build-runtime/Release/maul-anim.lib --allocators
+      # The DLL through its installed package alone: the CPU check's three
+      # functions exported and the backend named (mani-0038).
+      - name: Package consumer, DLL
+        run: |
+          cmake -B build-dll -T ClangCL -D${PREFIX}_WERROR=ON -DMAUL_ANIM_BUILD_SHARED=ON \
+            -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
+          cmake --build build-dll --config Release -j 4
+          cmake --install build-dll --config Release --prefix "$PWD/package"
+          cmake -S test/consumer -B build-consumer -T ClangCL -DCMAKE_PREFIX_PATH="$PWD/package"
+          cmake --build build-consumer --config Release
+          PATH="$PWD/package/bin:$PATH" build-consumer/Release/consumer.exe
       # The public headers alone under MSVC's cl, as C17 and C++17 with
       # /W4 /WX, which cannot build the library itself (family record 0008).
       - name: Headers under MSVC

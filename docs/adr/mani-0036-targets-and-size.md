@@ -102,6 +102,20 @@ every float, an exact reduction past 1.5 2^16 where the old one lost
 its bound near 1e6). From mani-0038 on, the ceilings hold the scalar
 backend's archives.
 
+The AVX2 backend's archives have ceilings of their own, set from their
+measure after the first vector kernels (the blend's groups, the forward
+cursor's samples in groups, the rotations' arithmetic and the rests'
+fill on eight lanes) so each later kernel's growth shows when it lands;
+the same rule, the measure rounded up to the next thousand bytes. At
+`-O2` and `-O3`: core 73,447 and 89,140 (ceilings 74,000 and 90,000);
+graph 106,253 and 133,640; IK 28,635 and 31,378; full-body IK 25,153
+and 33,385; springs 26,654 and 28,785; ragdoll 13,705 and 14,878;
+retargeting 10,981 and 12,088; mirroring 4,708 and 5,124; matching
+16,003 and 22,667; learned matching 10,588 and 17,588; morph targets
+6,526 and 7,015; elementary functions 5,886 and 6,134; in all 328,539
+and 401,822. The comparison with ozz-animation's runtime stays on the
+scalar build, whose core is 69,601 at `-O2`.
+
 Targets added after 0.1.0, for the importer's decoders, in instructions
 at `-O2` and `-O3` (GCC 14) on the same streams with the same bits: the
 Draco decoder (mani-0021) no more than Google's decoder (d429de8, its

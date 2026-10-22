@@ -68,10 +68,20 @@ cmake --build build
 ctest --test-dir build
 ```
 
-On x86-64 the library is built for AVX2 and FMA, which a program
-checks once with `maniCheckCpu` before any other call;
-`-DMAUL_ANIM_SIMD=scalar` builds the portable code, which gives the
-same results on any CPU (record mani-0038).
+On x86-64 the library is built for AVX2 and FMA unless configured with
+`-DMAUL_ANIM_SIMD=scalar`, the portable code, which gives the same
+results on any CPU (record mani-0038). Configure prints the backend,
+and the installed CMake package (`maul-anim_SIMD_BACKEND`) and
+pkg-config file name it. A program checks the CPU once, before any
+other call:
+
+```c
+const char* backend = NULL;
+int32_t runs = maniCheckCpu(&backend);   // before any other call
+// runs == 0: this CPU cannot run the build's backend (backend names it,
+// "avx2" say): refuse to start, or load a build made with
+// -DMAUL_ANIM_SIMD=scalar, which runs on any CPU with the same results.
+```
 
 ## Design
 

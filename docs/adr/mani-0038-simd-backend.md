@@ -60,3 +60,14 @@ vectorizing some scalar loops and dropping others: matching grew by
 4,046 bytes and learned matching by 1,592 while the elementary
 functions shrank by 976. A part's AVX2 ceiling is set when its kernels
 land.
+
+The check is hard to miss: configure prints the backend (an AVX2 build
+with what it needs and the scalar alternative), the installed CMake
+package sets `maul-anim_SIMD_BACKEND` and the pkg-config file's
+description names it, so a packager sees an AVX2 build is not portable;
+the README's build section and the guide's first snippet call
+`maniCheckCpu`. A program built against the installed package alone
+(`test/consumer`, by its CMake package and by pkg-config on Linux's
+shared build, and against the DLL on Windows) calls the three functions
+and checks the backend the package names.
+

@@ -46,6 +46,18 @@ static maniSkeleton s_skeleton;
 static maniClip s_clip;
 static maniPose* s_pose;
 
+static void GuideCpu(void)
+{
+    // clang-format off
+    const char* backend = NULL;
+    int32_t runs = maniCheckCpu(&backend);   // before any other call
+    // runs == 0: this CPU cannot run the build's backend (backend names it,
+    // "avx2" say): refuse to start, or load a build made with
+    // -DMAUL_ANIM_SIMD=scalar, which runs on any CPU with the same results.
+    // clang-format on
+    CHECK(runs == 1 && backend == maniGetSimdBackend(), "the CPU runs the build");
+}
+
 static void GuideSkeleton(void)
 {
     uint8_t* file = s_skeletonFile;
@@ -382,6 +394,7 @@ static void GuideRetarget(void)
 
 int main(void)
 {
+    GuideCpu();
     GuideSkeleton();
     GuideClip();
     GuideSample();

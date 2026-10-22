@@ -40,6 +40,23 @@ the tests (`test/test_guide*.c`), so it cannot drift from the API.
   and compiler the library supports, so a pose can be hashed and
   compared across machines.
 
+## The CPU
+
+On x86-64 the library is built for AVX2 and FMA unless it was
+configured with `-DMAUL_ANIM_SIMD=scalar`; arm64 builds use NEON, which
+every arm64 CPU has. A program checks once, before any other call, that
+the CPU runs the build; an AVX2 build on an older CPU would otherwise
+stop on its first vector instruction. Configure prints the backend, and
+the installed package names it.
+
+```c
+const char* backend = NULL;
+int32_t runs = maniCheckCpu(&backend);   // before any other call
+// runs == 0: this CPU cannot run the build's backend (backend names it,
+// "avx2" say): refuse to start, or load a build made with
+// -DMAUL_ANIM_SIMD=scalar, which runs on any CPU with the same results.
+```
+
 ## Skeletons
 
 A skeleton is built from its bones: a name, a parent (-1 for a root)

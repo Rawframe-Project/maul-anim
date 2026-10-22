@@ -14,7 +14,9 @@ format.
   (`auto`, AVX2 and FMA on x86-64 and NEON on arm64, or `scalar`),
   and `maniGetSimdBackend`, `maniCpuSupportsBackend` and
   `maniCheckCpu`, which a program calls once before any other call;
-  every backend gives the same results (mani-0038).
+  every backend gives the same results (mani-0038). Configure prints the
+  backend, the installed CMake package sets `maul-anim_SIMD_BACKEND` and
+  the pkg-config description names it.
 - The guide's budget allocator, for hosts importing files they do not
   trust where the system overcommits memory: a small file's viewless
   accessors can ask for gigabytes, which `malloc` may grant and the

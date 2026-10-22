@@ -9,8 +9,9 @@
 # by tools/modules.txt that no other part lists. A module no part takes
 # is reported as unplaced and fails --check, so a new module is placed
 # when it lands. With --check LEVEL, each part's text is held against
-# its ceiling for that level (O2 or O3, as the archive was built); a
-# ceiling only ever comes down.
+# its ceiling for that level (O2 or O3, as the archive was built; O2-avx2
+# or O3-avx2 for the AVX2 backend's archive, mani-0038); a ceiling only
+# ever comes down.
 #
 # The runtime allocates nothing (mani-0001): the archive may name no
 # allocator (nm(1)'s undefined symbols; NM names another nm, such as
@@ -20,7 +21,7 @@
 # underscore) spell them. --allocators runs that check alone, for a
 # platform without size(1).
 #
-# usage: size_report.py <libmaul-anim.a> [--check O2|O3]
+# usage: size_report.py <libmaul-anim.a> [--check O2|O3|O2-avx2|O3-avx2]
 #        size_report.py <archive> --allocators
 
 import os
@@ -40,6 +41,9 @@ def read_modules():
                 name, rest = line.split(":", 1)
                 uses[name.strip()] = rest.split()
     return uses
+
+
+LEVELS = ("O2", "O3", "O2-avx2", "O3-avx2")
 
 
 def read_budget():
@@ -141,10 +145,10 @@ def main():
         called = allocators(args[0])
         print("allocation: " + (", ".join(called) if called else "none"))
         return 1 if called else 0
-    if len(args) == 3 and args[1] == "--check" and args[2] in ("O2", "O3"):
+    if len(args) == 3 and args[1] == "--check" and args[2] in LEVELS:
         level = args[2]
     elif len(args) != 1:
-        sys.exit("usage: size_report.py <libmaul-anim.a> [--check O2|O3]\n"
+        sys.exit("usage: size_report.py <libmaul-anim.a> [--check " + "|".join(LEVELS) + "]\n"
                  "       size_report.py <archive> --allocators")
     uses = read_modules()
     parts, ceilings = read_budget()

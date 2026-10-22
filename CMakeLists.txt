@@ -43,6 +43,7 @@ include(cmake/Testing.cmake)
 # same bits (mani-0038).
 set(MAUL_ANIM_SIMD "auto" CACHE STRING "SIMD backend: auto or scalar")
 set_property(CACHE MAUL_ANIM_SIMD PROPERTY STRINGS auto scalar)
+set(MAUL_ANIM_SIMD_BACKEND scalar)
 if(MAUL_ANIM_SIMD STREQUAL "scalar")
     list(APPEND MAUL_EXTRA_DEFINITIONS MAUL_ANIM_SIMD_FORCE_SCALAR=1)
 elseif(NOT MAUL_ANIM_SIMD STREQUAL "auto")
@@ -54,6 +55,17 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64" AND NOT EMSCRIPTEN)
         set(MAUL_ARCH_FLAGS -mavx2 -mfma)
     endif()
     list(APPEND MAUL_EXTRA_DEFINITIONS MAUL_ANIM_BUILT_FOR_AVX2=1)
+    set(MAUL_ANIM_SIMD_BACKEND avx2)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT EMSCRIPTEN)
+    set(MAUL_ANIM_SIMD_BACKEND neon)
+endif()
+# Said at configure and carried by the installed package files, so a
+# packager sees an AVX2 build is not portable (mani-0038).
+if(MAUL_ANIM_SIMD_BACKEND STREQUAL "avx2")
+    message(STATUS "maul-anim: SIMD backend avx2, for CPUs with AVX2 and FMA; "
+                   "a program calls maniCheckCpu first (-DMAUL_ANIM_SIMD=scalar runs anywhere)")
+else()
+    message(STATUS "maul-anim: SIMD backend ${MAUL_ANIM_SIMD_BACKEND}")
 endif()
 
 if(MAUL_ANIM_BUILD_SHARED)
@@ -457,6 +469,15 @@ if(MAUL_ANIM_INSTALL)
         file(GLOB MAUL_PUBLIC_HEADERS RELATIVE ${PROJECT_SOURCE_DIR}/include/maul-anim
             ${PROJECT_SOURCE_DIR}/include/maul-anim/*.h)
         list(REMOVE_ITEM MAUL_PUBLIC_HEADERS build.h import.h)
+    endif()
+    # The backend in the package files: the CMake package sets
+    # maul-anim_SIMD_BACKEND, and pkg-config's description names it.
+    set(MAUL_PACKAGE_DEPENDENCIES "set(maul-anim_SIMD_BACKEND \"${MAUL_ANIM_SIMD_BACKEND}\")")
+    if(MAUL_ANIM_SIMD_BACKEND STREQUAL "avx2")
+        set(PROJECT_DESCRIPTION
+            "${PROJECT_DESCRIPTION}; built for AVX2 and FMA, checked by maniCheckCpu")
+    else()
+        set(PROJECT_DESCRIPTION "${PROJECT_DESCRIPTION}; SIMD backend ${MAUL_ANIM_SIMD_BACKEND}")
     endif()
     include(cmake/Install.cmake)
 endif()
