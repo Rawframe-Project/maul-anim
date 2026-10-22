@@ -689,7 +689,7 @@ static void TestCursor(void)
 // Random clips through a cursor: one group of bones and two, rests
 // turned (not exactly unit in floats) with -0 in their translations,
 // constant channels, and rotations turning past w = 0 so samples meet
-// on the longer arc; every other clip additive.
+// on the longer arc, constant rotations; every other clip additive.
 static void TestCursorRandom(void)
 {
     for (int round = 0; round < 24; ++round)
@@ -728,10 +728,13 @@ static void TestCursorRandom(void)
             float z = Random() - 0.5f;
             float length = sqrtf(x * x + y * y + z * z) + 1e-3f;
             bool still = Random() < 0.25f;
+            // A quarter of the rotations held at one turn: constant, and
+            // not the rest.
+            bool held = Random() < 0.25f;
             for (int k = 0; k < KEYS; ++k)
             {
                 StoreAxisAngle(&s_randomR[b][4 * k], x / length, y / length, z / length,
-                               7.0f * sinf(3.0f * s_times[k]));
+                               held ? 1.3f : 7.0f * sinf(3.0f * s_times[k]));
                 for (int c = 0; c < 3 && still; ++c)
                 {
                     s_randomT[b][3 * k + c] = s_randomT[b][c];

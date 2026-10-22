@@ -556,6 +556,127 @@ static void Channel(Reading* r, uint32_t forms, uint32_t channel, float* slot)
     maniPoseSlotPut(slot, maniChannelFirst(channel), out, 3);
 }
 
+#if defined(MANI_CLIP_LANES)
+// Up to eight stored rotations waiting for one pass on the lanes: their
+// kept components at both samples, dropped components and slots.
+typedef struct Rotations
+{
+    float a[3][MANI_POSE_GROUP_BONES];
+    float b[3][MANI_POSE_GROUP_BONES];
+    float dropped[MANI_POSE_GROUP_BONES];
+    float* slots[MANI_POSE_GROUP_BONES];
+    uint32_t count;
+} Rotations;
+
+// maniCodecRebuild on the lanes: sqrt(|((1 - a*a) - b*b) - c*c|), the
+// absolute value as fabsf's bits.
+static manif8 Rebuild(manif8 a, manif8 b, manif8 c)
+{
+    uint32_t bits = 0x7FFFFFFFu;
+    float magnitude;
+    memcpy(&magnitude, &bits, sizeof magnitude);
+    manif8 squared = maniF8Sub(maniF8Set1(1.0f), maniF8Mul(a, a));
+    squared = maniF8Sub(squared, maniF8Mul(b, b));
+    squared = maniF8Sub(squared, maniF8Mul(c, c));
+    return maniF8Sqrt(maniF8And(squared, maniF8Set1(magnitude)));
+}
+
+// maniCodecRotation on the lanes: the rebuilt component at its place.
+static void Place(const float kept[3][MANI_POSE_GROUP_BONES], manif8 dropped, manif8 q[4])
+{
+    manif8 a = maniF8Load(kept[0]);
+    manif8 b = maniF8Load(kept[1]);
+    manif8 c = maniF8Load(kept[2]);
+    manif8 r = Rebuild(a, b, c);
+    manif8 d0 = maniF8EQ(dropped, maniF8Zero());
+    manif8 d1 = maniF8EQ(dropped, maniF8Set1(1.0f));
+    manif8 d2 = maniF8EQ(dropped, maniF8Set1(2.0f));
+    manif8 d3 = maniF8EQ(dropped, maniF8Set1(3.0f));
+    q[0] = maniF8Select(d0, r, a);
+    q[1] = maniF8Select(d0, a, maniF8Select(d1, r, b));
+    q[2] = maniF8Select(maniF8LT(dropped, maniF8Set1(2.0f)), b, maniF8Select(d2, r, c));
+    q[3] = maniF8Select(d3, r, c);
+}
+
+// The waiting rotations rebuilt, interpolated on the shorter arc and
+// normalized as Nlerp does, each into its slot.
+static void Flush(Rotations* batch, float alpha)
+{
+    for (uint32_t i = batch->count; i < MANI_POSE_GROUP_BONES; ++i)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            batch->a[k][i] = 0.0f;
+            batch->b[k][i] = 0.0f;
+        }
+        batch->dropped[i] = 3.0f;
+    }
+    manif8 dropped = maniF8Load(batch->dropped);
+    manif8 qa[4];
+    manif8 qb[4];
+    Place(batch->a, dropped, qa);
+    Place(batch->b, dropped, qb);
+    manif8 dot = maniF8Mul(qa[0], qb[0]);
+    dot = maniF8Add(dot, maniF8Mul(qa[1], qb[1]));
+    dot = maniF8Add(dot, maniF8Mul(qa[2], qb[2]));
+    dot = maniF8Add(dot, maniF8Mul(qa[3], qb[3]));
+    manif8 s = maniF8Select(maniF8LT(dot, maniF8Zero()), maniF8Set1(-1.0f), maniF8Set1(1.0f));
+    manif8 t = maniF8Set1(alpha);
+    float group[MANI_POSE_COMPONENTS * MANI_POSE_GROUP_BONES];
+    for (int k = 0; k < 4; ++k)
+    {
+        manif8 v = maniF8Add(qa[k], maniF8Mul(maniF8Sub(maniF8Mul(s, qb[k]), qa[k]), t));
+        maniF8Store(group + (3 + k) * MANI_POSE_GROUP_BONES, v);
+    }
+    maniBlendLanesNormalize(group);
+    for (uint32_t i = 0; i < batch->count; ++i)
+    {
+        for (int k = 0; k < 4; ++k)
+        {
+            batch->slots[i][(3 + k) * MANI_POSE_GROUP_BONES] =
+                group[(3 + k) * MANI_POSE_GROUP_BONES + i];
+        }
+    }
+    batch->count = 0;
+}
+
+// A stored rotation's kept components at both samples into the batch,
+// read as Channel reads them; the batch passed on the lanes when full.
+static void Batch(Reading* r, Rotations* batch, uint32_t forms, float* slot)
+{
+    uint32_t i = batch->count;
+    float ka[3];
+    float kb[3];
+    if (Form(forms, 1) == maniClipFormConstant)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            ka[k] = LoadF32(r->constant + 4 * k);
+        }
+        r->constant += 12;
+        memcpy(kb, ka, sizeof ka);
+    }
+    else
+    {
+        Decode(&r->a, r->range, 3, ka);
+        Decode(&r->b, r->range, 3, kb);
+        r->range += 24;
+    }
+    for (int k = 0; k < 3; ++k)
+    {
+        batch->a[k][i] = ka[k];
+        batch->b[k][i] = kb[k];
+    }
+    batch->dropped[i] = (float)Dropped(forms);
+    batch->slots[i] = slot;
+    batch->count = i + 1;
+    if (batch->count == MANI_POSE_GROUP_BONES)
+    {
+        Flush(batch, r->alpha);
+    }
+}
+#endif
+
 void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleton,
                                const maniClipPair* pair, const maniBoneList* list, maniPose* pose)
 {
@@ -572,6 +693,10 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     // Every bone (or listed one) at rest, then each stored channel over
     // its rest: the tracks are in bone order, each bone once (checked at
     // open), and an unlisted bone's channels are passed unread.
+#if defined(MANI_CLIP_LANES)
+    Rotations rotations;
+    rotations.count = 0;
+#endif
     float* locals = maniPoseLocals(pose);
     maniFillRests(locals, skeleton, clip->skeletonBoneCount, clip->additive != maniAdditiveNone,
                   list);
@@ -589,12 +714,24 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
             {
                 Skip(&r, form, c);
             }
+#if defined(MANI_CLIP_LANES)
+            else if (form >= maniClipFormConstant && c == 1 && r.cacheA == NULL)
+            {
+                Batch(&r, &rotations, forms, slot);
+            }
+#endif
             else if (form >= maniClipFormConstant)
             {
                 Channel(&r, forms, c, slot);
             }
         }
     }
+#if defined(MANI_CLIP_LANES)
+    if (rotations.count > 0)
+    {
+        Flush(&rotations, r.alpha);
+    }
+#endif
     maniPoseMarkStale(pose);
 }
 
