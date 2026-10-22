@@ -390,6 +390,16 @@ static void TestScale(void)
               maniPoseLocal(again, 1).scale.x == 2.0f && maniPoseLocal(again, 1).scale.y == 3.0f &&
               maniPoseLocal(again, 1).scale.z == 4.0f,
           "and back");
+    // The hips, their own partner unturned: their scale as it is, every
+    // axis its own.
+    maniTransform hips = maniSkeletonRest(&turned, 0);
+    hips.scale = (maniVec3){2.0f, 3.0f, 4.0f};
+    maniPoseSetLocal(in, 0, hips);
+    CHECK(maniMirrorPartner(&map, 0) == 0 &&
+              maniMirrorPose(&map, &turned, in, out) == mani_success &&
+              maniPoseLocal(out, 0).scale.x == 2.0f && maniPoseLocal(out, 0).scale.y == 3.0f &&
+              maniPoseLocal(out, 0).scale.z == 4.0f,
+          "an unturned bone's scale on its own axes");
     // The unmatched bones turned: a finite pose, the same bits twice.
     for (uint32_t b = 0; b < 5; ++b)
     {

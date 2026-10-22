@@ -467,6 +467,8 @@ static void TestFile(void)
               WordRefused(one + 16, Bits(1.5f), one + 16) && WordRefused(one + 20, 3, one + 20) &&
               WordRefused(one + 24, 4, one + 24) && WordRefused(one + 28, 1, one + 28),
           "a one-source plan: kind, bones, place, weight, translation, flags, its 0 word");
+    CHECK(WordRefused(p + 16, Bits(0.5f), p + 24),
+          "the root's plan in its source's frame at a weight below 1");
     CHECK(WordRefused(two + 8, 2, two + 8) && WordRefused(two + 12, Bits(1.0f), two + 12) &&
               WordRefused(two + 12, Bits(0.0f), two + 12) &&
               WordRefused(two + 24, MANI_RETARGET_PLAN_SAME, two + 24),

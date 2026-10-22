@@ -286,6 +286,24 @@ static void TestMask(void)
     }
     CHECK(same, "the one-shot's pose, bit for bit");
 
+    // Masked from the spine down: the hips, the only bone the clips
+    // move, the base's whole.
+    static const maniMaskChain kSpine = {1, 1.0f, false};
+    static const maniGraphMaskNodeSource kSpineMask = {&kSpine, 1, 0.0f};
+    shot = Shot(1.0f, 0.0f);
+    shot.mask = &kSpineMask;
+    instance = Make1(shot, 4, maniGraphLoopClamp, &g);
+    Pull(instance, 1);
+    Update(instance, 0.25f);
+    Update(instance, 0.5f);
+    maniTransform hips = maniPoseLocal(poses[2], 0);
+    maniTransform played = maniPoseLocal(poses[1], 0);
+    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, poses[0]) == mani_success,
+          "evaluated, masked from the spine");
+    maniTransform got = maniPoseLocal(poses[0], 0);
+    CHECK(memcmp(&got, &hips, sizeof got) == 0 && memcmp(&hips, &played, sizeof hips) != 0,
+          "the hips the base's, bit for bit");
+
     static const maniMaskChain kHalf = {0, 0.5f, false};
     static const maniGraphMaskNodeSource kHalfMask = {&kHalf, 1, 0.0f};
     shot = Shot(0.0f, 0.0f);
