@@ -12,7 +12,7 @@ A sampled pose's model space is already the root's, since root motion rides besi
 
 Each channel is taken at up to 16 times ahead of or behind the frame, with a weight. Each channel is normalized on its own, as Holden's reference does: the mean per feature taken off, divided by the mean of its features' standard deviations over the weight, in binary64. A channel that never varies is refused rather than divided by zero.
 
-Entries are spans of the database's clips, each with its own flags (looping: times past its end wrap and the root's motion composes across; else clamped), a cost bias, 32 tag bits for filters, and a flag for frames that play but are never jumped to. Frame counts are computed in binary64 and corrected once against the binary32 times, so an entry's end a hair above a whole frame adds no frame at the wrap, and an enormous start cannot make the count loop (a fuzzed file once found that hang).
+Entries are spans of the database's clips, each with its own flags (looping: times past its end wrap and the root's motion composes across; else clamped), a cost bias, 32 tag bits for filters, and a flag for frames that play but are never jumped to. Frame counts are computed in binary64 and corrected once against the binary32 times, so an entry's end a hair above a whole frame adds no frame at the wrap. The correction is one step, never a loop: far past 2^24 seconds a frame's step no longer moves a binary32 time, so a loop over a hostile file's enormous start would never end.
 
 ## The search
 

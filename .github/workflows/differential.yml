@@ -21,6 +21,9 @@ on:
     - cron: "17 4 * * 1"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   # apt retries a stalled download and gives up on a dead one.
   APT_OPTIONS: -o Acquire::Retries=3 -o Acquire::http::Timeout=30
@@ -31,7 +34,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install tools
         timeout-minutes: 15
         run: |
@@ -64,7 +69,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install tools
         timeout-minutes: 15
         run: |
@@ -91,7 +98,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install tools
         timeout-minutes: 15
         run: |
@@ -117,7 +126,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install tools
         timeout-minutes: 15
         run: |
@@ -142,7 +153,9 @@ jobs:
       # The release's SHA512-SUMS.txt entry for the zip.
       GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install tools
         timeout-minutes: 15
         run: |
