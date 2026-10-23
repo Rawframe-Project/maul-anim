@@ -163,6 +163,9 @@ static void TestDef(void)
     def = maniDefaultLearnedTrainerDef();
     def.cookie = 0;
     CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid, "no cookie");
+    memset(&def, 0, sizeof def);
+    CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,
+          "a zeroed def refused by its cookie, before its version");
     def = maniDefaultLearnedTrainerDef();
     def.tasks.finishTask = Finish;
     CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,

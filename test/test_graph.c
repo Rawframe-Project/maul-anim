@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_GRAPH_HASH 0xc9956c91711a9e7cull
+#define PINNED_GRAPH_HASH 0x8f950898bee2cd72ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -1257,6 +1257,8 @@ static void TestPinned(void)
 {
     maniGraphSource source = Source();
     CHECK(Build(&source).result == mani_success, "builds");
+    // The writer's library version (bytes 16 to 21) changes with every release.
+    memset(s_file + 16, 0, 6);
     uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
     CHECK(hash == PINNED_GRAPH_HASH, "pinned file");
     if (hash != PINNED_GRAPH_HASH)

@@ -2,7 +2,7 @@
 
 Draco meshes (bitstream 2.2) that Google's Draco encoder (commit
 `d429de8`, Apache-2.0) wrote from synthetic meshes, with the tool
-`draco_fixtures.cc` of the library's research (record mani-0021): a
+`tools/draco_fixtures.cc`: a
 tube of quads wrapped around a cylinder with a texture seam, the same
 with holes, a second component and a non-manifold edge (`holes`, and
 larger, `largeholes`; and with positions alone, `bare` and

@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_ROOT_HASH 0x1b6f555d7ba77c7eull
+#define PINNED_ROOT_HASH 0x1240776b82321b23ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[16384];
@@ -812,6 +812,8 @@ static void TestPinned(void)
 {
     maniRootMotionSource walk = Walk();
     CHECK(BuildBoth(&walk), "builds");
+    // The writer's library version (bytes 16 to 21) changes with every release.
+    memset(s_file + 16, 0, 6);
     uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
     CHECK(hash == PINNED_ROOT_HASH, "pinned file");
     if (hash != PINNED_ROOT_HASH)

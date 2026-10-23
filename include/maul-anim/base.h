@@ -16,15 +16,36 @@ extern "C"
 {
 #endif
 
-// The library version. CMake reads it from here.
+// The library version. CMake reads it from here, and release-please
+// moves it between the markers.
+// x-release-please-start-major
 #define MANI_VERSION_MAJOR 0
-#define MANI_VERSION_MINOR 1
-#define MANI_VERSION_PATCH 0
+// x-release-please-end
+// x-release-please-start-minor
+#define MANI_VERSION_MINOR 0
+// x-release-please-end
+// x-release-please-start-patch
+#define MANI_VERSION_PATCH 1
+// x-release-please-end
 
-// The major and minor version a def is stamped with by its default
-// function; a call taking a def built against another refuses it with
-// mani_errorVersion before it reads anything else of it.
-#define MANI_ABI_VERSION (((uint32_t)MANI_VERSION_MAJOR << 16) | (uint32_t)MANI_VERSION_MINOR)
+// The releases that share a binary interface, which a root def's default
+// function stamps into the def from the headers the program was built
+// with: the whole version before 1.0, where any release may break the
+// interface, and the major and minor version from 1.0 on. The top bit is
+// always set, so a zeroed or hand-written small value never matches. The
+// creation checks the def's cookie first and this second, refusing a
+// mismatch with mani_errorVersion before it reads anything else.
+#define MANI_ABI_VERSION                                                                           \
+    (UINT32_C(0x80000000) | ((uint32_t)MANI_VERSION_MAJOR << 16) |                                 \
+     (MANI_VERSION_MAJOR == 0                                                                      \
+          ? (((uint32_t)MANI_VERSION_MINOR << 8) | (uint32_t)MANI_VERSION_PATCH)                   \
+          : (uint32_t)MANI_VERSION_MINOR))
+#if MANI_VERSION_MAJOR > 0x7FFF || MANI_VERSION_MINOR > 0xFFFF
+#error "MANI_VERSION_MAJOR or MANI_VERSION_MINOR does not fit MANI_ABI_VERSION"
+#endif
+#if MANI_VERSION_MAJOR == 0 && (MANI_VERSION_MINOR > 0xFF || MANI_VERSION_PATCH > 0xFF)
+#error "before 1.0, MANI_VERSION_MINOR and MANI_VERSION_PATCH must fit 8 bits each"
+#endif
 
 // MANI_API marks the public functions: dllexport or dllimport in a
 // shared Windows build (maul_anim_EXPORTS is defined while building the

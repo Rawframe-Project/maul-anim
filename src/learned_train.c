@@ -183,7 +183,7 @@ static bool Given(const maniLearnedTrainerSource* s)
 
 static maniResult CheckDef(const maniLearnedTrainerDef* def)
 {
-    if (def == NULL)
+    if (def == NULL || def->cookie != MANI_LEARNED_TRAINER_DEF_COOKIE)
     {
         return mani_errorInvalid;
     }
@@ -192,10 +192,7 @@ static maniResult CheckDef(const maniLearnedTrainerDef* def)
         return mani_errorVersion;
     }
     bool hooks = (def->tasks.enqueueTask == NULL) == (def->tasks.finishTask == NULL);
-    return def->cookie == MANI_LEARNED_TRAINER_DEF_COOKIE && maniAllocatorValid(&def->allocator) &&
-                   hooks
-               ? mani_success
-               : mani_errorInvalid;
+    return maniAllocatorValid(&def->allocator) && hooks ? mani_success : mani_errorInvalid;
 }
 
 void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer)

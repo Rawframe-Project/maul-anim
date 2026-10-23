@@ -5,7 +5,7 @@
 // tables: depth first and by prediction degree on a 4 x 3 grid, on a
 // ring of six faces around a vertex and on a 6 x 5 grid of alternating
 // diagonals, every vertex reached in the order
-// and by the corner Google's traversers give (research's
+// and by the corner Google's traversers give (tools/
 // draco_predict_oracle.cc); a point's value past the points refused.
 
 #include "arena.h"

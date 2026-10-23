@@ -6,7 +6,7 @@
 // multi-parallelogram and multi-parallelogram at a vertex of six
 // parallelograms, the first four taken and creases left out; portable
 // texture coordinates and area-weighted normals on a 4 x 3 grid, the
-// values Google's predictors give there (research's
+// values Google's predictors give there (tools/
 // draco_predict_oracle.cc), normals at three position scales (sums past
 // 2^29, and none at all); the orientation and crease counts refused past
 // their bounds.

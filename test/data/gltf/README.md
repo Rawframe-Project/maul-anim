@@ -38,7 +38,7 @@ under CC0, and `test/test_gltf_draco_skin.c` reads them:
 | --- | --- |
 | `SimpleSkin-draco.glb` | `gltf-transform draco SimpleSkinEmbedded.gltf SimpleSkin-draco.glb` |
 | `SimpleSkin-draco-q.glb` | `gltf-transform quantize SimpleSkinEmbedded.gltf q.glb --quantize-weight 8`, then `gltf-transform draco q.glb SimpleSkin-draco-q.glb` |
-| `SimpleSkinSeam-draco.glb` | the library research's `draco_skin_seam.py SimpleSkinEmbedded.gltf SimpleSkinSeam.gltf` (a texture coordinate added, vertex 4 split in two), then `gltf-transform draco SimpleSkinSeam.gltf SimpleSkinSeam-draco.glb` |
+| `SimpleSkinSeam-draco.glb` | `tools/draco_skin_seam.py SimpleSkinEmbedded.gltf SimpleSkinSeam.gltf` (a texture coordinate added, vertex 4 split in two), then `gltf-transform draco SimpleSkinSeam.gltf SimpleSkinSeam-draco.glb` |
 
 SHA-256 of each file:
 

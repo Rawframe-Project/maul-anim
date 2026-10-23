@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_MORPH_FILE 0xb58e3605b0fc9a01ull
+#define PINNED_MORPH_FILE 0x5772cedfe7070060ull
 #define PINNED_MORPH_JOB  0x505a297b9b1d7aabull
 
 enum
@@ -876,6 +876,8 @@ static void TestJobRefusals(void)
 static void TestPinned(void)
 {
     BuildSample();
+    // The writer's library version (bytes 16 to 21) changes with every release.
+    memset(s_file + 16, 0, 6);
     uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
     CHECK(hash == PINNED_MORPH_FILE, "pinned file");
     if (hash != PINNED_MORPH_FILE)

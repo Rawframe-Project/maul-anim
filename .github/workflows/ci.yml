@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   # apt retries a stalled download and gives up on a dead one.
   APT_OPTIONS: -o Acquire::Retries=3 -o Acquire::http::Timeout=30
@@ -19,7 +22,9 @@ jobs:
     name: checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install tools
         timeout-minutes: 15
         run: |
@@ -66,7 +71,9 @@ jobs:
           - { name: linux-arm64-gcc-14,  os: ubuntu-24.04-arm, cc: gcc-14,   cxx: g++-14,     config: Release, extra: "" }
           - { name: macos-clang,         os: macos-15,         cc: clang,    cxx: clang++,    config: Release, extra: "" }
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install compilers
         timeout-minutes: 15
         if: runner.os == 'Linux'
@@ -111,18 +118,22 @@ jobs:
             $(pkg-config --cflags --libs maul-anim) -o consumer-pc
           LD_LIBRARY_PATH="$PWD/package/lib" ./consumer-pc
 
-  # The API reference is generated from the headers; it must match them,
-  # and the README must give its function count.
+  # The documentation site, with the API reference generated from the
+  # headers, builds; nothing generated is committed.
   docs:
-    name: generated docs
+    name: documentation site
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - name: The API reference matches the headers
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: The site builds
         run: |
-          COUNT=$(python3 tools/gen_api.py | grep -oE '\([0-9]+ functions\)' | grep -oE '[0-9]+')
-          git diff --exit-code docs/api.md || { echo "docs/api.md is stale: run tools/gen_api.py"; exit 1; }
-          grep -q "$COUNT public functions" README.md || { echo "README says the wrong function count ($COUNT)"; exit 1; }
+          pip install markdown==3.6
+          python3 tools/build_docs.py
 
   # The runtime's text by part at -O2 and -O3 (GCC 14), reported against
   # tools/size-budget.txt (record 0013: checked at release, mani-0036),
@@ -133,7 +144,9 @@ jobs:
     name: size
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install compilers
         timeout-minutes: 15
         run: |
@@ -173,7 +186,9 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Configure
         run: cmake -B build -T ClangCL -D${PREFIX}_WERROR=ON
       - name: Build
@@ -213,8 +228,10 @@ jobs:
     name: web-emscripten
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: emscripten-core/setup-emsdk@v16
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
       - name: Configure
         run: emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release -D${PREFIX}_WERROR=ON
       - name: Build
@@ -238,7 +255,9 @@ jobs:
     name: fuzz
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install compilers
         timeout-minutes: 15
         run: |

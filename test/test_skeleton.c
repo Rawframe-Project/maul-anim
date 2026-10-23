@@ -151,6 +151,10 @@ static void TestDefRefusals(void)
     def = maniDefaultBuilderDef();
     def.cookie = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_errorInvalid, "cookie");
+    memset(&def, 0, sizeof def);
+    CHECK(maniCreateBuilder(&def, &builder) == mani_errorInvalid && builder == NULL,
+          "a zeroed def refused by its cookie, before its version");
+    CHECK((MANI_ABI_VERSION & UINT32_C(0x80000000)) != 0, "the stamp's top bit set");
     def = maniDefaultBuilderDef();
     def.allocator.context = &def;
     def.allocator.free = NULL;

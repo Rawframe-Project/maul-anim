@@ -7,7 +7,7 @@
 // external buffer is supplied, fallback and placeholder buffers never
 // read, allocation failures; and three files gltfpack compressed
 // (test/data/gltf), their decoded views the bits meshoptimizer's own
-// decoder gives (bench/meshopt_files.py in the research), one's equal to
+// decoder gives (tools/meshopt_files.py), one's equal to
 // its uncompressed fallback, their skeletons, skins and clips built. Run
 // as test_gltf_compression --seed <file> it writes a document whose view
 // claims two gigabytes from a stream of 259 bytes, a seed of fuzz_gltf.
