@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The learned model trainer (mani-0025) over a database of the walk (tag
+// The learned model trainer over a database of the walk (tag
 // 1) and the run (tag 2): its def and source refused for each fault
 // with its reason and item; its stages and report; the model built from
 // it, whose networks give the trainer's own bits and whose file is the

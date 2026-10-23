@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a graph file (mani-0023), offline: a graph's parameters, clip
+// Building a graph file, offline: a graph's parameters, clip
 // slots, sync groups and nodes, checked against one skeleton and its
 // clips, ordered so each node follows its inputs, its poses given slots,
 // and written.
@@ -54,8 +54,8 @@ extern "C"
 
     // A clip slot: an opened clip of the graph's skeleton, each clip once,
     // and a name for it (UTF-8, not empty, unique in the graph). The graph
-    // keeps the clip's identity; binding finds the clip by it. With a map
-    // (mani-0032), the clip is of the map's source skeleton and plays
+    // keeps the clip's identity; binding finds the clip by it. With a map,
+    // the clip is of the map's source skeleton and plays
     // carried through the map, which is made for the graph's skeleton;
     // the graph keeps a map slot per map.
     typedef struct maniGraphClipSource
@@ -80,7 +80,7 @@ extern "C"
         uint32_t reserved;
     } maniGraphDatabaseSource;
 
-    // A learned model slot: an opened learned model (mani-0025) of the
+    // A learned model slot: an opened learned model of the
     // graph's skeleton, each model once, and a name for it (UTF-8, not
     // empty, unique among the graph's models). The graph keeps the
     // model's identity; binding finds the model by it.
@@ -92,7 +92,7 @@ extern "C"
         uint32_t reserved;
     } maniGraphModelSource;
 
-    // A spring set slot: an opened spring set (mani-0026) of the graph's
+    // A spring set slot: an opened spring set of the graph's
     // skeleton, each set once, and a name for it (UTF-8, not empty,
     // unique among the graph's spring sets). The graph keeps the set's
     // identity; binding finds the set by it.
@@ -424,7 +424,7 @@ extern "C"
         maniGraphScalar duration;
     } maniGraphMatchNodeSource;
 
-    // A learned motion matching node (mani-0025): no inputs; it plays its
+    // A learned motion matching node: no inputs; it plays its
     // model slot's state. Its query is its state's features with, for
     // each time of each trajectory and float track channel of the model's
     // database in channel order, a parameter (queryCount of them: vec2
@@ -455,7 +455,7 @@ extern "C"
         maniGraphScalar duration;
     } maniGraphLearnedNodeSource;
 
-    // A spring bone node (mani-0026): one input, a pose of the skeleton
+    // A spring bone node: one input, a pose of the skeleton
     // (not differences), given with its spring set slot's joints turned
     // toward their tails as maniApplySprings turns them. Its tails step
     // at the set's step rate by the time its parents give it (its
@@ -477,7 +477,7 @@ extern "C"
         uint32_t force;
     } maniGraphSpringNodeSource;
 
-    // A turn limit node (mani-0037): one input, a pose (not
+    // A turn limit node: one input, a pose (not
     // differences), given with each bone's local rotation turned from the
     // node's last output toward the input's by at most speed (radians a
     // second, finite and not negative; a parameter's value below 0 counts
@@ -500,7 +500,7 @@ extern "C"
         const maniGraphMaskNodeSource* mask;
     } maniGraphTurnLimitNodeSource;
 
-    // A pose input node (mani-0027): no inputs, the pose its pose
+    // A pose input node: no inputs, the pose its pose
     // parameter holds as the host last set it (the skeleton's rest until
     // set). Blended over the animation by a blend or mask node, it lays a
     // ragdoll over the whole body or part of it; an inertialize node
@@ -510,7 +510,7 @@ extern "C"
         uint32_t parameter;
     } maniGraphPoseNodeSource;
 
-    // A two-bone IK node (mani-0029): one input, a pose of the skeleton
+    // A two-bone IK node: one input, a pose of the skeleton
     // (not differences), given with its chain solved as maniSolveTwoBone
     // solves it: start, middle and end bones of the skeleton, each an
     // ancestor of the next; its goal (a vec3 parameter, in the model
@@ -533,7 +533,7 @@ extern "C"
         maniGraphScalar weight;
     } maniGraphTwoBoneNodeSource;
 
-    // An aim IK node (mani-0029): one input, a pose of the skeleton (not
+    // An aim IK node: one input, a pose of the skeleton (not
     // differences), given with its bones aimed as maniSolveAim aims them:
     // count bones (1 to MANI_AIM_MAX_BONES) of the skeleton, each an
     // ancestor of the next, the aiming bone last; their shares (at least
@@ -559,7 +559,7 @@ extern "C"
         maniGraphScalar weight;
     } maniGraphAimNodeSource;
 
-    // A chain IK node (mani-0030), CCD or FABRIK by its kind: one input, a
+    // A chain IK node, CCD or FABRIK by its kind: one input, a
     // pose of the skeleton (not differences), given with its chain solved
     // as maniSolveCcd or maniSolveFabrik solves it: root and end bones,
     // the root an ancestor of the end, at most MANI_IK_CHAIN_MAX_BONES
@@ -587,7 +587,7 @@ extern "C"
         maniGraphScalar weight;
     } maniGraphChainNodeSource;
 
-    // A full-body node's effector (mani-0031): its bone; its position
+    // A full-body node's effector: its bone; its position
     // goal (a vec3 parameter, model space) and rotation goal (a quat
     // parameter, MANI_NO_PARAMETER for none, whose rotation weight is
     // then the number 0); its position and rotation weights (in [0, 1])
@@ -605,7 +605,7 @@ extern "C"
         float pullChain;
     } maniGraphEffectorSource;
 
-    // A full-body IK node (mani-0031), XPBD or SDLS by its kind: one
+    // A full-body IK node, XPBD or SDLS by its kind: one
     // input, a pose of the skeleton (not differences), given with the
     // bones from its top to its effectors solved as maniSolveBodyXpbd or
     // maniSolveBodySdls solves them: the top and its mode; the effectors
@@ -744,7 +744,7 @@ extern "C"
         uint32_t springSetCount;
         const maniGraphModelSource* models;
         const maniGraphSpringSetSource* springSets;
-        // The mirror map (mani-0033) of the graph's skeleton its mirror
+        // The mirror map of the graph's skeleton its mirror
         // nodes mirror through; NULL for none.
         const maniMirrorMap* mirrorMap;
     };

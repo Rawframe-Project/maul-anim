@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Inertialization (mani-0023): the quintic against Bollo's published
+// Inertialization: the quintic against Bollo's published
 // form, its ends and its overshoot clamp; an inertial transition eased
 // out from the last output, the speed clamped when moving away and kept
 // when moving toward, the duration cut when the speed would carry past

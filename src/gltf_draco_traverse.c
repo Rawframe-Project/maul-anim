@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Google's DepthFirstTraverser and MaxPredictionDegreeTraverser with its
-// MeshAttributeIndicesEncodingObserver (mani-0021). A face is visited
+// MeshAttributeIndicesEncodingObserver. A face is visited
 // once and a vertex reached once, so a traversal is bounded by the
 // table; a corner whose vertex is none, where Google's would index with
 // it, makes the stream invalid.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's Stepper and Projector stages (mani-0025), over a
+// A learned model's Stepper and Projector stages, over a
 // database of the walk (tag 1) and the run (tag 2) and made-up latent
 // values (more than the features): the Stepper's windows (none across
 // entries), normalization, a chunk's loss against Holden's terms

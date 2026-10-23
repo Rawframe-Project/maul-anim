@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An FBX clip's float tracks (mani-0016, mani-0017): the other numbers a
+// An FBX clip's float tracks: the other numbers a
 // bone's model animates, named bone/property (with /component for
 // vectors), and blend shape weights named mesh/shape, from BlendShape
 // deformers or, before 7.2, from meshes' Shape children.
@@ -347,7 +347,7 @@ static maniImportResult OwnerShape(maniFbxClipState* c, uint32_t owner, uint32_t
     }
     size_t length = maniFbxStringDecode(fbx, property, (uint8_t*)name, decoded);
     uint32_t entry = maniFbxFindProperty(fbx, owner, name, length);
-    // Before 6.0 the weight is connected with no property (mani-0017).
+    // Before 6.0 the weight is connected with no property.
     bool weighted =
         fbx->version < 6000 || (entry != MANI_FBX_NONE && maniFbxEntryNumeric(fbx, entry));
     if (maniFbxFindChild(fbx, shape, "Indexes", 7) == MANI_FBX_NONE ||

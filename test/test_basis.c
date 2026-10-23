@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The importers' basis change (mani-0009, mani-0014): a handedness flip
+// The importers' basis change: a handedness flip
 // and an axis swap with a unit factor, on transforms, vectors,
 // quaternions and matrices, checked against B G B^-1 computed directly.
 

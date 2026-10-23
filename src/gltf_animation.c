@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Animations (mani-0010): samplers and channels checked at open against
+// Animations: samplers and channels checked at open against
 // the specification's table of targets and accessor types, frames and
 // keys counted, a target used twice refused; `KHR_animation_pointer`
 // pointers to a node's TRS or weights read as those channels.

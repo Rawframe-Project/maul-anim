@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blending and adding over some groups of a pose's bones (mani-0035): a
+// Blending and adding over some groups of a pose's bones: a
 // subset's evaluation computes only the groups its plan holds, each bone
 // as the whole pass computes it.
 

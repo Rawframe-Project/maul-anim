@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skins (mani-0015): what other importer parts ask of them.
+// FBX skins: what other importer parts ask of them.
 
 #ifndef MAUL_ANIM_SRC_FBX_SKIN_H
 #define MAUL_ANIM_SRC_FBX_SKIN_H

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph source written as its JSON text form (mani-0023): built first,
+// A graph source written as its JSON text form: built first,
 // so only a source that builds is written; then each list item on a line
-// of its own, parameters, clips, sync groups, databases (mani-0024, when
+// of its own, parameters, clips, sync groups, databases (when
 // it has any) and bones by name, nodes by their place in the source,
 // subgraphs as nested graphs, and numbers as the shortest binary32 text.
 // Counted once, then written.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Taking root motion out of a bone at build (mani-0022), over the bone's
+// Taking root motion out of a bone at build, over the bone's
 // local transforms at the grid's samples, which the clip builder gives.
 
 #ifndef MAUL_ANIM_SRC_ROOT_MOTION_BUILD_H

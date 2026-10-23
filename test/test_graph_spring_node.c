@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring bone nodes (mani-0026): over the walk, under a seek, a node of a
+// Spring bone nodes: over the walk, under a seek, a node of a
 // spring from the spine to the arm gives, frame by frame, the same bits
 // as the walk alone stepped by a standalone spring state at the same
 // placement and wind; its reset trigger and the seek above it drop the

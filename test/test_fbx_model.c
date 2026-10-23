@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX models (mani-0014): parents from `OO` connections only, children
+// FBX models: parents from `OO` connections only, children
 // in connection order with unconnected models under the root, bone
 // names renamed when empty or repeated, the 6.x form, the public
 // queries, a model of several parents linked as ufbx links it, and the

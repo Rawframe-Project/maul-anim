@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Masks from chains (mani-0020): subtree chains carried down the
+// Masks from chains: subtree chains carried down the
 // depth-first order, then chains on single bones over them.
 
 #include "maul-anim/base.h"

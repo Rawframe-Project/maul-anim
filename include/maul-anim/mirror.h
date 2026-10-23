@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Mirror maps (mani-0033): how poses of a skeleton are mirrored across a
+// Mirror maps: how poses of a skeleton are mirrored across a
 // plane through the model's origin. A map is built offline for its
 // skeleton (mirrorbuild.h) and opened in place; each bone takes its
 // partner's local (its own when unpaired) carried through the reference

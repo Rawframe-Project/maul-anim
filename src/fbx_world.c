@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX worlds (mani-0014), ufbx's evaluation in binary64: a normal model's
+// FBX worlds, ufbx's evaluation in binary64: a normal model's
 // world is its parent's times its local; an RrSs or Rrs model's is its
 // parent's unscaled world times its local with the translation scaled by
 // the parent's inherited scale and the scale by its scale source's.
@@ -77,8 +77,8 @@ maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, const uint8_t* needed
     {
         return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
     }
-    // Each model is pushed once, by its parent: the hierarchy is a forest
-    // (mani-0014), every model under the root.
+    // Each model is pushed once, by its parent: the hierarchy is a forest,
+    // every model under the root.
     uint32_t height = 0;
     stack[height++] = n;
     maniFbxTemplateCache cache;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A node forest (mani-0009, mani-0014): depths by walks that stop at
+// A node forest: depths by walks that stop at
 // known nodes, common ancestors by binary lifting, and units grouped by
 // walks in which each node is claimed once and a walk that meets another
 // unit's node jumps past that unit's root, whose path from there that

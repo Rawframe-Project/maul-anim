@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One difference applied to one transform (mani-0020), for the
+// One difference applied to one transform, for the
 // compressor's measure of additive clips.
 
 #ifndef MAUL_ANIM_SRC_ADDITIVE_H

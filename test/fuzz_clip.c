@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a clip file (mani-0006), full precision or compressed, reading its named items and, for
+// Opening a clip file, full precision or compressed, reading its named items and, for
 // a clip of a seed's skeleton, sampling it; then the same bytes with the payload's hash made right,
 // so that mutations reach the checks behind it. Run as fuzz_clip <corpus dir>; the seeds come from
 // test_clip --seed <file> and test_clip_compress --seed <file>.

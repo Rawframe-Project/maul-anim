@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FABRIK (mani-0030), Aristidou and Lasenby's: each iteration places the
+// FABRIK, Aristidou and Lasenby's: each iteration places the
 // end on the goal and pulls each joint back to its bone's length from
 // the one below it (backward), then from the root turns each bone by
 // the shortest arc from its direction onto the one toward its joint's

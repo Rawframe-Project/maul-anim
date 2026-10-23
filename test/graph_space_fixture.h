@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The blend space suites' helpers (mani-0023): weights read from an
+// The blend space suites' helpers: weights read from an
 // instance against those wanted, a position set from parameters x and
 // y, a source built and its refusal read, and a built file with one data
 // word changed, opened and refused at that word. Included by one suite

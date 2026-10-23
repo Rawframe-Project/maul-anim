@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model trainer's checkpoint restored (mani-0025): the
+// A learned model trainer's checkpoint restored: the
 // container, its identity, every section's size against the shapes,
 // every value finite, the moments and every input scale as training
 // leaves them; then the trainer's progress replaced. The layout is

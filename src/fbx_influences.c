@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skins' vertex weights (mani-0021), as ufbx reads them: a vertex a
+// FBX skins' vertex weights, as ufbx reads them: a vertex a
 // control point of the skin's mesh, each cluster's Indexes and Weights
 // its joint's, indices past the control points skipped, a control point
 // given twice by one cluster summed (ufbx keeps both, so its skinning

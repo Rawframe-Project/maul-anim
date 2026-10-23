@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ragdoll tests' fixture (mani-0027): a humanoid skeleton (pelvis,
+// The ragdoll tests' fixture: a humanoid skeleton (pelvis,
 // a spine scaled by 1.5, a turned chest, head, an arm turned out along
 // x, a hand, and a second root, a prop) with its rest pose, and a
 // profile's source of five bodies given out of the bones' order (the

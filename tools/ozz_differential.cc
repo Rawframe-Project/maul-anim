@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ozz differential (mani-0020): an FBX file's skeleton and clips,
+// The ozz differential: an FBX file's skeleton and clips,
 // imported by Maul Anim, sampled at random times into poses that both
 // libraries then blend: ozz-animation's BlendingJob and maniBlendPoses,
 // with the same layers, weights, masks and threshold, then additive

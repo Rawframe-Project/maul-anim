@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a spring set (mani-0026): the container, the header's counts
+// Opening a spring set: the container, the header's counts
 // and rates, every collider, spring, joint and link record (bones within
 // the skeleton's count, shapes, floats finite and in range, records
 // contiguous, each joint's head its chain's previous tail), the names,

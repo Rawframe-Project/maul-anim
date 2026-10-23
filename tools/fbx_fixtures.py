@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Sirac Ozmen
 #
-# Writes the binary forms of the FBX fixtures (mani-0018) from their
+# Writes the binary forms of the FBX fixtures from their
 # ASCII sources in test/data/fbx, by tools/fbx_binary.py: 13-byte records
 # (6100, 7400), 25-byte records with deflated arrays (7500), and one
 # big-endian file. Run after changing a source, then regenerate the

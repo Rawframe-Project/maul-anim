@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One chunk of the first stage (mani-0025): both networks forward over
+// One chunk of the first stage: both networks forward over
 // its two pairs, the loss and its gradient by the outputs and latent
 // values, both networks backward into the chunk's gradients.
 

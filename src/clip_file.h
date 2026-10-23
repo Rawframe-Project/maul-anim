@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The clip file's layout (mani-0006), shared by its view, its builder and
+// The clip file's layout, shared by its view, its builder and
 // its compressor: kind 2 of the container, sections tagged 1 to 10 at
 // full precision, 1 to 15 compressed, and 16 (root motion) in either; an
 // empty section is left out of the table (absent is empty, and nothing
@@ -77,7 +77,7 @@ enum
     // byte, or a 16-bit value at rate 0); then its samples' bits, sample-
     // major, least significant bit first. Eight spare bytes end it.
     maniClipTagSegmentData = 15,
-    // Root motion (mani-0022), in either form: its source
+    // Root motion, in either form: its source
     // (MANI_ROOT_MOTION_HEADER_SIZE), the whole-period move, then per
     // sample the motion's translation and rotation.
     maniClipTagRootMotion = 16,

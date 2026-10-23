@@ -1,10 +1,10 @@
 # Deviations of maul-anim from ufbx that the differential reports but does
-# not count (mani-0018): a part of the file's name, or * for any, and the
+# not count: a part of the file's name, or * for any, and the
 # aspect, each with the decision it rests on.
 
 # No TimeMode: FBX's default mode, 30 a second; ufbx takes 24.
 * rate-default
-# Versions outside 3000 to 7700 are refused (mani-0012); ufbx reads them
+# Versions outside 3000 to 7700 are refused; ufbx reads them
 # with a warning.
 synthetic_unsupported_cube_2000 open
 synthetic_unsupported_cube_8000 open
@@ -12,8 +12,8 @@ synthetic_unsupported_cube_8000 open
 synthetic_nurbs_dimension_overflow_fail open
 synthetic_nurbs_order_overflow_fail open
 # An integer input animated out of range (here RotationOrder driven by a
-# rotation's curves) refuses the clip (mani-0014); ufbx takes XYZ.
+# rotation's curves) refuses the clip; ufbx takes XYZ.
 synthetic_rotation_order_layers clip
-# Clip times are float seconds (mani-0006): at 1.7e5 s a time is within
+# Clip times are float seconds: at 1.7e5 s a time is within
 # 1/128 s, between samples; ufbx is evaluated at the exact tick.
 maya_long_keyframes sample

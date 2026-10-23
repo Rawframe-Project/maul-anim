@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Morph targets (mani-0021): built over an attribute table (positions,
+// Morph targets: built over an attribute table (positions,
 // normals, tangents, a texture coordinate and a color set) with sparse
 // targets sorted and their repeated vertices summed, a target touching
 // every vertex stored densely, FBX in-betweens; channel weights walked to target weights as

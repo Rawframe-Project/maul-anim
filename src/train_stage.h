@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The first training stage's state (mani-0025), shared by its driver
+// The first training stage's state, shared by its driver
 // (train_decompress) and its chunks (train_decompress_loss).
 
 #ifndef MAUL_ANIM_SRC_TRAIN_STAGE_H

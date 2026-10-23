@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX's local transform (mani-0014), in binary64 as ufbx evaluates it:
+// FBX's local transform, in binary64 as ufbx evaluates it:
 // T Roff Rp Rpre R Rpost^-1 Rp^-1 Soff Sp S Sp^-1 is one TRS, its
 // rotation Rpre R Rpost^-1, its scale S, its translation what the
 // pivots and offsets give. Angles are reduced in degrees, exactly, so
@@ -366,7 +366,7 @@ maniImportResult maniFbxReadLocalInputs(const maniFbx* fbx, uint32_t object,
         r = IntegerAt(fbx, object, entries[maniFbxLocalVectors + k], maniFbxLocalIntegerLimits[k],
                       kDefaults[k], &out->integers[k]);
     }
-    // Before 6.0 the Lcl values are the channels' defaults (mani-0017);
+    // Before 6.0 the Lcl values are the channels' defaults;
     // later files have no such rests.
     static const uint32_t kLcl[3] = {maniFbxLocalTranslation, maniFbxLocalRotation,
                                      maniFbxLocalScaling};

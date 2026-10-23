@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// State machines (mani-0023): an entry state; a fade's weights, linear
+// State machines: an entry state; a fade's weights, linear
 // and smoothstep, from the update after its transition fires; an
 // interrupted fade going on from its weights; interruption none, by a
 // lower priority value and by any; the lower priority value winning;

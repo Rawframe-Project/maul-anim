@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graph instances (mani-0023): made in caller memory, their parameters
+// Graph instances: made in caller memory, their parameters
 // set and read, their state saved as bytes without pointers and
 // restored after checking those bytes as external input.
 

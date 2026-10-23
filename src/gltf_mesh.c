@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF document's meshes (mani-0021): primitives' joints and weights
+// A glTF document's meshes: primitives' joints and weights
 // read into influences with what glTF forbids refused, and their morph
 // targets read into morph target files: every attribute glTF morphs,
 // positions, normals and tangents in the output's basis.
@@ -830,7 +830,7 @@ static maniImportResult Channels(Morph* m, uint32_t mesh, const maniMorphTargetS
 }
 
 // A Draco primitive's targets are plain accessors in its decoded vertex
-// order, read as any other (mani-0021).
+// order, read as any other.
 static maniImportResult BuildMorph(maniBuilder* builder, Morph* m, uint32_t mesh)
 {
     maniImportResult r = maniGltfMember(&m->gltf->g, m->primitive, "attributes", maniJsonObject,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a skeleton file (mani-0003), and on success reading every bone
+// Opening a skeleton file, and on success reading every bone
 // and finding each by its name; then the same bytes with the payload's
 // hash made right, so that mutations reach the checks behind it. Run as fuzz_skeleton <corpus dir>;
 // the seed comes from test_skeleton --seed <file>.

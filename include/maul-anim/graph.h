@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graphs (mani-0023): a graph file built offline against one skeleton,
+// Graphs: a graph file built offline against one skeleton,
 // opened in place, bound to its clips, and played by instances in caller
 // memory. Its nodes form a DAG stored in topological order, each after
 // its inputs, the output last.
@@ -34,8 +34,7 @@ extern "C"
 #define MANI_NO_PARAMETER 0xFFFFFFFFu
 // A clip node in no sync group.
 #define MANI_NO_SYNC_GROUP 0xFFFFFFFFu
-// No node, input, state, transition or entry in an inspection
-// (mani-0035).
+// No node, input, state, transition or entry in an inspection.
 #define MANI_GRAPH_NONE 0xFFFFFFFFu
 // Named limits: nodes, inputs of one node, parameters, clips, sync
 // groups and motion databases of one graph.
@@ -154,14 +153,14 @@ extern "C"
         maniGraphNodeBodyXpbd = 22,
         // A full-body IK node by selectively damped least squares.
         maniGraphNodeBodySdls = 23,
-        // A mirror node (mani-0033): its input's pose mirrored through the
+        // A mirror node: its input's pose mirrored through the
         // graph's mirror map; the clip, match and learned nodes beneath it
         // give their moves reflected and their events and sync markers
         // renamed. A node beneath one may not also be beneath a path
         // without it (a subgraph shared by a mirrored and an unmirrored
         // state takes a second instance).
         maniGraphNodeMirror = 24,
-        // A turn limit node (mani-0037): its input with each chosen bone's
+        // A turn limit node: its input with each chosen bone's
         // rotation turned from the node's last output toward the input's
         // by no more than a speed allows.
         maniGraphNodeTurnLimit = 25,
@@ -414,7 +413,7 @@ extern "C"
                                                 uint32_t* lengthOut);
 
     /// Returns the number of retargeting map slots the graph's clips play
-    /// through (mani-0032): one for each map its clip slots name.
+    /// through: one for each map its clip slots name.
     ///
     /// @param graph  An opened graph.
     /// @return The count; 0 for a NULL graph.
@@ -431,7 +430,7 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot);
 
-    /// Returns the identity of the graph's mirror map (mani-0033), which
+    /// Returns the identity of the graph's mirror map, which
     /// its mirror nodes mirror through.
     ///
     /// @param graph  An opened graph.
@@ -460,7 +459,7 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip);
 
-    /// Returns a node's kind (mani-0035): with its inputs and the output
+    /// Returns a node's kind: with its inputs and the output
     /// node, what a debugger draws the graph's tree from. Nodes are in
     /// order, each after its inputs, subgraphs inlined.
     ///
@@ -686,7 +685,7 @@ extern "C"
                                                              uint32_t parameter,
                                                              maniGraphValue* valueOut);
 
-    // What a node of an instance did in its last update (mani-0035), read
+    // What a node of an instance did in its last update, read
     // from the state the update keeps. Fields a kind has no use for are
     // MANI_GRAPH_NONE (words) or 0 (numbers).
     typedef struct maniGraphNodeView
@@ -873,7 +872,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch,
                                                          size_t size, maniPose* pose);
 
-    // A subset plan (mani-0035): bones of a binding's skeleton to evaluate,
+    // A subset plan: bones of a binding's skeleton to evaluate,
     // closed under what writing them reads; the caller's memory, made by
     // maniPlanGraphSubset.
     typedef struct maniGraphSubset maniGraphSubset;

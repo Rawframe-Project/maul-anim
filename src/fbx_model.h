@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX models (mani-0014): the objects of kind Model in object order,
+// FBX models: the objects of kind Model in object order,
 // each one's parent model from its `OO` connections, its children in
 // connection order, and its bone name; read once at open.
 

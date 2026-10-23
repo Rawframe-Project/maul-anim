@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Delaunay triangulations of a blend space's points (mani-0023), for the
+// Delaunay triangulations of a blend space's points, for the
 // builder: exact, so the same on every platform, ties included.
 
 #ifndef MAUL_ANIM_SRC_TRIANGULATE_H

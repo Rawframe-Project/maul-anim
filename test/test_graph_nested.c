@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Subgraphs inside subgraphs (mani-0023): a graph whose subgraph holds
+// Subgraphs inside subgraphs: a graph whose subgraph holds
 // another, the three carrying every slot kind (clips, a motion database,
 // a learned model, a spring set) and every parameter type through their
 // maps, built from its JSON form against the graph fuzz targets' assets:

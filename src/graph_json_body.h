@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body IK nodes' JSON form (mani-0031), read and written: the
+// The full-body IK nodes' JSON form, read and written: the
 // top and bones by name, effectors' goals parameters by name, weights as
 // numbers or {"parameter": name}, settings' limits as a chain node's.
 // Offline.

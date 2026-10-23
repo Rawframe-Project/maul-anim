@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Full-body inverse kinematics (mani-0031): a part of a skeleton, every
+// Full-body inverse kinematics: a part of a skeleton, every
 // bone on a path from a top bone to one of several effectors, bent so
 // the effectors reach their goals, within per-bone stiffness and limits.
 // One description, two solvers over it: position-based rigid bodies

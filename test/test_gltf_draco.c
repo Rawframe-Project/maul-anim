@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The Draco decoder (mani-0021): the streams of test/data/draco, which
+// The Draco decoder: the streams of test/data/draco, which
 // Google's encoder wrote, sequential and Edgebreaker (standard and
 // valence, both traversals, every mesh prediction), decoded to the
 // FNV-1a 64 of Google's decoding of each; the header's and Edgebreaker

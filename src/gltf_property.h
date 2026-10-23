@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A glTF document's JSON properties read with their kinds and ranges
-// checked (mani-0008): each refusal a maniImportResult with the offset
+// checked: each refusal a maniImportResult with the offset
 // of the property's value in the bytes the document was opened from.
 
 #ifndef MAUL_ANIM_SRC_GLTF_PROPERTY_H

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Pose parameters (mani-0027): the rest pose until set, their bytes set
+// Pose parameters: the rest pose until set, their bytes set
 // aside in the instance; a pose set and
 // read back, the other pose parameter untouched; a parameter of another
 // type, past the count, a difference or another skeleton's pose refused;

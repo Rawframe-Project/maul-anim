@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Helper bones for animation (mani-0014, mani-0016). An RrSs or Rrs
+// Helper bones for animation. An RrSs or Rrs
 // model compensated at rest stays exact while its parent's inherited
 // scale is uniform; where a stack makes it otherwise at a sample of its
 // default clip grid, the parent needs a helper bone as at rest. Only the

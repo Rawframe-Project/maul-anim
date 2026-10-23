@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building retargeting maps (mani-0032): bone pairs, chains of any
+// Building retargeting maps: bone pairs, chains of any
 // lengths on each side, the pelvis and a reference pose per skeleton,
 // checked against both skeletons and laid out as each target bone's
 // plan, so the transfer at runtime only composes rotations. Offline.

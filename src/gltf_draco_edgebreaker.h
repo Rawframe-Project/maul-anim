@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's Edgebreaker connectivity (mani-0021), standard and valence, as
+// Draco's Edgebreaker connectivity, standard and valence, as
 // Google's decoder reads bitstream 2.2: the mesh's corner table, each
 // attribute data's seams and table, and the points the corners map to.
 

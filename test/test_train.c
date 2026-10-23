@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The trainer's core (mani-0025): the generator against its authors'
+// The trainer's core: the generator against its authors'
 // reference outputs, Lemire's and Box and Muller's values, and its
 // ranges; a network's start within PyTorch's bounds and its gradients
 // over two samples (ReLU and ELU, by its parameters and its inputs)

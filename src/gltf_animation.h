@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF document's animations (mani-0010): every channel checked at
+// A glTF document's animations: every channel checked at
 // open, read the same way when a clip is built.
 
 #ifndef MAUL_ANIM_SRC_GLTF_ANIMATION_H

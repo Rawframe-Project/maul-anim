@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX's local transform in binary64 (mani-0014): Euler rotations in each
+// FBX's local transform in binary64: Euler rotations in each
 // order, the pivot and offset chain as one TRS, and the 3x4 matrices
 // worlds are composed with.
 
@@ -136,7 +136,7 @@ void maniFbxComposeLocal(const maniFbxLocalInputs* in, maniFbxLocal* out);
 maniImportResult maniFbxModelLocal(const maniFbx* fbx, uint32_t object, maniFbxTemplateCache* cache,
                                    maniFbxLocal* out);
 
-// A model's geometric transform (mani-0015): GeometricTranslation, XYZ
+// A model's geometric transform: GeometricTranslation, XYZ
 // GeometricRotation and GeometricScaling as T R S, moving only the
 // geometry it carries; refused as maniFbxModelLocal.
 maniImportResult maniFbxGeometricTransform(const maniFbx* fbx, uint32_t object, maniFbxTrs* out);

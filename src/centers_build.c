@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Centers of rotation (mani-0021; Le and Hodgins 2016, Eq. 4), exactly:
+// Centers of rotation (Le and Hodgins 2016, Eq. 4), exactly:
 // each vertex's center is the triangles' centroids weighted by area and
 // by the similarity of the triangle's average weights to the vertex's,
 // a sum over joint pairs j < k of w_vj w_vk w_tj w_tk

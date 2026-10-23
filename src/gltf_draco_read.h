@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's stream reading (mani-0021): little-endian values and LEB128
+// Draco's stream reading: little-endian values and LEB128
 // within a stream's bounds, and its entropy coding, rANS with the tagged
 // and raw symbol codings, as Google's decoder reads bitstream 2.2.
 

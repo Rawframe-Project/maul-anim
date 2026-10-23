@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ASCII FBX form (mani-0012) read into the same tree as the binary
+// The ASCII FBX form read into the same tree as the binary
 // one: `Name: value, value { children }`, `;` comments, quoted strings
 // with FBX's `&quot;` entities, bare words, numbers kept as text and
 // converted exactly when read, and a `*N { a: ... }` group folded into

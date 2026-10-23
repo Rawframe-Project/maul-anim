@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The full-body solve by selectively damped least squares (Buss and
-// Kim, 2005; mani-0031). Columns: three rotation axes (model x, y, z at
+// Kim, 2005). Columns: three rotation axes (model x, y, z at
 // the bone's origin) per part bone, zero for a held top or a locked
 // bone, scaled by one minus its rotation stiffness; three translations
 // for a free top. Rows per effector: its position miss and, with a

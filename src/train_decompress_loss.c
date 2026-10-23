@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One chunk of the first stage (mani-0025); train_decompress.h gives
+// One chunk of the first stage; train_decompress.h gives
 // the loss.
 
 #include "train_decompress_loss.h"

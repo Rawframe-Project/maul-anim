@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The IK differential (mani-0029): random two-bone chains (random
+// The IK differential: random two-bone chains (random
 // bone lengths and turns, goals in and out of reach, softening and
 // weights, twists) solved by ozz-animation 0.17.0's IKTwoBoneJob and by
 // maniSolveTwoBone, the middle and end bones' model positions compared;
 // then random bones aimed by its IKAimJob and by maniSolveAim (below). Poles within a sine of 0.1
-// of the goal line are left out: there ozz flips and Maul Anim blends to the chain's own plane
-// (mani-0029); so are goals within a twentieth of the chain's length of the start (ozz turns the
+// of the goal line are left out: there ozz flips and Maul Anim blends to the chain's own plane;
+// so are goals within a twentieth of the chain's length of the start (ozz turns the
 // start toward them, Maul Anim does not) and weighted corrections of nearly half a turn (which way
 // the weight turns is rounding's in both). Hinges lie perpendicular to the chain's bend plane, as a
 // joint's do. Prints the worst difference over the chain's length and each solver's own error (the
@@ -549,7 +549,7 @@ int main(int argc, char** argv)
         float along = pole.x * dir.x + pole.y * dir.y + pole.z * dir.z;
         // A goal within a twentieth of the chain's length of the start
         // leaves the start unturned here and turns it toward the goal in
-        // ozz (mani-0029): left out.
+        // ozz: left out.
         if (1.0f - along * along < 0.01f || reach < 0.05f * (la + lb))
         {
             continue;

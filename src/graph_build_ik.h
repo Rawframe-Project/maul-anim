@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Writing an IK or full-body node's data words (mani-0029 to mani-0031).
+// Writing an IK or full-body node's data words.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_BUILD_IK_H
 #define MAUL_ANIM_SRC_GRAPH_BUILD_IK_H

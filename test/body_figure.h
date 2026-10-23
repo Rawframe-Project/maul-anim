@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body suites' figure (mani-0031): hips under a root, a spine
+// The full-body suites' figure: hips under a root, a spine
 // and chest above them, two arms of three bones from the chest and a leg
 // of three from the hips; two poses, a scratch, solves of either hand or
 // both, and the checks they share. Included by one suite each.

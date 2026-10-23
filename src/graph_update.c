@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Updating a graph instance (mani-0023): weights shared down from the
+// Updating a graph instance: weights shared down from the
 // output in reverse node order, then every clip node's and motion
 // matching node's playhead moved in node order, its events listed and its
 // root motion blended.

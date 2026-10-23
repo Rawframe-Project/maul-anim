@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Values are little-endian. rANS reads its bytes from their end: the
-// last byte's top two bits give how many bytes start the state (research
-// 59: the specification's tables, its bit order and its symbol layout
+// last byte's top two bits give how many bytes start the state (the
+// specification's tables, its bit order and its symbol layout
 // differ from the files Google's encoder writes, which decide). A symbol
 // table holds only the symbols of non-zero probability, searched by
 // their cumulative probabilities, so its size follows the stream's

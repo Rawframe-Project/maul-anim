@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building an influences file (mani-0021): each vertex's weighted
+// Building an influences file: each vertex's weighted
 // influences checked, sorted by decreasing weight then joint (so the
 // heaviest leads the dual quaternion signs, the same whatever the
 // source's order), padded to groups of four and renormalized in binary64.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a motion database (mani-0024), and on success reading every
+// Opening a motion database, and on success reading every
 // channel, entry and frame; then the same bytes with the payload's hash
 // made right, and then the identity too, so that mutations reach the
 // checks behind them. Run as fuzz_match <corpus dir>; the seed comes from

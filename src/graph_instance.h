@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph's binding and instances as they lie in caller memory
-// (mani-0023), shared by binding, instances, update and evaluation.
+// A graph's binding and instances as they lie in caller memory,
+// shared by binding, instances, update and evaluation.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_INSTANCE_H
 #define MAUL_ANIM_SRC_GRAPH_INSTANCE_H

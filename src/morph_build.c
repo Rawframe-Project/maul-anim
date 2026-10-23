@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a morph targets file (mani-0021): the attribute table,
+// Building a morph targets file: the attribute table,
 // channels and targets checked, each sparse target's vertices sorted with
 // a vertex given twice summed in binary64 (as ufbx adds FBX's repeated
 // indices), a target touching every vertex stored densely.

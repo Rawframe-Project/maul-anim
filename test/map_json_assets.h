@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The rigs the maps' JSON tests and fuzz target (mani-0034) name the
+// The rigs the maps' JSON tests and fuzz target name the
 // bones of: a retargeting source and target of different spine and arm
 // lengths, and a rig whose left and right sides rest on unmirrored axes.
 

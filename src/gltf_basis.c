@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The glTF options' basis change (mani-0009): basis.c's, glTF's units
+// The glTF options' basis change: basis.c's, glTF's units
 // kept.
 
 #include "gltf_basis.h"

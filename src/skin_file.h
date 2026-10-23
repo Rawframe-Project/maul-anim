@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The skin file's layout (mani-0005), shared by its view and its builder:
+// The skin file's layout, shared by its view and its builder:
 // kind 5 of the container.
 
 #ifndef MAUL_ANIM_SRC_SKIN_FILE_H

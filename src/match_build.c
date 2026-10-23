@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a motion database (mani-0024): the source checked, every
+// Building a motion database: the source checked, every
 // entry's frames sampled (match_sample), each channel normalized as
 // Holden's reference does (the mean per feature, the scale the mean of
 // the features' standard deviations over the channel's weight; both in

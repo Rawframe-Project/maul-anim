@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Turn limit nodes (mani-0037): over a pose input, the first evaluation
+// Turn limit nodes: over a pose input, the first evaluation
 // takes the input as it is; a jump is turned toward by the speed times
 // the seconds, about the shorter arc's axis (checked in binary64 against
 // the angles), a turn within the budget given bit for bit, a negated

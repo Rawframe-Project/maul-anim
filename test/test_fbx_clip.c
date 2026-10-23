@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX clips (mani-0016): a rig sampled at 30 a second, its bones' locals
+// FBX clips: a rig sampled at 30 a second, its bones' locals
 // against values derived by hand (a translation and rotation by linear
 // curves, a uniform scale, and a scale-ignoring child whose local comes
 // from the worlds), the placement folded or reported, a float track, the
@@ -1035,7 +1035,7 @@ static void TestAnimatedHelper(void)
         maniTransform a = maniPoseLocal(pose, arm);
         maniTransform h = maniPoseLocal(pose, helper);
         // Its own transform, the translation scaled by Spine's inherited
-        // scale (mani-0014).
+        // scale.
         right = right && NearVec(a.translation, 1 + t, 0, 0) && AboutZ(a.rotation, 45) &&
                 NearVec(a.scale, 1, 1, 1) &&
                 NearVec(h.scale, 1 / (1 + t), 1 / (1 + t), 1 / (1 + t));

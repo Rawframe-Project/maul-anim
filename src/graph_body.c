@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Full-body IK nodes' words (mani-0031). An effector without a rotation
+// Full-body IK nodes' words. An effector without a rotation
 // keeps its rotation weight the number 0, and a limit its unused words
 // 0, so each has one form.
 

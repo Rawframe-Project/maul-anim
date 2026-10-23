@@ -12,6 +12,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
+#include "invariant.h"
 #include "pose_memory.h"
 #include "root_motion.h"
 #include "vecmath.h"
@@ -381,6 +382,9 @@ maniClipPair maniClipLocate(const maniClip* clip, float time)
 {
     maniClipPair pair = {0, 0, 0.0f, NULL, NULL};
     uint32_t n = clip->sampleCount;
+    // Opening refused a rate that is not finite and positive, and a sample
+    // count other than the duration and rate give, which is at least 1.
+    MANI_ASSERT(n >= 1 && clip->sampleRate > 0.0f);
     if (n == 1)
     {
         return pair;
@@ -395,6 +399,7 @@ maniClipPair maniClipLocate(const maniClip* clip, float time)
     pair.first = i;
     pair.second = i + 1;
     pair.alpha = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
+    MANI_ASSERT(pair.second < n && pair.alpha >= 0.0f && pair.alpha <= 1.0f);
     return pair;
 }
 

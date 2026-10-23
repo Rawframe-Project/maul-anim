@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A spring joint's rest direction and its limit's default orientation
-// (mani-0026), which the builder and the glTF importer both work out.
+// A spring joint's rest direction and its limit's default orientation,
+// which the builder and the glTF importer both work out.
 
 #ifndef MAUL_ANIM_SRC_SPRING_FRAME_H
 #define MAUL_ANIM_SRC_SPRING_FRAME_H

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF document's buffer views and accessors (mani-0008): checked at
+// A glTF document's buffer views and accessors: checked at
 // open, and accessors read into binary32 for the skeleton, skin and clip
 // importers.
 

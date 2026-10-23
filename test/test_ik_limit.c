@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Joint limits on their own (mani-0030): a turn within its limit comes
+// Joint limits on their own: a turn within its limit comes
 // back bit for bit; a cone cuts the swing to its edge about the same
 // axis and the twist to its range; a hinge keeps only its own turn; a
 // half turn about an axis perpendicular to the bone's (the bone pointing

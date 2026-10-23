@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Mirrored poses and root moves (mani-0033) on a rig whose left and right
+// Mirrored poses and root moves on a rig whose left and right
 // clavicles, arms and hands have unmirrored axes, with a prop under the
 // right hand: for each axis, a turned pose's mirror puts every bone but
 // the prop at its partner's model position reflected, turned by its

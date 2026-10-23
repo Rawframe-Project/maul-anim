@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Root motion through a retargeting map (mani-0032): followers and
+// Root motion through a retargeting map: followers and
 // moves carried between the bones' parents' reference frames.
 
 #include "retarget_motion.h"

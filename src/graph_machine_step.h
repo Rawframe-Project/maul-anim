@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A state machine stepped by an update (mani-0023): its clocks advanced,
+// A state machine stepped by an update: its clocks advanced,
 // a fade whose time is up completed, transitions chosen and fired, its
 // weights set from the fade.
 

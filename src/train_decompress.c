@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The first stage of a learned model's training (mani-0025); see
+// The first stage of a learned model's training; see
 // train_decompress.h.
 
 #include "train_decompress.h"

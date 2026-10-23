@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a retargeting map (mani-0032): the container, the header (bone
+// Opening a retargeting map: the container, the header (bone
 // counts, the pelvis's bones and numbers, its fixed form without a
 // pelvis), both sides' references (finite, rotations of length 1), each
 // target bone's plan in its one form, and the identity. Whether the plan

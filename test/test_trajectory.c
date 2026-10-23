@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Trajectory prediction (mani-0024): the springs against Holden's
+// Trajectory prediction: the springs against Holden's
 // formulas in binary64 over random states, goals and steps; one advance
 // against many shorter ones; a trajectory settling on its goal; the
 // refusals, leaving it unchanged; a sample's values as the database

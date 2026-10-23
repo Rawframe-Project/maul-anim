@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Node rests and placement (mani-0009). A node gives a matrix or
-// TRS, never both; a matrix must be affine and decompose (mani-0004) into a
+// Node rests and placement. A node gives a matrix or
+// TRS, never both; a matrix must be affine and decompose into a
 // TRS that composes back within 1e-4 of its largest column, which rules
 // out the shear glTF forbids. Everything is read in glTF's basis, then
 // moved into the output's.

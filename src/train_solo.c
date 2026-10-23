@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One network trained alone (mani-0025); see train_solo.h.
+// One network trained alone; see train_solo.h.
 
 #include "train_solo.h"
 

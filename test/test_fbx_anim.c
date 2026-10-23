@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX stacks (mani-0016): one model's properties through five layers
+// FBX stacks: one model's properties through five layers
 // (a base, an additive one, a passthrough one with an animated weight,
 // an override and an additive one adding components), against values
 // derived by hand from ufbx's rules; stack ranges from properties, a

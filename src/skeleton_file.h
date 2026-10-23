@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The skeleton file's layout (mani-0003), shared by its view and its
+// The skeleton file's layout, shared by its view and its
 // builder: kind 1 of the container, its section tags and record sizes.
 
 #ifndef MAUL_ANIM_SRC_SKELETON_FILE_H

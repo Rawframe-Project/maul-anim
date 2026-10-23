@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring states (mani-0026) on the fixture's chain: the colliders' and
+// Spring states on the fixture's chain: the colliders' and
 // limits' cases, the step bound, reset, save and restore with every
 // check of the saved bytes, the calls' refusals, the work area's size
 // and the inputs a call keeps for the next.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a graph's nodes (mani-0023): each record, its inputs (every
+// Opening a graph's nodes: each record, its inputs (every
 // one before it, in another slot) and its data, by kind.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_NODES_H

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The floating-point environment every computation of the library runs
-// in (mani-0001): round to nearest, denormals kept, no traps. A host may
+// in: round to nearest, denormals kept, no traps. A host may
 // run its threads with flush-to-zero, denormals-are-zero or another
 // rounding mode; each public call that computes floats enters this
 // environment and leaves the host's as it found it.

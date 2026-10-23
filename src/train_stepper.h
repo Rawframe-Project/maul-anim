@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The Stepper's training (mani-0025), as Holden's train_stepper.py: a
+// The Stepper's training, as Holden's train_stepper.py: a
 // state is a frame's features and latent values; the network's input is
 // the state normalized by each value's mean and one deviation over the
 // features and one over the latent values, its output the state's rate

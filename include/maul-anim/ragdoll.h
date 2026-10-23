@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Ragdoll profiles (mani-0027): a skeleton's ragdoll as data a host maps
+// Ragdoll profiles: a skeleton's ragdoll as data a host maps
 // onto its own physics engine: bodies on a subset of the bones, each
 // with its frame, a primitive shape and a mass, and a swing-twist joint
 // to its parent body with limits and an optional drive. A profile is

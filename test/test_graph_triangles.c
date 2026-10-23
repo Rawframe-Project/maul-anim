@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blend spaces by triangles (mani-0023): a square and its centre
+// Blend spaces by triangles: a square and its centre
 // triangulated into four, weighed barycentrically inside and by the
 // nearest edge or corner outside; a square's cocircular tie kept as the
 // sweep made it; a grid's triangulation pinned; authored triangles,

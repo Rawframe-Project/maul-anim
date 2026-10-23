@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a glTF document (mani-0008): JSON alone or in a GLB container,
+// Opening a glTF document: JSON alone or in a GLB container,
 // the asset version, the required extensions, then buffers, buffer
 // views and accessors; and the host's external buffers.
 
@@ -296,7 +296,7 @@ maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t si
 void maniCloseGltf(maniGltf* gltf)
 {
     // A close from the builder's allocator, which the document shares, is
-    // refused and counted on the builder (mani-0028).
+    // refused and counted on the builder.
     if (gltf == NULL || maniHostAllocatorCalledBack(&gltf->allocator))
     {
         return;

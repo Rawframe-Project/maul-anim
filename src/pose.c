@@ -11,6 +11,7 @@
 
 #include "bytes.h"
 #include "decompose.h"
+#include "invariant.h"
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -37,7 +38,7 @@ struct maniPose
     uint32_t groups;
     uint32_t modelCurrent;
     uint64_t identity;
-    // 1 for a difference (mani-0020), 0 for a pose of the skeleton.
+    // 1 for a difference, 0 for a pose of the skeleton.
     uint32_t difference;
     uint8_t reserved[kHeaderSize - 28];
 };
@@ -160,6 +161,8 @@ void maniPoseMarkStale(maniPose* pose)
 
 void maniPoseCopy(maniPose* to, const maniPose* from)
 {
+    MANI_ASSERT(to->tag == kPoseTag && from->tag == kPoseTag);
+    MANI_ASSERT(to->identity == from->identity && to->boneCount == from->boneCount);
     memcpy(Locals(to), ConstLocals(from), (size_t)from->groups * kGroupFloats * sizeof(float));
     to->difference = from->difference;
     to->modelCurrent = 0;
@@ -259,6 +262,9 @@ maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
         maniAffine model = local;
         if (parent != MANI_NO_BONE)
         {
+            // Opening the skeleton checked depth-first order: a parent's
+            // model is composed before its children's.
+            MANI_ASSERT(parent < bone);
             maniAffine parentModel;
             memcpy(parentModel.m, models + (size_t)parent * kModelFloats, sizeof parentModel.m);
             model = maniAffineMul(&parentModel, &local);
@@ -282,6 +288,7 @@ bool maniPoseOfSkeleton(const maniPose* pose, uint64_t identity, uint32_t boneCo
 
 void maniPoseStoreModel(maniPose* pose, uint32_t bone, const maniAffine* model)
 {
+    MANI_ASSERT(pose->tag == kPoseTag && bone < pose->boneCount);
     memcpy(Models(pose) + (size_t)bone * kModelFloats, model->m, sizeof model->m);
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Motion matching (mani-0024): a motion database built offline from a
+// Motion matching: a motion database built offline from a
 // skeleton's clips, opened in place. Each frame of the database is a clip
 // at a time; its features describe the pose and the root's path around
 // that time in the root's space, normalized per channel, so a search
@@ -69,7 +69,7 @@ extern "C"
 
 // An entry's flags: its times wrap from its end to its start (else they
 // clamp to its ends); its frames play but are never jumped to; its clip
-// plays mirrored through the database's mirror map (mani-0033).
+// plays mirrored through the database's mirror map.
 #define MANI_MATCH_LOOP     1u
 #define MANI_MATCH_NO_JUMP  2u
 #define MANI_MATCH_MIRRORED 4u
@@ -159,7 +159,7 @@ extern "C"
     MANI_API uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database);
 
     /// Returns the identity of the mirror map a database's mirrored
-    /// entries play through (mani-0033).
+    /// entries play through.
     ///
     /// @param database  An opened database, or NULL.
     /// @return The map's identity; 0 for a database without mirrored

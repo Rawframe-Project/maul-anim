@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Learned motion matching (mani-0025): a model of three networks that
+// Learned motion matching: a model of three networks that
 // stands in for a motion database and its clips. The Projector maps a
 // query to the state of the nearest frame it learned (its features and
 // latent values), the Stepper moves a state one step on, and the

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The singular value decomposition by one-sided Jacobi (Hestenes;
-// mani-0031), for the full-body SDLS step: the columns of an n-by-m
+// The singular value decomposition by one-sided Jacobi (Hestenes),
+// for the full-body SDLS step: the columns of an n-by-m
 // matrix A (stored column by column) are rotated in pairs until every
 // pair is orthogonal; then A W = B with W orthogonal, the columns' lengths
 // are A's singular values, B's columns over them A's left singular

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// IK and full-body nodes evaluated (mani-0029 to mani-0031): goals and
+// IK and full-body nodes evaluated: goals and
 // settings read from the node's words and the instance's parameters, the
 // solve run on a copy of the input, the input given when a crafted file's
 // bones or settings are refused.

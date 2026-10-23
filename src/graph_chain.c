@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Chain IK nodes' words (mani-0030). A limit read back is checked as a
+// Chain IK nodes' words. A limit read back is checked as a
 // solve checks it (ik_limit.c), so a file holds only limits a solve
 // would take; its unused words must be 0, so each limit has one form.
 

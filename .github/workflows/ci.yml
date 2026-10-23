@@ -98,7 +98,7 @@ jobs:
         run: cmake --install build --prefix "$PWD/package"
       - name: Package consumer
         # A program built against the installed package alone, by its CMake
-        # package and by pkg-config, makes the CPU check (mani-0038).
+        # package and by pkg-config, makes the CPU check.
         if: matrix.name == 'linux-shared'
         run: |
           cmake -S test/consumer -B build-consumer -DCMAKE_C_COMPILER=${{ matrix.cc }} \
@@ -127,7 +127,7 @@ jobs:
           python3 tools/build_docs.py
 
   # The runtime's text by part at -O2 and -O3 (GCC 14), reported against
-  # tools/size-budget.txt (record 0013: checked at release, mani-0036),
+  # tools/size-budget.txt (checked at release),
   # and the runtime's allocator symbols, which must be none: here for
   # GCC 14 at both levels and Clang 20, and under clang-cl in the Windows
   # job.
@@ -144,7 +144,7 @@ jobs:
           sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20
       - name: Runtime builds
         run: |
-          # The budget's archives are the scalar backend's (mani-0038); the
+          # The budget's archives are the scalar backend's; the
           # AVX2 ones are reported beside them.
           for level in O2 O3; do
             for simd in scalar auto; do
@@ -186,7 +186,7 @@ jobs:
           set -o pipefail
           ctest --test-dir build -C Release --output-on-failure --timeout 300 2>&1 | tee ctest.log
           if grep -q "(Skipped)" ctest.log; then echo "::error::a test was skipped"; exit 1; fi
-      # The runtime alone, its allocator symbols read by llvm-nm (mani-0036).
+      # The runtime alone, its allocator symbols read by llvm-nm.
       - name: Runtime allocators
         run: |
           cmake -B build-runtime -T ClangCL -D${PREFIX}_WERROR=ON -DMAUL_ANIM_OFFLINE=OFF \
@@ -194,7 +194,7 @@ jobs:
           cmake --build build-runtime --config Release -j 4
           NM=llvm-nm python tools/size_report.py build-runtime/Release/maul-anim.lib --allocators
       # The DLL through its installed package alone: the CPU check's three
-      # functions exported and the backend named (mani-0038).
+      # functions exported and the backend named.
       - name: Package consumer, DLL
         run: |
           cmake -B build-dll -T ClangCL -D${PREFIX}_WERROR=ON -DMAUL_ANIM_BUILD_SHARED=ON \

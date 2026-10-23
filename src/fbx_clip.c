@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX clips (mani-0016): a stack sampled for an opened skeleton. Each
+// FBX clips: a stack sampled for an opened skeleton. Each
 // bone of the skeleton named as a model (or as a model's helper, its
 // name with "#unscaled") takes its local at every sample the way a
 // skeleton built from the file formed its rest: its own transform under

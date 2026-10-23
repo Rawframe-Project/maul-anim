@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX animation stacks (mani-0016), as ufbx binds and evaluates them
-// (mani-0016). A stack's layers are its AnimationLayer children in
+// FBX animation stacks, as ufbx binds and evaluates them.
+// A stack's layers are its AnimationLayer children in
 // connection order; a layer's curve nodes are its AnimationCurveNode
 // children, each bound through its property connections to the
 // properties it drives, its curves connected to its channel properties
@@ -29,7 +29,7 @@ static maniImportResult Capacity(void)
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
 }
 
-// Before 6.0, the stack of the models' own channels (mani-0017), its
+// Before 6.0, the stack of the models' own channels, its
 // source the root node.
 static const char kInternal[] = "(internal)";
 

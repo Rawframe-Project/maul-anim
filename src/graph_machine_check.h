@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A state machine node's source checked and written (mani-0023): its
+// A state machine node's source checked and written: its
 // entry, chain limit, final states, transitions (states in range, never
 // to their own source, priorities unique among each state's candidates)
 // and their conditions (parameters of the types they compare); the clip

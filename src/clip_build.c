@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a full-precision clip file (mani-0006): every channel checked,
+// Building a full-precision clip file: every channel checked,
 // then evaluated at each sample time as glTF's Appendix C defines its
 // interpolation, in binary64 with the library's own trigonometry, and
 // rounded once. Rotations are normalized and each sample put in the

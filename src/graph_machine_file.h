@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A state machine's data words checked on open (mani-0023): their count
+// A state machine's data words checked on open: their count
 // from its transitions', conditions' and states', and each word in
 // range: a list's clip nodes before the machine and in node order.
 

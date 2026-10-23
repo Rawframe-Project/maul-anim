@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The motion matching node suites' helpers (mani-0024): a database of the
+// The motion matching node suites' helpers: a database of the
 // graph fixture's walk (looping, tags 1) and run (clamped, tags 2) at 10
 // frames a second, its one channel the root's travel half a second ahead
 // (the walk's 0.5 along x, the run's none); a graph of an inertialize

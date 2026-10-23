@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Evaluating a graph instance (mani-0023): each weighed node in order
+// Evaluating a graph instance: each weighed node in order
 // writes its slot's pose from its inputs' slots, through a scratch of a
 // pose per slot made once for the binding it last served.
 
@@ -332,7 +332,7 @@ static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPa
 }
 
 // A clip at a time: through its cursor, or for a subset the plan's bones
-// by random access, the same bits (mani-0018's cursor), the pose made of
+// by random access, the same bits (the cursor's), the pose made of
 // the clip's kind first.
 static void SampleClip(const maniGraphEvaluation* e, maniClipCursor* c, const maniClip* clip,
                        float time, maniPose* out)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Sirac Ozmen
 #
-# The runtime's code size by part (mani-0036): the text of each object of
+# The runtime's code size by part: the text of each object of
 # a runtime-only archive (built with MAUL_ANIM_OFFLINE off), read with
 # size(1), grouped into the parts tools/size-budget.txt names. A part
 # lists its modules; "core:" takes its modules and every module they use
@@ -10,10 +10,10 @@
 # is reported as unplaced and fails --check, so a new module is placed
 # when it lands. With --check LEVEL, each part's text is held against
 # its ceiling for that level (O2 or O3, as the archive was built; O2-avx2
-# or O3-avx2 for the AVX2 backend's archive, mani-0038); a ceiling only
+# or O3-avx2 for the AVX2 backend's archive); a ceiling only
 # ever comes down.
 #
-# The runtime allocates nothing (mani-0001): the archive may name no
+# The runtime allocates nothing: the archive may name no
 # allocator (nm(1)'s undefined symbols; NM names another nm, such as
 # llvm-nm for a Windows library), checked on every run. The names are
 # every C library and Windows CRT function that returns memory to free,

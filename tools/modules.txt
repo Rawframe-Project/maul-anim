@@ -1,17 +1,18 @@
 # The internal module graph (docs/internals/maul-conventions.md): each module
 # and the modules it may use. tools/check_modules.py enforces it.
 base:
+invariant:
 scalar:
 quat64: scalar
 vecmath: scalar
 hash:
 fpenv:
 bytes:
-container: bytes
+container: bytes invariant
 inflate:
 cpu:
 simd:
-allocator:
+allocator: invariant
 host_code: allocator
 text:
 skeleton_file:
@@ -19,7 +20,7 @@ skeleton: bytes container skeleton_file text
 builder: allocator container host_code
 skeleton_build: allocator builder bytes container skeleton_file text
 elementary_float:
-pose: bytes decompose pose_memory vecmath
+pose: bytes decompose invariant pose_memory vecmath
 decompose: vecmath
 basis:
 pose_memory:
@@ -41,7 +42,7 @@ morph: bytes container morph_file
 morph_build: allocator builder bytes container morph_file sort text
 match_file:
 match: bytes container match_file text
-match_search: bytes match_file
+match_search: bytes invariant match_file
 match_move:
 trajectory: elementary_float match_move vecmath
 match_sample: match match_file match_move vecmath
@@ -132,10 +133,10 @@ graph_bind: bytes graph_file graph_instance graph_learned graph_match graph_spri
 graph_space: bytes graph_file graph_instance scalar
 graph_machine_listen: bytes graph_file graph_instance graph_machine graph_shot
 graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring graph_turn retarget_motion root_motion
-graph_evaluation: bytes graph_file graph_instance graph_subset
+graph_evaluation: bytes graph_file graph_instance graph_subset invariant
 graph_evaluate_ik: bytes graph_body graph_chain graph_evaluation graph_file graph_instance ik_chain pose_memory vecmath
 graph_evaluate: blend_groups bytes graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn learned_eval pose_memory vecmath
-clip: bytes clip_codec clip_file clip_view container pose_memory root_motion vecmath
+clip: bytes clip_codec clip_file clip_view container invariant pose_memory root_motion vecmath
 clip_view: clip_file pose_memory
 clip_codec: bytes
 clip_lanes: blend_lanes pose_memory simd

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring tails against colliders and limits (mani-0026).
+// Spring tails against colliders and limits.
 
 #ifndef MAUL_ANIM_SPRING_SHAPE_H
 #define MAUL_ANIM_SPRING_SHAPE_H

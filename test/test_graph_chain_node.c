@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The chain IK nodes (mani-0030) over the hips, spine and arm: a CCD
+// The chain IK nodes over the hips, spine and arm: a CCD
 // node's output is its input solved as maniSolveCcd solves it, a FABRIK
 // node's as maniSolveFabrik, bit for bit, their goal, pole and the end's
 // rotation read from parameters, weights clamped (0 passing the input);

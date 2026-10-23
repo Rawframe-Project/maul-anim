@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF document's node hierarchy and skins (mani-0008): parents,
+// A glTF document's node hierarchy and skins: parents,
 // depths and common ancestors, each skin's common root, and the
 // skeletons skins sharing nodes make.
 

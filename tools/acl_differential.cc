@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ACL differential (mani-0019): an FBX file's clips, imported by Maul
+// The ACL differential: an FBX file's clips, imported by Maul
 // Anim at 30 samples a second in metres, each handed as the same samples
 // to ACL (its default settings, its transform metric) and to
 // maniCompressClip, with the same precision, shell distance and rest

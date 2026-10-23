@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skins (mani-0005): the bones a mesh is bound to, in the mesh's order,
+// Skins: the bones a mesh is bound to, in the mesh's order,
 // each with its inverse bind matrix, read in place from a skin file and
 // bound to one skeleton by its identity; and the palettes a renderer
 // skins with.
@@ -67,7 +67,7 @@ extern "C"
     MANI_API uint64_t maniSkinSkeletonIdentity(const maniSkin* skin);
 
     /// Returns the skin's own identity, which influences record to bind
-    /// to it (mani-0021).
+    /// to it.
     ///
     /// @param skin  An opened skin.
     /// @return The identity.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF skeletons and skins (mani-0008): bones from skins' joints with
+// glTF skeletons and skins: bones from skins' joints with
 // the nodes between, skins sharing nodes grouped (checked against a
 // brute force over random forests), placement reported or folded, the
 // basis change, matrix nodes, bone names, and bind-pose palettes that

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX fixtures (test/data/fbx, mani-0018): scenes written for maul-anim,
+// FBX fixtures (test/data/fbx): scenes written for maul-anim,
 // in ASCII and in binary forms (13- and 25-byte records, deflated
 // arrays, a big-endian file) from tools/fbx_fixtures.py, imported whole
 // and checked against ufbx's values for them (fbx_fixture_expect.h, by

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The learned model builder's checks other builders share (mani-0025).
+// The learned model builder's checks other builders share.
 
 #ifndef MAUL_ANIM_SRC_LEARNED_BUILD_H
 #define MAUL_ANIM_SRC_LEARNED_BUILD_H

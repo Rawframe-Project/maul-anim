@@ -3,7 +3,7 @@
 //
 // The host's code an owner object runs (its allocator, its task hooks),
 // behind the library's own functions, which mark the object while the
-// host's code runs (mani-0028): a function of the object called back in
+// host's code runs: a function of the object called back in
 // from there is refused with mani_errorState and one misuse counted.
 
 #ifndef MAUL_ANIM_SRC_HOST_CODE_H

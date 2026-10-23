@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Checking a graph source's learned motion matching nodes as its build
-// does (mani-0025).
+// does.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_LEARNED_CHECK_H
 #define MAUL_ANIM_SRC_GRAPH_LEARNED_CHECK_H

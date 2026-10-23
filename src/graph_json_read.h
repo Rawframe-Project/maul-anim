@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Reading the graph JSON form (mani-0023), the parts every list uses:
+// Reading the graph JSON form, the parts every list uses:
 // objects with their members checked, names decoded and looked up in
 // tables sorted by hash, numbers and scalars; the first fault kept with
 // its byte offset. Offline.

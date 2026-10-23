@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX objects, connections, properties and settings (mani-0013): a 7.x
+// FBX objects, connections, properties and settings: a 7.x
 // and a 6.x document read into objects found by id or name, their
 // connections from both ends, properties falling back to templates,
 // and GlobalSettings' axes, units and exact frame rates; then each
@@ -235,7 +235,7 @@ static void ExpectRefusal(const char* at, const char* what)
 
 // An id given twice is kept by its first object, as ufbx keeps it: the
 // later one stays an object that no id finds, counted.
-// Names made valid UTF-8 as ufbx makes them (mani-0012): valid
+// Names made valid UTF-8 as ufbx makes them: valid
 // sequences of two to four bytes kept; a byte of no sequence (C1), an
 // overlong form, a surrogate, a code past U+10FFFF and a cut sequence
 // each a U+FFFD per byte; whole characters up to a capacity; counted

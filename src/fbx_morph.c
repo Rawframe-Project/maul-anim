@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX blend shapes as morph targets (mani-0021), as ufbx reads them: a
+// FBX blend shapes as morph targets, as ufbx reads them: a
 // set a BlendShape deformer (its BlendShapeChannels the channels, their
 // Shape geometries the targets at FullWeights / 100) or, before 7.2, a
 // mesh holding Shape children (each a channel of one target at 1). A

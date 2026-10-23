@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skinning jobs (mani-0021). Every method makes each vertex's matrix, then
+// Skinning jobs. Every method makes each vertex's matrix, then
 // applies it to the vertex's streams. Linear: the palette matrices summed
 // at their weights in the influences' order (the heaviest first, stopping
 // at the first weight of 0). Dual quaternion: the scale and shear parts

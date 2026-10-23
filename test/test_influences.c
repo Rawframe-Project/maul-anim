@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Influences (mani-0021): built from any number of influences a vertex,
+// Influences: built from any number of influences a vertex,
 // sorted, renormalized and padded; every refusal of the builder; opening
 // refusing crafted files, offsets reported; binding to the skin; the
 // bytes pinned. Run as test_influences --seed <file> it writes the

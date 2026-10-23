@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// State machines' words (mani-0023): a machine's data words read, and its
+// State machines' words: a machine's data words read, and its
 // block in an instance (current state, running transition, fade and
 // state clocks, the record of its leading clip, per state weights, per
 // transition timers, per condition heard bits) read, written, reset to

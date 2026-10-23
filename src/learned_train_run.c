@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's trainer (mani-0025): its stages begun, stepped and
+// A learned model's trainer: its stages begun, stepped and
 // ended, and the model built from its networks.
 
 #include "allocator.h"

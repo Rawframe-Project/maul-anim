@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX's local transform (mani-0014): sines exact at right angles, Euler
+// FBX's local transform: sines exact at right angles, Euler
 // rotations in each order against ufbx's closed forms, the pivot and
 // offset chain against the product of its factors, the rotation space
 // switches, matrix inverses, and each refusal.

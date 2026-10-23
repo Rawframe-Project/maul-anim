@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The JSON text form of graphs (mani-0023): a source with every node
+// The JSON text form of graphs: a source with every node
 // kind, every parameter type and a subgraph written as the pinned text;
 // a source that does not build refused as the build refuses it; the
 // allocator failing at each allocation. Run as test_graph_json --seed

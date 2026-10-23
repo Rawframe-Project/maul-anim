@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a skin file (mani-0005), and on success reading every joint;
+// Opening a skin file, and on success reading every joint;
 // then the same bytes with the payload's hash made right, so that
 // mutations reach the checks behind it. Run as fuzz_skin <corpus dir>;
 // the seed comes from test_skin --seed <file>.

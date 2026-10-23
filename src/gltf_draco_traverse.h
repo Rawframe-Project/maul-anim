@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The order Draco's Edgebreaker attributes are decoded in (mani-0021): a
+// The order Draco's Edgebreaker attributes are decoded in: a
 // traversal of a corner table, depth first or by prediction degree, from
 // each face's first corner in turn, as Google's sequencer runs it. Each
 // vertex reached first gives the next value, at the point of the corner

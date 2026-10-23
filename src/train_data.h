@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's training data (mani-0025), frame by frame of its
+// A learned model's training data, frame by frame of its
 // motion database: the normalized features; the Decompressor's targets
 // in its output layout (each bone's local translation and first two
 // rotation columns, the scaled bones' scales, the root's velocity and

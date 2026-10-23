@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Corner tables as Google's decoder builds them (mani-0021). A walk
+// Corner tables as Google's decoder builds them. A walk
 // around a vertex visits each corner once in a valid table; a corner
 // reached twice, by any vertex's walk, makes the table invalid, so a
 // crafted one cannot loop or cost more than its corners.

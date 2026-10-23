@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring bone nodes' words (mani-0026): a node's data words read and
+// Spring bone nodes' words: a node's data words read and
 // checked on open and against its set at binding, its block in an
 // instance (the time its updates gave, then a spring state's block)
 // checked when a saved state restores it, and its pose.

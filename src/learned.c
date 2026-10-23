@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model file's view (mani-0025): every section checked once as
+// A learned model file's view: every section checked once as
 // hostile input (the networks' shapes against their roles, every value
 // and name), then read in place.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Learned models (mani-0025): a model of random networks built and
+// Learned models: a model of random networks built and
 // opened, its records read back; every evaluation equal bit for bit to a
 // plain evaluation in the same order (normalized inputs, biases, each
 // nonzero input times its weights, ReLU, denormalized outputs); the

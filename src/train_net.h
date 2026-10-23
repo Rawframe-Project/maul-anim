@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A dense network in training (mani-0025): its parameters layer by layer
+// A dense network in training: its parameters layer by layer
 // (weights input by input, then biases), forward and backward over a
 // chunk of samples. Every sum runs in a fixed order in binary32: the
 // forward pass as a model's evaluation (biases, then each nonzero input

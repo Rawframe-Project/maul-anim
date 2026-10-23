@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A one-shot stepped at the start of an update (mani-0023): its fade
+// A one-shot stepped at the start of an update: its fade
 // advanced, then its triggers read.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_SHOT_STEP_H

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Inverse kinematics on a pose (mani-0029, mani-0030): a two-bone chain
+// Inverse kinematics on a pose: a two-bone chain
 // bent to reach a goal and turned toward a pole; a bone aimed at a goal,
 // or a chain of up to MANI_AIM_MAX_BONES sharing the turn (a look-at
 // over spine, neck and head), its up toward a pole; a longer chain bent

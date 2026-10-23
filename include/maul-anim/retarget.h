@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Retargeting maps (mani-0032): how poses of one skeleton (the source)
+// Retargeting maps: how poses of one skeleton (the source)
 // become poses of another (the target). A map is built offline for its
 // two skeletons (retargetbuild.h) and opened in place; each target bone
 // takes its rotation from a source bone, from two neighbors along a

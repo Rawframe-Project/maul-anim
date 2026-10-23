@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Binary32 to decimal (mani-0023): the value's exact decimal expansion in
+// Binary32 to decimal: the value's exact decimal expansion in
 // a small base-1e9 integer, then each length from 1 to 9 digits tried,
 // its two nearest candidates read back through maniDecimalToBinary; the
 // first length that reads back wins, the nearer candidate (the even one

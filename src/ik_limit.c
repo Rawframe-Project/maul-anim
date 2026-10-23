@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Joint limits (mani-0030). A turn r splits into a swing and a twist,
+// Joint limits. A turn r splits into a swing and a twist,
 // r = swing twist, the twist r's rotation about the axis (r's vector
 // part projected onto it, normalized) and the swing the rest, about an
 // axis perpendicular to it. Angles come from the library's own arc

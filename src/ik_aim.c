@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Aim and look-at (mani-0029), after ozz-animation's IKAimJob: the
+// Aim and look-at, after ozz-animation's IKAimJob: the
 // aiming bone's forward line through its offset point moved so the
 // point aims at the goal (the forward replaced by the vector from the
 // bone to where that line meets the sphere of the goal's distance), the

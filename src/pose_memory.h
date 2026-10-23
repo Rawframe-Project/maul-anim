@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What other modules read of a pose's memory (mani-0004).
+// What other modules read of a pose's memory.
 
 #ifndef MAUL_ANIM_SRC_POSE_MEMORY_H
 #define MAUL_ANIM_SRC_POSE_MEMORY_H

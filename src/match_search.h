@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The exact search (mani-0024) for callers holding a query already
+// The exact search for callers holding a query already
 // normalized, as a motion matching node does with its continuing frame's
 // features.
 
@@ -20,7 +20,7 @@ maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQu
 
 // maniMatchSearch with the continuing frame scored by continuing (its
 // features, normalized; NULL for the database's): a node playing between
-// frames scores its continuing frame as at its playhead (mani-0024).
+// frames scores its continuing frame as at its playhead.
 maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMatchQuery* query,
                                bool normalized, const float* continuing,
                                maniMatchResult* resultOut);
@@ -29,7 +29,7 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
 // frames (a + w (b - a) a feature): each bone facing, a direction, made
 // unit again in the database's raw units (unless shorter than a
 // thousandth: directions near opposite), as the blend of two unit
-// directions falls inside their arc (mani-0024).
+// directions falls inside their arc.
 void maniMatchFacings(const maniMotionDatabase* database, float* features);
 
 #endif // MAUL_ANIM_SRC_MATCH_SEARCH_H

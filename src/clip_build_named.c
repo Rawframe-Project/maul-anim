@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A clip's named items at build (mani-0006): float tracks sampled on the
+// A clip's named items at build: float tracks sampled on the
 // grid, discrete tracks, events and markers, each checked, tracks sorted
 // by name hash (repeats refused) and events and markers by time (ties in
 // source order), their names laid end to end.

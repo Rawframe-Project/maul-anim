@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graphs playing another skeleton's clips through retargeting maps
-// (mani-0032): a walk with root motion and an additive lean of the
+// Graphs playing another skeleton's clips through retargeting maps:
+// a walk with root motion and an additive lean of the
 // source, both mapped, under an additive node of the target's graph;
 // each evaluation the transfer of the walk plus the lean carried as the
 // bake carries it, each update's root motion the walk's scaled; the map

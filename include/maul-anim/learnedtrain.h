@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Training learned motion matching models (mani-0025) in the library,
+// Training learned motion matching models in the library,
 // from a motion database, its clips and skeleton: Holden's networks,
 // losses and optimizer, the same bits on every platform, with any thread
 // count and across checkpoints.
@@ -27,8 +27,7 @@ extern "C"
 
     // A trainer: the networks of one model in training. Training,
     // restoring and destroying refuse a call back in from the trainer's
-    // allocator or task hooks with mani_errorState and count one misuse
-    // (mani-0028).
+    // allocator or task hooks with mani_errorState and count one misuse.
     typedef struct maniLearnedTrainer maniLearnedTrainer;
 
     typedef struct maniLearnedTrainerDef
@@ -172,7 +171,7 @@ extern "C"
         maniLearnedTrainer** trainerOut);
 
     /// Destroys a trainer. Called back in from the trainer's allocator or
-    /// task hooks it destroys nothing and counts one misuse (mani-0028).
+    /// task hooks it destroys nothing and counts one misuse.
     ///
     /// @param trainer  The trainer, or NULL.
     /// @par Thread safety
@@ -180,7 +179,7 @@ extern "C"
     MANI_API void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer);
 
     /// The misuses counted on a trainer: calls back in from its allocator
-    /// or task hooks, which are refused with mani_errorState (mani-0028).
+    /// or task hooks, which are refused with mani_errorState.
     ///
     /// @param trainer  A trainer, or NULL (0).
     /// @return The count.

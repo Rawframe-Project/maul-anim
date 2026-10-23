@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ragdoll profile file's layout (mani-0027), shared by its view and
+// The ragdoll profile file's layout, shared by its view and
 // its builder: kind 12 of the container. Records are little-endian.
 // Bodies are ordered by bone, so a parent body comes before its children
 // and the root is the first.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A small learned model (mani-0025) over a fuzz target's database, for
+// A small learned model over a fuzz target's database, for
 // the hosts of the graph fuzz targets: 2 latent values, hidden layers of
 // 4, one Projector of every frame, one event, fixed weights. Included by
 // one fuzz target each.

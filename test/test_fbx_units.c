@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skeletons found at open (mani-0014): skins' linked models and limb
+// FBX skeletons found at open: skins' linked models and limb
 // chains as units, a skin joining two chains under their common
 // ancestor, limbs by subclass or by node attribute, a mesh below a limb
 // left out, a skin linking nothing, the 6.x form, and the refusal of a

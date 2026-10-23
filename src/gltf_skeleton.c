@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skeletons and skins from a glTF document (mani-0009):
+// Skeletons and skins from a glTF document:
 // bones from skins' joints or a node's subtree, rests from TRS or
 // decomposed matrices, names made unique by a fixed rule, the placement
 // above the root reported or folded, the basis change applied, skins

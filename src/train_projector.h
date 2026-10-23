@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A Projector's training (mani-0025), as Holden's train_projector.py:
+// A Projector's training, as Holden's train_projector.py:
 // the network's input is a query of features normalized by each value's
 // mean and one deviation over all; its output the features and latent
 // values of the frame the match node's exact search finds for the query

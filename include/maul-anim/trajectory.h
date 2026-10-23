@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A character's trajectory predicted for motion matching (mani-0024):
+// A character's trajectory predicted for motion matching:
 // Holden's critically damped springs, in closed form, take a simulated
 // root toward a desired velocity and rotation; its samples, predicted or
 // recorded, become the query values of a database's trajectory channels.

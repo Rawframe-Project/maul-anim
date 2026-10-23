@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Mirroring poses and root moves through a mirror map (mani-0033): each
+// Mirroring poses and root moves through a mirror map: each
 // bone takes its partner's local, the translation's normal component
 // negated and turned by the bone's A, the rotation mirrored between its A
 // and B, the scale carried by B (each axis the partner's axis B takes

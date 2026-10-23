@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring bones (mani-0026): chains of bones that sway behind the motion
+// Spring bones: chains of bones that sway behind the motion
 // as VRMC_springBone 1.0 defines them, with its extended colliders
 // (inside spheres and capsules, planes) and angle limits (cones, hinges,
 // spherical limits). A set is built offline for one skeleton, its
@@ -153,7 +153,7 @@ extern "C"
     /// (positions and forces linearly, rotations along the shorter arc);
     /// time short of a step is kept for the next call. Tails move by
     /// inertia less drag, toward the pose's direction by stiffness and by
-    /// gravity and the external force in the world (mani-0026), keep
+    /// gravity and the external force in the world, keep
     /// their bone's length, leave colliders (or stay
     /// inside inside ones) and keep within their limits; a spring with a
     /// center bone carries its inertia in the center's space.

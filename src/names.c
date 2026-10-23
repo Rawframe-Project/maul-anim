@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Bone names (mani-0009, mani-0014), fixed per document. Repeats are
+// Bone names, fixed per document. Repeats are
 // found through a stable sort of the names' hashes: within a run of equal
 // hashes, a name equal to the run's first is a repeat, and only a true
 // hash collision falls back to comparing with each earlier name of the

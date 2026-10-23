@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Getting up from a ragdoll (mani-0027) on the fixture's profile (the
+// Getting up from a ragdoll on the fixture's profile (the
 // pelvis the root body, facing +z, up +y): upright (face up by the tie,
 // looking where the chest faces), turned; lying face down (looking where
 // the head lay) and face up (toward the feet), and face up turned a

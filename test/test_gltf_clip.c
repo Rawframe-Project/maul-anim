@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF animations as clips (mani-0010): a rig with an animated placement
+// glTF animations as clips: a rig with an animated placement
 // node, a slerped hip, a cubic spine, a stepped head, morph weights on a
 // skinned mesh, a pointer channel, a channel for another rig and one
 // with no target. The clip's samples are checked against glTF's Appendix

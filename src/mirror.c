@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a mirror map (mani-0033): the container, the header, each
+// Opening a mirror map: the container, the header, each
 // bone's partner (pairing back) and corrections (finite, of length 1),
 // the name pairs (by increasing hash, each partner's name inside the
 // names, UTF-8, of its hash), the identity; and the map's readers.

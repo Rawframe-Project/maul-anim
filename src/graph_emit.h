@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An update in progress (mani-0023), shared by the update and the motion
+// An update in progress, shared by the update and the motion
 // matching nodes' step: its instance, events and root motion, the events
 // a stretch of a clip passes, and an inertialize node's request.
 

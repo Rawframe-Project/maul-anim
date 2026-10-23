@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blend spaces' weights (mani-0023): where a position falls among a
+// Blend spaces' weights: where a position falls among a
 // space's points, as the update shares weights and the evaluation blends
 // by them, the same binary32 operations for both.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Baking clips through a retargeting map (mani-0032): every sample of the
+// Baking clips through a retargeting map: every sample of the
 // baked clip the pose transfer of the source's (from a full-precision and
 // a compressed source); the timing, float tracks (a step one stays a
 // step), discrete tracks, events and markers kept; channels at the

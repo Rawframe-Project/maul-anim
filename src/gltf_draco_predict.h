@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's mesh prediction schemes (mani-0021), reverted as Google's
+// Draco's mesh prediction schemes, reverted as Google's
 // decoder reverts them: parallelogram, multi-parallelogram, constrained
 // multi-parallelogram, portable texture coordinates and geometric
 // normals, over an attribute's corner table and decoding order, each

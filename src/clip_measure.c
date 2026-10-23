@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// How far a clip plays from its source (mani-0006): the clip sampled
+// How far a clip plays from its source: the clip sampled
 // through its own functions at every sample time and halfway between,
 // against the source evaluated in binary64, and how late each step key
 // plays once moved onto the grid.

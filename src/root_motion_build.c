@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Taking root motion out of a bone at build (mani-0022), in binary64: at
+// Taking root motion out of a bone at build, in binary64: at
 // each sample the bone's local transform gives the motion M (its
 // translation from a reference along the chosen axes, its rotation from a
 // reference whole or as the twist about an axis), the loop option spreads

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Folding and the bit rate search by the shell metric (mani-0019), after
+// Folding and the bit rate search by the shell metric, after
 // ACL's v2. Each bone has its own shell (distance and precision) and a
 // dominant one, grown leaves first to reach its descendants. A bone
 // channel folds to the rest or to its first value when the bone, under

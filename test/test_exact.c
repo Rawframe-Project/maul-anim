@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Exact predicates and Delaunay triangulations (mani-0023): orientation
+// Exact predicates and Delaunay triangulations: orientation
 // and in-circle signs against long double on small integers, the same at
 // scales from 2^-140 to 2^100, subnormals and the widest finite values;
 // triangulations of random sets (grids full of ties, collinear runs,

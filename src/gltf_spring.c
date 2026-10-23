@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// `VRMC_springBone` 1.0 as spring bone sources (mani-0011): colliders,
+// `VRMC_springBone` 1.0 as spring bone sources: colliders,
 // collider groups and springs read with the schema's defaults and
 // ranges, the specification's rules on chains and centers checked,
 // nodes bound to bones by name, vectors moved into the output's basis.

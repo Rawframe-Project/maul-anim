@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Stepping spring tails and turning joints toward them (mani-0026). A
+// Stepping spring tails and turning joints toward them. A
 // call runs the steps due at the set's rate, each with its inputs (the
 // joints' heads and tails, the colliders' and centers' bones in model
 // space, and the character's placement) interpolated between the last

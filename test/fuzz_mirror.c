@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a mirror map (mani-0033), and on success reading every bone's
+// Opening a mirror map, and on success reading every bone's
 // partner (within the count, pairing back) and every name pair's
 // partner; then the same bytes with the payload's hash made right, and
 // then the identity too, so that mutations reach the checks behind them.

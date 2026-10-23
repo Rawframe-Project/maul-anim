@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Reading the maps' JSON forms (mani-0034) against map_json_assets.h's
+// Reading the maps' JSON forms against map_json_assets.h's
 // rigs: any text is refused or built, as a retargeting map and as a
 // mirror map, a refusal of the text points inside it, and a map built
 // opens. Run as fuzz_map_json <corpus dir>; the seeds come from

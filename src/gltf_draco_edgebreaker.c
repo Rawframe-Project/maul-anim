@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Edgebreaker decoding in Google's order (mani-0021): the counts, the
+// Edgebreaker decoding in Google's order: the counts, the
 // topology split events, the traversal's symbols (bits, or for valence
 // six contexts of symbols chosen by the active vertex's valence), the
 // start faces' and every attribute data's seam decisions (rABS), then

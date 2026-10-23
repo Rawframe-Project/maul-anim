@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the full-body solvers do before their passes (mani-0031), seen
+// What the full-body solvers do before their passes, seen
 // through XPBD solves whose effectors have strength 0, so the passes
 // move nothing: a pulled chain aimed exactly at its goal, its shape and
 // the other arm kept, half a pull turning half the angle; preferred

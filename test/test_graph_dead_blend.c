@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Dead blending (mani-0023): the walk extrapolated from its last output
+// Dead blending: the walk extrapolated from its last output
 // at its speed and blended into the run, with the least, the computed
 // and the longest half-life; a still turn slerped into the next; scale
 // in log space, an axis turned negative holding; a turn's speed and

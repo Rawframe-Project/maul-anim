@@ -4,7 +4,7 @@
 // Decimal numbers as JSON writes them, converted to binary32 or binary64
 // correctly rounded (half to even), or to whole numbers, with integer
 // arithmetic only: the same bits under any floating-point environment,
-// and no C library (mani-0007).
+// and no C library.
 
 #ifndef MAUL_ANIM_SRC_DECIMAL_H
 #define MAUL_ANIM_SRC_DECIMAL_H

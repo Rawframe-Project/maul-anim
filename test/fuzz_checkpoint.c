@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Restoring a learned model trainer's checkpoint (mani-0025) from any
+// Restoring a learned model trainer's checkpoint from any
 // bytes into the trainer of checkpoint_host.h; then the same bytes with
 // the payload's hash made right, and then the identity the trainer's
 // signature too, so that mutations reach the checks behind them. A
@@ -64,7 +64,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         return;
     }
     // Every value of an accepted checkpoint is checked: its sections save
-    // back whole (the gaps between them are the container's, mani-0002).
+    // back whole (the gaps between them are the container's).
     size_t saved = maniLearnedCheckpointSize(s_trainer);
     uint8_t* block = malloc(saved + 16);
     if (block == NULL)

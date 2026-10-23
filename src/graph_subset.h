@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A subset plan's layout (mani-0035): the bones the plan computes and
+// A subset plan's layout: the bones the plan computes and
 // writes (the listed ones, their ancestors and what the graph's nodes
 // read to write them, strictly increasing), per group of a pose's bones
 // whether it holds one of them, and per node whether it runs (a node that

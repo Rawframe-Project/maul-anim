@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Motion matching nodes (mani-0024): the first search's pick, played as
+// Motion matching nodes: the first search's pick, played as
 // its clip (pose, root motion across the walk's loop, events with the
 // node and clip slot); searches on the period and on the trigger
 // (consumed), each jump requesting the node's duration of the
@@ -436,7 +436,7 @@ static void TestContinuingFrame(void)
           "a neighbor of frame 17");
 }
 
-// The playhead between two frames (mani-0024). On the run (its hips' x
+// The playhead between two frames. On the run (its hips' x
 // 3 t, frames 0.3 apart) at 0.79 s the continuing frame (0.7) is scored
 // as at the playhead, so the node plays on where the frame's own
 // features (2.1 against the query's 2.37) would lose to the frame at
@@ -530,7 +530,7 @@ static void TestInterpolated(void)
     CHECK(entry == 0 && t == (double)0.6f, "a loop's last frame toward its first");
 }
 
-// A request answered (mani-0024): under bone and trajectory channels, the
+// A request answered: under bone and trajectory channels, the
 // walk playing, the parameter ahead set to x; the searches, one each
 // 0.1 s, until the node plays the run (0 for none in 20).
 static uint32_t SearchesToLeave(float x)

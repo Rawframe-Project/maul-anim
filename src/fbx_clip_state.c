@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An FBX clip build's sample times (mani-0016).
+// An FBX clip build's sample times.
 
 #include "fbx_clip_state.h"
 

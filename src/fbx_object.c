@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX objects, connections, templated properties and settings
-// (mani-0013). Objects are the children of `Objects`, found by id
+// FBX objects, connections, templated properties and settings.
+// Objects are the children of `Objects`, found by id
 // through a sorted index (7.x ids; 6.x objects keyed by a hash of their
 // `Class::Name`); connections are indexed from both ends by counting
 // sorts; a property an object lacks comes from its template in
@@ -140,7 +140,7 @@ static uint32_t SubclassOf(const maniFbx* fbx, uint32_t node)
 {
     if (fbx->version < 6000)
     {
-        // A model's Type child (mani-0017).
+        // A model's Type child.
         uint32_t type = maniFbxFindChild(fbx, node, "Type", 4);
         return type != MANI_FBX_NONE ? maniFbxNodeProperty(fbx, type, 0) : MANI_FBX_NONE;
     }
@@ -567,7 +567,7 @@ static const uint32_t kRates[19][2] = {
     {0, 0},  {96, 1},       {72, 1},       {60000, 1001}, {120000, 1001},
 };
 
-// The rate as ufbx fills it from a legacy rate (mani-0017): TimeMode's,
+// The rate as ufbx fills it from a legacy rate: TimeMode's,
 // else 14 when there is one; CustomFrameRate's, else the legacy rate.
 static maniImportResult ReadRate(maniFbx* fbx, uint32_t properties, double legacyRate)
 {
@@ -864,7 +864,7 @@ bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry)
            memchr(flags, 'U', length) != NULL;
 }
 
-// Before 6.0 (mani-0017), a model has an attribute when its Type is a
+// Before 6.0, a model has an attribute when its Type is a
 // LimbNode, Light or Camera or it holds Vertices; it is a mesh with
 // Vertices and PolygonVertexIndex. The subclass is never Model there.
 static bool LegacySubclass(const maniFbx* fbx, uint32_t node, uint32_t* subclassOut, bool* meshOut)

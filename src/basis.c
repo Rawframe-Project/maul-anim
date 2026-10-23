@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The basis change (mani-0009, mani-0014). Output axis i is input axis
+// The basis change. Output axis i is input axis
 // p[i] times s[i]; every operation is a copy or a sign flip, so it is
 // exact, and only the unit's scaling of translations rounds.
 

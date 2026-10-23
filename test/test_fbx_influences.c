@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX influences (mani-0021): clusters' Indexes and Weights a control
+// FBX influences: clusters' Indexes and Weights a control
 // point at a time, a cluster's repeated index summed, an index past the
 // control points skipped, a cluster linking nothing left; the skinning
 // method from SkinningType and the blend weights; the 6.x form; the

@@ -11,7 +11,7 @@
 // end, its trigger is set (consumed) or its period passed since the last
 // search. The query's bone channels are the continuing frame's features
 // as the database keeps them (normalized; 0, their mean, with no entry),
-// interpolated to the playhead toward the entry's next frame (mani-0024);
+// interpolated to the playhead toward the entry's next frame;
 // its trajectory and float channels its parameters, normalized as the
 // database's. The continuing frame is scored as at the playhead too, its
 // features interpolated the same way, so playing on costs no bone
@@ -208,7 +208,7 @@ static float LoadF32(const uint8_t* p)
 }
 
 // The continuing frame's features interpolated to the playhead
-// (mani-0024) into here; the query into out: their bone channels, the
+// into here; the query into out: their bone channels, the
 // parameters' trajectory and float channels, normalized.
 static void Query(const Match* m, Continuing at, float* here, float* out)
 {

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The forward cursor (mani-0019): two cached
+// The forward cursor: two cached
 // samples of a compressed clip, decoded once and interpolated by the
 // sampler's own code, so its poses are random access's bits. Bound to a
 // clip by identity and address, as ACL's context binds by a hash. On a
 // vector backend the samples are also held in the pose's groups, and a
-// pose is one interpolation a group (clip_lanes.h, mani-0039).
+// pose is one interpolation a group (clip_lanes.h).
 
 #include "clip_lanes.h"
 #include "clip_view.h"
@@ -219,7 +219,7 @@ maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
     maniClipPair pair = maniClipLocate(clip, time);
     Load(cursor, clip, &pair);
 #if defined(MANI_CLIP_LANES)
-    // The groups when the memory holds them for this clip (mani-0039),
+    // The groups when the memory holds them for this clip,
     // else the decoded samples alone, walked: the same bits either way.
     if (clip->compressed && cursor->floats > 0 &&
         HeldFloats(clip, cursor->floats, true) <= cursor->capacity)

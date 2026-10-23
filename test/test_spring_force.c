@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring bones' external force (mani-0026) on the fixture's chain: a
+// Spring bones' external force on the fixture's chain: a
 // force moves the chain as gravity of the same size and direction does,
 // in the world whatever the character's turn, scaled with the head, at
 // the reference's step and at another; a wind changing every frame moves

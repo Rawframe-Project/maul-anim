@@ -14,7 +14,7 @@
 // order; a facing is the forward axis turned by the move's rotation,
 // projected the same way (not renormalized, as Holden's). A mirrored
 // entry's poses are mirrored and its moves reflected through the
-// source's mirror map (mani-0033), as a mirrored clip's would be.
+// source's mirror map, as a mirrored clip's would be.
 
 #include "match_sample.h"
 

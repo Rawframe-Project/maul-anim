@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The inertialize suites' helpers (mani-0023): an inertialize node over a
+// The inertialize suites' helpers: an inertialize node over a
 // machine of two clips switched inertially by a trigger, updates with
 // their evaluation, the node's block read, and dead blending's node
 // source. Included by one suite each.

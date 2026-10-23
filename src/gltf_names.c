@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Node names (mani-0009), fixed per document: each node's name decoded,
+// Node names, fixed per document: each node's name decoded,
 // then named as every importer names its bones (names.c).
 
 #include "gltf_names.h"

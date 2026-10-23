@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a skin file (mani-0005): every joint and matrix checked, the
+// Building a skin file: every joint and matrix checked, the
 // skeleton's identity and bone count recorded.
 
 #include "allocator.h"

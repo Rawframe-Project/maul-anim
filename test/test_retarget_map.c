@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Retargeting maps (mani-0032) between a source of three spine bones and
+// Retargeting maps between a source of three spine bones and
 // a two-bone arm and a target of four spine bones and a three-bone arm:
 // each target bone's plan (a pair, an interpolated chain's places and
 // slerp points, one to one with extra bones at their reference, one to

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Root motion at build (mani-0022): the motion taken from a bone's local
+// Root motion at build: the motion taken from a bone's local
 // transform at each sample, from each reference, along the chosen axes
 // and as a twist or the whole rotation; the bone keeping the rest, so the
 // motion times the stored bone is the source; the loop option; the

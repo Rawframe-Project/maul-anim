@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX animation stacks (mani-0016): a stack's layers in connection
+// FBX animation stacks: a stack's layers in connection
 // order, their curve nodes bound to the properties they drive, and a
 // property's value at a time with every layer applied as ufbx applies
-// them (mani-0016).
+// them.
 
 #ifndef MAUL_ANIM_SRC_FBX_ANIM_H
 #define MAUL_ANIM_SRC_FBX_ANIM_H
@@ -42,7 +42,7 @@ typedef struct maniFbxLayer
 // when its count is 0 and keys NULL) over a static value. A 7.x curve
 // node's name is a string property of the file; a 6.x take's Transform
 // channels name the Lcl properties by a literal. A 6.x property that is
-// not the model's own belongs to its attribute (mani-0017). Refusals
+// not the model's own belongs to its attribute. Refusals
 // point at the file node source, with item the curve node (7.x) or the
 // target (6.x).
 typedef struct maniFbxChannel
@@ -66,11 +66,11 @@ typedef struct maniFbxAnimation
     maniFbxChannel* channels;
     uint32_t layerCount;
     uint32_t channelCount;
-    // The stack's range in ticks (mani-0016's order of sources).
+    // The stack's range in ticks (local times, else reference times, else its keys' span).
     int64_t start;
     int64_t stop;
-    // Channel names decoded with their " (Shape)" suffix cut (before 6.0,
-    // mani-0017), which those channels' literals point into; empty in
+    // Channel names decoded with their " (Shape)" suffix cut (before 6.0),
+    // which those channels' literals point into; empty in
     // later files.
     uint8_t* names;
     size_t namesSize;

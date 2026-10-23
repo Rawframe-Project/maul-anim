@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a retargeting map (mani-0032), and on success reading every
+// Opening a retargeting map, and on success reading every
 // target bone's plan: its source bones within the source's count (or
 // none), its kind known; then the same bytes with the payload's hash
 // made right, and then the identity too, so that mutations reach the

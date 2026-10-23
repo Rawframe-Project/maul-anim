@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Typed reads of a glTF document's properties (mani-0008).
+// Typed reads of a glTF document's properties.
 
 #include "gltf_property.h"
 

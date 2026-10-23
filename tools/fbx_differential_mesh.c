@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ufbx differential's mesh data (mani-0018, mani-0021): each skin's
+// The ufbx differential's mesh data: each skin's
 // influences against ufbx's skin vertices (ufbx's weights normalized as
 // maul-anim's are, a joint's repeated weights summed), its blend weights,
 // and its control points skinned at rest by the skin's method against

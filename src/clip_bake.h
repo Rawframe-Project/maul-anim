@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Baking a clip into another (mani-0032, mani-0033): each sample of a
+// Baking a clip into another: each sample of a
 // clip carried by a kind's pose carry into linear keys at the same times
 // (an additive clip's differences added to the rest, carried, and taken
 // from the rest carried), channels at the rest left out, float tracks

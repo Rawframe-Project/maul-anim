@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A state machine node's JSON form read (mani-0023): its entry, chain
+// A state machine node's JSON form read: its entry, chain
 // limit and transitions, each condition an object of one of three forms.
 // Offline.
 

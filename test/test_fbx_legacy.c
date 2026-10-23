@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX files before 6.0 (mani-0017): top-level models and their Children,
+// FBX files before 6.0: top-level models and their Children,
 // rest values from the last channel driving them in file order, the
 // legacy frame rate, against what ufbx gives for the same file.
 

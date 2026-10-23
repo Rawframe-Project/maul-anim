@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The trainer's generator (mani-0025): xoshiro256** seeded by
+// The trainer's generator: xoshiro256** seeded by
 // SplitMix64, as their authors give them, with uniform and Gaussian
 // values made by the library's own arithmetic, so a seed gives the same
 // values on every target.

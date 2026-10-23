@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// JSON as RFC 8259 defines it, read as hostile input (mani-0007): checked in
+// JSON as RFC 8259 defines it, read as hostile input: checked in
 // full, then laid out as a flat array of values in document order, each
 // a span of the text the caller keeps alive. Strings and numbers are
 // decoded when read. Offline.

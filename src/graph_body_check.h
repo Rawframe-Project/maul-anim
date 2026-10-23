@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A full-body IK node's source checked (mani-0031): its parameters and
+// A full-body IK node's source checked: its parameters and
 // scalars, and its bones, settings and numbers as the solve takes them
 // on the source's skeleton. Offline.
 

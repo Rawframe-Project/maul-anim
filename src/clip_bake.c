@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Baking a clip into another (mani-0032, mani-0033): the lists, each
+// Baking a clip into another: the lists, each
 // sample carried by the kind into the keys, the float tracks' values and
 // the moves, the channels at the rest left out, the named items copied
 // and renamed, then the clip built with its moves given (the root motion

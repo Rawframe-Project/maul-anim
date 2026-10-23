@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One network trained alone (mani-0025), as the Stepper and each
+// One network trained alone, as the Stepper and each
 // Projector are: its parameters, AdamW's moments, a step's transposed
 // weights, each chunk's gradients and their sum, and the normalization
 // of its inputs and outputs.

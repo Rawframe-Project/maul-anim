@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skins (mani-0015): joints from clusters by bone name, a cluster
+// FBX skins: joints from clusters by bone name, a cluster
 // linking nothing skipped, inverse binds from the cluster's Transform,
 // from TransformLink, from a bind pose and from the rest, each times the
 // mesh's geometric transform, in metres on request; the 6.x form with

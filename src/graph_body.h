@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Full-body IK nodes' words (mani-0031): their count from the effector
+// Full-body IK nodes' words: their count from the effector
 // and setting counts, checked on open, and a node's settings read back.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_BODY_H

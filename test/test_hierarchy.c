@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The node forest (mani-0009, mani-0014): depths and common ancestors of
+// The node forest: depths and common ancestors of
 // random forests against walks, cycles found, and groups of random units
 // against groups made from their member sets' intersections; plus the
 // walk that must jump past another unit's root to claim what lies above.

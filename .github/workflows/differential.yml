@@ -1,15 +1,15 @@
-# The ufbx differential (mani-0018): every file of ufbx's corpus, at the
+# The ufbx differential: every file of ufbx's corpus, at the
 # commit CMake pins, read by ufbx and by Maul Anim and compared, and the
 # fixtures' expected values written again and held against the committed
-# ones. The ACL differential (mani-0019): ozz-animation's Quaternius file
+# ones. The ACL differential: ozz-animation's Quaternius file
 # at 0.17.0, its clips compressed by ACL and by Maul Anim, sizes, errors
 # and times printed, every bone within the precision required. The ozz
-# differential (mani-0020): the same clips sampled and blended, with
+# differential: the same clips sampled and blended, with
 # masks and additive layers, by ozz's BlendingJob and by Maul Anim,
-# compared to binary32 rounding and timed. The IK differential
-# (mani-0029): random two-bone chains and aims solved by ozz's
+# compared to binary32 rounding and timed. The IK differential:
+# random two-bone chains and aims solved by ozz's
 # IKTwoBoneJob and IKAimJob and by Maul Anim. The retargeting
-# differential (mani-0032): random poses of a humanoid retargeted to
+# differential: random poses of a humanoid retargeted to
 # another by Godot 4.7.2's RetargetModifier3D, run headless, and by Maul
 # Anim, the model rotations compared. Weekly and by hand, not on every
 # commit: they fetch and build ufbx, ACL and ozz-animation, and fetch

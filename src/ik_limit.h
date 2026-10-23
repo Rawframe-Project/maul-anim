@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Joint limits (mani-0030): a bone's turn from its rest split into a
+// Joint limits: a bone's turn from its rest split into a
 // swing and a twist about its axis, each bounded; a hinge keeps only
 // the turn about its axis, within its range.
 

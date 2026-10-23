@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The first stage of a learned model's training (mani-0025): the
+// The first stage of a learned model's training: the
 // Compressor (ELU) and Decompressor (ReLU) trained together, as Holden's
 // train_decompressor.py. A batch is pairs of consecutive frames of one
 // entry; the Compressor maps each frame's inputs (normalized by each

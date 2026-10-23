@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body IK nodes (mani-0031) over the hips, spine and arm: an
+// The full-body IK nodes over the hips, spine and arm: an
 // XPBD node's output is its input solved as maniSolveBodyXpbd solves it,
 // an SDLS node's as maniSolveBodySdls, bit for bit, the effectors' goals
 // and rotation read from parameters, weights clamped (0 passing the

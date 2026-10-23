@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The JSON reader (mani-0007): numbers against an exact rational oracle in
-// both formats, binary32 written shortest against another (mani-0023),
+// The JSON reader: numbers against an exact rational oracle in
+// both formats, binary32 written shortest against another,
 // whole numbers, the grammar's refusals with their offsets, every proper
 // prefix of a document refused, the layout of values, lookups where names
 // repeat, escapes, depth and allocation failure. Run as test_json --seed

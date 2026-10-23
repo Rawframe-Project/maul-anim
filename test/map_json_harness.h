@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the maps' JSON tests (mani-0034) share: builders over an allocator
+// What the maps' JSON tests share: builders over an allocator
 // failing at one allocation, the byte offset of a marker in a text, and
 // texts refused with their reason, fault and offset.
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Sirac Ozmen
 #
-# The glTF fixtures' oracle (mani-0010): reads each sample model in
+# The glTF fixtures' oracle: reads each sample model in
 # test/data/gltf with its own small reader, evaluates every animation
 # channel as glTF's Appendix C defines it, in binary64, at the sample
 # times the clip builder uses (rate 30, the duration the animation's last

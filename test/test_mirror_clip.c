@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Mirrored clips (mani-0033) on a rig whose left and right clavicles,
+// Mirrored clips on a rig whose left and right clavicles,
 // arms and hands have unmirrored axes: every sample of the baked clip
 // the mirror of the clip's, its bits pinned, baking it again giving the
 // clip back; float tracks, discrete tracks, events and markers renamed

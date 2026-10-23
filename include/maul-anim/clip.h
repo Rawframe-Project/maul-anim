@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Clips (mani-0006): a skeleton's motion as samples on one uniform grid,
+// Clips: a skeleton's motion as samples on one uniform grid,
 // read in place from a clip file and bound to its skeleton by identity.
 // Sampling costs the same at any time, in any order.
 
@@ -33,7 +33,7 @@ extern "C"
         maniLoopRepeat = 1,
     };
 
-    // What an additive clip's differences are from (mani-0020): the
+    // What an additive clip's differences are from: the
     // skeleton's rest or the source's first sample; none for a clip of
     // poses.
     typedef uint32_t maniAdditiveBasis;
@@ -119,7 +119,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size,
                                                         maniClip* clipOut);
 
-    /// Returns whether a clip is compressed (mani-0019); a full-precision
+    /// Returns whether a clip is compressed; a full-precision
     /// clip is the build's output and the reference.
     ///
     /// @param clip  An opened clip.
@@ -162,7 +162,7 @@ extern "C"
     MANI_API maniLoopPolicy maniClipLoopPolicy(const maniClip* clip);
 
     /// Returns what an additive clip's differences are from; sampling an
-    /// additive clip writes a difference (mani-0020), its channels without
+    /// additive clip writes a difference, its channels without
     /// a track the identity.
     ///
     /// @param clip  An opened clip.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// KHR_draco_mesh_compression's primitives (mani-0021): the
+// KHR_draco_mesh_compression's primitives: the
 // extension's bufferView decoded, each attribute it names one of the
 // primitive's, its unique id in the stream, and its accessor the decoded
 // attribute's point count, component type and count, not sparse; the

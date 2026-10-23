@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The glTF document's parts (mani-0008): its JSON, its buffers, buffer
+// The glTF document's parts: its JSON, its buffers, buffer
 // views and accessors, shared by the modules that open and read it.
 
 #ifndef MAUL_ANIM_SRC_GLTF_DOCUMENT_H
@@ -152,7 +152,7 @@ struct maniGltf
 
 // Whether an accessor of non-vertex data reads as packed: from no view,
 // a view without a stride, or one whose stride is its element size,
-// which reads the same bytes (mani-0008).
+// which reads the same bytes.
 static inline bool maniGltfPacked(const maniGltf* gltf, const maniGltfAccessor* a)
 {
     return a->view == MANI_JSON_NONE || gltf->views[a->view].stride == 0 ||

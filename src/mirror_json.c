@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A mirror map's JSON form (mani-0034): built before written, its axis
+// A mirror map's JSON form: built before written, its axis
 // and places as words, its bones by name, its reference pose as the
 // bones not at their rest, pairs, rules, name pairs and names on a line
 // each. Read strictly, then built as maniBuildMirrorMap builds its

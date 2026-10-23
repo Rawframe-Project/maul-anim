@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// OMI joints as a ragdoll's joints (mani-0027): each joint node joins a
+// OMI joints as a ragdoll's joints: each joint node joins a
 // body to its nearest ancestor body, its frame the child side's node's
 // in the child body, the two sides together at rest; every linear axis
 // fixed, angular limits as twist (x) and symmetric swings (y, z);

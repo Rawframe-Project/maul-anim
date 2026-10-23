@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph's structure and an instance's nodes read for a debugger
-// (mani-0035): a node's kind, inputs and place in the source from its
+// A graph's structure and an instance's nodes read for a debugger:
+// a node's kind, inputs and place in the source from its
 // record, and what its last
 // update left in its state and its kind's block (a machine's state and
 // transition under way, a one-shot's phase, an inertialization's easing, a

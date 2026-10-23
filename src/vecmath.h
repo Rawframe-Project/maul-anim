@@ -3,7 +3,7 @@
 //
 // Vectors, unit quaternions and affine matrices in binary32. The small
 // operations are inline; every one is a fixed sequence of exactly rounded
-// operations, so results are the same bits everywhere (mani-0001).
+// operations, so results are the same bits everywhere.
 // Quaternions are (x, y, z, w); a * b turns by b, then by a. An affine
 // matrix holds its three columns, then the translation.
 

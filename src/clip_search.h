@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Folding and the bit rate search by the shell metric (mani-0019).
+// Folding and the bit rate search by the shell metric.
 
 #ifndef MAUL_ANIM_SRC_CLIP_SEARCH_H
 #define MAUL_ANIM_SRC_CLIP_SEARCH_H

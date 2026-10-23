@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX property values read on request (mani-0012): numbers, integers,
+// FBX property values read on request: numbers, integers,
 // strings, and arrays decoded (inflated if compressed) into caller
 // memory. Properties are indices into the document's property array.
 
@@ -37,7 +37,7 @@ uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property);
 bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b);
 
 // A string property's bytes, entities decoded, then made valid UTF-8 as
-// ufbx makes them (mani-0012): each valid sequence kept, each other byte
+// ufbx makes them: each valid sequence kept, each other byte
 // and NUL U+FFFD, so a byte can become three. Into out, whole characters
 // up to capacity: the count written; with out NULL, the count all take.
 size_t maniFbxStringDecode(const maniFbx* fbx, uint32_t property, uint8_t* out, size_t capacity);

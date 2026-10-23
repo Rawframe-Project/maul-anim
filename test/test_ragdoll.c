@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Ragdoll profiles (mani-0027): a humanoid's ragdoll (pelvis, chest
+// Ragdoll profiles: a humanoid's ragdoll (pelvis, chest
 // above a spine without a body, head, an arm of two bodies, the hand left
 // to the animation) built from bodies given out of order, opened and read
 // back: the bodies by bone, each parent the nearest ancestor with a body,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The binary FBX container (mani-0012) read into the document's tree.
+// The binary FBX container read into the document's tree.
 
 #ifndef MAUL_ANIM_SRC_FBX_BINARY_H
 #define MAUL_ANIM_SRC_FBX_BINARY_H

@@ -878,7 +878,7 @@ static void TestBatchTails(void)
 // A clip of no tracks: every bone its rest, bit for bit as the skeleton
 // holds it (the identity for an additive clip), on 7, 9 and 12 bones: a
 // group of eight turned whole and the bones past it one by one, a
-// difference's bones one by one (mani-0036).
+// difference's bones one by one.
 static void TestRestFill(void)
 {
     static const uint32_t kCounts[3] = {7, 9, 12};

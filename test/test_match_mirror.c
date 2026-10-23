@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Mirrored motion database entries (mani-0033) on a rig whose left and
+// Mirrored motion database entries on a rig whose left and
 // right arms have unmirrored axes: a database of a walk and the walk
 // mirrored holds, frame for frame, the features of one built over the
 // walk and its mirrored bake (bone positions, velocities and facings,

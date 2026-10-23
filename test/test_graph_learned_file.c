@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Learned motion matching nodes' files (mani-0025): the builder's
+// Learned motion matching nodes' files: the builder's
 // refusals of each field (no inertialize node above, literal tags no
 // Projector learned, a query not fitting the model's database);
 // opening's checks of every node word; binding's refusal of a model the

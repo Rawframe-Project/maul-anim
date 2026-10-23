@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One-sided Jacobi singular value decomposition (mani-0031), for the
+// One-sided Jacobi singular value decomposition, for the
 // full-body SDLS step.
 
 #ifndef MAUL_ANIM_SRC_JACOBI_SVD_H

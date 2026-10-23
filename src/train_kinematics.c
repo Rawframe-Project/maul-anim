@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Character space from a frame's Decompressor outputs (mani-0025); see
+// Character space from a frame's Decompressor outputs; see
 // train_kinematics.h. Matrices are column-major, three columns of three.
 
 #include "train_kinematics.h"
