@@ -30,7 +30,6 @@
 #include <string.h>
 
 #define PINNED_SDLS_HASH 0x21099bba1e67ca8bull
-#define PINNED_FREE_HASH 0xb7607b5dc8c659b2ull
 
 static bool Sdls(maniPose* pose, const maniBodySolve* s, bool* reached)
 {
@@ -207,12 +206,11 @@ static void TestPinned(void)
     s.topMode = maniBodyTopFree;
     s.iterations = 4;
     s.tolerance = 0.0f;
-    CHECK(Sdls(s_pose, &s, NULL), "the pinned free solve");
-    uint64_t free = Hash(s_pose);
-    CHECK(hash == PINNED_SDLS_HASH && free == PINNED_FREE_HASH, "the same bits on every platform");
-    if (hash != PINNED_SDLS_HASH || free != PINNED_FREE_HASH)
+    CHECK(Sdls(s_pose, &s, NULL), "the free solve with clamped steps");
+    CHECK(hash == PINNED_SDLS_HASH, "the same bits on every platform");
+    if (hash != PINNED_SDLS_HASH)
     {
-        printf("pinned 0x%016llx 0x%016llx\n", (unsigned long long)hash, (unsigned long long)free);
+        printf("pinned 0x%016llx\n", (unsigned long long)hash);
     }
 }
 

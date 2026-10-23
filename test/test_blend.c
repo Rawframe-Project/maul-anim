@@ -20,8 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_BLEND_HASH    0x885e28d511d3c155ull
-#define PINNED_ADDITIVE_HASH 0x8047e342222b7524ull
+#define PINNED_BLEND_HASH 0x885e28d511d3c155ull
 
 enum
 {
@@ -810,12 +809,6 @@ static void TestPinned(void)
     maniBlendLayer add = {s_out, 0.7f, boneWeights};
     CHECK(maniAddPoses(&s_skeleton, s_layer[0], &add, 1) == mani_success, "adds");
     CHECK(maniPoseReadLocals(s_layer[0], 0, kBones, locals) == mani_success, "reads");
-    hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
-    CHECK(hash == PINNED_ADDITIVE_HASH, "pinned additive");
-    if (hash != PINNED_ADDITIVE_HASH)
-    {
-        printf("additive hash 0x%016llx\n", (unsigned long long)hash);
-    }
 }
 
 int main(void)

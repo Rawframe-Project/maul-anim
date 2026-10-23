@@ -1,0 +1,29 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "speed", "type": "float", "default": 0},
+    {"name": "jump", "type": "trigger", "default": false},
+    {"name": "crouch", "type": "bool", "default": false},
+    {"name": "gait", "type": "int", "default": 0}
+  ],
+  "clips": [
+    "walk",
+    "run",
+    "wave",
+    "short",
+    "long",
+    "double",
+    "triple",
+    "turnA",
+    "turnB"
+  ],
+  "syncGroups": [],
+  "nodes": [
+    {"kind": "machine", "inputs": [1, 2, 3], "entry": 1, "chainLimit": 6, "transitions": [{"from": 0, "to": 1, "priority": 2, "interruption": "higher", "entry": "keep", "fade": "smoothstep", "duration": 0.5, "cooldown": 1, "conditions": [{"parameter": "speed", "compare": ">", "value": 1.5}, {"parameter": "crouch", "compare": "==", "value": true}, {"parameter": "gait", "compare": "<=", "value": -3}]}, {"from": "any", "to": 2, "priority": 1, "interruption": "none", "entry": "restart", "fade": "linear", "duration": 0, "cooldown": 0, "conditions": [{"trigger": "jump"}, {"timeInState": 0.25}]}], "finals": []},
+    {"kind": "clip", "clip": "walk", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "run", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "short", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false}
+  ],
+  "output": 0
+}

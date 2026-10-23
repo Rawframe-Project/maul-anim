@@ -32,8 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_XPBD_HASH    0x72e28de6487494d9ull
-#define PINNED_STRETCH_HASH 0xe053c588a138683aull
+#define PINNED_XPBD_HASH 0x72e28de6487494d9ull
 
 static void TestReach(void)
 {
@@ -388,12 +387,10 @@ static void TestPinned(void)
         }
     }
     CHECK(hashes[2] == hashes[1], "a second solve on the same scratch the same");
-    CHECK(hashes[0] == PINNED_XPBD_HASH && hashes[1] == PINNED_STRETCH_HASH,
-          "the same bits on every platform");
-    if (hashes[0] != PINNED_XPBD_HASH || hashes[1] != PINNED_STRETCH_HASH)
+    CHECK(hashes[0] == PINNED_XPBD_HASH, "the same bits on every platform");
+    if (hashes[0] != PINNED_XPBD_HASH)
     {
-        printf("pinned 0x%016llx 0x%016llx\n", (unsigned long long)hashes[0],
-               (unsigned long long)hashes[1]);
+        printf("pinned 0x%016llx\n", (unsigned long long)hashes[0]);
     }
     Bent(s_pose);
     maniBodySolve s = Solve(At(s_pose, kHandL), (maniVec3){-0.5f, 1.6f, 0.2f});

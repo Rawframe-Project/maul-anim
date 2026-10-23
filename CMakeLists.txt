@@ -24,6 +24,7 @@ option(MAUL_ANIM_TSAN "Instrument with ThreadSanitizer" OFF)
 option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
 option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
+option(MAUL_ANIM_TEST_PACKAGE "Test the installed package by building test/consumer against it" OFF)
 option(MAUL_ANIM_DIFFERENTIAL
        "Build the ufbx, ACL and ozz differentials (fetch ufbx, ACL, RTM and ozz-animation)" OFF)
 
@@ -352,8 +353,36 @@ if(MAUL_ANIM_BUILD_TESTS)
                 endif()
             endif()
         endforeach()
+        # An import past a memory limit: with its address space limited,
+        # malloc must refuse a small file's gigabytes, as Linux's
+        # overcommit would otherwise grant them, and the import fail with
+        # Capacity. The sanitizers reserve too much address space to run
+        # under a limit.
+        if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT MAUL_ANIM_SANITIZE AND NOT MAUL_ANIM_TSAN)
+            add_test(NAME guide_import_memory_limit
+                     COMMAND sh -c "ulimit -v 4194304 && exec \"$0\" --default-huge"
+                             $<TARGET_FILE:test_guide_import>)
+            set_tests_properties(guide_import_memory_limit PROPERTIES LABELS guide_import)
+        endif()
     endif()
     maul_add_header_tests()
+    # Installs the build into the binary tree and builds and runs
+    # test/consumer against it, as a consumer of the package would.
+    if(MAUL_ANIM_TEST_PACKAGE AND MAUL_ANIM_INSTALL)
+        set(config_args)
+        if(CMAKE_CONFIGURATION_TYPES)
+            set(config_args -DCONFIG=$<CONFIG>)
+        endif()
+        if(CMAKE_GENERATOR_TOOLSET)
+            list(APPEND config_args -DTOOLSET=${CMAKE_GENERATOR_TOOLSET})
+        endif()
+        add_test(NAME package
+                 COMMAND ${CMAKE_COMMAND} -DBINARY_DIR=${PROJECT_BINARY_DIR}
+                         -DSOURCE_DIR=${PROJECT_SOURCE_DIR} "-DGENERATOR=${CMAKE_GENERATOR}"
+                         -DC_COMPILER=${CMAKE_C_COMPILER} -DBACKEND=${MAUL_ANIM_SIMD_BACKEND}
+                         ${config_args} -P ${PROJECT_SOURCE_DIR}/cmake/PackageTest.cmake)
+        set_tests_properties(package PROPERTIES LABELS package)
+    endif()
 endif()
 
 # The fuzz targets: test/fuzz_<area>.c, run as fuzz_<area> <corpus dir>,

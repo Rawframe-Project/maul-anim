@@ -61,5 +61,5 @@ Each suite in `test/` is one executable registered with CTest and labeled with i
 - **References in binary64.** Sampling, blending, IK, retargeting, mirroring, springs and root motion are tested against straightforward binary64 implementations of the same rule, written in the test from the method's description.
 - **Pinned hashes.** A few scenes hash their output (`PINNED_HASH` in the math, scalar and retargeting suites); every platform and backend CI runs must give the same value.
 - **Hostile files.** Every opener is tested with files changed at the byte each check reads, and fuzzed (`test/fuzz_*.c`).
-- **Differentials.** Programs in `tools/` compare with ufbx, ACL, ozz-animation and Godot on their corpora; they run on a schedule, not in the pull request check ([development.md](../operations/development.md#differentials)).
+- **Differentials.** Programs in `tools/` compare with ufbx, ACL, ozz-animation and Godot on their corpora; they run every night, not in the pull request check ([development.md](../operations/development.md#differentials)).
 - **Guide snippets.** Every C block of `docs/user/` is built and run by `test/test_guide.c` or `test/test_guide_import.c`.

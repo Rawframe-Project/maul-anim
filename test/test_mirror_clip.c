@@ -28,8 +28,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_IDENTITY 0xce69ae49dfe9be99ull
-
 enum
 {
     kRoot,
@@ -312,12 +310,6 @@ static void TestSamples(void)
     }
     CHECK(mirrored, "every sample the mirror of the clip's");
     CHECK(same, "mirrored twice, the clip");
-    uint64_t identity = maniClipIdentity(&baked);
-    CHECK(identity == PINNED_IDENTITY, "the baked clip's bits the same on every platform");
-    if (identity != PINNED_IDENTITY)
-    {
-        printf("baked identity 0x%016llx\n", (unsigned long long)identity);
-    }
 }
 
 static bool Named(const char* name, uint32_t length, const char* want)

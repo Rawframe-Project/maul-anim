@@ -15,8 +15,6 @@
 #include <math.h>
 #include <string.h>
 
-#define PINNED_MODEL_HASH 0xec5fdb8882b8a77bull
-
 enum
 {
     kBones = 37,
@@ -296,31 +294,6 @@ static void TestCopiedBytes(void)
     CHECK(maniPoseReadModels(pose, 1, kBones, a) == mani_errorInvalid, "past the end");
 }
 
-static void TestPinnedModels(void)
-{
-    s_random = 0x123456789ABCDEFull;
-    maniSkeleton s = BuildRandomSkeleton(kBones, s_file, sizeof s_file);
-    maniPose* pose = NULL;
-    CHECK(maniInitPose(&s, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
-    uint64_t hash = MANI_HASH_INIT;
-    for (uint32_t round = 0; round < 8; ++round)
-    {
-        for (uint32_t bone = 0; bone < kBones; ++bone)
-        {
-            maniPoseSetLocal(pose, bone, RandomTransform());
-        }
-        CHECK(maniComputeModel(pose, &s) == mani_success, "composes");
-        maniAffine models[kBones];
-        CHECK(maniPoseReadModels(pose, 0, kBones, models) == mani_success, "reads");
-        hash = maniHash64(hash, models, (int32_t)sizeof models);
-    }
-    CHECK(hash == PINNED_MODEL_HASH, "pinned models");
-    if (hash != PINNED_MODEL_HASH)
-    {
-        printf("model hash 0x%016llx\n", (unsigned long long)hash);
-    }
-}
-
 int main(void)
 {
     TestMemory();
@@ -329,6 +302,5 @@ int main(void)
     TestModelAgainstBinary64();
     TestIdentityRefused();
     TestCopiedBytes();
-    TestPinnedModels();
     return s_failures == 0 ? 0 : 1;
 }

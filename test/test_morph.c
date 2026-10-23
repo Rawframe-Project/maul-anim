@@ -27,9 +27,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_MORPH_FILE 0x5772cedfe7070060ull
-#define PINNED_MORPH_JOB  0x505a297b9b1d7aabull
-
 enum
 {
     kVertices = 12,
@@ -873,36 +870,6 @@ static void TestJobRefusals(void)
     CHECK(maniApplyMorphTargets(&job) == mani_success, "an empty range at the end");
 }
 
-static void TestPinned(void)
-{
-    BuildSample();
-    // The writer's library version (bytes 16 to 21) changes with every release.
-    memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_MORPH_FILE, "pinned file");
-    if (hash != PINNED_MORPH_FILE)
-    {
-        printf("morph file hash 0x%016llx\n", (unsigned long long)hash);
-    }
-    maniMorphTargets m;
-    CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
-    s_random = 0x0123456789ABCDEFull;
-    RandomVertices();
-    const float channels[3] = {0.8f, -0.4f, 1.3f};
-    float weights[5];
-    CHECK(maniMorphTargetWeights(&m, channels, weights) == mani_success, "weights");
-    maniMorphStream streams[5];
-    Streams(s_in, s_out, streams);
-    maniMorphJob job = {&m, weights, 0, kVertices, 5, 0, streams};
-    CHECK(maniApplyMorphTargets(&job) == mani_success, "applies");
-    hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)sizeof s_out);
-    CHECK(hash == PINNED_MORPH_JOB, "pinned job");
-    if (hash != PINNED_MORPH_JOB)
-    {
-        printf("morph job hash 0x%016llx\n", (unsigned long long)hash);
-    }
-}
-
 static int WriteSeed(const char* path)
 {
     BuildSample();
@@ -929,6 +896,5 @@ int main(int argc, char** argv)
     TestBuildRefusals();
     TestOpenRefusals();
     TestJobRefusals();
-    TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

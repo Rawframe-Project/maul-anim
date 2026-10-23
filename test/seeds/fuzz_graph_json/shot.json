@@ -1,0 +1,28 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "speed", "type": "float", "default": 0},
+    {"name": "fire", "type": "trigger", "default": false},
+    {"name": "out", "type": "trigger", "default": false},
+    {"name": "abort", "type": "trigger", "default": false}
+  ],
+  "clips": [
+    "walk",
+    "run",
+    "wave",
+    "short",
+    "long",
+    "double",
+    "triple",
+    "turnA",
+    "turnB"
+  ],
+  "syncGroups": [],
+  "nodes": [
+    {"kind": "oneShot", "inputs": [1, 2], "fire": "fire", "curve": "linear", "fadeIn": 0, "fadeOut": 0},
+    {"kind": "clip", "clip": "walk", "syncGroup": null, "speed": 1, "loop": "repeat", "leader": false},
+    {"kind": "clip", "clip": "long", "syncGroup": null, "speed": 1, "loop": "clamp", "leader": false}
+  ],
+  "output": 0
+}

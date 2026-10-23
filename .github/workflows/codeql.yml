@@ -1,0 +1,43 @@
+# CodeQL on every pull request and on main. An advanced setup, since the
+# default one builds with the runner's default compiler, GCC 13, which the
+# family refuses (cmake/CompilerFlags.cmake).
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 3 * * 2"
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: c-cpp
+          build-mode: manual
+      - name: Build
+        # Every part: the runtime, the offline side and the tests; the
+        # differentials are left out, as they fetch other libraries.
+        run: |
+          cmake -B out/codeql -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-14 \
+            -DCMAKE_CXX_COMPILER=g++-14 -DMAUL_ANIM_BUILD_BENCH=OFF
+          cmake --build out/codeql -j 4
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:c-cpp

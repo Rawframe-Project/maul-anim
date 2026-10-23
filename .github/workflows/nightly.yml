@@ -1,0 +1,166 @@
+# The extended nightly run, not a required check: the differentials
+# against other libraries, and the long fuzzing that grows the corpus.
+#
+# The ufbx differential reads every file of ufbx's corpus, at the commit
+# CMake pins, with ufbx and with Maul Anim and compares them, and writes
+# the FBX fixtures' expected values again to hold against the committed
+# ones. The ACL differential compresses the clips of ozz-animation's
+# Quaternius file with ACL and with Maul Anim and prints sizes, errors and
+# times, every bone within the precision required. The ozz differential
+# samples and blends the same clips, with masks and additive layers, with
+# ozz's BlendingJob and with Maul Anim, compared to binary32 rounding. The
+# IK differential solves random two-bone chains and aims with ozz's
+# IKTwoBoneJob and IKAimJob and with Maul Anim. The retargeting
+# differential retargets random poses of a humanoid with Godot 4.7.2's
+# RetargetModifier3D, run headless, and with Maul Anim, and compares the
+# model rotations.
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PREFIX: MAUL_ANIM
+
+jobs:
+  fbx-ufbx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.5@sha256:bc8ecad77f13664efd2c5961f3c82751d45b3c0b05fb3ccaaea9d0bdd0966f60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        # The sanitizers watch the library through every file.
+        run: |
+          cmake -B out/ufbx -G Ninja -DCMAKE_BUILD_TYPE=Debug -D${PREFIX}_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -D${PREFIX}_SANITIZE=ON -D${PREFIX}_DIFFERENTIAL=ON \
+            -D${PREFIX}_BUILD_TESTS=OFF -D${PREFIX}_BUILD_BENCH=OFF
+          cmake --build out/ufbx --target fbx_differential -j 4
+      - name: ufbx's corpus
+        run: |
+          shopt -s nullglob
+          files=(out/ufbx/_deps/ufbx-src/data/*.fbx)
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::ufbx's corpus has no file"; exit 1; fi
+          out/ufbx/fbx_differential --deviations tools/fbx-deviations.txt "${files[@]}"
+      - name: The fixtures' expected values
+        if: ${{ !cancelled() }}
+        run: |
+          out/ufbx/fbx_differential --deviations tools/fbx-deviations.txt \
+            --expect out/ufbx/fbx_fixture_expect.h test/data/fbx/*.fbx
+          python3 tools/fbx_fixtures.py --compare out/ufbx/fbx_fixture_expect.h test/fbx_fixture_expect.h
+
+  # ACL, ozz-animation and Godot, in one Release build: the times are
+  # printed, and the other libraries are built as they ship.
+  differentials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.5@sha256:bc8ecad77f13664efd2c5961f3c82751d45b3c0b05fb3ccaaea9d0bdd0966f60
+    permissions:
+      contents: read
+    env:
+      GODOT: Godot_v4.7.2-stable_linux.x86_64
+      # The release's SHA512-SUMS.txt entry for the zip.
+      GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+      # ozz-animation 0.17.0's Quaternius file, CC0 per its README.
+      UAL_SHA256: 42f16a4ed61d1e9f5fc7c2526894c5487148ac6ba82b64281ceb7943570f3c37
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        run: |
+          cmake --preset linux-differential
+          cmake --build --preset linux-differential -j 4 \
+            --target acl_differential ozz_differential ik_differential retarget_godot
+      - name: Compression against ACL
+        run: |
+          f=out/linux-differential/_deps/ozz-src/media/fbx/quaternius/ual.fbx
+          echo "$UAL_SHA256  $f" | sha256sum -c -
+          out/linux-differential/acl_differential "$f"
+      - name: Blending against ozz-animation
+        if: ${{ !cancelled() }}
+        run: |
+          f=out/linux-differential/_deps/ozz-src/media/fbx/quaternius/ual.fbx
+          out/linux-differential/ozz_differential "$f"
+      - name: IK against ozz-animation
+        if: ${{ !cancelled() }}
+        run: out/linux-differential/ik_differential 1000000
+      - name: Fetch Godot
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: |
+          curl -fsSL --retry 3 -o out/godot.zip \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/$GODOT.zip"
+          echo "$GODOT_SHA512  out/godot.zip" | sha512sum -c -
+          unzip -q -d out out/godot.zip
+      - name: Retargeting against Godot
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p out/godot-project
+          printf 'config_version=5\n' > out/godot-project/project.godot
+          cp tools/retarget_godot.gd out/godot-project/
+          out/linux-differential/retarget_godot write "$PWD/out/in.txt" 500
+          timeout 300 "out/$GODOT" --headless --path out/godot-project --script retarget_godot.gd \
+            -- "$PWD/out/in.txt" "$PWD/out/out.txt"
+          out/linux-differential/retarget_godot check out/in.txt out/out.txt
+
+  # Ten minutes per target, four at a time, from last night's corpus; the
+  # corpus is minimized and saved for the next night, also when a target
+  # found something, so the night's growth is kept.
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.5@sha256:bc8ecad77f13664efd2c5961f3c82751d45b3c0b05fb3ccaaea9d0bdd0966f60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Restore the corpus
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - name: Build
+        run: |
+          cmake --preset linux-fuzz
+          cmake --build --preset linux-fuzz -j 4
+      - name: Run
+        run: tools/fuzz.sh out/linux-fuzz 600 --merge
+      - name: Minimize after a finding
+        if: failure()
+        run: tools/fuzz.sh out/linux-fuzz 1 --merge || true
+      - name: Save the corpus
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+      - name: Fuzz logs and crash inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz
+          path: |
+            out/fuzz-logs/
+            crash-*
+            leak-*
+            timeout-*
+            oom-*
+          if-no-files-found: ignore
+          retention-days: 7

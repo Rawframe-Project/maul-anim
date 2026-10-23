@@ -12,22 +12,22 @@ It never compromises on:
 ## Commands
 
 ```sh
-cmake -B out/asan -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_BUILD_TYPE=Debug -DMAUL_ANIM_SANITIZE=ON -DMAUL_ANIM_WERROR=ON
-cmake --build out/asan && ctest --test-dir out/asan -j 8      # the whole suite, about a minute
-ctest --test-dir out/asan -L clip                              # one suite, by label
-python3 tools/check_source.py && python3 tools/check_modules.py && python3 tools/check_lengths.py \
-  && python3 tools/check_docs.py && python3 tools/check_guide.py   # the family's rules
-clang-format --dry-run -Werror <changed .c and .h files>       # clang-format 22.1.5, pinned
+tools/check.sh changed                                   # before every push: rules, format, ASan suites, under 2 minutes
+tools/check.sh pr                                        # what the pull request check runs
+tools/check.sh full                                      # also TSan, shared, Clang Release, size, longer fuzzing
+cmake --preset linux-clang-20-asan && cmake --build --preset linux-clang-20-asan
+ctest --preset linux-clang-20-asan -L '^clip$'           # one suite, by label
+tools/fuzz.sh out/linux-fuzz 60                          # every fuzz target for a minute (preset linux-fuzz)
 ```
 
-Use `gcc-14` or `clang-20`; the machine's default `gcc` is 13, which the build refuses. Run full builds and fuzzing through the workspace's heavy-job wrapper on the shared machine. Each suite is `test/test_<label>.c`, registered in `CMakeLists.txt` with `maul_add_test`.
+Every CI cell is a preset in `CMakePresets.json`, built in `out/<preset>` ([checks.md](docs/operations/checks.md)). Use `gcc-14` or `clang-20`; the machine's default `gcc` is 13, which the build refuses. Run the `pr` and `full` tiers, full builds and fuzzing through the workspace's heavy-job wrapper on the shared machine; the CI image runs them as CI does. Each suite is `test/test_<label>.c`, registered in `CMakeLists.txt` with `maul_add_test`.
 
 ## Ways to hurt yourself
 
 - **Killing by pattern.** Never `pkill -f`, `pgrep | kill` or `kill` a PID found by matching a name or path: other sessions build and fuzz on the same machine with the same binary names. Kill only a PID you started.
 - **Endless fuzzing.** A libFuzzer target runs until it finds something. Always pass `-max_total_time`.
 - **Editing generated files.** `src/generated/` and the generated test headers and fixtures are written by the generators in `tools/` ([development.md](docs/operations/development.md#generated-sources-and-test-data)). Change the generator and run it.
-- **Editing shared family files.** These are synced from the canonical copies in the organization's `.github` repository (`maul/`) and fail CI when they differ: `docs/internals/maul-conventions.md`; `.clang-format`, `.clang-tidy`, `.editorconfig`, `.gitattributes`, `.gitignore`; every file in `cmake/`; `bench/CMakeLists.txt`; `test/test_harness.h`, `test/test_inflate.c`, `test/test_math_float.c`; `tools/build_docs.py`, `check_docs.py`, `check_guide.py`, `check_lengths.py`, `check_modules.py`, `check_source.py`, `gen_api.py`, `gen_inflate_tables.py`, `gen_math_constants.py`; and `src/cpu.c`, `cpu.h`, `hash.c`, `simd.h`, `inflate.c`, `inflate.h`, `elementary_float.c`, `elementary_float.h` with their `src/generated/` tables. Change the canonical copy first, through the manager.
+- **Editing shared family files.** These are synced from the canonical copies in the organization's `.github` repository (`maul/`) and fail CI when they differ: `docs/internals/maul-conventions.md`; `.clang-format`, `.clang-tidy`, `.editorconfig`, `.gitattributes`, `.gitignore`; every file in `cmake/` except `PackageTest.cmake`; `bench/CMakeLists.txt`; `test/test_harness.h`, `test/test_inflate.c`, `test/test_math_float.c`; `tools/build_docs.py`, `check_docs.py`, `check_guide.py`, `check_lengths.py`, `check_modules.py`, `check_source.py`, `gen_api.py`, `gen_inflate_tables.py`, `gen_math_constants.py`; and `src/cpu.c`, `cpu.h`, `hash.c`, `simd.h`, `inflate.c`, `inflate.h`, `elementary_float.c`, `elementary_float.h` with their `src/generated/` tables. Change the canonical copy first, through the manager.
 - **Changing results silently.** A change to arithmetic order, a constant or a quaternion's hemisphere choice changes bits every host may have pinned. The pinned hashes in the tests catch it; a deliberate change names its effect in the pull request.
 
 ## Invariants

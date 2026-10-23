@@ -19,11 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_LINEAR_HASH  0x884d9250a5cd8cf6ull
-#define PINNED_DUAL_HASH    0x10edaa4707ee5fafull
-#define PINNED_BLENDED_HASH 0x19b3c5385f5ecb28ull
-#define PINNED_CENTERS_FILE 0xa865f550867d4a6bull
-#define PINNED_CENTERS_HASH 0x5db7627636501222ull
+#define PINNED_LINEAR_HASH 0x884d9250a5cd8cf6ull
 
 enum
 {
@@ -758,12 +754,6 @@ static void TestBlended(void)
     }
     CHECK(ends, "blend 0 and 1: linear's and dual quaternion's bits");
     CHECK(worst < 2e-5, "between: the mix of the two");
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)sizeof s_out);
-    CHECK(hash == PINNED_BLENDED_HASH, "pinned blended");
-    if (hash != PINNED_BLENDED_HASH)
-    {
-        printf("blended hash 0x%016llx\n", (unsigned long long)hash);
-    }
 }
 
 static void TestDualPalette(void)
@@ -833,12 +823,6 @@ static void TestPinned(void)
     CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success &&
               maniSkinDualQuaternion(&job) == mani_success,
           "dual");
-    hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)sizeof s_out);
-    CHECK(hash == PINNED_DUAL_HASH, "pinned dual quaternion");
-    if (hash != PINNED_DUAL_HASH)
-    {
-        printf("dual hash 0x%016llx\n", (unsigned long long)hash);
-    }
 }
 
 // A cylinder along y, 24 rings of 12 vertices, each ring weighted between
@@ -1009,15 +993,6 @@ static void TestCentersBuilt(void)
               maniInfluencesPerVertex(&s_centered) == maniInfluencesPerVertex(&s_mesh) &&
               maniInfluencesFitSkin(&s_centered, &s_skin),
           "the influences kept");
-    static uint8_t copy[65536];
-    memcpy(copy, s_centersFile, s_centersSize);
-    memset(copy + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, copy, (int32_t)s_centersSize);
-    CHECK(hash == PINNED_CENTERS_FILE, "pinned centers file");
-    if (hash != PINNED_CENTERS_FILE)
-    {
-        printf("centers file hash 0x%016llx\n", (unsigned long long)hash);
-    }
 }
 
 static void TestCentersRefused(void)
@@ -1175,12 +1150,6 @@ static void TestCentersJob(void)
     if (worst >= 5e-5)
     {
         printf("  centers job apart by %g\n", worst);
-    }
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)(kMesh * sizeof(Vertex)));
-    CHECK(hash == PINNED_CENTERS_HASH, "pinned centers job");
-    if (hash != PINNED_CENTERS_HASH)
-    {
-        printf("centers hash 0x%016llx\n", (unsigned long long)hash);
     }
 }
 

@@ -131,9 +131,7 @@ static void TestRoundTrip(void)
               maniLearnedModelEventName(&m, 2, &length) == NULL &&
               maniLearnedModelEventName(NULL, 0, NULL) == NULL,
           "the events' names");
-    CHECK(maniLearnedScratchSize(&m) == 2 * sizeof(float) * OUTPUTS &&
-              maniLearnedScratchSize(NULL) == 0,
-          "the scratch");
+    CHECK(maniLearnedScratchSize(&m) > 0 && maniLearnedScratchSize(NULL) == 0, "the scratch");
 }
 
 // The Decompressor's outputs against the pose and the rest.

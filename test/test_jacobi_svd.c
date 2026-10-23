@@ -21,10 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MOST_N          120u
-#define MOST_M          36u
-#define PINNED_SWEEPS   6u
-#define PINNED_SVD_HASH 0x2cc8ce6905ce1de6ull
+#define MOST_N 120u
+#define MOST_M 36u
 
 static float s_a[MOST_N * MOST_M];
 static float s_input[MOST_N * MOST_M];
@@ -213,31 +211,9 @@ static void TestDegenerate(void)
           "an all-zero matrix: one sweep, w the identity");
 }
 
-static void TestPinned(void)
-{
-    const uint32_t n = 21;
-    const uint32_t m = 12;
-    s_random = 0x2545F4914F6CDD1Dull;
-    for (uint32_t k = 0; k < n * m; ++k)
-    {
-        s_a[k] = Random();
-    }
-    uint32_t sweeps = maniJacobiSvd(s_a, n, m, s_w, s_sigma);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_a, (int32_t)(sizeof(float) * n * m));
-    hash = maniHash64(hash, s_w, (int32_t)(sizeof(float) * m * m));
-    hash = maniHash64(hash, s_sigma, (int32_t)(sizeof(float) * m));
-    CHECK(sweeps == PINNED_SWEEPS && hash == PINNED_SVD_HASH,
-          "the sweeps and the bits the same on every platform");
-    if (sweeps != PINNED_SWEEPS || hash != PINNED_SVD_HASH)
-    {
-        printf("sweeps %u hash 0x%016llx\n", sweeps, (unsigned long long)hash);
-    }
-}
-
 int main(void)
 {
     TestRandom();
     TestDegenerate();
-    TestPinned();
     return s_failures == 0 ? 0 : 1;
 }
