@@ -241,9 +241,9 @@ jobs:
           retention-days: 7
 
   # Each fuzz target runs over the bytes programs hand the library, from
-  # the corpus the nightly run grows (restored from its cache, never saved
-  # here) and the committed seeds in test/seeds: briefly on a pull request,
-  # a minute on main.
+  # the committed seeds in test/seeds, four at a time: briefly on a pull
+  # request, a minute on main. The long runs, with the corpus carried from
+  # night to night, are in nightly.yml.
   fuzz:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -258,18 +258,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Restore the corpus
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: out/corpus
-          key: fuzz-corpus-${{ github.run_id }}
-          restore-keys: fuzz-corpus-
       - name: Build
         run: |
           cmake --preset linux-fuzz
           cmake --build --preset linux-fuzz -j 4
       - name: Run
-        run: tools/fuzz.sh out/linux-fuzz "$FUZZ_SECONDS"
+        run: tools/fuzz.sh run out/linux-fuzz "$FUZZ_SECONDS"
       - name: Fuzz logs and crash inputs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -277,10 +271,7 @@ jobs:
           name: fuzz
           path: |
             out/fuzz-logs/
-            crash-*
-            leak-*
-            timeout-*
-            oom-*
+            out/findings/
           if-no-files-found: ignore
           retention-days: 7
 

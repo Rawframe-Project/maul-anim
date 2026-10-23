@@ -164,7 +164,7 @@ fuzz_seconds=10
 step "fuzzing, $fuzz_seconds seconds per target"
 cmake --preset linux-fuzz >"$out/linux-fuzz.log"
 cmake --build --preset linux-fuzz -j "$jobs" >>"$out/linux-fuzz.log"
-tools/fuzz.sh out/linux-fuzz "$fuzz_seconds"
+tools/fuzz.sh run out/linux-fuzz "$fuzz_seconds"
 
 [ "$tier" = full ] || exit 0
 

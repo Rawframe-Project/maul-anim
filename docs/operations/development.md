@@ -115,12 +115,12 @@ prints each part's text against its ceiling in `tools/size-budget.txt` and fails
 
 ## Reproducing a fuzz finding
 
-A fuzz target writes the input that failed as `crash-<hash>` in its working directory. To reproduce:
+A fuzz target writes the input that failed as `crash-<hash>`, in `out/findings/` when `tools/fuzz.sh` runs it (CI uploads that folder). To reproduce:
 
 ```sh
 cmake --preset linux-fuzz && cmake --build --preset linux-fuzz
-./out/linux-fuzz/fuzz_clip crash-<hash>
-tools/fuzz.sh out/linux-fuzz 300      # every target for five minutes, four at a time
+./out/linux-fuzz/fuzz_clip out/findings/crash-<hash>
+tools/fuzz.sh run out/linux-fuzz 300  # every target for five minutes, four at a time
 ```
 
 Always pass `-max_total_time`: a fuzz target otherwise runs until it finds something. Every crash becomes a test in the suite of its module, with the smallest input that still fails (`-minimize_crash=1`). The seeds and the corpus are described in [checks.md](checks.md#fuzzing).

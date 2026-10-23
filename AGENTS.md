@@ -17,7 +17,7 @@ tools/check.sh pr                                        # what the pull request
 tools/check.sh full                                      # also TSan, shared, Clang Release, size, longer fuzzing
 cmake --preset linux-clang-20-asan && cmake --build --preset linux-clang-20-asan
 ctest --preset linux-clang-20-asan -L '^clip$'           # one suite, by label
-tools/fuzz.sh out/linux-fuzz 60                          # every fuzz target for a minute (preset linux-fuzz)
+tools/fuzz.sh run out/linux-fuzz 60                      # every fuzz target for a minute (preset linux-fuzz)
 ```
 
 Every CI cell is a preset in `CMakePresets.json`, built in `out/<preset>` ([checks.md](docs/operations/checks.md)). Use `gcc-14` or `clang-20`; the machine's default `gcc` is 13, which the build refuses. Run the `pr` and `full` tiers, full builds and fuzzing through the workspace's heavy-job wrapper on the shared machine; the CI image runs them as CI does. Each suite is `test/test_<label>.c`, registered in `CMakeLists.txt` with `maul_add_test`.
