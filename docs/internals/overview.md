@@ -10,7 +10,7 @@ Maul Anim samples, blends and evaluates skeletal animation, solves inverse kinem
 - **Operating system:** no call. No file is opened and no clock is read; the host passes bytes and time.
 - **Platform dependencies:** none beyond `<stddef.h>`, `<stdint.h>`, `<string.h>` and the exactly rounded `<math.h>` functions in `tools/libm-allowed.txt`.
 - **Misuse and stale ids:** the library has no root object and no ids. Its owner objects (a builder, a trainer) count a call back in from the host's code as one misuse each (`maniBuilderMisuses`, `maniLearnedTrainerMisuses`).
-- **Root def:** the builder and the learned trainer are the objects a program creates; their defs carry `MANI_ABI_VERSION`.
+- **Root defs:** the builder and the learned trainer are the library's two creations, and neither takes an object another creation made (the trainer reads opened files), so both are roots and both defs carry `MANI_ABI_VERSION`. Files are opened from bytes without a def and carry their own format versions.
 
 ## The parts
 
