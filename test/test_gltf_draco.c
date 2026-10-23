@@ -32,7 +32,7 @@
 typedef struct Stream
 {
     const char* name;
-    // Google's decoding (research's draco_fixtures).
+    // Google's decoding (tools/draco_fixtures.cc).
     uint64_t hash;
     uint32_t points;
 } Stream;
@@ -98,7 +98,7 @@ static uint64_t Fnv(uint64_t h, const void* data, size_t size)
     return h;
 }
 
-// The dump research hashes: counts, faces, then each attribute's
+// The dump tools/draco_fixtures.cc hashes: counts, faces, then each attribute's
 // description and every point's value bytes.
 static uint64_t Dump(const maniDracoMesh* m)
 {

@@ -111,18 +111,20 @@ jobs:
             $(pkg-config --cflags --libs maul-anim) -o consumer-pc
           LD_LIBRARY_PATH="$PWD/package/lib" ./consumer-pc
 
-  # The API reference is generated from the headers; it must match them,
-  # and the README must give its function count.
+  # The documentation site, with the API reference generated from the
+  # headers, builds; nothing generated is committed.
   docs:
-    name: generated docs
+    name: documentation site
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - name: The API reference matches the headers
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: The site builds
         run: |
-          COUNT=$(python3 tools/gen_api.py | grep -oE '\([0-9]+ functions\)' | grep -oE '[0-9]+')
-          git diff --exit-code docs/api.md || { echo "docs/api.md is stale: run tools/gen_api.py"; exit 1; }
-          grep -q "$COUNT public functions" README.md || { echo "README says the wrong function count ($COUNT)"; exit 1; }
+          pip install markdown==3.6
+          python3 tools/build_docs.py
 
   # The runtime's text by part at -O2 and -O3 (GCC 14), reported against
   # tools/size-budget.txt (record 0013: checked at release, mani-0036),

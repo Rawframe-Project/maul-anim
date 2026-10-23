@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The guide's import and compression snippets (docs/guide.md, "Getting
-// data in"), as written there, over Khronos' SimpleSkin: its skeleton
+// The import and compression snippets of docs/user/importing.md, as
+// written there, over Khronos' SimpleSkin: its skeleton
 // and its animation imported, the clip compressed; and its budget
 // allocator, under which a file of under 2 KB asking for 8.6 GB of
 // viewless morph arrays is refused with Capacity, nothing kept. Run as test_guide_import

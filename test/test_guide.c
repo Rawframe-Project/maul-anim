@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The guide's C snippets (docs/guide.md), each as written there, run in
-// order: tools/check_guide.py checks that every snippet of the guide
-// appears here unchanged, so the guide cannot drift from the API. Each
-// function gives a snippet what it uses and checks what it makes.
+// The C snippets of docs/user/, each as written there, run in order:
+// tools/check_guide.py checks that every snippet of those pages appears
+// here or in test_guide_import.c unchanged, so the documentation cannot
+// drift from the API. Each function gives a snippet what it uses and
+// checks what it makes.
 
 #include "test_harness.h"
 

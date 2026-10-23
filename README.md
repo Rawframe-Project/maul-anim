@@ -1,94 +1,60 @@
 # Maul Anim
 
-Skeletal animation for games and tools: skeletons and poses, clip
-sampling, blending, animation graphs and state machines, inertial
-transitions, motion matching, root motion, inverse kinematics,
-retargeting, skinning and compression, with glTF 2.0 and FBX import and
-its own file formats. Written in
-C23 with public headers any C17 or C++17 program can include, with no
-dependency and an MIT license.
+Skeletal animation in C: sampling, blending, graphs, motion matching, IK, retargeting and skinning, with glTF and FBX import.
 
-It covers:
+[![CI](https://github.com/Rawframe-Project/maul-anim/actions/workflows/ci.yml/badge.svg)](https://github.com/Rawframe-Project/maul-anim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/Rawframe-Project/maul-anim)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Rawframe-Project/maul-anim)](https://github.com/Rawframe-Project/maul-anim/releases)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Rawframe-Project/maul-anim/badge)](https://scorecard.dev/viewer/?uri=github.com/Rawframe-Project/maul-anim)
 
-- **Poses:** skeletons with skins and their skinning palettes, poses in
-  local and model space, composed as glTF composes nodes.
-- **Skinning:** linear blend, dual quaternion and optimized centers of
-  rotation over one influence format, morph targets, palettes in GPU
-  layouts.
-- **Clips:** bone, float and discrete tracks, events and sync markers,
-  sampled at the same cost forward, backward and at random (a cursor
-  makes forward playback cheaper and gives the same bits), and
-  compressed with per-track bit rates under an error measured where a
-  skinned vertex would be.
-- **Blending:** normalized and per-bone blends, additive layers, blend
-  spaces in one and two dimensions, phase and marker sync.
-- **Graphs:** typed parameters, hierarchical state machines,
-  cross-fades, inertialization and dead blending, one-shots, events and
-  root motion, built once and shared by any number of instances.
-- **Motion matching:** weighted feature channels, a database file, an
-  exact search, and learned motion matching.
-- **IK:** two-bone, aim and look-at, CCD and FABRIK chains with joint
-  limits, and full-body solvers.
-- **Physics-driven poses:** spring bones, and the boundary to any
-  physics engine for ragdolls and physical animation.
-- **Retargeting** between skeletons with different rests and
-  proportions, and **mirroring** across the body's plane on any rig's
-  joint orientations.
-- **Offline:** glTF 2.0 and FBX importers, builders, the compressor,
-  and a text form for graphs, behind the `MAUL_ANIM_OFFLINE` option;
-  the runtime builds without them.
+A game character needs more than playing a clip. Clips are blended by speed and direction, switched by state machines, eased across jumps, layered with additive motion, bent by IK so feet meet the ground, shared between rigs of other proportions, and imported from the files artists export. Maul Anim does all of that in one dependency-free library:
 
-Results are identical on every platform. The runtime allocates
-nothing and starts no thread: assets are views over the caller's
-bytes, and instances live in the caller's memory.
+- **Clips and poses**: skeletons, poses in local and model space, clips sampled at the same cost at any time, a forward cursor, and compression to ACL's sizes within an error measured on the skeleton.
+- **Blending and graphs**: per-bone masks, additive layers, blend spaces, state machines, one-shots, sync by phase or markers, inertialization and dead blending, events and root motion, built once and shared by any number of characters.
+- **Motion matching**: an exact search over a motion database, and learned motion matching with an in-library trainer.
+- **IK and secondary motion**: two-bone, aim and look-at, CCD and FABRIK chains with joint limits, full-body solvers, spring bones as VRM defines them, and the seam to any physics engine for ragdolls.
+- **Retargeting and mirroring** between rigs with different rests and proportions.
+- **Skinning**: linear, dual quaternion, blended and centers of rotation, morph targets, palettes for GPUs.
+- **Import**: glTF 2.0 (meshopt and Draco compression, VRM spring bones, OMI physics) and FBX, binary and ASCII.
 
-## Status
+Results are the same bits on every platform, compiler and SIMD backend, so servers, clients and replays agree. The runtime allocates nothing and starts no thread: assets are views over the program's bytes, and per-character state lives in the program's memory. The offline side (builders, importers, the compressor) can be left out of a shipping build.
 
-0.1.0, the first release: every part of the scope built and tested;
-the targets against the rivals and where each stands are in record
-mani-0036. Before 1.0.0 any minor release may change the API, the ABI
-and the file formats. This skeleton
-has 325 public functions.
-
-## Using it
-
-[The guide](docs/guide.md) walks through the library in the order a
-program uses it, every snippet run by the tests; [the API
-reference](docs/api.md) describes every function. Releases follow
-[the release steps](docs/releasing.md).
-
-## Building
-
-Requirements: CMake 3.25 and GCC 14 or Clang 19 or newer; on Windows,
-`clang-cl` (the Visual Studio component "C++ Clang tools for Windows").
+## Quick start
 
 ```sh
+git clone https://github.com/Rawframe-Project/maul-anim.git
+cd maul-anim
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build
 ```
 
-On x86-64 the library is built for AVX2 and FMA unless configured with
-`-DMAUL_ANIM_SIMD=scalar`, the portable code, which gives the same
-results on any CPU (record mani-0038). Configure prints the backend,
-and the installed CMake package (`maul-anim_SIMD_BACKEND`) and
-pkg-config file name it. A program checks the CPU once, before any
-other call:
+Install it with `cmake --install build --prefix <prefix>` and use it from CMake:
 
-```c
-const char* backend = NULL;
-int32_t runs = maniCheckCpu(&backend);   // before any other call
-// runs == 0: this CPU cannot run the build's backend (backend names it,
-// "avx2" say): refuse to start, or load a build made with
-// -DMAUL_ANIM_SIMD=scalar, which runs on any CPU with the same results.
+```cmake
+find_package(maul-anim REQUIRED CONFIG)
+target_link_libraries(game PRIVATE maul-anim::maul-anim)
 ```
 
-## Design
+or through pkg-config as `maul-anim`. On x86-64 the default build uses AVX2 and FMA; a program calls `maniCheckCpu` once before anything else, or the library is configured with `-DMAUL_ANIM_SIMD=scalar` to run on any CPU with the same results. [Getting started](docs/user/getting-started.md) covers the options and the model the API follows.
 
-The rules every Maul library follows are in `docs/conventions.md` and
-`docs/adr/`; the records particular to this library are listed in
-`docs/adr/mani.md`.
+## Platforms
+
+Linux on x86-64 and arm64 with GCC 14 or Clang 19 and newer, macOS with Apple Clang, Windows with `clang-cl`, and WebAssembly with Emscripten; CI builds and tests each. The public headers are C17 and C++17, so any C or C++ program can include them.
+
+## Documentation
+
+- [The documentation site](https://rawframe-project.github.io/maul-anim/), with the API reference generated from the headers.
+- [User documentation](docs/README.md): one page per part of the library.
+- [How it works](docs/internals/overview.md) and [how to develop it](docs/operations/development.md).
+- [Changelog](CHANGELOG.md).
+
+Maul Anim belongs to the Maul family of standalone C libraries, which share one set of conventions.
+
+## Contributing
+
+Issues are welcome. Pull requests are accepted for issues a maintainer has approved; see [CONTRIBUTING.md](https://github.com/Rawframe-Project/.github/blob/main/CONTRIBUTING.md). The project is developed with AI coding agents, directed and reviewed by its maintainers; outside contributions follow the [AI policy](https://github.com/Rawframe-Project/.github/blob/main/AI_POLICY.md).
 
 ## License
 
-MIT; see `LICENSE`.
+MIT; see [LICENSE](LICENSE). The test fixtures under `test/data/` carry their own licenses, named in each folder's `README.md`.

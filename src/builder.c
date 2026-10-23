@@ -21,11 +21,15 @@ maniResult maniCreateBuilder(const maniBuilderDef* def, maniBuilder** builderOut
     {
         return mani_errorInvalid;
     }
+    if (def->cookie != MANI_BUILDER_DEF_COOKIE)
+    {
+        return mani_errorInvalid;
+    }
     if (def->version != MANI_ABI_VERSION)
     {
         return mani_errorVersion;
     }
-    if (def->cookie != MANI_BUILDER_DEF_COOKIE || !maniAllocatorValid(&def->allocator))
+    if (!maniAllocatorValid(&def->allocator))
     {
         return mani_errorInvalid;
     }

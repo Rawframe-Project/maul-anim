@@ -1,7 +1,7 @@
 # FBX fixtures
 
 Scenes written for Maul Anim (MIT, as the repository), the inputs of
-`test/test_fbx_fixtures.c` (mani-0018). The ASCII files are scenes of
+`test/test_fbx_fixtures.c`. The ASCII files are scenes of
 the unit tests, kept whole:
 
 | File | Scene | Covers |
