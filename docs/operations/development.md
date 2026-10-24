@@ -12,6 +12,7 @@ How to build, debug and change Maul Anim as a maintainer. Building and installin
 - [Differentials](#differentials)
 - [Benchmarks](#benchmarks)
 - [Code size](#code-size)
+- [Debugging a failure](#debugging-a-failure)
 - [Reproducing a fuzz finding](#reproducing-a-fuzz-finding)
 
 ## Toolchain
@@ -126,6 +127,32 @@ python3 tools/size_report.py out/size/libmaul-anim.a --check O2
 ```
 
 prints each part's text against its ceiling in `tools/size-budget.txt` and fails on any allocator symbol. [size-and-performance.md](../internals/size-and-performance.md) explains the parts and the ceilings.
+
+## Debugging a failure
+
+**A CI cell.** A failed build cell uploads its ctest logs as `logs-<preset>` for a week, `windows` and `web` as `logs-windows` and `logs-web-emscripten`, and `fuzz` its logs and failing inputs as `fuzz`. To run a Linux cell as CI does, run its preset in the image `ci.yml` pins, through the heavy-job wrapper on the shared machine:
+
+```sh
+docker run --rm -v "$PWD":/w -w /w ghcr.io/rawframe-project/ci-cpp:<tag> bash -c \
+  'git config --global --add safe.directory /w && cmake --preset linux-gcc-14 &&
+   cmake --build --preset linux-gcc-14 && ctest --preset linux-gcc-14'
+```
+
+ThreadSanitizer inside the container needs `--security-opt seccomp=unconfined`. A tree configured there records `/w` paths, so the host cannot build in it again: keep a preset in one place, the container or the host.
+
+**A moved hash.** A golden scene ([determinism.md](../internals/determinism.md)) hashes several outputs together, and most print the hash they computed under the failed check. If the change was meant (an arithmetic order, a constant, a quaternion's hemisphere), pin the new value and name the change of results in the pull request ([release.md](release.md)). If it was not:
+
+- Configure the same preset again with `-DMAUL_ANIM_SIMD=scalar` and run the suite. When the scalar build gives the pinned hash and the vector build does not, a vector kernel no longer matches its scalar code. `test_blend_lanes` compares the blend's lanes with their scalar loops; for the other kernels, print the hash of each output the scene folds in, in both builds, to find the first that differs.
+- When one compiler alone differs, look for contraction or a fast-math flag in the target's flags (`cmake/CompilerFlags.cmake`), or a `<math.h>` call outside `tools/libm-allowed.txt`.
+- When every build differs, `git bisect run` with the suite finds the commit.
+
+**A part over its ceiling.** `size_report.py` names the part. Build `main` and the branch into fresh trees with the same flags (a reused tree can hold stale objects), then compare `size` of the two archives object by object and `nm -S --size-sort` on the object that grew.
+
+**The floating-point environment check.** `tools/check_float_env.py` names each public function that computes floats outside the library's environment. Make it enter the environment and do its work in a `MANI_NOINLINE` worker, or, when it does no floating-point arithmetic and no comparison, list it in `tools/float-env-allowed.txt` under the reason it needs none ([determinism.md](../internals/determinism.md#the-floating-point-environment)).
+
+**A differential.** Run `fbx_differential` on the one file it names (`MISMATCH`, then the aspect). A disagreement is fixed in the library, or decided and listed with its reason in `tools/fbx-deviations.txt`. The other differentials print their worst difference against their bound and exit non-zero past it; [Differentials](#differentials) gives their arguments.
+
+**`guide_import_memory_limit`.** It runs `test_guide_import --default-huge` under `ulimit -v 4194304`, outside the sanitizer builds. It prints `default allocator: other` and fails when importing the morph targets of a 2 KB file that asks for 8.6 GB returns anything but `mani_errorCapacity`: the C library's allocator must refuse under the limit, and the importer must pass that refusal on as Capacity.
 
 ## Reproducing a fuzz finding
 
