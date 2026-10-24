@@ -1,0 +1,18 @@
+{
+  "format": "maul-anim retarget map",
+  "version": 1,
+  "sourceReference": [
+    {"bone": "armL", "translation": [0.2, 0.1, 0], "rotation": [0, 0, 0.70710677, 0.70710677], "scale": [1, 1, 1]},
+    {"bone": "handL", "translation": [0.3, 0, -0], "rotation": [0, 0, 0, 1], "scale": [1, 1.5, 1]}
+  ],
+  "targetReference": [],
+  "pairs": [
+    {"target": "head", "source": "head", "rotationWeight": 0.5, "translation": "absolute", "scale": true}
+  ],
+  "chains": [
+    {"sourceStart": "s1", "sourceEnd": "chest", "targetStart": "sp1", "targetEnd": "chest", "rotation": "interpolated", "rotationWeight": 1, "translation": "own", "scale": false},
+    {"sourceStart": "armL", "sourceEnd": "handL", "targetStart": "upperarm", "targetEnd": "hand", "rotation": "oneToOneReversed", "rotationWeight": 0.25, "translation": "scaled", "scale": true}
+  ],
+  "pelvis": {"source": "hips", "target": "pelvis", "up": [0, 1, 0], "horizontal": 1, "vertical": 0.5, "absolute": [0, 1, 0], "toSource": [0.25, 0, 0], "translationWeight": 1, "rotationWeight": 0.75},
+  "matchNames": true
+}

@@ -1,348 +1,298 @@
-# Continuous integration for Maul Anim.
+# Continuous integration: the pull request check, and the full check on
+# main and every night, which fuzzes longer. Each build cell is a CMake preset built by
+# the organization's shared workflow; the other jobs run in the same CI
+# image where they can. The differentials and the long fuzzing run in
+# nightly.yml. docs/operations/checks.md explains each job, and
+# tools/check.sh runs the same presets locally.
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+  # The repository's nightly slot (the organization's docs/ci-schedule.md).
+  schedule:
+    - cron: "7 6 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: read
+# A new push to a pull request cancels its running CI; runs on main get a
+# group of their own, so they are never cancelled.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
 
 env:
-  # apt retries a stalled download and gives up on a dead one.
-  APT_OPTIONS: -o Acquire::Retries=3 -o Acquire::http::Timeout=30
   PREFIX: MAUL_ANIM
 
 jobs:
-  # The rules no compiler checks: formatting, static analysis and the
-  # family's source, module, documentation and length checks.
+  # Whether anything beyond documentation changed; the builds skip when not.
+  changes:
+    uses: Rawframe-Project/.github/.github/workflows/changes.yml@e75683076741e3a2499e0f3c112081a3dc95a66f # v0.0.11
+    permissions:
+      pull-requests: read
+
+  # The organization's documentation check; test/data holds other
+  # projects' sample files with their own READMEs, kept as published.
+  docs:
+    uses: Rawframe-Project/.github/.github/workflows/docs-check.yml@e75683076741e3a2499e0f3c112081a3dc95a66f # v0.0.11
+    permissions:
+      contents: read
+    with:
+      exclude: test/data
+
+  zizmor:
+    uses: Rawframe-Project/.github/.github/workflows/zizmor.yml@e75683076741e3a2499e0f3c112081a3dc95a66f # v0.0.11
+    permissions:
+      contents: read
+
+  # The rules no compiler checks: formatting, the family's source, module,
+  # length, API documentation and snippet checks, the generated sources
+  # and test tables against their generators, the documentation site, and
+  # clang-tidy. It runs on documentation changes too, since the snippet
+  # check and the site read docs/.
   checks:
-    name: checks
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.6@sha256:50c383f608f992c272196139d749f15978e35143a2876362b1e0aef6993480bd
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install tools
-        timeout-minutes: 15
-        run: |
-          sudo apt-get $APT_OPTIONS update -q
-          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 clang-tidy-20
-          sudo apt-get $APT_OPTIONS install -y -q ninja-build
-          pip install clang-format==22.1.5 >/dev/null
       - name: clang-format
         run: |
           clang-format --version
-          clang-format --dry-run -Werror $(find include src test tools bench samples -name '*.[ch]' 2>/dev/null)
+          mapfile -t files < <(git ls-files 'include/*.h' 'src/*.[ch]' 'test/*.[ch]' 'tools/*.[ch]' 'bench/*.[ch]')
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::no C file found"; exit 1; fi
+          clang-format --dry-run -Werror "${files[@]}"
       - name: Family checks
         run: |
           python3 tools/check_source.py
           python3 tools/check_modules.py
           python3 tools/check_docs.py
           python3 tools/check_lengths.py
-          python3 tools/gen_math_constants.py --check
-          python3 tools/gen_decimal_powers.py --check
-          python3 tools/gen_inflate_tables.py --check
           python3 tools/check_guide.py
-      - name: clang-tidy
+      - name: Generated files match their generators
         run: |
-          cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          for f in src/*.c; do
-            clang-tidy-20 -p build --quiet --warnings-as-errors='*' "$f" || exit 1
+          for generator in gen_math_constants gen_decimal_powers gen_inflate_tables gen_number_cases \
+            gen_format_cases gen_gltf_expect; do
+            python3 "tools/$generator.py" --check
           done
+      - name: The documentation site builds
+        run: python3 tools/build_docs.py
+      - name: clang-tidy
+        # Four files at a time, one per core of the runner.
+        run: |
+          cmake -B out/tidy -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -D${PREFIX}_BUILD_TESTS=OFF -D${PREFIX}_BUILD_BENCH=OFF
+          mapfile -t files < <(git ls-files 'src/*.c')
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::no source file found"; exit 1; fi
+          printf '%s\n' "${files[@]}" | xargs -P 4 -n 4 clang-tidy-20 -p out/tidy --quiet --warnings-as-errors='*'
 
-  # Every cell builds with warnings as errors and runs the whole suite,
-  # the header tests included.
-  build-test:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+  # Every cell builds with warnings as errors and runs the whole suite, the
+  # header tests included. linux-gcc-14 builds every part with GCC 14, as
+  # CodeQL does; the GCC and Clang Release cells also run an import under a
+  # memory limit; linux-shared installs the library and builds test/consumer
+  # against it (the "package" test).
+  build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-gcc-14,        os: ubuntu-24.04,     cc: gcc-14,   cxx: g++-14,     config: Release, extra: "" }
-          - { name: linux-clang-20,      os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Release, extra: "" }
-          - { name: linux-clang-20-asan, os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Debug,   extra: "-DMAUL_ANIM_SANITIZE=ON" }
-          - { name: linux-clang-20-tsan, os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Debug,   extra: "-DMAUL_ANIM_TSAN=ON" }
-          - { name: linux-shared,        os: ubuntu-24.04,     cc: clang-20, cxx: clang++-20, config: Release, extra: "-DMAUL_ANIM_BUILD_SHARED=ON -DMAUL_ANIM_SIMD=scalar" }
-          - { name: linux-arm64-gcc-14,  os: ubuntu-24.04-arm, cc: gcc-14,   cxx: g++-14,     config: Release, extra: "" }
-          - { name: macos-clang,         os: macos-15,         cc: clang,    cxx: clang++,    config: Release, extra: "" }
+          - { preset: linux-gcc-14 }
+          - { preset: linux-arm64-gcc-14, runner: ubuntu-24.04-arm }
+          - { preset: linux-clang-20 }
+          - { preset: linux-clang-20-asan, repeat: 3 }
+          - { preset: linux-clang-20-tsan }
+          - { preset: linux-shared }
+          - { preset: macos-clang, runner: macos-15 }
+          - { preset: windows-clang-cl, runner: windows-2025 }
+    uses: Rawframe-Project/.github/.github/workflows/cpp.yml@e75683076741e3a2499e0f3c112081a3dc95a66f # v0.0.11
+    permissions:
+      contents: read
+    with:
+      preset: ${{ matrix.preset }}
+      runner: ${{ matrix.runner || 'ubuntu-24.04' }}
+      repeat: ${{ matrix.repeat || 1 }}
+
+  # Windows beyond the static cell: the public headers alone under MSVC's
+  # cl, as C17 and C++17 with /W4 /WX (consumers may compile them with it,
+  # though it cannot build the library); the runtime's allocator symbols
+  # under clang-cl, which must be none; and the DLL through its installed
+  # package alone, the CPU check's functions exported and the backend named.
+  windows:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install compilers
-        timeout-minutes: 15
-        if: runner.os == 'Linux'
+      - name: Headers under MSVC
         run: |
-          sudo apt-get $APT_OPTIONS update -q
-          # clang without its recommends, with the sanitizers' runtime.
-          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 libclang-rt-20-dev
-          sudo apt-get $APT_OPTIONS install -y -q gcc-14 g++-14 ninja-build
-      - name: Configure
+          cmake -S cmake/HeaderCheck -B out/headers
+          cmake --build out/headers --config Release
+      - name: Runtime allocators
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }} -D${PREFIX}_WERROR=ON \
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} ${{ matrix.extra }}
-      - name: Build
-        run: cmake --build build -j 4
-      - name: Test
-        # A skipped test fails the step, as it would hide a broken job.
+          cmake --preset windows-runtime
+          cmake --build --preset windows-runtime
+          NM=llvm-nm python tools/size_report.py out/windows-runtime/Release/maul-anim.lib --allocators
+      - name: Package consumer, DLL
         run: |
-          set -o pipefail
-          ctest --test-dir build --output-on-failure --timeout 300 2>&1 | tee ctest.log
-          if grep -q "(Skipped)" ctest.log; then echo "::error::a test was skipped"; exit 1; fi
-      - name: An import past a memory limit
-        # Linux overcommits: with its address space limited, malloc must
-        # refuse a small file's gigabytes and the import fail with
-        # Capacity (the sanitizers reserve too much to run under a limit).
-        if: matrix.name == 'linux-gcc-14'
-        run: (ulimit -v 4194304 && build/test_guide_import --default-huge)
-      - name: Package
-        if: matrix.name == 'linux-shared'
-        run: cmake --install build --prefix "$PWD/package"
-      - name: Package consumer
-        # A program built against the installed package alone, by its CMake
-        # package and by pkg-config, makes the CPU check.
-        if: matrix.name == 'linux-shared'
-        run: |
-          cmake -S test/consumer -B build-consumer -DCMAKE_C_COMPILER=${{ matrix.cc }} \
-            -DCMAKE_PREFIX_PATH="$PWD/package"
-          cmake --build build-consumer
-          LD_LIBRARY_PATH="$PWD/package/lib" build-consumer/consumer
-          export PKG_CONFIG_PATH="$PWD/package/lib/pkgconfig"
-          pkg-config --print-variables maul-anim >/dev/null
-          ${{ matrix.cc }} -std=c17 test/consumer/main.c -DCONSUMER_BACKEND='"scalar"' \
-            $(pkg-config --cflags --libs maul-anim) -o consumer-pc
-          LD_LIBRARY_PATH="$PWD/package/lib" ./consumer-pc
-
-  # The documentation site, with the API reference generated from the
-  # headers, builds; nothing generated is committed.
-  docs:
-    name: documentation site
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          cmake --preset windows-shared
+          cmake --build --preset windows-shared --target maul-anim
+          ctest --preset windows-shared -L '^package$' | tee "$RUNNER_TEMP/ctest.log"
+          if grep -E '\*\*\*(Skipped|Not Run)' "$RUNNER_TEMP/ctest.log"; then
+            echo "::error::a test did not run"; exit 1
+          fi
+      - name: Test logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.12"
-      - name: The site builds
-        run: |
-          pip install markdown==3.6
-          python3 tools/build_docs.py
+          name: logs-windows
+          path: out/windows-shared/Testing/Temporary/
+          if-no-files-found: ignore
+          retention-days: 7
 
-  # The runtime's text by part at -O2 and -O3 (GCC 14), reported against
-  # tools/size-budget.txt (checked at release),
-  # and the runtime's allocator symbols, which must be none: here for
-  # GCC 14 at both levels and Clang 20, and under clang-cl in the Windows
-  # job.
+  # The runtime's text by part at -O2 and -O3 (GCC 14), on the scalar
+  # backend and on AVX2, held against tools/size-budget.txt, and its
+  # allocator symbols, which must be none: for GCC 14 at both levels and
+  # for Clang 20.
   size:
-    name: size
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.6@sha256:50c383f608f992c272196139d749f15978e35143a2876362b1e0aef6993480bd
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install compilers
-        timeout-minutes: 15
-        run: |
-          sudo apt-get $APT_OPTIONS update -q
-          sudo apt-get $APT_OPTIONS install -y -q gcc-14 ninja-build
-          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20
       - name: Runtime builds
         run: |
-          # The budget's archives are the scalar backend's; the
-          # AVX2 ones are reported beside them.
+          runtime() { # tree, then cmake arguments
+            cmake -B "out/$1" -G Ninja -DCMAKE_BUILD_TYPE=Release -D${PREFIX}_OFFLINE=OFF \
+              -D${PREFIX}_BUILD_TESTS=OFF -D${PREFIX}_BUILD_BENCH=OFF -D${PREFIX}_WERROR=ON "${@:2}"
+            cmake --build "out/$1" -j 4
+          }
           for level in O2 O3; do
             for simd in scalar auto; do
-              cmake -B build-$level-$simd -G Ninja -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_BUILD_TYPE=Release \
-                "-DCMAKE_C_FLAGS_RELEASE=-$level -DNDEBUG" -DMAUL_ANIM_OFFLINE=OFF -DMAUL_ANIM_SIMD=$simd \
-                -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
-              cmake --build build-$level-$simd -j 4
+              runtime "size-$level-$simd" -DCMAKE_C_COMPILER=gcc-14 "-DCMAKE_C_FLAGS_RELEASE=-$level -DNDEBUG" \
+                -D${PREFIX}_SIMD=$simd
             done
           done
-          cmake -B build-clang -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_BUILD_TYPE=Release \
-            -DMAUL_ANIM_OFFLINE=OFF -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
-          cmake --build build-clang -j 4
+          runtime size-clang -DCMAKE_C_COMPILER=clang-20
       - name: Text by part
         run: |
           for level in O2 O3; do
-            echo "== -$level, scalar (the budget's)"
-            python3 tools/size_report.py build-$level-scalar/libmaul-anim.a
+            echo "== -$level, scalar"
+            python3 tools/size_report.py "out/size-$level-scalar/libmaul-anim.a" --check "$level"
             echo "== -$level, AVX2"
-            python3 tools/size_report.py build-$level-auto/libmaul-anim.a
+            python3 tools/size_report.py "out/size-$level-auto/libmaul-anim.a" --check "$level-avx2"
           done
       - name: Allocators under Clang
-        run: python3 tools/size_report.py build-clang/libmaul-anim.a --allocators
+        run: python3 tools/size_report.py out/size-clang/libmaul-anim.a --allocators
 
-  windows-clang-cl:
-    name: windows-clang-cl
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Configure
-        run: cmake -B build -T ClangCL -D${PREFIX}_WERROR=ON
-      - name: Build
-        run: cmake --build build --config Release -j 4
-      - name: Test
-        # A skipped test fails the step, as it would hide a broken job.
-        run: |
-          set -o pipefail
-          ctest --test-dir build -C Release --output-on-failure --timeout 300 2>&1 | tee ctest.log
-          if grep -q "(Skipped)" ctest.log; then echo "::error::a test was skipped"; exit 1; fi
-      # The runtime alone, its allocator symbols read by llvm-nm.
-      - name: Runtime allocators
-        run: |
-          cmake -B build-runtime -T ClangCL -D${PREFIX}_WERROR=ON -DMAUL_ANIM_OFFLINE=OFF \
-            -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
-          cmake --build build-runtime --config Release -j 4
-          NM=llvm-nm python tools/size_report.py build-runtime/Release/maul-anim.lib --allocators
-      # The DLL through its installed package alone: the CPU check's three
-      # functions exported and the backend named.
-      - name: Package consumer, DLL
-        run: |
-          cmake -B build-dll -T ClangCL -D${PREFIX}_WERROR=ON -DMAUL_ANIM_BUILD_SHARED=ON \
-            -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF
-          cmake --build build-dll --config Release -j 4
-          cmake --install build-dll --config Release --prefix "$PWD/package"
-          cmake -S test/consumer -B build-consumer -T ClangCL -DCMAKE_PREFIX_PATH="$PWD/package"
-          cmake --build build-consumer --config Release
-          PATH="$PWD/package/bin:$PATH" build-consumer/Release/consumer.exe
-      # The public headers alone under MSVC's cl, as C17 and C++17 with
-      # /W4 /WX, which cannot build the library itself (family record 0008).
-      - name: Headers under MSVC
-        run: |
-          cmake -S cmake/HeaderCheck -B build-headers
-          cmake --build build-headers --config Release
-
+  # The library and its tests under Emscripten and Node, and the static
+  # library's size, reported. The CI image has no Emscripten, so this job
+  # uses the runner and the emsdk action.
   web:
-    name: web-emscripten
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
       - name: Configure
-        run: emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release -D${PREFIX}_WERROR=ON
+        run: cmake --preset web-emscripten
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build --preset web-emscripten -j 4
       - name: Test
         run: |
-          for t in build/test_*.js; do node "$t" || exit 1; done
+          ctest --preset web-emscripten | tee "$RUNNER_TEMP/ctest.log"
+          if grep -E '\*\*\*(Skipped|Not Run)' "$RUNNER_TEMP/ctest.log"; then
+            echo "::error::a test did not run"; exit 1
+          fi
       - name: Size
-        # The static library's size, reported, not gated (family record
-        # 0013).
-        run: stat -c '%s bytes' build/libmaul-anim.a
+        run: stat -c '%s bytes' out/web-emscripten/libmaul-anim.a
+      - name: Test logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logs-web-emscripten
+          path: out/web-emscripten/Testing/Temporary/
+          if-no-files-found: ignore
+          retention-days: 7
 
-  # Each fuzz target runs for one minute on every push, from its seed:
-  # the skeleton, skin and clip loaders (full and compressed clips), the
-  # graph files and their JSON form, learned models and training
-  # checkpoints, the JSON reader and the glTF and FBX
-  # documents from their tests' sample files (with the fixtures of
-  # test/data/gltf and test/data/fbx), and glTF's meshopt and Draco
-  # streams.
+  # Each fuzz target runs over the bytes programs hand the library, from
+  # the committed seeds in test/seeds, four at a time: briefly on a pull
+  # request, a minute on main and at night. The long runs, with the corpus carried from
+  # night to night, are in nightly.yml.
   fuzz:
-    name: fuzz
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.6@sha256:50c383f608f992c272196139d749f15978e35143a2876362b1e0aef6993480bd
+    permissions:
+      contents: read
+    env:
+      FUZZ_SECONDS: ${{ github.event_name == 'pull_request' && 15 || 60 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install compilers
-        timeout-minutes: 15
-        run: |
-          sudo apt-get $APT_OPTIONS update -q
-          sudo apt-get $APT_OPTIONS install -y -q --no-install-recommends clang-20 \
-            libclang-rt-20-dev ninja-build
       - name: Build
         run: |
-          cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang-20 -D${PREFIX}_FUZZ=ON \
-            -D${PREFIX}_WERROR=ON
-          cmake --build build
+          cmake --preset linux-fuzz
+          cmake --build --preset linux-fuzz -j 4
       - name: Run
+        run: tools/fuzz.sh run out/linux-fuzz "$FUZZ_SECONDS"
+      - name: Fuzz logs and crash inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz
+          path: |
+            out/fuzz-logs/
+            out/findings/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The one check the ruleset requires: it passes when every job above
+  # passed or was skipped for a documentation-only change, so adding or
+  # renaming a job never touches the ruleset.
+  required:
+    if: always()
+    needs: [changes, docs, zizmor, checks, build, windows, size, web, fuzz]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          mkdir -p corpus-fuzz_skeleton
-          build/test_skeleton --seed corpus-fuzz_skeleton/sample.skeleton
-          mkdir -p corpus-fuzz_skin
-          build/test_skin --seed corpus-fuzz_skin/sample.skin
-          mkdir -p corpus-fuzz_influences
-          build/test_influences --seed corpus-fuzz_influences/sample.influences
-          mkdir -p corpus-fuzz_morph
-          build/test_morph --seed corpus-fuzz_morph/sample.morph
-          mkdir -p corpus-fuzz_clip
-          build/test_clip --seed corpus-fuzz_clip/sample.clip
-          build/test_clip_compress --seed corpus-fuzz_clip/compressed.clip
-          build/test_root_motion --seed corpus-fuzz_clip/root.clip
-          mkdir -p corpus-fuzz_graph
-          build/test_graph --seed corpus-fuzz_graph/sample.graph
-          mkdir -p corpus-fuzz_graph_json
-          build/test_graph_json --seed corpus-fuzz_graph_json/sample.json
-          build/test_graph_space --seed corpus-fuzz_graph/space.graph corpus-fuzz_graph_json/space.json
-          build/test_graph_triangles --seed corpus-fuzz_graph/triangles.graph corpus-fuzz_graph_json/triangles.json
-          build/test_graph_machine --seed corpus-fuzz_graph/machine.graph corpus-fuzz_graph_json/machine.json
-          build/test_graph_listen --seed corpus-fuzz_graph/listen.graph corpus-fuzz_graph_json/listen.json
-          build/test_graph_shot --seed corpus-fuzz_graph/shot.graph corpus-fuzz_graph_json/shot.json
-          build/test_graph_inertia --seed corpus-fuzz_graph/inertia.graph corpus-fuzz_graph_json/inertia.json
-          build/test_graph_match_file --seed corpus-fuzz_graph/match.graph corpus-fuzz_graph_json/match.json
-          build/test_graph_learned_file --seed corpus-fuzz_graph/learned.graph corpus-fuzz_graph_json/learned.json
-          build/test_graph_spring_node --seed corpus-fuzz_graph/spring.graph corpus-fuzz_graph_json/spring.json
-          build/test_graph_nested --seed corpus-fuzz_graph/nested.graph corpus-fuzz_graph_json/nested.json
-          build/test_graph_ik_node --seed corpus-fuzz_graph/ik.graph corpus-fuzz_graph_json/ik.json
-          build/test_graph_chain_node --seed corpus-fuzz_graph/chain.graph corpus-fuzz_graph_json/chain.json
-          build/test_graph_body_node --seed corpus-fuzz_graph/body.graph corpus-fuzz_graph_json/body.json
-          mkdir -p corpus-fuzz_match
-          build/test_match --seed corpus-fuzz_match/sample.match
-          mkdir -p corpus-fuzz_learned
-          build/test_learned --seed corpus-fuzz_learned/sample.model
-          mkdir -p corpus-fuzz_spring
-          build/test_spring --seed corpus-fuzz_spring/sample.spring
-          mkdir -p corpus-fuzz_ragdoll
-          build/test_ragdoll --seed corpus-fuzz_ragdoll/sample.ragdoll
-          mkdir -p corpus-fuzz_retarget
-          build/test_retarget_map --seed corpus-fuzz_retarget/sample.retarget
-          mkdir -p corpus-fuzz_mirror
-          build/test_mirror_map --seed corpus-fuzz_mirror/sample.mirror
-          mkdir -p corpus-fuzz_map_json
-          build/test_retarget_json --seed corpus-fuzz_map_json/retarget.json
-          build/test_mirror_json --seed corpus-fuzz_map_json/mirror.json
-          mkdir -p corpus-fuzz_checkpoint
-          build/test_learned_train --seed corpus-fuzz_checkpoint/sample.ckpt
-          mkdir -p corpus-fuzz_json
-          build/test_json --seed corpus-fuzz_json/sample.json
-          mkdir -p corpus-fuzz_gltf
-          build/test_gltf --seed corpus-fuzz_gltf/sample.glb
-          build/test_gltf_spring_extensions --seed corpus-fuzz_gltf/springs.gltf
-          build/test_gltf_ragdoll --seed corpus-fuzz_gltf/ragdoll.gltf
-          cp test/data/gltf/*.glb test/data/gltf/*.gltf corpus-fuzz_gltf/
-          build/test_gltf_compression --seed corpus-fuzz_gltf/huge-view.gltf
-          mkdir -p corpus-fuzz_draco
-          cp test/data/draco/*.drc corpus-fuzz_draco/
-          build/test_gltf_draco --seed corpus-fuzz_draco/claim-faces.drc \
-            corpus-fuzz_draco/claim-vertices.drc corpus-fuzz_draco/claim-splits.drc \
-            corpus-fuzz_draco/split-past-end.drc corpus-fuzz_draco/claim-sequential.drc
-          mkdir -p corpus-fuzz_meshopt
-          build/test_gltf_meshopt --seed corpus-fuzz_meshopt/attributes-v0.bin \
-            corpus-fuzz_meshopt/attributes-v1.bin corpus-fuzz_meshopt/triangles16.bin \
-            corpus-fuzz_meshopt/indices16.bin corpus-fuzz_meshopt/triangles32.bin \
-            corpus-fuzz_meshopt/indices32.bin
-          mkdir -p corpus-fuzz_fbx
-          build/test_fbx --seed corpus-fuzz_fbx/sample.fbx
-          cp test/data/fbx/*.fbx corpus-fuzz_fbx/
-          for target in build/fuzz_*; do
-            name=$(basename $target)
-            mkdir -p "corpus-$name"
-            if [ -f "test/corpus/$name.tar.gz" ]; then
-              tar -xzf "test/corpus/$name.tar.gz" -C "corpus-$name"
-            fi
-            "$target" -max_total_time=60 "corpus-$name"
+          echo "$RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success | skipped) ;; *) exit 1 ;; esac
           done

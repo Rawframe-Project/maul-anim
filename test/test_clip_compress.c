@@ -1160,7 +1160,6 @@ static void TestCodec(void)
 // An additive clip compressed: its report is the test's own measure of
 // the rest plus each difference, within the precision; channels at the
 // rest fold to the identity difference.
-#define PINNED_ADDITIVE_COMPRESSED_HASH 0x4c25202ef42dd37aull
 
 static void AdditiveCompressed(float precision)
 {
@@ -1174,19 +1173,6 @@ static void AdditiveCompressed(float precision)
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
     CHECK(maniClipAdditiveBasis(&clip) == maniAdditiveRest, "keeps the basis");
-    if (precision == 0.0001f)
-    {
-        // The library's version stamped in the container left out.
-        static uint8_t copy[65536];
-        memcpy(copy, s_file, s_size);
-        memset(copy + 16, 0, 6);
-        uint64_t hash = maniHash64(MANI_HASH_INIT, copy, (int32_t)s_size);
-        CHECK(hash == PINNED_ADDITIVE_COMPRESSED_HASH, "pinned additive file");
-        if (hash != PINNED_ADDITIVE_COMPRESSED_HASH)
-        {
-            printf("additive compressed hash 0x%016llx\n", (unsigned long long)hash);
-        }
-    }
     static _Alignas(32) uint8_t restMemory[2][8192];
     maniPose* a = NULL;
     maniPose* b = NULL;

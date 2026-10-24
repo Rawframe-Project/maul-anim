@@ -29,8 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_SDLS_HASH 0x21099bba1e67ca8bull
-#define PINNED_FREE_HASH 0xb7607b5dc8c659b2ull
+#define PINNED_SDLS_HASH 0xbabbc6c525741031ull
 
 static bool Sdls(maniPose* pose, const maniBodySolve* s, bool* reached)
 {
@@ -207,12 +206,51 @@ static void TestPinned(void)
     s.topMode = maniBodyTopFree;
     s.iterations = 4;
     s.tolerance = 0.0f;
-    CHECK(Sdls(s_pose, &s, NULL), "the pinned free solve");
+    CHECK(Sdls(s_pose, &s, NULL), "the free solve with clamped steps");
     uint64_t free = Hash(s_pose);
-    CHECK(hash == PINNED_SDLS_HASH && free == PINNED_FREE_HASH, "the same bits on every platform");
-    if (hash != PINNED_SDLS_HASH || free != PINNED_FREE_HASH)
+    hash = maniHash64(hash, &free, (int32_t)sizeof free);
+    // The other solvers from the rest: two bones, an aim over two bones,
+    // and FABRIK and CCD along the left arm from the spine.
+    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    maniTwoBoneSolve two = {.start = kArmL,
+                            .middle = kForeL,
+                            .end = kHandL,
+                            .goal = {0.6f, 1.2f, 0.3f},
+                            .pole = {0.0f, 0.0f, -1.0f},
+                            .twist = 0.2f,
+                            .soften = 0.9f,
+                            .weight = 1.0f};
+    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &two, NULL) == mani_success, "two bones");
+    maniAimSolve aim = {.bones = {kSpine, kChest},
+                        .shares = {0.5f, 0.5f},
+                        .count = 2,
+                        .goal = {0.4f, 1.8f, 1.0f},
+                        .pole = {0.0f, 0.0f, 1.0f},
+                        .forward = {0.0f, 1.0f, 0.0f},
+                        .up = {0.0f, 0.0f, 1.0f},
+                        .weight = 1.0f};
+    CHECK(maniSolveAim(s_pose, &s_skeleton, &aim, NULL) == mani_success, "aim");
+    uint64_t solvers = Hash(s_pose);
+    maniChainSolve chain = {.root = kSpine,
+                            .end = kHandL,
+                            .goal = {-0.3f, 1.5f, 0.6f},
+                            .rotation = {0.0f, 0.0f, 0.0f, 1.0f},
+                            .iterations = 16,
+                            .weight = 1.0f};
+    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success &&
+              maniSolveFabrik(s_pose, &s_skeleton, &chain, NULL) == mani_success,
+          "FABRIK");
+    solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int32_t)sizeof(uint64_t));
+    chain.step = 0.5f;
+    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success &&
+              maniSolveCcd(s_pose, &s_skeleton, &chain, NULL) == mani_success,
+          "CCD");
+    solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int32_t)sizeof(uint64_t));
+    hash = maniHash64(hash, &solvers, (int32_t)sizeof solvers);
+    CHECK(hash == PINNED_SDLS_HASH, "the same bits on every platform");
+    if (hash != PINNED_SDLS_HASH)
     {
-        printf("pinned 0x%016llx 0x%016llx\n", (unsigned long long)hash, (unsigned long long)free);
+        printf("pinned 0x%016llx\n", (unsigned long long)hash);
     }
 }
 

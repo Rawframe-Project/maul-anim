@@ -1,0 +1,25 @@
+; FBX 7.4.0 project file
+; a comment
+FBXHeaderExtension:  {
+	FBXVersion: 7400
+}
+Objects:  {
+	Model: 1234567890123, "Model::hip", "LimbNode" {
+		Properties70:  {
+			P: "Lcl Translation", "Lcl Translation", "", "A",1.5,-2,+0.25
+		}
+		Shading: T
+		KeyTime: *3 {
+			a: 0,46186158000, ; a comment inside
+			92372316000
+		}
+		Empty: *0 {
+		}
+		Weird: 1.#INF, -1.#IND
+		BadKeys: *2 {
+			a: 1,1.#QNAN
+		}
+		Quote: "say &quot;hi&quot;&lf;& more"
+		"Spaced Name": , 1
+	}
+}

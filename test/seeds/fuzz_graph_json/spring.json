@@ -1,0 +1,24 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "place", "type": "vec3", "default": [0, 0, 0]},
+    {"name": "turn", "type": "quat", "default": [0, 0, 0, 1]},
+    {"name": "drop", "type": "trigger", "default": false},
+    {"name": "jump", "type": "trigger", "default": false},
+    {"name": "wind", "type": "vec3", "default": [0, 0, 0]}
+  ],
+  "clips": [
+    "walk"
+  ],
+  "syncGroups": [],
+  "springSets": [
+    "hair"
+  ],
+  "nodes": [
+    {"kind": "clip", "clip": "walk", "syncGroup": null, "speed": 1, "loop": "repeat", "leader": false},
+    {"kind": "spring", "inputs": [0], "springSet": "hair", "position": "place", "rotation": "turn", "reset": "drop", "force": "wind"},
+    {"kind": "seek", "inputs": [1], "trigger": "jump", "time": 0.25}
+  ],
+  "output": 2
+}

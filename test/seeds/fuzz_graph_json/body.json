@@ -1,0 +1,30 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "hand", "type": "vec3", "default": [0.5, 1.3, 0.3]},
+    {"name": "chest", "type": "vec3", "default": [0.1, 1.45, 0.05]},
+    {"name": "a", "type": "float", "default": 1},
+    {"name": "b", "type": "float", "default": 1},
+    {"name": "lean", "type": "bool", "default": false},
+    {"name": "turn", "type": "quat", "default": [0, 0, 0.38268343, 0.9238795]}
+  ],
+  "clips": [
+    "walk",
+    "run",
+    "wave",
+    "short",
+    "long",
+    "double",
+    "triple",
+    "turnA",
+    "turnB"
+  ],
+  "syncGroups": [],
+  "nodes": [
+    {"kind": "clip", "clip": "walk", "syncGroup": null, "speed": 1, "loop": "repeat", "leader": false},
+    {"kind": "bodyXpbd", "inputs": [0], "top": "hips", "effectors": [{"bone": "arm", "position": "hand", "rotation": "turn", "positionWeight": 1, "rotationWeight": {"parameter": "b"}, "strength": 1, "pullChain": 0}, {"bone": "spine", "position": "chest", "positionWeight": 0.8, "strength": 0.5, "pullChain": 0.25}], "iterations": 16, "topMode": "pinned", "bones": [{"bone": "spine", "limit": {"kind": "cone", "cone": 0.6, "twist": [-0.2, 0.2]}, "preferred": [0, 0, 0.1], "rotationStiffness": 0.2, "positionStiffness": 0}], "tolerance": 0.0001, "weight": {"parameter": "a"}},
+    {"kind": "bodySdls", "inputs": [1], "top": "hips", "effectors": [{"bone": "arm", "position": "hand", "positionWeight": 1, "strength": 1, "pullChain": 0}], "iterations": 8, "topMode": "free", "tolerance": 0, "weight": 1}
+  ],
+  "output": 2
+}

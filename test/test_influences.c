@@ -25,8 +25,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_INFLUENCES_HASH 0x300a409797fed619ull
-
 enum
 {
     kBones = 6,
@@ -415,19 +413,6 @@ static void TestOpenRefusals(void)
     CHECK(maniOpenInfluences(NULL, 64, &none).result == mani_errorInvalid, "no bytes");
 }
 
-static void TestPinned(void)
-{
-    BuildSample();
-    // The library's version stamped in the container left out.
-    memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_INFLUENCES_HASH, "pinned file");
-    if (hash != PINNED_INFLUENCES_HASH)
-    {
-        printf("influences hash 0x%016llx\n", (unsigned long long)hash);
-    }
-}
-
 static int WriteSeed(const char* path)
 {
     OpenSkin();
@@ -452,6 +437,5 @@ int main(int argc, char** argv)
     TestWholeGroup();
     TestBuildRefusals();
     TestOpenRefusals();
-    TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

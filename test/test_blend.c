@@ -11,6 +11,8 @@
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
 #include "maul-anim/build.h"
+#include "maul-anim/mirror.h"
+#include "maul-anim/mirrorbuild.h"
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
@@ -20,8 +22,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_BLEND_HASH    0x885e28d511d3c155ull
-#define PINNED_ADDITIVE_HASH 0x8047e342222b7524ull
+// The blend scene: a blend of three layers, that blend as a difference
+// added back onto a layer, the result's model pass, and its mirror;
+// every platform and backend must give this value.
+#define PINNED_SCENE_HASH 0x7a088ec6687bcea3ull
 
 enum
 {
@@ -800,21 +804,39 @@ static void TestPinned(void)
     maniTransform locals[kBones];
     CHECK(maniPoseReadLocals(s_out, 0, kBones, locals) == mani_success, "reads");
     uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
-    CHECK(hash == PINNED_BLEND_HASH, "pinned blend");
-    if (hash != PINNED_BLEND_HASH)
-    {
-        printf("blend hash 0x%016llx\n", (unsigned long long)hash);
-    }
     // That blend as a difference from layer 2, added back onto layer 0.
     CHECK(maniPoseDifference(&s_skeleton, s_out, s_layer[2], s_out) == mani_success, "difference");
     maniBlendLayer add = {s_out, 0.7f, boneWeights};
     CHECK(maniAddPoses(&s_skeleton, s_layer[0], &add, 1) == mani_success, "adds");
     CHECK(maniPoseReadLocals(s_layer[0], 0, kBones, locals) == mani_success, "reads");
-    hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
-    CHECK(hash == PINNED_ADDITIVE_HASH, "pinned additive");
-    if (hash != PINNED_ADDITIVE_HASH)
+    hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+    maniAffine models[kBones];
+    CHECK(maniComputeModel(s_layer[0], &s_skeleton) == mani_success &&
+              maniPoseReadModels(s_layer[0], 0, kBones, models) == mani_success,
+          "composes");
+    hash = maniHash64(hash, models, (int32_t)sizeof models);
+    // Mirrored across x, two pairs of bones swapping sides.
+    const maniMirrorPairSource pairs[2] = {{1, 2}, {3, 4}};
+    maniMirrorMapSource source = {&s_skeleton, NULL, pairs,           NULL, NULL, NULL, 2, 0,
+                                  0,           0,    maniMirrorAxisX, 0};
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = NULL;
+    static _Alignas(16) uint8_t file[4096];
+    size_t size = 0;
+    CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
+              maniBuildMirrorMap(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success,
+          "mirror map built");
+    maniDestroyBuilder(builder);
+    maniMirrorMap map;
+    CHECK(maniOpenMirrorMap(file, size, &map).result == mani_success, "mirror map opens");
+    CHECK(maniMirrorPose(&map, &s_skeleton, s_layer[0], s_layer[1]) == mani_success, "mirrors");
+    CHECK(maniPoseReadLocals(s_layer[1], 0, kBones, locals) == mani_success, "reads");
+    hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+    CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
+    if (hash != PINNED_SCENE_HASH)
     {
-        printf("additive hash 0x%016llx\n", (unsigned long long)hash);
+        printf("scene hash 0x%016llx\n", (unsigned long long)hash);
     }
 }
 

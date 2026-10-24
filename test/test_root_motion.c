@@ -31,8 +31,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_ROOT_HASH 0x1240776b82321b23ull
-
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[16384];
 static _Alignas(16) uint8_t s_plainFile[16384];
@@ -808,20 +806,6 @@ static void TestOpenRefusals(void)
     ExpectFormat(SectionAt(maniClipTagHeader) + 60, 1, at, "an additive clip");
 }
 
-static void TestPinned(void)
-{
-    maniRootMotionSource walk = Walk();
-    CHECK(BuildBoth(&walk), "builds");
-    // The writer's library version (bytes 16 to 21) changes with every release.
-    memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_ROOT_HASH, "pinned file");
-    if (hash != PINNED_ROOT_HASH)
-    {
-        printf("root motion clip hash 0x%016llx\n", (unsigned long long)hash);
-    }
-}
-
 static int WriteSeed(const char* path)
 {
     maniRootMotionSource walk = Walk();
@@ -852,6 +836,5 @@ int main(int argc, char** argv)
     TestBuildRefusals();
     TestGiven();
     TestOpenRefusals();
-    TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

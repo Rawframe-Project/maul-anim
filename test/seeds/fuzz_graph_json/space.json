@@ -1,0 +1,31 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "x", "type": "float", "default": 0},
+    {"name": "at", "type": "vec2", "default": [0, 0]}
+  ],
+  "clips": [
+    "walk",
+    "run",
+    "wave",
+    "short",
+    "long",
+    "double",
+    "triple",
+    "turnA",
+    "turnB"
+  ],
+  "syncGroups": [],
+  "nodes": [
+    {"kind": "blendSpace1D", "inputs": [1, 2], "position": {"x": {"parameter": "x"}}, "points": [-1, 0.5], "period": 2},
+    {"kind": "clip", "clip": "walk", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "run", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "short", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "long", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "double", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "blendSpaceBands", "inputs": [3, 4, 5], "position": {"vector": "at"}, "points": [[0, 0], [1, 0.25], [-0.5, 1]], "polar": true},
+    {"kind": "blend", "inputs": [0, 6], "weights": [0.5, 0.5], "direct": false}
+  ],
+  "output": 7
+}

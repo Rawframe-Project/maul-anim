@@ -1,0 +1,23 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "ahead", "type": "vec2", "default": [0.5, 0]},
+    {"name": "search", "type": "trigger", "default": false},
+    {"name": "tags", "type": "int", "default": 0},
+    {"name": "d", "type": "float", "default": 0.25}
+  ],
+  "clips": [
+    "walk",
+    "run"
+  ],
+  "syncGroups": [],
+  "databases": [
+    "moves"
+  ],
+  "nodes": [
+    {"kind": "match", "database": "moves", "query": ["ahead"], "period": 1, "jumpThreshold": 0, "endExclusion": 0.2, "historyTime": 0, "continuingBias": -0.5, "transitionCost": 0, "historyCount": 3, "requiredTags": {"parameter": "tags"}, "excludedTags": 4294967295, "duration": {"parameter": "d"}},
+    {"kind": "inertialize", "inputs": [0], "duration": 0}
+  ],
+  "output": 1
+}

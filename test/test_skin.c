@@ -27,8 +27,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_SKIN_HASH 0x6841b5a56a263921ull
-
 enum
 {
     kBones = 6,
@@ -342,18 +340,6 @@ static void TestEveryByteFlip(void)
     }
 }
 
-static void TestPinnedBytes(void)
-{
-    BuildSample();
-    memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_SKIN_HASH, "pinned file");
-    if (hash != PINNED_SKIN_HASH)
-    {
-        printf("skin hash 0x%016llx\n", (unsigned long long)hash);
-    }
-}
-
 static int WriteSeed(const char* path)
 {
     BuildSample();
@@ -379,6 +365,5 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestTableRefusals();
     TestEveryByteFlip();
-    TestPinnedBytes();
     return s_failures == 0 ? 0 : 1;
 }

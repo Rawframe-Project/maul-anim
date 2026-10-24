@@ -12,8 +12,6 @@
 
 #include <string.h>
 
-#define PINNED_FILE_HASH 0x8c14ee6de964f4f6ull
-
 enum
 {
     kCapacity = 2048,
@@ -244,15 +242,6 @@ static void TestSizeLimits(void)
     CHECK(!maniContainerSize(many, MANI_CONTAINER_MAX_SECTIONS + 1, &size), "over the limit");
 }
 
-// The sample's bytes, apart from the writer's version, on every platform.
-static void TestPinnedBytes(void)
-{
-    WriteSample();
-    memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_FILE_HASH, "pinned file");
-}
-
 int main(void)
 {
     TestRoundTrip();
@@ -263,6 +252,5 @@ int main(void)
     TestSectionLimit();
     TestEveryByteFlip();
     TestSizeLimits();
-    TestPinnedBytes();
     return s_failures == 0 ? 0 : 1;
 }

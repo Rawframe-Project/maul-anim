@@ -1,0 +1,30 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "x", "type": "float", "default": 0},
+    {"name": "at", "type": "vec2", "default": [0, 0]}
+  ],
+  "clips": [
+    "walk",
+    "run",
+    "wave",
+    "short",
+    "long",
+    "double",
+    "triple",
+    "turnA",
+    "turnB"
+  ],
+  "syncGroups": [],
+  "nodes": [
+    {"kind": "blendSpaceTriangles", "inputs": [1, 2, 3], "position": {"x": {"parameter": "x"}, "y": 0.5}, "points": [[0, 0], [1, 0], [0.25, -1]]},
+    {"kind": "clip", "clip": "walk", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "run", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "short", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "clip", "clip": "long", "syncGroup": null, "speed": 1, "loop": "clip", "leader": false},
+    {"kind": "blendSpaceTriangles", "inputs": [1, 2, 3, 4], "position": {"vector": "at"}, "points": [[0, 0], [1, 0], [1, 1], [0, 1]], "triangles": [[0, 1, 2], [0, 2, 3]]},
+    {"kind": "blend", "inputs": [0, 5], "weights": [0.5, 0.5], "direct": false}
+  ],
+  "output": 6
+}

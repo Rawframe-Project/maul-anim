@@ -9,8 +9,8 @@ Maul Anim samples, blends and evaluates skeletal animation, solves inverse kinem
 - **Memory:** the runtime has no owner objects and allocates nothing. Its data are files whose bytes the caller holds, checked once when opened into fixed-size views; poses, instances, cursors and scratch are caller memory of the size and alignment the library reports. The offline side (builders, importers, the compressor, the trainer) has owner objects created with the family allocator. [memory-and-threads.md](memory-and-threads.md) explains the split.
 - **Operating system:** no call. No file is opened and no clock is read; the host passes bytes and time.
 - **Platform dependencies:** none beyond `<stddef.h>`, `<stdint.h>`, `<string.h>` and the exactly rounded `<math.h>` functions in `tools/libm-allowed.txt`.
-- **Misuse and stale ids:** the library has no root object and no ids. Its owner objects count one misuse for each call a correct program never makes: a builder for a call back in from the host's code, a NULL argument, a bad option or an index past a count (`maniBuilderMisuses`), a trainer for a call back in (`maniLearnedTrainerMisuses`). Bad untrusted data (a file, JSON text, a saved state, a checkpoint) is refused with its status and location and counts none, so whoever controls the data cannot move the counter.
-- **Root def:** the builder and the learned trainer are the objects a program creates; their defs carry `MANI_ABI_VERSION`.
+- **Misuse and stale ids:** the library has no ids. Its owner objects count one misuse for each call a correct program never makes: a builder for a call back in from the host's code, a NULL argument, a bad option or an index past a count (`maniBuilderMisuses`), a trainer for a call back in (`maniLearnedTrainerMisuses`). Bad untrusted data (a file, JSON text, a saved state, a checkpoint) is refused with its status and location and counts none, so whoever controls the data cannot move the counter.
+- **Root defs:** the builder and the learned trainer are the library's two creations, and neither takes an object another creation made (the trainer reads opened files), so both are roots and both defs carry `MANI_ABI_VERSION`. Files are opened from bytes without a def and carry their own format versions.
 
 ## The parts
 
@@ -59,7 +59,7 @@ Internal invariants are asserted with `MANI_ASSERT` ([`src/invariant.h`](../../s
 Each suite in `test/` is one executable registered with CTest and labeled with its name. What the tests rely on:
 
 - **References in binary64.** Sampling, blending, IK, retargeting, mirroring, springs and root motion are tested against straightforward binary64 implementations of the same rule, written in the test from the method's description.
-- **Pinned hashes.** A few scenes hash their output (`PINNED_HASH` in the math, scalar and retargeting suites); every platform and backend CI runs must give the same value.
+- **Pinned hashes.** Sixteen golden values in sixteen suites hash scenes that together give every output promised above a check ([determinism.md](determinism.md) lists them); every platform and backend CI runs must give the same values.
 - **Hostile files.** Every opener is tested with files changed at the byte each check reads, and fuzzed (`test/fuzz_*.c`).
-- **Differentials.** Programs in `tools/` compare with ufbx, ACL, ozz-animation and Godot on their corpora; they run on a schedule, not in the pull request check ([development.md](../operations/development.md#differentials)).
+- **Differentials.** Programs in `tools/` compare with ufbx, ACL, ozz-animation and Godot on their corpora; they run every night, not in the pull request check ([development.md](../operations/development.md#differentials)).
 - **Guide snippets.** Every C block of `docs/user/` is built and run by `test/test_guide.c` or `test/test_guide_import.c`.

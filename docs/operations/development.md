@@ -5,6 +5,7 @@ How to build, debug and change Maul Anim as a maintainer. Building and installin
 ## Contents
 
 - [Toolchain](#toolchain)
+- [Presets](#presets)
 - [Build options for development](#build-options-for-development)
 - [Running one test](#running-one-test)
 - [Generated sources and test data](#generated-sources-and-test-data)
@@ -22,6 +23,10 @@ The organization's CI image, `ghcr.io/rawframe-project/ci-cpp`, has everything b
 - Python 3 for the checks, the generators and the documentation site (`pip install markdown==3.6` for the site).
 - For the differentials only: a C++17 compiler and network access (CMake fetches ufbx, ACL, RTM and ozz-animation at pinned commits), and Godot 4.7.2 for the retargeting comparison.
 
+## Presets
+
+`CMakePresets.json` holds every CI cell as a configure, build and test preset of the same name, built in `out/<preset>`: `linux-gcc-14`, `linux-arm64-gcc-14`, `linux-clang-20`, `linux-clang-20-asan`, `linux-clang-20-tsan`, `linux-shared`, `macos-clang`, `windows-clang-cl`, `windows-shared`, `windows-runtime` and `web-emscripten` (with emsdk active), plus `linux-fuzz` and `linux-differential` for the fuzz targets and the differentials. `tools/check.sh` runs them by tier ([checks.md](checks.md)). ThreadSanitizer inside a container needs `--security-opt seccomp=unconfined`.
+
 ## Build options for development
 
 | Option | Effect |
@@ -33,6 +38,7 @@ The organization's CI image, `ghcr.io/rawframe-project/ci-cpp`, has everything b
 | `MAUL_ANIM_FUZZ` | The libFuzzer targets, `fuzz_<area>` (Clang only). |
 | `MAUL_ANIM_DIFFERENTIAL` | The differential programs against ufbx, ACL, ozz-animation and Godot; needs `MAUL_ANIM_OFFLINE`. |
 | `MAUL_ANIM_SIMD=scalar` | The portable backend, to compare with a vector build. |
+| `MAUL_ANIM_TEST_PACKAGE` | The `package` test: installs the build and builds `test/consumer` against it. |
 | `MAUL_ANIM_BUILD_TESTS`, `_BENCH` | On when the project is built on its own. |
 
 ## Running one test
@@ -40,11 +46,10 @@ The organization's CI image, `ghcr.io/rawframe-project/ci-cpp`, has everything b
 Each suite is `test/test_<name>.c`, built as `test_<name>` at the top of the build tree and registered with CTest as `<name>`, labeled with its name:
 
 ```sh
-cmake -B out/asan -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_BUILD_TYPE=Debug \
-  -DMAUL_ANIM_SANITIZE=ON -DMAUL_ANIM_WERROR=ON
-cmake --build out/asan
-ctest --test-dir out/asan -L clip
-./out/asan/test_clip
+cmake --preset linux-clang-20-asan
+cmake --build --preset linux-clang-20-asan
+ctest --preset linux-clang-20-asan -L '^clip$'
+./out/linux-clang-20-asan/test_clip
 ```
 
 A suite prints one line per failed check with its file and line. Suites marked `WHITEBOX` in `CMakeLists.txt` include `src/` and are skipped in shared builds, where internal symbols are hidden. The glTF and FBX suites read `test/data/`.
@@ -75,11 +80,11 @@ The C++ generators need the third-party libraries named at the top of each file;
 
 ## Differentials
 
-Programs built with `-DMAUL_ANIM_DIFFERENTIAL=ON` compare the library with other implementations on the same data; `.github/workflows/differential.yml` runs them on a schedule and by hand, never in the pull request check.
+Programs built with `-DMAUL_ANIM_DIFFERENTIAL=ON` compare the library with other implementations on the same data; `.github/workflows/nightly.yml` runs them every night and by hand, never in the pull request check ([checks.md](checks.md)).
 
 | Program | Compares with | Data |
 |---|---|---|
-| `fbx_differential` | ufbx: skeletons, skins, clips and weights; known deviations in `tools/fbx-deviations.txt` | ufbx's corpus at the pinned commit (`build/_deps/ufbx-src/data`) |
+| `fbx_differential` | ufbx: skeletons, skins, clips and weights; known deviations in `tools/fbx-deviations.txt` | ufbx's corpus at the pinned commit (`_deps/ufbx-src/data` in the build tree) |
 | `acl_differential` | ACL: compressed size, error and time | ozz-animation's Quaternius `ual.fbx`, checked by hash |
 | `ozz_differential` | ozz-animation's blending job | the same clips |
 | `ik_differential` | ozz-animation's two-bone and aim jobs | a million random chains |
@@ -88,9 +93,10 @@ Programs built with `-DMAUL_ANIM_DIFFERENTIAL=ON` compare the library with other
 To refresh the FBX fixtures' expected values after a change ufbx agrees with:
 
 ```sh
-cmake -B out/diff -G Ninja -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 -DMAUL_ANIM_DIFFERENTIAL=ON
-cmake --build out/diff --target fbx_differential
-./out/diff/fbx_differential --deviations tools/fbx-deviations.txt --expect test/fbx_fixture_expect.h test/data/fbx/*.fbx
+cmake --preset linux-differential
+cmake --build --preset linux-differential --target fbx_differential
+./out/linux-differential/fbx_differential --deviations tools/fbx-deviations.txt \
+  --expect test/fbx_fixture_expect.h test/data/fbx/*.fbx
 ```
 
 A disagreement is a defect in the library, or a deviation decided and listed with its reason in `tools/fbx-deviations.txt`.
@@ -109,13 +115,12 @@ prints each part's text against its ceiling in `tools/size-budget.txt` and fails
 
 ## Reproducing a fuzz finding
 
-A fuzz target writes the input that failed as `crash-<hash>` in its working directory. To reproduce:
+A fuzz target writes the input that failed as `crash-<hash>`, in `out/findings/` when `tools/fuzz.sh` runs it (CI uploads that folder). To reproduce:
 
 ```sh
-cmake -B out/fuzz -G Ninja -DCMAKE_C_COMPILER=clang-20 -DMAUL_ANIM_FUZZ=ON -DMAUL_ANIM_BUILD_TESTS=OFF
-cmake --build out/fuzz
-./out/fuzz/fuzz_clip -max_total_time=300 corpus-clip
-./out/fuzz/fuzz_clip crash-<hash>
+cmake --preset linux-fuzz && cmake --build --preset linux-fuzz
+./out/linux-fuzz/fuzz_clip out/findings/crash-<hash>
+tools/fuzz.sh run out/linux-fuzz 300  # every target for five minutes, four at a time
 ```
 
-Always pass `-max_total_time`: a fuzz target otherwise runs until it finds something. Every crash becomes a test in the suite of its module, with the smallest input that still fails (`-minimize_crash=1`). The test suites can write a fuzz target's first seed: `./out/asan/test_clip --seed corpus-clip/sample.clip`.
+Always pass `-max_total_time`: a fuzz target otherwise runs until it finds something. Every crash becomes a test in the suite of its module, with the smallest input that still fails (`-minimize_crash=1`). The seeds and the corpus are described in [checks.md](checks.md#fuzzing).

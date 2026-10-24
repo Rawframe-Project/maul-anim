@@ -1,0 +1,228 @@
+# The extended nightly run, not a required check: the differentials
+# against other libraries, and the long fuzzing that grows the corpus.
+#
+# The ufbx differential reads every file of ufbx's corpus, at the commit
+# CMake pins, with ufbx and with Maul Anim and compares them, and writes
+# the FBX fixtures' expected values again to hold against the committed
+# ones. The ACL differential compresses the clips of ozz-animation's
+# Quaternius file with ACL and with Maul Anim and prints sizes, errors and
+# times, every bone within the precision required. The ozz differential
+# samples and blends the same clips, with masks and additive layers, with
+# ozz's BlendingJob and with Maul Anim, compared to binary32 rounding. The
+# IK differential solves random two-bone chains and aims with ozz's
+# IKTwoBoneJob and IKAimJob and with Maul Anim. The retargeting
+# differential retargets random poses of a humanoid with Godot 4.7.2's
+# RetargetModifier3D, run headless, and with Maul Anim, and compares the
+# model rotations.
+name: nightly
+
+on:
+  schedule:
+    # Fifteen minutes after ci.yml's nightly slot (the organization's
+    # docs/ci-schedule.md).
+    - cron: "22 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PREFIX: MAUL_ANIM
+
+jobs:
+  fbx-ufbx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.6@sha256:50c383f608f992c272196139d749f15978e35143a2876362b1e0aef6993480bd
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        # The sanitizers watch the library through every file.
+        run: |
+          cmake -B out/ufbx -G Ninja -DCMAKE_BUILD_TYPE=Debug -D${PREFIX}_WERROR=ON \
+            -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+            -D${PREFIX}_SANITIZE=ON -D${PREFIX}_DIFFERENTIAL=ON \
+            -D${PREFIX}_BUILD_TESTS=OFF -D${PREFIX}_BUILD_BENCH=OFF
+          cmake --build out/ufbx --target fbx_differential -j 4
+      - name: ufbx's corpus
+        run: |
+          shopt -s nullglob
+          files=(out/ufbx/_deps/ufbx-src/data/*.fbx)
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::ufbx's corpus has no file"; exit 1; fi
+          out/ufbx/fbx_differential --deviations tools/fbx-deviations.txt "${files[@]}"
+      - name: The fixtures' expected values
+        if: ${{ !cancelled() }}
+        run: |
+          out/ufbx/fbx_differential --deviations tools/fbx-deviations.txt \
+            --expect out/ufbx/fbx_fixture_expect.h test/data/fbx/*.fbx
+          python3 tools/fbx_fixtures.py --compare out/ufbx/fbx_fixture_expect.h test/fbx_fixture_expect.h
+
+  # ACL, ozz-animation and Godot, in one Release build: the times are
+  # printed, and the other libraries are built as they ship.
+  differentials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.6@sha256:50c383f608f992c272196139d749f15978e35143a2876362b1e0aef6993480bd
+    permissions:
+      contents: read
+    env:
+      GODOT: Godot_v4.7.2-stable_linux.x86_64
+      # The release's SHA512-SUMS.txt entry for the zip.
+      GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+      # ozz-animation 0.17.0's Quaternius file, CC0 per its README.
+      UAL_SHA256: 42f16a4ed61d1e9f5fc7c2526894c5487148ac6ba82b64281ceb7943570f3c37
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        run: |
+          cmake --preset linux-differential
+          cmake --build --preset linux-differential -j 4 \
+            --target acl_differential ozz_differential ik_differential retarget_godot
+      - name: Compression against ACL
+        run: |
+          f=out/linux-differential/_deps/ozz-src/media/fbx/quaternius/ual.fbx
+          echo "$UAL_SHA256  $f" | sha256sum -c -
+          out/linux-differential/acl_differential "$f"
+      - name: Blending against ozz-animation
+        if: ${{ !cancelled() }}
+        run: |
+          f=out/linux-differential/_deps/ozz-src/media/fbx/quaternius/ual.fbx
+          out/linux-differential/ozz_differential "$f"
+      - name: IK against ozz-animation
+        if: ${{ !cancelled() }}
+        run: out/linux-differential/ik_differential 1000000
+      - name: Fetch Godot
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: |
+          curl -fsSL --retry 3 -o out/godot.zip \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/$GODOT.zip"
+          echo "$GODOT_SHA512  out/godot.zip" | sha512sum -c -
+          unzip -q -d out out/godot.zip
+      - name: Retargeting against Godot
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p out/godot-project
+          printf 'config_version=5\n' > out/godot-project/project.godot
+          cp tools/retarget_godot.gd out/godot-project/
+          out/linux-differential/retarget_godot write "$PWD/out/in.txt" 500
+          timeout 300 "out/$GODOT" --headless --path out/godot-project --script retarget_godot.gd \
+            -- "$PWD/out/in.txt" "$PWD/out/out.txt"
+          out/linux-differential/retarget_godot check out/in.txt out/out.txt
+
+  # The fuzz targets, one per test/fuzz_*.c.
+  fuzz-targets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: list
+        run: |
+          targets=$(cd test && ls fuzz_*.c | sed 's/\.c$//' | jq -R . | jq -cs .)
+          if [ "$targets" = "[]" ]; then echo "::error::no fuzz target"; exit 1; fi
+          echo "targets=$targets" >>"$GITHUB_OUTPUT"
+
+  # Each target fuzzes ten minutes from its corpus of the nights before, in
+  # a job of its own, so a slow or failing target never costs the others
+  # their night. The corpus is carried in an Actions cache per target, keyed
+  # by the target and by the fuzz build's inputs (the library, its CMake,
+  # the target's source and the compiler), so an unchanged build restores
+  # its own corpus exactly; a changed one restores the target's latest
+  # corpus of an earlier build, whose inputs stay valid. After the run the
+  # fuzzer's merge minimizes the seeds and the corpus together, and the
+  # result is saved for the next night, also after a finding. The summary
+  # gives the seeds' coverage and the corpus's, and the corpus is uploaded,
+  # to pick inputs worth committing as seeds.
+  fuzz:
+    needs: fuzz-targets
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.fuzz-targets.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ghcr.io/rawframe-project/ci-cpp:2026.10.6@sha256:50c383f608f992c272196139d749f15978e35143a2876362b1e0aef6993480bd
+    permissions:
+      contents: read
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        env:
+          INPUTS: ${{ hashFiles('src/**', 'include/**', 'cmake/**', 'CMakeLists.txt', 'CMakePresets.json', format('test/{0}.c', matrix.target), 'test/*.h') }}
+        run: |
+          cmake --preset linux-fuzz
+          cmake --build --preset linux-fuzz -j 4 --target "$TARGET"
+          compiler=$(clang-20 --version | head -1 | sha256sum | cut -c1-16)
+          echo "CORPUS_KEY=corpus-$TARGET-$INPUTS-$compiler" >>"$GITHUB_ENV"
+      - name: Restore the corpus
+        id: restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/corpus/${{ matrix.target }}
+          key: ${{ env.CORPUS_KEY }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CORPUS_KEY }}-
+            corpus-${{ matrix.target }}-
+      - name: Fuzz
+        run: tools/fuzz.sh run out/linux-fuzz 600 "$TARGET"
+      - name: Minimize the corpus
+        if: ${{ !cancelled() }}
+        env:
+          MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+        run: |
+          tools/fuzz.sh merge out/linux-fuzz "$TARGET"
+          coverage() { "out/linux-fuzz/$TARGET" -runs=0 "$@" 2>&1 | sed -n 's/.*INITED cov: \([0-9]*\).*/\1/p'; }
+          seeded=none
+          [ -d "test/seeds/$TARGET" ] && seeded=$(coverage "test/seeds/$TARGET")
+          case "$MATCHED" in
+          "") restored="none: the seeds alone" ;;
+          "$CORPUS_KEY"-*) restored="this build's" ;;
+          *) restored="an earlier build's" ;;
+          esac
+          {
+            echo "| Target | Corpus restored | Seeds' coverage | Corpus's coverage | Corpus files |"
+            echo "|---|---|---|---|---|"
+            echo "| \`$TARGET\` | $restored | $seeded | $(coverage "out/corpus/$TARGET") | $(find "out/corpus/$TARGET" -type f | wc -l) |"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: Save the corpus
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/corpus/${{ matrix.target }}
+          key: ${{ env.CORPUS_KEY }}-${{ github.run_id }}
+      - name: Upload the corpus
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: corpus-${{ matrix.target }}
+          path: out/corpus/${{ matrix.target }}/
+          retention-days: 7
+      - name: Upload the findings
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: findings-${{ matrix.target }}
+          path: |
+            out/fuzz-logs/
+            out/findings/
+          if-no-files-found: ignore
+          retention-days: 7

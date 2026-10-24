@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define PINNED_IMPORTED_HASH 0xd2dc56118a1cc183ull
+
 #ifndef MANI_TEST_DATA
 #error "MANI_TEST_DATA names test/data"
 #endif
@@ -35,6 +37,17 @@ static _Alignas(16) uint8_t s_skeletonFile[65536];
 static _Alignas(16) uint8_t s_skinFile[65536];
 static _Alignas(16) uint8_t s_clipFile[262144];
 static _Alignas(32) uint8_t s_poseMemory[16384];
+
+// The imported scene: every file built from the fixtures, in order, the
+// writer's library version (bytes 16 to 21) left out as it changes with
+// every release; every platform and backend must give PINNED_IMPORTED_HASH.
+static uint64_t s_imported = MANI_HASH_INIT;
+
+static void Pin(const uint8_t* file, size_t size)
+{
+    s_imported = maniHash64(s_imported, file, 16);
+    s_imported = maniHash64(s_imported, file + 22, (int32_t)(size - 22));
+}
 
 // Nothing built yet.
 static const uint32_t kNone = UINT32_MAX;
@@ -146,6 +159,10 @@ static bool UseSkeleton(Fixture* f, bool byModel, uint32_t index, bool folded)
         maniOpenSkeleton(s_skeletonFile, size, &f->skeleton).result == mani_success &&
         maniInitPose(&f->skeleton, s_poseMemory, sizeof s_poseMemory, &f->pose) == mani_success &&
         maniPoseSetRest(f->pose, &f->skeleton) == mani_success;
+    if (built)
+    {
+        Pin(s_skeletonFile, size);
+    }
     f->skeletonByModel = byModel;
     f->skeletonIndex = index;
     f->skeletonFolded = folded;
@@ -189,6 +206,10 @@ static bool CheckBind(Fixture* f, const FbxExpected* e)
                 mani_success &&
             maniCopyBuilt(f->builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
             maniOpenSkin(s_skinFile, size, &f->skin).result == mani_success;
+        if (built)
+        {
+            Pin(s_skinFile, size);
+        }
         f->skinIndex = built ? e->index : kNone;
     }
     uint32_t j = (uint32_t)e->time;
@@ -227,6 +248,10 @@ static bool UseClip(Fixture* f, uint32_t k)
                 .result == mani_success &&
         maniCopyBuilt(f->builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, &f->clip).result == mani_success;
+    if (built)
+    {
+        Pin(s_clipFile, size);
+    }
     f->clipIndex = built ? k : kNone;
     return built;
 }
@@ -348,5 +373,11 @@ int main(void)
         TestFile(k, &at);
     }
     CHECK(at == sizeof kFbxExpected / sizeof kFbxExpected[0], "every record in file order");
+    CHECK(s_imported == PINNED_IMPORTED_HASH,
+          "the imported files' bits the same on every platform");
+    if (s_imported != PINNED_IMPORTED_HASH)
+    {
+        printf("imported hash 0x%016llx\n", (unsigned long long)s_imported);
+    }
     return s_failures == 0 ? 0 : 1;
 }

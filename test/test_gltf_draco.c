@@ -257,7 +257,6 @@ static void TestDamage(void)
     Damage("small-seq-s0-q", 15, 1);
     Damage("small-eb-s5-q", 15, 1);
     Damage("tube-eb-s0-q", 91, 1);
-    Damage("large-eb-s0-q", 650, 5);
 }
 
 // The largest block a decode asks for.

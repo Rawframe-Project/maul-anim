@@ -24,8 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PINNED_SKELETON_HASH     0x2ea3356be92d3053ull
-#define PINNED_SKELETON_IDENTITY 0x54b40db4c8a9de13ull
+#define PINNED_SKELETON_HASH 0x2ea3356be92d3053ull
 
 enum
 {
@@ -409,8 +408,9 @@ static void TestPinnedBytes(void)
     CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
     memset(s_file + 16, 0, 6);
     uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
+    // The identity is in the header (bytes 40 to 47), so the file's hash
+    // pins it too.
     CHECK(hash == PINNED_SKELETON_HASH, "pinned file");
-    CHECK(maniSkeletonIdentity(&s) == PINNED_SKELETON_IDENTITY, "pinned identity");
 }
 
 // Writes the sample skeleton file, the fuzz target's seed.

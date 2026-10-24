@@ -31,7 +31,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_GRAPH_HASH 0x8f950898bee2cd72ull
+// The graph scene: the file, then an instance of it stepped across its
+// clips' wraps (each step's pose, root motion and events) and its saved
+// state; every platform and backend must give this value.
+#define PINNED_SCENE_HASH 0x15b54ca682c6c383ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -1260,10 +1263,50 @@ static void TestPinned(void)
     // The writer's library version (bytes 16 to 21) changes with every release.
     memset(s_file + 16, 0, 6);
     uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_GRAPH_HASH, "pinned file");
-    if (hash != PINNED_GRAPH_HASH)
+    maniGraph g;
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NewInstance(&g, &binding);
+    size_t size = maniGraphScratchSize(binding);
+    maniPose* pose = PoseAt(0);
+    for (int step = 0; step < 8; ++step)
     {
-        printf("graph file hash 0x%016llx\n", (unsigned long long)hash);
+        maniGraphEvent events[8];
+        uint32_t count = 0;
+        maniRootMove move;
+        CHECK(maniUpdateGraph(instance, 0.27f, events, 8, &count, &move) == mani_success &&
+                  maniEvaluateGraph(instance, s_scratch, size, pose) == mani_success,
+              "steps");
+        maniTransform locals[3];
+        CHECK(maniPoseReadLocals(pose, 0, 3, locals) == mani_success, "reads");
+        hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+        const float parts[7] = {move.translation.x, move.translation.y, move.translation.z,
+                                move.rotation.x,    move.rotation.y,    move.rotation.z,
+                                move.rotation.w};
+        hash = maniHash64(hash, parts, (int32_t)sizeof parts);
+        for (uint32_t e = 0; e < count && e < 8; ++e)
+        {
+            const maniGraphEvent* x = &events[e];
+            const uint32_t fields[7] = {x->node,
+                                        x->clip,
+                                        x->event,
+                                        (uint32_t)x->payload,
+                                        (uint32_t)x->direction,
+                                        (uint32_t)x->nameHash,
+                                        (uint32_t)(x->nameHash >> 32)};
+            const float values[2] = {x->weight, x->time};
+            hash = maniHash64(hash, fields, (int32_t)sizeof fields);
+            hash = maniHash64(hash, values, (int32_t)sizeof values);
+        }
+    }
+    size_t stateSize = maniGraphStateSize(binding);
+    CHECK(stateSize <= sizeof s_state &&
+              maniSaveGraphInstance(instance, s_state, stateSize) == mani_success,
+          "saves");
+    hash = maniHash64(hash, s_state, (int32_t)stateSize);
+    CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
+    if (hash != PINNED_SCENE_HASH)
+    {
+        printf("scene hash 0x%016llx\n", (unsigned long long)hash);
     }
 }
 

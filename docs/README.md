@@ -24,5 +24,6 @@
 
 ## Maintaining it
 
-- [Development](operations/development.md): toolchain, running tests, generators, differentials, code size, fuzz findings.
+- [Checks](operations/checks.md): the check tiers, the CI jobs, the nightly run, fuzzing and the budgets.
+- [Development](operations/development.md): toolchain, presets, running tests, generators, differentials, code size, fuzz findings.
 - [Release](operations/release.md).

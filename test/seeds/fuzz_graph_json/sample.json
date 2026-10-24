@@ -1,0 +1,52 @@
+{
+  "format": "maul-anim graph",
+  "version": 1,
+  "parameters": [
+    {"name": "speed", "type": "float", "default": 1, "minimum": 0, "maximum": 2},
+    {"name": "gait", "type": "int", "default": -1, "minimum": -1, "maximum": 2147483647},
+    {"name": "jump", "type": "trigger", "default": false},
+    {"name": "lean", "type": "bool", "default": true},
+    {"name": "aim", "type": "vec2", "default": [0.1, -0.2]},
+    {"name": "dir", "type": "vec3", "default": [1e+21, 1e-7, -0]},
+    {"name": "look", "type": "quat", "default": [0, 0, 0.38268343, 2]},
+    {"name": "say \"hi\"\\\n\t\u0001\u001fé", "type": "float", "default": 123456790},
+    {"name": "mix", "type": "float", "default": 0.5, "minimum": 0, "maximum": 1},
+    {"name": "ragdoll", "type": "pose"}
+  ],
+  "clips": [
+    "walk",
+    "wave"
+  ],
+  "syncGroups": [
+    {"name": "feet", "allEvents": true}
+  ],
+  "nodes": [
+    {"kind": "additive", "inputs": [1, 6], "weights": [{"parameter": "mix"}]},
+    {"kind": "timeScale", "inputs": [2], "scale": {"parameter": "speed"}},
+    {"kind": "seek", "inputs": [3], "trigger": "jump", "time": 0.25},
+    {"kind": "mask", "inputs": [4, 5], "chains": [{"bone": "spine", "weight": 0.5, "subtree": true}, {"bone": "arm", "weight": 1, "subtree": false}], "defaultWeight": 0.1},
+    {"kind": "blend", "inputs": [7, 8], "weights": [{"parameter": "mix"}, 0.75], "direct": false},
+    {"kind": "select", "inputs": [7, 11], "parameter": "gait"},
+    {"kind": "clip", "clip": "wave", "syncGroup": null, "speed": 1, "loop": "repeat", "leader": false},
+    {"kind": "clip", "clip": "walk", "syncGroup": "feet", "speed": -1.5, "loop": "clamp", "leader": true},
+    {"kind": "subgraph", "parameters": {"rate": "speed"}, "graph": {
+      "parameters": [
+        {"name": "rate", "type": "float", "default": 1}
+      ],
+      "clips": [
+        "run"
+      ],
+      "syncGroups": [
+        {"name": "feet", "allEvents": true}
+      ],
+      "nodes": [
+        {"kind": "clip", "clip": "run", "syncGroup": "feet", "speed": {"parameter": "rate"}, "loop": "clip", "leader": false}
+      ],
+      "output": 0
+    }},
+    {"kind": "pose", "parameter": "ragdoll"},
+    {"kind": "twoBone", "inputs": [9], "start": "hips", "middle": "spine", "end": "arm", "goal": "dir", "hinge": [0, 0, 1], "twist": 0.5, "soften": 0.9, "weight": {"parameter": "mix"}},
+    {"kind": "aim", "inputs": [10], "bones": ["spine", "arm"], "shares": [0.25, 1], "goal": "dir", "pole": "dir", "forward": [0, 0, 1], "offset": [0, 0.125, 0], "up": [0, 1, 0], "twist": {"parameter": "speed"}, "cone": 1.5, "weight": 1}
+  ],
+  "output": 0
+}
