@@ -63,8 +63,12 @@ static void TestRefusals(void)
     static const uint32_t kFloat[1] = {3};
     static const uint32_t kTwo[2] = {0, 0};
     static const uint32_t kMany[MANI_MATCH_MAX_FEATURES + 1] = {0};
-    maniGraphNodeSource n[14];
-    for (int k = 0; k < 14; ++k)
+    // A trigger, an int, and a parameter past the four.
+    static const uint32_t kTrigger[1] = {1};
+    static const uint32_t kInt[1] = {2};
+    static const uint32_t kPast[1] = {4};
+    maniGraphNodeSource n[17];
+    for (int k = 0; k < 17; ++k)
     {
         n[k] = LearnedNode(0.1f, 0.0f);
     }
@@ -84,7 +88,10 @@ static void TestRefusals(void)
     n[12].learned.transitionCost = INFINITY;
     n[13].learned.query = kMany;
     n[13].learned.queryCount = MANI_MATCH_MAX_FEATURES + 1;
-    for (int k = 0; k < 14; ++k)
+    n[14].learned.query = kTrigger;
+    n[15].learned.query = kInt;
+    n[16].learned.query = kPast;
+    for (int k = 0; k < 17; ++k)
     {
         CHECK(RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0), "a field refused");
     }
@@ -162,7 +169,7 @@ static void TestOpen(void)
 {
     maniGraph g;
     (void)Learning(LearnedNode(0.1f, 0.0f), &g);
-    const uint32_t kWords[17][2] = {{maniGraphLearnedModel, 1},
+    const uint32_t kWords[18][2] = {{maniGraphLearnedModel, 1},
                                     {maniGraphLearnedTrigger, 0},
                                     {maniGraphLearnedPeriod, 0},
                                     {maniGraphLearnedPeriod, 0x7F800000u},
@@ -178,8 +185,9 @@ static void TestOpen(void)
                                     {maniGraphLearnedFeatures, 0},
                                     {maniGraphLearnedFeatures, STATE},
                                     {maniGraphLearnedQuery, 1},
+                                    {maniGraphLearnedQuery, 2},
                                     {maniGraphLearnedQuery, 4}};
-    for (int k = 0; k < 17; ++k)
+    for (int k = 0; k < 18; ++k)
     {
         if (!RefusedAtWord(&g, 0, kWords[k][0], kWords[k][1]))
         {
