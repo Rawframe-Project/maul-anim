@@ -169,23 +169,19 @@ void maniAddTransform(maniTransform* t, const maniTransform* d, float w)
     t->scale.z *= 1.0f + w * (d->scale.z - 1.0f);
 }
 
-static MANI_NOINLINE maniResult AddPosesWork(const maniSkeleton* skeleton, maniPose* pose,
-                                             const maniBlendLayer* layers, uint32_t count)
-{
-    return maniAddPosesIn(skeleton, pose, layers, count, NULL);
-}
-
 maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const maniBlendLayer* layers,
                         uint32_t count)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = AddPosesWork(skeleton, pose, layers, count);
+    maniResult result = maniAddPosesIn(skeleton, pose, layers, count, NULL);
     maniFloatEnvLeave(env);
     return result;
 }
 
-maniResult maniAddPosesIn(const maniSkeleton* skeleton, maniPose* pose,
-                          const maniBlendLayer* layers, uint32_t count, const uint8_t* groups)
+// The public call's worker as well as the graph's.
+MANI_NOINLINE maniResult maniAddPosesIn(const maniSkeleton* skeleton, maniPose* pose,
+                                        const maniBlendLayer* layers, uint32_t count,
+                                        const uint8_t* groups)
 {
     if (!AdditiveValid(skeleton, pose, layers, count))
     {
