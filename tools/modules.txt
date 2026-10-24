@@ -12,8 +12,8 @@ container: bytes invariant
 inflate:
 cpu:
 simd:
-allocator: invariant
-host_code: allocator
+allocator: fpenv invariant
+host_code: allocator fpenv
 text:
 skeleton_file:
 skeleton: bytes container fpenv skeleton_file text

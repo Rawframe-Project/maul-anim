@@ -43,6 +43,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #if defined(__x86_64__) || defined(_M_X64)
@@ -66,16 +67,63 @@ static const int s_hostCanChange = 0;
 // each call.
 static uint64_t s_host;
 static uint64_t s_own;
+static bool s_inHost;
 
 static void Host(void)
 {
     s_own = maniFloatControlRead();
     maniFloatControlWrite(s_host);
+    s_inHost = true;
 }
 
 static void Back(void)
 {
+    s_inHost = false;
     maniFloatControlWrite(s_own);
+}
+
+#if defined(__x86_64__) || defined(_M_X64)
+// MXCSR's sticky exception flags, which arithmetic sets on its own.
+static const uint64_t s_flags = 0x3fu;
+#else
+static const uint64_t s_flags = 0;
+#endif
+
+// The builder's allocator, host code: it must run in the host's setting,
+// not the library's. Counts its calls under Host() and those that found
+// another setting; aligns by hand (no aligned_alloc on every target).
+static uint32_t s_hostAllocations;
+static uint32_t s_hostAllocationsElsewhere;
+
+static void* Allocate(size_t size, size_t alignment, void* context)
+{
+    (void)context;
+    if (s_inHost)
+    {
+        s_hostAllocations += 1;
+        if ((maniFloatControlRead() & ~s_flags) != (s_host & ~s_flags))
+        {
+            s_hostAllocationsElsewhere += 1;
+        }
+    }
+    uint8_t* raw = malloc(size + alignment + sizeof(void*));
+    if (raw == NULL)
+    {
+        return NULL;
+    }
+    uintptr_t at = ((uintptr_t)(raw + sizeof(void*)) + alignment - 1) & ~(uintptr_t)(alignment - 1);
+    memcpy((void*)(at - sizeof(void*)), &raw, sizeof raw);
+    return (void*)at;
+}
+
+static void Free(void* memory, size_t size, size_t alignment, void* context)
+{
+    (void)size;
+    (void)alignment;
+    (void)context;
+    void* raw = NULL;
+    memcpy(&raw, (uint8_t*)memory - sizeof(void*), sizeof raw);
+    free(raw);
 }
 
 // Each run's outputs, end to end.
@@ -647,6 +695,9 @@ static void Scene(int run, uint64_t host)
     s_length[run] = 0;
     s_host = host;
     maniBuilderDef def = maniDefaultBuilderDef();
+    def.allocator = (maniAllocator){Allocate, Free, NULL};
+    s_hostAllocations = 0;
+    s_hostAllocationsElsewhere = 0;
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success, "a builder");
     Assets();
     Poses();
@@ -654,6 +705,8 @@ static void Scene(int run, uint64_t host)
     Solvers();
     Matching();
     maniDestroyBuilder(s_builder);
+    CHECK(s_hostAllocations > 0 && s_hostAllocationsElsewhere == 0,
+          "the host's allocator runs in the host's setting");
 }
 
 static void TestTheSceneUnderTheHost(void)

@@ -8,6 +8,7 @@
 #include "host_code.h"
 
 #include "allocator.h"
+#include "fpenv.h"
 
 #include "maul-anim/base.h"
 
@@ -43,6 +44,25 @@ static void Free(void* memory, size_t size, size_t alignment, void* context)
     Restore(host, was);
 }
 
+// The host's task hooks run in the host's floating-point environment:
+// each call is the only work of a helper of its own. The task bodies they
+// run enter the library's again (maniTrainRun).
+static MANI_NOINLINE void* HostEnqueue(const maniTaskHooks* tasks, maniTaskFn* task,
+                                       int32_t itemCount, int32_t minRange, void* taskContext)
+{
+    maniFloatHost host = maniFloatHostEnter();
+    void* handle = tasks->enqueueTask(task, itemCount, minRange, taskContext, tasks->userContext);
+    maniFloatHostLeave(host);
+    return handle;
+}
+
+static MANI_NOINLINE void HostFinish(const maniTaskHooks* tasks, void* userTask)
+{
+    maniFloatHost host = maniFloatHostEnter();
+    tasks->finishTask(userTask, tasks->userContext);
+    maniFloatHostLeave(host);
+}
+
 static void* Enqueue(maniTaskFn* task, int32_t itemCount, int32_t minRange, void* taskContext,
                      void* userContext)
 {
@@ -53,8 +73,7 @@ static void* Enqueue(maniTaskFn* task, int32_t itemCount, int32_t minRange, void
         return NULL;
     }
     bool was = Mark(host);
-    void* handle =
-        host->tasks.enqueueTask(task, itemCount, minRange, taskContext, host->tasks.userContext);
+    void* handle = HostEnqueue(&host->tasks, task, itemCount, minRange, taskContext);
     Restore(host, was);
     return handle;
 }
@@ -67,7 +86,7 @@ static void Finish(void* userTask, void* userContext)
         return;
     }
     bool was = Mark(host);
-    host->tasks.finishTask(userTask, host->tasks.userContext);
+    HostFinish(&host->tasks, userTask);
     Restore(host, was);
 }
 

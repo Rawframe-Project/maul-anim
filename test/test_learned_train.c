@@ -125,13 +125,28 @@ static const uint64_t s_hostSetting = (1ull << 24) | (3ull << 22);
 static const uint64_t s_hostSetting = 0;
 #endif
 
-// A host whose worker threads flush denormals and round toward zero. It
-// runs each range with that setting in the register, as such a worker
-// would, and puts the caller's back after.
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+// MXCSR's sticky exception flags, which arithmetic sets on its own.
+static const uint64_t s_flags = 0x3fu;
+#else
+static const uint64_t s_flags = 0;
+#endif
+
+// Hook calls that found a setting other than the host's: the hooks are
+// host code, called in the host's setting.
+static uint32_t s_hooksElsewhere;
+
+// A host whose threads flush denormals and round toward zero. It runs
+// each range with that setting in the register, as such a worker would,
+// and puts the caller's back after.
 static void* Hostile(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
 {
     (void)minRange;
     (void)user;
+    if ((maniFloatControlRead() & ~s_flags) != (s_hostSetting & ~s_flags))
+    {
+        s_hooksElsewhere += 1;
+    }
     for (int32_t k = 0; k < count; ++k)
     {
         uint64_t own = maniFloatControlRead();
@@ -592,7 +607,13 @@ static void TestHosts(void)
           "the same model on any host");
     def.tasks = (maniTaskHooks){Hostile, Finish, NULL};
     t = Create(&def, &s);
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained on a hostile host");
+    uint64_t own = maniFloatControlRead();
+    maniFloatControlWrite(s_hostSetting);
+    s_hooksElsewhere = 0;
+    maniResult trained = maniTrainLearned(t, 1000, &report);
+    maniFloatControlWrite(own);
+    CHECK(trained == mani_success, "trained on a hostile host");
+    CHECK(s_hooksElsewhere == 0, "the task hooks run in the host's setting");
     Build(t, 1, maniLearnedWeightsFloat32);
     maniDestroyLearnedTrainer(t);
     CHECK(s_modelSize[0] == s_modelSize[1] && memcmp(s_model[0], s_model[1], s_modelSize[0]) == 0,
