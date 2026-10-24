@@ -78,6 +78,14 @@ typedef struct BenchScenes
     float* normals;
     float* movedPositions;
     float* movedNormals;
+    // The bytes of the first full clip, the first compressed clip and the
+    // motion database, kept to open again.
+    const void* clipFile;
+    size_t clipFileSize;
+    const void* compressedFile;
+    size_t compressedFileSize;
+    const void* databaseFile;
+    size_t databaseFileSize;
 } BenchScenes;
 
 // Builds every scene; false, with the failing step printed, when one
