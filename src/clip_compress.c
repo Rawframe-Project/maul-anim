@@ -567,10 +567,19 @@ maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
     {
         return mani_errorInvalid;
     }
-    if (clip == NULL || skeleton == NULL || options == NULL || clip->compressed ||
-        clip->skeletonIdentity != maniSkeletonIdentity(skeleton) ||
-        clip->skeletonBoneCount != maniSkeletonBoneCount(skeleton) ||
-        !OptionsValid(options, clip->skeletonBoneCount, clip->floatTrackCount))
+    if (clip == NULL || skeleton == NULL || options == NULL)
+    {
+        maniBuilderMisuse(builder);
+        return mani_errorInvalid;
+    }
+    // A clip already compressed or built for another skeleton is the
+    // opened file's doing, not the program's, so it counts no misuse.
+    if (clip->compressed || clip->skeletonIdentity != maniSkeletonIdentity(skeleton) ||
+        clip->skeletonBoneCount != maniSkeletonBoneCount(skeleton))
+    {
+        return mani_errorInvalid;
+    }
+    if (!OptionsValid(options, clip->skeletonBoneCount, clip->floatTrackCount))
     {
         maniBuilderMisuse(builder);
         return mani_errorInvalid;
