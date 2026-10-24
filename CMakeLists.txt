@@ -489,7 +489,8 @@ if(MAUL_ANIM_DIFFERENTIAL)
     maul_apply_flags(retarget_godot)
 endif()
 
-if(MAUL_ANIM_BUILD_BENCH AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)
+# The benchmarks build their scenes with the builders.
+if(MAUL_ANIM_BUILD_BENCH AND MAUL_ANIM_OFFLINE AND EXISTS ${PROJECT_SOURCE_DIR}/bench/bench_main.c)
     add_subdirectory(bench)
 endif()
 
