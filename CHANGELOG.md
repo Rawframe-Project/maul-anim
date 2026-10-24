@@ -5,22 +5,29 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
-## [0.1.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.0.1...v0.1.0) (2026-10-24)
-
-
-### ⚠ BREAKING CHANGES
-
-* **compress:** the clip format version is 3. A compressed clip keeps each kind of sub-track together, and maniOpenClip refuses a clip of any other format version, compressed or full precision, with mani_errorVersion. Compress clips again from their full-precision clips or sources. Poses and float tracks sampled from a recompressed clip are the same bits as before.
-* **graph:** maniUpdateGraph, maniEvaluateGraph and maniEvaluateGraphSubset return mani_errorFormat when a learned node's model gives a value past the float range, or the update when a root velocity's move over the step passes it; the call completed and its outputs are valid and finite. maniLearnedStep, maniLearnedProject and maniLearnedDecompress return mani_errorFormat in that case instead of success. maniGraphNodeView's reserved word is now `failed`.
-
-### Fixed
-
-* **graph:** report a learned model's value past the float range ([#14](https://github.com/Rawframe-Project/maul-anim/issues/14)) ([82e6a35](https://github.com/Rawframe-Project/maul-anim/commit/82e6a351113544ba9618a0ed9f244e5f146e15e6))
-
+## [0.1.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.1.0) (2026-10-24)
 
 ### Changed
 
-* **compress:** group a compressed clip's sub-tracks by kind ([#19](https://github.com/Rawframe-Project/maul-anim/issues/19)) ([1eca8e4](https://github.com/Rawframe-Project/maul-anim/commit/1eca8e45143b41d38b3d6a5740865fedde024426))
+- Compressed clips keep each kind of sub-track together and decode
+  several sub-tracks at once: sampling at a random time takes about 28%
+  fewer instructions and a forward cursor about 15% fewer, and poses and
+  float tracks are the same bits as before.
+  The clip format version is 3, and `maniOpenClip` refuses a clip of
+  any other format version, compressed or full precision, with
+  `mani_errorVersion`. Build stored clips again from their sources, or
+  compress them again from full-precision clips made with this release.
+
+### Fixed
+
+- A learned motion matching node whose model gives a value past the
+  float range, or whose root velocity moves past it over the step, no
+  longer passes it on: `maniUpdateGraph`, `maniEvaluateGraph` and
+  `maniEvaluateGraphSubset` complete the call with valid, finite
+  outputs and return `mani_errorFormat`, and `maniLearnedStep`,
+  `maniLearnedProject` and `maniLearnedDecompress` return
+  `mani_errorFormat` instead of success. `maniGraphNodeView`'s reserved
+  word is now `failed`.
 
 ## [0.0.1](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.0.1) (2026-10-24)
 
