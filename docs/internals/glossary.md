@@ -37,4 +37,4 @@ Terms the code, the tests and the documentation use with one meaning.
 - **Helper bone:** a bone `<parent>#unscaled` the FBX importer adds where FBX's scale inheritance cannot be one local TRS.
 - **Reference rate / step rate (springs):** the rate spring content was tuned at, and the rate the simulation steps at.
 - **Backend:** the SIMD code a build uses: AVX2, NEON or scalar.
-- **Misuse:** a call a correct program never makes (a call back in from the host's code, a NULL argument, a bad option, an index past a count), refused and counted on the builder (a trainer counts only calls back in). Bad files, text and saved state are refused with their status and count none.
+- **Misuse:** a call back in from the host's code, refused and counted on the object.
