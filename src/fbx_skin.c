@@ -21,6 +21,7 @@
 #include "fbx_transform.h"
 #include "fbx_value.h"
 #include "fbx_world.h"
+#include "fpenv.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -470,8 +471,9 @@ static maniImportResult Build(maniBuilder* builder, Skin* s, const maniSkeleton*
                        (uint32_t)b.reason);
 }
 
-maniImportResult maniFbxBuildSkin(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
-                                  const maniSkeleton* skeleton, const maniFbxOptions* options)
+static MANI_NOINLINE maniImportResult FbxBuildSkinWork(maniBuilder* builder, const maniFbx* fbx,
+                                                       uint32_t skin, const maniSkeleton* skeleton,
+                                                       const maniFbxOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -496,4 +498,14 @@ maniImportResult maniFbxBuildSkin(maniBuilder* builder, const maniFbx* fbx, uint
     FreeBlock(fbx, s.poseOf, models, sizeof(uint32_t));
     FreeBlock(fbx, s.worlds, models, sizeof(maniFbxWorld));
     return r;
+}
+
+maniImportResult maniFbxBuildSkin(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
+                                  const maniSkeleton* skeleton, const maniFbxOptions* options)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = FbxBuildSkinWork(builder, fbx, skin, skeleton, options);
+    maniFloatEnvLeave(&env);
+    return result;
 }

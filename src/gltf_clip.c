@@ -12,6 +12,7 @@
 #include "clip_build.h"
 #include "clip_file.h"
 #include "decompose.h"
+#include "fpenv.h"
 #include "gltf_animation.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
@@ -629,9 +630,9 @@ static maniImportResult Run(maniBuilder* builder, Build* b, const maniImportClip
     return FromBuild(b, maniBuildClip(builder, &source));
 }
 
-maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
-                                   const maniSkeleton* skeleton, const maniGltfOptions* options,
-                                   const maniImportClipOptions* clipOptions, uint32_t* boundOut)
+static MANI_NOINLINE maniImportResult GltfBuildClipWork(
+    maniBuilder* builder, const maniGltf* gltf, uint32_t animation, const maniSkeleton* skeleton,
+    const maniGltfOptions* options, const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -662,4 +663,16 @@ maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, u
     maniImportResult r = Run(builder, &b, clipOptions, boundOut);
     maniArenaRelease(&b.arena);
     return r;
+}
+
+maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
+                                   const maniSkeleton* skeleton, const maniGltfOptions* options,
+                                   const maniImportClipOptions* clipOptions, uint32_t* boundOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result =
+        GltfBuildClipWork(builder, gltf, animation, skeleton, options, clipOptions, boundOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

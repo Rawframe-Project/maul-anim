@@ -7,6 +7,7 @@
 #include "learned_train.h"
 
 #include "allocator.h"
+#include "fpenv.h"
 #include "learned_build.h"
 #include "learned_file.h"
 #include "train_data.h"
@@ -217,9 +218,9 @@ uint32_t maniLearnedTrainerMisuses(const maniLearnedTrainer* trainer)
     return trainer != NULL ? maniHostMisuses(&trainer->host) : 0;
 }
 
-maniBuildResult maniCreateLearnedTrainer(const maniLearnedTrainerDef* def,
-                                         const maniLearnedTrainerSource* source,
-                                         maniLearnedTrainer** trainerOut)
+static MANI_NOINLINE maniBuildResult
+CreateLearnedTrainerWork(const maniLearnedTrainerDef* def, const maniLearnedTrainerSource* source,
+                         maniLearnedTrainer** trainerOut)
 {
     if (trainerOut == NULL)
     {
@@ -280,4 +281,15 @@ maniBuildResult maniCreateLearnedTrainer(const maniLearnedTrainerDef* def,
     t->signature = maniLearnedTrainerSignature(source);
     *trainerOut = t;
     return kOk;
+}
+
+maniBuildResult maniCreateLearnedTrainer(const maniLearnedTrainerDef* def,
+                                         const maniLearnedTrainerSource* source,
+                                         maniLearnedTrainer** trainerOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = CreateLearnedTrainerWork(def, source, trainerOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

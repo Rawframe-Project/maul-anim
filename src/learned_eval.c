@@ -12,6 +12,7 @@
 #include "learned_eval.h"
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "learned_file.h"
 #include "vecmath.h"
 
@@ -236,8 +237,10 @@ static bool ScratchFits(const maniLearnedModel* m, const void* scratch, size_t s
            size >= maniLearnedScratchSize(m);
 }
 
-maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query,
-                              float* stateOut, void* scratch, size_t scratchSize)
+static MANI_NOINLINE maniResult LearnedProjectWork(const maniLearnedModel* model,
+                                                   uint32_t projector, const float* query,
+                                                   float* stateOut, void* scratch,
+                                                   size_t scratchSize)
 {
     if (model == NULL || query == NULL || stateOut == NULL || projector >= model->projectorCount ||
         !ScratchFits(model, scratch, scratchSize) || !AllFinite(query, model->featureCount))
@@ -255,8 +258,18 @@ maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector,
     return mani_success;
 }
 
-maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* scratch,
-                           size_t scratchSize)
+maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query,
+                              float* stateOut, void* scratch, size_t scratchSize)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = LearnedProjectWork(model, projector, query, stateOut, scratch, scratchSize);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult LearnedStepWork(const maniLearnedModel* model, float* state,
+                                                void* scratch, size_t scratchSize)
 {
     uint32_t count = model != NULL ? model->featureCount + model->latentCount : 0;
     if (model == NULL || state == NULL || !ScratchFits(model, scratch, scratchSize) ||
@@ -280,6 +293,16 @@ maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* sc
         state[k] += seconds * rate[k];
     }
     return mani_success;
+}
+
+maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* scratch,
+                           size_t scratchSize)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = LearnedStepWork(model, state, scratch, scratchSize);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 // A rotation from the first two columns of its matrix: the first
@@ -348,10 +371,21 @@ static void Pose(const maniLearnedModel* m, const float* out, maniPose* pose)
     }
 }
 
+static MANI_NOINLINE maniResult LearnedDecompressWork(const maniLearnedModel* model,
+                                                      const float* state, maniLearnedOutput* output,
+                                                      void* scratch, size_t scratchSize)
+{
+    return maniLearnedDecompressFrom(model, state, output, scratch, scratchSize, NULL);
+}
+
 maniResult maniLearnedDecompress(const maniLearnedModel* model, const float* state,
                                  maniLearnedOutput* output, void* scratch, size_t scratchSize)
 {
-    return maniLearnedDecompressFrom(model, state, output, scratch, scratchSize, NULL);
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = LearnedDecompressWork(model, state, output, scratch, scratchSize);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 maniResult maniLearnedDecompressFrom(const maniLearnedModel* model, const float* state,

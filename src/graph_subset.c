@@ -12,6 +12,7 @@
 #include "graph_subset.h"
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_spring.h"
@@ -237,8 +238,10 @@ static void Runs(Closure* c, uint8_t* nodes)
     }
 }
 
-maniResult maniPlanGraphSubset(const maniGraphBinding* binding, const uint32_t* bones,
-                               uint32_t count, void* memory, size_t size, maniGraphSubset** planOut)
+static MANI_NOINLINE maniResult PlanGraphSubsetWork(const maniGraphBinding* binding,
+                                                    const uint32_t* bones, uint32_t count,
+                                                    void* memory, size_t size,
+                                                    maniGraphSubset** planOut)
 {
     if (binding == NULL || binding->stamp != MANI_GRAPH_BINDING_STAMP || memory == NULL ||
         (uintptr_t)memory % MANI_GRAPH_SUBSET_ALIGNMENT != 0 || planOut == NULL ||
@@ -289,6 +292,16 @@ maniResult maniPlanGraphSubset(const maniGraphBinding* binding, const uint32_t* 
     }
     *planOut = plan;
     return mani_success;
+}
+
+maniResult maniPlanGraphSubset(const maniGraphBinding* binding, const uint32_t* bones,
+                               uint32_t count, void* memory, size_t size, maniGraphSubset** planOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = PlanGraphSubsetWork(binding, bones, count, memory, size, planOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 const uint32_t* maniGraphSubsetBones(const maniGraphSubset* plan, uint32_t* countOut)

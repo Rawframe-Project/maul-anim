@@ -11,6 +11,7 @@
 
 #include "bytes.h"
 #include "decompose.h"
+#include "fpenv.h"
 #include "invariant.h"
 #include "pose_memory.h"
 #include "vecmath.h"
@@ -105,7 +106,8 @@ bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton)
            pose->identity == skeleton->identity && pose->boneCount == skeleton->boneCount;
 }
 
-maniResult maniInitPose(const maniSkeleton* skeleton, void* memory, size_t size, maniPose** poseOut)
+static MANI_NOINLINE maniResult InitPoseWork(const maniSkeleton* skeleton, void* memory,
+                                             size_t size, maniPose** poseOut)
 {
     if (skeleton == NULL || memory == NULL || poseOut == NULL ||
         (uintptr_t)memory % MANI_POSE_ALIGNMENT != 0)
@@ -131,6 +133,15 @@ maniResult maniInitPose(const maniSkeleton* skeleton, void* memory, size_t size,
     }
     maniResult result = maniPoseSetRest(pose, skeleton);
     *poseOut = pose;
+    return result;
+}
+
+maniResult maniInitPose(const maniSkeleton* skeleton, void* memory, size_t size, maniPose** poseOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = InitPoseWork(skeleton, memory, size, poseOut);
+    maniFloatEnvLeave(&env);
     return result;
 }
 
@@ -240,13 +251,22 @@ maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton)
     return mani_success;
 }
 
-maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
+static MANI_NOINLINE maniResult PoseSetRestWork(maniPose* pose, const maniSkeleton* skeleton)
 {
     maniResult result = maniPoseSetRestLocals(pose, skeleton);
     return result == mani_success ? maniComputeModel(pose, skeleton) : result;
 }
 
-maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
+maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = PoseSetRestWork(pose, skeleton);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult ComputeModelWork(maniPose* pose, const maniSkeleton* skeleton)
 {
     if (!maniPoseMatches(pose, skeleton) || pose->difference != 0)
     {
@@ -273,6 +293,15 @@ maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
     }
     pose->modelCurrent = 1;
     return mani_success;
+}
+
+maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = ComputeModelWork(pose, skeleton);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 const float* maniPoseModelData(const maniPose* pose)
@@ -327,7 +356,8 @@ maniResult maniPoseReadModels(const maniPose* pose, uint32_t first, uint32_t cou
     return mani_success;
 }
 
-maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transformOut)
+static MANI_NOINLINE maniResult DecomposeAffineWork(const maniAffine* matrix,
+                                                    maniTransform* transformOut)
 {
     if (matrix == NULL || transformOut == NULL || !maniDecompose(matrix, transformOut))
     {
@@ -336,7 +366,16 @@ maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transfor
     return mani_success;
 }
 
-maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
+maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transformOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = DecomposeAffineWork(matrix, transformOut);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniTransform PoseModelTransformWork(const maniPose* pose, uint32_t bone)
 {
     maniTransform out = s_identity;
     if (bone < pose->boneCount)
@@ -348,4 +387,13 @@ maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
         }
     }
     return out;
+}
+
+maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniTransform result = PoseModelTransformWork(pose, bone);
+    maniFloatEnvLeave(&env);
+    return result;
 }

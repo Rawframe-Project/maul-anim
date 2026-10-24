@@ -7,6 +7,7 @@
 // root motion blended.
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "graph_emit.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
@@ -940,8 +941,10 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
     }
 }
 
-maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEvent* events,
-                           uint32_t capacity, uint32_t* eventCountOut, maniRootMove* rootMotionOut)
+static MANI_NOINLINE maniResult UpdateGraphWork(maniGraphInstance* instance, float delta,
+                                                maniGraphEvent* events, uint32_t capacity,
+                                                uint32_t* eventCountOut,
+                                                maniRootMove* rootMotionOut)
 {
     if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP || !isfinite(delta) ||
         (events == NULL && capacity > 0))
@@ -983,4 +986,15 @@ maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEv
         *rootMotionOut = maniRootMotionSumResult(&u.root);
     }
     return u.failed != 0 ? mani_errorFormat : mani_success;
+}
+
+maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEvent* events,
+                           uint32_t capacity, uint32_t* eventCountOut, maniRootMove* rootMotionOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result =
+        UpdateGraphWork(instance, delta, events, capacity, eventCountOut, rootMotionOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

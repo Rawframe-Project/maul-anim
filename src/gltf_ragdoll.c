@@ -13,6 +13,7 @@
 
 #include "arena.h"
 #include "decompose.h"
+#include "fpenv.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
 #include "gltf_names.h"
@@ -560,9 +561,11 @@ static maniVec3 InRoot(const maniGltfRagdollReader* r, maniQuat root, maniVec3 a
     return maniQuatRotate(maniQuatConjugate(root), (maniVec3){v[0], v[1], v[2]});
 }
 
-maniImportResult maniGltfReadRagdoll(maniGltf* gltf, const maniSkeleton* skeleton,
-                                     const maniGltfOptions* options, maniVec3 facing, maniVec3 up,
-                                     maniRagdollSource* sourceOut)
+static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
+                                                          const maniSkeleton* skeleton,
+                                                          const maniGltfOptions* options,
+                                                          maniVec3 facing, maniVec3 up,
+                                                          maniRagdollSource* sourceOut)
 {
     if (gltf == NULL || skeleton == NULL || options == NULL || sourceOut == NULL ||
         !maniGltfOptionsValid(options) || !AxesValid(facing, up))
@@ -599,5 +602,16 @@ maniImportResult maniGltfReadRagdoll(maniGltf* gltf, const maniSkeleton* skeleto
     maniQuat root = RootModel(&r, Root(&r));
     *sourceOut = (maniRagdollSource){
         skeleton, r.bodies, r.bodyCount, 0, InRoot(&r, root, facing), InRoot(&r, root, up)};
+    return result;
+}
+
+maniImportResult maniGltfReadRagdoll(maniGltf* gltf, const maniSkeleton* skeleton,
+                                     const maniGltfOptions* options, maniVec3 facing, maniVec3 up,
+                                     maniRagdollSource* sourceOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = GltfReadRagdollWork(gltf, skeleton, options, facing, up, sourceOut);
+    maniFloatEnvLeave(&env);
     return result;
 }

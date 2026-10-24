@@ -8,6 +8,7 @@
 #include "additive.h"
 
 #include "blend_groups.h"
+#include "fpenv.h"
 #include "pose_memory.h"
 #include "vecmath.h"
 
@@ -87,8 +88,9 @@ static bool DifferenceFinite(const maniTransform* d)
            Finite(d->scale.x) && Finite(d->scale.y) && Finite(d->scale.z);
 }
 
-maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
-                              const maniPose* basis, maniPose* out)
+static MANI_NOINLINE maniResult PoseDifferenceWork(const maniSkeleton* skeleton,
+                                                   const maniPose* pose, const maniPose* basis,
+                                                   maniPose* out)
 {
     if (!IsPose(pose, skeleton) || !IsPose(basis, skeleton) || !maniPoseMatches(out, skeleton))
     {
@@ -116,6 +118,16 @@ maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose
     maniPoseSetKind(out, true);
     maniPoseMarkStale(out);
     return mani_success;
+}
+
+maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
+                              const maniPose* basis, maniPose* out)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = PoseDifferenceWork(skeleton, pose, basis, out);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 static bool AdditiveValid(const maniSkeleton* skeleton, const maniPose* pose,
@@ -158,10 +170,20 @@ void maniAddTransform(maniTransform* t, const maniTransform* d, float w)
     t->scale.z *= 1.0f + w * (d->scale.z - 1.0f);
 }
 
+static MANI_NOINLINE maniResult AddPosesWork(const maniSkeleton* skeleton, maniPose* pose,
+                                             const maniBlendLayer* layers, uint32_t count)
+{
+    return maniAddPosesIn(skeleton, pose, layers, count, NULL);
+}
+
 maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const maniBlendLayer* layers,
                         uint32_t count)
 {
-    return maniAddPosesIn(skeleton, pose, layers, count, NULL);
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = AddPosesWork(skeleton, pose, layers, count);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 maniResult maniAddPosesIn(const maniSkeleton* skeleton, maniPose* pose,

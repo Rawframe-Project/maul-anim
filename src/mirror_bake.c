@@ -9,6 +9,7 @@
 #include "bytes.h"
 #include "clip_bake.h"
 #include "clip_view.h"
+#include "fpenv.h"
 #include "mirror_file.h"
 #include "vecmath.h"
 
@@ -122,7 +123,8 @@ static maniBuildResult Matches(const maniMirrorClipSource* s)
     return Result(mani_success, maniBuildReasonNone, 0, 0);
 }
 
-maniBuildResult maniBuildMirroredClip(maniBuilder* builder, const maniMirrorClipSource* source)
+static MANI_NOINLINE maniBuildResult BuildMirroredClipWork(maniBuilder* builder,
+                                                           const maniMirrorClipSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -156,4 +158,13 @@ maniBuildResult maniBuildMirroredClip(maniBuilder* builder, const maniMirrorClip
         kind.declared = Declared(&b, from);
     }
     return maniBakeClip(builder, &kind);
+}
+
+maniBuildResult maniBuildMirroredClip(maniBuilder* builder, const maniMirrorClipSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildMirroredClipWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

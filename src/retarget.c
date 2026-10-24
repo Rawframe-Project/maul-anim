@@ -13,6 +13,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "retarget_file.h"
 
 #include "maul-anim/base.h"
@@ -275,7 +276,8 @@ static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)
     return kOk;
 }
 
-maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetMap* mapOut)
+static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_t size,
+                                                        maniRetargetMap* mapOut)
 {
     if (mapOut == NULL)
     {
@@ -317,6 +319,15 @@ maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetM
     map.identity = c.identity;
     *mapOut = map;
     return kOk;
+}
+
+maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetMap* mapOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniFileResult result = OpenRetargetMapWork(bytes, size, mapOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 uint64_t maniRetargetMapIdentity(const maniRetargetMap* map)

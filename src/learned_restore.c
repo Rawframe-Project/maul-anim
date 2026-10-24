@@ -10,6 +10,7 @@
 #include "allocator.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "learned_file.h"
 #include "learned_train.h"
 #include "train_net.h"
@@ -212,8 +213,8 @@ static bool Apply(maniLearnedTrainer* t, const Progress* p)
     return true;
 }
 
-maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const void* bytes,
-                                            size_t size)
+static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(maniLearnedTrainer* trainer,
+                                                                 const void* bytes, size_t size)
 {
     if (trainer != NULL && maniHostCalledBack(&trainer->host))
     {
@@ -254,4 +255,14 @@ maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const v
         return (maniFileResult){mani_errorCapacity, 0, 0};
     }
     return kOk;
+}
+
+maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const void* bytes,
+                                            size_t size)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniFileResult result = RestoreLearnedCheckpointWork(trainer, bytes, size);
+    maniFloatEnvLeave(&env);
+    return result;
 }

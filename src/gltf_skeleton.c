@@ -9,6 +9,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "fpenv.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
 #include "gltf_layout.h"
@@ -177,8 +178,9 @@ static bool Usable(maniBuilder* builder, const maniGltf* gltf, const maniGltfOpt
     return true;
 }
 
-maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* gltf,
-                                       uint32_t skeleton, const maniGltfOptions* options)
+static MANI_NOINLINE maniImportResult GltfBuildSkeletonWork(maniBuilder* builder,
+                                                            const maniGltf* gltf, uint32_t skeleton,
+                                                            const maniGltfOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -200,8 +202,19 @@ maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* glt
     return r;
 }
 
-maniImportResult maniGltfBuildNodeSkeleton(maniBuilder* builder, const maniGltf* gltf,
-                                           uint32_t node, const maniGltfOptions* options)
+maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* gltf,
+                                       uint32_t skeleton, const maniGltfOptions* options)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = GltfBuildSkeletonWork(builder, gltf, skeleton, options);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniImportResult GltfBuildNodeSkeletonWork(maniBuilder* builder,
+                                                                const maniGltf* gltf, uint32_t node,
+                                                                const maniGltfOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -226,8 +239,20 @@ maniImportResult maniGltfBuildNodeSkeleton(maniBuilder* builder, const maniGltf*
     return r;
 }
 
-maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
-                                           const maniGltfOptions* options, maniAffine* placementOut)
+maniImportResult maniGltfBuildNodeSkeleton(maniBuilder* builder, const maniGltf* gltf,
+                                           uint32_t node, const maniGltfOptions* options)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = GltfBuildNodeSkeletonWork(builder, gltf, node, options);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniImportResult GltfSkeletonPlacementWork(const maniGltf* gltf,
+                                                                uint32_t skeleton,
+                                                                const maniGltfOptions* options,
+                                                                maniAffine* placementOut)
 {
     if (gltf == NULL || options == NULL || placementOut == NULL || !maniGltfOptionsValid(options) ||
         skeleton >= gltf->skeletonCount)
@@ -240,6 +265,16 @@ maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skelet
         return maniImportSuccess();
     }
     return maniGltfPlacement(gltf, gltf->skeletonRoots[skeleton], options, placementOut);
+}
+
+maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
+                                           const maniGltfOptions* options, maniAffine* placementOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = GltfSkeletonPlacementWork(gltf, skeleton, options, placementOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 // The skin's joints as bones of the skeleton, found by name.
@@ -295,8 +330,9 @@ static maniImportResult ReadInverseBinds(const maniGltf* gltf, uint32_t skin,
     return r;
 }
 
-maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin,
-                                   const maniSkeleton* skeleton, const maniGltfOptions* options)
+static MANI_NOINLINE maniImportResult GltfBuildSkinWork(maniBuilder* builder, const maniGltf* gltf,
+                                                        uint32_t skin, const maniSkeleton* skeleton,
+                                                        const maniGltfOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -328,4 +364,14 @@ maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, u
     Free(gltf, joints, jointCount, sizeof(uint32_t));
     maniRelease(&gltf->allocator, binds, (size_t)jointCount + 1, sizeof(maniAffine), 8);
     return r;
+}
+
+maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin,
+                                   const maniSkeleton* skeleton, const maniGltfOptions* options)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = GltfBuildSkinWork(builder, gltf, skin, skeleton, options);
+    maniFloatEnvLeave(&env);
+    return result;
 }

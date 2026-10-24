@@ -8,6 +8,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "graph_file.h"
 #include "graph_nodes.h"
 #include "text.h"
@@ -528,7 +529,8 @@ static maniFileResult CheckSlotNames(const maniGraph* g, const uint8_t* entries,
     return kOk;
 }
 
-maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
+static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size,
+                                                  maniGraph* graphOut)
 {
     if (graphOut == NULL)
     {
@@ -571,6 +573,15 @@ maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut
     g.identity = c.identity;
     *graphOut = g;
     return kOk;
+}
+
+maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniFileResult result = OpenGraphWork(bytes, size, graphOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 uint64_t maniGraphIdentity(const maniGraph* graph)

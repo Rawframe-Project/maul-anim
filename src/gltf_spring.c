@@ -8,6 +8,7 @@
 // The sources live in the document's spring arena until the next read.
 
 #include "arena.h"
+#include "fpenv.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
 #include "gltf_names.h"
@@ -820,8 +821,10 @@ static maniImportResult Read(Reader* r)
     return result;
 }
 
-maniImportResult maniGltfReadSprings(maniGltf* gltf, const maniSkeleton* skeleton,
-                                     const maniGltfOptions* options, maniSpringSetSource* setOut)
+static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
+                                                          const maniSkeleton* skeleton,
+                                                          const maniGltfOptions* options,
+                                                          maniSpringSetSource* setOut)
 {
     if (gltf == NULL || skeleton == NULL || options == NULL || setOut == NULL ||
         !maniGltfOptionsValid(options))
@@ -834,5 +837,15 @@ maniImportResult maniGltfReadSprings(maniGltf* gltf, const maniSkeleton* skeleto
     Reader r = {gltf, skeleton, options, &set};
     maniImportResult result = Read(&r);
     *setOut = result.result == mani_success ? set : (maniSpringSetSource){0};
+    return result;
+}
+
+maniImportResult maniGltfReadSprings(maniGltf* gltf, const maniSkeleton* skeleton,
+                                     const maniGltfOptions* options, maniSpringSetSource* setOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = GltfReadSpringsWork(gltf, skeleton, options, setOut);
+    maniFloatEnvLeave(&env);
     return result;
 }

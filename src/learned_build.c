@@ -12,6 +12,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "learned_file.h"
 #include "match_file.h"
 #include "text.h"
@@ -474,7 +475,8 @@ static bool Given(const maniLearnedModelSource* s)
            (s->events != NULL || s->eventCount == 0);
 }
 
-maniBuildResult maniBuildLearnedModel(maniBuilder* builder, const maniLearnedModelSource* source)
+static MANI_NOINLINE maniBuildResult BuildLearnedModelWork(maniBuilder* builder,
+                                                           const maniLearnedModelSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -492,4 +494,13 @@ maniBuildResult maniBuildLearnedModel(maniBuilder* builder, const maniLearnedMod
     Totals totals = {0, 0, 0, 0};
     maniBuildResult r = Check(source, &totals);
     return r.result == mani_success ? Write(builder, source, &totals) : r;
+}
+
+maniBuildResult maniBuildLearnedModel(maniBuilder* builder, const maniLearnedModelSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildLearnedModelWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

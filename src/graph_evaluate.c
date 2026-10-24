@@ -7,6 +7,7 @@
 
 #include "blend_groups.h"
 #include "bytes.h"
+#include "fpenv.h"
 #include "graph_evaluate_ik.h"
 #include "graph_evaluation.h"
 #include "graph_file.h"
@@ -711,14 +712,25 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
     return failed != 0 ? mani_errorFormat : mani_success;
 }
 
-maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
-                             maniPose* pose)
+static MANI_NOINLINE maniResult EvaluateGraphWork(maniGraphInstance* instance, void* scratch,
+                                                  size_t size, maniPose* pose)
 {
     return Run(instance, NULL, scratch, size, pose);
 }
 
-maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
-                                   void* scratch, size_t size, maniPose* pose)
+maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
+                             maniPose* pose)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = EvaluateGraphWork(instance, scratch, size, pose);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult EvaluateGraphSubsetWork(maniGraphInstance* instance,
+                                                        const maniGraphSubset* plan, void* scratch,
+                                                        size_t size, maniPose* pose)
 {
     if (plan == NULL || plan->stamp != MANI_GRAPH_SUBSET_STAMP || instance == NULL ||
         instance->stamp != MANI_GRAPH_INSTANCE_STAMP || plan->binding != instance->binding ||
@@ -727,4 +739,14 @@ maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphS
         return mani_errorInvalid;
     }
     return Run(instance, plan, scratch, size, pose);
+}
+
+maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
+                                   void* scratch, size_t size, maniPose* pose)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = EvaluateGraphSubsetWork(instance, plan, scratch, size, pose);
+    maniFloatEnvLeave(&env);
+    return result;
 }

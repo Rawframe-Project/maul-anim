@@ -12,6 +12,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "morph_file.h"
 
 #include "maul-anim/base.h"
@@ -371,7 +372,8 @@ static maniFileResult CheckAll(const Sections* s, maniMorphTargets* m)
     return r;
 }
 
-maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut)
+static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size_t size,
+                                                         maniMorphTargets* targetsOut)
 {
     if (targetsOut == NULL)
     {
@@ -407,6 +409,15 @@ maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTar
     m.identity = c.identity;
     *targetsOut = m;
     return kOk;
+}
+
+maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniFileResult result = OpenMorphTargetsWork(bytes, size, targetsOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 uint32_t maniMorphVertexCount(const maniMorphTargets* targets)
@@ -607,8 +618,9 @@ static void Walk(const maniMorphTargets* m, uint32_t first, uint32_t count, floa
     out[next] = t;
 }
 
-maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights,
-                                  float* targetWeights)
+static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* targets,
+                                                       const float* channelWeights,
+                                                       float* targetWeights)
 {
     if (targets == NULL || channelWeights == NULL || targetWeights == NULL)
     {
@@ -628,6 +640,16 @@ maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* 
         Walk(targets, first, count, channelWeights[c], targetWeights + first);
     }
     return mani_success;
+}
+
+maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights,
+                                  float* targetWeights)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = MorphTargetWeightsWork(targets, channelWeights, targetWeights);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 // The components a stream of the semantic may have: positions and
@@ -873,7 +895,7 @@ static void ApplyStream(const maniMorphJob* job, const maniMorphStream* s)
     }
 }
 
-maniResult maniApplyMorphTargets(const maniMorphJob* job)
+static MANI_NOINLINE maniResult ApplyMorphTargetsWork(const maniMorphJob* job)
 {
     if (!JobValid(job))
     {
@@ -884,4 +906,13 @@ maniResult maniApplyMorphTargets(const maniMorphJob* job)
         ApplyStream(job, &job->streams[k]);
     }
     return mani_success;
+}
+
+maniResult maniApplyMorphTargets(const maniMorphJob* job)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = ApplyMorphTargetsWork(job);
+    maniFloatEnvLeave(&env);
+    return result;
 }

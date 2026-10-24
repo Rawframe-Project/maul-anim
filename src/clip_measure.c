@@ -9,6 +9,7 @@
 #include "allocator.h"
 #include "builder.h"
 #include "clip_build.h"
+#include "fpenv.h"
 #include "scalar.h"
 
 #include "maul-anim/build.h"
@@ -217,8 +218,8 @@ static bool Matches(Measure* m)
     return true;
 }
 
-maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, const maniClip* clip,
-                           maniClipReport* reportOut)
+static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const maniClipSource* source,
+                                                const maniClip* clip, maniClipReport* reportOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -266,5 +267,15 @@ maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, c
     maniRelease(a, seen, words, sizeof(uint32_t), 8);
     maniRelease(a, floats, floatCount + 1, sizeof(float), 8);
     maniRelease(a, poseBlock, poseBytes, 1, 8);
+    return result;
+}
+
+maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, const maniClip* clip,
+                           maniClipReport* reportOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = MeasureClipWork(builder, source, clip, reportOut);
+    maniFloatEnvLeave(&env);
     return result;
 }

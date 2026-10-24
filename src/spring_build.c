@@ -16,6 +16,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "scalar.h"
 #include "spring_file.h"
 #include "spring_frame.h"
@@ -453,7 +454,8 @@ static bool Given(const maniSpringSetSource* s)
            (s->springs != NULL || s->springCount == 0);
 }
 
-maniBuildResult maniBuildSpringSet(maniBuilder* builder, const maniSpringSetSource* source)
+static MANI_NOINLINE maniBuildResult BuildSpringSetWork(maniBuilder* builder,
+                                                        const maniSpringSetSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -484,4 +486,13 @@ maniBuildResult maniBuildSpringSet(maniBuilder* builder, const maniSpringSetSour
     r = r.result == mani_success ? Write(builder, source, &w) : r;
     maniRelease(&builder->allocator, stamps, marks, sizeof(uint32_t), 4);
     return r;
+}
+
+maniBuildResult maniBuildSpringSet(maniBuilder* builder, const maniSpringSetSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildSpringSetWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

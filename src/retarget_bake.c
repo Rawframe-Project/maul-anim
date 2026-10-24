@@ -8,6 +8,7 @@
 
 #include "clip_bake.h"
 #include "clip_view.h"
+#include "fpenv.h"
 #include "retarget_file.h"
 #include "retarget_motion.h"
 #include "vecmath.h"
@@ -129,7 +130,8 @@ static maniBuildResult Matches(const maniRetargetClipSource* s)
     return Result(mani_success, maniBuildReasonNone, 0, 0);
 }
 
-maniBuildResult maniBuildRetargetedClip(maniBuilder* builder, const maniRetargetClipSource* source)
+static MANI_NOINLINE maniBuildResult BuildRetargetedClipWork(maniBuilder* builder,
+                                                             const maniRetargetClipSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -164,4 +166,13 @@ maniBuildResult maniBuildRetargetedClip(maniBuilder* builder, const maniRetarget
         kind.declared = Declared(&b, from);
     }
     return maniBakeClip(builder, &kind);
+}
+
+maniBuildResult maniBuildRetargetedClip(maniBuilder* builder, const maniRetargetClipSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildRetargetedClipWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

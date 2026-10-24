@@ -9,6 +9,7 @@
 
 #include "arena.h"
 #include "builder.h"
+#include "fpenv.h"
 #include "graph_json_ik.h"
 #include "graph_json_read.h"
 #include "graph_json_write.h"
@@ -130,8 +131,9 @@ static bool ReadMap(Reader* r, maniMirrorMapSource* out)
     return ok;
 }
 
-maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder, const char* text, size_t length,
-                                       const maniSkeleton* skeleton)
+static MANI_NOINLINE maniBuildResult BuildMirrorMapJsonWork(maniBuilder* builder, const char* text,
+                                                            size_t length,
+                                                            const maniSkeleton* skeleton)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -157,6 +159,16 @@ maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder, const char* text, s
     maniMirrorMapSource map;
     result = ReadMap(&r, &map) ? maniBuildMirrorMap(builder, &map) : r.fault;
     maniMapJsonClose(builder, &json, &r);
+    return result;
+}
+
+maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder, const char* text, size_t length,
+                                       const maniSkeleton* skeleton)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildMirrorMapJsonWork(builder, text, length, skeleton);
+    maniFloatEnvLeave(&env);
     return result;
 }
 
@@ -235,7 +247,8 @@ static void Draw(Writer* w, const void* source)
     maniGraphJsonPutText(w, "\n}\n");
 }
 
-maniBuildResult maniWriteMirrorMapJson(maniBuilder* builder, const maniMirrorMapSource* source)
+static MANI_NOINLINE maniBuildResult WriteMirrorMapJsonWork(maniBuilder* builder,
+                                                            const maniMirrorMapSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -244,4 +257,13 @@ maniBuildResult maniWriteMirrorMapJson(maniBuilder* builder, const maniMirrorMap
     maniBuildResult r = maniBuildMirrorMap(builder, source);
     return r.result == mani_success ? maniMapJsonKeep(builder, r, source->skeleton, Draw, source)
                                     : r;
+}
+
+maniBuildResult maniWriteMirrorMapJson(maniBuilder* builder, const maniMirrorMapSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = WriteMirrorMapJsonWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

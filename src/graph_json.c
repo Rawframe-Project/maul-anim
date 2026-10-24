@@ -10,6 +10,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "fpenv.h"
 #include "graph_json_body.h"
 #include "graph_json_ik.h"
 #include "graph_json_write.h"
@@ -850,7 +851,8 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
     maniGraphJsonPutText(w, "}");
 }
 
-maniBuildResult maniWriteGraphJson(maniBuilder* builder, const maniGraphSource* source)
+static MANI_NOINLINE maniBuildResult WriteGraphJsonWork(maniBuilder* builder,
+                                                        const maniGraphSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -877,4 +879,13 @@ maniBuildResult maniWriteGraphJson(maniBuilder* builder, const maniGraphSource* 
     maniGraphJsonPutText(&w, "\n");
     maniBuilderKeep(builder, MANI_BUILT_TEXT, (uint8_t*)text, size, NULL, 0);
     return r;
+}
+
+maniBuildResult maniWriteGraphJson(maniBuilder* builder, const maniGraphSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = WriteGraphJsonWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

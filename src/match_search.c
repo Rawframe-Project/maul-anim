@@ -21,6 +21,7 @@
 #include "match_search.h"
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "invariant.h"
 #include "match_file.h"
 
@@ -405,10 +406,21 @@ void maniMatchFacings(const maniMotionDatabase* database, float* features)
     }
 }
 
+static MANI_NOINLINE maniResult SearchMotionDatabaseWork(const maniMotionDatabase* database,
+                                                         const maniMatchQuery* query,
+                                                         maniMatchResult* resultOut)
+{
+    return maniMatchSearchFrom(database, query, false, NULL, resultOut);
+}
+
 maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query,
                                     maniMatchResult* resultOut)
 {
-    return maniMatchSearchFrom(database, query, false, NULL, resultOut);
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = SearchMotionDatabaseWork(database, query, resultOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQuery* query,

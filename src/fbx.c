@@ -14,6 +14,7 @@
 #include "fbx_model.h"
 #include "fbx_object.h"
 #include "fbx_units.h"
+#include "fpenv.h"
 #include "host_code.h"
 
 #include "maul-anim/import.h"
@@ -57,7 +58,8 @@ static maniImportResult Open(maniFbx* fbx)
     return r.result == mani_success ? maniFbxReadStacks(fbx) : r;
 }
 
-maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
+static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const void* bytes,
+                                                  size_t size, maniFbx** fbxOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -93,6 +95,15 @@ maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t siz
     }
     *fbxOut = fbx;
     return r;
+}
+
+maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = OpenFbxWork(builder, bytes, size, fbxOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 void maniCloseFbx(maniFbx* fbx)

@@ -17,6 +17,7 @@
 #include "clip_shell.h"
 #include "clip_view.h"
 #include "container.h"
+#include "fpenv.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
@@ -620,9 +621,10 @@ static maniResult Check(maniBuilder* builder, const maniClip* clip, const maniSk
     return r;
 }
 
-maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
-                            const maniSkeleton* skeleton, const maniCompressOptions* options,
-                            maniCompressReport* reportOut)
+static MANI_NOINLINE maniResult CompressClipWork(maniBuilder* builder, const maniClip* clip,
+                                                 const maniSkeleton* skeleton,
+                                                 const maniCompressOptions* options,
+                                                 maniCompressReport* reportOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -680,4 +682,15 @@ maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
         *reportOut = report;
     }
     return r;
+}
+
+maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
+                            const maniSkeleton* skeleton, const maniCompressOptions* options,
+                            maniCompressReport* reportOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = CompressClipWork(builder, clip, skeleton, options, reportOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

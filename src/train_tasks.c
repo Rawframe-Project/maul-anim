@@ -5,11 +5,31 @@
 
 #include "train_tasks.h"
 
+#include "fpenv.h"
+
 #include "maul-anim/base.h"
 
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+// A task and its context, run by InEnvironment.
+typedef struct Wrapped
+{
+    maniTaskFn* task;
+    void* context;
+} Wrapped;
+
+// A task body on a host's thread, which keeps the host's floating-point
+// environment: the library's entered around it.
+static void InEnvironment(int32_t startIndex, int32_t endIndex, void* taskContext)
+{
+    const Wrapped* wrapped = taskContext;
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    wrapped->task(startIndex, endIndex, wrapped->context);
+    maniFloatEnvLeave(&env);
+}
 
 void maniTrainRun(const maniTaskHooks* hooks, maniTaskFn* task, int32_t count, void* context)
 {
@@ -22,7 +42,11 @@ void maniTrainRun(const maniTaskHooks* hooks, maniTaskFn* task, int32_t count, v
         task(0, count, context);
         return;
     }
-    void* handle = hooks->enqueueTask(task, count, 1, context, hooks->userContext);
+    // On this thread the caller entered the environment already; on the
+    // hooks each range enters it. The wrapper lives until finishTask
+    // returns, which waits for every range.
+    Wrapped wrapped = {task, context};
+    void* handle = hooks->enqueueTask(InEnvironment, count, 1, &wrapped, hooks->userContext);
     if (handle != NULL && hooks->finishTask != NULL)
     {
         hooks->finishTask(handle, hooks->userContext);

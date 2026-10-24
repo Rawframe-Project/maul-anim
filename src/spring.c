@@ -13,6 +13,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "spring_file.h"
 #include "text.h"
 
@@ -344,7 +345,8 @@ static maniFileResult Records(const Sections* s, const maniSpringSet* set)
     return kOk;
 }
 
-maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* setOut)
+static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t size,
+                                                      maniSpringSet* setOut)
 {
     if (setOut == NULL)
     {
@@ -387,6 +389,15 @@ maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* 
     set.identity = c.identity;
     *setOut = set;
     return kOk;
+}
+
+maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* setOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniFileResult result = OpenSpringSetWork(bytes, size, setOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 uint64_t maniSpringSetIdentity(const maniSpringSet* set)

@@ -10,6 +10,7 @@
 
 #include "clip_lanes.h"
 #include "clip_view.h"
+#include "fpenv.h"
 #include "pose_memory.h"
 
 #include "maul-anim/clip.h"
@@ -205,8 +206,9 @@ static void Lanes(maniClipCursor* cursor, const maniClip* clip, const maniSkelet
 }
 #endif
 
-maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
-                                const maniSkeleton* skeleton, float time, maniPose* pose)
+static MANI_NOINLINE maniResult SampleClipCursorWork(maniClipCursor* cursor, const maniClip* clip,
+                                                     const maniSkeleton* skeleton, float time,
+                                                     maniPose* pose)
 {
     if (!Valid(cursor) || !maniClipFits(clip, skeleton, pose))
     {
@@ -232,8 +234,20 @@ maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
     return mani_success;
 }
 
-maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor, const maniClip* clip, float time,
-                                      float* values, uint32_t capacity, uint32_t* countOut)
+maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
+                                const maniSkeleton* skeleton, float time, maniPose* pose)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = SampleClipCursorWork(cursor, clip, skeleton, time, pose);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult SampleClipFloatsCursorWork(maniClipCursor* cursor,
+                                                           const maniClip* clip, float time,
+                                                           float* values, uint32_t capacity,
+                                                           uint32_t* countOut)
 {
     if (!Valid(cursor) || clip == NULL || (values == NULL && capacity > 0))
     {
@@ -251,6 +265,16 @@ maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor, const maniClip* cl
     Load(cursor, clip, &pair);
     maniSampleClipPairFloats(clip, &pair, values);
     return mani_success;
+}
+
+maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor, const maniClip* clip, float time,
+                                      float* values, uint32_t capacity, uint32_t* countOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = SampleClipFloatsCursorWork(cursor, clip, time, values, capacity, countOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 size_t maniClipCursorCompactSize(const maniClip* clip)

@@ -22,6 +22,7 @@
 #include "fbx_transform.h"
 #include "fbx_units.h"
 #include "fbx_world.h"
+#include "fpenv.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -366,8 +367,9 @@ static Build NewBuild(const maniFbx* fbx, const maniFbxOptions* options, uint32_
     return b;
 }
 
-maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
-                                      const maniFbxOptions* options)
+static MANI_NOINLINE maniImportResult FbxBuildSkeletonWork(maniBuilder* builder, const maniFbx* fbx,
+                                                           uint32_t skeleton,
+                                                           const maniFbxOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -386,6 +388,16 @@ maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, 
         maniFbxMarkSkeleton(fbx, skeleton, b.marked);
     }
     return BuildMarked(builder, &b);
+}
+
+maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
+                                      const maniFbxOptions* options)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = FbxBuildSkeletonWork(builder, fbx, skeleton, options);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 // A model's subtree, marked by a walk of the children lists.
@@ -413,8 +425,9 @@ static void MarkSubtree(Build* b)
     FreeBlock(b->fbx, stack, b->fbx->modelCount, sizeof(uint32_t));
 }
 
-maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
-                                           const maniFbxOptions* options)
+static MANI_NOINLINE maniImportResult FbxBuildModelSkeletonWork(maniBuilder* builder,
+                                                                const maniFbx* fbx, uint32_t model,
+                                                                const maniFbxOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -434,6 +447,16 @@ maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* 
         return Capacity();
     }
     return BuildMarked(builder, &b);
+}
+
+maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
+                                           const maniFbxOptions* options)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = FbxBuildModelSkeletonWork(builder, fbx, model, options);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 // The placement of the skeleton rooted at root.
@@ -461,8 +484,10 @@ static maniImportResult PlacementOf(const maniFbx* fbx, uint32_t root,
     return r;
 }
 
-maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
-                                          const maniFbxOptions* options, maniAffine* placementOut)
+static MANI_NOINLINE maniImportResult FbxSkeletonPlacementWork(const maniFbx* fbx,
+                                                               uint32_t skeleton,
+                                                               const maniFbxOptions* options,
+                                                               maniAffine* placementOut)
 {
     if (fbx == NULL || options == NULL || placementOut == NULL || !maniFbxOptionsValid(options) ||
         skeleton >= fbx->skeletonCount)
@@ -472,8 +497,19 @@ maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
     return PlacementOf(fbx, fbx->skeletonRoots[skeleton], options, placementOut);
 }
 
-maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model,
-                                       const maniFbxOptions* options, maniAffine* placementOut)
+maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
+                                          const maniFbxOptions* options, maniAffine* placementOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = FbxSkeletonPlacementWork(fbx, skeleton, options, placementOut);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniImportResult FbxModelPlacementWork(const maniFbx* fbx, uint32_t model,
+                                                            const maniFbxOptions* options,
+                                                            maniAffine* placementOut)
 {
     if (fbx == NULL || options == NULL || placementOut == NULL || !maniFbxOptionsValid(options) ||
         model >= fbx->modelCount)
@@ -481,4 +517,14 @@ maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model,
         return Invalid();
     }
     return PlacementOf(fbx, model, options, placementOut);
+}
+
+maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model,
+                                       const maniFbxOptions* options, maniAffine* placementOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniImportResult result = FbxModelPlacementWork(fbx, model, options, placementOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

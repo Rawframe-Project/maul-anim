@@ -15,6 +15,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "decompose.h"
+#include "fpenv.h"
 #include "ragdoll_file.h"
 #include "text.h"
 #include "vecmath.h"
@@ -370,7 +371,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniRagdollSource* s, W
     return file != NULL ? kOk : Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
 }
 
-maniBuildResult maniBuildRagdoll(maniBuilder* builder, const maniRagdollSource* source)
+static MANI_NOINLINE maniBuildResult BuildRagdollWork(maniBuilder* builder,
+                                                      const maniRagdollSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -405,4 +407,13 @@ maniBuildResult maniBuildRagdoll(maniBuilder* builder, const maniRagdollSource* 
     }
     maniRelease(&builder->allocator, work, bones, sizeof(Bone), 8);
     return r;
+}
+
+maniBuildResult maniBuildRagdoll(maniBuilder* builder, const maniRagdollSource* source)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildRagdollWork(builder, source);
+    maniFloatEnvLeave(&env);
+    return result;
 }

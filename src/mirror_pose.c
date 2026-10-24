@@ -10,6 +10,7 @@
 // may be mirrored in place.
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "mirror_file.h"
 #include "pose_memory.h"
 #include "vecmath.h"
@@ -114,8 +115,9 @@ static void MirrorLocal(const uint8_t* e, maniMirrorAxis axis,
     maniPoseSlotPut(slot, 0, turned, 10);
 }
 
-maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,
-                          const maniPose* in, maniPose* out)
+static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
+                                               const maniSkeleton* skeleton, const maniPose* in,
+                                               maniPose* out)
 {
     if (map == NULL || skeleton == NULL ||
         maniSkeletonIdentity(skeleton) != map->skeletonIdentity ||
@@ -150,11 +152,30 @@ maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton
     return mani_success;
 }
 
-maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move)
+maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,
+                          const maniPose* in, maniPose* out)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = MirrorPoseWork(map, skeleton, in, out);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniRootMove MirrorRootMotionWork(const maniMirrorMap* map, maniRootMove move)
 {
     if (map == NULL)
     {
         return move;
     }
     return (maniRootMove){Reflect(move.translation, map->axis), Mirror(move.rotation, map->axis)};
+}
+
+maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniRootMove result = MirrorRootMotionWork(map, move);
+    maniFloatEnvLeave(&env);
+    return result;
 }

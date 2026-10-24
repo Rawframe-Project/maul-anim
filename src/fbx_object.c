@@ -16,6 +16,7 @@
 #include "fbx_ascii.h"
 #include "fbx_document.h"
 #include "fbx_value.h"
+#include "fpenv.h"
 #include "sort.h"
 
 #include <string.h>
@@ -722,7 +723,8 @@ void maniFbxReleaseObjects(maniFbx* fbx)
                 sizeof(maniFbxObject), 8);
 }
 
-maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
+static MANI_NOINLINE maniResult FbxReadSettingsWork(const maniFbx* fbx,
+                                                    maniFbxSettings* settingsOut)
 {
     if (fbx == NULL || settingsOut == NULL)
     {
@@ -743,6 +745,15 @@ maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
     settingsOut->spanStop = s->spanStop;
     settingsOut->ticksPerSecond = s->ticksPerSecond;
     return mani_success;
+}
+
+maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = FbxReadSettingsWork(fbx, settingsOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 bool maniFbxDeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass, size_t length)

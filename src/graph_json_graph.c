@@ -12,6 +12,7 @@
 
 #include "arena.h"
 #include "builder.h"
+#include "fpenv.h"
 #include "graph_json_body.h"
 #include "graph_json_ik.h"
 #include "graph_json_machine.h"
@@ -866,8 +867,9 @@ static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out
            Nodes(r, f[5], out, scope) && maniGraphJsonIndex(r, f[6], &out->output);
 }
 
-maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
-                                   const maniGraphNamedAssets* assets)
+static MANI_NOINLINE maniBuildResult BuildGraphJsonWork(maniBuilder* builder, const char* text,
+                                                        size_t length,
+                                                        const maniGraphNamedAssets* assets)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -919,5 +921,15 @@ maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_
             : r.fault;
     maniArenaRelease(&r.arena);
     maniReleaseJson(&builder->allocator, &json);
+    return result;
+}
+
+maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
+                                   const maniGraphNamedAssets* assets)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniBuildResult result = BuildGraphJsonWork(builder, text, length, assets);
+    maniFloatEnvLeave(&env);
     return result;
 }

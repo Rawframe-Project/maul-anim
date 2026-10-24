@@ -15,6 +15,7 @@
 
 #include "maul-anim/ik.h"
 
+#include "fpenv.h"
 #include "ik_frame.h"
 #include "vecmath.h"
 
@@ -122,8 +123,8 @@ static bool Valid(const maniPose* pose, const maniSkeleton* skeleton, const mani
            s->weight <= 1.0f;
 }
 
-maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
-                            const maniTwoBoneSolve* solve, bool* reachedOut)
+static MANI_NOINLINE maniResult SolveTwoBoneWork(maniPose* pose, const maniSkeleton* skeleton,
+                                                 const maniTwoBoneSolve* solve, bool* reachedOut)
 {
     if (pose == NULL || skeleton == NULL || solve == NULL || !Valid(pose, skeleton, solve))
     {
@@ -175,4 +176,14 @@ maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
         *reachedOut = reached && solve->weight >= 1.0f;
     }
     return mani_success;
+}
+
+maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
+                            const maniTwoBoneSolve* solve, bool* reachedOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = SolveTwoBoneWork(pose, skeleton, solve, reachedOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

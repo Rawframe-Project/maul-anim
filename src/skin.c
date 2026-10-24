@@ -10,6 +10,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "pose_memory.h"
 #include "skin_file.h"
 #include "vecmath.h"
@@ -38,7 +39,7 @@ uint64_t maniSkinComputeIdentity(const uint8_t* binding, const uint8_t* joints,
     return maniHashBytes(hash, inverseBinds, MANI_SKIN_MATRIX_SIZE * (uint64_t)jointCount);
 }
 
-maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
+static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size, maniSkin* skinOut)
 {
     if (skinOut == NULL)
     {
@@ -117,6 +118,15 @@ maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
     return (maniFileResult){mani_success, 0, 0};
 }
 
+maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniFileResult result = OpenSkinWork(bytes, size, skinOut);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
 uint32_t maniSkinJointCount(const maniSkin* skin)
 {
     return skin->jointCount;
@@ -147,9 +157,10 @@ maniAffine maniSkinInverseBind(const maniSkin* skin, uint32_t joint)
     return m;
 }
 
-maniResult maniComputePalette(const maniPose* pose, const maniSkeleton* skeleton,
-                              const maniSkin* skin, maniAffine* palette, uint32_t capacity,
-                              uint32_t* countOut)
+static MANI_NOINLINE maniResult ComputePaletteWork(const maniPose* pose,
+                                                   const maniSkeleton* skeleton,
+                                                   const maniSkin* skin, maniAffine* palette,
+                                                   uint32_t capacity, uint32_t* countOut)
 {
     if (skin == NULL || (palette == NULL && capacity > 0) || !maniPoseMatches(pose, skeleton) ||
         skin->skeletonIdentity != skeleton->identity ||
@@ -178,4 +189,15 @@ maniResult maniComputePalette(const maniPose* pose, const maniSkeleton* skeleton
         palette[j] = maniAffineMul(&model, &inverseBind);
     }
     return mani_success;
+}
+
+maniResult maniComputePalette(const maniPose* pose, const maniSkeleton* skeleton,
+                              const maniSkin* skin, maniAffine* palette, uint32_t capacity,
+                              uint32_t* countOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = ComputePaletteWork(pose, skeleton, skin, palette, capacity, countOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

@@ -12,6 +12,7 @@
 // bones above it turned; the last turns what is left, so it ends aimed.
 // A cone bends the goal onto its edge first.
 
+#include "fpenv.h"
 #include "ik_frame.h"
 #include "scalar.h"
 #include "vecmath.h"
@@ -115,8 +116,8 @@ static bool Valid(const maniPose* pose, const maniSkeleton* skeleton, const mani
            s->cone <= MANI_AIM_MAX_CONE && s->weight >= 0.0f && s->weight <= 1.0f;
 }
 
-maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* solve,
-                        bool* reachedOut)
+static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton* skeleton,
+                                             const maniAimSolve* solve, bool* reachedOut)
 {
     if (pose == NULL || skeleton == NULL || solve == NULL || !Valid(pose, skeleton, solve))
     {
@@ -180,4 +181,14 @@ maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const mani
         *reachedOut = aimed && inside && solve->weight >= 1.0f;
     }
     return mani_success;
+}
+
+maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* solve,
+                        bool* reachedOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = SolveAimWork(pose, skeleton, solve, reachedOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

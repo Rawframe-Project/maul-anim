@@ -10,6 +10,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
+#include "fpenv.h"
 #include "text.h"
 
 #include "maul-anim/base.h"
@@ -314,7 +315,7 @@ uint32_t maniClipFindDiscreteTrack(const maniClip* clip, const char* name, size_
     return FindTrack(clip, clip->discreteTracks, clip->discreteTrackCount, name, length);
 }
 
-int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time)
+static MANI_NOINLINE int32_t ClipDiscreteValueWork(const maniClip* clip, uint32_t track, float time)
 {
     if (track >= clip->discreteTrackCount)
     {
@@ -342,6 +343,15 @@ int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time)
     }
     uint32_t key = low > 0 ? low - 1 : 0;
     return (int32_t)maniLoadU32(keys + (size_t)key * MANI_CLIP_KEY_SIZE + 4);
+}
+
+int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    int32_t result = ClipDiscreteValueWork(clip, track, time);
+    maniFloatEnvLeave(&env);
+    return result;
 }
 
 static maniClipEvent Timed(const maniClip* clip, const uint8_t* entries, uint32_t count,
@@ -400,8 +410,8 @@ static uint32_t CountBefore(const maniClip* clip, float t, bool inclusive)
     return low;
 }
 
-void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,
-                        uint32_t* countOut)
+static MANI_NOINLINE void ClipEventRangeWork(const maniClip* clip, float from, float to,
+                                             uint32_t* firstOut, uint32_t* countOut)
 {
     uint32_t first = 0;
     uint32_t end = 0;
@@ -417,4 +427,13 @@ void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* fi
     }
     *firstOut = first;
     *countOut = end - first;
+}
+
+void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,
+                        uint32_t* countOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    ClipEventRangeWork(clip, from, to, firstOut, countOut);
+    maniFloatEnvLeave(&env);
 }

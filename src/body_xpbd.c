@@ -20,6 +20,7 @@
 // correction moved without turning is dropped, and lengths are exact.
 
 #include "body_ik.h"
+#include "fpenv.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -250,9 +251,9 @@ static void Lock(maniBodyPart* part, const maniBodySolve* solve)
     }
 }
 
-maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
-                             const maniBodySolve* solve, void* scratch, size_t scratchSize,
-                             bool* reachedOut)
+static MANI_NOINLINE maniResult SolveBodyXpbdWork(maniPose* pose, const maniSkeleton* skeleton,
+                                                  const maniBodySolve* solve, void* scratch,
+                                                  size_t scratchSize, bool* reachedOut)
 {
     uint32_t count = maniBodyPartCount(pose, skeleton, solve, scratch, scratchSize);
     if (count == 0)
@@ -291,4 +292,15 @@ maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
         *reachedOut = reached;
     }
     return mani_success;
+}
+
+maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
+                             const maniBodySolve* solve, void* scratch, size_t scratchSize,
+                             bool* reachedOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = SolveBodyXpbdWork(pose, skeleton, solve, scratch, scratchSize, reachedOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }

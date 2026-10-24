@@ -16,6 +16,7 @@
 #include "maul-anim/trajectory.h"
 
 #include "elementary_float.h"
+#include "fpenv.h"
 #include "match_move.h"
 #include "vecmath.h"
 
@@ -90,8 +91,8 @@ static void Rotations(maniTrajectory* t, const maniTrajectoryGoal* g, float dt)
     t->angularVelocity = maniVec3Scale(Mix(t->angularVelocity, 1.0f, j1, -y * dt), e);
 }
 
-maniResult maniAdvanceTrajectory(maniTrajectory* trajectory, const maniTrajectoryGoal* goal,
-                                 float seconds)
+static MANI_NOINLINE maniResult AdvanceTrajectoryWork(maniTrajectory* trajectory,
+                                                      const maniTrajectoryGoal* goal, float seconds)
 {
     if (trajectory == NULL || goal == NULL || !Valid(trajectory, goal, seconds))
     {
@@ -102,9 +103,20 @@ maniResult maniAdvanceTrajectory(maniTrajectory* trajectory, const maniTrajector
     return mani_success;
 }
 
-maniResult maniTrajectoryFeatures(const maniMotionDatabase* database, const maniTrajectory* root,
-                                  const maniTrajectory* sample, float* positionOut,
-                                  float* facingOut)
+maniResult maniAdvanceTrajectory(maniTrajectory* trajectory, const maniTrajectoryGoal* goal,
+                                 float seconds)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = AdvanceTrajectoryWork(trajectory, goal, seconds);
+    maniFloatEnvLeave(&env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult TrajectoryFeaturesWork(const maniMotionDatabase* database,
+                                                       const maniTrajectory* root,
+                                                       const maniTrajectory* sample,
+                                                       float* positionOut, float* facingOut)
 {
     if (database == NULL || root == NULL || sample == NULL)
     {
@@ -122,4 +134,15 @@ maniResult maniTrajectoryFeatures(const maniMotionDatabase* database, const mani
         maniMatchGround(maniQuatRotate(inverse, forward), database->up, facingOut);
     }
     return mani_success;
+}
+
+maniResult maniTrajectoryFeatures(const maniMotionDatabase* database, const maniTrajectory* root,
+                                  const maniTrajectory* sample, float* positionOut,
+                                  float* facingOut)
+{
+    maniFloatEnv env;
+    maniFloatEnvEnter(&env);
+    maniResult result = TrajectoryFeaturesWork(database, root, sample, positionOut, facingOut);
+    maniFloatEnvLeave(&env);
+    return result;
 }
