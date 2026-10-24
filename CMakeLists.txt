@@ -203,11 +203,6 @@ if(MAUL_ANIM_BUILD_SHARED)
     target_compile_definitions(maul-anim_cpu PRIVATE MAUL_ANIM_SHARED maul_anim_EXPORTS)
 endif()
 target_sources(maul-anim PRIVATE $<TARGET_OBJECTS:maul-anim_cpu>)
-# sqrtf need not set errno, which the library never reads: square roots
-# then run four or eight at a time; no value changes.
-if(NOT MSVC)
-    target_compile_options(maul-anim PRIVATE -fno-math-errno)
-endif()
 # The exactly rounded functions the sources may call
 # (tools/libm-allowed.txt) come from libm.
 if(NOT WIN32 AND NOT APPLE)
