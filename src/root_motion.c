@@ -11,6 +11,7 @@
 #include "bytes.h"
 #include "clip_file.h"
 #include "clip_view.h"
+#include "fpenv.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -138,11 +139,25 @@ maniRootMove maniRootMoveIdentity(void)
     return (maniRootMove){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
 }
 
-maniRootMove maniComposeRootMotion(maniRootMove first, maniRootMove then)
+// first, then then: inlined where this file composes moves.
+static maniRootMove Compose(maniRootMove first, maniRootMove then)
 {
     return (maniRootMove){
         maniVec3Add(first.translation, maniQuatRotate(first.rotation, then.translation)),
         maniQuatNormalize(maniQuatMul(first.rotation, then.rotation))};
+}
+
+static MANI_NOINLINE maniRootMove ComposeRootMotionWork(maniRootMove first, maniRootMove then)
+{
+    return Compose(first, then);
+}
+
+maniRootMove maniComposeRootMotion(maniRootMove first, maniRootMove then)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniRootMove result = ComposeRootMotionWork(first, then);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 static maniRootMove Inverse(maniRootMove m)
@@ -182,7 +197,7 @@ static maniRootMove At(const maniClip* clip, float time)
 // The move from a to b, in a's frame.
 static maniRootMove Between(maniRootMove a, maniRootMove b)
 {
-    return maniComposeRootMotion(Inverse(a), b);
+    return Compose(Inverse(a), b);
 }
 
 // A move made count times over, by squaring.
@@ -193,9 +208,9 @@ static maniRootMove Repeated(maniRootMove move, uint64_t count)
     {
         if ((count & 1u) != 0)
         {
-            made = maniComposeRootMotion(made, move);
+            made = Compose(made, move);
         }
-        move = maniComposeRootMotion(move, move);
+        move = Compose(move, move);
         count >>= 1u;
     }
     return made;
@@ -225,12 +240,12 @@ static maniRootMove Repeating(const maniClip* clip, double u0, double u1)
     maniRootMove period = Stored(clip->rootMotion, UINT32_MAX);
     bool forward = w1 > w0;
     maniRootMove out = Between(At(clip, f0), forward ? end : start);
-    out =
-        maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1));
-    return maniComposeRootMotion(out, Between(forward ? start : end, At(clip, f1)));
+    out = Compose(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1));
+    return Compose(out, Between(forward ? start : end, At(clip, f1)));
 }
 
-maniResult maniClipRootMotion(const maniClip* clip, float time, float step, maniRootMove* moveOut)
+MANI_NOINLINE maniResult maniClipRootMotionEntered(const maniClip* clip, float time, float step,
+                                                   maniRootMove* moveOut)
 {
     if (clip == NULL || moveOut == NULL || !isfinite(time) || !isfinite(step))
     {
@@ -253,6 +268,14 @@ maniResult maniClipRootMotion(const maniClip* clip, float time, float step, mani
     }
     *moveOut = Repeating(clip, u0, u1);
     return mani_success;
+}
+
+maniResult maniClipRootMotion(const maniClip* clip, float time, float step, maniRootMove* moveOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = maniClipRootMotionEntered(clip, time, step, moveOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 static bool MoveFinite(const maniRootMove* m)
@@ -294,8 +317,8 @@ maniRootMove maniRootMotionSumResult(const maniRootMotionSum* sum)
         maniQuatNormalize((maniQuat){(float)q[0], (float)q[1], (float)q[2], (float)q[3]})};
 }
 
-maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, uint32_t count,
-                               maniRootMove* moveOut)
+static MANI_NOINLINE maniResult BlendRootMotionWork(const maniRootMove* moves, const float* weights,
+                                                    uint32_t count, maniRootMove* moveOut)
 {
     if (moveOut == NULL || (count > 0 && (moves == NULL || weights == NULL)))
     {
@@ -320,8 +343,18 @@ maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, 
     return mani_success;
 }
 
-maniResult maniRestoreRootMotion(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                                 maniPose* pose)
+maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, uint32_t count,
+                               maniRootMove* moveOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = BlendRootMotionWork(moves, weights, count, moveOut);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
+                                                      const maniSkeleton* skeleton, float time,
+                                                      maniPose* pose)
 {
     if (!maniClipFits(clip, skeleton, pose) || maniPoseIsDifference(pose))
     {
@@ -338,4 +371,13 @@ maniResult maniRestoreRootMotion(const maniClip* clip, const maniSkeleton* skele
     local.rotation = maniQuatNormalize(maniQuatMul(m.rotation, local.rotation));
     maniPoseSetLocal(pose, bone, local);
     return mani_success;
+}
+
+maniResult maniRestoreRootMotion(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                                 maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = RestoreRootMotionWork(clip, skeleton, time, pose);
+    maniFloatEnvLeave(env);
+    return result;
 }

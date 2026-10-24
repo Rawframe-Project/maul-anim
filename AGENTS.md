@@ -32,7 +32,7 @@ Every CI cell is a preset in `CMakePresets.json`, built in `out/<preset>` ([chec
 
 ## Invariants
 
-- **Determinism:** binary32 in a fixed order, no contraction, no fast math, no estimate instructions; only the `<math.h>` functions in `tools/libm-allowed.txt`; vector kernels use the SIMD header's separate multiply and add, and are tested against their scalar code bit for bit. A public function that computes floats enters the library's floating-point environment and does its work in a `MANI_NOINLINE` worker ([determinism.md](docs/internals/determinism.md#the-floating-point-environment)).
+- **Determinism:** binary32 in a fixed order, no contraction, no fast math, no estimate instructions; only the `<math.h>` functions in `tools/libm-allowed.txt`; vector kernels use the SIMD header's separate multiply and add, and are tested against their scalar code bit for bit. A public function that computes floats enters the library's floating-point environment and does its work in a `MANI_NOINLINE` worker; one that does not is listed in `tools/float-env-allowed.txt` with its reason, and `tools/check_float_env.py` enforces both ([determinism.md](docs/internals/determinism.md#the-floating-point-environment)).
 - **Files:** every kind uses the container in `src/container.h`. A change to a kind's bytes bumps its format version. Opening checks every byte; later calls do not check again.
 - **Identities:** a file built for a skeleton records its identity, and every pairing compares it.
 - **Version:** `MANI_VERSION_*` between the release-please markers in `include/maul-anim/base.h`; CMake reads it from there and only release-please changes it. `MANI_ABI_VERSION` is stamped into the builder's and the trainer's defs, which check the cookie first and the version second.

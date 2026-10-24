@@ -8,6 +8,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "skin_file.h"
 
 #include "maul-anim/build.h"
@@ -52,7 +53,8 @@ static maniBuildResult Check(const maniSkinSource* source)
     return Result(mani_success, maniBuildReasonNone, 0);
 }
 
-maniBuildResult maniBuildSkin(maniBuilder* builder, const maniSkinSource* source)
+static MANI_NOINLINE maniBuildResult BuildSkinWork(maniBuilder* builder,
+                                                   const maniSkinSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -112,5 +114,13 @@ maniBuildResult maniBuildSkin(maniBuilder* builder, const maniSkinSource* source
         return Result(mani_errorCapacity, maniBuildReasonNone, 0);
     }
     maniBuilderKeep(builder, maniKindSkin, file, (size_t)fileSize, NULL, 0);
+    return result;
+}
+
+maniBuildResult maniBuildSkin(maniBuilder* builder, const maniSkinSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildSkinWork(builder, source);
+    maniFloatEnvLeave(env);
     return result;
 }

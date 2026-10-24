@@ -4,6 +4,8 @@
 // Masks from chains: subtree chains carried down the
 // depth-first order, then chains on single bones over them.
 
+#include "fpenv.h"
+
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
 #include "maul-anim/skeleton.h"
@@ -18,8 +20,10 @@ static bool Usable(float w)
     return w >= 0.0f && w <= FLT_MAX;
 }
 
-maniResult maniBuildMask(const maniSkeleton* skeleton, const maniMaskChain* chains, uint32_t count,
-                         float defaultWeight, float* weights, uint32_t capacity)
+static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
+                                              const maniMaskChain* chains, uint32_t count,
+                                              float defaultWeight, float* weights,
+                                              uint32_t capacity)
 {
     if (skeleton == NULL || weights == NULL || (chains == NULL && count > 0) ||
         !Usable(defaultWeight))
@@ -59,4 +63,13 @@ maniResult maniBuildMask(const maniSkeleton* skeleton, const maniMaskChain* chai
         weights[chains[i].bone] = chains[i].subtree ? weights[chains[i].bone] : chains[i].weight;
     }
     return mani_success;
+}
+
+maniResult maniBuildMask(const maniSkeleton* skeleton, const maniMaskChain* chains, uint32_t count,
+                         float defaultWeight, float* weights, uint32_t capacity)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = BuildMaskWork(skeleton, chains, count, defaultWeight, weights, capacity);
+    maniFloatEnvLeave(env);
+    return result;
 }

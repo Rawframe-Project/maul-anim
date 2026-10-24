@@ -9,6 +9,7 @@
 #include "graph_emit.h"
 
 #include "bytes.h"
+#include "clip_view.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
@@ -28,7 +29,7 @@ void maniGraphEmit(maniGraphUpdate* u, uint32_t node, uint32_t slot, const maniC
 {
     uint32_t first = 0;
     uint32_t count = 0;
-    maniClipEventRange(clip, (float)from, (float)to, &first, &count);
+    maniClipEventRangeEntered(clip, (float)from, (float)to, &first, &count);
     const maniGraphNodeState* s = maniGraphUpdateNode(u, node);
     for (uint32_t k = 0; k < count; ++k)
     {
@@ -54,7 +55,7 @@ void maniGraphEmitLoops(maniGraphUpdate* u, uint32_t node, uint32_t slot, const 
 {
     uint32_t first = 0;
     uint32_t perLoop = 0;
-    maniClipEventRange(clip, (float)from, (float)to, &first, &perLoop);
+    maniClipEventRangeEntered(clip, (float)from, (float)to, &first, &perLoop);
     uint64_t n = (uint64_t)(loops < MAX_WRAPS ? loops : MAX_WRAPS);
     for (uint64_t k = 0; k < n; ++k)
     {

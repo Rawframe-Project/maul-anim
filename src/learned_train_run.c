@@ -6,6 +6,7 @@
 
 #include "allocator.h"
 #include "builder.h"
+#include "fpenv.h"
 #include "learned_file.h"
 #include "learned_train.h"
 #include "train_adam.h"
@@ -246,8 +247,8 @@ static void Iterate(maniLearnedTrainer* t)
     t->iteration = step;
 }
 
-maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations,
-                            maniLearnedTrainerReport* reportOut)
+static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, uint64_t iterations,
+                                                 maniLearnedTrainerReport* reportOut)
 {
     if (trainer != NULL && maniHostCalledBack(&trainer->host))
     {
@@ -281,6 +282,15 @@ maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations,
     return r;
 }
 
+maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations,
+                            maniLearnedTrainerReport* reportOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = TrainLearnedWork(trainer, iterations, reportOut);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
 static void Network(const maniTrainKept* k, maniLearnedLayerSource* layers,
                     maniLearnedNetworkSource* out)
 {
@@ -300,9 +310,8 @@ static void Network(const maniTrainKept* k, maniLearnedLayerSource* layers,
                                       0};
 }
 
-maniBuildResult maniBuildLearnedModelFromTrainer(maniBuilder* builder,
-                                                 const maniLearnedTrainer* trainer,
-                                                 maniLearnedWeights weightFormat)
+static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
+    maniBuilder* builder, const maniLearnedTrainer* trainer, maniLearnedWeights weightFormat)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -362,4 +371,14 @@ maniBuildResult maniBuildLearnedModelFromTrainer(maniBuilder* builder,
     maniRelease(&t->allocator, projectorLayers, count, sizeof(maniLearnedLayerSource), 8);
     maniRelease(&t->allocator, list, projectors, sizeof(maniLearnedProjectorSource), 8);
     return r;
+}
+
+maniBuildResult maniBuildLearnedModelFromTrainer(maniBuilder* builder,
+                                                 const maniLearnedTrainer* trainer,
+                                                 maniLearnedWeights weightFormat)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildLearnedModelFromTrainerWork(builder, trainer, weightFormat);
+    maniFloatEnvLeave(env);
+    return result;
 }

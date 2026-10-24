@@ -8,6 +8,8 @@
 #include "spring_state.h"
 
 #include "bytes.h"
+#include "fpenv.h"
+#include "pose_memory.h"
 #include "spring_file.h"
 #include "vecmath.h"
 
@@ -45,8 +47,9 @@ size_t maniSpringStateSize(const maniSpringSet* set)
     return (size + MANI_SPRING_STATE_ALIGNMENT - 1) & ~(size_t)(MANI_SPRING_STATE_ALIGNMENT - 1);
 }
 
-maniResult maniInitSpringState(const maniSpringSet* set, const maniSkeleton* skeleton, void* memory,
-                               size_t size, maniSpringState** stateOut)
+static MANI_NOINLINE maniResult InitSpringStateWork(const maniSpringSet* set,
+                                                    const maniSkeleton* skeleton, void* memory,
+                                                    size_t size, maniSpringState** stateOut)
 {
     if (set == NULL || skeleton == NULL || memory == NULL || stateOut == NULL ||
         (uintptr_t)memory % MANI_SPRING_STATE_ALIGNMENT != 0 ||
@@ -69,6 +72,15 @@ maniResult maniInitSpringState(const maniSpringSet* set, const maniSkeleton* ske
     return mani_success;
 }
 
+maniResult maniInitSpringState(const maniSpringSet* set, const maniSkeleton* skeleton, void* memory,
+                               size_t size, maniSpringState** stateOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = InitSpringStateWork(set, skeleton, memory, size, stateOut);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
 static bool PlacementValid(const maniTransform* t)
 {
     const maniVec3 p = t->translation;
@@ -85,11 +97,13 @@ static bool ModelReady(const maniSpringState* state, maniPose* pose)
     {
         return false;
     }
-    return maniPoseModelCurrent(pose) || maniComputeModel(pose, state->skeleton) == mani_success;
+    return maniPoseModelCurrent(pose) ||
+           maniComputeModelEntered(pose, state->skeleton) == mani_success;
 }
 
-maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTransform* placement,
-                           const maniVec3* force, float delta)
+static MANI_NOINLINE maniResult StepSpringsWork(maniSpringState* state, maniPose* pose,
+                                                const maniTransform* placement,
+                                                const maniVec3* force, float delta)
 {
     maniTransform place = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
     maniVec3 push = {0.0f, 0.0f, 0.0f};
@@ -113,7 +127,16 @@ maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTra
     return mani_success;
 }
 
-maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
+maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTransform* placement,
+                           const maniVec3* force, float delta)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = StepSpringsWork(state, pose, placement, force, delta);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult ApplySpringsWork(const maniSpringState* state, maniPose* pose)
 {
     if (state == NULL || pose == NULL || !ModelReady(state, pose))
     {
@@ -121,6 +144,14 @@ maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
     }
     maniSpringApplyBlock(state->set, state->skeleton, maniSpringConstBlock(state), pose);
     return mani_success;
+}
+
+maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = ApplySpringsWork(state, pose);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 void maniResetSprings(maniSpringState* state)
@@ -136,7 +167,8 @@ size_t maniSpringSavedSize(const maniSpringSet* set)
     return set == NULL ? 0 : MANI_SPRING_STATE_HEADER_SIZE + 4 * (size_t)maniSpringBlockWords(set);
 }
 
-maniResult maniSaveSpringState(const maniSpringState* state, void* out, size_t capacity)
+static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state, void* out,
+                                                    size_t capacity)
 {
     if (state == NULL || out == NULL)
     {
@@ -158,6 +190,14 @@ maniResult maniSaveSpringState(const maniSpringState* state, void* out, size_t c
         maniStoreU32(p + MANI_SPRING_STATE_HEADER_SIZE + 4 * w, block[w]);
     }
     return mani_success;
+}
+
+maniResult maniSaveSpringState(const maniSpringState* state, void* out, size_t capacity)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SaveSpringStateWork(state, out, capacity);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 // The first of count floats at a word that is not finite, or kValid.
@@ -300,7 +340,8 @@ static maniFileResult Fail(uint64_t offset)
     return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-maniFileResult maniRestoreSpringState(maniSpringState* state, const void* bytes, size_t size)
+static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* state,
+                                                           const void* bytes, size_t size)
 {
     if (state == NULL || bytes == NULL)
     {
@@ -335,4 +376,12 @@ maniFileResult maniRestoreSpringState(maniSpringState* state, const void* bytes,
         block[w] = maniLoadU32(b + MANI_SPRING_STATE_HEADER_SIZE + 4 * w);
     }
     return (maniFileResult){mani_success, 0, 0};
+}
+
+maniFileResult maniRestoreSpringState(maniSpringState* state, const void* bytes, size_t size)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = RestoreSpringStateWork(state, bytes, size);
+    maniFloatEnvLeave(env);
+    return result;
 }

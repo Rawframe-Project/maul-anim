@@ -9,6 +9,7 @@
 // are; the pelvis's positions are the full transforms'.
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "pose_memory.h"
 #include "retarget_file.h"
 #include "vecmath.h"
@@ -71,7 +72,7 @@ size_t maniRetargetScratchSize(const maniRetargetMap* map)
     return sizeof(maniQuat) * ((size_t)map->sourceBoneCount + map->targetBoneCount);
 }
 
-maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
+static MANI_NOINLINE maniVec3 RetargetRootMotionWork(const maniRetargetMap* map, maniVec3 delta)
 {
     if (map == NULL)
     {
@@ -83,6 +84,14 @@ maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
     return maniVec3Add(
         maniVec3Scale(horizontal, LoadF32(map->header + maniRetargetHeaderHorizontal)),
         maniVec3Scale(vertical, LoadF32(map->header + maniRetargetHeaderVertical)));
+}
+
+maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniVec3 result = RetargetRootMotionWork(map, delta);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 typedef struct Transfer
@@ -279,9 +288,11 @@ static bool Usable(const maniRetargetMap* map, const maniSkeleton* source,
            maniPoseMatches(targetPose, target);
 }
 
-maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* source,
-                            const maniPose* sourcePose, const maniSkeleton* target,
-                            maniPose* targetPose, void* scratch, size_t scratchSize)
+static MANI_NOINLINE maniResult RetargetPoseWork(const maniRetargetMap* map,
+                                                 const maniSkeleton* source,
+                                                 const maniPose* sourcePose,
+                                                 const maniSkeleton* target, maniPose* targetPose,
+                                                 void* scratch, size_t scratchSize)
 {
     if (!Usable(map, source, sourcePose, target, targetPose, scratch, scratchSize))
     {
@@ -307,4 +318,15 @@ maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* sour
     }
     maniPoseSetKind(targetPose, false);
     return mani_success;
+}
+
+maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* source,
+                            const maniPose* sourcePose, const maniSkeleton* target,
+                            maniPose* targetPose, void* scratch, size_t scratchSize)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result =
+        RetargetPoseWork(map, source, sourcePose, target, targetPose, scratch, scratchSize);
+    maniFloatEnvLeave(env);
+    return result;
 }

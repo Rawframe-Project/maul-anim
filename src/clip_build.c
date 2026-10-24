@@ -15,6 +15,7 @@
 #include "bytes.h"
 #include "clip_file.h"
 #include "container.h"
+#include "fpenv.h"
 #include "quat64.h"
 #include "root_motion.h"
 #include "root_motion_build.h"
@@ -751,13 +752,22 @@ static maniBuildResult CheckGiven(const maniClipSource* source, const uint32_t* 
                : Refuse(maniBuildReasonRootMotion, s->bone, 0);
 }
 
-maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source)
+static MANI_NOINLINE maniBuildResult BuildClipWork(maniBuilder* builder,
+                                                   const maniClipSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
         return maniBuildCalledBack();
     }
     return maniBuildClipMoved(builder, source, NULL);
+}
+
+maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildClipWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* source,

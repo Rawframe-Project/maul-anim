@@ -12,6 +12,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
+#include "fpenv.h"
 #include "invariant.h"
 #include "pose_memory.h"
 #include "root_motion.h"
@@ -299,7 +300,7 @@ static maniFileResult CheckFront(const Sections* s, maniClip* clip)
     return clip->compressed ? r : CheckSamples(s->data[2], s->at[2], s->data[1], clip);
 }
 
-maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
+static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size, maniClip* clipOut)
 {
     if (clipOut == NULL)
     {
@@ -342,6 +343,14 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
     clip.identity = c.identity;
     *clipOut = clip;
     return (maniFileResult){mani_success, 0, 0};
+}
+
+maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = OpenClipWork(bytes, size, clipOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint64_t maniClipIdentity(const maniClip* clip)
@@ -556,8 +565,8 @@ bool maniClipFits(const maniClip* clip, const maniSkeleton* skeleton, const mani
            clip->skeletonBoneCount == skeleton->boneCount;
 }
 
-maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                          maniPose* pose)
+static MANI_NOINLINE maniResult SampleClipWork(const maniClip* clip, const maniSkeleton* skeleton,
+                                               float time, maniPose* pose)
 {
     if (!maniClipFits(clip, skeleton, pose))
     {
@@ -568,8 +577,19 @@ maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, fl
     return mani_success;
 }
 
-maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                               const uint32_t* bones, uint32_t count, maniPose* pose)
+maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                          maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SampleClipWork(clip, skeleton, time, pose);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+MANI_NOINLINE maniResult maniSampleClipBonesEntered(const maniClip* clip,
+                                                    const maniSkeleton* skeleton, float time,
+                                                    const uint32_t* bones, uint32_t count,
+                                                    maniPose* pose)
 {
     // A subset keeps the other bones, so it writes into a pose of the
     // clip's kind only.
@@ -591,8 +611,18 @@ maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleto
     return mani_success;
 }
 
-maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values, uint32_t capacity,
-                                uint32_t* countOut)
+maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                               const uint32_t* bones, uint32_t count, maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = maniSampleClipBonesEntered(clip, skeleton, time, bones, count, pose);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult SampleClipFloatsWork(const maniClip* clip, float time,
+                                                     float* values, uint32_t capacity,
+                                                     uint32_t* countOut)
 {
     if (clip == NULL || (values == NULL && capacity > 0))
     {
@@ -609,4 +639,13 @@ maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values,
     maniClipPair pair = maniClipLocate(clip, time);
     maniSampleClipPairFloats(clip, &pair, values);
     return mani_success;
+}
+
+maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values, uint32_t capacity,
+                                uint32_t* countOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SampleClipFloatsWork(clip, time, values, capacity, countOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

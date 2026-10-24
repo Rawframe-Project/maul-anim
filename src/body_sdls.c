@@ -19,6 +19,7 @@
 // change carried to the bones below it.
 
 #include "body_ik.h"
+#include "fpenv.h"
 #include "jacobi_svd.h"
 #include "vecmath.h"
 
@@ -293,9 +294,9 @@ static void Limits(maniBodyPart* part, const maniSkeleton* skeleton, const maniB
     maniBodyPlace(part);
 }
 
-maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton,
-                             const maniBodySolve* solve, void* scratch, size_t scratchSize,
-                             bool* reachedOut)
+static MANI_NOINLINE maniResult SolveBodySdlsWork(maniPose* pose, const maniSkeleton* skeleton,
+                                                  const maniBodySolve* solve, void* scratch,
+                                                  size_t scratchSize, bool* reachedOut)
 {
     uint32_t count = maniBodyPartCount(pose, skeleton, solve, scratch, scratchSize);
     if (count == 0 || solve->stretch)
@@ -331,4 +332,14 @@ maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton,
         *reachedOut = reached;
     }
     return mani_success;
+}
+
+maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton,
+                             const maniBodySolve* solve, void* scratch, size_t scratchSize,
+                             bool* reachedOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SolveBodySdlsWork(pose, skeleton, solve, scratch, scratchSize, reachedOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

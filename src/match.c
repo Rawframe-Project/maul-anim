@@ -10,6 +10,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "match_file.h"
 #include "text.h"
 
@@ -575,8 +576,8 @@ static maniFileResult CheckTree(const maniMotionDatabase* d, const Sections* s)
     return kOk;
 }
 
-maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
-                                      maniMotionDatabase* databaseOut)
+static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, size_t size,
+                                                           maniMotionDatabase* databaseOut)
 {
     if (databaseOut == NULL)
     {
@@ -616,6 +617,15 @@ maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
     d.identity = c.identity;
     *databaseOut = d;
     return kOk;
+}
+
+maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
+                                      maniMotionDatabase* databaseOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = OpenMotionDatabaseWork(bytes, size, databaseOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database)
@@ -695,8 +705,9 @@ maniResult maniMotionDatabaseEntry(const maniMotionDatabase* database, uint32_t 
     return mani_success;
 }
 
-maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t frame,
-                                   uint32_t* entryOut, float* timeOut)
+static MANI_NOINLINE maniResult MotionDatabaseFrameWork(const maniMotionDatabase* database,
+                                                        uint32_t frame, uint32_t* entryOut,
+                                                        float* timeOut)
 {
     if (database == NULL || entryOut == NULL || timeOut == NULL || frame >= database->frameCount)
     {
@@ -717,6 +728,15 @@ maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t 
     *timeOut =
         maniMatchFrameTime(LoadF32(e + 8), frame - maniLoadU32(e + 24), database->sampleRate);
     return mani_success;
+}
+
+maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t frame,
+                                   uint32_t* entryOut, float* timeOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = MotionDatabaseFrameWork(database, frame, entryOut, timeOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 maniResult maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32_t frame,

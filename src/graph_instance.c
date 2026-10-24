@@ -8,6 +8,7 @@
 #include "graph_instance.h"
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "graph_body.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
@@ -17,6 +18,7 @@
 #include "graph_shot.h"
 #include "graph_spring.h"
 #include "graph_turn.h"
+#include "graph_values.h"
 #include "learned_eval.h"
 #include "pose_memory.h"
 
@@ -372,28 +374,6 @@ static void ResetMachines(maniGraphInstance* instance)
     }
 }
 
-static maniGraphValue LoadValue(const uint8_t* p)
-{
-    maniGraphValue v;
-    uint32_t words[4];
-    for (uint32_t k = 0; k < 4; ++k)
-    {
-        words[k] = maniLoadU32(p + 4 * k);
-    }
-    memcpy(&v, words, sizeof v);
-    return v;
-}
-
-static void StoreValue(uint8_t* p, maniGraphValue v)
-{
-    uint32_t words[4];
-    memcpy(words, &v, sizeof words);
-    for (uint32_t k = 0; k < 4; ++k)
-    {
-        maniStoreU32(p + 4 * k, words[k]);
-    }
-}
-
 // Every cursor made over again, holding nothing.
 static void ResetCursors(maniGraphInstance* instance)
 {
@@ -406,8 +386,8 @@ static void ResetCursors(maniGraphInstance* instance)
     }
 }
 
-maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, size_t size,
-                                 maniGraphInstance** instanceOut)
+static MANI_NOINLINE maniResult InitGraphInstanceWork(const maniGraphBinding* binding, void* memory,
+                                                      size_t size, maniGraphInstance** instanceOut)
 {
     if (!BindingValid(binding) || memory == NULL || instanceOut == NULL ||
         (uintptr_t)memory % MANI_GRAPH_INSTANCE_ALIGNMENT != 0)
@@ -433,7 +413,7 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     instance->cachesAt = instance->roomAt + maniGraphRoom(binding);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
-        instance->cells[i].value = LoadValue(ParameterEntry(graph, i) + 24);
+        instance->cells[i].value = maniGraphLoadValue(ParameterEntry(graph, i) + 24);
     }
     ResetCursors(instance);
     ResetMachines(instance);
@@ -443,81 +423,19 @@ maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, 
     return mani_success;
 }
 
-static float Clamp(float v, const uint8_t* entry)
+maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, size_t size,
+                                 maniGraphInstance** instanceOut)
 {
-    float low = 0.0f;
-    float high = 0.0f;
-    memcpy(&low, entry + 40, sizeof low);
-    memcpy(&high, entry + 44, sizeof high);
-    return v < low ? low : (v > high ? high : v);
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = InitGraphInstanceWork(binding, memory, size, instanceOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
-// The float and vector values as kept: finite, a quaternion normalized,
-// a bounded float clamped; false for one out of form.
-static bool CanonicalFloats(maniGraphParameterType type, const uint8_t* entry, bool bounded,
-                            maniGraphValue* v)
-{
-    uint32_t n = type == maniGraphParameterFloat  ? 1u
-                 : type == maniGraphParameterVec2 ? 2u
-                 : type == maniGraphParameterVec3 ? 3u
-                                                  : 4u;
-    maniGraphValue out = {{0}};
-    double length = 0.0;
-    for (uint32_t k = 0; k < n; ++k)
-    {
-        if (!isfinite(v->f[k]))
-        {
-            return false;
-        }
-        out.f[k] = v->f[k];
-        length += (double)v->f[k] * (double)v->f[k];
-    }
-    if (type == maniGraphParameterQuat)
-    {
-        if (!(length > 0.0) || !isfinite(length))
-        {
-            return false;
-        }
-        double scale = 1.0 / sqrt(length);
-        for (uint32_t k = 0; k < 4; ++k)
-        {
-            out.f[k] = (float)((double)out.f[k] * scale);
-        }
-    }
-    out.f[0] = type == maniGraphParameterFloat && bounded ? Clamp(out.f[0], entry) : out.f[0];
-    *v = out;
-    return true;
-}
-
-// The value as the parameter keeps it, or false for one out of form.
-static bool Canonical(maniGraphParameterType type, const uint8_t* entry, maniGraphValue* v)
-{
-    bool bounded = (maniLoadU32(entry + 4) & MANI_GRAPH_BOUNDED) != 0;
-    maniGraphValue out = {{0}};
-    if (type == maniGraphParameterPose)
-    {
-        *v = out;
-        return true;
-    }
-    if (type == maniGraphParameterBool || type == maniGraphParameterTrigger)
-    {
-        out.b = v->b;
-        *v = out;
-        return out.b <= 1u;
-    }
-    if (type == maniGraphParameterInt)
-    {
-        int32_t low = (int32_t)maniLoadU32(entry + 40);
-        int32_t high = (int32_t)maniLoadU32(entry + 44);
-        out.i = bounded ? (v->i < low ? low : (v->i > high ? high : v->i)) : v->i;
-        *v = out;
-        return true;
-    }
-    return CanonicalFloats(type, entry, bounded, v);
-}
-
-maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter,
-                                 maniGraphParameterType type, maniGraphValue value)
+static MANI_NOINLINE maniResult SetGraphParameterWork(maniGraphInstance* instance,
+                                                      uint32_t parameter,
+                                                      maniGraphParameterType type,
+                                                      maniGraphValue value)
 {
     if (!InstanceValid(instance) || parameter >= instance->binding->graph.parameterCount)
     {
@@ -525,12 +443,21 @@ maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter
     }
     const uint8_t* entry = ParameterEntry(&instance->binding->graph, parameter);
     if (maniLoadU32(entry) != type || type == maniGraphParameterPose ||
-        !Canonical(type, entry, &value))
+        !maniGraphCanonicalValue(type, entry, &value))
     {
         return mani_errorInvalid;
     }
     instance->cells[parameter].value = value;
     return mani_success;
+}
+
+maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter,
+                                 maniGraphParameterType type, maniGraphValue value)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SetGraphParameterWork(instance, parameter, type, value);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, maniPose* out)
@@ -549,7 +476,8 @@ static bool PoseParameter(const maniGraphInstance* instance, uint32_t parameter)
            maniLoadU32(ParameterEntry(graph, parameter)) == maniGraphParameterPose;
 }
 
-maniResult maniSetGraphPose(maniGraphInstance* instance, uint32_t parameter, const maniPose* pose)
+static MANI_NOINLINE maniResult SetGraphPoseWork(maniGraphInstance* instance, uint32_t parameter,
+                                                 const maniPose* pose)
 {
     if (!InstanceValid(instance) || !PoseParameter(instance, parameter) ||
         !maniPoseMatches(pose, instance->binding->skeleton) || maniPoseIsDifference(pose))
@@ -561,8 +489,16 @@ maniResult maniSetGraphPose(maniGraphInstance* instance, uint32_t parameter, con
     return mani_success;
 }
 
-maniResult maniGetGraphPose(const maniGraphInstance* instance, uint32_t parameter,
-                            maniPose* poseOut)
+maniResult maniSetGraphPose(maniGraphInstance* instance, uint32_t parameter, const maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SetGraphPoseWork(instance, parameter, pose);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult GetGraphPoseWork(const maniGraphInstance* instance,
+                                                 uint32_t parameter, maniPose* poseOut)
 {
     if (!InstanceValid(instance) || !PoseParameter(instance, parameter) ||
         !maniPoseMatches(poseOut, instance->binding->skeleton))
@@ -571,6 +507,15 @@ maniResult maniGetGraphPose(const maniGraphInstance* instance, uint32_t paramete
     }
     maniGraphPoseInput(instance, parameter, poseOut);
     return mani_success;
+}
+
+maniResult maniGetGraphPose(const maniGraphInstance* instance, uint32_t parameter,
+                            maniPose* poseOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = GetGraphPoseWork(instance, parameter, poseOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 maniResult maniGetGraphParameter(const maniGraphInstance* instance, uint32_t parameter,
@@ -634,7 +579,8 @@ static void SavePoses(const maniGraphInstance* instance, uint8_t* p)
     }
 }
 
-maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, size_t capacity)
+static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* instance, void* out,
+                                                      size_t capacity)
 {
     if (!InstanceValid(instance) || out == NULL)
     {
@@ -654,7 +600,7 @@ maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, s
     p += MANI_GRAPH_STATE_HEADER_SIZE;
     for (uint32_t i = 0; i < graph->parameterCount; ++i, p += MANI_GRAPH_VALUE_SIZE)
     {
-        StoreValue(p, instance->cells[i].value);
+        maniGraphStoreValue(p, instance->cells[i].value);
     }
     for (uint32_t n = 0; n < graph->nodeCount; ++n, p += MANI_GRAPH_VALUE_SIZE)
     {
@@ -674,15 +620,23 @@ maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, s
     return mani_success;
 }
 
+maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, size_t capacity)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SaveGraphInstanceWork(instance, out, capacity);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
 // A saved value as its parameter keeps it: unchanged by Canonical, but
 // for a quaternion's last bits (unit within 1e-5).
 static bool SavedValueValid(const maniGraph* graph, uint32_t parameter, const uint8_t* p)
 {
     const uint8_t* entry = ParameterEntry(graph, parameter);
     maniGraphParameterType type = maniLoadU32(entry);
-    maniGraphValue v = LoadValue(p);
+    maniGraphValue v = maniGraphLoadValue(p);
     maniGraphValue kept = v;
-    if (!Canonical(type, entry, &kept))
+    if (!maniGraphCanonicalValue(type, entry, &kept))
     {
         return false;
     }
@@ -904,7 +858,8 @@ static void RestorePoses(maniGraphInstance* instance, const uint8_t* p)
     }
 }
 
-maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void* bytes, size_t size)
+static MANI_NOINLINE maniFileResult RestoreGraphInstanceWork(maniGraphInstance* instance,
+                                                             const void* bytes, size_t size)
 {
     if (!InstanceValid(instance) || bytes == NULL)
     {
@@ -919,7 +874,7 @@ maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void*
     const uint8_t* p = (const uint8_t*)bytes + MANI_GRAPH_STATE_HEADER_SIZE;
     for (uint32_t i = 0; i < graph->parameterCount; ++i, p += MANI_GRAPH_VALUE_SIZE)
     {
-        instance->cells[i].value = LoadValue(p);
+        instance->cells[i].value = maniGraphLoadValue(p);
     }
     for (uint32_t n = 0; n < graph->nodeCount; ++n, p += MANI_GRAPH_VALUE_SIZE)
     {
@@ -939,4 +894,12 @@ maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void*
     RestorePoses(instance, p);
     ResetCursors(instance);
     return r;
+}
+
+maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void* bytes, size_t size)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = RestoreGraphInstanceWork(instance, bytes, size);
+    maniFloatEnvLeave(env);
+    return result;
 }

@@ -14,6 +14,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "ik_chain.h"
 #include "retarget_file.h"
 #include "vecmath.h"
@@ -476,7 +477,8 @@ static bool SourceUsable(const maniRetargetMapSource* s)
            (s->pairs != NULL || s->pairCount == 0) && (s->chains != NULL || s->chainCount == 0);
 }
 
-maniBuildResult maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMapSource* source)
+static MANI_NOINLINE maniBuildResult BuildRetargetMapWork(maniBuilder* builder,
+                                                          const maniRetargetMapSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -516,4 +518,12 @@ maniBuildResult maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMap
     r = r.result == mani_success ? Write(builder, source, &w) : r;
     maniRelease(&builder->allocator, block, bytes, 1, 8);
     return r;
+}
+
+maniBuildResult maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMapSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildRetargetMapWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

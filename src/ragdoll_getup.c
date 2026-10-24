@@ -7,6 +7,7 @@
 // stands; the placement on the plane under the root body, the
 // character's model axes turned onto the normal and the heading.
 
+#include "fpenv.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -63,9 +64,11 @@ static maniQuat TurnAbout(maniVec3 n, maniVec3 a, maniVec3 b)
     return maniQuatNormalize((maniQuat){c.x, c.y, c.z, w});
 }
 
-maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
-                                     uint32_t count, const maniRagdollGround* ground,
-                                     maniRagdollGetUp* out)
+static MANI_NOINLINE maniResult RagdollGetUpPlacementWork(const maniRagdoll* ragdoll,
+                                                          const maniRagdollBodyState* bodies,
+                                                          uint32_t count,
+                                                          const maniRagdollGround* ground,
+                                                          maniRagdollGetUp* out)
 {
     if (ragdoll == NULL || bodies == NULL || ground == NULL || out == NULL)
     {
@@ -114,4 +117,14 @@ maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll, const maniRagdo
     out->placement = (maniTransform){at, maniQuatNormalize(turn), {1.0f, 1.0f, 1.0f}};
     out->faceUp = faceUp;
     return mani_success;
+}
+
+maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
+                                     uint32_t count, const maniRagdollGround* ground,
+                                     maniRagdollGetUp* out)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = RagdollGetUpPlacementWork(ragdoll, bodies, count, ground, out);
+    maniFloatEnvLeave(env);
+    return result;
 }

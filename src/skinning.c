@@ -16,6 +16,7 @@
 
 #include "bytes.h"
 #include "decompose.h"
+#include "fpenv.h"
 #include "influence_file.h"
 #include "vecmath.h"
 
@@ -380,24 +381,56 @@ static maniResult Run(const maniSkinJob* job, Method method)
     return mani_success;
 }
 
-maniResult maniSkinLinear(const maniSkinJob* job)
+static MANI_NOINLINE maniResult SkinLinearWork(const maniSkinJob* job)
 {
     return Run(job, kLinear);
 }
 
-maniResult maniSkinDualQuaternion(const maniSkinJob* job)
+maniResult maniSkinLinear(const maniSkinJob* job)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SkinLinearWork(job);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult SkinDualQuaternionWork(const maniSkinJob* job)
 {
     return Run(job, kDual);
 }
 
-maniResult maniSkinBlended(const maniSkinJob* job)
+maniResult maniSkinDualQuaternion(const maniSkinJob* job)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SkinDualQuaternionWork(job);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult SkinBlendedWork(const maniSkinJob* job)
 {
     return Run(job, kBlended);
 }
 
-maniResult maniSkinCenters(const maniSkinJob* job)
+maniResult maniSkinBlended(const maniSkinJob* job)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SkinBlendedWork(job);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult SkinCentersWork(const maniSkinJob* job)
 {
     return Run(job, kCenters);
+}
+
+maniResult maniSkinCenters(const maniSkinJob* job)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SkinCentersWork(job);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 // One matrix's dual quaternion entry: the polar rotation R, the dual part
@@ -436,7 +469,8 @@ static bool DualEntry(const maniAffine* a, float* out)
     return true;
 }
 
-maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count, float* out)
+static MANI_NOINLINE maniResult PaletteDualQuaternionsWork(const maniAffine* palette,
+                                                           uint32_t count, float* out)
 {
     if (count > 0 && (palette == NULL || out == NULL))
     {
@@ -457,7 +491,16 @@ maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count,
     return mani_success;
 }
 
-maniResult maniPaletteRows(const maniAffine* palette, uint32_t count, float* rows)
+maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count, float* out)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = PaletteDualQuaternionsWork(palette, count, out);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult PaletteRowsWork(const maniAffine* palette, uint32_t count,
+                                                float* rows)
 {
     if (count > 0 && (palette == NULL || rows == NULL))
     {
@@ -476,4 +519,12 @@ maniResult maniPaletteRows(const maniAffine* palette, uint32_t count, float* row
         }
     }
     return mani_success;
+}
+
+maniResult maniPaletteRows(const maniAffine* palette, uint32_t count, float* rows)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = PaletteRowsWork(palette, count, rows);
+    maniFloatEnvLeave(env);
+    return result;
 }

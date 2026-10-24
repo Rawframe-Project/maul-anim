@@ -10,6 +10,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "morph_file.h"
 #include "sort.h"
 #include "text.h"
@@ -605,7 +606,8 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
     return file != NULL ? kOk : Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
 }
 
-maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSource* source)
+static MANI_NOINLINE maniBuildResult BuildMorphTargetsWork(maniBuilder* builder,
+                                                           const maniMorphSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -655,4 +657,12 @@ maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSourc
     r = ready ? Write(builder, &w) : Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
     Release(&w);
     return r;
+}
+
+maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildMorphTargetsWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

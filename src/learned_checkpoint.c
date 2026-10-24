@@ -19,6 +19,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "learned_file.h"
 #include "learned_train.h"
 #include "train_decompress.h"
@@ -163,8 +164,8 @@ size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer)
     return maniContainerSize(sections, count, &size) && size <= SIZE_MAX ? (size_t)size : 0;
 }
 
-maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* bytes,
-                                     size_t capacity)
+static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrainer* trainer,
+                                                          void* bytes, size_t capacity)
 {
     if (trainer == NULL || bytes == NULL)
     {
@@ -180,4 +181,13 @@ maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* by
     }
     maniWriteContainer(bytes, maniKindLearnedCheckpoint, 1, trainer->signature, sections, count);
     return mani_success;
+}
+
+maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* bytes,
+                                     size_t capacity)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SaveLearnedCheckpointWork(trainer, bytes, capacity);
+    maniFloatEnvLeave(env);
+    return result;
 }

@@ -10,6 +10,7 @@
 
 #include "bytes.h"
 #include "decompose.h"
+#include "fpenv.h"
 #include "pose_memory.h"
 #include "ragdoll_file.h"
 #include "vecmath.h"
@@ -121,10 +122,10 @@ static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)
            maniPoseModelCurrent(pose);
 }
 
-maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose* pose,
-                                     const maniTransform* placement, const maniPose* previous,
-                                     const maniTransform* previousPlacement, float seconds,
-                                     maniRagdollBodyState* bodiesOut, uint32_t count)
+static MANI_NOINLINE maniResult RagdollBodiesFromPoseWork(
+    const maniRagdoll* ragdoll, const maniPose* pose, const maniTransform* placement,
+    const maniPose* previous, const maniTransform* previousPlacement, float seconds,
+    maniRagdollBodyState* bodiesOut, uint32_t count)
 {
     Rigid place;
     Rigid before;
@@ -158,8 +159,22 @@ maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose*
     return mani_success;
 }
 
-maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
-                                   maniRagdollJointTarget* jointsOut, uint32_t count)
+maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose* pose,
+                                     const maniTransform* placement, const maniPose* previous,
+                                     const maniTransform* previousPlacement, float seconds,
+                                     maniRagdollBodyState* bodiesOut, uint32_t count)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = RagdollBodiesFromPoseWork(ragdoll, pose, placement, previous,
+                                                  previousPlacement, seconds, bodiesOut, count);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdoll,
+                                                        const maniRagdollBodyState* bodies,
+                                                        maniRagdollJointTarget* jointsOut,
+                                                        uint32_t count)
 {
     if (ragdoll == NULL || bodies == NULL || jointsOut == NULL)
     {
@@ -185,6 +200,15 @@ maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdoll
         jointsOut[i] = (maniRagdollJointTarget){turn, maniQuatRotate(back, relative)};
     }
     return mani_success;
+}
+
+maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
+                                   maniRagdollJointTarget* jointsOut, uint32_t count)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = RagdollJointTargetsWork(ragdoll, bodies, jointsOut, count);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 static bool BodiesValid(const maniRagdollBodyState* bodies, uint32_t count)
@@ -220,10 +244,9 @@ static maniTransform LocalFor(const maniAffine* parent, Rigid want, maniVec3 sca
     return (maniTransform){t, r, scale};
 }
 
-maniResult maniRagdollPoseFromBodies(const maniRagdoll* ragdoll, const maniSkeleton* skeleton,
-                                     const maniRagdollBodyState* bodies, uint32_t count,
-                                     const maniTransform* placement, const maniPose* reference,
-                                     maniPose* poseOut)
+static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
+    const maniRagdoll* ragdoll, const maniSkeleton* skeleton, const maniRagdollBodyState* bodies,
+    uint32_t count, const maniTransform* placement, const maniPose* reference, maniPose* poseOut)
 {
     Rigid place;
     if (ragdoll == NULL || bodies == NULL || skeleton == NULL ||
@@ -266,4 +289,16 @@ maniResult maniRagdollPoseFromBodies(const maniRagdoll* ragdoll, const maniSkele
     }
     maniPoseMarkModelCurrent(poseOut);
     return mani_success;
+}
+
+maniResult maniRagdollPoseFromBodies(const maniRagdoll* ragdoll, const maniSkeleton* skeleton,
+                                     const maniRagdollBodyState* bodies, uint32_t count,
+                                     const maniTransform* placement, const maniPose* reference,
+                                     maniPose* poseOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result =
+        RagdollPoseFromBodiesWork(ragdoll, skeleton, bodies, count, placement, reference, poseOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

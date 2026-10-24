@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "learned_file.h"
 #include "match_file.h"
 #include "text.h"
@@ -490,7 +491,8 @@ static maniFileResult CheckNames(const maniLearnedModel* m, const Sections* s)
     return at == m->nameBytesSize ? kOk : Fail(s->entry[maniLearnedTagNameBytes - 1]);
 }
 
-maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedModel* modelOut)
+static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size_t size,
+                                                         maniLearnedModel* modelOut)
 {
     if (modelOut == NULL)
     {
@@ -526,6 +528,14 @@ maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedM
     m.identity = c.identity;
     *modelOut = m;
     return kOk;
+}
+
+maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedModel* modelOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = OpenLearnedModelWork(bytes, size, modelOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint64_t maniLearnedModelIdentity(const maniLearnedModel* model)

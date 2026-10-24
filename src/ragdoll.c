@@ -14,6 +14,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "ragdoll_file.h"
 #include "text.h"
 
@@ -271,7 +272,8 @@ static maniFileResult Records(const Sections* s, const maniRagdoll* r)
     return f;
 }
 
-maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragdollOut)
+static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t size,
+                                                    maniRagdoll* ragdollOut)
 {
     if (ragdollOut == NULL)
     {
@@ -310,6 +312,14 @@ maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragd
     ragdoll.identity = c.identity;
     *ragdollOut = ragdoll;
     return kOk;
+}
+
+maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragdollOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = OpenRagdollWork(bytes, size, ragdollOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint64_t maniRagdollIdentity(const maniRagdoll* ragdoll)

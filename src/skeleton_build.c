@@ -12,6 +12,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "skeleton_file.h"
 #include "text.h"
 
@@ -396,7 +397,8 @@ static maniBuildResult Build(maniBuilder* builder, const maniSkeletonSource* sou
     return Outcome(mani_success);
 }
 
-maniBuildResult maniBuildSkeleton(maniBuilder* builder, const maniSkeletonSource* source)
+static MANI_NOINLINE maniBuildResult BuildSkeletonWork(maniBuilder* builder,
+                                                       const maniSkeletonSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -441,5 +443,13 @@ maniBuildResult maniBuildSkeleton(maniBuilder* builder, const maniSkeletonSource
         return result;
     }
     maniBuilderKeep(builder, maniKindSkeleton, file, fileSize, newIndex, n);
+    return result;
+}
+
+maniBuildResult maniBuildSkeleton(maniBuilder* builder, const maniSkeletonSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildSkeletonWork(builder, source);
+    maniFloatEnvLeave(env);
     return result;
 }

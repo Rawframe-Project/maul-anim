@@ -9,6 +9,7 @@
 #include "arena.h"
 #include "builder.h"
 #include "decimal.h"
+#include "fpenv.h"
 #include "gltf_animation.h"
 #include "gltf_basis.h"
 #include "gltf_document.h"
@@ -164,8 +165,8 @@ static bool ReadNumbers(const maniJson* json, uint32_t array, uint32_t count, fl
     return true;
 }
 
-maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
-                                      uint32_t count)
+static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf, uint32_t node,
+                                                           float* weightsOut, uint32_t count)
 {
     uint32_t mesh = gltf == NULL ? UINT32_MAX : maniGltfNodeMesh(gltf, node);
     if (weightsOut == NULL || mesh == UINT32_MAX || count != maniGltfMeshTargets(gltf, mesh) ||
@@ -186,6 +187,15 @@ maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float
     }
     memset(weightsOut, 0, (size_t)count * sizeof(float));
     return maniImportSuccess();
+}
+
+maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
+                                      uint32_t count)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = GltfMorphWeightsWork(gltf, node, weightsOut, count);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 // The primitive's vertex count: its POSITION accessor's, or its first
@@ -452,8 +462,10 @@ static maniImportResult BuildInfluences(maniBuilder* builder, const maniGltf* gl
     return Built(maniBuildInfluences(builder, &source), gltf, primitive);
 }
 
-maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
-                                         uint32_t primitive, const maniSkin* skin)
+static MANI_NOINLINE maniImportResult GltfBuildInfluencesWork(maniBuilder* builder,
+                                                              const maniGltf* gltf, uint32_t mesh,
+                                                              uint32_t primitive,
+                                                              const maniSkin* skin)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -468,6 +480,15 @@ maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* g
     maniImportResult r = BuildInfluences(builder, gltf, p, skin, &arena);
     maniArenaRelease(&arena);
     return r;
+}
+
+maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
+                                         uint32_t primitive, const maniSkin* skin)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = GltfBuildInfluencesWork(builder, gltf, mesh, primitive, skin);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 // A morph attribute: its semantic and set, the member name it has in
@@ -868,9 +889,10 @@ static maniImportResult BuildMorph(maniBuilder* builder, Morph* m, uint32_t mesh
     return Built(maniBuildMorphTargets(builder, &source), m->gltf, m->targets);
 }
 
-maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf,
-                                           uint32_t mesh, uint32_t primitive,
-                                           const maniGltfOptions* options)
+static MANI_NOINLINE maniImportResult GltfBuildMorphTargetsWork(maniBuilder* builder,
+                                                                const maniGltf* gltf, uint32_t mesh,
+                                                                uint32_t primitive,
+                                                                const maniGltfOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -893,4 +915,14 @@ maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf*
     maniImportResult r = BuildMorph(builder, &m, mesh);
     maniArenaRelease(&arena);
     return r;
+}
+
+maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf,
+                                           uint32_t mesh, uint32_t primitive,
+                                           const maniGltfOptions* options)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = GltfBuildMorphTargetsWork(builder, gltf, mesh, primitive, options);
+    maniFloatEnvLeave(env);
+    return result;
 }

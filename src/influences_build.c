@@ -10,6 +10,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "influence_file.h"
 
 #include "maul-anim/build.h"
@@ -223,7 +224,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniInfluenceSource* s,
     return Result(mani_success, maniBuildReasonNone, 0, 0);
 }
 
-maniBuildResult maniBuildInfluences(maniBuilder* builder, const maniInfluenceSource* source)
+static MANI_NOINLINE maniBuildResult BuildInfluencesWork(maniBuilder* builder,
+                                                         const maniInfluenceSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -241,4 +243,12 @@ maniBuildResult maniBuildInfluences(maniBuilder* builder, const maniInfluenceSou
     uint32_t groups = 0;
     maniBuildResult r = Check(source, &groups);
     return r.result == mani_success ? Write(builder, source, groups) : r;
+}
+
+maniBuildResult maniBuildInfluences(maniBuilder* builder, const maniInfluenceSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildInfluencesWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

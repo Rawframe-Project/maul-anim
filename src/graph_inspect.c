@@ -9,6 +9,7 @@
 // motion matching node's entry). Reads only.
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
@@ -122,8 +123,8 @@ static void Block(const maniGraph* graph, const uint8_t* e, const uint32_t* bloc
     }
 }
 
-maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node,
-                                maniGraphNodeView* out)
+static MANI_NOINLINE maniResult InspectGraphNodeWork(const maniGraphInstance* instance,
+                                                     uint32_t node, maniGraphNodeView* out)
 {
     if (instance == NULL || instance->stamp != MANI_GRAPH_INSTANCE_STAMP || out == NULL ||
         node >= instance->binding->graph.nodeCount)
@@ -159,4 +160,13 @@ maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node
     }
     *out = v;
     return mani_success;
+}
+
+maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node,
+                                maniGraphNodeView* out)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = InspectGraphNodeWork(instance, node, out);
+    maniFloatEnvLeave(env);
+    return result;
 }

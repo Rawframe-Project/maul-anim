@@ -13,6 +13,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "match_file.h"
 #include "match_sample.h"
 #include "match_tree.h"
@@ -609,8 +610,8 @@ static maniBuildResult Build(maniBuilder* builder, Work* w)
     return Write(builder, w);
 }
 
-maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
-                                        const maniMotionDatabaseSource* source)
+static MANI_NOINLINE maniBuildResult BuildMotionDatabaseWork(maniBuilder* builder,
+                                                             const maniMotionDatabaseSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -642,4 +643,13 @@ maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
     r = Build(builder, &w);
     Release(&w);
     return r;
+}
+
+maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
+                                        const maniMotionDatabaseSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildMotionDatabaseWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

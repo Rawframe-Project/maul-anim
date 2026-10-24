@@ -7,6 +7,8 @@
 
 #include "blend_groups.h"
 #include "bytes.h"
+#include "clip_view.h"
+#include "fpenv.h"
 #include "graph_evaluate_ik.h"
 #include "graph_evaluation.h"
 #include "graph_file.h"
@@ -97,8 +99,8 @@ static void Prepare(maniGraphEvaluation* e)
     for (uint32_t slot = 0; slot < e->graph->slotCount; ++slot)
     {
         maniPose* pose = NULL;
-        (void)maniInitPose(e->binding->skeleton, maniGraphEvalSlot(e, slot), e->parts.poseSize,
-                           &pose);
+        (void)maniInitPoseEntered(e->binding->skeleton, maniGraphEvalSlot(e, slot),
+                                  e->parts.poseSize, &pose);
     }
     *head = (Head){SCRATCH_STAMP, e->graph->slotCount, e->binding, e->graph->identity};
 }
@@ -311,12 +313,12 @@ static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPa
     if (!maniPoseMatches(poses[0], pair->source) || !maniPoseMatches(poses[1], pair->source) ||
         !maniPoseMatches(poses[2], skeleton))
     {
-        (void)maniInitPose(pair->source, poses[0], sourceSize, &poses[0]);
-        (void)maniInitPose(pair->source, poses[1], sourceSize, &poses[1]);
-        (void)maniInitPose(skeleton, poses[2], e->parts.poseSize, &poses[2]);
+        (void)maniInitPoseEntered(pair->source, poses[0], sourceSize, &poses[0]);
+        (void)maniInitPoseEntered(pair->source, poses[1], sourceSize, &poses[1]);
+        (void)maniInitPoseEntered(skeleton, poses[2], e->parts.poseSize, &poses[2]);
     }
     size_t size = e->binding->retargetScratchSize;
-    (void)maniSampleClipCursor(c, clip, pair->source, time, poses[0]);
+    (void)maniSampleClipCursorEntered(c, clip, pair->source, time, poses[0]);
     if (!maniPoseIsDifference(poses[0]))
     {
         (void)maniRetargetPose(pair->map, pair->source, poses[0], skeleton, out, scratch, size);
@@ -339,12 +341,12 @@ static void SampleClip(const maniGraphEvaluation* e, maniClipCursor* c, const ma
 {
     if (e->plan == NULL)
     {
-        (void)maniSampleClipCursor(c, clip, e->binding->skeleton, time, out);
+        (void)maniSampleClipCursorEntered(c, clip, e->binding->skeleton, time, out);
         return;
     }
     maniPoseSetKind(out, maniClipAdditiveBasis(clip) != maniAdditiveNone);
-    (void)maniSampleClipBones(clip, e->binding->skeleton, time, maniGraphSubsetList(e->plan),
-                              e->plan->count, out);
+    (void)maniSampleClipBonesEntered(clip, e->binding->skeleton, time, maniGraphSubsetList(e->plan),
+                                     e->plan->count, out);
 }
 
 // A clip node's pose: its clip at its playhead, through its cursor (and
@@ -711,14 +713,24 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
     return failed != 0 ? mani_errorFormat : mani_success;
 }
 
-maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
-                             maniPose* pose)
+static MANI_NOINLINE maniResult EvaluateGraphWork(maniGraphInstance* instance, void* scratch,
+                                                  size_t size, maniPose* pose)
 {
     return Run(instance, NULL, scratch, size, pose);
 }
 
-maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
-                                   void* scratch, size_t size, maniPose* pose)
+maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
+                             maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = EvaluateGraphWork(instance, scratch, size, pose);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+static MANI_NOINLINE maniResult EvaluateGraphSubsetWork(maniGraphInstance* instance,
+                                                        const maniGraphSubset* plan, void* scratch,
+                                                        size_t size, maniPose* pose)
 {
     if (plan == NULL || plan->stamp != MANI_GRAPH_SUBSET_STAMP || instance == NULL ||
         instance->stamp != MANI_GRAPH_INSTANCE_STAMP || plan->binding != instance->binding ||
@@ -727,4 +739,13 @@ maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphS
         return mani_errorInvalid;
     }
     return Run(instance, plan, scratch, size, pose);
+}
+
+maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
+                                   void* scratch, size_t size, maniPose* pose)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = EvaluateGraphSubsetWork(instance, plan, scratch, size, pose);
+    maniFloatEnvLeave(env);
+    return result;
 }

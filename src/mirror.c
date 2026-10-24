@@ -13,6 +13,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "mirror_file.h"
 #include "text.h"
 
@@ -193,7 +194,8 @@ static maniFileResult Names(const Sections* s, const maniMirrorMap* m)
     return kOk;
 }
 
-maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* mapOut)
+static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t size,
+                                                      maniMirrorMap* mapOut)
 {
     if (mapOut == NULL)
     {
@@ -236,6 +238,14 @@ maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* 
     map.identity = c.identity;
     *mapOut = map;
     return kOk;
+}
+
+maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* mapOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = OpenMirrorMapWork(bytes, size, mapOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint64_t maniMirrorMapIdentity(const maniMirrorMap* map)

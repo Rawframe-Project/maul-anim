@@ -33,6 +33,7 @@
 #include "fbx_transform.h"
 #include "fbx_value.h"
 #include "fbx_world.h"
+#include "fpenv.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -525,9 +526,11 @@ static maniImportResult Run(maniBuilder* builder, Clip* c, uint32_t clip,
     return FromBuild(c, maniBuildClip(builder, &source));
 }
 
-maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
-                                  const maniSkeleton* skeleton, const maniFbxOptions* options,
-                                  const maniImportClipOptions* clipOptions, uint32_t* boundOut)
+static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, const maniFbx* fbx,
+                                                       uint32_t clip, const maniSkeleton* skeleton,
+                                                       const maniFbxOptions* options,
+                                                       const maniImportClipOptions* clipOptions,
+                                                       uint32_t* boundOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -560,4 +563,15 @@ maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint
     }
     maniArenaRelease(&c.arena);
     return r;
+}
+
+maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
+                                  const maniSkeleton* skeleton, const maniFbxOptions* options,
+                                  const maniImportClipOptions* clipOptions, uint32_t* boundOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result =
+        FbxBuildClipWork(builder, fbx, clip, skeleton, options, clipOptions, boundOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

@@ -5,7 +5,8 @@
 // 1) and the run (tag 2): its def and source refused for each fault
 // with its reason and item; its stages and report; the model built from
 // it, whose networks give the trainer's own bits and whose file is the
-// same on any host; the learning rate's decay, each stage's generator
+// same on any host, one whose worker threads flush denormals and round
+// toward zero too; the learning rate's decay, each stage's generator
 // and filter, and the Decompressor kept, against the stages run alone;
 // checkpoints at any point restored to the same model and loss, and
 // refused when of another source, damaged or out of form; memory
@@ -20,6 +21,7 @@
 
 #include "checkpoint_host.h"
 #include "container.h"
+#include "fpenv.h"
 #include "graph_match_fixture.h"
 #include "learned_file.h"
 #include "learned_train.h"
@@ -111,6 +113,33 @@ static void Finish(void* task, void* user)
 {
     (void)task;
     (void)user;
+}
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+// Flush-to-zero, denormals-are-zero, round toward zero, exceptions masked.
+static const uint64_t s_hostSetting = 0x1f80u | (1u << 15) | (1u << 6) | (3u << 13);
+#elif defined(__aarch64__) || defined(_M_ARM64)
+// Flush-to-zero and round toward zero.
+static const uint64_t s_hostSetting = (1ull << 24) | (3ull << 22);
+#else
+static const uint64_t s_hostSetting = 0;
+#endif
+
+// A host whose worker threads flush denormals and round toward zero. It
+// runs each range with that setting in the register, as such a worker
+// would, and puts the caller's back after.
+static void* Hostile(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+{
+    (void)minRange;
+    (void)user;
+    for (int32_t k = 0; k < count; ++k)
+    {
+        uint64_t own = maniFloatControlRead();
+        maniFloatControlWrite(s_hostSetting);
+        task(k, k + 1, context);
+        maniFloatControlWrite(own);
+    }
+    return NULL;
 }
 
 // An allocator that fails from its limit-th allocation on, aligning by
@@ -561,6 +590,13 @@ static void TestHosts(void)
     maniDestroyLearnedTrainer(t);
     CHECK(s_modelSize[0] == s_modelSize[1] && memcmp(s_model[0], s_model[1], s_modelSize[0]) == 0,
           "the same model on any host");
+    def.tasks = (maniTaskHooks){Hostile, Finish, NULL};
+    t = Create(&def, &s);
+    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained on a hostile host");
+    Build(t, 1, maniLearnedWeightsFloat32);
+    maniDestroyLearnedTrainer(t);
+    CHECK(s_modelSize[0] == s_modelSize[1] && memcmp(s_model[0], s_model[1], s_modelSize[0]) == 0,
+          "the same model on a host whose workers flush denormals and round toward zero");
 }
 
 static _Alignas(16) uint8_t s_checkpoint[1 << 17];

@@ -40,4 +40,9 @@ void maniRootMotionSumAdd(maniRootMotionSum* sum, const maniRootMove* move, doub
 // The blend: the move of no motion when nothing was added.
 maniRootMove maniRootMotionSumResult(const maniRootMotionSum* sum);
 
+// maniClipRootMotion for a caller already in the library's
+// floating-point environment (fpenv.h), without entering it again.
+maniResult maniClipRootMotionEntered(const maniClip* clip, float time, float step,
+                                     maniRootMove* moveOut);
+
 #endif // MAUL_ANIM_SRC_ROOT_MOTION_H

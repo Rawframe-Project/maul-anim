@@ -21,6 +21,7 @@
 #include "fbx_object.h"
 #include "fbx_options.h"
 #include "fbx_value.h"
+#include "fpenv.h"
 #include "sort.h"
 
 #include "maul-anim/build.h"
@@ -632,8 +633,9 @@ static maniImportResult BuildMorph(maniBuilder* builder, Morph* m)
                        (uint32_t)b.reason);
 }
 
-maniImportResult maniFbxBuildMorphTargets(maniBuilder* builder, const maniFbx* fbx, uint32_t morph,
-                                          const maniFbxOptions* options)
+static MANI_NOINLINE maniImportResult FbxBuildMorphTargetsWork(maniBuilder* builder,
+                                                               const maniFbx* fbx, uint32_t morph,
+                                                               const maniFbxOptions* options)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -652,6 +654,15 @@ maniImportResult maniFbxBuildMorphTargets(maniBuilder* builder, const maniFbx* f
     maniImportResult r = BuildMorph(builder, &m);
     maniArenaRelease(&arena);
     return r;
+}
+
+maniImportResult maniFbxBuildMorphTargets(maniBuilder* builder, const maniFbx* fbx, uint32_t morph,
+                                          const maniFbxOptions* options)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = FbxBuildMorphTargetsWork(builder, fbx, morph, options);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 // An owner's shapes' rest weights: the owner's numeric property of each
@@ -716,8 +727,8 @@ static maniImportResult BlendRestWeights(const maniFbx* fbx, maniArena* arena, u
     return r;
 }
 
-maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
-                                     uint32_t count)
+static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, uint32_t morph,
+                                                          float* weightsOut, uint32_t count)
 {
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     if (weightsOut == NULL || object == MANI_FBX_NONE)
@@ -740,4 +751,13 @@ maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* 
     r = r.result == mani_success ? BlendRestWeights(fbx, &arena, object, weightsOut) : r;
     maniArenaRelease(&arena);
     return r;
+}
+
+maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
+                                     uint32_t count)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, count);
+    maniFloatEnvLeave(env);
+    return result;
 }

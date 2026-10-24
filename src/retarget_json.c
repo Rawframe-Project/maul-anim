@@ -9,6 +9,7 @@
 
 #include "arena.h"
 #include "builder.h"
+#include "fpenv.h"
 #include "graph_json_ik.h"
 #include "graph_json_read.h"
 #include "graph_json_write.h"
@@ -172,8 +173,10 @@ static bool ReadMap(Reader* r, const Sides* sides, maniRetargetMapSource* out)
     return ok;
 }
 
-maniBuildResult maniBuildRetargetMapJson(maniBuilder* builder, const char* text, size_t length,
-                                         const maniSkeleton* source, const maniSkeleton* target)
+static MANI_NOINLINE maniBuildResult BuildRetargetMapJsonWork(maniBuilder* builder,
+                                                              const char* text, size_t length,
+                                                              const maniSkeleton* source,
+                                                              const maniSkeleton* target)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -199,6 +202,15 @@ maniBuildResult maniBuildRetargetMapJson(maniBuilder* builder, const char* text,
     maniRetargetMapSource map;
     result = ReadMap(&r, &sides, &map) ? maniBuildRetargetMap(builder, &map) : r.fault;
     maniMapJsonClose(builder, &json, &r);
+    return result;
+}
+
+maniBuildResult maniBuildRetargetMapJson(maniBuilder* builder, const char* text, size_t length,
+                                         const maniSkeleton* source, const maniSkeleton* target)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildRetargetMapJsonWork(builder, text, length, source, target);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -319,7 +331,8 @@ static void Draw(Writer* w, const void* source)
     maniGraphJsonPutText(w, "\n}\n");
 }
 
-maniBuildResult maniWriteRetargetMapJson(maniBuilder* builder, const maniRetargetMapSource* source)
+static MANI_NOINLINE maniBuildResult WriteRetargetMapJsonWork(maniBuilder* builder,
+                                                              const maniRetargetMapSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -327,4 +340,12 @@ maniBuildResult maniWriteRetargetMapJson(maniBuilder* builder, const maniRetarge
     }
     maniBuildResult r = maniBuildRetargetMap(builder, source);
     return r.result == mani_success ? maniMapJsonKeep(builder, r, source->source, Draw, source) : r;
+}
+
+maniBuildResult maniWriteRetargetMapJson(maniBuilder* builder, const maniRetargetMapSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = WriteRetargetMapJsonWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

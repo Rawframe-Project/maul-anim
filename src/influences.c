@@ -8,6 +8,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "influence_file.h"
 
 #include "maul-anim/base.h"
@@ -177,7 +178,8 @@ static maniFileResult CheckValues(const Sections* s, const maniInfluences* v)
     return (maniFileResult){mani_success, 0, 0};
 }
 
-maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences* influencesOut)
+static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t size,
+                                                       maniInfluences* influencesOut)
 {
     if (influencesOut == NULL)
     {
@@ -215,6 +217,14 @@ maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences
     v.identity = c.identity;
     *influencesOut = v;
     return (maniFileResult){mani_success, 0, 0};
+}
+
+maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences* influencesOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniFileResult result = OpenInfluencesWork(bytes, size, influencesOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint32_t maniInfluencesVertexCount(const maniInfluences* influences)

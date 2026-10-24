@@ -10,6 +10,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "graph_build_ik.h"
 #include "graph_build_words.h"
 #include "graph_check.h"
@@ -861,7 +862,8 @@ static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* sour
     return r;
 }
 
-maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source)
+static MANI_NOINLINE maniBuildResult BuildGraphWork(maniBuilder* builder,
+                                                    const maniGraphSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -884,4 +886,12 @@ maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* sour
     r = r.result == mani_success ? Arrange(builder, &flat.source, &tally) : r;
     maniReleaseInlined(&flat, &builder->allocator);
     return r;
+}
+
+maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildGraphWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

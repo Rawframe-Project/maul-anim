@@ -13,6 +13,7 @@
 #include "builder.h"
 #include "bytes.h"
 #include "container.h"
+#include "fpenv.h"
 #include "mirror_file.h"
 #include "sort.h"
 #include "text.h"
@@ -582,7 +583,8 @@ static maniBuildResult Build(maniBuilder* builder, Work* w)
     return r;
 }
 
-maniBuildResult maniBuildMirrorMap(maniBuilder* builder, const maniMirrorMapSource* source)
+static MANI_NOINLINE maniBuildResult BuildMirrorMapWork(maniBuilder* builder,
+                                                        const maniMirrorMapSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -625,4 +627,12 @@ maniBuildResult maniBuildMirrorMap(maniBuilder* builder, const maniMirrorMapSour
         maniRelease(a, blocks[i].p, blocks[i].count, blocks[i].size, 8);
     }
     return r;
+}
+
+maniBuildResult maniBuildMirrorMap(maniBuilder* builder, const maniMirrorMapSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildMirrorMapWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

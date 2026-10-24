@@ -106,6 +106,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_inertia_apply.c
     src/graph_emit.c
     src/graph_match.c
+    src/graph_values.c
     src/graph_match_step.c
     src/graph_learned.c
     src/graph_learned_step.c
@@ -252,6 +253,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_pose WHITEBOX)
         maul_add_test(graph_pose_node WHITEBOX)
         maul_add_test(match WHITEBOX)
+        maul_add_test(fpenv_api WHITEBOX)
         maul_add_test(match_search WHITEBOX)
         maul_add_test(graph_match WHITEBOX)
         maul_add_test(graph_match_file WHITEBOX)

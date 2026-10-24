@@ -9,6 +9,7 @@
 // cannot pair it with a query or clips it was not built for.
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_learned.h"
@@ -402,8 +403,9 @@ static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
            maniSkeletonBoneCount(a->skeleton) == graph->skeletonBoneCount;
 }
 
-maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, void* memory,
-                         size_t size, maniGraphBinding** bindingOut, uint32_t* unboundOut)
+static MANI_NOINLINE maniResult BindGraphWork(const maniGraph* graph, const maniGraphAssets* assets,
+                                              void* memory, size_t size,
+                                              maniGraphBinding** bindingOut, uint32_t* unboundOut)
 {
     if (unboundOut != NULL)
     {
@@ -456,4 +458,13 @@ maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, 
     binding->cursorSize = CursorSize(binding);
     *bindingOut = binding;
     return mani_success;
+}
+
+maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, void* memory,
+                         size_t size, maniGraphBinding** bindingOut, uint32_t* unboundOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = BindGraphWork(graph, assets, memory, size, bindingOut, unboundOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

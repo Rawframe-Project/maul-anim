@@ -19,6 +19,7 @@
 // the chain, as the steps do.
 
 #include "bytes.h"
+#include "pose_memory.h"
 #include "spring_file.h"
 #include "spring_shape.h"
 #include "spring_state.h"
@@ -88,7 +89,8 @@ typedef struct Apply
 // the chain's turn of the pose's.
 static void Turn(const Apply* a, const Chain* chain, uint32_t bone, maniQuat q)
 {
-    maniTransform parent = maniPoseModelTransform(a->pose, maniSkeletonParent(a->skeleton, bone));
+    maniTransform parent =
+        maniPoseModelTransformEntered(a->pose, maniSkeletonParent(a->skeleton, bone));
     maniQuat above = maniQuatNormalize(maniQuatMul(chain->rotation, parent.rotation));
     maniQuat inParent = maniQuatMul(maniQuatMul(maniQuatConjugate(above), q), above);
     maniTransform local = maniPoseLocal(a->pose, bone);

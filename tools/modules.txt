@@ -16,84 +16,84 @@ allocator: invariant
 host_code: allocator
 text:
 skeleton_file:
-skeleton: bytes container skeleton_file text
+skeleton: bytes container fpenv skeleton_file text
 builder: allocator container host_code
-skeleton_build: allocator builder bytes container skeleton_file text
+skeleton_build: allocator builder bytes container fpenv skeleton_file text
 elementary_float:
-pose: bytes decompose invariant pose_memory vecmath
+pose: bytes decompose fpenv invariant pose_memory vecmath
 decompose: vecmath
 basis:
 pose_memory:
-additive: blend_groups pose_memory vecmath
+additive: blend_groups fpenv pose_memory vecmath
 blend_groups:
 blend_lanes: pose_memory simd
-blend: blend_groups blend_lanes pose_memory
-mask:
+blend: blend_groups blend_lanes fpenv pose_memory
+mask: fpenv
 skin_file:
-skin: bytes container pose_memory skin_file vecmath
-skin_build: allocator builder bytes container skin_file
+skin: bytes container fpenv pose_memory skin_file vecmath
+skin_build: allocator builder bytes container fpenv skin_file
 influence_file:
-influences: bytes container influence_file
-skinning: bytes decompose influence_file vecmath
-influences_build: allocator builder bytes container influence_file
-centers_build: allocator builder bytes container elementary_float influence_file sort
+influences: bytes container fpenv influence_file
+skinning: bytes decompose fpenv influence_file vecmath
+influences_build: allocator builder bytes container fpenv influence_file
+centers_build: allocator builder bytes container elementary_float fpenv influence_file sort
 morph_file:
-morph: bytes container morph_file
-morph_build: allocator builder bytes container morph_file sort text
+morph: bytes container fpenv morph_file
+morph_build: allocator builder bytes container fpenv morph_file sort text
 match_file:
-match: bytes container match_file text
-match_search: bytes invariant match_file
+match: bytes container fpenv match_file text
+match_search: bytes fpenv invariant match_file
 match_move:
-trajectory: elementary_float match_move vecmath
+trajectory: elementary_float fpenv match_move vecmath
 match_sample: match match_file match_move vecmath
-match_build: allocator builder bytes container match match_file match_sample match_tree text
+match_build: allocator builder bytes container fpenv match match_file match_sample match_tree text
 match_tree: bytes match_file sort
 learned_file:
 spring_file:
-spring: bytes container spring_file text
+spring: bytes container fpenv spring_file text
 spring_shape: bytes scalar spring_file vecmath
-spring_state: bytes spring_file vecmath
-spring_step: bytes spring_file spring_shape spring_state vecmath
-spring_apply: bytes spring_file spring_shape spring_state vecmath
-learned: bytes container learned_file match_file text
-learned_eval: bytes learned_file vecmath
-learned_build: allocator builder bytes container learned_file match_file text
-spring_build: allocator builder bytes container scalar spring_file spring_frame text vecmath
+spring_state: bytes fpenv pose_memory spring_file vecmath
+spring_step: bytes pose_memory spring_file spring_shape spring_state vecmath
+spring_apply: bytes pose_memory spring_file spring_shape spring_state vecmath
+learned: bytes container fpenv learned_file match_file text
+learned_eval: bytes fpenv learned_file vecmath
+learned_build: allocator builder bytes container fpenv learned_file match_file text
+spring_build: allocator builder bytes container fpenv scalar spring_file spring_frame text vecmath
 spring_frame: vecmath
 ragdoll_file:
-ragdoll: bytes container ragdoll_file text
-ragdoll_pose: bytes decompose pose_memory ragdoll_file vecmath
-ik: ik_frame vecmath
+ragdoll: bytes container fpenv ragdoll_file text
+ragdoll_pose: bytes decompose fpenv pose_memory ragdoll_file vecmath
+ik: fpenv ik_frame vecmath
 ik_frame: decompose pose_memory vecmath
-ik_aim: ik_frame scalar vecmath
+ik_aim: fpenv ik_frame scalar vecmath
 ik_limit: scalar vecmath
 ik_chain: ik_frame ik_limit vecmath
-ik_ccd: ik_chain ik_frame scalar vecmath
-ik_fabrik: ik_chain ik_frame vecmath
+ik_ccd: fpenv ik_chain ik_frame scalar vecmath
+ik_fabrik: fpenv ik_chain ik_frame vecmath
 body_ik: ik_frame ik_limit vecmath
-body_xpbd: body_ik vecmath
-body_sdls: body_ik jacobi_svd vecmath
+body_xpbd: body_ik fpenv vecmath
+body_sdls: body_ik fpenv jacobi_svd vecmath
 jacobi_svd:
 graph_chain: bytes graph_file ik_limit
 graph_body: bytes graph_chain graph_file
-ragdoll_getup: vecmath
-ragdoll_build: allocator builder bytes container decompose ragdoll_file text vecmath
+ragdoll_getup: fpenv vecmath
+ragdoll_build: allocator builder bytes container decompose fpenv ragdoll_file text vecmath
 retarget_file:
-retarget: bytes container retarget_file
-retarget_pose: bytes pose_memory retarget_file vecmath
+retarget: bytes container fpenv retarget_file
+retarget_pose: bytes fpenv pose_memory retarget_file vecmath
 retarget_motion: bytes retarget_file vecmath
-retarget_build: allocator builder bytes container ik_chain retarget_file vecmath
+retarget_build: allocator builder bytes container fpenv ik_chain retarget_file vecmath
 clip_bake: allocator builder bytes clip_build clip_file clip_view root_motion_build vecmath
-retarget_bake: clip_bake clip_view retarget_file retarget_motion vecmath
+retarget_bake: clip_bake clip_view fpenv retarget_file retarget_motion vecmath
 mirror_file:
-mirror: bytes container mirror_file text
-mirror_build: allocator builder bytes container mirror_file sort text vecmath
-mirror_pose: bytes mirror_file pose_memory vecmath
-mirror_bake: bytes clip_bake clip_view mirror_file vecmath
+mirror: bytes container fpenv mirror_file text
+mirror_build: allocator builder bytes container fpenv mirror_file sort text vecmath
+mirror_pose: bytes fpenv mirror_file pose_memory vecmath
+mirror_bake: bytes clip_bake clip_view fpenv mirror_file vecmath
 train_random: elementary_float
 train_net: elementary_float train_random
 train_adam:
-train_tasks:
+train_tasks: fpenv
 train_data: allocator match_move vecmath
 train_kinematics: train_data
 train_stage: train_data train_net
@@ -102,51 +102,52 @@ train_decompress_loss: train_data train_kinematics train_net train_stage
 train_solo: allocator train_adam train_net train_random train_tasks
 train_stepper: allocator train_data train_net train_random train_solo train_tasks
 train_projector: allocator match_search train_data train_net train_random train_solo train_tasks
-learned_train: allocator host_code learned_build learned_file train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
-learned_train_run: allocator builder host_code learned_file learned_train train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
-learned_checkpoint: bytes container learned_file learned_train train_decompress train_net train_random train_solo
-learned_restore: allocator bytes container host_code learned_file learned_train train_net train_random
+learned_train: allocator fpenv host_code learned_build learned_file train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
+learned_train_run: allocator builder fpenv host_code learned_file learned_train train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
+learned_checkpoint: bytes container fpenv learned_file learned_train train_decompress train_net train_random train_solo
+learned_restore: allocator bytes container fpenv host_code learned_file learned_train train_net train_random
 clip_file:
-root_motion: bytes clip_file clip_view vecmath
+root_motion: bytes clip_file clip_view fpenv vecmath
 graph_file:
 graph_nodes: bytes graph_body graph_chain graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring graph_turn vecmath
 graph_machine_file: bytes graph_file
-graph: bytes container graph_file graph_nodes text
-graph_instance: bytes graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn learned_eval pose_memory
-graph_inspect: bytes graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
-graph_subset: bytes graph_file graph_instance graph_spring pose_memory spring_file
+graph: bytes container fpenv graph_file graph_nodes text
+graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn graph_values learned_eval pose_memory
+graph_inspect: bytes fpenv graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
+graph_subset: bytes fpenv graph_file graph_instance graph_spring pose_memory spring_file
 graph_shot: bytes graph_file
 graph_match: bytes graph_file
+graph_values: bytes graph_file
 graph_learned: bytes graph_file graph_match
-graph_spring: bytes graph_file spring_state
+graph_spring: bytes graph_file pose_memory spring_state
 graph_turn: bytes graph_file pose_memory scalar vecmath
 graph_learned_check: graph_match
 graph_inertia: bytes graph_file pose_memory vecmath
 graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar vecmath
 graph_inertia_apply: graph_dead_blend graph_file graph_inertia pose_memory scalar vecmath
 graph_shot_step: graph_file graph_instance graph_shot
-graph_emit: bytes graph_file graph_inertia graph_instance root_motion
+graph_emit: bytes clip_view graph_file graph_inertia graph_instance root_motion
 graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_file match_move match_search root_motion
 graph_learned_step: bytes container graph_emit graph_file graph_instance graph_learned learned_eval match_file root_motion vecmath
 graph_machine: bytes graph_file
 graph_machine_step: bytes graph_file graph_instance graph_machine
-graph_bind: bytes graph_file graph_instance graph_learned graph_match graph_spring retarget_motion
+graph_bind: bytes fpenv graph_file graph_instance graph_learned graph_match graph_spring retarget_motion
 graph_space: bytes graph_file graph_instance scalar
-graph_machine_listen: bytes graph_file graph_instance graph_machine graph_shot
-graph_update: bytes graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring graph_turn retarget_motion root_motion
+graph_machine_listen: bytes clip_view graph_file graph_instance graph_machine graph_shot
+graph_update: bytes fpenv graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring graph_turn retarget_motion root_motion
 graph_evaluation: bytes graph_file graph_instance graph_subset invariant
 graph_evaluate_ik: bytes graph_body graph_chain graph_evaluation graph_file graph_instance ik_chain pose_memory vecmath
-graph_evaluate: blend_groups bytes graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn learned_eval pose_memory vecmath
-clip: bytes clip_codec clip_file clip_view container invariant pose_memory root_motion vecmath
+graph_evaluate: blend_groups bytes clip_view fpenv graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn learned_eval pose_memory vecmath
+clip: bytes clip_codec clip_file clip_view container fpenv invariant pose_memory root_motion vecmath
 clip_view: bytes clip_file pose_memory
 clip_codec: bytes
 clip_lanes: blend_lanes pose_memory simd
 clip_compressed: blend_lanes bytes clip_codec clip_file clip_lanes clip_view fpenv pose_memory simd
 clip_compressed_open: bytes clip_codec clip_file clip_view container
-clip_cursor: clip_lanes clip_view pose_memory
-clip_tracks: bytes clip_file clip_view container text
+clip_cursor: clip_lanes clip_view fpenv pose_memory
+clip_tracks: bytes clip_file clip_view container fpenv text
 root_motion_build: allocator bytes clip_file quat64
-clip_build: allocator builder bytes clip_file container quat64 root_motion root_motion_build
+clip_build: allocator builder bytes clip_file container fpenv quat64 root_motion root_motion_build
 graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame sort text vecmath
 graph_space_check: exact graph_file
 graph_body_check: graph_file
@@ -158,23 +159,23 @@ graph_inline: allocator graph_check
 graph_mirror: graph_check
 graph_build_words: bytes
 graph_build_ik: bytes graph_build_words graph_file ik_chain
-graph_build: allocator builder bytes container graph_build_ik graph_build_words graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_mirror graph_spring graph_turn sort triangulate
-graph_json: allocator builder graph_json_body graph_json_ik graph_json_write
+graph_build: allocator builder bytes container fpenv graph_build_ik graph_build_words graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_mirror graph_spring graph_turn sort triangulate
+graph_json: allocator builder fpenv graph_json_body graph_json_ik graph_json_write
 graph_json_ik: arena graph_json_read graph_json_write ik_chain json
 graph_json_body: arena graph_json_ik graph_json_read graph_json_write json
 graph_json_write: decimal_format
 graph_json_read: arena container decimal json sort
-graph_json_graph: arena builder graph_json_body graph_json_ik graph_json_machine graph_json_read graph_json_search graph_json_space json
+graph_json_graph: arena builder fpenv graph_json_body graph_json_ik graph_json_machine graph_json_read graph_json_search graph_json_space json
 graph_json_space: arena graph_json_read json
 graph_json_machine: arena graph_json_read json
 graph_json_search: arena graph_json_read json
 map_json: allocator arena builder graph_json_ik graph_json_read graph_json_write json
-retarget_json: arena builder graph_json_ik graph_json_read graph_json_write json map_json
-mirror_json: arena builder graph_json_ik graph_json_read graph_json_write json map_json
+retarget_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write json map_json
+mirror_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write json map_json
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
-clip_measure: allocator builder clip_build scalar
+clip_measure: allocator builder clip_build fpenv scalar
 clip_shell: additive
-clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_search clip_shell clip_view container
+clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_search clip_shell clip_view container fpenv
 clip_plan: allocator bytes clip_codec clip_file vecmath
 clip_search: allocator bytes clip_codec clip_file clip_plan clip_shell clip_view pose_memory
 decimal: bytes
@@ -182,23 +183,23 @@ decimal_format: decimal
 json: allocator decimal text
 gltf_property: json
 gltf_document: arena gltf_property hierarchy json names
-gltf: allocator arena builder bytes gltf_animation gltf_buffer gltf_compression gltf_document gltf_layout gltf_names gltf_node gltf_property host_code json
+gltf: allocator arena builder bytes fpenv gltf_animation gltf_buffer gltf_compression gltf_document gltf_layout gltf_names gltf_node gltf_property host_code json
 arena: allocator
-gltf_mesh: arena builder decimal gltf_animation gltf_basis gltf_document gltf_draco_import gltf_layout gltf_property json
+gltf_mesh: arena builder decimal fpenv gltf_animation gltf_basis gltf_document gltf_draco_import gltf_layout gltf_property json
 gltf_draco_import: arena gltf_document gltf_draco gltf_layout gltf_property json
-gltf_clip: arena builder clip_build clip_file decompose gltf_animation gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json vecmath
+gltf_clip: arena builder clip_build clip_file decompose fpenv gltf_animation gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json vecmath
 gltf_animation: allocator arena container gltf_document gltf_property json sort
 gltf_basis: basis
 gltf_names: allocator gltf_document gltf_property json names
 gltf_node: allocator gltf_document gltf_property hierarchy json
 gltf_rest: allocator decompose gltf_basis gltf_document gltf_property json vecmath
-gltf_skeleton: allocator builder gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json
+gltf_skeleton: allocator builder fpenv gltf_basis gltf_document gltf_layout gltf_names gltf_node gltf_property gltf_rest json
 sort:
 names: allocator container sort
 hierarchy: allocator
-fbx: allocator builder fbx_anim fbx_ascii fbx_binary fbx_document fbx_legacy fbx_model fbx_object fbx_units host_code
+fbx: allocator builder fbx_anim fbx_ascii fbx_binary fbx_document fbx_legacy fbx_model fbx_object fbx_units fpenv host_code
 fbx_model: allocator fbx_document fbx_object fbx_value hierarchy names
-fbx_object: allocator container fbx_ascii fbx_document fbx_value sort
+fbx_object: allocator container fbx_ascii fbx_document fbx_value fpenv sort
 fbx_transform: fbx_document fbx_object fbx_value scalar
 fbx_world: allocator fbx_document fbx_model fbx_object fbx_transform
 fbx_units: allocator fbx_document fbx_model fbx_object hierarchy
@@ -209,20 +210,20 @@ fbx_blend: allocator fbx_document fbx_model fbx_object fbx_value sort
 fbx_anim: allocator fbx_curve fbx_document fbx_object fbx_transform fbx_value quat64 scalar sort
 fbx_options: basis builder fbx_document
 fbx_sample: allocator fbx_anim fbx_document fbx_model fbx_object fbx_transform fbx_world
-fbx_clip: arena basis builder clip_build clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_take fbx_tracks fbx_transform fbx_value fbx_world
+fbx_clip: arena basis builder clip_build clip_file decompose fbx_anim fbx_clip_state fbx_document fbx_model fbx_object fbx_options fbx_sample fbx_take fbx_tracks fbx_transform fbx_value fbx_world fpenv
 fbx_clip_state: arena basis fbx_anim fbx_document fbx_sample fbx_world
-fbx_skeleton: allocator basis builder decompose fbx_document fbx_helpers fbx_model fbx_options fbx_transform fbx_units fbx_world
+fbx_skeleton: allocator basis builder decompose fbx_document fbx_helpers fbx_model fbx_options fbx_transform fbx_units fbx_world fpenv
 fbx_take: allocator fbx_anim fbx_document fbx_keys fbx_object fbx_value
 fbx_tracks: arena fbx_anim fbx_blend fbx_clip_state fbx_document fbx_model fbx_object fbx_skin fbx_transform fbx_value
-fbx_influences: arena builder fbx_document fbx_object fbx_skin fbx_value
-fbx_morph: arena basis builder fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_value sort
-fbx_skin: allocator basis builder fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world
+fbx_influences: arena builder fbx_document fbx_object fbx_skin fbx_value fpenv
+fbx_morph: arena basis builder fbx_blend fbx_document fbx_model fbx_object fbx_options fbx_value fpenv sort
+fbx_skin: allocator basis builder fbx_document fbx_model fbx_object fbx_options fbx_transform fbx_value fbx_world fpenv
 fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
 fbx_document: hierarchy names
 fbx_value: allocator bytes fbx_ascii fbx_binary fbx_document inflate
-gltf_spring: arena gltf_basis gltf_document gltf_names gltf_property json spring_frame vecmath
-gltf_ragdoll: arena decompose gltf_basis gltf_document gltf_names gltf_property gltf_rest json vecmath
+gltf_spring: arena fpenv gltf_basis gltf_document gltf_names gltf_property json spring_frame vecmath
+gltf_ragdoll: arena decompose fpenv gltf_basis gltf_document gltf_names gltf_property gltf_rest json vecmath
 gltf_ragdoll_joint: arena gltf_document gltf_property gltf_ragdoll json vecmath
 gltf_buffer: allocator gltf_compression gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_compression gltf_document gltf_property json

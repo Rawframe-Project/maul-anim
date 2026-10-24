@@ -14,6 +14,7 @@
 #include "fbx_object.h"
 #include "fbx_skin.h"
 #include "fbx_value.h"
+#include "fpenv.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -68,7 +69,7 @@ static bool TypeIs(const maniFbx* fbx, uint32_t skin, const char* word)
            maniFbxStringEquals(fbx, maniFbxNodeProperty(fbx, child, 0), word, strlen(word));
 }
 
-maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin)
+static MANI_NOINLINE maniSkinningMethod FbxSkinMethodWork(const maniFbx* fbx, uint32_t skin)
 {
     if (fbx == NULL || skin >= fbx->skinCount)
     {
@@ -82,6 +83,14 @@ maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin)
     return blend || TypeIs(fbx, skin, "Blend") || TypeIs(fbx, skin, "DualQuaternion")
                ? maniSkinningBlended
                : maniSkinningLinear;
+}
+
+maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniSkinningMethod result = FbxSkinMethodWork(fbx, skin);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 // The control points of the skin's mesh: the Vertices of the geometry
@@ -355,8 +364,9 @@ static maniImportResult BuildInfluences(maniBuilder* builder, Read* r, const man
                        (uint32_t)b.reason);
 }
 
-maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
-                                        const maniSkin* built)
+static MANI_NOINLINE maniImportResult FbxBuildInfluencesWork(maniBuilder* builder,
+                                                             const maniFbx* fbx, uint32_t skin,
+                                                             const maniSkin* built)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -370,5 +380,14 @@ maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx
     Read r = {fbx, &arena, skin, 0, NULL, 0};
     maniImportResult result = BuildInfluences(builder, &r, built);
     maniArenaRelease(&arena);
+    return result;
+}
+
+maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
+                                        const maniSkin* built)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = FbxBuildInfluencesWork(builder, fbx, skin, built);
+    maniFloatEnvLeave(env);
     return result;
 }

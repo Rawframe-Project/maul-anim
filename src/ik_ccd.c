@@ -8,6 +8,7 @@
 // the frames below the bone are recomposed before the next. Stops once
 // the end lies within the tolerance.
 
+#include "fpenv.h"
 #include "ik_chain.h"
 #include "ik_frame.h"
 #include "scalar.h"
@@ -36,8 +37,8 @@ static maniQuat Arc(maniVec3 a, maniVec3 b, float step)
     return turn;
 }
 
-maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton, const maniChainSolve* solve,
-                        bool* reachedOut)
+static MANI_NOINLINE maniResult SolveCcdWork(maniPose* pose, const maniSkeleton* skeleton,
+                                             const maniChainSolve* solve, bool* reachedOut)
 {
     if (pose == NULL || skeleton == NULL || solve == NULL ||
         !maniIkChainValid(pose, skeleton, solve, false, true))
@@ -71,4 +72,13 @@ maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton, const mani
         *reachedOut = reached;
     }
     return mani_success;
+}
+
+maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton, const maniChainSolve* solve,
+                        bool* reachedOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SolveCcdWork(pose, skeleton, solve, reachedOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

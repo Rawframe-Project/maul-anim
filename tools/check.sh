@@ -87,6 +87,7 @@ source_checks() {
     python3 tools/check_modules.py
     python3 tools/check_lengths.py
     python3 tools/check_docs.py
+    python3 tools/check_float_env.py
     python3 tools/check_guide.py
     if [ -f "$org/scripts/docs_check.py" ]; then
         python3 "$org/scripts/docs_check.py" --exclude test/data

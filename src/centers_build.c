@@ -16,6 +16,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "elementary_float.h"
+#include "fpenv.h"
 #include "influence_file.h"
 #include "sort.h"
 
@@ -345,7 +346,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniInfluences* v, cons
     return Result(mani_success, maniBuildReasonNone, 0);
 }
 
-maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* source)
+static MANI_NOINLINE maniBuildResult BuildCentersWork(maniBuilder* builder,
+                                                      const maniCenterSource* source)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -396,4 +398,12 @@ maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* s
     r = Write(builder, source->influences, w.centers);
     Release(&w, triangles, vertices);
     return r;
+}
+
+maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* source)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniBuildResult result = BuildCentersWork(builder, source);
+    maniFloatEnvLeave(env);
+    return result;
 }

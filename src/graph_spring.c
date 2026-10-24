@@ -12,6 +12,7 @@
 
 #include "bytes.h"
 #include "graph_file.h"
+#include "pose_memory.h"
 #include "spring_state.h"
 
 #include "maul-anim/base.h"
@@ -131,7 +132,7 @@ void maniGraphSpringPose(const maniSpringSet* set, const maniSkeleton* skeleton,
                          uint32_t* work, const maniTransform* placement, maniVec3 force,
                          maniPose* pose)
 {
-    if (maniComputeModel(pose, skeleton) != mani_success)
+    if (maniComputeModelEntered(pose, skeleton) != mani_success)
     {
         return;
     }

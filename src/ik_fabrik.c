@@ -12,6 +12,7 @@
 
 #include "maul-anim/ik.h"
 
+#include "fpenv.h"
 #include "ik_chain.h"
 #include "ik_frame.h"
 #include "vecmath.h"
@@ -62,8 +63,8 @@ static void Backward(const maniIkChain* chain, const float* lengths, maniVec3 go
     }
 }
 
-maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton,
-                           const maniChainSolve* solve, bool* reachedOut)
+static MANI_NOINLINE maniResult SolveFabrikWork(maniPose* pose, const maniSkeleton* skeleton,
+                                                const maniChainSolve* solve, bool* reachedOut)
 {
     if (pose == NULL || skeleton == NULL || solve == NULL ||
         !maniIkChainValid(pose, skeleton, solve, true, false))
@@ -106,4 +107,13 @@ maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton,
         *reachedOut = reached;
     }
     return mani_success;
+}
+
+maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton,
+                           const maniChainSolve* solve, bool* reachedOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniResult result = SolveFabrikWork(pose, skeleton, solve, reachedOut);
+    maniFloatEnvLeave(env);
+    return result;
 }

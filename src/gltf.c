@@ -8,6 +8,7 @@
 #include "allocator.h"
 #include "builder.h"
 #include "bytes.h"
+#include "fpenv.h"
 #include "gltf_animation.h"
 #include "gltf_buffer.h"
 #include "gltf_compression.h"
@@ -256,8 +257,8 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
     return r;
 }
 
-maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t size,
-                              maniGltf** gltfOut)
+static MANI_NOINLINE maniImportResult OpenGltfWork(maniBuilder* builder, const void* bytes,
+                                                   size_t size, maniGltf** gltfOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -291,6 +292,15 @@ maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t si
     }
     *gltfOut = gltf;
     return r;
+}
+
+maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t size,
+                              maniGltf** gltfOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = OpenGltfWork(builder, bytes, size, gltfOut);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 void maniCloseGltf(maniGltf* gltf)
@@ -334,8 +344,8 @@ const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer, uint32_t* l
     return gltf->buffers[buffer].uri != NULL ? gltf->buffers[buffer].uri : "";
 }
 
-maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes,
-                                      size_t size)
+static MANI_NOINLINE maniImportResult GltfSupplyBufferWork(maniGltf* gltf, uint32_t buffer,
+                                                           const void* bytes, size_t size)
 {
     if (gltf == NULL || bytes == NULL || buffer >= gltf->bufferCount ||
         !gltf->buffers[buffer].external)
@@ -353,6 +363,15 @@ maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const voi
         gltf->buffers[buffer].data = NULL;
     }
     return r;
+}
+
+maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes,
+                                      size_t size)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = GltfSupplyBufferWork(gltf, buffer, bytes, size);
+    maniFloatEnvLeave(env);
+    return result;
 }
 
 uint32_t maniGltfSkeletonCount(const maniGltf* gltf)
