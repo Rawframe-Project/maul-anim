@@ -1,0 +1,262 @@
+# The public functions that need not enter the floating-point environment
+# (tools/check_float_env.py), by name under the reason they need not: a
+# reason is a line ending in a colon, its names indented below it. Only
+# calls that do no floating-point arithmetic and make no floating-point
+# comparison belong here; copying a float moves its bits whatever the
+# host's setting. A call that does any, a check of a value included,
+# enters the environment. Names only, never patterns: a new public
+# function fails the check until someone decides where it belongs.
+
+reads or counts records:
+    maniClipDiscreteTrackCount
+    maniClipEventCount
+    maniClipFloatTrackCount
+    maniClipMarkerCount
+    maniClipSampleCount
+    maniFbxClipCount
+    maniFbxModelCount
+    maniFbxMorphCount
+    maniFbxMorphTargetCount
+    maniFbxRenamedCount
+    maniFbxSkeletonCount
+    maniFbxSkinCount
+    maniGltfAnimationCount
+    maniGltfBufferCount
+    maniGltfMeshCount
+    maniGltfNodeCount
+    maniGltfPrimitiveCount
+    maniGltfPrimitiveTargetCount
+    maniGltfRenamedCount
+    maniGltfSkeletonCount
+    maniGltfSkinCount
+    maniGraphClipCount
+    maniGraphDatabaseCount
+    maniGraphMapCount
+    maniGraphModelCount
+    maniGraphNodeCount
+    maniGraphNodeInputCount
+    maniGraphParameterCount
+    maniGraphSpringSetCount
+    maniInfluencesVertexCount
+    maniMorphAttributeCount
+    maniMorphChannelCount
+    maniMorphTargetCount
+    maniMorphVertexCount
+    maniPoseBoneCount
+    maniRagdollBodyCount
+    maniSkeletonBoneCount
+    maniSkinJointCount
+    maniSpringSetSpringCount
+
+sums integer sizes:
+    maniBodyIkScratchSize
+    maniClipCursorCompactSize
+    maniClipCursorSize
+    maniGraphBindingSize
+    maniGraphInstanceSize
+    maniGraphScratchSize
+    maniGraphStateSize
+    maniGraphSubsetSize
+    maniLearnedCheckpointSize
+    maniLearnedScratchSize
+    maniPoseSize
+    maniRetargetScratchSize
+    maniSpringSavedSize
+    maniSpringStateSize
+
+reads a stored identity or builds a constant:
+    maniClipIdentity
+    maniClipSkeletonIdentity
+    maniGraphClipIdentity
+    maniGraphDatabaseIdentity
+    maniGraphIdentity
+    maniGraphMapIdentity
+    maniGraphMapSourceIdentity
+    maniGraphMirrorMapIdentity
+    maniGraphModelIdentity
+    maniGraphSkeletonIdentity
+    maniGraphSpringSetIdentity
+    maniLearnedModelDatabaseIdentity
+    maniLearnedModelIdentity
+    maniLearnedModelSkeletonIdentity
+    maniMirrorMapIdentity
+    maniMirrorMapSkeletonIdentity
+    maniMotionDatabaseClipIdentity
+    maniMotionDatabaseIdentity
+    maniMotionDatabaseMirrorMapIdentity
+    maniMotionDatabaseSkeletonIdentity
+    maniRagdollIdentity
+    maniRagdollSkeletonIdentity
+    maniRetargetMapIdentity
+    maniRetargetMapSourceIdentity
+    maniRetargetMapTargetIdentity
+    maniRootMoveIdentity
+    maniSkeletonIdentity
+    maniSkinIdentity
+    maniSkinSkeletonIdentity
+    maniSpringSetIdentity
+    maniSpringSetSkeletonIdentity
+
+reads or renames UTF-8 names:
+    maniClipDiscreteTrackName
+    maniClipFloatTrackName
+    maniFbxClipName
+    maniFbxModelBoneName
+    maniGltfAnimationName
+    maniGltfNodeBoneName
+    maniGraphClipName
+    maniGraphDatabaseName
+    maniGraphModelName
+    maniGraphParameterName
+    maniGraphSpringSetName
+    maniLearnedModelEventName
+    maniLearnedModelFloatTrackName
+    maniMirrorName
+    maniMorphChannelName
+    maniMorphTargetName
+    maniMotionDatabaseChannelName
+    maniResultName
+    maniSkeletonBoneName
+    maniSpringSetSpringName
+
+hashes a name's bytes:
+    maniMirrorNameHash
+
+hashes bytes:
+    maniHash64
+
+compares names:
+    maniClipFindDiscreteTrack
+    maniClipFindFloatTrack
+    maniGraphFindParameter
+    maniMorphFindChannel
+    maniMorphFindTarget
+    maniSkeletonFindBone
+
+returns constants:
+    maniDefaultCompressOptions
+    maniGetVersion
+
+returns a name:
+    maniGetSimdBackend
+
+reads CPU features:
+    maniCheckCpu
+    maniCpuSupportsBackend
+
+checks a def's words and allocates:
+    maniCreateBuilder
+
+releases memory:
+    maniCloseFbx
+    maniCloseGltf
+    maniDestroyBuilder
+    maniDestroyLearnedTrainer
+
+reads a counter:
+    maniBuilderMisuses
+    maniLearnedTrainerMisuses
+
+copies bytes:
+    maniCopyBuilt
+
+copies indices:
+    maniCopySkeletonOrder
+
+lays out memory:
+    maniInitClipCursor
+
+clears words:
+    maniResetSprings
+
+reads a word:
+    maniClipAdditiveBasis
+    maniClipCompressed
+    maniClipLoopPolicy
+    maniFbxVersion
+    maniGraphNodeKindOf
+    maniGraphNodeSourcePlace
+    maniGraphParameterTypeOf
+    maniInfluencesPerVertex
+    maniMirrorBoneFlags
+    maniMirrorMapAxis
+    maniPoseIsDifference
+    maniPoseModelCurrent
+
+copies a float:
+    maniClipDuration
+    maniClipSampleRate
+    maniInfluencesDualQuaternionWeight
+    maniMorphTargetFullWeight
+
+copies a record:
+    maniClipEventAt
+    maniClipMarkerAt
+    maniClipRootMotionSource
+    maniLearnedModelChannel
+    maniMotionDatabaseChannel
+    maniMotionDatabaseEntry
+    maniRagdollReadBody
+
+reads indices:
+    maniFbxMorphModel
+    maniFbxSkinModel
+    maniGraphSubsetBones
+    maniMorphChannelTargets
+
+reads an index:
+    maniFbxRenamedModel
+    maniFbxSkinSkeleton
+    maniGltfNodeMesh
+    maniGltfNodeSkin
+    maniGltfRenamedNode
+    maniGltfSkinSkeleton
+    maniGraphClipMap
+    maniGraphNodeInput
+    maniGraphOutputNode
+    maniMirrorMapUnmatchedBone
+    maniMirrorPartner
+    maniSkeletonParent
+    maniSkeletonSubtreeEnd
+    maniSkinJoint
+
+reads bytes:
+    maniGltfBufferUri
+
+copies a value:
+    maniGetGraphParameter
+
+copies a joint and a weight:
+    maniInfluence
+
+copies a point:
+    maniInfluencesCenter
+
+compares words:
+    maniInfluencesFitSkin
+
+copies floats:
+    maniLearnedModelNormalization
+    maniMotionDatabaseFeatures
+    maniMotionDatabaseNormalization
+    maniSpringSetStepRate
+
+reads words:
+    maniLearnedModelProjector
+    maniMorphAttribute
+
+copies a transform:
+    maniPoseLocal
+    maniPoseSetLocal
+    maniSkeletonRest
+
+copies a matrix:
+    maniPoseModel
+    maniSkinInverseBind
+
+copies transforms:
+    maniPoseReadLocals
+    maniPoseWriteLocals
+
+copies matrices:
+    maniPoseReadModels
