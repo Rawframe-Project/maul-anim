@@ -369,6 +369,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         endif()
     endif()
     maul_add_header_tests()
+    maul_add_exports_test()
     # Installs the build into the binary tree and builds and runs
     # test/consumer against it, as a consumer of the package would.
     if(MAUL_ANIM_TEST_PACKAGE AND MAUL_ANIM_INSTALL)

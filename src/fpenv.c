@@ -10,6 +10,12 @@
 // WebAssembly has one environment, the one the library needs. Any other
 // architecture is refused at build time rather than computed in an
 // unknown environment.
+//
+// The thread's place in the entries is a thread-local, the only state of
+// src/ (the family's rules allow it here alone): it mirrors the control
+// register, which is per thread too. An outermost entry's token is the
+// host's register, marked by bit 63; a nested one's is 0. Returned by
+// value, it takes no local's address.
 
 #include "fpenv.h"
 
@@ -49,11 +55,15 @@ static void WriteControl(uint64_t value)
 #endif
 
 // Clear flush-to-zero, denormals-are-zero and the rounding mode; mask
-// every exception.
-static const uint32_t s_flushToZero = 1u << 15;
-static const uint32_t s_denormalsAreZero = 1u << 6;
-static const uint32_t s_roundingMode = 3u << 13;
-static const uint32_t s_exceptionMasks = 0x3fu << 7;
+// every exception. MXCSR is 32 bits.
+enum
+{
+    s_flushToZero = 1u << 15,
+    s_denormalsAreZero = 1u << 6,
+    s_roundingMode = 3u << 13,
+    s_exceptionMasks = 0x3fu << 7,
+    s_controlBits = 0xffffu,
+};
 
 static uint64_t Wanted(uint64_t control)
 {
@@ -89,13 +99,18 @@ static void WriteControl(uint64_t value)
 #endif
 
 // Clear flush-to-zero (single and half, and input flush), alternate
-// handling, default NaN, the rounding mode and the trap enables.
-static const uint64_t s_flushToZero = 1ull << 24;
-static const uint64_t s_flushToZeroHalf = 1ull << 19;
-static const uint64_t s_defaultNan = 1ull << 25;
-static const uint64_t s_roundingMode = 3ull << 22;
-static const uint64_t s_trapEnables = (0x1full << 8) + (1ull << 15);
-static const uint64_t s_inputFlushAndAlternate = 3ull;
+// handling, default NaN, the rounding mode and the trap enables. FPCR's
+// bits from 32 up are reserved, read as 0.
+enum
+{
+    s_flushToZero = 1u << 24,
+    s_flushToZeroHalf = 1u << 19,
+    s_defaultNan = 1u << 25,
+    s_roundingMode = 3u << 22,
+    s_trapEnables = (0x1fu << 8) + (1u << 15),
+    s_inputFlushAndAlternate = 3u,
+    s_controlBits = (1u << 27) - 1u,
+};
 
 static uint64_t Wanted(uint64_t control)
 {
@@ -121,26 +136,103 @@ static uint64_t Wanted(uint64_t control)
     return control;
 }
 
+enum
+{
+    s_controlBits = 0,
+};
+
 #else
 #error "maul-anim: unknown floating-point environment for this architecture"
 #endif
 
-uint64_t maniFloatEnvEnter(void)
+// Every control bit the library reads or sets is below the token's mark.
+static_assert((uint64_t)s_controlBits <= UINT32_MAX, "the control bits are below bit 63");
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#define MANI_THREAD_LOCAL __declspec(thread)
+#else
+#define MANI_THREAD_LOCAL _Thread_local
+#endif
+
+// The register goes through a stack slot (stmxcsr takes memory), which
+// -fstack-protector-strong would guard with a canary in every entry; the
+// slot holds a copy of the register and nothing more.
+#if defined(__has_attribute)
+#if __has_attribute(no_stack_protector)
+#define MANI_NO_CANARY __attribute__((no_stack_protector))
+#endif
+#endif
+#ifndef MANI_NO_CANARY
+#define MANI_NO_CANARY
+#endif
+
+// The thread's place: the host's control register as the outermost entry
+// saved it, and how many entries deep.
+static MANI_THREAD_LOCAL maniFloatHost s_thread;
+
+// An outermost entry's token: the host's register, marked.
+static const uint64_t s_outermost = 1ull << 63;
+
+MANI_NO_CANARY uint64_t maniFloatEnvEnter(void)
 {
-    uint64_t saved = ReadControl();
-    uint64_t wanted = Wanted(saved);
-    if (wanted != saved)
+    if (s_thread.depth > 0)
+    {
+        ++s_thread.depth;
+        return 0;
+    }
+    uint64_t host = ReadControl();
+    uint64_t wanted = Wanted(host);
+    if (wanted != host)
     {
         WriteControl(wanted);
     }
-    return saved;
+    s_thread = (maniFloatHost){host, 1};
+    return s_outermost | host;
 }
 
-void maniFloatEnvLeave(uint64_t saved)
+MANI_NO_CANARY void maniFloatEnvLeave(uint64_t token)
 {
-    if (ReadControl() != saved)
+    if ((token & s_outermost) == 0)
     {
-        WriteControl(saved);
+        --s_thread.depth;
+        return;
+    }
+    uint64_t host = token & ~s_outermost;
+    if (ReadControl() != host)
+    {
+        WriteControl(host);
+    }
+    s_thread.depth = 0;
+}
+
+void maniFloatEnvRun(void (*body)(void* context), void* context)
+{
+    uint64_t token = maniFloatEnvEnter();
+    body(context);
+    maniFloatEnvLeave(token);
+}
+
+MANI_NO_CANARY maniFloatHost maniFloatHostEnter(void)
+{
+    maniFloatHost host = s_thread;
+    if (host.depth != 0 && ReadControl() != host.saved)
+    {
+        WriteControl(host.saved);
+    }
+    s_thread.depth = 0;
+    return host;
+}
+
+MANI_NO_CANARY void maniFloatHostLeave(maniFloatHost host)
+{
+    s_thread = host;
+    if (host.depth != 0)
+    {
+        uint64_t wanted = Wanted(host.saved);
+        if (ReadControl() != wanted)
+        {
+            WriteControl(wanted);
+        }
     }
 }
 
@@ -152,4 +244,9 @@ uint64_t maniFloatControlRead(void)
 void maniFloatControlWrite(uint64_t value)
 {
     WriteControl(value);
+}
+
+uint32_t maniFloatEnvDepth(void)
+{
+    return s_thread.depth;
 }

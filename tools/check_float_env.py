@@ -48,8 +48,9 @@ PREFIX = cmake_setting("MAUL_API_PREFIX")
 MACRO = cmake_setting("MAUL_MACRO_PREFIX")
 
 # What entering the environment looks like in a body: the family module's
-# guard, by its name with the library's prefixes.
-GUARD = re.compile(r"\b(?:" + PREFIX + r"FloatEnvEnter|" + MACRO + r"_FLOAT_ENV_ENTER)\b")
+# entry, or its run of a worker inside one, by name with the library's
+# prefix.
+GUARD = re.compile(r"\b" + PREFIX + r"FloatEnv(?:Enter|Run)\b")
 
 
 def source_dirs():
