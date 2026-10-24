@@ -5,6 +5,30 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.1.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.1.0) (2026-10-24)
+
+### Changed
+
+- Compressed clips keep each kind of sub-track together and decode
+  several sub-tracks at once: sampling at a random time takes about 28%
+  fewer instructions and a forward cursor about 15% fewer, and poses and
+  float tracks are the same bits as before.
+  The clip format version is 3, and `maniOpenClip` refuses a clip of
+  any other format version, compressed or full precision, with
+  `mani_errorVersion`. Build stored clips again from their sources, or
+  compress them again from full-precision clips made with this release.
+
+### Fixed
+
+- A learned motion matching node whose model gives a value past the
+  float range, or whose root velocity moves past it over the step, no
+  longer passes it on: `maniUpdateGraph`, `maniEvaluateGraph` and
+  `maniEvaluateGraphSubset` complete the call with valid, finite
+  outputs and return `mani_errorFormat`, and `maniLearnedStep`,
+  `maniLearnedProject` and `maniLearnedDecompress` return
+  `mani_errorFormat` instead of success. `maniGraphNodeView`'s reserved
+  word is now `failed`.
+
 ## [0.0.1](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.0.1) (2026-10-24)
 
 The first release: skeletal animation from import to the skinned
