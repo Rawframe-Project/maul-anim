@@ -34,12 +34,12 @@ Run `changed` before every push. On the shared development machine, run `pr` and
 
 `pr-title.yml` checks that the pull request title is a conventional commit with a scope from `AGENTS.md`, and `pr-gate.yml` closes a pull request from outside the organization unless it closes an issue labeled `accepted`. `codeql.yml` runs CodeQL on every pull request and on `main`, building every part with GCC 14 (an advanced setup, since the default one builds with the runner's GCC 13). `scorecard.yml` grades the repository's security practices weekly for the README badge, and Dependabot proposes updates of the pinned actions once a week in one pull request.
 
-Only the `build` cells restore a ccache. The jobs outside `cpp.yml` do not: a cache would save seconds in jobs that never set the run's length, or nothing at all. Measured on three runs (a pull request and two pushes to `main`), with `cpp.yml`'s restore taking 0 to 1 second a step:
+Only the `build` cells restore a ccache. The jobs outside `cpp.yml` do not: a cache would save seconds in jobs that never set the run's length, or nothing at all. Measured on three runs (a pull request and two pushes to `main`) from the steps' start and end times that the Actions API gives for each job, with `cpp.yml`'s restore taking 0 to 1 second a step:
 
-- `size` builds its five runtimes in 15 to 26 seconds in all and finishes well before `web` and `fuzz`. `fuzz` builds every target in 10 to 14 seconds and then fuzzes for 97 to 367.
+- `size` builds its five runtimes in 15 to 26 seconds in all. The whole job takes 46 to 65 seconds against `web`'s 177 to 226, and it is never the run's last job. `fuzz` builds every target in 10 to 14 seconds and then fuzzes for 97 to 367.
 - `windows` takes 15 to 41 seconds a step, configuring included, for the header check, the runtime and the DLL.
-- `web` builds in 140 to 184 seconds, of which about 30 are compiling. The rest is linking the 126 executables (124 suites and the two benchmarks), which ccache does not cache.
-- The nightly run builds the differentials in 36 seconds, the ufbx differential in 28 and each fuzz target in 6 to 11, within its two hours.
+- `web` builds in 140 to 184 seconds, of which about 30 are compiling, by the timestamps of the build log's Ninja lines. The rest is linking the 126 executables (124 suites and the two benchmarks), which ccache does not cache.
+- The nightly run builds the differentials in 36 seconds, the ufbx differential in 28 and each fuzz target in 6 to 11, in a run of about 64 minutes.
 
 CodeQL must never build through ccache: a cache hit skips the compiler, so CodeQL's tracer would not see that code.
 
