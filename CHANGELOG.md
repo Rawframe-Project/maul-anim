@@ -5,21 +5,38 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
-## [0.2.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.1.0...v0.2.0) (2026-10-24)
-
-
-### ⚠ BREAKING CHANGES
-
-* **match:** the motion database format version is 3. A database keeps its frames in a k-d tree's order with each node's bounding box, in place of bounds over runs of frames, and maniOpenMotionDatabase refuses any other format version with mani_errorVersion. Build databases again from their sources, and the graphs that name them, since a database's identity changes; a learned trainer's checkpoint does not resume against the rebuilt database. maniMotionDatabaseSource gains leafFrames (8, 16 or 32 frames a leaf, 0 for 16) and a reserved word that must be 0; positional initializers name them. Searches return the same frames and costs as before.
-
-### Fixed
-
-* enter the floating-point environment in every computing call ([#26](https://github.com/Rawframe-Project/maul-anim/issues/26)) ([d19d608](https://github.com/Rawframe-Project/maul-anim/commit/d19d6086e0e4138139b2bb39c2203ae111cc9e8a)), closes [#23](https://github.com/Rawframe-Project/maul-anim/issues/23)
-
+## [0.2.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.2.0) (2026-10-24)
 
 ### Changed
 
-* **match:** search motion databases through an exact k-d tree ([#24](https://github.com/Rawframe-Project/maul-anim/issues/24)) ([cd88f01](https://github.com/Rawframe-Project/maul-anim/commit/cd88f01427df5a5adb410e2359b15b6e255bef0c))
+- **Breaking:** motion matching searches a motion database through an
+  exact k-d tree, in place of bounds over runs of frames. Every search
+  returns the same frame and cost as before. On large databases a search
+  takes far fewer instructions: about 6 times fewer at 100,000 frames
+  and up to 16 times fewer at 300,000 frames with the default leaf. On
+  small databases with many features (around 5,000 frames and 45
+  features) it can be slightly slower. The index takes about 49 bytes a
+  frame at the default leaf, up from about 17.
+  The motion database format version is 3, and
+  `maniOpenMotionDatabase` refuses any other format version with
+  `mani_errorVersion`. Build databases again from their sources, along
+  with the graphs that name them, since a database's identity changes.
+  A learned trainer's checkpoint does not resume against a rebuilt
+  database.
+  `maniMotionDatabaseSource` gains `leafFrames` (8, 16 or 32 frames a
+  leaf, 0 for 16) and a reserved word that must be 0, so positional
+  initializers must name them.
+  ([#24](https://github.com/Rawframe-Project/maul-anim/pull/24))
+
+### Fixed
+
+- A host that runs its threads with flush-to-zero, denormals-are-zero
+  or another rounding mode now gets the same bits as every other host.
+  Every public call that computes switches to the library's
+  floating-point setting and restores the host's on return, and so do
+  the learned trainer's tasks on the host's worker threads. Results in
+  the default setting do not change.
+  ([#26](https://github.com/Rawframe-Project/maul-anim/pull/26))
 
 ## [0.1.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.1.0) (2026-10-24)
 
