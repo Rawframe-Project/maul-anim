@@ -21,13 +21,17 @@
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
 #include "maul-anim/pose.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_CLIP_HASH 0xdb00f7383addc056ull
+// The clip scene: the sample clip with root motion, sampled at times
+// across its loop (local poses, float tracks, root motion), and its file;
+// every platform and backend must give this value.
+#define PINNED_SCENE_HASH 0x20a6cbba9e21ce2cull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -975,15 +979,47 @@ static void TestEveryByteFlip(void)
     }
 }
 
-static void TestPinnedBytes(void)
+static void TestPinnedScene(void)
 {
-    BuildSample();
-    memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
-    CHECK(hash == PINNED_CLIP_HASH, "pinned file");
-    if (hash != PINNED_CLIP_HASH)
+    OpenSkeleton();
+    maniClipSource source = SampleSource();
+    // Root motion from bone a's translation along x and z.
+    const maniRootMotionSource root = {1,
+                                       maniRootAxisX | maniRootAxisZ,
+                                       maniRootRotationTwist,
+                                       1,
+                                       maniRootReferenceRest,
+                                       maniRootReferenceRest,
+                                       0,
+                                       0};
+    source.rootMotion = &root;
+    CHECK(BuildFrom(&source).result == mani_success, "builds with root motion");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    uint64_t hash = MANI_HASH_INIT;
+    for (int i = 0; i < 16; ++i)
     {
-        printf("clip hash 0x%016llx\n", (unsigned long long)hash);
+        float time = -0.35f + 0.173f * (float)i;
+        maniTransform locals[4];
+        CHECK(maniPoseReadLocals(SampleAt(&clip, time), 0, 4, locals) == mani_success, "reads");
+        hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+        float values[3];
+        CHECK(maniSampleClipFloats(&clip, time, values, 3, NULL) == mani_success, "floats");
+        hash = maniHash64(hash, values, (int32_t)sizeof values);
+        maniRootMove move;
+        CHECK(maniClipRootMotion(&clip, time, 0.1f, &move) == mani_success, "root motion");
+        const float parts[7] = {move.translation.x, move.translation.y, move.translation.z,
+                                move.rotation.x,    move.rotation.y,    move.rotation.z,
+                                move.rotation.w};
+        hash = maniHash64(hash, parts, (int32_t)sizeof parts);
+    }
+    // The writer's library version (bytes 16 to 21) changes with every release.
+    memset(s_file + 16, 0, 6);
+    hash = maniHash64(hash, s_file, (int32_t)s_size);
+    CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
+    if (hash != PINNED_SCENE_HASH)
+    {
+        printf("scene hash 0x%016llx\n", (unsigned long long)hash);
     }
 }
 
@@ -1136,6 +1172,6 @@ int main(int argc, char** argv)
     TestAdditiveClip();
     TestOpenRefusals();
     TestEveryByteFlip();
-    TestPinnedBytes();
+    TestPinnedScene();
     return s_failures == 0 ? 0 : 1;
 }

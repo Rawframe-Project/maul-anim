@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define PINNED_IMPORTED_HASH 0x3c41658d5e4557ffull
+
 #ifndef MANI_TEST_DATA
 #error "MANI_TEST_DATA names test/data"
 #endif
@@ -62,6 +64,17 @@ static uint8_t* ReadFile(const char* name, size_t* sizeOut)
     return bytes;
 }
 
+// The imported scene: every file built from the fixtures, in order, the
+// writer's library version (bytes 16 to 21) left out as it changes with
+// every release; every platform and backend must give PINNED_IMPORTED_HASH.
+static uint64_t s_imported = MANI_HASH_INIT;
+
+static void Pin(const uint8_t* file, size_t size)
+{
+    s_imported = maniHash64(s_imported, file, 16);
+    s_imported = maniHash64(s_imported, file + 22, (int32_t)(size - 22));
+}
+
 static maniBuilder* NewBuilder(void)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
@@ -79,9 +92,15 @@ static bool BuildSkeleton(maniBuilder* builder, const maniGltf* gltf, uint32_t n
                              ? maniGltfBuildSkeleton(builder, gltf, 0, &options)
                              : maniGltfBuildNodeSkeleton(builder, gltf, node, &options);
     size_t size = 0;
-    return r.result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-           maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
+    bool built =
+        r.result == mani_success &&
+        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+        maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
+    if (built)
+    {
+        Pin(s_skeletonFile, size);
+    }
+    return built;
 }
 
 static double SampleTime(uint32_t k, const FixtureTrack* t)
@@ -183,6 +202,7 @@ static void CheckTrack(const FixtureTrack* t)
     CHECK(built, "the clip builds");
     if (built)
     {
+        Pin(s_clipFile, clipSize);
         CHECK(maniClipSampleCount(&clip) == t->samples && maniClipDuration(&clip) == t->duration,
               "the oracle's grid");
         double error = HUGE_VAL;
@@ -267,5 +287,11 @@ int main(void)
         CheckTrack(&kFixtureTracks[i]);
     }
     TestExternalBuffers();
+    CHECK(s_imported == PINNED_IMPORTED_HASH,
+          "the imported files' bits the same on every platform");
+    if (s_imported != PINNED_IMPORTED_HASH)
+    {
+        printf("imported hash 0x%016llx\n", (unsigned long long)s_imported);
+    }
     return s_failures == 0 ? 0 : 1;
 }

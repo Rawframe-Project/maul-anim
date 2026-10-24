@@ -9,6 +9,7 @@
 // order and grouping the host runs its chunks in; AdamW with amsgrad against the formula in
 // binary64; a small network fit to a sine, the same bits on a second run.
 
+#include "scalar.h"
 #include "test_harness.h"
 #include "train_adam.h"
 #include "train_net.h"
@@ -19,7 +20,12 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
+
+// A small network fit to the library's sine for 2000 steps: its
+// parameters; every platform and backend must give this value.
+#define PINNED_TRAINED_HASH 0x56bf9b4d68cb700full
 
 static void TestRandom(void)
 {
@@ -402,7 +408,9 @@ static double Fit(float* parameters, uint32_t steps)
             {
                 float x = 6.2831853f * maniTrainUniform(&r) - 3.1415927f;
                 s_values[s] = x;
-                target[s] = (float)sin((double)x);
+                // The library's own sine, the same bits everywhere, unlike
+                // the C library's.
+                target[s] = maniSin(x);
             }
             maniTrainForward(&n, parameters, s_values, MANI_TRAIN_CHUNK);
             const float* out = s_values + maniTrainLayerAt(&n, 3, MANI_TRAIN_CHUNK);
@@ -439,6 +447,12 @@ static void TestFit(void)
     CHECK(before > 0.1 && after < 0.01, "a sine fit: its error falls below 0.01");
     CHECK(after == again && memcmp(first, second, sizeof first) == 0,
           "a second run, the same bits");
+    uint64_t hash = maniHash64(MANI_HASH_INIT, first, (int32_t)sizeof first);
+    CHECK(hash == PINNED_TRAINED_HASH, "the trained bits the same on every platform");
+    if (hash != PINNED_TRAINED_HASH)
+    {
+        printf("trained hash 0x%016llx\n", (unsigned long long)hash);
+    }
 }
 
 int main(void)

@@ -11,6 +11,8 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/morph.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/skin.h"
 #include "maul-anim/skinning.h"
@@ -19,7 +21,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_LINEAR_HASH 0x884d9250a5cd8cf6ull
+// The skinning scene: linear, dual quaternion and blended skinning, the
+// centers file and job, and morph targets then skinning, hashed in the
+// order main runs them; every platform and backend must give this value.
+#define PINNED_SCENE_HASH 0x3ad34ff5fdb25dfbull
 
 enum
 {
@@ -51,6 +56,14 @@ typedef struct Vertex
 static Vertex s_in[kVertices];
 static Vertex s_out[kVertices];
 static Vertex s_other[kVertices];
+
+static uint64_t s_scene = MANI_HASH_INIT;
+
+// Adds an output to the pinned scene.
+static void Pin(const void* bytes, size_t size)
+{
+    s_scene = maniHash64(s_scene, bytes, (int32_t)size);
+}
 
 static uint64_t s_random = 0x9E3779B97F4A7C15ull;
 
@@ -754,6 +767,7 @@ static void TestBlended(void)
     }
     CHECK(ends, "blend 0 and 1: linear's and dual quaternion's bits");
     CHECK(worst < 2e-5, "between: the mix of the two");
+    Pin(s_out, sizeof s_out);
 }
 
 static void TestDualPalette(void)
@@ -814,15 +828,100 @@ static void TestPinned(void)
     Streams(s_in, s_out, streams);
     maniSkinJob job = Job(0, kVertices, streams, 4);
     CHECK(maniSkinLinear(&job) == mani_success, "skins");
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_out, (int32_t)sizeof s_out);
-    CHECK(hash == PINNED_LINEAR_HASH, "pinned linear");
-    if (hash != PINNED_LINEAR_HASH)
-    {
-        printf("linear hash 0x%016llx\n", (unsigned long long)hash);
-    }
+    Pin(s_out, sizeof s_out);
     CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success &&
               maniSkinDualQuaternion(&job) == mani_success,
           "dual");
+    Pin(s_out, sizeof s_out);
+}
+
+// Morph targets over the vertices: a sparse target of positions and
+// normals given out of order with a vertex twice, and a channel of
+// in-betweens at -1, 0.5 and 1, dense positions, the last with tangents.
+static const uint32_t kSparse[3] = {120, 7, 120};
+static const float kSparsePositions[9] = {0.5f, 0, -0.25f, 0, 1, 0, 0.125f, 0.5f, 0};
+static const float kSparseNormals[9] = {0, 0, 1, 1, 0, 0, 0, 0.5f, 0.5f};
+static float s_ramp[3][3 * kVertices];
+static float s_rampTangents[3 * kVertices];
+static _Alignas(16) uint8_t s_morphFile[32768];
+
+static _Alignas(64) uint8_t s_poseMemory[4096];
+
+// A pose's palette, then morph targets, then skinning by that palette.
+static void TestMorphThenSkin(void)
+{
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    for (uint32_t b = 0; b < kBones; ++b)
+    {
+        // One draw a statement: an initializer list's order is unspecified.
+        float r[10];
+        for (int k = 0; k < 10; ++k)
+        {
+            r[k] = k < 7 ? Uniform(-1, 1) : Uniform(0.5f, 2.0f);
+        }
+        float n = sqrtf(r[3] * r[3] + r[4] * r[4] + r[5] * r[5] + r[6] * r[6]);
+        maniTransform t = {
+            {r[0], r[1], r[2]}, {r[3] / n, r[4] / n, r[5] / n, r[6] / n}, {r[7], r[8], r[9]}};
+        maniPoseSetLocal(pose, b, t);
+    }
+    maniAffine saved[kJoints];
+    memcpy(saved, s_palette, sizeof saved);
+    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success &&
+              maniComputePalette(pose, &s_skeleton, &s_skin, s_palette, kJoints, NULL) ==
+                  mani_success,
+          "palette");
+    Pin(s_palette, sizeof s_palette);
+    for (uint32_t i = 0; i < 3 * kVertices; ++i)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            s_ramp[k][i] = (float)(k + 1) * 0.0625f * (float)((i % 5) + 1);
+        }
+        s_rampTangents[i] = 0.03125f * (float)(i % 9);
+    }
+    const float* sparse[3] = {kSparsePositions, kSparseNormals, NULL};
+    const float* ramp[3][3] = {
+        {s_ramp[0], NULL, NULL}, {s_ramp[1], NULL, NULL}, {s_ramp[2], NULL, s_rampTangents}};
+    maniMorphTargetSource smile[1] = {{1.0f, 3, kSparse, sparse, NULL, 0, 0}};
+    maniMorphTargetSource ramps[3] = {{-1.0f, kVertices, NULL, ramp[0], NULL, 0, 0},
+                                      {0.5f, kVertices, NULL, ramp[1], NULL, 0, 0},
+                                      {1.0f, kVertices, NULL, ramp[2], NULL, 0, 0}};
+    maniMorphChannelSource channels[2] = {{"smile", 5, 1, smile}, {"ramp", 4, 3, ramps}};
+    maniMorphAttributeSource attributes[3] = {
+        {maniMorphPosition, 0}, {maniMorphNormal, 0}, {maniMorphTangent, 0}};
+    maniMorphSource source = {channels, 2, kVertices, attributes, 3, 0};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildMorphTargets(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, s_morphFile, sizeof s_morphFile, &size) == mani_success,
+          "morph targets built");
+    maniDestroyBuilder(builder);
+    maniMorphTargets m;
+    CHECK(maniOpenMorphTargets(s_morphFile, size, &m).result == mani_success, "morph targets open");
+    const float channelWeights[2] = {0.7f, 0.8f};
+    float weights[4];
+    CHECK(maniMorphTargetWeights(&m, channelWeights, weights) == mani_success, "weights");
+    memcpy(s_other, s_in, sizeof s_other);
+    maniMorphStream morph[3] = {
+        {s_in->position, s_other->position, sizeof(Vertex), sizeof(Vertex), maniMorphPosition, 0, 3,
+         0},
+        {s_in->normal, s_other->normal, sizeof(Vertex), sizeof(Vertex), maniMorphNormal, 0, 3, 0},
+        {s_in->tangent, s_other->tangent, sizeof(Vertex), sizeof(Vertex), maniMorphTangent, 0, 4,
+         0}};
+    maniMorphJob morphJob = {&m, weights, 0, kVertices, 3, 0, morph};
+    CHECK(maniApplyMorphTargets(&morphJob) == mani_success, "morphs");
+    maniSkinStream streams[4];
+    Streams(s_other, s_out, streams);
+    maniSkinJob job = Job(0, kVertices, streams, 4);
+    CHECK(maniSkinLinear(&job) == mani_success, "skins the morphed vertices");
+    // The writer's library version (bytes 16 to 21) changes with every release.
+    memset(s_morphFile + 16, 0, 6);
+    Pin(s_morphFile, size);
+    Pin(s_other, sizeof s_other);
+    Pin(s_out, sizeof s_out);
+    memcpy(s_palette, saved, sizeof saved);
 }
 
 // A cylinder along y, 24 rings of 12 vertices, each ring weighted between
@@ -993,6 +1092,11 @@ static void TestCentersBuilt(void)
               maniInfluencesPerVertex(&s_centered) == maniInfluencesPerVertex(&s_mesh) &&
               maniInfluencesFitSkin(&s_centered, &s_skin),
           "the influences kept");
+    static uint8_t copy[65536];
+    memcpy(copy, s_centersFile, s_centersSize);
+    // The writer's library version (bytes 16 to 21) changes with every release.
+    memset(copy + 16, 0, 6);
+    Pin(copy, s_centersSize);
 }
 
 static void TestCentersRefused(void)
@@ -1151,6 +1255,16 @@ static void TestCentersJob(void)
     {
         printf("  centers job apart by %g\n", worst);
     }
+    Pin(s_out, kMesh * sizeof(Vertex));
+}
+
+static void TestScenePinned(void)
+{
+    CHECK(s_scene == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
+    if (s_scene != PINNED_SCENE_HASH)
+    {
+        printf("scene hash 0x%016llx\n", (unsigned long long)s_scene);
+    }
 }
 
 int main(void)
@@ -1163,6 +1277,7 @@ int main(void)
     TestRefusals();
     TestRows();
     TestPinned();
+    TestMorphThenSkin();
     TestDualAgainstReference();
     TestDualOneInfluence();
     TestCandyWrapper();
@@ -1172,5 +1287,6 @@ int main(void)
     TestCentersBuilt();
     TestCentersRefused();
     TestCentersJob();
+    TestScenePinned();
     return s_failures == 0 ? 0 : 1;
 }
