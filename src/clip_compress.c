@@ -150,62 +150,114 @@ static uint64_t SegmentDataSize(const maniCompressPlan* p)
     return size;
 }
 
-// Forms, constants and clip ranges.
-static void WriteFront(const maniCompressPlan* p, Sections* out)
+// The sub-tracks' channels in the order the file stores them: each kind
+// of bone channel (rotation, translation, scale), then the float tracks.
+static const uint32_t kKindOrder[maniClipKinds + 1] = {maniSubRotation, maniSubTranslation,
+                                                       maniSubScale, maniSubFloat};
+
+// A kind's animated sub-tracks.
+static uint32_t AnimatedOfKind(const maniCompressPlan* p, uint32_t channel)
 {
-    uint8_t* constant = out->data[1];
-    uint8_t* range = out->data[2];
-    memset(out->data[0], 0, (size_t)out->sizes[0]);
+    uint32_t n = 0;
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
-        const maniSubTrack* t = &p->subs[i];
-        uint32_t width = maniPlanWidth(t);
-        if (t->channel == maniSubFloat)
-        {
-            out->data[0][p->clip->trackCount + t->track] = (uint8_t)t->form;
-        }
-        else
-        {
-            out->data[0][t->track] |= (uint8_t)(t->form << (2 * t->channel));
-            bool stored = t->form == maniClipFormConstant || t->form == maniClipFormAnimated;
-            if (t->channel == maniSubRotation && stored)
-            {
-                out->data[0][t->track] |= (uint8_t)((3u - t->dropped) << 6);
-            }
-        }
-        for (uint32_t c = 0; t->form == maniClipFormConstant && c < width; ++c)
-        {
-            StoreF32(constant, t->constant[c]);
-            constant += 4;
-        }
-        for (uint32_t c = 0; t->form == maniClipFormAnimated && c < width; ++c)
-        {
-            StoreF32(range + 4 * c, t->minimum[c]);
-            StoreF32(range + 4 * (width + c), t->extent[c]);
-        }
-        range += t->form == maniClipFormAnimated ? 8 * (size_t)width : 0;
+        n += p->subs[i].channel == channel && p->subs[i].form == maniClipFormAnimated ? 1 : 0;
     }
+    return n;
 }
 
-// One sample's bits in a segment.
-static void WriteSample(const maniCompressPlan* p, uint32_t s, uint32_t k, maniBitWriter* w)
+// The forms: each kind's bitsets, the dropped components, the float
+// tracks' forms.
+static void WriteForms(const maniCompressPlan* p, uint8_t* forms)
 {
-    uint32_t n = p->animatedChannels + p->animatedFloats;
+    uint64_t bytes = maniClipBitsetBytes(p->clip->trackCount);
+    uint8_t* dropped = forms + 2 * maniClipKinds * bytes;
+    uint8_t* floats = dropped + ((uint64_t)p->clip->trackCount + 3) / 4;
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
         const maniSubTrack* t = &p->subs[i];
-        if (t->form != maniClipFormAnimated)
+        if (t->channel == maniSubFloat)
+        {
+            floats[t->track] = (uint8_t)t->form;
+            continue;
+        }
+        bool stored = t->form == maniClipFormConstant || t->form == maniClipFormAnimated;
+        if (!stored)
         {
             continue;
         }
-        size_t at = (size_t)s * n + t->animated;
-        uint32_t rate = p->rates[at];
-        const uint8_t* range = p->segmentCount > 1 ? p->segmentRanges + 6 * at : NULL;
-        float v[3] = {0.0f, 0.0f, 0.0f};
-        maniPlanValue(p, t, k, v);
-        for (uint32_t c = 0; rate != 0 && c < maniPlanWidth(t); ++c)
+        uint32_t kind = 0;
+        while (kKindOrder[kind] != t->channel)
         {
-            maniBitWrite(w, maniPlanQuantize(t, c, v[c], rate, range), maniCodecBits(rate));
+            ++kind;
+        }
+        uint32_t animated = t->form == maniClipFormAnimated ? 1u : 0u;
+        forms[(2 * kind + animated) * bytes + t->track / 8] |= (uint8_t)(1u << (t->track % 8));
+        if (t->channel == maniSubRotation)
+        {
+            dropped[t->track / 4] |= (uint8_t)((3u - t->dropped) << (2 * (t->track % 4)));
+        }
+    }
+}
+
+// Forms, then the constants and the clip ranges in kind order.
+static void WriteFront(const maniCompressPlan* p, Sections* out)
+{
+    uint8_t* constant = out->data[1];
+    uint8_t* ranges = out->data[2];
+    memset(out->data[0], 0, (size_t)out->sizes[0]);
+    WriteForms(p, out->data[0]);
+    for (uint32_t kind = 0; kind <= maniClipKinds; ++kind)
+    {
+        uint32_t channel = kKindOrder[kind];
+        uint32_t n = AnimatedOfKind(p, channel);
+        uint32_t width = channel == maniSubFloat ? 1u : 3u;
+        uint32_t e = 0;
+        for (uint32_t i = 0; i < p->subCount; ++i)
+        {
+            const maniSubTrack* t = &p->subs[i];
+            if (t->channel != channel)
+            {
+                continue;
+            }
+            for (uint32_t c = 0; t->form == maniClipFormConstant && c < width; ++c)
+            {
+                StoreF32(constant, t->constant[c]);
+                constant += 4;
+            }
+            for (uint32_t c = 0; t->form == maniClipFormAnimated && c < width; ++c)
+            {
+                StoreF32(ranges + maniClipRangeAt(n, width, e, c, 0), t->minimum[c]);
+                StoreF32(ranges + maniClipRangeAt(n, width, e, c, 1), t->extent[c]);
+            }
+            e += t->form == maniClipFormAnimated ? 1 : 0;
+        }
+        ranges += 8 * (size_t)width * n;
+    }
+}
+
+// One sample's bits in a segment, the sub-tracks in kind order.
+static void WriteSample(const maniCompressPlan* p, uint32_t s, uint32_t k, maniBitWriter* w)
+{
+    uint32_t n = p->animatedChannels + p->animatedFloats;
+    for (uint32_t kind = 0; kind <= maniClipKinds; ++kind)
+    {
+        for (uint32_t i = 0; i < p->subCount; ++i)
+        {
+            const maniSubTrack* t = &p->subs[i];
+            if (t->channel != kKindOrder[kind] || t->form != maniClipFormAnimated)
+            {
+                continue;
+            }
+            size_t at = (size_t)s * n + t->animated;
+            uint32_t rate = p->rates[at];
+            const uint8_t* range = p->segmentCount > 1 ? p->segmentRanges + 6 * at : NULL;
+            float v[3] = {0.0f, 0.0f, 0.0f};
+            maniPlanValue(p, t, k, v);
+            for (uint32_t c = 0; rate != 0 && c < maniPlanWidth(t); ++c)
+            {
+                maniBitWrite(w, maniPlanQuantize(t, c, v[c], rate, range), maniCodecBits(rate));
+            }
         }
     }
 }
@@ -229,14 +281,27 @@ static void WriteSegments(const maniCompressPlan* p, Sections* out)
         maniStoreU32(e + 12, channelBits);
         maniStoreU32(e + 16, floatBits);
         uint8_t* head = data + offset;
-        memcpy(head, p->rates + (size_t)s * n, n);
-        head += n;
-        for (uint32_t j = 0; p->segmentCount > 1 && j < n; ++j)
+        uint8_t* ranges = head + n;
+        for (uint32_t kind = 0; kind <= maniClipKinds; ++kind)
         {
-            uint32_t width = j < p->animatedChannels ? 3 : 1;
-            memcpy(head, p->segmentRanges + 6 * ((size_t)s * n + j), 2 * (size_t)width);
-            head += 2 * (size_t)width;
+            for (uint32_t i = 0; i < p->subCount; ++i)
+            {
+                const maniSubTrack* t = &p->subs[i];
+                if (t->channel != kKindOrder[kind] || t->form != maniClipFormAnimated)
+                {
+                    continue;
+                }
+                size_t at = (size_t)s * n + t->animated;
+                *head++ = p->rates[at];
+                size_t width = maniPlanWidth(t);
+                if (p->segmentCount > 1)
+                {
+                    memcpy(ranges, p->segmentRanges + 6 * at, 2 * width);
+                    ranges += 2 * width;
+                }
+            }
         }
+        head = ranges;
         maniBitWriter w = {head, 0};
         for (uint32_t k = p->firsts[s]; k < p->firsts[s + 1]; ++k)
         {
@@ -303,7 +368,7 @@ static void Header(const maniClip* c, uint32_t segments, uint8_t h[MANI_CLIP_HEA
 static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
 {
     Sections out = {0};
-    out.sizes[0] = (uint64_t)p->clip->trackCount + p->clip->floatTrackCount;
+    out.sizes[0] = maniClipFormsSize(p->clip->trackCount, p->clip->floatTrackCount);
     out.sizes[1] = 12 * (uint64_t)p->constantChannels + 4 * (uint64_t)p->constantFloats;
     out.sizes[2] = 24 * (uint64_t)p->animatedChannels + 8 * (uint64_t)p->animatedFloats;
     out.sizes[3] = (uint64_t)p->segmentCount * MANI_CLIP_SEGMENT_SIZE;

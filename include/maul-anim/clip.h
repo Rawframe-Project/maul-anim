@@ -83,11 +83,14 @@ extern "C"
         uint32_t animatedChannels;
         uint32_t animatedFloats;
         uint32_t constantChannels;
-        uint32_t animatedRotations;
         float sampleRate;
         float duration;
         maniLoopPolicy loop;
         maniAdditiveBasis additive;
+        // A compressed clip's animated and constant bone channels by kind:
+        // rotation, translation, scale.
+        uint32_t animatedKinds[3];
+        uint32_t constantKinds[3];
     } maniClip;
 
 // What a lookup by name finds for no track.
@@ -113,7 +116,8 @@ extern "C"
     /// @param clipOut  Receives the view on success.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
-    /// byte found wrong; `mani_errorVersion` for a newer format.
+    /// byte found wrong; `mani_errorVersion` for a format version other
+    /// than the library's (an older clip is built again from its source).
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size,

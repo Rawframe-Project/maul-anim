@@ -34,7 +34,7 @@ Opening needs no scratch memory: a skeleton's depth-first order, for instance, i
 | Kind | Number | Format version | Bound to |
 |---|---|---|---|
 | Skeleton | 1 | 1 | |
-| Clip | 2 | 2 | its skeleton |
+| Clip | 2 | 3 | its skeleton |
 | Graph | 3 | 5 | its skeleton, its clips, databases, models, spring sets and maps |
 | Retargeting map | 4 | 2 | its source and target skeletons |
 | Skin | 5 | 1 | its skeleton |

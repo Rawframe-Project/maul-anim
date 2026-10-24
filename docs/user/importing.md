@@ -111,6 +111,8 @@ maniFileResult smallOpened = maniOpenClip(smallFile, smallSize, &small);
 
 A compressed clip opens and plays through the same calls as a full one, with the same cursors. Precision and shell distance can be set per bone, for a character whose fingers matter less than its hands.
 
+Keep the full clip or its source: a library that changes the clip format refuses older clips with `mani_errorVersion`, and they are compressed again from it.
+
 ## As text
 
 Graphs and the retargeting and mirror maps have a JSON form, read and written (`maniBuildGraphJson`, `maniWriteRetargetMapJson`, `maniBuildRetargetMapJson`, `maniWriteMirrorMapJson`, `maniBuildMirrorMapJson`), so a tool can edit them as text and a repository can review them as diffs.

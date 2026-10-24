@@ -8,6 +8,7 @@
 #ifndef MAUL_ANIM_SRC_CLIP_VIEW_H
 #define MAUL_ANIM_SRC_CLIP_VIEW_H
 
+#include "bytes.h"
 #include "clip_file.h"
 #include "pose_memory.h"
 
@@ -19,6 +20,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
+#endif
+
 // Checks sections 4 to 10 against the counts the header gave (in clip)
 // and fills clip's pointers to them.
 // Each takes the sections by tag (index tag - 1): their bytes, sizes,
@@ -26,6 +31,98 @@
 // section count for an absent one), where a wrong size is reported.
 maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* sizes,
                                   const uint64_t* at, const uint64_t* entry, maniClip* clip);
+
+// The bytes before a compressed clip's segment's samples: its rates and,
+// with several segments, its ranges.
+static inline uint64_t maniCompressedSegmentHead(const maniClip* clip)
+{
+    uint64_t n = (uint64_t)clip->animatedChannels + clip->animatedFloats;
+    uint64_t ranges = 6 * (uint64_t)clip->animatedChannels + 2 * (uint64_t)clip->animatedFloats;
+    return n + (clip->segmentCount > 1 ? ranges : 0);
+}
+
+// A kind's bitset of the tracks whose channel is constant (animated 0)
+// or animated (1).
+static inline const uint8_t* maniCompressedBitset(const maniClip* clip, uint32_t kind,
+                                                  uint32_t animated)
+{
+    return clip->forms + (2 * kind + animated) * maniClipBitsetBytes(clip->trackCount);
+}
+
+static inline const uint8_t* maniCompressedDropped(const maniClip* clip)
+{
+    return clip->forms + 2 * maniClipKinds * maniClipBitsetBytes(clip->trackCount);
+}
+
+// A track's 2 bits among the dropped components': 3 less the component
+// its stored rotation leaves out.
+static inline uint32_t maniCompressedDroppedField(const uint8_t* dropped, uint32_t t)
+{
+    return (dropped[t / 4] >> (2 * (t % 4))) & 3u;
+}
+
+static inline const uint8_t* maniCompressedFloatForms(const maniClip* clip)
+{
+    return maniCompressedDropped(clip) + ((uint64_t)clip->trackCount + 3) / 4;
+}
+
+static inline uint32_t maniClipTrackBone(const maniClip* clip, uint32_t t)
+{
+    return maniLoadU16(clip->tracks + (size_t)t * MANI_CLIP_TRACK_SIZE);
+}
+
+// The lowest set bit's index of a word not 0.
+static inline uint32_t maniLowestBit(uint64_t word)
+{
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long index = 0;
+    _BitScanForward64(&index, word);
+    return (uint32_t)index;
+#else
+    return (uint32_t)__builtin_ctzll(word);
+#endif
+}
+
+// A walk over a bitset's tracks in increasing order, a word at a time.
+typedef struct maniTrackWalk
+{
+    const uint8_t* set;
+    uint64_t bytes;
+    uint64_t next;
+    uint64_t word;
+    uint32_t base;
+} maniTrackWalk;
+
+static inline maniTrackWalk maniWalkTracks(const maniClip* clip, uint32_t kind, uint32_t animated)
+{
+    return (maniTrackWalk){maniCompressedBitset(clip, kind, animated),
+                           maniClipBitsetBytes(clip->trackCount), 0, 0, 0};
+}
+
+// The next track in the set; the caller takes no more than the set holds
+// (counted at open).
+static inline uint32_t maniNextTrack(maniTrackWalk* w)
+{
+    while (w->word == 0)
+    {
+        uint64_t left = w->bytes - w->next;
+        uint64_t word = 0;
+        if (left >= 8)
+        {
+            word = maniLoadU64(w->set + w->next);
+        }
+        for (uint64_t k = 0; left < 8 && k < left; ++k)
+        {
+            word |= (uint64_t)w->set[w->next + k] << (8 * k);
+        }
+        w->base = (uint32_t)(8 * w->next);
+        w->next += left < 8 ? left : 8;
+        w->word = word;
+    }
+    uint32_t t = w->base + maniLowestBit(w->word);
+    w->word &= w->word - 1;
+    return t;
+}
 
 // Checks a compressed clip's sections 11 to 15 against its header and
 // tracks (in clip) and fills clip's pointers and counts.
@@ -112,8 +209,9 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
 // track holds the first sample below alpha 1.
 void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, float* values);
 
-// The floats a decoded sample of a compressed clip holds: three per
-// animated bone channel, one per animated float track, in that order.
+// The floats a decoded sample of a compressed clip holds, in the file's
+// kind order: four per animated rotation (rebuilt), three per animated
+// translation and scale, one per animated float track.
 uint32_t maniCompressedSampleFloats(const maniClip* clip);
 void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* out);
 // A decoded sample laid out as a pose's groups for the forward cursor,

@@ -137,10 +137,11 @@ graph_evaluation: bytes graph_file graph_instance graph_subset invariant
 graph_evaluate_ik: bytes graph_body graph_chain graph_evaluation graph_file graph_instance ik_chain pose_memory vecmath
 graph_evaluate: blend_groups bytes graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn learned_eval pose_memory vecmath
 clip: bytes clip_codec clip_file clip_view container invariant pose_memory root_motion vecmath
-clip_view: clip_file pose_memory
+clip_view: bytes clip_file pose_memory
 clip_codec: bytes
 clip_lanes: blend_lanes pose_memory simd
-clip_compressed: bytes clip_codec clip_file clip_lanes clip_view container pose_memory vecmath
+clip_compressed: blend_lanes bytes clip_codec clip_file clip_lanes clip_view fpenv pose_memory simd
+clip_compressed_open: bytes clip_codec clip_file clip_view container
 clip_cursor: clip_lanes clip_view pose_memory
 clip_tracks: bytes clip_file clip_view container text
 root_motion_build: allocator bytes clip_file quat64

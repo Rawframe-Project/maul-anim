@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_COMPRESSED_HASH 0xa866c371429ce0fbull
+#define PINNED_COMPRESSED_HASH 0xd952259dd9f4cec0ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_fullFile[65536];
@@ -243,6 +243,40 @@ static void Compare(const maniClip* packed, float* boneOut, float* floatOut)
     }
 }
 
+// A bone track's channel (0 translation, 1 rotation, 2 scale) form, from
+// its kind's bitsets and the track's mask.
+static uint32_t FormOf(const maniClip* clip, uint32_t track, uint32_t channel)
+{
+    uint32_t kind = channel == 1 ? maniClipKindRotation
+                                 : (channel == 0 ? maniClipKindTranslation : maniClipKindScale);
+    uint64_t bytes = maniClipBitsetBytes(clip->trackCount);
+    const uint8_t* constant = clip->forms + 2 * kind * bytes;
+    if (((constant[track / 8] >> (track % 8)) & 1u) != 0)
+    {
+        return maniClipFormConstant;
+    }
+    if (((constant[bytes + track / 8] >> (track % 8)) & 1u) != 0)
+    {
+        return maniClipFormAnimated;
+    }
+    bool present = ((clip->tracks[4 * (size_t)track + 2] >> channel) & 1u) != 0;
+    return present ? maniClipFormDefault : maniClipFormAbsent;
+}
+
+// The component a bone track's stored rotation leaves out (0 x to 3 w).
+static uint32_t DroppedOf(const maniClip* clip, uint32_t track)
+{
+    const uint8_t* dropped =
+        clip->forms + 2 * maniClipKinds * maniClipBitsetBytes(clip->trackCount);
+    return 3u - ((dropped[track / 4] >> (2 * (track % 4))) & 3u);
+}
+
+// The forms' offset of a float track's form.
+static uint64_t FloatFormAt(uint32_t tracks, uint32_t i)
+{
+    return 2 * maniClipKinds * maniClipBitsetBytes(tracks) + ((uint64_t)tracks + 3) / 4 + i;
+}
+
 // The rate bytes of every segment: how many at 0 and at the raw rate.
 static void CountRates(const maniClip* clip, uint32_t* zeros, uint32_t* raws)
 {
@@ -277,13 +311,20 @@ static void TestSegments(void)
     // Translation, rotation per bone track; the chest's constant and its
     // default, the arm's default scale.
     CHECK(clip.animatedChannels == 6 && clip.animatedFloats == 3, "animated sub-tracks");
-    CHECK((clip.forms[2] & 3) == maniClipFormConstant, "chest translation constant");
-    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormDefault, "chest rotation default");
-    CHECK(((clip.forms[3] >> 4) & 3) == maniClipFormDefault, "arm scale default");
-    CHECK((clip.forms[0] >> 6) == 0, "the root's rotation leaves w out");
-    CHECK((clip.forms[5] >> 6) == 3, "the leg's leaves x out");
-    CHECK(clip.forms[6 + maniClipFindFloatTrack(&clip, "half", 4)] == maniClipFormConstant,
+    CHECK(FormOf(&clip, 2, 0) == maniClipFormConstant, "chest translation constant");
+    CHECK(FormOf(&clip, 2, 1) == maniClipFormDefault, "chest rotation default");
+    CHECK(FormOf(&clip, 3, 2) == maniClipFormDefault, "arm scale default");
+    CHECK(FormOf(&clip, 1, 0) == maniClipFormAbsent, "the spine's translation absent");
+    CHECK(DroppedOf(&clip, 0) == 3, "the root's rotation leaves w out");
+    CHECK(DroppedOf(&clip, 5) == 0, "the leg's leaves x out");
+    CHECK(clip.forms[FloatFormAt(6, maniClipFindFloatTrack(&clip, "half", 4))] ==
+              maniClipFormConstant,
           "half constant");
+    CHECK(clip.animatedKinds[maniClipKindRotation] == 4 &&
+              clip.animatedKinds[maniClipKindTranslation] == 2 &&
+              clip.animatedKinds[maniClipKindScale] == 0 &&
+              clip.constantKinds[maniClipKindTranslation] == 1 && clip.constantChannels == 1,
+          "the sub-tracks by kind");
     uint32_t zeros = 0;
     uint32_t raws = 0;
     CountRates(&clip, &zeros, &raws);
@@ -383,15 +424,15 @@ static void TestFoldWithinPrecision(void)
     CHECK(Compress(&options, &report) == mani_success, "compresses");
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK((clip.forms[2] & 3) == maniClipFormConstant, "a wobbling translation constant");
-    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormDefault, "a wobbling rotation the rest");
+    CHECK(FormOf(&clip, 2, 0) == maniClipFormConstant, "a wobbling translation constant");
+    CHECK(FormOf(&clip, 2, 1) == maniClipFormDefault, "a wobbling rotation the rest");
     CHECK(report.shellError <= 0.0001, "within precision");
     // At a precision below the wobble they stay animated.
     options.precision = 1e-7f;
     CHECK(Compress(&options, &report) == mani_success, "compresses finely");
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK((clip.forms[2] & 3) == maniClipFormAnimated, "the translation animated");
-    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormAnimated, "the rotation animated");
+    CHECK(FormOf(&clip, 2, 0) == maniClipFormAnimated, "the translation animated");
+    CHECK(FormOf(&clip, 2, 1) == maniClipFormAnimated, "the rotation animated");
 }
 
 // A precision no rate meets (below binary32's resolution at these
@@ -1235,7 +1276,7 @@ static void TestAdditiveCompressed(void)
     CHECK(Compress(&options, NULL) == mani_success, "compresses");
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK((clip.forms[2] & 3) == maniClipFormDefault, "a translation at its rest: the default");
+    CHECK(FormOf(&clip, 2, 0) == maniClipFormDefault, "a translation at its rest: the default");
 }
 
 // Per-bone precisions, tight near the root and loose at the leaves: each
@@ -1426,32 +1467,43 @@ static void TestOpenRefusals(void)
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 56, 0);
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 52, 0);
     ExpectFormat(EntryOf(maniClipTagForms) + 16, "compressed sections at full precision");
-    s_file[forms + 2] = 0x3f;
-    ExpectFormat(forms + 2, "a form for an absent channel");
-    s_file[forms + 0] &= 0xf3;
-    ExpectFormat(forms + 0, "no form for a present channel");
-    s_file[forms + 2] |= 0x40;
-    ExpectFormat(forms + 2, "a dropped component for a default rotation");
-    s_file[forms + 4] = 0x01 | 0x40;
-    ExpectFormat(forms + 4, "a dropped component for no rotation");
-    s_file[forms + 6] = maniClipFormDefault;
-    ExpectFormat(forms + 6, "a default float track");
+    // Six tracks: a byte a bitset, the rotation's (animated: root, spine,
+    // arm, leg), the translation's (constant: chest; animated: root,
+    // hand), the scale's; two bytes of dropped components; four floats.
+    CHECK(s_file[forms + 1] == 0x2B && s_file[forms + 2] == 0x04 && s_file[forms + 3] == 0x11,
+          "the bitsets");
+    s_file[forms + 4] |= 0x04;
+    ExpectFormat(forms + 4, "a form for an absent channel");
+    s_file[forms + 0] |= 0x80;
+    ExpectFormat(forms + 0, "a track past the last");
+    s_file[forms + 0] |= 0x01;
+    ExpectFormat(forms + 1, "a channel both constant and animated");
+    s_file[forms + 6] |= 0x10;
+    ExpectFormat(forms + 6, "a dropped component for a default rotation");
+    s_file[forms + 7] |= 0x01;
+    ExpectFormat(forms + 7, "a dropped component for no rotation");
+    s_file[forms + 7] |= 0x40;
+    ExpectFormat(forms + 7, "a dropped component past the last track");
+    s_file[forms + FloatFormAt(6, 0)] = maniClipFormDefault;
+    ExpectFormat(forms + FloatFormAt(6, 0), "a default float track");
     StoreF32(constants, NAN);
     ExpectFormat(constants, "a constant not finite");
+    // The ranges in blocks: the four rotations' (96 bytes), the two
+    // translations' (48), the three animated floats' (24).
     StoreF32(ranges, INFINITY);
     ExpectFormat(ranges, "a minimum not finite");
-    StoreF32(ranges + 12, -1.0f);
-    ExpectFormat(ranges + 12, "a negative extent");
-    StoreF32(ranges + 24 * 6 + 4, -1.0f);
-    ExpectFormat(ranges + 24 * 6 + 4, "a float track's negative extent");
-    StoreF32(ranges + 24, -1.5f);
-    ExpectFormat(ranges + 24, "a rotation's minimum below -1");
-    StoreF32(ranges + 24 + 16, 2.5f);
-    ExpectFormat(ranges + 24 + 16, "a rotation's extent past 2");
-    StoreF32(ranges + 4, 3e38f);
-    StoreF32(ranges + 16, 3e38f);
-    ExpectFormat(ranges + 16, "a range's top not finite");
-    // Root translation's first segment range: minimum and extent bytes.
+    StoreF32(ranges + maniClipRangeAt(4, 3, 0, 0, 1), -1.0f);
+    ExpectFormat(ranges + 48, "a negative extent");
+    StoreF32(ranges + 144 + maniClipRangeAt(3, 1, 0, 0, 1), -1.0f);
+    ExpectFormat(ranges + 156, "a float track's negative extent");
+    StoreF32(ranges + maniClipRangeAt(4, 3, 1, 0, 0), -1.5f);
+    ExpectFormat(ranges + 4, "a rotation's minimum below -1");
+    StoreF32(ranges + maniClipRangeAt(4, 3, 0, 1, 1), 2.5f);
+    ExpectFormat(ranges + 64, "a rotation's extent past 2");
+    StoreF32(ranges + 96 + maniClipRangeAt(2, 3, 0, 1, 0), 3e38f);
+    StoreF32(ranges + 96 + maniClipRangeAt(2, 3, 0, 1, 1), 3e38f);
+    ExpectFormat(ranges + 128, "a range's top not finite");
+    // The root rotation's first segment range: minimum and extent bytes.
     s_file[data + 9] = 199;
     s_file[data + 12] = 56;
     Rehash();
@@ -1575,13 +1627,18 @@ static void TestConstantRotation(void)
     CHECK(Compress(&options, &report) == mani_success && report.shellError <= 0.0001, "compresses");
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK(((clip.forms[2] >> 2) & 3) == maniClipFormConstant, "the chest's rotation constant");
-    // The chest's constants: its translation, then its rotation's kept three.
+    CHECK(FormOf(&clip, 2, 1) == maniClipFormConstant, "the chest's rotation constant");
+    // The constants in kind order: the chest's rotation's kept three, then
+    // its translation.
     uint64_t constants = SectionAt(maniClipTagConstants);
     StoreF32(constants + 12, 1.5f);
+    Reidentify();
+    Rehash();
+    CHECK(Open(&clip).result == mani_success, "a translation constant past 1");
+    StoreF32(constants + 8, 1.5f);
     Rehash();
     maniFileResult r = Open(&clip);
-    CHECK(r.result == mani_errorFormat && r.offset == constants + 12, "a rotation constant past 1");
+    CHECK(r.result == mani_errorFormat && r.offset == constants + 8, "a rotation constant past 1");
 }
 
 static void TestRateZeroAlone(void)
@@ -1591,6 +1648,40 @@ static void TestRateZeroAlone(void)
     Reset();
     s_file[SectionAt(maniClipTagSegmentData)] = 0;
     ExpectFormat(SectionAt(maniClipTagSegments) + 8, "rate 0 in one segment");
+}
+
+// A clip of another format version, compressed or full precision, from
+// before the compressed sub-tracks were grouped by kind (2) or from a
+// newer library: refused with mani_errorVersion at the version, since a
+// reader reads its own version alone. The file is data, not a call's
+// mistake, so a builder at hand counts no misuse; recompressing from the
+// full clip is what a host does.
+static void TestOtherVersions(void)
+{
+    BuildFull(0.0f);
+    Reset();
+    static _Alignas(16) uint8_t full[65536];
+    memcpy(full, s_fullFile, s_fullSize);
+    maniBuilder* builder = NewBuilder();
+    maniClip clip;
+    const uint16_t versions[3] = {1, 2, MANI_CLIP_FORMAT_VERSION + 1};
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        maniStoreU16(s_file + 6, versions[i]);
+        maniFileResult r = Open(&clip);
+        CHECK(r.result == mani_errorVersion && r.offset == 6,
+              "a compressed clip of another version");
+        maniStoreU16(full + 6, versions[i]);
+        r = maniOpenClip(full, s_fullSize, &clip);
+        CHECK(r.result == mani_errorVersion && r.offset == 6, "a full clip of another version");
+    }
+    maniStoreU16(s_file + 6, MANI_CLIP_FORMAT_VERSION);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Open(&clip).result == mani_success &&
+              maniCompressClip(builder, &s_full, &s_skeleton, &options, NULL) == mani_success &&
+              maniBuilderMisuses(builder) == 0,
+          "recompressed, no misuse counted");
+    maniDestroyBuilder(builder);
 }
 
 static void TestEveryByteFlip(void)
@@ -1663,6 +1754,7 @@ int main(int argc, char** argv)
     TestRateZeroAlone();
     TestTableRefusals();
     TestConstantRotation();
+    TestOtherVersions();
     TestEveryByteFlip();
     TestPinnedBytes();
     return s_failures == 0 ? 0 : 1;
