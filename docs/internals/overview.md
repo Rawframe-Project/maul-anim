@@ -59,7 +59,7 @@ Internal invariants are asserted with `MANI_ASSERT` ([`src/invariant.h`](../../s
 Each suite in `test/` is one executable registered with CTest and labeled with its name. What the tests rely on:
 
 - **References in binary64.** Sampling, blending, IK, retargeting, mirroring, springs and root motion are tested against straightforward binary64 implementations of the same rule, written in the test from the method's description.
-- **Pinned hashes.** Seventeen golden values in sixteen suites hash scenes that together give every output promised above a check ([determinism.md](determinism.md) lists them); every platform and backend CI runs must give the same values.
+- **Pinned hashes.** Sixteen golden values in sixteen suites hash scenes that together give every output promised above a check ([determinism.md](determinism.md) lists them); every platform and backend CI runs must give the same values.
 - **Hostile files.** Every opener is tested with files changed at the byte each check reads, and fuzzed (`test/fuzz_*.c`).
 - **Differentials.** Programs in `tools/` compare with ufbx, ACL, ozz-animation and Godot on their corpora; they run every night, not in the pull request check ([development.md](../operations/development.md#differentials)).
 - **Guide snippets.** Every C block of `docs/user/` is built and run by `test/test_guide.c` or `test/test_guide_import.c`.
