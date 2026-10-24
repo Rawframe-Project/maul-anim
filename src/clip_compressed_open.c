@@ -12,6 +12,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
+#include "invariant.h"
 
 #include "maul-anim/clip.h"
 
@@ -293,8 +294,9 @@ static uint64_t RangeTooWide(const maniClip* clip, const uint8_t* e)
     return 0;
 }
 
-maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_t* sizes,
-                                       const uint64_t* at, const uint64_t* entry, maniClip* clip)
+MANI_COLD maniFileResult maniCheckClipCompressed(const uint8_t* const* data, const uint64_t* sizes,
+                                                 const uint64_t* at, const uint64_t* entry,
+                                                 maniClip* clip)
 {
     if (sizes[10] != maniClipFormsSize(clip->trackCount, clip->floatTrackCount))
     {

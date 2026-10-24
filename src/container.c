@@ -132,8 +132,8 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
     return Fail(mani_success, 0);
 }
 
-maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind, uint16_t maxVersion,
-                                 maniContainer* containerOut)
+MANI_COLD maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind,
+                                           uint16_t maxVersion, maniContainer* containerOut)
 {
     if (bytes == NULL || containerOut == NULL || (uintptr_t)bytes % MANI_CONTAINER_ALIGNMENT != 0)
     {

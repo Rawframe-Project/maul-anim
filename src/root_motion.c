@@ -12,6 +12,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -87,8 +88,8 @@ static bool BoneTracked(const maniClip* clip, uint32_t bone)
     return false;
 }
 
-maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t size, uint64_t at,
-                                       uint64_t entry, maniClip* clip)
+MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t size, uint64_t at,
+                                                 uint64_t entry, maniClip* clip)
 {
     clip->rootMotion = NULL;
     if (size == 0)
@@ -352,9 +353,9 @@ maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, 
     return result;
 }
 
-static MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
-                                                      const maniSkeleton* skeleton, float time,
-                                                      maniPose* pose)
+static MANI_COLD MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
+                                                                const maniSkeleton* skeleton,
+                                                                float time, maniPose* pose)
 {
     if (!maniClipFits(clip, skeleton, pose) || maniPoseIsDifference(pose))
     {

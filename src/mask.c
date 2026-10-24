@@ -5,6 +5,7 @@
 // depth-first order, then chains on single bones over them.
 
 #include "fpenv.h"
+#include "invariant.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -20,10 +21,10 @@ static bool Usable(float w)
     return w >= 0.0f && w <= FLT_MAX;
 }
 
-static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
-                                              const maniMaskChain* chains, uint32_t count,
-                                              float defaultWeight, float* weights,
-                                              uint32_t capacity)
+static MANI_COLD MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
+                                                        const maniMaskChain* chains, uint32_t count,
+                                                        float defaultWeight, float* weights,
+                                                        uint32_t capacity)
 {
     if (skeleton == NULL || weights == NULL || (chains == NULL && count > 0) ||
         !Usable(defaultWeight))
