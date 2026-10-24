@@ -3,9 +3,9 @@
 //
 // The forward cursor's step over one group of MANI_POSE_GROUP_BONES
 // bones: two held samples in the pose's group
-// layout interpolated at alpha into the pose, with the walk's operations
-// in its order (clip_compressed.c's Channel and Nlerp), so a pose is
-// random access's bits. A lane whose channel the clip leaves at rest
+// layout interpolated at alpha into the pose, with random access's
+// operations in its order (clip_compressed.c's Rotations and Vectors), so
+// a pose is random access's bits. A lane whose channel the clip leaves at rest
 // takes the held value as it is, as the walk writes a rest.
 
 #ifndef MAUL_ANIM_SRC_CLIP_LANES_H

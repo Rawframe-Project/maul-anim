@@ -18,7 +18,7 @@
 # growth seen as each lands. The comparison with ozz stays on the scalar
 # build.
 
-core: base clip clip_tracks clip_cursor clip_compressed blend additive mask pose skeleton fpenv hash cpu
+core: base clip clip_tracks clip_cursor clip_compressed clip_compressed_open blend additive mask pose skeleton fpenv hash cpu
 skinning: skin skinning influences
 graph: graph graph_bind graph_body graph_chain graph_dead_blend graph_emit graph_evaluate graph_evaluate_ik graph_inertia graph_inertia_apply graph_inspect graph_instance graph_learned graph_learned_step graph_machine graph_machine_file graph_machine_listen graph_machine_step graph_match graph_match_step graph_nodes graph_shot graph_shot_step graph_space graph_spring graph_subset graph_turn graph_update
 ik: ik ik_aim ik_ccd ik_chain ik_fabrik ik_frame ik_limit
@@ -34,7 +34,7 @@ elementary: elementary_float
 
 ceiling core       O2 69698
 ceiling skinning   O2 11000
-ceiling graph      O2 107000
+ceiling graph      O2 108000
 ceiling ik         O2 31000
 ceiling bodyik     O2 26000
 ceiling springs    O2 29000
@@ -45,9 +45,9 @@ ceiling match      O2 17000
 ceiling learned    O2 11000
 ceiling morph      O2 7000
 ceiling elementary O2 7000
-ceiling core       O3 77000
+ceiling core       O3 93000
 ceiling skinning   O3 14000
-ceiling graph      O3 132000
+ceiling graph      O3 133000
 ceiling ik         O3 34000
 ceiling bodyik     O3 32000
 ceiling springs    O3 31000
@@ -59,9 +59,9 @@ ceiling learned    O3 17000
 ceiling morph      O3 7000
 ceiling elementary O3 8000
 
-ceiling core       O2-avx2 64000
+ceiling core       O2-avx2 68000
 ceiling skinning   O2-avx2 11000
-ceiling graph      O2-avx2 107000
+ceiling graph      O2-avx2 108000
 ceiling ik         O2-avx2 29000
 ceiling bodyik     O2-avx2 26000
 ceiling springs    O2-avx2 27000
@@ -72,7 +72,7 @@ ceiling match      O2-avx2 17000
 ceiling learned    O2-avx2 11000
 ceiling morph      O2-avx2 7000
 ceiling elementary O2-avx2 6000
-ceiling core       O3-avx2 77000
+ceiling core       O3-avx2 87000
 ceiling skinning   O3-avx2 14000
 ceiling graph      O3-avx2 135000
 ceiling ik         O3-avx2 32000

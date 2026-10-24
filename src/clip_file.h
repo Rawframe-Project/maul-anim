@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_CLIP_FORMAT_VERSION      2u
+#define MANI_CLIP_FORMAT_VERSION      3u
 #define MANI_CLIP_SECTIONS            10u
 #define MANI_CLIP_COMPRESSED_SECTIONS 15u
 #define MANI_CLIP_ALL_SECTIONS        16u
@@ -56,26 +56,36 @@ enum
     maniClipTagMarkers = 9,
     // The names' UTF-8 bytes.
     maniClipTagNames = 10,
-    // Compressed: a byte per bone track (2 bits per channel: translation,
-    // rotation, scale, each a maniClipForm; the top 2 bits 3 less the
-    // component a stored rotation leaves out, 0 x to 3 w, so 0 for w),
-    // then one per float track, a maniClipForm.
+    // Compressed: for each kind of bone channel in kind order (rotation,
+    // translation, scale), a bitset of the bone tracks whose channel is
+    // constant, then one of those whose channel is animated (track t at
+    // bit t % 8 of byte t / 8, maniClipBitsetBytes each); then 2 bits
+    // a bone track, 3 less the component its stored rotation leaves out
+    // (0 x to 3 w, so 0 for w; track t at bits 2 (t % 4) of byte t / 4);
+    // then a byte per float track, a maniClipForm (constant or animated).
+    // A channel in its track's mask in neither bitset is the rest.
     maniClipTagForms = 11,
-    // Compressed: the constant sub-tracks' values in track order, three
-    // binary32 for a channel (a rotation's x, y, z with w positive), one
-    // for a float track.
+    // Compressed: the constant sub-tracks' values in kind order (each
+    // kind's in track order, then the float tracks), three binary32 for a
+    // channel (a rotation's kept components, the dropped one positive),
+    // one for a float track.
     maniClipTagConstants = 12,
-    // Compressed: the animated sub-tracks' clip ranges in track order,
-    // minimum and extent per component, binary32.
+    // Compressed: per kind (rotation, translation, scale, then the float
+    // tracks), its animated sub-tracks' clip ranges in blocks of eight in
+    // track order, the last block holding the rest: per component the
+    // block's minimums, then per component its extents, binary32. A block
+    // is one load a component on eight lanes.
     maniClipTagRanges = 13,
     // Compressed: per segment, its first sample, sample count, offset in
     // the segment data, and bits per sample of the bone and of the float
     // sub-tracks (u32 each).
     maniClipTagSegments = 14,
-    // Compressed: per segment, a rate byte per animated sub-track; with
-    // several segments its ranges (per component a minimum and an extent
-    // byte, or a 16-bit value at rate 0); then its samples' bits, sample-
-    // major, least significant bit first. Eight spare bytes end it.
+    // Compressed: per segment, a rate byte per animated sub-track in kind
+    // order; with several segments their ranges in that order (per
+    // component a minimum byte, then per component an extent byte, or a
+    // 16-bit value a component at rate 0); then its samples' bits,
+    // sample-major, each sample's sub-tracks in kind order, least
+    // significant bit first. Eight spare bytes end it.
     maniClipTagSegmentData = 15,
     // Root motion, in either form: its source
     // (MANI_ROOT_MOTION_HEADER_SIZE), the whole-period move, then per
@@ -109,6 +119,48 @@ typedef enum maniClipForm
     maniClipFormConstant = 2,
     maniClipFormAnimated = 3,
 } maniClipForm;
+
+// The kinds of bone channel in the order a compressed clip stores them.
+enum
+{
+    maniClipKindRotation = 0,
+    maniClipKindTranslation = 1,
+    maniClipKindScale = 2,
+    maniClipKinds = 3,
+};
+
+// A kind's channel in a track's mask and its forms (0 translation, 1
+// rotation, 2 scale).
+static inline uint32_t maniClipKindChannel(uint32_t kind)
+{
+    return kind == maniClipKindRotation ? 1u : (kind == maniClipKindTranslation ? 0u : 2u);
+}
+
+// The bytes of one bitset over a clip's bone tracks.
+static inline uint64_t maniClipBitsetBytes(uint32_t tracks)
+{
+    return ((uint64_t)tracks + 7) / 8;
+}
+
+// The forms section's size: two bitsets a kind, the dropped components,
+// a byte a float track.
+static inline uint64_t maniClipFormsSize(uint32_t tracks, uint32_t floatTracks)
+{
+    return 2 * maniClipKinds * maniClipBitsetBytes(tracks) + ((uint64_t)tracks + 3) / 4 +
+           floatTracks;
+}
+
+// The byte offset, in a kind's clip ranges, of the minimum (extent 0) or
+// the extent (1) of component c of the i-th of the kind's n animated
+// sub-tracks of width components: blocks of eight, the last holding the
+// rest.
+static inline uint64_t maniClipRangeAt(uint32_t n, uint32_t width, uint32_t i, uint32_t c,
+                                       uint32_t extent)
+{
+    uint32_t first = i - i % 8;
+    uint32_t lanes = n - first < 8 ? n - first : 8;
+    return 4 * ((uint64_t)first * 2 * width + (uint64_t)(extent * width + c) * lanes + (i - first));
+}
 
 #define MANI_CLIP_SEGMENT_SIZE 20u
 // Segments of about 16 samples; a clip of at most 31 is one segment.

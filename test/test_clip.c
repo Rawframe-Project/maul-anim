@@ -31,7 +31,7 @@
 // The clip scene: the sample clip with root motion, sampled at times
 // across its loop (local poses, float tracks, root motion), and its file;
 // every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x20a6cbba9e21ce2cull
+#define PINNED_SCENE_HASH 0xcfa316750f07be9dull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];

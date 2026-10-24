@@ -24,8 +24,8 @@ Where the targets stand:
 |---|---|---|
 | Compressed size | ACL, Quaternius clips at its default precision | met: about 1.07 of ACL's bytes at a third of its largest error |
 | Compression time | ACL | met: several times faster |
-| Random access sampling | ACL's decompression | not met: about 1.6 to 1.8 times ACL's instructions; the follow-up work on a layout grouped by track kind addresses it |
-| Forward playback | ACL's forward decompression | met with the group cursor (about 0.4 of ACL's instructions); not met by the compact cursor |
+| Random access sampling | ACL's decompression | not met: about 1.3 times ACL's instructions (10,062 a pose against 7,790 on the Quaternius clips; 14,001 before sub-tracks were grouped by kind); the bits are read in scalar code, as the SIMD header has no integer lanes |
+| Forward playback | ACL's forward decompression | met with the group cursor (about a third of ACL's instructions: 2,532 a pose against 7,586); not met by the compact cursor |
 | Two-pose blend, model pass | ozz-animation | not met: the eight-lane kernels still take more instructions than ozz's four lanes with estimated reciprocals; timed runs pending |
 | Two-bone and aim IK | ozz-animation's whole cost to a host | about 1.1 and 2.3 times |
 | CCD and FABRIK | Godot's chain solvers | met at a fraction of its instructions |
