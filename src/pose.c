@@ -106,7 +106,7 @@ bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton)
            pose->identity == skeleton->identity && pose->boneCount == skeleton->boneCount;
 }
 
-static MANI_NOINLINE maniResult InitPoseWork(const maniSkeleton* skeleton, void* memory,
+MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void* memory,
                                              size_t size, maniPose** poseOut)
 {
     if (skeleton == NULL || memory == NULL || poseOut == NULL ||
@@ -140,7 +140,7 @@ maniResult maniInitPose(const maniSkeleton* skeleton, void* memory, size_t size,
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    maniResult result = InitPoseWork(skeleton, memory, size, poseOut);
+    maniResult result = maniInitPoseEntered(skeleton, memory, size, poseOut);
     maniFloatEnvLeave(&env);
     return result;
 }

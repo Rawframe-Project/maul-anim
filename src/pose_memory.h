@@ -67,9 +67,12 @@ bool maniPoseOfSkeleton(const maniPose* pose, uint64_t identity, uint32_t boneCo
 void maniPoseStoreModel(maniPose* pose, uint32_t bone, const maniAffine* model);
 void maniPoseMarkModelCurrent(maniPose* pose);
 
-// The model pass and a bone's model transform for a caller already in
+// A pose made in memory, the model pass and a bone's model transform
+// for a caller already in
 // the library's floating-point environment (fpenv.h): the public calls'
 // workers, without entering it again.
+maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void* memory, size_t size,
+                               maniPose** poseOut);
 maniResult maniComputeModelEntered(maniPose* pose, const maniSkeleton* skeleton);
 maniTransform maniPoseModelTransformEntered(const maniPose* pose, uint32_t bone);
 

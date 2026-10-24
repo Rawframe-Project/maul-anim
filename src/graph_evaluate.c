@@ -99,8 +99,8 @@ static void Prepare(maniGraphEvaluation* e)
     for (uint32_t slot = 0; slot < e->graph->slotCount; ++slot)
     {
         maniPose* pose = NULL;
-        (void)maniInitPose(e->binding->skeleton, maniGraphEvalSlot(e, slot), e->parts.poseSize,
-                           &pose);
+        (void)maniInitPoseEntered(e->binding->skeleton, maniGraphEvalSlot(e, slot),
+                                  e->parts.poseSize, &pose);
     }
     *head = (Head){SCRATCH_STAMP, e->graph->slotCount, e->binding, e->graph->identity};
 }
@@ -313,9 +313,9 @@ static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPa
     if (!maniPoseMatches(poses[0], pair->source) || !maniPoseMatches(poses[1], pair->source) ||
         !maniPoseMatches(poses[2], skeleton))
     {
-        (void)maniInitPose(pair->source, poses[0], sourceSize, &poses[0]);
-        (void)maniInitPose(pair->source, poses[1], sourceSize, &poses[1]);
-        (void)maniInitPose(skeleton, poses[2], e->parts.poseSize, &poses[2]);
+        (void)maniInitPoseEntered(pair->source, poses[0], sourceSize, &poses[0]);
+        (void)maniInitPoseEntered(pair->source, poses[1], sourceSize, &poses[1]);
+        (void)maniInitPoseEntered(skeleton, poses[2], e->parts.poseSize, &poses[2]);
     }
     size_t size = e->binding->retargetScratchSize;
     (void)maniSampleClipCursorEntered(c, clip, pair->source, time, poses[0]);
