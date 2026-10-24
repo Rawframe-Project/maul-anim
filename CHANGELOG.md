@@ -5,6 +5,22 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.0.1](https://github.com/Rawframe-Project/maul-anim/compare/v0.0.1...v0.0.1) (2026-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compress:** maniCompressClip no longer counts a misuse (maniBuilderMisuses) for a compressed clip or a clip of another skeleton. Bad untrusted data counts none, so whoever controls a file cannot move the counter that reports bugs in the calling code.
+
+### Fixed
+
+* **compress:** a clip's own state counts no misuse ([#5](https://github.com/Rawframe-Project/maul-anim/issues/5)) ([db65d4e](https://github.com/Rawframe-Project/maul-anim/commit/db65d4eb512504d3bb4885147fae54edc22fd108))
+
+
+### CI
+
+* **build:** shared workflows, presets, check tiers and a nightly run ([#4](https://github.com/Rawframe-Project/maul-anim/issues/4)) ([ff02405](https://github.com/Rawframe-Project/maul-anim/commit/ff02405713670fa6bea86b24d2456f25f68325ed)), closes [#1](https://github.com/Rawframe-Project/maul-anim/issues/1)
+
 ## 0.0.1
 
 The first release: skeletal animation from import to the skinned
