@@ -140,7 +140,7 @@ static double Lever(const ufbx_skin_deformer* skin, uint32_t v, ufbx_vec3 point)
     return lever;
 }
 
-// Our skinned control points at a pose (in the skeleton's placement)
+// Maul Anim's skinned control points at a pose (in the skeleton's placement)
 // against ufbx's skin, in the scene evaluated at the same time; the first vertex that differs,
 // UINT32_MAX for none, or the vertex count when nothing could be skinned.
 static uint32_t CompareSkinned(const Context* c, uint32_t k, const maniSkin* skin,
@@ -304,8 +304,8 @@ void CompareSkinsAt(Context* c, uint32_t clip, const maniPose* pose, const ufbx_
     }
 }
 
-// The ufbx mesh node our set m deforms, and the set's blend deformer: the
-// mesh's of the same rank among our sets on it.
+// The ufbx mesh node Maul Anim's set m deforms, and the set's blend deformer: the
+// mesh's of the same rank among Maul Anim's sets on it.
 static ufbx_blend_deformer* TheirBlend(const Context* c, uint32_t m, const ufbx_node** nodeOut)
 {
     uint32_t length = 0;
@@ -330,7 +330,7 @@ static bool KeptKey(const ufbx_blend_channel* channel, size_t k)
            channel->keyframes.data[k].target_weight != channel->keyframes.data[k - 1].target_weight;
 }
 
-// Our target t against a keyframe: name, full weight and offsets;
+// Maul Anim's target t against a keyframe: name, full weight and offsets;
 // positions are scratch for 2 times the vertices.
 static bool SameTarget(const maniMorphTargets* ours, uint32_t t, const ufbx_blend_channel* channel,
                        size_t k, float* weights, float* positions, ufbx_vec3* expected)
@@ -359,7 +359,7 @@ static bool SameTarget(const maniMorphTargets* ours, uint32_t t, const ufbx_blen
     return same;
 }
 
-// Our targets against the blend deformer's channels; the first target
+// Maul Anim's targets against the blend deformer's channels; the first target
 // that differs, or UINT32_MAX.
 static uint32_t CompareTargets(const maniMorphTargets* ours, const ufbx_blend_deformer* blend,
                                const float* rest)

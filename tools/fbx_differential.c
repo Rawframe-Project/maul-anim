@@ -438,7 +438,7 @@ static bool Meshless(const ufbx_scene* scene, const ufbx_skin_deformer* skin)
     return true;
 }
 
-// The ufbx mesh node our skin k hangs from, or NULL when ufbx has none
+// The ufbx mesh node Maul Anim's skin k hangs from, or NULL when ufbx has none
 // there (no model, or a model without a mesh).
 static const ufbx_node* SkinMesh(const Context* c, uint32_t k)
 {
@@ -449,7 +449,7 @@ static const ufbx_node* SkinMesh(const Context* c, uint32_t k)
     return node != NULL && node->mesh != NULL ? node : NULL;
 }
 
-// The ufbx skin deformer our skin k stands for: its mesh's deformer of
+// The ufbx skin deformer Maul Anim's skin k stands for: its mesh's deformer of
 // the same rank among the mesh's skins, or for a skin ufbx places on no
 // mesh, its skin of no mesh of the same rank; the mesh into meshOut.
 ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k, const ufbx_node** meshOut)
@@ -508,7 +508,7 @@ static ufbx_matrix TheirBind(const ufbx_skin_cluster* cluster, const ufbx_node* 
     return ufbx_matrix_mul(&inverse, &geometry);
 }
 
-// Our joint j's cluster: the j-th that links a bone.
+// The cluster of Maul Anim's joint j: the j-th that links a bone.
 static ufbx_skin_cluster* TheirCluster(ufbx_skin_deformer* skin, uint32_t j)
 {
     for (size_t i = 0; i < skin->clusters.count; ++i)
