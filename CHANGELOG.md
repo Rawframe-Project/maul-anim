@@ -5,23 +5,7 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
-## [0.0.1](https://github.com/Rawframe-Project/maul-anim/compare/v0.0.1...v0.0.1) (2026-10-24)
-
-
-### ⚠ BREAKING CHANGES
-
-* **compress:** maniCompressClip no longer counts a misuse (maniBuilderMisuses) for a compressed clip or a clip of another skeleton. Bad untrusted data counts none, so whoever controls a file cannot move the counter that reports bugs in the calling code.
-
-### Fixed
-
-* **compress:** a clip's own state counts no misuse ([#5](https://github.com/Rawframe-Project/maul-anim/issues/5)) ([db65d4e](https://github.com/Rawframe-Project/maul-anim/commit/db65d4eb512504d3bb4885147fae54edc22fd108))
-
-
-### CI
-
-* **build:** shared workflows, presets, check tiers and a nightly run ([#4](https://github.com/Rawframe-Project/maul-anim/issues/4)) ([ff02405](https://github.com/Rawframe-Project/maul-anim/commit/ff02405713670fa6bea86b24d2456f25f68325ed)), closes [#1](https://github.com/Rawframe-Project/maul-anim/issues/1)
-
-## 0.0.1
+## [0.0.1](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.0.1) (2026-10-24)
 
 The first release: skeletal animation from import to the skinned
 vertex, with the same results on every platform, compiler and SIMD
@@ -71,6 +55,10 @@ backend, and no allocation at run time.
   `KHR_animation_pointer`, `VRMC_springBone` and the `OMI_physics_*`
   extensions) and FBX import (binary and ASCII, versions 3000 to 7700):
   skeletons, skins, influences, morph targets and clips.
+- Validation of every file, JSON text and saved state as it is opened,
+  in every build: bad data is refused with a status and the offset of
+  the first wrong byte, and counts no misuse on the builder; a misuse
+  count reports only calls a correct program never makes.
 - A CPU check for the AVX2 build, a portable scalar build with the same
   results, a CMake package and a pkg-config module.
 - Support for Linux on x86-64 and arm64, macOS, Windows with
