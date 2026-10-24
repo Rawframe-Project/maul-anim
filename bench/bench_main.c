@@ -7,7 +7,8 @@
 // pass, a graph's update and evaluation, a motion database search, a
 // spring step and apply, the IK solvers, the skin's palette and its
 // linear and dual quaternion jobs over the whole mesh, and the morph
-// targets over it. Prints the build's backend, then each case's best
+// targets over it, and opening a full clip, a compressed clip and the
+// motion database again. Prints the build's backend, then each case's best
 // of five runs in nanoseconds a call. Given case names, runs only those;
 // --list prints the names; --count with a case and a number of calls
 // runs only those calls, for an instruction counter (the scenes' build
@@ -242,6 +243,36 @@ static void Morph(BenchScenes* s, uint32_t n)
     }
 }
 
+// Opening the scenes' files again: a full clip, a compressed clip and
+// the motion database, each checked whole as every open is.
+static void OpenFull(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniClip clip;
+        Must(maniOpenClip(s->clipFile, s->clipFileSize, &clip).result, "an open");
+    }
+}
+
+static void OpenCompressed(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniClip clip;
+        Must(maniOpenClip(s->compressedFile, s->compressedFileSize, &clip).result, "an open");
+    }
+}
+
+static void OpenDatabase(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniMotionDatabase database;
+        Must(maniOpenMotionDatabase(s->databaseFile, s->databaseFileSize, &database).result,
+             "an open");
+    }
+}
+
 typedef struct Case
 {
     const char* name;
@@ -268,6 +299,9 @@ static const Case kCases[] = {
     {"skin.linear", SkinLinear, 40},
     {"skin.dualquat", SkinDual, 40},
     {"morph.apply", Morph, 40},
+    {"open.clip", OpenFull, 400},
+    {"open.clip.compressed", OpenCompressed, 400},
+    {"open.database", OpenDatabase, 100},
 };
 
 #define CASE_COUNT (sizeof kCases / sizeof kCases[0])

@@ -183,24 +183,19 @@ static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
     return any;
 }
 
-static MANI_NOINLINE maniResult BlendPosesWork(const maniSkeleton* skeleton,
-                                               const maniBlendLayer* layers, uint32_t count,
-                                               float threshold, maniPose* out)
-{
-    return maniBlendPosesIn(skeleton, layers, count, threshold, out, NULL);
-}
-
 maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
                           uint32_t count, float threshold, maniPose* out)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = BlendPosesWork(skeleton, layers, count, threshold, out);
+    maniResult result = maniBlendPosesIn(skeleton, layers, count, threshold, out, NULL);
     maniFloatEnvLeave(env);
     return result;
 }
 
-maniResult maniBlendPosesIn(const maniSkeleton* skeleton, const maniBlendLayer* layers,
-                            uint32_t count, float threshold, maniPose* out, const uint8_t* groups)
+// The public call's worker as well as the graph's.
+MANI_NOINLINE maniResult maniBlendPosesIn(const maniSkeleton* skeleton,
+                                          const maniBlendLayer* layers, uint32_t count,
+                                          float threshold, maniPose* out, const uint8_t* groups)
 {
     bool difference = false;
     if (!Valid(skeleton, layers, count, threshold, out, &difference))

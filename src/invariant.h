@@ -19,4 +19,15 @@
 #define MANI_ASSERT(condition) ((condition) ? (void)0 : __builtin_trap())
 #endif
 
+// MANI_COLD marks a function that runs once for a file or a saved state
+// (opening, checking, restoring) rather than every frame: GCC and Clang
+// compile it for size and treat calls to it as unlikely. A hint to the
+// optimizer only, which changes no result (the build allows no fast math
+// and no contraction); empty on MSVC.
+#if defined(__GNUC__) || defined(__clang__)
+#define MANI_COLD __attribute__((cold))
+#else
+#define MANI_COLD
+#endif
+
 #endif // MAUL_ANIM_SRC_INVARIANT_H
