@@ -9,8 +9,9 @@
 // mask weight 0 passes and one at 0.5 turns twice as far, a speed
 // parameter of 0 or below holds and the largest passes; the reset
 // trigger, a seek above and an update that did not reach the node take
-// the input again; two updates to an evaluation, one backward, add their
-// times; a saved state restores to the same motion and its block is
+// the input again; a subset plan, on a chain and on a branching skeleton
+// whose plan skips a branch, turns only its listed bones; two updates to
+// an evaluation, one backward, add their times; a saved state restores to the same motion and its block is
 // checked; the builder's refusals and opening's checks of the words; the
 // JSON form written and read back; a subgraph's parameters carried; a
 // file of format 4 still opens; inspection gives its share. Run as
@@ -354,6 +355,104 @@ static void TestSubset(void)
           "the spine turns from what it last had by this update's budget");
 }
 
+// A skeleton that branches at the hips: the spine and the arm on it, and
+// a leg and its foot. A plan of the foot lists the hips, the leg and the
+// foot, skipping the spine and the arm: only the listed bones turn under
+// it, and the skipped ones turn from what they last had at the next whole
+// evaluation, by that update's budget alone.
+static _Alignas(16) uint8_t s_branchedFile[2048];
+static maniSkeleton s_branched;
+static _Alignas(32) uint8_t s_branchedPoses[3][4096];
+
+static maniPose* BranchedPose(int k)
+{
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_branched, s_branchedPoses[k], sizeof s_branchedPoses[k], &pose) ==
+              mani_success,
+          "a pose");
+    return pose;
+}
+
+// Every bone of the branched skeleton at its rest, turned by q.
+static void BranchedBody(Made* m, maniQuat q)
+{
+    maniPose* body = BranchedPose(2);
+    CHECK(maniPoseSetRest(body, &s_branched) == mani_success, "the rest");
+    for (uint32_t b = 0; b < 5; ++b)
+    {
+        maniTransform t = maniPoseLocal(body, b);
+        t.rotation = q;
+        maniPoseSetLocal(body, b, t);
+    }
+    CHECK(maniSetGraphPose(m->live, 0, body) == mani_success, "the body set");
+}
+
+static void TestSubsetBranch(void)
+{
+    static const maniBoneSource kBranched[5] = {
+        {"hips", 4, -1, {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
+        {"spine", 5, 0, {{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
+        {"arm", 3, 1, {{0.3f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
+        {"leg", 3, 0, {{0.1f, -0.5f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
+        {"foot", 4, 3, {{0.0f, -0.4f, 0.1f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource skeleton = {kBranched, 5, 0};
+    size_t size = 0;
+    CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
+              maniCopyBuilt(builder, s_branchedFile, sizeof s_branchedFile, &size) ==
+                  mani_success &&
+              maniOpenSkeleton(s_branchedFile, size, &s_branched).result == mani_success,
+          "a branching skeleton");
+    maniDestroyBuilder(builder);
+    maniGraphSource source = TurnGraph(kTurn);
+    source.skeleton = &s_branched;
+    source.clips = NULL;
+    source.clipCount = 0;
+    Made* m = &s_made[0];
+    maniGraphAssets assets = {.skeleton = &s_branched};
+    CHECK(Build(&source, m).result == mani_success &&
+              maniOpenGraph(m->file, m->size, &m->graph).result == mani_success &&
+              maniBindGraph(&m->graph, &assets, m->binding, sizeof m->binding, &m->bound, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(m->bound, m->instance, sizeof m->instance, &m->live) ==
+                  mani_success &&
+              maniGraphScratchSize(m->bound) <= sizeof s_scratch,
+          "a graph over the branching skeleton");
+    maniPose* out = BranchedPose(0);
+    maniQuat start = About(0.0f, 1.0f, 0.0f, 0.3f);
+    maniQuat goal = About(0.0f, 0.0f, 1.0f, 1.2f);
+    BranchedBody(m, start);
+    CHECK(Evaluated(m, 0.1f, out), "a frame");
+    const uint32_t foot[1] = {4};
+    maniGraphSubset* plan = NULL;
+    CHECK(maniGraphSubsetSize(m->bound) <= sizeof s_plan &&
+              maniPlanGraphSubset(m->bound, foot, 1, s_plan, sizeof s_plan, &plan) == mani_success,
+          "a plan of the foot");
+    BranchedBody(m, goal);
+    CHECK(maniUpdateGraph(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+              maniEvaluateGraphSubset(m->live, plan, s_scratch, sizeof s_scratch, out) ==
+                  mani_success,
+          "an update evaluated under the plan");
+    bool listed = true;
+    const uint32_t kListed[3] = {0, 3, 4};
+    for (int k = 0; k < 3; ++k)
+    {
+        listed = listed && fabs(Angle(start, maniPoseLocal(out, kListed[k]).rotation) - 0.1) < 2e-6;
+    }
+    CHECK(listed, "the hips, the leg and the foot turned by the update's budget");
+    CHECK(Same(maniPoseLocal(out, 1).rotation, start) &&
+              Same(maniPoseLocal(out, 2).rotation, start),
+          "the spine and the arm, skipped, as they were");
+    CHECK(Evaluated(m, 0.1f, out), "a whole evaluation");
+    bool whole = true;
+    for (uint32_t b = 0; b < 5; ++b)
+    {
+        double want = b == 1 || b == 2 ? 0.1 : 0.2;
+        whole = whole && fabs(Angle(start, maniPoseLocal(out, b).rotation) - want) < 4e-6;
+    }
+    CHECK(whole, "the skipped bones turn from what they last had by this update's budget");
+}
+
 static void TestSaved(void)
 {
     maniGraphSource source = TurnGraph(kTurn);
@@ -608,6 +707,7 @@ int main(int argc, char** argv)
     TestStep();
     TestMask();
     TestSubset();
+    TestSubsetBranch();
     TestSaved();
     TestRefusals();
     TestOpen();
