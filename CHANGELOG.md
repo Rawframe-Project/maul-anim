@@ -10,7 +10,7 @@ may change the API, the ABI and every data format.
 ### Changed
 
 - The runtime's core (sampling, blending, the model pass, skeletons and
-  root motion) is about 1.1 KB smaller at `-O2` with GCC: 68,498 bytes,
+  root motion) is about 1.0 KB smaller at `-O2` with GCC: 68,562 bytes,
   against ozz-animation's 69,698. The skeleton's opener and the file
   checks are compiled for size under GCC and Clang. With GCC, opening a
   skeleton takes about 7% more instructions and opening a compressed
