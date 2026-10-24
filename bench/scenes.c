@@ -194,16 +194,19 @@ static void MakeRig(Rig* rig)
           (maniVec3){0.0f, 0.0f, -0.08f});
 }
 
-static bool BuildSkeleton(maniBuilder* builder, const Rig* rig, maniSkeleton* skeleton)
+static bool BuildSkeleton(maniBuilder* builder, const Rig* rig, BenchScenes* scenes)
 {
     maniSkeletonSource source = {rig->bones, rig->count, 0};
     void* file = NULL;
     size_t size = 0;
+    maniSkeleton* skeleton = &scenes->skeleton;
     if (!Keep(builder, maniBuildSkeleton(builder, &source), "the skeleton", &file, &size) ||
         !Opened(maniOpenSkeleton(file, size, skeleton), "the skeleton"))
     {
         return false;
     }
+    scenes->skeletonFile = file;
+    scenes->skeletonFileSize = size;
     // The builder keeps a depth-first order as it is.
     return (maniSkeletonBoneCount(skeleton) == BENCH_BONES &&
             maniSkeletonFindBone(skeleton, "tail8", 5) == boneTailEnd &&
@@ -230,7 +233,7 @@ static void Turn(double a, double b, bool heading, float* out)
 // clip's, swaying and bobbing, and turn their heading, which root motion
 // takes out.
 static bool BuildClip(maniBuilder* builder, const maniSkeleton* skeleton, uint32_t c, float* keys,
-                      maniClip* clip)
+                      maniClip* clip, void** fileOut, size_t* sizeOut)
 {
     static float times[SAMPLES];
     static const float kHold[2] = {0.0f, BENCH_DURATION};
@@ -288,10 +291,8 @@ static bool BuildClip(maniBuilder* builder, const maniSkeleton* skeleton, uint32
                              .sampleRate = RATE,
                              .duration = BENCH_DURATION,
                              .rootMotion = &root};
-    void* file = NULL;
-    size_t size = 0;
-    return Keep(builder, maniBuildClip(builder, &source), "a clip", &file, &size) &&
-           Opened(maniOpenClip(file, size, clip), "a clip");
+    return Keep(builder, maniBuildClip(builder, &source), "a clip", fileOut, sizeOut) &&
+           Opened(maniOpenClip(*fileOut, *sizeOut, clip), "a clip");
 }
 
 static bool BuildClips(maniBuilder* builder, BenchScenes* scenes)
@@ -305,15 +306,25 @@ static bool BuildClips(maniBuilder* builder, BenchScenes* scenes)
     maniCompressOptions options = maniDefaultCompressOptions();
     for (uint32_t c = 0; c < BENCH_CLIPS && built; ++c)
     {
+        void* fullFile = NULL;
+        size_t fullSize = 0;
         void* file = NULL;
         size_t size = 0;
-        built = BuildClip(builder, &scenes->skeleton, c, keys, &scenes->full[c]) &&
+        built = BuildClip(builder, &scenes->skeleton, c, keys, &scenes->full[c], &fullFile,
+                          &fullSize) &&
                 Keep(builder,
                      (maniBuildResult){maniCompressClip(builder, &scenes->full[c],
                                                         &scenes->skeleton, &options, NULL),
                                        0, 0, 0},
                      "a compression", &file, &size) &&
                 Opened(maniOpenClip(file, size, &scenes->compressed[c]), "a compressed clip");
+        if (built && c == 0)
+        {
+            scenes->clipFile = fullFile;
+            scenes->clipFileSize = fullSize;
+            scenes->compressedFile = file;
+            scenes->compressedFileSize = size;
+        }
     }
     free(keys);
     return built;
@@ -405,6 +416,8 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     {
         return false;
     }
+    scenes->databaseFile = file;
+    scenes->databaseFileSize = size;
     // Each query is a frame's raw features, nudged, continuing the frame
     // before it: frames spread over the database.
     const maniMotionDatabase* d = &scenes->database;
@@ -698,7 +711,7 @@ bool BenchBuild(BenchScenes* scenes)
     {
         return Fail("the builder");
     }
-    bool built = BuildSkeleton(builder, &rig, &scenes->skeleton) && BuildClips(builder, scenes) &&
+    bool built = BuildSkeleton(builder, &rig, scenes) && BuildClips(builder, scenes) &&
                  BuildGraph(builder, scenes) && BuildDatabase(builder, scenes) &&
                  BuildSprings(builder, scenes) && BuildSkin(builder, &rig, scenes) &&
                  BuildMorphs(builder, scenes) && Prepare(scenes);

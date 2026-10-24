@@ -7,8 +7,9 @@
 // pass, a graph's update and evaluation, a motion database search, a
 // spring step and apply, the IK solvers, the skin's palette and its
 // linear and dual quaternion jobs over the whole mesh, and the morph
-// targets over it. Prints the build's backend, then each case's best
-// of five runs in nanoseconds a call. Given case names, runs only those;
+// targets over it, building a mask, and opening the skeleton, a full
+// clip, a compressed clip and the motion database again. Prints the build's backend, then each
+// case's best of five runs in nanoseconds a call. Given case names, runs only those;
 // --list prints the names; --count with a case and a number of calls
 // runs only those calls, for an instruction counter (the scenes' build
 // is the same for any number, so two counts' difference over the
@@ -242,6 +243,59 @@ static void Morph(BenchScenes* s, uint32_t n)
     }
 }
 
+// Opening the scenes' files again: the skeleton, a full clip, a
+// compressed clip and the motion database, each checked whole as every
+// open is.
+static void OpenSkeleton(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniSkeleton skeleton;
+        Must(maniOpenSkeleton(s->skeletonFile, s->skeletonFileSize, &skeleton).result, "an open");
+    }
+}
+
+static void OpenFull(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniClip clip;
+        Must(maniOpenClip(s->clipFile, s->clipFileSize, &clip).result, "an open");
+    }
+}
+
+static void OpenCompressed(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniClip clip;
+        Must(maniOpenClip(s->compressedFile, s->compressedFileSize, &clip).result, "an open");
+    }
+}
+
+static void OpenDatabase(BenchScenes* s, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniMotionDatabase database;
+        Must(maniOpenMotionDatabase(s->databaseFile, s->databaseFileSize, &database).result,
+             "an open");
+    }
+}
+
+// A mask of the rig (bones 2, 5 and 55 of scenes.c): the spine's subtree
+// at a half, the head alone at a quarter, the tail's subtree off, every
+// other bone whole.
+static void BuildMask(BenchScenes* s, uint32_t n)
+{
+    static const maniMaskChain kChains[3] = {{2, 0.5f, true}, {5, 0.25f, false}, {55, 0.0f, true}};
+    float weights[BENCH_BONES];
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        Must(maniBuildMask(&s->skeleton, kChains, 3, 1.0f, weights, BENCH_BONES), "a mask");
+    }
+}
+
 typedef struct Case
 {
     const char* name;
@@ -268,6 +322,11 @@ static const Case kCases[] = {
     {"skin.linear", SkinLinear, 40},
     {"skin.dualquat", SkinDual, 40},
     {"morph.apply", Morph, 40},
+    {"mask.build", BuildMask, 8000},
+    {"open.skeleton", OpenSkeleton, 4000},
+    {"open.clip", OpenFull, 400},
+    {"open.clip.compressed", OpenCompressed, 400},
+    {"open.database", OpenDatabase, 100},
 };
 
 #define CASE_COUNT (sizeof kCases / sizeof kCases[0])

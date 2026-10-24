@@ -25,7 +25,8 @@
 // the program checks for every query. For each, it prints both searches'
 // user instructions a query (Linux, from the kernel's counter) and
 // nanoseconds a query (the best of three passes), and each index's
-// bytes. --leaf sets both trees' leaf size (16 by default); --frames
+// bytes; before each database's rows, the user instructions of opening
+// it, which checks every byte. --leaf sets both trees' leaf size (16 by default); --frames
 // limits the sizes to those up to a count.
 
 #ifdef __linux__
@@ -968,6 +969,17 @@ int main(int argc, char** argv)
             {
                 continue;
             }
+            // Opening it again, which checks every byte.
+            StartCounter();
+            maniFileResult reopened = maniOpenMotionDatabase(file, bytes, &d);
+            uint64_t opening = StopCounter();
+            if (reopened.result != mani_success)
+            {
+                Stop("a database");
+            }
+            printf("# open: %u frames, %u features, %zu bytes: %llu instructions\n",
+                   (unsigned)d.frameCount, (unsigned)d.featureCount, bytes,
+                   (unsigned long long)opening);
             Tree tree;
             BuildTree(&tree, &d, leaf);
             // The library's index: each node's box and record, each
