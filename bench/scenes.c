@@ -639,8 +639,9 @@ static bool Prepare(BenchScenes* scenes)
 {
     const maniSkeleton* skeleton = &scenes->skeleton;
     size_t poseSize = maniPoseSize(skeleton);
-    maniPose** poses[3] = {&scenes->pose, &scenes->layers[0], &scenes->layers[1]};
-    for (uint32_t k = 0; k < 3; ++k)
+    maniPose** poses[5] = {&scenes->pose, &scenes->layers[0], &scenes->layers[1],
+                           &scenes->handLayers[0], &scenes->handLayers[1]};
+    for (uint32_t k = 0; k < 5; ++k)
     {
         void* memory = Take(poseSize);
         if (memory == NULL || maniInitPose(skeleton, memory, poseSize, poses[k]) != mani_success)
@@ -655,9 +656,13 @@ static bool Prepare(BenchScenes* scenes)
         cursorSize = each > cursorSize ? each : cursorSize;
     }
     void* cursorMemory = Take(cursorSize);
+    void* handMemory[2] = {Take(cursorSize), Take(cursorSize)};
     scenes->locals = Take(BENCH_BONES * sizeof(maniTransform));
-    if (cursorMemory == NULL || scenes->locals == NULL ||
+    if (cursorMemory == NULL || handMemory[0] == NULL || handMemory[1] == NULL ||
+        scenes->locals == NULL ||
         maniInitClipCursor(cursorMemory, cursorSize, &scenes->cursor) != mani_success ||
+        maniInitClipCursor(handMemory[0], cursorSize, &scenes->handCursors[0]) != mani_success ||
+        maniInitClipCursor(handMemory[1], cursorSize, &scenes->handCursors[1]) != mani_success ||
         maniSampleClip(&scenes->full[0], skeleton, 1.0f, scenes->layers[0]) != mani_success ||
         maniSampleClip(&scenes->full[1], skeleton, 1.0f, scenes->layers[1]) != mani_success ||
         maniPoseReadLocals(scenes->layers[0], 0, BENCH_BONES, scenes->locals) != mani_success ||

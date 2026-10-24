@@ -458,6 +458,7 @@ if(MAUL_ANIM_DIFFERENTIAL)
         src/base/maths/simd_math_archive.cc src/base/maths/soa_math_archive.cc
         src/base/maths/math_archive.cc src/base/maths/simd_math.cc
         src/animation/runtime/skeleton.cc src/animation/runtime/blending_job.cc
+        src/animation/runtime/local_to_model_job.cc
         src/animation/offline/raw_skeleton.cc src/animation/offline/skeleton_builder.cc)
     list(TRANSFORM MAUL_OZZ_SOURCES PREPEND ${ozz_SOURCE_DIR}/)
     add_executable(ozz_differential tools/ozz_differential.cc ${MAUL_OZZ_SOURCES})

@@ -87,9 +87,11 @@ Programs built with `-DMAUL_ANIM_DIFFERENTIAL=ON` compare the library with other
 |---|---|---|
 | `fbx_differential` | ufbx: skeletons, skins, clips and weights; known deviations in `tools/fbx-deviations.txt` | ufbx's corpus at the pinned commit (`_deps/ufbx-src/data` in the build tree) |
 | `acl_differential` | ACL: compressed size, error and time | ozz-animation's Quaternius `ual.fbx`, checked by hash |
-| `ozz_differential` | ozz-animation's blending job | the same clips |
-| `ik_differential` | ozz-animation's two-bone and aim jobs | a million random chains |
+| `ozz_differential` | ozz-animation's blending and model pass jobs: results, instructions and time | the same clips |
+| `ik_differential` | ozz-animation's two-bone and aim jobs: results, then instructions and time against the jobs alone and their whole cost to a host; Maul Anim's CCD and FABRIK timed alone | 100,000 random chains |
 | `retarget_godot` with `tools/retarget_godot.gd` | Godot 4.7.2's RetargetModifier3D, run headless | 500 random poses of two humanoids |
+
+Each timing program takes a last argument that runs one side alone (`acl_differential`'s loop, `ozz_differential`'s side, `ik_differential`'s only), so a side's user instructions a call are the difference of two runs with different repetitions under `perf stat -e instructions:u`, which the machine's load does not change; [size-and-performance.md](../internals/size-and-performance.md#speed) gives the counts and how they were taken. `tools/ozz_runtime_size.sh <ozz source>` measures ozz-animation's runtime at the commit the differentials pin, the size the core is held to.
 
 To refresh the FBX fixtures' expected values after a change ufbx agrees with:
 
@@ -104,7 +106,7 @@ A disagreement is a defect in the library, or a deviation decided and listed wit
 
 ## Benchmarks
 
-`bench/` times the calls a host makes every frame on fixed scenes built at its start (`bench/scenes.c`): a rig of 64 bones; 16 clips of 10 s at 30 samples a second, full and compressed; a graph blending two clips; a motion database of their 4,800 frames; spring chains on the hair and a tail; the IK solvers; a skin of 20,000 vertices of four influences; and 32 morph targets over the same mesh. It needs `MAUL_ANIM_OFFLINE`, as the scenes are built by the builders.
+`bench/` times the calls a host makes every frame on fixed scenes built at its start (`bench/scenes.c`): a rig of 64 bones; 16 clips of 10 s at 30 samples a second, full and compressed; a graph blending two clips; a motion database of their 4,800 frames; spring chains on the hair and a tail; the IK solvers; a skin of 20,000 vertices of four influences; and 32 morph targets over the same mesh. Beside those calls it counts a frame of the graph against the same samples and blend made by hand (`graph.frame`, `graph.byhand`), building a mask, and opening the skeleton, a clip, a compressed clip and the motion database. It needs `MAUL_ANIM_OFFLINE`, as the scenes are built by the builders.
 
 ```sh
 cmake --preset linux-clang-20 && cmake --build --preset linux-clang-20 --target maul-anim_bench

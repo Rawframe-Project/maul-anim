@@ -8,7 +8,8 @@
 # what the bytes buy (docs/internals/size-and-performance.md).
 #
 # The core is the measure against ozz-animation's runtime (69,698
-# bytes at -O2, 74,225 at -O3, its animation and base libraries):
+# bytes at -O2, 74,225 at -O3, its animation and base libraries, as
+# tools/ozz_runtime_size.sh measures them):
 # sampling, blending, the model pass and palettes, with skeletons and
 # root motion. Skinning is a part of its own, as ozz's skinning job is in
 # its geometry library, outside that measure.

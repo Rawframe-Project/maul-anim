@@ -63,6 +63,11 @@ typedef struct BenchScenes
     // compressed clip.
     maniPose* pose;
     maniPose* layers[2];
+    // The graph's two clips sampled by hand through cursors of their own,
+    // as the graph samples them, and the time they are at.
+    maniPose* handLayers[2];
+    maniClipCursor* handCursors[2];
+    float handTime;
     maniTransform* locals;
     maniClipCursor* cursor;
     // The solves, toward goals near where the first pose puts the foot,

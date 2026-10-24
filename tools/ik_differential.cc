@@ -16,10 +16,15 @@
 // 2e-3 for softened goals (ozz softens with reciprocal estimates of about 12 bits), when "reached"
 // differs, or when Maul Anim's own error passes 1e-5.
 //
-// Then times both: nanoseconds a two-bone solve and an aim take; then
-// Maul Anim's CCD and FABRIK chains alone.
+// Then times both: nanoseconds a two-bone solve and an aim take, ozz's
+// as its job alone and as its whole cost to a host that has the locals
+// (the chain's model pass, the job, the corrections applied); then Maul
+// Anim's CCD and FABRIK chains alone.
 //
-// usage: ik_differential [cases [timing repetitions]]
+// usage: ik_differential [cases [timing repetitions [only]]]: only 0 to 7
+//        runs one timed loop alone, for counting instructions (Maul Anim's
+//        two-bone, ozz's job, ozz's whole cost, the same three for the
+//        aim, then CCD and FABRIK).
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -319,17 +324,57 @@ double Now()
 // A sink the timed loops write to, so no solve is dropped.
 volatile float g_sink = 0.0f;
 
+// A chain's locals as an ozz host keeps them, root first.
+struct OzzLocals
+{
+    ozz::math::SimdFloat4 translation[4];
+    ozz::math::SimdQuaternion rotation[4];
+    ozz::math::SimdFloat4 scale[4];
+};
+
+OzzLocals ToOzzLocals(const maniPose* pose)
+{
+    OzzLocals l;
+    for (uint32_t b = 0; b < 4; ++b)
+    {
+        maniTransform t = maniPoseLocal(pose, b);
+        l.translation[b] =
+            ozz::math::simd_float4::Load(t.translation.x, t.translation.y, t.translation.z, 0.0f);
+        l.rotation[b] = {
+            ozz::math::simd_float4::Load(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w)};
+        l.scale[b] = ozz::math::simd_float4::Load(t.scale.x, t.scale.y, t.scale.z, 0.0f);
+    }
+    return l;
+}
+
+// The model pass an ozz host runs over the chain before an IK job, with
+// ozz's own affine maths.
+void OzzModels(const OzzLocals& l, ozz::math::Float4x4 models[4])
+{
+    for (int b = 0; b < 4; ++b)
+    {
+        ozz::math::Float4x4 local =
+            ozz::math::Float4x4::FromAffine(l.translation[b], l.rotation[b].xyzw, l.scale[b]);
+        models[b] = b == 0 ? local : models[b - 1] * local;
+    }
+}
+
 // Nanoseconds a solve takes, over 256 random chains with goals in reach
 // repeated reps times: Maul Anim's from the pose's locals (composing the
-// root path itself), ozz's jobs on model matrices computed before the
-// clock starts (their caller's model pass not counted). The two-bone
-// solve, then an aim at the end bone.
-void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
+// root path itself and writing the locals back); ozz's jobs alone, on
+// model matrices computed before the clock starts; and ozz's whole cost
+// to a host, which has the same locals: the chain's model pass, the job,
+// and its corrections multiplied into the locals. The two-bone solve,
+// then an aim at the end bone. only, from 0 to 5, runs one loop alone
+// for an instruction counter: Maul Anim's two-bone, ozz's job, ozz's
+// whole cost, then the same three for the aim.
+void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps, int only)
 {
     constexpr int kCases = 256;
     static maniTwoBoneSolve twoBone[kCases];
     static maniAimSolve aim[kCases];
     static ozz::math::Float4x4 models[kCases][3];
+    static OzzLocals locals[kCases];
     for (int c = 0; c < kCases; ++c)
     {
         maniTransform t = maniPoseLocal(pose, 2);
@@ -343,6 +388,7 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
         {
             models[c][b] = ToOzz(maniPoseModel(pose, b + 1));
         }
+        locals[c] = ToOzzLocals(pose);
         maniVec3 start = Position(pose, skeleton, 1);
         maniVec3 d = Direction();
         float reach = Spread(0.2f, 0.9f);
@@ -353,7 +399,7 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
     }
     float sink = 0.0f;
     double t0 = Now();
-    for (long r = 0; r < reps; ++r)
+    for (long r = 0; (only < 0 || only == 0) && r < reps; ++r)
     {
         for (int c = 0; c < kCases; ++c)
         {
@@ -363,7 +409,7 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
     }
     double oursTwo = Now() - t0;
     t0 = Now();
-    for (long r = 0; r < reps; ++r)
+    for (long r = 0; (only < 0 || only == 1) && r < reps; ++r)
     {
         for (int c = 0; c < kCases; ++c)
         {
@@ -384,7 +430,33 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
     }
     double ozzTwo = Now() - t0;
     t0 = Now();
-    for (long r = 0; r < reps; ++r)
+    for (long r = 0; (only < 0 || only == 2) && r < reps; ++r)
+    {
+        for (int c = 0; c < kCases; ++c)
+        {
+            OzzLocals& l = locals[c];
+            ozz::math::Float4x4 m[4];
+            OzzModels(l, m);
+            ozz::animation::IKTwoBoneJob job;
+            const maniTwoBoneSolve& s = twoBone[c];
+            job.target = ozz::math::simd_float4::Load(s.goal.x, s.goal.y, s.goal.z, 1.0f);
+            job.mid_axis = ozz::math::simd_float4::Load(0.0f, 0.0f, 1.0f, 0.0f);
+            job.pole_vector = ozz::math::simd_float4::Load(s.pole.x, s.pole.y, s.pole.z, 0.0f);
+            job.start_joint = &m[1];
+            job.mid_joint = &m[2];
+            job.end_joint = &m[3];
+            ozz::math::SimdQuaternion corrections[2];
+            job.start_joint_correction = &corrections[0];
+            job.mid_joint_correction = &corrections[1];
+            (void)job.Run();
+            l.rotation[1] = l.rotation[1] * corrections[0];
+            l.rotation[2] = l.rotation[2] * corrections[1];
+            sink += ozz::math::GetX(l.rotation[2].xyzw);
+        }
+    }
+    double ozzTwoWhole = Now() - t0;
+    t0 = Now();
+    for (long r = 0; (only < 0 || only == 3) && r < reps; ++r)
     {
         for (int c = 0; c < kCases; ++c)
         {
@@ -394,7 +466,7 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
     }
     double oursAim = Now() - t0;
     t0 = Now();
-    for (long r = 0; r < reps; ++r)
+    for (long r = 0; (only < 0 || only == 4) && r < reps; ++r)
     {
         for (int c = 0; c < kCases; ++c)
         {
@@ -412,18 +484,43 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps)
         }
     }
     double ozzAim = Now() - t0;
+    t0 = Now();
+    for (long r = 0; (only < 0 || only == 5) && r < reps; ++r)
+    {
+        for (int c = 0; c < kCases; ++c)
+        {
+            OzzLocals& l = locals[c];
+            ozz::math::Float4x4 m[4];
+            OzzModels(l, m);
+            ozz::animation::IKAimJob job;
+            const maniAimSolve& s = aim[c];
+            job.target = ozz::math::simd_float4::Load(s.goal.x, s.goal.y, s.goal.z, 1.0f);
+            job.forward = ozz::math::simd_float4::x_axis();
+            job.up = ozz::math::simd_float4::y_axis();
+            job.pole_vector = ozz::math::simd_float4::Load(s.pole.x, s.pole.y, s.pole.z, 0.0f);
+            job.joint = &m[3];
+            ozz::math::SimdQuaternion correction;
+            job.joint_correction = &correction;
+            (void)job.Run();
+            l.rotation[3] = l.rotation[3] * correction;
+            sink += ozz::math::GetX(l.rotation[3].xyzw);
+        }
+    }
+    double ozzAimWhole = Now() - t0;
     g_sink = sink;
     double n = static_cast<double>(reps) * kCases;
-    std::printf("ns a solve, Maul Anim from locals / ozz on given models: two-bone %.0f / %.0f, "
-                "aim %.0f / %.0f\n",
-                oursTwo / n * 1e9, ozzTwo / n * 1e9, oursAim / n * 1e9, ozzAim / n * 1e9);
+    std::printf("ns a solve, Maul Anim from locals / ozz's job on given models / ozz's whole cost "
+                "from locals: two-bone %.0f / %.0f / %.0f, aim %.0f / %.0f / %.0f\n",
+                oursTwo / n * 1e9, ozzTwo / n * 1e9, ozzTwoWhole / n * 1e9, oursAim / n * 1e9,
+                ozzAim / n * 1e9, ozzAimWhole / n * 1e9);
 }
 
 // Nanoseconds a CCD and a FABRIK solve take on the chain of the start,
 // middle and end, 16 iterations at most with a tolerance of 1e-4, over
 // 256 random goals within reach repeated reps times, each solve from the
 // rest with the middle bent; ozz has no chain solver to time against.
-void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps)
+// only 6 or 7 runs CCD or FABRIK alone, for an instruction counter.
+void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps, int only)
 {
     constexpr int kCases = 256;
     static maniVec3 goals[kCases];
@@ -450,6 +547,10 @@ void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps)
     float sink = 0.0f;
     for (int solver = 0; solver < 2; ++solver)
     {
+        if (only >= 0 && only != 6 + solver)
+        {
+            continue;
+        }
         double t0 = Now();
         for (long r = 0; r < reps; ++r)
         {
@@ -486,6 +587,7 @@ int main(int argc, char** argv)
 {
     long cases = argc > 1 ? std::atol(argv[1]) : 100000;
     long reps = argc > 2 ? std::atol(argv[2]) : 2000;
+    int only = argc > 3 ? std::atoi(argv[3]) : -1;
     const maniBoneSource bones[4] = {{"root", 4, -1, {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
                                      {"start", 5, 0, {{0, 1, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
                                      {"middle", 6, 1, {{0, -0.5f, 0}, {0, 0, 0, 1}, {1, 1, 1}}},
@@ -693,7 +795,13 @@ int main(int argc, char** argv)
                 static_cast<double>(planeTheirs));
     bool agree = worst <= 5e-4f && worstSoftened <= 2e-3f && reachDiffers == 0;
     bool aim = AimDifferential(ours, theirs, &skeleton, cases);
-    Timings(ours, &skeleton, reps);
-    ChainTimings(ours, &skeleton, reps);
+    if (only < 6)
+    {
+        Timings(ours, &skeleton, reps, only);
+    }
+    if (only < 0 || only >= 6)
+    {
+        ChainTimings(ours, &skeleton, reps, only);
+    }
     return agree && missOurs <= 1e-5f && planeOurs <= 1e-5f && aim ? 0 : 1;
 }

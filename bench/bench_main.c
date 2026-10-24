@@ -7,9 +7,10 @@
 // pass, a graph's update and evaluation, a motion database search, a
 // spring step and apply, the IK solvers, the skin's palette and its
 // linear and dual quaternion jobs over the whole mesh, and the morph
-// targets over it, building a mask, and opening the skeleton, a full
-// clip, a compressed clip and the motion database again. Prints the build's backend, then each
-// case's best of five runs in nanoseconds a call. Given case names, runs only those;
+// targets over it, a frame of the graph and its work done by hand, building a mask, and opening the
+// skeleton, a full clip, a compressed clip and the motion database again. Prints the build's
+// backend, then each case's best of five runs in nanoseconds a call. Given case names, runs only
+// those;
 // --list prints the names; --count with a case and a number of calls
 // runs only those calls, for an instruction counter (the scenes' build
 // is the same for any number, so two counts' difference over the
@@ -23,6 +24,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
+#include "maul-anim/rootmotion.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -126,6 +128,47 @@ static void GraphEvaluate(BenchScenes* s, uint32_t n)
     {
         Must(maniEvaluateGraph(s->instance, s->scratch, s->scratchSize, s->pose),
              "a graph evaluation");
+    }
+}
+
+// A frame of the graph: an update a step further, then its evaluation.
+static void GraphFrame(BenchScenes* s, uint32_t n)
+{
+    maniGraphEvent events[8];
+    uint32_t count = 0;
+    maniRootMove move;
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        Must(maniUpdateGraph(s->instance, STEP, events, 8, &count, &move), "a graph update");
+        Must(maniEvaluateGraph(s->instance, s->scratch, s->scratchSize, s->pose),
+             "a graph evaluation");
+    }
+}
+
+// The graph's frame without the graph: its two compressed clips sampled
+// through their cursors at a time a step further each call, their root
+// motion over the step,
+// and the blend of the poses and the moves, weighted as the graph's
+// blend weighs them (its parameter at a half, then 1).
+static void GraphByHand(BenchScenes* s, uint32_t n)
+{
+    static const float kWeights[2] = {0.5f, 1.0f};
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        maniRootMove moves[2];
+        for (uint32_t c = 0; c < 2; ++c)
+        {
+            Must(maniClipRootMotion(&s->compressed[c], s->handTime, STEP, &moves[c]), "a move");
+            Must(maniSampleClipCursor(s->handCursors[c], &s->compressed[c], &s->skeleton,
+                                      s->handTime + STEP, s->handLayers[c]),
+                 "a sample");
+        }
+        maniRootMove move;
+        Must(maniBlendRootMotion(moves, kWeights, 2, &move), "a blended move");
+        maniBlendLayer layers[2] = {{s->handLayers[0], kWeights[0], NULL},
+                                    {s->handLayers[1], kWeights[1], NULL}};
+        Must(maniBlendPoses(&s->skeleton, layers, 2, MANI_BLEND_THRESHOLD, s->pose), "a blend");
+        s->handTime = fmodf(s->handTime + STEP, BENCH_DURATION);
     }
 }
 
@@ -312,6 +355,8 @@ static const Case kCases[] = {
     {"model", Model, 8000},
     {"graph.update", GraphUpdate, 8000},
     {"graph.evaluate", GraphEvaluate, 2000},
+    {"graph.frame", GraphFrame, 2000},
+    {"graph.byhand", GraphByHand, 2000},
     {"match.search", MatchSearch, 400},
     {"spring.step", Springs, 2000},
     {"ik.twobone", TwoBone, 8000},
