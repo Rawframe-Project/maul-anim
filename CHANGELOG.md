@@ -5,7 +5,7 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
-## 0.0.1
+## [0.0.1](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.0.1) (2026-10-24)
 
 The first release: skeletal animation from import to the skinned
 vertex, with the same results on every platform, compiler and SIMD
@@ -55,6 +55,10 @@ backend, and no allocation at run time.
   `KHR_animation_pointer`, `VRMC_springBone` and the `OMI_physics_*`
   extensions) and FBX import (binary and ASCII, versions 3000 to 7700):
   skeletons, skins, influences, morph targets and clips.
+- Validation of every file, JSON text and saved state as it is opened,
+  in every build: bad data is refused with a status and the offset of
+  the first wrong byte, and counts no misuse on the builder; a misuse
+  count reports only calls a correct program never makes.
 - A CPU check for the AVX2 build, a portable scalar build with the same
   results, a CMake package and a pkg-config module.
 - Support for Linux on x86-64 and arm64, macOS, Windows with
