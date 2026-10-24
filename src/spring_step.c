@@ -22,6 +22,7 @@
 // joint the animation moves springs toward its animated direction.
 
 #include "bytes.h"
+#include "pose_memory.h"
 #include "spring_file.h"
 #include "spring_shape.h"
 #include "spring_state.h"
@@ -128,7 +129,8 @@ static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose*
     for (uint32_t j = 0; j < set->jointCount; ++j)
     {
         const uint8_t* e = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
-        maniTransform head = maniPoseModelTransform(pose, maniLoadU32(e + maniSpringJointHead));
+        maniTransform head =
+            maniPoseModelTransformEntered(pose, maniLoadU32(e + maniSpringJointHead));
         uint64_t at = maniSpringNowJointAt(j);
         maniSpringSetVec(work, at + maniSpringNowPosition, head.translation);
         maniSpringSetQuat(work, at + maniSpringNowRotation, head.rotation);
@@ -140,7 +142,8 @@ static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose*
     for (uint32_t c = 0; c < set->colliderCount; ++c)
     {
         uint32_t bone = maniLoadU32(set->colliders + (size_t)c * MANI_SPRING_COLLIDER_SIZE);
-        SetBoneWords(work, maniSpringNowColliderAt(set, c), maniPoseModelTransform(pose, bone));
+        SetBoneWords(work, maniSpringNowColliderAt(set, c),
+                     maniPoseModelTransformEntered(pose, bone));
     }
     for (uint32_t i = 0; i < set->springCount; ++i)
     {
@@ -148,7 +151,7 @@ static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose*
         uint64_t at = maniSpringNowCenterAt(set, i);
         if (center != MANI_NO_BONE)
         {
-            SetBoneWords(work, at, maniPoseModelTransform(pose, center));
+            SetBoneWords(work, at, maniPoseModelTransformEntered(pose, center));
         }
         else
         {

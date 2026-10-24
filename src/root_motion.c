@@ -139,11 +139,17 @@ maniRootMove maniRootMoveIdentity(void)
     return (maniRootMove){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
 }
 
-static MANI_NOINLINE maniRootMove ComposeRootMotionWork(maniRootMove first, maniRootMove then)
+// first, then then: inlined where this file composes moves.
+static maniRootMove Compose(maniRootMove first, maniRootMove then)
 {
     return (maniRootMove){
         maniVec3Add(first.translation, maniQuatRotate(first.rotation, then.translation)),
         maniQuatNormalize(maniQuatMul(first.rotation, then.rotation))};
+}
+
+static MANI_NOINLINE maniRootMove ComposeRootMotionWork(maniRootMove first, maniRootMove then)
+{
+    return Compose(first, then);
 }
 
 maniRootMove maniComposeRootMotion(maniRootMove first, maniRootMove then)
@@ -192,7 +198,7 @@ static maniRootMove At(const maniClip* clip, float time)
 // The move from a to b, in a's frame.
 static maniRootMove Between(maniRootMove a, maniRootMove b)
 {
-    return maniComposeRootMotion(Inverse(a), b);
+    return Compose(Inverse(a), b);
 }
 
 // A move made count times over, by squaring.
@@ -203,9 +209,9 @@ static maniRootMove Repeated(maniRootMove move, uint64_t count)
     {
         if ((count & 1u) != 0)
         {
-            made = maniComposeRootMotion(made, move);
+            made = Compose(made, move);
         }
-        move = maniComposeRootMotion(move, move);
+        move = Compose(move, move);
         count >>= 1u;
     }
     return made;
@@ -235,12 +241,11 @@ static maniRootMove Repeating(const maniClip* clip, double u0, double u1)
     maniRootMove period = Stored(clip->rootMotion, UINT32_MAX);
     bool forward = w1 > w0;
     maniRootMove out = Between(At(clip, f0), forward ? end : start);
-    out =
-        maniComposeRootMotion(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1));
-    return maniComposeRootMotion(out, Between(forward ? start : end, At(clip, f1)));
+    out = Compose(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1));
+    return Compose(out, Between(forward ? start : end, At(clip, f1)));
 }
 
-static MANI_NOINLINE maniResult ClipRootMotionWork(const maniClip* clip, float time, float step,
+MANI_NOINLINE maniResult maniClipRootMotionEntered(const maniClip* clip, float time, float step,
                                                    maniRootMove* moveOut)
 {
     if (clip == NULL || moveOut == NULL || !isfinite(time) || !isfinite(step))
@@ -270,7 +275,7 @@ maniResult maniClipRootMotion(const maniClip* clip, float time, float step, mani
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    maniResult result = ClipRootMotionWork(clip, time, step, moveOut);
+    maniResult result = maniClipRootMotionEntered(clip, time, step, moveOut);
     maniFloatEnvLeave(&env);
     return result;
 }

@@ -410,7 +410,7 @@ static uint32_t CountBefore(const maniClip* clip, float t, bool inclusive)
     return low;
 }
 
-static MANI_NOINLINE void ClipEventRangeWork(const maniClip* clip, float from, float to,
+MANI_NOINLINE void maniClipEventRangeEntered(const maniClip* clip, float from, float to,
                                              uint32_t* firstOut, uint32_t* countOut)
 {
     uint32_t first = 0;
@@ -434,6 +434,6 @@ void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* fi
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    ClipEventRangeWork(clip, from, to, firstOut, countOut);
+    maniClipEventRangeEntered(clip, from, to, firstOut, countOut);
     maniFloatEnvLeave(&env);
 }

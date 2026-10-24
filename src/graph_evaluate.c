@@ -7,6 +7,7 @@
 
 #include "blend_groups.h"
 #include "bytes.h"
+#include "clip_view.h"
 #include "fpenv.h"
 #include "graph_evaluate_ik.h"
 #include "graph_evaluation.h"
@@ -317,7 +318,7 @@ static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPa
         (void)maniInitPose(skeleton, poses[2], e->parts.poseSize, &poses[2]);
     }
     size_t size = e->binding->retargetScratchSize;
-    (void)maniSampleClipCursor(c, clip, pair->source, time, poses[0]);
+    (void)maniSampleClipCursorEntered(c, clip, pair->source, time, poses[0]);
     if (!maniPoseIsDifference(poses[0]))
     {
         (void)maniRetargetPose(pair->map, pair->source, poses[0], skeleton, out, scratch, size);
@@ -340,12 +341,12 @@ static void SampleClip(const maniGraphEvaluation* e, maniClipCursor* c, const ma
 {
     if (e->plan == NULL)
     {
-        (void)maniSampleClipCursor(c, clip, e->binding->skeleton, time, out);
+        (void)maniSampleClipCursorEntered(c, clip, e->binding->skeleton, time, out);
         return;
     }
     maniPoseSetKind(out, maniClipAdditiveBasis(clip) != maniAdditiveNone);
-    (void)maniSampleClipBones(clip, e->binding->skeleton, time, maniGraphSubsetList(e->plan),
-                              e->plan->count, out);
+    (void)maniSampleClipBonesEntered(clip, e->binding->skeleton, time, maniGraphSubsetList(e->plan),
+                                     e->plan->count, out);
 }
 
 // A clip node's pose: its clip at its playhead, through its cursor (and

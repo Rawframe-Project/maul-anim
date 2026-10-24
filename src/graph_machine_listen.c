@@ -11,6 +11,7 @@
 #include "graph_machine_listen.h"
 
 #include "bytes.h"
+#include "clip_view.h"
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_machine.h"
@@ -73,7 +74,7 @@ static bool InRange(const maniClip* clip, double from, double to, uint64_t hash)
 {
     uint32_t first = 0;
     uint32_t count = 0;
-    maniClipEventRange(clip, (float)from, (float)to, &first, &count);
+    maniClipEventRangeEntered(clip, (float)from, (float)to, &first, &count);
     bool heard = false;
     for (uint32_t k = 0; k < count && !heard; ++k)
     {

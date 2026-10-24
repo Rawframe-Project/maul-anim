@@ -588,7 +588,7 @@ maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, fl
     return result;
 }
 
-static MANI_NOINLINE maniResult SampleClipBonesWork(const maniClip* clip,
+MANI_NOINLINE maniResult maniSampleClipBonesEntered(const maniClip* clip,
                                                     const maniSkeleton* skeleton, float time,
                                                     const uint32_t* bones, uint32_t count,
                                                     maniPose* pose)
@@ -618,7 +618,7 @@ maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleto
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    maniResult result = SampleClipBonesWork(clip, skeleton, time, bones, count, pose);
+    maniResult result = maniSampleClipBonesEntered(clip, skeleton, time, bones, count, pose);
     maniFloatEnvLeave(&env);
     return result;
 }

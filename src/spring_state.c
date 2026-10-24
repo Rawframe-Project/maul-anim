@@ -9,6 +9,7 @@
 
 #include "bytes.h"
 #include "fpenv.h"
+#include "pose_memory.h"
 #include "spring_file.h"
 #include "vecmath.h"
 
@@ -97,7 +98,8 @@ static bool ModelReady(const maniSpringState* state, maniPose* pose)
     {
         return false;
     }
-    return maniPoseModelCurrent(pose) || maniComputeModel(pose, state->skeleton) == mani_success;
+    return maniPoseModelCurrent(pose) ||
+           maniComputeModelEntered(pose, state->skeleton) == mani_success;
 }
 
 static MANI_NOINLINE maniResult StepSpringsWork(maniSpringState* state, maniPose* pose,

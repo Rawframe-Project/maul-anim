@@ -206,7 +206,7 @@ static void Lanes(maniClipCursor* cursor, const maniClip* clip, const maniSkelet
 }
 #endif
 
-static MANI_NOINLINE maniResult SampleClipCursorWork(maniClipCursor* cursor, const maniClip* clip,
+MANI_NOINLINE maniResult maniSampleClipCursorEntered(maniClipCursor* cursor, const maniClip* clip,
                                                      const maniSkeleton* skeleton, float time,
                                                      maniPose* pose)
 {
@@ -239,7 +239,7 @@ maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    maniResult result = SampleClipCursorWork(cursor, clip, skeleton, time, pose);
+    maniResult result = maniSampleClipCursorEntered(cursor, clip, skeleton, time, pose);
     maniFloatEnvLeave(&env);
     return result;
 }

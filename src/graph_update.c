@@ -930,7 +930,7 @@ static void Advance(Update* u, uint32_t p, const uint8_t* record)
         }
         if (s->rootWeight > 0.0f)
         {
-            (void)maniClipRootMotion(&clip, (float)m.t0, (float)m.step, &move);
+            (void)maniClipRootMotionEntered(&clip, (float)m.t0, (float)m.step, &move);
             move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move));
         }
     }

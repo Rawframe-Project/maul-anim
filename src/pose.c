@@ -266,7 +266,7 @@ maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
     return result;
 }
 
-static MANI_NOINLINE maniResult ComputeModelWork(maniPose* pose, const maniSkeleton* skeleton)
+MANI_NOINLINE maniResult maniComputeModelEntered(maniPose* pose, const maniSkeleton* skeleton)
 {
     if (!maniPoseMatches(pose, skeleton) || pose->difference != 0)
     {
@@ -299,7 +299,7 @@ maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    maniResult result = ComputeModelWork(pose, skeleton);
+    maniResult result = maniComputeModelEntered(pose, skeleton);
     maniFloatEnvLeave(&env);
     return result;
 }
@@ -375,7 +375,7 @@ maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transfor
     return result;
 }
 
-static MANI_NOINLINE maniTransform PoseModelTransformWork(const maniPose* pose, uint32_t bone)
+MANI_NOINLINE maniTransform maniPoseModelTransformEntered(const maniPose* pose, uint32_t bone)
 {
     maniTransform out = s_identity;
     if (bone < pose->boneCount)
@@ -393,7 +393,7 @@ maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
 {
     maniFloatEnv env;
     maniFloatEnvEnter(&env);
-    maniTransform result = PoseModelTransformWork(pose, bone);
+    maniTransform result = maniPoseModelTransformEntered(pose, bone);
     maniFloatEnvLeave(&env);
     return result;
 }
