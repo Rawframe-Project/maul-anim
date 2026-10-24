@@ -1341,6 +1341,7 @@ static void TestMisuse(void)
     b.floatPrecisions = perFloat;
     CHECK(maniCompressClip(builder, &s_full, &s_skeleton, &b, NULL) == mani_errorInvalid,
           "a float track's precision");
+    CHECK(maniBuilderMisuses(builder) == 18, "a bad argument counts a misuse");
     CHECK(Compress(&o, NULL) == mani_success, "compresses");
     maniClip packed;
     CHECK(Open(&packed).result == mani_success, "opens");
@@ -1350,7 +1351,7 @@ static void TestMisuse(void)
     other.skeletonIdentity ^= 1;
     CHECK(maniCompressClip(builder, &other, &s_skeleton, &o, NULL) == mani_errorInvalid,
           "another skeleton's clip");
-    CHECK(maniBuilderMisuses(builder) == 20, "misuses counted");
+    CHECK(maniBuilderMisuses(builder) == 18, "a clip's own state counts no misuse");
     maniDestroyBuilder(builder);
 }
 

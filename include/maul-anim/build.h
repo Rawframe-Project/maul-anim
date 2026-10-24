@@ -735,6 +735,9 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// compressed clip, a skeleton not the clip's, or a tolerance not
     /// finite and above 0; `mani_errorCapacity` when the allocator fails.
+    /// A NULL argument or a bad tolerance counts one misuse on the
+    /// builder; a compressed clip or another skeleton's counts none, as
+    /// the clip's file decides them.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
