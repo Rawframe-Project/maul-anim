@@ -10,6 +10,7 @@ How to build, debug and change Maul Anim as a maintainer. Building and installin
 - [Running one test](#running-one-test)
 - [Generated sources and test data](#generated-sources-and-test-data)
 - [Differentials](#differentials)
+- [Benchmarks](#benchmarks)
 - [Code size](#code-size)
 - [Reproducing a fuzz finding](#reproducing-a-fuzz-finding)
 
@@ -100,6 +101,17 @@ cmake --build --preset linux-differential --target fbx_differential
 ```
 
 A disagreement is a defect in the library, or a deviation decided and listed with its reason in `tools/fbx-deviations.txt`.
+
+## Benchmarks
+
+`bench/` times the calls a host makes every frame on fixed scenes built at its start (`bench/scenes.c`): a rig of 64 bones; 16 clips of 10 s at 30 samples a second, full and compressed; a graph blending two clips; a motion database of their 4,800 frames; spring chains on the hair and a tail; the IK solvers; a skin of 20,000 vertices of four influences; and 32 morph targets over the same mesh. It needs `MAUL_ANIM_OFFLINE`, as the scenes are built by the builders.
+
+```sh
+cmake --preset linux-clang-20 && cmake --build --preset linux-clang-20 --target maul-anim_bench
+tools/bench.sh out/linux-clang-20
+```
+
+`tools/bench.sh` prints the machine and its load average before and after, each case's nanoseconds a call (the best of five runs) and, where `perf` counts user instructions, its instructions a call. Name cases to run only those; `maul-anim_bench --list` prints them. Wall time on the shared machine moves with its load: quote instruction counts for a change's effect, and timings only from a quiet machine with the load beside them. Run it through the workspace's heavy-job wrapper on the shared development machine. It is never a test: timings are not repeatable enough for a gate.
 
 ## Code size
 

@@ -34,7 +34,7 @@ Where the targets stand:
 | Draco and meshopt decoding | Google's and meshoptimizer's scalar decoders | met, but for two meshopt filters where the specification's exact rounding costs a few percent |
 | Opening glTF and FBX | cgltf, ufbx | met |
 
-The differentials in `tools/` time both sides on the same data ([development.md](../operations/development.md#differentials)). `bench/` has the family's build file but no benchmark program yet, so the library's own timings are not reproducible from the repository; writing one is open work.
+The differentials in `tools/` time both sides on the same data ([development.md](../operations/development.md#differentials)); the benchmark program in `bench/` times the library's own hot paths on fixed scenes, with their instruction counts ([development.md](../operations/development.md#benchmarks)).
 
 ## Graph overhead
 
