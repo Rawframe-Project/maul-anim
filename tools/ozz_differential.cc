@@ -5,14 +5,16 @@
 // imported by Maul Anim, sampled at random times into poses that both
 // libraries then blend: ozz-animation's BlendingJob and maniBlendPoses,
 // with the same layers, weights, masks and threshold, then additive
-// layers (differences from the rest) by both. Printed: the largest
-// difference of each component kind over every round, and the
-// nanoseconds a blend of two poses takes in each. Built with
-// MAUL_ANIM_DIFFERENTIAL against ozz-animation at the commit CMake pins.
+// layers (differences from the rest) by both, then each blended pose's
+// model matrices by ozz's LocalToModelJob and maniComputeModel from the
+// same locals. Printed: the largest difference of each component kind
+// over every round, and the nanoseconds a blend of two poses and a model
+// pass take in each. Built with MAUL_ANIM_DIFFERENTIAL against
+// ozz-animation at the commit CMake pins.
 //
 // usage: ozz_differential <file.fbx> [rounds [repetitions [side]]]: side
-//        0 or 1 times only ozz or only Maul Anim, for counting
-//        instructions.
+//        0 or 1 times only ozz or only Maul Anim, 2 or 3 only ozz's or
+//        only Maul Anim's model pass, for counting instructions.
 
 #include "maul-anim/blend.h"
 #include "maul-anim/build.h"
@@ -32,6 +34,7 @@
 #include <ozz/animation/offline/raw_skeleton.h>
 #include <ozz/animation/offline/skeleton_builder.h>
 #include <ozz/animation/runtime/blending_job.h>
+#include <ozz/animation/runtime/local_to_model_job.h>
 #include <ozz/animation/runtime/skeleton.h>
 #include <ozz/base/maths/simd_math.h>
 #include <ozz/base/maths/soa_transform.h>
@@ -268,6 +271,33 @@ struct Apart
     }
 };
 
+// The largest difference of a model matrix's entries, relative to their
+// size above 1.
+struct ModelApart
+{
+    double worst = 0.0;
+    void Add(const maniPose* ours, const std::vector<ozz::math::Float4x4>& theirs, uint32_t bones)
+    {
+        for (uint32_t b = 0; b < bones; ++b)
+        {
+            maniAffine a = maniPoseModel(ours, b);
+            float z[16];
+            for (int c = 0; c < 4; ++c)
+            {
+                ozz::math::StorePtrU(theirs[b].cols[c], z + 4 * c);
+            }
+            const int at[12] = {0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14};
+            for (int k = 0; k < 12; ++k)
+            {
+                double size = std::fmax(1.0, std::fabs(static_cast<double>(a.m[k])));
+                worst = std::fmax(
+                    worst,
+                    std::fabs(static_cast<double>(a.m[k]) - static_cast<double>(z[at[k]])) / size);
+            }
+        }
+    }
+};
+
 struct Run
 {
     const maniSkeleton* skeleton = nullptr;
@@ -309,6 +339,9 @@ int Compare(const Run& run, long rounds)
     std::vector<ozz::math::SimdFloat4> soaWeights[kMaxLayers + 2];
     Apart blend;
     Apart added;
+    ModelApart model;
+    Soa mine;
+    std::vector<ozz::math::Float4x4> models(run.ozz->num_joints());
     for (long round = 0; round < rounds; ++round)
     {
         uint32_t count = 1 + Next() % kMaxLayers;
@@ -391,15 +424,27 @@ int Compare(const Run& run, long rounds)
             }
             added.Add(out.pose, ozzOut, run.bones);
         }
+        ToSoa(out.pose, run.bones, &mine);
+        ozz::animation::LocalToModelJob toModel;
+        toModel.skeleton = run.ozz.get();
+        toModel.input = ozz::make_span(mine);
+        toModel.output = ozz::make_span(models);
+        if (!toModel.Run() || maniComputeModel(out.pose, run.skeleton) != mani_success)
+        {
+            return Fail("a model pass");
+        }
+        model.Add(out.pose, models, run.bones);
     }
     std::printf("%ld rounds: blends apart by translation %.3g, rotation %.3g, scale %.3g; with "
                 "additive layers by %.3g, %.3g, %.3g\n",
                 rounds, blend.translation, blend.rotation, blend.scale, added.translation,
                 added.rotation, added.scale);
+    std::printf("model matrices from the same locals apart by %.3g\n", model.worst);
     // ozz's estimates are refined to binary32 rounding on this file; the
     // bounds hold both to a few units in the last place.
     bool within = blend.translation < 2e-6 && blend.scale < 2e-6 && blend.rotation < 2e-6 &&
-                  added.translation < 4e-6 && added.scale < 4e-6 && added.rotation < 4e-6;
+                  added.translation < 4e-6 && added.scale < 4e-6 && added.rotation < 4e-6 &&
+                  model.worst < 4e-6;
     return within ? 0 : 2;
 }
 
@@ -435,20 +480,45 @@ void Timings(const Run& run, long reps, int only)
     job.layers = ozz::make_span(ozzLayers);
     job.rest_pose = run.ozz->joint_rest_poses();
     job.output = ozz::make_span(so);
+    // One blend in each before the clock, so a model pass timed alone
+    // starts from a blended pose.
+    job.Run();
+    (void)maniBlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
     double start = Seconds();
-    for (long r = 0; only != 1 && r < reps; ++r)
+    for (long r = 0; (only < 0 || only == 0) && r < reps; ++r)
     {
         job.Run();
     }
     double ozzTime = Seconds() - start;
     start = Seconds();
-    for (long r = 0; only != 0 && r < reps; ++r)
+    for (long r = 0; (only < 0 || only == 1) && r < reps; ++r)
     {
         (void)maniBlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
     }
     double ourTime = Seconds() - start;
     std::printf("ns a blend of two poses: ozz %.0f, Maul Anim %.0f\n", ozzTime / reps * 1e9,
                 ourTime / reps * 1e9);
+    // The model pass of the blended pose: ozz's job over its own output,
+    // Maul Anim's over its own.
+    std::vector<ozz::math::Float4x4> models(run.ozz->num_joints());
+    ozz::animation::LocalToModelJob toModel;
+    toModel.skeleton = run.ozz.get();
+    toModel.input = ozz::make_span(so);
+    toModel.output = ozz::make_span(models);
+    start = Seconds();
+    for (long r = 0; (only < 0 || only == 2) && r < reps; ++r)
+    {
+        toModel.Run();
+    }
+    double ozzModel = Seconds() - start;
+    start = Seconds();
+    for (long r = 0; (only < 0 || only == 3) && r < reps; ++r)
+    {
+        (void)maniComputeModel(out.pose, run.skeleton);
+    }
+    double ourModel = Seconds() - start;
+    std::printf("ns a model pass: ozz %.0f, Maul Anim %.0f\n", ozzModel / reps * 1e9,
+                ourModel / reps * 1e9);
 }
 
 } // namespace
