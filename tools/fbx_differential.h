@@ -101,7 +101,7 @@ maniPose* NewPose(const maniSkeleton* skeleton, void** raw);
 maniImportResult Placement(const Context* c, uint32_t s, const maniFbxOptions* options,
                            maniAffine* out);
 
-// The ufbx skin deformer our skin k stands for, and its mesh node.
+// The ufbx skin deformer Maul Anim's skin k stands for, and its mesh node.
 ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k, const ufbx_node** meshOut);
 
 // Whether a channel's shape k has a track name.
