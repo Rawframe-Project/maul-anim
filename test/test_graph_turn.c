@@ -11,12 +11,13 @@
 // trigger, a seek above and an update that did not reach the node take
 // the input again; a subset plan, on a chain and on a branching skeleton
 // whose plan skips a branch, turns only its listed bones; two updates to
-// an evaluation, one backward, add their times; a saved state restores to the same motion and its block is
-// checked; the builder's refusals and opening's checks of the words; the
-// JSON form written and read back; a subgraph's parameters carried; a
-// file of format 4 still opens; inspection gives its share. Run as
-// test_graph_turn --seed <graph file> <json file> it writes the graph's
-// file and text, seeds of the fuzz targets.
+// an evaluation, one backward, add their times; a saved state restores
+// to the same motion and its block is checked; the builder's refusals
+// and opening's checks of the words; the JSON form written and read
+// back; a subgraph's parameters carried; a file of format 4 still opens;
+// inspection gives its share. Run as test_graph_turn --seed <graph file>
+// <json file> it writes the graph's file and text, seeds of the fuzz
+// targets.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
