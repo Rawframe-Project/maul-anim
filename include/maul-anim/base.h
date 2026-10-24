@@ -22,7 +22,7 @@ extern "C"
 #define MANI_VERSION_MAJOR 0
 // x-release-please-end
 // x-release-please-start-minor
-#define MANI_VERSION_MINOR 1
+#define MANI_VERSION_MINOR 2
 // x-release-please-end
 // x-release-please-start-patch
 #define MANI_VERSION_PATCH 0
