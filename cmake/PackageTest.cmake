@@ -28,6 +28,9 @@ if(CONFIG)
     set(config_args --config ${CONFIG})
     set(exe ${root}/build/${CONFIG}/consumer)
 endif()
+if(WIN32)
+    string(APPEND exe .exe)
+endif()
 set(configure_args -G ${GENERATOR} -DCMAKE_PREFIX_PATH=${root}/prefix)
 if(TOOLSET)
     list(APPEND configure_args -T ${TOOLSET})
@@ -38,14 +41,15 @@ endif()
 run(${CMAKE_COMMAND} --install ${BINARY_DIR} --prefix ${root}/prefix ${config_args})
 run(${CMAKE_COMMAND} -S ${SOURCE_DIR}/test/consumer -B ${root}/build ${configure_args})
 run(${CMAKE_COMMAND} --build ${root}/build ${config_args})
-# A shared library is found beside the program's search path: lib on
-# Linux, bin on Windows.
-set(path "PATH=${root}/prefix/bin;$ENV{PATH}")
-if(NOT WIN32)
-    set(path "PATH=$ENV{PATH}")
+# A shared library is found on the loader's search path: lib on Linux,
+# bin (on PATH) on Windows. Set here rather than through cmake -E env, as
+# a list argument would split Windows' PATH at its semicolons.
+if(WIN32)
+    set(ENV{PATH} "${root}/prefix/bin;$ENV{PATH}")
+else()
+    set(ENV{LD_LIBRARY_PATH} "${root}/prefix/lib:${root}/prefix/lib64")
 endif()
-run(${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${root}/prefix/lib:${root}/prefix/lib64" "${path}"
-    ${exe})
+run(${exe})
 
 find_program(PKG_CONFIG pkg-config)
 if(PKG_CONFIG AND NOT WIN32)
@@ -58,6 +62,5 @@ if(PKG_CONFIG AND NOT WIN32)
     separate_arguments(flags UNIX_COMMAND "${flags}")
     run(${C_COMPILER} -std=c17 ${SOURCE_DIR}/test/consumer/main.c
         "-DCONSUMER_BACKEND=\"${BACKEND}\"" ${flags} -o ${root}/consumer-pc)
-    run(${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${root}/prefix/lib:${root}/prefix/lib64"
-        ${root}/consumer-pc)
+    run(${root}/consumer-pc)
 endif()
