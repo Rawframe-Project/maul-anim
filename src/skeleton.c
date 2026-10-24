@@ -14,6 +14,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "skeleton_file.h"
 #include "text.h"
 
@@ -226,8 +227,8 @@ uint64_t maniSkeletonComputeIdentity(uint32_t boneCount, const uint8_t* parents,
     return maniHashBytes(hash, names, nameSize);
 }
 
-static MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes, size_t size,
-                                                     maniSkeleton* skeletonOut)
+static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes, size_t size,
+                                                               maniSkeleton* skeletonOut)
 {
     if (skeletonOut == NULL)
     {

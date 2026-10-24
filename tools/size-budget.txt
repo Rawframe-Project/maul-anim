@@ -45,7 +45,7 @@ ceiling match      O2 20000
 ceiling learned    O2 12000
 ceiling morph      O2 7000
 ceiling elementary O2 7000
-ceiling core       O3 96000
+ceiling core       O3 93000
 ceiling skinning   O3 15000
 ceiling graph      O3 134000
 ceiling ik         O3 34000
@@ -59,7 +59,7 @@ ceiling learned    O3 17000
 ceiling morph      O3 8000
 ceiling elementary O3 8000
 
-ceiling core       O2-avx2 71000
+ceiling core       O2-avx2 70000
 ceiling skinning   O2-avx2 12000
 ceiling graph      O2-avx2 110000
 ceiling ik         O2-avx2 30000
@@ -72,7 +72,7 @@ ceiling match      O2-avx2 19000
 ceiling learned    O2-avx2 12000
 ceiling morph      O2-avx2 7000
 ceiling elementary O2-avx2 6000
-ceiling core       O3-avx2 91000
+ceiling core       O3-avx2 88000
 ceiling skinning   O3-avx2 15000
 ceiling graph      O3-avx2 137000
 ceiling ik         O3-avx2 32000
