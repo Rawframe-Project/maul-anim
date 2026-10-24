@@ -448,9 +448,8 @@ static MANI_NOINLINE maniBuildResult BuildSkeletonWork(maniBuilder* builder,
 
 maniBuildResult maniBuildSkeleton(maniBuilder* builder, const maniSkeletonSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildSkeletonWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

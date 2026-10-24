@@ -688,9 +688,8 @@ maniResult maniCompressClip(maniBuilder* builder, const maniClip* clip,
                             const maniSkeleton* skeleton, const maniCompressOptions* options,
                             maniCompressReport* reportOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = CompressClipWork(builder, clip, skeleton, options, reportOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

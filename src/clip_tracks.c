@@ -347,10 +347,9 @@ static MANI_NOINLINE int32_t ClipDiscreteValueWork(const maniClip* clip, uint32_
 
 int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     int32_t result = ClipDiscreteValueWork(clip, track, time);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -432,8 +431,7 @@ MANI_NOINLINE void maniClipEventRangeEntered(const maniClip* clip, float from, f
 void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,
                         uint32_t* countOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniClipEventRangeEntered(clip, from, to, firstOut, countOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
 }

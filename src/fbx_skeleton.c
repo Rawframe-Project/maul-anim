@@ -393,10 +393,9 @@ static MANI_NOINLINE maniImportResult FbxBuildSkeletonWork(maniBuilder* builder,
 maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
                                       const maniFbxOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxBuildSkeletonWork(builder, fbx, skeleton, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -452,10 +451,9 @@ static MANI_NOINLINE maniImportResult FbxBuildModelSkeletonWork(maniBuilder* bui
 maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
                                            const maniFbxOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxBuildModelSkeletonWork(builder, fbx, model, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -500,10 +498,9 @@ static MANI_NOINLINE maniImportResult FbxSkeletonPlacementWork(const maniFbx* fb
 maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
                                           const maniFbxOptions* options, maniAffine* placementOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxSkeletonPlacementWork(fbx, skeleton, options, placementOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -522,9 +519,8 @@ static MANI_NOINLINE maniImportResult FbxModelPlacementWork(const maniFbx* fbx, 
 maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model,
                                        const maniFbxOptions* options, maniAffine* placementOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxModelPlacementWork(fbx, model, options, placementOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

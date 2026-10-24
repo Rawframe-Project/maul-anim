@@ -316,10 +316,9 @@ static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t si
 
 maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragdollOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenRagdollWork(bytes, size, ragdollOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

@@ -764,10 +764,9 @@ static MANI_NOINLINE maniBuildResult BuildClipWork(maniBuilder* builder,
 
 maniBuildResult maniBuildClip(maniBuilder* builder, const maniClipSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildClipWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

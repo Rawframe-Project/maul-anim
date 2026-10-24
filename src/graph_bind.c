@@ -463,9 +463,8 @@ static MANI_NOINLINE maniResult BindGraphWork(const maniGraph* graph, const mani
 maniResult maniBindGraph(const maniGraph* graph, const maniGraphAssets* assets, void* memory,
                          size_t size, maniGraphBinding** bindingOut, uint32_t* unboundOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = BindGraphWork(graph, assets, memory, size, bindingOut, unboundOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

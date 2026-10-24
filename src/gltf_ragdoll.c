@@ -609,9 +609,8 @@ maniImportResult maniGltfReadRagdoll(maniGltf* gltf, const maniSkeleton* skeleto
                                      const maniGltfOptions* options, maniVec3 facing, maniVec3 up,
                                      maniRagdollSource* sourceOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfReadRagdollWork(gltf, skeleton, options, facing, up, sourceOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

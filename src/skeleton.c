@@ -284,10 +284,9 @@ static MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes, size_t s
 
 maniFileResult maniOpenSkeleton(const void* bytes, size_t size, maniSkeleton* skeletonOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenSkeletonWork(bytes, size, skeletonOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

@@ -498,9 +498,8 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelWork(maniBuilder* builder,
 
 maniBuildResult maniBuildLearnedModel(maniBuilder* builder, const maniLearnedModelSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildLearnedModelWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

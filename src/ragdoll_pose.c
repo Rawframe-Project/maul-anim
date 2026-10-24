@@ -164,11 +164,10 @@ maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose*
                                      const maniTransform* previousPlacement, float seconds,
                                      maniRagdollBodyState* bodiesOut, uint32_t count)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = RagdollBodiesFromPoseWork(ragdoll, pose, placement, previous,
                                                   previousPlacement, seconds, bodiesOut, count);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -206,10 +205,9 @@ static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdo
 maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
                                    maniRagdollJointTarget* jointsOut, uint32_t count)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = RagdollJointTargetsWork(ragdoll, bodies, jointsOut, count);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -298,10 +296,9 @@ maniResult maniRagdollPoseFromBodies(const maniRagdoll* ragdoll, const maniSkele
                                      const maniTransform* placement, const maniPose* reference,
                                      maniPose* poseOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result =
         RagdollPoseFromBodiesWork(ragdoll, skeleton, bodies, count, placement, reference, poseOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

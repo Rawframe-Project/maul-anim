@@ -193,10 +193,9 @@ static MANI_NOINLINE maniResult BlendPosesWork(const maniSkeleton* skeleton,
 maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
                           uint32_t count, float threshold, maniPose* out)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = BlendPosesWork(skeleton, layers, count, threshold, out);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

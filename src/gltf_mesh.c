@@ -192,10 +192,9 @@ static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf,
 maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
                                       uint32_t count)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfMorphWeightsWork(gltf, node, weightsOut, count);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -486,10 +485,9 @@ static MANI_NOINLINE maniImportResult GltfBuildInfluencesWork(maniBuilder* build
 maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
                                          uint32_t primitive, const maniSkin* skin)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfBuildInfluencesWork(builder, gltf, mesh, primitive, skin);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -923,9 +921,8 @@ maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf*
                                            uint32_t mesh, uint32_t primitive,
                                            const maniGltfOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfBuildMorphTargetsWork(builder, gltf, mesh, primitive, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

@@ -125,22 +125,22 @@ static uint64_t Wanted(uint64_t control)
 #error "maul-anim: unknown floating-point environment for this architecture"
 #endif
 
-void maniFloatEnvEnter(maniFloatEnv* env)
+uint64_t maniFloatEnvEnter(void)
 {
     uint64_t saved = ReadControl();
-    env->saved = saved;
     uint64_t wanted = Wanted(saved);
     if (wanted != saved)
     {
         WriteControl(wanted);
     }
+    return saved;
 }
 
-void maniFloatEnvLeave(const maniFloatEnv* env)
+void maniFloatEnvLeave(uint64_t saved)
 {
-    if (ReadControl() != env->saved)
+    if (ReadControl() != saved)
     {
-        WriteControl(env->saved);
+        WriteControl(saved);
     }
 }
 

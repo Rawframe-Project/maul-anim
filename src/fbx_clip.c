@@ -569,10 +569,9 @@ maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint
                                   const maniSkeleton* skeleton, const maniFbxOptions* options,
                                   const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result =
         FbxBuildClipWork(builder, fbx, clip, skeleton, options, clipOptions, boundOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

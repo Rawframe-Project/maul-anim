@@ -297,10 +297,9 @@ static MANI_NOINLINE maniImportResult OpenGltfWork(maniBuilder* builder, const v
 maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes, size_t size,
                               maniGltf** gltfOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = OpenGltfWork(builder, bytes, size, gltfOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -369,10 +368,9 @@ static MANI_NOINLINE maniImportResult GltfSupplyBufferWork(maniGltf* gltf, uint3
 maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes,
                                       size_t size)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfSupplyBufferWork(gltf, buffer, bytes, size);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

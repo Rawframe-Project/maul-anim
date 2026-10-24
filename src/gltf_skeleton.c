@@ -205,10 +205,9 @@ static MANI_NOINLINE maniImportResult GltfBuildSkeletonWork(maniBuilder* builder
 maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* gltf,
                                        uint32_t skeleton, const maniGltfOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfBuildSkeletonWork(builder, gltf, skeleton, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -242,10 +241,9 @@ static MANI_NOINLINE maniImportResult GltfBuildNodeSkeletonWork(maniBuilder* bui
 maniImportResult maniGltfBuildNodeSkeleton(maniBuilder* builder, const maniGltf* gltf,
                                            uint32_t node, const maniGltfOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfBuildNodeSkeletonWork(builder, gltf, node, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -270,10 +268,9 @@ static MANI_NOINLINE maniImportResult GltfSkeletonPlacementWork(const maniGltf* 
 maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
                                            const maniGltfOptions* options, maniAffine* placementOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfSkeletonPlacementWork(gltf, skeleton, options, placementOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -369,9 +366,8 @@ static MANI_NOINLINE maniImportResult GltfBuildSkinWork(maniBuilder* builder, co
 maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin,
                                    const maniSkeleton* skeleton, const maniGltfOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfBuildSkinWork(builder, gltf, skin, skeleton, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

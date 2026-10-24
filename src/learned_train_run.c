@@ -285,10 +285,9 @@ static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, ui
 maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations,
                             maniLearnedTrainerReport* reportOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = TrainLearnedWork(trainer, iterations, reportOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -378,9 +377,8 @@ maniBuildResult maniBuildLearnedModelFromTrainer(maniBuilder* builder,
                                                  const maniLearnedTrainer* trainer,
                                                  maniLearnedWeights weightFormat)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildLearnedModelFromTrainerWork(builder, trainer, weightFormat);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

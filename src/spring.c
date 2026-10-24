@@ -393,10 +393,9 @@ static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t 
 
 maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* setOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenSpringSetWork(bytes, size, setOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

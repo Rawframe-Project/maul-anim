@@ -347,10 +347,9 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
 
 maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenClipWork(bytes, size, clipOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -581,10 +580,9 @@ static MANI_NOINLINE maniResult SampleClipWork(const maniClip* clip, const maniS
 maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
                           maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SampleClipWork(clip, skeleton, time, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -616,10 +614,9 @@ MANI_NOINLINE maniResult maniSampleClipBonesEntered(const maniClip* clip,
 maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
                                const uint32_t* bones, uint32_t count, maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = maniSampleClipBonesEntered(clip, skeleton, time, bones, count, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -647,9 +644,8 @@ static MANI_NOINLINE maniResult SampleClipFloatsWork(const maniClip* clip, float
 maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values, uint32_t capacity,
                                 uint32_t* countOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SampleClipFloatsWork(clip, time, values, capacity, countOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

@@ -413,10 +413,9 @@ static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size
 
 maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenMorphTargetsWork(bytes, size, targetsOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -645,10 +644,9 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
 maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights,
                                   float* targetWeights)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = MorphTargetWeightsWork(targets, channelWeights, targetWeights);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -910,9 +908,8 @@ static MANI_NOINLINE maniResult ApplyMorphTargetsWork(const maniMorphJob* job)
 
 maniResult maniApplyMorphTargets(const maniMorphJob* job)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = ApplyMorphTargetsWork(job);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

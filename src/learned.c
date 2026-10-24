@@ -532,10 +532,9 @@ static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size
 
 maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedModel* modelOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenLearnedModelWork(bytes, size, modelOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

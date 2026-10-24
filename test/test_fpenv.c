@@ -78,12 +78,11 @@ static void TestInsideIsNearestWithDenormals(void)
 {
     uint64_t before = ReadControl();
     WriteControl(s_hostSetting);
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     float subnormal = Subnormal();
     float rounded = AboveHalfUlp();
     float sine = maniSin(1e-40f);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     uint64_t after = ReadControl();
     WriteControl(before);
     CHECK(subnormal != 0.0f, "denormals kept inside");
@@ -96,14 +95,12 @@ static void TestNestedEntriesRestoreInOrder(void)
 {
     uint64_t before = ReadControl();
     WriteControl(s_hostSetting);
-    maniFloatEnv outer;
-    maniFloatEnv inner;
-    maniFloatEnvEnter(&outer);
+    uint64_t outer = maniFloatEnvEnter();
     uint64_t inside = ReadControl();
-    maniFloatEnvEnter(&inner);
-    maniFloatEnvLeave(&inner);
+    uint64_t inner = maniFloatEnvEnter();
+    maniFloatEnvLeave(inner);
     CHECK(ReadControl() == inside, "an inner call leaves the library's setting");
-    maniFloatEnvLeave(&outer);
+    maniFloatEnvLeave(outer);
     CHECK(ReadControl() == s_hostSetting, "the outer call leaves the host's");
     WriteControl(before);
 }

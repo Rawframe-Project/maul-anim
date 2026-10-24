@@ -208,10 +208,9 @@ static MANI_NOINLINE maniBuildResult BuildRetargetMapJsonWork(maniBuilder* build
 maniBuildResult maniBuildRetargetMapJson(maniBuilder* builder, const char* text, size_t length,
                                          const maniSkeleton* source, const maniSkeleton* target)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildRetargetMapJsonWork(builder, text, length, source, target);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -345,9 +344,8 @@ static MANI_NOINLINE maniBuildResult WriteRetargetMapJsonWork(maniBuilder* build
 
 maniBuildResult maniWriteRetargetMapJson(maniBuilder* builder, const maniRetargetMapSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = WriteRetargetMapJsonWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

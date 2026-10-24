@@ -273,9 +273,8 @@ static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const mani
 maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, const maniClip* clip,
                            maniClipReport* reportOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = MeasureClipWork(builder, source, clip, reportOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

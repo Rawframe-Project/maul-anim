@@ -221,10 +221,9 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
 
 maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences* influencesOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenInfluencesWork(bytes, size, influencesOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

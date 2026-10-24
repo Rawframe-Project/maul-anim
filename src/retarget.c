@@ -323,10 +323,9 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
 
 maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetMap* mapOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenRetargetMapWork(bytes, size, mapOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

@@ -162,9 +162,8 @@ static MANI_NOINLINE maniBuildResult BuildMirroredClipWork(maniBuilder* builder,
 
 maniBuildResult maniBuildMirroredClip(maniBuilder* builder, const maniMirrorClipSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildMirroredClipWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

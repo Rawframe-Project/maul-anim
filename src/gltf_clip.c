@@ -669,10 +669,9 @@ maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, u
                                    const maniSkeleton* skeleton, const maniGltfOptions* options,
                                    const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result =
         GltfBuildClipWork(builder, gltf, animation, skeleton, options, clipOptions, boundOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

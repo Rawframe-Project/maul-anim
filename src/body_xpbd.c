@@ -298,9 +298,8 @@ maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
                              const maniBodySolve* solve, void* scratch, size_t scratchSize,
                              bool* reachedOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveBodyXpbdWork(pose, skeleton, solve, scratch, scratchSize, reachedOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

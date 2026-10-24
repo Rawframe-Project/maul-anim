@@ -927,9 +927,8 @@ static MANI_NOINLINE maniBuildResult BuildGraphJsonWork(maniBuilder* builder, co
 maniBuildResult maniBuildGraphJson(maniBuilder* builder, const char* text, size_t length,
                                    const maniGraphNamedAssets* assets)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildGraphJsonWork(builder, text, length, assets);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

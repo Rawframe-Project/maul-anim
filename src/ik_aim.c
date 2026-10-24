@@ -186,9 +186,8 @@ static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton*
 maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* solve,
                         bool* reachedOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveAimWork(pose, skeleton, solve, reachedOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

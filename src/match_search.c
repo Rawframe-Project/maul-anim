@@ -416,10 +416,9 @@ static MANI_NOINLINE maniResult SearchMotionDatabaseWork(const maniMotionDatabas
 maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query,
                                     maniMatchResult* resultOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SearchMotionDatabaseWork(database, query, resultOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

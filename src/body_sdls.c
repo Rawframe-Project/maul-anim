@@ -338,9 +338,8 @@ maniResult maniSolveBodySdls(maniPose* pose, const maniSkeleton* skeleton,
                              const maniBodySolve* solve, void* scratch, size_t scratchSize,
                              bool* reachedOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveBodySdlsWork(pose, skeleton, solve, scratch, scratchSize, reachedOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

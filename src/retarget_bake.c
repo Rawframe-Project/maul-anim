@@ -170,9 +170,8 @@ static MANI_NOINLINE maniBuildResult BuildRetargetedClipWork(maniBuilder* builde
 
 maniBuildResult maniBuildRetargetedClip(maniBuilder* builder, const maniRetargetClipSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildRetargetedClipWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

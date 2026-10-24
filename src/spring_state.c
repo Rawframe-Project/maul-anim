@@ -75,10 +75,9 @@ static MANI_NOINLINE maniResult InitSpringStateWork(const maniSpringSet* set,
 maniResult maniInitSpringState(const maniSpringSet* set, const maniSkeleton* skeleton, void* memory,
                                size_t size, maniSpringState** stateOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = InitSpringStateWork(set, skeleton, memory, size, stateOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -131,10 +130,9 @@ static MANI_NOINLINE maniResult StepSpringsWork(maniSpringState* state, maniPose
 maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTransform* placement,
                            const maniVec3* force, float delta)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = StepSpringsWork(state, pose, placement, force, delta);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -150,10 +148,9 @@ static MANI_NOINLINE maniResult ApplySpringsWork(const maniSpringState* state, m
 
 maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = ApplySpringsWork(state, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -197,10 +194,9 @@ static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state
 
 maniResult maniSaveSpringState(const maniSpringState* state, void* out, size_t capacity)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SaveSpringStateWork(state, out, capacity);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -384,9 +380,8 @@ static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* stat
 
 maniFileResult maniRestoreSpringState(maniSpringState* state, const void* bytes, size_t size)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = RestoreSpringStateWork(state, bytes, size);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

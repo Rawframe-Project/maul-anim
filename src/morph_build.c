@@ -661,9 +661,8 @@ static MANI_NOINLINE maniBuildResult BuildMorphTargetsWork(maniBuilder* builder,
 
 maniBuildResult maniBuildMorphTargets(maniBuilder* builder, const maniMorphSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildMorphTargetsWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

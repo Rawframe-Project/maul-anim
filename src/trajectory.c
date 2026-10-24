@@ -106,10 +106,9 @@ static MANI_NOINLINE maniResult AdvanceTrajectoryWork(maniTrajectory* trajectory
 maniResult maniAdvanceTrajectory(maniTrajectory* trajectory, const maniTrajectoryGoal* goal,
                                  float seconds)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = AdvanceTrajectoryWork(trajectory, goal, seconds);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -140,9 +139,8 @@ maniResult maniTrajectoryFeatures(const maniMotionDatabase* database, const mani
                                   const maniTrajectory* sample, float* positionOut,
                                   float* facingOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = TrajectoryFeaturesWork(database, root, sample, positionOut, facingOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

@@ -242,10 +242,9 @@ static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t 
 
 maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* mapOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenMirrorMapWork(bytes, size, mapOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

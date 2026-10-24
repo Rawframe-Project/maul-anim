@@ -426,10 +426,9 @@ static MANI_NOINLINE maniResult InitGraphInstanceWork(const maniGraphBinding* bi
 maniResult maniInitGraphInstance(const maniGraphBinding* binding, void* memory, size_t size,
                                  maniGraphInstance** instanceOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = InitGraphInstanceWork(binding, memory, size, instanceOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -455,10 +454,9 @@ static MANI_NOINLINE maniResult SetGraphParameterWork(maniGraphInstance* instanc
 maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter,
                                  maniGraphParameterType type, maniGraphValue value)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SetGraphParameterWork(instance, parameter, type, value);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -493,10 +491,9 @@ static MANI_NOINLINE maniResult SetGraphPoseWork(maniGraphInstance* instance, ui
 
 maniResult maniSetGraphPose(maniGraphInstance* instance, uint32_t parameter, const maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SetGraphPoseWork(instance, parameter, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -515,10 +512,9 @@ static MANI_NOINLINE maniResult GetGraphPoseWork(const maniGraphInstance* instan
 maniResult maniGetGraphPose(const maniGraphInstance* instance, uint32_t parameter,
                             maniPose* poseOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = GetGraphPoseWork(instance, parameter, poseOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -626,10 +622,9 @@ static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* i
 
 maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, size_t capacity)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SaveGraphInstanceWork(instance, out, capacity);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -903,9 +898,8 @@ static MANI_NOINLINE maniFileResult RestoreGraphInstanceWork(maniGraphInstance* 
 
 maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance, const void* bytes, size_t size)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = RestoreGraphInstanceWork(instance, bytes, size);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

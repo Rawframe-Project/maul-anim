@@ -88,10 +88,9 @@ static MANI_NOINLINE maniVec3 RetargetRootMotionWork(const maniRetargetMap* map,
 
 maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniVec3 result = RetargetRootMotionWork(map, delta);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -325,10 +324,9 @@ maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* sour
                             const maniPose* sourcePose, const maniSkeleton* target,
                             maniPose* targetPose, void* scratch, size_t scratchSize)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result =
         RetargetPoseWork(map, source, sourcePose, target, targetPose, scratch, scratchSize);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

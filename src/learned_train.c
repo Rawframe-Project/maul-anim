@@ -287,9 +287,8 @@ maniBuildResult maniCreateLearnedTrainer(const maniLearnedTrainerDef* def,
                                          const maniLearnedTrainerSource* source,
                                          maniLearnedTrainer** trainerOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = CreateLearnedTrainerWork(def, source, trainerOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

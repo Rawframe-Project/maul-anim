@@ -890,9 +890,8 @@ static MANI_NOINLINE maniBuildResult BuildGraphWork(maniBuilder* builder,
 
 maniBuildResult maniBuildGraph(maniBuilder* builder, const maniGraphSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildGraphWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

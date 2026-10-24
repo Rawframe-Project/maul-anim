@@ -99,10 +99,9 @@ static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const vo
 
 maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = OpenFbxWork(builder, bytes, size, fbxOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

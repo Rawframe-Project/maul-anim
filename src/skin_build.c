@@ -119,9 +119,8 @@ static MANI_NOINLINE maniBuildResult BuildSkinWork(maniBuilder* builder,
 
 maniBuildResult maniBuildSkin(maniBuilder* builder, const maniSkinSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildSkinWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

@@ -411,9 +411,8 @@ static MANI_NOINLINE maniBuildResult BuildRagdollWork(maniBuilder* builder,
 
 maniBuildResult maniBuildRagdoll(maniBuilder* builder, const maniRagdollSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildRagdollWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

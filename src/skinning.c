@@ -388,10 +388,9 @@ static MANI_NOINLINE maniResult SkinLinearWork(const maniSkinJob* job)
 
 maniResult maniSkinLinear(const maniSkinJob* job)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SkinLinearWork(job);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -402,10 +401,9 @@ static MANI_NOINLINE maniResult SkinDualQuaternionWork(const maniSkinJob* job)
 
 maniResult maniSkinDualQuaternion(const maniSkinJob* job)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SkinDualQuaternionWork(job);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -416,10 +414,9 @@ static MANI_NOINLINE maniResult SkinBlendedWork(const maniSkinJob* job)
 
 maniResult maniSkinBlended(const maniSkinJob* job)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SkinBlendedWork(job);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -430,10 +427,9 @@ static MANI_NOINLINE maniResult SkinCentersWork(const maniSkinJob* job)
 
 maniResult maniSkinCenters(const maniSkinJob* job)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SkinCentersWork(job);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -497,10 +493,9 @@ static MANI_NOINLINE maniResult PaletteDualQuaternionsWork(const maniAffine* pal
 
 maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count, float* out)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = PaletteDualQuaternionsWork(palette, count, out);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -528,9 +523,8 @@ static MANI_NOINLINE maniResult PaletteRowsWork(const maniAffine* palette, uint3
 
 maniResult maniPaletteRows(const maniAffine* palette, uint32_t count, float* rows)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = PaletteRowsWork(palette, count, rows);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

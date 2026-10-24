@@ -648,9 +648,8 @@ static MANI_NOINLINE maniBuildResult BuildMotionDatabaseWork(maniBuilder* builde
 maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
                                         const maniMotionDatabaseSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildMotionDatabaseWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

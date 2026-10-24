@@ -503,9 +503,8 @@ static MANI_NOINLINE maniImportResult FbxBuildSkinWork(maniBuilder* builder, con
 maniImportResult maniFbxBuildSkin(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
                                   const maniSkeleton* skeleton, const maniFbxOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxBuildSkinWork(builder, fbx, skin, skeleton, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

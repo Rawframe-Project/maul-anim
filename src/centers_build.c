@@ -402,9 +402,8 @@ static MANI_NOINLINE maniBuildResult BuildCentersWork(maniBuilder* builder,
 
 maniBuildResult maniBuildCenters(maniBuilder* builder, const maniCenterSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildCentersWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

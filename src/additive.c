@@ -123,10 +123,9 @@ static MANI_NOINLINE maniResult PoseDifferenceWork(const maniSkeleton* skeleton,
 maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
                               const maniPose* basis, maniPose* out)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = PoseDifferenceWork(skeleton, pose, basis, out);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -179,10 +178,9 @@ static MANI_NOINLINE maniResult AddPosesWork(const maniSkeleton* skeleton, maniP
 maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const maniBlendLayer* layers,
                         uint32_t count)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = AddPosesWork(skeleton, pose, layers, count);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

@@ -722,10 +722,9 @@ static MANI_NOINLINE maniResult EvaluateGraphWork(maniGraphInstance* instance, v
 maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
                              maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = EvaluateGraphWork(instance, scratch, size, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -745,9 +744,8 @@ static MANI_NOINLINE maniResult EvaluateGraphSubsetWork(maniGraphInstance* insta
 maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
                                    void* scratch, size_t size, maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = EvaluateGraphSubsetWork(instance, plan, scratch, size, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

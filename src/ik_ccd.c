@@ -77,9 +77,8 @@ static MANI_NOINLINE maniResult SolveCcdWork(maniPose* pose, const maniSkeleton*
 maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton, const maniChainSolve* solve,
                         bool* reachedOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveCcdWork(pose, skeleton, solve, reachedOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

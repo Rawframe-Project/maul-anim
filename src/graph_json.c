@@ -883,9 +883,8 @@ static MANI_NOINLINE maniBuildResult WriteGraphJsonWork(maniBuilder* builder,
 
 maniBuildResult maniWriteGraphJson(maniBuilder* builder, const maniGraphSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = WriteGraphJsonWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

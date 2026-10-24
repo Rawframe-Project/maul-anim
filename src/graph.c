@@ -577,10 +577,9 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
 
 maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenGraphWork(bytes, size, graphOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

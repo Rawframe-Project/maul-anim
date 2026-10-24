@@ -123,9 +123,8 @@ maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll, const maniRagdo
                                      uint32_t count, const maniRagdollGround* ground,
                                      maniRagdollGetUp* out)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = RagdollGetUpPlacementWork(ragdoll, bodies, count, ground, out);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

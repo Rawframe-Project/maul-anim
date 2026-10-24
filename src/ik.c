@@ -181,9 +181,8 @@ static MANI_NOINLINE maniResult SolveTwoBoneWork(maniPose* pose, const maniSkele
 maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
                             const maniTwoBoneSolve* solve, bool* reachedOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveTwoBoneWork(pose, skeleton, solve, reachedOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

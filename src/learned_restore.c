@@ -260,9 +260,8 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(maniLearnedTrai
 maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const void* bytes,
                                             size_t size)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = RestoreLearnedCheckpointWork(trainer, bytes, size);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

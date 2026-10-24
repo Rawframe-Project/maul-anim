@@ -24,20 +24,18 @@
 #define MANI_NOINLINE __attribute__((noinline))
 #endif
 
-// The host's control register, saved on entry.
-typedef struct maniFloatEnv
-{
-    uint64_t saved;
-} maniFloatEnv;
+// Sets round to nearest, denormals kept and every exception masked,
+// writing the thread's floating-point control register only when that
+// changes it, and returns the register as the host had it: everything
+// maniFloatEnvLeave needs to restore it. The value is returned rather
+// than stored through a pointer so a public call keeps it in a register:
+// a local whose address is taken costs every wrapper a stack protector's
+// canary.
+uint64_t maniFloatEnvEnter(void);
 
-// Saves the thread's floating-point control register into env and sets
-// round to nearest, denormals kept and every exception masked, writing
-// the register only when that changes it.
-void maniFloatEnvEnter(maniFloatEnv* env);
-
-// Restores the control register maniFloatEnvEnter saved, writing it only
-// when it differs.
-void maniFloatEnvLeave(const maniFloatEnv* env);
+// Restores the control register maniFloatEnvEnter returned, writing it
+// only when it differs.
+void maniFloatEnvLeave(uint64_t saved);
 
 // The thread's control register as it is: MXCSR on x86, FPCR on AArch64,
 // 0 on WebAssembly. For tests and diagnostics.

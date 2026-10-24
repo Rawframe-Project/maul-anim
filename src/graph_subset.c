@@ -297,10 +297,9 @@ static MANI_NOINLINE maniResult PlanGraphSubsetWork(const maniGraphBinding* bind
 maniResult maniPlanGraphSubset(const maniGraphBinding* binding, const uint32_t* bones,
                                uint32_t count, void* memory, size_t size, maniGraphSubset** planOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = PlanGraphSubsetWork(binding, bones, count, memory, size, planOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

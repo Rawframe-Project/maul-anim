@@ -631,9 +631,8 @@ static MANI_NOINLINE maniBuildResult BuildMirrorMapWork(maniBuilder* builder,
 
 maniBuildResult maniBuildMirrorMap(maniBuilder* builder, const maniMirrorMapSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildMirrorMapWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

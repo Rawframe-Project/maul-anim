@@ -261,10 +261,9 @@ static MANI_NOINLINE maniResult LearnedProjectWork(const maniLearnedModel* model
 maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query,
                               float* stateOut, void* scratch, size_t scratchSize)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = LearnedProjectWork(model, projector, query, stateOut, scratch, scratchSize);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -298,10 +297,9 @@ static MANI_NOINLINE maniResult LearnedStepWork(const maniLearnedModel* model, f
 maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* scratch,
                            size_t scratchSize)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = LearnedStepWork(model, state, scratch, scratchSize);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -381,10 +379,9 @@ static MANI_NOINLINE maniResult LearnedDecompressWork(const maniLearnedModel* mo
 maniResult maniLearnedDecompress(const maniLearnedModel* model, const float* state,
                                  maniLearnedOutput* output, void* scratch, size_t scratchSize)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = LearnedDecompressWork(model, state, output, scratch, scratchSize);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

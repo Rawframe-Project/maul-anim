@@ -991,10 +991,9 @@ static MANI_NOINLINE maniResult UpdateGraphWork(maniGraphInstance* instance, flo
 maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEvent* events,
                            uint32_t capacity, uint32_t* eventCountOut, maniRootMove* rootMotionOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result =
         UpdateGraphWork(instance, delta, events, capacity, eventCountOut, rootMotionOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

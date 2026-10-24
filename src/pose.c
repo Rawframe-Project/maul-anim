@@ -138,10 +138,9 @@ MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void*
 
 maniResult maniInitPose(const maniSkeleton* skeleton, void* memory, size_t size, maniPose** poseOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = maniInitPoseEntered(skeleton, memory, size, poseOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -259,10 +258,9 @@ static MANI_NOINLINE maniResult PoseSetRestWork(maniPose* pose, const maniSkelet
 
 maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = PoseSetRestWork(pose, skeleton);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -297,10 +295,9 @@ MANI_NOINLINE maniResult maniComputeModelEntered(maniPose* pose, const maniSkele
 
 maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = maniComputeModelEntered(pose, skeleton);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -368,10 +365,9 @@ static MANI_NOINLINE maniResult DecomposeAffineWork(const maniAffine* matrix,
 
 maniResult maniDecomposeAffine(const maniAffine* matrix, maniTransform* transformOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = DecomposeAffineWork(matrix, transformOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -391,9 +387,8 @@ MANI_NOINLINE maniTransform maniPoseModelTransformEntered(const maniPose* pose, 
 
 maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniTransform result = maniPoseModelTransformEntered(pose, bone);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

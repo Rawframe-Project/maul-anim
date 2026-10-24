@@ -25,10 +25,9 @@ typedef struct Wrapped
 static void InEnvironment(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
     const Wrapped* wrapped = taskContext;
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     wrapped->task(startIndex, endIndex, wrapped->context);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
 }
 
 void maniTrainRun(const maniTaskHooks* hooks, maniTaskFn* task, int32_t count, void* context)

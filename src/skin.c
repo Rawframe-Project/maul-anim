@@ -120,10 +120,9 @@ static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size,
 
 maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenSkinWork(bytes, size, skinOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -195,9 +194,8 @@ maniResult maniComputePalette(const maniPose* pose, const maniSkeleton* skeleton
                               const maniSkin* skin, maniAffine* palette, uint32_t capacity,
                               uint32_t* countOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = ComputePaletteWork(pose, skeleton, skin, palette, capacity, countOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

@@ -622,10 +622,9 @@ static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, si
 maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
                                       maniMotionDatabase* databaseOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenMotionDatabaseWork(bytes, size, databaseOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -734,10 +733,9 @@ static MANI_NOINLINE maniResult MotionDatabaseFrameWork(const maniMotionDatabase
 maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t frame,
                                    uint32_t* entryOut, float* timeOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = MotionDatabaseFrameWork(database, frame, entryOut, timeOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 

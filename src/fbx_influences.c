@@ -87,10 +87,9 @@ static MANI_NOINLINE maniSkinningMethod FbxSkinMethodWork(const maniFbx* fbx, ui
 
 maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniSkinningMethod result = FbxSkinMethodWork(fbx, skin);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -387,9 +386,8 @@ static MANI_NOINLINE maniImportResult FbxBuildInfluencesWork(maniBuilder* builde
 maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
                                         const maniSkin* built)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxBuildInfluencesWork(builder, fbx, skin, built);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

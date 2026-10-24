@@ -154,10 +154,9 @@ static MANI_NOINLINE maniRootMove ComposeRootMotionWork(maniRootMove first, mani
 
 maniRootMove maniComposeRootMotion(maniRootMove first, maniRootMove then)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniRootMove result = ComposeRootMotionWork(first, then);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -273,10 +272,9 @@ MANI_NOINLINE maniResult maniClipRootMotionEntered(const maniClip* clip, float t
 
 maniResult maniClipRootMotion(const maniClip* clip, float time, float step, maniRootMove* moveOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = maniClipRootMotionEntered(clip, time, step, moveOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -348,10 +346,9 @@ static MANI_NOINLINE maniResult BlendRootMotionWork(const maniRootMove* moves, c
 maniResult maniBlendRootMotion(const maniRootMove* moves, const float* weights, uint32_t count,
                                maniRootMove* moveOut)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = BlendRootMotionWork(moves, weights, count, moveOut);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -379,9 +376,8 @@ static MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
 maniResult maniRestoreRootMotion(const maniClip* clip, const maniSkeleton* skeleton, float time,
                                  maniPose* pose)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = RestoreRootMotionWork(clip, skeleton, time, pose);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

@@ -659,10 +659,9 @@ static MANI_NOINLINE maniImportResult FbxBuildMorphTargetsWork(maniBuilder* buil
 maniImportResult maniFbxBuildMorphTargets(maniBuilder* builder, const maniFbx* fbx, uint32_t morph,
                                           const maniFbxOptions* options)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxBuildMorphTargetsWork(builder, fbx, morph, options);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -757,9 +756,8 @@ static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, ui
 maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
                                      uint32_t count)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, count);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

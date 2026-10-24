@@ -490,9 +490,8 @@ static MANI_NOINLINE maniBuildResult BuildSpringSetWork(maniBuilder* builder,
 
 maniBuildResult maniBuildSpringSet(maniBuilder* builder, const maniSpringSetSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildSpringSetWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

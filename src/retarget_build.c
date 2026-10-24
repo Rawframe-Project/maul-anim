@@ -522,9 +522,8 @@ static MANI_NOINLINE maniBuildResult BuildRetargetMapWork(maniBuilder* builder,
 
 maniBuildResult maniBuildRetargetMap(maniBuilder* builder, const maniRetargetMapSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildRetargetMapWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

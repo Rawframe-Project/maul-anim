@@ -165,10 +165,9 @@ static MANI_NOINLINE maniBuildResult BuildMirrorMapJsonWork(maniBuilder* builder
 maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder, const char* text, size_t length,
                                        const maniSkeleton* skeleton)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildMirrorMapJsonWork(builder, text, length, skeleton);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -261,9 +260,8 @@ static MANI_NOINLINE maniBuildResult WriteMirrorMapJsonWork(maniBuilder* builder
 
 maniBuildResult maniWriteMirrorMapJson(maniBuilder* builder, const maniMirrorMapSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = WriteMirrorMapJsonWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

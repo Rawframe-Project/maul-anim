@@ -247,9 +247,8 @@ static MANI_NOINLINE maniBuildResult BuildInfluencesWork(maniBuilder* builder,
 
 maniBuildResult maniBuildInfluences(maniBuilder* builder, const maniInfluenceSource* source)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniBuildResult result = BuildInfluencesWork(builder, source);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }

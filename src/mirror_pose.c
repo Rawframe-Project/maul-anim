@@ -155,10 +155,9 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
 maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,
                           const maniPose* in, maniPose* out)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniResult result = MirrorPoseWork(map, skeleton, in, out);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
 
@@ -173,9 +172,8 @@ static MANI_NOINLINE maniRootMove MirrorRootMotionWork(const maniMirrorMap* map,
 
 maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move)
 {
-    maniFloatEnv env;
-    maniFloatEnvEnter(&env);
+    uint64_t env = maniFloatEnvEnter();
     maniRootMove result = MirrorRootMotionWork(map, move);
-    maniFloatEnvLeave(&env);
+    maniFloatEnvLeave(env);
     return result;
 }
