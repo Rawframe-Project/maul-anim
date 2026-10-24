@@ -944,7 +944,10 @@ static void RootOutputs(uint32_t first, float value)
 // a velocity of 3e38 over 2 seconds, and an angular velocity of 2.5e38 on
 // each axis over 1 (each product finite, the angle not). The update
 // reports the model's data with mani_errorFormat, its move finite and the
-// node named in its view. Last, as it rebuilds the fixture's model.
+// node named in its view. An angular velocity of 1e-40 over 1/30 second,
+// an angle whose reciprocal passes the float range, turns by its first
+// order term (v / 2, 1), checked in binary64. Last, as it rebuilds the
+// fixture's model.
 static void TestRootOverflow(void)
 {
     static const struct
@@ -974,6 +977,24 @@ static void TestRootOverflow(void)
                   maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1,
               kCases[c].name);
     }
+    RootOutputs(33, 1e-40f);
+    maniGraph g;
+    maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.0f), &g);
+    maniGraphEvent events[8];
+    uint32_t count = 0;
+    maniRootMove move;
+    float seconds = 1.0f / 30.0f;
+    CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_success,
+          "no move over no time");
+    maniResult r = maniUpdateGraph(instance, seconds, events, 8, &count, &move);
+    // Each axis turns by half its angle; the quaternion's length is 1.
+    double half = (double)1e-40f * (double)seconds * 0.5;
+    maniGraphNodeView view;
+    CHECK(r == mani_success && move.rotation.w == 1.0f && move.rotation.x == move.rotation.y &&
+              move.rotation.y == move.rotation.z &&
+              fabs((double)move.rotation.x - half) < 0.01 * half &&
+              maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 0,
+          "an angle whose reciprocal passes the float range turned by its first order");
 }
 
 int main(void)
