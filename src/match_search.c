@@ -437,7 +437,11 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
     uint32_t n = database->featureCount;
     s.featureCount = n;
     s.historyCount = query->historyCount;
+    // No entry decoded yet: the first leaf frame decodes its own.
     s.lastEntry = UINT32_MAX;
+    s.last = (Entry){0, 0.0f, 0.0f, 0.0f, 0, 0, 0};
+    s.lastStop = 0;
+    s.lastCandidate = false;
     s.jumpFrames = FramesApart(database, query->jumpThreshold);
     s.historyFrames = FramesApart(database, query->historyTime);
     for (uint32_t j = 0; j < n; ++j)
