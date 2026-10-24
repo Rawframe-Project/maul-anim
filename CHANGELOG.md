@@ -5,6 +5,22 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.2.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.1.0...v0.2.0) (2026-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **match:** the motion database format version is 3. A database keeps its frames in a k-d tree's order with each node's bounding box, in place of bounds over runs of frames, and maniOpenMotionDatabase refuses any other format version with mani_errorVersion. Build databases again from their sources, and the graphs that name them, since a database's identity changes; a learned trainer's checkpoint does not resume against the rebuilt database. maniMotionDatabaseSource gains leafFrames (8, 16 or 32 frames a leaf, 0 for 16) and a reserved word that must be 0; positional initializers name them. Searches return the same frames and costs as before.
+
+### Fixed
+
+* enter the floating-point environment in every computing call ([#26](https://github.com/Rawframe-Project/maul-anim/issues/26)) ([d19d608](https://github.com/Rawframe-Project/maul-anim/commit/d19d6086e0e4138139b2bb39c2203ae111cc9e8a)), closes [#23](https://github.com/Rawframe-Project/maul-anim/issues/23)
+
+
+### Changed
+
+* **match:** search motion databases through an exact k-d tree ([#24](https://github.com/Rawframe-Project/maul-anim/issues/24)) ([cd88f01](https://github.com/Rawframe-Project/maul-anim/commit/cd88f01427df5a5adb410e2359b15b6e255bef0c))
+
 ## [0.1.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.1.0) (2026-10-24)
 
 ### Changed
