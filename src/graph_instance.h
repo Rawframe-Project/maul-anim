@@ -135,11 +135,15 @@ static inline const maniGraphBoundMapPair* maniGraphClipMapPair(const maniGraphB
 
 // A node's flags during an update: its time factor set from a parent, a
 // seek above it firing (to a normalized time with phase), and a clip's
-// events listed.
+// events listed. FAILED, kept until the next update: a learned node's
+// model gave a value past the float range in that update or an
+// evaluation after it, and the node held its last finite state or gave
+// the neutral pose.
 #define MANI_GRAPH_REACHED 1u
 #define MANI_GRAPH_SEEKING 2u
 #define MANI_GRAPH_PHASE   4u
 #define MANI_GRAPH_LISTED  8u
+#define MANI_GRAPH_FAILED  16u
 
 // A node's state: its effective weight, a word its kind keeps (a
 // select's input) and its playhead in seconds (a clip's), all saved; and

@@ -9,14 +9,17 @@
 
 #include "maul-anim/learned.h"
 
+#include <stdbool.h>
+
 // The Decompressor's outputs after the bones' (the root's velocity and
 // angular velocity, the float tracks, the events' states) for a state,
 // denormalized into out: its hidden layers whole and those outputs only,
 // each the same bits as a whole evaluation gives. scratch holds
 // maniLearnedScratchSize bytes, 4-byte aligned; nothing is checked. With
 // hidden (maniLearnedHiddenCount floats), the last layer's inputs are
-// kept there.
-void maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
+// kept there. False, out unchanged, when an output passes the float
+// range (the model's data).
+bool maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
                                  void* scratch, float* hidden);
 
 // The inputs of the Decompressor's last layer: the hidden values a

@@ -111,8 +111,20 @@ maniVec3 maniQuatToRotationVector(maniQuat q)
 maniQuat maniQuatFromRotationVector(maniVec3 v)
 {
     float angle = maniVec3Length(v);
-    return angle > 0.0f ? maniQuatFromAxisAngle(maniVec3Scale(v, 1.0f / angle), angle)
-                        : maniQuatIdentity();
+    if (!(angle > 0.0f))
+    {
+        return maniQuatIdentity();
+    }
+    // Below about 2.9e-39 the reciprocal passes the float range and the
+    // axis would be NaN; there sin(angle / 2) is angle / 2 and cos 1 to
+    // every bit, so the turn is (v / 2, 1). Every larger angle keeps its
+    // bits.
+    float inverse = 1.0f / angle;
+    if (!(inverse < HUGE_VALF))
+    {
+        return (maniQuat){v.x * 0.5f, v.y * 0.5f, v.z * 0.5f, 1.0f};
+    }
+    return maniQuatFromAxisAngle(maniVec3Scale(v, inverse), angle);
 }
 
 maniQuat maniQuatBetween(maniVec3 from, maniVec3 to)

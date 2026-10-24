@@ -54,6 +54,8 @@ maniResult evaluated = maniEvaluateGraph(instance, scratch, maniGraphScratchSize
 
 The update is cheap and gives what game logic needs (events, root motion, machine states); the evaluation writes the pose and may run on another thread or be skipped for a character off screen. One scratch per thread serves every instance.
 
+Both return `mani_errorFormat` when a learned node's model gives a value past the float range, though every weight in it is finite (the update also when a root velocity's move over a long step passes it): the call still completes, and what it writes (events, root motion, the pose) is valid and finite. The failing node holds its last finite state, adds no root motion or events and gives the neutral pose, and `maniInspectGraphNode` names it with `failed`. The model is untrusted data, so this counts no misuse; a program can keep playing, replace the model, or report it.
+
 ## Node kinds
 
 | Kind | What it does |

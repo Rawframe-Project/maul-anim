@@ -101,7 +101,8 @@ maniQuat maniQuatFromAxisAngle(maniVec3 axis, float angle);
 // angle (0 for no turn).
 maniVec3 maniQuatToRotationVector(maniQuat q);
 
-// The turn of a scaled axis-angle (the identity for 0).
+// The turn of a scaled axis-angle (the identity for 0, (v / 2, 1) for an
+// angle whose reciprocal passes the float range).
 maniQuat maniQuatFromRotationVector(maniVec3 v);
 
 // The shortest turn taking the unit direction from onto the unit direction

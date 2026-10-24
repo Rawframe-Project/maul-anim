@@ -198,14 +198,31 @@ uint32_t maniLearnedHiddenCount(const maniLearnedModel* model)
     return w.layerCount > 1 ? LayerSize(model, w.firstLayer + w.layerCount - 1, 0) : 0u;
 }
 
-void maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
+static bool AllFinite(const float* values, uint32_t count)
+{
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (!(fabsf(values[k]) < HUGE_VALF))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
                                  void* scratch, float* hidden)
 {
     uint32_t first = 9 * model->boneCount + 3 * model->scaledBoneCount;
     uint32_t end = model->outputCount;
     const float* a =
         EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, first, end, scratch, hidden, NULL);
+    if (!AllFinite(a + first, end - first))
+    {
+        return false;
+    }
     memcpy(out, a + first, sizeof(float) * (size_t)(end - first));
+    return true;
 }
 
 size_t maniLearnedScratchSize(const maniLearnedModel* model)
@@ -219,18 +236,6 @@ static bool ScratchFits(const maniLearnedModel* m, const void* scratch, size_t s
            size >= maniLearnedScratchSize(m);
 }
 
-static bool AllFinite(const float* values, uint32_t count)
-{
-    for (uint32_t k = 0; k < count; ++k)
-    {
-        if (!(fabsf(values[k]) < HUGE_VALF))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
 maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query,
                               float* stateOut, void* scratch, size_t scratchSize)
 {
@@ -240,6 +245,12 @@ maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector,
         return mani_errorInvalid;
     }
     const float* out = Evaluate(model, MANI_LEARNED_PROJECTORS + projector, query, scratch);
+    // Finite weights, every one checked at open, can still carry a value
+    // past the float range: the model's data, refused.
+    if (!AllFinite(out, model->featureCount + model->latentCount))
+    {
+        return mani_errorFormat;
+    }
     memcpy(stateOut, out, sizeof(float) * ((size_t)model->featureCount + model->latentCount));
     return mani_success;
 }
@@ -255,6 +266,15 @@ maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* sc
     }
     const float* rate = Evaluate(model, MANI_LEARNED_STEPPER, state, scratch);
     float seconds = 1.0f / model->stepRate;
+    // Checked whole before any is written, so a refused step leaves the
+    // state as it was.
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        if (!(fabsf(state[k] + seconds * rate[k]) < HUGE_VALF))
+        {
+            return mani_errorFormat;
+        }
+    }
     for (uint32_t k = 0; k < count; ++k)
     {
         state[k] += seconds * rate[k];
@@ -348,6 +368,12 @@ maniResult maniLearnedDecompressFrom(const maniLearnedModel* model, const float*
     }
     const float* out =
         EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, 0, UINT32_MAX, scratch, NULL, hidden);
+    // Every output finite before any is written; finite outputs make a
+    // finite pose, as the rotation's columns are normalized in binary64.
+    if (!AllFinite(out, model->outputCount))
+    {
+        return mani_errorFormat;
+    }
     if (output->pose != NULL)
     {
         Pose(model, out, output->pose);

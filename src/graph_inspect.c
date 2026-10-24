@@ -134,8 +134,13 @@ maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node
     const maniGraphNodeState* s = &instance->cells[graph->parameterCount + node].node;
     const uint8_t* e = Record(graph, node);
     const uint32_t* blocks = (const uint32_t*)((const uint8_t*)instance + instance->machinesAt);
-    maniGraphNodeView v = {maniLoadU16(e),  s->weight, 0.0, MANI_GRAPH_NONE,
-                           MANI_GRAPH_NONE, 0.0f,      0u};
+    maniGraphNodeView v = {maniLoadU16(e),
+                           s->weight,
+                           0.0,
+                           MANI_GRAPH_NONE,
+                           MANI_GRAPH_NONE,
+                           0.0f,
+                           (s->flags & MANI_GRAPH_FAILED) != 0 ? 1u : 0u};
     if (v.kind == maniGraphNodeClip || v.kind == maniGraphNodeMatch)
     {
         v.time = s->time;
