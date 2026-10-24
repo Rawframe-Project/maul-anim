@@ -5,6 +5,13 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.2.1](https://github.com/Rawframe-Project/maul-anim/compare/v0.2.0...v0.2.1) (2026-10-24)
+
+
+### Changed
+
+* give the -O2 core room under ozz-animation's size ([#29](https://github.com/Rawframe-Project/maul-anim/issues/29)) ([5d3f18a](https://github.com/Rawframe-Project/maul-anim/commit/5d3f18a9c6d17807689a531c496a048162c2d652))
+
 ## [0.2.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.2.0) (2026-10-24)
 
 ### Changed
