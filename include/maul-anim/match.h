@@ -115,8 +115,11 @@ extern "C"
         const uint8_t* entries;
         const uint8_t* normalization;
         const uint8_t* features;
-        const uint8_t* bounds;
+        const uint8_t* boxes;
         const uint8_t* names;
+        const uint8_t* nodes;
+        const uint8_t* positions;
+        const uint8_t* places;
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
@@ -131,12 +134,15 @@ extern "C"
         float sampleRate;
         maniMatchAxis up;
         maniMatchAxis forward;
+        uint32_t leafFrames;
+        uint32_t nodeCount;
     } maniMotionDatabase;
 
     /// Opens a motion database file in place: checks the container, every
     /// record, count and float, that each entry's frames follow from its
-    /// span and the rate, and that every bound is its run's exact minimum
-    /// or maximum.
+    /// span and the rate, that the search tree places every frame once
+    /// with its entry, and that every node's box, lowest frame and least
+    /// bias are exactly its frames'.
     ///
     /// @param bytes       The file, 16-byte aligned.
     /// @param size        Its size in bytes; bytes past the file are
@@ -144,7 +150,7 @@ extern "C"
     /// @param databaseOut Receives the view on success.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
-    /// byte found wrong; `mani_errorVersion` for a newer format.
+    /// byte found wrong; `mani_errorVersion` for any other format version.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
@@ -297,9 +303,9 @@ extern "C"
         float cost;
     } maniMatchResult;
 
-    /// Finds the frame of least cost, exactly (Holden's search with
-    /// bounds over runs of 16 and 64 frames, which prune without changing
-    /// the result). A frame's cost is its entry's cost bias plus the
+    /// Finds the frame of least cost, exactly (a k-d tree of the frames
+    /// whose nodes' bounding boxes prune without changing the result).
+    /// A frame's cost is its entry's cost bias plus the
     /// transition cost (the continuing frame: the continuing bias), plus
     /// the squared differences of the normalized query and its features
     /// in feature order, in binary32. The continuing frame is a candidate

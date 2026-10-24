@@ -386,7 +386,7 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     }
     const maniMotionDatabaseSource source = {
         &scenes->skeleton, clips, channels,       entries,        BENCH_CLIPS, 5,
-        BENCH_CLIPS,       RATE,  maniMatchAxisY, maniMatchAxisZ, NULL};
+        BENCH_CLIPS,       RATE,  maniMatchAxisY, maniMatchAxisZ, NULL, 0, 0};
     void* file = NULL;
     size_t size = 0;
     if (!Keep(builder, maniBuildMotionDatabase(builder, &source), "the motion database", &file,

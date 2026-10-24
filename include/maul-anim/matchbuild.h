@@ -3,7 +3,7 @@
 //
 // Building motion databases: channels sampled from a
 // skeleton's clips at a rate, normalized per channel as Holden's
-// reference does, with bounds over runs of frames for the search.
+// reference does, with a k-d tree of the frames for the search.
 
 #ifndef MAUL_ANIM_MATCHBUILD_H
 #define MAUL_ANIM_MATCHBUILD_H
@@ -65,7 +65,9 @@ extern "C"
     // most MANI_MATCH_MAX_RATE), the up axis whose plane is the ground and
     // the forward axis a facing projects (on different axes), and the
     // mirror map of the skeleton its mirrored entries play through (NULL
-    // when none is mirrored).
+    // when none is mirrored), and the most frames a leaf of the search's
+    // tree holds: 8, 16 or 32, or 0 for 16. Smaller leaves search in
+    // fewer instructions and take more bytes.
     typedef struct maniMotionDatabaseSource
     {
         const maniSkeleton* skeleton;
@@ -79,6 +81,8 @@ extern "C"
         maniMatchAxis up;
         maniMatchAxis forward;
         const maniMirrorMap* mirrorMap;
+        uint32_t leafFrames;
+        uint32_t reserved;
     } maniMotionDatabaseSource;
 
     /// Builds a motion database: samples every entry's frames, each
@@ -86,8 +90,10 @@ extern "C"
     /// wrapped when it loops), in the root's space at the frame (the
     /// clip's root motion carrying the root between times; a bone's
     /// velocity the difference of its positions a frame either side over
-    /// their time apart), normalizes each channel, and bounds every run of
-    /// 16 and 64 frames. A mirrored entry's frames are sampled from its
+    /// their time apart), normalizes each channel, and orders the frames
+    /// in a k-d tree (each node's frames split at the median of the
+    /// feature they spread widest over) with each node's bounding box. A
+    /// mirrored entry's frames are sampled from its
     /// clip's poses mirrored, its root moves reflected and each float
     /// track channel from the track the map pairs its name with, as a
     /// mirrored clip's would be. Keeps the file in place of any built
@@ -98,7 +104,7 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
     /// misuse), or with the reason and item for a refused source:
     /// `maniBuildReasonTiming` (the rate), `maniBuildReasonOption` (the
-    /// axes), `maniBuildReasonCount` (no channels, clips or entries, too
+    /// axes or the leaf size), `maniBuildReasonCount` (no channels, clips or entries, too
     /// many, or past MANI_MATCH_MAX_FRAMES frames or
     /// MANI_MATCH_MAX_FEATURES features), `maniBuildReasonJoint` (a clip
     /// of another skeleton or additive; item the clip),

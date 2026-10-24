@@ -55,7 +55,7 @@ static inline bool HostAssets(CheckpointHost* h, maniBuilder* builder)
     const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
     maniMotionDatabaseSource database = {
         &h->skeleton, h->clips,       &channel,       &entry, 1, 1, 1,
-        10.0f,        maniMatchAxisY, maniMatchAxisZ, NULL};
+        10.0f,        maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
     size_t size = 0;
     h->clips[0] = &h->clip;
     return maniBuildSkeleton(builder, &skeleton).result == mani_success &&

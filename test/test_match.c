@@ -11,9 +11,9 @@
 // entry, clamped in the others) and the float track; each channel's
 // normalized features of mean 0 and mean deviation its weight; frames
 // mapped to entries and times; the channels and entries read back; the
-// builder's refusals; opening's checks of every section, the bounds
-// recomputed. Run as test_match --seed <file> it writes the database, a
-// seed of fuzz_match.
+// builder's refusals and its leaf sizes; opening's checks of every
+// section, the tree's order and boxes recomputed, and of the version. Run as test_match --seed
+// <file> it writes the database, a seed of fuzz_match.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -101,8 +101,8 @@ static maniMotionDatabaseSource Source(void)
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.5f, 2u};
     s_entries[2] = (maniMatchEntrySource){2, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 4u};
     return (maniMotionDatabaseSource){
-        &s_skeleton, s_clipList, s_channels,     s_entries,      3,   4,
-        3,           10.0f,      maniMatchAxisY, maniMatchAxisZ, NULL};
+        &s_skeleton, s_clipList,     s_channels,     s_entries, 3, 4, 3,
+        10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,      0, 0};
 }
 
 static _Alignas(16) uint8_t s_database[1 << 16];
@@ -303,7 +303,7 @@ static void TestFloatTrack(void)
     maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     maniMatchEntrySource entry = {0, 0, 0.0f, 1.0f, 0.0f, 0u};
     maniMotionDatabaseSource source = {&s_skeleton, s_clipList,     &channel,       &entry, 1, 1, 1,
-                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL};
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
     maniMotionDatabase d;
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
@@ -522,7 +522,17 @@ static void TestOpenRefusals(void)
     uint64_t entries = Section(maniMatchTagEntries);
     uint64_t normal = Section(maniMatchTagNormalization);
     uint64_t features = Section(maniMatchTagFeatures);
-    uint64_t bounds = Section(maniMatchTagBounds);
+    uint64_t boxes = Section(maniMatchTagBoxes);
+    uint64_t nodes = Section(maniMatchTagNodes);
+    uint64_t positions = Section(maniMatchTagPositions);
+    uint64_t places = Section(maniMatchTagPlaces);
+    // 32 frames in leaves of 16: the root (its second half node 2) and
+    // two leaves; 12 features. The frames at positions 0 and 1.
+    uint32_t first = maniLoadU32(s_database + positions);
+    uint32_t second = maniLoadU32(s_database + positions + 8);
+    uint32_t entry = maniLoadU32(s_database + positions + 4);
+    CHECK(maniLoadU32(s_database + header + 52) == 3 && maniLoadU32(s_database + nodes) == 2,
+          "a root and two leaves");
     const uint64_t kCases[][3] = {{header + 8, 0, header + 8},
                                   {header + 36, 0, header + 36},
                                   {header + 44, maniMatchAxisNegativeY, header + 44},
@@ -541,9 +551,22 @@ static void TestOpenRefusals(void)
                                   {normal + 4 * 12, BitsOf(0.0f), normal + 4 * 12},
                                   {normal + 4, BitsOf(HUGE_VALF), normal + 4},
                                   {features + 8, BitsOf(NAN), features + 8},
-                                  {bounds + 4, BitsOf(-9.0f), bounds + 4},
-                                  {bounds + 4 * 12 * 2 + 4, BitsOf(9.0f), bounds + 4 * 12 * 2 + 4},
-                                  {bounds + 4 * 12 * 4, BitsOf(-9.0f), bounds + 4 * 12 * 4}};
+                                  {header + 48, 12, header + 48},
+                                  {header + 52, 4, header + 52},
+                                  {positions, 32, positions},
+                                  {positions, second, places + 4 * (uint64_t)second},
+                                  {places + 4 * (uint64_t)first, 5, places + 4 * (uint64_t)first},
+                                  {positions + 4, (entry + 1) % 3, positions + 4},
+                                  {nodes, 1, nodes},
+                                  {nodes + 12, 2, nodes + 12},
+                                  {nodes + 12 + 4, 31, nodes + 12 + 4},
+                                  {nodes + 12 + 8, BitsOf(7.0f), nodes + 12 + 8},
+                                  {nodes + 4, 7, nodes + 4},
+                                  {nodes + 8, BitsOf(7.0f), nodes + 8},
+                                  {boxes + 4 * 24, BitsOf(-9.0f), boxes + 4 * 24},
+                                  {boxes + 4 * 36 + 12, BitsOf(9.0f), boxes + 4 * 36 + 12},
+                                  {boxes + 4 * 2, BitsOf(-9.0f), boxes + 4 * 2},
+                                  {boxes + 4 * 12 + 4, BitsOf(9.0f), boxes + 4 * 12 + 4}};
     for (size_t k = 0; k < sizeof kCases / sizeof kCases[0]; ++k)
     {
         CHECK(RefusedAt(kCases[k][0], (uint32_t)kCases[k][1], kCases[k][2]),
@@ -557,6 +580,91 @@ static void TestOpenRefusals(void)
     CHECK(r.result == mani_errorFormat && r.offset == 40, "an identity not its sections'");
     CHECK(maniOpenMotionDatabase(s_database, s_size, NULL).result == mani_errorInvalid,
           "no view to fill");
+}
+
+// Any other format version, the earlier one with the run bounds among
+// them, is refused at the version before anything else is read.
+static void TestOtherVersions(void)
+{
+    maniMotionDatabaseSource source = Source();
+    CHECK(Build(&source).result == mani_success, "built");
+    const uint16_t versions[3] = {1, 2, MANI_MATCH_FORMAT_VERSION + 1};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        memcpy(s_crafted, s_database, s_size);
+        maniStoreU16(s_crafted + 6, versions[k]);
+        maniMotionDatabase d;
+        maniFileResult r = maniOpenMotionDatabase(s_crafted, s_size, &d);
+        CHECK(r.result == mani_errorVersion && r.offset == 6, "another version refused");
+    }
+}
+
+// The leaf sizes' query (near frame 20, raw) and the first one's pick.
+static float s_query[12];
+static maniMatchResult s_pick;
+
+// Each leaf size builds a database the opener takes, with its leaf size
+// and node count, and the same features and searches; any other is
+// refused as an option.
+static void TestLeafSizes(void)
+{
+    maniBuilder* builder = NewBuilder();
+    maniMotionDatabaseSource source = Source();
+    static const uint32_t kLeaves[4] = {0, 8, 16, 32};
+    static const uint32_t kNodes[4] = {3, 7, 3, 1};
+    float features[32][12];
+    bool same = true;
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        source.leafFrames = kLeaves[k];
+        size_t size = 0;
+        maniMotionDatabase d;
+        CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
+                  maniCopyBuilt(builder, s_database, sizeof s_database, &size) == mani_success &&
+                  maniOpenMotionDatabase(s_database, size, &d).result == mani_success,
+              "a leaf size builds");
+        CHECK(d.leafFrames == (kLeaves[k] != 0 ? kLeaves[k] : 16) && d.nodeCount == kNodes[k],
+              "its leaf size and nodes");
+        for (uint32_t f = 0; f < 32; ++f)
+        {
+            float row[12];
+            CHECK(maniMotionDatabaseFeatures(&d, f, row) == mani_success, "a frame's features");
+            same = same && (k == 0 ? (memcpy(features[f], row, sizeof row), true)
+                                   : memcmp(features[f], row, sizeof row) == 0);
+        }
+        if (k == 0)
+        {
+            float offsets[12];
+            float scales[12];
+            CHECK(maniMotionDatabaseNormalization(&d, offsets, scales) == mani_success,
+                  "the normalization");
+            for (uint32_t j = 0; j < 12; ++j)
+            {
+                s_query[j] = (features[20][j] + 0.05f) * scales[j] + offsets[j];
+            }
+        }
+        maniMatchQuery q = {.features = s_query, .current = 4, .jumpThreshold = 0.2f};
+        maniMatchResult r;
+        CHECK(maniSearchMotionDatabase(&d, &q, &r) == mani_success, "a search");
+        same = same && (k == 0 ? (s_pick = r, true)
+                               : r.frame == s_pick.frame &&
+                                     memcmp(&r.cost, &s_pick.cost, sizeof r.cost) == 0);
+    }
+    CHECK(same, "the same features and pick at every leaf size");
+    const uint32_t wrong[3] = {4, 24, 64};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        source.leafFrames = wrong[k];
+        maniBuildResult r = maniBuildMotionDatabase(builder, &source);
+        CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonOption && r.item == 1,
+              "another leaf size refused");
+    }
+    source.leafFrames = 0;
+    source.reserved = 1;
+    CHECK(maniBuildMotionDatabase(builder, &source).reason == maniBuildReasonOption,
+          "a reserved word refused");
+    CHECK(maniBuilderMisuses(builder) == 0, "no misuse counted");
+    maniDestroyBuilder(builder);
 }
 
 static bool WriteFile(const char* path, const void* data, size_t size)
@@ -589,5 +697,7 @@ int main(int argc, char** argv)
     TestEntryRefusals();
     TestMisuse();
     TestOpenRefusals();
+    TestOtherVersions();
+    TestLeafSizes();
     return s_failures == 0 ? 0 : 1;
 }

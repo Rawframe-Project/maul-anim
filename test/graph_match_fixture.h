@@ -40,7 +40,7 @@ static inline void BuildDatabase(const maniMatchChannelSource* channels, uint32_
     entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.0f, 2u};
     maniMotionDatabaseSource source = {&s_skeleton, clips, channels, entries,        2,
                                        count,       2,     10.0f,    maniMatchAxisY, maniMatchAxisZ,
-                                       NULL};
+                                       NULL,        0,     0};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&

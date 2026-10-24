@@ -40,7 +40,7 @@ Opening needs no scratch memory: a skeleton's depth-first order, for instance, i
 | Skin | 5 | 1 | its skeleton |
 | Influences | 6 | 1 | its skin |
 | Morph targets | 7 | 1 | |
-| Motion database | 8 | 2 | its skeleton and clips, and a mirror map for mirrored entries |
+| Motion database | 8 | 3 | its skeleton and clips, and a mirror map for mirrored entries |
 | Learned model | 9 | 1 | its skeleton and database |
 | Learned checkpoint | 10 | 1 | its trainer's source and options |
 | Spring set | 11 | 2 | its skeleton |
@@ -64,5 +64,5 @@ The library version a file was written by (bytes 16 to 23) is informational: rea
 ## Traps
 
 - A new section that a reader of the same format version would not know changes the format version.
-- Sections derived from others (a skeleton's name order, a database's bounds) are checked against what they are derived from at open. A motion database's search is exact only because its bounds are the exact minimum and maximum of their runs, so opening recomputes every bound.
+- Sections derived from others (a skeleton's name order, a database's search tree) are checked against what they are derived from at open. A motion database's search is exact only because each node's box is the exact minimum and maximum of its frames' features, so opening checks that the tree's order holds every frame once with its entry and recomputes every box, a leaf's from its frames and any other's from its two halves.
 - Hash functions here are for identities and damage, never for security.

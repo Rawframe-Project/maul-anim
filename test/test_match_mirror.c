@@ -221,8 +221,9 @@ static maniMotionDatabaseSource Mirrored(const maniMirrorMap* map)
     s_entries[0] = (maniMatchEntrySource){0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
     s_entries[1] =
         (maniMatchEntrySource){0, MANI_MATCH_LOOP | MANI_MATCH_MIRRORED, 0.0f, 1.0f, 0.0f, 2u};
-    return (maniMotionDatabaseSource){&s_skeleton, s_clips, kChannels,      s_entries,      1,  6,
-                                      2,           30.0f,   maniMatchAxisY, maniMatchAxisZ, map};
+    return (maniMotionDatabaseSource){
+        &s_skeleton, s_clips,        kChannels,      s_entries, 1, 6, 2,
+        30.0f,       maniMatchAxisY, maniMatchAxisZ, map,       0, 0};
 }
 
 static bool Near(float a, float b)
@@ -244,8 +245,8 @@ static void TestFeatures(void)
     baked[0] = &s_walk;
     baked[1] = &s_baked;
     const maniMotionDatabaseSource bake = {
-        &s_skeleton, baked, kChannels,      entries,        2,   6,
-        2,           30.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
+        &s_skeleton, baked,          kChannels,      entries, 2, 6, 2,
+        30.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,    0, 0};
     CHECK(BuildDatabase(&bake, 1, &s_bakedDatabase).result == mani_success,
           "a database of the bake builds");
     CHECK(maniMotionDatabaseMirrorMapIdentity(&s_bakedDatabase) == 0, "no map without mirrors");
@@ -383,7 +384,13 @@ static void TestOpen(void)
                             MANI_MATCH_FORMAT_VERSION, &c)
                   .result == mani_success,
           "the container");
-    uint64_t entry = MANI_CONTAINER_HEADER_SIZE + (uint64_t)(c.sectionCount - 1) * 24;
+    // The mirror section's entry in the table.
+    uint64_t entry = MANI_CONTAINER_HEADER_SIZE;
+    while (maniLoadU32(s_databaseFiles[0] + entry) != maniMatchTagMirror &&
+           entry < MANI_CONTAINER_HEADER_SIZE + (uint64_t)c.sectionCount * 24)
+    {
+        entry += 24;
+    }
     memcpy(s_crafted, s_databaseFiles[0], size);
     maniStoreU64(s_crafted + entry + 16, 4);
     CHECK(maniLoadU32(s_databaseFiles[0] + entry) == maniMatchTagMirror &&
@@ -400,7 +407,7 @@ static void TestOpen(void)
         uint64_t where = 0;
         parts[t - 1] = data;
         sizes[t - 1] = 0;
-        if (t < maniMatchTagMirror &&
+        if (t != maniMatchTagMirror &&
             maniContainerSection(&c, t, &parts[t - 1], &sizes[t - 1], &where) && sizes[t - 1] > 0)
         {
             sections[count++] = (maniSectionSource){t, parts[t - 1], sizes[t - 1]};

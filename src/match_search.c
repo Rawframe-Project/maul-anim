@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The exact search, Holden's: the query normalized as the
-// features were; the continuing frame's cost the first best; then each
-// candidate entry's frames in order, a large run skipped when its box is
-// already no nearer than the best, then a small run, then each frame,
-// every sum stopped once it reaches the best. A frame's cost is a
-// constant (its entry's bias plus the transition cost, or for the
-// continuing frame the continuing bias) plus its squared distances in
-// feature order. Scanning one entry at a time, a box's bound starts from
-// that entry's constant and adds its squared distances to the box in the
-// same order: each term is at most any of its frames' and binary32
-// rounding is monotone, so a box never claims less than one of the
-// entry's frames in it would cost, and the search finds the plain scan's
-// frame and cost bit for bit. Ties go to the continuing frame, then to
-// the lowest frame.
+// The exact search: the query normalized as the features
+// were; the continuing frame's cost the first best; then the tree's
+// nodes nearest first, a node skipped when its box's bound shows it can
+// hold no better frame, and each leaf's frames scored, every sum stopped
+// once it passes the best. A frame's cost is a constant (its entry's
+// bias plus the transition cost, or for the continuing frame the
+// continuing bias) plus its squared distances in feature order. A box's
+// bound starts from the transition cost plus the least bias of its
+// frames' entries and adds its squared distances to the box in the same
+// order: each term is at most any of its frames' and binary32 rounding is
+// monotone, so a box never claims less than one of its frames would
+// cost, and the search finds the plain scan's frame and cost bit for
+// bit. Frames come out of order, so ties are settled as the scan settles
+// them: the continuing frame first, then the lowest frame; a node whose
+// bound equals the best is skipped only when it cannot hold a lower
+// frame.
 
 #include "match_search.h"
 
@@ -54,25 +56,17 @@ static Entry EntryAt(const maniMotionDatabase* d, uint32_t i)
                    maniLoadU32(e + 20), maniLoadU32(e + 24), maniLoadU32(e + 28)};
 }
 
-// The entry holding a frame: the last whose first frame is at most it.
+// The entry holding a frame, as its position names it.
 static uint32_t EntryOf(const maniMotionDatabase* d, uint32_t frame)
 {
-    uint32_t low = 0;
-    uint32_t high = d->entryCount - 1;
-    while (low < high)
-    {
-        uint32_t mid = low + (high - low + 1) / 2;
-        uint32_t first = maniLoadU32(d->entries + (size_t)mid * MANI_MATCH_ENTRY_SIZE + 24);
-        low = first <= frame ? mid : low;
-        high = first <= frame ? high : mid - 1;
-    }
-    return low;
+    size_t position = maniLoadU32(d->places + 4 * (size_t)frame);
+    return maniLoadU32(d->positions + position * MANI_MATCH_POSITION_SIZE + 4);
 }
 
 // What a search holds: the database, the query, the normalized query,
-// the earlier picks' entries, the best so far, per level of runs (small,
-// large) where its boxes' lows start and how far past a low its high
-// is, and the exclusions' times as frames apart.
+// the earlier picks' entries, the best so far and whether it is the
+// continuing frame, the exclusions' times as frames apart, and the last
+// entry a leaf's frame came from with its frames' end for the search.
 typedef struct Search
 {
     const maniMotionDatabase* d;
@@ -81,12 +75,15 @@ typedef struct Search
     uint32_t historyEntries[MANI_MATCH_MAX_HISTORY];
     uint32_t best;
     float bestCost;
-    const uint8_t* lows[2];
-    size_t highs[2];
+    bool continuing;
     uint32_t jumpFrames;
     uint32_t historyFrames;
     uint32_t featureCount;
     uint32_t historyCount;
+    uint32_t lastEntry;
+    Entry last;
+    uint32_t lastStop;
+    bool lastCandidate;
 } Search;
 
 static bool Candidate(const Search* s, const Entry* e)
@@ -158,10 +155,10 @@ static bool NearEnd(const Search* s, const Entry* e, uint32_t m)
     return (double)e->end - t < (double)s->q->endExclusion;
 }
 
-// The frames of an entry a search reaches: a clamped entry's frames
-// within the end exclusion of its end left out. The first excluded
-// frame is guessed from the times and then settled by NearEnd, so the
-// guess's rounding never moves it.
+// The end of the frames of an entry a search reaches: a clamped entry's
+// frames within the end exclusion of its end left out. The first
+// excluded frame is guessed from the times and then settled by NearEnd,
+// so the guess's rounding never moves it.
 static uint32_t Stop(const Search* s, const Entry* e)
 {
     if ((e->flags & MANI_MATCH_LOOP) != 0)
@@ -183,7 +180,8 @@ static uint32_t Stop(const Search* s, const Entry* e)
 }
 
 // The cost of features f (a frame's in the database, or the continuing
-// frame's a caller gives) plus constant, stopped once it reaches the best.
+// frame's a caller gives) plus constant, stopped once past the best: a
+// cost equal to it may still win a tie.
 static float Cost(const Search* s, const uint8_t* f, float constant)
 {
     uint32_t n = s->featureCount;
@@ -193,7 +191,7 @@ static float Cost(const Search* s, const uint8_t* f, float constant)
     {
         float d = s->query[j] - LoadF32(f + 4 * (size_t)j);
         cost += d * d;
-        if (cost >= best)
+        if (cost > best)
         {
             break;
         }
@@ -201,20 +199,16 @@ static float Cost(const Search* s, const uint8_t* f, float constant)
     return cost;
 }
 
-static float Frame(const Search* s, uint32_t frame, float constant)
-{
-    return Cost(s, s->d->features + 4 * (size_t)frame * s->featureCount, constant);
-}
-
-// Run r's box at level 0 (the small runs) or 1 (the large): its bound
-// from the constant.
-static float Box(const Search* s, uint32_t level, uint32_t r, float constant)
+// A node's bound: from the transition cost and its least bias, its box's
+// squared distances, stopped once past the best.
+static float Bound(const Search* s, uint32_t node)
 {
     uint32_t n = s->featureCount;
-    const uint8_t* low = s->lows[level] + 4 * (size_t)r * n;
-    const uint8_t* high = low + s->highs[level];
+    const uint8_t* low = s->d->boxes + 4 * 2 * (size_t)node * n;
+    const uint8_t* high = low + 4 * (size_t)n;
     float best = s->bestCost;
-    float cost = constant;
+    float cost =
+        s->q->transitionCost + LoadF32(s->d->nodes + (size_t)node * MANI_MATCH_NODE_SIZE + 8);
     for (uint32_t j = 0; j < n; ++j)
     {
         float q = s->query[j];
@@ -223,7 +217,7 @@ static float Box(const Search* s, uint32_t level, uint32_t r, float constant)
         float near = q < a ? a : (q > b ? b : q);
         float gap = q - near;
         cost += gap * gap;
-        if (cost >= best)
+        if (cost > best)
         {
             break;
         }
@@ -231,44 +225,116 @@ static float Box(const Search* s, uint32_t level, uint32_t r, float constant)
     return cost;
 }
 
-// One large run's frames from i to end: small runs pruned, frames
-// scored.
-static void ScanRun(Search* s, uint32_t entry, const Entry* e, uint32_t i, uint32_t end,
-                    float constant)
+// Whether a node of that bound can hold no better frame: its bound past
+// the best, or equal to it with no frame to win the tie (the best is the
+// continuing frame, or lower than every frame of the node).
+static bool Pruned(const Search* s, uint32_t node, float bound)
 {
-    while (i < end)
+    if (bound != s->bestCost)
     {
-        uint32_t small = i / MANI_MATCH_SMALL_RUN;
-        uint32_t smallEnd = (small + 1) * MANI_MATCH_SMALL_RUN;
-        smallEnd = smallEnd < end ? smallEnd : end;
-        if (Box(s, 0, small, constant) >= s->bestCost)
+        return bound > s->bestCost;
+    }
+    uint32_t lowest = maniLoadU32(s->d->nodes + (size_t)node * MANI_MATCH_NODE_SIZE + 4);
+    return s->continuing || lowest > s->best;
+}
+
+// The entry of a leaf's frame, decoded once for a run of its frames.
+static const Entry* Use(Search* s, uint32_t entry)
+{
+    if (entry != s->lastEntry)
+    {
+        s->lastEntry = entry;
+        s->last = EntryAt(s->d, entry);
+        s->lastCandidate = Candidate(s, &s->last) && (s->last.flags & MANI_MATCH_NO_JUMP) == 0;
+        s->lastStop = s->lastCandidate ? Stop(s, &s->last) : 0;
+    }
+    return &s->last;
+}
+
+static void ScanLeaf(Search* s, uint32_t first, uint32_t count)
+{
+    uint32_t n = s->featureCount;
+    for (uint32_t p = first; p < first + count; ++p)
+    {
+        const uint8_t* at = s->d->positions + (size_t)p * MANI_MATCH_POSITION_SIZE;
+        uint32_t frame = maniLoadU32(at);
+        uint32_t entry = maniLoadU32(at + 4);
+        const Entry* e = Use(s, entry);
+        if (!s->lastCandidate || frame >= s->lastStop || Excluded(s, entry, e, frame))
         {
-            i = smallEnd;
             continue;
         }
-        for (; i < smallEnd; ++i)
+        float cost = Cost(s, s->d->features + 4 * (size_t)p * n, s->q->transitionCost + e->bias);
+        // A tie wins over a lower best only when there is a best.
+        bool better = cost < s->bestCost || (cost == s->bestCost && !s->continuing &&
+                                             s->best != MANI_MATCH_NO_FRAME && frame < s->best);
+        if (better)
         {
-            float cost = Excluded(s, entry, e, i) ? HUGE_VALF : Frame(s, i, constant);
-            s->best = cost < s->bestCost ? i : s->best;
-            s->bestCost = cost < s->bestCost ? cost : s->bestCost;
+            s->best = frame;
+            s->bestCost = cost;
+            s->continuing = false;
         }
     }
 }
 
-static void Scan(Search* s, uint32_t entry, const Entry* e)
+// Pending nodes: the walk down holds at most one a level of the tree
+// (MANI_MATCH_WALK_DEPTH) and the two of the node it opens.
+typedef struct Pending
 {
-    float constant = s->q->transitionCost + e->bias;
-    uint32_t stop = Stop(s, e);
-    for (uint32_t i = e->first; i < stop;)
+    uint32_t node[MANI_MATCH_WALK_DEPTH + 2];
+    uint32_t first[MANI_MATCH_WALK_DEPTH + 2];
+    uint32_t count[MANI_MATCH_WALK_DEPTH + 2];
+    float bound[MANI_MATCH_WALK_DEPTH + 2];
+    uint32_t top;
+} Pending;
+
+static void Push(Pending* p, uint32_t node, uint32_t first, uint32_t count, float bound)
+{
+    MANI_ASSERT(p->top < MANI_MATCH_WALK_DEPTH + 2);
+    p->node[p->top] = node;
+    p->first[p->top] = first;
+    p->count[p->top] = count;
+    p->bound[p->top] = bound;
+    ++p->top;
+}
+
+// The tree from the root, nearest half first.
+static void Walk(Search* s)
+{
+    const maniMotionDatabase* d = s->d;
+    Pending p;
+    p.top = 0;
+    Push(&p, 0, 0, d->frameCount, Bound(s, 0));
+    while (p.top > 0)
     {
-        uint32_t large = i / MANI_MATCH_LARGE_RUN;
-        uint32_t end = (large + 1) * MANI_MATCH_LARGE_RUN;
-        end = end < stop ? end : stop;
-        if (Box(s, 1, large, constant) < s->bestCost)
+        --p.top;
+        uint32_t node = p.node[p.top];
+        uint32_t first = p.first[p.top];
+        uint32_t count = p.count[p.top];
+        if (Pruned(s, node, p.bound[p.top]))
         {
-            ScanRun(s, entry, e, i, end, constant);
+            continue;
         }
-        i = end;
+        uint32_t second = maniLoadU32(d->nodes + (size_t)node * MANI_MATCH_NODE_SIZE);
+        if (second == 0)
+        {
+            ScanLeaf(s, first, count);
+            continue;
+        }
+        uint32_t half = count / 2;
+        float a = Bound(s, node + 1);
+        float b = Bound(s, second);
+        // The farther pushed first, so the nearer is opened next.
+        if (b < a)
+        {
+            Push(&p, node + 1, first, half, a);
+            Push(&p, second, first + half, count - half, b);
+        }
+        else
+        {
+            Push(&p, second, first + half, count - half, b);
+            Push(&p, node + 1, first, half, a);
+        }
     }
 }
 
@@ -367,15 +433,11 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
     s.q = query;
     s.best = MANI_MATCH_NO_FRAME;
     s.bestCost = HUGE_VALF;
+    s.continuing = false;
     uint32_t n = database->featureCount;
     s.featureCount = n;
     s.historyCount = query->historyCount;
-    size_t smallRuns = maniMatchRuns(database->frameCount, MANI_MATCH_SMALL_RUN);
-    size_t largeRuns = maniMatchRuns(database->frameCount, MANI_MATCH_LARGE_RUN);
-    s.lows[0] = database->bounds;
-    s.lows[1] = database->bounds + 4 * 2 * smallRuns * n;
-    s.highs[0] = 4 * smallRuns * n;
-    s.highs[1] = 4 * largeRuns * n;
+    s.lastEntry = UINT32_MAX;
     s.jumpFrames = FramesApart(database, query->jumpThreshold);
     s.historyFrames = FramesApart(database, query->historyTime);
     for (uint32_t j = 0; j < n; ++j)
@@ -393,21 +455,15 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
         Entry e = EntryAt(database, EntryOf(database, query->current));
         if (Candidate(&s, &e))
         {
-            const uint8_t* f = continuing != NULL
-                                   ? (const uint8_t*)continuing
-                                   : database->features + 4 * (size_t)query->current * n;
+            size_t position = maniLoadU32(database->places + 4 * (size_t)query->current);
+            const uint8_t* f = continuing != NULL ? (const uint8_t*)continuing
+                                                  : database->features + 4 * position * n;
             s.bestCost = Cost(&s, f, query->continuingBias + e.bias);
             s.best = query->current;
+            s.continuing = true;
         }
     }
-    for (uint32_t i = 0; i < database->entryCount; ++i)
-    {
-        Entry e = EntryAt(database, i);
-        if (Candidate(&s, &e) && (e.flags & MANI_MATCH_NO_JUMP) == 0)
-        {
-            Scan(&s, i, &e);
-        }
-    }
+    Walk(&s);
     // A pick is a frame of the database; no pick keeps the infinite cost.
     MANI_ASSERT(s.best == MANI_MATCH_NO_FRAME ? s.bestCost == HUGE_VALF
                                               : s.best < database->frameCount);

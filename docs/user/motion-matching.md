@@ -6,7 +6,7 @@ Motion matching plays a character from a database of its clips instead of a hand
 
 A motion database (`maniBuildMotionDatabase`) is built from a skeleton's clips. It holds, for every frame, features: bone positions and velocities, bone facings, trajectory positions and facings ahead of (or behind) the frame, and float track values, each normalized and weighted. Entries say which spans of which clips the database covers, whether each loops, its cost bias, tags for filtering, and whether its frames may be jumped to. An entry flagged mirrored plays its clip mirrored through a mirror map, doubling the data without a second clip.
 
-`maniSearchMotionDatabase` finds the frame nearest a query, exactly: the same frame and cost a scan of every frame would give, pruned by bounds over runs of frames. It can exclude frames near the current one or near recent picks, and filter entries by tags.
+`maniSearchMotionDatabase` finds the frame nearest a query, exactly: the same frame and cost a scan of every frame would give, pruned by a k-d tree over the frames' features. It can exclude frames near the current one or near recent picks, and filter entries by tags. The tree's leaves hold at most 16 frames unless the source's `leafFrames` says 8 (fewer instructions a search, more bytes) or 32 (the reverse).
 
 ## In a graph
 

@@ -3,7 +3,8 @@
 //
 // The exact search: random databases written as files
 // (entries looping and clamped, biases, tags, no-jump entries, frames
-// repeated so costs tie) and random searches (continuing frames, biases,
+// repeated so costs tie; each leaf size, the tree in the builder's
+// order or a random one) and random searches (continuing frames, biases,
 // transition costs, tag masks, exclusions near the continuing frame, at
 // clamped ends and around earlier picks) give the plain scan's frame and
 // cost bit for bit; then each rule on a database small enough to name
@@ -14,6 +15,7 @@
 #include "container.h"
 #include "match_file.h"
 #include "match_search.h"
+#include "match_tree.h"
 #include "test_harness.h"
 
 #include "maul-anim/match.h"
@@ -50,6 +52,10 @@ static float Uniform(float low, float high)
 // features.
 typedef struct Layout
 {
+    // The tree's leaf size, and whether its order is random rather than
+    // the builder's.
+    uint32_t leaf;
+    bool shuffled;
     uint32_t channels;
     // Each channel's kind, a bone position unless set.
     uint32_t kinds[MAX_WIDTH / 3];
@@ -66,37 +72,60 @@ typedef struct Layout
 } Layout;
 
 static Layout s_layout;
-static _Alignas(16) uint8_t s_file[1 << 18];
-static uint8_t s_sections[1 << 18];
+static _Alignas(16) uint8_t s_file[1 << 19];
+static _Alignas(8) uint8_t s_sections[1 << 19];
 
 static void PutF32(uint8_t* p, float v)
 {
     memcpy(p, &v, sizeof v);
 }
 
-// The bounds of runs of size frames at out: minimums, then maximums.
-static uint8_t* Bounds(const Layout* l, uint8_t* out, uint32_t size)
+static uint32_t s_order[MAX_FRAMES];
+static uint64_t s_keys[MAX_FRAMES];
+static uint32_t s_sorted[MAX_FRAMES];
+static uint32_t s_scratch[MAX_FRAMES];
+static uint32_t s_entryOf[MAX_FRAMES];
+
+// The tree's sections from out (each 8-byte aligned): the features in
+// its order, the boxes, the nodes, the positions and the places; at and
+// ends receive where each begins and ends.
+static void Tree(const Layout* l, uint8_t* out, uint8_t* at[5], uint8_t* ends[5])
 {
     uint32_t n = 3 * l->channels;
-    uint32_t runs = maniMatchRuns(l->frames, size);
-    for (uint32_t r = 0; r < runs; ++r)
+    uint32_t frame = 0;
+    for (uint32_t i = 0; i < l->entryCount; ++i)
     {
-        uint32_t to = (r + 1) * size < l->frames ? (r + 1) * size : l->frames;
-        for (uint32_t j = 0; j < n; ++j)
+        for (uint32_t k = 0; k < l->counts[i]; ++k)
         {
-            float a = HUGE_VALF;
-            float b = -HUGE_VALF;
-            for (uint32_t f = r * size; f < to; ++f)
-            {
-                float v = l->features[f * n + j];
-                a = v < a ? v : a;
-                b = v > b ? v : b;
-            }
-            PutF32(out + 4 * ((size_t)r * n + j), a);
-            PutF32(out + 4 * ((size_t)(runs + r) * n + j), b);
+            s_entryOf[frame++] = i;
         }
     }
-    return out + 8 * (size_t)runs * n;
+    if (l->shuffled)
+    {
+        for (uint32_t f = 0; f < l->frames; ++f)
+        {
+            uint32_t k = Next() % (f + 1);
+            s_order[f] = s_order[k];
+            s_order[k] = f;
+        }
+    }
+    else
+    {
+        maniMatchTreeOrder(l->features, n, l->frames, l->leaf, s_order, s_keys, s_sorted,
+                           s_scratch);
+    }
+    uint32_t nodes = maniMatchNodeCount(l->frames, l->leaf);
+    const size_t sizes[5] = {4 * (size_t)l->frames * n, 8 * (size_t)nodes * n,
+                             (size_t)nodes * MANI_MATCH_NODE_SIZE,
+                             (size_t)l->frames * MANI_MATCH_POSITION_SIZE, 4 * (size_t)l->frames};
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        at[k] = k == 0 ? out : at[k - 1] + (sizes[k - 1] + 7) / 8 * 8;
+        ends[k] = at[k] + sizes[k];
+    }
+    const maniMatchTreeSource source = {l->features, s_order,   s_entryOf, l->biases,
+                                        n,           l->frames, l->leaf,   nodes};
+    maniMatchLayTree(&source, (float*)(void*)at[0], (float*)(void*)at[1], at[2], at[3], at[4]);
 }
 
 static uint8_t* Header(const Layout* l, uint8_t* h)
@@ -111,6 +140,8 @@ static uint8_t* Header(const Layout* l, uint8_t* h)
     PutF32(h + 36, RATE);
     maniStoreU32(h + 40, 1);
     maniStoreU32(h + 44, 2);
+    maniStoreU32(h + 48, l->leaf);
+    maniStoreU32(h + 52, maniMatchNodeCount(l->frames, l->leaf));
     return h + MANI_MATCH_HEADER_SIZE;
 }
 
@@ -150,29 +181,40 @@ static uint8_t* Entries(const Layout* l, uint8_t* e)
     return e + (size_t)l->entryCount * MANI_MATCH_ENTRY_SIZE;
 }
 
-// Lays out the sections end to end and writes the file; opens it.
+// Lays out the sections and writes the file; opens it.
 static void Write(const Layout* l, maniMotionDatabase* d)
 {
     uint32_t n = 3 * l->channels;
     uint8_t* at[MANI_MATCH_SECTIONS + 1];
+    uint8_t* ends[MANI_MATCH_SECTIONS];
     at[0] = s_sections;
-    at[1] = Header(l, at[0]);
-    at[2] = Channels(l, at[1]);
+    ends[0] = Header(l, at[0]);
+    at[1] = ends[0];
+    ends[1] = Channels(l, at[1]);
+    at[2] = ends[1];
     memset(at[2], 0, 4 * (size_t)l->channels);
-    at[3] = at[2] + 4 * (size_t)l->channels;
+    ends[2] = at[2] + 4 * (size_t)l->channels;
+    at[3] = ends[2];
     maniStoreU64(at[3], 11);
-    at[4] = at[3] + 8;
-    at[5] = Entries(l, at[4]);
+    ends[3] = at[3] + 8;
+    at[4] = ends[3];
+    ends[4] = Entries(l, at[4]);
+    at[5] = ends[4];
     memcpy(at[5], l->offsets, 4 * (size_t)n);
     memcpy(at[5] + 4 * (size_t)n, l->scales, 4 * (size_t)n);
-    at[6] = at[5] + 8 * (size_t)n;
-    memcpy(at[6], l->features, 4 * (size_t)l->frames * n);
-    at[7] = at[6] + 4 * (size_t)l->frames * n;
-    at[8] = Bounds(l, at[7], MANI_MATCH_SMALL_RUN);
-    at[8] = Bounds(l, at[8], MANI_MATCH_LARGE_RUN);
-    // No names, no mirror.
-    at[9] = at[8];
-    at[10] = at[9];
+    ends[5] = at[5] + 8 * (size_t)n;
+    uint8_t* tree[5];
+    uint8_t* treeEnds[5];
+    Tree(l, ends[5] + (8 - (uintptr_t)ends[5] % 8) % 8, tree, treeEnds);
+    // The features and boxes, no names, no mirror, then the nodes,
+    // positions and places.
+    const uint32_t tags[5] = {6, 7, 10, 11, 12};
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        at[tags[k]] = tree[k];
+        ends[tags[k]] = treeEnds[k];
+    }
+    at[8] = at[9] = ends[8] = ends[9] = treeEnds[4];
     const uint8_t* data[MANI_MATCH_SECTIONS];
     uint64_t sizes[MANI_MATCH_SECTIONS];
     maniSectionSource sections[MANI_MATCH_SECTIONS];
@@ -180,7 +222,7 @@ static void Write(const Layout* l, maniMotionDatabase* d)
     for (uint32_t i = 0; i < MANI_MATCH_SECTIONS; ++i)
     {
         data[i] = at[i];
-        sizes[i] = (uint64_t)(at[i + 1] - at[i]);
+        sizes[i] = (uint64_t)(ends[i] - at[i]);
         if (sizes[i] > 0)
         {
             sections[count++] = (maniSectionSource){i + 1, data[i], sizes[i]};
@@ -203,6 +245,8 @@ static void Write(const Layout* l, maniMotionDatabase* d)
 // frames repeating an earlier one.
 static void Randomize(Layout* l)
 {
+    l->leaf = 8u << (Next() % 3);
+    l->shuffled = Next() % 2 == 0;
     l->channels = 1 + Next() % 8;
     l->entryCount = 1 + Next() % MAX_ENTRIES;
     uint32_t n = 3 * l->channels;
@@ -466,7 +510,7 @@ static void TestBoundaries(void)
 static void Small(maniMotionDatabase* d, uint32_t flags1, float bias1)
 {
     Layout* l = &s_layout;
-    *l = (Layout){.channels = 1, .entryCount = 2, .frames = 8};
+    *l = (Layout){.leaf = 8, .channels = 1, .entryCount = 2, .frames = 8};
     l->flags[0] = 0;
     l->ends[0] = 3.0f / RATE;
     l->tags[0] = 1;
@@ -584,7 +628,7 @@ static void Blend(const maniMotionDatabase* d, const float* a, const float* b, f
 static void TestBlend(void)
 {
     Layout* l = &s_layout;
-    *l = (Layout){.channels = 2, .entryCount = 1, .frames = 2};
+    *l = (Layout){.leaf = 8, .channels = 2, .entryCount = 1, .frames = 2};
     l->kinds[1] = maniMatchBoneFacing;
     l->ends[0] = 1.0f / RATE;
     l->counts[0] = maniMatchEntryFrames(0.0f, l->ends[0], RATE, false);
