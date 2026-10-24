@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building motion databases (mani-0024): channels sampled from a
+// Building motion databases: channels sampled from a
 // skeleton's clips at a rate, normalized per channel as Holden's
 // reference does, with bounds over runs of frames for the search.
 

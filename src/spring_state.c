@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring states (mani-0026): made in caller memory, stepped, applied,
+// Spring states: made in caller memory, stepped, applied,
 // reset, saved and restored. A saved state is the block behind a header
 // and is checked as external bytes before it is copied in.
 

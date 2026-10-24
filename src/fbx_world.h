@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX models' worlds at rest (mani-0014), as ufbx's ufbxi_update_node
+// FBX models' worlds at rest, as ufbx's ufbxi_update_node
 // evaluates them: normal inheritance composes the parent's world; the
 // RrSs and Rrs types hang from the parent's unscaled world, with the
 // translation scaled by the parent's inherited scale and the scale by

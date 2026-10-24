@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX blend shape channels (mani-0017), as ufbx reads them. A channel
+// FBX blend shape channels, as ufbx reads them. A channel
 // (a BlendShapeChannel deformer under a BlendShape) holds Shape
 // geometries; FullWeights gives each its target weight in percent, but
 // Blender's binary exporter writes per-vertex weights there, so in its

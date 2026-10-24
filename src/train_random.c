@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The trainer's generator (mani-0025); see train_random.h.
+// The trainer's generator; see train_random.h.
 
 #include "train_random.h"
 

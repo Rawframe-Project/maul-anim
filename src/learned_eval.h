@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The parts of a learned model's evaluation (mani-0025) a graph's node
+// The parts of a learned model's evaluation a graph's node
 // uses beside the public calls.
 
 #ifndef MAUL_ANIM_SRC_LEARNED_EVAL_H

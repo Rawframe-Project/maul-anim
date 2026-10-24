@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Ragdoll bodies and poses (mani-0027) on the fixture's humanoid: bodies
+// Ragdoll bodies and poses on the fixture's humanoid: bodies
 // placed from a bent pose under a turned placement and a pose made back
 // from them (every local within float rounding, the bones without bodies
 // the reference's exactly, the model current); velocities from the pose

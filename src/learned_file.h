@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The learned model file's layout (mani-0025), shared by its view, its
+// The learned model file's layout, shared by its view, its
 // evaluation and its builder: kind 9 of the container. Records are
 // little-endian. A network's values and weights follow from its layers'
 // shapes, so the file keeps the shapes and the values end to end:

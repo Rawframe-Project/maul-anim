@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Node rests, matrices and placement for the glTF importer (mani-0009),
+// Node rests, matrices and placement for the glTF importer,
 // each in the output's basis.
 
 #ifndef MAUL_ANIM_SRC_GLTF_REST_H

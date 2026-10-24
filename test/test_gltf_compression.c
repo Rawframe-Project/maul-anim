@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF's meshopt compression in the importer (mani-0008): both
+// glTF's meshopt compression in the importer: both
 // extensions' objects on buffer views and buffers and every rule of
 // theirs refused at its member, streams decoded at open and when an
 // external buffer is supplied, fallback and placeholder buffers never

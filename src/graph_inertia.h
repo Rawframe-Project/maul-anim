@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Inertialize nodes' words (mani-0023): a node's data words read and
+// Inertialize nodes' words: a node's data words read and
 // checked on open, and its block in an instance (flags, clocks, the
 // pending request, its last two outputs and the capture) read, written,
 // reset and checked when a saved state restores it.
@@ -74,8 +74,8 @@ enum
      MANI_GRAPH_INERTIA_CAPTURE_WORDS(method) * (bones))
 
 // An inertialize node as its words give it, and the groups of
-// MANI_POSE_GROUP_BONES bones a subset evaluates (NULL for all,
-// mani-0035): captures, easing and the kept output touch only those.
+// MANI_POSE_GROUP_BONES bones a subset evaluates (NULL for all):
+// captures, easing and the kept output touch only those.
 typedef struct maniGraphInertia
 {
     uint32_t bones;

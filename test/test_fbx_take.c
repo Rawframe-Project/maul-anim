@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x takes as clips (mani-0017): stacks named by takes, their
+// FBX 6.x takes as clips: stacks named by takes, their
 // ranges, Transform channels on the Lcl properties, components missing
 // their Default at 0, a user property as a float track and an
 // attribute's property as none, against ufbx's evaluated transforms of

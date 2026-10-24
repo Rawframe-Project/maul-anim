@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's trainer (mani-0025): its stages in order, numbered
+// A learned model's trainer: its stages in order, numbered
 // as the model's networks (0 the Compressor and Decompressor, whose end
 // gives every frame's latent values, 1 the Stepper, 2 + p Projector p),
 // one in training at a time, each trained network kept (parameters and
@@ -39,7 +39,7 @@ typedef struct maniTrainKept
 struct maniLearnedTrainer
 {
     // The allocator and task hooks the training uses: the host's, the
-    // trainer marked while they run (mani-0028).
+    // trainer marked while they run.
     maniAllocator allocator;
     maniTaskHooks tasks;
     // The host's allocator and hooks, the mark and the misuses.

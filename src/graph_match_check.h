@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Checking a graph source's motion databases and motion matching nodes as
-// its build does (mani-0024).
+// its build does.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_MATCH_CHECK_H
 #define MAUL_ANIM_SRC_GRAPH_MATCH_CHECK_H

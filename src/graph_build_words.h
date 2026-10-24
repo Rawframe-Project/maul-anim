@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Writing a graph file's data words (mani-0023): a binary32's bits, a
+// Writing a graph file's data words: a binary32's bits, a
 // scalar (its parameter, then a literal's bits or 0), words and floats,
 // each returning the word after it.
 

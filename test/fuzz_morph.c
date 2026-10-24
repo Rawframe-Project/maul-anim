@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a morph targets file (mani-0021), and on success reading every
+// Opening a morph targets file, and on success reading every
 // channel, turning weights into target weights and applying them over
 // the first vertices; then the same bytes with the payload's hash made
 // right, so that mutations reach the checks behind it. Run as fuzz_morph

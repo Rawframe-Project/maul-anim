@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Turn limit nodes' words (mani-0037): a node's data words checked on
+// Turn limit nodes' words: a node's data words checked on
 // open, its block in an instance (the time its updates gave, a rotation a
 // bone) checked when a saved state restores it, and its step.
 

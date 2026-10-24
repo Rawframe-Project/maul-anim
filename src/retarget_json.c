@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A retargeting map's JSON form (mani-0034): built before written, its
+// A retargeting map's JSON form: built before written, its
 // bones by name against the source and target skeletons, each reference
 // pose as the bones not at their rest, pairs, chains and the pelvis on a
 // line each, modes as words. Read strictly, then built as

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Subset plans and their evaluation (mani-0035) on a rig of 20 bones (three
+// Subset plans and their evaluation on a rig of 20 bones (three
 // pose groups): a plan holds the listed bones and their ancestors; two
 // instances updated alike, one evaluated whole and one through a plan,
 // agree bit for bit on the listed bones of a graph of clips, blends, an

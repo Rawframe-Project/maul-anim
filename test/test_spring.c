@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring sets (mani-0026): a set of hair (three joints, a cone and a
+// Spring sets: a set of hair (three joints, a cone and a
 // hinge limit), a tail in its hips' space and four colliders (a sphere,
 // a capsule, a plane and an inside sphere) built, opened and read back;
-// the per-frame values converted to the step for each drag (research
-// 42) and against the rates; the limits' frames and clamped angles; the
-// builder's refusals with their reasons; opening's checks of every
+// the per-frame values converted to the step for each drag and against the rates; the limits'
+// frames and clamped angles; the builder's refusals with their reasons; opening's checks of every
 // record against a file changed at its byte. Run as test_spring --seed
 // <file> it writes the fuzz target's seed.
 
@@ -212,7 +211,7 @@ static void TestBuild(void)
           "a plane's normal, an inside sphere");
 }
 
-// The step's drag and forcing as mani-0026 gives them, in binary64.
+// The step's drag and forcing as docs/internals/physics-seam.md gives them, in binary64.
 static void Expected(double drag, double h, double f0, double* dh, double* forcing)
 {
     *dh = drag >= 1.0 ? 1.0 : 1.0 - pow(1.0 - drag, h * f0);

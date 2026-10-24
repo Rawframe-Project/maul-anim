@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Turning spring joints toward their tails (mani-0026). Each spring's
+// Turning spring joints toward their tails. Each spring's
 // tails are the last step's moved on at their velocity (the last two
 // steps') for the time the last call ran past it, and carried into the
 // last call's placement: the last step's own at a host rate the step

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An inertialize node evaluated (mani-0023): a pending request captured
+// An inertialize node evaluated: a pending request captured
 // from its last two outputs and its input, the capture applied at its
 // elapsed time by its method (Bollo's inertialization here, dead
 // blending in graph_dead_blend), the output kept in its history.

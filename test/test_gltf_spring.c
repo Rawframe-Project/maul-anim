@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// `VRMC_springBone` as spring bone sources (mani-0011): colliders,
+// `VRMC_springBone` as spring bone sources: colliders,
 // groups and springs with their values and the schema's defaults, bones
 // bound by name, the basis change on offsets and gravity, and every
 // rule the specification sets on versions, ranges, chains and centers.

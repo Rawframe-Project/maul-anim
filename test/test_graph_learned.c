@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Learned motion matching nodes playing (mani-0025): each update checked
+// Learned motion matching nodes playing: each update checked
 // against a reference of the node kept here from the model's own
 // functions (the state stepped at the model's rate, interpolated
 // between steps, projected at the period or the trigger and replaced

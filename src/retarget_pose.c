@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The pose transfer through a retargeting map (mani-0032): the source's
+// The pose transfer through a retargeting map: the source's
 // model rotations, then each target bone from the root down by its plan
 // (its local against its parent as just made), the pelvis placed in the
 // model and taken into its parent's frame. Model rotations here are the

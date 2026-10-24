@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// IK and full-body nodes evaluated (mani-0029 to mani-0031): each its
+// IK and full-body nodes evaluated: each its
 // input with its bones solved toward goals its parameters give.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_EVALUATE_IK_H

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Subgraphs inlined at build (mani-0023): counted first, then emitted
+// Subgraphs inlined at build: counted first, then emitted
 // scope by scope, each scope mapping its nodes, parameters, clips,
 // databases and sync groups into the flat source.
 

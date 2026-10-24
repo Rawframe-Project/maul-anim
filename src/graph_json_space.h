@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A blend space node's JSON form read (mani-0023): its position, its
+// A blend space node's JSON form read: its position, its
 // points and a 1D space's period, a banded space's polar flag or a
 // triangulated space's authored triangles. Offline.
 

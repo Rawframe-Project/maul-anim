@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The OMI physics extensions as a ragdoll source (mani-0027): dynamic and
+// The OMI physics extensions as a ragdoll source: dynamic and
 // kinematic bodies under the skeleton's bones, each with its one
 // collider's shape and frame (rigid, in the bone's frame, the shape
 // times the node's even scale), its mass; the joints read by

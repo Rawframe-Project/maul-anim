@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A spring state's layout (mani-0026), shared by the standalone state
+// A spring state's layout, shared by the standalone state
 // and the graph's spring node: a block of 32-bit words with no pointers,
 // so a graph instance holds it as it is and a saved state copies it.
 // Positions are in the simulation's space: a spring's center bone's

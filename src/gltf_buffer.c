@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF document's buffers (mani-0008): the GLB's BIN chunk for the
+// A glTF document's buffers: the GLB's BIN chunk for the
 // first buffer without a URI; `data:` URIs (RFC 2397, base64 by RFC 4648
 // or percent-encoded) decoded into the document, their media type one
 // of the two the specification allows; any other URI, or none, left for

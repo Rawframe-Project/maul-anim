@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skins (mani-0015): a skin's clusters in connection order, each
+// FBX skins: a skin's clusters in connection order, each
 // one's linked model a joint found by bone name, its inverse bind the
 // cluster's Transform (the mesh node relative to the bone at bind, as
 // ufbx reads it) times the mesh model's geometric transform. Without

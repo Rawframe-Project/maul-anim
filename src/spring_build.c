@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a spring set (mani-0026): the source checked as
+// Building a spring set: the source checked as
 // VRMC_springBone 1.0 and its extended collider and limit extensions
 // require (bones, shapes, chains each joint above the next, no joint in
 // two chains, centers on or above their chain's first joint and off
 // every other chain, every value in its range), each joint's drag,
 // stiffness and gravity converted from a frame of the reference rate to
-// a step of the step rate (mani-0026): with h the step's seconds and
+// a step of the step rate: with h the step's seconds and
 // f0 the reference rate, the drag dh = 1 - (1 - d)^(h f0), stiffness and
 // gravity times h dh / d (h² f0 when d = 0). Each spring lists the
 // colliders of its groups in order without repeats.
@@ -304,7 +304,7 @@ static maniQuat LimitFrame(maniVec3 axis, maniQuat rotation)
 }
 
 // The step's share of the reference's motion: the drag and the factor on
-// stiffness and gravity (mani-0026).
+// stiffness and gravity.
 static void Convert(double drag, double h, double f0, double* dragOut, double* forcing)
 {
     double x = h * f0;

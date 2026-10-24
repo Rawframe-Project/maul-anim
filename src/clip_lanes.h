@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The forward cursor's step over one group of MANI_POSE_GROUP_BONES
-// bones (mani-0019, mani-0038): two held samples in the pose's group
+// bones: two held samples in the pose's group
 // layout interpolated at alpha into the pose, with the walk's operations
 // in its order (clip_compressed.c's Channel and Nlerp), so a pose is
 // random access's bits. A lane whose channel the clip leaves at rest
@@ -17,7 +17,7 @@
 
 // The forward cursor holds its samples in groups on a vector backend
 // only: on the scalar one, the walk over the held samples takes fewer
-// instructions (mani-0039).
+// instructions.
 #if !defined(MANI_SIMD_SCALAR)
 #define MANI_CLIP_LANES 1
 

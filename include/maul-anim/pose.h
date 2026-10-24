@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Poses (mani-0004): a skeleton's local transforms and the model matrices
+// Poses: a skeleton's local transforms and the model matrices
 // composed from them, in memory the caller owns. A pose holds no
 // pointers: copying its bytes copies the pose, and it may move between
 // threads. A pose is used by one thread at a time.
@@ -142,7 +142,7 @@ extern "C"
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_API bool maniPoseModelCurrent(const maniPose* pose);
 
-    /// Returns whether the pose holds a difference (mani-0020): what
+    /// Returns whether the pose holds a difference: what
     /// maniPoseDifference writes and additive layers apply, never mixed
     /// with poses of the skeleton. Making a pose, setting its rest and
     /// sampling a whole clip into it make it a pose of the skeleton.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's prediction transforms (mani-0021): wrap, which keeps a value
+// Draco's prediction transforms: wrap, which keeps a value
 // within the attribute's bounds, and the canonicalized octahedron of a
 // normal's two coordinates. A transform gives a value from its
 // prediction and its correction.

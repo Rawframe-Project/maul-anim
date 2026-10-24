@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Allocation through an owner object's allocator (conventions section 7);
+// Allocation through an owner object's allocator (maul-conventions.md, Memory);
 // the one place a zeroed allocator reaches the C library.
 
 #ifndef MAUL_ANIM_SRC_ALLOCATOR_H

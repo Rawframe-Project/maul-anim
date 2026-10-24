@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a ragdoll profile (mani-0027): the source checked (each body on
+// Building a ragdoll profile: the source checked (each body on
 // its own bone, one root, shapes, sizes, masses, frames, names, joints'
 // frames, limits and drives, the root's axes), the bodies ordered by
 // bone, each body's parent the body of its bone's nearest ancestor with

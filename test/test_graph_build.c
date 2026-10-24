@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graph builds in detail (mani-0023): the refusals the main suite leaves
+// Graph builds in detail: the refusals the main suite leaves
 // to these sources (a name not UTF-8, a clip of another skeleton, a sync
 // group's unknown flag, a loop, mask bone and weights, a direct flag and
 // weight, differences where poses go); a node reading one input twice

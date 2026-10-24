@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skinning jobs (mani-0021): linear blend skinning against a binary64
+// Skinning jobs: linear blend skinning against a binary64
 // reference (normals by the true inverse transpose) over random
 // influences and palettes with scale, shear and mirrors; vertices without
 // weight copied; ranges, strides and in-place runs giving the same bits;

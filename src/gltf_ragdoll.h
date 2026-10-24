@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The OMI physics extensions as a ragdoll source (mani-0027): the reader
+// The OMI physics extensions as a ragdoll source: the reader
 // the bodies' and the joints' halves share, and the joints' half.
 
 #ifndef MAUL_ANIM_SRC_GLTF_RAGDOLL_H

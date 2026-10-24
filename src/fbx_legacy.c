@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX files before 6.0 (mani-0017), as ufbx reads them. Every top-level
+// FBX files before 6.0, as ufbx reads them. Every top-level
 // Model is an object keyed by its name; a model's Children list names
 // its children; a mesh's Link children are the clusters of one skin per
 // mesh, each linking the model it names. The objects get synthetic ids

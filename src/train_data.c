@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's training data (mani-0025); see train_data.h. Two
+// A learned model's training data; see train_data.h. Two
 // passes over the frames: the first finds the bones whose scale changes,
 // the second writes every row.
 

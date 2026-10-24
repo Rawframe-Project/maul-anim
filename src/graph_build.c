@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a graph file (mani-0023): the checked source's nodes ordered
+// Building a graph file: the checked source's nodes ordered
 // depth first from the output (each after its inputs, taken in order),
 // each marked as giving poses or differences, each given a slot reused
 // once its last reader has run, and every section written.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The spring state suites' fixture (mani-0026): a root, b0 a unit above
+// The spring state suites' fixture: a root, b0 a unit above
 // it and a chain b1, b2 half a unit apart along +x; a set of one spring
 // over b0, b1, b2 made from a Config (stiffness, gravity, drag, limit,
 // center, a ball or a floor on b0, gravity's direction, the yaw limit,

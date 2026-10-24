@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a ragdoll profile (mani-0027), and on success reading every
+// Opening a ragdoll profile, and on success reading every
 // body: bones within the count and increasing, parents before children,
 // names within the name bytes; then the same bytes with the payload's
 // hash made right, and then the identity too, so that mutations reach

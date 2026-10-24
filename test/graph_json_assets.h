@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The assets a graph's JSON form is built against in the graph JSON fuzz
-// target and test_graph_nested (mani-0023): a skeleton of three bones,
+// target and test_graph_nested: a skeleton of three bones,
 // three clips named walk, run and wave (the wave additive), a motion
-// database named moves of the walk and run (mani-0024), a learned model
-// named steps of it (mani-0025) and a spring set named hair from the
-// spine to the arm (mani-0026), with s_builder and a file buffer.
+// database named moves of the walk and run, a learned model
+// named steps of it and a spring set named hair from the
+// spine to the arm, with s_builder and a file buffer.
 
 #ifndef MAUL_ANIM_TEST_GRAPH_JSON_ASSETS_H
 #define MAUL_ANIM_TEST_GRAPH_JSON_ASSETS_H

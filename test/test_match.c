@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Motion databases (mani-0024): a walk (its hips' travel root motion,
+// Motion databases: a walk (its hips' travel root motion,
 // looping), a run (its hips moving in the pose) and a turn (the root
 // walking and turning a quarter in a second, a float track rising),
 // sampled at 10 frames a second: each frame's features, denormalized,

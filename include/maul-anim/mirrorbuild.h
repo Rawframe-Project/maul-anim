@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building mirror maps (mani-0033): a skeleton's bones paired by explicit
+// Building mirror maps: a skeleton's bones paired by explicit
 // pairs and by find/replace rules on their names, a reference pose, a
 // plane, and the names of float tracks, events and markers paired the
 // same way, laid out as each bone's partner and corrections so that

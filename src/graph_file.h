@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The graph file's layout (mani-0023 to mani-0026), shared by its view and
+// The graph file's layout, shared by its view and
 // its builder: kind 3 of the container. Records are little-endian; names are
 // offsets into the names section; nodes are in topological order, each
 // after its inputs, the output last.

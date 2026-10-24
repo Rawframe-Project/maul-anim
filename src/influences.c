@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening an influences file (mani-0021): every joint below the skin's
+// Opening an influences file: every joint below the skin's
 // joint count, every weight finite and from 0 to 1, the optional
 // sections checked when present, so the skinning jobs read without
 // checks.

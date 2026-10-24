@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's attribute traversals (mani-0021) over hand-built corner
+// Draco's attribute traversals over hand-built corner
 // tables: depth first and by prediction degree on a 4 x 3 grid, on a
 // ring of six faces around a vertex and on a 6 x 5 grid of alternating
 // diagonals, every vertex reached in the order

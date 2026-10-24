@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The importers' basis change (mani-0009, mani-0014): a signed
+// The importers' basis change: a signed
 // permutation B of axes applied as B G B^-1, exactly, to transforms and
 // matrices, with translations also scaled by a unit factor.
 

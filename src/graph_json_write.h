@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Writing the graph JSON form (mani-0023), the parts every list uses:
+// Writing the graph JSON form, the parts every list uses:
 // text counted, then written, strings escaped, keys, numbers as the
 // shortest binary32 text, parameters by name and scalars. Offline.
 

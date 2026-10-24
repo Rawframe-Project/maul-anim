@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The morph targets file's layout (mani-0021), shared by its view and its
+// The morph targets file's layout, shared by its view and its
 // builder: kind 7 of the container.
 
 #ifndef MAUL_ANIM_SRC_MORPH_FILE_H

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The mirror parity of a graph's nodes at build (mani-0033): how many
+// The mirror parity of a graph's nodes at build: how many
 // mirror nodes lie above each, odd or even, from the output down.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_MIRROR_H

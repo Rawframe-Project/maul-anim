@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The trainer the checkpoint fuzz target restores into (mani-0025), and
+// The trainer the checkpoint fuzz target restores into, and
 // test_learned_train --seed writes its seed from: a bone moving along x
 // over a looping clip of a second, a database of its position now at 10
 // frames a second, a model of 2 latent values and hidden layers of 4,

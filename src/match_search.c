@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The exact search (mani-0024), Holden's: the query normalized as the
+// The exact search, Holden's: the query normalized as the
 // features were; the continuing frame's cost the first best; then each
 // candidate entry's frames in order, a large run skipped when its box is
 // already no nearer than the best, then a small run, then each frame,
@@ -19,6 +19,7 @@
 #include "match_search.h"
 
 #include "bytes.h"
+#include "invariant.h"
 #include "match_file.h"
 
 #include "maul-anim/match.h"
@@ -407,6 +408,9 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
             Scan(&s, i, &e);
         }
     }
+    // A pick is a frame of the database; no pick keeps the infinite cost.
+    MANI_ASSERT(s.best == MANI_MATCH_NO_FRAME ? s.bestCost == HUGE_VALF
+                                              : s.best < database->frameCount);
     *resultOut = (maniMatchResult){s.best, s.bestCost};
     return mani_success;
 }

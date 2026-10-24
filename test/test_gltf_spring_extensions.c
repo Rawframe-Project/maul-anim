@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // `VRMC_springBone_extended_collider` and `VRMC_springBone_limit` read
-// into spring bone sources (mani-0026): inside spheres and capsules and
+// into spring bone sources: inside spheres and capsules and
 // planes in place of their fallbacks, an extension of another version
 // or without a shape leaving the fallback; cone, hinge and spherical
 // limits with their angles and rotations, a last joint's limit unread;

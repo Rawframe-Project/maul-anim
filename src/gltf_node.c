@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The node hierarchy and skins (mani-0009): parents from children
+// The node hierarchy and skins: parents from children
 // lists, then the shared forest (hierarchy.c) for depths, common roots
 // and the skeletons skins sharing nodes make, each step linear or
 // n log n in the document's size, whatever its shape.

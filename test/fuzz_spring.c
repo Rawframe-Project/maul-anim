@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a spring set (mani-0026), and on success reading every
+// Opening a spring set, and on success reading every
 // spring's name and every joint, link and collider record within the
 // counts; then the same bytes with the payload's hash made right, and
 // then the identity too, so that mutations reach the checks behind

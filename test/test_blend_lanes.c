@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The blend's eight-lane steps against the scalar lane loops they
-// replaced (mani-0038): the same groups through both, every output's
+// replaced: the same groups through both, every output's
 // bits compared (NaN for NaN). It runs on every backend a build chooses: AVX2,
 // NEON and the scalar fallback.
 

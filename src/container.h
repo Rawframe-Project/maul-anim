@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The one file container every kind of file uses (mani-0002): a 64-byte
+// The one file container every kind of file uses: a 64-byte
 // little-endian header, a table of sections, and the sections, each
 // 16-byte aligned and addressed by its offset from the file's start, so a
 // file is read in place. Opening checks the header, the table and the

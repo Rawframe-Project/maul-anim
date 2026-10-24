@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The Stepper's training (mani-0025); see train_stepper.h.
+// The Stepper's training; see train_stepper.h.
 
 #include "train_stepper.h"
 

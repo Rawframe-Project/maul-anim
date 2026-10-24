@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph's nodes checked on open (mani-0023): records laid out in turn,
+// A graph's nodes checked on open: records laid out in turn,
 // inputs before their reader and in other slots, what each gives (poses
 // or differences) as its inputs make it, and each kind's data in range.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the full-body solvers share (mani-0031): the description
+// What the full-body solvers share: the description
 // checked, the solved part found (the top and every bone on a path from
 // it to an effector, by bone index, so parents come first), each part
 // bone's input frame and offset, the effectors' blended goals, the

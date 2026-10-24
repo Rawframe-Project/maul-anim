@@ -41,6 +41,7 @@ Use `gcc-14` or `clang-20`; the machine's default `gcc` is 13, which the build r
 - **Offline split:** builders, importers, the compressor, the JSON forms and the trainer build only with `MAUL_ANIM_OFFLINE`; runtime code must build and link without them.
 - **No allocation at run time:** `tools/size_report.py` fails on any allocator symbol in a runtime-only archive.
 - **Calls back in:** the host's allocator and task hooks are called only through `src/host_code.h`, which marks the object for the call.
+- **Assertions:** `MANI_ASSERT` (`src/invariant.h`) checks internal invariants only. It traps in builds without `NDEBUG` (Debug, sanitizers, fuzzing) and compiles out of Release. Never assert on caller input, files or text; validate and return a status. Library code never calls `assert` or `abort`.
 
 ## Testing
 

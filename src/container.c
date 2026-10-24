@@ -8,6 +8,7 @@
 #include "container.h"
 
 #include "bytes.h"
+#include "invariant.h"
 
 #include "maul-anim/base.h"
 
@@ -216,7 +217,14 @@ void maniWriteContainer(uint8_t* out, uint16_t kind, uint16_t formatVersion, uin
                         const maniSectionSource* sections, uint32_t count)
 {
     uint64_t fileSize = 0;
-    (void)maniContainerSize(sections, count, &fileSize);
+    bool sized = maniContainerSize(sections, count, &fileSize);
+    // Writers size the file with maniContainerSize before they allocate it.
+    MANI_ASSERT(sized);
+    (void)sized;
+    for (uint32_t i = 1; i < count; ++i)
+    {
+        MANI_ASSERT(sections[i - 1].tag < sections[i].tag);
+    }
     memset(out, 0, (size_t)fileSize);
     memcpy(out, kMagic, sizeof kMagic);
     maniStoreU16(out + 4, kind);

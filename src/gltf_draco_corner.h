@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's corner tables (mani-0021): a mesh's corners, each one's vertex
+// Draco's corner tables: a mesh's corners, each one's vertex
 // and opposite corner, and each vertex's left-most corner; and an
 // attribute's table over the same corners, whose seam edges cut the
 // opposites and split vertices. Every walk is bounded and every index

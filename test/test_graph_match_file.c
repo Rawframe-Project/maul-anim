@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Motion matching nodes' files and states (mani-0024): the builder's
+// Motion matching nodes' files and states: the builder's
 // refusals of database slots (none, a repeat, a clip no slot has, names)
 // and of nodes (no inertialize node above, each field out of range, a
 // query not fitting the database); binding's refusals (a database

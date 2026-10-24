@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX models at a time of a stack (mani-0016). The needed models are
+// FBX models at a time of a stack. The needed models are
 // ordered parents first once, with their inputs at rest; at each time a
 // model's inputs take what the stack animates (the rotation order first,
 // since composed rotations need it; integers truncated as ufbx truncates
@@ -101,7 +101,7 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
         memset(out->inputs, maniFbxSamplerNone, channels);
     }
     // Each model is pushed once, by its parent, from the root (the
-    // hierarchy is a forest, mani-0014).
+    // hierarchy is a forest).
     uint32_t height = 0;
     maniFbxTemplateCache cache;
     maniFbxEmptyTemplateCache(&cache);

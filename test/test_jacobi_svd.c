@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The one-sided Jacobi decomposition (mani-0031) on its own: random
+// The one-sided Jacobi decomposition on its own: random
 // matrices of 9 by 4 to 120 by 36 rebuilt from their factors within
 // 2e-6 of their largest entry, w orthogonal and the columns orthogonal
 // within 2e-6; the singular values within 2e-6 (relative to the

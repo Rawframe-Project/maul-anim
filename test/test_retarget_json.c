@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The JSON text form of retargeting maps (mani-0034): a map with a
+// The JSON text form of retargeting maps: a map with a
 // turned reference, pairs, chains of every mode, the pelvis and names
 // written as the pinned text and read back to the same file; the rest
 // given in full written as no reference; members left out; every

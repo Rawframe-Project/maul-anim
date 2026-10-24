@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Character space from a frame's Decompressor outputs, and its backward
-// pass (mani-0025): each bone's rotation from its two columns (the first
+// pass: each bone's rotation from its two columns (the first
 // normalized, the third the normalized cross of it and the second, the
 // second their cross), its scale given or kept, its model matrix down
 // the hierarchy (the parent's times the bone's rotation, scale and

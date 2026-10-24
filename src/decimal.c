@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Decimal to binary (mani-0007), first by Eisel and Lemire's method
+// Decimal to binary, first by Eisel and Lemire's method
 // (Lemire 2021): the first 19 significant digits as an integer w, times
 // 5^q truncated to 128 bits from a table, the high word enough for those
 // digits (Mushtak and Lemire 2023); past 19 digits, w and w + 1 must

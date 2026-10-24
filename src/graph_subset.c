@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Subset plans (mani-0035): the listed bones closed under their ancestors
+// Subset plans: the listed bones closed under their ancestors
 // and under what the graph's nodes read to write them, to a fixed point:
 // under a mirror map each bone's partner; an IK, spring or full-body node
 // that writes a planned bone brings every bone it reads (its chain, its

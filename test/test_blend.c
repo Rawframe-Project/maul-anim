@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blending and masks (mani-0020): random blends against a binary64
+// Blending and masks: random blends against a binary64
 // reference of the same rule, the rest's fill, kinds, refusals with the
 // output unchanged, masks from chains, and the bits pinned.
 

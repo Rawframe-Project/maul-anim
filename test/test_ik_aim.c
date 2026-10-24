@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Aim and look-at (mani-0029) on a spine, neck and head, the head's
+// Aim and look-at on a spine, neck and head, the head's
 // forward its z and its up its y, the eyes 0.1 ahead and 0.05 up: a head
 // aimed at goals all around points at them, its up toward the pole; a
 // twist turns the up about the aim line; the eyes' line passes through

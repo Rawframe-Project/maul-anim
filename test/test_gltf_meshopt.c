@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF's meshopt compression (mani-0008): streams meshoptimizer's
+// glTF's meshopt compression: streams meshoptimizer's
 // encoders made (gltf_meshopt_fixtures.h) decoded to the data they
 // encode, attributes of versions 0 and 1 over every control and channel
 // mode and two blocks, triangles and index sequences at 2 and 4 bytes;

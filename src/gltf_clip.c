@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One glTF animation as a clip of one skeleton (mani-0010): channels
+// One glTF animation as a clip of one skeleton: channels
 // bound by bone name, keys moved into the output's basis, morph weights
 // and pointer channels split into float tracks, the placement above the
 // root composed in on request, and the whole built by the clip builder,
@@ -368,7 +368,7 @@ static maniImportResult FoldRoot(Build* b, uint32_t samples)
         }
         maniTransform d;
         // Shear from a non-uniform scale above a turning child cannot be
-        // a track: refused rather than dropped (mani-0010).
+        // a track: refused rather than dropped.
         if (r.result == mani_success && !maniDecomposeExact(&composed, &d))
         {
             r = ChannelFail(b, maniImportReasonMatrix, FoldChannel(b));

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// AdamW with amsgrad (mani-0025), as PyTorch's torch.optim.AdamW steps
+// AdamW with amsgrad, as PyTorch's torch.optim.AdamW steps
 // one tensor: the weight decay taken from the parameters first, the
 // moments updated, the largest second moment kept, then the step. The
 // bias corrections are computed in binary64 from the step count, every

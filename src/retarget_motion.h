@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Root motion carried through a retargeting map (mani-0032), shared by
+// Root motion carried through a retargeting map, shared by
 // the clip bake and graphs: the target bone that follows a source bone
 // alone, and a move turned from the source bone's parent's reference
 // model frame into the model, scaled by the map's horizontal and

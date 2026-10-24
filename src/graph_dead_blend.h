@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Dead blending (mani-0023): an inertialize node's request captured as
+// Dead blending: an inertialize node's request captured as
 // its last output, speeds and decay rates per axis, and applied as that
 // output extrapolated in closed form, cross-faded into the input.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Learned motion matching nodes' words (mani-0025): a node's data words
+// Learned motion matching nodes' words: a node's data words
 // read and checked on open and against its model at binding, its block
 // in an instance (whether it has a state, the clocks, the states before
 // and after the last step, a bit per event) reset and checked when a

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph evaluation's state (mani-0023), shared by the evaluation and the
+// A graph evaluation's state, shared by the evaluation and the
 // nodes evaluated in modules of their own: where the scratch's parts
 // begin, the instance, binding and plan, and reading a node's record,
 // words and inputs.
@@ -13,6 +13,7 @@
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "graph_subset.h"
+#include "invariant.h"
 
 #include "maul-anim/blend.h"
 #include "maul-anim/graph.h"
@@ -53,12 +54,15 @@ typedef struct maniGraphEvaluation
 
 static inline maniPose* maniGraphEvalSlot(const maniGraphEvaluation* e, uint32_t slot)
 {
+    // Opening refused a node whose slot is past the file's count.
+    MANI_ASSERT(slot < e->graph->slotCount);
     void* memory = e->scratch + e->parts.posesAt + (size_t)slot * e->parts.poseSize;
     return memory;
 }
 
 static inline const uint8_t* maniGraphEvalRecord(const maniGraphEvaluation* e, uint32_t p)
 {
+    MANI_ASSERT(p < e->graph->nodeCount);
     return e->graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
 }
 

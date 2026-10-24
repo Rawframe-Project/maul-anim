@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Baking a clip through a retargeting map (mani-0032): the bake core
+// Baking a clip through a retargeting map: the bake core
 // with each sample carried by the pose transfer into the target and the
 // root motion's moves scaled and turned into the target bone's parent's
 // frame.

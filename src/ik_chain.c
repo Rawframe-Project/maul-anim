@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the chain solvers share (mani-0030). A bone's limit applies to
+// What the chain solvers share. A bone's limit applies to
 // its local rotation relative to its rest local: the rest's rotation
 // then a turn r, r limited and the local rebuilt from it.
 

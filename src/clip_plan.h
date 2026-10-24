@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The compressor's plan (mani-0019): a clip's sub-tracks, their values
+// The compressor's plan: a clip's sub-tracks, their values
 // and how a rate plays them, shared by the folding and the search
 // (clip_search.c) and the writing and the report (clip_compress.c).
 

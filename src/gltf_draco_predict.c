@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Google's mesh prediction scheme decoders (d429de8, mani-0021), in
+// Google's mesh prediction scheme decoders (d429de8), in
 // the integer arithmetic its builds compute: 32-bit sums wrap, 64-bit
 // products wrap where Google's signed ones would overflow, divisions
 // truncate. Walks around a vertex are bounded by the table's corners;

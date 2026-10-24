@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// AdamW with amsgrad (mani-0025); see train_adam.h.
+// AdamW with amsgrad; see train_adam.h.
 
 #include "train_adam.h"
 

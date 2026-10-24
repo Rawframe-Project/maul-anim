@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening and closing FBX documents (mani-0012): the binary form told
+// Opening and closing FBX documents: the binary form told
 // apart by its magic, read into one tree.
 
 #include "allocator.h"
@@ -47,7 +47,7 @@ static maniImportResult Open(maniFbx* fbx)
 {
     maniImportResult r =
         maniFbxIsBinary(fbx->bytes, fbx->size) ? maniFbxReadBinary(fbx) : maniFbxReadAscii(fbx);
-    // Files before 6.0 have no Objects section (mani-0017).
+    // Files before 6.0 have no Objects section.
     if (r.result == mani_success)
     {
         r = fbx->version < 6000 ? maniFbxReadLegacy(fbx) : maniFbxReadObjects(fbx);
@@ -98,7 +98,7 @@ maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t siz
 void maniCloseFbx(maniFbx* fbx)
 {
     // A close from the builder's allocator, which the document shares, is
-    // refused and counted on the builder (mani-0028).
+    // refused and counted on the builder.
     if (fbx == NULL || maniHostAllocatorCalledBack(&fbx->allocator))
     {
         return;

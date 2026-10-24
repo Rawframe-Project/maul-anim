@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // glTF's meshopt compression (EXT_meshopt_compression and
-// KHR_meshopt_compression, mani-0008): a buffer view's three stream
+// KHR_meshopt_compression): a buffer view's three stream
 // modes decoded and its filters applied, as the KHR specification's
 // Appendix A and B give them.
 

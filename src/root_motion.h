@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Root motion's runtime parts (mani-0022): the source's check and the
+// Root motion's runtime parts: the source's check and the
 // section's check at open.
 
 #ifndef MAUL_ANIM_SRC_ROOT_MOTION_H

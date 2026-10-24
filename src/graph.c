@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph file's view (mani-0023): every section checked once as hostile
+// A graph file's view: every section checked once as hostile
 // input, then read in place.
 
 #include "maul-anim/graph.h"

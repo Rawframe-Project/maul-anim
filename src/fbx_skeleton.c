@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skeleton builds (mani-0014). Bones are the marked models in a
+// FBX skeleton builds. Bones are the marked models in a
 // depth-first walk from the root, in connection order. A bone's rest is
 // its model's own transform wherever that is exact under the runtime's
 // one composition rule: always for normal inheritance, and for the

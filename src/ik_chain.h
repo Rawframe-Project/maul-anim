@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the chain solvers share (mani-0030): a chain's bones from its
+// What the chain solvers share: a chain's bones from its
 // ends, its solve checked, its model frames recomposed from a bone down,
 // a turn applied to a bone within its limit, and the end's rotation and
 // the weight applied once the chain is solved.

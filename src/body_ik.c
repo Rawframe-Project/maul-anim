@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body description and solved part (mani-0031): the part is
+// The full-body description and solved part: the part is
 // found by walking each effector up to the top, its bones kept sorted
 // by index (parents first, each subtree contiguous) in at most
 // MANI_BODY_IK_MAX_BONES slots; the whole description is checked before

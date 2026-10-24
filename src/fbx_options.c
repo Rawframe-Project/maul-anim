@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The FBX build options (mani-0014). Output axis `to` is file axis
+// The FBX build options. Output axis `to` is file axis
 // `from`, negated when exactly one of the two is.
 
 #include "fbx_options.h"

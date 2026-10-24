@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // FBX objects, their connections, templated properties and the scene's
-// settings (mani-0013), read once at open from the document's tree, the
+// settings, read once at open from the document's tree, the
 // same for 7.x ids and 6.x names.
 
 #ifndef MAUL_ANIM_SRC_FBX_OBJECT_H
@@ -19,7 +19,7 @@
 // Reads Objects, Connections, Definitions and GlobalSettings.
 maniImportResult maniFbxReadObjects(maniFbx* fbx);
 
-// For readers of other layouts (mani-0017): a string property's 6.x key;
+// For readers of other layouts: a string property's 6.x key;
 // the objects indexed by id, an id given twice kept by its first object; the
 // connections indexed by both ends; GlobalSettings read with a frame
 // rate to fall back on where it gives none (0 for none); and a Settings
@@ -83,12 +83,12 @@ void maniFbxFindProperties(const maniFbx* fbx, uint32_t object, const char* cons
 uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k);
 
 // Before 6.0: the rest value of an object's Lcl Translation (0),
-// Rotation (1) or Scaling (2) its channels give (mani-0017); false where
+// Rotation (1) or Scaling (2) its channels give; false where
 // none does.
 bool maniFbxLegacyRest(const maniFbx* fbx, uint32_t object, uint32_t which, double out[3]);
 
 // Whether a property name is one ufbx keeps on a 6.x model rather than
-// its attribute (mani-0017): the transform, limits, visibility.
+// its attribute: the transform, limits, visibility.
 bool maniFbxIsNodeProperty(const uint8_t* name, size_t length);
 
 // Whether an entry is flagged user-defined (U).

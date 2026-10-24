@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A Draco mesh (KHR_draco_mesh_compression, mani-0021) decoded from its
+// A Draco mesh (KHR_draco_mesh_compression) decoded from its
 // bitstream 2.2 bytes: faces of point ids, and each attribute's values
 // with the point each one belongs to, as Google's decoder gives them.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The pose input node (mani-0027): the rest pose until its parameter is
+// The pose input node: the rest pose until its parameter is
 // set, then the pose set; blended over a walk by weight (none, half,
 // all) and by mask (the spine's subtree the ragdoll's, the hips the
 // walk's); inside a subgraph through its parameter mapping; refused at

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The JSON reader (mani-0007). One scanner runs twice over the text: first to
+// The JSON reader. One scanner runs twice over the text: first to
 // check it and count its values, then, with the array allocated, to
 // fill them. It is iterative: a stack of open containers, at most
 // MANI_JSON_MAX_DEPTH deep, replaces recursion.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One-shots (mani-0023): a one-shot's data words read and checked on
+// One-shots: a one-shot's data words read and checked on
 // open, its block in an instance (phase, fade clock, fade-start weight,
 // weight, its leading clip's clip seconds left) reset and checked when a
 // saved state restores it.

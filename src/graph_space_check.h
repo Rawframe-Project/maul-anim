@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A blend space node's source checked (mani-0023): its position, its
+// A blend space node's source checked: its position, its
 // points (finite, no two equal, within a period when it wraps, not all on
 // one line for triangles), its flags and its authored triangles (exact
 // tests). Offline.

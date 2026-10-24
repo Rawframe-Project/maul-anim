@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A clip's float and discrete tracks, events and markers (mani-0006):
+// A clip's float and discrete tracks, events and markers:
 // their checks at open and their reading. Tracks are kept by increasing
 // name hash, so a name is found by binary search; events and markers by
 // increasing time, so a window of time is a range of indices.

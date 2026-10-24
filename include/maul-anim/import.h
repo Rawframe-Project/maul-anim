@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF 2.0 import (mani-0008), offline: a document opened from JSON or
+// glTF 2.0 import, offline: a document opened from JSON or
 // GLB bytes the caller keeps alive, its external buffers supplied by the
 // host, then skeletons, skins and clips built from it.
 
@@ -27,8 +27,8 @@ extern "C"
     // An opened glTF document.
     typedef struct maniGltf maniGltf;
 
-    // One clip's settings for maniGltfBuildClip and maniFbxBuildClip
-    // (mani-0022), beside the document's options.
+    // One clip's settings for maniGltfBuildClip and maniFbxBuildClip,
+    // beside the document's options.
     typedef struct maniImportClipOptions
     {
         // Samples per second; 0 for the format's default.
@@ -330,7 +330,7 @@ extern "C"
                                                                const maniGltfOptions* options);
 
     /// Returns the bone name a node has in every skeleton, skin and clip
-    /// built from the document (mani-0009): its name, or, when it has
+    /// built from the document: its name, or, when it has
     /// none or an earlier node has the same, that name followed by `#`
     /// and the node index.
     ///
@@ -385,7 +385,7 @@ extern "C"
     MANI_API const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation,
                                                uint32_t* lengthOut);
 
-    /// Builds one animation as a clip of an opened skeleton (mani-0010):
+    /// Builds one animation as a clip of an opened skeleton:
     /// translation, rotation and scale channels on its bones (found by
     /// name), morph weights of its bones and of meshes it skins, and
     /// `KHR_animation_pointer` channels to anything but nodes, each as
@@ -419,14 +419,14 @@ extern "C"
                       const maniImportClipOptions* clipOptions, uint32_t* boundOut);
 
     /// Reads the document's `VRMC_springBone` extension (version 1.0) as
-    /// spring bone sources on an opened skeleton (mani-0011): colliders,
+    /// spring bone sources on an opened skeleton: colliders,
     /// collider groups and springs, nodes found by bone name, offsets,
     /// tails and gravity directions in the output's basis. Colliders'
     /// `VRMC_springBone_extended_collider` and joints'
     /// `VRMC_springBone_limit` (version 1.0; another version is ignored)
     /// give inside spheres and capsules, planes and limits, a limit's
-    /// rotation such that its frame is glTF's in the output's basis
-    /// (mani-0026); a last joint's limit is ignored. A document without
+    /// rotation such that its frame is glTF's in the output's basis;
+    /// a last joint's limit is ignored. A document without
     /// the extension gives an empty set. The arrays are the document's
     /// until the next call or maniCloseGltf.
     ///
@@ -446,7 +446,7 @@ extern "C"
 
     /// Reads the document's `OMI_physics_body`, `OMI_physics_shape` and
     /// `OMI_physics_joint` extensions as a ragdoll profile's source on an
-    /// opened skeleton (mani-0027). Each dynamic or kinematic body sits on
+    /// opened skeleton. Each dynamic or kinematic body sits on
     /// the bone of its node or of the node's nearest ancestor that is a
     /// bone, its frame the frame of its one collider's node (rigid, in the
     /// bone's model frame with scale left out), its shape that collider's
@@ -607,7 +607,7 @@ extern "C"
     maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
                               uint32_t primitive, const maniGltfOptions* options);
 
-    /// Opens an FBX document (mani-0012) from the bytes of a file, binary
+    /// Opens an FBX document from the bytes of a file, binary
     /// (told apart by its magic, either byte order) or ASCII, versions 3000
     /// to 7700. Every record, token and length is checked against the
     /// bytes; no array is decoded and no number converted until asked
@@ -653,7 +653,7 @@ extern "C"
     MANI_API uint32_t maniFbxModelCount(const maniFbx* fbx);
 
     /// Returns the bone name a model has in every skeleton, skin and clip
-    /// built from the document (mani-0014): its name without its class,
+    /// built from the document: its name without its class,
     /// or, when it has none or an earlier model has the same, that name
     /// followed by `#` and the model index.
     ///
@@ -685,7 +685,7 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index);
 
-    /// Returns the number of skeletons (mani-0014): skins' linked models
+    /// Returns the number of skeletons: skins' linked models
     /// and limb chains, joined where they share a model, numbered by
     /// their lowest skin, then chain; 0 for NULL.
     ///
@@ -725,7 +725,7 @@ extern "C"
     /// Safe from any thread.
     MANI_API uint32_t maniFbxSkinModel(const maniFbx* fbx, uint32_t skin);
 
-    // An FBX scene's settings (GlobalSettings, mani-0013).
+    // An FBX scene's settings (GlobalSettings).
     typedef struct maniFbxSettings
     {
         // The file's right, up and front axes.
@@ -760,8 +760,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniFbxReadSettings(const maniFbx* fbx,
                                                            maniFbxSettings* settingsOut);
 
-    // How an FBX document's skeletons, skins and clips are built
-    // (mani-0014).
+    // How an FBX document's skeletons, skins and clips are built.
     typedef struct maniFbxOptions
     {
         // With convertAxes 1, the output's right, up and front axes, each
@@ -790,7 +789,7 @@ extern "C"
         return options;
     }
 
-    /// Builds a skeleton of the document into the builder (mani-0014):
+    /// Builds a skeleton of the document into the builder:
     /// its skins' linked models and limb chains, the models between and
     /// their common root, named by their bone names, with helper bones
     /// (`name#unscaled`) where FBX's scale inheritance needs them.
@@ -841,8 +840,8 @@ extern "C"
                                                                       const maniFbxOptions* options,
                                                                       maniAffine* placementOut);
 
-    /// Builds a skin into the builder against an opened skeleton
-    /// (mani-0015): each cluster linking a model a joint, found by the
+    /// Builds a skin into the builder against an opened skeleton:
+    /// each cluster linking a model a joint, found by the
     /// model's bone name, its inverse bind the mesh relative to the bone
     /// at bind (the cluster's matrices, a bind pose or the rest, as ufbx
     /// reads them) times the mesh's geometric transform, the options'
@@ -978,7 +977,7 @@ extern "C"
                                                                  float* weightsOut, uint32_t count);
 
     /// Returns how many clips the document has: its animation stacks
-    /// (takes), in file order (mani-0016).
+    /// (takes), in file order.
     ///
     /// @param fbx  The document; NULL gives 0.
     /// @return The count.
@@ -998,7 +997,7 @@ extern "C"
     /// Safe from any thread.
     MANI_API const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, uint32_t* lengthOut);
 
-    /// Builds a clip into the builder for an opened skeleton (mani-0016):
+    /// Builds a clip into the builder for an opened skeleton:
     /// the stack's layers and curves evaluated as ufbx evaluates them, at
     /// every sample of the clip's grid from the stack's start (its local,
     /// reference or take times, else its keys), whole ticks apart. Each

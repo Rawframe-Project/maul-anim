@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skeletons (mani-0014). A skin's unit is the models its clusters
+// FBX skeletons. A skin's unit is the models its clusters
 // link, rooted at their common ancestor; a limb chain's is every limb
 // below a limb with no limb above it (a limb: a model of subclass
 // LimbNode, Limb or Root, or with a node attribute of one, as ufbx reads

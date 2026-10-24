@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The retargeting map file's layout (mani-0032), shared by its view and
+// The retargeting map file's layout, shared by its view and
 // its builder: kind 4 of the container. Records are little-endian. A
 // bone's model rotation is the product of its root path's local
 // rotations (scale left out); positions are the reference pose's model

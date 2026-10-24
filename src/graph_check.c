@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Checking a graph source (mani-0023): counts, names, parameters, clip
+// Checking a graph source: counts, names, parameters, clip
 // slots, sync groups, database slots and each node on its own.
 
 #include "graph_check.h"

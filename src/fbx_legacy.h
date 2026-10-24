@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX files before 6.0 (mani-0017), read into the same objects and
+// FBX files before 6.0, read into the same objects and
 // connections as later files: top-level models, their Children lists, a
 // skin per mesh with Link children (each link a cluster), the legacy
 // frame rate, and the rest values channel defaults give.

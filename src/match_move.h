@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A playhead moved through a motion database entry's span (mani-0024),
+// A playhead moved through a motion database entry's span,
 // for the database's sampling and a motion matching node's play: its
 // clip time and the root's move there; the axes and the ground plane the
 // database's trajectories lie on.

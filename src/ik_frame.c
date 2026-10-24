@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the IK solvers share (mani-0029). A model-space turn T of a bone
+// What the IK solvers share. A model-space turn T of a bone
 // whose parent's model rotation is P becomes the local correction P* T P
 // (mirrored under a mirrored parent); half angles come from whichever of
 // the cosine and sine keeps its digits; the pole's plane blends to a

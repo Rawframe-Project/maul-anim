@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF's meshopt streams (mani-0008): a 5-byte prefix chooses the mode,
+// glTF's meshopt streams: a 5-byte prefix chooses the mode,
 // stride, count, whether version 1 is allowed and a filter, then the
 // rest is decoded as a stream and, when valid attributes, filtered (a
 // filter the stride allows). Run as fuzz_meshopt <corpus dir>; the seeds

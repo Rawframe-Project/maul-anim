@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Ragdoll bodies and poses (mani-0027): bodies placed from a pose's model
+// Ragdoll bodies and poses: bodies placed from a pose's model
 // frames (scale left out) under the placement, with velocities as the
 // differences from the pose before; joints' motor targets from bodies;
 // a pose from bodies, the bones without bodies keeping a reference's

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Two-bone inverse kinematics (mani-0029) on a leg: hip, knee, a shin
+// Two-bone inverse kinematics on a leg: hip, knee, a shin
 // twist bone and the ankle (the end two bones below the middle). Goals
 // within reach are reached with the bones' lengths kept and the knee
 // toward the pole; a goal out of reach straightens the leg toward it,

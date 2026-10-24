@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Draco bitstream 2.2's mesh decoding, the specification's order with
-// Google's decoder deciding where they differ (mani-0021): the header
+// Google's decoder deciding where they differ: the header
 // and metadata, the connectivity (sequential, or Edgebreaker's), then
 // each attribute decoder's attributes, over Edgebreaker in its
 // traversal's order: their portable values (raw, or symbols with a
@@ -464,7 +464,7 @@ static bool Parent(const Decoder* d, const Value* v)
     return p != NULL && p != v && p->ready && p->pcomps == 3;
 }
 
-// The schemes the library reads (mani-0021): difference everywhere;
+// The schemes the library reads: difference everywhere;
 // over Edgebreaker, the parallelograms and texture coordinates with wrap,
 // geometric normals with the octahedron, each with its transform.
 static bool Accepts(const Decoder* d, const Value* v, const Group* g, uint8_t transform)

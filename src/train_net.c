@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A dense network in training (mani-0025); see train_net.h.
+// A dense network in training; see train_net.h.
 
 #include "train_net.h"
 

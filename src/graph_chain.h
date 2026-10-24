@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Chain IK nodes' words (mani-0030): their count from the limit count,
+// Chain IK nodes' words: their count from the limit count,
 // checked on open, and a node's limits read back; the checks the
 // full-body nodes share (a limit's words wherever they lie, parameters,
 // weights).

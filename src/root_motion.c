@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A clip's root motion (mani-0022): its section checked at open, its
+// A clip's root motion: its section checked at open, its
 // source read back, and its moves: between two playhead times, across
 // wraps by the whole period's move composed by squaring, composed and
 // blended, in binary32.

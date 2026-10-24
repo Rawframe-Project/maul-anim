@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring motion (mani-0026) on the fixture's chain: the steps against a
+// Spring motion on the fixture's chain: the steps against a
 // binary64 reference of VRMC_springBone's update, a chain at rest kept,
 // gravity hanging it at its bones' lengths, the same motion at host
 // rates of 30, 60 and 144 Hz (still, moving, turning), the character's

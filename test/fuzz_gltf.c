@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a glTF document (mani-0008) from any bytes, then reading every
+// Opening a glTF document from any bytes, then reading every
 // accessor, with each external buffer given the input's own bytes when
 // they are long enough, and building every skeleton, skin and clip,
-// reading the spring bones and building the ragdoll read (mani-0027),
+// reading the spring bones and building the ragdoll read,
 // every mesh primitive's influences against
 // each skin and its morph targets. Run as fuzz_gltf <corpus dir>;
 // the seed comes from test_gltf --seed <file>.

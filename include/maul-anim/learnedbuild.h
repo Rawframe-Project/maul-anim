@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building learned motion matching models (mani-0025) from networks'
+// Building learned motion matching models from networks'
 // weights: what a trainer gives, or networks trained elsewhere.
 
 #ifndef MAUL_ANIM_LEARNEDBUILD_H

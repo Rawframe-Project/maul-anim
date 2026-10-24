@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A motion matching node's step in an update (mani-0024): its playhead
+// A motion matching node's step in an update: its playhead
 // moved through its entry, its events listed and its root motion added,
 // then a search when one is due, a jump to the pick and a request of
 // inertialization.
@@ -17,8 +17,8 @@
 #include <stdint.h>
 
 // The continuing frame's features (normalized, in here) blended toward
-// the next frame's by w, as the query takes them at the playhead
-// (mani-0024): a + w (b - a) a feature, bone facings made unit again.
+// the next frame's by w, as the query takes them at the playhead:
+// a + w (b - a) a feature, bone facings made unit again.
 static inline void maniGraphMatchBlend(const maniMotionDatabase* d, float* here, const float* next,
                                        float w)
 {

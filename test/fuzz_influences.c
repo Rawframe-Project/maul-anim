@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening an influences file (mani-0021), and on success reading every
+// Opening an influences file, and on success reading every
 // influence, blend weight and center; then the same bytes with the
 // payload's hash made right, so that mutations reach the checks behind
 // it. Run as fuzz_influences <corpus dir>; the seed comes from

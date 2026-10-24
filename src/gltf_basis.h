@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The glTF options' basis change (mani-0009), basis.c's with glTF's
+// The glTF options' basis change, basis.c's with glTF's
 // units kept: a signed permutation of axes applied as B G B^-1, exactly,
 // to transforms and matrices.
 

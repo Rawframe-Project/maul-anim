@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Helper bones for animation (mani-0014, mani-0016): a skeleton is built
+// Helper bones for animation: a skeleton is built
 // knowing the file's animation, so a parent whose child's compensation
 // stops being exact at some sample of some stack gets its helper bone,
 // as one inexact at rest does.

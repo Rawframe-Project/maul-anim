@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Reading the graph JSON form's searching nodes (mani-0023): a motion
-// matching node (mani-0024) and a learned node (mani-0025). Offline.
+// Reading the graph JSON form's searching nodes: a motion
+// matching node and a learned node. Offline.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_JSON_SEARCH_H
 #define MAUL_ANIM_SRC_GRAPH_JSON_SEARCH_H

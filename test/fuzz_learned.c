@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a learned model (mani-0025), and on success reading its
+// Opening a learned model, and on success reading its
 // records and evaluating every network once (a projection of zeros, a
 // step and a decompression of its state); then the same bytes with the
 // payload's hash made right, and then the identity too, so that

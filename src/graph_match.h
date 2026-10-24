@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Motion matching nodes' words (mani-0024): a node's data words read and
+// Motion matching nodes' words: a node's data words read and
 // checked on open, and its block in an instance (its entry, the period's
 // clock, its picks) reset and checked when a saved state restores it.
 

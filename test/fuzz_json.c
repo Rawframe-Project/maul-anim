@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The JSON reader (mani-0007): reading any bytes, then every value read back:
+// The JSON reader: reading any bytes, then every value read back:
 // containers' spans and links in order, every string decoded no longer
 // than its text and equal to itself, every number converted in both
 // formats and as a whole number, every object's names looked up. Run as

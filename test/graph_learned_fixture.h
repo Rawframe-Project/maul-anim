@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The learned node suites' helpers (mani-0025): the learned fixture's
+// The learned node suites' helpers: the learned fixture's
 // model (its events' outputs about 0.5, so they rise and fall as the
 // state moves) in slot "steps"; a graph of an inertialize node over a
 // learned node whose query is the parameter ahead, its trigger search,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Evaluating a learned model's networks (mani-0025), as Holden's nnet.h:
+// Evaluating a learned model's networks, as Holden's nnet.h:
 // the inputs normalized, each layer's outputs started from its biases and
 // added each input times its weights (inputs of exactly 0 skipped, as the
 // ReLU makes many), input by input with the output innermost, ReLU on

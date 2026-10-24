@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An IK or full-body node's data words (mani-0029 to mani-0031): bones,
+// An IK or full-body node's data words: bones,
 // parameters, axes and scalars as graph_file.h lays them out, a chain's
 // limits one per turning bone with the words a limit's kind leaves
 // unused 0.

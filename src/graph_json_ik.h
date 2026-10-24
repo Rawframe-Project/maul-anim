@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The IK nodes' JSON form (mani-0029), read and written: bones by name,
+// The IK nodes' JSON form, read and written: bones by name,
 // goal and pole parameters by name, axes as [x, y, z], twist, soften,
 // cone and weight as numbers or {"parameter": name}. Offline.
 

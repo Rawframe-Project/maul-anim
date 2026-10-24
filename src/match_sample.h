@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // A motion database frame's features, raw (not yet normalized), sampled
-// from its entry's clip in the root's space at the frame (mani-0024).
+// from its entry's clip in the root's space at the frame.
 
 #ifndef MAUL_ANIM_SRC_MATCH_SAMPLE_H
 #define MAUL_ANIM_SRC_MATCH_SAMPLE_H

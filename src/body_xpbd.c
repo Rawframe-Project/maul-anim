@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body solve as rigid bodies (mani-0031), Müller et al.'s
+// The full-body solve as rigid bodies, Müller et al.'s
 // positional and angular corrections with XPBD compliance: each part
 // bone a body (a unit mass and an inverse inertia from its length; a
 // held top neither moves nor turns); each effector pulls its body's

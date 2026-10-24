@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF meshes (mani-0021): a primitive's two influence sets (normalized
+// glTF meshes: a primitive's two influence sets (normalized
 // bytes and shorts, mixed) read into influences, every rule glTF makes a
 // MUST refused; its morph targets read over positions, normals, a
 // texture coordinate and a color set, normalized shorts decoded, the

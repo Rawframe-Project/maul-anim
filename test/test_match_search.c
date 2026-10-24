@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The exact search (mani-0024): random databases written as files
+// The exact search: random databases written as files
 // (entries looping and clamped, biases, tags, no-jump entries, frames
 // repeated so costs tie) and random searches (continuing frames, biases,
 // transition costs, tag masks, exclusions near the continuing frame, at

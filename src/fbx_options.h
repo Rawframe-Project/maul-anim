@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The FBX build options (mani-0014): their checks, and the basis they
+// The FBX build options: their checks, and the basis they
 // turn the file's axes and unit to.
 
 #ifndef MAUL_ANIM_SRC_FBX_OPTIONS_H

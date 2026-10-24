@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The compressor's sub-tracks (mani-0019): their values, clip and segment
+// The compressor's sub-tracks: their values, clip and segment
 // ranges, what a rate plays (by the codec's own arithmetic, so it is what
 // the sampler decodes), and the float tracks' folding and rates.
 

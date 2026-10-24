@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF document's buffers (mani-0008).
+// A glTF document's buffers.
 
 #ifndef MAUL_ANIM_SRC_GLTF_BUFFER_H
 #define MAUL_ANIM_SRC_GLTF_BUFFER_H

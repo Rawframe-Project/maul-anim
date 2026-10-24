@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skeleton builds (mani-0014). For every bone of a model, the
+// FBX skeleton builds. For every bone of a model, the
 // placement times the bone's model matrix must be the model's FBX world
 // (in the output's basis when converting): with normal inheritance,
 // exact compensation, helper bones where it is inexact or requested, a

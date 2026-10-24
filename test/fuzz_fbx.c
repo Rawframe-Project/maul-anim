@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening an FBX document (mani-0012) from any bytes, then reading
+// Opening an FBX document from any bytes, then reading
 // every property of every node: numbers, integers, strings (decoded and
 // compared), and arrays up to a million elements; binary or ASCII; and
 // every object's name, a property, its connections and its local

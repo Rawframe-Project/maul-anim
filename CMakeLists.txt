@@ -25,7 +25,7 @@ option(MAUL_ANIM_COVERAGE "Instrument for gcov coverage" OFF)
 option(MAUL_ANIM_FUZZ "Build the libFuzzer targets (Clang)" OFF)
 option(MAUL_ANIM_OFFLINE "Build the offline side: builders, compression, import" ON)
 option(MAUL_ANIM_DIFFERENTIAL
-       "Build the ufbx, ACL and ozz differentials (fetch ufbx, ACL, RTM and ozz-animation; mani-0018, mani-0019, mani-0020)" OFF)
+       "Build the ufbx, ACL and ozz differentials (fetch ufbx, ACL, RTM and ozz-animation)" OFF)
 
 # Every executable (tests, benchmarks, tools) lands in the top of the
 # build tree, so scripts and CI find them in one place.
@@ -40,7 +40,7 @@ include(cmake/Testing.cmake)
 
 # x86-64 builds use AVX2 and FMA unless the portable scalar backend is
 # chosen; arm64 uses NEON through src/simd.h. Every backend gives the
-# same bits (mani-0038).
+# same bits.
 set(MAUL_ANIM_SIMD "auto" CACHE STRING "SIMD backend: auto or scalar")
 set_property(CACHE MAUL_ANIM_SIMD PROPERTY STRINGS auto scalar)
 set(MAUL_ANIM_SIMD_BACKEND scalar)
@@ -60,7 +60,7 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT EMSCRIPTEN)
     set(MAUL_ANIM_SIMD_BACKEND neon)
 endif()
 # Said at configure and carried by the installed package files, so a
-# packager sees an AVX2 build is not portable (mani-0038).
+# packager sees an AVX2 build is not portable.
 if(MAUL_ANIM_SIMD_BACKEND STREQUAL "avx2")
     message(STATUS "maul-anim: SIMD backend avx2, for CPUs with AVX2 and FMA; "
                    "a program calls maniCheckCpu first (-DMAUL_ANIM_SIMD=scalar runs anywhere)")
@@ -201,12 +201,12 @@ if(MAUL_ANIM_BUILD_SHARED)
 endif()
 target_sources(maul-anim PRIVATE $<TARGET_OBJECTS:maul-anim_cpu>)
 # sqrtf need not set errno, which the library never reads: square roots
-# then run four or eight at a time; no value changes (mani-0020).
+# then run four or eight at a time; no value changes.
 if(NOT MSVC)
     target_compile_options(maul-anim PRIVATE -fno-math-errno)
 endif()
 # The exactly rounded functions the sources may call
-# (tools/libm-allowed.txt) come from libm (mani-0001).
+# (tools/libm-allowed.txt) come from libm.
 if(NOT WIN32 AND NOT APPLE)
     target_link_libraries(maul-anim PUBLIC m)
 endif()
@@ -326,7 +326,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(basis WHITEBOX)
         maul_add_test(hierarchy WHITEBOX)
         # Khronos sample models in test/data/gltf; FBX scenes in
-        # test/data/fbx against ufbx's values (mani-0018).
+        # test/data/fbx against ufbx's values.
         maul_add_test(gltf_fixtures WHITEBOX)
         maul_add_test(gltf_meshopt WHITEBOX)
         maul_add_test(gltf_compression WHITEBOX)
@@ -377,7 +377,7 @@ if(MAUL_ANIM_FUZZ)
     endforeach()
 endif()
 
-# The ufbx differential (mani-0018): ufbx at its pinned commit, with its
+# The ufbx differential: ufbx at its pinned commit, with its
 # corpus, fetched for the tool alone and never linked into the library.
 if(MAUL_ANIM_DIFFERENTIAL)
     if(NOT MAUL_ANIM_OFFLINE)
@@ -399,7 +399,7 @@ if(MAUL_ANIM_DIFFERENTIAL)
     set_source_files_properties(${ufbx_SOURCE_DIR}/ufbx.c PROPERTIES COMPILE_OPTIONS -w)
     set(MAUL_ANIM_UFBX_DATA ${ufbx_SOURCE_DIR}/data CACHE INTERNAL "ufbx's corpus")
     # The ACL differential, the one C++ program: ACL and RTM are header
-    # only, read at the commits research measured them at; their own
+    # only, read at pinned commits; their own
     # projects are not built (SOURCE_SUBDIR names none).
     enable_language(CXX)
     FetchContent_Declare(acl GIT_REPOSITORY https://github.com/nfrechette/acl.git
@@ -440,7 +440,7 @@ if(MAUL_ANIM_DIFFERENTIAL)
     target_link_libraries(ozz_differential PRIVATE maul-anim)
     maul_apply_flags(ozz_differential)
     set_source_files_properties(${MAUL_OZZ_SOURCES} PROPERTIES COMPILE_OPTIONS -w)
-    # The IK differential (mani-0029): ozz's two IK jobs and its math.
+    # The IK differential: ozz's two IK jobs and its math.
     set(MAUL_OZZ_IK_SOURCES src/animation/runtime/ik_two_bone_job.cc
                               src/animation/runtime/ik_aim_job.cc src/base/maths/simd_math.cc)
     list(TRANSFORM MAUL_OZZ_IK_SOURCES PREPEND ${ozz_SOURCE_DIR}/)
@@ -452,7 +452,7 @@ if(MAUL_ANIM_DIFFERENTIAL)
     target_link_libraries(ik_differential PRIVATE maul-anim)
     maul_apply_flags(ik_differential)
     set_source_files_properties(${MAUL_OZZ_IK_SOURCES} PROPERTIES COMPILE_OPTIONS -w)
-    # The Godot differential of retargeting (mani-0032): rigs and poses
+    # The Godot differential of retargeting: rigs and poses
     # for Godot's RetargetModifier3D, its results checked.
     add_executable(retarget_godot tools/retarget_godot.c)
     target_link_libraries(retarget_godot PRIVATE maul-anim)

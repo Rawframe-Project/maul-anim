@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graph files (mani-0023): a graph built against a skeleton and its
+// Graph files: a graph built against a skeleton and its
 // clips, its nodes ordered depth first from the output, poses and
 // differences marked, slots reused; every refusal of the builder and of
 // opening; the bytes pinned. Run as test_graph --seed <file> it writes a

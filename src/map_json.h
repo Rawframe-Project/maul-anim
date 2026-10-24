@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The maps' JSON forms (mani-0034), the parts both maps use: the header,
+// The maps' JSON forms, the parts both maps use: the header,
 // a reference pose listing the bones whose local is not the rest, the
 // text opened for reading and the text kept in the builder. Offline.
 

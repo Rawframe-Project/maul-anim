@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blending (mani-0020): poses mixed by weights, per bone through masks,
+// Blending: poses mixed by weights, per bone through masks,
 // in caller memory. Poses and differences never mix: a blend takes
 // layers of one kind and writes that kind.
 

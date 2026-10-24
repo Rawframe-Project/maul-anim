@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Getting up from a ragdoll (mani-0027): face up or down from the root
+// Getting up from a ragdoll: face up or down from the root
 // body's facing along the ground's normal; the heading from its up axis
 // on the ground's plane and its facing, weighed by how upright the body
 // stands; the placement on the plane under the root body, the

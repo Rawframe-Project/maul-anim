@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The state of an FBX clip build (mani-0016), shared by the bones'
+// The state of an FBX clip build, shared by the bones'
 // sampling (fbx_clip.c) and the float tracks (fbx_tracks.c).
 
 #ifndef MAUL_ANIM_SRC_FBX_CLIP_STATE_H

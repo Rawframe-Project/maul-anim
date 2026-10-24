@@ -52,6 +52,8 @@ Within `src/`, each module is one `.c` file and its header; `tools/modules.txt` 
 
 Every file, JSON text, glTF or FBX document, saved instance and argument is hostile: it is validated and refused with a status in every build. Opening a file checks every byte once, so later calls read without checks; a file that passes but was not made by the builder can give a wrong pose, never an unsafe access. A refusal names where: `maniFileResult.offset` for a file, `maniBuildResult` (`reason`, `item`, `other`) for a source, `maniImportResult` (reason, offset, item) for an import.
 
+Internal invariants are asserted with `MANI_ASSERT` ([`src/invariant.h`](../../src/invariant.h)): states that cannot occur unless the library is wrong, such as a parent composed after its child or a graph slot past the file's count. It traps in Debug, sanitizer and fuzz builds, where a broken invariant stops the run at the fault, and compiles out of Release builds, whose per-bone loops must not pay for it.
+
 ## Testing
 
 Each suite in `test/` is one executable registered with CTest and labeled with its name. What the tests rely on:

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The pose transfer through a retargeting map (mani-0032) from a source
+// The pose transfer through a retargeting map from a source
 // of three spine bones and a two-bone arm to a target of four spine
 // bones and a three-bone arm whose rests turn sp1 and the upper arm: the
 // source's reference giving the target's; each mapped bone's model turn

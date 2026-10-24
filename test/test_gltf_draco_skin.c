@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco-compressed skins (mani-0021): SimpleSkin compressed by glTF
+// Draco-compressed skins: SimpleSkin compressed by glTF
 // Transform, with float weights (which its encoder quantizes to 12 bits)
 // and with normalized byte weights, gives the influences of the
 // uncompressed SimpleSkin vertex for vertex, in the order Draco gives

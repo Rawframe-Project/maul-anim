@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Learned model slots in graphs (mani-0025): a graph listing a model by
+// Learned model slots in graphs: a graph listing a model by
 // name, built, opened and read back; the builder's refusals of a slot
 // without a model, of another skeleton or listed twice, and of its names;
 // opening's checks of the slots' count, section and names; binding by

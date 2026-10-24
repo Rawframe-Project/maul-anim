@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A glTF primitive compressed by KHR_draco_mesh_compression (mani-0021):
+// A glTF primitive compressed by KHR_draco_mesh_compression:
 // its stream decoded once, and the accessors of the attributes the
 // extension names read from it, each one matching the decoded attribute
 // as the extension asks.

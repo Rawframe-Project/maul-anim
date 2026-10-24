@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What a listening state machine records after the clips move
-// (mani-0023): its current state's leading clip (the clip node beneath
+// What a listening state machine records after the clips move:
+// its current state's leading clip (the clip node beneath
 // it of greatest effective weight, the first of equals), where it was
 // and is and the whole loops it wrapped, the loops since the state was
 // entered, whether the state finished, and the event names its clips

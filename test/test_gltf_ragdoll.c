@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The OMI physics extensions as a ragdoll source (mani-0027): a pelvis,
+// The OMI physics extensions as a ragdoll source: a pelvis,
 // spine, chest and head skeleton with bodies on the pelvis (a box on a
 // turned child collider), the chest (a capsule on its own node) and the
 // head (a sphere on a node turned a quarter about z and scaled by 2),

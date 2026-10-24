@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned motion matching node's update (mani-0025): its clock moved
+// A learned motion matching node's update: its clock moved
 // and its state stepped, a projection when one is due, its root motion
 // added and its events listed.
 

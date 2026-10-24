@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco meshes (mani-0021): the input decoded as a stream of at most
+// Draco meshes: the input decoded as a stream of at most
 // 2^16 points and 2^17 faces. Run as fuzz_draco <corpus dir>; the seeds
 // are the streams of test/data/draco and those test_gltf_draco --seed
 // writes.

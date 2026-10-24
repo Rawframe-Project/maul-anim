@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The mirror map file's layout (mani-0033), shared by its view and its
+// The mirror map file's layout, shared by its view and its
 // builder: kind 13 of the container. Records are little-endian. With P a
 // bone's parent's reference model rotation (the identity for a root), R
 // its own, m its partner and mirror(q) the quaternion with its two

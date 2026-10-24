@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's first training stage (mani-0025): the training data
+// A learned model's first training stage: the training data
 // of a database of the walk and the run (counts, layout, a frame's pose
 // and root velocity as the clip gives them, the events' states, the
 // pairs); the Compressor and Decompressor trained, the loss falling; the

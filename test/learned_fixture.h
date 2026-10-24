@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model (mani-0025) of random networks over the motion matching
+// A learned model of random networks over the motion matching
 // fixture's database, for the tests of models and of the graphs that
 // play them.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model's trainer (mani-0025): its def and source checked, its
+// A learned model's trainer: its def and source checked, its
 // data built, its signature, and its release.
 
 #include "learned_train.h"

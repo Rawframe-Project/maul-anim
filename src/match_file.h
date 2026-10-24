@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The motion database file's layout (mani-0024), shared by its view and
+// The motion database file's layout, shared by its view and
 // its builder: kind 8 of the container. Records are little-endian;
 // features are binary32, normalized, frame by frame; bounds cover runs of
 // MANI_MATCH_SMALL_RUN and MANI_MATCH_LARGE_RUN frames.

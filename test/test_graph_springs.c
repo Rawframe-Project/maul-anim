@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Spring set slots in graphs (mani-0026): a graph listing spring sets by
+// Spring set slots in graphs: a graph listing spring sets by
 // name, built, opened and read back; the builder's refusals of a slot
 // without a set, of another skeleton or listed twice, and of its names;
 // opening's checks of the slots' count, section and names; binding by

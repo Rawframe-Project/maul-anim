@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Two-bone inverse kinematics (mani-0029), after ozz-animation's
+// Two-bone inverse kinematics, after ozz-animation's
 // IKTwoBoneJob: the goal softened past a share of the chain's length,
 // the middle turned about its hinge by the difference of the wanted and
 // current angles (law of cosines, in cosines and sines: no acos), the

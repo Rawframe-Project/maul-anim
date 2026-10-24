@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x keys (mani-0017): each mode, slope mode and weight mode at
+// FBX 6.x keys: each mode, slope mode and weight mode at
 // KeyVer 4003, 4004 and 4005, extrapolations given as letters, and what
 // is refused, against keys and values ufbx gives for the same takes.
 

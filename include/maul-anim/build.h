@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The offline side: a builder turns source data into the library's files
-// (mani-0003), which it keeps until the next build for a copy into caller
+// The offline side: a builder turns source data into the library's files,
+// which it keeps until the next build for a copy into caller
 // memory. A builder allocates through the allocator of its def and is
 // built only when MAUL_ANIM_OFFLINE is on.
 
@@ -29,7 +29,7 @@ extern "C"
     // A builder: one owner object for every kind of file. Every function
     // taking a builder, and closing a document opened with one, refuses a
     // call back in from the builder's allocator with mani_errorState and
-    // counts one misuse (mani-0028).
+    // counts one misuse.
     typedef struct maniBuilder maniBuilder;
 
     typedef struct maniBuilderDef
@@ -83,8 +83,8 @@ extern "C"
     MANI_API void maniDestroyBuilder(maniBuilder* builder);
 
     /// Returns how many calls on the builder were refused for invalid
-    /// arguments (conventions section 8) or as calls back in from its
-    /// allocator (mani-0028).
+    /// arguments (maul-conventions.md, Errors) or as calls back in from its
+    /// allocator.
     ///
     /// @param builder  The builder.
     /// @return The count.
@@ -154,13 +154,13 @@ extern "C"
         // for positions, normals or tangents, or given twice (other the
         // earlier); item is the attribute.
         maniBuildReasonAttribute = 21,
-        // A root motion source (mani-0022): a bone outside the skeleton
+        // A root motion source: a bone outside the skeleton
         // or without a track, no channel chosen, a field out of range,
         // an additive clip, or a motion translation beyond 2^64; item is
         // the bone. A retargeted clip's root motion bone past the target's
         // bones, or none that follows the source's (item MANI_NO_BONE).
         maniBuildReasonRootMotion = 22,
-        // A graph parameter (mani-0023) of an unknown type, or whose
+        // A graph parameter of an unknown type, or whose
         // default or bounds are out of form: not finite, a minimum above
         // the maximum, the default outside them, a quaternion of zero
         // length, a bool or trigger not 0 or 1; item is the parameter.
@@ -241,7 +241,7 @@ extern "C"
         // the slot. A learned model's or trainer's database of another
         // skeleton (item 0).
         maniBuildReasonDatabase = 39,
-        // A learned model's network (mani-0025) with no layers or more
+        // A learned model's network with no layers or more
         // than MANI_LEARNED_MAX_LAYERS, a layer of no inputs or outputs or
         // past MANI_LEARNED_MAX_WIDTH, layers that do not chain, a first
         // input or last output count its role does not take, weights past
@@ -409,7 +409,7 @@ extern "C"
                                                               const maniSkeletonSource* source);
 
     // A skin: the bones a mesh is bound to, in the mesh's order, with an
-    // inverse bind matrix each (mani-0005).
+    // inverse bind matrix each.
     typedef struct maniSkinSource
     {
         // The opened skeleton the skin is for.
@@ -436,7 +436,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder,
                                                           const maniSkinSource* source);
 
-    // A mesh primitive's influences (mani-0021): any number a vertex,
+    // A mesh primitive's influences: any number a vertex,
     // vertex v's in [offsets[v], offsets[v + 1]) of joints and weights.
     typedef struct maniInfluenceSource
     {
@@ -476,7 +476,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult maniBuildInfluences(maniBuilder* builder,
                                                                 const maniInfluenceSource* source);
 
-    // What centers of rotation are built from (mani-0021): influences, the
+    // What centers of rotation are built from: influences, the
     // rest mesh's positions (binary32 x, y, z a vertex, stride in bytes)
     // and its triangles.
     typedef struct maniCenterSource
@@ -604,10 +604,10 @@ extern "C"
         // Seconds, 0 for the last key's time.
         float duration;
         // maniAdditiveNone for a clip of poses; otherwise each channel is
-        // stored as its difference from the basis (mani-0020).
+        // stored as its difference from the basis.
         maniAdditiveBasis additive;
         uint32_t reserved;
-        // NULL, or the root motion to take out of a bone (mani-0022): kept
+        // NULL, or the root motion to take out of a bone: kept
         // beside the clip, the bone left without it.
         const maniRootMotionSource* rootMotion;
     } maniClipSource;
@@ -639,7 +639,7 @@ extern "C"
         uint32_t item;
     } maniClipError;
 
-    // How far a clip plays from its source (mani-0006).
+    // How far a clip plays from its source.
     typedef struct maniClipReport
     {
         // At the sample times: what the clip stores against the source;
@@ -680,7 +680,7 @@ extern "C"
                                                        const maniClip* clip,
                                                        maniClipReport* reportOut);
 
-    // How a clip is compressed (mani-0019), in skeleton units: the largest
+    // How a clip is compressed, in skeleton units: the largest
     // distance a point on a shell around each bone may move, through the
     // hierarchy, and the shell's radius.
     typedef struct maniCompressOptions
@@ -720,7 +720,7 @@ extern "C"
         uint32_t floatTrack;
     } maniCompressReport;
 
-    /// Compresses a full-precision clip into the builder (mani-0019):
+    /// Compresses a full-precision clip into the builder:
     /// default and constant channels folded, segments of about 16
     /// samples, ranges over the clip and the segment, and per segment the
     /// fewest bits that keep every bone's shell and every float track
@@ -845,7 +845,7 @@ extern "C"
 
 #define MANI_SPRING_MAX_RATE 1000.0f
 
-    /// Builds a spring set (mani-0026): the source checked (bones, shapes,
+    /// Builds a spring set: the source checked (bones, shapes,
     /// chains and centers as VRMC_springBone and its extensions require,
     /// every value in its range), each joint's drag, stiffness and gravity
     /// converted from a frame of the reference rate to a step of the step
@@ -861,7 +861,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSpringSet(maniBuilder* builder,
                                                                const maniSpringSetSource* source);
 
-    // A ragdoll body's joint to its parent body (mani-0027): its frame in
+    // A ragdoll body's joint to its parent body: its frame in
     // the body (the parent's frame of it is the same place in the rest
     // pose), swing-twist limits about the frame's axes and an optional
     // drive. A root's joint is ignored.
@@ -915,7 +915,7 @@ extern "C"
         maniVec3 up;
     } maniRagdollSource;
 
-    /// Builds a ragdoll profile (mani-0027): the source checked (bones,
+    /// Builds a ragdoll profile: the source checked (bones,
     /// one root, shapes, sizes, masses, frames, limits, drives, the axes),
     /// the bodies ordered by bone, each joint's frame in its parent body
     /// worked out from the skeleton's rest pose.

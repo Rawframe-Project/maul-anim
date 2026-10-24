@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The ufbx differential's shared state and helpers (mani-0018): the file
+// The ufbx differential's shared state and helpers: the file
 // being compared, and what fbx_differential.c and
 // fbx_differential_mesh.c both use.
 
@@ -104,7 +104,7 @@ maniImportResult Placement(const Context* c, uint32_t s, const maniFbxOptions* o
 // The ufbx skin deformer our skin k stands for, and its mesh node.
 ufbx_skin_deformer* TheirSkin(const Context* c, uint32_t k, const ufbx_node** meshOut);
 
-// Whether a channel's shape k has a track name (mani-0017).
+// Whether a channel's shape k has a track name.
 bool ShapeNamed(const ufbx_blend_channel* channel, size_t k, const char* name, size_t length);
 
 // Skin k's influences, blend weights and skinned control points at rest

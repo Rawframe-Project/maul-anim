@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The library's own sine, cosine, arc cosine and arc tangent. Results
-// must be the same bits on every platform (mani-0001), so nothing here
+// must be the same bits on every platform, so nothing here
 // calls a libm function other than the exactly rounded ones. Each works
 // in binary64 and rounds once, which keeps it within one unit in the
 // last place of the true value.

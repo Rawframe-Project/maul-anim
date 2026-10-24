@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// CCD chains and joint limits (mani-0030) on a tail of five bones of
+// CCD chains and joint limits on a tail of five bones of
 // 0.3 under a root: goals within reach reached within the tolerance
 // with every length kept; one out of reach straightens the chain toward
 // it; cone, twist and hinge limits never exceeded, read back from each

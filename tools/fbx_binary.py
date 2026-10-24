@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Sirac Ozmen
 #
-# Converts an ASCII FBX file to the binary form (mani-0018), as
+# Converts an ASCII FBX file to the binary form, as
 # exporters write it, for the fixtures: independent of the library, no
 # code shared. Records are 13 bytes before 7500 and 25 from it, each
 # child list ended by a null record. Values are typed as real files type

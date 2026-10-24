@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX curves (mani-0016): each interpolation, tangent kind and
-// extrapolation against values derived from the Bézier and the rules of
-// mani-0016 by hand; ASCII attribute words before 7.2 as floats; the
+// FBX curves: each interpolation, tangent kind and
+// extrapolation against values derived from the Bézier and ufbx's rules
+// by hand; ASCII attribute words before 7.2 as floats; the
 // tick unit; and refused curves.
 
 #include "fbx_curve.h"

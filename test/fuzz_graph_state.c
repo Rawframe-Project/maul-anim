@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Restoring a graph instance's saved state (mani-0023) from any bytes,
+// Restoring a graph instance's saved state from any bytes,
 // into an instance of a small graph made once: parameters of every type,
 // a select over a clip and a time scale of it, blended with an
-// inertialize node over a motion matching node (mani-0024) searching a
+// inertialize node over a motion matching node searching a
 // database of the clip (a looping and a clamped entry, tags from the int
-// parameter) and another over a learned node (mani-0025) playing a
-// model of the database; the select under a spring node (mani-0026) of
+// parameter) and another over a learned node playing a
+// model of the database; the select under a spring node of
 // a spring from the root to its child, placed by the vec3 and quat
 // parameters and reset by the trigger, and a turn limit node over it
-// (mani-0037) at the float's speed, reset by the trigger; the pose
+// at the float's speed, reset by the trigger; the pose
 // parameter is saved after the machines' blocks. The bytes are tried as they are,
 // then with the
 // header made right so they reach the checks behind it, then with the

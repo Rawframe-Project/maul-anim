@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a retargeting map (mani-0032): each side's reference pose
+// Building a retargeting map: each side's reference pose
 // checked and taken to the model (rotations as the product of the root
 // path's local rotations, positions from the full transforms); then
 // pairs, chains, the pelvis and names, in that order, each target bone

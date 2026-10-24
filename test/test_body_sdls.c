@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The full-body SDLS solve (mani-0031) on the figure (body_figure.h):
+// The full-body SDLS solve on the figure (body_figure.h):
 // both hands at reachable goals reached with every length kept and the
 // pinned top held; a solve on its own reached result unchanged bit for
 // bit; weight 0 and strength 0 leaving the pose; a locked forearm

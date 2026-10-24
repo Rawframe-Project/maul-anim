@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Morph targets (mani-0021): a mesh primitive's blend shapes over the
+// Morph targets: a mesh primitive's blend shapes over the
 // caller's bytes. Named channels, each one or more targets at increasing
 // full weights (glTF's targets have one at 1; FBX's in-betweens several),
 // each target deltas for some of the file's attributes (positions,

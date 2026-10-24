@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x takes as stacks (mani-0017), and a stack of either model
+// FBX 6.x takes as stacks, and a stack of either model
 // read by its index.
 
 #ifndef MAUL_ANIM_SRC_FBX_TAKE_H
@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 
-// A take channel's components (mani-0017): the node itself when it holds
+// A take channel's components: the node itself when it holds
 // a Key or Default, else its first three named Channel children holding
 // one; their count.
 uint32_t maniFbxChannelComponents(const maniFbx* fbx, uint32_t node, uint32_t out[3]);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Draco's mesh predictions (mani-0021) over hand-built corner tables,
+// Draco's mesh predictions over hand-built corner tables,
 // each correction added to its prediction in 32 bits: constrained
 // multi-parallelogram and multi-parallelogram at a vertex of six
 // parallelograms, the first four taken and creases left out; portable

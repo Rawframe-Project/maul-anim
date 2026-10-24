@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graph updates in detail (mani-0023): a node reached twice takes its
+// Graph updates in detail: a node reached twice takes its
 // time factor from its first parent; blend weights clamped, normalized
 // unless direct, capped when direct, zero when all are; additive weights
 // capped; mask shares from the bones' largest weights and the root

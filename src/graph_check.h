@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Checking a graph source as its build does (mani-0023): every
+// Checking a graph source as its build does: every
 // parameter, clip slot, sync group and node on its own; the order and
 // the kinds of what nodes give are the build's.
 

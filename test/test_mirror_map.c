@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Mirror maps (mani-0033) of a rig with left and right clavicles, arms,
+// Mirror maps of a rig with left and right clavicles, arms,
 // hands and legs and a prop under the right hand: bones paired by
 // suffix rules (the prop to itself, so the hierarchy's first unmatched
 // bone), prefix and anywhere rules, a rule naming no bone giving way,

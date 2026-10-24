@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The spring set file's layout (mani-0026), shared by its view, its
+// The spring set file's layout, shared by its view, its
 // runtime and its builder: kind 11 of the container. Records are
 // little-endian. A spring's joints are its segments, each a head bone
 // and the bone of the joint after it (its tail), so a chain of n joints

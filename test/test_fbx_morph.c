@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX morph targets (mani-0021): a BlendShape's channels and shapes as
+// FBX morph targets: a BlendShape's channels and shapes as
 // targets, in-betweens and negative targets sorted, a shape after an
 // equal target and a channel without shapes left out, names as the
 // clips' tracks, offsets moved by the options' unit (normals not),

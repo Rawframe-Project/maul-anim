@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a skeleton file (mani-0003): every bone checked, the bones
+// Building a skeleton file: every bone checked, the bones
 // ordered depth-first by an explicit stack (children and roots in the
 // source's order, so the order is the source's own where it already is
 // depth-first), rotations normalized in binary64 and rounded once, names

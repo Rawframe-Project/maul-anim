@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blend spaces (mani-0023): a 1D space's weights between its points,
+// Blend spaces: a 1D space's weights between its points,
 // held at its ends and wrapped across its seam, one point alone; gradient
 // bands, cartesian and polar, against weights worked by hand from
 // Johansen's equations or (speed and direction together) from a binary64

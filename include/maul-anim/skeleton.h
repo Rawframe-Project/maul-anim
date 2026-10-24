@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skeletons (mani-0003): bones in depth-first order, each with a parent,
+// Skeletons: bones in depth-first order, each with a parent,
 // a rest transform and a unique name, read in place from a skeleton
 // file's bytes. Opening a file checks all of it once; the view then
 // reads it without checks and allocates nothing.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a learned model (mani-0025): the source checked (the
+// Building a learned model: the source checked (the
 // networks' shapes against their roles, every value, the bones and
 // names), the database's channels, times, normalization and axes copied,
 // and the file written, 16-bit weights quantized input by input.

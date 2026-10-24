@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// One-shots (mani-0023): fired, faded in and played; faded out when the
+// One-shots: fired, faded in and played; faded out when the
 // shot's clip has the fade-out's seconds left (backward, toward its
 // start), never when it repeats; a smoothstep fade; fired again after an
 // abort, from its start;

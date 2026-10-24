@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Morph targets (mani-0021): opening the file (the attribute table and
+// Morph targets: opening the file (the attribute table and
 // every count, offset, index and delta checked, so the job reads without
 // checks), the channel
 // weights' walk through their targets (ufbx's rule for FBX in-betweens),

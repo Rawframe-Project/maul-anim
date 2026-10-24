@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Calls back in from the host's code (mani-0028): a builder's allocator,
+// Calls back in from the host's code: a builder's allocator,
 // as it allocates and as it frees inside a build, calls every function
 // taking that builder (each with arguments refused otherwise as invalid,
 // so the state error is the call back in alone), destroys it and closes

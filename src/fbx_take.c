@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x takes (mani-0017), as ufbx reads them. A Take holds Model
+// FBX 6.x takes, as ufbx reads them. A Take holds Model
 // nodes naming their targets by 6.x key; each Channel under one is a
 // property, `Transform`'s T, R and S being the Lcl ones. A channel with
 // Key or Default is one component, else its first three such children
@@ -126,7 +126,7 @@ static maniImportResult ReadComponents(const maniFbx* fbx, const uint32_t* compo
 }
 
 // Before 6.0, a channel name ending in " (Shape)" names the shape
-// without it (mani-0017): decoded into the pool, its literal.
+// without it: decoded into the pool, its literal.
 static void CutShape(Reader* r, maniFbxChannel* channel)
 {
     static const char kSuffix[] = " (Shape)";
@@ -253,7 +253,7 @@ static maniImportResult EachModel(Reader* r, uint32_t take)
     return result;
 }
 
-// A take, or (source 0, mani-0017) the top-level models' own channels.
+// A take, or (source 0, in files before 6.0) the top-level models' own channels.
 static maniImportResult ReadTake(const maniFbx* fbx, uint32_t take, maniFbxAnimation* out)
 {
     memset(out, 0, sizeof *out);

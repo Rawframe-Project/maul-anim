@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The IK nodes (mani-0029): a two-bone node's output is its input solved
+// The IK nodes: a two-bone node's output is its input solved
 // as maniSolveTwoBone solves it, its goal and pole read from vec3
 // parameters, its twist, soften and weight numbers or float parameters
 // (soften and weight clamped to [0, 1], a weight of 0 passing the

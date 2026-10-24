@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The shell metric of compression (mani-0019), in binary64: points at a
+// The shell metric of compression, in binary64: points at a
 // distance along each bone's three axes, carried to the skeleton's space
 // through the hierarchy by two poses; the error is the farthest any of
 // them moves.

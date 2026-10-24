@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A node forest for the importers (mani-0009, mani-0014): depths, common
+// A node forest for the importers: depths, common
 // ancestors, and the skeletons that seed sets sharing nodes make. Every
 // step is linear or n log n in the forest's size, whatever its shape.
 

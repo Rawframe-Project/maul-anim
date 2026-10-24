@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Root motion (mani-0022): the move a clip's declared bone makes, taken
+// Root motion: the move a clip's declared bone makes, taken
 // out of the bone at build and kept beside the clip, so the clip plays
 // in place and the host moves the character by the moves it reads.
 

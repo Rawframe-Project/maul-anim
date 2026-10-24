@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a ragdoll profile (mani-0027): the container, the header's
+// Opening a ragdoll profile: the container, the header's
 // counts and axes, every body record (bones within the skeleton's count
 // and increasing, a parent earlier than its child and none for the root
 // alone, shapes and their sizes, masses, frames finite with unit

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// State machines listening to their leading clips (mani-0023): phase
+// State machines listening to their leading clips: phase
 // below 1 at every loop (reaching it counted, leaving it not), across a
 // loop's end both ways, phase of 1 or more once, backward play counted
 // as loops; the record cleared when a transition fires; the leading clip

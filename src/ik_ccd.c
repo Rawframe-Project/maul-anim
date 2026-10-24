@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Cyclic coordinate descent (mani-0030), Wang and Chen's: each iteration
+// Cyclic coordinate descent, Wang and Chen's: each iteration
 // sweeps from the end's parent to the root, each bone turning the rest
 // of the chain by the shortest arc that takes its direction to the end
 // onto its direction to the goal, cut to the step bound, then limited;

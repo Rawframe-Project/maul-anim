@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The blend's steps over one group of MANI_POSE_GROUP_BONES bones, on
-// the family's eight-lane vectors (mani-0038): a group is
+// the family's eight-lane vectors: a group is
 // MANI_POSE_COMPONENTS rows of eight floats, row c holding component c
 // of each bone, and a group's weights, totals and shares are eight
 // floats. Each step is the scalar lane loop's operations in its order,
@@ -25,7 +25,7 @@ _Static_assert(MANI_POSE_GROUP_BONES == 8, "a pose group is one eight-lane vecto
 
 // The scalar backend runs the lane loops themselves: the same operations
 // in the same order, in less code than the header's eight-lane emulation
-// (the core's size budget, mani-0036, holds this build).
+// (the core's size budget, tools/size-budget.txt, holds this build).
 
 static inline void maniBlendLanesWeights(float weight, const float* boneWeights, float* w)
 {

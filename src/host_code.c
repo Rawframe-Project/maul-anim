@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The host's code behind the library's own functions (mani-0028): each
+// The host's code behind the library's own functions: each
 // marks its object running for the host's call and restores the mark
 // after, so a call back in sees it and nested host calls keep it.
 

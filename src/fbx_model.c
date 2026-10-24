@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX models (mani-0014). A model's parent is the model (or the root)
+// FBX models. A model's parent is the model (or the root)
 // it is the child of through an `OO` connection; another parent is
 // refused, as is a cycle, found as the shared forest finds them.
 // Children are listed per parent in connection order, models with no

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A motion database file's view (mani-0024): every section checked once
+// A motion database file's view: every section checked once
 // as hostile input, the bounds recomputed and compared bit for bit (the
 // search's exactness rests on them), then read in place.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF's meshopt buffer compression (mani-0008): both extensions' JSON
+// glTF's meshopt buffer compression: both extensions' JSON
 // on buffer views and buffers checked by their specifications' rules,
 // fallback buffers, and each view's stream decoded by gltf_meshopt.c
 // into bytes the document owns.

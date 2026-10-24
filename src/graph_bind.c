@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Binding a graph to its skeleton, clips and motion databases (mani-0023,
-// mani-0024): each slot found by identity among the host's, in caller
+// Binding a graph to its skeleton, clips and motion databases:
+// each slot found by identity among the host's, in caller
 // memory. A database's clips must be the slots the graph lists for it,
 // its skeleton the graph's, and its channels must take the query of
 // every node searching it, so a file naming a database by identity

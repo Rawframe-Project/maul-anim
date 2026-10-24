@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Baking a mirrored clip through a mirror map (mani-0033): the bake core
+// Baking a mirrored clip through a mirror map: the bake core
 // with each sample mirrored, the names renamed by the map's name pairs,
 // the root motion on the root motion bone's partner, its moves (in that
 // bone's parent's frame) reflected and carried by the partner's A.

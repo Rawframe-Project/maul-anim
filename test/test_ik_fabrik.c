@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FABRIK chains (mani-0030) on a tail of five bones of 0.3 under a root:
+// FABRIK chains on a tail of five bones of 0.3 under a root:
 // goals within reach reached with every length kept; the joints' places
 // after 1, 2 and 8 iterations those of a FABRIK in double precision
 // written here from Aristidou and Lasenby's pseudocode; a goal out of

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Building a mirror map (mani-0033): the rules checked, the reference
+// Building a mirror map: the rules checked, the reference
 // pose checked and taken to model rotations, the bones paired (pairs
 // first, then each remaining bone with the bone the first matching rule
 // names, which must name it back), the first bone breaking the

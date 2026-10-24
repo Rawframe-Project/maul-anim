@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Skinning (mani-0021): a mesh primitive's influences, bound to a skin,
+// Skinning: a mesh primitive's influences, bound to a skin,
 // over the caller's bytes. Groups of four influences a vertex, weights
 // decreasing and summing to 1 (or all 0, a vertex left as it is).
 

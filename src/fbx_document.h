@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An opened FBX document (mani-0012): one tree of named nodes and their
+// An opened FBX document: one tree of named nodes and their
 // typed properties, the same from the binary and the ASCII form, every
 // length checked at open and every value read on request.
 
@@ -56,7 +56,7 @@ typedef struct maniFbxNode
     uint32_t reserved;
 } maniFbxNode;
 
-// What an object stands for in a file before 6.0 (mani-0017), which has
+// What an object stands for in a file before 6.0, which has
 // no deformer objects: a mesh model's skin (its node the mesh's) or one
 // of its Link children as a cluster.
 enum
@@ -66,7 +66,7 @@ enum
     maniFbxRoleLegacyCluster = 2,
 };
 
-// An object (mani-0013): its id (7.x; 6.x: its name's hash), its node,
+// An object: its id (7.x; 6.x: its name's hash), its node,
 // its own and its template's properties nodes (or MANI_FBX_NONE), and
 // its role.
 typedef struct maniFbxObject
@@ -145,7 +145,7 @@ struct maniFbx
     // Entries of another type or naming no object.
     uint32_t skippedConnections;
     maniFbxGlobalSettings settings;
-    // Models (mani-0014): their objects in object order, each object's
+    // Models: their objects in object order, each object's
     // model (or MANI_FBX_NONE), each model's parent (MANI_FBX_NONE at the
     // top) and the forest they make, children per parent (the root's
     // last, at modelCount) and bone names.
@@ -173,7 +173,7 @@ struct maniFbx
     uint32_t seedCapacity;
     uint32_t* skeletonRoots;
     uint32_t skeletonCount;
-    // Before 6.0 (mani-0017): per object, the rest values the last
+    // Before 6.0: per object, the rest values the last
     // channel driving its Lcl Translation, Rotation and Scaling gives,
     // and which of the three it gives (bits 0 to 2).
     double (*legacyRests)[3][3];

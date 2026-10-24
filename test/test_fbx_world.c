@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX worlds at rest (mani-0014): each inherit type and chains of them,
+// FBX worlds at rest: each inherit type and chains of them,
 // against worlds derived by hand from ufbx's rules, under a parent of
 // non-uniform scale; and a refused local stopping the evaluation.
 

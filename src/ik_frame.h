@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// What the IK solvers share (mani-0029): model frames composed from a
+// What the IK solvers share: model frames composed from a
 // pose's locals along a root path, model-space turns as local
 // corrections, turns from cosines and sines, the pole's plane blended to
 // a chain's own near the aim line, weighting.

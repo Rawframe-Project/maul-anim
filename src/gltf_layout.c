@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Buffer views and accessors (mani-0008): every offset, length, stride
+// Buffer views and accessors: every offset, length, stride
 // and alignment the specification requires, checked with 64-bit sums
 // that cannot wrap (sizes stay below 2^33 x 252); then accessors read
 // into binary32, sparse substitution included.

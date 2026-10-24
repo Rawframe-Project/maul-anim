@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The graph suites' fixture (mani-0023): a three-bone skeleton, nine
+// The graph suites' fixture: a three-bone skeleton, nine
 // clips (walks and runs, a wave of differences, clips with left and
 // right markers, turns in opposite hemispheres), and graph sources built,
 // opened, bound to every clip and instanced in static memory. Included by

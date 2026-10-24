@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The shell metric (mani-0019) in binary64, so measuring adds no error
+// The shell metric in binary64, so measuring adds no error
 // of its own to what compression made.
 
 #include "clip_shell.h"

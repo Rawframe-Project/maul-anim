@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX models at a time of a stack (mani-0016): each needed model's local
+// FBX models at a time of a stack: each needed model's local
 // inputs, as its properties give them, overridden by what the stack
-// animates, composed and evaluated parents first as at rest (mani-0014).
+// animates, composed and evaluated parents first as at rest.
 
 #ifndef MAUL_ANIM_SRC_FBX_SAMPLE_H
 #define MAUL_ANIM_SRC_FBX_SAMPLE_H

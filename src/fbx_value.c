@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX property values read on request (mani-0012). Scalars and raw
+// FBX property values read on request. Scalars and raw
 // arrays are read where they lie in the file, in its byte order; a zlib
 // array is inflated by the family's inflate into exactly its decoded
 // size first, so a stream that gives more or less, or fails its
@@ -259,8 +259,8 @@ static uint32_t SequenceLength(const uint8_t* b, uint32_t n)
     return 0;
 }
 
-// A string's characters made valid UTF-8 as ufbx makes them
-// (mani-0012): each valid sequence whole, each other byte U+FFFD; over
+// A string's characters made valid UTF-8 as ufbx makes them:
+// each valid sequence whole, each other byte U+FFFD; over
 // the decoded bytes from the start or a given position to the end or a
 // given one.
 typedef struct Text

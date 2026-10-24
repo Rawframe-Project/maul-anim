@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The JSON text form of mirror maps (mani-0034): a map with a moved
+// The JSON text form of mirror maps: a map with a moved
 // reference, bone pairs, rules of every place, name pairs and names
 // written as the pinned text and read back to the same file; empty lists
 // on one line; members left out; every refusal of the text at its

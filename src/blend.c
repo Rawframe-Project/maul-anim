@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Blending (mani-0020): each group of eight bones summed over the layers
+// Blending: each group of eight bones summed over the layers
 // in their order at weights divided by the bone's total first (so
 // translations and scales never pass the largest input), the rest
 // filling in under the threshold, then rotations normalized. Binary32 operations in a fixed order,

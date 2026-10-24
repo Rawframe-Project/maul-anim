@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The binary FBX container (mani-0012): files written here record by
+// The binary FBX container: files written here record by
 // record, in both header widths and both byte orders, read back as the
 // tree they were written as; values, raw and zlib arrays read on
 // request; and each way the container can be wrong refused at its byte.

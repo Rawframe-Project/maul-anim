@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The binary FBX container (mani-0012), from the Blender Foundation's
+// The binary FBX container, from the Blender Foundation's
 // description of it: a 27-byte header, then records of a name, typed
 // properties and nested records, each list ended by a record of no end
 // and no name (all zeros as written). A record whose end is 0 ends with

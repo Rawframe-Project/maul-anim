@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Differences and additive layers (mani-0020): d_t = t - t_b,
+// Differences and additive layers: d_t = t - t_b,
 // d_r = r_b^-1 r, d_s = s / s_b, applied as t + w d_t,
 // r nlerp(1, d_r, w), s (1 + w (d_s - 1)). Binary32 in a fixed order.
 

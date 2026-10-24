@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A graph source read from its JSON form (mani-0023): parameters, clip
+// A graph source read from its JSON form: parameters, clip
 // slots bound to the host's clips by name, sync groups, database slots
-// bound to the host's databases by name (mani-0024), model slots bound to
-// the host's models by name (mani-0025), nodes by kind and
+// bound to the host's databases by name, model slots bound to
+// the host's models by name, nodes by kind and
 // nested subgraphs, each list's names in a table before the nodes refer
 // to them; then built as maniBuildGraph builds any source.
 

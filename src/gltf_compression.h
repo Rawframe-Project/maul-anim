@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// glTF's meshopt buffer compression (mani-0008): `EXT_meshopt_compression`
+// glTF's meshopt buffer compression: `EXT_meshopt_compression`
 // and `KHR_meshopt_compression` on buffer views and buffers. A view's
 // stream is checked at open and decoded when its buffer's bytes are
 // present, into bytes the document owns that then stand for the view.

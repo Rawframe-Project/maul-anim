@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Bone names for imported documents (mani-0009, mani-0014): a source's
+// Bone names for imported documents: a source's
 // own name, or with `#` and its index appended when it has none or an
 // earlier source in the document has the same; fixed per document.
 

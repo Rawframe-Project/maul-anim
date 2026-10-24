@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A spring tail against a collider and within a limit (mani-0026), as
+// A spring tail against a collider and within a limit, as
 // VRMC_springBone 1.0 and its extensions give them: the distance from a
 // collider's surface to the tail less the joint's radius (negative when
 // they overlap) and the direction to push it, for spheres and capsules

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The mirror parity of a graph's nodes at build (mani-0033): from the
+// The mirror parity of a graph's nodes at build: from the
 // output down, each node's readers settled before it, a mirror node
 // turning the parity its input takes.
 

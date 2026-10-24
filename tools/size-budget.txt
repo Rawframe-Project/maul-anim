@@ -1,20 +1,20 @@
-# The runtime's parts and their text ceilings (mani-0036), read by
+# The runtime's parts and their text ceilings, read by
 # tools/size_report.py. "PART: MODULES" lists a part's modules; the core
 # also takes every module its modules use that no other part lists.
 # "ceiling PART LEVEL BYTES" holds a part's text at -O2 or -O3 (GCC 14,
-# x86-64, a runtime-only Release build of the scalar backend, mani-0038):
+# x86-64, a runtime-only Release build of the scalar backend):
 # set at its measure rounded up to the next thousand bytes, lowered when
-# a part shrinks past a thousand, raised only by a decision recorded in
-# mani-0036.
+# a part shrinks past a thousand, raised only by a pull request that names
+# what the bytes buy (docs/internals/size-and-performance.md).
 #
 # The core is the measure against ozz-animation's runtime (69,698
 # bytes at -O2, 74,225 at -O3, its animation and base libraries):
 # sampling, blending, the model pass and palettes, with skeletons and
 # root motion. Skinning is a part of its own, as ozz's skinning job is in
-# its geometry library, outside that measure (mani-0036).
+# its geometry library, outside that measure.
 #
 # "ceiling PART O2-avx2|O3-avx2 BYTES" holds the AVX2 backend's archive
-# the same way (mani-0036 amendment, mani-0038): its vector kernels'
+# the same way: its vector kernels'
 # growth seen as each lands. The comparison with ozz stays on the scalar
 # build.
 

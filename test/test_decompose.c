@@ -6,7 +6,7 @@
 // scale are the ones composed; with shear the rotation is the polar
 // factor (its transpose times the matrix is symmetric); degenerate
 // matrices still split into finite values; results pinned. The rigid
-// split (mani-0027): without shear, mirrors included, maniDecompose's
+// split: without shear, mirrors included, maniDecompose's
 // rotation within rounding; with shear, a small one in each pair of
 // columns alone among them, its bits; the identity for a matrix not
 // finite.

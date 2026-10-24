@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX 6.x keyed channels (mani-0017): a take channel's `Key` list read
+// FBX 6.x keyed channels: a take channel's `Key` list read
 // into a curve as ufbx reads it, evaluated as every other curve is.
 
 #ifndef MAUL_ANIM_SRC_FBX_KEYS_H

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The glTF document (mani-0008): JSON and GLB containers, the asset
+// The glTF document: JSON and GLB containers, the asset
 // version, required extensions, `data:` and external buffers, buffer
 // views, accessors read into binary32 (normalized integers, matrix
 // column padding, strides, sparse substitution), and every refusal with

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX skeletons (mani-0014), found at open: skins (their clusters'
+// FBX skeletons, found at open: skins (their clusters'
 // linked models) and limb chains as units, grouped when they share a
 // model, each skeleton rooted at its units' common ancestor.
 

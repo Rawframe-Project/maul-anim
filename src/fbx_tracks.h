@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// An FBX clip's float tracks (mani-0016): a bone's other animated
+// An FBX clip's float tracks: a bone's other animated
 // numbers and the blend shape weights of meshes in the skeleton.
 
 #ifndef MAUL_ANIM_SRC_FBX_TRACKS_H

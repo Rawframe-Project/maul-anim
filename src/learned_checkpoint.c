@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A learned model trainer's checkpoint (mani-0025): a container of kind
+// A learned model trainer's checkpoint: a container of kind
 // 10 whose identity is the trainer's signature. Sections:
 //
 //    1  progress: stage (u32), whether it has begun (u32), iterations

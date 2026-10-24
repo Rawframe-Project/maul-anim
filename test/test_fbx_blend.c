@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// FBX blend shapes (mani-0017): effective weights at channel weights,
+// FBX blend shapes: effective weights at channel weights,
 // in-betweens and negative targets, against values worked by hand; a
 // skinned face's channels as one float track per shape and their names;
 // which meshes count; Blender's FullWeights; rest weights.
@@ -394,7 +394,7 @@ static void TestRests(void)
     maniDestroyBuilder(builder);
 }
 
-// Before 7.2, shapes held by meshes (mani-0017), as ufbx weighs them:
+// Before 7.2, shapes held by meshes, as ufbx weighs them:
 // a 6.x Mesh model's Smile (a number) and Wink (an integer) are driven;
 // Blink (user-defined, so the model's), Frown (a Bool), Gape (no
 // property), Hollow (no arrays), Half (no Vertices) and Part (no

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Reading a graph's JSON form (mani-0023) against graph_json_assets.h's
+// Reading a graph's JSON form against graph_json_assets.h's
 // skeleton, clips, database, model and spring set: any text is refused
 // or built, and a graph built opens. Run as fuzz_graph_json <corpus
 // dir>; the seeds come from test_graph_json --seed <file> and its

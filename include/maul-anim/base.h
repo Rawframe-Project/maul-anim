@@ -96,7 +96,7 @@ extern "C"
         // library does not read.
         mani_errorVersion = -4,
         // The call is not allowed now: a function of an object called
-        // back in from the host's code that object runs (mani-0028).
+        // back in from the host's code that object runs.
         mani_errorState = -5,
     };
 
@@ -113,7 +113,7 @@ extern "C"
     // lifetime. Alignment is a power of two. A zeroed allocator means the C
     // library's functions, which serve alignments up to that of max_align_t.
     // Its functions call no function of the object they serve: one that
-    // does is refused with mani_errorState (mani-0028).
+    // does is refused with mani_errorState.
     typedef struct maniAllocator
     {
         void* (*alloc)(size_t size, size_t alignment, void* context);
@@ -141,7 +141,7 @@ extern "C"
     // The host's task system, which an owner object takes in its def; both
     // hooks NULL (the default) runs every item on the calling thread.
     // enqueueTask and finishTask call no function of the object they
-    // serve: one that does is refused with mani_errorState (mani-0028).
+    // serve: one that does is refused with mani_errorState.
     typedef struct maniTaskHooks
     {
         maniEnqueueTaskFn* enqueueTask;
@@ -169,7 +169,7 @@ extern "C"
     } maniQuat;
 
     // A bone's local transform: scale per axis, then rotation, then
-    // translation, as glTF composes a node (mani-0003).
+    // translation, as glTF composes a node.
     typedef struct maniTransform
     {
         maniVec3 translation;
@@ -201,7 +201,7 @@ extern "C"
     MANI_API maniVersion maniGetVersion(void);
 
     /// Returns the backend the library's vector code was built for, set by
-    /// the MAUL_ANIM_SIMD build option (mani-0038).
+    /// the MAUL_ANIM_SIMD build option.
     ///
     /// @return "avx2", "neon" or "scalar"; a static string.
     /// @par Thread safety

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Graphs with mirror nodes (mani-0033) on a rig whose left and right
+// Graphs with mirror nodes on a rig whose left and right
 // arms have unmirrored axes: a walk under a mirror node evaluated as its
 // pose mirrored, its root motion reflected and its events renamed; two
 // mirrors cancelling; a mirrored follower synced to its unmirrored leader

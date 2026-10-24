@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Running a trainer's chunks on the host's task hooks (mani-0025).
+// Running a trainer's chunks on the host's task hooks.
 
 #include "train_tasks.h"
 

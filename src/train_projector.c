@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A Projector's training (mani-0025); see train_projector.h.
+// A Projector's training; see train_projector.h.
 
 #include "train_projector.h"
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The Godot differential of pose retargeting (mani-0032): a 53-bone
+// The Godot differential of pose retargeting: a 53-bone
 // humanoid source and a 60-bone target (more spine and neck bones, twist
 // bones in the arms) whose bones rest turned differently on each side,
 // mapped by name. Godot 4.7.2's RetargetModifier3D in its global mode
