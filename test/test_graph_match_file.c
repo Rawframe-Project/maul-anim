@@ -654,8 +654,8 @@ static void TestFloatQuery(void)
     const maniClip* clips[1] = {&s_clips[7]};
     const maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u};
-    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       &entry,         1,   1,
-                                       1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
+    maniMotionDatabaseSource source = {&s_skeleton, clips,          &channel,       &entry, 1, 1, 1,
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
     maniMotionDatabase d;
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&

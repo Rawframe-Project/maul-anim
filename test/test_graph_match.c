@@ -516,8 +516,8 @@ static void TestInterpolated(void)
     CHECK(entry == 1 && t == (double)0.7f, "settled up to a frame, its own features");
     const maniClip* clips[1] = {&s_clips[3]};
     const maniMatchEntrySource loop = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
-    maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       &loop,          1,   1,
-                                       1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
+    maniMotionDatabaseSource source = {&s_skeleton, clips,          channels,       &loop, 1, 1, 1,
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,  0, 0};
     maniMotionDatabase looped;
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
@@ -606,8 +606,8 @@ static void TestFacingBlend(void)
         const maniMatchChannelSource channel = {
             maniMatchBoneFacing, k / 3, k % 3, 1, kNow, NULL, 0, 1.0f};
         maniMotionDatabaseSource source = {
-            &s_skeleton, clips, &channel,       entries,        2,   1,
-            2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL};
+            &s_skeleton, clips,          &channel,       entries, 2, 1, 2,
+            10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,    0, 0};
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         built = maniBuildMotionDatabase(builder, &source).result == mani_success &&

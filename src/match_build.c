@@ -5,9 +5,9 @@
 // entry's frames sampled (match_sample), each channel normalized as
 // Holden's reference does (the mean per feature, the scale the mean of
 // the features' standard deviations over the channel's weight; both in
-// binary64 over the frames in order, stored in binary32), the bounds of
-// every run of 16 and 64 frames taken from the normalized features, and
-// the file written.
+// binary64 over the frames in order, stored in binary32), the search
+// tree ordered and laid out from the normalized features (match_tree),
+// and the file written.
 
 #include "allocator.h"
 #include "builder.h"
@@ -15,6 +15,7 @@
 #include "container.h"
 #include "match_file.h"
 #include "match_sample.h"
+#include "match_tree.h"
 #include "text.h"
 
 #include "maul-anim/build.h"
@@ -50,6 +51,8 @@ typedef struct Totals
     uint32_t features;
     uint32_t times;
     uint32_t names;
+    uint32_t leaf;
+    uint32_t nodes;
 } Totals;
 
 static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChannelSource* c)
@@ -182,6 +185,11 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
     {
         return Refuse(maniBuildReasonOption, 0, 0);
     }
+    t->leaf = s->leafFrames != 0 ? s->leafFrames : MANI_MATCH_DEFAULT_LEAF;
+    if (!maniMatchLeafValid(t->leaf) || s->reserved != 0)
+    {
+        return Refuse(maniBuildReasonOption, 1, 0);
+    }
     if (s->clipCount < 1 || s->clipCount > MANI_MATCH_MAX_CLIPS || s->channelCount < 1 ||
         s->channelCount > MANI_MATCH_MAX_CHANNELS || s->entryCount < 1 ||
         s->entryCount > MANI_MATCH_MAX_ENTRIES)
@@ -196,11 +204,15 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
     }
     maniBuildResult r = CheckClips(s);
     r = r.result == mani_success ? CheckEntries(s, t) : r;
-    return r.result == mani_success ? CheckChannels(s, t) : r;
+    r = r.result == mani_success ? CheckChannels(s, t) : r;
+    t->nodes = r.result == mani_success ? maniMatchNodeCount(t->frames, t->leaf) : 0;
+    return r;
 }
 
 // What building holds: the raw then normalized features, the
-// normalization, the bounds, and the sampler's pose, floats and tracks.
+// normalization, the tree's order with what sorting it takes, each
+// frame's entry and each entry's bias, the sections laid out from the
+// order, and the sampler's pose, floats and tracks.
 typedef struct Work
 {
     const maniMotionDatabaseSource* source;
@@ -208,7 +220,17 @@ typedef struct Work
     Totals totals;
     float* features;
     float* normalization;
-    float* bounds;
+    uint32_t* order;
+    uint64_t* keys;
+    uint32_t* sorted;
+    uint32_t* scratch;
+    uint32_t* entryOf;
+    float* biases;
+    float* treeFeatures;
+    float* boxes;
+    uint8_t* nodes;
+    uint8_t* positions;
+    uint8_t* places;
     void* poseMemory;
     size_t poseSize;
     float* floats;
@@ -216,7 +238,7 @@ typedef struct Work
     uint32_t reserved;
     uint32_t* tracks;
     size_t featureFloats;
-    size_t boundFloats;
+    size_t boxFloats;
 } Work;
 
 static void Release(Work* w)
@@ -224,7 +246,18 @@ static void Release(Work* w)
     const maniAllocator* a = w->allocator;
     maniRelease(a, w->features, w->featureFloats, sizeof(float), 8);
     maniRelease(a, w->normalization, 2 * (size_t)w->totals.features, sizeof(float), 8);
-    maniRelease(a, w->bounds, w->boundFloats, sizeof(float), 8);
+    size_t frames = (size_t)w->totals.frames;
+    maniRelease(a, w->order, frames, sizeof(uint32_t), 4);
+    maniRelease(a, w->keys, frames, sizeof(uint64_t), 8);
+    maniRelease(a, w->sorted, frames, sizeof(uint32_t), 4);
+    maniRelease(a, w->scratch, frames, sizeof(uint32_t), 4);
+    maniRelease(a, w->entryOf, frames, sizeof(uint32_t), 4);
+    maniRelease(a, w->biases, w->source->entryCount, sizeof(float), 4);
+    maniRelease(a, w->treeFeatures, w->featureFloats, sizeof(float), 8);
+    maniRelease(a, w->boxes, w->boxFloats, sizeof(float), 8);
+    maniRelease(a, w->nodes, (size_t)w->totals.nodes * MANI_MATCH_NODE_SIZE, 1, 8);
+    maniRelease(a, w->positions, frames * MANI_MATCH_POSITION_SIZE, 1, 8);
+    maniRelease(a, w->places, frames * 4, 1, 8);
     maniRelease(a, w->poseMemory, w->poseSize + MANI_POSE_ALIGNMENT, 1, 8);
     maniRelease(a, w->floats, w->floatCapacity + 1, sizeof(float), 4);
     maniRelease(a, w->tracks, (size_t)w->source->channelCount * w->source->entryCount + 1,
@@ -235,15 +268,15 @@ static bool Allocate(Work* w)
 {
     const maniMotionDatabaseSource* s = w->source;
     const maniAllocator* a = w->allocator;
-    uint64_t runs = (uint64_t)maniMatchRuns(w->totals.frames, MANI_MATCH_SMALL_RUN) +
-                    maniMatchRuns(w->totals.frames, MANI_MATCH_LARGE_RUN);
     uint64_t features = (uint64_t)w->totals.frames * w->totals.features;
-    if (features > SIZE_MAX / sizeof(float) / 4)
+    uint64_t boxes = 2 * (uint64_t)w->totals.nodes * w->totals.features;
+    if (features > SIZE_MAX / sizeof(float) / 4 || boxes > SIZE_MAX / sizeof(float) / 4)
     {
         return false;
     }
     w->featureFloats = (size_t)features;
-    w->boundFloats = (size_t)(2 * runs * w->totals.features);
+    w->boxFloats = (size_t)boxes;
+    size_t frames = (size_t)w->totals.frames;
     for (uint32_t i = 0; i < s->clipCount; ++i)
     {
         uint32_t count = maniClipFloatTrackCount(s->clips[i]);
@@ -252,14 +285,27 @@ static bool Allocate(Work* w)
     w->poseSize = maniPoseSize(s->skeleton);
     w->features = maniAllocate(a, w->featureFloats, sizeof(float), 8);
     w->normalization = maniAllocate(a, 2 * (size_t)w->totals.features, sizeof(float), 8);
-    w->bounds = maniAllocate(a, w->boundFloats, sizeof(float), 8);
+    w->order = maniAllocate(a, frames, sizeof(uint32_t), 4);
+    w->keys = maniAllocate(a, frames, sizeof(uint64_t), 8);
+    w->sorted = maniAllocate(a, frames, sizeof(uint32_t), 4);
+    w->scratch = maniAllocate(a, frames, sizeof(uint32_t), 4);
+    w->entryOf = maniAllocate(a, frames, sizeof(uint32_t), 4);
+    w->biases = maniAllocate(a, s->entryCount, sizeof(float), 4);
+    w->treeFeatures = maniAllocate(a, w->featureFloats, sizeof(float), 8);
+    w->boxes = maniAllocate(a, w->boxFloats, sizeof(float), 8);
+    w->nodes = maniAllocate(a, (size_t)w->totals.nodes * MANI_MATCH_NODE_SIZE, 1, 8);
+    w->positions = maniAllocate(a, frames * MANI_MATCH_POSITION_SIZE, 1, 8);
+    w->places = maniAllocate(a, frames * 4, 1, 8);
     // A pose wants 32 bytes' alignment, past what an allocator promises
     // (8): aligned by hand within the slack.
     w->poseMemory = maniAllocate(a, w->poseSize + MANI_POSE_ALIGNMENT, 1, 8);
     w->floats = maniAllocate(a, w->floatCapacity + 1, sizeof(float), 4);
     w->tracks = maniAllocate(a, (size_t)s->channelCount * s->entryCount + 1, sizeof(uint32_t), 4);
-    return w->features != NULL && w->normalization != NULL && w->bounds != NULL &&
-           w->poseMemory != NULL && w->floats != NULL && w->tracks != NULL;
+    bool tree = w->order != NULL && w->keys != NULL && w->sorted != NULL && w->scratch != NULL &&
+                w->entryOf != NULL && w->biases != NULL && w->treeFeatures != NULL &&
+                w->boxes != NULL && w->nodes != NULL && w->positions != NULL && w->places != NULL;
+    return tree && w->features != NULL && w->normalization != NULL && w->poseMemory != NULL &&
+           w->floats != NULL && w->tracks != NULL;
 }
 
 // Every frame's raw features, entry by entry.
@@ -341,28 +387,29 @@ static bool Normalize(Work* w, uint32_t first, uint32_t width, float weight)
     return true;
 }
 
-static void Bound(Work* w, float* low, uint32_t size)
+// The tree over the normalized features: the order, then the sections
+// laid out from it.
+static void Tree(Work* w)
 {
-    uint32_t n = w->totals.features;
-    uint32_t runs = maniMatchRuns(w->totals.frames, size);
-    float* high = low + (size_t)runs * n;
-    for (uint32_t r = 0; r < runs; ++r)
+    const maniMotionDatabaseSource* s = w->source;
+    uint32_t frame = 0;
+    for (uint32_t e = 0; e < s->entryCount; ++e)
     {
-        uint32_t to = (r + 1) * size < w->totals.frames ? (r + 1) * size : w->totals.frames;
-        for (uint32_t j = 0; j < n; ++j)
+        const maniMatchEntrySource* entry = &s->entries[e];
+        uint32_t frames = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
+                                               (entry->flags & MANI_MATCH_LOOP) != 0);
+        for (uint32_t k = 0; k < frames; ++k)
         {
-            float a = HUGE_VALF;
-            float b = -HUGE_VALF;
-            for (uint32_t f = r * size; f < to; ++f)
-            {
-                float v = w->features[(size_t)f * n + j];
-                a = v < a ? v : a;
-                b = v > b ? v : b;
-            }
-            low[(size_t)r * n + j] = a;
-            high[(size_t)r * n + j] = b;
+            w->entryOf[frame++] = e;
         }
+        w->biases[e] = entry->costBias;
     }
+    const Totals* t = &w->totals;
+    maniMatchTreeOrder(w->features, t->features, t->frames, t->leaf, w->order, w->keys, w->sorted,
+                       w->scratch);
+    const maniMatchTreeSource tree = {w->features, w->order,  w->entryOf, w->biases,
+                                      t->features, t->frames, t->leaf,    t->nodes};
+    maniMatchLayTree(&tree, w->treeFeatures, w->boxes, w->nodes, w->positions, w->places);
 }
 
 static uint8_t* LayChannels(const Work* w, uint8_t* channels, uint8_t* times, uint8_t* names)
@@ -442,6 +489,8 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
     memcpy(header + 36, &s->sampleRate, 4);
     maniStoreU32(header + 40, s->up);
     maniStoreU32(header + 44, s->forward);
+    maniStoreU32(header + 48, t->leaf);
+    maniStoreU32(header + 52, t->nodes);
 }
 
 // Whether an entry is mirrored: the file then keeps the map's identity.
@@ -472,7 +521,10 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
                                                  0,
                                                  0,
                                                  t->names,
-                                                 mirrors ? 8u : 0u};
+                                                 mirrors ? 8u : 0u,
+                                                 0,
+                                                 0,
+                                                 0};
     uint64_t own = 0;
     for (uint32_t i = 0; i < MANI_MATCH_SECTIONS; ++i)
     {
@@ -500,10 +552,16 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
     }
     data[5] = (const uint8_t*)w->normalization;
     lengths[5] = 8 * (uint64_t)t->features;
-    data[6] = (const uint8_t*)w->features;
+    data[6] = (const uint8_t*)w->treeFeatures;
     lengths[6] = 4 * (uint64_t)w->featureFloats;
-    data[7] = (const uint8_t*)w->bounds;
-    lengths[7] = 4 * (uint64_t)w->boundFloats;
+    data[7] = (const uint8_t*)w->boxes;
+    lengths[7] = 4 * (uint64_t)w->boxFloats;
+    data[10] = w->nodes;
+    lengths[10] = (uint64_t)t->nodes * MANI_MATCH_NODE_SIZE;
+    data[11] = w->positions;
+    lengths[11] = (uint64_t)t->frames * MANI_MATCH_POSITION_SIZE;
+    data[12] = w->places;
+    lengths[12] = 4 * (uint64_t)t->frames;
     maniSectionSource sections[MANI_MATCH_SECTIONS];
     uint32_t count = 0;
     for (uint32_t i = 0; i < MANI_MATCH_SECTIONS; ++i)
@@ -547,9 +605,7 @@ static maniBuildResult Build(maniBuilder* builder, Work* w)
         }
         first += width;
     }
-    uint32_t small = maniMatchRuns(w->totals.frames, MANI_MATCH_SMALL_RUN);
-    Bound(w, w->bounds, MANI_MATCH_SMALL_RUN);
-    Bound(w, w->bounds + 2 * (size_t)small * w->totals.features, MANI_MATCH_LARGE_RUN);
+    Tree(w);
     return Write(builder, w);
 }
 
@@ -576,7 +632,7 @@ maniBuildResult maniBuildMotionDatabase(maniBuilder* builder,
         maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
-    Totals totals = {0, 0, 0, 0};
+    Totals totals = {0, 0, 0, 0, 0, 0};
     maniBuildResult r = Check(source, &totals);
     if (r.result != mani_success)
     {

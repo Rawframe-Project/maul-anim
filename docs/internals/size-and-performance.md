@@ -29,7 +29,7 @@ Where the targets stand:
 | Two-pose blend, model pass | ozz-animation | not met: the eight-lane kernels still take more instructions than ozz's four lanes with estimated reciprocals; timed runs pending |
 | Two-bone and aim IK | ozz-animation's whole cost to a host | about 1.1 and 2.3 times |
 | CCD and FABRIK | Godot's chain solvers | met at a fraction of its instructions |
-| Motion matching search | Holden's search | within a few percent, with the same picks |
+| Motion matching search | Holden's search | an exact k-d tree with his picks: 1.1 to 16.5 times fewer instructions than his bounds over runs from about 20,000 frames up, up to 27% more at 5,000 frames with 45 features ([motion-matching.md](motion-matching.md#the-search)) |
 | Spring bones | Godot's spring bone simulator | met |
 | Draco and meshopt decoding | Google's and meshoptimizer's scalar decoders | met, but for two meshopt filters where the specification's exact rounding costs a few percent |
 | Opening glTF and FBX | cgltf, ufbx | met |

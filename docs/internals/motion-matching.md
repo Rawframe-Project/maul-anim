@@ -16,13 +16,24 @@ Entries are spans of the database's clips, each with its own flags (looping: tim
 
 ## The search
 
-`maniSearchMotionDatabase` ([`src/match_search.c`](../../src/match_search.c)) is exact. A frame's cost is a constant (its entry's bias plus the transition cost) plus the squared differences of the normalized query and its features, in feature order, in binary32. The continuing frame is scored first. Then each candidate entry's frames: a run of 64 is skipped when its bounding box's bound already reaches the best cost, then a run of 16, then each frame, every sum stopped once it reaches the best.
+`maniSearchMotionDatabase` ([`src/match_search.c`](../../src/match_search.c)) is exact. A frame's cost is a constant (its entry's bias plus the transition cost) plus the squared differences of the normalized query and its features, in feature order, in binary32. The continuing frame is scored first. Then the database's k-d tree is walked from its root, the nearer half of each node first: a node is skipped when the bound of its bounding box shows it holds no better frame, and a leaf's frames are scored, every sum stopped once it passes the best.
 
-The bound of a box is never more than any of its frames' costs, and binary32 rounding is monotone, so pruning never changes the result: the search returns the plain scan's frame and cost bit for bit, which a test checks over thousands of random databases. Opening a database recomputes every bound and refuses one that is not its run's exact minimum or maximum, since exactness rests on them. Ties go to the continuing frame, then the lowest frame.
+The builder ([`src/match_tree.c`](../../src/match_tree.c)) splits each node of more than a leaf's frames at the median of the feature its frames spread widest over, so the tree's shape follows from the frame count and the leaf size alone, and stores the features in the tree's order, so a leaf's frames are read in one run. Each node keeps its box, its lowest frame and the least cost bias of its frames' entries.
+
+A box's bound starts from the transition cost plus that least bias and adds the squared distances from the query to the box in feature order; it is never more than any of its frames' costs, and binary32 rounding is monotone, so pruning never changes the result: the search returns the plain scan's frame and cost bit for bit, which a test checks over thousands of random databases, with every leaf size and with random orders as well as the builder's. Opening a database checks that the order holds every frame once with its entry and recomputes every box, lowest frame and least bias, refusing any that is not exact, since exactness rests on them. The tree yields frames out of order, so ties are settled as the scan settles them: the continuing frame first, then the lowest frame. A sum is stopped only once it passes the best, not when it reaches it, and a node whose bound equals the best is skipped only when it cannot hold a lower frame.
 
 A frame is not a candidate when its entry's tags lack a required tag or hold an excluded one, its entry is never jumped to, or it lies within given times of the continuing frame, of a clamped entry's end, or of one of up to eight earlier picks (Holden's ignored surroundings and Unreal's reselect history).
 
-On an hour of data with Holden's 27 features, a search visits about five and a half instructions' worth a frame against a plain scan's two hundred, about 2% more than Holden's own search on the same database and queries, which it picks the same frames as; the difference is tags, biases, no-jump flags and query checks his search does not have. An exact k-d tree with the same picks takes fewer instructions on steady queries and about the same after a sudden change of input; whether it replaces the bounds waits on timed runs, since instructions alone do not decide it.
+Before format 3 the search pruned by Holden's bounds over runs of 16 and 64 frames, within about 2% of his own search's instructions; its cost grew with the frame count, 5.5 to 18 instructions a frame. `bench/bench_match.c` measures both on synthetic locomotion (an eight-bone rig walking, running, turning and standing at random; clamped entries; 1,000 queries of each shape: steady, the continuing frame's bone features with its path nudged; sudden, another frame's path; cold, nothing continuing) by user instructions, which do not depend on the machine's load. With Holden's 27 features, every pick the same:
+
+| Search | instructions a query at 100,856 frames (steady / sudden / cold) | at 300,767 frames | index bytes a frame (100,856 / 300,767 frames) |
+|---|---|---|---|
+| run bounds (format 2) | 703,430 / 1,018,161 / 1,114,832 | 2,021,514 / 2,647,051 / 3,061,250 | 16.9 / 16.9 |
+| tree, leaves of 8 | 103,444 / 175,473 / 189,700 | 157,156 / 235,783 / 320,788 | 86.1 / 111.4 |
+| tree, leaves of 16 (the default) | 116,648 / 197,823 / 211,945 | 172,790 / 256,348 / 350,340 | 49.0 / 61.7 |
+| tree, leaves of 32 | 145,434 / 249,914 / 259,620 | 210,311 / 308,577 / 417,728 | 30.5 / 36.8 |
+
+The features themselves take 108 bytes a frame. The tree's advantage grows with the database and shrinks with the feature count: at leaves of 16 it takes 1.4 to 2.4 times fewer instructions than the bounds at 5,403 frames with 15 or 27 features and 8.7 to 16.5 times fewer at 300,767, but with 45 features at 5,403 frames it takes up to 27% more on steady and sudden queries (the bounds took 0.79 and 0.86 of its count). Leaves of 16 are the default as the middle of the trade; a host short of memory takes 32, one short of time 8.
 
 ## The node
 
@@ -48,6 +59,6 @@ PyTorch's results are not reproducible across releases or platforms, so the libr
 
 ## Traps
 
-- The search's exactness depends on bounds being exact; a change to how features are stored must keep the bound computation and the opener's recomputation identical.
+- The search's exactness depends on the boxes being exact; a change to how features are stored must keep the builder's boxes (`src/match_tree.c`) and the opener's recomputation identical, down to which of -0 and +0 a minimum keeps. Exactness does not depend on the tree's order: any order the opener accepts gives the plain scan's result, which the search test checks with random orders.
 - Interpolating a rotation-like feature as a vector shortens it; a new channel kind that is a rotation needs its own interpolation rule before it joins the query.
 - A learned node's interpolation and the matching node's continuing-frame interpolation exist for the same reason: everything the node reads must describe the displayed instant at any update rate.

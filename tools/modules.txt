@@ -46,7 +46,8 @@ match_search: bytes invariant match_file
 match_move:
 trajectory: elementary_float match_move vecmath
 match_sample: match match_file match_move vecmath
-match_build: allocator builder bytes container match match_file match_sample text
+match_build: allocator builder bytes container match match_file match_sample match_tree text
+match_tree: bytes match_file sort
 learned_file:
 spring_file:
 spring: bytes container spring_file text

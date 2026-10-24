@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Motion matching's search by bounds over runs of frames (the library's)
-// against an exact k-d tree, on the same databases and queries. The
+// Motion matching's search, the library's, against the prototype of an
+// exact k-d tree it was chosen by, on the same databases and queries.
+// Until format 3 of the motion database the library pruned by bounds over
+// runs of 16 and 64 frames, and this program compared them; the library
+// now searches its own tree at the leaf size given, so the columns
+// compare the two trees (docs/internals/motion-matching.md keeps the
+// bounds' counts). The
 // databases are synthetic locomotion: an eight-bone rig whose clips of a
 // minute walk, run, turn and stand by a random walk of speed and turn
 // rate, the legs swinging at a gait phase that follows the speed, the
@@ -20,7 +25,7 @@
 // the program checks for every query. For each, it prints both searches'
 // user instructions a query (Linux, from the kernel's counter) and
 // nanoseconds a query (the best of three passes), and each index's
-// bytes. --leaf sets the tree's leaf size (16 by default); --frames
+// bytes. --leaf sets both trees' leaf size (16 by default); --frames
 // limits the sizes to those up to a count.
 
 #ifdef __linux__
@@ -677,8 +682,7 @@ static maniResult SearchTree(const Tree* t, const maniMotionDatabase* d, const m
         if ((e->tags & q->requiredTags) == q->requiredTags && (e->tags & q->excludedTags) == 0)
         {
             float continuing[MANI_MATCH_MAX_FEATURES];
-            const uint8_t* f = d->features + 4 * (size_t)q->current * n;
-            memcpy(continuing, f, n * sizeof(float));
+            (void)maniMotionDatabaseFeatures(d, q->current, continuing);
             s.bestCost = Cost(&s, continuing, q->continuingBias + e->costBias);
             s.best = q->current;
             s.continuing = true;
@@ -935,8 +939,8 @@ int main(int argc, char** argv)
     printf("# leaf %u; instructions and ns a query, %u queries a shape\n", (unsigned)leaf,
            (unsigned)QUERIES);
     printf("%-8s %-8s %-7s %13s %13s %7s %10s %10s %10s %10s %s\n", "frames", "features", "shape",
-           "bounds instr", "tree instr", "ratio", "bounds ns", "tree ns", "bounds KB", "tree KB",
-           "picks");
+           "library instr", "proto instr", "ratio", "library ns", "proto ns", "lib KiB",
+           "proto KiB", "picks");
     maniMatchEntrySource entries[167];
     for (uint32_t k = 0; k < 167; ++k)
     {
@@ -949,8 +953,9 @@ int main(int argc, char** argv)
             maniMatchChannelSource channels[16];
             uint32_t channelCount = Channels(set, channels);
             const maniMotionDatabaseSource source = {
-                &s_skeleton,  listed, channels,       entries,        kClips[size], channelCount,
-                kClips[size], RATE,   maniMatchAxisY, maniMatchAxisZ, NULL};
+                &s_skeleton,  listed,       channels, entries,        kClips[size],
+                channelCount, kClips[size], RATE,     maniMatchAxisY, maniMatchAxisZ,
+                NULL,         leaf,         0};
             size_t bytes = 0;
             void* file =
                 Keep(builder, maniBuildMotionDatabase(builder, &source), "a database", &bytes);
@@ -965,14 +970,16 @@ int main(int argc, char** argv)
             }
             Tree tree;
             BuildTree(&tree, &d, leaf);
-            size_t boundsBytes = 2 * 4 * (size_t)d.featureCount *
-                                 ((d.frameCount + 15) / 16 + (d.frameCount + 63) / 64);
+            // The library's index: each node's box and record, each
+            // frame's position and place.
+            size_t libraryBytes =
+                (8 * (size_t)d.featureCount + 12) * d.nodeCount + 12 * (size_t)d.frameCount;
             float* features = Take((size_t)QUERIES * d.featureCount * sizeof(float));
             static maniMatchQuery queries[QUERIES];
             for (uint32_t shape = 0; shape < 3; ++shape)
             {
                 MakeQueries(&d, shape, features, queries);
-                Measure bounds = Run(0, &tree, &d, queries);
+                Measure library = Run(0, &tree, &d, queries);
                 Measure treed = Run(1, &tree, &d, queries);
                 uint32_t differ = 0;
                 for (uint32_t i = 0; i < QUERIES; ++i)
@@ -985,9 +992,9 @@ int main(int argc, char** argv)
                 }
                 printf("%-8u %-8u %-7s %13.0f %13.0f %7.2f %10.0f %10.0f %10.0f %10.0f %s\n",
                        (unsigned)d.frameCount, (unsigned)d.featureCount, kShapes[shape],
-                       bounds.instructions, treed.instructions,
-                       treed.instructions > 0.0 ? bounds.instructions / treed.instructions : 0.0,
-                       bounds.ns, treed.ns, (double)boundsBytes / 1024.0,
+                       library.instructions, treed.instructions,
+                       treed.instructions > 0.0 ? library.instructions / treed.instructions : 0.0,
+                       library.ns, treed.ns, (double)libraryBytes / 1024.0,
                        (double)TreeBytes(&tree) / 1024.0, differ == 0 ? "same" : "DIFFER");
                 if (differ != 0)
                 {
