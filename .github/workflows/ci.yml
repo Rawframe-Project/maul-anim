@@ -1,5 +1,5 @@
 # Continuous integration: the pull request check, and the full check on
-# main, which fuzzes longer. Each build cell is a CMake preset built by
+# main and every night, which fuzzes longer. Each build cell is a CMake preset built by
 # the organization's shared workflow; the other jobs run in the same CI
 # image where they can. The differentials and the long fuzzing run in
 # nightly.yml. docs/operations/checks.md explains each job, and
@@ -10,6 +10,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The repository's nightly slot (the organization's docs/ci-schedule.md).
+  schedule:
+    - cron: "7 6 * * *"
   workflow_dispatch:
 
 # A new push to a pull request cancels its running CI; runs on main get a
@@ -242,7 +245,7 @@ jobs:
 
   # Each fuzz target runs over the bytes programs hand the library, from
   # the committed seeds in test/seeds, four at a time: briefly on a pull
-  # request, a minute on main. The long runs, with the corpus carried from
+  # request, a minute on main and at night. The long runs, with the corpus carried from
   # night to night, are in nightly.yml.
   fuzz:
     needs: changes

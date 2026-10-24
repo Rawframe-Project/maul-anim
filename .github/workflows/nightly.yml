@@ -18,7 +18,9 @@ name: nightly
 
 on:
   schedule:
-    - cron: "17 2 * * *"
+    # Fifteen minutes after ci.yml's nightly slot (the organization's
+    # docs/ci-schedule.md).
+    - cron: "22 6 * * *"
   workflow_dispatch:
 
 permissions: {}

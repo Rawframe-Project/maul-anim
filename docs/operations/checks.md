@@ -16,7 +16,7 @@ Run `changed` before every push. On the shared development machine, run `pr` and
 
 ## In CI
 
-`.github/workflows/ci.yml` runs on every pull request and on every push to `main`. The Linux jobs run in the organization's CI image, pinned by digest, and install nothing. The ruleset requires only its `required` job, which passes when every other job passed or was skipped, and the title check.
+`.github/workflows/ci.yml` runs on every pull request, on every push to `main` and every night at 06:07 UTC, the repository's slot in the organization's schedule. The Linux jobs run in the organization's CI image, pinned by digest, and install nothing. The ruleset requires only its `required` job, which passes when every other job passed or was skipped, and the title check.
 
 | Job | What it guards |
 |---|---|
@@ -28,9 +28,9 @@ Run `changed` before every push. On the shared development machine, run `pr` and
 | `windows` | The public headers compiled by MSVC's `cl` as C17 and C++17 with `/W4 /WX`; the runtime alone under `clang-cl`, which must reference no allocator; and the DLL's package test. |
 | `size` | The runtime's text by part at `-O2` and `-O3` with GCC 14, on the scalar backend and on AVX2, against `tools/size-budget.txt`, and no allocator symbol in the runtime under GCC 14 or Clang 20. |
 | `web` | The library and its tests under Emscripten and Node, and the static library's size, reported. The image has no Emscripten, so this job uses the runner and the emsdk action. |
-| `fuzz` | Every fuzz target, four at a time, from the committed seeds: 15 seconds each on a pull request, 60 on `main`. A finding uploads the logs and the input. |
+| `fuzz` | Every fuzz target, four at a time, from the committed seeds: 15 seconds each on a pull request, 60 on `main` and at night. A finding uploads the logs and the input. |
 
-`nightly.yml` is the extended run, not a required check. It runs the differentials against ufbx (under the sanitizers), ACL, ozz-animation and Godot, described in [development.md](development.md#differentials), and fuzzes each target for ten minutes in a job of its own, from its corpus of the nights before. Each target's corpus is an Actions cache of its own, keyed by the target, the fuzz build's inputs and the compiler, falling back to the target's latest corpus of an earlier build; after the run, libFuzzer's merge minimizes the seeds and the corpus together and the result is saved, also after a finding. The run's summary gives each target's seed and corpus coverage, and the corpus is uploaded for a week.
+`nightly.yml` is the extended run, not a required check, starting at 06:22 UTC, fifteen minutes after the nightly `ci`. It runs the differentials against ufbx (under the sanitizers), ACL, ozz-animation and Godot, described in [development.md](development.md#differentials), and fuzzes each target for ten minutes in a job of its own, from its corpus of the nights before. Each target's corpus is an Actions cache of its own, keyed by the target, the fuzz build's inputs and the compiler, falling back to the target's latest corpus of an earlier build; after the run, libFuzzer's merge minimizes the seeds and the corpus together and the result is saved, also after a finding. The run's summary gives each target's seed and corpus coverage, and the corpus is uploaded for a week.
 
 `pr-title.yml` checks that the pull request title is a conventional commit with a scope from `AGENTS.md`, and `pr-gate.yml` closes a pull request from outside the organization unless it closes an issue labeled `accepted`. `codeql.yml` runs CodeQL on every pull request and on `main`, building every part with GCC 14 (an advanced setup, since the default one builds with the runner's GCC 13). `scorecard.yml` grades the repository's security practices weekly for the README badge, and Dependabot proposes updates of the pinned actions once a week in one pull request.
 
