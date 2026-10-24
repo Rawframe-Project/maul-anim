@@ -106,6 +106,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_inertia_apply.c
     src/graph_emit.c
     src/graph_match.c
+    src/graph_values.c
     src/graph_match_step.c
     src/graph_learned.c
     src/graph_learned_step.c

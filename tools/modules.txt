@@ -112,11 +112,12 @@ graph_file:
 graph_nodes: bytes graph_body graph_chain graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring graph_turn vecmath
 graph_machine_file: bytes graph_file
 graph: bytes container fpenv graph_file graph_nodes text
-graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn learned_eval pose_memory
+graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn graph_values learned_eval pose_memory
 graph_inspect: bytes fpenv graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
 graph_subset: bytes fpenv graph_file graph_instance graph_spring pose_memory spring_file
 graph_shot: bytes graph_file
 graph_match: bytes graph_file
+graph_values: bytes graph_file
 graph_learned: bytes graph_file graph_match
 graph_spring: bytes graph_file pose_memory spring_state
 graph_turn: bytes graph_file pose_memory scalar vecmath
