@@ -181,7 +181,7 @@ static bool Is(uint32_t place, float weight, uint32_t current, uint32_t transiti
     maniGraphNodeView v = View(place);
     return Near((double)v.weight, (double)weight) && v.current == current &&
            v.transition == transition && Near((double)v.progress, (double)progress) &&
-           v.reserved == 0;
+           v.failed == 0;
 }
 
 #define NONE MANI_GRAPH_NONE
@@ -190,7 +190,7 @@ static void TestViews(void)
 {
     maniGraphNodeView v = View(3);
     CHECK(v.kind == maniGraphNodeMachine && v.weight == 0.0f && v.current == 0 &&
-              v.transition == NONE && v.progress == 0.0f && v.reserved == 0,
+              v.transition == NONE && v.progress == 0.0f && v.failed == 0,
           "a machine before the first update");
     CHECK(View(0).weight == 0.0f, "no weights before the first update");
     Update(0.25f);

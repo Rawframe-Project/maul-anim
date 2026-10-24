@@ -28,7 +28,8 @@ typedef struct maniGraphUpdate
     double delta;
     maniGraphEvent* events;
     uint32_t capacity;
-    uint32_t reserved;
+    // Nonzero once a node's data failed: the update reports mani_errorFormat.
+    uint32_t failed;
     uint64_t count;
     maniRootMotionSum root;
 } maniGraphUpdate;

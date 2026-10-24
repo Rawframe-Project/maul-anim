@@ -982,5 +982,5 @@ maniResult maniUpdateGraph(maniGraphInstance* instance, float delta, maniGraphEv
     {
         *rootMotionOut = maniRootMotionSumResult(&u.root);
     }
-    return mani_success;
+    return u.failed != 0 ? mani_errorFormat : mani_success;
 }

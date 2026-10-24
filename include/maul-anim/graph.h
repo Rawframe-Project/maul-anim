@@ -717,13 +717,17 @@ extern "C"
         // node's easing, its elapsed time over its duration (1 for a
         // duration of 0); a one-shot's weight.
         float progress;
-        uint32_t reserved;
+        // 1 when the node's data failed in the last update or an
+        // evaluation after it: a learned node whose model gave a value past
+        // the float range, which held its last finite state or gave the
+        // neutral pose; else 0.
+        uint32_t failed;
     } maniGraphNodeView;
 
     /// Reads what a node of an instance did in its last update, for a
     /// debugger: its share of the output, playhead, current state and
-    /// transition under way. Reads only; the update keeps nothing more for
-    /// it. reserved is 0.
+    /// transition under way, and whether its data failed. Reads only; the
+    /// update keeps nothing more for it.
     ///
     /// @param instance  An instance.
     /// @param node      The node.
@@ -822,9 +826,17 @@ extern "C"
     /// @param capacity      The events events holds.
     /// @param eventCountOut Receives the true count, which may pass the
     ///                      capacity (saturating at UINT32_MAX). May be NULL.
+    ///                      Written on success and on mani_errorFormat.
     /// @param rootMotionOut Receives the update's root motion. May be NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL instance,
-    /// events NULL with a capacity, or a step not finite (nothing changed).
+    ///                      Written on success and on mani_errorFormat.
+    /// @return `mani_success`; `mani_errorFormat` when a learned node's
+    /// model gave a value past the float range: the update completed for
+    /// every node, the failing nodes held their last finite state (or stay
+    /// without one) and gave no root motion or events,
+    /// maniInspectGraphNode names them, and the events and root motion
+    /// written are valid and finite (no misuse is counted: the model is
+    /// data); `mani_errorInvalid` for a NULL instance, events NULL with a
+    /// capacity, or a step not finite (nothing changed).
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniUpdateGraph(maniGraphInstance* instance, float delta,
@@ -863,9 +875,13 @@ extern "C"
     ///                  thread at a time.
     /// @param size      The scratch's size.
     /// @param pose      A pose of the graph's skeleton.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL or
-    /// misaligned argument or a pose of another skeleton;
-    /// `mani_errorCapacity` when the scratch is too small.
+    /// @return `mani_success`; `mani_errorFormat` when a learned node's
+    /// model gave a value past the float range: the evaluation completed,
+    /// that node gave the neutral pose, maniInspectGraphNode names it, and
+    /// the pose written is valid and finite (no misuse is counted);
+    /// `mani_errorInvalid` for a NULL or misaligned argument or a pose of
+    /// another skeleton; `mani_errorCapacity` when the scratch is too
+    /// small.
     /// @par Thread safety
     /// Safe from any thread; the instance, scratch and pose are used by
     /// one thread at a time.

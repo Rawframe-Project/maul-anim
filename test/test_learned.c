@@ -870,6 +870,61 @@ static bool WriteFile(const char* path, const void* data, size_t size)
     return fclose(out) == 0 && written == size;
 }
 
+// A network made to overflow with finite values: its first layer's
+// weights 0 and biases 1e30, its second's weights 1e30.
+static void Overflowing(const maniLearnedNetworkSource* network)
+{
+    maniLearnedLayerSource* layers = (maniLearnedLayerSource*)network->layers;
+    float* weights = (float*)layers[0].weights;
+    float* biases = (float*)layers[0].biases;
+    for (uint32_t k = 0; k < layers[0].inputCount * layers[0].outputCount; ++k)
+    {
+        weights[k] = 0.0f;
+    }
+    for (uint32_t k = 0; k < layers[0].outputCount; ++k)
+    {
+        biases[k] = 1e30f;
+    }
+    weights = (float*)layers[1].weights;
+    for (uint32_t k = 0; k < layers[1].inputCount * layers[1].outputCount; ++k)
+    {
+        weights[k] = 1e30f;
+    }
+}
+
+// Every weight finite, as opening checks, yet each network's output past
+// the float range: projecting, stepping and decompressing refuse it as the
+// model's data and write nothing. Last, as it changes the fixture's
+// networks.
+static void TestOverflow(void)
+{
+    Overflowing(&s_projectors[0].network);
+    Overflowing(&s_stepper);
+    Overflowing(&s_decompressor);
+    maniLearnedModelSource source = Source();
+    maniLearnedModel m;
+    CHECK(Opened(&source, &m), "a model of finite weights built and opened");
+    const float query[FEATURES] = {0.1f, 0.2f};
+    float state[STATE] = {0.5f, -0.25f, 0.125f, 1.0f, -1.0f};
+    float kept[STATE];
+    memcpy(kept, state, sizeof kept);
+    CHECK(maniLearnedProject(&m, 0, query, state, s_scratch, sizeof s_scratch) ==
+                  mani_errorFormat &&
+              memcmp(state, kept, sizeof kept) == 0,
+          "a projection refused, the state as it was");
+    CHECK(maniLearnedStep(&m, state, s_scratch, sizeof s_scratch) == mani_errorFormat &&
+              memcmp(state, kept, sizeof kept) == 0,
+          "a step refused, the state as it was");
+    float tracks[1] = {7.0f};
+    float events[2] = {7.0f, 7.0f};
+    maniLearnedOutput output = {NULL, tracks, events, {7.0f, 7.0f, 7.0f}, {7.0f, 7.0f, 7.0f}};
+    CHECK(maniLearnedDecompress(&m, state, &output, s_scratch, sizeof s_scratch) ==
+                  mani_errorFormat &&
+              tracks[0] == 7.0f && events[0] == 7.0f && events[1] == 7.0f &&
+              output.rootVelocity.x == 7.0f && output.rootAngularVelocity.z == 7.0f,
+          "a decompression refused, nothing written");
+}
+
 int main(int argc, char** argv)
 {
     Open();
@@ -893,5 +948,6 @@ int main(int argc, char** argv)
     TestOpenNames();
     TestOpenNarrow();
     TestOpenShapes();
+    TestOverflow();
     return s_failures == 0 ? 0 : 1;
 }

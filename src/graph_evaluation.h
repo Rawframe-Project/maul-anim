@@ -50,6 +50,9 @@ typedef struct maniGraphEvaluation
     // A subset's plan and its groups' flags, or NULL for every bone.
     const maniGraphSubset* plan;
     const uint8_t* groups;
+    // Set nonzero once a node's data failed: the evaluation reports
+    // mani_errorFormat.
+    uint32_t* failed;
 } maniGraphEvaluation;
 
 static inline maniPose* maniGraphEvalSlot(const maniGraphEvaluation* e, uint32_t slot)

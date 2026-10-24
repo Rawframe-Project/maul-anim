@@ -499,10 +499,16 @@ static void SampleLearned(const maniGraphEvaluation* e, uint32_t p, const uint8_
     bool kept =
         cache != NULL && cache[0] != 0.0f && memcmp(cache + 1, state, sizeof(float) * states) == 0;
     maniLearnedOutput output = {out, NULL, NULL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-    if (maniLearnedDecompressFrom(m, state, &output, room, scratchSize,
-                                  kept ? cache + 1 + states : NULL) != mani_success)
+    maniResult r = maniLearnedDecompressFrom(m, state, &output, room, scratchSize,
+                                             kept ? cache + 1 + states : NULL);
+    if (r != mani_success)
     {
         maniGraphEvalNeutral(e, out, false);
+    }
+    if (r == mani_errorFormat)
+    {
+        maniGraphEvalState(e, p)->flags |= MANI_GRAPH_FAILED;
+        *e->failed = 1;
     }
 }
 
@@ -642,6 +648,7 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
         return mani_errorInvalid;
     }
     const maniGraphBinding* binding = instance->binding;
+    uint32_t failed = 0;
     maniGraphEvaluation e = {instance,
                              binding,
                              &binding->graph,
@@ -651,7 +658,8 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
                              NULL,
                              NULL,
                              plan,
-                             plan != NULL ? maniGraphSubsetGroups(plan) : NULL};
+                             plan != NULL ? maniGraphSubsetGroups(plan) : NULL,
+                             &failed};
     if (size < e.parts.size)
     {
         return mani_errorCapacity;
@@ -700,7 +708,7 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
     {
         maniPoseCopy(pose, output);
     }
-    return mani_success;
+    return failed != 0 ? mani_errorFormat : mani_success;
 }
 
 maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,

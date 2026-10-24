@@ -211,9 +211,11 @@ extern "C"
     /// @param stateOut     Receives the state.
     /// @param scratch      Scratch memory, 4-byte aligned.
     /// @param scratchSize  Its size: at least maniLearnedScratchSize.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, an
-    /// index past the Projectors, a query value not finite, misaligned or
-    /// too little scratch.
+    /// @return `mani_success`; `mani_errorFormat` when the Projector gives
+    /// a value past the float range, the model's data (stateOut unchanged);
+    /// `mani_errorInvalid` for a NULL argument, an index past the
+    /// Projectors, a query value not finite, misaligned or too little
+    /// scratch.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedProject(const maniLearnedModel* model,
@@ -228,8 +230,10 @@ extern "C"
     /// @param state        The state, moved in place.
     /// @param scratch      Scratch memory, 4-byte aligned.
     /// @param scratchSize  Its size: at least maniLearnedScratchSize.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// state value not finite, misaligned or too little scratch.
+    /// @return `mani_success`; `mani_errorFormat` when the step would take
+    /// a value past the float range, the model's data (the state
+    /// unchanged); `mani_errorInvalid` for a NULL argument, a state value
+    /// not finite, misaligned or too little scratch.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedStep(const maniLearnedModel* model, float* state,
@@ -259,9 +263,11 @@ extern "C"
     /// @param output       Receives what the Decompressor gives.
     /// @param scratch      Scratch memory, 4-byte aligned.
     /// @param scratchSize  Its size: at least maniLearnedScratchSize.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// state value not finite, a pose of another bone count or holding a
-    /// difference, misaligned or too little scratch.
+    /// @return `mani_success`; `mani_errorFormat` when the Decompressor
+    /// gives a value past the float range, the model's data (nothing
+    /// written); `mani_errorInvalid` for a NULL argument, a state value not
+    /// finite, a pose of another bone count or holding a difference,
+    /// misaligned or too little scratch.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedDecompress(const maniLearnedModel* model,

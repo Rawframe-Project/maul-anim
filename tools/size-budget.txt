@@ -47,7 +47,7 @@ ceiling morph      O2 7000
 ceiling elementary O2 7000
 ceiling core       O3 77000
 ceiling skinning   O3 14000
-ceiling graph      O3 131000
+ceiling graph      O3 132000
 ceiling ik         O3 34000
 ceiling bodyik     O3 32000
 ceiling springs    O3 31000
@@ -55,7 +55,7 @@ ceiling ragdoll    O3 16000
 ceiling retarget   O3 13000
 ceiling mirror     O3 6000
 ceiling match      O3 19000
-ceiling learned    O3 16000
+ceiling learned    O3 17000
 ceiling morph      O3 7000
 ceiling elementary O3 8000
 
@@ -74,7 +74,7 @@ ceiling morph      O2-avx2 7000
 ceiling elementary O2-avx2 6000
 ceiling core       O3-avx2 77000
 ceiling skinning   O3-avx2 14000
-ceiling graph      O3-avx2 134000
+ceiling graph      O3-avx2 135000
 ceiling ik         O3-avx2 32000
 ceiling bodyik     O3-avx2 34000
 ceiling springs    O3-avx2 29000

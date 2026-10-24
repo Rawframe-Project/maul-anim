@@ -78,6 +78,14 @@ typedef struct Learned
     uint32_t reserved;
 } Learned;
 
+// The model's data failed (a value past the float range): the node is
+// named in its view and the update reports it.
+static void Fail(const Learned* l)
+{
+    l->s->flags |= MANI_GRAPH_FAILED;
+    l->u->failed = 1;
+}
+
 static uint32_t Word(const Learned* l, uint32_t k)
 {
     return maniGraphUpdateWord(l->u, l->data + k);
@@ -100,7 +108,8 @@ static void SetClock(const Learned* l, double clock)
     l->block[maniGraphLearnedClock + 1] = (uint32_t)(bits >> 32);
 }
 
-// The state after from: from's bits in the after state, then stepped.
+// The state after from: from's bits in the after state, then stepped. A
+// step the model's data refuses leaves from's state there, held.
 static void After(const Learned* l, const uint32_t* from)
 {
     uint32_t* after = l->block + maniGraphLearnedBefore + l->states;
@@ -108,7 +117,10 @@ static void After(const Learned* l, const uint32_t* from)
     {
         l->state[k] = FloatOf(from[k]);
     }
-    (void)maniLearnedStep(l->m, l->state, l->scratch, l->scratchSize);
+    if (maniLearnedStep(l->m, l->state, l->scratch, l->scratchSize) != mani_success)
+    {
+        Fail(l);
+    }
     for (uint32_t k = 0; k < l->states; ++k)
     {
         after[k] = BitsOf(l->state[k]);
@@ -197,9 +209,14 @@ static void Project(const Learned* l)
     float query[MANI_MATCH_MAX_FEATURES];
     float projected[MANI_GRAPH_LEARNED_MAX_STATES];
     Query(l, query);
-    if (maniLearnedProject(l->m, projector, query, projected, l->scratch, l->scratchSize) !=
-        mani_success)
+    maniResult r =
+        maniLearnedProject(l->m, projector, query, projected, l->scratch, l->scratchSize);
+    if (r != mani_success)
     {
+        if (r == mani_errorFormat)
+        {
+            Fail(l);
+        }
         return;
     }
     bool had = l->block[maniGraphLearnedHas] != 0;
@@ -237,8 +254,17 @@ static void Outputs(const Learned* l, double step)
 {
     const maniLearnedModel* m = l->m;
     float* cache = maniGraphLearnedCache(l->u->instance, l->p);
-    maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch,
-                                cache != NULL ? cache + 1 + l->states : NULL);
+    if (!maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch,
+                                     cache != NULL ? cache + 1 + l->states : NULL))
+    {
+        // No move and no event from the node; the cache kept for no state.
+        if (cache != NULL)
+        {
+            cache[0] = 0.0f;
+        }
+        Fail(l);
+        return;
+    }
     if (cache != NULL)
     {
         cache[0] = 1.0f;

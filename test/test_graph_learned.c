@@ -799,6 +799,122 @@ static void TestCache(void)
     CHECK(taken == SCRIPTED, "the cache taken");
 }
 
+// A model whose Stepper takes the state past the float range on its
+// first step, though every weight is finite and opening checked them all:
+// the update completes and reports the model's data with
+// mani_errorFormat, the node held at its last finite state and named in
+// its view, and every output stays finite; a save of it restores. Last, as it rebuilds the
+// fixture's model.
+static void TestOverflow(void)
+{
+    MakeNetworks();
+    maniLearnedLayerSource* layers = (maniLearnedLayerSource*)s_stepper.layers;
+    float* weights = (float*)layers[0].weights;
+    float* biases = (float*)layers[0].biases;
+    for (uint32_t k = 0; k < layers[0].inputCount * layers[0].outputCount; ++k)
+    {
+        weights[k] = 0.0f;
+    }
+    for (uint32_t k = 0; k < layers[0].outputCount; ++k)
+    {
+        biases[k] = 1e30f;
+    }
+    weights = (float*)layers[1].weights;
+    for (uint32_t k = 0; k < layers[1].inputCount * layers[1].outputCount; ++k)
+    {
+        weights[k] = 1e30f;
+    }
+    maniLearnedModelSource source = Source();
+    CHECK(Opened(&source, &s_learned), "a model of finite weights that overflows");
+    maniGraph g;
+    maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.0f), &g);
+    maniGraphEvent events[8];
+    uint32_t count = 0;
+    maniRootMove move;
+    // The first update projects, then steps from the projection.
+    CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_errorFormat,
+          "the first step past the float range refused as the model's data");
+    maniResult r = maniUpdateGraph(instance, 0.05f, events, 8, &count, &move);
+    CHECK(r == mani_errorFormat, "and every step after it");
+    bool finite = isfinite(move.translation.x) && isfinite(move.translation.y) &&
+                  isfinite(move.translation.z) && isfinite(move.rotation.x) &&
+                  isfinite(move.rotation.y) && isfinite(move.rotation.z) &&
+                  isfinite(move.rotation.w);
+    for (uint32_t e = 0; e < count && e < 8; ++e)
+    {
+        finite = finite && isfinite(events[e].weight) && isfinite(events[e].time);
+    }
+    CHECK(finite, "the update's root motion and events finite");
+    maniGraphNodeView view;
+    CHECK(maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1 &&
+              maniInspectGraphNode(instance, 1, &view) == mani_success && view.failed == 0,
+          "the learned node named as failed, the node above it not");
+    const uint32_t* block = LearnedBlock(instance, &g, 0);
+    bool held = block[maniGraphLearnedHas] == 1;
+    for (uint32_t k = 0; k < 2 * STATE; ++k)
+    {
+        float v = 0.0f;
+        memcpy(&v, &block[maniGraphLearnedBefore + k], sizeof v);
+        held = held && isfinite(v);
+    }
+    CHECK(held, "the node held at a finite state");
+    maniTransform locals[64];
+    uint32_t bones = maniSkeletonBoneCount(&s_skeleton);
+    bool posed = bones <= 64 &&
+                 maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+                 maniPoseReadLocals(s_pose, 0, bones, locals) == mani_success;
+    for (uint32_t b = 0; posed && b < bones; ++b)
+    {
+        float f[10];
+        memcpy(f, &locals[b], sizeof f);
+        for (int k = 0; k < 10; ++k)
+        {
+            posed = posed && isfinite(f[k]);
+        }
+    }
+    CHECK(posed, "the pose finite");
+    maniGraphInstance* other = NULL;
+    size_t size = maniGraphStateSize(instance->binding);
+    CHECK(size <= sizeof s_saved[0] &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
+                  mani_success &&
+              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+          "its saved state restores");
+    // A Decompressor that overflows too: the update gives no move or event
+    // from the node, and the evaluation the neutral pose, both reported.
+    layers = (maniLearnedLayerSource*)s_decompressor.layers;
+    biases = (float*)layers[0].biases;
+    for (uint32_t k = 0; k < layers[0].outputCount; ++k)
+    {
+        biases[k] = 1e30f;
+    }
+    weights = (float*)layers[1].weights;
+    for (uint32_t k = 0; k < layers[1].inputCount * layers[1].outputCount; ++k)
+    {
+        weights[k] = 1e30f;
+    }
+    source = Source();
+    CHECK(Opened(&source, &s_learned), "a model whose Decompressor overflows");
+    instance = Learning(LearnedNode(0.1f, 0.0f), &g);
+    CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_errorFormat &&
+              count == 0 && move.translation.x == 0.0f && move.rotation.w == 1.0f,
+          "no move and no event from the node");
+    posed = maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_errorFormat &&
+            maniPoseReadLocals(s_pose, 0, bones, locals) == mani_success;
+    for (uint32_t b = 0; posed && b < bones; ++b)
+    {
+        float f[10];
+        memcpy(f, &locals[b], sizeof f);
+        for (int k = 0; k < 10; ++k)
+        {
+            posed = posed && isfinite(f[k]);
+        }
+    }
+    CHECK(posed && maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1,
+          "the evaluation reported, its pose finite, the node named");
+}
+
 int main(void)
 {
     Open();
@@ -819,5 +935,6 @@ int main(void)
     TestReset();
     TestCache();
     TestMirrored();
+    TestOverflow();
     return s_failures == 0 ? 0 : 1;
 }
