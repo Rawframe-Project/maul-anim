@@ -5,12 +5,27 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
-## [0.2.1](https://github.com/Rawframe-Project/maul-anim/compare/v0.2.0...v0.2.1) (2026-10-24)
-
+## [0.2.1](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.2.1) (2026-10-24)
 
 ### Changed
 
-* give the -O2 core room under ozz-animation's size ([#29](https://github.com/Rawframe-Project/maul-anim/issues/29)) ([5d3f18a](https://github.com/Rawframe-Project/maul-anim/commit/5d3f18a9c6d17807689a531c496a048162c2d652))
+- The runtime's core (sampling, blending, the model pass, skeletons and
+  root motion) is about 1.1 KB smaller at `-O2` with GCC: 68,498 bytes,
+  against ozz-animation's 69,698. The skeleton's opener and the file
+  checks are compiled for size under GCC and Clang. With GCC, opening a
+  skeleton takes about 7% more instructions and opening a compressed
+  clip about 9% more. Opening a full clip or a motion database does not
+  change, and neither does any call made every frame. Results do not
+  change.
+  ([#29](https://github.com/Rawframe-Project/maul-anim/pull/29))
+
+### Fixed
+
+- The host's allocator and task hooks run in the host's own
+  floating-point setting, like the rest of the host's code. In 0.2.0
+  they ran in the library's setting while a public call was in
+  progress.
+  ([#27](https://github.com/Rawframe-Project/maul-anim/pull/27))
 
 ## [0.2.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.2.0) (2026-10-24)
 
