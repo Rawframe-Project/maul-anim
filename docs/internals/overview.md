@@ -9,7 +9,7 @@ Maul Anim samples, blends and evaluates skeletal animation, solves inverse kinem
 - **Memory:** the runtime has no owner objects and allocates nothing. Its data are files whose bytes the caller holds, checked once when opened into fixed-size views; poses, instances, cursors and scratch are caller memory of the size and alignment the library reports. The offline side (builders, importers, the compressor, the trainer) has owner objects created with the family allocator. [memory-and-threads.md](memory-and-threads.md) explains the split.
 - **Operating system:** no call. No file is opened and no clock is read; the host passes bytes and time.
 - **Platform dependencies:** none beyond `<stddef.h>`, `<stdint.h>`, `<string.h>` and the exactly rounded `<math.h>` functions in `tools/libm-allowed.txt`.
-- **Misuse and stale ids:** the library has no root object and no ids. Its owner objects (a builder, a trainer) count a call back in from the host's code as one misuse each (`maniBuilderMisuses`, `maniLearnedTrainerMisuses`).
+- **Misuse and stale ids:** the library has no root object and no ids. Its owner objects count one misuse for each call a correct program never makes: a builder for a call back in from the host's code, a NULL argument, a bad option or an index past a count (`maniBuilderMisuses`), a trainer for a call back in (`maniLearnedTrainerMisuses`). Bad untrusted data (a file, JSON text, a saved state, a checkpoint) is refused with its status and location and counts none, so whoever controls the data cannot move the counter.
 - **Root def:** the builder and the learned trainer are the objects a program creates; their defs carry `MANI_ABI_VERSION`.
 
 ## The parts
