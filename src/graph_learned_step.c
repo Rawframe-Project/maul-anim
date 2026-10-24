@@ -248,14 +248,35 @@ static void Project(const Learned* l)
     }
 }
 
+// The root's move over step from the motion outputs: the velocity times
+// the step, the rotation by the angular velocity times the step. False
+// when a product or the rotation's angle passes the float range (finite
+// outputs over a step of a slow model's seconds can).
+static bool RootMove(const Learned* l, double step, maniRootMove* move)
+{
+    const float* motion = l->motion;
+    float seconds = (float)step;
+    maniVec3 v = {motion[0] * seconds, motion[1] * seconds, motion[2] * seconds};
+    maniVec3 w = {motion[3] * seconds, motion[4] * seconds, motion[5] * seconds};
+    if (!(fabsf(v.x) < HUGE_VALF && fabsf(v.y) < HUGE_VALF && fabsf(v.z) < HUGE_VALF) ||
+        !(maniVec3Length(w) < HUGE_VALF))
+    {
+        return false;
+    }
+    *move = (maniRootMove){v, maniQuatFromRotationVector(w)};
+    return true;
+}
+
 // The root's move and the events at the state; the Decompressor's hidden
 // values kept with the state for the evaluation.
 static void Outputs(const Learned* l, double step)
 {
     const maniLearnedModel* m = l->m;
     float* cache = maniGraphLearnedCache(l->u->instance, l->p);
+    maniRootMove move = maniRootMoveIdentity();
     if (!maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch,
-                                     cache != NULL ? cache + 1 + l->states : NULL))
+                                     cache != NULL ? cache + 1 + l->states : NULL) ||
+        !RootMove(l, step, &move))
     {
         // No move and no event from the node; the cache kept for no state.
         if (cache != NULL)
@@ -273,10 +294,6 @@ static void Outputs(const Learned* l, double step)
     maniGraphNodeState* s = l->s;
     if (s->rootWeight > 0.0f)
     {
-        float seconds = (float)step;
-        maniVec3 v = {l->motion[0] * seconds, l->motion[1] * seconds, l->motion[2] * seconds};
-        maniVec3 w = {l->motion[3] * seconds, l->motion[4] * seconds, l->motion[5] * seconds};
-        maniRootMove move = {v, maniQuatFromRotationVector(w)};
         move = maniGraphNodeMove(l->u, l->p, move);
         maniRootMotionSumAdd(&l->u->root, &move, (double)s->rootWeight);
     }

@@ -915,6 +915,67 @@ static void TestOverflow(void)
           "the evaluation reported, its pose finite, the node named");
 }
 
+// The fixture's model at 0.5 steps a second, its Decompressor's root
+// outputs from first (the velocity at 30, the angular velocity at 33)
+// value whatever the state; the other outputs random.
+static void RootOutputs(uint32_t first, float value)
+{
+    MakeNetworks();
+    maniLearnedLayerSource* last =
+        (maniLearnedLayerSource*)&s_decompressor.layers[s_decompressor.layerCount - 1];
+    float* weights = (float*)last->weights;
+    float* biases = (float*)last->biases;
+    for (uint32_t o = first; o < first + 3; ++o)
+    {
+        for (uint32_t i = 0; i < last->inputCount; ++i)
+        {
+            weights[(size_t)i * last->outputCount + o] = 0.0f;
+        }
+        biases[o] = 0.0f;
+        ((float*)s_decompressor.outputScales)[o] = 1.0f;
+        ((float*)s_decompressor.outputOffsets)[o] = value;
+    }
+    maniLearnedModelSource source = Source();
+    source.stepRate = 0.5f;
+    CHECK(Opened(&source, &s_learned), "a model of finite root outputs");
+}
+
+// Finite root outputs whose move over a long step passes the float range:
+// a velocity of 3e38 over 2 seconds, and an angular velocity of 2.5e38 on
+// each axis over 1 (each product finite, the angle not). The update
+// reports the model's data with mani_errorFormat, its move finite and the
+// node named in its view. Last, as it rebuilds the fixture's model.
+static void TestRootOverflow(void)
+{
+    static const struct
+    {
+        uint32_t first;
+        float value;
+        float delta;
+        const char* name;
+    } kCases[2] = {{30, 3e38f, 2.0f, "a velocity past the float range over the step"},
+                   {33, 2.5e38f, 1.0f, "a rotation angle past the float range"}};
+    for (int c = 0; c < 2; ++c)
+    {
+        RootOutputs(kCases[c].first, kCases[c].value);
+        maniGraph g;
+        maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.0f), &g);
+        maniGraphEvent events[8];
+        uint32_t count = 0;
+        maniRootMove move;
+        CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_success,
+              "no move over no time");
+        maniResult r = maniUpdateGraph(instance, kCases[c].delta, events, 8, &count, &move);
+        maniGraphNodeView view;
+        CHECK(r == mani_errorFormat && isfinite(move.translation.x) &&
+                  isfinite(move.translation.y) && isfinite(move.translation.z) &&
+                  isfinite(move.rotation.x) && isfinite(move.rotation.y) &&
+                  isfinite(move.rotation.z) && isfinite(move.rotation.w) &&
+                  maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1,
+              kCases[c].name);
+    }
+}
+
 int main(void)
 {
     Open();
@@ -936,5 +997,6 @@ int main(void)
     TestCache();
     TestMirrored();
     TestOverflow();
+    TestRootOverflow();
     return s_failures == 0 ? 0 : 1;
 }

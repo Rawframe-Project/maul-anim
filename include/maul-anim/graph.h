@@ -830,7 +830,8 @@ extern "C"
     /// @param rootMotionOut Receives the update's root motion. May be NULL.
     ///                      Written on success and on mani_errorFormat.
     /// @return `mani_success`; `mani_errorFormat` when a learned node's
-    /// model gave a value past the float range: the update completed for
+    /// model gave a value past the float range, or a root velocity whose
+    /// move over the step passes it: the update completed for
     /// every node, the failing nodes held their last finite state (or stay
     /// without one) and gave no root motion or events,
     /// maniInspectGraphNode names them, and the events and root motion
