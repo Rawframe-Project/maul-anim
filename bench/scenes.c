@@ -384,9 +384,19 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
         entries[c] = (maniMatchEntrySource){c, MANI_MATCH_LOOP, 0.0f, BENCH_DURATION, 0.0f, 1u};
         clips[c] = &scenes->full[c];
     }
-    const maniMotionDatabaseSource source = {
-        &scenes->skeleton, clips, channels,       entries,        BENCH_CLIPS, 5,
-        BENCH_CLIPS,       RATE,  maniMatchAxisY, maniMatchAxisZ, NULL, 0, 0};
+    const maniMotionDatabaseSource source = {&scenes->skeleton,
+                                             clips,
+                                             channels,
+                                             entries,
+                                             BENCH_CLIPS,
+                                             5,
+                                             BENCH_CLIPS,
+                                             RATE,
+                                             maniMatchAxisY,
+                                             maniMatchAxisZ,
+                                             NULL,
+                                             0,
+                                             0};
     void* file = NULL;
     size_t size = 0;
     if (!Keep(builder, maniBuildMotionDatabase(builder, &source), "the motion database", &file,
