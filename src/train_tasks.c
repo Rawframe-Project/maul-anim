@@ -20,14 +20,26 @@ typedef struct Wrapped
     void* context;
 } Wrapped;
 
+// One range of a wrapped task.
+typedef struct Range
+{
+    const Wrapped* wrapped;
+    int32_t start;
+    int32_t end;
+} Range;
+
+static void RunRange(void* context)
+{
+    const Range* range = context;
+    range->wrapped->task(range->start, range->end, range->wrapped->context);
+}
+
 // A task body on a host's thread, which keeps the host's floating-point
 // environment: the library's entered around it.
 static void InEnvironment(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
-    const Wrapped* wrapped = taskContext;
-    uint64_t env = maniFloatEnvEnter();
-    wrapped->task(startIndex, endIndex, wrapped->context);
-    maniFloatEnvLeave(env);
+    Range range = {taskContext, startIndex, endIndex};
+    maniFloatEnvRun(RunRange, &range);
 }
 
 void maniTrainRun(const maniTaskHooks* hooks, maniTaskFn* task, int32_t count, void* context)

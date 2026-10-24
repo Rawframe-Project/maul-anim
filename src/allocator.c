@@ -3,10 +3,30 @@
 
 #include "allocator.h"
 
+#include "fpenv.h"
 #include "invariant.h"
 
 #include <stdckdint.h>
 #include <stdlib.h>
+
+// The host's allocator runs in the host's floating-point environment:
+// each call is the only work of a helper of its own, so none of the
+// caller's arithmetic moves into it.
+static MANI_NOINLINE void* HostAlloc(const maniAllocator* allocator, size_t bytes, size_t alignment)
+{
+    maniFloatHost host = maniFloatHostEnter();
+    void* block = allocator->alloc(bytes, alignment, allocator->context);
+    maniFloatHostLeave(host);
+    return block;
+}
+
+static MANI_NOINLINE void HostFree(const maniAllocator* allocator, void* block, size_t bytes,
+                                   size_t alignment)
+{
+    maniFloatHost host = maniFloatHostEnter();
+    allocator->free(block, bytes, alignment, allocator->context);
+    maniFloatHostLeave(host);
+}
 
 bool maniAllocatorValid(const maniAllocator* allocator)
 {
@@ -25,7 +45,7 @@ void* maniAllocate(const maniAllocator* allocator, size_t count, size_t size, si
     }
     if (allocator->alloc != NULL)
     {
-        return allocator->alloc(bytes, alignment, allocator->context);
+        return HostAlloc(allocator, bytes, alignment);
     }
     return alignment <= alignof(max_align_t) ? malloc(bytes) : NULL;
 }
@@ -42,7 +62,7 @@ void maniRelease(const maniAllocator* allocator, void* block, size_t count, size
     MANI_ASSERT(count != 0 && size != 0 && (alignment & (alignment - 1)) == 0);
     if (allocator->free != NULL)
     {
-        allocator->free(block, count * size, alignment, allocator->context);
+        HostFree(allocator, block, count * size, alignment);
         return;
     }
     free(block);

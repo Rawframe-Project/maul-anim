@@ -40,7 +40,7 @@ Every CI cell is a preset in `CMakePresets.json`, built in `out/<preset>` ([chec
 - **Modules:** `tools/modules.txt` lists which module may include which; a new include needs a line there. The runtime never includes a builder. Every runtime module is placed in a part of `tools/size-budget.txt`.
 - **Offline split:** builders, importers, the compressor, the JSON forms and the trainer build only with `MAUL_ANIM_OFFLINE`; runtime code must build and link without them.
 - **No allocation at run time:** `tools/size_report.py` fails on any allocator symbol in a runtime-only archive.
-- **Calls back in:** the host's allocator and task hooks are called only through `src/host_code.h`, which marks the object for the call.
+- **Calls back in:** the host's allocator and task hooks are called only through `src/host_code.h`, which marks the object for the call, and run in the host's floating-point environment, each call alone in a `MANI_NOINLINE` helper between `maniFloatHostEnter` and `maniFloatHostLeave` (`src/allocator.c`, `src/host_code.c`).
 - **Assertions:** `MANI_ASSERT` (`src/invariant.h`) checks internal invariants only. It traps in builds without `NDEBUG` (Debug, sanitizers, fuzzing) and compiles out of Release. Never assert on caller input, files or text; validate and return a status. Library code never calls `assert` or `abort`.
 
 ## Testing
