@@ -13,6 +13,7 @@
 #include "graph_emit.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "invariant.h"
 #include "retarget_motion.h"
 #include "root_motion.h"
 
@@ -29,6 +30,7 @@ typedef maniGraphUpdate Update;
 
 static maniGraphNodeState* Node(const Update* u, uint32_t p)
 {
+    MANI_ASSERT(p < u->graph->nodeCount);
     return maniGraphUpdateNode(u, p);
 }
 
@@ -71,6 +73,7 @@ static maniRootMove Carried(const Update* u, uint32_t slot, const maniClip* clip
 // A clip node's clip, its loop as the node says.
 static maniClip ClipOf(const Update* u, uint32_t data)
 {
+    MANI_ASSERT(Word(u, data) < u->graph->clipCount);
     maniClip clip = *u->binding->clips[Word(u, data)];
     uint32_t loop = Word(u, data + 2);
     clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat);
@@ -145,6 +148,7 @@ static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const mani
 
 static maniGraphGroupState* Group(const Update* u, uint32_t group)
 {
+    MANI_ASSERT(group < u->graph->syncGroupCount);
     return &u->instance->cells[u->graph->parameterCount + u->graph->nodeCount + group].group;
 }
 
@@ -305,6 +309,10 @@ static double CountPassed(const Update* u, uint32_t g, uint32_t p, const maniCli
 static void LeaderMotion(const Update* u, uint32_t g)
 {
     maniGraphGroupState* group = Group(u, g);
+    // The leader is a clip node of the group.
+    MANI_ASSERT(group->leader < u->graph->nodeCount &&
+                maniLoadU16(Record(u, group->leader)) == maniGraphNodeClip &&
+                GroupOf(u, Record(u, group->leader)) == g);
     uint32_t data = maniLoadU32(Record(u, group->leader) + 12);
     maniClip clip = ClipOf(u, data);
     Motion m = OwnMotion(u, Node(u, group->leader), &clip, data);
@@ -377,6 +385,9 @@ static Between PositionAt(const Update* u, uint32_t g, uint32_t p, const maniCli
                           bool backward)
 {
     uint32_t previous = Passed(u, g, p, clip, t, backward);
+    // A group follows by markers only when every member's clip has one of
+    // the leader's markers, so a common marker is always found.
+    MANI_ASSERT(previous < clip->markerCount);
     uint32_t next = NextCommon(u, g, p, clip, previous, backward);
     double behind = Along(MarkerTime(clip, previous), t, backward, (double)clip->duration);
     return (Between){previous, next, behind / Span(clip, previous, next, backward)};
