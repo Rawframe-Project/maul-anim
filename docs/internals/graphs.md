@@ -48,11 +48,11 @@ The **update** ([`src/graph_update.c`](../../src/graph_update.c)):
 
 The **evaluation** ([`src/graph_evaluate.c`](../../src/graph_evaluate.c)) visits every node the last update weighed, in order: a clip node samples its clip through its cursor, a blend calls `maniBlendPoses` over its weighed inputs, a mask blends by the mask's bone weights and their remainders, an additive node copies its base and adds its layers, a select, time scale or seek copies its input. A node whose weighed inputs are none gives the rest. The result equals the blending functions applied by hand, bit for bit, which the tests check node by node.
 
-The graph adds little to the work it orders: two clips and a blend take about 6% more instructions a frame than sampling and blending them by hand, the difference being the update's weights, events and root motion.
+The graph adds little to the work it orders: a frame of two clips and a blend takes 5.1% more instructions than sampling and blending them by hand ([size-and-performance.md](size-and-performance.md#graph-overhead), `graph.frame` against `graph.byhand`, [#62](https://github.com/Rawframe-Project/maul-anim/pull/62)), the difference being the update's weights, events and root motion. The clip nodes' step lives in its own unit, and its calls from the update add 0.21% to a frame.
 
 ## Sync groups
 
-Clips of different lengths (a walk and a run) must keep their feet in step while blended. Each update picks a group's leader: the first member declared one, else the member weighed most. The leader moves by its own speed; each follower starts from the leader's phase and moves as far through its own clip as the leader through its own. Only the leader's events fire unless the group asks for every member's.
+Clips of different lengths (a walk and a run) must keep their feet in step while blended. Each update picks a group's leader ([`src/graph_clip_step.c`](../../src/graph_clip_step.c), which moves every clip node): the first member declared one, else the member weighed most. The leader moves by its own speed; each follower starts from the leader's phase and moves as far through its own clip as the leader through its own. Only the leader's events fire unless the group asks for every member's.
 
 A group whose members all repeat and share marker names syncs by markers instead: a position is the last common marker passed, the next one and the fraction between them. A follower is placed where its markers carry the leader's names at the leader's fraction, passes as many common markers as the leader, and lands at the leader's final fraction, so a clip that starts on the other foot stays in step without passing a loop of events.
 
