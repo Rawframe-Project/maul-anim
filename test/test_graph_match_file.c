@@ -421,6 +421,24 @@ static void TestSubgraph(void)
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonDatabase && r.item == 0,
           "a subgraph's slot without its database");
     maniDestroyBuilder(builder);
+    // A slot past the subgraph's databases, where the root lists one:
+    // refused at the node's place, not fed by the root's.
+    sub.nodes = inner;
+    sub.nodeCount = 1;
+    sub.databases = kDatabaseSlot;
+    root.clips = kSlots;
+    root.clipCount = 2;
+    root.databases = kDatabaseSlot;
+    root.databaseCount = 1;
+    builder = NewBuilder();
+    CHECK(maniBuildGraph(builder, &root).result == mani_success,
+          "the subgraph's database joined to the root's alone");
+    sub.databases = NULL;
+    sub.databaseCount = 0;
+    r = maniBuildGraph(builder, &root);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNode && r.item == 0,
+          "a subgraph's slot past its databases");
+    maniDestroyBuilder(builder);
 }
 
 // The subgraph's parameters mapped to the root's in reverse, its

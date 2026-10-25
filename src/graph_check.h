@@ -13,6 +13,7 @@
 #include "maul-anim/build.h"
 #include "maul-anim/graphbuild.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 // What a checked source needs written: its inputs, data words, masks and
@@ -44,6 +45,10 @@ maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t 
 // A map's slot among the count identities of ids, added when new (count
 // grows); MANI_GRAPH_MAX_MAPS when ids are full.
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity);
+
+// The source's parameter, clip, sync group, database, model and spring
+// set lists: each within its limit, and given when it is not empty.
+bool maniGraphListsValid(const maniGraphSource* source);
 
 // Checks the source's counts, parameters, clips, sync groups, databases
 // and nodes;

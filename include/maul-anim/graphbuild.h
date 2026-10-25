@@ -682,7 +682,9 @@ extern "C"
 
     // A subgraph node: the graph (of the same skeleton; its clips and
     // databases joined to this graph's by identity, its sync groups by
-    // name, its mirror map this graph's or none), and for each
+    // name, its mirror map this graph's or none; its lists held to the
+    // limits of this graph's, and each slot and sync group its nodes name
+    // within its own lists), and for each
     // of its parameters the parameter of this graph it reads, of the same
     // type. It takes no inputs.
     typedef struct maniGraphSubgraphNodeSource
@@ -768,8 +770,9 @@ extern "C"
     /// @param source   The graph.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
     /// misuse) or with the reason, the item and another the reason names
-    /// for a refused source: Count (more items than the named limits, or
-    /// none of nodes), Name, DuplicateName and NameHash with the list
+    /// for a refused source: Count (more items than the named limits, none
+    /// of nodes, or a list of items not given, in the source or a
+    /// subgraph), Name, DuplicateName and NameHash with the list
     /// bits of parameters, clips, sync groups, databases, models or
     /// spring sets, Parameter, Clip, Database, Model, SpringSetSlot, Node,
     /// Input, Cycle, Unreachable, Scalar, Weight, Difference, MirrorGraph

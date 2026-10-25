@@ -761,6 +761,16 @@ static void TestSubgraph(void)
     static const maniGraphSpringSetSource kNone[1] = {{NULL, "none", 4, 0}};
     inner.springSets = kNone;
     CHECK(RefusedFor(&outer, maniBuildReasonSpringSetSlot, 0), "a subgraph's slot without its set");
+    // A slot past the subgraph's sets, where the outer lists one: refused
+    // at the spring node's place, not driven by the outer's.
+    inner = SpringGraph(kSpring);
+    outer.springSets = inner.springSets;
+    outer.springSetCount = 1;
+    CHECK(Build(&outer, &s_made[0], &size).result == mani_success,
+          "the subgraph's set joined to the outer's");
+    inner.springSets = NULL;
+    inner.springSetCount = 0;
+    CHECK(RefusedFor(&outer, maniBuildReasonNode, 2), "a subgraph's slot past its sets");
 }
 
 static bool WriteFile(const char* path, const void* data, size_t size)

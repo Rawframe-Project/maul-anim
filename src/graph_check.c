@@ -841,10 +841,9 @@ static maniBuildResult CheckInertial(const maniGraphSource* source, const maniAl
     return r;
 }
 
-static bool CountsValid(const maniGraphSource* source)
+bool maniGraphListsValid(const maniGraphSource* source)
 {
-    return source->nodeCount > 0 && source->nodeCount <= MANI_GRAPH_MAX_NODES &&
-           source->nodes != NULL && source->parameterCount <= MANI_GRAPH_MAX_PARAMETERS &&
+    return source->parameterCount <= MANI_GRAPH_MAX_PARAMETERS &&
            (source->parameterCount == 0 || source->parameters != NULL) &&
            source->clipCount <= MANI_GRAPH_MAX_CLIPS &&
            (source->clipCount == 0 || source->clips != NULL) &&
@@ -856,6 +855,12 @@ static bool CountsValid(const maniGraphSource* source)
            (source->modelCount == 0 || source->models != NULL) &&
            source->springSetCount <= MANI_GRAPH_MAX_SPRING_SETS &&
            (source->springSetCount == 0 || source->springSets != NULL);
+}
+
+static bool CountsValid(const maniGraphSource* source)
+{
+    return source->nodeCount > 0 && source->nodeCount <= MANI_GRAPH_MAX_NODES &&
+           source->nodes != NULL && maniGraphListsValid(source);
 }
 
 maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAllocator* allocator,

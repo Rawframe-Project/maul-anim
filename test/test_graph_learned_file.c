@@ -514,6 +514,20 @@ static void TestSubgraph(void)
     maniBuildResult r = maniBuildGraph(builder, &root);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonModel && r.item == 0,
           "a subgraph's slot without its model");
+    // A slot past the subgraph's models, where the root lists one:
+    // refused at the node's place, not run by the root's.
+    sub.nodes = inner;
+    sub.nodeCount = 1;
+    sub.models = kModelSlot;
+    root.models = kModelSlot;
+    root.modelCount = 1;
+    CHECK(maniBuildGraph(builder, &root).result == mani_success,
+          "the subgraph's model joined to the root's alone");
+    sub.models = NULL;
+    sub.modelCount = 0;
+    r = maniBuildGraph(builder, &root);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNode && r.item == 0,
+          "a subgraph's slot past its models");
     maniDestroyBuilder(builder);
 }
 

@@ -95,7 +95,7 @@ The **turn limit** node turns each bone's local rotation from its last output to
 
 ## Subgraphs and the JSON form
 
-A subgraph is a source-only node: at build its output takes the node's place, its other nodes follow, its parameters are read through the node's map, and its assets join the graph's by identity. A graph built from subgraphs plays bit for bit as the same graph written out. Nesting deeper than 16 is refused.
+A subgraph is a source-only node: at build its output takes the node's place, its other nodes follow, its parameters are read through the node's map, and its assets join the graph's by identity. A subgraph's lists are held to the rules of the root's, and a slot or sync group past the subgraph's own list is refused at its node's place, never read as the root's. A graph built from subgraphs plays bit for bit as the same graph written out. Nesting deeper than 16 is refused.
 
 `maniWriteGraphJson` writes a source as text after building it, so only a source that builds is written. Parameters, slots, sync groups and bones are named, never indexed, so the text survives a reimport that changes identities or bone order. Each list item takes one line, so a change to one item is a one-line diff, and numbers are the shortest decimal that reads back to the same binary32, found with integers only, so one source has one text on every platform. `maniBuildGraphJson` reads it strictly (an unknown or repeated member is refused), names resolve through sorted hash tables so a hostile text costs n log n, and a refusal gives the byte offset and its kind. The retargeting and mirror maps share the reader and writer ([retargeting-and-mirroring.md](retargeting-and-mirroring.md#the-json-form)).
 
