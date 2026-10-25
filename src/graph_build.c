@@ -24,6 +24,7 @@
 #include "graph_mirror.h"
 #include "graph_spring.h"
 #include "graph_turn.h"
+#include "invariant.h"
 #include "sort.h"
 #include "triangulate.h"
 
@@ -100,12 +101,16 @@ static maniBuildResult Order(const maniGraphSource* source, Work* w)
         }
         w->next[depth - 1] = k + 1;
         uint32_t u = node->inputs[k];
+        // The checker took only inputs within the nodes.
+        MANI_ASSERT(u < n);
         if (w->state[u] == 1)
         {
             return maniGraphRefuse(maniBuildReasonCycle, v, k);
         }
         if (w->state[u] == 0)
         {
+            // Each node enters the stack once, so it holds at most n.
+            MANI_ASSERT(depth < n);
             w->state[u] = 1;
             w->stack[depth] = u;
             w->next[depth++] = 0;
@@ -118,6 +123,7 @@ static maniBuildResult Order(const maniGraphSource* source, Work* w)
             return maniGraphRefuse(maniBuildReasonUnreachable, v, 0);
         }
     }
+    MANI_ASSERT(placed == n);
     return Outcome(mani_success);
 }
 
@@ -133,6 +139,7 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     }
     if (node->kind == maniGraphNodeClip)
     {
+        MANI_ASSERT(node->clip.clip < source->clipCount);
         const maniClip* clip = source->clips[node->clip.clip].clip;
         w->difference[v] = maniClipAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u;
         return Outcome(mani_success);
@@ -141,6 +148,8 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeMirror ||
                      node->kind == maniGraphNodeTurnLimit ||
                      (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls);
+    // Every kind but the four above takes an input.
+    MANI_ASSERT(node->inputCount > 0);
     uint32_t first = w->difference[node->inputs[0]];
     if ((additive || posesOnly) && first != 0)
     {
@@ -184,6 +193,8 @@ static void Slots(const maniGraphSource* source, Work* w)
             uint32_t u = node->inputs[k];
             if (w->lastReader[u] == p)
             {
+                // A slot is freed once, by its node's last reader.
+                MANI_ASSERT(freeCount < n);
                 w->freeSlots[freeCount++] = w->slot[u];
                 w->lastReader[u] = n + 1;
             }
@@ -264,6 +275,8 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
 // A name into the names section, its offset, length and hash after it.
 static void PutName(Layout* lay, const char* name, uint32_t length, uint8_t* entry)
 {
+    // The checker's tally sized the names section by every name.
+    MANI_ASSERT(lay->namesAt + length <= lay->sizes[10]);
     memcpy(lay->sections[10] + lay->namesAt, name, length);
     maniStoreU32(entry, (uint32_t)lay->namesAt);
     maniStoreU32(entry + 4, length);
@@ -329,6 +342,8 @@ static uint32_t PutTriangles(uint8_t* d, uint32_t at, const maniGraphTrianglesNo
     {
         (void)maniGraphPutWords(d, at + 1 + 2 * n, s->triangles, 3 * count);
     }
+    // The triangles fit the space reserved for them.
+    MANI_ASSERT(count <= MANI_GRAPH_MAX_TRIANGLES(n));
     at = maniGraphPutFloats(d, maniGraphPutWords(d, at, &count, 1), s->points, 2 * n);
     return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n);
 }
@@ -361,6 +376,8 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
     }
     maniGraphPutFloat(d + 4 * (size_t)at, node->blendSpace1D.period);
     at = maniGraphPutFloats(d, at + 1, node->blendSpace1D.points, n);
+    // The checker took at most MANI_GRAPH_MAX_SPACE_POINTS inputs.
+    MANI_ASSERT(n <= MANI_GRAPH_MAX_SPACE_POINTS);
     uint64_t keys[MANI_GRAPH_MAX_SPACE_POINTS];
     uint32_t order[MANI_GRAPH_MAX_SPACE_POINTS];
     uint32_t scratch[MANI_GRAPH_MAX_SPACE_POINTS];
@@ -377,6 +394,7 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
 static void PutMask(const maniGraphSource* source, const maniGraphMaskNodeSource* m, Layout* lay)
 {
     uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    MANI_ASSERT(4 * ((uint64_t)lay->maskAt + 1) * bones <= lay->sizes[7]);
     // Checked already: the chains' bones and weights are in range.
     (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight, lay->weights,
                         bones);
@@ -434,6 +452,7 @@ static uint32_t PutMatch(uint8_t* d, uint32_t at, const maniGraphMatchNodeSource
 static uint32_t PutLearned(const maniGraphSource* source, uint8_t* d, uint32_t at,
                            const maniGraphLearnedNodeSource* l, Layout* lay)
 {
+    MANI_ASSERT(l->model < source->modelCount);
     const maniLearnedModel* m = source->models[l->model].model;
     uint32_t states = m->featureCount + m->latentCount;
     const uint32_t head[2] = {l->model, l->trigger};
@@ -453,6 +472,7 @@ static uint32_t PutLearned(const maniGraphSource* source, uint8_t* d, uint32_t a
 static uint32_t PutSpring(const maniGraphSource* source, uint8_t* d, uint32_t at,
                           const maniGraphSpringNodeSource* s, Layout* lay)
 {
+    MANI_ASSERT(s->springSet < source->springSetCount);
     uint32_t words = (uint32_t)maniGraphSpringSetWords(source->springSets[s->springSet].set);
     const uint32_t head[MANI_GRAPH_SPRING_WORDS] = {
         s->springSet, s->position, s->rotation, s->reset, lay->blockAt, words, s->force};
@@ -497,6 +517,8 @@ static uint32_t PutWeights(uint8_t* d, uint32_t at, const maniGraphNodeSource* n
     uint32_t n = node->inputCount;
     bool blend = node->kind == maniGraphNodeBlend;
     at = blend ? maniGraphPutWords(d, at, &node->blend.direct, 1) : at;
+    // An additive node has its base and at least one layer.
+    MANI_ASSERT(blend || n >= 2);
     const maniGraphScalar* weights = blend ? node->blend.weights : node->additive.weights;
     for (uint32_t k = 0; k < (blend ? n : n - 1); ++k)
     {
@@ -609,6 +631,9 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         }
         uint32_t first = lay->dataAt;
         PutData(source, node, lay);
+        // The tally sized the data and inputs sections by every node.
+        MANI_ASSERT(4 * (uint64_t)lay->dataAt <= lay->sizes[4] &&
+                    4 * (uint64_t)lay->inputAt <= lay->sizes[3]);
         bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot ||
                        node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned ||
                        (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeBodySdls);
@@ -652,6 +677,8 @@ static uint32_t PutMap(const maniGraphClipSource* c, Layout* lay, uint64_t* ids,
         return MANI_GRAPH_NO_MAP;
     }
     uint32_t slot = maniGraphMapSlotIn(ids, count, c->map->identity);
+    // The checker found the same slots, as many as the tally's maps.
+    MANI_ASSERT((uint64_t)slot * MANI_GRAPH_MAP_SIZE < lay->sizes[13]);
     uint8_t* e = lay->sections[13] + (size_t)slot * MANI_GRAPH_MAP_SIZE;
     maniStoreU64(e, c->map->identity);
     maniStoreU64(e + 8, c->map->sourceIdentity);
@@ -702,6 +729,7 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
                          maniGraphDatabaseClipSlot(source, b->database, c));
         }
     }
+    MANI_ASSERT(4 * (uint64_t)first == lay->sizes[9]);
     PutSlots(source, lay);
     if (source->mirrorMap != NULL)
     {
@@ -820,6 +848,10 @@ static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source
     PutHeader(source, tally, w->slotCount, lay.sections[0]);
     PutLists(source, &lay);
     PutNodes(source, w, &lay);
+    // Every section is filled to the size the tally gave it.
+    MANI_ASSERT(lay.namesAt == lay.sizes[10] && 4 * (uint64_t)lay.inputAt == lay.sizes[3] &&
+                4 * (uint64_t)lay.dataAt == lay.sizes[4] && lay.maskAt == tally->maskCount &&
+                lay.blockAt == tally->machineWords);
     maniBuildResult r = Keep(builder, &lay);
     Release(&builder->allocator, &lay, bones);
     return r;
