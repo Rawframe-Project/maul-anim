@@ -23,6 +23,7 @@
 #include "graph_space.h"
 #include "graph_spring.h"
 #include "graph_turn.h"
+#include "invariant.h"
 #include "root_motion.h"
 
 #include "maul-anim/base.h"
@@ -42,6 +43,7 @@ typedef maniGraphUpdate Update;
 
 static maniGraphNodeState* Node(const Update* u, uint32_t p)
 {
+    MANI_ASSERT(p < u->graph->nodeCount);
     return &u->instance->cells[u->graph->parameterCount + p].node;
 }
 
@@ -55,9 +57,14 @@ static uint32_t Word(const Update* u, uint32_t at)
     return maniGraphUpdateWord(u, at);
 }
 
+// A node's input k: the opener checked that every input comes before its
+// reader, so the weights flow down in one pass from the last node.
 static uint32_t InputOf(const Update* u, const uint8_t* record, uint32_t k)
 {
-    return maniLoadU32(u->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
+    uint32_t input = maniLoadU32(u->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
+    MANI_ASSERT(k < maniLoadU32(record + 8) &&
+                input < (size_t)(record - u->graph->nodes) / MANI_GRAPH_NODE_SIZE);
+    return input;
 }
 
 static float Scalar(const Update* u, uint32_t at)
@@ -128,6 +135,7 @@ static void ShareMask(const Update* u, const uint8_t* record, const maniGraphNod
 {
     uint32_t bones = u->graph->skeletonBoneCount;
     uint32_t mask = Word(u, maniLoadU32(record + 12));
+    MANI_ASSERT(mask < u->graph->maskCount);
     const uint8_t* weights = u->graph->maskWeights + 4 * (size_t)mask * bones;
     float inside = 0.0f;
     float outside = 0.0f;
@@ -165,6 +173,7 @@ static void ShareAdditive(const Update* u, const uint8_t* record, const maniGrap
 static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
     uint32_t n = maniLoadU32(record + 8);
+    MANI_ASSERT(n <= MANI_GRAPH_MAX_SPACE_POINTS);
     float weights[MANI_GRAPH_MAX_SPACE_POINTS];
     maniGraphSpaceWeights(u->graph, u->instance->cells, maniLoadU16(record),
                           maniLoadU32(record + 12), n, weights);
@@ -201,6 +210,7 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     maniGraphStepMachine(&m, u->instance->cells, block, fabs(u->delta * (double)s->factor),
                          &entered);
     maniGraphRequest(u, s->inertia, entered.inertia);
+    MANI_ASSERT(entered.count <= MANI_GRAPH_MAX_CHAIN);
     for (uint32_t k = 0; k < m.states; ++k)
     {
         float weight = maniGraphMachineWeight(block, k);
@@ -249,6 +259,7 @@ static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNod
     float least = 1.0f;
     float root = 1.0f;
     uint32_t mask = maniGraphShotWord(&shot, maniGraphShotMask);
+    MANI_ASSERT(mask == MANI_GRAPH_NO_MASK || mask < u->graph->maskCount);
     if (mask != MANI_GRAPH_NO_MASK)
     {
         uint32_t bones = u->graph->skeletonBoneCount;
@@ -326,6 +337,7 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
     if (kind == maniGraphNodeSelect)
     {
         s->word = Chosen(u, record);
+        MANI_ASSERT(s->word < maniLoadU32(record + 8));
         Give(u, InputOf(u, record, s->word), share);
         return;
     }
@@ -401,6 +413,7 @@ static void ShareTurn(const Update* u, const uint8_t* record, maniGraphNodeState
 static void Weigh(const Update* u)
 {
     uint32_t n = u->graph->nodeCount;
+    MANI_ASSERT(n >= 1);
     for (uint32_t p = 0; p < n; ++p)
     {
         maniGraphNodeState* s = Node(u, p);
