@@ -22,10 +22,10 @@ extern "C"
 #define MANI_VERSION_MAJOR 0
 // x-release-please-end
 // x-release-please-start-minor
-#define MANI_VERSION_MINOR 2
+#define MANI_VERSION_MINOR 3
 // x-release-please-end
 // x-release-please-start-patch
-#define MANI_VERSION_PATCH 1
+#define MANI_VERSION_PATCH 0
 // x-release-please-end
 
 // The releases that share a binary interface, which a root def's default
