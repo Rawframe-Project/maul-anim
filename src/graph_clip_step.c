@@ -142,8 +142,7 @@ static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const mani
         double scale = (s->flags & MANI_GRAPH_PHASE) != 0 ? (double)clip->duration : 1.0;
         return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, true, false};
     }
-    // The time scales above multiply as binary32, so their product can
-    // overflow; a step that is not finite moves nothing.
+    // A step that is not finite moves nothing.
     double step = u->delta * (double)Scalar(u, data + 4) * (double)s->factor;
     return (Motion){s->time, isfinite(step) ? step : 0.0, false, true};
 }
@@ -459,8 +458,7 @@ static double FollowMarkers(const Update* u, uint32_t g, uint32_t p, const maniC
         travelled += loops * (double)clip->duration;
     }
     // At most two loops of markers remain to walk: the reduction above
-    // leaves pass at most 2 perLoop. The bound holds when a huge step leaves
-    // pass inexact, and stops a count that is not a number.
+    // leaves pass at most 2 perLoop, and the walk's count is bounded by it.
     double bounded = pass < 2.0 * perLoop ? pass : 2.0 * perLoop;
     uint64_t steps = (uint64_t)(bounded > 0.0 ? bounded : 0.0);
     uint64_t limit = steps + (uint64_t)perLoop;
