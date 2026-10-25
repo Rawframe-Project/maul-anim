@@ -63,6 +63,7 @@ preset() {
     shift
     step "preset $name"
     cmake --preset "$name" >"$out/$name.log"
+    python3 tools/check_test_hygiene.py --ctest "out/$name"
     cmake --build --preset "$name" -j "$jobs" >>"$out/$name.log"
     ctest --preset "$name" -j "$jobs" "$@"
 }
@@ -82,13 +83,15 @@ labels_for() {
 }
 
 source_checks() {
-    step "source, module, length, documentation and snippet rules"
+    step "source, module, length, documentation, snippet and test hygiene rules"
     python3 tools/check_source.py
     python3 tools/check_modules.py
     python3 tools/check_lengths.py
     python3 tools/check_docs.py
     python3 tools/check_float_env.py
     python3 tools/check_guide.py
+    python3 tools/check_test_hygiene.py --self-test
+    python3 tools/check_test_hygiene.py
     if [ -f "$org/scripts/docs_check.py" ]; then
         python3 "$org/scripts/docs_check.py" --exclude test/data
     else
