@@ -152,7 +152,7 @@ ThreadSanitizer inside the container needs `--security-opt seccomp=unconfined`. 
 
 **A differential.** Run `fbx_differential` on the one file it names (`MISMATCH`, then the aspect). A disagreement is fixed in the library, or decided and listed with its reason in `tools/fbx-deviations.txt`. The other differentials print their worst difference against their bound and exit non-zero past it; [Differentials](#differentials) gives their arguments.
 
-**`guide_import_memory_limit`.** It runs `test_guide_import --default-huge` under `ulimit -v 524288`, outside the sanitizer builds. It prints `default allocator: other` and fails when importing the morph targets of a 2 KB file that asks for 8.6 GB returns anything but `mani_errorCapacity`: the C library's allocator must refuse under the limit, and the importer must pass that refusal on as Capacity.
+**`guide_import_memory_limit`.** It runs `test_guide_import --default-huge` under `ulimit -v 524288`, outside the sanitizer builds. It prints `default allocator: other` and fails when importing the morph targets of a 2 KB file that asks for 8.6 GB returns anything but `mani_errorCapacity`: the C library's allocator must refuse under the limit, and the importer must pass that refusal on as Capacity. It prints `default allocator: the build not reached` and fails when the limit is too tight to create the builder or open the file, so a limit that leaves no room never passes.
 
 ## Reproducing a fuzz finding
 

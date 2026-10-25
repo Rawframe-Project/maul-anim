@@ -534,12 +534,16 @@ static void RandomKeys(uint32_t b)
                                               (pick & 4) ? Linear(s_randomS[b], KEYS) : kNone};
 }
 
-// Each of the three precisions with each of the three shell distances.
+// The random hierarchies held within their precision: each of the three
+// precisions with each of the three shell distances once, and in the
+// dense test (`test_clip_compress dense`) 24 of them.
+static int s_precisionRounds = 9;
+
 static void TestRandomWithinPrecision(void)
 {
     static const float kPrecisions[3] = {1e-3f, 1e-4f, 1e-5f};
     static const float kShells[3] = {0.01f, 0.03f, 0.1f};
-    for (int round = 0; round < 9; ++round)
+    for (int round = 0; round < s_precisionRounds; ++round)
     {
         uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_DRAW - 2));
         RandomSkeleton(bones);
@@ -1772,6 +1776,10 @@ int main(int argc, char** argv)
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
     {
         return WriteSeed(argv[2]);
+    }
+    if (argc == 2 && strcmp(argv[1], "dense") == 0)
+    {
+        s_precisionRounds = 24;
     }
     TestSegments();
     TestOneSegment();

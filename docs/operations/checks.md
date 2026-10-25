@@ -47,6 +47,14 @@ CodeQL must never build through ccache: a cache hit skips the compiler, so CodeQ
 
 Each suite in `test/` is one executable, registered with CTest under its name and labeled with it; `guide_import_memory_limit` runs `test_guide_import` under the address space limit, and `package` installs the build and builds `test/consumer` against it, by its CMake package and by pkg-config. The fixture suites read `test/data/`. The white-box suites include `src/` and are not built in shared builds. No test reports itself skipped; a test preset that finds no test fails, and so does a CI cell where a test is skipped or not run. `test_guide.c` and `test_guide_import.c` run the C snippets of `docs/user/` as written; `tools/check_guide.py` fails when a snippet and its copy differ.
 
+
+A suite's full random sweeps carry the label `dense` as well as their suite's. Every cell runs them except `linux-clang-20-asan`, the pull request's slowest, whose test preset leaves them out; it and `tools/check.sh changed` run each suite with its shorter sweeps:
+
+- `exact_dense` takes 250 random triangulations, 50 of each point kind, against the suite's 50.
+- `clip_compress_dense` holds 24 random hierarchies within their precision, against the suite's 9, one for each precision and shell distance.
+
+Both check properties that depend on the values drawn (the predicates' rare error bands, a hierarchy's error against its precision), so the shorter sweeps are not judged by coverage alone.
+
 ## Fuzzing
 
 Every reader of untrusted bytes has a fuzz target, `test/fuzz_<area>.c`: each file kind, the JSON forms, saved graph state, training checkpoints, and the glTF, meshopt, Draco and FBX importers. A target checks what must hold for any input: no crash, no broken assertion, and whatever opens can be used, sampled, evaluated or built, without either. Each target also retries the input with its header or hash made right, so mutations reach the checks behind them. `tools/fuzz.sh run` runs them and `tools/fuzz.sh merge` minimizes their corpora; a target reads the committed seeds in `test/seeds/<target>/`, and for the importers the sample files of `test/data/`.
