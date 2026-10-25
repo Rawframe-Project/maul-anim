@@ -148,7 +148,7 @@ clip_compressed_open: bytes clip_codec clip_file clip_view container invariant
 clip_cursor: clip_lanes clip_view fpenv pose_memory
 clip_tracks: bytes clip_file clip_view container fpenv text
 root_motion_build: allocator bytes clip_file quat64
-clip_build: allocator builder bytes clip_file container fpenv quat64 root_motion root_motion_build
+clip_build: allocator builder bytes clip_file container fpenv invariant quat64 root_motion root_motion_build
 graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame sort text vecmath
 graph_space_check: exact graph_file
 graph_body_check: graph_file

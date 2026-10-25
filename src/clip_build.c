@@ -16,6 +16,7 @@
 #include "clip_file.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "quat64.h"
 #include "root_motion.h"
 #include "root_motion_build.h"
@@ -174,6 +175,8 @@ static void NormalizeDouble(double q[4])
 static void LoadKey(const maniChannelSource* c, uint32_t key, uint32_t part, uint32_t dimension,
                     double out[4])
 {
+    MANI_ASSERT(key < c->keyCount &&
+                part < (c->interpolation == maniInterpolationCubicSpline ? 3u : 1u));
     const float* v = c->values + (size_t)key * KeyFloats(c, dimension) + (size_t)part * dimension;
     for (uint32_t k = 0; k < dimension; ++k)
     {
@@ -184,6 +187,8 @@ static void LoadKey(const maniChannelSource* c, uint32_t key, uint32_t part, uin
 // The last key at or before a time strictly inside the keys.
 static uint32_t KeyBefore(const maniChannelSource* c, double time)
 {
+    MANI_ASSERT(c->keyCount >= 2 && (double)c->times[0] < time &&
+                time < (double)c->times[c->keyCount - 1]);
     uint32_t low = 0;
     uint32_t high = c->keyCount - 1;
     while (high - low > 1)
@@ -198,6 +203,8 @@ static uint32_t KeyBefore(const maniChannelSource* c, double time)
             high = middle;
         }
     }
+    MANI_ASSERT(low + 1 < c->keyCount && (double)c->times[low] <= time &&
+                time < (double)c->times[low + 1]);
     return low;
 }
 
@@ -208,6 +215,7 @@ static void Interpolate(const maniChannelSource* c, uint32_t dimension, uint32_t
     uint32_t valuePart = c->interpolation == maniInterpolationCubicSpline ? 1 : 0;
     double t0 = (double)c->times[low];
     double span = (double)c->times[low + 1] - t0;
+    MANI_ASSERT(span > 0.0);
     double u = (time - t0) / span;
     double a[4] = {0, 0, 0, 0};
     double b[4] = {0, 0, 0, 0};
@@ -252,6 +260,7 @@ void maniEvaluateChannel(const maniChannelSource* c, uint32_t dimension, double 
 {
     uint32_t valuePart = c->interpolation == maniInterpolationCubicSpline ? 1 : 0;
     uint32_t n = c->keyCount;
+    MANI_ASSERT(n > 0 && c->times != NULL && c->values != NULL);
     if (time <= (double)c->times[0] || n == 1)
     {
         LoadKey(c, 0, valuePart, dimension, out);
@@ -320,6 +329,8 @@ static void Difference(const maniClipSource* source, const maniBoneTrackSource* 
     }
     for (int k = 0; k < 3; ++k)
     {
+        // CheckBasis refused a scale basis with a component 0.
+        MANI_ASSERT(channel == 0 || b[k] != 0.0);
         v[k] = channel == 0 ? v[k] - b[k] : v[k] / b[k];
     }
 }
@@ -383,6 +394,7 @@ static float* PutRootBone(const RootBone* root, uint32_t k, float* p, float* out
 {
     double v[3];
     double r[4];
+    MANI_ASSERT(k < root->work.sampleCount);
     memcpy(v, root->locals + 7 * (size_t)k, sizeof v);
     memcpy(r, root->locals + 7 * (size_t)k + 3, sizeof r);
     maniRootMotionBake(&root->work, k, v, r);
@@ -511,6 +523,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         for (uint32_t i = 0; i < plan->tracks; ++i)
         {
             const maniBoneTrackSource* t = &source->boneTracks[plan->order[i]];
+            MANI_ASSERT(t->bone <= UINT16_MAX && Mask(source, t) != 0);
             maniStoreU16(tracks + 4 * (size_t)i, (uint16_t)t->bone);
             tracks[4 * (size_t)i + 2] = (uint8_t)Mask(source, t);
             tracks[4 * (size_t)i + 3] = 0;
@@ -616,6 +629,8 @@ static maniBuildResult WriteWithRootMotion(maniBuilder* builder, const maniClipS
     {
         return Write(builder, source, plan, named, previous);
     }
+    // CheckRootMotion refused a bone without a track.
+    MANI_ASSERT(seen[source->rootMotion->bone] != 0);
     const maniBoneTrackSource* track = &source->boneTracks[seen[source->rootMotion->bone] - 1];
     RootBone root = {0};
     uint64_t size = maniRootMotionSize(plan->sampleCount);
@@ -816,6 +831,7 @@ maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* s
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
             uint32_t index = scratch[bone];
+            MANI_ASSERT(index <= source->boneTrackCount);
             if (index != 0 && Mask(source, &source->boneTracks[index - 1]) != 0)
             {
                 plan.order[plan.tracks++] = index - 1;
@@ -823,6 +839,7 @@ maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* s
                     maniChannelFloats(Mask(source, &source->boneTracks[index - 1]));
             }
         }
+        MANI_ASSERT(plan.tracks <= source->boneTrackCount && plan.sampleCount > 0);
         r = WriteWithRootMotion(builder, source, &plan, &named, previous, scratch, given);
         maniReleaseClipNamed(builder, &named);
     }
