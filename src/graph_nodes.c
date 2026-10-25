@@ -3,7 +3,8 @@
 //
 // A graph's nodes checked on open: records laid out in turn,
 // inputs before their reader and in other slots, what each gives (poses
-// or differences) as its inputs make it, and each kind's data in range.
+// or differences) as its inputs make it, each kind's data in range, and
+// each node's time factor bounding its inputs'.
 
 #include "graph_nodes.h"
 
@@ -136,6 +137,41 @@ static float WordFloat(const maniGraph* g, uint32_t at)
     float value = 0.0f;
     memcpy(&value, &bits, sizeof value);
     return value;
+}
+
+static float EntryFloat(const uint8_t* entry, uint32_t at)
+{
+    uint32_t bits = maniLoadU32(entry + at);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
+// A time scale: a finite literal, or a float parameter with bounds.
+static uint32_t ScaleValid(const maniGraph* g, uint32_t d)
+{
+    uint32_t parameter = Word(g, d);
+    bool bounded =
+        parameter == MANI_NO_PARAMETER ||
+        (parameter < g->parameterCount &&
+         (maniLoadU32(g->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE + 4) &
+          MANI_GRAPH_BOUNDED) != 0);
+    return bounded ? ScalarsValid(g, d, 1, -HUGE_VALF, HUGE_VALF) : d;
+}
+
+// The largest size a valid time scale at data word d takes: its literal's,
+// or the larger of its parameter's bounds.
+static float ScaleSize(const maniGraph* g, uint32_t d)
+{
+    uint32_t parameter = Word(g, d);
+    if (parameter == MANI_NO_PARAMETER)
+    {
+        return fabsf(WordFloat(g, d + 1));
+    }
+    const uint8_t* e = g->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE;
+    float low = fabsf(EntryFloat(e, 40));
+    float high = fabsf(EntryFloat(e, 44));
+    return low > high ? low : high;
 }
 
 // Whether the position's words from k on are literal zeros.
@@ -406,7 +442,7 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
         type = Word(g, d) < g->parameterCount ? ParameterType(g, Word(g, d)) : UINT32_MAX;
         return type == maniGraphParameterInt || type == maniGraphParameterBool ? UINT32_MAX : d;
     case maniGraphNodeTimeScale:
-        return ScalarsValid(g, d, 1, -HUGE_VALF, HUGE_VALF);
+        return ScaleValid(g, d);
     case maniGraphNodeMirror:
         return UINT32_MAX;
     case maniGraphNodePose:
@@ -506,6 +542,37 @@ static bool KindValid(const maniGraph* g, const Node* n)
     return DifferenceValid(g, n) && MirroredValid(g, n);
 }
 
+static float FactorOf(const maniGraph* g, uint32_t p)
+{
+    uint32_t bits = maniLoadU32(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 28);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
+// The node's time factor size: from 0 to MANI_GRAPH_MAX_TIME_FACTOR, 1 at
+// the output, and each input's at least the node's times its scale's.
+static maniFileResult FactorValid(const maniGraph* g, const Node* n, bool last, uint64_t nodesAt)
+{
+    uint32_t bits = maniLoadU32(n->entry + 28);
+    float factor = 0.0f;
+    memcpy(&factor, &bits, sizeof factor);
+    if (bits >= 0x80000000u || !(factor <= MANI_GRAPH_MAX_TIME_FACTOR) || (last && factor != 1.0f))
+    {
+        return Fail(n->at + 28);
+    }
+    float need = n->kind == maniGraphNodeTimeScale ? factor * ScaleSize(g, n->data) : factor;
+    for (uint32_t k = 0; k < n->count; ++k)
+    {
+        uint32_t u = Input(g, n->first + k);
+        if (!(FactorOf(g, u) >= need))
+        {
+            return Fail(nodesAt + (uint64_t)u * MANI_GRAPH_NODE_SIZE + 28);
+        }
+    }
+    return kOk;
+}
+
 // The record's fields, laid out after the nodes before it (inputs and
 // data at the running counts).
 static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t inputAt,
@@ -564,10 +631,6 @@ static maniFileResult RecordValid(const maniGraph* g, const Node* n, uint32_t in
     if (maniLoadU32(n->entry + 24) >= g->nodeCount)
     {
         return Fail(n->at + 24);
-    }
-    if (maniLoadU32(n->entry + 28) != 0)
-    {
-        return Fail(n->at + 28);
     }
     return kOk;
 }
@@ -665,6 +728,11 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         if (!KindValid(g, &n) || (last && n.flags != 0))
         {
             return Fail(n.at + 2);
+        }
+        r = FactorValid(g, &n, last, nodesAt);
+        if (r.result != mani_success)
+        {
+            return r;
         }
         inputAt += n.count;
         wordAt += n.words;

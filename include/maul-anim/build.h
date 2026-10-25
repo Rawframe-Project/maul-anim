@@ -190,7 +190,9 @@ extern "C"
         maniBuildReasonUnreachable = 27,
         // A node's number naming a parameter past the count or not a
         // float, or a literal not finite or out of its range (a weight
-        // below 0, a direct or additive weight above 1); item is the node,
+        // below 0, a direct or additive weight above 1), or a time scale
+        // reading a parameter without bounds or taking a path's product of
+        // time scales past MANI_GRAPH_MAX_TIME_FACTOR; item is the node,
         // other the number's place among its numbers.
         maniBuildReasonScalar = 28,
         // A node mixing poses and differences, an additive node's base

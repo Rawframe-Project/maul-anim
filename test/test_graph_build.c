@@ -10,8 +10,9 @@
 // evaluated as the blending functions do; opening's checks of records,
 // data words, parameters and sections, each on a crafted file; a
 // subgraph whose output is not its last node, its parameter mapped and
-// its clips joined, written as the flat graph; subgraphs refused; a
-// binding's room for the largest cursor and the most inputs.
+// its clips joined, written as the flat graph; subgraphs refused; each
+// node's time factor, written and checked; a binding's room for the
+// largest cursor and the most inputs.
 
 #include "bytes.h"
 #include "container.h"
@@ -470,7 +471,7 @@ static void TestOpenRefusals(void)
     CHECK(Edit(Record(0), 0x00020001u, Record(2) + 2), "a node mirrored under no mirror node");
     CHECK(Edit(Record(8) + 8, 3, Record(8) + 8), "inputs past the section");
     CHECK(Edit(Record(0) + 24, g.nodeCount, Record(0) + 24), "a source place past the count");
-    CHECK(Edit(Record(0) + 28, 1, Record(0) + 28), "a record's reserved word");
+    CHECK(Edit(Record(0) + 28, 1, Record(0) + 28), "a time factor below its reader's");
     CHECK(Edit(Record(8) + 8, 1, SectionAt(maniGraphTagInputs)), "inputs left over");
     uint64_t parameters = SectionAt(maniGraphTagParameters);
     CHECK(Edit(parameters + 12, 0, parameters + 8), "an empty name");
@@ -576,6 +577,121 @@ static void TestSubgraphs(void)
     CHECK(Refused(source, maniBuildReasonClip, CLIPS, 0), "a subgraph's slot without its clip");
 }
 
+static float FactorAt(uint32_t p)
+{
+    uint32_t bits = maniLoadU32(s_built + Record(p) + 28);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof value);
+    return value;
+}
+
+// The place in the file of source node v.
+static uint32_t PlaceOf(const maniGraph* g, uint32_t v)
+{
+    for (uint32_t p = 0; p < g->nodeCount; ++p)
+    {
+        if (maniGraphNodeSourcePlace(g, p) == v)
+        {
+            return p;
+        }
+    }
+    return UINT32_MAX;
+}
+
+// Time factors: each record keeps the largest product of the time scales'
+// sizes above its node, a parameter's at the larger size of its bounds,
+// so scales on parallel branches do not multiply. A path past
+// MANI_GRAPH_MAX_TIME_FACTOR, a scale from a parameter without bounds and
+// a factor that does not bound its inputs' are refused.
+static void TestTimeFactors(void)
+{
+    // An output blend of four time scales: 1e4 above the walk, 1e4 above
+    // the run, -4 and rate (bounds -5 and 2) both above the short clip.
+    static const uint32_t kBranches[4] = {1, 2, 3, 4};
+    static const maniGraphScalar kOnes[4] = {LITERAL(1.0f), LITERAL(1.0f), LITERAL(1.0f),
+                                             LITERAL(1.0f)};
+    static const uint32_t kWalk[1] = {5};
+    static const uint32_t kRun[1] = {6};
+    static const uint32_t kShort[1] = {7};
+    maniGraphParameterSource rate = Parameter("rate", maniGraphParameterFloat, Float(1.0f));
+    rate.bounded = 1;
+    rate.minimum = Float(-5.0f);
+    rate.maximum = Float(2.0f);
+    maniGraphNodeSource nodes[8] = {
+        {maniGraphNodeBlend, 4, kBranches, .blend = {kOnes, 0, 0}},
+        {maniGraphNodeTimeScale, 1, kWalk, .timeScale = {LITERAL(1.0e4f)}},
+        {maniGraphNodeTimeScale, 1, kRun, .timeScale = {LITERAL(1.0e4f)}},
+        {maniGraphNodeTimeScale, 1, kShort, .timeScale = {LITERAL(-4.0f)}},
+        {maniGraphNodeTimeScale, 1, kShort, .timeScale = {{0, 0.0f}}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip),
+        ClipNode(3, 1.0f, maniGraphLoopClip)};
+    maniGraphSource source = {
+        .parameters = &rate, .nodes = nodes, .parameterCount = 1, .nodeCount = 8};
+    maniGraph g;
+    bool opens = Opens(source, &g);
+    CHECK(opens, "parallel scales past the bound together, not on a path");
+    if (!opens)
+    {
+        return;
+    }
+    static const float kWant[8] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0e4f, 1.0e4f, 5.0f};
+    bool factors = true;
+    for (uint32_t p = 0; p < g.nodeCount; ++p)
+    {
+        factors = factors && FactorAt(p) == kWant[maniGraphNodeSourcePlace(&g, p)];
+    }
+    CHECK(factors, "each node's largest product, a parameter's at its bounds' larger size");
+    uint32_t output = g.nodeCount - 1;
+    uint32_t walk = PlaceOf(&g, 5);
+    uint32_t clip = PlaceOf(&g, 7);
+    uint32_t scale = PlaceOf(&g, 1);
+    CHECK(Edit(Record(output) + 28, 0x40000000u, Record(output) + 28), "an output factor of 2");
+    CHECK(Edit(Record(output) + 28, 0x3F000000u, Record(output) + 28), "an output factor of 0.5");
+    CHECK(Edit(Record(scale) + 28, 0x3F000000u, Record(scale) + 28), "a factor below its reader's");
+    CHECK(Edit(Record(walk) + 28, 0x461C3FFFu, Record(walk) + 28),
+          "a factor below its reader's times the scale");
+    CHECK(Edit(Record(clip) + 28, 0x409FFFFFu, Record(clip) + 28),
+          "a factor below its parameter's larger bound");
+    CHECK(Edit(Record(walk) + 28, 0x49742401u, Record(walk) + 28), "a factor past the bound");
+    CHECK(Edit(Record(walk) + 28, 0x7F800000u, Record(walk) + 28), "a factor not finite");
+    CHECK(Edit(Record(walk) + 28, 0x7FC00000u, Record(walk) + 28), "a factor not a number");
+    memcpy(s_crafted, s_built, s_builtSize);
+    maniStoreU32(s_crafted + Record(walk) + 28, 0x49742400u);
+    Rehash(s_crafted, s_builtSize);
+    maniGraph crafted;
+    CHECK(maniOpenGraph(s_crafted, s_builtSize, &crafted).result == mani_success,
+          "a factor at the bound, past its readers' need");
+    uint64_t parameters = SectionAt(maniGraphTagParameters);
+    const uint64_t unbounded[6] = {parameters + 4, 0, parameters + 40, 0, parameters + 44, 0};
+    CHECK(RefusedAt(unbounded, 3, Word(PlaceOf(&g, 4), 0)), "a scale from an unbounded parameter");
+    rate.bounded = 0;
+    rate.minimum = Float(0.0f);
+    rate.maximum = Float(0.0f);
+    CHECK(Refused(source, maniBuildReasonScalar, 4, 0), "a scale from an unbounded parameter");
+    // Two scales on a path: 1000 above 1000 reaches the bound, 1000 above
+    // 1001 passes it.
+    static const uint32_t kInner[1] = {1};
+    static const uint32_t kClip[1] = {2};
+    maniGraphNodeSource path[3] = {
+        {maniGraphNodeTimeScale, 1, kInner, .timeScale = {LITERAL(1000.0f)}},
+        {maniGraphNodeTimeScale, 1, kClip, .timeScale = {LITERAL(1000.0f)}},
+        ClipNode(0, 1.0f, maniGraphLoopClip)};
+    maniGraphSource chain = {.nodes = path, .nodeCount = 3};
+    CHECK(Opens(chain, &g) && FactorAt(PlaceOf(&g, 2)) == MANI_GRAPH_MAX_TIME_FACTOR,
+          "a path at the bound");
+    path[1].timeScale.scale.value = 0.0f;
+    opens = Opens(chain, &g);
+    CHECK(opens && FactorAt(PlaceOf(&g, 2)) == 0.0f, "a path through a scale of 0");
+    CHECK(opens && Edit(Record(PlaceOf(&g, 2)) + 28, 0x80000000u, Record(PlaceOf(&g, 2)) + 28),
+          "a factor of -0");
+    path[1].timeScale.scale.value = 1001.0f;
+    CHECK(Refused(chain, maniBuildReasonScalar, 1, 0), "a path past the bound");
+    path[1].timeScale.scale.value = 1.0f;
+    path[0].timeScale.scale.value = 1.5e6f;
+    CHECK(Refused(chain, maniBuildReasonScalar, 0, 0), "a scale past the bound");
+}
+
 // A binding's cursors as large as its largest clip's, and its layers as
 // many as its node of most inputs, wherever they come.
 static void TestBindingRoom(void)
@@ -622,6 +738,7 @@ int main(void)
     TestChainMask();
     TestOpenRefusals();
     TestSubgraphs();
+    TestTimeFactors();
     TestBindingRoom();
     return s_failures == 0 ? 0 : 1;
 }

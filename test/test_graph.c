@@ -34,7 +34,7 @@
 // The graph scene: the file, then an instance of it stepped across its
 // clips' wraps (each step's pose, root motion and events) and its saved
 // state; every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x15b54ca682c6c383ull
+#define PINNED_SCENE_HASH 0x7715771ff5951ad4ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];

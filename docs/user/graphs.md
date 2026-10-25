@@ -81,5 +81,6 @@ Both return `mani_errorFormat` when a learned node's model gives a value past th
 
 - Machines and one-shots decide at the start of an update from what the previous update left, so a transition on a clip's event fires on the update after the event.
 - A node fed by several parents plays once; its playhead serves them all.
+- A time scale that reads a parameter needs the parameter's bounds. The product of the time scales on any path from the output is at most `MANI_GRAPH_MAX_TIME_FACTOR` (1e6) in size, a parameter's counted at the larger size of its bounds; the builder and the opener refuse a graph past it. Scales on parallel branches do not multiply.
 - Sync groups keep clips of different lengths in step by phase, or by marker names when every member has them, so a run that starts on the other foot stays in step with a walk.
 - A pose parameter (`maniSetGraphPose`) copies the pose in; the program may reuse its pose afterwards.

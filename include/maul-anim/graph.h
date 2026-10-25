@@ -56,6 +56,12 @@ extern "C"
 #define MANI_GRAPH_MAX_CHAIN       16u
 // A transition's source when it leaves from any state.
 #define MANI_GRAPH_ANY_STATE 0xFFFFFFFFu
+// The largest size of a node's time factor: the product of the time
+// scales on any path from the output to it, a scale read from a
+// parameter at the larger size of its bounds. It is far past any
+// playback rate a graph needs; each node records its bound, so opening
+// checks it edge by edge.
+#define MANI_GRAPH_MAX_TIME_FACTOR 1.0e6f
 
     // A parameter's type. A trigger is set by the host and consumed by the
     // first node that reads it within an update.
@@ -221,7 +227,8 @@ extern "C"
     /// @param graphOut  Receives the view on success.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
-    /// byte found wrong; `mani_errorVersion` for a newer format.
+    /// byte found wrong; `mani_errorVersion` for an earlier or a newer
+    /// format (build an earlier file again).
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenGraph(const void* bytes, size_t size,

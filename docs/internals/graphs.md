@@ -29,7 +29,7 @@ Parameters are bool, int, float, vec2, vec3, quat (normalized when set), trigger
 ## Build, bind, instance
 
 - **Build** (offline): `maniBuildGraph` from a source struct, or `maniBuildGraphJson` from text, against one opened skeleton and the host's opened clips, databases, learned models, spring sets and maps, each with a slot name. Masks become per-bone weights; every node is checked against the skeleton. The file keeps the identity of each asset, not the asset.
-- **Open:** `maniOpenGraph` checks every record as hostile input ([file-formats.md](file-formats.md)): kinds, counts, every input before its node and in another slot, data in range, what each node gives against what its inputs make. Names and masks never reach the runtime.
+- **Open:** `maniOpenGraph` checks every record as hostile input ([file-formats.md](file-formats.md)): kinds, counts, every input before its node and in another slot, data in range, what each node gives against what its inputs make, and each node's recorded time factor against its readers' (each edge alone, so opening needs no memory). Names and masks never reach the runtime.
 - **Bind:** `maniBindGraph` matches each slot to the host's asset of the recorded identity, in caller memory. One binding serves every instance of the graph.
 - **Instance:** `maniInitGraphInstance` makes a character's state in caller memory ([memory-and-threads.md](memory-and-threads.md#working-memory-is-the-callers)): a cell per parameter and node, a cursor per clip node, each stateful node's block. Parameters are set by index with their declared type; ints and floats are clamped to their bounds, anything not finite is refused.
 

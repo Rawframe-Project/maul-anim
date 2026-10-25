@@ -14,8 +14,8 @@
 // an evaluation, one backward, add their times; a saved state restores
 // to the same motion and its block is checked; the builder's refusals
 // and opening's checks of the words; the JSON form written and read
-// back; a subgraph's parameters carried; a file of format 4 still opens;
-// inspection gives its share. Run as test_graph_turn --seed <graph file>
+// back; a subgraph's parameters carried; a file of an earlier format
+// refused by version; inspection gives its share. Run as test_graph_turn --seed <graph file>
 // <json file> it writes the graph's file and text, seeds of the fuzz
 // targets.
 
@@ -654,17 +654,18 @@ static void TestSubgraph(void)
           "its speed and reset the outer's");
 }
 
-// A file of the format before the turn limit node opens as it did.
+// A file of an earlier format, or a newer one, is refused by version.
 static void TestOlder(void)
 {
     maniGraphSource source = TurnGraph(kTurn);
     source.nodeCount = 1;
     source.output = 0;
     CHECK(Build(&source, &s_made[0]).result == mani_success, "a graph of a pose input alone");
-    maniStoreU16(s_made[0].file + 6, 4);
+    maniStoreU16(s_made[0].file + 6, (uint16_t)(MANI_GRAPH_FORMAT_VERSION - 1));
     maniGraph g;
-    CHECK(maniOpenGraph(s_made[0].file, s_made[0].size, &g).result == mani_success,
-          "a format 4 file opens");
+    maniFileResult earlier = maniOpenGraph(s_made[0].file, s_made[0].size, &g);
+    CHECK(earlier.result == mani_errorVersion && earlier.offset == 6,
+          "an earlier format refused by version");
     maniStoreU16(s_made[0].file + 6, (uint16_t)(MANI_GRAPH_FORMAT_VERSION + 1));
     maniFileResult r = maniOpenGraph(s_made[0].file, s_made[0].size, &g);
     CHECK(r.result == mani_errorVersion && r.offset == 6, "a newer format refused by version");

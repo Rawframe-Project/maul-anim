@@ -694,7 +694,11 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
                    ? Outcome(mani_success)
                    : maniGraphRefuse(maniBuildReasonNode, node, 0);
     case maniGraphNodeTimeScale:
-        return CheckScalar(source, n->timeScale.scale, node, 0, -HUGE_VALF, HUGE_VALF);
+        return n->timeScale.scale.parameter == MANI_NO_PARAMETER ||
+                       (n->timeScale.scale.parameter < source->parameterCount &&
+                        source->parameters[n->timeScale.scale.parameter].bounded != 0)
+                   ? CheckScalar(source, n->timeScale.scale, node, 0, -HUGE_VALF, HUGE_VALF)
+                   : maniGraphRefuse(maniBuildReasonScalar, node, 0);
     case maniGraphNodeMirror:
         return source->mirrorMap != NULL ? Outcome(mani_success)
                                          : maniGraphRefuse(maniBuildReasonMirrorGraph, node, 1);
