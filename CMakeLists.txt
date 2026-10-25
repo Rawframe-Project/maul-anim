@@ -244,6 +244,12 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_dense(clip_compress dense)
         maul_add_test(root_motion WHITEBOX)
         maul_add_test(graph WHITEBOX)
+        # Time scales whose product overflows, above a group following by
+        # markers: run alone, so its own short timeout bounds it.
+        if(TARGET test_graph)
+            add_test(NAME graph_scaled_markers COMMAND test_graph scaled-markers)
+            set_tests_properties(graph_scaled_markers PROPERTIES LABELS graph TIMEOUT 10)
+        endif()
         maul_add_test(graph_json)
         maul_add_test(graph_nested)
         maul_add_test(reentry)

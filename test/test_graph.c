@@ -5,7 +5,9 @@
 // clips, its nodes ordered depth first from the output, poses and
 // differences marked, slots reused; every refusal of the builder and of
 // opening; the bytes pinned. Run as test_graph --seed <file> it writes a
-// seed for the graph fuzz target.
+// seed for the graph fuzz target, and as --seed-scaled <file> another,
+// the marker graph under overflowing time scales; run as test_graph
+// scaled-markers it checks that graph's updates alone.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -1256,6 +1258,80 @@ static void TestMarkerSync(void)
           "ten loops and a quarter: both on the right foot");
 }
 
+// The marker graph under two time scales of 3e38, whose binary32
+// product overflows, into s_file: a step that is not finite moves
+// nothing, and the group keeps its place.
+static maniBuildResult BuildScaledMarkers(void)
+{
+    OpenFeet();
+    static const maniGraphClipSource kClips[2] = {{&s_feet[0], "short", 5, 0, NULL},
+                                                  {&s_feet[1], "long", 4, 0, NULL}};
+    static const maniGraphSyncGroupSource kGroups[1] = {{"feet", 4, maniGraphSyncAllEvents}};
+    static const uint32_t kInputs[2] = {0, 1};
+    static const uint32_t kBlend[1] = {2};
+    static const uint32_t kScale[1] = {3};
+    static const maniGraphScalar kWeights[2] = {{MANI_NO_PARAMETER, 0.5f},
+                                                {MANI_NO_PARAMETER, 0.5f}};
+    const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
+    const maniGraphScalar huge = {MANI_NO_PARAMETER, 3e38f};
+    const maniGraphNodeSource nodes[5] = {
+        {maniGraphNodeClip, 0, NULL, .clip = {0, 0, one, maniGraphLoopClip, maniGraphClipLeader}},
+        {maniGraphNodeClip, 0, NULL, .clip = {1, 0, one, maniGraphLoopClip, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeTimeScale, 1, kBlend, .timeScale = {huge}},
+        {maniGraphNodeTimeScale, 1, kScale, .timeScale = {huge}},
+    };
+    maniGraphSource source = {&s_skeleton, NULL, kClips, kGroups, nodes, 0,    2,    1,   5,
+                              4,           0,    NULL,   0,       0,     NULL, NULL, NULL};
+    return Build(&source);
+}
+
+// Run as test_graph scaled-markers, alone, under a short timeout.
+static void TestScaledMarkers(void)
+{
+    maniGraph g;
+    const maniClip* bound[2] = {&s_feet[0], &s_feet[1]};
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    CHECK(BuildScaledMarkers().result == mani_success &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniBindGraph(&g,
+                            &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 2, 0, 0, 0,
+                                               NULL, NULL, 0, 0, NULL},
+                            s_bindingMemory, sizeof s_bindingMemory, &binding,
+                            NULL) == mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "a marker graph under overflowing time scales");
+    if (instance == NULL)
+    {
+        return;
+    }
+    static const float kDeltas[3] = {1.0f, 0.0f, -0.25f};
+    for (int k = 0; k < 3; ++k)
+    {
+        uint32_t count = 1;
+        maniRootMove move;
+        CHECK(maniUpdateGraph(instance, kDeltas[k], NULL, 0, &count, &move) == mani_success &&
+                  count == 0 && Near(State(instance, &g, 0)->time, 0.0) &&
+                  Near(State(instance, &g, 1)->time, 1.5),
+              k == 0   ? "an infinite step moves no clip: both on the left foot"
+              : k == 1 ? "nor does 0 times infinity"
+                       : "nor a step backward");
+    }
+}
+
+static int WriteScaledSeed(const char* path)
+{
+    FILE* f = BuildScaledMarkers().result == mani_success ? fopen(path, "wb") : NULL;
+    bool written = f != NULL && fwrite(s_file, 1, s_size, f) == s_size;
+    if (f != NULL)
+    {
+        written = fclose(f) == 0 && written;
+    }
+    return written ? 0 : 1;
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -1328,6 +1404,15 @@ int main(int argc, char** argv)
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
     {
         return WriteSeed(argv[2]);
+    }
+    if (argc == 3 && strcmp(argv[1], "--seed-scaled") == 0)
+    {
+        return WriteScaledSeed(argv[2]);
+    }
+    if (argc == 2 && strcmp(argv[1], "scaled-markers") == 0)
+    {
+        TestScaledMarkers();
+        return s_failures == 0 ? 0 : 1;
     }
     TestBuild();
     TestParameterRefusals();

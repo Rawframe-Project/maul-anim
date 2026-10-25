@@ -142,8 +142,10 @@ static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const mani
         double scale = (s->flags & MANI_GRAPH_PHASE) != 0 ? (double)clip->duration : 1.0;
         return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, true, false};
     }
-    return (Motion){s->time, u->delta * (double)Scalar(u, data + 4) * (double)s->factor, false,
-                    true};
+    // The time scales above multiply as binary32, so their product can
+    // overflow; a step that is not finite moves nothing.
+    double step = u->delta * (double)Scalar(u, data + 4) * (double)s->factor;
+    return (Motion){s->time, isfinite(step) ? step : 0.0, false, true};
 }
 
 static maniGraphGroupState* Group(const Update* u, uint32_t group)
@@ -456,8 +458,11 @@ static double FollowMarkers(const Update* u, uint32_t g, uint32_t p, const maniC
         pass -= loops * perLoop;
         travelled += loops * (double)clip->duration;
     }
-    // At most three loops of markers remain to walk.
-    uint64_t steps = (uint64_t)(pass < 9.0e15 ? pass : 9.0e15);
+    // At most two loops of markers remain to walk: the reduction above
+    // leaves pass at most 2 perLoop. The bound holds when a huge step leaves
+    // pass inexact, and stops a count that is not a number.
+    double bounded = pass < 2.0 * perLoop ? pass : 2.0 * perLoop;
+    uint64_t steps = (uint64_t)(bounded > 0.0 ? bounded : 0.0);
     uint64_t limit = steps + (uint64_t)perLoop;
     for (uint64_t done = 0; done < limit; ++done)
     {
@@ -534,6 +539,8 @@ void maniGraphAdvanceClip(maniGraphUpdate* u, uint32_t p)
         }
     }
     s->time = Place(&clip, m.t0 + m.step);
+    // Every step is finite, so the playhead lands within the clip.
+    MANI_ASSERT(s->time >= 0.0 && s->time <= (double)clip.duration);
     if (s->rootWeight > 0.0f)
     {
         maniRootMotionSumAdd(&u->root, &move, (double)s->rootWeight);

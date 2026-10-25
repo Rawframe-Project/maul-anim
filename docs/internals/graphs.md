@@ -42,7 +42,7 @@ New node kinds add kinds and data words, not sections, so the format grows witho
 The **update** ([`src/graph_update.c`](../../src/graph_update.c)):
 
 1. Weights flow from the output down, in reverse node order: a normalized blend shares its weight by its inputs' weights over their total (over 1e-5 when the total is smaller), a direct blend by its weights clamped to 1, a mask's two inputs by the largest bone weight and the largest remainder, an additive node's layers by their weights, a select's chosen input whole. A node fed by several parents sums their shares.
-2. Every clip node's playhead moves by the step times its speed and the product of the time scales above it, wrapping a repeating clip and clamping another. A seek whose trigger is set moves the playheads below it and consumes the trigger.
+2. Every clip node's playhead moves by the step times its speed and the product of the time scales above it, wrapping a repeating clip and clamping another. The time scales multiply as binary32, so large ones can overflow the product; a step that is not finite moves nothing. A seek whose trigger is set moves the playheads below it and consumes the trigger.
 3. Clip nodes weighed above 1e-5 list the events they pass, forward `[from, to)` or backward `(to, from]`, across any number of wraps.
 4. Root motion is the clip nodes' moves blended by root weights. Root weights differ from weights at masks (the weight at the root motion bone) and additive layers (none), so a masked upper-body clip does not move the character.
 
