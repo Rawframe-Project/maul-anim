@@ -17,6 +17,7 @@
 #include "clip_lanes.h"
 #include "clip_view.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "pose_memory.h"
 #include "simd.h"
 
@@ -53,6 +54,9 @@ typedef struct Walker
 static const uint8_t* SegmentOf(const maniClip* clip, uint32_t sample)
 {
     uint32_t n = clip->segmentCount;
+    // The opener checked that the segments cover the samples in order,
+    // each at least one, so there are no more segments than samples.
+    MANI_ASSERT(n >= 1 && n <= clip->sampleCount && sample < clip->sampleCount);
     uint32_t per = clip->sampleCount / n;
     uint32_t s = sample / per < n ? sample / per : n - 1;
     while (s > 0 && maniLoadU32(clip->segments + (size_t)s * MANI_CLIP_SEGMENT_SIZE) > sample)
@@ -64,7 +68,9 @@ static const uint8_t* SegmentOf(const maniClip* clip, uint32_t sample)
     {
         ++s;
     }
-    return clip->segments + (size_t)s * MANI_CLIP_SEGMENT_SIZE;
+    const uint8_t* e = clip->segments + (size_t)s * MANI_CLIP_SEGMENT_SIZE;
+    MANI_ASSERT(maniLoadU32(e) <= sample && sample - maniLoadU32(e) < maniLoadU32(e + 4));
+    return e;
 }
 
 // A walker at a sample's first bone channel, or (floats) its first float.
@@ -90,6 +96,7 @@ static Walker WalkerAt(const maniClip* clip, uint32_t sample, bool floats)
 static void Pass(Walker* w, uint32_t width)
 {
     uint32_t rate = *w->rates++;
+    MANI_ASSERT(rate < MANI_CODEC_RATES);
     w->ranges += w->several ? 2 * (size_t)width : 0;
     w->bit += (uint64_t)width * maniCodecBits(rate);
 }
@@ -99,6 +106,7 @@ static void Pass(Walker* w, uint32_t width)
 static float DecodeFloat(Walker* w, float minimum, float extent)
 {
     uint32_t rate = *w->rates++;
+    MANI_ASSERT(rate < MANI_CODEC_RATES);
     const uint8_t* segment = w->ranges;
     w->ranges += w->several ? 2 : 0;
     uint32_t bits = maniCodecBits(rate);
@@ -210,6 +218,7 @@ static void Read(const uint8_t* stream, uint64_t bit, uint32_t rate, const uint8
 static MANI_NOINLINE void CodeOne(Walker* w, Scale* scale, float (*q)[LANES], uint32_t lane)
 {
     uint32_t rate = *w->rates++;
+    MANI_ASSERT(rate < MANI_CODEC_RATES && lane < LANES);
     const uint8_t* segment = w->ranges;
     w->ranges += w->several ? 6 : 0;
     ScaleLane(scale, lane, rate, segment, w->several);
@@ -310,6 +319,7 @@ typedef struct Group
 // pose's bones in order.
 static void Scatter(const Group* g, const manif8* rows, uint32_t first, uint32_t count)
 {
+    MANI_ASSERT(g->count >= 1 && g->count <= LANES && first + count <= MANI_POSE_COMPONENTS);
     if (g->count == LANES && g->bones[0] % LANES == 0 && g->bones[LANES - 1] == g->bones[0] + 7)
     {
         for (uint32_t k = 0; k < count; ++k)
@@ -404,6 +414,7 @@ static const float kDropped[4] = {3.0f, 2.0f, 1.0f, 0.0f};
 static void Lane(Group* g, const Sampling* s, uint32_t kind, uint32_t t, uint32_t bone,
                  uint32_t entry)
 {
+    MANI_ASSERT(g->count < LANES && bone < s->clip->skeletonBoneCount);
     uint32_t i = g->count++;
     g->bones[i] = bone;
     g->slots[i] = maniPoseSlot(s->locals, bone);
@@ -490,6 +501,7 @@ static void Constants(Sampling* s, uint32_t kind)
 // the block's sub-tracks in order), else copied lane by lane.
 static void GroupRanges(Group* g, const uint8_t* ranges, uint32_t n)
 {
+    MANI_ASSERT(g->count >= 1 && g->entries[g->count - 1] < n);
     uint32_t first = g->entries[0];
     bool block = g->count == LANES && first % LANES == 0 && g->entries[LANES - 1] == first + 7;
     for (uint32_t k = 0; k < 3; ++k)
@@ -566,6 +578,7 @@ static void CodePair(Sampling* s, uint32_t lane)
     }
     Walker* a = &s->a;
     uint32_t rate = *a->rates++;
+    MANI_ASSERT(rate < MANI_CODEC_RATES && lane < LANES);
     const uint8_t* segment = a->ranges;
     a->ranges += a->several ? 6 : 0;
     ScaleLane(&g->sa, lane, rate, segment, a->several);
@@ -686,6 +699,9 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
 {
     // The caches hold both samples, or the walkers read them.
     bool cached = pair->cacheA != NULL && pair->cacheB != NULL;
+    MANI_ASSERT(skeleton->boneCount == clip->skeletonBoneCount && pair->alpha >= 0.0f &&
+                pair->alpha <= 1.0f);
+    MANI_ASSERT(cached || (pair->first < clip->sampleCount && pair->second < clip->sampleCount));
     Sampling s = {.clip = clip,
                   .list = list,
                   .locals = maniPoseLocals(pose),
@@ -710,6 +726,11 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
         Constants(&s, kind);
         Animated(&s, kind);
     }
+    // The walk took every bone channel's constant, clip range and rate,
+    // and stopped at the floats'.
+    MANI_ASSERT(s.constant == clip->constants + 12 * (size_t)clip->constantChannels &&
+                s.ranges == clip->ranges + 24 * (size_t)clip->animatedChannels);
+    MANI_ASSERT(cached || s.a.rates == WalkerAt(clip, pair->first, true).rates);
     maniPoseMarkStale(pose);
 }
 
@@ -802,6 +823,7 @@ void maniExpandCompressedSample(const maniClip* clip, const maniSkeleton* skelet
             }
         }
     }
+    MANI_ASSERT(constant == clip->constants + 12 * (size_t)clip->constantChannels);
     HeldPadding(bones, groups, masks);
 }
 #endif
@@ -856,6 +878,7 @@ void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, 
         float alpha = pair->alpha;
         values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha;
     }
+    MANI_ASSERT(j == n);
 }
 
 uint32_t maniCompressedSampleFloats(const maniClip* clip)
@@ -898,6 +921,7 @@ static float* DecodeGroup(Walker* w, Group* g, const uint8_t* ranges, uint32_t n
 
 void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* out)
 {
+    MANI_ASSERT(sample < clip->sampleCount);
     Walker w = WalkerAt(clip, sample, false);
     const uint8_t* ranges = clip->ranges;
     const uint8_t* dropped = maniCompressedDropped(clip);
@@ -927,4 +951,6 @@ void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* ou
         *out++ = DecodeFloat(&w, LoadF32(ranges + maniClipRangeAt(n, 1, j, 0, 0)),
                              LoadF32(ranges + maniClipRangeAt(n, 1, j, 0, 1)));
     }
+    // Every sub-track's rate read: the rates end where the ranges begin.
+    MANI_ASSERT(w.rates == WalkerAt(clip, sample, false).ranges);
 }
