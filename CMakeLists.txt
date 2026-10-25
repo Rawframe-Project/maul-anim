@@ -244,6 +244,12 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_dense(clip_compress dense)
         maul_add_test(root_motion WHITEBOX)
         maul_add_test(graph WHITEBOX)
+        # The largest deltas under a marker group of the largest time
+        # factor: run alone, so its own short timeout bounds it.
+        if(TARGET test_graph)
+            add_test(NAME graph_large_steps COMMAND test_graph large-steps)
+            set_tests_properties(graph_large_steps PROPERTIES LABELS graph TIMEOUT 10)
+        endif()
         maul_add_test(graph_json)
         maul_add_test(graph_nested)
         maul_add_test(reentry)
