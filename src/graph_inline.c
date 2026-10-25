@@ -103,13 +103,28 @@ static void Transitions(const maniGraphNodeSource* node, Totals* t)
     }
 }
 
+// A subgraph's sync groups each with a name, the key it joins the
+// graph's groups by.
+static bool GroupsNamed(const maniGraphSource* source)
+{
+    for (uint32_t k = 0; k < source->syncGroupCount; ++k)
+    {
+        if (source->syncGroups[k].name == NULL)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 // What a source and its subgraphs hold; false past the depth, with a
-// subgraph node naming no graph or a graph without nodes, or with a list
-// the check would refuse in the root.
+// subgraph node naming no graph or a graph without nodes, with a list
+// the check would refuse in the root, or with a subgraph's sync group
+// without its name.
 static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
 {
     if (depth > MANI_GRAPH_MAX_DEPTH || source->nodeCount == 0 || source->nodes == NULL ||
-        !maniGraphListsValid(source))
+        !maniGraphListsValid(source) || (depth > 0 && !GroupsNamed(source)))
     {
         return false;
     }

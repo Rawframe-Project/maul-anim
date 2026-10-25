@@ -772,14 +772,15 @@ extern "C"
     /// misuse) or with the reason, the item and another the reason names
     /// for a refused source: Count (more items than the named limits, none
     /// of nodes, or a list of items not given, in the source or a
-    /// subgraph), Name, DuplicateName and NameHash with the list
-    /// bits of parameters, clips, sync groups, databases, models or
-    /// spring sets, Parameter, Clip, Database, Model, SpringSetSlot, Node,
-    /// Input, Cycle, Unreachable, Scalar, Weight, Difference, MirrorGraph
-    /// and MirrorParity (a node under both a mirrored and an unmirrored
-    /// path, item the node, other the reader reaching it the other way:
-    /// give each path its own copy of the nodes beneath); and
-    /// `mani_errorCapacity` when the allocator fails.
+    /// subgraph, or a subgraph's sync group without its name), Name,
+    /// DuplicateName and NameHash with the list bits of parameters, clips,
+    /// sync groups, databases, models or spring sets, Parameter, Clip,
+    /// Database, Model, SpringSetSlot, Node, Input, Cycle, Unreachable,
+    /// Scalar, Weight, Difference, MirrorGraph and MirrorParity (a node
+    /// under both a mirrored and an unmirrored path, item the node, other
+    /// the reader reaching it the other way: give each path its own copy
+    /// of the nodes beneath); and `mani_errorCapacity` when the allocator
+    /// fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildGraph(maniBuilder* builder,
