@@ -384,7 +384,20 @@ static inline manif8 maniF8And(manif8 a, manif8 b)
 #endif
 
 // Ternary-law min/max: a>b?a:b and a<b?a:b, identical on every
-// backend by construction (compare + select, no native min/max).
+// backend. AVX2's MAXPS and MINPS are defined as exactly that law
+// (the second operand when either is NaN or both are zero), so they
+// stand in for compare + select. NEON's vmaxq/vminq propagate NaN and
+// order signed zeros, so NEON and scalar keep compare + select.
+#if defined(MANI_SIMD_AVX2)
+static inline manif8 maniF8Max(manif8 a, manif8 b)
+{
+    return _mm256_max_ps(a, b);
+}
+static inline manif8 maniF8Min(manif8 a, manif8 b)
+{
+    return _mm256_min_ps(a, b);
+}
+#else
 static inline manif8 maniF8Max(manif8 a, manif8 b)
 {
     return maniF8Select(maniF8GT(a, b), a, b);
@@ -393,5 +406,6 @@ static inline manif8 maniF8Min(manif8 a, manif8 b)
 {
     return maniF8Select(maniF8LT(a, b), a, b);
 }
+#endif
 
 #endif // MAUL_ANIM_SRC_SIMD_H

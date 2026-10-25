@@ -230,7 +230,7 @@ static void TestTriangulations(void)
         uint32_t want = 3 + Next(22);
         uint32_t kind = round % 5;
         uint32_t n = 0;
-        for (uint32_t tries = 0; tries < 200 && n < want; ++tries)
+        for (uint32_t draw = 0; draw < 200 && n < want; ++draw)
         {
             float x = 0;
             float y = 0;

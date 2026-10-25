@@ -216,7 +216,8 @@ static void TestSinCosNonFinite(void)
 static void TestSinCosFarOut(void)
 {
     // Every binade from the far reduction's start to the largest float,
-    // both signs, and the points Maul Anim found unbounded before.
+    // both signs, and fixed points across that range: 1.5 * 2^16 and the
+    // float just below it, 1e6, 2^25, 1e10, 3e20 and the largest float.
     uint64_t state = 16;
     double worst = 0.0;
     bool odd = true;
