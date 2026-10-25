@@ -176,7 +176,7 @@ mirror_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write 
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
 clip_measure: allocator builder clip_build fpenv scalar
 clip_shell: additive
-clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_search clip_shell clip_view container fpenv
+clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_search clip_shell clip_view container fpenv invariant
 clip_plan: allocator bytes clip_codec clip_file vecmath
 clip_search: allocator bytes clip_codec clip_file clip_plan clip_shell clip_view pose_memory
 decimal: bytes

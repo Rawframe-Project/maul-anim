@@ -18,6 +18,7 @@
 #include "clip_view.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
@@ -55,6 +56,8 @@ static void Gather(maniCompressPlan* p)
     {
         const uint8_t* entry = c->tracks + (size_t)i * MANI_CLIP_TRACK_SIZE;
         uint32_t bone = maniLoadU16(entry);
+        // Opening the clip checked each track's bone against the skeleton.
+        MANI_ASSERT(bone < c->skeletonBoneCount);
         p->boneSubs[bone] = p->subCount;
         for (uint32_t ch = 0; ch < 3; ++ch)
         {
@@ -73,6 +76,9 @@ static void Gather(maniCompressPlan* p)
         p->subs[p->subCount++] = (maniSubTrack){
             .track = i, .channel = maniSubFloat, .offset = i, .tolerance = precision};
     }
+    // At most three channels a track and a float track each: the room
+    // Prepare made.
+    MANI_ASSERT(p->subCount <= 3 * c->trackCount + c->floatTrackCount);
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
         if (p->subs[i].channel == maniSubRotation)
@@ -101,6 +107,8 @@ static void Number(maniCompressPlan* p)
             t->animated = channel ? p->animatedChannels++ : p->animatedFloats++;
         }
     }
+    MANI_ASSERT(p->constantChannels + p->constantFloats + p->animatedChannels + p->animatedFloats <=
+                p->subCount);
     for (uint32_t i = 0; i < p->subCount; ++i)
     {
         p->subs[i].animated +=
@@ -192,6 +200,8 @@ static void WriteForms(const maniCompressPlan* p, uint8_t* forms)
         {
             ++kind;
         }
+        // A bone channel: a rotation, a translation or a scale.
+        MANI_ASSERT(kind < maniClipKinds && t->track < p->clip->trackCount);
         uint32_t animated = t->form == maniClipFormAnimated ? 1u : 0u;
         forms[(2 * kind + animated) * bytes + t->track / 8] |= (uint8_t)(1u << (t->track % 8));
         if (t->channel == maniSubRotation)
@@ -235,6 +245,9 @@ static void WriteFront(const maniCompressPlan* p, Sections* out)
         }
         ranges += 8 * (size_t)width * n;
     }
+    // The constants and the ranges fill their sections.
+    MANI_ASSERT(constant == out->data[1] + out->sizes[1]);
+    MANI_ASSERT(ranges == out->data[2] + out->sizes[2]);
 }
 
 // One sample's bits in a segment, the sub-tracks in kind order.
@@ -251,6 +264,7 @@ static void WriteSample(const maniCompressPlan* p, uint32_t s, uint32_t k, maniB
                 continue;
             }
             size_t at = (size_t)s * n + t->animated;
+            MANI_ASSERT(t->animated < n);
             uint32_t rate = p->rates[at];
             const uint8_t* range = p->segmentCount > 1 ? p->segmentRanges + 6 * at : NULL;
             float v[3] = {0.0f, 0.0f, 0.0f};
@@ -309,7 +323,11 @@ static void WriteSegments(const maniCompressPlan* p, Sections* out)
             WriteSample(p, s, k, &w);
         }
         offset = (uint64_t)(head - data) + (w.bit + 7) / 8;
+        MANI_ASSERT(offset <= out->sizes[4]);
     }
+    // The segments fill the data SegmentDataSize counted, and 8 zero
+    // bytes after them.
+    MANI_ASSERT(offset + 8 == out->sizes[4]);
 }
 
 // The named sections (4 to 10) as the clip holds them, the float samples
@@ -395,6 +413,7 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
         out.data[i] = at;
         at += out.sizes[i];
     }
+    MANI_ASSERT(at == out.block + out.blockSize);
     WriteFront(p, &out);
     WriteSegments(p, &out);
     uint8_t header[MANI_CLIP_HEADER_SIZE];
@@ -586,6 +605,8 @@ static maniResult Prepare(maniCompressPlan* p, uint32_t subs)
     }
     p->segmentRanges = p->rates + cells;
     maniPlanSplit(p->clip->sampleCount, p->segmentCount, p->firsts);
+    // The segments cover every sample, from the first.
+    MANI_ASSERT(p->firsts[0] == 0 && p->firsts[p->segmentCount] == p->clip->sampleCount);
     return mani_success;
 }
 
