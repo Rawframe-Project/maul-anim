@@ -44,12 +44,12 @@
 #include <stdint.h>
 #include <string.h>
 
-#define WORK_ARRAYS 10u
+#define WORK_ARRAYS 11u
 
 // Per node, by source index unless said: its place in the order (and the
 // order itself, by place), its search state, the search's stack and next
-// inputs, its last reader's place, its slot, the free slots, and whether
-// it gives differences.
+// inputs, its last reader's place, its slot, the free slots, whether it
+// gives differences, its mirror parity and its time factor's size.
 typedef struct Work
 {
     uint32_t* order;
@@ -64,6 +64,8 @@ typedef struct Work
     // 0 not yet reached, 1 under an even number of mirror nodes, 2 an
     // odd.
     uint32_t* mirrored;
+    // The largest size of the node's time factor (binary32 bits).
+    uint32_t* factor;
     uint32_t slotCount;
 } Work;
 
@@ -599,6 +601,7 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         maniStoreU32(e + 12, lay->dataAt);
         maniStoreU32(e + 20, w->slot[v]);
         maniStoreU32(e + 24, v);
+        maniStoreU32(e + 28, w->factor[v]);
         for (uint32_t k = 0; k < node->inputCount; ++k)
         {
             maniStoreU32(lay->sections[3] + 4 * (size_t)lay->inputAt++,
@@ -822,6 +825,60 @@ static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source
     return r;
 }
 
+static float FactorAt(const Work* w, uint32_t v)
+{
+    float value = 0.0f;
+    memcpy(&value, &w->factor[v], sizeof value);
+    return value;
+}
+
+// The largest size a checked time scale takes: its literal's, or the
+// larger of its parameter's bounds.
+static float ScaleSize(const maniGraphSource* source, maniGraphScalar s)
+{
+    if (s.parameter == MANI_NO_PARAMETER)
+    {
+        return fabsf(s.value);
+    }
+    float low = fabsf(source->parameters[s.parameter].minimum.f[0]);
+    float high = fabsf(source->parameters[s.parameter].maximum.f[0]);
+    return low > high ? low : high;
+}
+
+// Each node's largest time factor size, its readers first: the output's
+// 1, an input's the largest of its readers' times their time scales'.
+// Refuses a time scale taking it past MANI_GRAPH_MAX_TIME_FACTOR.
+static maniBuildResult TimeFactors(const maniGraphSource* source, Work* w)
+{
+    uint32_t n = source->nodeCount;
+    memset(w->factor, 0, n * sizeof(uint32_t));
+    const float one = 1.0f;
+    memcpy(&w->factor[source->output], &one, sizeof one);
+    for (uint32_t p = n; p-- > 0;)
+    {
+        uint32_t v = w->order[p];
+        const maniGraphNodeSource* node = &source->nodes[v];
+        float need = FactorAt(w, v);
+        if (node->kind == maniGraphNodeTimeScale)
+        {
+            need *= ScaleSize(source, node->timeScale.scale);
+            if (!(need <= MANI_GRAPH_MAX_TIME_FACTOR))
+            {
+                return maniGraphRefuse(maniBuildReasonScalar, v, 0);
+            }
+        }
+        for (uint32_t k = 0; k < node->inputCount; ++k)
+        {
+            uint32_t u = node->inputs[k];
+            if (FactorAt(w, u) < need)
+            {
+                memcpy(&w->factor[u], &need, sizeof need);
+            }
+        }
+    }
+    return Outcome(mani_success);
+}
+
 // Orders, marks and slots the checked source's nodes, then writes it.
 static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* source,
                                const maniGraphTally* tally)
@@ -832,17 +889,9 @@ static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* sour
     {
         return Outcome(mani_errorCapacity);
     }
-    Work w = {block,
-              block + n,
-              block + 2 * n,
-              block + 3 * n,
-              block + 4 * n,
-              block + 5 * n,
-              block + 6 * n,
-              block + 7 * n,
-              block + 8 * n,
-              block + 9 * n,
-              0};
+    Work w = {block,         block + n,     block + 2 * n,  block + 3 * n,
+              block + 4 * n, block + 5 * n, block + 6 * n,  block + 7 * n,
+              block + 8 * n, block + 9 * n, block + 10 * n, 0};
     maniBuildResult r = Order(source, &w);
     for (uint32_t p = 0; p < n && r.result == mani_success; ++p)
     {
@@ -853,6 +902,7 @@ static maniBuildResult Arrange(maniBuilder* builder, const maniGraphSource* sour
         r = maniGraphRefuse(maniBuildReasonDifference, source->output, 0);
     }
     r = r.result == mani_success ? maniGraphMirrorParity(source, w.order, w.mirrored) : r;
+    r = r.result == mani_success ? TimeFactors(source, &w) : r;
     if (r.result == mani_success)
     {
         Slots(source, &w);

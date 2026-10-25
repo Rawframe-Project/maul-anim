@@ -542,6 +542,12 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
     {
         return r;
     }
+    // An earlier format records no time factors: the builder writes it
+    // again.
+    if (c.formatVersion < MANI_GRAPH_FORMAT_VERSION)
+    {
+        return (maniFileResult){mani_errorVersion, 0, 6};
+    }
     Sections s;
     maniGraph g;
     r = LoadSections(&c, &s);

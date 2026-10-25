@@ -181,7 +181,9 @@ extern "C"
     } maniGraphSelectNodeSource;
 
     // A time scale node: the factor on time below it (negative plays
-    // backward).
+    // backward). A parameter it reads has bounds, and the product of the
+    // time scales' sizes on any path from the output, a parameter's at
+    // the larger size of its bounds, is at most MANI_GRAPH_MAX_TIME_FACTOR.
     typedef struct maniGraphTimeScaleNodeSource
     {
         maniGraphScalar scale;

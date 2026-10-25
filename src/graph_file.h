@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#define MANI_GRAPH_FORMAT_VERSION 5u
+#define MANI_GRAPH_FORMAT_VERSION 6u
 #define MANI_GRAPH_SECTIONS       15u
 
 enum
@@ -28,7 +28,8 @@ enum
     // differences, bit 1 under an odd number of mirror nodes), first
     // input, input count, first data word, data word
     // count, slot, its place in the source (subgraphs inlined, as the
-    // builder numbers them) (u32 each), zero (4 bytes).
+    // builder numbers them) (u32 each), the largest size of its time
+    // factor (binary32, its readers' times their time scales').
     maniGraphTagNodes = 3,
     // u32 each: a node before its reader.
     maniGraphTagInputs = 4,
