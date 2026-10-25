@@ -13,6 +13,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "morph_file.h"
 
 #include "maul-anim/base.h"
@@ -607,11 +608,14 @@ static void Walk(const maniMorphTargets* m, uint32_t first, uint32_t count, floa
         uint32_t key = prev == ZERO_KEY ? next : prev;
         if (key != ZERO_KEY)
         {
+            // Opening refused a full weight of 0.
+            MANI_ASSERT(key < count && Full(m, first, key) != 0.0f);
             out[key] = weight / Full(m, first, key);
         }
         return;
     }
     float low = Full(m, first, prev);
+    MANI_ASSERT(prev < count && next < count && Full(m, first, next) != low);
     float t = (weight - low) / (Full(m, first, next) - low);
     out[prev] = 1.0f - t;
     out[next] = t;
@@ -636,6 +640,9 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
     {
         uint32_t first = 0;
         uint32_t count = maniMorphChannelTargets(targets, c, &first);
+        // Opening checked that the channels cover the targets in order.
+        MANI_ASSERT(count > 0 && first <= targets->targetCount &&
+                    count <= targets->targetCount - first);
         Walk(targets, first, count, channelWeights[c], targetWeights + first);
     }
     return mani_success;
@@ -727,6 +734,7 @@ static const uint8_t* SlotDeltas(const maniMorphTargets* m, const uint8_t* e, ui
     uint32_t mask = maniLoadU32(e + 4);
     uint64_t count = maniLoadU32(e + 8);
     uint64_t at = maniLoadU64(e + 24);
+    MANI_ASSERT(slot < m->attributeCount && ((mask >> slot) & 1u) != 0);
     for (uint32_t a = 0; a < slot; ++a)
     {
         uint32_t semantic = maniMorphAttribute(m, a, NULL);
@@ -806,7 +814,9 @@ static void AddVertices(Apply a, const uint8_t* deltas, const uint8_t* indices, 
     uint32_t stop = LowerBound(indices, count, end);
     for (uint32_t i = LowerBound(indices, count, first); i < stop; ++i)
     {
-        AddDelta(a, maniLoadU32(indices + 4 * (size_t)i) - first, deltas + a.stride * i);
+        uint32_t vertex = maniLoadU32(indices + 4 * (size_t)i);
+        MANI_ASSERT(vertex >= first && vertex < end);
+        AddDelta(a, vertex - first, deltas + a.stride * i);
     }
 }
 
@@ -821,12 +831,16 @@ static void AddTarget(const maniMorphJob* job, uint32_t t, const maniMorphStream
     }
     const uint8_t* deltas = SlotDeltas(m, e, slot);
     uint32_t width = maniMorphWidth(s->semantic);
+    // JobValid took only streams of 2 to 4 components; a table entry's
+    // width is that of its semantic.
+    MANI_ASSERT(width > 0 && width <= 4 && s->components <= 4);
     Apply a = {(uint8_t*)s->out, s->outStride, 4 * (size_t)width,
                s->components < width ? s->components : width, job->weights[t]};
     bool dense = maniLoadU32(e + 12) == MANI_MORPH_DENSE;
     const uint8_t* indices = dense ? NULL : m->indices + 4 * maniLoadU64(e + 16);
     uint32_t count = maniLoadU32(e + 8);
     uint32_t end = job->first + job->count;
+    MANI_ASSERT(end <= m->vertexCount && (!dense || count == m->vertexCount));
     AddVertices(a, deltas, indices, count, job->first, end);
 }
 
@@ -850,6 +864,7 @@ static void Renormalize(uint8_t* p)
 // memmove, for a vertex that overlaps itself).
 static void CopyVertex(uint8_t* out, const uint8_t* in, uint32_t floats)
 {
+    MANI_ASSERT(floats >= 2 && floats <= 4);
     float v[4];
     memcpy(v, in, 4 * (size_t)floats);
     memcpy(out, v, 4 * (size_t)floats);

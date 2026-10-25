@@ -38,7 +38,7 @@ skinning: bytes decompose fpenv influence_file vecmath
 influences_build: allocator builder bytes container fpenv influence_file
 centers_build: allocator builder bytes container elementary_float fpenv influence_file sort
 morph_file:
-morph: bytes container fpenv morph_file
+morph: bytes container fpenv invariant morph_file
 morph_build: allocator builder bytes container fpenv morph_file sort text
 match_file:
 match: bytes container fpenv invariant match_file text
