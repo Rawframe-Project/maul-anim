@@ -5,7 +5,9 @@
 // clips, its nodes ordered depth first from the output, poses and
 // differences marked, slots reused; every refusal of the builder and of
 // opening; the bytes pinned. Run as test_graph --seed <file> it writes a
-// seed for the graph fuzz target.
+// seed for the graph fuzz target, and as --seed-large <file> another, the
+// marker graph of the largest time factor; run as test_graph large-steps
+// it checks that graph's updates alone.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -27,6 +29,7 @@
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -1256,6 +1259,84 @@ static void TestMarkerSync(void)
           "ten loops and a quarter: both on the right foot");
 }
 
+// The marker graph under time scales of 1000 and 1000, the largest
+// product a path may take, into s_file.
+static maniBuildResult BuildLargeSteps(void)
+{
+    OpenFeet();
+    static const maniGraphClipSource kClips[2] = {{&s_feet[0], "short", 5, 0, NULL},
+                                                  {&s_feet[1], "long", 4, 0, NULL}};
+    static const maniGraphSyncGroupSource kGroups[1] = {{"feet", 4, maniGraphSyncAllEvents}};
+    static const uint32_t kInputs[2] = {0, 1};
+    static const uint32_t kBlend[1] = {2};
+    static const uint32_t kScale[1] = {3};
+    static const maniGraphScalar kWeights[2] = {{MANI_NO_PARAMETER, 0.5f},
+                                                {MANI_NO_PARAMETER, 0.5f}};
+    const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
+    const maniGraphScalar thousand = {MANI_NO_PARAMETER, 1000.0f};
+    const maniGraphNodeSource nodes[5] = {
+        {maniGraphNodeClip, 0, NULL, .clip = {0, 0, one, maniGraphLoopClip, maniGraphClipLeader}},
+        {maniGraphNodeClip, 0, NULL, .clip = {1, 0, one, maniGraphLoopClip, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeTimeScale, 1, kBlend, .timeScale = {thousand}},
+        {maniGraphNodeTimeScale, 1, kScale, .timeScale = {thousand}},
+    };
+    maniGraphSource source = {&s_skeleton, NULL, kClips, kGroups, nodes, 0,    2,    1,   5,
+                              4,           0,    NULL,   0,       0,     NULL, NULL, NULL};
+    return Build(&source);
+}
+
+// Run as test_graph large-steps, alone, under a short timeout: the
+// largest deltas a host can pass, both ways, and others across many
+// loops, under the largest time factor: every update succeeds, and both
+// playheads stay within their clips.
+static void TestLargeSteps(void)
+{
+    maniGraph g;
+    const maniClip* bound[2] = {&s_feet[0], &s_feet[1]};
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    CHECK(BuildLargeSteps().result == mani_success &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniBindGraph(&g,
+                            &(maniGraphAssets){&s_skeleton, bound, NULL, NULL, NULL, 2, 0, 0, 0,
+                                               NULL, NULL, 0, 0, NULL},
+                            s_bindingMemory, sizeof s_bindingMemory, &binding,
+                            NULL) == mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "a marker graph of the largest time factor");
+    if (instance == NULL)
+    {
+        return;
+    }
+    static const float kDeltas[6] = {FLT_MAX, -FLT_MAX, 1.0e16f, -3.3e9f, 0.37f, 0.0f};
+    for (int k = 0; k < 6; ++k)
+    {
+        maniGraphEvent events[4];
+        uint32_t count = 0;
+        maniRootMove move;
+        bool updated =
+            maniUpdateGraph(instance, kDeltas[k], events, 4, &count, &move) == mani_success;
+        double leader = State(instance, &g, 0)->time;
+        double follower = State(instance, &g, 1)->time;
+        CHECK(updated && leader >= 0.0 && leader <= (double)maniClipDuration(&s_feet[0]) &&
+                  follower >= 0.0 && follower <= (double)maniClipDuration(&s_feet[1]),
+              "an update across many loops, both playheads within their clips");
+    }
+}
+
+static int WriteLargeSeed(const char* path)
+{
+    FILE* f = BuildLargeSteps().result == mani_success ? fopen(path, "wb") : NULL;
+    bool written = f != NULL && fwrite(s_file, 1, s_size, f) == s_size;
+    if (f != NULL)
+    {
+        written = fclose(f) == 0 && written;
+    }
+    return written ? 0 : 1;
+}
+
 static void TestPinned(void)
 {
     maniGraphSource source = Source();
@@ -1328,6 +1409,15 @@ int main(int argc, char** argv)
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
     {
         return WriteSeed(argv[2]);
+    }
+    if (argc == 3 && strcmp(argv[1], "--seed-large") == 0)
+    {
+        return WriteLargeSeed(argv[2]);
+    }
+    if (argc == 2 && strcmp(argv[1], "large-steps") == 0)
+    {
+        TestLargeSteps();
+        return s_failures == 0 ? 0 : 1;
     }
     TestBuild();
     TestParameterRefusals();
