@@ -156,7 +156,7 @@ graph_machine_check: bytes graph_file sort
 graph_match_check: graph_match
 exact:
 triangulate: exact sort
-graph_inline: allocator graph_check
+graph_inline: allocator graph_check invariant
 graph_mirror: graph_check
 graph_build_words: bytes
 graph_build_ik: bytes graph_build_words graph_file ik_chain
