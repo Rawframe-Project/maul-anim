@@ -11,6 +11,7 @@
 #include "fpenv.h"
 #include "graph_file.h"
 #include "graph_nodes.h"
+#include "invariant.h"
 #include "text.h"
 
 #include "maul-anim/base.h"
@@ -168,6 +169,8 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
             return Fail(entryAt + 16);
         }
         uint64_t offset = maniLoadU64(entry + 8);
+        // maniOpenContainer took only sections inside the file.
+        MANI_ASSERT(offset <= c->size && size <= c->size - offset);
         s->data[tag - 1] = c->bytes + offset;
         s->sizes[tag - 1] = size;
         s->at[tag - 1] = offset;
@@ -263,6 +266,7 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
     for (uint32_t k = 0; k < MANI_GRAPH_SECTIONS - 3; ++k)
     {
         uint32_t section = k < 9 ? k + 1 : k + 2;
+        MANI_ASSERT(section < MANI_GRAPH_SECTIONS - 1 && section != 10);
         if (s->sizes[section] != sizes[k])
         {
             return Fail(s->entry[section]);
@@ -497,6 +501,7 @@ static maniFileResult CheckDatabases(const maniGraph* g, uint64_t at, uint64_t c
             return Fail(here + 28);
         }
         next += count;
+        MANI_ASSERT(next <= g->databaseClipCount);
     }
     if (next != g->databaseClipCount)
     {
@@ -542,6 +547,8 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
     {
         return r;
     }
+    // maniOpenContainer refused a newer format.
+    MANI_ASSERT(c.formatVersion >= 1 && c.formatVersion <= MANI_GRAPH_FORMAT_VERSION);
     // An earlier format records no time factors: the builder writes it
     // again.
     if (c.formatVersion < MANI_GRAPH_FORMAT_VERSION)
@@ -611,6 +618,8 @@ uint32_t maniGraphParameterCount(const maniGraph* graph)
 
 static const char* EntryName(const maniGraph* graph, const uint8_t* entry, uint32_t* lengthOut)
 {
+    // Opening took only names inside the names.
+    MANI_ASSERT((uint64_t)maniLoadU32(entry) + maniLoadU32(entry + 4) <= graph->namesSize);
     if (lengthOut != NULL)
     {
         *lengthOut = maniLoadU32(entry + 4);
@@ -809,5 +818,7 @@ uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip)
         return MANI_NO_TRACK;
     }
     uint32_t map = maniLoadU32(graph->clips + (size_t)clip * MANI_GRAPH_CLIP_SIZE + 28);
+    // Opening took only a clip's map slot within the maps.
+    MANI_ASSERT(map == MANI_GRAPH_NO_MAP || map < graph->mapCount);
     return map == MANI_GRAPH_NO_MAP ? MANI_NO_TRACK : map;
 }
