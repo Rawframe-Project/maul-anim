@@ -459,6 +459,13 @@ static void TestRefusals(void)
     maniGraphOneShotNodeSource masked = Shot(0.0f, 0.0f);
     masked.mask = &kMask;
     CHECK(Refused(Built(masked), maniBuildReasonWeight, 0), "a mask's weight past 1");
+    static const uint32_t kPast[2] = {1, 3};
+    maniGraphNodeSource past[3] = {{maniGraphNodeOneShot, 2, kPast, .oneShot = Shot(0.0f, 0.0f)},
+                                   ClipNode(0, 1.0f, maniGraphLoopClip),
+                                   ClipNode(4, 1.0f, maniGraphLoopClip)};
+    Parameters();
+    CHECK(Refused(BuildOnly(past, 3, s_parameters, 4), maniBuildReasonInput, 1),
+          "a shot past the nodes");
 }
 
 // The one-shot of Make1: its words checked on open. Words: fire 0, out

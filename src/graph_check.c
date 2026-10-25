@@ -21,6 +21,7 @@
 #include "graph_turn.h"
 #include "ik_chain.h"
 #include "ik_frame.h"
+#include "invariant.h"
 #include "sort.h"
 #include "text.h"
 #include "vecmath.h"
@@ -87,6 +88,7 @@ static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
 static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32_t i,
                             uint32_t* lengthOut)
 {
+    MANI_ASSERT(list <= kSpringSets && i < ListCount(source, list));
     if (list == kParameters)
     {
         *lengthOut = source->parameters[i].nameLength;
@@ -121,6 +123,7 @@ static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32
 static int FindRepeat(const uint64_t* keys, uint32_t n, const maniAllocator* allocator,
                       uint32_t* lowOut, uint32_t* highOut)
 {
+    MANI_ASSERT(n <= 1 || keys != NULL);
     uint32_t* sorted = n > 1 ? maniAllocate(allocator, 2 * (size_t)n, sizeof(uint32_t), 4) : NULL;
     if (n > 1 && sorted == NULL)
     {
@@ -140,6 +143,8 @@ static int FindRepeat(const uint64_t* keys, uint32_t n, const maniAllocator* all
         }
         maniRelease(allocator, sorted, 2 * (size_t)n, sizeof(uint32_t), 4);
     }
+    // The sort's order is a permutation, so a repeat is two indices.
+    MANI_ASSERT(found == 0 || *lowOut < *highOut);
     return found;
 }
 
@@ -239,6 +244,7 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
 
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 {
+    MANI_ASSERT(*count <= MANI_GRAPH_MAX_MAPS);
     for (uint32_t k = 0; k < *count; ++k)
     {
         if (ids[k] == identity)
@@ -298,6 +304,8 @@ static maniBuildResult CheckClips(const maniGraphSource* source, const maniAlloc
     }
     for (uint32_t i = 0; i < n && keys != NULL; ++i)
     {
+        // ClipFits refused a slot without a clip.
+        MANI_ASSERT(source->clips[i].clip != NULL);
         keys[i] = maniClipIdentity(source->clips[i].clip);
     }
     uint32_t low = 0;
@@ -322,6 +330,8 @@ static maniBuildResult CheckModels(const maniGraphSource* source)
         }
         for (uint32_t k = 0; k < i; ++k)
         {
+            // Slot k passed this loop's first check.
+            MANI_ASSERT(source->models[k].model != NULL);
             if (maniLearnedModelIdentity(source->models[k].model) == maniLearnedModelIdentity(m))
             {
                 return maniGraphRefuse(maniBuildReasonModel, i, k);
@@ -344,6 +354,7 @@ static maniBuildResult CheckSpringSets(const maniGraphSource* source)
         }
         for (uint32_t k = 0; k < i; ++k)
         {
+            MANI_ASSERT(source->springSets[k].set != NULL);
             if (maniSpringSetIdentity(source->springSets[k].set) == maniSpringSetIdentity(p))
             {
                 return maniGraphRefuse(maniBuildReasonSpringSetSlot, i, k);
@@ -605,6 +616,8 @@ static uint32_t ChainLimitWords(const maniGraphSource* source, const maniGraphNo
     uint32_t count = n->chain.limits != NULL
                          ? maniIkChainPath(source->skeleton, n->chain.root, n->chain.end, bones)
                          : 0u;
+    // CheckChain took only a chain the skeleton has.
+    MANI_ASSERT(n->chain.limits == NULL || count > 0);
     return count > 0 ? MANI_GRAPH_LIMIT_WORDS * (count - 1) : 0u;
 }
 
@@ -687,6 +700,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
     case maniGraphNodeBodySdls:
         return maniCheckGraphBody(source, n, node);
     case maniGraphNodeAdditive:
+        // CheckNode took at least two inputs: the base and a layer.
+        MANI_ASSERT(count >= 2);
         return CheckWeights(source, n->additive.weights, count - 1, node, 1.0f);
     case maniGraphNodeSelect:
         return ParameterOf(source, n->select.parameter, maniGraphParameterInt,
@@ -714,6 +729,8 @@ static maniBuildResult CheckFields(const maniGraphSource* source, const maniGrap
     case maniGraphNodeMachine:
         return maniCheckGraphMachine(source, n, node);
     default:
+        // maniGraphInputRange refused every other kind.
+        MANI_ASSERT(n->kind == maniGraphNodeSeek);
         return ParameterOf(source, n->seek.trigger, maniGraphParameterTrigger,
                            maniGraphParameterTrigger)
                    ? CheckScalar(source, n->seek.time, node, 0, -HUGE_VALF, HUGE_VALF)
@@ -738,10 +755,13 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
         return MANI_GRAPH_MATCH_BLOCK_WORDS;
     case maniGraphNodeLearned:
     {
+        // CheckFields took the node's slots.
+        MANI_ASSERT(n->learned.model < source->modelCount);
         const maniLearnedModel* m = source->models[n->learned.model].model;
         return MANI_GRAPH_LEARNED_BLOCK_WORDS(m->featureCount + m->latentCount, m->eventCount);
     }
     case maniGraphNodeSpring:
+        MANI_ASSERT(n->spring.springSet < source->springSetCount);
         return maniGraphSpringState +
                (uint32_t)maniGraphSpringSetWords(source->springSets[n->spring.springSet].set);
     case maniGraphNodeTurnLimit:
@@ -817,6 +837,7 @@ static maniBuildResult TallyLists(const maniGraphSource* source, const maniAlloc
         // A machine lists per state; a one-shot beneath its shot.
         for (uint32_t k = shot ? 1u : 0u; k < (listens || shot ? node->inputCount : 0u); ++k)
         {
+            MANI_ASSERT(node->inputs[k] < source->nodeCount);
             uint32_t count = maniGraphReachClips(&reach, node->inputs[k], NULL, NULL);
             tally->dataWords += count;
             tally->longestList = count > tally->longestList ? count : tally->longestList;

@@ -336,6 +336,9 @@ static void TestNodeRefusals(void)
     s_nodes[4].inputCount = 1;
     ExpectRefused(&s, maniBuildReasonNode, 4, 0, "a mask of one input");
     s = Source();
+    s_nodes[1].inputCount = 1;
+    ExpectRefused(&s, maniBuildReasonNode, 1, 0, "an additive node of one input");
+    s = Source();
     s_nodes[2].clip.clip = 3;
     ExpectRefused(&s, maniBuildReasonNode, 2, 0, "a clip slot past the count");
     s = Source();
