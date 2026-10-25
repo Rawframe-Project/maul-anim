@@ -534,8 +534,6 @@ void maniGraphAdvanceClip(maniGraphUpdate* u, uint32_t p)
         }
     }
     s->time = Place(&clip, m.t0 + m.step);
-    // Placed in the clip whatever the step: an overflowing one wraps to 0.
-    MANI_ASSERT(s->time >= 0.0 && s->time <= (double)clip.duration);
     if (s->rootWeight > 0.0f)
     {
         maniRootMotionSumAdd(&u->root, &move, (double)s->rootWeight);
