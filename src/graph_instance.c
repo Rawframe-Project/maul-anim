@@ -19,6 +19,7 @@
 #include "graph_spring.h"
 #include "graph_turn.h"
 #include "graph_values.h"
+#include "invariant.h"
 #include "learned_eval.h"
 #include "pose_memory.h"
 
@@ -107,17 +108,24 @@ static size_t RoomAt(const maniGraphBinding* binding)
     return PosesAt(binding) + PosesBefore(graph, graph->parameterCount) * PoseBytes(binding);
 }
 
+// A pose parameter's locals, between the machines' blocks and the room.
 float* maniGraphPoseLocals(maniGraphInstance* instance, uint32_t parameter)
 {
     const maniGraphBinding* b = instance->binding;
+    MANI_ASSERT(parameter < b->graph.parameterCount &&
+                maniLoadU32(ParameterEntry(&b->graph, parameter)) == maniGraphParameterPose);
     size_t at = instance->posesAt + PosesBefore(&b->graph, parameter) * PoseBytes(b);
+    MANI_ASSERT(at + PoseBytes(b) <= instance->roomAt);
     return (float*)((uint8_t*)instance + at);
 }
 
 const float* maniGraphPoseLocalsRead(const maniGraphInstance* instance, uint32_t parameter)
 {
     const maniGraphBinding* b = instance->binding;
+    MANI_ASSERT(parameter < b->graph.parameterCount &&
+                maniLoadU32(ParameterEntry(&b->graph, parameter)) == maniGraphParameterPose);
     size_t at = instance->posesAt + PosesBefore(&b->graph, parameter) * PoseBytes(b);
+    MANI_ASSERT(at + PoseBytes(b) <= instance->roomAt);
     return (const float*)((const uint8_t*)instance + at);
 }
 
@@ -198,6 +206,9 @@ static void PlaceCaches(maniGraphInstance* instance)
         table[p] = floats > 0 ? at : UINT32_MAX;
         at += (uint32_t)floats;
     }
+    // The table and the caches fill the instance to its end.
+    MANI_ASSERT(instance->cachesAt + sizeof(float) * ((size_t)graph->nodeCount + at) ==
+                instance->size);
 }
 
 float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node)
@@ -206,6 +217,7 @@ float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node)
     {
         return NULL;
     }
+    MANI_ASSERT(node < instance->binding->graph.nodeCount);
     uint32_t* table = (uint32_t*)((uint8_t*)instance + instance->cachesAt);
     uint32_t at = table[node];
     return at != UINT32_MAX ? (float*)(table + instance->binding->graph.nodeCount) + at : NULL;
@@ -342,6 +354,9 @@ static void ResetMachines(maniGraphInstance* instance)
     {
         maniGraphMachine m = MachineAt(graph, p);
         uint32_t shot = ShotBlockAt(graph, p);
+        // The opener placed every block within the machines' words.
+        MANI_ASSERT(m.states == 0 || maniGraphMachineBlockAt(&m) < graph->machineWords);
+        MANI_ASSERT(shot == UINT32_MAX || shot < graph->machineWords);
         if (m.states > 0)
         {
             maniGraphResetMachine(&m, Blocks(instance) + maniGraphMachineBlockAt(&m));
@@ -382,7 +397,10 @@ static void ResetCursors(maniGraphInstance* instance)
     {
         maniClipCursor* cursor = NULL;
         uint8_t* memory = (uint8_t*)instance + instance->cursorsAt + (size_t)c * size;
-        (void)maniInitClipCursor(memory, size, &cursor);
+        // The binding's cursor size fits every clip it binds.
+        maniResult made = maniInitClipCursor(memory, size, &cursor);
+        MANI_ASSERT(made == mani_success);
+        (void)made;
     }
 }
 
@@ -411,6 +429,10 @@ static MANI_NOINLINE maniResult InitGraphInstanceWork(const maniGraphBinding* bi
     instance->posesAt = PosesAt(binding);
     instance->roomAt = RoomAt(binding);
     instance->cachesAt = instance->roomAt + maniGraphRoom(binding);
+    MANI_ASSERT(instance->cursorsAt <= instance->machinesAt &&
+                instance->machinesAt <= instance->posesAt &&
+                instance->posesAt <= instance->roomAt && instance->roomAt <= instance->cachesAt &&
+                instance->cachesAt <= needed);
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
         instance->cells[i].value = maniGraphLoadValue(ParameterEntry(graph, i) + 24);
@@ -462,6 +484,7 @@ maniResult maniSetGraphParameter(maniGraphInstance* instance, uint32_t parameter
 
 void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, maniPose* out)
 {
+    MANI_ASSERT(maniPoseMatches(out, instance->binding->skeleton));
     maniPoseSetKind(out, false);
     memcpy(maniPoseLocals(out), maniGraphPoseLocalsRead(instance, parameter),
            PoseBytes(instance->binding));
@@ -616,6 +639,12 @@ static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* i
     {
         maniStoreU32(p, blocks[w]);
     }
+    // The poses' locals take the rest of the state.
+    MANI_ASSERT((size_t)(p - (uint8_t*)out) +
+                    (size_t)PosesBefore(graph, graph->parameterCount) *
+                        maniSkeletonBoneCount(instance->binding->skeleton) * MANI_POSE_COMPONENTS *
+                        4 ==
+                size);
     SavePoses(instance, p);
     return mani_success;
 }
@@ -738,6 +767,7 @@ static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8
         {
             continue;
         }
+        MANI_ASSERT(first < graph->machineWords);
         uint64_t block = at + 4 * (uint64_t)first;
         uint32_t wrong = SavedBlockValid(instance->binding, p, &m, b, b + block);
         if (wrong != UINT32_MAX)
@@ -891,6 +921,11 @@ static MANI_NOINLINE maniFileResult RestoreGraphInstanceWork(maniGraphInstance* 
     {
         blocks[w] = maniLoadU32(p);
     }
+    MANI_ASSERT((size_t)(p - (const uint8_t*)bytes) +
+                    (size_t)PosesBefore(graph, graph->parameterCount) *
+                        maniSkeletonBoneCount(instance->binding->skeleton) * MANI_POSE_COMPONENTS *
+                        4 ==
+                maniGraphStateSize(instance->binding));
     RestorePoses(instance, p);
     ResetCursors(instance);
     return r;
