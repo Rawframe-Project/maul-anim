@@ -120,6 +120,10 @@ static void TestBuild(void)
     bad[1].set = NULL;
     source = Graph(bad, 2);
     CHECK(RefusedFor(&source, maniBuildReasonSpringSetSlot, 1, 0), "a slot without a set");
+    bad[0].set = NULL;
+    bad[1].set = kTwo[1].set;
+    CHECK(RefusedFor(&source, maniBuildReasonSpringSetSlot, 0, 0), "a first slot without a set");
+    bad[0] = kTwo[0];
     bad[1].set = &s_set;
     CHECK(RefusedFor(&source, maniBuildReasonSpringSetSlot, 1, 0), "a set listed twice");
     maniSpringSet stranger = s_other;

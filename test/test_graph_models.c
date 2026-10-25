@@ -91,6 +91,10 @@ static void TestBuild(void)
     bad[1].model = NULL;
     source = Graph(bad, 2);
     CHECK(RefusedFor(&source, maniBuildReasonModel, 1, 0), "a slot without a model");
+    bad[0].model = NULL;
+    bad[1].model = slots[1].model;
+    CHECK(RefusedFor(&source, maniBuildReasonModel, 0, 0), "a first slot without a model");
+    bad[0] = slots[0];
     bad[1].model = &s_learned;
     CHECK(RefusedFor(&source, maniBuildReasonModel, 1, 0), "a model listed twice");
     maniLearnedModel stranger = s_other;
