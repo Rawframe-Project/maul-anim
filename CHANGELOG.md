@@ -27,8 +27,8 @@ may change the API, the ABI and every data format.
 ### Fixed
 
 - A clip node's step that is not finite moves nothing, and the marker
-  walk's count is bounded by two loops of markers. Every finite step
-  gives the same bits as before.
+  walk's count is bounded by two loops of markers. Results do not
+  change for steps shorter than about 2^53 clip lengths.
   ([#64](https://github.com/Rawframe-Project/maul-anim/pull/64))
 - A graph's binary32 timers saturate at `FLT_MAX`: the fade time of a
   machine and of a one-shot, and an inertialize node's step and elapsed
