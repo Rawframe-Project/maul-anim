@@ -34,13 +34,12 @@ may change the API, the ABI and every data format.
 ### Fixed
 
 - `maniBuildGraph` refuses a subgraph's sync group whose name is NULL
-  with `maniBuildReasonCount` at item 0, before anything is laid out,
-  as it refuses a subgraph's list that is not given. Such a source was
-  already refused, by the check on the inlined source with the sync
-  group list's Name reason. A root's own nameless group is still
-  refused with that Name reason. Only a host's own `maniGraphSource`
-  structs reach this; the JSON form always gives a name. Every graph
-  that built before builds to the same bytes
+  with `maniBuildReasonCount` at item 0, before anything is laid out, as
+  it refuses a subgraph's list that is not given. A root's own nameless
+  group is still refused by the check with the sync group list's Name
+  reason. Only a host's own `maniGraphSource` structs reach this; the
+  JSON form always gives a name. Every graph that built before builds to
+  the same bytes
   ([#81](https://github.com/Rawframe-Project/maul-anim/pull/81)).
 
 ## [0.3.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.3.0) (2026-10-25)
