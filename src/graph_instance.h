@@ -16,6 +16,7 @@
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
 
+#include <float.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -113,6 +114,14 @@ typedef struct maniGraphBoundMapPair
     const maniRetargetMap* map;
     const maniSkeleton* source;
 } maniGraphBoundMapPair;
+
+// Seconds a binary32 timer keeps: a sum or a step at or past FLT_MAX
+// saturates there, so a saved state stays finite; any other converts as
+// a cast does.
+static inline float maniGraphSeconds(double seconds)
+{
+    return seconds < (double)FLT_MAX ? (float)seconds : FLT_MAX;
+}
 
 static inline const maniGraphBoundMapPair* maniGraphBoundMap(const maniGraphBinding* binding,
                                                              uint32_t slot)

@@ -22,6 +22,7 @@
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
@@ -228,6 +229,21 @@ static inline void Set(maniGraphInstance* instance, uint32_t parameter, maniGrap
                        maniGraphValue value)
 {
     CHECK(maniSetGraphParameter(instance, parameter, type, value) == mani_success, "set");
+}
+
+// The instance's state saved and restored into another instance of its
+// binding: whether both succeed.
+static inline bool Restores(maniGraphInstance* instance)
+{
+    static _Alignas(8) uint8_t saved[8192];
+    static _Alignas(8) uint8_t memory[16384];
+    size_t size = maniGraphStateSize(instance->binding);
+    maniGraphInstance* other = NULL;
+    return size <= sizeof saved &&
+           maniSaveGraphInstance(instance, saved, sizeof saved) == mani_success &&
+           maniInitGraphInstance(instance->binding, memory, sizeof memory, &other) ==
+               mani_success &&
+           maniRestoreGraphInstance(other, saved, size).result == mani_success;
 }
 
 #endif // MAUL_ANIM_TEST_GRAPH_FIXTURE_H

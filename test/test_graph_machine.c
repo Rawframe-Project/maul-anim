@@ -9,7 +9,7 @@
 // triggers consumed; bool, int and float comparisons; restart and keep
 // entries, and a state still weighted keeping its time; a time scale
 // above the machine; a nested machine started over when entered; saved
-// and restored mid-fade; evaluation bit for bit with the blending
+// and restored mid-fade, and after the largest deltas; evaluation bit for bit with the blending
 // functions; the builder's refusals and opening's checks; a machine in a
 // subgraph; the JSON form, round trip, members left out and refusals.
 // Run as test_graph_machine --seed <graph file> <json file> it writes the
@@ -453,6 +453,37 @@ static void TestSaved(void)
     }
 }
 
+// The largest delta a host can pass, twice, under a time scale of 2
+// while fading: the fade's elapsed time saturates at FLT_MAX, the
+// transition's time since it fired goes to +inf (as when it never
+// fired), and the state saves and restores.
+static void TestLargestDelta(void)
+{
+    static const uint32_t kStates[2] = {2, 3};
+    static const uint32_t kScaled[1] = {1};
+    maniGraphTransitionSource t[1] = {Go(0, 1, 0, 0.5f, NULL, 0)};
+    maniGraphNodeSource nodes[4] = {
+        {maniGraphNodeTimeScale, 1, kScaled, .timeScale = {LITERAL(2.0f)}},
+        {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip)};
+    maniGraph g;
+    maniGraphInstance* instance = Make((maniGraphSource){.nodes = nodes, .nodeCount = 4}, &g);
+    Update(instance, FLT_MAX);
+    Update(instance, FLT_MAX);
+    // The block follows the 4 nodes' 16 bytes each: the elapsed time is
+    // its word 2, the transition's time since it fired its word 18 (after
+    // 14 words and two per state).
+    size_t block = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE;
+    float elapsed = 0.0f;
+    float since = 0.0f;
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success, "saved");
+    memcpy(&elapsed, s_saved[0] + block + 4 * 2, sizeof elapsed);
+    memcpy(&since, s_saved[0] + block + 4 * 18, sizeof since);
+    CHECK(elapsed == FLT_MAX && since == HUGE_VALF, "elapsed saturated, since gone to +inf");
+    CHECK(Restores(instance), "saved and restored after the largest deltas");
+}
+
 static _Alignas(32) uint8_t s_scratch[65536];
 static _Alignas(32) uint8_t s_poseMemory[4][4096];
 
@@ -795,6 +826,7 @@ int main(int argc, char** argv)
     TestTimeScale();
     TestNested();
     TestSaved();
+    TestLargestDelta();
     TestEvaluated();
     TestRefusals();
     TestOpenRefusals();

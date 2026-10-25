@@ -10,7 +10,8 @@
 // rise past 0.5) for transition costs of none, some and too much to
 // pass; the pose at the interpolated state; the trigger consumed; a node
 // weighed 0 left alone; a seek starting it over; a state saved and
-// restored playing alike, and each word of a saved block checked.
+// restored playing alike, and after the largest deltas; each word of a
+// saved block checked.
 
 #include "graph_learned_fixture.h"
 #include "learned_eval.h"
@@ -607,6 +608,18 @@ static void TestSeek(void)
 static _Alignas(8) uint8_t s_other[8192];
 static uint8_t s_saved[2][4096];
 
+// The largest delta a host can pass, twice: the step is bounded, the
+// clock and the time since the last projection stay below theirs, and the
+// state saves and restores.
+static void TestLargestDelta(void)
+{
+    maniGraph g;
+    maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
+    Update(instance, FLT_MAX);
+    Update(instance, FLT_MAX);
+    CHECK(Restores(instance), "saved and restored after the largest deltas");
+}
+
 static void TestSaved(void)
 {
     maniGraph g;
@@ -1014,6 +1027,7 @@ int main(void)
     TestWeightless();
     TestSeek();
     TestSaved();
+    TestLargestDelta();
     TestReset();
     TestCache();
     TestMirrored();

@@ -91,7 +91,7 @@ bool maniGraphStepShot(const maniGraphShot* s, maniGraphCell* cells, uint32_t* b
     if (phase == maniGraphShotIn || phase == maniGraphShotOut)
     {
         double elapsed = (double)Get(block, maniGraphShotElapsed) + seconds;
-        Put(block, maniGraphShotElapsed, (float)elapsed);
+        Put(block, maniGraphShotElapsed, maniGraphSeconds(elapsed));
         Fade(s, block);
     }
     bool abort = Take(s, cells, maniGraphShotAbort);

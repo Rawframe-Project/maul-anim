@@ -10,10 +10,10 @@
 // trigger, and a trigger read while idle consumed; the base and the shot
 // shared by the weight; a masked shot evaluated bit for bit as the
 // blending functions do; triggers waiting while no parent reaches it;
-// saved and restored mid-fade; a one-shot in a subgraph; the builder's
-// refusals and opening's checks; the JSON form, round trip and
-// refusals. Run as test_graph_shot --seed <graph file> <json file> it
-// writes the round trip's file and text, seeds of the fuzz targets.
+// saved and restored mid-fade, and after the largest deltas; a one-shot in a subgraph; the
+// builder's refusals and opening's checks; the JSON form, round trip and refusals. Run as
+// test_graph_shot --seed <graph file> <json file> it writes the round trip's file and text, seeds
+// of the fuzz targets.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -318,6 +318,35 @@ static void TestMask(void)
 static _Alignas(8) uint8_t s_saved[2][4096];
 static _Alignas(8) uint8_t s_other[8192];
 
+// The largest delta a host can pass, under a time scale of 2, once the
+// shot is fired and again while it fades in: the fade's elapsed time
+// saturates at FLT_MAX, and the state saves and restores.
+static void TestLargestDelta(void)
+{
+    static const uint32_t kScaled[1] = {1};
+    static const uint32_t kInputs[2] = {2, 3};
+    Parameters();
+    maniGraphNodeSource nodes[4] = {
+        {maniGraphNodeTimeScale, 1, kScaled, .timeScale = {LITERAL(2.0f)}},
+        {maniGraphNodeOneShot, 2, kInputs, .oneShot = Shot(0.5f, 0.5f)},
+        ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        ClipNode(4, 1.0f, maniGraphLoopClamp)};
+    maniGraph g;
+    // The base 0, the shot 1, the one-shot 2, the time scale 3.
+    maniGraphInstance* instance = Make(
+        (maniGraphSource){
+            .parameters = s_parameters, .nodes = nodes, .parameterCount = 4, .nodeCount = 4},
+        &g);
+    Pull(instance, 1);
+    Update(instance, FLT_MAX);
+    CHECK(Phase(instance, &g, 2) == maniGraphShotIn, "fading in");
+    Update(instance, FLT_MAX);
+    float elapsed = 0.0f;
+    memcpy(&elapsed, &Block(instance, &g, 2)[maniGraphShotElapsed], sizeof elapsed);
+    CHECK(elapsed == FLT_MAX, "elapsed saturated");
+    CHECK(Restores(instance), "saved and restored after the largest deltas");
+}
+
 // Saved mid-fade and restored: both go on alike; a saved block refused
 // at its word.
 static void TestSaved(void)
@@ -596,6 +625,7 @@ int main(int argc, char** argv)
     TestUnreached();
     TestMask();
     TestSaved();
+    TestLargestDelta();
     TestSubgraph();
     TestRefusals();
     TestOpenRefusals();
