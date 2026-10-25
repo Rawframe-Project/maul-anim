@@ -42,4 +42,4 @@ The differentials in `tools/` time both sides on the same data ([development.md]
 
 ## Graph overhead
 
-A graph adds little to the work it orders: a frame of a graph that samples two compressed clips and blends them takes 27,547 instructions, 5.1% more than the same samples, root motion and blend made by hand at 26,213 (`tools/bench.sh`, `graph.frame` against `graph.byhand`, Clang 20); the target is within 10%. A node kind's cost is its work (samples, blends, solves) plus a small update; state machines cost about their weighted states.
+A graph adds little to the work it orders: a frame of a graph that samples two compressed clips and blends them takes 27,556 instructions, 5.1% more than the same samples, root motion and blend made by hand at 26,213 (`tools/bench.sh`, `graph.frame` against `graph.byhand`, Clang 20); the target is within 10%. A node kind's cost is its work (samples, blends, solves) plus a small update; state machines cost about their weighted states.

@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Updating a graph instance: weights shared down from the
-// output in reverse node order, then every clip node's and motion
-// matching node's playhead moved in node order (a sync group's members as
-// graph_sync.c moves them), its events listed and its root motion
-// blended.
+// output in reverse node order, then every clip node's
+// (graph_clip_step.c) and motion matching node's playhead moved in node
+// order, its events listed and its root motion blended.
 
 #include "bytes.h"
 #include "fpenv.h"
+#include "graph_clip_step.h"
 #include "graph_emit.h"
 #include "graph_file.h"
 #include "graph_inertia.h"
@@ -22,9 +22,7 @@
 #include "graph_shot_step.h"
 #include "graph_space.h"
 #include "graph_spring.h"
-#include "graph_sync.h"
 #include "graph_turn.h"
-#include "retarget_motion.h"
 #include "root_motion.h"
 
 #include "maul-anim/base.h"
@@ -468,85 +466,6 @@ static void Weigh(const Update* u)
     }
 }
 
-// A mapped clip's move carried as the map carries its root motion bone's
-// into the binding's; any other move as it is.
-static maniRootMove Carried(const Update* u, uint32_t slot, const maniClip* clip, maniRootMove move)
-{
-    const maniGraphBoundMapPair* pair = maniGraphClipMapPair(u->binding, slot);
-    maniRootMotionSource source;
-    if (pair == NULL || !maniClipRootMotionSource(clip, &source))
-    {
-        return move;
-    }
-    maniRetargetMotion motion = maniRetargetMotionOf(
-        pair->map, pair->source, source.bone, u->binding->skeleton, u->binding->rootMotionBone);
-    return maniRetargetMove(&motion, move);
-}
-
-// The events a playhead passes from t0 over step, across wraps.
-static void Events(Update* u, uint32_t node, uint32_t slot, const maniClip* clip, double t0,
-                   double step)
-{
-    double t1 = t0 + step;
-    double d = (double)clip->duration;
-    if (!maniGraphClipRepeats(clip))
-    {
-        maniGraphEmit(u, node, slot, clip, t0, maniGraphClipPlace(clip, t1));
-        return;
-    }
-    double wraps = floor(t1 / d);
-    if (wraps == 0.0)
-    {
-        maniGraphEmit(u, node, slot, clip, t0, t1);
-        return;
-    }
-    bool forward = wraps > 0.0;
-    double loops = fabs(wraps) - 1.0;
-    maniGraphEmit(u, node, slot, clip, t0, forward ? d : 0.0);
-    maniGraphEmitLoops(u, node, slot, clip, forward ? 0.0 : d, forward ? d : 0.0, loops);
-    double rest = t1 - wraps * d;
-    maniGraphEmit(u, node, slot, clip, forward ? 0.0 : d, rest);
-}
-
-// A clip node's move. One no parent reached and in no sync group stays
-// where it is: its time factor 0, no seek, no weight, so no events and
-// no root motion.
-static void Advance(Update* u, uint32_t p, const uint8_t* record)
-{
-    maniGraphNodeState* s = Node(u, p);
-    uint32_t group = maniGraphUpdateGroupOf(u, record);
-    if (!Reached(s) && group >= u->graph->syncGroupCount)
-    {
-        s->from = s->time;
-        s->step = 0.0;
-        return;
-    }
-    uint32_t data = maniLoadU32(record + 12);
-    maniClip clip = maniGraphUpdateClip(u, data);
-    maniGraphMotion m = maniGraphClipMotion(u, p, group, &clip, data);
-    maniRootMove move = maniRootMoveIdentity();
-    s->from = m.t0;
-    s->step = m.seeking ? 0.0 : m.step;
-    if (!m.seeking)
-    {
-        if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD)
-        {
-            s->flags |= MANI_GRAPH_LISTED;
-            Events(u, p, Word(u, data), &clip, m.t0, m.step);
-        }
-        if (s->rootWeight > 0.0f)
-        {
-            (void)maniClipRootMotionEntered(&clip, (float)m.t0, (float)m.step, &move);
-            move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move));
-        }
-    }
-    s->time = maniGraphClipPlace(&clip, m.t0 + m.step);
-    if (s->rootWeight > 0.0f)
-    {
-        maniRootMotionSumAdd(&u->root, &move, (double)s->rootWeight);
-    }
-}
-
 static MANI_NOINLINE maniResult UpdateGraphWork(maniGraphInstance* instance, float delta,
                                                 maniGraphEvent* events, uint32_t capacity,
                                                 uint32_t* eventCountOut,
@@ -571,7 +490,7 @@ static MANI_NOINLINE maniResult UpdateGraphWork(maniGraphInstance* instance, flo
         const uint8_t* record = Record(&u, p);
         if (maniLoadU16(record) == maniGraphNodeClip)
         {
-            Advance(&u, p, record);
+            maniGraphAdvanceClip(&u, p);
         }
         else if (maniLoadU16(record) == maniGraphNodeMatch)
         {

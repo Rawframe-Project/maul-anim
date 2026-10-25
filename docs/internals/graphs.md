@@ -52,7 +52,7 @@ The graph adds little to the work it orders: a frame of two clips and a blend ta
 
 ## Sync groups
 
-Clips of different lengths (a walk and a run) must keep their feet in step while blended. Each update picks a group's leader ([`src/graph_sync.c`](../../src/graph_sync.c)): the first member declared one, else the member weighed most. The leader moves by its own speed; each follower starts from the leader's phase and moves as far through its own clip as the leader through its own. Only the leader's events fire unless the group asks for every member's.
+Clips of different lengths (a walk and a run) must keep their feet in step while blended. Each update picks a group's leader ([`src/graph_clip_step.c`](../../src/graph_clip_step.c), which moves every clip node): the first member declared one, else the member weighed most. The leader moves by its own speed; each follower starts from the leader's phase and moves as far through its own clip as the leader through its own. Only the leader's events fire unless the group asks for every member's.
 
 A group whose members all repeat and share marker names syncs by markers instead: a position is the last common marker passed, the next one and the fraction between them. A follower is placed where its markers carry the leader's names at the leader's fraction, passes as many common markers as the leader, and lands at the leader's final fraction, so a clip that starts on the other foot stays in step without passing a loop of events.
 

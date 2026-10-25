@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Sync groups in an update: each group's leader, the first declared or
-// else the member weighed most, and how it moves; then each member's
-// motion, by phase or by markers, as far as the leader's.
+// A clip node's step in an update: its playhead moved by its own speed
+// and time factor or set by a seek, or as its sync group's leader moves,
+// by phase or by markers; its events listed and its root motion added.
+// A group's leader is the first member declared one, else the member
+// weighed most.
 
-#include "graph_sync.h"
+#include "graph_clip_step.h"
 
 #include "bytes.h"
 #include "graph_emit.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "retarget_motion.h"
+#include "root_motion.h"
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/rootmotion.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -21,11 +26,15 @@
 #include <stdint.h>
 
 typedef maniGraphUpdate Update;
-typedef maniGraphMotion Motion;
 
 static maniGraphNodeState* Node(const Update* u, uint32_t p)
 {
     return maniGraphUpdateNode(u, p);
+}
+
+static const uint8_t* Record(const Update* u, uint32_t p)
+{
+    return u->graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
 }
 
 static uint32_t Word(const Update* u, uint32_t at)
@@ -38,6 +47,89 @@ static float Scalar(const Update* u, uint32_t at)
     return maniGraphUpdateScalar(u, at);
 }
 
+// Whether a parent reached a node this update.
+static bool Reached(const maniGraphNodeState* s)
+{
+    return (s->flags & MANI_GRAPH_REACHED) != 0;
+}
+
+// A mapped clip's move carried as the map carries its root motion bone's
+// into the binding's; any other move as it is.
+static maniRootMove Carried(const Update* u, uint32_t slot, const maniClip* clip, maniRootMove move)
+{
+    const maniGraphBoundMapPair* pair = maniGraphClipMapPair(u->binding, slot);
+    maniRootMotionSource source;
+    if (pair == NULL || !maniClipRootMotionSource(clip, &source))
+    {
+        return move;
+    }
+    maniRetargetMotion motion = maniRetargetMotionOf(
+        pair->map, pair->source, source.bone, u->binding->skeleton, u->binding->rootMotionBone);
+    return maniRetargetMove(&motion, move);
+}
+
+// A clip node's clip, its loop as the node says.
+static maniClip ClipOf(const Update* u, uint32_t data)
+{
+    maniClip clip = *u->binding->clips[Word(u, data)];
+    uint32_t loop = Word(u, data + 2);
+    clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat);
+    return clip;
+}
+
+static bool Repeats(const maniClip* clip)
+{
+    return clip->loop == maniLoopRepeat && clip->duration > 0.0f;
+}
+
+// A time placed in the clip: wrapped into it, or clamped to it.
+static double Place(const maniClip* clip, double t)
+{
+    double d = (double)clip->duration;
+    if (!Repeats(clip))
+    {
+        return t < 0.0 ? 0.0 : (t > d ? d : t);
+    }
+    double w = fmod(t, d);
+    w = w < 0.0 ? w + d : w;
+    return w < d ? w : 0.0;
+}
+
+// The events a playhead passes from t0 over step, across wraps.
+static void Events(Update* u, uint32_t node, uint32_t slot, const maniClip* clip, double t0,
+                   double step)
+{
+    double t1 = t0 + step;
+    double d = (double)clip->duration;
+    if (!Repeats(clip))
+    {
+        maniGraphEmit(u, node, slot, clip, t0, Place(clip, t1));
+        return;
+    }
+    double wraps = floor(t1 / d);
+    if (wraps == 0.0)
+    {
+        maniGraphEmit(u, node, slot, clip, t0, t1);
+        return;
+    }
+    bool forward = wraps > 0.0;
+    double loops = fabs(wraps) - 1.0;
+    maniGraphEmit(u, node, slot, clip, t0, forward ? d : 0.0);
+    maniGraphEmitLoops(u, node, slot, clip, forward ? 0.0 : d, forward ? d : 0.0, loops);
+    double rest = t1 - wraps * d;
+    maniGraphEmit(u, node, slot, clip, forward ? 0.0 : d, rest);
+}
+
+// How a clip node moves this update: from t0 by step, or set to t0 by a
+// seek (nothing passed); with its events or not.
+typedef struct Motion
+{
+    double t0;
+    double step;
+    bool seeking;
+    bool events;
+} Motion;
+
 // A node's own motion: its playhead by its speed and time factor.
 static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const maniClip* clip,
                         uint32_t data)
@@ -45,7 +137,7 @@ static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const mani
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         double scale = (s->flags & MANI_GRAPH_PHASE) != 0 ? (double)clip->duration : 1.0;
-        return (Motion){maniGraphClipPlace(clip, (double)s->seekTo * scale), 0.0, true, false};
+        return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, true, false};
     }
     return (Motion){s->time, u->delta * (double)Scalar(u, data + 4) * (double)s->factor, false,
                     true};
@@ -56,13 +148,18 @@ static maniGraphGroupState* Group(const Update* u, uint32_t group)
     return &u->instance->cells[u->graph->parameterCount + u->graph->nodeCount + group].group;
 }
 
+static uint32_t GroupOf(const Update* u, const uint8_t* record)
+{
+    return Word(u, maniLoadU32(record + 12) + 1);
+}
+
 // The next clip node of group g from node from on, or UINT32_MAX.
 static uint32_t NextMember(const Update* u, uint32_t g, uint32_t from)
 {
     for (uint32_t p = from; p < u->graph->nodeCount; ++p)
     {
-        const uint8_t* record = maniGraphUpdateRecord(u, p);
-        if (maniLoadU16(record) == maniGraphNodeClip && maniGraphUpdateGroupOf(u, record) == g)
+        const uint8_t* record = Record(u, p);
+        if (maniLoadU16(record) == maniGraphNodeClip && GroupOf(u, record) == g)
         {
             return p;
         }
@@ -82,8 +179,7 @@ static bool InAll(const Update* u, uint32_t g, uint64_t hash)
 {
     for (uint32_t p = NextMember(u, g, 0); p != UINT32_MAX; p = NextMember(u, g, p + 1))
     {
-        const maniClip* clip =
-            u->binding->clips[Word(u, maniLoadU32(maniGraphUpdateRecord(u, p) + 12))];
+        const maniClip* clip = u->binding->clips[Word(u, maniLoadU32(Record(u, p) + 12))];
         bool found = false;
         for (uint32_t k = 0; k < clip->markerCount && !found; ++k)
         {
@@ -108,8 +204,8 @@ static bool ByMarkers(const Update* u, uint32_t g, uint32_t lead, const maniClip
 {
     for (uint32_t p = NextMember(u, g, 0); p != UINT32_MAX; p = NextMember(u, g, p + 1))
     {
-        maniClip clip = maniGraphUpdateClip(u, maniLoadU32(maniGraphUpdateRecord(u, p) + 12));
-        if (!maniGraphClipRepeats(&clip))
+        maniClip clip = ClipOf(u, maniLoadU32(Record(u, p) + 12));
+        if (!Repeats(&clip))
         {
             return false;
         }
@@ -209,8 +305,8 @@ static double CountPassed(const Update* u, uint32_t g, uint32_t p, const maniCli
 static void LeaderMotion(const Update* u, uint32_t g)
 {
     maniGraphGroupState* group = Group(u, g);
-    uint32_t data = maniLoadU32(maniGraphUpdateRecord(u, group->leader) + 12);
-    maniClip clip = maniGraphUpdateClip(u, data);
+    uint32_t data = maniLoadU32(Record(u, group->leader) + 12);
+    maniClip clip = ClipOf(u, data);
     Motion m = OwnMotion(u, Node(u, group->leader), &clip, data);
     double d = (double)clip.duration;
     group->flags |= m.seeking ? MANI_GRAPH_LEADER_SEEKING : 0u;
@@ -234,9 +330,8 @@ void maniGraphLead(const maniGraphUpdate* u)
     }
     for (uint32_t p = 0; p < u->graph->nodeCount; ++p)
     {
-        const uint8_t* record = maniGraphUpdateRecord(u, p);
-        uint32_t g = maniLoadU16(record) == maniGraphNodeClip ? maniGraphUpdateGroupOf(u, record)
-                                                              : UINT32_MAX;
+        const uint8_t* record = Record(u, p);
+        uint32_t g = maniLoadU16(record) == maniGraphNodeClip ? GroupOf(u, record) : UINT32_MAX;
         if (g >= u->graph->syncGroupCount)
         {
             continue;
@@ -307,7 +402,7 @@ static double Match(const Update* u, uint32_t g, uint32_t p, const maniClip* cli
             continue;
         }
         double offset = want.fraction * Span(clip, i, j, backward);
-        double t = maniGraphClipPlace(clip, MarkerTime(clip, i) + (backward ? -offset : offset));
+        double t = Place(clip, MarkerTime(clip, i) + (backward ? -offset : offset));
         double ahead = Along(t0, t, false, d);
         double behind = Along(t, t0, false, d);
         double away = ahead < behind ? ahead : behind;
@@ -330,11 +425,11 @@ static double FollowMarkers(const Update* u, uint32_t g, uint32_t p, const maniC
 {
     const maniGraphGroupState* group = Group(u, g);
     uint32_t lead = group->leader;
-    maniClip leader = maniGraphUpdateClip(u, maniLoadU32(maniGraphUpdateRecord(u, lead) + 12));
+    maniClip leader = ClipOf(u, maniLoadU32(Record(u, lead) + 12));
     bool backward = group->delta < 0.0;
     Between start = PositionAt(u, g, lead, &leader, group->phase, backward);
-    Between end = PositionAt(u, g, lead, &leader,
-                             maniGraphClipPlace(&leader, group->phase + group->delta), backward);
+    Between end =
+        PositionAt(u, g, lead, &leader, Place(&leader, group->phase + group->delta), backward);
     double pass = CountPassed(u, g, lead, &leader, group->phase, group->delta);
     *t0 = Match(u, g, p, clip, &leader, start, *t0, backward);
     Between at = PositionAt(u, g, p, clip, *t0, backward);
@@ -386,18 +481,50 @@ static Motion Follow(const Update* u, uint32_t g, uint32_t p, const maniClip* cl
         bool backward = group->delta < 0.0;
         return (Motion){start, backward ? -distance : distance, false, all && distance >= 0.0};
     }
-    return (Motion){maniGraphClipPlace(clip, group->phase * d), group->delta * d, seeking,
-                    all && !seeking};
+    return (Motion){Place(clip, group->phase * d), group->delta * d, seeking, all && !seeking};
 }
 
-maniGraphMotion maniGraphClipMotion(const maniGraphUpdate* u, uint32_t p, uint32_t group,
-                                    const maniClip* clip, uint32_t data)
+// A clip node's move. One no parent reached and in no sync group stays
+// where it is: its time factor 0, no seek, no weight, so no events and
+// no root motion.
+void maniGraphAdvanceClip(maniGraphUpdate* u, uint32_t p)
 {
+    const uint8_t* record = Record(u, p);
     maniGraphNodeState* s = Node(u, p);
+    uint32_t group = GroupOf(u, record);
+    if (!Reached(s) && group >= u->graph->syncGroupCount)
+    {
+        s->from = s->time;
+        s->step = 0.0;
+        return;
+    }
+    uint32_t data = maniLoadU32(record + 12);
+    maniClip clip = ClipOf(u, data);
+    Motion m = OwnMotion(u, s, &clip, data);
     if (group < u->graph->syncGroupCount && Group(u, group)->leader != p &&
         Group(u, group)->leader != UINT32_MAX)
     {
-        return Follow(u, group, p, clip, s->time);
+        m = Follow(u, group, p, &clip, s->time);
     }
-    return OwnMotion(u, s, clip, data);
+    maniRootMove move = maniRootMoveIdentity();
+    s->from = m.t0;
+    s->step = m.seeking ? 0.0 : m.step;
+    if (!m.seeking)
+    {
+        if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD)
+        {
+            s->flags |= MANI_GRAPH_LISTED;
+            Events(u, p, Word(u, data), &clip, m.t0, m.step);
+        }
+        if (s->rootWeight > 0.0f)
+        {
+            (void)maniClipRootMotionEntered(&clip, (float)m.t0, (float)m.step, &move);
+            move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move));
+        }
+    }
+    s->time = Place(&clip, m.t0 + m.step);
+    if (s->rootWeight > 0.0f)
+    {
+        maniRootMotionSumAdd(&u->root, &move, (double)s->rootWeight);
+    }
 }
