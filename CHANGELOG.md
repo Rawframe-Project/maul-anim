@@ -5,18 +5,36 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
-## [0.3.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.2.1...v0.3.0) (2026-10-25)
+## [0.3.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.3.0) (2026-10-25)
 
+### Changed
 
-### ⚠ BREAKING CHANGES
-
-* **graph:** a graph's time scales are bounded. On any path from the output, the product of their sizes must be at most MANI_GRAPH_MAX_TIME_FACTOR (1e6), a scale read from a parameter counting at the larger size of the parameter's bounds, and a time scale may read only a parameter with bounds. maniBuildGraph refuses a source past either rule with maniBuildReasonScalar, and maniOpenGraph refuses such a file with mani_errorFormat. The graph format goes from 5 to 6, and maniOpenGraph refuses a file of an earlier format with mani_errorVersion. To migrate, give each parameter a time scale reads its bounds, and build every graph file again with the builder.
+- **Breaking: a graph's time scales are bounded.** On any path from the
+  output, the product of the time scales' sizes must be at most
+  `MANI_GRAPH_MAX_TIME_FACTOR` (1e6), which is far past any playback
+  rate a graph needs. A scale that reads a parameter counts at the
+  larger size of the parameter's bounds, and a time scale may read only
+  a parameter with bounds. Scales on parallel branches never multiply.
+  `maniBuildGraph` refuses a source past either rule with
+  `maniBuildReasonScalar`, and `maniOpenGraph` refuses such a file with
+  `mani_errorFormat`. Each node record now holds its time factor, so
+  the graph format goes from 5 to 6, and `maniOpenGraph` refuses an
+  earlier format with `mani_errorVersion`. To migrate, give bounds to
+  each parameter a time scale reads, and build every graph file again.
+  Results do not change for any graph still taken.
+  ([#66](https://github.com/Rawframe-Project/maul-anim/pull/66))
 
 ### Fixed
 
-* **graph:** bound the marker walk's step ([#64](https://github.com/Rawframe-Project/maul-anim/issues/64)) ([057c47c](https://github.com/Rawframe-Project/maul-anim/commit/057c47c76e26200ae7b41788e57515070c72f3ab))
-* **graph:** bound the product of a graph's time scales ([#66](https://github.com/Rawframe-Project/maul-anim/issues/66)) ([f9917f1](https://github.com/Rawframe-Project/maul-anim/commit/f9917f159a539be323086ebeb7d48bae2a9e7ccc))
-* **graph:** saturate the graph's binary32 timers at FLT_MAX ([#67](https://github.com/Rawframe-Project/maul-anim/issues/67)) ([9583669](https://github.com/Rawframe-Project/maul-anim/commit/95836697c02c8032d05ed93849ad1389750241ba))
+- A clip node's step that is not finite moves nothing, and the marker
+  walk's count is bounded by two loops of markers. Every finite step
+  gives the same bits as before.
+  ([#64](https://github.com/Rawframe-Project/maul-anim/pull/64))
+- A graph's binary32 timers saturate at `FLT_MAX`: the fade time of a
+  machine and of a one-shot, and an inertialize node's step and elapsed
+  time. Every timer value below `FLT_MAX` gives the same bits as
+  before.
+  ([#67](https://github.com/Rawframe-Project/maul-anim/pull/67))
 
 ## [0.2.1](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.2.1) (2026-10-24)
 
