@@ -142,7 +142,7 @@ clip: bytes clip_codec clip_file clip_view container fpenv invariant pose_memory
 clip_view: bytes clip_file pose_memory
 clip_codec: bytes
 clip_lanes: blend_lanes pose_memory simd
-clip_compressed: blend_lanes bytes clip_codec clip_file clip_lanes clip_view fpenv pose_memory simd
+clip_compressed: blend_lanes bytes clip_codec clip_file clip_lanes clip_view fpenv invariant pose_memory simd
 clip_compressed_open: bytes clip_codec clip_file clip_view container invariant
 clip_cursor: clip_lanes clip_view fpenv pose_memory
 clip_tracks: bytes clip_file clip_view container fpenv text
