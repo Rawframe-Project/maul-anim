@@ -333,6 +333,9 @@ static uint32_t PutTriangles(uint8_t* d, uint32_t at, const maniGraphTrianglesNo
     if (count == 0)
     {
         count = maniTriangulate(s->points, n, mesh);
+        // The triangles fit the space reserved for them: a triangulation
+        // of n points has at most 2n - 5.
+        MANI_ASSERT(count <= MANI_GRAPH_MAX_TRIANGLES(n));
         for (uint32_t t = 0; t < count; ++t)
         {
             (void)maniGraphPutWords(d, at + 1 + 2 * n + 3 * t, mesh->t[t].v, 3);
@@ -340,10 +343,10 @@ static uint32_t PutTriangles(uint8_t* d, uint32_t at, const maniGraphTrianglesNo
     }
     else
     {
+        // The space check took at most that many authored triangles.
+        MANI_ASSERT(count <= MANI_GRAPH_MAX_TRIANGLES(n));
         (void)maniGraphPutWords(d, at + 1 + 2 * n, s->triangles, 3 * count);
     }
-    // The triangles fit the space reserved for them.
-    MANI_ASSERT(count <= MANI_GRAPH_MAX_TRIANGLES(n));
     at = maniGraphPutFloats(d, maniGraphPutWords(d, at, &count, 1), s->points, 2 * n);
     return at + 3 * MANI_GRAPH_MAX_TRIANGLES(n);
 }
@@ -624,6 +627,8 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         maniStoreU32(e + 20, w->slot[v]);
         maniStoreU32(e + 24, v);
         maniStoreU32(e + 28, w->factor[v]);
+        // The tally sized the inputs section by every node's inputs.
+        MANI_ASSERT(4 * ((uint64_t)lay->inputAt + node->inputCount) <= lay->sizes[3]);
         for (uint32_t k = 0; k < node->inputCount; ++k)
         {
             maniStoreU32(lay->sections[3] + 4 * (size_t)lay->inputAt++,
@@ -631,9 +636,8 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         }
         uint32_t first = lay->dataAt;
         PutData(source, node, lay);
-        // The tally sized the data and inputs sections by every node.
-        MANI_ASSERT(4 * (uint64_t)lay->dataAt <= lay->sizes[4] &&
-                    4 * (uint64_t)lay->inputAt <= lay->sizes[3]);
+        // The tally sized the data section by every node's words.
+        MANI_ASSERT(4 * (uint64_t)lay->dataAt <= lay->sizes[4]);
         bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot ||
                        node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned ||
                        (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeBodySdls);
