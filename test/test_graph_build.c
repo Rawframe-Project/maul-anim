@@ -614,6 +614,14 @@ static void TestSubgraphs(void)
     sub.modelCount = 0;
     sub.springSetCount = 1;
     CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's spring sets not given");
+    // A subgraph's sync group without its name, the key it joins the
+    // graph's groups by: refused with the lists, before inlining.
+    static const maniGraphSyncGroupSource kNameless = {NULL, 0, 0};
+    sub.springSetCount = 0;
+    sub.syncGroups = &kNameless;
+    sub.syncGroupCount = 1;
+    inner[2].clip.syncGroup = 0;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's sync group without its name");
 }
 
 static float FactorAt(uint32_t p)
