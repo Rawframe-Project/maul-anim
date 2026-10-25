@@ -9,6 +9,7 @@
 
 #include "allocator.h"
 #include "graph_check.h"
+#include "invariant.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/bodyik.h"
@@ -216,6 +217,8 @@ static uint32_t Resolve(const Scope* s, uint32_t parameter)
         {
             return UINT32_MAX - 1;
         }
+        // SubgraphValid refused a subgraph with parameters and no map.
+        MANI_ASSERT(s->parameters != NULL);
         parameter = s->parameters[parameter];
     }
     return parameter;
@@ -256,6 +259,7 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
             return k;
         }
     }
+    MANI_ASSERT(f->clipCount < MANI_GRAPH_MAX_CLIPS);
     f->clips[f->clipCount] = *c;
     return f->clipCount++;
 }
@@ -294,6 +298,7 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
             }
         }
     }
+    MANI_ASSERT(f->databaseCount < MANI_GRAPH_MAX_DATABASES);
     f->databases[f->databaseCount] = *d;
     return f->databaseCount++;
 }
@@ -319,6 +324,7 @@ static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
             return k;
         }
     }
+    MANI_ASSERT(f->modelCount < MANI_GRAPH_MAX_MODELS);
     f->models[f->modelCount] = *m;
     return f->modelCount++;
 }
@@ -344,6 +350,7 @@ static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
             return k;
         }
     }
+    MANI_ASSERT(f->springSetCount < MANI_GRAPH_MAX_SPRING_SETS);
     f->springSets[f->springSetCount] = *p;
     return f->springSetCount++;
 }
@@ -369,6 +376,7 @@ static uint32_t GroupSlot(const Scope* s, Flat* f, uint32_t group)
             return k;
         }
     }
+    MANI_ASSERT(f->groupCount < MANI_GRAPH_MAX_SYNC_GROUPS);
     f->groups[f->groupCount] = *g;
     return f->groupCount++;
 }
@@ -641,6 +649,9 @@ static maniBuildResult EmitNode(const Scope* s, Flat* f, const maniSkeleton* ske
             return maniGraphRefuse(maniBuildReasonMirrorGraph, place, 0);
         }
         f->mirrorMap = f->mirrorMap != NULL ? f->mirrorMap : sub->mirrorMap;
+        // Count refused a subgraph node naming no graph or one without
+        // nodes.
+        MANI_ASSERT(sub != NULL && sub->nodeCount > 0);
         Scope inner = {sub, node.subgraph.parameters, s, place, f->nodeCount};
         f->nodeCount += sub->nodeCount - 1;
         return Emit(&inner, f, skeleton);
@@ -653,6 +664,7 @@ static maniBuildResult EmitNode(const Scope* s, Flat* f, const maniSkeleton* ske
     f->inputCount += node.inputCount;
     node.inputs = node.inputs != NULL ? inputs : NULL;
     Remap(s, f, &node);
+    MANI_ASSERT(place < f->nodeCount);
     f->nodes[place] = node;
     return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
 }
@@ -747,6 +759,7 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
         parts[k] = block + at;
         at += sizes[k];
     }
+    MANI_ASSERT(at == total);
     Flat f = {.nodes = parts[0],
               .inputs = parts[1],
               .weights = parts[2],
@@ -764,6 +777,12 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     CopyRoot(source, &f);
     Scope root = {source, NULL, NULL, 0, 0};
     maniBuildResult r = Emit(&root, &f, source->skeleton);
+    // Count counted every item the scopes emit or join, so none ran past
+    // its list, and every subgraph's nodes when none was refused.
+    MANI_ASSERT(f.nodeCount <= t.nodes && f.inputCount <= t.inputs && f.weightCount <= t.weights &&
+                f.transitionCount <= t.transitions && f.conditionCount <= t.conditions &&
+                f.queryCount <= t.queries && f.effectorCount <= t.effectors);
+    MANI_ASSERT(r.result != mani_success || f.nodeCount == t.nodes);
     out->block = block;
     out->blockSize = total;
     out->source.nodes = f.nodes;
