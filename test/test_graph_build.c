@@ -575,6 +575,45 @@ static void TestSubgraphs(void)
     sub.clips = kNone;
     sub.clipCount = 1;
     CHECK(Refused(source, maniBuildReasonClip, CLIPS, 0), "a subgraph's slot without its clip");
+    // A slot past the subgraph's clips, and a sync group past its groups,
+    // where the root lists one of that slot: refused at the clip node's
+    // place, not played as the root's.
+    sub.clips = kLegs;
+    sub.clipCount = 2;
+    inner[2] = ClipNode(3, 1.0f, maniGraphLoopClip);
+    CHECK(Refused(source, maniBuildReasonNode, 3, 0), "a subgraph's slot past its clips");
+    static const maniGraphSyncGroupSource kFeet = {"feet", 4, 0};
+    source.syncGroups = &kFeet;
+    source.syncGroupCount = 1;
+    inner[2] = ClipNode(1, 1.0f, maniGraphLoopClip);
+    inner[2].clip.syncGroup = 0;
+    sub.syncGroups = &kFeet;
+    sub.syncGroupCount = 1;
+    CHECK(BuildOnly(source).result == mani_success, "a subgraph's sync group joined by name");
+    sub.syncGroups = NULL;
+    sub.syncGroupCount = 0;
+    CHECK(Refused(source, maniBuildReasonNode, 3, 0), "a subgraph's sync group past its groups");
+    // Each of a subgraph's lists not given with its count, refused as the
+    // root's would be.
+    inner[2].clip.syncGroup = MANI_NO_SYNC_GROUP;
+    CHECK(BuildOnly(source).result == mani_success, "the subgraph without its sync group");
+    sub.parameters = NULL;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's parameters not given");
+    sub.parameters = &x;
+    sub.clips = NULL;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's clips not given");
+    sub.clips = kLegs;
+    sub.syncGroupCount = 1;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's sync groups not given");
+    sub.syncGroupCount = 0;
+    sub.databaseCount = 1;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's databases not given");
+    sub.databaseCount = 0;
+    sub.modelCount = 1;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's models not given");
+    sub.modelCount = 0;
+    sub.springSetCount = 1;
+    CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's spring sets not given");
 }
 
 static float FactorAt(uint32_t p)
