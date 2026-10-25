@@ -48,7 +48,7 @@ The **update** ([`src/graph_update.c`](../../src/graph_update.c)):
 
 The **evaluation** ([`src/graph_evaluate.c`](../../src/graph_evaluate.c)) visits every node the last update weighed, in order: a clip node samples its clip through its cursor, a blend calls `maniBlendPoses` over its weighed inputs, a mask blends by the mask's bone weights and their remainders, an additive node copies its base and adds its layers, a select, time scale or seek copies its input. A node whose weighed inputs are none gives the rest. The result equals the blending functions applied by hand, bit for bit, which the tests check node by node.
 
-The graph adds little to the work it orders: two clips and a blend take about 6% more instructions a frame than sampling and blending them by hand, the difference being the update's weights, events and root motion.
+The graph adds little to the work it orders: a frame of two clips and a blend takes a few percent more instructions than sampling and blending them by hand ([size-and-performance.md](size-and-performance.md#graph-overhead) gives the measure), the difference being the update's weights, events and root motion.
 
 ## Sync groups
 
