@@ -48,7 +48,7 @@ The **update** ([`src/graph_update.c`](../../src/graph_update.c)):
 
 The **evaluation** ([`src/graph_evaluate.c`](../../src/graph_evaluate.c)) visits every node the last update weighed, in order: a clip node samples its clip through its cursor, a blend calls `maniBlendPoses` over its weighed inputs, a mask blends by the mask's bone weights and their remainders, an additive node copies its base and adds its layers, a select, time scale or seek copies its input. A node whose weighed inputs are none gives the rest. The result equals the blending functions applied by hand, bit for bit, which the tests check node by node.
 
-The graph adds little to the work it orders: a frame of two clips and a blend takes 5.1% more instructions than sampling and blending them by hand ([size-and-performance.md](size-and-performance.md#graph-overhead), `graph.frame` against `graph.byhand`), the difference being the update's weights, events and root motion.
+The graph adds little to the work it orders: a frame of two clips and a blend takes 5.1% more instructions than sampling and blending them by hand ([size-and-performance.md](size-and-performance.md#graph-overhead), `graph.frame` against `graph.byhand`, [#62](https://github.com/Rawframe-Project/maul-anim/pull/62)), the difference being the update's weights, events and root motion. The clip nodes' step lives in its own unit, and its calls from the update add 0.21% to a frame.
 
 ## Sync groups
 
