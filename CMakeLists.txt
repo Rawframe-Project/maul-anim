@@ -115,6 +115,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/graph_chain.c
     src/graph_body.c
     src/graph_space.c
+    src/graph_sync.c
     src/graph_update.c
     src/graph_evaluate.c
     src/graph_evaluate_ik.c
