@@ -193,6 +193,10 @@ typedef struct Flat
     uint32_t effectorCount;
 } Flat;
 
+// One more item fits a list's part of the block, which ends where the
+// next part begins: Count sized each part from the list's total.
+#define ROOM(items, count, next) ((const uint8_t*)((items) + (count) + 1) <= (const uint8_t*)(next))
+
 static uint32_t Place(const Scope* s, uint32_t j)
 {
     if (j >= s->graph->nodeCount)
@@ -259,7 +263,7 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
             return k;
         }
     }
-    MANI_ASSERT(f->clipCount < MANI_GRAPH_MAX_CLIPS);
+    MANI_ASSERT(ROOM(f->clips, f->clipCount, f->groups));
     f->clips[f->clipCount] = *c;
     return f->clipCount++;
 }
@@ -298,7 +302,7 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
             }
         }
     }
-    MANI_ASSERT(f->databaseCount < MANI_GRAPH_MAX_DATABASES);
+    MANI_ASSERT(ROOM(f->databases, f->databaseCount, f->queries));
     f->databases[f->databaseCount] = *d;
     return f->databaseCount++;
 }
@@ -324,7 +328,7 @@ static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
             return k;
         }
     }
-    MANI_ASSERT(f->modelCount < MANI_GRAPH_MAX_MODELS);
+    MANI_ASSERT(ROOM(f->models, f->modelCount, f->springSets));
     f->models[f->modelCount] = *m;
     return f->modelCount++;
 }
@@ -350,7 +354,7 @@ static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
             return k;
         }
     }
-    MANI_ASSERT(f->springSetCount < MANI_GRAPH_MAX_SPRING_SETS);
+    MANI_ASSERT(ROOM(f->springSets, f->springSetCount, f->effectors));
     f->springSets[f->springSetCount] = *p;
     return f->springSetCount++;
 }
@@ -376,7 +380,7 @@ static uint32_t GroupSlot(const Scope* s, Flat* f, uint32_t group)
             return k;
         }
     }
-    MANI_ASSERT(f->groupCount < MANI_GRAPH_MAX_SYNC_GROUPS);
+    MANI_ASSERT(ROOM(f->groups, f->groupCount, f->transitions));
     f->groups[f->groupCount] = *g;
     return f->groupCount++;
 }
