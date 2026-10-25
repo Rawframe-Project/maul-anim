@@ -138,7 +138,7 @@ graph_clip_step: bytes graph_emit graph_file graph_instance invariant retarget_m
 graph_update: bytes fpenv graph_clip_step graph_emit graph_file graph_inertia graph_instance graph_learned_step graph_machine graph_machine_listen graph_machine_step graph_match_step graph_shot graph_shot_step graph_space graph_spring graph_turn invariant root_motion
 graph_evaluation: bytes graph_file graph_instance graph_subset invariant
 graph_evaluate_ik: bytes graph_body graph_chain graph_evaluation graph_file graph_instance ik_chain pose_memory vecmath
-graph_evaluate: blend_groups bytes clip_view fpenv graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn learned_eval pose_memory vecmath
+graph_evaluate: blend_groups bytes clip_view fpenv graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn invariant learned_eval pose_memory vecmath
 clip: bytes clip_codec clip_file clip_view container fpenv invariant pose_memory root_motion vecmath
 clip_view: bytes clip_file pose_memory
 clip_codec: bytes
