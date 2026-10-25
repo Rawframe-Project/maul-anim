@@ -19,6 +19,7 @@
 #include "graph_shot.h"
 #include "graph_spring.h"
 #include "graph_turn.h"
+#include "invariant.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -65,13 +66,16 @@ static Node LoadNode(const maniGraph* g, uint32_t p, uint64_t nodesAt)
                   maniLoadU32(e + 20)};
 }
 
+// A data word of a node whose record RecordValid took: within the data.
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
+    MANI_ASSERT(at < g->dataWords);
     return maniLoadU32(g->data + 4 * (size_t)at);
 }
 
 static uint32_t ParameterType(const maniGraph* g, uint32_t parameter)
 {
+    MANI_ASSERT(parameter < g->parameterCount);
     return maniLoadU32(g->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE);
 }
 
@@ -168,6 +172,8 @@ static float ScaleSize(const maniGraph* g, uint32_t d)
     {
         return fabsf(WordFloat(g, d + 1));
     }
+    // ScaleValid took only a parameter within the parameters.
+    MANI_ASSERT(parameter < g->parameterCount);
     const uint8_t* e = g->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE;
     float low = fabsf(EntryFloat(e, 40));
     float high = fabsf(EntryFloat(e, 44));
@@ -469,14 +475,17 @@ static uint32_t DataValid(const maniGraph* g, const Node* n)
     }
 }
 
+// An input of a node whose record RecordValid took: within the inputs.
 static uint32_t Input(const maniGraph* g, uint32_t at)
 {
+    MANI_ASSERT(at < g->inputCount);
     return maniLoadU32(g->inputs + 4 * (size_t)at);
 }
 
 // A node's difference flag.
 static uint32_t Difference(const maniGraph* g, uint32_t p)
 {
+    MANI_ASSERT(p < g->nodeCount);
     return maniLoadU16(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 2) & MANI_GRAPH_DIFFERENCE;
 }
 
@@ -499,6 +508,8 @@ static bool DifferenceValid(const maniGraph* g, const Node* n)
     }
     if (n->kind == maniGraphNodeClip)
     {
+        // ClipData took only a clip slot within the clips.
+        MANI_ASSERT(Word(g, n->data) < g->clipCount);
         const uint8_t* clip = g->clips + (size_t)Word(g, n->data) * MANI_GRAPH_CLIP_SIZE;
         return own == maniLoadU32(clip + 24);
     }
@@ -544,6 +555,7 @@ static bool KindValid(const maniGraph* g, const Node* n)
 
 static float FactorOf(const maniGraph* g, uint32_t p)
 {
+    MANI_ASSERT(p < g->nodeCount);
     uint32_t bits = maniLoadU32(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 28);
     float value = 0.0f;
     memcpy(&value, &bits, sizeof value);
@@ -719,6 +731,8 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         {
             return r;
         }
+        MANI_ASSERT(n.first == inputAt && n.count <= g->inputCount - inputAt && n.data == wordAt &&
+                    n.words <= g->dataWords - wordAt);
         uint32_t wrong = WordsValid(g, &n, p, blockAt);
         if (wrong != UINT32_MAX)
         {
