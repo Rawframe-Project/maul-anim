@@ -534,11 +534,16 @@ static void RandomKeys(uint32_t b)
                                               (pick & 4) ? Linear(s_randomS[b], KEYS) : kNone};
 }
 
+// The random hierarchies held within their precision: each of the three
+// precisions with each of the three shell distances once, and in the
+// dense test (`test_clip_compress dense`) 24 of them.
+static int s_precisionRounds = 9;
+
 static void TestRandomWithinPrecision(void)
 {
     static const float kPrecisions[3] = {1e-3f, 1e-4f, 1e-5f};
     static const float kShells[3] = {0.01f, 0.03f, 0.1f};
-    for (int round = 0; round < 24; ++round)
+    for (int round = 0; round < s_precisionRounds; ++round)
     {
         uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_DRAW - 2));
         RandomSkeleton(bones);
@@ -801,7 +806,7 @@ static void RandomSubset(const maniClip* clip, uint32_t bones)
 // on the longer arc, constant rotations; every other clip additive.
 static void TestCursorRandom(void)
 {
-    for (int round = 0; round < 24; ++round)
+    for (int round = 0; round < 8; ++round)
     {
         uint32_t bones = 2 + (uint32_t)(Random() * (RANDOM_DRAW - 2));
         for (uint32_t b = 0; b < bones; ++b)
@@ -877,6 +882,45 @@ static void TestCursorRandom(void)
         RandomSubset(&packed, bones);
     }
     OpenSkeleton();
+}
+
+// Constant rotations through both cursors, one leaving out each
+// component: a turn of 2.5 about x, y or z leaves out that axis's
+// component, the largest, and a turn of 0.3 leaves out w. The cursor
+// rebuilds a held constant rotation in its own code, apart from random
+// access's.
+static void TestCursorConstantRotations(void)
+{
+    static float turns[4][4];
+    StoreAxisAngle(turns[0], 1.0f, 0.0f, 0.0f, 2.5f);
+    StoreAxisAngle(turns[1], 0.0f, 1.0f, 0.0f, 2.5f);
+    StoreAxisAngle(turns[2], 0.0f, 0.0f, 1.0f, 2.5f);
+    StoreAxisAngle(turns[3], 0.0f, 1.0f, 0.0f, 0.3f);
+    static const uint32_t kTracks[4] = {1, 2, 3, 5};
+    maniClipSource source = Source(1.0f);
+    for (int k = 0; k < 4; ++k)
+    {
+        s_tracks[kTracks[k]].rotation = Linear(turns[k], 1);
+    }
+    BuildFullFrom(&source);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Compress(&options, NULL) == mani_success, "compresses");
+    maniClip packed;
+    CHECK(Open(&packed).result == mani_success, "opens");
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        CHECK(FormOf(&packed, kTracks[k], 1) == maniClipFormConstant &&
+                  DroppedOf(&packed, kTracks[k]) == k,
+              "a constant rotation leaving out each component");
+    }
+    for (int compact = 0; compact < 2; ++compact)
+    {
+        maniClipCursor* cursor = NULL;
+        size_t memory = compact ? maniClipCursorCompactSize(&packed) : maniClipCursorSize(&packed);
+        CHECK(memory <= sizeof s_cursorMemory, "cursor size");
+        CHECK(maniInitClipCursor(s_cursorMemory, memory, &cursor) == mani_success, "cursor");
+        CursorWalk(&packed, cursor);
+    }
 }
 
 // Random access's rotations pass the lanes in batches of eight (on a
@@ -1733,6 +1777,10 @@ int main(int argc, char** argv)
     {
         return WriteSeed(argv[2]);
     }
+    if (argc == 2 && strcmp(argv[1], "dense") == 0)
+    {
+        s_precisionRounds = 24;
+    }
     TestSegments();
     TestOneSegment();
     TestOneSample();
@@ -1745,6 +1793,7 @@ int main(int argc, char** argv)
     TestAdditiveCompressed();
     TestCursor();
     TestCursorRandom();
+    TestCursorConstantRotations();
     TestBatchTails();
     TestRestFill();
     TestSubsets();

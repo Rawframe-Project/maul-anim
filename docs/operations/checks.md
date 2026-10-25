@@ -24,7 +24,7 @@ Run `changed` before every push. On the shared development machine, run `pr` and
 | `docs` | The organization's documentation check: allowed files, the em dash, record numbers, page sizes, links. `test/data/` is excluded as vendored: it holds other projects' sample files (Khronos glTF models, Draco streams, FBX scenes) kept as published, with their sources' READMEs. |
 | `zizmor` | The workflows: injection, persisted credentials, permissions, unpinned actions. |
 | `checks` | `clang-format`, the family's source rules, the module graph, lengths, API documentation, the floating-point environment rule (`tools/check_float_env.py`: every public function enters the environment or is listed, with its reason, in `tools/float-env-allowed.txt`), documentation snippets, the generated sources and test tables against their generators, that the documentation site builds, and clang-tidy. It runs on documentation changes too. |
-| `build` | One call of the organization's `cpp.yml` per preset: GCC 14 (every part, as CodeQL builds it) on x86-64 and on arm64 with NEON, Clang 20 in Release, Clang with AddressSanitizer and UBSan (each test repeated up to three times on a pull request, so a flaky one fails before it merges), Clang with ThreadSanitizer, the shared library on the scalar backend with the package test, macOS, and `clang-cl` on Windows. All build with warnings as errors. The GCC and Clang Release cells also run an import under a 4 GB address space limit, which must fail with Capacity rather than be granted by overcommit. ccache is restored on every run and saved only from `main`. |
+| `build` | One call of the organization's `cpp.yml` per preset: GCC 14 (every part, as CodeQL builds it) on x86-64 and on arm64 with NEON, Clang 20 in Release, Clang with AddressSanitizer and UBSan (each test repeated up to three times on a pull request, so a flaky one fails before it merges), Clang with ThreadSanitizer, the shared library on the scalar backend with the package test, macOS, and `clang-cl` on Windows. All build with warnings as errors. The GCC and Clang Release cells also run an import under a 512 MB address space limit, which must fail with Capacity rather than be granted by overcommit. ccache is restored on every run and saved only from `main`. |
 | `windows` | The public headers compiled by MSVC's `cl` as C17 and C++17 with `/W4 /WX`; the runtime alone under `clang-cl`, which must reference no allocator; and the DLL's package test. |
 | `size` | The runtime's text by part at `-O2` and `-O3` with GCC 14, on the scalar backend and on AVX2, against `tools/size-budget.txt`, and no allocator symbol in the runtime under GCC 14 or Clang 20. |
 | `web` | The library and its tests under Emscripten and Node, and the static library's size, reported. The image has no Emscripten, so this job uses the runner and the emsdk action. |
@@ -46,6 +46,14 @@ CodeQL must never build through ccache: a cache hit skips the compiler, so CodeQ
 ## Tests
 
 Each suite in `test/` is one executable, registered with CTest under its name and labeled with it; `guide_import_memory_limit` runs `test_guide_import` under the address space limit, and `package` installs the build and builds `test/consumer` against it, by its CMake package and by pkg-config. The fixture suites read `test/data/`. The white-box suites include `src/` and are not built in shared builds. No test reports itself skipped; a test preset that finds no test fails, and so does a CI cell where a test is skipped or not run. `test_guide.c` and `test_guide_import.c` run the C snippets of `docs/user/` as written; `tools/check_guide.py` fails when a snippet and its copy differ.
+
+
+A suite's full random sweeps carry the label `dense` as well as their suite's. Every cell runs them except `linux-clang-20-asan`, the pull request's slowest, whose test preset leaves them out; it and `tools/check.sh changed` run each suite with its shorter sweeps:
+
+- `exact_dense` takes 250 random triangulations, 50 of each point kind, against the suite's 50.
+- `clip_compress_dense` holds 24 random hierarchies within their precision, against the suite's 9, one for each precision and shell distance.
+
+Both check properties that depend on the values drawn (the predicates' rare error bands, a hierarchy's error against its precision), so the shorter sweeps are not judged by coverage alone.
 
 ## Fuzzing
 

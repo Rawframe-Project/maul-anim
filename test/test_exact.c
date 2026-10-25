@@ -17,6 +17,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static uint32_t s_seed = 12345u;
 
@@ -216,11 +217,15 @@ static void RandomPoint(uint32_t kind, float* x, float* y)
     }
 }
 
+// The random triangulations' rounds, ten of each point kind; the dense
+// test (`test_exact dense`) takes 250.
+static uint32_t s_rounds = 50;
+
 static void TestTriangulations(void)
 {
     static float p[512];
     bool ok = true;
-    for (uint32_t round = 0; round < 250 && ok; ++round)
+    for (uint32_t round = 0; round < s_rounds && ok; ++round)
     {
         uint32_t want = 3 + Next(22);
         uint32_t kind = round % 5;
@@ -263,8 +268,12 @@ static void TestTriangulations(void)
     CHECK(maniTriangulate(p, 5, &s_mesh) == 0, "points on one line");
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
+    if (argc == 2 && strcmp(argv[1], "dense") == 0)
+    {
+        s_rounds = 250;
+    }
     TestPredicates();
     TestTriangulations();
     return s_failures == 0 ? 0 : 1;

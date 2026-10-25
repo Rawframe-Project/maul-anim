@@ -211,6 +211,16 @@ endif()
 
 if(MAUL_ANIM_BUILD_TESTS)
     enable_testing()
+    # maul_add_dense(<name> <argument>): test_<name> run with the argument
+    # as <name>_<argument>, a suite's full random sweeps labeled dense.
+    # Every cell runs them but the AddressSanitizer one, the pull
+    # request's slowest, which runs the suite's shorter sweeps alone.
+    function(maul_add_dense name argument)
+        if(TARGET test_${name})
+            add_test(NAME ${name}_${argument} COMMAND test_${name} ${argument})
+            set_tests_properties(${name}_${argument} PROPERTIES LABELS "${name};dense")
+        endif()
+    endfunction()
     maul_add_test(base)
     maul_add_test(container WHITEBOX)
     maul_add_test(decompose WHITEBOX)
@@ -230,6 +240,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(morph WHITEBOX)
         maul_add_test(clip WHITEBOX)
         maul_add_test(clip_compress WHITEBOX)
+        maul_add_dense(clip_compress dense)
         maul_add_test(root_motion WHITEBOX)
         maul_add_test(graph WHITEBOX)
         maul_add_test(graph_json)
@@ -240,6 +251,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_space WHITEBOX)
         maul_add_test(graph_triangles WHITEBOX)
         maul_add_test(exact WHITEBOX)
+        maul_add_dense(exact dense)
         maul_add_test(graph_machine WHITEBOX)
         maul_add_test(graph_listen WHITEBOX)
         maul_add_test(graph_shot WHITEBOX)
@@ -354,11 +366,14 @@ if(MAUL_ANIM_BUILD_TESTS)
         # An import past a memory limit: with its address space limited,
         # malloc must refuse a small file's gigabytes, as Linux's
         # overcommit would otherwise grant them, and the import fail with
-        # Capacity. The sanitizers reserve too much address space to run
-        # under a limit.
+        # Capacity. At 512 MB the first of the file's 268 MB arrays is
+        # granted and a later one refused, so the refusal comes in the
+        # middle of the import; the test's time grows with the memory
+        # granted before it (2.4 s at 4 GB). The sanitizers reserve too
+        # much address space to run under a limit.
         if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT MAUL_ANIM_SANITIZE AND NOT MAUL_ANIM_TSAN)
             add_test(NAME guide_import_memory_limit
-                     COMMAND sh -c "ulimit -v 4194304 && exec \"$0\" --default-huge"
+                     COMMAND sh -c "ulimit -v 524288 && exec \"$0\" --default-huge"
                              $<TARGET_FILE:test_guide_import>)
             set_tests_properties(guide_import_memory_limit PROPERTIES LABELS guide_import)
         endif()

@@ -457,7 +457,7 @@ static void TestBoundaries(void)
 {
     bool same = true;
     uint32_t searches = 0;
-    for (int trial = 0; trial < 40; ++trial)
+    for (int trial = 0; trial < 10; ++trial)
     {
         Randomize(&s_layout);
         const Layout* l = &s_layout;

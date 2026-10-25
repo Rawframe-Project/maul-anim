@@ -21,6 +21,7 @@
 #include "maul-anim/skeleton.h"
 
 #include <stdalign.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -109,13 +110,17 @@ static size_t Huge(void)
         attributes, attributes);
 }
 
-// The huge file's morph targets built by a builder of def.
-static maniResult BuildHuge(const maniBuilderDef* def)
+// The huge file's morph targets built by a builder of def: the build's
+// result, with *reached false when the builder was not created or the
+// file did not open, so the build never ran.
+static maniResult BuildHuge(const maniBuilderDef* def, bool* reached)
 {
+    *reached = false;
     maniBuilder* builder = NULL;
-    if (maniCreateBuilder(def, &builder) != mani_success)
+    maniResult created = maniCreateBuilder(def, &builder);
+    if (created != mani_success)
     {
-        return mani_errorCapacity;
+        return created;
     }
     maniGltf* gltf = NULL;
     size_t size = Huge();
@@ -123,6 +128,7 @@ static maniResult BuildHuge(const maniBuilderDef* def)
     maniGltfOptions options = maniDefaultGltfOptions();
     if (r.result == mani_success)
     {
+        *reached = true;
         r = maniGltfBuildMorphTargets(builder, gltf, 0, 0, &options);
         maniCloseGltf(gltf);
     }
@@ -141,7 +147,8 @@ static void TestBudget(void)
     // clang-format on
     CHECK(created == mani_success, "a builder with a budget");
     maniDestroyBuilder(careful);
-    CHECK(BuildHuge(&guarded) == mani_errorCapacity && budget.used == 0,
+    bool reached = false;
+    CHECK(BuildHuge(&guarded, &reached) == mani_errorCapacity && reached && budget.used == 0,
           "a huge viewless count refused within the budget, nothing kept");
 }
 
@@ -149,10 +156,15 @@ int main(int argc, char** argv)
 {
     if (argc >= 2 && strcmp(argv[1], "--default-huge") == 0)
     {
+        // A limit too tight to create the builder or open the file
+        // fails too: the refusal must come from the build itself.
         maniBuilderDef def = maniDefaultBuilderDef();
-        maniResult r = BuildHuge(&def);
-        printf("default allocator: %s\n", r == mani_errorCapacity ? "capacity" : "other");
-        return r == mani_errorCapacity ? 0 : 1;
+        bool reached = false;
+        maniResult r = BuildHuge(&def, &reached);
+        bool refused = reached && r == mani_errorCapacity;
+        printf("default allocator: %s\n",
+               !reached ? "the build not reached" : (refused ? "capacity" : "other"));
+        return refused ? 0 : 1;
     }
     TestBudget();
     size_t size = 0;
