@@ -5,6 +5,18 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.4.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.3.0...v0.4.0) (2026-10-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **graph:** maniBuildGraph refuses a graph with a subgraph that names a clip, sync group, database, model or spring set slot past the subgraph's own list, with maniBuildReasonNode at the node's place. Such a graph used to build with the root's slot of that number. It also refuses, with maniBuildReasonCount, a subgraph with a list whose count is not zero and whose pointer is NULL. To migrate, list in each subgraph every asset and sync group its nodes name.
+
+### Fixed
+
+* **graph:** refuse a nameless sync group before inlining ([#81](https://github.com/Rawframe-Project/maul-anim/issues/81)) ([820a4ef](https://github.com/Rawframe-Project/maul-anim/commit/820a4eff08c17d576581a5f425a78c7a73c26d3d))
+* **graph:** refuse a subgraph's lists and slots out of range ([#77](https://github.com/Rawframe-Project/maul-anim/issues/77)) ([104e9c2](https://github.com/Rawframe-Project/maul-anim/commit/104e9c272d4a542c63c75e599b7874aa27211adb))
+
 ## [0.3.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.3.0) (2026-10-25)
 
 ### Changed
