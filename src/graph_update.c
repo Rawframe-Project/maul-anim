@@ -302,11 +302,11 @@ static void ShareInertia(const Update* u, const uint8_t* record, const maniGraph
         maniGraphInertia node = maniGraphInertiaOf(u->graph, d);
         maniGraphResetInertia(block, &node);
     }
-    float step = (float)fabs(u->delta * (double)s->factor);
+    float step = maniGraphSeconds(fabs(u->delta * (double)s->factor));
     block[maniGraphInertiaSerial] += 1u;
     maniGraphInertiaSet(block, maniGraphInertiaStep, step);
     double elapsed = (double)maniGraphInertiaGet(block, maniGraphInertiaElapsed) + (double)step;
-    maniGraphInertiaSet(block, maniGraphInertiaElapsed, (float)elapsed);
+    maniGraphInertiaSet(block, maniGraphInertiaElapsed, maniGraphSeconds(elapsed));
     uint32_t trigger = Word(u, d);
     if (trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0)
     {

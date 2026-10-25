@@ -8,7 +8,8 @@
 // inertialize node above while the first pick requests nothing; a
 // clamped entry's end searched from no continuing frame, the end
 // exclusion and the history keeping picks off the frames just left;
-// required tags; a seek above clearing the node; a bone channel's query
+// required tags; a seek above clearing the node; the largest deltas
+// under a time scale, the state saved and restored after them; a bone channel's query
 // taken from the continuing frame, against the search itself; a
 // normalized query taken as it is; the continuing frame of a restored
 // playhead between binary32 and binary64 frame times; the query
@@ -263,6 +264,11 @@ static void TestScaled(void)
     Update(instance, 0.0f);
     Update(instance, 0.1f);
     CHECK(Playing(instance, &g, 1, 0, 0.2), "reached at twice the time");
+    // The largest delta a host can pass, twice: the clock is kept only
+    // below the period, and the state saves and restores.
+    Update(instance, FLT_MAX);
+    Update(instance, FLT_MAX);
+    CHECK(Restores(instance), "saved and restored after the largest deltas");
 }
 
 // A step of more than two loops lists the steps a clip node playing the

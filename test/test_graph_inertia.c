@@ -9,7 +9,8 @@
 // skipped evaluation; a second evaluation in one update not taken as
 // motion; a request before any output dropped; the least of one
 // update's requests, a machine chain's included; the node's trigger;
-// its clock under a time scale; a rotation eased by its axis and angle;
+// its clock under a time scale, saturated by the largest deltas and
+// restored; a rotation eased by its axis and angle;
 // each channel's speed from outputs set by hand, the turn applied before
 // the input's rotation; a seek above clearing it; saved and restored
 // mid-ease; the builder's refusals (no node above, a path around it,
@@ -359,6 +360,14 @@ static void TestScaled(void)
     Steps(instance, 1);
     CHECK(maniGraphInertiaGet(Block(instance, &g, 3), maniGraphInertiaStep) == 0.2f,
           "its step the scaled one");
+    // The largest delta a host can pass, twice: the step and the elapsed
+    // time saturate at FLT_MAX, and the state saves and restores.
+    Update(instance, FLT_MAX);
+    Update(instance, FLT_MAX);
+    CHECK(maniGraphInertiaGet(Block(instance, &g, 3), maniGraphInertiaStep) == FLT_MAX &&
+              maniGraphInertiaGet(Block(instance, &g, 3), maniGraphInertiaElapsed) == FLT_MAX,
+          "the step and the elapsed time saturated");
+    CHECK(Restores(instance), "saved and restored after the largest deltas");
 }
 
 // Two inertial transitions chained in one update: the least duration,

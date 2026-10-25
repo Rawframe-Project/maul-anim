@@ -228,7 +228,7 @@ static void Advance(const maniGraphMachine* m, uint32_t* block, double seconds)
     if (block[maniGraphBlockRunning] != MANI_GRAPH_NO_TRANSITION)
     {
         double elapsed = (double)maniGraphBlockFloat(block, maniGraphBlockElapsed) + seconds;
-        maniGraphSetBlockFloat(block, maniGraphBlockElapsed, (float)elapsed);
+        maniGraphSetBlockFloat(block, maniGraphBlockElapsed, maniGraphSeconds(elapsed));
         Fade(m, block);
     }
 }
