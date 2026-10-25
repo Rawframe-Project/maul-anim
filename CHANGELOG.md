@@ -5,6 +5,43 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.4.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.4.0) (2026-10-25)
+
+### Changed
+
+- **Breaking: a subgraph's lists and slots are checked like the
+  root's.** `maniBuildGraph` refuses with `maniBuildReasonNode`, at the
+  node's place, a node inside a subgraph that names a clip, sync group,
+  database, model or spring set slot past the subgraph's own list. Such
+  a graph used to build when the root had a slot of that number, which
+  the node then named: with 2 clips in the subgraph and 9 in the root,
+  a clip node naming slot 3 played the root's clip 3. It also refuses
+  with `maniBuildReasonCount` a subgraph with a list whose count is not
+  zero and whose pointer is NULL; its clip, sync group, database, model
+  and spring set lists used to be read through that pointer when a node
+  named one of their slots. Only a host's own `maniGraphSource` structs
+  reach either case; the JSON form resolves and checks its lists. Every
+  other graph builds to the same bytes. To migrate, list in each
+  subgraph every asset and sync group its nodes name
+  ([#77](https://github.com/Rawframe-Project/maul-anim/pull/77)).
+- On 32-bit x86 the library is built with SSE2 math
+  (`-msse2 -mfpmath=sse`), so it needs a processor with SSE2, and every
+  build now leaves trapping math at the compiler's default, from the
+  family's compiler flags. 64-bit builds' tests and pinned hashes pass
+  unchanged
+  ([#73](https://github.com/Rawframe-Project/maul-anim/pull/73)).
+
+### Fixed
+
+- `maniBuildGraph` refuses a subgraph's sync group whose name is NULL
+  with `maniBuildReasonCount` at item 0, before anything is laid out, as
+  it refuses a subgraph's list that is not given. A root's own nameless
+  group is still refused by the check with the sync group list's Name
+  reason. Only a host's own `maniGraphSource` structs reach this; the
+  JSON form always gives a name. Every graph that built before builds to
+  the same bytes
+  ([#81](https://github.com/Rawframe-Project/maul-anim/pull/81)).
+
 ## [0.3.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.3.0) (2026-10-25)
 
 ### Changed
