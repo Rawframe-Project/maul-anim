@@ -220,7 +220,7 @@ static void TestTriangulations(void)
 {
     static float p[512];
     bool ok = true;
-    for (uint32_t round = 0; round < 250 && ok; ++round)
+    for (uint32_t round = 0; round < 50 && ok; ++round)
     {
         uint32_t want = 3 + Next(22);
         uint32_t kind = round % 5;

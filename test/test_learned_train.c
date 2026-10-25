@@ -498,8 +498,8 @@ static void TestModelBits(void)
     maniDestroyLearnedTrainer(t);
 }
 
-// The first stage's 4,001 iterations as the stage's own steps at the
-// rate times 0.99 to the whole thousands before each.
+// The first stage's 2,001 iterations, through two decays, as the stage's
+// own steps at the rate times 0.99 to the whole thousands before each.
 static void TestRate(void)
 {
     maniLearnedTrainerSource s = Source();
@@ -507,15 +507,15 @@ static void TestRate(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 4001, &report) == mani_success && report.stage == 0 &&
-              report.iteration == 4001,
-          "4,001 iterations");
+    CHECK(maniTrainLearned(t, 2001, &report) == mani_success && report.stage == 0 &&
+              report.iteration == 2001,
+          "2,001 iterations");
     maniTrainRandom r;
     maniTrainSeed(&r, 7);
     const maniTrainDecompressShape shape = {4, 8, 1, 1, 4, 0};
     maniTrainDecompress own;
     CHECK(maniTrainDecompressInit(&kAllocator, &t->data, &shape, &r, &own), "the stage alone");
-    for (uint64_t step = 1; step <= 4001; ++step)
+    for (uint64_t step = 1; step <= 2001; ++step)
     {
         float rate = (float)((double)0.003f * pow(0.99, (double)((step - 1) / 1000)));
         (void)maniTrainDecompressStep(&own, &t->data, &r, NULL, step, rate);

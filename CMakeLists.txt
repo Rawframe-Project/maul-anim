@@ -354,11 +354,14 @@ if(MAUL_ANIM_BUILD_TESTS)
         # An import past a memory limit: with its address space limited,
         # malloc must refuse a small file's gigabytes, as Linux's
         # overcommit would otherwise grant them, and the import fail with
-        # Capacity. The sanitizers reserve too much address space to run
-        # under a limit.
+        # Capacity. At 512 MB the first of the file's 268 MB arrays is
+        # granted and a later one refused, so the refusal comes in the
+        # middle of the import; the test's time grows with the memory
+        # granted before it (2.4 s at 4 GB). The sanitizers reserve too
+        # much address space to run under a limit.
         if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT MAUL_ANIM_SANITIZE AND NOT MAUL_ANIM_TSAN)
             add_test(NAME guide_import_memory_limit
-                     COMMAND sh -c "ulimit -v 4194304 && exec \"$0\" --default-huge"
+                     COMMAND sh -c "ulimit -v 524288 && exec \"$0\" --default-huge"
                              $<TARGET_FILE:test_guide_import>)
             set_tests_properties(guide_import_memory_limit PROPERTIES LABELS guide_import)
         endif()
