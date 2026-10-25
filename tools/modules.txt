@@ -41,7 +41,7 @@ morph_file:
 morph: bytes container fpenv morph_file
 morph_build: allocator builder bytes container fpenv morph_file sort text
 match_file:
-match: bytes container fpenv match_file text
+match: bytes container fpenv invariant match_file text
 match_search: bytes fpenv invariant match_file
 match_move:
 trajectory: elementary_float fpenv match_move vecmath

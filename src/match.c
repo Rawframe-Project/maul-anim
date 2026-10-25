@@ -11,6 +11,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "match_file.h"
 #include "text.h"
 
@@ -29,8 +30,11 @@ uint32_t maniMatchChannelWidth(uint32_t kind)
     return kind < 6 ? kWidths[kind] : 0u;
 }
 
+// The rate is a database's or a source's, each checked positive and
+// at most MANI_MATCH_MAX_RATE before any time is computed from it.
 float maniMatchFrameTime(float start, uint32_t k, float rate)
 {
+    MANI_ASSERT(rate > 0.0f && rate <= MANI_MATCH_MAX_RATE);
     return (float)((double)start + (double)k / (double)rate);
 }
 
@@ -50,6 +54,7 @@ uint32_t maniMatchEntryFrames(float start, float end, float rate, bool loop)
     // time does not hold, or one more when the next's does: once only, as
     // far past 2^24 seconds a step no longer moves the time.
     uint32_t n = (uint32_t)floor(span) + 1u;
+    MANI_ASSERT(n <= MANI_MATCH_MAX_FRAMES);
     if (n > 1 && !Within(maniMatchFrameTime(start, n - 1, rate), end, loop))
     {
         return n - 1;
@@ -661,6 +666,8 @@ maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database, uint32_
     }
     const uint8_t* e = database->channels + (size_t)channel * MANI_MATCH_CHANNEL_SIZE;
     uint32_t count = maniLoadU32(e + 12);
+    MANI_ASSERT(count <= MANI_MATCH_MAX_TIMES &&
+                maniLoadU32(e + 16) + (uint64_t)count <= database->timeCount);
     *channelOut = (maniMatchChannel){.kind = maniLoadU32(e),
                                      .bone = maniLoadU32(e + 4),
                                      .axis = maniLoadU32(e + 8),
@@ -684,6 +691,7 @@ const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database, ui
     {
         return NULL;
     }
+    MANI_ASSERT((uint64_t)maniLoadU32(e + 32) + maniLoadU32(e + 36) <= database->namesSize);
     if (lengthOut != NULL)
     {
         *lengthOut = maniLoadU32(e + 36);
@@ -714,6 +722,9 @@ static MANI_NOINLINE maniResult MotionDatabaseFrameWork(const maniMotionDatabase
         return mani_errorInvalid;
     }
     // The entry whose frames hold it: the last whose first is at most it.
+    // The opener checked that the entries' frames follow each other from
+    // 0 to the frame count, so one holds every frame.
+    MANI_ASSERT(database->entryCount >= 1);
     uint32_t low = 0;
     uint32_t high = database->entryCount - 1;
     while (low < high)
@@ -724,6 +735,7 @@ static MANI_NOINLINE maniResult MotionDatabaseFrameWork(const maniMotionDatabase
         high = first <= frame ? high : mid - 1;
     }
     const uint8_t* e = database->entries + (size_t)low * MANI_MATCH_ENTRY_SIZE;
+    MANI_ASSERT(maniLoadU32(e + 24) <= frame && frame - maniLoadU32(e + 24) < maniLoadU32(e + 28));
     *entryOut = low;
     *timeOut =
         maniMatchFrameTime(LoadF32(e + 8), frame - maniLoadU32(e + 24), database->sampleRate);
@@ -747,6 +759,7 @@ maniResult maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32
         return mani_errorInvalid;
     }
     size_t position = maniLoadU32(database->places + 4 * (size_t)frame);
+    MANI_ASSERT(position < database->frameCount);
     memcpy(featuresOut, database->features + 4 * position * database->featureCount,
            4 * (size_t)database->featureCount);
     return mani_success;
