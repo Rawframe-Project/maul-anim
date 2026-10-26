@@ -23,6 +23,7 @@ The organization's CI image, `ghcr.io/rawframe-project/ci-cpp`, has everything b
 - GCC 14 and Clang 20 (`clang-20`, `clang-tidy-20`), with the sanitizer and libFuzzer runtimes. A system GCC older than 14 is refused at configure.
 - `clang-format` at the version CI pins: `pip install clang-format==22.1.5`.
 - Python 3 for the checks, the generators and the documentation site (`pip install markdown==3.6` for the site).
+- shellcheck for the shell scripts in `tools/`; without it the source check says so and skips them, except in CI.
 - For the differentials only: a C++17 compiler and network access (CMake fetches ufbx, ACL, RTM and ozz-animation at pinned commits), and Godot 4.7.2 for the retargeting comparison.
 
 ## Presets
