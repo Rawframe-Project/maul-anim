@@ -8,16 +8,20 @@
 #   tools/fuzz.sh merge <build dir> [target ...]
 #
 # Without a target name, every fuzz_* program of the build. `run` fuzzes
-# each target for the same time, four at a time. A target grows its corpus
-# in out/corpus/<target> and also reads its committed seeds in
-# test/seeds/<target> and, for the importers, the sample files of
-# test/data. Its output goes to out/fuzz-logs/<target>.log and is printed
-# when it finds something; the finding's input goes to out/findings/.
+# each target for the same time, four at a time, through the family's
+# tools/fuzz_target.sh. A target grows its corpus in out/corpus/<target>
+# and also reads its committed seeds in test/seeds/<target> and, for the
+# importers, the sample files of test/data. Its log goes to
+# out/fuzz-logs/<target>.log and its findings to
+# out/fuzz-crashes/<target>/; on a finding, its report, which never holds
+# the input, is printed once every target has finished.
 #
 # `merge` minimizes each corpus with libFuzzer's merge: the seeds and the
 # corpus are read together, and only the files that keep every feature
 # either reaches stay, seeds among them. The nightly run merges before it
-# saves a corpus to its cache.
+# saves a corpus to its cache. A merge reruns every input, so one that
+# crashes is dumped as libFuzzer dumps a finding: its output goes only to
+# the target's log, and a failed merge prints the target and its status.
 set -euo pipefail
 
 usage() {
@@ -58,7 +62,7 @@ for target in "${targets[@]}"; do
         exit 1
     }
 done
-mkdir -p out/fuzz-logs out/findings
+mkdir -p out/fuzz-logs
 
 # The directories a target reads besides its own corpus.
 inputs() {
@@ -75,20 +79,19 @@ fuzz_one() {
     name=$(basename "$1")
     mkdir -p "out/corpus/$name"
     mapfile -t read_also < <(inputs "$name")
-    if "$1" -max_total_time="$FUZZ_SECONDS" -artifact_prefix=out/findings/ "out/corpus/$name" \
-        "${read_also[@]}" >"out/fuzz-logs/$name.log" 2>&1; then
-        echo "$name: no finding"
-    else
-        tail -n 60 "out/fuzz-logs/$name.log"
-        echo "::error::$name found something"
-        return 1
-    fi
+    tools/fuzz_target.sh "$1" -max_total_time="$FUZZ_SECONDS" "out/corpus/$name" "${read_also[@]}"
 }
 
+# The reports are cleared first, so that only this run's targets report,
+# and printed once they have all finished, so that none interleaves with
+# another.
 if [ "$mode" = run ]; then
     export -f fuzz_one inputs
-    printf '%s\n' "${targets[@]}" | xargs -P 4 -I {} bash -c 'fuzz_one "$1"' _ {}
-    exit 0
+    rm -rf out/fuzz-reports
+    status=0
+    printf '%s\n' "${targets[@]}" | xargs -P 4 -I {} bash -c 'fuzz_one "$1"' _ {} || status=$?
+    cat out/fuzz-reports/*.txt 2>/dev/null || true
+    exit "$status"
 fi
 
 for target in "${targets[@]}"; do
@@ -97,8 +100,14 @@ for target in "${targets[@]}"; do
     mkdir -p "out/corpus/$name"
     rm -rf "out/corpus-merged/$name"
     mkdir -p "out/corpus-merged/$name"
-    "$target" -merge=1 "out/corpus-merged/$name" "${read_also[@]}" "out/corpus/$name" \
-        >>"out/fuzz-logs/$name.log" 2>&1
+    mkdir -p "out/fuzz-crashes/$name"
+    status=0
+    "$target" -merge=1 -artifact_prefix="out/fuzz-crashes/$name/" "out/corpus-merged/$name" \
+        "${read_also[@]}" "out/corpus/$name" >>"out/fuzz-logs/$name.log" 2>&1 || status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "::error::$name: the merge failed (exit $status)"
+        exit 1
+    fi
     rm -rf "out/corpus/$name"
     mv "out/corpus-merged/$name" "out/corpus/$name"
     echo "$name: $(find "out/corpus/$name" -type f | wc -l) files kept"
