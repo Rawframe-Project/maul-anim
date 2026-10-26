@@ -145,9 +145,11 @@ jobs:
   # its own corpus exactly; a changed one restores the target's latest
   # corpus of an earlier build, whose inputs stay valid. After the run the
   # fuzzer's merge minimizes the seeds and the corpus together, and the
-  # result is saved for the next night, also after a finding. The summary
-  # gives the seeds' coverage and the corpus's. The corpus stays in the
-  # cache, which no pull_request run restores, and a finding and the log
+  # result is saved for the next night, unless the run found something:
+  # that corpus holds inputs close to the finding. The summary gives the
+  # seeds' coverage and the corpus's. The corpus is never uploaded, but the
+  # cache is not secret (a fork's pull request can restore it); this
+  # repository's pull_request runs do not restore it. A finding and the log
   # stay on the runner: tools/fuzz_target.sh prints only the report.
   fuzz:
     needs: fuzz-targets
@@ -206,7 +208,7 @@ jobs:
             echo "| \`$TARGET\` | $restored | $seeded | $(coverage "out/corpus/$TARGET") | $(find "out/corpus/$TARGET" -type f | wc -l) |"
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Save the corpus
-        if: ${{ !cancelled() }}
+        if: success()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: out/corpus/${{ matrix.target }}
