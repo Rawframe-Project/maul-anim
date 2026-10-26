@@ -684,9 +684,9 @@ extern "C"
     // databases joined to this graph's by identity, its sync groups by
     // name, its mirror map this graph's or none; its lists held to the
     // limits of this graph's, and each slot and sync group its nodes name
-    // within its own lists), and for each
-    // of its parameters the parameter of this graph it reads, of the same
-    // type. It takes no inputs.
+    // within its own lists, as this graph's nodes name only this graph's),
+    // and for each of its parameters the parameter of this graph it reads,
+    // of the same type. It takes no inputs.
     typedef struct maniGraphSubgraphNodeSource
     {
         const maniGraphSource* graph;

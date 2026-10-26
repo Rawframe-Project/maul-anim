@@ -771,6 +771,25 @@ static void TestSubgraph(void)
     inner.springSets = NULL;
     inner.springSetCount = 0;
     CHECK(RefusedFor(&outer, maniBuildReasonNode, 2), "a subgraph's slot past its sets");
+    // A slot past the outer's sets, where the subgraph lists one: refused
+    // at the outer spring node's place, not driven by the subgraph's.
+    inner = SpringGraph(kSpring);
+    static const uint32_t kSame[5] = {0, 1, 2, 3, 4};
+    static const uint32_t kInner[1] = {1};
+    maniGraphNodeSource nodes[2] = {
+        {maniGraphNodeSpring, 1, kInner, .spring = kSpring},
+        {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL, .subgraph = {&inner, kSame}}};
+    maniGraphSource own = {.skeleton = &s_skeleton,
+                           .parameters = s_parameters,
+                           .nodes = nodes,
+                           .parameterCount = 5,
+                           .nodeCount = 2,
+                           .springSets = inner.springSets,
+                           .springSetCount = 1};
+    CHECK(Build(&own, &s_made[0], &size).result == mani_success, "the outer's own set");
+    own.springSets = NULL;
+    own.springSetCount = 0;
+    CHECK(RefusedFor(&own, maniBuildReasonNode, 0), "an outer's slot past its sets");
 }
 
 static bool WriteFile(const char* path, const void* data, size_t size)

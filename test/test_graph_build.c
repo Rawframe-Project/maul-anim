@@ -624,6 +624,46 @@ static void TestSubgraphs(void)
     CHECK(Refused(source, maniBuildReasonCount, 0, 0), "a subgraph's sync group without its name");
 }
 
+// A clip slot past the root's own clips, and a sync group past its own
+// groups, where a subgraph lists one of that number: refused at the clip
+// node's place, not played as the subgraph's.
+static void TestRootSlots(void)
+{
+    static const maniGraphClipSource kRun[1] = {{&s_clips[1], "run", 3, 0, NULL}};
+    static const maniGraphSyncGroupSource kFeet = {"feet", 4, 0};
+    maniGraphNodeSource inner[1] = {ClipNode(0, 1.0f, maniGraphLoopClip)};
+    inner[0].clip.syncGroup = 0;
+    maniGraphSource sub = {.skeleton = &s_skeleton,
+                           .clips = kRun,
+                           .syncGroups = &kFeet,
+                           .nodes = inner,
+                           .clipCount = 1,
+                           .syncGroupCount = 1,
+                           .nodeCount = 1};
+    static const uint32_t kPair[2] = {1, 2};
+    static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0, 0}},
+        {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, NULL}},
+        ClipNode(0, 1.0f, maniGraphLoopClip)};
+    maniGraphSource source = {.skeleton = &s_skeleton,
+                              .clips = kSlots,
+                              .syncGroups = &kFeet,
+                              .nodes = nodes,
+                              .clipCount = 1,
+                              .syncGroupCount = 1,
+                              .nodeCount = 3};
+    CHECK(BuildOnly(source).result == mani_success, "the root's own clip");
+    nodes[2].clip.clip = 1;
+    CHECK(Refused(source, maniBuildReasonNode, 2, 0), "a root's slot past its clips");
+    nodes[2].clip.clip = 0;
+    nodes[2].clip.syncGroup = 0;
+    CHECK(BuildOnly(source).result == mani_success, "the root's own sync group");
+    source.syncGroups = NULL;
+    source.syncGroupCount = 0;
+    CHECK(Refused(source, maniBuildReasonNode, 2, 0), "a root's sync group past its groups");
+}
+
 static float FactorAt(uint32_t p)
 {
     uint32_t bits = maniLoadU32(s_built + Record(p) + 28);
@@ -785,6 +825,7 @@ int main(void)
     TestChainMask();
     TestOpenRefusals();
     TestSubgraphs();
+    TestRootSlots();
     TestTimeFactors();
     TestBindingRoom();
     return s_failures == 0 ? 0 : 1;

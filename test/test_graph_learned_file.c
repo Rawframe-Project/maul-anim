@@ -528,6 +528,24 @@ static void TestSubgraph(void)
     r = maniBuildGraph(builder, &root);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNode && r.item == 0,
           "a subgraph's slot past its models");
+    // A slot past the root's models, where the subgraph lists one:
+    // refused at the node's place, not run by the subgraph's.
+    static const uint32_t kFirstTwo[2] = {0, 1};
+    maniGraphNodeSource pair[4] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kSame}},
+                                   LearnedNode(0.1f, 0.0f),
+                                   {maniGraphNodeBlend, 2, kFirstTwo, .blend = {kHalves, 0, 0}},
+                                   Above(2)};
+    sub.models = kModelSlot;
+    sub.modelCount = 1;
+    root.nodes = pair;
+    root.nodeCount = 4;
+    root.output = 3;
+    CHECK(maniBuildGraph(builder, &root).result == mani_success, "the root's own model");
+    root.models = NULL;
+    root.modelCount = 0;
+    r = maniBuildGraph(builder, &root);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNode && r.item == 1,
+          "a root's slot past its models");
     maniDestroyBuilder(builder);
 }
 
