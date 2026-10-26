@@ -13,6 +13,7 @@
 // tests.
 
 #include "test_harness.h"
+#include "test_text.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -91,23 +92,27 @@ static char s_huge[4096];
 static size_t Huge(void)
 {
     char attributes[2048];
-    size_t n = (size_t)snprintf(attributes, sizeof attributes, "\"POSITION\":0,\"NORMAL\":0");
+    TestText text = TestTextIn(attributes, sizeof attributes);
+    TestTextAppend(&text, "\"POSITION\":0,\"NORMAL\":0");
     for (int k = 0; k < 14; ++k)
     {
-        n += (size_t)snprintf(attributes + n, sizeof attributes - n, ",\"TEXCOORD_%d\":1", k);
+        TestTextAppend(&text, ",\"TEXCOORD_%d\":1", k);
     }
     for (int k = 0; k < 16; ++k)
     {
-        n += (size_t)snprintf(attributes + n, sizeof attributes - n, ",\"COLOR_%d\":2", k);
+        TestTextAppend(&text, ",\"COLOR_%d\":2", k);
     }
-    return (size_t)snprintf(
-        s_huge, sizeof s_huge,
-        "{\"asset\":{\"version\":\"2.0\"},\"accessors\":["
-        "{\"componentType\":5126,\"type\":\"VEC3\",\"count\":16777216},"
-        "{\"componentType\":5126,\"type\":\"VEC2\",\"count\":16777216},"
-        "{\"componentType\":5126,\"type\":\"VEC4\",\"count\":16777216}],"
-        "\"meshes\":[{\"primitives\":[{\"attributes\":{%s},\"targets\":[{%s}]}]}]}",
-        attributes, attributes);
+    CHECK(text.fits, "the attributes fit their buffer");
+    TestText huge = TestTextIn(s_huge, sizeof s_huge);
+    TestTextAppend(&huge,
+                   "{\"asset\":{\"version\":\"2.0\"},\"accessors\":["
+                   "{\"componentType\":5126,\"type\":\"VEC3\",\"count\":16777216},"
+                   "{\"componentType\":5126,\"type\":\"VEC2\",\"count\":16777216},"
+                   "{\"componentType\":5126,\"type\":\"VEC4\",\"count\":16777216}],"
+                   "\"meshes\":[{\"primitives\":[{\"attributes\":{%s},\"targets\":[{%s}]}]}]}",
+                   attributes, attributes);
+    CHECK(huge.fits, "the file fits its buffer");
+    return huge.length;
 }
 
 // The huge file's morph targets built by a builder of def: the build's

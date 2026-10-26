@@ -11,6 +11,7 @@
 #include "gltf_document.h"
 #include "test_gltf_sweep.h"
 #include "test_harness.h"
+#include "test_text.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -681,33 +682,38 @@ static void RandomTrial(void)
         }
     }
     // The document.
-    int at = snprintf(s_json, sizeof s_json, "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[");
+    TestText text = TestTextIn(s_json, sizeof s_json);
+    TestTextAppend(&text, "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[");
     for (int i = 0; i < kNodes; ++i)
     {
-        at += snprintf(s_json + at, sizeof s_json - (size_t)at, "%s{\"children\":[", i ? "," : "");
+        TestTextAppend(&text, "%s{\"children\":[", i ? "," : "");
         bool any = false;
         for (int c = 0; c < kNodes; ++c)
         {
             if (parents[c] == i)
             {
-                at += snprintf(s_json + at, sizeof s_json - (size_t)at, "%s%d", any ? "," : "", c);
+                TestTextAppend(&text, "%s%d", any ? "," : "", c);
                 any = true;
             }
         }
-        at += snprintf(s_json + at, sizeof s_json - (size_t)at, "]}");
+        TestTextAppend(&text, "]}");
     }
-    at += snprintf(s_json + at, sizeof s_json - (size_t)at, "],\"skins\":[");
+    TestTextAppend(&text, "],\"skins\":[");
     for (int s = 0; s < skinCount; ++s)
     {
-        at += snprintf(s_json + at, sizeof s_json - (size_t)at, "%s{\"joints\":[", s ? "," : "");
+        TestTextAppend(&text, "%s{\"joints\":[", s ? "," : "");
         for (int j = 0; j < jointCount[s]; ++j)
         {
-            at += snprintf(s_json + at, sizeof s_json - (size_t)at, "%s%d", j ? "," : "",
-                           joints[s][j]);
+            TestTextAppend(&text, "%s%d", j ? "," : "", joints[s][j]);
         }
-        at += snprintf(s_json + at, sizeof s_json - (size_t)at, "]}");
+        TestTextAppend(&text, "]}");
     }
-    snprintf(s_json + at, sizeof s_json - (size_t)at, "]}");
+    TestTextAppend(&text, "]}");
+    CHECK(text.fits, "the document fits its buffer");
+    if (!text.fits)
+    {
+        return;
+    }
     // The brute force: each skin's bones, sets joined while they meet.
     bool bones[kSkins][kNodes];
     int roots[kSkins];
