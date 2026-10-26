@@ -678,6 +678,19 @@ static void TestBind(void)
 
 static char s_text[16384];
 
+// The writer refuses a source with the build's result: its status,
+// reason and place.
+static bool RefusedAlike(const maniGraphSource* source)
+{
+    maniBuilder* builder = NewBuilder();
+    maniBuildResult built = maniBuildGraph(builder, source);
+    maniBuildResult written = maniWriteGraphJson(builder, source);
+    maniDestroyBuilder(builder);
+    return built.result == mani_errorInvalid && written.result == built.result &&
+           written.reason == built.reason && written.item == built.item &&
+           written.other == built.other;
+}
+
 static void TestJson(void)
 {
     maniGraphSource source = SpringGraph(kSpring);
@@ -717,6 +730,9 @@ static void TestJson(void)
               maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success,
           "no parameters left out");
     maniDestroyBuilder(builder);
+    source = SpringGraph((maniGraphSpringNodeSource){1, MANI_NO_PARAMETER, MANI_NO_PARAMETER,
+                                                     MANI_NO_PARAMETER, MANI_NO_PARAMETER});
+    CHECK(RefusedAlike(&source), "a spring set slot past the graph's sets");
 }
 
 static void TestSubgraph(void)

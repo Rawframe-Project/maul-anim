@@ -551,6 +551,19 @@ static maniBuildResult Read(const char* text)
     return r;
 }
 
+// The writer refuses a source with the build's result: its status,
+// reason and place.
+static bool RefusedAlike(const maniGraphSource* source)
+{
+    maniBuilder* builder = NewBuilder();
+    maniBuildResult built = maniBuildGraph(builder, source);
+    maniBuildResult written = maniWriteGraphJson(builder, source);
+    maniDestroyBuilder(builder);
+    return built.result == mani_errorInvalid && written.result == built.result &&
+           written.reason == built.reason && written.item == built.item &&
+           written.other == built.other;
+}
+
 static void TestJson(void)
 {
     MatchParameters();
@@ -585,6 +598,8 @@ static void TestJson(void)
               strstr(s_text, "\"historyCount\": 3, \"requiredTags\": {\"parameter\": "
                              "\"tags\"}, \"excludedTags\": 4294967295") != NULL,
           "no trigger, tags from a parameter and literal");
+    nodes[0].match.database = 1;
+    CHECK(RefusedAlike(&source), "a database slot past the graph's databases");
 }
 
 #define HEAD                                                                                       \
