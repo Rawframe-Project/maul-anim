@@ -131,7 +131,7 @@ prints each part's text against its ceiling in `tools/size-budget.txt` and fails
 
 ## Debugging a failure
 
-**A CI cell.** A failed build cell uploads its ctest logs as `logs-<preset>` for a week, `windows` and `web` as `logs-windows` and `logs-web-emscripten`, and `fuzz` its logs and failing inputs as `fuzz`. To run a Linux cell as CI does, run its preset in the image `ci.yml` pins, through the heavy-job wrapper on the shared machine:
+**A CI cell.** A failed build cell uploads its ctest logs as `logs-<preset>` for a week, `windows` and `web` as `logs-windows` and `logs-web-emscripten`. `fuzz` uploads nothing: it prints each finding's report ([Reproducing a fuzz finding](#reproducing-a-fuzz-finding)). To run a Linux cell as CI does, run its preset in the image `ci.yml` pins, through the heavy-job wrapper on the shared machine:
 
 ```sh
 docker run --rm -v "$PWD":/w -w /w ghcr.io/rawframe-project/ci-cpp:<tag> bash -c \
@@ -157,11 +157,11 @@ ThreadSanitizer inside the container needs `--security-opt seccomp=unconfined`. 
 
 ## Reproducing a fuzz finding
 
-A fuzz target writes the input that failed as `crash-<hash>`, in `out/findings/` when `tools/fuzz.sh` runs it (CI uploads that folder). To reproduce:
+`tools/fuzz.sh` runs each target through `tools/fuzz_target.sh`, which writes the input that failed as `crash-<hash>` in `out/fuzz-crashes/<target>/`, the target's log in `out/fuzz-logs/<target>.log` and, on a finding, a report in `out/fuzz-reports/<target>.txt`. The report gives the target, the finding's file name, the seed and the sanitizers' report, never the input's bytes; CI prints it and keeps the rest on the runner, and a pull request's run does not print the seed. To find a CI finding again, run its target from the same commit with the report's seed, or fuzz it locally:
 
 ```sh
 cmake --preset linux-fuzz && cmake --build --preset linux-fuzz
-./out/linux-fuzz/fuzz_clip out/findings/crash-<hash>
+./out/linux-fuzz/fuzz_clip out/fuzz-crashes/fuzz_clip/crash-<hash>
 tools/fuzz.sh run out/linux-fuzz 300  # every target for five minutes, four at a time
 ```
 

@@ -146,8 +146,9 @@ jobs:
   # corpus of an earlier build, whose inputs stay valid. After the run the
   # fuzzer's merge minimizes the seeds and the corpus together, and the
   # result is saved for the next night, also after a finding. The summary
-  # gives the seeds' coverage and the corpus's, and the corpus is uploaded,
-  # to pick inputs worth committing as seeds.
+  # gives the seeds' coverage and the corpus's. The corpus stays in the
+  # cache, which no pull_request run restores, and a finding and the log
+  # stay on the runner: tools/fuzz_target.sh prints only the report.
   fuzz:
     needs: fuzz-targets
     strategy:
@@ -174,6 +175,7 @@ jobs:
           compiler=$(clang-20 --version | head -1 | sha256sum | cut -c1-16)
           echo "CORPUS_KEY=corpus-$TARGET-$INPUTS-$compiler" >>"$GITHUB_ENV"
       - name: Restore the corpus
+        if: github.event_name != 'pull_request'
         id: restore
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -209,20 +211,3 @@ jobs:
         with:
           path: out/corpus/${{ matrix.target }}
           key: ${{ env.CORPUS_KEY }}-${{ github.run_id }}
-      - name: Upload the corpus
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: corpus-${{ matrix.target }}
-          path: out/corpus/${{ matrix.target }}/
-          retention-days: 7
-      - name: Upload the findings
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: findings-${{ matrix.target }}
-          path: |
-            out/fuzz-logs/
-            out/findings/
-          if-no-files-found: ignore
-          retention-days: 7
