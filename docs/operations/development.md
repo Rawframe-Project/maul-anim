@@ -157,7 +157,7 @@ ThreadSanitizer inside the container needs `--security-opt seccomp=unconfined`. 
 
 ## Reproducing a fuzz finding
 
-`tools/fuzz.sh` runs each target through `tools/fuzz_target.sh`, which writes the input that failed as `crash-<hash>` in `out/fuzz-crashes/<target>/`, the target's log in `out/fuzz-logs/<target>.log` and, on a finding, a report in `out/fuzz-reports/<target>.txt`. The report gives the target, the finding's file name, the seed and the sanitizers' report, never the input's bytes; CI prints it and keeps the rest on the runner, and a pull request's run does not print the seed. To find a CI finding again, run its target from the same commit with the report's seed, or fuzz it locally:
+`tools/fuzz.sh` runs each target through `tools/fuzz_target.sh`, which writes the input that failed as `crash-<hash>` in `out/fuzz-crashes/<target>/`, the target's log in `out/fuzz-logs/<target>.log` and, on a finding, a report in `out/fuzz-reports/<target>.txt`. The report gives the target, the kind of each finding (crash, leak, timeout, oom) and the sanitizers' report. It never gives the input's bytes, its file name (the SHA-1 of the input) or the seed, which is the log's first line. CI prints the report and keeps the rest on the runner, so a CI finding is found again by fuzzing its target locally:
 
 ```sh
 cmake --preset linux-fuzz && cmake --build --preset linux-fuzz
