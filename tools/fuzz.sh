@@ -19,7 +19,9 @@
 # `merge` minimizes each corpus with libFuzzer's merge: the seeds and the
 # corpus are read together, and only the files that keep every feature
 # either reaches stay, seeds among them. The nightly run merges before it
-# saves a corpus to its cache.
+# saves a corpus to its cache. A merge reruns every input, so one that
+# crashes is dumped as libFuzzer dumps a finding: its output goes only to
+# the target's log, and a failed merge prints the target and its status.
 set -euo pipefail
 
 usage() {
@@ -98,8 +100,14 @@ for target in "${targets[@]}"; do
     mkdir -p "out/corpus/$name"
     rm -rf "out/corpus-merged/$name"
     mkdir -p "out/corpus-merged/$name"
-    "$target" -merge=1 "out/corpus-merged/$name" "${read_also[@]}" "out/corpus/$name" \
-        >>"out/fuzz-logs/$name.log" 2>&1
+    mkdir -p "out/fuzz-crashes/$name"
+    status=0
+    "$target" -merge=1 -artifact_prefix="out/fuzz-crashes/$name/" "out/corpus-merged/$name" \
+        "${read_also[@]}" "out/corpus/$name" >>"out/fuzz-logs/$name.log" 2>&1 || status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "::error::$name: the merge failed (exit $status)"
+        exit 1
+    fi
     rm -rf "out/corpus/$name"
     mv "out/corpus-merged/$name" "out/corpus/$name"
     echo "$name: $(find "out/corpus/$name" -type f | wc -l) files kept"
