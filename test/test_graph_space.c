@@ -256,6 +256,19 @@ static void TestRefusals(void)
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip)};
+    // One point more than a space may have, each input a clip node.
+    static uint32_t kMany[MANI_GRAPH_MAX_SPACE_POINTS + 1];
+    static float many[MANI_GRAPH_MAX_SPACE_POINTS + 1];
+    for (uint32_t k = 0; k <= MANI_GRAPH_MAX_SPACE_POINTS; ++k)
+    {
+        kMany[k] = 1 + k % 3;
+        many[k] = (float)k;
+    }
+    maniGraphNodeSource wide[4] = {nodes[0], nodes[1], nodes[2], nodes[3]};
+    wide[0].inputCount = MANI_GRAPH_MAX_SPACE_POINTS + 1;
+    wide[0].inputs = kMany;
+    wide[0].blendSpace1D.points = many;
+    CHECK(Refused(BuildOnly(wide, 4, NULL, 0), maniBuildReasonNode, 0), "a point past the most");
     CHECK(Refused(BuildOnly(nodes, 4, NULL, 0), maniBuildReasonPoint, 2), "two equal points");
     points[2] = NAN;
     CHECK(Refused(BuildOnly(nodes, 4, NULL, 0), maniBuildReasonPoint, 2), "a point not finite");

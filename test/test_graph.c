@@ -355,6 +355,10 @@ static void TestNodeRefusals(void)
     s_nodes[7].inputs = kSelf;
     ExpectRefused(&s, maniBuildReasonInput, 7, 0, "a node its own input");
     s = Source();
+    static const uint32_t kPast[1] = {9};
+    s_nodes[7].inputs = kPast;
+    ExpectRefused(&s, maniBuildReasonInput, 7, 0, "an input past the count");
+    s = Source();
     s.output = 9;
     ExpectRefused(&s, maniBuildReasonInput, 9, 0, "an output past the count");
     s = Source();
