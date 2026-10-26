@@ -439,6 +439,26 @@ static void TestSubgraph(void)
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNode && r.item == 0,
           "a subgraph's slot past its databases");
     maniDestroyBuilder(builder);
+    // A slot past the root's databases, where the subgraph lists one:
+    // refused at the node's place, not fed by the subgraph's.
+    static const uint32_t kFirstTwo[2] = {0, 1};
+    maniGraphNodeSource both[4] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kMap}},
+                                   MatchNode(1.0f),
+                                   {maniGraphNodeBlend, 2, kFirstTwo, .blend = {kHalves, 0, 0}},
+                                   Above(2)};
+    sub.databases = kDatabaseSlot;
+    sub.databaseCount = 1;
+    root.nodes = both;
+    root.nodeCount = 4;
+    root.output = 3;
+    builder = NewBuilder();
+    CHECK(maniBuildGraph(builder, &root).result == mani_success, "the root's own database");
+    root.databases = NULL;
+    root.databaseCount = 0;
+    r = maniBuildGraph(builder, &root);
+    CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonNode && r.item == 1,
+          "a root's slot past its databases");
+    maniDestroyBuilder(builder);
 }
 
 // The subgraph's parameters mapped to the root's in reverse, its

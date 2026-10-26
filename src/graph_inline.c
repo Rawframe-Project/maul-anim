@@ -252,19 +252,21 @@ static uint64_t MapIdentity(const maniRetargetMap* map)
 // through the same map), or the
 // first flat slot without an asset if it has none (the checks refuse
 // it): Totals counts a slot once for every subgraph node, so the slots
-// joined never outnumber it. A slot past the subgraph's list becomes
-// OUTSIDE, past every flat list, which the check refuses at the node.
+// joined never outnumber it. A slot past its own graph's list, the root's
+// as well as a subgraph's, becomes OUTSIDE, past every flat list, which
+// the check refuses at the node: the flat lists hold the subgraphs' slots
+// after the root's, and a root slot must not name one of them.
 #define OUTSIDE (UINT32_MAX - 1)
 
 static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
 {
-    if (s->outer == NULL)
-    {
-        return slot;
-    }
     if (slot >= s->graph->clipCount)
     {
         return OUTSIDE;
+    }
+    if (s->outer == NULL)
+    {
+        return slot;
     }
     const maniGraphClipSource* c = &s->graph->clips[slot];
     for (uint32_t k = 0; k < f->clipCount; ++k)
@@ -285,13 +287,13 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
 
 static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
 {
-    if (s->outer == NULL)
-    {
-        return slot;
-    }
     if (slot >= s->graph->databaseCount)
     {
         return OUTSIDE;
+    }
+    if (s->outer == NULL)
+    {
+        return slot;
     }
     const maniGraphDatabaseSource* d = &s->graph->databases[slot];
     for (uint32_t k = 0; k < f->databaseCount; ++k)
@@ -324,13 +326,13 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
 
 static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
 {
-    if (s->outer == NULL)
-    {
-        return slot;
-    }
     if (slot >= s->graph->modelCount)
     {
         return OUTSIDE;
+    }
+    if (s->outer == NULL)
+    {
+        return slot;
     }
     const maniGraphModelSource* m = &s->graph->models[slot];
     for (uint32_t k = 0; k < f->modelCount; ++k)
@@ -350,13 +352,13 @@ static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
 
 static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
 {
-    if (s->outer == NULL)
-    {
-        return slot;
-    }
     if (slot >= s->graph->springSetCount)
     {
         return OUTSIDE;
+    }
+    if (s->outer == NULL)
+    {
+        return slot;
     }
     const maniGraphSpringSetSource* p = &s->graph->springSets[slot];
     for (uint32_t k = 0; k < f->springSetCount; ++k)
@@ -377,13 +379,17 @@ static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
 // MANI_NO_SYNC_GROUP stays.
 static uint32_t GroupSlot(const Scope* s, Flat* f, uint32_t group)
 {
-    if (s->outer == NULL || group == MANI_NO_SYNC_GROUP)
+    if (group == MANI_NO_SYNC_GROUP)
     {
         return group;
     }
     if (group >= s->graph->syncGroupCount)
     {
         return OUTSIDE;
+    }
+    if (s->outer == NULL)
+    {
+        return group;
     }
     const maniGraphSyncGroupSource* g = &s->graph->syncGroups[group];
     for (uint32_t k = 0; k < f->groupCount; ++k)
