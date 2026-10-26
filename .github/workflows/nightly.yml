@@ -143,14 +143,15 @@ jobs:
   # by the target and by the fuzz build's inputs (the library, its CMake,
   # the target's source and the compiler), so an unchanged build restores
   # its own corpus exactly; a changed one restores the target's latest
-  # corpus of an earlier build, whose inputs stay valid. After the run the
-  # fuzzer's merge minimizes the seeds and the corpus together, and the
-  # result is saved for the next night, unless the run found something:
-  # that corpus holds inputs close to the finding. The summary gives the
-  # seeds' coverage and the corpus's. The corpus is never uploaded, but the
-  # cache is not secret (a fork's pull request can restore it); this
-  # repository's pull_request runs do not restore it. A finding and the log
-  # stay on the runner: tools/fuzz_target.sh prints only the report.
+  # corpus of an earlier build, whose inputs stay valid. After a run that
+  # found nothing, the fuzzer's merge minimizes the seeds and the corpus
+  # together, the summary gives the seeds' coverage and the corpus's, and
+  # the result is saved for the next night. A run that found something
+  # does none of that: its corpus holds inputs close to the finding. The
+  # corpus is never uploaded, but the cache is not secret (a fork's pull
+  # request can restore it); this repository's pull_request runs do not
+  # restore it. A finding and the log stay on the runner:
+  # tools/fuzz_target.sh prints only the report.
   fuzz:
     needs: fuzz-targets
     strategy:
@@ -189,7 +190,6 @@ jobs:
       - name: Fuzz
         run: tools/fuzz.sh run out/linux-fuzz 600 "$TARGET"
       - name: Minimize the corpus
-        if: ${{ !cancelled() }}
         env:
           MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
         run: |
