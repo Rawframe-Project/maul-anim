@@ -215,7 +215,6 @@ extern "C"
         uint32_t modelCount;
         uint32_t springSetCount;
         uint32_t mapCount;
-        uint32_t reserved;
     } maniGraph;
 
     /// Opens a graph file in place: checks the container, every record,
@@ -810,7 +809,6 @@ extern "C"
         float time;
         // 1 passed forward, -1 backward.
         int32_t direction;
-        uint32_t reserved;
     } maniGraphEvent;
 
     /// Moves an instance through time: shares each node's weight down from

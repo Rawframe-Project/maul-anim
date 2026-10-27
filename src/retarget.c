@@ -38,10 +38,10 @@ uint64_t maniRetargetComputeIdentity(const uint8_t* const data[MANI_RETARGET_SEC
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0, 0};
+static const maniFileResult kOk = {mani_success, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -174,11 +174,9 @@ static maniFileResult Header(const Sections* s, maniRetargetMap* m)
     }
     float ratio = LoadF32(h + maniRetargetHeaderRatio);
     bool none = maniLoadU32(h + maniRetargetHeaderPelvisTarget) == MANI_NO_BONE;
-    if (!(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f))
-    {
-        return Fail(at + maniRetargetHeaderRatio);
-    }
-    return maniLoadU32(h + maniRetargetHeaderEnd) == 0 ? kOk : Fail(at + maniRetargetHeaderEnd);
+    return !(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f)
+               ? Fail(at + maniRetargetHeaderRatio)
+               : kOk;
 }
 
 // The references: a rotation (or two) of length 1, the rest finite.
@@ -253,7 +251,7 @@ static uint32_t PlanWrong(const uint8_t* e, const maniRetargetMap* m, uint32_t b
             return 4 * k;
         }
     }
-    return maniLoadU32(e + maniRetargetPlanEnd) == 0 ? UINT32_MAX : maniRetargetPlanEnd;
+    return UINT32_MAX;
 }
 
 static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)
@@ -281,7 +279,7 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
 {
     if (mapOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0, 0};
+        return (maniFileResult){mani_errorInvalid, 0};
     }
     maniContainer c;
     maniFileResult r =

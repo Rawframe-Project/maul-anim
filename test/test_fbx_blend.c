@@ -229,7 +229,7 @@ static bool Bones(maniBuilder* builder, const char* const* names, uint32_t count
     {
         bones[k] = (maniBoneSource){names[k], (uint32_t)strlen(names[k]), -1, rest};
     }
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
@@ -704,7 +704,7 @@ static void TestShapeOwners(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     size_t size = 0;
     maniSkeleton skeleton;
-    maniImportResult r = {mani_success, 0, 0, 0, 0};
+    maniImportResult r = {mani_success, 0, 0, 0};
     if (maniOpenFbx(builder, unnamed, strlen(unnamed), &fbx).result == mani_success &&
         maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
         maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&

@@ -244,8 +244,8 @@ static void Palette(BenchScenes* s, uint32_t n)
 // The whole mesh's positions and normals.
 static maniSkinJob SkinJob(const BenchScenes* s, maniSkinStream* streams)
 {
-    streams[0] = (maniSkinStream){s->positions, s->movedPositions, 12, 12, maniStreamPoint, 0};
-    streams[1] = (maniSkinStream){s->normals, s->movedNormals, 12, 12, maniStreamNormal, 0};
+    streams[0] = (maniSkinStream){s->positions, s->movedPositions, 12, 12, maniStreamPoint};
+    streams[1] = (maniSkinStream){s->normals, s->movedNormals, 12, 12, maniStreamNormal};
     return (maniSkinJob){
         &s->influences, s->palette, s->dualQuaternions, BENCH_BONES, 0, BENCH_VERTICES, 2, streams};
 }
@@ -275,9 +275,9 @@ static void SkinDual(BenchScenes* s, uint32_t n)
 static void Morph(BenchScenes* s, uint32_t n)
 {
     const maniMorphStream streams[2] = {
-        {s->positions, s->movedPositions, 12, 12, maniMorphPosition, 0, 3, 0},
-        {s->normals, s->movedNormals, 12, 12, maniMorphNormal, 0, 3, 0}};
-    const maniMorphJob job = {&s->morphs, s->targetWeights, 0, BENCH_VERTICES, 2, 0, streams};
+        {s->positions, s->movedPositions, 12, 12, maniMorphPosition, 0, 3},
+        {s->normals, s->movedNormals, 12, 12, maniMorphNormal, 0, 3}};
+    const maniMorphJob job = {&s->morphs, s->targetWeights, 0, BENCH_VERTICES, 2, streams};
     for (uint32_t i = 0; i < n; ++i)
     {
         Must(maniMorphTargetWeights(&s->morphs, s->channelWeights, s->targetWeights),

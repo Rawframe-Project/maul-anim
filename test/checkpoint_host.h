@@ -46,16 +46,16 @@ static inline bool HostAssets(CheckpointHost* h, maniBuilder* builder)
     static const float kTimes[3] = {0.0f, 0.5f, 1.0f};
     static const float kValues[9] = {0, 0, 0, 1, 0, 0.5f, 0, 0, 0};
     static const float kNow[1] = {0.0f};
-    maniSkeletonSource skeleton = {&kBone, 1, 0};
+    maniSkeletonSource skeleton = {&kBone, 1};
     const maniChannelSource none = {NULL, NULL, 0, maniInterpolationLinear};
     const maniBoneTrackSource track = {
-        0, 0, {kTimes, kValues, 3, maniInterpolationLinear}, none, none};
+        0, {kTimes, kValues, 3, maniInterpolationLinear}, none, none};
     maniClipSource clip = {.skeleton = &h->skeleton, .boneTracks = &track, .boneTrackCount = 1};
     const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
     const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
     maniMotionDatabaseSource database = {
         &h->skeleton, h->clips,       &channel,       &entry, 1, 1, 1,
-        10.0f,        maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
+        10.0f,        maniMatchAxisY, maniMatchAxisZ, NULL,   0};
     size_t size = 0;
     h->clips[0] = &h->clip;
     return maniBuildSkeleton(builder, &skeleton).result == mani_success &&

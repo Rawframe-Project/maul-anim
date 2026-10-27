@@ -146,7 +146,7 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
                 // Every other animation with the root's travel and turn
                 // taken out as root motion.
                 uint32_t bound = 0;
-                maniRootMotionSource root = {0, 7, maniRootRotationTwist, 1, 0, 1, a & 2u, 0};
+                maniRootMotionSource root = {0, 7, maniRootRotationTwist, 1, 0, 1, a & 2u};
                 maniImportClipOptions settings = maniDefaultImportClipOptions();
                 settings.sampleRate = 10.0f;
                 settings.rootMotion = (a & 1u) != 0 ? &root : NULL;

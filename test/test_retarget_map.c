@@ -81,7 +81,7 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
                                       {bones[b].offset, {0, 0, 0, 1}, {1, 1, 1}}};
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {sources, count, 0};
+    maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
@@ -442,7 +442,6 @@ static void TestFile(void)
     CHECK(WordRefused(h + maniRetargetHeaderTargetPelvis + 4, Bits(INFINITY),
                       h + maniRetargetHeaderTargetPelvis + 4),
           "a pelvis position not finite");
-    CHECK(WordRefused(h + maniRetargetHeaderEnd, 1, h + maniRetargetHeaderEnd), "a reserved word");
     CHECK(WordRefused(h + maniRetargetHeaderRatio, Bits(0.0f), h + maniRetargetHeaderRatio) &&
               WordRefused(h + maniRetargetHeaderRatio, Bits(INFINITY), h + maniRetargetHeaderRatio),
           "a height ratio not positive and finite");
@@ -465,8 +464,8 @@ static void TestFile(void)
               WordRefused(one + 8, 3, one + 8) && WordRefused(one + 12, Bits(0.5f), one + 12) &&
               WordRefused(one + 12, Bits(-0.0f), one + 12) &&
               WordRefused(one + 16, Bits(1.5f), one + 16) && WordRefused(one + 20, 3, one + 20) &&
-              WordRefused(one + 24, 4, one + 24) && WordRefused(one + 28, 1, one + 28),
-          "a one-source plan: kind, bones, place, weight, translation, flags, its 0 word");
+              WordRefused(one + 24, 4, one + 24),
+          "a one-source plan: kind, bones, place, weight, translation, flags");
     CHECK(WordRefused(p + 16, Bits(0.5f), p + 24),
           "the root's plan in its source's frame at a weight below 1");
     CHECK(WordRefused(two + 8, 2, two + 8) && WordRefused(two + 12, Bits(1.0f), two + 12) &&

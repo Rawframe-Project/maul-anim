@@ -104,8 +104,7 @@ static maniRootMotionSource Declared(const Bake* b, maniRootMotionSource s)
 
 static bool Usable(const maniRetargetClipSource* s)
 {
-    return s != NULL && s->map != NULL && s->source != NULL && s->target != NULL &&
-           s->clip != NULL && s->reserved == 0;
+    return s != NULL && s->map != NULL && s->source != NULL && s->target != NULL && s->clip != NULL;
 }
 
 // The skeletons the map's, the clip the source's.

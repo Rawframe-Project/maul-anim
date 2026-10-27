@@ -40,7 +40,7 @@ static uint64_t HashPayload(const uint8_t* b, uint64_t fileSize)
 
 static maniFileResult Fail(maniResult result, uint64_t offset)
 {
-    return (maniFileResult){result, 0, offset};
+    return (maniFileResult){result, offset};
 }
 
 static maniFileResult CheckHeader(const uint8_t* b, size_t size, uint16_t kind, uint16_t maxVersion)

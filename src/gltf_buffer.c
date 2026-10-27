@@ -207,7 +207,7 @@ static maniImportResult DecodeDataUri(maniGltf* gltf, const uint8_t* uri, size_t
     b->owned = maniAllocate(&gltf->allocator, capacity, 1, 8);
     if (b->owned == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     b->ownedSize = capacity;
     size_t bad = 0;
@@ -271,7 +271,7 @@ static maniImportResult ReadBuffer(maniGltf* gltf, uint32_t value, uint32_t i, u
     b->uri = maniAllocate(&gltf->allocator, length + 1, 1, 8);
     if (b->uri == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     memcpy(b->uri, scratch, length);
     b->uri[length] = '\0';
@@ -291,7 +291,7 @@ maniImportResult maniGltfReadBuffers(maniGltf* gltf)
     gltf->buffers = maniAllocate(&gltf->allocator, count, sizeof(maniGltfBuffer), 8);
     if (gltf->buffers == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     // Counted (and empty) at once, so a release after a later failure
     // frees the list whole.
@@ -303,7 +303,7 @@ maniImportResult maniGltfReadBuffers(maniGltf* gltf)
     uint8_t* scratch = maniAllocate(&gltf->allocator, scratchSize, 1, 8);
     if (scratch == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     uint32_t value = array + 1;
     for (uint32_t i = 0; r.result == mani_success && i < count; ++i)

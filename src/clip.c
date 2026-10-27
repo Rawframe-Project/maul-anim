@@ -27,7 +27,7 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
 static bool Finite(float value)
@@ -125,24 +125,23 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
     {
         return Fail(at + 60);
     }
-    *clip = (maniClip){
-        .skeletonIdentity = maniLoadU64(h),
-        .skeletonBoneCount = bones,
-        .sampleCount = expected,
-        .trackCount = maniLoadU32(h + 28),
-        .floatsPerSample = maniLoadU32(h + 32),
-        .floatTrackCount = maniLoadU32(h + 36),
-        .discreteTrackCount = maniLoadU32(h + 40),
-        .eventCount = maniLoadU32(h + 44),
-        .markerCount = maniLoadU32(h + 48),
-        .segmentCount = segments,
-        .compressed = form,
-        .sampleRate = rate,
-        .duration = duration,
-        .loop = maniLoadU32(h + 24),
-        .additive = maniLoadU32(h + 60),
-    };
-    return (maniFileResult){mani_success, 0, 0};
+    memset(clip, 0, sizeof *clip);
+    clip->skeletonIdentity = maniLoadU64(h);
+    clip->skeletonBoneCount = bones;
+    clip->sampleCount = expected;
+    clip->trackCount = maniLoadU32(h + 28);
+    clip->floatsPerSample = maniLoadU32(h + 32);
+    clip->floatTrackCount = maniLoadU32(h + 36);
+    clip->discreteTrackCount = maniLoadU32(h + 40);
+    clip->eventCount = maniLoadU32(h + 44);
+    clip->markerCount = maniLoadU32(h + 48);
+    clip->segmentCount = segments;
+    clip->compressed = form;
+    clip->sampleRate = rate;
+    clip->duration = duration;
+    clip->loop = maniLoadU32(h + 24);
+    clip->additive = maniLoadU32(h + 60);
+    return (maniFileResult){mani_success, 0};
 }
 
 // Tracks: bones in range and strictly increasing, masks not empty, the
@@ -173,7 +172,7 @@ static maniFileResult CheckTracks(const uint8_t* t, uint64_t at, uint64_t header
     {
         return Fail(headerAt + 32);
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // Samples: finite, rotations unit within 2^-20 in squared length.
@@ -209,7 +208,7 @@ static maniFileResult CheckSamples(const uint8_t* s, uint64_t at, const uint8_t*
             offset += 4 * (uint64_t)floats;
         }
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // A clip file's sections by tag (index tag - 1), an absent one empty.
@@ -256,7 +255,7 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         s->at[tag - 1] = offset;
         s->entry[tag - 1] = entryAt + 16;
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // The header and the tracks (sections 1 and 2), and the samples: section
@@ -304,7 +303,7 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
 {
     if (clipOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0, 0};
+        return (maniFileResult){mani_errorInvalid, 0};
     }
     maniContainer c;
     maniFileResult r = maniOpenContainer(bytes, size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c);
@@ -316,7 +315,7 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
     // clip is rebuilt from its source.
     if (c.formatVersion != MANI_CLIP_FORMAT_VERSION)
     {
-        return (maniFileResult){mani_errorVersion, 0, 6};
+        return (maniFileResult){mani_errorVersion, 6};
     }
     Sections s;
     maniClip clip;
@@ -342,7 +341,7 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
     clip.samples = clip.compressed ? NULL : s.data[2];
     clip.identity = c.identity;
     *clipOut = clip;
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)

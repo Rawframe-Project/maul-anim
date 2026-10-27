@@ -106,7 +106,7 @@ static bool Skin(const maniInfluences* influences, maniSkinningMethod method,
                  const maniAffine* palette, const float* dualQuaternions, uint32_t joints,
                  const float* in, float* out)
 {
-    maniSkinStream stream = {in, out, 12, 12, maniStreamPoint, 0};
+    maniSkinStream stream = {in, out, 12, 12, maniStreamPoint};
     maniSkinJob job = {influences, palette, dualQuaternions,
                        joints,     0,       maniInfluencesVertexCount(influences),
                        1,          &stream};
@@ -348,8 +348,8 @@ static bool SameTarget(const maniMorphTargets* ours, uint32_t t, const ufbx_blen
     weights[t] = 1.0f;
     memset(positions, 0, (size_t)vertices * 3 * sizeof(float));
     memset(expected, 0, (size_t)vertices * sizeof(ufbx_vec3));
-    maniMorphStream stream = {positions, positions, 12, 12, maniMorphPosition, 0, 3, 0};
-    maniMorphJob job = {ours, weights, 0, vertices, 1, 0, &stream};
+    maniMorphStream stream = {positions, positions, 12, 12, maniMorphPosition, 0, 3};
+    maniMorphJob job = {ours, weights, 0, vertices, 1, &stream};
     ufbx_add_blend_shape_vertex_offsets(key->shape, expected, vertices, 1.0);
     bool same = maniApplyMorphTargets(&job) == mani_success;
     for (uint32_t i = 0; same && i < 3 * vertices; ++i)

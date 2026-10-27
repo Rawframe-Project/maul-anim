@@ -72,14 +72,11 @@ uint32_t maniGraphChainDataWords(const maniGraph* g, uint32_t data, uint32_t ava
 
 maniJointLimit maniGraphLimitAt(const maniGraph* g, uint32_t at)
 {
-    return (maniJointLimit){Word(g, at),
-                            0,
-                            {WordFloat(g, at + 1), WordFloat(g, at + 2), WordFloat(g, at + 3)},
-                            WordFloat(g, at + 4),
-                            WordFloat(g, at + 5),
-                            WordFloat(g, at + 6),
-                            WordFloat(g, at + 7),
-                            WordFloat(g, at + 8)};
+    return (maniJointLimit){
+        Word(g, at),          {WordFloat(g, at + 1), WordFloat(g, at + 2), WordFloat(g, at + 3)},
+        WordFloat(g, at + 4), WordFloat(g, at + 5),
+        WordFloat(g, at + 6), WordFloat(g, at + 7),
+        WordFloat(g, at + 8)};
 }
 
 maniJointLimit maniGraphChainLimit(const maniGraph* g, uint32_t data, uint32_t k)

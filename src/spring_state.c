@@ -337,7 +337,7 @@ uint64_t maniSpringBlockValid(const maniSpringSet* set, const uint8_t* bytes)
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
 static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* state,
@@ -345,7 +345,7 @@ static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* stat
 {
     if (state == NULL || bytes == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0, 0};
+        return (maniFileResult){mani_errorInvalid, 0};
     }
     const uint8_t* b = bytes;
     size_t expected = maniSpringSavedSize(state->set);
@@ -375,7 +375,7 @@ static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* stat
     {
         block[w] = maniLoadU32(b + MANI_SPRING_STATE_HEADER_SIZE + 4 * w);
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 maniFileResult maniRestoreSpringState(maniSpringState* state, const void* bytes, size_t size)

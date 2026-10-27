@@ -474,7 +474,7 @@ static void TestRefusals(void)
     static const maniGraphScalar kHalves[2] = {{MANI_NO_PARAMETER, 0.5f},
                                                {MANI_NO_PARAMETER, 0.5f}};
     maniGraphNodeSource around[5] = {
-        {maniGraphNodeBlend, 2, kBoth, .blend = {kHalves, 0, 0}},
+        {maniGraphNodeBlend, 2, kBoth, .blend = {kHalves, 0}},
         {maniGraphNodeInertialize, 1, kNode,
          .inertialize = {MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.2f}, 0.0f, 0.0f, 0.0f}},
         {maniGraphNodeMachine, 2, kMachine, .machine = {t, 2, 0, 0, 0, NULL}},
@@ -572,7 +572,7 @@ static void TestJson(void)
     static const uint32_t kNode[1] = {1};
     static const uint32_t kStates[2] = {2, 3};
     maniGraphTransitionSource t[1] = {{0, 1, 0, maniGraphInterruptionNone, maniGraphEntryRestart,
-                                       maniGraphFadeInertial, 0.5f, 0.0f, kGo, 1, 0}};
+                                       maniGraphFadeInertial, 0.5f, 0.0f, kGo, 1}};
     Parameters();
     maniGraphNodeSource nodes[4] = {
         {maniGraphNodeInertialize, 1, kNode, .inertialize = {1, 0, {2, 0.0f}, 0.0f, 0.0f, 0.0f}},

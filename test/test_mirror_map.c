@@ -77,12 +77,12 @@ static const maniBoneSource kRig[kBones] = {
     {"legR", 4, kHips, {{-0.1f, -0.1f, 0}, REST, {1, 1, 1}}},
 };
 
-static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                               {"R", 1, maniMirrorSuffix, "L", 1, 0}};
+static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                               {"R", 1, maniMirrorSuffix, "L", 1}};
 static const maniMirrorNamePairSource kNamePairs[1] = {{"footL", 5, 5, "footR"}};
 // curveL by the rules; footL again by the rules, to the pair's partner;
 // idle by none.
-static const maniMirrorNameSource kNames[3] = {{"curveL", 6, 0}, {"footL", 5, 0}, {"idle", 4, 0}};
+static const maniMirrorNameSource kNames[3] = {{"curveL", 6}, {"footL", 5}, {"idle", 4}};
 
 static maniBuilder* NewBuilder(void)
 {
@@ -95,7 +95,7 @@ static maniBuilder* NewBuilder(void)
 static void Setup(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kRig, kBones, 0};
+    maniSkeletonSource source = {kRig, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
@@ -216,21 +216,20 @@ static void TestRulePlaces(void)
     maniMirrorMapSource source = Source();
     source.nameCount = 0;
     // Prefixes of other lengths: each hand with its side's leg.
-    const maniMirrorRuleSource prefix[2] = {{"hand", 4, maniMirrorPrefix, "leg", 3, 0},
-                                            {"leg", 3, maniMirrorPrefix, "hand", 4, 0}};
+    const maniMirrorRuleSource prefix[2] = {{"hand", 4, maniMirrorPrefix, "leg", 3},
+                                            {"leg", 3, maniMirrorPrefix, "hand", 4}};
     source.rules = prefix;
     const uint32_t hands[2][2] = {{kHandL, kLegL}, {kHandR, kLegR}};
     CHECK(Partners(&source, hands, 2), "prefix rules of other lengths");
     // Anywhere: the first L or R of the name.
-    const maniMirrorRuleSource anywhere[2] = {{"L", 1, maniMirrorAnywhere, "R", 1, 0},
-                                              {"R", 1, maniMirrorAnywhere, "L", 1, 0}};
+    const maniMirrorRuleSource anywhere[2] = {{"L", 1, maniMirrorAnywhere, "R", 1},
+                                              {"R", 1, maniMirrorAnywhere, "L", 1}};
     source.rules = anywhere;
     const uint32_t sides[5][2] = {
         {kClavL, kClavR}, {kArmL, kArmR}, {kHandL, kHandR}, {kLegL, kLegR}, {kPropR, kPropR}};
     CHECK(Partners(&source, sides, 5), "anywhere rules");
     // A first rule that matches but names no bone gives way to the next.
-    const maniMirrorRuleSource next[3] = {
-        {"L", 1, maniMirrorSuffix, "X", 1, 0}, kRules[0], kRules[1]};
+    const maniMirrorRuleSource next[3] = {{"L", 1, maniMirrorSuffix, "X", 1}, kRules[0], kRules[1]};
     source.rules = next;
     source.ruleCount = 3;
     CHECK(Partners(&source, sides, 5), "a rule naming no bone gives way");
@@ -294,9 +293,6 @@ static void TestOtherRefusals(void)
     rules[1] = kRules[1];
     rules[1].replace = "\xff";
     CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "a replace not UTF-8");
-    rules[1] = kRules[1];
-    rules[1].reserved = 1;
-    CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "a rule's reserved word");
     source = Source();
     maniTransform reference[kBones];
     for (uint32_t b = 0; b < kBones; ++b)
@@ -324,16 +320,13 @@ static void TestOtherRefusals(void)
     source.namePairCount = 1;
     CHECK(Refused(&source, maniBuildReasonMirrorName, 0, 0), "an empty partner");
     source = Source();
-    const maniMirrorNameSource names[1] = {{"\xc3", 1, 0}};
+    const maniMirrorNameSource names[1] = {{"\xc3", 1}};
     source.names = names;
     source.nameCount = 1;
     CHECK(Refused(&source, maniBuildReasonMirrorName, 1, 0), "a listed name not UTF-8");
-    const maniMirrorNameSource reserved[1] = {{"footL", 5, 1}};
-    source.names = reserved;
-    CHECK(Refused(&source, maniBuildReasonMirrorName, 1, 0), "a listed name's reserved word");
     source = Source();
-    const maniMirrorRuleSource drop[1] = {{"L", 1, maniMirrorSuffix, "", 0, 0}};
-    const maniMirrorNameSource whole[1] = {{"L", 1, 0}};
+    const maniMirrorRuleSource drop[1] = {{"L", 1, maniMirrorSuffix, "", 0}};
+    const maniMirrorNameSource whole[1] = {{"L", 1}};
     source.rules = drop;
     source.ruleCount = 1;
     source.names = whole;
@@ -345,11 +338,7 @@ static void TestOtherRefusals(void)
     CHECK(maniBuildMirrorMap(builder, NULL).result == mani_errorInvalid, "a NULL source");
     source.rules = NULL;
     CHECK(maniBuildMirrorMap(builder, &source).result == mani_errorInvalid, "rules NULL");
-    source = Source();
-    source.reserved = 1;
-    CHECK(maniBuildMirrorMap(builder, &source).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 3,
-          "reserved not 0; misuses counted");
+    CHECK(maniBuilderMisuses(builder) == 2, "misuses counted");
     maniDestroyBuilder(builder);
 }
 

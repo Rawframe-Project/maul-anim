@@ -196,13 +196,13 @@ struct maniFbx
 
 static inline maniImportResult maniFbxSuccess(void)
 {
-    maniImportResult r = {mani_success, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = {mani_success, maniImportReasonNone, 0, 0};
     return r;
 }
 
 static inline maniImportResult maniFbxFail(maniImportReason reason, uint64_t offset, uint32_t item)
 {
-    maniImportResult r = {mani_errorFormat, reason, offset, item, 0};
+    maniImportResult r = {mani_errorFormat, reason, offset, item};
     return r;
 }
 

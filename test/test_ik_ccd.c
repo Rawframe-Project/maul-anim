@@ -102,7 +102,7 @@ static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32
     }
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&

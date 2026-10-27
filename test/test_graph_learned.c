@@ -123,8 +123,7 @@ static void Events(Reference* r, const float* events, Expected* x)
                                  maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length),
                                  1.0f,
                                  (float)r->time,
-                                 1,
-                                 0};
+                                 1};
         }
     }
 }
@@ -494,7 +493,7 @@ static maniGraphInstance* Blended(float w, maniGraph* g)
     weights[1] = LITERAL(1.0f);
     maniGraphNodeSource nodes[4] = {LearnedNode(0.1f, 0.5f),
                                     ClipNode(0, 1.0f, maniGraphLoopRepeat),
-                                    {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 1, 0}},
+                                    {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 1}},
                                     Above(2)};
     return MakeLearned((maniGraphSource){.parameters = s_matchParameters,
                                          .nodes = nodes,

@@ -72,7 +72,7 @@ static void Setup(void)
         {"ankle", 5, 3, {{0.0f, -0.25f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&

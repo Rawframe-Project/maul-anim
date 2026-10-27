@@ -32,12 +32,12 @@
 
 static maniImportResult Invalid(void)
 {
-    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static uint64_t ObjectOffset(const maniFbx* fbx, uint32_t object)
@@ -461,11 +461,11 @@ static maniImportResult Build(maniBuilder* builder, Skin* s, const maniSkeleton*
     {
         return r;
     }
-    maniSkinSource source = {skeleton, s->bones, s->binds, s->joints.count, 0};
+    maniSkinSource source = {skeleton, s->bones, s->binds, s->joints.count};
     maniBuildResult b = maniBuildSkin(builder, &source);
     if (b.result == mani_success || b.result == mani_errorCapacity)
     {
-        return (maniImportResult){b.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){b.result, maniImportReasonNone, 0, 0};
     }
     return maniFbxFail(maniImportReasonBuild, ObjectOffset(fbx, fbx->skins[s->skin]),
                        (uint32_t)b.reason);
@@ -477,7 +477,7 @@ static MANI_NOINLINE maniImportResult FbxBuildSkinWork(maniBuilder* builder, con
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     bool usable = maniFbxUsable(builder, fbx, options,
                                 fbx != NULL && skin < fbx->skinCount && skeleton != NULL);

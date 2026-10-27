@@ -22,7 +22,7 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
 static float LoadF32(const uint8_t* p)
@@ -82,7 +82,7 @@ static maniFileResult CheckKind(const uint8_t* forms, uint64_t at, const maniCli
         counts->constant[kind] += c ? 1 : 0;
         counts->animated[kind] += a ? 1 : 0;
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // Each kind's bitsets; a dropped component only for a stored rotation; a
@@ -120,7 +120,7 @@ static maniFileResult CheckForms(const uint8_t* forms, uint64_t at, const maniCl
         counts->constantFloats += floats[i] == maniClipFormConstant ? 1 : 0;
         counts->animatedFloats += floats[i] == maniClipFormAnimated ? 1 : 0;
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // The constants: finite, a rotation's within [-1, 1].
@@ -140,7 +140,7 @@ static maniFileResult CheckConstants(const uint8_t* constants, uint64_t at, cons
             }
         }
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // The clip ranges, kind by kind: minimum and extent finite, the extent
@@ -175,7 +175,7 @@ static maniFileResult CheckRanges(const uint8_t* ranges, uint64_t at, const Coun
         }
         base += 8 * (uint64_t)width * n;
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // A segment's rates (each below MANI_CODEC_RATES, 0 only with several
@@ -236,7 +236,7 @@ static maniFileResult CheckSegments(const uint8_t* table, uint64_t at, const uin
         return Fail(at);
     }
     // Eight spare bytes, so every read is one 64-bit load.
-    return offset + 8 == dataSize ? (maniFileResult){mani_success, 0, 0} : Fail(dataEntry);
+    return offset + 8 == dataSize ? (maniFileResult){mani_success, 0} : Fail(dataEntry);
 }
 
 // A segment's raw values (rate 24), binary32 from the file: each finite.

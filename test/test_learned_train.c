@@ -46,7 +46,7 @@ static maniMotionDatabase s_bones;
 static const maniClip* s_trainClips[2];
 static const maniAllocator kAllocator = {NULL, NULL, NULL};
 static const maniLearnedTagFilter kFilters[2] = {{0, 0}, {2, 0}};
-static const maniLearnedNameSource kEvents[2] = {{"left", 4, 0}, {"right", 5, 0}};
+static const maniLearnedNameSource kEvents[2] = {{"left", 4}, {"right", 5}};
 
 static void OpenBones(void)
 {
@@ -294,7 +294,7 @@ static void TestSource(void)
     maniLearnedTrainerSource s = base;
     static _Alignas(16) uint8_t file[4096];
     maniSkeleton other;
-    maniSkeletonSource source = {kBones, 2, 0};
+    maniSkeletonSource source = {kBones, 2};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
@@ -329,12 +329,12 @@ static void TestSource(void)
     s = base;
     s.projectors = filters;
     CHECK(RefusedFor(&s, maniBuildReasonTags, 1), "a filter no frame passes");
-    const maniLearnedNameSource twice[2] = {{"left", 4, 0}, {"left", 4, 0}};
+    const maniLearnedNameSource twice[2] = {{"left", 4}, {"left", 4}};
     s = base;
     s.events = twice;
     CHECK(RefusedFor(&s, maniBuildReasonEvent | maniBuildReasonDuplicateName, 1),
           "an event named twice");
-    const maniLearnedNameSource empty[1] = {{"", 0, 0}};
+    const maniLearnedNameSource empty[1] = {{"", 0}};
     s = base;
     s.floatTracks = empty;
     s.floatTrackCount = 1;

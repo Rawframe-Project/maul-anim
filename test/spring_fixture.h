@@ -53,7 +53,7 @@ static inline maniBoneSource Bone(const char* name, int32_t parent, float x, flo
 static inline bool OpenBones(const maniBoneSource* bones, uint32_t count, uint8_t* file,
                              size_t capacity, maniSkeleton* skeleton)
 {
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     size_t size = 0;
     return maniBuildSkeleton(s_builder, &source).result == mani_success &&
            maniCopyBuilt(s_builder, file, capacity, &size) == mani_success &&
@@ -162,7 +162,7 @@ static inline void MakeSet(const Config* c)
     maniSpringSource spring = {"chain",  5, 3, joints, chosen, c->collider != 0 ? 1u : 0u,
                                c->center};
     maniSpringSetSource source = {&s_skeleton, colliders, groups, &spring, s_crowd ? 3 + kCrowd : 3,
-                                  3,           1,         0.0f,   c->rate, 0};
+                                  3,           1,         0.0f,   c->rate};
     size_t size = 0;
     CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success &&
               maniCopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) == mani_success &&

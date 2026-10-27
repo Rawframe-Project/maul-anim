@@ -102,8 +102,7 @@ static maniRootMotionSource Declared(Bake* b, maniRootMotionSource s)
 
 static bool Usable(const maniMirrorClipSource* s)
 {
-    return s != NULL && s->map != NULL && s->skeleton != NULL && s->clip != NULL &&
-           s->reserved == 0;
+    return s != NULL && s->map != NULL && s->skeleton != NULL && s->clip != NULL;
 }
 
 // The skeleton the map's, the clip the skeleton's.

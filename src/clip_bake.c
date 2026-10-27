@@ -295,7 +295,7 @@ static uint32_t LayBoneTracks(Bake* b)
         const float c[3] = {rest.scale.x, rest.scale.y, rest.scale.z};
         const float* v = b->values + (size_t)bone * BONE_FLOATS * n;
         bool root = bone == b->root;
-        maniBoneTrackSource track = {bone, 0, Channel(b, v, root || !AtRest(v, 3, n, t)),
+        maniBoneTrackSource track = {bone, Channel(b, v, root || !AtRest(v, 3, n, t)),
                                      Channel(b, v + 3 * n, root || !AtRest(v + 3 * n, 4, n, q)),
                                      Channel(b, v + 7 * n, !AtRest(v + 7 * n, 3, n, c))};
         if (track.translation.keyCount + track.rotation.keyCount + track.scale.keyCount > 0)
@@ -324,7 +324,7 @@ static void LayFloatTracks(Bake* b)
         uint32_t interpolation =
             maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16);
         b->floatTracks[i] = (maniFloatTrackSource){
-            name, length, 0,
+            name, length,
             (maniChannelSource){b->times, b->floatValues + (size_t)i * b->samples, b->samples,
                                 interpolation}};
     }
@@ -360,7 +360,7 @@ static void LayCopied(Bake* b)
             i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, i - events);
         uint32_t length = e.nameLength;
         const char* name = Renamed(b, e.name, &length);
-        b->events[i] = (maniEventSource){e.time, e.payload, name, length, 0};
+        b->events[i] = (maniEventSource){e.time, e.payload, name, length};
     }
 }
 

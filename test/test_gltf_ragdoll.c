@@ -365,7 +365,7 @@ static void TestRefusals(void)
         maniRagdollSource source;
         maniImportResult r =
             gltf != NULL ? maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source)
-                         : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
+                         : (maniImportResult){mani_errorInvalid, 0, 0, 0};
         const char* start = strstr(text, c->after);
         const char* marker = start != NULL ? strstr(start, c->marker) : NULL;
         uint64_t want = marker != NULL ? (uint64_t)(marker - text) : UINT64_MAX;

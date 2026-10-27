@@ -827,7 +827,7 @@ static void TestAsciiEdges(void)
     double values[4];
     uint32_t array = open ? maniFbxNodeProperty(fbx, maniFbxFindChild(fbx, 0, "V", 1), 0) : 0;
     maniImportResult r = open ? maniFbxReadDoubles(fbx, array, values)
-                              : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
+                              : (maniImportResult){mani_errorInvalid, 0, 0, 0};
     const char* word = strstr((const char*)s_w.b, "inf");
     CHECK(open && maniFbxArrayCount(fbx, array) == 4 && r.reason == maniImportReasonData &&
               r.offset == (uint64_t)(word - (const char*)s_w.b),
@@ -983,7 +983,7 @@ static maniImportResult OpenLimited(uint32_t limit, uint32_t* count)
     uint8_t* exact = malloc(s_w.n > 0 ? s_w.n : 1);
     if (exact == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     memcpy(exact, s_w.b, s_w.n);
     maniBuilder* builder = NewBuilder();

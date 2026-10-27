@@ -28,7 +28,7 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
 static float LoadF32(const uint8_t* p)
@@ -39,7 +39,7 @@ static float LoadF32(const uint8_t* p)
 }
 
 // Stored float k after the header: finite, and a translation component
-// within MANI_ROOT_MOTION_REACH (the period's floats 0..7, then seven per
+// within MANI_ROOT_MOTION_REACH (seven for the period, then seven per
 // sample).
 static bool StoredValid(const uint8_t* p, uint64_t k)
 {
@@ -48,7 +48,7 @@ static bool StoredValid(const uint8_t* p, uint64_t k)
     {
         return false;
     }
-    uint64_t component = k < 8 ? k : (k - 8) % MANI_ROOT_MOTION_MOVE_FLOATS;
+    uint64_t component = k % MANI_ROOT_MOTION_MOVE_FLOATS;
     return component >= 3 || fabs((double)LoadF32(p)) <= MANI_ROOT_MOTION_REACH;
 }
 
@@ -57,7 +57,7 @@ static bool SourceValid(const maniRootMotionSource* s)
 {
     return s->translationAxes <= 7u && s->rotation <= maniRootRotationWhole && s->twistAxis <= 2u &&
            s->translationReference <= maniRootReferenceOrigin &&
-           s->rotationReference <= maniRootReferenceOrigin && s->loop <= 1u && s->reserved == 0u &&
+           s->rotationReference <= maniRootReferenceOrigin && s->loop <= 1u &&
            (s->translationAxes != 0u || s->rotation != maniRootRotationNone);
 }
 
@@ -70,7 +70,7 @@ static maniRootMotionSource LoadSource(const uint8_t* h)
 {
     return (maniRootMotionSource){maniLoadU32(h),      maniLoadU32(h + 4),  maniLoadU32(h + 8),
                                   maniLoadU32(h + 12), maniLoadU32(h + 16), maniLoadU32(h + 20),
-                                  maniLoadU32(h + 24), maniLoadU32(h + 28)};
+                                  maniLoadU32(h + 24)};
 }
 
 // Whether the clip's tracks hold the bone's translation and rotation.
@@ -94,7 +94,7 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
     clip->rootMotion = NULL;
     if (size == 0)
     {
-        return (maniFileResult){mani_success, 0, 0};
+        return (maniFileResult){mani_success, 0};
     }
     if (size != maniRootMotionSize(clip->sampleCount))
     {
@@ -117,12 +117,8 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
             return Fail(at + MANI_ROOT_MOTION_HEADER_SIZE + 4 * k);
         }
     }
-    if (maniLoadU32(data + MANI_ROOT_MOTION_HEADER_SIZE + 28) != 0)
-    {
-        return Fail(at + MANI_ROOT_MOTION_HEADER_SIZE + 28);
-    }
     clip->rootMotion = data;
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 bool maniClipRootMotionSource(const maniClip* clip, maniRootMotionSource* sourceOut)

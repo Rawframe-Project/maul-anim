@@ -31,7 +31,7 @@
 // The clip scene: the sample clip with root motion, sampled at times
 // across its loop (local poses, float tracks, root motion), and its file;
 // every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0xcfa316750f07be9dull
+#define PINNED_SCENE_HASH 0xec65d55ea36481d9ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -75,9 +75,9 @@ static const float kGateValues[2] = {1.0f, 0.0f};
 static const float kWaveTimes[2] = {0.0f, 1.0f};
 static const float kWaveValues[6] = {0, 0, 4, 0, 1, 0};
 static const maniFloatTrackSource s_floats[3] = {
-    {"ramp", 4, 0, {kRampTimes, kRampValues, 2, maniInterpolationLinear}},
-    {"gate", 4, 0, {kGateTimes, kGateValues, 2, maniInterpolationStep}},
-    {"wave", 4, 0, {kWaveTimes, kWaveValues, 2, maniInterpolationCubicSpline}},
+    {"ramp", 4, {kRampTimes, kRampValues, 2, maniInterpolationLinear}},
+    {"gate", 4, {kGateTimes, kGateValues, 2, maniInterpolationStep}},
+    {"wave", 4, {kWaveTimes, kWaveValues, 2, maniInterpolationCubicSpline}},
 };
 // Discrete tracks.
 static const float kFootTimes[3] = {0.0f, 0.4f, 0.8f};
@@ -90,14 +90,14 @@ static const maniDiscreteTrackSource s_discrete[2] = {
 };
 // Events out of time order, two at one time; markers.
 static const maniEventSource s_events[4] = {
-    {0.5f, 11, "step", 4, 0},
-    {0.2f, 12, "breath", 6, 0},
-    {0.5f, 13, "sound", 5, 0},
-    {1.0f, 14, "end", 3, 0},
+    {0.5f, 11, "step", 4},
+    {0.2f, 12, "breath", 6},
+    {0.5f, 13, "sound", 5},
+    {1.0f, 14, "end", 3},
 };
 static const maniEventSource s_markers[2] = {
-    {0.4f, 99, "right", 5, 0},
-    {0.0f, 0, "left", 4, 0},
+    {0.4f, 99, "right", 5},
+    {0.0f, 0, "left", 4},
 };
 
 static maniBuilder* NewBuilder(void)
@@ -111,7 +111,7 @@ static maniBuilder* NewBuilder(void)
 static void OpenSkeleton(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 4, 0};
+    maniSkeletonSource source = {kBones, 4};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -124,13 +124,13 @@ static maniClipSource SampleSource(void)
 {
     // Listed out of bone order: the build sorts them.
     s_tracks[0] = (maniBoneTrackSource){
-        2, 0, kNone, (maniChannelSource){kTurnTimes, kTurnValues, 2, maniInterpolationLinear},
+        2, kNone, (maniChannelSource){kTurnTimes, kTurnValues, 2, maniInterpolationLinear},
         (maniChannelSource){kCubicTimes, kCubicValues, 2, maniInterpolationCubicSpline}};
     s_tracks[1] = (maniBoneTrackSource){
-        1, 0, (maniChannelSource){kLinearTimes, kLinearValues, 3, maniInterpolationLinear}, kNone,
+        1, (maniChannelSource){kLinearTimes, kLinearValues, 3, maniInterpolationLinear}, kNone,
         kNone};
     s_tracks[2] = (maniBoneTrackSource){
-        0, 0, (maniChannelSource){kStepTimes, kStepValues, 2, maniInterpolationStep}, kNone, kNone};
+        0, (maniChannelSource){kStepTimes, kStepValues, 2, maniInterpolationStep}, kNone, kNone};
     return (maniClipSource){.skeleton = &s_skeleton,
                             .boneTracks = s_tracks,
                             .floatTracks = s_floats,
@@ -298,8 +298,8 @@ static void TestFactorClamped(void)
     OpenSkeleton();
     static const float times[2] = {0.0f, 4.0f};
     static const float values[6] = {0, 0, 0, 100, 0, 0};
-    maniBoneTrackSource track = {
-        1, 0, (maniChannelSource){times, values, 2, maniInterpolationLinear}, kNone, kNone};
+    maniBoneTrackSource track = {1, (maniChannelSource){times, values, 2, maniInterpolationLinear},
+                                 kNone, kNone};
     maniClipSource source = {
         .skeleton = &s_skeleton, .boneTracks = &track, .boneTrackCount = 1, .sampleRate = 25.0f};
     CHECK(BuildFrom(&source).result == mani_success, "builds");
@@ -611,7 +611,7 @@ static void TestHemispheres(void)
     static const float times[2] = {0.0f, 1.0f};
     static const float negated[8] = {0, 0, 0, 1, 0, 0, -0.70710677f, -0.70710677f};
     maniBoneTrackSource track = {
-        2, 0, kNone, (maniChannelSource){times, negated, 2, maniInterpolationLinear}, kNone};
+        2, kNone, (maniChannelSource){times, negated, 2, maniInterpolationLinear}, kNone};
     maniClipSource source = {
         .skeleton = &s_skeleton, .boneTracks = &track, .boneTrackCount = 1, .sampleRate = 10.0f};
     CHECK(BuildFrom(&source).result == mani_success, "builds");
@@ -641,7 +641,7 @@ static void TestCubicSpan(void)
     OpenSkeleton();
     static const float times[2] = {0.0f, 0.5f};
     static const float values[6] = {0, 0, 0, 2, 1, 0};
-    maniFloatTrackSource curve = {"curve", 5, 0, {times, values, 2, maniInterpolationCubicSpline}};
+    maniFloatTrackSource curve = {"curve", 5, {times, values, 2, maniInterpolationCubicSpline}};
     maniClipSource source = {
         .skeleton = &s_skeleton, .floatTracks = &curve, .floatTrackCount = 1, .sampleRate = 10.0f};
     CHECK(BuildFrom(&source).result == mani_success, "builds");
@@ -662,8 +662,8 @@ static void TestNamedItemsAlone(void)
 {
     OpenSkeleton();
     // An event past every key sets the default duration; -0 sorts as 0.
-    static const maniEventSource events[2] = {{1.5f, 1, "late", 4, 0}, {-0.0f, 2, "start", 5, 0}};
-    maniBoneTrackSource empty = {3, 0, kNone, kNone, kNone};
+    static const maniEventSource events[2] = {{1.5f, 1, "late", 4}, {-0.0f, 2, "start", 5}};
+    maniBoneTrackSource empty = {3, kNone, kNone, kNone};
     maniClipSource source = {.skeleton = &s_skeleton,
                              .boneTracks = &empty,
                              .events = events,
@@ -699,7 +699,7 @@ static void TestWrongSkeleton(void)
     memcpy(moved, kBones, sizeof moved);
     moved[3].rest.translation.y = 1.0f;
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {moved, 4, 0};
+    maniSkeletonSource source = {moved, 4};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, other, sizeof other, &size) == mani_success, "copies");
@@ -984,13 +984,8 @@ static void TestPinnedScene(void)
     OpenSkeleton();
     maniClipSource source = SampleSource();
     // Root motion from bone a's translation along x and z.
-    const maniRootMotionSource root = {1,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
+    const maniRootMotionSource root = {1, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                       1, maniRootReferenceRest,         maniRootReferenceRest,
                                        0};
     source.rootMotion = &root;
     CHECK(BuildFrom(&source).result == mani_success, "builds with root motion");

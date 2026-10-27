@@ -798,7 +798,7 @@ static void CompareClip(Context* c, uint32_t k)
     options.foldPlacement = 1;
     Blob blob = {NULL, NULL, 0};
     maniClip clip;
-    maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0};
     if (stack != NULL)
     {
         r = maniFbxBuildClip(c->builder, c->fbx, k, &c->skeleton, &options,

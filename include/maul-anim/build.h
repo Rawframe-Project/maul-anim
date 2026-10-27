@@ -393,7 +393,6 @@ extern "C"
     {
         const maniBoneSource* bones;
         uint32_t boneCount;
-        uint32_t reserved;
     } maniSkeletonSource;
 
     /// Builds a skeleton file: checks every bone, orders the bones
@@ -421,7 +420,6 @@ extern "C"
         // jointCount matrices, finite.
         const maniAffine* inverseBinds;
         uint32_t jointCount;
-        uint32_t reserved;
     } maniSkinSource;
 
     /// Builds a skin file bound to the source's skeleton, and keeps it in
@@ -453,7 +451,6 @@ extern "C"
         // quaternion (1) skinning, FBX's blended method.
         const float* dualQuaternionWeights;
         uint32_t vertexCount;
-        uint32_t reserved;
     } maniInfluenceSource;
 
     /// Builds an influences file bound to the source's skin: zero weights
@@ -541,7 +538,6 @@ extern "C"
     typedef struct maniBoneTrackSource
     {
         uint32_t bone;
-        uint32_t reserved;
         maniChannelSource translation;
         maniChannelSource rotation;
         maniChannelSource scale;
@@ -555,7 +551,6 @@ extern "C"
         // UTF-8, not empty, unique among float tracks.
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
         // One float a key, or three for a cubic spline.
         maniChannelSource keys;
     } maniFloatTrackSource;
@@ -581,7 +576,6 @@ extern "C"
         // UTF-8, not empty; names repeat freely.
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
     } maniEventSource;
 
     // A clip: tracks for some of a skeleton's bones, in any order.
@@ -608,7 +602,6 @@ extern "C"
         // maniAdditiveNone for a clip of poses; otherwise each channel is
         // stored as its difference from the basis.
         maniAdditiveBasis additive;
-        uint32_t reserved;
         // NULL, or the root motion to take out of a bone: kept
         // beside the clip, the bone left without it.
         const maniRootMotionSource* rootMotion;
@@ -812,7 +805,6 @@ extern "C"
         maniSpringLimit limit;
         float limitAngle;
         float limitYaw;
-        uint32_t reserved;
         maniQuat limitRotation;
     } maniSpringJointSource;
 
@@ -845,7 +837,6 @@ extern "C"
         uint32_t springCount;
         float referenceRate;
         float stepRate;
-        uint32_t reserved;
     } maniSpringSetSource;
 
 #define MANI_SPRING_MAX_RATE 1000.0f
@@ -887,7 +878,6 @@ extern "C"
         float driveStiffness;
         float driveDamping;
         float driveMaxTorque;
-        uint32_t reserved;
     } maniRagdollJointSource;
 
     // A body on a bone: its frame in the bone's model frame (rotation of
@@ -915,7 +905,6 @@ extern "C"
         const maniSkeleton* skeleton;
         const maniRagdollBodySource* bodies;
         uint32_t bodyCount;
-        uint32_t reserved;
         maniVec3 facing;
         maniVec3 up;
     } maniRagdollSource;
@@ -1001,7 +990,6 @@ extern "C"
         // by '/' and the target's index within the channel past the first.
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
     } maniMorphTargetSource;
 
     // A named channel: its targets at increasing full weights.
@@ -1024,7 +1012,6 @@ extern "C"
         // MANI_MORPH_MAX_ATTRIBUTES.
         const maniMorphAttributeSource* attributes;
         uint32_t attributeCount;
-        uint32_t reserved;
     } maniMorphSource;
 
     /// Builds a morph targets file: checks every channel and target, sorts

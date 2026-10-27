@@ -59,7 +59,7 @@ static maniBuilder* NewBuilder(void)
 static void BuildSample(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
     maniDestroyBuilder(builder);
@@ -116,7 +116,7 @@ static void TestGettersPastTheCount(void)
 static void TestOrderMap(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     uint32_t map[6] = {0};
     uint32_t count = 0;
@@ -166,7 +166,7 @@ static void TestDefRefusals(void)
 static maniBuildResult BuildOf(const maniBoneSource* bones, uint32_t count)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     maniBuildResult r = maniBuildSkeleton(builder, &source);
     maniDestroyBuilder(builder);
     return r;
@@ -229,7 +229,7 @@ static void TestBuildRefusals(void)
 static TestOutcome BuildWork(maniBuilder* builder, void* context)
 {
     (void)context;
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     return TestOutcomeOf(maniBuildSkeleton(builder, &source).result);
 }
 

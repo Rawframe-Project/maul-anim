@@ -74,7 +74,7 @@ static void OpenSkeleton(void)
         Bone("hand", 5, (maniVec3){0.0f, 0.25f, 0.0f}, none, 1.0f),
         Bone("prop", -1, (maniVec3){1.0f, 0.0f, 0.0f}, none, 1.0f)};
     maniBuilderDef def = maniDefaultBuilderDef();
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success &&
               maniBuildSkeleton(s_builder, &source).result == mani_success &&
@@ -145,7 +145,7 @@ static maniRagdollSource Source(void)
     s_bodies[4].frameTranslation = (maniVec3){0.01f, 0.14f, -0.02f};
     s_bodies[1].joint.translation = (maniVec3){0.02f, -0.1f, 0.01f};
     s_bodies[2].joint = (maniRagdollJointSource){0}; // a root's joint is ignored
-    return (maniRagdollSource){&s_skeleton, s_bodies, 5, 0, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}};
+    return (maniRagdollSource){&s_skeleton, s_bodies, 5, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}};
 }
 
 static maniBuildResult Build(const maniRagdollSource* source)

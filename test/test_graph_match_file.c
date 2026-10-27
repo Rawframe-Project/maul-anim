@@ -64,10 +64,10 @@ static maniBuildResult NodeBuilt(maniGraphNodeSource node)
 static void TestDatabaseRefusals(void)
 {
     maniGraphNodeSource nodes[2] = {MatchNode(1.0f), Above(0)};
-    const maniGraphDatabaseSource none[1] = {{NULL, "moves", 5, 0}};
-    const maniGraphDatabaseSource twice[2] = {{&s_database, "a", 1, 0}, {&s_database, "b", 1, 0}};
-    const maniGraphDatabaseSource unnamed[1] = {{&s_database, "", 0, 0}};
-    const maniGraphDatabaseSource same[2] = {{&s_database, "a", 1, 0}, {&s_database, "a", 1, 0}};
+    const maniGraphDatabaseSource none[1] = {{NULL, "moves", 5}};
+    const maniGraphDatabaseSource twice[2] = {{&s_database, "a", 1}, {&s_database, "b", 1}};
+    const maniGraphDatabaseSource unnamed[1] = {{&s_database, "", 0}};
+    const maniGraphDatabaseSource same[2] = {{&s_database, "a", 1}, {&s_database, "a", 1}};
     CHECK(BuildMatch(nodes, 2, kDatabaseSlot, 1, kSlots, CLIPS).result == mani_success,
           "the graph builds");
     CHECK(RefusedAs(BuildMatch(nodes, 2, none, 1, kSlots, CLIPS), maniBuildReasonDatabase, 0, 0),
@@ -408,11 +408,11 @@ static void TestSubgraph(void)
     CHECK(Playing(instance, &g, 0, 0, 0.0), "the walk");
     // A slot without its database under two match nodes: one slot,
     // refused.
-    static const maniGraphDatabaseSource kNone[1] = {{NULL, "none", 4, 0}};
+    static const maniGraphDatabaseSource kNone[1] = {{NULL, "none", 4}};
     static const uint32_t kTwo[2] = {1, 2};
     static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
     maniGraphNodeSource two[3] = {
-        {maniGraphNodeBlend, 2, kTwo, .blend = {kHalves, 0, 0}}, MatchNode(1.0f), MatchNode(1.0f)};
+        {maniGraphNodeBlend, 2, kTwo, .blend = {kHalves, 0}}, MatchNode(1.0f), MatchNode(1.0f)};
     sub.nodes = two;
     sub.nodeCount = 3;
     sub.databases = kNone;
@@ -444,7 +444,7 @@ static void TestSubgraph(void)
     static const uint32_t kFirstTwo[2] = {0, 1};
     maniGraphNodeSource both[4] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kMap}},
                                    MatchNode(1.0f),
-                                   {maniGraphNodeBlend, 2, kFirstTwo, .blend = {kHalves, 0, 0}},
+                                   {maniGraphNodeBlend, 2, kFirstTwo, .blend = {kHalves, 0}},
                                    Above(2)};
     sub.databases = kDatabaseSlot;
     sub.databaseCount = 1;
@@ -486,7 +486,7 @@ static void TestSubgraphMapped(void)
                            .nodeCount = 1,
                            .databaseCount = 1,
                            .databases = kDatabaseSlot};
-    const maniGraphDatabaseSource both[2] = {{&bones, "bones", 5, 0}, kDatabaseSlot[0]};
+    const maniGraphDatabaseSource both[2] = {{&bones, "bones", 5}, kDatabaseSlot[0]};
     maniGraphNodeSource outer[2] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kMap}},
                                     Above(0)};
     maniGraphSource root = {.skeleton = &s_skeleton,
@@ -697,18 +697,16 @@ static void TestFloatQuery(void)
     static const float kNow[1] = {0.0f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
     static const uint32_t kSpeedQuery[1] = {3};
-    const maniBoneTrackSource walk = {
-        0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone};
-    const maniFloatTrackSource speed = {
-        "speed", 5, 0, {kTimes, kSpeed, 2, maniInterpolationLinear}};
+    const maniBoneTrackSource walk = {0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone};
+    const maniFloatTrackSource speed = {"speed", 5, {kTimes, kSpeed, 2, maniInterpolationLinear}};
     maniBuilder* builder = NewBuilder();
     OpenClip(builder, 7,
              (maniClipSource){.boneTracks = &walk, .floatTracks = &speed, .floatTrackCount = 1});
     const maniClip* clips[1] = {&s_clips[7]};
     const maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u};
-    maniMotionDatabaseSource source = {&s_skeleton, clips,          &channel,       &entry, 1, 1, 1,
-                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       &entry,         1,    1,
+                                       1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     maniMotionDatabase d;
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
@@ -716,7 +714,7 @@ static void TestFloatQuery(void)
               maniOpenMotionDatabase(s_speedFile, size, &d).result == mani_success,
           "a database of speed");
     maniDestroyBuilder(builder);
-    const maniGraphDatabaseSource slot[1] = {{&d, "speeds", 6, 0}};
+    const maniGraphDatabaseSource slot[1] = {{&d, "speeds", 6}};
     maniGraphNodeSource node = MatchNode(1.0f);
     node.match.query = kSpeedQuery;
     MatchParameters();

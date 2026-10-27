@@ -26,12 +26,12 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
 static maniFileResult Success(void)
 {
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // A section's place: its bytes and its offset in the file.
@@ -232,7 +232,7 @@ static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes
 {
     if (skeletonOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0, 0};
+        return (maniFileResult){mani_errorInvalid, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -269,17 +269,16 @@ static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes
     {
         return Fail(40);
     }
-    *skeletonOut = (maniSkeleton){
-        .parents = s[0].data,
-        .subtreeEnds = s[1].data,
-        .rests = s[2].data,
-        .nameHashes = s[3].data,
-        .nameOrder = s[4].data,
-        .nameSpans = s[5].data,
-        .nameBytes = s[6].data,
-        .identity = c.identity,
-        .boneCount = n,
-    };
+    memset(skeletonOut, 0, sizeof *skeletonOut);
+    skeletonOut->parents = s[0].data;
+    skeletonOut->subtreeEnds = s[1].data;
+    skeletonOut->rests = s[2].data;
+    skeletonOut->nameHashes = s[3].data;
+    skeletonOut->nameOrder = s[4].data;
+    skeletonOut->nameSpans = s[5].data;
+    skeletonOut->nameBytes = s[6].data;
+    skeletonOut->identity = c.identity;
+    skeletonOut->boneCount = n;
     return Success();
 }
 

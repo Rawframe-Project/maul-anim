@@ -77,8 +77,7 @@ static maniGraphTransitionSource Go(uint32_t from, uint32_t to, uint32_t priorit
                                        duration,
                                        0.0f,
                                        conditions,
-                                       count,
-                                       0};
+                                       count};
 }
 
 static bool Weights3(maniGraphInstance* instance, const maniGraph* g, float a, float b, float c)

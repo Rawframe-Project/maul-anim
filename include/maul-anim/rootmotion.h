@@ -69,7 +69,6 @@ extern "C"
         // Spread the end's difference from the start over the clip, so
         // the motion ends where it began (against an idle's drift).
         uint32_t loop;
-        uint32_t reserved;
     } maniRootMotionSource;
 
     // A move: where the character goes and how it turns, in its own frame

@@ -40,7 +40,7 @@ static inline void BuildDatabase(const maniMatchChannelSource* channels, uint32_
     entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.0f, 2u};
     maniMotionDatabaseSource source = {&s_skeleton, clips, channels, entries,        2,
                                        count,       2,     10.0f,    maniMatchAxisY, maniMatchAxisZ,
-                                       NULL,        0,     0};
+                                       NULL,        0};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
@@ -96,7 +96,7 @@ static inline maniGraphNodeSource Above(uint32_t input)
         .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, LITERAL(0.0f), 0, 0, 0}};
 }
 
-static const maniGraphDatabaseSource kDatabaseSlot[1] = {{&s_database, "moves", 5, 0}};
+static const maniGraphDatabaseSource kDatabaseSlot[1] = {{&s_database, "moves", 5}};
 
 static _Alignas(8) uint8_t s_matchBinding[1024];
 

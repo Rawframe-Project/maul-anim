@@ -36,7 +36,6 @@ extern "C"
         maniLoopPolicy loop;
         // maniAdditiveNone, or the basis a difference clip is taken from.
         maniAdditiveBasis additive;
-        uint32_t reserved;
         // The root motion to take out, or NULL: a bone of the opened
         // skeleton, axes in the output's basis.
         const maniRootMotionSource* rootMotion;
@@ -45,7 +44,7 @@ extern "C"
     // The format's rate, clamped, not additive, no root motion.
     static inline maniImportClipOptions maniDefaultImportClipOptions(void)
     {
-        maniImportClipOptions options = {0.0f, maniLoopClamp, maniAdditiveNone, 0, NULL};
+        maniImportClipOptions options = {0.0f, maniLoopClamp, maniAdditiveNone, NULL};
         return options;
     }
 
@@ -147,7 +146,6 @@ extern "C"
         maniImportReason reason;
         uint64_t offset;
         uint32_t item;
-        uint32_t reserved;
     } maniImportResult;
 
     /// Opens a glTF document from JSON or GLB bytes (told apart by GLB's
@@ -778,14 +776,13 @@ extern "C"
         // inherit its parent's scale normally, not only where exact
         // compensation needs one: for clips from other files.
         uint32_t inheritHelpers;
-        uint32_t reserved;
     } maniFbxOptions;
 
     // The file's axes and units, placement reported, helpers only where
     // needed.
     static inline maniFbxOptions maniDefaultFbxOptions(void)
     {
-        maniFbxOptions options = {{maniAxisX, maniAxisY, maniAxisZ}, 0, 0, 0.0, 0, 0};
+        maniFbxOptions options = {{maniAxisX, maniAxisY, maniAxisZ}, 0, 0, 0.0, 0};
         return options;
     }
 

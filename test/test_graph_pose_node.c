@@ -137,7 +137,7 @@ static void TestBlended(void)
     maniGraph g;
     maniGraphNodeSource nodes[3] = {
         ClipNode(0, 1.0f, maniGraphLoopRepeat), PoseNode(1),
-        (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}}};
+        (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}}};
     maniGraphInstance* instance = Make(PoseSource(nodes, 3), &g);
     SetRagdoll(instance);
     Set(instance, 0, maniGraphParameterFloat, Float(0.0f));
@@ -198,7 +198,7 @@ static void TestWayBack(void)
         {maniGraphConditionTrigger, 4, 0, 0, {{0}}, NULL}};
     static const maniGraphTransitionSource kUp[1] = {{0, 1, 0, maniGraphInterruptionNone,
                                                       maniGraphEntryRestart, maniGraphFadeInertial,
-                                                      0.5f, 0.0f, kGo, 1, 0}};
+                                                      0.5f, 0.0f, kGo, 1}};
     static const uint32_t kStates[2] = {0, 1};
     static const uint32_t kMachine[1] = {2};
     maniGraph g;
@@ -279,13 +279,13 @@ static void TestBuildRefusals(void)
     nodes[2] = (maniGraphNodeSource){maniGraphNodeSelect, 2, kPair, .select = {1}};
     CHECK(RefusedAt(Built(PoseSource(nodes, 3)), 2), "a select reading a pose parameter");
     static const maniGraphScalar kWeights[2] = {{1, 0.0f}, {MANI_NO_PARAMETER, 1.0f}};
-    nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kWeights, 0, 0}};
+    nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kWeights, 0}};
     CHECK(Built(PoseSource(nodes, 3)).result == mani_errorInvalid,
           "a weight reading a pose parameter");
     static const maniGraphConditionSource kCondition[1] = {
         {maniGraphConditionParameter, 1, maniGraphCompareEqual, 0, {{0}}, NULL}};
     static const maniGraphTransitionSource kTransition[1] = {
-        {0, 1, 0, 0, 0, 0, 0.1f, 0.0f, kCondition, 1, 0}};
+        {0, 1, 0, 0, 0, 0, 0.1f, 0.0f, kCondition, 1}};
     nodes[2] = (maniGraphNodeSource){maniGraphNodeMachine, 2, kPair,
                                      .machine = {kTransition, 1, 0, 0, 0, NULL}};
     CHECK(Built(PoseSource(nodes, 3)).result == mani_errorInvalid,

@@ -87,7 +87,6 @@ extern "C"
         float weight;
         uint32_t firstFeature;
         uint32_t featureCount;
-        uint32_t reserved;
     } maniMatchChannel;
 
     // An entry: a clip's span the database holds, from start to end
@@ -292,7 +291,6 @@ extern "C"
         float jumpThreshold;
         float endExclusion;
         float historyTime;
-        uint32_t reserved;
     } maniMatchQuery;
 
     // A search's result: the frame (MANI_MATCH_NO_FRAME when no frame is

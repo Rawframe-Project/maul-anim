@@ -317,8 +317,15 @@ static void Outputs(const Learned* l, double step)
             const char* name = maniLearnedModelEventName(m, e, &length);
             uint64_t hash = maniGraphNodeName(
                 u, l->p, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));
-            u->events[u->count] =
-                (maniGraphEvent){l->p, MANI_NO_TRACK, e, 0, hash, s->weight, (float)s->time, 1, 0};
+            maniGraphEvent* out = &u->events[u->count];
+            memset(out, 0, sizeof *out);
+            out->node = l->p;
+            out->clip = MANI_NO_TRACK;
+            out->event = e;
+            out->nameHash = hash;
+            out->weight = s->weight;
+            out->time = (float)s->time;
+            out->direction = 1;
         }
         u->count += u->count < UINT32_MAX ? 1u : 0u;
         s->flags |= MANI_GRAPH_LISTED;

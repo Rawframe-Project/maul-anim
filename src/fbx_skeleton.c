@@ -36,12 +36,12 @@ static const char kHelperSuffix[] = "#unscaled";
 
 static maniImportResult Invalid(void)
 {
-    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static uint64_t ModelOffset(const maniFbx* fbx, uint32_t model)
@@ -242,7 +242,7 @@ static maniImportResult FromBuild(const Build* b, maniBuildResult result, const 
 {
     if (result.result == mani_success || result.result == mani_errorCapacity)
     {
-        return (maniImportResult){result.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){result.result, maniImportReasonNone, 0, 0};
     }
     bool name =
         result.reason == maniBuildReasonDuplicateName || result.reason == maniBuildReasonNameHash;
@@ -283,7 +283,7 @@ static maniImportResult Emit(maniBuilder* builder, Build* b)
         }
         if (r.result == mani_success)
         {
-            maniSkeletonSource source = {bones, count, 0};
+            maniSkeletonSource source = {bones, count};
             r = FromBuild(b, maniBuildSkeleton(builder, &source), modelOf);
         }
     }
@@ -373,7 +373,7 @@ static MANI_NOINLINE maniImportResult FbxBuildSkeletonWork(maniBuilder* builder,
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     bool usable =
         maniFbxUsable(builder, fbx, options, fbx != NULL && skeleton < fbx->skeletonCount);
@@ -430,7 +430,7 @@ static MANI_NOINLINE maniImportResult FbxBuildModelSkeletonWork(maniBuilder* bui
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     bool usable = maniFbxUsable(builder, fbx, options, fbx != NULL && model < fbx->modelCount);
     // fbx is not NULL when usable; said again for the analyzer.

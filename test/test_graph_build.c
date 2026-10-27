@@ -68,7 +68,7 @@ static void OpenChain(void)
             {{0.0f, 0.1f * (float)i, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource skeleton = {bones, CHAIN, 0};
+    maniSkeletonSource skeleton = {bones, CHAIN};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
               maniCopyBuilt(builder, s_chainFile, sizeof s_chainFile, &size) == mani_success &&
@@ -80,7 +80,6 @@ static void OpenChain(void)
     for (int i = 0; i < 2; ++i)
     {
         maniBoneTrackSource track = {(uint32_t)((1 - i) * (CHAIN - 1)),
-                                     0,
                                      {kTimes, kMoves[i], 2, maniInterpolationLinear},
                                      kNone,
                                      kNone};
@@ -101,7 +100,7 @@ static void OpenChain(void)
     for (int b = 0; b < CHAIN; ++b)
     {
         all[b] = (maniBoneTrackSource){
-            (uint32_t)b, 0, {kTimes, kMoves[0], 2, maniInterpolationLinear}, kNone, kNone};
+            (uint32_t)b, {kTimes, kMoves[0], 2, maniInterpolationLinear}, kNone, kNone};
     }
     maniClipSource every = {.skeleton = &s_chain,
                             .boneTracks = all,
@@ -134,7 +133,7 @@ static void TestRefusals(void)
     named.parameterCount = 1;
     CHECK(Refused(named, maniBuildReasonParameterList | maniBuildReasonName, 0, 0),
           "a name not UTF-8");
-    maniGraphClipSource foreign = {&s_chainClips[0], "chain", 5, 0, NULL};
+    maniGraphClipSource foreign = {&s_chainClips[0], "chain", 5, NULL};
     maniGraphSource other = one;
     other.clips = &foreign;
     other.clipCount = 1;
@@ -157,12 +156,12 @@ static void TestRefusals(void)
     mask[0].mask.defaultWeight = 1.5f;
     CHECK(Refused(masked, maniBuildReasonWeight, 0, 1), "a default weight past 1");
     maniGraphScalar direct[2] = {LITERAL(1.0f), LITERAL(1.5f)};
-    maniGraphNodeSource blend[3] = {{maniGraphNodeBlend, 2, kPair, .blend = {kOnes, 2, 0}},
+    maniGraphNodeSource blend[3] = {{maniGraphNodeBlend, 2, kPair, .blend = {kOnes, 2}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraphSource blended = {.nodes = blend, .nodeCount = 3};
     CHECK(Refused(blended, maniBuildReasonNode, 0, 0), "a direct flag past 1");
-    blend[0].blend = (maniGraphBlendNodeSource){direct, 1, 0};
+    blend[0].blend = (maniGraphBlendNodeSource){direct, 1};
     CHECK(Refused(blended, maniBuildReasonScalar, 0, 1), "a direct weight past 1");
     // The wave (2) is differences.
     maniGraphNodeSource add[3] = {{maniGraphNodeAdditive, 2, kPair, .additive = {kOnes}},
@@ -216,9 +215,9 @@ static void TestSlotFreedOnce(void)
     static const uint32_t kTwice[2] = {3, 3};
     static const uint32_t kPair[2] = {4, 5};
     static const maniGraphScalar kOnes[2] = {LITERAL(1.0f), LITERAL(1.0f)};
-    maniGraphNodeSource nodes[6] = {{maniGraphNodeBlend, 2, kOutput, .blend = {kOnes, 0, 0}},
-                                    {maniGraphNodeBlend, 2, kTwice, .blend = {kOnes, 0, 0}},
-                                    {maniGraphNodeBlend, 2, kPair, .blend = {kOnes, 0, 0}},
+    maniGraphNodeSource nodes[6] = {{maniGraphNodeBlend, 2, kOutput, .blend = {kOnes, 0}},
+                                    {maniGraphNodeBlend, 2, kTwice, .blend = {kOnes, 0}},
+                                    {maniGraphNodeBlend, 2, kPair, .blend = {kOnes, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 2.0f, maniGraphLoopClip)};
@@ -286,8 +285,8 @@ static void TestChainMask(void)
 {
     static const uint32_t kInputs[2] = {1, 2};
     static const maniMaskChain kChain = {5, 1.0f, true};
-    const maniGraphClipSource slots[2] = {{&s_chainClips[0], "a", 1, 0, NULL},
-                                          {&s_chainClips[1], "b", 1, 0, NULL}};
+    const maniGraphClipSource slots[2] = {{&s_chainClips[0], "a", 1, NULL},
+                                          {&s_chainClips[1], "b", 1, NULL}};
     maniGraphNodeSource nodes[3] = {{maniGraphNodeMask, 2, kInputs, .mask = {&kChain, 1, 0.0f}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
@@ -428,7 +427,7 @@ static bool BuildCrafted(void)
     nodes[3] = (maniGraphNodeSource){maniGraphNodeAdditive, 2, kAdd, .additive = {kLayer}};
     nodes[4] = (maniGraphNodeSource){maniGraphNodeMask, 2, kPair, .mask = {&kSpine, 1, 0.0f}};
     nodes[5] = ClipNode(2, 1.0f, maniGraphLoopClip);
-    nodes[6] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kBlend, 0, 0}};
+    nodes[6] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kBlend, 0}};
     nodes[7] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
                                      .clip = {0, 0, {0, 0.0f}, maniGraphLoopClip, 0}};
     nodes[8] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
@@ -516,10 +515,10 @@ static void TestSubgraphs(void)
 {
     static const uint32_t kInner[2] = {1, 2};
     static const maniGraphScalar kWeights[2] = {{0, 0.0f}, LITERAL(1.0f)};
-    static const maniGraphClipSource kLegs[2] = {{&s_clips[1], "run", 3, 0, NULL},
-                                                 {&s_clips[0], "walk", 4, 0, NULL}};
+    static const maniGraphClipSource kLegs[2] = {{&s_clips[1], "run", 3, NULL},
+                                                 {&s_clips[0], "walk", 4, NULL}};
     maniGraphParameterSource x = Parameter("x", maniGraphParameterFloat, Float(0.5f));
-    maniGraphNodeSource inner[3] = {{maniGraphNodeBlend, 2, kInner, .blend = {kWeights, 0, 0}},
+    maniGraphNodeSource inner[3] = {{maniGraphNodeBlend, 2, kInner, .blend = {kWeights, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraphSource sub = {&s_skeleton, &x, kLegs, NULL, inner, 1,    2,    0,   3,
@@ -535,7 +534,7 @@ static void TestSubgraphs(void)
     static const maniGraphScalar kFlatWeights[2] = {{1, 0.0f}, LITERAL(1.0f)};
     maniGraphNodeSource flat[4] = {
         {maniGraphNodeTimeScale, 1, kScale, .timeScale = {LITERAL(1.5f)}},
-        {maniGraphNodeBlend, 2, kFlatPair, .blend = {kFlatWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kFlatPair, .blend = {kFlatWeights, 0}},
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     maniGraph g;
@@ -568,7 +567,7 @@ static void TestSubgraphs(void)
     outer[1].inputs = kScale;
     CHECK(Refused(source, maniBuildReasonNode, 1, 0), "a subgraph node with inputs");
     // A slot without its clip under two clip nodes: one slot, refused.
-    static const maniGraphClipSource kNone[1] = {{NULL, "none", 4, 0, NULL}};
+    static const maniGraphClipSource kNone[1] = {{NULL, "none", 4, NULL}};
     outer[1].inputCount = 0;
     outer[1].inputs = NULL;
     inner[2] = ClipNode(0, 1.0f, maniGraphLoopClip);
@@ -629,7 +628,7 @@ static void TestSubgraphs(void)
 // node's place, not played as the subgraph's.
 static void TestRootSlots(void)
 {
-    static const maniGraphClipSource kRun[1] = {{&s_clips[1], "run", 3, 0, NULL}};
+    static const maniGraphClipSource kRun[1] = {{&s_clips[1], "run", 3, NULL}};
     static const maniGraphSyncGroupSource kFeet = {"feet", 4, 0};
     maniGraphNodeSource inner[1] = {ClipNode(0, 1.0f, maniGraphLoopClip)};
     inner[0].clip.syncGroup = 0;
@@ -643,7 +642,7 @@ static void TestRootSlots(void)
     static const uint32_t kPair[2] = {1, 2};
     static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
     maniGraphNodeSource nodes[3] = {
-        {maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0, 0}},
+        {maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0}},
         {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, NULL}},
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     maniGraphSource source = {.skeleton = &s_skeleton,
@@ -705,7 +704,7 @@ static void TestTimeFactors(void)
     rate.minimum = Float(-5.0f);
     rate.maximum = Float(2.0f);
     maniGraphNodeSource nodes[8] = {
-        {maniGraphNodeBlend, 4, kBranches, .blend = {kOnes, 0, 0}},
+        {maniGraphNodeBlend, 4, kBranches, .blend = {kOnes, 0}},
         {maniGraphNodeTimeScale, 1, kWalk, .timeScale = {LITERAL(1.0e4f)}},
         {maniGraphNodeTimeScale, 1, kRun, .timeScale = {LITERAL(1.0e4f)}},
         {maniGraphNodeTimeScale, 1, kShort, .timeScale = {LITERAL(-4.0f)}},
@@ -786,11 +785,11 @@ static void TestBindingRoom(void)
     static const uint32_t kScale[1] = {1};
     static const uint32_t kThree[3] = {2, 3, 4};
     static const maniGraphScalar kOnes[3] = {LITERAL(1.0f), LITERAL(1.0f), LITERAL(1.0f)};
-    const maniGraphClipSource slots[2] = {{&s_chainClips[2], "all", 3, 0, NULL},
-                                          {&s_chainClips[0], "one", 3, 0, NULL}};
+    const maniGraphClipSource slots[2] = {{&s_chainClips[2], "all", 3, NULL},
+                                          {&s_chainClips[0], "one", 3, NULL}};
     maniGraphNodeSource nodes[5] = {
         {maniGraphNodeTimeScale, 1, kScale, .timeScale = {LITERAL(1.0f)}},
-        {maniGraphNodeBlend, 3, kThree, .blend = {kOnes, 0, 0}},
+        {maniGraphNodeBlend, 3, kThree, .blend = {kOnes, 0}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(1, 2.0f, maniGraphLoopClip)};

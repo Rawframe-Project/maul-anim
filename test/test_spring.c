@@ -66,7 +66,7 @@ static void OpenSkeleton(void)
         Bone("tail1", 5, 0.0f, 0.0f, -0.3f), Bone("tail2", 6, 0.0f, 0.0f, -0.3f),
         Bone("arm", 0, 0.3f, 0.4f, 0.0f)};
     maniBuilderDef def = maniDefaultBuilderDef();
-    maniSkeletonSource source = {bones, 9, 0};
+    maniSkeletonSource source = {bones, 9};
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success &&
               maniBuildSkeleton(s_builder, &source).result == mani_success &&
@@ -139,7 +139,7 @@ static maniSpringSetSource Source(void)
     s_springs[0] =
         (maniSpringSource){"hairs", 5, 3, s_hairJoints, s_springGroups[0], 2, MANI_NO_BONE};
     s_springs[1] = (maniSpringSource){"tail", 4, 3, s_tailJoints, s_springGroups[1], 1, s_hips};
-    return (maniSpringSetSource){&s_skeleton, s_colliders, s_groups, s_springs, 4, 2, 2, 0, 0, 0};
+    return (maniSpringSetSource){&s_skeleton, s_colliders, s_groups, s_springs, 4, 2, 2, 0, 0};
 }
 
 static maniBuildResult Build(const maniSpringSetSource* source)

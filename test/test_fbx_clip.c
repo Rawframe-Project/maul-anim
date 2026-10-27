@@ -413,7 +413,7 @@ static void TestRootMotion(void)
     maniSkeleton skeleton;
     CHECK(fbx != NULL && PlainSkeleton(builder, &options, &skeleton), "skeleton");
     uint32_t hips = maniSkeletonFindBone(&skeleton, "Hips", 4);
-    maniRootMotionSource travel = {hips, maniRootAxisX | maniRootAxisZ, 0, 0, 0, 0, 0, 0};
+    maniRootMotionSource travel = {hips, maniRootAxisX | maniRootAxisZ, 0, 0, 0, 0, 0};
     maniImportClipOptions settings = maniDefaultImportClipOptions();
     settings.loop = maniLoopRepeat;
     settings.rootMotion = &travel;
@@ -493,7 +493,7 @@ static bool Custom(maniBuilder* builder, maniSkeleton* out)
     const maniTransform rest = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
     const maniBoneSource bones[3] = {
         {"Root", 4, -1, rest}, {"Hips", 4, 0, rest}, {"Arm", 3, 1, rest}};
-    maniSkeletonSource source = {bones, 3, 0};
+    maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
@@ -713,7 +713,7 @@ static bool Helpered(maniBuilder* builder, maniSkeleton* out)
     const maniTransform rest = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
     const maniBoneSource bones[3] = {
         {"Spine", 5, -1, rest}, {"Spine#unscaled", 14, 0, rest}, {"Hips", 4, 1, rest}};
-    maniSkeletonSource source = {bones, 3, 0};
+    maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
@@ -1057,7 +1057,7 @@ static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const cha
     maniFbx* fbx = Open(builder, kScene);
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
-    maniImportResult r = {mani_errorInvalid, 0, 0, 0, 0};
+    maniImportResult r = {mani_errorInvalid, 0, 0, 0};
     if (fbx != NULL && PlainSkeleton(builder, &options, &skeleton))
     {
         r = maniFbxBuildClip(builder, fbx, clipIndex, &skeleton, &options,
@@ -1088,7 +1088,7 @@ static void TestRefusals(void)
         maniFbx* fbx = Open(builder, s_text);
         maniFbxOptions options = maniDefaultFbxOptions();
         maniSkeleton skeleton;
-        maniImportResult r = {mani_errorInvalid, 0, 0, 0, 0};
+        maniImportResult r = {mani_errorInvalid, 0, 0, 0};
         if (fbx != NULL && Skeleton(builder, fbx, &options, &skeleton))
         {
             r = maniFbxBuildClip(

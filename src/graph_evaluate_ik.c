@@ -106,7 +106,6 @@ void maniGraphEvaluateTwoBone(const maniGraphEvaluation* e, const uint8_t* recor
     maniTwoBoneSolve s = {maniGraphEvalWord(e, d),
                           maniGraphEvalWord(e, d + 1),
                           maniGraphEvalWord(e, d + 2),
-                          0,
                           Vector(e, maniGraphEvalWord(e, d + maniGraphTwoBoneGoal)),
                           Vector(e, maniGraphEvalWord(e, d + maniGraphTwoBonePole)),
                           Axis(e, d + maniGraphTwoBoneHinge),

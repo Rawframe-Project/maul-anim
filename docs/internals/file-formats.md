@@ -34,14 +34,14 @@ Opening needs no scratch memory: a skeleton's depth-first order, for instance, i
 | Kind | Number | Format version | Bound to |
 |---|---|---|---|
 | Skeleton | 1 | 1 | |
-| Clip | 2 | 3 | its skeleton |
+| Clip | 2 | 4 | its skeleton |
 | Graph | 3 | 6 | its skeleton, its clips, databases, models, spring sets and maps |
-| Retargeting map | 4 | 2 | its source and target skeletons |
+| Retargeting map | 4 | 3 | its source and target skeletons |
 | Skin | 5 | 1 | its skeleton |
 | Influences | 6 | 1 | its skin |
 | Morph targets | 7 | 1 | |
 | Motion database | 8 | 3 | its skeleton and clips, and a mirror map for mirrored entries |
-| Learned model | 9 | 1 | its skeleton and database |
+| Learned model | 9 | 2 | its skeleton and database |
 | Learned checkpoint | 10 | 1 | its trainer's source and options |
 | Spring set | 11 | 2 | its skeleton |
 | Ragdoll profile | 12 | 1 | its skeleton |

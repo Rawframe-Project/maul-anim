@@ -21,7 +21,7 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
 static float LoadF32(const uint8_t* p)
@@ -99,7 +99,7 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         s->at[tag - 1] = maniLoadU64(entry + 8);
         s->entry[tag - 1] = entryAt + 16;
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // The binding's counts, and every section's size against them.
@@ -142,7 +142,7 @@ static maniFileResult CheckSizes(const Sections* s, maniInfluences* v)
             return Fail(s->entry[i]);
         }
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 // Every joint below the skin's count, every weight from 0 to 1, the
@@ -175,7 +175,7 @@ static maniFileResult CheckValues(const Sections* s, const maniInfluences* v)
             return Fail(s->at[4] + 4 * k);
         }
     }
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t size,
@@ -183,7 +183,7 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
 {
     if (influencesOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0, 0};
+        return (maniFileResult){mani_errorInvalid, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -193,7 +193,8 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
     {
         r = LoadSections(&c, &s);
     }
-    maniInfluences v = {0};
+    maniInfluences v;
+    memset(&v, 0, sizeof v);
     if (r.result == mani_success)
     {
         r = CheckSizes(&s, &v);
@@ -216,7 +217,7 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
     v.centers = s.sizes[4] > 0 ? s.data[4] : NULL;
     v.identity = c.identity;
     *influencesOut = v;
-    return (maniFileResult){mani_success, 0, 0};
+    return (maniFileResult){mani_success, 0};
 }
 
 maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences* influencesOut)

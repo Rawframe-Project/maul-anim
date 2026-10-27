@@ -271,7 +271,7 @@ static maniPose* s_pose[6];
 // The skeleton and clip, built, compressed and opened.
 static void Assets(void)
 {
-    maniSkeletonSource skeleton = {s_bones, BONES, 0};
+    maniSkeletonSource skeleton = {s_bones, BONES};
     Host();
     maniBuildResult built = maniBuildSkeleton(s_builder, &skeleton);
     Back();
@@ -286,13 +286,13 @@ static void Assets(void)
     for (uint32_t b = 0; b < BONES; ++b)
     {
         tracks[b] = (maniBoneTrackSource){
-            b, 0, kNone, {s_times, s_turns[b], SAMPLES, maniInterpolationLinear}, kNone};
+            b, kNone, {s_times, s_turns[b], SAMPLES, maniInterpolationLinear}, kNone};
     }
     tracks[0].translation = (maniChannelSource){s_times, s_walk, SAMPLES, maniInterpolationLinear};
     const maniFloatTrackSource speed = {
-        "speed", 5, 0, {s_times, s_speed, SAMPLES, maniInterpolationLinear}};
+        "speed", 5, {s_times, s_speed, SAMPLES, maniInterpolationLinear}};
     const maniRootMotionSource root = {
-        0, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist, 1, 0, 0, 0, 0};
+        0, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist, 1, 0, 0, 0};
     maniClipSource clip = {.skeleton = &s_skeleton,
                            .boneTracks = tracks,
                            .boneTrackCount = BONES,
@@ -410,7 +410,7 @@ static void Meshes(void)
     {
         joints[b] = b;
     }
-    maniSkinSource skin = {&s_skeleton, joints, s_inverseBinds, BONES, 0};
+    maniSkinSource skin = {&s_skeleton, joints, s_inverseBinds, BONES};
     Host();
     maniBuildResult built = maniBuildSkin(s_builder, &skin);
     Back();
@@ -420,8 +420,7 @@ static void Meshes(void)
     Host();
     RecordResult(maniOpenSkin(s_files[3], size, &opened).result);
     Back();
-    maniInfluenceSource source = {&opened,       s_offsets, s_joints, s_weights,
-                                  s_dualWeights, VERTICES,  0};
+    maniInfluenceSource source = {&opened, s_offsets, s_joints, s_weights, s_dualWeights, VERTICES};
     Host();
     built = maniBuildInfluences(s_builder, &source);
     Back();
@@ -436,8 +435,8 @@ static void Meshes(void)
     float rows[BONES * 12];
     float moved[VERTICES * 3];
     float turned[VERTICES * 3];
-    const maniSkinStream streams[2] = {{s_positions, moved, 12, 12, maniStreamPoint, 0},
-                                       {s_normals, turned, 12, 12, maniStreamNormal, 0}};
+    const maniSkinStream streams[2] = {{s_positions, moved, 12, 12, maniStreamPoint},
+                                       {s_normals, turned, 12, 12, maniStreamNormal}};
     const maniSkinJob job = {&influences, palette, dual, BONES, 0, VERTICES, 2, streams};
     maniResult (*const jobs[3])(const maniSkinJob*) = {maniSkinLinear, maniSkinDualQuaternion,
                                                        maniSkinBlended};
@@ -463,11 +462,11 @@ static void Meshes(void)
         Record(turned, sizeof turned);
     }
     const float* deltas[2][1] = {{s_deltas[0]}, {s_deltas[1]}};
-    const maniMorphTargetSource targets[2] = {{1.0f, VERTICES, NULL, deltas[0], "a", 1, 0},
-                                              {1.0f, VERTICES, NULL, deltas[1], "b", 1, 0}};
+    const maniMorphTargetSource targets[2] = {{1.0f, VERTICES, NULL, deltas[0], "a", 1},
+                                              {1.0f, VERTICES, NULL, deltas[1], "b", 1}};
     const maniMorphChannelSource channels[2] = {{"a", 1, 1, &targets[0]}, {"b", 1, 1, &targets[1]}};
     const maniMorphAttributeSource attribute = {maniMorphPosition, 0};
-    maniMorphSource morph = {channels, 2, VERTICES, &attribute, 1, 0};
+    maniMorphSource morph = {channels, 2, VERTICES, &attribute, 1};
     Host();
     built = maniBuildMorphTargets(s_builder, &morph);
     Back();
@@ -479,8 +478,8 @@ static void Meshes(void)
     Back();
     const float channelWeights[2] = {0.35f, 0.9f};
     float targetWeights[2];
-    const maniMorphStream stream = {s_positions, moved, 12, 12, maniMorphPosition, 0, 3, 0};
-    const maniMorphJob morphJob = {&morphs, targetWeights, 0, VERTICES, 1, 0, &stream};
+    const maniMorphStream stream = {s_positions, moved, 12, 12, maniMorphPosition, 0, 3};
+    const maniMorphJob morphJob = {&morphs, targetWeights, 0, VERTICES, 1, &stream};
     Host();
     r[0] = maniMorphTargetWeights(&morphs, channelWeights, targetWeights);
     r[1] = maniApplyMorphTargets(&morphJob);
@@ -548,7 +547,7 @@ static void Solvers(void)
     static const uint32_t kMember[1] = {0};
     const maniColliderGroupSource group = {"hips", 4, 1, kMember};
     const maniSpringSource spring = {"tail", 4, 3, joints, kMember, 1, MANI_NO_BONE};
-    const maniSpringSetSource set = {&s_skeleton, &ball, &group, &spring, 1, 1, 1, 0.0f, 0.0f, 0};
+    const maniSpringSetSource set = {&s_skeleton, &ball, &group, &spring, 1, 1, 1, 0.0f, 0.0f};
     Host();
     maniBuildResult built = maniBuildSpringSet(s_builder, &set);
     Back();
@@ -656,8 +655,8 @@ static void Matching(void)
         "\"mix\"}, 1]},"
         " {\"kind\": \"clip\", \"clip\": \"full\"}, {\"kind\": \"clip\", \"clip\": \"small\"}],"
         " \"output\": 0}";
-    const maniGraphClipSource sources[2] = {{&s_clip, "full", 4, 0, NULL},
-                                            {&s_compressed, "small", 5, 0, NULL}};
+    const maniGraphClipSource sources[2] = {{&s_clip, "full", 4, NULL},
+                                            {&s_compressed, "small", 5, NULL}};
     maniGraphNamedAssets named = {&s_skeleton, sources, NULL, NULL, NULL, 2, 0, 0, 0, NULL};
     Host();
     built = maniBuildGraphJson(s_builder, kGraph, sizeof kGraph - 1, &named);

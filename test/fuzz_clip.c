@@ -54,7 +54,7 @@ static void BuildSkeletons(void)
     {
         return;
     }
-    const maniSkeletonSource sources[2] = {{kClipBones, 4, 0}, {kCompressBones, 6, 0}};
+    const maniSkeletonSource sources[2] = {{kClipBones, 4}, {kCompressBones, 6}};
     for (int i = 0; i < 2; ++i)
     {
         size_t size = 0;

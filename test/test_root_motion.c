@@ -69,7 +69,7 @@ static maniBuilder* NewBuilder(void)
 static void OpenSkeleton(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 3, 0};
+    maniSkeletonSource source = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -83,12 +83,11 @@ static void OpenSkeleton(void)
 static maniClipSource Source(const maniRootMotionSource* root)
 {
     s_tracks[0] = (maniBoneTrackSource){0,
-                                        0,
                                         {kTimes, kWalk, 2, maniInterpolationLinear},
                                         {kTimes, kTurn, 2, maniInterpolationLinear},
                                         kNone};
     s_tracks[1] =
-        (maniBoneTrackSource){1, 0, kNone, {kTimes, kSway, 2, maniInterpolationLinear}, kNone};
+        (maniBoneTrackSource){1, kNone, {kTimes, kSway, 2, maniInterpolationLinear}, kNone};
     return (maniClipSource){.skeleton = &s_skeleton,
                             .boneTracks = s_tracks,
                             .boneTrackCount = 2,
@@ -99,13 +98,8 @@ static maniClipSource Source(const maniRootMotionSource* root)
 
 static maniRootMotionSource Walk(void)
 {
-    return (maniRootMotionSource){0,
-                                  maniRootAxisX | maniRootAxisZ,
-                                  maniRootRotationTwist,
-                                  1,
-                                  maniRootReferenceRest,
-                                  maniRootReferenceRest,
-                                  0,
+    return (maniRootMotionSource){0, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                  1, maniRootReferenceRest,         maniRootReferenceRest,
                                   0};
 }
 
@@ -653,8 +647,8 @@ static void TestBuildRefusals(void)
     s.translationAxes = 0;
     s.rotation = maniRootRotationNone;
     ExpectRefused(&s, maniAdditiveNone, "no channel chosen");
-    const uint32_t kField[7] = {8, 3, 3, 3, 3, 2, 1};
-    for (int i = 0; i < 7; ++i)
+    const uint32_t kField[6] = {8, 3, 3, 3, 3, 2};
+    for (int i = 0; i < 6; ++i)
     {
         s = Walk();
         uint32_t* fields = &s.translationAxes;
@@ -787,17 +781,19 @@ static void TestOpenRefusals(void)
     ExpectFormat(at + 16, 3, at, "a reference out of range");
     ExpectFormat(at + 20, 3, at, "a reference out of range");
     ExpectFormat(at + 24, 2, at, "a loop out of range");
-    ExpectFormat(at + 28, 1, at, "a header's last word not zero");
-    ExpectFormat(at + 60, 1, at + 60, "the period's last word not zero");
-    ExpectFormat(at + 64 + 12, 0x7F800000u, at + 76, "a move not finite");
+    // The period's move, then each sample's: seven floats each.
+    uint64_t period = at + MANI_ROOT_MOTION_HEADER_SIZE;
+    uint64_t samples = period + MANI_ROOT_MOTION_PERIOD_SIZE;
+    ExpectFormat(samples + 12, 0x7F800000u, samples + 12, "a move not finite");
     // 2^65 (0x60000000) in a translation, the period's or a sample's.
-    ExpectFormat(at + 32, 0x60000000u, at + 32, "a period translation past 2^64");
-    ExpectFormat(at + 64 + 28 + 8, 0x60000000u, at + 100, "a sample translation past 2^64");
-    ExpectFormat(at + 64 + 28 + 4, 0xE0000000u, at + 96, "a negative translation past 2^64");
+    ExpectFormat(period, 0x60000000u, period, "a period translation past 2^64");
+    ExpectFormat(samples + 28 + 8, 0x60000000u, samples + 28 + 8, "a sample translation past 2^64");
+    ExpectFormat(samples + 28 + 4, 0xE0000000u, samples + 28 + 4,
+                 "a negative translation past 2^64");
     // A translation of 2^64 itself, and 2^65 in a rotation: opened.
     memcpy(s_crafted, s_file, s_size);
-    maniStoreU32(s_crafted + at + 64, 0x5F800000u);
-    maniStoreU32(s_crafted + at + 64 + 28 + 12, 0x60000000u);
+    maniStoreU32(s_crafted + samples, 0x5F800000u);
+    maniStoreU32(s_crafted + samples + 28 + 12, 0x60000000u);
     Rehash(s_crafted);
     maniClip clip;
     CHECK(maniOpenClip(s_crafted, s_size, &clip).result == mani_success,

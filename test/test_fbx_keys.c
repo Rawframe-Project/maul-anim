@@ -1633,7 +1633,7 @@ static void Run(const Case* c)
     uint32_t node = opened ? ChannelNode(fbx) : MANI_FBX_NONE;
     maniFbxCurve curve;
     maniImportResult r = node != MANI_FBX_NONE ? maniFbxReadKeys(fbx, node, 9, &curve)
-                                               : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
+                                               : (maniImportResult){mani_errorInvalid, 0, 0, 0};
     bool right = false;
     if (c->refusal != maniImportReasonNone)
     {

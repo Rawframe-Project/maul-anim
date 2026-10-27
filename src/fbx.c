@@ -23,7 +23,7 @@
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 bool maniFbxNameIs(const maniFbx* fbx, uint32_t node, const char* name, size_t length)
@@ -64,7 +64,7 @@ static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const vo
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     if (fbxOut != NULL)
     {
@@ -72,12 +72,12 @@ static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const vo
     }
     if (builder == NULL)
     {
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     if (bytes == NULL || fbxOut == NULL)
     {
         maniBuilderMisuse(builder);
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     maniFbx* fbx = maniAllocate(&builder->allocator, 1, sizeof(maniFbx), 8);
     if (fbx == NULL)

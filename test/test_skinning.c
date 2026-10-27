@@ -102,7 +102,7 @@ static void OpenSkin(void)
                                     {{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1, 1, 1}}};
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
@@ -116,7 +116,7 @@ static void OpenSkin(void)
         joints[j] = j + 1;
         binds[j] = (maniAffine){{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
     }
-    maniSkinSource skin = {&s_skeleton, joints, binds, kJoints, 0};
+    maniSkinSource skin = {&s_skeleton, joints, binds, kJoints};
     CHECK(maniBuildSkin(builder, &skin).result == mani_success &&
               maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
               maniOpenSkin(s_skinFile, size, &s_skin).result == mani_success,
@@ -145,7 +145,7 @@ static void BuildInfluences(void)
         }
     }
     offsets[kVertices] = n;
-    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kVertices, 0};
+    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kVertices};
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
@@ -201,7 +201,7 @@ static void RandomVertices(void)
 
 static maniSkinStream Stream(const void* in, void* out, maniStreamKind kind)
 {
-    return (maniSkinStream){in, out, sizeof(Vertex), sizeof(Vertex), kind, 0};
+    return (maniSkinStream){in, out, sizeof(Vertex), sizeof(Vertex), kind};
 }
 
 static maniSkinJob Job(uint32_t first, uint32_t count, const maniSkinStream* streams,
@@ -357,7 +357,7 @@ static void TestRangesAndPlaces(void)
     {
         memcpy(&packedIn[3 * v], s_in[v].position, 12);
     }
-    maniSkinStream packed = {packedIn, packedOut, 12, 12, maniStreamPoint, 0};
+    maniSkinStream packed = {packedIn, packedOut, 12, 12, maniStreamPoint};
     maniSkinJob tight = Job(0, kVertices, &packed, 1);
     CHECK(maniSkinLinear(&tight) == mani_success, "packed");
     bool same = true;
@@ -677,7 +677,7 @@ static void TestCandyWrapper(void)
     offsets[kVertices] = 2 * kVertices;
     static _Alignas(16) uint8_t file[65536];
     size_t size = 0;
-    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kVertices, 0};
+    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kVertices};
     maniBuilder* builder = NewBuilder();
     maniInfluences halves;
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
@@ -724,7 +724,7 @@ static void TestBlended(void)
     offsets[kVertices] = 2 * kVertices;
     static _Alignas(16) uint8_t file[65536];
     size_t size = 0;
-    maniInfluenceSource source = {&s_skin, offsets, joints, weights, blend, kVertices, 0};
+    maniInfluenceSource source = {&s_skin, offsets, joints, weights, blend, kVertices};
     maniBuilder* builder = NewBuilder();
     maniInfluences blended;
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
@@ -884,14 +884,14 @@ static void TestMorphThenSkin(void)
     const float* sparse[3] = {kSparsePositions, kSparseNormals, NULL};
     const float* ramp[3][3] = {
         {s_ramp[0], NULL, NULL}, {s_ramp[1], NULL, NULL}, {s_ramp[2], NULL, s_rampTangents}};
-    maniMorphTargetSource smile[1] = {{1.0f, 3, kSparse, sparse, NULL, 0, 0}};
-    maniMorphTargetSource ramps[3] = {{-1.0f, kVertices, NULL, ramp[0], NULL, 0, 0},
-                                      {0.5f, kVertices, NULL, ramp[1], NULL, 0, 0},
-                                      {1.0f, kVertices, NULL, ramp[2], NULL, 0, 0}};
+    maniMorphTargetSource smile[1] = {{1.0f, 3, kSparse, sparse, NULL, 0}};
+    maniMorphTargetSource ramps[3] = {{-1.0f, kVertices, NULL, ramp[0], NULL, 0},
+                                      {0.5f, kVertices, NULL, ramp[1], NULL, 0},
+                                      {1.0f, kVertices, NULL, ramp[2], NULL, 0}};
     maniMorphChannelSource channels[2] = {{"smile", 5, 1, smile}, {"ramp", 4, 3, ramps}};
     maniMorphAttributeSource attributes[3] = {
         {maniMorphPosition, 0}, {maniMorphNormal, 0}, {maniMorphTangent, 0}};
-    maniMorphSource source = {channels, 2, kVertices, attributes, 3, 0};
+    maniMorphSource source = {channels, 2, kVertices, attributes, 3};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMorphTargets(builder, &source).result == mani_success &&
@@ -905,12 +905,11 @@ static void TestMorphThenSkin(void)
     CHECK(maniMorphTargetWeights(&m, channelWeights, weights) == mani_success, "weights");
     memcpy(s_other, s_in, sizeof s_other);
     maniMorphStream morph[3] = {
-        {s_in->position, s_other->position, sizeof(Vertex), sizeof(Vertex), maniMorphPosition, 0, 3,
-         0},
-        {s_in->normal, s_other->normal, sizeof(Vertex), sizeof(Vertex), maniMorphNormal, 0, 3, 0},
-        {s_in->tangent, s_other->tangent, sizeof(Vertex), sizeof(Vertex), maniMorphTangent, 0, 4,
-         0}};
-    maniMorphJob morphJob = {&m, weights, 0, kVertices, 3, 0, morph};
+        {s_in->position, s_other->position, sizeof(Vertex), sizeof(Vertex), maniMorphPosition, 0,
+         3},
+        {s_in->normal, s_other->normal, sizeof(Vertex), sizeof(Vertex), maniMorphNormal, 0, 3},
+        {s_in->tangent, s_other->tangent, sizeof(Vertex), sizeof(Vertex), maniMorphTangent, 0, 4}};
+    maniMorphJob morphJob = {&m, weights, 0, kVertices, 3, morph};
     CHECK(maniApplyMorphTargets(&morphJob) == mani_success, "morphs");
     maniSkinStream streams[4];
     Streams(s_other, s_out, streams);
@@ -986,7 +985,7 @@ static void BuildMesh(void)
             t += 2;
         }
     }
-    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kMesh, 0};
+    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kMesh};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&

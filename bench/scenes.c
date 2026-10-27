@@ -196,7 +196,7 @@ static void MakeRig(Rig* rig)
 
 static bool BuildSkeleton(maniBuilder* builder, const Rig* rig, BenchScenes* scenes)
 {
-    maniSkeletonSource source = {rig->bones, rig->count, 0};
+    maniSkeletonSource source = {rig->bones, rig->count};
     void* file = NULL;
     size_t size = 0;
     maniSkeleton* skeleton = &scenes->skeleton;
@@ -248,7 +248,7 @@ static bool BuildClip(maniBuilder* builder, const maniSkeleton* skeleton, uint32
     }
     for (uint32_t b = 0; b < BENCH_BONES; ++b)
     {
-        tracks[b] = (maniBoneTrackSource){b, 0, kNone, kNone, kNone};
+        tracks[b] = (maniBoneTrackSource){b, kNone, kNone, kNone};
         if (IsFinger(b))
         {
             tracks[b].rotation = (maniChannelSource){kHold, kCurl, 2, maniInterpolationLinear};
@@ -276,14 +276,10 @@ static bool BuildClip(maniBuilder* builder, const maniSkeleton* skeleton, uint32
     }
     tracks[boneHips].translation =
         (maniChannelSource){times, walk, SAMPLES, maniInterpolationLinear};
-    const maniRootMotionSource root = {boneHips,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
-                                       0};
+    const maniRootMotionSource root = {
+        boneHips, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+        1,        maniRootReferenceRest,         maniRootReferenceRest,
+        0};
     maniClipSource source = {.skeleton = skeleton,
                              .boneTracks = tracks,
                              .boneTrackCount = BENCH_BONES,
@@ -341,8 +337,8 @@ static bool BuildGraph(maniBuilder* builder, BenchScenes* scenes)
         "\"mix\"}, 1]},"
         " {\"kind\": \"clip\", \"clip\": \"walk\"}, {\"kind\": \"clip\", \"clip\": \"run\"}],"
         " \"output\": 0}";
-    const maniGraphClipSource clips[2] = {{&scenes->compressed[0], "walk", 4, 0, NULL},
-                                          {&scenes->compressed[1], "run", 3, 0, NULL}};
+    const maniGraphClipSource clips[2] = {{&scenes->compressed[0], "walk", 4, NULL},
+                                          {&scenes->compressed[1], "run", 3, NULL}};
     maniGraphNamedAssets named = {&scenes->skeleton, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL};
     void* file = NULL;
     size_t size = 0;
@@ -395,19 +391,9 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
         entries[c] = (maniMatchEntrySource){c, MANI_MATCH_LOOP, 0.0f, BENCH_DURATION, 0.0f, 1u};
         clips[c] = &scenes->full[c];
     }
-    const maniMotionDatabaseSource source = {&scenes->skeleton,
-                                             clips,
-                                             channels,
-                                             entries,
-                                             BENCH_CLIPS,
-                                             5,
-                                             BENCH_CLIPS,
-                                             RATE,
-                                             maniMatchAxisY,
-                                             maniMatchAxisZ,
-                                             NULL,
-                                             0,
-                                             0};
+    const maniMotionDatabaseSource source = {
+        &scenes->skeleton, clips, channels,       entries,        BENCH_CLIPS, 5,
+        BENCH_CLIPS,       RATE,  maniMatchAxisY, maniMatchAxisZ, NULL,        0};
     void* file = NULL;
     size_t size = 0;
     if (!Keep(builder, maniBuildMotionDatabase(builder, &source), "the motion database", &file,
@@ -489,7 +475,7 @@ static bool BuildSprings(maniBuilder* builder, BenchScenes* scenes)
         }
     }
     const maniSpringSetSource source = {
-        &scenes->skeleton, colliders, groups, springs, 3, 1, 3, 0.0f, 0.0f, 0};
+        &scenes->skeleton, colliders, groups, springs, 3, 1, 3, 0.0f, 0.0f};
     void* file = NULL;
     size_t size = 0;
     static maniSpringSet set;
@@ -517,7 +503,7 @@ static bool BuildSkin(maniBuilder* builder, const Rig* rig, BenchScenes* scenes)
         maniVec3 p = rig->model[b];
         inverseBinds[b] = (maniAffine){{1, 0, 0, 0, 1, 0, 0, 0, 1, -p.x, -p.y, -p.z}};
     }
-    maniSkinSource skinSource = {&scenes->skeleton, joints, inverseBinds, BENCH_BONES, 0};
+    maniSkinSource skinSource = {&scenes->skeleton, joints, inverseBinds, BENCH_BONES};
     void* file = NULL;
     size_t size = 0;
     if (!Keep(builder, maniBuildSkin(builder, &skinSource), "the skin", &file, &size) ||
@@ -561,8 +547,8 @@ static bool BuildSkin(maniBuilder* builder, const Rig* rig, BenchScenes* scenes)
     if (made)
     {
         offsets[BENCH_VERTICES] = 4 * BENCH_VERTICES;
-        maniInfluenceSource source = {&scenes->skin,  offsets, vertexJoints, weights, NULL,
-                                      BENCH_VERTICES, 0};
+        maniInfluenceSource source = {&scenes->skin, offsets, vertexJoints,
+                                      weights,       NULL,    BENCH_VERTICES};
         made =
             Keep(builder, maniBuildInfluences(builder, &source), "the influences", &file, &size) &&
             Opened(maniOpenInfluences(file, size, &scenes->influences), "the influences");
@@ -610,13 +596,13 @@ static bool BuildMorphs(maniBuilder* builder, BenchScenes* scenes)
         snprintf(names[t], sizeof names[t], "t%02u", (unsigned)t);
         pointers[t][0] = positions;
         pointers[t][1] = normals;
-        targets[t] = (maniMorphTargetSource){1.0f, moved, own, pointers[t], names[t], 3, 0};
+        targets[t] = (maniMorphTargetSource){1.0f, moved, own, pointers[t], names[t], 3};
         channels[t] = (maniMorphChannelSource){names[t], 3, 1, &targets[t]};
         scenes->channelWeights[t] = 0.3f + 0.02f * (float)t;
     }
     static const maniMorphAttributeSource kAttributes[2] = {{maniMorphPosition, 0},
                                                             {maniMorphNormal, 0}};
-    maniMorphSource source = {channels, BENCH_TARGETS, BENCH_VERTICES, kAttributes, 2, 0};
+    maniMorphSource source = {channels, BENCH_TARGETS, BENCH_VERTICES, kAttributes, 2};
     void* file = NULL;
     size_t size = 0;
     bool made =

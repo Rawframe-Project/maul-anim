@@ -105,7 +105,6 @@ extern "C"
     typedef struct maniFileResult
     {
         maniResult result;
-        uint32_t reserved;
         uint64_t offset;
     } maniFileResult;
 

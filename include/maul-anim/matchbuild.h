@@ -82,7 +82,6 @@ extern "C"
         maniMatchAxis forward;
         const maniMirrorMap* mirrorMap;
         uint32_t leafFrames;
-        uint32_t reserved;
     } maniMotionDatabaseSource;
 
     /// Builds a motion database: samples every entry's frames, each

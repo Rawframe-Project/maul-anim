@@ -100,7 +100,7 @@ static maniImportResult Import(const char* text, maniInfluences* v)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, text);
     maniSkin skin;
-    maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0};
     if (BuildSkin(builder, fbx, &skin))
     {
         r = maniFbxBuildInfluences(builder, fbx, 0, &skin);

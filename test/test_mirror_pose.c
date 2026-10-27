@@ -64,8 +64,8 @@ static const maniBoneSource kRig[kBones] = {
     {"legR", 4, kHips, {{-0.1f, -0.1f, 0}, REST, {1, 1, 1}}},
 };
 
-static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                               {"R", 1, maniMirrorSuffix, "L", 1, 0}};
+static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                               {"R", 1, maniMirrorSuffix, "L", 1}};
 
 static _Alignas(16) uint8_t s_skeletonFile[3][4096];
 static _Alignas(16) uint8_t s_file[3][4096];
@@ -93,7 +93,7 @@ static void OpenSkeleton(const maniBoneSource* bones, uint32_t count, uint8_t* f
                          maniSkeleton* out)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, file, 4096, &size) == mani_success &&

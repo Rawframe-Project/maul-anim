@@ -84,39 +84,34 @@ static inline void Open(void)
     static const float kTurnA[8] = {0, 0, 1, 0, 0, 0, 1, 0};
     static const float kTurnB[8] = {0, 0, -0.9f, 0.43588989f, 0, 0, -0.9f, 0.43588989f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniRootMotionSource kHips = {0, maniRootAxisX, 0, 0, 0, 0, 0, 0};
-    static const maniEventSource kSteps[2] = {{0.0f, 7, "left", 4, 0}, {0.5f, 8, "right", 5, 0}};
-    static const maniEventSource kShort[2] = {{0.0f, 0, "left", 4, 0}, {0.5f, 0, "right", 5, 0}};
-    static const maniEventSource kLong[2] = {{0.5f, 0, "right", 5, 0}, {1.5f, 0, "left", 4, 0}};
-    static const maniEventSource kDouble[4] = {{0.0f, 0, "left", 4, 0},
-                                               {0.5f, 0, "right", 5, 0},
-                                               {1.0f, 0, "left", 4, 0},
-                                               {1.5f, 0, "right", 5, 0}};
+    static const maniRootMotionSource kHips = {0, maniRootAxisX, 0, 0, 0, 0, 0};
+    static const maniEventSource kSteps[2] = {{0.0f, 7, "left", 4}, {0.5f, 8, "right", 5}};
+    static const maniEventSource kShort[2] = {{0.0f, 0, "left", 4}, {0.5f, 0, "right", 5}};
+    static const maniEventSource kLong[2] = {{0.5f, 0, "right", 5}, {1.5f, 0, "left", 4}};
+    static const maniEventSource kDouble[4] = {
+        {0.0f, 0, "left", 4}, {0.5f, 0, "right", 5}, {1.0f, 0, "left", 4}, {1.5f, 0, "right", 5}};
     static const maniEventSource kTriple[3] = {
-        {0.0f, 0, "left", 4, 0}, {0.5f, 0, "left", 4, 0}, {1.0f, 0, "right", 5, 0}};
-    static const maniEventSource kMiddle = {1.0f, 3, "middle", 6, 0};
+        {0.0f, 0, "left", 4}, {0.5f, 0, "left", 4}, {1.0f, 0, "right", 5}};
+    static const maniEventSource kMiddle = {1.0f, 3, "middle", 6};
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource skeleton = {kBones, 3, 0};
+    maniSkeletonSource skeleton = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "skeleton");
-    const maniBoneTrackSource walk = {
-        0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone};
-    const maniBoneTrackSource run = {
-        0, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
+    const maniBoneTrackSource walk = {0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone};
+    const maniBoneTrackSource run = {0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
     const maniBoneTrackSource longRun = {
-        0, 0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
+        0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
     const maniBoneTrackSource tripleRun = {
-        0, 0, {kTripleTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
-    const maniBoneTrackSource wave = {
-        2, 0, kNone, {kTimes, kWave, 2, maniInterpolationLinear}, kNone};
+        0, {kTripleTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
+    const maniBoneTrackSource wave = {2, kNone, {kTimes, kWave, 2, maniInterpolationLinear}, kNone};
     const maniBoneTrackSource turnA = {
-        1, 0, kNone, {kTimes, kTurnA, 2, maniInterpolationLinear}, kNone};
+        1, kNone, {kTimes, kTurnA, 2, maniInterpolationLinear}, kNone};
     const maniBoneTrackSource turnB = {
-        1, 0, kNone, {kTimes, kTurnB, 2, maniInterpolationLinear}, kNone};
+        1, kNone, {kTimes, kTurnB, 2, maniInterpolationLinear}, kNone};
     OpenClip(builder, 0,
              (maniClipSource){
                  .boneTracks = &walk, .events = kSteps, .eventCount = 2, .rootMotion = &kHips});
@@ -155,18 +150,17 @@ static inline maniGraphValue Int(int32_t i)
 static inline maniGraphParameterSource Parameter(const char* name, maniGraphParameterType type,
                                                  maniGraphValue value)
 {
-    return (maniGraphParameterSource){name, (uint32_t)strlen(name), type, value, Int(0), Int(0), 0,
-                                      0};
+    return (maniGraphParameterSource){name, (uint32_t)strlen(name), type, value, Int(0), Int(0), 0};
 }
 
 #define LITERAL(x) ((maniGraphScalar){MANI_NO_PARAMETER, (x)})
 
 static const maniGraphClipSource kSlots[CLIPS] = {
-    {&s_clips[0], "walk", 4, 0, NULL},   {&s_clips[1], "run", 3, 0, NULL},
-    {&s_clips[2], "wave", 4, 0, NULL},   {&s_clips[3], "short", 5, 0, NULL},
-    {&s_clips[4], "long", 4, 0, NULL},   {&s_clips[5], "double", 6, 0, NULL},
-    {&s_clips[6], "triple", 6, 0, NULL}, {&s_clips[7], "turnA", 5, 0, NULL},
-    {&s_clips[8], "turnB", 5, 0, NULL}};
+    {&s_clips[0], "walk", 4, NULL},   {&s_clips[1], "run", 3, NULL},
+    {&s_clips[2], "wave", 4, NULL},   {&s_clips[3], "short", 5, NULL},
+    {&s_clips[4], "long", 4, NULL},   {&s_clips[5], "double", 6, NULL},
+    {&s_clips[6], "triple", 6, NULL}, {&s_clips[7], "turnA", 5, NULL},
+    {&s_clips[8], "turnB", 5, NULL}};
 
 static inline maniGraphNodeSource ClipNode(uint32_t clip, float speed, maniGraphLoop loop)
 {

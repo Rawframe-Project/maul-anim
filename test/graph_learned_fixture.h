@@ -15,7 +15,7 @@
 #include "learned_fixture.h"
 
 static maniLearnedModel s_learned;
-static const maniGraphModelSource kModelSlot[1] = {{&s_learned, "steps", 5, 0}};
+static const maniGraphModelSource kModelSlot[1] = {{&s_learned, "steps", 5}};
 // The model MakeLearned binds slot 0 to.
 static const maniLearnedModel* s_bound = &s_learned;
 static _Alignas(8) uint8_t s_learnedBinding[1024];

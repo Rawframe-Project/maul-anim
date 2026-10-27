@@ -41,12 +41,12 @@ static maniImportResult Fail(const maniGltf* gltf, maniImportReason reason, uint
 
 static maniImportResult Invalid(void)
 {
-    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 // A builder's outcome as an import's: a refusal as Build, item the reason.
@@ -54,7 +54,7 @@ static maniImportResult Built(maniBuildResult b, const maniGltf* gltf, uint32_t 
 {
     if (b.result == mani_success || b.result == mani_errorCapacity)
     {
-        return (maniImportResult){b.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){b.result, maniImportReasonNone, 0, 0};
     }
     return Fail(gltf, maniImportReasonBuild, value, (uint32_t)b.reason);
 }
@@ -458,7 +458,7 @@ static maniImportResult BuildInfluences(maniBuilder* builder, const maniGltf* gl
     {
         return r;
     }
-    maniInfluenceSource source = {skin, offsets, joints, weights, NULL, s.vertices, 0};
+    maniInfluenceSource source = {skin, offsets, joints, weights, NULL, s.vertices};
     return Built(maniBuildInfluences(builder, &source), gltf, primitive);
 }
 
@@ -469,7 +469,7 @@ static MANI_NOINLINE maniImportResult GltfBuildInfluencesWork(maniBuilder* build
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     uint32_t p = gltf == NULL ? MANI_JSON_NONE : Primitive(gltf, mesh, primitive);
     if (builder == NULL || skin == NULL || p == MANI_JSON_NONE)
@@ -785,7 +785,7 @@ static maniImportResult Pack(Morph* m, float* const* full, maniMorphTargetSource
         }
         deltas[a] = packed;
     }
-    *out = (maniMorphTargetSource){1.0f, kept, indices, (const float* const*)deltas, NULL, 0, 0};
+    *out = (maniMorphTargetSource){1.0f, kept, indices, (const float* const*)deltas, NULL, 0};
     return maniImportSuccess();
 }
 
@@ -884,8 +884,8 @@ static maniImportResult BuildMorph(maniBuilder* builder, Morph* m, uint32_t mesh
     {
         return r;
     }
-    maniMorphSource source = {
-        channels, m->targetCount, m->vertices, m->attributeSources, m->attributeCount, 0};
+    maniMorphSource source = {channels, m->targetCount, m->vertices, m->attributeSources,
+                              m->attributeCount};
     return Built(maniBuildMorphTargets(builder, &source), m->gltf, m->targets);
 }
 
@@ -896,7 +896,7 @@ static MANI_NOINLINE maniImportResult GltfBuildMorphTargetsWork(maniBuilder* bui
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     uint32_t p = gltf == NULL ? MANI_JSON_NONE : Primitive(gltf, mesh, primitive);
     uint32_t targets = p == MANI_JSON_NONE ? MANI_JSON_NONE : Targets(gltf, p);

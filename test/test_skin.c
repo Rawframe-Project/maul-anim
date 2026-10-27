@@ -70,7 +70,7 @@ static maniBuilder* NewBuilder(void)
 static maniSkeleton OpenSkeleton(const maniBoneSource* bones, uint8_t* file, size_t capacity)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, file, capacity, &size) == mani_success, "skeleton copies");
@@ -100,7 +100,7 @@ static void BuildSample(void)
     maniAffine inverseBinds[kJoints];
     RestInverseBinds(inverseBinds);
     maniBuilder* builder = NewBuilder();
-    maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints, 0};
+    maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints};
     CHECK(maniBuildSkin(builder, &source).result == mani_success, "skin builds");
     CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "skin copies");
     maniDestroyBuilder(builder);
@@ -211,7 +211,7 @@ static void TestPaletteIsModelTimesInverseBind(void)
 static maniBuildResult BuildWith(const uint32_t* joints, const maniAffine* binds, uint32_t count)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkinSource source = {&s_skeleton, joints, binds, count, 0};
+    maniSkinSource source = {&s_skeleton, joints, binds, count};
     maniBuildResult r = maniBuildSkin(builder, &source);
     maniDestroyBuilder(builder);
     return r;
@@ -234,7 +234,7 @@ static void TestBuildRefusals(void)
           "a matrix not finite");
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildSkin(builder, NULL).result == mani_errorInvalid, "null source");
-    maniSkinSource noSkeleton = {NULL, kJointBones, binds, kJoints, 0};
+    maniSkinSource noSkeleton = {NULL, kJointBones, binds, kJoints};
     CHECK(maniBuildSkin(builder, &noSkeleton).result == mani_errorInvalid, "null skeleton");
     CHECK(maniBuilderMisuses(builder) == 2, "two misuses");
     maniDestroyBuilder(builder);

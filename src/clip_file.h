@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_CLIP_FORMAT_VERSION      3u
+#define MANI_CLIP_FORMAT_VERSION      4u
 #define MANI_CLIP_SECTIONS            10u
 #define MANI_CLIP_COMPRESSED_SECTIONS 15u
 #define MANI_CLIP_ALL_SECTIONS        16u
@@ -94,12 +94,11 @@ enum
 };
 
 // The root motion header: bone, translation axes, rotation, twist axis,
-// translation reference, rotation reference, loop (u32 each), then zero.
-#define MANI_ROOT_MOTION_HEADER_SIZE 32u
-// A move: translation x, y, z and rotation x, y, z, w (binary32 each);
-// the period's move is followed by a zero float.
+// translation reference, rotation reference, loop (u32 each).
+#define MANI_ROOT_MOTION_HEADER_SIZE 28u
+// A move: translation x, y, z and rotation x, y, z, w (binary32 each).
 #define MANI_ROOT_MOTION_MOVE_FLOATS 7u
-#define MANI_ROOT_MOTION_PERIOD_SIZE 32u
+#define MANI_ROOT_MOTION_PERIOD_SIZE 28u
 // A stored translation component's bound, 2^64: a move across 2^32 wraps
 // stays well inside binary32.
 #define MANI_ROOT_MOTION_REACH 18446744073709551616.0

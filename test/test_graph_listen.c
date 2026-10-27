@@ -64,8 +64,7 @@ static maniGraphTransitionSource Go(uint32_t from, uint32_t to, uint32_t priorit
                                        duration,
                                        0.0f,
                                        conditions,
-                                       count,
-                                       0};
+                                       count};
 }
 
 static maniGraphConditionSource Phase(float value)
@@ -230,7 +229,7 @@ static void TestLeading(void)
     maniGraphTransitionSource t[1] = {Go(0, 1, 0, 0.0f, c, 1)};
     maniGraphNodeSource nodes[5] = {
         {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
-        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0}},
         ClipNode(0, 1.0f, maniGraphLoopRepeat),
         ClipNode(4, 1.0f, maniGraphLoopClamp),
         ClipNode(1, 1.0f, maniGraphLoopRepeat)};
@@ -275,7 +274,7 @@ static maniGraphInstance* Shared(const maniGraphTransitionSource* t, maniGraph* 
     static const maniGraphScalar kWeights[2] = {{0, 0.0f}, {MANI_NO_PARAMETER, 1.0f}};
     maniGraphNodeSource nodes[4] = {
         {maniGraphNodeMachine, 2, kStates, .machine = {t, 1, 0, 0, 0, NULL}},
-        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0}},
         ClipNode(0, 1.0f, maniGraphLoopRepeat),
         ClipNode(1, 1.0f, maniGraphLoopRepeat)};
     return MakeNodes(nodes, 4, g);

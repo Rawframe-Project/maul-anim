@@ -39,10 +39,10 @@ uint64_t maniMirrorComputeIdentity(const uint8_t* const data[MANI_MIRROR_SECTION
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, 0, offset};
+    return (maniFileResult){mani_errorFormat, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0, 0};
+static const maniFileResult kOk = {mani_success, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -199,7 +199,7 @@ static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t 
 {
     if (mapOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0, 0};
+        return (maniFileResult){mani_errorInvalid, 0};
     }
     maniContainer c;
     maniFileResult r =

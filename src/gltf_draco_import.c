@@ -151,7 +151,7 @@ maniImportResult maniGltfDracoDecode(const maniGltf* gltf, maniArena* arena, uin
     if (s != maniDracoDone)
     {
         return s == maniDracoCapacity
-                   ? (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0}
+                   ? (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0}
                    : maniImportFail(maniImportReasonData, v->offset, out->view);
     }
     uint32_t key = out->attributes + 1;

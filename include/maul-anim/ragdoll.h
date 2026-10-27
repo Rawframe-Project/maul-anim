@@ -49,7 +49,6 @@ extern "C"
         uint32_t boneCount;
         uint32_t bodyCount;
         uint32_t nameBytes;
-        uint32_t reserved;
         maniVec3 facing;
         maniVec3 up;
     } maniRagdoll;

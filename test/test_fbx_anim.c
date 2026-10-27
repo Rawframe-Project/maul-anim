@@ -361,7 +361,7 @@ static void ExpectRefusal(int64_t node, const char* what)
     CHECK(maniOpenFbx(builder, s_text, strlen(s_text), &fbx).result == mani_success, "opens");
     maniFbxAnimation a;
     maniImportResult r = fbx != NULL ? maniFbxReadAnimation(fbx, maniFbxStackSource(fbx, 0), &a)
-                                     : (maniImportResult){mani_errorInvalid, 0, 0, 0, 0};
+                                     : (maniImportResult){mani_errorInvalid, 0, 0, 0};
     char at[32];
     snprintf(at, sizeof at, "AnimationCurveNode: %lld", (long long)node);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&

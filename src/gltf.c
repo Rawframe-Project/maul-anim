@@ -58,7 +58,7 @@ static const char* const kKnownExtensions[] = {
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 // GLB's header and chunks: the JSON chunk first, a BIN chunk second if
@@ -262,7 +262,7 @@ static MANI_NOINLINE maniImportResult OpenGltfWork(maniBuilder* builder, const v
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     if (gltfOut != NULL)
     {
@@ -270,12 +270,12 @@ static MANI_NOINLINE maniImportResult OpenGltfWork(maniBuilder* builder, const v
     }
     if (builder == NULL)
     {
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     if (bytes == NULL || gltfOut == NULL)
     {
         maniBuilderMisuse(builder);
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     maniGltf* gltf = maniAllocate(&builder->allocator, 1, sizeof(maniGltf), 8);
     if (gltf == NULL)
@@ -350,7 +350,7 @@ static MANI_NOINLINE maniImportResult GltfSupplyBufferWork(maniGltf* gltf, uint3
     if (gltf == NULL || bytes == NULL || buffer >= gltf->bufferCount ||
         !gltf->buffers[buffer].external)
     {
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     if (size < gltf->buffers[buffer].byteLength)
     {

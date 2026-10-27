@@ -182,7 +182,7 @@ static void Skeleton(const Rig* rig, uint8_t* file, size_t capacity, maniSkeleto
         bones[i] = (maniBoneSource){
             b->name, (uint32_t)strlen(b->name), b->parent, {b->offset, b->rest, {1, 1, 1}}};
     }
-    maniSkeletonSource source = {bones, (uint32_t)rig->count, 0};
+    maniSkeletonSource source = {bones, (uint32_t)rig->count};
     size_t size = 0;
     if (maniBuildSkeleton(s_builder, &source).result != mani_success ||
         maniCopyBuilt(s_builder, file, capacity, &size) != mani_success ||

@@ -91,7 +91,7 @@ static maniImportResult Import(const char* text, const maniFbxOptions* options, 
 {
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, text);
-    maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0};
     if (fbx != NULL)
     {
         r = maniFbxBuildMorphTargets(builder, fbx, 0, options);
@@ -146,10 +146,10 @@ static void Apply(const maniMorphTargets* m, uint32_t target, float* positions, 
     float weights[8] = {0};
     weights[target] = 1.0f;
     maniMorphStream streams[2] = {
-        {kZero, positions, 12, 12, maniMorphPosition, 0, 3, 0},
-        {kUp, normals, 12, 12, maniMorphNormal, 0, 3, 0},
+        {kZero, positions, 12, 12, maniMorphPosition, 0, 3},
+        {kUp, normals, 12, 12, maniMorphNormal, 0, 3},
     };
-    maniMorphJob job = {m, weights, 0, maniMorphVertexCount(m), 2, 0, streams};
+    maniMorphJob job = {m, weights, 0, maniMorphVertexCount(m), 2, streams};
     CHECK(maniApplyMorphTargets(&job) == mani_success, "applies");
 }
 

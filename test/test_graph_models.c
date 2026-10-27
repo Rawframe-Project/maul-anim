@@ -72,7 +72,7 @@ static void OpenModels(void)
 
 static void TestBuild(void)
 {
-    const maniGraphModelSource slots[2] = {{&s_learned, "steps", 5, 0}, {&s_other, "moves", 5, 0}};
+    const maniGraphModelSource slots[2] = {{&s_learned, "steps", 5}, {&s_other, "moves", 5}};
     maniGraphSource source = Graph(slots, 2);
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two models");
     maniGraph g;
@@ -101,10 +101,10 @@ static void TestBuild(void)
     stranger.skeletonIdentity ^= 1;
     bad[1].model = &stranger;
     CHECK(RefusedFor(&source, maniBuildReasonModel, 1, 0), "a model of another skeleton");
-    bad[1] = (maniGraphModelSource){&s_other, "steps", 5, 0};
+    bad[1] = (maniGraphModelSource){&s_other, "steps", 5};
     CHECK(RefusedFor(&source, maniBuildReasonModelList | maniBuildReasonDuplicateName, 1, 0),
           "a name twice");
-    bad[1] = (maniGraphModelSource){&s_other, "", 0, 0};
+    bad[1] = (maniGraphModelSource){&s_other, "", 0};
     CHECK(RefusedFor(&source, maniBuildReasonModelList | maniBuildReasonName, 1, 0), "no name");
     source = Graph(NULL, 1);
     CHECK(RefusedFor(&source, maniBuildReasonCount, 0, 0), "a count without its list");
@@ -146,7 +146,7 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
 
 static void TestOpen(void)
 {
-    const maniGraphModelSource slots[2] = {{&s_learned, "steps", 5, 0}, {&s_other, "moves", 5, 0}};
+    const maniGraphModelSource slots[2] = {{&s_learned, "steps", 5}, {&s_other, "moves", 5}};
     maniGraphSource source = Graph(slots, 2);
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two models");
     uint64_t size = 0;
@@ -166,7 +166,7 @@ static void TestOpen(void)
 
 static void TestBind(void)
 {
-    const maniGraphModelSource slots[1] = {{&s_learned, "steps", 5, 0}};
+    const maniGraphModelSource slots[1] = {{&s_learned, "steps", 5}};
     maniGraphSource source = Graph(slots, 1);
     CHECK(BuildGraph(&source).result == mani_success, "a graph of a model");
     maniGraph g;
@@ -226,7 +226,7 @@ static char s_text[16384];
 
 static void TestJson(void)
 {
-    const maniGraphModelSource slots[1] = {{&s_learned, "steps", 5, 0}};
+    const maniGraphModelSource slots[1] = {{&s_learned, "steps", 5}};
     maniGraphSource source = Graph(slots, 1);
     CHECK(BuildGraph(&source).result == mani_success, "a graph of a model");
     maniGraph g;
@@ -248,13 +248,13 @@ static void TestJson(void)
               maniOpenGraph(s_graphFile, s_graphSize, &read).result == mani_success &&
               read.identity == identity,
           "read back to the same graph");
-    const maniGraphModelSource unnamed[2] = {{&s_other, NULL, 5, 0}, {&s_learned, "steps", 5, 0}};
+    const maniGraphModelSource unnamed[2] = {{&s_other, NULL, 5}, {&s_learned, "steps", 5}};
     assets.models = unnamed;
     assets.modelCount = 2;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success,
           "a host model without a name passed over");
     assets.modelCount = 1;
-    const maniGraphModelSource other[1] = {{&s_learned, "jumps", 5, 0}};
+    const maniGraphModelSource other[1] = {{&s_learned, "jumps", 5}};
     assets.models = other;
     maniBuildResult r = maniBuildGraphJson(builder, s_text, size, &assets);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonForm &&

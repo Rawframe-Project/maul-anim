@@ -493,7 +493,7 @@ static void TestOpenRefusals(void)
     Parameters();
     maniGraphNodeSource nodes[5] = {{maniGraphNodeOneShot, 2, kInputs, .oneShot = Shot(0.0f, 0.0f)},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
-                                    {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0, 0}},
+                                    {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0}},
                                     ClipNode(4, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
     (void)Make(

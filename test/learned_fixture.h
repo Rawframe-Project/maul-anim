@@ -63,8 +63,7 @@ static inline maniLearnedNetworkSource Network(maniLearnedLayerSource* layers,
                                       Pool(sizes[0], 1.25f, 1.5f),
                                       Pool(sizes[count], 0.0f, 1.0f),
                                       Pool(sizes[count], 1.25f, 1.5f),
-                                      count,
-                                      0};
+                                      count};
 }
 
 static maniLearnedLayerSource s_layers[5][3];
@@ -73,8 +72,8 @@ static maniLearnedNetworkSource s_stepper;
 static maniLearnedProjectorSource s_projectors[2];
 static const uint32_t kScaled[1] = {2};
 static float s_scales[9] = {1, 1, 1, 2, 2, 2, 1, 1, 1};
-static const maniLearnedNameSource kTracks[1] = {{"speed", 5, 0}};
-static const maniLearnedNameSource kEvents[2] = {{"left", 4, 0}, {"right", 5, 0}};
+static const maniLearnedNameSource kTracks[1] = {{"speed", 5}};
+static const maniLearnedNameSource kEvents[2] = {{"left", 4}, {"right", 5}};
 
 static inline void MakeNetworks(void)
 {

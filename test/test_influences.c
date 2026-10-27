@@ -61,7 +61,7 @@ static maniBuilder* NewBuilder(void)
 static void OpenSkin(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kSkeletonBones, kBones, 0};
+    maniSkeletonSource source = {kSkeletonBones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -73,7 +73,7 @@ static void OpenSkin(void)
     {
         binds[j] = (maniAffine){{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5f * (float)j, 0}};
     }
-    maniSkinSource skin = {&s_skeleton, joints, binds, kJoints, 0};
+    maniSkinSource skin = {&s_skeleton, joints, binds, kJoints};
     CHECK(maniBuildSkin(builder, &skin).result == mani_success &&
               maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success,
           "skin");
@@ -254,7 +254,7 @@ static void TestBuildRefusals(void)
         manyJoints[i] = i;
         manyWeights[i] = 1.0f;
     }
-    maniInfluenceSource many = {&wide, manyOffsets, manyJoints, manyWeights, NULL, 1, 0};
+    maniInfluenceSource many = {&wide, manyOffsets, manyJoints, manyWeights, NULL, 1};
     ExpectRefused(&many, maniBuildReasonCount, 0, 64, "65 weighted influences");
     manyOffsets[1] = 64;
     CHECK(BuildFrom(&many).result == mani_success, "64: sixteen groups");

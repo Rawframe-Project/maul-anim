@@ -43,7 +43,6 @@ extern "C"
         const float* outputOffsets;
         const float* outputScales;
         uint32_t layerCount;
-        uint32_t reserved;
     } maniLearnedNetworkSource;
 
     // A Projector and the tag filter its targets passed.
@@ -59,7 +58,6 @@ extern "C"
     {
         const char* name;
         uint32_t length;
-        uint32_t reserved;
     } maniLearnedNameSource;
 
     // A model: the skeleton and the motion database it learned (of that
@@ -95,7 +93,6 @@ extern "C"
         uint32_t latentCount;
         float stepRate;
         maniLearnedWeights weightFormat;
-        uint32_t reserved;
     } maniLearnedModelSource;
 
     /// Builds a model: checks the networks' shapes against their roles

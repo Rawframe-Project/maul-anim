@@ -31,7 +31,7 @@ static maniGraphInstance* Line(float period, maniGraph* g)
     x = Parameter("x", maniGraphParameterFloat, Float(0.0f));
     maniGraphNodeSource nodes[4] = {
         {maniGraphNodeBlendSpace1D, 3, kInputs,
-         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.0f)}, kPoints, period, 0}},
+         .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)}, kPoints, period}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip)};
@@ -74,7 +74,7 @@ static void TestLine(void)
     maniGraphParameterSource x = Parameter("x", maniGraphParameterFloat, Float(0.0f));
     maniGraphNodeSource alone[2] = {
         {maniGraphNodeBlendSpace1D, 1, kOne,
-         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {0, 0.0f}}, kPoint, 2.0f, 0}},
+         .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, {0, 0.0f}}, kPoint, 2.0f}},
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     instance = Make(
         (maniGraphSource){.parameters = &x, .nodes = alone, .parameterCount = 1, .nodeCount = 2},
@@ -95,15 +95,15 @@ static maniGraphInstance* Bands(bool polar, bool vector, maniGraph* g)
     parameters[0] = Parameter("x", maniGraphParameterFloat, Float(0.0f));
     parameters[1] = Parameter("y", maniGraphParameterFloat, Float(0.0f));
     parameters[2] = Parameter("at", maniGraphParameterVec2, Float(0.0f));
-    maniGraphPosition position = {MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}};
+    maniGraphPosition position = {MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}};
     if (vector)
     {
-        position = (maniGraphPosition){2, 0, LITERAL(0.0f), LITERAL(0.0f)};
+        position = (maniGraphPosition){2, LITERAL(0.0f), LITERAL(0.0f)};
     }
     uint32_t n = polar ? 4u : 3u;
     maniGraphNodeSource nodes[5] = {
         {maniGraphNodeBlendSpaceBands, n, kInputs,
-         .bands = {position, polar ? kPolar : kCartesian, polar ? 1u : 0u, 0}},
+         .bands = {position, polar ? kPolar : kCartesian, polar ? 1u : 0u}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip),
@@ -158,7 +158,7 @@ static void TestPolarMixed(void)
                                               Parameter("y", maniGraphParameterFloat, Float(0))};
     maniGraphNodeSource nodes[6] = {
         {maniGraphNodeBlendSpaceBands, 5, kInputs,
-         .bands = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, kPoints, 1, 0}},
+         .bands = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, kPoints, 1}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip),
@@ -189,7 +189,7 @@ static void TestPolarTurns(void)
     {
         maniGraphNodeSource nodes[4] = {
             {maniGraphNodeBlendSpaceBands, 3, kInputs,
-             .bands = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, k == 0 ? kSeam : kRing, 1, 0}},
+             .bands = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, k == 0 ? kSeam : kRing, 1}},
             ClipNode(0, 1.0f, maniGraphLoopClip),
             ClipNode(1, 1.0f, maniGraphLoopClip),
             ClipNode(3, 1.0f, maniGraphLoopClip)};
@@ -250,9 +250,9 @@ static void TestRefusals(void)
     static const uint32_t kInputs[3] = {1, 2, 3};
     float points[6] = {-1.0f, 2.0f, -1.0f, 0, 0, 0};
     maniGraphParameterSource n = Parameter("n", maniGraphParameterInt, Int(0));
-    maniGraphPosition literal = {MANI_NO_PARAMETER, 0, LITERAL(0.0f), LITERAL(0.0f)};
+    maniGraphPosition literal = {MANI_NO_PARAMETER, LITERAL(0.0f), LITERAL(0.0f)};
     maniGraphNodeSource nodes[4] = {
-        {maniGraphNodeBlendSpace1D, 3, kInputs, .blendSpace1D = {literal, points, 0.0f, 0}},
+        {maniGraphNodeBlendSpace1D, 3, kInputs, .blendSpace1D = {literal, points, 0.0f}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip)};
@@ -286,11 +286,11 @@ static void TestRefusals(void)
     CHECK(BuildOnly(nodes, 4, NULL, 0).result == mani_success, "a 1D space's y unused");
     nodes[0].blendSpace1D.position.x = (maniGraphScalar){0, 0.0f};
     CHECK(Refused(BuildOnly(nodes, 4, &n, 1), maniBuildReasonScalar, 0), "x from an int");
-    nodes[0].blendSpace1D.position = (maniGraphPosition){0, 0, LITERAL(0.0f), LITERAL(0.0f)};
+    nodes[0].blendSpace1D.position = (maniGraphPosition){0, LITERAL(0.0f), LITERAL(0.0f)};
     CHECK(Refused(BuildOnly(nodes, 4, &n, 1), maniBuildReasonScalar, 0), "a vector not vec2");
     float pairs[6] = {0, 0, 1, 0, 0, 0};
     nodes[0] = (maniGraphNodeSource){maniGraphNodeBlendSpaceBands, 3, kInputs,
-                                     .bands = {literal, pairs, 0, 0}};
+                                     .bands = {literal, pairs, 0}};
     CHECK(Refused(BuildOnly(nodes, 4, NULL, 0), maniBuildReasonPoint, 2), "two equal pairs");
     pairs[5] = 1.0f;
     nodes[0].bands.polar = 2;
@@ -330,9 +330,9 @@ static void TestSubgraph(void)
     static const uint32_t kInputs[2] = {1, 2};
     static const float kPoints[2] = {0.0f, 1.0f};
     maniGraphParameterSource s = Parameter("s", maniGraphParameterFloat, Float(0.0f));
-    maniGraphPosition position = {MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.0f)};
+    maniGraphPosition position = {MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)};
     maniGraphNodeSource inner[3] = {
-        {maniGraphNodeBlendSpace1D, 2, kInputs, .blendSpace1D = {position, kPoints, 0.0f, 0}},
+        {maniGraphNodeBlendSpace1D, 2, kInputs, .blendSpace1D = {position, kPoints, 0.0f}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraphSource sub = {&s_skeleton, &s, kSlots, NULL, inner, 1,    CLIPS, 0,   3,
@@ -381,17 +381,17 @@ static void TestJson(void)
                                               Parameter("at", maniGraphParameterVec2, Float(0.0f))};
     maniGraphNodeSource nodes[7] = {
         {maniGraphNodeBlendSpace1D, 2, kLineInputs,
-         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.0f)}, kLine, 2.0f, 0}},
+         .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)}, kLine, 2.0f}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip),
         ClipNode(4, 1.0f, maniGraphLoopClip),
         ClipNode(5, 1.0f, maniGraphLoopClip),
         {maniGraphNodeBlendSpaceBands, 3, kBandInputs,
-         .bands = {{1, 0, LITERAL(0.0f), LITERAL(0.0f)}, kPairs, 1, 0}}};
+         .bands = {{1, LITERAL(0.0f), LITERAL(0.0f)}, kPairs, 1}}};
     maniGraphNodeSource all[8];
     memcpy(all, nodes, sizeof nodes);
-    all[7] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kOutput, .blend = {kHalves, 0, 0}};
+    all[7] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kOutput, .blend = {kHalves, 0}};
     maniGraphSource source = {&s_skeleton, parameters, kSlots, NULL, all, 2,    CLIPS, 0,   8,
                               7,           0,          NULL,   0,    0,   NULL, NULL,  NULL};
     static _Alignas(16) uint8_t read[16384];
@@ -433,9 +433,9 @@ static void TestJsonDefaults(void)
     maniGraphParameterSource x = Parameter("x", maniGraphParameterFloat, Float(0.0f));
     maniGraphNodeSource nodes[4] = {
         {maniGraphNodeBlendSpaceBands, 2, kBands,
-         .bands = {{MANI_NO_PARAMETER, 0, LITERAL(0.5f), LITERAL(0.0f)}, kPairs, 0, 0}},
+         .bands = {{MANI_NO_PARAMETER, LITERAL(0.5f), LITERAL(0.0f)}, kPairs, 0}},
         {maniGraphNodeBlendSpace1D, 2, kLine,
-         .blendSpace1D = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.0f)}, kPoints, 0.0f, 0}},
+         .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)}, kPoints, 0.0f}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraphSource source = {&s_skeleton, &x, kSlots, NULL, nodes, 1,    2,    0,   4,

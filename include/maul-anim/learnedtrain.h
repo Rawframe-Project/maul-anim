@@ -134,7 +134,6 @@ extern "C"
         uint32_t stageCount;
         uint64_t iteration;
         float loss;
-        uint32_t reserved;
     } maniLearnedTrainerReport;
 
     /// Makes a trainer: checks the def and source, and samples the

@@ -102,8 +102,8 @@ static maniBuildResult CheckRules(const maniMirrorMapSource* s)
     for (uint32_t i = 0; i < s->ruleCount; ++i)
     {
         const maniMirrorRuleSource* r = &s->rules[i];
-        if (r->findLength == 0 || r->place > maniMirrorAnywhere || r->reserved != 0 ||
-            !Utf8(r->find, r->findLength) || !Utf8(r->replace, r->replaceLength))
+        if (r->findLength == 0 || r->place > maniMirrorAnywhere || !Utf8(r->find, r->findLength) ||
+            !Utf8(r->replace, r->replaceLength))
         {
             return Refuse(maniBuildReasonMirrorRule, i, 0);
         }
@@ -309,7 +309,7 @@ static maniBuildResult Names(Work* w)
         const maniMirrorNameSource* n = &s->names[j];
         uint32_t item = s->namePairCount + j;
         maniBuildResult r = CheckName(n->name, n->nameLength, item);
-        if (r.result != mani_success || n->reserved != 0)
+        if (r.result != mani_success)
         {
             return Refuse(maniBuildReasonMirrorName, item, 0);
         }
@@ -525,7 +525,7 @@ static bool Usable(const maniMirrorMapSource* s)
     return s != NULL && s->skeleton != NULL && (s->pairs != NULL || s->pairCount == 0) &&
            (s->rules != NULL || s->ruleCount == 0) &&
            (s->namePairs != NULL || s->namePairCount == 0) &&
-           (s->names != NULL || s->nameCount == 0) && s->reserved == 0;
+           (s->names != NULL || s->nameCount == 0);
 }
 
 // The longest name a rule can make from a bone's or a listed name, and

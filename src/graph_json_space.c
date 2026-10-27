@@ -22,7 +22,7 @@ static bool Position(maniGraphReader* r, const maniGraphScope* scope, uint32_t v
     static const char* const kKeys[] = {"vector", "x", "y"};
     uint32_t f[3] = {MANI_JSON_NONE, MANI_JSON_NONE, MANI_JSON_NONE};
     *p = (maniGraphPosition){
-        MANI_NO_PARAMETER, 0, {MANI_NO_PARAMETER, 0.0f}, {MANI_NO_PARAMETER, 0.0f}};
+        MANI_NO_PARAMETER, {MANI_NO_PARAMETER, 0.0f}, {MANI_NO_PARAMETER, 0.0f}};
     if (!maniGraphJsonMembers(r, value, kKeys, plane ? 3u : 2u, 0u, f))
     {
         return false;

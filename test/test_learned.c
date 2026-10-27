@@ -242,7 +242,7 @@ static void TestEvaluateRefusals(void)
     static _Alignas(16) uint8_t oneFile[1024];
     static _Alignas(32) uint8_t onePose[1024];
     static const maniBoneSource kBone = {"hips", 4, -1, {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}};
-    const maniSkeletonSource oneSource = {&kBone, 1, 0};
+    const maniSkeletonSource oneSource = {&kBone, 1};
     maniSkeleton one;
     maniPose* small = NULL;
     size_t oneSize = 0;
@@ -326,7 +326,7 @@ static void TestHalfTurns(const maniLearnedModelSource* source)
 static void TestColumns(void)
 {
     const maniLearnedLayerSource layer = {s_zeros, s_biases, STATE, OUTPUTS};
-    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1, 0};
+    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1};
     maniLearnedModelSource source = Source();
     source.decompressor = &fixed;
     // Bone 0 a quarter turn about z; bone 1 columns neither unit nor
@@ -515,9 +515,9 @@ static void TestModelRefusals(void)
     s_scales[4] = INFINITY;
     CHECK(RefusedAs(&s, maniBuildReasonNotFinite, 1, 0), "a scale not finite");
     s_scales[4] = 2.0f;
-    static const maniLearnedNameSource kBad[2] = {{"a", 1, 0}, {"\xff", 1, 0}};
-    static const maniLearnedNameSource kTwice[2] = {{"a", 1, 0}, {"a", 1, 0}};
-    static const maniLearnedNameSource kEmpty[1] = {{"", 0, 0}};
+    static const maniLearnedNameSource kBad[2] = {{"a", 1}, {"\xff", 1}};
+    static const maniLearnedNameSource kTwice[2] = {{"a", 1}, {"a", 1}};
+    static const maniLearnedNameSource kEmpty[1] = {{"", 0}};
     s = Source();
     s.floatTracks = kBad;
     s.floatTrackCount = 2;
@@ -769,19 +769,22 @@ static void TestOpenRecords(void)
     CHECK(WordRefused(maniLearnedTagBones, 0, 3, 0), "a scaled bone past the bones");
     CHECK(WordRefused(maniLearnedTagBones, 4 + 20, BitsOf(INFINITY), 4 + 20),
           "a bone's scale not finite");
-    // Networks: the Decompressor's layer count; the Stepper's tags and
-    // the reserved word; a Projector's tags are its own.
+    // Networks: the Decompressor's layer count; the Stepper's tags; a
+    // Projector's tags are its own.
     CHECK(WordRefused(maniLearnedTagNetworks, 0, 0, 0), "a network of no layers");
     CHECK(WordRefused(maniLearnedTagNetworks, 0, 17, 0), "layers past the limit");
     CHECK(WordRefusedIn(maniLearnedTagNetworks, 0, 3, maniLearnedTagLayers, 16),
           "a layer past the network's role");
-    CHECK(WordRefused(maniLearnedTagNetworks, 20, 1, 20), "the Stepper's required tags");
-    CHECK(WordRefused(maniLearnedTagNetworks, 24, 1, 24), "the Stepper's excluded tags");
-    CHECK(WordRefused(maniLearnedTagNetworks, 44, 1, 44), "the reserved word");
+    const uint32_t stepper = MANI_LEARNED_NETWORK_SIZE;
+    CHECK(WordRefused(maniLearnedTagNetworks, stepper + 4, 1, stepper + 4),
+          "the Stepper's required tags");
+    CHECK(WordRefused(maniLearnedTagNetworks, stepper + 8, 1, stepper + 8),
+          "the Stepper's excluded tags");
     uint64_t at = 0;
     uint8_t tags[4];
     maniStoreU32(tags, 7);
-    CHECK(Changed(maniLearnedTagNetworks, 36, tags, 4, true, &at).result == mani_success,
+    CHECK(Changed(maniLearnedTagNetworks, 2 * MANI_LEARNED_NETWORK_SIZE + 4, tags, 4, true, &at)
+                  .result == mani_success,
           "a Projector's tags");
     // Layers: the Decompressor's first input, an output not chained, a
     // last output not its role's, an output of 0.
@@ -796,8 +799,8 @@ static void TestOpenRecords(void)
 
 static void TestOpenNames(void)
 {
-    static const maniLearnedNameSource kTrack[1] = {{"xy", 2, 0}};
-    static const maniLearnedNameSource kTwo[2] = {{"ab", 2, 0}, {"cd", 2, 0}};
+    static const maniLearnedNameSource kTrack[1] = {{"xy", 2}};
+    static const maniLearnedNameSource kTwo[2] = {{"ab", 2}, {"cd", 2}};
     maniLearnedModelSource source = Source();
     source.floatTracks = kTrack;
     source.events = kTwo;
@@ -844,7 +847,7 @@ static void TestOpenShapes(void)
     static const uint32_t kTwoScaled[2] = {1, 2};
     static const uint32_t kSpare[3] = {FEATURES, STATE, STATE};
     const maniLearnedLayerSource layer = {s_zeros, s_biases, STATE, 42};
-    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1, 0};
+    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1};
     maniLearnedLayerSource spare[2];
     maniLearnedProjectorSource projectors[2] = {s_projectors[0], {Network(spare, kSpare, 2), 0, 0}};
     maniLearnedModelSource source = Source();

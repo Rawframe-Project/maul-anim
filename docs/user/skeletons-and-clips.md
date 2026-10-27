@@ -25,7 +25,7 @@ const maniBoneSource bones[3] = {
     {"hips", 4, -1, {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
     {"spine", 5, 0, {{0.0f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
     {"head", 4, 1, {{0.0f, 0.4f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
-maniSkeletonSource source = {bones, 3, 0};
+maniSkeletonSource source = {bones, 3};
 maniBuildResult built = maniBuildSkeleton(builder, &source);
 // built.result; when refused, built.reason, built.item and built.other.
 
@@ -47,7 +47,7 @@ static const float times[2] = {0.0f, 1.0f};
 static const float turns[8] = {0.0f, 0.0f, 0.0f, 1.0f,             // at 0 s
                                0.0f, 0.38268343f, 0.0f, 0.92387953f}; // 45 degrees about y
 const maniBoneTrackSource tracks[1] = {
-    {1, 0, {NULL, NULL, 0, 0}, {times, turns, 2, maniInterpolationLinear}, {NULL, NULL, 0, 0}}};
+    {1, {NULL, NULL, 0, 0}, {times, turns, 2, maniInterpolationLinear}, {NULL, NULL, 0, 0}}};
 maniClipSource clipSource = {.skeleton = &skeleton,
                              .boneTracks = tracks,
                              .boneTrackCount = 1,

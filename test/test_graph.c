@@ -73,11 +73,11 @@ static void OpenClips(void)
 {
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
     const maniBoneTrackSource tracks[3] = {
-        {0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
-        {0, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
-        {2, 0, kNone, {kTimes, kWave, 2, maniInterpolationLinear}, kNone},
+        {0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+        {2, kNone, {kTimes, kWave, 2, maniInterpolationLinear}, kNone},
     };
-    static const maniEventSource kSteps[2] = {{0.0f, 7, "left", 4, 0}, {0.5f, 8, "right", 5, 0}};
+    static const maniEventSource kSteps[2] = {{0.0f, 7, "left", 4}, {0.5f, 8, "right", 5}};
     for (int i = 0; i < 3; ++i)
     {
         maniClipSource source = {.skeleton = &s_skeleton,
@@ -102,7 +102,7 @@ static void OpenClips(void)
 static void OpenSkeleton(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 3, 0};
+    maniSkeletonSource source = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -143,8 +143,7 @@ static maniGraphValue Int(int32_t i)
 static maniGraphParameterSource Parameter(const char* name, maniGraphParameterType type,
                                           maniGraphValue value)
 {
-    return (maniGraphParameterSource){name, (uint32_t)strlen(name), type, value, Int(0), Int(0), 0,
-                                      0};
+    return (maniGraphParameterSource){name, (uint32_t)strlen(name), type, value, Int(0), Int(0), 0};
 }
 
 // Nodes in the source's order: 0 blend (walk, run), 1 the output (an
@@ -165,9 +164,9 @@ static maniGraphSource Source(void)
     s_parameters[3] = Parameter("jump", maniGraphParameterTrigger, Int(0));
     s_parameters[4] = Parameter("lean", maniGraphParameterBool, Int(1));
     s_parameters[5] = Parameter("aim", maniGraphParameterQuat, Float(0, 0, 0, 2));
-    s_clipSlots[0] = (maniGraphClipSource){&s_clips[0], "walk", 4, 0, NULL};
-    s_clipSlots[1] = (maniGraphClipSource){&s_clips[1], "run", 3, 0, NULL};
-    s_clipSlots[2] = (maniGraphClipSource){&s_clips[2], "wave", 4, 0, NULL};
+    s_clipSlots[0] = (maniGraphClipSource){&s_clips[0], "walk", 4, NULL};
+    s_clipSlots[1] = (maniGraphClipSource){&s_clips[1], "run", 3, NULL};
+    s_clipSlots[2] = (maniGraphClipSource){&s_clips[2], "wave", 4, NULL};
     s_groups[0] = (maniGraphSyncGroupSource){"feet", 4, 0};
     s_blendWeights[0] = (maniGraphScalar){1, 0.0f};
     s_blendWeights[1] = (maniGraphScalar){MANI_NO_PARAMETER, 1.0f};
@@ -175,7 +174,7 @@ static maniGraphSource Source(void)
     s_chains[0] = (maniMaskChain){1, 1.0f, true};
     const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
     s_nodes[0] =
-        (maniGraphNodeSource){maniGraphNodeBlend, 2, kBlendInputs, .blend = {s_blendWeights, 0, 0}};
+        (maniGraphNodeSource){maniGraphNodeBlend, 2, kBlendInputs, .blend = {s_blendWeights, 0}};
     s_nodes[1] = (maniGraphNodeSource){maniGraphNodeAdditive, 2, kAdditiveInputs,
                                        .additive = {s_layerWeights}};
     s_nodes[2] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
@@ -810,12 +809,12 @@ static maniClip s_rootClips[3];
 static void OpenRootClips(void)
 {
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniRootMotionSource kHips = {0, maniRootAxisX, 0, 0, 0, 0, 0, 0};
-    static const maniRootMotionSource kSpine = {1, maniRootAxisX, 0, 0, 0, 0, 0, 0};
+    static const maniRootMotionSource kHips = {0, maniRootAxisX, 0, 0, 0, 0, 0};
+    static const maniRootMotionSource kSpine = {1, maniRootAxisX, 0, 0, 0, 0, 0};
     const maniBoneTrackSource tracks[3] = {
-        {0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
-        {0, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
-        {1, 0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+        {1, {kTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
     };
     for (int i = 0; i < 3; ++i)
     {
@@ -842,15 +841,15 @@ static void TestRootMotion(void)
     OpenRootClips();
     maniGraphParameterSource parameters[1] = {
         Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0))};
-    maniGraphClipSource clips[2] = {{&s_rootClips[0], "walk", 4, 0, NULL},
-                                    {&s_rootClips[1], "run", 3, 0, NULL}};
+    maniGraphClipSource clips[2] = {{&s_rootClips[0], "walk", 4, NULL},
+                                    {&s_rootClips[1], "run", 3, NULL}};
     static const uint32_t kInputs[2] = {0, 1};
     const maniGraphScalar weights[2] = {{0, 0.0f}, {MANI_NO_PARAMETER, 0.5f}};
     const maniGraphScalar one = {MANI_NO_PARAMETER, 1.0f};
     maniGraphNodeSource nodes[3] = {
         {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, one, maniGraphLoopClip, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, one, maniGraphLoopClip, 0}},
-        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0}},
     };
     maniGraphSource source = {&s_skeleton, parameters, clips, NULL, nodes, 1,    2,    0,   3,
                               2,           0,          NULL,  0,    0,     NULL, NULL, NULL};
@@ -985,9 +984,9 @@ static void OpenLong(void)
 {
     static const float kLongTimes[2] = {0.0f, 2.0f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniEventSource kMiddle = {1.0f, 9, "middle", 6, 0};
+    static const maniEventSource kMiddle = {1.0f, 9, "middle", 6};
     const maniBoneTrackSource track = {
-        0, 0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
+        0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone};
     maniClipSource source = {.skeleton = &s_skeleton,
                              .boneTracks = &track,
                              .boneTrackCount = 1,
@@ -1015,8 +1014,8 @@ static maniGraphInstance* SyncInstance(uint32_t groupFlags, uint32_t longFlags, 
     static maniGraphNodeSource nodes[3];
     static const uint32_t kInputs[2] = {0, 1};
     parameters[0] = Parameter("mix", maniGraphParameterFloat, Float(0.8f, 0, 0, 0));
-    clips[0] = (maniGraphClipSource){&s_clips[0], "walk", 4, 0, NULL};
-    clips[1] = (maniGraphClipSource){&s_long, "long", 4, 0, NULL};
+    clips[0] = (maniGraphClipSource){&s_clips[0], "walk", 4, NULL};
+    clips[1] = (maniGraphClipSource){&s_long, "long", 4, NULL};
     groups[0] = (maniGraphSyncGroupSource){"steps", 5, groupFlags};
     weights[0] = (maniGraphScalar){0, 0.0f};
     weights[1] = (maniGraphScalar){MANI_NO_PARAMETER, 0.2f};
@@ -1025,7 +1024,7 @@ static maniGraphInstance* SyncInstance(uint32_t groupFlags, uint32_t longFlags, 
                                      .clip = {0, 0, one, maniGraphLoopClip, 0}};
     nodes[1] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL,
                                      .clip = {1, 0, one, maniGraphLoopClip, longFlags}};
-    nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}};
+    nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0}};
     maniGraphSource source = {&s_skeleton, parameters, clips, groups, nodes, 1,    2,    1,   3,
                               2,           0,          NULL,  0,      0,     NULL, NULL, NULL};
     const maniClip* bound[2] = {&s_clips[0], &s_long};
@@ -1080,16 +1079,16 @@ static _Alignas(16) uint8_t s_flatFile[16384];
 static void TestSubgraph(void)
 {
     static const maniGraphParameterSource kPace[1] = {
-        {"pace", 4, maniGraphParameterFloat, {{0.5f}}, {{0}}, {{0}}, 0, 0}};
-    static const maniGraphClipSource kLegs[2] = {{&s_clips[0], "walk", 4, 0, NULL},
-                                                 {&s_clips[1], "run", 3, 0, NULL}};
+        {"pace", 4, maniGraphParameterFloat, {{0.5f}}, {{0}}, {{0}}, 0}};
+    static const maniGraphClipSource kLegs[2] = {{&s_clips[0], "walk", 4, NULL},
+                                                 {&s_clips[1], "run", 3, NULL}};
     static const uint32_t kPair[2] = {0, 1};
     static const maniGraphScalar kWeights[2] = {{0, 0.0f}, {MANI_NO_PARAMETER, 1.0f}};
     static const maniGraphScalar kOne = {MANI_NO_PARAMETER, 1.0f};
     static const maniGraphNodeSource kLocomotion[3] = {
         {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
-        {maniGraphNodeBlend, 2, kPair, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kPair, .blend = {kWeights, 0}},
     };
     static const maniGraphSource kInner = {&s_skeleton, kPace, kLegs, NULL, kLocomotion, 1,
                                            2,           0,     3,     2,    0,           NULL,
@@ -1106,7 +1105,7 @@ static void TestSubgraph(void)
     // The top: the middle graph with the wave added.
     maniGraphParameterSource top[1] = {
         Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0))};
-    const maniGraphClipSource waves[1] = {{&s_clips[2], "wave", 4, 0, NULL}};
+    const maniGraphClipSource waves[1] = {{&s_clips[2], "wave", 4, NULL}};
     static const uint32_t kMixMap[1] = {0};
     static const uint32_t kLayers[2] = {0, 1};
     const maniGraphScalar layerWeights[1] = {kOne};
@@ -1118,16 +1117,16 @@ static void TestSubgraph(void)
     maniGraphSource source = {&s_skeleton, top, waves, NULL, nodes, 1,    1,    0,   3,
                               2,           0,   NULL,  0,    0,     NULL, NULL, NULL};
     // The same written flat: walk, run, blend, time scale, wave, output.
-    const maniGraphClipSource flatClips[3] = {{&s_clips[2], "wave", 4, 0, NULL},
-                                              {&s_clips[0], "walk", 4, 0, NULL},
-                                              {&s_clips[1], "run", 3, 0, NULL}};
+    const maniGraphClipSource flatClips[3] = {{&s_clips[2], "wave", 4, NULL},
+                                              {&s_clips[0], "walk", 4, NULL},
+                                              {&s_clips[1], "run", 3, NULL}};
     static const uint32_t kFlatPair[2] = {0, 1};
     static const uint32_t kFlatScale[1] = {2};
     static const uint32_t kFlatAdd[2] = {3, 4};
     maniGraphNodeSource flat[6] = {
         {maniGraphNodeClip, 0, NULL, .clip = {1, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {2, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
-        {maniGraphNodeBlend, 2, kFlatPair, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kFlatPair, .blend = {kWeights, 0}},
         {maniGraphNodeTimeScale, 1, kFlatScale, .timeScale = {{MANI_NO_PARAMETER, 1.5f}}},
         {maniGraphNodeClip, 0, NULL, .clip = {0, MANI_NO_SYNC_GROUP, kOne, maniGraphLoopClip, 0}},
         {maniGraphNodeAdditive, 2, kFlatAdd, .additive = {layerWeights}},
@@ -1187,12 +1186,12 @@ static void OpenFeet(void)
 {
     static const float kLongTimes[2] = {0.0f, 2.0f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniEventSource kShort[2] = {{0.0f, 0, "left", 4, 0}, {0.5f, 0, "right", 5, 0}};
-    static const maniEventSource kLong[2] = {{0.5f, 0, "right", 5, 0}, {1.5f, 0, "left", 4, 0}};
-    static const maniEventSource kMiddle = {1.0f, 3, "middle", 6, 0};
+    static const maniEventSource kShort[2] = {{0.0f, 0, "left", 4}, {0.5f, 0, "right", 5}};
+    static const maniEventSource kLong[2] = {{0.5f, 0, "right", 5}, {1.5f, 0, "left", 4}};
+    static const maniEventSource kMiddle = {1.0f, 3, "middle", 6};
     const maniBoneTrackSource tracks[2] = {
-        {0, 0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
-        {0, 0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone},
+        {0, {kLongTimes, kRun, 2, maniInterpolationLinear}, kNone, kNone},
     };
     for (int i = 0; i < 2; ++i)
     {
@@ -1219,8 +1218,7 @@ static void OpenFeet(void)
 static void TestMarkerSync(void)
 {
     OpenFeet();
-    maniGraphClipSource clips[2] = {{&s_feet[0], "short", 5, 0, NULL},
-                                    {&s_feet[1], "long", 4, 0, NULL}};
+    maniGraphClipSource clips[2] = {{&s_feet[0], "short", 5, NULL}, {&s_feet[1], "long", 4, NULL}};
     maniGraphSyncGroupSource groups[1] = {{"feet", 4, maniGraphSyncAllEvents}};
     static const uint32_t kInputs[2] = {0, 1};
     const maniGraphScalar weights[2] = {{MANI_NO_PARAMETER, 0.5f}, {MANI_NO_PARAMETER, 0.5f}};
@@ -1228,7 +1226,7 @@ static void TestMarkerSync(void)
     maniGraphNodeSource nodes[3] = {
         {maniGraphNodeClip, 0, NULL, .clip = {0, 0, one, maniGraphLoopClip, maniGraphClipLeader}},
         {maniGraphNodeClip, 0, NULL, .clip = {1, 0, one, maniGraphLoopClip, 0}},
-        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, 0}},
     };
     maniGraphSource source = {&s_skeleton, NULL, clips, groups, nodes, 0,    2,    1,   3,
                               2,           0,    NULL,  0,      0,     NULL, NULL, NULL};
@@ -1271,8 +1269,8 @@ static void TestMarkerSync(void)
 static maniBuildResult BuildLargeSteps(void)
 {
     OpenFeet();
-    static const maniGraphClipSource kClips[2] = {{&s_feet[0], "short", 5, 0, NULL},
-                                                  {&s_feet[1], "long", 4, 0, NULL}};
+    static const maniGraphClipSource kClips[2] = {{&s_feet[0], "short", 5, NULL},
+                                                  {&s_feet[1], "long", 4, NULL}};
     static const maniGraphSyncGroupSource kGroups[1] = {{"feet", 4, maniGraphSyncAllEvents}};
     static const uint32_t kInputs[2] = {0, 1};
     static const uint32_t kBlend[1] = {2};
@@ -1284,7 +1282,7 @@ static maniBuildResult BuildLargeSteps(void)
     const maniGraphNodeSource nodes[5] = {
         {maniGraphNodeClip, 0, NULL, .clip = {0, 0, one, maniGraphLoopClip, maniGraphClipLeader}},
         {maniGraphNodeClip, 0, NULL, .clip = {1, 0, one, maniGraphLoopClip, 0}},
-        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}},
         {maniGraphNodeTimeScale, 1, kBlend, .timeScale = {thousand}},
         {maniGraphNodeTimeScale, 1, kScale, .timeScale = {thousand}},
     };

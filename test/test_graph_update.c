@@ -26,7 +26,7 @@ static void TestFirstParent(void)
     static const uint32_t kScale[1] = {2};
     static const maniGraphScalar kWeights[2] = {LITERAL(1.0f), LITERAL(1.0f)};
     maniGraphNodeSource nodes[3] = {
-        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0}},
         {maniGraphNodeTimeScale, 1, kScale, .timeScale = {LITERAL(2.0f)}},
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     maniGraph g;
@@ -48,7 +48,7 @@ static maniGraphInstance* BlendOf(bool direct, maniGraph* g)
     weights[0] = (maniGraphScalar){0, 0.0f};
     weights[1] = direct ? LITERAL(0.5f) : (maniGraphScalar){1, 0.0f};
     maniGraphNodeSource nodes[3] = {
-        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, direct ? 1u : 0u, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {weights, direct ? 1u : 0u}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip)};
     return Make(
@@ -165,7 +165,7 @@ static void TestLoops(void)
 {
     static const uint32_t kInputs[3] = {1, 2, 3};
     static const maniGraphScalar kWeights[3] = {LITERAL(1.0f), LITERAL(1.0f), LITERAL(1.0f)};
-    maniGraphNodeSource nodes[4] = {{maniGraphNodeBlend, 3, kInputs, .blend = {kWeights, 0, 0}},
+    maniGraphNodeSource nodes[4] = {{maniGraphNodeBlend, 3, kInputs, .blend = {kWeights, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClamp),
                                     ClipNode(1, -1.0f, maniGraphLoopClip),
                                     ClipNode(0, -1.0f, maniGraphLoopClamp)};
@@ -185,7 +185,7 @@ static void TestLeaderTie(void)
     static const maniGraphScalar kWeights[2] = {LITERAL(1.0f), LITERAL(1.0f)};
     static const maniGraphSyncGroupSource kGroup = {"feet", 4, 0};
     maniGraphNodeSource nodes[3] = {
-        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {0, 0, LITERAL(1.0f), maniGraphLoopClip, 0}},
         {maniGraphNodeClip, 0, NULL, .clip = {1, 0, LITERAL(1.0f), maniGraphLoopClip, 0}}};
     maniGraph g;
@@ -205,7 +205,7 @@ static void TestDeclaredKept(void)
     static const maniGraphScalar kWeights[2] = {LITERAL(0.2f), LITERAL(0.8f)};
     static const maniGraphSyncGroupSource kGroup = {"feet", 4, 0};
     maniGraphNodeSource nodes[3] = {
-        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}},
         {maniGraphNodeClip, 0, NULL,
          .clip = {0, 0, LITERAL(1.0f), maniGraphLoopClip, maniGraphClipLeader}},
         {maniGraphNodeClip, 0, NULL, .clip = {1, 0, LITERAL(1.0f), maniGraphLoopClip, 0}}};
@@ -261,7 +261,7 @@ static void TestOwnWeights(void)
 {
     static const uint32_t kInputs[2] = {1, 2};
     static const maniGraphScalar kWeights[2] = {LITERAL(0.0f), LITERAL(1.0f)};
-    maniGraphNodeSource nodes[3] = {{maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+    maniGraphNodeSource nodes[3] = {{maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip)};
     maniGraph g;
@@ -292,7 +292,7 @@ static maniGraphInstance* Synced(uint32_t member, uint32_t groupFlags, maniGraph
     static maniGraphSyncGroupSource group;
     group = (maniGraphSyncGroupSource){"feet", 4, groupFlags};
     maniGraphNodeSource nodes[3] = {
-        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}},
         {maniGraphNodeClip, 0, NULL,
          .clip = {3, 0, LITERAL(1.0f), maniGraphLoopClip, maniGraphClipLeader}},
         {maniGraphNodeClip, 0, NULL, .clip = {member, 0, LITERAL(1.0f), loop, 0}}};
@@ -350,7 +350,7 @@ static void TestLeaderSeek(void)
     static const maniGraphSyncGroupSource kGroup = {"feet", 4, 0};
     maniGraphParameterSource t = Parameter("t", maniGraphParameterTrigger, Int(1));
     maniGraphNodeSource nodes[4] = {
-        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}},
+        {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}},
         {maniGraphNodeSeek, 1, kSeek, .seek = {0, LITERAL(0.5f)}},
         {maniGraphNodeClip, 0, NULL,
          .clip = {3, 0, LITERAL(1.0f), maniGraphLoopClip, maniGraphClipLeader}},
@@ -448,7 +448,7 @@ static void TestEvaluatedBlends(void)
     static const uint32_t kInputs[3] = {1, 2, 3};
     static const maniGraphScalar kWeights[3] = {{0, 0.0f}, LITERAL(1.0f), LITERAL(3.0f)};
     maniGraphParameterSource a = Parameter("a", maniGraphParameterFloat, Float(-3.0f));
-    maniGraphNodeSource nodes[4] = {{maniGraphNodeBlend, 3, kInputs, .blend = {kWeights, 0, 0}},
+    maniGraphNodeSource nodes[4] = {{maniGraphNodeBlend, 3, kInputs, .blend = {kWeights, 0}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip),
                                     ClipNode(0, 1.0f, maniGraphLoopClip)};
@@ -462,7 +462,7 @@ static void TestEvaluatedBlends(void)
     // The spine turned two ways, the first of no weight: it does not
     // choose the hemisphere.
     static const maniGraphScalar kTurns[2] = {LITERAL(0.0f), LITERAL(1.0f)};
-    nodes[0] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {kTurns, 0, 0}};
+    nodes[0] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kInputs, .blend = {kTurns, 0}};
     nodes[1] = ClipNode(7, 1.0f, maniGraphLoopClip);
     nodes[2] = ClipNode(8, 1.0f, maniGraphLoopClip);
     instance = Make((maniGraphSource){.nodes = nodes, .nodeCount = 3}, &g);

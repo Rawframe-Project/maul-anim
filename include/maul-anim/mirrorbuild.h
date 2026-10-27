@@ -42,7 +42,6 @@ extern "C"
         maniMirrorPlace place;
         const char* replace;
         uint32_t replaceLength;
-        uint32_t reserved;
     } maniMirrorRuleSource;
 
     // Two bones that mirror each other (equal for a bone on itself).
@@ -66,7 +65,6 @@ extern "C"
     {
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
     } maniMirrorNameSource;
 
     // A mirror map: the skeleton; its reference pose as locals in bone
@@ -87,7 +85,6 @@ extern "C"
         uint32_t namePairCount;
         uint32_t nameCount;
         maniMirrorAxis axis;
-        uint32_t reserved;
     } maniMirrorMapSource;
 
     /// Builds a mirror map file (kind 13) from a source and keeps it in
@@ -99,8 +96,8 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The map.
     /// @return `mani_success`; `mani_errorInvalid` with
-    /// `maniBuildReasonNone` for a NULL builder, source or skeleton, a
-    /// count without its list, or reserved not 0;
+    /// `maniBuildReasonNone` for a NULL builder, source or skeleton, or a
+    /// count without its list;
     /// `maniBuildReasonOption` for an unknown axis;
     /// `maniBuildReasonMirrorReference` (item the bone);
     /// `maniBuildReasonMirrorRule` (item the rule);
@@ -154,13 +151,12 @@ extern "C"
                                                                    const char* text, size_t length,
                                                                    const maniSkeleton* skeleton);
 
-    // A clip to mirror. reserved must be 0.
+    // A clip to mirror.
     typedef struct maniMirrorClipSource
     {
         const maniMirrorMap* map;
         const maniSkeleton* skeleton;
         const maniClip* clip;
-        uint32_t reserved;
     } maniMirrorClipSource;
 
     /// Builds a full-precision clip of a clip mirrored (bake it once,
@@ -182,8 +178,8 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The clip to mirror.
     /// @return `mani_success`; `mani_errorInvalid` with
-    /// `maniBuildReasonNone` for a NULL builder, source or field, or
-    /// reserved not 0; `maniBuildReasonMirrorClip` (other 0 the skeleton,
+    /// `maniBuildReasonNone` for a NULL builder, source or field;
+    /// `maniBuildReasonMirrorClip` (other 0 the skeleton,
     /// 1 the clip: a skeleton not the map's, a clip not of the map's
     /// skeleton); `maniBuildReasonBasis` for an additive clip whose
     /// difference from its basis mirrored is not finite;

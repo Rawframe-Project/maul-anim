@@ -140,7 +140,7 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
                                       {bones[b].offset, bones[b].rotation, {1, 1, 1}}};
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {sources, count, 0};
+    maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
@@ -176,17 +176,12 @@ static void Clip(const maniClipSource* source, int slot, maniClip* out)
 
 static void Clips(void)
 {
-    const maniBoneTrackSource walk[4] = {{0, 0, Keys(kRootMove), Keys(kYaw), kNone},
-                                         {1, 0, Keys(kHipsMove), kNone, kNone},
-                                         {2, 0, kNone, Keys(kSpine), kNone},
-                                         {5, 0, kNone, Keys(kArm), kNone}};
-    const maniRootMotionSource root = {0,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
+    const maniBoneTrackSource walk[4] = {{0, Keys(kRootMove), Keys(kYaw), kNone},
+                                         {1, Keys(kHipsMove), kNone, kNone},
+                                         {2, kNone, Keys(kSpine), kNone},
+                                         {5, kNone, Keys(kArm), kNone}};
+    const maniRootMotionSource root = {0, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                       1, maniRootReferenceRest,         maniRootReferenceRest,
                                        0};
     const maniClipSource w = {.skeleton = &s_source,
                               .boneTracks = walk,
@@ -195,7 +190,7 @@ static void Clips(void)
                               .sampleRate = 30.0f,
                               .rootMotion = &root};
     Clip(&w, 0, &s_walk);
-    const maniBoneTrackSource lean[1] = {{3, 0, kNone, Keys(kLean), kNone}};
+    const maniBoneTrackSource lean[1] = {{3, kNone, Keys(kLean), kNone}};
     const maniClipSource l = {.skeleton = &s_source,
                               .boneTracks = lean,
                               .boneTrackCount = 1,
@@ -252,8 +247,8 @@ static maniGraphClipSource s_clips[2];
 
 static maniGraphSource Graph(const maniRetargetMap* walk, const maniRetargetMap* lean)
 {
-    s_clips[0] = (maniGraphClipSource){&s_walk, "walk", 4, 0, walk};
-    s_clips[1] = (maniGraphClipSource){&s_lean, "lean", 4, 0, lean};
+    s_clips[0] = (maniGraphClipSource){&s_walk, "walk", 4, walk};
+    s_clips[1] = (maniGraphClipSource){&s_lean, "lean", 4, lean};
     const maniGraphClipNodeSource play = {
         0, MANI_NO_SYNC_GROUP, {MANI_NO_PARAMETER, 1.0f}, maniGraphLoopClip, 0};
     s_nodes[0] = (maniGraphNodeSource){maniGraphNodeClip, 0, NULL, .clip = play};
@@ -464,7 +459,7 @@ static void TestTooManyMaps(void)
                maniCopyBuilt(builder, clipFiles[k], sizeof clipFiles[k], &size) == mani_success &&
                maniOpenClip(clipFiles[k], size, &clips[k]).result == mani_success;
         int length = snprintf(names[k], sizeof names[k], "c%u", (unsigned)k);
-        slots[k] = (maniGraphClipSource){&clips[k], names[k], (uint32_t)length, 0, &maps[k]};
+        slots[k] = (maniGraphClipSource){&clips[k], names[k], (uint32_t)length, &maps[k]};
     }
     maniDestroyBuilder(builder);
     CHECK(made, "the maps and clips");
@@ -520,7 +515,7 @@ static void TestBindRefusals(void)
               maniOpenSpringSet(setFile, setSize, &set).result == mani_success,
           "a spring set");
     maniDestroyBuilder(builder);
-    const maniGraphSpringSetSource slot = {&set, "arm", 3, 0};
+    const maniGraphSpringSetSource slot = {&set, "arm", 3};
     source = Graph(&s_map, &s_map);
     source.springSets = &slot;
     source.springSetCount = 1;
@@ -557,7 +552,7 @@ static void TestSharedScratch(void)
     static _Alignas(16) uint8_t otherGraph[16384];
     static _Alignas(MANI_GRAPH_BINDING_ALIGNMENT) uint8_t otherBinding[8192];
     static _Alignas(MANI_GRAPH_INSTANCE_ALIGNMENT) uint8_t otherInstance[16384];
-    const maniBoneTrackSource spine[1] = {{2, 0, kNone, Keys(kSpine), kNone}};
+    const maniBoneTrackSource spine[1] = {{2, kNone, Keys(kSpine), kNone}};
     const maniClipSource bend = {
         .skeleton = &s_otherSource, .boneTracks = spine, .boneTrackCount = 1, .sampleRate = 30.0f};
     maniBuilder* builder = NewBuilder();

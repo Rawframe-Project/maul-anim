@@ -127,13 +127,13 @@ maniImportResult maniNameBones(const maniAllocator* allocator, const char* origi
     namesOut->starts = maniAllocate(allocator, n, sizeof(uint32_t), 8);
     namesOut->renamed = maniAllocate(allocator, n, sizeof(uint32_t), 8);
     namesOut->count = count;
-    maniImportResult r = (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     if (w.keys != NULL && w.sorted != NULL && w.scratch != NULL && w.repeated != NULL &&
         namesOut->text != NULL && namesOut->starts != NULL && namesOut->renamed != NULL)
     {
         FindRepeats(&w, count);
         Compose(indices, count, &w, namesOut);
-        r = (maniImportResult){mani_success, maniImportReasonNone, 0, 0, 0};
+        r = (maniImportResult){mani_success, maniImportReasonNone, 0, 0};
     }
     maniRelease(allocator, w.keys, n, sizeof(uint64_t), 8);
     maniRelease(allocator, w.sorted, n, sizeof(uint32_t), 8);

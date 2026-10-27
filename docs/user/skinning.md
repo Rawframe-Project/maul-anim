@@ -11,7 +11,7 @@ const uint32_t joints[2] = {1, 2};   // the spine and the head
 const maniAffine inverseBinds[2] = {
     {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0f, -1.2f, 0.0f}},   // undoing each joint's rest
     {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0f, -1.6f, 0.0f}}};
-maniSkinSource skinSource = {&skeleton, joints, inverseBinds, 2, 0};
+maniSkinSource skinSource = {&skeleton, joints, inverseBinds, 2};
 maniBuildResult skinBuilt = maniBuildSkin(builder, &skinSource);
 size_t skinSize = 0;
 maniResult skinCopied = maniCopyBuilt(builder, skinFile, skinCapacity, &skinSize);
@@ -22,7 +22,7 @@ maniFileResult skinOpened = maniOpenSkin(skinFile, skinSize, &skin);
 const uint32_t offsets[3] = {0, 1, 3};
 const uint32_t vertexJoints[3] = {0, 0, 1};
 const float weights[3] = {1.0f, 0.5f, 0.5f};
-maniInfluenceSource influenceSource = {&skin, offsets, vertexJoints, weights, NULL, 2, 0};
+maniInfluenceSource influenceSource = {&skin, offsets, vertexJoints, weights, NULL, 2};
 maniBuildResult influencesBuilt = maniBuildInfluences(builder, &influenceSource);
 size_t influencesSize = 0;
 maniResult influencesCopied =
@@ -42,7 +42,7 @@ maniAffine palette[2];
 maniResult paletted = maniComputePalette(pose, &skeleton, &skin, palette, 2, NULL);
 const float positions[6] = {0.1f, 1.3f, 0.0f, 0.1f, 1.5f, 0.0f};
 float moved[6];
-const maniSkinStream stream = {positions, moved, 12, 12, maniStreamPoint, 0};
+const maniSkinStream stream = {positions, moved, 12, 12, maniStreamPoint};
 const maniSkinJob job = {&influences, palette, NULL, 2, 0, 2, 1, &stream};
 maniResult skinned = maniSkinLinear(&job);
 ```

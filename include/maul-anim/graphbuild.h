@@ -49,7 +49,6 @@ extern "C"
         maniGraphValue minimum;
         maniGraphValue maximum;
         uint32_t bounded;
-        uint32_t reserved;
     } maniGraphParameterSource;
 
     // A clip slot: an opened clip of the graph's skeleton, each clip once,
@@ -63,7 +62,6 @@ extern "C"
         const maniClip* clip;
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
         const maniRetargetMap* map;
     } maniGraphClipSource;
 
@@ -77,7 +75,6 @@ extern "C"
         const maniMotionDatabase* database;
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
     } maniGraphDatabaseSource;
 
     // A learned model slot: an opened learned model of the
@@ -89,7 +86,6 @@ extern "C"
         const maniLearnedModel* model;
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
     } maniGraphModelSource;
 
     // A spring set slot: an opened spring set of the graph's
@@ -101,7 +97,6 @@ extern "C"
         const maniSpringSet* set;
         const char* name;
         uint32_t nameLength;
-        uint32_t reserved;
     } maniGraphSpringSetSource;
 
     // A sync group's flags.
@@ -153,7 +148,6 @@ extern "C"
     {
         const maniGraphScalar* weights;
         uint32_t direct;
-        uint32_t reserved;
     } maniGraphBlendNodeSource;
 
     // A mask node: chains making per-bone weights (each 0 to 1) as
@@ -312,7 +306,6 @@ extern "C"
         float cooldown;
         const maniGraphConditionSource* conditions;
         uint32_t conditionCount;
-        uint32_t reserved;
     } maniGraphTransitionSource;
 
     // A state machine node: its inputs are its states; the state it
@@ -451,7 +444,6 @@ extern "C"
         uint32_t queryCount;
         float period;
         float transitionCost;
-        uint32_t reserved;
         maniGraphTags requiredTags;
         maniGraphTags excludedTags;
         maniGraphScalar duration;
@@ -498,7 +490,6 @@ extern "C"
     {
         maniGraphScalar speed;
         uint32_t reset;
-        uint32_t reserved;
         const maniGraphMaskNodeSource* mask;
     } maniGraphTurnLimitNodeSource;
 
@@ -528,7 +519,6 @@ extern "C"
         uint32_t end;
         uint32_t goal;
         uint32_t pole;
-        uint32_t reserved;
         maniVec3 hinge;
         maniGraphScalar twist;
         maniGraphScalar soften;
@@ -552,7 +542,6 @@ extern "C"
         uint32_t count;
         uint32_t goal;
         uint32_t pole;
-        uint32_t reserved;
         maniVec3 forward;
         maniVec3 offset;
         maniVec3 up;
@@ -600,7 +589,6 @@ extern "C"
         uint32_t bone;
         uint32_t position;
         uint32_t rotation;
-        uint32_t reserved;
         maniGraphScalar positionWeight;
         maniGraphScalar rotationWeight;
         float strength;
@@ -639,7 +627,6 @@ extern "C"
     typedef struct maniGraphPosition
     {
         uint32_t vector;
-        uint32_t reserved;
         maniGraphScalar x;
         maniGraphScalar y;
     } maniGraphPosition;
@@ -652,7 +639,6 @@ extern "C"
         maniGraphPosition position;
         const float* points;
         float period;
-        uint32_t reserved;
     } maniGraphBlendSpace1DNodeSource;
 
     // A 2D blend space by gradient bands: a point (x, y) per input
@@ -663,7 +649,6 @@ extern "C"
         maniGraphPosition position;
         const float* points;
         uint32_t polar;
-        uint32_t reserved;
     } maniGraphBandsNodeSource;
 
     // A 2D blend space by triangles: a point (x, y) per input (finite, no
@@ -677,7 +662,6 @@ extern "C"
         const float* points;
         const uint32_t* triangles;
         uint32_t triangleCount;
-        uint32_t reserved;
     } maniGraphTrianglesNodeSource;
 
     // A subgraph node: the graph (of the same skeleton; its clips and

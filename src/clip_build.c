@@ -854,7 +854,6 @@ bool maniImportClipOptionsValid(const maniImportClipOptions* options, const mani
     const maniRootMotionSource* root = options->rootMotion;
     return isfinite(options->sampleRate) && options->sampleRate >= 0.0f &&
            options->loop <= maniLoopRepeat && options->additive <= maniAdditiveFirstFrame &&
-           options->reserved == 0 &&
            (root == NULL ||
             (maniRootMotionSourceValid(root) && root->bone < maniSkeletonBoneCount(skeleton)));
 }

@@ -43,7 +43,7 @@ static _Alignas(16) uint8_t s_setFiles[2][2048];
 static maniSpringSet s_set;
 // The same spring with a collider: another identity, a larger state.
 static maniSpringSet s_other;
-static const maniGraphSpringSetSource kSetSlot[1] = {{&s_set, "hair", 4, 0}};
+static const maniGraphSpringSetSource kSetSlot[1] = {{&s_set, "hair", 4}};
 
 // Two graphs at once: each its file, binding and instance.
 typedef struct Made
@@ -79,7 +79,7 @@ static void MakeSet(uint8_t* file, size_t capacity, uint32_t colliderCount, mani
     const maniColliderSource far = {
         0, maniColliderSphere, {0.0f, 50.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.1f, 0};
     maniSpringSetSource source = {&s_skeleton, &far, NULL, &spring, colliderCount,
-                                  0,           1,    0.0f, 0.0f,    0};
+                                  0,           1,    0.0f, 0.0f};
     size_t size = 0;
     CHECK(maniBuildSpringSet(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
@@ -294,7 +294,7 @@ static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
 static void TimedGraphs(maniGraphSource* timed, maniGraphSource* plain)
 {
     *timed = SpringGraph(kSpring);
-    s_timed[0] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0, 0}};
+    s_timed[0] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0}};
     s_timed[1] = ClipNode(0, 1.0f, maniGraphLoopRepeat);
     s_timed[2] = ClipNode(1, 1.0f, maniGraphLoopRepeat);
     s_timed[3] = (maniGraphNodeSource){maniGraphNodeSpring, 1, kFirst, .spring = kSpring};
@@ -492,7 +492,7 @@ static void TestRefusals(void)
     // reads).
     maniSpringSet huge = s_set;
     huge.jointCount = MANI_GRAPH_SPRING_MAX_WORDS / 17 + 1;
-    const maniGraphSpringSetSource slot[1] = {{&huge, "hair", 4, 0}};
+    const maniGraphSpringSetSource slot[1] = {{&huge, "hair", 4}};
     source = SpringGraph(kSpring);
     source.springSets = slot;
     CHECK(RefusedFor(&source, maniBuildReasonNode, 1), "a state past the limit");
@@ -660,8 +660,7 @@ static void TestBind(void)
               unbound == 1,
           "a set whose state is not the node's");
     // A second slot no node uses: any state its set has.
-    static const maniGraphSpringSetSource kTwo[2] = {{&s_set, "hair", 4, 0},
-                                                     {&s_other, "tail", 4, 0}};
+    static const maniGraphSpringSetSource kTwo[2] = {{&s_set, "hair", 4}, {&s_other, "tail", 4}};
     source = SpringGraph(kSpring);
     source.springSets = kTwo;
     source.springSetCount = 2;
@@ -774,7 +773,7 @@ static void TestSubgraph(void)
               maniGraphSpringSetCount(&g) == 1,
           "two spring nodes over one slot");
     // A slot without its set under two spring nodes: one slot, refused.
-    static const maniGraphSpringSetSource kNone[1] = {{NULL, "none", 4, 0}};
+    static const maniGraphSpringSetSource kNone[1] = {{NULL, "none", 4}};
     inner.springSets = kNone;
     CHECK(RefusedFor(&outer, maniBuildReasonSpringSetSlot, 0), "a subgraph's slot without its set");
     // A slot past the subgraph's sets, where the outer lists one: refused

@@ -227,7 +227,6 @@ extern "C"
         // 3 for positions and normals, 4 for tangents (w kept), 2 for
         // texture coordinates, 3 or 4 for colors.
         uint32_t components;
-        uint32_t reserved;
     } maniMorphStream;
 
     // A morph job over vertices [first, first + count) of the targets,
@@ -240,7 +239,6 @@ extern "C"
         uint32_t first;
         uint32_t count;
         uint32_t streamCount;
-        uint32_t reserved;
         // Each takes its attribute's deltas; one whose attribute the file
         // lacks is copied.
         const maniMorphStream* streams;

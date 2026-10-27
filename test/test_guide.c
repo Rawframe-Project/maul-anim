@@ -72,7 +72,7 @@ static void GuideSkeleton(void)
         {"hips", 4, -1, {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
         {"spine", 5, 0, {{0.0f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
         {"head", 4, 1, {{0.0f, 0.4f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
-    maniSkeletonSource source = {bones, 3, 0};
+    maniSkeletonSource source = {bones, 3};
     maniBuildResult built = maniBuildSkeleton(builder, &source);
     // built.result; when refused, built.reason, built.item and built.other.
 
@@ -101,7 +101,7 @@ static void GuideClip(void)
     static const float turns[8] = {0.0f, 0.0f, 0.0f, 1.0f,             // at 0 s
                                    0.0f, 0.38268343f, 0.0f, 0.92387953f}; // 45 degrees about y
     const maniBoneTrackSource tracks[1] = {
-        {1, 0, {NULL, NULL, 0, 0}, {times, turns, 2, maniInterpolationLinear}, {NULL, NULL, 0, 0}}};
+        {1, {NULL, NULL, 0, 0}, {times, turns, 2, maniInterpolationLinear}, {NULL, NULL, 0, 0}}};
     maniClipSource clipSource = {.skeleton = &skeleton,
                                  .boneTracks = tracks,
                                  .boneTrackCount = 1,
@@ -191,7 +191,7 @@ static void GuideSkin(void)
     const maniAffine inverseBinds[2] = {
         {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0f, -1.2f, 0.0f}},   // undoing each joint's rest
         {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0f, -1.6f, 0.0f}}};
-    maniSkinSource skinSource = {&skeleton, joints, inverseBinds, 2, 0};
+    maniSkinSource skinSource = {&skeleton, joints, inverseBinds, 2};
     maniBuildResult skinBuilt = maniBuildSkin(builder, &skinSource);
     size_t skinSize = 0;
     maniResult skinCopied = maniCopyBuilt(builder, skinFile, skinCapacity, &skinSize);
@@ -202,7 +202,7 @@ static void GuideSkin(void)
     const uint32_t offsets[3] = {0, 1, 3};
     const uint32_t vertexJoints[3] = {0, 0, 1};
     const float weights[3] = {1.0f, 0.5f, 0.5f};
-    maniInfluenceSource influenceSource = {&skin, offsets, vertexJoints, weights, NULL, 2, 0};
+    maniInfluenceSource influenceSource = {&skin, offsets, vertexJoints, weights, NULL, 2};
     maniBuildResult influencesBuilt = maniBuildInfluences(builder, &influenceSource);
     size_t influencesSize = 0;
     maniResult influencesCopied =
@@ -220,7 +220,7 @@ static void GuideSkin(void)
     maniResult paletted = maniComputePalette(pose, &skeleton, &skin, palette, 2, NULL);
     const float positions[6] = {0.1f, 1.3f, 0.0f, 0.1f, 1.5f, 0.0f};
     float moved[6];
-    const maniSkinStream stream = {positions, moved, 12, 12, maniStreamPoint, 0};
+    const maniSkinStream stream = {positions, moved, 12, 12, maniStreamPoint};
     const maniSkinJob job = {&influences, palette, NULL, 2, 0, 2, 1, &stream};
     maniResult skinned = maniSkinLinear(&job);
     // clang-format on
@@ -252,7 +252,7 @@ static void GuideGraph(void)
         " [{\"from\": 0, \"to\": 1, \"duration\": 0.25, \"conditions\": [{\"trigger\": \"go\"}]}]},"
         " {\"kind\": \"clip\", \"clip\": \"turn\"}, {\"kind\": \"clip\", \"clip\": \"turn\"}],"
         " \"output\": 0}";
-    const maniGraphClipSource graphClips[1] = {{&clip, "turn", 4, 0, NULL}};
+    const maniGraphClipSource graphClips[1] = {{&clip, "turn", 4, NULL}};
     maniGraphNamedAssets named = {&skeleton, graphClips, NULL, NULL, NULL, 1, 0, 0, 0, NULL};
     maniBuildResult graphBuilt = maniBuildGraphJson(builder, graphText, sizeof graphText - 1, &named);
     size_t graphSize = 0;
@@ -331,7 +331,7 @@ static void Tall(maniSkeleton* tall)
         rest.translation.y *= 2.0f;
         bones[b] = (maniBoneSource){name, length, b == 0 ? -1 : (int32_t)b - 1, rest};
     }
-    maniSkeletonSource source = {bones, 3, 0};
+    maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(s_builder, &source).result == mani_success &&
               maniCopyBuilt(s_builder, s_tallFile, sizeof s_tallFile, &size) == mani_success &&
@@ -373,8 +373,8 @@ static void GuideRetarget(void)
                     before.w * after.w) > 1.0f - 1e-6f,
           "the retargeting snippet carries the spine's turn to the tall rig");
     // clang-format off
-    const maniMirrorRuleSource sides[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                           {"R", 1, maniMirrorSuffix, "L", 1, 0}};
+    const maniMirrorRuleSource sides[2] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                           {"R", 1, maniMirrorSuffix, "L", 1}};
     maniMirrorMapSource mirrorSource = {
         .skeleton = &skeleton, .rules = sides, .ruleCount = 2, .axis = maniMirrorAxisX};
     maniBuildResult mirrorBuilt = maniBuildMirrorMap(builder, &mirrorSource);

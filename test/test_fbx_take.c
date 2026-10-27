@@ -537,7 +537,7 @@ static void Refused(const char* takes, const char* marker, const char* label)
     maniFbxAnimation a;
     bool opened = maniOpenFbx(builder, text, strlen(text), &fbx).result == mani_success;
     maniImportResult r =
-        opened ? maniFbxReadStack(fbx, 0, &a) : (maniImportResult){mani_success, 0, 0, 0, 0};
+        opened ? maniFbxReadStack(fbx, 0, &a) : (maniImportResult){mani_success, 0, 0, 0};
     const char* at = marker != NULL ? strstr(text, marker) : NULL;
     CHECK(opened && r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
               (at == NULL || r.offset == (uint64_t)(at - text)),

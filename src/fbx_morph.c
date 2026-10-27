@@ -34,12 +34,12 @@
 
 static maniImportResult Invalid(void)
 {
-    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static bool IsBlendShape(const maniFbx* fbx, uint32_t object)
@@ -362,7 +362,7 @@ static maniImportResult ReadShape(Morph* m, uint32_t node, const double* weights
     deltas[0] = positions;
     deltas[1] = normal != NULL ? normals : NULL;
     m->normals = m->normals || normal != NULL;
-    *out = (maniMorphTargetSource){1.0f, kept, indices, deltas, NULL, 0, 0};
+    *out = (maniMorphTargetSource){1.0f, kept, indices, deltas, NULL, 0};
     return maniFbxSuccess();
 }
 
@@ -622,12 +622,12 @@ static maniImportResult BuildMorph(maniBuilder* builder, Morph* m)
     }
     static const maniMorphAttributeSource kAttributes[2] = {{maniMorphPosition, 0},
                                                             {maniMorphNormal, 0}};
-    maniMorphSource source = {m->channels, m->channelCount,      m->vertices,
-                              kAttributes, m->normals ? 2u : 1u, 0};
+    maniMorphSource source = {m->channels, m->channelCount, m->vertices, kAttributes,
+                              m->normals ? 2u : 1u};
     maniBuildResult b = maniBuildMorphTargets(builder, &source);
     if (b.result == mani_success || b.result == mani_errorCapacity)
     {
-        return (maniImportResult){b.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){b.result, maniImportReasonNone, 0, 0};
     }
     return maniFbxFail(maniImportReasonBuild, fbx->nodes[fbx->objects[m->object].node].nameOffset,
                        (uint32_t)b.reason);
@@ -639,7 +639,7 @@ static MANI_NOINLINE maniImportResult FbxBuildMorphTargetsWork(maniBuilder* buil
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     if (!maniFbxUsable(builder, fbx, options, object != MANI_FBX_NONE) || fbx == NULL)

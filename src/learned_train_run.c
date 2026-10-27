@@ -278,7 +278,11 @@ static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, ui
             iterations -= 1;
         }
     }
-    *reportOut = (maniLearnedTrainerReport){t->stage, t->stageCount, t->iteration, t->loss, 0};
+    memset(reportOut, 0, sizeof *reportOut);
+    reportOut->stage = t->stage;
+    reportOut->stageCount = t->stageCount;
+    reportOut->iteration = t->iteration;
+    reportOut->loss = t->loss;
     return r;
 }
 
@@ -301,13 +305,8 @@ static void Network(const maniTrainKept* k, maniLearnedLayerSource* layers,
         uint32_t o = k->net.sizes[l + 1];
         layers[l] = (maniLearnedLayerSource){w, w + (size_t)in * o, in, o};
     }
-    *out = (maniLearnedNetworkSource){layers,
-                                      k->inputOffsets,
-                                      k->inputScales,
-                                      k->outputOffsets,
-                                      k->outputScales,
-                                      k->net.layerCount,
-                                      0};
+    *out = (maniLearnedNetworkSource){layers,           k->inputOffsets, k->inputScales,
+                                      k->outputOffsets, k->outputScales, k->net.layerCount};
 }
 
 static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
@@ -364,8 +363,7 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
                                               t->source.eventCount,
                                               t->source.options.latentCount,
                                               t->source.database->sampleRate,
-                                              weightFormat,
-                                              0};
+                                              weightFormat};
         r = maniBuildLearnedModel(builder, &model);
     }
     maniRelease(&t->allocator, projectorLayers, count, sizeof(maniLearnedLayerSource), 8);

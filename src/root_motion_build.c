@@ -212,15 +212,10 @@ static bool InReach(const double t[3])
 bool maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out)
 {
     const maniRootMotionSource* s = &work->source;
-    const uint32_t fields[8] = {s->bone,
-                                s->translationAxes,
-                                s->rotation,
-                                s->twistAxis,
-                                s->translationReference,
-                                s->rotationReference,
-                                s->loop,
-                                0};
-    for (uint32_t i = 0; i < 8; ++i)
+    const uint32_t fields[7] = {s->bone,      s->translationAxes,      s->rotation,
+                                s->twistAxis, s->translationReference, s->rotationReference,
+                                s->loop};
+    for (uint32_t i = 0; i < 7; ++i)
     {
         maniStoreU32(out + 4 * i, fields[i]);
     }
@@ -242,7 +237,6 @@ bool maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out)
     {
         StoreFloat(p + 4 * i, period[i]);
     }
-    maniStoreU32(p + 4 * MOVE, 0);
     p += MANI_ROOT_MOTION_PERIOD_SIZE;
     for (size_t i = 0; i < (size_t)n * MOVE; ++i)
     {

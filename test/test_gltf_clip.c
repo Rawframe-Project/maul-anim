@@ -344,7 +344,7 @@ static void TestClipOptions(void)
     maniSkeleton skeleton;
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
-    maniRootMotionSource turn = {hip, 0, maniRootRotationTwist, 1, 0, 0, 0, 0};
+    maniRootMotionSource turn = {hip, 0, maniRootRotationTwist, 1, 0, 0, 0};
     maniImportClipOptions settings = maniDefaultImportClipOptions();
     settings.sampleRate = 10.0f;
     settings.rootMotion = &turn;
@@ -387,28 +387,27 @@ static void TestClipOptions(void)
               OpenClip(builder, &clip) && maniClipAdditiveBasis(&clip) == maniAdditiveRest,
           "an additive clip");
     uint32_t misuses = maniBuilderMisuses(builder);
-    maniImportClipOptions bad[8];
-    for (int i = 0; i < 8; ++i)
+    maniImportClipOptions bad[7];
+    for (int i = 0; i < 7; ++i)
     {
         bad[i] = maniDefaultImportClipOptions();
     }
-    maniRootMotionSource past = {maniSkeletonBoneCount(&skeleton), 1, 0, 0, 0, 0, 0, 0};
-    maniRootMotionSource none = {hip, 0, maniRootRotationNone, 0, 0, 0, 0, 0};
+    maniRootMotionSource past = {maniSkeletonBoneCount(&skeleton), 1, 0, 0, 0, 0, 0};
+    maniRootMotionSource none = {hip, 0, maniRootRotationNone, 0, 0, 0, 0};
     bad[0].sampleRate = -1.0f;
     bad[1].sampleRate = NAN;
     bad[2].loop = 2;
     bad[3].additive = 3;
-    bad[4].reserved = 1;
-    bad[5].rootMotion = &past;
-    bad[6].rootMotion = &none;
-    bad[7].sampleRate = INFINITY;
+    bad[4].rootMotion = &past;
+    bad[5].rootMotion = &none;
+    bad[6].sampleRate = INFINITY;
     bool refused = true;
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 7; ++i)
     {
         refused =
             refused && BuildWith(builder, gltf, &skeleton, bad[i]).result == mani_errorInvalid;
     }
-    CHECK(refused && maniBuilderMisuses(builder) == misuses + 8, "settings out of range");
+    CHECK(refused && maniBuilderMisuses(builder) == misuses + 7, "settings out of range");
     CHECK(maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, NULL, NULL).result ==
               mani_errorInvalid,
           "no settings");

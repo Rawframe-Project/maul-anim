@@ -20,6 +20,7 @@
 #include "maul-anim/rootmotion.h"
 
 #include <stdint.h>
+#include <string.h>
 
 // The most whole loops a step lists or counts, as moves bound them.
 #define MAX_WRAPS 4294967296.0
@@ -36,15 +37,16 @@ void maniGraphEmit(maniGraphUpdate* u, uint32_t node, uint32_t slot, const maniC
         if (u->count < u->capacity)
         {
             maniClipEvent e = maniClipEventAt(clip, first + k);
-            u->events[u->count] = (maniGraphEvent){node,
-                                                   slot,
-                                                   first + k,
-                                                   e.payload,
-                                                   maniGraphNodeName(u, node, e.nameHash),
-                                                   s->weight,
-                                                   e.time,
-                                                   to >= from ? 1 : -1,
-                                                   0};
+            maniGraphEvent* out = &u->events[u->count];
+            memset(out, 0, sizeof *out);
+            out->node = node;
+            out->clip = slot;
+            out->event = first + k;
+            out->payload = e.payload;
+            out->nameHash = maniGraphNodeName(u, node, e.nameHash);
+            out->weight = s->weight;
+            out->time = e.time;
+            out->direction = to >= from ? 1 : -1;
         }
         u->count += u->count < UINT32_MAX ? 1u : 0u;
     }

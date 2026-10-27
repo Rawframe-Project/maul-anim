@@ -40,8 +40,7 @@ static maniGraphInstance* Space(const float* points, uint32_t n, const uint32_t*
     maniGraphNodeSource nodes[7];
     nodes[0] = (maniGraphNodeSource){
         maniGraphNodeBlendSpaceTriangles, n, kInputs,
-        .triangulated = {
-            {MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, points, triangles, count, 0}};
+        .triangulated = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, points, triangles, count}};
     for (uint32_t k = 0; k < n; ++k)
     {
         nodes[k + 1] = ClipNode(kClipOf[k], 1.0f, maniGraphLoopClip);
@@ -94,7 +93,7 @@ static void TestReserved(void)
     maniGraphNodeSource nodes[6] = {
         {maniGraphNodeTimeScale, 1, kScaled, .timeScale = {LITERAL(2.0f)}},
         {maniGraphNodeBlendSpaceTriangles, 4, kInputs,
-         .triangulated = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, kSquare, NULL, 0, 0}},
+         .triangulated = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, kSquare, NULL, 0}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip),
@@ -119,7 +118,7 @@ static void TestGrid(void)
     static const uint32_t kInputs[9] = {1, 1, 1, 1, 1, 1, 1, 1, 1};
     maniGraphNodeSource nodes[2] = {
         {maniGraphNodeBlendSpaceTriangles, 9, kInputs,
-         .triangulated = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}}, kGrid, NULL, 0, 0}},
+         .triangulated = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, kGrid, NULL, 0}},
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     maniGraph g;
     (void)Make(
@@ -204,7 +203,7 @@ static maniBuildResult Triangles(const float* points, uint32_t n, const uint32_t
     nodes[0] = (maniGraphNodeSource){
         maniGraphNodeBlendSpaceTriangles, n, kInputs,
         .triangulated = {
-            {MANI_NO_PARAMETER, 0, LITERAL(0.0f), LITERAL(0.0f)}, points, triangles, count, 0}};
+            {MANI_NO_PARAMETER, LITERAL(0.0f), LITERAL(0.0f)}, points, triangles, count}};
     for (uint32_t k = 0; k < n; ++k)
     {
         nodes[k + 1] = ClipNode(kClipOf[k], 1.0f, maniGraphLoopClip);
@@ -275,9 +274,9 @@ static void TestSubgraph(void)
     static const uint32_t kOne[3] = {0, 1, 2};
     maniGraphParameterSource inner[2] = {Parameter("u", maniGraphParameterFloat, Float(0)),
                                          Parameter("v", maniGraphParameterFloat, Float(0))};
-    maniGraphPosition position = {MANI_NO_PARAMETER, 0, {0, 0.0f}, {1, 0.0f}};
+    maniGraphPosition position = {MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}};
     maniGraphNodeSource nodes[4] = {{maniGraphNodeBlendSpaceTriangles, 3, kInputs,
-                                     .triangulated = {position, kPoints, kOne, 1, 0}},
+                                     .triangulated = {position, kPoints, kOne, 1}},
                                     ClipNode(0, 1.0f, maniGraphLoopClip),
                                     ClipNode(1, 1.0f, maniGraphLoopClip),
                                     ClipNode(3, 1.0f, maniGraphLoopClip)};
@@ -290,7 +289,7 @@ static void TestSubgraph(void)
     maniGraphNodeSource node = {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                 .subgraph = {&sub, kMap}};
     maniGraphNodeSource flat[4] = {nodes[0], nodes[1], nodes[2], nodes[3]};
-    flat[0].triangulated.position = (maniGraphPosition){MANI_NO_PARAMETER, 0, {1, 0.0f}, {2, 0.0f}};
+    flat[0].triangulated.position = (maniGraphPosition){MANI_NO_PARAMETER, {1, 0.0f}, {2, 0.0f}};
     static _Alignas(16) uint8_t files[2][16384];
     size_t sizes[2] = {0, 0};
     const maniGraphSource sources[2] = {{&s_skeleton, outer, kSlots, NULL, &node, 3, CLIPS, 0, 1, 0,
@@ -328,14 +327,14 @@ static void TestJson(void)
                                               Parameter("at", maniGraphParameterVec2, Float(0.0f))};
     maniGraphNodeSource nodes[7] = {
         {maniGraphNodeBlendSpaceTriangles, 3, kFirst,
-         .triangulated = {{MANI_NO_PARAMETER, 0, {0, 0.0f}, LITERAL(0.5f)}, kPoints, NULL, 0, 0}},
+         .triangulated = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.5f)}, kPoints, NULL, 0}},
         ClipNode(0, 1.0f, maniGraphLoopClip),
         ClipNode(1, 1.0f, maniGraphLoopClip),
         ClipNode(3, 1.0f, maniGraphLoopClip),
         ClipNode(4, 1.0f, maniGraphLoopClip),
         {maniGraphNodeBlendSpaceTriangles, 4, kSecond,
-         .triangulated = {{1, 0, LITERAL(0.0f), LITERAL(0.0f)}, kSquare, kHalves, 2, 0}},
-        {maniGraphNodeBlend, 2, kOutput, .blend = {kHalf, 0, 0}}};
+         .triangulated = {{1, LITERAL(0.0f), LITERAL(0.0f)}, kSquare, kHalves, 2}},
+        {maniGraphNodeBlend, 2, kOutput, .blend = {kHalf, 0}}};
     maniGraphSource source = {&s_skeleton, parameters, kSlots, NULL, nodes, 2,    CLIPS, 0,   7,
                               6,           0,          NULL,   0,    0,     NULL, NULL,  NULL};
     static _Alignas(16) uint8_t read[16384];

@@ -42,15 +42,12 @@ static void OpenTurn(void)
     static const float kTurn[8] = {0, 0, 0, 1, 0, 0.70710678f, 0, 0.70710678f};
     static const float kSpeed[2] = {0.0f, 1.0f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniRootMotionSource kRoot = {0, maniRootAxisX, maniRootRotationTwist, 1, 0, 0, 0,
-                                               0};
+    static const maniRootMotionSource kRoot = {0, maniRootAxisX, maniRootRotationTwist, 1, 0, 0, 0};
     const maniBoneTrackSource track = {0,
-                                       0,
                                        {kTimes, kWalk, 2, maniInterpolationLinear},
                                        {kTimes, kTurn, 2, maniInterpolationLinear},
                                        kNone};
-    const maniFloatTrackSource speed = {
-        "speed", 5, 0, {kTimes, kSpeed, 2, maniInterpolationLinear}};
+    const maniFloatTrackSource speed = {"speed", 5, {kTimes, kSpeed, 2, maniInterpolationLinear}};
     maniClipSource source = {.skeleton = &s_skeleton,
                              .boneTracks = &track,
                              .boneTrackCount = 1,
@@ -101,8 +98,8 @@ static maniMotionDatabaseSource Source(void)
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.5f, 2u};
     s_entries[2] = (maniMatchEntrySource){2, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 4u};
     return (maniMotionDatabaseSource){
-        &s_skeleton, s_clipList,     s_channels,     s_entries, 3, 4, 3,
-        10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,      0, 0};
+        &s_skeleton, s_clipList, s_channels,     s_entries,      3,    4,
+        3,           10.0f,      maniMatchAxisY, maniMatchAxisZ, NULL, 0};
 }
 
 static _Alignas(16) uint8_t s_database[1 << 16];
@@ -303,7 +300,7 @@ static void TestFloatTrack(void)
     maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     maniMatchEntrySource entry = {0, 0, 0.0f, 1.0f, 0.0f, 0u};
     maniMotionDatabaseSource source = {&s_skeleton, s_clipList,     &channel,       &entry, 1, 1, 1,
-                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0};
     maniMotionDatabase d;
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
@@ -682,10 +679,6 @@ static void TestLeafSizes(void)
         CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonOption && r.item == 1,
               "another leaf size refused");
     }
-    source.leafFrames = 0;
-    source.reserved = 1;
-    CHECK(maniBuildMotionDatabase(builder, &source).reason == maniBuildReasonOption,
-          "a reserved word refused");
     CHECK(maniBuilderMisuses(builder) == 0, "no misuse counted");
     maniDestroyBuilder(builder);
 }
