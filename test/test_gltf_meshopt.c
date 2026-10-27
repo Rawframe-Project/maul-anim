@@ -90,6 +90,10 @@ static void TestTriangleRules(void)
     s[1 + 1 + 3] = 0xF1;
     CHECK(!maniMeshoptDecode(out, 3, 4, maniMeshoptTriangles, false, s, sizeof s),
           "a nibble of 0xf in the table");
+    s[1 + 1 + 3] = 0;
+    s[1 + 1] = 0x0F;
+    CHECK(!maniMeshoptDecode(out, 3, 4, maniMeshoptTriangles, false, s, sizeof s),
+          "a nibble of 0xf in the entry the code names");
     // An edge FIFO entry never written.
     uint8_t edge[1 + 1 + 16] = {0xE1, 0x00};
     CHECK(!maniMeshoptDecode(out, 3, 4, maniMeshoptTriangles, false, edge, sizeof edge),

@@ -112,6 +112,19 @@ static void Plain(const char* members, const char* second, const char* views)
                    sizeof kAttributesV0, ""});
 }
 
+// The version 1 stream (257 elements of 12 bytes) under KHR with a
+// filter.
+static void Twelve(const char* filter)
+{
+    char members[160];
+    snprintf(members, sizeof members,
+             "\"buffer\":0,\"byteLength\":1031,\"byteStride\":12,\"count\":257,"
+             "\"mode\":\"ATTRIBUTES\",\"filter\":\"%s\"",
+             filter);
+    Document((Doc){"KHR_meshopt_compression", members, "{\"byteLength\":3084}", "", 3084,
+                   kAttributesV1, sizeof kAttributesV1, ""});
+}
+
 // A view of two gigabytes claimed by the 259-byte stream.
 static void HugeView(void)
 {
@@ -260,6 +273,17 @@ static void TestRules(void)
     Plain("\"buffer\":0,\"byteLength\":259,\"byteStride\":2,\"count\":148,\"mode\":\"TRIANGLES\"",
           kFallback, "");
     ExpectRefusal(maniImportReasonLayout, "148", 0, 0, "triangles of a count not of threes");
+    // The strides again, on views their counts fill.
+    Document((Doc){"EXT_meshopt_compression",
+                   "\"buffer\":0,\"byteLength\":259,\"byteStride\":6,\"count\":48,"
+                   "\"mode\":\"ATTRIBUTES\"",
+                   "{\"byteLength\":288}", "", 288, kAttributesV0, sizeof kAttributesV0, ""});
+    ExpectRefusal(maniImportReasonLayout, "6,\"count", 0, 0, "an attribute stride, the view full");
+    Document((Doc){"EXT_meshopt_compression",
+                   "\"buffer\":0,\"byteLength\":259,\"byteStride\":8,\"count\":36,"
+                   "\"mode\":\"TRIANGLES\"",
+                   "{\"byteLength\":288}", "", 288, kAttributesV0, sizeof kAttributesV0, ""});
+    ExpectRefusal(maniImportReasonLayout, "8,\"count", 0, 0, "a triangle stride, the view full");
     Plain("\"buffer\":0,\"byteLength\":259,\"byteStride\":2,\"count\":148,\"mode\":\"INDICES\","
           "\"filter\":\"OCTAHEDRAL\"",
           kFallback, "");
@@ -280,6 +304,21 @@ static void TestRules(void)
           "\"filter\":\"QUATERNION\"",
           kFallback, "");
     ExpectRefusal(maniImportReasonLayout, "QUATERNION\"", 0, 0, "a quaternion of 4 bytes");
+    // On 12 bytes an element: octahedral and color are for 4 or 8, a
+    // quaternion for 8; exponential is for any.
+    static const char* const kNarrow[3] = {"OCTAHEDRAL", "QUATERNION", "COLOR"};
+    for (int k = 0; k < 3; ++k)
+    {
+        Twelve(kNarrow[k]);
+        char at[16];
+        snprintf(at, sizeof at, "%s\"", kNarrow[k]);
+        ExpectRefusal(maniImportReasonLayout, at, 0, 0, "a filter on 12 bytes");
+    }
+    Twelve("EXPONENTIAL");
+    builder = NewBuilder();
+    CHECK(Open(builder, &gltf).result == mani_success, "an exponential filter on 12 bytes");
+    maniCloseGltf(gltf);
+    maniDestroyBuilder(builder);
     Plain("\"buffer\":0,\"byteLength\":259,\"byteStride\":8,\"count\":36,\"mode\":\"ATTRIBUTES\"",
           kFallback, "");
     ExpectRefusal(maniImportReasonLayout, "36", 0, 0, "a count short of the view");
