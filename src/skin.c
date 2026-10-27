@@ -21,7 +21,7 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
 static bool Finite(float value)
@@ -43,7 +43,7 @@ static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size,
 {
     if (skinOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r = maniOpenContainer(bytes, size, maniKindSkin, MANI_SKIN_FORMAT_VERSION, &c);
@@ -115,7 +115,7 @@ static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size,
         .skeletonBoneCount = bones,
         .jointCount = joints,
     };
-    return (maniFileResult){mani_success, 0};
+    return (maniFileResult){mani_success, 0, 0};
 }
 
 maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
@@ -123,7 +123,7 @@ maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenSkinWork(bytes, size, skinOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint32_t maniSkinJointCount(const maniSkin* skin)

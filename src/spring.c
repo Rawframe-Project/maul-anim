@@ -40,10 +40,10 @@ uint64_t maniSpringComputeIdentity(const uint8_t* const data[MANI_SPRING_SECTION
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -350,7 +350,7 @@ static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t 
 {
     if (setOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -396,7 +396,7 @@ maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* 
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenSpringSetWork(bytes, size, setOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint64_t maniSpringSetIdentity(const maniSpringSet* set)

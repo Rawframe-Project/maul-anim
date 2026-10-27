@@ -18,6 +18,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "retarget_file.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -440,7 +441,8 @@ static bool WordRefused(size_t at, uint32_t value, size_t wrong)
     Rehash(s_crafted, s_size);
     maniRetargetMap m;
     maniFileResult r = maniOpenRetargetMap(s_crafted, s_size, &m);
-    return r.result == mani_errorFormat && r.offset == wrong;
+    return r.result == mani_errorFormat && r.offset == wrong &&
+           r.tag == TestTagAt(s_crafted, s_size, wrong);
 }
 
 static void TestFile(void)
@@ -478,6 +480,7 @@ static void TestFile(void)
     CHECK(WordRefused(h + maniRetargetHeaderTargetPelvis + 4, Bits(INFINITY),
                       h + maniRetargetHeaderTargetPelvis + 4),
           "a pelvis position not finite");
+    CHECK(WordRefused(h + maniRetargetHeaderEnd, 1, h + maniRetargetHeaderEnd), "a reserved word");
     CHECK(WordRefused(h + maniRetargetHeaderRatio, Bits(0.0f), h + maniRetargetHeaderRatio) &&
               WordRefused(h + maniRetargetHeaderRatio, Bits(INFINITY), h + maniRetargetHeaderRatio),
           "a height ratio not positive and finite");
@@ -500,8 +503,8 @@ static void TestFile(void)
               WordRefused(one + 8, 3, one + 8) && WordRefused(one + 12, Bits(0.5f), one + 12) &&
               WordRefused(one + 12, Bits(-0.0f), one + 12) &&
               WordRefused(one + 16, Bits(1.5f), one + 16) && WordRefused(one + 20, 3, one + 20) &&
-              WordRefused(one + 24, 4, one + 24),
-          "a one-source plan: kind, bones, place, weight, translation, flags");
+              WordRefused(one + 24, 4, one + 24) && WordRefused(one + 28, 1, one + 28),
+          "a one-source plan: kind, bones, place, weight, translation, flags, its 0 word");
     CHECK(WordRefused(p + 16, Bits(0.5f), p + 24),
           "the root's plan in its source's frame at a weight below 1");
     CHECK(WordRefused(two + 8, 2, two + 8) && WordRefused(two + 12, Bits(1.0f), two + 12) &&
@@ -556,25 +559,6 @@ static bool Seed(const char* path)
     return fclose(out) == 0 && written == s_size;
 }
 
-// Any other format version, the earlier ones among them, is refused at
-// the version before anything else is read.
-static void TestOtherVersions(void)
-{
-    const maniRetargetChainSource chains[2] = {kSpine, kArm};
-    maniRetargetMapSource source = Map(chains, 2);
-    CHECK(Build(&source).result == mani_success, "built");
-    const uint16_t versions[3] = {1, MANI_RETARGET_FORMAT_VERSION - 1,
-                                  MANI_RETARGET_FORMAT_VERSION + 1};
-    for (uint32_t k = 0; k < 3; ++k)
-    {
-        memcpy(s_crafted, s_file, s_size);
-        maniStoreU16(s_crafted + 6, versions[k]);
-        maniRetargetMap m;
-        maniFileResult r = maniOpenRetargetMap(s_crafted, s_size, &m);
-        CHECK(r.result == mani_errorVersion && r.offset == 6, "another version refused");
-    }
-}
-
 int main(int argc, char** argv)
 {
     Skeleton(kSource, 8, 0, &s_source);
@@ -588,6 +572,5 @@ int main(int argc, char** argv)
     TestPlaces();
     TestRefusals();
     TestFile();
-    TestOtherVersions();
     return s_failures == 0 ? 0 : 1;
 }

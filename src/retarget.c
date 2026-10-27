@@ -38,10 +38,10 @@ uint64_t maniRetargetComputeIdentity(const uint8_t* const data[MANI_RETARGET_SEC
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -174,9 +174,11 @@ static maniFileResult Header(const Sections* s, maniRetargetMap* m)
     }
     float ratio = LoadF32(h + maniRetargetHeaderRatio);
     bool none = maniLoadU32(h + maniRetargetHeaderPelvisTarget) == MANI_NO_BONE;
-    return !(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f)
-               ? Fail(at + maniRetargetHeaderRatio)
-               : kOk;
+    if (!(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f))
+    {
+        return Fail(at + maniRetargetHeaderRatio);
+    }
+    return maniLoadU32(h + maniRetargetHeaderEnd) == 0 ? kOk : Fail(at + maniRetargetHeaderEnd);
 }
 
 // The references: a rotation (or two) of length 1, the rest finite.
@@ -251,7 +253,7 @@ static uint32_t PlanWrong(const uint8_t* e, const maniRetargetMap* m, uint32_t b
             return 4 * k;
         }
     }
-    return UINT32_MAX;
+    return maniLoadU32(e + maniRetargetPlanEnd) == 0 ? UINT32_MAX : maniRetargetPlanEnd;
 }
 
 static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)
@@ -279,7 +281,7 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
 {
     if (mapOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -287,12 +289,6 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
     if (r.result != mani_success)
     {
         return r;
-    }
-    // Before 1.0 a reader reads its own format version alone: an older
-    // map is rebuilt from its source.
-    if (c.formatVersion != MANI_RETARGET_FORMAT_VERSION)
-    {
-        return (maniFileResult){mani_errorVersion, 6};
     }
     static const uint8_t kEmpty = 0;
     Sections s;
@@ -330,7 +326,7 @@ maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetM
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenRetargetMapWork(bytes, size, mapOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint64_t maniRetargetMapIdentity(const maniRetargetMap* map)

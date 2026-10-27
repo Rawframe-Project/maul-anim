@@ -37,10 +37,10 @@ uint64_t maniLearnedComputeIdentity(const uint8_t* const data[MANI_LEARNED_SECTI
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -332,10 +332,11 @@ static maniFileResult CheckNetwork(maniLearnedModel* m, const Sections* s, uint3
     uint64_t here = s->at[maniLearnedTagNetworks - 1] + (uint64_t)n * MANI_LEARNED_NETWORK_SIZE;
     uint32_t count = maniLoadU32(e);
     bool projector = n >= MANI_LEARNED_PROJECTORS;
-    const bool valid[3] = {
-        count >= 1 && count <= MANI_LEARNED_MAX_LAYERS && count <= m->layerCount - first,
-        projector || maniLoadU32(e + 4) == 0, projector || maniLoadU32(e + 8) == 0};
-    for (uint32_t k = 0; k < 3; ++k)
+    const bool valid[4] = {count >= 1 && count <= MANI_LEARNED_MAX_LAYERS &&
+                               count <= m->layerCount - first,
+                           projector || maniLoadU32(e + 4) == 0,
+                           projector || maniLoadU32(e + 8) == 0, maniLoadU32(e + 12) == 0};
+    for (uint32_t k = 0; k < 4; ++k)
     {
         if (!valid[k])
         {
@@ -495,7 +496,7 @@ static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size
 {
     if (modelOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -503,12 +504,6 @@ static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size
     if (r.result != mani_success)
     {
         return r;
-    }
-    // Before 1.0 a reader reads its own format version alone: an older
-    // model is rebuilt from its source.
-    if (c.formatVersion != MANI_LEARNED_FORMAT_VERSION)
-    {
-        return (maniFileResult){mani_errorVersion, 6};
     }
     Sections s;
     maniLearnedModel m;
@@ -540,7 +535,7 @@ maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedM
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenLearnedModelWork(bytes, size, modelOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint64_t maniLearnedModelIdentity(const maniLearnedModel* model)

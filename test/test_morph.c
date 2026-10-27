@@ -16,6 +16,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "morph_file.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -733,7 +734,9 @@ static void ExpectFormat(uint64_t offset, const char* what)
 {
     maniMorphTargets m;
     maniFileResult r = maniOpenMorphTargets(s_file, s_size, &m);
-    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    CHECK(r.result == mani_errorFormat && r.offset == offset &&
+              r.tag == TestTagAt(s_file, s_size, offset),
+          what);
     if (r.offset != offset)
     {
         printf("  %s: at %llu, expected %llu\n", what, (unsigned long long)r.offset,

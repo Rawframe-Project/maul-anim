@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_COMPRESSED_HASH 0x5247e311585248c9ull
+#define PINNED_COMPRESSED_HASH 0xd952259dd9f4cec0ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_fullFile[65536];

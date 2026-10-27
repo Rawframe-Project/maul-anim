@@ -17,6 +17,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "ragdoll_file.h"
 #include "ragdoll_fixture.h"
 #include "source_padding.h"
@@ -337,7 +338,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
         printf("  at %llu: refused %d at %llu, want %llu\n", (unsigned long long)offset,
                (int)r.result, (unsigned long long)r.offset, (unsigned long long)want);
     }
-    return r.result == mani_errorFormat && r.offset == want;
+    return r.result == mani_errorFormat && r.offset == want &&
+           r.tag == TestTagAt(s_crafted, s_size, want);
 }
 
 static uint32_t Bits(float v)

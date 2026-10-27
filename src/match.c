@@ -88,10 +88,10 @@ uint64_t maniMatchComputeIdentity(const uint8_t* const data[MANI_MATCH_SECTIONS]
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -589,7 +589,7 @@ static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, si
 {
     if (databaseOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -602,7 +602,7 @@ static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, si
     // database is built again from its source.
     if (c.formatVersion != MANI_MATCH_FORMAT_VERSION)
     {
-        return (maniFileResult){mani_errorVersion, 6};
+        return (maniFileResult){mani_errorVersion, 0, 6};
     }
     Sections s;
     maniMotionDatabase d;
@@ -633,7 +633,7 @@ maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenMotionDatabaseWork(bytes, size, databaseOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database)

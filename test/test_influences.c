@@ -12,6 +12,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "influence_file.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -322,7 +323,9 @@ static void ExpectFormat(uint64_t offset, const char* what)
 {
     maniInfluences v;
     maniFileResult r = maniOpenInfluences(s_file, s_size, &v);
-    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    CHECK(r.result == mani_errorFormat && r.offset == offset &&
+              r.tag == TestTagAt(s_file, s_size, offset),
+          what);
     if (r.offset != offset)
     {
         printf("  %s: at %llu, expected %llu\n", what, (unsigned long long)r.offset,

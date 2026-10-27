@@ -15,6 +15,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "graph_file.h"
 #include "graph_instance.h"
 #include "test_harness.h"
@@ -452,7 +453,9 @@ static void ExpectFormat(uint64_t offset, uint32_t value, uint64_t want, const c
     Rehash(s_crafted);
     maniGraph g;
     maniFileResult r = maniOpenGraph(s_crafted, s_size, &g);
-    CHECK(r.result == mani_errorFormat && r.offset == want, what);
+    CHECK(r.result == mani_errorFormat && r.offset == want &&
+              r.tag == TestTagAt(s_crafted, s_size, want),
+          what);
     if (r.offset != want)
     {
         printf("  %s: at %llu, expected %llu\n", what, (unsigned long long)r.offset,

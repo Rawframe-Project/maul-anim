@@ -101,10 +101,15 @@ extern "C"
     };
 
     // The result of reading external bytes: the status and, for
-    // mani_errorFormat, the offset of the first byte found wrong.
+    // mani_errorFormat, the first byte found wrong: the tag of the file
+    // section it lies in (each kind's tags are listed in file-formats.md;
+    // 0 in a file's header, its section table and the padding between
+    // sections, and anywhere in a saved graph or spring state) and its
+    // offset from the start of the bytes.
     typedef struct maniFileResult
     {
         maniResult result;
+        uint32_t tag;
         uint64_t offset;
     } maniFileResult;
 

@@ -33,11 +33,11 @@ enum
     kTagNetworks = 16,
 };
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
 static float LoadF32(const uint8_t* p)
@@ -218,11 +218,11 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(maniLearnedTrai
 {
     if (trainer != NULL && maniHostCalledBack(&trainer->host))
     {
-        return (maniFileResult){mani_errorState, 0};
+        return (maniFileResult){mani_errorState, 0, 0};
     }
     if (trainer == NULL || bytes == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r = maniOpenContainer(bytes, size, maniKindLearnedCheckpoint, 1, &c);
@@ -252,7 +252,7 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(maniLearnedTrai
         maniLearnedTrainerDrop(trainer);
         maniLearnedTrainerForget(trainer);
         trainer->stage = 0;
-        return (maniFileResult){mani_errorCapacity, 0};
+        return (maniFileResult){mani_errorCapacity, 0, 0};
     }
     return kOk;
 }
@@ -263,5 +263,5 @@ maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const v
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = RestoreLearnedCheckpointWork(trainer, bytes, size);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }

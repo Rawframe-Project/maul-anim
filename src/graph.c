@@ -128,10 +128,10 @@ uint64_t maniGraphComputeIdentity(const uint8_t* const* sections, const uint64_t
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 typedef struct Sections
 {
@@ -540,7 +540,7 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
 {
     if (graphOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r = maniOpenContainer(bytes, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c);
@@ -554,7 +554,7 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
     // again.
     if (c.formatVersion < MANI_GRAPH_FORMAT_VERSION)
     {
-        return (maniFileResult){mani_errorVersion, 6};
+        return (maniFileResult){mani_errorVersion, 0, 6};
     }
     Sections s;
     maniGraph g;
@@ -594,7 +594,7 @@ maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenGraphWork(bytes, size, graphOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint64_t maniGraphIdentity(const maniGraph* graph)

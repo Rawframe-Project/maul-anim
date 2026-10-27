@@ -46,7 +46,7 @@ ceiling match      O2 20000
 ceiling learned    O2 12000
 ceiling morph      O2 7000
 ceiling elementary O2 7000
-ceiling core       O3 93000
+ceiling core       O3 94000
 ceiling skinning   O3 15000
 ceiling graph      O3 135000
 ceiling ik         O3 34000

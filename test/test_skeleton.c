@@ -11,6 +11,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "skeleton_file.h"
 #include "source_padding.h"
 #include "test_budget.h"
@@ -256,7 +257,7 @@ static void ExpectFormat(uint64_t offset, const char* what)
     Rehash();
     maniFileResult r = Open();
     CHECK(r.result == mani_errorFormat, what);
-    CHECK(r.offset == offset, what);
+    CHECK(r.offset == offset && r.tag == TestTagAt(s_file, s_size, offset), what);
     BuildSample();
 }
 

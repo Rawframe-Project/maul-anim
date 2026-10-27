@@ -21,6 +21,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "graph_fixture.h"
 #include "match_file.h"
 #include "source_padding.h"
@@ -508,7 +509,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
         printf("  refused at %llu (%d), expected %llu\n", (unsigned long long)r.offset,
                (int)r.result, (unsigned long long)want);
     }
-    return r.result == mani_errorFormat && r.offset == want;
+    return r.result == mani_errorFormat && r.offset == want &&
+           r.tag == TestTagAt(s_crafted, s_size, want);
 }
 
 static uint32_t BitsOf(float value)

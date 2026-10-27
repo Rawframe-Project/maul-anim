@@ -84,6 +84,13 @@ uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size);
 maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind, uint16_t maxVersion,
                                  maniContainer* containerOut);
 
+// A refusal of the bytes with mani_errorFormat given the tag of the
+// section its offset lies in: 0 in the header, the table or the padding
+// between sections. Any other result is returned as it was. Reads only
+// the header and the table, within size; a refusal of the table itself
+// lies in the table, so a table it scans is one the container checked.
+maniFileResult maniContainerTagged(const void* bytes, size_t size, maniFileResult result);
+
 // The section with the given tag: its bytes, size and offset in the file.
 // False when the container has none.
 bool maniContainerSection(const maniContainer* container, uint32_t tag, const uint8_t** dataOut,

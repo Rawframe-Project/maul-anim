@@ -21,6 +21,7 @@
 
 #include "checkpoint_host.h"
 #include "container.h"
+#include "file_tag.h"
 #include "fpenv.h"
 #include "graph_match_fixture.h"
 #include "learned_file.h"
@@ -715,7 +716,8 @@ static uint64_t SectionAt(uint32_t tag)
 static bool RefusedAt(maniLearnedTrainer* t, size_t size, uint64_t offset)
 {
     maniFileResult r = maniRestoreLearnedCheckpoint(t, s_checkpoint, size);
-    return r.result == mani_errorFormat && r.offset == offset;
+    return r.result == mani_errorFormat && r.offset == offset &&
+           r.tag == TestTagAt(s_checkpoint, size, offset);
 }
 
 static void StoreF32(uint8_t* p, float x)

@@ -704,7 +704,7 @@ static bool SavedNodeValid(const maniGraph* graph, uint32_t node, const uint8_t*
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
 // A motion matching node's saved block, with its saved playhead.
@@ -775,7 +775,7 @@ static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8
             return Fail(block + 4 * (uint64_t)wrong);
         }
     }
-    return (maniFileResult){mani_success, 0};
+    return (maniFileResult){mani_success, 0, 0};
 }
 
 static float SavedF32(const uint8_t* p)
@@ -818,7 +818,7 @@ static maniFileResult CheckPoses(const maniGraphInstance* instance, const uint8_
             return Fail(at + 4 * (uint64_t)wrong);
         }
     }
-    return (maniFileResult){mani_success, 0};
+    return (maniFileResult){mani_success, 0, 0};
 }
 
 static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_t* b, size_t size)
@@ -893,7 +893,7 @@ static MANI_NOINLINE maniFileResult RestoreGraphInstanceWork(maniGraphInstance* 
 {
     if (!InstanceValid(instance) || bytes == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniFileResult r = CheckState(instance, bytes, size);
     if (r.result != mani_success)

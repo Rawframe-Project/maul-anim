@@ -40,10 +40,10 @@ uint64_t maniRagdollComputeIdentity(const uint8_t* const data[MANI_RAGDOLL_SECTI
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 #define PI_F 3.14159265358979f
 
@@ -277,7 +277,7 @@ static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t si
 {
     if (ragdollOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -319,7 +319,7 @@ maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragd
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenRagdollWork(bytes, size, ragdollOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint64_t maniRagdollIdentity(const maniRagdoll* ragdoll)

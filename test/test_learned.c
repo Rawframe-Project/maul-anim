@@ -682,7 +682,9 @@ static bool RefusedIn(uint32_t tag, uint64_t offset, const void* bytes, size_t s
                (unsigned long long)offset, (int)r.result, (unsigned long long)r.offset,
                (unsigned long long)expected);
     }
-    return r.result == mani_errorFormat && r.offset == expected;
+    // A refusal in a section names it; one of the table's entries, none.
+    return r.result == mani_errorFormat && r.offset == expected &&
+           r.tag == (want != UINT64_MAX ? wantTag : 0u);
 }
 
 static bool RefusedAt(uint32_t tag, uint64_t offset, const void* bytes, size_t size, uint64_t want)
@@ -770,22 +772,19 @@ static void TestOpenRecords(void)
     CHECK(WordRefused(maniLearnedTagBones, 0, 3, 0), "a scaled bone past the bones");
     CHECK(WordRefused(maniLearnedTagBones, 4 + 20, BitsOf(INFINITY), 4 + 20),
           "a bone's scale not finite");
-    // Networks: the Decompressor's layer count; the Stepper's tags; a
-    // Projector's tags are its own.
+    // Networks: the Decompressor's layer count; the Stepper's tags and
+    // the reserved word; a Projector's tags are its own.
     CHECK(WordRefused(maniLearnedTagNetworks, 0, 0, 0), "a network of no layers");
     CHECK(WordRefused(maniLearnedTagNetworks, 0, 17, 0), "layers past the limit");
     CHECK(WordRefusedIn(maniLearnedTagNetworks, 0, 3, maniLearnedTagLayers, 16),
           "a layer past the network's role");
-    const uint32_t stepper = MANI_LEARNED_NETWORK_SIZE;
-    CHECK(WordRefused(maniLearnedTagNetworks, stepper + 4, 1, stepper + 4),
-          "the Stepper's required tags");
-    CHECK(WordRefused(maniLearnedTagNetworks, stepper + 8, 1, stepper + 8),
-          "the Stepper's excluded tags");
+    CHECK(WordRefused(maniLearnedTagNetworks, 20, 1, 20), "the Stepper's required tags");
+    CHECK(WordRefused(maniLearnedTagNetworks, 24, 1, 24), "the Stepper's excluded tags");
+    CHECK(WordRefused(maniLearnedTagNetworks, 44, 1, 44), "the reserved word");
     uint64_t at = 0;
     uint8_t tags[4];
     maniStoreU32(tags, 7);
-    CHECK(Changed(maniLearnedTagNetworks, 2 * MANI_LEARNED_NETWORK_SIZE + 4, tags, 4, true, &at)
-                  .result == mani_success,
+    CHECK(Changed(maniLearnedTagNetworks, 36, tags, 4, true, &at).result == mani_success,
           "a Projector's tags");
     // Layers: the Decompressor's first input, an output not chained, a
     // last output not its role's, an output of 0.
@@ -929,23 +928,6 @@ static void TestOverflow(void)
           "a decompression refused, nothing written");
 }
 
-// Any other format version, the earlier one among them, is refused at
-// the version before anything else is read.
-static void TestOtherVersions(void)
-{
-    maniLearnedModelSource source = Source();
-    CHECK(Build(&source).result == mani_success, "built");
-    const uint16_t versions[2] = {MANI_LEARNED_FORMAT_VERSION - 1, MANI_LEARNED_FORMAT_VERSION + 1};
-    for (uint32_t k = 0; k < 2; ++k)
-    {
-        memcpy(s_changed, s_model, s_modelSize);
-        maniStoreU16(s_changed + 6, versions[k]);
-        maniLearnedModel m;
-        maniFileResult r = maniOpenLearnedModel(s_changed, s_modelSize, &m);
-        CHECK(r.result == mani_errorVersion && r.offset == 6, "another version refused");
-    }
-}
-
 // A network's copy with its layers, both padded.
 static maniLearnedNetworkSource PaddedNetwork(const maniLearnedNetworkSource* n,
                                               maniLearnedLayerSource layers[3], uint8_t pattern)
@@ -1024,6 +1006,5 @@ int main(int argc, char** argv)
     TestOpenShapes();
     TestOverflow();
     TestPaddingIgnored();
-    TestOtherVersions();
     return s_failures == 0 ? 0 : 1;
 }

@@ -26,12 +26,12 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
 static maniFileResult Success(void)
 {
-    return (maniFileResult){mani_success, 0};
+    return (maniFileResult){mani_success, 0, 0};
 }
 
 // A section's place: its bytes and its offset in the file.
@@ -232,7 +232,7 @@ static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes
 {
     if (skeletonOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -287,7 +287,7 @@ maniFileResult maniOpenSkeleton(const void* bytes, size_t size, maniSkeleton* sk
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenSkeletonWork(bytes, size, skeletonOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint32_t maniSkeletonBoneCount(const maniSkeleton* skeleton)

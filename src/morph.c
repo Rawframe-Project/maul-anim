@@ -26,10 +26,10 @@
 
 static maniFileResult Fail(uint64_t offset)
 {
-    return (maniFileResult){mani_errorFormat, offset};
+    return (maniFileResult){mani_errorFormat, 0, offset};
 }
 
-static const maniFileResult kOk = {mani_success, 0};
+static const maniFileResult kOk = {mani_success, 0, 0};
 
 static float LoadF32(const uint8_t* p)
 {
@@ -378,7 +378,7 @@ static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size
 {
     if (targetsOut == NULL)
     {
-        return (maniFileResult){mani_errorInvalid, 0};
+        return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
     maniFileResult r =
@@ -417,7 +417,7 @@ maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTar
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = OpenMorphTargetsWork(bytes, size, targetsOut);
     maniFloatEnvLeave(env);
-    return result;
+    return maniContainerTagged(bytes, size, result);
 }
 
 uint32_t maniMorphVertexCount(const maniMorphTargets* targets)

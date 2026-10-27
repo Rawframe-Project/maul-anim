@@ -18,6 +18,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "mirror_file.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -409,7 +410,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
         printf("  at %llu, expected %llu\n", (unsigned long long)r.offset,
                (unsigned long long)want);
     }
-    return r.result == mani_errorFormat && r.offset == want;
+    return r.result == mani_errorFormat && r.offset == want &&
+           r.tag == TestTagAt(s_crafted, s_size, want);
 }
 
 static void TestFile(void)

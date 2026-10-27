@@ -14,6 +14,7 @@
 #include "bytes.h"
 #include "clip_file.h"
 #include "container.h"
+#include "file_tag.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
@@ -32,7 +33,7 @@
 // The clip scene: the sample clip with root motion, sampled at times
 // across its loop (local poses, float tracks, root motion), and its file;
 // every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0xec65d55ea36481d9ull
+#define PINNED_SCENE_HASH 0xcfa316750f07be9dull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -854,7 +855,9 @@ static void ExpectFormat(uint64_t offset, const char* what)
 {
     Rehash();
     maniFileResult r = Open();
-    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    CHECK(r.result == mani_errorFormat && r.offset == offset &&
+              r.tag == TestTagAt(s_file, s_size, offset),
+          what);
     BuildSample();
 }
 

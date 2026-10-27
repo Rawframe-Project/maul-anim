@@ -34,18 +34,36 @@ Opening needs no scratch memory: a skeleton's depth-first order, for instance, i
 | Kind | Number | Format version | Bound to |
 |---|---|---|---|
 | Skeleton | 1 | 1 | |
-| Clip | 2 | 4 | its skeleton |
+| Clip | 2 | 3 | its skeleton |
 | Graph | 3 | 6 | its skeleton, its clips, databases, models, spring sets and maps |
-| Retargeting map | 4 | 3 | its source and target skeletons |
+| Retargeting map | 4 | 2 | its source and target skeletons |
 | Skin | 5 | 1 | its skeleton |
 | Influences | 6 | 1 | its skin |
 | Morph targets | 7 | 1 | |
 | Motion database | 8 | 3 | its skeleton and clips, and a mirror map for mirrored entries |
-| Learned model | 9 | 2 | its skeleton and database |
+| Learned model | 9 | 1 | its skeleton and database |
 | Learned checkpoint | 10 | 1 | its trainer's source and options |
 | Spring set | 11 | 2 | its skeleton |
 | Ragdoll profile | 12 | 1 | its skeleton |
 | Mirror map | 13 | 2 | its skeleton |
+
+A refusal names the tag of the section holding the first byte found wrong (`maniFileResult.tag`, 0 in the header, the table or the padding between sections), so a host can tell which part of a file is damaged without knowing its layout:
+
+| Kind | Section tags |
+|---|---|
+| Skeleton | 1 parents, 2 subtree ends, 3 rests, 4 name hashes, 5 name order, 6 name spans, 7 name bytes |
+| Clip | 1 header, 2 tracks, 3 samples, 4 float tracks, 5 float samples, 6 discrete tracks, 7 discrete keys, 8 events, 9 markers, 10 names, 11 forms, 12 constants, 13 ranges, 14 segments, 15 segment data, 16 root motion |
+| Graph | 1 header, 2 parameters, 3 nodes, 4 inputs, 5 data, 6 clips, 7 sync groups, 8 mask weights, 9 databases, 10 database clips, 11 names, 12 models, 13 spring sets, 14 maps, 15 mirror |
+| Retargeting map | 1 header, 2 source, 3 target, 4 plan |
+| Skin | 1 binding, 2 joints, 3 inverse binds |
+| Influences | 1 binding, 2 joints, 3 weights, 4 dual quaternion weights, 5 centers |
+| Morph targets | 1 header, 2 attributes, 3 channels, 4 targets, 5 indices, 6 deltas, 7 names |
+| Motion database | 1 header, 2 channels, 3 times, 4 clips, 5 entries, 6 normalization, 7 features, 8 boxes, 9 names, 10 mirror, 11 nodes, 12 positions, 13 places |
+| Learned model | 1 header, 2 channels, 3 times, 4 normalization, 5 bones, 6 networks, 7 layers, 8 values, 9 weights, 10 names, 11 name bytes |
+| Spring set | 1 header, 2 colliders, 3 springs, 4 joints, 5 links, 6 names |
+| Ragdoll profile | 1 header, 2 bodies, 3 names |
+| Mirror map | 1 header, 2 bones, 3 names, 4 strings |
+| Learned checkpoint | 1 progress, 2 latents, 3 and on the networks' training state, 16 and on the networks |
 
 A compressed clip is a clip file in which the samples section is replaced by the compressed sections ([clips-and-compression.md](clips-and-compression.md)); `maniOpenClip` opens either form.
 

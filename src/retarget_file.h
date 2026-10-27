@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 
-#define MANI_RETARGET_FORMAT_VERSION 3u
+#define MANI_RETARGET_FORMAT_VERSION 2u
 #define MANI_RETARGET_SECTIONS       4u
 
 enum
@@ -30,18 +30,18 @@ enum
     maniRetargetTagPlan = 4,
 };
 
-#define MANI_RETARGET_HEADER_SIZE 108u
+#define MANI_RETARGET_HEADER_SIZE 112u
 #define MANI_RETARGET_SOURCE_SIZE 40u
 #define MANI_RETARGET_TARGET_SIZE 56u
-#define MANI_RETARGET_PLAN_SIZE   28u
+#define MANI_RETARGET_PLAN_SIZE   32u
 
 // Header offsets: u64 the source's and the target's identities; u32 their
 // bone counts; u32 the pelvis's source and target bones (MANI_NO_BONE
 // both without one); binary32: the up axis (3), the horizontal and
 // vertical scales (the height ratio times the factors), the absolute
 // blends (3), the source blends (3), the translation weight, the source
-// and target reference pelvis positions (3 each), the height ratio.
-// Without a pelvis the axis is +y, the scales and the ratio 1 and
+// and target reference pelvis positions (3 each), the height ratio; a 0
+// word. Without a pelvis the axis is +y, the scales and the ratio 1 and
 // every other number 0.
 enum
 {
@@ -60,12 +60,13 @@ enum
     maniRetargetHeaderSourcePelvis = 80,
     maniRetargetHeaderTargetPelvis = 92,
     maniRetargetHeaderRatio = 104,
+    maniRetargetHeaderEnd = 108,
 };
 
 // A target bone's plan: u32 its kind; u32 source bones a and b; binary32
 // its place t between them and its rotation weight; u32 its translation
 // (maniRetargetTranslation, or maniRetargetPlanPelvis for the pelvis's
-// target) and flags. A reference bone's a and b are
+// target) and flags; a 0 word. A reference bone's a and b are
 // MANI_NO_BONE and every other word 0; a one-source bone's b is
 // MANI_NO_BONE and its t 0; a two-source bone's t lies in (0, 1).
 enum
@@ -77,6 +78,7 @@ enum
     maniRetargetPlanWeight = 16,
     maniRetargetPlanTranslation = 20,
     maniRetargetPlanFlags = 24,
+    maniRetargetPlanEnd = 28,
 };
 
 // Plan kinds.
