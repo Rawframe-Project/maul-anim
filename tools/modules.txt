@@ -228,7 +228,7 @@ gltf_ragdoll: arena decompose fpenv gltf_basis gltf_document gltf_names gltf_pro
 gltf_ragdoll_joint: arena gltf_document gltf_property gltf_ragdoll json vecmath
 gltf_buffer: allocator gltf_compression gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_compression gltf_document gltf_property json
-gltf_meshopt: bytes
+gltf_meshopt: bytes invariant
 gltf_compression: allocator gltf_document gltf_meshopt gltf_property json
 gltf_draco_read: arena bytes
 gltf_draco_corner: arena
