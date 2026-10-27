@@ -32,7 +32,7 @@ uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size)
     return hash;
 }
 
-// The hash of bytes 64 to the end.
+// The hash of the bytes after the header.
 static uint64_t HashPayload(const uint8_t* b, uint64_t fileSize)
 {
     return maniHashBytes(MANI_HASH_INIT, b + MANI_CONTAINER_HEADER_SIZE,
@@ -44,52 +44,54 @@ static maniFileResult Fail(maniResult result, uint64_t offset)
     return (maniFileResult){result, 0, offset};
 }
 
-static maniFileResult CheckHeader(const uint8_t* b, size_t size, uint16_t kind, uint16_t maxVersion)
+// Every check of the bytes refuses them with this status but one: a
+// format version this reader does not read.
+static maniFileResult Malformed(uint64_t offset)
+{
+    return Fail(mani_errorFormat, offset);
+}
+
+static maniFileResult CheckHeader(const uint8_t* b, size_t size, uint16_t kind, uint16_t version)
 {
     if (size < MANI_CONTAINER_HEADER_SIZE)
     {
-        return Fail(mani_errorFormat, size);
+        return Malformed(size);
     }
     if (memcmp(b, kMagic, sizeof kMagic) != 0)
     {
-        return Fail(mani_errorFormat, 0);
+        return Malformed(0);
     }
     if (maniLoadU16(b + 4) != kind)
     {
-        return Fail(mani_errorFormat, 4);
+        return Malformed(4);
     }
-    uint16_t version = maniLoadU16(b + 6);
-    if (version == 0)
+    // Before 1.0 a reader reads its own format version alone: an older
+    // file is rebuilt from its source.
+    uint16_t stored = maniLoadU16(b + 6);
+    if (stored == 0)
     {
-        return Fail(mani_errorFormat, 6);
+        return Malformed(6);
     }
-    if (version > maxVersion)
+    if (stored != version)
     {
         return Fail(mani_errorVersion, 6);
     }
     if (maniLoadU32(b + 8) != MANI_CONTAINER_HEADER_SIZE)
     {
-        return Fail(mani_errorFormat, 8);
+        return Malformed(8);
     }
     if (maniLoadU32(b + 12) > MANI_CONTAINER_MAX_SECTIONS)
     {
-        return Fail(mani_errorFormat, 12);
+        return Malformed(12);
     }
     if (maniLoadU16(b + 22) != 0)
     {
-        return Fail(mani_errorFormat, 22);
+        return Malformed(22);
     }
     uint64_t fileSize = maniLoadU64(b + 24);
     if (fileSize < MANI_CONTAINER_HEADER_SIZE || fileSize > size)
     {
-        return Fail(mani_errorFormat, 24);
-    }
-    for (uint32_t i = 48; i < MANI_CONTAINER_HEADER_SIZE; ++i)
-    {
-        if (b[i] != 0)
-        {
-            return Fail(mani_errorFormat, i);
-        }
+        return Malformed(24);
     }
     return Fail(mani_success, 0);
 }
@@ -135,7 +137,7 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
     uint64_t tableEnd = MANI_CONTAINER_HEADER_SIZE + (uint64_t)count * MANI_CONTAINER_ENTRY_SIZE;
     if (tableEnd > fileSize)
     {
-        return Fail(mani_errorFormat, 12);
+        return Malformed(12);
     }
     uint64_t next = tableEnd;
     uint32_t lastTag = 0;
@@ -145,22 +147,22 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
         uint32_t tag = maniLoadU32(b + at);
         if (i > 0 && tag <= lastTag)
         {
-            return Fail(mani_errorFormat, at);
+            return Malformed(at);
         }
         lastTag = tag;
         if (maniLoadU32(b + at + 4) != 0)
         {
-            return Fail(mani_errorFormat, at + 4);
+            return Malformed(at + 4);
         }
         uint64_t offset = maniLoadU64(b + at + 8);
         uint64_t sectionSize = maniLoadU64(b + at + 16);
         if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset < next || offset > fileSize)
         {
-            return Fail(mani_errorFormat, at + 8);
+            return Malformed(at + 8);
         }
         if (sectionSize > fileSize - offset)
         {
-            return Fail(mani_errorFormat, at + 16);
+            return Malformed(at + 16);
         }
         next = offset + sectionSize;
     }
@@ -168,14 +170,14 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
 }
 
 MANI_COLD maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind,
-                                           uint16_t maxVersion, maniContainer* containerOut)
+                                           uint16_t version, maniContainer* containerOut)
 {
     if (bytes == NULL || containerOut == NULL || (uintptr_t)bytes % MANI_CONTAINER_ALIGNMENT != 0)
     {
         return Fail(mani_errorInvalid, 0);
     }
     const uint8_t* b = (const uint8_t*)bytes;
-    maniFileResult r = CheckHeader(b, size, kind, maxVersion);
+    maniFileResult r = CheckHeader(b, size, kind, version);
     if (r.result != mani_success)
     {
         return r;
@@ -189,7 +191,7 @@ MANI_COLD maniFileResult maniOpenContainer(const void* bytes, size_t size, uint1
     }
     if (HashPayload(b, fileSize) != maniLoadU64(b + 32))
     {
-        return Fail(mani_errorFormat, 32);
+        return Malformed(32);
     }
     *containerOut = (maniContainer){
         .bytes = b,

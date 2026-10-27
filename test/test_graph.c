@@ -38,7 +38,7 @@
 // The graph scene: the file, then an instance of it stepped across its
 // clips' wraps (each step's pose, root motion and events) and its saved
 // state; every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x7715771ff5951ad4ull
+#define PINNED_SCENE_HASH 0x674fbaef8dc62397ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -416,7 +416,8 @@ static void TestShapeRefusals(void)
 // The payload hash and identity made right after an edit.
 static void Rehash(uint8_t* file)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, s_size - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
     CHECK(maniOpenContainer(file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
               mani_success,
@@ -461,6 +462,12 @@ static void ExpectFormat(uint64_t offset, uint32_t value, uint64_t want, const c
         printf("  %s: at %llu, expected %llu\n", what, (unsigned long long)r.offset,
                (unsigned long long)want);
     }
+}
+
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniGraph graph;
+    return maniOpenGraph(bytes, size, &graph);
 }
 
 static void TestOpenRefusals(void)
@@ -508,7 +515,9 @@ static void TestOpenRefusals(void)
     // The identity changed after the payload hash: only it is wrong.
     memcpy(s_crafted, s_file, s_size);
     maniStoreU64(s_crafted + 40, maniLoadU64(s_crafted + 40) + 1);
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniGraph crafted;
     maniFileResult r = maniOpenGraph(s_crafted, s_size, &crafted);
     CHECK(r.result == mani_errorFormat && r.offset == 40, "an identity that is not the contents'");
@@ -518,6 +527,7 @@ static void TestOpenRefusals(void)
               maniGraphNodeCount(NULL) == 0 && maniGraphIdentity(NULL) == 0 &&
               maniGraphFindParameter(NULL, "mix", 3) == MANI_NO_PARAMETER,
           "misuses");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
 }
 
 static _Alignas(8) uint8_t s_bindingMemory[512];

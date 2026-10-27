@@ -4,26 +4,27 @@ Every asset the runtime reads is a file in one container. Files cross machines a
 
 ## The container
 
-[`src/container.h`](../../src/container.h) defines one layout for every kind: little-endian, a 64-byte header, a table of sections, then the sections, each at a multiple of 16 bytes from the start.
+[`src/container.h`](../../src/container.h) defines one layout for every kind: little-endian, a 48-byte header, a table of sections, then the sections, each at a multiple of 16 bytes from the start.
 
 | Offset | Field |
 |---|---|
 | 0 | `MANI` |
 | 4 | kind (u16), format version (u16) |
-| 8 | header size, 64 (u32); section count (u32) |
+| 8 | header size, 48 (u32); section count (u32) |
 | 16 | the writer's library version (three u16) and a zero u16 |
 | 24 | file size (u64) |
 | 32 | hash of every byte after the header (`maniHash64` from `MANI_HASH_INIT`) |
 | 40 | the file's identity (u64) |
-| 48 | zero (16 bytes) |
 
-The table that follows holds a tag, an offset and a size per section: tags strictly increasing, sections in table order, inside the file, without overlap. A kind defines its tags and what each holds; an empty section is left out of the table, and absent means empty. Writers zero every pad byte, so one source writes the same bytes everywhere.
+The table that follows holds a tag (u32), a zero u32, an offset and a size (u64 each) per section: tags strictly increasing, sections in table order, inside the file, without overlap. A kind defines its tags and what each holds; an empty section is left out of the table, and absent means empty. Writers zero every pad byte, so one source writes the same bytes everywhere.
+
+No layout keeps reserved bytes. The only zeros inside a header or a record align the field after them, where no order of the fields avoids it: the container's u16 at 22 and each table entry's u32 after the tag align the u64 fields that follow. Each kind's layout comment in `src/` names any such zero of its own.
 
 No pointer is stored anywhere: every reference is an index or an offset, so a file means the same at any address and may be mapped. A big-endian target is refused at compile time ([`src/bytes.h`](../../src/bytes.h)) rather than misreading files.
 
 ## Opening checks everything once
 
-`maniOpen...` takes the bytes at a 16-byte aligned address and checks, in order: the header, the table, the hash, then every section of the kind: counts, indices, ranges, floats finite, rotations of unit length, names valid UTF-8 and matching their hashes, derived sections equal to what they are derived from, and the identity. Only then does it fill the view. A refusal is `mani_errorFormat` with the offset of the first byte found wrong, or `mani_errorVersion` for a format version newer than the library reads.
+`maniOpen...` takes the bytes at a 16-byte aligned address and checks, in order: the header, the table, the hash, then every section of the kind: counts, indices, ranges, floats finite, rotations of unit length, names valid UTF-8 and matching their hashes, derived sections equal to what they are derived from, and the identity. Only then does it fill the view. A refusal is `mani_errorFormat` with the offset of the first byte found wrong, or `mani_errorVersion` for any format version but the one the library reads.
 
 Because opening has checked every byte, no later call checks again: a getter reads without branches, a sampler indexes without bounds checks. The hash catches damage, not tampering; the checks are what make a crafted file safe. A file that passes every check but was not made by a builder can give a wrong pose, never an unsafe access. Each opener is tested with files changed at every byte a check reads, and fuzzed.
 
@@ -33,19 +34,19 @@ Opening needs no scratch memory: a skeleton's depth-first order, for instance, i
 
 | Kind | Number | Format version | Bound to |
 |---|---|---|---|
-| Skeleton | 1 | 1 | |
-| Clip | 2 | 3 | its skeleton |
-| Graph | 3 | 6 | its skeleton, its clips, databases, models, spring sets and maps |
-| Retargeting map | 4 | 2 | its source and target skeletons |
-| Skin | 5 | 1 | its skeleton |
-| Influences | 6 | 1 | its skin |
-| Morph targets | 7 | 1 | |
-| Motion database | 8 | 3 | its skeleton and clips, and a mirror map for mirrored entries |
-| Learned model | 9 | 1 | its skeleton and database |
-| Learned checkpoint | 10 | 1 | its trainer's source and options |
-| Spring set | 11 | 2 | its skeleton |
-| Ragdoll profile | 12 | 1 | its skeleton |
-| Mirror map | 13 | 2 | its skeleton |
+| Skeleton | 1 | 2 | |
+| Clip | 2 | 4 | its skeleton |
+| Graph | 3 | 7 | its skeleton, its clips, databases, models, spring sets and maps |
+| Retargeting map | 4 | 3 | its source and target skeletons |
+| Skin | 5 | 2 | its skeleton |
+| Influences | 6 | 2 | its skin |
+| Morph targets | 7 | 2 | |
+| Motion database | 8 | 4 | its skeleton and clips, and a mirror map for mirrored entries |
+| Learned model | 9 | 2 | its skeleton and database |
+| Learned checkpoint | 10 | 2 | its trainer's source and options |
+| Spring set | 11 | 3 | its skeleton |
+| Ragdoll profile | 12 | 2 | its skeleton |
+| Mirror map | 13 | 3 | its skeleton |
 
 A refusal names the tag of the section holding the first byte found wrong (`maniFileResult.tag`, 0 in the header, the table or the padding between sections), so a host can tell which part of a file is damaged without knowing its layout:
 
@@ -75,7 +76,7 @@ The other kinds' identities cover every section, so the identity is a fingerprin
 
 ## Versions
 
-A kind's format version changes whenever its bytes change. A reader refuses a version newer than it knows with `mani_errorVersion`. Before 1.0.0 a release may drop older versions; files are rebuilt from their sources, which is why every asset has a source form (structs, JSON for graphs and maps, glTF or FBX through the importers). From 1.0.0 a release reads every earlier format version of its major version, and the files each release writes are kept as test data.
+A kind's format version changes whenever its bytes change. Before 1.0.0 a reader reads its own format version alone and refuses every other one, earlier or later, with `mani_errorVersion` at offset 6; files are rebuilt from their sources, which is why every asset has a source form (structs, JSON for graphs and maps, glTF or FBX through the importers). From 1.0.0 a release reads every earlier format version of its major version, and the files each release writes are kept as test data.
 
 The library version a file was written by (bytes 16 to 23) is informational: readers decide by the format version alone.
 

@@ -695,7 +695,8 @@ static size_t Checkpoint(const maniLearnedTrainerSource* s, uint64_t stop)
 static void WriteHash(size_t size)
 {
     maniStoreU64(s_checkpoint + 32,
-                 maniHashBytes(MANI_HASH_INIT, s_checkpoint + 64, (uint64_t)size - 64));
+                 maniHashBytes(MANI_HASH_INIT, s_checkpoint + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)size - MANI_CONTAINER_HEADER_SIZE));
 }
 
 // A section's offset by tag.
@@ -704,13 +705,21 @@ static uint64_t SectionAt(uint32_t tag)
     uint32_t count = maniLoadU32(s_checkpoint + 12);
     for (uint32_t k = 0; k < count; ++k)
     {
-        const uint8_t* entry = s_checkpoint + 64 + 24 * (size_t)k;
+        const uint8_t* entry = s_checkpoint + MANI_CONTAINER_HEADER_SIZE + 24 * (size_t)k;
         if (maniLoadU32(entry) == tag)
         {
             return maniLoadU64(entry + 8);
         }
     }
     return 0;
+}
+
+// The trainer a checkpoint is restored into by RestoreFile.
+static maniLearnedTrainer* s_restoring;
+
+static maniFileResult RestoreFile(const void* bytes, size_t size)
+{
+    return maniRestoreLearnedCheckpoint(s_restoring, bytes, size);
 }
 
 static bool RefusedAt(maniLearnedTrainer* t, size_t size, uint64_t offset)
@@ -760,12 +769,15 @@ static void TestRestoreRefused(void)
               maniRestoreLearnedCheckpoint(NULL, s_checkpoint, size).result == mani_errorInvalid &&
               maniRestoreLearnedCheckpoint(t, NULL, size).result == mani_errorInvalid,
           "misaligned bytes and NULL arguments");
+    s_restoring = t;
+    CHECK(TestOtherVersionsRefused(s_checkpoint, size, RestoreFile),
+          "another format version refused");
     // Crafted: each field of the progress out of form, a moment negative,
     // a parameter not finite, an input scale of 0.
-    const uint64_t fields[5] = {progress, progress + 4, progress + 8, progress + 16, progress + 20};
-    const uint32_t values[5] = {5, 2, 31, 0x7F800000u, 1};
+    const uint64_t fields[4] = {progress, progress + 40, progress + 44, progress + 48};
+    const uint32_t values[4] = {31, 5, 2, 0x7F800000u};
     bool all = true;
-    for (uint32_t k = 0; k < 5; ++k)
+    for (uint32_t k = 0; k < 4; ++k)
     {
         uint32_t kept = maniLoadU32(s_checkpoint + fields[k]);
         maniStoreU32(s_checkpoint + fields[k], values[k]);
@@ -774,10 +786,10 @@ static void TestRestoreRefused(void)
         maniStoreU32(s_checkpoint + fields[k], kept);
     }
     CHECK(all, "the progress out of form");
-    maniStoreU32(s_checkpoint + progress, 4);
+    maniStoreU32(s_checkpoint + progress + 40, 4);
     WriteHash(size);
-    CHECK(RefusedAt(t, size, progress + 4), "a stage begun past the last");
-    maniStoreU32(s_checkpoint + progress, 1);
+    CHECK(RefusedAt(t, size, progress + 44), "a stage begun past the last");
+    maniStoreU32(s_checkpoint + progress + 40, 1);
     uint64_t v = SectionAt(5) + 8;
     StoreF32(s_checkpoint + v, -1.0f);
     WriteHash(size);
@@ -803,19 +815,19 @@ static void TestRestoreRefused(void)
     // A stage begun: its generator not all 0.
     for (uint32_t k = 0; k < 4; ++k)
     {
-        maniStoreU64(s_checkpoint + progress + 24 + 8 * k, 0);
+        maniStoreU64(s_checkpoint + progress + 8 + 8 * k, 0);
     }
     WriteHash(size);
-    CHECK(RefusedAt(t, size, progress + 24), "a generator of 0 in a stage begun");
-    // A stage not begun: its loss and generator 0.
+    CHECK(RefusedAt(t, size, progress + 8), "a generator of 0 in a stage begun");
+    // A stage not begun: its generator and loss 0.
     size = Checkpoint(&s, 0);
     progress = SectionAt(1);
-    const uint64_t unset[2] = {progress + 16, progress + 24};
+    const uint64_t unset[2] = {progress + 8, progress + 48};
     for (uint32_t k = 0; k < 2; ++k)
     {
         maniStoreU32(s_checkpoint + unset[k], 1);
         WriteHash(size);
-        CHECK(RefusedAt(t, size, unset[k]), "a loss or generator before the stage began");
+        CHECK(RefusedAt(t, size, unset[k]), "a generator or loss before the stage began");
         maniStoreU32(s_checkpoint + unset[k], 0);
     }
     maniDestroyLearnedTrainer(t);

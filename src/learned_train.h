@@ -69,6 +69,10 @@ struct maniLearnedTrainer
 // Stepper, 3 a Projector; false past a limit.
 bool maniLearnedTrainerShape(const maniLearnedTrainer* t, uint32_t n, maniTrainNet* net);
 
+// A checkpoint's format version, and the size of its progress section.
+#define MANI_CHECKPOINT_FORMAT_VERSION 2u
+#define MANI_CHECKPOINT_PROGRESS_SIZE  52u
+
 // The signature a checkpoint carries: the hash of the source's
 // identities, options, filters and names.
 uint64_t maniLearnedTrainerSignature(const maniLearnedTrainerSource* source);

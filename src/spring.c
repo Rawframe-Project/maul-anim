@@ -119,7 +119,7 @@ static maniFileResult Header(const Sections* s, maniSpringSet* out)
             return Fail(at + 32 + 4 * k);
         }
     }
-    return maniLoadU64(h + 40) == 0 ? kOk : Fail(at + 40);
+    return kOk;
 }
 
 // Each section's size as the header's counts say.
@@ -154,37 +154,35 @@ static maniFileResult Collider(const Sections* s, const maniSpringSet* set, uint
 {
     const uint8_t* e = s->data[1] + (size_t)i * MANI_SPRING_COLLIDER_SIZE;
     uint64_t at = s->at[1] + (uint64_t)i * MANI_SPRING_COLLIDER_SIZE;
-    uint32_t shape = maniLoadU32(e + 4);
-    uint32_t inside = maniLoadU32(e + 8);
-    if (maniLoadU32(e) >= set->boneCount)
+    uint32_t shape = maniLoadU32(e + maniSpringColliderShape);
+    uint32_t inside = maniLoadU32(e + maniSpringColliderInside);
+    if (maniLoadU32(e + maniSpringColliderBone) >= set->boneCount)
     {
-        return Fail(at);
+        return Fail(at + maniSpringColliderBone);
     }
     if (shape > maniColliderPlane)
     {
-        return Fail(at + 4);
+        return Fail(at + maniSpringColliderShape);
     }
     if (inside > 1 || (shape == maniColliderPlane && inside != 0))
     {
-        return Fail(at + 8);
+        return Fail(at + maniSpringColliderInside);
     }
-    uint32_t wrong = FirstNotFinite(e + 16, 7);
-    if (maniLoadU32(e + 12) != 0 || wrong != 0)
+    uint32_t wrong = FirstNotFinite(e + maniSpringColliderOffset, 7);
+    if (wrong != 0)
     {
-        return Fail(wrong != 0 ? at + 16 + wrong - 1 : at + 12);
+        return Fail(at + maniSpringColliderOffset + wrong - 1);
     }
-    float nx = LoadF32(e + 28);
-    float ny = LoadF32(e + 32);
-    float nz = LoadF32(e + 36);
+    const uint8_t* n = e + maniSpringColliderTail;
+    float nx = LoadF32(n);
+    float ny = LoadF32(n + 4);
+    float nz = LoadF32(n + 8);
     if (shape == maniColliderPlane && !Unit(nx * nx + ny * ny + nz * nz))
     {
-        return Fail(at + 28);
+        return Fail(at + maniSpringColliderTail);
     }
-    if (!(LoadF32(e + 40) >= 0.0f))
-    {
-        return Fail(at + 40);
-    }
-    return maniLoadU32(e + 44) == 0 ? kOk : Fail(at + 44);
+    return LoadF32(e + maniSpringColliderRadius) >= 0.0f ? kOk
+                                                         : Fail(at + maniSpringColliderRadius);
 }
 
 // A joint's limit: its angles in range, none's 0 with the identity frame.
@@ -293,10 +291,6 @@ static maniFileResult Spring(const Sections* s, const maniSpringSet* set, uint32
     if (!maniValidUtf8(s->data[5] + r->name, length))
     {
         return Fail(s->at[5] + r->name);
-    }
-    if (maniLoadU32(e + 28) != 0)
-    {
-        return Fail(at + 28);
     }
     maniFileResult f = kOk;
     for (uint32_t k = 0; f.result == mani_success && k < joints; ++k)

@@ -71,7 +71,7 @@ extern "C"
     /// @param targetsOut  Receives the view on success.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
-    /// byte found wrong; `mani_errorVersion` for a newer format.
+    /// byte found wrong; `mani_errorVersion` for any other format version.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenMorphTargets(const void* bytes, size_t size,

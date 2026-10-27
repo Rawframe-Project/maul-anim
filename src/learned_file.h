@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-#define MANI_LEARNED_FORMAT_VERSION 1u
+#define MANI_LEARNED_FORMAT_VERSION 2u
 #define MANI_LEARNED_SECTIONS       11u
 
 enum
@@ -37,7 +37,7 @@ enum
     // a bone.
     maniLearnedTagBones = 5,
     // MANI_LEARNED_NETWORK_SIZE each: layer count, required tags, excluded
-    // tags, 0 (u32 each); the Decompressor's and Stepper's tags 0.
+    // tags (u32 each); the Decompressor's and Stepper's tags 0.
     maniLearnedTagNetworks = 6,
     // MANI_LEARNED_LAYER_SIZE each: input count, output count (u32 each).
     maniLearnedTagLayers = 7,
@@ -54,7 +54,7 @@ enum
 
 #define MANI_LEARNED_HEADER_SIZE  72u
 #define MANI_LEARNED_CHANNEL_SIZE 32u
-#define MANI_LEARNED_NETWORK_SIZE 16u
+#define MANI_LEARNED_NETWORK_SIZE 12u
 #define MANI_LEARNED_LAYER_SIZE   8u
 #define MANI_LEARNED_NAME_SIZE    8u
 

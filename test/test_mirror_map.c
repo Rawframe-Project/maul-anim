@@ -402,7 +402,9 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
 {
     memcpy(s_crafted, s_file, s_size);
     maniStoreU32(s_crafted + offset, value);
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniMirrorMap map;
     maniFileResult r = maniOpenMirrorMap(s_crafted, s_size, &map);
     if (r.offset != want)
@@ -412,6 +414,12 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
     }
     return r.result == mani_errorFormat && r.offset == want &&
            r.tag == TestTagAt(s_crafted, s_size, want);
+}
+
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniMirrorMap mirrorMap;
+    return maniOpenMirrorMap(bytes, size, &mirrorMap);
 }
 
 static void TestFile(void)
@@ -427,7 +435,6 @@ static void TestFile(void)
     CHECK(RefusedAt(h + 12, 3, h + 12), "an unknown axis");
     CHECK(RefusedAt(h + 16, 2, h + 16), "a name count the names do not hold");
     CHECK(RefusedAt(h + 20, kBones, h + 20), "an unmatched bone past the bones");
-    CHECK(RefusedAt(h + 24, 1, h + 24), "a header word not 0");
     uint64_t arm = bones + (uint64_t)kArmL * MANI_MIRROR_BONE_SIZE;
     CHECK(RefusedAt(arm, kHandR, arm), "a partner pairing back to another bone");
     CHECK(RefusedAt(arm, kBones, arm), "a partner past the bones");
@@ -450,7 +457,9 @@ static void TestFile(void)
     // The second name's hash made the first's.
     memcpy(s_crafted, s_file, s_size);
     memcpy(s_crafted + names + MANI_MIRROR_NAME_SIZE, s_file + names, 8);
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniMirrorMap repeated;
     maniFileResult order = maniOpenMirrorMap(s_crafted, s_size, &repeated);
     CHECK(order.result == mani_errorFormat && order.offset == names + MANI_MIRROR_NAME_SIZE,
@@ -460,12 +469,15 @@ static void TestFile(void)
     CHECK(RefusedAt(names + 8, 0, names + 8), "a partner name of another hash");
     memcpy(s_crafted, s_file, s_size);
     s_crafted[s_size - 1] ^= 1u;
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniMirrorMap crafted;
     maniFileResult r = maniOpenMirrorMap(s_crafted, s_size, &crafted);
     CHECK(r.result == mani_errorFormat && (r.offset == 40 || r.offset > names),
           "a changed name refused");
     CHECK(maniOpenMirrorMap(s_file, s_size, NULL).result == mani_errorInvalid, "a NULL view");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
 }
 
 // The map of TestPairs written to path.

@@ -33,8 +33,10 @@ static bool SameSections(const uint8_t* a, size_t aSize, const uint8_t* b, size_
 {
     maniContainer ca;
     maniContainer cb;
-    if (maniOpenContainer(a, aSize, maniKindLearnedCheckpoint, 1, &ca).result != mani_success ||
-        maniOpenContainer(b, bSize, maniKindLearnedCheckpoint, 1, &cb).result != mani_success ||
+    if (maniOpenContainer(a, aSize, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION, &ca)
+                .result != mani_success ||
+        maniOpenContainer(b, bSize, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION, &cb)
+                .result != mani_success ||
         ca.sectionCount != cb.sectionCount || ca.identity != cb.identity)
     {
         return false;
@@ -115,13 +117,15 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
     Exercise(copy, size);
     uint64_t fileSize = 0;
-    if (size >= 64)
+    if (size >= MANI_CONTAINER_HEADER_SIZE)
     {
         memcpy(&fileSize, copy + 24, sizeof fileSize);
     }
-    if (fileSize >= 64 && fileSize <= size && fileSize - 64 < 0x7FFFFFFF)
+    if (fileSize >= MANI_CONTAINER_HEADER_SIZE && fileSize <= size &&
+        fileSize - MANI_CONTAINER_HEADER_SIZE < 0x7FFFFFFF)
     {
-        uint64_t hash = maniHash64(MANI_HASH_INIT, copy + 64, (int32_t)(fileSize - 64));
+        uint64_t hash = maniHash64(MANI_HASH_INIT, copy + MANI_CONTAINER_HEADER_SIZE,
+                                   (int32_t)(fileSize - MANI_CONTAINER_HEADER_SIZE));
         memcpy(copy + 32, &hash, sizeof hash);
         Exercise(copy, size);
         memcpy(copy + 40, &s_trainer->signature, sizeof s_trainer->signature);

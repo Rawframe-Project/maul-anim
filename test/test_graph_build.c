@@ -341,7 +341,8 @@ static _Alignas(16) uint8_t s_crafted[16384];
 // The payload hash and identity made right after an edit.
 static void Rehash(uint8_t* file, size_t size)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, size - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
     CHECK(maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
               mani_success,

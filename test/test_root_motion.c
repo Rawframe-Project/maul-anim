@@ -735,7 +735,8 @@ static uint64_t SectionAt(uint32_t tag)
 // The payload hash and the identity made right after an edit.
 static void Rehash(uint8_t* file)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, s_size - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
     CHECK(maniOpenContainer(file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c).result ==
               mani_success,
@@ -781,17 +782,19 @@ static void TestOpenRefusals(void)
     ExpectFormat(at + 16, 3, at, "a reference out of range");
     ExpectFormat(at + 20, 3, at, "a reference out of range");
     ExpectFormat(at + 24, 2, at, "a loop out of range");
-    ExpectFormat(at + 28, 1, at, "a header's last word not zero");
-    ExpectFormat(at + 60, 1, at + 60, "the period's last word not zero");
-    ExpectFormat(at + 64 + 12, 0x7F800000u, at + 76, "a move not finite");
+    // The period's move, then each sample's: seven floats each.
+    uint64_t period = at + MANI_ROOT_MOTION_HEADER_SIZE;
+    uint64_t samples = period + MANI_ROOT_MOTION_PERIOD_SIZE;
+    ExpectFormat(samples + 12, 0x7F800000u, samples + 12, "a move not finite");
     // 2^65 (0x60000000) in a translation, the period's or a sample's.
-    ExpectFormat(at + 32, 0x60000000u, at + 32, "a period translation past 2^64");
-    ExpectFormat(at + 64 + 28 + 8, 0x60000000u, at + 100, "a sample translation past 2^64");
-    ExpectFormat(at + 64 + 28 + 4, 0xE0000000u, at + 96, "a negative translation past 2^64");
+    ExpectFormat(period, 0x60000000u, period, "a period translation past 2^64");
+    ExpectFormat(samples + 28 + 8, 0x60000000u, samples + 28 + 8, "a sample translation past 2^64");
+    ExpectFormat(samples + 28 + 4, 0xE0000000u, samples + 28 + 4,
+                 "a negative translation past 2^64");
     // A translation of 2^64 itself, and 2^65 in a rotation: opened.
     memcpy(s_crafted, s_file, s_size);
-    maniStoreU32(s_crafted + at + 64, 0x5F800000u);
-    maniStoreU32(s_crafted + at + 64 + 28 + 12, 0x60000000u);
+    maniStoreU32(s_crafted + samples, 0x5F800000u);
+    maniStoreU32(s_crafted + samples + 28 + 12, 0x60000000u);
     Rehash(s_crafted);
     maniClip clip;
     CHECK(maniOpenClip(s_crafted, s_size, &clip).result == mani_success,

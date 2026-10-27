@@ -55,8 +55,8 @@ maniSpringShape maniSpringShapeOf(const uint8_t* collider, maniTransform t)
 {
     const uint8_t* e = collider;
     maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    uint32_t shape = maniLoadU32(e + 4);
-    maniVec3 tail = maniSpringFileVec(e + 28);
+    uint32_t shape = maniLoadU32(e + maniSpringColliderShape);
+    maniVec3 tail = maniSpringFileVec(e + maniSpringColliderTail);
     // A normal turns with the inverse transpose: the cofactors' signs
     // kept by the determinant's, so no division by a zero scale.
     maniVec3 k = t.scale;
@@ -64,10 +64,11 @@ maniSpringShape maniSpringShapeOf(const uint8_t* collider, maniTransform t)
     maniVec3 normal = maniVec3Scale(
         maniVec3Make(tail.x * k.y * k.z, tail.y * k.x * k.z, tail.z * k.x * k.y), sign);
     return (maniSpringShape){
-        maniAffineTransformPoint(&m, maniSpringFileVec(e + 16)),
+        maniAffineTransformPoint(&m, maniSpringFileVec(e + maniSpringColliderOffset)),
         shape == maniColliderPlane ? maniVec3Normalize(maniQuatRotate(t.rotation, normal), kUp)
                                    : maniAffineTransformPoint(&m, tail),
-        maniSpringFileFloat(e + 40) * maniSpringLargestScale(t.scale), shape, maniLoadU32(e + 8)};
+        maniSpringFileFloat(e + maniSpringColliderRadius) * maniSpringLargestScale(t.scale), shape,
+        maniLoadU32(e + maniSpringColliderInside)};
 }
 
 // The tail's offset from the shape's nearest axis point: from the offset

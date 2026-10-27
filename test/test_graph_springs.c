@@ -157,7 +157,8 @@ static uint64_t SectionAt(uint32_t tag, uint64_t* sizeOut)
 
 static void WriteHash(uint8_t* file)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, (uint64_t)s_graphSize - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          (uint64_t)s_graphSize - MANI_CONTAINER_HEADER_SIZE));
 }
 
 static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
@@ -187,7 +188,8 @@ static void TestOpen(void)
     CHECK(RefusedAt(header + 56, MANI_GRAPH_MAX_SPRING_SETS + 1, header + 56), "too many sets");
     CHECK(RefusedAt(header + 60, MANI_GRAPH_MAX_MAPS + 1, header + 60), "too many maps");
     // The sets' entry is the table's last.
-    uint64_t entry = 64 + 24 * (uint64_t)(maniLoadU32(s_graphFile + 12) - 1) + 16;
+    uint64_t entry =
+        MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(maniLoadU32(s_graphFile + 12) - 1) + 16;
     CHECK(RefusedAt(header + 56, 1, entry), "a count the section does not hold");
     CHECK(RefusedAt(sets + MANI_GRAPH_SPRING_SET_SIZE + 16, 1u << 20,
                     sets + MANI_GRAPH_SPRING_SET_SIZE + 16),

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The one file container every kind of file uses: a 64-byte
+// The one file container every kind of file uses: a 48-byte
 // little-endian header, a table of sections, and the sections, each
 // 16-byte aligned and addressed by its offset from the file's start, so a
 // file is read in place. Opening checks the header, the table and the
@@ -10,14 +10,16 @@
 // The header:
 //    0  "MANI"
 //    4  kind (u16)                 6  format version (u16)
-//    8  header size, 64 (u32)     12  section count (u32)
+//    8  header size, 48 (u32)     12  section count (u32)
 //   16  writer's library version: major, minor, patch (u16 each), 0 (u16)
 //   24  file size (u64)           32  payload hash (u64): maniHash64 from
-//                                     MANI_HASH_INIT over bytes 64 to the end
-//   40  identity (u64)            48  zero (16 bytes)
-// The table, from byte 64, holds per section: tag (u32), zero (u32),
-// offset (u64), size (u64). Sections follow the table in table order,
-// without overlap, tags strictly increasing.
+//                                     MANI_HASH_INIT over bytes 48 to the end
+//   40  identity (u64)
+// The zero u16 at 22 aligns the file size: five u16 fields after the
+// magic and two u32 leave the u64 fields two bytes short whatever their
+// order. The table, from byte 48, holds per section: tag (u32), zero
+// (u32, aligning the offset), offset (u64), size (u64). Sections follow
+// the table in table order, without overlap, tags strictly increasing.
 
 #ifndef MAUL_ANIM_SRC_CONTAINER_H
 #define MAUL_ANIM_SRC_CONTAINER_H
@@ -28,7 +30,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MANI_CONTAINER_HEADER_SIZE 64u
+#define MANI_CONTAINER_HEADER_SIZE 48u
 #define MANI_CONTAINER_ENTRY_SIZE  24u
 #define MANI_CONTAINER_ALIGNMENT   16u
 // A named limit: no kind needs more sections than this.
@@ -75,13 +77,12 @@ typedef struct maniSectionSource
 // one call would give.
 uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size);
 
-// Opens bytes as a container of the given kind whose format version is at
-// most maxVersion: checks the alignment of bytes (16), the header, the
-// table, every section's place and the payload hash. Returns
-// mani_errorInvalid for a NULL or misaligned pointer, mani_errorFormat with
-// the offset of the first wrong byte, or mani_errorVersion for a newer
-// format version.
-maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind, uint16_t maxVersion,
+// Opens bytes as a container of the given kind and format version: checks
+// the alignment of bytes (16), the header, the table, every section's
+// place and the payload hash. Returns mani_errorInvalid for a NULL or
+// misaligned pointer, mani_errorFormat with the offset of the first wrong
+// byte, or mani_errorVersion for any other format version.
+maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind, uint16_t version,
                                  maniContainer* containerOut);
 
 // An opener's checks of a file's bytes, filling the view at out.

@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PINNED_SKELETON_HASH 0x2ea3356be92d3053ull
+#define PINNED_SKELETON_HASH 0x7cd1e2c993825645ull
 
 enum
 {
@@ -244,12 +244,13 @@ static void TestAllocationFailures(void)
 // Restores the payload hash after a test changes a section.
 static void Rehash(void)
 {
-    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + 64, s_size - 64));
+    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + MANI_CONTAINER_HEADER_SIZE,
+                                            s_size - MANI_CONTAINER_HEADER_SIZE));
 }
 
 static uint64_t SectionAt(uint32_t tag)
 {
-    return maniLoadU64(s_file + 64 + (uint64_t)(tag - 1) * 24 + 8);
+    return maniLoadU64(s_file + MANI_CONTAINER_HEADER_SIZE + (uint64_t)(tag - 1) * 24 + 8);
 }
 
 static void ExpectFormat(uint64_t offset, const char* what)
@@ -272,7 +273,7 @@ static void Rewrite(uint32_t tag, const void* data, uint64_t size)
     uint32_t count = 0;
     for (uint32_t t = 1; t <= MANI_SKELETON_SECTIONS; ++t)
     {
-        uint64_t at = 64 + (uint64_t)(t - 1) * 24;
+        uint64_t at = MANI_CONTAINER_HEADER_SIZE + (uint64_t)(t - 1) * 24;
         const uint8_t* bytes = copy + maniLoadU64(copy + at + 8);
         uint64_t length = maniLoadU64(copy + at + 16);
         if (t == tag && data == NULL)
@@ -284,7 +285,8 @@ static void Rewrite(uint32_t tag, const void* data, uint64_t size)
     }
     uint64_t total = 0;
     CHECK(maniContainerSize(sections, count, &total) && total <= sizeof s_file, "rewrite fits");
-    maniWriteContainer(s_file, maniKindSkeleton, 1, maniLoadU64(copy + 40), sections, count);
+    maniWriteContainer(s_file, maniKindSkeleton, MANI_SKELETON_FORMAT_VERSION,
+                       maniLoadU64(copy + 40), sections, count);
     s_size = (size_t)total;
 }
 
@@ -302,21 +304,27 @@ static void TestTableRefusals(void)
     ExpectRewriteRefused(12, "six sections");
     static const uint8_t odd[3] = {0xFF, 0xFF, 0};
     Rewrite(maniSkeletonTagParents, odd, 3);
-    ExpectRewriteRefused(64 + 16, "parents of odd size");
+    ExpectRewriteRefused(MANI_CONTAINER_HEADER_SIZE + 16, "parents of odd size");
     static const uint8_t none[1] = {0};
     Rewrite(maniSkeletonTagParents, none, 0);
-    ExpectRewriteRefused(64 + 16, "no bones");
+    ExpectRewriteRefused(MANI_CONTAINER_HEADER_SIZE + 16, "no bones");
     static const uint8_t rests[40 * 5] = {0};
     Rewrite(maniSkeletonTagRests, rests, sizeof rests);
-    ExpectRewriteRefused(64 + 2 * 24 + 16, "rests of the wrong size");
+    ExpectRewriteRefused(MANI_CONTAINER_HEADER_SIZE + 2 * 24 + 16, "rests of the wrong size");
     // The names with one byte more than their spans cover.
     static uint8_t names[64];
-    uint64_t at = 64 + 6 * 24;
+    uint64_t at = MANI_CONTAINER_HEADER_SIZE + 6 * 24;
     uint64_t length = maniLoadU64(s_file + at + 16);
     memcpy(names, s_file + maniLoadU64(s_file + at + 8), (size_t)length);
     names[length] = 'x';
     Rewrite(maniSkeletonTagNameBytes, names, length + 1);
     ExpectRewriteRefused(at + 16, "trailing name bytes");
+}
+
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniSkeleton skeleton;
+    return maniOpenSkeleton(bytes, size, &skeleton);
 }
 
 static void TestOpenRefusals(void)
@@ -386,6 +394,7 @@ static void TestOpenRefusals(void)
 
     maniSkeleton s;
     CHECK(maniOpenSkeleton(s_file, s_size, NULL).result == mani_errorInvalid, "null view");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(maniOpenSkeleton(s_file + 16, s_size, &s).result == mani_errorFormat, "not a file");
 }
 
@@ -413,6 +422,10 @@ static void TestPinnedBytes(void)
     // The identity is in the header (bytes 40 to 47), so the file's hash
     // pins it too.
     CHECK(hash == PINNED_SKELETON_HASH, "pinned file");
+    if (hash != PINNED_SKELETON_HASH)
+    {
+        printf("skeleton hash 0x%016llx\n", (unsigned long long)hash);
+    }
 }
 
 // Writes the sample skeleton file, the fuzz target's seed.

@@ -25,7 +25,7 @@
 // The skinning scene: linear, dual quaternion and blended skinning, the
 // centers file and job, and morph targets then skinning, hashed in the
 // order main runs them; every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x3ad34ff5fdb25dfbull
+#define PINNED_SCENE_HASH 0x82576defee4a4362ull
 
 enum
 {

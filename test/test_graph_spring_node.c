@@ -502,7 +502,8 @@ static void TestRefusals(void)
 
 static void WriteHash(uint8_t* file, size_t size)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, (uint64_t)size - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          (uint64_t)size - MANI_CONTAINER_HEADER_SIZE));
 }
 
 // Opening refused at want with the words at offsets set to values.

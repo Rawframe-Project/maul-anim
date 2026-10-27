@@ -244,12 +244,13 @@ static void TestBuildRefusals(void)
 
 static void Rehash(void)
 {
-    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + 64, s_size - 64));
+    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + MANI_CONTAINER_HEADER_SIZE,
+                                            s_size - MANI_CONTAINER_HEADER_SIZE));
 }
 
 static uint64_t SectionAt(uint32_t tag)
 {
-    return maniLoadU64(s_file + 64 + (uint64_t)(tag - 1) * 24 + 8);
+    return maniLoadU64(s_file + MANI_CONTAINER_HEADER_SIZE + (uint64_t)(tag - 1) * 24 + 8);
 }
 
 static void ExpectFormat(uint64_t offset, const char* what)
@@ -260,6 +261,12 @@ static void ExpectFormat(uint64_t offset, const char* what)
               r.tag == TestTagAt(s_file, s_size, offset),
           what);
     BuildSample();
+}
+
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniSkin skin;
+    return maniOpenSkin(bytes, size, &skin);
 }
 
 static void TestOpenRefusals(void)
@@ -275,20 +282,21 @@ static void TestOpenRefusals(void)
     maniStoreU32(s_file + binding + 12, 0);
     ExpectFormat(binding + 12, "no joints");
     maniStoreU32(s_file + binding + 12, kJoints + 1);
-    ExpectFormat(64 + 24 + 16, "joints of the wrong size");
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 24 + 16, "joints of the wrong size");
     maniStoreU16(s_file + joints + 4, kBones);
     ExpectFormat(joints + 4, "a joint past the bones");
     float nan = NAN;
     memcpy(s_file + binds + 48 + 8, &nan, 4);
     ExpectFormat(binds + 56, "a matrix not finite");
-    maniStoreU64(s_file + 64 + 16, 15);
-    ExpectFormat(64 + 16, "a binding of the wrong size");
+    maniStoreU64(s_file + MANI_CONTAINER_HEADER_SIZE + 16, 15);
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 16, "a binding of the wrong size");
     s_file[41] ^= 1;
     maniFileResult r = Open();
     CHECK(r.result == mani_errorFormat && r.offset == 40, "identity");
     BuildSample();
     maniSkin skin;
     CHECK(maniOpenSkin(s_file, s_size, NULL).result == mani_errorInvalid, "null view");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(maniOpenSkin(s_skeletonFile, sizeof s_skeletonFile, &skin).result == mani_errorFormat,
           "a skeleton is not a skin");
 }
@@ -302,7 +310,7 @@ static void Rewrite(uint32_t tag, const void* data, uint64_t size)
     uint32_t count = 0;
     for (uint32_t t = 1; t <= MANI_SKIN_SECTIONS; ++t)
     {
-        uint64_t at = 64 + (uint64_t)(t - 1) * 24;
+        uint64_t at = MANI_CONTAINER_HEADER_SIZE + (uint64_t)(t - 1) * 24;
         if (t == tag && data == NULL)
         {
             continue;
@@ -313,7 +321,8 @@ static void Rewrite(uint32_t tag, const void* data, uint64_t size)
     }
     uint64_t total = 0;
     CHECK(maniContainerSize(sections, count, &total) && total <= sizeof s_file, "fits");
-    maniWriteContainer(s_file, maniKindSkin, 1, maniLoadU64(copy + 40), sections, count);
+    maniWriteContainer(s_file, maniKindSkin, MANI_SKIN_FORMAT_VERSION, maniLoadU64(copy + 40),
+                       sections, count);
     s_size = (size_t)total;
 }
 
@@ -327,7 +336,8 @@ static void TestTableRefusals(void)
     static const uint8_t binds[48 * (kJoints - 1)] = {0};
     Rewrite(maniSkinTagInverseBinds, binds, sizeof binds);
     r = Open();
-    CHECK(r.result == mani_errorFormat && r.offset == 64 + 2 * 24 + 16, "binds of the wrong size");
+    CHECK(r.result == mani_errorFormat && r.offset == MANI_CONTAINER_HEADER_SIZE + 2 * 24 + 16,
+          "binds of the wrong size");
     BuildSample();
 }
 

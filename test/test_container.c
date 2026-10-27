@@ -57,8 +57,8 @@ static void ExpectFormat(uint64_t offset, const char* what)
 static void TestRoundTrip(void)
 {
     WriteSample();
-    // Header 64, table 48, so the first section at 112, the second at 128.
-    CHECK(s_size == 148, "laid out size");
+    // Header 48, table 48, so the first section at 96, the second at 112.
+    CHECK(s_size == 132, "laid out size");
     maniContainer container;
     maniFileResult r = maniOpenContainer(s_file, (size_t)s_size, kKind, 1, &container);
     CHECK(r.result == mani_success, "opens");
@@ -74,14 +74,14 @@ static void TestRoundTrip(void)
     uint64_t size = 0;
     uint64_t offset = 0;
     CHECK(maniContainerSection(&container, 3, &data, &size, &offset), "first section");
-    CHECK(offset == 112 && size == 5 && memcmp(data, kFirst, 5) == 0, "first bytes");
+    CHECK(offset == 96 && size == 5 && memcmp(data, kFirst, 5) == 0, "first bytes");
     CHECK(maniContainerSection(&container, 7, &data, &size, &offset), "second section");
-    CHECK(offset == 128 && size == 20 && memcmp(data, kSecond, 20) == 0, "second bytes");
+    CHECK(offset == 112 && size == 20 && memcmp(data, kSecond, 20) == 0, "second bytes");
     CHECK(!maniContainerSection(&container, 5, &data, &size, &offset), "no such section");
 
-    // A newer reader opens an older file.
-    CHECK(maniOpenContainer(s_file, (size_t)s_size, kKind, 9, &container).result == mani_success,
-          "newer reader");
+    // A reader of a later version refuses an earlier file.
+    r = maniOpenContainer(s_file, (size_t)s_size, kKind, 2, &container);
+    CHECK(r.result == mani_errorVersion && r.offset == 6, "a later reader");
     // Trailing bytes past the file's size are the caller's, not the file's.
     CHECK(maniOpenContainer(s_file, (size_t)s_size + 7, kKind, 1, &container).result ==
               mani_success,
@@ -90,10 +90,10 @@ static void TestRoundTrip(void)
 
 static void TestEmptyContainer(void)
 {
-    CHECK(maniContainerSize(NULL, 0, &s_size) && s_size == 64, "empty size");
+    CHECK(maniContainerSize(NULL, 0, &s_size) && s_size == 48, "empty size");
     maniWriteContainer(s_file, kKind, 1, 0, NULL, 0);
     maniContainer container;
-    CHECK(maniOpenContainer(s_file, 64, kKind, 1, &container).result == mani_success, "empty");
+    CHECK(maniOpenContainer(s_file, 48, kKind, 1, &container).result == mani_success, "empty");
     CHECK(container.sectionCount == 0, "no sections");
 }
 
@@ -101,7 +101,7 @@ static void TestBadArguments(void)
 {
     WriteSample();
     maniContainer container;
-    CHECK(maniOpenContainer(NULL, 64, kKind, 1, &container).result == mani_errorInvalid, "null");
+    CHECK(maniOpenContainer(NULL, 48, kKind, 1, &container).result == mani_errorInvalid, "null");
     CHECK(maniOpenContainer(s_file, (size_t)s_size, kKind, 1, NULL).result == mani_errorInvalid,
           "null out");
     CHECK(maniOpenContainer(s_file + 8, (size_t)s_size, kKind, 1, &container).result ==
@@ -113,8 +113,8 @@ static void TestHeaderRefusals(void)
 {
     WriteSample();
     maniContainer container;
-    maniFileResult r = maniOpenContainer(s_file, 63, kKind, 1, &container);
-    CHECK(r.result == mani_errorFormat && r.offset == 63, "short of a header");
+    maniFileResult r = maniOpenContainer(s_file, 47, kKind, 1, &container);
+    CHECK(r.result == mani_errorFormat && r.offset == 47, "short of a header");
 
     s_file[1] = 'B';
     ExpectFormat(0, "magic");
@@ -138,17 +138,10 @@ static void TestHeaderRefusals(void)
     maniStoreU16(s_file + 22, 1);
     ExpectFormat(22, "version padding");
     WriteSample();
-    maniStoreU64(s_file + 24, 63);
+    maniStoreU64(s_file + 24, 47);
     ExpectFormat(24, "file size below a header");
     maniStoreU64(s_file + 24, s_size + 1);
     ExpectFormat(24, "file size past the bytes");
-    WriteSample();
-    for (uint32_t i = 48; i < 64; ++i)
-    {
-        s_file[i] = 1;
-        ExpectFormat(i, "reserved header bytes");
-        s_file[i] = 0;
-    }
 }
 
 // One section over the limit, in a file whose table is otherwise right.
@@ -182,33 +175,33 @@ static void TestTableRefusals(void)
     ExpectFormat(12, "table past the file");
     WriteSample();
 
-    maniStoreU32(s_file + 88, 3);
+    maniStoreU32(s_file + 72, 3);
     Rehash();
-    ExpectFormat(88, "tags not increasing");
+    ExpectFormat(72, "tags not increasing");
     WriteSample();
-    maniStoreU32(s_file + 68, 1);
+    maniStoreU32(s_file + 52, 1);
     Rehash();
-    ExpectFormat(68, "entry padding");
+    ExpectFormat(52, "entry padding");
     WriteSample();
-    maniStoreU64(s_file + 72, 120);
+    maniStoreU64(s_file + 56, 104);
     Rehash();
-    ExpectFormat(72, "misaligned section");
+    ExpectFormat(56, "misaligned section");
     WriteSample();
-    maniStoreU64(s_file + 72, 96);
+    maniStoreU64(s_file + 56, 80);
     Rehash();
-    ExpectFormat(72, "section over the table");
+    ExpectFormat(56, "section over the table");
     WriteSample();
-    maniStoreU64(s_file + 80, 17);
+    maniStoreU64(s_file + 64, 17);
     Rehash();
-    ExpectFormat(96, "overlapping sections");
+    ExpectFormat(80, "overlapping sections");
     WriteSample();
-    maniStoreU64(s_file + 104, 21);
+    maniStoreU64(s_file + 88, 21);
     Rehash();
-    ExpectFormat(104, "section past the end");
+    ExpectFormat(88, "section past the end");
     WriteSample();
-    maniStoreU64(s_file + 96, 160);
+    maniStoreU64(s_file + 80, 144);
     Rehash();
-    ExpectFormat(96, "offset past the end");
+    ExpectFormat(80, "offset past the end");
 }
 
 // Every byte the hash or a check covers refuses when changed; the
@@ -234,7 +227,7 @@ static void TestSizeLimits(void)
     // A last section is not padded, so one this large still has a size;
     // as the first of two it leaves no room to align the next.
     maniSectionSource last[1] = {{1, kFirst, UINT64_MAX - 200}};
-    CHECK(maniContainerSize(last, 1, &size) && size == UINT64_MAX - 200 + 96, "a large last");
+    CHECK(maniContainerSize(last, 1, &size) && size == UINT64_MAX - 200 + 80, "a large last");
     maniSectionSource unaligned[2] = {{1, kFirst, UINT64_MAX - 120}, {2, kFirst, 0}};
     CHECK(!maniContainerSize(unaligned, 2, &size), "no room to align");
     maniSectionSource many[MANI_CONTAINER_MAX_SECTIONS + 1] = {{0}};

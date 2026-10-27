@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_COMPRESSED_HASH 0xd952259dd9f4cec0ull
+#define PINNED_COMPRESSED_HASH 0x29637a0f5eb0c7fbull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_fullFile[65536];
@@ -1428,7 +1428,8 @@ static void TestMisuse(void)
 
 static void Rehash(void)
 {
-    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + 64, s_size - 64));
+    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + MANI_CONTAINER_HEADER_SIZE,
+                                            s_size - MANI_CONTAINER_HEADER_SIZE));
 }
 
 // A section's table entry by tag (empty ones are left out), or 0.
@@ -1436,9 +1437,9 @@ static uint64_t EntryOf(uint32_t tag)
 {
     for (uint32_t i = 0; i < maniLoadU32(s_file + 12); ++i)
     {
-        if (maniLoadU32(s_file + 64 + 24 * (uint64_t)i) == tag)
+        if (maniLoadU32(s_file + MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)i) == tag)
         {
-            return 64 + 24 * (uint64_t)i;
+            return MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)i;
         }
     }
     return 0;
@@ -1506,8 +1507,8 @@ static void TestOpenRefusals(void)
     uint32_t count = maniLoadU32(s_file + 12);
     CHECK(EntryOf(maniClipTagSamples) == 0 && EntryOf(maniClipTagFloatSamples) == 0,
           "no empty sections");
-    maniStoreU32(s_file + 64 + 24 * (uint64_t)(count - 1), 17);
-    ExpectFormat(64 + 24 * (uint64_t)(count - 1), "a tag past 16");
+    maniStoreU32(s_file + MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(count - 1), 17);
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(count - 1), "a tag past 16");
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 56, 0);
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 52, 0);
     ExpectFormat(EntryOf(maniClipTagForms) + 16, "compressed sections at full precision");

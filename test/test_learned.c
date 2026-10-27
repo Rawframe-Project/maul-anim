@@ -20,6 +20,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "learned_file.h"
 #include "learned_fixture.h"
 #include "source_padding.h"
@@ -625,7 +626,9 @@ static maniFileResult Changed(uint32_t tag, uint64_t offset, const void* bytes, 
           "the section");
     memcpy(s_changed, s_model, s_modelSize);
     memcpy(s_changed + at + offset, bytes, size);
-    maniStoreU64(s_changed + 32, maniHashBytes(MANI_HASH_INIT, s_changed + 64, s_modelSize - 64));
+    maniStoreU64(s_changed + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_changed + MANI_CONTAINER_HEADER_SIZE,
+                               s_modelSize - MANI_CONTAINER_HEADER_SIZE));
     if (rehash)
     {
         maniContainer d;
@@ -644,7 +647,8 @@ static maniFileResult Changed(uint32_t tag, uint64_t offset, const void* bytes, 
         }
         maniStoreU64(s_changed + 40, maniLearnedComputeIdentity(sections, sizes));
         maniStoreU64(s_changed + 32,
-                     maniHashBytes(MANI_HASH_INIT, s_changed + 64, s_modelSize - 64));
+                     maniHashBytes(MANI_HASH_INIT, s_changed + MANI_CONTAINER_HEADER_SIZE,
+                                   s_modelSize - MANI_CONTAINER_HEADER_SIZE));
     }
     *sectionOut = at;
     maniLearnedModel m;
@@ -714,6 +718,12 @@ static uint32_t BitsOf(float v)
     return bits;
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniLearnedModel learnedModel;
+    return maniOpenLearnedModel(bytes, size, &learnedModel);
+}
+
 static void TestOpenHeader(void)
 {
     maniLearnedModelSource source = Source();
@@ -744,13 +754,17 @@ static void TestOpenHeader(void)
     CHECK(r.result == mani_success, "unchanged, it opens");
     memcpy(s_changed, s_model, s_modelSize);
     s_changed[s_modelSize - 1] ^= 1u;
-    maniStoreU64(s_changed + 32, maniHashBytes(MANI_HASH_INIT, s_changed + 64, s_modelSize - 64));
+    maniStoreU64(s_changed + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_changed + MANI_CONTAINER_HEADER_SIZE,
+                               s_modelSize - MANI_CONTAINER_HEADER_SIZE));
     maniLearnedModel m;
     r = maniOpenLearnedModel(s_changed, s_modelSize, &m);
     CHECK(r.result == mani_errorFormat && r.offset == 40, "the identity");
     CHECK(maniOpenLearnedModel(s_model, s_modelSize, NULL).result == mani_errorInvalid &&
               maniOpenLearnedModel(s_model + 1, s_modelSize, &m).result == mani_errorInvalid,
           "a NULL view, misaligned bytes");
+    CHECK(TestOtherVersionsRefused(s_model, s_modelSize, OpenFile),
+          "another format version refused");
 }
 
 static void TestOpenRecords(void)
@@ -772,19 +786,22 @@ static void TestOpenRecords(void)
     CHECK(WordRefused(maniLearnedTagBones, 0, 3, 0), "a scaled bone past the bones");
     CHECK(WordRefused(maniLearnedTagBones, 4 + 20, BitsOf(INFINITY), 4 + 20),
           "a bone's scale not finite");
-    // Networks: the Decompressor's layer count; the Stepper's tags and
-    // the reserved word; a Projector's tags are its own.
+    // Networks: the Decompressor's layer count; the Stepper's tags; a
+    // Projector's tags are its own.
     CHECK(WordRefused(maniLearnedTagNetworks, 0, 0, 0), "a network of no layers");
     CHECK(WordRefused(maniLearnedTagNetworks, 0, 17, 0), "layers past the limit");
     CHECK(WordRefusedIn(maniLearnedTagNetworks, 0, 3, maniLearnedTagLayers, 16),
           "a layer past the network's role");
-    CHECK(WordRefused(maniLearnedTagNetworks, 20, 1, 20), "the Stepper's required tags");
-    CHECK(WordRefused(maniLearnedTagNetworks, 24, 1, 24), "the Stepper's excluded tags");
-    CHECK(WordRefused(maniLearnedTagNetworks, 44, 1, 44), "the reserved word");
+    const uint32_t stepper = MANI_LEARNED_NETWORK_SIZE;
+    CHECK(WordRefused(maniLearnedTagNetworks, stepper + 4, 1, stepper + 4),
+          "the Stepper's required tags");
+    CHECK(WordRefused(maniLearnedTagNetworks, stepper + 8, 1, stepper + 8),
+          "the Stepper's excluded tags");
     uint64_t at = 0;
     uint8_t tags[4];
     maniStoreU32(tags, 7);
-    CHECK(Changed(maniLearnedTagNetworks, 36, tags, 4, true, &at).result == mani_success,
+    CHECK(Changed(maniLearnedTagNetworks, 2 * MANI_LEARNED_NETWORK_SIZE + 4, tags, 4, true, &at)
+                  .result == mani_success,
           "a Projector's tags");
     // Layers: the Decompressor's first input, an output not chained, a
     // last output not its role's, an output of 0.

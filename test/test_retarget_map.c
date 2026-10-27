@@ -179,6 +179,12 @@ static bool PlanIs(const maniRetargetMap* m, uint32_t b, uint32_t kind, uint32_t
            maniLoadU32(e + maniRetargetPlanFlags) == flags;
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniRetargetMap retargetMap;
+    return maniOpenRetargetMap(bytes, size, &retargetMap);
+}
+
 static void TestPlan(void)
 {
     const maniRetargetChainSource chains[2] = {kSpine, kArm};
@@ -187,6 +193,7 @@ static void TestPlan(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenRetargetMap(s_file, s_size, &m).result == mani_success,
           "built and opened");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(maniRetargetMapSourceIdentity(&m) == maniSkeletonIdentity(&s_source) &&
               maniRetargetMapTargetIdentity(&m) == maniSkeletonIdentity(&s_target) &&
               maniRetargetMapIdentity(&m) != 0 && m.sourceBoneCount == 8 && m.targetBoneCount == 10,
@@ -408,7 +415,8 @@ static void TestRefusals(void)
 
 static void Rehash(uint8_t* file, size_t size)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, size - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
     CHECK(maniOpenContainer(file, size, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION, &c)
                   .result == mani_success,
@@ -480,7 +488,6 @@ static void TestFile(void)
     CHECK(WordRefused(h + maniRetargetHeaderTargetPelvis + 4, Bits(INFINITY),
                       h + maniRetargetHeaderTargetPelvis + 4),
           "a pelvis position not finite");
-    CHECK(WordRefused(h + maniRetargetHeaderEnd, 1, h + maniRetargetHeaderEnd), "a reserved word");
     CHECK(WordRefused(h + maniRetargetHeaderRatio, Bits(0.0f), h + maniRetargetHeaderRatio) &&
               WordRefused(h + maniRetargetHeaderRatio, Bits(INFINITY), h + maniRetargetHeaderRatio),
           "a height ratio not positive and finite");
@@ -503,8 +510,8 @@ static void TestFile(void)
               WordRefused(one + 8, 3, one + 8) && WordRefused(one + 12, Bits(0.5f), one + 12) &&
               WordRefused(one + 12, Bits(-0.0f), one + 12) &&
               WordRefused(one + 16, Bits(1.5f), one + 16) && WordRefused(one + 20, 3, one + 20) &&
-              WordRefused(one + 24, 4, one + 24) && WordRefused(one + 28, 1, one + 28),
-          "a one-source plan: kind, bones, place, weight, translation, flags, its 0 word");
+              WordRefused(one + 24, 4, one + 24),
+          "a one-source plan: kind, bones, place, weight, translation, flags");
     CHECK(WordRefused(p + 16, Bits(0.5f), p + 24),
           "the root's plan in its source's frame at a weight below 1");
     CHECK(WordRefused(two + 8, 2, two + 8) && WordRefused(two + 12, Bits(1.0f), two + 12) &&
@@ -521,7 +528,9 @@ static void TestFile(void)
     // identity no longer the sections'.
     memcpy(s_crafted, s_file, s_size);
     maniStoreU32(s_crafted + one + 16, Bits(0.25f));
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniFileResult identity = maniOpenRetargetMap(s_crafted, s_size, &m);
     CHECK(identity.result == mani_errorFormat && identity.offset == 40,
           "an identity not the sections' refused");

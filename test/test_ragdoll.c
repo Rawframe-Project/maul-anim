@@ -330,7 +330,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
     }
     maniStoreU64(s_crafted + 40, maniRagdollComputeIdentity(data, sizes));
     maniStoreU64(s_crafted + 32,
-                 maniHashBytes(MANI_HASH_INIT, s_crafted + 64, (uint64_t)s_size - 64));
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)s_size - MANI_CONTAINER_HEADER_SIZE));
     maniRagdoll ragdoll;
     maniFileResult r = maniOpenRagdoll(s_crafted, s_size, &ragdoll);
     if (r.result != mani_errorFormat || r.offset != want)
@@ -347,6 +348,12 @@ static uint32_t Bits(float v)
     uint32_t bits = 0;
     memcpy(&bits, &v, sizeof bits);
     return bits;
+}
+
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniRagdoll ragdoll;
+    return maniOpenRagdoll(bytes, size, &ragdoll);
 }
 
 static void TestOpen(void)
@@ -373,7 +380,6 @@ static void TestOpen(void)
         {h + 20, Bits(0.5f), h + 20},
         {h + 40, Bits(0.04f), h + 32},
         {h + 36, Bits(0.9f), h + 32},
-        {h + 44, 1, h + 44},
         {r, kBones, r},
         {c, 0, c},
         {r + 4, 0, r + 4},
@@ -383,38 +389,35 @@ static void TestOpen(void)
         {c + 12, 0, c + 12},
         {a + 16, 100, a + 16},
         {n, 0xFFu, n},
-        {c + 20, 1, c + 20},
-        {c + 32, Bits(NAN), c + 32},
-        {c + 152, 1, c + 152},
-        {c + 156, 1, c + 156},
-        {c + 48, Bits(0.5f), c + 36},
-        {b + 2 * MANI_RAGDOLL_BODY_SIZE + 56, Bits(0.1f), b + 2 * MANI_RAGDOLL_BODY_SIZE + 56},
-        {r + 52, 0, r + 52},
-        {a + 56, Bits(0.0f), a + 56},
-        {a + 60, Bits(0.01f), a + 60},
-        {a + 64, 0, a + 64},
-        {r + 68, Bits(0.1f), r + 68},
-        {r + 92, 0, r + 92},
-        {r + 120, 0, r + 120},
-        {r + 124, Bits(-0.1f), r + 124},
-        {r + 148, 1, r + 148},
-        {a + 92, Bits(0.5f), a + 80},
-        {a + 120, Bits(0.5f), a + 108},
-        {a + 124, Bits(-3.2f), a + 124},
-        {a + 124, Bits(0.8f), a + 124},
-        {a + 128, Bits(3.2f), a + 128},
-        {a + 132, Bits(-0.1f), a + 132},
-        {a + 136, Bits(3.2f), a + 136},
-        {a + 124, Bits(-3.14159298f), a + 124},
+        {c + 28, Bits(NAN), c + 28},
+        {c + 44, Bits(0.5f), c + 32},
+        {b + 2 * MANI_RAGDOLL_BODY_SIZE + 52, Bits(0.1f), b + 2 * MANI_RAGDOLL_BODY_SIZE + 52},
+        {r + 48, 0, r + 48},
+        {a + 52, Bits(0.0f), a + 52},
+        {a + 56, Bits(0.01f), a + 56},
+        {a + 60, 0, a + 60},
+        {r + 64, Bits(0.1f), r + 64},
+        {r + 88, 0, r + 88},
+        {r + 116, 0, r + 116},
+        {r + 120, Bits(-0.1f), r + 120},
+        {r + 144, 1, r + 144},
+        {a + 88, Bits(0.5f), a + 76},
+        {a + 116, Bits(0.5f), a + 104},
+        {a + 120, Bits(-3.2f), a + 120},
+        {a + 120, Bits(0.8f), a + 120},
+        {a + 124, Bits(3.2f), a + 124},
+        {a + 128, Bits(-0.1f), a + 128},
+        {a + 132, Bits(3.2f), a + 132},
+        {a + 120, Bits(-3.14159298f), a + 120},
+        {a + 124, Bits(3.14159298f), a + 124},
         {a + 128, Bits(3.14159298f), a + 128},
         {a + 132, Bits(3.14159298f), a + 132},
-        {a + 136, Bits(3.14159298f), a + 136},
+        {a + 120, Bits(NAN), a + 120},
         {a + 124, Bits(NAN), a + 124},
         {a + 128, Bits(NAN), a + 128},
         {a + 132, Bits(NAN), a + 132},
-        {a + 136, Bits(NAN), a + 136},
-        {a + 140, Bits(-1.0f), a + 140},
-        {a + 148, Bits(-1.0f), a + 148},
+        {a + 136, Bits(-1.0f), a + 136},
+        {a + 144, Bits(-1.0f), a + 144},
     };
     for (size_t k = 0; k < sizeof kWords / sizeof kWords[0]; ++k)
     {
@@ -426,10 +429,12 @@ static void TestOpen(void)
               maniOpenRagdoll(s_file, s_size, NULL).result == mani_errorInvalid &&
               maniOpenRagdoll(NULL, s_size, &ragdoll).result == mani_errorInvalid,
           "misaligned, no view, no bytes");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     memcpy(s_crafted, s_file, s_size);
     maniStoreU64(s_crafted + 40, 1);
     maniStoreU64(s_crafted + 32,
-                 maniHashBytes(MANI_HASH_INIT, s_crafted + 64, (uint64_t)s_size - 64));
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)s_size - MANI_CONTAINER_HEADER_SIZE));
     CHECK(maniOpenRagdoll(s_crafted, s_size, &ragdoll).offset == 40, "another identity");
 }
 

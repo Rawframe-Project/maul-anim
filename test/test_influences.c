@@ -333,6 +333,12 @@ static void ExpectFormat(uint64_t offset, const char* what)
     }
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniInfluences influences;
+    return maniOpenInfluences(bytes, size, &influences);
+}
+
 static void TestOpenRefusals(void)
 {
     BuildSample();
@@ -349,12 +355,6 @@ static void TestOpenRefusals(void)
         ExpectFormat(SectionAt(maniInfluenceTagBinding) + fields[i][0], names[i]);
         BuildSample();
     }
-    uint8_t b[MANI_INFLUENCE_BINDING_SIZE];
-    memcpy(b, binding, sizeof b);
-    maniStoreU32(b + 20, 1);
-    Craft(maniInfluenceTagBinding, b, sizeof b);
-    ExpectFormat(SectionAt(maniInfluenceTagBinding) + 20, "the binding's zero");
-    BuildSample();
     // Values: a joint past the skin, weights past 1 and NaN, a blend past
     // 1, a center not finite.
     {
@@ -414,6 +414,7 @@ static void TestOpenRefusals(void)
     ExpectFormat(40, "the identity");
     maniInfluences none;
     CHECK(maniOpenInfluences(s_file, s_size, NULL).result == mani_errorInvalid, "no view");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(maniOpenInfluences(NULL, 64, &none).result == mani_errorInvalid, "no bytes");
 }
 

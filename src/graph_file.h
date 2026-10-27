@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#define MANI_GRAPH_FORMAT_VERSION 6u
+#define MANI_GRAPH_FORMAT_VERSION 7u
 #define MANI_GRAPH_SECTIONS       15u
 
 enum
@@ -41,7 +41,8 @@ enum
     // (MANI_GRAPH_NO_MAP for none) (u32 each).
     maniGraphTagClips = 6,
     // MANI_GRAPH_SYNC_GROUP_SIZE each: name hash (u64), name offset and
-    // length, flags, zero (u32 each).
+    // length, flags (u32 each), then a zero u32 keeping the next group's
+    // hash 8-byte aligned.
     maniGraphTagSyncGroups = 7,
     // A binary32 per bone per mask, 0 to 1.
     maniGraphTagMaskWeights = 8,

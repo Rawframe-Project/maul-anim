@@ -66,33 +66,34 @@ static maniFileResult ReadProgress(const maniLearnedTrainer* t, const maniContai
     const uint8_t* bytes = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    if (!maniContainerSection(c, kTagProgress, &bytes, &size, &at) || size != 56)
+    if (!maniContainerSection(c, kTagProgress, &bytes, &size, &at) ||
+        size != MANI_CHECKPOINT_PROGRESS_SIZE)
     {
         return Fail(MANI_CONTAINER_HEADER_SIZE);
     }
-    p->stage = maniLoadU32(bytes);
-    uint32_t begun = maniLoadU32(bytes + 4);
-    p->iteration = maniLoadU64(bytes + 8);
-    p->loss = LoadF32(bytes + 16);
-    p->begun = begun == 1;
+    p->iteration = maniLoadU64(bytes);
     for (uint32_t k = 0; k < 4; ++k)
     {
-        p->random.s[k] = maniLoadU64(bytes + 24 + 8 * k);
+        p->random.s[k] = maniLoadU64(bytes + 8 + 8 * k);
     }
+    p->stage = maniLoadU32(bytes + 40);
+    uint32_t begun = maniLoadU32(bytes + 44);
+    p->loss = LoadF32(bytes + 48);
+    p->begun = begun == 1;
     bool working = p->begun && p->stage < t->stageCount;
     // A stage not begun: no loss or generator yet; one begun: a generator
     // not all 0 (xoshiro's one state that never leaves itself, on which
     // drawing below a bound would never end).
     bool fresh = (p->random.s[0] | p->random.s[1] | p->random.s[2] | p->random.s[3]) == 0;
-    const bool valid[6] = {p->stage <= t->stageCount,
-                           begun <= 1 && (working || !p->begun),
-                           p->iteration <= t->source.options.iterations &&
-                               (p->begun || p->iteration == 0),
-                           fabsf(p->loss) < HUGE_VALF && (p->begun || maniLoadU32(bytes + 16) == 0),
-                           maniLoadU32(bytes + 20) == 0,
-                           p->begun != fresh};
-    const uint32_t offsets[6] = {0, 4, 8, 16, 20, 24};
-    for (uint32_t k = 0; k < 6; ++k)
+    // The stage and whether it has begun first: the other fields' checks
+    // depend on them.
+    const bool valid[5] = {
+        p->stage <= t->stageCount, begun <= 1 && (working || !p->begun),
+        p->iteration <= t->source.options.iterations && (p->begun || p->iteration == 0),
+        p->begun != fresh,
+        fabsf(p->loss) < HUGE_VALF && (p->begun || maniLoadU32(bytes + 48) == 0)};
+    const uint32_t offsets[5] = {40, 44, 0, 8, 48};
+    for (uint32_t k = 0; k < 5; ++k)
     {
         if (!valid[k])
         {
@@ -226,7 +227,8 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* byt
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r = maniOpenContainer(bytes, size, maniKindLearnedCheckpoint, 1, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindLearnedCheckpoint,
+                                         MANI_CHECKPOINT_FORMAT_VERSION, &c);
     if (r.result != mani_success)
     {
         return r;

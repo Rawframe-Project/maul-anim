@@ -154,11 +154,18 @@ static void BuildSample(void)
     maniDestroyBuilder(builder);
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniMorphTargets morphTargets;
+    return maniOpenMorphTargets(bytes, size, &morphTargets);
+}
+
 static void TestBuildsAndReads(void)
 {
     BuildSample();
     maniMorphTargets m;
     CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(maniMorphVertexCount(&m) == kVertices && maniMorphChannelCount(&m) == 3 &&
               maniMorphTargetCount(&m) == 5 && maniMorphAttributeCount(&m) == 5,
           "counts");

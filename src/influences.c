@@ -126,10 +126,6 @@ static maniFileResult CheckSizes(const Sections* s, maniInfluences* v)
     {
         return Fail(s->at[0] + 16);
     }
-    if (maniLoadU32(b + 20) != 0)
-    {
-        return Fail(s->at[0] + 20);
-    }
     uint64_t slots = (uint64_t)v->vertexCount * v->groupCount * MANI_INFLUENCE_GROUP;
     const uint64_t want[MANI_INFLUENCE_SECTIONS - 1] = {
         2 * slots, 4 * slots, 4 * (uint64_t)v->vertexCount, 12 * (uint64_t)v->vertexCount};

@@ -118,7 +118,7 @@ static maniFileResult Header(const Sections* s, maniRagdoll* out)
     {
         return Fail(at + 32);
     }
-    return maniLoadU32(h + 44) == 0 ? kOk : Fail(at + 44);
+    return kOk;
 }
 
 // A body's shape and its sizes: a sphere's and a capsule's unused sizes
@@ -232,10 +232,9 @@ static maniFileResult Body(const Sections* s, const maniRagdoll* r, uint32_t i, 
         return Fail(s->at[2] + *name);
     }
     *name += length;
-    for (uint32_t k = 20; k < MANI_RAGDOLL_BODY_SIZE; k += 4)
+    for (uint32_t k = maniRagdollBodyFrame; k < MANI_RAGDOLL_BODY_SIZE; k += 4)
     {
-        bool zero = k == 20 || k >= maniRagdollBodyEnd;
-        if (zero ? maniLoadU32(e + k) != 0 : !(fabsf(LoadF32(e + k)) < HUGE_VALF))
+        if (!(fabsf(LoadF32(e + k)) < HUGE_VALF))
         {
             return Fail(at + k);
         }

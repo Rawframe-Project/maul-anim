@@ -353,7 +353,9 @@ static uint64_t SectionAt(const uint8_t* file, size_t size, uint32_t tag, uint64
 
 static uint64_t Opened(size_t size)
 {
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               size - MANI_CONTAINER_HEADER_SIZE));
     maniMotionDatabase d;
     maniFileResult r = maniOpenMotionDatabase(s_crafted, size, &d);
     return r.result == mani_errorFormat ? r.offset : UINT64_MAX;
