@@ -20,6 +20,7 @@
 #include "gltf_draco_read.h"
 #include "gltf_draco_transform.h"
 #include "gltf_draco_traverse.h"
+#include "invariant.h"
 #include "sort.h"
 
 #include <math.h>
@@ -493,6 +494,8 @@ static bool Accepts(const Decoder* d, const Value* v, const Group* g, uint8_t tr
 
 static void Predictor(const Decoder* d, const Value* v, const Group* g, maniDracoPredictor* p)
 {
+    // Accepts takes a mesh prediction over Edgebreaker only.
+    MANI_ASSERT(g != NULL);
     *p = (maniDracoPredictor){0};
     p->scheme = (uint8_t)v->scheme;
     p->components = v->pcomps;
@@ -503,6 +506,9 @@ static void Predictor(const Decoder* d, const Value* v, const Group* g, maniDrac
     p->pointCount = d->mesh->pointCount;
     if (Parent(d, v))
     {
+        // A parent is decoded, over Edgebreaker, so it has its values and
+        // its group's point map.
+        MANI_ASSERT(d->position->portable != NULL && d->position->a->pointToValue != NULL);
         p->positions = d->position->portable;
         p->positionOfPoint = d->position->a->pointToValue;
         p->positionCount = d->position->entries;
@@ -614,6 +620,8 @@ static void StoreFloat(uint8_t* p, float f)
 // A unit vector from quantized octahedral coordinates (Google's).
 static void UnitVector(const Value* v, int32_t qs, int32_t qt, uint8_t* out)
 {
+    // TransformNeeds refused a normal's bits outside 2 to 30.
+    MANI_ASSERT(v->bits >= 2 && v->bits <= 30);
     int32_t maxValue = (int32_t)((1u << v->bits) - 1u) - 1;
     float scale = 2.0f / (float)maxValue;
     float y = (float)qs * scale - 1.0f;
@@ -645,6 +653,9 @@ static void Original(Value* v, uint32_t entries)
     uint32_t size = maniDracoTypeSize(a->dataType);
     if (v->decoder == DecoderNormals)
     {
+        // Takes gave the normals' decoder three binary32 components, two
+        // portable.
+        MANI_ASSERT(v->pcomps == 2 && a->components == 3 && size == 4);
         for (uint32_t i = 0; i < entries; ++i)
         {
             UnitVector(v, Signed(v->portable[2u * i]), Signed(v->portable[2u * i + 1u]),
@@ -655,6 +666,8 @@ static void Original(Value* v, uint32_t entries)
     size_t n = a->components;
     if (v->decoder == DecoderQuantization)
     {
+        // TransformNeeds refused a quantization's bits outside 1 to 30.
+        MANI_ASSERT(v->bits >= 1 && v->bits <= 30);
         float delta = v->range / (float)(int32_t)((1u << v->bits) - 1u);
         for (size_t i = 0; i < entries; ++i)
         {
@@ -667,9 +680,10 @@ static void Original(Value* v, uint32_t entries)
         }
         return;
     }
+    // 1, 2 or 4 bytes: integers of 32 bits at most (Takes).
+    MANI_ASSERT(size == 1 || size == 2 || size == 4);
     for (size_t k = 0; k < (size_t)entries * n; ++k)
     {
-        // 1, 2 or 4 bytes: integers of 32 bits at most (Takes).
         uint32_t x = v->portable[k];
         switch (size)
         {

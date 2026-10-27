@@ -230,6 +230,51 @@ static void TestDecoderHeaders(void)
     }
 }
 
+// A sequential stream of one face over three points and one decoder of
+// one attribute, decoded from a block of its own length: the attribute's
+// description, its decoder's type, its prediction (and transform), its
+// values raw of a byte each, then what its transform needs.
+static maniDracoStatus Tiny(const uint8_t* attribute, size_t size)
+{
+    static const uint8_t kHead[] = {'D', 'R', 'A', 'C', 'O', 2, 2, 1, 0, 0, 0,
+                                    // One face over points 0, 1 and 2,
+                                    // plain indices; one decoder of one
+                                    // attribute.
+                                    1, 3, 1, 0, 1, 2, 1, 1};
+    uint8_t* bytes = malloc(sizeof kHead + size);
+    if (bytes == NULL)
+    {
+        return maniDracoCapacity;
+    }
+    memcpy(bytes, kHead, sizeof kHead);
+    memcpy(bytes + sizeof kHead, attribute, size);
+    maniDracoStatus s = Decode(bytes, sizeof kHead + size, 3, NULL);
+    free(bytes);
+    return s;
+}
+
+// Each decoder takes only the attributes it can turn back, and a mesh
+// prediction needs Edgebreaker.
+static void TestDecoderTypes(void)
+{
+    // A generic attribute of one component by the integer decoder, no
+    // prediction: an unsigned 32-bit type, then a 64-bit one.
+    uint8_t integer[] = {4, 6, 1, 0, 0, 1, 0xFE, 0, 1, 5, 6, 7};
+    CHECK(Tiny(integer, sizeof integer) == maniDracoDone, "integers of 32 bits");
+    integer[1] = 7;
+    CHECK(Tiny(integer, sizeof integer) == maniDracoInvalid, "integers of 64 bits");
+    // Normals of binary32 by the normals' decoder, two portable components
+    // a value and 8 bits: three components, then four.
+    uint8_t normals[] = {1, 9, 3, 0, 0, 3, 0xFE, 0, 1, 2, 2, 2, 2, 2, 2, 8};
+    CHECK(Tiny(normals, sizeof normals) == maniDracoDone, "normals of three components");
+    normals[2] = 4;
+    CHECK(Tiny(normals, sizeof normals) == maniDracoInvalid, "normals of four components");
+    // The integers again, predicted by parallelogram with wrap.
+    const uint8_t parallelogram[] = {4, 6, 1, 0, 0, 1, 1, 1, 0, 1, 5, 6, 7};
+    CHECK(Tiny(parallelogram, sizeof parallelogram) == maniDracoInvalid,
+          "a mesh prediction over sequential connectivity");
+}
+
 // Every prefix and every byte changed (to its complement and to zero),
 // for a byte step, decoded without fault under the sanitizers; prefixes
 // never give a mesh shorter than the stream's.
@@ -466,6 +511,7 @@ int main(int argc, char** argv)
     TestStreams();
     TestHeader();
     TestDecoderHeaders();
+    TestDecoderTypes();
     TestDamage();
     TestAttributeCount();
     TestClaimedCounts();
