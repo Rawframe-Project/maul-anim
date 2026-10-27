@@ -14,6 +14,7 @@
 #include "graph_json_body.h"
 #include "graph_json_ik.h"
 #include "graph_json_write.h"
+#include "invariant.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -68,6 +69,8 @@ static void PutParameter(Writer* w, const maniGraphParameterSource* p)
     maniGraphJsonPutString(w, p->name, p->nameLength);
     maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "type");
+    // The build refused any other type.
+    MANI_ASSERT(p->type < sizeof kTypes / sizeof kTypes[0]);
     maniGraphJsonPutString(w, kTypes[p->type], (uint32_t)strlen(kTypes[p->type]));
     if (p->type != maniGraphParameterPose)
     {
@@ -90,6 +93,9 @@ static void PutParameter(Writer* w, const maniGraphParameterSource* p)
 static void PutClipNode(Writer* w, const maniGraphSource* source, const maniGraphClipNodeSource* c)
 {
     static const char* const kLoops[] = {"\"clip\"", "\"clamp\"", "\"repeat\""};
+    // The build refused a slot past the clips and any other loop policy.
+    MANI_ASSERT(c->clip < source->clipCount);
+    MANI_ASSERT(c->loop < sizeof kLoops / sizeof kLoops[0]);
     const maniGraphClipSource* clip = &source->clips[c->clip];
     maniGraphJsonPutKey(w, "clip");
     maniGraphJsonPutString(w, clip->name, clip->nameLength);
@@ -101,6 +107,7 @@ static void PutClipNode(Writer* w, const maniGraphSource* source, const maniGrap
     }
     else
     {
+        MANI_ASSERT(c->syncGroup < source->syncGroupCount);
         const maniGraphSyncGroupSource* g = &source->syncGroups[c->syncGroup];
         maniGraphJsonPutString(w, g->name, g->nameLength);
     }
@@ -123,6 +130,8 @@ static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
     {
         uint32_t length = 0;
         const char* name = maniSkeletonBoneName(w->skeleton, m->chains[k].bone, &length);
+        // The build refused a chain on a bone past the skeleton's.
+        MANI_ASSERT(name != NULL);
         maniGraphJsonPutText(w, k > 0 ? ", " : "");
         maniGraphJsonPutText(w, "{");
         maniGraphJsonPutKey(w, "bone");
@@ -253,6 +262,7 @@ static void PutTags(Writer* w, const maniGraphSource* source, maniGraphTags tags
 // one), its query's parameters, its numbers, tags and duration.
 static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMatchNodeSource* m)
 {
+    MANI_ASSERT(m->database < source->databaseCount);
     const maniGraphDatabaseSource* d = &source->databases[m->database];
     maniGraphJsonPutKey(w, "database");
     maniGraphJsonPutString(w, d->name, d->nameLength);
@@ -298,6 +308,7 @@ static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMa
 // A spring node's set by its slot's name, and the parameters it has.
 static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphSpringNodeSource* s)
 {
+    MANI_ASSERT(s->springSet < source->springSetCount);
     const maniGraphSpringSetSource* set = &source->springSets[s->springSet];
     maniGraphJsonPutKey(w, "springSet");
     maniGraphJsonPutString(w, set->name, set->nameLength);
@@ -319,6 +330,7 @@ static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphS
 static void PutLearned(Writer* w, const maniGraphSource* source,
                        const maniGraphLearnedNodeSource* l)
 {
+    MANI_ASSERT(l->model < source->modelCount);
     const maniGraphModelSource* m = &source->models[l->model];
     maniGraphJsonPutKey(w, "model");
     maniGraphJsonPutString(w, m->name, m->nameLength);
@@ -457,6 +469,10 @@ static void PutCondition(Writer* w, const maniGraphSource* source,
     }
     else
     {
+        // The build refused a parameter past the list and any other
+        // comparison.
+        MANI_ASSERT(c->parameter < source->parameterCount);
+        MANI_ASSERT(c->compare < sizeof kCompares / sizeof kCompares[0]);
         maniGraphParameterType type = source->parameters[c->parameter].type;
         maniGraphJsonPutKey(w, "parameter");
         maniGraphJsonPutParameterName(w, source, c->parameter);
@@ -487,6 +503,10 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
     static const char* const kInterruptions[] = {"\"none\"", "\"higher\"", "\"any\""};
     static const char* const kEntries[] = {"\"restart\"", "\"keep\"", "\"match\""};
     static const char* const kFades[] = {"\"linear\"", "\"smoothstep\"", "\"inertial\""};
+    // The build refused any other interruption, entry or fade.
+    MANI_ASSERT(t->interruption < sizeof kInterruptions / sizeof kInterruptions[0] &&
+                t->entry < sizeof kEntries / sizeof kEntries[0] &&
+                t->fade < sizeof kFades / sizeof kFades[0]);
     maniGraphJsonPutText(w, "{");
     maniGraphJsonPutKey(w, "from");
     if (t->from == MANI_GRAPH_ANY_STATE)
@@ -582,6 +602,8 @@ static void PutWeights(Writer* w, const maniGraphSource* source, const maniGraph
     maniGraphJsonPutKey(w, "weights");
     if (n->kind == maniGraphNodeAdditive)
     {
+        // A base and at least one layer, as the build requires.
+        MANI_ASSERT(n->inputCount >= 2);
         maniGraphJsonPutScalars(w, source, n->additive.weights, n->inputCount - 1);
         return;
     }
@@ -719,6 +741,9 @@ static const char* KindName(maniGraphNodeKind kind)
                                          "bodySdls",
                                          "mirror",
                                          "turnLimit"};
+    // The build refused any other kind.
+    MANI_ASSERT(kind == maniGraphNodeSubgraph ||
+                (uint32_t)(kind - maniGraphNodeClip) < sizeof kKinds / sizeof kKinds[0]);
     return kind == maniGraphNodeSubgraph ? "subgraph" : kKinds[kind - maniGraphNodeClip];
 }
 
@@ -877,6 +902,8 @@ static MANI_NOINLINE maniBuildResult WriteGraphJsonWork(maniBuilder* builder,
     w = (Writer){text, 0, source->skeleton};
     PutGraph(&w, source, 0, true);
     maniGraphJsonPutText(&w, "\n");
+    // The text written is the text counted.
+    MANI_ASSERT(w.at == size);
     maniBuilderKeep(builder, MANI_BUILT_TEXT, (uint8_t*)text, size, NULL, 0);
     return r;
 }

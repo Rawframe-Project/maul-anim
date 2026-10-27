@@ -702,6 +702,19 @@ static maniBuildResult Read(const char* text)
     return r;
 }
 
+// The writer refuses a source with the build's result: its status,
+// reason and place.
+static bool RefusedAlike(const maniGraphSource* source)
+{
+    maniBuilder* builder = NewBuilder();
+    maniBuildResult built = maniBuildGraph(builder, source);
+    maniBuildResult written = maniWriteGraphJson(builder, source);
+    maniDestroyBuilder(builder);
+    return built.result == mani_errorInvalid && written.result == built.result &&
+           written.reason == built.reason && written.item == built.item &&
+           written.other == built.other;
+}
+
 // Every option and every form of condition, written and read back.
 static void TestJson(void)
 {
@@ -737,6 +750,24 @@ static void TestJson(void)
               strstr(s_text, "\"conditions\": [{\"trigger\": \"jump\"}, {\"timeInState\": "
                              "0.25}]}], \"finals\": []}") != NULL,
           "the form");
+    // Each value the writer names or indexes, one past what the build
+    // takes.
+    maniGraphConditionSource run[3] = {kRun[0], kRun[1], kRun[2]};
+    t[0].conditions = run;
+    run[0].parameter = 4;
+    CHECK(RefusedAlike(&source), "a condition's parameter past the list");
+    run[0].parameter = 0;
+    run[0].compare = (maniGraphCompare)(maniGraphCompareAtLeast + 1);
+    CHECK(RefusedAlike(&source), "a comparison past at least");
+    run[0].compare = maniGraphCompareGreater;
+    t[0].interruption = (maniGraphInterruption)(maniGraphInterruptionAny + 1);
+    CHECK(RefusedAlike(&source), "an interruption past any");
+    t[0].interruption = maniGraphInterruptionHigher;
+    t[0].entry = (maniGraphEntry)(maniGraphEntryMatch + 1);
+    CHECK(RefusedAlike(&source), "an entry past match");
+    t[0].entry = maniGraphEntryKeep;
+    t[0].fade = (maniGraphFade)(maniGraphFadeInertial + 1);
+    CHECK(RefusedAlike(&source), "a fade past inertial");
 }
 
 #define HEAD                                                                                       \

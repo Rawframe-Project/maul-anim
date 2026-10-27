@@ -327,6 +327,19 @@ static void TestWrite(void)
     }
 }
 
+// The writer refuses a source with the build's result: its status,
+// reason and place.
+static bool RefusedAlike(const maniGraphSource* source)
+{
+    maniBuilder* builder = NewBuilder(NULL);
+    maniBuildResult built = maniBuildGraph(builder, source);
+    maniBuildResult written = maniWriteGraphJson(builder, source);
+    maniDestroyBuilder(builder);
+    return built.result == mani_errorInvalid && written.result == built.result &&
+           written.reason == built.reason && written.item == built.item &&
+           written.other == built.other;
+}
+
 static void TestRefusals(void)
 {
     maniGraphSource source = Source();
@@ -335,6 +348,29 @@ static void TestRefusals(void)
     CHECK(Write(&source, &r) == 0 && r.result == mani_errorInvalid &&
               r.reason == maniBuildReasonNode && r.item == 5,
           "refused as the build refuses");
+    // Each value the writer names or indexes, one past what the build
+    // takes.
+    source = Source();
+    s_parameters[3].type = (maniGraphParameterType)(maniGraphParameterPose + 1);
+    CHECK(RefusedAlike(&source), "a parameter type past pose");
+    source = Source();
+    s_nodes[6].clip.loop = (maniGraphLoop)(maniGraphLoopRepeat + 1);
+    CHECK(RefusedAlike(&source), "a loop policy past repeat");
+    source = Source();
+    s_chains[0].bone = 3;
+    CHECK(RefusedAlike(&source), "a chain on a bone past the skeleton's");
+    source = Source();
+    s_nodes[0].inputCount = 1;
+    CHECK(RefusedAlike(&source), "an additive node of no layer");
+    source = Source();
+    s_nodes[1].kind = (maniGraphNodeKind)(maniGraphNodeTurnLimit + 1);
+    CHECK(RefusedAlike(&source), "a node kind past the last");
+    source = Source();
+    s_subNodes[0].clip.clip = 1;
+    CHECK(RefusedAlike(&s_sub), "a clip slot past the graph's clips");
+    s_subNodes[0].clip.clip = 0;
+    s_subNodes[0].clip.syncGroup = 1;
+    CHECK(RefusedAlike(&s_sub), "a sync group past the graph's groups");
     source = Source();
     CHECK(maniWriteGraphJson(NULL, &source).result == mani_errorInvalid, "no builder");
     maniBuilder* builder = NewBuilder(NULL);
