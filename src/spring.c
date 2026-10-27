@@ -345,9 +345,9 @@ static maniFileResult Records(const Sections* s, const maniSpringSet* set)
     return kOk;
 }
 
-static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t size,
-                                                      maniSpringSet* setOut)
+static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t size, void* out)
 {
+    maniSpringSet* setOut = out;
     if (setOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -394,9 +394,9 @@ static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t 
 maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* setOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenSpringSetWork(bytes, size, setOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, setOut, OpenSpringSetWork);
     maniFloatEnvLeave(env);
-    return maniContainerTagged(bytes, size, result);
+    return result;
 }
 
 uint64_t maniSpringSetIdentity(const maniSpringSet* set)

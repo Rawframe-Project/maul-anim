@@ -8,7 +8,7 @@ vecmath: scalar
 hash:
 fpenv:
 bytes:
-container: bytes invariant
+container: bytes fpenv invariant
 inflate:
 cpu:
 simd:

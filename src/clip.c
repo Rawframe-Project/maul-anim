@@ -299,8 +299,9 @@ static maniFileResult CheckFront(const Sections* s, maniClip* clip)
     return clip->compressed ? r : CheckSamples(s->data[2], s->at[2], s->data[1], clip);
 }
 
-static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size, maniClip* clipOut)
+static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size, void* out)
 {
+    maniClip* clipOut = out;
     if (clipOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -347,9 +348,9 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
 maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenClipWork(bytes, size, clipOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, clipOut, OpenClipWork);
     maniFloatEnvLeave(env);
-    return maniContainerTagged(bytes, size, result);
+    return result;
 }
 
 uint64_t maniClipIdentity(const maniClip* clip)

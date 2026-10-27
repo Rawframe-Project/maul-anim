@@ -373,9 +373,9 @@ static maniFileResult CheckAll(const Sections* s, maniMorphTargets* m)
     return r;
 }
 
-static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size_t size,
-                                                         maniMorphTargets* targetsOut)
+static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size_t size, void* out)
 {
+    maniMorphTargets* targetsOut = out;
     if (targetsOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -415,9 +415,9 @@ static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size
 maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTargets* targetsOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenMorphTargetsWork(bytes, size, targetsOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, targetsOut, OpenMorphTargetsWork);
     maniFloatEnvLeave(env);
-    return maniContainerTagged(bytes, size, result);
+    return result;
 }
 
 uint32_t maniMorphVertexCount(const maniMorphTargets* targets)

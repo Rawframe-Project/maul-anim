@@ -194,9 +194,9 @@ static maniFileResult Names(const Sections* s, const maniMirrorMap* m)
     return kOk;
 }
 
-static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t size,
-                                                      maniMirrorMap* mapOut)
+static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t size, void* out)
 {
+    maniMirrorMap* mapOut = out;
     if (mapOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -243,9 +243,9 @@ static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t 
 maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* mapOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenMirrorMapWork(bytes, size, mapOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, mapOut, OpenMirrorMapWork);
     maniFloatEnvLeave(env);
-    return maniContainerTagged(bytes, size, result);
+    return result;
 }
 
 uint64_t maniMirrorMapIdentity(const maniMirrorMap* map)

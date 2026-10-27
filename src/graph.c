@@ -535,9 +535,9 @@ static maniFileResult CheckSlotNames(const maniGraph* g, const uint8_t* entries,
     return kOk;
 }
 
-static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size,
-                                                  maniGraph* graphOut)
+static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size, void* out)
 {
+    maniGraph* graphOut = out;
     if (graphOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -592,9 +592,9 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
 maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenGraphWork(bytes, size, graphOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, graphOut, OpenGraphWork);
     maniFloatEnvLeave(env);
-    return maniContainerTagged(bytes, size, result);
+    return result;
 }
 
 uint64_t maniGraphIdentity(const maniGraph* graph)

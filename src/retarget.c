@@ -276,9 +276,9 @@ static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)
     return kOk;
 }
 
-static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_t size,
-                                                        maniRetargetMap* mapOut)
+static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_t size, void* out)
 {
+    maniRetargetMap* mapOut = out;
     if (mapOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -324,9 +324,9 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
 maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetMap* mapOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenRetargetMapWork(bytes, size, mapOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, mapOut, OpenRetargetMapWork);
     maniFloatEnvLeave(env);
-    return maniContainerTagged(bytes, size, result);
+    return result;
 }
 
 uint64_t maniRetargetMapIdentity(const maniRetargetMap* map)
