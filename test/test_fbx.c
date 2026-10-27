@@ -975,6 +975,69 @@ static void TestFindProperties(void)
 }
 
 // A binary int16, negative.
+// Opens the written file with at most `limit` properties: whether it
+// opens, else where it is refused; `count` the file's properties when
+// it opens.
+static maniImportResult OpenLimited(uint32_t limit, uint32_t* count)
+{
+    uint8_t* exact = malloc(s_w.n > 0 ? s_w.n : 1);
+    if (exact == NULL)
+    {
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    }
+    memcpy(exact, s_w.b, s_w.n);
+    maniBuilder* builder = NewBuilder();
+    maniFbx* fbx = NULL;
+    maniImportResult r = maniFbxOpenLimited(builder, exact, s_w.n, limit, &fbx);
+    *count = fbx != NULL ? fbx->propertyCount : 0;
+    maniCloseFbx(fbx);
+    maniDestroyBuilder(builder);
+    free(exact);
+    return r;
+}
+
+// A file of n properties opens with a limit of n and is refused with one
+// of n - 1 at its last property's first byte (a binary type letter, an
+// ASCII value), in both readers.
+static void TestPropertyLimit(void)
+{
+    const uint32_t versions[2] = {7400, 7500};
+    for (int v = 0; v < 2; ++v)
+    {
+        Scene(versions[v], false);
+        uint32_t n = 0;
+        CHECK(OpenLimited(MANI_FBX_MAX_PROPERTIES, &n).result == mani_success && n > 1,
+              "a binary file under the property limit opens");
+        size_t last = PropertyAt(RecordAt("Weights"), 0);
+        uint32_t opened = 0;
+        CHECK(OpenLimited(n, &opened).result == mani_success && opened == n,
+              "a binary file of as many properties as the limit opens");
+        maniImportResult r = OpenLimited(n - 1, &opened);
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonContainer &&
+                  r.offset == last,
+              "a binary file of one property past the limit is refused at it");
+        r = OpenLimited(0, &opened);
+        CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonContainer &&
+                  r.offset == PropertyAt(RecordAt("FBXVersion"), 0),
+              "a binary file is refused at its first property with no room for one");
+    }
+    SetText(kAscii);
+    uint32_t n = 0;
+    CHECK(OpenLimited(MANI_FBX_MAX_PROPERTIES, &n).result == mani_success && n > 1,
+          "an ASCII file under the property limit opens");
+    uint32_t opened = 0;
+    CHECK(OpenLimited(n, &opened).result == mani_success && opened == n,
+          "an ASCII file of as many properties as the limit opens");
+    maniImportResult r = OpenLimited(n - 1, &opened);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonSyntax &&
+              r.offset == (uint64_t)(strstr(kAscii, ", 1\n") + 2 - kAscii),
+          "an ASCII file of one property past the limit is refused at it");
+    r = OpenLimited(0, &opened);
+    CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonSyntax &&
+              r.offset == (uint64_t)(strstr(kAscii, "7400\n") - kAscii),
+          "an ASCII file is refused at its first property with no room for one");
+}
+
 static void TestShortInteger(void)
 {
     Start(7400, false);
@@ -1074,6 +1137,7 @@ int main(int argc, char** argv)
     TestAscii();
     TestAsciiEdges();
     TestAsciiRefusals();
+    TestPropertyLimit();
     TestShortInteger();
     TestFindProperties();
     TestPlainStrings();

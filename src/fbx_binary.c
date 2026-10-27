@@ -160,7 +160,7 @@ static maniImportResult ReadArray(Reader* r, uint8_t type, uint64_t* at, uint64_
 static maniImportResult ReadProperty(Reader* r, uint64_t* at, uint64_t limit)
 {
     uint64_t p = *at;
-    if (p >= limit)
+    if (p >= limit || r->properties == r->fbx->propertyLimit)
     {
         return Bad(p);
     }

@@ -59,7 +59,8 @@ static maniImportResult Open(maniFbx* fbx)
 }
 
 static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const void* bytes,
-                                                  size_t size, maniFbx** fbxOut)
+                                                  size_t size, uint32_t propertyLimit,
+                                                  maniFbx** fbxOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -87,6 +88,7 @@ static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const vo
     fbx->allocator = builder->allocator;
     fbx->bytes = bytes;
     fbx->size = size;
+    fbx->propertyLimit = propertyLimit;
     maniImportResult r = Open(fbx);
     if (r.result != mani_success)
     {
@@ -100,7 +102,16 @@ static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const vo
 maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes, size_t size, maniFbx** fbxOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniImportResult result = OpenFbxWork(builder, bytes, size, fbxOut);
+    maniImportResult result = OpenFbxWork(builder, bytes, size, MANI_FBX_MAX_PROPERTIES, fbxOut);
+    maniFloatEnvLeave(env);
+    return result;
+}
+
+maniImportResult maniFbxOpenLimited(maniBuilder* builder, const void* bytes, size_t size,
+                                    uint32_t propertyLimit, maniFbx** fbxOut)
+{
+    uint64_t env = maniFloatEnvEnter();
+    maniImportResult result = OpenFbxWork(builder, bytes, size, propertyLimit, fbxOut);
     maniFloatEnvLeave(env);
     return result;
 }
