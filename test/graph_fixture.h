@@ -11,6 +11,7 @@
 #define MAUL_ANIM_TEST_GRAPH_FIXTURE_H
 
 #include "graph_instance.h"
+#include "graph_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -183,6 +184,7 @@ static inline maniGraphInstance* Make(maniGraphSource source, maniGraph* g)
     }
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
+    CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&

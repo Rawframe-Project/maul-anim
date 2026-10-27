@@ -12,6 +12,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "skeleton_file.h"
+#include "source_padding.h"
 #include "test_budget.h"
 #include "test_harness.h"
 
@@ -426,6 +427,26 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source and its bones.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniBoneSource bones[6];
+        memcpy(bones, kBones, sizeof bones);
+        TEST_PAD(bones, 6, kFieldsBoneSource, kTestPadPatterns[k]);
+        maniSkeletonSource source = {bones, 6};
+        TEST_PAD(&source, 1, kFieldsSkeletonSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -442,5 +463,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestEveryByteFlip();
     TestPinnedBytes();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

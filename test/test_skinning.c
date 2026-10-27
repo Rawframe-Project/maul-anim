@@ -7,6 +7,7 @@
 // weight copied; ranges, strides and in-place runs giving the same bits;
 // refusals leaving the outputs; row palettes; the bits pinned.
 
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -1001,6 +1002,23 @@ static void BuildMesh(void)
     maniDestroyBuilder(builder);
 }
 
+// The same centers whatever bytes pad their source.
+static void TestCentersPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniCenterSource source = {&s_mesh, &s_rest[0][0], 12, s_triangles, kTriangles, 0.0f};
+        TEST_PAD(&source, 1, kFieldsCenterSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildCenters(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same centers under either padding");
+}
+
 // Eq. 4 by brute force in binary64: every triangle, every pair, libm's exp.
 static void BruteCenter(uint32_t vertex, double out[3])
 {
@@ -1284,6 +1302,7 @@ int main(void)
     TestBlended();
     BuildMesh();
     TestCentersBuilt();
+    TestCentersPaddingIgnored();
     TestCentersRefused();
     TestCentersJob();
     TestScenePinned();

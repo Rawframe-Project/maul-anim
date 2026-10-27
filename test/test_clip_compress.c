@@ -18,6 +18,7 @@
 #include "clip_view.h"
 #include "container.h"
 #include "pose_memory.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -1768,6 +1769,25 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same compressed file whatever bytes pad the options.
+static void TestPaddingIgnored(void)
+{
+    BuildFull(0.0f);
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniCompressOptions options = maniDefaultCompressOptions();
+        TEST_PAD(&options, 1, kFieldsCompressOptions, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniCompressClip(builder, &s_full, &s_skeleton, &options, NULL) == mani_success,
+              "compresses padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     FillKeys();
@@ -1805,5 +1825,6 @@ int main(int argc, char** argv)
     TestOtherVersions();
     TestEveryByteFlip();
     TestPinnedBytes();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

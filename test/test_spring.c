@@ -15,6 +15,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "source_padding.h"
 #include "spring_file.h"
 #include "test_harness.h"
 
@@ -653,6 +654,43 @@ static int WriteSeed(const char* path)
     return ok ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source, its colliders, groups,
+// springs and joints.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniSpringSetSource source = Source();
+        maniColliderSource colliders[4];
+        maniColliderGroupSource groups[2];
+        maniSpringJointSource hair[3];
+        maniSpringJointSource tail[3];
+        maniSpringSource springs[2];
+        memcpy(colliders, s_colliders, sizeof colliders);
+        memcpy(groups, s_groups, sizeof groups);
+        memcpy(hair, s_hairJoints, sizeof hair);
+        memcpy(tail, s_tailJoints, sizeof tail);
+        memcpy(springs, s_springs, sizeof springs);
+        springs[0].joints = hair;
+        springs[1].joints = tail;
+        TEST_PAD(colliders, 4, kFieldsColliderSource, pattern);
+        TEST_PAD(groups, 2, kFieldsColliderGroupSource, pattern);
+        TEST_PAD(hair, 3, kFieldsSpringJointSource, pattern);
+        TEST_PAD(tail, 3, kFieldsSpringJointSource, pattern);
+        TEST_PAD(springs, 2, kFieldsSpringSource, pattern);
+        source.colliders = colliders;
+        source.colliderGroups = groups;
+        source.springs = springs;
+        TEST_PAD(&source, 1, kFieldsSpringSetSource, pattern);
+        CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(s_builder, &sizes[k]);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     OpenSkeleton();
@@ -670,6 +708,7 @@ int main(int argc, char** argv)
     TestJointRefusals();
     TestOpen();
     TestTooManySprings();
+    TestPaddingIgnored();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

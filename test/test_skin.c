@@ -14,6 +14,7 @@
 #include "container.h"
 #include "pose_memory.h"
 #include "skin_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 #include "vecmath.h"
 
@@ -352,6 +353,26 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source.
+static void TestPaddingIgnored(void)
+{
+    BuildSample();
+    maniAffine inverseBinds[kJoints];
+    RestInverseBinds(inverseBinds);
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints};
+        TEST_PAD(&source, 1, kFieldsSkinSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildSkin(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -365,5 +386,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestTableRefusals();
     TestEveryByteFlip();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

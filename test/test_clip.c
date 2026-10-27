@@ -14,6 +14,7 @@
 #include "bytes.h"
 #include "clip_file.h"
 #include "container.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -1141,6 +1142,45 @@ static void TestAdditiveClip(void)
     CHECK(BuildFrom(&source).result == mani_success, "the rest's scale is 1");
 }
 
+// The same file whatever bytes pad the source, its tracks and events.
+static void TestPaddingIgnored(void)
+{
+    OpenSkeleton();
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniClipSource source = SampleSource();
+        maniBoneTrackSource tracks[3];
+        maniFloatTrackSource floats[3];
+        maniDiscreteTrackSource discrete[2];
+        maniEventSource events[4];
+        maniEventSource markers[2];
+        memcpy(tracks, s_tracks, sizeof tracks);
+        memcpy(floats, s_floats, sizeof floats);
+        memcpy(discrete, s_discrete, sizeof discrete);
+        memcpy(events, s_events, sizeof events);
+        memcpy(markers, s_markers, sizeof markers);
+        TEST_PAD(tracks, 3, kFieldsBoneTrackSource, pattern);
+        TEST_PAD(floats, 3, kFieldsFloatTrackSource, pattern);
+        TEST_PAD(discrete, 2, kFieldsDiscreteTrackSource, pattern);
+        TEST_PAD(events, 4, kFieldsEventSource, pattern);
+        TEST_PAD(markers, 2, kFieldsEventSource, pattern);
+        source.boneTracks = tracks;
+        source.floatTracks = floats;
+        source.discreteTracks = discrete;
+        source.events = events;
+        source.markers = markers;
+        TEST_PAD(&source, 1, kFieldsClipSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildClip(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -1168,5 +1208,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestEveryByteFlip();
     TestPinnedScene();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

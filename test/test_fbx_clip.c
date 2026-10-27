@@ -7,6 +7,7 @@
 // from the worlds), the placement folded or reported, a float track, the
 // channel bindings counted; and refusals.
 
+#include "source_padding.h"
 #include "test_fbx_sweep.h"
 #include "test_harness.h"
 
@@ -1138,6 +1139,44 @@ static void TestAllocationFailures(void)
     CHECK(TestSweep(FbxSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
 }
 
+// The same skeleton and clip whatever bytes pad the options.
+static void TestOptionsPaddingIgnored(void)
+{
+    uint8_t* skeletons[2] = {NULL, NULL};
+    size_t skeletonSizes[2] = {0, 0};
+    uint8_t* clips[2] = {NULL, NULL};
+    size_t clipSizes[2] = {0, 0};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniBuilder* builder = NewBuilder();
+        maniFbx* fbx = Open(builder, kScene);
+        maniFbxOptions options = maniDefaultFbxOptions();
+        TEST_PAD(&options, 1, kFieldsFbxOptions, kTestPadPatterns[k]);
+        maniSkeleton skeleton;
+        bool built = fbx != NULL && PlainSkeleton(builder, &options, &skeleton);
+        skeletons[k] = built ? TestCopyBuilt(builder, &skeletonSizes[k]) : NULL;
+        maniRootMotionSource travel = {built ? maniSkeletonFindBone(&skeleton, "Hips", 4) : 0,
+                                       maniRootAxisX | maniRootAxisZ,
+                                       0,
+                                       0,
+                                       0,
+                                       0,
+                                       0};
+        maniImportClipOptions settings = maniDefaultImportClipOptions();
+        settings.loop = maniLoopRepeat;
+        settings.rootMotion = &travel;
+        TEST_PAD(&settings, 1, kFieldsImportClipOptions, kTestPadPatterns[k]);
+        built = built &&
+                maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
+                    mani_success;
+        clips[k] = built ? TestCopyBuilt(builder, &clipSizes[k]) : NULL;
+        maniCloseFbx(fbx);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(skeletons, skeletonSizes), "the same skeleton under either padding");
+    CHECK(TestSameBuilt(clips, clipSizes), "the same clip under either padding");
+}
+
 int main(void)
 {
     TestAllocationFailures();
@@ -1158,5 +1197,6 @@ int main(void)
     TestTracks();
     TestTimes();
     TestRefusals();
+    TestOptionsPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

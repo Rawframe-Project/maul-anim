@@ -25,6 +25,7 @@
 #include "graph_match_fixture.h"
 #include "learned_file.h"
 #include "learned_train.h"
+#include "source_padding.h"
 #include "train_decompress.h"
 #include "train_net.h"
 #include "train_projector.h"
@@ -898,6 +899,47 @@ static int WriteSeed(const char* path)
     return ok ? 0 : 1;
 }
 
+// The same checkpoint and model whatever bytes pad the source's names.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* checkpoints[2] = {NULL, NULL};
+    size_t checkpointSizes[2] = {0, 0};
+    uint8_t* models[2] = {NULL, NULL};
+    size_t modelSizes[2] = {0, 0};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniLearnedNameSource events[2];
+        memcpy(events, kEvents, sizeof events);
+        TEST_PAD(events, 2, kFieldsLearnedNameSource, kTestPadPatterns[k]);
+        maniLearnedTrainerSource s = Source();
+        s.events = events;
+        TEST_PAD(&s, 1, kFieldsLearnedTrainerSource, kTestPadPatterns[k]);
+        maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+        maniLearnedTrainer* t = Create(&def, &s);
+        maniLearnedTrainerReport report;
+        CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
+              "trained padded");
+        checkpointSizes[k] = maniLearnedCheckpointSize(t);
+        checkpoints[k] = (uint8_t*)malloc(checkpointSizes[k]);
+        if (checkpoints[k] != NULL &&
+            maniSaveLearnedCheckpoint(t, checkpoints[k], checkpointSizes[k]) != mani_success)
+        {
+            free(checkpoints[k]);
+            checkpoints[k] = NULL;
+        }
+        maniBuilder* builder = NewBuilder();
+        if (maniBuildLearnedModelFromTrainer(builder, t, maniLearnedWeightsFloat32).result ==
+            mani_success)
+        {
+            models[k] = TestCopyBuilt(builder, &modelSizes[k]);
+        }
+        maniDestroyBuilder(builder);
+        maniDestroyLearnedTrainer(t);
+    }
+    CHECK(TestSameBuilt(checkpoints, checkpointSizes), "the same checkpoint under either padding");
+    CHECK(TestSameBuilt(models, modelSizes), "the same model under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -918,5 +960,6 @@ int main(int argc, char** argv)
     TestRestoreRefused();
     TestCanonical();
     TestMemory();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

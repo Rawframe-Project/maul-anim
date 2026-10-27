@@ -10,6 +10,7 @@
 // reflected, on the left arm moved to the right arm with its model
 // change reflected and its axes carried; the refusals.
 
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -208,6 +209,27 @@ static void Clip(maniAdditiveBasis additive, uint32_t root, maniClip* out)
     maniDestroyBuilder(builder);
 }
 
+// Whether the source bakes to the size bytes at built whatever bytes pad
+// it.
+static bool PaddingIgnored(const maniMirrorClipSource* source, const uint8_t* built, size_t size)
+{
+    bool same = true;
+    for (int k = 0; k < 2; ++k)
+    {
+        maniMirrorClipSource s = *source;
+        TEST_PAD(&s, 1, kFieldsMirrorClipSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        size_t padded = 0;
+        uint8_t* bytes = maniBuildMirroredClip(builder, &s).result == mani_success
+                             ? TestCopyBuilt(builder, &padded)
+                             : NULL;
+        same = same && bytes != NULL && padded == size && memcmp(bytes, built, size) == 0;
+        free(bytes);
+        maniDestroyBuilder(builder);
+    }
+    return same;
+}
+
 static maniBuildResult Bake(const maniMirrorClipSource* source, int slot, maniClip* out)
 {
     maniBuilder* builder = NewBuilder();
@@ -218,6 +240,7 @@ static maniBuildResult Bake(const maniMirrorClipSource* source, int slot, maniCl
         CHECK(maniCopyBuilt(builder, s_baked[slot], sizeof s_baked[slot], &size) == mani_success &&
                   maniOpenClip(s_baked[slot], size, out).result == mani_success,
               "the baked clip opens");
+        CHECK(PaddingIgnored(source, s_baked[slot], size), "the same clip under either padding");
     }
     maniDestroyBuilder(builder);
     return r;

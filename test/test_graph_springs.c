@@ -14,6 +14,7 @@
 #include "container.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_padding.h"
 #include "learned_fixture.h"
 
 #include "maul-anim/build.h"
@@ -81,6 +82,7 @@ static maniBuildResult BuildGraph(const maniGraphSource* source)
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result == mani_success)
     {
+        CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
         CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) == mani_success,
               "copied");
     }

@@ -22,6 +22,7 @@
 #include "container.h"
 #include "learned_file.h"
 #include "learned_fixture.h"
+#include "source_padding.h"
 
 #include "maul-anim/learned.h"
 #include "maul-anim/learnedbuild.h"
@@ -928,6 +929,59 @@ static void TestOverflow(void)
           "a decompression refused, nothing written");
 }
 
+// A network's copy with its layers, both padded.
+static maniLearnedNetworkSource PaddedNetwork(const maniLearnedNetworkSource* n,
+                                              maniLearnedLayerSource layers[3], uint8_t pattern)
+{
+    maniLearnedNetworkSource copy = *n;
+    memcpy(layers, n->layers, n->layerCount * sizeof *layers);
+    TEST_PAD(layers, n->layerCount, kFieldsLearnedLayerSource, pattern);
+    copy.layers = layers;
+    TEST_PAD(&copy, 1, kFieldsLearnedNetworkSource, pattern);
+    return copy;
+}
+
+// The same model whatever bytes pad the source, its networks, layers,
+// projectors and names.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniLearnedModelSource source = Source();
+        maniLearnedLayerSource layers[4][3];
+        maniLearnedNetworkSource decompressor =
+            PaddedNetwork(source.decompressor, layers[0], pattern);
+        maniLearnedNetworkSource stepper = PaddedNetwork(source.stepper, layers[1], pattern);
+        maniLearnedProjectorSource projectors[2];
+        memcpy(projectors, s_projectors, sizeof projectors);
+        for (int j = 0; j < 2; ++j)
+        {
+            projectors[j].network = PaddedNetwork(&s_projectors[j].network, layers[2 + j], pattern);
+        }
+        TEST_PAD(projectors, 2, kFieldsLearnedProjectorSource, pattern);
+        maniLearnedNameSource tracks[1];
+        maniLearnedNameSource events[2];
+        memcpy(tracks, kTracks, sizeof tracks);
+        memcpy(events, kEvents, sizeof events);
+        TEST_PAD(tracks, 1, kFieldsLearnedNameSource, pattern);
+        TEST_PAD(events, 2, kFieldsLearnedNameSource, pattern);
+        source.decompressor = &decompressor;
+        source.stepper = &stepper;
+        source.projectors = projectors;
+        source.floatTracks = tracks;
+        source.events = events;
+        TEST_PAD(&source, 1, kFieldsLearnedModelSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildLearnedModel(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     Open();
@@ -952,5 +1006,6 @@ int main(int argc, char** argv)
     TestOpenNarrow();
     TestOpenShapes();
     TestOverflow();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

@@ -14,6 +14,7 @@
 
 #include "graph_inertia.h"
 #include "graph_match.h"
+#include "graph_padding.h"
 #include "graph_space_fixture.h"
 
 #include "maul-anim/match.h"
@@ -119,6 +120,7 @@ static inline maniGraphInstance* MakeMatch(maniGraphSource source, maniGraph* g)
     size_t size = 0;
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
+    CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&

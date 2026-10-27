@@ -28,6 +28,7 @@
 #include "graph_file.h"
 #include "graph_fixture.h"
 #include "graph_instance.h"
+#include "graph_padding.h"
 #include "graph_turn.h"
 #include "vecmath.h"
 
@@ -99,6 +100,7 @@ static maniBuildResult Build(const maniGraphSource* source, Made* m)
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result == mani_success)
     {
+        CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
         CHECK(maniCopyBuilt(builder, m->file, sizeof m->file, &m->size) == mani_success, "copied");
     }
     maniDestroyBuilder(builder);

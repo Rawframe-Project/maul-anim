@@ -23,6 +23,7 @@
 #include "container.h"
 #include "graph_fixture.h"
 #include "match_file.h"
+#include "source_padding.h"
 #include "vecmath.h"
 
 #include "maul-anim/match.h"
@@ -694,6 +695,32 @@ static bool WriteFile(const char* path, const void* data, size_t size)
     return fclose(out) == 0 && written == size;
 }
 
+// The same database whatever bytes pad the source, its channels and
+// entries.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniMotionDatabaseSource source = Source();
+        maniMatchChannelSource channels[4];
+        maniMatchEntrySource entries[3];
+        memcpy(channels, s_channels, sizeof channels);
+        memcpy(entries, s_entries, sizeof entries);
+        TEST_PAD(channels, 4, kFieldsMatchChannelSource, kTestPadPatterns[k]);
+        TEST_PAD(entries, 3, kFieldsMatchEntrySource, kTestPadPatterns[k]);
+        source.channels = channels;
+        source.entries = entries;
+        TEST_PAD(&source, 1, kFieldsMotionDatabaseSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     Open();
@@ -715,5 +742,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestOtherVersions();
     TestLeafSizes();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

@@ -8,6 +8,7 @@
 // C evaluated here in binary64, locals with placement reported, model
 // transforms with it folded and the basis changed; then each refusal.
 
+#include "source_padding.h"
 #include "test_gltf_sweep.h"
 #include "test_harness.h"
 #include "vecmath.h"
@@ -859,6 +860,45 @@ static void TestAllocationFailures(void)
     CHECK(TestSweep(GltfSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
 }
 
+// The same skeleton and clip whatever bytes pad the options.
+static void TestOptionsPaddingIgnored(void)
+{
+    Document(NULL, NULL, "");
+    uint8_t* skeletons[2] = {NULL, NULL};
+    size_t skeletonSizes[2] = {0, 0};
+    uint8_t* clips[2] = {NULL, NULL};
+    size_t clipSizes[2] = {0, 0};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniBuilder* builder = NewBuilder();
+        maniGltf* gltf = Open(builder);
+        maniGltfOptions options = maniDefaultGltfOptions();
+        TEST_PAD(&options, 1, kFieldsGltfOptions, kTestPadPatterns[k]);
+        maniSkeleton skeleton;
+        bool built = gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton);
+        skeletons[k] = built ? TestCopyBuilt(builder, &skeletonSizes[k]) : NULL;
+        maniRootMotionSource turn = {built ? maniSkeletonFindBone(&skeleton, "hip", 3) : 0,
+                                     0,
+                                     maniRootRotationTwist,
+                                     1,
+                                     0,
+                                     0,
+                                     0};
+        maniImportClipOptions settings = maniDefaultImportClipOptions();
+        settings.sampleRate = 10.0f;
+        settings.rootMotion = &turn;
+        TEST_PAD(&settings, 1, kFieldsImportClipOptions, kTestPadPatterns[k]);
+        built = built &&
+                maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, &settings, NULL).result ==
+                    mani_success;
+        clips[k] = built ? TestCopyBuilt(builder, &clipSizes[k]) : NULL;
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(skeletons, skeletonSizes), "the same skeleton under either padding");
+    CHECK(TestSameBuilt(clips, clipSizes), "the same clip under either padding");
+}
+
 int main(void)
 {
     TestAllocationFailures();
@@ -872,5 +912,6 @@ int main(void)
     ExpectIndexNames("\"smile\",\"\"     ", "an empty target name");
     TestFoldedStatic();
     TestClipOptions();
+    TestOptionsPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

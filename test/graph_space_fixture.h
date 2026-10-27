@@ -14,6 +14,7 @@
 #include "container.h"
 #include "graph_file.h"
 #include "graph_fixture.h"
+#include "graph_padding.h"
 
 #include <stdio.h>
 
@@ -55,6 +56,10 @@ static inline maniBuildResult BuildOnly(const maniGraphNodeSource* nodes, uint32
     maniBuilder* builder = NewBuilder();
     maniBuildResult r = maniBuildGraph(builder, &source);
     maniDestroyBuilder(builder);
+    if (r.result == mani_success)
+    {
+        CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
+    }
     return r;
 }
 

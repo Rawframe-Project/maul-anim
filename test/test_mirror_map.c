@@ -19,6 +19,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "mirror_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -117,6 +118,46 @@ static maniMirrorMapSource Source(void)
                                  .axis = maniMirrorAxisX};
 }
 
+// Whether the source builds to the size bytes at built whatever bytes pad
+// it and its pairs, rules and names.
+static bool PaddingIgnored(const maniMirrorMapSource* source, const uint8_t* built, size_t size)
+{
+    bool same = true;
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniMirrorMapSource s = *source;
+        maniMirrorPairSource* pairs = TestCopyOf(s.pairs, s.pairCount, sizeof *pairs);
+        maniMirrorRuleSource* rules = TestCopyOf(s.rules, s.ruleCount, sizeof *rules);
+        maniMirrorNamePairSource* namePairs =
+            TestCopyOf(s.namePairs, s.namePairCount, sizeof *namePairs);
+        maniMirrorNameSource* names = TestCopyOf(s.names, s.nameCount, sizeof *names);
+        TEST_PAD(pairs, pairs != NULL ? s.pairCount : 0, kFieldsMirrorPairSource, pattern);
+        TEST_PAD(rules, rules != NULL ? s.ruleCount : 0, kFieldsMirrorRuleSource, pattern);
+        TEST_PAD(namePairs, namePairs != NULL ? s.namePairCount : 0, kFieldsMirrorNamePairSource,
+                 pattern);
+        TEST_PAD(names, names != NULL ? s.nameCount : 0, kFieldsMirrorNameSource, pattern);
+        s.pairs = pairs != NULL ? pairs : s.pairs;
+        s.rules = rules != NULL ? rules : s.rules;
+        s.namePairs = namePairs != NULL ? namePairs : s.namePairs;
+        s.names = names != NULL ? names : s.names;
+        TEST_PAD(&s, 1, kFieldsMirrorMapSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        size_t padded = 0;
+        uint8_t* bytes = maniBuildMirrorMap(builder, &s).result == mani_success
+                             ? TestCopyBuilt(builder, &padded)
+                             : NULL;
+        same = same && bytes != NULL && padded == size && memcmp(bytes, built, size) == 0;
+        free(bytes);
+        maniDestroyBuilder(builder);
+        free(pairs);
+        free(rules);
+        free(namePairs);
+        free(names);
+    }
+    return same;
+}
+
 static maniBuildResult Build(const maniMirrorMapSource* source, maniMirrorMap* out)
 {
     maniBuilder* builder = NewBuilder();
@@ -127,6 +168,7 @@ static maniBuildResult Build(const maniMirrorMapSource* source, maniMirrorMap* o
         CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
                   maniOpenMirrorMap(s_file, s_size, out).result == mani_success,
               "the map opens");
+        CHECK(PaddingIgnored(source, s_file, s_size), "the same map under either padding");
     }
     maniDestroyBuilder(builder);
     return r;

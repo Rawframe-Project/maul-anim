@@ -19,6 +19,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "retarget_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -108,6 +109,40 @@ static maniRetargetMapSource Map(const maniRetargetChainSource* chains, uint32_t
                                    .matchNames = true};
 }
 
+// Whether the source builds to the size bytes at built whatever bytes pad
+// it and its pairs, chains and pelvis.
+static bool PaddingIgnored(const maniRetargetMapSource* source, const uint8_t* built, size_t size)
+{
+    bool same = true;
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniRetargetMapSource s = *source;
+        maniRetargetPairSource* pairs = TestCopyOf(s.pairs, s.pairCount, sizeof *pairs);
+        maniRetargetChainSource* chains = TestCopyOf(s.chains, s.chainCount, sizeof *chains);
+        maniRetargetPelvisSource* pelvis = TestCopyOf(s.pelvis, 1, sizeof *pelvis);
+        TEST_PAD(pairs, pairs != NULL ? s.pairCount : 0, kFieldsRetargetPairSource, pattern);
+        TEST_PAD(chains, chains != NULL ? s.chainCount : 0, kFieldsRetargetChainSource, pattern);
+        TEST_PAD(pelvis, pelvis != NULL ? 1 : 0, kFieldsRetargetPelvisSource, pattern);
+        s.pairs = pairs != NULL ? pairs : s.pairs;
+        s.chains = chains != NULL ? chains : s.chains;
+        s.pelvis = pelvis;
+        TEST_PAD(&s, 1, kFieldsRetargetMapSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        size_t padded = 0;
+        uint8_t* bytes = maniBuildRetargetMap(builder, &s).result == mani_success
+                             ? TestCopyBuilt(builder, &padded)
+                             : NULL;
+        same = same && bytes != NULL && padded == size && memcmp(bytes, built, size) == 0;
+        free(bytes);
+        maniDestroyBuilder(builder);
+        free(pairs);
+        free(chains);
+        free(pelvis);
+    }
+    return same;
+}
+
 static maniBuildResult Build(const maniRetargetMapSource* source)
 {
     maniBuilder* builder = NewBuilder();
@@ -115,6 +150,7 @@ static maniBuildResult Build(const maniRetargetMapSource* source)
     if (r.result == mani_success)
     {
         CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copied");
+        CHECK(PaddingIgnored(source, s_file, s_size), "the same map under either padding");
     }
     maniDestroyBuilder(builder);
     return r;

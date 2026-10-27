@@ -51,6 +51,7 @@ Follow the [repository standard's Tests section](https://github.com/Rawframe-Pro
 - References are written in the test, in binary64, from the method's description; compare the library's result with them, not with its own earlier output. Golden hashes stay a few scenes.
 - Every opener has tests that change a file at the byte each check reads, and a fuzz target in `test/fuzz_<area>.c`; a fuzz finding becomes a test in its module's suite.
 - Inputs that could be read past their end go in a heap allocation of exactly their length, so AddressSanitizer sees an overread.
+- Every builder's suite builds its source under two padding patterns and requires the same bytes (`test/source_padding.h`, and `test/graph_padding.h` inside the graph fixtures' builds). A field added to a source struct gets its line in the struct's table there; a missing line is filled like padding and fails the suite.
 - Every C snippet of `docs/user/` appears unchanged in `test/test_guide.c` or `test/test_guide_import.c`; `tools/check_guide.py` enforces it.
 - Fixtures in `test/data/` keep their sources' READMEs (origin, license, how they were made). Expected values from other libraries come from the generators in `tools/`.
 

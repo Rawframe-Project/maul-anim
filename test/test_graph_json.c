@@ -11,6 +11,7 @@
 // the request comes before any header that reaches the C library.
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -382,6 +383,31 @@ static _Alignas(16) uint8_t s_read[16384];
 static const maniGraphClipSource kHost[3] = {
     {&s_clips[0], "walk", 4, NULL}, {&s_clips[1], "run", 3, NULL}, {&s_clips[2], "wave", 4, NULL}};
 
+// Whether the text builds to the size bytes at built whatever bytes pad
+// the host's clips and the assets.
+static bool JsonPaddingIgnored(const char* text, const uint8_t* built, size_t size)
+{
+    bool same = true;
+    for (int k = 0; k < 2; ++k)
+    {
+        maniGraphClipSource host[3];
+        memcpy(host, kHost, sizeof host);
+        TEST_PAD(host, 3, kFieldsGraphClipSource, kTestPadPatterns[k]);
+        maniGraphNamedAssets assets = {&s_skeleton, host, NULL, NULL, NULL, 3, 0, 0, 0, NULL};
+        TEST_PAD(&assets, 1, kFieldsGraphNamedAssets, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder(NULL);
+        size_t padded = 0;
+        uint8_t* bytes =
+            maniBuildGraphJson(builder, text, strlen(text), &assets).result == mani_success
+                ? TestCopyBuilt(builder, &padded)
+                : NULL;
+        same = same && bytes != NULL && padded == size && memcmp(bytes, built, size) == 0;
+        free(bytes);
+        maniDestroyBuilder(builder);
+    }
+    return same;
+}
+
 // A text built against the host's clips, its file copied into out.
 static maniBuildResult Read(const char* text, uint8_t* out, size_t* sizeOut)
 {
@@ -393,6 +419,7 @@ static maniBuildResult Read(const char* text, uint8_t* out, size_t* sizeOut)
     if (r.result == mani_success)
     {
         CHECK(maniCopyBuilt(builder, out, 16384, sizeOut) == mani_success, "copies");
+        CHECK(JsonPaddingIgnored(text, out, *sizeOut), "the same graph under either padding");
     }
     maniDestroyBuilder(builder);
     return r;

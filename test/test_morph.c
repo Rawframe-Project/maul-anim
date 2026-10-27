@@ -17,6 +17,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "morph_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -882,6 +883,46 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source, its attributes, channels
+// and targets.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniMorphSource source;
+        SampleSource(&source);
+        maniMorphAttributeSource attributes[5];
+        maniMorphTargetSource smile[1];
+        maniMorphTargetSource blinks[3];
+        maniMorphTargetSource wide[1];
+        maniMorphChannelSource channels[3];
+        memcpy(attributes, s_attributes, sizeof attributes);
+        memcpy(smile, s_smile, sizeof smile);
+        memcpy(blinks, s_blinks, sizeof blinks);
+        memcpy(wide, s_wide, sizeof wide);
+        memcpy(channels, s_channels, sizeof channels);
+        channels[0].targets = smile;
+        channels[1].targets = blinks;
+        channels[2].targets = wide;
+        TEST_PAD(attributes, 5, kFieldsMorphAttributeSource, pattern);
+        TEST_PAD(smile, 1, kFieldsMorphTargetSource, pattern);
+        TEST_PAD(blinks, 3, kFieldsMorphTargetSource, pattern);
+        TEST_PAD(wide, 1, kFieldsMorphTargetSource, pattern);
+        TEST_PAD(channels, 3, kFieldsMorphChannelSource, pattern);
+        source.channels = channels;
+        source.attributes = attributes;
+        TEST_PAD(&source, 1, kFieldsMorphSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildMorphTargets(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -896,5 +937,6 @@ int main(int argc, char** argv)
     TestBuildRefusals();
     TestOpenRefusals();
     TestJobRefusals();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

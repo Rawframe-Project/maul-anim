@@ -12,6 +12,7 @@
 #define MAUL_ANIM_TEST_GRAPH_LEARNED_FIXTURE_H
 
 #include "graph_learned.h"
+#include "graph_padding.h"
 #include "learned_fixture.h"
 
 static maniLearnedModel s_learned;
@@ -77,6 +78,7 @@ static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* 
     size_t size = 0;
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
+    CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
