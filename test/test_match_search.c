@@ -47,6 +47,15 @@ static float Uniform(float low, float high)
 #define MAX_FRAMES  (MAX_ENTRIES * 120)
 #define MAX_WIDTH   24
 
+// The frames of an entry from 0 to end, every test entry short enough
+// to have a count.
+static uint32_t Frames(float end, bool loop)
+{
+    uint32_t frames = 0;
+    CHECK(maniMatchEntryFrames(0.0f, end, RATE, loop, &frames), "an entry's frames");
+    return frames;
+}
+
 // A database as a test lays it out: per entry its flags, end, bias,
 // tags; per feature its offset and scale; per frame its normalized
 // features.
@@ -260,7 +269,7 @@ static void Randomize(Layout* l)
         l->ends[i] = loop && l->ends[i] == 0.0f ? 1.0f / RATE : l->ends[i];
         l->biases[i] = Next() % 2 == 0 ? 0.0f : Uniform(-0.5f, 0.5f);
         l->tags[i] = Next() % 16;
-        l->counts[i] = maniMatchEntryFrames(0.0f, l->ends[i], RATE, loop);
+        l->counts[i] = Frames(l->ends[i], loop);
         l->frames += l->counts[i];
     }
     for (uint32_t j = 0; j < n; ++j)
@@ -518,8 +527,8 @@ static void Small(maniMotionDatabase* d, uint32_t flags1, float bias1)
     l->ends[1] = 4.0f / RATE;
     l->biases[1] = bias1;
     l->tags[1] = 2;
-    l->counts[0] = maniMatchEntryFrames(0.0f, l->ends[0], RATE, false);
-    l->counts[1] = maniMatchEntryFrames(0.0f, l->ends[1], RATE, true);
+    l->counts[0] = Frames(l->ends[0], false);
+    l->counts[1] = Frames(l->ends[1], true);
     for (uint32_t j = 0; j < 3; ++j)
     {
         l->scales[j] = 1.0f;
@@ -631,7 +640,7 @@ static void TestBlend(void)
     *l = (Layout){.leaf = 8, .channels = 2, .entryCount = 1, .frames = 2};
     l->kinds[1] = maniMatchBoneFacing;
     l->ends[0] = 1.0f / RATE;
-    l->counts[0] = maniMatchEntryFrames(0.0f, l->ends[0], RATE, false);
+    l->counts[0] = Frames(l->ends[0], false);
     const float offsets[6] = {0.0f, 0.0f, 0.0f, 0.1f, -0.2f, 0.3f};
     const float raw[2][6] = {{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
                              {2.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f}};

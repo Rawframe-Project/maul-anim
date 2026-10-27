@@ -43,12 +43,12 @@ static bool Within(float time, float end, bool loop)
     return loop ? time < end : time <= end;
 }
 
-uint32_t maniMatchEntryFrames(float start, float end, float rate, bool loop)
+bool maniMatchEntryFrames(float start, float end, float rate, bool loop, uint32_t* framesOut)
 {
     double span = ((double)end - (double)start) * (double)rate;
     if (!(span >= 0.0 && span < (double)MANI_MATCH_MAX_FRAMES))
     {
-        return UINT32_MAX;
+        return false;
     }
     // The binary64 count, then one frame less when the last's binary32
     // time does not hold, or one more when the next's does: once only, as
@@ -57,9 +57,11 @@ uint32_t maniMatchEntryFrames(float start, float end, float rate, bool loop)
     MANI_ASSERT(n <= MANI_MATCH_MAX_FRAMES);
     if (n > 1 && !Within(maniMatchFrameTime(start, n - 1, rate), end, loop))
     {
-        return n - 1;
+        *framesOut = n - 1;
+        return true;
     }
-    return Within(maniMatchFrameTime(start, n, rate), end, loop) ? n + 1 : n;
+    *framesOut = Within(maniMatchFrameTime(start, n, rate), end, loop) ? n + 1 : n;
+    return true;
 }
 
 uint32_t maniMatchNodeCount(uint32_t frames, uint32_t leaf)
@@ -352,7 +354,7 @@ static maniFileResult CheckChannels(const maniMotionDatabase* d, const Sections*
 
 // One entry's words in order (clip, flags, start, end, bias, tags, first
 // frame, frames), the first wrong one's place.
-static uint32_t EntryWrong(const maniMotionDatabase* d, const uint8_t* e, uint32_t frameAt)
+static uint32_t EntryWrong(const maniMotionDatabase* d, const uint8_t* e, uint64_t frameAt)
 {
     uint32_t flags = maniLoadU32(e + 4);
     float start = LoadF32(e + 8);
@@ -360,16 +362,17 @@ static uint32_t EntryWrong(const maniMotionDatabase* d, const uint8_t* e, uint32
     bool loop = (flags & MANI_MATCH_LOOP) != 0;
     bool mirrored = (flags & MANI_MATCH_MIRRORED) != 0;
     bool span = start >= 0.0f && start < HUGE_VALF;
-    const bool valid[8] = {
-        maniLoadU32(e) < d->clipCount,
-        flags <= MANI_MATCH_ENTRY_FLAGS && (!mirrored || d->mirrorMapIdentity != 0),
-        span,
-        end < HUGE_VALF && (loop ? end > start : end >= start),
-        fabsf(LoadF32(e + 16)) < HUGE_VALF,
-        true,
-        maniLoadU32(e + 24) == frameAt,
-        maniLoadU32(e + 28) == maniMatchEntryFrames(start, end, d->sampleRate, loop) &&
-            maniLoadU32(e + 28) >= 1};
+    uint32_t frames = 0;
+    bool held = span && maniMatchEntryFrames(start, end, d->sampleRate, loop, &frames);
+    const bool valid[8] = {maniLoadU32(e) < d->clipCount,
+                           flags <= MANI_MATCH_ENTRY_FLAGS &&
+                               (!mirrored || d->mirrorMapIdentity != 0),
+                           span,
+                           end < HUGE_VALF && (loop ? end > start : end >= start),
+                           fabsf(LoadF32(e + 16)) < HUGE_VALF,
+                           true,
+                           maniLoadU32(e + 24) == frameAt,
+                           held && maniLoadU32(e + 28) == frames && frames >= 1};
     for (uint32_t k = 0; k < 8; ++k)
     {
         if (!valid[k])
@@ -382,7 +385,7 @@ static uint32_t EntryWrong(const maniMotionDatabase* d, const uint8_t* e, uint32
 
 static maniFileResult CheckEntries(const maniMotionDatabase* d, const Sections* s)
 {
-    uint32_t frameAt = 0;
+    uint64_t frameAt = 0;
     for (uint32_t i = 0; i < d->entryCount; ++i)
     {
         const uint8_t* e = d->entries + (size_t)i * MANI_MATCH_ENTRY_SIZE;

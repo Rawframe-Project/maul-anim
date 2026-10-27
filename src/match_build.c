@@ -14,6 +14,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "match_file.h"
 #include "match_sample.h"
 #include "match_tree.h"
@@ -164,8 +165,13 @@ static maniBuildResult CheckEntries(const maniMotionDatabaseSource* s, Totals* t
         {
             return Refuse(maniBuildReasonMirrorDatabase, e, 0);
         }
-        frames += maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
-                                       (entry->flags & MANI_MATCH_LOOP) != 0);
+        uint32_t n = 0;
+        if (!maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
+                                  (entry->flags & MANI_MATCH_LOOP) != 0, &n))
+        {
+            return Refuse(maniBuildReasonCount, 0, 0);
+        }
+        frames += n;
     }
     if (frames > MANI_MATCH_MAX_FRAMES)
     {
@@ -335,8 +341,10 @@ static bool Sample(Work* w)
     for (uint32_t e = 0; e < s->entryCount && ok; ++e)
     {
         const maniMatchEntrySource* entry = &s->entries[e];
-        uint32_t frames = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
-                                               (entry->flags & MANI_MATCH_LOOP) != 0);
+        uint32_t frames = 0;
+        bool held = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
+                                         (entry->flags & MANI_MATCH_LOOP) != 0, &frames);
+        MANI_ASSERT(held);
         for (uint32_t k = 0; k < frames && ok; ++k)
         {
             float t = maniMatchFrameTime(entry->start, k, s->sampleRate);
@@ -397,8 +405,10 @@ static void Tree(Work* w)
     for (uint32_t e = 0; e < s->entryCount; ++e)
     {
         const maniMatchEntrySource* entry = &s->entries[e];
-        uint32_t frames = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
-                                               (entry->flags & MANI_MATCH_LOOP) != 0);
+        uint32_t frames = 0;
+        bool held = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
+                                         (entry->flags & MANI_MATCH_LOOP) != 0, &frames);
+        MANI_ASSERT(held);
         for (uint32_t k = 0; k < frames; ++k)
         {
             w->entryOf[frame++] = e;
@@ -459,8 +469,10 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
     {
         const maniMatchEntrySource* e = &s->entries[i];
         uint8_t* at = entries + (size_t)i * MANI_MATCH_ENTRY_SIZE;
-        uint32_t frames = maniMatchEntryFrames(e->start, e->end, s->sampleRate,
-                                               (e->flags & MANI_MATCH_LOOP) != 0);
+        uint32_t frames = 0;
+        bool held = maniMatchEntryFrames(e->start, e->end, s->sampleRate,
+                                         (e->flags & MANI_MATCH_LOOP) != 0, &frames);
+        MANI_ASSERT(held);
         const float spans[3] = {e->start, e->end, e->costBias};
         maniStoreU32(at, e->clip);
         maniStoreU32(at + 4, e->flags);
