@@ -24,6 +24,10 @@
 // The deepest nesting read.
 #define MANI_FBX_MAX_DEPTH 64u
 
+// The most properties a file may hold, as for nodes: the count and the
+// slot after the last property fit in 32 bits.
+#define MANI_FBX_MAX_PROPERTIES (MANI_FBX_NONE - 1)
+
 // A property: its FBX type letter (binary `C Y I L F D S R` and the
 // arrays `b c i l f d`; from the ASCII form `N` a number's text, `Q`
 // text shaped like one that is none ("1.#INF"), `S` a
@@ -122,6 +126,8 @@ struct maniFbx
     uint32_t nodeCount;
     maniFbxProperty* properties;
     uint32_t propertyCount;
+    // The most properties read: MANI_FBX_MAX_PROPERTIES, fewer in tests.
+    uint32_t propertyLimit;
     maniFbxObject* objects;
     uint32_t objectCount;
     uint32_t objectCapacity;
@@ -205,5 +211,10 @@ uint32_t maniFbxFindChild(const maniFbx* fbx, uint32_t node, const char* name, s
 
 // Whether a node has the name given.
 bool maniFbxNameIs(const maniFbx* fbx, uint32_t node, const char* name, size_t length);
+
+// maniOpenFbx refusing a file of more than propertyLimit properties. For
+// tests: no file of MANI_FBX_MAX_PROPERTIES fits in one.
+maniImportResult maniFbxOpenLimited(maniBuilder* builder, const void* bytes, size_t size,
+                                    uint32_t propertyLimit, maniFbx** fbxOut);
 
 #endif // MAUL_ANIM_SRC_FBX_DOCUMENT_H

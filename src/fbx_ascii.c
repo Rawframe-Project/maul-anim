@@ -468,6 +468,10 @@ static maniImportResult ReadValues(Reader* r)
     t = t.kind == TokenComma ? Next(r) : t;
     while (IsValue(t.kind) || t.kind == TokenStar)
     {
+        if (r->properties == r->fbx->propertyLimit)
+        {
+            return Bad(t.at);
+        }
         if (t.kind == TokenStar)
         {
             maniImportResult result = ReadArray(r, t.start);
