@@ -422,12 +422,20 @@ static void TestEntryRefusals(void)
     CHECK(Build(&s).result == mani_success, "a clamped entry of one frame");
     // 4 / 30 in binary32 is a hair above it in binary64: the frame at
     // 4 / 30 rounds to the end itself, so a loop of it holds 4.
-    CHECK(maniMatchEntryFrames(0.0f, 4.0f / 30.0f, 30.0f, true) == 4 &&
-              maniMatchEntryFrames(0.0f, 4.0f / 30.0f, 30.0f, false) == 5,
+    uint32_t looped = 0;
+    uint32_t clamped = 0;
+    CHECK(maniMatchEntryFrames(0.0f, 4.0f / 30.0f, 30.0f, true, &looped) && looped == 4 &&
+              maniMatchEntryFrames(0.0f, 4.0f / 30.0f, 30.0f, false, &clamped) && clamped == 5,
           "frames judged by their binary32 times");
     // Past 2^24 seconds a frame's step no longer moves its time: one
     // frame more at most, at once.
-    CHECK(maniMatchEntryFrames(1.0e9f, 1.0e9f, 30.0f, false) == 2, "a count at once");
+    uint32_t far = 0;
+    CHECK(maniMatchEntryFrames(1.0e9f, 1.0e9f, 30.0f, false, &far) && far == 2, "a count at once");
+    // A span of MANI_MATCH_MAX_FRAMES frames or more has no count.
+    uint32_t none = 7;
+    CHECK(!maniMatchEntryFrames(0.0f, (float)MANI_MATCH_MAX_FRAMES / 30.0f, 30.0f, true, &none) &&
+              none == 7,
+          "a span too long for a count");
 }
 
 static void TestMisuse(void)
@@ -571,6 +579,21 @@ static void TestOpenRefusals(void)
     {
         CHECK(RefusedAt(kCases[k][0], (uint32_t)kCases[k][1], kCases[k][2]),
               "a database refused at its byte");
+    }
+    // An entry too long for a count, its stored count UINT32_MAX: refused
+    // at the count, whatever the count.
+    memcpy(s_crafted, s_database, s_size);
+    maniStoreU32(s_crafted + entries + 32 + 12, BitsOf(1.0e9f));
+    maniStoreU32(s_crafted + entries + 32 + 28, UINT32_MAX);
+    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniMotionDatabase overlong;
+    maniFileResult refused = maniOpenMotionDatabase(s_crafted, s_size, &overlong);
+    CHECK(refused.result == mani_errorFormat && refused.offset == entries + 32 + 28,
+          "an entry too long for a count refused at its count");
+    if (refused.offset != entries + 32 + 28)
+    {
+        printf("  refused at %llu, expected %llu\n", (unsigned long long)refused.offset,
+               (unsigned long long)(entries + 32 + 28));
     }
     memcpy(s_crafted, s_database, s_size);
     s_crafted[40] ^= 1u;

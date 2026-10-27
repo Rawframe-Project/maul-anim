@@ -46,7 +46,7 @@ match_search: bytes fpenv invariant match_file
 match_move:
 trajectory: elementary_float fpenv match_move vecmath
 match_sample: match match_file match_move vecmath
-match_build: allocator builder bytes container fpenv match match_file match_sample match_tree text
+match_build: allocator builder bytes container fpenv invariant match match_file match_sample match_tree text
 match_tree: bytes match_file sort
 learned_file:
 spring_file:
