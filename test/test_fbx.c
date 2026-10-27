@@ -974,7 +974,6 @@ static void TestFindProperties(void)
     maniDestroyBuilder(builder);
 }
 
-// A binary int16, negative.
 // Opens the written file with at most `limit` properties: whether it
 // opens, else where it is refused; `count` the file's properties when
 // it opens.
@@ -1038,6 +1037,7 @@ static void TestPropertyLimit(void)
           "an ASCII file is refused at its first property with no room for one");
 }
 
+// A binary int16, negative.
 static void TestShortInteger(void)
 {
     Start(7400, false);

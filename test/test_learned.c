@@ -929,6 +929,23 @@ static void TestOverflow(void)
           "a decompression refused, nothing written");
 }
 
+// Any other format version, the earlier one among them, is refused at
+// the version before anything else is read.
+static void TestOtherVersions(void)
+{
+    maniLearnedModelSource source = Source();
+    CHECK(Build(&source).result == mani_success, "built");
+    const uint16_t versions[2] = {MANI_LEARNED_FORMAT_VERSION - 1, MANI_LEARNED_FORMAT_VERSION + 1};
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        memcpy(s_changed, s_model, s_modelSize);
+        maniStoreU16(s_changed + 6, versions[k]);
+        maniLearnedModel m;
+        maniFileResult r = maniOpenLearnedModel(s_changed, s_modelSize, &m);
+        CHECK(r.result == mani_errorVersion && r.offset == 6, "another version refused");
+    }
+}
+
 // A network's copy with its layers, both padded.
 static maniLearnedNetworkSource PaddedNetwork(const maniLearnedNetworkSource* n,
                                               maniLearnedLayerSource layers[3], uint8_t pattern)
@@ -1007,5 +1024,6 @@ int main(int argc, char** argv)
     TestOpenShapes();
     TestOverflow();
     TestPaddingIgnored();
+    TestOtherVersions();
     return s_failures == 0 ? 0 : 1;
 }

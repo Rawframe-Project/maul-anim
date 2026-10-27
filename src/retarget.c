@@ -288,6 +288,12 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
     {
         return r;
     }
+    // Before 1.0 a reader reads its own format version alone: an older
+    // map is rebuilt from its source.
+    if (c.formatVersion != MANI_RETARGET_FORMAT_VERSION)
+    {
+        return (maniFileResult){mani_errorVersion, 6};
+    }
     static const uint8_t kEmpty = 0;
     Sections s;
     for (uint32_t t = 1; t <= MANI_RETARGET_SECTIONS; ++t)
