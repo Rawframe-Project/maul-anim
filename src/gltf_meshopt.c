@@ -15,6 +15,7 @@
 #include "gltf_meshopt.h"
 
 #include "bytes.h"
+#include "invariant.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -78,6 +79,8 @@ static bool Group(Reader* r, int bits, uint8_t* out)
         r->at = extra;
         return true;
     }
+    // The widths come from Block's tables, which hold no other.
+    MANI_ASSERT(bits == 1 || bits == 2 || bits == 4);
     if ((size_t)(r->end - extra) >= GROUP)
     {
         // A constant width each, so each unpacks with constant shifts.
@@ -141,6 +144,9 @@ static uint32_t Unzigzag(uint32_t v, uint32_t mask)
 static void Channel(const uint8_t (*deltas)[MAX_BLOCK], uint32_t n, uint32_t stride, uint32_t k,
                     uint8_t mode, uint8_t* last, uint8_t* out)
 {
+    // Attributes refused any other mode byte: a width of 0, 1 or 2, and
+    // a rotation for XOR only.
+    MANI_ASSERT((mode & 15u) == 2u || ((mode & 15u) < 2u && (mode >> 4) == 0u));
     uint8_t* o = out + k;
     if ((mode & 15u) == 0)
     {
@@ -264,6 +270,9 @@ static bool Attributes(uint8_t* out, uint32_t count, uint32_t stride, bool v1, c
     memcpy(last, in + size - tail, stride);
     uint32_t most = (8192u / stride) & ~(GROUP - 1u);
     most = most < MAX_BLOCK ? most : MAX_BLOCK;
+    // A stride of 256 at most leaves 32 elements a block; deltas hold
+    // MAX_BLOCK.
+    MANI_ASSERT(most >= GROUP && most <= MAX_BLOCK);
     Reader r = {in + 1, in + size - pad};
     for (uint32_t done = 0; done < count;)
     {
@@ -390,6 +399,8 @@ static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, bool full, ui
     }
     uint32_t a = t->edges[(t->edgeAt - 1u - x) & 15u][0];
     uint32_t b = t->edges[(t->edgeAt - 1u - x) & 15u][1];
+    // The first pass ends only once both FIFOs are full.
+    MANI_ASSERT(!full || (t->edgeAt >= 16u && t->vertexAt >= 16u));
     uint32_t c = 0;
     if (y < 0xDu)
     {
@@ -457,6 +468,9 @@ static bool FreeCode(Reader* r, Triangles* t, uint8_t code, const uint8_t* table
     }
     uint32_t z = zw >> 4;
     uint32_t w = zw & 15u;
+    // TriangleList refused a table with a nibble of 0xf: only a byte of
+    // data names an encoded index.
+    MANI_ASSERT(code >= 0xFEu || (z != 0xFu && w != 0xFu));
     uint32_t a = 0;
     bool ok = code == 0xFFu ? Index(r, t, &a) : (a = t->next++, true);
     // The FIFO is read before any of the three is pushed.
@@ -545,6 +559,11 @@ static inline bool IndexList(uint8_t* out, uint32_t count, uint32_t stride, cons
 bool maniMeshoptDecode(uint8_t* out, uint32_t count, uint32_t stride, maniMeshoptMode mode, bool v1,
                        const uint8_t* in, size_t size)
 {
+    // The importer checked the stride and count against the extension's
+    // rules before decoding.
+    MANI_ASSERT(mode == maniMeshoptAttributes ? stride % 4u == 0 && stride >= 4u && stride <= 256u
+                                              : stride == 2u || stride == 4u);
+    MANI_ASSERT(mode != maniMeshoptTriangles || count % 3u == 0);
     if (size < 1u)
     {
         return false;
@@ -713,6 +732,13 @@ static inline void Color(uint8_t* e, uint32_t bytes)
 void maniMeshoptApplyFilter(uint8_t* data, uint32_t count, uint32_t stride,
                             maniMeshoptFilter filter)
 {
+    // The importer allowed a filter only on the widths it is written for
+    // (none on any).
+    MANI_ASSERT(
+        filter == maniMeshoptNone ||
+        (filter == maniMeshoptExponential
+             ? stride % 4u == 0
+             : (filter == maniMeshoptQuaternion ? stride == 8u : stride == 4u || stride == 8u)));
     // A loop a filter, each with its widths constant.
     for (uint32_t i = 0; filter == maniMeshoptOctahedral && i < count; ++i)
     {
