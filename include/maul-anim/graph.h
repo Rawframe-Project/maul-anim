@@ -750,29 +750,26 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance,
                                                             uint32_t node, maniGraphNodeView* out);
 
-    /// Returns the bytes an instance's saved state takes: its parameters,
-    /// its nodes' state, its state machines' and one-shots', and its pose
-    /// parameters' locals (the skeleton's bones), with the graph's
-    /// identity.
-    ///
-    /// @param binding  A binding.
-    /// @return The size; 0 for a NULL binding.
-    /// @par Thread safety
-    /// Safe from any thread.
-    MANI_API size_t maniGraphStateSize(const maniGraphBinding* binding);
-
     /// Writes an instance's state as bytes that hold no pointer, to be
-    /// restored into any instance of the same graph.
+    /// restored into any instance of the same graph: its parameters, its
+    /// nodes' state, its state machines' and one-shots', and its pose
+    /// parameters' locals (the skeleton's bones), with the graph's
+    /// identity. Call it with a NULL buffer and capacity 0 to measure.
     ///
     /// @param instance  An instance.
-    /// @param out       At least maniGraphStateSize bytes.
-    /// @param capacity  The bytes out holds.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorCapacity` when capacity is too small (nothing written).
+    /// @param bytesOut  Receives the state: at least capacity bytes; may
+    ///                  be NULL when capacity is 0.
+    /// @param capacity  The bytes bytesOut holds.
+    /// @param sizeOut   Receives the state's size in bytes. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is
+    /// smaller than the state, with the size still written and nothing
+    /// else; `mani_errorInvalid` for a NULL instance or a NULL buffer with
+    /// a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSaveGraphInstance(const maniGraphInstance* instance,
-                                                             void* out, size_t capacity);
+                                                             void* bytesOut, size_t capacity,
+                                                             size_t* sizeOut);
 
     /// Restores a saved state, checked as external bytes: the graph's
     /// identity, the size, every parameter in form, every node's, state

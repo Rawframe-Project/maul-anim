@@ -478,8 +478,8 @@ static void RestoreWeights(maniGraphInstance* instance, const maniGraph* g, cons
                            uint32_t count)
 {
     static uint8_t state[1024];
-    size_t size = maniGraphStateSize(instance->binding);
-    CHECK(maniSaveGraphInstance(instance, state, sizeof state) == mani_success, "saves");
+    size_t size = SavedGraphSize(instance);
+    CHECK(maniSaveGraphInstance(instance, state, sizeof state, NULL) == mani_success, "saves");
     for (uint32_t k = 0; k < count; ++k)
     {
         size_t at = 24 + 16 * (size_t)(g->parameterCount + nodes[k]);

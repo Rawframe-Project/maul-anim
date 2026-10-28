@@ -626,12 +626,13 @@ static void TestSaved(void)
 {
     maniGraph g;
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     // The node's block is the first, after the values.
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success,
           "saved before its first update");
@@ -650,7 +651,7 @@ static void TestSaved(void)
     Update(instance, 0.025f);
     Ahead(instance, 0.1f, 0.2f);
     Update(instance, 0.03f);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     for (int k = 0; k < 6; ++k)
@@ -662,7 +663,8 @@ static void TestSaved(void)
               memcmp(LearnedBlock(instance, &g, 0), LearnedBlock(other, &g, 0),
                      4 * (4 + 2 * STATE + 1)) == 0,
           "playing alike");
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success, "saved");
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+          "saved");
     const uint32_t kBad[10][3] = {
         {maniGraphLearnedHas, 2, maniGraphLearnedHas},
         {maniGraphLearnedClock + 1, 0xBFF00000u, maniGraphLearnedClock},
@@ -749,7 +751,7 @@ static void TestCache(void)
 {
     maniGraph g;
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     uint32_t hidden = maniLearnedHiddenCount(&s_learned);
     float* cache = maniGraphLearnedCache(instance, 0);
     static float kept[1 + STATE + 1024];
@@ -771,7 +773,7 @@ static void TestCache(void)
                   memcmp(cache + 1, state, sizeof state) == 0,
               "the cache at the state");
         memcpy(kept, cache, bytes);
-        CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success,
+        CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
               "saved");
         // None kept, though at the state, with other hidden values: computed.
         cache[0] = 0.0f;
@@ -889,9 +891,10 @@ static void TestOverflow(void)
     }
     CHECK(posed, "the pose finite");
     maniGraphInstance* other = NULL;
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,

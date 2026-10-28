@@ -149,23 +149,11 @@ static uint32_t Sections(const maniLearnedTrainer* t, uint8_t* progress,
     return count;
 }
 
-size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer)
-{
-    if (trainer == NULL)
-    {
-        return 0;
-    }
-    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE] = {0};
-    maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS];
-    uint32_t count = Sections(trainer, progress, sections);
-    uint64_t size = 0;
-    return maniContainerSize(sections, count, &size) && size <= SIZE_MAX ? (size_t)size : 0;
-}
-
 static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrainer* trainer,
-                                                          void* bytes, size_t capacity)
+                                                          void* bytes, size_t capacity,
+                                                          size_t* sizeOut)
 {
-    if (trainer == NULL || bytes == NULL)
+    if (trainer == NULL || (bytes == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
@@ -173,7 +161,17 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS];
     uint32_t count = Sections(trainer, progress, sections);
     uint64_t size = 0;
-    if (!maniContainerSize(sections, count, &size) || size > capacity)
+    // A size past the address space has no buffer to hold it.
+    if (!maniContainerSize(sections, count, &size) || size > SIZE_MAX)
+    {
+        return mani_errorCapacity;
+    }
+    if (sizeOut != NULL)
+    {
+        *sizeOut = (size_t)size;
+    }
+    // A NULL buffer has capacity 0, and a checkpoint is never empty.
+    if (bytes == NULL || size > capacity)
     {
         return mani_errorCapacity;
     }
@@ -182,11 +180,11 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     return mani_success;
 }
 
-maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* bytes,
-                                     size_t capacity)
+maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* bytesOut,
+                                     size_t capacity, size_t* sizeOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = SaveLearnedCheckpointWork(trainer, bytes, capacity);
+    maniResult result = SaveLearnedCheckpointWork(trainer, bytesOut, capacity, sizeOut);
     maniFloatEnvLeave(env);
     return result;
 }

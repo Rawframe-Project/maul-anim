@@ -211,28 +211,26 @@ extern "C"
                                                         uint64_t iterations,
                                                         maniLearnedTrainerReport* reportOut);
 
-    /// Returns the size of a checkpoint of the trainer as it is now.
+    /// Writes a checkpoint of the trainer as it is now: its progress,
+    /// generator, networks and AdamW moments, under the signature of its
+    /// source and options. Call it with a NULL buffer and capacity 0 to
+    /// measure; the size changes as training moves through its stages.
     ///
-    /// @param trainer  The trainer.
-    /// @return The size in bytes; 0 for NULL.
-    /// @par Thread safety
-    /// Safe from any thread; the trainer is used by one thread at a time.
-    MANI_API size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer);
-
-    /// Writes a checkpoint of the trainer: its progress, generator,
-    /// networks and AdamW moments, under the signature of its source and
-    /// options.
-    ///
-    /// @param trainer  The trainer.
-    /// @param bytes    Receives the checkpoint.
-    /// @param capacity The size of bytes.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorCapacity` when bytes holds less than
-    /// maniLearnedCheckpointSize.
+    /// @param trainer   The trainer.
+    /// @param bytesOut  Receives the checkpoint: at least capacity bytes;
+    ///                  may be NULL when capacity is 0.
+    /// @param capacity  The bytes bytesOut holds.
+    /// @param sizeOut   Receives the checkpoint's size in bytes. May be
+    ///                  NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is
+    /// smaller than the checkpoint, with the size still written and
+    /// nothing else; `mani_errorInvalid` for a NULL trainer or a NULL
+    /// buffer with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer,
-                                                                 void* bytes, size_t capacity);
+                                                                 void* bytesOut, size_t capacity,
+                                                                 size_t* sizeOut);
 
     /// Restores a checkpoint into a trainer of the same source and
     /// options, replacing its progress; training on gives the same bits

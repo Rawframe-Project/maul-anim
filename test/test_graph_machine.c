@@ -410,18 +410,19 @@ static void TestSaved(void)
     Set(instance, 0, maniGraphParameterFloat, Float(2.0f));
     Update(instance, 0.5f);
     Update(instance, 0.5f);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     Update(instance, 0.25f);
     Update(other, 0.25f);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
-              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1]) == mani_success &&
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
               memcmp(s_saved[0], s_saved[1], size) == 0 && Weights3(other, &g, 0.25f, 0.75f, 0),
           "the same after");
     // The block follows the 4 parameters' and 4 nodes' 16 bytes each.
@@ -476,7 +477,8 @@ static void TestLargestDelta(void)
     size_t block = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE;
     float elapsed = 0.0f;
     float since = 0.0f;
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success, "saved");
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+          "saved");
     memcpy(&elapsed, s_saved[0] + block + 4 * 2, sizeof elapsed);
     memcpy(&since, s_saved[0] + block + 4 * 18, sizeof since);
     CHECK(elapsed == FLT_MAX && since == HUGE_VALF, "elapsed saturated, since gone to +inf");
