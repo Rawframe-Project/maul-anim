@@ -336,6 +336,20 @@ static void TestOtherRefusals(void)
     rules[1] = kRules[1];
     rules[1].replace = "\xff";
     CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "a replace not UTF-8");
+#if SIZE_MAX == UINT32_MAX
+    {
+        // Where size_t has 32 bits, the partners of two names of 2^31
+        // bytes need more room than an allocation can hold: refused
+        // before a byte of either is read.
+        source = Source();
+        const maniMirrorNameSource huge[2] = {{"a", 0x80000000u}, {"b", 0x80000000u}};
+        source.names = huge;
+        source.nameCount = 2;
+        maniMirrorMap map;
+        CHECK(Build(&source, &map).result == mani_errorCapacity,
+              "listed names past an allocation's room");
+    }
+#endif
     source = Source();
     maniTransform reference[kBones];
     for (uint32_t b = 0; b < kBones; ++b)
