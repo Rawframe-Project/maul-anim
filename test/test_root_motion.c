@@ -69,7 +69,7 @@ static maniBuilder* NewBuilder(void)
 static void OpenSkeleton(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 3, 0};
+    maniSkeletonSource source = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -83,12 +83,11 @@ static void OpenSkeleton(void)
 static maniClipSource Source(const maniRootMotionSource* root)
 {
     s_tracks[0] = (maniBoneTrackSource){0,
-                                        0,
                                         {kTimes, kWalk, 2, maniInterpolationLinear},
                                         {kTimes, kTurn, 2, maniInterpolationLinear},
                                         kNone};
     s_tracks[1] =
-        (maniBoneTrackSource){1, 0, kNone, {kTimes, kSway, 2, maniInterpolationLinear}, kNone};
+        (maniBoneTrackSource){1, kNone, {kTimes, kSway, 2, maniInterpolationLinear}, kNone};
     return (maniClipSource){.skeleton = &s_skeleton,
                             .boneTracks = s_tracks,
                             .boneTrackCount = 2,
@@ -99,13 +98,8 @@ static maniClipSource Source(const maniRootMotionSource* root)
 
 static maniRootMotionSource Walk(void)
 {
-    return (maniRootMotionSource){0,
-                                  maniRootAxisX | maniRootAxisZ,
-                                  maniRootRotationTwist,
-                                  1,
-                                  maniRootReferenceRest,
-                                  maniRootReferenceRest,
-                                  0,
+    return (maniRootMotionSource){0, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                  1, maniRootReferenceRest,         maniRootReferenceRest,
                                   0};
 }
 
@@ -653,8 +647,8 @@ static void TestBuildRefusals(void)
     s.translationAxes = 0;
     s.rotation = maniRootRotationNone;
     ExpectRefused(&s, maniAdditiveNone, "no channel chosen");
-    const uint32_t kField[7] = {8, 3, 3, 3, 3, 2, 1};
-    for (int i = 0; i < 7; ++i)
+    const uint32_t kField[6] = {8, 3, 3, 3, 3, 2};
+    for (int i = 0; i < 6; ++i)
     {
         s = Walk();
         uint32_t* fields = &s.translationAxes;

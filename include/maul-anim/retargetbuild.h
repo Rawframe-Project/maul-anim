@@ -177,7 +177,6 @@ extern "C"
         const maniSkeleton* target;
         const maniClip* clip;
         uint32_t rootMotionBone;
-        uint32_t reserved;
     } maniRetargetClipSource;
 
     /// Builds a full-precision clip of the target from a clip of the
@@ -200,8 +199,8 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The clip to retarget.
     /// @return `mani_success`; `mani_errorInvalid` with
-    /// `maniBuildReasonNone` for a NULL builder, source or field, or
-    /// reserved not 0; `maniBuildReasonRetargetClip` (other 0 the source
+    /// `maniBuildReasonNone` for a NULL builder, source or field;
+    /// `maniBuildReasonRetargetClip` (other 0 the source
     /// skeleton, 1 the target, 2 the clip: a skeleton not the map's, a
     /// clip not of the source); `maniBuildReasonRootMotion` (item the
     /// target bone: past the target's bones, or MANI_NO_BONE where no

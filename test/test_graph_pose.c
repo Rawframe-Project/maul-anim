@@ -137,7 +137,7 @@ static void TestRefusals(void)
     maniPoseSetKind(s_pose, false);
     // A skeleton of the fixture's first two bones.
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource two = {kBones, 2, 0};
+    maniSkeletonSource two = {kBones, 2};
     maniSkeleton other;
     maniPose* otherPose = NULL;
     size_t size = 0;

@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 // An importer's clip settings in range for a skeleton: a rate finite and
-// not negative, a loop and basis known, reserved 0, a root motion source
+// not negative, a loop and basis known, a root motion source
 // valid with its bone in the skeleton.
 bool maniImportClipOptionsValid(const maniImportClipOptions* options, const maniSkeleton* skeleton);
 

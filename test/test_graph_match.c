@@ -334,7 +334,7 @@ static void TestContinuing(void)
         {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
     maniMotionDatabase bones;
     BuildDatabase(channels, 2, s_boneFile, sizeof s_boneFile, &bones);
-    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5, 0}};
+    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5}};
     MatchParameters();
     maniGraphNodeSource nodes[2] = {MatchNode(10.0f), Above(0)};
     maniGraph g;
@@ -406,7 +406,7 @@ static void TestContinuingFrame(void)
         {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
     maniMotionDatabase bones;
     BuildDatabase(channels, 2, s_neighborFile, sizeof s_neighborFile, &bones);
-    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5, 0}};
+    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5}};
     MatchParameters();
     maniGraphNodeSource node = MatchNode(10.0f);
     node.match.continuingBias = 1000.0f;
@@ -462,7 +462,7 @@ static _Alignas(16) uint8_t s_loopFile[1 << 15];
 static double Searched(const maniMotionDatabase* d, uint32_t tags, uint32_t entry, double at,
                        bool ahead, float bias, uint32_t* entryOut)
 {
-    const maniGraphDatabaseSource slot[1] = {{d, "bones", 5, 0}};
+    const maniGraphDatabaseSource slot[1] = {{d, "bones", 5}};
     MatchParameters();
     maniGraphNodeSource node = MatchNode(10.0f);
     node.match.endExclusion = 0.0f;
@@ -522,8 +522,8 @@ static void TestInterpolated(void)
     CHECK(entry == 1 && t == (double)0.7f, "settled up to a frame, its own features");
     const maniClip* clips[1] = {&s_clips[3]};
     const maniMatchEntrySource loop = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
-    maniMotionDatabaseSource source = {&s_skeleton, clips,          channels,       &loop, 1, 1, 1,
-                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,  0, 0};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       &loop,          1,    1,
+                                       1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     maniMotionDatabase looped;
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
@@ -547,7 +547,7 @@ static uint32_t SearchesToLeave(float x)
         {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
     maniMotionDatabase bones;
     BuildDatabase(channels, 2, s_boneFile, sizeof s_boneFile, &bones);
-    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5, 0}};
+    const maniGraphDatabaseSource slot[1] = {{&bones, "bones", 5}};
     MatchParameters();
     maniGraphNodeSource nodes[2] = {MatchNode(0.1f), Above(0)};
     maniGraph g;
@@ -612,8 +612,8 @@ static void TestFacingBlend(void)
         const maniMatchChannelSource channel = {
             maniMatchBoneFacing, k / 3, k % 3, 1, kNow, NULL, 0, 1.0f};
         maniMotionDatabaseSource source = {
-            &s_skeleton, clips,          &channel,       entries, 2, 1, 2,
-            10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,    0, 0};
+            &s_skeleton, clips, &channel,       entries,        2,    1,
+            2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         built = maniBuildMotionDatabase(builder, &source).result == mani_success &&

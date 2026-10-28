@@ -193,7 +193,7 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
         return Refuse(maniBuildReasonOption, 0, 0);
     }
     t->leaf = s->leafFrames != 0 ? s->leafFrames : MANI_MATCH_DEFAULT_LEAF;
-    if (!maniMatchLeafValid(t->leaf) || s->reserved != 0)
+    if (!maniMatchLeafValid(t->leaf))
     {
         return Refuse(maniBuildReasonOption, 1, 0);
     }

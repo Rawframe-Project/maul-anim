@@ -22,7 +22,7 @@
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Fail(const maniGltf* gltf, maniImportReason reason, uint32_t value,

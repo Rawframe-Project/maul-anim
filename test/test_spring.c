@@ -15,6 +15,8 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
+#include "source_padding.h"
 #include "spring_file.h"
 #include "test_harness.h"
 
@@ -66,7 +68,7 @@ static void OpenSkeleton(void)
         Bone("tail1", 5, 0.0f, 0.0f, -0.3f), Bone("tail2", 6, 0.0f, 0.0f, -0.3f),
         Bone("arm", 0, 0.3f, 0.4f, 0.0f)};
     maniBuilderDef def = maniDefaultBuilderDef();
-    maniSkeletonSource source = {bones, 9, 0};
+    maniSkeletonSource source = {bones, 9};
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success &&
               maniBuildSkeleton(s_builder, &source).result == mani_success &&
@@ -139,7 +141,7 @@ static maniSpringSetSource Source(void)
     s_springs[0] =
         (maniSpringSource){"hairs", 5, 3, s_hairJoints, s_springGroups[0], 2, MANI_NO_BONE};
     s_springs[1] = (maniSpringSource){"tail", 4, 3, s_tailJoints, s_springGroups[1], 1, s_hips};
-    return (maniSpringSetSource){&s_skeleton, s_colliders, s_groups, s_springs, 4, 2, 2, 0, 0, 0};
+    return (maniSpringSetSource){&s_skeleton, s_colliders, s_groups, s_springs, 4, 2, 2, 0, 0};
 }
 
 static maniBuildResult Build(const maniSpringSetSource* source)
@@ -483,7 +485,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
         printf("  at %llu: refused %d at %llu, want %llu\n", (unsigned long long)offset,
                (int)r.result, (unsigned long long)r.offset, (unsigned long long)want);
     }
-    return r.result == mani_errorFormat && r.offset == want;
+    return r.result == mani_errorFormat && r.offset == want &&
+           r.tag == TestTagAt(s_crafted, s_size, want);
 }
 
 static uint64_t SectionAt(uint32_t tag)
@@ -653,6 +656,43 @@ static int WriteSeed(const char* path)
     return ok ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source, its colliders, groups,
+// springs and joints.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniSpringSetSource source = Source();
+        maniColliderSource colliders[4];
+        maniColliderGroupSource groups[2];
+        maniSpringJointSource hair[3];
+        maniSpringJointSource tail[3];
+        maniSpringSource springs[2];
+        memcpy(colliders, s_colliders, sizeof colliders);
+        memcpy(groups, s_groups, sizeof groups);
+        memcpy(hair, s_hairJoints, sizeof hair);
+        memcpy(tail, s_tailJoints, sizeof tail);
+        memcpy(springs, s_springs, sizeof springs);
+        springs[0].joints = hair;
+        springs[1].joints = tail;
+        TEST_PAD(colliders, 4, kFieldsColliderSource, pattern);
+        TEST_PAD(groups, 2, kFieldsColliderGroupSource, pattern);
+        TEST_PAD(hair, 3, kFieldsSpringJointSource, pattern);
+        TEST_PAD(tail, 3, kFieldsSpringJointSource, pattern);
+        TEST_PAD(springs, 2, kFieldsSpringSource, pattern);
+        source.colliders = colliders;
+        source.colliderGroups = groups;
+        source.springs = springs;
+        TEST_PAD(&source, 1, kFieldsSpringSetSource, pattern);
+        CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(s_builder, &sizes[k]);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     OpenSkeleton();
@@ -670,6 +710,7 @@ int main(int argc, char** argv)
     TestJointRefusals();
     TestOpen();
     TestTooManySprings();
+    TestPaddingIgnored();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

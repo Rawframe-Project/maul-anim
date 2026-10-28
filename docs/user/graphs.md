@@ -13,7 +13,7 @@ static const char graphText[] =
     " [{\"from\": 0, \"to\": 1, \"duration\": 0.25, \"conditions\": [{\"trigger\": \"go\"}]}]},"
     " {\"kind\": \"clip\", \"clip\": \"turn\"}, {\"kind\": \"clip\", \"clip\": \"turn\"}],"
     " \"output\": 0}";
-const maniGraphClipSource graphClips[1] = {{&clip, "turn", 4, 0, NULL}};
+const maniGraphClipSource graphClips[1] = {{&clip, "turn", 4, NULL}};
 maniGraphNamedAssets named = {&skeleton, graphClips, NULL, NULL, NULL, 1, 0, 0, 0, NULL};
 maniBuildResult graphBuilt = maniBuildGraphJson(builder, graphText, sizeof graphText - 1, &named);
 size_t graphSize = 0;

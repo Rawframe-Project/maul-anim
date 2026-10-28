@@ -178,9 +178,9 @@ static maniFileResult CheckValues(const Sections* s, const maniInfluences* v)
     return (maniFileResult){mani_success, 0, 0};
 }
 
-static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t size,
-                                                       maniInfluences* influencesOut)
+static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t size, void* out)
 {
+    maniInfluences* influencesOut = out;
     if (influencesOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -193,7 +193,8 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
     {
         r = LoadSections(&c, &s);
     }
-    maniInfluences v = {0};
+    maniInfluences v;
+    memset(&v, 0, sizeof v);
     if (r.result == mani_success)
     {
         r = CheckSizes(&s, &v);
@@ -222,7 +223,7 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
 maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences* influencesOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenInfluencesWork(bytes, size, influencesOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, influencesOut, OpenInfluencesWork);
     maniFloatEnvLeave(env);
     return result;
 }

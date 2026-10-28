@@ -26,8 +26,8 @@ When the rigs' rest poses differ in a way that matters (an A pose against a T po
 A mirror map pairs left and right bones, by rules on their names or explicitly, and folds in the rest pose's corrections, so rigs whose left and right bones do not have mirrored axes mirror correctly:
 
 ```c
-const maniMirrorRuleSource sides[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                       {"R", 1, maniMirrorSuffix, "L", 1, 0}};
+const maniMirrorRuleSource sides[2] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                       {"R", 1, maniMirrorSuffix, "L", 1}};
 maniMirrorMapSource mirrorSource = {
     .skeleton = &skeleton, .rules = sides, .ruleCount = 2, .axis = maniMirrorAxisX};
 maniBuildResult mirrorBuilt = maniBuildMirrorMap(builder, &mirrorSource);

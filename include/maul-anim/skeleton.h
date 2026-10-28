@@ -39,7 +39,6 @@ extern "C"
         const uint8_t* nameBytes;
         uint64_t identity;
         uint32_t boneCount;
-        uint32_t reserved;
     } maniSkeleton;
 
     /// Opens a skeleton file in place: checks the container and every

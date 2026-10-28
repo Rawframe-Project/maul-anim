@@ -22,7 +22,7 @@
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Refuse(const maniFbx* fbx, uint32_t node)

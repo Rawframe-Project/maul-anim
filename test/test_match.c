@@ -21,8 +21,10 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "graph_fixture.h"
 #include "match_file.h"
+#include "source_padding.h"
 #include "vecmath.h"
 
 #include "maul-anim/match.h"
@@ -42,15 +44,12 @@ static void OpenTurn(void)
     static const float kTurn[8] = {0, 0, 0, 1, 0, 0.70710678f, 0, 0.70710678f};
     static const float kSpeed[2] = {0.0f, 1.0f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniRootMotionSource kRoot = {0, maniRootAxisX, maniRootRotationTwist, 1, 0, 0, 0,
-                                               0};
+    static const maniRootMotionSource kRoot = {0, maniRootAxisX, maniRootRotationTwist, 1, 0, 0, 0};
     const maniBoneTrackSource track = {0,
-                                       0,
                                        {kTimes, kWalk, 2, maniInterpolationLinear},
                                        {kTimes, kTurn, 2, maniInterpolationLinear},
                                        kNone};
-    const maniFloatTrackSource speed = {
-        "speed", 5, 0, {kTimes, kSpeed, 2, maniInterpolationLinear}};
+    const maniFloatTrackSource speed = {"speed", 5, {kTimes, kSpeed, 2, maniInterpolationLinear}};
     maniClipSource source = {.skeleton = &s_skeleton,
                              .boneTracks = &track,
                              .boneTrackCount = 1,
@@ -101,8 +100,8 @@ static maniMotionDatabaseSource Source(void)
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.5f, 2u};
     s_entries[2] = (maniMatchEntrySource){2, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 4u};
     return (maniMotionDatabaseSource){
-        &s_skeleton, s_clipList,     s_channels,     s_entries, 3, 4, 3,
-        10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,      0, 0};
+        &s_skeleton, s_clipList, s_channels,     s_entries,      3,    4,
+        3,           10.0f,      maniMatchAxisY, maniMatchAxisZ, NULL, 0};
 }
 
 static _Alignas(16) uint8_t s_database[1 << 16];
@@ -303,7 +302,7 @@ static void TestFloatTrack(void)
     maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     maniMatchEntrySource entry = {0, 0, 0.0f, 1.0f, 0.0f, 0u};
     maniMotionDatabaseSource source = {&s_skeleton, s_clipList,     &channel,       &entry, 1, 1, 1,
-                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0, 0};
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0};
     maniMotionDatabase d;
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
@@ -510,7 +509,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
         printf("  refused at %llu (%d), expected %llu\n", (unsigned long long)r.offset,
                (int)r.result, (unsigned long long)want);
     }
-    return r.result == mani_errorFormat && r.offset == want;
+    return r.result == mani_errorFormat && r.offset == want &&
+           r.tag == TestTagAt(s_crafted, s_size, want);
 }
 
 static uint32_t BitsOf(float value)
@@ -682,10 +682,6 @@ static void TestLeafSizes(void)
         CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonOption && r.item == 1,
               "another leaf size refused");
     }
-    source.leafFrames = 0;
-    source.reserved = 1;
-    CHECK(maniBuildMotionDatabase(builder, &source).reason == maniBuildReasonOption,
-          "a reserved word refused");
     CHECK(maniBuilderMisuses(builder) == 0, "no misuse counted");
     maniDestroyBuilder(builder);
 }
@@ -699,6 +695,32 @@ static bool WriteFile(const char* path, const void* data, size_t size)
     }
     size_t written = fwrite(data, 1, size, out);
     return fclose(out) == 0 && written == size;
+}
+
+// The same database whatever bytes pad the source, its channels and
+// entries.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniMotionDatabaseSource source = Source();
+        maniMatchChannelSource channels[4];
+        maniMatchEntrySource entries[3];
+        memcpy(channels, s_channels, sizeof channels);
+        memcpy(entries, s_entries, sizeof entries);
+        TEST_PAD(channels, 4, kFieldsMatchChannelSource, kTestPadPatterns[k]);
+        TEST_PAD(entries, 3, kFieldsMatchEntrySource, kTestPadPatterns[k]);
+        source.channels = channels;
+        source.entries = entries;
+        TEST_PAD(&source, 1, kFieldsMotionDatabaseSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
 }
 
 int main(int argc, char** argv)
@@ -722,5 +744,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestOtherVersions();
     TestLeafSizes();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

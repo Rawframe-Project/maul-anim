@@ -58,9 +58,9 @@ static const maniBoneSource kRig[kBones] = {
     {"armR", 4, kClavR, {{0, 0, 0.2f}, REST, {1, 1, 1}}},
 };
 
-static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                               {"R", 1, maniMirrorSuffix, "L", 1, 0}};
-static const maniMirrorNameSource kNames[3] = {{"stepL", 5, 0}, {"L", 1, 0}, {"R", 1, 0}};
+static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                               {"R", 1, maniMirrorSuffix, "L", 1}};
+static const maniMirrorNameSource kNames[3] = {{"stepL", 5}, {"L", 1}, {"R", 1}};
 
 static const float kTimes[3] = {0.0f, 0.5f, 1.0f};
 static const float kRootMove[9] = {0.0f, 0.0f, 0.0f, 0.3f, 0.0f, 0.6f, 0.9f, 0.05f, 1.2f};
@@ -112,7 +112,7 @@ static void OpenSkeleton(const maniBoneSource* bones, uint32_t count, uint8_t* f
                          maniSkeleton* out)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, file, 4096, &size) == mani_success &&
@@ -163,17 +163,12 @@ static void Setup(void)
     OpenMap(&s_skeleton, maniMirrorAxisZ, s_mapFiles[1], &s_mapZ);
     OpenMap(&s_other, maniMirrorAxisX, s_mapFiles[2], &s_otherMap);
     OpenMap(&s_moved, maniMirrorAxisX, s_mapFiles[3], &s_movedMap);
-    const maniBoneTrackSource walk[2] = {{kRoot, 0, Keys(kRootMove), Keys(kYaw), kNone},
-                                         {kArmL, 0, kNone, Keys(kArm), kNone}};
-    const maniEventSource events[2] = {{0.25f, 7, "stepL", 5, 0}, {0.75f, 9, "jump", 4, 0}};
-    const maniEventSource markers[2] = {{0.0f, 0, "L", 1, 0}, {0.5f, 0, "R", 1, 0}};
-    const maniRootMotionSource root = {kRoot,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
+    const maniBoneTrackSource walk[2] = {{kRoot, Keys(kRootMove), Keys(kYaw), kNone},
+                                         {kArmL, kNone, Keys(kArm), kNone}};
+    const maniEventSource events[2] = {{0.25f, 7, "stepL", 5}, {0.75f, 9, "jump", 4}};
+    const maniEventSource markers[2] = {{0.0f, 0, "L", 1}, {0.5f, 0, "R", 1}};
+    const maniRootMotionSource root = {kRoot, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                       1,     maniRootReferenceRest,         maniRootReferenceRest,
                                        0};
     const maniClipSource w = {.skeleton = &s_skeleton,
                               .boneTracks = walk,
@@ -187,7 +182,7 @@ static void Setup(void)
                               .duration = 1.0f,
                               .rootMotion = &root};
     OpenClip(&w, 0, &s_walk);
-    const maniBoneTrackSource lean[1] = {{kChest, 0, kNone, Keys(kArm), kNone}};
+    const maniBoneTrackSource lean[1] = {{kChest, kNone, Keys(kArm), kNone}};
     const maniClipSource l = {.skeleton = &s_skeleton,
                               .boneTracks = lean,
                               .boneTrackCount = 1,
@@ -227,8 +222,8 @@ static maniGraphNodeSource MirrorNode(const uint32_t* input)
 // The walk under mirrors nodes deep (0 to 2).
 static maniGraphSource Graph(uint32_t mirrors, const maniMirrorMap* map)
 {
-    s_clips[0] = (maniGraphClipSource){&s_walk, "walk", 4, 0, NULL};
-    s_clips[1] = (maniGraphClipSource){&s_lean, "lean", 4, 0, NULL};
+    s_clips[0] = (maniGraphClipSource){&s_walk, "walk", 4, NULL};
+    s_clips[1] = (maniGraphClipSource){&s_lean, "lean", 4, NULL};
     s_nodes[0] = ClipNode(0, MANI_NO_SYNC_GROUP, 0);
     s_nodes[1] = MirrorNode(kFirst);
     s_nodes[2] = MirrorNode(kSecond);
@@ -377,7 +372,7 @@ static void TestSync(void)
     s_nodes[0] = ClipNode(0, 0, maniGraphClipLeader);
     s_nodes[1] = ClipNode(0, 0, 0);
     s_nodes[2] = MirrorNode(kSecond);
-    s_nodes[3] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0, 0}};
+    s_nodes[3] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kPair, .blend = {kHalves, 0}};
     source.syncGroups = &kFeet;
     source.syncGroupCount = 1;
     source.nodeCount = 4;
@@ -426,7 +421,7 @@ static void TestBuildRefusals(void)
     // The walk blended with its own mirror.
     source = Graph(1, &s_map);
     static const uint32_t kBoth[2] = {0, 1};
-    s_nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kBoth, .blend = {kHalves, 0, 0}};
+    s_nodes[2] = (maniGraphNodeSource){maniGraphNodeBlend, 2, kBoth, .blend = {kHalves, 0}};
     source.nodeCount = 3;
     source.output = 2;
     CHECK(Refused(&source, maniBuildReasonMirrorParity, 0, 1),

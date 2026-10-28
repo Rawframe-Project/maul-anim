@@ -28,7 +28,7 @@
 
 static _Alignas(16) uint8_t s_boneFile[1 << 15];
 static maniMotionDatabase s_bones;
-static const maniLearnedNameSource kEvents[2] = {{"left", 4, 0}, {"right", 5, 0}};
+static const maniLearnedNameSource kEvents[2] = {{"left", 4}, {"right", 5}};
 static const maniAllocator kAllocator = {NULL, NULL, NULL};
 
 // The walk (looping, 10 frames) and the run (clamped, 11): the arm's
@@ -122,22 +122,19 @@ static void OpenSway(void)
     static const float kGrow[6] = {1, 1, 1, 2, 2, 2};
     static const float kSpeed[2] = {0.0f, 1.0f};
     static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
-    static const maniRootMotionSource kTwist = {0, 0, maniRootRotationTwist, 1, 0, 0, 0, 0};
+    static const maniRootMotionSource kTwist = {0, 0, maniRootRotationTwist, 1, 0, 0, 0};
     const maniBoneTrackSource tracks[3] = {
         {0,
-         0,
          {kTimes, kAlong, 2, maniInterpolationLinear},
          {kTimes, kTilt, 2, maniInterpolationLinear},
          kNone},
         {1,
-         0,
          kNone,
          {kTimes, kTurn, 2, maniInterpolationLinear},
          {kTimes, kStretch, 2, maniInterpolationLinear}},
-        {2, 0, kNone, kNone, {kTimes, kGrow, 2, maniInterpolationLinear}}};
-    const maniFloatTrackSource speed = {
-        "speed", 5, 0, {kTimes, kSpeed, 2, maniInterpolationLinear}};
-    static const maniEventSource kLate = {0.95f, 0, "left", 4, 0};
+        {2, kNone, kNone, {kTimes, kGrow, 2, maniInterpolationLinear}}};
+    const maniFloatTrackSource speed = {"speed", 5, {kTimes, kSpeed, 2, maniInterpolationLinear}};
+    static const maniEventSource kLate = {0.95f, 0, "left", 4};
     maniClipSource source = {.skeleton = &s_skeleton,
                              .boneTracks = tracks,
                              .boneTrackCount = 3,
@@ -160,8 +157,8 @@ static void OpenSway(void)
     const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u},
                                              {1, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u}};
     maniMotionDatabaseSource database = {
-        &s_skeleton, clips,          &channel,       entries, 2, 1, 2,
-        10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,    0, 0};
+        &s_skeleton, clips, &channel,       entries,        2,    1,
+        2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     CHECK(maniBuildMotionDatabase(builder, &database).result == mani_success &&
               maniCopyBuilt(builder, s_swayDatabaseFile, sizeof s_swayDatabaseFile, &size) ==
                   mani_success &&
@@ -178,7 +175,7 @@ static bool Near3(const float* v, float x, float y, float z)
 
 static void TestSway(void)
 {
-    static const maniLearnedNameSource kSpeed[1] = {{"speed", 5, 0}};
+    static const maniLearnedNameSource kSpeed[1] = {{"speed", 5}};
     const maniClip* clips[2] = {&s_clips[0], &s_sway};
     const maniTrainDataSource source = {
         &s_skeleton, &s_swayDatabase, clips, kSpeed, kEvents, 1, 2, 0.1f, 0};
@@ -636,7 +633,7 @@ static void TestGradient(void)
     CHECK(Data(&d), "the data");
     CheckChunk(&d, "a chunk's loss as Holden's terms");
     maniTrainDataRelease(&kAllocator, &d);
-    static const maniLearnedNameSource kSpeed[1] = {{"speed", 5, 0}};
+    static const maniLearnedNameSource kSpeed[1] = {{"speed", 5}};
     const maniClip* clips[2] = {&s_clips[0], &s_sway};
     const maniTrainDataSource source = {
         &s_skeleton, &s_swayDatabase, clips, kSpeed, kEvents, 1, 2, 0.1f, 0};

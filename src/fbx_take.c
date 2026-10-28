@@ -22,7 +22,7 @@
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Refuse(const maniFbx* fbx, uint32_t node, uint32_t item)
@@ -311,7 +311,7 @@ maniImportResult maniFbxReadStack(const maniFbx* fbx, uint32_t k, maniFbxAnimati
     if (source == MANI_FBX_NONE)
     {
         memset(out, 0, sizeof *out);
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     return fbx->version >= 7000 ? maniFbxReadAnimation(fbx, source, out)
                                 : ReadTake(fbx, source, out);

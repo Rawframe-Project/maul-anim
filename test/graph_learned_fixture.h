@@ -12,10 +12,11 @@
 #define MAUL_ANIM_TEST_GRAPH_LEARNED_FIXTURE_H
 
 #include "graph_learned.h"
+#include "graph_padding.h"
 #include "learned_fixture.h"
 
 static maniLearnedModel s_learned;
-static const maniGraphModelSource kModelSlot[1] = {{&s_learned, "steps", 5, 0}};
+static const maniGraphModelSource kModelSlot[1] = {{&s_learned, "steps", 5}};
 // The model MakeLearned binds slot 0 to.
 static const maniLearnedModel* s_bound = &s_learned;
 static _Alignas(8) uint8_t s_learnedBinding[1024];
@@ -77,6 +78,7 @@ static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* 
     size_t size = 0;
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
+    CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&

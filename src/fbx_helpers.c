@@ -231,10 +231,9 @@ maniImportResult maniFbxAnimatedHelpers(const maniFbx* fbx, const uint8_t* neede
     maniFbxWorld* worlds = maniAllocate(&fbx->allocator, n, sizeof(maniFbxWorld), 8);
     uint8_t* mark = maniAllocate(&fbx->allocator, n, 1, 1);
     uint32_t* risky = maniAllocate(&fbx->allocator, count, sizeof(uint32_t), 4);
-    maniImportResult r =
-        worlds != NULL && mark != NULL && risky != NULL
-            ? maniFbxSuccess()
-            : (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = worlds != NULL && mark != NULL && risky != NULL
+                             ? maniFbxSuccess()
+                             : (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     for (uint32_t k = 0; r.result == mani_success && k < fbx->stackCount; ++k)
     {
         r = CheckStack(fbx, k, needed, worlds, children, count, helper, mark, risky);

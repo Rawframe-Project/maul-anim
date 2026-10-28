@@ -247,7 +247,7 @@ static void TestLongQuery(void)
     maniGraphNodeSource nodes[4] = {LearnedNode(0.1f, 0.0f),
                                     Above(0),
                                     ClipNode(0, 1.0f, maniGraphLoopRepeat),
-                                    {maniGraphNodeBlend, 600, inputs, .blend = {weights, 0, 0}}};
+                                    {maniGraphNodeBlend, 600, inputs, .blend = {weights, 0}}};
     maniGraph g;
     (void)MakeLearned((maniGraphSource){.parameters = s_matchParameters,
                                         .nodes = nodes,
@@ -326,8 +326,8 @@ static size_t Cache(const maniLearnedModel* m)
 static void TestRoom(bool wideFirst)
 {
     MatchParameters();
-    const maniGraphModelSource slots[2] = {{wideFirst ? &s_wide : &s_learned, "first", 5, 0},
-                                           {wideFirst ? &s_learned : &s_wide, "second", 6, 0}};
+    const maniGraphModelSource slots[2] = {{wideFirst ? &s_wide : &s_learned, "first", 5},
+                                           {wideFirst ? &s_learned : &s_wide, "second", 6}};
     static const uint32_t kInputs[2] = {2, 3};
     static const maniGraphScalar kWeights[2] = {{MANI_NO_PARAMETER, 1.0f},
                                                 {MANI_NO_PARAMETER, 1.0f}};
@@ -335,7 +335,7 @@ static void TestRoom(bool wideFirst)
                                     LearnedNode(0.1f, 0.0f),
                                     Above(0),
                                     Above(1),
-                                    {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0, 0}}};
+                                    {maniGraphNodeBlend, 2, kInputs, .blend = {kWeights, 0}}};
     // Above keeps one input array: each its own here.
     static const uint32_t kFirst[1] = {0};
     static const uint32_t kSecond[1] = {1};
@@ -402,7 +402,7 @@ static void TestIdleSlot(void)
     maniLearnedModel odd = s_learned;
     odd.identity ^= 2;
     odd.eventCount = 1;
-    const maniGraphModelSource slots[2] = {{&odd, "odd", 3, 0}, kModelSlot[0]};
+    const maniGraphModelSource slots[2] = {{&odd, "odd", 3}, kModelSlot[0]};
     maniGraphNodeSource node = LearnedNode(0.1f, 0.0f);
     node.learned.model = 1;
     MatchParameters();
@@ -456,7 +456,7 @@ static void TestSubgraph(void)
                            .nodeCount = 1,
                            .modelCount = 1,
                            .models = kModelSlot};
-    const maniGraphModelSource both[2] = {{&s_other, "moves", 5, 0}, kModelSlot[0]};
+    const maniGraphModelSource both[2] = {{&s_other, "moves", 5}, kModelSlot[0]};
     maniGraphNodeSource outer[2] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kMap}},
                                     Above(0)};
     maniGraphSource root = {.skeleton = &s_skeleton,
@@ -502,10 +502,10 @@ static void TestSubgraph(void)
     CHECK(maniGraphModelCount(&g) == 1 && LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1,
           "one slot for both, played");
     // A slot without its model under two learned nodes: one slot, refused.
-    static const maniGraphModelSource kNone[1] = {{NULL, "none", 4, 0}};
+    static const maniGraphModelSource kNone[1] = {{NULL, "none", 4}};
     static const uint32_t kTwo[2] = {1, 2};
     static const maniGraphScalar kHalves[2] = {LITERAL(0.5f), LITERAL(0.5f)};
-    maniGraphNodeSource two[3] = {{maniGraphNodeBlend, 2, kTwo, .blend = {kHalves, 0, 0}},
+    maniGraphNodeSource two[3] = {{maniGraphNodeBlend, 2, kTwo, .blend = {kHalves, 0}},
                                   LearnedNode(0.1f, 0.0f),
                                   LearnedNode(0.1f, 0.0f)};
     sub.nodes = two;
@@ -533,7 +533,7 @@ static void TestSubgraph(void)
     static const uint32_t kFirstTwo[2] = {0, 1};
     maniGraphNodeSource pair[4] = {{maniGraphNodeSubgraph, 0, NULL, .subgraph = {&sub, kSame}},
                                    LearnedNode(0.1f, 0.0f),
-                                   {maniGraphNodeBlend, 2, kFirstTwo, .blend = {kHalves, 0, 0}},
+                                   {maniGraphNodeBlend, 2, kFirstTwo, .blend = {kHalves, 0}},
                                    Above(2)};
     sub.models = kModelSlot;
     sub.modelCount = 1;

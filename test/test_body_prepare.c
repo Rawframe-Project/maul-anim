@@ -198,7 +198,7 @@ static void BuildLong(void)
     }
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
-    maniSkeletonSource source = {bones, LONG, 0};
+    maniSkeletonSource source = {bones, LONG};
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&

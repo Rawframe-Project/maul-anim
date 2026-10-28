@@ -213,9 +213,10 @@ static bool Apply(maniLearnedTrainer* t, const Progress* p)
     return true;
 }
 
-static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(maniLearnedTrainer* trainer,
-                                                                 const void* bytes, size_t size)
+static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* bytes, size_t size,
+                                                                 void* out)
 {
+    maniLearnedTrainer* trainer = out;
     if (trainer != NULL && maniHostCalledBack(&trainer->host))
     {
         return (maniFileResult){mani_errorState, 0, 0};
@@ -261,7 +262,8 @@ maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const v
                                             size_t size)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = RestoreLearnedCheckpointWork(trainer, bytes, size);
+    maniFileResult result =
+        maniContainerOpenTagged(bytes, size, trainer, RestoreLearnedCheckpointWork);
     maniFloatEnvLeave(env);
     return result;
 }

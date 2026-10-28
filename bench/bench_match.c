@@ -151,7 +151,7 @@ static void BuildRig(maniBuilder* builder)
                                      {0.0f, 0.0f, 0.0f, 1.0f},
                                      {1.0f, 1.0f, 1.0f}}};
     }
-    maniSkeletonSource source = {bones, BONES, 0};
+    maniSkeletonSource source = {bones, BONES};
     size_t size = 0;
     void* file = Keep(builder, maniBuildSkeleton(builder, &source), "the rig", &size);
     if (maniOpenSkeleton(file, size, &s_skeleton).result != mani_success)
@@ -229,21 +229,16 @@ static void BuildWalk(maniBuilder* builder, uint32_t k, float* keys, maniClip* c
     {
         tracks[b] = (maniBoneTrackSource){
             b,
-            0,
             kNone,
             {times, keys + (size_t)b * SAMPLES * 4, SAMPLES, maniInterpolationLinear},
             kNone};
     }
     tracks[boneHips].translation =
         (maniChannelSource){times, walk, SAMPLES, maniInterpolationLinear};
-    const maniRootMotionSource root = {boneHips,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
-                                       0};
+    const maniRootMotionSource root = {
+        boneHips, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+        1,        maniRootReferenceRest,         maniRootReferenceRest,
+        0};
     maniClipSource source = {.skeleton = &s_skeleton,
                              .boneTracks = tracks,
                              .boneTrackCount = BONES,
@@ -954,9 +949,8 @@ int main(int argc, char** argv)
             maniMatchChannelSource channels[16];
             uint32_t channelCount = Channels(set, channels);
             const maniMotionDatabaseSource source = {
-                &s_skeleton,  listed,       channels, entries,        kClips[size],
-                channelCount, kClips[size], RATE,     maniMatchAxisY, maniMatchAxisZ,
-                NULL,         leaf,         0};
+                &s_skeleton,  listed, channels,       entries,        kClips[size], channelCount,
+                kClips[size], RATE,   maniMatchAxisY, maniMatchAxisZ, NULL,         leaf};
             size_t bytes = 0;
             void* file =
                 Keep(builder, maniBuildMotionDatabase(builder, &source), "a database", &bytes);

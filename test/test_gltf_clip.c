@@ -8,6 +8,7 @@
 // C evaluated here in binary64, locals with placement reported, model
 // transforms with it folded and the basis changed; then each refusal.
 
+#include "source_padding.h"
 #include "test_gltf_sweep.h"
 #include "test_harness.h"
 #include "vecmath.h"
@@ -344,7 +345,7 @@ static void TestClipOptions(void)
     maniSkeleton skeleton;
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
-    maniRootMotionSource turn = {hip, 0, maniRootRotationTwist, 1, 0, 0, 0, 0};
+    maniRootMotionSource turn = {hip, 0, maniRootRotationTwist, 1, 0, 0, 0};
     maniImportClipOptions settings = maniDefaultImportClipOptions();
     settings.sampleRate = 10.0f;
     settings.rootMotion = &turn;
@@ -387,28 +388,27 @@ static void TestClipOptions(void)
               OpenClip(builder, &clip) && maniClipAdditiveBasis(&clip) == maniAdditiveRest,
           "an additive clip");
     uint32_t misuses = maniBuilderMisuses(builder);
-    maniImportClipOptions bad[8];
-    for (int i = 0; i < 8; ++i)
+    maniImportClipOptions bad[7];
+    for (int i = 0; i < 7; ++i)
     {
         bad[i] = maniDefaultImportClipOptions();
     }
-    maniRootMotionSource past = {maniSkeletonBoneCount(&skeleton), 1, 0, 0, 0, 0, 0, 0};
-    maniRootMotionSource none = {hip, 0, maniRootRotationNone, 0, 0, 0, 0, 0};
+    maniRootMotionSource past = {maniSkeletonBoneCount(&skeleton), 1, 0, 0, 0, 0, 0};
+    maniRootMotionSource none = {hip, 0, maniRootRotationNone, 0, 0, 0, 0};
     bad[0].sampleRate = -1.0f;
     bad[1].sampleRate = NAN;
     bad[2].loop = 2;
     bad[3].additive = 3;
-    bad[4].reserved = 1;
-    bad[5].rootMotion = &past;
-    bad[6].rootMotion = &none;
-    bad[7].sampleRate = INFINITY;
+    bad[4].rootMotion = &past;
+    bad[5].rootMotion = &none;
+    bad[6].sampleRate = INFINITY;
     bool refused = true;
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 7; ++i)
     {
         refused =
             refused && BuildWith(builder, gltf, &skeleton, bad[i]).result == mani_errorInvalid;
     }
-    CHECK(refused && maniBuilderMisuses(builder) == misuses + 8, "settings out of range");
+    CHECK(refused && maniBuilderMisuses(builder) == misuses + 7, "settings out of range");
     CHECK(maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, NULL, NULL).result ==
               mani_errorInvalid,
           "no settings");
@@ -860,6 +860,45 @@ static void TestAllocationFailures(void)
     CHECK(TestSweep(GltfSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
 }
 
+// The same skeleton and clip whatever bytes pad the options.
+static void TestOptionsPaddingIgnored(void)
+{
+    Document(NULL, NULL, "");
+    uint8_t* skeletons[2] = {NULL, NULL};
+    size_t skeletonSizes[2] = {0, 0};
+    uint8_t* clips[2] = {NULL, NULL};
+    size_t clipSizes[2] = {0, 0};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniBuilder* builder = NewBuilder();
+        maniGltf* gltf = Open(builder);
+        maniGltfOptions options = maniDefaultGltfOptions();
+        TEST_PAD(&options, 1, kFieldsGltfOptions, kTestPadPatterns[k]);
+        maniSkeleton skeleton;
+        bool built = gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton);
+        skeletons[k] = built ? TestCopyBuilt(builder, &skeletonSizes[k]) : NULL;
+        maniRootMotionSource turn = {built ? maniSkeletonFindBone(&skeleton, "hip", 3) : 0,
+                                     0,
+                                     maniRootRotationTwist,
+                                     1,
+                                     0,
+                                     0,
+                                     0};
+        maniImportClipOptions settings = maniDefaultImportClipOptions();
+        settings.sampleRate = 10.0f;
+        settings.rootMotion = &turn;
+        TEST_PAD(&settings, 1, kFieldsImportClipOptions, kTestPadPatterns[k]);
+        built = built &&
+                maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, &settings, NULL).result ==
+                    mani_success;
+        clips[k] = built ? TestCopyBuilt(builder, &clipSizes[k]) : NULL;
+        maniCloseGltf(gltf);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(skeletons, skeletonSizes), "the same skeleton under either padding");
+    CHECK(TestSameBuilt(clips, clipSizes), "the same clip under either padding");
+}
+
 int main(void)
 {
     TestAllocationFailures();
@@ -873,5 +912,6 @@ int main(void)
     ExpectIndexNames("\"smile\",\"\"     ", "an empty target name");
     TestFoldedStatic();
     TestClipOptions();
+    TestOptionsPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

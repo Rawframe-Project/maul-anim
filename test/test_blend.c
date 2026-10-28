@@ -95,7 +95,7 @@ static void BuildSkeleton(void)
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success, "builder");
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success, "copies");
@@ -817,8 +817,8 @@ static void TestPinned(void)
     hash = maniHash64(hash, models, (int32_t)sizeof models);
     // Mirrored across x, two pairs of bones swapping sides.
     const maniMirrorPairSource pairs[2] = {{1, 2}, {3, 4}};
-    maniMirrorMapSource source = {&s_skeleton, NULL, pairs,           NULL, NULL, NULL, 2, 0,
-                                  0,           0,    maniMirrorAxisX, 0};
+    maniMirrorMapSource source = {&s_skeleton, NULL, pairs, NULL, NULL,           NULL,
+                                  2,           0,    0,     0,    maniMirrorAxisX};
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
     static _Alignas(16) uint8_t file[4096];

@@ -72,10 +72,10 @@ static maniGraphSource BodySource(const maniGraphNodeSource* nodes, uint32_t cou
 // The arm toward the hand's goal and turned by b toward the rotation;
 // the spine half as hard toward the chest's, pulling its chain.
 static const maniGraphEffectorSource kTwo[2] = {
-    {2, 0, 5, 0, LITERAL(1.0f), {3, 0.0f}, 1.0f, 0.0f},
-    {1, 1, MANI_NO_PARAMETER, 0, LITERAL(0.8f), LITERAL(0.0f), 0.5f, 0.25f}};
+    {2, 0, 5, LITERAL(1.0f), {3, 0.0f}, 1.0f, 0.0f},
+    {1, 1, MANI_NO_PARAMETER, LITERAL(0.8f), LITERAL(0.0f), 0.5f, 0.25f}};
 static const maniGraphEffectorSource kHand[1] = {
-    {2, 0, MANI_NO_PARAMETER, 0, LITERAL(1.0f), LITERAL(0.0f), 1.0f, 0.0f}};
+    {2, 0, MANI_NO_PARAMETER, LITERAL(1.0f), LITERAL(0.0f), 1.0f, 0.0f}};
 static const maniBodyBone kSpine[1] = {
     {.bone = 1,
      .limit = {.kind = maniJointLimitCone, .cone = 0.6f, .twistLow = -0.2f, .twistHigh = 0.2f},
@@ -250,12 +250,11 @@ static void TestSubgraph(void)
     static const uint32_t kSecond[1] = {1};
     // The XPBD node's effector reads its rotation and both weights from
     // the outer parameters too.
-    static const maniGraphEffectorSource kAimed[1] = {
-        {2, 1, 2, 0, {3, 0.0f}, {3, 0.0f}, 1.0f, 0.0f}};
+    static const maniGraphEffectorSource kAimed[1] = {{2, 1, 2, {3, 0.0f}, {3, 0.0f}, 1.0f, 0.0f}};
     static const maniGraphEffectorSource kTarget[1] = {
-        {2, 1, MANI_NO_PARAMETER, 0, LITERAL(1.0f), LITERAL(0.0f), 1.0f, 0.0f}};
+        {2, 1, MANI_NO_PARAMETER, LITERAL(1.0f), LITERAL(0.0f), 1.0f, 0.0f}};
     static const maniGraphEffectorSource kOuter[1] = {
-        {2, 0, 5, 0, LITERAL(0.75f), LITERAL(0.75f), 1.0f, 0.0f}};
+        {2, 0, 5, LITERAL(0.75f), LITERAL(0.75f), 1.0f, 0.0f}};
     inner[0] = Parameter("w", maniGraphParameterFloat, Float(0.0f));
     inner[1] = Parameter("target", maniGraphParameterVec3, Vec(0.0f, 0.0f, 0.0f, 0.0f));
     inner[2] = Parameter("aim", maniGraphParameterQuat, Vec(0.0f, 0.0f, 0.0f, 1.0f));

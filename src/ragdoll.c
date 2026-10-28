@@ -272,9 +272,9 @@ static maniFileResult Records(const Sections* s, const maniRagdoll* r)
     return f;
 }
 
-static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t size,
-                                                    maniRagdoll* ragdollOut)
+static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t size, void* out)
 {
+    maniRagdoll* ragdollOut = out;
     if (ragdollOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -317,7 +317,7 @@ static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t si
 maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragdollOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenRagdollWork(bytes, size, ragdollOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, ragdollOut, OpenRagdollWork);
     maniFloatEnvLeave(env);
     return result;
 }

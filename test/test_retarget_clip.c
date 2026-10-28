@@ -12,6 +12,7 @@
 // axes, the axes kept where a scale of 0 takes them to nothing); the
 // refusals; the baked clip's bits pinned, the same on every platform.
 
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -149,7 +150,7 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
         sources[b].rest.scale.x = side == 0 && b == 6 ? 0.5f : 1.0f;
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {sources, count, 0};
+    maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
@@ -230,25 +231,24 @@ static void SourceClip(const maniSkeleton* skeleton, maniAdditiveBasis additive,
                        int slot, maniClip* out)
 {
     const maniBoneTrackSource tracks[6] = {
-        {0, 0, Keys(kRootMove), Keys(kYaw), kNone},
-        {1, 0, Keys(kHipsMove), Keys(kHipsTilt), kNone},
-        {2, 0, kNone, Keys(kSpine), kNone},
-        {5, 0, root == 5 ? Keys(kArmMove) : kNone, Keys(kArm), kNone},
-        {6, 0, kNone, kNone, Keys(kHand)},
-        {3, 0, kNone, Keys(kSpine), kNone}};
-    const maniFloatTrackSource floats[2] = {
-        {"blink", 5, 0, Keys(kBlink)}, {"flag", 4, 0, {kTimes, kFlag, 2, maniInterpolationStep}}};
+        {0, Keys(kRootMove), Keys(kYaw), kNone},
+        {1, Keys(kHipsMove), Keys(kHipsTilt), kNone},
+        {2, kNone, Keys(kSpine), kNone},
+        {5, root == 5 ? Keys(kArmMove) : kNone, Keys(kArm), kNone},
+        {6, kNone, kNone, Keys(kHand)},
+        {3, kNone, Keys(kSpine), kNone}};
+    const maniFloatTrackSource floats[2] = {{"blink", 5, Keys(kBlink)},
+                                            {"flag", 4, {kTimes, kFlag, 2, maniInterpolationStep}}};
     const maniDiscreteTrackSource discrete[2] = {{"foot", 4, 3, kFootTimes, kFoot},
                                                  {"grip", 4, 2, kGripTimes, kGrip}};
-    const maniEventSource events[2] = {{0.25f, 7, "step", 4, 0}, {0.75f, 9, "step", 4, 0}};
-    const maniEventSource markers[2] = {{0.0f, 0, "L", 1, 0}, {0.5f, 0, "R", 1, 0}};
+    const maniEventSource events[2] = {{0.25f, 7, "step", 4}, {0.75f, 9, "step", 4}};
+    const maniEventSource markers[2] = {{0.0f, 0, "L", 1}, {0.5f, 0, "R", 1}};
     const maniRootMotionSource motion = {root,
                                          maniRootAxisX | maniRootAxisZ,
                                          root == 0 ? maniRootRotationTwist : maniRootRotationWhole,
                                          1,
                                          maniRootReferenceRest,
                                          maniRootReferenceRest,
-                                         0,
                                          0};
     maniClipSource source = {.skeleton = skeleton,
                              .boneTracks = tracks,
@@ -276,6 +276,27 @@ static void SourceClip(const maniSkeleton* skeleton, maniAdditiveBasis additive,
     maniDestroyBuilder(builder);
 }
 
+// Whether the source bakes to the size bytes at built whatever bytes pad
+// it.
+static bool PaddingIgnored(const maniRetargetClipSource* source, const uint8_t* built, size_t size)
+{
+    bool same = true;
+    for (int k = 0; k < 2; ++k)
+    {
+        maniRetargetClipSource s = *source;
+        TEST_PAD(&s, 1, kFieldsRetargetClipSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        size_t padded = 0;
+        uint8_t* bytes = maniBuildRetargetedClip(builder, &s).result == mani_success
+                             ? TestCopyBuilt(builder, &padded)
+                             : NULL;
+        same = same && bytes != NULL && padded == size && memcmp(bytes, built, size) == 0;
+        free(bytes);
+        maniDestroyBuilder(builder);
+    }
+    return same;
+}
+
 static maniBuildResult Bake(const maniRetargetClipSource* source, maniClip* out)
 {
     maniBuilder* builder = NewBuilder();
@@ -286,6 +307,7 @@ static maniBuildResult Bake(const maniRetargetClipSource* source, maniClip* out)
         CHECK(maniCopyBuilt(builder, s_baked, sizeof s_baked, &size) == mani_success &&
                   maniOpenClip(s_baked, size, out).result == mani_success,
               "the baked clip opens");
+        CHECK(PaddingIgnored(source, s_baked, size), "the same clip under either padding");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -293,7 +315,7 @@ static maniBuildResult Bake(const maniRetargetClipSource* source, maniClip* out)
 
 static maniRetargetClipSource Source(const maniRetargetMap* map, const maniClip* clip)
 {
-    return (maniRetargetClipSource){map, &s_source, &s_target, clip, MANI_NO_BONE, 0};
+    return (maniRetargetClipSource){map, &s_source, &s_target, clip, MANI_NO_BONE};
 }
 
 // The normalized dot product's size of two rotations, in binary64.
@@ -538,14 +560,9 @@ static maniQuat Mul(maniQuat a, maniQuat b)
 // x stays, z becomes y, the twist about y one about z.
 static void TestTurned(void)
 {
-    const maniBoneTrackSource tracks[1] = {{1, 0, Keys(kTurnedMove), Keys(kYaw), kNone}};
-    const maniRootMotionSource root = {1,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
+    const maniBoneTrackSource tracks[1] = {{1, Keys(kTurnedMove), Keys(kYaw), kNone}};
+    const maniRootMotionSource root = {1, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                       1, maniRootReferenceRest,         maniRootReferenceRest,
                                        0};
     maniClipSource clip = {.skeleton = &s_turnedSource,
                            .boneTracks = tracks,
@@ -563,8 +580,8 @@ static void TestTurned(void)
               maniOpenClip(s_clipFiles[2], size, &source).result == mani_success,
           "a turned source clip");
     maniDestroyBuilder(builder);
-    maniRetargetClipSource s = {&s_turnedMap, &s_turnedSource, &s_turnedTarget,
-                                &source,      MANI_NO_BONE,    0};
+    maniRetargetClipSource s = {&s_turnedMap, &s_turnedSource, &s_turnedTarget, &source,
+                                MANI_NO_BONE};
     maniRootMotionSource declared;
     CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
               declared.bone == 1 && declared.translationAxes == (maniRootAxisX | maniRootAxisY) &&
@@ -674,11 +691,9 @@ static void TestRefusals(void)
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(maniBuildRetargetedClip(NULL, &s).result == mani_errorInvalid, "a NULL builder");
     CHECK(maniBuildRetargetedClip(builder, NULL).result == mani_errorInvalid, "a NULL source");
-    s.reserved = 1;
-    CHECK(maniBuildRetargetedClip(builder, &s).result == mani_errorInvalid, "reserved not 0");
     s = Source(NULL, &source);
     CHECK(maniBuildRetargetedClip(builder, &s).result == mani_errorInvalid, "a NULL map");
-    CHECK(maniBuilderMisuses(builder) == 3, "misuses counted");
+    CHECK(maniBuilderMisuses(builder) == 2, "misuses counted");
     maniDestroyBuilder(builder);
     s = Source(&s_map, &source);
     s.source = &s_otherSource;

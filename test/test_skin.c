@@ -12,8 +12,10 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "pose_memory.h"
 #include "skin_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 #include "vecmath.h"
 
@@ -70,7 +72,7 @@ static maniBuilder* NewBuilder(void)
 static maniSkeleton OpenSkeleton(const maniBoneSource* bones, uint8_t* file, size_t capacity)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, file, capacity, &size) == mani_success, "skeleton copies");
@@ -100,7 +102,7 @@ static void BuildSample(void)
     maniAffine inverseBinds[kJoints];
     RestInverseBinds(inverseBinds);
     maniBuilder* builder = NewBuilder();
-    maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints, 0};
+    maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints};
     CHECK(maniBuildSkin(builder, &source).result == mani_success, "skin builds");
     CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "skin copies");
     maniDestroyBuilder(builder);
@@ -211,7 +213,7 @@ static void TestPaletteIsModelTimesInverseBind(void)
 static maniBuildResult BuildWith(const uint32_t* joints, const maniAffine* binds, uint32_t count)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkinSource source = {&s_skeleton, joints, binds, count, 0};
+    maniSkinSource source = {&s_skeleton, joints, binds, count};
     maniBuildResult r = maniBuildSkin(builder, &source);
     maniDestroyBuilder(builder);
     return r;
@@ -234,7 +236,7 @@ static void TestBuildRefusals(void)
           "a matrix not finite");
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildSkin(builder, NULL).result == mani_errorInvalid, "null source");
-    maniSkinSource noSkeleton = {NULL, kJointBones, binds, kJoints, 0};
+    maniSkinSource noSkeleton = {NULL, kJointBones, binds, kJoints};
     CHECK(maniBuildSkin(builder, &noSkeleton).result == mani_errorInvalid, "null skeleton");
     CHECK(maniBuilderMisuses(builder) == 2, "two misuses");
     maniDestroyBuilder(builder);
@@ -254,7 +256,9 @@ static void ExpectFormat(uint64_t offset, const char* what)
 {
     Rehash();
     maniFileResult r = Open();
-    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    CHECK(r.result == mani_errorFormat && r.offset == offset &&
+              r.tag == TestTagAt(s_file, s_size, offset),
+          what);
     BuildSample();
 }
 
@@ -352,6 +356,26 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source.
+static void TestPaddingIgnored(void)
+{
+    BuildSample();
+    maniAffine inverseBinds[kJoints];
+    RestInverseBinds(inverseBinds);
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints};
+        TEST_PAD(&source, 1, kFieldsSkinSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildSkin(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -365,5 +389,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestTableRefusals();
     TestEveryByteFlip();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

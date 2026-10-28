@@ -21,7 +21,7 @@
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 bool maniFbxIsBlendChannel(const maniFbx* fbx, uint32_t object)

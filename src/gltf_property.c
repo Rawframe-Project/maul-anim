@@ -11,12 +11,12 @@
 
 maniImportResult maniImportFail(maniImportReason reason, uint64_t offset, uint32_t item)
 {
-    return (maniImportResult){mani_errorFormat, reason, offset, item, 0};
+    return (maniImportResult){mani_errorFormat, reason, offset, item};
 }
 
 maniImportResult maniImportSuccess(void)
 {
-    return (maniImportResult){mani_success, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_success, maniImportReasonNone, 0, 0};
 }
 
 uint64_t maniGltfOffset(const maniGltfJson* g, uint32_t value)

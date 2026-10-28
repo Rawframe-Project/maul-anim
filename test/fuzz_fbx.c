@@ -183,7 +183,7 @@ static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* 
         {
             // The second with the root's whole motion taken out.
             uint32_t bound = 0;
-            maniRootMotionSource root = {0, 7, maniRootRotationWhole, 0, 1, 0, 1, 0};
+            maniRootMotionSource root = {0, 7, maniRootRotationWhole, 0, 1, 0, 1};
             maniImportClipOptions settings = maniDefaultImportClipOptions();
             settings.sampleRate = k == 1 ? 7.0f : 0.0f;
             settings.rootMotion = k == 1 ? &root : NULL;
@@ -244,8 +244,8 @@ static void Morphs(maniBuilder* builder, const maniFbx* fbx, const maniFbxOption
             maniOpenMorphTargets(file, size, &m).result == mani_success)
         {
             uint32_t vertices = maniMorphVertexCount(&m);
-            maniMorphStream stream = {positions, positions, 12, 12, maniMorphPosition, 0, 3, 0};
-            maniMorphJob job = {&m, weights, 0, vertices < 64 ? vertices : 64, 1, 0, &stream};
+            maniMorphStream stream = {positions, positions, 12, 12, maniMorphPosition, 0, 3};
+            maniMorphJob job = {&m, weights, 0, vertices < 64 ? vertices : 64, 1, &stream};
             memset(positions, 0, sizeof positions);
             (void)maniApplyMorphTargets(&job);
         }

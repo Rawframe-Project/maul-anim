@@ -63,7 +63,7 @@ static maniMirrorMap s_mirrorMap;
 static const maniMirrorMap* s_mirror;
 static _Alignas(16) uint8_t s_springFile[8192];
 static maniSpringSet s_springSet;
-static const maniGraphSpringSetSource kHostSets[1] = {{&s_springSet, "tail", 4, 0}};
+static const maniGraphSpringSetSource kHostSets[1] = {{&s_springSet, "tail", 4}};
 static maniPose* s_pose[2];
 
 static maniBuilder* NewBuilder(void)
@@ -94,7 +94,7 @@ static void Rig(void)
                                     {{0.1f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1, 1, 1}}};
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, kBones, 0};
+    maniSkeletonSource source = {bones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
@@ -124,7 +124,6 @@ static void Rig(void)
             }
             tracks[b] =
                 (maniBoneTrackSource){b,
-                                      0,
                                       {times, translations[c][b], 3, maniInterpolationLinear},
                                       {times, rotations[c][b], 3, maniInterpolationLinear},
                                       {NULL, NULL, 0, maniInterpolationLinear}};
@@ -172,7 +171,7 @@ static void Rig(void)
     maniColliderGroupSource group = {"spine", 5, 1, kGroup};
     static const uint32_t kGroups[1] = {0};
     maniSpringSource spring = {"tail", 4, 4, joints, kGroups, 1, MANI_NO_BONE};
-    maniSpringSetSource set = {&s_skeleton, &collider, &group, &spring, 1, 1, 1, 0.0f, 0.0f, 0};
+    maniSpringSetSource set = {&s_skeleton, &collider, &group, &spring, 1, 1, 1, 0.0f, 0.0f};
     CHECK(maniBuildSpringSet(builder, &set).result == mani_success &&
               maniCopyBuilt(builder, s_springFile, sizeof s_springFile, &size) == mani_success &&
               maniOpenSpringSet(s_springFile, size, &s_springSet).result == mani_success,
@@ -180,9 +179,8 @@ static void Rig(void)
     maniDestroyBuilder(builder);
 }
 
-static const maniGraphClipSource kHost[kClips] = {{&s_clips[0], "walk", 4, 0, NULL},
-                                                  {&s_clips[1], "run", 3, 0, NULL},
-                                                  {&s_clips[2], "lean", 4, 0, NULL}};
+static const maniGraphClipSource kHost[kClips] = {
+    {&s_clips[0], "walk", 4, NULL}, {&s_clips[1], "run", 3, NULL}, {&s_clips[2], "lean", 4, NULL}};
 
 // A graph from its text, bound, two instances and two poses.
 static bool Open(const char* text)

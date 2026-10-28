@@ -55,8 +55,7 @@ static inline maniLearnedNetworkSource FuzzModelNetwork(maniLearnedLayerSource* 
                                       FuzzModelValues(inputs, 0.0f, 1.0f),
                                       FuzzModelValues(outputs, 0.0f, 0.0f),
                                       FuzzModelValues(outputs, 0.0f, 1.0f),
-                                      2,
-                                      0};
+                                      2};
 }
 
 // The model over database (of skeleton), built into file and opened.
@@ -65,7 +64,7 @@ static inline bool MakeFuzzModel(maniBuilder* builder, const maniSkeleton* skele
                                  maniLearnedModel* out)
 {
     static maniLearnedLayerSource layers[3][2];
-    static const maniLearnedNameSource kEvent = {"step", 4, 0};
+    static const maniLearnedNameSource kEvent = {"step", 4};
     uint32_t bones = maniSkeletonBoneCount(skeleton);
     uint32_t features = database->featureCount;
     uint32_t state = features + 2;

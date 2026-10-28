@@ -491,9 +491,9 @@ static maniFileResult CheckNames(const maniLearnedModel* m, const Sections* s)
     return at == m->nameBytesSize ? kOk : Fail(s->entry[maniLearnedTagNameBytes - 1]);
 }
 
-static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size_t size,
-                                                         maniLearnedModel* modelOut)
+static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size_t size, void* out)
 {
+    maniLearnedModel* modelOut = out;
     if (modelOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -533,7 +533,7 @@ static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size
 maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedModel* modelOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenLearnedModelWork(bytes, size, modelOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, modelOut, OpenLearnedModelWork);
     maniFloatEnvLeave(env);
     return result;
 }

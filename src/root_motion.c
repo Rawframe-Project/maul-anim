@@ -57,7 +57,7 @@ static bool SourceValid(const maniRootMotionSource* s)
 {
     return s->translationAxes <= 7u && s->rotation <= maniRootRotationWhole && s->twistAxis <= 2u &&
            s->translationReference <= maniRootReferenceOrigin &&
-           s->rotationReference <= maniRootReferenceOrigin && s->loop <= 1u && s->reserved == 0u &&
+           s->rotationReference <= maniRootReferenceOrigin && s->loop <= 1u &&
            (s->translationAxes != 0u || s->rotation != maniRootRotationNone);
 }
 
@@ -70,7 +70,7 @@ static maniRootMotionSource LoadSource(const uint8_t* h)
 {
     return (maniRootMotionSource){maniLoadU32(h),      maniLoadU32(h + 4),  maniLoadU32(h + 8),
                                   maniLoadU32(h + 12), maniLoadU32(h + 16), maniLoadU32(h + 20),
-                                  maniLoadU32(h + 24), maniLoadU32(h + 28)};
+                                  maniLoadU32(h + 24)};
 }
 
 // Whether the clip's tracks hold the bone's translation and rotation.
@@ -100,8 +100,9 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
     {
         return Fail(entry);
     }
+    // The source's seven words, then a zero word.
     maniRootMotionSource s = LoadSource(data);
-    if (!SourceValid(&s) || clip->additive != maniAdditiveNone)
+    if (!SourceValid(&s) || maniLoadU32(data + 28) != 0 || clip->additive != maniAdditiveNone)
     {
         return Fail(at);
     }

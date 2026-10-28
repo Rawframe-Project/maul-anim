@@ -34,7 +34,7 @@ typedef struct Reader
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Fail(const Reader* r, maniImportReason reason, uint32_t value,
@@ -829,7 +829,7 @@ static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
     if (gltf == NULL || skeleton == NULL || options == NULL || setOut == NULL ||
         !maniGltfOptionsValid(options))
     {
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     maniArenaRelease(&gltf->springs);
     gltf->springs = maniArenaMake(&gltf->allocator);

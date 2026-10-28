@@ -274,7 +274,7 @@ maniImportResult maniGltfReadLayout(maniGltf* gltf)
     gltf->views = maniAllocate(&gltf->allocator, count, sizeof(maniGltfView), 8);
     if (count > 0 && gltf->views == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     if (count > 0)
     {
@@ -299,7 +299,7 @@ maniImportResult maniGltfReadLayout(maniGltf* gltf)
     gltf->accessors = maniAllocate(&gltf->allocator, count, sizeof(maniGltfAccessor), 8);
     if (count > 0 && gltf->accessors == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     if (count > 0)
     {

@@ -28,6 +28,7 @@
 #include "graph_file.h"
 #include "graph_fixture.h"
 #include "graph_instance.h"
+#include "graph_padding.h"
 #include "graph_turn.h"
 #include "vecmath.h"
 
@@ -91,7 +92,7 @@ static maniGraphSource TurnGraph(maniGraphTurnLimitNodeSource turn)
                              .output = 3};
 }
 
-static const maniGraphTurnLimitNodeSource kTurn = {{1, 0.0f}, 2, 0, NULL};
+static const maniGraphTurnLimitNodeSource kTurn = {{1, 0.0f}, 2, NULL};
 
 static maniBuildResult Build(const maniGraphSource* source, Made* m)
 {
@@ -99,6 +100,7 @@ static maniBuildResult Build(const maniGraphSource* source, Made* m)
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result == mani_success)
     {
+        CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
         CHECK(maniCopyBuilt(builder, m->file, sizeof m->file, &m->size) == mani_success, "copied");
     }
     maniDestroyBuilder(builder);
@@ -397,7 +399,7 @@ static void TestSubsetBranch(void)
         {"leg", 3, 0, {{0.1f, -0.5f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
         {"foot", 4, 3, {{0.0f, -0.4f, 0.1f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource skeleton = {kBranched, 5, 0};
+    maniSkeletonSource skeleton = {kBranched, 5};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
               maniCopyBuilt(builder, s_branchedFile, sizeof s_branchedFile, &size) ==
@@ -610,7 +612,7 @@ static void TestJson(void)
               maniOpenGraph(s_made[1].file, size, &read).result == mani_success &&
               read.identity == g.identity,
           "read back to the same graph");
-    source = TurnGraph((maniGraphTurnLimitNodeSource){LITERAL(2.5f), MANI_NO_PARAMETER, 0, NULL});
+    source = TurnGraph((maniGraphTurnLimitNodeSource){LITERAL(2.5f), MANI_NO_PARAMETER, NULL});
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");

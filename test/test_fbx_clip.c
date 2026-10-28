@@ -7,6 +7,7 @@
 // from the worlds), the placement folded or reported, a float track, the
 // channel bindings counted; and refusals.
 
+#include "source_padding.h"
 #include "test_fbx_sweep.h"
 #include "test_harness.h"
 
@@ -413,7 +414,7 @@ static void TestRootMotion(void)
     maniSkeleton skeleton;
     CHECK(fbx != NULL && PlainSkeleton(builder, &options, &skeleton), "skeleton");
     uint32_t hips = maniSkeletonFindBone(&skeleton, "Hips", 4);
-    maniRootMotionSource travel = {hips, maniRootAxisX | maniRootAxisZ, 0, 0, 0, 0, 0, 0};
+    maniRootMotionSource travel = {hips, maniRootAxisX | maniRootAxisZ, 0, 0, 0, 0, 0};
     maniImportClipOptions settings = maniDefaultImportClipOptions();
     settings.loop = maniLoopRepeat;
     settings.rootMotion = &travel;
@@ -493,7 +494,7 @@ static bool Custom(maniBuilder* builder, maniSkeleton* out)
     const maniTransform rest = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
     const maniBoneSource bones[3] = {
         {"Root", 4, -1, rest}, {"Hips", 4, 0, rest}, {"Arm", 3, 1, rest}};
-    maniSkeletonSource source = {bones, 3, 0};
+    maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
@@ -713,7 +714,7 @@ static bool Helpered(maniBuilder* builder, maniSkeleton* out)
     const maniTransform rest = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
     const maniBoneSource bones[3] = {
         {"Spine", 5, -1, rest}, {"Spine#unscaled", 14, 0, rest}, {"Hips", 4, 1, rest}};
-    maniSkeletonSource source = {bones, 3, 0};
+    maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
@@ -1057,7 +1058,7 @@ static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const cha
     maniFbx* fbx = Open(builder, kScene);
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
-    maniImportResult r = {mani_errorInvalid, 0, 0, 0, 0};
+    maniImportResult r = {mani_errorInvalid, 0, 0, 0};
     if (fbx != NULL && PlainSkeleton(builder, &options, &skeleton))
     {
         r = maniFbxBuildClip(builder, fbx, clipIndex, &skeleton, &options,
@@ -1088,7 +1089,7 @@ static void TestRefusals(void)
         maniFbx* fbx = Open(builder, s_text);
         maniFbxOptions options = maniDefaultFbxOptions();
         maniSkeleton skeleton;
-        maniImportResult r = {mani_errorInvalid, 0, 0, 0, 0};
+        maniImportResult r = {mani_errorInvalid, 0, 0, 0};
         if (fbx != NULL && Skeleton(builder, fbx, &options, &skeleton))
         {
             r = maniFbxBuildClip(
@@ -1138,6 +1139,44 @@ static void TestAllocationFailures(void)
     CHECK(TestSweep(FbxSweepWork, &sweep, 8192), "allocation failures handled, nothing kept");
 }
 
+// The same skeleton and clip whatever bytes pad the options.
+static void TestOptionsPaddingIgnored(void)
+{
+    uint8_t* skeletons[2] = {NULL, NULL};
+    size_t skeletonSizes[2] = {0, 0};
+    uint8_t* clips[2] = {NULL, NULL};
+    size_t clipSizes[2] = {0, 0};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniBuilder* builder = NewBuilder();
+        maniFbx* fbx = Open(builder, kScene);
+        maniFbxOptions options = maniDefaultFbxOptions();
+        TEST_PAD(&options, 1, kFieldsFbxOptions, kTestPadPatterns[k]);
+        maniSkeleton skeleton;
+        bool built = fbx != NULL && PlainSkeleton(builder, &options, &skeleton);
+        skeletons[k] = built ? TestCopyBuilt(builder, &skeletonSizes[k]) : NULL;
+        maniRootMotionSource travel = {built ? maniSkeletonFindBone(&skeleton, "Hips", 4) : 0,
+                                       maniRootAxisX | maniRootAxisZ,
+                                       0,
+                                       0,
+                                       0,
+                                       0,
+                                       0};
+        maniImportClipOptions settings = maniDefaultImportClipOptions();
+        settings.loop = maniLoopRepeat;
+        settings.rootMotion = &travel;
+        TEST_PAD(&settings, 1, kFieldsImportClipOptions, kTestPadPatterns[k]);
+        built = built &&
+                maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
+                    mani_success;
+        clips[k] = built ? TestCopyBuilt(builder, &clipSizes[k]) : NULL;
+        maniCloseFbx(fbx);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(skeletons, skeletonSizes), "the same skeleton under either padding");
+    CHECK(TestSameBuilt(clips, clipSizes), "the same clip under either padding");
+}
+
 int main(void)
 {
     TestAllocationFailures();
@@ -1158,5 +1197,6 @@ int main(void)
     TestTracks();
     TestTimes();
     TestRefusals();
+    TestOptionsPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

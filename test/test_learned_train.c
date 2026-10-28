@@ -21,10 +21,12 @@
 
 #include "checkpoint_host.h"
 #include "container.h"
+#include "file_tag.h"
 #include "fpenv.h"
 #include "graph_match_fixture.h"
 #include "learned_file.h"
 #include "learned_train.h"
+#include "source_padding.h"
 #include "train_decompress.h"
 #include "train_net.h"
 #include "train_projector.h"
@@ -46,7 +48,7 @@ static maniMotionDatabase s_bones;
 static const maniClip* s_trainClips[2];
 static const maniAllocator kAllocator = {NULL, NULL, NULL};
 static const maniLearnedTagFilter kFilters[2] = {{0, 0}, {2, 0}};
-static const maniLearnedNameSource kEvents[2] = {{"left", 4, 0}, {"right", 5, 0}};
+static const maniLearnedNameSource kEvents[2] = {{"left", 4}, {"right", 5}};
 
 static void OpenBones(void)
 {
@@ -294,7 +296,7 @@ static void TestSource(void)
     maniLearnedTrainerSource s = base;
     static _Alignas(16) uint8_t file[4096];
     maniSkeleton other;
-    maniSkeletonSource source = {kBones, 2, 0};
+    maniSkeletonSource source = {kBones, 2};
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
@@ -329,12 +331,12 @@ static void TestSource(void)
     s = base;
     s.projectors = filters;
     CHECK(RefusedFor(&s, maniBuildReasonTags, 1), "a filter no frame passes");
-    const maniLearnedNameSource twice[2] = {{"left", 4, 0}, {"left", 4, 0}};
+    const maniLearnedNameSource twice[2] = {{"left", 4}, {"left", 4}};
     s = base;
     s.events = twice;
     CHECK(RefusedFor(&s, maniBuildReasonEvent | maniBuildReasonDuplicateName, 1),
           "an event named twice");
-    const maniLearnedNameSource empty[1] = {{"", 0, 0}};
+    const maniLearnedNameSource empty[1] = {{"", 0}};
     s = base;
     s.floatTracks = empty;
     s.floatTrackCount = 1;
@@ -714,7 +716,8 @@ static uint64_t SectionAt(uint32_t tag)
 static bool RefusedAt(maniLearnedTrainer* t, size_t size, uint64_t offset)
 {
     maniFileResult r = maniRestoreLearnedCheckpoint(t, s_checkpoint, size);
-    return r.result == mani_errorFormat && r.offset == offset;
+    return r.result == mani_errorFormat && r.offset == offset &&
+           r.tag == TestTagAt(s_checkpoint, size, offset);
 }
 
 static void StoreF32(uint8_t* p, float x)
@@ -898,6 +901,47 @@ static int WriteSeed(const char* path)
     return ok ? 0 : 1;
 }
 
+// The same checkpoint and model whatever bytes pad the source's names.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* checkpoints[2] = {NULL, NULL};
+    size_t checkpointSizes[2] = {0, 0};
+    uint8_t* models[2] = {NULL, NULL};
+    size_t modelSizes[2] = {0, 0};
+    for (int k = 0; k < 2; ++k)
+    {
+        maniLearnedNameSource events[2];
+        memcpy(events, kEvents, sizeof events);
+        TEST_PAD(events, 2, kFieldsLearnedNameSource, kTestPadPatterns[k]);
+        maniLearnedTrainerSource s = Source();
+        s.events = events;
+        TEST_PAD(&s, 1, kFieldsLearnedTrainerSource, kTestPadPatterns[k]);
+        maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+        maniLearnedTrainer* t = Create(&def, &s);
+        maniLearnedTrainerReport report;
+        CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
+              "trained padded");
+        checkpointSizes[k] = maniLearnedCheckpointSize(t);
+        checkpoints[k] = (uint8_t*)malloc(checkpointSizes[k]);
+        if (checkpoints[k] != NULL &&
+            maniSaveLearnedCheckpoint(t, checkpoints[k], checkpointSizes[k]) != mani_success)
+        {
+            free(checkpoints[k]);
+            checkpoints[k] = NULL;
+        }
+        maniBuilder* builder = NewBuilder();
+        if (maniBuildLearnedModelFromTrainer(builder, t, maniLearnedWeightsFloat32).result ==
+            mani_success)
+        {
+            models[k] = TestCopyBuilt(builder, &modelSizes[k]);
+        }
+        maniDestroyBuilder(builder);
+        maniDestroyLearnedTrainer(t);
+    }
+    CHECK(TestSameBuilt(checkpoints, checkpointSizes), "the same checkpoint under either padding");
+    CHECK(TestSameBuilt(models, modelSizes), "the same model under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -918,5 +962,6 @@ int main(int argc, char** argv)
     TestRestoreRefused();
     TestCanonical();
     TestMemory();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

@@ -31,7 +31,7 @@ static const char* const kFilters[5] = {"NONE", "OCTAHEDRAL", "QUATERNION", "EXP
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 // The object of the extension the value carries, MANI_JSON_NONE for

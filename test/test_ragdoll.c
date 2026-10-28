@@ -17,8 +17,10 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "ragdoll_file.h"
 #include "ragdoll_fixture.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/build.h"
@@ -336,7 +338,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
         printf("  at %llu: refused %d at %llu, want %llu\n", (unsigned long long)offset,
                (int)r.result, (unsigned long long)r.offset, (unsigned long long)want);
     }
-    return r.result == mani_errorFormat && r.offset == want;
+    return r.result == mani_errorFormat && r.offset == want &&
+           r.tag == TestTagAt(s_crafted, s_size, want);
 }
 
 static uint32_t Bits(float v)
@@ -439,6 +442,25 @@ static int WriteSeed(const char* path)
     return ok ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source and its bodies.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniRagdollSource source = Source();
+        maniRagdollBodySource bodies[5];
+        memcpy(bodies, s_bodies, sizeof bodies);
+        TEST_PAD(bodies, 5, kFieldsRagdollBodySource, kTestPadPatterns[k]);
+        source.bodies = bodies;
+        TEST_PAD(&source, 1, kFieldsRagdollSource, kTestPadPatterns[k]);
+        CHECK(maniBuildRagdoll(s_builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(s_builder, &sizes[k]);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     OpenSkeleton();
@@ -454,6 +476,7 @@ int main(int argc, char** argv)
     TestJointRefusals();
     TestAxesAndMisuse();
     TestOpen();
+    TestPaddingIgnored();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

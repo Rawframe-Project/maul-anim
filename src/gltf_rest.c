@@ -152,7 +152,7 @@ maniImportResult maniGltfPlacement(const maniGltf* gltf, uint32_t root,
     uint32_t* path = maniAllocate(&gltf->allocator, (size_t)depth + 1, sizeof(uint32_t), 8);
     if (path == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     uint32_t v = gltf->nodeParents[root];
     for (uint32_t k = depth; k-- > 0; v = gltf->nodeParents[v])

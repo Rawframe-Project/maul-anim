@@ -83,7 +83,7 @@ static bool OpenRig(const maniBoneSource* bones, uint32_t count, uint8_t* file, 
     {
         return false;
     }
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     size_t size = 0;
     bool ok = maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, file, 4096, &size) == mani_success &&

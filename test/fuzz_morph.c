@@ -84,13 +84,12 @@ static void Exercise(const uint8_t* bytes, size_t size)
         }
     }
     uint32_t count = maniMorphVertexCount(&m) < kVertices ? maniMorphVertexCount(&m) : kVertices;
-    const maniMorphStream streams[5] = {
-        {s_points, s_points, 12, 12, maniMorphPosition, 0, 3, 0},
-        {s_normals, s_normals, 12, 12, maniMorphNormal, 0, 3, 0},
-        {s_tangents, s_tangents, 16, 16, maniMorphTangent, 0, 4, 0},
-        {s_texcoords, s_texcoords, 8, 8, maniMorphTexcoord, 0, 2, 0},
-        {s_colors, s_colors, 16, 16, maniMorphColor, 0, 4, 0}};
-    maniMorphJob job = {&m, targetWeights, 0, count, 5, 0, streams};
+    const maniMorphStream streams[5] = {{s_points, s_points, 12, 12, maniMorphPosition, 0, 3},
+                                        {s_normals, s_normals, 12, 12, maniMorphNormal, 0, 3},
+                                        {s_tangents, s_tangents, 16, 16, maniMorphTangent, 0, 4},
+                                        {s_texcoords, s_texcoords, 8, 8, maniMorphTexcoord, 0, 2},
+                                        {s_colors, s_colors, 16, 16, maniMorphColor, 0, 4}};
+    maniMorphJob job = {&m, targetWeights, 0, count, 5, streams};
     (void)maniApplyMorphTargets(&job);
     free(channelWeights);
     free(targetWeights);

@@ -34,7 +34,6 @@ extern "C"
         uint32_t start;
         uint32_t middle;
         uint32_t end;
-        uint32_t reserved;
         // Where the end bone's origin should be, in model space.
         maniVec3 goal;
         // A model-space direction the chain's bend turns toward, from the
@@ -96,7 +95,6 @@ extern "C"
         // bones from it down (the last all of it).
         float shares[MANI_AIM_MAX_BONES];
         uint32_t count;
-        uint32_t reserved;
         // Where to aim, in model space.
         maniVec3 goal;
         // A model-space direction the up axis turns toward, from the
@@ -173,7 +171,6 @@ extern "C"
     typedef struct maniJointLimit
     {
         maniJointLimitKind kind;
-        uint32_t reserved;
         // A hinge's axis in the bone's rest frame, of length 1 within a
         // thousandth and not along the bone's axis; unused by a cone.
         maniVec3 axis;
@@ -207,7 +204,6 @@ extern "C"
         maniQuat rotation;
         // From 1 to MANI_IK_MAX_ITERATIONS.
         uint32_t iterations;
-        uint32_t reserved;
         // The solve stops once the end lies this near the goal; 0 for
         // every iteration.
         float tolerance;

@@ -125,23 +125,22 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
     {
         return Fail(at + 60);
     }
-    *clip = (maniClip){
-        .skeletonIdentity = maniLoadU64(h),
-        .skeletonBoneCount = bones,
-        .sampleCount = expected,
-        .trackCount = maniLoadU32(h + 28),
-        .floatsPerSample = maniLoadU32(h + 32),
-        .floatTrackCount = maniLoadU32(h + 36),
-        .discreteTrackCount = maniLoadU32(h + 40),
-        .eventCount = maniLoadU32(h + 44),
-        .markerCount = maniLoadU32(h + 48),
-        .segmentCount = segments,
-        .compressed = form,
-        .sampleRate = rate,
-        .duration = duration,
-        .loop = maniLoadU32(h + 24),
-        .additive = maniLoadU32(h + 60),
-    };
+    memset(clip, 0, sizeof *clip);
+    clip->skeletonIdentity = maniLoadU64(h);
+    clip->skeletonBoneCount = bones;
+    clip->sampleCount = expected;
+    clip->trackCount = maniLoadU32(h + 28);
+    clip->floatsPerSample = maniLoadU32(h + 32);
+    clip->floatTrackCount = maniLoadU32(h + 36);
+    clip->discreteTrackCount = maniLoadU32(h + 40);
+    clip->eventCount = maniLoadU32(h + 44);
+    clip->markerCount = maniLoadU32(h + 48);
+    clip->segmentCount = segments;
+    clip->compressed = form;
+    clip->sampleRate = rate;
+    clip->duration = duration;
+    clip->loop = maniLoadU32(h + 24);
+    clip->additive = maniLoadU32(h + 60);
     return (maniFileResult){mani_success, 0, 0};
 }
 
@@ -300,8 +299,9 @@ static maniFileResult CheckFront(const Sections* s, maniClip* clip)
     return clip->compressed ? r : CheckSamples(s->data[2], s->at[2], s->data[1], clip);
 }
 
-static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size, maniClip* clipOut)
+static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size, void* out)
 {
+    maniClip* clipOut = out;
     if (clipOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -348,7 +348,7 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
 maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenClipWork(bytes, size, clipOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, clipOut, OpenClipWork);
     maniFloatEnvLeave(env);
     return result;
 }

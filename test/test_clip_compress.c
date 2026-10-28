@@ -18,6 +18,7 @@
 #include "clip_view.h"
 #include "container.h"
 #include "pose_memory.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -121,20 +122,20 @@ static maniChannelSource Linear(const float* values, uint32_t count)
 
 static maniClipSource Source(float duration)
 {
-    s_tracks[0] = (maniBoneTrackSource){0, 0, Linear(s_rootT, KEYS), Linear(s_rootR, KEYS), kNone};
-    s_tracks[1] = (maniBoneTrackSource){1, 0, kNone, Linear(s_spineR, KEYS), kNone};
+    s_tracks[0] = (maniBoneTrackSource){0, Linear(s_rootT, KEYS), Linear(s_rootR, KEYS), kNone};
+    s_tracks[1] = (maniBoneTrackSource){1, kNone, Linear(s_spineR, KEYS), kNone};
     // Chest: a constant translation, a rotation at the rest (default).
-    s_tracks[2] = (maniBoneTrackSource){2, 0, Linear(kChestT, 1), Linear(kChestR, 1), kNone};
+    s_tracks[2] = (maniBoneTrackSource){2, Linear(kChestT, 1), Linear(kChestR, 1), kNone};
     // Arm: a scale at the rest.
-    s_tracks[3] = (maniBoneTrackSource){3, 0, kNone, Linear(s_armR, KEYS), Linear(kArmS, 1)};
-    s_tracks[4] = (maniBoneTrackSource){4, 0, Linear(s_handT, KEYS), kNone, kNone};
-    s_tracks[5] = (maniBoneTrackSource){5, 0, kNone, Linear(s_legR, KEYS), kNone};
-    s_floats[0] = (maniFloatTrackSource){"wave", 4, 0, Linear(s_wave, KEYS)};
-    s_floats[1] = (maniFloatTrackSource){"half", 4, 0, Linear(kHalf, 1)};
+    s_tracks[3] = (maniBoneTrackSource){3, kNone, Linear(s_armR, KEYS), Linear(kArmS, 1)};
+    s_tracks[4] = (maniBoneTrackSource){4, Linear(s_handT, KEYS), kNone, kNone};
+    s_tracks[5] = (maniBoneTrackSource){5, kNone, Linear(s_legR, KEYS), kNone};
+    s_floats[0] = (maniFloatTrackSource){"wave", 4, Linear(s_wave, KEYS)};
+    s_floats[1] = (maniFloatTrackSource){"half", 4, Linear(kHalf, 1)};
     s_floats[2] =
-        (maniFloatTrackSource){"gate", 4, 0, {kGateTimes, kGateValues, 2, maniInterpolationStep}};
+        (maniFloatTrackSource){"gate", 4, {kGateTimes, kGateValues, 2, maniInterpolationStep}};
     // Wide enough that the float precision needs more than 23 bits.
-    s_floats[3] = (maniFloatTrackSource){"wide", 4, 0, Linear(s_wide, KEYS)};
+    s_floats[3] = (maniFloatTrackSource){"wide", 4, Linear(s_wide, KEYS)};
     return (maniClipSource){.skeleton = &s_skeleton,
                             .boneTracks = s_tracks,
                             .floatTracks = s_floats,
@@ -156,7 +157,7 @@ static maniBuilder* NewBuilder(void)
 static void OpenSkeleton(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -493,7 +494,7 @@ static void RandomSkeleton(uint32_t bones)
         s_randomBones[b].name = names[b];
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {s_randomBones, bones, 0};
+    maniSkeletonSource source = {s_randomBones, bones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "random skeleton builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -529,7 +530,7 @@ static void RandomKeys(uint32_t b)
         }
     }
     uint32_t pick = (uint32_t)(Random() * 8.0f);
-    s_randomTracks[b] = (maniBoneTrackSource){b, 0, (pick & 1) ? Linear(s_randomT[b], KEYS) : kNone,
+    s_randomTracks[b] = (maniBoneTrackSource){b, (pick & 1) ? Linear(s_randomT[b], KEYS) : kNone,
                                               (pick & 2) ? Linear(s_randomR[b], KEYS) : kNone,
                                               (pick & 4) ? Linear(s_randomS[b], KEYS) : kNone};
 }
@@ -826,7 +827,7 @@ static void TestCursorRandom(void)
                 b % 3 == 0 ? -0.0f : s_randomBones[b].rest.translation.z;
         }
         maniBuilder* builder = NewBuilder();
-        maniSkeletonSource skeleton = {s_randomBones, bones, 0};
+        maniSkeletonSource skeleton = {s_randomBones, bones};
         CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success, "turned skeleton");
         size_t size = 0;
         CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -938,8 +939,7 @@ static void TestBatchTails(void)
         for (uint32_t b = 0; b < bones; ++b)
         {
             RandomKeys(b);
-            s_randomTracks[b] =
-                (maniBoneTrackSource){b, 0, kNone, Linear(s_randomR[b], KEYS), kNone};
+            s_randomTracks[b] = (maniBoneTrackSource){b, kNone, Linear(s_randomR[b], KEYS), kNone};
         }
         maniClipSource source = {.skeleton = &s_skeleton,
                                  .boneTracks = s_randomTracks,
@@ -1769,6 +1769,25 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same compressed file whatever bytes pad the options.
+static void TestPaddingIgnored(void)
+{
+    BuildFull(0.0f);
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniCompressOptions options = maniDefaultCompressOptions();
+        TEST_PAD(&options, 1, kFieldsCompressOptions, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniCompressClip(builder, &s_full, &s_skeleton, &options, NULL) == mani_success,
+              "compresses padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     FillKeys();
@@ -1806,5 +1825,6 @@ int main(int argc, char** argv)
     TestOtherVersions();
     TestEveryByteFlip();
     TestPinnedBytes();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

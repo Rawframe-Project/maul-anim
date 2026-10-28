@@ -14,6 +14,7 @@
 #include "container.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "graph_padding.h"
 #include "learned_fixture.h"
 
 #include "maul-anim/build.h"
@@ -51,7 +52,7 @@ static void OpenSets(void)
                                                 .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
         }
         maniSpringSource spring = {"arm", 3, 2, joints, NULL, 0, MANI_NO_BONE};
-        maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f, 0};
+        maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f};
         size_t size = 0;
         CHECK(maniBuildSpringSet(builder, &source).result == mani_success &&
                   maniCopyBuilt(builder, s_setFiles[k], sizeof s_setFiles[k], &size) ==
@@ -81,6 +82,7 @@ static maniBuildResult BuildGraph(const maniGraphSource* source)
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result == mani_success)
     {
+        CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
         CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) == mani_success,
               "copied");
     }
@@ -96,7 +98,7 @@ static bool RefusedFor(const maniGraphSource* source, maniBuildReason reason, ui
            r.other == other;
 }
 
-static const maniGraphSpringSetSource kTwo[2] = {{&s_set, "hair", 4, 0}, {&s_other, "tail", 4, 0}};
+static const maniGraphSpringSetSource kTwo[2] = {{&s_set, "hair", 4}, {&s_other, "tail", 4}};
 
 static void TestBuild(void)
 {
@@ -130,10 +132,10 @@ static void TestBuild(void)
     stranger.skeletonIdentity ^= 1;
     bad[1].set = &stranger;
     CHECK(RefusedFor(&source, maniBuildReasonSpringSetSlot, 1, 0), "a set of another skeleton");
-    bad[1] = (maniGraphSpringSetSource){&s_other, "hair", 4, 0};
+    bad[1] = (maniGraphSpringSetSource){&s_other, "hair", 4};
     CHECK(RefusedFor(&source, maniBuildReasonSpringSetList | maniBuildReasonDuplicateName, 1, 0),
           "a name twice");
-    bad[1] = (maniGraphSpringSetSource){&s_other, "", 0, 0};
+    bad[1] = (maniGraphSpringSetSource){&s_other, "", 0};
     CHECK(RefusedFor(&source, maniBuildReasonSpringSetList | maniBuildReasonName, 1, 0), "no name");
     source = Graph(NULL, 1);
     CHECK(RefusedFor(&source, maniBuildReasonCount, 0, 0), "a count without its list");
@@ -196,7 +198,7 @@ static void TestOpen(void)
 
 static void TestBind(void)
 {
-    const maniGraphSpringSetSource slots[1] = {{&s_set, "hair", 4, 0}};
+    const maniGraphSpringSetSource slots[1] = {{&s_set, "hair", 4}};
     maniGraphSource source = Graph(slots, 1);
     CHECK(BuildGraph(&source).result == mani_success, "a graph of a set");
     maniGraph g;
@@ -239,7 +241,7 @@ static void TestBind(void)
     MakeNetworks();
     maniLearnedModelSource model = Source();
     CHECK(Opened(&model, &s_learned), "a model");
-    const maniGraphModelSource modelSlot[1] = {{&s_learned, "steps", 5, 0}};
+    const maniGraphModelSource modelSlot[1] = {{&s_learned, "steps", 5}};
     source.databases = kDatabaseSlot;
     source.databaseCount = 1;
     source.models = modelSlot;
@@ -278,7 +280,7 @@ static char s_text[16384];
 
 static void TestJson(void)
 {
-    const maniGraphSpringSetSource slots[1] = {{&s_set, "hair", 4, 0}};
+    const maniGraphSpringSetSource slots[1] = {{&s_set, "hair", 4}};
     maniGraphSource source = Graph(slots, 1);
     CHECK(BuildGraph(&source).result == mani_success, "a graph of a set");
     maniGraph g;
@@ -304,13 +306,13 @@ static void TestJson(void)
               maniOpenGraph(s_graphFile, s_graphSize, &read).result == mani_success &&
               read.identity == identity,
           "read back to the same graph");
-    const maniGraphSpringSetSource unnamed[2] = {{&s_other, NULL, 4, 0}, {&s_set, "hair", 4, 0}};
+    const maniGraphSpringSetSource unnamed[2] = {{&s_other, NULL, 4}, {&s_set, "hair", 4}};
     assets.springSets = unnamed;
     assets.springSetCount = 2;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success,
           "a host set without a name passed over");
     assets.springSetCount = 1;
-    const maniGraphSpringSetSource other[1] = {{&s_set, "mane", 4, 0}};
+    const maniGraphSpringSetSource other[1] = {{&s_set, "mane", 4}};
     assets.springSets = other;
     maniBuildResult r = maniBuildGraphJson(builder, s_text, size, &assets);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonForm &&
@@ -327,7 +329,7 @@ static void TestJson(void)
 static void TestSubgraph(void)
 {
     // The root lists one set; a subgraph node over a graph listing it.
-    const maniGraphSpringSetSource slots[1] = {{&s_set, "hair", 4, 0}};
+    const maniGraphSpringSetSource slots[1] = {{&s_set, "hair", 4}};
     maniGraphSource inner = Graph(slots, 1);
     maniGraphNodeSource node = {(maniGraphNodeKind)maniGraphNodeSubgraph, 0, NULL,
                                 .subgraph = {&inner, NULL}};

@@ -27,7 +27,7 @@ static_assert(sizeof(maniFbxLocalInputs) ==
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 void maniFbxReleaseSampler(maniFbxSampler* sampler)

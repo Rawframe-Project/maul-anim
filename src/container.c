@@ -8,6 +8,7 @@
 #include "container.h"
 
 #include "bytes.h"
+#include "fpenv.h"
 #include "invariant.h"
 
 #include "maul-anim/base.h"
@@ -91,6 +92,40 @@ static maniFileResult CheckHeader(const uint8_t* b, size_t size, uint16_t kind, 
         }
     }
     return Fail(mani_success, 0);
+}
+
+// The result with the tag of the section its offset lies in.
+static maniFileResult Tagged(const void* bytes, size_t size, maniFileResult result)
+{
+    const uint8_t* b = (const uint8_t*)bytes;
+    if (result.result != mani_errorFormat || b == NULL || size < MANI_CONTAINER_HEADER_SIZE)
+    {
+        return result;
+    }
+    uint32_t count = maniLoadU32(b + 12);
+    uint64_t tableEnd = MANI_CONTAINER_HEADER_SIZE + (uint64_t)count * MANI_CONTAINER_ENTRY_SIZE;
+    if (count > MANI_CONTAINER_MAX_SECTIONS || tableEnd > size || result.offset < tableEnd)
+    {
+        return result;
+    }
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const uint8_t* entry =
+            b + MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
+        uint64_t offset = maniLoadU64(entry + 8);
+        if (result.offset >= offset && result.offset - offset < maniLoadU64(entry + 16))
+        {
+            result.tag = maniLoadU32(entry);
+            return result;
+        }
+    }
+    return result;
+}
+
+MANI_NOINLINE maniFileResult maniContainerOpenTagged(const void* bytes, size_t size, void* out,
+                                                     maniContainerOpener opener)
+{
+    return Tagged(bytes, size, opener(bytes, size, out));
 }
 
 // The table's entries: zero where zero is due, aligned offsets past the

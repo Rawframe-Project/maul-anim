@@ -532,12 +532,12 @@ static maniImportResult Decode(const maniFbx* fbx, const maniFbxProperty* p, Ele
     }
     if (size > SIZE_MAX / 2)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     e->owned = maniAllocate(&fbx->allocator, size + 1, 1, 8);
     if (e->owned == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     e->bytes = e->owned;
     e->raw = false;

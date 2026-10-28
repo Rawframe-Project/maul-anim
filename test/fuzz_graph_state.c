@@ -81,7 +81,7 @@ static bool MakeClip(maniBuilder* builder)
         {"tip", 3, 0, {{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
     static const float kTimes[2] = {0.0f, 1.0f};
     static const float kValues[6] = {0, 0, 0, 1, 0, 0};
-    maniSkeletonSource skeleton = {kBones, 2, 0};
+    maniSkeletonSource skeleton = {kBones, 2};
     size_t size = 0;
     if (maniBuildSkeleton(builder, &skeleton).result != mani_success ||
         !Built(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ||
@@ -91,7 +91,7 @@ static bool MakeClip(maniBuilder* builder)
     }
     const maniChannelSource none = {NULL, NULL, 0, maniInterpolationLinear};
     const maniBoneTrackSource track = {
-        0, 0, {kTimes, kValues, 2, maniInterpolationLinear}, none, none};
+        0, {kTimes, kValues, 2, maniInterpolationLinear}, none, none};
     maniClipSource clip = {.skeleton = &s_skeleton, .boneTracks = &track, .boneTrackCount = 1};
     return maniBuildClip(builder, &clip).result == mani_success &&
            Built(builder, s_clipFile, sizeof s_clipFile, &size) &&
@@ -107,9 +107,8 @@ static bool MakeDatabase(maniBuilder* builder)
     const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
     const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
                                              {0, 0, 0.0f, 1.0f, 0.5f, 2u}};
-    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel, entries,        1,
-                                       1,           2,     10.0f,    maniMatchAxisY, maniMatchAxisZ,
-                                       NULL,        0,     0};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,        1,    1,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     size_t size = 0;
     return maniBuildMotionDatabase(builder, &source).result == mani_success &&
            Built(builder, s_databaseFile, sizeof s_databaseFile, &size) &&
@@ -130,7 +129,7 @@ static bool MakeSet(maniBuilder* builder)
                                             .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
     }
     maniSpringSource spring = {"s", 1, 2, joints, NULL, 0, MANI_NO_BONE};
-    maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f, 0};
+    maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f};
     size_t size = 0;
     return maniBuildSpringSet(builder, &source).result == mani_success &&
            Built(builder, s_setFile, sizeof s_setFile, &size) &&
@@ -139,7 +138,7 @@ static bool MakeSet(maniBuilder* builder)
 
 static maniGraphParameterSource Parameter(const char* name, maniGraphParameterType type)
 {
-    maniGraphParameterSource p = {name, (uint32_t)strlen(name), type, {{0}}, {{0}}, {{0}}, 0, 0};
+    maniGraphParameterSource p = {name, (uint32_t)strlen(name), type, {{0}}, {{0}}, {{0}}, 0};
     p.defaultValue.f[3] = type == maniGraphParameterQuat ? 1.0f : 0.0f;
     p.bounded = type == maniGraphParameterInt || type == maniGraphParameterFloat ? 1u : 0u;
     p.maximum.i = type == maniGraphParameterInt ? 3 : 0;
@@ -154,9 +153,9 @@ static bool MakeGraph(maniBuilder* builder)
         Parameter("f", maniGraphParameterFloat),   Parameter("v2", maniGraphParameterVec2),
         Parameter("v3", maniGraphParameterVec3),   Parameter("q", maniGraphParameterQuat),
         Parameter("t", maniGraphParameterTrigger), Parameter("p", maniGraphParameterPose)};
-    const maniGraphClipSource clip = {&s_clip, "c", 1, 0, NULL};
-    const maniGraphDatabaseSource database = {&s_database, "d", 1, 0};
-    const maniGraphModelSource model = {&s_model, "m", 1, 0};
+    const maniGraphClipSource clip = {&s_clip, "c", 1, NULL};
+    const maniGraphDatabaseSource database = {&s_database, "d", 1};
+    const maniGraphModelSource model = {&s_model, "m", 1};
     static const uint32_t kClip[1] = {0};
     static const uint32_t kChoices[2] = {0, 1};
     static const uint32_t kMatch[1] = {3};
@@ -164,7 +163,7 @@ static bool MakeGraph(maniBuilder* builder)
     static const uint32_t kSelect[1] = {2};
     static const uint32_t kSpring[1] = {8};
     static const uint32_t kBlend[3] = {9, 4, 7};
-    const maniGraphSpringSetSource set = {&s_set, "s", 1, 0};
+    const maniGraphSpringSetSource set = {&s_set, "s", 1};
     static const maniGraphScalar kThirds[3] = {
         {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}, {MANI_NO_PARAMETER, 1.0f}};
     const maniGraphMatchNodeSource match = {.database = 0,
@@ -191,12 +190,12 @@ static bool MakeGraph(maniBuilder* builder)
         {maniGraphNodeMatch, 0, NULL, .match = match},
         {maniGraphNodeInertialize, 1, kMatch,
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
-        {maniGraphNodeBlend, 3, kBlend, .blend = {kThirds, 0, 0}},
+        {maniGraphNodeBlend, 3, kBlend, .blend = {kThirds, 0}},
         {maniGraphNodeLearned, 0, NULL, .learned = learned},
         {maniGraphNodeInertialize, 1, kLearned,
          .inertialize = {MANI_NO_PARAMETER, maniGraphInertialization, {2, 0.0f}, 0, 0, 0}},
         {maniGraphNodeSpring, 1, kSelect, .spring = {0, 4, 5, 6, 4}},
-        {maniGraphNodeTurnLimit, 1, kSpring, .turnLimit = {{2, 0.0f}, 6, 0, NULL}},
+        {maniGraphNodeTurnLimit, 1, kSpring, .turnLimit = {{2, 0.0f}, 6, NULL}},
     };
     maniGraphSource source = {.skeleton = &s_skeleton,
                               .parameters = parameters,

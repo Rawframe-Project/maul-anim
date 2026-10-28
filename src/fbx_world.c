@@ -75,7 +75,7 @@ maniImportResult maniFbxEvaluateWorlds(const maniFbx* fbx, const uint8_t* needed
     uint32_t* stack = maniAllocate(&fbx->allocator, (size_t)n + 1, sizeof(uint32_t), 8);
     if (stack == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     // Each model is pushed once, by its parent: the hierarchy is a forest,
     // every model under the root.

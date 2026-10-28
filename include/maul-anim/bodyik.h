@@ -56,7 +56,6 @@ extern "C"
     typedef struct maniBodyEffector
     {
         uint32_t bone;
-        uint32_t reserved;
         // Where the bone's origin should be, in model space.
         maniVec3 position;
         // The bone's wanted model rotation.
@@ -81,7 +80,6 @@ extern "C"
     typedef struct maniBodyBone
     {
         uint32_t bone;
-        uint32_t reserved;
         // Its limit, on its local rotation relative to its rest's, as a
         // chain's (ik.h): the axis is the direction of its child on the
         // solved part at rest, none for a bone with several or none.

@@ -585,8 +585,9 @@ static maniFileResult CheckTree(const maniMotionDatabase* d, const Sections* s)
 }
 
 static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, size_t size,
-                                                           maniMotionDatabase* databaseOut)
+                                                           void* out)
 {
+    maniMotionDatabase* databaseOut = out;
     if (databaseOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -631,7 +632,8 @@ maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
                                       maniMotionDatabase* databaseOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenMotionDatabaseWork(bytes, size, databaseOut);
+    maniFileResult result =
+        maniContainerOpenTagged(bytes, size, databaseOut, OpenMotionDatabaseWork);
     maniFloatEnvLeave(env);
     return result;
 }

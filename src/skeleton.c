@@ -228,8 +228,9 @@ uint64_t maniSkeletonComputeIdentity(uint32_t boneCount, const uint8_t* parents,
 }
 
 static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes, size_t size,
-                                                               maniSkeleton* skeletonOut)
+                                                               void* out)
 {
+    maniSkeleton* skeletonOut = out;
     if (skeletonOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -269,24 +270,23 @@ static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes
     {
         return Fail(40);
     }
-    *skeletonOut = (maniSkeleton){
-        .parents = s[0].data,
-        .subtreeEnds = s[1].data,
-        .rests = s[2].data,
-        .nameHashes = s[3].data,
-        .nameOrder = s[4].data,
-        .nameSpans = s[5].data,
-        .nameBytes = s[6].data,
-        .identity = c.identity,
-        .boneCount = n,
-    };
+    memset(skeletonOut, 0, sizeof *skeletonOut);
+    skeletonOut->parents = s[0].data;
+    skeletonOut->subtreeEnds = s[1].data;
+    skeletonOut->rests = s[2].data;
+    skeletonOut->nameHashes = s[3].data;
+    skeletonOut->nameOrder = s[4].data;
+    skeletonOut->nameSpans = s[5].data;
+    skeletonOut->nameBytes = s[6].data;
+    skeletonOut->identity = c.identity;
+    skeletonOut->boneCount = n;
     return Success();
 }
 
 maniFileResult maniOpenSkeleton(const void* bytes, size_t size, maniSkeleton* skeletonOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenSkeletonWork(bytes, size, skeletonOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, skeletonOut, OpenSkeletonWork);
     maniFloatEnvLeave(env);
     return result;
 }

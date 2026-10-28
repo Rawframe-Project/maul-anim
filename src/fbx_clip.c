@@ -49,12 +49,12 @@ static const char kHelperSuffix[] = "#unscaled";
 
 static maniImportResult Invalid(void)
 {
-    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 uint32_t maniFbxClipCount(const maniFbx* fbx)
@@ -456,7 +456,7 @@ static maniImportResult FromBuild(const Clip* c, maniBuildResult r)
 {
     if (r.result == mani_success || r.result == mani_errorCapacity)
     {
-        return (maniImportResult){r.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){r.result, maniImportReasonNone, 0, 0};
     }
     bool floats = (r.reason & 0xF00u) == maniBuildReasonFloatTrack;
     if (floats && (r.reason & 0xFFu) == maniBuildReasonTrack && r.item < c->floatCount)
@@ -534,7 +534,7 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     bool usable =
         maniFbxUsable(builder, fbx, options,

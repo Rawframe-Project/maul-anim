@@ -379,7 +379,7 @@ maniImportResult maniFbxReadBinary(maniFbx* fbx)
     fbx->properties = maniAllocate(&fbx->allocator, r.properties + 1, sizeof(maniFbxProperty), 8);
     if (fbx->nodes == NULL || fbx->properties == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     r.fill = true;
     return ReadRecords(&r);

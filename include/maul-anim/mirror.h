@@ -52,7 +52,6 @@ extern "C"
         uint32_t boneCount;
         uint32_t nameCount;
         maniMirrorAxis axis;
-        uint32_t reserved;
     } maniMirrorMap;
 
     /// Opens a mirror map file in place: checks the container, the header

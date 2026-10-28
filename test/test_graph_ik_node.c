@@ -74,7 +74,7 @@ static maniGraphNodeSource AimNode(const uint32_t* input, maniGraphAimNodeSource
 // The knee: hips, spine and arm toward the goal and pole parameters,
 // twisted by a, softened at 0.8, weighted by b.
 static const maniGraphTwoBoneNodeSource kKnee = {
-    0, 1, 2, 0, 1, 0, {0.0f, 0.0f, 0.0f}, {2, 0.0f}, LITERAL(0.8f), {3, 0.0f}};
+    0, 1, 2, 0, 1, {0.0f, 0.0f, 0.0f}, {2, 0.0f}, LITERAL(0.8f), {3, 0.0f}};
 
 // A look-at over the three bones, the arm's x aiming and its y kept
 // toward the pole, the cone a, the weight b.
@@ -83,7 +83,6 @@ static const maniGraphAimNodeSource kLook = {kChain,
                                              3,
                                              0,
                                              1,
-                                             0,
                                              {1.0f, 0.0f, 0.0f},
                                              {0.0f, 0.1f, 0.0f},
                                              {0.0f, 1.0f, 0.0f},
@@ -141,7 +140,7 @@ static void Rest(void)
 static void TwoBone(maniVec3 pole, float twist, float soften, float weight)
 {
     Rest();
-    maniTwoBoneSolve s = {0,     1,      2,     0, {0.6f, 1.2f, 0.3f}, pole, {0.0f, 0.0f, 0.0f},
+    maniTwoBoneSolve s = {0,     1,      2,     {0.6f, 1.2f, 0.3f}, pole, {0.0f, 0.0f, 0.0f},
                           twist, soften, weight};
     CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
 }
@@ -152,7 +151,6 @@ static void Aim(const float* shares, float cone, float weight)
     maniAimSolve s = {{0, 1, 2},
                       {shares[0], shares[1], shares[2]},
                       3,
-                      0,
                       {0.6f, 1.2f, 0.3f},
                       {0.0f, 0.0f, 1.0f},
                       {1.0f, 0.0f, 0.0f},
@@ -209,7 +207,7 @@ static void TestTwoBone(void)
     Update(instance, 0.3f);
     Evaluate(instance);
     Rest();
-    maniTwoBoneSolve h = {0, 1, 2, 0, {0.6f, 1.2f, 0.3f}, kPole, hinged.hinge, 0.25f, 0.8f, 1.0f};
+    maniTwoBoneSolve h = {0, 1, 2, {0.6f, 1.2f, 0.3f}, kPole, hinged.hinge, 0.25f, 0.8f, 1.0f};
     CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &h, NULL) == mani_success, "the reference");
     bool matched = Matches(false);
     TwoBone(kPole, 0.25f, 0.8f, 1.0f);
@@ -291,11 +289,10 @@ static void TestSubgraph(void)
     Evaluate(instance);
     Rest();
     maniTwoBoneSolve s = {
-        0, 1, 2, 0, {0.6f, 1.2f, 0.3f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f, 0.8f, 1.0f};
+        0, 1, 2, {0.6f, 1.2f, 0.3f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f, 0.8f, 1.0f};
     maniAimSolve a = {{2},
                       {1.0f},
                       1,
-                      0,
                       {0.6f, 1.2f, 0.3f},
                       {0.0f, 0.0f, 0.0f},
                       {1.0f, 0.0f, 0.0f},

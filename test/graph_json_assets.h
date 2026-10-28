@@ -47,12 +47,11 @@ static const maniBoneSource kBones[3] = {
     {"arm", 3, 1, {{0.3f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
 };
 
-static const maniGraphClipSource kHost[3] = {{&s_clips[0], "walk", 4, 0, NULL},
-                                             {&s_clips[1], "run", 3, 0, NULL},
-                                             {&s_clips[2], "wave", 4, 0, NULL}};
-static const maniGraphDatabaseSource kHostDatabase[1] = {{&s_database, "moves", 5, 0}};
-static const maniGraphModelSource kHostModel[1] = {{&s_model, "steps", 5, 0}};
-static const maniGraphSpringSetSource kHostSet[1] = {{&s_set, "hair", 4, 0}};
+static const maniGraphClipSource kHost[3] = {
+    {&s_clips[0], "walk", 4, NULL}, {&s_clips[1], "run", 3, NULL}, {&s_clips[2], "wave", 4, NULL}};
+static const maniGraphDatabaseSource kHostDatabase[1] = {{&s_database, "moves", 5}};
+static const maniGraphModelSource kHostModel[1] = {{&s_model, "steps", 5}};
+static const maniGraphSpringSetSource kHostSet[1] = {{&s_set, "hair", 4}};
 
 // A spring from the spine to the arm.
 static inline bool MakeSet(void)
@@ -68,7 +67,7 @@ static inline bool MakeSet(void)
                                             .limitRotation = {0.0f, 0.0f, 0.0f, 1.0f}};
     }
     maniSpringSource spring = {"arm", 3, 2, joints, NULL, 0, MANI_NO_BONE};
-    maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f, 0};
+    maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f};
     size_t size = 0;
     return maniBuildSpringSet(s_builder, &source).result == mani_success &&
            maniCopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
@@ -83,9 +82,8 @@ static inline bool MakeDatabase(void)
     const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
     const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
                                              {1, 0, 0.0f, 1.0f, 0.0f, 2u}};
-    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel, entries,        2,
-                                       1,           2,     10.0f,    maniMatchAxisY, maniMatchAxisZ,
-                                       NULL,        0,     0};
+    maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,        2,    1,
+                                       2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     size_t size = 0;
     return maniBuildMotionDatabase(s_builder, &source).result == mani_success &&
            maniCopyBuilt(s_builder, s_databaseFile, sizeof s_databaseFile, &size) == mani_success &&
@@ -98,7 +96,7 @@ static inline void SetupGraphAssets(void)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
     size_t size = 0;
-    maniSkeletonSource skeleton = {kBones, 3, 0};
+    maniSkeletonSource skeleton = {kBones, 3};
     if (maniCreateBuilder(&def, &s_builder) != mani_success ||
         maniBuildSkeleton(s_builder, &skeleton).result != mani_success ||
         maniCopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) != mani_success ||
@@ -111,8 +109,7 @@ static inline void SetupGraphAssets(void)
     for (int i = 0; i < 3; ++i)
     {
         float values[6] = {0, 1, 0, (float)(i + 1), 1, 0};
-        maniBoneTrackSource track = {
-            0, 0, {kTimes, values, 2, maniInterpolationLinear}, kNone, kNone};
+        maniBoneTrackSource track = {0, {kTimes, values, 2, maniInterpolationLinear}, kNone, kNone};
         maniClipSource source = {.skeleton = &s_skeleton,
                                  .boneTracks = &track,
                                  .boneTrackCount = 1,

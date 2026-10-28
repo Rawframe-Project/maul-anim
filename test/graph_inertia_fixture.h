@@ -38,8 +38,7 @@ static inline maniGraphTransitionSource Inertial(float duration)
                                        duration,
                                        0.0f,
                                        kGo,
-                                       1,
-                                       0};
+                                       1};
 }
 
 static inline maniGraphNodeSource Node(uint32_t trigger, maniGraphScalar duration)

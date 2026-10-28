@@ -11,7 +11,9 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "skeleton_file.h"
+#include "source_padding.h"
 #include "test_budget.h"
 #include "test_harness.h"
 
@@ -59,7 +61,7 @@ static maniBuilder* NewBuilder(void)
 static void BuildSample(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
     maniDestroyBuilder(builder);
@@ -116,7 +118,7 @@ static void TestGettersPastTheCount(void)
 static void TestOrderMap(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     uint32_t map[6] = {0};
     uint32_t count = 0;
@@ -166,7 +168,7 @@ static void TestDefRefusals(void)
 static maniBuildResult BuildOf(const maniBoneSource* bones, uint32_t count)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     maniBuildResult r = maniBuildSkeleton(builder, &source);
     maniDestroyBuilder(builder);
     return r;
@@ -229,7 +231,7 @@ static void TestBuildRefusals(void)
 static TestOutcome BuildWork(maniBuilder* builder, void* context)
 {
     (void)context;
-    maniSkeletonSource source = {kBones, 6, 0};
+    maniSkeletonSource source = {kBones, 6};
     return TestOutcomeOf(maniBuildSkeleton(builder, &source).result);
 }
 
@@ -255,7 +257,7 @@ static void ExpectFormat(uint64_t offset, const char* what)
     Rehash();
     maniFileResult r = Open();
     CHECK(r.result == mani_errorFormat, what);
-    CHECK(r.offset == offset, what);
+    CHECK(r.offset == offset && r.tag == TestTagAt(s_file, s_size, offset), what);
     BuildSample();
 }
 
@@ -426,6 +428,26 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source and its bones.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniBoneSource bones[6];
+        memcpy(bones, kBones, sizeof bones);
+        TEST_PAD(bones, 6, kFieldsBoneSource, kTestPadPatterns[k]);
+        maniSkeletonSource source = {bones, 6};
+        TEST_PAD(&source, 1, kFieldsSkeletonSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -442,5 +464,6 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestEveryByteFlip();
     TestPinnedBytes();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

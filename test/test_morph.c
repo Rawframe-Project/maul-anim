@@ -16,7 +16,9 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "morph_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -130,15 +132,15 @@ static void SampleSource(maniMorphSource* source)
     s_blinkDeltas[1][3] = s_blinkTexcoords;
     s_wideDeltas[2] = s_wideTangents;
     s_wideDeltas[4] = s_wideColors;
-    s_smile[0] = (maniMorphTargetSource){1.0f, 4, kSmileIndices, s_smileDeltas, NULL, 0, 0};
-    s_blinks[0] = (maniMorphTargetSource){-1.0f, kVertices, NULL, s_blinkDeltas[0], NULL, 0, 0};
-    s_blinks[1] = (maniMorphTargetSource){0.5f, kVertices, NULL, s_blinkDeltas[1], NULL, 0, 0};
-    s_blinks[2] = (maniMorphTargetSource){1.0f, kVertices, NULL, s_blinkDeltas[2], "shut", 4, 0};
-    s_wide[0] = (maniMorphTargetSource){1.0f, kVertices, s_wideIndices, s_wideDeltas, NULL, 0, 0};
+    s_smile[0] = (maniMorphTargetSource){1.0f, 4, kSmileIndices, s_smileDeltas, NULL, 0};
+    s_blinks[0] = (maniMorphTargetSource){-1.0f, kVertices, NULL, s_blinkDeltas[0], NULL, 0};
+    s_blinks[1] = (maniMorphTargetSource){0.5f, kVertices, NULL, s_blinkDeltas[1], NULL, 0};
+    s_blinks[2] = (maniMorphTargetSource){1.0f, kVertices, NULL, s_blinkDeltas[2], "shut", 4};
+    s_wide[0] = (maniMorphTargetSource){1.0f, kVertices, s_wideIndices, s_wideDeltas, NULL, 0};
     s_channels[0] = (maniMorphChannelSource){"smile", 5, 1, s_smile};
     s_channels[1] = (maniMorphChannelSource){"blink", 5, 3, s_blinks};
     s_channels[2] = (maniMorphChannelSource){"wide", 4, 1, s_wide};
-    *source = (maniMorphSource){s_channels, 3, kVertices, s_attributes, 5, 0};
+    *source = (maniMorphSource){s_channels, 3, kVertices, s_attributes, 5};
 }
 
 static void BuildSample(void)
@@ -349,7 +351,7 @@ static void RandomVertices(void)
 static maniMorphStream Stream(const float* in, float* out, maniMorphSemantic semantic, uint32_t set,
                               uint32_t components)
 {
-    return (maniMorphStream){in, out, sizeof(Vertex), sizeof(Vertex), semantic, set, components, 0};
+    return (maniMorphStream){in, out, sizeof(Vertex), sizeof(Vertex), semantic, set, components};
 }
 
 static void Streams(const Vertex* in, Vertex* out, maniMorphStream streams[5])
@@ -433,7 +435,7 @@ static void TestJob(void)
         CHECK(maniMorphTargetWeights(&m, channels, weights) == mani_success, "weights");
         maniMorphStream streams[5];
         Streams(s_in, s_out, streams);
-        maniMorphJob job = {&m, weights, 0, kVertices, 5, 0, streams};
+        maniMorphJob job = {&m, weights, 0, kVertices, 5, streams};
         CHECK(maniApplyMorphTargets(&job) == mani_success, "applies");
         for (uint32_t v = 0; v < kVertices; ++v)
         {
@@ -474,7 +476,7 @@ static void TestRangeAndZero(void)
     memset(s_other, 0, sizeof s_other);
     Vertex guard = s_other[5];
     Streams(s_in, s_other, streams);
-    maniMorphJob job = {&m, ones, 0, 5, 5, 0, streams};
+    maniMorphJob job = {&m, ones, 0, 5, 5, streams};
     CHECK(maniApplyMorphTargets(&job) == mani_success &&
               memcmp(&s_other[5], &guard, sizeof guard) == 0,
           "a range writes no vertex past its end");
@@ -486,7 +488,7 @@ static void TestRangeAndZero(void)
     }
     const float zeros[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     maniMorphStream position = Stream(s_in->position, s_out->position, maniMorphPosition, 0, 3);
-    job = (maniMorphJob){&m, zeros, 0, kVertices, 1, 0, &position};
+    job = (maniMorphJob){&m, zeros, 0, kVertices, 1, &position};
     bool same = maniApplyMorphTargets(&job) == mani_success;
     for (uint32_t v = 0; same && v < kVertices; ++v)
     {
@@ -514,12 +516,12 @@ static void TestSparseAsDense(void)
     }
     const float* sparseDeltas[1] = {positions + 3};
     const float* denseDeltas[1] = {positions};
-    maniMorphTargetSource sparse = {1.0f, kVertices - 1, indices, sparseDeltas, NULL, 0, 0};
-    maniMorphTargetSource dense = {1.0f, kVertices, NULL, denseDeltas, NULL, 0, 0};
+    maniMorphTargetSource sparse = {1.0f, kVertices - 1, indices, sparseDeltas, NULL, 0};
+    maniMorphTargetSource dense = {1.0f, kVertices, NULL, denseDeltas, NULL, 0};
     maniMorphChannelSource a = {"a", 1, 1, &sparse};
     maniMorphChannelSource b = {"a", 1, 1, &dense};
-    maniMorphSource sa = {&a, 1, kVertices, kAttributes, 1, 0};
-    maniMorphSource sb = {&b, 1, kVertices, kAttributes, 1, 0};
+    maniMorphSource sa = {&a, 1, kVertices, kAttributes, 1};
+    maniMorphSource sb = {&b, 1, kVertices, kAttributes, 1};
     static _Alignas(16) uint8_t fa[4096];
     static _Alignas(16) uint8_t fb[4096];
     size_t na = 0;
@@ -539,10 +541,10 @@ static void TestSparseAsDense(void)
           "one sparse, one dense");
     const float one = 0.625f;
     maniMorphStream points[1] = {Stream(s_in->position, s_out->position, maniMorphPosition, 0, 3)};
-    maniMorphJob ja = {&ma, &one, 0, kVertices, 1, 0, points};
+    maniMorphJob ja = {&ma, &one, 0, kVertices, 1, points};
     CHECK(maniApplyMorphTargets(&ja) == mani_success, "sparse");
     memcpy(s_other, s_out, sizeof s_other);
-    maniMorphJob jb = {&mb, &one, 0, kVertices, 1, 0, points};
+    maniMorphJob jb = {&mb, &one, 0, kVertices, 1, points};
     CHECK(maniApplyMorphTargets(&jb) == mani_success, "dense");
     CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "sparse and dense give the same bits");
 }
@@ -558,7 +560,7 @@ static void TestSameBits(void)
     const float weights[5] = {0.75f, -0.25f, 0.5f, 0.125f, -1.5f};
     maniMorphStream streams[5];
     Streams(s_in, s_out, streams);
-    maniMorphJob whole = {&m, weights, 0, kVertices, 5, 0, streams};
+    maniMorphJob whole = {&m, weights, 0, kVertices, 5, streams};
     CHECK(maniApplyMorphTargets(&whole) == mani_success, "whole");
     memset(s_other, 0, sizeof s_other);
     const uint32_t cuts[4] = {0, 3, 6, kVertices};
@@ -566,14 +568,14 @@ static void TestSameBits(void)
     {
         maniMorphStream part[5];
         Streams(&s_in[cuts[i]], &s_other[cuts[i]], part);
-        maniMorphJob job = {&m, weights, cuts[i], cuts[i + 1] - cuts[i], 5, 0, part};
+        maniMorphJob job = {&m, weights, cuts[i], cuts[i + 1] - cuts[i], 5, part};
         CHECK(maniApplyMorphTargets(&job) == mani_success, "a range");
     }
     CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "ranges give the same bits");
     memcpy(s_other, s_in, sizeof s_other);
     maniMorphStream place[5];
     Streams(s_other, s_other, place);
-    maniMorphJob inPlace = {&m, weights, 0, kVertices, 5, 0, place};
+    maniMorphJob inPlace = {&m, weights, 0, kVertices, 5, place};
     CHECK(maniApplyMorphTargets(&inPlace) == mani_success, "in place");
     CHECK(memcmp(s_out, s_other, sizeof s_out) == 0, "in place gives the same bits");
     TestSparseAsDense();
@@ -582,7 +584,7 @@ static void TestSameBits(void)
                               Stream(s_in->texcoord, s_out->texcoord, maniMorphTexcoord, 1, 2)};
     memcpy(s_out, s_in, sizeof s_out);
     s_out[7].color[3] = 9.0f;
-    maniMorphJob colors = {&m, full, 0, kVertices, 2, 0, rgb};
+    maniMorphJob colors = {&m, full, 0, kVertices, 2, rgb};
     CHECK(maniApplyMorphTargets(&colors) == mani_success, "colors");
     CHECK(s_out[7].color[0] == s_in[7].color[0] + s_wideColors[4 * 4] &&
               s_out[7].color[2] == s_in[7].color[2] + s_wideColors[4 * 4 + 2] &&
@@ -732,7 +734,9 @@ static void ExpectFormat(uint64_t offset, const char* what)
 {
     maniMorphTargets m;
     maniFileResult r = maniOpenMorphTargets(s_file, s_size, &m);
-    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    CHECK(r.result == mani_errorFormat && r.offset == offset &&
+              r.tag == TestTagAt(s_file, s_size, offset),
+          what);
     if (r.offset != offset)
     {
         printf("  %s: at %llu, expected %llu\n", what, (unsigned long long)r.offset,
@@ -833,7 +837,7 @@ static void TestJobRefusals(void)
     maniMorphStream streams[5];
     Streams(s_in, s_out, streams);
     memcpy(s_other, s_out, sizeof s_other);
-    maniMorphJob job = {&m, weights, 0, kVertices, 5, 0, streams};
+    maniMorphJob job = {&m, weights, 0, kVertices, 5, streams};
     streams[1].semantic = 5;
     CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "an unknown semantic");
     streams[1].semantic = maniMorphNormal;
@@ -882,6 +886,46 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source, its attributes, channels
+// and targets.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniMorphSource source;
+        SampleSource(&source);
+        maniMorphAttributeSource attributes[5];
+        maniMorphTargetSource smile[1];
+        maniMorphTargetSource blinks[3];
+        maniMorphTargetSource wide[1];
+        maniMorphChannelSource channels[3];
+        memcpy(attributes, s_attributes, sizeof attributes);
+        memcpy(smile, s_smile, sizeof smile);
+        memcpy(blinks, s_blinks, sizeof blinks);
+        memcpy(wide, s_wide, sizeof wide);
+        memcpy(channels, s_channels, sizeof channels);
+        channels[0].targets = smile;
+        channels[1].targets = blinks;
+        channels[2].targets = wide;
+        TEST_PAD(attributes, 5, kFieldsMorphAttributeSource, pattern);
+        TEST_PAD(smile, 1, kFieldsMorphTargetSource, pattern);
+        TEST_PAD(blinks, 3, kFieldsMorphTargetSource, pattern);
+        TEST_PAD(wide, 1, kFieldsMorphTargetSource, pattern);
+        TEST_PAD(channels, 3, kFieldsMorphChannelSource, pattern);
+        source.channels = channels;
+        source.attributes = attributes;
+        TEST_PAD(&source, 1, kFieldsMorphSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildMorphTargets(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -896,5 +940,6 @@ int main(int argc, char** argv)
     TestBuildRefusals();
     TestOpenRefusals();
     TestJobRefusals();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

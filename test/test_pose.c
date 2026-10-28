@@ -86,7 +86,7 @@ static maniSkeleton BuildRandomSkeleton(uint32_t count, uint8_t* file, size_t ca
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success, "builder");
-    maniSkeletonSource source = {bones, count, 0};
+    maniSkeletonSource source = {bones, count};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     size_t size = 0;
     CHECK(maniCopyBuilt(builder, file, capacity, &size) == mani_success, "copies");

@@ -197,7 +197,7 @@ static bool Build(uint8_t* out, size_t capacity, size_t* size)
         {"a", 1, -1, {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
         {"b", 1, 0, {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
         {"c", 1, 1, {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
-    const maniSkeletonSource source = {kBones, 3, 0};
+    const maniSkeletonSource source = {kBones, 3};
     return maniBuildSkeleton(s_builder, &source).result == mani_success &&
            maniCopyBuilt(s_builder, out, capacity, size) == mani_success;
 }

@@ -53,7 +53,7 @@ maniImportResult maniGltfReadNames(maniGltf* gltf)
     char* original = maniAllocate(a, raw + 1, 1, 8);
     uint32_t* spans = maniAllocate(a, n, sizeof(uint32_t), 8);
     uint32_t* indices = maniAllocate(a, n, sizeof(uint32_t), 8);
-    maniImportResult r = (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    maniImportResult r = (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     if (original != NULL && spans != NULL && indices != NULL)
     {
         for (uint32_t v = 0; v < count; ++v)

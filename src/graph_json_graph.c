@@ -179,7 +179,6 @@ static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
             return maniGraphJsonFault(r, e, maniGraphFormUnbound);
         }
         c[i].clip = r->hostClips[host].clip;
-        c[i].reserved = 0;
         c[i].map = r->hostClips[host].map;
         list.names[i] = c[i].name;
         list.lengths[i] = c[i].nameLength;
@@ -458,7 +457,7 @@ static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneS
 static bool Turn(Reader* r, const Scope* scope, const uint32_t* f, maniGraphTurnLimitNodeSource* s)
 {
     static const char* const kMask[] = {"chains", "defaultWeight"};
-    *s = (maniGraphTurnLimitNodeSource){{MANI_NO_PARAMETER, 0.0f}, MANI_NO_PARAMETER, 0, NULL};
+    *s = (maniGraphTurnLimitNodeSource){{MANI_NO_PARAMETER, 0.0f}, MANI_NO_PARAMETER, NULL};
     if (!maniGraphJsonScalar(r, scope, f[2], &s->speed) ||
         (f[3] != ABSENT && !maniGraphJsonRefer(r, &scope->parameters, f[3], &s->reset)))
     {

@@ -37,13 +37,13 @@ static char s_text[16384];
 static maniSkeleton s_skeleton;
 
 static const maniMirrorPairSource kPairs[1] = {{kPropR, kPropR}};
-static const maniMirrorRuleSource kRules[5] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                               {"R", 1, maniMirrorSuffix, "L", 1, 0},
-                                               {"_left", 5, maniMirrorAnywhere, "_right", 6, 0},
-                                               {"_right", 6, maniMirrorAnywhere, "_left", 5, 0},
-                                               {"Left\"", 5, maniMirrorPrefix, "Right\"", 6, 0}};
+static const maniMirrorRuleSource kRules[5] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                               {"R", 1, maniMirrorSuffix, "L", 1},
+                                               {"_left", 5, maniMirrorAnywhere, "_right", 6},
+                                               {"_right", 6, maniMirrorAnywhere, "_left", 5},
+                                               {"Left\"", 5, maniMirrorPrefix, "Right\"", 6}};
 static const maniMirrorNamePairSource kNamePairs[1] = {{"footL", 5, 5, "footR"}};
-static const maniMirrorNameSource kNames[2] = {{"curveL", 6, 0}, {"idle", 4, 0}};
+static const maniMirrorNameSource kNames[2] = {{"curveL", 6}, {"idle", 4}};
 static maniTransform s_reference[kBones];
 
 static maniMirrorMapSource Map(void)

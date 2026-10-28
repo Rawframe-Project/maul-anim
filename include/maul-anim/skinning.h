@@ -35,7 +35,6 @@ extern "C"
         uint32_t skinJointCount;
         uint32_t vertexCount;
         uint32_t groupCount;
-        uint32_t reserved;
     } maniInfluences;
 
     /// Opens an influences file in place: checks the container, the sizes,
@@ -153,7 +152,6 @@ extern "C"
         size_t inStride;
         size_t outStride;
         maniStreamKind kind;
-        uint32_t reserved;
     } maniSkinStream;
 
     // A skinning job over vertices [first, first + count) of the

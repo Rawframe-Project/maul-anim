@@ -39,8 +39,9 @@ uint64_t maniSkinComputeIdentity(const uint8_t* binding, const uint8_t* joints,
     return maniHashBytes(hash, inverseBinds, MANI_SKIN_MATRIX_SIZE * (uint64_t)jointCount);
 }
 
-static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size, maniSkin* skinOut)
+static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size, void* out)
 {
+    maniSkin* skinOut = out;
     if (skinOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -121,7 +122,7 @@ static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size,
 maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenSkinWork(bytes, size, skinOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, skinOut, OpenSkinWork);
     maniFloatEnvLeave(env);
     return result;
 }

@@ -226,21 +226,22 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
             return Fail(at + 8 + 4 * k);
         }
     }
-    *g = (maniGraph){.skeletonIdentity = maniLoadU64(h),
-                     .skeletonBoneCount = counts[0],
-                     .parameterCount = counts[1],
-                     .nodeCount = counts[2],
-                     .inputCount = counts[3],
-                     .dataWords = counts[4],
-                     .clipCount = counts[5],
-                     .syncGroupCount = counts[6],
-                     .maskCount = counts[7],
-                     .slotCount = counts[8],
-                     .databaseCount = counts[9],
-                     .databaseClipCount = counts[10],
-                     .modelCount = counts[11],
-                     .springSetCount = counts[12],
-                     .mapCount = counts[13]};
+    memset(g, 0, sizeof *g);
+    g->skeletonIdentity = maniLoadU64(h);
+    g->skeletonBoneCount = counts[0];
+    g->parameterCount = counts[1];
+    g->nodeCount = counts[2];
+    g->inputCount = counts[3];
+    g->dataWords = counts[4];
+    g->clipCount = counts[5];
+    g->syncGroupCount = counts[6];
+    g->maskCount = counts[7];
+    g->slotCount = counts[8];
+    g->databaseCount = counts[9];
+    g->databaseClipCount = counts[10];
+    g->modelCount = counts[11];
+    g->springSetCount = counts[12];
+    g->mapCount = counts[13];
     return kOk;
 }
 
@@ -534,9 +535,9 @@ static maniFileResult CheckSlotNames(const maniGraph* g, const uint8_t* entries,
     return kOk;
 }
 
-static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size,
-                                                  maniGraph* graphOut)
+static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size, void* out)
 {
+    maniGraph* graphOut = out;
     if (graphOut == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
@@ -591,7 +592,7 @@ static MANI_NOINLINE maniFileResult OpenGraphWork(const void* bytes, size_t size
 maniFileResult maniOpenGraph(const void* bytes, size_t size, maniGraph* graphOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniFileResult result = OpenGraphWork(bytes, size, graphOut);
+    maniFileResult result = maniContainerOpenTagged(bytes, size, graphOut, OpenGraphWork);
     maniFloatEnvLeave(env);
     return result;
 }

@@ -428,7 +428,7 @@ maniImportResult maniGltfReadRagdollJoints(maniGltfRagdollReader* r)
     uint8_t* jointed = maniArenaTake(&r->gltf->ragdoll, r->bodyCount + 1u, 1);
     if (jointed == NULL)
     {
-        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     memset(jointed, 0, r->bodyCount + 1u);
     maniImportResult result = maniImportSuccess();

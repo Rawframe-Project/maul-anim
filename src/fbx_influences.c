@@ -27,12 +27,12 @@
 
 static maniImportResult Invalid(void)
 {
-    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
 }
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static uint32_t SkinNode(const maniFbx* fbx, uint32_t skin)
@@ -354,11 +354,11 @@ static maniImportResult BuildInfluences(maniBuilder* builder, Read* r, const man
     {
         return result;
     }
-    maniInfluenceSource source = {built, offsets, joints, weights, blend, r->vertices, 0};
+    maniInfluenceSource source = {built, offsets, joints, weights, blend, r->vertices};
     maniBuildResult b = maniBuildInfluences(builder, &source);
     if (b.result == mani_success || b.result == mani_errorCapacity)
     {
-        return (maniImportResult){b.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){b.result, maniImportReasonNone, 0, 0};
     }
     return maniFbxFail(maniImportReasonBuild, fbx->nodes[SkinNode(fbx, r->skin)].nameOffset,
                        (uint32_t)b.reason);
@@ -370,7 +370,7 @@ static MANI_NOINLINE maniImportResult FbxBuildInfluencesWork(maniBuilder* builde
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     if (builder == NULL || fbx == NULL || built == NULL || skin >= fbx->skinCount)
     {

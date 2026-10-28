@@ -12,7 +12,9 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "influence_file.h"
+#include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -61,7 +63,7 @@ static maniBuilder* NewBuilder(void)
 static void OpenSkin(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {kSkeletonBones, kBones, 0};
+    maniSkeletonSource source = {kSkeletonBones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
@@ -73,7 +75,7 @@ static void OpenSkin(void)
     {
         binds[j] = (maniAffine){{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5f * (float)j, 0}};
     }
-    maniSkinSource skin = {&s_skeleton, joints, binds, kJoints, 0};
+    maniSkinSource skin = {&s_skeleton, joints, binds, kJoints};
     CHECK(maniBuildSkin(builder, &skin).result == mani_success &&
               maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success,
           "skin");
@@ -254,7 +256,7 @@ static void TestBuildRefusals(void)
         manyJoints[i] = i;
         manyWeights[i] = 1.0f;
     }
-    maniInfluenceSource many = {&wide, manyOffsets, manyJoints, manyWeights, NULL, 1, 0};
+    maniInfluenceSource many = {&wide, manyOffsets, manyJoints, manyWeights, NULL, 1};
     ExpectRefused(&many, maniBuildReasonCount, 0, 64, "65 weighted influences");
     manyOffsets[1] = 64;
     CHECK(BuildFrom(&many).result == mani_success, "64: sixteen groups");
@@ -321,7 +323,9 @@ static void ExpectFormat(uint64_t offset, const char* what)
 {
     maniInfluences v;
     maniFileResult r = maniOpenInfluences(s_file, s_size, &v);
-    CHECK(r.result == mani_errorFormat && r.offset == offset, what);
+    CHECK(r.result == mani_errorFormat && r.offset == offset &&
+              r.tag == TestTagAt(s_file, s_size, offset),
+          what);
     if (r.offset != offset)
     {
         printf("  %s: at %llu, expected %llu\n", what, (unsigned long long)r.offset,
@@ -426,6 +430,23 @@ static int WriteSeed(const char* path)
     return fclose(out) == 0 && written == s_size ? 0 : 1;
 }
 
+// The same file whatever bytes pad the source.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        maniInfluenceSource source = Sample();
+        TEST_PAD(&source, 1, kFieldsInfluenceSource, kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildInfluences(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 3 && strcmp(argv[1], "--seed") == 0)
@@ -437,5 +458,6 @@ int main(int argc, char** argv)
     TestWholeGroup();
     TestBuildRefusals();
     TestOpenRefusals();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

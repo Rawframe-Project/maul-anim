@@ -59,10 +59,10 @@ static const maniBoneSource kRig[kBones] = {
     {"armR", 4, kClavR, {{0, 0, 0.2f}, REST, {1, 1, 1}}},
 };
 
-static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1, 0},
-                                               {"R", 1, maniMirrorSuffix, "L", 1, 0}};
+static const maniMirrorRuleSource kRules[2] = {{"L", 1, maniMirrorSuffix, "R", 1},
+                                               {"R", 1, maniMirrorSuffix, "L", 1}};
 static const maniMirrorNameSource kNames[4] = {
-    {"blinkL", 6, 0}, {"blinkR", 6, 0}, {"stepL", 5, 0}, {"stepR", 5, 0}};
+    {"blinkL", 6}, {"blinkR", 6}, {"stepL", 5}, {"stepR", 5}};
 
 static const float kTimes[3] = {0.0f, 0.5f, 1.0f};
 static const float kRootMove[9] = {0.0f, 0.0f, 0.0f, 0.3f, 0.0f, 0.6f, 0.9f, 0.05f, 1.2f};
@@ -128,7 +128,7 @@ static void OpenMap(maniMirrorAxis axis, uint8_t* file, maniMirrorMap* out)
 static void Setup(void)
 {
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource rig = {kRig, kBones, 0};
+    maniSkeletonSource rig = {kRig, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &rig).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
@@ -137,18 +137,13 @@ static void Setup(void)
           "the rig");
     OpenMap(maniMirrorAxisX, s_mapFiles[0], &s_map);
     OpenMap(maniMirrorAxisZ, s_mapFiles[1], &s_mapZ);
-    const maniBoneTrackSource tracks[2] = {{kRoot, 0, Keys(kRootMove), Keys(kYaw), kNone},
-                                           {kArmL, 0, kNone, Keys(kArm), kNone}};
-    const maniFloatTrackSource floats[2] = {{"blinkL", 6, 0, Keys(kLeft)},
-                                            {"blinkR", 6, 0, Keys(kRight)}};
-    const maniEventSource events[2] = {{0.25f, 7, "stepL", 5, 0}, {0.75f, 9, "jump", 4, 0}};
-    const maniRootMotionSource root = {kRoot,
-                                       maniRootAxisX | maniRootAxisZ,
-                                       maniRootRotationTwist,
-                                       1,
-                                       maniRootReferenceRest,
-                                       maniRootReferenceRest,
-                                       0,
+    const maniBoneTrackSource tracks[2] = {{kRoot, Keys(kRootMove), Keys(kYaw), kNone},
+                                           {kArmL, kNone, Keys(kArm), kNone}};
+    const maniFloatTrackSource floats[2] = {{"blinkL", 6, Keys(kLeft)},
+                                            {"blinkR", 6, Keys(kRight)}};
+    const maniEventSource events[2] = {{0.25f, 7, "stepL", 5}, {0.75f, 9, "jump", 4}};
+    const maniRootMotionSource root = {kRoot, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                       1,     maniRootReferenceRest,         maniRootReferenceRest,
                                        0};
     const maniClipSource walk = {.skeleton = &s_skeleton,
                                  .boneTracks = tracks,
@@ -166,7 +161,7 @@ static void Setup(void)
                   mani_success &&
               maniOpenClip(s_clipFiles[0], size, &s_walk).result == mani_success,
           "the walk");
-    const maniMirrorClipSource mirror = {&s_map, &s_skeleton, &s_walk, 0};
+    const maniMirrorClipSource mirror = {&s_map, &s_skeleton, &s_walk};
     CHECK(maniBuildMirroredClip(builder, &mirror).result == mani_success &&
               maniCopyBuilt(builder, s_clipFiles[1], sizeof s_clipFiles[1], &size) ==
                   mani_success &&
@@ -221,9 +216,8 @@ static maniMotionDatabaseSource Mirrored(const maniMirrorMap* map)
     s_entries[0] = (maniMatchEntrySource){0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
     s_entries[1] =
         (maniMatchEntrySource){0, MANI_MATCH_LOOP | MANI_MATCH_MIRRORED, 0.0f, 1.0f, 0.0f, 2u};
-    return (maniMotionDatabaseSource){
-        &s_skeleton, s_clips,        kChannels,      s_entries, 1, 6, 2,
-        30.0f,       maniMatchAxisY, maniMatchAxisZ, map,       0, 0};
+    return (maniMotionDatabaseSource){&s_skeleton, s_clips, kChannels,      s_entries,      1,   6,
+                                      2,           30.0f,   maniMatchAxisY, maniMatchAxisZ, map, 0};
 }
 
 static bool Near(float a, float b)
@@ -245,8 +239,8 @@ static void TestFeatures(void)
     baked[0] = &s_walk;
     baked[1] = &s_baked;
     const maniMotionDatabaseSource bake = {
-        &s_skeleton, baked,          kChannels,      entries, 2, 6, 2,
-        30.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,    0, 0};
+        &s_skeleton, baked, kChannels,      entries,        2,    6,
+        2,           30.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     CHECK(BuildDatabase(&bake, 1, &s_bakedDatabase).result == mani_success,
           "a database of the bake builds");
     CHECK(maniMotionDatabaseMirrorMapIdentity(&s_bakedDatabase) == 0, "no map without mirrors");
@@ -434,16 +428,16 @@ static maniGraphClipSource s_slots[1];
 static maniGraphDatabaseSource s_databaseSlot[1];
 // The query: the trajectory's two places and facing, the blink.
 static const maniGraphParameterSource kQueryParameters[4] = {
-    {"near", 4, maniGraphParameterVec2, {{0}}, {{0}}, {{0}}, 0, 0},
-    {"far", 3, maniGraphParameterVec2, {{0}}, {{0}}, {{0}}, 0, 0},
-    {"facing", 6, maniGraphParameterVec2, {{0}}, {{0}}, {{0}}, 0, 0},
-    {"blink", 5, maniGraphParameterFloat, {{0}}, {{0}}, {{0}}, 0, 0}};
+    {"near", 4, maniGraphParameterVec2, {{0}}, {{0}}, {{0}}, 0},
+    {"far", 3, maniGraphParameterVec2, {{0}}, {{0}}, {{0}}, 0},
+    {"facing", 6, maniGraphParameterVec2, {{0}}, {{0}}, {{0}}, 0},
+    {"blink", 5, maniGraphParameterFloat, {{0}}, {{0}}, {{0}}, 0}};
 static const uint32_t kQuery[4] = {0, 1, 2, 3};
 
 static maniGraphSource Graph(uint32_t mirrors, const maniMirrorMap* map)
 {
-    s_slots[0] = (maniGraphClipSource){&s_walk, "walk", 4, 0, NULL};
-    s_databaseSlot[0] = (maniGraphDatabaseSource){&s_mirrored, "moves", 5, 0};
+    s_slots[0] = (maniGraphClipSource){&s_walk, "walk", 4, NULL};
+    s_databaseSlot[0] = (maniGraphDatabaseSource){&s_mirrored, "moves", 5};
     const maniGraphMatchNodeSource m = {.database = 0,
                                         .trigger = MANI_NO_PARAMETER,
                                         .query = kQuery,

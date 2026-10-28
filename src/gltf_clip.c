@@ -67,7 +67,7 @@ typedef struct Build
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 static uint32_t NodeBone(const Build* b, uint32_t node)
@@ -479,7 +479,7 @@ static maniImportResult AddFloat(Build* b, const Bound* x, const char* name, siz
         return Capacity();
     }
     b->floats[b->floatCount] = (maniFloatTrackSource){
-        name, (uint32_t)length, 0, {x->times, values, x->c.keys, x->c.interpolation}};
+        name, (uint32_t)length, {x->times, values, x->c.keys, x->c.interpolation}};
     b->floatChannel[b->floatCount++] = x->index;
     return maniImportSuccess();
 }
@@ -566,7 +566,7 @@ static maniImportResult FromBuild(const Build* b, maniBuildResult r)
 {
     if (r.result == mani_success || r.result == mani_errorCapacity)
     {
-        return (maniImportResult){r.result, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){r.result, maniImportReasonNone, 0, 0};
     }
     uint32_t list = r.reason & 0xF00u;
     uint32_t reason = r.reason & 0xFFu;
@@ -636,18 +636,18 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
     }
     if (builder == NULL)
     {
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     if (gltf == NULL || skeleton == NULL || options == NULL || !maniGltfOptionsValid(options) ||
         clipOptions == NULL || !maniImportClipOptionsValid(clipOptions, skeleton) ||
         animation >= gltf->animationCount)
     {
         maniBuilderMisuse(builder);
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     if (boundOut != NULL)
     {

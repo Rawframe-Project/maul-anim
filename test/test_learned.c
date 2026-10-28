@@ -22,6 +22,7 @@
 #include "container.h"
 #include "learned_file.h"
 #include "learned_fixture.h"
+#include "source_padding.h"
 
 #include "maul-anim/learned.h"
 #include "maul-anim/learnedbuild.h"
@@ -242,7 +243,7 @@ static void TestEvaluateRefusals(void)
     static _Alignas(16) uint8_t oneFile[1024];
     static _Alignas(32) uint8_t onePose[1024];
     static const maniBoneSource kBone = {"hips", 4, -1, {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}};
-    const maniSkeletonSource oneSource = {&kBone, 1, 0};
+    const maniSkeletonSource oneSource = {&kBone, 1};
     maniSkeleton one;
     maniPose* small = NULL;
     size_t oneSize = 0;
@@ -326,7 +327,7 @@ static void TestHalfTurns(const maniLearnedModelSource* source)
 static void TestColumns(void)
 {
     const maniLearnedLayerSource layer = {s_zeros, s_biases, STATE, OUTPUTS};
-    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1, 0};
+    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1};
     maniLearnedModelSource source = Source();
     source.decompressor = &fixed;
     // Bone 0 a quarter turn about z; bone 1 columns neither unit nor
@@ -515,9 +516,9 @@ static void TestModelRefusals(void)
     s_scales[4] = INFINITY;
     CHECK(RefusedAs(&s, maniBuildReasonNotFinite, 1, 0), "a scale not finite");
     s_scales[4] = 2.0f;
-    static const maniLearnedNameSource kBad[2] = {{"a", 1, 0}, {"\xff", 1, 0}};
-    static const maniLearnedNameSource kTwice[2] = {{"a", 1, 0}, {"a", 1, 0}};
-    static const maniLearnedNameSource kEmpty[1] = {{"", 0, 0}};
+    static const maniLearnedNameSource kBad[2] = {{"a", 1}, {"\xff", 1}};
+    static const maniLearnedNameSource kTwice[2] = {{"a", 1}, {"a", 1}};
+    static const maniLearnedNameSource kEmpty[1] = {{"", 0}};
     s = Source();
     s.floatTracks = kBad;
     s.floatTrackCount = 2;
@@ -681,7 +682,9 @@ static bool RefusedIn(uint32_t tag, uint64_t offset, const void* bytes, size_t s
                (unsigned long long)offset, (int)r.result, (unsigned long long)r.offset,
                (unsigned long long)expected);
     }
-    return r.result == mani_errorFormat && r.offset == expected;
+    // A refusal in a section names it; one of the table's entries, none.
+    return r.result == mani_errorFormat && r.offset == expected &&
+           r.tag == (want != UINT64_MAX ? wantTag : 0u);
 }
 
 static bool RefusedAt(uint32_t tag, uint64_t offset, const void* bytes, size_t size, uint64_t want)
@@ -796,8 +799,8 @@ static void TestOpenRecords(void)
 
 static void TestOpenNames(void)
 {
-    static const maniLearnedNameSource kTrack[1] = {{"xy", 2, 0}};
-    static const maniLearnedNameSource kTwo[2] = {{"ab", 2, 0}, {"cd", 2, 0}};
+    static const maniLearnedNameSource kTrack[1] = {{"xy", 2}};
+    static const maniLearnedNameSource kTwo[2] = {{"ab", 2}, {"cd", 2}};
     maniLearnedModelSource source = Source();
     source.floatTracks = kTrack;
     source.events = kTwo;
@@ -844,7 +847,7 @@ static void TestOpenShapes(void)
     static const uint32_t kTwoScaled[2] = {1, 2};
     static const uint32_t kSpare[3] = {FEATURES, STATE, STATE};
     const maniLearnedLayerSource layer = {s_zeros, s_biases, STATE, 42};
-    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1, 0};
+    maniLearnedNetworkSource fixed = {&layer, s_zeros, kOnes, s_zeros, kOnes, 1};
     maniLearnedLayerSource spare[2];
     maniLearnedProjectorSource projectors[2] = {s_projectors[0], {Network(spare, kSpare, 2), 0, 0}};
     maniLearnedModelSource source = Source();
@@ -925,6 +928,59 @@ static void TestOverflow(void)
           "a decompression refused, nothing written");
 }
 
+// A network's copy with its layers, both padded.
+static maniLearnedNetworkSource PaddedNetwork(const maniLearnedNetworkSource* n,
+                                              maniLearnedLayerSource layers[3], uint8_t pattern)
+{
+    maniLearnedNetworkSource copy = *n;
+    memcpy(layers, n->layers, n->layerCount * sizeof *layers);
+    TEST_PAD(layers, n->layerCount, kFieldsLearnedLayerSource, pattern);
+    copy.layers = layers;
+    TEST_PAD(&copy, 1, kFieldsLearnedNetworkSource, pattern);
+    return copy;
+}
+
+// The same model whatever bytes pad the source, its networks, layers,
+// projectors and names.
+static void TestPaddingIgnored(void)
+{
+    uint8_t* built[2];
+    size_t sizes[2];
+    for (int k = 0; k < 2; ++k)
+    {
+        uint8_t pattern = kTestPadPatterns[k];
+        maniLearnedModelSource source = Source();
+        maniLearnedLayerSource layers[4][3];
+        maniLearnedNetworkSource decompressor =
+            PaddedNetwork(source.decompressor, layers[0], pattern);
+        maniLearnedNetworkSource stepper = PaddedNetwork(source.stepper, layers[1], pattern);
+        maniLearnedProjectorSource projectors[2];
+        memcpy(projectors, s_projectors, sizeof projectors);
+        for (int j = 0; j < 2; ++j)
+        {
+            projectors[j].network = PaddedNetwork(&s_projectors[j].network, layers[2 + j], pattern);
+        }
+        TEST_PAD(projectors, 2, kFieldsLearnedProjectorSource, pattern);
+        maniLearnedNameSource tracks[1];
+        maniLearnedNameSource events[2];
+        memcpy(tracks, kTracks, sizeof tracks);
+        memcpy(events, kEvents, sizeof events);
+        TEST_PAD(tracks, 1, kFieldsLearnedNameSource, pattern);
+        TEST_PAD(events, 2, kFieldsLearnedNameSource, pattern);
+        source.decompressor = &decompressor;
+        source.stepper = &stepper;
+        source.projectors = projectors;
+        source.floatTracks = tracks;
+        source.events = events;
+        TEST_PAD(&source, 1, kFieldsLearnedModelSource, pattern);
+        maniBuilder* builder = NewBuilder();
+        CHECK(maniBuildLearnedModel(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
+    }
+    CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
+}
+
 int main(int argc, char** argv)
 {
     Open();
@@ -949,5 +1005,6 @@ int main(int argc, char** argv)
     TestOpenNarrow();
     TestOpenShapes();
     TestOverflow();
+    TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

@@ -43,7 +43,7 @@ static float Smaller(float a, float b)
 
 static maniImportResult Capacity(void)
 {
-    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0, 0};
+    return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
 maniImportResult maniGltfRagdollFail(const maniGltfRagdollReader* r, maniImportReason reason,
@@ -570,7 +570,7 @@ static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
     if (gltf == NULL || skeleton == NULL || options == NULL || sourceOut == NULL ||
         !maniGltfOptionsValid(options) || !AxesValid(facing, up))
     {
-        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0, 0};
+        return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
     *sourceOut = (maniRagdollSource){0};
     maniArenaRelease(&gltf->ragdoll);
@@ -600,8 +600,8 @@ static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
         return result;
     }
     maniQuat root = RootModel(&r, Root(&r));
-    *sourceOut = (maniRagdollSource){
-        skeleton, r.bodies, r.bodyCount, 0, InRoot(&r, root, facing), InRoot(&r, root, up)};
+    *sourceOut = (maniRagdollSource){skeleton, r.bodies, r.bodyCount, InRoot(&r, root, facing),
+                                     InRoot(&r, root, up)};
     return result;
 }
 

@@ -235,7 +235,7 @@ static void TestAxes(void)
     maniMotionDatabaseSource source = {
         &s_skeleton, clips, &kChannel, &entry,         1,
         1,           1,     10.0f,     maniMatchAxisZ, maniMatchAxisNegativeX,
-        NULL,        0,     0};
+        NULL,        0};
     maniMotionDatabase d;
     maniBuilder* builder = NewBuilder();
     size_t size = 0;

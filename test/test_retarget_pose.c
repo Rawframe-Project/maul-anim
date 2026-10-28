@@ -109,7 +109,7 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
         sources[b].rest.scale.x = (side == 0 || side >= 4) && b == 6 ? 0.5f : 1.0f;
     }
     maniBuilder* builder = NewBuilder();
-    maniSkeletonSource source = {sources, count, 0};
+    maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
               maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
