@@ -493,10 +493,22 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w, const uint32_t
     {
         text += w->entries[order[i]].length;
     }
+    // The file stores a partner's offset in 32 bits.
+    if (text > UINT32_MAX)
+    {
+        return Refuse(maniBuildReasonCount, 0, 0);
+    }
     const uint64_t sizes[MANI_MIRROR_SECTIONS] = {
         MANI_MIRROR_HEADER_SIZE, (uint64_t)w->count * MANI_MIRROR_BONE_SIZE,
         (uint64_t)w->entryCount * MANI_MIRROR_NAME_SIZE, text};
-    size_t own = (size_t)(sizes[0] + sizes[1] + sizes[2] + sizes[3]);
+    uint64_t all = sizes[0] + sizes[1] + sizes[2] + sizes[3];
+    // Where size_t has 32 bits, the sections can pass what one allocation
+    // holds.
+    if (all > SIZE_MAX)
+    {
+        return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
+    }
+    size_t own = (size_t)all;
     uint8_t* staging = maniAllocate(&builder->allocator, own, 1, 8);
     if (staging == NULL)
     {
@@ -542,8 +554,9 @@ static bool Usable(const maniMirrorMapSource* s)
            (s->names != NULL || s->nameCount == 0);
 }
 
-// Every rule's and listed name's length within MANI_MAX_NAME_BYTES,
-// checked before Room sizes anything by them.
+// Every rule's and listed name's length within MANI_MAX_NAME_BYTES, and
+// the name pairs within the 32 bits of the file's offsets, checked before
+// Room sizes anything by them or a name is read.
 static maniBuildResult Bounds(const maniMirrorMapSource* s)
 {
     for (uint32_t i = 0; i < s->ruleCount; ++i)
@@ -560,6 +573,21 @@ static maniBuildResult Bounds(const maniMirrorMapSource* s)
         {
             return Result(mani_errorLimit, maniBuildReasonMirrorName, s->namePairCount + j, 0);
         }
+    }
+    // Each pair's names are each other's partners, so their total is the
+    // partners' least; Write checks the whole once the rules made theirs.
+    // A name past MANI_MAX_NAME_BYTES is left to its pair's check.
+    uint64_t paired = 0;
+    for (uint32_t i = 0; i < s->namePairCount; ++i)
+    {
+        size_t first = s->namePairs[i].firstLength;
+        size_t second = s->namePairs[i].secondLength;
+        paired += maniNamePastLimit(first) ? 0u : first;
+        paired += maniNamePastLimit(second) ? 0u : second;
+    }
+    if (paired > UINT32_MAX)
+    {
+        return Refuse(maniBuildReasonCount, 0, 0);
     }
     return kOk;
 }
