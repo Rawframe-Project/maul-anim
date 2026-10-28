@@ -573,11 +573,19 @@ maniResult maniLearnedModelChannel(const maniLearnedModel* model, uint32_t chann
 }
 
 maniResult maniLearnedModelNormalization(const maniLearnedModel* model, float* offsetsOut,
-                                         float* scalesOut)
+                                         float* scalesOut, uint32_t capacity, uint32_t* countOut)
 {
-    if (model == NULL)
+    if (model == NULL || (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
     {
         return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = model->featureCount;
+    }
+    if (capacity < model->featureCount)
+    {
+        return mani_errorCapacity;
     }
     size_t bytes = 4 * (size_t)model->featureCount;
     if (offsetsOut != NULL)
@@ -619,6 +627,16 @@ static const char* Name(const maniLearnedModel* model, uint32_t k, uint32_t* len
         *lengthOut = maniLoadU32(e + 4);
     }
     return (const char*)(model->nameBytes + maniLoadU32(e));
+}
+
+uint32_t maniLearnedModelFloatTrackCount(const maniLearnedModel* model)
+{
+    return model == NULL ? 0 : model->floatTrackCount;
+}
+
+uint32_t maniLearnedModelEventCount(const maniLearnedModel* model)
+{
+    return model == NULL ? 0 : model->eventCount;
 }
 
 const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32_t track,

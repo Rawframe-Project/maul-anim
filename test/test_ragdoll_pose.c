@@ -100,7 +100,7 @@ static void TestRoundTrip(void)
 {
     maniPose* bent = Bent(0, 0.7f);
     maniRagdollBodyState bodies[5];
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, bent, &kPlace, NULL, NULL, 0.0f, bodies, 5) ==
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, bent, &kPlace, NULL, NULL, 0.0f, bodies, 5, NULL) ==
               mani_success,
           "bodies placed");
     // Back over the same pose as the reference: every local again.
@@ -132,8 +132,8 @@ static void TestRoundTrip(void)
               memcmp(&hand, &restHand, sizeof hand) == 0 && spine.scale.x == 1.5f,
           "bones without bodies keep the reference's locals");
     maniRagdollBodyState again[5];
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, s_poses[1], &kPlace, NULL, NULL, 0.0f, again, 5) ==
-              mani_success,
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, s_poses[1], &kPlace, NULL, NULL, 0.0f, again, 5,
+                                    NULL) == mani_success,
           "placed again");
     worst = 0.0f;
     for (int i = 0; i < 5; ++i)
@@ -160,8 +160,8 @@ static void TestVelocities(void)
     maniTransform before = kPlace;
     before.translation.x -= 0.03f;
     maniRagdollBodyState bodies[5];
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &before, 0.1f, bodies, 5) ==
-              mani_success,
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &before, 0.1f, bodies, 5,
+                                    NULL) == mani_success,
           "bodies with velocities");
     bool moving = true;
     for (int i = 0; i < 4; ++i)
@@ -172,8 +172,8 @@ static void TestVelocities(void)
     }
     float spin = Length(bodies[4].angularVelocity);
     CHECK(moving && fabsf(spin - 0.2f) < 1e-3f, "moved with the placement, the elbow turning");
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, NULL, &before, 0.1f, bodies, 5) ==
-                  mani_success &&
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, NULL, &before, 0.1f, bodies, 5,
+                                    NULL) == mani_success &&
               bodies[4].angularVelocity.x == 0.0f && bodies[2].linearVelocity.x == 0.0f,
           "no velocities without the pose before");
 }
@@ -203,12 +203,12 @@ static void TestCuts(void)
     const maniTransform far = {
         {80.0f, 0.5f, 40.0f}, {0.0f, 0.70710678f, 0.0f, 0.70710678f}, {1.0f, 1.0f, 1.0f}};
     maniRagdollBodyState bodies[5];
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &far, 1.0f / 60.0f, bodies,
-                                    5) == mani_success &&
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &far, 1.0f / 60.0f, bodies, 5,
+                                    NULL) == mani_success &&
               Length(bodies[0].linearVelocity) > 1000.0f,
           "a teleport passed as it was spikes");
     CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, then, &kPlace, 1.0f / 60.0f, bodies,
-                                    5) == mani_success,
+                                    5, NULL) == mani_success,
           "a teleport passed as the current placement");
     bool still = true;
     for (int i = 0; i < 4; ++i)
@@ -225,10 +225,10 @@ static void TestCuts(void)
     before.translation.x -= 0.03f;
     before.rotation = Mul(Turn((maniVec3){0.0f, 1.0f, 0.0f}, -0.01f), kPlace.rotation);
     maniRagdollBodyState placed[5];
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, now, &before, 0.1f, bodies, 5) ==
-                  mani_success &&
-              maniRagdollBodiesFromPose(&s_ragdoll, now, &before, NULL, NULL, 0.0f, placed, 5) ==
-                  mani_success,
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, now, &before, 0.1f, bodies, 5,
+                                    NULL) == mani_success &&
+              maniRagdollBodiesFromPose(&s_ragdoll, now, &before, NULL, NULL, 0.0f, placed, 5,
+                                        NULL) == mani_success,
           "the placement's motion");
     bool carried = true;
     for (int i = 0; i < 5; ++i)
@@ -251,9 +251,9 @@ static void TestHalfTurn(void)
     maniRagdollBodyState under[5];
     maniRagdollBodyState over[5];
     CHECK(maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, ElbowBefore(1, now, 0.9f * pi),
-                                    &kPlace, 1.0f, under, 5) == mani_success &&
+                                    &kPlace, 1.0f, under, 5, NULL) == mani_success &&
               maniRagdollBodiesFromPose(&s_ragdoll, now, &kPlace, ElbowBefore(2, now, 1.1f * pi),
-                                        &kPlace, 1.0f, over, 5) == mani_success,
+                                        &kPlace, 1.0f, over, 5, NULL) == mani_success,
           "a turn either side of the half turn");
     maniVec3 a = under[4].angularVelocity;
     maniVec3 b = over[4].angularVelocity;
@@ -266,9 +266,9 @@ static void TestJointTargets(void)
 {
     maniRagdollBodyState bodies[5];
     maniRagdollJointTarget joints[5];
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, Bent(0, 0.0f), &kPlace, NULL, NULL, 0.0f, bodies,
-                                    5) == mani_success &&
-              maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5) == mani_success,
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, Bent(0, 0.0f), &kPlace, NULL, NULL, 0.0f, bodies, 5,
+                                    NULL) == mani_success &&
+              maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5, NULL) == mani_success,
           "targets at rest");
     float worst = 0.0f;
     for (int i = 0; i < 5; ++i)
@@ -278,9 +278,9 @@ static void TestJointTargets(void)
     CHECK(worst < 1e-6f, "every joint at rest in the rest pose");
     // The elbow bent by 1.2 radians (0.3 * 4 of Bent's): its joint turned
     // by as much.
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, Bent(0, 1.0f), &kPlace, NULL, NULL, 0.0f, bodies,
-                                    5) == mani_success &&
-              maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5) == mani_success,
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, Bent(0, 1.0f), &kPlace, NULL, NULL, 0.0f, bodies, 5,
+                                    NULL) == mani_success &&
+              maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5, NULL) == mani_success,
           "targets bent");
     float angle = 2.0f * acosf(fminf(1.0f, joints[4].rotation.w));
     CHECK(fabsf(angle - 1.2f) < 1e-4f && joints[4].rotation.w >= 0.0f, "the elbow's angle");
@@ -289,7 +289,7 @@ static void TestJointTargets(void)
     maniRagdollJointTarget negated[5];
     maniQuat q = bodies[4].rotation;
     bodies[4].rotation = (maniQuat){-q.x, -q.y, -q.z, -q.w};
-    CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, negated, 5) == mani_success &&
+    CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, negated, 5, NULL) == mani_success &&
               negated[4].rotation.x == joints[4].rotation.x &&
               negated[4].rotation.y == joints[4].rotation.y &&
               negated[4].rotation.z == joints[4].rotation.z &&
@@ -298,7 +298,7 @@ static void TestJointTargets(void)
     bodies[4].rotation = q;
     bodies[4].angularVelocity = (maniVec3){0.0f, 3.0f, 0.0f};
     bodies[3].angularVelocity = (maniVec3){0.0f, 1.0f, 0.0f};
-    CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5) == mani_success, "spinning");
+    CHECK(maniRagdollJointTargets(&s_ragdoll, bodies, joints, 5, NULL) == mani_success, "spinning");
     maniVec3 w = joints[4].angularVelocity;
     // About the parent joint frame's axes: the world's (0, 2, 0) turned
     // back by that frame's rotation.
@@ -325,41 +325,60 @@ static void TestRefusals(void)
     bad.translation.y = NAN;
     maniTransform turned = kPlace;
     turned.rotation.w = 2.0f;
-    CHECK(maniRagdollBodiesFromPose(NULL, p, NULL, NULL, NULL, 0.0f, b, 5) == mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, NULL, NULL, NULL, NULL, 0.0f, b, 5) ==
+    CHECK(maniRagdollBodiesFromPose(NULL, p, NULL, NULL, NULL, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, NULL, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, NULL, NULL, NULL, NULL, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, &bad, NULL, NULL, 0.0f, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, NULL, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, &turned, NULL, NULL, 0.0f, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, &bad, NULL, NULL, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, &bad, 0.0f, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, &turned, NULL, NULL, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, p, NULL, 0.0f, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, &bad, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, p, NULL, INFINITY, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, p, NULL, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, p, NULL, NAN, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, p, NULL, INFINITY, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, b, 4) ==
-                  mani_errorCapacity,
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, p, NULL, NAN, b, 5, NULL) ==
+                  mani_errorInvalid &&
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, b, 4, NULL) ==
+                  mani_errorCapacity &&
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, NULL, 1, NULL) ==
+                  mani_errorInvalid,
           "bodies refused");
+    uint32_t measured[2] = {0, 0};
+    uint32_t shortCount[2] = {0, 0};
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, NULL, 0, &measured[0]) ==
+                  mani_errorCapacity &&
+              measured[0] == 5 &&
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, b, 4,
+                                        &shortCount[0]) == mani_errorCapacity &&
+              shortCount[0] == 5,
+          "the bodies measured, a short array refused");
     maniPoseSetLocal(s_poses[1], 0, maniPoseLocal(s_poses[1], 0));
     maniPoseSetKind(s_poses[2], true);
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, s_poses[1], NULL, NULL, NULL, 0.0f, b, 5) ==
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, s_poses[1], NULL, NULL, NULL, 0.0f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, s_poses[1], NULL, 0.1f, b, 5) ==
+              maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, s_poses[1], NULL, 0.1f, b, 5, NULL) ==
                   mani_errorInvalid &&
-              maniRagdollBodiesFromPose(&s_ragdoll, s_poses[2], NULL, NULL, NULL, 0.0f, b, 5) ==
-                  mani_errorInvalid,
+              maniRagdollBodiesFromPose(&s_ragdoll, s_poses[2], NULL, NULL, NULL, 0.0f, b, 5,
+                                        NULL) == mani_errorInvalid,
           "a model not current, a difference");
-    CHECK(maniRagdollJointTargets(NULL, b, j, 5) == mani_errorInvalid &&
-              maniRagdollJointTargets(&s_ragdoll, NULL, j, 5) == mani_errorInvalid &&
-              maniRagdollJointTargets(&s_ragdoll, b, NULL, 5) == mani_errorInvalid &&
-              maniRagdollJointTargets(&s_ragdoll, b, j, 4) == mani_errorCapacity,
+    CHECK(maniRagdollJointTargets(NULL, b, j, 5, NULL) == mani_errorInvalid &&
+              maniRagdollJointTargets(&s_ragdoll, NULL, j, 5, NULL) == mani_errorInvalid &&
+              maniRagdollJointTargets(&s_ragdoll, b, NULL, 5, NULL) == mani_errorInvalid &&
+              maniRagdollJointTargets(&s_ragdoll, b, j, 4, NULL) == mani_errorCapacity &&
+              maniRagdollJointTargets(&s_ragdoll, b, NULL, 1, NULL) == mani_errorInvalid,
           "targets refused");
-    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, b, 5) == mani_success,
+    CHECK(maniRagdollJointTargets(&s_ragdoll, b, NULL, 0, &measured[1]) == mani_errorCapacity &&
+              measured[1] == 5 &&
+              maniRagdollJointTargets(&s_ragdoll, b, j, 4, &shortCount[1]) == mani_errorCapacity &&
+              shortCount[1] == 5,
+          "the targets measured, a short array refused");
+    CHECK(maniRagdollBodiesFromPose(&s_ragdoll, p, NULL, NULL, NULL, 0.0f, b, 5, NULL) ==
+              mani_success,
           "placed");
     maniPose* out = s_poses[1];
     CHECK(maniRagdollPoseFromBodies(NULL, &s_skeleton, b, 5, NULL, p, out) == mani_errorInvalid &&

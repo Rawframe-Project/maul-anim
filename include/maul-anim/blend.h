@@ -80,18 +80,21 @@ extern "C"
     /// @param chains         count chains.
     /// @param count          The number of chains.
     /// @param defaultWeight  The weight of bones no chain reaches.
-    /// @param weights        Receives a weight per bone in skeleton order.
-    /// @param capacity       The floats weights holds.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// bone past the skeleton or a negative or non-finite weight;
-    /// `mani_errorCapacity` when capacity is below the bone count (weights
-    /// unchanged).
+    /// @param weightsOut     Receives a weight per bone in skeleton order;
+    ///                       may be NULL when capacity is 0.
+    /// @param capacity       The floats weightsOut holds.
+    /// @param countOut       Receives the bone count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the bone count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL skeleton or chains, a NULL array with
+    /// a positive capacity, a bone past the skeleton or a negative or
+    /// non-finite weight.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniBuildMask(const maniSkeleton* skeleton,
                                                      const maniMaskChain* chains, uint32_t count,
-                                                     float defaultWeight, float* weights,
-                                                     uint32_t capacity);
+                                                     float defaultWeight, float* weightsOut,
+                                                     uint32_t capacity, uint32_t* countOut);
 
     /// Writes the difference of a pose from a basis, bone by bone:
     /// `d_t = t - t_b`, `d_r = r_b^-1 r` (normalized), `d_s = s / s_b` per

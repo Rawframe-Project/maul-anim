@@ -623,11 +623,20 @@ static void Walk(const maniMorphTargets* m, uint32_t first, uint32_t count, floa
 
 static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* targets,
                                                        const float* channelWeights,
-                                                       float* targetWeights)
+                                                       float* targetWeights, uint32_t capacity,
+                                                       uint32_t* countOut)
 {
-    if (targets == NULL || channelWeights == NULL || targetWeights == NULL)
+    if (targets == NULL || channelWeights == NULL || (targetWeights == NULL && capacity > 0))
     {
         return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = targets->targetCount;
+    }
+    if (targetWeights == NULL || capacity < targets->targetCount)
+    {
+        return mani_errorCapacity;
     }
     for (uint32_t c = 0; c < targets->channelCount; ++c)
     {
@@ -649,10 +658,11 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
 }
 
 maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights,
-                                  float* targetWeights)
+                                  float* targetWeightsOut, uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = MorphTargetWeightsWork(targets, channelWeights, targetWeights);
+    maniResult result =
+        MorphTargetWeightsWork(targets, channelWeights, targetWeightsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

@@ -38,6 +38,8 @@ reads or counts records:
     maniGraphParameterCount
     maniGraphSpringSetCount
     maniInfluencesVertexCount
+    maniLearnedModelEventCount
+    maniLearnedModelFloatTrackCount
     maniMorphAttributeCount
     maniMorphChannelCount
     maniMorphTargetCount

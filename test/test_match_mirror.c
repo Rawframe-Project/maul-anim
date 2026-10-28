@@ -253,9 +253,13 @@ static void TestFeatures(void)
         float a[32];
         float b[32];
         float plain[32];
-        same = n <= 32 && maniMotionDatabaseFeatures(&s_mirrored, f, a) == mani_success &&
-               maniMotionDatabaseFeatures(&s_bakedDatabase, f, b) == mani_success &&
-               maniMotionDatabaseFeatures(&s_mirrored, f % 30, plain) == mani_success;
+        same = n <= 32 &&
+               maniMotionDatabaseFeatures(&s_mirrored, f, a, s_mirrored.featureCount, NULL) ==
+                   mani_success &&
+               maniMotionDatabaseFeatures(&s_bakedDatabase, f, b, s_bakedDatabase.featureCount,
+                                          NULL) == mani_success &&
+               maniMotionDatabaseFeatures(&s_mirrored, f % 30, plain, s_mirrored.featureCount,
+                                          NULL) == mani_success;
         for (uint32_t k = 0; same && k < n; ++k)
         {
             same = Near(a[k], b[k]);
@@ -284,8 +288,8 @@ static void TestFeatures(void)
     {
         float x[32];
         float y[32];
-        same = maniMotionDatabaseFeatures(&a, f, x) == mani_success &&
-               maniMotionDatabaseFeatures(&b, f, y) == mani_success;
+        same = maniMotionDatabaseFeatures(&a, f, x, a.featureCount, NULL) == mani_success &&
+               maniMotionDatabaseFeatures(&b, f, y, b.featureCount, NULL) == mani_success;
         for (uint32_t k = 0; same && k < n; ++k)
         {
             same = Near(x[k], y[k]);

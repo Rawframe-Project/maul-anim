@@ -166,13 +166,22 @@ static bool ReadNumbers(const maniJson* json, uint32_t array, uint32_t count, fl
 }
 
 static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf, uint32_t node,
-                                                           float* weightsOut, uint32_t count)
+                                                           float* weightsOut, uint32_t capacity,
+                                                           uint32_t* countOut)
 {
     uint32_t mesh = gltf == NULL ? UINT32_MAX : maniGltfNodeMesh(gltf, node);
-    if (weightsOut == NULL || mesh == UINT32_MAX || count != maniGltfMeshTargets(gltf, mesh) ||
-        count == 0)
+    uint32_t count = mesh == UINT32_MAX ? 0 : maniGltfMeshTargets(gltf, mesh);
+    if ((weightsOut == NULL && capacity > 0) || count == 0)
     {
         return Invalid();
+    }
+    if (countOut != NULL)
+    {
+        *countOut = count;
+    }
+    if (weightsOut == NULL || capacity < count)
+    {
+        return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
     }
     const uint32_t owners[2] = {gltf->nodeValues[node], gltf->meshValues[mesh]};
     for (int k = 0; k < 2; ++k)
@@ -190,10 +199,10 @@ static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf,
 }
 
 maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
-                                      uint32_t count)
+                                      uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniImportResult result = GltfMorphWeightsWork(gltf, node, weightsOut, count);
+    maniImportResult result = GltfMorphWeightsWork(gltf, node, weightsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

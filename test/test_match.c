@@ -127,7 +127,8 @@ static float s_scales[MANI_MAX_MATCH_FEATURES];
 static double Raw(const maniMotionDatabase* d, uint32_t f, uint32_t j)
 {
     float features[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseFeatures(d, f, features) == mani_success, "features");
+    CHECK(maniMotionDatabaseFeatures(d, f, features, d->featureCount, NULL) == mani_success,
+          "features");
     return (double)features[j] * (double)s_scales[j] + (double)s_offsets[j];
 }
 
@@ -208,7 +209,30 @@ static void TestFeatures(void)
     CHECK(d.frameCount == 32 && d.featureCount == 12 && d.channelCount == 4 && d.timeCount == 5 &&
               d.entryCount == 3 && d.clipCount == 3 && d.skeletonBoneCount == 3,
           "the counts: 10 looping frames, 11 and 11 clamped");
-    CHECK(maniMotionDatabaseNormalization(&d, s_offsets, s_scales) == mani_success, "the scales");
+    CHECK(maniMotionDatabaseNormalization(&d, s_offsets, s_scales, d.featureCount, NULL) ==
+              mani_success,
+          "the scales");
+    uint32_t measured[2] = {0, 0};
+    uint32_t refused[2] = {0, 0};
+    float row[12];
+    float offsets[12];
+    memset(row, 0x7F, sizeof row);
+    memset(offsets, 0x7F, sizeof offsets);
+    float kept = row[0];
+    CHECK(maniMotionDatabaseFeatures(&d, 0, NULL, 0, &measured[0]) == mani_errorCapacity &&
+              measured[0] == 12 &&
+              maniMotionDatabaseFeatures(&d, 0, row, 11, &refused[0]) == mani_errorCapacity &&
+              refused[0] == 12 && memcmp(&row[0], &kept, sizeof kept) == 0 &&
+              maniMotionDatabaseFeatures(&d, 0, NULL, 1, NULL) == mani_errorInvalid,
+          "the features measured, a short array refused (nothing written)");
+    CHECK(maniMotionDatabaseNormalization(&d, NULL, NULL, 0, &measured[1]) == mani_errorCapacity &&
+              measured[1] == 12 &&
+              maniMotionDatabaseNormalization(&d, offsets, NULL, 11, &refused[1]) ==
+                  mani_errorCapacity &&
+              refused[1] == 12 && memcmp(&offsets[0], &kept, sizeof kept) == 0 &&
+              maniMotionDatabaseNormalization(&d, NULL, NULL, 1, NULL) == mani_errorInvalid &&
+              maniMotionDatabaseNormalization(&d, NULL, s_scales, 12, NULL) == mani_success,
+          "the normalization measured, a short array refused (nothing written)");
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
           "a pose");
@@ -254,7 +278,8 @@ static void TestNormalization(void)
             for (uint32_t f = 0; f < d.frameCount; ++f)
             {
                 float v[MANI_MAX_MATCH_FEATURES];
-                CHECK(maniMotionDatabaseFeatures(&d, f, v) == mani_success, "features");
+                CHECK(maniMotionDatabaseFeatures(&d, f, v, d.featureCount, NULL) == mani_success,
+                      "features");
                 sum += (double)v[j];
                 squares += (double)v[j] * (double)v[j];
             }
@@ -313,7 +338,8 @@ static void TestFloatTrack(void)
     maniMotionDatabase d;
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
-              maniMotionDatabaseNormalization(&d, s_offsets, s_scales) == mani_success,
+              maniMotionDatabaseNormalization(&d, s_offsets, s_scales, d.featureCount, NULL) ==
+                  mani_success,
           "built and opened");
     bool ok = true;
     for (uint32_t f = 0; f < 11; ++f)
@@ -679,7 +705,8 @@ static void TestLeafSizes(void)
         for (uint32_t f = 0; f < 32; ++f)
         {
             float row[12];
-            CHECK(maniMotionDatabaseFeatures(&d, f, row) == mani_success, "a frame's features");
+            CHECK(maniMotionDatabaseFeatures(&d, f, row, d.featureCount, NULL) == mani_success,
+                  "a frame's features");
             same = same && (k == 0 ? (memcpy(features[f], row, sizeof row), true)
                                    : memcmp(features[f], row, sizeof row) == 0);
         }
@@ -687,7 +714,8 @@ static void TestLeafSizes(void)
         {
             float offsets[12];
             float scales[12];
-            CHECK(maniMotionDatabaseNormalization(&d, offsets, scales) == mani_success,
+            CHECK(maniMotionDatabaseNormalization(&d, offsets, scales, d.featureCount, NULL) ==
+                      mani_success,
                   "the normalization");
             for (uint32_t j = 0; j < 12; ++j)
             {
