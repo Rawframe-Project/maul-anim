@@ -210,7 +210,8 @@ static void Project(const Learned* l)
     float projected[MANI_GRAPH_LEARNED_MAX_STATES];
     Query(l, query);
     maniResult r =
-        maniLearnedProject(l->m, projector, query, projected, l->scratch, l->scratchSize);
+        maniLearnedProject(l->m, projector, query, projected, MANI_GRAPH_LEARNED_MAX_STATES, NULL,
+                           l->scratch, l->scratchSize);
     if (r != mani_success)
     {
         if (r == mani_errorFormat)

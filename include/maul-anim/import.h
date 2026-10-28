@@ -529,21 +529,28 @@ extern "C"
     MANI_API uint32_t maniGltfNodeSkin(const maniGltf* gltf, uint32_t node);
 
     /// Reads the morph weights a node's mesh starts with: the node's
-    /// `weights`, else its mesh's, else zeros.
+    /// `weights`, else its mesh's, else zeros. Call it with a NULL array
+    /// and capacity 0 to measure.
     ///
     /// @param gltf        The document.
     /// @param node        The node.
-    /// @param weightsOut  Receives count weights.
-    /// @param count       The mesh's morph target count.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// node past the count or a count other than its mesh's targets;
-    /// `mani_errorFormat` (Property) for weights not an array of that many
-    /// numbers.
+    /// @param weightsOut  Receives a weight per morph target of the node's
+    ///                    mesh; may be NULL when capacity is 0.
+    /// @param capacity    The floats weightsOut holds.
+    /// @param countOut    Receives the mesh's morph target count. May be
+    ///                    NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the target count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL document, a NULL array with a
+    /// positive capacity, or a node past the count, without a mesh or whose
+    /// mesh has no morph targets; `mani_errorFormat` (Property) for weights
+    /// not an array of that many numbers.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniImportResult maniGltfMorphWeights(const maniGltf* gltf,
                                                                   uint32_t node, float* weightsOut,
-                                                                  uint32_t count);
+                                                                  uint32_t capacity,
+                                                                  uint32_t* countOut);
 
     /// Builds a primitive's influences into the builder, bound to an
     /// opened skin built from the glTF skin that deforms it (its joints
@@ -958,20 +965,26 @@ extern "C"
 
     /// Reads the target weights a set of morph targets has at rest: each
     /// channel's DeformPercent walked through its shapes, as the clips'
-    /// weight tracks are.
+    /// weight tracks are. Call it with a NULL array and capacity 0 to
+    /// measure.
     ///
     /// @param fbx         The document.
     /// @param morph       The set.
-    /// @param weightsOut  Receives count weights.
-    /// @param count       The set's target count.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// set past the count or another count; `mani_errorFormat` (Data) for
-    /// a FullWeights value not finite; `mani_errorCapacity` when the
-    /// allocator fails.
+    /// @param weightsOut  Receives a weight per target of the set; may be
+    ///                    NULL when capacity is 0.
+    /// @param capacity    The floats weightsOut holds.
+    /// @param countOut    Receives the set's target count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the target count, with the count still written and nothing else,
+    /// or when the allocator fails; `mani_errorInvalid` for a NULL
+    /// document, a NULL array with a positive capacity or a set past the
+    /// count; `mani_errorFormat` (Data) for a FullWeights value not finite.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph,
-                                                                 float* weightsOut, uint32_t count);
+                                                                 float* weightsOut,
+                                                                 uint32_t capacity,
+                                                                 uint32_t* countOut);
 
     /// Returns how many clips the document has: its animation stacks
     /// (takes), in file order.

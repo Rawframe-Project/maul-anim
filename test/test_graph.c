@@ -938,7 +938,7 @@ static void Reference(maniPose* out)
     float inside[3];
     float outside[3];
     const maniMaskChain chain = {1, 1.0f, true};
-    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3) == mani_success, "mask");
+    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success, "mask");
     for (int b = 0; b < 3; ++b)
     {
         outside[b] = 1.0f - inside[b];

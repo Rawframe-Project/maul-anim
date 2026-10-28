@@ -90,7 +90,7 @@ static void BuildMeshes(maniBuilder* builder, maniGltf* gltf, const maniSkin* sk
         (void)maniGltfNodeSkin(gltf, n);
         if (count > 0 && count <= 8)
         {
-            (void)maniGltfMorphWeights(gltf, n, weights, count);
+            (void)maniGltfMorphWeights(gltf, n, weights, count, NULL);
         }
     }
 }

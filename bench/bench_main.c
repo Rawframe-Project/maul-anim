@@ -280,7 +280,8 @@ static void Morph(BenchScenes* s, uint32_t n)
     const maniMorphJob job = {&s->morphs, s->targetWeights, 0, BENCH_VERTICES, 2, streams};
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniMorphTargetWeights(&s->morphs, s->channelWeights, s->targetWeights),
+        Must(maniMorphTargetWeights(&s->morphs, s->channelWeights, s->targetWeights,
+                                    maniMorphTargetCount(&s->morphs), NULL),
              "the target weights");
         Must(maniApplyMorphTargets(&job), "a morph");
     }
@@ -335,7 +336,7 @@ static void BuildMask(BenchScenes* s, uint32_t n)
     float weights[BENCH_BONES];
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniBuildMask(&s->skeleton, kChains, 3, 1.0f, weights, BENCH_BONES), "a mask");
+        Must(maniBuildMask(&s->skeleton, kChains, 3, 1.0f, weights, BENCH_BONES, NULL), "a mask");
     }
 }
 

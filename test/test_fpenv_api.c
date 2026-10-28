@@ -481,7 +481,8 @@ static void Meshes(void)
     const maniMorphStream stream = {s_positions, moved, 12, 12, maniMorphPosition, 0, 3};
     const maniMorphJob morphJob = {&morphs, targetWeights, 0, VERTICES, 1, &stream};
     Host();
-    r[0] = maniMorphTargetWeights(&morphs, channelWeights, targetWeights);
+    r[0] = maniMorphTargetWeights(&morphs, channelWeights, targetWeights,
+                                  maniMorphTargetCount(&morphs), NULL);
     r[1] = maniApplyMorphTargets(&morphJob);
     Back();
     RecordResult(r[0]);
@@ -631,7 +632,9 @@ static void Matching(void)
     float features[11];
     float position[4];
     float facing[4];
-    CHECK(maniMotionDatabaseFeatures(&database, 7, features) == mani_success, "features");
+    CHECK(maniMotionDatabaseFeatures(&database, 7, features, database.featureCount, NULL) ==
+              mani_success,
+          "features");
     Host();
     RecordResult(maniTrajectoryFeatures(&database, &trajectory, &later, position, facing));
     Back();

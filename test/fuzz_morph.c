@@ -56,7 +56,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
         }
         channelWeights[c] = (float)(c % 5) * 0.5f - 0.75f;
     }
-    if (maniMorphTargetWeights(&m, channelWeights, targetWeights) != mani_success)
+    if (maniMorphTargetWeights(&m, channelWeights, targetWeights, maniMorphTargetCount(&m), NULL) !=
+        mani_success)
     {
         abort();
     }

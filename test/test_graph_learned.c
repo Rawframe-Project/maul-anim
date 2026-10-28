@@ -75,14 +75,16 @@ static bool Projected(Reference* r, const float* ahead, float* state)
     float scales[FEATURES];
     float query[FEATURES];
     float projected[STATE];
-    CHECK(maniLearnedModelNormalization(&s_learned, offsets, scales) == mani_success,
+    CHECK(maniLearnedModelNormalization(&s_learned, offsets, scales, s_learned.featureCount,
+                                        NULL) == mani_success,
           "the normalization");
     for (uint32_t i = 0; i < FEATURES; ++i)
     {
         query[i] = (ahead[i] - offsets[i]) / scales[i];
     }
-    CHECK(maniLearnedProject(&s_learned, 0, query, projected, s_work, sizeof s_work) ==
-              mani_success,
+    CHECK(maniLearnedProject(&s_learned, 0, query, projected,
+                             (s_learned.featureCount + s_learned.latentCount), NULL, s_work,
+                             sizeof s_work) == mani_success,
           "projected");
     float apart = 0.0f;
     for (uint32_t k = 0; k < FEATURES; ++k)
@@ -158,7 +160,7 @@ static Expected Advance(Reference* r, float delta, bool triggered, const float* 
     }
     r->time += step;
     float events[2];
-    maniLearnedOutput output = {NULL, NULL, events, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    maniLearnedOutput output = {NULL, NULL, 0, events, 2, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     CHECK(maniLearnedDecompress(&s_learned, state, &output, s_work, sizeof s_work) == mani_success,
           "decompressed");
     float seconds = (float)step;
@@ -236,7 +238,8 @@ static bool Posed(maniGraphInstance* instance, const Reference* r)
 {
     float state[STATE];
     Interpolated(r, state);
-    maniLearnedOutput output = {s_learnedPose, NULL, NULL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    maniLearnedOutput output = {s_learnedPose,     NULL, 0, NULL, 0, {0.0f, 0.0f, 0.0f},
+                                {0.0f, 0.0f, 0.0f}};
     if (maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
         maniLearnedDecompress(&s_learned, state, &output, s_work, sizeof s_work) != mani_success)
     {
