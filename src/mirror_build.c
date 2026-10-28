@@ -566,40 +566,29 @@ static maniBuildResult Bounds(const maniMirrorMapSource* s)
     return kOk;
 }
 
-// The room for a bone's rule-made name and for every listed name's, from
-// lengths Bounds took; false when it passes what an allocation can hold.
-static bool Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, size_t* textOut)
+// The longest name a rule can make from a bone's or a listed name, and
+// the room every listed name's partner takes, from lengths Bounds took.
+static void Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, size_t* textOut)
 {
-    uint64_t replace = 0;
+    size_t replace = 0;
     for (uint32_t i = 0; i < s->ruleCount; ++i)
     {
         replace = s->rules[i].replaceLength > replace ? s->rules[i].replaceLength : replace;
     }
-    uint64_t longest = 0;
+    size_t longest = 0;
     for (uint32_t b = 0; b < count; ++b)
     {
         size_t length = 0;
         (void)maniSkeletonBoneName(s->skeleton, b, &length);
         longest = length > longest ? length : longest;
     }
-    uint64_t text = 0;
+    size_t text = 0;
     for (uint32_t j = 0; j < s->nameCount; ++j)
     {
-        uint64_t piece = (uint64_t)s->names[j].nameLength + replace;
-        if (text > UINT64_MAX - piece)
-        {
-            return false;
-        }
-        text += piece;
+        text += s->names[j].nameLength + replace;
     }
-    uint64_t name = longest + replace;
-    if (text >= SIZE_MAX || name >= SIZE_MAX)
-    {
-        return false;
-    }
-    *nameOut = (size_t)name;
-    *textOut = (size_t)text;
-    return true;
+    *nameOut = longest + replace;
+    *textOut = text;
 }
 
 typedef struct Block
@@ -660,10 +649,7 @@ static MANI_NOINLINE maniBuildResult BuildMirrorMapWork(maniBuilder* builder,
     }
     size_t nameRoom = 0;
     size_t textRoom = 0;
-    if (!Room(source, count, &nameRoom, &textRoom))
-    {
-        return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
-    }
+    Room(source, count, &nameRoom, &textRoom);
     size_t entries = 2 * (size_t)source->namePairCount + source->nameCount;
     const maniAllocator* a = &builder->allocator;
     Block blocks[6] = {{NULL, count, sizeof(uint32_t)},    {NULL, count, sizeof(uint32_t)},
