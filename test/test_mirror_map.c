@@ -365,6 +365,20 @@ static void TestOtherRefusals(void)
     CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonMirrorRule && r.item == 1,
           "a replace of SIZE_MAX bytes");
     rules[1] = kRules[1];
+#if SIZE_MAX == UINT32_MAX
+    {
+        // Where size_t has 32 bits, the partners of two names of
+        // MANI_MAX_NAME_BYTES need more room than an allocation can hold:
+        // refused before a byte of either is read.
+        source = Source();
+        const maniMirrorNameSource huge[2] = {{"a", MANI_MAX_NAME_BYTES},
+                                              {"b", MANI_MAX_NAME_BYTES}};
+        source.names = huge;
+        source.nameCount = 2;
+        CHECK(Build(&source, &map).result == mani_errorCapacity,
+              "listed names past an allocation's room");
+    }
+#endif
     source = Source();
     maniTransform reference[kBones];
     for (uint32_t b = 0; b < kBones; ++b)
