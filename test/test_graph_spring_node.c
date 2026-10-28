@@ -364,8 +364,8 @@ static void TestRestoredTurn(void)
     plain.nodeCount = 2;
     plain.output = 1;
     CHECK(Instanced(&springy, &s_made[0]) && Instanced(&plain, &s_made[1]), "two graphs");
-    size_t size = maniGraphStateSize(s_made[0].bound);
-    CHECK(maniSaveGraphInstance(s_made[0].live, s_saved[0], size) == mani_success, "saved");
+    size_t size = SavedGraphSize(s_made[0].live);
+    CHECK(maniSaveGraphInstance(s_made[0].live, s_saved[0], size, NULL) == mani_success, "saved");
     const float scale = 1.000004f;
     maniTransform place = {{0.0f, 0.0f, 0.0f},
                            {0.0f, sinf(0.3f) * scale, 0.0f, cosf(0.3f) * scale},
@@ -418,9 +418,9 @@ static void TestSaved(void)
         (void)Place(&s_made[0], i);
         CHECK(Evaluated(&s_made[0], 1.0f / 50.0f, a), "a frame");
     }
-    size_t size = maniGraphStateSize(s_made[0].bound);
+    size_t size = SavedGraphSize(s_made[0].live);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(s_made[0].live, s_saved[0], size) == mani_success &&
+              maniSaveGraphInstance(s_made[0].live, s_saved[0], size, NULL) == mani_success &&
               maniRestoreGraphInstance(s_made[2].live, s_saved[0], size).result == mani_success,
           "saved and restored");
     bool same = true;

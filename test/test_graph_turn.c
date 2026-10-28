@@ -468,9 +468,9 @@ static void TestSaved(void)
              0.0f);
         CHECK(Evaluated(&s_made[0], 0.05f, a), "a frame");
     }
-    size_t size = maniGraphStateSize(s_made[0].bound);
+    size_t size = SavedGraphSize(s_made[0].live);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(s_made[0].live, s_saved[0], size) == mani_success &&
+              maniSaveGraphInstance(s_made[0].live, s_saved[0], size, NULL) == mani_success &&
               maniRestoreGraphInstance(s_made[1].live, s_saved[0], size).result == mani_success,
           "saved and restored");
     bool same = true;

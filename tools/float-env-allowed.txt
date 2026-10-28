@@ -55,13 +55,10 @@ sums integer sizes:
     maniGraphBindingSize
     maniGraphInstanceSize
     maniGraphScratchSize
-    maniGraphStateSize
     maniGraphSubsetSize
-    maniLearnedCheckpointSize
     maniLearnedScratchSize
     maniPoseSize
     maniRetargetScratchSize
-    maniSpringSavedSize
     maniSpringStateSize
 
 reads a stored identity or builds a constant:

@@ -424,8 +424,8 @@ static void TestContinuingFrame(void)
                                             &g);
     Ahead(instance, 0.0f, 0.0f);
     Update(instance, 0.0f);
-    size_t size = maniGraphStateSize(instance->binding);
-    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved) == mani_success, "saved");
+    size_t size = SavedGraphSize(instance);
+    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved, NULL) == mani_success, "saved");
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
     double at = (double)0.7f;
@@ -481,8 +481,8 @@ static double Searched(const maniMotionDatabase* d, uint32_t tags, uint32_t entr
                                             &g);
     Ahead(instance, 0.0f, 0.0f);
     Update(instance, 0.0f);
-    size_t size = maniGraphStateSize(instance->binding);
-    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved) == mani_success, "saved");
+    size_t size = SavedGraphSize(instance);
+    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved, NULL) == mani_success, "saved");
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
     uint64_t bits = 0;

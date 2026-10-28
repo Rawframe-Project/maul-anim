@@ -355,18 +355,19 @@ static void TestSaved(void)
     maniGraphInstance* instance = Make1(Shot(1.0f, 0.5f), 4, maniGraphLoopClamp, &g);
     Pull(instance, 1);
     Steps(instance, 2, 0.25f);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     Steps(instance, 2, 0.25f);
     Steps(other, 2, 0.25f);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
-              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1]) == mani_success &&
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
               memcmp(s_saved[0], s_saved[1], size) == 0 && NearF(Weight(other, &g, 2), 0.75),
           "the same after");
     // The block follows the 4 parameters' and 3 nodes' 16 bytes each:
