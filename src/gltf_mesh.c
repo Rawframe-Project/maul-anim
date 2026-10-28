@@ -469,7 +469,7 @@ static MANI_NOINLINE maniImportResult GltfBuildInfluencesWork(maniBuilder* build
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     uint32_t p = gltf == NULL ? MANI_JSON_NONE : Primitive(gltf, mesh, primitive);
     if (builder == NULL || skin == NULL || p == MANI_JSON_NONE)
@@ -896,7 +896,7 @@ static MANI_NOINLINE maniImportResult GltfBuildMorphTargetsWork(maniBuilder* bui
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     uint32_t p = gltf == NULL ? MANI_JSON_NONE : Primitive(gltf, mesh, primitive);
     uint32_t targets = p == MANI_JSON_NONE ? MANI_JSON_NONE : Targets(gltf, p);

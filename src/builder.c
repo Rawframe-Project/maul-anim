@@ -91,7 +91,7 @@ maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
 {
     if (maniBuilderCalledBack(builder))
     {
-        return mani_errorState;
+        return mani_errorBusy;
     }
     if (builder == NULL)
     {
@@ -122,7 +122,7 @@ maniResult maniCopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32
 {
     if (maniBuilderCalledBack(builder))
     {
-        return mani_errorState;
+        return mani_errorBusy;
     }
     if (builder == NULL)
     {

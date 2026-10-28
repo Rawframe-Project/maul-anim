@@ -184,7 +184,7 @@ static MANI_NOINLINE maniImportResult GltfBuildSkeletonWork(maniBuilder* builder
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (!Usable(builder, gltf, options, gltf != NULL && skeleton < gltf->skeletonCount))
     {
@@ -217,7 +217,7 @@ static MANI_NOINLINE maniImportResult GltfBuildNodeSkeletonWork(maniBuilder* bui
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (!Usable(builder, gltf, options, gltf != NULL && node < gltf->nodeCount))
     {
@@ -333,7 +333,7 @@ static MANI_NOINLINE maniImportResult GltfBuildSkinWork(maniBuilder* builder, co
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (!Usable(builder, gltf, options, gltf != NULL && skin < gltf->skinCount && skeleton != NULL))
     {

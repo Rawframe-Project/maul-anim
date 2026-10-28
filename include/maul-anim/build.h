@@ -28,7 +28,7 @@ extern "C"
 
     // A builder: one owner object for every kind of file. Every function
     // taking a builder, and closing a document opened with one, refuses a
-    // call back in from the builder's allocator with mani_errorState and
+    // call back in from the builder's allocator with mani_errorBusy and
     // counts one misuse.
     typedef struct maniBuilder maniBuilder;
 

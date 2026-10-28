@@ -41,7 +41,7 @@ static inline void maniBuilderMisuse(maniBuilder* builder)
 
 // Whether a builder function is called back in from the builder's
 // allocator: then one misuse is counted and the function refuses with
-// mani_errorState. A NULL builder is not.
+// mani_errorBusy. A NULL builder is not.
 static inline bool maniBuilderCalledBack(maniBuilder* builder)
 {
     return builder != NULL && maniHostCalledBack(&builder->host);
@@ -50,7 +50,7 @@ static inline bool maniBuilderCalledBack(maniBuilder* builder)
 // A build refused for a call back in.
 static inline maniBuildResult maniBuildCalledBack(void)
 {
-    return (maniBuildResult){mani_errorState, maniBuildReasonNone, 0, 0};
+    return (maniBuildResult){mani_errorBusy, maniBuildReasonNone, 0, 0};
 }
 
 // Drops the file and order the builder holds.

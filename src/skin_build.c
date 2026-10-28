@@ -75,7 +75,7 @@ static MANI_NOINLINE maniBuildResult BuildSkinWork(maniBuilder* builder,
         return result;
     }
     uint32_t n = source->jointCount;
-    uint8_t binding[MANI_SKIN_BINDING_SIZE];
+    uint8_t binding[MANI_SKIN_BINDING_SIZE] = {0};
     maniStoreU64(binding, maniSkeletonIdentity(source->skeleton));
     maniStoreU32(binding + 8, maniSkeletonBoneCount(source->skeleton));
     maniStoreU32(binding + 12, n);

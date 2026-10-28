@@ -4,9 +4,9 @@
 // Calls back in from the host's code: a builder's allocator,
 // as it allocates and as it frees inside a build, calls every function
 // taking that builder (each with arguments refused otherwise as invalid,
-// so the state error is the call back in alone), destroys it and closes
+// so the busy error is the call back in alone), destroys it and closes
 // a glTF and an FBX document opened with it: each refused with
-// mani_errorState (nothing destroyed or closed) and counted once, the
+// mani_errorBusy (nothing destroyed or closed) and counted once, the
 // build finishing as it does without. A trainer's allocator and task
 // hooks call training, restoring and destroying it, likewise refused,
 // counted and harmless.
@@ -22,6 +22,8 @@
 #include "maul-anim/learnedbuild.h"
 #include "maul-anim/learnedtrain.h"
 #include "maul-anim/matchbuild.h"
+#include "maul-anim/mirrorbuild.h"
+#include "maul-anim/retargetbuild.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -33,7 +35,7 @@
 // destroy and the two documents' closes.
 enum
 {
-    kBuilderCalls = 32,
+    kBuilderCalls = 40,
     kDestroy = kBuilderCalls,
     kCloseGltf,
     kCloseFbx,
@@ -118,15 +120,31 @@ static maniResult CallBuilder(int k)
         return maniBuildLearnedModelFromTrainer(b, NULL, (maniLearnedWeights)0).result;
     case 31:
         return maniBuildMotionDatabase(b, NULL).result;
+    case 32:
+        return maniBuildRetargetMap(b, NULL).result;
+    case 33:
+        return maniBuildRetargetMapJson(b, NULL, 0, NULL, NULL).result;
+    case 34:
+        return maniWriteRetargetMapJson(b, NULL).result;
+    case 35:
+        return maniBuildRetargetedClip(b, NULL).result;
+    case 36:
+        return maniBuildMirrorMap(b, NULL).result;
+    case 37:
+        return maniBuildMirrorMapJson(b, NULL, 0, NULL).result;
+    case 38:
+        return maniWriteMirrorMapJson(b, NULL).result;
+    case 39:
+        return maniBuildMirroredClip(b, NULL).result;
     case kDestroy:
         maniDestroyBuilder(b);
-        return mani_errorState;
+        return mani_errorBusy;
     case kCloseGltf:
         maniCloseGltf(s_gltf);
-        return mani_errorState;
+        return mani_errorBusy;
     default:
         maniCloseFbx(s_fbx);
-        return mani_errorState;
+        return mani_errorBusy;
     }
 }
 
@@ -227,7 +245,7 @@ static void TestBuilder(void)
             size_t size = 0;
             same = same && Build(s_built, sizeof s_built, &size) && size == alone &&
                    memcmp(s_built, s_alone, size) == 0;
-            refused = refused && s_call == -1 && s_result == mani_errorState &&
+            refused = refused && s_call == -1 && s_result == mani_errorBusy &&
                       maniBuilderMisuses(s_builder) == before + 1;
         }
     }
@@ -286,7 +304,7 @@ static void TrainerCallBack(Where where)
         break;
     default:
         maniDestroyLearnedTrainer(s_trainer);
-        s_trainerResult = mani_errorState;
+        s_trainerResult = mani_errorBusy;
         break;
     }
 }
@@ -357,7 +375,7 @@ static void TestTrainer(void)
             s_trainerResult = mani_success;
             maniLearnedTrainerReport report;
             trained = trained && maniTrainLearned(s_trainer, 4, &report) == mani_success;
-            refused = refused && s_trainerCall == -1 && s_trainerResult == mani_errorState &&
+            refused = refused && s_trainerCall == -1 && s_trainerResult == mani_errorBusy &&
                       maniLearnedTrainerMisuses(s_trainer) == 1;
             s_trainerCall = -1;
             maniDestroyLearnedTrainer(s_trainer);

@@ -477,7 +477,7 @@ static MANI_NOINLINE maniImportResult FbxBuildSkinWork(maniBuilder* builder, con
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     bool usable = maniFbxUsable(builder, fbx, options,
                                 fbx != NULL && skin < fbx->skinCount && skeleton != NULL);

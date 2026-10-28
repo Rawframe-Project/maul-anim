@@ -252,7 +252,7 @@ static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, ui
 {
     if (trainer != NULL && maniHostCalledBack(&trainer->host))
     {
-        return mani_errorState;
+        return mani_errorBusy;
     }
     if (trainer == NULL || reportOut == NULL)
     {

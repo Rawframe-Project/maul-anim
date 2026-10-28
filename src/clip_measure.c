@@ -223,7 +223,7 @@ static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const mani
 {
     if (maniBuilderCalledBack(builder))
     {
-        return mani_errorState;
+        return mani_errorBusy;
     }
     if (builder == NULL)
     {

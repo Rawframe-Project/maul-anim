@@ -534,7 +534,7 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     bool usable =
         maniFbxUsable(builder, fbx, options,
