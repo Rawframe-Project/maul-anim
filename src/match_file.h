@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_MATCH_FORMAT_VERSION 3u
+#define MANI_MATCH_FORMAT_VERSION 4u
 #define MANI_MATCH_SECTIONS       13u
 
 enum

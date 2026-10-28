@@ -102,13 +102,6 @@ static maniFileResult Header(const Sections* s, maniMirrorMap* m)
     {
         return Fail(at + 20);
     }
-    for (uint32_t k = 24; k < MANI_MIRROR_HEADER_SIZE; k += 4)
-    {
-        if (maniLoadU32(h + k) != 0)
-        {
-            return Fail(at + k);
-        }
-    }
     return kOk;
 }
 

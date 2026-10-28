@@ -229,6 +229,7 @@ static inline bool GraphPaddingIgnored(const maniGraphSource* source)
         pad->pattern = kTestPadPatterns[k];
         const maniGraphSource* padded = GraphPadSource(pad, source);
         maniBuilderDef def = maniDefaultBuilderDef();
+        def.allocator = TestPatternAllocator(pad->pattern);
         maniBuilder* builder = NULL;
         if (padded != NULL && maniCreateBuilder(&def, &builder) == mani_success)
         {

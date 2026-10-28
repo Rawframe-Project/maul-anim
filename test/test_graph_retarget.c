@@ -631,7 +631,8 @@ static bool RefusedAt(uint64_t offset, const void* value, size_t length, uint64_
     memcpy(s_crafted, s_graphFile, s_graphSize);
     memcpy(s_crafted + offset, value, length);
     maniStoreU64(s_crafted + 32,
-                 maniHashBytes(MANI_HASH_INIT, s_crafted + 64, (uint64_t)s_graphSize - 64));
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)s_graphSize - MANI_CONTAINER_HEADER_SIZE));
     maniGraph g;
     maniFileResult r = maniOpenGraph(s_crafted, s_graphSize, &g);
     if (r.offset != want)

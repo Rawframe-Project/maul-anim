@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_CLIP_FORMAT_VERSION      3u
+#define MANI_CLIP_FORMAT_VERSION      4u
 #define MANI_CLIP_SECTIONS            10u
 #define MANI_CLIP_COMPRESSED_SECTIONS 15u
 #define MANI_CLIP_ALL_SECTIONS        16u
@@ -26,14 +26,16 @@
 #define MANI_CLIP_HEADER_SIZE 64u
 // A float or discrete track: name offset, name length (u32 each), name
 // hash (u64), then for a float track its interpolation (u32: 0 linear,
-// 1 step) and zero, for a discrete track its first key and key count.
+// 1 step) and a zero u32 keeping the next track's hash 8-byte aligned,
+// for a discrete track its first key and key count.
 #define MANI_CLIP_NAMED_TRACK_SIZE 24u
 // A discrete key: time (binary32), value (i32).
 #define MANI_CLIP_KEY_SIZE 8u
 // An event: time (binary32), payload (i32), name offset, name length
 // (u32 each), name hash (u64). A marker: the same with a zero payload.
 #define MANI_CLIP_EVENT_SIZE 24u
-// A track: bone (u16), channel mask (u8), zero (u8).
+// A track: bone (u16), channel mask (u8), zero (u8, keeping the next
+// track's bone aligned).
 #define MANI_CLIP_TRACK_SIZE 4u
 
 enum
@@ -85,7 +87,8 @@ enum
     // component a minimum byte, then per component an extent byte, or a
     // 16-bit value a component at rate 0); then its samples' bits,
     // sample-major, each sample's sub-tracks in kind order, least
-    // significant bit first. Eight spare bytes end it.
+    // significant bit first. Eight spare bytes end it, so that every read
+    // of the bits is one 64-bit load.
     maniClipTagSegmentData = 15,
     // Root motion, in either form: its source
     // (MANI_ROOT_MOTION_HEADER_SIZE), the whole-period move, then per
@@ -94,12 +97,11 @@ enum
 };
 
 // The root motion header: bone, translation axes, rotation, twist axis,
-// translation reference, rotation reference, loop (u32 each), then zero.
-#define MANI_ROOT_MOTION_HEADER_SIZE 32u
-// A move: translation x, y, z and rotation x, y, z, w (binary32 each);
-// the period's move is followed by a zero float.
+// translation reference, rotation reference, loop (u32 each).
+#define MANI_ROOT_MOTION_HEADER_SIZE 28u
+// A move: translation x, y, z and rotation x, y, z, w (binary32 each).
 #define MANI_ROOT_MOTION_MOVE_FLOATS 7u
-#define MANI_ROOT_MOTION_PERIOD_SIZE 32u
+#define MANI_ROOT_MOTION_PERIOD_SIZE 28u
 // A stored translation component's bound, 2^64: a move across 2^32 wraps
 // stays well inside binary32.
 #define MANI_ROOT_MOTION_REACH 18446744073709551616.0

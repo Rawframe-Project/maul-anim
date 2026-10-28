@@ -208,7 +208,8 @@ static void TestBuild(void)
               LoadFloat(j + maniSpringJointGravity + 4) == -(float)(0.5 / 60.0),
           "at the reference's own rate: its values, stiffness and gravity a frame's");
     const uint8_t* plane = set.colliders + 2 * MANI_SPRING_COLLIDER_SIZE;
-    CHECK(maniLoadU32(plane + 4) == maniColliderPlane && LoadFloat(plane + 32) == 1.0f &&
+    CHECK(maniLoadU32(plane + 4) == maniColliderPlane &&
+              LoadFloat(plane + maniSpringColliderTail + 4) == 1.0f &&
               maniLoadU32(set.colliders + 3 * MANI_SPRING_COLLIDER_SIZE + 8) == 1,
           "a plane's normal, an inside sphere");
 }
@@ -345,7 +346,8 @@ static void TestColliderRefusals(void)
     maniSpringSet set;
     CHECK(Build(&s).result == mani_success &&
               maniOpenSpringSet(s_file, s_size, &set).result == mani_success &&
-              LoadFloat(set.colliders + 2 * MANI_SPRING_COLLIDER_SIZE + 32) == 1.0f,
+              LoadFloat(set.colliders + 2 * MANI_SPRING_COLLIDER_SIZE + maniSpringColliderTail +
+                        4) == 1.0f,
           "a normal within a thousandth, made unit");
     s = Source();
     s_groupLists[1][2] = 4;
@@ -477,7 +479,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
     }
     maniStoreU64(s_crafted + 40, maniSpringComputeIdentity(data, sizes));
     maniStoreU64(s_crafted + 32,
-                 maniHashBytes(MANI_HASH_INIT, s_crafted + 64, (uint64_t)s_size - 64));
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)s_size - MANI_CONTAINER_HEADER_SIZE));
     maniSpringSet set;
     maniFileResult r = maniOpenSpringSet(s_crafted, s_size, &set);
     if (r.result != mani_errorFormat || r.offset != want)
@@ -509,6 +512,12 @@ static uint32_t Bits(float v)
     return bits;
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniSpringSet springSet;
+    return maniOpenSpringSet(bytes, size, &springSet);
+}
+
 static void TestOpen(void)
 {
     maniSpringSetSource source = Source();
@@ -525,18 +534,16 @@ static void TestOpen(void)
         {n + 8, 0xFF6Cu, n + 9},
         {h + 32, 0, h + 32},
         {h + 36, Bits(2000.0f), h + 36},
-        {h + 40, 1, h + 40},
         {h + 12, 3, h + 12},
         {h + 28, 13, h + 28},
         {c, 9, c},
         {c + 4, 3, c + 4},
-        {c + 2 * 48 + 8, 1, c + 2 * 48 + 8},
+        {c + 2 * MANI_SPRING_COLLIDER_SIZE + 8, 1, c + 2 * MANI_SPRING_COLLIDER_SIZE + 8},
         {c + 8, 2, c + 8},
-        {c + 12, 1, c + 12},
         {c + 20, Bits(NAN), c + 20},
-        {c + 2 * 48 + 32, Bits(0.5f), c + 2 * 48 + 28},
-        {c + 40, Bits(-1.0f), c + 40},
-        {c + 44, 1, c + 44},
+        {c + 2 * MANI_SPRING_COLLIDER_SIZE + maniSpringColliderTail + 4, Bits(0.5f),
+         c + 2 * MANI_SPRING_COLLIDER_SIZE + maniSpringColliderTail},
+        {c + maniSpringColliderRadius, Bits(-1.0f), c + maniSpringColliderRadius},
         {s, 1, s},
         {s + 4, 0, s + 4},
         {s + 4, 5, s + 4},
@@ -545,8 +552,7 @@ static void TestOpen(void)
         {s + 16, 9, s + 16},
         {s + 20, 1, s + 20},
         {s + 24, 10, s + 24},
-        {s + 28, 1, s + 28},
-        {s + 32 + 4, 1, h + 20},
+        {s + MANI_SPRING_SPRING_SIZE + 4, 1, h + 20},
         {j, 9, j},
         {j + 64, 0, j + 64},
         {j + 4, s_hair[0], j + 4},
@@ -576,10 +582,12 @@ static void TestOpen(void)
               maniOpenSpringSet(s_file, s_size, NULL).result == mani_errorInvalid &&
               maniOpenSpringSet(NULL, s_size, &set).result == mani_errorInvalid,
           "misaligned, no view, no bytes");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     memcpy(s_crafted, s_file, s_size);
     maniStoreU64(s_crafted + 40, 1);
     maniStoreU64(s_crafted + 32,
-                 maniHashBytes(MANI_HASH_INIT, s_crafted + 64, (uint64_t)s_size - 64));
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)s_size - MANI_CONTAINER_HEADER_SIZE));
     CHECK(maniOpenSpringSet(s_crafted, s_size, &set).offset == 40, "another identity");
 }
 
@@ -687,8 +695,10 @@ static void TestPaddingIgnored(void)
         source.colliderGroups = groups;
         source.springs = springs;
         TEST_PAD(&source, 1, kFieldsSpringSetSource, pattern);
-        CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success, "builds padded");
-        built[k] = TestCopyBuilt(s_builder, &sizes[k]);
+        maniBuilder* builder = TestPatternBuilder(pattern);
+        CHECK(maniBuildSpringSet(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
     }
     CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
 }

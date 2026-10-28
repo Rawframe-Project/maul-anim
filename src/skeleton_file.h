@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-#define MANI_SKELETON_FORMAT_VERSION 1u
+#define MANI_SKELETON_FORMAT_VERSION 2u
 
 enum
 {

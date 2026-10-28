@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-#define MANI_SKIN_FORMAT_VERSION 1u
+#define MANI_SKIN_FORMAT_VERSION 2u
 #define MANI_SKIN_SECTIONS       3u
 // The skeleton's identity (u64), its bone count (u32), the joint count
 // (u32).

@@ -73,7 +73,8 @@ static size_t s_size;
 
 static inline void Rehash(uint8_t* file)
 {
-    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + 64, s_size - 64));
+    maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
+                                          s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
     CHECK(maniOpenContainer(file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
               mani_success,

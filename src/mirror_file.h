@@ -18,7 +18,7 @@
 
 #include <stdint.h>
 
-#define MANI_MIRROR_FORMAT_VERSION 2u
+#define MANI_MIRROR_FORMAT_VERSION 3u
 #define MANI_MIRROR_SECTIONS       4u
 
 enum
@@ -26,7 +26,7 @@ enum
     // The header: u64 the skeleton's identity; u32 its bone count, the
     // plane's normal axis (0 x, 1 y, 2 z), the name pair count, the first
     // bone whose parent's partner is not its partner's parent
-    // (MANI_NO_BONE for none); two 0 words.
+    // (MANI_NO_BONE for none).
     maniMirrorTagHeader = 1,
     // MANI_MIRROR_BONE_SIZE a bone: u32 its partner, its flags; A and B
     // (4 binary32 each).
@@ -47,7 +47,7 @@ enum
 #define MANI_MIRROR_FLAG_APPROXIMATE 0x100u
 #define MANI_MIRROR_FLAG_UNMATCHED   0x200u
 
-#define MANI_MIRROR_HEADER_SIZE 32u
+#define MANI_MIRROR_HEADER_SIZE 24u
 #define MANI_MIRROR_BONE_SIZE   40u
 #define MANI_MIRROR_NAME_SIZE   24u
 

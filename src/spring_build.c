@@ -285,15 +285,15 @@ static void LayColliders(const maniSpringSetSource* s, uint8_t* out)
     {
         const maniColliderSource* c = &s->colliders[i];
         uint8_t* e = out + (size_t)i * MANI_SPRING_COLLIDER_SIZE;
-        maniStoreU32(e, c->bone);
-        maniStoreU32(e + 4, c->shape);
-        maniStoreU32(e + 8, c->inside);
-        StoreVec(e + 16, c->offset);
+        maniStoreU32(e + maniSpringColliderBone, c->bone);
+        maniStoreU32(e + maniSpringColliderShape, c->shape);
+        maniStoreU32(e + maniSpringColliderInside, c->inside);
+        StoreVec(e + maniSpringColliderOffset, c->offset);
         maniVec3 tail = c->shape == maniColliderPlane
                             ? maniVec3Normalize(c->tail, maniVec3Make(0.0f, 0.0f, 1.0f))
                             : c->tail;
-        StoreVec(e + 28, tail);
-        StoreF32(e + 40, c->radius);
+        StoreVec(e + maniSpringColliderTail, tail);
+        StoreF32(e + maniSpringColliderRadius, c->radius);
     }
 }
 

@@ -576,7 +576,8 @@ static void TestOpen(void)
             maniStoreU32(copy + at + 4, MANI_NO_PARAMETER);
         }
         maniStoreU32(copy + at + 4 * (uint64_t)place[k], value[k]);
-        maniStoreU64(copy + 32, maniHashBytes(MANI_HASH_INIT, copy + 64, s_made[0].size - 64));
+        maniStoreU64(copy + 32, maniHashBytes(MANI_HASH_INIT, copy + MANI_CONTAINER_HEADER_SIZE,
+                                              s_made[0].size - MANI_CONTAINER_HEADER_SIZE));
         maniFileResult r = maniOpenGraph(copy, s_made[0].size, &g);
         uint64_t expect = at + 4 * (uint64_t)(place[k] == 2 ? 1 : place[k]);
         CHECK(r.result == mani_errorFormat && r.offset == expect, "a turn node's words checked");

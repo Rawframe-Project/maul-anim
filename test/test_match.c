@@ -191,6 +191,12 @@ static bool TurnFrame(const maniMotionDatabase* d, uint32_t f)
            Near4(Raw(d, f, 10), (double)facing.x) && Near4(Raw(d, f, 11), (double)facing.z);
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniMotionDatabase motionDatabase;
+    return maniOpenMotionDatabase(bytes, size, &motionDatabase);
+}
+
 static void TestFeatures(void)
 {
     maniMotionDatabaseSource source = Source();
@@ -198,6 +204,7 @@ static void TestFeatures(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success,
           "built and opened");
+    CHECK(TestOtherVersionsRefused(s_database, s_size, OpenFile), "another format version refused");
     CHECK(d.frameCount == 32 && d.featureCount == 12 && d.channelCount == 4 && d.timeCount == 5 &&
               d.entryCount == 3 && d.clipCount == 3 && d.skeletonBoneCount == 3,
           "the counts: 10 looping frames, 11 and 11 clamped");
@@ -466,7 +473,9 @@ static maniFileResult Crafted(uint64_t offset, uint32_t value)
 {
     memcpy(s_crafted, s_database, s_size);
     maniStoreU32(s_crafted + offset, value);
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
     CHECK(
         maniOpenContainer(s_crafted, s_size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION, &c)
@@ -585,7 +594,9 @@ static void TestOpenRefusals(void)
     memcpy(s_crafted, s_database, s_size);
     maniStoreU32(s_crafted + entries + 32 + 12, BitsOf(1.0e9f));
     maniStoreU32(s_crafted + entries + 32 + 28, UINT32_MAX);
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniMotionDatabase overlong;
     maniFileResult refused = maniOpenMotionDatabase(s_crafted, s_size, &overlong);
     CHECK(refused.result == mani_errorFormat && refused.offset == entries + 32 + 28,
@@ -597,7 +608,9 @@ static void TestOpenRefusals(void)
     }
     memcpy(s_crafted, s_database, s_size);
     s_crafted[40] ^= 1u;
-    maniStoreU64(s_crafted + 32, maniHashBytes(MANI_HASH_INIT, s_crafted + 64, s_size - 64));
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               s_size - MANI_CONTAINER_HEADER_SIZE));
     maniMotionDatabase d;
     maniFileResult r = maniOpenMotionDatabase(s_crafted, s_size, &d);
     CHECK(r.result == mani_errorFormat && r.offset == 40, "an identity not its sections'");
@@ -715,7 +728,7 @@ static void TestPaddingIgnored(void)
         source.channels = channels;
         source.entries = entries;
         TEST_PAD(&source, 1, kFieldsMotionDatabaseSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

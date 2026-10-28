@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#define MANI_MORPH_FORMAT_VERSION 1u
+#define MANI_MORPH_FORMAT_VERSION 2u
 #define MANI_MORPH_SECTIONS       7u
 // The vertex, channel, target and attribute counts (u32 each).
 #define MANI_MORPH_HEADER_SIZE 16u

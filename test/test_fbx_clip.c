@@ -1148,7 +1148,7 @@ static void TestOptionsPaddingIgnored(void)
     size_t clipSizes[2] = {0, 0};
     for (int k = 0; k < 2; ++k)
     {
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         maniFbx* fbx = Open(builder, kScene);
         maniFbxOptions options = maniDefaultFbxOptions();
         TEST_PAD(&options, 1, kFieldsFbxOptions, kTestPadPatterns[k]);

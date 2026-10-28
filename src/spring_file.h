@@ -13,22 +13,20 @@
 
 #include <stdint.h>
 
-#define MANI_SPRING_FORMAT_VERSION 2u
+#define MANI_SPRING_FORMAT_VERSION 3u
 #define MANI_SPRING_SECTIONS       6u
 
 enum
 {
     // The skeleton's identity (u64), then u32 each: the bone, collider,
     // spring, joint and link counts, the name bytes; the reference rate
-    // and the step rate (binary32), two zero words.
+    // and the step rate (binary32).
     maniSpringTagHeader = 1,
-    // MANI_SPRING_COLLIDER_SIZE each: bone, shape, inside, 0 (u32 each);
-    // offset, tail or unit normal (3 binary32 each), radius (binary32),
-    // 0 (u32).
+    // MANI_SPRING_COLLIDER_SIZE each, laid out below.
     maniSpringTagColliders = 2,
     // MANI_SPRING_SPRING_SIZE each: first joint, joint count, first link,
     // link count, center bone (MANI_NO_BONE for none), name offset, name
-    // length, 0 (u32 each).
+    // length (u32 each).
     maniSpringTagSprings = 3,
     // MANI_SPRING_JOINT_SIZE each: head bone, tail bone, limit (u32
     // each); then binary32: the forcing factor (a force's share of a
@@ -45,10 +43,22 @@ enum
     maniSpringTagNames = 6,
 };
 
-#define MANI_SPRING_HEADER_SIZE   48u
-#define MANI_SPRING_COLLIDER_SIZE 48u
-#define MANI_SPRING_SPRING_SIZE   32u
+#define MANI_SPRING_HEADER_SIZE   40u
+#define MANI_SPRING_COLLIDER_SIZE 40u
+#define MANI_SPRING_SPRING_SIZE   28u
 #define MANI_SPRING_JOINT_SIZE    64u
+
+// Collider record offsets: u32 bone, shape, inside; then binary32: the
+// offset (3), the tail or unit normal (3), the radius.
+enum
+{
+    maniSpringColliderBone = 0,
+    maniSpringColliderShape = 4,
+    maniSpringColliderInside = 8,
+    maniSpringColliderOffset = 12,
+    maniSpringColliderTail = 24,
+    maniSpringColliderRadius = 36,
+};
 
 // Joint record offsets.
 enum

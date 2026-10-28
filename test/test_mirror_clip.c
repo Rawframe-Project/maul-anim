@@ -218,7 +218,7 @@ static bool PaddingIgnored(const maniMirrorClipSource* source, const uint8_t* bu
     {
         maniMirrorClipSource s = *source;
         TEST_PAD(&s, 1, kFieldsMirrorClipSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         size_t padded = 0;
         uint8_t* bytes = maniBuildMirroredClip(builder, &s).result == mani_success
                              ? TestCopyBuilt(builder, &padded)

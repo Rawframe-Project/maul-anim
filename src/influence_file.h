@@ -9,11 +9,11 @@
 
 #include <stdint.h>
 
-#define MANI_INFLUENCE_FORMAT_VERSION 1u
+#define MANI_INFLUENCE_FORMAT_VERSION 2u
 #define MANI_INFLUENCE_SECTIONS       5u
 // The skin's identity (u64), its joint count, the vertex count, the group
-// count (u32 each), zero (u32).
-#define MANI_INFLUENCE_BINDING_SIZE 24u
+// count (u32 each).
+#define MANI_INFLUENCE_BINDING_SIZE 20u
 // Influences come in groups of four a vertex; at most this many groups.
 #define MANI_INFLUENCE_GROUP      4u
 #define MANI_INFLUENCE_MAX_GROUPS 16u

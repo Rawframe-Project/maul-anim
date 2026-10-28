@@ -4,9 +4,9 @@
 // A learned model trainer's checkpoint: a container of kind
 // 10 whose identity is the trainer's signature. Sections:
 //
-//    1  progress: stage (u32), whether it has begun (u32), iterations
-//       (u64), the last loss (f32), 0 (u32), the generator (4 u64); the
-//       iterations, loss and generator 0 while the stage has not begun
+//    1  progress: iterations (u64), the generator (4 u64), stage (u32),
+//       whether it has begun (u32), the last loss (f32); the iterations,
+//       generator and loss 0 while the stage has not begun
 //    2  every frame's latent values, once the first stage has ended
 //    3  the stage in training's parameters, 4 its first moments, 5 its
 //       second moments, 6 their largest, while it trains
@@ -38,7 +38,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#define PROGRESS_SIZE 56u
 enum
 {
     kTagProgress = 1,
@@ -119,18 +118,17 @@ static uint64_t KeptCount(const maniTrainNet* n)
 static uint32_t Sections(const maniLearnedTrainer* t, uint8_t* progress,
                          maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS])
 {
-    maniStoreU32(progress, t->stage);
-    maniStoreU32(progress + 4, t->begun ? 1u : 0u);
-    maniStoreU64(progress + 8, t->iteration);
-    // A stage not begun has no loss or generator yet: 0.
-    maniStoreU32(progress + 16, t->begun ? Bits(t->loss) : 0u);
-    maniStoreU32(progress + 20, 0);
+    maniStoreU64(progress, t->iteration);
+    // A stage not begun has no generator or loss yet: 0.
     for (uint32_t k = 0; k < 4; ++k)
     {
-        maniStoreU64(progress + 24 + 8 * k, t->begun ? t->random.s[k] : 0u);
+        maniStoreU64(progress + 8 + 8 * k, t->begun ? t->random.s[k] : 0u);
     }
+    maniStoreU32(progress + 40, t->stage);
+    maniStoreU32(progress + 44, t->begun ? 1u : 0u);
+    maniStoreU32(progress + 48, t->begun ? Bits(t->loss) : 0u);
     uint32_t count = 0;
-    sections[count++] = (maniSectionSource){kTagProgress, progress, PROGRESS_SIZE};
+    sections[count++] = (maniSectionSource){kTagProgress, progress, MANI_CHECKPOINT_PROGRESS_SIZE};
     if (t->latents != NULL)
     {
         uint64_t latents = (uint64_t)t->data.frameCount * t->source.options.latentCount;
@@ -157,7 +155,7 @@ size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer)
     {
         return 0;
     }
-    uint8_t progress[PROGRESS_SIZE];
+    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE];
     maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS];
     uint32_t count = Sections(trainer, progress, sections);
     uint64_t size = 0;
@@ -171,7 +169,7 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     {
         return mani_errorInvalid;
     }
-    uint8_t progress[PROGRESS_SIZE];
+    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE];
     maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS];
     uint32_t count = Sections(trainer, progress, sections);
     uint64_t size = 0;
@@ -179,7 +177,8 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     {
         return mani_errorCapacity;
     }
-    maniWriteContainer(bytes, maniKindLearnedCheckpoint, 1, trainer->signature, sections, count);
+    maniWriteContainer(bytes, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION,
+                       trainer->signature, sections, count);
     return mani_success;
 }
 

@@ -25,7 +25,7 @@
 // The skinning scene: linear, dual quaternion and blended skinning, the
 // centers file and job, and morph targets then skinning, hashed in the
 // order main runs them; every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x3ad34ff5fdb25dfbull
+#define PINNED_SCENE_HASH 0x82576defee4a4362ull
 
 enum
 {
@@ -1011,7 +1011,7 @@ static void TestCentersPaddingIgnored(void)
     {
         maniCenterSource source = {&s_mesh, &s_rest[0][0], 12, s_triangles, kTriangles, 0.0f};
         TEST_PAD(&source, 1, kFieldsCenterSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildCenters(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

@@ -83,17 +83,20 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
     Exercise(copy, size);
     uint64_t fileSize = 0;
-    if (size >= 64)
+    if (size >= MANI_CONTAINER_HEADER_SIZE)
     {
         memcpy(&fileSize, copy + 24, sizeof fileSize);
     }
-    if (fileSize >= 64 && fileSize <= size && fileSize - 64 < 0x7FFFFFFF)
+    if (fileSize >= MANI_CONTAINER_HEADER_SIZE && fileSize <= size &&
+        fileSize - MANI_CONTAINER_HEADER_SIZE < 0x7FFFFFFF)
     {
-        uint64_t hash = maniHash64(MANI_HASH_INIT, copy + 64, (int32_t)(fileSize - 64));
+        uint64_t hash = maniHash64(MANI_HASH_INIT, copy + MANI_CONTAINER_HEADER_SIZE,
+                                   (int32_t)(fileSize - MANI_CONTAINER_HEADER_SIZE));
         memcpy(copy + 32, &hash, sizeof hash);
         Exercise(copy, size);
         FixIdentity(copy, size);
-        hash = maniHash64(MANI_HASH_INIT, copy + 64, (int32_t)(fileSize - 64));
+        hash = maniHash64(MANI_HASH_INIT, copy + MANI_CONTAINER_HEADER_SIZE,
+                          (int32_t)(fileSize - MANI_CONTAINER_HEADER_SIZE));
         memcpy(copy + 32, &hash, sizeof hash);
         Exercise(copy, size);
     }

@@ -332,11 +332,10 @@ static maniFileResult CheckNetwork(maniLearnedModel* m, const Sections* s, uint3
     uint64_t here = s->at[maniLearnedTagNetworks - 1] + (uint64_t)n * MANI_LEARNED_NETWORK_SIZE;
     uint32_t count = maniLoadU32(e);
     bool projector = n >= MANI_LEARNED_PROJECTORS;
-    const bool valid[4] = {count >= 1 && count <= MANI_LEARNED_MAX_LAYERS &&
-                               count <= m->layerCount - first,
-                           projector || maniLoadU32(e + 4) == 0,
-                           projector || maniLoadU32(e + 8) == 0, maniLoadU32(e + 12) == 0};
-    for (uint32_t k = 0; k < 4; ++k)
+    const bool valid[3] = {
+        count >= 1 && count <= MANI_LEARNED_MAX_LAYERS && count <= m->layerCount - first,
+        projector || maniLoadU32(e + 4) == 0, projector || maniLoadU32(e + 8) == 0};
+    for (uint32_t k = 0; k < 3; ++k)
     {
         if (!valid[k])
         {

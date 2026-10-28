@@ -174,11 +174,9 @@ static maniFileResult Header(const Sections* s, maniRetargetMap* m)
     }
     float ratio = LoadF32(h + maniRetargetHeaderRatio);
     bool none = maniLoadU32(h + maniRetargetHeaderPelvisTarget) == MANI_NO_BONE;
-    if (!(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f))
-    {
-        return Fail(at + maniRetargetHeaderRatio);
-    }
-    return maniLoadU32(h + maniRetargetHeaderEnd) == 0 ? kOk : Fail(at + maniRetargetHeaderEnd);
+    return !(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f)
+               ? Fail(at + maniRetargetHeaderRatio)
+               : kOk;
 }
 
 // The references: a rotation (or two) of length 1, the rest finite.
@@ -253,7 +251,7 @@ static uint32_t PlanWrong(const uint8_t* e, const maniRetargetMap* m, uint32_t b
             return 4 * k;
         }
     }
-    return maniLoadU32(e + maniRetargetPlanEnd) == 0 ? UINT32_MAX : maniRetargetPlanEnd;
+    return UINT32_MAX;
 }
 
 static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)

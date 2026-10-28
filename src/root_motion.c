@@ -39,7 +39,7 @@ static float LoadF32(const uint8_t* p)
 }
 
 // Stored float k after the header: finite, and a translation component
-// within MANI_ROOT_MOTION_REACH (the period's floats 0..7, then seven per
+// within MANI_ROOT_MOTION_REACH (seven for the period, then seven per
 // sample).
 static bool StoredValid(const uint8_t* p, uint64_t k)
 {
@@ -48,7 +48,7 @@ static bool StoredValid(const uint8_t* p, uint64_t k)
     {
         return false;
     }
-    uint64_t component = k < 8 ? k : (k - 8) % MANI_ROOT_MOTION_MOVE_FLOATS;
+    uint64_t component = k % MANI_ROOT_MOTION_MOVE_FLOATS;
     return component >= 3 || fabs((double)LoadF32(p)) <= MANI_ROOT_MOTION_REACH;
 }
 
@@ -100,9 +100,8 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
     {
         return Fail(entry);
     }
-    // The source's seven words, then a zero word.
     maniRootMotionSource s = LoadSource(data);
-    if (!SourceValid(&s) || maniLoadU32(data + 28) != 0 || clip->additive != maniAdditiveNone)
+    if (!SourceValid(&s) || clip->additive != maniAdditiveNone)
     {
         return Fail(at);
     }
@@ -117,10 +116,6 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
         {
             return Fail(at + MANI_ROOT_MOTION_HEADER_SIZE + 4 * k);
         }
-    }
-    if (maniLoadU32(data + MANI_ROOT_MOTION_HEADER_SIZE + 28) != 0)
-    {
-        return Fail(at + MANI_ROOT_MOTION_HEADER_SIZE + 28);
     }
     clip->rootMotion = data;
     return (maniFileResult){mani_success, 0, 0};

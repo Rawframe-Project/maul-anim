@@ -33,7 +33,7 @@
 // The clip scene: the sample clip with root motion, sampled at times
 // across its loop (local poses, float tracks, root motion), and its file;
 // every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0xcfa316750f07be9dull
+#define PINNED_SCENE_HASH 0xe8ae210836ba1cedull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -188,11 +188,18 @@ static bool Near(float a, double b, double tolerance)
     return fabs((double)a - b) <= tolerance;
 }
 
+static maniFileResult OpenFile(const void* bytes, size_t size)
+{
+    maniClip clip;
+    return maniOpenClip(bytes, size, &clip);
+}
+
 static void TestHeader(void)
 {
     BuildSample();
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(maniClipDuration(&clip) == 1.0f, "duration from the last key");
     CHECK(maniClipSampleRate(&clip) == 10.0f, "rate");
     CHECK(maniClipSampleCount(&clip) == 11, "samples");
@@ -843,12 +850,13 @@ static void TestBuildRefusals(void)
 
 static void Rehash(void)
 {
-    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + 64, s_size - 64));
+    maniStoreU64(s_file + 32, maniHashBytes(MANI_HASH_INIT, s_file + MANI_CONTAINER_HEADER_SIZE,
+                                            s_size - MANI_CONTAINER_HEADER_SIZE));
 }
 
 static uint64_t SectionAt(uint32_t tag)
 {
-    return maniLoadU64(s_file + 64 + (uint64_t)(tag - 1) * 24 + 8);
+    return maniLoadU64(s_file + MANI_CONTAINER_HEADER_SIZE + (uint64_t)(tag - 1) * 24 + 8);
 }
 
 static void ExpectFormat(uint64_t offset, const char* what)
@@ -898,7 +906,7 @@ static void TestOpenRefusals(void)
     s_file[header + 56] = 1;
     // A compressed header over full-precision samples: the samples
     // section's size is wrong.
-    ExpectFormat(64 + 2 * 24 + 16, "compressed form with samples");
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 2 * 24 + 16, "compressed form with samples");
     maniStoreU32(s_file + header + 32, 7);
     ExpectFormat(header + 32, "floats per sample");
     // Tracks are bones 0, 1, 2: make the second bone 0.
@@ -934,7 +942,7 @@ static void TestOpenRefusals(void)
     // foot keeps two keys, state one: a key left over in the section.
     maniStoreU32(s_file + discrete + 20, 2);
     maniStoreU32(s_file + discrete + 24 + 16, 2);
-    ExpectFormat(64 + 6 * 24 + 16, "discrete keys left over");
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 6 * 24 + 16, "discrete keys left over");
     maniStoreU32(s_file + floatTracks + 4, 0);
     ExpectFormat(floatTracks, "an empty float name");
     s_file[floatTracks + 8] ^= 1;
@@ -1176,7 +1184,7 @@ static void TestPaddingIgnored(void)
         source.events = events;
         source.markers = markers;
         TEST_PAD(&source, 1, kFieldsClipSource, pattern);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildClip(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);
