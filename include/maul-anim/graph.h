@@ -39,15 +39,15 @@ extern "C"
 // Named limits, a source past one refused with mani_errorLimit: nodes,
 // inputs of one node, parameters, clips, sync groups, motion databases,
 // models, spring sets and maps of one graph.
-#define MANI_MAX_GRAPH_NODES       65536u
-#define MANI_MAX_GRAPH_INPUTS      4096u
-#define MANI_MAX_GRAPH_PARAMETERS  65536u
-#define MANI_MAX_GRAPH_CLIPS       65536u
-#define MANI_MAX_GRAPH_SYNC_GROUPS 65536u
-#define MANI_MAX_GRAPH_DATABASES   256u
-#define MANI_MAX_GRAPH_MODELS      256u
-#define MANI_MAX_GRAPH_SPRING_SETS 256u
-#define MANI_MAX_GRAPH_MAPS        256u
+#define MANI_MAX_GRAPH_NODES         65536u
+#define MANI_MAX_GRAPH_INPUTS        4096u
+#define MANI_MAX_GRAPH_PARAMETERS    65536u
+#define MANI_MAX_GRAPH_CLIPS         65536u
+#define MANI_MAX_GRAPH_SYNC_GROUPS   65536u
+#define MANI_MAX_GRAPH_DATABASES     256u
+#define MANI_MAX_GRAPH_MODELS        256u
+#define MANI_MAX_GRAPH_SPRING_SETS   256u
+#define MANI_MAX_GRAPH_RETARGET_MAPS 256u
 // The most points (and inputs) a blend space has.
 #define MANI_MAX_GRAPH_SPACE_POINTS 256u
 // The most transitions of one state machine, conditions of one
@@ -428,7 +428,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphMapCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraphRetargetMapCount(const maniGraph* graph);
 
     /// Returns the identity of the retargeting map a slot names.
     ///
@@ -437,7 +437,7 @@ extern "C"
     /// @return The map's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraphRetargetMapIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the identity of the graph's mirror map, which
     /// its mirror nodes mirror through.
@@ -456,7 +456,7 @@ extern "C"
     /// @return The source skeleton's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraphRetargetMapSourceIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the map slot a clip slot plays through.
     ///
@@ -466,7 +466,7 @@ extern "C"
     /// skeleton or past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip);
+    MANI_API uint32_t maniGraphClipRetargetMap(const maniGraph* graph, uint32_t clip);
 
     /// Returns a node's kind: with its inputs and the output
     /// node, what a debugger draws the graph's tree from. Nodes are in
@@ -555,9 +555,9 @@ extern "C"
         uint32_t databaseCount;
         uint32_t modelCount;
         uint32_t springSetCount;
-        const maniRetargetMap* const* maps;
+        const maniRetargetMap* const* retargetMaps;
         const maniSkeleton* const* sourceSkeletons;
-        uint32_t mapCount;
+        uint32_t retargetMapCount;
         uint32_t sourceSkeletonCount;
         const maniMirrorMap* mirrorMap;
     } maniGraphAssets;

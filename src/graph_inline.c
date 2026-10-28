@@ -282,7 +282,7 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
         bool same = other != NULL && c->clip != NULL
                         ? maniClipIdentity(other) == maniClipIdentity(c->clip)
                         : other == c->clip;
-        if (same && MapIdentity(f->clips[k].map) == MapIdentity(c->map))
+        if (same && MapIdentity(f->clips[k].retargetMap) == MapIdentity(c->retargetMap))
         {
             return k;
         }

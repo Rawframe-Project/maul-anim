@@ -31,7 +31,7 @@ reads or counts records:
     maniGltfSkinCount
     maniGraphClipCount
     maniGraphDatabaseCount
-    maniGraphMapCount
+    maniGraphRetargetMapCount
     maniGraphModelCount
     maniGraphNodeCount
     maniGraphNodeInputCount
@@ -70,8 +70,8 @@ reads a stored identity or builds a constant:
     maniGraphClipIdentity
     maniGraphDatabaseIdentity
     maniGraphIdentity
-    maniGraphMapIdentity
-    maniGraphMapSourceIdentity
+    maniGraphRetargetMapIdentity
+    maniGraphRetargetMapSourceIdentity
     maniGraphMirrorMapIdentity
     maniGraphModelIdentity
     maniGraphSkeletonIdentity
@@ -211,7 +211,7 @@ reads an index:
     maniGltfNodeSkin
     maniGltfRenamedNode
     maniGltfSkinSkeleton
-    maniGraphClipMap
+    maniGraphClipRetargetMap
     maniGraphNodeInput
     maniGraphOutputNode
     maniMirrorMapUnmatchedBone

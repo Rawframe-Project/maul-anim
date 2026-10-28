@@ -47,7 +47,7 @@ maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t 
 maniBuildResult maniGraphPastLimit(maniBuildReason reason, uint32_t item, uint32_t other);
 
 // A map's slot among the count identities of ids, added when new (count
-// grows); MANI_MAX_GRAPH_MAPS when ids are full.
+// grows); MANI_MAX_GRAPH_RETARGET_MAPS when ids are full.
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity);
 
 // Whether a source's node count or a list's count passes its bound.

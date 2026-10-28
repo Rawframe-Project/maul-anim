@@ -676,16 +676,16 @@ static void PutSlots(const maniGraphSource* source, Layout* lay)
 // them.
 static uint32_t PutMap(const maniGraphClipSource* c, Layout* lay, uint64_t* ids, uint32_t* count)
 {
-    if (c->map == NULL)
+    if (c->retargetMap == NULL)
     {
         return MANI_GRAPH_NO_MAP;
     }
-    uint32_t slot = maniGraphMapSlotIn(ids, count, c->map->identity);
+    uint32_t slot = maniGraphMapSlotIn(ids, count, c->retargetMap->identity);
     // The checker found the same slots, as many as the tally's maps.
     MANI_ASSERT((uint64_t)slot * MANI_GRAPH_MAP_SIZE < lay->sizes[13]);
     uint8_t* e = lay->sections[13] + (size_t)slot * MANI_GRAPH_MAP_SIZE;
-    maniStoreU64(e, c->map->identity);
-    maniStoreU64(e + 8, c->map->sourceIdentity);
+    maniStoreU64(e, c->retargetMap->identity);
+    maniStoreU64(e + 8, c->retargetMap->sourceIdentity);
     return slot;
 }
 
@@ -696,7 +696,7 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         PutParameter(lay, &source->parameters[i],
                      lay->sections[1] + (size_t)i * MANI_GRAPH_PARAMETER_SIZE);
     }
-    uint64_t ids[MANI_MAX_GRAPH_MAPS] = {0};
+    uint64_t ids[MANI_MAX_GRAPH_RETARGET_MAPS] = {0};
     uint32_t maps = 0;
     for (uint32_t i = 0; i < source->clipCount; ++i)
     {
