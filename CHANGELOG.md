@@ -5,6 +5,53 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.0.1](https://github.com/Rawframe-Project/maul-anim/compare/v0.5.0...v0.0.1) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **family:** a bound of the library passed by an argument or a builder's or trainer's source returns mani_errorLimit (-9) in place of mani_errorInvalid, with the same reason and item; full-body IK scratch too small returns mani_errorCapacity. The bound constants are renamed MANI_MAX_*: MANI_AIM_MAX_BONES is MANI_MAX_AIM_BONES, MANI_IK_CHAIN_MAX_BONES is MANI_MAX_IK_CHAIN_BONES, MANI_IK_MAX_ITERATIONS is MANI_MAX_IK_ITERATIONS, MANI_BODY_IK_MAX_* is MANI_MAX_BODY_IK_*, MANI_MATCH_MAX_* is MANI_MAX_MATCH_*, MANI_LEARNED_MAX_* is MANI_MAX_LEARNED_*, MANI_MORPH_MAX_ATTRIBUTES is MANI_MAX_MORPH_ATTRIBUTES, MANI_SPRING_MAX_RATE is MANI_MAX_SPRING_RATE and MANI_GRAPH_MAX_* is MANI_MAX_GRAPH_*. MANI_MAX_INFLUENCES and MANI_MAX_GRAPH_DEPTH are new.
+* **family:** `mani_errorVersion` is -7 and `mani_errorFormat` is -8, the Maul family's values. `mani_errorState` is removed. A call from an object's own host code is refused with the new `mani_errorBusy` (-10).
+* **format:** every file kind's layout and format version change, and an opener refuses any format version but its own with `mani_errorVersion`, an earlier one included. Files are built again from their sources.
+* **family:** the `reserved` field is removed from every public struct, and builders no longer refuse sources by it. `maniFileResult` is `{result, tag, offset}`; positional initializers of it take the tag second.
+* **graph:** maniBuildGraph refuses a graph whose root nodes name a clip, sync group, database, model or spring set slot past the root's own list, with maniBuildReasonNode at the node's place. Such a graph with a subgraph used to build with the subgraph's slot of that number. To migrate, list in the root every asset and sync group its nodes name.
+* **graph:** maniBuildGraph refuses a graph with a subgraph that names a clip, sync group, database, model or spring set slot past the subgraph's own list, with maniBuildReasonNode at the node's place. Such a graph used to build with the root's slot of that number. It also refuses, with maniBuildReasonCount, a subgraph with a list whose count is not zero and whose pointer is NULL. To migrate, list in each subgraph every asset and sync group its nodes name.
+* **graph:** a graph's time scales are bounded. On any path from the output, the product of their sizes must be at most MANI_GRAPH_MAX_TIME_FACTOR (1e6), a scale read from a parameter counting at the larger size of the parameter's bounds, and a time scale may read only a parameter with bounds. maniBuildGraph refuses a source past either rule with maniBuildReasonScalar, and maniOpenGraph refuses such a file with mani_errorFormat. The graph format goes from 5 to 6, and maniOpenGraph refuses a file of an earlier format with mani_errorVersion. To migrate, give each parameter a time scale reads its bounds, and build every graph file again with the builder.
+* **match:** the motion database format version is 3. A database keeps its frames in a k-d tree's order with each node's bounding box, in place of bounds over runs of frames, and maniOpenMotionDatabase refuses any other format version with mani_errorVersion. Build databases again from their sources, and the graphs that name them, since a database's identity changes; a learned trainer's checkpoint does not resume against the rebuilt database. maniMotionDatabaseSource gains leafFrames (8, 16 or 32 frames a leaf, 0 for 16) and a reserved word that must be 0; positional initializers name them. Searches return the same frames and costs as before.
+* **compress:** the clip format version is 3. A compressed clip keeps each kind of sub-track together, and maniOpenClip refuses a clip of any other format version, compressed or full precision, with mani_errorVersion. Compress clips again from their full-precision clips or sources. Poses and float tracks sampled from a recompressed clip are the same bits as before.
+* **graph:** maniUpdateGraph, maniEvaluateGraph and maniEvaluateGraphSubset return mani_errorFormat when a learned node's model gives a value past the float range, or the update when a root velocity's move over the step passes it; the call completed and its outputs are valid and finite. maniLearnedStep, maniLearnedProject and maniLearnedDecompress return mani_errorFormat in that case instead of success. maniGraphNodeView's reserved word is now `failed`.
+* **compress:** maniCompressClip no longer counts a misuse (maniBuilderMisuses) for a compressed clip or a clip of another skeleton. Bad untrusted data counts none, so whoever controls a file cannot move the counter that reports bugs in the calling code.
+
+### Fixed
+
+* **compress:** a clip's own state counts no misuse ([#5](https://github.com/Rawframe-Project/maul-anim/issues/5)) ([db65d4e](https://github.com/Rawframe-Project/maul-anim/commit/db65d4eb512504d3bb4885147fae54edc22fd108))
+* enter the floating-point environment in every computing call ([#26](https://github.com/Rawframe-Project/maul-anim/issues/26)) ([d19d608](https://github.com/Rawframe-Project/maul-anim/commit/d19d6086e0e4138139b2bb39c2203ae111cc9e8a)), closes [#23](https://github.com/Rawframe-Project/maul-anim/issues/23)
+* **fbx:** bound a file's property count ([#105](https://github.com/Rawframe-Project/maul-anim/issues/105)) ([7fce170](https://github.com/Rawframe-Project/maul-anim/commit/7fce1701c7292dbcac497ce9f243109145c516ff)), closes [#104](https://github.com/Rawframe-Project/maul-anim/issues/104)
+* **format:** drop the files' reserved words and read one format version ([#113](https://github.com/Rawframe-Project/maul-anim/issues/113)) ([2d5181e](https://github.com/Rawframe-Project/maul-anim/commit/2d5181e409d554f0569847d4dce24a15c3d31c60))
+* **graph:** bound the marker walk's step ([#64](https://github.com/Rawframe-Project/maul-anim/issues/64)) ([057c47c](https://github.com/Rawframe-Project/maul-anim/commit/057c47c76e26200ae7b41788e57515070c72f3ab))
+* **graph:** bound the product of a graph's time scales ([#66](https://github.com/Rawframe-Project/maul-anim/issues/66)) ([f9917f1](https://github.com/Rawframe-Project/maul-anim/commit/f9917f159a539be323086ebeb7d48bae2a9e7ccc))
+* **graph:** refuse a nameless sync group before inlining ([#81](https://github.com/Rawframe-Project/maul-anim/issues/81)) ([820a4ef](https://github.com/Rawframe-Project/maul-anim/commit/820a4eff08c17d576581a5f425a78c7a73c26d3d))
+* **graph:** refuse a root's slot past the root's own lists ([#93](https://github.com/Rawframe-Project/maul-anim/issues/93)) ([520ef9a](https://github.com/Rawframe-Project/maul-anim/commit/520ef9a56afa5d91a12cf61aff5a21444b4db66c)), closes [#94](https://github.com/Rawframe-Project/maul-anim/issues/94)
+* **graph:** refuse a subgraph's lists and slots out of range ([#77](https://github.com/Rawframe-Project/maul-anim/issues/77)) ([104e9c2](https://github.com/Rawframe-Project/maul-anim/commit/104e9c272d4a542c63c75e599b7874aa27211adb))
+* **graph:** report a learned model's value past the float range ([#14](https://github.com/Rawframe-Project/maul-anim/issues/14)) ([82e6a35](https://github.com/Rawframe-Project/maul-anim/commit/82e6a351113544ba9618a0ed9f244e5f146e15e6))
+* **graph:** saturate the graph's binary32 timers at FLT_MAX ([#67](https://github.com/Rawframe-Project/maul-anim/issues/67)) ([9583669](https://github.com/Rawframe-Project/maul-anim/commit/95836697c02c8032d05ed93849ad1389750241ba))
+* **match:** report an entry too long for a count apart from any count ([#107](https://github.com/Rawframe-Project/maul-anim/issues/107)) ([8dac8fe](https://github.com/Rawframe-Project/maul-anim/commit/8dac8fe8b82edf25411950b1ac7093f04f9ff026)), closes [#106](https://github.com/Rawframe-Project/maul-anim/issues/106)
+
+
+### Changed
+
+* **compress:** group a compressed clip's sub-tracks by kind ([#19](https://github.com/Rawframe-Project/maul-anim/issues/19)) ([1eca8e4](https://github.com/Rawframe-Project/maul-anim/commit/1eca8e45143b41d38b3d6a5740865fedde024426))
+* **family:** remove reserved fields from public structs ([#109](https://github.com/Rawframe-Project/maul-anim/issues/109)) ([6a179e9](https://github.com/Rawframe-Project/maul-anim/commit/6a179e9418ab8c22a3d7ce90dd6b708e9c3559cb))
+* **family:** return limit for a fixed bound passed ([#117](https://github.com/Rawframe-Project/maul-anim/issues/117)) ([eeb5136](https://github.com/Rawframe-Project/maul-anim/commit/eeb513625124c8630aad964a7d966d65eb900950))
+* **family:** take the family's result values; busy for host code ([#115](https://github.com/Rawframe-Project/maul-anim/issues/115)) ([bd08379](https://github.com/Rawframe-Project/maul-anim/commit/bd08379887fc4b7d6f6addc9f7c1333497da36d8))
+* give the -O2 core room under ozz-animation's size ([#29](https://github.com/Rawframe-Project/maul-anim/issues/29)) ([5d3f18a](https://github.com/Rawframe-Project/maul-anim/commit/5d3f18a9c6d17807689a531c496a048162c2d652))
+* **match:** search motion databases through an exact k-d tree ([#24](https://github.com/Rawframe-Project/maul-anim/issues/24)) ([cd88f01](https://github.com/Rawframe-Project/maul-anim/commit/cd88f01427df5a5adb410e2359b15b6e255bef0c))
+
+
+### CI
+
+* **build:** shared workflows, presets, check tiers and a nightly run ([#4](https://github.com/Rawframe-Project/maul-anim/issues/4)) ([ff02405](https://github.com/Rawframe-Project/maul-anim/commit/ff02405713670fa6bea86b24d2456f25f68325ed)), closes [#1](https://github.com/Rawframe-Project/maul-anim/issues/1)
+
 ## [0.5.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.5.0) (2026-10-28)
 
 ### Changed
