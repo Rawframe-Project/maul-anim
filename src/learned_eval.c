@@ -239,10 +239,25 @@ static bool ScratchFits(const maniLearnedModel* m, const void* scratch, size_t s
 
 static MANI_NOINLINE maniResult LearnedProjectWork(const maniLearnedModel* model,
                                                    uint32_t projector, const float* query,
-                                                   float* stateOut, void* scratch,
+                                                   float* stateOut, uint32_t capacity,
+                                                   uint32_t* countOut, void* scratch,
                                                    size_t scratchSize)
 {
-    if (model == NULL || query == NULL || stateOut == NULL || projector >= model->projectorCount ||
+    if (model == NULL || (stateOut == NULL && capacity > 0))
+    {
+        return mani_errorInvalid;
+    }
+    uint32_t count = model->featureCount + model->latentCount;
+    if (countOut != NULL)
+    {
+        *countOut = count;
+    }
+    // A state is never empty, so a NULL state only measures.
+    if (stateOut == NULL || capacity < count)
+    {
+        return mani_errorCapacity;
+    }
+    if (query == NULL || projector >= model->projectorCount ||
         !ScratchFits(model, scratch, scratchSize) || !AllFinite(query, model->featureCount))
     {
         return mani_errorInvalid;
@@ -250,19 +265,21 @@ static MANI_NOINLINE maniResult LearnedProjectWork(const maniLearnedModel* model
     const float* out = Evaluate(model, MANI_LEARNED_PROJECTORS + projector, query, scratch);
     // Finite weights, every one checked at open, can still carry a value
     // past the float range: the model's data, refused.
-    if (!AllFinite(out, model->featureCount + model->latentCount))
+    if (!AllFinite(out, count))
     {
         return mani_errorFormat;
     }
-    memcpy(stateOut, out, sizeof(float) * ((size_t)model->featureCount + model->latentCount));
+    memcpy(stateOut, out, sizeof(float) * count);
     return mani_success;
 }
 
 maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query,
-                              float* stateOut, void* scratch, size_t scratchSize)
+                              float* stateOut, uint32_t capacity, uint32_t* countOut, void* scratch,
+                              size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = LearnedProjectWork(model, projector, query, stateOut, scratch, scratchSize);
+    maniResult result = LearnedProjectWork(model, projector, query, stateOut, capacity, countOut,
+                                           scratch, scratchSize);
     maniFloatEnvLeave(env);
     return result;
 }
@@ -396,6 +413,11 @@ maniResult maniLearnedDecompressFrom(const maniLearnedModel* model, const float*
                                   maniPoseIsDifference(output->pose))))
     {
         return mani_errorInvalid;
+    }
+    if ((output->floatTracks != NULL && output->floatTrackCapacity < model->floatTrackCount) ||
+        (output->events != NULL && output->eventCapacity < model->eventCount))
+    {
+        return mani_errorCapacity;
     }
     const float* out =
         EvaluatePart(model, MANI_LEARNED_DECOMPRESSOR, state, 0, UINT32_MAX, scratch, NULL, hidden);

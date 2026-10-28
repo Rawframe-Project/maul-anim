@@ -506,7 +506,8 @@ static void TestMask(void)
     // Bone 0 is the root; each bone's chain is found by the parents.
     const maniMaskChain chains[4] = {
         {1, 0.5f, true}, {1, 0.75f, false}, {2, 0.25f, true}, {2, 0.125f, true}};
-    CHECK(maniBuildMask(&s_skeleton, chains, 4, 0.9f, weights, kBones) == mani_success, "builds");
+    CHECK(maniBuildMask(&s_skeleton, chains, 4, 0.9f, weights, kBones, NULL) == mani_success,
+          "builds");
     bool right = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
@@ -526,29 +527,40 @@ static void TestMask(void)
     // stays its own, and its children take the subtree's.
     uint32_t parent = maniSkeletonParent(&s_skeleton, kBones - 1);
     const maniMaskChain mixed[2] = {{parent, 0.25f, false}, {parent, 0.5f, true}};
-    CHECK(maniBuildMask(&s_skeleton, mixed, 2, 0.0f, weights, kBones) == mani_success, "builds");
+    CHECK(maniBuildMask(&s_skeleton, mixed, 2, 0.0f, weights, kBones, NULL) == mani_success,
+          "builds");
     CHECK(weights[parent] == 0.25f && weights[kBones - 1] == 0.5f,
           "own first for the bone, the subtree for its children");
     // A bone's own chain alone: its children take the default.
-    CHECK(maniBuildMask(&s_skeleton, mixed, 1, 0.75f, weights, kBones) == mani_success, "builds");
+    CHECK(maniBuildMask(&s_skeleton, mixed, 1, 0.75f, weights, kBones, NULL) == mani_success,
+          "builds");
     CHECK(weights[parent] == 0.25f && weights[kBones - 1] == 0.75f,
           "an own chain is not inherited");
     float kept[kBones];
     memcpy(kept, weights, sizeof kept);
     const maniMaskChain past = {kBones, 0.5f, true};
-    CHECK(maniBuildMask(&s_skeleton, &past, 1, 0.0f, weights, kBones) == mani_errorInvalid,
+    CHECK(maniBuildMask(&s_skeleton, &past, 1, 0.0f, weights, kBones, NULL) == mani_errorInvalid,
           "a bone past the skeleton");
     const maniMaskChain negative = {0, -0.5f, true};
-    CHECK(maniBuildMask(&s_skeleton, &negative, 1, 0.0f, weights, kBones) == mani_errorInvalid,
+    CHECK(maniBuildMask(&s_skeleton, &negative, 1, 0.0f, weights, kBones, NULL) ==
+              mani_errorInvalid,
           "a negative weight");
-    CHECK(maniBuildMask(&s_skeleton, chains, 4, NAN, weights, kBones) == mani_errorInvalid,
+    CHECK(maniBuildMask(&s_skeleton, chains, 4, NAN, weights, kBones, NULL) == mani_errorInvalid,
           "a NaN default");
-    CHECK(maniBuildMask(&s_skeleton, chains, 4, 0.0f, weights, kBones - 1) == mani_errorCapacity,
-          "too small");
-    CHECK(maniBuildMask(&s_skeleton, NULL, 1, 0.0f, weights, kBones) == mani_errorInvalid,
+    uint32_t measured = 0;
+    uint32_t refused = 0;
+    CHECK(maniBuildMask(&s_skeleton, chains, 4, 0.0f, weights, kBones - 1, &refused) ==
+                  mani_errorCapacity &&
+              refused == kBones &&
+              maniBuildMask(&s_skeleton, chains, 4, 0.0f, NULL, 0, &measured) ==
+                  mani_errorCapacity &&
+              measured == kBones &&
+              maniBuildMask(&s_skeleton, chains, 4, 0.0f, NULL, 1, NULL) == mani_errorInvalid,
+          "too small, measured");
+    CHECK(maniBuildMask(&s_skeleton, NULL, 1, 0.0f, weights, kBones, NULL) == mani_errorInvalid,
           "no chains");
     CHECK(memcmp(kept, weights, sizeof kept) == 0, "weights unchanged");
-    CHECK(maniBuildMask(&s_skeleton, NULL, 0, 0.0f, weights, kBones) == mani_success &&
+    CHECK(maniBuildMask(&s_skeleton, NULL, 0, 0.0f, weights, kBones, NULL) == mani_success &&
               weights[kBones - 1] == 0.0f,
           "no chains: the default");
 }

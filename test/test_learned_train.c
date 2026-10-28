@@ -477,7 +477,8 @@ static void TestModelBits(void)
             float out[9];
             Forward(&t->networks[2 + p], t->data.features + f * 5, want);
             project = project &&
-                      maniLearnedProject(&model, p, t->data.features + f * 5, out, scratch,
+                      maniLearnedProject(&model, p, t->data.features + f * 5, out,
+                                         (model.featureCount + model.latentCount), NULL, scratch,
                                          sizeof scratch) == mani_success &&
                       memcmp(out, want, sizeof out) == 0;
         }
@@ -497,7 +498,8 @@ static void TestModelBits(void)
         memcpy(state, t->data.features + f * 5, 5 * sizeof(float));
         memcpy(state + 5, t->latents + f * 4, 4 * sizeof(float));
         Forward(&t->networks[0], state, want);
-        maniLearnedOutput output = {pose, NULL, events, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+        maniLearnedOutput output = {
+            pose, NULL, 0, events, 2, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
         decompress = decompress && maniLearnedDecompress(&model, state, &output, scratch,
                                                          sizeof scratch) == mani_success;
         for (uint32_t b = 0; b < 3; ++b)

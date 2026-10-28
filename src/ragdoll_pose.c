@@ -125,18 +125,22 @@ static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)
 static MANI_NOINLINE maniResult RagdollBodiesFromPoseWork(
     const maniRagdoll* ragdoll, const maniPose* pose, const maniTransform* placement,
     const maniPose* previous, const maniTransform* previousPlacement, float seconds,
-    maniRagdollBodyState* bodiesOut, uint32_t count)
+    maniRagdollBodyState* bodiesOut, uint32_t capacity, uint32_t* countOut)
 {
     Rigid place;
     Rigid before;
-    if (ragdoll == NULL || bodiesOut == NULL || !PoseUsable(ragdoll, pose) ||
+    if (ragdoll == NULL || (bodiesOut == NULL && capacity > 0) || !PoseUsable(ragdoll, pose) ||
         !Placement(placement, &place) || !Placement(previousPlacement, &before) ||
         (previous != NULL &&
          (!PoseUsable(ragdoll, previous) || !(seconds > 0.0f) || !Finite(seconds))))
     {
         return mani_errorInvalid;
     }
-    if (count < ragdoll->bodyCount)
+    if (countOut != NULL)
+    {
+        *countOut = ragdoll->bodyCount;
+    }
+    if (bodiesOut == NULL || capacity < ragdoll->bodyCount)
     {
         return mani_errorCapacity;
     }
@@ -162,11 +166,13 @@ static MANI_NOINLINE maniResult RagdollBodiesFromPoseWork(
 maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose* pose,
                                      const maniTransform* placement, const maniPose* previous,
                                      const maniTransform* previousPlacement, float seconds,
-                                     maniRagdollBodyState* bodiesOut, uint32_t count)
+                                     maniRagdollBodyState* bodiesOut, uint32_t capacity,
+                                     uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = RagdollBodiesFromPoseWork(ragdoll, pose, placement, previous,
-                                                  previousPlacement, seconds, bodiesOut, count);
+    maniResult result =
+        RagdollBodiesFromPoseWork(ragdoll, pose, placement, previous, previousPlacement, seconds,
+                                  bodiesOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }
@@ -174,13 +180,17 @@ maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose*
 static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdoll,
                                                         const maniRagdollBodyState* bodies,
                                                         maniRagdollJointTarget* jointsOut,
-                                                        uint32_t count)
+                                                        uint32_t capacity, uint32_t* countOut)
 {
-    if (ragdoll == NULL || bodies == NULL || jointsOut == NULL)
+    if (ragdoll == NULL || bodies == NULL || (jointsOut == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
-    if (count < ragdoll->bodyCount)
+    if (countOut != NULL)
+    {
+        *countOut = ragdoll->bodyCount;
+    }
+    if (jointsOut == NULL || capacity < ragdoll->bodyCount)
     {
         return mani_errorCapacity;
     }
@@ -203,10 +213,11 @@ static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdo
 }
 
 maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
-                                   maniRagdollJointTarget* jointsOut, uint32_t count)
+                                   maniRagdollJointTarget* jointsOut, uint32_t capacity,
+                                   uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = RagdollJointTargetsWork(ragdoll, bodies, jointsOut, count);
+    maniResult result = RagdollJointTargetsWork(ragdoll, bodies, jointsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

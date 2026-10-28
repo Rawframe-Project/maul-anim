@@ -413,7 +413,8 @@ static void BuildTree(Tree* t, const maniMotionDatabase* d, uint32_t leaf)
     for (uint32_t f = 0; f < frames; ++f)
     {
         t->order[f] = f;
-        if (maniMotionDatabaseFeatures(d, f, all + (size_t)f * n) != mani_success)
+        if (maniMotionDatabaseFeatures(d, f, all + (size_t)f * n, d->featureCount, NULL) !=
+            mani_success)
         {
             Stop("the features");
         }
@@ -678,7 +679,7 @@ static maniResult SearchTree(const Tree* t, const maniMotionDatabase* d, const m
         if ((e->tags & q->requiredTags) == q->requiredTags && (e->tags & q->excludedTags) == 0)
         {
             float continuing[MANI_MAX_MATCH_FEATURES];
-            (void)maniMotionDatabaseFeatures(d, q->current, continuing);
+            (void)maniMotionDatabaseFeatures(d, q->current, continuing, d->featureCount, NULL);
             s.bestCost = Cost(&s, continuing, q->continuingBias + e->costBias);
             s.best = q->current;
             s.continuing = true;
@@ -834,7 +835,7 @@ static void MakeQueries(const maniMotionDatabase* d, uint32_t shape, float* feat
     float* offsets = malloc(n * sizeof(float));
     float* scales = malloc(n * sizeof(float));
     if (path == NULL || other == NULL || offsets == NULL || scales == NULL ||
-        maniMotionDatabaseNormalization(d, offsets, scales) != mani_success)
+        maniMotionDatabaseNormalization(d, offsets, scales, d->featureCount, NULL) != mani_success)
     {
         Stop("the queries");
     }
@@ -858,8 +859,9 @@ static void MakeQueries(const maniMotionDatabase* d, uint32_t shape, float* feat
         uint32_t f = (uint32_t)(Uniform() * (double)d->frameCount);
         uint32_t g = (uint32_t)(Uniform() * (double)d->frameCount);
         float* q = features + (size_t)i * n;
-        if (maniMotionDatabaseFeatures(d, shape == 2 ? g : f, q) != mani_success ||
-            maniMotionDatabaseFeatures(d, g, other) != mani_success)
+        if (maniMotionDatabaseFeatures(d, shape == 2 ? g : f, q, d->featureCount, NULL) !=
+                mani_success ||
+            maniMotionDatabaseFeatures(d, g, other, d->featureCount, NULL) != mani_success)
         {
             Stop("the features");
         }

@@ -356,8 +356,10 @@ static void TestContinuing(void)
     float features[MANI_MAX_MATCH_FEATURES];
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseFeatures(&bones, current, features) == mani_success &&
-              maniMotionDatabaseNormalization(&bones, offsets, scales) == mani_success,
+    CHECK(maniMotionDatabaseFeatures(&bones, current, features, bones.featureCount, NULL) ==
+                  mani_success &&
+              maniMotionDatabaseNormalization(&bones, offsets, scales, bones.featureCount, NULL) ==
+                  mani_success,
           "the continuing frame's features");
     for (uint32_t j = 3; j < 5; ++j)
     {
@@ -515,7 +517,9 @@ static void TestInterpolated(void)
     // way (0.15) the node plays on.
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseNormalization(&run, offsets, scales) == mani_success, "scales");
+    CHECK(maniMotionDatabaseNormalization(&run, offsets, scales, run.featureCount, NULL) ==
+              mani_success,
+          "scales");
     double near = 0.15 / (double)scales[0];
     double far = 0.3 / (double)scales[0];
     t = Searched(&run, 2, 1, (double)0.7f, true, (float)(0.5 * (near * near + far * far)), &entry);
@@ -628,15 +632,17 @@ static void TestFacingBlend(void)
     }
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseNormalization(&d, offsets, scales) == mani_success, "scales");
+    CHECK(maniMotionDatabaseNormalization(&d, offsets, scales, d.featureCount, NULL) ==
+              mani_success,
+          "scales");
     float a[3];
     float b[3];
     float best[2][3];
     double far = -1.0;
     for (uint32_t f = 0; f + 1 < d.frameCount; ++f)
     {
-        if (maniMotionDatabaseFeatures(&d, f, a) != mani_success ||
-            maniMotionDatabaseFeatures(&d, f + 1, b) != mani_success)
+        if (maniMotionDatabaseFeatures(&d, f, a, d.featureCount, NULL) != mani_success ||
+            maniMotionDatabaseFeatures(&d, f + 1, b, d.featureCount, NULL) != mani_success)
         {
             continue;
         }

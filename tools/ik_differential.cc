@@ -393,8 +393,8 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps, int only)
         maniVec3 d = Direction();
         float reach = Spread(0.2f, 0.9f);
         maniVec3 goal = {start.x + d.x * reach, start.y + d.y * reach, start.z + d.z * reach};
-        twoBone[c] = {1, 2, 3, 0, goal, Direction(), {0, 0, 1}, 0.0f, 1.0f, 1.0f};
-        aim[c] = {{3},       {1.0f},    1,         0,    goal, Direction(),
+        twoBone[c] = {1, 2, 3, goal, Direction(), {0, 0, 1}, 0.0f, 1.0f, 1.0f};
+        aim[c] = {{3},       {1.0f},    1,         goal, Direction(),
                   {1, 0, 0}, {0, 0, 0}, {0, 1, 0}, 0.0f, 0.0f, 1.0f};
     }
     float sink = 0.0f;
@@ -594,7 +594,7 @@ int main(int argc, char** argv)
                                      {"end", 3, 2, {{0, -0.5f, 0}, {0, 0, 0, 1}, {1, 1, 1}}}};
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = nullptr;
-    maniSkeletonSource source = {bones, 4, 0};
+    maniSkeletonSource source = {bones, 4};
     size_t size = 0;
     maniSkeleton skeleton;
     maniPose* ours = nullptr;
@@ -680,7 +680,7 @@ int main(int argc, char** argv)
         float weight = Random() < 0.5f ? 1.0f : 0.5f;
         float twist = Random() < 0.5f ? 0.0f : Spread(-1, 1);
 
-        maniTwoBoneSolve solve = {1, 2, 3, 0, goal, pole, hinge, twist, soften, weight};
+        maniTwoBoneSolve solve = {1, 2, 3, goal, pole, hinge, twist, soften, weight};
         bool reachedOurs = false;
         if (maniSolveTwoBone(ours, &skeleton, &solve, &reachedOurs) != mani_success)
         {

@@ -245,14 +245,14 @@ static void TestRoundTrip(void)
         {2.0f, 0.4f, -1.0f}, {0.70710677f, 0.0f, 0.0f, 0.70710677f}, {1.0f, 1.0f, 1.0f}};
     CHECK(maniComputeModel(s_poses[0], &s_skeleton) == mani_success &&
               maniRagdollBodiesFromPose(&s_ragdoll, s_poses[0], &kLying, NULL, NULL, 0.0f, s_states,
-                                        5) == mani_success,
+                                        5, NULL) == mani_success,
           "bodies lying face down");
     maniRagdollGetUp up = GetUp(&kGround);
     maniRagdollBodyState back[5];
     CHECK(maniRagdollPoseFromBodies(&s_ragdoll, &s_skeleton, s_states, 5, &up.placement, s_poses[0],
                                     s_poses[1]) == mani_success &&
               maniRagdollBodiesFromPose(&s_ragdoll, s_poses[1], &up.placement, NULL, NULL, 0.0f,
-                                        back, 5) == mani_success,
+                                        back, 5, NULL) == mani_success,
           "a pose in the get-up frame");
     bool same = true;
     for (int i = 0; i < 5; ++i)

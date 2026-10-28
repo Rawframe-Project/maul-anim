@@ -216,16 +216,28 @@ static void TestQueries(void)
               maniGltfNodeMesh(gltf, 9) == UINT32_MAX,
           "a node's mesh and skin");
     float w[2] = {9, 9};
-    CHECK(maniGltfMorphWeights(gltf, 2, w, 2).result == mani_success && w[0] == 0.5f &&
+    CHECK(maniGltfMorphWeights(gltf, 2, w, 2, NULL).result == mani_success && w[0] == 0.5f &&
               w[1] == 0.25f,
           "the node's weights");
-    CHECK(maniGltfMorphWeights(gltf, 3, w, 2).result == mani_success && w[0] == 1.0f &&
+    CHECK(maniGltfMorphWeights(gltf, 3, w, 2, NULL).result == mani_success && w[0] == 1.0f &&
               w[1] == 0.0f,
           "the mesh's weights");
-    CHECK(maniGltfMorphWeights(gltf, 3, w, 3).result == mani_errorInvalid &&
-              maniGltfMorphWeights(gltf, 0, w, 2).result == mani_errorInvalid &&
-              maniGltfMorphWeights(gltf, 2, NULL, 2).result == mani_errorInvalid,
-          "weights refused: a count not the mesh's, no mesh, no output");
+    float wide[3] = {9, 9, 9};
+    uint32_t count = 0;
+    CHECK(maniGltfMorphWeights(gltf, 3, wide, 3, &count).result == mani_success && count == 2 &&
+              wide[0] == 1.0f && wide[1] == 0.0f && wide[2] == 9.0f,
+          "a wider array takes the mesh's count");
+    uint32_t measured = 0;
+    uint32_t refused = 0;
+    CHECK(maniGltfMorphWeights(gltf, 3, NULL, 0, &measured).result == mani_errorCapacity &&
+              measured == 2 &&
+              maniGltfMorphWeights(gltf, 2, w, 1, &refused).result == mani_errorCapacity &&
+              refused == 2 && w[0] == 1.0f,
+          "the weights measured, and a short array refused");
+    CHECK(maniGltfMorphWeights(gltf, 0, w, 2, NULL).result == mani_errorInvalid &&
+              maniGltfMorphWeights(gltf, 2, NULL, 2, NULL).result == mani_errorInvalid &&
+              maniGltfMorphWeights(NULL, 2, w, 2, NULL).result == mani_errorInvalid,
+          "weights refused: no mesh, no output, no document");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
