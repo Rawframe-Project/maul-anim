@@ -5,6 +5,31 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.5.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.4.0...v0.5.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **family:** a bound of the library passed by an argument or a builder's or trainer's source returns mani_errorLimit (-9) in place of mani_errorInvalid, with the same reason and item; full-body IK scratch too small returns mani_errorCapacity. The bound constants are renamed MANI_MAX_*: MANI_AIM_MAX_BONES is MANI_MAX_AIM_BONES, MANI_IK_CHAIN_MAX_BONES is MANI_MAX_IK_CHAIN_BONES, MANI_IK_MAX_ITERATIONS is MANI_MAX_IK_ITERATIONS, MANI_BODY_IK_MAX_* is MANI_MAX_BODY_IK_*, MANI_MATCH_MAX_* is MANI_MAX_MATCH_*, MANI_LEARNED_MAX_* is MANI_MAX_LEARNED_*, MANI_MORPH_MAX_ATTRIBUTES is MANI_MAX_MORPH_ATTRIBUTES, MANI_SPRING_MAX_RATE is MANI_MAX_SPRING_RATE and MANI_GRAPH_MAX_* is MANI_MAX_GRAPH_*. MANI_MAX_INFLUENCES and MANI_MAX_GRAPH_DEPTH are new.
+* **family:** `mani_errorVersion` is -7 and `mani_errorFormat` is -8, the Maul family's values. `mani_errorState` is removed. A call from an object's own host code is refused with the new `mani_errorBusy` (-10).
+* **format:** every file kind's layout and format version change, and an opener refuses any format version but its own with `mani_errorVersion`, an earlier one included. Files are built again from their sources.
+* **family:** the `reserved` field is removed from every public struct, and builders no longer refuse sources by it. `maniFileResult` is `{result, tag, offset}`; positional initializers of it take the tag second.
+* **graph:** maniBuildGraph refuses a graph whose root nodes name a clip, sync group, database, model or spring set slot past the root's own list, with maniBuildReasonNode at the node's place. Such a graph with a subgraph used to build with the subgraph's slot of that number. To migrate, list in the root every asset and sync group its nodes name.
+
+### Fixed
+
+* **fbx:** bound a file's property count ([#105](https://github.com/Rawframe-Project/maul-anim/issues/105)) ([7fce170](https://github.com/Rawframe-Project/maul-anim/commit/7fce1701c7292dbcac497ce9f243109145c516ff)), closes [#104](https://github.com/Rawframe-Project/maul-anim/issues/104)
+* **format:** drop the files' reserved words and read one format version ([#113](https://github.com/Rawframe-Project/maul-anim/issues/113)) ([2d5181e](https://github.com/Rawframe-Project/maul-anim/commit/2d5181e409d554f0569847d4dce24a15c3d31c60))
+* **graph:** refuse a root's slot past the root's own lists ([#93](https://github.com/Rawframe-Project/maul-anim/issues/93)) ([520ef9a](https://github.com/Rawframe-Project/maul-anim/commit/520ef9a56afa5d91a12cf61aff5a21444b4db66c)), closes [#94](https://github.com/Rawframe-Project/maul-anim/issues/94)
+* **match:** report an entry too long for a count apart from any count ([#107](https://github.com/Rawframe-Project/maul-anim/issues/107)) ([8dac8fe](https://github.com/Rawframe-Project/maul-anim/commit/8dac8fe8b82edf25411950b1ac7093f04f9ff026)), closes [#106](https://github.com/Rawframe-Project/maul-anim/issues/106)
+
+
+### Changed
+
+* **family:** remove reserved fields from public structs ([#109](https://github.com/Rawframe-Project/maul-anim/issues/109)) ([6a179e9](https://github.com/Rawframe-Project/maul-anim/commit/6a179e9418ab8c22a3d7ce90dd6b708e9c3559cb))
+* **family:** return limit for a fixed bound passed ([#117](https://github.com/Rawframe-Project/maul-anim/issues/117)) ([eeb5136](https://github.com/Rawframe-Project/maul-anim/commit/eeb513625124c8630aad964a7d966d65eb900950))
+* **family:** take the family's result values; busy for host code ([#115](https://github.com/Rawframe-Project/maul-anim/issues/115)) ([bd08379](https://github.com/Rawframe-Project/maul-anim/commit/bd08379887fc4b7d6f6addc9f7c1333497da36d8))
+
 ## [0.4.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.4.0) (2026-10-25)
 
 ### Changed
