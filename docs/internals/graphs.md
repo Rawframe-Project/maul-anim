@@ -107,7 +107,7 @@ A subgraph is a source-only node: at build its output takes the node's place, it
 
 ## Saved state
 
-`maniSaveGraphInstance` writes a header (magic, the graph's identity, the size) and the cells, machines' and stateful nodes' blocks and pose parameters as little-endian words, without pointers. `maniRestoreGraphInstance` checks every value as external bytes and starts the cursors over, which cache nothing a pose depends on.
+`maniSaveGraphInstance` writes a header (the state prefix described in [overview.md](overview.md), then the graph's identity and the size) and the cells, machines' and stateful nodes' blocks and pose parameters as little-endian words, without pointers. `maniRestoreGraphInstance` checks every value as external bytes and starts the cursors over, which cache nothing a pose depends on.
 
 ## Traps
 

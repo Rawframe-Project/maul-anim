@@ -242,7 +242,9 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
     /// byte found wrong (the identity's, 40, for a checkpoint of another
-    /// source or options); `mani_errorVersion` for any other format version;
+    /// source or options); `mani_errorVersion` for any other format version
+    /// or a checkpoint written by a release of another ABI version
+    /// (MANI_ABI_VERSION), at offset 16;
     /// `mani_errorCapacity` when memory runs out (the trainer then starts
     /// over).
     /// @par Thread safety

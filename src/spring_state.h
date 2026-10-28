@@ -83,9 +83,12 @@ enum
 #define MANI_SPRING_HEAD_WORDS  14u
 #define MANI_SPRING_SHAPE_WORDS 9u
 
-// A saved state: "MSST", 0, the set's identity, the size; the block.
+// A saved state: the state prefix ("MSST", the writer's ABI version, the
+// format version, the header size), the set's identity (u64), the size
+// (u64); the block.
 #define MANI_SPRING_STATE_MAGIC       0x5453534Du
-#define MANI_SPRING_STATE_HEADER_SIZE 24u
+#define MANI_SPRING_STATE_VERSION     1u
+#define MANI_SPRING_STATE_HEADER_SIZE 32u
 
 struct maniSpringState
 {

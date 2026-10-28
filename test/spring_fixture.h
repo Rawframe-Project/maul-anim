@@ -14,6 +14,7 @@
 
 #include "bytes.h"
 #include "spring_file.h"
+#include "spring_state.h"
 #include "test_harness.h"
 
 #include "maul-anim/build.h"
@@ -245,7 +246,7 @@ static inline bool Frames(maniSpringState* state, float delta, uint32_t count)
 static inline float SavedFloat(const maniSpringState* state, uint64_t word)
 {
     CHECK(maniSaveSpringState(state, s_saved[0], sizeof s_saved[0], NULL) == mani_success, "saved");
-    uint32_t bits = maniLoadU32(s_saved[0] + 24 + 4 * word);
+    uint32_t bits = maniLoadU32(s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 4 * word);
     float v = 0.0f;
     memcpy(&v, &bits, sizeof v);
     return v;
