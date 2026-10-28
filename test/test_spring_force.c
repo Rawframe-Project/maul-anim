@@ -180,9 +180,11 @@ static void TestRefusalsAndSaved(void)
     CHECK(kept.x == 0.5f && kept.y == 0.0f && kept.z == 0.25f, "the call's force kept");
     size_t size = SavedSpringSize(state);
     CHECK(maniSaveSpringState(state, s_saved[0], size, NULL) == mani_success, "saved");
-    maniStoreU32(s_saved[0] + 24 + 4 * (maniSpringForce + 1), 0x7FC00000u);
+    maniStoreU32(s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 4 * (maniSpringForce + 1),
+                 0x7FC00000u);
     maniFileResult r = maniRestoreSpringState(state, s_saved[0], size);
-    CHECK(r.result == mani_errorFormat && r.offset == 24 + 4 * (maniSpringForce + 1),
+    CHECK(r.result == mani_errorFormat &&
+              r.offset == MANI_SPRING_STATE_HEADER_SIZE + 4 * (maniSpringForce + 1),
           "a saved force not finite refused at its word");
 }
 

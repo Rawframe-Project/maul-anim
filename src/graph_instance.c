@@ -22,6 +22,7 @@
 #include "invariant.h"
 #include "learned_eval.h"
 #include "pose_memory.h"
+#include "state_prefix.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -618,10 +619,10 @@ static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* i
     }
     const maniGraph* graph = &instance->binding->graph;
     uint8_t* p = out;
-    maniStoreU32(p, MANI_GRAPH_STATE_MAGIC);
-    maniStoreU32(p + 4, 0);
-    maniStoreU64(p + 8, graph->identity);
-    maniStoreU64(p + 16, size);
+    maniStoreStatePrefix(p, MANI_GRAPH_STATE_MAGIC, MANI_GRAPH_STATE_VERSION,
+                         MANI_GRAPH_STATE_HEADER_SIZE);
+    maniStoreU64(p + 16, graph->identity);
+    maniStoreU64(p + 24, size);
     p += MANI_GRAPH_STATE_HEADER_SIZE;
     for (uint32_t i = 0; i < graph->parameterCount; ++i, p += MANI_GRAPH_VALUE_SIZE)
     {
@@ -828,21 +829,19 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
 {
     const maniGraph* graph = &instance->binding->graph;
     size_t expected = StateSize(instance->binding);
-    if (size < MANI_GRAPH_STATE_HEADER_SIZE || maniLoadU32(b) != MANI_GRAPH_STATE_MAGIC)
+    maniFileResult prefix = maniCheckStatePrefix(
+        b, size, MANI_GRAPH_STATE_MAGIC, MANI_GRAPH_STATE_VERSION, MANI_GRAPH_STATE_HEADER_SIZE);
+    if (prefix.result != mani_success)
     {
-        return Fail(0);
+        return prefix;
     }
-    if (maniLoadU32(b + 4) != 0)
-    {
-        return Fail(4);
-    }
-    if (maniLoadU64(b + 8) != graph->identity)
-    {
-        return Fail(8);
-    }
-    if (maniLoadU64(b + 16) != expected || size < expected)
+    if (maniLoadU64(b + 16) != graph->identity)
     {
         return Fail(16);
+    }
+    if (maniLoadU64(b + 24) != expected || size < expected)
+    {
+        return Fail(24);
     }
     uint64_t at = MANI_GRAPH_STATE_HEADER_SIZE;
     for (uint32_t i = 0; i < graph->parameterCount; ++i, at += MANI_GRAPH_VALUE_SIZE)

@@ -237,8 +237,10 @@ extern "C"
     /// @param bytes  The saved bytes.
     /// @param size   Their size.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorVersion` for a state saved by a release of another ABI
+    /// version (MANI_ABI_VERSION) or of another state format version;
     /// `mani_errorFormat` with the offset of the first byte found wrong
-    /// (the state unchanged).
+    /// (the state unchanged in either case).
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
     MANI_NODISCARD MANI_API maniFileResult maniRestoreSpringState(maniSpringState* state,

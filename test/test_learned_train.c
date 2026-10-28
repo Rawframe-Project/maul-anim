@@ -793,6 +793,18 @@ static void TestRestoreRefused(void)
     s_restoring = t;
     CHECK(TestOtherVersionsRefused(s_checkpoint, size, RestoreFile),
           "another format version refused");
+    // A checkpoint is state: before 1.0 a writer of any other major, minor
+    // or patch version is another ABI version.
+    bool releases = true;
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        uint16_t kept = maniLoadU16(s_checkpoint + 16 + 2 * k);
+        maniStoreU16(s_checkpoint + 16 + 2 * k, (uint16_t)(kept + 1));
+        maniFileResult r = maniRestoreLearnedCheckpoint(t, s_checkpoint, size);
+        releases = releases && r.result == mani_errorVersion && r.offset == 16;
+        maniStoreU16(s_checkpoint + 16 + 2 * k, kept);
+    }
+    CHECK(releases, "a checkpoint of another release refused");
     // Crafted: each field of the progress out of form, a moment negative,
     // a parameter not finite, an input scale of 0.
     const uint64_t fields[4] = {progress, progress + 40, progress + 44, progress + 48};

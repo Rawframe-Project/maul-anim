@@ -38,7 +38,7 @@
 // The graph scene: the file, then an instance of it stepped across its
 // clips' wraps (each step's pose, root motion and events) and its saved
 // state; every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x674fbaef8dc62397ull
+#define PINNED_SCENE_HASH 0x30265337824b75b3ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -647,13 +647,19 @@ static void TestParameters(void)
           "instance misuses");
 }
 
-static void ExpectState(uint64_t offset, uint32_t value, uint64_t want, const char* what,
-                        maniGraphInstance* instance, size_t size)
+static void ExpectStateWith(uint64_t offset, uint32_t value, maniResult result, uint64_t want,
+                            const char* what, maniGraphInstance* instance, size_t size)
 {
     memcpy(s_craftedState, s_state, size);
     maniStoreU32(s_craftedState + offset, value);
     maniFileResult r = maniRestoreGraphInstance(instance, s_craftedState, size);
-    CHECK(r.result == mani_errorFormat && r.offset == want, what);
+    CHECK(r.result == result && r.offset == want, what);
+}
+
+static void ExpectState(uint64_t offset, uint32_t value, uint64_t want, const char* what,
+                        maniGraphInstance* instance, size_t size)
+{
+    ExpectStateWith(offset, value, mani_errorFormat, want, what, instance, size);
 }
 
 static void TestSaveRestore(void)
@@ -703,9 +709,13 @@ static void TestSaveRestore(void)
     uint64_t first = MANI_GRAPH_STATE_HEADER_SIZE;
     uint64_t nodes = first + 6 * 16;
     ExpectState(0, 0, 0, "another magic", fresh, stateSize);
-    ExpectState(4, 1, 4, "a word not zero", fresh, stateSize);
-    ExpectState(8, 1, 8, "another graph", fresh, stateSize);
-    ExpectState(16, 1, 16, "another size", fresh, stateSize);
+    ExpectStateWith(4, MANI_ABI_VERSION + 1, mani_errorVersion, 4, "another ABI version", fresh,
+                    stateSize);
+    ExpectStateWith(8, MANI_GRAPH_STATE_VERSION + 1, mani_errorVersion, 8,
+                    "another state format version", fresh, stateSize);
+    ExpectState(12, 24, 12, "another header size", fresh, stateSize);
+    ExpectState(16, 1, 16, "another graph", fresh, stateSize);
+    ExpectState(24, 1, 24, "another size", fresh, stateSize);
     ExpectState(first, 0x40400000u, first, "a float past its bounds", fresh, stateSize);
     ExpectState(first + 2 * 16 + 4, 1, first + 2 * 16, "an int's unused word", fresh, stateSize);
     ExpectState(first + 4 * 16, 2, first + 4 * 16, "a bool of 2", fresh, stateSize);
@@ -1411,6 +1421,10 @@ static void TestPinned(void)
     size_t stateSize = 0;
     CHECK(maniSaveGraphInstance(instance, s_state, sizeof s_state, &stateSize) == mani_success,
           "saves");
+    // The writer's ABI version is checked apart and hashed as 0, so a
+    // release moves no pin.
+    CHECK(maniLoadU32(s_state + 4) == MANI_ABI_VERSION, "the state names its release");
+    maniStoreU32(s_state + 4, 0);
     hash = maniHash64(hash, s_state, (int32_t)stateSize);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
     if (hash != PINNED_SCENE_HASH)

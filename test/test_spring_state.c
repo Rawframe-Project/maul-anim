@@ -9,6 +9,7 @@
 #include "spring_fixture.h"
 #include "spring_shape.h"
 #include "spring_state.h"
+#include "state_prefix.h"
 
 #include "maul-anim/blend.h"
 
@@ -49,9 +50,10 @@ static void TestReset(void)
           "a reset state starts over");
 }
 
-// Restoring the saved bytes with one word changed fails at want, and
-// leaves the state as it was.
-static bool RefusedAt(maniSpringState* state, uint64_t at, uint32_t value, uint64_t want)
+// Restoring the saved bytes with one word changed fails with result at
+// want, and leaves the state as it was.
+static bool RefusedWith(maniSpringState* state, uint64_t at, uint32_t value, maniResult result,
+                        uint64_t want)
 {
     size_t size = SavedSpringSize(state);
     static uint8_t s_before[4096];
@@ -61,7 +63,12 @@ static bool RefusedAt(maniSpringState* state, uint64_t at, uint32_t value, uint6
     maniFileResult r = maniRestoreSpringState(state, s_saved[1], size);
     uint8_t after[4096];
     CHECK(maniSaveSpringState(state, after, sizeof after, NULL) == mani_success, "saved");
-    return r.result == mani_errorFormat && r.offset == want && memcmp(after, s_before, size) == 0;
+    return r.result == result && r.offset == want && memcmp(after, s_before, size) == 0;
+}
+
+static bool RefusedAt(maniSpringState* state, uint64_t at, uint32_t value, uint64_t want)
+{
+    return RefusedWith(state, at, value, mani_errorFormat, want);
 }
 
 static uint32_t Bits(float v)
@@ -95,19 +102,22 @@ static void TestSaveRestore(void)
               maniSaveSpringState(b, other, size, NULL) == mani_success &&
               memcmp(s_saved[0], other, size) == 0,
           "a restored state moves as the saved one");
-    // The header, then the block's words (byte 24 + 4 * word).
-    uint64_t joint1 = 24 + 4 * (21 + 17);
-    uint64_t collider = 24 + 4 * (21 + 2 * 17);
+    // The header, then the block's words (byte h + 4 * word).
+    const uint64_t h = MANI_SPRING_STATE_HEADER_SIZE;
+    uint64_t joint1 = h + 4 * (21 + 17);
+    uint64_t collider = h + 4 * (21 + 2 * 17);
     uint64_t center = collider + 4 * 30;
-    CHECK(RefusedAt(b, 0, 0, 0) && RefusedAt(b, 4, 1, 4) && RefusedAt(b, 8, 1, 8) &&
-              RefusedAt(b, 16, (uint32_t)size + 4, 16) && RefusedAt(b, 24, 2, 24) &&
-              RefusedAt(b, 28, 1, 28) && RefusedAt(b, 36, 0x7FF00000u, 32) &&
-              RefusedAt(b, 36, 0xBFF00000u, 32) && RefusedAt(b, 36, 0x3FA00000u, 32),
-          "the header, motion and clock checked");
-    CHECK(RefusedAt(b, 24 + 4 * 7, Bits(2.0f), 24 + 4 * 7) &&
-              RefusedAt(b, 24 + 4 * 11, Bits(NAN), 24 + 4 * 11) &&
-              RefusedAt(b, 24 + 4 * 17, Bits(0.5f), 24 + 4 * 14) &&
-              RefusedAt(b, 24 + 4 * 8, Bits(NAN), 24 + 4 * 8) &&
+    CHECK(RefusedAt(b, 0, 0, 0) && RefusedWith(b, 4, MANI_ABI_VERSION + 1, mani_errorVersion, 4) &&
+              RefusedWith(b, 8, MANI_SPRING_STATE_VERSION + 1, mani_errorVersion, 8) &&
+              RefusedAt(b, 12, 24, 12) && RefusedAt(b, 16, 1, 16) &&
+              RefusedAt(b, 24, (uint32_t)size + 4, 24) && RefusedAt(b, h, 2, h) &&
+              RefusedAt(b, h + 4, 1, h + 4) && RefusedAt(b, h + 12, 0x7FF00000u, h + 8) &&
+              RefusedAt(b, h + 12, 0xBFF00000u, h + 8) && RefusedAt(b, h + 12, 0x3FA00000u, h + 8),
+          "the prefix, header, motion and clock checked");
+    CHECK(RefusedAt(b, h + 4 * 7, Bits(2.0f), h + 4 * 7) &&
+              RefusedAt(b, h + 4 * 11, Bits(NAN), h + 4 * 11) &&
+              RefusedAt(b, h + 4 * 17, Bits(0.5f), h + 4 * 14) &&
+              RefusedAt(b, h + 4 * 8, Bits(NAN), h + 4 * 8) &&
               RefusedAt(b, joint1 + 4 * 13, Bits(INFINITY), joint1 + 4 * 13) &&
               RefusedAt(b, collider + 4 * 1, Bits(NAN), collider + 4 * 1) &&
               RefusedAt(b, collider + 4 * 13, Bits(NAN), collider + 4 * 13) &&
@@ -120,10 +130,11 @@ static void TestSaveRestore(void)
     // Without motion every word is 0.
     maniResetSprings(b);
     CHECK(maniSaveSpringState(b, s_saved[0], size, NULL) == mani_success &&
-              RefusedAt(b, 24 + 4 * 30, 1, 24 + 4 * 30),
+              RefusedAt(b, h + 4 * 30, 1, h + 4 * 30),
           "a state without motion holds only zeros");
-    CHECK(maniRestoreSpringState(b, s_saved[0], 23).offset == 0 &&
-              maniRestoreSpringState(b, s_saved[0], size - 1).offset == 16 &&
+    CHECK(maniRestoreSpringState(b, s_saved[0], MANI_STATE_PREFIX_SIZE - 1).offset == 0 &&
+              maniRestoreSpringState(b, s_saved[0], h - 1).offset == 12 &&
+              maniRestoreSpringState(b, s_saved[0], size - 1).offset == 24 &&
               maniRestoreSpringState(NULL, s_saved[0], size).result == mani_errorInvalid &&
               maniRestoreSpringState(b, NULL, size).result == mani_errorInvalid &&
               maniSaveSpringState(NULL, s_saved[0], size, NULL) == mani_errorInvalid &&
@@ -340,11 +351,11 @@ static void TestClockRounding(void)
     double clock = 0.0020946870247522975;
     uint64_t bits = 0;
     memcpy(&bits, &clock, sizeof bits);
-    maniStoreU64(s_saved[0] + 24 + 8, bits);
+    maniStoreU64(s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 8, bits);
     CHECK(maniRestoreSpringState(state, s_saved[0], size).result == mani_success, "restored");
     CHECK(Frame(state, 0.014571979641914368f, NULL), "a frame");
     CHECK(maniSaveSpringState(state, s_saved[1], size, NULL) == mani_success, "saved");
-    memcpy(&clock, s_saved[1] + 24 + 8, sizeof clock);
+    memcpy(&clock, s_saved[1] + MANI_SPRING_STATE_HEADER_SIZE + 8, sizeof clock);
     CHECK(clock > 0.0166 && clock < 1.0 / 60.0, "the clock just short of a step");
     CHECK(maniRestoreSpringState(state, s_saved[1], size).result == mani_success, "and restorable");
 }
