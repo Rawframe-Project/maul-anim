@@ -977,7 +977,8 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
         r = CheckInertial(source, allocator);
     }
     if (r.result == mani_success &&
-        (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX))
+        (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX ||
+         tallyOut->namesSize > UINT32_MAX))
     {
         r = maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }
