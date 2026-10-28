@@ -77,7 +77,7 @@ void maniGltfReleaseNames(maniGltf* gltf)
     maniReleaseBoneNames(&gltf->allocator, &gltf->names);
 }
 
-const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut)
+const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, size_t* lengthOut)
 {
     return maniBoneName(&gltf->names, node, lengthOut);
 }
@@ -85,7 +85,7 @@ const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* leng
 const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, size_t* lengthOut)
 {
     bool inRange = gltf != NULL && node < gltf->names.count;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = inRange ? maniGltfNodeName(gltf, node, &length) : NULL;
     if (lengthOut != NULL)
     {
@@ -107,7 +107,7 @@ uint32_t maniGltfRenamedNode(const maniGltf* gltf, uint32_t index)
 
 uint32_t maniGltfNodeBone(const maniGltf* gltf, const maniSkeleton* skeleton, uint32_t node)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGltfNodeName(gltf, node, &length);
     return maniSkeletonFindBone(skeleton, name, length);
 }

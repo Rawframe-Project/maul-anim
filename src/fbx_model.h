@@ -33,6 +33,6 @@ uint32_t maniFbxDeformerModel(const maniFbx* fbx, uint32_t object);
 uint32_t maniFbxModelChildren(const maniFbx* fbx, uint32_t model, const uint32_t** out);
 
 // A model's bone name, not terminated.
-const char* maniFbxModelName(const maniFbx* fbx, uint32_t model, uint32_t* lengthOut);
+const char* maniFbxModelName(const maniFbx* fbx, uint32_t model, size_t* lengthOut);
 
 #endif // MAUL_ANIM_SRC_FBX_MODEL_H

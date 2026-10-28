@@ -31,6 +31,7 @@
 
 #include <math.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -336,16 +337,44 @@ static void TestOtherRefusals(void)
     rules[1] = kRules[1];
     rules[1].replace = "\xff";
     CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "a replace not UTF-8");
+    rules[1] = kRules[1];
+    rules[1].findLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniMirrorMap map;
+    maniBuildResult r = Build(&source, &map);
+    CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonMirrorRule && r.item == 1,
+          "a find past MANI_MAX_NAME_BYTES");
+    source = Source();
+    maniMirrorNameSource longNames[3] = {kNames[0], kNames[1], kNames[2]};
+    source.names = longNames;
+    longNames[2].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    r = Build(&source, &map);
+    CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonMirrorName &&
+              r.item == source.namePairCount + 2,
+          "a name past MANI_MAX_NAME_BYTES");
+    // Lengths that would wrap the room's sums are refused before it.
+    longNames[2].nameLength = SIZE_MAX;
+    r = Build(&source, &map);
+    CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonMirrorName &&
+              r.item == source.namePairCount + 2,
+          "a name of SIZE_MAX bytes");
+    source = Source();
+    source.rules = rules;
+    rules[1] = kRules[1];
+    rules[1].replaceLength = SIZE_MAX;
+    r = Build(&source, &map);
+    CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonMirrorRule && r.item == 1,
+          "a replace of SIZE_MAX bytes");
+    rules[1] = kRules[1];
 #if SIZE_MAX == UINT32_MAX
     {
-        // Where size_t has 32 bits, the partners of two names of 2^31
-        // bytes need more room than an allocation can hold: refused
-        // before a byte of either is read.
+        // Where size_t has 32 bits, the partners of two names of
+        // MANI_MAX_NAME_BYTES need more room than an allocation can hold:
+        // refused before a byte of either is read.
         source = Source();
-        const maniMirrorNameSource huge[2] = {{"a", 0x80000000u}, {"b", 0x80000000u}};
+        const maniMirrorNameSource huge[2] = {{"a", MANI_MAX_NAME_BYTES},
+                                              {"b", MANI_MAX_NAME_BYTES}};
         source.names = huge;
         source.nameCount = 2;
-        maniMirrorMap map;
         CHECK(Build(&source, &map).result == mani_errorCapacity,
               "listed names past an allocation's room");
     }

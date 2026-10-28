@@ -160,7 +160,7 @@ static void VisitWithin(const maniFbx* fbx, uint32_t child, void* context)
     {
         return;
     }
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniFbxModelName(fbx, model, &length);
     w->all = w->all && maniSkeletonFindBone(w->skeleton, name, length) != MANI_NO_BONE;
     ++w->count;
@@ -417,7 +417,7 @@ static maniImportResult ReadJoints(Skin* s, const maniSkeleton* skeleton, const 
     maniFbxMatrix g = maniFbxTrsMatrix(&geometry);
     for (uint32_t j = 0; r.result == mani_success && j < s->joints.count; ++j)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniFbxModelName(fbx, s->joints.models[j], &length);
         s->bones[j] = maniSkeletonFindBone(skeleton, name, length);
         if (s->bones[j] == MANI_NO_BONE)

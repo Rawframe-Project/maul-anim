@@ -218,6 +218,11 @@ static void TestBodyRefusals(void)
     s_bodies[1].name = "\xFF";
     s_bodies[1].nameLength = 1;
     CHECK(Refused(&s, maniBuildReasonName, 1, 0), "a name not UTF-8");
+    s_bodies[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longName = maniBuildRagdoll(s_builder, &s);
+    CHECK(longName.result == mani_errorLimit && longName.reason == maniBuildReasonName &&
+              longName.item == 1 && longName.other == 0,
+          "a name past MANI_MAX_NAME_BYTES");
     s = Source();
     s_bodies[1].name = NULL;
     CHECK(Refused(&s, maniBuildReasonName, 1, 0), "a name missing");

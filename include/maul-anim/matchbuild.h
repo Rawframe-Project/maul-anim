@@ -38,7 +38,7 @@ extern "C"
         uint32_t timeCount;
         const float* times;
         const char* track;
-        uint32_t trackLength;
+        size_t trackLength;
         float weight;
     } maniMatchChannelSource;
 

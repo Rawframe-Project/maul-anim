@@ -82,7 +82,7 @@ static maniGraphConditionSource Finished(void)
 static maniGraphConditionSource Event(const char* name)
 {
     return (maniGraphConditionSource){
-        maniGraphConditionEvent, MANI_NO_PARAMETER, 0, (uint32_t)strlen(name), Int(0), name};
+        maniGraphConditionEvent, MANI_NO_PARAMETER, 0, strlen(name), Int(0), name};
 }
 
 static maniGraphConditionSource Fast(void)
@@ -474,6 +474,11 @@ static void TestRefusals(void)
         c[0] = kBad[k];
         CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "a condition refused");
     }
+    c[0] = Event("a");
+    c[0].eventLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longEvent = Built(t, NULL, 0);
+    CHECK(longEvent.result == mani_errorLimit && longEvent.reason == maniBuildReasonTransition,
+          "an event past MANI_MAX_NAME_BYTES");
     c[0] = Finished();
     t[0].entry = maniGraphEntryMatch + 1;
     CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "an entry past match");

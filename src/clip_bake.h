@@ -43,7 +43,7 @@ typedef struct maniClipBakeKind
     // A stored move carried.
     maniRootMove (*move)(const void* context, maniRootMove move);
     // A name's partner (length in, its length out); NULL keeps names.
-    const char* (*rename)(const void* context, const char* name, uint32_t* length);
+    const char* (*rename)(const void* context, const char* name, size_t* length);
 } maniClipBakeKind;
 
 // Bakes the clip and keeps it in the builder; maniBuildReasonBasis when

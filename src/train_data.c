@@ -141,7 +141,7 @@ static void Character(const maniPose* pose, uint32_t b, float* position, float* 
     Put3(columns + 3, maniQuatRotate(undo, maniVec3Make(m.m[3], m.m[4], m.m[5])));
 }
 
-static bool SameName(const char* a, uint32_t aLength, const maniLearnedNameSource* b)
+static bool SameName(const char* a, size_t aLength, const maniLearnedNameSource* b)
 {
     return aLength == b->length && memcmp(a, b->name, aLength) == 0;
 }

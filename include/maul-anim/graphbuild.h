@@ -43,7 +43,7 @@ extern "C"
     typedef struct maniGraphParameterSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         maniGraphParameterType type;
         maniGraphValue defaultValue;
         maniGraphValue minimum;
@@ -61,7 +61,7 @@ extern "C"
     {
         const maniClip* clip;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         const maniRetargetMap* retargetMap;
     } maniGraphClipSource;
 
@@ -74,7 +74,7 @@ extern "C"
     {
         const maniMotionDatabase* database;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniGraphDatabaseSource;
 
     // A learned model slot: an opened learned model of the
@@ -85,7 +85,7 @@ extern "C"
     {
         const maniLearnedModel* model;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniGraphModelSource;
 
     // A spring set slot: an opened spring set of the graph's
@@ -96,7 +96,7 @@ extern "C"
     {
         const maniSpringSet* set;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniGraphSpringSetSource;
 
     // A sync group's flags.
@@ -111,7 +111,7 @@ extern "C"
     typedef struct maniGraphSyncGroupSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t flags;
     } maniGraphSyncGroupSource;
 
@@ -244,7 +244,7 @@ extern "C"
         maniGraphConditionKind kind;
         uint32_t parameter;
         maniGraphCompare compare;
-        uint32_t eventLength;
+        size_t eventLength;
         maniGraphValue value;
         const char* event;
     } maniGraphConditionSource;

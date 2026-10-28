@@ -66,7 +66,8 @@ typedef struct Totals
 // times, or a finite time past MANI_MAX_MATCH_REACH.
 static bool ChannelPast(const maniMatchChannelSource* c)
 {
-    if (c->timeCount > MANI_MAX_MATCH_TIMES)
+    if (c->timeCount > MANI_MAX_MATCH_TIMES ||
+        (c->kind == maniMatchFloatTrack && maniNamePastLimit(c->trackLength)))
     {
         return true;
     }
@@ -485,7 +486,8 @@ static uint8_t* LayChannels(const Work* w, uint8_t* channels, uint8_t* times, ui
         }
         memcpy(e + 28, &ch->weight, 4);
         maniStoreU32(e + 32, track ? name : 0u);
-        maniStoreU32(e + 36, track ? ch->trackLength : 0u);
+        // The check took only names within MANI_MAX_NAME_BYTES.
+        maniStoreU32(e + 36, track ? (uint32_t)ch->trackLength : 0u);
         memcpy(times + 4 * (size_t)time, ch->times, 4 * (size_t)ch->timeCount);
         if (track)
         {

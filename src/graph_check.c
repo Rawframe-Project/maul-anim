@@ -91,7 +91,7 @@ static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
 }
 
 static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32_t i,
-                            uint32_t* lengthOut)
+                            size_t* lengthOut)
 {
     MANI_ASSERT(list <= kSpringSets && i < ListCount(source, list));
     if (list == kParameters)
@@ -166,8 +166,13 @@ static maniBuildResult CheckNames(const maniGraphSource* source, uint32_t list,
     maniBuildResult r = Outcome(mani_success);
     for (uint32_t i = 0; i < n && r.result == mani_success; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = ItemName(source, list, i, &length);
+        if (maniNamePastLimit(length))
+        {
+            r = maniGraphPastLimit(s_lists[list] | maniBuildReasonName, i, 0);
+            break;
+        }
         if (name == NULL || length == 0 || !maniValidUtf8((const uint8_t*)name, length))
         {
             r = maniGraphRefuse(s_lists[list] | maniBuildReasonName, i, 0);
@@ -185,8 +190,8 @@ static maniBuildResult CheckNames(const maniGraphSource* source, uint32_t list,
     }
     else if (found > 0)
     {
-        uint32_t lengthA = 0;
-        uint32_t lengthB = 0;
+        size_t lengthA = 0;
+        size_t lengthB = 0;
         const char* a = ItemName(source, list, low, &lengthA);
         const char* b = ItemName(source, list, high, &lengthB);
         bool same = lengthA == lengthB && memcmp(a, b, lengthA) == 0;

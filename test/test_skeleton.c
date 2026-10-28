@@ -207,6 +207,12 @@ static void TestBuildRefusals(void)
     ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "null name");
     b[2].name = "a\xC0\xAF";
     ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "overlong UTF-8");
+    // Refused at the length, before a byte of the name is read.
+    b[2].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longName = BuildOf(b, 3);
+    CHECK(longName.result == mani_errorLimit && longName.reason == maniBuildReasonName &&
+              longName.item == 2 && longName.other == 0,
+          "a name past MANI_MAX_NAME_BYTES");
     b[2] = kBones[2];
     b[2].name = "hips";
     b[2].nameLength = 4;

@@ -273,13 +273,14 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
 }
 
 // A name into the names section, its offset, length and hash after it.
-static void PutName(Layout* lay, const char* name, uint32_t length, uint8_t* entry)
+static void PutName(Layout* lay, const char* name, size_t length, uint8_t* entry)
 {
-    // The checker's tally sized the names section by every name.
-    MANI_ASSERT(lay->namesAt + length <= lay->sizes[10]);
+    // The checker's tally sized the names section by every name, each
+    // within MANI_MAX_NAME_BYTES.
+    MANI_ASSERT(lay->namesAt + length <= lay->sizes[10] && length <= MANI_MAX_NAME_BYTES);
     memcpy(lay->sections[10] + lay->namesAt, name, length);
     maniStoreU32(entry, (uint32_t)lay->namesAt);
-    maniStoreU32(entry + 4, length);
+    maniStoreU32(entry + 4, (uint32_t)length);
     lay->namesAt += length;
 }
 
@@ -647,7 +648,7 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
 }
 
 // A slot's entry: the asset's identity, the name's hash and the name.
-static void PutSlot(Layout* lay, uint8_t* e, uint64_t identity, const char* name, uint32_t length)
+static void PutSlot(Layout* lay, uint8_t* e, uint64_t identity, const char* name, size_t length)
 {
     maniStoreU64(e, identity);
     maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));

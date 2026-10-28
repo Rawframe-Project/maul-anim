@@ -238,7 +238,7 @@ static maniImportResult Bone(const Reader* r, uint32_t object, const char* name,
 
 // An optional name, decoded into the arena.
 static maniImportResult Name(Reader* r, uint32_t object, uint32_t item, const char** name,
-                             uint32_t* length)
+                             size_t* length)
 {
     uint32_t value = MANI_JSON_NONE;
     maniImportResult result =

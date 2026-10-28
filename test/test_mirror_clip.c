@@ -330,7 +330,7 @@ static void TestSamples(void)
     CHECK(same, "mirrored twice, the clip");
 }
 
-static bool Named(const char* name, uint32_t length, const char* want)
+static bool Named(const char* name, size_t length, const char* want)
 {
     return length == strlen(want) && memcmp(name, want, length) == 0;
 }

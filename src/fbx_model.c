@@ -267,7 +267,7 @@ uint32_t maniFbxModelChildren(const maniFbx* fbx, uint32_t model, const uint32_t
     return fbx->childStartsOfModel[model + 1] - fbx->childStartsOfModel[model];
 }
 
-const char* maniFbxModelName(const maniFbx* fbx, uint32_t model, uint32_t* lengthOut)
+const char* maniFbxModelName(const maniFbx* fbx, uint32_t model, size_t* lengthOut)
 {
     return maniBoneName(&fbx->modelNames, model, lengthOut);
 }
@@ -280,7 +280,7 @@ uint32_t maniFbxModelCount(const maniFbx* fbx)
 const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model, size_t* lengthOut)
 {
     bool inRange = fbx != NULL && model < fbx->modelCount;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = inRange ? maniFbxModelName(fbx, model, &length) : NULL;
     if (lengthOut != NULL)
     {

@@ -219,7 +219,7 @@ static maniImportResult Sources(Build* b, maniBoneSource* bones, char* text, uin
             continue;
         }
         b->helperOf[v] = n;
-        uint32_t length = bones[n - 1].nameLength;
+        size_t length = bones[n - 1].nameLength;
         memcpy(text + at, bones[n - 1].name, length);
         memcpy(text + at + length, kHelperSuffix, MANI_HELPER_SUFFIX);
         bones[n] = (maniBoneSource){text + at,
@@ -259,7 +259,7 @@ static maniImportResult Emit(maniBuilder* builder, Build* b)
     uint32_t helpers = 0;
     for (uint32_t i = 0; i < b->count; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         (void)maniFbxModelName(fbx, b->order[i], &length);
         text += b->helper[b->order[i]] != 0 ? length + MANI_HELPER_SUFFIX : 0;
         helpers += b->helper[b->order[i]];

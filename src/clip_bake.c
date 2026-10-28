@@ -307,17 +307,9 @@ static uint32_t LayBoneTracks(Bake* b)
 }
 
 // A name renamed by the kind (length in and out).
-static const char* Renamed(const Bake* b, const char* name, uint32_t* length)
+static const char* Renamed(const Bake* b, const char* name, size_t* length)
 {
     return b->s->rename != NULL ? b->s->rename(b->s->context, name, length) : name;
-}
-
-// A track's name renamed, from its length as the getter gives it; a clip
-// stores a name's length in 32 bits.
-static const char* RenamedTrack(const Bake* b, const char* name, size_t stored, uint32_t* length)
-{
-    *length = (uint32_t)stored;
-    return Renamed(b, name, length);
 }
 
 // The float tracks: names and interpolations from the clip, values from
@@ -327,10 +319,8 @@ static void LayFloatTracks(Bake* b)
     const maniClip* clip = b->s->clip;
     for (uint32_t i = 0; i < b->floats; ++i)
     {
-        size_t stored = 0;
-        const char* named = maniClipFloatTrackName(clip, i, &stored);
-        uint32_t length = 0;
-        const char* name = RenamedTrack(b, named, stored, &length);
+        size_t length = 0;
+        const char* name = Renamed(b, maniClipFloatTrackName(clip, i, &length), &length);
         uint32_t interpolation =
             maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16);
         b->floatTracks[i] = (maniFloatTrackSource){
@@ -357,10 +347,8 @@ static void LayCopied(Bake* b)
             b->discreteTimes[at + j] = LoadF32(key);
             b->discreteValues[at + j] = (int32_t)maniLoadU32(key + 4);
         }
-        size_t stored = 0;
-        const char* named = maniClipDiscreteTrackName(clip, i, &stored);
-        uint32_t length = 0;
-        const char* name = RenamedTrack(b, named, stored, &length);
+        size_t length = 0;
+        const char* name = Renamed(b, maniClipDiscreteTrackName(clip, i, &length), &length);
         b->discreteTracks[i] = (maniDiscreteTrackSource){name, length, count, b->discreteTimes + at,
                                                          b->discreteValues + at};
         at += count;
@@ -370,7 +358,7 @@ static void LayCopied(Bake* b)
     {
         maniClipEvent e =
             i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, i - events);
-        uint32_t length = e.nameLength;
+        size_t length = e.nameLength;
         const char* name = Renamed(b, e.name, &length);
         b->events[i] = (maniEventSource){e.time, e.payload, name, length};
     }

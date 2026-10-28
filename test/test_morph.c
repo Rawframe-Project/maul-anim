@@ -682,10 +682,16 @@ static void TestBuildRefusals(void)
     s_channels[1].name = "\xff\xfe";
     s_channels[1].nameLength = 2;
     ExpectBuildRefused(&source, maniBuildReasonName, 1, 0, "a name not UTF-8");
+    s_channels[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectBuildResult(&source, mani_errorLimit, maniBuildReasonName, 1, 0,
+                      "a name past MANI_MAX_NAME_BYTES");
     SampleSource(&source);
     s_blinks[2].name = "\xc0";
     s_blinks[2].nameLength = 1;
     ExpectBuildRefused(&source, maniBuildReasonName, 3, 1, "a target's name not UTF-8");
+    s_blinks[2].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectBuildResult(&source, mani_errorLimit, maniBuildReasonName, 3, 1,
+                      "a target's name past MANI_MAX_NAME_BYTES");
     SampleSource(&source);
     s_blinks[2].nameLength = 0;
     ExpectBuildRefused(&source, maniBuildReasonName, 3, 1, "a target's empty name");

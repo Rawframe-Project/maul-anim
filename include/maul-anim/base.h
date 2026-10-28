@@ -107,6 +107,11 @@ extern "C"
         mani_errorBusy = -10,
     };
 
+// The most bytes a name may have: files store a name's length in 32
+// bits, and maniHash64 takes a count of at most INT32_MAX bytes. A builder
+// refuses a longer name with mani_errorLimit.
+#define MANI_MAX_NAME_BYTES 2147483647u
+
     // The result of reading external bytes: the status and, for
     // mani_errorFormat, the first byte found wrong: the tag of the file
     // section it lies in (each kind's tags are listed in file-formats.md;

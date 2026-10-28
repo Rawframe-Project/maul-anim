@@ -59,6 +59,10 @@ static maniBuildResult CheckValues(const maniMorphSource* source, const maniMorp
     {
         return Result(mani_errorInvalid, maniBuildReasonCount, t, 0);
     }
+    if (s->name != NULL && maniNamePastLimit(s->nameLength))
+    {
+        return Result(mani_errorLimit, maniBuildReasonName, t, 1);
+    }
     if (s->name != NULL &&
         (s->nameLength == 0 || !maniValidUtf8((const uint8_t*)s->name, s->nameLength)))
     {
@@ -120,7 +124,11 @@ static maniBuildResult CheckNames(const maniMorphSource* s, const maniAllocator*
     for (uint32_t c = 0; c < n; ++c)
     {
         const maniMorphChannelSource* ch = &s->channels[c];
-        if (ch->name == NULL || ch->nameLength == 0 || ch->nameLength > INT32_MAX ||
+        if (maniNamePastLimit(ch->nameLength))
+        {
+            return Result(mani_errorLimit, maniBuildReasonName, c, 0);
+        }
+        if (ch->name == NULL || ch->nameLength == 0 ||
             !maniValidUtf8((const uint8_t*)ch->name, ch->nameLength))
         {
             return Result(mani_errorInvalid, maniBuildReasonName, c, 0);
@@ -478,7 +486,8 @@ static void LayTable(const Work* w, const Buffers* b)
         maniStoreU32(e, first);
         maniStoreU32(e + 4, s->channels[c].targetCount);
         maniStoreU32(e + 8, name);
-        maniStoreU32(e + 12, s->channels[c].nameLength);
+        // The check took only names within MANI_MAX_NAME_BYTES.
+        maniStoreU32(e + 12, (uint32_t)s->channels[c].nameLength);
         memcpy(b->names + name, s->channels[c].name, s->channels[c].nameLength);
         first += s->channels[c].targetCount;
         name += s->channels[c].nameLength;

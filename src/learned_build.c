@@ -178,6 +178,10 @@ static maniBuildResult CheckNames(const maniLearnedNameSource* names, uint32_t c
     for (uint32_t k = 0; k < count; ++k)
     {
         const maniLearnedNameSource* a = &names[k];
+        if (maniNamePastLimit(a->length))
+        {
+            return Result(mani_errorLimit, list | maniBuildReasonName, k, 0);
+        }
         if (a->name == NULL || a->length == 0 || !maniValidUtf8((const uint8_t*)a->name, a->length))
         {
             return Refuse(list | maniBuildReasonName, k, 0);
@@ -416,7 +420,8 @@ static void LayNames(const maniLearnedModelSource* s, uint8_t* names, uint8_t* b
         const maniLearnedNameSource* n =
             k < s->floatTrackCount ? &s->floatTracks[k] : &s->events[k - s->floatTrackCount];
         maniStoreU32(names + (size_t)k * MANI_LEARNED_NAME_SIZE, at);
-        maniStoreU32(names + (size_t)k * MANI_LEARNED_NAME_SIZE + 4, n->length);
+        // The check took only names within MANI_MAX_NAME_BYTES.
+        maniStoreU32(names + (size_t)k * MANI_LEARNED_NAME_SIZE + 4, (uint32_t)n->length);
         memcpy(bytes + at, n->name, n->length);
         at += n->length;
     }

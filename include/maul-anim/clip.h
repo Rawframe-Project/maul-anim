@@ -104,7 +104,7 @@ extern "C"
         int32_t payload;
         uint64_t nameHash;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniClipEvent;
 
     /// Opens a clip file in place: checks the container, the header, every
