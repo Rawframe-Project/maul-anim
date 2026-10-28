@@ -262,7 +262,7 @@ static MANI_NOINLINE maniImportResult OpenGltfWork(maniBuilder* builder, const v
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (gltfOut != NULL)
     {

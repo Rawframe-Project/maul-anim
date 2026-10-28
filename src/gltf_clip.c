@@ -636,7 +636,7 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (builder == NULL)
     {

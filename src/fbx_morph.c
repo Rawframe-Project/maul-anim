@@ -639,7 +639,7 @@ static MANI_NOINLINE maniImportResult FbxBuildMorphTargetsWork(maniBuilder* buil
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     if (!maniFbxUsable(builder, fbx, options, object != MANI_FBX_NONE) || fbx == NULL)

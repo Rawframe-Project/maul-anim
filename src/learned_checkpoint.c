@@ -155,7 +155,7 @@ size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer)
     {
         return 0;
     }
-    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE];
+    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE] = {0};
     maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS];
     uint32_t count = Sections(trainer, progress, sections);
     uint64_t size = 0;
@@ -169,7 +169,7 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     {
         return mani_errorInvalid;
     }
-    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE];
+    uint8_t progress[MANI_CHECKPOINT_PROGRESS_SIZE] = {0};
     maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS];
     uint32_t count = Sections(trainer, progress, sections);
     uint64_t size = 0;

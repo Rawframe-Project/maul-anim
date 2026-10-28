@@ -370,7 +370,7 @@ static MANI_NOINLINE maniImportResult FbxBuildInfluencesWork(maniBuilder* builde
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (builder == NULL || fbx == NULL || built == NULL || skin >= fbx->skinCount)
     {

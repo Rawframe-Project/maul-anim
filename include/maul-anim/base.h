@@ -89,15 +89,17 @@ extern "C"
         mani_errorInvalid = -1,
         // A caller buffer or a named limit is too small for the result.
         mani_errorCapacity = -2,
-        // A file's bytes break its format: the result's offset names the
-        // first byte found wrong.
-        mani_errorFormat = -3,
         // A file of a format version, or a def stamped by headers, this
         // library does not read.
-        mani_errorVersion = -4,
-        // The call is not allowed now: a function of an object called
-        // back in from the host's code that object runs.
-        mani_errorState = -5,
+        mani_errorVersion = -7,
+        // A file's bytes break its format: the result's offset names the
+        // first byte found wrong.
+        mani_errorFormat = -8,
+        // The object is in use by work under way: a function of an object
+        // called back in from the host's code that object runs (its
+        // allocator, its task hooks). The same call succeeds once that
+        // work has returned.
+        mani_errorBusy = -10,
     };
 
     // The result of reading external bytes: the status and, for
@@ -117,7 +119,7 @@ extern "C"
     // lifetime. Alignment is a power of two. A zeroed allocator means the C
     // library's functions, which serve alignments up to that of max_align_t.
     // Its functions call no function of the object they serve: one that
-    // does is refused with mani_errorState.
+    // does is refused with mani_errorBusy.
     typedef struct maniAllocator
     {
         void* (*alloc)(size_t size, size_t alignment, void* context);
@@ -145,7 +147,7 @@ extern "C"
     // The host's task system, which an owner object takes in its def; both
     // hooks NULL (the default) runs every item on the calling thread.
     // enqueueTask and finishTask call no function of the object they
-    // serve: one that does is refused with mani_errorState.
+    // serve: one that does is refused with mani_errorBusy.
     typedef struct maniTaskHooks
     {
         maniEnqueueTaskFn* enqueueTask;

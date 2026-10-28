@@ -27,7 +27,7 @@ extern "C"
 
     // A trainer: the networks of one model in training. Training,
     // restoring and destroying refuse a call back in from the trainer's
-    // allocator or task hooks with mani_errorState and count one misuse.
+    // allocator or task hooks with mani_errorBusy and count one misuse.
     typedef struct maniLearnedTrainer maniLearnedTrainer;
 
     typedef struct maniLearnedTrainerDef
@@ -178,7 +178,7 @@ extern "C"
     MANI_API void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer);
 
     /// The misuses counted on a trainer: calls back in from its allocator
-    /// or task hooks, which are refused with mani_errorState.
+    /// or task hooks, which are refused with mani_errorBusy.
     ///
     /// @param trainer  A trainer, or NULL (0).
     /// @return The count.

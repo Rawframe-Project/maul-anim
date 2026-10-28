@@ -416,7 +416,7 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
     MANI_ASSERT(at == out.block + out.blockSize);
     WriteFront(p, &out);
     WriteSegments(p, &out);
-    uint8_t header[MANI_CLIP_HEADER_SIZE];
+    uint8_t header[MANI_CLIP_HEADER_SIZE] = {0};
     Header(p->clip, p->segmentCount, header);
     const uint8_t* sections[MANI_CLIP_ALL_SECTIONS] = {header, p->clip->tracks, &kEmpty};
     uint64_t sizes[MANI_CLIP_ALL_SECTIONS] = {
@@ -649,7 +649,7 @@ static MANI_NOINLINE maniResult CompressClipWork(maniBuilder* builder, const man
 {
     if (maniBuilderCalledBack(builder))
     {
-        return mani_errorState;
+        return mani_errorBusy;
     }
     if (builder == NULL)
     {

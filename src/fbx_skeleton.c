@@ -373,7 +373,7 @@ static MANI_NOINLINE maniImportResult FbxBuildSkeletonWork(maniBuilder* builder,
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     bool usable =
         maniFbxUsable(builder, fbx, options, fbx != NULL && skeleton < fbx->skeletonCount);
@@ -430,7 +430,7 @@ static MANI_NOINLINE maniImportResult FbxBuildModelSkeletonWork(maniBuilder* bui
 {
     if (maniBuilderCalledBack(builder))
     {
-        return (maniImportResult){mani_errorState, maniImportReasonNone, 0, 0};
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     bool usable = maniFbxUsable(builder, fbx, options, fbx != NULL && model < fbx->modelCount);
     // fbx is not NULL when usable; said again for the analyzer.
