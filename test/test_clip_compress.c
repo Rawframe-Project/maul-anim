@@ -1780,7 +1780,7 @@ static void TestPaddingIgnored(void)
     {
         maniCompressOptions options = maniDefaultCompressOptions();
         TEST_PAD(&options, 1, kFieldsCompressOptions, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniCompressClip(builder, &s_full, &s_skeleton, &options, NULL) == mani_success,
               "compresses padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);

@@ -378,7 +378,7 @@ static void TestPaddingIgnored(void)
     {
         maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints};
         TEST_PAD(&source, 1, kFieldsSkinSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildSkin(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

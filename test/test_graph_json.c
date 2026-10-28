@@ -395,7 +395,8 @@ static bool JsonPaddingIgnored(const char* text, const uint8_t* built, size_t si
         TEST_PAD(host, 3, kFieldsGraphClipSource, kTestPadPatterns[k]);
         maniGraphNamedAssets assets = {&s_skeleton, host, NULL, NULL, NULL, 3, 0, 0, 0, NULL};
         TEST_PAD(&assets, 1, kFieldsGraphNamedAssets, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder(NULL);
+        maniAllocator filled = TestPatternAllocator(kTestPadPatterns[k]);
+        maniBuilder* builder = NewBuilder(&filled);
         size_t padded = 0;
         uint8_t* bytes =
             maniBuildGraphJson(builder, text, strlen(text), &assets).result == mani_success

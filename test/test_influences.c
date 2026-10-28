@@ -440,7 +440,7 @@ static void TestPaddingIgnored(void)
     {
         maniInfluenceSource source = Sample();
         TEST_PAD(&source, 1, kFieldsInfluenceSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildInfluences(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

@@ -129,7 +129,7 @@ static bool PaddingIgnored(const maniRetargetMapSource* source, const uint8_t* b
         s.chains = chains != NULL ? chains : s.chains;
         s.pelvis = pelvis;
         TEST_PAD(&s, 1, kFieldsRetargetMapSource, pattern);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         size_t padded = 0;
         uint8_t* bytes = maniBuildRetargetMap(builder, &s).result == mani_success
                              ? TestCopyBuilt(builder, &padded)

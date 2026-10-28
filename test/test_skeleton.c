@@ -453,7 +453,7 @@ static void TestPaddingIgnored(void)
         TEST_PAD(bones, 6, kFieldsBoneSource, kTestPadPatterns[k]);
         maniSkeletonSource source = {bones, 6};
         TEST_PAD(&source, 1, kFieldsSkeletonSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

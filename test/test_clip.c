@@ -1184,7 +1184,7 @@ static void TestPaddingIgnored(void)
         source.events = events;
         source.markers = markers;
         TEST_PAD(&source, 1, kFieldsClipSource, pattern);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildClip(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

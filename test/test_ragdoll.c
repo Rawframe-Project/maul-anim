@@ -460,8 +460,10 @@ static void TestPaddingIgnored(void)
         TEST_PAD(bodies, 5, kFieldsRagdollBodySource, kTestPadPatterns[k]);
         source.bodies = bodies;
         TEST_PAD(&source, 1, kFieldsRagdollSource, kTestPadPatterns[k]);
-        CHECK(maniBuildRagdoll(s_builder, &source).result == mani_success, "builds padded");
-        built[k] = TestCopyBuilt(s_builder, &sizes[k]);
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
+        CHECK(maniBuildRagdoll(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
     }
     CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
 }

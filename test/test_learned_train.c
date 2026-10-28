@@ -929,19 +929,24 @@ static void TestPaddingIgnored(void)
         s.events = events;
         TEST_PAD(&s, 1, kFieldsLearnedTrainerSource, kTestPadPatterns[k]);
         maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+        def.allocator = TestPatternAllocator(kTestPadPatterns[k]);
         maniLearnedTrainer* t = Create(&def, &s);
         maniLearnedTrainerReport report;
         CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
               "trained padded");
         checkpointSizes[k] = maniLearnedCheckpointSize(t);
         checkpoints[k] = (uint8_t*)malloc(checkpointSizes[k]);
+        if (checkpoints[k] != NULL)
+        {
+            memset(checkpoints[k], kTestPadPatterns[k], checkpointSizes[k]);
+        }
         if (checkpoints[k] != NULL &&
             maniSaveLearnedCheckpoint(t, checkpoints[k], checkpointSizes[k]) != mani_success)
         {
             free(checkpoints[k]);
             checkpoints[k] = NULL;
         }
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         if (maniBuildLearnedModelFromTrainer(builder, t, maniLearnedWeightsFloat32).result ==
             mani_success)
         {

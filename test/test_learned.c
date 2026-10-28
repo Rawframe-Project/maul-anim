@@ -990,7 +990,7 @@ static void TestPaddingIgnored(void)
         source.floatTracks = tracks;
         source.events = events;
         TEST_PAD(&source, 1, kFieldsLearnedModelSource, pattern);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildLearnedModel(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

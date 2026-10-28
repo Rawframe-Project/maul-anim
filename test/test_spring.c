@@ -695,8 +695,10 @@ static void TestPaddingIgnored(void)
         source.colliderGroups = groups;
         source.springs = springs;
         TEST_PAD(&source, 1, kFieldsSpringSetSource, pattern);
-        CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success, "builds padded");
-        built[k] = TestCopyBuilt(s_builder, &sizes[k]);
+        maniBuilder* builder = TestPatternBuilder(pattern);
+        CHECK(maniBuildSpringSet(builder, &source).result == mani_success, "builds padded");
+        built[k] = TestCopyBuilt(builder, &sizes[k]);
+        maniDestroyBuilder(builder);
     }
     CHECK(TestSameBuilt(built, sizes), "the same bytes under either padding");
 }

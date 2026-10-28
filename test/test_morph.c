@@ -925,7 +925,7 @@ static void TestPaddingIgnored(void)
         source.channels = channels;
         source.attributes = attributes;
         TEST_PAD(&source, 1, kFieldsMorphSource, pattern);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildMorphTargets(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

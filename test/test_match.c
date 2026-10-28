@@ -728,7 +728,7 @@ static void TestPaddingIgnored(void)
         source.channels = channels;
         source.entries = entries;
         TEST_PAD(&source, 1, kFieldsMotionDatabaseSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

@@ -143,7 +143,7 @@ static bool PaddingIgnored(const maniMirrorMapSource* source, const uint8_t* bui
         s.namePairs = namePairs != NULL ? namePairs : s.namePairs;
         s.names = names != NULL ? names : s.names;
         TEST_PAD(&s, 1, kFieldsMirrorMapSource, pattern);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         size_t padded = 0;
         uint8_t* bytes = maniBuildMirrorMap(builder, &s).result == mani_success
                              ? TestCopyBuilt(builder, &padded)

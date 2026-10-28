@@ -285,7 +285,7 @@ static bool PaddingIgnored(const maniRetargetClipSource* source, const uint8_t* 
     {
         maniRetargetClipSource s = *source;
         TEST_PAD(&s, 1, kFieldsRetargetClipSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         size_t padded = 0;
         uint8_t* bytes = maniBuildRetargetedClip(builder, &s).result == mani_success
                              ? TestCopyBuilt(builder, &padded)

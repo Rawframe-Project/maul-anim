@@ -1011,7 +1011,7 @@ static void TestCentersPaddingIgnored(void)
     {
         maniCenterSource source = {&s_mesh, &s_rest[0][0], 12, s_triangles, kTriangles, 0.0f};
         TEST_PAD(&source, 1, kFieldsCenterSource, kTestPadPatterns[k]);
-        maniBuilder* builder = NewBuilder();
+        maniBuilder* builder = TestPatternBuilder(kTestPadPatterns[k]);
         CHECK(maniBuildCenters(builder, &source).result == mani_success, "builds padded");
         built[k] = TestCopyBuilt(builder, &sizes[k]);
         maniDestroyBuilder(builder);

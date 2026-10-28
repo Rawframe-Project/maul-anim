@@ -3,9 +3,11 @@
 //
 // The fields of every source struct a builder records, down to scalars,
 // pointers and arrays, as byte ranges: every other byte of the struct is
-// padding. A suite fills a source's padding with one byte pattern, builds,
-// then with another, and requires the same bytes: a builder reads its
-// source field by field, never whole. A field left out of a table is
+// padding. A suite fills a source's padding with one byte pattern and
+// builds with a builder whose storage starts filled with it, then does
+// the same with another pattern, and requires the same bytes: a builder
+// reads its source field by field, never whole, and writes every byte it
+// stores. A field left out of a table is
 // filled like padding, so its build differs and the suite fails. A union
 // has a table per member: the struct's other fields and that member's.
 
@@ -55,6 +57,53 @@ static inline void TestFillPadding(void* p, size_t size, const TestField* fields
 
 // The two patterns a suite builds under.
 static const uint8_t kTestPadPatterns[2] = {0xA5, 0x5A};
+
+// An allocator whose blocks start filled with the pattern its context
+// carries, so a stored byte the library never wrote differs between the
+// two builds. Aligned by hand, as aligned_alloc is not everywhere: the
+// block's own pointer sits just before the aligned one.
+static inline void* TestPatternAlloc(size_t size, size_t alignment, void* context)
+{
+    size_t align = alignment < sizeof(void*) ? sizeof(void*) : alignment;
+    uint8_t* raw = (uint8_t*)malloc(size + align + sizeof(void*));
+    if (raw == NULL)
+    {
+        return NULL;
+    }
+    uintptr_t at = ((uintptr_t)(raw + sizeof(void*)) + align - 1) & ~(uintptr_t)(align - 1);
+    uint8_t* block = (uint8_t*)at;
+    memcpy(block - sizeof(void*), &raw, sizeof raw);
+    memset(block, (int)(uintptr_t)context, size);
+    return block;
+}
+
+static inline void TestPatternFree(void* memory, size_t size, size_t alignment, void* context)
+{
+    (void)size;
+    (void)alignment;
+    (void)context;
+    if (memory != NULL)
+    {
+        void* raw = NULL;
+        memcpy(&raw, (uint8_t*)memory - sizeof raw, sizeof raw);
+        free(raw);
+    }
+}
+
+// The allocator that fills its blocks with pattern.
+static inline maniAllocator TestPatternAllocator(uint8_t pattern)
+{
+    return (maniAllocator){TestPatternAlloc, TestPatternFree, (void*)(uintptr_t)pattern};
+}
+
+// A builder whose storage starts filled with pattern (NULL on failure).
+static inline maniBuilder* TestPatternBuilder(uint8_t pattern)
+{
+    maniBuilderDef def = maniDefaultBuilderDef();
+    def.allocator = TestPatternAllocator(pattern);
+    maniBuilder* builder = NULL;
+    return maniCreateBuilder(&def, &builder) == mani_success ? builder : NULL;
+}
 
 // The builder's last result in a heap block of its size (NULL when the
 // build failed); *sizeOut its size.

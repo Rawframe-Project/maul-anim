@@ -599,12 +599,6 @@ static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, si
     {
         return r;
     }
-    // Before 1.0 a reader reads its own format version alone: an older
-    // database is built again from its source.
-    if (c.formatVersion != MANI_MATCH_FORMAT_VERSION)
-    {
-        return (maniFileResult){mani_errorVersion, 0, 6};
-    }
     Sections s;
     maniMotionDatabase d;
     r = LoadSections(&c, &s);
