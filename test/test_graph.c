@@ -682,10 +682,18 @@ static void TestSaveRestore(void)
     states[3].word = 1;
     states[3].weight = 0.5f;
     states[0].time = 12.75;
-    size_t stateSize = maniGraphStateSize(binding);
-    CHECK(stateSize == MANI_GRAPH_STATE_HEADER_SIZE + 15 * 16 && stateSize <= sizeof s_state &&
-              maniSaveGraphInstance(instance, s_state, stateSize) == mani_success &&
-              maniSaveGraphInstance(instance, s_state, stateSize - 1) == mani_errorCapacity,
+    size_t stateSize = 0;
+    size_t written = 0;
+    size_t refused = 0;
+    CHECK(maniSaveGraphInstance(instance, NULL, 0, &stateSize) == mani_errorCapacity &&
+              stateSize == MANI_GRAPH_STATE_HEADER_SIZE + 15 * 16 && stateSize <= sizeof s_state &&
+              maniSaveGraphInstance(instance, s_state, stateSize, &written) == mani_success &&
+              written == stateSize &&
+              maniSaveGraphInstance(instance, s_state, stateSize - 1, &refused) ==
+                  mani_errorCapacity &&
+              refused == stateSize &&
+              maniSaveGraphInstance(instance, NULL, 1, NULL) == mani_errorInvalid &&
+              maniSaveGraphInstance(NULL, NULL, 0, NULL) == mani_errorInvalid,
           "saves");
     memcpy(s_copyMemory, s_instanceMemory, size);
     maniGraphInstance* copy = (maniGraphInstance*)(void*)s_copyMemory;
@@ -944,7 +952,7 @@ static void Reference(maniPose* out)
     float inside[3];
     float outside[3];
     const maniMaskChain chain = {1, 1.0f, true};
-    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3) == mani_success, "mask");
+    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success, "mask");
     for (int b = 0; b < 3; ++b)
     {
         outside[b] = 1.0f - inside[b];
@@ -1406,9 +1414,8 @@ static void TestPinned(void)
             hash = maniHash64(hash, values, (int32_t)sizeof values);
         }
     }
-    size_t stateSize = maniGraphStateSize(binding);
-    CHECK(stateSize <= sizeof s_state &&
-              maniSaveGraphInstance(instance, s_state, stateSize) == mani_success,
+    size_t stateSize = 0;
+    CHECK(maniSaveGraphInstance(instance, s_state, sizeof s_state, &stateSize) == mani_success,
           "saves");
     hash = maniHash64(hash, s_state, (int32_t)stateSize);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");

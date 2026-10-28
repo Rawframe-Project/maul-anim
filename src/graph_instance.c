@@ -553,12 +553,9 @@ maniResult maniGetGraphParameter(const maniGraphInstance* instance, uint32_t par
     return mani_success;
 }
 
-size_t maniGraphStateSize(const maniGraphBinding* binding)
+// The bytes an instance's saved state takes.
+static size_t StateSize(const maniGraphBinding* binding)
 {
-    if (!BindingValid(binding))
-    {
-        return 0;
-    }
     const maniGraph* graph = &binding->graph;
     size_t cells = (size_t)graph->parameterCount + graph->nodeCount;
     // Each pose parameter's locals, the skeleton's bones' (no padding).
@@ -603,14 +600,19 @@ static void SavePoses(const maniGraphInstance* instance, uint8_t* p)
 }
 
 static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* instance, void* out,
-                                                      size_t capacity)
+                                                      size_t capacity, size_t* sizeOut)
 {
-    if (!InstanceValid(instance) || out == NULL)
+    if (!InstanceValid(instance) || (out == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
-    size_t size = maniGraphStateSize(instance->binding);
-    if (capacity < size)
+    size_t size = StateSize(instance->binding);
+    if (sizeOut != NULL)
+    {
+        *sizeOut = size;
+    }
+    // A NULL buffer has capacity 0, and a state is never empty.
+    if (out == NULL || capacity < size)
     {
         return mani_errorCapacity;
     }
@@ -649,10 +651,11 @@ static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* i
     return mani_success;
 }
 
-maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* out, size_t capacity)
+maniResult maniSaveGraphInstance(const maniGraphInstance* instance, void* bytesOut, size_t capacity,
+                                 size_t* sizeOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = SaveGraphInstanceWork(instance, out, capacity);
+    maniResult result = SaveGraphInstanceWork(instance, bytesOut, capacity, sizeOut);
     maniFloatEnvLeave(env);
     return result;
 }
@@ -824,7 +827,7 @@ static maniFileResult CheckPoses(const maniGraphInstance* instance, const uint8_
 static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_t* b, size_t size)
 {
     const maniGraph* graph = &instance->binding->graph;
-    size_t expected = maniGraphStateSize(instance->binding);
+    size_t expected = StateSize(instance->binding);
     if (size < MANI_GRAPH_STATE_HEADER_SIZE || maniLoadU32(b) != MANI_GRAPH_STATE_MAGIC)
     {
         return Fail(0);
@@ -925,7 +928,7 @@ static MANI_NOINLINE maniFileResult RestoreGraphInstanceWork(maniGraphInstance* 
                     (size_t)PosesBefore(graph, graph->parameterCount) *
                         maniSkeletonBoneCount(instance->binding->skeleton) * MANI_POSE_COMPONENTS *
                         4 ==
-                maniGraphStateSize(instance->binding));
+                StateSize(instance->binding));
     RestorePoses(instance, p);
     ResetCursors(instance);
     return r;

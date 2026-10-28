@@ -403,7 +403,8 @@ static void CompareMorph(Context* c, uint32_t m)
     maniImportResult r = maniFbxBuildMorphTargets(c->builder, c->fbx, m, &options);
     bool built = r.result == mani_success && Copy(c->builder, &blob) &&
                  maniOpenMorphTargets(blob.data, blob.size, &ours).result == mani_success &&
-                 rest != NULL && maniFbxMorphWeights(c->fbx, m, rest, count).result == mani_success;
+                 rest != NULL &&
+                 maniFbxMorphWeights(c->fbx, m, rest, count, NULL).result == mani_success;
     if (theirs == NULL)
     {
         Mismatch(c, "morph", "set %u has no ufbx blend deformer", m);

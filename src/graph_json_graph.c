@@ -179,7 +179,7 @@ static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
             return maniGraphJsonFault(r, e, maniGraphFormUnbound);
         }
         c[i].clip = r->hostClips[host].clip;
-        c[i].map = r->hostClips[host].map;
+        c[i].retargetMap = r->hostClips[host].retargetMap;
         list.names[i] = c[i].name;
         list.lengths[i] = c[i].nameLength;
     }

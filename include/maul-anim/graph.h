@@ -39,15 +39,15 @@ extern "C"
 // Named limits, a source past one refused with mani_errorLimit: nodes,
 // inputs of one node, parameters, clips, sync groups, motion databases,
 // models, spring sets and maps of one graph.
-#define MANI_MAX_GRAPH_NODES       65536u
-#define MANI_MAX_GRAPH_INPUTS      4096u
-#define MANI_MAX_GRAPH_PARAMETERS  65536u
-#define MANI_MAX_GRAPH_CLIPS       65536u
-#define MANI_MAX_GRAPH_SYNC_GROUPS 65536u
-#define MANI_MAX_GRAPH_DATABASES   256u
-#define MANI_MAX_GRAPH_MODELS      256u
-#define MANI_MAX_GRAPH_SPRING_SETS 256u
-#define MANI_MAX_GRAPH_MAPS        256u
+#define MANI_MAX_GRAPH_NODES         65536u
+#define MANI_MAX_GRAPH_INPUTS        4096u
+#define MANI_MAX_GRAPH_PARAMETERS    65536u
+#define MANI_MAX_GRAPH_CLIPS         65536u
+#define MANI_MAX_GRAPH_SYNC_GROUPS   65536u
+#define MANI_MAX_GRAPH_DATABASES     256u
+#define MANI_MAX_GRAPH_MODELS        256u
+#define MANI_MAX_GRAPH_SPRING_SETS   256u
+#define MANI_MAX_GRAPH_RETARGET_MAPS 256u
 // The most points (and inputs) a blend space has.
 #define MANI_MAX_GRAPH_SPACE_POINTS 256u
 // The most transitions of one state machine, conditions of one
@@ -428,7 +428,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphMapCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraphRetargetMapCount(const maniGraph* graph);
 
     /// Returns the identity of the retargeting map a slot names.
     ///
@@ -437,7 +437,7 @@ extern "C"
     /// @return The map's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraphRetargetMapIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the identity of the graph's mirror map, which
     /// its mirror nodes mirror through.
@@ -456,7 +456,7 @@ extern "C"
     /// @return The source skeleton's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraphRetargetMapSourceIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the map slot a clip slot plays through.
     ///
@@ -466,7 +466,7 @@ extern "C"
     /// skeleton or past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip);
+    MANI_API uint32_t maniGraphClipRetargetMap(const maniGraph* graph, uint32_t clip);
 
     /// Returns a node's kind: with its inputs and the output
     /// node, what a debugger draws the graph's tree from. Nodes are in
@@ -555,9 +555,9 @@ extern "C"
         uint32_t databaseCount;
         uint32_t modelCount;
         uint32_t springSetCount;
-        const maniRetargetMap* const* maps;
+        const maniRetargetMap* const* retargetMaps;
         const maniSkeleton* const* sourceSkeletons;
-        uint32_t mapCount;
+        uint32_t retargetMapCount;
         uint32_t sourceSkeletonCount;
         const maniMirrorMap* mirrorMap;
     } maniGraphAssets;
@@ -750,29 +750,26 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance,
                                                             uint32_t node, maniGraphNodeView* out);
 
-    /// Returns the bytes an instance's saved state takes: its parameters,
-    /// its nodes' state, its state machines' and one-shots', and its pose
-    /// parameters' locals (the skeleton's bones), with the graph's
-    /// identity.
-    ///
-    /// @param binding  A binding.
-    /// @return The size; 0 for a NULL binding.
-    /// @par Thread safety
-    /// Safe from any thread.
-    MANI_API size_t maniGraphStateSize(const maniGraphBinding* binding);
-
     /// Writes an instance's state as bytes that hold no pointer, to be
-    /// restored into any instance of the same graph.
+    /// restored into any instance of the same graph: its parameters, its
+    /// nodes' state, its state machines' and one-shots', and its pose
+    /// parameters' locals (the skeleton's bones), with the graph's
+    /// identity. Call it with a NULL buffer and capacity 0 to measure.
     ///
     /// @param instance  An instance.
-    /// @param out       At least maniGraphStateSize bytes.
-    /// @param capacity  The bytes out holds.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorCapacity` when capacity is too small (nothing written).
+    /// @param bytesOut  Receives the state: at least capacity bytes; may
+    ///                  be NULL when capacity is 0.
+    /// @param capacity  The bytes bytesOut holds.
+    /// @param sizeOut   Receives the state's size in bytes. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is
+    /// smaller than the state, with the size still written and nothing
+    /// else; `mani_errorInvalid` for a NULL instance or a NULL buffer with
+    /// a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSaveGraphInstance(const maniGraphInstance* instance,
-                                                             void* out, size_t capacity);
+                                                             void* bytesOut, size_t capacity,
+                                                             size_t* sizeOut);
 
     /// Restores a saved state, checked as external bytes: the graph's
     /// identity, the size, every parameter in form, every node's, state

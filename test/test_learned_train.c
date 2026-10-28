@@ -477,7 +477,8 @@ static void TestModelBits(void)
             float out[9];
             Forward(&t->networks[2 + p], t->data.features + f * 5, want);
             project = project &&
-                      maniLearnedProject(&model, p, t->data.features + f * 5, out, scratch,
+                      maniLearnedProject(&model, p, t->data.features + f * 5, out,
+                                         (model.featureCount + model.latentCount), NULL, scratch,
                                          sizeof scratch) == mani_success &&
                       memcmp(out, want, sizeof out) == 0;
         }
@@ -497,7 +498,8 @@ static void TestModelBits(void)
         memcpy(state, t->data.features + f * 5, 5 * sizeof(float));
         memcpy(state + 5, t->latents + f * 4, 4 * sizeof(float));
         Forward(&t->networks[0], state, want);
-        maniLearnedOutput output = {pose, NULL, events, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+        maniLearnedOutput output = {
+            pose, NULL, 0, events, 2, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
         decompress = decompress && maniLearnedDecompress(&model, state, &output, scratch,
                                                          sizeof scratch) == mani_success;
         for (uint32_t b = 0; b < 3; ++b)
@@ -649,10 +651,15 @@ static bool Resumed(uint64_t stop, size_t* sizeOut)
     maniLearnedTrainerReport report;
     bool ok = maniTrainLearned(a, stop, &report) == mani_success;
     float loss = report.loss;
-    size_t size = maniLearnedCheckpointSize(a);
-    ok = ok && size <= sizeof s_checkpoint &&
-         maniSaveLearnedCheckpoint(a, s_checkpoint, size - 1) == mani_errorCapacity &&
-         maniSaveLearnedCheckpoint(a, s_checkpoint, size) == mani_success;
+    size_t size = 0;
+    size_t refused = 0;
+    size_t written = 0;
+    ok = ok && maniSaveLearnedCheckpoint(a, NULL, 0, &size) == mani_errorCapacity &&
+         size <= sizeof s_checkpoint &&
+         maniSaveLearnedCheckpoint(a, s_checkpoint, size - 1, &refused) == mani_errorCapacity &&
+         refused == size &&
+         maniSaveLearnedCheckpoint(a, s_checkpoint, size, &written) == mani_success &&
+         written == size;
     maniDestroyLearnedTrainer(a);
     maniLearnedTrainer* b = Create(&def, &s);
     ok = ok && maniTrainLearned(b, 3, &report) == mani_success;
@@ -687,8 +694,8 @@ static void TestCheckpoints(void)
     CHECK(all, "a checkpoint at any point resumes to the same model");
     CHECK(sizes[1] > sizes[0] && sizes[2] < sizes[1] && sizes[7] < sizes[6],
           "a stage's moments only while it trains");
-    CHECK(maniLearnedCheckpointSize(NULL) == 0 &&
-              maniSaveLearnedCheckpoint(NULL, s_checkpoint, sizeof s_checkpoint) ==
+    CHECK(maniSaveLearnedCheckpoint(NULL, NULL, 0, NULL) == mani_errorInvalid &&
+              maniSaveLearnedCheckpoint(NULL, s_checkpoint, sizeof s_checkpoint, NULL) ==
                   mani_errorInvalid,
           "NULL arguments");
 }
@@ -700,8 +707,9 @@ static size_t Checkpoint(const maniLearnedTrainerSource* s, uint64_t stop)
     maniLearnedTrainer* t = Create(&def, s);
     maniLearnedTrainerReport report;
     CHECK(maniTrainLearned(t, stop, &report) == mani_success, "trained");
-    size_t size = maniLearnedCheckpointSize(t);
-    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint) == mani_success, "saved");
+    size_t size = CheckpointSize(t);
+    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint, NULL) == mani_success,
+          "saved");
     maniDestroyLearnedTrainer(t);
     return size;
 }
@@ -861,8 +869,8 @@ static void TestCanonical(void)
     {
         size_t size = Checkpoint(&s, stops[k]);
         CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_success &&
-                  maniLearnedCheckpointSize(t) == size &&
-                  maniSaveLearnedCheckpoint(t, again, sizeof again) == mani_success &&
+                  CheckpointSize(t) == size &&
+                  maniSaveLearnedCheckpoint(t, again, sizeof again, NULL) == mani_success &&
                   memcmp(again, s_checkpoint, size) == 0,
               "saved back alike");
     }
@@ -897,8 +905,9 @@ static void TestMemory(void)
     CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
           "then trained through");
     Build(t, 1, maniLearnedWeightsFloat32);
-    size_t size = maniLearnedCheckpointSize(t);
-    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint) == mani_success, "saved");
+    size_t size = CheckpointSize(t);
+    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint, NULL) == mani_success,
+          "saved");
     budget.limit = budget.count;
     CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_errorCapacity &&
               maniTrainLearned(t, 0, &report) == mani_success && report.stage == 0,
@@ -914,12 +923,12 @@ static int WriteSeed(const char* path)
 {
     maniLearnedTrainer* trainer = MakeCheckpointHost(&s_host);
     maniLearnedTrainerReport report;
-    size_t size = trainer != NULL ? maniLearnedCheckpointSize(trainer) : 0;
+    size_t size = trainer != NULL ? CheckpointSize(trainer) : 0;
     uint8_t* bytes = NULL;
     bool ok = trainer != NULL && maniTrainLearned(trainer, 8, &report) == mani_success &&
-              report.stage == 2 && (size = maniLearnedCheckpointSize(trainer)) > 0 &&
+              report.stage == 2 && (size = CheckpointSize(trainer)) > 0 &&
               (bytes = malloc(size)) != NULL &&
-              maniSaveLearnedCheckpoint(trainer, bytes, size) == mani_success;
+              maniSaveLearnedCheckpoint(trainer, bytes, size, NULL) == mani_success;
     FILE* file = ok ? fopen(path, "wb") : NULL;
     ok = file != NULL && fwrite(bytes, 1, size, file) == size;
     ok = file != NULL && fclose(file) == 0 && ok;
@@ -949,14 +958,14 @@ static void TestPaddingIgnored(void)
         maniLearnedTrainerReport report;
         CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
               "trained padded");
-        checkpointSizes[k] = maniLearnedCheckpointSize(t);
+        checkpointSizes[k] = CheckpointSize(t);
         checkpoints[k] = (uint8_t*)malloc(checkpointSizes[k]);
         if (checkpoints[k] != NULL)
         {
             memset(checkpoints[k], kTestPadPatterns[k], checkpointSizes[k]);
         }
         if (checkpoints[k] != NULL &&
-            maniSaveLearnedCheckpoint(t, checkpoints[k], checkpointSizes[k]) != mani_success)
+            maniSaveLearnedCheckpoint(t, checkpoints[k], checkpointSizes[k], NULL) != mani_success)
         {
             free(checkpoints[k]);
             checkpoints[k] = NULL;

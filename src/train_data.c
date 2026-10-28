@@ -253,8 +253,8 @@ static void BoneInputs(const Sampler* p, const maniTrainData* d, uint32_t b, flo
 static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
 {
     if (!Sample(p, f, false) ||
-        maniMotionDatabaseFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount) !=
-            mani_success)
+        maniMotionDatabaseFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount,
+                                   p->s->database->featureCount, NULL) != mani_success)
     {
         return false;
     }

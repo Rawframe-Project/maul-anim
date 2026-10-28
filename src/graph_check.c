@@ -254,7 +254,7 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
 
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 {
-    MANI_ASSERT(*count <= MANI_MAX_GRAPH_MAPS);
+    MANI_ASSERT(*count <= MANI_MAX_GRAPH_RETARGET_MAPS);
     for (uint32_t k = 0; k < *count; ++k)
     {
         if (ids[k] == identity)
@@ -262,9 +262,9 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
             return k;
         }
     }
-    if (*count == MANI_MAX_GRAPH_MAPS)
+    if (*count == MANI_MAX_GRAPH_RETARGET_MAPS)
     {
-        return MANI_MAX_GRAPH_MAPS;
+        return MANI_MAX_GRAPH_RETARGET_MAPS;
     }
     ids[*count] = identity;
     return (*count)++;
@@ -275,7 +275,7 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c)
 {
     uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
-    const maniRetargetMap* map = c->map;
+    const maniRetargetMap* map = c->retargetMap;
     if (c->clip == NULL)
     {
         return false;
@@ -291,12 +291,12 @@ static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c
 }
 
 // Every clip slot: a clip of the skeleton or of its map's source, each
-// clip once, at most MANI_MAX_GRAPH_MAPS maps.
+// clip once, at most MANI_MAX_GRAPH_RETARGET_MAPS maps.
 static maniBuildResult CheckClips(const maniGraphSource* source, const maniAllocator* allocator,
                                   uint32_t* mapCountOut)
 {
     uint32_t n = source->clipCount;
-    uint64_t ids[MANI_MAX_GRAPH_MAPS] = {0};
+    uint64_t ids[MANI_MAX_GRAPH_RETARGET_MAPS] = {0};
     for (uint32_t i = 0; i < n; ++i)
     {
         const maniGraphClipSource* c = &source->clips[i];
@@ -304,8 +304,9 @@ static maniBuildResult CheckClips(const maniGraphSource* source, const maniAlloc
         {
             return maniGraphRefuse(maniBuildReasonClip, i, 0);
         }
-        if (c->map != NULL &&
-            maniGraphMapSlotIn(ids, mapCountOut, c->map->identity) == MANI_MAX_GRAPH_MAPS)
+        if (c->retargetMap != NULL &&
+            maniGraphMapSlotIn(ids, mapCountOut, c->retargetMap->identity) ==
+                MANI_MAX_GRAPH_RETARGET_MAPS)
         {
             return maniGraphPastLimit(maniBuildReasonClip, i, 0);
         }

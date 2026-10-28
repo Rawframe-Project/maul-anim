@@ -23,9 +23,9 @@ static bool Usable(float w)
 static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
                                               const maniMaskChain* chains, uint32_t count,
                                               float defaultWeight, float* weights,
-                                              uint32_t capacity)
+                                              uint32_t capacity, uint32_t* countOut)
 {
-    if (skeleton == NULL || weights == NULL || (chains == NULL && count > 0) ||
+    if (skeleton == NULL || (weights == NULL && capacity > 0) || (chains == NULL && count > 0) ||
         !Usable(defaultWeight))
     {
         return mani_errorInvalid;
@@ -38,7 +38,11 @@ static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
             return mani_errorInvalid;
         }
     }
-    if (capacity < bones)
+    if (countOut != NULL)
+    {
+        *countOut = bones;
+    }
+    if (weights == NULL || capacity < bones)
     {
         return mani_errorCapacity;
     }
@@ -66,10 +70,12 @@ static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
 }
 
 maniResult maniBuildMask(const maniSkeleton* skeleton, const maniMaskChain* chains, uint32_t count,
-                         float defaultWeight, float* weights, uint32_t capacity)
+                         float defaultWeight, float* weightsOut, uint32_t capacity,
+                         uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = BuildMaskWork(skeleton, chains, count, defaultWeight, weights, capacity);
+    maniResult result =
+        BuildMaskWork(skeleton, chains, count, defaultWeight, weightsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

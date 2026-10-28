@@ -412,7 +412,7 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     float* scales = Take((size_t)n * sizeof(float));
     scenes->queryFeatures = Take((size_t)n * BENCH_QUERIES * sizeof(float));
     if (offsets == NULL || scales == NULL || scenes->queryFeatures == NULL ||
-        maniMotionDatabaseNormalization(d, offsets, scales) != mani_success)
+        maniMotionDatabaseNormalization(d, offsets, scales, d->featureCount, NULL) != mani_success)
     {
         return Fail("the queries");
     }
@@ -420,7 +420,7 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     {
         uint32_t frame = 1 + (uint32_t)((uint64_t)q * 7919u % (d->frameCount - 1));
         float* features = scenes->queryFeatures + (size_t)q * n;
-        if (maniMotionDatabaseFeatures(d, frame, features) != mani_success)
+        if (maniMotionDatabaseFeatures(d, frame, features, d->featureCount, NULL) != mani_success)
         {
             return Fail("the queries");
         }

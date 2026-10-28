@@ -727,19 +727,32 @@ static maniImportResult BlendRestWeights(const maniFbx* fbx, maniArena* arena, u
     return r;
 }
 
+// The set's target count written, and whether the weights' array holds
+// it.
+static bool Holds(uint32_t total, const float* weightsOut, uint32_t capacity, uint32_t* countOut)
+{
+    if (countOut != NULL)
+    {
+        *countOut = total;
+    }
+    return weightsOut != NULL && capacity >= total;
+}
+
 static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, uint32_t morph,
-                                                          float* weightsOut, uint32_t count)
+                                                          float* weightsOut, uint32_t capacity,
+                                                          uint32_t* countOut)
 {
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
-    if (weightsOut == NULL || object == MANI_FBX_NONE)
+    if ((weightsOut == NULL && capacity > 0) || object == MANI_FBX_NONE)
     {
         return Invalid();
     }
+    const maniImportResult tooSmall = {mani_errorCapacity, maniImportReasonNone, 0, 0};
     if (!IsBlendShape(fbx, object))
     {
-        if (count != ShapeChildren(fbx, object))
+        if (!Holds(ShapeChildren(fbx, object), weightsOut, capacity, countOut))
         {
-            return Invalid();
+            return tooSmall;
         }
         OwnerWeights(fbx, object, weightsOut);
         return maniFbxSuccess();
@@ -747,17 +760,17 @@ static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, ui
     maniArena arena = maniArenaMake(&fbx->allocator);
     uint32_t total = 0;
     maniImportResult r = CountTargets(fbx, &arena, object, &total);
-    r = r.result == mani_success && total != count ? Invalid() : r;
+    r = r.result == mani_success && !Holds(total, weightsOut, capacity, countOut) ? tooSmall : r;
     r = r.result == mani_success ? BlendRestWeights(fbx, &arena, object, weightsOut) : r;
     maniArenaRelease(&arena);
     return r;
 }
 
 maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
-                                     uint32_t count)
+                                     uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, count);
+    maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

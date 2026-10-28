@@ -412,10 +412,11 @@ static void TestSaved(void)
     Steps(instance, 2);
     Pull(instance, 0);
     Steps(instance, 1);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
@@ -433,7 +434,7 @@ static void TestSaved(void)
                                  {9, 1},
                                  {MANI_GRAPH_INERTIA_HEADER + 13, 0xFF800000u},
                                  {capture, 0x40000000u}};
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success,
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
           "saved again");
     for (int k = 0; k < 7; ++k)
     {

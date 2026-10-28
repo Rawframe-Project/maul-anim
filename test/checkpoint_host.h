@@ -95,4 +95,12 @@ static inline maniLearnedTrainer* MakeCheckpointHost(CheckpointHost* h)
                : NULL;
 }
 
+// The bytes maniSaveLearnedCheckpoint writes for the trainer as it is
+// now, measured with no buffer; 0 when the measure fails.
+static inline size_t CheckpointSize(const maniLearnedTrainer* trainer)
+{
+    size_t size = 0;
+    return maniSaveLearnedCheckpoint(trainer, NULL, 0, &size) == mani_errorCapacity ? size : 0;
+}
+
 #endif // MAUL_ANIM_TEST_CHECKPOINT_HOST_H

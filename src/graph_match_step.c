@@ -215,11 +215,12 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
     const maniMotionDatabase* d = m->d;
     uint32_t n = d->featureCount;
     float next[MANI_MAX_MATCH_FEATURES];
-    if (maniMotionDatabaseFeatures(d, at.frame, here) != mani_success)
+    if (maniMotionDatabaseFeatures(d, at.frame, here, d->featureCount, NULL) != mani_success)
     {
         memset(here, 0, (size_t)n * sizeof(float));
     }
-    else if (at.weight > 0.0f && maniMotionDatabaseFeatures(d, at.next, next) == mani_success)
+    else if (at.weight > 0.0f &&
+             maniMotionDatabaseFeatures(d, at.next, next, d->featureCount, NULL) == mani_success)
     {
         maniGraphMatchBlend(d, here, next, at.weight);
     }

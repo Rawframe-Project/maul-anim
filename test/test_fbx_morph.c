@@ -239,13 +239,20 @@ static void TestWeights(void)
     CHECK(name != NULL && length == 4 && memcmp(name, "Face", 4) == 0 &&
               maniFbxMorphModel(fbx, 1) == UINT32_MAX,
           "the mesh model");
-    CHECK(maniFbxMorphWeights(fbx, 0, w, 5).result == mani_success && w[0] == 0.5f &&
+    CHECK(maniFbxMorphWeights(fbx, 0, w, 5, NULL).result == mani_success && w[0] == 0.5f &&
               w[1] == 0.0f && w[2] == 0.5f && w[3] == 0.0f && w[4] == 0.0f && w[5] == 9.0f,
           "rest weights, walked as the clips walk them");
-    CHECK(maniFbxMorphWeights(fbx, 0, w, 4).result == mani_errorInvalid &&
-              maniFbxMorphWeights(fbx, 0, NULL, 5).result == mani_errorInvalid &&
-              maniFbxMorphWeights(fbx, 1, w, 0).result == mani_errorInvalid &&
-              maniFbxMorphWeights(NULL, 0, w, 5).result == mani_errorInvalid,
+    uint32_t measured = 0;
+    uint32_t refused = 0;
+    w[0] = 9.0f;
+    CHECK(maniFbxMorphWeights(fbx, 0, NULL, 0, &measured).result == mani_errorCapacity &&
+              measured == 5 &&
+              maniFbxMorphWeights(fbx, 0, w, 4, &refused).result == mani_errorCapacity &&
+              refused == 5 && w[0] == 9.0f,
+          "the weights measured, and a short array refused");
+    CHECK(maniFbxMorphWeights(fbx, 0, NULL, 5, NULL).result == mani_errorInvalid &&
+              maniFbxMorphWeights(fbx, 1, w, 0, NULL).result == mani_errorInvalid &&
+              maniFbxMorphWeights(NULL, 0, w, 5, NULL).result == mani_errorInvalid,
           "weight misuses");
     maniFbxOptions options = maniDefaultFbxOptions();
     CHECK(maniFbxBuildMorphTargets(builder, fbx, 1, &options).result == mani_errorInvalid &&
@@ -368,7 +375,7 @@ static void TestSix(void)
     maniFbx* fbx = Open(builder, kSix);
     float w[2] = {0};
     CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 2 &&
-              maniFbxMorphWeights(fbx, 0, w, 2).result == mani_success && Near(w[0], 0.1f) &&
+              maniFbxMorphWeights(fbx, 0, w, 2, NULL).result == mani_success && Near(w[0], 0.1f) &&
               Near(w[1], 0.1f),
           "its weight: the property over 100");
     maniCloseFbx(fbx);

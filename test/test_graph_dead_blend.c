@@ -194,9 +194,9 @@ static void TestDeadSaved(void)
     Steps(instance, 2);
     Pull(instance, 0);
     Steps(instance, 1);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
