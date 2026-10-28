@@ -214,7 +214,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database,
-                                                       uint32_t channel, uint32_t* lengthOut);
+                                                       uint32_t channel, size_t* lengthOut);
 
     /// Reads a database's entry.
     ///

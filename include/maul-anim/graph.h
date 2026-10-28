@@ -301,7 +301,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraphParameterName(const maniGraph* graph, uint32_t parameter,
-                                                uint32_t* lengthOut);
+                                                size_t* lengthOut);
 
     /// Returns the number of clip slots the graph plays.
     ///
@@ -329,7 +329,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraphClipName(const maniGraph* graph, uint32_t clip,
-                                           uint32_t* lengthOut);
+                                           size_t* lengthOut);
 
     /// Returns the number of motion database slots the graph's motion
     /// matching nodes search.
@@ -359,7 +359,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database,
-                                               uint32_t* lengthOut);
+                                               size_t* lengthOut);
 
     /// Returns the number of learned model slots the graph's learned
     /// motion matching nodes play.
@@ -389,7 +389,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraphModelName(const maniGraph* graph, uint32_t model,
-                                            uint32_t* lengthOut);
+                                            size_t* lengthOut);
 
     /// Returns the number of spring set slots the graph's spring nodes
     /// read.
@@ -419,7 +419,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot,
-                                                uint32_t* lengthOut);
+                                                size_t* lengthOut);
 
     /// Returns the number of retargeting map slots the graph's clips play
     /// through: one for each map its clip slots name.

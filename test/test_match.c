@@ -320,7 +320,7 @@ static void TestFloatTrack(void)
     {
         ok = ok && Near4(Raw(&d, f, 0), (double)f / 10.0);
     }
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniMotionDatabaseChannelName(&d, 0, &length);
     CHECK(ok && name != NULL && length == 5 && memcmp(name, "speed", 5) == 0,
           "the float track rising, its name");

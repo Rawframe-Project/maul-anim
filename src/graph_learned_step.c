@@ -313,7 +313,7 @@ static void Outputs(const Learned* l, double step)
         maniGraphUpdate* u = l->u;
         if (u->count < u->capacity)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniLearnedModelEventName(m, e, &length);
             uint64_t hash = maniGraphNodeName(
                 u, l->p, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));

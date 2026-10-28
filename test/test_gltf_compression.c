@@ -216,7 +216,7 @@ static void TestDecodedAtOpen(void)
           "a placeholder");
     maniCloseGltf(gltf);
     Plain(kStream, "{\"byteLength\":296}", ",{\"buffer\":1,\"byteLength\":8}");
-    uint32_t length = 1;
+    size_t length = 1;
     CHECK(Open(builder, &gltf).result == mani_success &&
               maniGltfBufferUri(gltf, 1, &length) != NULL && length == 0,
           "a buffer a plain view uses is external");
@@ -399,7 +399,7 @@ static void TestEdges(void)
              "\"bufferViews\":[{\"buffer\":0,\"byteLength\":296,\"extensions\":{"
              "\"EXT_meshopt_compression\":{%s}}}]}",
              kStream);
-    uint32_t length = 1;
+    size_t length = 1;
     CHECK(Open(builder, &gltf).result == mani_success &&
               maniGltfBufferUri(gltf, 0, &length) != NULL && length == 0,
           "a stream's buffer is the host's");
@@ -454,7 +454,7 @@ static void TestSupplied(void)
         maniDestroyBuilder(builder);
         return;
     }
-    uint32_t length = 0;
+    size_t length = 0;
     const char* uri = maniGltfBufferUri(gltf, 0, &length);
     CHECK(uri != NULL && length == 10 && memcmp(uri, "stream.bin", 10) == 0, "the stream's URI");
     CHECK(maniGltfReadFloats(gltf, 0, s_floats).reason == maniImportReasonPending, "pending");
@@ -685,7 +685,7 @@ static uint32_t FindNode(const maniGltf* gltf, const char* name, uint32_t length
 {
     for (uint32_t n = 0; n < maniGltfNodeCount(gltf); ++n)
     {
-        uint32_t l = 0;
+        size_t l = 0;
         const char* s = maniGltfNodeBoneName(gltf, n, &l);
         if (l == length && memcmp(s, name, length) == 0)
         {

@@ -408,7 +408,7 @@ uint32_t maniSpringSetSpringCount(const maniSpringSet* set)
     return set != NULL ? set->springCount : 0;
 }
 
-const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring, uint32_t* lengthOut)
+const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring, size_t* lengthOut)
 {
     bool valid = set != NULL && spring < set->springCount;
     const uint8_t* e = valid ? set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE : NULL;

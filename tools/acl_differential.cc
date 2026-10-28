@@ -545,7 +545,7 @@ int main(int argc, char** argv)
     for (uint32_t k = 0; k < clips.size(); ++k)
     {
         Clip& c = clips[k];
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniFbxClipName(fbx, k, &length);
         if (maniFbxBuildClip(run.builder, fbx, k, &skeleton, &options, &clipOptions, nullptr)
                     .result != mani_success ||
@@ -565,7 +565,7 @@ int main(int argc, char** argv)
                     c.ourSeconds * 1e3);
         if (c.ourShell > static_cast<double>(kPrecision))
         {
-            uint32_t n = 0;
+            size_t n = 0;
             const char* bone = maniSkeletonBoneName(&skeleton, c.reportedBone, &n);
             std::printf("  past the precision at bone %u (%.*s), sample %u\n", c.reportedBone,
                         static_cast<int>(n), bone, c.reportedSample);

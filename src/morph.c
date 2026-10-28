@@ -453,7 +453,7 @@ maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets, uint32_t a
 }
 
 const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
-                                 uint32_t* lengthOut)
+                                 size_t* lengthOut)
 {
     bool inside = channel < targets->channelCount;
     const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
@@ -483,8 +483,7 @@ uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name,
     return MANI_NO_CHANNEL;
 }
 
-const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
-                                uint32_t* lengthOut)
+const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target, size_t* lengthOut)
 {
     bool inside = target < targets->targetCount;
     const uint8_t* e = targets->targets + (size_t)target * MANI_MORPH_TARGET_SIZE;

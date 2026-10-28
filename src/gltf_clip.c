@@ -78,7 +78,7 @@ static uint32_t NodeBone(const Build* b, uint32_t node)
 // The first node named as the skeleton's root bone.
 static uint32_t RootNode(const Build* b)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* root = maniSkeletonBoneName(b->skeleton, 0, &length);
     for (uint32_t v = 0; v < b->gltf->nodeCount; ++v)
     {

@@ -359,7 +359,7 @@ static void TestFloatTracks(void)
     uint32_t wave = maniClipFindFloatTrack(&clip, "wave", 4);
     CHECK(ramp != MANI_NO_TRACK && gate != MANI_NO_TRACK && wave != MANI_NO_TRACK, "found");
     CHECK(maniClipFindFloatTrack(&clip, "foot", 4) == MANI_NO_TRACK, "not a float track");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniClipFloatTrackName(&clip, gate, &length);
     CHECK(length == 4 && memcmp(name, "gate", 4) == 0, "its name");
     CHECK(maniClipFloatTrackName(&clip, 3, &length) == NULL && length == 0, "name past");
@@ -406,7 +406,7 @@ static void TestDiscreteTracks(void)
     CHECK(maniClipDiscreteValue(&clip, state, 0.1f) == 7, "before the first key, the first");
     CHECK(maniClipDiscreteValue(&clip, foot, NAN) == 1, "NaN is 0");
     CHECK(maniClipDiscreteValue(&clip, 2, 0.5f) == 0, "a track past the count");
-    uint32_t length = 0;
+    size_t length = 0;
     CHECK(maniClipDiscreteTrackName(&clip, state, &length) != NULL && length == 5, "its name");
 }
 

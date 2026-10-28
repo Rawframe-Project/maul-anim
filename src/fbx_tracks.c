@@ -78,7 +78,7 @@ static uint32_t Static(const maniFbx* fbx, uint32_t object, const char* name, si
 static char* TrackName(maniFbxClipState* c, uint32_t b, const char* property, size_t length,
                        uint32_t width, uint32_t k, uint32_t* lengthOut)
 {
-    uint32_t boneLength = 0;
+    size_t boneLength = 0;
     const char* bone = maniSkeletonBoneName(c->skeleton, b, &boneLength);
     size_t n = (size_t)boneLength + 1 + length + (width > 1 ? 2 : 0);
     char* name = maniArenaTake(&c->arena, n, 1);

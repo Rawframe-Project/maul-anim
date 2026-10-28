@@ -114,7 +114,7 @@ static void TestBuild(void)
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two spring sets");
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphSpringSetName(&g, 1, &length);
     CHECK(maniGraphSpringSetCount(&g) == 2 &&
               maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set) &&

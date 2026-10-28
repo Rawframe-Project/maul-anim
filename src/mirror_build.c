@@ -176,8 +176,10 @@ static bool Apply(const maniMirrorRuleSource* r, const char* name, uint32_t leng
 // none.
 static uint32_t RuleBone(const Work* w, uint32_t b)
 {
-    uint32_t length = 0;
-    const char* name = maniSkeletonBoneName(w->s->skeleton, b, &length);
+    size_t stored = 0;
+    const char* name = maniSkeletonBoneName(w->s->skeleton, b, &stored);
+    // A skeleton stores a name's length in 32 bits.
+    uint32_t length = (uint32_t)stored;
     for (uint32_t i = 0; i < w->s->ruleCount; ++i)
     {
         uint32_t made = 0;
@@ -540,7 +542,7 @@ static void Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, 
     size_t longest = 0;
     for (uint32_t b = 0; b < count; ++b)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         (void)maniSkeletonBoneName(s->skeleton, b, &length);
         longest = length > longest ? length : longest;
     }

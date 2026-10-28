@@ -611,7 +611,7 @@ maniResult maniLearnedModelProjector(const maniLearnedModel* model, uint32_t pro
     return mani_success;
 }
 
-static const char* Name(const maniLearnedModel* model, uint32_t k, uint32_t* lengthOut)
+static const char* Name(const maniLearnedModel* model, uint32_t k, size_t* lengthOut)
 {
     const uint8_t* e = model->names + (size_t)k * MANI_LEARNED_NAME_SIZE;
     if (lengthOut != NULL)
@@ -622,7 +622,7 @@ static const char* Name(const maniLearnedModel* model, uint32_t k, uint32_t* len
 }
 
 const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32_t track,
-                                           uint32_t* lengthOut)
+                                           size_t* lengthOut)
 {
     if (model == NULL || track >= model->floatTrackCount)
     {
@@ -632,7 +632,7 @@ const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32
 }
 
 const char* maniLearnedModelEventName(const maniLearnedModel* model, uint32_t event,
-                                      uint32_t* lengthOut)
+                                      size_t* lengthOut)
 {
     if (model == NULL || event >= model->eventCount)
     {

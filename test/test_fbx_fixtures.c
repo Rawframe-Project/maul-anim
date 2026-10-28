@@ -217,7 +217,7 @@ static bool CheckBind(Fixture* f, const FbxExpected* e)
     {
         return false;
     }
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSkeletonBoneName(&f->skeleton, maniSkinJoint(&f->skin, j), &length);
     maniAffine bind = maniSkinInverseBind(&f->skin, j);
     double ours[12];

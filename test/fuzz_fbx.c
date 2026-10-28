@@ -319,7 +319,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         for (uint32_t m = 0; m <= fbx->modelCount; ++m)
         {
             const uint32_t* children = NULL;
-            uint32_t length = 0;
+            size_t length = 0;
             (void)maniFbxModelChildren(fbx, m, &children);
             (void)maniFbxModelBoneName(fbx, m, &length);
         }

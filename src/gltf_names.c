@@ -82,7 +82,7 @@ const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, uint32_t* leng
     return maniBoneName(&gltf->names, node, lengthOut);
 }
 
-const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, uint32_t* lengthOut)
+const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, size_t* lengthOut)
 {
     bool inRange = gltf != NULL && node < gltf->names.count;
     uint32_t length = 0;

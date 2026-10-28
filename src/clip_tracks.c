@@ -242,7 +242,7 @@ static const char* Name(const maniClip* clip, const uint8_t* entry, uint32_t* le
 }
 
 static const char* TrackName(const maniClip* clip, const uint8_t* tracks, uint32_t count,
-                             uint32_t track, uint32_t* lengthOut)
+                             uint32_t track, size_t* lengthOut)
 {
     if (track >= count)
     {
@@ -252,7 +252,13 @@ static const char* TrackName(const maniClip* clip, const uint8_t* tracks, uint32
         }
         return NULL;
     }
-    return Name(clip, tracks + (size_t)track * MANI_CLIP_NAMED_TRACK_SIZE, lengthOut);
+    uint32_t length = 0;
+    const char* name = Name(clip, tracks + (size_t)track * MANI_CLIP_NAMED_TRACK_SIZE, &length);
+    if (lengthOut != NULL)
+    {
+        *lengthOut = length;
+    }
+    return name;
 }
 
 static uint32_t FindTrack(const maniClip* clip, const uint8_t* tracks, uint32_t count,
@@ -290,7 +296,7 @@ uint32_t maniClipFloatTrackCount(const maniClip* clip)
     return clip->floatTrackCount;
 }
 
-const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track, uint32_t* lengthOut)
+const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
     return TrackName(clip, clip->floatTracks, clip->floatTrackCount, track, lengthOut);
 }
@@ -305,7 +311,7 @@ uint32_t maniClipDiscreteTrackCount(const maniClip* clip)
     return clip->discreteTrackCount;
 }
 
-const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track, uint32_t* lengthOut)
+const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
     return TrackName(clip, clip->discreteTracks, clip->discreteTrackCount, track, lengthOut);
 }

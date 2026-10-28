@@ -132,7 +132,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
-                                              uint32_t* lengthOut);
+                                              size_t* lengthOut);
 
     /// Finds a channel by its name, in time linear in the channels.
     ///
@@ -160,7 +160,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
-                                             uint32_t* lengthOut);
+                                             size_t* lengthOut);
 
     /// Finds a target by its name, in time linear in the targets: the
     /// first of that name.

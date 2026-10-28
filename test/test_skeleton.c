@@ -86,7 +86,7 @@ static void TestBuildsDepthFirst(void)
     static const float tx[6] = {1.0f, 2.0f, 4.0f, 3.0f, 5.0f, 6.0f};
     for (uint32_t i = 0; i < 6; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(&s, i, &length);
         CHECK(length == strlen(names[i]) && memcmp(name, names[i], length) == 0, "name");
         CHECK(maniSkeletonParent(&s, i) == parents[i], "parent");
@@ -111,7 +111,7 @@ static void TestGettersPastTheCount(void)
     maniTransform rest = maniSkeletonRest(&s, 6);
     CHECK(rest.rotation.w == 1.0f && rest.scale.y == 1.0f && rest.translation.z == 0.0f,
           "identity past");
-    uint32_t length = 7;
+    size_t length = 7;
     CHECK(maniSkeletonBoneName(&s, 6, &length) == NULL && length == 0, "name past");
 }
 
