@@ -111,7 +111,8 @@ extern "C"
     /// `mani_errorInvalid` for a NULL argument (a misuse), or with the
     /// reason and item for a refused source: `maniBuildReasonTiming` (a
     /// rate not above 0), `maniBuildReasonOption` (the axes or the leaf
-    /// size), `maniBuildReasonCount` (no channels, clips or entries),
+    /// size), `maniBuildReasonCount` (no channels, clips or entries, or
+    /// the channels' track names past 4 GiB in all),
     /// `maniBuildReasonJoint` (a clip
     /// of another skeleton or additive; item the clip),
     /// `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry`
