@@ -277,7 +277,7 @@ uint32_t maniFbxModelCount(const maniFbx* fbx)
     return fbx != NULL ? fbx->modelCount : 0;
 }
 
-const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model, uint32_t* lengthOut)
+const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model, size_t* lengthOut)
 {
     bool inRange = fbx != NULL && model < fbx->modelCount;
     uint32_t length = 0;

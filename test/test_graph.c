@@ -251,7 +251,7 @@ static void TestBuild(void)
     CHECK((NodeWord(&g, 7, 0) >> 16) == MANI_GRAPH_DIFFERENCE && (NodeWord(&g, 8, 0) >> 16) == 0,
           "the wave gives differences, the output poses");
     maniGraphParameterType type = 0;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphParameterName(&g, 3, &length);
     CHECK(maniGraphFindParameter(&g, "mix", 3) == 1 &&
               maniGraphFindParameter(&g, "mi", 2) == MANI_NO_PARAMETER &&

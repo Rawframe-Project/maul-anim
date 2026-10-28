@@ -62,7 +62,7 @@ uint32_t maniFbxClipCount(const maniFbx* fbx)
     return fbx != NULL ? fbx->stackCount : 0;
 }
 
-const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, uint32_t* lengthOut)
+const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, size_t* lengthOut)
 {
     bool inRange = fbx != NULL && clip < fbx->stackCount;
     if (lengthOut != NULL)

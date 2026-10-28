@@ -201,7 +201,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model,
-                                                        uint32_t track, uint32_t* lengthOut);
+                                                        uint32_t track, size_t* lengthOut);
 
     /// Returns the name of an event a model gives the state of.
     ///
@@ -213,7 +213,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniLearnedModelEventName(const maniLearnedModel* model, uint32_t event,
-                                                   uint32_t* lengthOut);
+                                                   size_t* lengthOut);
 
     /// Returns the bytes of scratch memory an evaluation of the model
     /// needs.

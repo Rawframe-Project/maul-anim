@@ -175,7 +175,7 @@ static void TestBuild(void)
               maniOpenSpringSet(s_file, s_size, &set).result == mani_success,
           "built and opened");
     float reference = 0.0f;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSpringSetSpringName(&set, 1, &length);
     CHECK(maniSpringSetSpringCount(&set) == 2 && set.jointCount == 4 && set.colliderCount == 4 &&
               maniSpringSetStepRate(&set, &reference) == 60.0f && reference == 60.0f &&

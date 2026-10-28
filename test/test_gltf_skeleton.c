@@ -357,7 +357,7 @@ static void TestNames(void)
     CHECK(maniGltfRenamedCount(gltf) == 2 && maniGltfRenamedNode(gltf, 0) == 2 &&
               maniGltfRenamedNode(gltf, 1) == 3 && maniGltfRenamedNode(gltf, 2) == UINT32_MAX,
           "the renamed nodes, in node order");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGltfNodeBoneName(gltf, 2, &length);
     CHECK(length == 6 && memcmp(name, "bone#2", 6) == 0, "a node's bone name");
     CHECK(maniGltfNodeBoneName(gltf, 4, &length) == NULL && length == 0, "past the nodes");
@@ -415,7 +415,7 @@ static void TestNamesAcrossExports(void)
         bool same = gltf != NULL;
         for (uint32_t v = 0; same && v < maniGltfNodeCount(gltf); ++v)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniGltfNodeBoneName(gltf, v, &length);
             bool given = false;
             for (int k = 0; k < 3; ++k)

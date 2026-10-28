@@ -44,7 +44,7 @@ static void Records(const maniLearnedModel* m)
     }
     for (uint32_t k = 0; k < m->floatTrackCount + m->eventCount; ++k)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = k < m->floatTrackCount
                                ? maniLearnedModelFloatTrackName(m, k, &length)
                                : maniLearnedModelEventName(m, k - m->floatTrackCount, &length);

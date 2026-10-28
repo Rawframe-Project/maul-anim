@@ -203,7 +203,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer,
-                                           uint32_t* lengthOut);
+                                           size_t* lengthOut);
 
     /// Supplies an external buffer's bytes, which the caller keeps alive
     /// and unchanged while the document is open. They must hold the
@@ -340,7 +340,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node,
-                                              uint32_t* lengthOut);
+                                              size_t* lengthOut);
 
     /// Returns the number of nodes whose bone name is not their name as
     /// given: unnamed, or named as an earlier node. Their names follow
@@ -381,7 +381,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation,
-                                               uint32_t* lengthOut);
+                                               size_t* lengthOut);
 
     /// Builds one animation as a clip of an opened skeleton:
     /// translation, rotation and scale channels on its bones (found by
@@ -670,7 +670,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model,
-                                              uint32_t* lengthOut);
+                                              size_t* lengthOut);
 
     /// Returns the number of models whose bone names differ from their
     /// names, 0 for NULL.
@@ -1005,7 +1005,7 @@ extern "C"
     /// @return The name, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, uint32_t* lengthOut);
+    MANI_API const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, size_t* lengthOut);
 
     /// Builds a clip into the builder for an opened skeleton:
     /// the stack's layers and curves evaluated as ufbx evaluates them, at

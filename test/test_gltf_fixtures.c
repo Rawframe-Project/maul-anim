@@ -247,7 +247,7 @@ static void TestExternalBuffers(void)
     CHECK(count == 4, "four buffers");
     for (uint32_t i = 0; i < count && i < 8; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* uri = maniGltfBufferUri(gltf, i, &length);
         char name[256];
         snprintf(name, sizeof name, "SimpleSkin/%.*s", (int)length, uri != NULL ? uri : "");

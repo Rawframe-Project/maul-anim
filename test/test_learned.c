@@ -132,7 +132,7 @@ static void TestRoundTrip(void)
               required == 1 && maniLearnedModelProjector(&m, 2, NULL, NULL) == mani_errorInvalid &&
               maniLearnedModelProjector(NULL, 0, NULL, NULL) == mani_errorInvalid,
           "the Projectors' filters");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* track = maniLearnedModelFloatTrackName(&m, 0, &length);
     CHECK(track != NULL && length == 5 && memcmp(track, "speed", 5) == 0 &&
               maniLearnedModelFloatTrackName(&m, 1, &length) == NULL &&

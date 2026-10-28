@@ -94,7 +94,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring,
-                                                 uint32_t* lengthOut);
+                                                 size_t* lengthOut);
 
     /// Returns the rate a set steps at (steps a second), and the rate its
     /// source's values were per frame of.

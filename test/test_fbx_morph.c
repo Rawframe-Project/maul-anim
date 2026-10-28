@@ -126,7 +126,7 @@ static const char* Replace(const char* text, const char* from, const char* to)
 
 static bool Named(const maniMorphTargets* m, uint32_t target, const char* name)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* got = maniMorphTargetName(m, target, &length);
     bool right = got != NULL && length == strlen(name) && memcmp(got, name, length) == 0;
     if (!right)
@@ -234,7 +234,7 @@ static void TestWeights(void)
               maniFbxMorphTargetCount(fbx, 1) == 0,
           "one set of five targets");
     uint32_t model = maniFbxMorphModel(fbx, 0);
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniFbxModelBoneName(fbx, model, &length);
     CHECK(name != NULL && length == 4 && memcmp(name, "Face", 4) == 0 &&
               maniFbxMorphModel(fbx, 1) == UINT32_MAX,
@@ -358,7 +358,7 @@ static void TestSix(void)
               Named(&m, 0, "Smile") && Named(&m, 1, "Smile") &&
               maniMorphTargetFullWeight(&m, 0) == 1.0f,
           "a 6.x shape: a channel of one target at 1");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* channel = maniMorphChannelName(&m, 1, &length);
     CHECK(channel != NULL && length == 7 && memcmp(channel, "Smile#1", 7) == 0,
           "a repeated channel name numbered");

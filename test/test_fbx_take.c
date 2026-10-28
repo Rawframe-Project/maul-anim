@@ -305,7 +305,7 @@ static void TestStacks(void)
     bool right = fbx != NULL && maniFbxClipCount(fbx) == 3;
     for (uint32_t k = 0; right && k < 3; ++k)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniFbxClipName(fbx, k, &length);
         right = name != NULL && length == strlen(kStackNames[k]) &&
                 memcmp(name, kStackNames[k], length) == 0;

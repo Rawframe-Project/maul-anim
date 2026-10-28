@@ -329,7 +329,7 @@ maniTransform maniSkeletonRest(const maniSkeleton* skeleton, uint32_t bone)
     return rest;
 }
 
-const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone, uint32_t* lengthOut)
+const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone, size_t* lengthOut)
 {
     if (bone >= skeleton->boneCount)
     {
@@ -369,7 +369,7 @@ uint32_t maniSkeletonFindBone(const maniSkeleton* skeleton, const char* name, si
         }
         else
         {
-            uint32_t foundLength = 0;
+            size_t foundLength = 0;
             const char* foundName = maniSkeletonBoneName(skeleton, bone, &foundLength);
             bool same = foundLength == length && memcmp(foundName, name, length) == 0;
             return same ? bone : MANI_NO_BONE;

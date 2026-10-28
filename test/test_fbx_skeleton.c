@@ -155,7 +155,7 @@ static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpt
     bool all = true;
     for (uint32_t m = 0; m < fbx->modelCount; ++m)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniFbxModelBoneName(fbx, m, &length);
         uint32_t bone = maniSkeletonFindBone(&skeleton, name, length);
         if (bone == MANI_NO_BONE)

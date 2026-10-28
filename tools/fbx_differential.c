@@ -247,7 +247,7 @@ static void CompareWorlds(Context* c, const char* kind, uint32_t index, double t
     uint32_t n = maniSkeletonBoneCount(skeleton);
     for (uint32_t b = 0; b < n; ++b)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(skeleton, b, &length);
         ufbx_node* node = ufbx_find_node_len(scene, name, length);
         if (node != NULL)
@@ -329,7 +329,7 @@ static void FindSources(Context* c)
     uint32_t n = c->byModel ? maniFbxModelCount(c->fbx) : 0;
     for (uint32_t m = 0; m < n && c->sourceCount < kMaxRoots; ++m)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniFbxModelBoneName(c->fbx, m, &length);
         ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
         if (node != NULL && node->parent == c->scene->root_node)
@@ -443,7 +443,7 @@ static bool Meshless(const ufbx_scene* scene, const ufbx_skin_deformer* skin)
 static const ufbx_node* SkinMesh(const Context* c, uint32_t k)
 {
     uint32_t model = maniFbxSkinModel(c->fbx, k);
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = model != UINT32_MAX ? maniFbxModelBoneName(c->fbx, model, &length) : NULL;
     const ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
     return node != NULL && node->mesh != NULL ? node : NULL;
@@ -529,7 +529,7 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
     uint32_t n = maniSkinJointCount(skin);
     for (uint32_t j = 0; theirs != NULL && j < n; ++j)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(skeleton, maniSkinJoint(skin, j), &length);
         ufbx_skin_cluster* cluster = TheirCluster(theirs, j);
         maniAffine bind = maniSkinInverseBind(skin, j);
@@ -724,7 +724,7 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
                    maniSampleClipFloats(clip, (float)time, values, tracks, NULL) == mani_success;
     for (uint32_t t = 0; sampled && t < tracks; ++t)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniClipFloatTrackName(clip, t, &length);
         double theirs = 0.0;
         bool found = TheirFloat(c->scene, anim, stackTime, evaluated, name, length, &theirs);
@@ -791,7 +791,7 @@ static void CompareClipTimes(Context* c, uint32_t k, const maniClip* clip,
 
 static void CompareClip(Context* c, uint32_t k)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniFbxClipName(c->fbx, k, &length);
     ufbx_anim_stack* stack = name != NULL ? ufbx_find_anim_stack_len(c->scene, name, length) : NULL;
     maniFbxOptions options = maniDefaultFbxOptions();

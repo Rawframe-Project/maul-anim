@@ -172,8 +172,8 @@ maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder, const char* text, s
 }
 
 // "{"first": a, "second": b}" of two strings.
-static void PutTwo(Writer* w, const char* first, uint32_t firstLength, const char* second,
-                   uint32_t secondLength)
+static void PutTwo(Writer* w, const char* first, size_t firstLength, const char* second,
+                   size_t secondLength)
 {
     maniGraphJsonPutText(w, "{");
     maniGraphJsonPutKey(w, "first");
@@ -213,8 +213,8 @@ static void Draw(Writer* w, const void* source)
     maniMapJsonPutOpen(w, "pairs");
     for (uint32_t i = 0; i < s->pairCount; ++i)
     {
-        uint32_t first = 0;
-        uint32_t second = 0;
+        size_t first = 0;
+        size_t second = 0;
         const char* a = maniSkeletonBoneName(s->skeleton, s->pairs[i].first, &first);
         const char* b = maniSkeletonBoneName(s->skeleton, s->pairs[i].second, &second);
         maniMapJsonPutItem(w, i);

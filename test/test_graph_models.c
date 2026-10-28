@@ -85,7 +85,7 @@ static void TestBuild(void)
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two models");
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphModelName(&g, 1, &length);
     CHECK(maniGraphModelCount(&g) == 2 && maniGraphModelIdentity(&g, 0) == s_learned.identity &&
               maniGraphModelIdentity(&g, 1) == s_other.identity && length == 5 &&

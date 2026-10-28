@@ -115,7 +115,7 @@ static void Events(Reference* r, const float* events, Expected* x)
         r->bits = on ? r->bits | 1u << e : r->bits & ~(1u << e);
         if (on && !was)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniLearnedModelEventName(&s_learned, e, &length);
             x->events[x->count++] =
                 (maniGraphEvent){0,

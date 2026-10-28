@@ -175,7 +175,7 @@ static void TestBind(void)
               maniGraphDatabaseIdentity(&g, 0) == maniMotionDatabaseIdentity(&s_database) &&
               maniGraphDatabaseIdentity(&g, 1) == 0 && maniGraphDatabaseCount(NULL) == 0,
           "the slot's identity");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphDatabaseName(&g, 0, &length);
     CHECK(name != NULL && length == 5 && memcmp(name, "moves", 5) == 0 &&
               maniGraphDatabaseName(&g, 1, &length) == NULL && length == 0,

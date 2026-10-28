@@ -240,7 +240,7 @@ static bool NamesAre(const maniFbx* fbx, const char* const* names, uint32_t coun
     bool named = maniFbxClipCount(fbx) == count;
     for (uint32_t k = 0; named && k < count; ++k)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniFbxClipName(fbx, k, &length);
         named = name != NULL && length == strlen(names[k]) && memcmp(name, names[k], length) == 0;
     }

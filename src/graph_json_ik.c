@@ -154,7 +154,7 @@ bool maniGraphJsonAim(maniGraphReader* r, const maniGraphScope* scope, const uin
 
 void maniGraphJsonPutBone(maniGraphWriter* w, uint32_t bone)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSkeletonBoneName(w->skeleton, bone, &length);
     maniGraphJsonPutString(w, name, length);
 }

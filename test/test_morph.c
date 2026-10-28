@@ -174,7 +174,7 @@ static void TestBuildsAndReads(void)
               maniMorphAttribute(&m, 3, &set) == maniMorphTexcoord && set == 0 &&
               maniMorphAttribute(&m, 5, &set) == UINT32_MAX && set == 0,
           "the attribute table");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniMorphChannelName(&m, 1, &length);
     CHECK(length == 5 && memcmp(name, "blink", 5) == 0, "a channel's name");
     CHECK(maniMorphChannelName(&m, 3, &length) == NULL && length == 0, "no channel past the count");
