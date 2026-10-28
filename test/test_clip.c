@@ -790,6 +790,9 @@ static void TestBuildRefusals(void)
     source.floatTracks = floats;
     floats[1].nameLength = 0;
     ExpectRefusal(&source, maniBuildReasonFloatTrack | maniBuildReasonName, 1, "a float name");
+    floats[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectResult(&source, mani_errorLimit, maniBuildReasonFloatTrack | maniBuildReasonName, 1,
+                 "a float name past MANI_MAX_NAME_BYTES");
     memcpy(floats, s_floats, sizeof floats);
     floats[2].name = "ramp";
     r = BuildFrom(&source);
@@ -832,6 +835,9 @@ static void TestBuildRefusals(void)
     events[3].name = "\xFF";
     events[3].nameLength = 1;
     ExpectRefusal(&source, maniBuildReasonEvent | maniBuildReasonName, 3, "an event's name");
+    events[3].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectResult(&source, mani_errorLimit, maniBuildReasonEvent | maniBuildReasonName, 3,
+                 "an event's name past MANI_MAX_NAME_BYTES");
     source = SampleSource();
     source.duration = 0.75f;
     ExpectRefusal(&source, maniBuildReasonDiscreteTrack | maniBuildReasonKeyTime, 0,

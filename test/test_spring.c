@@ -402,6 +402,9 @@ static void TestSpringRefusals(void)
     s_springs[0].name = "\xff";
     s_springs[0].nameLength = 1;
     CHECK(Refused(&s, maniBuildReasonSpringList | maniBuildReasonName, 0, 0), "a name not UTF-8");
+    s_springs[0].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    CHECK(RefusedWith(&s, mani_errorLimit, maniBuildReasonSpringList | maniBuildReasonName, 0, 0),
+          "a name past MANI_MAX_NAME_BYTES");
     // The hair from the head to its last bone, three bones apart.
     s = Source();
     s_hairJoints[1].bone = s_head;

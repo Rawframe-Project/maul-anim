@@ -282,7 +282,7 @@ static maniImportResult FindJoints(const maniGltf* gltf, uint32_t skin,
     uint32_t element = maniGltfSkinJoints(gltf, skin, &count) + 1;
     for (uint32_t j = 0; j < count; ++j)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniGltfNodeName(gltf, maniGltfJointNode(gltf, element), &length);
         joints[j] = maniSkeletonFindBone(skeleton, name, length);
         if (joints[j] == MANI_NO_BONE)

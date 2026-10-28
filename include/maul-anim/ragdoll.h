@@ -60,7 +60,7 @@ extern "C"
     {
         // The body's name, its bytes inside the profile (not terminated).
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // The bone the body follows; its parent body's index, or
         // MANI_NO_BONE for the root. Parents come before children.
         uint32_t bone;

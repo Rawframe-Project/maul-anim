@@ -296,6 +296,12 @@ static void TestParameterRefusals(void)
     maniGraphSource s = Source();
     s_parameters[1].nameLength = 0;
     ExpectRefused(&s, maniBuildReasonParameterList | maniBuildReasonName, 1, 0, "an empty name");
+    s_parameters[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longName = Build(&s);
+    CHECK(longName.result == mani_errorLimit &&
+              longName.reason == (maniBuildReasonParameterList | maniBuildReasonName) &&
+              longName.item == 1,
+          "a name past MANI_MAX_NAME_BYTES");
     s = Source();
     s_parameters[4].name = "mix";
     s_parameters[4].nameLength = 3;

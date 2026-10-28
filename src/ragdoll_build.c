@@ -148,6 +148,10 @@ static maniBuildResult CheckBody(const maniRagdollSource* s, uint32_t i, Work* w
     {
         return Refuse(maniBuildReasonRagdollBody, i, 0);
     }
+    if (maniNamePastLimit(b->nameLength))
+    {
+        return Result(mani_errorLimit, maniBuildReasonName, i, 0);
+    }
     if (b->nameLength > 0 &&
         (b->name == NULL || !maniValidUtf8((const uint8_t*)b->name, b->nameLength)))
     {
@@ -297,7 +301,8 @@ static void LayBodies(const maniRagdollSource* s, Work* w, uint8_t* bodies, uint
         maniStoreU32(e + maniRagdollBodyParent, parent);
         maniStoreU32(e + maniRagdollBodyShape, b->shape);
         maniStoreU32(e + maniRagdollBodyName, name);
-        maniStoreU32(e + maniRagdollBodyNameLength, b->nameLength);
+        // The check took only names within MANI_MAX_NAME_BYTES.
+        maniStoreU32(e + maniRagdollBodyNameLength, (uint32_t)b->nameLength);
         StoreRigid(e + maniRagdollBodyFrame,
                    (Rigid){b->frameTranslation, maniQuatNormalize(b->frameRotation)});
         StoreVec(e + maniRagdollBodySize, b->size);

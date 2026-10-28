@@ -59,12 +59,9 @@ static maniRootMove Move(const void* context, maniRootMove move)
     return m;
 }
 
-static const char* Rename(const void* context, const char* name, uint32_t* length)
+static const char* Rename(const void* context, const char* name, size_t* length)
 {
-    size_t made = 0;
-    const char* partner = maniMirrorName(((const Bake*)context)->s->map, name, *length, &made);
-    *length = (uint32_t)made;
-    return partner;
+    return maniMirrorName(((const Bake*)context)->s->map, name, *length, length);
 }
 
 static float LoadF32(const uint8_t* p)

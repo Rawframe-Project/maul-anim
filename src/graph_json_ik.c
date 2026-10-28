@@ -24,7 +24,7 @@
 bool maniGraphJsonBone(maniGraphReader* r, uint32_t value, uint32_t* out)
 {
     const char* name = NULL;
-    uint32_t length = 0;
+    size_t length = 0;
     if (!maniGraphJsonName(r, value, &name, &length))
     {
         return false;

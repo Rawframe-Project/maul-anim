@@ -104,8 +104,7 @@ bool maniGraphJsonArray(maniGraphReader* r, uint32_t value, uint32_t* countOut)
     return true;
 }
 
-bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut,
-                       uint32_t* lengthOut)
+bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut, size_t* lengthOut)
 {
     if (!IsKind(r, value, maniJsonString))
     {
@@ -122,12 +121,12 @@ bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut,
     return true;
 }
 
-static uint64_t NameKey(const char* name, uint32_t length)
+static uint64_t NameKey(const char* name, size_t length)
 {
     return maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
 }
 
-bool maniGraphJsonTable(maniGraphReader* r, const char* const* names, const uint32_t* lengths,
+bool maniGraphJsonTable(maniGraphReader* r, const char* const* names, const size_t* lengths,
                         uint32_t count, maniNameTable* tableOut)
 {
     uint64_t* hashes = maniArenaTake(&r->arena, count, sizeof(uint64_t));
@@ -167,7 +166,7 @@ bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride
                             maniNameTable* out)
 {
     const char** names = (const char**)maniArenaTake(&r->arena, count, sizeof(const char*));
-    uint32_t* lengths = maniArenaTake(&r->arena, count, sizeof(uint32_t));
+    size_t* lengths = maniArenaTake(&r->arena, count, sizeof(size_t));
     if (names == NULL || lengths == NULL)
     {
         return maniGraphJsonNoMemory(r);
@@ -182,7 +181,7 @@ bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride
     return maniGraphJsonTable(r, names, lengths, count, out);
 }
 
-uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, uint32_t length)
+uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, size_t length)
 {
     uint64_t key = NameKey(name, length);
     uint32_t low = 0;
@@ -216,7 +215,7 @@ bool maniGraphJsonRefer(maniGraphReader* r, const maniNameTable* table, uint32_t
                         uint32_t* itemOut)
 {
     const char* name = NULL;
-    uint32_t length = 0;
+    size_t length = 0;
     if (!maniGraphJsonName(r, value, &name, &length))
     {
         return false;

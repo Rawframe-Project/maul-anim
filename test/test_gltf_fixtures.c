@@ -212,7 +212,7 @@ static void CheckTrack(const FixtureTrack* t)
         }
         else
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniGltfNodeName(gltf, t->node, &length);
             uint32_t bone = maniSkeletonFindBone(&skeleton, name, length);
             maniPose* pose = NULL;

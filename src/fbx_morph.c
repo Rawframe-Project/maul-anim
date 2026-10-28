@@ -387,7 +387,7 @@ static size_t Numbered(uint32_t n, char* out)
 
 // An object's name into the arena; "#" and the set's channel index when
 // it has none (room left for a target's suffix).
-static const char* ObjectName(Morph* m, uint32_t object, uint32_t channel, uint32_t* lengthOut)
+static const char* ObjectName(Morph* m, uint32_t object, uint32_t channel, size_t* lengthOut)
 {
     size_t length = maniFbxObjectName(m->fbx, object, NULL, 0);
     char* name = maniArenaTake(m->arena, length + 24, 1);

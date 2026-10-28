@@ -382,7 +382,7 @@ static void TestChannelRefusals(void)
     static const float kFar[1] = {61.0f};
     static const float kNan[1] = {NAN};
     static const float kMany[17] = {0};
-    const maniMatchChannelSource kBad[11] = {
+    const maniMatchChannelSource kBad[12] = {
         {6, 0, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchBonePosition, 3, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchBoneFacing, 0, 6, 1, kNow, NULL, 0, 1.0f},
@@ -393,14 +393,16 @@ static void TestChannelRefusals(void)
         {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 0.0f},
         {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, HUGE_VALF},
         {maniMatchFloatTrack, 0, 0, 1, kNow, NULL, 0, 1.0f},
-        {maniMatchFloatTrack, 0, 0, 1, kNow, "\xff", 1, 1.0f}};
-    for (int k = 0; k < 11; ++k)
+        {maniMatchFloatTrack, 0, 0, 1, kNow, "\xff", 1, 1.0f},
+        {maniMatchFloatTrack, 0, 0, 1, kNow, "a", (size_t)MANI_MAX_NAME_BYTES + 1, 1.0f}};
+    for (int k = 0; k < 12; ++k)
     {
         maniMotionDatabaseSource s = Source();
         s_channels[3] = kBad[k];
-        // 17 times and a time of 61 seconds pass a bound.
-        CHECK(k == 4 || k == 5 ? PastLimit(&s, maniBuildReasonChannel, 3, 0)
-                               : Refused(&s, maniBuildReasonChannel, 3, 0),
+        // 17 times, a time of 61 seconds and a track name past
+        // MANI_MAX_NAME_BYTES pass a bound.
+        CHECK(k == 4 || k == 5 || k == 11 ? PastLimit(&s, maniBuildReasonChannel, 3, 0)
+                                          : Refused(&s, maniBuildReasonChannel, 3, 0),
               "a channel refused");
     }
     maniMotionDatabaseSource s = Source();

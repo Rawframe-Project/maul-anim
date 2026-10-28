@@ -76,7 +76,7 @@ static uint32_t Static(const maniFbx* fbx, uint32_t object, const char* name, si
 // The float track's name: the bone's, '/', the property's, and '/'
 // with the component for vectors.
 static char* TrackName(maniFbxClipState* c, uint32_t b, const char* property, size_t length,
-                       uint32_t width, uint32_t k, uint32_t* lengthOut)
+                       uint32_t width, uint32_t k, size_t* lengthOut)
 {
     size_t boneLength = 0;
     const char* bone = maniSkeletonBoneName(c->skeleton, b, &boneLength);
@@ -192,9 +192,9 @@ static size_t Decimal(uint32_t k, char* out)
 // A shape's track name: the mesh's, '/', the shape's; or for a shape
 // without a name, its channel's, with '/' and its index past the first.
 static char* ShapeName(maniFbxClipState* c, uint32_t mesh, uint32_t channel, uint32_t shape,
-                       uint32_t k, uint32_t* lengthOut)
+                       uint32_t k, size_t* lengthOut)
 {
-    uint32_t meshLength = 0;
+    size_t meshLength = 0;
     const char* meshName = maniFbxModelName(c->fbx, mesh, &meshLength);
     size_t length = 0;
     const char* own = ObjectName(c, shape, &length);
@@ -219,7 +219,7 @@ static char* ShapeName(maniFbxClipState* c, uint32_t mesh, uint32_t channel, uin
 // a skin within it.
 static bool MeshInSkeleton(const maniFbxClipState* c, uint32_t model)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniFbxModelName(c->fbx, model, &length);
     if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE)
     {
@@ -359,7 +359,7 @@ static maniImportResult OwnerShape(maniFbxClipState* c, uint32_t owner, uint32_t
     double rest = 0.0;
     (void)maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), &rest);
     float* values = maniArenaTake(&c->arena, c->sampleCount, sizeof(float));
-    uint32_t meshLength = 0;
+    size_t meshLength = 0;
     const char* meshName = maniFbxModelName(fbx, mesh, &meshLength);
     size_t n = (size_t)meshLength + 1 + length;
     char* track = maniArenaTake(&c->arena, n, 1);

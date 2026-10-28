@@ -382,7 +382,7 @@ extern "C"
     {
         // The name, UTF-8, not empty, unique in the skeleton.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // The parent's index in the source's bones, or -1 for a root.
         int32_t parent;
         // The rest transform relative to the parent; the rotation is
@@ -558,7 +558,7 @@ extern "C"
     {
         // UTF-8, not empty, unique among float tracks.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // One float a key, or three for a cubic spline.
         maniChannelSource keys;
     } maniFloatTrackSource;
@@ -568,7 +568,7 @@ extern "C"
     {
         // UTF-8, not empty, unique among discrete tracks.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // At least one key, times strictly increasing within [0, duration].
         uint32_t keyCount;
         const float* times;
@@ -583,7 +583,7 @@ extern "C"
         int32_t payload;
         // UTF-8, not empty; names repeat freely.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniEventSource;
 
     // A clip: tracks for some of a skeleton's bones, in any order.
@@ -779,7 +779,7 @@ extern "C"
     typedef struct maniColliderGroupSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t colliderCount;
         const uint32_t* colliders;
     } maniColliderGroupSource;
@@ -824,7 +824,7 @@ extern "C"
     typedef struct maniSpringSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t jointCount;
         const maniSpringJointSource* joints;
         const uint32_t* colliderGroups;
@@ -900,7 +900,7 @@ extern "C"
     typedef struct maniRagdollBodySource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t bone;
         maniVec3 frameTranslation;
         maniQuat frameRotation;
@@ -1002,7 +1002,7 @@ extern "C"
         // The name, UTF-8, not empty; NULL for the channel's name followed
         // by '/' and the target's index within the channel past the first.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniMorphTargetSource;
 
     // A named channel: its targets at increasing full weights.
@@ -1010,7 +1010,7 @@ extern "C"
     {
         // The name, UTF-8, not empty, unique among the channels.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t targetCount;
         const maniMorphTargetSource* targets;
     } maniMorphChannelSource;

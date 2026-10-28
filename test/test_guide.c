@@ -329,7 +329,7 @@ static void Tall(maniSkeleton* tall)
         const char* name = maniSkeletonBoneName(&s_skeleton, b, &length);
         maniTransform rest = maniSkeletonRest(&s_skeleton, b);
         rest.translation.y *= 2.0f;
-        bones[b] = (maniBoneSource){name, (uint32_t)length, b == 0 ? -1 : (int32_t)b - 1, rest};
+        bones[b] = (maniBoneSource){name, length, b == 0 ? -1 : (int32_t)b - 1, rest};
     }
     maniSkeletonSource source = {bones, 3};
     size_t size = 0;

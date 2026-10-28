@@ -112,7 +112,7 @@ static maniImportResult Bind(Clip* c)
     }
     for (uint32_t m = 0; m < fbx->modelCount; ++m)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* own = maniFbxModelName(fbx, m, &length);
         uint32_t bone = maniSkeletonFindBone(c->skeleton, own, length);
         if (bone != MANI_NO_BONE)

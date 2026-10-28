@@ -152,7 +152,7 @@ clip_build: allocator builder bytes clip_file container fpenv invariant quat64 r
 graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame invariant sort text vecmath
 graph_space_check: exact graph_file
 graph_body_check: body_ik graph_file
-graph_machine_check: bytes graph_file sort
+graph_machine_check: bytes graph_file sort text
 graph_match_check: graph_match
 exact:
 triangulate: exact sort

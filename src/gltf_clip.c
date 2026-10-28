@@ -82,7 +82,7 @@ static uint32_t RootNode(const Build* b)
     const char* root = maniSkeletonBoneName(b->skeleton, 0, &length);
     for (uint32_t v = 0; v < b->gltf->nodeCount; ++v)
     {
-        uint32_t n = 0;
+        size_t n = 0;
         const char* name = maniGltfNodeName(b->gltf, v, &n);
         if (n == length && memcmp(name, root, n) == 0)
         {
@@ -486,7 +486,7 @@ static maniImportResult AddFloat(Build* b, const Bound* x, const char* name, siz
 
 static maniImportResult WeightTracks(Build* b, const Bound* x)
 {
-    uint32_t nodeLength = 0;
+    size_t nodeLength = 0;
     const char* node = maniGltfNodeName(b->gltf, x->c.node, &nodeLength);
     uint32_t names = TargetNames(b->gltf, x->c.node, x->c.width);
     uint32_t element = names != MANI_JSON_NONE ? names + 1 : MANI_JSON_NONE;

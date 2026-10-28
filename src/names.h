@@ -37,6 +37,6 @@ maniImportResult maniNameBones(const maniAllocator* allocator, const char* origi
 void maniReleaseBoneNames(const maniAllocator* allocator, maniBoneNames* names);
 
 // The b-th source's bone name, not terminated.
-const char* maniBoneName(const maniBoneNames* names, uint32_t b, uint32_t* lengthOut);
+const char* maniBoneName(const maniBoneNames* names, uint32_t b, size_t* lengthOut);
 
 #endif // MAUL_ANIM_SRC_NAMES_H

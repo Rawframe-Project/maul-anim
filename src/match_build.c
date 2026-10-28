@@ -66,7 +66,8 @@ typedef struct Totals
 // times, or a finite time past MANI_MAX_MATCH_REACH.
 static bool ChannelPast(const maniMatchChannelSource* c)
 {
-    if (c->timeCount > MANI_MAX_MATCH_TIMES)
+    if (c->timeCount > MANI_MAX_MATCH_TIMES ||
+        (c->kind == maniMatchFloatTrack && maniNamePastLimit(c->trackLength)))
     {
         return true;
     }
@@ -148,6 +149,7 @@ static uint32_t TrackOf(const maniMotionDatabaseSource* s, const maniMatchChanne
 static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* t)
 {
     uint64_t features = 0;
+    uint64_t names = 0;
     for (uint32_t c = 0; c < s->channelCount; ++c)
     {
         const maniMatchChannelSource* ch = &s->channels[c];
@@ -161,7 +163,7 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
         }
         features += (uint64_t)maniMatchChannelWidth(ch->kind) * ch->timeCount;
         t->times += ch->timeCount;
-        t->names += ch->kind == maniMatchFloatTrack ? ch->trackLength : 0u;
+        names += ch->kind == maniMatchFloatTrack ? ch->trackLength : 0u;
         for (uint32_t e = 0; ch->kind == maniMatchFloatTrack && e < s->entryCount; ++e)
         {
             if (TrackOf(s, ch, &s->entries[e]) == MANI_NO_TRACK)
@@ -174,7 +176,13 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
     {
         return PastLimit(maniBuildReasonCount, 0, 0);
     }
+    // The file stores a name's offset in 32 bits.
+    if (names > UINT32_MAX)
+    {
+        return Refuse(maniBuildReasonCount, 0, 0);
+    }
     t->features = (uint32_t)features;
+    t->names = (uint32_t)names;
     return kOk;
 }
 
@@ -485,7 +493,8 @@ static uint8_t* LayChannels(const Work* w, uint8_t* channels, uint8_t* times, ui
         }
         memcpy(e + 28, &ch->weight, 4);
         maniStoreU32(e + 32, track ? name : 0u);
-        maniStoreU32(e + 36, track ? ch->trackLength : 0u);
+        // The check took only names within MANI_MAX_NAME_BYTES.
+        maniStoreU32(e + 36, track ? (uint32_t)ch->trackLength : 0u);
         memcpy(times + 4 * (size_t)time, ch->times, 4 * (size_t)ch->timeCount);
         if (track)
         {

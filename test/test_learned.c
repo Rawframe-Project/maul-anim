@@ -541,6 +541,10 @@ static void TestModelRefusals(void)
     s = Source();
     s.events = kBad;
     CHECK(RefusedAs(&s, maniBuildReasonEvent | maniBuildReasonName, 1, 0), "an event not UTF-8");
+    const maniLearnedNameSource longName[2] = {{"a", 1}, {"b", (size_t)MANI_MAX_NAME_BYTES + 1}};
+    s.events = longName;
+    CHECK(RefusedWith(&s, mani_errorLimit, maniBuildReasonEvent | maniBuildReasonName, 1, 0),
+          "an event past MANI_MAX_NAME_BYTES");
     s.events = kTwice;
     CHECK(RefusedAs(&s, maniBuildReasonEvent | maniBuildReasonDuplicateName, 1, 0),
           "an event twice");
