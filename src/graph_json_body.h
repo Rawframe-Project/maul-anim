@@ -21,11 +21,11 @@
 // iterations, topMode, bones, stretch, tolerance, weight) into s: mode
 // "pinned" ("free", "prePull"), no settings, no stretch, tolerance 0 and
 // weight 1 when left out. Effectors are a list of 1 to
-// MANI_BODY_IK_MAX_EFFECTORS objects {"bone", "position", "rotation",
+// MANI_MAX_BODY_IK_EFFECTORS objects {"bone", "position", "rotation",
 // "positionWeight", "rotationWeight", "strength", "pullChain"} (bone and
 // position required; no rotation, weights 1, strength 1 and pull chain 0
 // when left out; a rotation weight only with a rotation); bones a list
-// of at most MANI_BODY_IK_MAX_BONES objects {"bone", "limit",
+// of at most MANI_MAX_BODY_IK_BONES objects {"bone", "limit",
 // "preferred", "rotationStiffness", "positionStiffness"} (bone required;
 // no limit, zero angles and stiffness 0 when left out).
 bool maniGraphJsonBody(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,

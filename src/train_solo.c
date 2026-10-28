@@ -88,9 +88,9 @@ bool maniTrainSoloInit(const maniAllocator* allocator, const uint32_t* sizes, ui
 }
 
 bool maniTrainSoloSizes(const maniTrainSoloShape* shape, uint32_t in, uint32_t out,
-                        uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1])
+                        uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1])
 {
-    if (shape->hiddenLayers >= MANI_LEARNED_MAX_LAYERS || shape->batch == 0 ||
+    if (shape->hiddenLayers >= MANI_MAX_LEARNED_LAYERS || shape->batch == 0 ||
         shape->batch % MANI_TRAIN_CHUNK != 0)
     {
         return false;

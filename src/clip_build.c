@@ -741,7 +741,7 @@ maniBuildResult maniCheckClipSource(const maniClipSource* source, uint32_t* seen
     }
     if (!maniClipSampleCountFor(timing.duration, timing.rate, &timing.sampleCount))
     {
-        return Refuse(maniBuildReasonTiming, 0, 0);
+        return (maniBuildResult){mani_errorLimit, maniBuildReasonTiming, 0, 0};
     }
     *timingOut = timing;
     return maniCheckClipNamedDuration(source, timing.duration);

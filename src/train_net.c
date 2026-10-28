@@ -19,7 +19,7 @@
 bool maniTrainNetInit(maniTrainNet* n, const uint32_t* sizes, uint32_t layerCount,
                       maniTrainActivation activation)
 {
-    if (layerCount < 1 || layerCount > MANI_LEARNED_MAX_LAYERS)
+    if (layerCount < 1 || layerCount > MANI_MAX_LEARNED_LAYERS)
     {
         return false;
     }
@@ -27,7 +27,7 @@ bool maniTrainNetInit(maniTrainNet* n, const uint32_t* sizes, uint32_t layerCoun
     uint64_t weights = 0;
     for (uint32_t l = 0; l <= layerCount; ++l)
     {
-        if (sizes[l] < 1 || sizes[l] > MANI_LEARNED_MAX_WIDTH)
+        if (sizes[l] < 1 || sizes[l] > MANI_MAX_LEARNED_WIDTH)
         {
             return false;
         }
@@ -42,7 +42,7 @@ bool maniTrainNetInit(maniTrainNet* n, const uint32_t* sizes, uint32_t layerCoun
         weights += count;
         n->parameterCount += count + sizes[l + 1];
     }
-    return weights <= MANI_LEARNED_MAX_WEIGHTS;
+    return weights <= MANI_MAX_LEARNED_WEIGHTS;
 }
 
 void maniTrainNetStart(const maniTrainNet* n, float* parameters, maniTrainRandom* r)

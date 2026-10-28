@@ -24,6 +24,8 @@ const char* maniResultName(maniResult result)
         return "mani_errorVersion";
     case mani_errorFormat:
         return "mani_errorFormat";
+    case mani_errorLimit:
+        return "mani_errorLimit";
     case mani_errorBusy:
         return "mani_errorBusy";
     default:

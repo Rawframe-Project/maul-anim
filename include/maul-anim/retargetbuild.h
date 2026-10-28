@@ -37,7 +37,7 @@ extern "C"
     } maniRetargetPairSource;
 
     // A chain on each side, from a start bone to an end bone below it (at
-    // most MANI_IK_CHAIN_MAX_BONES bones each), its rotation mode and
+    // most MANI_MAX_IK_CHAIN_BONES bones each), its rotation mode and
     // weight, and its bones' translation and scale as a pair's.
     typedef struct maniRetargetChainSource
     {
@@ -98,7 +98,10 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The map.
-    /// @return `mani_success`; `mani_errorInvalid` with
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonRetargetChain` (item the chain, other 0) for a
+    /// chain past MANI_MAX_IK_CHAIN_BONES bones from its start (no
+    /// misuse); `mani_errorInvalid` with
     /// `maniBuildReasonNone` for a NULL builder, source or skeleton, a
     /// count without its list; `maniBuildReasonRetargetReference` (item
     /// the bone, other 0 for the source's pose and 1 for the target's: a
@@ -108,7 +111,7 @@ extern "C"
     /// before, a weight outside [0, 1], an unknown translation);
     /// `maniBuildReasonRetargetChain` (item the chain, other the target
     /// bone mapped before or 0: bones out of range, an end not below its
-    /// start or past MANI_IK_CHAIN_MAX_BONES from it, an unknown mode or
+    /// start, an unknown mode or
     /// translation, a weight outside [0, 1]);
     /// `maniBuildReasonRetargetPelvis` (a bone out of range or the target
     /// mapped before, an up axis not of length 1, a factor negative or

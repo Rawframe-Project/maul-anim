@@ -42,6 +42,11 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return Result(mani_errorInvalid, reason, item, other);
 }
 
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return Result(mani_errorLimit, reason, item, other);
+}
+
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
 // Each network's sizes: n 0 the Compressor, 1 the Decompressor, 2 the
@@ -55,8 +60,8 @@ static bool Shape(const maniLearnedTrainerSource* s, const maniTrainData* d, uin
     uint32_t states = d->featureCount + o->latentCount;
     const uint32_t in[4] = {d->inputCount, states, states, d->featureCount};
     const uint32_t out[4] = {o->latentCount, d->outputCount, states, states};
-    uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1];
-    if (hidden[n] >= MANI_LEARNED_MAX_LAYERS)
+    uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1];
+    if (hidden[n] >= MANI_MAX_LEARNED_LAYERS)
     {
         return false;
     }
@@ -77,22 +82,39 @@ bool maniLearnedTrainerShape(const maniLearnedTrainer* t, uint32_t n, maniTrainN
 // The options alone: item is the option's place in the options.
 static maniBuildResult CheckOptions(const maniLearnedTrainerOptions* o)
 {
-    const bool valid[12] = {o->latentCount >= 1 && o->latentCount <= MANI_LEARNED_MAX_LATENT,
-                            o->hiddenWidth >= 1 && o->hiddenWidth <= MANI_LEARNED_MAX_WIDTH,
-                            o->compressorLayers < MANI_LEARNED_MAX_LAYERS,
-                            o->decompressorLayers < MANI_LEARNED_MAX_LAYERS,
-                            o->stepperLayers < MANI_LEARNED_MAX_LAYERS,
-                            o->projectorLayers < MANI_LEARNED_MAX_LAYERS,
+    // Past a bound: the latent count, the width, a network's hidden
+    // layers (its output layer makes one more), the batch, the window.
+    const bool past[12] = {o->latentCount > MANI_MAX_LEARNED_LATENT,
+                           o->hiddenWidth > MANI_MAX_LEARNED_WIDTH,
+                           o->compressorLayers >= MANI_MAX_LEARNED_LAYERS,
+                           o->decompressorLayers >= MANI_MAX_LEARNED_LAYERS,
+                           o->stepperLayers >= MANI_MAX_LEARNED_LAYERS,
+                           o->projectorLayers >= MANI_MAX_LEARNED_LAYERS,
+                           o->batchSize > MANI_MAX_LEARNED_BATCH,
+                           o->stepperWindow > MANI_MAX_LEARNED_WINDOW,
+                           false,
+                           false,
+                           false,
+                           false};
+    const bool valid[12] = {o->latentCount >= 1,
+                            o->hiddenWidth >= 1,
+                            true,
+                            true,
+                            true,
+                            true,
                             o->batchSize >= MANI_TRAIN_CHUNK &&
-                                o->batchSize <= MANI_LEARNED_MAX_BATCH &&
                                 o->batchSize % MANI_TRAIN_CHUNK == 0,
-                            o->stepperWindow >= 2 && o->stepperWindow <= MANI_LEARNED_MAX_WINDOW,
+                            o->stepperWindow >= 2,
                             o->iterations >= 1,
                             true,
                             o->learningRate > 0.0f && o->learningRate < HUGE_VALF,
                             o->eventSeconds >= 0.0f && o->eventSeconds < HUGE_VALF};
     for (uint32_t k = 0; k < 12; ++k)
     {
+        if (past[k])
+        {
+            return PastLimit(maniBuildReasonOption, k, 0);
+        }
         if (!valid[k])
         {
             return Refuse(maniBuildReasonOption, k, 0);
@@ -122,13 +144,17 @@ static maniBuildResult CheckSource(const maniLearnedTrainerSource* s)
             return Refuse(maniBuildReasonClip, k, 0);
         }
     }
-    if (!(d->sampleRate <= MANI_LEARNED_MAX_RATE))
+    if (d->sampleRate > MANI_MAX_LEARNED_RATE)
     {
-        return Refuse(maniBuildReasonTiming, 0, 0);
+        return PastLimit(maniBuildReasonTiming, 0, 0);
     }
-    if (s->projectorCount < 1 || s->projectorCount > MANI_LEARNED_MAX_PROJECTORS ||
-        s->floatTrackCount > MANI_LEARNED_MAX_FLOAT_TRACKS ||
-        s->eventCount > MANI_LEARNED_MAX_EVENTS)
+    if (s->projectorCount > MANI_MAX_LEARNED_PROJECTORS ||
+        s->floatTrackCount > MANI_MAX_LEARNED_FLOAT_TRACKS ||
+        s->eventCount > MANI_MAX_LEARNED_EVENTS)
+    {
+        return PastLimit(maniBuildReasonCount, 0, 0);
+    }
+    if (s->projectorCount < 1)
     {
         return Refuse(maniBuildReasonCount, 0, 0);
     }
@@ -154,9 +180,11 @@ static maniBuildResult CheckShapes(const maniLearnedTrainerSource* s, const mani
     uint64_t weights = 0;
     for (uint32_t n = 0; n < 4; ++n)
     {
+        // Every size is at least one here, so a network that does not
+        // take its shape passes the width or the weights.
         if (!Shape(s, d, n, &net))
         {
-            return Refuse(maniBuildReasonOption, 1, 0);
+            return PastLimit(maniBuildReasonOption, 1, 0);
         }
         uint64_t copies = n == 0 ? 0u : (n == 3 ? s->projectorCount : 1u);
         for (uint32_t l = 0; l < net.layerCount; ++l)
@@ -164,9 +192,9 @@ static maniBuildResult CheckShapes(const maniLearnedTrainerSource* s, const mani
             weights += copies * net.sizes[l] * (uint64_t)net.sizes[l + 1];
         }
     }
-    if (weights > MANI_LEARNED_MAX_WEIGHTS)
+    if (weights > MANI_MAX_LEARNED_WEIGHTS)
     {
-        return Refuse(maniBuildReasonOption, 1, 0);
+        return PastLimit(maniBuildReasonOption, 1, 0);
     }
     if (maniTrainWindows(d, s->options.stepperWindow, NULL) == 0)
     {

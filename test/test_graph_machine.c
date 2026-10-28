@@ -542,7 +542,7 @@ static void TestRefusals(void)
     maniGraphTransitionSource t[2] = {Go(0, 1, 0, 0.0f, NULL, 0), Go(1, 2, 1, 0.0f, NULL, 0)};
     CHECK(Built(t, 2, 0, 0).result == mani_success, "builds when right");
     CHECK(Refused(Built(t, 2, 3, 0), maniBuildReasonNode, 0), "an entry past the states");
-    CHECK(Refused(Built(t, 2, 0, 17), maniBuildReasonNode, 0), "a chain past 16");
+    CHECK(PastLimit(Built(t, 2, 0, 17), maniBuildReasonNode, 0), "a chain past 16");
     CHECK(Refused(Built(NULL, 2, 0, 0), maniBuildReasonNode, 0), "no transitions");
     t[1].to = 1;
     CHECK(Transition(Built(t, 2, 0, 0), 1), "to its own source");
@@ -570,7 +570,7 @@ static void TestRefusals(void)
     }
     t[1].conditions = c;
     t[1].conditionCount = 17;
-    CHECK(Transition(Built(t, 2, 0, 0), 1), "17 conditions");
+    CHECK(PastLimit(Built(t, 2, 0, 0), maniBuildReasonTransition, 1), "17 conditions");
     t[1].conditionCount = 1;
     const maniGraphConditionSource kWrong[6] = {
         {maniGraphConditionParameter, 0, maniGraphCompareEqual, 0, Float(1.0f), NULL},

@@ -127,7 +127,7 @@ bool maniTrainProjectorInit(const maniAllocator* allocator, const maniMotionData
                               .excludedTags = excludedTags,
                               .database = database,
                               .latents = latents};
-    uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1];
+    uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1];
     uint32_t f = data->featureCount;
     if (!maniTrainAnyFrame(database, requiredTags, excludedTags) ||
         !maniTrainSoloSizes(shape, f, f + shape->latentCount, sizes))

@@ -47,7 +47,7 @@ enum
     maniGraphMatchHistory = 4,
 };
 
-#define MANI_GRAPH_MATCH_BLOCK_WORDS (4u + MANI_MATCH_MAX_HISTORY)
+#define MANI_GRAPH_MATCH_BLOCK_WORDS (4u + MANI_MAX_MATCH_HISTORY)
 #define MANI_GRAPH_MATCH_NO_ENTRY    0xFFFFFFFFu
 
 // The data words of the node whose words begin at data, as its query

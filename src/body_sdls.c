@@ -298,8 +298,13 @@ static MANI_NOINLINE maniResult SolveBodySdlsWork(maniPose* pose, const maniSkel
                                                   const maniBodySolve* solve, void* scratch,
                                                   size_t scratchSize, bool* reachedOut)
 {
-    uint32_t count = maniBodyPartCount(pose, skeleton, solve, scratch, scratchSize);
-    if (count == 0 || solve->stretch)
+    uint32_t count = 0;
+    maniResult checked = maniBodyPartCheck(pose, skeleton, solve, scratch, scratchSize, &count);
+    if (checked != mani_success)
+    {
+        return checked;
+    }
+    if (solve->stretch)
     {
         return mani_errorInvalid;
     }

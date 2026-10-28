@@ -35,9 +35,9 @@ extern "C"
 
 // The most bones a full-body solve moves: the top and every bone on a
 // path from it to an effector.
-#define MANI_BODY_IK_MAX_BONES 128u
+#define MANI_MAX_BODY_IK_BONES 128u
 // The most effectors of a full-body solve.
-#define MANI_BODY_IK_MAX_EFFECTORS 32u
+#define MANI_MAX_BODY_IK_EFFECTORS 32u
 
     // How the top bone of a full-body solve moves.
     typedef uint32_t maniBodyTopMode;
@@ -99,10 +99,10 @@ extern "C"
     typedef struct maniBodySolve
     {
         // The top bone: the solved part is every bone on a path from it to
-        // an effector, at most MANI_BODY_IK_MAX_BONES.
+        // an effector, at most MANI_MAX_BODY_IK_BONES.
         uint32_t top;
         maniBodyTopMode topMode;
-        // effectorCount effectors, 1 to MANI_BODY_IK_MAX_EFFECTORS, each
+        // effectorCount effectors, 1 to MANI_MAX_BODY_IK_EFFECTORS, each
         // the top or below it, no bone twice.
         const maniBodyEffector* effectors;
         // boneCount settings (NULL for 0), each for a bone of the solved
@@ -110,7 +110,7 @@ extern "C"
         const maniBodyBone* bones;
         uint32_t effectorCount;
         uint32_t boneCount;
-        // From 1 to MANI_IK_MAX_ITERATIONS.
+        // From 1 to MANI_MAX_IK_ITERATIONS.
         uint32_t iterations;
         // Whether bones may leave their places in their parents (by
         // their position stiffness); false keeps every length.
@@ -161,16 +161,20 @@ extern "C"
     /// @param reachedOut   Receives whether every effector misses by no
     ///                     more than the tolerance at full weight; may be
     ///                     NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL pose,
-    /// skeleton, solve or scratch, a pose of another skeleton or a
+    /// @return `mani_success`; `mani_errorLimit` for more than
+    /// MANI_MAX_BODY_IK_EFFECTORS effectors or MANI_MAX_BODY_IK_BONES
+    /// settings, more than MANI_MAX_IK_ITERATIONS iterations or a solved
+    /// part past MANI_MAX_BODY_IK_BONES; `mani_errorCapacity` for less
+    /// scratch than maniBodyIkScratchSize; `mani_errorInvalid` for a NULL
+    /// pose, skeleton, solve or scratch, a pose of another skeleton or a
     /// difference, a top or bone out of range, an effector not the top
     /// or below it, a bone twice among the effectors or the settings, a
-    /// setting's bone off the solved part, counts out of range, a solved
-    /// part past MANI_BODY_IK_MAX_BONES, a goal, rotation or preferred
-    /// angle not finite, a rotation of length 0, a limit of an unknown
-    /// kind or out of range, a weight, strength, pull chain or stiffness
-    /// outside [0, 1], a tolerance below 0 or not finite, a top mode
-    /// unknown, misaligned or too little scratch.
+    /// setting's bone off the solved part, no effectors or no
+    /// iterations, a goal, rotation or preferred angle not finite, a
+    /// rotation of length 0, a limit of an unknown kind or out of range,
+    /// a weight, strength, pull chain or stiffness outside [0, 1], a
+    /// tolerance below 0 or not finite, a top mode unknown, misaligned
+    /// scratch.
     /// @par Thread safety
     /// Safe from any thread; the pose and the scratch are used by one
     /// thread at a time.
@@ -212,8 +216,7 @@ extern "C"
     /// @param reachedOut   Receives whether every effector misses by no
     ///                     more than the tolerance at full weight; may be
     ///                     NULL.
-    /// @return `mani_success`; `mani_errorInvalid` as maniSolveBodyXpbd,
-    /// and for stretch.
+    /// @return As maniSolveBodyXpbd, and `mani_errorInvalid` for stretch.
     /// @par Thread safety
     /// Safe from any thread; the pose and the scratch are used by one
     /// thread at a time.

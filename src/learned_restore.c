@@ -58,7 +58,7 @@ typedef struct Progress
     maniTrainRandom random;
     const uint8_t* latents;
     const uint8_t* training[4];
-    const uint8_t* networks[MANI_LEARNED_PROJECTORS + MANI_LEARNED_MAX_PROJECTORS];
+    const uint8_t* networks[MANI_LEARNED_PROJECTORS + MANI_MAX_LEARNED_PROJECTORS];
 } Progress;
 
 static maniFileResult ReadProgress(const maniLearnedTrainer* t, const maniContainer* c, Progress* p)

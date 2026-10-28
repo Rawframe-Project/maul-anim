@@ -5,8 +5,8 @@
 // and a transition cost not negative (finite), tags from an int parameter
 // (its literal 0) or literal, a duration as an inertialize node's, its
 // model's counts (a state of 2 to MANI_GRAPH_LEARNED_MAX_STATES values,
-// at most MANI_MATCH_MAX_FEATURES features with a latent value at least,
-// at most MANI_LEARNED_MAX_EVENTS events) and a vec2 or float parameter
+// at most MANI_MAX_MATCH_FEATURES features with a latent value at least,
+// at most MANI_MAX_LEARNED_EVENTS events) and a vec2 or float parameter
 // per query; binding checks the counts and query against the model. A
 // saved block has a state or none (then every word 0), its clocks finite
 // and not negative (the step's below a step's seconds), its states
@@ -53,7 +53,7 @@ uint32_t maniGraphLearnedDataWords(const maniGraph* g, uint32_t data, uint32_t a
         return 0;
     }
     uint32_t queries = Word(g, data + maniGraphLearnedQueryCount);
-    return queries <= MANI_MATCH_MAX_FEATURES && queries <= available - MANI_GRAPH_LEARNED_WORDS
+    return queries <= MANI_MAX_MATCH_FEATURES && queries <= available - MANI_GRAPH_LEARNED_WORDS
                ? MANI_GRAPH_LEARNED_WORDS + queries
                : 0;
 }
@@ -121,12 +121,12 @@ static uint32_t MiddleValid(const maniGraph* g, uint32_t data, uint32_t block)
     {
         return data + maniGraphLearnedStates;
     }
-    if (features < 1 || features > MANI_MATCH_MAX_FEATURES || features >= states ||
-        states - features > MANI_LEARNED_MAX_LATENT)
+    if (features < 1 || features > MANI_MAX_MATCH_FEATURES || features >= states ||
+        states - features > MANI_MAX_LEARNED_LATENT)
     {
         return data + maniGraphLearnedFeatures;
     }
-    return Word(g, data + maniGraphLearnedEvents) <= MANI_LEARNED_MAX_EVENTS
+    return Word(g, data + maniGraphLearnedEvents) <= MANI_MAX_LEARNED_EVENTS
                ? UINT32_MAX
                : data + maniGraphLearnedEvents;
 }
@@ -154,7 +154,7 @@ bool maniGraphLearnedFits(const maniGraph* g, uint32_t data, const maniLearnedMo
     {
         return false;
     }
-    uint32_t types[MANI_MATCH_MAX_FEATURES];
+    uint32_t types[MANI_MAX_MATCH_FEATURES];
     uint32_t queries = Word(g, data + maniGraphLearnedQueryCount);
     for (uint32_t q = 0; q < queries; ++q)
     {

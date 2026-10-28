@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-// An XPBD or SDLS node: 1 to MANI_BODY_IK_MAX_EFFECTORS effectors, each
+// An XPBD or SDLS node: 1 to MANI_MAX_BODY_IK_EFFECTORS effectors, each
 // a vec3 position parameter and a quat rotation parameter or none (its
 // rotation weight then the number 0), its weights numbers in [0, 1] or
 // float parameters; stretch only for XPBD; the top, mode, effector

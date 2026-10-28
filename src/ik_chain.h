@@ -25,17 +25,17 @@
 // input locals.
 typedef struct maniIkChain
 {
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
-    maniIkFrame frames[MANI_IK_CHAIN_MAX_BONES];
-    maniVec3 axes[MANI_IK_CHAIN_MAX_BONES];
-    maniTransform before[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
+    maniIkFrame frames[MANI_MAX_IK_CHAIN_BONES];
+    maniVec3 axes[MANI_MAX_IK_CHAIN_BONES];
+    maniTransform before[MANI_MAX_IK_CHAIN_BONES];
     maniIkFrame top;
     uint32_t count;
 } maniIkChain;
 
 // The chain's bones root first into bones; their count, or 0 when the
 // root is not an ancestor of the end (or is the end) or the path passes
-// MANI_IK_CHAIN_MAX_BONES.
+// MANI_MAX_IK_CHAIN_BONES.
 uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t end,
                          uint32_t* bones);
 
@@ -44,11 +44,18 @@ uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t e
 bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count,
                             const maniJointLimit* limits);
 
-// Whether the solve fits the pose: its bones a chain within
-// MANI_IK_CHAIN_MAX_BONES, its limits valid, its numbers in range; a
-// pole is allowed when poles is true, a step when steps is.
-bool maniIkChainValid(const maniPose* pose, const maniSkeleton* skeleton,
-                      const maniChainSolve* solve, bool poles, bool steps);
+// Whether the root is an ancestor of the end on a path of more than
+// MANI_MAX_IK_CHAIN_BONES bones: a chain past its bound.
+bool maniIkChainPathPast(const maniSkeleton* skeleton, uint32_t root, uint32_t end);
+
+// A chain solve checked against the pose: mani_errorInvalid for a NULL
+// argument, mani_errorLimit for a chain
+// past MANI_MAX_IK_CHAIN_BONES or more than MANI_MAX_IK_ITERATIONS
+// iterations, mani_errorInvalid for bones not a chain, invalid limits or
+// numbers out of range (a pole allowed when poles is true, a step when
+// steps is), else mani_success.
+maniResult maniIkChainCheck(const maniPose* pose, const maniSkeleton* skeleton,
+                            const maniChainSolve* solve, bool poles, bool steps);
 
 // The chain set up from the pose: bones, frames, axes, input locals.
 void maniIkChainBegin(maniIkChain* chain, const maniPose* pose, const maniSkeleton* skeleton,

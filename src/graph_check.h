@@ -42,9 +42,16 @@ typedef struct maniGraphTally
 
 maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t other);
 
+// A source refused for passing a fixed bound (mani_errorLimit), with
+// the reason and the item.
+maniBuildResult maniGraphPastLimit(maniBuildReason reason, uint32_t item, uint32_t other);
+
 // A map's slot among the count identities of ids, added when new (count
-// grows); MANI_GRAPH_MAX_MAPS when ids are full.
+// grows); MANI_MAX_GRAPH_MAPS when ids are full.
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity);
+
+// Whether a source's node count or a list's count passes its bound.
+bool maniGraphListsPast(const maniGraphSource* source);
 
 // The source's parameter, clip, sync group, database, model and spring
 // set lists: each within its limit, and given when it is not empty.

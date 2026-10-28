@@ -28,6 +28,11 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return (maniBuildResult){mani_errorInvalid, reason, item, other};
 }
 
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return (maniBuildResult){mani_errorLimit, reason, item, other};
+}
+
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
 static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
@@ -45,11 +50,12 @@ static bool TagsValid(const maniGraphSource* source, maniGraphTags tags)
 // The query's parameters against the model's database's channels.
 static bool QueryValid(const maniGraphSource* source, const maniGraphLearnedNodeSource* l)
 {
-    if (l->queryCount > MANI_MATCH_MAX_FEATURES || (l->queryCount > 0 && l->query == NULL))
+    // maniCheckGraphLearned refused a count past MANI_MAX_MATCH_FEATURES.
+    if (l->queryCount > 0 && l->query == NULL)
     {
         return false;
     }
-    uint32_t types[MANI_MATCH_MAX_FEATURES];
+    uint32_t types[MANI_MAX_MATCH_FEATURES];
     for (uint32_t q = 0; q < l->queryCount; ++q)
     {
         uint32_t p = l->query[q];
@@ -85,6 +91,10 @@ maniBuildResult maniCheckGraphLearned(const maniGraphSource* source, const maniG
                                       uint32_t node)
 {
     const maniGraphLearnedNodeSource* l = &n->learned;
+    if (l->queryCount > MANI_MAX_MATCH_FEATURES)
+    {
+        return PastLimit(maniBuildReasonNode, node, 0);
+    }
     maniGraphScalar d = l->duration;
     bool ok = l->model < source->modelCount &&
               (l->trigger == MANI_NO_PARAMETER ||

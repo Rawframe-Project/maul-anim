@@ -368,7 +368,7 @@ static uint32_t TwoBoneValid(const maniGraph* g, uint32_t d)
 // the count 0.
 static uint32_t AimChainValid(const maniGraph* g, uint32_t d, uint32_t count)
 {
-    for (uint32_t k = 0; k < MANI_AIM_MAX_BONES; ++k)
+    for (uint32_t k = 0; k < MANI_MAX_AIM_BONES; ++k)
     {
         uint32_t bone = Word(g, d + maniGraphAimBones + k);
         if (k < count ? bone >= g->skeletonBoneCount : bone != 0)
@@ -377,7 +377,7 @@ static uint32_t AimChainValid(const maniGraph* g, uint32_t d, uint32_t count)
         }
     }
     float total = 0.0f;
-    for (uint32_t k = 0; k < MANI_AIM_MAX_BONES; ++k)
+    for (uint32_t k = 0; k < MANI_MAX_AIM_BONES; ++k)
     {
         float share = WordFloat(g, d + maniGraphAimShares + k);
         bool ok =
@@ -391,14 +391,14 @@ static uint32_t AimChainValid(const maniGraph* g, uint32_t d, uint32_t count)
     return total > 0.0f && isfinite(total) ? UINT32_MAX : d + maniGraphAimShares;
 }
 
-// An aim node's words: a count from 1 to MANI_AIM_MAX_BONES, a vec3 goal,
+// An aim node's words: a count from 1 to MANI_MAX_AIM_BONES, a vec3 goal,
 // a vec3 pole or none, its bones and shares, a forward of length 1 within
 // a thousandth, offset and up finite, a finite twist, a cone in [0,
 // MANI_AIM_MAX_CONE] and a weight in [0, 1].
 static uint32_t AimValid(const maniGraph* g, uint32_t d)
 {
     uint32_t count = Word(g, d);
-    if (count == 0 || count > MANI_AIM_MAX_BONES)
+    if (count == 0 || count > MANI_MAX_AIM_BONES)
     {
         return d;
     }
@@ -562,14 +562,14 @@ static float FactorOf(const maniGraph* g, uint32_t p)
     return value;
 }
 
-// The node's time factor size: from 0 to MANI_GRAPH_MAX_TIME_FACTOR, 1 at
+// The node's time factor size: from 0 to MANI_MAX_GRAPH_TIME_FACTOR, 1 at
 // the output, and each input's at least the node's times its scale's.
 static maniFileResult FactorValid(const maniGraph* g, const Node* n, bool last, uint64_t nodesAt)
 {
     uint32_t bits = maniLoadU32(n->entry + 28);
     float factor = 0.0f;
     memcpy(&factor, &bits, sizeof factor);
-    if (bits >= 0x80000000u || !(factor <= MANI_GRAPH_MAX_TIME_FACTOR) || (last && factor != 1.0f))
+    if (bits >= 0x80000000u || !(factor <= MANI_MAX_GRAPH_TIME_FACTOR) || (last && factor != 1.0f))
     {
         return Fail(n->at + 28);
     }

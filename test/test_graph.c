@@ -482,10 +482,10 @@ static void TestOpenRefusals(void)
     uint64_t clips = SectionAt(maniGraphTagClips);
     uint64_t masks = SectionAt(maniGraphTagMaskWeights);
     ExpectFormat(header + 40, 0, header + 40, "no slots");
-    ExpectFormat(header + 44, MANI_GRAPH_MAX_DATABASES + 1, header + 44, "too many databases");
-    ExpectFormat(header + 48, MANI_GRAPH_MAX_DATABASES * MANI_GRAPH_MAX_CLIPS + 1, header + 48,
+    ExpectFormat(header + 44, MANI_MAX_GRAPH_DATABASES + 1, header + 44, "too many databases");
+    ExpectFormat(header + 48, MANI_MAX_GRAPH_DATABASES * MANI_MAX_GRAPH_CLIPS + 1, header + 48,
                  "too many database clips");
-    ExpectFormat(header + 52, MANI_GRAPH_MAX_MODELS + 1, header + 52, "too many models");
+    ExpectFormat(header + 52, MANI_MAX_GRAPH_MODELS + 1, header + 52, "too many models");
     ExpectFormat(header + 52, 1, 12, "a model counted without its section");
     ExpectFormat(parameters, 8, parameters, "a parameter of an unknown type");
     ExpectFormat(parameters + 3 * MANI_GRAPH_PARAMETER_SIZE + 4, 1,
@@ -1187,7 +1187,10 @@ static void TestSubgraph(void)
     ExpectRefused(&source, maniBuildReasonNode, 0, 0, "a subgraph's parameter of another type");
     top[0] = Parameter("mix", maniGraphParameterFloat, Float(0.5f, 0, 0, 0));
     nodes[0].subgraph.graph = &source;
-    ExpectRefused(&source, maniBuildReasonCount, 0, 0, "a graph inside itself");
+    // A graph inside itself nests past MANI_MAX_GRAPH_DEPTH.
+    maniBuildResult inside = Build(&source);
+    CHECK(inside.result == mani_errorLimit && inside.reason == maniBuildReasonCount,
+          "a graph inside itself");
 }
 
 static _Alignas(16) uint8_t s_footFiles[2][8192];

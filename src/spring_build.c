@@ -238,11 +238,19 @@ static maniBuildResult Check(const maniSpringSetSource* s, Work* w)
     float reference = s->referenceRate == 0.0f ? 60.0f : s->referenceRate;
     float step = s->stepRate == 0.0f ? reference : s->stepRate;
     // Item 0 the reference rate, 1 the step rate.
-    if (!(reference > 0.0f && reference <= MANI_SPRING_MAX_RATE))
+    if (reference > MANI_MAX_SPRING_RATE)
+    {
+        return Result(mani_errorLimit, maniBuildReasonOption, 0, 0);
+    }
+    if (!(reference > 0.0f))
     {
         return Refuse(maniBuildReasonOption, 0, 0);
     }
-    if (!(step > 0.0f && step <= MANI_SPRING_MAX_RATE))
+    if (step > MANI_MAX_SPRING_RATE)
+    {
+        return Result(mani_errorLimit, maniBuildReasonOption, 1, 0);
+    }
+    if (!(step > 0.0f))
     {
         return Refuse(maniBuildReasonOption, 1, 0);
     }
@@ -472,7 +480,7 @@ static MANI_NOINLINE maniBuildResult BuildSpringSetWork(maniBuilder* builder,
     }
     if (source->springCount > MANI_MAX_BONES)
     {
-        return Refuse(maniBuildReasonCount, 0, 0);
+        return Result(mani_errorLimit, maniBuildReasonCount, 0, 0);
     }
     size_t marks = (size_t)source->skeleton->boneCount + source->colliderCount + 1;
     uint32_t* stamps = maniAllocate(&builder->allocator, marks, sizeof(uint32_t), 4);

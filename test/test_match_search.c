@@ -417,7 +417,7 @@ static maniMatchQuery RandomQuery(const Layout* l)
                         .current = Next() % 3 == 0 ? MANI_MATCH_NO_FRAME : Next() % l->frames,
                         .requiredTags = Next() % 4 == 0 ? 1u << (Next() % 4) : 0u,
                         .excludedTags = Next() % 4 == 0 ? 1u << (Next() % 4) : 0u,
-                        .historyCount = Next() % (MANI_MATCH_MAX_HISTORY + 1),
+                        .historyCount = Next() % (MANI_MAX_MATCH_HISTORY + 1),
                         .continuingBias = Next() % 2 == 0 ? 0.0f : Uniform(-0.5f, 0.5f),
                         .transitionCost = Next() % 2 == 0 ? 0.0f : Uniform(0.0f, 0.5f),
                         .jumpThreshold = Seconds(),
@@ -603,7 +603,7 @@ static void TestRefusals(void)
     bad[0].features = NULL;
     bad[1].features = nan;
     bad[2].current = 8;
-    bad[3].historyCount = MANI_MATCH_MAX_HISTORY + 1;
+    bad[3].historyCount = MANI_MAX_MATCH_HISTORY + 1;
     bad[4].historyCount = 1;
     bad[4].history[0] = 8;
     bad[5].jumpThreshold = -1.0f;
@@ -612,12 +612,13 @@ static void TestRefusals(void)
     bool refused = true;
     for (int k = 0; k < 8; ++k)
     {
-        refused = refused && maniSearchMotionDatabase(&d, &bad[k], &r) == mani_errorInvalid;
+        maniResult want = k == 3 ? mani_errorLimit : mani_errorInvalid;
+        refused = refused && maniSearchMotionDatabase(&d, &bad[k], &r) == want;
     }
     CHECK(refused && maniSearchMotionDatabase(NULL, &q, &r) == mani_errorInvalid &&
               maniSearchMotionDatabase(&d, NULL, &r) == mani_errorInvalid &&
               maniSearchMotionDatabase(&d, &q, NULL) == mani_errorInvalid,
-          "refused searches");
+          "refused searches, more picks than MANI_MAX_MATCH_HISTORY at the limit");
 }
 
 // Half way from a to b, as a motion matching node blends.

@@ -91,12 +91,24 @@ static maniLearnedTrainer* Create(const maniLearnedTrainerDef* def,
     return t;
 }
 
-static bool RefusedFor(const maniLearnedTrainerSource* s, maniBuildReason reason, uint32_t item)
+static bool RefusedWith(const maniLearnedTrainerSource* s, maniResult result,
+                        maniBuildReason reason, uint32_t item)
 {
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = (maniLearnedTrainer*)&def;
     maniBuildResult r = maniCreateLearnedTrainer(&def, s, &t);
-    return r.result == mani_errorInvalid && r.reason == reason && r.item == item && t == NULL;
+    return r.result == result && r.reason == reason && r.item == item && t == NULL;
+}
+
+static bool RefusedFor(const maniLearnedTrainerSource* s, maniBuildReason reason, uint32_t item)
+{
+    return RefusedWith(s, mani_errorInvalid, reason, item);
+}
+
+// Refused for passing a fixed bound.
+static bool RefusedPast(const maniLearnedTrainerSource* s, maniBuildReason reason, uint32_t item)
+{
+    return RefusedWith(s, mani_errorLimit, reason, item);
 }
 
 // A host that runs ranges of one item, last first.
@@ -235,21 +247,24 @@ static void TestOptions(void)
                            &s.options.compressorLayers, &s.options.decompressorLayers,
                            &s.options.stepperLayers,    &s.options.projectorLayers,
                            &s.options.batchSize,        &s.options.stepperWindow};
-    const uint32_t bad[8][2] = {{0, MANI_LEARNED_MAX_LATENT + 1},
-                                {0, MANI_LEARNED_MAX_WIDTH + 1},
-                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
-                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
-                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
-                                {MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_LAYERS},
-                                {6, MANI_LEARNED_MAX_BATCH + 4},
-                                {1, MANI_LEARNED_MAX_WINDOW + 1}};
+    const uint32_t bad[8][2] = {{0, MANI_MAX_LEARNED_LATENT + 1},
+                                {0, MANI_MAX_LEARNED_WIDTH + 1},
+                                {MANI_MAX_LEARNED_LAYERS, MANI_MAX_LEARNED_LAYERS},
+                                {MANI_MAX_LEARNED_LAYERS, MANI_MAX_LEARNED_LAYERS},
+                                {MANI_MAX_LEARNED_LAYERS, MANI_MAX_LEARNED_LAYERS},
+                                {MANI_MAX_LEARNED_LAYERS, MANI_MAX_LEARNED_LAYERS},
+                                {6, MANI_MAX_LEARNED_BATCH + 4},
+                                {1, MANI_MAX_LEARNED_WINDOW + 1}};
     for (uint32_t k = 0; k < 8; ++k)
     {
         for (uint32_t b = 0; b < 2; ++b)
         {
             s = base;
             *counts[k] = bad[k][b];
-            all = all && RefusedFor(&s, maniBuildReasonOption, k);
+            // The second of each pair, and every layer count, passes a
+            // bound; the first is below its range.
+            maniResult result = b == 1 || (k >= 2 && k <= 5) ? mani_errorLimit : mani_errorInvalid;
+            all = all && RefusedWith(&s, result, maniBuildReasonOption, k);
         }
     }
     CHECK(all, "counts past their limits, with their places");
@@ -280,11 +295,11 @@ static void TestOptions(void)
     s = base;
     s.options.hiddenWidth = 16384;
     s.options.projectorLayers = 2;
-    CHECK(RefusedFor(&s, maniBuildReasonOption, 1), "one network's weights past the limit");
+    CHECK(RefusedPast(&s, maniBuildReasonOption, 1), "one network's weights past the limit");
     // Two Projectors of 12,000 by 12,000 weights each: under the limit
     // alone, past it together.
     s.options.hiddenWidth = 12000;
-    CHECK(RefusedFor(&s, maniBuildReasonOption, 1), "the model's weights past the limit");
+    CHECK(RefusedPast(&s, maniBuildReasonOption, 1), "the model's weights past the limit");
     s.projectorCount = 1;
     t = Create(&def, &s);
     maniDestroyLearnedTrainer(t);
@@ -325,8 +340,8 @@ static void TestSource(void)
     s.projectorCount = 0;
     CHECK(RefusedFor(&s, maniBuildReasonCount, 0), "no Projector");
     s = base;
-    s.eventCount = MANI_LEARNED_MAX_EVENTS + 1;
-    CHECK(RefusedFor(&s, maniBuildReasonCount, 0), "too many events");
+    s.eventCount = MANI_MAX_LEARNED_EVENTS + 1;
+    CHECK(RefusedPast(&s, maniBuildReasonCount, 0), "too many events");
     const maniLearnedTagFilter filters[2] = {{0, 0}, {4, 0}};
     s = base;
     s.projectors = filters;

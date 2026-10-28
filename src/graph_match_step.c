@@ -214,7 +214,7 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
 {
     const maniMotionDatabase* d = m->d;
     uint32_t n = d->featureCount;
-    float next[MANI_MATCH_MAX_FEATURES];
+    float next[MANI_MAX_MATCH_FEATURES];
     if (maniMotionDatabaseFeatures(d, at.frame, here) != mani_success)
     {
         memset(here, 0, (size_t)n * sizeof(float));
@@ -284,8 +284,8 @@ static void Jump(const Match* m, uint32_t frame)
 
 static void Search(const Match* m, bool ended)
 {
-    float features[MANI_MATCH_MAX_FEATURES];
-    float here[MANI_MATCH_MAX_FEATURES];
+    float features[MANI_MAX_MATCH_FEATURES];
+    float here[MANI_MAX_MATCH_FEATURES];
     Continuing c = ContinuingOf(m);
     uint32_t current = c.frame;
     Query(m, c, here, features);

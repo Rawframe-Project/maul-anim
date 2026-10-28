@@ -114,20 +114,20 @@ static maniFileResult CheckHeader(const Sections* s, maniLearnedModel* m)
     // one a network.
     const uint32_t lows[9] = {1, 1, 1, 1, 1, 0, 0, 0, 1};
     uint32_t highs[9] = {MANI_MAX_BONES,
-                         MANI_MATCH_MAX_FEATURES,
-                         MANI_MATCH_MAX_CHANNELS,
-                         MANI_MATCH_MAX_CHANNELS * MANI_MATCH_MAX_TIMES,
-                         MANI_LEARNED_MAX_LATENT,
+                         MANI_MAX_MATCH_FEATURES,
+                         MANI_MAX_MATCH_CHANNELS,
+                         MANI_MAX_MATCH_CHANNELS * MANI_MAX_MATCH_TIMES,
+                         MANI_MAX_LEARNED_LATENT,
                          MANI_MAX_BONES,
-                         MANI_LEARNED_MAX_FLOAT_TRACKS,
-                         MANI_LEARNED_MAX_EVENTS,
-                         MANI_LEARNED_MAX_PROJECTORS};
+                         MANI_MAX_LEARNED_FLOAT_TRACKS,
+                         MANI_MAX_LEARNED_EVENTS,
+                         MANI_MAX_LEARNED_PROJECTORS};
     for (uint32_t k = 0; k < 10; ++k)
     {
         counts[k] = maniLoadU32(h + 16 + 4 * k);
         uint32_t networks = k == 9 ? MANI_LEARNED_PROJECTORS + counts[8] : 0u;
         uint32_t low = k < 9 ? lows[k] : networks;
-        uint32_t high = k < 9 ? highs[k] : networks * MANI_LEARNED_MAX_LAYERS;
+        uint32_t high = k < 9 ? highs[k] : networks * MANI_MAX_LEARNED_LAYERS;
         high = k == 5 ? counts[0] : high;
         if (counts[k] < low || counts[k] > high)
         {
@@ -136,7 +136,7 @@ static maniFileResult CheckHeader(const Sections* s, maniLearnedModel* m)
     }
     float rate = LoadF32(h + 60);
     const bool valid[4] = {maniLoadU32(h + 56) <= maniLearnedWeightsInt16,
-                           rate > 0.0f && rate <= MANI_LEARNED_MAX_RATE,
+                           rate > 0.0f && rate <= MANI_MAX_LEARNED_RATE,
                            maniLoadU32(h + 64) <= maniMatchAxisNegativeZ,
                            maniLoadU32(h + 68) <= maniMatchAxisNegativeZ &&
                                maniLoadU32(h + 68) % 3 != maniLoadU32(h + 64) % 3};
@@ -225,7 +225,7 @@ static uint32_t ChannelWrong(const maniLearnedModel* m, const uint8_t* e, uint32
                            kind == maniMatchBoneFacing
                                ? maniLoadU32(e + 8) <= maniMatchAxisNegativeZ
                                : maniLoadU32(e + 8) == 0,
-                           times >= 1 && times <= MANI_MATCH_MAX_TIMES,
+                           times >= 1 && times <= MANI_MAX_MATCH_TIMES,
                            maniLoadU32(e + 16) == timeAt,
                            maniLoadU32(e + 20) == featureAt,
                            maniLoadU32(e + 24) == maniMatchChannelWidth(kind) * times,
@@ -266,7 +266,7 @@ static maniFileResult CheckChannels(const maniLearnedModel* m, const Sections* s
     }
     for (uint32_t t = 0; t < m->timeCount; ++t)
     {
-        if (!(fabsf(LoadF32(m->times + 4 * (size_t)t)) <= MANI_MATCH_MAX_REACH))
+        if (!(fabsf(LoadF32(m->times + 4 * (size_t)t)) <= MANI_MAX_MATCH_REACH))
         {
             return Fail(s->at[maniLearnedTagTimes - 1] + 4 * (uint64_t)t);
         }
@@ -333,7 +333,7 @@ static maniFileResult CheckNetwork(maniLearnedModel* m, const Sections* s, uint3
     uint32_t count = maniLoadU32(e);
     bool projector = n >= MANI_LEARNED_PROJECTORS;
     const bool valid[3] = {
-        count >= 1 && count <= MANI_LEARNED_MAX_LAYERS && count <= m->layerCount - first,
+        count >= 1 && count <= MANI_MAX_LEARNED_LAYERS && count <= m->layerCount - first,
         projector || maniLoadU32(e + 4) == 0, projector || maniLoadU32(e + 8) == 0};
     for (uint32_t k = 0; k < 3; ++k)
     {
@@ -358,13 +358,13 @@ static maniFileResult CheckNetwork(maniLearnedModel* m, const Sections* s, uint3
             return Fail(at);
         }
         bool last = l + 1 == first + count;
-        if (outputs < 1 || outputs > MANI_LEARNED_MAX_WIDTH || (last && outputs != out))
+        if (outputs < 1 || outputs > MANI_MAX_LEARNED_WIDTH || (last && outputs != out))
         {
             return Fail(at + 4);
         }
         t->values += outputs + (m->weightFormat == maniLearnedWeightsInt16 ? inputs : 0u);
         t->weights += (uint64_t)inputs * outputs;
-        if (t->weights > MANI_LEARNED_MAX_WEIGHTS)
+        if (t->weights > MANI_MAX_LEARNED_WEIGHTS)
         {
             return Fail(at + 4);
         }

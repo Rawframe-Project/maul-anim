@@ -145,10 +145,10 @@ static float Turn(float a, float b, bool origin)
 // and the position's.
 typedef struct Points
 {
-    float p[2 * MANI_GRAPH_MAX_SPACE_POINTS];
-    float magnitude[MANI_GRAPH_MAX_SPACE_POINTS];
-    float direction[MANI_GRAPH_MAX_SPACE_POINTS];
-    bool origin[MANI_GRAPH_MAX_SPACE_POINTS];
+    float p[2 * MANI_MAX_GRAPH_SPACE_POINTS];
+    float magnitude[MANI_MAX_GRAPH_SPACE_POINTS];
+    float direction[MANI_MAX_GRAPH_SPACE_POINTS];
+    bool origin[MANI_MAX_GRAPH_SPACE_POINTS];
     float at[2];
     float atMagnitude;
     float atDirection;

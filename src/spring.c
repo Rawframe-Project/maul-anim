@@ -114,7 +114,7 @@ static maniFileResult Header(const Sections* s, maniSpringSet* out)
     for (uint32_t k = 0; k < 2; ++k)
     {
         float rate = LoadF32(h + 32 + 4 * k);
-        if (!(rate > 0.0f && rate <= MANI_SPRING_MAX_RATE))
+        if (!(rate > 0.0f && rate <= MANI_MAX_SPRING_RATE))
         {
             return Fail(at + 32 + 4 * k);
         }

@@ -195,9 +195,9 @@ static void TestRefusals(void)
 // measured it; turned with the root.
 static void TestFeatures(void)
 {
-    float features[MANI_MATCH_MAX_FEATURES];
-    float offsets[MANI_MATCH_MAX_FEATURES];
-    float scales[MANI_MATCH_MAX_FEATURES];
+    float features[MANI_MAX_MATCH_FEATURES];
+    float offsets[MANI_MAX_MATCH_FEATURES];
+    float scales[MANI_MAX_MATCH_FEATURES];
     CHECK(maniMotionDatabaseFeatures(&s_database, 3, features) == mani_success &&
               maniMotionDatabaseNormalization(&s_database, offsets, scales) == mani_success,
           "the walk's fourth frame");

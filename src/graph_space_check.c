@@ -162,7 +162,7 @@ static maniBuildResult CheckAuthored(const maniGraphTrianglesNodeSource* s, uint
     {
         return Refuse(maniBuildReasonNode, node, 0);
     }
-    bool used[MANI_GRAPH_MAX_SPACE_POINTS] = {false};
+    bool used[MANI_MAX_GRAPH_SPACE_POINTS] = {false};
     for (uint32_t t = 0; t < s->triangleCount; ++t)
     {
         const uint32_t* v = s->triangles + 3 * (size_t)t;

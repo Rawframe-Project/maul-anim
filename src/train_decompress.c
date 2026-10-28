@@ -25,9 +25,9 @@
 static bool Networks(const maniTrainData* d, const maniTrainDecompressShape* s,
                      maniTrainDecompress* t)
 {
-    uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1];
-    if (s->compressorLayers >= MANI_LEARNED_MAX_LAYERS ||
-        s->decompressorLayers >= MANI_LEARNED_MAX_LAYERS || s->batchPairs < MANI_TRAIN_PAIRS ||
+    uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1];
+    if (s->compressorLayers >= MANI_MAX_LEARNED_LAYERS ||
+        s->decompressorLayers >= MANI_MAX_LEARNED_LAYERS || s->batchPairs < MANI_TRAIN_PAIRS ||
         s->batchPairs % MANI_TRAIN_PAIRS != 0 || d->pairCount == 0)
     {
         return false;

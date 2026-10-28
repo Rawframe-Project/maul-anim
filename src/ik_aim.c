@@ -92,11 +92,19 @@ static maniVec3 Coned(const maniAimSolve* s, const maniIkFrame* aiming, bool* in
     return maniVec3Add(o, maniVec3Scale(d, maniVec3Length(t)));
 }
 
-static bool Valid(const maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* s)
+static maniResult Check(const maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* s)
 {
-    if (!maniIkPoseUsable(pose, skeleton) || s->count == 0 || s->count > MANI_AIM_MAX_BONES)
+    if (pose == NULL || skeleton == NULL || s == NULL)
     {
-        return false;
+        return mani_errorInvalid;
+    }
+    if (s->count > MANI_MAX_AIM_BONES)
+    {
+        return mani_errorLimit;
+    }
+    if (!maniIkPoseUsable(pose, skeleton) || s->count == 0)
+    {
+        return mani_errorInvalid;
     }
     float total = 0.0f;
     for (uint32_t k = 0; k < s->count; ++k)
@@ -105,23 +113,26 @@ static bool Valid(const maniPose* pose, const maniSkeleton* skeleton, const mani
             !isfinite(s->shares[k]) ||
             (k > 0 && !maniIkAbove(skeleton, s->bones[k - 1], s->bones[k])))
         {
-            return false;
+            return mani_errorInvalid;
         }
         total += s->shares[k];
     }
     float length = maniVec3Length(s->forward);
-    return total > 0.0f && isfinite(total) && fabsf(length - 1.0f) <= 1e-3f &&
-           maniIkFiniteVec(s->goal) && maniIkFiniteVec(s->pole) && maniIkFiniteVec(s->offset) &&
-           maniIkFiniteVec(s->up) && isfinite(s->twist) && s->cone >= 0.0f &&
-           s->cone <= MANI_AIM_MAX_CONE && s->weight >= 0.0f && s->weight <= 1.0f;
+    bool valid = total > 0.0f && isfinite(total) && fabsf(length - 1.0f) <= 1e-3f &&
+                 maniIkFiniteVec(s->goal) && maniIkFiniteVec(s->pole) &&
+                 maniIkFiniteVec(s->offset) && maniIkFiniteVec(s->up) && isfinite(s->twist) &&
+                 s->cone >= 0.0f && s->cone <= MANI_AIM_MAX_CONE && s->weight >= 0.0f &&
+                 s->weight <= 1.0f;
+    return valid ? mani_success : mani_errorInvalid;
 }
 
 static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton* skeleton,
                                              const maniAimSolve* solve, bool* reachedOut)
 {
-    if (pose == NULL || skeleton == NULL || solve == NULL || !Valid(pose, skeleton, solve))
+    maniResult checked = Check(pose, skeleton, solve);
+    if (checked != mani_success)
     {
-        return mani_errorInvalid;
+        return checked;
     }
     uint32_t last = solve->bones[solve->count - 1];
     maniIkFrame parent = maniIkParentModel(pose, skeleton, solve->bones[0]);
@@ -136,8 +147,8 @@ static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton*
     {
         remaining += solve->shares[k];
     }
-    maniTransform before[MANI_AIM_MAX_BONES];
-    maniQuat corrections[MANI_AIM_MAX_BONES];
+    maniTransform before[MANI_MAX_AIM_BONES];
+    maniQuat corrections[MANI_MAX_AIM_BONES];
     bool aimed = false;
     for (uint32_t k = 0; k < solve->count; ++k)
     {

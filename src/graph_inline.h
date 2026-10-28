@@ -17,9 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// The deepest subgraphs nest.
-#define MANI_GRAPH_MAX_DEPTH 16u
-
 // A source with its subgraphs inlined, and the block holding its arrays
 // (NULL when the source had none, the source then used as it is).
 typedef struct maniGraphFlat

@@ -722,11 +722,17 @@ static void TestWrongSkeleton(void)
     CHECK(maniSampleClip(NULL, &skeleton, 0.5f, pose) == mani_errorInvalid, "null clip");
 }
 
+static void ExpectResult(const maniClipSource* source, maniResult result, maniBuildReason reason,
+                         uint32_t item, const char* what)
+{
+    maniBuildResult r = BuildFrom(source);
+    CHECK(r.result == result && r.reason == reason && r.item == item, what);
+}
+
 static void ExpectRefusal(const maniClipSource* source, maniBuildReason reason, uint32_t item,
                           const char* what)
 {
-    maniBuildResult r = BuildFrom(source);
-    CHECK(r.result == mani_errorInvalid && r.reason == reason && r.item == item, what);
+    ExpectResult(source, mani_errorInvalid, reason, item, what);
 }
 
 static void TestBuildRefusals(void)
@@ -743,7 +749,7 @@ static void TestBuildRefusals(void)
     ExpectRefusal(&source, maniBuildReasonTiming, 0, "duration");
     source = SampleSource();
     source.duration = 2e6f;
-    ExpectRefusal(&source, maniBuildReasonTiming, 0, "too many samples");
+    ExpectResult(&source, mani_errorLimit, maniBuildReasonTiming, 0, "too many samples");
     source = SampleSource();
     s_tracks[1].bone = 9;
     ExpectRefusal(&source, maniBuildReasonTrack, 1, "a bone past the skeleton");

@@ -153,7 +153,7 @@ bool maniTrainStepperInit(const maniAllocator* allocator, const maniTrainData* d
                             .latentCount = shape->latentCount,
                             .seconds = data->frameSeconds,
                             .latents = latents};
-    uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1];
+    uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1];
     uint32_t states = data->featureCount + shape->latentCount;
     if (shape->window < 2 || !maniTrainSoloSizes(shape, states, states, sizes))
     {

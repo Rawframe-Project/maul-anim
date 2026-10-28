@@ -59,6 +59,14 @@ static bool RefusedFor(const maniGraphSource* source, maniBuildReason reason, ui
            r.other == other;
 }
 
+// A count past its bound: refused at the limit.
+static bool CountPast(const maniGraphSource* source)
+{
+    maniBuildResult r = BuildGraph(source);
+    return r.result == mani_errorLimit && r.reason == maniBuildReasonCount && r.item == 0 &&
+           r.other == 0;
+}
+
 static void OpenModels(void)
 {
     MakeNetworks();
@@ -108,8 +116,8 @@ static void TestBuild(void)
     CHECK(RefusedFor(&source, maniBuildReasonModelList | maniBuildReasonName, 1, 0), "no name");
     source = Graph(NULL, 1);
     CHECK(RefusedFor(&source, maniBuildReasonCount, 0, 0), "a count without its list");
-    source = Graph(slots, MANI_GRAPH_MAX_MODELS + 1);
-    CHECK(RefusedFor(&source, maniBuildReasonCount, 0, 0), "too many models");
+    source = Graph(slots, MANI_MAX_GRAPH_MODELS + 1);
+    CHECK(CountPast(&source), "too many models");
 }
 
 static uint64_t SectionAt(uint32_t tag, uint64_t* sizeOut)
@@ -154,7 +162,7 @@ static void TestOpen(void)
     uint64_t header = SectionAt(maniGraphTagHeader, &size);
     uint64_t models = SectionAt(maniGraphTagModels, &size);
     CHECK(size == 2 * MANI_GRAPH_MODEL_SIZE, "two records");
-    CHECK(RefusedAt(header + 52, MANI_GRAPH_MAX_MODELS + 1, header + 52), "too many models");
+    CHECK(RefusedAt(header + 52, MANI_MAX_GRAPH_MODELS + 1, header + 52), "too many models");
     // The models' entry is the table's last.
     uint64_t entry =
         MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(maniLoadU32(s_graphFile + 12) - 1) + 16;

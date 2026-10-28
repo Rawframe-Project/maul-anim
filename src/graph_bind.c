@@ -93,7 +93,7 @@ static bool DatabaseFits(const maniGraph* graph, uint32_t slot, const maniMotion
             return false;
         }
     }
-    uint32_t types[MANI_MATCH_MAX_FEATURES];
+    uint32_t types[MANI_MAX_MATCH_FEATURES];
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;

@@ -164,7 +164,7 @@ static void Reference(bool sdls, const maniGraphBodyNodeSource* n, float b, floa
     {
         maniPoseSetLocal(s_pose, k, s_walk[k]);
     }
-    maniBodyEffector effectors[MANI_BODY_IK_MAX_EFFECTORS];
+    maniBodyEffector effectors[MANI_MAX_BODY_IK_EFFECTORS];
     for (uint32_t e = 0; e < n->effectorCount; ++e)
     {
         const maniGraphEffectorSource* f = &n->effectors[e];
@@ -312,6 +312,15 @@ static bool Refused(maniGraphNodeKind kind, maniGraphBodyNodeSource s, maniBuild
            (reason != maniBuildReasonScalar || r.other == place);
 }
 
+// A full-body node past a fixed bound: refused at the limit.
+static bool PastLimit(maniGraphNodeKind kind, maniGraphBodyNodeSource s)
+{
+    maniGraphNodeSource nodes[2] = {ClipNode(0, 1.0f, maniGraphLoopRepeat),
+                                    BodyNode(kind, kFirst, s)};
+    maniBuildResult r = Built(BodySource(nodes, 2));
+    return r.result == mani_errorLimit && r.item == 1 && r.reason == maniBuildReasonNode;
+}
+
 // Whether the XPBD node with effector 0 changed by change is refused.
 static bool EffectorRefused(maniGraphEffectorSource change, maniBuildReason reason, uint32_t place)
 {
@@ -350,19 +359,21 @@ static void TestBuildRefusals(void)
     bad[2].topMode = (maniBodyTopMode)3;
     bad[3].effectors = NULL;
     bad[4].effectorCount = 0;
-    bad[5].effectorCount = MANI_BODY_IK_MAX_EFFECTORS + 1;
+    bad[5].effectorCount = MANI_MAX_BODY_IK_EFFECTORS + 1;
     bad[6].bones = NULL;
-    bad[7].boneCount = MANI_BODY_IK_MAX_BONES + 1;
+    bad[7].boneCount = MANI_MAX_BODY_IK_BONES + 1;
     bad[8].iterations = 0;
-    bad[9].iterations = MANI_IK_MAX_ITERATIONS + 1;
+    bad[9].iterations = MANI_MAX_IK_ITERATIONS + 1;
     bad[10].tolerance = -1.0f;
     bad[11].tolerance = NAN;
     int refused = 0;
     for (int k = 0; k < 12; ++k)
     {
-        refused += Refused(maniGraphNodeBodyXpbd, bad[k], maniBuildReasonNode, 0);
+        bool past = k == 5 || k == 7 || k == 9;
+        refused += past ? PastLimit(maniGraphNodeBodyXpbd, bad[k])
+                        : Refused(maniGraphNodeBodyXpbd, bad[k], maniBuildReasonNode, 0);
     }
-    CHECK(refused == 12, "the top, mode, counts and numbers refused");
+    CHECK(refused == 12, "the top, mode, counts and numbers refused, past a bound at the limit");
     maniGraphBodyNodeSource s = kSdls;
     s.stretch = true;
     CHECK(Refused(maniGraphNodeBodySdls, s, maniBuildReasonNode, 0), "an SDLS node's stretch");

@@ -31,7 +31,11 @@ static bool Finite(float value)
 static maniBuildResult Check(const maniSkinSource* source)
 {
     uint32_t n = source->jointCount;
-    if (n == 0 || n > MANI_MAX_BONES || source->joints == NULL || source->inverseBinds == NULL)
+    if (n > MANI_MAX_BONES)
+    {
+        return Result(mani_errorLimit, maniBuildReasonCount, 0);
+    }
+    if (n == 0 || source->joints == NULL || source->inverseBinds == NULL)
     {
         return Result(mani_errorInvalid, maniBuildReasonCount, 0);
     }

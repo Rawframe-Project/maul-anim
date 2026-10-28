@@ -40,10 +40,10 @@ static maniQuat Arc(maniVec3 a, maniVec3 b, float step)
 static MANI_NOINLINE maniResult SolveCcdWork(maniPose* pose, const maniSkeleton* skeleton,
                                              const maniChainSolve* solve, bool* reachedOut)
 {
-    if (pose == NULL || skeleton == NULL || solve == NULL ||
-        !maniIkChainValid(pose, skeleton, solve, false, true))
+    maniResult checked = maniIkChainCheck(pose, skeleton, solve, false, true);
+    if (checked != mani_success)
     {
-        return mani_errorInvalid;
+        return checked;
     }
     maniIkChain chain;
     maniIkChainBegin(&chain, pose, skeleton, solve);

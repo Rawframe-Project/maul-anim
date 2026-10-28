@@ -87,7 +87,8 @@ extern "C"
         // An argument is invalid: a null pointer where one is required, a
         // value out of range.
         mani_errorInvalid = -1,
-        // A caller buffer or a named limit is too small for the result.
+        // Room is too small for the result: a caller's buffer or the
+        // allocator. More room would succeed.
         mani_errorCapacity = -2,
         // A file of a format version, or a def stamped by headers, this
         // library does not read.
@@ -95,6 +96,10 @@ extern "C"
         // A file's bytes break its format: the result's offset names the
         // first byte found wrong.
         mani_errorFormat = -8,
+        // An argument, or a source's content, passes a fixed bound of the
+        // library (a count, a depth, a rate, a magnitude), each published
+        // as a MANI_MAX_* constant. More room would not help.
+        mani_errorLimit = -9,
         // The object is in use by work under way: a function of an object
         // called back in from the host's code that object runs (its
         // allocator, its task hooks). The same call succeeds once that

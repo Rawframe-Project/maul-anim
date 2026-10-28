@@ -226,6 +226,9 @@ static void TestBuildRefusals(void)
     RestInverseBinds(binds);
     maniBuildResult r = BuildWith(kJointBones, binds, 0);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonCount, "no joints");
+    r = BuildWith(kJointBones, binds, MANI_MAX_BONES + 1);
+    CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonCount,
+          "joints past MANI_MAX_BONES at the limit");
     uint32_t joints[kJoints] = {3, 1, kBones, 0};
     r = BuildWith(joints, binds, kJoints);
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonJoint && r.item == 2,

@@ -42,6 +42,11 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return Result(mani_errorInvalid, reason, item, other);
 }
 
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return Result(mani_errorLimit, reason, item, other);
+}
+
 static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
@@ -80,7 +85,7 @@ static void Role(const maniLearnedModelSource* s, uint32_t n, uint32_t* in, uint
     uint64_t outputs = maniLearnedOutputCount(s->skeleton->boneCount, s->scaledBoneCount,
                                               s->floatTrackCount, s->eventCount);
     *out = n == MANI_LEARNED_DECOMPRESSOR
-               ? (outputs > MANI_LEARNED_MAX_WIDTH ? MANI_LEARNED_MAX_WIDTH + 1 : (uint32_t)outputs)
+               ? (outputs > MANI_MAX_LEARNED_WIDTH ? MANI_MAX_LEARNED_WIDTH + 1 : (uint32_t)outputs)
                : state;
 }
 
@@ -96,16 +101,23 @@ typedef struct Totals
 static maniBuildResult CheckLayer(const maniLearnedLayerSource* l, uint32_t n, uint32_t k,
                                   uint32_t previous, bool last, uint32_t out, Totals* t)
 {
-    bool shape = l->inputCount == previous && l->outputCount >= 1 &&
-                 l->outputCount <= MANI_LEARNED_MAX_WIDTH && (!last || l->outputCount == out);
+    if (l->outputCount > MANI_MAX_LEARNED_WIDTH)
+    {
+        return PastLimit(maniBuildReasonNetwork, n, k);
+    }
+    bool shape =
+        l->inputCount == previous && l->outputCount >= 1 && (!last || l->outputCount == out);
     if (!shape || l->weights == NULL || l->biases == NULL)
     {
         return Refuse(maniBuildReasonNetwork, n, k);
     }
     uint64_t weights = (uint64_t)l->inputCount * l->outputCount;
     t->weights += weights;
-    if (t->weights > MANI_LEARNED_MAX_WEIGHTS || !AllFinite(l->weights, weights) ||
-        !AllFinite(l->biases, l->outputCount))
+    if (t->weights > MANI_MAX_LEARNED_WEIGHTS)
+    {
+        return PastLimit(maniBuildReasonNetwork, n, k);
+    }
+    if (!AllFinite(l->weights, weights) || !AllFinite(l->biases, l->outputCount))
     {
         return Refuse(maniBuildReasonNetwork, n, k);
     }
@@ -119,7 +131,11 @@ static maniBuildResult CheckNetwork(const maniLearnedModelSource* s, uint32_t n,
                                     maniLearnedWeights format, Totals* t)
 {
     const maniLearnedNetworkSource* w = NetworkOf(s, n);
-    if (w->layers == NULL || w->layerCount < 1 || w->layerCount > MANI_LEARNED_MAX_LAYERS)
+    if (w->layerCount > MANI_MAX_LEARNED_LAYERS)
+    {
+        return PastLimit(maniBuildReasonNetwork, n, 0);
+    }
+    if (w->layers == NULL || w->layerCount < 1)
     {
         return Refuse(maniBuildReasonNetwork, n, 0);
     }
@@ -191,11 +207,19 @@ static maniBuildResult CheckModel(const maniLearnedModelSource* s)
     {
         return Refuse(maniBuildReasonDatabase, 0, 0);
     }
-    if (!(s->stepRate > 0.0f && s->stepRate <= MANI_LEARNED_MAX_RATE))
+    if (s->stepRate > MANI_MAX_LEARNED_RATE)
+    {
+        return PastLimit(maniBuildReasonTiming, 0, 0);
+    }
+    if (!(s->stepRate > 0.0f))
     {
         return Refuse(maniBuildReasonTiming, 0, 0);
     }
-    if (s->latentCount < 1 || s->latentCount > MANI_LEARNED_MAX_LATENT)
+    if (s->latentCount > MANI_MAX_LEARNED_LATENT)
+    {
+        return PastLimit(maniBuildReasonOption, 0, 0);
+    }
+    if (s->latentCount < 1)
     {
         return Refuse(maniBuildReasonOption, 0, 0);
     }
@@ -203,9 +227,13 @@ static maniBuildResult CheckModel(const maniLearnedModelSource* s)
     {
         return Refuse(maniBuildReasonOption, 1, 0);
     }
-    if (s->projectorCount < 1 || s->projectorCount > MANI_LEARNED_MAX_PROJECTORS ||
-        s->scaledBoneCount > bones || s->floatTrackCount > MANI_LEARNED_MAX_FLOAT_TRACKS ||
-        s->eventCount > MANI_LEARNED_MAX_EVENTS)
+    if (s->projectorCount > MANI_MAX_LEARNED_PROJECTORS ||
+        s->floatTrackCount > MANI_MAX_LEARNED_FLOAT_TRACKS ||
+        s->eventCount > MANI_MAX_LEARNED_EVENTS)
+    {
+        return PastLimit(maniBuildReasonCount, 0, 0);
+    }
+    if (s->projectorCount < 1 || s->scaledBoneCount > bones)
     {
         return Refuse(maniBuildReasonCount, 0, 0);
     }

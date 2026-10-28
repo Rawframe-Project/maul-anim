@@ -85,13 +85,18 @@ typedef struct maniBodyPart
 } maniBodyPart;
 
 // The part's size in nodes for a solve valid on the skeleton, 0 for one
-// refused; the pose is not looked at.
-uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve);
+// refused, past set when the refusal is a bound passed (effectors,
+// settings, iterations, or the part past MANI_MAX_BODY_IK_BONES); the
+// pose is not looked at.
+uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve, bool* past);
 
-// The part's size for a valid solve on a usable pose of the skeleton
-// with enough aligned scratch, 0 for one refused.
-uint32_t maniBodyPartCount(const maniPose* pose, const maniSkeleton* skeleton,
-                           const maniBodySolve* solve, const void* scratch, size_t scratchSize);
+// A solve checked on a usable pose of the skeleton with aligned scratch:
+// mani_success with the part's size in countOut; mani_errorLimit for a
+// count or a part past its bound; mani_errorCapacity for too little
+// scratch; mani_errorInvalid for anything else refused.
+maniResult maniBodyPartCheck(const maniPose* pose, const maniSkeleton* skeleton,
+                             const maniBodySolve* solve, const void* scratch, size_t scratchSize,
+                             uint32_t* countOut);
 
 // Each solver's own floats for a part of count nodes.
 size_t maniBodyXpbdRoom(uint32_t count, uint32_t effectors);

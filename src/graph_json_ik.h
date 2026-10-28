@@ -28,7 +28,7 @@ bool maniGraphJsonTwoBone(maniGraphReader* r, const maniGraphScope* scope, const
 // An aim node's members (in the order kind, inputs, bones, goal,
 // forward, shares, pole, offset, up, twist, cone, weight) into s: equal
 // shares, no pole, zero offset and up, twist and cone 0 and weight 1 when
-// left out. Bones are a list of 1 to MANI_AIM_MAX_BONES names, shares a
+// left out. Bones are a list of 1 to MANI_MAX_AIM_BONES names, shares a
 // list of as many numbers.
 bool maniGraphJsonAim(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
                       maniGraphAimNodeSource* s);

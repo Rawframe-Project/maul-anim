@@ -35,7 +35,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
             abort();
         }
     }
-    float features[MANI_MATCH_MAX_FEATURES];
+    float features[MANI_MAX_MATCH_FEATURES];
     for (uint32_t f = 0; f < d.frameCount; ++f)
     {
         uint32_t entry = 0;

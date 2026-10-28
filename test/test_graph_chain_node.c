@@ -240,6 +240,15 @@ static bool Refused(maniGraphNodeKind kind, maniGraphChainNodeSource s, maniBuil
     return r.result == mani_errorInvalid && r.item == 1 && r.reason == reason;
 }
 
+// A chain node past a fixed bound: refused at the limit.
+static bool PastLimit(maniGraphNodeKind kind, maniGraphChainNodeSource s)
+{
+    maniGraphNodeSource nodes[2] = {ClipNode(0, 1.0f, maniGraphLoopRepeat),
+                                    ChainNode(kind, kFirst, s)};
+    maniBuildResult r = Built(ChainSource(nodes, 2));
+    return r.result == mani_errorLimit && r.item == 1 && r.reason == maniBuildReasonNode;
+}
+
 static void TestBuildRefusals(void)
 {
     static const uint32_t kLayered[2] = {2, 1};
@@ -270,7 +279,7 @@ static void TestBuildRefusals(void)
     bad[7].rotation = 2;
     bad[8].rotation = 0;
     bad[9].iterations = 0;
-    bad[10].iterations = MANI_IK_MAX_ITERATIONS + 1;
+    bad[10].iterations = MANI_MAX_IK_ITERATIONS + 1;
     bad[11].tolerance = -1.0f;
     bad[12].tolerance = NAN;
     bad[13].step = 3.5f;
@@ -279,9 +288,10 @@ static void TestBuildRefusals(void)
     int refused = 0;
     for (int k = 0; k < 16; ++k)
     {
-        refused += Refused(maniGraphNodeCcd, bad[k], maniBuildReasonNode);
+        refused += k == 10 ? PastLimit(maniGraphNodeCcd, bad[k])
+                           : Refused(maniGraphNodeCcd, bad[k], maniBuildReasonNode);
     }
-    CHECK(refused == 16, "bones, limits, parameters and numbers refused");
+    CHECK(refused == 16, "bones, limits, parameters and numbers refused, iterations at the limit");
     maniGraphChainNodeSource s = kFabrik;
     s.step = 0.1f;
     CHECK(Refused(maniGraphNodeFabrik, s, maniBuildReasonNode), "a FABRIK node's step");

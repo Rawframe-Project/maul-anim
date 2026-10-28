@@ -26,7 +26,7 @@ extern "C"
     // facing: the bone's axis, in the root's space); for a float track its
     // name, which every clip an entry names must have; its times, seconds
     // from the frame (ahead positive, behind negative, at most
-    // MANI_MATCH_MAX_REACH either way); and its weight, above 0. Each
+    // MANI_MAX_MATCH_REACH either way); and its weight, above 0. Each
     // channel is normalized on its own: the mean per feature taken off,
     // divided by the mean of its features' deviations over the weight. A
     // channel whose features never vary is refused.
@@ -62,7 +62,7 @@ extern "C"
 
     // A database: the skeleton and clips (each the skeleton's, not
     // additive), the channels, the entries, the sample rate (above 0, at
-    // most MANI_MATCH_MAX_RATE), the up axis whose plane is the ground and
+    // most MANI_MAX_MATCH_RATE), the up axis whose plane is the ground and
     // the forward axis a facing projects (on different axes), and the
     // mirror map of the skeleton its mirrored entries play through (NULL
     // when none is mirrored), and the most frames a leaf of the search's
@@ -100,12 +100,19 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The database.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse), or with the reason and item for a refused source:
-    /// `maniBuildReasonTiming` (the rate), `maniBuildReasonOption` (the
-    /// axes or the leaf size), `maniBuildReasonCount` (no channels, clips or entries, too
-    /// many, or past MANI_MATCH_MAX_FRAMES frames or
-    /// MANI_MATCH_MAX_FEATURES features), `maniBuildReasonJoint` (a clip
+    /// @return `mani_success`; `mani_errorLimit` with the reason and item
+    /// for a source past a bound (no misuse): `maniBuildReasonTiming` (a
+    /// rate past MANI_MAX_MATCH_RATE), `maniBuildReasonCount` (more than
+    /// MANI_MAX_MATCH_CLIPS clips, MANI_MAX_MATCH_CHANNELS channels or
+    /// MANI_MAX_MATCH_ENTRIES entries, more than MANI_MAX_MATCH_FRAMES
+    /// frames or MANI_MAX_MATCH_FEATURES features),
+    /// `maniBuildReasonChannel` (more than MANI_MAX_MATCH_TIMES times or a
+    /// time past MANI_MAX_MATCH_REACH; item the channel);
+    /// `mani_errorInvalid` for a NULL argument (a misuse), or with the
+    /// reason and item for a refused source: `maniBuildReasonTiming` (a
+    /// rate not above 0), `maniBuildReasonOption` (the axes or the leaf
+    /// size), `maniBuildReasonCount` (no channels, clips or entries),
+    /// `maniBuildReasonJoint` (a clip
     /// of another skeleton or additive; item the clip),
     /// `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry`
     /// (item the entry), `maniBuildReasonMissingTrack` (a float track an

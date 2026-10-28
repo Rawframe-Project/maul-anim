@@ -31,10 +31,10 @@ uint32_t maniMatchChannelWidth(uint32_t kind)
 }
 
 // The rate is a database's or a source's, each checked positive and
-// at most MANI_MATCH_MAX_RATE before any time is computed from it.
+// at most MANI_MAX_MATCH_RATE before any time is computed from it.
 float maniMatchFrameTime(float start, uint32_t k, float rate)
 {
-    MANI_ASSERT(rate > 0.0f && rate <= MANI_MATCH_MAX_RATE);
+    MANI_ASSERT(rate > 0.0f && rate <= MANI_MAX_MATCH_RATE);
     return (float)((double)start + (double)k / (double)rate);
 }
 
@@ -46,7 +46,7 @@ static bool Within(float time, float end, bool loop)
 bool maniMatchEntryFrames(float start, float end, float rate, bool loop, uint32_t* framesOut)
 {
     double span = ((double)end - (double)start) * (double)rate;
-    if (!(span >= 0.0 && span < (double)MANI_MATCH_MAX_FRAMES))
+    if (!(span >= 0.0 && span < (double)MANI_MAX_MATCH_FRAMES))
     {
         return false;
     }
@@ -54,7 +54,7 @@ bool maniMatchEntryFrames(float start, float end, float rate, bool loop, uint32_
     // time does not hold, or one more when the next's does: once only, as
     // far past 2^24 seconds a step no longer moves the time.
     uint32_t n = (uint32_t)floor(span) + 1u;
-    MANI_ASSERT(n <= MANI_MATCH_MAX_FRAMES);
+    MANI_ASSERT(n <= MANI_MAX_MATCH_FRAMES);
     if (n > 1 && !Within(maniMatchFrameTime(start, n - 1, rate), end, loop))
     {
         *framesOut = n - 1;
@@ -164,12 +164,12 @@ static maniFileResult CheckHeader(const Sections* s, maniMotionDatabase* d)
     uint32_t counts[7];
     // Bones, frames, features, channels, times, entries, clips.
     const uint32_t highs[7] = {MANI_MAX_BONES,
-                               MANI_MATCH_MAX_FRAMES,
-                               MANI_MATCH_MAX_FEATURES,
-                               MANI_MATCH_MAX_CHANNELS,
-                               MANI_MATCH_MAX_CHANNELS * MANI_MATCH_MAX_TIMES,
-                               MANI_MATCH_MAX_ENTRIES,
-                               MANI_MATCH_MAX_CLIPS};
+                               MANI_MAX_MATCH_FRAMES,
+                               MANI_MAX_MATCH_FEATURES,
+                               MANI_MAX_MATCH_CHANNELS,
+                               MANI_MAX_MATCH_CHANNELS * MANI_MAX_MATCH_TIMES,
+                               MANI_MAX_MATCH_ENTRIES,
+                               MANI_MAX_MATCH_CLIPS};
     for (uint32_t k = 0; k < 7; ++k)
     {
         counts[k] = maniLoadU32(h + 8 + 4 * k);
@@ -181,7 +181,7 @@ static maniFileResult CheckHeader(const Sections* s, maniMotionDatabase* d)
     float rate = LoadF32(h + 36);
     uint32_t up = maniLoadU32(h + 40);
     uint32_t forward = maniLoadU32(h + 44);
-    if (!(rate > 0.0f && rate <= MANI_MATCH_MAX_RATE))
+    if (!(rate > 0.0f && rate <= MANI_MAX_MATCH_RATE))
     {
         return Fail(at + 36);
     }
@@ -301,7 +301,7 @@ static uint32_t ChannelWrong(const maniMotionDatabase* d, const uint8_t* e, uint
         bone ? maniLoadU32(e + 4) < d->skeletonBoneCount : maniLoadU32(e + 4) == 0,
         kind == maniMatchBoneFacing ? maniLoadU32(e + 8) <= maniMatchAxisNegativeZ
                                     : maniLoadU32(e + 8) == 0,
-        times >= 1 && times <= MANI_MATCH_MAX_TIMES,
+        times >= 1 && times <= MANI_MAX_MATCH_TIMES,
         maniLoadU32(e + 16) == timeAt,
         maniLoadU32(e + 20) == featureAt,
         maniLoadU32(e + 24) == maniMatchChannelWidth(kind) * times,
@@ -344,7 +344,7 @@ static maniFileResult CheckChannels(const maniMotionDatabase* d, const Sections*
     for (uint32_t t = 0; t < d->timeCount; ++t)
     {
         float time = LoadF32(d->times + 4 * (size_t)t);
-        if (!(fabsf(time) <= MANI_MATCH_MAX_REACH))
+        if (!(fabsf(time) <= MANI_MAX_MATCH_REACH))
         {
             return Fail(s->at[2] + 4 * (uint64_t)t);
         }
@@ -665,7 +665,7 @@ maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database, uint32_
     }
     const uint8_t* e = database->channels + (size_t)channel * MANI_MATCH_CHANNEL_SIZE;
     uint32_t count = maniLoadU32(e + 12);
-    MANI_ASSERT(count <= MANI_MATCH_MAX_TIMES &&
+    MANI_ASSERT(count <= MANI_MAX_MATCH_TIMES &&
                 maniLoadU32(e + 16) + (uint64_t)count <= database->timeCount);
     *channelOut = (maniMatchChannel){.kind = maniLoadU32(e),
                                      .bone = maniLoadU32(e + 4),

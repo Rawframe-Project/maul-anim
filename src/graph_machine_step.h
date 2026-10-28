@@ -16,12 +16,12 @@
 #include <stdint.h>
 
 // The states one step entered at weight 0 by a restart or a match entry
-// (maniGraphEntry), at most MANI_GRAPH_MAX_CHAIN; the least duration of
+// (maniGraphEntry), at most MANI_MAX_GRAPH_CHAIN; the least duration of
 // the inertial transitions it took (+inf for none).
 typedef struct maniGraphEntered
 {
-    uint32_t states[MANI_GRAPH_MAX_CHAIN];
-    uint32_t entries[MANI_GRAPH_MAX_CHAIN];
+    uint32_t states[MANI_MAX_GRAPH_CHAIN];
+    uint32_t entries[MANI_MAX_GRAPH_CHAIN];
     uint32_t count;
     float inertia;
 } maniGraphEntered;

@@ -57,7 +57,11 @@ static bool Finite(float value)
 static maniBuildResult CheckBones(const maniSkeletonSource* source)
 {
     uint32_t n = source->boneCount;
-    if (n == 0 || n > MANI_MAX_BONES || source->bones == NULL)
+    if (n > MANI_MAX_BONES)
+    {
+        return (maniBuildResult){mani_errorLimit, maniBuildReasonCount, 0, 0};
+    }
+    if (n == 0 || source->bones == NULL)
     {
         return Refuse(maniBuildReasonCount, 0, 0);
     }

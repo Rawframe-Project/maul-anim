@@ -3,6 +3,7 @@
 
 #include "graph_body_check.h"
 
+#include "body_ik.h"
 #include "graph_file.h"
 
 #include "maul-anim/base.h"
@@ -18,6 +19,11 @@
 static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t other)
 {
     return (maniBuildResult){mani_errorInvalid, reason, item, other};
+}
+
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return (maniBuildResult){mani_errorLimit, reason, item, other};
 }
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
@@ -68,13 +74,16 @@ maniBuildResult maniCheckGraphBody(const maniGraphSource* source, const maniGrap
                                    uint32_t node)
 {
     const maniGraphBodyNodeSource* s = &n->body;
+    if (s->effectorCount > MANI_MAX_BODY_IK_EFFECTORS)
+    {
+        return PastLimit(maniBuildReasonNode, node, 0);
+    }
     if (s->effectors == NULL || s->effectorCount < 1 ||
-        s->effectorCount > MANI_BODY_IK_MAX_EFFECTORS ||
         (s->stretch && n->kind != maniGraphNodeBodyXpbd))
     {
         return Refuse(maniBuildReasonNode, node, 0);
     }
-    maniBodyEffector effectors[MANI_BODY_IK_MAX_EFFECTORS];
+    maniBodyEffector effectors[MANI_MAX_BODY_IK_EFFECTORS];
     for (uint32_t e = 0; e < s->effectorCount; ++e)
     {
         maniBuildResult r = CheckEffector(source, &s->effectors[e], node, e, &effectors[e]);
@@ -93,9 +102,11 @@ maniBuildResult maniCheckGraphBody(const maniGraphSource* source, const maniGrap
                                  .stretch = s->stretch,
                                  .tolerance = s->tolerance,
                                  .weight = 1.0f};
-    if (maniBodyIkScratchSize(source->skeleton, &solve) == 0)
+    bool past = false;
+    if (maniBodyPartShape(source->skeleton, &solve, &past) == 0)
     {
-        return Refuse(maniBuildReasonNode, node, 0);
+        return past ? PastLimit(maniBuildReasonNode, node, 0)
+                    : Refuse(maniBuildReasonNode, node, 0);
     }
     return WeightValid(source, s->weight)
                ? kOk

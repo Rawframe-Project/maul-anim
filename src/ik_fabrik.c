@@ -66,21 +66,21 @@ static void Backward(const maniIkChain* chain, const float* lengths, maniVec3 go
 static MANI_NOINLINE maniResult SolveFabrikWork(maniPose* pose, const maniSkeleton* skeleton,
                                                 const maniChainSolve* solve, bool* reachedOut)
 {
-    if (pose == NULL || skeleton == NULL || solve == NULL ||
-        !maniIkChainValid(pose, skeleton, solve, true, false))
+    maniResult checked = maniIkChainCheck(pose, skeleton, solve, true, false);
+    if (checked != mani_success)
     {
-        return mani_errorInvalid;
+        return checked;
     }
     maniIkChain chain;
     maniIkChainBegin(&chain, pose, skeleton, solve);
-    float lengths[MANI_IK_CHAIN_MAX_BONES] = {0};
+    float lengths[MANI_MAX_IK_CHAIN_BONES] = {0};
     for (uint32_t k = 0; k + 1 < chain.count; ++k)
     {
         lengths[k] = maniVec3Length(
             maniVec3Sub(maniIkOrigin(&chain.frames[k + 1]), maniIkOrigin(&chain.frames[k])));
     }
     Pole(&chain, pose, skeleton, solve);
-    maniVec3 places[MANI_IK_CHAIN_MAX_BONES] = {{0}};
+    maniVec3 places[MANI_MAX_IK_CHAIN_BONES] = {{0}};
     for (uint32_t i = 0; i < solve->iterations; ++i)
     {
         if (maniVec3Length(maniVec3Sub(maniIkChainEnd(&chain), solve->goal)) <= solve->tolerance)

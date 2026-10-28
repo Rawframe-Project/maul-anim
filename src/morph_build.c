@@ -87,13 +87,13 @@ static maniBuildResult CheckValues(const maniMorphSource* source, const maniMorp
     return kOk;
 }
 
-// The attribute table: at most MANI_MORPH_MAX_ATTRIBUTES, each known, set
+// The attribute table: at most MANI_MAX_MORPH_ATTRIBUTES, each known, set
 // 0 for positions, normals and tangents, none twice.
 static maniBuildResult CheckTable(const maniMorphSource* s)
 {
-    if (s->attributeCount > MANI_MORPH_MAX_ATTRIBUTES)
+    if (s->attributeCount > MANI_MAX_MORPH_ATTRIBUTES)
     {
-        return Result(mani_errorInvalid, maniBuildReasonCount, 0, 0);
+        return Result(mani_errorLimit, maniBuildReasonCount, 0, 0);
     }
     for (uint32_t a = 0; a < s->attributeCount; ++a)
     {
@@ -222,7 +222,7 @@ typedef struct Work
     // The largest given count, for the sort's buffers.
     uint32_t widest;
     // Each table entry's width.
-    uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES];
+    uint32_t widths[MANI_MAX_MORPH_ATTRIBUTES];
     // The targets over the channels in order.
     const maniMorphTargetSource** sources;
     uint64_t* keys;

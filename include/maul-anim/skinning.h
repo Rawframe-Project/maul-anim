@@ -20,6 +20,9 @@ extern "C"
 {
 #endif
 
+// The most weighted influences a vertex holds.
+#define MANI_MAX_INFLUENCES 64u
+
     // Influences over a file's bytes, which the caller keeps alive and
     // unchanged while the view is used. Its fields are the library's;
     // read it through the functions below. A view is immutable and

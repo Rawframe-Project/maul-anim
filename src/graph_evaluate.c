@@ -144,8 +144,8 @@ static void Space(const maniGraphEvaluation* e, const uint8_t* record, maniPose*
                   bool difference)
 {
     uint32_t n = maniLoadU32(record + 8);
-    MANI_ASSERT(n <= MANI_GRAPH_MAX_SPACE_POINTS && n <= e->binding->maxInputs);
-    float weights[MANI_GRAPH_MAX_SPACE_POINTS];
+    MANI_ASSERT(n <= MANI_MAX_GRAPH_SPACE_POINTS && n <= e->binding->maxInputs);
+    float weights[MANI_MAX_GRAPH_SPACE_POINTS];
     maniGraphSpaceWeights(e->graph, e->instance->cells, maniLoadU16(record),
                           maniLoadU32(record + 12), n, weights);
     uint32_t count = 0;
