@@ -5,6 +5,100 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.5.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.5.0) (2026-10-28)
+
+### Changed
+
+- **Breaking: every file kind's layout and format version change, and
+  an opener reads only its own version.** The reserved words are gone
+  from the files: the container header is 48 bytes, not 64, and the
+  clip, retargeting map, influences, learned model, learned checkpoint,
+  spring set, ragdoll profile and mirror map lose their zero words.
+  Every kind's format version goes up by one: skeleton 2, clip 4, graph
+  7, retargeting map 3, skin 2, influences 2, morph targets 2, motion
+  database 4, learned model 2, learned checkpoint 2, spring set 3,
+  ragdoll profile 2, mirror map 3. An opener now refuses any format
+  version but its own with `mani_errorVersion`, an earlier one included;
+  it used to accept an earlier version and read it with the current
+  layout. Build every stored file again from its source. Poses, samples
+  and other outputs do not change; only hashes of file bytes move
+  ([#113](https://github.com/Rawframe-Project/maul-anim/pull/113)).
+- **Breaking: results take the Maul family's values.**
+  `mani_errorVersion` is -7 (was -4) and `mani_errorFormat` is -8 (was
+  -3). `mani_errorState` is removed: a call from an object's own host
+  code (its allocator or task hooks) is refused with the new
+  `mani_errorBusy` (-10) in its place, and still counts one misuse. Code
+  that compares results by name only renames `mani_errorState` to
+  `mani_errorBusy`
+  ([#115](https://github.com/Rawframe-Project/maul-anim/pull/115)).
+- **Breaking: a fixed bound passed returns `mani_errorLimit` (-9).** An
+  argument, or a builder's or the trainer's source, past a bound the
+  library publishes returns `mani_errorLimit` in place of
+  `mani_errorInvalid`, with the same reason and item. This covers the
+  aim, CCD, FABRIK and full-body IK solvers, the motion database search,
+  and the skeleton, skin, influences, clip, morph targets, spring set,
+  retargeting map, motion database, learned model, trainer and graph
+  builders. A bound checked while opening a file is still
+  `mani_errorFormat`, and a range of a parameter's meaning (a weight in
+  [0, 1], a cone up to pi) is still `mani_errorInvalid`. Full-body IK
+  scratch that is too small returns `mani_errorCapacity`, not
+  `mani_errorInvalid`
+  ([#117](https://github.com/Rawframe-Project/maul-anim/pull/117)).
+- **Breaking: the bound constants are named `MANI_MAX_*`.**
+  `MANI_AIM_MAX_BONES` is `MANI_MAX_AIM_BONES`, `MANI_IK_CHAIN_MAX_BONES`
+  is `MANI_MAX_IK_CHAIN_BONES`, `MANI_IK_MAX_ITERATIONS` is
+  `MANI_MAX_IK_ITERATIONS`, `MANI_SPRING_MAX_RATE` is
+  `MANI_MAX_SPRING_RATE`, `MANI_MORPH_MAX_ATTRIBUTES` is
+  `MANI_MAX_MORPH_ATTRIBUTES`, and the `MANI_BODY_IK_MAX_*`,
+  `MANI_MATCH_MAX_*`, `MANI_LEARNED_MAX_*` and `MANI_GRAPH_MAX_*` names
+  are `MANI_MAX_BODY_IK_*`, `MANI_MAX_MATCH_*`, `MANI_MAX_LEARNED_*` and
+  `MANI_MAX_GRAPH_*`. A name that keeps the old form (`MANI_AIM_MAX_CONE`,
+  `MANI_SPRING_MAX_STEPS`, `MANI_GRAPH_LEARNED_MAX_STEPS`) is a range or
+  an internal cap, not a bound refused with `mani_errorLimit`
+  ([#117](https://github.com/Rawframe-Project/maul-anim/pull/117)).
+- **Breaking: public structs have no `reserved` field.** The field is
+  removed from every public struct, and builders no longer refuse a
+  source for a nonzero one. Remove it from initializers.
+  `maniFileResult` is `{result, tag, offset}`: `tag` names the section
+  the first wrong byte lies in, 0 in the header and table, so positional
+  initializers take the tag second
+  ([#109](https://github.com/Rawframe-Project/maul-anim/pull/109)).
+- **Breaking: a root graph's slots are checked against the root's own
+  lists.** `maniBuildGraph` refuses, with `maniBuildReasonNode` at the
+  node's place, a root node that names a clip, sync group, database,
+  model or spring set slot past the root's own list. In a graph with a
+  subgraph such a node used to build with the subgraph's slot of that
+  number: with 1 clip in the root and 1 in the subgraph, a root clip
+  node naming slot 1 played the subgraph's clip. Only a host's own
+  `maniGraphSource` structs reach this; the JSON form resolves each name
+  within its own graph. Every other graph builds to the same bytes. To
+  migrate, list in the root every asset and sync group its nodes name
+  ([#93](https://github.com/Rawframe-Project/maul-anim/pull/93)).
+- `MANI_MAX_INFLUENCES` (64 weighted influences on a vertex) and
+  `MANI_MAX_GRAPH_DEPTH` (16 levels of subgraphs) are public
+  ([#117](https://github.com/Rawframe-Project/maul-anim/pull/117)).
+- On WebAssembly, the public calls no longer go through the
+  floating-point environment's out-of-line entries, which have nothing
+  to switch there, so the static library is about 14.7 KB smaller.
+  Results do not change
+  ([#101](https://github.com/Rawframe-Project/maul-anim/pull/101)).
+- The user guide's getting started page explains `mani_errorLimit`,
+  `mani_errorBusy` and the one format version a release reads, and its
+  examples drop the `reserved` field and use the new constant names.
+
+### Fixed
+
+- The FBX importer bounds a file's property count. A file with 2^32 - 1
+  properties or more wrapped the count, and the importer wrote past the
+  property array it had allocated from it. Such a file is now refused
+  at the property past the bound; every file under it reads as before
+  ([#105](https://github.com/Rawframe-Project/maul-anim/pull/105)).
+- A motion database file whose entry is too long for a frame count and
+  stores `0xFFFFFFFF` as its count is refused at that entry's count. It
+  was still refused, but at a later, wrong place. Valid databases open
+  and build as before
+  ([#107](https://github.com/Rawframe-Project/maul-anim/pull/107)).
+
 ## [0.4.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.4.0) (2026-10-25)
 
 ### Changed
