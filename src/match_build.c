@@ -380,6 +380,7 @@ static bool Sample(Work* w)
         bool held = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
                                          (entry->flags & MANI_MATCH_LOOP) != 0, &frames);
         MANI_ASSERT(held);
+        (void)held;
         for (uint32_t k = 0; k < frames && ok; ++k)
         {
             float t = maniMatchFrameTime(entry->start, k, s->sampleRate);
@@ -444,6 +445,7 @@ static void Tree(Work* w)
         bool held = maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
                                          (entry->flags & MANI_MATCH_LOOP) != 0, &frames);
         MANI_ASSERT(held);
+        (void)held;
         for (uint32_t k = 0; k < frames; ++k)
         {
             w->entryOf[frame++] = e;
@@ -508,6 +510,7 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
         bool held = maniMatchEntryFrames(e->start, e->end, s->sampleRate,
                                          (e->flags & MANI_MATCH_LOOP) != 0, &frames);
         MANI_ASSERT(held);
+        (void)held;
         const float spans[3] = {e->start, e->end, e->costBias};
         maniStoreU32(at, e->clip);
         maniStoreU32(at + 4, e->flags);
