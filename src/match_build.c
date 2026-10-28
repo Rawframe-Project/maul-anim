@@ -150,10 +150,13 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
 {
     // Channels may name one track, so the names' total can pass the 32
     // bits the file's offsets have; it is taken before any name is read.
+    // A name past MANI_MAX_NAME_BYTES is left to its channel's bound.
     uint64_t names = 0;
     for (uint32_t c = 0; c < s->channelCount; ++c)
     {
-        names += s->channels[c].kind == maniMatchFloatTrack ? s->channels[c].trackLength : 0u;
+        const maniMatchChannelSource* ch = &s->channels[c];
+        bool counted = ch->kind == maniMatchFloatTrack && !maniNamePastLimit(ch->trackLength);
+        names += counted ? ch->trackLength : 0u;
     }
     if (names > UINT32_MAX)
     {
