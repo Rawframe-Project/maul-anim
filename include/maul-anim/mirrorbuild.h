@@ -38,10 +38,10 @@ extern "C"
     typedef struct maniMirrorRuleSource
     {
         const char* find;
-        uint32_t findLength;
+        size_t findLength;
         maniMirrorPlace place;
         const char* replace;
-        uint32_t replaceLength;
+        size_t replaceLength;
     } maniMirrorRuleSource;
 
     // Two bones that mirror each other (equal for a bone on itself).
@@ -55,8 +55,8 @@ extern "C"
     typedef struct maniMirrorNamePairSource
     {
         const char* first;
-        uint32_t firstLength;
-        uint32_t secondLength;
+        size_t firstLength;
+        size_t secondLength;
         const char* second;
     } maniMirrorNamePairSource;
 
@@ -64,7 +64,7 @@ extern "C"
     typedef struct maniMirrorNameSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniMirrorNameSource;
 
     // A mirror map: the skeleton; its reference pose as locals in bone

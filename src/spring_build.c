@@ -167,6 +167,10 @@ static maniBuildResult CheckSpring(const maniSpringSetSource* s, uint32_t i, Wor
     {
         return Refuse(maniBuildReasonSpring, i, 0);
     }
+    if (maniNamePastLimit(spring->nameLength))
+    {
+        return Result(mani_errorLimit, maniBuildReasonSpringList | maniBuildReasonName, i, 0);
+    }
     if (spring->nameLength > 0 &&
         (spring->name == NULL || !maniValidUtf8((const uint8_t*)spring->name, spring->nameLength)))
     {
@@ -367,9 +371,10 @@ static void LaySprings(const maniSpringSetSource* s, Work* w, uint8_t* const dat
         const maniSpringSource* spring = &s->springs[i];
         uint8_t* e = data[2] + (size_t)i * MANI_SPRING_SPRING_SIZE;
         uint64_t links = Links(s, i, w, data[4] + 4 * link);
+        // The check took only names within MANI_MAX_NAME_BYTES.
         const uint32_t words[7] = {
-            joint, spring->jointCount - 1, (uint32_t)link, (uint32_t)links, spring->center,
-            name,  spring->nameLength};
+            joint, spring->jointCount - 1,      (uint32_t)link, (uint32_t)links, spring->center,
+            name,  (uint32_t)spring->nameLength};
         for (uint32_t k = 0; k < 7; ++k)
         {
             maniStoreU32(e + 4 * k, words[k]);

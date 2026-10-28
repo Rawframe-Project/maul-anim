@@ -23,10 +23,13 @@
 // Stamps a binding and an instance carry while they are made.
 #define MANI_GRAPH_BINDING_STAMP  0x4D474244u
 #define MANI_GRAPH_INSTANCE_STAMP 0x4D474953u
-// A saved state's header: "MGST", 0, the graph's identity (u64), the
-// state's size (u64), then 16 bytes per parameter and per node.
+// A saved state's header: the state prefix ("MGST", the writer's ABI
+// version, the format version, the header size), the graph's identity
+// (u64) and the state's size (u64), then 16 bytes per parameter and per
+// node.
 #define MANI_GRAPH_STATE_MAGIC       0x5453474Du
-#define MANI_GRAPH_STATE_HEADER_SIZE 24u
+#define MANI_GRAPH_STATE_VERSION     1u
+#define MANI_GRAPH_STATE_HEADER_SIZE 32u
 // After them, every state machine's block, a little-endian word each.
 #define MANI_GRAPH_VALUE_SIZE      16u
 #define MANI_GRAPH_NODE_STATE_SIZE 16u
@@ -138,7 +141,7 @@ static inline const maniGraphBoundMapPair* maniGraphBoundMap(const maniGraphBind
 static inline const maniGraphBoundMapPair* maniGraphClipMapPair(const maniGraphBinding* binding,
                                                                 uint32_t clip)
 {
-    uint32_t slot = maniGraphClipMap(&binding->graph, clip);
+    uint32_t slot = maniGraphClipRetargetMap(&binding->graph, clip);
     return slot == MANI_NO_TRACK ? NULL : maniGraphBoundMap(binding, slot);
 }
 

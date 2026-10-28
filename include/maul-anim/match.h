@@ -214,7 +214,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database,
-                                                       uint32_t channel, uint32_t* lengthOut);
+                                                       uint32_t channel, size_t* lengthOut);
 
     /// Reads a database's entry.
     ///
@@ -244,29 +244,42 @@ extern "C"
                                                                float* timeOut);
 
     /// Reads a frame's features, normalized: (value - offset) / scale.
+    /// Call it with a NULL array and capacity 0 to measure.
     ///
     /// @param database     An opened database.
     /// @param frame        The frame.
     /// @param featuresOut  Receives the database's feature count of
-    ///                     values.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// a frame past the frames.
+    ///                     values; may be NULL when capacity is 0.
+    /// @param capacity     The floats featuresOut holds.
+    /// @param countOut     Receives the feature count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the feature count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL database, a NULL array with a
+    /// positive capacity or a frame past the frames.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniMotionDatabaseFeatures(
-        const maniMotionDatabase* database, uint32_t frame, float* featuresOut);
+    MANI_NODISCARD MANI_API maniResult
+    maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32_t frame,
+                               float* featuresOut, uint32_t capacity, uint32_t* countOut);
 
     /// Reads a database's normalization: per feature, the offset taken
-    /// from a value and the scale it is divided by.
+    /// from a value and the scale it is divided by. Call it with both
+    /// arrays NULL and capacity 0 to measure.
     ///
-    /// @param database  An opened database.
-    /// @param offsetsOut Receives the feature count of offsets, or NULL.
-    /// @param scalesOut  Receives the feature count of scales, or NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL database.
+    /// @param database    An opened database.
+    /// @param offsetsOut  Receives the feature count of offsets, or NULL.
+    /// @param scalesOut   Receives the feature count of scales, or NULL.
+    /// @param capacity    The floats each array given holds.
+    /// @param countOut    Receives the feature count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the feature count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL database, or both arrays NULL with a
+    /// positive capacity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniMotionDatabaseNormalization(
-        const maniMotionDatabase* database, float* offsetsOut, float* scalesOut);
+    MANI_NODISCARD MANI_API maniResult
+    maniMotionDatabaseNormalization(const maniMotionDatabase* database, float* offsetsOut,
+                                    float* scalesOut, uint32_t capacity, uint32_t* countOut);
 
     // A search: the query's features (raw, the database's feature count),
     // the continuing frame (MANI_MATCH_NO_FRAME for none), the tags an

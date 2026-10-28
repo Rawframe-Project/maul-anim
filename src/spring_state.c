@@ -11,6 +11,7 @@
 #include "fpenv.h"
 #include "pose_memory.h"
 #include "spring_file.h"
+#include "state_prefix.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -162,28 +163,34 @@ void maniResetSprings(maniSpringState* state)
     }
 }
 
-size_t maniSpringSavedSize(const maniSpringSet* set)
+// The bytes a state's saved form takes.
+static size_t SavedSize(const maniSpringSet* set)
 {
-    return set == NULL ? 0 : MANI_SPRING_STATE_HEADER_SIZE + 4 * (size_t)maniSpringBlockWords(set);
+    return MANI_SPRING_STATE_HEADER_SIZE + 4 * (size_t)maniSpringBlockWords(set);
 }
 
 static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state, void* out,
-                                                    size_t capacity)
+                                                    size_t capacity, size_t* sizeOut)
 {
-    if (state == NULL || out == NULL)
+    if (state == NULL || (out == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
-    size_t size = maniSpringSavedSize(state->set);
-    if (capacity < size)
+    size_t size = SavedSize(state->set);
+    if (sizeOut != NULL)
+    {
+        *sizeOut = size;
+    }
+    // A NULL buffer has capacity 0, and a state is never empty.
+    if (out == NULL || capacity < size)
     {
         return mani_errorCapacity;
     }
     uint8_t* p = out;
-    maniStoreU32(p, MANI_SPRING_STATE_MAGIC);
-    maniStoreU32(p + 4, 0);
-    maniStoreU64(p + 8, state->set->identity);
-    maniStoreU64(p + 16, size);
+    maniStoreStatePrefix(p, MANI_SPRING_STATE_MAGIC, MANI_SPRING_STATE_VERSION,
+                         MANI_SPRING_STATE_HEADER_SIZE);
+    maniStoreU64(p + 16, state->set->identity);
+    maniStoreU64(p + 24, size);
     const uint32_t* block = maniSpringConstBlock(state);
     for (uint64_t w = 0; w < state->words; ++w)
     {
@@ -192,10 +199,11 @@ static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state
     return mani_success;
 }
 
-maniResult maniSaveSpringState(const maniSpringState* state, void* out, size_t capacity)
+maniResult maniSaveSpringState(const maniSpringState* state, void* bytesOut, size_t capacity,
+                               size_t* sizeOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = SaveSpringStateWork(state, out, capacity);
+    maniResult result = SaveSpringStateWork(state, bytesOut, capacity, sizeOut);
     maniFloatEnvLeave(env);
     return result;
 }
@@ -348,22 +356,20 @@ static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* stat
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     const uint8_t* b = bytes;
-    size_t expected = maniSpringSavedSize(state->set);
-    if (size < MANI_SPRING_STATE_HEADER_SIZE || maniLoadU32(b) != MANI_SPRING_STATE_MAGIC)
+    size_t expected = SavedSize(state->set);
+    maniFileResult prefix = maniCheckStatePrefix(
+        b, size, MANI_SPRING_STATE_MAGIC, MANI_SPRING_STATE_VERSION, MANI_SPRING_STATE_HEADER_SIZE);
+    if (prefix.result != mani_success)
     {
-        return Fail(0);
+        return prefix;
     }
-    if (maniLoadU32(b + 4) != 0)
-    {
-        return Fail(4);
-    }
-    if (maniLoadU64(b + 8) != state->set->identity)
-    {
-        return Fail(8);
-    }
-    if (maniLoadU64(b + 16) != expected || size < expected)
+    if (maniLoadU64(b + 16) != state->set->identity)
     {
         return Fail(16);
+    }
+    if (maniLoadU64(b + 24) != expected || size < expected)
+    {
+        return Fail(24);
     }
     uint64_t wrong = maniSpringBlockValid(state->set, b + MANI_SPRING_STATE_HEADER_SIZE);
     if (wrong != kValid)

@@ -106,7 +106,7 @@ typedef struct List
 {
     uint32_t count;
     const char** names;
-    uint32_t* lengths;
+    size_t* lengths;
 } List;
 
 static bool Begin(Reader* r, uint32_t value, List* list)
@@ -117,7 +117,7 @@ static bool Begin(Reader* r, uint32_t value, List* list)
         return false;
     }
     list->names = (const char**)maniArenaTake(&r->arena, list->count, sizeof(const char*));
-    list->lengths = maniArenaTake(&r->arena, list->count, sizeof(uint32_t));
+    list->lengths = maniArenaTake(&r->arena, list->count, sizeof(size_t));
     return (list->names != NULL && list->lengths != NULL) || maniGraphJsonNoMemory(r);
 }
 
@@ -179,7 +179,7 @@ static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
             return maniGraphJsonFault(r, e, maniGraphFormUnbound);
         }
         c[i].clip = r->hostClips[host].clip;
-        c[i].map = r->hostClips[host].map;
+        c[i].retargetMap = r->hostClips[host].retargetMap;
         list.names[i] = c[i].name;
         list.lengths[i] = c[i].nameLength;
     }
@@ -378,7 +378,7 @@ static bool Chain(Reader* r, uint32_t object, maniMaskChain* chain)
     static const char* const kKeys[] = {"bone", "weight", "subtree"};
     uint32_t f[3];
     const char* name = NULL;
-    uint32_t length = 0;
+    size_t length = 0;
     bool subtree = false;
     if (!maniGraphJsonMembers(r, object, kKeys, 3, 3u, f) ||
         !maniGraphJsonName(r, f[0], &name, &length) ||

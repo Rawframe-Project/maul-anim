@@ -167,11 +167,11 @@ static void TestSaved(void)
     maniGraphInstance* instance = PoseGraph(&g);
     MovePose();
     CHECK(maniSetGraphPose(instance, 3, s_pose) == mani_success, "set");
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     size_t poses = MANI_GRAPH_STATE_HEADER_SIZE + (4 + 1) * MANI_GRAPH_VALUE_SIZE;
     CHECK(size == poses + 2 * 3 * MANI_POSE_COMPONENTS * 4, "two poses of three bones");
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], size - 1) == mani_errorCapacity &&
-              maniSaveGraphInstance(instance, s_saved[0], size) == mani_success,
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], size - 1, NULL) == mani_errorCapacity &&
+              maniSaveGraphInstance(instance, s_saved[0], size, NULL) == mani_success,
           "saved");
     float word = 0.0f;
     memcpy(&word, s_saved[0] + poses + 3 * MANI_POSE_COMPONENTS * 4 + MANI_POSE_COMPONENTS * 4 + 8,
@@ -194,8 +194,8 @@ static void TestSavedRefused(void)
 {
     maniGraph g;
     maniGraphInstance* instance = PoseGraph(&g);
-    size_t size = maniGraphStateSize(instance->binding);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], size) == mani_success, "saved");
+    size_t size = SavedGraphSize(instance);
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], size, NULL) == mani_success, "saved");
     size_t bone = MANI_GRAPH_STATE_HEADER_SIZE + (4 + 1) * MANI_GRAPH_VALUE_SIZE +
                   (3 + 2) * MANI_POSE_COMPONENTS * 4;
     MovePose();

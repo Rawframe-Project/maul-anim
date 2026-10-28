@@ -114,7 +114,7 @@ static void TestBuild(void)
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two spring sets");
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphSpringSetName(&g, 1, &length);
     CHECK(maniGraphSpringSetCount(&g) == 2 &&
               maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set) &&
@@ -194,7 +194,7 @@ static void TestOpen(void)
     uint64_t sets = SectionAt(maniGraphTagSpringSets, &size);
     CHECK(size == 2 * MANI_GRAPH_SPRING_SET_SIZE, "two records");
     CHECK(RefusedAt(header + 56, MANI_MAX_GRAPH_SPRING_SETS + 1, header + 56), "too many sets");
-    CHECK(RefusedAt(header + 60, MANI_MAX_GRAPH_MAPS + 1, header + 60), "too many maps");
+    CHECK(RefusedAt(header + 60, MANI_MAX_GRAPH_RETARGET_MAPS + 1, header + 60), "too many maps");
     // The sets' entry is the table's last.
     uint64_t entry =
         MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(maniLoadU32(s_graphFile + 12) - 1) + 16;

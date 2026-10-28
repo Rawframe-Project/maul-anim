@@ -140,17 +140,24 @@ extern "C"
 
     /// Reads the normalization of the database a model learned: per
     /// feature, the offset taken from a value and the scale it is divided
-    /// by.
+    /// by. Call it with both arrays NULL and capacity 0 to measure.
     ///
     /// @param model       An opened model.
     /// @param offsetsOut  Receives the feature count of offsets, or NULL.
     /// @param scalesOut   Receives the feature count of scales, or NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL model.
+    /// @param capacity    The floats each array given holds.
+    /// @param countOut    Receives the feature count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the feature count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL model, or both arrays NULL with a
+    /// positive capacity.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedModelNormalization(const maniLearnedModel* model,
                                                                      float* offsetsOut,
-                                                                     float* scalesOut);
+                                                                     float* scalesOut,
+                                                                     uint32_t capacity,
+                                                                     uint32_t* countOut);
 
     /// Reads the tag filter a Projector learned: an entry's tags held all
     /// of required and none of excluded for its frames to be targets.
@@ -168,6 +175,22 @@ extern "C"
                                                                  uint32_t* requiredOut,
                                                                  uint32_t* excludedOut);
 
+    /// Returns the number of float tracks a model gives.
+    ///
+    /// @param model  An opened model, or NULL.
+    /// @return The count; 0 for NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniLearnedModelFloatTrackCount(const maniLearnedModel* model);
+
+    /// Returns the number of events a model gives the state of.
+    ///
+    /// @param model  An opened model, or NULL.
+    /// @return The count; 0 for NULL.
+    /// @par Thread safety
+    /// Safe from any thread.
+    MANI_API uint32_t maniLearnedModelEventCount(const maniLearnedModel* model);
+
     /// Returns the name of a float track a model gives.
     ///
     /// @param model      An opened model.
@@ -178,7 +201,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model,
-                                                        uint32_t track, uint32_t* lengthOut);
+                                                        uint32_t track, size_t* lengthOut);
 
     /// Returns the name of an event a model gives the state of.
     ///
@@ -190,7 +213,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniLearnedModelEventName(const maniLearnedModel* model, uint32_t event,
-                                                   uint32_t* lengthOut);
+                                                   size_t* lengthOut);
 
     /// Returns the bytes of scratch memory an evaluation of the model
     /// needs.
@@ -204,23 +227,32 @@ extern "C"
     /// Projects a query onto the state of the nearest frame a Projector
     /// learned.
     ///
+    /// Call it with a NULL state and capacity 0 to measure.
+    ///
     /// @param model        An opened model.
     /// @param projector    The Projector's index.
     /// @param query        The model's feature count of features,
     ///                     normalized as the database's.
-    /// @param stateOut     Receives the state.
+    /// @param stateOut     Receives the state; may be NULL when capacity is
+    ///                     0.
+    /// @param capacity     The floats stateOut holds.
+    /// @param countOut     Receives the state's count of floats: the
+    ///                     feature count and the latent count. May be NULL.
     /// @param scratch      Scratch memory, 4-byte aligned.
     /// @param scratchSize  Its size: at least maniLearnedScratchSize.
-    /// @return `mani_success`; `mani_errorFormat` when the Projector gives
-    /// a value past the float range, the model's data (stateOut unchanged);
-    /// `mani_errorInvalid` for a NULL argument, an index past the
-    /// Projectors, a query value not finite, misaligned or too little
-    /// scratch.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the state's count, with the count still written and nothing else;
+    /// `mani_errorFormat` when the Projector gives a value past the float
+    /// range, the model's data (stateOut unchanged); `mani_errorInvalid`
+    /// for a NULL argument, a NULL state with a positive capacity, an index
+    /// past the Projectors, a query value not finite, misaligned or too
+    /// little scratch.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedProject(const maniLearnedModel* model,
                                                           uint32_t projector, const float* query,
-                                                          float* stateOut, void* scratch,
+                                                          float* stateOut, uint32_t capacity,
+                                                          uint32_t* countOut, void* scratch,
                                                           size_t scratchSize);
 
     /// Moves a state one step on: adds the Stepper's rate of change times
@@ -243,12 +275,16 @@ extern "C"
     // local transform), the root's velocity and angular velocity (a
     // scaled axis, radians a second) in its own frame, the float tracks'
     // values and the events' states (an event fires as its state rises
-    // past 0.5). Any of pose, floatTracks and events may be NULL.
+    // past 0.5). Any of pose, floatTracks and events may be NULL; each
+    // array given holds its capacity of floats, at least the model's
+    // count (maniLearnedModelFloatTrackCount, maniLearnedModelEventCount).
     typedef struct maniLearnedOutput
     {
         maniPose* pose;
         float* floatTracks;
+        uint32_t floatTrackCapacity;
         float* events;
+        uint32_t eventCapacity;
         maniVec3 rootVelocity;
         maniVec3 rootAngularVelocity;
     } maniLearnedOutput;
@@ -265,9 +301,11 @@ extern "C"
     /// @param scratchSize  Its size: at least maniLearnedScratchSize.
     /// @return `mani_success`; `mani_errorFormat` when the Decompressor
     /// gives a value past the float range, the model's data (nothing
-    /// written); `mani_errorInvalid` for a NULL argument, a state value not
-    /// finite, a pose of another bone count or holding a difference,
-    /// misaligned or too little scratch.
+    /// written); `mani_errorCapacity` when an array given holds fewer
+    /// floats than the model gives (nothing written); `mani_errorInvalid`
+    /// for a NULL argument, a state value not finite, a pose of another
+    /// bone count or holding a difference, misaligned or too little
+    /// scratch.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedDecompress(const maniLearnedModel* model,

@@ -271,7 +271,7 @@ static void TestLocals(void)
     maniSkeleton skeleton;
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &options, &skeleton), "skeleton");
     CHECK(maniGltfAnimationCount(gltf) == 1, "one animation");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGltfAnimationName(gltf, 0, &length);
     CHECK(length == 4 && memcmp(name, "walk", 4) == 0, "its name");
     CHECK(maniGltfAnimationName(gltf, 1, &length) == NULL && length == 0, "past the count");

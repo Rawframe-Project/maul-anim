@@ -182,10 +182,10 @@ static size_t PoseRound(size_t size)
 static const maniRetargetMap* FindMap(const maniGraph* graph, uint32_t slot,
                                       const maniGraphAssets* assets)
 {
-    for (uint32_t i = 0; i < assets->mapCount; ++i)
+    for (uint32_t i = 0; i < assets->retargetMapCount; ++i)
     {
-        const maniRetargetMap* m = assets->maps[i];
-        if (m != NULL && m->identity == maniGraphMapIdentity(graph, slot) &&
+        const maniRetargetMap* m = assets->retargetMaps[i];
+        if (m != NULL && m->identity == maniGraphRetargetMapIdentity(graph, slot) &&
             m->targetIdentity == graph->skeletonIdentity &&
             m->targetBoneCount == graph->skeletonBoneCount)
         {
@@ -397,7 +397,7 @@ static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
            (a->databases != NULL || a->databaseCount == 0) &&
            (a->models != NULL || a->modelCount == 0) &&
            (a->springSets != NULL || a->springSetCount == 0) &&
-           (a->maps != NULL || a->mapCount == 0) &&
+           (a->retargetMaps != NULL || a->retargetMapCount == 0) &&
            (a->sourceSkeletons != NULL || a->sourceSkeletonCount == 0) &&
            maniSkeletonIdentity(a->skeleton) == graph->skeletonIdentity &&
            maniSkeletonBoneCount(a->skeleton) == graph->skeletonBoneCount;

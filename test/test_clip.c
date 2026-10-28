@@ -359,7 +359,7 @@ static void TestFloatTracks(void)
     uint32_t wave = maniClipFindFloatTrack(&clip, "wave", 4);
     CHECK(ramp != MANI_NO_TRACK && gate != MANI_NO_TRACK && wave != MANI_NO_TRACK, "found");
     CHECK(maniClipFindFloatTrack(&clip, "foot", 4) == MANI_NO_TRACK, "not a float track");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniClipFloatTrackName(&clip, gate, &length);
     CHECK(length == 4 && memcmp(name, "gate", 4) == 0, "its name");
     CHECK(maniClipFloatTrackName(&clip, 3, &length) == NULL && length == 0, "name past");
@@ -406,7 +406,7 @@ static void TestDiscreteTracks(void)
     CHECK(maniClipDiscreteValue(&clip, state, 0.1f) == 7, "before the first key, the first");
     CHECK(maniClipDiscreteValue(&clip, foot, NAN) == 1, "NaN is 0");
     CHECK(maniClipDiscreteValue(&clip, 2, 0.5f) == 0, "a track past the count");
-    uint32_t length = 0;
+    size_t length = 0;
     CHECK(maniClipDiscreteTrackName(&clip, state, &length) != NULL && length == 5, "its name");
 }
 
@@ -790,6 +790,9 @@ static void TestBuildRefusals(void)
     source.floatTracks = floats;
     floats[1].nameLength = 0;
     ExpectRefusal(&source, maniBuildReasonFloatTrack | maniBuildReasonName, 1, "a float name");
+    floats[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectResult(&source, mani_errorLimit, maniBuildReasonFloatTrack | maniBuildReasonName, 1,
+                 "a float name past MANI_MAX_NAME_BYTES");
     memcpy(floats, s_floats, sizeof floats);
     floats[2].name = "ramp";
     r = BuildFrom(&source);
@@ -832,6 +835,9 @@ static void TestBuildRefusals(void)
     events[3].name = "\xFF";
     events[3].nameLength = 1;
     ExpectRefusal(&source, maniBuildReasonEvent | maniBuildReasonName, 3, "an event's name");
+    events[3].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectResult(&source, mani_errorLimit, maniBuildReasonEvent | maniBuildReasonName, 3,
+                 "an event's name past MANI_MAX_NAME_BYTES");
     source = SampleSource();
     source.duration = 0.75f;
     ExpectRefusal(&source, maniBuildReasonDiscreteTrack | maniBuildReasonKeyTime, 0,

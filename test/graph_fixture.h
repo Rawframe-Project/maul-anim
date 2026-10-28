@@ -227,16 +227,24 @@ static inline void Set(maniGraphInstance* instance, uint32_t parameter, maniGrap
     CHECK(maniSetGraphParameter(instance, parameter, type, value) == mani_success, "set");
 }
 
+// The bytes maniSaveGraphInstance writes for the instance, measured with
+// no buffer; 0 when the measure fails.
+static inline size_t SavedGraphSize(const maniGraphInstance* instance)
+{
+    size_t size = 0;
+    return maniSaveGraphInstance(instance, NULL, 0, &size) == mani_errorCapacity ? size : 0;
+}
+
 // The instance's state saved and restored into another instance of its
 // binding: whether both succeed.
 static inline bool Restores(maniGraphInstance* instance)
 {
     static _Alignas(8) uint8_t saved[8192];
     static _Alignas(8) uint8_t memory[16384];
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     return size <= sizeof saved &&
-           maniSaveGraphInstance(instance, saved, sizeof saved) == mani_success &&
+           maniSaveGraphInstance(instance, saved, sizeof saved, NULL) == mani_success &&
            maniInitGraphInstance(instance->binding, memory, sizeof memory, &other) ==
                mani_success &&
            maniRestoreGraphInstance(other, saved, size).result == mani_success;

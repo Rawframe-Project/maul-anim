@@ -91,7 +91,7 @@ static uint32_t ListCount(const maniGraphSource* source, uint32_t list)
 }
 
 static const char* ItemName(const maniGraphSource* source, uint32_t list, uint32_t i,
-                            uint32_t* lengthOut)
+                            size_t* lengthOut)
 {
     MANI_ASSERT(list <= kSpringSets && i < ListCount(source, list));
     if (list == kParameters)
@@ -166,8 +166,13 @@ static maniBuildResult CheckNames(const maniGraphSource* source, uint32_t list,
     maniBuildResult r = Outcome(mani_success);
     for (uint32_t i = 0; i < n && r.result == mani_success; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = ItemName(source, list, i, &length);
+        if (maniNamePastLimit(length))
+        {
+            r = maniGraphPastLimit(s_lists[list] | maniBuildReasonName, i, 0);
+            break;
+        }
         if (name == NULL || length == 0 || !maniValidUtf8((const uint8_t*)name, length))
         {
             r = maniGraphRefuse(s_lists[list] | maniBuildReasonName, i, 0);
@@ -185,8 +190,8 @@ static maniBuildResult CheckNames(const maniGraphSource* source, uint32_t list,
     }
     else if (found > 0)
     {
-        uint32_t lengthA = 0;
-        uint32_t lengthB = 0;
+        size_t lengthA = 0;
+        size_t lengthB = 0;
         const char* a = ItemName(source, list, low, &lengthA);
         const char* b = ItemName(source, list, high, &lengthB);
         bool same = lengthA == lengthB && memcmp(a, b, lengthA) == 0;
@@ -249,7 +254,7 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
 
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 {
-    MANI_ASSERT(*count <= MANI_MAX_GRAPH_MAPS);
+    MANI_ASSERT(*count <= MANI_MAX_GRAPH_RETARGET_MAPS);
     for (uint32_t k = 0; k < *count; ++k)
     {
         if (ids[k] == identity)
@@ -257,9 +262,9 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
             return k;
         }
     }
-    if (*count == MANI_MAX_GRAPH_MAPS)
+    if (*count == MANI_MAX_GRAPH_RETARGET_MAPS)
     {
-        return MANI_MAX_GRAPH_MAPS;
+        return MANI_MAX_GRAPH_RETARGET_MAPS;
     }
     ids[*count] = identity;
     return (*count)++;
@@ -270,7 +275,7 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c)
 {
     uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
-    const maniRetargetMap* map = c->map;
+    const maniRetargetMap* map = c->retargetMap;
     if (c->clip == NULL)
     {
         return false;
@@ -286,12 +291,12 @@ static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c
 }
 
 // Every clip slot: a clip of the skeleton or of its map's source, each
-// clip once, at most MANI_MAX_GRAPH_MAPS maps.
+// clip once, at most MANI_MAX_GRAPH_RETARGET_MAPS maps.
 static maniBuildResult CheckClips(const maniGraphSource* source, const maniAllocator* allocator,
                                   uint32_t* mapCountOut)
 {
     uint32_t n = source->clipCount;
-    uint64_t ids[MANI_MAX_GRAPH_MAPS] = {0};
+    uint64_t ids[MANI_MAX_GRAPH_RETARGET_MAPS] = {0};
     for (uint32_t i = 0; i < n; ++i)
     {
         const maniGraphClipSource* c = &source->clips[i];
@@ -299,8 +304,9 @@ static maniBuildResult CheckClips(const maniGraphSource* source, const maniAlloc
         {
             return maniGraphRefuse(maniBuildReasonClip, i, 0);
         }
-        if (c->map != NULL &&
-            maniGraphMapSlotIn(ids, mapCountOut, c->map->identity) == MANI_MAX_GRAPH_MAPS)
+        if (c->retargetMap != NULL &&
+            maniGraphMapSlotIn(ids, mapCountOut, c->retargetMap->identity) ==
+                MANI_MAX_GRAPH_RETARGET_MAPS)
         {
             return maniGraphPastLimit(maniBuildReasonClip, i, 0);
         }
@@ -976,7 +982,8 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
         r = CheckInertial(source, allocator);
     }
     if (r.result == mani_success &&
-        (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX))
+        (tallyOut->dataWords > UINT32_MAX || tallyOut->machineWords > UINT32_MAX ||
+         tallyOut->namesSize > UINT32_MAX))
     {
         r = maniGraphRefuse(maniBuildReasonCount, 0, 0);
     }

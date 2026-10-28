@@ -67,14 +67,14 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     // Every value of an accepted checkpoint is checked: its sections save
     // back whole (the gaps between them are the container's).
-    size_t saved = maniLearnedCheckpointSize(s_trainer);
+    size_t saved = CheckpointSize(s_trainer);
     uint8_t* block = malloc(saved + 16);
     if (block == NULL)
     {
         return;
     }
     uint8_t* again = block + (16 - (uintptr_t)block % 16) % 16;
-    if (maniSaveLearnedCheckpoint(s_trainer, again, saved) != mani_success ||
+    if (maniSaveLearnedCheckpoint(s_trainer, again, saved, NULL) != mani_success ||
         !SameSections(bytes, size, again, saved))
     {
         abort();

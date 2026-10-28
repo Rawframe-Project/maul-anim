@@ -61,6 +61,19 @@ typedef struct Progress
     const uint8_t* networks[MANI_LEARNED_PROJECTORS + MANI_MAX_LEARNED_PROJECTORS];
 } Progress;
 
+// A checkpoint is state, read only by a release of the ABI version that
+// wrote it (MANI_ABI_VERSION): the whole version before 1.0, the major and
+// minor version from 1.0 on. The container holds the writer's version.
+static bool SameAbi(const uint8_t* b)
+{
+    bool release =
+        maniLoadU16(b + 16) == MANI_VERSION_MAJOR && maniLoadU16(b + 18) == MANI_VERSION_MINOR;
+#if MANI_VERSION_MAJOR == 0
+    release = release && maniLoadU16(b + 20) == MANI_VERSION_PATCH;
+#endif
+    return release;
+}
+
 static maniFileResult ReadProgress(const maniLearnedTrainer* t, const maniContainer* c, Progress* p)
 {
     const uint8_t* bytes = NULL;
@@ -232,6 +245,10 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* byt
     if (r.result != mani_success)
     {
         return r;
+    }
+    if (!SameAbi(bytes))
+    {
+        return (maniFileResult){mani_errorVersion, 0, 16};
     }
     if (c.identity != trainer->signature)
     {

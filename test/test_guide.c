@@ -325,7 +325,7 @@ static void Tall(maniSkeleton* tall)
     maniBoneSource bones[3];
     for (uint32_t b = 0; b < 3; ++b)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(&s_skeleton, b, &length);
         maniTransform rest = maniSkeletonRest(&s_skeleton, b);
         rest.translation.y *= 2.0f;

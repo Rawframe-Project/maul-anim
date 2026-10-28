@@ -174,7 +174,7 @@ static void TestBuildsAndReads(void)
               maniMorphAttribute(&m, 3, &set) == maniMorphTexcoord && set == 0 &&
               maniMorphAttribute(&m, 5, &set) == UINT32_MAX && set == 0,
           "the attribute table");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniMorphChannelName(&m, 1, &length);
     CHECK(length == 5 && memcmp(name, "blink", 5) == 0, "a channel's name");
     CHECK(maniMorphChannelName(&m, 3, &length) == NULL && length == 0, "no channel past the count");
@@ -287,7 +287,9 @@ static void TestWeights(void)
         float w = (float)i * 0.05f;
         const float channels[3] = {w, w, w};
         float targets[5];
-        CHECK(maniMorphTargetWeights(&m, channels, targets) == mani_success, "weights");
+        CHECK(maniMorphTargetWeights(&m, channels, targets, maniMorphTargetCount(&m), NULL) ==
+                  mani_success,
+              "weights");
         through = through && targets[0] == w && targets[4] == w;
         double want[3];
         ReferenceWeights(full, 3, (double)w, want);
@@ -306,17 +308,30 @@ static void TestWeights(void)
     // At a key, that key alone; at 0, nothing.
     const float atKey[3] = {0.0f, 0.5f, 0.0f};
     float targets[5];
-    CHECK(maniMorphTargetWeights(&m, atKey, targets) == mani_success && targets[0] == 0.0f &&
-              targets[1] == 0.0f && targets[2] == 1.0f && targets[3] == 0.0f && targets[4] == 0.0f,
+    CHECK(maniMorphTargetWeights(&m, atKey, targets, maniMorphTargetCount(&m), NULL) ==
+                  mani_success &&
+              targets[0] == 0.0f && targets[1] == 0.0f && targets[2] == 1.0f &&
+              targets[3] == 0.0f && targets[4] == 0.0f,
           "at a key and at 0");
     const float bad[3] = {0.0f, NAN, 0.0f};
     memset(targets, 0x7F, sizeof targets);
     float kept[5];
     memcpy(kept, targets, sizeof kept);
-    CHECK(maniMorphTargetWeights(&m, bad, targets) == mani_errorInvalid &&
+    CHECK(maniMorphTargetWeights(&m, bad, targets, maniMorphTargetCount(&m), NULL) ==
+                  mani_errorInvalid &&
               memcmp(kept, targets, sizeof kept) == 0,
           "a weight not finite: nothing written");
-    CHECK(maniMorphTargetWeights(&m, NULL, targets) == mani_errorInvalid, "no weights");
+    CHECK(maniMorphTargetWeights(&m, NULL, targets, maniMorphTargetCount(&m), NULL) ==
+              mani_errorInvalid,
+          "no weights");
+    uint32_t measured = 0;
+    uint32_t refused = 0;
+    CHECK(maniMorphTargetWeights(&m, atKey, NULL, 0, &measured) == mani_errorCapacity &&
+              measured == 5 &&
+              maniMorphTargetWeights(&m, atKey, targets, 4, &refused) == mani_errorCapacity &&
+              refused == 5 && memcmp(kept, targets, sizeof kept) == 0 &&
+              maniMorphTargetWeights(&m, atKey, NULL, 1, NULL) == mani_errorInvalid,
+          "the weights measured, a short array refused (nothing written)");
 }
 
 // Vertices: position, normal, tangent (four floats), texture coordinate
@@ -439,7 +454,9 @@ static void TestJob(void)
         const float channels[3] = {Uniform(-1.5f, 1.5f), Uniform(-1.5f, 1.5f),
                                    Uniform(-1.5f, 1.5f)};
         float weights[5];
-        CHECK(maniMorphTargetWeights(&m, channels, weights) == mani_success, "weights");
+        CHECK(maniMorphTargetWeights(&m, channels, weights, maniMorphTargetCount(&m), NULL) ==
+                  mani_success,
+              "weights");
         maniMorphStream streams[5];
         Streams(s_in, s_out, streams);
         maniMorphJob job = {&m, weights, 0, kVertices, 5, streams};
@@ -665,10 +682,16 @@ static void TestBuildRefusals(void)
     s_channels[1].name = "\xff\xfe";
     s_channels[1].nameLength = 2;
     ExpectBuildRefused(&source, maniBuildReasonName, 1, 0, "a name not UTF-8");
+    s_channels[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectBuildResult(&source, mani_errorLimit, maniBuildReasonName, 1, 0,
+                      "a name past MANI_MAX_NAME_BYTES");
     SampleSource(&source);
     s_blinks[2].name = "\xc0";
     s_blinks[2].nameLength = 1;
     ExpectBuildRefused(&source, maniBuildReasonName, 3, 1, "a target's name not UTF-8");
+    s_blinks[2].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    ExpectBuildResult(&source, mani_errorLimit, maniBuildReasonName, 3, 1,
+                      "a target's name past MANI_MAX_NAME_BYTES");
     SampleSource(&source);
     s_blinks[2].nameLength = 0;
     ExpectBuildRefused(&source, maniBuildReasonName, 3, 1, "a target's empty name");

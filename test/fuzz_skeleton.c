@@ -28,7 +28,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
             uint32_t parent = maniSkeletonParent(&skeleton, bone);
             uint32_t end = maniSkeletonSubtreeEnd(&skeleton, bone);
             maniTransform rest = maniSkeletonRest(&skeleton, bone);
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniSkeletonBoneName(&skeleton, bone, &length);
             if ((parent != MANI_NO_BONE && parent >= bone) || end <= bone || end > count ||
                 rest.rotation.w != rest.rotation.w ||

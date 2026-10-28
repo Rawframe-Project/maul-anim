@@ -28,7 +28,7 @@ typedef struct maniNameTable
     const uint64_t* keys;
     const uint32_t* items;
     const char* const* names;
-    const uint32_t* lengths;
+    const size_t* lengths;
     uint32_t count;
 } maniNameTable;
 
@@ -91,15 +91,14 @@ static inline uint32_t maniGraphJsonNext(const maniJson* json, uint32_t element,
 }
 
 // A string decoded into the arena.
-bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut,
-                       uint32_t* lengthOut);
+bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut, size_t* lengthOut);
 
 // A table of count names (the arrays kept, not copied).
-bool maniGraphJsonTable(maniGraphReader* r, const char* const* names, const uint32_t* lengths,
+bool maniGraphJsonTable(maniGraphReader* r, const char* const* names, const size_t* lengths,
                         uint32_t count, maniNameTable* tableOut);
 
 // The first item of a name, or MANI_JSON_NONE.
-uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, uint32_t length);
+uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, size_t length);
 
 // A string naming an item of the table; refuses a name it lacks.
 bool maniGraphJsonRefer(maniGraphReader* r, const maniNameTable* table, uint32_t value,

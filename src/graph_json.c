@@ -128,7 +128,7 @@ static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
     maniGraphJsonPutText(w, "[");
     for (uint32_t k = 0; k < m->chainCount; ++k)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(w->skeleton, m->chains[k].bone, &length);
         // The build refused a chain on a bone past the skeleton's.
         MANI_ASSERT(name != NULL);

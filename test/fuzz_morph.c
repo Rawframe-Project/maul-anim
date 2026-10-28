@@ -48,7 +48,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     for (uint32_t c = 0; c < channels; ++c)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniMorphChannelName(&m, c, &length);
         if (name == NULL || maniMorphFindChannel(&m, name, length) > c)
         {
@@ -56,13 +56,14 @@ static void Exercise(const uint8_t* bytes, size_t size)
         }
         channelWeights[c] = (float)(c % 5) * 0.5f - 0.75f;
     }
-    if (maniMorphTargetWeights(&m, channelWeights, targetWeights) != mani_success)
+    if (maniMorphTargetWeights(&m, channelWeights, targetWeights, maniMorphTargetCount(&m), NULL) !=
+        mani_success)
     {
         abort();
     }
     for (uint32_t t = 0; t < targets; ++t)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniMorphTargetName(&m, t, &length);
         if (name == NULL || maniMorphFindTarget(&m, name, length) > t)
         {

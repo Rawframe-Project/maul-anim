@@ -82,7 +82,7 @@ static maniGraphConditionSource Finished(void)
 static maniGraphConditionSource Event(const char* name)
 {
     return (maniGraphConditionSource){
-        maniGraphConditionEvent, MANI_NO_PARAMETER, 0, (uint32_t)strlen(name), Int(0), name};
+        maniGraphConditionEvent, MANI_NO_PARAMETER, 0, strlen(name), Int(0), name};
 }
 
 static maniGraphConditionSource Fast(void)
@@ -427,10 +427,11 @@ static void TestSaved(void)
     maniGraph g;
     maniGraphInstance* instance = Three(t, 1, 0, 1.0f, &g);
     Steps(instance, 3, 0.5f);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
@@ -438,8 +439,9 @@ static void TestSaved(void)
     Update(instance, 0.5f);
     Update(other, 0.5f);
     CHECK(Current(other, &g, 3) == 2 &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
-              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
+              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
               memcmp(s_saved[0], s_saved[1], size) == 0,
           "the same after");
 }
@@ -472,6 +474,11 @@ static void TestRefusals(void)
         c[0] = kBad[k];
         CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "a condition refused");
     }
+    c[0] = Event("a");
+    c[0].eventLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longEvent = Built(t, NULL, 0);
+    CHECK(longEvent.result == mani_errorLimit && longEvent.reason == maniBuildReasonTransition,
+          "an event past MANI_MAX_NAME_BYTES");
     c[0] = Finished();
     t[0].entry = maniGraphEntryMatch + 1;
     CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "an entry past match");

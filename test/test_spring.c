@@ -175,7 +175,7 @@ static void TestBuild(void)
               maniOpenSpringSet(s_file, s_size, &set).result == mani_success,
           "built and opened");
     float reference = 0.0f;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSpringSetSpringName(&set, 1, &length);
     CHECK(maniSpringSetSpringCount(&set) == 2 && set.jointCount == 4 && set.colliderCount == 4 &&
               maniSpringSetStepRate(&set, &reference) == 60.0f && reference == 60.0f &&
@@ -402,6 +402,9 @@ static void TestSpringRefusals(void)
     s_springs[0].name = "\xff";
     s_springs[0].nameLength = 1;
     CHECK(Refused(&s, maniBuildReasonSpringList | maniBuildReasonName, 0, 0), "a name not UTF-8");
+    s_springs[0].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    CHECK(RefusedWith(&s, mani_errorLimit, maniBuildReasonSpringList | maniBuildReasonName, 0, 0),
+          "a name past MANI_MAX_NAME_BYTES");
     // The hair from the head to its last bone, three bones apart.
     s = Source();
     s_hairJoints[1].bone = s_head;

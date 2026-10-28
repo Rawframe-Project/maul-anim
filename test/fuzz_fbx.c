@@ -238,7 +238,8 @@ static void Morphs(maniBuilder* builder, const maniFbx* fbx, const maniFbxOption
         uint32_t count = maniFbxMorphTargetCount(fbx, k);
         size_t size = 0;
         maniMorphTargets m;
-        if (count <= 256 && maniFbxMorphWeights(fbx, k, weights, count).result == mani_success &&
+        if (count <= 256 &&
+            maniFbxMorphWeights(fbx, k, weights, count, NULL).result == mani_success &&
             maniFbxBuildMorphTargets(builder, fbx, k, options).result == mani_success &&
             maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
             maniOpenMorphTargets(file, size, &m).result == mani_success)
@@ -319,7 +320,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         for (uint32_t m = 0; m <= fbx->modelCount; ++m)
         {
             const uint32_t* children = NULL;
-            uint32_t length = 0;
+            size_t length = 0;
             (void)maniFbxModelChildren(fbx, m, &children);
             (void)maniFbxModelBoneName(fbx, m, &length);
         }

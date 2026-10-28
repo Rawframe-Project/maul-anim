@@ -285,9 +285,9 @@ static maniGraphAssets Assets(const maniRetargetMap* const* maps, uint32_t mapCo
     return (maniGraphAssets){.skeleton = &s_target,
                              .clips = kAllClips,
                              .clipCount = 2,
-                             .maps = maps,
+                             .retargetMaps = maps,
                              .sourceSkeletons = sources,
-                             .mapCount = mapCount,
+                             .retargetMapCount = mapCount,
                              .sourceSkeletonCount = sourceCount};
 }
 
@@ -372,11 +372,14 @@ static void TestPlayback(void)
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
               Bound(&g, &instance),
           "opened and bound");
-    CHECK(maniGraphMapCount(&g) == 1 && maniGraphMapIdentity(&g, 0) == s_map.identity &&
-              maniGraphMapSourceIdentity(&g, 0) == maniSkeletonIdentity(&s_source) &&
-              maniGraphMapIdentity(&g, 1) == 0 && maniGraphMapSourceIdentity(&g, 1) == 0 &&
-              maniGraphClipMap(&g, 0) == 0 && maniGraphClipMap(&g, 1) == 0 &&
-              maniGraphClipMap(&g, 2) == MANI_NO_TRACK && maniGraphMapCount(NULL) == 0,
+    CHECK(maniGraphRetargetMapCount(&g) == 1 &&
+              maniGraphRetargetMapIdentity(&g, 0) == s_map.identity &&
+              maniGraphRetargetMapSourceIdentity(&g, 0) == maniSkeletonIdentity(&s_source) &&
+              maniGraphRetargetMapIdentity(&g, 1) == 0 &&
+              maniGraphRetargetMapSourceIdentity(&g, 1) == 0 &&
+              maniGraphClipRetargetMap(&g, 0) == 0 && maniGraphClipRetargetMap(&g, 1) == 0 &&
+              maniGraphClipRetargetMap(&g, 2) == MANI_NO_TRACK &&
+              maniGraphRetargetMapCount(NULL) == 0,
           "the map slot read back");
     bool poses = true;
     bool moves = true;
@@ -427,13 +430,13 @@ static void TestBuildRefusals(void)
     }
 }
 
-// MANI_MAX_GRAPH_MAPS maps and one more, each playing a still clip of
+// MANI_MAX_GRAPH_RETARGET_MAPS maps and one more, each playing a still clip of
 // its own: the last slot refused.
 static void TestTooManyMaps(void)
 {
     enum
     {
-        kCount = MANI_MAX_GRAPH_MAPS + 1
+        kCount = MANI_MAX_GRAPH_RETARGET_MAPS + 1
     };
     static _Alignas(16) uint8_t mapFiles[kCount][2048];
     static _Alignas(16) uint8_t clipFiles[kCount][1024];
@@ -469,7 +472,8 @@ static void TestTooManyMaps(void)
     source.nodeCount = 1;
     source.output = 0;
     maniBuildResult r = BuildGraph(&source);
-    CHECK(r.reason == maniBuildReasonClip && r.item == MANI_MAX_GRAPH_MAPS, "a map too many");
+    CHECK(r.reason == maniBuildReasonClip && r.item == MANI_MAX_GRAPH_RETARGET_MAPS,
+          "a map too many");
     source.clipCount = kCount - 1;
     CHECK(BuildGraph(&source).result == mani_success, "as many maps as the graph takes");
 }
@@ -496,7 +500,7 @@ static void TestBindRefusals(void)
               what[i]);
     }
     maniGraphAssets wrong = Assets(maps + 1, 1, sources + 1, 1);
-    wrong.maps = NULL;
+    wrong.retargetMaps = NULL;
     CHECK(maniBindGraph(&g, &wrong, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
               mani_errorInvalid,
           "maps NULL with a count");
@@ -578,9 +582,9 @@ static void TestSharedScratch(void)
     maniGraphAssets assets = {.skeleton = &s_target,
                               .clips = clips,
                               .clipCount = 1,
-                              .maps = maps,
+                              .retargetMaps = maps,
                               .sourceSkeletons = sources,
-                              .mapCount = 1,
+                              .retargetMapCount = 1,
                               .sourceSkeletonCount = 1};
     maniGraphBinding* binding = NULL;
     maniGraphInstance* b = NULL;
@@ -650,8 +654,8 @@ static void TestOpen(void)
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two maps builds");
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraphMapCount(&g) == 2 && maniGraphClipMap(&g, 1) == 1 &&
-              maniGraphMapIdentity(&g, 1) == s_chainsOnly.identity,
+              maniGraphRetargetMapCount(&g) == 2 && maniGraphClipRetargetMap(&g, 1) == 1 &&
+              maniGraphRetargetMapIdentity(&g, 1) == s_chainsOnly.identity,
           "two map slots");
     uint64_t clips = SectionAt(maniGraphTagClips);
     uint64_t maps = SectionAt(maniGraphTagMaps);
@@ -718,9 +722,9 @@ static void TestSubgraph(void)
     maniGraph g;
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraphClipCount(&g) == 2 && maniGraphMapCount(&g) == 1,
+              maniGraphClipCount(&g) == 2 && maniGraphRetargetMapCount(&g) == 1,
           "the subgraph's walk joins the slot");
-    clips[0].map = &s_chainsOnly;
+    clips[0].retargetMap = &s_chainsOnly;
     maniBuildResult r = BuildGraph(&source);
     // Its own slot, whose name the root's walk has.
     CHECK(r.reason == (maniBuildReasonClipList | maniBuildReasonDuplicateName) && r.item == 2,

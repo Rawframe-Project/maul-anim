@@ -24,6 +24,7 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
+#include "state_prefix.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -238,11 +239,11 @@ static void Setup(void)
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
-    s_stateSize = ok ? maniGraphStateSize(binding) : 0;
     ok = ok && maniGraphScratchSize(binding) <= sizeof s_scratch &&
          maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success;
-    if (!ok || s_stateSize > sizeof s_saved ||
-        maniSaveGraphInstance(s_live, s_fresh, sizeof s_fresh) != mani_success)
+    if (!ok ||
+        maniSaveGraphInstance(s_live, s_fresh, sizeof s_fresh, &s_stateSize) != mani_success ||
+        s_stateSize > sizeof s_saved)
     {
         abort();
     }
@@ -273,7 +274,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
     {
         return;
     }
-    if (maniSaveGraphInstance(s_live, s_saved, sizeof s_saved) != mani_success ||
+    if (maniSaveGraphInstance(s_live, s_saved, sizeof s_saved, NULL) != mani_success ||
         memcmp(s_saved, bytes, s_stateSize) != 0)
     {
         abort();
@@ -308,20 +309,18 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         memcpy(copy, data, size);
     }
     Exercise(copy, size);
-    // The header made right: magic, zero, the graph's identity, the size.
-    const uint32_t magic = 0x5453474Du;
-    const uint32_t zero = 0;
+    // The header made right: the fresh state's prefix, the graph's
+    // identity, the size.
     const uint64_t identity = maniGraphIdentity(&s_graph);
     const uint64_t stateSize = s_stateSize;
-    memcpy(copy, &magic, 4);
-    memcpy(copy + 4, &zero, 4);
-    memcpy(copy + 8, &identity, 8);
-    memcpy(copy + 16, &stateSize, 8);
+    memcpy(copy, s_fresh, MANI_STATE_PREFIX_SIZE);
+    memcpy(copy + 16, &identity, 8);
+    memcpy(copy + 24, &stateSize, 8);
     Exercise(copy, s_stateSize);
     // And the quaternion made the identity, which random bytes seldom are,
     // so the rest reaches a whole restore.
     const float identityQuat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    memcpy(copy + 24 + 5 * 16, identityQuat, sizeof identityQuat);
+    memcpy(copy + MANI_GRAPH_STATE_HEADER_SIZE + 5 * 16, identityQuat, sizeof identityQuat);
     Exercise(copy, s_stateSize);
     memcpy(copy + s_eased[0], s_fresh + s_eased[0], s_easedSize);
     memcpy(copy + s_eased[1], s_fresh + s_eased[1], s_easedSize);

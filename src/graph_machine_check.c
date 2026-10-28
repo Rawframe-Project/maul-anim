@@ -6,6 +6,7 @@
 #include "bytes.h"
 #include "graph_file.h"
 #include "sort.h"
+#include "text.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -87,6 +88,20 @@ static bool TransitionValid(const maniGraphSource* source, const maniGraphTransi
     return ok;
 }
 
+// Whether a condition names an event past MANI_MAX_NAME_BYTES.
+static bool EventPast(const maniGraphTransitionSource* t)
+{
+    for (uint32_t k = 0; t->conditions != NULL && k < t->conditionCount; ++k)
+    {
+        const maniGraphConditionSource* c = &t->conditions[k];
+        if (c->kind == maniGraphConditionEvent && maniNamePastLimit(c->eventLength))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Whether two transitions are ever candidates together: from one state,
 // or either from any state.
 static bool Rivals(const maniGraphTransitionSource* a, const maniGraphTransitionSource* b)
@@ -115,7 +130,7 @@ maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniG
     for (uint32_t t = 0; t < m->transitionCount; ++t)
     {
         const maniGraphTransitionSource* a = &m->transitions[t];
-        if (a->conditionCount > MANI_MAX_GRAPH_CONDITIONS)
+        if (a->conditionCount > MANI_MAX_GRAPH_CONDITIONS || EventPast(a))
         {
             return PastLimit(maniBuildReasonTransition, node, t);
         }

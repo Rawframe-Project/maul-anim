@@ -57,7 +57,7 @@ extern "C"
     typedef struct maniLearnedNameSource
     {
         const char* name;
-        uint32_t length;
+        size_t length;
     } maniLearnedNameSource;
 
     // A model: the skeleton and the motion database it learned (of that

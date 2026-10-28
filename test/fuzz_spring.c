@@ -32,7 +32,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
     uint64_t links = 0;
     for (uint32_t i = 0; i < maniSpringSetSpringCount(&set); ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const uint8_t* e = set.springs + (size_t)i * MANI_SPRING_SPRING_SIZE;
         if (maniSpringSetSpringName(&set, i, &length) == NULL || length > set.nameBytes)
         {

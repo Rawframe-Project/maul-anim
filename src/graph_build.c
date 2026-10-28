@@ -273,13 +273,14 @@ static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint
 }
 
 // A name into the names section, its offset, length and hash after it.
-static void PutName(Layout* lay, const char* name, uint32_t length, uint8_t* entry)
+static void PutName(Layout* lay, const char* name, size_t length, uint8_t* entry)
 {
-    // The checker's tally sized the names section by every name.
-    MANI_ASSERT(lay->namesAt + length <= lay->sizes[10]);
+    // The checker's tally sized the names section by every name, each
+    // within MANI_MAX_NAME_BYTES.
+    MANI_ASSERT(lay->namesAt + length <= lay->sizes[10] && length <= MANI_MAX_NAME_BYTES);
     memcpy(lay->sections[10] + lay->namesAt, name, length);
     maniStoreU32(entry, (uint32_t)lay->namesAt);
-    maniStoreU32(entry + 4, length);
+    maniStoreU32(entry + 4, (uint32_t)length);
     lay->namesAt += length;
 }
 
@@ -400,7 +401,7 @@ static void PutMask(const maniGraphSource* source, const maniGraphMaskNodeSource
     MANI_ASSERT(4 * ((uint64_t)lay->maskAt + 1) * bones <= lay->sizes[7]);
     // Checked already: the chains' bones and weights are in range.
     (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight, lay->weights,
-                        bones);
+                        bones, NULL);
     memcpy(lay->sections[7] + 4 * (size_t)lay->maskAt * bones, lay->weights, 4 * (size_t)bones);
     ++lay->maskAt;
 }
@@ -647,7 +648,7 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
 }
 
 // A slot's entry: the asset's identity, the name's hash and the name.
-static void PutSlot(Layout* lay, uint8_t* e, uint64_t identity, const char* name, uint32_t length)
+static void PutSlot(Layout* lay, uint8_t* e, uint64_t identity, const char* name, size_t length)
 {
     maniStoreU64(e, identity);
     maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));
@@ -676,16 +677,16 @@ static void PutSlots(const maniGraphSource* source, Layout* lay)
 // them.
 static uint32_t PutMap(const maniGraphClipSource* c, Layout* lay, uint64_t* ids, uint32_t* count)
 {
-    if (c->map == NULL)
+    if (c->retargetMap == NULL)
     {
         return MANI_GRAPH_NO_MAP;
     }
-    uint32_t slot = maniGraphMapSlotIn(ids, count, c->map->identity);
+    uint32_t slot = maniGraphMapSlotIn(ids, count, c->retargetMap->identity);
     // The checker found the same slots, as many as the tally's maps.
     MANI_ASSERT((uint64_t)slot * MANI_GRAPH_MAP_SIZE < lay->sizes[13]);
     uint8_t* e = lay->sections[13] + (size_t)slot * MANI_GRAPH_MAP_SIZE;
-    maniStoreU64(e, c->map->identity);
-    maniStoreU64(e + 8, c->map->sourceIdentity);
+    maniStoreU64(e, c->retargetMap->identity);
+    maniStoreU64(e + 8, c->retargetMap->sourceIdentity);
     return slot;
 }
 
@@ -696,7 +697,7 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         PutParameter(lay, &source->parameters[i],
                      lay->sections[1] + (size_t)i * MANI_GRAPH_PARAMETER_SIZE);
     }
-    uint64_t ids[MANI_MAX_GRAPH_MAPS] = {0};
+    uint64_t ids[MANI_MAX_GRAPH_RETARGET_MAPS] = {0};
     uint32_t maps = 0;
     for (uint32_t i = 0; i < source->clipCount; ++i)
     {

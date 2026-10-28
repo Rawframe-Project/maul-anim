@@ -390,7 +390,7 @@ static const TestField kFieldsGraphClipSource[] = {
     TEST_FIELD(maniGraphClipSource, clip),
     TEST_FIELD(maniGraphClipSource, name),
     TEST_FIELD(maniGraphClipSource, nameLength),
-    TEST_FIELD(maniGraphClipSource, map),
+    TEST_FIELD(maniGraphClipSource, retargetMap),
 };
 
 static const TestField kFieldsGraphConditionSource_b[] = {

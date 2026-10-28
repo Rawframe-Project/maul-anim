@@ -24,7 +24,7 @@
 bool maniGraphJsonBone(maniGraphReader* r, uint32_t value, uint32_t* out)
 {
     const char* name = NULL;
-    uint32_t length = 0;
+    size_t length = 0;
     if (!maniGraphJsonName(r, value, &name, &length))
     {
         return false;
@@ -154,7 +154,7 @@ bool maniGraphJsonAim(maniGraphReader* r, const maniGraphScope* scope, const uin
 
 void maniGraphJsonPutBone(maniGraphWriter* w, uint32_t bone)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSkeletonBoneName(w->skeleton, bone, &length);
     maniGraphJsonPutString(w, name, length);
 }

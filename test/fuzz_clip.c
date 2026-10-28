@@ -200,7 +200,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         ExerciseRootMotion(&clip);
         for (uint32_t i = 0; i < maniClipFloatTrackCount(&clip); ++i)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniClipFloatTrackName(&clip, i, &length);
             if (maniClipFindFloatTrack(&clip, name, length) != i)
             {
@@ -209,7 +209,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         }
         for (uint32_t i = 0; i < maniClipDiscreteTrackCount(&clip); ++i)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniClipDiscreteTrackName(&clip, i, &length);
             if (maniClipFindDiscreteTrack(&clip, name, length) != i)
             {

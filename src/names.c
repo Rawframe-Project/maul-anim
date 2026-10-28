@@ -150,7 +150,7 @@ void maniReleaseBoneNames(const maniAllocator* allocator, maniBoneNames* names)
     *names = (maniBoneNames){0};
 }
 
-const char* maniBoneName(const maniBoneNames* names, uint32_t b, uint32_t* lengthOut)
+const char* maniBoneName(const maniBoneNames* names, uint32_t b, size_t* lengthOut)
 {
     *lengthOut = names->starts[b + 1] - names->starts[b];
     return names->text + names->starts[b];

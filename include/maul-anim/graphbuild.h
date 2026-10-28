@@ -43,7 +43,7 @@ extern "C"
     typedef struct maniGraphParameterSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         maniGraphParameterType type;
         maniGraphValue defaultValue;
         maniGraphValue minimum;
@@ -53,16 +53,16 @@ extern "C"
 
     // A clip slot: an opened clip of the graph's skeleton, each clip once,
     // and a name for it (UTF-8, not empty, unique in the graph). The graph
-    // keeps the clip's identity; binding finds the clip by it. With a map,
-    // the clip is of the map's source skeleton and plays
+    // keeps the clip's identity; binding finds the clip by it. With a
+    // retargeting map, the clip is of the map's source skeleton and plays
     // carried through the map, which is made for the graph's skeleton;
-    // the graph keeps a map slot per map.
+    // the graph keeps a retargeting map slot per map.
     typedef struct maniGraphClipSource
     {
         const maniClip* clip;
         const char* name;
-        uint32_t nameLength;
-        const maniRetargetMap* map;
+        size_t nameLength;
+        const maniRetargetMap* retargetMap;
     } maniGraphClipSource;
 
     // A motion database slot: an opened database of the graph's skeleton,
@@ -74,7 +74,7 @@ extern "C"
     {
         const maniMotionDatabase* database;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniGraphDatabaseSource;
 
     // A learned model slot: an opened learned model of the
@@ -85,7 +85,7 @@ extern "C"
     {
         const maniLearnedModel* model;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniGraphModelSource;
 
     // A spring set slot: an opened spring set of the graph's
@@ -96,7 +96,7 @@ extern "C"
     {
         const maniSpringSet* set;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniGraphSpringSetSource;
 
     // A sync group's flags.
@@ -111,7 +111,7 @@ extern "C"
     typedef struct maniGraphSyncGroupSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t flags;
     } maniGraphSyncGroupSource;
 
@@ -244,7 +244,7 @@ extern "C"
         maniGraphConditionKind kind;
         uint32_t parameter;
         maniGraphCompare compare;
-        uint32_t eventLength;
+        size_t eventLength;
         maniGraphValue value;
         const char* event;
     } maniGraphConditionSource;
@@ -755,7 +755,7 @@ extern "C"
     /// @return `mani_success`; `mani_errorLimit` with the reason and item
     /// for a source past a bound (no misuse): Count (more items than the
     /// named limits, or subgraphs nested deeper than
-    /// MANI_MAX_GRAPH_DEPTH), Clip (more maps than MANI_MAX_GRAPH_MAPS),
+    /// MANI_MAX_GRAPH_DEPTH), Clip (more maps than MANI_MAX_GRAPH_RETARGET_MAPS),
     /// Scalar (a time factor past MANI_MAX_GRAPH_TIME_FACTOR), Node (a
     /// node's inputs, points, bones, iterations, effectors, queries or
     /// transitions past their bounds) and Transition (conditions past

@@ -583,7 +583,7 @@ static void TestExternalBuffer(void)
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = NULL;
     CHECK(OpenJson(builder, &gltf).result == mani_success, "opens");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* uri = maniGltfBufferUri(gltf, 0, &length);
     CHECK(uri != NULL && length == 16 && memcmp(uri, "my%20data/\xC3\xA9.bin", 16) == 0,
           "the URI, JSON escapes decoded, percent escapes left");

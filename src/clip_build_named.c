@@ -31,9 +31,15 @@ enum
 static const maniBuildReason s_lists[4] = {maniBuildReasonFloatTrack, maniBuildReasonDiscreteTrack,
                                            maniBuildReasonEvent, maniBuildReasonMarker};
 
+static maniBuildResult Refused(maniResult result, maniBuildReason reason, uint32_t item,
+                               uint32_t other)
+{
+    return (maniBuildResult){result, reason, item, other};
+}
+
 static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t other)
 {
-    return (maniBuildResult){mani_errorInvalid, reason, item, other};
+    return Refused(mani_errorInvalid, reason, item, other);
 }
 
 static maniBuildResult Outcome(maniResult result)
@@ -48,9 +54,17 @@ static bool Finite(float value)
     return (bits & 0x7F800000u) != 0x7F800000u;
 }
 
-static bool NameValid(const char* name, uint32_t length)
+// A name past MANI_MAX_NAME_BYTES is a bound; else it is not empty and
+// is UTF-8.
+static maniResult NameChecked(const char* name, size_t length)
 {
-    return name != NULL && length > 0 && maniValidUtf8((const uint8_t*)name, length);
+    if (maniNamePastLimit(length))
+    {
+        return mani_errorLimit;
+    }
+    return name != NULL && length > 0 && maniValidUtf8((const uint8_t*)name, length)
+               ? mani_success
+               : mani_errorInvalid;
 }
 
 static float Max(float a, float b)
@@ -61,9 +75,10 @@ static float Max(float a, float b)
 static maniBuildResult CheckDiscreteTrack(const maniDiscreteTrackSource* d, uint32_t i)
 {
     maniBuildReason list = maniBuildReasonDiscreteTrack;
-    if (!NameValid(d->name, d->nameLength))
+    maniResult named = NameChecked(d->name, d->nameLength);
+    if (named != mani_success)
     {
-        return Refuse(list | maniBuildReasonName, i, 0);
+        return Refused(named, list | maniBuildReasonName, i, 0);
     }
     if (d->keyCount == 0 || d->times == NULL || d->values == NULL)
     {
@@ -88,9 +103,10 @@ static maniBuildResult CheckTimed(const maniEventSource* e, uint32_t count, mani
         {
             return Refuse(list | maniBuildReasonKeyTime, i, 0);
         }
-        if (!NameValid(e[i].name, e[i].nameLength))
+        maniResult named = NameChecked(e[i].name, e[i].nameLength);
+        if (named != mani_success)
         {
-            return Refuse(list | maniBuildReasonName, i, 0);
+            return Refused(named, list | maniBuildReasonName, i, 0);
         }
         *last = Max(*last, e[i].time);
     }
@@ -114,9 +130,10 @@ maniBuildResult maniCheckClipNamedSource(const maniClipSource* source, float* la
     for (uint32_t i = 0; i < source->floatTrackCount; ++i)
     {
         const maniFloatTrackSource* f = &source->floatTracks[i];
-        if (!NameValid(f->name, f->nameLength))
+        maniResult named = NameChecked(f->name, f->nameLength);
+        if (named != mani_success)
         {
-            return Refuse(maniBuildReasonFloatTrack | maniBuildReasonName, i, 0);
+            return Refused(named, maniBuildReasonFloatTrack | maniBuildReasonName, i, 0);
         }
         if (f->keys.keyCount == 0)
         {
@@ -148,7 +165,7 @@ maniBuildResult maniCheckClipNamedSource(const maniClipSource* source, float* la
     return r;
 }
 
-static uint64_t NameHash(const char* name, uint32_t length)
+static uint64_t NameHash(const char* name, size_t length)
 {
     return maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
 }
@@ -165,7 +182,7 @@ static uint64_t TimeKey(float time)
 
 // An item's name, by list and source index.
 static const char* ItemName(const maniClipSource* source, uint32_t list, uint32_t i,
-                            uint32_t* lengthOut)
+                            size_t* lengthOut)
 {
     if (list == kFloat)
     {
@@ -195,8 +212,8 @@ static maniBuildResult CheckRepeats(const maniClipSource* source, uint32_t list,
         {
             continue;
         }
-        uint32_t lengthA = 0;
-        uint32_t lengthB = 0;
+        size_t lengthA = 0;
+        size_t lengthB = 0;
         const char* nameA = ItemName(source, list, a, &lengthA);
         const char* nameB = ItemName(source, list, b, &lengthB);
         uint32_t low = a < b ? a : b;
@@ -228,7 +245,7 @@ static void FillWork(const maniClipSource* source, uint32_t list, Work* w)
                                 source->eventCount, source->markerCount};
     for (uint32_t i = 0; i < counts[list]; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = ItemName(source, list, i, &length);
         w->keys[i] = list < kEvents ? NameHash(name, length)
                                     : TimeKey(list == kEvents ? source->events[i].time
@@ -238,10 +255,11 @@ static void FillWork(const maniClipSource* source, uint32_t list, Work* w)
 }
 
 // Writes a name into the names and its span at entry.
-static void PutName(uint8_t* entry, const char* name, uint32_t length, uint8_t* names, uint64_t* at)
+static void PutName(uint8_t* entry, const char* name, size_t length, uint8_t* names, uint64_t* at)
 {
+    // The check took only names within MANI_MAX_NAME_BYTES.
     maniStoreU32(entry, (uint32_t)*at);
-    maniStoreU32(entry + 4, length);
+    maniStoreU32(entry + 4, (uint32_t)length);
     maniStoreU64(entry + 8, NameHash(name, length));
     memcpy(names + *at, name, length);
     *at += length;

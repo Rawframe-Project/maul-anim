@@ -117,7 +117,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone,
-                                              uint32_t* lengthOut);
+                                              size_t* lengthOut);
 
     /// Finds a bone by its name.
     ///

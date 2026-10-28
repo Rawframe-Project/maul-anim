@@ -86,7 +86,7 @@ static void TestBuildsDepthFirst(void)
     static const float tx[6] = {1.0f, 2.0f, 4.0f, 3.0f, 5.0f, 6.0f};
     for (uint32_t i = 0; i < 6; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(&s, i, &length);
         CHECK(length == strlen(names[i]) && memcmp(name, names[i], length) == 0, "name");
         CHECK(maniSkeletonParent(&s, i) == parents[i], "parent");
@@ -111,7 +111,7 @@ static void TestGettersPastTheCount(void)
     maniTransform rest = maniSkeletonRest(&s, 6);
     CHECK(rest.rotation.w == 1.0f && rest.scale.y == 1.0f && rest.translation.z == 0.0f,
           "identity past");
-    uint32_t length = 7;
+    size_t length = 7;
     CHECK(maniSkeletonBoneName(&s, 6, &length) == NULL && length == 0, "name past");
 }
 
@@ -207,6 +207,12 @@ static void TestBuildRefusals(void)
     ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "null name");
     b[2].name = "a\xC0\xAF";
     ExpectRefusal(b, 3, maniBuildReasonName, 2, 0, "overlong UTF-8");
+    // Refused at the length, before a byte of the name is read.
+    b[2].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longName = BuildOf(b, 3);
+    CHECK(longName.result == mani_errorLimit && longName.reason == maniBuildReasonName &&
+              longName.item == 2 && longName.other == 0,
+          "a name past MANI_MAX_NAME_BYTES");
     b[2] = kBones[2];
     b[2].name = "hips";
     b[2].nameLength = 4;
