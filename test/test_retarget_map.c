@@ -453,6 +453,45 @@ static bool WordRefused(size_t at, uint32_t value, size_t wrong)
            r.tag == TestTagAt(s_crafted, s_size, wrong);
 }
 
+// A source chain one bone past MANI_MAX_IK_CHAIN_BONES: the chain
+// refused at the limit; one bone shorter, built.
+static void TestChainPastBound(void)
+{
+    enum
+    {
+        kChain = MANI_MAX_IK_CHAIN_BONES + 1
+    };
+    static _Alignas(16) uint8_t file[16384];
+    static char names[kChain][4];
+    maniBoneSource bones[kChain];
+    for (uint32_t b = 0; b < kChain; ++b)
+    {
+        (void)snprintf(names[b], sizeof names[b], "%03u", (unsigned)b);
+        bones[b] = (maniBoneSource){
+            names[b], 3, (int32_t)b - 1, {{0.0f, 0.1f, 0.0f}, {0, 0, 0, 1}, {1, 1, 1}}};
+    }
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource source = {bones, kChain};
+    maniSkeleton chain;
+    size_t size = 0;
+    CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
+              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenSkeleton(file, size, &chain).result == mani_success,
+          "a chain of 33 bones");
+    maniDestroyBuilder(builder);
+    maniRetargetChainSource c = kSpine;
+    c.sourceStart = 0;
+    c.sourceEnd = kChain - 1;
+    maniRetargetMapSource map = Map(&c, 1);
+    map.source = &chain;
+    maniBuildResult r = Build(&map);
+    CHECK(r.result == mani_errorLimit && r.reason == maniBuildReasonRetargetChain && r.item == 0 &&
+              r.other == 0,
+          "a source chain past the bound at the limit");
+    c.sourceStart = 1;
+    CHECK(Build(&map).result == mani_success, "a source chain at the bound");
+}
+
 static void TestFile(void)
 {
     const maniRetargetChainSource chains[2] = {kSpine, kArm};
@@ -580,6 +619,7 @@ int main(int argc, char** argv)
     TestReference();
     TestPlaces();
     TestRefusals();
+    TestChainPastBound();
     TestFile();
     return s_failures == 0 ? 0 : 1;
 }

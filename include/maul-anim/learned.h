@@ -28,14 +28,14 @@ extern "C"
 // weights of one model, latent values of a state, Projectors, float
 // tracks and events of one model, and the highest step rate (steps a
 // second).
-#define MANI_LEARNED_MAX_LAYERS       16u
-#define MANI_LEARNED_MAX_WIDTH        1048576u
-#define MANI_LEARNED_MAX_WEIGHTS      268435456u
-#define MANI_LEARNED_MAX_LATENT       256u
-#define MANI_LEARNED_MAX_PROJECTORS   32u
-#define MANI_LEARNED_MAX_FLOAT_TRACKS 256u
-#define MANI_LEARNED_MAX_EVENTS       256u
-#define MANI_LEARNED_MAX_RATE         1000.0f
+#define MANI_MAX_LEARNED_LAYERS       16u
+#define MANI_MAX_LEARNED_WIDTH        1048576u
+#define MANI_MAX_LEARNED_WEIGHTS      268435456u
+#define MANI_MAX_LEARNED_LATENT       256u
+#define MANI_MAX_LEARNED_PROJECTORS   32u
+#define MANI_MAX_LEARNED_FLOAT_TRACKS 256u
+#define MANI_MAX_LEARNED_EVENTS       256u
+#define MANI_MAX_LEARNED_RATE         1000.0f
 
     // How a model keeps its weights: binary32, or 16-bit integers with a
     // binary32 scale for each of a layer's inputs (half the size).

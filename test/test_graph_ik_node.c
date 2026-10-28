@@ -397,7 +397,7 @@ static void TestTwoBoneRefusals(void)
     CHECK(KneeRefused(s, maniBuildReasonScalar), "a weight reading a bool");
 }
 
-// Refused at build: an aim node of no bones, past MANI_AIM_MAX_BONES or
+// Refused at build: an aim node of no bones, past MANI_MAX_AIM_BONES or
 // with none given, its bones past the skeleton or not each an ancestor
 // of the next, shares negative, not finite or all 0, a forward not of
 // length 1, an offset or up not finite, a goal not a vec3, a cone past
@@ -416,7 +416,10 @@ static void TestAimRefusals(void)
     CHECK(LookRefused(s, maniBuildReasonNode), "no bones");
     s.bones = kNine;
     s.count = 9;
-    CHECK(LookRefused(s, maniBuildReasonNode), "nine bones");
+    maniGraphNodeSource nine[2] = {ClipNode(0, 1.0f, maniGraphLoopRepeat), AimNode(kFirst, s)};
+    maniBuildResult r = Built(IkSource(nine, 2));
+    CHECK(r.result == mani_errorLimit && r.item == 1 && r.reason == maniBuildReasonNode,
+          "nine bones, past MANI_MAX_AIM_BONES");
     s = kLook;
     s.bones = NULL;
     CHECK(LookRefused(s, maniBuildReasonNode), "none given");

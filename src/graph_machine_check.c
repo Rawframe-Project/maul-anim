@@ -22,6 +22,11 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return (maniBuildResult){mani_errorInvalid, reason, item, other};
 }
 
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return (maniBuildResult){mani_errorLimit, reason, item, other};
+}
+
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
 static bool ParameterIs(const maniGraphSource* source, uint32_t parameter,
@@ -74,8 +79,7 @@ static bool TransitionValid(const maniGraphSource* source, const maniGraphTransi
               t->from != t->to && t->interruption <= maniGraphInterruptionAny &&
               t->entry <= maniGraphEntryMatch && t->fade <= maniGraphFadeInertial &&
               isfinite(t->duration) && t->duration >= 0.0f && isfinite(t->cooldown) &&
-              t->cooldown >= 0.0f && t->conditionCount <= MANI_GRAPH_MAX_CONDITIONS &&
-              (t->conditions != NULL || t->conditionCount == 0);
+              t->cooldown >= 0.0f && (t->conditions != NULL || t->conditionCount == 0);
     for (uint32_t k = 0; k < t->conditionCount && ok; ++k)
     {
         ok = ConditionValid(source, &t->conditions[k]);
@@ -94,9 +98,12 @@ maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniG
                                       uint32_t node)
 {
     const maniGraphMachineNodeSource* m = &n->machine;
-    bool valid = !(m->transitions == NULL && m->transitionCount > 0) &&
-                 m->transitionCount <= MANI_GRAPH_MAX_TRANSITIONS && m->entry < n->inputCount &&
-                 m->chainLimit <= MANI_GRAPH_MAX_CHAIN && (m->finals != NULL || m->finalCount == 0);
+    if (m->transitionCount > MANI_MAX_GRAPH_TRANSITIONS || m->chainLimit > MANI_MAX_GRAPH_CHAIN)
+    {
+        return PastLimit(maniBuildReasonNode, node, 0);
+    }
+    bool valid = !(m->transitions == NULL && m->transitionCount > 0) && m->entry < n->inputCount &&
+                 (m->finals != NULL || m->finalCount == 0);
     for (uint32_t k = 0; k < m->finalCount && valid; ++k)
     {
         valid = m->finals[k] < n->inputCount;
@@ -108,6 +115,10 @@ maniBuildResult maniCheckGraphMachine(const maniGraphSource* source, const maniG
     for (uint32_t t = 0; t < m->transitionCount; ++t)
     {
         const maniGraphTransitionSource* a = &m->transitions[t];
+        if (a->conditionCount > MANI_MAX_GRAPH_CONDITIONS)
+        {
+            return PastLimit(maniBuildReasonTransition, node, t);
+        }
         bool ok = TransitionValid(source, a, n->inputCount);
         for (uint32_t u = 0; u < t && ok; ++u)
         {

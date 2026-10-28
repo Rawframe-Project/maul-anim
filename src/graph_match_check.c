@@ -5,7 +5,7 @@
 // two the same database, each clip it lists the clip of a slot giving
 // poses. A motion matching node names a slot, a trigger or none, finite
 // costs, times not negative (the period above 0), at most
-// MANI_MATCH_MAX_HISTORY picks, tags literal or from an int parameter, a
+// MANI_MAX_MATCH_HISTORY picks, tags literal or from an int parameter, a
 // duration as an inertialize node's, and a parameter per trajectory and
 // float time of its database (vec2 and float, in channel order).
 
@@ -28,6 +28,11 @@
 static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t other)
 {
     return (maniBuildResult){mani_errorInvalid, reason, item, other};
+}
+
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return (maniBuildResult){mani_errorLimit, reason, item, other};
 }
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
@@ -94,12 +99,12 @@ static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
 // The query's parameters against the database's channels.
 static bool QueryValid(const maniGraphSource* source, const maniGraphMatchNodeSource* m)
 {
-    if (m->database >= source->databaseCount || m->queryCount > MANI_MATCH_MAX_FEATURES ||
-        (m->queryCount > 0 && m->query == NULL))
+    // maniCheckGraphMatch refused a count past MANI_MAX_MATCH_FEATURES.
+    if (m->database >= source->databaseCount || (m->queryCount > 0 && m->query == NULL))
     {
         return false;
     }
-    uint32_t types[MANI_MATCH_MAX_FEATURES];
+    uint32_t types[MANI_MAX_MATCH_FEATURES];
     for (uint32_t q = 0; q < m->queryCount; ++q)
     {
         uint32_t p = m->query[q];
@@ -124,14 +129,17 @@ maniBuildResult maniCheckGraphMatch(const maniGraphSource* source, const maniGra
                                     uint32_t node)
 {
     const maniGraphMatchNodeSource* m = &n->match;
+    if (m->queryCount > MANI_MAX_MATCH_FEATURES || m->historyCount > MANI_MAX_MATCH_HISTORY)
+    {
+        return PastLimit(maniBuildReasonNode, node, 0);
+    }
     maniGraphScalar d = m->duration;
     bool ok = (m->trigger == MANI_NO_PARAMETER ||
                ParameterOf(source, m->trigger, maniGraphParameterTrigger)) &&
               isfinite(m->period) && m->period > 0.0f && Seconds(m->jumpThreshold) &&
               Seconds(m->endExclusion) && Seconds(m->historyTime) && isfinite(m->continuingBias) &&
-              isfinite(m->transitionCost) && m->historyCount <= MANI_MATCH_MAX_HISTORY &&
-              TagsValid(source, m->requiredTags) && TagsValid(source, m->excludedTags) &&
-              QueryValid(source, m);
+              isfinite(m->transitionCost) && TagsValid(source, m->requiredTags) &&
+              TagsValid(source, m->excludedTags) && QueryValid(source, m);
     bool duration = d.parameter == MANI_NO_PARAMETER
                         ? Seconds(d.value)
                         : ParameterOf(source, d.parameter, maniGraphParameterFloat);

@@ -186,6 +186,9 @@ static void TestBuildRefusals(void)
 {
     maniBoneSource b[3] = {kBones[0], kBones[1], kBones[2]};
     ExpectRefusal(b, 0, maniBuildReasonCount, 0, 0, "no bones");
+    maniBuildResult past = BuildOf(b, MANI_MAX_BONES + 1);
+    CHECK(past.result == mani_errorLimit && past.reason == maniBuildReasonCount,
+          "bones past MANI_MAX_BONES at the limit");
     b[2].parent = 3;
     ExpectRefusal(b, 3, maniBuildReasonParent, 2, 0, "parent past");
     b[2].parent = -2;

@@ -24,16 +24,16 @@ extern "C"
 
 // Named limits: channels of one database, times of one channel, features
 // of one frame, entries, clips and frames of one database.
-#define MANI_MATCH_MAX_CHANNELS 64u
-#define MANI_MATCH_MAX_TIMES    16u
-#define MANI_MATCH_MAX_FEATURES 1024u
-#define MANI_MATCH_MAX_ENTRIES  65536u
-#define MANI_MATCH_MAX_CLIPS    65536u
-#define MANI_MATCH_MAX_FRAMES   16777216u
+#define MANI_MAX_MATCH_CHANNELS 64u
+#define MANI_MAX_MATCH_TIMES    16u
+#define MANI_MAX_MATCH_FEATURES 1024u
+#define MANI_MAX_MATCH_ENTRIES  65536u
+#define MANI_MAX_MATCH_CLIPS    65536u
+#define MANI_MAX_MATCH_FRAMES   16777216u
 // The furthest a channel's time reaches from its frame, seconds.
-#define MANI_MATCH_MAX_REACH 60.0f
+#define MANI_MAX_MATCH_REACH 60.0f
 // The highest sample rate, frames a second.
-#define MANI_MATCH_MAX_RATE 1000.0f
+#define MANI_MAX_MATCH_RATE 1000.0f
 
     // What a channel describes at each of its times, in the root's space
     // at the frame: a bone's position (3 features), its velocity (3), its
@@ -65,7 +65,7 @@ extern "C"
 // No frame: a search with no continuing frame, or one that found none.
 #define MANI_MATCH_NO_FRAME 0xFFFFFFFFu
 // The most earlier picks a search excludes.
-#define MANI_MATCH_MAX_HISTORY 8u
+#define MANI_MAX_MATCH_HISTORY 8u
 
 // An entry's flags: its times wrap from its end to its start (else they
 // clamp to its ends); its frames play but are never jumped to; its clip
@@ -83,7 +83,7 @@ extern "C"
         uint32_t bone;
         maniMatchAxis axis;
         uint32_t timeCount;
-        float times[MANI_MATCH_MAX_TIMES];
+        float times[MANI_MAX_MATCH_TIMES];
         float weight;
         uint32_t firstFeature;
         uint32_t featureCount;
@@ -271,7 +271,7 @@ extern "C"
     // A search: the query's features (raw, the database's feature count),
     // the continuing frame (MANI_MATCH_NO_FRAME for none), the tags an
     // entry must have all of and none of, and up to
-    // MANI_MATCH_MAX_HISTORY earlier picks; the cost added to the
+    // MANI_MAX_MATCH_HISTORY earlier picks; the cost added to the
     // continuing frame and to any other, and three times in seconds (not
     // negative): frames of the continuing frame's entry nearer it than
     // jumpThreshold, frames of a clamped entry nearer its end than
@@ -285,7 +285,7 @@ extern "C"
         uint32_t requiredTags;
         uint32_t excludedTags;
         uint32_t historyCount;
-        uint32_t history[MANI_MATCH_MAX_HISTORY];
+        uint32_t history[MANI_MAX_MATCH_HISTORY];
         float continuingBias;
         float transitionCost;
         float jumpThreshold;
@@ -314,9 +314,10 @@ extern "C"
     /// @param database  An opened database.
     /// @param query     The search.
     /// @param resultOut Receives the result.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// feature or cost not finite, a negative time, a continuing frame or
-    /// pick past the frames, or more than MANI_MATCH_MAX_HISTORY picks.
+    /// @return `mani_success`; `mani_errorLimit` for more than
+    /// MANI_MAX_MATCH_HISTORY picks; `mani_errorInvalid` for a NULL
+    /// argument, a feature or cost not finite, a negative time, a
+    /// continuing frame or pick past the frames.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniSearchMotionDatabase(const maniMotionDatabase* database,

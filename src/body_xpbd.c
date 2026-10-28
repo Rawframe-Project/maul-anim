@@ -255,10 +255,11 @@ static MANI_NOINLINE maniResult SolveBodyXpbdWork(maniPose* pose, const maniSkel
                                                   const maniBodySolve* solve, void* scratch,
                                                   size_t scratchSize, bool* reachedOut)
 {
-    uint32_t count = maniBodyPartCount(pose, skeleton, solve, scratch, scratchSize);
-    if (count == 0)
+    uint32_t count = 0;
+    maniResult checked = maniBodyPartCheck(pose, skeleton, solve, scratch, scratchSize, &count);
+    if (checked != mani_success)
     {
-        return mani_errorInvalid;
+        return checked;
     }
     maniBodyPart part;
     maniBodyBegin(&part, pose, skeleton, solve, scratch, count);

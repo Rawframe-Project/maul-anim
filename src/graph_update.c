@@ -173,8 +173,8 @@ static void ShareAdditive(const Update* u, const uint8_t* record, const maniGrap
 static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
     uint32_t n = maniLoadU32(record + 8);
-    MANI_ASSERT(n <= MANI_GRAPH_MAX_SPACE_POINTS);
-    float weights[MANI_GRAPH_MAX_SPACE_POINTS];
+    MANI_ASSERT(n <= MANI_MAX_GRAPH_SPACE_POINTS);
+    float weights[MANI_MAX_GRAPH_SPACE_POINTS];
     maniGraphSpaceWeights(u->graph, u->instance->cells, maniLoadU16(record),
                           maniLoadU32(record + 12), n, weights);
     for (uint32_t k = 0; k < n; ++k)
@@ -210,7 +210,7 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
     maniGraphStepMachine(&m, u->instance->cells, block, fabs(u->delta * (double)s->factor),
                          &entered);
     maniGraphRequest(u, s->inertia, entered.inertia);
-    MANI_ASSERT(entered.count <= MANI_GRAPH_MAX_CHAIN);
+    MANI_ASSERT(entered.count <= MANI_MAX_GRAPH_CHAIN);
     for (uint32_t k = 0; k < m.states; ++k)
     {
         float weight = maniGraphMachineWeight(block, k);

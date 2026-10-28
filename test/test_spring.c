@@ -301,18 +301,23 @@ static void TestLimits(void)
           "no limit: the identity frame");
 }
 
-static bool Refused(const maniSpringSetSource* source, maniBuildReason reason, uint32_t item,
-                    uint32_t other)
+static bool RefusedWith(const maniSpringSetSource* source, maniResult result,
+                        maniBuildReason reason, uint32_t item, uint32_t other)
 {
     maniBuildResult r = maniBuildSpringSet(s_builder, source);
-    bool ok =
-        r.result == mani_errorInvalid && r.reason == reason && r.item == item && r.other == other;
+    bool ok = r.result == result && r.reason == reason && r.item == item && r.other == other;
     if (!ok)
     {
         printf("  refused %d: reason %u item %u other %u\n", (int)r.result, r.reason, r.item,
                r.other);
     }
     return ok;
+}
+
+static bool Refused(const maniSpringSetSource* source, maniBuildReason reason, uint32_t item,
+                    uint32_t other)
+{
+    return RefusedWith(source, mani_errorInvalid, reason, item, other);
 }
 
 static void TestColliderRefusals(void)
@@ -406,13 +411,19 @@ static void TestSpringRefusals(void)
           "a joint three bones below the one before");
     s = Source();
     s.referenceRate = 2000.0f;
-    CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "a reference rate past the limit");
+    CHECK(RefusedWith(&s, mani_errorLimit, maniBuildReasonOption, 0, 0),
+          "a reference rate past the limit");
     s = Source();
     s.referenceRate = -1.0f;
     CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "a negative reference rate");
     s.referenceRate = 0.0f;
     s.stepRate = 2000.0f;
-    CHECK(Refused(&s, maniBuildReasonOption, 1, 0), "a step rate past the limit");
+    CHECK(RefusedWith(&s, mani_errorLimit, maniBuildReasonOption, 1, 0),
+          "a step rate past the limit");
+    s = Source();
+    s.springCount = MANI_MAX_BONES + 1;
+    CHECK(RefusedWith(&s, mani_errorLimit, maniBuildReasonCount, 0, 0),
+          "springs past MANI_MAX_BONES");
 }
 
 static void TestJointRefusals(void)

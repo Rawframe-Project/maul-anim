@@ -444,6 +444,10 @@ static void TestRefusals(void)
               maniSolveFabrik(s_pose, &s_skeleton, &far, NULL) == mani_errorInvalid &&
               maniSolveFabrik(s_pose, &s_skeleton, &pole, NULL) == mani_errorInvalid,
           "NULLs, a step, a root below the end, a pole not finite");
+    maniChainSolve many = good;
+    many.iterations = MANI_MAX_IK_ITERATIONS + 1;
+    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &many, NULL) == mani_errorLimit,
+          "iterations past MANI_MAX_IK_ITERATIONS at the limit");
 }
 
 int main(void)

@@ -24,11 +24,12 @@ static void TestResultNames(void)
     CHECK(strcmp(maniResultName(mani_errorCapacity), "mani_errorCapacity") == 0, "capacity name");
     CHECK(strcmp(maniResultName(mani_errorFormat), "mani_errorFormat") == 0, "format name");
     CHECK(strcmp(maniResultName(mani_errorVersion), "mani_errorVersion") == 0, "version name");
+    CHECK(strcmp(maniResultName(mani_errorLimit), "mani_errorLimit") == 0, "limit name");
     CHECK(strcmp(maniResultName(mani_errorBusy), "mani_errorBusy") == 0, "busy name");
     // The values every library of the family gives these results, so a
     // program that links several reads a raw value one way.
     CHECK(mani_errorInvalid == -1 && mani_errorCapacity == -2 && mani_errorVersion == -7 &&
-              mani_errorFormat == -8 && mani_errorBusy == -10,
+              mani_errorFormat == -8 && mani_errorLimit == -9 && mani_errorBusy == -10,
           "the family's values");
     CHECK(strcmp(maniResultName(12345), "unknown result") == 0, "unknown name");
 }

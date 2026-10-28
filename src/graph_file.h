@@ -209,7 +209,7 @@ enum
 };
 
 // An aim IK node's data words: its bone count, goal and pole parameters
-// (as a two-bone node's), MANI_AIM_MAX_BONES bones then as many shares
+// (as a two-bone node's), MANI_MAX_AIM_BONES bones then as many shares
 // (binary32), those past the count 0, its forward, offset and up (three
 // binary32 each), then its twist, cone and weight as scalars.
 #define MANI_GRAPH_AIM_WORDS 34u

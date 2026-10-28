@@ -21,7 +21,7 @@ uint32_t maniGraphBodyDataWords(const maniGraph* g, uint32_t data, uint32_t avai
 
 // The first wrong data word of an XPBD (sdls false) or SDLS node, or
 // UINT32_MAX: a top of the skeleton and a known mode; stretch 0 or 1 (0
-// for SDLS); iterations from 1 to MANI_IK_MAX_ITERATIONS; a tolerance
+// for SDLS); iterations from 1 to MANI_MAX_IK_ITERATIONS; a tolerance
 // finite and at least 0; a weight in [0, 1]; each effector a bone of the
 // skeleton with a vec3 position, a quat rotation or none (its rotation
 // weight then the number 0), weights in [0, 1], a strength and pull

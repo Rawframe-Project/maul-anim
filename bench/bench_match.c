@@ -441,8 +441,8 @@ typedef struct TreeSearch
     const Tree* t;
     const maniMotionDatabase* d;
     const maniMatchQuery* q;
-    float query[MANI_MATCH_MAX_FEATURES];
-    uint32_t historyEntries[MANI_MATCH_MAX_HISTORY];
+    float query[MANI_MAX_MATCH_FEATURES];
+    uint32_t historyEntries[MANI_MAX_MATCH_HISTORY];
     uint32_t best;
     float bestCost;
     bool continuing;
@@ -462,7 +462,7 @@ static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
         }
     }
     if (q->features == NULL || (q->current != NONE && q->current >= d->frameCount) ||
-        q->historyCount > MANI_MATCH_MAX_HISTORY)
+        q->historyCount > MANI_MAX_MATCH_HISTORY)
     {
         return false;
     }
@@ -677,7 +677,7 @@ static maniResult SearchTree(const Tree* t, const maniMotionDatabase* d, const m
         const maniMatchEntry* e = &t->entries[EntryHolding(t, q->current)];
         if ((e->tags & q->requiredTags) == q->requiredTags && (e->tags & q->excludedTags) == 0)
         {
-            float continuing[MANI_MATCH_MAX_FEATURES];
+            float continuing[MANI_MAX_MATCH_FEATURES];
             (void)maniMotionDatabaseFeatures(d, q->current, continuing);
             s.bestCost = Cost(&s, continuing, q->continuingBias + e->costBias);
             s.best = q->current;

@@ -166,7 +166,7 @@ uint32_t maniMatchChannelWidth(uint32_t kind);
 // looping) in binary64, then one less when the last frame's time
 // (maniMatchFrameTime, binary32) does not hold, or one more when the
 // next one's does. False, *framesOut unset, when the span holds
-// MANI_MATCH_MAX_FRAMES frames or more (or is not a span).
+// MANI_MAX_MATCH_FRAMES frames or more (or is not a span).
 bool maniMatchEntryFrames(float start, float end, float rate, bool loop, uint32_t* framesOut);
 
 // An entry's k-th frame's clip time: start + k / rate, in binary64.

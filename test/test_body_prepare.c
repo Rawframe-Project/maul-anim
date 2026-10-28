@@ -10,7 +10,7 @@
 // input or for a locked bone; pre-pull leaving a top whose goals are in
 // reach, and moving one by exactly the excess past the reach. Then a
 // branch bone with no limit axis (its twist range unused), and the part
-// held to MANI_BODY_IK_MAX_BONES on a chain of 131 bones.
+// held to MANI_MAX_BODY_IK_BONES on a chain of 131 bones.
 
 #include "body_figure.h"
 
@@ -216,9 +216,9 @@ static void TestBound(void)
                             .positionWeight = 1.0f,
                             .strength = 1.0f};
     maniBodySolve s = {.effectors = &tip, .effectorCount = 1, .iterations = 1, .weight = 1.0f};
-    s.top = LONG - MANI_BODY_IK_MAX_BONES;
+    s.top = LONG - MANI_MAX_BODY_IK_BONES;
     CHECK(maniBodyIkScratchSize(&s_long, &s) > 0, "a part of 128 bones");
-    s.top = LONG - MANI_BODY_IK_MAX_BONES - 1;
+    s.top = LONG - MANI_MAX_BODY_IK_BONES - 1;
     CHECK(maniBodyIkScratchSize(&s_long, &s) == 0, "a part of 129 bones refused");
 }
 

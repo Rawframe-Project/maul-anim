@@ -21,8 +21,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#define MAX_INFLUENCES (MANI_INFLUENCE_MAX_GROUPS * MANI_INFLUENCE_GROUP)
-
 static maniBuildResult Result(maniResult result, maniBuildReason reason, uint32_t item,
                               uint32_t other)
 {
@@ -77,9 +75,9 @@ static maniBuildResult Gather(const maniInfluenceSource* s, uint32_t v, Entry* e
                 return Result(mani_errorInvalid, maniBuildReasonRepeatedJoint, v, entries[e].index);
             }
         }
-        if (n == MAX_INFLUENCES)
+        if (n == MANI_MAX_INFLUENCES)
         {
-            return Result(mani_errorInvalid, maniBuildReasonCount, v, i);
+            return Result(mani_errorLimit, maniBuildReasonCount, v, i);
         }
         entries[n++] = (Entry){s->joints[i], w, i};
     }
@@ -95,7 +93,7 @@ static maniBuildResult Check(const maniInfluenceSource* s, uint32_t* groupsOut)
         return Result(mani_errorInvalid, maniBuildReasonCount, 0, 0);
     }
     uint32_t most = 0;
-    Entry entries[MAX_INFLUENCES];
+    Entry entries[MANI_MAX_INFLUENCES];
     for (uint32_t v = 0; v < s->vertexCount; ++v)
     {
         if (s->offsets[v + 1] < s->offsets[v] ||
@@ -141,7 +139,7 @@ static void Sort(Entry* entries, uint32_t n)
 static void Lay(const maniInfluenceSource* s, uint32_t v, uint32_t per, uint8_t* joints,
                 uint8_t* weights)
 {
-    Entry entries[MAX_INFLUENCES];
+    Entry entries[MANI_MAX_INFLUENCES];
     uint32_t n = 0;
     (void)Gather(s, v, entries, &n);
     Sort(entries, n);

@@ -130,7 +130,7 @@ static maniFileResult CheckHeader(const Sections* s, maniMorphTargets* m)
             return Fail(s->at[kHeader] + 4 * k);
         }
     }
-    if (m->attributeCount > MANI_MORPH_MAX_ATTRIBUTES)
+    if (m->attributeCount > MANI_MAX_MORPH_ATTRIBUTES)
     {
         return Fail(s->at[kHeader] + 12);
     }
@@ -150,9 +150,9 @@ static maniFileResult CheckHeader(const Sections* s, maniMorphTargets* m)
 // The attribute table: known semantics, set 0 for the first three, none
 // repeated; their widths out.
 static maniFileResult CheckAttributes(const Sections* s, const maniMorphTargets* m,
-                                      uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES])
+                                      uint32_t widths[MANI_MAX_MORPH_ATTRIBUTES])
 {
-    for (uint32_t a = 0; a < MANI_MORPH_MAX_ATTRIBUTES; ++a)
+    for (uint32_t a = 0; a < MANI_MAX_MORPH_ATTRIBUTES; ++a)
     {
         widths[a] = 0;
     }
@@ -351,7 +351,7 @@ static maniFileResult CheckValues(const Sections* s, const maniMorphTargets* m)
 
 static maniFileResult CheckAll(const Sections* s, maniMorphTargets* m)
 {
-    uint32_t widths[MANI_MORPH_MAX_ATTRIBUTES];
+    uint32_t widths[MANI_MAX_MORPH_ATTRIBUTES];
     uint64_t names = 0;
     maniFileResult r = CheckHeader(s, m);
     if (r.result == mani_success)
@@ -713,7 +713,7 @@ static bool JobValid(const maniMorphJob* job)
 }
 
 // The table's entry for a stream's semantic and set, or
-// MANI_MORPH_MAX_ATTRIBUTES for none.
+// MANI_MAX_MORPH_ATTRIBUTES for none.
 static uint32_t Slot(const maniMorphTargets* m, const maniMorphStream* s)
 {
     for (uint32_t a = 0; a < m->attributeCount; ++a)
@@ -724,7 +724,7 @@ static uint32_t Slot(const maniMorphTargets* m, const maniMorphStream* s)
             return a;
         }
     }
-    return MANI_MORPH_MAX_ATTRIBUTES;
+    return MANI_MAX_MORPH_ATTRIBUTES;
 }
 
 // Where a target's deltas for one table entry begin: past the entries
@@ -894,7 +894,7 @@ static void ApplyStream(const maniMorphJob* job, const maniMorphStream* s)
     }
     uint32_t slot = Slot(job->targets, s);
     uint32_t targetCount = job->targets->targetCount;
-    for (uint32_t t = 0; slot < MANI_MORPH_MAX_ATTRIBUTES && t < targetCount; ++t)
+    for (uint32_t t = 0; slot < MANI_MAX_MORPH_ATTRIBUTES && t < targetCount; ++t)
     {
         if (job->weights[t] != 0.0f)
         {

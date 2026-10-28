@@ -379,11 +379,11 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
     }
     maniGraphPutFloat(d + 4 * (size_t)at, node->blendSpace1D.period);
     at = maniGraphPutFloats(d, at + 1, node->blendSpace1D.points, n);
-    // The checker took at most MANI_GRAPH_MAX_SPACE_POINTS inputs.
-    MANI_ASSERT(n <= MANI_GRAPH_MAX_SPACE_POINTS);
-    uint64_t keys[MANI_GRAPH_MAX_SPACE_POINTS];
-    uint32_t order[MANI_GRAPH_MAX_SPACE_POINTS];
-    uint32_t scratch[MANI_GRAPH_MAX_SPACE_POINTS];
+    // The checker took at most MANI_MAX_GRAPH_SPACE_POINTS inputs.
+    MANI_ASSERT(n <= MANI_MAX_GRAPH_SPACE_POINTS);
+    uint64_t keys[MANI_MAX_GRAPH_SPACE_POINTS];
+    uint32_t order[MANI_MAX_GRAPH_SPACE_POINTS];
+    uint32_t scratch[MANI_MAX_GRAPH_SPACE_POINTS];
     for (uint32_t k = 0; k < n; ++k)
     {
         keys[k] = maniFloatKey(node->blendSpace1D.points[k]);
@@ -696,7 +696,7 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
         PutParameter(lay, &source->parameters[i],
                      lay->sections[1] + (size_t)i * MANI_GRAPH_PARAMETER_SIZE);
     }
-    uint64_t ids[MANI_GRAPH_MAX_MAPS] = {0};
+    uint64_t ids[MANI_MAX_GRAPH_MAPS] = {0};
     uint32_t maps = 0;
     for (uint32_t i = 0; i < source->clipCount; ++i)
     {
@@ -883,7 +883,7 @@ static float ScaleSize(const maniGraphSource* source, maniGraphScalar s)
 
 // Each node's largest time factor size, its readers first: the output's
 // 1, an input's the largest of its readers' times their time scales'.
-// Refuses a time scale taking it past MANI_GRAPH_MAX_TIME_FACTOR.
+// Refuses a time scale taking it past MANI_MAX_GRAPH_TIME_FACTOR.
 static maniBuildResult TimeFactors(const maniGraphSource* source, Work* w)
 {
     uint32_t n = source->nodeCount;
@@ -898,9 +898,9 @@ static maniBuildResult TimeFactors(const maniGraphSource* source, Work* w)
         if (node->kind == maniGraphNodeTimeScale)
         {
             need *= ScaleSize(source, node->timeScale.scale);
-            if (!(need <= MANI_GRAPH_MAX_TIME_FACTOR))
+            if (!(need <= MANI_MAX_GRAPH_TIME_FACTOR))
             {
-                return maniGraphRefuse(maniBuildReasonScalar, v, 0);
+                return maniGraphPastLimit(maniBuildReasonScalar, v, 0);
             }
         }
         for (uint32_t k = 0; k < node->inputCount; ++k)

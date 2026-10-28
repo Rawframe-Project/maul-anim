@@ -231,10 +231,15 @@ static Plan ChainBone(const maniRetargetChainSource* c, const uint32_t* source, 
 static maniBuildResult Chain(const maniRetargetMapSource* s, Work* w, uint32_t i)
 {
     const maniRetargetChainSource* c = &s->chains[i];
-    uint32_t source[MANI_IK_CHAIN_MAX_BONES];
-    uint32_t target[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t source[MANI_MAX_IK_CHAIN_BONES];
+    uint32_t target[MANI_MAX_IK_CHAIN_BONES];
     bool inRange = c->sourceStart < w->sourceCount && c->sourceEnd < w->sourceCount &&
                    c->targetStart < w->targetCount && c->targetEnd < w->targetCount;
+    if (inRange && (maniIkChainPathPast(s->source, c->sourceStart, c->sourceEnd) ||
+                    maniIkChainPathPast(s->target, c->targetStart, c->targetEnd)))
+    {
+        return (maniBuildResult){mani_errorLimit, maniBuildReasonRetargetChain, i, 0};
+    }
     uint32_t ns = inRange ? maniIkChainPath(s->source, c->sourceStart, c->sourceEnd, source) : 0u;
     uint32_t nt = inRange ? maniIkChainPath(s->target, c->targetStart, c->targetEnd, target) : 0u;
     if (ns == 0 || nt == 0 || c->rotation > maniRetargetRotationOneToOneReversed ||
@@ -249,8 +254,8 @@ static maniBuildResult Chain(const maniRetargetMapSource* s, Work* w, uint32_t i
             return Refuse(maniBuildReasonRetargetChain, i, target[k]);
         }
     }
-    float v[MANI_IK_CHAIN_MAX_BONES];
-    float u[MANI_IK_CHAIN_MAX_BONES];
+    float v[MANI_MAX_IK_CHAIN_BONES];
+    float u[MANI_MAX_IK_CHAIN_BONES];
     Places(w->source, source, ns, v);
     Places(w->target, target, nt, u);
     for (uint32_t k = 0; k < nt; ++k)

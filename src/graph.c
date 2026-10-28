@@ -81,11 +81,11 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
         return 2;
     case maniGraphNodeAdditive:
         *minOut = 2;
-        return MANI_GRAPH_MAX_INPUTS;
+        return MANI_MAX_GRAPH_INPUTS;
     case maniGraphNodeBlend:
     case maniGraphNodeSelect:
         *minOut = 1;
-        return MANI_GRAPH_MAX_INPUTS;
+        return MANI_MAX_GRAPH_INPUTS;
     case maniGraphNodeTimeScale:
     case maniGraphNodeSeek:
     case maniGraphNodeMirror:
@@ -103,13 +103,13 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut)
     case maniGraphNodeBlendSpace1D:
     case maniGraphNodeBlendSpaceBands:
         *minOut = 1;
-        return MANI_GRAPH_MAX_SPACE_POINTS;
+        return MANI_MAX_GRAPH_SPACE_POINTS;
     case maniGraphNodeBlendSpaceTriangles:
         *minOut = 3;
-        return MANI_GRAPH_MAX_SPACE_POINTS;
+        return MANI_MAX_GRAPH_SPACE_POINTS;
     case maniGraphNodeMachine:
         *minOut = 1;
-        return MANI_GRAPH_MAX_INPUTS;
+        return MANI_MAX_GRAPH_INPUTS;
     default:
         *minOut = 1;
         return 0;
@@ -206,19 +206,19 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
     // maps.
     const uint32_t lows[14] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0};
     const uint32_t highs[14] = {MANI_MAX_BONES,
-                                MANI_GRAPH_MAX_PARAMETERS,
-                                MANI_GRAPH_MAX_NODES,
-                                MANI_GRAPH_MAX_NODES * MANI_GRAPH_MAX_INPUTS,
+                                MANI_MAX_GRAPH_PARAMETERS,
+                                MANI_MAX_GRAPH_NODES,
+                                MANI_MAX_GRAPH_NODES * MANI_MAX_GRAPH_INPUTS,
                                 UINT32_MAX,
-                                MANI_GRAPH_MAX_CLIPS,
-                                MANI_GRAPH_MAX_SYNC_GROUPS,
-                                MANI_GRAPH_MAX_NODES,
-                                MANI_GRAPH_MAX_NODES,
-                                MANI_GRAPH_MAX_DATABASES,
-                                MANI_GRAPH_MAX_DATABASES * MANI_GRAPH_MAX_CLIPS,
-                                MANI_GRAPH_MAX_MODELS,
-                                MANI_GRAPH_MAX_SPRING_SETS,
-                                MANI_GRAPH_MAX_MAPS};
+                                MANI_MAX_GRAPH_CLIPS,
+                                MANI_MAX_GRAPH_SYNC_GROUPS,
+                                MANI_MAX_GRAPH_NODES,
+                                MANI_MAX_GRAPH_NODES,
+                                MANI_MAX_GRAPH_DATABASES,
+                                MANI_MAX_GRAPH_DATABASES * MANI_MAX_GRAPH_CLIPS,
+                                MANI_MAX_GRAPH_MODELS,
+                                MANI_MAX_GRAPH_SPRING_SETS,
+                                MANI_MAX_GRAPH_MAPS};
     for (uint32_t k = 0; k < 14; ++k)
     {
         if (counts[k] < lows[k] || counts[k] > highs[k])

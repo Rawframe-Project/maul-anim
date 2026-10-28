@@ -43,7 +43,7 @@ uint32_t maniGraphMachineDataWords(const maniGraph* g, uint32_t data, uint32_t s
     uint64_t head = MANI_GRAPH_MACHINE_WORDS + MANI_GRAPH_TRANSITION_WORDS * count +
                     MANI_GRAPH_CONDITION_WORDS * conditions +
                     MANI_GRAPH_STATE_WORDS * (uint64_t)states;
-    if (count > MANI_GRAPH_MAX_TRANSITIONS || conditions > MANI_GRAPH_MAX_CONDITIONS * count ||
+    if (count > MANI_MAX_GRAPH_TRANSITIONS || conditions > MANI_MAX_GRAPH_CONDITIONS * count ||
         head > available)
     {
         return UINT32_MAX;
@@ -165,7 +165,7 @@ static uint32_t TransitionsValid(const maniGraph* g, uint32_t data, uint32_t sta
         uint32_t at = data + MANI_GRAPH_MACHINE_WORDS + MANI_GRAPH_TRANSITION_WORDS * t;
         uint32_t wrong = TransitionValid(g, at, states, priority, first);
         uint32_t n = Word(g, at + 7);
-        if (wrong == UINT32_MAX && (n > MANI_GRAPH_MAX_CONDITIONS || n > Word(g, data + 4) - first))
+        if (wrong == UINT32_MAX && (n > MANI_MAX_GRAPH_CONDITIONS || n > Word(g, data + 4) - first))
         {
             wrong = at + 7;
         }
@@ -235,7 +235,7 @@ uint32_t maniGraphMachineValid(const maniGraph* g, uint32_t p, uint32_t data, ui
     {
         return data;
     }
-    if (chain == 0 || chain > MANI_GRAPH_MAX_CHAIN)
+    if (chain == 0 || chain > MANI_MAX_GRAPH_CHAIN)
     {
         return data + 1;
     }

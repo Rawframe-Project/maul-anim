@@ -3,7 +3,7 @@
 //
 // A node's words name a database slot, a trigger or none, finite costs,
 // seconds not negative (the period above 0), at most
-// MANI_MATCH_MAX_HISTORY picks, tags from an int parameter (its literal
+// MANI_MAX_MATCH_HISTORY picks, tags from an int parameter (its literal
 // 0) or literal, a duration as an inertialize node's, and a vec2 or
 // float parameter per query; binding checks the query against the
 // database. A saved block's entry is the database's or none, its clock
@@ -50,7 +50,7 @@ uint32_t maniGraphMatchDataWords(const maniGraph* g, uint32_t data, uint32_t ava
         return 0;
     }
     uint32_t queries = Word(g, data + maniGraphMatchQueryCount);
-    return queries <= MANI_MATCH_MAX_FEATURES && queries <= available - MANI_GRAPH_MATCH_WORDS
+    return queries <= MANI_MAX_MATCH_FEATURES && queries <= available - MANI_GRAPH_MATCH_WORDS
                ? MANI_GRAPH_MATCH_WORDS + queries
                : 0;
 }
@@ -97,7 +97,7 @@ static uint32_t SlotsValid(const maniGraph* g, uint32_t data)
 // duration, the block and each query.
 static uint32_t RestValid(const maniGraph* g, uint32_t data, uint32_t block)
 {
-    if (Word(g, data + maniGraphMatchHistoryCount) > MANI_MATCH_MAX_HISTORY)
+    if (Word(g, data + maniGraphMatchHistoryCount) > MANI_MAX_MATCH_HISTORY)
     {
         return data + maniGraphMatchHistoryCount;
     }
@@ -178,7 +178,7 @@ uint32_t maniGraphSavedMatchValid(const uint8_t* bytes, const maniGraph* g, uint
     {
         return maniGraphMatchNext;
     }
-    for (uint32_t k = 0; k < MANI_MATCH_MAX_HISTORY; ++k)
+    for (uint32_t k = 0; k < MANI_MAX_MATCH_HISTORY; ++k)
     {
         uint32_t frame = maniLoadU32(bytes + 4 * (size_t)(maniGraphMatchHistory + k));
         if (k < picks ? frame >= database->frameCount : frame != 0)

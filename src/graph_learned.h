@@ -42,7 +42,7 @@ enum
 
 // The most values a state holds: a database's features and a model's
 // latent values.
-#define MANI_GRAPH_LEARNED_MAX_STATES (MANI_MATCH_MAX_FEATURES + MANI_LEARNED_MAX_LATENT)
+#define MANI_GRAPH_LEARNED_MAX_STATES (MANI_MAX_MATCH_FEATURES + MANI_MAX_LEARNED_LATENT)
 
 // A block: whether the node has a state (0 or 1), the seconds since the
 // last step (binary64, low word first, below a step's seconds), the

@@ -55,6 +55,11 @@ maniBuildResult maniGraphRefuse(maniBuildReason reason, uint32_t item, uint32_t 
     return (maniBuildResult){mani_errorInvalid, reason, item, other};
 }
 
+maniBuildResult maniGraphPastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return (maniBuildResult){mani_errorLimit, reason, item, other};
+}
+
 static bool Finite(float value)
 {
     return isfinite(value);
@@ -244,7 +249,7 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
 
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 {
-    MANI_ASSERT(*count <= MANI_GRAPH_MAX_MAPS);
+    MANI_ASSERT(*count <= MANI_MAX_GRAPH_MAPS);
     for (uint32_t k = 0; k < *count; ++k)
     {
         if (ids[k] == identity)
@@ -252,9 +257,9 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
             return k;
         }
     }
-    if (*count == MANI_GRAPH_MAX_MAPS)
+    if (*count == MANI_MAX_GRAPH_MAPS)
     {
-        return MANI_GRAPH_MAX_MAPS;
+        return MANI_MAX_GRAPH_MAPS;
     }
     ids[*count] = identity;
     return (*count)++;
@@ -281,20 +286,23 @@ static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c
 }
 
 // Every clip slot: a clip of the skeleton or of its map's source, each
-// clip once, at most MANI_GRAPH_MAX_MAPS maps.
+// clip once, at most MANI_MAX_GRAPH_MAPS maps.
 static maniBuildResult CheckClips(const maniGraphSource* source, const maniAllocator* allocator,
                                   uint32_t* mapCountOut)
 {
     uint32_t n = source->clipCount;
-    uint64_t ids[MANI_GRAPH_MAX_MAPS] = {0};
+    uint64_t ids[MANI_MAX_GRAPH_MAPS] = {0};
     for (uint32_t i = 0; i < n; ++i)
     {
         const maniGraphClipSource* c = &source->clips[i];
-        if (!ClipFits(source, c) ||
-            (c->map != NULL &&
-             maniGraphMapSlotIn(ids, mapCountOut, c->map->identity) == MANI_GRAPH_MAX_MAPS))
+        if (!ClipFits(source, c))
         {
             return maniGraphRefuse(maniBuildReasonClip, i, 0);
+        }
+        if (c->map != NULL &&
+            maniGraphMapSlotIn(ids, mapCountOut, c->map->identity) == MANI_MAX_GRAPH_MAPS)
+        {
+            return maniGraphPastLimit(maniBuildReasonClip, i, 0);
         }
     }
     uint64_t* keys = n > 1 ? maniAllocate(allocator, n, sizeof(uint64_t), 8) : NULL;
@@ -590,7 +598,7 @@ static bool SharesValid(const float* shares, uint32_t count)
     return total > 0.0f && Finite(total);
 }
 
-// An aim node: 1 to MANI_AIM_MAX_BONES bones of a chain, its shares,
+// An aim node: 1 to MANI_MAX_AIM_BONES bones of a chain, its shares,
 // goal and pole, a forward of length 1 within a thousandth, offset and
 // up finite, a finite twist, a cone in [0, MANI_AIM_MAX_CONE], a weight
 // in [0, 1].
@@ -598,8 +606,12 @@ static maniBuildResult CheckAim(const maniGraphSource* source, const maniGraphNo
                                 uint32_t node)
 {
     const maniGraphAimNodeSource* s = &n->aim;
+    if (s->count > MANI_MAX_AIM_BONES)
+    {
+        return maniGraphPastLimit(maniBuildReasonNode, node, 0);
+    }
     const maniGraphScalar scalars[3] = {s->twist, s->cone, s->weight};
-    bool ok = s->bones != NULL && s->count > 0 && s->count <= MANI_AIM_MAX_BONES &&
+    bool ok = s->bones != NULL && s->count > 0 &&
               ChainValid(source->skeleton, s->bones, s->count) &&
               SharesValid(s->shares, s->count) && GoalValid(source, s->goal, s->pole) &&
               fabsf(maniVec3Length(s->forward) - 1.0f) <= 1e-3f && FiniteVector(s->offset) &&
@@ -612,7 +624,7 @@ static maniBuildResult CheckAim(const maniGraphSource* source, const maniGraphNo
 // none.
 static uint32_t ChainLimitWords(const maniGraphSource* source, const maniGraphNodeSource* n)
 {
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t count = n->chain.limits != NULL
                          ? maniIkChainPath(source->skeleton, n->chain.root, n->chain.end, bones)
                          : 0u;
@@ -642,11 +654,15 @@ static maniBuildResult CheckChain(const maniGraphSource* source, const maniGraph
 {
     const maniGraphChainNodeSource* s = &n->chain;
     bool fabrik = n->kind == maniGraphNodeFabrik;
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t boneCount = maniSkeletonBoneCount(source->skeleton);
-    uint32_t count = s->root < boneCount && s->end < boneCount
-                         ? maniIkChainPath(source->skeleton, s->root, s->end, bones)
-                         : 0u;
+    bool inRange = s->root < boneCount && s->end < boneCount;
+    if (s->iterations > MANI_MAX_IK_ITERATIONS ||
+        (inRange && maniIkChainPathPast(source->skeleton, s->root, s->end)))
+    {
+        return maniGraphPastLimit(maniBuildReasonNode, node, 0);
+    }
+    uint32_t count = inRange ? maniIkChainPath(source->skeleton, s->root, s->end, bones) : 0u;
     maniGraphParameterType quat = maniGraphParameterQuat;
     bool ok =
         count > 0 &&
@@ -654,9 +670,8 @@ static maniBuildResult CheckChain(const maniGraphSource* source, const maniGraph
         GoalValid(source, s->goal, fabrik ? s->pole : MANI_NO_PARAMETER) &&
         (fabrik || s->pole == MANI_NO_PARAMETER) &&
         (s->rotation == MANI_NO_PARAMETER || ParameterOf(source, s->rotation, quat, quat)) &&
-        s->iterations >= 1 && s->iterations <= MANI_IK_MAX_ITERATIONS && s->tolerance >= 0.0f &&
-        Finite(s->tolerance) && s->step >= 0.0f && s->step <= MANI_AIM_MAX_CONE &&
-        (!fabrik || s->step == 0.0f);
+        s->iterations >= 1 && s->tolerance >= 0.0f && Finite(s->tolerance) && s->step >= 0.0f &&
+        s->step <= MANI_AIM_MAX_CONE && (!fabrik || s->step == 0.0f);
     maniBuildResult r = ok ? CheckScalar(source, s->rotationWeight, node, 0, 0.0f, 1.0f)
                            : maniGraphRefuse(maniBuildReasonNode, node, 0);
     return r.result == mani_success ? CheckScalar(source, s->weight, node, 1, 0.0f, 1.0f) : r;
@@ -771,12 +786,19 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
     }
 }
 
-static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
-                                 maniGraphTally* tally)
+// A node's input count within its kind's range, every input another node.
+static maniBuildResult CheckInputs(const maniGraphSource* source, uint32_t node)
 {
     const maniGraphNodeSource* n = &source->nodes[node];
     uint32_t low = 0;
     uint32_t high = maniGraphInputRange(n->kind, &low);
+    // A kind of many inputs past its bound; a count past a fixed arity
+    // is wrong.
+    bool many = high == MANI_MAX_GRAPH_INPUTS || high == MANI_MAX_GRAPH_SPACE_POINTS;
+    if (many && n->inputCount > high)
+    {
+        return maniGraphPastLimit(maniBuildReasonNode, node, 0);
+    }
     if (n->inputCount < low || n->inputCount > high || (n->inputCount > 0 && n->inputs == NULL))
     {
         return maniGraphRefuse(maniBuildReasonNode, node, 0);
@@ -788,7 +810,15 @@ static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
             return maniGraphRefuse(maniBuildReasonInput, node, k);
         }
     }
-    maniBuildResult r = CheckFields(source, n, node);
+    return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
+}
+
+static maniBuildResult CheckNode(const maniGraphSource* source, uint32_t node,
+                                 maniGraphTally* tally)
+{
+    const maniGraphNodeSource* n = &source->nodes[node];
+    maniBuildResult r = CheckInputs(source, node);
+    r = r.result == mani_success ? CheckFields(source, n, node) : r;
     if (r.result != mani_success)
     {
         return r;
@@ -864,23 +894,34 @@ static maniBuildResult CheckInertial(const maniGraphSource* source, const maniAl
 
 bool maniGraphListsValid(const maniGraphSource* source)
 {
-    return source->parameterCount <= MANI_GRAPH_MAX_PARAMETERS &&
+    return source->parameterCount <= MANI_MAX_GRAPH_PARAMETERS &&
            (source->parameterCount == 0 || source->parameters != NULL) &&
-           source->clipCount <= MANI_GRAPH_MAX_CLIPS &&
+           source->clipCount <= MANI_MAX_GRAPH_CLIPS &&
            (source->clipCount == 0 || source->clips != NULL) &&
-           source->syncGroupCount <= MANI_GRAPH_MAX_SYNC_GROUPS &&
+           source->syncGroupCount <= MANI_MAX_GRAPH_SYNC_GROUPS &&
            (source->syncGroupCount == 0 || source->syncGroups != NULL) &&
-           source->databaseCount <= MANI_GRAPH_MAX_DATABASES &&
+           source->databaseCount <= MANI_MAX_GRAPH_DATABASES &&
            (source->databaseCount == 0 || source->databases != NULL) &&
-           source->modelCount <= MANI_GRAPH_MAX_MODELS &&
+           source->modelCount <= MANI_MAX_GRAPH_MODELS &&
            (source->modelCount == 0 || source->models != NULL) &&
-           source->springSetCount <= MANI_GRAPH_MAX_SPRING_SETS &&
+           source->springSetCount <= MANI_MAX_GRAPH_SPRING_SETS &&
            (source->springSetCount == 0 || source->springSets != NULL);
+}
+
+bool maniGraphListsPast(const maniGraphSource* source)
+{
+    return source->nodeCount > MANI_MAX_GRAPH_NODES ||
+           source->parameterCount > MANI_MAX_GRAPH_PARAMETERS ||
+           source->clipCount > MANI_MAX_GRAPH_CLIPS ||
+           source->syncGroupCount > MANI_MAX_GRAPH_SYNC_GROUPS ||
+           source->databaseCount > MANI_MAX_GRAPH_DATABASES ||
+           source->modelCount > MANI_MAX_GRAPH_MODELS ||
+           source->springSetCount > MANI_MAX_GRAPH_SPRING_SETS;
 }
 
 static bool CountsValid(const maniGraphSource* source)
 {
-    return source->nodeCount > 0 && source->nodeCount <= MANI_GRAPH_MAX_NODES &&
+    return source->nodeCount > 0 && source->nodeCount <= MANI_MAX_GRAPH_NODES &&
            source->nodes != NULL && maniGraphListsValid(source);
 }
 
@@ -888,6 +929,10 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
                                      maniGraphTally* tallyOut)
 {
     *tallyOut = (maniGraphTally){0};
+    if (maniGraphListsPast(source))
+    {
+        return maniGraphPastLimit(maniBuildReasonCount, 0, 0);
+    }
     if (!CountsValid(source))
     {
         return maniGraphRefuse(maniBuildReasonCount, 0, 0);

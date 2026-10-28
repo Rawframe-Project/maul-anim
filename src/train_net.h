@@ -37,10 +37,10 @@ typedef struct maniTrainNet
 {
     uint32_t layerCount;
     maniTrainActivation activation;
-    uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1];
+    uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1];
     // Where each layer's weights start among the parameters; its biases
     // follow them.
-    uint64_t offsets[MANI_LEARNED_MAX_LAYERS];
+    uint64_t offsets[MANI_MAX_LEARNED_LAYERS];
     uint64_t parameterCount;
     // The values a sample holds over every layer, its inputs included.
     uint64_t valueCount;
@@ -49,8 +49,8 @@ typedef struct maniTrainNet
 } maniTrainNet;
 
 // A network through sizes[0] to sizes[layerCount]; false past the
-// limits (MANI_LEARNED_MAX_LAYERS, MANI_LEARNED_MAX_WIDTH,
-// MANI_LEARNED_MAX_WEIGHTS) or for a size of 0.
+// limits (MANI_MAX_LEARNED_LAYERS, MANI_MAX_LEARNED_WIDTH,
+// MANI_MAX_LEARNED_WEIGHTS) or for a size of 0.
 bool maniTrainNetInit(maniTrainNet* n, const uint32_t* sizes, uint32_t layerCount,
                       maniTrainActivation activation);
 

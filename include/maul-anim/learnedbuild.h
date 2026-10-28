@@ -61,8 +61,8 @@ extern "C"
     } maniLearnedNameSource;
 
     // A model: the skeleton and the motion database it learned (of that
-    // skeleton); the latent count (1 to MANI_LEARNED_MAX_LATENT); the step
-    // rate (above 0, at most MANI_LEARNED_MAX_RATE); the bones whose scale
+    // skeleton); the latent count (1 to MANI_MAX_LEARNED_LATENT); the step
+    // rate (above 0, at most MANI_MAX_LEARNED_RATE); the bones whose scale
     // the Decompressor gives (increasing) and the scale of every bone
     // (three values a bone, finite; NULL for 1), kept for the others; the
     // float tracks and events it gives (names unique within each list);
@@ -103,12 +103,21 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The model.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse), or with the reason and item for a refused source:
-    /// `maniBuildReasonDatabase` (a database of another skeleton),
-    /// `maniBuildReasonTiming` (the step rate), `maniBuildReasonOption`
-    /// (the latent count or weight format), `maniBuildReasonCount` (no
-    /// Projector, or a list past its limit), `maniBuildReasonJoint` (a
+    /// @return `mani_success`; `mani_errorLimit` with the reason and item
+    /// for a source past a bound (no misuse): `maniBuildReasonTiming` (a
+    /// step rate past MANI_MAX_LEARNED_RATE), `maniBuildReasonOption`
+    /// (item 0: more than MANI_MAX_LEARNED_LATENT latent values),
+    /// `maniBuildReasonCount` (more than MANI_MAX_LEARNED_PROJECTORS
+    /// Projectors, MANI_MAX_LEARNED_FLOAT_TRACKS float tracks or
+    /// MANI_MAX_LEARNED_EVENTS events), `maniBuildReasonNetwork` (more
+    /// than MANI_MAX_LEARNED_LAYERS layers, a layer wider than
+    /// MANI_MAX_LEARNED_WIDTH or more than MANI_MAX_LEARNED_WEIGHTS
+    /// weights; item and other as below); `mani_errorInvalid` for a NULL
+    /// argument (a misuse), or with the reason and item for a refused
+    /// source: `maniBuildReasonDatabase` (a database of another
+    /// skeleton), `maniBuildReasonTiming` (a step rate not above 0),
+    /// `maniBuildReasonOption` (no latent values or the weight format),
+    /// `maniBuildReasonCount` (no Projector), `maniBuildReasonJoint` (a
     /// scaled bone past the skeleton or not increasing; item its place),
     /// `maniBuildReasonNotFinite` (a bone's scale; item the bone),
     /// `maniBuildReasonNetwork` (item the network: 0 the Decompressor, 1

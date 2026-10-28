@@ -97,7 +97,8 @@ extern "C"
     enum
     {
         maniBuildReasonNone = 0,
-        // Too few or too many items: no bones, or more than MANI_MAX_BONES.
+        // Too few or too many items: no bones, or more than MANI_MAX_BONES
+        // (at the limit).
         maniBuildReasonCount = 1,
         // A parent index out of range, or a bone its own parent.
         maniBuildReasonParent = 2,
@@ -126,7 +127,8 @@ extern "C"
         // A cubic spline channel with fewer than two keys.
         maniBuildReasonKeyCount = 12,
         // A sample rate or duration not finite, a rate not above 0, a
-        // duration below 0, or more than MANI_MAX_SAMPLES samples.
+        // duration below 0, or more than MANI_MAX_SAMPLES samples (at the
+        // limit).
         maniBuildReasonTiming = 13,
         // An interpolation, loop policy or additive basis the library does not
         // know.
@@ -168,7 +170,7 @@ extern "C"
         // A graph's clip slot without a clip, with a clip of another
         // skeleton (than the graph's, or its map's source), with a map
         // not made for the graph's skeleton or past
-        // MANI_GRAPH_MAX_MAPS maps, or with a clip an earlier slot
+        // MANI_MAX_GRAPH_MAPS maps, or with a clip an earlier slot
         // (other) has. A learned
         // model trainer's clip whose identity is not its database's (item
         // the clip), or a clip count not the database's (item the count,
@@ -192,7 +194,7 @@ extern "C"
         // float, or a literal not finite or out of its range (a weight
         // below 0, a direct or additive weight above 1), or a time scale
         // reading a parameter without bounds or taking a path's product of
-        // time scales past MANI_GRAPH_MAX_TIME_FACTOR; item is the node,
+        // time scales past MANI_MAX_GRAPH_TIME_FACTOR; item is the node,
         // other the number's place among its numbers.
         maniBuildReasonScalar = 28,
         // A node mixing poses and differences, an additive node's base
@@ -224,7 +226,7 @@ extern "C"
         maniBuildReasonTransition = 34,
         // A motion database's channel of an unknown kind or axis, a bone
         // past the skeleton, no times or too many, a time not finite or
-        // past MANI_MATCH_MAX_REACH, a weight not above 0, or a float
+        // past MANI_MAX_MATCH_REACH, a weight not above 0, or a float
         // track with no name; item is the channel.
         maniBuildReasonChannel = 35,
         // A motion database's entry naming a clip past the clips, with
@@ -244,10 +246,10 @@ extern "C"
         // skeleton (item 0).
         maniBuildReasonDatabase = 39,
         // A learned model's network with no layers or more
-        // than MANI_LEARNED_MAX_LAYERS, a layer of no inputs or outputs or
-        // past MANI_LEARNED_MAX_WIDTH, layers that do not chain, a first
+        // than MANI_MAX_LEARNED_LAYERS, a layer of no inputs or outputs or
+        // past MANI_MAX_LEARNED_WIDTH, layers that do not chain, a first
         // input or last output count its role does not take, weights past
-        // MANI_LEARNED_MAX_WEIGHTS in all, or a value not finite or a
+        // MANI_MAX_LEARNED_WEIGHTS in all, or a value not finite or a
         // scale of 0; item is the network, other the layer (the layer
         // count for the normalization).
         maniBuildReasonNetwork = 40,
@@ -305,7 +307,7 @@ extern "C"
         maniBuildReasonRetargetPair = 52,
         // A retargeting map's chain (item; other a target bone mapped
         // before, else 0): bones out of range, an end not below its start
-        // within MANI_IK_CHAIN_MAX_BONES, an unknown mode or translation,
+        // within MANI_MAX_IK_CHAIN_BONES, an unknown mode or translation,
         // a weight outside [0, 1].
         maniBuildReasonRetargetChain = 53,
         // A retargeting map's pelvis: a bone out of range or its target
@@ -365,8 +367,8 @@ extern "C"
     };
 
     // A build's outcome: the status and, when the source was refused
-    // (mani_errorInvalid), the reason, the source item and a second item
-    // the reason names.
+    // (mani_errorInvalid) or passes a bound (mani_errorLimit), the reason,
+    // the source item and a second item the reason names.
     typedef struct maniBuildResult
     {
         maniResult result;
@@ -401,8 +403,10 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The bones.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse) or with the reason and source bone for a refused source;
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonCount` for more than MANI_MAX_BONES bones (no
+    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse) or with
+    /// the reason and source bone for a refused source;
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
@@ -427,10 +431,12 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The skin.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse), or with the reason and joint for a refused source (no
-    /// joints or too many, a bone past the skeleton's, a matrix not
-    /// finite); `mani_errorCapacity` when the allocator fails.
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonCount` for more than MANI_MAX_BONES joints (no
+    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse), or
+    /// with the reason and joint for a refused source (no joints, a bone
+    /// past the skeleton's, a matrix not finite); `mani_errorCapacity`
+    /// when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSkin(maniBuilder* builder,
@@ -462,11 +468,13 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The influences.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonCount` for more than MANI_MAX_INFLUENCES weighted
+    /// influences on a vertex (item the vertex, other the first past the
+    /// bound; no misuse); `mani_errorInvalid` for a NULL argument (a
     /// misuse), or with the reason and item for a refused source (item a
     /// vertex, other an influence index): `maniBuildReasonCount` for no
-    /// vertices, offsets not increasing from 0 or more than 64 weighted
-    /// influences on a vertex, `maniBuildReasonJoint`,
+    /// vertices or offsets not increasing from 0, `maniBuildReasonJoint`,
     /// `maniBuildReasonNotFinite`, `maniBuildReasonWeight`,
     /// `maniBuildReasonRepeatedJoint`; `mani_errorCapacity` when memory
     /// runs out.
@@ -614,8 +622,10 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The clip.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse), or with the reason and track for a refused source;
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonTiming` for more than MANI_MAX_SAMPLES samples (no
+    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse), or
+    /// with the reason and track for a refused source;
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
@@ -825,7 +835,7 @@ extern "C"
     // A skeleton's spring bones: colliders, collider groups, springs;
     // the rate its joints' values are per frame of (0 for 60 Hz) and the
     // rate it steps at (0 for the reference rate), both up to
-    // MANI_SPRING_MAX_RATE.
+    // MANI_MAX_SPRING_RATE.
     typedef struct maniSpringSetSource
     {
         const maniSkeleton* skeleton;
@@ -839,7 +849,7 @@ extern "C"
         float stepRate;
     } maniSpringSetSource;
 
-#define MANI_SPRING_MAX_RATE 1000.0f
+#define MANI_MAX_SPRING_RATE 1000.0f
 
     /// Builds a spring set: the source checked (bones, shapes,
     /// chains and centers as VRMC_springBone and its extensions require,
@@ -849,9 +859,12 @@ extern "C"
     ///
     /// @param builder  A builder; its last output is replaced on success.
     /// @param source   The set's source.
-    /// @return `mani_success`; `mani_errorInvalid` with the reason, item
-    /// and other for a refused source (or NULL arguments, a misuse);
-    /// `mani_errorCapacity` when memory runs out.
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonOption` (item 0 the reference rate, 1 the step
+    /// rate, past MANI_MAX_SPRING_RATE) or `maniBuildReasonCount` (more
+    /// than MANI_MAX_BONES springs), no misuse; `mani_errorInvalid` with
+    /// the reason, item and other for a refused source (or NULL
+    /// arguments, a misuse); `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildSpringSet(maniBuilder* builder,
@@ -1009,7 +1022,7 @@ extern "C"
         uint32_t channelCount;
         uint32_t vertexCount;
         // The attributes the targets move, at most
-        // MANI_MORPH_MAX_ATTRIBUTES.
+        // MANI_MAX_MORPH_ATTRIBUTES.
         const maniMorphAttributeSource* attributes;
         uint32_t attributeCount;
     } maniMorphSource;
@@ -1021,15 +1034,17 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The channels.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse), or with the reason and item for a refused source (item a
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonCount` for more than MANI_MAX_MORPH_ATTRIBUTES
+    /// attributes (item 0; no misuse); `mani_errorInvalid` for a NULL
+    /// argument (a misuse), or with the reason and item for a refused
+    /// source (item a
     /// channel for `maniBuildReasonCount` on a channel without targets,
     /// `maniBuildReasonName` and `maniBuildReasonDuplicateName`; a
     /// target, counted over the channels in order, otherwise):
     /// `maniBuildReasonName` for a target's name has item the target and
     /// other 1.
-    /// `maniBuildReasonCount` (no channels, no vertices, more than
-    /// MANI_MORPH_MAX_ATTRIBUTES attributes (item 0), or an index-less
+    /// `maniBuildReasonCount` (no channels, no vertices, or an index-less
     /// target whose count is not the vertex count), `maniBuildReasonAttribute`
     /// (item the attribute), `maniBuildReasonName`,
     /// `maniBuildReasonDuplicateName` (other the earlier channel),

@@ -59,7 +59,7 @@ static inline uint32_t maniMorphWidth(uint32_t semantic)
 static inline uint32_t maniMorphFloatsPerVertex(const uint32_t* widths, uint32_t mask)
 {
     uint32_t floats = 0;
-    for (uint32_t a = 0; a < MANI_MORPH_MAX_ATTRIBUTES; ++a)
+    for (uint32_t a = 0; a < MANI_MAX_MORPH_ATTRIBUTES; ++a)
     {
         floats += ((mask >> a) & 1u) != 0 ? widths[a] : 0u;
     }

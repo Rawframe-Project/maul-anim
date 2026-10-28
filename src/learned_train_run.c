@@ -327,10 +327,10 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
     }
     const maniLearnedTrainer* t = trainer;
     uint32_t projectors = t->source.projectorCount;
-    maniLearnedLayerSource layers[MANI_LEARNED_MAX_LAYERS * 2];
+    maniLearnedLayerSource layers[MANI_MAX_LEARNED_LAYERS * 2];
     maniLearnedNetworkSource decompressor;
     maniLearnedNetworkSource stepper;
-    size_t count = (size_t)projectors * MANI_LEARNED_MAX_LAYERS;
+    size_t count = (size_t)projectors * MANI_MAX_LEARNED_LAYERS;
     maniLearnedLayerSource* projectorLayers =
         maniAllocate(&t->allocator, count, sizeof(maniLearnedLayerSource), 8);
     maniLearnedProjectorSource* list =
@@ -339,12 +339,12 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
     if (projectorLayers != NULL && list != NULL)
     {
         Network(&t->networks[MANI_LEARNED_DECOMPRESSOR], layers, &decompressor);
-        Network(&t->networks[MANI_LEARNED_STEPPER], layers + MANI_LEARNED_MAX_LAYERS, &stepper);
+        Network(&t->networks[MANI_LEARNED_STEPPER], layers + MANI_MAX_LEARNED_LAYERS, &stepper);
         for (uint32_t p = 0; p < projectors; ++p)
         {
             const maniLearnedTagFilter* f = &t->source.projectors[p];
             Network(&t->networks[MANI_LEARNED_PROJECTORS + p],
-                    projectorLayers + (size_t)p * MANI_LEARNED_MAX_LAYERS, &list[p].network);
+                    projectorLayers + (size_t)p * MANI_MAX_LEARNED_LAYERS, &list[p].network);
             list[p].requiredTags = f->required;
             list[p].excludedTags = f->excluded;
         }

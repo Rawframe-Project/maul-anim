@@ -567,12 +567,12 @@ typedef struct Morph
     uint32_t targets;
     uint32_t targetCount;
     uint32_t vertices;
-    Semantic table[MANI_MORPH_MAX_ATTRIBUTES];
-    maniMorphAttributeSource attributeSources[MANI_MORPH_MAX_ATTRIBUTES];
+    Semantic table[MANI_MAX_MORPH_ATTRIBUTES];
+    maniMorphAttributeSource attributeSources[MANI_MAX_MORPH_ATTRIBUTES];
     uint32_t attributeCount;
     // Each attribute's deltas for every vertex and the moved vertices,
     // read into once a target and kept for the next.
-    float* full[MANI_MORPH_MAX_ATTRIBUTES];
+    float* full[MANI_MAX_MORPH_ATTRIBUTES];
     uint32_t* moved;
 } Morph;
 
@@ -598,7 +598,7 @@ static maniImportResult TableTarget(Morph* m, uint32_t target)
             {
                 ++at;
             }
-            if (at == MANI_MORPH_MAX_ATTRIBUTES)
+            if (at == MANI_MAX_MORPH_ATTRIBUTES)
             {
                 return Fail(m->gltf, maniImportReasonProperty, key, i);
             }
@@ -742,7 +742,7 @@ static maniImportResult Pack(Morph* m, float* const* full, maniMorphTargetSource
         m->moved = maniArenaTake(m->arena, (size_t)m->vertices + 1, sizeof(uint32_t));
     }
     const float** deltas =
-        (const float**)maniArenaTake(m->arena, MANI_MORPH_MAX_ATTRIBUTES, sizeof(void*));
+        (const float**)maniArenaTake(m->arena, MANI_MAX_MORPH_ATTRIBUTES, sizeof(void*));
     if (m->moved == NULL || deltas == NULL)
     {
         return Capacity();
@@ -796,7 +796,7 @@ static maniImportResult ReadTargets(Morph* m, maniMorphTargetSource* sources)
     maniImportResult r = maniImportSuccess();
     for (uint32_t t = 0; r.result == mani_success && t < m->targetCount; ++t)
     {
-        float* full[MANI_MORPH_MAX_ATTRIBUTES];
+        float* full[MANI_MAX_MORPH_ATTRIBUTES];
         for (uint32_t a = 0; r.result == mani_success && a < m->attributeCount; ++a)
         {
             r = ReadAttribute(m, target, a, &full[a]);

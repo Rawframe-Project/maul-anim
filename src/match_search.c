@@ -72,8 +72,8 @@ typedef struct Search
 {
     const maniMotionDatabase* d;
     const maniMatchQuery* q;
-    float query[MANI_MATCH_MAX_FEATURES];
-    uint32_t historyEntries[MANI_MATCH_MAX_HISTORY];
+    float query[MANI_MAX_MATCH_FEATURES];
+    uint32_t historyEntries[MANI_MAX_MATCH_HISTORY];
     uint32_t best;
     float bestCost;
     bool continuing;
@@ -350,8 +350,7 @@ static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
             return false;
         }
     }
-    if (q->features == NULL || (q->current != MANI_MATCH_NO_FRAME && q->current >= d->frameCount) ||
-        q->historyCount > MANI_MATCH_MAX_HISTORY)
+    if (q->features == NULL || (q->current != MANI_MATCH_NO_FRAME && q->current >= d->frameCount))
     {
         return false;
     }
@@ -431,7 +430,15 @@ maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQu
 maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMatchQuery* query,
                                bool normalized, const float* continuing, maniMatchResult* resultOut)
 {
-    if (database == NULL || query == NULL || resultOut == NULL || !QueryValid(database, query))
+    if (database == NULL || query == NULL || resultOut == NULL)
+    {
+        return mani_errorInvalid;
+    }
+    if (query->historyCount > MANI_MAX_MATCH_HISTORY)
+    {
+        return mani_errorLimit;
+    }
+    if (!QueryValid(database, query))
     {
         return mani_errorInvalid;
     }

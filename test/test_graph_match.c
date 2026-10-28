@@ -353,9 +353,9 @@ static void TestContinuing(void)
     maniMatchEntry e;
     CHECK(maniMotionDatabaseEntry(&bones, entry, &e) == mani_success, "an entry");
     uint32_t current = e.firstFrame + (uint32_t)floor((t - (double)e.start) * 10.0 + 1e-9);
-    float features[MANI_MATCH_MAX_FEATURES];
-    float offsets[MANI_MATCH_MAX_FEATURES];
-    float scales[MANI_MATCH_MAX_FEATURES];
+    float features[MANI_MAX_MATCH_FEATURES];
+    float offsets[MANI_MAX_MATCH_FEATURES];
+    float scales[MANI_MAX_MATCH_FEATURES];
     CHECK(maniMotionDatabaseFeatures(&bones, current, features) == mani_success &&
               maniMotionDatabaseNormalization(&bones, offsets, scales) == mani_success,
           "the continuing frame's features");
@@ -513,8 +513,8 @@ static void TestInterpolated(void)
     // the guess settled up to the frame at 0.7f, weight 0, so with a bias
     // between the frame at 0.8's cost from there (0.3 apart) and from half
     // way (0.15) the node plays on.
-    float offsets[MANI_MATCH_MAX_FEATURES];
-    float scales[MANI_MATCH_MAX_FEATURES];
+    float offsets[MANI_MAX_MATCH_FEATURES];
+    float scales[MANI_MAX_MATCH_FEATURES];
     CHECK(maniMotionDatabaseNormalization(&run, offsets, scales) == mani_success, "scales");
     double near = 0.15 / (double)scales[0];
     double far = 0.3 / (double)scales[0];
@@ -626,8 +626,8 @@ static void TestFacingBlend(void)
     {
         return;
     }
-    float offsets[MANI_MATCH_MAX_FEATURES];
-    float scales[MANI_MATCH_MAX_FEATURES];
+    float offsets[MANI_MAX_MATCH_FEATURES];
+    float scales[MANI_MAX_MATCH_FEATURES];
     CHECK(maniMotionDatabaseNormalization(&d, offsets, scales) == mani_success, "scales");
     float a[3];
     float b[3];

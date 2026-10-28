@@ -7,6 +7,8 @@
 #ifndef MAUL_ANIM_SRC_INFLUENCE_FILE_H
 #define MAUL_ANIM_SRC_INFLUENCE_FILE_H
 
+#include "maul-anim/skinning.h"
+
 #include <stdint.h>
 
 #define MANI_INFLUENCE_FORMAT_VERSION 2u
@@ -16,7 +18,7 @@
 #define MANI_INFLUENCE_BINDING_SIZE 20u
 // Influences come in groups of four a vertex; at most this many groups.
 #define MANI_INFLUENCE_GROUP      4u
-#define MANI_INFLUENCE_MAX_GROUPS 16u
+#define MANI_INFLUENCE_MAX_GROUPS (MANI_MAX_INFLUENCES / MANI_INFLUENCE_GROUP)
 
 enum
 {

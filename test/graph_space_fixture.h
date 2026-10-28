@@ -68,6 +68,12 @@ static inline bool Refused(maniBuildResult r, maniBuildReason reason, uint32_t o
     return r.result == mani_errorInvalid && r.reason == reason && r.item == 0 && r.other == other;
 }
 
+// Refused as Refused says, for passing a fixed bound.
+static inline bool PastLimit(maniBuildResult r, maniBuildReason reason, uint32_t other)
+{
+    return r.result == mani_errorLimit && r.reason == reason && r.item == 0 && r.other == other;
+}
+
 static _Alignas(16) uint8_t s_crafted[16384];
 static size_t s_size;
 

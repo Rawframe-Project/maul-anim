@@ -177,7 +177,7 @@ extern "C"
     // A time scale node: the factor on time below it (negative plays
     // backward). A parameter it reads has bounds, and the product of the
     // time scales' sizes on any path from the output, a parameter's at
-    // the larger size of its bounds, is at most MANI_GRAPH_MAX_TIME_FACTOR.
+    // the larger size of its bounds, is at most MANI_MAX_GRAPH_TIME_FACTOR.
     typedef struct maniGraphTimeScaleNodeSource
     {
         maniGraphScalar scale;
@@ -310,7 +310,7 @@ extern "C"
 
     // A state machine node: its inputs are its states; the state it
     // starts in, its transitions, the most transitions it takes in one
-    // update (1 to MANI_GRAPH_MAX_CHAIN; 0 for 4), and its final states
+    // update (1 to MANI_MAX_GRAPH_CHAIN; 0 for 4), and its final states
     // (a parent machine's finished condition reads them).
     typedef struct maniGraphMachineNodeSource
     {
@@ -396,7 +396,7 @@ extern "C"
     // a clamped entry reaches its end, and when it has no entry. A search
     // takes the continuing bias and transition cost (finite), the jump
     // threshold, end exclusion and history time (seconds, not negative),
-    // the last historyCount picks (0 to MANI_MATCH_MAX_HISTORY) and the
+    // the last historyCount picks (0 to MANI_MAX_MATCH_HISTORY) and the
     // tags (maniSearchMotionDatabase). On a jump it requests duration
     // seconds of the nearest inertialize node above it, which the build
     // requires on every path from the output. It moves by the time its
@@ -527,7 +527,7 @@ extern "C"
 
     // An aim IK node: one input, a pose of the skeleton (not
     // differences), given with its bones aimed as maniSolveAim aims them:
-    // count bones (1 to MANI_AIM_MAX_BONES) of the skeleton, each an
+    // count bones (1 to MANI_MAX_AIM_BONES) of the skeleton, each an
     // ancestor of the next, the aiming bone last; their shares (at least
     // 0, finite, not all 0), or NULL for equal shares; its goal and pole
     // parameters as a two-bone node's; the aiming bone's forward (of
@@ -553,7 +553,7 @@ extern "C"
     // A chain IK node, CCD or FABRIK by its kind: one input, a
     // pose of the skeleton (not differences), given with its chain solved
     // as maniSolveCcd or maniSolveFabrik solves it: root and end bones,
-    // the root an ancestor of the end, at most MANI_IK_CHAIN_MAX_BONES
+    // the root an ancestor of the end, at most MANI_MAX_IK_CHAIN_BONES
     // on the path; its goal (a vec3 parameter, model space); a FABRIK
     // node's pole (a vec3 parameter, MANI_NO_PARAMETER for none; none
     // for CCD); the end's wanted rotation (a quat parameter,
@@ -599,7 +599,7 @@ extern "C"
     // input, a pose of the skeleton (not differences), given with the
     // bones from its top to its effectors solved as maniSolveBodyXpbd or
     // maniSolveBodySdls solves them: the top and its mode; the effectors
-    // (1 to MANI_BODY_IK_MAX_EFFECTORS); bone settings as maniBodyBone
+    // (1 to MANI_MAX_BODY_IK_EFFECTORS); bone settings as maniBodyBone
     // (NULL for none); stretch (XPBD only), the iteration count and
     // tolerance as maniBodySolve takes them; its weight (in [0, 1]) a
     // number or a float parameter, a parameter's value clamped to [0, 1].
@@ -752,11 +752,18 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param source   The graph.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument (a
-    /// misuse) or with the reason, the item and another the reason names
-    /// for a refused source: Count (more items than the named limits, none
-    /// of nodes, or a list of items not given, in the source or a
-    /// subgraph, or a subgraph's sync group without its name), Name,
+    /// @return `mani_success`; `mani_errorLimit` with the reason and item
+    /// for a source past a bound (no misuse): Count (more items than the
+    /// named limits, or subgraphs nested deeper than
+    /// MANI_MAX_GRAPH_DEPTH), Clip (more maps than MANI_MAX_GRAPH_MAPS),
+    /// Scalar (a time factor past MANI_MAX_GRAPH_TIME_FACTOR), Node (a
+    /// node's inputs, points, bones, iterations, effectors, queries or
+    /// transitions past their bounds) and Transition (conditions past
+    /// MANI_MAX_GRAPH_CONDITIONS); `mani_errorInvalid` for a NULL argument
+    /// (a misuse) or with the reason, the item and another the reason
+    /// names for a refused source: Count (none of nodes, or a list of
+    /// items not given, in the source or a subgraph, or a subgraph's sync
+    /// group without its name), Name,
     /// DuplicateName and NameHash with the list bits of parameters, clips,
     /// sync groups, databases, models or spring sets, Parameter, Clip,
     /// Database, Model, SpringSetSlot, Node, Input, Cycle, Unreachable,

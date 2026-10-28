@@ -39,16 +39,27 @@ static maniBuildResult BuildLearned(const maniGraphNodeSource* nodes, uint32_t c
     return r;
 }
 
-static bool RefusedAs(maniBuildResult r, maniBuildReason reason, uint32_t item, uint32_t other)
+static bool RefusedWith(maniBuildResult r, maniResult result, maniBuildReason reason, uint32_t item,
+                        uint32_t other)
 {
-    bool ok =
-        r.result == mani_errorInvalid && r.reason == reason && r.item == item && r.other == other;
+    bool ok = r.result == result && r.reason == reason && r.item == item && r.other == other;
     if (!ok)
     {
         printf("  refused %d: reason %u item %u other %u\n", (int)r.result, r.reason, r.item,
                r.other);
     }
     return ok;
+}
+
+static bool RefusedAs(maniBuildResult r, maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return RefusedWith(r, mani_errorInvalid, reason, item, other);
+}
+
+// Refused for passing a fixed bound.
+static bool RefusedPast(maniBuildResult r, maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return RefusedWith(r, mani_errorLimit, reason, item, other);
 }
 
 // The node changed, under an inertialize node.
@@ -62,7 +73,7 @@ static void TestRefusals(void)
 {
     static const uint32_t kFloat[1] = {3};
     static const uint32_t kTwo[2] = {0, 0};
-    static const uint32_t kMany[MANI_MATCH_MAX_FEATURES + 1] = {0};
+    static const uint32_t kMany[MANI_MAX_MATCH_FEATURES + 1] = {0};
     // A trigger, an int, and a parameter past the four.
     static const uint32_t kTrigger[1] = {1};
     static const uint32_t kInt[1] = {2};
@@ -87,13 +98,16 @@ static void TestRefusals(void)
     n[11].learned.query = NULL;
     n[12].learned.transitionCost = INFINITY;
     n[13].learned.query = kMany;
-    n[13].learned.queryCount = MANI_MATCH_MAX_FEATURES + 1;
+    n[13].learned.queryCount = MANI_MAX_MATCH_FEATURES + 1;
     n[14].learned.query = kTrigger;
     n[15].learned.query = kInt;
     n[16].learned.query = kPast;
     for (int k = 0; k < 17; ++k)
     {
-        CHECK(RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0), "a field refused");
+        // A query past MANI_MAX_MATCH_FEATURES passes a bound.
+        CHECK(k == 13 ? RefusedPast(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0)
+                      : RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0),
+              "a field refused");
     }
     maniGraphNodeSource d = LearnedNode(0.1f, 0.0f);
     d.learned.duration = LITERAL(-1.0f);
@@ -177,7 +191,7 @@ static void TestOpen(void)
                                     {maniGraphLearnedTransitionCost, 0x7FC00000u},
                                     {maniGraphLearnedTransitionCost, 0x7F800000u},
                                     {maniGraphLearnedStates, 1},
-                                    {maniGraphLearnedEvents, MANI_LEARNED_MAX_EVENTS + 1},
+                                    {maniGraphLearnedEvents, MANI_MAX_LEARNED_EVENTS + 1},
                                     {maniGraphLearnedRequiredTags, 3},
                                     {maniGraphLearnedExcludedTags, 0},
                                     {maniGraphLearnedDurationScalar, 0},
@@ -198,17 +212,17 @@ static void TestOpen(void)
     CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedDurationScalar + 1, 0xBF800000u,
                           maniGraphLearnedDurationScalar),
           "a duration parameter's literal not 0");
-    CHECK(RefusedAtWordsOf(&g, maniGraphLearnedFeatures, MANI_MATCH_MAX_FEATURES + 1,
-                           maniGraphLearnedStates, MANI_MATCH_MAX_FEATURES + 2,
+    CHECK(RefusedAtWordsOf(&g, maniGraphLearnedFeatures, MANI_MAX_MATCH_FEATURES + 1,
+                           maniGraphLearnedStates, MANI_MAX_MATCH_FEATURES + 2,
                            maniGraphLearnedFeatures),
           "more features than a query holds");
-    CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedStates, FEATURES + MANI_LEARNED_MAX_LATENT + 1,
+    CHECK(RefusedAtWordOf(&g, 0, maniGraphLearnedStates, FEATURES + MANI_MAX_LEARNED_LATENT + 1,
                           maniGraphLearnedFeatures),
           "more latent values than a model holds");
     uint64_t at = 0;
     CHECK(Crafted(&g, 0, maniGraphLearnedQueryCount, 2, &at).result == mani_errorFormat,
           "a query count past the words");
-    CHECK(Crafted(&g, 0, maniGraphLearnedQueryCount, MANI_MATCH_MAX_FEATURES + 1, &at).result ==
+    CHECK(Crafted(&g, 0, maniGraphLearnedQueryCount, MANI_MAX_MATCH_FEATURES + 1, &at).result ==
               mani_errorFormat,
           "a query count past the features");
     // Literal tags and duration, the parameter tags' literal not 0.
@@ -231,7 +245,7 @@ static void TestOpen(void)
           "a literal duration of 0");
 }
 
-// A query count past MANI_MATCH_MAX_FEATURES with the words for it (a
+// A query count past MANI_MAX_MATCH_FEATURES with the words for it (a
 // blend's weights after the node's): refused at the node's record, before
 // any query word is read.
 static void TestLongQuery(void)
@@ -256,7 +270,7 @@ static void TestLongQuery(void)
                                         .output = 3},
                       &g);
     uint64_t at = 0;
-    maniFileResult r = Crafted(&g, 0, maniGraphLearnedQueryCount, MANI_MATCH_MAX_FEATURES + 1, &at);
+    maniFileResult r = Crafted(&g, 0, maniGraphLearnedQueryCount, MANI_MAX_MATCH_FEATURES + 1, &at);
     CHECK(r.result == mani_errorFormat && r.offset < at, "refused before the node's words");
     // The record's word count made to agree: still refused at it.
     maniContainer c;
@@ -268,7 +282,7 @@ static void TestLongQuery(void)
                 mani_success &&
             maniContainerSection(&c, maniGraphTagNodes, &bytes, &size, &records),
         "the nodes");
-    maniStoreU32(s_crafted + records + 16, MANI_GRAPH_LEARNED_WORDS + MANI_MATCH_MAX_FEATURES + 1);
+    maniStoreU32(s_crafted + records + 16, MANI_GRAPH_LEARNED_WORDS + MANI_MAX_MATCH_FEATURES + 1);
     Rehash(s_crafted);
     maniGraph crafted;
     r = maniOpenGraph(s_crafted, s_size, &crafted);

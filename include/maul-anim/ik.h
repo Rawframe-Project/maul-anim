@@ -3,7 +3,7 @@
 //
 // Inverse kinematics on a pose: a two-bone chain
 // bent to reach a goal and turned toward a pole; a bone aimed at a goal,
-// or a chain of up to MANI_AIM_MAX_BONES sharing the turn (a look-at
+// or a chain of up to MANI_MAX_AIM_BONES sharing the turn (a look-at
 // over spine, neck and head), its up toward a pole; a longer chain bent
 // by CCD or FABRIK within its bones' limits. A solver reads the pose's
 // locals, composes the model frames of its bones' root path itself (the
@@ -81,7 +81,7 @@ extern "C"
                                                         bool* reachedOut);
 
 // The most bones an aim spreads its turn over.
-#define MANI_AIM_MAX_BONES 8u
+#define MANI_MAX_AIM_BONES 8u
 // The widest cone an aim takes, pi radians.
 #define MANI_AIM_MAX_CONE 3.14159265358979f
 
@@ -89,11 +89,11 @@ extern "C"
     // each an ancestor of the next; one for an aim at a single bone.
     typedef struct maniAimSolve
     {
-        uint32_t bones[MANI_AIM_MAX_BONES];
+        uint32_t bones[MANI_MAX_AIM_BONES];
         // Each bone's share of the turn, at least 0 and not all 0: each,
         // root first, turns its share of what is still needed among the
         // bones from it down (the last all of it).
-        float shares[MANI_AIM_MAX_BONES];
+        float shares[MANI_MAX_AIM_BONES];
         uint32_t count;
         // Where to aim, in model space.
         maniVec3 goal;
@@ -130,9 +130,10 @@ extern "C"
     /// @param reachedOut Receives whether the forward points at the goal
     ///                   at full weight (not stopped by the cone, the goal
     ///                   reachable); may be NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL pose,
-    /// skeleton or solve, a pose of another skeleton or a difference, a
-    /// count of 0 or past MANI_AIM_MAX_BONES, bones out of range or not
+    /// @return `mani_success`; `mani_errorLimit` for a count past
+    /// MANI_MAX_AIM_BONES; `mani_errorInvalid` for a NULL pose, skeleton
+    /// or solve, a pose of another skeleton or a difference, a count of
+    /// 0, bones out of range or not
     /// each an ancestor of the next, shares negative, not finite or all
     /// 0, a forward not of length 1 within a thousandth, a goal, pole,
     /// offset, up or twist not finite, a cone outside [0,
@@ -144,9 +145,9 @@ extern "C"
                                                     const maniAimSolve* solve, bool* reachedOut);
 
 // The most bones a CCD or FABRIK chain holds, its end included.
-#define MANI_IK_CHAIN_MAX_BONES 32u
+#define MANI_MAX_IK_CHAIN_BONES 32u
 // The most iterations a chain solve takes.
-#define MANI_IK_MAX_ITERATIONS 256u
+#define MANI_MAX_IK_ITERATIONS 256u
 
     // How a joint limit bounds a bone's rotation.
     typedef uint32_t maniJointLimitKind;
@@ -187,7 +188,7 @@ extern "C"
 
     // A chain solve: the root bone and the end bone, an ancestor of it,
     // every bone of the path between in the chain (at most
-    // MANI_IK_CHAIN_MAX_BONES, the end included); the bones from the
+    // MANI_MAX_IK_CHAIN_BONES, the end included); the bones from the
     // root to the end's parent turn so the end's origin reaches the goal.
     typedef struct maniChainSolve
     {
@@ -202,7 +203,7 @@ extern "C"
         maniVec3 pole;
         // The end bone's wanted model rotation, taken by rotationWeight.
         maniQuat rotation;
-        // From 1 to MANI_IK_MAX_ITERATIONS.
+        // From 1 to MANI_MAX_IK_ITERATIONS.
         uint32_t iterations;
         // The solve stops once the end lies this near the goal; 0 for
         // every iteration.
@@ -232,13 +233,15 @@ extern "C"
     /// @param reachedOut Receives whether the end lies within the
     ///                   tolerance of the goal at full weight; may be
     ///                   NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL pose,
-    /// skeleton or solve, a pose of another skeleton or a difference,
-    /// bones out of range, a root not an ancestor of the end or a path
-    /// past MANI_IK_CHAIN_MAX_BONES, a limit of an unknown kind or out of
-    /// range or a hinge along its bone's axis, a goal, pole or rotation not finite, a pole not
-    /// zero, a rotation of length 0, iterations out of range, a tolerance below 0 or not finite, a
-    /// step outside [0, pi], a rotation weight or weight outside [0, 1].
+    /// @return `mani_success`; `mani_errorLimit` for a path past
+    /// MANI_MAX_IK_CHAIN_BONES or more than MANI_MAX_IK_ITERATIONS
+    /// iterations; `mani_errorInvalid` for a NULL pose, skeleton or solve,
+    /// a pose of another skeleton or a difference, bones out of range, a
+    /// root not an ancestor of the end, a limit of an unknown kind or out
+    /// of range or a hinge along its bone's axis, a goal, pole or rotation
+    /// not finite, a pole not zero, a rotation of length 0, no
+    /// iterations, a tolerance below 0 or not finite, a step outside [0,
+    /// pi], a rotation weight or weight outside [0, 1].
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton,
@@ -262,9 +265,9 @@ extern "C"
     /// @param reachedOut Receives whether the end lies within the
     ///                   tolerance of the goal at full weight; may be
     ///                   NULL.
-    /// @return `mani_success`; `mani_errorInvalid` as maniSolveCcd, but
-    /// for a pole other than zero, which FABRIK takes, and a step other
-    /// than 0, which it refuses.
+    /// @return As maniSolveCcd, but for a pole other than zero, which
+    /// FABRIK takes, and a step other than 0, which it refuses with
+    /// `mani_errorInvalid`.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton,

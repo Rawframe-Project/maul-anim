@@ -600,19 +600,25 @@ static void TestSameBits(void)
     CHECK(memcmp(s_out[3].texcoord, s_in[3].texcoord, 8) == 0, "a set the file lacks: copied");
 }
 
-static void ExpectBuildRefused(const maniMorphSource* source, maniBuildReason reason, uint32_t item,
-                               uint32_t other, const char* what)
+static void ExpectBuildResult(const maniMorphSource* source, maniResult result,
+                              maniBuildReason reason, uint32_t item, uint32_t other,
+                              const char* what)
 {
     maniBuilder* builder = NewBuilder();
     maniBuildResult r = maniBuildMorphTargets(builder, source);
-    CHECK(r.result == mani_errorInvalid && r.reason == reason && r.item == item && r.other == other,
-          what);
+    CHECK(r.result == result && r.reason == reason && r.item == item && r.other == other, what);
     if (r.reason != reason || r.item != item || r.other != other)
     {
         printf("  %s: reason %u item %u other %u\n", what, (unsigned)r.reason, (unsigned)r.item,
                (unsigned)r.other);
     }
     maniDestroyBuilder(builder);
+}
+
+static void ExpectBuildRefused(const maniMorphSource* source, maniBuildReason reason, uint32_t item,
+                               uint32_t other, const char* what)
+{
+    ExpectBuildResult(source, mani_errorInvalid, reason, item, other, what);
 }
 
 static void TestBuildRefusals(void)
@@ -676,8 +682,8 @@ static void TestBuildRefusals(void)
     s_attributes[4] = (maniMorphAttributeSource){maniMorphTexcoord, 0};
     ExpectBuildRefused(&source, maniBuildReasonAttribute, 4, 3, "an attribute twice");
     SampleSource(&source);
-    source.attributeCount = MANI_MORPH_MAX_ATTRIBUTES + 1;
-    ExpectBuildRefused(&source, maniBuildReasonCount, 0, 0, "too many attributes");
+    source.attributeCount = MANI_MAX_MORPH_ATTRIBUTES + 1;
+    ExpectBuildResult(&source, mani_errorLimit, maniBuildReasonCount, 0, 0, "too many attributes");
     SampleSource(&source);
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildMorphTargets(builder, NULL).result == mani_errorInvalid &&

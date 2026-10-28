@@ -133,7 +133,7 @@ void maniGraphEvaluateAim(const maniGraphEvaluation* e, const uint8_t* record, m
                       .twist = maniGraphEvalScalar(e, d + maniGraphAimTwist),
                       .cone = Clamped(e, d + maniGraphAimCone, 0.0f, MANI_AIM_MAX_CONE),
                       .weight = Clamped(e, d + maniGraphAimWeight, 0.0f, 1.0f)};
-    for (uint32_t k = 0; k < MANI_AIM_MAX_BONES; ++k)
+    for (uint32_t k = 0; k < MANI_MAX_AIM_BONES; ++k)
     {
         uint32_t bits = maniGraphEvalWord(e, d + maniGraphAimShares + k);
         s.bones[k] = maniGraphEvalWord(e, d + maniGraphAimBones + k);
@@ -154,7 +154,7 @@ void maniGraphEvaluateChain(const maniGraphEvaluation* e, const uint8_t* record,
         return;
     }
     const maniSkeleton* skeleton = e->binding->skeleton;
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t path =
         maniIkChainPath(skeleton, maniGraphEvalWord(e, d), maniGraphEvalWord(e, d + 1), bones);
     uint32_t count = maniGraphEvalWord(e, d + maniGraphChainLimitCount);
@@ -162,7 +162,7 @@ void maniGraphEvaluateChain(const maniGraphEvaluation* e, const uint8_t* record,
     {
         return;
     }
-    maniJointLimit limits[MANI_IK_CHAIN_MAX_BONES] = {0};
+    maniJointLimit limits[MANI_MAX_IK_CHAIN_BONES] = {0};
     for (uint32_t k = 0; k < count; ++k)
     {
         limits[k] = maniGraphChainLimit(e->graph, d, k);

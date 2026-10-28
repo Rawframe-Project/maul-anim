@@ -65,7 +65,7 @@ uint32_t maniGraphChainDataWords(const maniGraph* g, uint32_t data, uint32_t ava
     }
     uint32_t limits = Word(g, data + maniGraphChainLimitCount);
     uint32_t room = (available - MANI_GRAPH_CHAIN_WORDS) / MANI_GRAPH_LIMIT_WORDS;
-    return limits < MANI_IK_CHAIN_MAX_BONES && limits <= room
+    return limits < MANI_MAX_IK_CHAIN_BONES && limits <= room
                ? MANI_GRAPH_CHAIN_WORDS + MANI_GRAPH_LIMIT_WORDS * limits
                : 0;
 }
@@ -129,7 +129,7 @@ uint32_t maniGraphChainValid(const maniGraph* g, uint32_t data, bool fabrik)
     uint32_t iterations = Word(g, data + maniGraphChainIterations);
     float tolerance = WordFloat(g, data + maniGraphChainTolerance);
     float step = WordFloat(g, data + maniGraphChainStep);
-    if (iterations < 1 || iterations > MANI_IK_MAX_ITERATIONS)
+    if (iterations < 1 || iterations > MANI_MAX_IK_ITERATIONS)
     {
         return data + maniGraphChainIterations;
     }

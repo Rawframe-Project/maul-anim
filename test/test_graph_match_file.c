@@ -42,16 +42,27 @@ static maniBuildResult BuildMatch(const maniGraphNodeSource* nodes, uint32_t cou
     return r;
 }
 
-static bool RefusedAs(maniBuildResult r, maniBuildReason reason, uint32_t item, uint32_t other)
+static bool RefusedWith(maniBuildResult r, maniResult result, maniBuildReason reason, uint32_t item,
+                        uint32_t other)
 {
-    bool ok =
-        r.result == mani_errorInvalid && r.reason == reason && r.item == item && r.other == other;
+    bool ok = r.result == result && r.reason == reason && r.item == item && r.other == other;
     if (!ok)
     {
         printf("  refused %d: reason %u item %u other %u\n", (int)r.result, r.reason, r.item,
                r.other);
     }
     return ok;
+}
+
+static bool RefusedAs(maniBuildResult r, maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return RefusedWith(r, mani_errorInvalid, reason, item, other);
+}
+
+// Refused for passing a fixed bound.
+static bool RefusedPast(maniBuildResult r, maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return RefusedWith(r, mani_errorLimit, reason, item, other);
 }
 
 // The node changed, under an inertialize node: refused for its field.
@@ -85,13 +96,13 @@ static void TestDatabaseRefusals(void)
           "two slots of one name");
     CHECK(RefusedAs(BuildMatch(nodes, 2, NULL, 1, kSlots, CLIPS), maniBuildReasonCount, 0, 0),
           "a count without slots");
-    static maniGraphDatabaseSource many[MANI_GRAPH_MAX_DATABASES + 1];
-    for (uint32_t k = 0; k <= MANI_GRAPH_MAX_DATABASES; ++k)
+    static maniGraphDatabaseSource many[MANI_MAX_GRAPH_DATABASES + 1];
+    for (uint32_t k = 0; k <= MANI_MAX_GRAPH_DATABASES; ++k)
     {
         many[k] = kDatabaseSlot[0];
     }
-    CHECK(RefusedAs(BuildMatch(nodes, 2, many, MANI_GRAPH_MAX_DATABASES + 1, kSlots, CLIPS),
-                    maniBuildReasonCount, 0, 0),
+    CHECK(RefusedPast(BuildMatch(nodes, 2, many, MANI_MAX_GRAPH_DATABASES + 1, kSlots, CLIPS),
+                      maniBuildReasonCount, 0, 0),
           "more slots than the limit");
     CHECK(
         RefusedAs(BuildMatch(nodes, 1, kDatabaseSlot, 1, kSlots, CLIPS), maniBuildReasonNode, 0, 0),
@@ -112,7 +123,7 @@ static void TestNodeRefusals(void)
     n[2].match.period = 0.0f;
     n[3].match.jumpThreshold = -1.0f;
     n[4].match.continuingBias = INFINITY;
-    n[5].match.historyCount = MANI_MATCH_MAX_HISTORY + 1;
+    n[5].match.historyCount = MANI_MAX_MATCH_HISTORY + 1;
     n[6].match.requiredTags = (maniGraphTags){3, 0};
     n[7].match.excludedTags = (maniGraphTags){2, 1};
     n[8].match.query = kFloat;
@@ -125,7 +136,10 @@ static void TestNodeRefusals(void)
     CHECK(RefusedAs(NodeBuilt(unlisted), maniBuildReasonNode, 0, 0), "a query count, no query");
     for (int k = 0; k < 12; ++k)
     {
-        CHECK(RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0), "a field refused");
+        // More picks than MANI_MAX_MATCH_HISTORY pass a bound.
+        CHECK(k == 5 ? RefusedPast(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0)
+                     : RefusedAs(NodeBuilt(n[k]), maniBuildReasonNode, 0, 0),
+              "a field refused");
     }
     maniGraphNodeSource d = MatchNode(1.0f);
     d.match.duration = LITERAL(-1.0f);
@@ -218,7 +232,7 @@ static void TestOpen(void)
                                     {maniGraphMatchPeriod, 0},
                                     {maniGraphMatchJumpThreshold, 0xBF800000u},
                                     {maniGraphMatchContinuingBias, 0x7F800000u},
-                                    {maniGraphMatchHistoryCount, MANI_MATCH_MAX_HISTORY + 1},
+                                    {maniGraphMatchHistoryCount, MANI_MAX_MATCH_HISTORY + 1},
                                     {maniGraphMatchRequiredTags, 3},
                                     {maniGraphMatchExcludedTags, 0},
                                     {maniGraphMatchDurationScalar, 0},

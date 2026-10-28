@@ -37,8 +37,8 @@ static uint32_t PutTwoBone(uint8_t* d, uint32_t at, const maniGraphTwoBoneNodeSo
 // (1 each for equal ones) with zeros past the count, axes and scalars.
 static uint32_t PutAim(uint8_t* d, uint32_t at, const maniGraphAimNodeSource* s)
 {
-    uint32_t bones[MANI_AIM_MAX_BONES] = {0};
-    float shares[MANI_AIM_MAX_BONES] = {0};
+    uint32_t bones[MANI_MAX_AIM_BONES] = {0};
+    float shares[MANI_MAX_AIM_BONES] = {0};
     for (uint32_t k = 0; k < s->count; ++k)
     {
         bones[k] = s->bones[k];
@@ -47,8 +47,8 @@ static uint32_t PutAim(uint8_t* d, uint32_t at, const maniGraphAimNodeSource* s)
     const uint32_t head[3] = {s->count, s->goal, s->pole};
     const float axes[9] = {s->forward.x, s->forward.y, s->forward.z, s->offset.x, s->offset.y,
                            s->offset.z,  s->up.x,      s->up.y,      s->up.z};
-    at = maniGraphPutWords(d, maniGraphPutWords(d, at, head, 3), bones, MANI_AIM_MAX_BONES);
-    at = maniGraphPutFloats(d, maniGraphPutFloats(d, at, shares, MANI_AIM_MAX_BONES), axes, 9);
+    at = maniGraphPutWords(d, maniGraphPutWords(d, at, head, 3), bones, MANI_MAX_AIM_BONES);
+    at = maniGraphPutFloats(d, maniGraphPutFloats(d, at, shares, MANI_MAX_AIM_BONES), axes, 9);
     return maniGraphPutScalar(
         d, maniGraphPutScalar(d, maniGraphPutScalar(d, at, s->twist), s->cone), s->weight);
 }
@@ -71,7 +71,7 @@ static uint32_t PutLimit(uint8_t* d, uint32_t at, const maniJointLimit* l)
 static uint32_t PutChain(const maniGraphSource* source, uint8_t* d, uint32_t at,
                          const maniGraphChainNodeSource* s)
 {
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t count = maniIkChainPath(source->skeleton, s->root, s->end, bones);
     uint32_t limits = s->limits != NULL ? count - 1 : 0u;
     const uint32_t head[6] = {s->root, s->end, s->goal, s->pole, s->rotation, s->iterations};

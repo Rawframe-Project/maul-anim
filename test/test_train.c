@@ -213,18 +213,18 @@ static void TestGradients(void)
     CHECK(GradientsMatch(maniTrainElu), "ELU gradients as central differences");
     maniTrainNet n;
     const uint32_t zero[3] = {3, 0, 2};
-    const uint32_t wide[3] = {3, MANI_LEARNED_MAX_WIDTH + 1, 2};
+    const uint32_t wide[3] = {3, MANI_MAX_LEARNED_WIDTH + 1, 2};
     const uint32_t fine[3] = {3, 4, 2};
-    uint32_t many[MANI_LEARNED_MAX_LAYERS + 2];
-    for (uint32_t k = 0; k < MANI_LEARNED_MAX_LAYERS + 2; ++k)
+    uint32_t many[MANI_MAX_LEARNED_LAYERS + 2];
+    for (uint32_t k = 0; k < MANI_MAX_LEARNED_LAYERS + 2; ++k)
     {
         many[k] = 2;
     }
     CHECK(!maniTrainNetInit(&n, zero, 2, maniTrainRelu) &&
               !maniTrainNetInit(&n, wide, 2, maniTrainRelu) &&
               !maniTrainNetInit(&n, fine, 0, maniTrainRelu) &&
-              !maniTrainNetInit(&n, many, MANI_LEARNED_MAX_LAYERS + 1, maniTrainRelu) &&
-              maniTrainNetInit(&n, many, MANI_LEARNED_MAX_LAYERS, maniTrainRelu) &&
+              !maniTrainNetInit(&n, many, MANI_MAX_LEARNED_LAYERS + 1, maniTrainRelu) &&
+              maniTrainNetInit(&n, many, MANI_MAX_LEARNED_LAYERS, maniTrainRelu) &&
               maniTrainNetInit(&n, fine, 2, maniTrainRelu) &&
               n.parameterCount == 3 * 4 + 4 + 4 * 2 + 2 && n.valueCount == 9 && n.widest == 4,
           "shapes and limits");

@@ -50,8 +50,8 @@ uint32_t maniGraphBodyDataWords(const maniGraph* g, uint32_t data, uint32_t avai
     }
     uint32_t effectors = Word(g, data + maniGraphBodyEffectorCount);
     uint32_t settings = Word(g, data + maniGraphBodySettingCount);
-    if (effectors < 1 || effectors > MANI_BODY_IK_MAX_EFFECTORS ||
-        settings > MANI_BODY_IK_MAX_BONES)
+    if (effectors < 1 || effectors > MANI_MAX_BODY_IK_EFFECTORS ||
+        settings > MANI_MAX_BODY_IK_BONES)
     {
         return 0;
     }
@@ -156,7 +156,7 @@ uint32_t maniGraphBodyValid(const maniGraph* g, uint32_t data, bool sdls)
     const bool ok[5] = {Word(g, data + maniGraphBodyTop) < g->skeletonBoneCount,
                         Word(g, data + maniGraphBodyMode) <= maniBodyTopPrePull,
                         stretch == 0 || (stretch == 1 && !sdls),
-                        iterations >= 1 && iterations <= MANI_IK_MAX_ITERATIONS,
+                        iterations >= 1 && iterations <= MANI_MAX_IK_ITERATIONS,
                         tolerance >= 0.0f && isfinite(tolerance)};
     for (uint32_t k = 0; k < 5; ++k)
     {
@@ -199,7 +199,7 @@ size_t maniGraphBodyRoom(const maniGraph* g, uint32_t data, const maniSkeleton* 
     uint32_t settings = Word(g, data + maniGraphBodySettingCount);
     // The part is the top and the effectors' paths to it: goals,
     // settings and numbers leave its size as it is.
-    maniBodyEffector effectors[MANI_BODY_IK_MAX_EFFECTORS];
+    maniBodyEffector effectors[MANI_MAX_BODY_IK_EFFECTORS];
     for (uint32_t e = 0; e < count; ++e)
     {
         effectors[e] = (maniBodyEffector){

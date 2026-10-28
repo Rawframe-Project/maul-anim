@@ -461,18 +461,30 @@ static void TestInt16(void)
     }
 }
 
-static bool RefusedAs(const maniLearnedModelSource* s, maniBuildReason reason, uint32_t item,
-                      uint32_t other)
+static bool RefusedWith(const maniLearnedModelSource* s, maniResult result, maniBuildReason reason,
+                        uint32_t item, uint32_t other)
 {
     maniBuildResult r = Build(s);
-    bool ok =
-        r.result == mani_errorInvalid && r.reason == reason && r.item == item && r.other == other;
+    bool ok = r.result == result && r.reason == reason && r.item == item && r.other == other;
     if (!ok)
     {
         printf("  refused %d: reason %u item %u other %u\n", (int)r.result, r.reason, r.item,
                r.other);
     }
     return ok;
+}
+
+static bool RefusedAs(const maniLearnedModelSource* s, maniBuildReason reason, uint32_t item,
+                      uint32_t other)
+{
+    return RefusedWith(s, mani_errorInvalid, reason, item, other);
+}
+
+// Refused for passing a fixed bound.
+static bool RefusedPast(const maniLearnedModelSource* s, maniBuildReason reason, uint32_t item,
+                        uint32_t other)
+{
+    return RefusedWith(s, mani_errorLimit, reason, item, other);
 }
 
 static void TestModelRefusals(void)
@@ -482,29 +494,29 @@ static void TestModelRefusals(void)
     CHECK(RefusedAs(&s, maniBuildReasonTiming, 0, 0), "no step rate");
     s = Source();
     s.stepRate = 1001.0f;
-    CHECK(RefusedAs(&s, maniBuildReasonTiming, 0, 0), "a step rate past the limit");
+    CHECK(RefusedPast(&s, maniBuildReasonTiming, 0, 0), "a step rate past the limit");
     s = Source();
     s.latentCount = 0;
     CHECK(RefusedAs(&s, maniBuildReasonOption, 0, 0), "no latent values");
-    s.latentCount = MANI_LEARNED_MAX_LATENT + 1;
-    CHECK(RefusedAs(&s, maniBuildReasonOption, 0, 0), "latent values past the limit");
+    s.latentCount = MANI_MAX_LEARNED_LATENT + 1;
+    CHECK(RefusedPast(&s, maniBuildReasonOption, 0, 0), "latent values past the limit");
     s = Source();
     s.weightFormat = 2;
     CHECK(RefusedAs(&s, maniBuildReasonOption, 1, 0), "an unknown weight format");
     s = Source();
     s.projectorCount = 0;
     CHECK(RefusedAs(&s, maniBuildReasonCount, 0, 0), "no Projector");
-    s.projectorCount = MANI_LEARNED_MAX_PROJECTORS + 1;
-    CHECK(RefusedAs(&s, maniBuildReasonCount, 0, 0), "Projectors past the limit");
+    s.projectorCount = MANI_MAX_LEARNED_PROJECTORS + 1;
+    CHECK(RefusedPast(&s, maniBuildReasonCount, 0, 0), "Projectors past the limit");
     s = Source();
     s.scaledBoneCount = 4;
     CHECK(RefusedAs(&s, maniBuildReasonCount, 0, 0), "more scaled bones than bones");
     s = Source();
-    s.floatTrackCount = MANI_LEARNED_MAX_FLOAT_TRACKS + 1;
-    CHECK(RefusedAs(&s, maniBuildReasonCount, 0, 0), "float tracks past the limit");
+    s.floatTrackCount = MANI_MAX_LEARNED_FLOAT_TRACKS + 1;
+    CHECK(RefusedPast(&s, maniBuildReasonCount, 0, 0), "float tracks past the limit");
     s = Source();
-    s.eventCount = MANI_LEARNED_MAX_EVENTS + 1;
-    CHECK(RefusedAs(&s, maniBuildReasonCount, 0, 0), "events past the limit");
+    s.eventCount = MANI_MAX_LEARNED_EVENTS + 1;
+    CHECK(RefusedPast(&s, maniBuildReasonCount, 0, 0), "events past the limit");
     static const uint32_t kPast[1] = {3};
     static const uint32_t kBack[2] = {1, 1};
     s = Source();
@@ -550,8 +562,8 @@ static void TestNetworkRefusals(void)
     s.stepper = &broken;
     broken.layerCount = 0;
     CHECK(RefusedAs(&s, maniBuildReasonNetwork, 1, 0), "no layers");
-    broken.layerCount = MANI_LEARNED_MAX_LAYERS + 1;
-    CHECK(RefusedAs(&s, maniBuildReasonNetwork, 1, 0), "layers past the limit");
+    broken.layerCount = MANI_MAX_LEARNED_LAYERS + 1;
+    CHECK(RefusedPast(&s, maniBuildReasonNetwork, 1, 0), "layers past the limit");
     broken.layerCount = 2;
     CHECK(RefusedAs(&s, maniBuildReasonNetwork, 1, 1), "a last output not the state");
     broken = s_stepper;
@@ -598,9 +610,9 @@ static void TestNetworkRefusals(void)
     layers[0].inputCount = STATE;
     CHECK(RefusedAs(&s, maniBuildReasonNetwork, 3, 0), "a Projector taking a state");
     static const maniLearnedLayerSource kWide = {s_pool, s_pool, FEATURES,
-                                                 MANI_LEARNED_MAX_WIDTH + 1};
+                                                 MANI_MAX_LEARNED_WIDTH + 1};
     layers[0] = kWide;
-    CHECK(RefusedAs(&s, maniBuildReasonNetwork, 3, 0), "a layer past the width");
+    CHECK(RefusedPast(&s, maniBuildReasonNetwork, 3, 0), "a layer past the width");
     s = Source();
     maniMotionDatabase other = s_database;
     other.skeletonIdentity ^= 1u;

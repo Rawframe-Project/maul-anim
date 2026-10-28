@@ -62,7 +62,7 @@ static uint32_t QueryCount(const maniGraphNodeSource* node)
     bool learned = node->kind == maniGraphNodeLearned;
     const uint32_t* query = match ? node->match.query : (learned ? node->learned.query : NULL);
     uint32_t count = match ? node->match.queryCount : (learned ? node->learned.queryCount : 0u);
-    return query != NULL && count <= MANI_MATCH_MAX_FEATURES ? count : 0u;
+    return query != NULL && count <= MANI_MAX_MATCH_FEATURES ? count : 0u;
 }
 
 // A full-body node's effectors, when their count is in range (out of
@@ -71,7 +71,7 @@ static uint32_t EffectorCount(const maniGraphNodeSource* node)
 {
     bool body = node->kind == maniGraphNodeBodyXpbd || node->kind == maniGraphNodeBodySdls;
     return body && node->body.effectors != NULL &&
-                   node->body.effectorCount <= MANI_BODY_IK_MAX_EFFECTORS
+                   node->body.effectorCount <= MANI_MAX_BODY_IK_EFFECTORS
                ? node->body.effectorCount
                : 0u;
 }
@@ -82,10 +82,10 @@ static bool MachineCopied(const maniGraphNodeSource* node)
 {
     const maniGraphMachineNodeSource* m = &node->machine;
     bool ok = node->kind == maniGraphNodeMachine && m->transitions != NULL &&
-              m->transitionCount <= MANI_GRAPH_MAX_TRANSITIONS;
+              m->transitionCount <= MANI_MAX_GRAPH_TRANSITIONS;
     for (uint32_t k = 0; k < m->transitionCount && ok; ++k)
     {
-        ok = m->transitions[k].conditionCount <= MANI_GRAPH_MAX_CONDITIONS &&
+        ok = m->transitions[k].conditionCount <= MANI_MAX_GRAPH_CONDITIONS &&
              (m->transitions[k].conditions != NULL || m->transitions[k].conditionCount == 0);
     }
     return ok;
@@ -120,12 +120,18 @@ static bool GroupsNamed(const maniGraphSource* source)
 
 // What a source and its subgraphs hold; false past the depth, with a
 // subgraph node naming no graph or a graph without nodes, with a list
-// the check would refuse in the root, or with a subgraph's sync group
-// without its name.
-static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
+// the check would refuse in the root, with a subgraph's sync group
+// without its name, or with more nodes in all than MANI_MAX_GRAPH_NODES.
+// past is set when a bound refused it: the depth, a list, the nodes.
+static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t, bool* past)
 {
-    if (depth > MANI_GRAPH_MAX_DEPTH || source->nodeCount == 0 || source->nodes == NULL ||
-        !maniGraphListsValid(source) || (depth > 0 && !GroupsNamed(source)))
+    if (depth > MANI_MAX_GRAPH_DEPTH || maniGraphListsPast(source))
+    {
+        *past = true;
+        return false;
+    }
+    if (source->nodeCount == 0 || source->nodes == NULL || !maniGraphListsValid(source) ||
+        (depth > 0 && !GroupsNamed(source)))
     {
         return false;
     }
@@ -147,13 +153,14 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t)
             continue;
         }
         const maniGraphSource* sub = node->subgraph.graph;
-        if (sub == NULL || sub->nodeCount == 0 || !Count(sub, depth + 1, t))
+        if (sub == NULL || sub->nodeCount == 0 || !Count(sub, depth + 1, t, past))
         {
             return false;
         }
         t->nodes += sub->nodeCount - 1;
     }
-    return t->nodes <= MANI_GRAPH_MAX_NODES;
+    *past = t->nodes > MANI_MAX_GRAPH_NODES;
+    return !*past;
 }
 
 static bool HasSubgraph(const maniGraphSource* source)
@@ -709,10 +716,10 @@ static maniBuildResult Emit(const Scope* s, Flat* f, const maniSkeleton* skeleto
 static bool TotalsFit(const Totals* t)
 {
     return t->inputs <= UINT32_MAX && t->weights <= UINT32_MAX &&
-           t->clips <= MANI_GRAPH_MAX_CLIPS && t->groups <= MANI_GRAPH_MAX_SYNC_GROUPS &&
+           t->clips <= MANI_MAX_GRAPH_CLIPS && t->groups <= MANI_MAX_GRAPH_SYNC_GROUPS &&
            t->transitions <= UINT32_MAX && t->conditions <= UINT32_MAX &&
-           t->databases <= MANI_GRAPH_MAX_DATABASES && t->queries <= UINT32_MAX &&
-           t->models <= MANI_GRAPH_MAX_MODELS && t->springSets <= MANI_GRAPH_MAX_SPRING_SETS &&
+           t->databases <= MANI_MAX_GRAPH_DATABASES && t->queries <= UINT32_MAX &&
+           t->models <= MANI_MAX_GRAPH_MODELS && t->springSets <= MANI_MAX_GRAPH_SPRING_SETS &&
            t->effectors <= UINT32_MAX;
 }
 
@@ -741,6 +748,37 @@ static void CopyRoot(const maniGraphSource* source, Flat* f)
     }
 }
 
+// The flat lists in place of the source's.
+static void Publish(const Flat* f, maniGraphSource* source)
+{
+    source->nodes = f->nodes;
+    source->nodeCount = f->nodeCount;
+    source->clips = f->clips;
+    source->clipCount = f->clipCount;
+    source->syncGroups = f->groups;
+    source->syncGroupCount = f->groupCount;
+    source->databases = f->databases;
+    source->databaseCount = f->databaseCount;
+    source->models = f->models;
+    source->modelCount = f->modelCount;
+    source->springSets = f->springSets;
+    source->springSetCount = f->springSetCount;
+    source->mirrorMap = f->mirrorMap;
+}
+
+// The graph's and its subgraphs' totals, each within its list's bound.
+static maniBuildResult CountAll(const maniGraphSource* source, Totals* t)
+{
+    bool past = false;
+    if (!Count(source, 0, t, &past))
+    {
+        return past ? maniGraphPastLimit(maniBuildReasonCount, 0, 0)
+                    : maniGraphRefuse(maniBuildReasonCount, 0, 0);
+    }
+    return TotalsFit(t) ? (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0}
+                        : maniGraphPastLimit(maniBuildReasonCount, 0, 0);
+}
+
 maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAllocator* allocator,
                                     maniGraphFlat* out)
 {
@@ -750,9 +788,10 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
         return (maniBuildResult){mani_success, maniBuildReasonNone, 0, 0};
     }
     Totals t = {source->nodeCount, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    if (!Count(source, 0, &t) || !TotalsFit(&t))
+    maniBuildResult counted = CountAll(source, &t);
+    if (counted.result != mani_success)
     {
-        return maniGraphRefuse(maniBuildReasonCount, 0, 0);
+        return counted;
     }
     size_t sizes[12] = {(size_t)t.nodes * sizeof(maniGraphNodeSource),
                         (size_t)t.inputs * sizeof(uint32_t),
@@ -810,19 +849,7 @@ maniBuildResult maniInlineSubgraphs(const maniGraphSource* source, const maniAll
     MANI_ASSERT(r.result != mani_success || f.nodeCount == t.nodes);
     out->block = block;
     out->blockSize = total;
-    out->source.nodes = f.nodes;
-    out->source.nodeCount = f.nodeCount;
-    out->source.clips = f.clips;
-    out->source.clipCount = f.clipCount;
-    out->source.syncGroups = f.groups;
-    out->source.syncGroupCount = f.groupCount;
-    out->source.databases = f.databases;
-    out->source.databaseCount = f.databaseCount;
-    out->source.models = f.models;
-    out->source.modelCount = f.modelCount;
-    out->source.springSets = f.springSets;
-    out->source.springSetCount = f.springSetCount;
-    out->source.mirrorMap = f.mirrorMap;
+    Publish(&f, &out->source);
     return r;
 }
 

@@ -31,10 +31,10 @@ typedef struct maniTrainSoloShape
 } maniTrainSoloShape;
 
 // The sizes of a network from in through the shape's hidden layers to
-// out; false when the layers pass MANI_LEARNED_MAX_LAYERS or the batch
+// out; false when the layers pass MANI_MAX_LEARNED_LAYERS or the batch
 // is not a whole number of chunks.
 bool maniTrainSoloSizes(const maniTrainSoloShape* shape, uint32_t in, uint32_t out,
-                        uint32_t sizes[MANI_LEARNED_MAX_LAYERS + 1]);
+                        uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1]);
 
 typedef struct maniTrainSolo
 {

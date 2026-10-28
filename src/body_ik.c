@@ -4,7 +4,7 @@
 // The full-body description and solved part: the part is
 // found by walking each effector up to the top, its bones kept sorted
 // by index (parents first, each subtree contiguous) in at most
-// MANI_BODY_IK_MAX_BONES slots; the whole description is checked before
+// MANI_MAX_BODY_IK_BONES slots; the whole description is checked before
 // anything is written.
 
 #include "body_ik.h"
@@ -61,7 +61,7 @@ static bool Add(uint32_t* list, uint32_t* count, uint32_t bone)
     {
         return true;
     }
-    if (*count == MANI_BODY_IK_MAX_BONES)
+    if (*count == MANI_MAX_BODY_IK_BONES)
     {
         return false;
     }
@@ -77,8 +77,9 @@ static bool Add(uint32_t* list, uint32_t* count, uint32_t bone)
 
 // The part of a solve whose top is in range: every bone from each
 // effector up to the top; 0 when an effector is not the top or below it
-// or the part passes the bound.
-static uint32_t Collect(const maniSkeleton* skeleton, const maniBodySolve* solve, uint32_t* list)
+// or the part passes the bound (then past is set).
+static uint32_t Collect(const maniSkeleton* skeleton, const maniBodySolve* solve, uint32_t* list,
+                        bool* past)
 {
     uint32_t count = 0;
     uint32_t n = maniSkeletonBoneCount(skeleton);
@@ -93,11 +94,13 @@ static uint32_t Collect(const maniSkeleton* skeleton, const maniBodySolve* solve
         {
             if (!Add(list, &count, b))
             {
+                *past = true;
                 return 0;
             }
         }
         if (!Add(list, &count, b))
         {
+            *past = true;
             return 0;
         }
     }
@@ -150,27 +153,31 @@ static bool SettingValid(const maniSkeleton* skeleton, const uint32_t* list, uin
            maniVec3Length(maniVec3Cross(s->limit.axis, axis)) >= 1e-3f;
 }
 
-// Whether the counts, numbers and modes are in range.
+// Whether the counts within their bounds are in range, and the numbers
+// and modes.
 static bool HeaderValid(const maniBodySolve* solve)
 {
     return solve->effectors != NULL && solve->effectorCount >= 1 &&
-           solve->effectorCount <= MANI_BODY_IK_MAX_EFFECTORS &&
-           (solve->bones != NULL || solve->boneCount == 0) &&
-           solve->boneCount <= MANI_BODY_IK_MAX_BONES && solve->iterations >= 1 &&
-           solve->iterations <= MANI_IK_MAX_ITERATIONS && solve->tolerance >= 0.0f &&
-           isfinite(solve->tolerance) && Unit(solve->weight) &&
+           (solve->bones != NULL || solve->boneCount == 0) && solve->iterations >= 1 &&
+           solve->tolerance >= 0.0f && isfinite(solve->tolerance) && Unit(solve->weight) &&
            solve->topMode <= maniBodyTopPrePull;
 }
 
-uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve)
+uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve, bool* past)
 {
-    if (skeleton == NULL || solve == NULL || solve->top >= maniSkeletonBoneCount(skeleton) ||
-        !HeaderValid(solve))
+    *past = false;
+    if (skeleton == NULL || solve == NULL || solve->top >= maniSkeletonBoneCount(skeleton))
     {
         return 0;
     }
-    uint32_t list[MANI_BODY_IK_MAX_BONES] = {0};
-    uint32_t count = Collect(skeleton, solve, list);
+    *past = solve->effectorCount > MANI_MAX_BODY_IK_EFFECTORS ||
+            solve->boneCount > MANI_MAX_BODY_IK_BONES || solve->iterations > MANI_MAX_IK_ITERATIONS;
+    if (*past || !HeaderValid(solve))
+    {
+        return 0;
+    }
+    uint32_t list[MANI_MAX_BODY_IK_BONES] = {0};
+    uint32_t count = Collect(skeleton, solve, list, past);
     for (uint32_t e = 0; count > 0 && e < solve->effectorCount; ++e)
     {
         for (uint32_t f = 0; f < e; ++f)
@@ -207,20 +214,33 @@ static size_t ScratchBytes(uint32_t count, uint32_t effectors)
 
 size_t maniBodyIkScratchSize(const maniSkeleton* skeleton, const maniBodySolve* solve)
 {
-    uint32_t count = maniBodyPartShape(skeleton, solve);
+    bool past = false;
+    uint32_t count = maniBodyPartShape(skeleton, solve, &past);
     return count == 0 ? 0 : ScratchBytes(count, solve->effectorCount);
 }
 
-uint32_t maniBodyPartCount(const maniPose* pose, const maniSkeleton* skeleton,
-                           const maniBodySolve* solve, const void* scratch, size_t scratchSize)
+maniResult maniBodyPartCheck(const maniPose* pose, const maniSkeleton* skeleton,
+                             const maniBodySolve* solve, const void* scratch, size_t scratchSize,
+                             uint32_t* countOut)
 {
-    if (pose == NULL || skeleton == NULL || scratch == NULL || ((uintptr_t)scratch & 15u) != 0 ||
-        !maniIkPoseUsable(pose, skeleton))
+    *countOut = 0;
+    if (pose == NULL || skeleton == NULL || solve == NULL || scratch == NULL ||
+        ((uintptr_t)scratch & 15u) != 0 || !maniIkPoseUsable(pose, skeleton))
     {
-        return 0;
+        return mani_errorInvalid;
     }
-    uint32_t count = maniBodyPartShape(skeleton, solve);
-    return count > 0 && scratchSize >= ScratchBytes(count, solve->effectorCount) ? count : 0;
+    bool past = false;
+    uint32_t count = maniBodyPartShape(skeleton, solve, &past);
+    if (count == 0)
+    {
+        return past ? mani_errorLimit : mani_errorInvalid;
+    }
+    if (scratchSize < ScratchBytes(count, solve->effectorCount))
+    {
+        return mani_errorCapacity;
+    }
+    *countOut = count;
+    return mani_success;
 }
 
 const maniBodyBone* maniBodySetting(const maniBodySolve* solve, const maniBodyNode* node)
@@ -310,8 +330,9 @@ void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton*
     part->room = at[2];
     part->count = count;
     part->effectors = solve->effectorCount;
-    uint32_t list[MANI_BODY_IK_MAX_BONES] = {0};
-    (void)Collect(skeleton, solve, list);
+    uint32_t list[MANI_MAX_BODY_IK_BONES] = {0};
+    bool past = false;
+    (void)Collect(skeleton, solve, list, &past);
     for (uint32_t k = 0; k < count; ++k)
     {
         ReadNode(part, pose, skeleton, solve, list, k);
@@ -398,7 +419,7 @@ static float Compression(const maniBodyPart* part, uint32_t k)
 // read from the input before any turns, from the top down.
 static void Preferred(maniBodyPart* part, const maniBodySolve* solve)
 {
-    float compression[MANI_BODY_IK_MAX_BONES];
+    float compression[MANI_MAX_BODY_IK_BONES];
     for (uint32_t k = 0; k < part->count; ++k)
     {
         compression[k] = Compression(part, k);

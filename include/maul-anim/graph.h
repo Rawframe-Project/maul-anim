@@ -36,24 +36,27 @@ extern "C"
 #define MANI_NO_SYNC_GROUP 0xFFFFFFFFu
 // No node, input, state, transition or entry in an inspection.
 #define MANI_GRAPH_NONE 0xFFFFFFFFu
-// Named limits: nodes, inputs of one node, parameters, clips, sync
-// groups and motion databases of one graph.
-#define MANI_GRAPH_MAX_NODES       65536u
-#define MANI_GRAPH_MAX_INPUTS      4096u
-#define MANI_GRAPH_MAX_PARAMETERS  65536u
-#define MANI_GRAPH_MAX_CLIPS       65536u
-#define MANI_GRAPH_MAX_SYNC_GROUPS 65536u
-#define MANI_GRAPH_MAX_DATABASES   256u
-#define MANI_GRAPH_MAX_MODELS      256u
-#define MANI_GRAPH_MAX_SPRING_SETS 256u
-#define MANI_GRAPH_MAX_MAPS        256u
+// Named limits, a source past one refused with mani_errorLimit: nodes,
+// inputs of one node, parameters, clips, sync groups, motion databases,
+// models, spring sets and maps of one graph.
+#define MANI_MAX_GRAPH_NODES       65536u
+#define MANI_MAX_GRAPH_INPUTS      4096u
+#define MANI_MAX_GRAPH_PARAMETERS  65536u
+#define MANI_MAX_GRAPH_CLIPS       65536u
+#define MANI_MAX_GRAPH_SYNC_GROUPS 65536u
+#define MANI_MAX_GRAPH_DATABASES   256u
+#define MANI_MAX_GRAPH_MODELS      256u
+#define MANI_MAX_GRAPH_SPRING_SETS 256u
+#define MANI_MAX_GRAPH_MAPS        256u
 // The most points (and inputs) a blend space has.
-#define MANI_GRAPH_MAX_SPACE_POINTS 256u
+#define MANI_MAX_GRAPH_SPACE_POINTS 256u
 // The most transitions of one state machine, conditions of one
 // transition, and transitions one machine takes in an update.
-#define MANI_GRAPH_MAX_TRANSITIONS 4096u
-#define MANI_GRAPH_MAX_CONDITIONS  16u
-#define MANI_GRAPH_MAX_CHAIN       16u
+#define MANI_MAX_GRAPH_TRANSITIONS 4096u
+#define MANI_MAX_GRAPH_CONDITIONS  16u
+#define MANI_MAX_GRAPH_CHAIN       16u
+// The deepest subgraphs nest: a subgraph of the graph is at depth 1.
+#define MANI_MAX_GRAPH_DEPTH 16u
 // A transition's source when it leaves from any state.
 #define MANI_GRAPH_ANY_STATE 0xFFFFFFFFu
 // The largest size of a node's time factor: the product of the time
@@ -61,7 +64,7 @@ extern "C"
 // parameter at the larger size of its bounds. It is far past any
 // playback rate a graph needs; each node records its bound, so opening
 // checks it edge by edge.
-#define MANI_GRAPH_MAX_TIME_FACTOR 1.0e6f
+#define MANI_MAX_GRAPH_TIME_FACTOR 1.0e6f
 
     // A parameter's type. A trigger is set by the host and consumed by the
     // first node that reads it within an update.

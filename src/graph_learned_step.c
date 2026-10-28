@@ -206,7 +206,7 @@ static void Project(const Learned* l)
     {
         return;
     }
-    float query[MANI_MATCH_MAX_FEATURES];
+    float query[MANI_MAX_MATCH_FEATURES];
     float projected[MANI_GRAPH_LEARNED_MAX_STATES];
     Query(l, query);
     maniResult r =

@@ -445,10 +445,11 @@ static void TestRefusals(void)
               maniSolveBodyXpbd(s_pose, &s_skeleton, &good, NULL, size, NULL) ==
                   mani_errorInvalid &&
               maniSolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch + 4, size, NULL) ==
-                  mani_errorInvalid &&
-              maniSolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch, size - 1, NULL) ==
                   mani_errorInvalid,
-          "NULLs, misaligned or too little scratch");
+          "NULLs or misaligned scratch");
+    CHECK(maniSolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch, size - 1, NULL) ==
+              mani_errorCapacity,
+          "too little scratch at the capacity");
     maniBodyEffector saved[2] = {s_effectors[0], s_effectors[1]};
     maniBodySolve bad[10];
     for (int k = 0; k < 10; ++k)
@@ -458,9 +459,9 @@ static void TestRefusals(void)
     bad[0].top = BONES;
     bad[1].top = kForeL;
     bad[2].effectorCount = 0;
-    bad[3].effectorCount = MANI_BODY_IK_MAX_EFFECTORS + 1;
+    bad[3].effectorCount = MANI_MAX_BODY_IK_EFFECTORS + 1;
     bad[4].iterations = 0;
-    bad[5].iterations = MANI_IK_MAX_ITERATIONS + 1;
+    bad[5].iterations = MANI_MAX_IK_ITERATIONS + 1;
     bad[6].tolerance = -1.0f;
     bad[7].weight = 1.5f;
     bad[8].topMode = 3;
@@ -468,11 +469,19 @@ static void TestRefusals(void)
     int refused = 0;
     for (int k = 0; k < 10; ++k)
     {
+        maniResult want = k == 3 || k == 5 ? mani_errorLimit : mani_errorInvalid;
         refused += maniBodyIkScratchSize(&s_skeleton, &bad[k]) == 0 &&
                    maniSolveBodyXpbd(s_pose, &s_skeleton, &bad[k], s_scratch, sizeof s_scratch,
-                                     NULL) == mani_errorInvalid;
+                                     NULL) == want;
     }
-    CHECK(refused == 10, "tops, counts and numbers out of range refused");
+    CHECK(refused == 10,
+          "tops, counts and numbers out of range refused, past a bound at the limit");
+    maniBodySolve many = good;
+    many.boneCount = MANI_MAX_BODY_IK_BONES + 1;
+    many.bones = (const maniBodyBone*)s_scratch;
+    CHECK(maniSolveBodyXpbd(s_pose, &s_skeleton, &many, s_scratch, sizeof s_scratch, NULL) ==
+              mani_errorLimit,
+          "settings past MANI_MAX_BODY_IK_BONES at the limit");
     maniBodyEffector wrong[6];
     for (int k = 0; k < 6; ++k)
     {
@@ -525,6 +534,65 @@ static void TestRefusals(void)
           "a bone's settings twice refused");
 }
 
+// A chain of MANI_MAX_BODY_IK_BONES + 2 bones: a solve from its root to
+// its last bone passes the part's bound.
+static void TestPartPastBound(void)
+{
+    enum
+    {
+        kChain = MANI_MAX_BODY_IK_BONES + 2
+    };
+    static maniBoneSource bones[kChain];
+    static char names[kChain][8];
+    for (uint32_t b = 0; b < kChain; ++b)
+    {
+        (void)snprintf(names[b], sizeof names[b], "%03u", (unsigned)b);
+        bones[b] =
+            (maniBoneSource){names[b],
+                             (uint32_t)strlen(names[b]),
+                             (int32_t)b - 1,
+                             {{0.0f, 0.1f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
+    }
+    static _Alignas(16) uint8_t file[16384];
+    static _Alignas(MANI_POSE_ALIGNMENT) uint8_t memory[65536];
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* builder = NULL;
+    maniSkeletonSource source = {bones, kChain};
+    size_t size = 0;
+    maniSkeleton skeleton;
+    maniPose* pose = NULL;
+    bool made = maniCreateBuilder(&def, &builder) == mani_success &&
+                maniBuildSkeleton(builder, &source).result == mani_success &&
+                maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+                maniOpenSkeleton(file, size, &skeleton).result == mani_success &&
+                maniInitPose(&skeleton, memory, sizeof memory, &pose) == mani_success &&
+                maniPoseSetRest(pose, &skeleton) == mani_success;
+    maniDestroyBuilder(builder);
+    CHECK(made, "the long chain");
+    if (!made)
+    {
+        return;
+    }
+    maniBodyEffector end = {.bone = kChain - 1,
+                            .position = {0.0f, 1.0f, 0.0f},
+                            .rotation = {0.0f, 0.0f, 0.0f, 1.0f},
+                            .positionWeight = 1.0f,
+                            .strength = 1.0f};
+    maniBodySolve s = {.top = 0,
+                       .topMode = maniBodyTopPinned,
+                       .effectors = &end,
+                       .effectorCount = 1,
+                       .iterations = 8,
+                       .tolerance = 1e-3f,
+                       .weight = 1.0f};
+    CHECK(maniBodyIkScratchSize(&skeleton, &s) == 0 &&
+              maniSolveBodyXpbd(pose, &skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
+                  mani_errorLimit,
+          "a part past MANI_MAX_BODY_IK_BONES at the limit");
+    s.top = 2;
+    CHECK(maniBodyIkScratchSize(&skeleton, &s) > 0, "the part just within the bound");
+}
+
 int main(void)
 {
     Setup();
@@ -544,5 +612,6 @@ int main(void)
     TestPinned();
     TestEdges();
     TestRefusals();
+    TestPartPastBound();
     return s_failures == 0 ? 0 : 1;
 }

@@ -378,7 +378,7 @@ static void TestRefusals(void)
         bad[k] = good;
     }
     bad[0].count = 0;
-    bad[1].count = MANI_AIM_MAX_BONES + 1;
+    bad[1].count = MANI_MAX_AIM_BONES + 1;
     bad[2].bones[0] = 99;
     bad[3].count = 2;
     bad[3].bones[1] = s_bone[kSpine];
@@ -395,9 +395,10 @@ static void TestRefusals(void)
                    maniSolveAim(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid;
     for (int k = 0; k < 12; ++k)
     {
-        refused = refused && maniSolveAim(s_pose, &s_skeleton, &bad[k], NULL) == mani_errorInvalid;
+        maniResult want = k == 1 ? mani_errorLimit : mani_errorInvalid;
+        refused = refused && maniSolveAim(s_pose, &s_skeleton, &bad[k], NULL) == want;
     }
-    CHECK(refused, "the refusals");
+    CHECK(refused, "the refusals, a count past MANI_MAX_AIM_BONES at the limit");
 }
 
 int main(void)

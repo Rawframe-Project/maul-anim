@@ -120,13 +120,13 @@ static maniBuildResult Build(const maniMotionDatabaseSource* source)
     return r;
 }
 
-static float s_offsets[MANI_MATCH_MAX_FEATURES];
-static float s_scales[MANI_MATCH_MAX_FEATURES];
+static float s_offsets[MANI_MAX_MATCH_FEATURES];
+static float s_scales[MANI_MAX_MATCH_FEATURES];
 
 // Frame f's feature j, denormalized.
 static double Raw(const maniMotionDatabase* d, uint32_t f, uint32_t j)
 {
-    float features[MANI_MATCH_MAX_FEATURES];
+    float features[MANI_MAX_MATCH_FEATURES];
     CHECK(maniMotionDatabaseFeatures(d, f, features) == mani_success, "features");
     return (double)features[j] * (double)s_scales[j] + (double)s_offsets[j];
 }
@@ -253,7 +253,7 @@ static void TestNormalization(void)
             double squares = 0.0;
             for (uint32_t f = 0; f < d.frameCount; ++f)
             {
-                float v[MANI_MATCH_MAX_FEATURES];
+                float v[MANI_MAX_MATCH_FEATURES];
                 CHECK(maniMotionDatabaseFeatures(&d, f, v) == mani_success, "features");
                 sum += (double)v[j];
                 squares += (double)v[j] * (double)v[j];
@@ -326,18 +326,30 @@ static void TestFloatTrack(void)
           "the float track rising, its name");
 }
 
-static bool Refused(const maniMotionDatabaseSource* s, maniBuildReason reason, uint32_t item,
-                    uint32_t other)
+static bool RefusedWith(const maniMotionDatabaseSource* s, maniResult result,
+                        maniBuildReason reason, uint32_t item, uint32_t other)
 {
     maniBuildResult r = Build(s);
-    if (!(r.result == mani_errorInvalid && r.reason == reason && r.item == item &&
-          r.other == other))
+    if (!(r.result == result && r.reason == reason && r.item == item && r.other == other))
     {
         printf("  refused: result %d reason %u item %u other %u\n", (int)r.result, r.reason, r.item,
                r.other);
         return false;
     }
     return true;
+}
+
+static bool Refused(const maniMotionDatabaseSource* s, maniBuildReason reason, uint32_t item,
+                    uint32_t other)
+{
+    return RefusedWith(s, mani_errorInvalid, reason, item, other);
+}
+
+// Refused for passing a fixed bound.
+static bool PastLimit(const maniMotionDatabaseSource* s, maniBuildReason reason, uint32_t item,
+                      uint32_t other)
+{
+    return RefusedWith(s, mani_errorLimit, reason, item, other);
 }
 
 static void TestSourceRefusals(void)
@@ -347,7 +359,7 @@ static void TestSourceRefusals(void)
     CHECK(Refused(&s, maniBuildReasonTiming, 0, 0), "no rate");
     s = Source();
     s.sampleRate = 1001.0f;
-    CHECK(Refused(&s, maniBuildReasonTiming, 0, 0), "too fast a rate");
+    CHECK(PastLimit(&s, maniBuildReasonTiming, 0, 0), "too fast a rate");
     s = Source();
     s.forward = maniMatchAxisNegativeY;
     CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "forward along up");
@@ -386,7 +398,10 @@ static void TestChannelRefusals(void)
     {
         maniMotionDatabaseSource s = Source();
         s_channels[3] = kBad[k];
-        CHECK(Refused(&s, maniBuildReasonChannel, 3, 0), "a channel refused");
+        // 17 times and a time of 61 seconds pass a bound.
+        CHECK(k == 4 || k == 5 ? PastLimit(&s, maniBuildReasonChannel, 3, 0)
+                               : Refused(&s, maniBuildReasonChannel, 3, 0),
+              "a channel refused");
     }
     maniMotionDatabaseSource s = Source();
     s_channels[3] = (maniMatchChannelSource){maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
@@ -402,9 +417,9 @@ static void TestChannelRefusals(void)
     s = Source();
     s.channels = wide;
     s.channelCount = 64;
-    CHECK(Refused(&s, maniBuildReasonCount, 0, 0), "past the features");
+    CHECK(PastLimit(&s, maniBuildReasonCount, 0, 0), "past the features");
     s.channelCount = 65;
-    CHECK(Refused(&s, maniBuildReasonCount, 0, 0), "past the channels");
+    CHECK(PastLimit(&s, maniBuildReasonCount, 0, 0), "past the channels");
 }
 
 static void TestEntryRefusals(void)
@@ -437,9 +452,9 @@ static void TestEntryRefusals(void)
     // frame more at most, at once.
     uint32_t far = 0;
     CHECK(maniMatchEntryFrames(1.0e9f, 1.0e9f, 30.0f, false, &far) && far == 2, "a count at once");
-    // A span of MANI_MATCH_MAX_FRAMES frames or more has no count.
+    // A span of MANI_MAX_MATCH_FRAMES frames or more has no count.
     uint32_t none = 7;
-    CHECK(!maniMatchEntryFrames(0.0f, (float)MANI_MATCH_MAX_FRAMES / 30.0f, 30.0f, true, &none) &&
+    CHECK(!maniMatchEntryFrames(0.0f, (float)MANI_MAX_MATCH_FRAMES / 30.0f, 30.0f, true, &none) &&
               none == 7,
           "a span too long for a count");
 }

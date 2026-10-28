@@ -81,7 +81,7 @@ static bool Effectors(maniGraphReader* r, const maniGraphScope* scope, uint32_t 
                       maniGraphBodyNodeSource* s)
 {
     uint32_t count = 0;
-    if (!Count(r, value, 1, MANI_BODY_IK_MAX_EFFECTORS, &count))
+    if (!Count(r, value, 1, MANI_MAX_BODY_IK_EFFECTORS, &count))
     {
         return false;
     }
@@ -108,7 +108,7 @@ static bool Effectors(maniGraphReader* r, const maniGraphScope* scope, uint32_t 
 static bool Settings(maniGraphReader* r, uint32_t value, maniGraphBodyNodeSource* s)
 {
     uint32_t count = 0;
-    if (!Count(r, value, 0, MANI_BODY_IK_MAX_BONES, &count))
+    if (!Count(r, value, 0, MANI_MAX_BODY_IK_BONES, &count))
     {
         return false;
     }

@@ -47,8 +47,8 @@ extern "C"
 #define MANI_LEARNED_TRAINER_DEF_COOKIE 0x4D4C5444u
 
 // Named limits: samples a batch, frames a Stepper's window.
-#define MANI_LEARNED_MAX_BATCH  65536u
-#define MANI_LEARNED_MAX_WINDOW 65536u
+#define MANI_MAX_LEARNED_BATCH  65536u
+#define MANI_MAX_LEARNED_WINDOW 65536u
 
     /// Returns a trainer def with every setting at its default.
     ///
@@ -144,21 +144,28 @@ extern "C"
     /// @param source     What to train on, and how.
     /// @param trainerOut Receives the trainer, or NULL on failure.
     /// @return `mani_success`; `mani_errorVersion` for a def built
-    /// against another major or minor version; `mani_errorInvalid` for a
-    /// NULL argument, a def without its cookie, an allocator or task
-    /// hooks with one function, a list missing, or with the reason and
-    /// item for a refused source: `maniBuildReasonOption` (item the
-    /// option's place in the options: a count, width or layer count past
-    /// its limit, a batch not a multiple of 4 or past
-    /// MANI_LEARNED_MAX_BATCH, a window below 2, past
-    /// MANI_LEARNED_MAX_WINDOW or longer than every entry, no iterations,
-    /// a rate or seconds not finite or negative; item 1 for networks past
-    /// MANI_LEARNED_MAX_WEIGHTS), `maniBuildReasonDatabase` (a database
-    /// of another skeleton), `maniBuildReasonClip` (item the clip whose
-    /// identity is not the database's; the clip count and the database's
-    /// as item and other when they differ), `maniBuildReasonTiming` (a
-    /// database rate past MANI_LEARNED_MAX_RATE), `maniBuildReasonCount`
-    /// (no Projector, or a list past its limit), `maniBuildReasonTags`
+    /// against another major or minor version; `mani_errorLimit` with the
+    /// reason and item for a source past a bound: `maniBuildReasonOption`
+    /// (item the option's place in the options: more than
+    /// MANI_MAX_LEARNED_LATENT latent values, a width past
+    /// MANI_MAX_LEARNED_WIDTH, a network of MANI_MAX_LEARNED_LAYERS
+    /// hidden layers or more, a batch past MANI_MAX_LEARNED_BATCH, a
+    /// window past MANI_MAX_LEARNED_WINDOW; item 1 for networks past the
+    /// width or MANI_MAX_LEARNED_WEIGHTS), `maniBuildReasonTiming` (a
+    /// database rate past MANI_MAX_LEARNED_RATE), `maniBuildReasonCount`
+    /// (more than MANI_MAX_LEARNED_PROJECTORS Projectors,
+    /// MANI_MAX_LEARNED_FLOAT_TRACKS float tracks or
+    /// MANI_MAX_LEARNED_EVENTS events); `mani_errorInvalid` for a NULL
+    /// argument, a def without its cookie, an allocator or task hooks with
+    /// one function, a list missing, or with the reason and item for a
+    /// refused source: `maniBuildReasonOption` (item the option's place:
+    /// no latent values, no width, a batch not a multiple of 4, a window
+    /// below 2 or longer than every entry, no iterations, a rate or
+    /// seconds not finite or negative), `maniBuildReasonDatabase` (a
+    /// database of another skeleton), `maniBuildReasonClip` (item the clip
+    /// whose identity is not the database's; the clip count and the
+    /// database's as item and other when they differ),
+    /// `maniBuildReasonCount` (no Projector), `maniBuildReasonTags`
     /// (item the Projector), `maniBuildReasonFloatTrack` or
     /// `maniBuildReasonEvent` combined with `maniBuildReasonName` or
     /// `maniBuildReasonDuplicateName`; `mani_errorCapacity` when memory

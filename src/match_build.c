@@ -46,6 +46,11 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return Result(mani_errorInvalid, reason, item, other);
 }
 
+static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    return Result(mani_errorLimit, reason, item, other);
+}
+
 // The totals a valid source gives.
 typedef struct Totals
 {
@@ -57,6 +62,25 @@ typedef struct Totals
     uint32_t nodes;
 } Totals;
 
+// Whether a channel passes a bound: more than MANI_MAX_MATCH_TIMES
+// times, or a finite time past MANI_MAX_MATCH_REACH.
+static bool ChannelPast(const maniMatchChannelSource* c)
+{
+    if (c->timeCount > MANI_MAX_MATCH_TIMES)
+    {
+        return true;
+    }
+    for (uint32_t k = 0; c->times != NULL && k < c->timeCount; ++k)
+    {
+        if (isfinite(c->times[k]) && fabsf(c->times[k]) > MANI_MAX_MATCH_REACH)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A channel within its bounds (ChannelPast refused the rest).
 static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChannelSource* c)
 {
     uint32_t bones = maniSkeletonBoneCount(s->skeleton);
@@ -64,14 +88,13 @@ static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChann
     bool track = c->kind == maniMatchFloatTrack;
     if (c->kind > maniMatchFloatTrack || (bone && c->bone >= bones) ||
         (c->kind == maniMatchBoneFacing && c->axis > maniMatchAxisNegativeZ) || c->timeCount < 1 ||
-        c->timeCount > MANI_MATCH_MAX_TIMES || c->times == NULL ||
-        !(c->weight > 0.0f && c->weight < HUGE_VALF))
+        c->times == NULL || !(c->weight > 0.0f && c->weight < HUGE_VALF))
     {
         return false;
     }
     for (uint32_t k = 0; k < c->timeCount; ++k)
     {
-        if (!(fabsf(c->times[k]) <= MANI_MATCH_MAX_REACH))
+        if (!isfinite(c->times[k]))
         {
             return false;
         }
@@ -128,6 +151,10 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
     for (uint32_t c = 0; c < s->channelCount; ++c)
     {
         const maniMatchChannelSource* ch = &s->channels[c];
+        if (ChannelPast(ch))
+        {
+            return PastLimit(maniBuildReasonChannel, c, 0);
+        }
         if (!ChannelValid(s, ch))
         {
             return Refuse(maniBuildReasonChannel, c, 0);
@@ -143,9 +170,9 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
             }
         }
     }
-    if (features > MANI_MATCH_MAX_FEATURES)
+    if (features > MANI_MAX_MATCH_FEATURES)
     {
-        return Refuse(maniBuildReasonCount, 0, 0);
+        return PastLimit(maniBuildReasonCount, 0, 0);
     }
     t->features = (uint32_t)features;
     return kOk;
@@ -166,16 +193,17 @@ static maniBuildResult CheckEntries(const maniMotionDatabaseSource* s, Totals* t
             return Refuse(maniBuildReasonMirrorDatabase, e, 0);
         }
         uint32_t n = 0;
+        // An entry too long for a count is past MANI_MAX_MATCH_FRAMES.
         if (!maniMatchEntryFrames(entry->start, entry->end, s->sampleRate,
                                   (entry->flags & MANI_MATCH_LOOP) != 0, &n))
         {
-            return Refuse(maniBuildReasonCount, 0, 0);
+            return PastLimit(maniBuildReasonCount, 0, 0);
         }
         frames += n;
     }
-    if (frames > MANI_MATCH_MAX_FRAMES)
+    if (frames > MANI_MAX_MATCH_FRAMES)
     {
-        return Refuse(maniBuildReasonCount, 0, 0);
+        return PastLimit(maniBuildReasonCount, 0, 0);
     }
     t->frames = (uint32_t)frames;
     return kOk;
@@ -183,7 +211,11 @@ static maniBuildResult CheckEntries(const maniMotionDatabaseSource* s, Totals* t
 
 static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
 {
-    if (!(s->sampleRate > 0.0f && s->sampleRate <= MANI_MATCH_MAX_RATE))
+    if (s->sampleRate > MANI_MAX_MATCH_RATE)
+    {
+        return PastLimit(maniBuildReasonTiming, 0, 0);
+    }
+    if (!(s->sampleRate > 0.0f))
     {
         return Refuse(maniBuildReasonTiming, 0, 0);
     }
@@ -197,9 +229,12 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
     {
         return Refuse(maniBuildReasonOption, 1, 0);
     }
-    if (s->clipCount < 1 || s->clipCount > MANI_MATCH_MAX_CLIPS || s->channelCount < 1 ||
-        s->channelCount > MANI_MATCH_MAX_CHANNELS || s->entryCount < 1 ||
-        s->entryCount > MANI_MATCH_MAX_ENTRIES)
+    if (s->clipCount > MANI_MAX_MATCH_CLIPS || s->channelCount > MANI_MAX_MATCH_CHANNELS ||
+        s->entryCount > MANI_MAX_MATCH_ENTRIES)
+    {
+        return PastLimit(maniBuildReasonCount, 0, 0);
+    }
+    if (s->clipCount < 1 || s->channelCount < 1 || s->entryCount < 1)
     {
         return Refuse(maniBuildReasonCount, 0, 0);
     }

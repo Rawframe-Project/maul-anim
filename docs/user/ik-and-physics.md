@@ -23,7 +23,7 @@ maniResult solved = maniSolveTwoBone(pose, &skeleton, &reach, &reached);
 | Solver | For |
 |---|---|
 | `maniSolveTwoBone` | legs and arms: a two-bone chain bent toward a goal, its knee or elbow toward a pole |
-| `maniSolveAim` | heads, eyes, weapons: a bone, or a chain of up to `MANI_AIM_MAX_BONES` sharing the turn, aimed at a goal, within an optional cone |
+| `maniSolveAim` | heads, eyes, weapons: a bone, or a chain of up to `MANI_MAX_AIM_BONES` sharing the turn, aimed at a goal, within an optional cone |
 | `maniSolveCcd`, `maniSolveFabrik` | tails, spines, tentacles: chains of up to 32 bones, with cone, twist and hinge limits per bone |
 | `maniSolveBodyXpbd` | a whole body: several effectors with goals at once, bones with stiffness and limits, the top pinned or free; fast enough for every frame |
 | `maniSolveBodySdls` | the same description solved by damped least squares; for small parts, few iterations or work off the frame |

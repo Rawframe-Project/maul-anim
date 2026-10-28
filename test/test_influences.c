@@ -194,12 +194,17 @@ static void TestWholeGroup(void)
           "four influences: one group");
 }
 
+static void ExpectResult(const maniInfluenceSource* source, maniResult result,
+                         maniBuildReason reason, uint32_t item, uint32_t other, const char* what)
+{
+    maniBuildResult r = BuildFrom(source);
+    CHECK(r.result == result && r.reason == reason && r.item == item && r.other == other, what);
+}
+
 static void ExpectRefused(const maniInfluenceSource* source, maniBuildReason reason, uint32_t item,
                           uint32_t other, const char* what)
 {
-    maniBuildResult r = BuildFrom(source);
-    CHECK(r.result == mani_errorInvalid && r.reason == reason && r.item == item && r.other == other,
-          what);
+    ExpectResult(source, mani_errorInvalid, reason, item, other, what);
 }
 
 static void TestBuildRefusals(void)
@@ -244,7 +249,7 @@ static void TestBuildRefusals(void)
     s.vertexCount = 0;
     ExpectRefused(&s, maniBuildReasonCount, 0, 0, "no vertices");
     s.vertexCount = 4;
-    // 65 weighted influences on one vertex: one more than 16 groups.
+    // One weighted influence on a vertex past MANI_MAX_INFLUENCES.
     static uint32_t manyOffsets[2] = {0, 65};
     static uint32_t manyJoints[65];
     static float manyWeights[65];
@@ -257,7 +262,8 @@ static void TestBuildRefusals(void)
         manyWeights[i] = 1.0f;
     }
     maniInfluenceSource many = {&wide, manyOffsets, manyJoints, manyWeights, NULL, 1};
-    ExpectRefused(&many, maniBuildReasonCount, 0, 64, "65 weighted influences");
+    CHECK(MANI_MAX_INFLUENCES == 64, "the bound");
+    ExpectResult(&many, mani_errorLimit, maniBuildReasonCount, 0, 64, "65 weighted influences");
     manyOffsets[1] = 64;
     CHECK(BuildFrom(&many).result == mani_success, "64: sixteen groups");
     maniBuilder* builder = NewBuilder();

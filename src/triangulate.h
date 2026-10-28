@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#define MANI_TRIANGULATE_MAX_POINTS MANI_GRAPH_MAX_SPACE_POINTS
+#define MANI_TRIANGULATE_MAX_POINTS MANI_MAX_GRAPH_SPACE_POINTS
 #define MANI_TRIANGULATE_MAX        (2u * MANI_TRIANGULATE_MAX_POINTS - 5u)
 
 // A triangle: its corners anticlockwise, and per corner the triangle

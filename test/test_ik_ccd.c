@@ -457,8 +457,9 @@ static void TestEdges(void)
     l.end = 32;
     CHECK(maniSolveCcd(s_longPose, &s_long, &l, NULL) == mani_success, "a path of 32 bones");
     l.root = 0;
-    CHECK(maniSolveCcd(s_longPose, &s_long, &l, NULL) == mani_errorInvalid,
-          "a path of 33 bones refused");
+    CHECK(maniSolveCcd(s_longPose, &s_long, &l, NULL) == mani_errorLimit &&
+              maniSolveFabrik(s_longPose, &s_long, &l, NULL) == mani_errorLimit,
+          "a path of 33 bones at the limit");
 }
 
 static void TestRefusals(void)
@@ -481,7 +482,7 @@ static void TestRefusals(void)
     bad[3].pole = (maniVec3){0.0f, 0.0f, 1.0f};
     bad[4].rotation = (maniQuat){0.0f, 0.0f, 0.0f, 0.0f};
     bad[5].iterations = 0;
-    bad[6].iterations = MANI_IK_MAX_ITERATIONS + 1;
+    bad[6].iterations = MANI_MAX_IK_ITERATIONS + 1;
     bad[7].tolerance = -1.0f;
     bad[8].tolerance = INFINITY;
     bad[9].step = -0.1f;
@@ -494,9 +495,11 @@ static void TestRefusals(void)
     int refused = 0;
     for (int k = 0; k < 16; ++k)
     {
-        refused += maniSolveCcd(s_pose, &s_skeleton, &bad[k], NULL) == mani_errorInvalid;
+        maniResult want = k == 6 ? mani_errorLimit : mani_errorInvalid;
+        refused += maniSolveCcd(s_pose, &s_skeleton, &bad[k], NULL) == want;
     }
-    CHECK(refused == 16, "bones, pole, rotation, counts and numbers out of range refused");
+    CHECK(refused == 16, "bones, pole, rotation, counts and numbers out of range refused, past a "
+                         "bound at the limit");
     const maniJointLimit wrong[8] = {
         {.kind = 3},
         {.kind = maniJointLimitCone, .cone = 3.2f},

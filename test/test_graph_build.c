@@ -46,6 +46,13 @@ static bool Refused(maniGraphSource source, maniBuildReason reason, uint32_t ite
            r.other == other;
 }
 
+// Refused as Refused says, for passing a fixed bound.
+static bool PastLimit(maniGraphSource source, maniBuildReason reason, uint32_t item, uint32_t other)
+{
+    maniBuildResult r = BuildOnly(source);
+    return r.result == mani_errorLimit && r.reason == reason && r.item == item && r.other == other;
+}
+
 // A skeleton of 32 bones in a chain (enough that the mask's two weight
 // rows fill more than a pose's header) and two clips on it: the root and
 // the last bone moving along x.
@@ -688,7 +695,7 @@ static uint32_t PlaceOf(const maniGraph* g, uint32_t v)
 // Time factors: each record keeps the largest product of the time scales'
 // sizes above its node, a parameter's at the larger size of its bounds,
 // so scales on parallel branches do not multiply. A path past
-// MANI_GRAPH_MAX_TIME_FACTOR, a scale from a parameter without bounds and
+// MANI_MAX_GRAPH_TIME_FACTOR, a scale from a parameter without bounds and
 // a factor that does not bound its inputs' are refused.
 static void TestTimeFactors(void)
 {
@@ -765,7 +772,7 @@ static void TestTimeFactors(void)
         {maniGraphNodeTimeScale, 1, kClip, .timeScale = {LITERAL(1000.0f)}},
         ClipNode(0, 1.0f, maniGraphLoopClip)};
     maniGraphSource chain = {.nodes = path, .nodeCount = 3};
-    CHECK(Opens(chain, &g) && FactorAt(PlaceOf(&g, 2)) == MANI_GRAPH_MAX_TIME_FACTOR,
+    CHECK(Opens(chain, &g) && FactorAt(PlaceOf(&g, 2)) == MANI_MAX_GRAPH_TIME_FACTOR,
           "a path at the bound");
     path[1].timeScale.scale.value = 0.0f;
     opens = Opens(chain, &g);
@@ -773,10 +780,10 @@ static void TestTimeFactors(void)
     CHECK(opens && Edit(Record(PlaceOf(&g, 2)) + 28, 0x80000000u, Record(PlaceOf(&g, 2)) + 28),
           "a factor of -0");
     path[1].timeScale.scale.value = 1001.0f;
-    CHECK(Refused(chain, maniBuildReasonScalar, 1, 0), "a path past the bound");
+    CHECK(PastLimit(chain, maniBuildReasonScalar, 1, 0), "a path past the bound");
     path[1].timeScale.scale.value = 1.0f;
     path[0].timeScale.scale.value = 1.5e6f;
-    CHECK(Refused(chain, maniBuildReasonScalar, 0, 0), "a scale past the bound");
+    CHECK(PastLimit(chain, maniBuildReasonScalar, 0, 0), "a scale past the bound");
 }
 
 // A binding's cursors as large as its largest clip's, and its layers as

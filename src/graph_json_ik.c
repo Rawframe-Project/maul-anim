@@ -87,14 +87,14 @@ bool maniGraphJsonTwoBone(maniGraphReader* r, const maniGraphScope* scope, const
     return ok;
 }
 
-// count bone names, 1 to MANI_AIM_MAX_BONES.
+// count bone names, 1 to MANI_MAX_AIM_BONES.
 static bool Bones(maniGraphReader* r, uint32_t value, maniGraphAimNodeSource* s)
 {
     if (!maniGraphJsonArray(r, value, &s->count))
     {
         return false;
     }
-    if (s->count == 0 || s->count > MANI_AIM_MAX_BONES)
+    if (s->count == 0 || s->count > MANI_MAX_AIM_BONES)
     {
         return maniGraphJsonFault(r, value, maniGraphFormValue);
     }
@@ -303,7 +303,7 @@ bool maniGraphJsonLimit(maniGraphReader* r, uint32_t object, maniJointLimit* l)
 static bool Limits(maniGraphReader* r, uint32_t value, const maniGraphChainNodeSource* s,
                    const maniJointLimit** out)
 {
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t count = 0;
     if (!maniGraphJsonArray(r, value, &count))
     {
@@ -426,7 +426,7 @@ void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
     {
         return;
     }
-    uint32_t bones[MANI_IK_CHAIN_MAX_BONES];
+    uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t count = maniIkChainPath(w->skeleton, s->root, s->end, bones);
     maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "limits");

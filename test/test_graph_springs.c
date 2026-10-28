@@ -98,6 +98,14 @@ static bool RefusedFor(const maniGraphSource* source, maniBuildReason reason, ui
            r.other == other;
 }
 
+// A count past its bound: refused at the limit.
+static bool CountPast(const maniGraphSource* source)
+{
+    maniBuildResult r = BuildGraph(source);
+    return r.result == mani_errorLimit && r.reason == maniBuildReasonCount && r.item == 0 &&
+           r.other == 0;
+}
+
 static const maniGraphSpringSetSource kTwo[2] = {{&s_set, "hair", 4}, {&s_other, "tail", 4}};
 
 static void TestBuild(void)
@@ -139,8 +147,8 @@ static void TestBuild(void)
     CHECK(RefusedFor(&source, maniBuildReasonSpringSetList | maniBuildReasonName, 1, 0), "no name");
     source = Graph(NULL, 1);
     CHECK(RefusedFor(&source, maniBuildReasonCount, 0, 0), "a count without its list");
-    source = Graph(kTwo, MANI_GRAPH_MAX_SPRING_SETS + 1);
-    CHECK(RefusedFor(&source, maniBuildReasonCount, 0, 0), "too many sets");
+    source = Graph(kTwo, MANI_MAX_GRAPH_SPRING_SETS + 1);
+    CHECK(CountPast(&source), "too many sets");
 }
 
 static uint64_t SectionAt(uint32_t tag, uint64_t* sizeOut)
@@ -185,8 +193,8 @@ static void TestOpen(void)
     CHECK(size == MANI_GRAPH_HEADER_SIZE, "the header");
     uint64_t sets = SectionAt(maniGraphTagSpringSets, &size);
     CHECK(size == 2 * MANI_GRAPH_SPRING_SET_SIZE, "two records");
-    CHECK(RefusedAt(header + 56, MANI_GRAPH_MAX_SPRING_SETS + 1, header + 56), "too many sets");
-    CHECK(RefusedAt(header + 60, MANI_GRAPH_MAX_MAPS + 1, header + 60), "too many maps");
+    CHECK(RefusedAt(header + 56, MANI_MAX_GRAPH_SPRING_SETS + 1, header + 56), "too many sets");
+    CHECK(RefusedAt(header + 60, MANI_MAX_GRAPH_MAPS + 1, header + 60), "too many maps");
     // The sets' entry is the table's last.
     uint64_t entry =
         MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(maniLoadU32(s_graphFile + 12) - 1) + 16;
@@ -347,10 +355,10 @@ static void TestSubgraph(void)
               maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set),
           "the root's slots kept through inlining");
     // The root's and the subgraph's lists past the limit together.
-    static maniGraphSpringSetSource s_many[MANI_GRAPH_MAX_SPRING_SETS];
+    static maniGraphSpringSetSource s_many[MANI_MAX_GRAPH_SPRING_SETS];
     inner.springSets = s_many;
-    inner.springSetCount = MANI_GRAPH_MAX_SPRING_SETS;
-    CHECK(RefusedFor(&outer, maniBuildReasonCount, 0, 0), "too many sets with a subgraph's");
+    inner.springSetCount = MANI_MAX_GRAPH_SPRING_SETS;
+    CHECK(CountPast(&outer), "too many sets with a subgraph's");
 }
 
 int main(void)

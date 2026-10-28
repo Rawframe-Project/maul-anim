@@ -24,7 +24,7 @@ extern "C"
 // What a channel lookup finds for no channel.
 #define MANI_NO_CHANNEL 0xFFFFFFFFu
 // The most attributes a morph targets file holds.
-#define MANI_MORPH_MAX_ATTRIBUTES 32u
+#define MANI_MAX_MORPH_ATTRIBUTES 32u
 
     // A vertex attribute morph targets move: deltas of 3 floats for
     // positions, normals and tangents (no w), 2 for texture coordinates,
@@ -104,7 +104,7 @@ extern "C"
     /// Returns the number of attributes the targets move.
     ///
     /// @param targets  Opened morph targets.
-    /// @return The attribute count, at most MANI_MORPH_MAX_ATTRIBUTES.
+    /// @return The attribute count, at most MANI_MAX_MORPH_ATTRIBUTES.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphAttributeCount(const maniMorphTargets* targets);

@@ -427,13 +427,13 @@ static void TestBuildRefusals(void)
     }
 }
 
-// MANI_GRAPH_MAX_MAPS maps and one more, each playing a still clip of
+// MANI_MAX_GRAPH_MAPS maps and one more, each playing a still clip of
 // its own: the last slot refused.
 static void TestTooManyMaps(void)
 {
     enum
     {
-        kCount = MANI_GRAPH_MAX_MAPS + 1
+        kCount = MANI_MAX_GRAPH_MAPS + 1
     };
     static _Alignas(16) uint8_t mapFiles[kCount][2048];
     static _Alignas(16) uint8_t clipFiles[kCount][1024];
@@ -469,7 +469,7 @@ static void TestTooManyMaps(void)
     source.nodeCount = 1;
     source.output = 0;
     maniBuildResult r = BuildGraph(&source);
-    CHECK(r.reason == maniBuildReasonClip && r.item == MANI_GRAPH_MAX_MAPS, "a map too many");
+    CHECK(r.reason == maniBuildReasonClip && r.item == MANI_MAX_GRAPH_MAPS, "a map too many");
     source.clipCount = kCount - 1;
     CHECK(BuildGraph(&source).result == mani_success, "as many maps as the graph takes");
 }
