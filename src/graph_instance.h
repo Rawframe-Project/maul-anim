@@ -138,7 +138,7 @@ static inline const maniGraphBoundMapPair* maniGraphBoundMap(const maniGraphBind
 static inline const maniGraphBoundMapPair* maniGraphClipMapPair(const maniGraphBinding* binding,
                                                                 uint32_t clip)
 {
-    uint32_t slot = maniGraphClipMap(&binding->graph, clip);
+    uint32_t slot = maniGraphClipRetargetMap(&binding->graph, clip);
     return slot == MANI_NO_TRACK ? NULL : maniGraphBoundMap(binding, slot);
 }
 
