@@ -56,10 +56,12 @@ typedef maniFileResult (*TestOpener)(const void* bytes, size_t size);
 // 6, tag 0).
 static inline bool TestOtherVersionsRefused(const uint8_t* file, size_t size, TestOpener open)
 {
-    uint8_t* copy = (uint8_t*)aligned_alloc(16, (size + 15) / 16 * 16 + 16);
+    // Aligned by hand, as aligned_alloc is not everywhere.
+    uint8_t* block = (uint8_t*)malloc(size + 16);
+    uint8_t* copy = block != NULL ? block + (16 - (uintptr_t)block % 16) % 16 : NULL;
     if (copy == NULL || size < 8)
     {
-        free(copy);
+        free(block);
         return false;
     }
     memcpy(copy, file, size);
@@ -73,7 +75,7 @@ static inline bool TestOtherVersionsRefused(const uint8_t* file, size_t size, Te
         maniFileResult r = open(copy, size);
         refused = refused && r.result == mani_errorVersion && r.offset == 6 && r.tag == 0;
     }
-    free(copy);
+    free(block);
     return refused;
 }
 
