@@ -5,6 +5,306 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.7.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.6.0...v0.7.0) (2026-10-29)
+
+### Changed
+
+- **Breaking: every call is named by the Maul family's naming rule.** A
+  call on one object is named `maniObject_Verb`: a getter
+  `maniObject_GetThing`, a predicate `maniObject_IsThing`. The object is
+  the library object the call takes first, such as a clip, a pose, a
+  skeleton, a graph instance, a builder or a glTF document, even where
+  the call only reads it: `maniSampleClip` is `maniClip_Sample`,
+  `maniClipDuration` is `maniClip_GetDuration`, `maniPoseIsDifference`
+  is `maniPose_IsDifference` and `maniBlendPoses` is
+  `maniSkeleton_BlendPoses`. Creation, destruction and calls with no
+  object keep a verb first: every `maniOpen...`, `maniInit...`,
+  `maniCreate...` and `maniBuild...` keeps its name, and the importers'
+  builds take that shape (`maniGltfBuildClip` is `maniBuildGltfClip`).
+  The misuse counts are `maniBuilder_GetMisuse` and
+  `maniLearnedTrainer_GetMisuse`, `maniResultName` is
+  `maniGetResultName`, the CPU check is `maniIsCpuBackendSupported`, and
+  the task hook types end in `Function`. Math on plain values keeps its
+  name (`maniRootMoveIdentity`, `maniComposeRootMotion`,
+  `maniDecomposeAffine`, `maniHash64`). Rename every call in the table
+  below; the parameters stay the same, except for `maniPose_AddLayers`
+  ([#156](https://github.com/Rawframe-Project/maul-anim/pull/156)).
+- **Breaking: `maniPose_AddLayers` takes the pose first.** A pose a call
+  changes in place is its object, so `maniAddPoses(skeleton, pose,
+  layers, count)` is `maniPose_AddLayers(pose, skeleton, layers,
+  count)`. Swap the first two arguments; a compiler refuses or warns
+  about the old order, since the two pointers have different types. The
+  IK solvers already took the pose first and keep their order as
+  `maniPose_SolveTwoBone` and the others
+  ([#156](https://github.com/Rawframe-Project/maul-anim/pull/156)).
+- The user guides and the API reference use the new names
+  ([#156](https://github.com/Rawframe-Project/maul-anim/pull/156)).
+
+Poses, samples and file bytes do not change; only the names do. As
+with every release before 1.0.0, a graph instance, spring state or
+trainer checkpoint saved by 0.6.0 is refused with `mani_errorVersion`:
+keep assets, not saved states, across the upgrade.
+
+| Before | After |
+|---|---|
+| `maniResultName` | `maniGetResultName` |
+| `maniTaskFn` | `maniTaskFunction` |
+| `maniEnqueueTaskFn` | `maniEnqueueTaskFunction` |
+| `maniFinishTaskFn` | `maniFinishTaskFunction` |
+| `maniPoseDifference` | `maniSkeleton_ComputePoseDifference` |
+| `maniBlendPoses` | `maniSkeleton_BlendPoses` |
+| `maniBuildMask` | `maniSkeleton_BuildMask` |
+| `maniAddPoses` | `maniPose_AddLayers` |
+| `maniBodyIkScratchSize` | `maniSkeleton_GetBodyIkScratchSize` |
+| `maniSolveBodyXpbd` | `maniPose_SolveBodyXpbd` |
+| `maniSolveBodySdls` | `maniPose_SolveBodySdls` |
+| `maniBuilderMisuses` | `maniBuilder_GetMisuse` |
+| `maniMeasureClip` | `maniBuilder_MeasureClip` |
+| `maniCopyBuilt` | `maniBuilder_CopyBuilt` |
+| `maniCopySkeletonOrder` | `maniBuilder_CopySkeletonOrder` |
+| `maniClipCompressed` | `maniClip_IsCompressed` |
+| `maniClipDuration` | `maniClip_GetDuration` |
+| `maniClipSampleRate` | `maniClip_GetSampleRate` |
+| `maniClipSampleCount` | `maniClip_GetSampleCount` |
+| `maniClipLoopPolicy` | `maniClip_GetLoopPolicy` |
+| `maniClipAdditiveBasis` | `maniClip_GetAdditiveBasis` |
+| `maniClipIdentity` | `maniClip_GetIdentity` |
+| `maniClipSkeletonIdentity` | `maniClip_GetSkeletonIdentity` |
+| `maniSampleClip` | `maniClip_Sample` |
+| `maniClipFloatTrackCount` | `maniClip_GetFloatTrackCount` |
+| `maniClipFloatTrackName` | `maniClip_GetFloatTrackName` |
+| `maniSampleClipBones` | `maniClip_SampleBones` |
+| `maniClipCursorSize` | `maniClip_GetCursorSize` |
+| `maniClipCursorCompactSize` | `maniClip_GetCursorCompactSize` |
+| `maniSampleClipCursor` | `maniClipCursor_Sample` |
+| `maniSampleClipFloatsCursor` | `maniClipCursor_SampleFloats` |
+| `maniClipFindFloatTrack` | `maniClip_FindFloatTrack` |
+| `maniSampleClipFloats` | `maniClip_SampleFloats` |
+| `maniClipDiscreteTrackCount` | `maniClip_GetDiscreteTrackCount` |
+| `maniClipDiscreteTrackName` | `maniClip_GetDiscreteTrackName` |
+| `maniClipFindDiscreteTrack` | `maniClip_FindDiscreteTrack` |
+| `maniClipDiscreteValue` | `maniClip_GetDiscreteValue` |
+| `maniClipEventCount` | `maniClip_GetEventCount` |
+| `maniClipEventAt` | `maniClip_GetEvent` |
+| `maniClipEventRange` | `maniClip_GetEventRange` |
+| `maniClipMarkerCount` | `maniClip_GetMarkerCount` |
+| `maniClipMarkerAt` | `maniClip_GetMarker` |
+| `maniGraphIdentity` | `maniGraph_GetIdentity` |
+| `maniGraphSkeletonIdentity` | `maniGraph_GetSkeletonIdentity` |
+| `maniGraphNodeCount` | `maniGraph_GetNodeCount` |
+| `maniGraphParameterCount` | `maniGraph_GetParameterCount` |
+| `maniGraphFindParameter` | `maniGraph_FindParameter` |
+| `maniGraphParameterTypeOf` | `maniGraph_GetParameterType` |
+| `maniGraphParameterName` | `maniGraph_GetParameterName` |
+| `maniGraphClipCount` | `maniGraph_GetClipCount` |
+| `maniGraphClipIdentity` | `maniGraph_GetClipIdentity` |
+| `maniGraphClipName` | `maniGraph_GetClipName` |
+| `maniGraphDatabaseCount` | `maniGraph_GetDatabaseCount` |
+| `maniGraphDatabaseIdentity` | `maniGraph_GetDatabaseIdentity` |
+| `maniGraphDatabaseName` | `maniGraph_GetDatabaseName` |
+| `maniGraphModelCount` | `maniGraph_GetModelCount` |
+| `maniGraphModelIdentity` | `maniGraph_GetModelIdentity` |
+| `maniGraphModelName` | `maniGraph_GetModelName` |
+| `maniGraphSpringSetCount` | `maniGraph_GetSpringSetCount` |
+| `maniGraphSpringSetIdentity` | `maniGraph_GetSpringSetIdentity` |
+| `maniGraphSpringSetName` | `maniGraph_GetSpringSetName` |
+| `maniGraphRetargetMapCount` | `maniGraph_GetRetargetMapCount` |
+| `maniGraphRetargetMapIdentity` | `maniGraph_GetRetargetMapIdentity` |
+| `maniGraphMirrorMapIdentity` | `maniGraph_GetMirrorMapIdentity` |
+| `maniGraphRetargetMapSourceIdentity` | `maniGraph_GetRetargetMapSourceIdentity` |
+| `maniGraphClipRetargetMap` | `maniGraph_GetClipRetargetMap` |
+| `maniGraphNodeKindOf` | `maniGraph_GetNodeKind` |
+| `maniGraphNodeInputCount` | `maniGraph_GetNodeInputCount` |
+| `maniGraphNodeInput` | `maniGraph_GetNodeInput` |
+| `maniGraphOutputNode` | `maniGraph_GetOutputNode` |
+| `maniGraphNodeSourcePlace` | `maniGraph_GetNodeSourcePlace` |
+| `maniGraphBindingSize` | `maniGraph_GetBindingSize` |
+| `maniGraphInstanceSize` | `maniGraphBinding_GetInstanceSize` |
+| `maniSetGraphParameter` | `maniGraphInstance_SetParameter` |
+| `maniSetGraphPose` | `maniGraphInstance_SetPose` |
+| `maniGetGraphPose` | `maniGraphInstance_GetPose` |
+| `maniGetGraphParameter` | `maniGraphInstance_GetParameter` |
+| `maniInspectGraphNode` | `maniGraphInstance_InspectNode` |
+| `maniSaveGraphInstance` | `maniGraphInstance_Save` |
+| `maniRestoreGraphInstance` | `maniGraphInstance_Restore` |
+| `maniUpdateGraph` | `maniGraphInstance_Update` |
+| `maniGraphScratchSize` | `maniGraphBinding_GetScratchSize` |
+| `maniEvaluateGraph` | `maniGraphInstance_Evaluate` |
+| `maniGraphSubsetSize` | `maniGraphBinding_GetSubsetSize` |
+| `maniGraphSubsetBones` | `maniGraphSubset_GetBones` |
+| `maniEvaluateGraphSubset` | `maniGraphInstance_EvaluateSubset` |
+| `maniSolveTwoBone` | `maniPose_SolveTwoBone` |
+| `maniSolveAim` | `maniPose_SolveAim` |
+| `maniSolveCcd` | `maniPose_SolveCcd` |
+| `maniSolveFabrik` | `maniPose_SolveFabrik` |
+| `maniGltfBufferCount` | `maniGltf_GetBufferCount` |
+| `maniGltfBufferUri` | `maniGltf_GetBufferUri` |
+| `maniGltfSupplyBuffer` | `maniGltf_SupplyBuffer` |
+| `maniGltfSkeletonCount` | `maniGltf_GetSkeletonCount` |
+| `maniGltfSkinCount` | `maniGltf_GetSkinCount` |
+| `maniGltfSkinSkeleton` | `maniGltf_GetSkinSkeleton` |
+| `maniGltfNodeCount` | `maniGltf_GetNodeCount` |
+| `maniGltfBuildSkeleton` | `maniBuildGltfSkeleton` |
+| `maniGltfBuildNodeSkeleton` | `maniBuildGltfNodeSkeleton` |
+| `maniGltfSkeletonPlacement` | `maniGltf_GetSkeletonPlacement` |
+| `maniGltfBuildSkin` | `maniBuildGltfSkin` |
+| `maniGltfNodeBoneName` | `maniGltf_GetNodeBoneName` |
+| `maniGltfRenamedCount` | `maniGltf_GetRenamedCount` |
+| `maniGltfRenamedNode` | `maniGltf_GetRenamedNode` |
+| `maniGltfAnimationCount` | `maniGltf_GetAnimationCount` |
+| `maniGltfAnimationName` | `maniGltf_GetAnimationName` |
+| `maniGltfBuildClip` | `maniBuildGltfClip` |
+| `maniGltfReadSprings` | `maniGltf_ReadSprings` |
+| `maniGltfReadRagdoll` | `maniGltf_ReadRagdoll` |
+| `maniGltfMeshCount` | `maniGltf_GetMeshCount` |
+| `maniGltfPrimitiveCount` | `maniGltf_GetPrimitiveCount` |
+| `maniGltfPrimitiveTargetCount` | `maniGltf_GetPrimitiveTargetCount` |
+| `maniGltfNodeMesh` | `maniGltf_GetNodeMesh` |
+| `maniGltfNodeSkin` | `maniGltf_GetNodeSkin` |
+| `maniGltfMorphWeights` | `maniGltf_GetMorphWeights` |
+| `maniGltfBuildInfluences` | `maniBuildGltfInfluences` |
+| `maniGltfBuildMorphTargets` | `maniBuildGltfMorphTargets` |
+| `maniFbxVersion` | `maniFbx_GetVersion` |
+| `maniFbxModelCount` | `maniFbx_GetModelCount` |
+| `maniFbxModelBoneName` | `maniFbx_GetModelBoneName` |
+| `maniFbxRenamedCount` | `maniFbx_GetRenamedCount` |
+| `maniFbxRenamedModel` | `maniFbx_GetRenamedModel` |
+| `maniFbxSkeletonCount` | `maniFbx_GetSkeletonCount` |
+| `maniFbxSkinCount` | `maniFbx_GetSkinCount` |
+| `maniFbxSkinSkeleton` | `maniFbx_GetSkinSkeleton` |
+| `maniFbxSkinModel` | `maniFbx_GetSkinModel` |
+| `maniFbxReadSettings` | `maniFbx_ReadSettings` |
+| `maniFbxBuildSkeleton` | `maniBuildFbxSkeleton` |
+| `maniFbxBuildModelSkeleton` | `maniBuildFbxModelSkeleton` |
+| `maniFbxSkeletonPlacement` | `maniFbx_GetSkeletonPlacement` |
+| `maniFbxBuildSkin` | `maniBuildFbxSkin` |
+| `maniFbxSkinMethod` | `maniFbx_GetSkinMethod` |
+| `maniFbxBuildInfluences` | `maniBuildFbxInfluences` |
+| `maniFbxMorphCount` | `maniFbx_GetMorphCount` |
+| `maniFbxMorphModel` | `maniFbx_GetMorphModel` |
+| `maniFbxMorphTargetCount` | `maniFbx_GetMorphTargetCount` |
+| `maniFbxBuildMorphTargets` | `maniBuildFbxMorphTargets` |
+| `maniFbxMorphWeights` | `maniFbx_GetMorphWeights` |
+| `maniFbxClipCount` | `maniFbx_GetClipCount` |
+| `maniFbxClipName` | `maniFbx_GetClipName` |
+| `maniFbxBuildClip` | `maniBuildFbxClip` |
+| `maniFbxModelPlacement` | `maniFbx_GetModelPlacement` |
+| `maniLearnedModelIdentity` | `maniLearnedModel_GetIdentity` |
+| `maniLearnedModelSkeletonIdentity` | `maniLearnedModel_GetSkeletonIdentity` |
+| `maniLearnedModelDatabaseIdentity` | `maniLearnedModel_GetDatabaseIdentity` |
+| `maniLearnedModelChannel` | `maniLearnedModel_GetChannel` |
+| `maniLearnedModelNormalization` | `maniLearnedModel_GetNormalization` |
+| `maniLearnedModelProjector` | `maniLearnedModel_GetProjector` |
+| `maniLearnedModelFloatTrackCount` | `maniLearnedModel_GetFloatTrackCount` |
+| `maniLearnedModelEventCount` | `maniLearnedModel_GetEventCount` |
+| `maniLearnedModelFloatTrackName` | `maniLearnedModel_GetFloatTrackName` |
+| `maniLearnedModelEventName` | `maniLearnedModel_GetEventName` |
+| `maniLearnedScratchSize` | `maniLearnedModel_GetScratchSize` |
+| `maniLearnedProject` | `maniLearnedModel_Project` |
+| `maniLearnedStep` | `maniLearnedModel_Step` |
+| `maniLearnedDecompress` | `maniLearnedModel_Decompress` |
+| `maniLearnedTrainerMisuses` | `maniLearnedTrainer_GetMisuse` |
+| `maniTrainLearned` | `maniLearnedTrainer_Train` |
+| `maniSaveLearnedCheckpoint` | `maniLearnedTrainer_SaveCheckpoint` |
+| `maniRestoreLearnedCheckpoint` | `maniLearnedTrainer_RestoreCheckpoint` |
+| `maniMotionDatabaseIdentity` | `maniMotionDatabase_GetIdentity` |
+| `maniMotionDatabaseMirrorMapIdentity` | `maniMotionDatabase_GetMirrorMapIdentity` |
+| `maniMotionDatabaseSkeletonIdentity` | `maniMotionDatabase_GetSkeletonIdentity` |
+| `maniMotionDatabaseClipIdentity` | `maniMotionDatabase_GetClipIdentity` |
+| `maniMotionDatabaseChannel` | `maniMotionDatabase_GetChannel` |
+| `maniMotionDatabaseChannelName` | `maniMotionDatabase_GetChannelName` |
+| `maniMotionDatabaseEntry` | `maniMotionDatabase_GetEntry` |
+| `maniMotionDatabaseFrame` | `maniMotionDatabase_GetFrame` |
+| `maniMotionDatabaseFeatures` | `maniMotionDatabase_GetFeatures` |
+| `maniMotionDatabaseNormalization` | `maniMotionDatabase_GetNormalization` |
+| `maniSearchMotionDatabase` | `maniMotionDatabase_Search` |
+| `maniMirrorMapIdentity` | `maniMirrorMap_GetIdentity` |
+| `maniMirrorMapSkeletonIdentity` | `maniMirrorMap_GetSkeletonIdentity` |
+| `maniMirrorMapAxis` | `maniMirrorMap_GetAxis` |
+| `maniMirrorPartner` | `maniMirrorMap_GetPartner` |
+| `maniMirrorBoneFlags` | `maniMirrorMap_GetBoneFlags` |
+| `maniMirrorMapUnmatchedBone` | `maniMirrorMap_GetUnmatchedBone` |
+| `maniMirrorName` | `maniMirrorMap_MirrorName` |
+| `maniMirrorNameHash` | `maniMirrorMap_MirrorNameHash` |
+| `maniMirrorPose` | `maniMirrorMap_MirrorPose` |
+| `maniMirrorRootMotion` | `maniMirrorMap_MirrorRootMotion` |
+| `maniMorphVertexCount` | `maniMorphTargets_GetVertexCount` |
+| `maniMorphChannelCount` | `maniMorphTargets_GetChannelCount` |
+| `maniMorphTargetCount` | `maniMorphTargets_GetTargetCount` |
+| `maniMorphAttributeCount` | `maniMorphTargets_GetAttributeCount` |
+| `maniMorphAttribute` | `maniMorphTargets_GetAttribute` |
+| `maniMorphChannelName` | `maniMorphTargets_GetChannelName` |
+| `maniMorphFindChannel` | `maniMorphTargets_FindChannel` |
+| `maniMorphTargetName` | `maniMorphTargets_GetTargetName` |
+| `maniMorphFindTarget` | `maniMorphTargets_FindTarget` |
+| `maniMorphChannelTargets` | `maniMorphTargets_GetChannelTargets` |
+| `maniMorphTargetFullWeight` | `maniMorphTargets_GetTargetFullWeight` |
+| `maniMorphTargetWeights` | `maniMorphTargets_ComputeTargetWeights` |
+| `maniPoseSize` | `maniSkeleton_GetPoseSize` |
+| `maniPoseBoneCount` | `maniPose_GetBoneCount` |
+| `maniPoseLocal` | `maniPose_GetLocal` |
+| `maniPoseSetLocal` | `maniPose_SetLocal` |
+| `maniPoseReadLocals` | `maniPose_ReadLocals` |
+| `maniPoseWriteLocals` | `maniPose_WriteLocals` |
+| `maniPoseSetRest` | `maniPose_SetRest` |
+| `maniComputeModel` | `maniPose_ComputeModel` |
+| `maniPoseModelCurrent` | `maniPose_IsModelCurrent` |
+| `maniPoseIsDifference` | `maniPose_IsDifference` |
+| `maniPoseModel` | `maniPose_GetModel` |
+| `maniPoseReadModels` | `maniPose_ReadModels` |
+| `maniPoseModelTransform` | `maniPose_GetModelTransform` |
+| `maniRagdollIdentity` | `maniRagdoll_GetIdentity` |
+| `maniRagdollSkeletonIdentity` | `maniRagdoll_GetSkeletonIdentity` |
+| `maniRagdollBodyCount` | `maniRagdoll_GetBodyCount` |
+| `maniRagdollReadBody` | `maniRagdoll_GetBody` |
+| `maniRagdollBodiesFromPose` | `maniRagdoll_ComputeBodiesFromPose` |
+| `maniRagdollJointTargets` | `maniRagdoll_ComputeJointTargets` |
+| `maniRagdollPoseFromBodies` | `maniRagdoll_ComputePoseFromBodies` |
+| `maniRagdollGetUpPlacement` | `maniRagdoll_ComputeGetUpPlacement` |
+| `maniRetargetMapIdentity` | `maniRetargetMap_GetIdentity` |
+| `maniRetargetMapSourceIdentity` | `maniRetargetMap_GetSourceIdentity` |
+| `maniRetargetMapTargetIdentity` | `maniRetargetMap_GetTargetIdentity` |
+| `maniRetargetScratchSize` | `maniRetargetMap_GetScratchSize` |
+| `maniRetargetPose` | `maniRetargetMap_RetargetPose` |
+| `maniRetargetRootMotion` | `maniRetargetMap_RetargetRootMotion` |
+| `maniClipRootMotion` | `maniClip_GetRootMotion` |
+| `maniRestoreRootMotion` | `maniClip_RestoreRootMotion` |
+| `maniClipRootMotionSource` | `maniClip_GetRootMotionSource` |
+| `maniSkeletonBoneCount` | `maniSkeleton_GetBoneCount` |
+| `maniSkeletonIdentity` | `maniSkeleton_GetIdentity` |
+| `maniSkeletonParent` | `maniSkeleton_GetParent` |
+| `maniSkeletonSubtreeEnd` | `maniSkeleton_GetSubtreeEnd` |
+| `maniSkeletonRest` | `maniSkeleton_GetRest` |
+| `maniSkeletonBoneName` | `maniSkeleton_GetBoneName` |
+| `maniSkeletonFindBone` | `maniSkeleton_FindBone` |
+| `maniSkinJointCount` | `maniSkin_GetJointCount` |
+| `maniSkinSkeletonIdentity` | `maniSkin_GetSkeletonIdentity` |
+| `maniSkinIdentity` | `maniSkin_GetIdentity` |
+| `maniSkinJoint` | `maniSkin_GetJoint` |
+| `maniSkinInverseBind` | `maniSkin_GetInverseBind` |
+| `maniComputePalette` | `maniPose_ComputePalette` |
+| `maniInfluencesVertexCount` | `maniInfluences_GetVertexCount` |
+| `maniInfluencesPerVertex` | `maniInfluences_GetPerVertex` |
+| `maniInfluencesFitSkin` | `maniInfluences_IsSkinFit` |
+| `maniInfluence` | `maniInfluences_GetInfluence` |
+| `maniInfluencesDualQuaternionWeight` | `maniInfluences_GetDualQuaternionWeight` |
+| `maniInfluencesCenter` | `maniInfluences_GetCenter` |
+| `maniPaletteDualQuaternions` | `maniConvertPaletteToDualQuaternions` |
+| `maniPaletteRows` | `maniConvertPaletteToRows` |
+| `maniSpringSetIdentity` | `maniSpringSet_GetIdentity` |
+| `maniSpringSetSkeletonIdentity` | `maniSpringSet_GetSkeletonIdentity` |
+| `maniSpringSetSpringCount` | `maniSpringSet_GetSpringCount` |
+| `maniSpringSetSpringName` | `maniSpringSet_GetSpringName` |
+| `maniSpringSetStepRate` | `maniSpringSet_GetStepRate` |
+| `maniSpringStateSize` | `maniSpringSet_GetStateSize` |
+| `maniStepSprings` | `maniSpringState_Step` |
+| `maniApplySprings` | `maniSpringState_Apply` |
+| `maniResetSprings` | `maniSpringState_Reset` |
+| `maniSaveSpringState` | `maniSpringState_Save` |
+| `maniRestoreSpringState` | `maniSpringState_Restore` |
+| `maniTrajectoryFeatures` | `maniMotionDatabase_ComputeTrajectoryFeatures` |
+| `maniCpuSupportsBackend` | `maniIsCpuBackendSupported` |
+
 ## [0.6.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.6.0) (2026-10-29)
 
 ### Changed
