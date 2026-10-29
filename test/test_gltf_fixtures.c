@@ -152,7 +152,7 @@ static double WeightError(const maniClip* clip, const FixtureTrack* t)
     {
         const char* end = strchr(name, '|');
         size_t length = end != NULL ? (size_t)(end - name) : strlen(name);
-        tracks[c] = maniClipFindFloatTrack(clip, name, (uint32_t)length);
+        tracks[c] = maniClipFindFloatTrack(clip, name, length);
         if (tracks[c] == MANI_NO_TRACK)
         {
             return HUGE_VAL;

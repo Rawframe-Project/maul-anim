@@ -854,7 +854,7 @@ static maniImportResult Channels(Morph* m, uint32_t mesh, const maniMorphTargetS
                 name[i] = digits[length - 1 - i];
             }
         }
-        channels[t] = (maniMorphChannelSource){name, (uint32_t)length, 1, &sources[t]};
+        channels[t] = (maniMorphChannelSource){name, length, 1, &sources[t]};
     }
     return maniImportSuccess();
 }
