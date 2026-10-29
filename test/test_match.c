@@ -30,7 +30,9 @@
 #include "maul-anim/match.h"
 #include "maul-anim/matchbuild.h"
 
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static _Alignas(16) uint8_t s_turnFile[8192];
 static maniClip s_turn;
@@ -408,7 +410,7 @@ static void TestChannelRefusals(void)
     static const float kFar[1] = {61.0f};
     static const float kNan[1] = {NAN};
     static const float kMany[17] = {0};
-    const maniMatchChannelSource kBad[12] = {
+    const maniMatchChannelSource kBad[13] = {
         {6, 0, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchBonePosition, 3, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchBoneFacing, 0, 6, 1, kNow, NULL, 0, 1.0f},
@@ -420,14 +422,16 @@ static void TestChannelRefusals(void)
         {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, HUGE_VALF},
         {maniMatchFloatTrack, 0, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchFloatTrack, 0, 0, 1, kNow, "\xff", 1, 1.0f},
-        {maniMatchFloatTrack, 0, 0, 1, kNow, "a", (size_t)MANI_MAX_NAME_BYTES + 1, 1.0f}};
-    for (int k = 0; k < 12; ++k)
+        {maniMatchFloatTrack, 0, 0, 1, kNow, "a", (size_t)MANI_MAX_NAME_BYTES + 1, 1.0f},
+        {maniMatchFloatTrack, 0, 0, 1, kNow, "a", SIZE_MAX, 1.0f}};
+    for (int k = 0; k < 13; ++k)
     {
         maniMotionDatabaseSource s = Source();
         s_channels[3] = kBad[k];
-        // 17 times, a time of 61 seconds and a track name past
-        // MANI_MAX_NAME_BYTES pass a bound.
-        CHECK(k == 4 || k == 5 || k == 11 ? PastLimit(&s, maniBuildReasonChannel, 3, 0)
+        // 17 times, a time of 61 seconds and track names past
+        // MANI_MAX_NAME_BYTES pass a bound, SIZE_MAX bytes too: the names'
+        // total leaves it to the channel.
+        CHECK(k == 4 || k == 5 || k >= 11 ? PastLimit(&s, maniBuildReasonChannel, 3, 0)
                                           : Refused(&s, maniBuildReasonChannel, 3, 0),
               "a channel refused");
     }
@@ -448,6 +452,71 @@ static void TestChannelRefusals(void)
     CHECK(PastLimit(&s, maniBuildReasonCount, 0, 0), "past the features");
     s.channelCount = 65;
     CHECK(PastLimit(&s, maniBuildReasonCount, 0, 0), "past the channels");
+}
+
+// Channels may share one track's name, so names a few times 2^26 bytes
+// long reach the 32-bit totals: the clip names its two tracks by 2^26 + 1
+// and 2^26 - 1 bytes of one buffer, and 64 channels share one of them.
+static void TestNameTotals(void)
+{
+    const size_t longer = ((size_t)1 << 26) + 1;
+    char* name = malloc(longer);
+    memset(name, 'a', longer);
+    static const float kTimes[2] = {0.0f, 1.0f};
+    static const float kValues[2] = {0.0f, 1.0f};
+    static const float kWalk[6] = {0, 1, 0, 1, 1, 0};
+    static const maniChannelSource kNone = {NULL, NULL, 0, maniInterpolationLinear};
+    const maniBoneTrackSource track = {
+        0, {kTimes, kWalk, 2, maniInterpolationLinear}, kNone, kNone};
+    const maniFloatTrackSource tracks[2] = {
+        {name, longer, {kTimes, kValues, 2, maniInterpolationLinear}},
+        {name, longer - 2, {kTimes, kValues, 2, maniInterpolationLinear}}};
+    const maniClipSource clipSource = {.skeleton = &s_skeleton,
+                                       .boneTracks = &track,
+                                       .boneTrackCount = 1,
+                                       .floatTracks = tracks,
+                                       .floatTrackCount = 2,
+                                       .loop = maniLoopClamp,
+                                       .sampleRate = 10.0f};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildClip(builder, &clipSource).result == mani_success &&
+              maniCopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity,
+          "the long names' clip");
+    uint8_t* raw = malloc(size + 16);
+    uint8_t* file = raw + (16 - (uintptr_t)raw % 16) % 16;
+    maniClip clip;
+    CHECK(maniCopyBuilt(builder, file, size, &size) == mani_success &&
+              maniOpenClip(file, size, &clip).result == mani_success,
+          "the long names' clip opens");
+    maniDestroyBuilder(builder);
+    const maniClip* clips[1] = {&clip};
+    maniMatchChannelSource channels[MANI_MAX_MATCH_CHANNELS];
+    for (uint32_t c = 0; c < MANI_MAX_MATCH_CHANNELS; ++c)
+    {
+        channels[c] =
+            (maniMatchChannelSource){maniMatchFloatTrack, 0, 0, 1, kNow, name, longer, 1.0f};
+    }
+    const maniMatchEntrySource entry = {0, 0, 0.0f, 1.0f, 0.0f, 0u};
+    maniMotionDatabaseSource source = {
+        &s_skeleton, clips, channels,       &entry,         1,    MANI_MAX_MATCH_CHANNELS,
+        1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
+    // 64 names of 2^26 + 1 bytes pass the 32 bits the file's offsets have.
+    CHECK(Refused(&source, maniBuildReasonCount, 0, 0), "track names past 4 GiB in all");
+#if SIZE_MAX == UINT32_MAX
+    // 64 of 2^26 - 1 bytes fit the offsets, but the sections with them pass
+    // what one allocation holds where size_t has 32 bits.
+    for (uint32_t c = 0; c < MANI_MAX_MATCH_CHANNELS; ++c)
+    {
+        channels[c].trackLength = longer - 2;
+    }
+    builder = NewBuilder();
+    CHECK(maniBuildMotionDatabase(builder, &source).result == mani_errorCapacity,
+          "sections past an allocation's room");
+    maniDestroyBuilder(builder);
+#endif
+    free(raw);
+    free(name);
 }
 
 static void TestEntryRefusals(void)
@@ -797,6 +866,7 @@ int main(int argc, char** argv)
     TestFloatTrack();
     TestSourceRefusals();
     TestChannelRefusals();
+    TestNameTotals();
     TestEntryRefusals();
     TestMisuse();
     TestOpenRefusals();

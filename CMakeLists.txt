@@ -267,6 +267,11 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_pose WHITEBOX)
         maul_add_test(graph_pose_node WHITEBOX)
         maul_add_test(match WHITEBOX)
+        # The name totals' test holds about 200 MB, past Emscripten's
+        # fixed default memory.
+        if(EMSCRIPTEN)
+            target_link_options(test_match PRIVATE -sALLOW_MEMORY_GROWTH=1)
+        endif()
         maul_add_test(fpenv_api WHITEBOX)
         maul_add_test(match_search WHITEBOX)
         maul_add_test(graph_match WHITEBOX)

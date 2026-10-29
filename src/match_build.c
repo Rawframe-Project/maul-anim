@@ -148,6 +148,20 @@ static uint32_t TrackOf(const maniMotionDatabaseSource* s, const maniMatchChanne
 
 static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* t)
 {
+    // Channels may name one track, so the names' total can pass the 32
+    // bits the file's offsets have; it is taken before any name is read.
+    // A name past MANI_MAX_NAME_BYTES is left to its channel's bound.
+    uint64_t names = 0;
+    for (uint32_t c = 0; c < s->channelCount; ++c)
+    {
+        const maniMatchChannelSource* ch = &s->channels[c];
+        bool counted = ch->kind == maniMatchFloatTrack && !maniNamePastLimit(ch->trackLength);
+        names += counted ? ch->trackLength : 0u;
+    }
+    if (names > UINT32_MAX)
+    {
+        return Refuse(maniBuildReasonCount, 0, 0);
+    }
     uint64_t features = 0;
     for (uint32_t c = 0; c < s->channelCount; ++c)
     {
@@ -162,7 +176,6 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
         }
         features += (uint64_t)maniMatchChannelWidth(ch->kind) * ch->timeCount;
         t->times += ch->timeCount;
-        t->names += ch->kind == maniMatchFloatTrack ? ch->trackLength : 0u;
         for (uint32_t e = 0; ch->kind == maniMatchFloatTrack && e < s->entryCount; ++e)
         {
             if (TrackOf(s, ch, &s->entries[e]) == MANI_NO_TRACK)
@@ -176,6 +189,7 @@ static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* 
         return PastLimit(maniBuildReasonCount, 0, 0);
     }
     t->features = (uint32_t)features;
+    t->names = (uint32_t)names;
     return kOk;
 }
 
@@ -583,7 +597,10 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
     {
         own += sizes[i];
     }
-    uint8_t* staging = maniAllocate(&builder->allocator, (size_t)own + 1, 1, 8);
+    // Names within 32 bits can still pass what one allocation holds where
+    // size_t has 32 bits.
+    uint8_t* staging =
+        own < SIZE_MAX ? maniAllocate(&builder->allocator, (size_t)own + 1, 1, 8) : NULL;
     if (staging == NULL)
     {
         return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
