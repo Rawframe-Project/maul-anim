@@ -9,6 +9,7 @@
 #include "spring_fixture.h"
 #include "spring_shape.h"
 #include "spring_state.h"
+#include "state_prefix.h"
 
 #include "maul-anim/blend.h"
 
@@ -20,17 +21,17 @@ static void TestStepBound(void)
     maniSpringState* a = NewState(0);
     maniSpringState* b = NewState(1);
     CHECK(Frame(a, 10.0f, NULL) && Frame(b, 20.0f / 60.0f, NULL), "frames");
-    CHECK(maniSaveSpringState(a, s_saved[0], sizeof s_saved[0]) == mani_success &&
-              maniSaveSpringState(b, s_saved[1], sizeof s_saved[1]) == mani_success &&
-              memcmp(s_saved[0], s_saved[1], maniSpringSavedSize(&s_set)) == 0,
+    CHECK(maniSaveSpringState(a, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+              maniSaveSpringState(b, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
+              memcmp(s_saved[0], s_saved[1], SavedSpringSize(a)) == 0,
           "a long delta plays as the bound's steps");
     // Either sign of delta moves on alike.
     a = NewState(0);
     b = NewState(1);
     CHECK(Frame(a, -0.05f, NULL) && Frame(b, 0.05f, NULL), "frames");
-    CHECK(maniSaveSpringState(a, s_saved[0], sizeof s_saved[0]) == mani_success &&
-              maniSaveSpringState(b, s_saved[1], sizeof s_saved[1]) == mani_success &&
-              memcmp(s_saved[0], s_saved[1], maniSpringSavedSize(&s_set)) == 0,
+    CHECK(maniSaveSpringState(a, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+              maniSaveSpringState(b, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
+              memcmp(s_saved[0], s_saved[1], SavedSpringSize(a)) == 0,
           "a negative delta moves on by its magnitude");
 }
 
@@ -43,25 +44,31 @@ static void TestReset(void)
     maniResetSprings(a);
     maniResetSprings(NULL);
     CHECK(Frames(a, 1.0f / 60.0f, 1) && Frames(b, 1.0f / 60.0f, 1), "frames");
-    CHECK(maniSaveSpringState(a, s_saved[0], sizeof s_saved[0]) == mani_success &&
-              maniSaveSpringState(b, s_saved[1], sizeof s_saved[1]) == mani_success &&
-              memcmp(s_saved[0], s_saved[1], maniSpringSavedSize(&s_set)) == 0,
+    CHECK(maniSaveSpringState(a, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+              maniSaveSpringState(b, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
+              memcmp(s_saved[0], s_saved[1], SavedSpringSize(a)) == 0,
           "a reset state starts over");
 }
 
-// Restoring the saved bytes with one word changed fails at want, and
-// leaves the state as it was.
-static bool RefusedAt(maniSpringState* state, uint64_t at, uint32_t value, uint64_t want)
+// Restoring the saved bytes with one word changed fails with result at
+// want, and leaves the state as it was.
+static bool RefusedWith(maniSpringState* state, uint64_t at, uint32_t value, maniResult result,
+                        uint64_t want)
 {
-    size_t size = maniSpringSavedSize(&s_set);
+    size_t size = SavedSpringSize(state);
     static uint8_t s_before[4096];
-    CHECK(maniSaveSpringState(state, s_before, sizeof s_before) == mani_success, "saved");
+    CHECK(maniSaveSpringState(state, s_before, sizeof s_before, NULL) == mani_success, "saved");
     memcpy(s_saved[1], s_saved[0], size);
     maniStoreU32(s_saved[1] + at, value);
     maniFileResult r = maniRestoreSpringState(state, s_saved[1], size);
     uint8_t after[4096];
-    CHECK(maniSaveSpringState(state, after, sizeof after) == mani_success, "saved");
-    return r.result == mani_errorFormat && r.offset == want && memcmp(after, s_before, size) == 0;
+    CHECK(maniSaveSpringState(state, after, sizeof after, NULL) == mani_success, "saved");
+    return r.result == result && r.offset == want && memcmp(after, s_before, size) == 0;
+}
+
+static bool RefusedAt(maniSpringState* state, uint64_t at, uint32_t value, uint64_t want)
+{
+    return RefusedWith(state, at, value, mani_errorFormat, want);
 }
 
 static uint32_t Bits(float v)
@@ -78,32 +85,39 @@ static void TestSaveRestore(void)
     MakeSet(&c);
     maniSpringState* a = NewState(0);
     maniSpringState* b = NewState(1);
-    size_t size = maniSpringSavedSize(&s_set);
-    CHECK(size > 0 && maniSpringSavedSize(NULL) == 0, "the saved size");
+    size_t size = 0;
+    CHECK(maniSaveSpringState(a, NULL, 0, &size) == mani_errorCapacity && size > 0,
+          "the saved size measured");
     CHECK(Frames(a, 1.0f / 50.0f, 30), "frames");
-    CHECK(maniSaveSpringState(a, s_saved[0], size - 1) == mani_errorCapacity &&
-              maniSaveSpringState(a, s_saved[0], size) == mani_success &&
-              maniRestoreSpringState(b, s_saved[0], size).result == mani_success,
+    size_t written = 0;
+    size_t refused = 0;
+    CHECK(maniSaveSpringState(a, s_saved[0], size - 1, &refused) == mani_errorCapacity &&
+              refused == size &&
+              maniSaveSpringState(a, s_saved[0], size, &written) == mani_success &&
+              written == size && maniRestoreSpringState(b, s_saved[0], size).result == mani_success,
           "saved and restored");
     CHECK(Frames(a, 1.0f / 50.0f, 30) && Frames(b, 1.0f / 50.0f, 30), "frames");
     uint8_t other[4096];
-    CHECK(maniSaveSpringState(a, s_saved[0], size) == mani_success &&
-              maniSaveSpringState(b, other, size) == mani_success &&
+    CHECK(maniSaveSpringState(a, s_saved[0], size, NULL) == mani_success &&
+              maniSaveSpringState(b, other, size, NULL) == mani_success &&
               memcmp(s_saved[0], other, size) == 0,
           "a restored state moves as the saved one");
-    // The header, then the block's words (byte 24 + 4 * word).
-    uint64_t joint1 = 24 + 4 * (21 + 17);
-    uint64_t collider = 24 + 4 * (21 + 2 * 17);
+    // The header, then the block's words (byte h + 4 * word).
+    const uint64_t h = MANI_SPRING_STATE_HEADER_SIZE;
+    uint64_t joint1 = h + 4 * (21 + 17);
+    uint64_t collider = h + 4 * (21 + 2 * 17);
     uint64_t center = collider + 4 * 30;
-    CHECK(RefusedAt(b, 0, 0, 0) && RefusedAt(b, 4, 1, 4) && RefusedAt(b, 8, 1, 8) &&
-              RefusedAt(b, 16, (uint32_t)size + 4, 16) && RefusedAt(b, 24, 2, 24) &&
-              RefusedAt(b, 28, 1, 28) && RefusedAt(b, 36, 0x7FF00000u, 32) &&
-              RefusedAt(b, 36, 0xBFF00000u, 32) && RefusedAt(b, 36, 0x3FA00000u, 32),
-          "the header, motion and clock checked");
-    CHECK(RefusedAt(b, 24 + 4 * 7, Bits(2.0f), 24 + 4 * 7) &&
-              RefusedAt(b, 24 + 4 * 11, Bits(NAN), 24 + 4 * 11) &&
-              RefusedAt(b, 24 + 4 * 17, Bits(0.5f), 24 + 4 * 14) &&
-              RefusedAt(b, 24 + 4 * 8, Bits(NAN), 24 + 4 * 8) &&
+    CHECK(RefusedAt(b, 0, 0, 0) && RefusedWith(b, 4, MANI_ABI_VERSION + 1, mani_errorVersion, 4) &&
+              RefusedWith(b, 8, MANI_SPRING_STATE_VERSION + 1, mani_errorVersion, 8) &&
+              RefusedAt(b, 12, 24, 12) && RefusedAt(b, 16, 1, 16) &&
+              RefusedAt(b, 24, (uint32_t)size + 4, 24) && RefusedAt(b, h, 2, h) &&
+              RefusedAt(b, h + 4, 1, h + 4) && RefusedAt(b, h + 12, 0x7FF00000u, h + 8) &&
+              RefusedAt(b, h + 12, 0xBFF00000u, h + 8) && RefusedAt(b, h + 12, 0x3FA00000u, h + 8),
+          "the prefix, header, motion and clock checked");
+    CHECK(RefusedAt(b, h + 4 * 7, Bits(2.0f), h + 4 * 7) &&
+              RefusedAt(b, h + 4 * 11, Bits(NAN), h + 4 * 11) &&
+              RefusedAt(b, h + 4 * 17, Bits(0.5f), h + 4 * 14) &&
+              RefusedAt(b, h + 4 * 8, Bits(NAN), h + 4 * 8) &&
               RefusedAt(b, joint1 + 4 * 13, Bits(INFINITY), joint1 + 4 * 13) &&
               RefusedAt(b, collider + 4 * 1, Bits(NAN), collider + 4 * 1) &&
               RefusedAt(b, collider + 4 * 13, Bits(NAN), collider + 4 * 13) &&
@@ -115,21 +129,23 @@ static void TestSaveRestore(void)
           "every value checked");
     // Without motion every word is 0.
     maniResetSprings(b);
-    CHECK(maniSaveSpringState(b, s_saved[0], size) == mani_success &&
-              RefusedAt(b, 24 + 4 * 30, 1, 24 + 4 * 30),
+    CHECK(maniSaveSpringState(b, s_saved[0], size, NULL) == mani_success &&
+              RefusedAt(b, h + 4 * 30, 1, h + 4 * 30),
           "a state without motion holds only zeros");
-    CHECK(maniRestoreSpringState(b, s_saved[0], 23).offset == 0 &&
-              maniRestoreSpringState(b, s_saved[0], size - 1).offset == 16 &&
+    CHECK(maniRestoreSpringState(b, s_saved[0], MANI_STATE_PREFIX_SIZE - 1).offset == 0 &&
+              maniRestoreSpringState(b, s_saved[0], h - 1).offset == 12 &&
+              maniRestoreSpringState(b, s_saved[0], size - 1).offset == 24 &&
               maniRestoreSpringState(NULL, s_saved[0], size).result == mani_errorInvalid &&
               maniRestoreSpringState(b, NULL, size).result == mani_errorInvalid &&
-              maniSaveSpringState(NULL, s_saved[0], size) == mani_errorInvalid &&
-              maniSaveSpringState(b, NULL, size) == mani_errorInvalid,
+              maniSaveSpringState(NULL, s_saved[0], size, NULL) == mani_errorInvalid &&
+              maniSaveSpringState(b, NULL, size, NULL) == mani_errorInvalid &&
+              maniSaveSpringState(b, NULL, 1, NULL) == mani_errorInvalid,
           "the sizes and arguments checked");
     // A spring without a center keeps zeros in its center's words.
     MakeSet(&kSwing);
     a = NewState(0);
     CHECK(Frames(a, 1.0f / 60.0f, 2), "frames");
-    CHECK(maniSaveSpringState(a, s_saved[0], size) == mani_success &&
+    CHECK(maniSaveSpringState(a, s_saved[0], size, NULL) == mani_success &&
               RefusedAt(a, center + 4 * 3, Bits(1.0f), center + 4 * 3),
           "no center, no transform");
 }
@@ -330,16 +346,16 @@ static void TestClockRounding(void)
     MakeSet(&kSwing);
     maniSpringState* state = NewState(0);
     CHECK(Frames(state, 1.0f / 60.0f, 3), "frames");
-    size_t size = maniSpringSavedSize(&s_set);
-    CHECK(maniSaveSpringState(state, s_saved[0], size) == mani_success, "saved");
+    size_t size = SavedSpringSize(state);
+    CHECK(maniSaveSpringState(state, s_saved[0], size, NULL) == mani_success, "saved");
     double clock = 0.0020946870247522975;
     uint64_t bits = 0;
     memcpy(&bits, &clock, sizeof bits);
-    maniStoreU64(s_saved[0] + 24 + 8, bits);
+    maniStoreU64(s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 8, bits);
     CHECK(maniRestoreSpringState(state, s_saved[0], size).result == mani_success, "restored");
     CHECK(Frame(state, 0.014571979641914368f, NULL), "a frame");
-    CHECK(maniSaveSpringState(state, s_saved[1], size) == mani_success, "saved");
-    memcpy(&clock, s_saved[1] + 24 + 8, sizeof clock);
+    CHECK(maniSaveSpringState(state, s_saved[1], size, NULL) == mani_success, "saved");
+    memcpy(&clock, s_saved[1] + MANI_SPRING_STATE_HEADER_SIZE + 8, sizeof clock);
     CHECK(clock > 0.0166 && clock < 1.0 / 60.0, "the clock just short of a step");
     CHECK(maniRestoreSpringState(state, s_saved[1], size).result == mani_success, "and restorable");
 }

@@ -175,7 +175,7 @@ static void TestBind(void)
               maniGraphDatabaseIdentity(&g, 0) == maniMotionDatabaseIdentity(&s_database) &&
               maniGraphDatabaseIdentity(&g, 1) == 0 && maniGraphDatabaseCount(NULL) == 0,
           "the slot's identity");
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphDatabaseName(&g, 0, &length);
     CHECK(name != NULL && length == 5 && memcmp(name, "moves", 5) == 0 &&
               maniGraphDatabaseName(&g, 1, &length) == NULL && length == 0,
@@ -317,10 +317,11 @@ static void TestSaved(void)
     Update(instance, 0.35f);
     Ahead(instance, 0.0f, 0.0f);
     Update(instance, 0.1f);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
@@ -341,7 +342,7 @@ static void TestSaved(void)
     // The node's block is the first; its playhead the first node's time.
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
               s_saved[0][block + 4 * maniGraphMatchPicks] == 2,
           "saved with two picks");
     const uint32_t kBad[7][3] = {{block + 4 * maniGraphMatchEntry, 2, 0},

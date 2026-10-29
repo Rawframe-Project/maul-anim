@@ -198,8 +198,10 @@ static void TestFeatures(void)
     float features[MANI_MAX_MATCH_FEATURES];
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseFeatures(&s_database, 3, features) == mani_success &&
-              maniMotionDatabaseNormalization(&s_database, offsets, scales) == mani_success,
+    CHECK(maniMotionDatabaseFeatures(&s_database, 3, features, s_database.featureCount, NULL) ==
+                  mani_success &&
+              maniMotionDatabaseNormalization(&s_database, offsets, scales, s_database.featureCount,
+                                              NULL) == mani_success,
           "the walk's fourth frame");
     maniTrajectory root = {{2, 0, 3}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0, 1}, {0, 0, 0}};
     maniTrajectory ahead = root;

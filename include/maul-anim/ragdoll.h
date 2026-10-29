@@ -60,7 +60,7 @@ extern "C"
     {
         // The body's name, its bytes inside the profile (not terminated).
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // The bone the body follows; its parent body's index, or
         // MANI_NO_BONE for the root. Parents come before children.
         uint32_t bone;
@@ -192,18 +192,22 @@ extern "C"
     /// @param previousPlacement  Its placement; NULL for the identity.
     /// @param seconds    The time between the two, above 0 and finite when
     ///                   previous is given.
-    /// @param bodiesOut  Receives a state per body, in the profile's order.
-    /// @param count      The number of states bodiesOut holds.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// pose of another skeleton, a difference or one whose model is not
-    /// current, a placement not finite, seconds out of range;
-    /// `mani_errorCapacity` when count is under the body count.
+    /// @param bodiesOut  Receives a state per body, in the profile's order;
+    ///                   may be NULL when capacity is 0.
+    /// @param capacity   The number of states bodiesOut holds.
+    /// @param countOut   Receives the body count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is under
+    /// the body count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL argument, a NULL array with a
+    /// positive capacity, a pose of another skeleton, a difference or one
+    /// whose model is not current, a placement not finite, seconds out of
+    /// range.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniRagdollBodiesFromPose(
         const maniRagdoll* ragdoll, const maniPose* pose, const maniTransform* placement,
         const maniPose* previous, const maniTransform* previousPlacement, float seconds,
-        maniRagdollBodyState* bodiesOut, uint32_t count);
+        maniRagdollBodyState* bodiesOut, uint32_t capacity, uint32_t* countOut);
 
     /// Works out each joint's motor target from bodies' states: the
     /// child's joint frame in the parent's, and the child's angular
@@ -212,17 +216,21 @@ extern "C"
     ///
     /// @param ragdoll    An opened profile.
     /// @param bodies     A state per body, in the profile's order.
-    /// @param jointsOut  Receives a target per body.
-    /// @param count      The number of targets jointsOut holds (and of
-    ///                   states bodies holds).
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorCapacity` when count is under the body count.
+    /// @param jointsOut  Receives a target per body; may be NULL when
+    ///                   capacity is 0.
+    /// @param capacity   The number of targets jointsOut holds.
+    /// @param countOut   Receives the body count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is under
+    /// the body count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL argument or a NULL array with a
+    /// positive capacity.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll,
                                                                const maniRagdollBodyState* bodies,
                                                                maniRagdollJointTarget* jointsOut,
-                                                               uint32_t count);
+                                                               uint32_t capacity,
+                                                               uint32_t* countOut);
 
     /// Makes a pose from bodies' places: a bone with a body takes its
     /// model frame from the body's, the body's frame taken off, under

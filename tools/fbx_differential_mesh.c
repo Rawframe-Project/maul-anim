@@ -308,7 +308,7 @@ void CompareSkinsAt(Context* c, uint32_t clip, const maniPose* pose, const ufbx_
 // mesh's of the same rank among Maul Anim's sets on it.
 static ufbx_blend_deformer* TheirBlend(const Context* c, uint32_t m, const ufbx_node** nodeOut)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     uint32_t model = maniFbxMorphModel(c->fbx, m);
     const char* name = model != UINT32_MAX ? maniFbxModelBoneName(c->fbx, model, &length) : NULL;
     const ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
@@ -336,7 +336,7 @@ static bool SameTarget(const maniMorphTargets* ours, uint32_t t, const ufbx_blen
                        size_t k, float* weights, float* positions, ufbx_vec3* expected)
 {
     uint32_t vertices = maniMorphVertexCount(ours);
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniMorphTargetName(ours, t, &length);
     const ufbx_blend_keyframe* key = &channel->keyframes.data[k];
     if (name == NULL || !ShapeNamed(channel, k, name, length) ||
@@ -403,7 +403,8 @@ static void CompareMorph(Context* c, uint32_t m)
     maniImportResult r = maniFbxBuildMorphTargets(c->builder, c->fbx, m, &options);
     bool built = r.result == mani_success && Copy(c->builder, &blob) &&
                  maniOpenMorphTargets(blob.data, blob.size, &ours).result == mani_success &&
-                 rest != NULL && maniFbxMorphWeights(c->fbx, m, rest, count).result == mani_success;
+                 rest != NULL &&
+                 maniFbxMorphWeights(c->fbx, m, rest, count, NULL).result == mani_success;
     if (theirs == NULL)
     {
         Mismatch(c, "morph", "set %u has no ufbx blend deformer", m);

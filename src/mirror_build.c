@@ -71,8 +71,8 @@ typedef struct Entry
     uint64_t hash;
     const char* name;
     const char* partner;
-    uint32_t nameLength;
-    uint32_t length;
+    size_t nameLength;
+    size_t length;
     uint32_t item;
 } Entry;
 
@@ -92,7 +92,7 @@ typedef struct Work
     uint32_t unmatched;
 } Work;
 
-static bool Utf8(const char* text, uint32_t length)
+static bool Utf8(const char* text, size_t length)
 {
     return (text != NULL || length == 0) && maniValidUtf8((const uint8_t*)text, length);
 }
@@ -102,6 +102,10 @@ static maniBuildResult CheckRules(const maniMirrorMapSource* s)
     for (uint32_t i = 0; i < s->ruleCount; ++i)
     {
         const maniMirrorRuleSource* r = &s->rules[i];
+        if (maniNamePastLimit(r->findLength) || maniNamePastLimit(r->replaceLength))
+        {
+            return Result(mani_errorLimit, maniBuildReasonMirrorRule, i, 0);
+        }
         if (r->findLength == 0 || r->place > maniMirrorAnywhere || !Utf8(r->find, r->findLength) ||
             !Utf8(r->replace, r->replaceLength))
         {
@@ -137,28 +141,28 @@ static maniBuildResult Reference(Work* w)
 
 // A rule's partner name of a name into out; false when it does not
 // match.
-static bool Apply(const maniMirrorRuleSource* r, const char* name, uint32_t length, char* out,
-                  uint32_t* lengthOut)
+static bool Apply(const maniMirrorRuleSource* r, const char* name, size_t length, char* out,
+                  size_t* lengthOut)
 {
-    uint32_t f = r->findLength;
+    size_t f = r->findLength;
     if (f > length)
     {
         return false;
     }
-    uint32_t at = UINT32_MAX;
+    size_t at = SIZE_MAX;
     if (r->place == maniMirrorPrefix)
     {
-        at = memcmp(name, r->find, f) == 0 ? 0u : UINT32_MAX;
+        at = memcmp(name, r->find, f) == 0 ? 0u : SIZE_MAX;
     }
     else if (r->place == maniMirrorSuffix)
     {
-        at = memcmp(name + length - f, r->find, f) == 0 ? length - f : UINT32_MAX;
+        at = memcmp(name + length - f, r->find, f) == 0 ? length - f : SIZE_MAX;
     }
-    for (uint32_t i = 0; r->place == maniMirrorAnywhere && at == UINT32_MAX && i + f <= length; ++i)
+    for (size_t i = 0; r->place == maniMirrorAnywhere && at == SIZE_MAX && i + f <= length; ++i)
     {
-        at = memcmp(name + i, r->find, f) == 0 ? i : UINT32_MAX;
+        at = memcmp(name + i, r->find, f) == 0 ? i : SIZE_MAX;
     }
-    if (at == UINT32_MAX)
+    if (at == SIZE_MAX)
     {
         return false;
     }
@@ -176,11 +180,11 @@ static bool Apply(const maniMirrorRuleSource* r, const char* name, uint32_t leng
 // none.
 static uint32_t RuleBone(const Work* w, uint32_t b)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSkeletonBoneName(w->s->skeleton, b, &length);
     for (uint32_t i = 0; i < w->s->ruleCount; ++i)
     {
-        uint32_t made = 0;
+        size_t made = 0;
         if (Apply(&w->s->rules[i], name, length, w->name, &made))
         {
             uint32_t bone = maniSkeletonFindBone(w->s->skeleton, w->name, made);
@@ -271,13 +275,17 @@ static uint32_t Unmatched(const Work* w)
     return MANI_NO_BONE;
 }
 
-static maniBuildResult CheckName(const char* name, uint32_t length, uint32_t item)
+static maniBuildResult CheckName(const char* name, size_t length, uint32_t item)
 {
+    if (maniNamePastLimit(length))
+    {
+        return Result(mani_errorLimit, maniBuildReasonMirrorName, item, 0);
+    }
     return length > 0 && Utf8(name, length) ? kOk : Refuse(maniBuildReasonMirrorName, item, 0);
 }
 
-static void AddEntry(Work* w, const char* name, uint32_t length, const char* partner,
-                     uint32_t partnerLength, uint32_t item)
+static void AddEntry(Work* w, const char* name, size_t length, const char* partner,
+                     size_t partnerLength, uint32_t item)
 {
     w->entries[w->entryCount++] =
         (Entry){maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length),
@@ -311,18 +319,23 @@ static maniBuildResult Names(Work* w)
         maniBuildResult r = CheckName(n->name, n->nameLength, item);
         if (r.result != mani_success)
         {
-            return Refuse(maniBuildReasonMirrorName, item, 0);
+            return r;
         }
         char* out = w->text + w->textUsed;
-        uint32_t made = 0;
+        size_t made = 0;
         for (uint32_t i = 0; i < s->ruleCount; ++i)
         {
             if (Apply(&s->rules[i], n->name, n->nameLength, out, &made))
             {
-                // A rule that empties the name makes no partner.
+                // A rule that empties the name makes no partner; one past
+                // MANI_MAX_NAME_BYTES makes one no file holds.
                 if (made == 0)
                 {
                     return Refuse(maniBuildReasonMirrorName, item, 0);
+                }
+                if (maniNamePastLimit(made))
+                {
+                    return Result(mani_errorLimit, maniBuildReasonMirrorName, item, 0);
                 }
                 AddEntry(w, n->name, n->nameLength, out, made, item);
                 w->textUsed += made;
@@ -466,7 +479,8 @@ static void LayNames(const Work* w, const uint32_t* order, uint8_t* names, uint8
         maniStoreU64(p, e->hash);
         maniStoreU64(p + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)e->partner, e->length));
         maniStoreU32(p + 16, at);
-        maniStoreU32(p + 20, e->length);
+        // Every name and partner was taken within MANI_MAX_NAME_BYTES.
+        maniStoreU32(p + 20, (uint32_t)e->length);
         memcpy(strings + at, e->partner, e->length);
         at += e->length;
     }
@@ -479,10 +493,22 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w, const uint32_t
     {
         text += w->entries[order[i]].length;
     }
+    // The file stores a partner's offset in 32 bits.
+    if (text > UINT32_MAX)
+    {
+        return Refuse(maniBuildReasonCount, 0, 0);
+    }
     const uint64_t sizes[MANI_MIRROR_SECTIONS] = {
         MANI_MIRROR_HEADER_SIZE, (uint64_t)w->count * MANI_MIRROR_BONE_SIZE,
         (uint64_t)w->entryCount * MANI_MIRROR_NAME_SIZE, text};
-    size_t own = (size_t)(sizes[0] + sizes[1] + sizes[2] + sizes[3]);
+    uint64_t all = sizes[0] + sizes[1] + sizes[2] + sizes[3];
+    // Where size_t has 32 bits, the sections can pass what one allocation
+    // holds.
+    if (all > SIZE_MAX)
+    {
+        return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
+    }
+    size_t own = (size_t)all;
     uint8_t* staging = maniAllocate(&builder->allocator, own, 1, 8);
     if (staging == NULL)
     {
@@ -528,29 +554,80 @@ static bool Usable(const maniMirrorMapSource* s)
            (s->names != NULL || s->nameCount == 0);
 }
 
-// The longest name a rule can make from a bone's or a listed name, and
-// the room every listed name's partner takes.
-static void Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, size_t* textOut)
+// Every rule's and listed name's length within MANI_MAX_NAME_BYTES, and
+// the name pairs within the 32 bits of the file's offsets, checked before
+// Room sizes anything by them or a name is read.
+static maniBuildResult Bounds(const maniMirrorMapSource* s)
 {
-    size_t replace = 0;
+    for (uint32_t i = 0; i < s->ruleCount; ++i)
+    {
+        if (maniNamePastLimit(s->rules[i].findLength) ||
+            maniNamePastLimit(s->rules[i].replaceLength))
+        {
+            return Result(mani_errorLimit, maniBuildReasonMirrorRule, i, 0);
+        }
+    }
+    for (uint32_t j = 0; j < s->nameCount; ++j)
+    {
+        if (maniNamePastLimit(s->names[j].nameLength))
+        {
+            return Result(mani_errorLimit, maniBuildReasonMirrorName, s->namePairCount + j, 0);
+        }
+    }
+    // Each pair's names are each other's partners, so their total is the
+    // partners' least; Write checks the whole once the rules made theirs.
+    // A name past MANI_MAX_NAME_BYTES is left to its pair's check.
+    uint64_t paired = 0;
+    for (uint32_t i = 0; i < s->namePairCount; ++i)
+    {
+        size_t first = s->namePairs[i].firstLength;
+        size_t second = s->namePairs[i].secondLength;
+        paired += maniNamePastLimit(first) ? 0u : first;
+        paired += maniNamePastLimit(second) ? 0u : second;
+    }
+    if (paired > UINT32_MAX)
+    {
+        return Refuse(maniBuildReasonCount, 0, 0);
+    }
+    return kOk;
+}
+
+// The longest name a rule can make from a bone's or a listed name, and
+// the room every listed name's partner takes, from lengths Bounds took;
+// false when either passes what an allocation can hold, as it can where
+// size_t has 32 bits.
+static bool Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, size_t* textOut)
+{
+    uint64_t replace = 0;
     for (uint32_t i = 0; i < s->ruleCount; ++i)
     {
         replace = s->rules[i].replaceLength > replace ? s->rules[i].replaceLength : replace;
     }
-    size_t longest = 0;
+    uint64_t longest = 0;
     for (uint32_t b = 0; b < count; ++b)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         (void)maniSkeletonBoneName(s->skeleton, b, &length);
         longest = length > longest ? length : longest;
     }
-    size_t text = 0;
+    uint64_t text = 0;
     for (uint32_t j = 0; j < s->nameCount; ++j)
     {
-        text += (size_t)s->names[j].nameLength + replace;
+        uint64_t piece = s->names[j].nameLength + replace;
+        if (text > UINT64_MAX - piece)
+        {
+            return false;
+        }
+        text += piece;
     }
-    *nameOut = longest + replace;
-    *textOut = text;
+    uint64_t name = longest + replace;
+    if (text >= SIZE_MAX || name >= SIZE_MAX)
+    {
+        return false;
+    }
+    *nameOut = (size_t)name;
+    *textOut = (size_t)text;
+    return true;
 }
 
 typedef struct Block
@@ -604,9 +681,17 @@ static MANI_NOINLINE maniBuildResult BuildMirrorMapWork(maniBuilder* builder,
         return Refuse(maniBuildReasonOption, 0, 0);
     }
     uint32_t count = maniSkeletonBoneCount(source->skeleton);
+    maniBuildResult bounded = Bounds(source);
+    if (bounded.result != mani_success)
+    {
+        return bounded;
+    }
     size_t nameRoom = 0;
     size_t textRoom = 0;
-    Room(source, count, &nameRoom, &textRoom);
+    if (!Room(source, count, &nameRoom, &textRoom))
+    {
+        return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
+    }
     size_t entries = 2 * (size_t)source->namePairCount + source->nameCount;
     const maniAllocator* a = &builder->allocator;
     Block blocks[6] = {{NULL, count, sizeof(uint32_t)},    {NULL, count, sizeof(uint32_t)},

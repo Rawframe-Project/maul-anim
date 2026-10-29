@@ -38,7 +38,7 @@
 // The graph scene: the file, then an instance of it stepped across its
 // clips' wraps (each step's pose, root motion and events) and its saved
 // state; every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0x674fbaef8dc62397ull
+#define PINNED_SCENE_HASH 0x30265337824b75b3ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_clipFiles[3][8192];
@@ -251,7 +251,7 @@ static void TestBuild(void)
     CHECK((NodeWord(&g, 7, 0) >> 16) == MANI_GRAPH_DIFFERENCE && (NodeWord(&g, 8, 0) >> 16) == 0,
           "the wave gives differences, the output poses");
     maniGraphParameterType type = 0;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniGraphParameterName(&g, 3, &length);
     CHECK(maniGraphFindParameter(&g, "mix", 3) == 1 &&
               maniGraphFindParameter(&g, "mi", 2) == MANI_NO_PARAMETER &&
@@ -296,6 +296,12 @@ static void TestParameterRefusals(void)
     maniGraphSource s = Source();
     s_parameters[1].nameLength = 0;
     ExpectRefused(&s, maniBuildReasonParameterList | maniBuildReasonName, 1, 0, "an empty name");
+    s_parameters[1].nameLength = (size_t)MANI_MAX_NAME_BYTES + 1;
+    maniBuildResult longName = Build(&s);
+    CHECK(longName.result == mani_errorLimit &&
+              longName.reason == (maniBuildReasonParameterList | maniBuildReasonName) &&
+              longName.item == 1,
+          "a name past MANI_MAX_NAME_BYTES");
     s = Source();
     s_parameters[4].name = "mix";
     s_parameters[4].nameLength = 3;
@@ -647,13 +653,19 @@ static void TestParameters(void)
           "instance misuses");
 }
 
-static void ExpectState(uint64_t offset, uint32_t value, uint64_t want, const char* what,
-                        maniGraphInstance* instance, size_t size)
+static void ExpectStateWith(uint64_t offset, uint32_t value, maniResult result, uint64_t want,
+                            const char* what, maniGraphInstance* instance, size_t size)
 {
     memcpy(s_craftedState, s_state, size);
     maniStoreU32(s_craftedState + offset, value);
     maniFileResult r = maniRestoreGraphInstance(instance, s_craftedState, size);
-    CHECK(r.result == mani_errorFormat && r.offset == want, what);
+    CHECK(r.result == result && r.offset == want, what);
+}
+
+static void ExpectState(uint64_t offset, uint32_t value, uint64_t want, const char* what,
+                        maniGraphInstance* instance, size_t size)
+{
+    ExpectStateWith(offset, value, mani_errorFormat, want, what, instance, size);
 }
 
 static void TestSaveRestore(void)
@@ -676,10 +688,18 @@ static void TestSaveRestore(void)
     states[3].word = 1;
     states[3].weight = 0.5f;
     states[0].time = 12.75;
-    size_t stateSize = maniGraphStateSize(binding);
-    CHECK(stateSize == MANI_GRAPH_STATE_HEADER_SIZE + 15 * 16 && stateSize <= sizeof s_state &&
-              maniSaveGraphInstance(instance, s_state, stateSize) == mani_success &&
-              maniSaveGraphInstance(instance, s_state, stateSize - 1) == mani_errorCapacity,
+    size_t stateSize = 0;
+    size_t written = 0;
+    size_t refused = 0;
+    CHECK(maniSaveGraphInstance(instance, NULL, 0, &stateSize) == mani_errorCapacity &&
+              stateSize == MANI_GRAPH_STATE_HEADER_SIZE + 15 * 16 && stateSize <= sizeof s_state &&
+              maniSaveGraphInstance(instance, s_state, stateSize, &written) == mani_success &&
+              written == stateSize &&
+              maniSaveGraphInstance(instance, s_state, stateSize - 1, &refused) ==
+                  mani_errorCapacity &&
+              refused == stateSize &&
+              maniSaveGraphInstance(instance, NULL, 1, NULL) == mani_errorInvalid &&
+              maniSaveGraphInstance(NULL, NULL, 0, NULL) == mani_errorInvalid,
           "saves");
     memcpy(s_copyMemory, s_instanceMemory, size);
     maniGraphInstance* copy = (maniGraphInstance*)(void*)s_copyMemory;
@@ -695,9 +715,13 @@ static void TestSaveRestore(void)
     uint64_t first = MANI_GRAPH_STATE_HEADER_SIZE;
     uint64_t nodes = first + 6 * 16;
     ExpectState(0, 0, 0, "another magic", fresh, stateSize);
-    ExpectState(4, 1, 4, "a word not zero", fresh, stateSize);
-    ExpectState(8, 1, 8, "another graph", fresh, stateSize);
-    ExpectState(16, 1, 16, "another size", fresh, stateSize);
+    ExpectStateWith(4, MANI_ABI_VERSION + 1, mani_errorVersion, 4, "another ABI version", fresh,
+                    stateSize);
+    ExpectStateWith(8, MANI_GRAPH_STATE_VERSION + 1, mani_errorVersion, 8,
+                    "another state format version", fresh, stateSize);
+    ExpectState(12, 24, 12, "another header size", fresh, stateSize);
+    ExpectState(16, 1, 16, "another graph", fresh, stateSize);
+    ExpectState(24, 1, 24, "another size", fresh, stateSize);
     ExpectState(first, 0x40400000u, first, "a float past its bounds", fresh, stateSize);
     ExpectState(first + 2 * 16 + 4, 1, first + 2 * 16, "an int's unused word", fresh, stateSize);
     ExpectState(first + 4 * 16, 2, first + 4 * 16, "a bool of 2", fresh, stateSize);
@@ -938,7 +962,7 @@ static void Reference(maniPose* out)
     float inside[3];
     float outside[3];
     const maniMaskChain chain = {1, 1.0f, true};
-    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3) == mani_success, "mask");
+    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success, "mask");
     for (int b = 0; b < 3; ++b)
     {
         outside[b] = 1.0f - inside[b];
@@ -1400,10 +1424,13 @@ static void TestPinned(void)
             hash = maniHash64(hash, values, (int32_t)sizeof values);
         }
     }
-    size_t stateSize = maniGraphStateSize(binding);
-    CHECK(stateSize <= sizeof s_state &&
-              maniSaveGraphInstance(instance, s_state, stateSize) == mani_success,
+    size_t stateSize = 0;
+    CHECK(maniSaveGraphInstance(instance, s_state, sizeof s_state, &stateSize) == mani_success,
           "saves");
+    // The writer's ABI version is checked apart and hashed as 0, so a
+    // release moves no pin.
+    CHECK(maniLoadU32(s_state + 4) == MANI_ABI_VERSION, "the state names its release");
+    maniStoreU32(s_state + 4, 0);
     hash = maniHash64(hash, s_state, (int32_t)stateSize);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
     if (hash != PINNED_SCENE_HASH)

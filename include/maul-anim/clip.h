@@ -104,7 +104,7 @@ extern "C"
         int32_t payload;
         uint64_t nameHash;
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniClipEvent;
 
     /// Opens a clip file in place: checks the container, the header, every
@@ -228,7 +228,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track,
-                                                uint32_t* lengthOut);
+                                                size_t* lengthOut);
 
     /// Samples some bones of the clip at a time, as maniSampleClip samples
     /// them; every other bone's local is left as it was, and the clip's
@@ -389,7 +389,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track,
-                                                   uint32_t* lengthOut);
+                                                   size_t* lengthOut);
 
     /// Finds a discrete track by name.
     ///

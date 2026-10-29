@@ -84,7 +84,8 @@ static void TestData(void)
               fabsf(root[3]) <= 1e-6f && fabsf(root[4]) <= 1e-6f && fabsf(root[5]) <= 1e-6f,
           "the walk's root at 1 m/s, not turning");
     float features[5];
-    CHECK(maniMotionDatabaseFeatures(&s_bones, 3, features) == mani_success &&
+    CHECK(maniMotionDatabaseFeatures(&s_bones, 3, features, s_bones.featureCount, NULL) ==
+                  mani_success &&
               memcmp(features, d.features + 15, sizeof features) == 0,
           "the database's features");
     // The walk's left at 0 s and right at 0.5 s; nothing in the run.

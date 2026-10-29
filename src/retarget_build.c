@@ -297,7 +297,7 @@ static void Names(const maniRetargetMapSource* s, Work* w)
 {
     for (uint32_t b = 0; s->matchNames && b < w->targetCount; ++b)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(s->target, b, &length);
         uint32_t found =
             w->plan[b].mapped ? MANI_NO_BONE : maniSkeletonFindBone(s->source, name, length);

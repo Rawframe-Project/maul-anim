@@ -518,7 +518,7 @@ static void SampleLearned(const maniGraphEvaluation* e, uint32_t p, const uint8_
     const float* cache = maniGraphLearnedCache(e->instance, p);
     bool kept =
         cache != NULL && cache[0] != 0.0f && memcmp(cache + 1, state, sizeof(float) * states) == 0;
-    maniLearnedOutput output = {out, NULL, NULL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    maniLearnedOutput output = {out, NULL, 0, NULL, 0, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     maniResult r = maniLearnedDecompressFrom(m, state, &output, room, scratchSize,
                                              kept ? cache + 1 + states : NULL);
     if (r != mani_success)

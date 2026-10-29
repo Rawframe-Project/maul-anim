@@ -446,7 +446,7 @@ static void TestNames(void)
 {
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, kScene);
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniFbxClipName(fbx, 2, &length);
     CHECK(maniFbxClipCount(fbx) == 14 && name != NULL && length == 5 &&
               memcmp(name, "Shear", 5) == 0 && maniFbxClipName(fbx, 14, &length) == NULL &&

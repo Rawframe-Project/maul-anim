@@ -387,7 +387,7 @@ static size_t Numbered(uint32_t n, char* out)
 
 // An object's name into the arena; "#" and the set's channel index when
 // it has none (room left for a target's suffix).
-static const char* ObjectName(Morph* m, uint32_t object, uint32_t channel, uint32_t* lengthOut)
+static const char* ObjectName(Morph* m, uint32_t object, uint32_t channel, size_t* lengthOut)
 {
     size_t length = maniFbxObjectName(m->fbx, object, NULL, 0);
     char* name = maniArenaTake(m->arena, length + 24, 1);
@@ -397,7 +397,7 @@ static const char* ObjectName(Morph* m, uint32_t object, uint32_t channel, uint3
     }
     length = maniFbxObjectName(m->fbx, object, (uint8_t*)name, length);
     length = length > 0 ? length : Numbered(channel, name);
-    *lengthOut = (uint32_t)length;
+    *lengthOut = length;
     return name;
 }
 
@@ -464,7 +464,7 @@ static maniImportResult ShapeName(Morph* m, const maniMorphChannelSource* channe
         length = channel->nameLength + n;
     }
     target->name = name;
-    target->nameLength = (uint32_t)length;
+    target->nameLength = length;
     return maniFbxSuccess();
 }
 
@@ -535,8 +535,8 @@ static maniImportResult ReadOwner(Morph* m)
         r = ReadShape(m, k, NULL, target);
         length = length > 0 ? length : Numbered(c, name);
         target->name = name;
-        target->nameLength = (uint32_t)length;
-        m->channels[c++] = (maniMorphChannelSource){name, (uint32_t)length, 1, target};
+        target->nameLength = length;
+        m->channels[c++] = (maniMorphChannelSource){name, length, 1, target};
     }
     m->channelCount = c;
     return r;
@@ -588,7 +588,7 @@ static maniImportResult Unique(Morph* m)
         if (name != NULL)
         {
             memcpy(name, ch->name, ch->nameLength);
-            ch->nameLength += (uint32_t)Numbered(c, name + ch->nameLength);
+            ch->nameLength += Numbered(c, name + ch->nameLength);
             ch->name = name;
         }
     }
@@ -727,19 +727,32 @@ static maniImportResult BlendRestWeights(const maniFbx* fbx, maniArena* arena, u
     return r;
 }
 
+// The set's target count written, and whether the weights' array holds
+// it.
+static bool Holds(uint32_t total, const float* weightsOut, uint32_t capacity, uint32_t* countOut)
+{
+    if (countOut != NULL)
+    {
+        *countOut = total;
+    }
+    return weightsOut != NULL && capacity >= total;
+}
+
 static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, uint32_t morph,
-                                                          float* weightsOut, uint32_t count)
+                                                          float* weightsOut, uint32_t capacity,
+                                                          uint32_t* countOut)
 {
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
-    if (weightsOut == NULL || object == MANI_FBX_NONE)
+    if ((weightsOut == NULL && capacity > 0) || object == MANI_FBX_NONE)
     {
         return Invalid();
     }
+    const maniImportResult tooSmall = {mani_errorCapacity, maniImportReasonNone, 0, 0};
     if (!IsBlendShape(fbx, object))
     {
-        if (count != ShapeChildren(fbx, object))
+        if (!Holds(ShapeChildren(fbx, object), weightsOut, capacity, countOut))
         {
-            return Invalid();
+            return tooSmall;
         }
         OwnerWeights(fbx, object, weightsOut);
         return maniFbxSuccess();
@@ -747,17 +760,17 @@ static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, ui
     maniArena arena = maniArenaMake(&fbx->allocator);
     uint32_t total = 0;
     maniImportResult r = CountTargets(fbx, &arena, object, &total);
-    r = r.result == mani_success && total != count ? Invalid() : r;
+    r = r.result == mani_success && !Holds(total, weightsOut, capacity, countOut) ? tooSmall : r;
     r = r.result == mani_success ? BlendRestWeights(fbx, &arena, object, weightsOut) : r;
     maniArenaRelease(&arena);
     return r;
 }
 
 maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
-                                     uint32_t count)
+                                     uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, count);
+    maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

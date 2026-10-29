@@ -7,6 +7,8 @@
 #ifndef MAUL_ANIM_SRC_TEXT_H
 #define MAUL_ANIM_SRC_TEXT_H
 
+#include "maul-anim/base.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -17,5 +19,11 @@ size_t maniUtf8Sequence(const uint8_t* bytes, size_t length);
 
 // True when the bytes are well-formed UTF-8.
 bool maniValidUtf8(const uint8_t* bytes, size_t length);
+
+// True when a name's length passes MANI_MAX_NAME_BYTES.
+static inline bool maniNamePastLimit(size_t length)
+{
+    return length > MANI_MAX_NAME_BYTES;
+}
 
 #endif // MAUL_ANIM_SRC_TEXT_H

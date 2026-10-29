@@ -210,7 +210,8 @@ static void Project(const Learned* l)
     float projected[MANI_GRAPH_LEARNED_MAX_STATES];
     Query(l, query);
     maniResult r =
-        maniLearnedProject(l->m, projector, query, projected, l->scratch, l->scratchSize);
+        maniLearnedProject(l->m, projector, query, projected, MANI_GRAPH_LEARNED_MAX_STATES, NULL,
+                           l->scratch, l->scratchSize);
     if (r != mani_success)
     {
         if (r == mani_errorFormat)
@@ -313,7 +314,7 @@ static void Outputs(const Learned* l, double step)
         maniGraphUpdate* u = l->u;
         if (u->count < u->capacity)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniLearnedModelEventName(m, e, &length);
             uint64_t hash = maniGraphNodeName(
                 u, l->p, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));

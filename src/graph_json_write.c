@@ -36,11 +36,11 @@ void maniGraphJsonLine(maniGraphWriter* w, uint32_t depth)
     }
 }
 
-void maniGraphJsonPutString(maniGraphWriter* w, const char* bytes, uint32_t length)
+void maniGraphJsonPutString(maniGraphWriter* w, const char* bytes, size_t length)
 {
     static const char kHex[] = "0123456789abcdef";
     maniGraphJsonPutText(w, "\"");
-    for (uint32_t i = 0; i < length; ++i)
+    for (size_t i = 0; i < length; ++i)
     {
         uint8_t c = (uint8_t)bytes[i];
         char escape[6] = {'\\', 'u', '0', '0', kHex[c >> 4], kHex[c & 15u]};

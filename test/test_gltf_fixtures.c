@@ -152,7 +152,7 @@ static double WeightError(const maniClip* clip, const FixtureTrack* t)
     {
         const char* end = strchr(name, '|');
         size_t length = end != NULL ? (size_t)(end - name) : strlen(name);
-        tracks[c] = maniClipFindFloatTrack(clip, name, (uint32_t)length);
+        tracks[c] = maniClipFindFloatTrack(clip, name, length);
         if (tracks[c] == MANI_NO_TRACK)
         {
             return HUGE_VAL;
@@ -212,7 +212,7 @@ static void CheckTrack(const FixtureTrack* t)
         }
         else
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniGltfNodeName(gltf, t->node, &length);
             uint32_t bone = maniSkeletonFindBone(&skeleton, name, length);
             maniPose* pose = NULL;
@@ -247,7 +247,7 @@ static void TestExternalBuffers(void)
     CHECK(count == 4, "four buffers");
     for (uint32_t i = 0; i < count && i < 8; ++i)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* uri = maniGltfBufferUri(gltf, i, &length);
         char name[256];
         snprintf(name, sizeof name, "SimpleSkin/%.*s", (int)length, uri != NULL ? uri : "");

@@ -232,7 +232,7 @@ maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* si
     return r;
 }
 
-static const char* Name(const maniClip* clip, const uint8_t* entry, uint32_t* lengthOut)
+static const char* Name(const maniClip* clip, const uint8_t* entry, size_t* lengthOut)
 {
     if (lengthOut != NULL)
     {
@@ -242,7 +242,7 @@ static const char* Name(const maniClip* clip, const uint8_t* entry, uint32_t* le
 }
 
 static const char* TrackName(const maniClip* clip, const uint8_t* tracks, uint32_t count,
-                             uint32_t track, uint32_t* lengthOut)
+                             uint32_t track, size_t* lengthOut)
 {
     if (track >= count)
     {
@@ -268,7 +268,7 @@ static uint32_t FindTrack(const maniClip* clip, const uint8_t* tracks, uint32_t 
         uint64_t found = maniLoadU64(entry + 8);
         if (found == hash)
         {
-            uint32_t foundLength = 0;
+            size_t foundLength = 0;
             const char* foundName = Name(clip, entry, &foundLength);
             bool same = foundLength == length && memcmp(foundName, name, length) == 0;
             return same ? middle : MANI_NO_TRACK;
@@ -290,7 +290,7 @@ uint32_t maniClipFloatTrackCount(const maniClip* clip)
     return clip->floatTrackCount;
 }
 
-const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track, uint32_t* lengthOut)
+const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
     return TrackName(clip, clip->floatTracks, clip->floatTrackCount, track, lengthOut);
 }
@@ -305,7 +305,7 @@ uint32_t maniClipDiscreteTrackCount(const maniClip* clip)
     return clip->discreteTrackCount;
 }
 
-const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track, uint32_t* lengthOut)
+const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
     return TrackName(clip, clip->discreteTracks, clip->discreteTrackCount, track, lengthOut);
 }

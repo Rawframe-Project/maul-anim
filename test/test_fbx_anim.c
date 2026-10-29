@@ -266,7 +266,7 @@ static void TestFirstObject(void)
         "Objects: {\n AnimationStack: 100, \"AnimStack::Walk\", \"\" {\n }\n}\n";
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success
                            ? maniFbxClipName(fbx, 0, &length)
                            : NULL;

@@ -30,7 +30,7 @@ void maniGraphJsonPutText(maniGraphWriter* w, const char* text);
 void maniGraphJsonLine(maniGraphWriter* w, uint32_t depth);
 
 // A JSON string: quote, backslash and the controls escaped.
-void maniGraphJsonPutString(maniGraphWriter* w, const char* bytes, uint32_t length);
+void maniGraphJsonPutString(maniGraphWriter* w, const char* bytes, size_t length);
 
 // A key and the separator after it.
 void maniGraphJsonPutKey(maniGraphWriter* w, const char* key);

@@ -38,7 +38,7 @@ extern "C"
         uint32_t timeCount;
         const float* times;
         const char* track;
-        uint32_t trackLength;
+        size_t trackLength;
         float weight;
     } maniMatchChannelSource;
 
@@ -106,12 +106,14 @@ extern "C"
     /// MANI_MAX_MATCH_CLIPS clips, MANI_MAX_MATCH_CHANNELS channels or
     /// MANI_MAX_MATCH_ENTRIES entries, more than MANI_MAX_MATCH_FRAMES
     /// frames or MANI_MAX_MATCH_FEATURES features),
-    /// `maniBuildReasonChannel` (more than MANI_MAX_MATCH_TIMES times or a
-    /// time past MANI_MAX_MATCH_REACH; item the channel);
+    /// `maniBuildReasonChannel` (more than MANI_MAX_MATCH_TIMES times, a
+    /// time past MANI_MAX_MATCH_REACH or a track name past
+    /// MANI_MAX_NAME_BYTES; item the channel);
     /// `mani_errorInvalid` for a NULL argument (a misuse), or with the
     /// reason and item for a refused source: `maniBuildReasonTiming` (a
     /// rate not above 0), `maniBuildReasonOption` (the axes or the leaf
-    /// size), `maniBuildReasonCount` (no channels, clips or entries),
+    /// size), `maniBuildReasonCount` (no channels, clips or entries, or
+    /// the channels' track names past 4 GiB in all),
     /// `maniBuildReasonJoint` (a clip
     /// of another skeleton or additive; item the clip),
     /// `maniBuildReasonChannel` (item the channel), `maniBuildReasonEntry`

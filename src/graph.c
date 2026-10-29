@@ -218,7 +218,7 @@ static maniFileResult CheckHeader(const Sections* s, maniGraph* g)
                                 MANI_MAX_GRAPH_DATABASES * MANI_MAX_GRAPH_CLIPS,
                                 MANI_MAX_GRAPH_MODELS,
                                 MANI_MAX_GRAPH_SPRING_SETS,
-                                MANI_MAX_GRAPH_MAPS};
+                                MANI_MAX_GRAPH_RETARGET_MAPS};
     for (uint32_t k = 0; k < 14; ++k)
     {
         if (counts[k] < lows[k] || counts[k] > highs[k])
@@ -609,7 +609,7 @@ uint32_t maniGraphParameterCount(const maniGraph* graph)
     return graph != NULL ? graph->parameterCount : 0;
 }
 
-static const char* EntryName(const maniGraph* graph, const uint8_t* entry, uint32_t* lengthOut)
+static const char* EntryName(const maniGraph* graph, const uint8_t* entry, size_t* lengthOut)
 {
     // Opening took only names inside the names.
     MANI_ASSERT((uint64_t)maniLoadU32(entry) + maniLoadU32(entry + 4) <= graph->namesSize);
@@ -630,7 +630,7 @@ uint32_t maniGraphFindParameter(const maniGraph* graph, const char* name, size_t
     for (uint32_t i = 0; i < graph->parameterCount; ++i)
     {
         const uint8_t* e = graph->parameters + (size_t)i * MANI_GRAPH_PARAMETER_SIZE;
-        uint32_t found = 0;
+        size_t found = 0;
         const char* text = EntryName(graph, e + 8, &found);
         if (maniLoadU64(e + 16) == hash && found == length &&
             (length == 0 || memcmp(text, name, length) == 0))
@@ -652,7 +652,7 @@ maniResult maniGraphParameterTypeOf(const maniGraph* graph, uint32_t parameter,
     return mani_success;
 }
 
-const char* maniGraphParameterName(const maniGraph* graph, uint32_t parameter, uint32_t* lengthOut)
+const char* maniGraphParameterName(const maniGraph* graph, uint32_t parameter, size_t* lengthOut)
 {
     if (graph == NULL || parameter >= graph->parameterCount)
     {
@@ -680,7 +680,7 @@ uint64_t maniGraphClipIdentity(const maniGraph* graph, uint32_t clip)
     return maniLoadU64(graph->clips + (size_t)clip * MANI_GRAPH_CLIP_SIZE);
 }
 
-const char* maniGraphClipName(const maniGraph* graph, uint32_t clip, uint32_t* lengthOut)
+const char* maniGraphClipName(const maniGraph* graph, uint32_t clip, size_t* lengthOut)
 {
     if (graph == NULL || clip >= graph->clipCount)
     {
@@ -707,7 +707,7 @@ uint64_t maniGraphDatabaseIdentity(const maniGraph* graph, uint32_t database)
     return maniLoadU64(graph->databases + (size_t)database * MANI_GRAPH_DATABASE_SIZE);
 }
 
-const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database, uint32_t* lengthOut)
+const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database, size_t* lengthOut)
 {
     if (graph == NULL || database >= graph->databaseCount)
     {
@@ -735,7 +735,7 @@ uint64_t maniGraphModelIdentity(const maniGraph* graph, uint32_t model)
     return maniLoadU64(graph->models + (size_t)model * MANI_GRAPH_MODEL_SIZE);
 }
 
-const char* maniGraphModelName(const maniGraph* graph, uint32_t model, uint32_t* lengthOut)
+const char* maniGraphModelName(const maniGraph* graph, uint32_t model, size_t* lengthOut)
 {
     if (graph == NULL || model >= graph->modelCount)
     {
@@ -762,7 +762,7 @@ uint64_t maniGraphSpringSetIdentity(const maniGraph* graph, uint32_t slot)
     return maniLoadU64(graph->springSets + (size_t)slot * MANI_GRAPH_SPRING_SET_SIZE);
 }
 
-const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot, uint32_t* lengthOut)
+const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot, size_t* lengthOut)
 {
     if (graph == NULL || slot >= graph->springSetCount)
     {
@@ -776,12 +776,12 @@ const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot, uint32
                      lengthOut);
 }
 
-uint32_t maniGraphMapCount(const maniGraph* graph)
+uint32_t maniGraphRetargetMapCount(const maniGraph* graph)
 {
     return graph != NULL ? graph->mapCount : 0;
 }
 
-uint64_t maniGraphMapIdentity(const maniGraph* graph, uint32_t slot)
+uint64_t maniGraphRetargetMapIdentity(const maniGraph* graph, uint32_t slot)
 {
     if (graph == NULL || slot >= graph->mapCount)
     {
@@ -795,7 +795,7 @@ uint64_t maniGraphMirrorMapIdentity(const maniGraph* graph)
     return graph != NULL ? graph->mirrorMapIdentity : 0;
 }
 
-uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot)
+uint64_t maniGraphRetargetMapSourceIdentity(const maniGraph* graph, uint32_t slot)
 {
     if (graph == NULL || slot >= graph->mapCount)
     {
@@ -804,7 +804,7 @@ uint64_t maniGraphMapSourceIdentity(const maniGraph* graph, uint32_t slot)
     return maniLoadU64(graph->maps + (size_t)slot * MANI_GRAPH_MAP_SIZE + 8);
 }
 
-uint32_t maniGraphClipMap(const maniGraph* graph, uint32_t clip)
+uint32_t maniGraphClipRetargetMap(const maniGraph* graph, uint32_t clip)
 {
     if (graph == NULL || clip >= graph->clipCount)
     {

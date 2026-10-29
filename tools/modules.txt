@@ -8,6 +8,7 @@ vecmath: scalar
 hash:
 fpenv:
 bytes:
+state_prefix: bytes
 container: bytes fpenv invariant
 inflate:
 cpu:
@@ -52,7 +53,7 @@ learned_file:
 spring_file:
 spring: bytes container fpenv spring_file text
 spring_shape: bytes scalar spring_file vecmath
-spring_state: bytes fpenv pose_memory spring_file vecmath
+spring_state: bytes fpenv pose_memory spring_file state_prefix vecmath
 spring_step: bytes pose_memory spring_file spring_shape spring_state vecmath
 spring_apply: bytes pose_memory spring_file spring_shape spring_state vecmath
 learned: bytes container fpenv learned_file match_file text
@@ -112,7 +113,7 @@ graph_file:
 graph_nodes: bytes graph_body graph_chain graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring graph_turn invariant vecmath
 graph_machine_file: bytes graph_file
 graph: bytes container fpenv graph_file graph_nodes invariant text
-graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn graph_values invariant learned_eval pose_memory
+graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_shot graph_spring graph_turn graph_values invariant learned_eval pose_memory state_prefix
 graph_inspect: bytes fpenv graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
 graph_subset: bytes fpenv graph_file graph_instance graph_spring pose_memory spring_file
 graph_shot: bytes graph_file
@@ -152,7 +153,7 @@ clip_build: allocator builder bytes clip_file container fpenv invariant quat64 r
 graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame invariant sort text vecmath
 graph_space_check: exact graph_file
 graph_body_check: body_ik graph_file
-graph_machine_check: bytes graph_file sort
+graph_machine_check: bytes graph_file sort text
 graph_match_check: graph_match
 exact:
 triangulate: exact sort

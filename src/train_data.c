@@ -141,7 +141,7 @@ static void Character(const maniPose* pose, uint32_t b, float* position, float* 
     Put3(columns + 3, maniQuatRotate(undo, maniVec3Make(m.m[3], m.m[4], m.m[5])));
 }
 
-static bool SameName(const char* a, uint32_t aLength, const maniLearnedNameSource* b)
+static bool SameName(const char* a, size_t aLength, const maniLearnedNameSource* b)
 {
     return aLength == b->length && memcmp(a, b->name, aLength) == 0;
 }
@@ -253,8 +253,8 @@ static void BoneInputs(const Sampler* p, const maniTrainData* d, uint32_t b, flo
 static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
 {
     if (!Sample(p, f, false) ||
-        maniMotionDatabaseFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount) !=
-            mani_success)
+        maniMotionDatabaseFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount,
+                                   p->s->database->featureCount, NULL) != mani_success)
     {
         return false;
     }

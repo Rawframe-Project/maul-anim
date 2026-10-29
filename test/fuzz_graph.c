@@ -28,7 +28,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     for (uint32_t p = 0; p < maniGraphParameterCount(&graph); ++p)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniGraphParameterName(&graph, p, &length);
         maniGraphParameterType type = 0;
         if (name == NULL || maniGraphParameterTypeOf(&graph, p, &type) != 0 ||
@@ -39,7 +39,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     for (uint32_t c = 0; c < maniGraphClipCount(&graph); ++c)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         if (maniGraphClipName(&graph, c, &length) == NULL || length == 0)
         {
             abort();

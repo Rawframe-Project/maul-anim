@@ -44,7 +44,7 @@ static void Records(const maniLearnedModel* m)
     }
     for (uint32_t k = 0; k < m->floatTrackCount + m->eventCount; ++k)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = k < m->floatTrackCount
                                ? maniLearnedModelFloatTrackName(m, k, &length)
                                : maniLearnedModelEventName(m, k - m->floatTrackCount, &length);
@@ -77,10 +77,11 @@ static void Evaluate(const maniLearnedModel* m)
     float* query = calloc(m->featureCount, sizeof(float));
     if (scratch != NULL && state != NULL && query != NULL)
     {
-        maniLearnedOutput out = {NULL, NULL, NULL, {0, 0, 0}, {0, 0, 0}};
+        maniLearnedOutput out = {NULL, NULL, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
         // A model's values may overflow to infinities: refusals then are
         // answers, not faults.
-        (void)maniLearnedProject(m, 0, query, state, scratch, scratchSize);
+        (void)maniLearnedProject(m, 0, query, state, (m->featureCount + m->latentCount), NULL,
+                                 scratch, scratchSize);
         (void)maniLearnedStep(m, state, scratch, scratchSize);
         (void)maniLearnedDecompress(m, state, &out, scratch, scratchSize);
     }

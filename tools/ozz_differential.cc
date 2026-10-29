@@ -130,7 +130,7 @@ struct Pose
 ozz::animation::offline::RawSkeleton::Joint MakeJoint(const maniSkeleton* skeleton, uint32_t bone)
 {
     ozz::animation::offline::RawSkeleton::Joint joint;
-    uint32_t length = 0;
+    size_t length = 0;
     const char* name = maniSkeletonBoneName(skeleton, bone, &length);
     joint.name = ozz::string(name, length);
     maniTransform rest = maniSkeletonRest(skeleton, bone);
@@ -168,7 +168,7 @@ ozz::unique_ptr<ozz::animation::Skeleton> MakeOzzSkeleton(const maniSkeleton* sk
     }
     for (uint32_t b = 0; b < maniSkeletonBoneCount(skeleton); ++b)
     {
-        uint32_t length = 0;
+        size_t length = 0;
         const char* name = maniSkeletonBoneName(skeleton, b, &length);
         if (std::strlen(out->joint_names()[b]) != length ||
             std::memcmp(out->joint_names()[b], name, length) != 0)

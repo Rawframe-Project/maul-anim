@@ -26,7 +26,7 @@ The JSON form names everything (parameters, clip slots, bones), so the text surv
 
 ## Playing a graph
 
-An opened graph is bound to the assets it names once, and each character gets an instance: its parameters, playheads and state, in the program's memory. Copying an instance's bytes copies the character's state, and `maniSaveGraphInstance` writes it to bytes for saving or rollback.
+An opened graph is bound to the assets it names once, and each character gets an instance: its parameters, playheads and state, in the program's memory. Copying an instance's bytes copies the character's state, and `maniSaveGraphInstance` writes it to bytes for saving or rollback; called with no buffer, it reports the size it needs.
 
 ```c
 const maniClip* clips[1] = {&clip};

@@ -38,10 +38,10 @@ extern "C"
     typedef struct maniMirrorRuleSource
     {
         const char* find;
-        uint32_t findLength;
+        size_t findLength;
         maniMirrorPlace place;
         const char* replace;
-        uint32_t replaceLength;
+        size_t replaceLength;
     } maniMirrorRuleSource;
 
     // Two bones that mirror each other (equal for a bone on itself).
@@ -55,8 +55,8 @@ extern "C"
     typedef struct maniMirrorNamePairSource
     {
         const char* first;
-        uint32_t firstLength;
-        uint32_t secondLength;
+        size_t firstLength;
+        size_t secondLength;
         const char* second;
     } maniMirrorNamePairSource;
 
@@ -64,7 +64,7 @@ extern "C"
     typedef struct maniMirrorNameSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniMirrorNameSource;
 
     // A mirror map: the skeleton; its reference pose as locals in bone
@@ -99,12 +99,17 @@ extern "C"
     /// `maniBuildReasonNone` for a NULL builder, source or skeleton, or a
     /// count without its list;
     /// `maniBuildReasonOption` for an unknown axis;
+    /// `maniBuildReasonCount` for partners past 4 GiB in all;
     /// `maniBuildReasonMirrorReference` (item the bone);
     /// `maniBuildReasonMirrorRule` (item the rule);
     /// `maniBuildReasonMirrorPair` (item the bone, other its partner);
     /// `maniBuildReasonMirrorName` (item the name, other the earlier);
     /// `maniBuildReasonNameHash` for two names of one hash (item the later
     /// name, other the earlier);
+    /// `mani_errorLimit` with `maniBuildReasonMirrorRule` (item the rule)
+    /// for a find or replace past MANI_MAX_NAME_BYTES, or with
+    /// `maniBuildReasonMirrorName` (item the name) for a name, or a
+    /// partner a rule makes, past it (no misuse);
     /// `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.

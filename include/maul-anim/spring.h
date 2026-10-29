@@ -94,7 +94,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring,
-                                                 uint32_t* lengthOut);
+                                                 size_t* lengthOut);
 
     /// Returns the rate a set steps at (steps a second), and the rate its
     /// source's values were per frame of.
@@ -210,25 +210,24 @@ extern "C"
     /// Safe from any thread; the state is used by one thread at a time.
     MANI_API void maniResetSprings(maniSpringState* state);
 
-    /// Returns the bytes a state's saved form takes.
-    ///
-    /// @param set  An opened set.
-    /// @return The size; 0 for NULL.
-    /// @par Thread safety
-    /// Safe from any thread.
-    MANI_API size_t maniSpringSavedSize(const maniSpringSet* set);
-
     /// Saves a state without pointers: its set's identity and its values.
+    /// Call it with a NULL buffer and capacity 0 to measure.
     ///
     /// @param state     A state.
-    /// @param out       At least maniSpringSavedSize bytes.
-    /// @param capacity  Their size.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorCapacity` for too small a buffer.
+    /// @param bytesOut  Receives the saved state: at least capacity bytes;
+    ///                  may be NULL when capacity is 0.
+    /// @param capacity  The bytes bytesOut holds.
+    /// @param sizeOut   Receives the saved state's size in bytes. May be
+    ///                  NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is
+    /// smaller than the saved state, with the size still written and
+    /// nothing else; `mani_errorInvalid` for a NULL state or a NULL buffer
+    /// with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSaveSpringState(const maniSpringState* state, void* out,
-                                                           size_t capacity);
+    MANI_NODISCARD MANI_API maniResult maniSaveSpringState(const maniSpringState* state,
+                                                           void* bytesOut, size_t capacity,
+                                                           size_t* sizeOut);
 
     /// Restores a saved state after checking it as external bytes: the
     /// set's identity, the size, every value finite and in its range,
@@ -238,8 +237,10 @@ extern "C"
     /// @param bytes  The saved bytes.
     /// @param size   Their size.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
+    /// `mani_errorVersion` for a state saved by a release of another ABI
+    /// version (MANI_ABI_VERSION) or of another state format version;
     /// `mani_errorFormat` with the offset of the first byte found wrong
-    /// (the state unchanged).
+    /// (the state unchanged in either case).
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
     MANI_NODISCARD MANI_API maniFileResult maniRestoreSpringState(maniSpringState* state,

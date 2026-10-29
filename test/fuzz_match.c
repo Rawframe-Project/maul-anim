@@ -43,7 +43,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
         maniMatchEntry e;
         if (maniMotionDatabaseFrame(&d, f, &entry, &time) != 0 ||
             maniMotionDatabaseEntry(&d, entry, &e) != 0 || f < e.firstFrame ||
-            f >= e.firstFrame + e.frameCount || maniMotionDatabaseFeatures(&d, f, features) != 0)
+            f >= e.firstFrame + e.frameCount ||
+            maniMotionDatabaseFeatures(&d, f, features, d.featureCount, NULL) != 0)
         {
             abort();
         }

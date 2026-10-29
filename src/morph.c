@@ -453,7 +453,7 @@ maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets, uint32_t a
 }
 
 const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
-                                 uint32_t* lengthOut)
+                                 size_t* lengthOut)
 {
     bool inside = channel < targets->channelCount;
     const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
@@ -483,8 +483,7 @@ uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name,
     return MANI_NO_CHANNEL;
 }
 
-const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
-                                uint32_t* lengthOut)
+const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target, size_t* lengthOut)
 {
     bool inside = target < targets->targetCount;
     const uint8_t* e = targets->targets + (size_t)target * MANI_MORPH_TARGET_SIZE;
@@ -623,11 +622,20 @@ static void Walk(const maniMorphTargets* m, uint32_t first, uint32_t count, floa
 
 static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* targets,
                                                        const float* channelWeights,
-                                                       float* targetWeights)
+                                                       float* targetWeights, uint32_t capacity,
+                                                       uint32_t* countOut)
 {
-    if (targets == NULL || channelWeights == NULL || targetWeights == NULL)
+    if (targets == NULL || channelWeights == NULL || (targetWeights == NULL && capacity > 0))
     {
         return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = targets->targetCount;
+    }
+    if (targetWeights == NULL || capacity < targets->targetCount)
+    {
+        return mani_errorCapacity;
     }
     for (uint32_t c = 0; c < targets->channelCount; ++c)
     {
@@ -649,10 +657,11 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
 }
 
 maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights,
-                                  float* targetWeights)
+                                  float* targetWeightsOut, uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = MorphTargetWeightsWork(targets, channelWeights, targetWeights);
+    maniResult result =
+        MorphTargetWeightsWork(targets, channelWeights, targetWeightsOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

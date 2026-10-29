@@ -62,7 +62,7 @@ static maniBuilder* NewBuilder(void)
 
 static bool NameIs(const maniFbx* fbx, uint32_t model, const char* name)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* bone = maniFbxModelBoneName(fbx, model, &length);
     return bone != NULL && length == strlen(name) && memcmp(bone, name, length) == 0;
 }
@@ -106,7 +106,7 @@ static void TestSeven(void)
     CHECK(maniFbxRenamedCount(fbx) == 2 && maniFbxRenamedModel(fbx, 0) == 3 &&
               maniFbxRenamedModel(fbx, 1) == 4 && maniFbxRenamedModel(fbx, 2) == UINT32_MAX,
           "the renamed models");
-    uint32_t length = 7;
+    size_t length = 7;
     CHECK(maniFbxModelBoneName(fbx, 6, &length) == NULL && length == 0 &&
               maniFbxModelBoneName(fbx, 0, NULL) != NULL,
           "past the count; no length wanted");

@@ -170,7 +170,7 @@ extern "C"
         // A graph's clip slot without a clip, with a clip of another
         // skeleton (than the graph's, or its map's source), with a map
         // not made for the graph's skeleton or past
-        // MANI_MAX_GRAPH_MAPS maps, or with a clip an earlier slot
+        // MANI_MAX_GRAPH_RETARGET_MAPS maps, or with a clip an earlier slot
         // (other) has. A learned
         // model trainer's clip whose identity is not its database's (item
         // the clip), or a clip count not the database's (item the count,
@@ -382,7 +382,7 @@ extern "C"
     {
         // The name, UTF-8, not empty, unique in the skeleton.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // The parent's index in the source's bones, or -1 for a root.
         int32_t parent;
         // The rest transform relative to the parent; the rotation is
@@ -404,9 +404,11 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The bones.
     /// @return `mani_success`; `mani_errorLimit` with
-    /// `maniBuildReasonCount` for more than MANI_MAX_BONES bones (no
-    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse) or with
-    /// the reason and source bone for a refused source;
+    /// `maniBuildReasonCount` for more than MANI_MAX_BONES bones, or with
+    /// `maniBuildReasonName` and the source bone for a name past
+    /// MANI_MAX_NAME_BYTES (no misuse); `mani_errorInvalid` for a NULL
+    /// argument (a misuse) or with the reason and source bone for a
+    /// refused source;
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
@@ -558,7 +560,7 @@ extern "C"
     {
         // UTF-8, not empty, unique among float tracks.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // One float a key, or three for a cubic spline.
         maniChannelSource keys;
     } maniFloatTrackSource;
@@ -568,7 +570,7 @@ extern "C"
     {
         // UTF-8, not empty, unique among discrete tracks.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         // At least one key, times strictly increasing within [0, duration].
         uint32_t keyCount;
         const float* times;
@@ -583,7 +585,7 @@ extern "C"
         int32_t payload;
         // UTF-8, not empty; names repeat freely.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniEventSource;
 
     // A clip: tracks for some of a skeleton's bones, in any order.
@@ -623,8 +625,9 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The clip.
     /// @return `mani_success`; `mani_errorLimit` with
-    /// `maniBuildReasonTiming` for more than MANI_MAX_SAMPLES samples (no
-    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse), or
+    /// `maniBuildReasonTiming` for more than MANI_MAX_SAMPLES samples, or
+    /// with the reason and track a refused name gets for a name past
+    /// MANI_MAX_NAME_BYTES (no misuse); `mani_errorInvalid` for a NULL argument (a misuse), or
     /// with the reason and track for a refused source;
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
@@ -779,7 +782,7 @@ extern "C"
     typedef struct maniColliderGroupSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t colliderCount;
         const uint32_t* colliders;
     } maniColliderGroupSource;
@@ -824,7 +827,7 @@ extern "C"
     typedef struct maniSpringSource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t jointCount;
         const maniSpringJointSource* joints;
         const uint32_t* colliderGroups;
@@ -861,8 +864,9 @@ extern "C"
     /// @param source   The set's source.
     /// @return `mani_success`; `mani_errorLimit` with
     /// `maniBuildReasonOption` (item 0 the reference rate, 1 the step
-    /// rate, past MANI_MAX_SPRING_RATE) or `maniBuildReasonCount` (more
-    /// than MANI_MAX_BONES springs), no misuse; `mani_errorInvalid` with
+    /// rate, past MANI_MAX_SPRING_RATE), `maniBuildReasonCount` (more
+    /// than MANI_MAX_BONES springs) or the reason and spring a refused
+    /// name gets (a name past MANI_MAX_NAME_BYTES), no misuse; `mani_errorInvalid` with
     /// the reason, item and other for a refused source (or NULL
     /// arguments, a misuse); `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
@@ -900,7 +904,7 @@ extern "C"
     typedef struct maniRagdollBodySource
     {
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t bone;
         maniVec3 frameTranslation;
         maniQuat frameRotation;
@@ -929,10 +933,12 @@ extern "C"
     ///
     /// @param builder  A builder; its last output is replaced on success.
     /// @param source   The profile's source.
-    /// @return `mani_success`; `mani_errorInvalid` with the reason, item
-    /// and other for a refused source (or NULL arguments, a misuse;
-    /// maniBuildReasonCount for no bodies or more than the skeleton's
-    /// bones); `mani_errorCapacity` when memory runs out.
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonName` and the body for a name past
+    /// MANI_MAX_NAME_BYTES (no misuse); `mani_errorInvalid` with the
+    /// reason, item and other for a refused source (or NULL arguments, a
+    /// misuse; maniBuildReasonCount for no bodies or more than the
+    /// skeleton's bones); `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildRagdoll(maniBuilder* builder,
@@ -1002,7 +1008,7 @@ extern "C"
         // The name, UTF-8, not empty; NULL for the channel's name followed
         // by '/' and the target's index within the channel past the first.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
     } maniMorphTargetSource;
 
     // A named channel: its targets at increasing full weights.
@@ -1010,7 +1016,7 @@ extern "C"
     {
         // The name, UTF-8, not empty, unique among the channels.
         const char* name;
-        uint32_t nameLength;
+        size_t nameLength;
         uint32_t targetCount;
         const maniMorphTargetSource* targets;
     } maniMorphChannelSource;
@@ -1036,7 +1042,9 @@ extern "C"
     /// @param source   The channels.
     /// @return `mani_success`; `mani_errorLimit` with
     /// `maniBuildReasonCount` for more than MANI_MAX_MORPH_ATTRIBUTES
-    /// attributes (item 0; no misuse); `mani_errorInvalid` for a NULL
+    /// attributes (item 0), or with `maniBuildReasonName` for a name past
+    /// MANI_MAX_NAME_BYTES (item the channel, or the target with other 1),
+    /// no misuse; `mani_errorInvalid` for a NULL
     /// argument (a misuse), or with the reason and item for a refused
     /// source (item a
     /// channel for `maniBuildReasonCount` on a channel without targets,

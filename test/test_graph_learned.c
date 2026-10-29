@@ -75,14 +75,16 @@ static bool Projected(Reference* r, const float* ahead, float* state)
     float scales[FEATURES];
     float query[FEATURES];
     float projected[STATE];
-    CHECK(maniLearnedModelNormalization(&s_learned, offsets, scales) == mani_success,
+    CHECK(maniLearnedModelNormalization(&s_learned, offsets, scales, s_learned.featureCount,
+                                        NULL) == mani_success,
           "the normalization");
     for (uint32_t i = 0; i < FEATURES; ++i)
     {
         query[i] = (ahead[i] - offsets[i]) / scales[i];
     }
-    CHECK(maniLearnedProject(&s_learned, 0, query, projected, s_work, sizeof s_work) ==
-              mani_success,
+    CHECK(maniLearnedProject(&s_learned, 0, query, projected,
+                             (s_learned.featureCount + s_learned.latentCount), NULL, s_work,
+                             sizeof s_work) == mani_success,
           "projected");
     float apart = 0.0f;
     for (uint32_t k = 0; k < FEATURES; ++k)
@@ -113,7 +115,7 @@ static void Events(Reference* r, const float* events, Expected* x)
         r->bits = on ? r->bits | 1u << e : r->bits & ~(1u << e);
         if (on && !was)
         {
-            uint32_t length = 0;
+            size_t length = 0;
             const char* name = maniLearnedModelEventName(&s_learned, e, &length);
             x->events[x->count++] =
                 (maniGraphEvent){0,
@@ -158,7 +160,7 @@ static Expected Advance(Reference* r, float delta, bool triggered, const float* 
     }
     r->time += step;
     float events[2];
-    maniLearnedOutput output = {NULL, NULL, events, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    maniLearnedOutput output = {NULL, NULL, 0, events, 2, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     CHECK(maniLearnedDecompress(&s_learned, state, &output, s_work, sizeof s_work) == mani_success,
           "decompressed");
     float seconds = (float)step;
@@ -236,7 +238,8 @@ static bool Posed(maniGraphInstance* instance, const Reference* r)
 {
     float state[STATE];
     Interpolated(r, state);
-    maniLearnedOutput output = {s_learnedPose, NULL, NULL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    maniLearnedOutput output = {s_learnedPose,     NULL, 0, NULL, 0, {0.0f, 0.0f, 0.0f},
+                                {0.0f, 0.0f, 0.0f}};
     if (maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
         maniLearnedDecompress(&s_learned, state, &output, s_work, sizeof s_work) != mani_success)
     {
@@ -623,12 +626,13 @@ static void TestSaved(void)
 {
     maniGraph g;
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     // The node's block is the first, after the values.
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success,
           "saved before its first update");
@@ -647,7 +651,7 @@ static void TestSaved(void)
     Update(instance, 0.025f);
     Ahead(instance, 0.1f, 0.2f);
     Update(instance, 0.03f);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     for (int k = 0; k < 6; ++k)
@@ -659,7 +663,8 @@ static void TestSaved(void)
               memcmp(LearnedBlock(instance, &g, 0), LearnedBlock(other, &g, 0),
                      4 * (4 + 2 * STATE + 1)) == 0,
           "playing alike");
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success, "saved");
+    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+          "saved");
     const uint32_t kBad[10][3] = {
         {maniGraphLearnedHas, 2, maniGraphLearnedHas},
         {maniGraphLearnedClock + 1, 0xBFF00000u, maniGraphLearnedClock},
@@ -746,7 +751,7 @@ static void TestCache(void)
 {
     maniGraph g;
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     uint32_t hidden = maniLearnedHiddenCount(&s_learned);
     float* cache = maniGraphLearnedCache(instance, 0);
     static float kept[1 + STATE + 1024];
@@ -768,7 +773,7 @@ static void TestCache(void)
                   memcmp(cache + 1, state, sizeof state) == 0,
               "the cache at the state");
         memcpy(kept, cache, bytes);
-        CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success,
+        CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
               "saved");
         // None kept, though at the state, with other hidden values: computed.
         cache[0] = 0.0f;
@@ -886,9 +891,10 @@ static void TestOverflow(void)
     }
     CHECK(posed, "the pose finite");
     maniGraphInstance* other = NULL;
-    size_t size = maniGraphStateSize(instance->binding);
+    size_t size = SavedGraphSize(instance);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0]) == mani_success &&
+              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+                  mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
               maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,

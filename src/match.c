@@ -679,7 +679,7 @@ maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database, uint32_
 }
 
 const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database, uint32_t channel,
-                                          uint32_t* lengthOut)
+                                          size_t* lengthOut)
 {
     if (database == NULL || channel >= database->channelCount)
     {
@@ -751,11 +751,19 @@ maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t 
 }
 
 maniResult maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32_t frame,
-                                      float* featuresOut)
+                                      float* featuresOut, uint32_t capacity, uint32_t* countOut)
 {
-    if (database == NULL || featuresOut == NULL || frame >= database->frameCount)
+    if (database == NULL || (featuresOut == NULL && capacity > 0) || frame >= database->frameCount)
     {
         return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = database->featureCount;
+    }
+    if (featuresOut == NULL || capacity < database->featureCount)
+    {
+        return mani_errorCapacity;
     }
     size_t position = maniLoadU32(database->places + 4 * (size_t)frame);
     MANI_ASSERT(position < database->frameCount);
@@ -765,11 +773,19 @@ maniResult maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32
 }
 
 maniResult maniMotionDatabaseNormalization(const maniMotionDatabase* database, float* offsetsOut,
-                                           float* scalesOut)
+                                           float* scalesOut, uint32_t capacity, uint32_t* countOut)
 {
-    if (database == NULL)
+    if (database == NULL || (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
     {
         return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = database->featureCount;
+    }
+    if (capacity < database->featureCount)
+    {
+        return mani_errorCapacity;
     }
     size_t bytes = 4 * (size_t)database->featureCount;
     if (offsetsOut != NULL)

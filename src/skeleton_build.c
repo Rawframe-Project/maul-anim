@@ -72,6 +72,10 @@ static maniBuildResult CheckBones(const maniSkeletonSource* source)
         {
             return Refuse(maniBuildReasonParent, i, 0);
         }
+        if (maniNamePastLimit(bone->nameLength))
+        {
+            return (maniBuildResult){mani_errorLimit, maniBuildReasonName, i, 0};
+        }
         if (bone->name == NULL || bone->nameLength == 0 ||
             !maniValidUtf8((const uint8_t*)bone->name, bone->nameLength))
         {
@@ -270,7 +274,9 @@ static void Fill(const maniSkeletonSource* source, uint32_t* scratch[ScratchArra
         memcpy(l->rests + MANI_SKELETON_REST_SIZE * (size_t)k, &rest, MANI_SKELETON_REST_SIZE);
         maniStoreU64(l->hashes + 8 * (size_t)k, hashes[k]);
         maniStoreU32(l->spans + MANI_SKELETON_SPAN_SIZE * (size_t)k, (uint32_t)nameAt);
-        maniStoreU32(l->spans + MANI_SKELETON_SPAN_SIZE * (size_t)k + 4, bone->nameLength);
+        // The check took only names within MANI_MAX_NAME_BYTES.
+        maniStoreU32(l->spans + MANI_SKELETON_SPAN_SIZE * (size_t)k + 4,
+                     (uint32_t)bone->nameLength);
         memcpy(l->names + nameAt, bone->name, bone->nameLength);
         nameAt += bone->nameLength;
     }

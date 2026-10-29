@@ -573,11 +573,19 @@ maniResult maniLearnedModelChannel(const maniLearnedModel* model, uint32_t chann
 }
 
 maniResult maniLearnedModelNormalization(const maniLearnedModel* model, float* offsetsOut,
-                                         float* scalesOut)
+                                         float* scalesOut, uint32_t capacity, uint32_t* countOut)
 {
-    if (model == NULL)
+    if (model == NULL || (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
     {
         return mani_errorInvalid;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = model->featureCount;
+    }
+    if (capacity < model->featureCount)
+    {
+        return mani_errorCapacity;
     }
     size_t bytes = 4 * (size_t)model->featureCount;
     if (offsetsOut != NULL)
@@ -611,7 +619,7 @@ maniResult maniLearnedModelProjector(const maniLearnedModel* model, uint32_t pro
     return mani_success;
 }
 
-static const char* Name(const maniLearnedModel* model, uint32_t k, uint32_t* lengthOut)
+static const char* Name(const maniLearnedModel* model, uint32_t k, size_t* lengthOut)
 {
     const uint8_t* e = model->names + (size_t)k * MANI_LEARNED_NAME_SIZE;
     if (lengthOut != NULL)
@@ -621,8 +629,18 @@ static const char* Name(const maniLearnedModel* model, uint32_t k, uint32_t* len
     return (const char*)(model->nameBytes + maniLoadU32(e));
 }
 
+uint32_t maniLearnedModelFloatTrackCount(const maniLearnedModel* model)
+{
+    return model == NULL ? 0 : model->floatTrackCount;
+}
+
+uint32_t maniLearnedModelEventCount(const maniLearnedModel* model)
+{
+    return model == NULL ? 0 : model->eventCount;
+}
+
 const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32_t track,
-                                           uint32_t* lengthOut)
+                                           size_t* lengthOut)
 {
     if (model == NULL || track >= model->floatTrackCount)
     {
@@ -632,7 +650,7 @@ const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32
 }
 
 const char* maniLearnedModelEventName(const maniLearnedModel* model, uint32_t event,
-                                      uint32_t* lengthOut)
+                                      size_t* lengthOut)
 {
     if (model == NULL || event >= model->eventCount)
     {

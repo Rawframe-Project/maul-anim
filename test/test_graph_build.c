@@ -320,7 +320,7 @@ static void TestChainMask(void)
           "a chain graph");
     float inside[CHAIN];
     float outside[CHAIN];
-    CHECK(maniBuildMask(&s_chain, &kChain, 1, 0.0f, inside, CHAIN) == mani_success, "a mask");
+    CHECK(maniBuildMask(&s_chain, &kChain, 1, 0.0f, inside, CHAIN, NULL) == mani_success, "a mask");
     for (int b = 0; b < CHAIN; ++b)
     {
         outside[b] = 1.0f - inside[b];

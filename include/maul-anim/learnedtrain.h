@@ -155,8 +155,9 @@ extern "C"
     /// database rate past MANI_MAX_LEARNED_RATE), `maniBuildReasonCount`
     /// (more than MANI_MAX_LEARNED_PROJECTORS Projectors,
     /// MANI_MAX_LEARNED_FLOAT_TRACKS float tracks or
-    /// MANI_MAX_LEARNED_EVENTS events); `mani_errorInvalid` for a NULL
-    /// argument, a def without its cookie, an allocator or task hooks with
+    /// MANI_MAX_LEARNED_EVENTS events) or a name past MANI_MAX_NAME_BYTES
+    /// (the reason and item a refused name gets); `mani_errorInvalid` for a
+    /// NULL argument, a def without its cookie, an allocator or task hooks with
     /// one function, a list missing, or with the reason and item for a
     /// refused source: `maniBuildReasonOption` (item the option's place:
     /// no latent values, no width, a batch not a multiple of 4, a window
@@ -211,28 +212,26 @@ extern "C"
                                                         uint64_t iterations,
                                                         maniLearnedTrainerReport* reportOut);
 
-    /// Returns the size of a checkpoint of the trainer as it is now.
+    /// Writes a checkpoint of the trainer as it is now: its progress,
+    /// generator, networks and AdamW moments, under the signature of its
+    /// source and options. Call it with a NULL buffer and capacity 0 to
+    /// measure; the size changes as training moves through its stages.
     ///
-    /// @param trainer  The trainer.
-    /// @return The size in bytes; 0 for NULL.
-    /// @par Thread safety
-    /// Safe from any thread; the trainer is used by one thread at a time.
-    MANI_API size_t maniLearnedCheckpointSize(const maniLearnedTrainer* trainer);
-
-    /// Writes a checkpoint of the trainer: its progress, generator,
-    /// networks and AdamW moments, under the signature of its source and
-    /// options.
-    ///
-    /// @param trainer  The trainer.
-    /// @param bytes    Receives the checkpoint.
-    /// @param capacity The size of bytes.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorCapacity` when bytes holds less than
-    /// maniLearnedCheckpointSize.
+    /// @param trainer   The trainer.
+    /// @param bytesOut  Receives the checkpoint: at least capacity bytes;
+    ///                  may be NULL when capacity is 0.
+    /// @param capacity  The bytes bytesOut holds.
+    /// @param sizeOut   Receives the checkpoint's size in bytes. May be
+    ///                  NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is
+    /// smaller than the checkpoint, with the size still written and
+    /// nothing else; `mani_errorInvalid` for a NULL trainer or a NULL
+    /// buffer with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer,
-                                                                 void* bytes, size_t capacity);
+                                                                 void* bytesOut, size_t capacity,
+                                                                 size_t* sizeOut);
 
     /// Restores a checkpoint into a trainer of the same source and
     /// options, replacing its progress; training on gives the same bits
@@ -244,7 +243,9 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
     /// byte found wrong (the identity's, 40, for a checkpoint of another
-    /// source or options); `mani_errorVersion` for any other format version;
+    /// source or options); `mani_errorVersion` for any other format version
+    /// or a checkpoint written by a release of another ABI version
+    /// (MANI_ABI_VERSION), at offset 16;
     /// `mani_errorCapacity` when memory runs out (the trainer then starts
     /// over).
     /// @par Thread safety

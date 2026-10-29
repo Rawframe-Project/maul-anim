@@ -31,13 +31,15 @@ reads or counts records:
     maniGltfSkinCount
     maniGraphClipCount
     maniGraphDatabaseCount
-    maniGraphMapCount
+    maniGraphRetargetMapCount
     maniGraphModelCount
     maniGraphNodeCount
     maniGraphNodeInputCount
     maniGraphParameterCount
     maniGraphSpringSetCount
     maniInfluencesVertexCount
+    maniLearnedModelEventCount
+    maniLearnedModelFloatTrackCount
     maniMorphAttributeCount
     maniMorphChannelCount
     maniMorphTargetCount
@@ -55,13 +57,10 @@ sums integer sizes:
     maniGraphBindingSize
     maniGraphInstanceSize
     maniGraphScratchSize
-    maniGraphStateSize
     maniGraphSubsetSize
-    maniLearnedCheckpointSize
     maniLearnedScratchSize
     maniPoseSize
     maniRetargetScratchSize
-    maniSpringSavedSize
     maniSpringStateSize
 
 reads a stored identity or builds a constant:
@@ -70,8 +69,8 @@ reads a stored identity or builds a constant:
     maniGraphClipIdentity
     maniGraphDatabaseIdentity
     maniGraphIdentity
-    maniGraphMapIdentity
-    maniGraphMapSourceIdentity
+    maniGraphRetargetMapIdentity
+    maniGraphRetargetMapSourceIdentity
     maniGraphMirrorMapIdentity
     maniGraphModelIdentity
     maniGraphSkeletonIdentity
@@ -211,7 +210,7 @@ reads an index:
     maniGltfNodeSkin
     maniGltfRenamedNode
     maniGltfSkinSkeleton
-    maniGraphClipMap
+    maniGraphClipRetargetMap
     maniGraphNodeInput
     maniGraphOutputNode
     maniMirrorMapUnmatchedBone

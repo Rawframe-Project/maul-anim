@@ -903,7 +903,9 @@ static void TestMorphThenSkin(void)
     CHECK(maniOpenMorphTargets(s_morphFile, size, &m).result == mani_success, "morph targets open");
     const float channelWeights[2] = {0.7f, 0.8f};
     float weights[4];
-    CHECK(maniMorphTargetWeights(&m, channelWeights, weights) == mani_success, "weights");
+    CHECK(maniMorphTargetWeights(&m, channelWeights, weights, maniMorphTargetCount(&m), NULL) ==
+              mani_success,
+          "weights");
     memcpy(s_other, s_in, sizeof s_other);
     maniMorphStream morph[3] = {
         {s_in->position, s_other->position, sizeof(Vertex), sizeof(Vertex), maniMorphPosition, 0,

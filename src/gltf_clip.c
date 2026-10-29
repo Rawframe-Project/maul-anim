@@ -78,11 +78,11 @@ static uint32_t NodeBone(const Build* b, uint32_t node)
 // The first node named as the skeleton's root bone.
 static uint32_t RootNode(const Build* b)
 {
-    uint32_t length = 0;
+    size_t length = 0;
     const char* root = maniSkeletonBoneName(b->skeleton, 0, &length);
     for (uint32_t v = 0; v < b->gltf->nodeCount; ++v)
     {
-        uint32_t n = 0;
+        size_t n = 0;
         const char* name = maniGltfNodeName(b->gltf, v, &n);
         if (n == length && memcmp(name, root, n) == 0)
         {
@@ -478,15 +478,15 @@ static maniImportResult AddFloat(Build* b, const Bound* x, const char* name, siz
     {
         return Capacity();
     }
-    b->floats[b->floatCount] = (maniFloatTrackSource){
-        name, (uint32_t)length, {x->times, values, x->c.keys, x->c.interpolation}};
+    b->floats[b->floatCount] =
+        (maniFloatTrackSource){name, length, {x->times, values, x->c.keys, x->c.interpolation}};
     b->floatChannel[b->floatCount++] = x->index;
     return maniImportSuccess();
 }
 
 static maniImportResult WeightTracks(Build* b, const Bound* x)
 {
-    uint32_t nodeLength = 0;
+    size_t nodeLength = 0;
     const char* node = maniGltfNodeName(b->gltf, x->c.node, &nodeLength);
     uint32_t names = TargetNames(b->gltf, x->c.node, x->c.width);
     uint32_t element = names != MANI_JSON_NONE ? names + 1 : MANI_JSON_NONE;

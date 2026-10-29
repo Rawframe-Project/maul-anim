@@ -330,7 +330,7 @@ uint32_t maniGltfBufferCount(const maniGltf* gltf)
     return gltf->bufferCount;
 }
 
-const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer, uint32_t* lengthOut)
+const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer, size_t* lengthOut)
 {
     bool external = buffer < gltf->bufferCount && gltf->buffers[buffer].external;
     if (lengthOut != NULL)
@@ -399,7 +399,7 @@ uint32_t maniGltfAnimationCount(const maniGltf* gltf)
     return gltf->animationCount;
 }
 
-const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation, uint32_t* lengthOut)
+const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation, size_t* lengthOut)
 {
     const maniBoneNames* names = &gltf->animationNames;
     bool inRange = animation < gltf->animationCount;

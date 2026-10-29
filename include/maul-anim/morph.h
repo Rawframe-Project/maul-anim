@@ -132,7 +132,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
-                                              uint32_t* lengthOut);
+                                              size_t* lengthOut);
 
     /// Finds a channel by its name, in time linear in the channels.
     ///
@@ -160,7 +160,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
-                                             uint32_t* lengthOut);
+                                             size_t* lengthOut);
 
     /// Finds a target by its name, in time linear in the targets: the
     /// first of that name.
@@ -199,18 +199,26 @@ extern "C"
     /// shader: within each channel, the weight walks linearly from an
     /// implicit zero shape at 0 through the targets at their full
     /// weights, past the last (or first) extrapolated. A channel of one
-    /// target at 1 passes its weight through.
+    /// target at 1 passes its weight through. Call it with a NULL array
+    /// and capacity 0 to measure.
     ///
-    /// @param targets         Opened morph targets.
-    /// @param channelWeights  A finite weight a channel, any sign.
-    /// @param targetWeights   Receives a weight a target.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// a weight not finite (nothing written).
+    /// @param targets           Opened morph targets.
+    /// @param channelWeights    A finite weight a channel, any sign.
+    /// @param targetWeightsOut  Receives a weight a target; may be NULL
+    ///                          when capacity is 0.
+    /// @param capacity          The floats targetWeightsOut holds.
+    /// @param countOut          Receives the target count. May be NULL.
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
+    /// the target count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a NULL targets or weights, a NULL array with
+    /// a positive capacity, or a weight not finite (nothing written).
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMorphTargetWeights(const maniMorphTargets* targets,
                                                               const float* channelWeights,
-                                                              float* targetWeights);
+                                                              float* targetWeightsOut,
+                                                              uint32_t capacity,
+                                                              uint32_t* countOut);
 
     // A vertex stream a morph job moves: an attribute's floats at in,
     // written at out; strides in bytes between vertices, at least 4 times
