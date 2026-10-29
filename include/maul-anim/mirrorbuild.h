@@ -99,6 +99,7 @@ extern "C"
     /// `maniBuildReasonNone` for a NULL builder, source or skeleton, or a
     /// count without its list;
     /// `maniBuildReasonOption` for an unknown axis;
+    /// `maniBuildReasonCount` for partners past 4 GiB in all;
     /// `maniBuildReasonMirrorReference` (item the bone);
     /// `maniBuildReasonMirrorRule` (item the rule);
     /// `maniBuildReasonMirrorPair` (item the bone, other its partner);

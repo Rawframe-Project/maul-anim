@@ -379,6 +379,15 @@ static void TestOtherRefusals(void)
               "listed names past an allocation's room");
     }
 #endif
+    // Pairs are each other's partners, and the file stores a partner's
+    // offset in 32 bits: four names of MANI_MAX_NAME_BYTES pass it, refused
+    // before a byte of them is read.
+    source = Source();
+    const maniMirrorNamePairSource far[2] = {{"a", MANI_MAX_NAME_BYTES, MANI_MAX_NAME_BYTES, "b"},
+                                             {"c", MANI_MAX_NAME_BYTES, MANI_MAX_NAME_BYTES, "d"}};
+    source.namePairs = far;
+    source.namePairCount = 2;
+    CHECK(Refused(&source, maniBuildReasonCount, 0, 0), "name pairs past 4 GiB in all");
     source = Source();
     maniTransform reference[kBones];
     for (uint32_t b = 0; b < kBones; ++b)
