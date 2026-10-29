@@ -753,7 +753,9 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The graph.
     /// @return `mani_success`; `mani_errorLimit` with the reason and item
-    /// for a source past a bound (no misuse): Count (more items than the
+    /// for a source past a bound (no misuse): a name past
+    /// MANI_MAX_NAME_BYTES (the reason and item a refused name gets; a
+    /// condition's event at its Transition), Count (more items than the
     /// named limits, or subgraphs nested deeper than
     /// MANI_MAX_GRAPH_DEPTH), Clip (more maps than MANI_MAX_GRAPH_RETARGET_MAPS),
     /// Scalar (a time factor past MANI_MAX_GRAPH_TIME_FACTOR), Node (a

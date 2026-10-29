@@ -106,6 +106,10 @@ extern "C"
     /// `maniBuildReasonMirrorName` (item the name, other the earlier);
     /// `maniBuildReasonNameHash` for two names of one hash (item the later
     /// name, other the earlier);
+    /// `mani_errorLimit` with `maniBuildReasonMirrorRule` (item the rule)
+    /// for a find or replace past MANI_MAX_NAME_BYTES, or with
+    /// `maniBuildReasonMirrorName` (item the name) for a name, or a
+    /// partner a rule makes, past it (no misuse);
     /// `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
