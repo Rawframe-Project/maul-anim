@@ -462,7 +462,7 @@ static void TestTooManyMaps(void)
                maniCopyBuilt(builder, clipFiles[k], sizeof clipFiles[k], &size) == mani_success &&
                maniOpenClip(clipFiles[k], size, &clips[k]).result == mani_success;
         int length = snprintf(names[k], sizeof names[k], "c%u", (unsigned)k);
-        slots[k] = (maniGraphClipSource){&clips[k], names[k], (uint32_t)length, &maps[k]};
+        slots[k] = (maniGraphClipSource){&clips[k], names[k], (size_t)length, &maps[k]};
     }
     maniDestroyBuilder(builder);
     CHECK(made, "the maps and clips");

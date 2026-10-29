@@ -397,7 +397,7 @@ static const char* ObjectName(Morph* m, uint32_t object, uint32_t channel, size_
     }
     length = maniFbxObjectName(m->fbx, object, (uint8_t*)name, length);
     length = length > 0 ? length : Numbered(channel, name);
-    *lengthOut = (uint32_t)length;
+    *lengthOut = length;
     return name;
 }
 
@@ -464,7 +464,7 @@ static maniImportResult ShapeName(Morph* m, const maniMorphChannelSource* channe
         length = channel->nameLength + n;
     }
     target->name = name;
-    target->nameLength = (uint32_t)length;
+    target->nameLength = length;
     return maniFbxSuccess();
 }
 
@@ -535,8 +535,8 @@ static maniImportResult ReadOwner(Morph* m)
         r = ReadShape(m, k, NULL, target);
         length = length > 0 ? length : Numbered(c, name);
         target->name = name;
-        target->nameLength = (uint32_t)length;
-        m->channels[c++] = (maniMorphChannelSource){name, (uint32_t)length, 1, target};
+        target->nameLength = length;
+        m->channels[c++] = (maniMorphChannelSource){name, length, 1, target};
     }
     m->channelCount = c;
     return r;
@@ -588,7 +588,7 @@ static maniImportResult Unique(Morph* m)
         if (name != NULL)
         {
             memcpy(name, ch->name, ch->nameLength);
-            ch->nameLength += (uint32_t)Numbered(c, name + ch->nameLength);
+            ch->nameLength += Numbered(c, name + ch->nameLength);
             ch->name = name;
         }
     }

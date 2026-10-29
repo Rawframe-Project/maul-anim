@@ -478,8 +478,8 @@ static maniImportResult AddFloat(Build* b, const Bound* x, const char* name, siz
     {
         return Capacity();
     }
-    b->floats[b->floatCount] = (maniFloatTrackSource){
-        name, (uint32_t)length, {x->times, values, x->c.keys, x->c.interpolation}};
+    b->floats[b->floatCount] =
+        (maniFloatTrackSource){name, length, {x->times, values, x->c.keys, x->c.interpolation}};
     b->floatChannel[b->floatCount++] = x->index;
     return maniImportSuccess();
 }
