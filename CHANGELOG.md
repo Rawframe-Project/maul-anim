@@ -5,6 +5,95 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.6.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.6.0) (2026-10-29)
+
+### Changed
+
+- **Breaking: a saved state is read only by the release that wrote
+  it.** A saved graph instance and a saved spring state start with the
+  Maul family's 16-byte state prefix (magic, `MANI_ABI_VERSION`, format
+  version, header size), so their headers are 32 bytes and every saved
+  state's bytes change. `maniRestoreGraphInstance`,
+  `maniRestoreSpringState` and `maniRestoreLearnedCheckpoint` refuse a
+  state written by a release of another ABI version with
+  `mani_errorVersion`: before 1.0.0 that is any other release, from
+  1.0.0 another minor release. A state saved by 0.5.0 or earlier is
+  refused. Keep assets, not saved states, across an upgrade. Poses,
+  samples and file bytes do not change
+  ([#134](https://github.com/Rawframe-Project/maul-anim/pull/134)).
+- **Breaking: each save call reports the saved size.**
+  `maniSaveGraphInstance`, `maniSaveSpringState` and
+  `maniSaveLearnedCheckpoint` take a `sizeOut` after the capacity, and a
+  NULL buffer with capacity 0 measures. `maniGraphStateSize`,
+  `maniSpringSavedSize` and `maniLearnedCheckpointSize` are removed:
+  call the save with a NULL buffer instead
+  ([#129](https://github.com/Rawframe-Project/maul-anim/pull/129)).
+- **Breaking: every call that fills an array takes its capacity and
+  reports the count.** `maniMotionDatabaseFeatures`,
+  `maniMotionDatabaseNormalization`, `maniLearnedModelNormalization`,
+  `maniMorphTargetWeights` and `maniLearnedProject` take a capacity and
+  a `countOut` after the array; `maniGltfMorphWeights` and
+  `maniFbxMorphWeights` take a capacity in place of the exact count, and
+  a `countOut`; `maniRagdollBodiesFromPose`, `maniRagdollJointTargets`
+  and `maniBuildMask` take a `countOut` after the capacity.
+  `maniLearnedOutput` gains `floatTrackCapacity` and `eventCapacity`
+  after its arrays. A NULL array with capacity 0 measures
+  ([#133](https://github.com/Rawframe-Project/maul-anim/pull/133)).
+- **Breaking: name lengths are `size_t`.** Every name getter (the
+  skeleton's bones, a clip's tracks, the graph's slots and parameters, a
+  motion database's channels, a learned model's tracks and events, morph
+  channels and targets, a spring set's springs, and the glTF and FBX
+  importers' names) reports a length through `size_t*`, and every name
+  length a public struct carries is `size_t`, so a name read from one
+  call passes into a source unchanged. A builder refuses a name longer
+  than the new `MANI_MAX_NAME_BYTES` (2^31 - 1 bytes) with
+  `mani_errorLimit`, at the reason and item it gives that name
+  otherwise; before, a morph channel name past it was refused with
+  `mani_errorInvalid`, and a graph event name past it was hashed as if
+  empty
+  ([#135](https://github.com/Rawframe-Project/maul-anim/pull/135),
+  [#138](https://github.com/Rawframe-Project/maul-anim/pull/138)).
+- **Breaking: the graph's retargeting maps are named as such.**
+  `maniGraphMapCount`, `maniGraphMapIdentity`,
+  `maniGraphMapSourceIdentity` and `maniGraphClipMap` are
+  `maniGraphRetargetMapCount`, `maniGraphRetargetMapIdentity`,
+  `maniGraphRetargetMapSourceIdentity` and `maniGraphClipRetargetMap`;
+  `MANI_MAX_GRAPH_MAPS` is `MANI_MAX_GRAPH_RETARGET_MAPS`;
+  `maniGraphClipSource.map` is `retargetMap`, and `maniGraphAssets.maps`
+  and `mapCount` are `retargetMaps` and `retargetMapCount`
+  ([#136](https://github.com/Rawframe-Project/maul-anim/pull/136)).
+- Every builder's reference names the `MANI_MAX_NAME_BYTES` refusal, and
+  the getting-started guide gives the bound as an example of a fixed one
+  ([#155](https://github.com/Rawframe-Project/maul-anim/pull/155)).
+
+### Fixed
+
+- **The motion database builder no longer writes past its names.**
+  Channels may name one track, and their names' total was kept in 32
+  bits: two channels naming one track of 2^31 + 1 bytes wrapped it, and
+  copying the names wrote past the block it sized. Names past 4 GiB in
+  all are refused with `mani_errorInvalid` and `maniBuildReasonCount`,
+  before any name is read, and where `size_t` has 32 bits, sections past
+  what one allocation holds are refused with `mani_errorCapacity`
+  ([#143](https://github.com/Rawframe-Project/maul-anim/pull/143)).
+- **The mirror map builder sizes its working memory in 64 bits.** Where
+  `size_t` has 32 bits (WebAssembly), listed names totalling 4 GiB wrapped
+  the room for their partners, which were then written past it; such a
+  source is refused with `mani_errorCapacity`
+  ([#142](https://github.com/Rawframe-Project/maul-anim/pull/142)).
+- **The graph and mirror map builders refuse names past their files'
+  32-bit offsets.** Names or partners past 4 GiB in all were laid out
+  with wrapped offsets, so the file built pointed at other bytes; they
+  are refused with `mani_errorInvalid` and `maniBuildReasonCount`, and
+  the mirror map's sections past `size_t` with `mani_errorCapacity`
+  ([#144](https://github.com/Rawframe-Project/maul-anim/pull/144),
+  [#151](https://github.com/Rawframe-Project/maul-anim/pull/151)).
+- **An imported name past 4 GiB is refused, not cut short.** The glTF
+  and FBX importers cut a name's decoded length to 32 bits, handing the
+  builder the first bytes of the real name; the whole name now reaches
+  the builder, which refuses it with `mani_errorLimit`
+  ([#153](https://github.com/Rawframe-Project/maul-anim/pull/153)).
+
 ## [0.5.0](https://github.com/Rawframe-Project/maul-anim/releases/tag/v0.5.0) (2026-10-28)
 
 ### Changed
