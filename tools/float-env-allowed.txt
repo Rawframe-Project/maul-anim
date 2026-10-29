@@ -89,7 +89,7 @@ reads a stored identity or builds a constant:
     maniRetargetMap_GetIdentity
     maniRetargetMap_GetSourceIdentity
     maniRetargetMap_GetTargetIdentity
-    maniGetIdentityRootMove
+    maniRootMoveIdentity
     maniSkeleton_GetIdentity
     maniSkin_GetIdentity
     maniSkin_GetSkeletonIdentity

@@ -284,7 +284,7 @@ static uint32_t Play(maniGraphInstance* instance, const maniGraph* g, Reference*
         }
         maniGraphEvent events[4];
         uint32_t count = 0;
-        maniRootMove move = maniGetIdentityRootMove();
+        maniRootMove move = maniRootMoveIdentity();
         CHECK(maniGraphInstance_Update(instance, s->delta, events, 4, &count, &move) ==
                   mani_success,
               "updated");

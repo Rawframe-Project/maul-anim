@@ -147,7 +147,7 @@ static _Alignas(32) uint8_t s_poseMemory[4096];
 static maniRootMove TurnMove(float t, float step)
 {
     float to = t + step < 0.0f ? 0.0f : (t + step > 1.0f ? 1.0f : t + step);
-    maniRootMove move = maniGetIdentityRootMove();
+    maniRootMove move = maniRootMoveIdentity();
     CHECK(maniClip_GetRootMotion(&s_turn, t, to - t, &move) == mani_success, "a move");
     return move;
 }

@@ -336,7 +336,7 @@ static float MoveApart(maniRootMove a, maniRootMove b)
 
 static maniRootMove Move(const maniClip* clip, float time, float step)
 {
-    maniRootMove m = maniGetIdentityRootMove();
+    maniRootMove m = maniRootMoveIdentity();
     CHECK(maniClip_GetRootMotion(clip, time, step, &m) == mani_success, "a move");
     return m;
 }
@@ -393,8 +393,7 @@ static void TestMoves(void)
     maniRootMove between =
         maniComposeRootMotion(Inverted(SampleMove(&clip, 1)), SampleMove(&clip, 3));
     CHECK(MoveApart(Move(&clip, 0.25f, 0.5f), between) < 1e-6f, "between two samples");
-    CHECK(MoveApart(Move(&clip, 0.6f, 0.0f), maniGetIdentityRootMove()) < 1e-6f,
-          "no step, no move");
+    CHECK(MoveApart(Move(&clip, 0.6f, 0.0f), maniRootMoveIdentity()) < 1e-6f, "no step, no move");
     maniRootMove period =
         maniComposeRootMotion(Inverted(SampleMove(&clip, 0)), SampleMove(&clip, 4));
     CHECK(MoveApart(Move(&clip, 0.0f, 1.0f), period) < 1e-6f &&
@@ -420,12 +419,12 @@ static void TestMoves(void)
     }
     maniRootMove there = Move(&clip, 0.4f, 2.7f);
     maniRootMove back = Move(&clip, 0.4f + 2.7f, -2.7f);
-    CHECK(MoveApart(maniComposeRootMotion(there, back), maniGetIdentityRootMove()) < 2e-5f,
+    CHECK(MoveApart(maniComposeRootMotion(there, back), maniRootMoveIdentity()) < 2e-5f,
           "backward undoes forward");
     // The period turns a quarter about y, so four periods come back to
     // the start: a thousand periods by squaring are no move, a thousand
     // and one the period, and back the period's inverse.
-    CHECK(MoveApart(Move(&clip, 0.0f, 1000.0f), maniGetIdentityRootMove()) < 1e-5f &&
+    CHECK(MoveApart(Move(&clip, 0.0f, 1000.0f), maniRootMoveIdentity()) < 1e-5f &&
               MoveApart(Move(&clip, 0.0f, 1001.0f), period) < 1e-5f &&
               MoveApart(Move(&clip, 1001.0f, -1001.0f), Inverted(period)) < 1e-5f,
           "a thousand periods by squaring");
@@ -437,11 +436,11 @@ static void TestMoves(void)
                         maniComposeRootMotion(Inverted(SampleMove(&clip, 0)),
                                               SampleMove(&clip, 2))) < 1e-6f,
           "a clamped clip between its clamped times");
-    CHECK(MoveApart(Move(&clip, -3.0f, 2.0f), maniGetIdentityRootMove()) == 0.0f,
+    CHECK(MoveApart(Move(&clip, -3.0f, 2.0f), maniRootMoveIdentity()) == 0.0f,
           "both times before the start: no move");
     maniRootMove m;
     CHECK(maniClip_GetRootMotion(&without, 0.0f, 1.0f, &m) == mani_success &&
-              MoveApart(m, maniGetIdentityRootMove()) == 0.0f,
+              MoveApart(m, maniRootMoveIdentity()) == 0.0f,
           "a clip without root motion moves nothing");
     CHECK(maniClip_GetRootMotion(NULL, 0.0f, 1.0f, &m) == mani_errorInvalid &&
               maniClip_GetRootMotion(&clip, 0.0f, 1.0f, NULL) == mani_errorInvalid &&
@@ -477,7 +476,7 @@ static void TestBlend(void)
     };
     const float later[3] = {0.0f, 1.0f, 1.0f};
     CHECK(maniBlendRootMotion(turned, later, 3, &out) == mani_success &&
-              MoveApart(out, maniGetIdentityRootMove()) < 1e-6f,
+              MoveApart(out, maniRootMoveIdentity()) < 1e-6f,
           "a first move of weight 0 does not lead");
     const float one[2] = {0.0f, 3.0f};
     CHECK(maniBlendRootMotion(moves, one, 2, &out) == mani_success &&
@@ -485,7 +484,7 @@ static void TestBlend(void)
           "one weight: that move");
     const float none[2] = {0.0f, 0.0f};
     CHECK(maniBlendRootMotion(moves, none, 2, &out) == mani_success &&
-              MoveApart(out, maniGetIdentityRootMove()) == 0.0f &&
+              MoveApart(out, maniRootMoveIdentity()) == 0.0f &&
               maniBlendRootMotion(NULL, NULL, 0, &out) == mani_success,
           "no weight: no move");
     const float negative[2] = {1.0f, -1.0f};
@@ -498,7 +497,7 @@ static void TestBlend(void)
               maniBlendRootMotion(NULL, even, 2, &out) == mani_errorInvalid &&
               maniBlendRootMotion(moves, even, 2, NULL) == mani_errorInvalid,
           "misuses");
-    maniRootMove id = maniGetIdentityRootMove();
+    maniRootMove id = maniRootMoveIdentity();
     CHECK(MoveApart(maniComposeRootMotion(id, moves[0]), moves[0]) < 1e-7f &&
               MoveApart(maniComposeRootMotion(moves[0], id), moves[0]) < 1e-7f,
           "composing with no move");
