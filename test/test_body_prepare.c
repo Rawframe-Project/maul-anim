@@ -69,10 +69,10 @@ static void TestPullChain(void)
     CHECK(Solved(s_pose, &s, NULL), "a pull chain alone");
     CHECK(Sine(Sub(At(s_pose, kHandL), shoulder), Sub(goal, shoulder)) < 1e-5f,
           "the arm aimed at the goal from its first bone");
-    CHECK(Angle(maniPoseLocal(s_pose, kForeL).rotation, maniPoseLocal(s_other, kForeL).rotation) <
-                  1e-3f &&
-              Angle(maniPoseLocal(s_pose, kHandL).rotation,
-                    maniPoseLocal(s_other, kHandL).rotation) < 1e-3f,
+    CHECK(Angle(maniPose_GetLocal(s_pose, kForeL).rotation,
+                maniPose_GetLocal(s_other, kForeL).rotation) < 1e-3f &&
+              Angle(maniPose_GetLocal(s_pose, kHandL).rotation,
+                    maniPose_GetLocal(s_other, kHandL).rotation) < 1e-3f,
           "the arm turned whole, its shape kept");
     CHECK(Distance(At(s_pose, kHandR), At(s_other, kHandR)) < 1e-6f, "the other arm left");
     float before = asinf(Sine(Sub(At(s_other, kHandL), shoulder), Sub(goal, shoulder)));
@@ -87,8 +87,8 @@ static void TestPullChain(void)
 // strength 0, one pass.
 static bool Folded(maniVec3 goal, float stiffness)
 {
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success &&
-              maniPoseSetRest(s_other, &s_skeleton) == mani_success,
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success &&
+              maniPose_SetRest(s_other, &s_skeleton) == mani_success,
           "rest");
     maniBodyEffector foot = {.bone = kFoot,
                              .position = goal,
@@ -111,7 +111,7 @@ static void TestPreferred(void)
     // The shin's origin at (0.1, 0.45, 0), the foot's 0.45 below it: a
     // goal 0.15 below compresses by 2/3.
     CHECK(Folded((maniVec3){0.1f, 0.3f, 0.0f}, 0.0f), "a compressed leg");
-    maniQuat shin = maniPoseLocal(s_pose, kShin).rotation;
+    maniQuat shin = maniPose_GetLocal(s_pose, kShin).rotation;
     CHECK(fabsf(shin.x - sinf(0.5f / 3.0f)) < 1e-6f && fabsf(shin.y) < 1e-7f &&
               fabsf(shin.z) < 1e-7f,
           "the shin turned by its angles times the compression");
@@ -142,7 +142,7 @@ static void TestPrePull(void)
     maniBodySolve s = Left((maniVec3){0.6f, 1.2f, 0.3f});
     s.topMode = maniBodyTopPrePull;
     CHECK(Solved(s_pose, &s, NULL), "pre-pull in reach");
-    maniTransform hips[2] = {maniPoseLocal(s_pose, kHips), maniPoseLocal(s_other, kHips)};
+    maniTransform hips[2] = {maniPose_GetLocal(s_pose, kHips), maniPose_GetLocal(s_other, kHips)};
     CHECK(memcmp(&hips[0], &hips[1], sizeof hips[0]) == 0, "a goal in reach moves no top");
     // The left hand's reach from the hips: 0.2 + 0.25 + 0.25 + 0.3 + 0.25.
     maniVec3 far = {1.8f, 1.5f, 0.2f};
@@ -177,8 +177,8 @@ static void TestBranchAxis(void)
     s.bones = &chest;
     s.boneCount = 1;
     CHECK(Solved(s_pose, &s, NULL), "a branch's cone");
-    CHECK(Angle(maniPoseLocal(s_pose, kChest).rotation, maniPoseLocal(s_other, kChest).rotation) <
-              1e-3f,
+    CHECK(Angle(maniPose_GetLocal(s_pose, kChest).rotation,
+                maniPose_GetLocal(s_other, kChest).rotation) < 1e-3f,
           "a branch has no axis: its twist range unused");
 }
 
@@ -202,7 +202,8 @@ static void BuildLong(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_longFile, sizeof s_longFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_longFile, sizeof s_longFile, &size) ==
+                  mani_success &&
               maniOpenSkeleton(s_longFile, size, &s_long).result == mani_success,
           "the long chain");
     maniDestroyBuilder(builder);
@@ -217,9 +218,9 @@ static void TestBound(void)
                             .strength = 1.0f};
     maniBodySolve s = {.effectors = &tip, .effectorCount = 1, .iterations = 1, .weight = 1.0f};
     s.top = LONG - MANI_MAX_BODY_IK_BONES;
-    CHECK(maniBodyIkScratchSize(&s_long, &s) > 0, "a part of 128 bones");
+    CHECK(maniSkeleton_GetBodyIkScratchSize(&s_long, &s) > 0, "a part of 128 bones");
     s.top = LONG - MANI_MAX_BODY_IK_BONES - 1;
-    CHECK(maniBodyIkScratchSize(&s_long, &s) == 0, "a part of 129 bones refused");
+    CHECK(maniSkeleton_GetBodyIkScratchSize(&s_long, &s) == 0, "a part of 129 bones refused");
 }
 
 int main(void)

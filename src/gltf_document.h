@@ -144,9 +144,9 @@ struct maniGltf
     uint32_t channelTotal;
     uint32_t* meshValues;
     uint32_t meshCount;
-    // What maniGltfReadSprings last gave.
+    // What maniGltf_ReadSprings last gave.
     maniArena springs;
-    // What maniGltfReadRagdoll last gave.
+    // What maniGltf_ReadRagdoll last gave.
     maniArena ragdoll;
 };
 

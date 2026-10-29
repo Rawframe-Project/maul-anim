@@ -56,7 +56,8 @@ typedef struct Expected
 static void After(Reference* r)
 {
     memcpy(r->after, r->before, sizeof r->after);
-    CHECK(maniLearnedStep(&s_learned, r->after, s_work, sizeof s_work) == mani_success, "stepped");
+    CHECK(maniLearnedModel_Step(&s_learned, r->after, s_work, sizeof s_work) == mani_success,
+          "stepped");
 }
 
 static void Interpolated(const Reference* r, float* state)
@@ -75,16 +76,16 @@ static bool Projected(Reference* r, const float* ahead, float* state)
     float scales[FEATURES];
     float query[FEATURES];
     float projected[STATE];
-    CHECK(maniLearnedModelNormalization(&s_learned, offsets, scales, s_learned.featureCount,
-                                        NULL) == mani_success,
+    CHECK(maniLearnedModel_GetNormalization(&s_learned, offsets, scales, s_learned.featureCount,
+                                            NULL) == mani_success,
           "the normalization");
     for (uint32_t i = 0; i < FEATURES; ++i)
     {
         query[i] = (ahead[i] - offsets[i]) / scales[i];
     }
-    CHECK(maniLearnedProject(&s_learned, 0, query, projected,
-                             (s_learned.featureCount + s_learned.latentCount), NULL, s_work,
-                             sizeof s_work) == mani_success,
+    CHECK(maniLearnedModel_Project(&s_learned, 0, query, projected,
+                                   (s_learned.featureCount + s_learned.latentCount), NULL, s_work,
+                                   sizeof s_work) == mani_success,
           "projected");
     float apart = 0.0f;
     for (uint32_t k = 0; k < FEATURES; ++k)
@@ -116,7 +117,7 @@ static void Events(Reference* r, const float* events, Expected* x)
         if (on && !was)
         {
             size_t length = 0;
-            const char* name = maniLearnedModelEventName(&s_learned, e, &length);
+            const char* name = maniLearnedModel_GetEventName(&s_learned, e, &length);
             x->events[x->count++] =
                 (maniGraphEvent){0,
                                  MANI_NO_TRACK,
@@ -161,7 +162,8 @@ static Expected Advance(Reference* r, float delta, bool triggered, const float* 
     r->time += step;
     float events[2];
     maniLearnedOutput output = {NULL, NULL, 0, events, 2, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-    CHECK(maniLearnedDecompress(&s_learned, state, &output, s_work, sizeof s_work) == mani_success,
+    CHECK(maniLearnedModel_Decompress(&s_learned, state, &output, s_work, sizeof s_work) ==
+              mani_success,
           "decompressed");
     float seconds = (float)step;
     maniVec3 v = output.rootVelocity;
@@ -219,10 +221,10 @@ static bool Matches(maniGraphInstance* instance, const maniGraph* g, const Refer
 
 static bool SamePose(const maniPose* a, const maniPose* b)
 {
-    for (uint32_t k = 0; k < maniPoseBoneCount(a); ++k)
+    for (uint32_t k = 0; k < maniPose_GetBoneCount(a); ++k)
     {
-        maniTransform t = maniPoseLocal(a, k);
-        maniTransform u = maniPoseLocal(b, k);
+        maniTransform t = maniPose_GetLocal(a, k);
+        maniTransform u = maniPose_GetLocal(b, k);
         if (!(NearF(t.translation.x, (double)u.translation.x) &&
               NearF(t.translation.y, (double)u.translation.y) &&
               NearF(t.rotation.w, (double)u.rotation.w) && NearF(t.scale.x, (double)u.scale.x)))
@@ -240,8 +242,9 @@ static bool Posed(maniGraphInstance* instance, const Reference* r)
     Interpolated(r, state);
     maniLearnedOutput output = {s_learnedPose,     NULL, 0, NULL, 0, {0.0f, 0.0f, 0.0f},
                                 {0.0f, 0.0f, 0.0f}};
-    if (maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
-        maniLearnedDecompress(&s_learned, state, &output, s_work, sizeof s_work) != mani_success)
+    if (maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
+        maniLearnedModel_Decompress(&s_learned, state, &output, s_work, sizeof s_work) !=
+            mani_success)
     {
         return false;
     }
@@ -282,7 +285,8 @@ static uint32_t Play(maniGraphInstance* instance, const maniGraph* g, Reference*
         maniGraphEvent events[4];
         uint32_t count = 0;
         maniRootMove move = maniRootMoveIdentity();
-        CHECK(maniUpdateGraph(instance, s->delta, events, 4, &count, &move) == mani_success,
+        CHECK(maniGraphInstance_Update(instance, s->delta, events, 4, &count, &move) ==
+                  mani_success,
               "updated");
         Expected x = Advance(r, s->delta, s->trigger, s->ahead);
         if (!Matches(instance, g, r, &x, events, count, &move))
@@ -342,7 +346,7 @@ static void TestMirrored(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, &ms).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenMirrorMap(file, size, &map).result == mani_success,
           "a mirror map");
     maniDestroyBuilder(builder);
@@ -367,7 +371,7 @@ static void TestMirrored(void)
     uint32_t total = 0;
     for (int k = 0; k < kUpdates; ++k)
     {
-        (void)maniUpdateGraph(instance, 0.05f, heard[k], 2, &counts[k], &plain[k]);
+        (void)maniGraphInstance_Update(instance, 0.05f, heard[k], 2, &counts[k], &plain[k]);
         total += counts[k];
     }
     maniGraphNodeSource nodes[3] = {LearnedNode(0.1f, 0.0f), Above(0), Above(0)};
@@ -385,8 +389,9 @@ static void TestMirrored(void)
         maniRootMove move;
         maniGraphEvent got[2];
         uint32_t count = 0;
-        maniRootMove want = maniMirrorRootMotion(&map, plain[k]);
-        moves = moves && maniUpdateGraph(instance, 0.05f, got, 2, &count, &move) == mani_success &&
+        maniRootMove want = maniMirrorMap_MirrorRootMotion(&map, plain[k]);
+        moves = moves &&
+                maniGraphInstance_Update(instance, 0.05f, got, 2, &count, &move) == mani_success &&
                 NearF(move.translation.x, (double)want.translation.x) &&
                 NearF(move.translation.y, (double)want.translation.y) &&
                 NearF(move.translation.z, (double)want.translation.z) &&
@@ -396,7 +401,7 @@ static void TestMirrored(void)
         events = events && count == counts[k];
         for (uint32_t i = 0; events && i < count && i < 2; ++i)
         {
-            events = got[i].nameHash == maniMirrorNameHash(&map, heard[k][i].nameHash) &&
+            events = got[i].nameHash == maniMirrorMap_MirrorNameHash(&map, heard[k][i].nameHash) &&
                      got[i].nameHash != heard[k][i].nameHash;
         }
     }
@@ -412,8 +417,9 @@ static void TestFirst(void)
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.0f), &g);
     uint32_t* block = LearnedBlock(instance, &g, 0);
     CHECK(Zero(block, BLOCK_WORDS) &&
-              maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
-              maniPoseSetRest(s_learnedPose, &s_skeleton) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success &&
+              maniPose_SetRest(s_learnedPose, &s_skeleton) == mani_success &&
               SamePose(s_pose, s_learnedPose),
           "no state before the first update: the rest pose");
     Update(instance, 0.0f);
@@ -429,7 +435,7 @@ static void TestFirst(void)
     maniGraphValue v;
     Set(instance, 1, maniGraphParameterTrigger, Int(1));
     Update(instance, 0.01f);
-    CHECK(maniGetGraphParameter(instance, 1, &v) == mani_success && v.b == 0,
+    CHECK(maniGraphInstance_GetParameter(instance, 1, &v) == mani_success && v.b == 0,
           "the trigger consumed");
     CHECK(maniGraphLearnedFits(&g, maniLoadU32(g.nodes + 12), &s_learned), "the model fits");
 }
@@ -476,8 +482,9 @@ static void TestNoProjector(void)
     Update(instance, 0.25f);
     CHECK(Zero(LearnedBlock(instance, &g, 0), BLOCK_WORDS) && State(instance, &g, 0)->time == 0.0,
           "no Projector: no state");
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
-              maniPoseSetRest(s_learnedPose, &s_skeleton) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success &&
+              maniPose_SetRest(s_learnedPose, &s_skeleton) == mani_success &&
               SamePose(s_pose, s_learnedPose),
           "weighed with no state: the rest pose");
     v.i = 1;
@@ -525,7 +532,7 @@ static void TestFaint(void)
         Ahead(instance, s->ahead[0], s->ahead[1]);
         maniGraphEvent events[4];
         uint32_t count = 0;
-        CHECK(maniUpdateGraph(instance, s->delta, events, 4, &count, NULL) == mani_success,
+        CHECK(maniGraphInstance_Update(instance, s->delta, events, 4, &count, NULL) == mani_success,
               "updated");
         Expected x = Advance(&r, s->delta, false, s->ahead);
         for (uint32_t e = 0; e < count && e < 4; ++e)
@@ -570,7 +577,7 @@ static void TestWeightless(void)
     maniGraphValue t;
     CHECK(memcmp(saved, LearnedBlock(instance, &g, 0), sizeof saved) == 0 &&
               State(instance, &g, 0)->time == time &&
-              maniGetGraphParameter(instance, 1, &t) == mani_success && t.b == 1,
+              maniGraphInstance_GetParameter(instance, 1, &t) == mani_success && t.b == 1,
           "unselected: its block, time and trigger kept");
 }
 
@@ -631,7 +638,7 @@ static void TestSaved(void)
     // The node's block is the first, after the values.
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+              maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) ==
                   mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success,
@@ -643,7 +650,7 @@ static void TestSaved(void)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kNone[k][0], kNone[k][1]);
-        maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
         CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kNone[k][0],
               "a block of no state holding a value");
     }
@@ -651,8 +658,8 @@ static void TestSaved(void)
     Update(instance, 0.025f);
     Ahead(instance, 0.1f, 0.2f);
     Update(instance, 0.03f);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
-              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+              maniGraphInstance_Restore(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     for (int k = 0; k < 6; ++k)
     {
@@ -663,7 +670,7 @@ static void TestSaved(void)
               memcmp(LearnedBlock(instance, &g, 0), LearnedBlock(other, &g, 0),
                      4 * (4 + 2 * STATE + 1)) == 0,
           "playing alike");
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
           "saved");
     const uint32_t kBad[10][3] = {
         {maniGraphLearnedHas, 2, maniGraphLearnedHas},
@@ -680,7 +687,7 @@ static void TestSaved(void)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
-        maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
         if (r.result != mani_errorFormat || r.offset != block + 4 * kBad[k][2])
         {
             printf("  saved %d refused %d at %llu, want %u\n", k, (int)r.result,
@@ -691,7 +698,7 @@ static void TestSaved(void)
     }
     memcpy(s_saved[1], s_saved[0], size);
     maniStoreU32(s_saved[1] + block + 4 * (maniGraphLearnedBefore + 2 * STATE), 3);
-    CHECK(maniRestoreGraphInstance(other, s_saved[1], size).result == mani_success,
+    CHECK(maniGraphInstance_Restore(other, s_saved[1], size).result == mani_success,
           "both events' bits");
     // A clock of a whole step, which the step would have taken.
     double whole = 1.0 / (double)s_learned.stepRate;
@@ -700,7 +707,7 @@ static void TestSaved(void)
     memcpy(s_saved[1], s_saved[0], size);
     maniStoreU32(s_saved[1] + block + 4 * maniGraphLearnedClock, (uint32_t)wholeBits);
     maniStoreU32(s_saved[1] + block + 4 * (maniGraphLearnedClock + 1), (uint32_t)(wholeBits >> 32));
-    maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+    maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
     CHECK(r.result == mani_errorFormat && r.offset == block + 4 * maniGraphLearnedClock,
           "a clock of a whole step");
 }
@@ -729,10 +736,10 @@ static void TestReset(void)
 // Two poses' locals the same bits.
 static bool SameBits(const maniPose* a, const maniPose* b)
 {
-    for (uint32_t bone = 0; bone < maniPoseBoneCount(a); ++bone)
+    for (uint32_t bone = 0; bone < maniPose_GetBoneCount(a); ++bone)
     {
-        maniTransform t = maniPoseLocal(a, bone);
-        maniTransform u = maniPoseLocal(b, bone);
+        maniTransform t = maniPose_GetLocal(a, bone);
+        maniTransform u = maniPose_GetLocal(b, bone);
         if (memcmp(&t, &u, sizeof t) != 0)
         {
             return false;
@@ -765,7 +772,8 @@ static void TestCache(void)
         const Script* s = &kScript[k];
         Ahead(instance, s->ahead[0], s->ahead[1]);
         Set(instance, 1, maniGraphParameterTrigger, Int(s->trigger ? 1 : 0));
-        CHECK(maniUpdateGraph(instance, s->delta, NULL, 0, NULL, NULL) == mani_success, "updated");
+        CHECK(maniGraphInstance_Update(instance, s->delta, NULL, 0, NULL, NULL) == mani_success,
+              "updated");
         const uint32_t* block = LearnedBlock(instance, &g, 0);
         float state[STATE];
         maniGraphLearnedState(block, STATE, s_learned.stepRate, state);
@@ -773,7 +781,7 @@ static void TestCache(void)
                   memcmp(cache + 1, state, sizeof state) == 0,
               "the cache at the state");
         memcpy(kept, cache, bytes);
-        CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+        CHECK(maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
               "saved");
         // None kept, though at the state, with other hidden values: computed.
         cache[0] = 0.0f;
@@ -781,11 +789,11 @@ static void TestCache(void)
         {
             cache[1 + STATE + i] += 1.0f;
         }
-        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_learnedPose) ==
+        CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_learnedPose) ==
                   mani_success,
               "evaluated with none kept");
         // Kept at another state, with other hidden values: computed.
-        CHECK(maniRestoreGraphInstance(instance, s_saved[0], size).result == mani_success,
+        CHECK(maniGraphInstance_Restore(instance, s_saved[0], size).result == mani_success,
               "restored");
         memcpy(cache, kept, bytes);
         cache[1] = nextafterf(cache[1], HUGE_VALF);
@@ -793,23 +801,26 @@ static void TestCache(void)
         {
             cache[1 + STATE + i] += 1.0f;
         }
-        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+        CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                      mani_success &&
                   SameBits(s_pose, s_learnedPose),
               "kept at another state, computed");
-        CHECK(maniRestoreGraphInstance(instance, s_saved[0], size).result == mani_success,
+        CHECK(maniGraphInstance_Restore(instance, s_saved[0], size).result == mani_success,
               "restored");
         memcpy(cache, kept, bytes);
         for (uint32_t i = 0; i < hidden; ++i)
         {
             cache[1 + STATE + i] += 1.0f;
         }
-        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
+        CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success,
               "evaluated at other hidden values");
         taken += SameBits(s_pose, s_learnedPose) ? 0u : 1u;
-        CHECK(maniRestoreGraphInstance(instance, s_saved[0], size).result == mani_success,
+        CHECK(maniGraphInstance_Restore(instance, s_saved[0], size).result == mani_success,
               "restored");
         memcpy(cache, kept, bytes);
-        CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+        CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                      mani_success &&
                   SameBits(s_pose, s_learnedPose),
               "the cache's evaluation the same bits");
     }
@@ -849,9 +860,9 @@ static void TestOverflow(void)
     uint32_t count = 0;
     maniRootMove move;
     // The first update projects, then steps from the projection.
-    CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_errorFormat,
+    CHECK(maniGraphInstance_Update(instance, 0.0f, events, 8, &count, &move) == mani_errorFormat,
           "the first step past the float range refused as the model's data");
-    maniResult r = maniUpdateGraph(instance, 0.05f, events, 8, &count, &move);
+    maniResult r = maniGraphInstance_Update(instance, 0.05f, events, 8, &count, &move);
     CHECK(r == mani_errorFormat, "and every step after it");
     bool finite = isfinite(move.translation.x) && isfinite(move.translation.y) &&
                   isfinite(move.translation.z) && isfinite(move.rotation.x) &&
@@ -863,8 +874,8 @@ static void TestOverflow(void)
     }
     CHECK(finite, "the update's root motion and events finite");
     maniGraphNodeView view;
-    CHECK(maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1 &&
-              maniInspectGraphNode(instance, 1, &view) == mani_success && view.failed == 0,
+    CHECK(maniGraphInstance_InspectNode(instance, 0, &view) == mani_success && view.failed == 1 &&
+              maniGraphInstance_InspectNode(instance, 1, &view) == mani_success && view.failed == 0,
           "the learned node named as failed, the node above it not");
     const uint32_t* block = LearnedBlock(instance, &g, 0);
     bool held = block[maniGraphLearnedHas] == 1;
@@ -876,10 +887,11 @@ static void TestOverflow(void)
     }
     CHECK(held, "the node held at a finite state");
     maniTransform locals[64];
-    uint32_t bones = maniSkeletonBoneCount(&s_skeleton);
-    bool posed = bones <= 64 &&
-                 maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
-                 maniPoseReadLocals(s_pose, 0, bones, locals) == mani_success;
+    uint32_t bones = maniSkeleton_GetBoneCount(&s_skeleton);
+    bool posed =
+        bones <= 64 &&
+        maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+        maniPose_ReadLocals(s_pose, 0, bones, locals) == mani_success;
     for (uint32_t b = 0; posed && b < bones; ++b)
     {
         float f[10];
@@ -893,11 +905,11 @@ static void TestOverflow(void)
     maniGraphInstance* other = NULL;
     size_t size = SavedGraphSize(instance);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+              maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) ==
                   mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
-              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Restore(other, s_saved[0], size).result == mani_success,
           "its saved state restores");
     // A Decompressor that overflows too: the update gives no move or event
     // from the node, and the evaluation the neutral pose, both reported.
@@ -915,11 +927,12 @@ static void TestOverflow(void)
     source = Source();
     CHECK(Opened(&source, &s_learned), "a model whose Decompressor overflows");
     instance = Learning(LearnedNode(0.1f, 0.0f), &g);
-    CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_errorFormat &&
+    CHECK(maniGraphInstance_Update(instance, 0.0f, events, 8, &count, &move) == mani_errorFormat &&
               count == 0 && move.translation.x == 0.0f && move.rotation.w == 1.0f,
           "no move and no event from the node");
-    posed = maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_errorFormat &&
-            maniPoseReadLocals(s_pose, 0, bones, locals) == mani_success;
+    posed = maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                mani_errorFormat &&
+            maniPose_ReadLocals(s_pose, 0, bones, locals) == mani_success;
     for (uint32_t b = 0; posed && b < bones; ++b)
     {
         float f[10];
@@ -929,7 +942,8 @@ static void TestOverflow(void)
             posed = posed && isfinite(f[k]);
         }
     }
-    CHECK(posed && maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1,
+    CHECK(posed && maniGraphInstance_InspectNode(instance, 0, &view) == mani_success &&
+              view.failed == 1,
           "the evaluation reported, its pose finite, the node named");
 }
 
@@ -984,15 +998,17 @@ static void TestRootOverflow(void)
         maniGraphEvent events[8];
         uint32_t count = 0;
         maniRootMove move;
-        CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_success,
+        CHECK(maniGraphInstance_Update(instance, 0.0f, events, 8, &count, &move) == mani_success,
               "no move over no time");
-        maniResult r = maniUpdateGraph(instance, kCases[c].delta, events, 8, &count, &move);
+        maniResult r =
+            maniGraphInstance_Update(instance, kCases[c].delta, events, 8, &count, &move);
         maniGraphNodeView view;
         CHECK(r == mani_errorFormat && isfinite(move.translation.x) &&
                   isfinite(move.translation.y) && isfinite(move.translation.z) &&
                   isfinite(move.rotation.x) && isfinite(move.rotation.y) &&
                   isfinite(move.rotation.z) && isfinite(move.rotation.w) &&
-                  maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 1,
+                  maniGraphInstance_InspectNode(instance, 0, &view) == mani_success &&
+                  view.failed == 1,
               kCases[c].name);
     }
     RootOutputs(33, 1e-40f);
@@ -1002,16 +1018,16 @@ static void TestRootOverflow(void)
     uint32_t count = 0;
     maniRootMove move;
     float seconds = 1.0f / 30.0f;
-    CHECK(maniUpdateGraph(instance, 0.0f, events, 8, &count, &move) == mani_success,
+    CHECK(maniGraphInstance_Update(instance, 0.0f, events, 8, &count, &move) == mani_success,
           "no move over no time");
-    maniResult r = maniUpdateGraph(instance, seconds, events, 8, &count, &move);
+    maniResult r = maniGraphInstance_Update(instance, seconds, events, 8, &count, &move);
     // Each axis turns by half its angle; the quaternion's length is 1.
     double half = (double)1e-40f * (double)seconds * 0.5;
     maniGraphNodeView view;
     CHECK(r == mani_success && move.rotation.w == 1.0f && move.rotation.x == move.rotation.y &&
               move.rotation.y == move.rotation.z &&
               fabs((double)move.rotation.x - half) < 0.01 * half &&
-              maniInspectGraphNode(instance, 0, &view) == mani_success && view.failed == 0,
+              maniGraphInstance_InspectNode(instance, 0, &view) == mani_success && view.failed == 0,
           "an angle whose reciprocal passes the float range turned by its first order");
 }
 

@@ -170,7 +170,7 @@ static void Stacks(const maniFbx* fbx)
 static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* skeleton,
                   const maniFbxOptions* options)
 {
-    for (uint32_t k = 0; k < maniFbxClipCount(fbx) && k < 3; ++k)
+    for (uint32_t k = 0; k < maniFbx_GetClipCount(fbx) && k < 3; ++k)
     {
         maniFbxAnimation a;
         if (maniFbxReadStack(fbx, k, &a).result != mani_success)
@@ -187,7 +187,7 @@ static void Clips(maniBuilder* builder, const maniFbx* fbx, const maniSkeleton* 
             maniImportClipOptions settings = maniDefaultImportClipOptions();
             settings.sampleRate = k == 1 ? 7.0f : 0.0f;
             settings.rootMotion = k == 1 ? &root : NULL;
-            (void)maniFbxBuildClip(builder, fbx, k, skeleton, options, &settings, &bound);
+            (void)maniBuildFbxClip(builder, fbx, k, skeleton, options, &settings, &bound);
         }
     }
 }
@@ -199,25 +199,26 @@ static void SkinsAndClips(maniBuilder* builder, const maniFbx* fbx, uint32_t ske
                           const maniFbxOptions* options)
 {
     size_t size = 0;
-    (void)maniCopyBuilt(builder, NULL, 0, &size);
+    (void)maniBuilder_CopyBuilt(builder, NULL, 0, &size);
     uint8_t* block = malloc(size + 16);
     uint8_t* file = block != NULL ? block + (16 - (uintptr_t)block % 16) % 16 : NULL;
     maniSkeleton opened;
-    if (file != NULL && maniCopyBuilt(builder, file, size, &size) == mani_success &&
+    if (file != NULL && maniBuilder_CopyBuilt(builder, file, size, &size) == mani_success &&
         maniOpenSkeleton(file, size, &opened).result == mani_success)
     {
-        for (uint32_t s = 0; !subtree && s < maniFbxSkinCount(fbx); ++s)
+        for (uint32_t s = 0; !subtree && s < maniFbx_GetSkinCount(fbx); ++s)
         {
             static _Alignas(16) uint8_t skinFile[1 << 16];
             size_t skinSize = 0;
             maniSkin skin;
-            (void)maniFbxSkinMethod(fbx, s);
-            if (maniFbxSkinSkeleton(fbx, s) == skeleton &&
-                maniFbxBuildSkin(builder, fbx, s, &opened, options).result == mani_success &&
-                maniCopyBuilt(builder, skinFile, sizeof skinFile, &skinSize) == mani_success &&
+            (void)maniFbx_GetSkinMethod(fbx, s);
+            if (maniFbx_GetSkinSkeleton(fbx, s) == skeleton &&
+                maniBuildFbxSkin(builder, fbx, s, &opened, options).result == mani_success &&
+                maniBuilder_CopyBuilt(builder, skinFile, sizeof skinFile, &skinSize) ==
+                    mani_success &&
                 maniOpenSkin(skinFile, skinSize, &skin).result == mani_success)
             {
-                (void)maniFbxBuildInfluences(builder, fbx, s, &skin);
+                (void)maniBuildFbxInfluences(builder, fbx, s, &skin);
             }
         }
         Clips(builder, fbx, &opened, options);
@@ -232,19 +233,19 @@ static void Morphs(maniBuilder* builder, const maniFbx* fbx, const maniFbxOption
     static _Alignas(16) uint8_t file[1 << 16];
     static float weights[256];
     static float positions[3 * 64];
-    for (uint32_t k = 0; k < maniFbxMorphCount(fbx) && k < 4; ++k)
+    for (uint32_t k = 0; k < maniFbx_GetMorphCount(fbx) && k < 4; ++k)
     {
-        (void)maniFbxMorphModel(fbx, k);
-        uint32_t count = maniFbxMorphTargetCount(fbx, k);
+        (void)maniFbx_GetMorphModel(fbx, k);
+        uint32_t count = maniFbx_GetMorphTargetCount(fbx, k);
         size_t size = 0;
         maniMorphTargets m;
         if (count <= 256 &&
-            maniFbxMorphWeights(fbx, k, weights, count, NULL).result == mani_success &&
-            maniFbxBuildMorphTargets(builder, fbx, k, options).result == mani_success &&
-            maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+            maniFbx_GetMorphWeights(fbx, k, weights, count, NULL).result == mani_success &&
+            maniBuildFbxMorphTargets(builder, fbx, k, options).result == mani_success &&
+            maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
             maniOpenMorphTargets(file, size, &m).result == mani_success)
         {
-            uint32_t vertices = maniMorphVertexCount(&m);
+            uint32_t vertices = maniMorphTargets_GetVertexCount(&m);
             maniMorphStream stream = {positions, positions, 12, 12, maniMorphPosition, 0, 3};
             maniMorphJob job = {&m, weights, 0, vertices < 64 ? vertices : 64, 1, &stream};
             memset(positions, 0, sizeof positions);
@@ -269,21 +270,21 @@ static void Build(maniBuilder* builder, const maniFbx* fbx)
     {
         Morphs(builder, fbx, &options[o]);
         maniAffine placement;
-        for (uint32_t k = 0; k < maniFbxSkeletonCount(fbx) && k < 4; ++k)
+        for (uint32_t k = 0; k < maniFbx_GetSkeletonCount(fbx) && k < 4; ++k)
         {
-            if (maniFbxBuildSkeleton(builder, fbx, k, &options[o]).result == mani_success)
+            if (maniBuildFbxSkeleton(builder, fbx, k, &options[o]).result == mani_success)
             {
                 SkinsAndClips(builder, fbx, k, false, &options[o]);
             }
-            (void)maniFbxSkeletonPlacement(fbx, k, &options[o], &placement);
+            (void)maniFbx_GetSkeletonPlacement(fbx, k, &options[o], &placement);
         }
-        for (uint32_t m = 0; m < maniFbxModelCount(fbx) && m < 4; ++m)
+        for (uint32_t m = 0; m < maniFbx_GetModelCount(fbx) && m < 4; ++m)
         {
-            if (maniFbxBuildModelSkeleton(builder, fbx, m, &options[o]).result == mani_success)
+            if (maniBuildFbxModelSkeleton(builder, fbx, m, &options[o]).result == mani_success)
             {
                 SkinsAndClips(builder, fbx, m, true, &options[o]);
             }
-            (void)maniFbxModelPlacement(fbx, m, &options[o], &placement);
+            (void)maniFbx_GetModelPlacement(fbx, m, &options[o], &placement);
         }
     }
 }
@@ -322,7 +323,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             const uint32_t* children = NULL;
             size_t length = 0;
             (void)maniFbxModelChildren(fbx, m, &children);
-            (void)maniFbxModelBoneName(fbx, m, &length);
+            (void)maniFbx_GetModelBoneName(fbx, m, &length);
         }
         maniFbxWorld* worlds = malloc(((size_t)fbx->modelCount + 1) * sizeof(maniFbxWorld));
         if (worlds != NULL)
@@ -331,7 +332,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             free(worlds);
         }
         uint8_t* marked = malloc((size_t)fbx->modelCount + 1);
-        for (uint32_t k = 0; marked != NULL && k < maniFbxSkeletonCount(fbx); ++k)
+        for (uint32_t k = 0; marked != NULL && k < maniFbx_GetSkeletonCount(fbx); ++k)
         {
             memset(marked, 0, (size_t)fbx->modelCount + 1);
             maniFbxMarkSkeleton(fbx, k, marked);

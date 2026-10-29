@@ -171,29 +171,31 @@ static void TestSkeleton(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     maniImportResult r = maniOpenFbx(builder, kScene, strlen(kScene), &fbx);
-    CHECK(r.result == mani_success && maniFbxVersion(fbx) == 5000 && maniFbxModelCount(fbx) == 3,
+    CHECK(r.result == mani_success && maniFbx_GetVersion(fbx) == 5000 &&
+              maniFbx_GetModelCount(fbx) == 3,
           "opens with three models");
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     size_t size = 0;
-    bool built =
-        fbx != NULL && maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
-    uint32_t hips = built ? maniSkeletonFindBone(&skeleton, "Hips", 4) : MANI_NO_BONE;
-    uint32_t spine = built ? maniSkeletonFindBone(&skeleton, "Spine", 5) : MANI_NO_BONE;
+    bool built = fbx != NULL &&
+                 maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+    uint32_t hips = built ? maniSkeleton_FindBone(&skeleton, "Hips", 4) : MANI_NO_BONE;
+    uint32_t spine = built ? maniSkeleton_FindBone(&skeleton, "Spine", 5) : MANI_NO_BONE;
     CHECK(hips != MANI_NO_BONE && spine != MANI_NO_BONE &&
-              maniSkeletonParent(&skeleton, spine) == hips,
+              maniSkeleton_GetParent(&skeleton, spine) == hips,
           "Children make the hierarchy");
-    maniTransform h = built ? maniSkeletonRest(&skeleton, hips) : (maniTransform){0};
-    maniTransform s = built ? maniSkeletonRest(&skeleton, spine) : (maniTransform){0};
+    maniTransform h = built ? maniSkeleton_GetRest(&skeleton, hips) : (maniTransform){0};
+    maniTransform s = built ? maniSkeleton_GetRest(&skeleton, spine) : (maniTransform){0};
     double half = 5.0 * 3.14159265358979323846 / 180.0;
     CHECK(built && Near((double)h.translation.x, 5) && Near((double)h.translation.y, 6) &&
               Near((double)h.translation.z, 0) && Near((double)s.rotation.z, sin(half)) &&
               Near((double)s.rotation.w, cos(half)),
           "rests from the last channel driving them");
     maniFbxSettings settings;
-    CHECK(fbx != NULL && maniFbxReadSettings(fbx, &settings) == mani_success &&
+    CHECK(fbx != NULL && maniFbx_ReadSettings(fbx, &settings) == mani_success &&
               settings.timeMode == 14 && settings.customRate == 24.0,
           "the legacy frame rate");
     maniCloseFbx(fbx);
@@ -220,12 +222,12 @@ static bool RowMatches(const maniClip* clip, const maniSkeleton* skeleton, const
 {
     maniPose* pose = NULL;
     if (maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
-        maniSampleClip(clip, skeleton, row->time, pose) != mani_success)
+        maniClip_Sample(clip, skeleton, row->time, pose) != mani_success)
     {
         return false;
     }
-    maniTransform h = maniPoseLocal(pose, maniSkeletonFindBone(skeleton, "Hips", 4));
-    maniTransform s = maniPoseLocal(pose, maniSkeletonFindBone(skeleton, "Spine", 5));
+    maniTransform h = maniPose_GetLocal(pose, maniSkeleton_FindBone(skeleton, "Hips", 4));
+    maniTransform s = maniPose_GetLocal(pose, maniSkeleton_FindBone(skeleton, "Spine", 5));
     double dot = (double)s.rotation.z * row->spine[0] + (double)s.rotation.w * row->spine[1];
     return Near((double)h.translation.x, row->hips[0]) &&
            Near((double)h.translation.y, row->hips[1]) &&
@@ -237,11 +239,11 @@ static const char* const kNames[2] = {"Walk", "(internal)"};
 // Whether the clips are these, by name.
 static bool NamesAre(const maniFbx* fbx, const char* const* names, uint32_t count)
 {
-    bool named = maniFbxClipCount(fbx) == count;
+    bool named = maniFbx_GetClipCount(fbx) == count;
     for (uint32_t k = 0; named && k < count; ++k)
     {
         size_t length = 0;
-        const char* name = maniFbxClipName(fbx, k, &length);
+        const char* name = maniFbx_GetClipName(fbx, k, &length);
         named = name != NULL && length == strlen(names[k]) && memcmp(name, names[k], length) == 0;
     }
     return named;
@@ -259,20 +261,22 @@ static void TestStacks(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     size_t size = 0;
-    bool built =
-        fbx != NULL && maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+    bool built = fbx != NULL &&
+                 maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
     for (uint32_t k = 0; built && k < 2; ++k)
     {
         maniClip clip;
-        bool rows = maniFbxBuildClip(
-                        builder, fbx, k, &skeleton, &options,
-                        &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
-                            .result == mani_success &&
-                    maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
-                    maniOpenClip(s_clipFile, size, &clip).result == mani_success &&
-                    Near((double)maniClipDuration(&clip), 1.0);
+        bool rows =
+            maniBuildFbxClip(builder, fbx, k, &skeleton, &options,
+                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                             NULL)
+                    .result == mani_success &&
+            maniBuilder_CopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+            maniOpenClip(s_clipFile, size, &clip).result == mani_success &&
+            Near((double)maniClip_GetDuration(&clip), 1.0);
         for (size_t r = 0; rows && r < sizeof kRows / sizeof kRows[0]; ++r)
         {
             rows = kRows[r].stack != k || RowMatches(&clip, &skeleton, &kRows[r]);
@@ -308,35 +312,36 @@ static void TestSkinAndShape(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     size_t size = 0;
-    bool built =
-        maniOpenFbx(builder, kScene, strlen(kScene), &fbx).result == mani_success &&
-        maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+    bool built = maniOpenFbx(builder, kScene, strlen(kScene), &fbx).result == mani_success &&
+                 maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
     maniSkin skin;
-    bool skinned = built && maniFbxSkinCount(fbx) == 1 &&
-                   maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
-                   maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
-                   maniOpenSkin(s_skinFile, size, &skin).result == mani_success;
-    CHECK(skinned && maniSkinJointCount(&skin) == 2 &&
-              maniSkinJoint(&skin, 0) == maniSkeletonFindBone(&skeleton, "Hips", 4) &&
-              maniSkinJoint(&skin, 1) == maniSkeletonFindBone(&skeleton, "Spine", 5),
+    bool skinned =
+        built && maniFbx_GetSkinCount(fbx) == 1 &&
+        maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+        maniOpenSkin(s_skinFile, size, &skin).result == mani_success;
+    CHECK(skinned && maniSkin_GetJointCount(&skin) == 2 &&
+              maniSkin_GetJoint(&skin, 0) == maniSkeleton_FindBone(&skeleton, "Hips", 4) &&
+              maniSkin_GetJoint(&skin, 1) == maniSkeleton_FindBone(&skeleton, "Spine", 5),
           "a skin of the links, in order");
-    maniAffine b0 = skinned ? maniSkinInverseBind(&skin, 0) : (maniAffine){{0}};
-    maniAffine b1 = skinned ? maniSkinInverseBind(&skin, 1) : (maniAffine){{0}};
+    maniAffine b0 = skinned ? maniSkin_GetInverseBind(&skin, 0) : (maniAffine){{0}};
+    maniAffine b1 = skinned ? maniSkin_GetInverseBind(&skin, 1) : (maniAffine){{0}};
     CHECK(IsBind(&b0, -5, -6, 0) && IsBind(&b1, -5, -7, 0), "binds from Transform");
     maniClip clip;
     bool clipped =
         built &&
-        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+        maniBuildFbxClip(builder, fbx, 0, &skeleton, &options,
                          &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
                 .result == mani_success &&
-        maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, &clip).result == mani_success;
     float value = -1.0f;
-    CHECK(clipped && maniClipFindFloatTrack(&clip, "Body/Smile", 10) != MANI_NO_TRACK &&
-              maniClipFloatTrackCount(&clip) == 1 &&
-              maniSampleClipFloats(&clip, 0.5f, &value, 1, NULL) == mani_success &&
+    CHECK(clipped && maniClip_FindFloatTrack(&clip, "Body/Smile", 10) != MANI_NO_TRACK &&
+              maniClip_GetFloatTrackCount(&clip) == 1 &&
+              maniClip_SampleFloats(&clip, 0.5f, &value, 1, NULL) == mani_success &&
               Near((double)value, 0.5),
           "the shape's weight, with no property of its name");
     maniCloseFbx(fbx);
@@ -370,7 +375,7 @@ static void TestShapeNames(void)
         frown = frown || maniFbxChannelNameIs(fbx, c, "Frown", 5);
     }
     CHECK(read && smile && suffix && frown, "the suffix cut where it ends a longer name");
-    CHECK(fbx != NULL && maniFbxClipCount(fbx) == 1, "no (internal) without model channels");
+    CHECK(fbx != NULL && maniFbx_GetClipCount(fbx) == 1, "no (internal) without model channels");
     if (fbx != NULL)
     {
         maniFbxReleaseAnimation(fbx, &a);
@@ -489,21 +494,21 @@ static void TestRests(void)
           "Lcl channels by name, one Default a single component");
     CHECK(open && !maniFbxLegacyRest(fbx, 2, 0, v), "no rest from a take node not a Model");
     maniFbxSettings settings;
-    CHECK(open && maniFbxReadSettings(fbx, &settings) == mani_success &&
+    CHECK(open && maniFbx_ReadSettings(fbx, &settings) == mani_success &&
               settings.customRate == 25.0,
           "a numeric FrameRate");
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     size_t size = 0;
-    bool built =
-        open && maniFbxSkeletonCount(fbx) == 1 &&
-        maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
-    uint32_t root = built ? maniSkeletonFindBone(&skeleton, "Root", 4) : MANI_NO_BONE;
+    bool built = open && maniFbx_GetSkeletonCount(fbx) == 1 &&
+                 maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+    uint32_t root = built ? maniSkeleton_FindBone(&skeleton, "Root", 4) : MANI_NO_BONE;
     CHECK(built && root != MANI_NO_BONE &&
-              maniSkeletonParent(&skeleton, maniSkeletonFindBone(&skeleton, "A", 1)) == root &&
-              maniSkeletonParent(&skeleton, maniSkeletonFindBone(&skeleton, "B", 1)) == root,
+              maniSkeleton_GetParent(&skeleton, maniSkeleton_FindBone(&skeleton, "A", 1)) == root &&
+              maniSkeleton_GetParent(&skeleton, maniSkeleton_FindBone(&skeleton, "B", 1)) == root,
           "a limb chain by Type, every child of the list");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -560,7 +565,7 @@ static void TestLinks(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     bool open = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success;
-    CHECK(open && maniFbxSkinCount(fbx) == 2, "skins of meshes only");
+    CHECK(open && maniFbx_GetSkinCount(fbx) == 2, "skins of meshes only");
     // Objects: Bone, Points, Group, Mesh (a skin, two clusters), Next (a
     // skin, a cluster), Lamp, Eye, Empty.
     CHECK(open && fbx->objectCount == 13, "the objects");
@@ -587,8 +592,8 @@ static void TestSixKeepsSuffix(void)
     maniFbxAnimation a;
     memset(&a, 0, sizeof a);
     bool read = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success &&
-                maniFbxClipCount(fbx) == 1 && maniFbxReadStack(fbx, 0, &a).result == mani_success &&
-                a.channelCount == 1;
+                maniFbx_GetClipCount(fbx) == 1 &&
+                maniFbxReadStack(fbx, 0, &a).result == mani_success && a.channelCount == 1;
     CHECK(read && maniFbxChannelNameIs(fbx, &a.channels[0], "Smile (Shape)", 13),
           "the suffix kept from 6.0 on, one stack");
     if (fbx != NULL)
@@ -622,7 +627,7 @@ static bool Settings(const char* text, maniFbxSettings* out)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     bool read = maniOpenFbx(builder, text, strlen(text), &fbx).result == mani_success &&
-                maniFbxReadSettings(fbx, out) == mani_success;
+                maniFbx_ReadSettings(fbx, out) == mani_success;
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
     return read;

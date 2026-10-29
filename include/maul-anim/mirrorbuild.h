@@ -167,15 +167,15 @@ extern "C"
     /// Builds a full-precision clip of a clip mirrored (bake it once,
     /// play it as any clip), and keeps it in the builder. The clip keeps
     /// the clip's sample rate, duration, loop policy and additive basis.
-    /// At each sample the pose is mirrored by maniMirrorPose; a channel
+    /// At each sample the pose is mirrored by maniMirrorMap_MirrorPose; a channel
     /// that is the rest at every sample is left out. An additive clip's
     /// differences are each added to the rest, mirrored, and taken as
     /// differences from the rest mirrored. Float tracks keep their values
     /// at the samples and their interpolation; discrete tracks, events
-    /// and markers are copied; every name is renamed by maniMirrorName.
+    /// and markers are copied; every name is renamed by maniMirrorMap_MirrorName.
     /// Root motion moves to the root motion bone's partner: each stored
     /// move (in the bone's parent's frame) reflected as
-    /// maniMirrorRootMotion reflects it and turned into the partner's
+    /// maniMirrorMap_MirrorRootMotion reflects it and turned into the partner's
     /// parent's frame mirrored, its source's axes following that turn
     /// (all axes, and the whole rotation, where it takes an axis off the
     /// axes).

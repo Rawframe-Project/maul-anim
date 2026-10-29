@@ -82,12 +82,13 @@ void maniDestroyBuilder(maniBuilder* builder)
     maniRelease(&allocator, builder, 1, sizeof(maniBuilder), alignof(maniBuilder));
 }
 
-uint32_t maniBuilderMisuses(const maniBuilder* builder)
+uint32_t maniBuilder_GetMisuse(const maniBuilder* builder)
 {
     return maniHostMisuses(&builder->host);
 }
 
-maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut)
+maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
+                                 size_t* sizeOut)
 {
     if (maniBuilderCalledBack(builder))
     {
@@ -117,8 +118,8 @@ maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
     return mani_success;
 }
 
-maniResult maniCopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
-                                 uint32_t* countOut)
+maniResult maniBuilder_CopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
+                                         uint32_t* countOut)
 {
     if (maniBuilderCalledBack(builder))
     {

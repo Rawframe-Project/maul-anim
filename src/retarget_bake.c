@@ -44,7 +44,8 @@ static maniResult Carry(const void* context, const maniPose* in, maniPose* out, 
                         size_t scratchSize)
 {
     const maniRetargetClipSource* s = ((const Bake*)context)->s;
-    return maniRetargetPose(s->map, s->source, in, s->target, out, scratch, scratchSize);
+    return maniRetargetMap_RetargetPose(s->map, s->source, in, s->target, out, scratch,
+                                        scratchSize);
 }
 
 static maniRootMove Move(const void* context, maniRootMove move)
@@ -59,7 +60,7 @@ static maniBuildResult PlaceRoot(Bake* b)
     const maniRetargetClipSource* s = b->s;
     maniRootMotionSource from;
     b->root = MANI_NO_BONE;
-    if (!maniClipRootMotionSource(s->clip, &from))
+    if (!maniClip_GetRootMotionSource(s->clip, &from))
     {
         return Result(mani_success, maniBuildReasonNone, 0, 0);
     }
@@ -111,13 +112,13 @@ static bool Usable(const maniRetargetClipSource* s)
 static maniBuildResult Matches(const maniRetargetClipSource* s)
 {
     const maniRetargetMap* m = s->map;
-    if (maniSkeletonIdentity(s->source) != m->sourceIdentity ||
-        maniSkeletonBoneCount(s->source) != m->sourceBoneCount)
+    if (maniSkeleton_GetIdentity(s->source) != m->sourceIdentity ||
+        maniSkeleton_GetBoneCount(s->source) != m->sourceBoneCount)
     {
         return Result(mani_errorInvalid, maniBuildReasonRetargetClip, 0, 0);
     }
-    if (maniSkeletonIdentity(s->target) != m->targetIdentity ||
-        maniSkeletonBoneCount(s->target) != m->targetBoneCount)
+    if (maniSkeleton_GetIdentity(s->target) != m->targetIdentity ||
+        maniSkeleton_GetBoneCount(s->target) != m->targetBoneCount)
     {
         return Result(mani_errorInvalid, maniBuildReasonRetargetClip, 0, 1);
     }
@@ -156,11 +157,11 @@ static MANI_NOINLINE maniBuildResult BuildRetargetedClipWork(maniBuilder* builde
                              .clip = source->clip,
                              .from = source->source,
                              .to = source->target,
-                             .scratchSize = maniRetargetScratchSize(source->map),
+                             .scratchSize = maniRetargetMap_GetScratchSize(source->map),
                              .carry = Carry,
                              .move = Move};
     maniRootMotionSource from;
-    if (maniClipRootMotionSource(source->clip, &from))
+    if (maniClip_GetRootMotionSource(source->clip, &from))
     {
         kind.declared = Declared(&b, from);
     }

@@ -192,7 +192,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniLearnedTrainerMisuses(const maniLearnedTrainer* trainer);
+    MANI_API uint32_t maniLearnedTrainer_GetMisuse(const maniLearnedTrainer* trainer);
 
     /// Trains on: up to iterations iterations, stage after stage. A stage
     /// whose iterations are all done ends (its network kept, the rest of
@@ -208,9 +208,8 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
     /// Its chunks run on the def's task hooks.
-    MANI_NODISCARD MANI_API maniResult maniTrainLearned(maniLearnedTrainer* trainer,
-                                                        uint64_t iterations,
-                                                        maniLearnedTrainerReport* reportOut);
+    MANI_NODISCARD MANI_API maniResult maniLearnedTrainer_Train(
+        maniLearnedTrainer* trainer, uint64_t iterations, maniLearnedTrainerReport* reportOut);
 
     /// Writes a checkpoint of the trainer as it is now: its progress,
     /// generator, networks and AdamW moments, under the signature of its
@@ -229,9 +228,8 @@ extern "C"
     /// buffer with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer,
-                                                                 void* bytesOut, size_t capacity,
-                                                                 size_t* sizeOut);
+    MANI_NODISCARD MANI_API maniResult maniLearnedTrainer_SaveCheckpoint(
+        const maniLearnedTrainer* trainer, void* bytesOut, size_t capacity, size_t* sizeOut);
 
     /// Restores a checkpoint into a trainer of the same source and
     /// options, replacing its progress; training on gives the same bits
@@ -250,9 +248,8 @@ extern "C"
     /// over).
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer,
-                                                                        const void* bytes,
-                                                                        size_t size);
+    MANI_NODISCARD MANI_API maniFileResult maniLearnedTrainer_RestoreCheckpoint(
+        maniLearnedTrainer* trainer, const void* bytes, size_t size);
 
     /// Builds the model a trainer has trained, every stage done, through
     /// maniBuildLearnedModel: its step rate the database's sample rate.

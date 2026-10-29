@@ -27,7 +27,7 @@ extern "C"
     // An opened glTF document.
     typedef struct maniGltf maniGltf;
 
-    // One clip's settings for maniGltfBuildClip and maniFbxBuildClip,
+    // One clip's settings for maniBuildGltfClip and maniBuildFbxClip,
     // beside the document's options.
     typedef struct maniImportClipOptions
     {
@@ -152,7 +152,7 @@ extern "C"
     /// magic), checking the container, the asset version, required
     /// extensions, buffers, buffer views and accessors. `data:` buffers
     /// are decoded into the document; external buffers wait for
-    /// maniGltfSupplyBuffer. Buffer views compressed by
+    /// maniGltf_SupplyBuffer. Buffer views compressed by
     /// `EXT_meshopt_compression` or `KHR_meshopt_compression` are
     /// decoded into the document once their streams' buffers are present
     /// (here for GLB and `data:` ones); a refused stream gives
@@ -186,7 +186,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfBufferCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetBufferCount(const maniGltf* gltf);
 
     /// Returns an external buffer's URI, as the JSON gives it after its
     /// escapes (a URI reference relative to the document; percent
@@ -202,8 +202,8 @@ extern "C"
     /// @return The URI, UTF-8 and not terminated, or NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer,
-                                           size_t* lengthOut);
+    MANI_API const char* maniGltf_GetBufferUri(const maniGltf* gltf, uint32_t buffer,
+                                               size_t* lengthOut);
 
     /// Supplies an external buffer's bytes, which the caller keeps alive
     /// and unchanged while the document is open. They must hold the
@@ -222,8 +222,8 @@ extern "C"
     /// fails.
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer,
-                                                                  const void* bytes, size_t size);
+    MANI_NODISCARD MANI_API maniImportResult maniGltf_SupplyBuffer(maniGltf* gltf, uint32_t buffer,
+                                                                   const void* bytes, size_t size);
 
     /// Returns the number of skeletons the document's skins make: skins
     /// sharing any node of their joints' hierarchy share one, numbered by
@@ -233,7 +233,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfSkeletonCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetSkeletonCount(const maniGltf* gltf);
 
     /// Returns the number of skins.
     ///
@@ -241,7 +241,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfSkinCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetSkinCount(const maniGltf* gltf);
 
     /// Returns the skeleton a skin is part of.
     ///
@@ -250,7 +250,7 @@ extern "C"
     /// @return The skeleton, or UINT32_MAX for a skin past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfSkinSkeleton(const maniGltf* gltf, uint32_t skin);
+    MANI_API uint32_t maniGltf_GetSkinSkeleton(const maniGltf* gltf, uint32_t skin);
 
     /// Returns the number of nodes.
     ///
@@ -258,7 +258,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfNodeCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetNodeCount(const maniGltf* gltf);
 
     /// Builds a skeleton of the document into the builder: its skins'
     /// joints, their common root and the nodes between, named by their
@@ -266,7 +266,7 @@ extern "C"
     ///
     /// @param builder   The builder.
     /// @param gltf      The document.
-    /// @param skeleton  The skeleton, below maniGltfSkeletonCount.
+    /// @param skeleton  The skeleton, below maniGltf_GetSkeletonCount.
     /// @param options   The options.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// skeleton past the count or options out of range;
@@ -274,7 +274,7 @@ extern "C"
     /// allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkeleton(maniBuilder* builder,
+    MANI_NODISCARD MANI_API maniImportResult maniBuildGltfSkeleton(maniBuilder* builder,
                                                                    const maniGltf* gltf,
                                                                    uint32_t skeleton,
                                                                    const maniGltfOptions* options);
@@ -285,10 +285,10 @@ extern "C"
     /// @param gltf     The document.
     /// @param node     The root node.
     /// @param options  The options.
-    /// @return As maniGltfBuildSkeleton.
+    /// @return As maniBuildGltfSkeleton.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildNodeSkeleton(
+    MANI_NODISCARD MANI_API maniImportResult maniBuildGltfNodeSkeleton(
         maniBuilder* builder, const maniGltf* gltf, uint32_t node, const maniGltfOptions* options);
 
     /// Returns a skeleton's placement: the product of the local
@@ -300,13 +300,13 @@ extern "C"
     /// @param options       The options.
     /// @param placementOut  Receives the placement.
     /// @return `mani_success`; `mani_errorInvalid` as
-    /// maniGltfBuildSkeleton; `mani_errorFormat` for a node above the
+    /// maniBuildGltfSkeleton; `mani_errorFormat` for a node above the
     /// root whose matrix is refused.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniImportResult
-    maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
-                              const maniGltfOptions* options, maniAffine* placementOut);
+    maniGltf_GetSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
+                                  const maniGltfOptions* options, maniAffine* placementOut);
 
     /// Builds a skin into the builder against an opened skeleton: each
     /// joint found by its bone name, the inverse binds read (identity
@@ -322,7 +322,7 @@ extern "C"
     /// with a reason; `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildSkin(maniBuilder* builder,
+    MANI_NODISCARD MANI_API maniImportResult maniBuildGltfSkin(maniBuilder* builder,
                                                                const maniGltf* gltf, uint32_t skin,
                                                                const maniSkeleton* skeleton,
                                                                const maniGltfOptions* options);
@@ -339,8 +339,8 @@ extern "C"
     /// @return The name, UTF-8 and not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node,
-                                              size_t* lengthOut);
+    MANI_API const char* maniGltf_GetNodeBoneName(const maniGltf* gltf, uint32_t node,
+                                                  size_t* lengthOut);
 
     /// Returns the number of nodes whose bone name is not their name as
     /// given: unnamed, or named as an earlier node. Their names follow
@@ -351,16 +351,16 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfRenamedCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetRenamedCount(const maniGltf* gltf);
 
     /// Returns a renamed node, in node order.
     ///
     /// @param gltf   The document.
-    /// @param index  Below maniGltfRenamedCount.
+    /// @param index  Below maniGltf_GetRenamedCount.
     /// @return The node, or UINT32_MAX past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfRenamedNode(const maniGltf* gltf, uint32_t index);
+    MANI_API uint32_t maniGltf_GetRenamedNode(const maniGltf* gltf, uint32_t index);
 
     /// Returns the number of animations.
     ///
@@ -368,7 +368,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfAnimationCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetAnimationCount(const maniGltf* gltf);
 
     /// Returns an animation's name, UTF-8 and not terminated; empty for an
     /// animation without one.
@@ -380,8 +380,8 @@ extern "C"
     /// @return The name, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation,
-                                               size_t* lengthOut);
+    MANI_API const char* maniGltf_GetAnimationName(const maniGltf* gltf, uint32_t animation,
+                                                   size_t* lengthOut);
 
     /// Builds one animation as a clip of an opened skeleton:
     /// translation, rotation and scale channels on its bones (found by
@@ -412,7 +412,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult
-    maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
+    maniBuildGltfClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
                       const maniSkeleton* skeleton, const maniGltfOptions* options,
                       const maniImportClipOptions* clipOptions, uint32_t* boundOut);
 
@@ -437,10 +437,10 @@ extern "C"
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfReadSprings(maniGltf* gltf,
-                                                                 const maniSkeleton* skeleton,
-                                                                 const maniGltfOptions* options,
-                                                                 maniSpringSetSource* setOut);
+    MANI_NODISCARD MANI_API maniImportResult maniGltf_ReadSprings(maniGltf* gltf,
+                                                                  const maniSkeleton* skeleton,
+                                                                  const maniGltfOptions* options,
+                                                                  maniSpringSetSource* setOut);
 
     /// Reads the document's `OMI_physics_body`, `OMI_physics_shape` and
     /// `OMI_physics_joint` extensions as a ragdoll profile's source on an
@@ -475,11 +475,11 @@ extern "C"
     /// fails.
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfReadRagdoll(maniGltf* gltf,
-                                                                 const maniSkeleton* skeleton,
-                                                                 const maniGltfOptions* options,
-                                                                 maniVec3 facing, maniVec3 up,
-                                                                 maniRagdollSource* sourceOut);
+    MANI_NODISCARD MANI_API maniImportResult maniGltf_ReadRagdoll(maniGltf* gltf,
+                                                                  const maniSkeleton* skeleton,
+                                                                  const maniGltfOptions* options,
+                                                                  maniVec3 facing, maniVec3 up,
+                                                                  maniRagdollSource* sourceOut);
 
     /// Returns the number of meshes in the document.
     ///
@@ -487,7 +487,7 @@ extern "C"
     /// @return The mesh count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfMeshCount(const maniGltf* gltf);
+    MANI_API uint32_t maniGltf_GetMeshCount(const maniGltf* gltf);
 
     /// Returns the number of primitives a mesh has.
     ///
@@ -497,7 +497,7 @@ extern "C"
     /// whose primitives are not an array.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfPrimitiveCount(const maniGltf* gltf, uint32_t mesh);
+    MANI_API uint32_t maniGltf_GetPrimitiveCount(const maniGltf* gltf, uint32_t mesh);
 
     /// Returns the number of morph targets a mesh primitive has.
     ///
@@ -507,8 +507,8 @@ extern "C"
     /// @return The target count; 0 for none or past a count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfPrimitiveTargetCount(const maniGltf* gltf, uint32_t mesh,
-                                                   uint32_t primitive);
+    MANI_API uint32_t maniGltf_GetPrimitiveTargetCount(const maniGltf* gltf, uint32_t mesh,
+                                                       uint32_t primitive);
 
     /// Returns the mesh a node instances.
     ///
@@ -517,7 +517,7 @@ extern "C"
     /// @return The mesh, or UINT32_MAX for none or a node past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfNodeMesh(const maniGltf* gltf, uint32_t node);
+    MANI_API uint32_t maniGltf_GetNodeMesh(const maniGltf* gltf, uint32_t node);
 
     /// Returns the skin that deforms a node's mesh.
     ///
@@ -526,7 +526,7 @@ extern "C"
     /// @return The skin, or UINT32_MAX for none or a node past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGltfNodeSkin(const maniGltf* gltf, uint32_t node);
+    MANI_API uint32_t maniGltf_GetNodeSkin(const maniGltf* gltf, uint32_t node);
 
     /// Reads the morph weights a node's mesh starts with: the node's
     /// `weights`, else its mesh's, else zeros. Call it with a NULL array
@@ -547,10 +547,11 @@ extern "C"
     /// not an array of that many numbers.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfMorphWeights(const maniGltf* gltf,
-                                                                  uint32_t node, float* weightsOut,
-                                                                  uint32_t capacity,
-                                                                  uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniImportResult maniGltf_GetMorphWeights(const maniGltf* gltf,
+                                                                      uint32_t node,
+                                                                      float* weightsOut,
+                                                                      uint32_t capacity,
+                                                                      uint32_t* countOut);
 
     /// Builds a primitive's influences into the builder, bound to an
     /// opened skin built from the glTF skin that deforms it (its joints
@@ -579,7 +580,7 @@ extern "C"
     /// allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniGltfBuildInfluences(maniBuilder* builder,
+    MANI_NODISCARD MANI_API maniImportResult maniBuildGltfInfluences(maniBuilder* builder,
                                                                      const maniGltf* gltf,
                                                                      uint32_t mesh,
                                                                      uint32_t primitive,
@@ -609,7 +610,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult
-    maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
+    maniBuildGltfMorphTargets(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
                               uint32_t primitive, const maniGltfOptions* options);
 
     /// Opens an FBX document from the bytes of a file, binary
@@ -646,7 +647,7 @@ extern "C"
     /// @return The version.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxVersion(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetVersion(const maniFbx* fbx);
 
     /// Returns the number of models (the objects of kind Model, in the
     /// order of the file's `Objects`), 0 for NULL.
@@ -655,7 +656,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxModelCount(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetModelCount(const maniFbx* fbx);
 
     /// Returns the bone name a model has in every skeleton, skin and clip
     /// built from the document: its name without its class,
@@ -669,8 +670,8 @@ extern "C"
     /// @return The name, UTF-8 and not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model,
-                                              size_t* lengthOut);
+    MANI_API const char* maniFbx_GetModelBoneName(const maniFbx* fbx, uint32_t model,
+                                                  size_t* lengthOut);
 
     /// Returns the number of models whose bone names differ from their
     /// names, 0 for NULL.
@@ -679,16 +680,16 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxRenamedCount(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetRenamedCount(const maniFbx* fbx);
 
     /// Returns a renamed model, in model order.
     ///
     /// @param fbx    The document.
-    /// @param index  Below maniFbxRenamedCount.
+    /// @param index  Below maniFbx_GetRenamedCount.
     /// @return The model, or UINT32_MAX past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index);
+    MANI_API uint32_t maniFbx_GetRenamedModel(const maniFbx* fbx, uint32_t index);
 
     /// Returns the number of skeletons: skins' linked models
     /// and limb chains, joined where they share a model, numbered by
@@ -698,7 +699,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxSkeletonCount(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetSkeletonCount(const maniFbx* fbx);
 
     /// Returns the number of skins (deformers of subclass Skin, in object
     /// order), 0 for NULL.
@@ -707,7 +708,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxSkinCount(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetSkinCount(const maniFbx* fbx);
 
     /// Returns the skeleton a skin is part of.
     ///
@@ -717,7 +718,7 @@ extern "C"
     /// one linking no model.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin);
+    MANI_API uint32_t maniFbx_GetSkinSkeleton(const maniFbx* fbx, uint32_t skin);
 
     /// Returns the model whose mesh a skin deforms: the skin's geometry's
     /// model (its own parent in 6.x files).
@@ -728,7 +729,7 @@ extern "C"
     /// with no mesh model.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxSkinModel(const maniFbx* fbx, uint32_t skin);
+    MANI_API uint32_t maniFbx_GetSkinModel(const maniFbx* fbx, uint32_t skin);
 
     // An FBX scene's settings (GlobalSettings).
     typedef struct maniFbxSettings
@@ -762,8 +763,8 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniFbxReadSettings(const maniFbx* fbx,
-                                                           maniFbxSettings* settingsOut);
+    MANI_NODISCARD MANI_API maniResult maniFbx_ReadSettings(const maniFbx* fbx,
+                                                            maniFbxSettings* settingsOut);
 
     // How an FBX document's skeletons, skins and clips are built.
     typedef struct maniFbxOptions
@@ -800,7 +801,7 @@ extern "C"
     ///
     /// @param builder   The builder.
     /// @param fbx       The document.
-    /// @param skeleton  The skeleton, below maniFbxSkeletonCount.
+    /// @param skeleton  The skeleton, below maniFbx_GetSkeletonCount.
     /// @param options   The options.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// skeleton past the count or options out of range;
@@ -808,7 +809,7 @@ extern "C"
     /// allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkeleton(maniBuilder* builder,
+    MANI_NODISCARD MANI_API maniImportResult maniBuildFbxSkeleton(maniBuilder* builder,
                                                                   const maniFbx* fbx,
                                                                   uint32_t skeleton,
                                                                   const maniFbxOptions* options);
@@ -817,12 +818,12 @@ extern "C"
     ///
     /// @param builder  The builder.
     /// @param fbx      The document.
-    /// @param model    The root model, below maniFbxModelCount.
+    /// @param model    The root model, below maniFbx_GetModelCount.
     /// @param options  The options.
-    /// @return As maniFbxBuildSkeleton.
+    /// @return As maniBuildFbxSkeleton.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildModelSkeleton(
+    MANI_NODISCARD MANI_API maniImportResult maniBuildFbxModelSkeleton(
         maniBuilder* builder, const maniFbx* fbx, uint32_t model, const maniFbxOptions* options);
 
     /// Returns where a skeleton's root hangs: the world of the model
@@ -835,14 +836,13 @@ extern "C"
     /// @param options       The options.
     /// @param placementOut  Receives the placement.
     /// @return `mani_success`; `mani_errorInvalid` as
-    /// maniFbxBuildSkeleton; `mani_errorFormat` for a model above the
+    /// maniBuildFbxSkeleton; `mani_errorFormat` for a model above the
     /// root whose properties are refused.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx,
-                                                                      uint32_t skeleton,
-                                                                      const maniFbxOptions* options,
-                                                                      maniAffine* placementOut);
+    MANI_NODISCARD MANI_API maniImportResult
+    maniFbx_GetSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
+                                 const maniFbxOptions* options, maniAffine* placementOut);
 
     /// Builds a skin into the builder against an opened skeleton:
     /// each cluster linking a model a joint, found by the
@@ -853,7 +853,7 @@ extern "C"
     ///
     /// @param builder   The builder.
     /// @param fbx       The document.
-    /// @param skin      The skin, below maniFbxSkinCount.
+    /// @param skin      The skin, below maniFbx_GetSkinCount.
     /// @param skeleton  An opened skeleton holding the skin's joints.
     /// @param options   The options the skeleton was built with.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
@@ -863,7 +863,7 @@ extern "C"
     /// additive cluster); `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildSkin(maniBuilder* builder,
+    MANI_NODISCARD MANI_API maniImportResult maniBuildFbxSkin(maniBuilder* builder,
                                                               const maniFbx* fbx, uint32_t skin,
                                                               const maniSkeleton* skeleton,
                                                               const maniFbxOptions* options);
@@ -878,10 +878,10 @@ extern "C"
     /// @return The method; linear for a skin past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin);
+    MANI_API maniSkinningMethod maniFbx_GetSkinMethod(const maniFbx* fbx, uint32_t skin);
 
     /// Builds a skin's influences into the builder, a vertex a control
-    /// point of its mesh, bound to the opened skin maniFbxBuildSkin built
+    /// point of its mesh, bound to the opened skin maniBuildFbxSkin built
     /// from it (a cluster's index its joint): every cluster's Indexes and
     /// Weights, indices past the control points skipped, a vertex given
     /// twice by one cluster summed, then sorted and renormalized as
@@ -900,7 +900,7 @@ extern "C"
     /// Build; `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildInfluences(maniBuilder* builder,
+    MANI_NODISCARD MANI_API maniImportResult maniBuildFbxInfluences(maniBuilder* builder,
                                                                     const maniFbx* fbx,
                                                                     uint32_t skin,
                                                                     const maniSkin* built);
@@ -913,7 +913,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxMorphCount(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetMorphCount(const maniFbx* fbx);
 
     /// Returns the mesh model a set of morph targets deforms; its bone
     /// name begins the clips' weight tracks for it (`<mesh>/<target>`).
@@ -923,7 +923,7 @@ extern "C"
     /// @return The model, or UINT32_MAX for none or a set past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxMorphModel(const maniFbx* fbx, uint32_t morph);
+    MANI_API uint32_t maniFbx_GetMorphModel(const maniFbx* fbx, uint32_t morph);
 
     /// Returns the number of targets a set of morph targets has: its
     /// channels' shapes, but a shape after another of the same full
@@ -934,7 +934,7 @@ extern "C"
     /// @return The count; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxMorphTargetCount(const maniFbx* fbx, uint32_t morph);
+    MANI_API uint32_t maniFbx_GetMorphTargetCount(const maniFbx* fbx, uint32_t morph);
 
     /// Builds a set of morph targets into the builder, as ufbx reads
     /// them: a channel a BlendShapeChannel (a Shape child before 7.2),
@@ -960,7 +960,7 @@ extern "C"
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxBuildMorphTargets(
+    MANI_NODISCARD MANI_API maniImportResult maniBuildFbxMorphTargets(
         maniBuilder* builder, const maniFbx* fbx, uint32_t morph, const maniFbxOptions* options);
 
     /// Reads the target weights a set of morph targets has at rest: each
@@ -981,10 +981,11 @@ extern "C"
     /// count; `mani_errorFormat` (Data) for a FullWeights value not finite.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph,
-                                                                 float* weightsOut,
-                                                                 uint32_t capacity,
-                                                                 uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniImportResult maniFbx_GetMorphWeights(const maniFbx* fbx,
+                                                                     uint32_t morph,
+                                                                     float* weightsOut,
+                                                                     uint32_t capacity,
+                                                                     uint32_t* countOut);
 
     /// Returns how many clips the document has: its animation stacks
     /// (takes), in file order.
@@ -993,7 +994,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniFbxClipCount(const maniFbx* fbx);
+    MANI_API uint32_t maniFbx_GetClipCount(const maniFbx* fbx);
 
     /// Returns a clip's name: its stack's, without the class, UTF-8 and
     /// not terminated.
@@ -1005,7 +1006,7 @@ extern "C"
     /// @return The name, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, size_t* lengthOut);
+    MANI_API const char* maniFbx_GetClipName(const maniFbx* fbx, uint32_t clip, size_t* lengthOut);
 
     /// Builds a clip into the builder for an opened skeleton:
     /// the stack's layers and curves evaluated as ufbx evaluates them, at
@@ -1023,7 +1024,7 @@ extern "C"
     ///
     /// @param builder     The builder.
     /// @param fbx         The document.
-    /// @param clip        The clip, below maniFbxClipCount.
+    /// @param clip        The clip, below maniFbx_GetClipCount.
     /// @param skeleton    An opened skeleton.
     /// @param options     The options the skeleton was built with.
     /// @param clipOptions The clip's settings; sample rate 0 for the
@@ -1032,7 +1033,7 @@ extern "C"
     ///                    drive models the clip reads. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// clip past the count, options out of range, or a clip setting out
-    /// of range (as maniGltfBuildClip); `mani_errorFormat` with a reason (Property with the clip
+    /// of range (as maniBuildGltfClip); `mani_errorFormat` with a reason (Property with the clip
     /// as item for a stack's curves or channels refused, or with the model
     /// for an animated integer input out of range; Matrix with the model
     /// for a local that does not decompose at a sample; Name with the
@@ -1042,24 +1043,23 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult
-    maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
+    maniBuildFbxClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
                      const maniSkeleton* skeleton, const maniFbxOptions* options,
                      const maniImportClipOptions* clipOptions, uint32_t* boundOut);
 
     /// Returns where a model skeleton's root hangs, as
-    /// maniFbxSkeletonPlacement.
+    /// maniFbx_GetSkeletonPlacement.
     ///
     /// @param fbx           The document.
     /// @param model         The root model.
     /// @param options       The options.
     /// @param placementOut  Receives the placement.
-    /// @return As maniFbxSkeletonPlacement.
+    /// @return As maniFbx_GetSkeletonPlacement.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniImportResult maniFbxModelPlacement(const maniFbx* fbx,
-                                                                   uint32_t model,
-                                                                   const maniFbxOptions* options,
-                                                                   maniAffine* placementOut);
+    MANI_NODISCARD MANI_API maniImportResult
+    maniFbx_GetModelPlacement(const maniFbx* fbx, uint32_t model, const maniFbxOptions* options,
+                              maniAffine* placementOut);
 
 #ifdef __cplusplus
 }

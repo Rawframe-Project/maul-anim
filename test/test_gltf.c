@@ -135,12 +135,12 @@ static void TestMinimal(void)
     maniGltf* gltf = NULL;
     const char* json = "{\"asset\":{\"version\":\"2.1\",\"generator\":\"x\"}}";
     CHECK(maniOpenGltf(builder, json, strlen(json), &gltf).result == mani_success, "opens");
-    CHECK(maniGltfBufferCount(gltf) == 0, "no buffers");
+    CHECK(maniGltf_GetBufferCount(gltf) == 0, "no buffers");
     maniCloseGltf(gltf);
     maniCloseGltf(NULL);
     CHECK(maniOpenGltf(builder, NULL, 0, &gltf).result == mani_errorInvalid, "null bytes");
     CHECK(maniOpenGltf(builder, json, strlen(json), NULL).result == mani_errorInvalid, "null out");
-    CHECK(maniBuilderMisuses(builder) == 2, "misuses");
+    CHECK(maniBuilder_GetMisuse(builder) == 2, "misuses");
     CHECK(maniOpenGltf(NULL, json, strlen(json), &gltf).result == mani_errorInvalid, "no builder");
     maniDestroyBuilder(builder);
 }
@@ -563,14 +563,14 @@ static void TestBufferRefusals(void)
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = NULL;
     CHECK(OpenJson(builder, &gltf).result == mani_success, "percent-encoded data");
-    CHECK(maniGltfBufferUri(gltf, 0, NULL) == NULL, "held, no URI");
+    CHECK(maniGltf_GetBufferUri(gltf, 0, NULL) == NULL, "held, no URI");
     maniCloseGltf(gltf);
     // The URI's scheme and media type compare without case.
     char upper[256];
     snprintf(upper, sizeof upper, "DATA:Application/Octet-Stream;BASE64,%s", DataUri() + 37);
     Document(upper, "", "", "");
     CHECK(OpenJson(builder, &gltf).result == mani_success &&
-              maniGltfBufferUri(gltf, 0, NULL) == NULL,
+              maniGltf_GetBufferUri(gltf, 0, NULL) == NULL,
           "case folded: data the document holds");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -584,26 +584,26 @@ static void TestExternalBuffer(void)
     maniGltf* gltf = NULL;
     CHECK(OpenJson(builder, &gltf).result == mani_success, "opens");
     size_t length = 0;
-    const char* uri = maniGltfBufferUri(gltf, 0, &length);
+    const char* uri = maniGltf_GetBufferUri(gltf, 0, &length);
     CHECK(uri != NULL && length == 16 && memcmp(uri, "my%20data/\xC3\xA9.bin", 16) == 0,
           "the URI, JSON escapes decoded, percent escapes left");
-    CHECK(maniGltfBufferUri(gltf, 1, &length) == NULL && length == 0, "past the count");
+    CHECK(maniGltf_GetBufferUri(gltf, 1, &length) == NULL && length == 0, "past the count");
     float out[6];
     maniImportResult r = maniGltfReadFloats(gltf, 0, out);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonPending, "not yet given");
     FillBuffer();
-    r = maniGltfSupplyBuffer(gltf, 0, s_buffer, 63);
+    r = maniGltf_SupplyBuffer(gltf, 0, s_buffer, 63);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuffer && r.offset == 63,
           "too few bytes");
-    CHECK(maniGltfSupplyBuffer(gltf, 0, NULL, 64).result == mani_errorInvalid, "null bytes");
-    CHECK(maniGltfSupplyBuffer(gltf, 1, s_buffer, 64).result == mani_errorInvalid, "past");
-    CHECK(maniGltfSupplyBuffer(gltf, 0, s_buffer, 64).result == mani_success, "given");
+    CHECK(maniGltf_SupplyBuffer(gltf, 0, NULL, 64).result == mani_errorInvalid, "null bytes");
+    CHECK(maniGltf_SupplyBuffer(gltf, 1, s_buffer, 64).result == mani_errorInvalid, "past");
+    CHECK(maniGltf_SupplyBuffer(gltf, 0, s_buffer, 64).result == mani_success, "given");
     CHECK(maniGltfReadFloats(gltf, 0, out).result == mani_success && out[5] == 6, "read");
     maniCloseGltf(gltf);
     // A held buffer takes no bytes from the host.
     Document(DataUri(), "", "", "");
     CHECK(OpenJson(builder, &gltf).result == mani_success, "opens");
-    CHECK(maniGltfSupplyBuffer(gltf, 0, s_buffer, 64).result == mani_errorInvalid, "held");
+    CHECK(maniGltf_SupplyBuffer(gltf, 0, s_buffer, 64).result == mani_errorInvalid, "held");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
@@ -711,7 +711,7 @@ static void TestGlb(void)
              "{\"byteLength\":8}]}");
     Glb(true);
     CHECK(OpenGlb(builder, &gltf).result == mani_success, "opens");
-    CHECK(maniGltfSupplyBuffer(gltf, 1, s_buffer, 8).result == mani_success,
+    CHECK(maniGltf_SupplyBuffer(gltf, 1, s_buffer, 8).result == mani_success,
           "the second buffer supplied");
     maniCloseGltf(gltf);
     // A total length not a multiple of 4, its bytes there.

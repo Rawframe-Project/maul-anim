@@ -59,7 +59,7 @@ static void Open(void)
     maniSkeletonSource skeleton = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "skeleton");
@@ -76,7 +76,7 @@ static void Open(void)
                                  .sampleRate = 10.0f,
                                  .additive = i == 2 ? maniAdditiveRest : maniAdditiveNone};
         CHECK(maniBuildClip(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) ==
+                  maniBuilder_CopyBuilt(builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) ==
                       mani_success &&
                   maniOpenClip(s_clipFiles[i], size, &s_clips[i]).result == mani_success,
               "a clip");
@@ -305,7 +305,8 @@ static size_t Write(const maniGraphSource* source, maniBuildResult* resultOut)
     size_t size = 0;
     if (resultOut->result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_text, sizeof s_text, &size) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &size) == mani_success,
+              "copies");
     }
     maniDestroyBuilder(builder);
     return size;
@@ -372,7 +373,7 @@ static void TestRefusals(void)
     CHECK(maniWriteGraphJson(NULL, &source).result == mani_errorInvalid, "no builder");
     maniBuilder* builder = NewBuilder(NULL);
     CHECK(maniWriteGraphJson(builder, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 1,
+              maniBuilder_GetMisuse(builder) == 1,
           "no source, a misuse");
     maniDestroyBuilder(builder);
 }
@@ -419,7 +420,7 @@ static maniBuildResult Read(const char* text, uint8_t* out, size_t* sizeOut)
     *sizeOut = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, out, 16384, sizeOut) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, out, 16384, sizeOut) == mani_success, "copies");
         CHECK(JsonPaddingIgnored(text, out, *sizeOut), "the same graph under either padding");
     }
     maniDestroyBuilder(builder);
@@ -431,7 +432,7 @@ static size_t Built(const maniGraphSource* source)
     maniBuilder* builder = NewBuilder(NULL);
     size_t size = 0;
     CHECK(maniBuildGraph(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
           "built");
     maniDestroyBuilder(builder);
     return size;
@@ -770,7 +771,7 @@ static void TestReadRefusals(void)
                   builder, "", 0,
                   &(maniGraphNamedAssets){&s_skeleton, NULL, NULL, NULL, NULL, 1, 0, 0, 0, NULL})
                       .result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 3,
+              maniBuilder_GetMisuse(builder) == 3,
           "misuses");
     maniDestroyBuilder(builder);
 }
@@ -833,7 +834,7 @@ static bool FailOnce(bool reading, uint32_t failAt, bool* cleanOut)
     size_t size = 1;
     bool failed = f.calls > f.failAt;
     bool clean = failed ? r.result == mani_errorCapacity &&
-                              maniCopyBuilt(builder, NULL, 0, &size) == mani_errorInvalid
+                              maniBuilder_CopyBuilt(builder, NULL, 0, &size) == mani_errorInvalid
                         : r.result == mani_success;
     maniDestroyBuilder(builder);
     *cleanOut = clean && f.live == 0;

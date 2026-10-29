@@ -840,8 +840,8 @@ static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
     return result;
 }
 
-maniImportResult maniGltfReadSprings(maniGltf* gltf, const maniSkeleton* skeleton,
-                                     const maniGltfOptions* options, maniSpringSetSource* setOut)
+maniImportResult maniGltf_ReadSprings(maniGltf* gltf, const maniSkeleton* skeleton,
+                                      const maniGltfOptions* options, maniSpringSetSource* setOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfReadSpringsWork(gltf, skeleton, options, setOut);

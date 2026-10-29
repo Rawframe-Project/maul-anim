@@ -91,9 +91,9 @@ static maniTransform LoadLocal(const float* locals, uint32_t bone)
         {g[0], g[8], g[16]}, {g[24], g[32], g[40], g[48]}, {g[56], g[64], g[72]}};
 }
 
-size_t maniPoseSize(const maniSkeleton* skeleton)
+size_t maniSkeleton_GetPoseSize(const maniSkeleton* skeleton)
 {
-    size_t bones = maniSkeletonBoneCount(skeleton);
+    size_t bones = maniSkeleton_GetBoneCount(skeleton);
     size_t groups = (bones + kGroupBones - 1) / kGroupBones;
     size_t size =
         kHeaderSize + groups * kGroupFloats * sizeof(float) + bones * kModelFloats * sizeof(float);
@@ -114,24 +114,24 @@ MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void*
     {
         return mani_errorInvalid;
     }
-    if (size < maniPoseSize(skeleton))
+    if (size < maniSkeleton_GetPoseSize(skeleton))
     {
         return mani_errorCapacity;
     }
     maniPose* pose = memory;
-    uint32_t bones = maniSkeletonBoneCount(skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(skeleton);
     *pose = (maniPose){
         .tag = kPoseTag,
         .boneCount = bones,
         .groups = (bones + kGroupBones - 1) / kGroupBones,
-        .identity = maniSkeletonIdentity(skeleton),
+        .identity = maniSkeleton_GetIdentity(skeleton),
     };
     // The padding bones of the last group.
     for (uint32_t bone = bones; bone < pose->groups * kGroupBones; ++bone)
     {
         StoreLocal(Locals(pose), bone, &s_identity);
     }
-    maniResult result = maniPoseSetRest(pose, skeleton);
+    maniResult result = maniPose_SetRest(pose, skeleton);
     *poseOut = pose;
     return result;
 }
@@ -144,12 +144,12 @@ maniResult maniInitPose(const maniSkeleton* skeleton, void* memory, size_t size,
     return result;
 }
 
-uint32_t maniPoseBoneCount(const maniPose* pose)
+uint32_t maniPose_GetBoneCount(const maniPose* pose)
 {
     return pose->boneCount;
 }
 
-maniTransform maniPoseLocal(const maniPose* pose, uint32_t bone)
+maniTransform maniPose_GetLocal(const maniPose* pose, uint32_t bone)
 {
     return bone < pose->boneCount ? LoadLocal(ConstLocals(pose), bone) : s_identity;
 }
@@ -183,12 +183,12 @@ void maniPoseSetKind(maniPose* pose, bool difference)
     pose->difference = difference ? 1u : 0u;
 }
 
-bool maniPoseIsDifference(const maniPose* pose)
+bool maniPose_IsDifference(const maniPose* pose)
 {
     return pose->difference != 0;
 }
 
-void maniPoseSetLocal(maniPose* pose, uint32_t bone, maniTransform transform)
+void maniPose_SetLocal(maniPose* pose, uint32_t bone, maniTransform transform)
 {
     if (bone < pose->boneCount)
     {
@@ -202,8 +202,8 @@ static bool RangeFits(const maniPose* pose, uint32_t first, uint32_t count)
     return first <= pose->boneCount && count <= pose->boneCount - first;
 }
 
-maniResult maniPoseReadLocals(const maniPose* pose, uint32_t first, uint32_t count,
-                              maniTransform* transforms)
+maniResult maniPose_ReadLocals(const maniPose* pose, uint32_t first, uint32_t count,
+                               maniTransform* transforms)
 {
     if (pose == NULL || (transforms == NULL && count > 0) || !RangeFits(pose, first, count))
     {
@@ -216,8 +216,8 @@ maniResult maniPoseReadLocals(const maniPose* pose, uint32_t first, uint32_t cou
     return mani_success;
 }
 
-maniResult maniPoseWriteLocals(maniPose* pose, uint32_t first, uint32_t count,
-                               const maniTransform* transforms)
+maniResult maniPose_WriteLocals(maniPose* pose, uint32_t first, uint32_t count,
+                                const maniTransform* transforms)
 {
     if (pose == NULL || (transforms == NULL && count > 0) || !RangeFits(pose, first, count))
     {
@@ -242,7 +242,7 @@ maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton)
     }
     for (uint32_t bone = 0; bone < pose->boneCount; ++bone)
     {
-        maniTransform rest = maniSkeletonRest(skeleton, bone);
+        maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
         StoreLocal(Locals(pose), bone, &rest);
     }
     pose->modelCurrent = 0;
@@ -253,10 +253,10 @@ maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton)
 static MANI_NOINLINE maniResult PoseSetRestWork(maniPose* pose, const maniSkeleton* skeleton)
 {
     maniResult result = maniPoseSetRestLocals(pose, skeleton);
-    return result == mani_success ? maniComputeModel(pose, skeleton) : result;
+    return result == mani_success ? maniPose_ComputeModel(pose, skeleton) : result;
 }
 
-maniResult maniPoseSetRest(maniPose* pose, const maniSkeleton* skeleton)
+maniResult maniPose_SetRest(maniPose* pose, const maniSkeleton* skeleton)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = PoseSetRestWork(pose, skeleton);
@@ -293,7 +293,7 @@ MANI_NOINLINE maniResult maniComputeModelEntered(maniPose* pose, const maniSkele
     return mani_success;
 }
 
-maniResult maniComputeModel(maniPose* pose, const maniSkeleton* skeleton)
+maniResult maniPose_ComputeModel(maniPose* pose, const maniSkeleton* skeleton)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = maniComputeModelEntered(pose, skeleton);
@@ -323,12 +323,12 @@ void maniPoseMarkModelCurrent(maniPose* pose)
     pose->modelCurrent = 1;
 }
 
-bool maniPoseModelCurrent(const maniPose* pose)
+bool maniPose_IsModelCurrent(const maniPose* pose)
 {
     return pose->modelCurrent != 0;
 }
 
-maniAffine maniPoseModel(const maniPose* pose, uint32_t bone)
+maniAffine maniPose_GetModel(const maniPose* pose, uint32_t bone)
 {
     maniAffine model = {{1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f}};
     if (bone < pose->boneCount)
@@ -338,8 +338,8 @@ maniAffine maniPoseModel(const maniPose* pose, uint32_t bone)
     return model;
 }
 
-maniResult maniPoseReadModels(const maniPose* pose, uint32_t first, uint32_t count,
-                              maniAffine* matrices)
+maniResult maniPose_ReadModels(const maniPose* pose, uint32_t first, uint32_t count,
+                               maniAffine* matrices)
 {
     if (pose == NULL || (matrices == NULL && count > 0) || !RangeFits(pose, first, count))
     {
@@ -376,7 +376,7 @@ MANI_NOINLINE maniTransform maniPoseModelTransformEntered(const maniPose* pose, 
     maniTransform out = s_identity;
     if (bone < pose->boneCount)
     {
-        maniAffine model = maniPoseModel(pose, bone);
+        maniAffine model = maniPose_GetModel(pose, bone);
         if (!maniDecompose(&model, &out))
         {
             out = s_identity;
@@ -385,7 +385,7 @@ MANI_NOINLINE maniTransform maniPoseModelTransformEntered(const maniPose* pose, 
     return out;
 }
 
-maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone)
+maniTransform maniPose_GetModelTransform(const maniPose* pose, uint32_t bone)
 {
     uint64_t env = maniFloatEnvEnter();
     maniTransform result = maniPoseModelTransformEntered(pose, bone);

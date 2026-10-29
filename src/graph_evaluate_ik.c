@@ -112,7 +112,7 @@ void maniGraphEvaluateTwoBone(const maniGraphEvaluation* e, const uint8_t* recor
                           maniGraphEvalScalar(e, d + maniGraphTwoBoneTwist),
                           Clamped(e, d + maniGraphTwoBoneSoften, 0.0f, 1.0f),
                           Clamped(e, d + maniGraphTwoBoneWeight, 0.0f, 1.0f)};
-    (void)maniSolveTwoBone(out, e->binding->skeleton, &s, NULL);
+    (void)maniPose_SolveTwoBone(out, e->binding->skeleton, &s, NULL);
 }
 
 // An aim node: its input with its bones aimed; the input when the solve
@@ -139,7 +139,7 @@ void maniGraphEvaluateAim(const maniGraphEvaluation* e, const uint8_t* record, m
         s.bones[k] = maniGraphEvalWord(e, d + maniGraphAimBones + k);
         memcpy(&s.shares[k], &bits, sizeof bits);
     }
-    (void)maniSolveAim(out, e->binding->skeleton, &s, NULL);
+    (void)maniPose_SolveAim(out, e->binding->skeleton, &s, NULL);
 }
 
 // A chain node: its input with its chain solved; the input when the
@@ -182,8 +182,8 @@ void maniGraphEvaluateChain(const maniGraphEvaluation* e, const uint8_t* record,
                                 ? Clamped(e, d + maniGraphChainRotationWeight, 0.0f, 1.0f)
                                 : 0.0f,
                         .weight = Clamped(e, d + maniGraphChainWeight, 0.0f, 1.0f)};
-    (void)(fabrik ? maniSolveFabrik(out, skeleton, &s, NULL)
-                  : maniSolveCcd(out, skeleton, &s, NULL));
+    (void)(fabrik ? maniPose_SolveFabrik(out, skeleton, &s, NULL)
+                  : maniPose_SolveCcd(out, skeleton, &s, NULL));
 }
 
 // Effector k of the body node whose words begin at d, its goals and
@@ -248,6 +248,6 @@ void maniGraphEvaluateBody(const maniGraphEvaluation* e, const uint8_t* record, 
                              .tolerance = Number(e, d + maniGraphBodyTolerance),
                              .weight = Clamped(e, d + maniGraphBodyWeight, 0.0f, 1.0f)};
     const maniSkeleton* skeleton = e->binding->skeleton;
-    (void)(sdls ? maniSolveBodySdls(out, skeleton, &s, room + at, have - at, NULL)
-                : maniSolveBodyXpbd(out, skeleton, &s, room + at, have - at, NULL));
+    (void)(sdls ? maniPose_SolveBodySdls(out, skeleton, &s, room + at, have - at, NULL)
+                : maniPose_SolveBodyXpbd(out, skeleton, &s, room + at, have - at, NULL));
 }

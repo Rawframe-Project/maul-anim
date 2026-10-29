@@ -8,129 +8,129 @@
 # function fails the check until someone decides where it belongs.
 
 reads or counts records:
-    maniClipDiscreteTrackCount
-    maniClipEventCount
-    maniClipFloatTrackCount
-    maniClipMarkerCount
-    maniClipSampleCount
-    maniFbxClipCount
-    maniFbxModelCount
-    maniFbxMorphCount
-    maniFbxMorphTargetCount
-    maniFbxRenamedCount
-    maniFbxSkeletonCount
-    maniFbxSkinCount
-    maniGltfAnimationCount
-    maniGltfBufferCount
-    maniGltfMeshCount
-    maniGltfNodeCount
-    maniGltfPrimitiveCount
-    maniGltfPrimitiveTargetCount
-    maniGltfRenamedCount
-    maniGltfSkeletonCount
-    maniGltfSkinCount
-    maniGraphClipCount
-    maniGraphDatabaseCount
-    maniGraphRetargetMapCount
-    maniGraphModelCount
-    maniGraphNodeCount
-    maniGraphNodeInputCount
-    maniGraphParameterCount
-    maniGraphSpringSetCount
-    maniInfluencesVertexCount
-    maniLearnedModelEventCount
-    maniLearnedModelFloatTrackCount
-    maniMorphAttributeCount
-    maniMorphChannelCount
-    maniMorphTargetCount
-    maniMorphVertexCount
-    maniPoseBoneCount
-    maniRagdollBodyCount
-    maniSkeletonBoneCount
-    maniSkinJointCount
-    maniSpringSetSpringCount
+    maniClip_GetDiscreteTrackCount
+    maniClip_GetEventCount
+    maniClip_GetFloatTrackCount
+    maniClip_GetMarkerCount
+    maniClip_GetSampleCount
+    maniFbx_GetClipCount
+    maniFbx_GetModelCount
+    maniFbx_GetMorphCount
+    maniFbx_GetMorphTargetCount
+    maniFbx_GetRenamedCount
+    maniFbx_GetSkeletonCount
+    maniFbx_GetSkinCount
+    maniGltf_GetAnimationCount
+    maniGltf_GetBufferCount
+    maniGltf_GetMeshCount
+    maniGltf_GetNodeCount
+    maniGltf_GetPrimitiveCount
+    maniGltf_GetPrimitiveTargetCount
+    maniGltf_GetRenamedCount
+    maniGltf_GetSkeletonCount
+    maniGltf_GetSkinCount
+    maniGraph_GetClipCount
+    maniGraph_GetDatabaseCount
+    maniGraph_GetRetargetMapCount
+    maniGraph_GetModelCount
+    maniGraph_GetNodeCount
+    maniGraph_GetNodeInputCount
+    maniGraph_GetParameterCount
+    maniGraph_GetSpringSetCount
+    maniInfluences_GetVertexCount
+    maniLearnedModel_GetEventCount
+    maniLearnedModel_GetFloatTrackCount
+    maniMorphTargets_GetAttributeCount
+    maniMorphTargets_GetChannelCount
+    maniMorphTargets_GetTargetCount
+    maniMorphTargets_GetVertexCount
+    maniPose_GetBoneCount
+    maniRagdoll_GetBodyCount
+    maniSkeleton_GetBoneCount
+    maniSkin_GetJointCount
+    maniSpringSet_GetSpringCount
 
 sums integer sizes:
-    maniBodyIkScratchSize
-    maniClipCursorCompactSize
-    maniClipCursorSize
-    maniGraphBindingSize
-    maniGraphInstanceSize
-    maniGraphScratchSize
-    maniGraphSubsetSize
-    maniLearnedScratchSize
-    maniPoseSize
-    maniRetargetScratchSize
-    maniSpringStateSize
+    maniSkeleton_GetBodyIkScratchSize
+    maniClip_GetCursorCompactSize
+    maniClip_GetCursorSize
+    maniGraph_GetBindingSize
+    maniGraphBinding_GetInstanceSize
+    maniGraphBinding_GetScratchSize
+    maniGraphBinding_GetSubsetSize
+    maniLearnedModel_GetScratchSize
+    maniSkeleton_GetPoseSize
+    maniRetargetMap_GetScratchSize
+    maniSpringSet_GetStateSize
 
 reads a stored identity or builds a constant:
-    maniClipIdentity
-    maniClipSkeletonIdentity
-    maniGraphClipIdentity
-    maniGraphDatabaseIdentity
-    maniGraphIdentity
-    maniGraphRetargetMapIdentity
-    maniGraphRetargetMapSourceIdentity
-    maniGraphMirrorMapIdentity
-    maniGraphModelIdentity
-    maniGraphSkeletonIdentity
-    maniGraphSpringSetIdentity
-    maniLearnedModelDatabaseIdentity
-    maniLearnedModelIdentity
-    maniLearnedModelSkeletonIdentity
-    maniMirrorMapIdentity
-    maniMirrorMapSkeletonIdentity
-    maniMotionDatabaseClipIdentity
-    maniMotionDatabaseIdentity
-    maniMotionDatabaseMirrorMapIdentity
-    maniMotionDatabaseSkeletonIdentity
-    maniRagdollIdentity
-    maniRagdollSkeletonIdentity
-    maniRetargetMapIdentity
-    maniRetargetMapSourceIdentity
-    maniRetargetMapTargetIdentity
+    maniClip_GetIdentity
+    maniClip_GetSkeletonIdentity
+    maniGraph_GetClipIdentity
+    maniGraph_GetDatabaseIdentity
+    maniGraph_GetIdentity
+    maniGraph_GetRetargetMapIdentity
+    maniGraph_GetRetargetMapSourceIdentity
+    maniGraph_GetMirrorMapIdentity
+    maniGraph_GetModelIdentity
+    maniGraph_GetSkeletonIdentity
+    maniGraph_GetSpringSetIdentity
+    maniLearnedModel_GetDatabaseIdentity
+    maniLearnedModel_GetIdentity
+    maniLearnedModel_GetSkeletonIdentity
+    maniMirrorMap_GetIdentity
+    maniMirrorMap_GetSkeletonIdentity
+    maniMotionDatabase_GetClipIdentity
+    maniMotionDatabase_GetIdentity
+    maniMotionDatabase_GetMirrorMapIdentity
+    maniMotionDatabase_GetSkeletonIdentity
+    maniRagdoll_GetIdentity
+    maniRagdoll_GetSkeletonIdentity
+    maniRetargetMap_GetIdentity
+    maniRetargetMap_GetSourceIdentity
+    maniRetargetMap_GetTargetIdentity
     maniRootMoveIdentity
-    maniSkeletonIdentity
-    maniSkinIdentity
-    maniSkinSkeletonIdentity
-    maniSpringSetIdentity
-    maniSpringSetSkeletonIdentity
+    maniSkeleton_GetIdentity
+    maniSkin_GetIdentity
+    maniSkin_GetSkeletonIdentity
+    maniSpringSet_GetIdentity
+    maniSpringSet_GetSkeletonIdentity
 
 reads or renames UTF-8 names:
-    maniClipDiscreteTrackName
-    maniClipFloatTrackName
-    maniFbxClipName
-    maniFbxModelBoneName
-    maniGltfAnimationName
-    maniGltfNodeBoneName
-    maniGraphClipName
-    maniGraphDatabaseName
-    maniGraphModelName
-    maniGraphParameterName
-    maniGraphSpringSetName
-    maniLearnedModelEventName
-    maniLearnedModelFloatTrackName
-    maniMirrorName
-    maniMorphChannelName
-    maniMorphTargetName
-    maniMotionDatabaseChannelName
-    maniResultName
-    maniSkeletonBoneName
-    maniSpringSetSpringName
+    maniClip_GetDiscreteTrackName
+    maniClip_GetFloatTrackName
+    maniFbx_GetClipName
+    maniFbx_GetModelBoneName
+    maniGltf_GetAnimationName
+    maniGltf_GetNodeBoneName
+    maniGraph_GetClipName
+    maniGraph_GetDatabaseName
+    maniGraph_GetModelName
+    maniGraph_GetParameterName
+    maniGraph_GetSpringSetName
+    maniLearnedModel_GetEventName
+    maniLearnedModel_GetFloatTrackName
+    maniMirrorMap_MirrorName
+    maniMorphTargets_GetChannelName
+    maniMorphTargets_GetTargetName
+    maniMotionDatabase_GetChannelName
+    maniGetResultName
+    maniSkeleton_GetBoneName
+    maniSpringSet_GetSpringName
 
 hashes a name's bytes:
-    maniMirrorNameHash
+    maniMirrorMap_MirrorNameHash
 
 hashes bytes:
     maniHash64
 
 compares names:
-    maniClipFindDiscreteTrack
-    maniClipFindFloatTrack
-    maniGraphFindParameter
-    maniMorphFindChannel
-    maniMorphFindTarget
-    maniSkeletonFindBone
+    maniClip_FindDiscreteTrack
+    maniClip_FindFloatTrack
+    maniGraph_FindParameter
+    maniMorphTargets_FindChannel
+    maniMorphTargets_FindTarget
+    maniSkeleton_FindBone
 
 returns constants:
     maniDefaultCompressOptions
@@ -141,7 +141,7 @@ returns a name:
 
 reads CPU features:
     maniCheckCpu
-    maniCpuSupportsBackend
+    maniIsCpuBackendSupported
 
 checks a def's words and allocates:
     maniCreateBuilder
@@ -153,109 +153,109 @@ releases memory:
     maniDestroyLearnedTrainer
 
 reads a counter:
-    maniBuilderMisuses
-    maniLearnedTrainerMisuses
+    maniBuilder_GetMisuse
+    maniLearnedTrainer_GetMisuse
 
 copies bytes:
-    maniCopyBuilt
+    maniBuilder_CopyBuilt
 
 copies indices:
-    maniCopySkeletonOrder
+    maniBuilder_CopySkeletonOrder
 
 lays out memory:
     maniInitClipCursor
 
 clears words:
-    maniResetSprings
+    maniSpringState_Reset
 
 reads a word:
-    maniClipAdditiveBasis
-    maniClipCompressed
-    maniClipLoopPolicy
-    maniFbxVersion
-    maniGraphNodeKindOf
-    maniGraphNodeSourcePlace
-    maniGraphParameterTypeOf
-    maniInfluencesPerVertex
-    maniMirrorBoneFlags
-    maniMirrorMapAxis
-    maniPoseIsDifference
-    maniPoseModelCurrent
+    maniClip_GetAdditiveBasis
+    maniClip_IsCompressed
+    maniClip_GetLoopPolicy
+    maniFbx_GetVersion
+    maniGraph_GetNodeKind
+    maniGraph_GetNodeSourcePlace
+    maniGraph_GetParameterType
+    maniInfluences_GetPerVertex
+    maniMirrorMap_GetBoneFlags
+    maniMirrorMap_GetAxis
+    maniPose_IsDifference
+    maniPose_IsModelCurrent
 
 copies a float:
-    maniClipDuration
-    maniClipSampleRate
-    maniInfluencesDualQuaternionWeight
-    maniMorphTargetFullWeight
+    maniClip_GetDuration
+    maniClip_GetSampleRate
+    maniInfluences_GetDualQuaternionWeight
+    maniMorphTargets_GetTargetFullWeight
 
 copies a record:
-    maniClipEventAt
-    maniClipMarkerAt
-    maniClipRootMotionSource
-    maniLearnedModelChannel
-    maniMotionDatabaseChannel
-    maniMotionDatabaseEntry
-    maniRagdollReadBody
+    maniClip_GetEvent
+    maniClip_GetMarker
+    maniClip_GetRootMotionSource
+    maniLearnedModel_GetChannel
+    maniMotionDatabase_GetChannel
+    maniMotionDatabase_GetEntry
+    maniRagdoll_GetBody
 
 reads indices:
-    maniFbxMorphModel
-    maniFbxSkinModel
-    maniGraphSubsetBones
-    maniMorphChannelTargets
+    maniFbx_GetMorphModel
+    maniFbx_GetSkinModel
+    maniGraphSubset_GetBones
+    maniMorphTargets_GetChannelTargets
 
 reads an index:
-    maniFbxRenamedModel
-    maniFbxSkinSkeleton
-    maniGltfNodeMesh
-    maniGltfNodeSkin
-    maniGltfRenamedNode
-    maniGltfSkinSkeleton
-    maniGraphClipRetargetMap
-    maniGraphNodeInput
-    maniGraphOutputNode
-    maniMirrorMapUnmatchedBone
-    maniMirrorPartner
-    maniSkeletonParent
-    maniSkeletonSubtreeEnd
-    maniSkinJoint
+    maniFbx_GetRenamedModel
+    maniFbx_GetSkinSkeleton
+    maniGltf_GetNodeMesh
+    maniGltf_GetNodeSkin
+    maniGltf_GetRenamedNode
+    maniGltf_GetSkinSkeleton
+    maniGraph_GetClipRetargetMap
+    maniGraph_GetNodeInput
+    maniGraph_GetOutputNode
+    maniMirrorMap_GetUnmatchedBone
+    maniMirrorMap_GetPartner
+    maniSkeleton_GetParent
+    maniSkeleton_GetSubtreeEnd
+    maniSkin_GetJoint
 
 reads bytes:
-    maniGltfBufferUri
+    maniGltf_GetBufferUri
 
 copies a value:
-    maniGetGraphParameter
+    maniGraphInstance_GetParameter
 
 copies a joint and a weight:
-    maniInfluence
+    maniInfluences_GetInfluence
 
 copies a point:
-    maniInfluencesCenter
+    maniInfluences_GetCenter
 
 compares words:
-    maniInfluencesFitSkin
+    maniInfluences_IsSkinFit
 
 copies floats:
-    maniLearnedModelNormalization
-    maniMotionDatabaseFeatures
-    maniMotionDatabaseNormalization
-    maniSpringSetStepRate
+    maniLearnedModel_GetNormalization
+    maniMotionDatabase_GetFeatures
+    maniMotionDatabase_GetNormalization
+    maniSpringSet_GetStepRate
 
 reads words:
-    maniLearnedModelProjector
-    maniMorphAttribute
+    maniLearnedModel_GetProjector
+    maniMorphTargets_GetAttribute
 
 copies a transform:
-    maniPoseLocal
-    maniPoseSetLocal
-    maniSkeletonRest
+    maniPose_GetLocal
+    maniPose_SetLocal
+    maniSkeleton_GetRest
 
 copies a matrix:
-    maniPoseModel
-    maniSkinInverseBind
+    maniPose_GetModel
+    maniSkin_GetInverseBind
 
 copies transforms:
-    maniPoseReadLocals
-    maniPoseWriteLocals
+    maniPose_ReadLocals
+    maniPose_WriteLocals
 
 copies matrices:
-    maniPoseReadModels
+    maniPose_ReadModels

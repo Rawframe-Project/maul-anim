@@ -230,16 +230,17 @@ static void TestEvaluated(void)
     maniPose* step = PoseAt(2);
     maniPose* want = PoseAt(3);
     const maniBlendLayer layers[2] = {{run, 0.5f, NULL}, {step, 0.5f, NULL}};
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
-              maniSampleClip(&s_clips[1], &s_skeleton, 0.25f, run) == mani_success &&
-              maniSampleClip(&s_clips[3], &s_skeleton, 0.25f, step) == mani_success &&
-              maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, want) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+              maniClip_Sample(&s_clips[1], &s_skeleton, 0.25f, run) == mani_success &&
+              maniClip_Sample(&s_clips[3], &s_skeleton, 0.25f, step) == mani_success &&
+              maniSkeleton_BlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, want) ==
+                  mani_success,
           "evaluated");
     bool same = true;
     for (uint32_t bone = 0; bone < 3; ++bone)
     {
-        maniTransform a = maniPoseLocal(out, bone);
-        maniTransform b = maniPoseLocal(want, bone);
+        maniTransform a = maniPose_GetLocal(out, bone);
+        maniTransform b = maniPose_GetLocal(want, bone);
         same = same && memcmp(&a, &b, sizeof a) == 0;
     }
     CHECK(same, "the space's pose, bit for bit");
@@ -354,7 +355,8 @@ static void TestSubgraph(void)
     {
         maniBuilder* builder = NewBuilder();
         CHECK(maniBuildGraph(builder, &sources[k]).result == mani_success &&
-                  maniCopyBuilt(builder, files[k], sizeof files[k], &sizes[k]) == mani_success,
+                  maniBuilder_CopyBuilt(builder, files[k], sizeof files[k], &sizes[k]) ==
+                      mani_success,
               "builds");
         maniDestroyBuilder(builder);
     }
@@ -398,14 +400,15 @@ static void TestJson(void)
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) ==
+                  mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &s_textSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &s_textSize) == mani_success &&
               maniBuildGraphJson(builder, s_text, s_textSize,
                                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
                                                          CLIPS, 0, 0, 0, NULL})
                       .result == mani_success &&
-              maniCopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
+              maniBuilder_CopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
           "written and read");
     maniDestroyBuilder(builder);
     CHECK(readSize == s_builtSize && memcmp(read, s_built, s_builtSize) == 0, "the same bytes");
@@ -446,12 +449,12 @@ static void TestJsonDefaults(void)
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, built, sizeof built, &builtSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, built, sizeof built, &builtSize) == mani_success &&
               maniBuildGraphJson(builder, kText, sizeof kText - 1,
                                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
                                                          CLIPS, 0, 0, 0, NULL})
                       .result == mani_success &&
-              maniCopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
+              maniBuilder_CopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
           "built and read");
     maniDestroyBuilder(builder);
     CHECK(readSize == builtSize && memcmp(read, built, builtSize) == 0, "members left out");

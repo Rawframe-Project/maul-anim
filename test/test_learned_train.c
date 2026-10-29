@@ -112,7 +112,8 @@ static bool RefusedPast(const maniLearnedTrainerSource* s, maniBuildReason reaso
 }
 
 // A host that runs ranges of one item, last first.
-static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Backwards(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                       void* user)
 {
     (void)minRange;
     (void)user;
@@ -153,7 +154,8 @@ static uint32_t s_hooksElsewhere;
 // A host whose threads flush denormals and round toward zero. It runs
 // each range with that setting in the register, as such a worker would,
 // and puts the caller's back after.
-static void* Hostile(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Hostile(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                     void* user)
 {
     (void)minRange;
     (void)user;
@@ -315,7 +317,7 @@ static void TestSource(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenSkeleton(file, size, &other).result == mani_success,
           "another skeleton");
     maniDestroyBuilder(builder);
@@ -367,8 +369,8 @@ static void Build(const maniLearnedTrainer* t, uint32_t slot, maniLearnedWeights
 {
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildLearnedModelFromTrainer(builder, t, format).result == mani_success &&
-              maniCopyBuilt(builder, s_model[slot], sizeof s_model[slot], &s_modelSize[slot]) ==
-                  mani_success,
+              maniBuilder_CopyBuilt(builder, s_model[slot], sizeof s_model[slot],
+                                    &s_modelSize[slot]) == mani_success,
           "the model");
     maniDestroyBuilder(builder);
 }
@@ -379,38 +381,38 @@ static void TestStages(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 0, &report) == mani_success && report.stage == 0 &&
+    CHECK(maniLearnedTrainer_Train(t, 0, &report) == mani_success && report.stage == 0 &&
               report.stageCount == 4 && report.iteration == 0 && report.loss == 0.0f && !t->begun,
           "nothing run: stage 0 not begun");
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildLearnedModelFromTrainer(builder, t, maniLearnedWeightsFloat32).result ==
                   mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 1,
+              maniBuilder_GetMisuse(builder) == 1,
           "no model before every stage is done");
     CHECK(maniBuildLearnedModelFromTrainer(builder, NULL, maniLearnedWeightsFloat32).result ==
                   mani_errorInvalid &&
               maniBuildLearnedModelFromTrainer(NULL, t, maniLearnedWeightsFloat32).result ==
                   mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 2,
+              maniBuilder_GetMisuse(builder) == 2,
           "NULL arguments");
     maniDestroyBuilder(builder);
-    CHECK(maniTrainLearned(t, 29, &report) == mani_success && report.stage == 0 &&
+    CHECK(maniLearnedTrainer_Train(t, 29, &report) == mani_success && report.stage == 0 &&
               report.iteration == 29 && report.loss > 0.0f && t->latents == NULL,
           "29 iterations of stage 0");
-    CHECK(maniTrainLearned(t, 1, &report) == mani_success && report.stage == 1 &&
+    CHECK(maniLearnedTrainer_Train(t, 1, &report) == mani_success && report.stage == 1 &&
               report.iteration == 0 && report.loss == 0.0f && t->latents != NULL && !t->begun &&
               t->networks[0].parameters != NULL,
           "stage 0 ends with its last iteration");
-    CHECK(maniTrainLearned(t, 31, &report) == mani_success && report.stage == 2 &&
+    CHECK(maniLearnedTrainer_Train(t, 31, &report) == mani_success && report.stage == 2 &&
               report.iteration == 1 && t->networks[1].parameters != NULL,
           "the Stepper's 30, then the first Projector's first");
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4 &&
+    CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success && report.stage == 4 &&
               report.stageCount == 4 && report.iteration == 0 && !t->begun,
           "every stage done");
-    CHECK(maniTrainLearned(t, 5, &report) == mani_success && report.stage == 4,
+    CHECK(maniLearnedTrainer_Train(t, 5, &report) == mani_success && report.stage == 4,
           "nothing more to run");
-    CHECK(maniTrainLearned(NULL, 1, &report) == mani_errorInvalid &&
-              maniTrainLearned(t, 1, NULL) == mani_errorInvalid,
+    CHECK(maniLearnedTrainer_Train(NULL, 1, &report) == mani_errorInvalid &&
+              maniLearnedTrainer_Train(t, 1, NULL) == mani_errorInvalid,
           "NULL arguments");
     Build(t, 0, maniLearnedWeightsFloat32);
     maniLearnedModel model;
@@ -450,7 +452,8 @@ static void TestModelBits(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4, "trained");
+    CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success && report.stage == 4,
+          "trained");
     Build(t, 0, maniLearnedWeightsFloat32);
     maniLearnedModel model;
     CHECK(maniOpenLearnedModel(s_model[0], s_modelSize[0], &model).result == mani_success,
@@ -470,16 +473,17 @@ static void TestModelBits(void)
         {
             want[j] = state[j] + t->data.frameSeconds * rate[j];
         }
-        step = step && maniLearnedStep(&model, state, scratch, sizeof scratch) == mani_success &&
+        step = step &&
+               maniLearnedModel_Step(&model, state, scratch, sizeof scratch) == mani_success &&
                memcmp(state, want, sizeof want) == 0;
         for (uint32_t p = 0; p < 2; ++p)
         {
             float out[9];
             Forward(&t->networks[2 + p], t->data.features + f * 5, want);
             project = project &&
-                      maniLearnedProject(&model, p, t->data.features + f * 5, out,
-                                         (model.featureCount + model.latentCount), NULL, scratch,
-                                         sizeof scratch) == mani_success &&
+                      maniLearnedModel_Project(&model, p, t->data.features + f * 5, out,
+                                               (model.featureCount + model.latentCount), NULL,
+                                               scratch, sizeof scratch) == mani_success &&
                       memcmp(out, want, sizeof out) == 0;
         }
     }
@@ -500,11 +504,11 @@ static void TestModelBits(void)
         Forward(&t->networks[0], state, want);
         maniLearnedOutput output = {
             pose, NULL, 0, events, 2, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-        decompress = decompress && maniLearnedDecompress(&model, state, &output, scratch,
-                                                         sizeof scratch) == mani_success;
+        decompress = decompress && maniLearnedModel_Decompress(&model, state, &output, scratch,
+                                                               sizeof scratch) == mani_success;
         for (uint32_t b = 0; b < 3; ++b)
         {
-            maniVec3 x = maniPoseLocal(pose, b).translation;
+            maniVec3 x = maniPose_GetLocal(pose, b).translation;
             decompress = decompress && x.x == want[9 * b] && x.y == want[9 * b + 1] &&
                          x.z == want[9 * b + 2];
         }
@@ -526,7 +530,7 @@ static void TestRate(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 2001, &report) == mani_success && report.stage == 0 &&
+    CHECK(maniLearnedTrainer_Train(t, 2001, &report) == mani_success && report.stage == 0 &&
               report.iteration == 2001,
           "2,001 iterations");
     maniTrainRandom r;
@@ -555,7 +559,7 @@ static void TestStageSeeds(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 31, &report) == mani_success && report.stage == 1 &&
+    CHECK(maniLearnedTrainer_Train(t, 31, &report) == mani_success && report.stage == 1 &&
               report.iteration == 1,
           "the Stepper's first iteration");
     maniTrainRandom r;
@@ -590,7 +594,7 @@ static void TestStageSeeds(void)
     CHECK(memcmp(stepper.solo.parameters, t->stepper.solo.parameters, sizeof(float) * count) == 0,
           "the Stepper's generator: the seed plus 1");
     maniTrainStepperRelease(&kAllocator, &stepper);
-    CHECK(maniTrainLearned(t, 60, &report) == mani_success && report.stage == 3 &&
+    CHECK(maniLearnedTrainer_Train(t, 60, &report) == mani_success && report.stage == 3 &&
               report.iteration == 1,
           "the second Projector's first iteration");
     maniTrainSeed(&r, 10);
@@ -614,12 +618,12 @@ static void TestHosts(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained alone");
+    CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success, "trained alone");
     Build(t, 0, maniLearnedWeightsFloat32);
     maniDestroyLearnedTrainer(t);
     def.tasks = (maniTaskHooks){Backwards, Finish, NULL};
     t = Create(&def, &s);
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained on a host");
+    CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success, "trained on a host");
     Build(t, 1, maniLearnedWeightsFloat32);
     maniDestroyLearnedTrainer(t);
     CHECK(s_modelSize[0] == s_modelSize[1] && memcmp(s_model[0], s_model[1], s_modelSize[0]) == 0,
@@ -629,7 +633,7 @@ static void TestHosts(void)
     uint64_t own = maniFloatControlRead();
     maniFloatControlWrite(s_hostSetting);
     s_hooksElsewhere = 0;
-    maniResult trained = maniTrainLearned(t, 1000, &report);
+    maniResult trained = maniLearnedTrainer_Train(t, 1000, &report);
     maniFloatControlWrite(own);
     CHECK(trained == mani_success, "trained on a hostile host");
     CHECK(s_hooksElsewhere == 0, "the task hooks run in the host's setting");
@@ -649,23 +653,24 @@ static bool Resumed(uint64_t stop, size_t* sizeOut)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* a = Create(&def, &s);
     maniLearnedTrainerReport report;
-    bool ok = maniTrainLearned(a, stop, &report) == mani_success;
+    bool ok = maniLearnedTrainer_Train(a, stop, &report) == mani_success;
     float loss = report.loss;
     size_t size = 0;
     size_t refused = 0;
     size_t written = 0;
-    ok = ok && maniSaveLearnedCheckpoint(a, NULL, 0, &size) == mani_errorCapacity &&
+    ok = ok && maniLearnedTrainer_SaveCheckpoint(a, NULL, 0, &size) == mani_errorCapacity &&
          size <= sizeof s_checkpoint &&
-         maniSaveLearnedCheckpoint(a, s_checkpoint, size - 1, &refused) == mani_errorCapacity &&
+         maniLearnedTrainer_SaveCheckpoint(a, s_checkpoint, size - 1, &refused) ==
+             mani_errorCapacity &&
          refused == size &&
-         maniSaveLearnedCheckpoint(a, s_checkpoint, size, &written) == mani_success &&
+         maniLearnedTrainer_SaveCheckpoint(a, s_checkpoint, size, &written) == mani_success &&
          written == size;
     maniDestroyLearnedTrainer(a);
     maniLearnedTrainer* b = Create(&def, &s);
-    ok = ok && maniTrainLearned(b, 3, &report) == mani_success;
-    ok = ok && maniRestoreLearnedCheckpoint(b, s_checkpoint, size).result == mani_success &&
-         maniTrainLearned(b, 0, &report) == mani_success && report.loss == loss;
-    ok = ok && maniTrainLearned(b, 1000, &report) == mani_success && report.stage == 4;
+    ok = ok && maniLearnedTrainer_Train(b, 3, &report) == mani_success;
+    ok = ok && maniLearnedTrainer_RestoreCheckpoint(b, s_checkpoint, size).result == mani_success &&
+         maniLearnedTrainer_Train(b, 0, &report) == mani_success && report.loss == loss;
+    ok = ok && maniLearnedTrainer_Train(b, 1000, &report) == mani_success && report.stage == 4;
     Build(b, 1, maniLearnedWeightsFloat32);
     maniDestroyLearnedTrainer(b);
     *sizeOut = size;
@@ -679,7 +684,7 @@ static void TestCheckpoints(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success, "trained through");
+    CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success, "trained through");
     Build(t, 0, maniLearnedWeightsFloat32);
     maniDestroyLearnedTrainer(t);
     // Not begun, in the first stage, at the stages' ends, in the Stepper,
@@ -694,8 +699,8 @@ static void TestCheckpoints(void)
     CHECK(all, "a checkpoint at any point resumes to the same model");
     CHECK(sizes[1] > sizes[0] && sizes[2] < sizes[1] && sizes[7] < sizes[6],
           "a stage's moments only while it trains");
-    CHECK(maniSaveLearnedCheckpoint(NULL, NULL, 0, NULL) == mani_errorInvalid &&
-              maniSaveLearnedCheckpoint(NULL, s_checkpoint, sizeof s_checkpoint, NULL) ==
+    CHECK(maniLearnedTrainer_SaveCheckpoint(NULL, NULL, 0, NULL) == mani_errorInvalid &&
+              maniLearnedTrainer_SaveCheckpoint(NULL, s_checkpoint, sizeof s_checkpoint, NULL) ==
                   mani_errorInvalid,
           "NULL arguments");
 }
@@ -706,9 +711,10 @@ static size_t Checkpoint(const maniLearnedTrainerSource* s, uint64_t stop)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, stop, &report) == mani_success, "trained");
+    CHECK(maniLearnedTrainer_Train(t, stop, &report) == mani_success, "trained");
     size_t size = CheckpointSize(t);
-    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint, NULL) == mani_success,
+    CHECK(maniLearnedTrainer_SaveCheckpoint(t, s_checkpoint, sizeof s_checkpoint, NULL) ==
+              mani_success,
           "saved");
     maniDestroyLearnedTrainer(t);
     return size;
@@ -742,12 +748,12 @@ static maniLearnedTrainer* s_restoring;
 
 static maniFileResult RestoreFile(const void* bytes, size_t size)
 {
-    return maniRestoreLearnedCheckpoint(s_restoring, bytes, size);
+    return maniLearnedTrainer_RestoreCheckpoint(s_restoring, bytes, size);
 }
 
 static bool RefusedAt(maniLearnedTrainer* t, size_t size, uint64_t offset)
 {
-    maniFileResult r = maniRestoreLearnedCheckpoint(t, s_checkpoint, size);
+    maniFileResult r = maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size);
     return r.result == mani_errorFormat && r.offset == offset &&
            r.tag == TestTagAt(s_checkpoint, size, offset);
 }
@@ -765,7 +771,7 @@ static void TestRestoreRefused(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 40, &report) == mani_success && report.stage == 1, "trained");
+    CHECK(maniLearnedTrainer_Train(t, 40, &report) == mani_success && report.stage == 1, "trained");
     maniLearnedTrainerSource other = s;
     other.options.seed = 8;
     size_t size = Checkpoint(&other, 5);
@@ -783,14 +789,17 @@ static void TestRestoreRefused(void)
     size = Checkpoint(&s, 45);
     uint64_t progress = SectionAt(1);
     s_checkpoint[size - 1] ^= 1;
-    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_errorFormat,
+    CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size).result == mani_errorFormat,
           "a damaged byte");
     s_checkpoint[size - 1] ^= 1;
-    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size - 16).result == mani_errorFormat,
+    CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size - 16).result ==
+              mani_errorFormat,
           "a cut file");
-    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint + 1, size - 1).result == mani_errorInvalid &&
-              maniRestoreLearnedCheckpoint(NULL, s_checkpoint, size).result == mani_errorInvalid &&
-              maniRestoreLearnedCheckpoint(t, NULL, size).result == mani_errorInvalid,
+    CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint + 1, size - 1).result ==
+                  mani_errorInvalid &&
+              maniLearnedTrainer_RestoreCheckpoint(NULL, s_checkpoint, size).result ==
+                  mani_errorInvalid &&
+              maniLearnedTrainer_RestoreCheckpoint(t, NULL, size).result == mani_errorInvalid,
           "misaligned bytes and NULL arguments");
     s_restoring = t;
     CHECK(TestOtherVersionsRefused(s_checkpoint, size, RestoreFile),
@@ -802,7 +811,7 @@ static void TestRestoreRefused(void)
     {
         uint16_t kept = maniLoadU16(s_checkpoint + 16 + 2 * k);
         maniStoreU16(s_checkpoint + 16 + 2 * k, (uint16_t)(kept + 1));
-        maniFileResult r = maniRestoreLearnedCheckpoint(t, s_checkpoint, size);
+        maniFileResult r = maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size);
         releases = releases && r.result == mani_errorVersion && r.offset == 16;
         maniStoreU16(s_checkpoint + 16 + 2 * k, kept);
     }
@@ -843,8 +852,8 @@ static void TestRestoreRefused(void)
     CHECK(RefusedAt(t, size, scale), "an input scale of 0");
     StoreF32(s_checkpoint + scale, 1.0f);
     WriteHash(size);
-    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_success &&
-              maniTrainLearned(t, 0, &report) == mani_success && report.stage == 1 &&
+    CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size).result == mani_success &&
+              maniLearnedTrainer_Train(t, 0, &report) == mani_success && report.stage == 1 &&
               report.iteration == 15,
           "restored: the Stepper's 15th iteration");
     // A stage begun: its generator not all 0.
@@ -880,9 +889,9 @@ static void TestCanonical(void)
     for (uint32_t k = 0; k < 4; ++k)
     {
         size_t size = Checkpoint(&s, stops[k]);
-        CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_success &&
+        CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size).result == mani_success &&
                   CheckpointSize(t) == size &&
-                  maniSaveLearnedCheckpoint(t, again, sizeof again, NULL) == mani_success &&
+                  maniLearnedTrainer_SaveCheckpoint(t, again, sizeof again, NULL) == mani_success &&
                   memcmp(again, s_checkpoint, size) == 0,
               "saved back alike");
     }
@@ -910,19 +919,21 @@ static void TestMemory(void)
     CHECK(t != NULL && refused == budget.limit, "creation refused until memory suffices");
     budget.limit = budget.count;
     maniLearnedTrainerReport report;
-    CHECK(maniTrainLearned(t, 1, &report) == mani_errorCapacity && report.stage == 0 &&
+    CHECK(maniLearnedTrainer_Train(t, 1, &report) == mani_errorCapacity && report.stage == 0 &&
               report.iteration == 0,
           "no memory to begin a stage");
     budget.limit = UINT32_MAX;
-    CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
+    CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success && report.stage == 4,
           "then trained through");
     Build(t, 1, maniLearnedWeightsFloat32);
     size_t size = CheckpointSize(t);
-    CHECK(maniSaveLearnedCheckpoint(t, s_checkpoint, sizeof s_checkpoint, NULL) == mani_success,
+    CHECK(maniLearnedTrainer_SaveCheckpoint(t, s_checkpoint, sizeof s_checkpoint, NULL) ==
+              mani_success,
           "saved");
     budget.limit = budget.count;
-    CHECK(maniRestoreLearnedCheckpoint(t, s_checkpoint, size).result == mani_errorCapacity &&
-              maniTrainLearned(t, 0, &report) == mani_success && report.stage == 0,
+    CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size).result ==
+                  mani_errorCapacity &&
+              maniLearnedTrainer_Train(t, 0, &report) == mani_success && report.stage == 0,
           "no memory to restore: the trainer starts over");
     budget.limit = UINT32_MAX;
     maniDestroyLearnedTrainer(t);
@@ -937,10 +948,10 @@ static int WriteSeed(const char* path)
     maniLearnedTrainerReport report;
     size_t size = trainer != NULL ? CheckpointSize(trainer) : 0;
     uint8_t* bytes = NULL;
-    bool ok = trainer != NULL && maniTrainLearned(trainer, 8, &report) == mani_success &&
+    bool ok = trainer != NULL && maniLearnedTrainer_Train(trainer, 8, &report) == mani_success &&
               report.stage == 2 && (size = CheckpointSize(trainer)) > 0 &&
               (bytes = malloc(size)) != NULL &&
-              maniSaveLearnedCheckpoint(trainer, bytes, size, NULL) == mani_success;
+              maniLearnedTrainer_SaveCheckpoint(trainer, bytes, size, NULL) == mani_success;
     FILE* file = ok ? fopen(path, "wb") : NULL;
     ok = file != NULL && fwrite(bytes, 1, size, file) == size;
     ok = file != NULL && fclose(file) == 0 && ok;
@@ -968,7 +979,7 @@ static void TestPaddingIgnored(void)
         def.allocator = TestPatternAllocator(kTestPadPatterns[k]);
         maniLearnedTrainer* t = Create(&def, &s);
         maniLearnedTrainerReport report;
-        CHECK(maniTrainLearned(t, 1000, &report) == mani_success && report.stage == 4,
+        CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success && report.stage == 4,
               "trained padded");
         checkpointSizes[k] = CheckpointSize(t);
         checkpoints[k] = (uint8_t*)malloc(checkpointSizes[k]);
@@ -977,7 +988,8 @@ static void TestPaddingIgnored(void)
             memset(checkpoints[k], kTestPadPatterns[k], checkpointSizes[k]);
         }
         if (checkpoints[k] != NULL &&
-            maniSaveLearnedCheckpoint(t, checkpoints[k], checkpointSizes[k], NULL) != mani_success)
+            maniLearnedTrainer_SaveCheckpoint(t, checkpoints[k], checkpointSizes[k], NULL) !=
+                mani_success)
         {
             free(checkpoints[k]);
             checkpoints[k] = NULL;

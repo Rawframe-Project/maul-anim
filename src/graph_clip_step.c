@@ -61,7 +61,7 @@ static maniRootMove Carried(const Update* u, uint32_t slot, const maniClip* clip
 {
     const maniGraphBoundMapPair* pair = maniGraphClipMapPair(u->binding, slot);
     maniRootMotionSource source;
-    if (pair == NULL || !maniClipRootMotionSource(clip, &source))
+    if (pair == NULL || !maniClip_GetRootMotionSource(clip, &source))
     {
         return move;
     }
@@ -178,7 +178,7 @@ static uint32_t NextMember(const Update* u, uint32_t g, uint32_t from)
 // mirror.
 static uint64_t MarkerName(const Update* u, uint32_t p, const maniClip* clip, uint32_t k)
 {
-    return maniGraphNodeName(u, p, maniClipMarkerAt(clip, k).nameHash);
+    return maniGraphNodeName(u, p, maniClip_GetMarker(clip, k).nameHash);
 }
 
 // Whether every member's clip has a marker of the name.
@@ -266,7 +266,7 @@ static uint32_t Passed(const Update* u, uint32_t g, uint32_t p, const maniClip* 
             continue;
         }
         double d = (double)clip->duration;
-        double behind = Along((double)maniClipMarkerAt(clip, k).time, t, backward, d);
+        double behind = Along((double)maniClip_GetMarker(clip, k).time, t, backward, d);
         behind = behind > 0.0 ? behind : d;
         if (found == UINT32_MAX || behind < best)
         {
@@ -279,7 +279,7 @@ static uint32_t Passed(const Update* u, uint32_t g, uint32_t p, const maniClip* 
 
 static double MarkerTime(const maniClip* clip, uint32_t k)
 {
-    return (double)maniClipMarkerAt(clip, k).time;
+    return (double)maniClip_GetMarker(clip, k).time;
 }
 
 // The common markers a playhead passes from t0 over step: forward those

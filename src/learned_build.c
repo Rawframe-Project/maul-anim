@@ -207,7 +207,8 @@ static maniBuildResult CheckNames(const maniLearnedNameSource* names, uint32_t c
 static maniBuildResult CheckModel(const maniLearnedModelSource* s)
 {
     uint32_t bones = s->skeleton->boneCount;
-    if (maniMotionDatabaseSkeletonIdentity(s->database) != maniSkeletonIdentity(s->skeleton))
+    if (maniMotionDatabase_GetSkeletonIdentity(s->database) !=
+        maniSkeleton_GetIdentity(s->skeleton))
     {
         return Refuse(maniBuildReasonDatabase, 0, 0);
     }
@@ -294,8 +295,8 @@ static uint8_t* PutFloats(uint8_t* at, const float* values, uint64_t count)
 static void LayHeader(const maniLearnedModelSource* s, const Totals* t, uint8_t* h)
 {
     const maniMotionDatabase* d = s->database;
-    maniStoreU64(h, maniSkeletonIdentity(s->skeleton));
-    maniStoreU64(h + 8, maniMotionDatabaseIdentity(d));
+    maniStoreU64(h, maniSkeleton_GetIdentity(s->skeleton));
+    maniStoreU64(h + 8, maniMotionDatabase_GetIdentity(d));
     const uint32_t words[11] = {
         s->skeleton->boneCount, d->featureCount,    d->channelCount,    d->timeCount,
         s->latentCount,         s->scaledBoneCount, s->floatTrackCount, s->eventCount,

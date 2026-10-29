@@ -88,14 +88,14 @@ static bool BuildSkeleton(maniBuilder* builder, const maniGltf* gltf, uint32_t n
                           maniSkeleton* skeleton)
 {
     maniGltfOptions options = maniDefaultGltfOptions();
-    maniImportResult r = maniGltfSkeletonCount(gltf) > 0
-                             ? maniGltfBuildSkeleton(builder, gltf, 0, &options)
-                             : maniGltfBuildNodeSkeleton(builder, gltf, node, &options);
+    maniImportResult r = maniGltf_GetSkeletonCount(gltf) > 0
+                             ? maniBuildGltfSkeleton(builder, gltf, 0, &options)
+                             : maniBuildGltfNodeSkeleton(builder, gltf, node, &options);
     size_t size = 0;
-    bool built =
-        r.result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
+    bool built = r.result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
     if (built)
     {
         Pin(s_skeletonFile, size);
@@ -116,11 +116,11 @@ static double TrsError(const maniClip* clip, const maniSkeleton* skeleton, uint3
     double worst = 0;
     for (uint32_t k = 0; k < t->samples; ++k)
     {
-        if (maniSampleClip(clip, skeleton, (float)SampleTime(k, t), pose) != mani_success)
+        if (maniClip_Sample(clip, skeleton, (float)SampleTime(k, t), pose) != mani_success)
         {
             return HUGE_VAL;
         }
-        maniTransform local = maniPoseLocal(pose, bone);
+        maniTransform local = maniPose_GetLocal(pose, bone);
         float v[4] = {local.translation.x, local.translation.y, local.translation.z, 0};
         if (t->kind == 1)
         {
@@ -152,7 +152,7 @@ static double WeightError(const maniClip* clip, const FixtureTrack* t)
     {
         const char* end = strchr(name, '|');
         size_t length = end != NULL ? (size_t)(end - name) : strlen(name);
-        tracks[c] = maniClipFindFloatTrack(clip, name, length);
+        tracks[c] = maniClip_FindFloatTrack(clip, name, length);
         if (tracks[c] == MANI_NO_TRACK)
         {
             return HUGE_VAL;
@@ -160,11 +160,11 @@ static double WeightError(const maniClip* clip, const FixtureTrack* t)
         name += length + (end != NULL ? 1 : 0);
     }
     float values[16];
-    uint32_t count = maniClipFloatTrackCount(clip);
+    uint32_t count = maniClip_GetFloatTrackCount(clip);
     double worst = 0;
     for (uint32_t k = 0; k < t->samples && count <= 16; ++k)
     {
-        if (maniSampleClipFloats(clip, (float)SampleTime(k, t), values, count, NULL) !=
+        if (maniClip_SampleFloats(clip, (float)SampleTime(k, t), values, count, NULL) !=
             mani_success)
         {
             return HUGE_VAL;
@@ -190,20 +190,22 @@ static void CheckTrack(const FixtureTrack* t)
     maniGltfOptions options = maniDefaultGltfOptions();
     uint32_t bound = 0;
     bool built =
-        open && maniGltfBuildClip(
+        open && maniBuildGltfClip(
                     builder, gltf, t->animation, &skeleton, &options,
                     &(maniImportClipOptions){.sampleRate = 30.0f, .loop = maniLoopClamp}, &bound)
                         .result == mani_success;
     maniClip clip;
     size_t clipSize = 0;
-    built = built &&
-            maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &clipSize) == mani_success &&
-            maniOpenClip(s_clipFile, clipSize, &clip).result == mani_success;
+    built =
+        built &&
+        maniBuilder_CopyBuilt(builder, s_clipFile, sizeof s_clipFile, &clipSize) == mani_success &&
+        maniOpenClip(s_clipFile, clipSize, &clip).result == mani_success;
     CHECK(built, "the clip builds");
     if (built)
     {
         Pin(s_clipFile, clipSize);
-        CHECK(maniClipSampleCount(&clip) == t->samples && maniClipDuration(&clip) == t->duration,
+        CHECK(maniClip_GetSampleCount(&clip) == t->samples &&
+                  maniClip_GetDuration(&clip) == t->duration,
               "the oracle's grid");
         double error = HUGE_VAL;
         if (t->kind == 3)
@@ -214,7 +216,7 @@ static void CheckTrack(const FixtureTrack* t)
         {
             size_t length = 0;
             const char* name = maniGltfNodeName(gltf, t->node, &length);
-            uint32_t bone = maniSkeletonFindBone(&skeleton, name, length);
+            uint32_t bone = maniSkeleton_FindBone(&skeleton, name, length);
             maniPose* pose = NULL;
             if (bone != MANI_NO_BONE &&
                 maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success)
@@ -243,29 +245,29 @@ static void TestExternalBuffers(void)
     maniGltf* gltf = NULL;
     CHECK(json != NULL && maniOpenGltf(builder, json, size, &gltf).result == mani_success, "opens");
     uint8_t* buffers[8] = {0};
-    uint32_t count = gltf != NULL ? maniGltfBufferCount(gltf) : 0;
+    uint32_t count = gltf != NULL ? maniGltf_GetBufferCount(gltf) : 0;
     CHECK(count == 4, "four buffers");
     for (uint32_t i = 0; i < count && i < 8; ++i)
     {
         size_t length = 0;
-        const char* uri = maniGltfBufferUri(gltf, i, &length);
+        const char* uri = maniGltf_GetBufferUri(gltf, i, &length);
         char name[256];
         snprintf(name, sizeof name, "SimpleSkin/%.*s", (int)length, uri != NULL ? uri : "");
         size_t bytes = 0;
         buffers[i] = ReadFile(name, &bytes);
         CHECK(buffers[i] != NULL &&
-                  maniGltfSupplyBuffer(gltf, i, buffers[i], bytes).result == mani_success,
+                  maniGltf_SupplyBuffer(gltf, i, buffers[i], bytes).result == mani_success,
               "supplied");
     }
     maniSkeleton skeleton;
     maniGltfOptions options = maniDefaultGltfOptions();
     CHECK(gltf != NULL && BuildSkeleton(builder, gltf, 0, &skeleton), "the skeleton");
     CHECK(gltf != NULL &&
-              maniGltfBuildSkin(builder, gltf, 0, &skeleton, &options).result == mani_success,
+              maniBuildGltfSkin(builder, gltf, 0, &skeleton, &options).result == mani_success,
           "the skin");
     uint32_t bound = 0;
     CHECK(gltf != NULL &&
-              maniGltfBuildClip(
+              maniBuildGltfClip(
                   builder, gltf, 0, &skeleton, &options,
                   &(maniImportClipOptions){.sampleRate = 30.0f, .loop = maniLoopClamp}, &bound)
                       .result == mani_success &&

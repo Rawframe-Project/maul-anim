@@ -101,7 +101,7 @@ static void Setup(void)
     maniSkeletonSource source = {kRig, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "the rig");
@@ -167,7 +167,7 @@ static maniBuildResult Build(const maniMirrorMapSource* source, maniMirrorMap* o
     s_size = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
                   maniOpenMirrorMap(s_file, s_size, out).result == mani_success,
               "the map opens");
         CHECK(PaddingIgnored(source, s_file, s_size), "the same map under either padding");
@@ -179,7 +179,7 @@ static maniBuildResult Build(const maniMirrorMapSource* source, maniMirrorMap* o
 static bool NameIs(const maniMirrorMap* map, const char* name, const char* want)
 {
     size_t length = 0;
-    const char* got = maniMirrorName(map, name, strlen(name), &length);
+    const char* got = maniMirrorMap_MirrorName(map, name, strlen(name), &length);
     return length == strlen(want) && memcmp(got, want, length) == 0;
 }
 
@@ -194,27 +194,27 @@ static void TestPairs(void)
     bool partners = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        partners = partners && maniMirrorPartner(&map, b) == kPartner[b];
+        partners = partners && maniMirrorMap_GetPartner(&map, b) == kPartner[b];
     }
     CHECK(partners, "each bone's partner by the suffix rules, the prop its own");
-    CHECK(maniMirrorMapUnmatchedBone(&map) == kPropR, "the prop the first unmatched bone");
-    CHECK(maniMirrorPartner(&map, kBones) == MANI_NO_BONE &&
-              maniMirrorPartner(NULL, 0) == MANI_NO_BONE,
+    CHECK(maniMirrorMap_GetUnmatchedBone(&map) == kPropR, "the prop the first unmatched bone");
+    CHECK(maniMirrorMap_GetPartner(&map, kBones) == MANI_NO_BONE &&
+              maniMirrorMap_GetPartner(NULL, 0) == MANI_NO_BONE,
           "no partner past the bones");
-    CHECK(maniMirrorMapAxis(&map) == maniMirrorAxisX &&
-              maniMirrorMapSkeletonIdentity(&map) == maniSkeletonIdentity(&s_skeleton) &&
-              maniMirrorMapIdentity(&map) != 0 && maniMirrorMapIdentity(NULL) == 0 &&
-              maniMirrorMapSkeletonIdentity(NULL) == 0 &&
-              maniMirrorMapAxis(NULL) == maniMirrorAxisX &&
-              maniMirrorMapUnmatchedBone(NULL) == MANI_NO_BONE,
+    CHECK(maniMirrorMap_GetAxis(&map) == maniMirrorAxisX &&
+              maniMirrorMap_GetSkeletonIdentity(&map) == maniSkeleton_GetIdentity(&s_skeleton) &&
+              maniMirrorMap_GetIdentity(&map) != 0 && maniMirrorMap_GetIdentity(NULL) == 0 &&
+              maniMirrorMap_GetSkeletonIdentity(NULL) == 0 &&
+              maniMirrorMap_GetAxis(NULL) == maniMirrorAxisX &&
+              maniMirrorMap_GetUnmatchedBone(NULL) == MANI_NO_BONE,
           "the readers");
     CHECK(NameIs(&map, "footL", "footR") && NameIs(&map, "footR", "footL") &&
               NameIs(&map, "curveL", "curveR") && NameIs(&map, "idle", "idle") &&
               NameIs(&map, "curveR", "curveR") && map.nameCount == 3,
           "names paired both ways and by the rules, a repeat kept once");
     const char* idle = "idle";
-    CHECK(maniMirrorName(&map, idle, 4, NULL) == idle &&
-              maniMirrorName(NULL, idle, 4, NULL) == idle,
+    CHECK(maniMirrorMap_MirrorName(&map, idle, 4, NULL) == idle &&
+              maniMirrorMap_MirrorName(NULL, idle, 4, NULL) == idle,
           "an unpaired name itself");
     // Pairs come first: the legs crossed with the arms' clavicles is
     // refused below; here the head paired with itself and the legs as
@@ -223,15 +223,18 @@ static void TestPairs(void)
     source.pairs = pairs;
     source.pairCount = 2;
     source.axis = maniMirrorAxisZ;
-    CHECK(Build(&source, &map).result == mani_success && maniMirrorPartner(&map, kLegL) == kLegR &&
-              maniMirrorPartner(&map, kHead) == kHead && maniMirrorMapAxis(&map) == maniMirrorAxisZ,
+    CHECK(Build(&source, &map).result == mani_success &&
+              maniMirrorMap_GetPartner(&map, kLegL) == kLegR &&
+              maniMirrorMap_GetPartner(&map, kHead) == kHead &&
+              maniMirrorMap_GetAxis(&map) == maniMirrorAxisZ,
           "pairs before rules");
     // Without rules every bone is its own: a symmetric hierarchy.
     source = Source();
     source.ruleCount = 0;
     source.nameCount = 0;
-    CHECK(Build(&source, &map).result == mani_success && maniMirrorPartner(&map, kArmL) == kArmL &&
-              maniMirrorMapUnmatchedBone(&map) == MANI_NO_BONE && map.nameCount == 2,
+    CHECK(Build(&source, &map).result == mani_success &&
+              maniMirrorMap_GetPartner(&map, kArmL) == kArmL &&
+              maniMirrorMap_GetUnmatchedBone(&map) == MANI_NO_BONE && map.nameCount == 2,
           "no rules: each bone its own");
 }
 
@@ -250,7 +253,7 @@ static bool Partners(const maniMirrorMapSource* source, const uint32_t (*pairs)[
         {
             want = pairs[i][0] == b ? pairs[i][1] : pairs[i][1] == b ? pairs[i][0] : want;
         }
-        paired += maniMirrorPartner(&map, b) == want ? 1u : 0u;
+        paired += maniMirrorMap_GetPartner(&map, b) == want ? 1u : 0u;
     }
     return paired == kBones;
 }
@@ -392,7 +395,7 @@ static void TestOtherRefusals(void)
     maniTransform reference[kBones];
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        reference[b] = maniSkeletonRest(&s_skeleton, b);
+        reference[b] = maniSkeleton_GetRest(&s_skeleton, b);
     }
     reference[kArmR].rotation = (maniQuat){0.0f, 0.0f, 0.0f, 0.0f};
     source.reference = reference;
@@ -433,7 +436,7 @@ static void TestOtherRefusals(void)
     CHECK(maniBuildMirrorMap(builder, NULL).result == mani_errorInvalid, "a NULL source");
     source.rules = NULL;
     CHECK(maniBuildMirrorMap(builder, &source).result == mani_errorInvalid, "rules NULL");
-    CHECK(maniBuilderMisuses(builder) == 2, "misuses counted");
+    CHECK(maniBuilder_GetMisuse(builder) == 2, "misuses counted");
     maniDestroyBuilder(builder);
 }
 

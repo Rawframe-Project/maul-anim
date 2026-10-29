@@ -109,8 +109,8 @@ static MANI_NOINLINE maniResult SolveFabrikWork(maniPose* pose, const maniSkelet
     return mani_success;
 }
 
-maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton,
-                           const maniChainSolve* solve, bool* reachedOut)
+maniResult maniPose_SolveFabrik(maniPose* pose, const maniSkeleton* skeleton,
+                                const maniChainSolve* solve, bool* reachedOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveFabrikWork(pose, skeleton, solve, reachedOut);

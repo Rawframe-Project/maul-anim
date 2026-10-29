@@ -59,7 +59,7 @@ static Carry CarryOf(const uint32_t* block)
 
 static maniVec3 PosePosition(const maniPose* pose, uint32_t bone)
 {
-    maniAffine m = maniPoseModel(pose, bone);
+    maniAffine m = maniPose_GetModel(pose, bone);
     return maniAffineTransformPoint(&m, maniVec3Make(0.0f, 0.0f, 0.0f));
 }
 
@@ -90,13 +90,13 @@ typedef struct Apply
 static void Turn(const Apply* a, const Chain* chain, uint32_t bone, maniQuat q)
 {
     maniTransform parent =
-        maniPoseModelTransformEntered(a->pose, maniSkeletonParent(a->skeleton, bone));
+        maniPoseModelTransformEntered(a->pose, maniSkeleton_GetParent(a->skeleton, bone));
     maniQuat above = maniQuatNormalize(maniQuatMul(chain->rotation, parent.rotation));
     maniQuat inParent = maniQuatMul(maniQuatMul(maniQuatConjugate(above), q), above);
-    maniTransform local = maniPoseLocal(a->pose, bone);
+    maniTransform local = maniPose_GetLocal(a->pose, bone);
     local.rotation =
         maniQuatNormalize(maniQuatMul(maniSpringMirror(inParent, parent.scale), local.rotation));
-    maniPoseSetLocal(a->pose, bone, local);
+    maniPose_SetLocal(a->pose, bone, local);
 }
 
 // A spring's colliders as they stand at the last call's end, the first
@@ -152,7 +152,7 @@ static void ApplySpring(const Apply* a, uint32_t spring)
     float alpha = a->alpha;
     const uint8_t* e = set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE;
     uint32_t center = maniLoadU32(e + 16);
-    maniAffine space = maniPoseModel(pose, center);
+    maniAffine space = maniPose_GetModel(pose, center);
     Carry carry = CarryOf(block);
     Chain chain = {maniQuatIdentity(), maniVec3Make(0.0f, 0.0f, 0.0f)};
     Shapes shapes = {.a = a, .spring = e};

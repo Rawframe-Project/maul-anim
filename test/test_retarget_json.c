@@ -54,14 +54,14 @@ static void References(void)
 {
     for (uint32_t b = 0; b < 8; ++b)
     {
-        s_sourceReference[b] = maniSkeletonRest(&s_source, b);
+        s_sourceReference[b] = maniSkeleton_GetRest(&s_source, b);
     }
     s_sourceReference[5].rotation = (maniQuat){0.0f, 0.0f, 0.70710678f, 0.70710678f};
     s_sourceReference[6].scale = (maniVec3){1.0f, 1.5f, 1.0f};
     s_sourceReference[6].translation.z = -0.0f;
     for (uint32_t b = 0; b < 10; ++b)
     {
-        s_targetReference[b] = maniSkeletonRest(&s_target, b);
+        s_targetReference[b] = maniSkeleton_GetRest(&s_target, b);
     }
 }
 
@@ -128,7 +128,7 @@ static size_t Built(const maniRetargetMapSource* source)
     maniBuilder* builder = NewBuilder(NULL);
     size_t size = 0;
     CHECK(maniBuildRetargetMap(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
           "built");
     maniDestroyBuilder(builder);
     return size;
@@ -142,7 +142,8 @@ static maniBuildResult ReadInto(const char* text, size_t* sizeOut)
     *sizeOut = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_read, sizeof s_read, sizeOut) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, sizeOut) == mani_success,
+              "copies");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -228,7 +229,7 @@ static void TestDefaults(void)
     maniTransform reference[8];
     for (uint32_t b = 0; b < 8; ++b)
     {
-        reference[b] = maniSkeletonRest(&s_source, b);
+        reference[b] = maniSkeleton_GetRest(&s_source, b);
     }
     reference[5].rotation = (maniQuat){0.0f, 0.0f, 0.70710678f, 0.70710678f};
     maniRetargetMapSource source = {.source = &s_source,
@@ -314,7 +315,7 @@ static void TestReadRefusals(void)
                 mani_errorInvalid &&
             maniBuildRetargetMapJson(builder, "", 0, NULL, &s_target).result == mani_errorInvalid &&
             maniBuildRetargetMapJson(builder, "", 0, &s_source, NULL).result == mani_errorInvalid &&
-            maniBuilderMisuses(builder) == 3,
+            maniBuilder_GetMisuse(builder) == 3,
         "misuses");
     maniDestroyBuilder(builder);
 }
@@ -334,7 +335,7 @@ static void TestWriteRefusals(void)
     CHECK(maniWriteRetargetMapJson(NULL, &source).result == mani_errorInvalid, "no builder");
     maniBuilder* builder = NewBuilder(NULL);
     CHECK(maniWriteRetargetMapJson(builder, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 1,
+              maniBuilder_GetMisuse(builder) == 1,
           "no source, a misuse");
     maniDestroyBuilder(builder);
 }

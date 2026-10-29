@@ -130,7 +130,7 @@ static float LastKeyTime(const maniChannelSource* c)
 static maniBuildResult CheckTracks(const maniClipSource* source, uint32_t* seen, float* durationOut)
 {
     float last = 0.0f;
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     for (uint32_t i = 0; i < source->boneTrackCount; ++i)
     {
         const maniBoneTrackSource* t = &source->boneTracks[i];
@@ -291,7 +291,7 @@ static void Basis(const maniClipSource* source, const maniBoneTrackSource* t, ui
         maniEvaluateChannel(c, channel == 1 ? 4 : 3, 0.0, out);
         return;
     }
-    maniTransform rest = maniSkeletonRest(source->skeleton, t->bone);
+    maniTransform rest = maniSkeleton_GetRest(source->skeleton, t->bone);
     const float r[3][4] = {
         {rest.translation.x, rest.translation.y, rest.translation.z, 0.0f},
         {rest.rotation.x, rest.rotation.y, rest.rotation.z, rest.rotation.w},
@@ -362,7 +362,7 @@ typedef struct RootBone
 static void Local(const maniClipSource* source, const maniBoneTrackSource* track, double time,
                   double out[7])
 {
-    maniTransform rest = maniSkeletonRest(source->skeleton, track->bone);
+    maniTransform rest = maniSkeleton_GetRest(source->skeleton, track->bone);
     double v[4];
     if (track->translation.keyCount > 0)
     {
@@ -495,8 +495,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
                              const maniClipNamedLayout* named, float* previous)
 {
     uint8_t header[MANI_CLIP_HEADER_SIZE] = {0};
-    maniStoreU64(header, maniSkeletonIdentity(source->skeleton));
-    maniStoreU32(header + 8, maniSkeletonBoneCount(source->skeleton));
+    maniStoreU64(header, maniSkeleton_GetIdentity(source->skeleton));
+    maniStoreU32(header + 8, maniSkeleton_GetBoneCount(source->skeleton));
     maniStoreU32(header + 12, plan->sampleCount);
     memcpy(header + 16, &plan->rate, 4);
     memcpy(header + 20, &plan->duration, 4);
@@ -581,7 +581,7 @@ static maniResult TakeRoot(maniBuilder* builder, const maniClipSource* source,
         times[k] = maniClipSampleTime(k, n, plan->rate, plan->duration);
         Local(source, track, times[k], root->locals + 7 * (size_t)k);
     }
-    maniTransform rest = maniSkeletonRest(source->skeleton, track->bone);
+    maniTransform rest = maniSkeleton_GetRest(source->skeleton, track->bone);
     const double restLocal[7] = {(double)rest.translation.x, (double)rest.translation.y,
                                  (double)rest.translation.z, (double)rest.rotation.x,
                                  (double)rest.rotation.y,    (double)rest.rotation.z,
@@ -701,7 +701,7 @@ static maniBuildResult CheckRootMotion(const maniClipSource* source, const uint3
         return Outcome(mani_success);
     }
     bool valid = maniRootMotionSourceValid(s) && source->additive == maniAdditiveNone &&
-                 s->bone < maniSkeletonBoneCount(source->skeleton) && seen[s->bone] != 0;
+                 s->bone < maniSkeleton_GetBoneCount(source->skeleton) && seen[s->bone] != 0;
     return valid ? Outcome(mani_success) : Refuse(maniBuildReasonRootMotion, s->bone, 0);
 }
 
@@ -759,7 +759,7 @@ static maniBuildResult CheckGiven(const maniClipSource* source, const uint32_t* 
     const maniRootMotionSource* s = &given->source;
     bool valid = source->rootMotion == NULL && source->additive == maniAdditiveNone &&
                  maniRootMotionSourceValid(s) &&
-                 s->bone < maniSkeletonBoneCount(source->skeleton) && seen[s->bone] != 0 &&
+                 s->bone < maniSkeleton_GetBoneCount(source->skeleton) && seen[s->bone] != 0 &&
                  given->sampleCount == sampleCount;
     const maniBoneTrackSource* t = valid ? &source->boneTracks[seen[s->bone] - 1] : NULL;
     return t != NULL && t->translation.keyCount > 0 && t->rotation.keyCount > 0
@@ -799,7 +799,7 @@ maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* s
     }
     Plan plan = {0};
     maniBuildResult r;
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     size_t words = (size_t)bones + (size_t)source->boneTrackCount;
     uint32_t* scratch = maniAllocate(&builder->allocator, words, sizeof(uint32_t), 8);
     float* previous =
@@ -855,5 +855,5 @@ bool maniImportClipOptionsValid(const maniImportClipOptions* options, const mani
     return isfinite(options->sampleRate) && options->sampleRate >= 0.0f &&
            options->loop <= maniLoopRepeat && options->additive <= maniAdditiveFirstFrame &&
            (root == NULL ||
-            (maniRootMotionSourceValid(root) && root->bone < maniSkeletonBoneCount(skeleton)));
+            (maniRootMotionSourceValid(root) && root->bone < maniSkeleton_GetBoneCount(skeleton)));
 }

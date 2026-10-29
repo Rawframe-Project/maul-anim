@@ -153,8 +153,8 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
     maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side],
+                                    &size) == mani_success &&
               maniOpenSkeleton(s_skeletonFiles[side], size, out).result == mani_success,
           "a skeleton");
     maniDestroyBuilder(builder);
@@ -165,7 +165,7 @@ static void Map(const maniRetargetMapSource* source, int slot, maniRetargetMap* 
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildRetargetMap(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_mapFiles[slot], sizeof s_mapFiles[slot], &size) ==
+              maniBuilder_CopyBuilt(builder, s_mapFiles[slot], sizeof s_mapFiles[slot], &size) ==
                   mani_success &&
               maniOpenRetargetMap(s_mapFiles[slot], size, out).result == mani_success,
           "a map");
@@ -207,7 +207,7 @@ static void Setup(void)
     maniTransform reference[10];
     for (uint32_t b = 0; b < 10; ++b)
     {
-        reference[b] = maniSkeletonRest(&s_target, b);
+        reference[b] = maniSkeleton_GetRest(&s_target, b);
     }
     reference[7].scale.x = 0.0f;
     source.pelvis = &kPelvis;
@@ -269,7 +269,7 @@ static void SourceClip(const maniSkeleton* skeleton, maniAdditiveBasis additive,
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[slot], sizeof s_clipFiles[slot], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[slot], sizeof s_clipFiles[slot], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[slot], size, out).result == mani_success,
           "a source clip");
@@ -304,7 +304,7 @@ static maniBuildResult Bake(const maniRetargetClipSource* source, maniClip* out)
     maniBuildResult r = maniBuildRetargetedClip(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_baked, sizeof s_baked, &size) == mani_success &&
+        CHECK(maniBuilder_CopyBuilt(builder, s_baked, sizeof s_baked, &size) == mani_success &&
                   maniOpenClip(s_baked, size, out).result == mani_success,
               "the baked clip opens");
         CHECK(PaddingIgnored(source, s_baked, size), "the same clip under either padding");
@@ -347,8 +347,8 @@ static bool Same(const maniPose* a, const maniPose* b, uint32_t bones)
     bool same = true;
     for (uint32_t bone = 0; bone < bones; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         same = same && Gap(x.translation, y.translation) < 1e-5 &&
                QuatDot(x.rotation, y.rotation) > 1.0 - 1e-10 && Gap(x.scale, y.scale) < 1e-5;
     }
@@ -360,10 +360,10 @@ static bool SampleCarried(const maniRetargetMap* map, const maniClip* source, co
                           uint32_t k)
 {
     float time = (float)k / 30.0f;
-    bool ok = maniSampleClip(source, &s_source, time, s_in) == mani_success &&
-              maniRetargetPose(map, &s_source, s_in, &s_target, s_expected, s_scratch,
-                               sizeof s_scratch) == mani_success &&
-              maniSampleClip(baked, &s_target, time, s_out) == mani_success;
+    bool ok = maniClip_Sample(source, &s_source, time, s_in) == mani_success &&
+              maniRetargetMap_RetargetPose(map, &s_source, s_in, &s_target, s_expected, s_scratch,
+                                           sizeof s_scratch) == mani_success &&
+              maniClip_Sample(baked, &s_target, time, s_out) == mani_success;
     return ok && Same(s_out, s_expected, 10);
 }
 
@@ -374,9 +374,10 @@ static void TestSamples(void)
     SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip bakes");
-    CHECK(maniClipSampleCount(&baked) == 31 && maniClipSampleRate(&baked) == 30.0f &&
-              maniClipDuration(&baked) == 1.0f && maniClipLoopPolicy(&baked) == maniLoopRepeat &&
-              maniClipAdditiveBasis(&baked) == maniAdditiveNone,
+    CHECK(maniClip_GetSampleCount(&baked) == 31 && maniClip_GetSampleRate(&baked) == 30.0f &&
+              maniClip_GetDuration(&baked) == 1.0f &&
+              maniClip_GetLoopPolicy(&baked) == maniLoopRepeat &&
+              maniClip_GetAdditiveBasis(&baked) == maniAdditiveNone,
           "the timing kept");
     bool carried = true;
     for (uint32_t k = 0; k < 31; ++k)
@@ -393,31 +394,31 @@ static void TestNamed(void)
     SourceClip(&s_source, maniAdditiveNone, MANI_NO_BONE, 0, &source);
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip bakes");
-    bool floats = maniClipFloatTrackCount(&baked) == 2;
+    bool floats = maniClip_GetFloatTrackCount(&baked) == 2;
     const float times[4] = {0.1f, 0.49f, 0.51f, 0.9f};
     for (int i = 0; floats && i < 4; ++i)
     {
         float a[2];
         float b[2];
-        floats = maniSampleClipFloats(&source, times[i], a, 2, NULL) == mani_success &&
-                 maniSampleClipFloats(&baked, times[i], b, 2, NULL) == mani_success &&
+        floats = maniClip_SampleFloats(&source, times[i], a, 2, NULL) == mani_success &&
+                 maniClip_SampleFloats(&baked, times[i], b, 2, NULL) == mani_success &&
                  fabsf(a[0] - b[0]) < 1e-6f && a[1] == b[1];
     }
     CHECK(floats, "float tracks kept, the step one a step");
-    bool discrete = maniClipDiscreteTrackCount(&baked) == 2;
+    bool discrete = maniClip_GetDiscreteTrackCount(&baked) == 2;
     for (int i = 0; discrete && i < 8; ++i)
     {
-        discrete = maniClipDiscreteValue(&baked, (uint32_t)i % 2, times[i / 2]) ==
-                   maniClipDiscreteValue(&source, (uint32_t)i % 2, times[i / 2]);
+        discrete = maniClip_GetDiscreteValue(&baked, (uint32_t)i % 2, times[i / 2]) ==
+                   maniClip_GetDiscreteValue(&source, (uint32_t)i % 2, times[i / 2]);
     }
     CHECK(discrete, "discrete tracks copied");
-    bool timed = maniClipEventCount(&baked) == 2 && maniClipMarkerCount(&baked) == 2;
+    bool timed = maniClip_GetEventCount(&baked) == 2 && maniClip_GetMarkerCount(&baked) == 2;
     for (uint32_t i = 0; timed && i < 2; ++i)
     {
-        maniClipEvent a = maniClipEventAt(&source, i);
-        maniClipEvent b = maniClipEventAt(&baked, i);
-        maniClipEvent c = maniClipMarkerAt(&source, i);
-        maniClipEvent d = maniClipMarkerAt(&baked, i);
+        maniClipEvent a = maniClip_GetEvent(&source, i);
+        maniClipEvent b = maniClip_GetEvent(&baked, i);
+        maniClipEvent c = maniClip_GetMarker(&source, i);
+        maniClipEvent d = maniClip_GetMarker(&baked, i);
         timed = a.time == b.time && a.payload == b.payload && a.nameHash == b.nameHash &&
                 c.time == d.time && c.nameHash == d.nameHash;
     }
@@ -454,7 +455,8 @@ static void TestCompressed(void)
     maniCompressOptions options = maniDefaultCompressOptions();
     size_t size = 0;
     CHECK(maniCompressClip(builder, &source, &s_source, &options, NULL) == mani_success &&
-              maniCopyBuilt(builder, compressed, sizeof compressed, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, compressed, sizeof compressed, &size) ==
+                  mani_success &&
               maniOpenClip(compressed, size, &small).result == mani_success,
           "a compressed source");
     maniDestroyBuilder(builder);
@@ -474,16 +476,17 @@ static bool DifferenceCarried(const maniClip* source, const maniClip* baked, uin
 {
     float time = (float)k / 30.0f;
     maniBlendLayer layer = {s_in, 1.0f, NULL};
-    bool ok = maniPoseSetRest(s_whole, &s_source) == mani_success &&
-              maniRetargetPose(&s_map, &s_source, s_whole, &s_target, s_base, s_scratch,
-                               sizeof s_scratch) == mani_success &&
-              maniSampleClip(source, &s_source, time, s_in) == mani_success &&
-              maniAddPoses(&s_source, s_whole, &layer, 1) == mani_success &&
-              maniRetargetPose(&s_map, &s_source, s_whole, &s_target, s_expected, s_scratch,
-                               sizeof s_scratch) == mani_success &&
-              maniPoseDifference(&s_target, s_expected, s_base, s_expected) == mani_success &&
-              maniSampleClip(baked, &s_target, time, s_out) == mani_success;
-    return ok && maniPoseIsDifference(s_out) && Same(s_out, s_expected, 10);
+    bool ok = maniPose_SetRest(s_whole, &s_source) == mani_success &&
+              maniRetargetMap_RetargetPose(&s_map, &s_source, s_whole, &s_target, s_base, s_scratch,
+                                           sizeof s_scratch) == mani_success &&
+              maniClip_Sample(source, &s_source, time, s_in) == mani_success &&
+              maniPose_AddLayers(s_whole, &s_source, &layer, 1) == mani_success &&
+              maniRetargetMap_RetargetPose(&s_map, &s_source, s_whole, &s_target, s_expected,
+                                           s_scratch, sizeof s_scratch) == mani_success &&
+              maniSkeleton_ComputePoseDifference(&s_target, s_expected, s_base, s_expected) ==
+                  mani_success &&
+              maniClip_Sample(baked, &s_target, time, s_out) == mani_success;
+    return ok && maniPose_IsDifference(s_out) && Same(s_out, s_expected, 10);
 }
 
 static void TestAdditive(void)
@@ -496,7 +499,7 @@ static void TestAdditive(void)
         SourceClip(&s_source, bases[i], MANI_NO_BONE, 1, &source);
         maniRetargetClipSource s = Source(&s_map, &source);
         CHECK(Bake(&s, &baked).result == mani_success, "an additive clip bakes");
-        CHECK(maniClipAdditiveBasis(&baked) == bases[i], "the basis kept");
+        CHECK(maniClip_GetAdditiveBasis(&baked) == bases[i], "the basis kept");
         bool carried = true;
         for (uint32_t k = 0; k < 31; ++k)
         {
@@ -516,7 +519,7 @@ static void TestRootMotion(void)
     maniRetargetClipSource s = Source(&s_map, &source);
     CHECK(Bake(&s, &baked).result == mani_success, "a clip with root motion bakes");
     maniRootMotionSource declared;
-    CHECK(maniClipRootMotionSource(&baked, &declared) && declared.bone == 0 &&
+    CHECK(maniClip_GetRootMotionSource(&baked, &declared) && declared.bone == 0 &&
               declared.translationAxes == (maniRootAxisX | maniRootAxisZ) &&
               declared.rotation == maniRootRotationTwist && declared.twistAxis == 1 &&
               declared.translationReference == maniRootReferenceRest && declared.loop == 0,
@@ -527,11 +530,12 @@ static void TestRootMotion(void)
     {
         maniRootMove a;
         maniRootMove b;
-        moves = moves &&
-                maniClipRootMotion(&source, spans[i][0], spans[i][1], &a) == mani_success &&
-                maniClipRootMotion(&baked, spans[i][0], spans[i][1], &b) == mani_success &&
-                Gap(b.translation, maniRetargetRootMotion(&s_map, a.translation)) < 1e-5 &&
-                QuatDot(a.rotation, b.rotation) > 1.0 - 1e-10;
+        moves =
+            moves &&
+            maniClip_GetRootMotion(&source, spans[i][0], spans[i][1], &a) == mani_success &&
+            maniClip_GetRootMotion(&baked, spans[i][0], spans[i][1], &b) == mani_success &&
+            Gap(b.translation, maniRetargetMap_RetargetRootMotion(&s_map, a.translation)) < 1e-5 &&
+            QuatDot(a.rotation, b.rotation) > 1.0 - 1e-10;
     }
     CHECK(moves, "the moves scaled");
     bool carried = true;
@@ -542,9 +546,9 @@ static void TestRootMotion(void)
     CHECK(carried, "the poses in place carried");
     // A bone whose parent's frame turns off the axes takes all of them.
     s.rootMotionBone = 7;
-    CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
-              declared.bone == 7 && declared.translationAxes == 7 &&
-              declared.rotation == maniRootRotationWhole,
+    CHECK(Bake(&s, &baked).result == mani_success &&
+              maniClip_GetRootMotionSource(&baked, &declared) && declared.bone == 7 &&
+              declared.translationAxes == 7 && declared.rotation == maniRootRotationWhole,
           "all axes and the whole rotation off the axes");
 }
 
@@ -575,7 +579,7 @@ static void TestTurned(void)
     maniClip source;
     maniClip baked;
     CHECK(maniBuildClip(builder, &clip).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[2], sizeof s_clipFiles[2], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[2], sizeof s_clipFiles[2], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[2], size, &source).result == mani_success,
           "a turned source clip");
@@ -583,8 +587,9 @@ static void TestTurned(void)
     maniRetargetClipSource s = {&s_turnedMap, &s_turnedSource, &s_turnedTarget, &source,
                                 MANI_NO_BONE};
     maniRootMotionSource declared;
-    CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
-              declared.bone == 1 && declared.translationAxes == (maniRootAxisX | maniRootAxisY) &&
+    CHECK(Bake(&s, &baked).result == mani_success &&
+              maniClip_GetRootMotionSource(&baked, &declared) && declared.bone == 1 &&
+              declared.translationAxes == (maniRootAxisX | maniRootAxisY) &&
               declared.rotation == maniRootRotationTwist && declared.twistAxis == 2,
           "the axes turned");
     // The turn from the source parent's frame to the target's.
@@ -592,8 +597,8 @@ static void TestTurned(void)
     const maniQuat back = {0.70710678f, 0.0f, 0.0f, 0.70710678f};
     maniRootMove a;
     maniRootMove b;
-    CHECK(maniClipRootMotion(&source, 0.1f, 0.6f, &a) == mani_success &&
-              maniClipRootMotion(&baked, 0.1f, 0.6f, &b) == mani_success,
+    CHECK(maniClip_GetRootMotion(&source, 0.1f, 0.6f, &a) == mani_success &&
+              maniClip_GetRootMotion(&baked, 0.1f, 0.6f, &b) == mani_success,
           "moves read");
     maniQuat t =
         Mul(Mul(g, (maniQuat){a.translation.x, a.translation.y, a.translation.z, 0.0f}), back);
@@ -617,9 +622,9 @@ static maniVec3 Turn(maniQuat q, maniVec3 v)
 static maniQuat RestModel(const maniSkeleton* skeleton, uint32_t bone)
 {
     maniQuat q = {0.0f, 0.0f, 0.0f, 1.0f};
-    for (uint32_t b = bone; b != MANI_NO_BONE; b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = bone; b != MANI_NO_BONE; b = maniSkeleton_GetParent(skeleton, b))
     {
-        q = Mul(maniSkeletonRest(skeleton, b).rotation, q);
+        q = Mul(maniSkeleton_GetRest(skeleton, b).rotation, q);
     }
     return q;
 }
@@ -635,9 +640,9 @@ static void TestTurnedSource(void)
     SourceClip(&s_source, maniAdditiveNone, 5, 3, &source);
     maniRetargetClipSource s = Source(&s_map, &source);
     maniRootMotionSource declared;
-    CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
-              declared.bone == 6 && declared.translationAxes == 7 &&
-              declared.rotation == maniRootRotationWhole,
+    CHECK(Bake(&s, &baked).result == mani_success &&
+              maniClip_GetRootMotionSource(&baked, &declared) && declared.bone == 6 &&
+              declared.translationAxes == 7 && declared.rotation == maniRootRotationWhole,
           "the arm's motion on the upper arm, off the axes");
     maniQuat from = RestModel(&s_source, 4);
     maniQuat to = RestModel(&s_target, 5);
@@ -648,12 +653,11 @@ static void TestTurnedSource(void)
     {
         maniRootMove a;
         maniRootMove b;
-        moves =
-            moves && maniClipRootMotion(&source, 0.0f, ends[i], &a) == mani_success &&
-            maniClipRootMotion(&baked, 0.0f, ends[i], &b) == mani_success &&
-            Gap(b.translation,
-                Turn(Conj(to), maniRetargetRootMotion(&s_map, Turn(from, a.translation)))) < 1e-5 &&
-            QuatDot(b.rotation, Mul(Mul(g, a.rotation), Conj(g))) > 1.0 - 1e-10;
+        moves = moves && maniClip_GetRootMotion(&source, 0.0f, ends[i], &a) == mani_success &&
+                maniClip_GetRootMotion(&baked, 0.0f, ends[i], &b) == mani_success &&
+                Gap(b.translation, Turn(Conj(to), maniRetargetMap_RetargetRootMotion(
+                                                      &s_map, Turn(from, a.translation)))) < 1e-5 &&
+                QuatDot(b.rotation, Mul(Mul(g, a.rotation), Conj(g))) > 1.0 - 1e-10;
     }
     CHECK(moves, "the moves carried through both chests' frames");
 }
@@ -668,9 +672,10 @@ static void TestFlat(void)
     maniRetargetClipSource s = Source(&s_flat, &source);
     maniRootMotionSource declared;
     maniRootMove move;
-    CHECK(Bake(&s, &baked).result == mani_success && maniClipRootMotionSource(&baked, &declared) &&
+    CHECK(Bake(&s, &baked).result == mani_success &&
+              maniClip_GetRootMotionSource(&baked, &declared) &&
               declared.translationAxes == (maniRootAxisX | maniRootAxisZ) &&
-              maniClipRootMotion(&baked, 0.0f, 1.0f, &move) == mani_success &&
+              maniClip_GetRootMotion(&baked, 0.0f, 1.0f, &move) == mani_success &&
               move.translation.x == 0.0f && move.translation.z == 0.0f,
           "the axes kept where the scale takes them to nothing");
 }
@@ -693,7 +698,7 @@ static void TestRefusals(void)
     CHECK(maniBuildRetargetedClip(builder, NULL).result == mani_errorInvalid, "a NULL source");
     s = Source(NULL, &source);
     CHECK(maniBuildRetargetedClip(builder, &s).result == mani_errorInvalid, "a NULL map");
-    CHECK(maniBuilderMisuses(builder) == 2, "misuses counted");
+    CHECK(maniBuilder_GetMisuse(builder) == 2, "misuses counted");
     maniDestroyBuilder(builder);
     s = Source(&s_map, &source);
     s.source = &s_otherSource;

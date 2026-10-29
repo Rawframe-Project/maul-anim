@@ -295,7 +295,7 @@ static int64_t Ticks(const char* header)
     maniFbx* fbx = NULL;
     maniFbxSettings settings = {0};
     CHECK(maniOpenFbx(builder, text, strlen(text), &fbx).result == mani_success &&
-              maniFbxReadSettings(fbx, &settings) == mani_success,
+              maniFbx_ReadSettings(fbx, &settings) == mani_success,
           "a header");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);

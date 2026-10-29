@@ -65,12 +65,12 @@ static void TestData(void)
     static _Alignas(32) uint8_t memory[4096];
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, memory, sizeof memory, &pose) == mani_success &&
-              maniSampleClip(&s_clips[0], &s_skeleton, 0.3f, pose) == mani_success,
+              maniClip_Sample(&s_clips[0], &s_skeleton, 0.3f, pose) == mani_success,
           "the walk at 0.3 s");
     bool same = true;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         const float* o = d.outputs + 3 * (size_t)d.outputCount + 9 * b;
         maniVec3 x = maniQuatRotate(t.rotation, maniVec3Make(1, 0, 0));
         maniVec3 y = maniQuatRotate(t.rotation, maniVec3Make(0, 1, 0));
@@ -84,7 +84,7 @@ static void TestData(void)
               fabsf(root[3]) <= 1e-6f && fabsf(root[4]) <= 1e-6f && fabsf(root[5]) <= 1e-6f,
           "the walk's root at 1 m/s, not turning");
     float features[5];
-    CHECK(maniMotionDatabaseFeatures(&s_bones, 3, features, s_bones.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetFeatures(&s_bones, 3, features, s_bones.featureCount, NULL) ==
                   mani_success &&
               memcmp(features, d.features + 15, sizeof features) == 0,
           "the database's features");
@@ -149,7 +149,8 @@ static void OpenSway(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_swayFile, sizeof s_swayFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_swayFile, sizeof s_swayFile, &size) ==
+                  mani_success &&
               maniOpenClip(s_swayFile, size, &s_sway).result == mani_success,
           "the sway");
     static const float kNow[1] = {0.0f};
@@ -161,8 +162,8 @@ static void OpenSway(void)
         &s_skeleton, clips, &channel,       entries,        2,    1,
         2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     CHECK(maniBuildMotionDatabase(builder, &database).result == mani_success &&
-              maniCopyBuilt(builder, s_swayDatabaseFile, sizeof s_swayDatabaseFile, &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_swayDatabaseFile, sizeof s_swayDatabaseFile,
+                                    &size) == mani_success &&
               maniOpenMotionDatabase(s_swayDatabaseFile, size, &s_swayDatabase).result ==
                   mani_success,
           "the walk and the sway");
@@ -200,12 +201,12 @@ static void TestSway(void)
     for (uint32_t k = 0; k < 2; ++k)
     {
         CHECK(maniInitPose(&s_skeleton, sides[k], sizeof sides[k], &side[k]) == mani_success &&
-                  maniSampleClip(&s_sway, &s_skeleton, 0.2f + 0.2f * (float)k, side[k]) ==
+                  maniClip_Sample(&s_sway, &s_skeleton, 0.2f + 0.2f * (float)k, side[k]) ==
                       mani_success,
               "the sway either side");
     }
-    maniVec3 moved =
-        maniVec3Sub(maniPoseLocal(side[1], 0).translation, maniPoseLocal(side[0], 0).translation);
+    maniVec3 moved = maniVec3Sub(maniPose_GetLocal(side[1], 0).translation,
+                                 maniPose_GetLocal(side[0], 0).translation);
     CHECK(Near3(in + g[maniTrainGroupVelocity], moved.x / 0.2f, moved.y / 0.2f, moved.z / 0.2f) &&
               Near3(in + g[maniTrainGroupSpin] + 3, 0, 0, 1.5707964f),
           "local velocities");
@@ -213,7 +214,7 @@ static void TestSway(void)
     // root motion gives it: about y only, so differences of rotation
     // vectors are the move's.
     maniRootMove move;
-    CHECK(maniClipRootMotion(&s_sway, 0.2f, 0.2f, &move) == mani_success, "the root's move");
+    CHECK(maniClip_GetRootMotion(&s_sway, 0.2f, 0.2f, &move) == mani_success, "the root's move");
     maniVec3 turn = maniQuatToRotationVector(move.rotation);
     CHECK(Near3(o + 36, turn.x / 0.2f, turn.y / 0.2f, turn.z / 0.2f) && fabsf(o[37]) > 0.1f,
           "the root turning");
@@ -222,12 +223,12 @@ static void TestSway(void)
     static _Alignas(32) uint8_t memory[4096];
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, memory, sizeof memory, &pose) == mani_success &&
-              maniSampleClip(&s_sway, &s_skeleton, 0.3f, pose) == mani_success &&
-              maniComputeModel(pose, &s_skeleton) == mani_success,
+              maniClip_Sample(&s_sway, &s_skeleton, 0.3f, pose) == mani_success &&
+              maniPose_ComputeModel(pose, &s_skeleton) == mani_success,
           "the sway at 0.3 s");
-    maniAffine root = maniPoseModel(pose, 0);
-    maniAffine arm = maniPoseModel(pose, 2);
-    maniQuat undo = maniQuatConjugate(maniPoseLocal(pose, 0).rotation);
+    maniAffine root = maniPose_GetModel(pose, 0);
+    maniAffine arm = maniPose_GetModel(pose, 2);
+    maniQuat undo = maniQuatConjugate(maniPose_GetLocal(pose, 0).rotation);
     CHECK(fabsf(undo.w) < 0.9999f, "bone 0 turned");
     maniVec3 at = maniQuatRotate(
         undo, maniVec3Make(arm.m[9] - root.m[9], arm.m[10] - root.m[10], arm.m[11] - root.m[11]));
@@ -246,7 +247,8 @@ static void TestSway(void)
 static const maniTrainDecompressShape kShape = {4, 16, 1, 1, 4, 0};
 
 // A host that runs ranges of one item, last first.
-static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Backwards(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                       void* user)
 {
     (void)minRange;
     (void)user;
@@ -395,16 +397,16 @@ static void Character(const maniTrainData* d, const float* y, double* out)
         const float* o = y + 9 * b;
         bool given = scaled < d->scaledBoneCount && d->scaledBones[scaled] == b;
         const float* scale = given ? y + 9 * d->boneCount + 3 * scaled++ : d->scales + 3 * b;
-        maniPoseSetLocal(pose, b,
-                         (maniTransform){maniVec3Make(o[0], o[1], o[2]), FromColumns(o + 3, o + 6),
-                                         maniVec3Make(scale[0], scale[1], scale[2])});
+        maniPose_SetLocal(pose, b,
+                          (maniTransform){maniVec3Make(o[0], o[1], o[2]), FromColumns(o + 3, o + 6),
+                                          maniVec3Make(scale[0], scale[1], scale[2])});
     }
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "composed");
-    maniQuat undo = maniQuatConjugate(maniPoseLocal(pose, 0).rotation);
-    maniAffine root = maniPoseModel(pose, 0);
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success, "composed");
+    maniQuat undo = maniQuatConjugate(maniPose_GetLocal(pose, 0).rotation);
+    maniAffine root = maniPose_GetModel(pose, 0);
     for (uint32_t b = 0; b < d->boneCount; ++b)
     {
-        maniAffine m = maniPoseModel(pose, b);
+        maniAffine m = maniPose_GetModel(pose, b);
         maniVec3 v[3] = {
             maniVec3Make(m.m[9] - root.m[9], m.m[10] - root.m[10], m.m[11] - root.m[11]),
             maniVec3Make(m.m[0], m.m[1], m.m[2]), maniVec3Make(m.m[3], m.m[4], m.m[5])};

@@ -537,23 +537,23 @@ maniFileResult maniOpenLearnedModel(const void* bytes, size_t size, maniLearnedM
     return result;
 }
 
-uint64_t maniLearnedModelIdentity(const maniLearnedModel* model)
+uint64_t maniLearnedModel_GetIdentity(const maniLearnedModel* model)
 {
     return model != NULL ? model->identity : 0;
 }
 
-uint64_t maniLearnedModelSkeletonIdentity(const maniLearnedModel* model)
+uint64_t maniLearnedModel_GetSkeletonIdentity(const maniLearnedModel* model)
 {
     return model != NULL ? model->skeletonIdentity : 0;
 }
 
-uint64_t maniLearnedModelDatabaseIdentity(const maniLearnedModel* model)
+uint64_t maniLearnedModel_GetDatabaseIdentity(const maniLearnedModel* model)
 {
     return model != NULL ? model->databaseIdentity : 0;
 }
 
-maniResult maniLearnedModelChannel(const maniLearnedModel* model, uint32_t channel,
-                                   maniMatchChannel* channelOut)
+maniResult maniLearnedModel_GetChannel(const maniLearnedModel* model, uint32_t channel,
+                                       maniMatchChannel* channelOut)
 {
     if (model == NULL || channelOut == NULL || channel >= model->channelCount)
     {
@@ -572,8 +572,9 @@ maniResult maniLearnedModelChannel(const maniLearnedModel* model, uint32_t chann
     return mani_success;
 }
 
-maniResult maniLearnedModelNormalization(const maniLearnedModel* model, float* offsetsOut,
-                                         float* scalesOut, uint32_t capacity, uint32_t* countOut)
+maniResult maniLearnedModel_GetNormalization(const maniLearnedModel* model, float* offsetsOut,
+                                             float* scalesOut, uint32_t capacity,
+                                             uint32_t* countOut)
 {
     if (model == NULL || (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
     {
@@ -599,8 +600,8 @@ maniResult maniLearnedModelNormalization(const maniLearnedModel* model, float* o
     return mani_success;
 }
 
-maniResult maniLearnedModelProjector(const maniLearnedModel* model, uint32_t projector,
-                                     uint32_t* requiredOut, uint32_t* excludedOut)
+maniResult maniLearnedModel_GetProjector(const maniLearnedModel* model, uint32_t projector,
+                                         uint32_t* requiredOut, uint32_t* excludedOut)
 {
     if (model == NULL || projector >= model->projectorCount)
     {
@@ -629,18 +630,18 @@ static const char* Name(const maniLearnedModel* model, uint32_t k, size_t* lengt
     return (const char*)(model->nameBytes + maniLoadU32(e));
 }
 
-uint32_t maniLearnedModelFloatTrackCount(const maniLearnedModel* model)
+uint32_t maniLearnedModel_GetFloatTrackCount(const maniLearnedModel* model)
 {
     return model == NULL ? 0 : model->floatTrackCount;
 }
 
-uint32_t maniLearnedModelEventCount(const maniLearnedModel* model)
+uint32_t maniLearnedModel_GetEventCount(const maniLearnedModel* model)
 {
     return model == NULL ? 0 : model->eventCount;
 }
 
-const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32_t track,
-                                           size_t* lengthOut)
+const char* maniLearnedModel_GetFloatTrackName(const maniLearnedModel* model, uint32_t track,
+                                               size_t* lengthOut)
 {
     if (model == NULL || track >= model->floatTrackCount)
     {
@@ -649,8 +650,8 @@ const char* maniLearnedModelFloatTrackName(const maniLearnedModel* model, uint32
     return Name(model, track, lengthOut);
 }
 
-const char* maniLearnedModelEventName(const maniLearnedModel* model, uint32_t event,
-                                      size_t* lengthOut)
+const char* maniLearnedModel_GetEventName(const maniLearnedModel* model, uint32_t event,
+                                          size_t* lengthOut)
 {
     if (model == NULL || event >= model->eventCount)
     {

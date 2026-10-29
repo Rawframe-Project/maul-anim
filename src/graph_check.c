@@ -274,7 +274,7 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 // source with a map made for the skeleton.
 static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c)
 {
-    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    uint64_t skeleton = maniSkeleton_GetIdentity(source->skeleton);
     const maniRetargetMap* map = c->retargetMap;
     if (c->clip == NULL)
     {
@@ -282,11 +282,11 @@ static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c
     }
     if (map == NULL)
     {
-        return maniClipSkeletonIdentity(c->clip) == skeleton;
+        return maniClip_GetSkeletonIdentity(c->clip) == skeleton;
     }
     return map->targetIdentity == skeleton &&
-           map->targetBoneCount == maniSkeletonBoneCount(source->skeleton) &&
-           maniClipSkeletonIdentity(c->clip) == map->sourceIdentity &&
+           map->targetBoneCount == maniSkeleton_GetBoneCount(source->skeleton) &&
+           maniClip_GetSkeletonIdentity(c->clip) == map->sourceIdentity &&
            c->clip->skeletonBoneCount == map->sourceBoneCount;
 }
 
@@ -320,7 +320,7 @@ static maniBuildResult CheckClips(const maniGraphSource* source, const maniAlloc
     {
         // ClipFits refused a slot without a clip.
         MANI_ASSERT(source->clips[i].clip != NULL);
-        keys[i] = maniClipIdentity(source->clips[i].clip);
+        keys[i] = maniClip_GetIdentity(source->clips[i].clip);
     }
     uint32_t low = 0;
     uint32_t high = 0;
@@ -334,11 +334,11 @@ static maniBuildResult CheckClips(const maniGraphSource* source, const maniAlloc
 // Every model slot: a model of the skeleton, each model once.
 static maniBuildResult CheckModels(const maniGraphSource* source)
 {
-    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    uint64_t skeleton = maniSkeleton_GetIdentity(source->skeleton);
     for (uint32_t i = 0; i < source->modelCount; ++i)
     {
         const maniLearnedModel* m = source->models[i].model;
-        if (m == NULL || maniLearnedModelSkeletonIdentity(m) != skeleton)
+        if (m == NULL || maniLearnedModel_GetSkeletonIdentity(m) != skeleton)
         {
             return maniGraphRefuse(maniBuildReasonModel, i, 0);
         }
@@ -346,7 +346,8 @@ static maniBuildResult CheckModels(const maniGraphSource* source)
         {
             // Slot k passed this loop's first check.
             MANI_ASSERT(source->models[k].model != NULL);
-            if (maniLearnedModelIdentity(source->models[k].model) == maniLearnedModelIdentity(m))
+            if (maniLearnedModel_GetIdentity(source->models[k].model) ==
+                maniLearnedModel_GetIdentity(m))
             {
                 return maniGraphRefuse(maniBuildReasonModel, i, k);
             }
@@ -358,18 +359,19 @@ static maniBuildResult CheckModels(const maniGraphSource* source)
 // Every spring set slot: a set of the skeleton, each set once.
 static maniBuildResult CheckSpringSets(const maniGraphSource* source)
 {
-    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    uint64_t skeleton = maniSkeleton_GetIdentity(source->skeleton);
     for (uint32_t i = 0; i < source->springSetCount; ++i)
     {
         const maniSpringSet* p = source->springSets[i].set;
-        if (p == NULL || maniSpringSetSkeletonIdentity(p) != skeleton)
+        if (p == NULL || maniSpringSet_GetSkeletonIdentity(p) != skeleton)
         {
             return maniGraphRefuse(maniBuildReasonSpringSetSlot, i, 0);
         }
         for (uint32_t k = 0; k < i; ++k)
         {
             MANI_ASSERT(source->springSets[k].set != NULL);
-            if (maniSpringSetIdentity(source->springSets[k].set) == maniSpringSetIdentity(p))
+            if (maniSpringSet_GetIdentity(source->springSets[k].set) ==
+                maniSpringSet_GetIdentity(p))
             {
                 return maniGraphRefuse(maniBuildReasonSpringSetSlot, i, k);
             }
@@ -442,7 +444,7 @@ static maniBuildResult CheckMask(const maniGraphSource* source, const maniGraphM
     {
         return maniGraphRefuse(maniBuildReasonNode, node, 0);
     }
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     for (uint32_t k = 0; k < m->chainCount; ++k)
     {
         float w = m->chains[k].weight;
@@ -539,7 +541,7 @@ static bool ChainValid(const maniSkeleton* skeleton, const uint32_t* bones, uint
 {
     for (uint32_t k = 0; k < count; ++k)
     {
-        if (bones[k] >= maniSkeletonBoneCount(skeleton) ||
+        if (bones[k] >= maniSkeleton_GetBoneCount(skeleton) ||
             (k > 0 && !maniIkAbove(skeleton, bones[k - 1], bones[k])))
         {
             return false;
@@ -661,7 +663,7 @@ static maniBuildResult CheckChain(const maniGraphSource* source, const maniGraph
     const maniGraphChainNodeSource* s = &n->chain;
     bool fabrik = n->kind == maniGraphNodeFabrik;
     uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
-    uint32_t boneCount = maniSkeletonBoneCount(source->skeleton);
+    uint32_t boneCount = maniSkeleton_GetBoneCount(source->skeleton);
     bool inRange = s->root < boneCount && s->end < boneCount;
     if (s->iterations > MANI_MAX_IK_ITERATIONS ||
         (inRange && maniIkChainPathPast(source->skeleton, s->root, s->end)))
@@ -770,7 +772,7 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
     case maniGraphNodeOneShot:
         return MANI_GRAPH_SHOT_BLOCK_WORDS;
     case maniGraphNodeInertialize:
-        return MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton),
+        return MANI_GRAPH_INERTIA_BLOCK(maniSkeleton_GetBoneCount(source->skeleton),
                                         n->inertialize.method);
     case maniGraphNodeMatch:
         return MANI_GRAPH_MATCH_BLOCK_WORDS;
@@ -786,7 +788,7 @@ static uint32_t BlockWords(const maniGraphSource* source, const maniGraphNodeSou
         return maniGraphSpringState +
                (uint32_t)maniGraphSpringSetWords(source->springSets[n->spring.springSet].set);
     case maniGraphNodeTurnLimit:
-        return maniGraphTurnBlockWords(maniSkeletonBoneCount(source->skeleton));
+        return maniGraphTurnBlockWords(maniSkeleton_GetBoneCount(source->skeleton));
     default:
         return 0;
     }
@@ -960,8 +962,8 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     // The mirror map, of the skeleton.
     const maniMirrorMap* mirror = source->mirrorMap;
     if (r.result == mani_success && mirror != NULL &&
-        (mirror->skeletonIdentity != maniSkeletonIdentity(source->skeleton) ||
-         mirror->boneCount != maniSkeletonBoneCount(source->skeleton)))
+        (mirror->skeletonIdentity != maniSkeleton_GetIdentity(source->skeleton) ||
+         mirror->boneCount != maniSkeleton_GetBoneCount(source->skeleton)))
     {
         r = maniGraphRefuse(maniBuildReasonMirrorGraph, 0, 0);
     }

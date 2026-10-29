@@ -46,14 +46,14 @@ static maniResult Carry(const void* context, const maniPose* in, maniPose* out, 
     (void)scratch;
     (void)scratchSize;
     const maniMirrorClipSource* s = ((const Bake*)context)->s;
-    return maniMirrorPose(s->map, s->skeleton, in, out);
+    return maniMirrorMap_MirrorPose(s->map, s->skeleton, in, out);
 }
 
 // A move reflected, then carried by A: `A t`, `A r A^-1`.
 static maniRootMove Move(const void* context, maniRootMove move)
 {
     const Bake* b = context;
-    maniRootMove m = maniMirrorRootMotion(b->s->map, move);
+    maniRootMove m = maniMirrorMap_MirrorRootMotion(b->s->map, move);
     m.translation = maniQuatRotate(b->a, m.translation);
     m.rotation = maniQuatMul(maniQuatMul(b->a, m.rotation), maniQuatConjugate(b->a));
     return m;
@@ -61,7 +61,7 @@ static maniRootMove Move(const void* context, maniRootMove move)
 
 static const char* Rename(const void* context, const char* name, size_t* length)
 {
-    return maniMirrorName(((const Bake*)context)->s->map, name, *length, length);
+    return maniMirrorMap_MirrorName(((const Bake*)context)->s->map, name, *length, length);
 }
 
 static float LoadF32(const uint8_t* p)
@@ -77,7 +77,7 @@ static float LoadF32(const uint8_t* p)
 static maniRootMotionSource Declared(Bake* b, maniRootMotionSource s)
 {
     const maniMirrorMap* map = b->s->map;
-    uint32_t partner = maniMirrorPartner(map, s.bone);
+    uint32_t partner = maniMirrorMap_GetPartner(map, s.bone);
     const uint8_t* e = map->bones + (size_t)partner * MANI_MIRROR_BONE_SIZE + 8;
     b->a = (maniQuat){LoadF32(e), LoadF32(e + 4), LoadF32(e + 8), LoadF32(e + 12)};
     uint32_t axes = 0;
@@ -106,8 +106,8 @@ static bool Usable(const maniMirrorClipSource* s)
 static maniBuildResult Matches(const maniMirrorClipSource* s)
 {
     const maniMirrorMap* m = s->map;
-    if (maniSkeletonIdentity(s->skeleton) != m->skeletonIdentity ||
-        maniSkeletonBoneCount(s->skeleton) != m->boneCount)
+    if (maniSkeleton_GetIdentity(s->skeleton) != m->skeletonIdentity ||
+        maniSkeleton_GetBoneCount(s->skeleton) != m->boneCount)
     {
         return Result(mani_errorInvalid, maniBuildReasonMirrorClip, 0, 0);
     }
@@ -149,7 +149,7 @@ static MANI_NOINLINE maniBuildResult BuildMirroredClipWork(maniBuilder* builder,
                              .move = Move,
                              .rename = Rename};
     maniRootMotionSource from;
-    if (maniClipRootMotionSource(source->clip, &from))
+    if (maniClip_GetRootMotionSource(source->clip, &from))
     {
         kind.declared = Declared(&b, from);
     }

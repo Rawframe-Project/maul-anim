@@ -315,7 +315,8 @@ static void OpenWide(void)
 static size_t Need(const maniLearnedModel* m)
 {
     size_t motion = 6 + (size_t)m->floatTrackCount + m->eventCount;
-    return maniLearnedScratchSize(m) + 4 * ((size_t)m->featureCount + m->latentCount + motion);
+    return maniLearnedModel_GetScratchSize(m) +
+           4 * ((size_t)m->featureCount + m->latentCount + motion);
 }
 
 // Node p's bound model.
@@ -372,7 +373,7 @@ static void TestRoom(bool wideFirst)
     const maniLearnedModel* second = wideFirst ? &s_learned : &s_wide;
     size_t table = 4 * (size_t)g.nodeCount;
     CHECK(maniGraphRoom(binding) == room && instance->cachesAt == instance->roomAt + room &&
-              maniGraphInstanceSize(binding) ==
+              maniGraphBinding_GetInstanceSize(binding) ==
                   instance->cachesAt + table + Cache(first) + Cache(second),
           "the room the wider model needs, then the caches' table and the caches");
     uint32_t at[2] = {0, 0};
@@ -485,9 +486,9 @@ static void TestSubgraph(void)
     size_t size = 0;
     maniGraph g;
     CHECK(maniBuildGraph(builder, &root).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &g).result == mani_success &&
-              maniGraphModelCount(&g) == 2,
+              maniGraph_GetModelCount(&g) == 2,
           "the subgraph's model joined to the root's");
     CHECK(DataWord(&g, 0, maniGraphLearnedModel) == 1 &&
               DataWord(&g, 0, maniGraphLearnedTrigger) == 2 &&
@@ -513,7 +514,8 @@ static void TestSubgraph(void)
     v.i = 1;
     Set(instance, 2, maniGraphParameterInt, v);
     Update(instance, 0.0f);
-    CHECK(maniGraphModelCount(&g) == 1 && LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1,
+    CHECK(maniGraph_GetModelCount(&g) == 1 &&
+              LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1,
           "one slot for both, played");
     // A slot without its model under two learned nodes: one slot, refused.
     static const maniGraphModelSource kNone[1] = {{NULL, "none", 4}};
@@ -576,12 +578,13 @@ static bool RoundTrip(const maniGraphSource* source)
 {
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
-    bool ok = maniBuildGraph(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniWriteGraphJson(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(builder, s_text, s_textSize, &kNamed).result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    bool ok =
+        maniBuildGraph(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniWriteGraphJson(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
+        maniBuildGraphJson(builder, s_text, s_textSize, &kNamed).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     s_text[ok ? s_textSize : 0] = 0;
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;
@@ -673,9 +676,9 @@ static bool Defaults(void)
     maniBuilder* builder = NewBuilder();
     bool ok =
         maniBuildGraph(builder, &source).result == mani_success &&
-        maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
         maniBuildGraphJson(builder, kText, sizeof kText - 1, &kNamed).result == mani_success &&
-        maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+        maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;
 }

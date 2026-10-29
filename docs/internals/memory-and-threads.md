@@ -12,17 +12,17 @@ Everything that changes per character or per thread lives in caller memory, size
 
 | What | Size | Alignment |
 |---|---|---|
-| A pose | `maniPoseSize` | `MANI_POSE_ALIGNMENT` (32) |
-| A clip cursor | `maniClipCursorSize`, or `maniClipCursorCompactSize` | `MANI_CLIP_CURSOR_ALIGNMENT` |
-| A graph binding (one per graph and asset set) | `maniGraphBindingSize` | `MANI_GRAPH_BINDING_ALIGNMENT` |
-| A graph instance (one per character) | `maniGraphInstanceSize` | `MANI_GRAPH_INSTANCE_ALIGNMENT` |
-| A graph's evaluation scratch (one per thread) | `maniGraphScratchSize` | `MANI_GRAPH_SCRATCH_ALIGNMENT` (32) |
-| A subset plan | `maniGraphSubsetSize` | `MANI_GRAPH_SUBSET_ALIGNMENT` |
-| A spring state | `maniSpringStateSize` | `MANI_SPRING_STATE_ALIGNMENT` |
-| Scratch for retargeting and full-body IK | `maniRetargetScratchSize`, `maniBodyIkScratchSize` | 16 |
-| Scratch for a learned model's evaluation | `maniLearnedScratchSize` | 4 |
+| A pose | `maniSkeleton_GetPoseSize` | `MANI_POSE_ALIGNMENT` (32) |
+| A clip cursor | `maniClip_GetCursorSize`, or `maniClip_GetCursorCompactSize` | `MANI_CLIP_CURSOR_ALIGNMENT` |
+| A graph binding (one per graph and asset set) | `maniGraph_GetBindingSize` | `MANI_GRAPH_BINDING_ALIGNMENT` |
+| A graph instance (one per character) | `maniGraphBinding_GetInstanceSize` | `MANI_GRAPH_INSTANCE_ALIGNMENT` |
+| A graph's evaluation scratch (one per thread) | `maniGraphBinding_GetScratchSize` | `MANI_GRAPH_SCRATCH_ALIGNMENT` (32) |
+| A subset plan | `maniGraphBinding_GetSubsetSize` | `MANI_GRAPH_SUBSET_ALIGNMENT` |
+| A spring state | `maniSpringSet_GetStateSize` | `MANI_SPRING_STATE_ALIGNMENT` |
+| Scratch for retargeting and full-body IK | `maniRetargetMap_GetScratchSize`, `maniSkeleton_GetBodyIkScratchSize` | 16 |
+| Scratch for a learned model's evaluation | `maniLearnedModel_GetScratchSize` | 4 |
 
-Poses, instances, cursors and spring states hold no pointers: copying their bytes copies them, and they may move between threads. An instance is a block of 16-byte cells (one per parameter and per node: a weight, a word the node's kind keeps, a binary64 playhead), then a cursor per clip node, then each stateful node's block; the binding records where each block lies, so nothing points into the instance. That is what makes rollback a `memcpy`, and why `maniSaveGraphInstance` can write the state as plain little-endian words.
+Poses, instances, cursors and spring states hold no pointers: copying their bytes copies them, and they may move between threads. An instance is a block of 16-byte cells (one per parameter and per node: a weight, a word the node's kind keeps, a binary64 playhead), then a cursor per clip node, then each stateful node's block; the binding records where each block lies, so nothing points into the instance. That is what makes rollback a `memcpy`, and why `maniGraphInstance_Save` can write the state as plain little-endian words.
 
 Scratch is the opposite: a pose per slot of the graph, room for one node's layers and, when the graph plays another skeleton's clips through a map, room to carry one clip's pose. It is never part of an instance's state, and one scratch per thread serves any number of instances, one at a time. A scratch remembers the binding it last served and redoes its setup when handed another; a test pins that a scratch shared by two graphs in turn gives each its own result.
 
@@ -30,11 +30,11 @@ A node that needs room only while it evaluates (full-body IK's effectors and sol
 
 ## Saved state is external bytes
 
-`maniSaveGraphInstance`, `maniSaveSpringState` and the learned trainer's checkpoints write state as bytes a host may store or send. Restoring treats them as hostile: every value is checked as setting it through the API would keep it (parameters in their bounds, quaternions unit within a stated tolerance, weights finite and not negative, playheads finite, a machine's state in range, a running transition one into that state). Cursors and caches are not saved; a restore starts them over, and nothing a pose depends on was cached in them.
+`maniGraphInstance_Save`, `maniSpringState_Save` and the learned trainer's checkpoints write state as bytes a host may store or send. Restoring treats them as hostile: every value is checked as setting it through the API would keep it (parameters in their bounds, quaternions unit within a stated tolerance, weights finite and not negative, playheads finite, a machine's state in range, a running transition one into that state). Cursors and caches are not saved; a restore starts them over, and nothing a pose depends on was cached in them.
 
 ## The offline side owns memory
 
-A builder (`maniCreateBuilder`) and a learned trainer (`maniCreateLearnedTrainer`) are owner objects. Each takes an allocator in its def and uses it for every block, with the block's size and alignment, so the host's allocator is the import's memory budget: a block it refuses fails the call with `mani_errorCapacity` and nothing is kept. A builder keeps the last file or text it made until the next build; `maniCopyBuilt` copies it into caller memory, which is where it is opened from. Documents opened with a builder (`maniOpenGltf`, `maniOpenFbx`) share its allocator.
+A builder (`maniCreateBuilder`) and a learned trainer (`maniCreateLearnedTrainer`) are owner objects. Each takes an allocator in its def and uses it for every block, with the block's size and alignment, so the host's allocator is the import's memory budget: a block it refuses fails the call with `mani_errorCapacity` and nothing is kept. A builder keeps the last file or text it made until the next build; `maniBuilder_CopyBuilt` copies it into caller memory, which is where it is opened from. Documents opened with a builder (`maniOpenGltf`, `maniOpenFbx`) share its allocator.
 
 The learned trainer splits each batch into fixed chunks and hands them to the host's task hooks (`maniTaskHooks`); gradients are summed in chunk order, so the result does not depend on the thread count or on which thread ran which chunk. Without hooks every chunk runs on the calling thread.
 
@@ -42,7 +42,7 @@ The learned trainer splits each batch into fixed chunks and hands them to the ho
 
 The host's code runs inside library calls: a builder's allocator during every build, copy and close; a trainer's allocator and its task hooks during training. If that code calls a function of the object it serves (destroys the builder mid-build, trains the trainer it is training), the object would be corrupted without a sign.
 
-So the object is marked while the host's code runs. The library calls the host's allocator and hooks only through its own wrappers ([`src/host_code.h`](../../src/host_code.h)), which set the mark before the call and restore it after. Every function that takes a builder, closes a document opened with one, or trains, restores or destroys a trainer refuses with `mani_errorBusy` while its object is marked, and counts one misuse (`maniBuilderMisuses`, `maniLearnedTrainerMisuses`). A destroy or close refused from there leaves the object as it was. Functions that read an object through a const pointer are not refused.
+So the object is marked while the host's code runs. The library calls the host's allocator and hooks only through its own wrappers ([`src/host_code.h`](../../src/host_code.h)), which set the mark before the call and restore it after. Every function that takes a builder, closes a document opened with one, or trains, restores or destroys a trainer refuses with `mani_errorBusy` while its object is marked, and counts one misuse (`maniBuilder_GetMisuse`, `maniLearnedTrainer_GetMisuse`). A destroy or close refused from there leaves the object as it was. Functions that read an object through a const pointer are not refused.
 
 The mark sits exactly around the host's code, not around the whole public call, because the library's own functions call each other (an importer builds through `maniBuildSkeleton`, a JSON graph through `maniBuildGraph`); a mark for the whole call would refuse those. The mark and the count are relaxed atomics, since a task hook's worker may call back in while the training thread waits. `test_reentry` calls every builder function from the builder's allocator inside a build and every trainer entry from its hooks, and checks each is refused, counted once, and that the build's bytes are unchanged.
 

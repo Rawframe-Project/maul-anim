@@ -50,8 +50,8 @@ maniRetargetMotion maniRetargetMotionOf(const maniRetargetMap* map, const maniSk
                                         uint32_t sourceBone, const maniSkeleton* target,
                                         uint32_t targetBone)
 {
-    uint32_t parentS = maniSkeletonParent(source, sourceBone);
-    uint32_t parentT = maniSkeletonParent(target, targetBone);
+    uint32_t parentS = maniSkeleton_GetParent(source, sourceBone);
+    uint32_t parentT = maniSkeleton_GetParent(target, targetBone);
     maniRetargetMotion m = {map, maniQuatIdentity(), maniQuatIdentity(), maniQuatIdentity()};
     if (parentS != MANI_NO_BONE)
     {
@@ -67,7 +67,8 @@ maniRetargetMotion maniRetargetMotionOf(const maniRetargetMap* map, const maniSk
 
 maniVec3 maniRetargetMotionTranslation(const maniRetargetMotion* motion, maniVec3 t)
 {
-    maniVec3 model = maniRetargetRootMotion(motion->map, maniQuatRotate(motion->sourceFrame, t));
+    maniVec3 model =
+        maniRetargetMap_RetargetRootMotion(motion->map, maniQuatRotate(motion->sourceFrame, t));
     return maniQuatRotate(maniQuatConjugate(motion->targetFrame), model);
 }
 

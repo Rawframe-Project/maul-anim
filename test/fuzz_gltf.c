@@ -71,26 +71,26 @@ static void Release(void* memory, size_t size, size_t alignment, void* context)
 static void BuildMeshes(maniBuilder* builder, maniGltf* gltf, const maniSkin* skin,
                         const maniGltfOptions* options)
 {
-    for (uint32_t m = 0; m < maniGltfMeshCount(gltf) && m < 8; ++m)
+    for (uint32_t m = 0; m < maniGltf_GetMeshCount(gltf) && m < 8; ++m)
     {
-        for (uint32_t p = 0; p < maniGltfPrimitiveCount(gltf, m) && p < 8; ++p)
+        for (uint32_t p = 0; p < maniGltf_GetPrimitiveCount(gltf, m) && p < 8; ++p)
         {
             if (skin != NULL)
             {
-                (void)maniGltfBuildInfluences(builder, gltf, m, p, skin);
+                (void)maniBuildGltfInfluences(builder, gltf, m, p, skin);
             }
-            (void)maniGltfBuildMorphTargets(builder, gltf, m, p, options);
+            (void)maniBuildGltfMorphTargets(builder, gltf, m, p, options);
         }
     }
-    for (uint32_t n = 0; n < maniGltfNodeCount(gltf) && n < 8; ++n)
+    for (uint32_t n = 0; n < maniGltf_GetNodeCount(gltf) && n < 8; ++n)
     {
         float weights[8];
-        uint32_t mesh = maniGltfNodeMesh(gltf, n);
-        uint32_t count = mesh == UINT32_MAX ? 0 : maniGltfPrimitiveTargetCount(gltf, mesh, 0);
-        (void)maniGltfNodeSkin(gltf, n);
+        uint32_t mesh = maniGltf_GetNodeMesh(gltf, n);
+        uint32_t count = mesh == UINT32_MAX ? 0 : maniGltf_GetPrimitiveTargetCount(gltf, mesh, 0);
+        (void)maniGltf_GetNodeSkin(gltf, n);
         if (count > 0 && count <= 8)
         {
-            (void)maniGltfMorphWeights(gltf, n, weights, count, NULL);
+            (void)maniGltf_GetMorphWeights(gltf, n, weights, count, NULL);
         }
     }
 }
@@ -102,46 +102,47 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
     static _Alignas(16) uint8_t file[1 << 20];
     const maniGltfOptions options[2] = {{{maniAxisX, maniAxisY, maniAxisZ}, 0},
                                         {{maniAxisX, maniAxisNegativeZ, maniAxisY}, 1}};
-    for (uint32_t k = 0; k < maniGltfSkeletonCount(gltf); ++k)
+    for (uint32_t k = 0; k < maniGltf_GetSkeletonCount(gltf); ++k)
     {
         for (uint32_t o = 0; o < 2; ++o)
         {
             maniAffine placement;
-            (void)maniGltfSkeletonPlacement(gltf, k, &options[o], &placement);
+            (void)maniGltf_GetSkeletonPlacement(gltf, k, &options[o], &placement);
             size_t size = 0;
             maniSkeleton skeleton;
-            if (maniGltfBuildSkeleton(builder, gltf, k, &options[o]).result != mani_success ||
-                maniCopyBuilt(builder, file, sizeof file, &size) != mani_success ||
+            if (maniBuildGltfSkeleton(builder, gltf, k, &options[o]).result != mani_success ||
+                maniBuilder_CopyBuilt(builder, file, sizeof file, &size) != mani_success ||
                 maniOpenSkeleton(file, size, &skeleton).result != mani_success)
             {
                 continue;
             }
-            for (uint32_t s = 0; s < maniGltfSkinCount(gltf); ++s)
+            for (uint32_t s = 0; s < maniGltf_GetSkinCount(gltf); ++s)
             {
                 static _Alignas(16) uint8_t skinFile[1 << 16];
                 size_t skinSize = 0;
                 maniSkin skin;
-                if (maniGltfSkinSkeleton(gltf, s) == k &&
-                    maniGltfBuildSkin(builder, gltf, s, &skeleton, &options[o]).result ==
+                if (maniGltf_GetSkinSkeleton(gltf, s) == k &&
+                    maniBuildGltfSkin(builder, gltf, s, &skeleton, &options[o]).result ==
                         mani_success &&
-                    maniCopyBuilt(builder, skinFile, sizeof skinFile, &skinSize) == mani_success &&
+                    maniBuilder_CopyBuilt(builder, skinFile, sizeof skinFile, &skinSize) ==
+                        mani_success &&
                     maniOpenSkin(skinFile, skinSize, &skin).result == mani_success)
                 {
                     BuildMeshes(builder, gltf, &skin, &options[o]);
                 }
             }
             maniSpringSetSource springs;
-            (void)maniGltfReadSprings(gltf, &skeleton, &options[o], &springs);
+            (void)maniGltf_ReadSprings(gltf, &skeleton, &options[o], &springs);
             // A ragdoll read is a source the builder takes or refuses.
             maniRagdollSource ragdoll;
-            if (maniGltfReadRagdoll(gltf, &skeleton, &options[o], (maniVec3){0.0f, 0.0f, 1.0f},
-                                    (maniVec3){0.0f, 1.0f, 0.0f}, &ragdoll)
+            if (maniGltf_ReadRagdoll(gltf, &skeleton, &options[o], (maniVec3){0.0f, 0.0f, 1.0f},
+                                     (maniVec3){0.0f, 1.0f, 0.0f}, &ragdoll)
                         .result == mani_success &&
                 ragdoll.bodyCount > 0)
             {
                 (void)maniBuildRagdoll(builder, &ragdoll);
             }
-            for (uint32_t a = 0; a < maniGltfAnimationCount(gltf); ++a)
+            for (uint32_t a = 0; a < maniGltf_GetAnimationCount(gltf); ++a)
             {
                 // Every other animation with the root's travel and turn
                 // taken out as root motion.
@@ -150,14 +151,14 @@ static void BuildAll(maniBuilder* builder, maniGltf* gltf)
                 maniImportClipOptions settings = maniDefaultImportClipOptions();
                 settings.sampleRate = 10.0f;
                 settings.rootMotion = (a & 1u) != 0 ? &root : NULL;
-                (void)maniGltfBuildClip(builder, gltf, a, &skeleton, &options[o], &settings,
+                (void)maniBuildGltfClip(builder, gltf, a, &skeleton, &options[o], &settings,
                                         &bound);
             }
         }
     }
-    if (maniGltfNodeCount(gltf) > 0)
+    if (maniGltf_GetNodeCount(gltf) > 0)
     {
-        (void)maniGltfBuildNodeSkeleton(builder, gltf, 0, &options[0]);
+        (void)maniBuildGltfNodeSkeleton(builder, gltf, 0, &options[0]);
     }
     BuildMeshes(builder, gltf, NULL, &options[0]);
 }
@@ -174,11 +175,11 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     maniGltf* gltf = NULL;
     if (maniOpenGltf(builder, data, size, &gltf).result == mani_success)
     {
-        for (uint32_t b = 0; b < maniGltfBufferCount(gltf); ++b)
+        for (uint32_t b = 0; b < maniGltf_GetBufferCount(gltf); ++b)
         {
-            if (maniGltfBufferUri(gltf, b, NULL) != NULL)
+            if (maniGltf_GetBufferUri(gltf, b, NULL) != NULL)
             {
-                (void)maniGltfSupplyBuffer(gltf, b, data, size);
+                (void)maniGltf_SupplyBuffer(gltf, b, data, size);
             }
         }
         for (uint32_t i = 0; i < gltf->accessorCount; ++i)

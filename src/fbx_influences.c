@@ -85,7 +85,7 @@ static MANI_NOINLINE maniSkinningMethod FbxSkinMethodWork(const maniFbx* fbx, ui
                : maniSkinningLinear;
 }
 
-maniSkinningMethod maniFbxSkinMethod(const maniFbx* fbx, uint32_t skin)
+maniSkinningMethod maniFbx_GetSkinMethod(const maniFbx* fbx, uint32_t skin)
 {
     uint64_t env = maniFloatEnvEnter();
     maniSkinningMethod result = FbxSkinMethodWork(fbx, skin);
@@ -337,7 +337,7 @@ static maniImportResult BuildInfluences(maniBuilder* builder, Read* r, const man
     float* blend = NULL;
     if (result.result == mani_success)
     {
-        result = ReadBlend(r, maniFbxSkinMethod(fbx, r->skin), &blend);
+        result = ReadBlend(r, maniFbx_GetSkinMethod(fbx, r->skin), &blend);
     }
     uint32_t* offsets = maniArenaTake(r->arena, (size_t)r->vertices + 1, sizeof(uint32_t));
     uint32_t* joints = maniArenaTake(r->arena, r->count, sizeof(uint32_t));
@@ -383,7 +383,7 @@ static MANI_NOINLINE maniImportResult FbxBuildInfluencesWork(maniBuilder* builde
     return result;
 }
 
-maniImportResult maniFbxBuildInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
+maniImportResult maniBuildFbxInfluences(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
                                         const maniSkin* built)
 {
     uint64_t env = maniFloatEnvEnter();

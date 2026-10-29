@@ -27,7 +27,7 @@ uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t e
 {
     uint32_t reversed[MANI_MAX_IK_CHAIN_BONES];
     uint32_t n = 0;
-    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeleton_GetParent(skeleton, b))
     {
         if (n == MANI_MAX_IK_CHAIN_BONES)
         {
@@ -49,7 +49,7 @@ uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t e
 bool maniIkChainPathPast(const maniSkeleton* skeleton, uint32_t root, uint32_t end)
 {
     uint32_t n = 0;
-    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeleton_GetParent(skeleton, b))
     {
         ++n;
         if (b == root)
@@ -71,7 +71,7 @@ bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones,
     for (uint32_t k = 0; k + 1 < count; ++k)
     {
         const maniJointLimit* limit = &limits[k];
-        maniVec3 axis = maniSkeletonRest(skeleton, bones[k + 1]).translation;
+        maniVec3 axis = maniSkeleton_GetRest(skeleton, bones[k + 1]).translation;
         float along = maniVec3Length(axis);
         // A hinge along the bone's own axis is no hinge.
         bool parallel = limit->kind == maniJointLimitHinge && along > 0.0f &&
@@ -121,9 +121,9 @@ void maniIkChainBegin(maniIkChain* chain, const maniPose* pose, const maniSkelet
     chain->top = maniIkParentModel(pose, skeleton, solve->root);
     for (uint32_t k = 0; k < chain->count; ++k)
     {
-        chain->before[k] = maniPoseLocal(pose, chain->bones[k]);
+        chain->before[k] = maniPose_GetLocal(pose, chain->bones[k]);
         maniVec3 next = k + 1 < chain->count
-                            ? maniSkeletonRest(skeleton, chain->bones[k + 1]).translation
+                            ? maniSkeleton_GetRest(skeleton, chain->bones[k + 1]).translation
                             : maniVec3Make(0.0f, 0.0f, 0.0f);
         chain->axes[k] = maniVec3Normalize(next, maniVec3Make(0.0f, 0.0f, 0.0f));
     }
@@ -150,12 +150,12 @@ void maniIkChainTurn(maniIkChain* chain, maniPose* pose, const maniSkeleton* ske
     {
         return;
     }
-    maniTransform t = maniPoseLocal(pose, bone);
-    maniQuat rest = maniSkeletonRest(skeleton, bone).rotation;
+    maniTransform t = maniPose_GetLocal(pose, bone);
+    maniQuat rest = maniSkeleton_GetRest(skeleton, bone).rotation;
     maniQuat r = maniQuatNormalize(maniQuatMul(maniQuatConjugate(rest), t.rotation));
     t.rotation =
         maniQuatNormalize(maniQuatMul(rest, maniIkLimit(&solve->limits[k], chain->axes[k], r)));
-    maniPoseSetLocal(pose, bone, t);
+    maniPose_SetLocal(pose, bone, t);
 }
 
 maniVec3 maniIkChainEnd(const maniIkChain* chain)
@@ -181,9 +181,9 @@ bool maniIkChainFinish(maniIkChain* chain, maniPose* pose, const maniChainSolve*
         // Each correction weighted on the input pose.
         for (uint32_t k = 0; k < chain->count; ++k)
         {
-            maniQuat now = maniPoseLocal(pose, chain->bones[k]).rotation;
+            maniQuat now = maniPose_GetLocal(pose, chain->bones[k]).rotation;
             maniQuat correction = maniQuatMul(now, maniQuatConjugate(chain->before[k].rotation));
-            maniPoseSetLocal(pose, chain->bones[k], chain->before[k]);
+            maniPose_SetLocal(pose, chain->bones[k], chain->before[k]);
             maniIkCorrect(pose, chain->bones[k], maniIkWeighted(correction, solve->weight));
         }
     }

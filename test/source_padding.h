@@ -110,12 +110,12 @@ static inline maniBuilder* TestPatternBuilder(uint8_t pattern)
 static inline uint8_t* TestCopyBuilt(maniBuilder* builder, size_t* sizeOut)
 {
     *sizeOut = 0;
-    if (maniCopyBuilt(builder, NULL, 0, sizeOut) != mani_errorCapacity)
+    if (maniBuilder_CopyBuilt(builder, NULL, 0, sizeOut) != mani_errorCapacity)
     {
         return NULL;
     }
     uint8_t* bytes = (uint8_t*)malloc(*sizeOut);
-    if (bytes != NULL && maniCopyBuilt(builder, bytes, *sizeOut, sizeOut) != mani_success)
+    if (bytes != NULL && maniBuilder_CopyBuilt(builder, bytes, *sizeOut, sizeOut) != mani_success)
     {
         free(bytes);
         bytes = NULL;

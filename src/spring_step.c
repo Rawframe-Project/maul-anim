@@ -119,7 +119,7 @@ typedef struct Step
 
 static maniVec3 PosePosition(const maniPose* pose, uint32_t bone)
 {
-    maniAffine m = maniPoseModel(pose, bone);
+    maniAffine m = maniPose_GetModel(pose, bone);
     return maniAffineTransformPoint(&m, maniVec3Make(0.0f, 0.0f, 0.0f));
 }
 
@@ -367,7 +367,7 @@ static void Begin(const maniSpringSet* set, uint32_t* block, const uint32_t* wor
             {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f}};
         if (center != MANI_NO_BONE)
         {
-            maniAffine m = maniPoseModel(pose, center);
+            maniAffine m = maniPose_GetModel(pose, center);
             (void)maniAffineInverse(&m, &inverse);
         }
         for (uint32_t j = maniLoadU32(e); j < maniLoadU32(e) + maniLoadU32(e + 4); ++j)

@@ -52,8 +52,8 @@ static float Distance(maniVec3 a, maniVec3 b)
 
 static maniVec3 At(maniPose* pose, uint32_t bone)
 {
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "the model");
-    return maniPoseModelTransform(pose, bone).translation;
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success, "the model");
+    return maniPose_GetModelTransform(pose, bone).translation;
 }
 
 // The tail of bones 0.3 along y from their parents; the bone short, if
@@ -77,7 +77,7 @@ static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success &&
               maniOpenSkeleton(file, size, skeleton).result == mani_success,
           "a skeleton");
     maniDestroyBuilder(builder);
@@ -96,12 +96,12 @@ static void Setup(void)
 
 static void Bent(maniPose* pose)
 {
-    CHECK(maniPoseSetRest(pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(pose, &s_skeleton) == mani_success, "rest");
     for (uint32_t b = 1; b < BONES; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         t.rotation = Turn((maniVec3){0.6f, 0.0f, 0.8f}, 0.15f);
-        maniPoseSetLocal(pose, b, t);
+        maniPose_SetLocal(pose, b, t);
     }
 }
 
@@ -135,7 +135,7 @@ static void TestReach(void)
         Bent(s_pose);
         maniChainSolve s = Solve(goals[g]);
         bool r = false;
-        CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+        CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
                   Distance(At(s_pose, BONES - 1), goals[g]) <= 1e-4f,
               "a goal within reach reached");
         CHECK(LengthsKept(s_pose), "every length kept");
@@ -206,7 +206,7 @@ static void TestReference(void)
         maniChainSolve s = Solve((maniVec3){0.5f, 0.7f, -0.4f});
         s.iterations = (uint32_t)counts[c];
         s.tolerance = 0.0f;
-        CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "solved");
+        CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "solved");
         for (uint32_t b = 1; b < BONES; ++b)
         {
             maniVec3 v = At(s_pose, b);
@@ -223,7 +223,7 @@ static void TestOutOfReach(void)
     maniVec3 goal = {1.5f, 2.0f, 1.0f};
     maniChainSolve s = Solve(goal);
     bool r = true;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "out of reach");
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "out of reach");
     maniVec3 root = At(s_pose, 1);
     maniVec3 end = At(s_pose, BONES - 1);
     float reach = Distance(end, root);
@@ -261,7 +261,8 @@ static void TestPole(void)
         maniChainSolve s = Solve(goal);
         s.pole = (maniVec3){0.0f, 0.0f, sides[k]};
         bool r = false;
-        CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && r, "with a pole");
+        CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && r,
+              "with a pole");
         CHECK(Bend(s_pose, goal) * sides[k] > 0.05f, "the bend toward the pole");
         CHECK(LengthsKept(s_pose), "lengths kept with a pole");
     }
@@ -278,14 +279,14 @@ static void TestPoleFirst(void)
     s.pole = (maniVec3){0.0f, 0.0f, -1.0f};
     s.iterations = 1;
     s.tolerance = 0.0f;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "a pole, one pass");
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "a pole, one pass");
     Bent(s_other);
     maniChainSolve turn = s;
     turn.tolerance = 100.0f;
     maniChainSolve pass = s;
     pass.pole = (maniVec3){0.0f, 0.0f, 0.0f};
-    CHECK(maniSolveFabrik(s_other, &s_skeleton, &turn, NULL) == mani_success &&
-              maniSolveFabrik(s_other, &s_skeleton, &pass, NULL) == mani_success,
+    CHECK(maniPose_SolveFabrik(s_other, &s_skeleton, &turn, NULL) == mani_success &&
+              maniPose_SolveFabrik(s_other, &s_skeleton, &pass, NULL) == mani_success,
           "the pole's turn, then a pass");
     float worst = 0.0f;
     for (uint32_t b = 1; b < BONES; ++b)
@@ -298,24 +299,24 @@ static void TestPoleFirst(void)
 // A bone of length 0 has no direction to turn: left as it was.
 static void TestShortBone(void)
 {
-    CHECK(maniPoseSetRest(s_shortPose, &s_short) == mani_success, "short rest");
+    CHECK(maniPose_SetRest(s_shortPose, &s_short) == mani_success, "short rest");
     for (uint32_t b = 1; b < BONES; ++b)
     {
-        maniTransform t = maniPoseLocal(s_shortPose, b);
+        maniTransform t = maniPose_GetLocal(s_shortPose, b);
         t.rotation = Turn((maniVec3){0.6f, 0.0f, 0.8f}, 0.15f);
-        maniPoseSetLocal(s_shortPose, b, t);
+        maniPose_SetLocal(s_shortPose, b, t);
     }
-    maniTransform before = maniPoseLocal(s_shortPose, 2);
+    maniTransform before = maniPose_GetLocal(s_shortPose, 2);
     maniChainSolve s = Solve((maniVec3){0.3f, 0.5f, 0.2f});
     bool r = false;
-    CHECK(maniSolveFabrik(s_shortPose, &s_short, &s, &r) == mani_success && r, "reached");
-    maniTransform after = maniPoseLocal(s_shortPose, 2);
+    CHECK(maniPose_SolveFabrik(s_shortPose, &s_short, &s, &r) == mani_success && r, "reached");
+    maniTransform after = maniPose_GetLocal(s_shortPose, 2);
     CHECK(memcmp(&before, &after, sizeof before) == 0, "the bone of length 0 left as it was");
 }
 
 static maniQuat FromRest(maniPose* pose, uint32_t bone)
 {
-    maniQuat t = maniPoseLocal(pose, bone).rotation;
+    maniQuat t = maniPose_GetLocal(pose, bone).rotation;
     return t.w < 0.0f ? (maniQuat){-t.x, -t.y, -t.z, -t.w} : t;
 }
 
@@ -330,7 +331,7 @@ static void TestLimits(void)
     Bent(s_pose);
     maniChainSolve s = Solve((maniVec3){0.9f, 0.4f, 0.3f});
     s.limits = limits;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "limited by cones");
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "limited by cones");
     bool within = true;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
@@ -361,7 +362,7 @@ static void TestHingedOut(void)
     s.limits = limits;
     s.tolerance = 0.0f;
     bool r = true;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && !r,
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && !r,
           "unreachable by its limits");
     bool within = true;
     for (uint32_t b = 1; b < BONES; ++b)
@@ -380,17 +381,17 @@ static void TestIdempotent(void)
     Bent(s_pose);
     maniChainSolve s = Solve((maniVec3){0.4f, 0.6f, 0.3f});
     bool r = false;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && r, "reached");
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, &r) == mani_success && r, "reached");
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniPoseSetLocal(s_other, b, maniPoseLocal(s_pose, b));
+        maniPose_SetLocal(s_other, b, maniPose_GetLocal(s_pose, b));
     }
-    CHECK(maniSolveFabrik(s_other, &s_skeleton, &s, &r) == mani_success && r, "again");
+    CHECK(maniPose_SolveFabrik(s_other, &s_skeleton, &s, &r) == mani_success && r, "again");
     bool same = true;
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniTransform x = maniPoseLocal(s_pose, b);
-        maniTransform y = maniPoseLocal(s_other, b);
+        maniTransform x = maniPose_GetLocal(s_pose, b);
+        maniTransform y = maniPose_GetLocal(s_other, b);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     CHECK(same, "a solve on its own reached result unchanged");
@@ -408,20 +409,20 @@ static void TestEndAndWeight(void)
     maniChainSolve s = Solve((maniVec3){0.4f, 0.6f, 0.3f});
     s.rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, 1.2f);
     s.rotationWeight = 1.0f;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success &&
-              maniComputeModel(s_pose, &s_skeleton) == mani_success &&
-              Angle(maniPoseModelTransform(s_pose, BONES - 1).rotation, s.rotation) < 1e-5f,
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success &&
+              maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success &&
+              Angle(maniPose_GetModelTransform(s_pose, BONES - 1).rotation, s.rotation) < 1e-5f,
           "the end takes the wanted rotation");
     Bent(s_pose);
     Bent(s_other);
     s = Solve((maniVec3){0.4f, 0.6f, 0.3f});
     s.weight = 0.0f;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "weight 0");
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "weight 0");
     bool same = true;
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        same = same &&
-               Angle(maniPoseLocal(s_pose, b).rotation, maniPoseLocal(s_other, b).rotation) < 1e-6f;
+        same = same && Angle(maniPose_GetLocal(s_pose, b).rotation,
+                             maniPose_GetLocal(s_other, b).rotation) < 1e-6f;
     }
     CHECK(same, "weight 0 leaves the pose");
 }
@@ -437,16 +438,16 @@ static void TestRefusals(void)
     far.end = 2;
     maniChainSolve pole = good;
     pole.pole = (maniVec3){NAN, 0.0f, 0.0f};
-    CHECK(maniSolveFabrik(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
-              maniSolveFabrik(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
-              maniSolveFabrik(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid &&
-              maniSolveFabrik(s_pose, &s_skeleton, &stepped, NULL) == mani_errorInvalid &&
-              maniSolveFabrik(s_pose, &s_skeleton, &far, NULL) == mani_errorInvalid &&
-              maniSolveFabrik(s_pose, &s_skeleton, &pole, NULL) == mani_errorInvalid,
+    CHECK(maniPose_SolveFabrik(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
+              maniPose_SolveFabrik(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
+              maniPose_SolveFabrik(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid &&
+              maniPose_SolveFabrik(s_pose, &s_skeleton, &stepped, NULL) == mani_errorInvalid &&
+              maniPose_SolveFabrik(s_pose, &s_skeleton, &far, NULL) == mani_errorInvalid &&
+              maniPose_SolveFabrik(s_pose, &s_skeleton, &pole, NULL) == mani_errorInvalid,
           "NULLs, a step, a root below the end, a pole not finite");
     maniChainSolve many = good;
     many.iterations = MANI_MAX_IK_ITERATIONS + 1;
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &many, NULL) == mani_errorLimit,
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &many, NULL) == mani_errorLimit,
           "iterations past MANI_MAX_IK_ITERATIONS at the limit");
 }
 

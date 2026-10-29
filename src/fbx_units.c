@@ -322,17 +322,17 @@ void maniFbxMarkSkeleton(const maniFbx* fbx, uint32_t skeleton, uint8_t* marked)
     }
 }
 
-uint32_t maniFbxSkeletonCount(const maniFbx* fbx)
+uint32_t maniFbx_GetSkeletonCount(const maniFbx* fbx)
 {
     return fbx != NULL ? fbx->skeletonCount : 0;
 }
 
-uint32_t maniFbxSkinCount(const maniFbx* fbx)
+uint32_t maniFbx_GetSkinCount(const maniFbx* fbx)
 {
     return fbx != NULL ? fbx->skinCount : 0;
 }
 
-uint32_t maniFbxSkinSkeleton(const maniFbx* fbx, uint32_t skin)
+uint32_t maniFbx_GetSkinSkeleton(const maniFbx* fbx, uint32_t skin)
 {
     return fbx != NULL && skin < fbx->skinCount ? fbx->skinSkeletons[skin] : UINT32_MAX;
 }

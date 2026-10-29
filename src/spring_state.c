@@ -37,7 +37,7 @@ uint64_t maniSpringWorkWords(const maniSpringSet* set)
     return maniSpringShapeAt(set, set->colliderCount);
 }
 
-size_t maniSpringStateSize(const maniSpringSet* set)
+size_t maniSpringSet_GetStateSize(const maniSpringSet* set)
 {
     if (set == NULL)
     {
@@ -54,12 +54,12 @@ static MANI_NOINLINE maniResult InitSpringStateWork(const maniSpringSet* set,
 {
     if (set == NULL || skeleton == NULL || memory == NULL || stateOut == NULL ||
         (uintptr_t)memory % MANI_SPRING_STATE_ALIGNMENT != 0 ||
-        maniSkeletonIdentity(skeleton) != set->skeletonIdentity ||
-        maniSkeletonBoneCount(skeleton) != set->boneCount)
+        maniSkeleton_GetIdentity(skeleton) != set->skeletonIdentity ||
+        maniSkeleton_GetBoneCount(skeleton) != set->boneCount)
     {
         return mani_errorInvalid;
     }
-    size_t need = maniSpringStateSize(set);
+    size_t need = maniSpringSet_GetStateSize(set);
     if (size < need)
     {
         return mani_errorCapacity;
@@ -94,11 +94,11 @@ static bool PlacementValid(const maniTransform* t)
 // does not fit the state.
 static bool ModelReady(const maniSpringState* state, maniPose* pose)
 {
-    if (maniPoseBoneCount(pose) != state->set->boneCount || maniPoseIsDifference(pose))
+    if (maniPose_GetBoneCount(pose) != state->set->boneCount || maniPose_IsDifference(pose))
     {
         return false;
     }
-    return maniPoseModelCurrent(pose) ||
+    return maniPose_IsModelCurrent(pose) ||
            maniComputeModelEntered(pose, state->skeleton) == mani_success;
 }
 
@@ -128,8 +128,8 @@ static MANI_NOINLINE maniResult StepSpringsWork(maniSpringState* state, maniPose
     return mani_success;
 }
 
-maniResult maniStepSprings(maniSpringState* state, maniPose* pose, const maniTransform* placement,
-                           const maniVec3* force, float delta)
+maniResult maniSpringState_Step(maniSpringState* state, maniPose* pose,
+                                const maniTransform* placement, const maniVec3* force, float delta)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = StepSpringsWork(state, pose, placement, force, delta);
@@ -147,7 +147,7 @@ static MANI_NOINLINE maniResult ApplySpringsWork(const maniSpringState* state, m
     return mani_success;
 }
 
-maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
+maniResult maniSpringState_Apply(const maniSpringState* state, maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = ApplySpringsWork(state, pose);
@@ -155,7 +155,7 @@ maniResult maniApplySprings(const maniSpringState* state, maniPose* pose)
     return result;
 }
 
-void maniResetSprings(maniSpringState* state)
+void maniSpringState_Reset(maniSpringState* state)
 {
     if (state != NULL)
     {
@@ -199,8 +199,8 @@ static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state
     return mani_success;
 }
 
-maniResult maniSaveSpringState(const maniSpringState* state, void* bytesOut, size_t capacity,
-                               size_t* sizeOut)
+maniResult maniSpringState_Save(const maniSpringState* state, void* bytesOut, size_t capacity,
+                                size_t* sizeOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SaveSpringStateWork(state, bytesOut, capacity, sizeOut);
@@ -384,7 +384,7 @@ static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* stat
     return (maniFileResult){mani_success, 0, 0};
 }
 
-maniFileResult maniRestoreSpringState(maniSpringState* state, const void* bytes, size_t size)
+maniFileResult maniSpringState_Restore(maniSpringState* state, const void* bytes, size_t size)
 {
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result = RestoreSpringStateWork(state, bytes, size);

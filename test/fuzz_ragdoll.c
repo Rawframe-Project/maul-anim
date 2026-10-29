@@ -30,10 +30,10 @@ static void Exercise(const uint8_t* bytes, size_t size)
         return;
     }
     uint64_t names = 0;
-    for (uint32_t i = 0; i < maniRagdollBodyCount(&ragdoll); ++i)
+    for (uint32_t i = 0; i < maniRagdoll_GetBodyCount(&ragdoll); ++i)
     {
         maniRagdollBody b;
-        if (maniRagdollReadBody(&ragdoll, i, &b) != 0 || b.bone >= ragdoll.boneCount ||
+        if (maniRagdoll_GetBody(&ragdoll, i, &b) != 0 || b.bone >= ragdoll.boneCount ||
             (i == 0) != (b.parent == MANI_NO_BONE) || (i > 0 && b.parent >= i) ||
             b.name != (const char*)ragdoll.names + names || !(b.mass > 0.0f))
         {

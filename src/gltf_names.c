@@ -82,7 +82,7 @@ const char* maniGltfNodeName(const maniGltf* gltf, uint32_t node, size_t* length
     return maniBoneName(&gltf->names, node, lengthOut);
 }
 
-const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, size_t* lengthOut)
+const char* maniGltf_GetNodeBoneName(const maniGltf* gltf, uint32_t node, size_t* lengthOut)
 {
     bool inRange = gltf != NULL && node < gltf->names.count;
     size_t length = 0;
@@ -94,12 +94,12 @@ const char* maniGltfNodeBoneName(const maniGltf* gltf, uint32_t node, size_t* le
     return name;
 }
 
-uint32_t maniGltfRenamedCount(const maniGltf* gltf)
+uint32_t maniGltf_GetRenamedCount(const maniGltf* gltf)
 {
     return gltf != NULL ? gltf->names.renamedCount : 0;
 }
 
-uint32_t maniGltfRenamedNode(const maniGltf* gltf, uint32_t index)
+uint32_t maniGltf_GetRenamedNode(const maniGltf* gltf, uint32_t index)
 {
     return gltf != NULL && index < gltf->names.renamedCount ? gltf->names.renamed[index]
                                                             : UINT32_MAX;
@@ -109,5 +109,5 @@ uint32_t maniGltfNodeBone(const maniGltf* gltf, const maniSkeleton* skeleton, ui
 {
     size_t length = 0;
     const char* name = maniGltfNodeName(gltf, node, &length);
-    return maniSkeletonFindBone(skeleton, name, length);
+    return maniSkeleton_FindBone(skeleton, name, length);
 }

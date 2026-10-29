@@ -6,7 +6,7 @@ A mesh is bound to some of a skeleton's bones; each frame the pose gives a palet
 
 A skin (kind 5) lists the bones a mesh is bound to, in the mesh's order (its joints), each with an inverse bind matrix, and records its skeleton's identity. glTF and FBX attach several meshes, each with its own list, to one hierarchy, so several skins over one skeleton are several files.
 
-`maniComputePalette` writes entry j as the model matrix of joint j's bone times joint j's inverse bind. It refuses a stale model, a skeleton that is neither the skin's nor the pose's, and a short array; a forgotten model pass is a refusal, never an old palette. `maniPaletteDualQuaternions` gives the same palette as dual quaternions with their scale and shear part, for dual quaternion skinning on a GPU.
+`maniPose_ComputePalette` writes entry j as the model matrix of joint j's bone times joint j's inverse bind. It refuses a stale model, a skeleton that is neither the skin's nor the pose's, and a short array; a forgotten model pass is a refusal, never an old palette. `maniConvertPaletteToDualQuaternions` gives the same palette as dual quaternions with their scale and shear part, for dual quaternion skinning on a GPU.
 
 ## Influences
 

@@ -65,7 +65,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniSpringSetIdentity(const maniSpringSet* set);
+    MANI_API uint64_t maniSpringSet_GetIdentity(const maniSpringSet* set);
 
     /// Returns the identity of the skeleton a set was built for.
     ///
@@ -73,7 +73,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniSpringSetSkeletonIdentity(const maniSpringSet* set);
+    MANI_API uint64_t maniSpringSet_GetSkeletonIdentity(const maniSpringSet* set);
 
     /// Returns the number of springs (chains) in a set.
     ///
@@ -81,7 +81,7 @@ extern "C"
     /// @return The count; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSpringSetSpringCount(const maniSpringSet* set);
+    MANI_API uint32_t maniSpringSet_GetSpringCount(const maniSpringSet* set);
 
     /// Returns a spring's name, its bytes inside the set (not terminated).
     ///
@@ -93,8 +93,8 @@ extern "C"
     /// past the springs, and an empty name's position for none.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring,
-                                                 size_t* lengthOut);
+    MANI_API const char* maniSpringSet_GetSpringName(const maniSpringSet* set, uint32_t spring,
+                                                     size_t* lengthOut);
 
     /// Returns the rate a set steps at (steps a second), and the rate its
     /// source's values were per frame of.
@@ -104,7 +104,7 @@ extern "C"
     /// @return The step rate; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API float maniSpringSetStepRate(const maniSpringSet* set, float* referenceRateOut);
+    MANI_API float maniSpringSet_GetStepRate(const maniSpringSet* set, float* referenceRateOut);
 
 // The most steps a spring state takes in one call: a longer delta plays
 // as this many steps' seconds and loses the rest, as fixed-step
@@ -124,7 +124,7 @@ extern "C"
     /// @return The size; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniSpringStateSize(const maniSpringSet* set);
+    MANI_API size_t maniSpringSet_GetStateSize(const maniSpringSet* set);
 
     /// Makes a state for a set in caller memory, with no motion yet: the
     /// first step places every tail where the pose puts it.
@@ -132,7 +132,7 @@ extern "C"
     /// @param set       An opened set, which must outlive the state.
     /// @param skeleton  The skeleton the set was built for, which must
     ///                  outlive the state.
-    /// @param memory    At least maniSpringStateSize bytes,
+    /// @param memory    At least maniSpringSet_GetStateSize bytes,
     ///                  MANI_SPRING_STATE_ALIGNMENT aligned.
     /// @param size      Its size.
     /// @param stateOut  Receives the state (at memory).
@@ -178,9 +178,9 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the state and pose are used by one thread at
     /// a time.
-    MANI_NODISCARD MANI_API maniResult maniStepSprings(maniSpringState* state, maniPose* pose,
-                                                       const maniTransform* placement,
-                                                       const maniVec3* force, float delta);
+    MANI_NODISCARD MANI_API maniResult maniSpringState_Step(maniSpringState* state, maniPose* pose,
+                                                            const maniTransform* placement,
+                                                            const maniVec3* force, float delta);
 
     /// Turns each spring joint of a pose toward its tail: the last step's
     /// tails moved on at their velocity for the time since that step (the
@@ -198,8 +198,8 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the state and pose are used by one thread at
     /// a time.
-    MANI_NODISCARD MANI_API maniResult maniApplySprings(const maniSpringState* state,
-                                                        maniPose* pose);
+    MANI_NODISCARD MANI_API maniResult maniSpringState_Apply(const maniSpringState* state,
+                                                             maniPose* pose);
 
     /// Drops a state's motion: the next step places every tail where the
     /// pose puts it (a teleport) and takes its placement and force as the
@@ -208,7 +208,7 @@ extern "C"
     /// @param state  A state, or NULL (nothing done).
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
-    MANI_API void maniResetSprings(maniSpringState* state);
+    MANI_API void maniSpringState_Reset(maniSpringState* state);
 
     /// Saves a state without pointers: its set's identity and its values.
     /// Call it with a NULL buffer and capacity 0 to measure.
@@ -225,9 +225,9 @@ extern "C"
     /// with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSaveSpringState(const maniSpringState* state,
-                                                           void* bytesOut, size_t capacity,
-                                                           size_t* sizeOut);
+    MANI_NODISCARD MANI_API maniResult maniSpringState_Save(const maniSpringState* state,
+                                                            void* bytesOut, size_t capacity,
+                                                            size_t* sizeOut);
 
     /// Restores a saved state after checking it as external bytes: the
     /// set's identity, the size, every value finite and in its range,
@@ -243,8 +243,8 @@ extern "C"
     /// (the state unchanged in either case).
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniFileResult maniRestoreSpringState(maniSpringState* state,
-                                                                  const void* bytes, size_t size);
+    MANI_NODISCARD MANI_API maniFileResult maniSpringState_Restore(maniSpringState* state,
+                                                                   const void* bytes, size_t size);
 
 #ifdef __cplusplus
 }

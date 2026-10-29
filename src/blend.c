@@ -35,7 +35,7 @@ static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton
                        const maniPose* out, bool difference)
 {
     if (!maniPoseMatches(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) ||
-        maniPoseIsDifference(layer->pose) != difference)
+        maniPose_IsDifference(layer->pose) != difference)
     {
         return false;
     }
@@ -58,7 +58,7 @@ static bool Valid(const maniSkeleton* skeleton, const maniBlendLayer* layers, ui
     {
         return false;
     }
-    *difference = count > 0 && layers[0].pose != NULL && maniPoseIsDifference(layers[0].pose);
+    *difference = count > 0 && layers[0].pose != NULL && maniPose_IsDifference(layers[0].pose);
     for (uint32_t i = 0; i < count; ++i)
     {
         if (!LayerValid(&layers[i], skeleton, out, *difference))
@@ -97,7 +97,7 @@ static void Rest(const maniSkeleton* skeleton, uint32_t bone, bool difference, f
     maniTransform t =
         difference
             ? (maniTransform){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}
-            : maniSkeletonRest(skeleton, bone);
+            : maniSkeleton_GetRest(skeleton, bone);
     const float values[COMPONENTS] = {
         t.translation.x, t.translation.y, t.translation.z, t.rotation.x, t.rotation.y,
         t.rotation.z,    t.rotation.w,    t.scale.x,       t.scale.y,    t.scale.z};
@@ -183,8 +183,8 @@ static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
     return any;
 }
 
-maniResult maniBlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
-                          uint32_t count, float threshold, maniPose* out)
+maniResult maniSkeleton_BlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
+                                   uint32_t count, float threshold, maniPose* out)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = maniBlendPosesIn(skeleton, layers, count, threshold, out, NULL);

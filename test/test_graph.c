@@ -92,7 +92,7 @@ static void OpenClips(void)
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         CHECK(maniBuildClip(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) ==
+                  maniBuilder_CopyBuilt(builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) ==
                       mani_success &&
                   maniOpenClip(s_clipFiles[i], size, &s_clips[i]).result == mani_success,
               "a clip");
@@ -106,7 +106,8 @@ static void OpenSkeleton(void)
     maniSkeletonSource source = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                  mani_success,
           "skeleton");
     maniDestroyBuilder(builder);
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
@@ -203,7 +204,8 @@ static maniBuildResult Build(const maniGraphSource* source)
     s_size = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+              "copies");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -221,12 +223,12 @@ static void TestBuild(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenGraph(s_file, s_size, &g).result == mani_success,
           "builds and opens");
-    CHECK(maniGraphNodeCount(&g) == 9 && maniGraphParameterCount(&g) == 6 &&
-              maniGraphClipCount(&g) == 3 && g.maskCount == 1 && g.syncGroupCount == 1,
+    CHECK(maniGraph_GetNodeCount(&g) == 9 && maniGraph_GetParameterCount(&g) == 6 &&
+              maniGraph_GetClipCount(&g) == 3 && g.maskCount == 1 && g.syncGroupCount == 1,
           "counts");
-    CHECK(maniGraphSkeletonIdentity(&g) == maniSkeletonIdentity(&s_skeleton) &&
-              maniGraphClipIdentity(&g, 2) == maniClipIdentity(&s_clips[2]) &&
-              maniGraphClipIdentity(&g, 3) == 0,
+    CHECK(maniGraph_GetSkeletonIdentity(&g) == maniSkeleton_GetIdentity(&s_skeleton) &&
+              maniGraph_GetClipIdentity(&g, 2) == maniClip_GetIdentity(&s_clips[2]) &&
+              maniGraph_GetClipIdentity(&g, 3) == 0,
           "identities");
     // Depth first from the output: walk, run, blend, select, mask, time
     // scale, seek, wave, the output.
@@ -252,20 +254,20 @@ static void TestBuild(void)
           "the wave gives differences, the output poses");
     maniGraphParameterType type = 0;
     size_t length = 0;
-    const char* name = maniGraphParameterName(&g, 3, &length);
-    CHECK(maniGraphFindParameter(&g, "mix", 3) == 1 &&
-              maniGraphFindParameter(&g, "mi", 2) == MANI_NO_PARAMETER &&
-              maniGraphParameterTypeOf(&g, 3, &type) == mani_success &&
+    const char* name = maniGraph_GetParameterName(&g, 3, &length);
+    CHECK(maniGraph_FindParameter(&g, "mix", 3) == 1 &&
+              maniGraph_FindParameter(&g, "mi", 2) == MANI_NO_PARAMETER &&
+              maniGraph_GetParameterType(&g, 3, &type) == mani_success &&
               type == maniGraphParameterTrigger && length == 4 && memcmp(name, "jump", 4) == 0 &&
-              maniGraphParameterName(&g, 6, &length) == NULL && length == 0 &&
-              maniGraphParameterTypeOf(&g, 6, &type) == mani_errorInvalid,
+              maniGraph_GetParameterName(&g, 6, &length) == NULL && length == 0 &&
+              maniGraph_GetParameterType(&g, 6, &type) == mani_errorInvalid,
           "parameters by name and index");
     float w = 0.0f;
     memcpy(&w, g.parameters + 5 * MANI_GRAPH_PARAMETER_SIZE + 36, sizeof w);
     CHECK(w == 1.0f, "a quaternion default normalized");
-    name = maniGraphClipName(&g, 1, &length);
-    CHECK(length == 3 && memcmp(name, "run", 3) == 0 && maniGraphClipName(&g, 3, &length) == NULL &&
-              length == 0,
+    name = maniGraph_GetClipName(&g, 1, &length);
+    CHECK(length == 3 && memcmp(name, "run", 3) == 0 &&
+              maniGraph_GetClipName(&g, 3, &length) == NULL && length == 0,
           "clip names");
     float spine = 0.0f;
     float hips = 1.0f;
@@ -411,7 +413,7 @@ static void TestShapeRefusals(void)
     CHECK(r.result == mani_errorInvalid, "no builder");
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildGraph(builder, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 1,
+              maniBuilder_GetMisuse(builder) == 1,
           "no source");
     maniDestroyBuilder(builder);
     s = Source();
@@ -530,8 +532,8 @@ static void TestOpenRefusals(void)
     maniGraph g;
     CHECK(maniOpenGraph(NULL, 0, &g).result == mani_errorInvalid &&
               maniOpenGraph(s_file, s_size, NULL).result == mani_errorInvalid &&
-              maniGraphNodeCount(NULL) == 0 && maniGraphIdentity(NULL) == 0 &&
-              maniGraphFindParameter(NULL, "mix", 3) == MANI_NO_PARAMETER,
+              maniGraph_GetNodeCount(NULL) == 0 && maniGraph_GetIdentity(NULL) == 0 &&
+              maniGraph_FindParameter(NULL, "mix", 3) == MANI_NO_PARAMETER,
           "misuses");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
 }
@@ -562,7 +564,7 @@ static void TestBind(void)
 {
     maniGraph g;
     maniGraphBinding* binding = Bound(&g);
-    CHECK(binding != NULL && maniGraphBindingSize(&g) <= sizeof s_bindingMemory, "binds");
+    CHECK(binding != NULL && maniGraph_GetBindingSize(&g) <= sizeof s_bindingMemory, "binds");
     const maniClip* missing[2] = {&s_clips[0], &s_clips[2]};
     maniGraphBinding* none = NULL;
     uint32_t unbound = 0;
@@ -601,7 +603,7 @@ static void TestBind(void)
 static maniGraphValue Get(const maniGraphInstance* instance, uint32_t parameter)
 {
     maniGraphValue v = {{0}};
-    CHECK(maniGetGraphParameter(instance, parameter, &v) == mani_success, "gets");
+    CHECK(maniGraphInstance_GetParameter(instance, parameter, &v) == mani_success, "gets");
     return v;
 }
 
@@ -610,38 +612,41 @@ static void TestParameters(void)
     maniGraph g;
     maniGraphBinding* binding = Bound(&g);
     maniGraphInstance* instance = NULL;
-    size_t size = maniGraphInstanceSize(binding);
+    size_t size = maniGraphBinding_GetInstanceSize(binding);
     CHECK(binding != NULL && size <= sizeof s_instanceMemory &&
               maniInitGraphInstance(binding, s_instanceMemory, size, &instance) == mani_success,
           "an instance");
     CHECK(Get(instance, 0).f[0] == 1.0f && Get(instance, 1).f[0] == 0.5f &&
               Get(instance, 4).b == 1 && Get(instance, 5).f[3] == 1.0f,
           "defaults");
-    CHECK(maniSetGraphParameter(instance, 0, maniGraphParameterFloat, Float(5, 0, 0, 0)) ==
+    CHECK(maniGraphInstance_SetParameter(instance, 0, maniGraphParameterFloat, Float(5, 0, 0, 0)) ==
                   mani_success &&
               Get(instance, 0).f[0] == 2.0f,
           "a float clamped to its maximum");
-    CHECK(maniSetGraphParameter(instance, 2, maniGraphParameterInt, Int(-7)) == mani_success &&
+    CHECK(maniGraphInstance_SetParameter(instance, 2, maniGraphParameterInt, Int(-7)) ==
+                  mani_success &&
               Get(instance, 2).i == 0,
           "an int clamped to its minimum");
-    CHECK(maniSetGraphParameter(instance, 5, maniGraphParameterQuat, Float(0, 3, 0, 4)) ==
+    CHECK(maniGraphInstance_SetParameter(instance, 5, maniGraphParameterQuat, Float(0, 3, 0, 4)) ==
                   mani_success &&
               Get(instance, 5).f[1] == 0.6f && Get(instance, 5).f[3] == 0.8f,
           "a quaternion normalized");
-    CHECK(maniSetGraphParameter(instance, 3, maniGraphParameterTrigger, Int(1)) == mani_success &&
+    CHECK(maniGraphInstance_SetParameter(instance, 3, maniGraphParameterTrigger, Int(1)) ==
+                  mani_success &&
               Get(instance, 3).b == 1,
           "a trigger set");
     maniGraphValue before = Get(instance, 1);
-    CHECK(maniSetGraphParameter(instance, 1, maniGraphParameterInt, Int(1)) == mani_errorInvalid &&
-              maniSetGraphParameter(instance, 1, maniGraphParameterFloat,
-                                    Float(INFINITY, 0, 0, 0)) == mani_errorInvalid &&
-              maniSetGraphParameter(instance, 4, maniGraphParameterBool, Int(2)) ==
+    CHECK(maniGraphInstance_SetParameter(instance, 1, maniGraphParameterInt, Int(1)) ==
                   mani_errorInvalid &&
-              maniSetGraphParameter(instance, 5, maniGraphParameterQuat, Float(0, 0, 0, 0)) ==
+              maniGraphInstance_SetParameter(instance, 1, maniGraphParameterFloat,
+                                             Float(INFINITY, 0, 0, 0)) == mani_errorInvalid &&
+              maniGraphInstance_SetParameter(instance, 4, maniGraphParameterBool, Int(2)) ==
                   mani_errorInvalid &&
-              maniSetGraphParameter(instance, 6, maniGraphParameterFloat, Float(0, 0, 0, 0)) ==
-                  mani_errorInvalid &&
-              maniSetGraphParameter(NULL, 1, maniGraphParameterFloat, Float(0, 0, 0, 0)) ==
+              maniGraphInstance_SetParameter(instance, 5, maniGraphParameterQuat,
+                                             Float(0, 0, 0, 0)) == mani_errorInvalid &&
+              maniGraphInstance_SetParameter(instance, 6, maniGraphParameterFloat,
+                                             Float(0, 0, 0, 0)) == mani_errorInvalid &&
+              maniGraphInstance_SetParameter(NULL, 1, maniGraphParameterFloat, Float(0, 0, 0, 0)) ==
                   mani_errorInvalid &&
               Get(instance, 1).f[0] == before.f[0],
           "values refused, nothing changed");
@@ -649,7 +654,7 @@ static void TestParameters(void)
                   mani_errorCapacity &&
               maniInitGraphInstance(binding, s_instanceMemory + 4, size, &instance) ==
                   mani_errorInvalid &&
-              maniGraphInstanceSize(NULL) == 0,
+              maniGraphBinding_GetInstanceSize(NULL) == 0,
           "instance misuses");
 }
 
@@ -658,7 +663,7 @@ static void ExpectStateWith(uint64_t offset, uint32_t value, maniResult result, 
 {
     memcpy(s_craftedState, s_state, size);
     maniStoreU32(s_craftedState + offset, value);
-    maniFileResult r = maniRestoreGraphInstance(instance, s_craftedState, size);
+    maniFileResult r = maniGraphInstance_Restore(instance, s_craftedState, size);
     CHECK(r.result == result && r.offset == want, what);
 }
 
@@ -673,14 +678,14 @@ static void TestSaveRestore(void)
     maniGraph g;
     maniGraphBinding* binding = Bound(&g);
     maniGraphInstance* instance = NULL;
-    size_t size = maniGraphInstanceSize(binding);
+    size_t size = maniGraphBinding_GetInstanceSize(binding);
     CHECK(binding != NULL &&
               maniInitGraphInstance(binding, s_instanceMemory, size, &instance) == mani_success,
           "an instance");
-    CHECK(maniSetGraphParameter(instance, 1, maniGraphParameterFloat, Float(0.25f, 0, 0, 0)) ==
-                  mani_success &&
-              maniSetGraphParameter(instance, 5, maniGraphParameterQuat, Float(1, 2, 3, 4)) ==
-                  mani_success,
+    CHECK(maniGraphInstance_SetParameter(instance, 1, maniGraphParameterFloat,
+                                         Float(0.25f, 0, 0, 0)) == mani_success &&
+              maniGraphInstance_SetParameter(instance, 5, maniGraphParameterQuat,
+                                             Float(1, 2, 3, 4)) == mani_success,
           "parameters set");
     // A node's state as an update would leave it: the select on its
     // second input, a clip's playhead moved.
@@ -691,15 +696,15 @@ static void TestSaveRestore(void)
     size_t stateSize = 0;
     size_t written = 0;
     size_t refused = 0;
-    CHECK(maniSaveGraphInstance(instance, NULL, 0, &stateSize) == mani_errorCapacity &&
+    CHECK(maniGraphInstance_Save(instance, NULL, 0, &stateSize) == mani_errorCapacity &&
               stateSize == MANI_GRAPH_STATE_HEADER_SIZE + 15 * 16 && stateSize <= sizeof s_state &&
-              maniSaveGraphInstance(instance, s_state, stateSize, &written) == mani_success &&
+              maniGraphInstance_Save(instance, s_state, stateSize, &written) == mani_success &&
               written == stateSize &&
-              maniSaveGraphInstance(instance, s_state, stateSize - 1, &refused) ==
+              maniGraphInstance_Save(instance, s_state, stateSize - 1, &refused) ==
                   mani_errorCapacity &&
               refused == stateSize &&
-              maniSaveGraphInstance(instance, NULL, 1, NULL) == mani_errorInvalid &&
-              maniSaveGraphInstance(NULL, NULL, 0, NULL) == mani_errorInvalid,
+              maniGraphInstance_Save(instance, NULL, 1, NULL) == mani_errorInvalid &&
+              maniGraphInstance_Save(NULL, NULL, 0, NULL) == mani_errorInvalid,
           "saves");
     memcpy(s_copyMemory, s_instanceMemory, size);
     maniGraphInstance* copy = (maniGraphInstance*)(void*)s_copyMemory;
@@ -707,7 +712,7 @@ static void TestSaveRestore(void)
     CHECK(maniInitGraphInstance(binding, s_instanceMemory, size, &fresh) == mani_success &&
               Get(fresh, 1).f[0] == 0.5f && Get(copy, 1).f[0] == 0.25f,
           "a memcpy is a copy, the original made over");
-    CHECK(maniRestoreGraphInstance(fresh, s_state, stateSize).result == mani_success &&
+    CHECK(maniGraphInstance_Restore(fresh, s_state, stateSize).result == mani_success &&
               Get(fresh, 1).f[0] == 0.25f && Get(fresh, 5).f[0] == Get(copy, 5).f[0] &&
               fresh->cells[g.parameterCount + 3].node.word == 1 &&
               fresh->cells[g.parameterCount + 0].node.time == 12.75,
@@ -732,8 +737,8 @@ static void TestSaveRestore(void)
     ExpectState(nodes + 2 * 16 + 4, 1, nodes + 2 * 16, "a word on a blend", fresh, stateSize);
     ExpectState(nodes, 0xBF800000u, nodes, "a negative weight", fresh, stateSize);
     ExpectState(nodes + 12, 0x7FF00000u, nodes, "a playhead not finite", fresh, stateSize);
-    CHECK(maniRestoreGraphInstance(fresh, s_state, stateSize - 1).result == mani_errorFormat &&
-              maniRestoreGraphInstance(NULL, s_state, stateSize).result == mani_errorInvalid &&
+    CHECK(maniGraphInstance_Restore(fresh, s_state, stateSize - 1).result == mani_errorFormat &&
+              maniGraphInstance_Restore(NULL, s_state, stateSize).result == mani_errorInvalid &&
               Get(fresh, 1).f[0] == 0.25f,
           "a short state; the instance unchanged by refusals");
 }
@@ -777,7 +782,8 @@ static void TestWeights(void)
     maniGraphEvent events[8];
     uint32_t count = 0;
     maniRootMove move;
-    CHECK(maniUpdateGraph(instance, 0.4f, events, 8, &count, &move) == mani_success, "updates");
+    CHECK(maniGraphInstance_Update(instance, 0.4f, events, 8, &count, &move) == mani_success,
+          "updates");
     // Walk 0, run 1, blend 2, select 3, mask 4, time scale 5, seek 6,
     // wave 7, the output 8.
     static const float kWeights[9] = {4.0f / 3.0f, 2.0f / 3.0f, 1, 1, 1, 1, 1, 1, 1};
@@ -794,16 +800,17 @@ static void TestWeights(void)
     CHECK(Near(State(instance, &g, 0)->time, 0.6) && Near(State(instance, &g, 1)->time, 0.6) &&
               Near(State(instance, &g, 7)->time, 0.4),
           "playheads by the time scale above them");
-    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
               Near(State(instance, &g, 0)->time, 0.35) && count == 1,
           "a wrap: the walk at 0.35, its first event counted past no buffer");
-    CHECK(maniSetGraphParameter(instance, 2, maniGraphParameterInt, Int(1)) == mani_success &&
-              maniUpdateGraph(instance, 0.0f, NULL, 0, NULL, NULL) == mani_success &&
+    CHECK(maniGraphInstance_SetParameter(instance, 2, maniGraphParameterInt, Int(1)) ==
+                  mani_success &&
+              maniGraphInstance_Update(instance, 0.0f, NULL, 0, NULL, NULL) == mani_success &&
               State(instance, &g, 3)->word == 1 && NearF(State(instance, &g, 1)->weight, 5.0 / 3.0),
           "the select's choice: the run");
-    CHECK(maniUpdateGraph(NULL, 0.1f, NULL, 0, NULL, NULL) == mani_errorInvalid &&
-              maniUpdateGraph(instance, NAN, NULL, 0, NULL, NULL) == mani_errorInvalid &&
-              maniUpdateGraph(instance, 0.1f, NULL, 3, NULL, NULL) == mani_errorInvalid,
+    CHECK(maniGraphInstance_Update(NULL, 0.1f, NULL, 0, NULL, NULL) == mani_errorInvalid &&
+              maniGraphInstance_Update(instance, NAN, NULL, 0, NULL, NULL) == mani_errorInvalid &&
+              maniGraphInstance_Update(instance, 0.1f, NULL, 3, NULL, NULL) == mani_errorInvalid,
           "misuses");
 }
 
@@ -813,24 +820,26 @@ static void TestEvents(void)
     maniGraphInstance* instance = NewInstance(&g, NULL);
     maniGraphEvent events[4];
     uint32_t count = 0;
-    CHECK(maniUpdateGraph(instance, 0.4f, events, 4, &count, NULL) == mani_success && count == 2,
+    CHECK(maniGraphInstance_Update(instance, 0.4f, events, 4, &count, NULL) == mani_success &&
+              count == 2,
           "the walk's two steps from 0 to 0.6");
     CHECK(events[0].node == 0 && events[0].clip == 0 && events[0].event == 0 &&
               events[0].payload == 7 && events[0].direction == 1 && events[0].time == 0.0f &&
               NearF(events[0].weight, 4.0 / 3.0) && events[1].event == 1 && events[1].payload == 8,
           "records: node, slot, event, payload, weight, time, direction");
-    CHECK(maniUpdateGraph(instance, -0.4f, events, 4, &count, NULL) == mani_success && count == 1 &&
-              events[0].event == 1 && events[0].direction == -1,
+    CHECK(maniGraphInstance_Update(instance, -0.4f, events, 4, &count, NULL) == mani_success &&
+              count == 1 && events[0].event == 1 && events[0].direction == -1,
           "backward from 0.6 to 0: the right step at 0.5 only");
-    CHECK(maniUpdateGraph(instance, 0.4f, events, 1, &count, NULL) == mani_success && count == 2 &&
-              events[0].event == 0,
+    CHECK(maniGraphInstance_Update(instance, 0.4f, events, 1, &count, NULL) == mani_success &&
+              count == 2 && events[0].event == 0,
           "past the capacity: the true count");
     // A million seconds at 1.5: 1.5 million loops of two steps each.
-    CHECK(maniUpdateGraph(instance, 1.0e6f, events, 4, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 1.0e6f, events, 4, &count, NULL) == mani_success &&
               count >= 2999999 && count <= 3000001,
           "a huge step counted, not listed");
-    CHECK(maniSetGraphParameter(instance, 3, maniGraphParameterTrigger, Int(1)) == mani_success &&
-              maniUpdateGraph(instance, 0.3f, events, 4, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_SetParameter(instance, 3, maniGraphParameterTrigger, Int(1)) ==
+                  mani_success &&
+              maniGraphInstance_Update(instance, 0.3f, events, 4, &count, NULL) == mani_success &&
               count == 0 && Near(State(instance, &g, 0)->time, 0.25) &&
               Near(State(instance, &g, 1)->time, 0.25),
           "a seek: playheads at its time, no events");
@@ -864,8 +873,8 @@ static void OpenRootClips(void)
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         CHECK(maniBuildClip(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_rootClipFiles[i], sizeof s_rootClipFiles[i], &size) ==
-                      mani_success &&
+                  maniBuilder_CopyBuilt(builder, s_rootClipFiles[i], sizeof s_rootClipFiles[i],
+                                        &size) == mani_success &&
                   maniOpenClip(s_rootClipFiles[i], size, &s_rootClips[i]).result == mani_success,
               "a root motion clip");
         maniDestroyBuilder(builder);
@@ -906,13 +915,13 @@ static void TestRootMotion(void)
           "a root motion graph");
     maniRootMove move;
     // The walk moves 1 a second; half the weight, half a second: 0.25.
-    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, NULL, &move) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.5f, NULL, 0, NULL, &move) == mani_success &&
               Near((double)move.translation.x, 0.25) && move.translation.z == 0.0f &&
               move.rotation.w == 1.0f,
           "the walk's travel blended with the run's none");
-    CHECK(maniSetGraphParameter(instance, 0, maniGraphParameterFloat, Float(1.5f, 0, 0, 0)) ==
-                  mani_success &&
-              maniUpdateGraph(instance, 0.8f, NULL, 0, NULL, &move) == mani_success &&
+    CHECK(maniGraphInstance_SetParameter(instance, 0, maniGraphParameterFloat,
+                                         Float(1.5f, 0, 0, 0)) == mani_success &&
+              maniGraphInstance_Update(instance, 0.8f, NULL, 0, NULL, &move) == mani_success &&
               Near((double)move.translation.x, 0.6),
           "three quarters of the walk across its wrap");
     clips[1].clip = &s_rootClips[2];
@@ -943,8 +952,8 @@ static bool SamePose(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t bone = 0; bone < 3; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     return same;
@@ -962,21 +971,24 @@ static void Reference(maniPose* out)
     float inside[3];
     float outside[3];
     const maniMaskChain chain = {1, 1.0f, true};
-    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success, "mask");
+    CHECK(maniSkeleton_BuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success,
+          "mask");
     for (int b = 0; b < 3; ++b)
     {
         outside[b] = 1.0f - inside[b];
     }
-    CHECK(maniSampleClip(&s_clips[0], &s_skeleton, 0.6f, walk) == mani_success &&
-              maniSampleClip(&s_clips[1], &s_skeleton, 0.6f, run) == mani_success &&
-              maniSampleClip(&s_clips[2], &s_skeleton, 0.4f, wave) == mani_success,
+    CHECK(maniClip_Sample(&s_clips[0], &s_skeleton, 0.6f, walk) == mani_success &&
+              maniClip_Sample(&s_clips[1], &s_skeleton, 0.6f, run) == mani_success &&
+              maniClip_Sample(&s_clips[2], &s_skeleton, 0.4f, wave) == mani_success,
           "samples");
     const maniBlendLayer two[2] = {{walk, 0.5f / 1.5f, NULL}, {run, 1.0f / 1.5f, NULL}};
     const maniBlendLayer masked[2] = {{blend, 1.0f, inside}, {walk, 1.0f, outside}};
     const maniBlendLayer layer = {wave, 1.0f, NULL};
-    CHECK(maniBlendPoses(&s_skeleton, two, 2, MANI_BLEND_THRESHOLD, blend) == mani_success &&
-              maniBlendPoses(&s_skeleton, masked, 2, MANI_BLEND_THRESHOLD, out) == mani_success &&
-              maniAddPoses(&s_skeleton, out, &layer, 1) == mani_success,
+    CHECK(maniSkeleton_BlendPoses(&s_skeleton, two, 2, MANI_BLEND_THRESHOLD, blend) ==
+                  mani_success &&
+              maniSkeleton_BlendPoses(&s_skeleton, masked, 2, MANI_BLEND_THRESHOLD, out) ==
+                  mani_success &&
+              maniPose_AddLayers(out, &s_skeleton, &layer, 1) == mani_success,
           "the reference");
 }
 
@@ -985,31 +997,32 @@ static void TestEvaluate(void)
     maniGraph g;
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NewInstance(&g, &binding);
-    size_t size = maniGraphScratchSize(binding);
+    size_t size = maniGraphBinding_GetScratchSize(binding);
     maniPose* pose = PoseAt(0);
     maniPose* rest = PoseAt(5);
     CHECK(size > 0 && size <= sizeof s_scratch &&
-              maniEvaluateGraph(instance, s_scratch, size, pose) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, size, pose) == mani_success &&
               SamePose(pose, rest),
           "the rest before the first update");
     maniPose* expected = PoseAt(5);
     Reference(expected);
-    CHECK(maniUpdateGraph(instance, 0.4f, NULL, 0, NULL, NULL) == mani_success &&
-              maniEvaluateGraph(instance, s_scratch, size, pose) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.4f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, size, pose) == mani_success &&
               SamePose(pose, expected),
           "the graph's pose, bit for bit with the blending functions'");
     // Again, with the scratch's poses already made, and from a copy.
-    memcpy(s_copyMemory, s_instanceMemory, maniGraphInstanceSize(binding));
+    memcpy(s_copyMemory, s_instanceMemory, maniGraphBinding_GetInstanceSize(binding));
     maniGraphInstance* copy = (maniGraphInstance*)(void*)s_copyMemory;
     maniPose* again = PoseAt(1);
-    CHECK(maniEvaluateGraph(copy, s_scratch, size, again) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(copy, s_scratch, size, again) == mani_success &&
               SamePose(again, expected),
           "a copy evaluates the same");
-    CHECK(maniEvaluateGraph(instance, s_scratch, size - 1, pose) == mani_errorCapacity &&
-              maniEvaluateGraph(instance, s_scratch + 16, size, pose) == mani_errorInvalid &&
-              maniEvaluateGraph(NULL, s_scratch, size, pose) == mani_errorInvalid &&
-              maniEvaluateGraph(instance, s_scratch, size, NULL) == mani_errorInvalid &&
-              maniGraphScratchSize(NULL) == 0,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, size - 1, pose) == mani_errorCapacity &&
+              maniGraphInstance_Evaluate(instance, s_scratch + 16, size, pose) ==
+                  mani_errorInvalid &&
+              maniGraphInstance_Evaluate(NULL, s_scratch, size, pose) == mani_errorInvalid &&
+              maniGraphInstance_Evaluate(instance, s_scratch, size, NULL) == mani_errorInvalid &&
+              maniGraphBinding_GetScratchSize(NULL) == 0,
           "misuses");
 }
 
@@ -1034,7 +1047,8 @@ static void OpenLong(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_longFile, sizeof s_longFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_longFile, sizeof s_longFile, &size) ==
+                  mani_success &&
               maniOpenClip(s_longFile, size, &s_long).result == mani_success,
           "the long clip");
     maniDestroyBuilder(builder);
@@ -1087,25 +1101,26 @@ static void TestSync(void)
     maniGraphInstance* instance = SyncInstance(0, 0, &g);
     maniGraphEvent events[8];
     uint32_t count = 0;
-    CHECK(maniUpdateGraph(instance, 0.25f, events, 8, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.25f, events, 8, &count, NULL) == mani_success &&
               Near(State(instance, &g, 0)->time, 0.25) && Near(State(instance, &g, 1)->time, 0.5) &&
               count == 1 && events[0].node == 0,
           "the walk leads by weight; the long clip a quarter through, its events quiet");
-    CHECK(maniSetGraphParameter(instance, 0, maniGraphParameterFloat, Float(0.1f, 0, 0, 0)) ==
-                  mani_success &&
-              maniUpdateGraph(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_SetParameter(instance, 0, maniGraphParameterFloat,
+                                         Float(0.1f, 0, 0, 0)) == mani_success &&
+              maniGraphInstance_Update(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
               Near(State(instance, &g, 1)->time, 1.0) && Near(State(instance, &g, 0)->time, 0.5) &&
               count == 0,
           "the long clip leads once it weighs more; the walk follows its phase");
-    CHECK(maniUpdateGraph(instance, 0.5f, events, 8, &count, NULL) == mani_success && count == 1 &&
-              events[0].node == 1 && events[0].payload == 9,
+    CHECK(maniGraphInstance_Update(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
+              count == 1 && events[0].node == 1 && events[0].payload == 9,
           "the leader's event at its middle; the walk's quiet");
     instance = SyncInstance(0, maniGraphClipLeader, &g);
-    CHECK(maniUpdateGraph(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.5f, events, 8, &count, NULL) == mani_success &&
               Near(State(instance, &g, 1)->time, 0.5) && Near(State(instance, &g, 0)->time, 0.25),
           "a declared leader leads whatever its weight");
     instance = SyncInstance(maniGraphSyncAllEvents, 0, &g);
-    CHECK(maniUpdateGraph(instance, 0.75f, events, 8, &count, NULL) == mani_success && count == 3,
+    CHECK(maniGraphInstance_Update(instance, 0.75f, events, 8, &count, NULL) == mani_success &&
+              count == 3,
           "every member's events when the group asks: two steps and the middle");
 }
 
@@ -1179,7 +1194,7 @@ static void TestSubgraph(void)
     CHECK(Build(&source).result == mani_success && s_size == flatSize &&
               maniOpenGraph(s_file, s_size, &g).result == mani_success &&
               maniOpenGraph(s_flatFile, flatSize, &flatGraph).result == mani_success &&
-              maniGraphNodeCount(&g) == 6 && maniGraphClipCount(&g) == 3,
+              maniGraph_GetNodeCount(&g) == 6 && maniGraph_GetClipCount(&g) == 3,
           "two subgraphs inlined: six nodes, three clips");
     // Played alike: the same poses after the same updates.
     const maniClip* bound[3] = {&s_clips[0], &s_clips[1], &s_clips[2]};
@@ -1199,10 +1214,10 @@ static void TestSubgraph(void)
                                              NULL, 0, 0, NULL},
                           bindings[k], sizeof bindings[k], &b[k], NULL) == mani_success &&
             maniInitGraphInstance(b[k], instances[k], sizeof instances[k], &i[k]) == mani_success &&
-            maniSetGraphParameter(i[k], 0, maniGraphParameterFloat, Float(2, 0, 0, 0)) ==
+            maniGraphInstance_SetParameter(i[k], 0, maniGraphParameterFloat, Float(2, 0, 0, 0)) ==
                 mani_success &&
-            maniUpdateGraph(i[k], 0.3f, NULL, 0, NULL, NULL) == mani_success &&
-            maniEvaluateGraph(i[k], s_scratch, sizeof s_scratch, poses[k]) == mani_success;
+            maniGraphInstance_Update(i[k], 0.3f, NULL, 0, NULL, NULL) == mani_success &&
+            maniGraphInstance_Evaluate(i[k], s_scratch, sizeof s_scratch, poses[k]) == mani_success;
     }
     CHECK(same && SamePose(poses[0], poses[1]), "the inlined graph plays as the flat one");
     // Refusals: a map to a parameter of another type, a graph of itself.
@@ -1247,7 +1262,7 @@ static void OpenFeet(void)
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         CHECK(maniBuildClip(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_footFiles[i], sizeof s_footFiles[i], &size) ==
+                  maniBuilder_CopyBuilt(builder, s_footFiles[i], sizeof s_footFiles[i], &size) ==
                       mani_success &&
                   maniOpenClip(s_footFiles[i], size, &s_feet[i]).result == mani_success,
               "a clip with feet");
@@ -1288,18 +1303,18 @@ static void TestMarkerSync(void)
     // one placed on its left foot, then halfway to its right (at 2, so 0).
     // Placed on its left foot without a sound: its middle is not passed.
     uint32_t count = 0;
-    CHECK(maniUpdateGraph(instance, 0.25f, NULL, 0, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.25f, NULL, 0, &count, NULL) == mani_success &&
               Near(State(instance, &g, 0)->time, 0.25) && Near(State(instance, &g, 1)->time, 0.0) &&
               count == 0,
           "the long clip aligned by names, then halfway between its feet");
-    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
               Near(State(instance, &g, 0)->time, 0.75) && Near(State(instance, &g, 1)->time, 1.0) &&
               count == 0,
           "past the right foot to halfway to the left, in each clip's own spacing");
-    CHECK(maniUpdateGraph(instance, -0.5f, NULL, 0, NULL, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, -0.5f, NULL, 0, NULL, NULL) == mani_success &&
               Near(State(instance, &g, 0)->time, 0.25) && Near(State(instance, &g, 1)->time, 0.0),
           "backward through the right foot again");
-    CHECK(maniUpdateGraph(instance, 10.25f, NULL, 0, NULL, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 10.25f, NULL, 0, NULL, NULL) == mani_success &&
               Near(State(instance, &g, 0)->time, 0.5) && Near(State(instance, &g, 1)->time, 0.5),
           "ten loops and a quarter: both on the right foot");
 }
@@ -1361,12 +1376,12 @@ static void TestLargeSteps(void)
         maniGraphEvent events[4];
         uint32_t count = 0;
         maniRootMove move;
-        bool updated =
-            maniUpdateGraph(instance, kDeltas[k], events, 4, &count, &move) == mani_success;
+        bool updated = maniGraphInstance_Update(instance, kDeltas[k], events, 4, &count, &move) ==
+                       mani_success;
         double leader = State(instance, &g, 0)->time;
         double follower = State(instance, &g, 1)->time;
-        CHECK(updated && leader >= 0.0 && leader <= (double)maniClipDuration(&s_feet[0]) &&
-                  follower >= 0.0 && follower <= (double)maniClipDuration(&s_feet[1]),
+        CHECK(updated && leader >= 0.0 && leader <= (double)maniClip_GetDuration(&s_feet[0]) &&
+                  follower >= 0.0 && follower <= (double)maniClip_GetDuration(&s_feet[1]),
               "an update across many loops, both playheads within their clips");
     }
 }
@@ -1392,18 +1407,18 @@ static void TestPinned(void)
     maniGraph g;
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NewInstance(&g, &binding);
-    size_t size = maniGraphScratchSize(binding);
+    size_t size = maniGraphBinding_GetScratchSize(binding);
     maniPose* pose = PoseAt(0);
     for (int step = 0; step < 8; ++step)
     {
         maniGraphEvent events[8];
         uint32_t count = 0;
         maniRootMove move;
-        CHECK(maniUpdateGraph(instance, 0.27f, events, 8, &count, &move) == mani_success &&
-                  maniEvaluateGraph(instance, s_scratch, size, pose) == mani_success,
+        CHECK(maniGraphInstance_Update(instance, 0.27f, events, 8, &count, &move) == mani_success &&
+                  maniGraphInstance_Evaluate(instance, s_scratch, size, pose) == mani_success,
               "steps");
         maniTransform locals[3];
-        CHECK(maniPoseReadLocals(pose, 0, 3, locals) == mani_success, "reads");
+        CHECK(maniPose_ReadLocals(pose, 0, 3, locals) == mani_success, "reads");
         hash = maniHash64(hash, locals, (int32_t)sizeof locals);
         const float parts[7] = {move.translation.x, move.translation.y, move.translation.z,
                                 move.rotation.x,    move.rotation.y,    move.rotation.z,
@@ -1425,7 +1440,7 @@ static void TestPinned(void)
         }
     }
     size_t stateSize = 0;
-    CHECK(maniSaveGraphInstance(instance, s_state, sizeof s_state, &stateSize) == mani_success,
+    CHECK(maniGraphInstance_Save(instance, s_state, sizeof s_state, &stateSize) == mani_success,
           "saves");
     // The writer's ABI version is checked apart and hashed as 0, so a
     // release moves no pin.

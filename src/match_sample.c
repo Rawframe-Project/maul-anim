@@ -43,7 +43,7 @@ static maniMatchPlace Locate(const maniMatchSampler* s, const maniClip* clip,
 {
     maniMatchSpan span = {e->start, e->end, (e->flags & MANI_MATCH_LOOP) != 0};
     maniMatchPlace p = maniMatchLocate(clip, span, t, step);
-    p.move = Mirrored(e) ? maniMirrorRootMotion(s->source->mirrorMap, p.move) : p.move;
+    p.move = Mirrored(e) ? maniMirrorMap_MirrorRootMotion(s->source->mirrorMap, p.move) : p.move;
     return p;
 }
 
@@ -57,10 +57,10 @@ static bool Model(maniMatchSampler* s, const maniClip* clip, const maniMatchEntr
     memcpy(&b, &time, sizeof b);
     bool mirrored = Mirrored(e);
     bool sampled = s->sampledClip == clip && a == b && s->sampledMirrored == mirrored;
-    if (!sampled && (maniSampleClip(clip, skeleton, time, s->pose) != mani_success ||
-                     (mirrored && maniMirrorPose(s->source->mirrorMap, skeleton, s->pose,
-                                                 s->pose) != mani_success) ||
-                     maniComputeModel(s->pose, skeleton) != mani_success))
+    if (!sampled && (maniClip_Sample(clip, skeleton, time, s->pose) != mani_success ||
+                     (mirrored && maniMirrorMap_MirrorPose(s->source->mirrorMap, skeleton, s->pose,
+                                                           s->pose) != mani_success) ||
+                     maniPose_ComputeModel(s->pose, skeleton) != mani_success))
     {
         s->sampledClip = NULL;
         return false;
@@ -68,7 +68,7 @@ static bool Model(maniMatchSampler* s, const maniClip* clip, const maniMatchEntr
     s->sampledClip = clip;
     s->sampledTime = time;
     s->sampledMirrored = mirrored;
-    *out = maniPoseModelTransform(s->pose, bone);
+    *out = maniPose_GetModelTransform(s->pose, bone);
     return true;
 }
 
@@ -121,7 +121,7 @@ static bool Facing(maniMatchSampler* s, const maniClip* clip, const maniMatchEnt
 static bool Float(maniMatchSampler* s, const maniClip* clip, float time, uint32_t track, float* out)
 {
     uint32_t count = 0;
-    if (maniSampleClipFloats(clip, time, s->floats, s->floatCapacity, &count) != mani_success)
+    if (maniClip_SampleFloats(clip, time, s->floats, s->floatCapacity, &count) != mani_success)
     {
         return false;
     }

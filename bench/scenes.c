@@ -79,12 +79,12 @@ static bool Keep(maniBuilder* builder, maniBuildResult built, const char* what, 
                 (int)built.result, (unsigned)built.reason, (unsigned)built.item);
         return false;
     }
-    if (maniCopyBuilt(builder, NULL, 0, size) == mani_errorInvalid)
+    if (maniBuilder_CopyBuilt(builder, NULL, 0, size) == mani_errorInvalid)
     {
         return Fail(what);
     }
     *file = Take(*size);
-    if (*file == NULL || maniCopyBuilt(builder, *file, *size, NULL) != mani_success)
+    if (*file == NULL || maniBuilder_CopyBuilt(builder, *file, *size, NULL) != mani_success)
     {
         return Fail(what);
     }
@@ -208,9 +208,9 @@ static bool BuildSkeleton(maniBuilder* builder, const Rig* rig, BenchScenes* sce
     scenes->skeletonFile = file;
     scenes->skeletonFileSize = size;
     // The builder keeps a depth-first order as it is.
-    return (maniSkeletonBoneCount(skeleton) == BENCH_BONES &&
-            maniSkeletonFindBone(skeleton, "tail8", 5) == boneTailEnd &&
-            maniSkeletonFindBone(skeleton, "footL", 5) == boneFoot) ||
+    return (maniSkeleton_GetBoneCount(skeleton) == BENCH_BONES &&
+            maniSkeleton_FindBone(skeleton, "tail8", 5) == boneTailEnd &&
+            maniSkeleton_FindBone(skeleton, "footL", 5) == boneFoot) ||
            Fail("the rig's order");
 }
 
@@ -351,7 +351,7 @@ static bool BuildGraph(maniBuilder* builder, BenchScenes* scenes)
     }
     const maniClip* bound[2] = {&scenes->compressed[0], &scenes->compressed[1]};
     maniGraphAssets assets = {.skeleton = &scenes->skeleton, .clips = bound, .clipCount = 2};
-    size_t bindingSize = maniGraphBindingSize(&graph);
+    size_t bindingSize = maniGraph_GetBindingSize(&graph);
     void* bindingMemory = Take(bindingSize);
     maniGraphBinding* binding = NULL;
     if (bindingMemory == NULL ||
@@ -359,16 +359,16 @@ static bool BuildGraph(maniBuilder* builder, BenchScenes* scenes)
     {
         return Fail("the graph's binding");
     }
-    size_t instanceSize = maniGraphInstanceSize(binding);
+    size_t instanceSize = maniGraphBinding_GetInstanceSize(binding);
     void* instanceMemory = Take(instanceSize);
-    scenes->scratchSize = maniGraphScratchSize(binding);
+    scenes->scratchSize = maniGraphBinding_GetScratchSize(binding);
     scenes->scratch = Take(scenes->scratchSize);
-    scenes->mix = maniGraphFindParameter(&graph, "mix", 3);
+    scenes->mix = maniGraph_FindParameter(&graph, "mix", 3);
     return (instanceMemory != NULL && scenes->scratch != NULL &&
             maniInitGraphInstance(binding, instanceMemory, instanceSize, &scenes->instance) ==
                 mani_success &&
-            maniSetGraphParameter(scenes->instance, scenes->mix, maniGraphParameterFloat,
-                                  (maniGraphValue){.f = {0.5f}}) == mani_success) ||
+            maniGraphInstance_SetParameter(scenes->instance, scenes->mix, maniGraphParameterFloat,
+                                           (maniGraphValue){.f = {0.5f}}) == mani_success) ||
            Fail("the graph's instance");
 }
 
@@ -412,7 +412,8 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     float* scales = Take((size_t)n * sizeof(float));
     scenes->queryFeatures = Take((size_t)n * BENCH_QUERIES * sizeof(float));
     if (offsets == NULL || scales == NULL || scenes->queryFeatures == NULL ||
-        maniMotionDatabaseNormalization(d, offsets, scales, d->featureCount, NULL) != mani_success)
+        maniMotionDatabase_GetNormalization(d, offsets, scales, d->featureCount, NULL) !=
+            mani_success)
     {
         return Fail("the queries");
     }
@@ -420,7 +421,8 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     {
         uint32_t frame = 1 + (uint32_t)((uint64_t)q * 7919u % (d->frameCount - 1));
         float* features = scenes->queryFeatures + (size_t)q * n;
-        if (maniMotionDatabaseFeatures(d, frame, features, d->featureCount, NULL) != mani_success)
+        if (maniMotionDatabase_GetFeatures(d, frame, features, d->featureCount, NULL) !=
+            mani_success)
         {
             return Fail("the queries");
         }
@@ -484,7 +486,7 @@ static bool BuildSprings(maniBuilder* builder, BenchScenes* scenes)
     {
         return false;
     }
-    size_t stateSize = maniSpringStateSize(&set);
+    size_t stateSize = maniSpringSet_GetStateSize(&set);
     void* memory = Take(stateSize);
     return (memory != NULL && maniInitSpringState(&set, &scenes->skeleton, memory, stateSize,
                                                   &scenes->springs) == mani_success) ||
@@ -610,13 +612,13 @@ static bool BuildMorphs(maniBuilder* builder, BenchScenes* scenes)
         Opened(maniOpenMorphTargets(file, size, &scenes->morphs), "the morph targets");
     free(indices);
     free(deltas);
-    scenes->targetWeights = Take(maniMorphTargetCount(&scenes->morphs) * sizeof(float));
+    scenes->targetWeights = Take(maniMorphTargets_GetTargetCount(&scenes->morphs) * sizeof(float));
     return made && (scenes->targetWeights != NULL || Fail("the target weights"));
 }
 
 static maniVec3 Place(const maniPose* pose, uint32_t bone, float x, float y, float z)
 {
-    maniAffine m = maniPoseModel(pose, bone);
+    maniAffine m = maniPose_GetModel(pose, bone);
     return (maniVec3){m.m[9] + x, m.m[10] + y, m.m[11] + z};
 }
 
@@ -624,7 +626,7 @@ static maniVec3 Place(const maniPose* pose, uint32_t bone, float x, float y, flo
 static bool Prepare(BenchScenes* scenes)
 {
     const maniSkeleton* skeleton = &scenes->skeleton;
-    size_t poseSize = maniPoseSize(skeleton);
+    size_t poseSize = maniSkeleton_GetPoseSize(skeleton);
     maniPose** poses[5] = {&scenes->pose, &scenes->layers[0], &scenes->layers[1],
                            &scenes->handLayers[0], &scenes->handLayers[1]};
     for (uint32_t k = 0; k < 5; ++k)
@@ -635,10 +637,10 @@ static bool Prepare(BenchScenes* scenes)
             return Fail("a pose");
         }
     }
-    size_t cursorSize = maniClipCursorSize(&scenes->compressed[0]);
+    size_t cursorSize = maniClip_GetCursorSize(&scenes->compressed[0]);
     for (uint32_t c = 1; c < BENCH_CLIPS; ++c)
     {
-        size_t each = maniClipCursorSize(&scenes->compressed[c]);
+        size_t each = maniClip_GetCursorSize(&scenes->compressed[c]);
         cursorSize = each > cursorSize ? each : cursorSize;
     }
     void* cursorMemory = Take(cursorSize);
@@ -649,10 +651,10 @@ static bool Prepare(BenchScenes* scenes)
         maniInitClipCursor(cursorMemory, cursorSize, &scenes->cursor) != mani_success ||
         maniInitClipCursor(handMemory[0], cursorSize, &scenes->handCursors[0]) != mani_success ||
         maniInitClipCursor(handMemory[1], cursorSize, &scenes->handCursors[1]) != mani_success ||
-        maniSampleClip(&scenes->full[0], skeleton, 1.0f, scenes->layers[0]) != mani_success ||
-        maniSampleClip(&scenes->full[1], skeleton, 1.0f, scenes->layers[1]) != mani_success ||
-        maniPoseReadLocals(scenes->layers[0], 0, BENCH_BONES, scenes->locals) != mani_success ||
-        maniComputeModel(scenes->layers[0], skeleton) != mani_success)
+        maniClip_Sample(&scenes->full[0], skeleton, 1.0f, scenes->layers[0]) != mani_success ||
+        maniClip_Sample(&scenes->full[1], skeleton, 1.0f, scenes->layers[1]) != mani_success ||
+        maniPose_ReadLocals(scenes->layers[0], 0, BENCH_BONES, scenes->locals) != mani_success ||
+        maniPose_ComputeModel(scenes->layers[0], skeleton) != mani_success)
     {
         return Fail("the first poses");
     }
@@ -684,10 +686,10 @@ static bool Prepare(BenchScenes* scenes)
     scenes->palette = Take(BENCH_BONES * sizeof(maniAffine));
     scenes->dualQuaternions = Take(BENCH_BONES * 20 * sizeof(float));
     return (scenes->palette != NULL && scenes->dualQuaternions != NULL &&
-            maniComputePalette(first, skeleton, &scenes->skin, scenes->palette, BENCH_BONES,
-                               NULL) == mani_success &&
-            maniPaletteDualQuaternions(scenes->palette, BENCH_BONES, scenes->dualQuaternions) ==
-                mani_success) ||
+            maniPose_ComputePalette(first, skeleton, &scenes->skin, scenes->palette, BENCH_BONES,
+                                    NULL) == mani_success &&
+            maniConvertPaletteToDualQuaternions(scenes->palette, BENCH_BONES,
+                                                scenes->dualQuaternions) == mani_success) ||
            Fail("the palette");
 }
 
@@ -712,5 +714,5 @@ bool BenchBuild(BenchScenes* scenes)
 
 void BenchRestore(BenchScenes* scenes)
 {
-    (void)maniPoseWriteLocals(scenes->pose, 0, BENCH_BONES, scenes->locals);
+    (void)maniPose_WriteLocals(scenes->pose, 0, BENCH_BONES, scenes->locals);
 }

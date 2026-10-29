@@ -56,7 +56,7 @@ static void Check(maniBuildResult r, size_t size, bool mirror)
     size_t fileSize = 0;
     maniRetargetMap retarget;
     maniMirrorMap map;
-    if (maniCopyBuilt(s_builder, s_file, sizeof s_file, &fileSize) == mani_success &&
+    if (maniBuilder_CopyBuilt(s_builder, s_file, sizeof s_file, &fileSize) == mani_success &&
         (mirror ? maniOpenMirrorMap(s_file, fileSize, &map).result
                 : maniOpenRetargetMap(s_file, fileSize, &retarget).result) != mani_success)
     {

@@ -100,18 +100,18 @@ static uint32_t Targets(const maniGltf* gltf, uint32_t primitive)
     return t != MANI_JSON_NONE && gltf->json.values[t].kind == maniJsonArray ? t : MANI_JSON_NONE;
 }
 
-uint32_t maniGltfMeshCount(const maniGltf* gltf)
+uint32_t maniGltf_GetMeshCount(const maniGltf* gltf)
 {
     return gltf->meshCount;
 }
 
-uint32_t maniGltfPrimitiveCount(const maniGltf* gltf, uint32_t mesh)
+uint32_t maniGltf_GetPrimitiveCount(const maniGltf* gltf, uint32_t mesh)
 {
     uint32_t p = Primitives(gltf, mesh);
     return p == MANI_JSON_NONE ? 0 : gltf->json.values[p].count;
 }
 
-uint32_t maniGltfPrimitiveTargetCount(const maniGltf* gltf, uint32_t mesh, uint32_t primitive)
+uint32_t maniGltf_GetPrimitiveTargetCount(const maniGltf* gltf, uint32_t mesh, uint32_t primitive)
 {
     uint32_t p = Primitive(gltf, mesh, primitive);
     uint32_t t = p == MANI_JSON_NONE ? MANI_JSON_NONE : Targets(gltf, p);
@@ -132,12 +132,12 @@ static uint32_t NodeIndex(const maniGltf* gltf, uint32_t node, const char* name,
     return (uint32_t)index;
 }
 
-uint32_t maniGltfNodeMesh(const maniGltf* gltf, uint32_t node)
+uint32_t maniGltf_GetNodeMesh(const maniGltf* gltf, uint32_t node)
 {
     return NodeIndex(gltf, node, "mesh", gltf->meshCount);
 }
 
-uint32_t maniGltfNodeSkin(const maniGltf* gltf, uint32_t node)
+uint32_t maniGltf_GetNodeSkin(const maniGltf* gltf, uint32_t node)
 {
     return NodeIndex(gltf, node, "skin", gltf->skinCount);
 }
@@ -169,7 +169,7 @@ static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf,
                                                            float* weightsOut, uint32_t capacity,
                                                            uint32_t* countOut)
 {
-    uint32_t mesh = gltf == NULL ? UINT32_MAX : maniGltfNodeMesh(gltf, node);
+    uint32_t mesh = gltf == NULL ? UINT32_MAX : maniGltf_GetNodeMesh(gltf, node);
     uint32_t count = mesh == UINT32_MAX ? 0 : maniGltfMeshTargets(gltf, mesh);
     if ((weightsOut == NULL && capacity > 0) || count == 0)
     {
@@ -198,8 +198,8 @@ static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf,
     return maniImportSuccess();
 }
 
-maniImportResult maniGltfMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
-                                      uint32_t capacity, uint32_t* countOut)
+maniImportResult maniGltf_GetMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
+                                          uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfMorphWeightsWork(gltf, node, weightsOut, capacity, countOut);
@@ -459,7 +459,7 @@ static maniImportResult BuildInfluences(maniBuilder* builder, const maniGltf* gl
     {
         uint32_t n = 0;
         offsets[v] = total;
-        r = Gather(gltf, &s, v, maniSkinJointCount(skin), joints + total, weights + total, &n);
+        r = Gather(gltf, &s, v, maniSkin_GetJointCount(skin), joints + total, weights + total, &n);
         total += n;
     }
     offsets[s.vertices] = total;
@@ -491,7 +491,7 @@ static MANI_NOINLINE maniImportResult GltfBuildInfluencesWork(maniBuilder* build
     return r;
 }
 
-maniImportResult maniGltfBuildInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
+maniImportResult maniBuildGltfInfluences(maniBuilder* builder, const maniGltf* gltf, uint32_t mesh,
                                          uint32_t primitive, const maniSkin* skin)
 {
     uint64_t env = maniFloatEnvEnter();
@@ -926,7 +926,7 @@ static MANI_NOINLINE maniImportResult GltfBuildMorphTargetsWork(maniBuilder* bui
     return r;
 }
 
-maniImportResult maniGltfBuildMorphTargets(maniBuilder* builder, const maniGltf* gltf,
+maniImportResult maniBuildGltfMorphTargets(maniBuilder* builder, const maniGltf* gltf,
                                            uint32_t mesh, uint32_t primitive,
                                            const maniGltfOptions* options)
 {

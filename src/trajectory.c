@@ -135,9 +135,10 @@ static MANI_NOINLINE maniResult TrajectoryFeaturesWork(const maniMotionDatabase*
     return mani_success;
 }
 
-maniResult maniTrajectoryFeatures(const maniMotionDatabase* database, const maniTrajectory* root,
-                                  const maniTrajectory* sample, float* positionOut,
-                                  float* facingOut)
+maniResult maniMotionDatabase_ComputeTrajectoryFeatures(const maniMotionDatabase* database,
+                                                        const maniTrajectory* root,
+                                                        const maniTrajectory* sample,
+                                                        float* positionOut, float* facingOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = TrajectoryFeaturesWork(database, root, sample, positionOut, facingOut);

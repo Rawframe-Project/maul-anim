@@ -19,19 +19,20 @@ static void TestVersionMatchesHeader(void)
 
 static void TestResultNames(void)
 {
-    CHECK(strcmp(maniResultName(mani_success), "mani_success") == 0, "success name");
-    CHECK(strcmp(maniResultName(mani_errorInvalid), "mani_errorInvalid") == 0, "invalid name");
-    CHECK(strcmp(maniResultName(mani_errorCapacity), "mani_errorCapacity") == 0, "capacity name");
-    CHECK(strcmp(maniResultName(mani_errorFormat), "mani_errorFormat") == 0, "format name");
-    CHECK(strcmp(maniResultName(mani_errorVersion), "mani_errorVersion") == 0, "version name");
-    CHECK(strcmp(maniResultName(mani_errorLimit), "mani_errorLimit") == 0, "limit name");
-    CHECK(strcmp(maniResultName(mani_errorBusy), "mani_errorBusy") == 0, "busy name");
+    CHECK(strcmp(maniGetResultName(mani_success), "mani_success") == 0, "success name");
+    CHECK(strcmp(maniGetResultName(mani_errorInvalid), "mani_errorInvalid") == 0, "invalid name");
+    CHECK(strcmp(maniGetResultName(mani_errorCapacity), "mani_errorCapacity") == 0,
+          "capacity name");
+    CHECK(strcmp(maniGetResultName(mani_errorFormat), "mani_errorFormat") == 0, "format name");
+    CHECK(strcmp(maniGetResultName(mani_errorVersion), "mani_errorVersion") == 0, "version name");
+    CHECK(strcmp(maniGetResultName(mani_errorLimit), "mani_errorLimit") == 0, "limit name");
+    CHECK(strcmp(maniGetResultName(mani_errorBusy), "mani_errorBusy") == 0, "busy name");
     // The values every library of the family gives these results, so a
     // program that links several reads a raw value one way.
     CHECK(mani_errorInvalid == -1 && mani_errorCapacity == -2 && mani_errorVersion == -7 &&
               mani_errorFormat == -8 && mani_errorLimit == -9 && mani_errorBusy == -10,
           "the family's values");
-    CHECK(strcmp(maniResultName(12345), "unknown result") == 0, "unknown name");
+    CHECK(strcmp(maniGetResultName(12345), "unknown result") == 0, "unknown name");
 }
 
 // The backend is the one the build chose, the three reports agree, and
@@ -48,7 +49,7 @@ static void TestSimdBackend(void)
 #else
     CHECK(strcmp(name, "scalar") == 0, "another target names scalar");
 #endif
-    CHECK(maniCpuSupportsBackend() == 1, "this CPU runs the built backend");
+    CHECK(maniIsCpuBackendSupported() == 1, "this CPU runs the built backend");
     const char* checked = NULL;
     CHECK(maniCheckCpu(&checked) == 1, "the check passes");
     CHECK(checked == name, "the check names the same static string");

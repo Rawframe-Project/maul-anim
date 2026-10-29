@@ -122,7 +122,7 @@ static maniBuildResult Reference(Work* w)
     for (uint32_t b = 0; b < w->count; ++b)
     {
         maniTransform t =
-            w->s->reference != NULL ? w->s->reference[b] : maniSkeletonRest(skeleton, b);
+            w->s->reference != NULL ? w->s->reference[b] : maniSkeleton_GetRest(skeleton, b);
         maniQuat q = t.rotation;
         bool finite = Finite(t.translation.x) && Finite(t.translation.y) &&
                       Finite(t.translation.z) && Finite(t.scale.x) && Finite(t.scale.y) &&
@@ -133,7 +133,7 @@ static maniBuildResult Reference(Work* w)
             return Refuse(maniBuildReasonMirrorReference, b, 0);
         }
         q = maniQuatNormalize(q);
-        uint32_t parent = maniSkeletonParent(skeleton, b);
+        uint32_t parent = maniSkeleton_GetParent(skeleton, b);
         w->model[b] = parent == MANI_NO_BONE ? q : maniQuatMul(w->model[parent], q);
     }
     return kOk;
@@ -181,13 +181,13 @@ static bool Apply(const maniMirrorRuleSource* r, const char* name, size_t length
 static uint32_t RuleBone(const Work* w, uint32_t b)
 {
     size_t length = 0;
-    const char* name = maniSkeletonBoneName(w->s->skeleton, b, &length);
+    const char* name = maniSkeleton_GetBoneName(w->s->skeleton, b, &length);
     for (uint32_t i = 0; i < w->s->ruleCount; ++i)
     {
         size_t made = 0;
         if (Apply(&w->s->rules[i], name, length, w->name, &made))
         {
-            uint32_t bone = maniSkeletonFindBone(w->s->skeleton, w->name, made);
+            uint32_t bone = maniSkeleton_FindBone(w->s->skeleton, w->name, made);
             if (bone != MANI_NO_BONE)
             {
                 return bone;
@@ -257,8 +257,8 @@ static maniBuildResult RulePairs(Work* w)
 // Whether bone b's parent's partner is not its partner's parent.
 static bool BoneUnmatched(const Work* w, uint32_t b)
 {
-    uint32_t p = maniSkeletonParent(w->s->skeleton, b);
-    uint32_t q = maniSkeletonParent(w->s->skeleton, w->partner[b]);
+    uint32_t p = maniSkeleton_GetParent(w->s->skeleton, b);
+    uint32_t q = maniSkeleton_GetParent(w->s->skeleton, w->partner[b]);
     return p == MANI_NO_BONE ? q != MANI_NO_BONE : q != w->partner[p];
 }
 
@@ -444,8 +444,8 @@ static void LayBones(const Work* w, uint8_t* bones)
     for (uint32_t b = 0; b < w->count; ++b)
     {
         uint32_t m = w->partner[b];
-        uint32_t pb = maniSkeletonParent(skeleton, b);
-        uint32_t pm = maniSkeletonParent(skeleton, m);
+        uint32_t pb = maniSkeleton_GetParent(skeleton, b);
+        uint32_t pm = maniSkeleton_GetParent(skeleton, m);
         maniQuat parentB = pb == MANI_NO_BONE ? maniQuatIdentity() : w->model[pb];
         maniQuat parentM = pm == MANI_NO_BONE ? maniQuatIdentity() : w->model[pm];
         maniQuat a = maniQuatMul(maniQuatConjugate(parentB), Mirror(parentM, w->s->axis));
@@ -462,7 +462,7 @@ static void LayBones(const Work* w, uint8_t* bones)
 
 static void LayHeader(const Work* w, uint8_t* h)
 {
-    maniStoreU64(h, maniSkeletonIdentity(w->s->skeleton));
+    maniStoreU64(h, maniSkeleton_GetIdentity(w->s->skeleton));
     maniStoreU32(h + 8, w->count);
     maniStoreU32(h + 12, w->s->axis);
     maniStoreU32(h + 16, w->entryCount);
@@ -607,7 +607,7 @@ static bool Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, 
     for (uint32_t b = 0; b < count; ++b)
     {
         size_t length = 0;
-        (void)maniSkeletonBoneName(s->skeleton, b, &length);
+        (void)maniSkeleton_GetBoneName(s->skeleton, b, &length);
         longest = length > longest ? length : longest;
     }
     uint64_t text = 0;
@@ -680,7 +680,7 @@ static MANI_NOINLINE maniBuildResult BuildMirrorMapWork(maniBuilder* builder,
     {
         return Refuse(maniBuildReasonOption, 0, 0);
     }
-    uint32_t count = maniSkeletonBoneCount(source->skeleton);
+    uint32_t count = maniSkeleton_GetBoneCount(source->skeleton);
     maniBuildResult bounded = Bounds(source);
     if (bounded.result != mani_success)
     {

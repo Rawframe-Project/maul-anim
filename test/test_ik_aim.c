@@ -73,8 +73,8 @@ static float Length(maniVec3 v)
 
 static maniTransform Model(maniPose* pose, int bone)
 {
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "the model");
-    return maniPoseModelTransform(pose, s_bone[bone]);
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success, "the model");
+    return maniPose_GetModelTransform(pose, s_bone[bone]);
 }
 
 // The angle between the head's forward (from its eyes for eyes) and the
@@ -107,7 +107,7 @@ static void Setup(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "the skeleton");
@@ -115,7 +115,7 @@ static void Setup(void)
     const char* names[kBones] = {"root", "spine", "neck", "head"};
     for (int b = 0; b < kBones; ++b)
     {
-        s_bone[b] = maniSkeletonFindBone(&s_skeleton, names[b], (uint32_t)strlen(names[b]));
+        s_bone[b] = maniSkeleton_FindBone(&s_skeleton, names[b], (uint32_t)strlen(names[b]));
     }
     CHECK(maniInitPose(&s_skeleton, s_memory[0], sizeof s_memory[0], &s_pose) == mani_success &&
               maniInitPose(&s_skeleton, s_memory[1], sizeof s_memory[1], &s_other) == mani_success,
@@ -125,13 +125,13 @@ static void Setup(void)
 // The pose at rest with the spine bent forward and the neck turned.
 static void Posed(maniPose* pose)
 {
-    CHECK(maniPoseSetRest(pose, &s_skeleton) == mani_success, "rest");
-    maniTransform t = maniPoseLocal(pose, s_bone[kSpine]);
+    CHECK(maniPose_SetRest(pose, &s_skeleton) == mani_success, "rest");
+    maniTransform t = maniPose_GetLocal(pose, s_bone[kSpine]);
     t.rotation = Turn((maniVec3){1.0f, 0.0f, 0.0f}, 0.2f);
-    maniPoseSetLocal(pose, s_bone[kSpine], t);
-    t = maniPoseLocal(pose, s_bone[kNeck]);
+    maniPose_SetLocal(pose, s_bone[kSpine], t);
+    t = maniPose_GetLocal(pose, s_bone[kNeck]);
     t.rotation = Turn((maniVec3){0.0f, 1.0f, 0.0f}, -0.3f);
-    maniPoseSetLocal(pose, s_bone[kNeck], t);
+    maniPose_SetLocal(pose, s_bone[kNeck], t);
 }
 
 static maniAimSolve Head(maniVec3 goal, maniVec3 pole)
@@ -161,7 +161,7 @@ static void TestAim(void)
         Posed(s_pose);
         maniAimSolve s = Head(goals[k], (maniVec3){0.0f, 1.0f, 0.0f});
         bool r = false;
-        CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success, "aimed");
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success, "aimed");
         aimed = aimed && r && Off(s_pose, goals[k], false) < 1e-3f;
         // The up axis on the pole's side of the aim line.
         maniTransform head = Model(s_pose, kHead);
@@ -178,8 +178,8 @@ static void TestAim(void)
     maniAimSolve plain = Head(goals[1], (maniVec3){0.0f, 1.0f, 0.0f});
     maniAimSolve twisted = plain;
     twisted.twist = 0.5f;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &plain, NULL) == mani_success &&
-              maniSolveAim(s_other, &s_skeleton, &twisted, NULL) == mani_success,
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &plain, NULL) == mani_success &&
+              maniPose_SolveAim(s_other, &s_skeleton, &twisted, NULL) == mani_success,
           "twisted and not");
     maniVec3 u0 = Rotate(Model(s_pose, kHead).rotation, (maniVec3){0.0f, 1.0f, 0.0f});
     maniVec3 u1 = Rotate(Model(s_other, kHead).rotation, (maniVec3){0.0f, 1.0f, 0.0f});
@@ -189,7 +189,7 @@ static void TestAim(void)
     Posed(s_pose);
     maniAimSolve s = Head(goals[1], (maniVec3){0.0f, 1.0f, 0.0f});
     s.offset = (maniVec3){0.0f, 0.05f, 0.1f};
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success &&
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success &&
               Off(s_pose, goals[1], true) < 1e-3f,
           "the eyes aimed");
 }
@@ -210,14 +210,14 @@ static void TestChain(void)
             s.shares[b] = shares[k][b];
         }
         bool r = false;
-        CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
                   Off(s_pose, goal, false) < 1e-3f,
               "the chain ends aimed");
         bool turned = true;
         for (int b = kSpine; b <= kHead; ++b)
         {
-            maniQuat a = maniPoseLocal(s_pose, s_bone[b]).rotation;
-            maniQuat q = maniPoseLocal(s_other, s_bone[b]).rotation;
+            maniQuat a = maniPose_GetLocal(s_pose, s_bone[b]).rotation;
+            maniQuat q = maniPose_GetLocal(s_other, s_bone[b]).rotation;
             float apart = fabsf(a.x - q.x) + fabsf(a.y - q.y) + fabsf(a.z - q.z);
             turned = turned && (k == 1 && b != kSpine ? true : apart > 1e-3f);
         }
@@ -240,7 +240,7 @@ static void TestGap(void)
         s.shares[0] = 1.0f;
         s.shares[1] = 1.0f;
         bool r = false;
-        CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
                   Off(s_pose, goals[g], false) < 1e-3f,
               "a chain with a bone between its bones ends aimed");
     }
@@ -259,8 +259,8 @@ static void TestShares(void)
     Posed(s_pose);
     Posed(s_other);
     maniAimSolve one = Head(goal, (maniVec3){0.0f, 1.0f, 0.0f});
-    CHECK(maniSolveAim(s_other, &s_skeleton, &one, NULL) == mani_success, "the head alone");
-    float whole = Angle(maniPoseLocal(s_other, s_bone[kHead]).rotation,
+    CHECK(maniPose_SolveAim(s_other, &s_skeleton, &one, NULL) == mani_success, "the head alone");
+    float whole = Angle(maniPose_GetLocal(s_other, s_bone[kHead]).rotation,
                         Turn((maniVec3){0.0f, 0.0f, 1.0f}, 0.0f));
     maniAimSolve s = one;
     s.count = 3;
@@ -269,9 +269,9 @@ static void TestShares(void)
         s.bones[b] = s_bone[kSpine + b];
         s.shares[b] = 1.0f / 3.0f;
     }
-    maniQuat spine = maniPoseLocal(s_pose, s_bone[kSpine]).rotation;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "shared");
-    float third = Angle(maniPoseLocal(s_pose, s_bone[kSpine]).rotation, spine);
+    maniQuat spine = maniPose_GetLocal(s_pose, s_bone[kSpine]).rotation;
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "shared");
+    float third = Angle(maniPose_GetLocal(s_pose, s_bone[kSpine]).rotation, spine);
     CHECK(fabsf(third - whole / 3.0f) < 1e-4f && whole > 0.5f, "the first bone's share");
     // Shares 0.5, 0.5, 0: the neck takes all that is left, the head only
     // the little its place below the neck needs.
@@ -279,11 +279,11 @@ static void TestShares(void)
     s.shares[0] = 0.5f;
     s.shares[1] = 0.5f;
     s.shares[2] = 0.0f;
-    maniQuat head = maniPoseLocal(s_pose, s_bone[kHead]).rotation;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success &&
+    maniQuat head = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success &&
               Off(s_pose, goal, false) < 1e-3f,
           "aimed by spine and neck");
-    CHECK(Angle(maniPoseLocal(s_pose, s_bone[kHead]).rotation, head) < 0.1f * whole,
+    CHECK(Angle(maniPose_GetLocal(s_pose, s_bone[kHead]).rotation, head) < 0.1f * whole,
           "the head left with little");
 }
 
@@ -295,7 +295,7 @@ static void TestCone(void)
     maniAimSolve s = Head((maniVec3){0.2f, 1.5f, -2.0f}, (maniVec3){0.0f, 1.0f, 0.0f});
     s.cone = 0.5f;
     bool r = true;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "coned");
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "coned");
     maniVec3 after = Rotate(Model(s_pose, kHead).rotation, (maniVec3){0.0f, 0.0f, 1.0f});
     maniVec3 toward = Sub((maniVec3){0.2f, 1.5f, -2.0f}, Model(s_pose, kHead).translation);
     float was = acosf(Dot(before, toward) / Length(toward));
@@ -305,7 +305,7 @@ static void TestCone(void)
     // Within the cone: aimed.
     Posed(s_pose);
     s.goal = (maniVec3){-0.4f, 1.3f, 2.0f};
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
               Off(s_pose, s.goal, false) < 1e-3f,
           "within the cone aimed");
 }
@@ -322,7 +322,7 @@ static void TestPoleSweep(void)
         float x = -1.0f + (float)i / 200.0f;
         Posed(s_pose);
         maniAimSolve s = Head(goal, (maniVec3){x * 0.1f, 1.0f, 0.1f});
-        CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "swept");
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "swept");
         maniVec3 up = Rotate(Model(s_pose, kHead).rotation, (maniVec3){0.0f, 1.0f, 0.0f});
         if (i > 0)
         {
@@ -342,15 +342,15 @@ static void TestEdges(void)
     maniAimSolve s = Head(goal, (maniVec3){0.0f, 1.0f, 0.0f});
     s.weight = 0.0f;
     bool r = true;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "weight 0");
-    maniQuat a = maniPoseLocal(s_pose, s_bone[kHead]).rotation;
-    maniQuat b = maniPoseLocal(s_other, s_bone[kHead]).rotation;
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "weight 0");
+    maniQuat a = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
+    maniQuat b = maniPose_GetLocal(s_other, s_bone[kHead]).rotation;
     CHECK(fabsf(a.x - b.x) + fabsf(a.y - b.y) + fabsf(a.z - b.z) < 1e-6f, "nothing at weight 0");
     s.weight = 1.0f;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "once");
-    a = maniPoseLocal(s_pose, s_bone[kHead]).rotation;
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "twice");
-    b = maniPoseLocal(s_pose, s_bone[kHead]).rotation;
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "once");
+    a = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "twice");
+    b = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
     CHECK(fabsf(a.x - b.x) + fabsf(a.y - b.y) + fabsf(a.z - b.z) + fabsf(a.w - b.w) < 1e-5f,
           "an aim on its own result changes nothing");
     // A goal at the head, or within the eyes' offset from the line: no
@@ -358,13 +358,13 @@ static void TestEdges(void)
     Posed(s_pose);
     maniVec3 at = Model(s_pose, kHead).translation;
     s = Head(at, (maniVec3){0.0f, 1.0f, 0.0f});
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "at the head");
-    b = maniPoseLocal(s_other, s_bone[kHead]).rotation;
-    a = maniPoseLocal(s_pose, s_bone[kHead]).rotation;
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "at the head");
+    b = maniPose_GetLocal(s_other, s_bone[kHead]).rotation;
+    a = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
     CHECK(fabsf(a.x - b.x) + fabsf(a.y - b.y) + fabsf(a.z - b.z) < 1e-6f, "the head unturned");
     s.goal = (maniVec3){at.x + 0.02f, at.y, at.z};
     s.offset = (maniVec3){0.0f, 0.05f, 0.1f};
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r,
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && !r,
           "a goal nearer than the eyes' line not reached");
 }
 
@@ -390,13 +390,13 @@ static void TestRefusals(void)
     bad[9].cone = 3.2f;
     bad[10].weight = 1.5f;
     bad[11].twist = NAN;
-    bool refused = maniSolveAim(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
-                   maniSolveAim(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
-                   maniSolveAim(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid;
+    bool refused = maniPose_SolveAim(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
+                   maniPose_SolveAim(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
+                   maniPose_SolveAim(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid;
     for (int k = 0; k < 12; ++k)
     {
         maniResult want = k == 1 ? mani_errorLimit : mani_errorInvalid;
-        refused = refused && maniSolveAim(s_pose, &s_skeleton, &bad[k], NULL) == want;
+        refused = refused && maniPose_SolveAim(s_pose, &s_skeleton, &bad[k], NULL) == want;
     }
     CHECK(refused, "the refusals, a count past MANI_MAX_AIM_BONES at the limit");
 }

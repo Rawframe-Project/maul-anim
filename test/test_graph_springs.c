@@ -55,7 +55,7 @@ static void OpenSets(void)
         maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f};
         size_t size = 0;
         CHECK(maniBuildSpringSet(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_setFiles[k], sizeof s_setFiles[k], &size) ==
+                  maniBuilder_CopyBuilt(builder, s_setFiles[k], sizeof s_setFiles[k], &size) ==
                       mani_success &&
                   maniOpenSpringSet(s_setFiles[k], size, sets[k]).result == mani_success,
               "a spring set");
@@ -83,7 +83,8 @@ static maniBuildResult BuildGraph(const maniGraphSource* source)
     if (r.result == mani_success)
     {
         CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
-        CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
+                  mani_success,
               "copied");
     }
     maniDestroyBuilder(builder);
@@ -115,16 +116,16 @@ static void TestBuild(void)
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
     size_t length = 0;
-    const char* name = maniGraphSpringSetName(&g, 1, &length);
-    CHECK(maniGraphSpringSetCount(&g) == 2 &&
-              maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set) &&
-              maniGraphSpringSetIdentity(&g, 1) == maniSpringSetIdentity(&s_other) && length == 4 &&
-              memcmp(name, "tail", 4) == 0,
+    const char* name = maniGraph_GetSpringSetName(&g, 1, &length);
+    CHECK(maniGraph_GetSpringSetCount(&g) == 2 &&
+              maniGraph_GetSpringSetIdentity(&g, 0) == maniSpringSet_GetIdentity(&s_set) &&
+              maniGraph_GetSpringSetIdentity(&g, 1) == maniSpringSet_GetIdentity(&s_other) &&
+              length == 4 && memcmp(name, "tail", 4) == 0,
           "its spring set slots read back");
-    CHECK(maniGraphSpringSetCount(NULL) == 0 && maniGraphSpringSetIdentity(&g, 2) == 0 &&
-              maniGraphSpringSetIdentity(NULL, 0) == 0 &&
-              maniGraphSpringSetName(&g, 2, &length) == NULL && length == 0 &&
-              maniGraphSpringSetName(NULL, 0, NULL) == NULL,
+    CHECK(maniGraph_GetSpringSetCount(NULL) == 0 && maniGraph_GetSpringSetIdentity(&g, 2) == 0 &&
+              maniGraph_GetSpringSetIdentity(NULL, 0) == 0 &&
+              maniGraph_GetSpringSetName(&g, 2, &length) == NULL && length == 0 &&
+              maniGraph_GetSpringSetName(NULL, 0, NULL) == NULL,
           "past the slots");
     maniGraphSpringSetSource bad[2] = {kTwo[0], kTwo[1]};
     bad[1].set = NULL;
@@ -228,7 +229,7 @@ static void TestBind(void)
                               .springSetCount = 3};
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
-    CHECK(maniGraphBindingSize(&g) <= sizeof s_binding &&
+    CHECK(maniGraph_GetBindingSize(&g) <= sizeof s_binding &&
               maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, &unbound) ==
                   mani_success &&
               unbound == MANI_NO_TRACK && maniGraphBoundSpringSet(binding, 0) == &s_set,
@@ -278,11 +279,11 @@ static void TestBind(void)
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success,
           "the graph of a set again");
-    size_t size = maniGraphBindingSize(&g);
+    size_t size = maniGraph_GetBindingSize(&g);
     source = Graph(NULL, 0);
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              size == maniGraphBindingSize(&g) + sizeof(const maniSpringSet*),
+              size == maniGraph_GetBindingSize(&g) + sizeof(const maniSpringSet*),
           "a set's pointer counted in the binding's size");
 }
 
@@ -299,7 +300,7 @@ static void TestJson(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "\"springSets\": [\n    \"hair\"\n  ],") != NULL,
@@ -311,7 +312,7 @@ static void TestJson(void)
                                    .springSetCount = 1};
     maniGraph read;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success &&
-              maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
+              maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
                   mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &read).result == mani_success &&
               read.identity == identity,
@@ -329,9 +330,9 @@ static void TestJson(void)
               r.other == maniGraphFormUnbound,
           "a set the host does not name");
     assets.springSets = NULL;
-    uint32_t misuses = maniBuilderMisuses(builder);
+    uint32_t misuses = maniBuilder_GetMisuse(builder);
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == misuses + 1,
+              maniBuilder_GetMisuse(builder) == misuses + 1,
           "sets NULL with a count");
     maniDestroyBuilder(builder);
 }
@@ -351,8 +352,8 @@ static void TestSubgraph(void)
     maniGraph g;
     CHECK(BuildGraph(&outer).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraphSpringSetCount(&g) == 1 &&
-              maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set),
+              maniGraph_GetSpringSetCount(&g) == 1 &&
+              maniGraph_GetSpringSetIdentity(&g, 0) == maniSpringSet_GetIdentity(&s_set),
           "the root's slots kept through inlining");
     // The root's and the subgraph's lists past the limit together.
     static maniGraphSpringSetSource s_many[MANI_MAX_GRAPH_SPRING_SETS];

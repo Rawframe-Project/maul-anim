@@ -747,7 +747,7 @@ static MANI_NOINLINE maniResult FbxReadSettingsWork(const maniFbx* fbx,
     return mani_success;
 }
 
-maniResult maniFbxReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
+maniResult maniFbx_ReadSettings(const maniFbx* fbx, maniFbxSettings* settingsOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = FbxReadSettingsWork(fbx, settingsOut);

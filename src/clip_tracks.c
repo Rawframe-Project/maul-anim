@@ -285,32 +285,32 @@ static uint32_t FindTrack(const maniClip* clip, const uint8_t* tracks, uint32_t 
     return MANI_NO_TRACK;
 }
 
-uint32_t maniClipFloatTrackCount(const maniClip* clip)
+uint32_t maniClip_GetFloatTrackCount(const maniClip* clip)
 {
     return clip->floatTrackCount;
 }
 
-const char* maniClipFloatTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
+const char* maniClip_GetFloatTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
     return TrackName(clip, clip->floatTracks, clip->floatTrackCount, track, lengthOut);
 }
 
-uint32_t maniClipFindFloatTrack(const maniClip* clip, const char* name, size_t length)
+uint32_t maniClip_FindFloatTrack(const maniClip* clip, const char* name, size_t length)
 {
     return FindTrack(clip, clip->floatTracks, clip->floatTrackCount, name, length);
 }
 
-uint32_t maniClipDiscreteTrackCount(const maniClip* clip)
+uint32_t maniClip_GetDiscreteTrackCount(const maniClip* clip)
 {
     return clip->discreteTrackCount;
 }
 
-const char* maniClipDiscreteTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
+const char* maniClip_GetDiscreteTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
     return TrackName(clip, clip->discreteTracks, clip->discreteTrackCount, track, lengthOut);
 }
 
-uint32_t maniClipFindDiscreteTrack(const maniClip* clip, const char* name, size_t length)
+uint32_t maniClip_FindDiscreteTrack(const maniClip* clip, const char* name, size_t length)
 {
     return FindTrack(clip, clip->discreteTracks, clip->discreteTrackCount, name, length);
 }
@@ -345,7 +345,7 @@ static MANI_NOINLINE int32_t ClipDiscreteValueWork(const maniClip* clip, uint32_
     return (int32_t)maniLoadU32(keys + (size_t)key * MANI_CLIP_KEY_SIZE + 4);
 }
 
-int32_t maniClipDiscreteValue(const maniClip* clip, uint32_t track, float time)
+int32_t maniClip_GetDiscreteValue(const maniClip* clip, uint32_t track, float time)
 {
     uint64_t env = maniFloatEnvEnter();
     int32_t result = ClipDiscreteValueWork(clip, track, time);
@@ -368,22 +368,22 @@ static maniClipEvent Timed(const maniClip* clip, const uint8_t* entries, uint32_
     return e;
 }
 
-uint32_t maniClipEventCount(const maniClip* clip)
+uint32_t maniClip_GetEventCount(const maniClip* clip)
 {
     return clip->eventCount;
 }
 
-maniClipEvent maniClipEventAt(const maniClip* clip, uint32_t index)
+maniClipEvent maniClip_GetEvent(const maniClip* clip, uint32_t index)
 {
     return Timed(clip, clip->events, clip->eventCount, index);
 }
 
-uint32_t maniClipMarkerCount(const maniClip* clip)
+uint32_t maniClip_GetMarkerCount(const maniClip* clip)
 {
     return clip->markerCount;
 }
 
-maniClipEvent maniClipMarkerAt(const maniClip* clip, uint32_t index)
+maniClipEvent maniClip_GetMarker(const maniClip* clip, uint32_t index)
 {
     return Timed(clip, clip->markers, clip->markerCount, index);
 }
@@ -428,8 +428,8 @@ MANI_NOINLINE void maniClipEventRangeEntered(const maniClip* clip, float from, f
     *countOut = end - first;
 }
 
-void maniClipEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,
-                        uint32_t* countOut)
+void maniClip_GetEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,
+                            uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniClipEventRangeEntered(clip, from, to, firstOut, countOut);

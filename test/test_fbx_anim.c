@@ -268,7 +268,7 @@ static void TestFirstObject(void)
     maniFbx* fbx = NULL;
     size_t length = 0;
     const char* name = maniOpenFbx(builder, kText, strlen(kText), &fbx).result == mani_success
-                           ? maniFbxClipName(fbx, 0, &length)
+                           ? maniFbx_GetClipName(fbx, 0, &length)
                            : NULL;
     CHECK(name != NULL && length == 4 && memcmp(name, "Walk", 4) == 0, "object 0's stack named");
     maniCloseFbx(fbx);

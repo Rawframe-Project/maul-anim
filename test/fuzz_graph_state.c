@@ -72,7 +72,7 @@ static size_t s_stateSize;
 
 static bool Built(maniBuilder* builder, uint8_t* out, size_t capacity, size_t* size)
 {
-    return maniCopyBuilt(builder, out, capacity, size) == mani_success;
+    return maniBuilder_CopyBuilt(builder, out, capacity, size) == mani_success;
 }
 
 static bool MakeClip(maniBuilder* builder)
@@ -239,10 +239,10 @@ static void Setup(void)
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
-    ok = ok && maniGraphScratchSize(binding) <= sizeof s_scratch &&
+    ok = ok && maniGraphBinding_GetScratchSize(binding) <= sizeof s_scratch &&
          maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success;
     if (!ok ||
-        maniSaveGraphInstance(s_live, s_fresh, sizeof s_fresh, &s_stateSize) != mani_success ||
+        maniGraphInstance_Save(s_live, s_fresh, sizeof s_fresh, &s_stateSize) != mani_success ||
         s_stateSize > sizeof s_saved)
     {
         abort();
@@ -270,11 +270,11 @@ static void Setup(void)
 // Restores the bytes; a restored state saves back to them.
 static void Exercise(const uint8_t* bytes, size_t size)
 {
-    if (maniRestoreGraphInstance(s_live, bytes, size).result != mani_success)
+    if (maniGraphInstance_Restore(s_live, bytes, size).result != mani_success)
     {
         return;
     }
-    if (maniSaveGraphInstance(s_live, s_saved, sizeof s_saved, NULL) != mani_success ||
+    if (maniGraphInstance_Save(s_live, s_saved, sizeof s_saved, NULL) != mani_success ||
         memcmp(s_saved, bytes, s_stateSize) != 0)
     {
         abort();
@@ -283,10 +283,10 @@ static void Exercise(const uint8_t* bytes, size_t size)
     maniGraphEvent events[4];
     uint32_t count = 0;
     maniRootMove move;
-    if (maniEvaluateGraph(s_live, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
-        maniUpdateGraph(s_live, 0.37f, events, 4, &count, &move) != mani_success ||
-        maniUpdateGraph(s_live, -5.5f, events, 4, &count, &move) != mani_success ||
-        maniEvaluateGraph(s_live, s_scratch, sizeof s_scratch, s_pose) != mani_success)
+    if (maniGraphInstance_Evaluate(s_live, s_scratch, sizeof s_scratch, s_pose) != mani_success ||
+        maniGraphInstance_Update(s_live, 0.37f, events, 4, &count, &move) != mani_success ||
+        maniGraphInstance_Update(s_live, -5.5f, events, 4, &count, &move) != mani_success ||
+        maniGraphInstance_Evaluate(s_live, s_scratch, sizeof s_scratch, s_pose) != mani_success)
     {
         abort();
     }
@@ -311,7 +311,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     Exercise(copy, size);
     // The header made right: the fresh state's prefix, the graph's
     // identity, the size.
-    const uint64_t identity = maniGraphIdentity(&s_graph);
+    const uint64_t identity = maniGraph_GetIdentity(&s_graph);
     const uint64_t stateSize = s_stateSize;
     memcpy(copy, s_fresh, MANI_STATE_PREFIX_SIZE);
     memcpy(copy + 16, &identity, 8);

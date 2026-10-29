@@ -97,7 +97,7 @@ static void Rig(void)
     maniSkeletonSource source = {bones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "the rig");
@@ -136,7 +136,7 @@ static void Rig(void)
                                .duration = 1.0f,
                                .additive = c == 2 ? maniAdditiveRest : maniAdditiveNone};
         CHECK(maniBuildClip(builder, &clip).result == mani_success &&
-                  maniCopyBuilt(builder, s_clipFiles[c], sizeof s_clipFiles[c], &size) ==
+                  maniBuilder_CopyBuilt(builder, s_clipFiles[c], sizeof s_clipFiles[c], &size) ==
                       mani_success &&
                   maniOpenClip(s_clipFiles[c], size, &s_clips[c]).result == mani_success,
               "a clip");
@@ -150,7 +150,8 @@ static void Rig(void)
     maniMirrorMapSource mirror = {
         .skeleton = &s_skeleton, .pairs = pairs, .pairCount = 6, .axis = maniMirrorAxisX};
     CHECK(maniBuildMirrorMap(builder, &mirror).result == mani_success &&
-              maniCopyBuilt(builder, s_mirrorFile, sizeof s_mirrorFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_mirrorFile, sizeof s_mirrorFile, &size) ==
+                  mani_success &&
               maniOpenMirrorMap(s_mirrorFile, size, &s_mirrorMap).result == mani_success,
           "the mirror map");
     // A spring down the second arm's end, colliding with a sphere on the
@@ -173,7 +174,8 @@ static void Rig(void)
     maniSpringSource spring = {"tail", 4, 4, joints, kGroups, 1, MANI_NO_BONE};
     maniSpringSetSource set = {&s_skeleton, &collider, &group, &spring, 1, 1, 1, 0.0f, 0.0f};
     CHECK(maniBuildSpringSet(builder, &set).result == mani_success &&
-              maniCopyBuilt(builder, s_springFile, sizeof s_springFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_springFile, sizeof s_springFile, &size) ==
+                  mani_success &&
               maniOpenSpringSet(s_springFile, size, &s_springSet).result == mani_success,
           "the spring set");
     maniDestroyBuilder(builder);
@@ -197,14 +199,15 @@ static bool Open(const char* text)
     {
         printf("refused: reason %u item %u other %u\n", built.reason, built.item, built.other);
     }
-    bool ok = built.result == mani_success &&
-              maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) == mani_success &&
-              maniOpenGraph(s_graphFile, size, &s_graph).result == mani_success &&
-              maniBindGraph(&s_graph,
-                            &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, sets, kClips, 0, 0,
-                                               1, NULL, NULL, 0, 0, s_mirror},
-                            s_binding, sizeof s_binding, &s_bound, NULL) == mani_success &&
-              maniGraphScratchSize(s_bound) <= sizeof s_scratch;
+    bool ok =
+        built.result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) == mani_success &&
+        maniOpenGraph(s_graphFile, size, &s_graph).result == mani_success &&
+        maniBindGraph(&s_graph,
+                      &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, sets, kClips, 0, 0, 1,
+                                         NULL, NULL, 0, 0, s_mirror},
+                      s_binding, sizeof s_binding, &s_bound, NULL) == mani_success &&
+        maniGraphBinding_GetScratchSize(s_bound) <= sizeof s_scratch;
     maniDestroyBuilder(builder);
     for (int i = 0; i < 2 && ok; ++i)
     {
@@ -249,7 +252,7 @@ static void Set(uint32_t parameter, maniGraphParameterType type, int32_t value)
     maniGraphValue v = {.i = value};
     for (int i = 0; i < 2; ++i)
     {
-        CHECK(maniSetGraphParameter(s_live[i], parameter, type, v) == mani_success, "set");
+        CHECK(maniGraphInstance_SetParameter(s_live[i], parameter, type, v) == mani_success, "set");
     }
 }
 
@@ -267,43 +270,45 @@ static const maniTransform kMark = {{7.0f, 7.0f, 7.0f}, {0.0f, 0.0f, 0.0f, 1.0f}
 static bool Step(const maniGraphSubset* plan, float delta)
 {
     uint32_t count = 0;
-    const uint32_t* listed = maniGraphSubsetBones(plan, &count);
+    const uint32_t* listed = maniGraphSubset_GetBones(plan, &count);
     bool ok = true;
     for (int i = 0; i < 2; ++i)
     {
         uint32_t events = 0;
         maniRootMove move;
-        ok = ok && maniUpdateGraph(s_live[i], delta, NULL, 0, &events, &move) == mani_success;
+        ok = ok &&
+             maniGraphInstance_Update(s_live[i], delta, NULL, 0, &events, &move) == mani_success;
     }
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniPoseSetLocal(s_pose[1], b, kMark);
+        maniPose_SetLocal(s_pose[1], b, kMark);
     }
     ok = ok &&
-         maniEvaluateGraph(s_live[0], s_scratch, sizeof s_scratch, s_pose[0]) == mani_success &&
-         maniEvaluateGraphSubset(s_live[1], plan, s_subsetScratch, sizeof s_subsetScratch,
-                                 s_pose[1]) == mani_success;
+         maniGraphInstance_Evaluate(s_live[0], s_scratch, sizeof s_scratch, s_pose[0]) ==
+             mani_success &&
+         maniGraphInstance_EvaluateSubset(s_live[1], plan, s_subsetScratch, sizeof s_subsetScratch,
+                                          s_pose[1]) == mani_success;
     uint32_t next = 0;
     for (uint32_t b = 0; b < kBones && ok; ++b)
     {
         bool isListed = next < count && listed[next] == b;
         next += isListed ? 1u : 0u;
-        maniTransform got = maniPoseLocal(s_pose[1], b);
-        ok = isListed ? Same(got, maniPoseLocal(s_pose[0], b)) : Same(got, kMark);
+        maniTransform got = maniPose_GetLocal(s_pose[1], b);
+        ok = isListed ? Same(got, maniPose_GetLocal(s_pose[0], b)) : Same(got, kMark);
         if (!ok)
         {
             printf("bone %u differs\n", b);
         }
     }
-    return ok && maniPoseIsDifference(s_pose[0]) == maniPoseIsDifference(s_pose[1]);
+    return ok && maniPose_IsDifference(s_pose[0]) == maniPose_IsDifference(s_pose[1]);
 }
 
 // A plan in memory filled with 0xFF first: no byte of it may be left
-// unwritten, and none past maniGraphSubsetSize written.
+// unwritten, and none past maniGraphBinding_GetSubsetSize written.
 static maniGraphSubset* Plan(const uint32_t* bones, uint32_t count)
 {
     maniGraphSubset* plan = NULL;
-    size_t size = maniGraphSubsetSize(s_bound);
+    size_t size = maniGraphBinding_GetSubsetSize(s_bound);
     memset(s_plan, 0xFF, sizeof s_plan);
     CHECK(size + 64 <= sizeof s_plan &&
               maniPlanGraphSubset(s_bound, bones, count, s_plan, size, &plan) == mani_success,
@@ -328,7 +333,7 @@ enum
 static void Outside(uint32_t* words)
 {
     const uint8_t* record =
-        s_graph.nodes + (size_t)maniGraphOutputNode(&s_graph) * MANI_GRAPH_NODE_SIZE;
+        s_graph.nodes + (size_t)maniGraph_GetOutputNode(&s_graph) * MANI_GRAPH_NODE_SIZE;
     uint32_t data = maniLoadU32(record + 12);
     const uint32_t* block = (const uint32_t*)((const uint8_t*)s_live[1] + s_live[1]->machinesAt) +
                             maniLoadU32(s_graph.data + 4 * ((size_t)data + maniGraphInertiaBlock));
@@ -360,7 +365,7 @@ static void TestLocal(void)
     maniGraphSubset* plan = Plan(kListed, 2);
     static const uint32_t kPlanned[11] = {0, 1, 2, 3, 4, 5, 6, 10, 11, 12, 13};
     uint32_t count = 0;
-    const uint32_t* planned = maniGraphSubsetBones(plan, &count);
+    const uint32_t* planned = maniGraphSubset_GetBones(plan, &count);
     CHECK(count == 11 && memcmp(planned, kPlanned, sizeof kPlanned) == 0,
           "the listed bones and their ancestors");
     const uint8_t* groups = maniGraphSubsetGroups(plan);
@@ -368,15 +373,15 @@ static void TestLocal(void)
           "the groups holding them, the last left out");
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniPoseSetLocal(s_pose[1], b, kMark);
+        maniPose_SetLocal(s_pose[1], b, kMark);
     }
-    bool rest = maniEvaluateGraphSubset(s_live[1], plan, s_subsetScratch, sizeof s_subsetScratch,
-                                        s_pose[1]) == mani_success;
+    bool rest = maniGraphInstance_EvaluateSubset(s_live[1], plan, s_subsetScratch,
+                                                 sizeof s_subsetScratch, s_pose[1]) == mani_success;
     for (uint32_t b = 0; b < kBones && rest; ++b)
     {
         bool isPlanned = (b <= 6) || (b >= 10 && b <= 13);
-        rest =
-            Same(maniPoseLocal(s_pose[1], b), isPlanned ? maniSkeletonRest(&s_skeleton, b) : kMark);
+        rest = Same(maniPose_GetLocal(s_pose[1], b),
+                    isPlanned ? maniSkeleton_GetRest(&s_skeleton, b) : kMark);
     }
     CHECK(rest, "before the first update, the rest at the plan's bones alone");
     // The second instance, evaluated only through the plan, never writes
@@ -419,9 +424,9 @@ static bool Planned(const uint32_t* listed, uint32_t count, const uint32_t* want
 {
     maniGraphSubset* plan = Plan(listed, count);
     uint32_t n = 0;
-    const uint32_t* bones = maniGraphSubsetBones(plan, &n);
+    const uint32_t* bones = maniGraphSubset_GetBones(plan, &n);
     bool ok = n == wanted && memcmp(bones, want, 4 * (size_t)n) == 0 &&
-              maniGraphSubsetRuns(plan, maniGraphOutputNode(&s_graph)) == runs;
+              maniGraphSubsetRuns(plan, maniGraph_GetOutputNode(&s_graph)) == runs;
     if (!ok)
     {
         printf("planned:");
@@ -529,20 +534,21 @@ static void TestSprings(void)
         {
             uint32_t events = 0;
             maniRootMove move;
-            same = same && maniUpdateGraph(both[i], 0.05f, NULL, 0, &events, &move) == mani_success;
+            same = same && maniGraphInstance_Update(both[i], 0.05f, NULL, 0, &events, &move) ==
+                               mani_success;
         }
         bool whole = frame == 0 || frame == 4;
-        same = same &&
-               (whole ? maniEvaluateGraph(s_live[1], s_subsetScratch, sizeof s_subsetScratch,
-                                          s_pose[1])
-                      : maniEvaluateGraphSubset(s_live[1], plan, s_subsetScratch,
-                                                sizeof s_subsetScratch, s_pose[1])) == mani_success;
-        same = same && (!whole || maniEvaluateGraph(reference, s_scratch, sizeof s_scratch,
-                                                    s_pose[0]) == mani_success);
+        same = same && (whole ? maniGraphInstance_Evaluate(s_live[1], s_subsetScratch,
+                                                           sizeof s_subsetScratch, s_pose[1])
+                              : maniGraphInstance_EvaluateSubset(s_live[1], plan, s_subsetScratch,
+                                                                 sizeof s_subsetScratch,
+                                                                 s_pose[1])) == mani_success;
+        same = same && (!whole || maniGraphInstance_Evaluate(reference, s_scratch, sizeof s_scratch,
+                                                             s_pose[0]) == mani_success);
     }
     for (uint32_t b = 0; b < kBones && same; ++b)
     {
-        same = Same(maniPoseLocal(s_pose[0], b), maniPoseLocal(s_pose[1], b));
+        same = Same(maniPose_GetLocal(s_pose[0], b), maniPose_GetLocal(s_pose[1], b));
     }
     CHECK(same, "a spring passing its input on is not stepped");
 }
@@ -615,32 +621,32 @@ static void TestRefusals(void)
               maniPlanGraphSubset(s_bound, NULL, 0, s_plan, sizeof s_plan, NULL) ==
                   mani_errorInvalid,
           "plans refused");
-    CHECK(maniPlanGraphSubset(s_bound, NULL, 0, s_plan, maniGraphSubsetSize(s_bound) - 1, &plan) ==
-                  mani_errorCapacity &&
-              maniGraphSubsetSize(NULL) == 0,
+    CHECK(maniPlanGraphSubset(s_bound, NULL, 0, s_plan, maniGraphBinding_GetSubsetSize(s_bound) - 1,
+                              &plan) == mani_errorCapacity &&
+              maniGraphBinding_GetSubsetSize(NULL) == 0,
           "too little memory");
     uint32_t count = 7;
-    CHECK(maniGraphSubsetBones(NULL, &count) == NULL && count == 0 &&
-              maniGraphSubsetBones((const maniGraphSubset*)s_scratch, NULL) == NULL,
+    CHECK(maniGraphSubset_GetBones(NULL, &count) == NULL && count == 0 &&
+              maniGraphSubset_GetBones((const maniGraphSubset*)s_scratch, NULL) == NULL,
           "no plan, no bones");
     count = 7;
-    CHECK(maniGraphSubsetBones((const maniGraphSubset*)s_scratch, &count) == NULL && count == 0,
+    CHECK(maniGraphSubset_GetBones((const maniGraphSubset*)s_scratch, &count) == NULL && count == 0,
           "memory that is no plan, no bones");
     plan = Plan(NULL, 0);
     // A plan whose stamp is gone.
     static _Alignas(8) uint8_t unstamped[4096];
     memcpy(unstamped, s_plan, sizeof unstamped);
     memset(unstamped, 0, 4);
-    CHECK(maniEvaluateGraphSubset(s_live[0], (const maniGraphSubset*)unstamped, s_scratch,
-                                  sizeof s_scratch, s_pose[0]) == mani_errorInvalid,
+    CHECK(maniGraphInstance_EvaluateSubset(s_live[0], (const maniGraphSubset*)unstamped, s_scratch,
+                                           sizeof s_scratch, s_pose[0]) == mani_errorInvalid,
           "a plan without its stamp");
     static _Alignas(8) uint8_t kNever[64];
-    CHECK(maniEvaluateGraphSubset(s_live[0], NULL, s_scratch, sizeof s_scratch, s_pose[0]) ==
-                  mani_errorInvalid &&
-              maniEvaluateGraphSubset(s_live[0], (const maniGraphSubset*)kNever, s_scratch,
-                                      sizeof s_scratch, s_pose[0]) == mani_errorInvalid &&
-              maniEvaluateGraphSubset(NULL, plan, s_scratch, sizeof s_scratch, s_pose[0]) ==
-                  mani_errorInvalid,
+    CHECK(maniGraphInstance_EvaluateSubset(s_live[0], NULL, s_scratch, sizeof s_scratch,
+                                           s_pose[0]) == mani_errorInvalid &&
+              maniGraphInstance_EvaluateSubset(s_live[0], (const maniGraphSubset*)kNever, s_scratch,
+                                               sizeof s_scratch, s_pose[0]) == mani_errorInvalid &&
+              maniGraphInstance_EvaluateSubset(NULL, plan, s_scratch, sizeof s_scratch,
+                                               s_pose[0]) == mani_errorInvalid,
           "evaluations refused");
     // A plan of another binding of the same graph.
     static _Alignas(16) uint8_t other[1u << 16];
@@ -654,8 +660,8 @@ static void TestRefusals(void)
                         other, sizeof other, &binding, NULL) == mani_success &&
               maniPlanGraphSubset(binding, NULL, 0, memory, sizeof memory, &foreign) ==
                   mani_success &&
-              maniEvaluateGraphSubset(s_live[0], foreign, s_scratch, sizeof s_scratch, s_pose[0]) ==
-                  mani_errorInvalid,
+              maniGraphInstance_EvaluateSubset(s_live[0], foreign, s_scratch, sizeof s_scratch,
+                                               s_pose[0]) == mani_errorInvalid,
           "a plan of another binding");
 }
 

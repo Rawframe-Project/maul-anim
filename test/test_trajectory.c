@@ -184,10 +184,14 @@ static void TestRefusals(void)
               maniAdvanceTrajectory(&t, NULL, 0.1f) == mani_errorInvalid,
           "seconds out of range, NULL");
     float out[2];
-    CHECK(maniTrajectoryFeatures(NULL, &t, &t, out, out) == mani_errorInvalid &&
-              maniTrajectoryFeatures(&s_database, NULL, &t, out, out) == mani_errorInvalid &&
-              maniTrajectoryFeatures(&s_database, &t, NULL, out, out) == mani_errorInvalid &&
-              maniTrajectoryFeatures(&s_database, &t, &t, NULL, NULL) == mani_success,
+    CHECK(maniMotionDatabase_ComputeTrajectoryFeatures(NULL, &t, &t, out, out) ==
+                  mani_errorInvalid &&
+              maniMotionDatabase_ComputeTrajectoryFeatures(&s_database, NULL, &t, out, out) ==
+                  mani_errorInvalid &&
+              maniMotionDatabase_ComputeTrajectoryFeatures(&s_database, &t, NULL, out, out) ==
+                  mani_errorInvalid &&
+              maniMotionDatabase_ComputeTrajectoryFeatures(&s_database, &t, &t, NULL, NULL) ==
+                  mani_success,
           "features' NULL arguments");
 }
 
@@ -198,17 +202,18 @@ static void TestFeatures(void)
     float features[MANI_MAX_MATCH_FEATURES];
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseFeatures(&s_database, 3, features, s_database.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetFeatures(&s_database, 3, features, s_database.featureCount, NULL) ==
                   mani_success &&
-              maniMotionDatabaseNormalization(&s_database, offsets, scales, s_database.featureCount,
-                                              NULL) == mani_success,
+              maniMotionDatabase_GetNormalization(&s_database, offsets, scales,
+                                                  s_database.featureCount, NULL) == mani_success,
           "the walk's fourth frame");
     maniTrajectory root = {{2, 0, 3}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0, 1}, {0, 0, 0}};
     maniTrajectory ahead = root;
     ahead.position.x += 0.5f;
     float position[2];
     float facing[2];
-    CHECK(maniTrajectoryFeatures(&s_database, &root, &ahead, position, facing) == mani_success &&
+    CHECK(maniMotionDatabase_ComputeTrajectoryFeatures(&s_database, &root, &ahead, position,
+                                                       facing) == mani_success &&
               NearF(position[0], (double)features[0] * (double)scales[0] + (double)offsets[0]) &&
               NearF(position[1], (double)features[1] * (double)scales[1] + (double)offsets[1]) &&
               NearF(facing[0], 0.0) && NearF(facing[1], 1.0),
@@ -218,7 +223,8 @@ static void TestFeatures(void)
     ahead = root;
     // A quarter turn about +y takes +z to +x: forward is now +x.
     ahead.position = maniVec3Add(root.position, (maniVec3){0.5f, 0.0f, 0.0f});
-    CHECK(maniTrajectoryFeatures(&s_database, &root, &ahead, position, facing) == mani_success &&
+    CHECK(maniMotionDatabase_ComputeTrajectoryFeatures(&s_database, &root, &ahead, position,
+                                                       facing) == mani_success &&
               fabs((double)position[0]) <= 1e-6 && fabs((double)position[1] - 0.5) <= 1e-6 &&
               fabs((double)facing[0]) <= 1e-6 && fabs((double)facing[1] - 1.0) <= 1e-6,
           "turned with the root: half a second straight ahead");
@@ -242,7 +248,7 @@ static void TestAxes(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_zFile, sizeof s_zFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_zFile, sizeof s_zFile, &size) == mani_success &&
               maniOpenMotionDatabase(s_zFile, size, &d).result == mani_success,
           "a database of up z");
     maniDestroyBuilder(builder);
@@ -251,7 +257,8 @@ static void TestAxes(void)
     ahead.position = (maniVec3){1.5f, 2.25f, 12.0f};
     float position[2];
     float facing[2];
-    CHECK(maniTrajectoryFeatures(&d, &root, &ahead, position, facing) == mani_success &&
+    CHECK(maniMotionDatabase_ComputeTrajectoryFeatures(&d, &root, &ahead, position, facing) ==
+                  mani_success &&
               position[0] == 0.5f && position[1] == 0.25f && facing[0] == -1.0f &&
               facing[1] == 0.0f,
           "on the ground of up z, facing -x");

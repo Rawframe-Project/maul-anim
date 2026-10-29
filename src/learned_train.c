@@ -128,7 +128,7 @@ static maniBuildResult CheckOptions(const maniLearnedTrainerOptions* o)
 static maniBuildResult CheckSource(const maniLearnedTrainerSource* s)
 {
     const maniMotionDatabase* d = s->database;
-    if (maniMotionDatabaseSkeletonIdentity(d) != maniSkeletonIdentity(s->skeleton))
+    if (maniMotionDatabase_GetSkeletonIdentity(d) != maniSkeleton_GetIdentity(s->skeleton))
     {
         return Refuse(maniBuildReasonDatabase, 0, 0);
     }
@@ -139,7 +139,7 @@ static maniBuildResult CheckSource(const maniLearnedTrainerSource* s)
     for (uint32_t k = 0; k < s->clipCount; ++k)
     {
         if (s->clips[k] == NULL ||
-            maniClipIdentity(s->clips[k]) != maniMotionDatabaseClipIdentity(d, k))
+            maniClip_GetIdentity(s->clips[k]) != maniMotionDatabase_GetClipIdentity(d, k))
         {
             return Refuse(maniBuildReasonClip, k, 0);
         }
@@ -241,7 +241,7 @@ void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer)
     maniRelease(&allocator, trainer, 1, sizeof(maniLearnedTrainer), alignof(maniLearnedTrainer));
 }
 
-uint32_t maniLearnedTrainerMisuses(const maniLearnedTrainer* trainer)
+uint32_t maniLearnedTrainer_GetMisuse(const maniLearnedTrainer* trainer)
 {
     return trainer != NULL ? maniHostMisuses(&trainer->host) : 0;
 }

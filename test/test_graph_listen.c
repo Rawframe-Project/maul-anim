@@ -430,18 +430,18 @@ static void TestSaved(void)
     size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+              maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) ==
                   mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
-              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Restore(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     Update(instance, 0.5f);
     Update(other, 0.5f);
     CHECK(Current(other, &g, 3) == 2 &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+              maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) ==
                   mani_success &&
-              maniSaveGraphInstance(other, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
+              maniGraphInstance_Save(other, s_saved[1], sizeof s_saved[1], NULL) == mani_success &&
               memcmp(s_saved[0], s_saved[1], size) == 0,
           "the same after");
 }
@@ -516,15 +516,16 @@ static bool RoundTrip(const maniGraphSource* source)
 {
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
-    bool ok = maniBuildGraph(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniWriteGraphJson(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(builder, s_text, s_textSize,
-                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
-                                                         CLIPS, 0, 0, 0, NULL})
-                      .result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    bool ok =
+        maniBuildGraph(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniWriteGraphJson(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
+        maniBuildGraphJson(
+            builder, s_text, s_textSize,
+            &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL})
+                .result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     s_text[ok ? s_textSize : 0] = 0;
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;

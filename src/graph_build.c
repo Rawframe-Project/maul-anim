@@ -141,7 +141,7 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     {
         MANI_ASSERT(node->clip.clip < source->clipCount);
         const maniClip* clip = source->clips[node->clip.clip].clip;
-        w->difference[v] = maniClipAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u;
+        w->difference[v] = maniClip_GetAdditiveBasis(clip) != maniAdditiveNone ? 1u : 0u;
         return Outcome(mani_success);
     }
     bool additive = node->kind == maniGraphNodeAdditive;
@@ -397,11 +397,11 @@ static uint32_t PutSpace(uint8_t* d, uint32_t at, const maniGraphNodeSource* nod
 // A mask's per-bone weights, the next in the masks section.
 static void PutMask(const maniGraphSource* source, const maniGraphMaskNodeSource* m, Layout* lay)
 {
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     MANI_ASSERT(4 * ((uint64_t)lay->maskAt + 1) * bones <= lay->sizes[7]);
     // Checked already: the chains' bones and weights are in range.
-    (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight, lay->weights,
-                        bones, NULL);
+    (void)maniSkeleton_BuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight,
+                                 lay->weights, bones, NULL);
     memcpy(lay->sections[7] + 4 * (size_t)lay->maskAt * bones, lay->weights, 4 * (size_t)bones);
     ++lay->maskAt;
 }
@@ -498,7 +498,7 @@ static uint32_t PutTurn(const maniGraphSource* source, uint8_t* d, uint32_t at,
     {
         PutMask(source, s->mask, lay);
     }
-    lay->blockAt += maniGraphTurnBlockWords(maniSkeletonBoneCount(source->skeleton));
+    lay->blockAt += maniGraphTurnBlockWords(maniSkeleton_GetBoneCount(source->skeleton));
     return maniGraphPutWords(d, at, words, MANI_GRAPH_TURN_WORDS);
 }
 
@@ -511,7 +511,8 @@ static uint32_t PutInertia(const maniGraphSource* source, uint8_t* d, uint32_t a
     const uint32_t head[2] = {s->trigger, s->method};
     at = maniGraphPutScalar(d, maniGraphPutWords(d, at, head, 2), s->duration);
     at = maniGraphPutWords(d, maniGraphPutFloats(d, at, halfLives, 3), &lay->blockAt, 1);
-    lay->blockAt += MANI_GRAPH_INERTIA_BLOCK(maniSkeletonBoneCount(source->skeleton), s->method);
+    lay->blockAt +=
+        MANI_GRAPH_INERTIA_BLOCK(maniSkeleton_GetBoneCount(source->skeleton), s->method);
     return at;
 }
 
@@ -662,13 +663,13 @@ static void PutSlots(const maniGraphSource* source, Layout* lay)
     {
         const maniGraphModelSource* m = &source->models[i];
         PutSlot(lay, lay->sections[11] + (size_t)i * MANI_GRAPH_MODEL_SIZE,
-                maniLearnedModelIdentity(m->model), m->name, m->nameLength);
+                maniLearnedModel_GetIdentity(m->model), m->name, m->nameLength);
     }
     for (uint32_t i = 0; i < source->springSetCount; ++i)
     {
         const maniGraphSpringSetSource* p = &source->springSets[i];
         PutSlot(lay, lay->sections[12] + (size_t)i * MANI_GRAPH_SPRING_SET_SIZE,
-                maniSpringSetIdentity(p->set), p->name, p->nameLength);
+                maniSpringSet_GetIdentity(p->set), p->name, p->nameLength);
     }
 }
 
@@ -703,10 +704,10 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
     {
         const maniGraphClipSource* c = &source->clips[i];
         uint8_t* e = lay->sections[5] + (size_t)i * MANI_GRAPH_CLIP_SIZE;
-        maniStoreU64(e, maniClipIdentity(c->clip));
+        maniStoreU64(e, maniClip_GetIdentity(c->clip));
         maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)c->name, c->nameLength));
         PutName(lay, c->name, c->nameLength, e + 16);
-        bool difference = maniClipAdditiveBasis(c->clip) != maniAdditiveNone;
+        bool difference = maniClip_GetAdditiveBasis(c->clip) != maniAdditiveNone;
         maniStoreU32(e + 24, difference ? MANI_GRAPH_DIFFERENCE : 0u);
         maniStoreU32(e + 28, PutMap(c, lay, ids, &maps));
     }
@@ -723,7 +724,7 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
     {
         const maniGraphDatabaseSource* b = &source->databases[i];
         uint8_t* e = lay->sections[8] + (size_t)i * MANI_GRAPH_DATABASE_SIZE;
-        maniStoreU64(e, maniMotionDatabaseIdentity(b->database));
+        maniStoreU64(e, maniMotionDatabase_GetIdentity(b->database));
         maniStoreU64(e + 8, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)b->name, b->nameLength));
         PutName(lay, b->name, b->nameLength, e + 16);
         maniStoreU32(e + 24, first);
@@ -745,8 +746,8 @@ static void PutLists(const maniGraphSource* source, Layout* lay)
 static void PutHeader(const maniGraphSource* source, const maniGraphTally* tally,
                       uint32_t slotCount, uint8_t* h)
 {
-    maniStoreU64(h, maniSkeletonIdentity(source->skeleton));
-    const uint32_t counts[14] = {maniSkeletonBoneCount(source->skeleton),
+    maniStoreU64(h, maniSkeleton_GetIdentity(source->skeleton));
+    const uint32_t counts[14] = {maniSkeleton_GetBoneCount(source->skeleton),
                                  source->parameterCount,
                                  source->nodeCount,
                                  tally->inputCount,
@@ -827,7 +828,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniGraphSource* source
                              const maniGraphTally* tally, const Work* w)
 {
     Layout lay = {0};
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     lay.weights = maniAllocate(&builder->allocator, bones, sizeof(float), 4);
     bool mesh = Triangulates(source);
     lay.mesh = mesh ? maniAllocate(&builder->allocator, 1, sizeof(maniTriangulation), 8) : NULL;

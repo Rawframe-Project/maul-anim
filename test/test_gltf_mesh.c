@@ -189,13 +189,14 @@ static void BuildSkin(maniBuilder* builder, const maniGltf* gltf, maniSkin* skin
     maniGltfOptions options = maniDefaultGltfOptions();
     maniSkeleton skeleton;
     size_t size = 0;
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success,
           "skeleton");
-    CHECK(maniGltfBuildSkin(builder, gltf, 0, &skeleton, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+    CHECK(maniBuildGltfSkin(builder, gltf, 0, &skeleton, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) ==
+                  mani_success &&
               maniOpenSkin(s_skinFile, size, skin).result == mani_success,
           "skin");
 }
@@ -206,37 +207,38 @@ static void TestQueries(void)
     Document(kNames, "", kAttributes);
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
-    CHECK(maniGltfMeshCount(gltf) == 1 && maniGltfPrimitiveCount(gltf, 0) == 1 &&
-              maniGltfPrimitiveCount(gltf, 1) == 0 &&
-              maniGltfPrimitiveTargetCount(gltf, 0, 0) == 2 &&
-              maniGltfPrimitiveTargetCount(gltf, 0, 1) == 0,
+    CHECK(maniGltf_GetMeshCount(gltf) == 1 && maniGltf_GetPrimitiveCount(gltf, 0) == 1 &&
+              maniGltf_GetPrimitiveCount(gltf, 1) == 0 &&
+              maniGltf_GetPrimitiveTargetCount(gltf, 0, 0) == 2 &&
+              maniGltf_GetPrimitiveTargetCount(gltf, 0, 1) == 0,
           "meshes, primitives, targets");
-    CHECK(maniGltfNodeMesh(gltf, 2) == 0 && maniGltfNodeSkin(gltf, 2) == 0 &&
-              maniGltfNodeMesh(gltf, 0) == UINT32_MAX && maniGltfNodeSkin(gltf, 3) == UINT32_MAX &&
-              maniGltfNodeMesh(gltf, 9) == UINT32_MAX,
+    CHECK(maniGltf_GetNodeMesh(gltf, 2) == 0 && maniGltf_GetNodeSkin(gltf, 2) == 0 &&
+              maniGltf_GetNodeMesh(gltf, 0) == UINT32_MAX &&
+              maniGltf_GetNodeSkin(gltf, 3) == UINT32_MAX &&
+              maniGltf_GetNodeMesh(gltf, 9) == UINT32_MAX,
           "a node's mesh and skin");
     float w[2] = {9, 9};
-    CHECK(maniGltfMorphWeights(gltf, 2, w, 2, NULL).result == mani_success && w[0] == 0.5f &&
+    CHECK(maniGltf_GetMorphWeights(gltf, 2, w, 2, NULL).result == mani_success && w[0] == 0.5f &&
               w[1] == 0.25f,
           "the node's weights");
-    CHECK(maniGltfMorphWeights(gltf, 3, w, 2, NULL).result == mani_success && w[0] == 1.0f &&
+    CHECK(maniGltf_GetMorphWeights(gltf, 3, w, 2, NULL).result == mani_success && w[0] == 1.0f &&
               w[1] == 0.0f,
           "the mesh's weights");
     float wide[3] = {9, 9, 9};
     uint32_t count = 0;
-    CHECK(maniGltfMorphWeights(gltf, 3, wide, 3, &count).result == mani_success && count == 2 &&
+    CHECK(maniGltf_GetMorphWeights(gltf, 3, wide, 3, &count).result == mani_success && count == 2 &&
               wide[0] == 1.0f && wide[1] == 0.0f && wide[2] == 9.0f,
           "a wider array takes the mesh's count");
     uint32_t measured = 0;
     uint32_t refused = 0;
-    CHECK(maniGltfMorphWeights(gltf, 3, NULL, 0, &measured).result == mani_errorCapacity &&
+    CHECK(maniGltf_GetMorphWeights(gltf, 3, NULL, 0, &measured).result == mani_errorCapacity &&
               measured == 2 &&
-              maniGltfMorphWeights(gltf, 2, w, 1, &refused).result == mani_errorCapacity &&
+              maniGltf_GetMorphWeights(gltf, 2, w, 1, &refused).result == mani_errorCapacity &&
               refused == 2 && w[0] == 1.0f,
           "the weights measured, and a short array refused");
-    CHECK(maniGltfMorphWeights(gltf, 0, w, 2, NULL).result == mani_errorInvalid &&
-              maniGltfMorphWeights(gltf, 2, NULL, 2, NULL).result == mani_errorInvalid &&
-              maniGltfMorphWeights(NULL, 2, w, 2, NULL).result == mani_errorInvalid,
+    CHECK(maniGltf_GetMorphWeights(gltf, 0, w, 2, NULL).result == mani_errorInvalid &&
+              maniGltf_GetMorphWeights(gltf, 2, NULL, 2, NULL).result == mani_errorInvalid &&
+              maniGltf_GetMorphWeights(NULL, 2, w, 2, NULL).result == mani_errorInvalid,
           "weights refused: no mesh, no output, no document");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -250,34 +252,34 @@ static void TestInfluences(void)
     maniGltf* gltf = Open(builder);
     maniSkin skin;
     BuildSkin(builder, gltf, &skin);
-    maniImportResult r = maniGltfBuildInfluences(builder, gltf, 0, 0, &skin);
+    maniImportResult r = maniBuildGltfInfluences(builder, gltf, 0, 0, &skin);
     CHECK(r.result == mani_success, "influences import");
     if (r.result != mani_success)
     {
         printf("  reason %u offset %llu item %u\n", r.reason, (unsigned long long)r.offset, r.item);
     }
     maniInfluences v;
-    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
               maniOpenInfluences(s_file, s_size, &v).result == mani_success,
           "opens");
-    CHECK(maniInfluencesVertexCount(&v) == 4 && maniInfluencesFitSkin(&v, &skin), "bound");
+    CHECK(maniInfluences_GetVertexCount(&v) == 4 && maniInfluences_IsSkinFit(&v, &skin), "bound");
     float w0 = 0.0f;
     float w1 = 0.0f;
-    uint32_t j0 = maniInfluence(&v, 0, 0, &w0);
-    uint32_t j1 = maniInfluence(&v, 0, 1, &w1);
+    uint32_t j0 = maniInfluences_GetInfluence(&v, 0, 0, &w0);
+    uint32_t j1 = maniInfluences_GetInfluence(&v, 0, 1, &w1);
     CHECK(j0 == 0 && j1 == 1 && fabsf(w0 - 128.0f / 255.0f) < 1e-6f &&
               fabsf(w1 - 127.0f / 255.0f) < 1e-6f,
           "vertex 0: both joints from set 0");
-    j0 = maniInfluence(&v, 2, 0, &w0);
-    (void)maniInfluence(&v, 2, 1, &w1);
+    j0 = maniInfluences_GetInfluence(&v, 2, 0, &w0);
+    (void)maniInfluences_GetInfluence(&v, 2, 1, &w1);
     CHECK(j0 == 1 && w0 == 1.0f && w1 == 0.0f, "vertex 2: from set 1 alone");
-    j0 = maniInfluence(&v, 3, 0, &w0);
-    j1 = maniInfluence(&v, 3, 1, &w1);
+    j0 = maniInfluences_GetInfluence(&v, 3, 0, &w0);
+    j1 = maniInfluences_GetInfluence(&v, 3, 1, &w1);
     CHECK(j0 == 1 && j1 == 0 && fabsf(w0 - 0.8f) < 1e-6f && fabsf(w1 - 0.2f) < 1e-6f,
           "vertex 3: bytes and shorts mixed, heaviest first");
-    CHECK(maniGltfBuildInfluences(builder, gltf, 0, 1, &skin).result == mani_errorInvalid &&
-              maniGltfBuildInfluences(builder, gltf, 1, 0, &skin).result == mani_errorInvalid &&
-              maniGltfBuildInfluences(builder, gltf, 0, 0, NULL).result == mani_errorInvalid,
+    CHECK(maniBuildGltfInfluences(builder, gltf, 0, 1, &skin).result == mani_errorInvalid &&
+              maniBuildGltfInfluences(builder, gltf, 1, 0, &skin).result == mani_errorInvalid &&
+              maniBuildGltfInfluences(builder, gltf, 0, 0, NULL).result == mani_errorInvalid,
           "past a count, no skin");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -290,7 +292,7 @@ static void ExpectInfluences(maniImportReason reason, uint32_t item, const char*
     maniGltf* gltf = Open(builder);
     maniSkin skin;
     BuildSkin(builder, gltf, &skin);
-    maniImportResult r = maniGltfBuildInfluences(builder, gltf, 0, 0, &skin);
+    maniImportResult r = maniBuildGltfInfluences(builder, gltf, 0, 0, &skin);
     CHECK(r.result == mani_errorFormat && r.reason == reason && r.item == item, what);
     if (r.reason != reason || r.item != item)
     {
@@ -351,10 +353,10 @@ static maniImportResult ImportMorph(maniBuilder* builder, const maniGltfOptions*
                                     maniMorphTargets* m)
 {
     maniGltf* gltf = Open(builder);
-    maniImportResult r = maniGltfBuildMorphTargets(builder, gltf, 0, 0, options);
+    maniImportResult r = maniBuildGltfMorphTargets(builder, gltf, 0, 0, options);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
                   maniOpenMorphTargets(s_file, s_size, m).result == mani_success,
               "opens");
     }
@@ -372,12 +374,13 @@ static const float* Delta(const maniMorphTargets* m, uint32_t t, uint32_t a, uin
     for (uint32_t b = 0; b < a; ++b)
     {
         at += ((mask >> b) & 1u) != 0
-                  ? (uint64_t)count * maniMorphWidth(maniMorphAttribute(m, b, NULL))
+                  ? (uint64_t)count * maniMorphWidth(maniMorphTargets_GetAttribute(m, b, NULL))
                   : 0;
     }
     return (const float*)(const void*)(m->deltas +
-                                       4 * (at + (uint64_t)i * maniMorphWidth(maniMorphAttribute(
-                                                                   m, a, NULL))));
+                                       4 * (at + (uint64_t)i *
+                                                     maniMorphWidth(maniMorphTargets_GetAttribute(
+                                                         m, a, NULL))));
 }
 
 static uint32_t Index(const maniMorphTargets* m, uint32_t t, uint32_t i)
@@ -435,17 +438,18 @@ static void TestMorphTargets(void)
         return;
     }
     uint32_t set = 9;
-    CHECK(maniMorphVertexCount(&m) == 4 && maniMorphChannelCount(&m) == 2 &&
-              maniMorphAttributeCount(&m) == 4 &&
-              maniMorphAttribute(&m, 0, &set) == maniMorphPosition &&
-              maniMorphAttribute(&m, 1, &set) == maniMorphNormal &&
-              maniMorphAttribute(&m, 2, &set) == maniMorphTexcoord && set == 0 &&
-              maniMorphAttribute(&m, 3, &set) == maniMorphColor && set == 0,
+    CHECK(maniMorphTargets_GetVertexCount(&m) == 4 && maniMorphTargets_GetChannelCount(&m) == 2 &&
+              maniMorphTargets_GetAttributeCount(&m) == 4 &&
+              maniMorphTargets_GetAttribute(&m, 0, &set) == maniMorphPosition &&
+              maniMorphTargets_GetAttribute(&m, 1, &set) == maniMorphNormal &&
+              maniMorphTargets_GetAttribute(&m, 2, &set) == maniMorphTexcoord && set == 0 &&
+              maniMorphTargets_GetAttribute(&m, 3, &set) == maniMorphColor && set == 0,
           "the table: positions, normals, texture coordinates, colors; _FOO left");
-    CHECK(maniMorphFindChannel(&m, "smile", 5) == 0 && maniMorphFindChannel(&m, "blink", 5) == 1 &&
-              maniMorphTargetFullWeight(&m, 1) == 1.0f,
+    CHECK(maniMorphTargets_FindChannel(&m, "smile", 5) == 0 &&
+              maniMorphTargets_FindChannel(&m, "blink", 5) == 1 &&
+              maniMorphTargets_GetTargetFullWeight(&m, 1) == 1.0f,
           "channels named by targetNames, full weight 1");
-    CHECK(maniMorphFindTarget(&m, "blink", 5) == 1, "targets named as their channels");
+    CHECK(maniMorphTargets_FindTarget(&m, "blink", 5) == 1, "targets named as their channels");
     const uint8_t* t0 = m.targets;
     const uint8_t* t1 = m.targets + MANI_MORPH_TARGET_SIZE;
     CHECK(maniLoadU32(t0 + 8) == 3 && Index(&m, 0, 0) == 0 && Index(&m, 0, 1) == 1 &&
@@ -474,7 +478,8 @@ static void TestMorphTargets(void)
     Document("", "", kAttributes);
     options = maniDefaultGltfOptions();
     CHECK(ImportMorph(builder, &options, &m).result == mani_success &&
-              maniMorphFindChannel(&m, "0", 1) == 0 && maniMorphFindChannel(&m, "1", 1) == 1,
+              maniMorphTargets_FindChannel(&m, "0", 1) == 0 &&
+              maniMorphTargets_FindChannel(&m, "1", 1) == 1,
           "channels named by index");
     maniDestroyBuilder(builder);
 }
@@ -540,9 +545,9 @@ static void TestMorphRefusals(void)
     maniGltfOptions options = maniDefaultGltfOptions();
     maniGltfOptions bad = options;
     bad.axes[0] = maniAxisY;
-    CHECK(maniGltfBuildMorphTargets(builder, gltf, 0, 1, &options).result == mani_errorInvalid &&
-              maniGltfBuildMorphTargets(builder, gltf, 0, 0, NULL).result == mani_errorInvalid &&
-              maniGltfBuildMorphTargets(builder, gltf, 0, 0, &bad).result == mani_errorInvalid,
+    CHECK(maniBuildGltfMorphTargets(builder, gltf, 0, 1, &options).result == mani_errorInvalid &&
+              maniBuildGltfMorphTargets(builder, gltf, 0, 0, NULL).result == mani_errorInvalid &&
+              maniBuildGltfMorphTargets(builder, gltf, 0, 0, &bad).result == mani_errorInvalid,
           "past a count, no options, options out of range");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -584,15 +589,16 @@ static void TestFixtures(void)
         maniSkin skin;
         BuildSkin(builder, gltf, &skin);
         maniInfluences v;
-        CHECK(maniGltfBuildInfluences(builder, gltf, 0, 0, &skin).result == mani_success &&
-                  maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+        CHECK(maniBuildGltfInfluences(builder, gltf, 0, 0, &skin).result == mani_success &&
+                  maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
                   maniOpenInfluences(s_file, s_size, &v).result == mani_success,
               "SimpleSkin's influences");
         // Its 10 vertices: the bottom row on joint 0, the top on joint 1,
         // the middle shared.
         float w = 0.0f;
-        CHECK(maniInfluencesVertexCount(&v) == 10 && maniInfluence(&v, 0, 0, &w) == 0 &&
-                  w == 1.0f && maniInfluence(&v, 9, 0, &w) == 1 && w == 1.0f,
+        CHECK(maniInfluences_GetVertexCount(&v) == 10 &&
+                  maniInfluences_GetInfluence(&v, 0, 0, &w) == 0 && w == 1.0f &&
+                  maniInfluences_GetInfluence(&v, 9, 0, &w) == 1 && w == 1.0f,
               "SimpleSkin's ends on one joint each");
         maniCloseGltf(gltf);
     }
@@ -605,11 +611,12 @@ static void TestFixtures(void)
     {
         maniGltfOptions options = maniDefaultGltfOptions();
         maniMorphTargets m;
-        CHECK(maniGltfBuildMorphTargets(builder, gltf, 0, 0, &options).result == mani_success &&
-                  maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+        CHECK(maniBuildGltfMorphTargets(builder, gltf, 0, 0, &options).result == mani_success &&
+                  maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
                   maniOpenMorphTargets(s_file, s_size, &m).result == mani_success,
               "AnimatedMorphCube's targets");
-        CHECK(maniMorphChannelCount(&m) == 2 && maniMorphAttributeCount(&m) == 3,
+        CHECK(maniMorphTargets_GetChannelCount(&m) == 2 &&
+                  maniMorphTargets_GetAttributeCount(&m) == 3,
               "two targets of positions, normals and tangents");
         maniCloseGltf(gltf);
     }

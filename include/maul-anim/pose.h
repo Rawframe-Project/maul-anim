@@ -33,13 +33,13 @@ extern "C"
     /// @return The size in bytes.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniPoseSize(const maniSkeleton* skeleton);
+    MANI_API size_t maniSkeleton_GetPoseSize(const maniSkeleton* skeleton);
 
     /// Makes a pose of the skeleton in caller memory, every bone at its
     /// rest, the model matrices composed.
     ///
     /// @param skeleton  An opened skeleton.
-    /// @param memory    At least maniPoseSize bytes, MANI_POSE_ALIGNMENT
+    /// @param memory    At least maniSkeleton_GetPoseSize bytes, MANI_POSE_ALIGNMENT
     ///                  aligned; the pose lives in it.
     /// @param size      The memory's size in bytes.
     /// @param poseOut   Receives the pose.
@@ -56,7 +56,7 @@ extern "C"
     /// @return The bone count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API uint32_t maniPoseBoneCount(const maniPose* pose);
+    MANI_API uint32_t maniPose_GetBoneCount(const maniPose* pose);
 
     /// Returns a bone's local transform.
     ///
@@ -65,7 +65,7 @@ extern "C"
     /// @return The transform, or the identity for a bone past the count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API maniTransform maniPoseLocal(const maniPose* pose, uint32_t bone);
+    MANI_API maniTransform maniPose_GetLocal(const maniPose* pose, uint32_t bone);
 
     /// Sets a bone's local transform and marks the model matrices stale.
     /// A bone past the count is ignored.
@@ -76,7 +76,7 @@ extern "C"
     ///                   should be unit.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API void maniPoseSetLocal(maniPose* pose, uint32_t bone, maniTransform transform);
+    MANI_API void maniPose_SetLocal(maniPose* pose, uint32_t bone, maniTransform transform);
 
     /// Reads the local transforms of bones first to first + count - 1.
     ///
@@ -89,9 +89,9 @@ extern "C"
     /// range past the bone count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniPoseReadLocals(const maniPose* pose, uint32_t first,
-                                                          uint32_t count,
-                                                          maniTransform* transforms);
+    MANI_NODISCARD MANI_API maniResult maniPose_ReadLocals(const maniPose* pose, uint32_t first,
+                                                           uint32_t count,
+                                                           maniTransform* transforms);
 
     /// Writes the local transforms of bones first to first + count - 1
     /// and marks the model matrices stale.
@@ -105,9 +105,9 @@ extern "C"
     /// range past the bone count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniPoseWriteLocals(maniPose* pose, uint32_t first,
-                                                           uint32_t count,
-                                                           const maniTransform* transforms);
+    MANI_NODISCARD MANI_API maniResult maniPose_WriteLocals(maniPose* pose, uint32_t first,
+                                                            uint32_t count,
+                                                            const maniTransform* transforms);
 
     /// Sets every bone to the skeleton's rest and composes the model.
     ///
@@ -117,8 +117,8 @@ extern "C"
     /// skeleton of another identity.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniPoseSetRest(maniPose* pose,
-                                                       const maniSkeleton* skeleton);
+    MANI_NODISCARD MANI_API maniResult maniPose_SetRest(maniPose* pose,
+                                                        const maniSkeleton* skeleton);
 
     /// Composes every bone's model matrix: its parent's model matrix times
     /// its local transform's matrix (scale, then rotation, then
@@ -130,20 +130,20 @@ extern "C"
     /// skeleton of another identity or a difference (which has no model).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniComputeModel(maniPose* pose,
-                                                        const maniSkeleton* skeleton);
+    MANI_NODISCARD MANI_API maniResult maniPose_ComputeModel(maniPose* pose,
+                                                             const maniSkeleton* skeleton);
 
     /// Returns whether the model matrices match the local transforms: true
-    /// after maniComputeModel until a local is set.
+    /// after maniPose_ComputeModel until a local is set.
     ///
     /// @param pose  The pose.
     /// @return True when current.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API bool maniPoseModelCurrent(const maniPose* pose);
+    MANI_API bool maniPose_IsModelCurrent(const maniPose* pose);
 
     /// Returns whether the pose holds a difference: what
-    /// maniPoseDifference writes and additive layers apply, never mixed
+    /// maniSkeleton_ComputePoseDifference writes and additive layers apply, never mixed
     /// with poses of the skeleton. Making a pose, setting its rest and
     /// sampling a whole clip into it make it a pose of the skeleton.
     ///
@@ -151,7 +151,7 @@ extern "C"
     /// @return True for a difference.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API bool maniPoseIsDifference(const maniPose* pose);
+    MANI_API bool maniPose_IsDifference(const maniPose* pose);
 
     /// Returns a bone's model matrix as last composed.
     ///
@@ -160,7 +160,7 @@ extern "C"
     /// @return The matrix, or the identity for a bone past the count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API maniAffine maniPoseModel(const maniPose* pose, uint32_t bone);
+    MANI_API maniAffine maniPose_GetModel(const maniPose* pose, uint32_t bone);
 
     /// Reads the model matrices of bones first to first + count - 1, as
     /// last composed.
@@ -174,8 +174,8 @@ extern "C"
     /// range past the bone count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniPoseReadModels(const maniPose* pose, uint32_t first,
-                                                          uint32_t count, maniAffine* matrices);
+    MANI_NODISCARD MANI_API maniResult maniPose_ReadModels(const maniPose* pose, uint32_t first,
+                                                           uint32_t count, maniAffine* matrices);
 
     /// Splits an affine matrix into translation, rotation and scale: the
     /// fourth column, the rotation of the polar decomposition (the
@@ -203,7 +203,7 @@ extern "C"
     /// matrix that is not finite.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_API maniTransform maniPoseModelTransform(const maniPose* pose, uint32_t bone);
+    MANI_API maniTransform maniPose_GetModelTransform(const maniPose* pose, uint32_t bone);
 
 #ifdef __cplusplus
 }

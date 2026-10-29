@@ -116,7 +116,7 @@ static inline maniBuildResult Build(const maniLearnedModelSource* source)
     maniBuildResult r = maniBuildLearnedModel(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_model, sizeof s_model, &s_modelSize) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_model, sizeof s_model, &s_modelSize) == mani_success,
               "copied");
     }
     maniDestroyBuilder(builder);

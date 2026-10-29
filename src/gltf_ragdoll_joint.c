@@ -48,8 +48,8 @@ static maniImportResult Fail(const maniGltfRagdollReader* r, maniImportReason re
 // The body of the nearest bone above body's that has one, or UINT32_MAX.
 static uint32_t ParentBody(const maniGltfRagdollReader* r, uint32_t body)
 {
-    for (uint32_t bone = maniSkeletonParent(r->skeleton, r->bodies[body].bone);
-         bone != MANI_NO_BONE; bone = maniSkeletonParent(r->skeleton, bone))
+    for (uint32_t bone = maniSkeleton_GetParent(r->skeleton, r->bodies[body].bone);
+         bone != MANI_NO_BONE; bone = maniSkeleton_GetParent(r->skeleton, bone))
     {
         for (uint32_t j = 0; j < r->bodyCount; ++j)
         {

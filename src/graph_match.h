@@ -71,7 +71,7 @@ uint32_t maniGraphSavedMatchValid(const uint8_t* bytes, const maniGraph* g, uint
 typedef maniResult maniGraphChannelFn(const void* owner, uint32_t channel,
                                       maniMatchChannel* channelOut);
 
-// maniMotionDatabaseChannel, and maniLearnedModelChannel, as such.
+// maniMotionDatabase_GetChannel, and maniLearnedModel_GetChannel, as such.
 maniResult maniGraphDatabaseChannel(const void* database, uint32_t channel,
                                     maniMatchChannel* channelOut);
 maniResult maniGraphModelChannel(const void* model, uint32_t channel, maniMatchChannel* channelOut);

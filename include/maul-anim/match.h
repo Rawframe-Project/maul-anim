@@ -161,7 +161,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database);
+    MANI_API uint64_t maniMotionDatabase_GetIdentity(const maniMotionDatabase* database);
 
     /// Returns the identity of the mirror map a database's mirrored
     /// entries play through.
@@ -171,7 +171,7 @@ extern "C"
     /// entries, or NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMotionDatabaseMirrorMapIdentity(const maniMotionDatabase* database);
+    MANI_API uint64_t maniMotionDatabase_GetMirrorMapIdentity(const maniMotionDatabase* database);
 
     /// Returns the identity of the skeleton a database was built for.
     ///
@@ -179,7 +179,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMotionDatabaseSkeletonIdentity(const maniMotionDatabase* database);
+    MANI_API uint64_t maniMotionDatabase_GetSkeletonIdentity(const maniMotionDatabase* database);
 
     /// Returns the identity of a database's clip.
     ///
@@ -188,8 +188,8 @@ extern "C"
     /// @return The identity; 0 for NULL or an index past the clips.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMotionDatabaseClipIdentity(const maniMotionDatabase* database,
-                                                     uint32_t clip);
+    MANI_API uint64_t maniMotionDatabase_GetClipIdentity(const maniMotionDatabase* database,
+                                                         uint32_t clip);
 
     /// Reads a database's channel.
     ///
@@ -200,9 +200,8 @@ extern "C"
     /// an index past the channels.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database,
-                                                                 uint32_t channel,
-                                                                 maniMatchChannel* channelOut);
+    MANI_NODISCARD MANI_API maniResult maniMotionDatabase_GetChannel(
+        const maniMotionDatabase* database, uint32_t channel, maniMatchChannel* channelOut);
 
     /// Returns a float track channel's name.
     ///
@@ -213,8 +212,8 @@ extern "C"
     /// an index past the channels or a channel of another kind.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database,
-                                                       uint32_t channel, size_t* lengthOut);
+    MANI_API const char* maniMotionDatabase_GetChannelName(const maniMotionDatabase* database,
+                                                           uint32_t channel, size_t* lengthOut);
 
     /// Reads a database's entry.
     ///
@@ -225,9 +224,8 @@ extern "C"
     /// an index past the entries.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniMotionDatabaseEntry(const maniMotionDatabase* database,
-                                                               uint32_t entry,
-                                                               maniMatchEntry* entryOut);
+    MANI_NODISCARD MANI_API maniResult maniMotionDatabase_GetEntry(
+        const maniMotionDatabase* database, uint32_t entry, maniMatchEntry* entryOut);
 
     /// Finds a frame's entry and its clip time.
     ///
@@ -239,9 +237,8 @@ extern "C"
     /// a frame past the frames.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database,
-                                                               uint32_t frame, uint32_t* entryOut,
-                                                               float* timeOut);
+    MANI_NODISCARD MANI_API maniResult maniMotionDatabase_GetFrame(
+        const maniMotionDatabase* database, uint32_t frame, uint32_t* entryOut, float* timeOut);
 
     /// Reads a frame's features, normalized: (value - offset) / scale.
     /// Call it with a NULL array and capacity 0 to measure.
@@ -259,8 +256,8 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult
-    maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32_t frame,
-                               float* featuresOut, uint32_t capacity, uint32_t* countOut);
+    maniMotionDatabase_GetFeatures(const maniMotionDatabase* database, uint32_t frame,
+                                   float* featuresOut, uint32_t capacity, uint32_t* countOut);
 
     /// Reads a database's normalization: per feature, the offset taken
     /// from a value and the scale it is divided by. Call it with both
@@ -278,8 +275,8 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult
-    maniMotionDatabaseNormalization(const maniMotionDatabase* database, float* offsetsOut,
-                                    float* scalesOut, uint32_t capacity, uint32_t* countOut);
+    maniMotionDatabase_GetNormalization(const maniMotionDatabase* database, float* offsetsOut,
+                                        float* scalesOut, uint32_t capacity, uint32_t* countOut);
 
     // A search: the query's features (raw, the database's feature count),
     // the continuing frame (MANI_MATCH_NO_FRAME for none), the tags an
@@ -333,9 +330,9 @@ extern "C"
     /// continuing frame or pick past the frames.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniSearchMotionDatabase(const maniMotionDatabase* database,
-                                                                const maniMatchQuery* query,
-                                                                maniMatchResult* resultOut);
+    MANI_NODISCARD MANI_API maniResult maniMotionDatabase_Search(const maniMotionDatabase* database,
+                                                                 const maniMatchQuery* query,
+                                                                 maniMatchResult* resultOut);
 
 #ifdef __cplusplus
 }

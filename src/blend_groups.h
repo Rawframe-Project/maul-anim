@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-// maniBlendPoses and maniAddPoses over the groups of MANI_POSE_GROUP_BONES
+// maniSkeleton_BlendPoses and maniPose_AddLayers over the groups of MANI_POSE_GROUP_BONES
 // bones whose byte in groups is not 0 (every group when groups is NULL);
 // the other groups' bones are left as they were.
 maniResult maniBlendPosesIn(const maniSkeleton* skeleton, const maniBlendLayer* layers,

@@ -87,7 +87,7 @@ static void TestInlined(void)
 {
     maniGraph graph;
     CHECK(BuildText(s_builder).result == mani_success &&
-              maniCopyBuilt(s_builder, s_file, sizeof s_file, &s_size) == mani_success &&
+              maniBuilder_CopyBuilt(s_builder, s_file, sizeof s_file, &s_size) == mani_success &&
               maniOpenGraph(s_file, s_size, &graph).result == mani_success,
           "built and opened");
     CHECK(graph.clipCount == 3 && graph.databaseCount == 1 && graph.modelCount == 1 &&

@@ -75,7 +75,7 @@ static maniSkeleton OpenSkeleton(const maniBoneSource* bones, uint8_t* file, siz
     maniSkeletonSource source = {bones, kBones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, file, capacity, &size) == mani_success, "skeleton copies");
+    CHECK(maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success, "skeleton copies");
     maniDestroyBuilder(builder);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(file, size, &skeleton).result == mani_success, "skeleton opens");
@@ -91,7 +91,7 @@ static void RestInverseBinds(maniAffine inverseBinds[kJoints])
           "pose");
     for (uint32_t j = 0; j < kJoints; ++j)
     {
-        maniAffine model = maniPoseModel(pose, kJointBones[j]);
+        maniAffine model = maniPose_GetModel(pose, kJointBones[j]);
         CHECK(maniAffineInverse(&model, &inverseBinds[j]), "invertible");
     }
 }
@@ -104,7 +104,8 @@ static void BuildSample(void)
     maniBuilder* builder = NewBuilder();
     maniSkinSource source = {&s_skeleton, kJointBones, inverseBinds, kJoints};
     CHECK(maniBuildSkin(builder, &source).result == mani_success, "skin builds");
-    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "skin copies");
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+          "skin copies");
     maniDestroyBuilder(builder);
 }
 
@@ -119,14 +120,14 @@ static void TestOpensAndReads(void)
     BuildSample();
     maniSkin skin;
     CHECK(maniOpenSkin(s_file, s_size, &skin).result == mani_success, "opens");
-    CHECK(maniSkinJointCount(&skin) == kJoints, "count");
-    CHECK(maniSkinSkeletonIdentity(&skin) == maniSkeletonIdentity(&s_skeleton), "bound");
+    CHECK(maniSkin_GetJointCount(&skin) == kJoints, "count");
+    CHECK(maniSkin_GetSkeletonIdentity(&skin) == maniSkeleton_GetIdentity(&s_skeleton), "bound");
     for (uint32_t j = 0; j < kJoints; ++j)
     {
-        CHECK(maniSkinJoint(&skin, j) == kJointBones[j], "joint");
+        CHECK(maniSkin_GetJoint(&skin, j) == kJointBones[j], "joint");
     }
-    CHECK(maniSkinJoint(&skin, kJoints) == MANI_NO_BONE, "joint past");
-    maniAffine past = maniSkinInverseBind(&skin, kJoints);
+    CHECK(maniSkin_GetJoint(&skin, kJoints) == MANI_NO_BONE, "joint past");
+    maniAffine past = maniSkin_GetInverseBind(&skin, kJoints);
     CHECK(past.m[0] == 1.0f && past.m[4] == 1.0f && past.m[9] == 0.0f, "identity past");
 }
 
@@ -140,7 +141,8 @@ static void TestPaletteAtBindIsIdentity(void)
           "pose");
     maniAffine palette[kJoints];
     uint32_t count = 0;
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, &count) == mani_success,
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, palette, kJoints, &count) ==
+              mani_success,
           "palette");
     CHECK(count == kJoints, "count");
     static const float identity[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
@@ -161,39 +163,43 @@ static void TestPaletteIsModelTimesInverseBind(void)
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
           "pose");
-    maniPoseSetLocal(
+    maniPose_SetLocal(
         pose, 1,
         (maniTransform){{0.1f, 0.6f, -0.2f}, {0.0f, 0.0f, 0.6f, 0.8f}, {1.2f, 0.8f, 1.0f}});
     maniAffine palette[kJoints];
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_errorInvalid,
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) ==
+              mani_errorInvalid,
           "stale model");
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "composes");
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success, "composes");
     // A difference has no model to skin with, even one left current.
     maniPoseSetKind(pose, true);
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_errorInvalid,
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) ==
+              mani_errorInvalid,
           "a difference");
     maniPoseSetKind(pose, false);
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_success,
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, palette, kJoints, NULL) == mani_success,
           "palette");
     for (uint32_t j = 0; j < kJoints; ++j)
     {
-        maniAffine model = maniPoseModel(pose, kJointBones[j]);
-        maniAffine inverseBind = maniSkinInverseBind(&skin, j);
+        maniAffine model = maniPose_GetModel(pose, kJointBones[j]);
+        maniAffine inverseBind = maniSkin_GetInverseBind(&skin, j);
         maniAffine expected = maniAffineMul(&model, &inverseBind);
         CHECK(memcmp(&expected, &palette[j], sizeof expected) == 0, "model times inverse bind");
     }
     uint32_t count = 0;
     maniAffine three[kJoints - 1];
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, three, kJoints - 1, &count) ==
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, three, kJoints - 1, &count) ==
                   mani_errorCapacity &&
               count == kJoints,
           "one short");
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, palette, 2, &count) == mani_errorCapacity &&
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, palette, 2, &count) ==
+                  mani_errorCapacity &&
               count == kJoints,
           "short array");
-    CHECK(maniComputePalette(pose, &s_skeleton, &skin, NULL, 0, &count) == mani_errorCapacity,
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, &skin, NULL, 0, &count) == mani_errorCapacity,
           "count only");
-    CHECK(maniComputePalette(pose, &s_skeleton, NULL, palette, kJoints, NULL) == mani_errorInvalid,
+    CHECK(maniPose_ComputePalette(pose, &s_skeleton, NULL, palette, kJoints, NULL) ==
+              mani_errorInvalid,
           "null skin");
 
     // Another skeleton: the same bones with one rest moved.
@@ -201,12 +207,13 @@ static void TestPaletteIsModelTimesInverseBind(void)
     memcpy(moved, kBonesSource, sizeof moved);
     moved[5].rest.translation.x = 0.5f;
     maniSkeleton other = OpenSkeleton(moved, s_otherFile, sizeof s_otherFile);
-    CHECK(maniComputePalette(pose, &other, &skin, palette, kJoints, NULL) == mani_errorInvalid,
+    CHECK(maniPose_ComputePalette(pose, &other, &skin, palette, kJoints, NULL) == mani_errorInvalid,
           "the pose's skeleton is not this one");
     static _Alignas(32) uint8_t otherPose[4096];
     maniPose* second = NULL;
     CHECK(maniInitPose(&other, otherPose, sizeof otherPose, &second) == mani_success, "pose");
-    CHECK(maniComputePalette(second, &other, &skin, palette, kJoints, NULL) == mani_errorInvalid,
+    CHECK(maniPose_ComputePalette(second, &other, &skin, palette, kJoints, NULL) ==
+              mani_errorInvalid,
           "the skin's skeleton is not this one");
 }
 
@@ -241,7 +248,7 @@ static void TestBuildRefusals(void)
     CHECK(maniBuildSkin(builder, NULL).result == mani_errorInvalid, "null source");
     maniSkinSource noSkeleton = {NULL, kJointBones, binds, kJoints};
     CHECK(maniBuildSkin(builder, &noSkeleton).result == mani_errorInvalid, "null skeleton");
-    CHECK(maniBuilderMisuses(builder) == 2, "two misuses");
+    CHECK(maniBuilder_GetMisuse(builder) == 2, "two misuses");
     maniDestroyBuilder(builder);
 }
 

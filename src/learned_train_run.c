@@ -286,8 +286,8 @@ static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, ui
     return r;
 }
 
-maniResult maniTrainLearned(maniLearnedTrainer* trainer, uint64_t iterations,
-                            maniLearnedTrainerReport* reportOut)
+maniResult maniLearnedTrainer_Train(maniLearnedTrainer* trainer, uint64_t iterations,
+                                    maniLearnedTrainerReport* reportOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = TrainLearnedWork(trainer, iterations, reportOut);

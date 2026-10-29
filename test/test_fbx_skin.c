@@ -124,8 +124,9 @@ static bool Skeleton(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpti
                      maniSkeleton* out)
 {
     size_t size = 0;
-    return maniFbxBuildSkeleton(builder, fbx, 0, options).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+    return maniBuildFbxSkeleton(builder, fbx, 0, options).result == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
@@ -162,35 +163,39 @@ static void TestBinds(void)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniFbxSkinModel(fbx, 0) == 0 && maniFbxSkinModel(fbx, 1) == UINT32_MAX &&
-              maniFbxSkinModel(fbx, 2) == UINT32_MAX && maniFbxSkinModel(fbx, 3) == UINT32_MAX &&
-              maniFbxSkinModel(fbx, 4) == UINT32_MAX && maniFbxSkinModel(NULL, 0) == UINT32_MAX,
+    CHECK(maniFbx_GetSkinModel(fbx, 0) == 0 && maniFbx_GetSkinModel(fbx, 1) == UINT32_MAX &&
+              maniFbx_GetSkinModel(fbx, 2) == UINT32_MAX &&
+              maniFbx_GetSkinModel(fbx, 3) == UINT32_MAX &&
+              maniFbx_GetSkinModel(fbx, 4) == UINT32_MAX &&
+              maniFbx_GetSkinModel(NULL, 0) == UINT32_MAX,
           "each skin's mesh model: through a geometry only, and only one");
-    maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
+    maniImportResult r = maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options);
     size_t size = 0;
     maniSkin skin;
     CHECK(r.result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) ==
+                  mani_success &&
               maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
           "builds the skin");
-    uint32_t hips = maniSkeletonFindBone(&skeleton, "Hips", 4);
-    uint32_t spine = maniSkeletonFindBone(&skeleton, "Spine", 5);
-    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
-    CHECK(maniSkinJointCount(&skin) == 4 && maniSkinJoint(&skin, 0) == hips &&
-              maniSkinJoint(&skin, 1) == spine && maniSkinJoint(&skin, 2) == arm &&
-              maniSkinJoint(&skin, 3) == hips,
+    uint32_t hips = maniSkeleton_FindBone(&skeleton, "Hips", 4);
+    uint32_t spine = maniSkeleton_FindBone(&skeleton, "Spine", 5);
+    uint32_t arm = maniSkeleton_FindBone(&skeleton, "Arm", 3);
+    CHECK(maniSkin_GetJointCount(&skin) == 4 && maniSkin_GetJoint(&skin, 0) == hips &&
+              maniSkin_GetJoint(&skin, 1) == spine && maniSkin_GetJoint(&skin, 2) == arm &&
+              maniSkin_GetJoint(&skin, 3) == hips,
           "joints in cluster order, the unlinked one skipped, Hips twice");
     // G = T(0 0 1) S(2); the mesh at z 2.
-    maniAffine b0 = maniSkinInverseBind(&skin, 0);
-    maniAffine b1 = maniSkinInverseBind(&skin, 1);
-    maniAffine b2 = maniSkinInverseBind(&skin, 2);
-    maniAffine b3 = maniSkinInverseBind(&skin, 3);
+    maniAffine b0 = maniSkin_GetInverseBind(&skin, 0);
+    maniAffine b1 = maniSkin_GetInverseBind(&skin, 1);
+    maniAffine b2 = maniSkin_GetInverseBind(&skin, 2);
+    maniAffine b3 = maniSkin_GetInverseBind(&skin, 3);
     CHECK(IsBind(&b0, 2, 0, -1, -1), "Transform times G");
-    CHECK(maniFbxBuildSkin(builder, fbx, 1, &skeleton, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+    CHECK(maniBuildFbxSkin(builder, fbx, 1, &skeleton, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) ==
+                  mani_success &&
               maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
           "a skin with no mesh");
-    maniAffine lone = maniSkinInverseBind(&skin, 0);
+    maniAffine lone = maniSkin_GetInverseBind(&skin, 0);
     CHECK(IsBind(&lone, 1, -5, 0, 0), "a lone TransformLink unread, relative to the origin");
     CHECK(IsBind(&b1, 2, 0, -3, 3), "TransformLink inverted, the mesh at rest, G");
     CHECK(IsBind(&b2, 2, -5, 0, 3), "the bind pose's matrix");
@@ -198,11 +203,12 @@ static void TestBinds(void)
     // In metres: translations a hundredth.
     options.unitMeters = 1.0;
     CHECK(Skeleton(builder, fbx, &options, &skeleton) &&
-              maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) ==
+                  mani_success &&
               maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
           "builds in metres");
-    b0 = maniSkinInverseBind(&skin, 0);
+    b0 = maniSkin_GetInverseBind(&skin, 0);
     CHECK(IsBind(&b0, 2, 0, -0.01f, -0.01f), "a bind in metres");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -232,14 +238,15 @@ static void TestSix(void)
     maniSkeleton skeleton;
     size_t size = 0;
     maniSkin skin;
-    CHECK(fbx != NULL && maniFbxSkinModel(fbx, 0) == 1 &&
+    CHECK(fbx != NULL && maniFbx_GetSkinModel(fbx, 0) == 1 &&
               Skeleton(builder, fbx, &options, &skeleton) &&
-              maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) ==
+                  mani_success &&
               maniOpenSkin(s_skinFile, size, &skin).result == mani_success,
           "a 6.x skin on its mesh model");
-    maniAffine b = maniSkinInverseBind(&skin, 0);
-    CHECK(maniSkinJointCount(&skin) == 1 && IsBind(&b, 1, 4, 0, 0), "plain matrices");
+    maniAffine b = maniSkin_GetInverseBind(&skin, 0);
+    CHECK(maniSkin_GetJointCount(&skin) == 1 && IsBind(&b, 1, 4, 0, 0), "plain matrices");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -265,7 +272,7 @@ static void ExpectSkinRefusal(uint32_t skinIndex, maniImportReason reason, const
         maniDestroyBuilder(builder);
         return;
     }
-    maniImportResult r = maniFbxBuildSkin(builder, fbx, skinIndex, &skeleton, &options);
+    maniImportResult r = maniBuildFbxSkin(builder, fbx, skinIndex, &skeleton, &options);
     bool right = r.result == mani_errorFormat && r.reason == reason &&
                  r.offset == (uint64_t)(strstr(s_text, at) - s_text) && r.item == skinIndex;
     CHECK(right, what);
@@ -292,11 +299,12 @@ static bool FirstBind(float x, float y, float z)
     maniSkeleton skeleton;
     size_t size = 0;
     maniSkin skin;
-    bool right = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
-                 maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
-                 maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
-                 maniOpenSkin(s_skinFile, size, &skin).result == mani_success;
-    maniAffine b = right ? maniSkinInverseBind(&skin, 0) : maniIdentityAffineForTest();
+    bool right =
+        fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
+        maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+        maniOpenSkin(s_skinFile, size, &skin).result == mani_success;
+    maniAffine b = right ? maniSkin_GetInverseBind(&skin, 0) : maniIdentityAffineForTest();
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
     return right && IsBind(&b, 2, x, y, z);
@@ -334,22 +342,22 @@ static void TestRefusals(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     size_t size = 0;
     maniSkeleton skeleton;
-    CHECK(maniFbxBuildModelSkeleton(builder, fbx, 2, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+    CHECK(maniBuildFbxModelSkeleton(builder, fbx, 2, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success,
           "Spine's subtree");
-    maniImportResult r = maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options);
+    maniImportResult r = maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBone &&
               r.offset == (uint64_t)(strstr(kScene, "Deformer: 41") - kScene) && r.item == 0,
           "a joint the skeleton lacks");
     maniFbxOptions bad = options;
     bad.unitMeters = -1;
-    CHECK(maniFbxBuildSkin(builder, fbx, 4, &skeleton, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkin(builder, fbx, 0, NULL, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkin(builder, NULL, 0, &skeleton, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkin(NULL, fbx, 0, &skeleton, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkin(builder, fbx, 0, &skeleton, &bad).result == mani_errorInvalid,
+    CHECK(maniBuildFbxSkin(builder, fbx, 4, &skeleton, &options).result == mani_errorInvalid &&
+              maniBuildFbxSkin(builder, fbx, 0, NULL, &options).result == mani_errorInvalid &&
+              maniBuildFbxSkin(builder, NULL, 0, &skeleton, &options).result == mani_errorInvalid &&
+              maniBuildFbxSkin(NULL, fbx, 0, &skeleton, &options).result == mani_errorInvalid &&
+              maniBuildFbxSkin(builder, fbx, 0, &skeleton, &bad).result == mani_errorInvalid,
           "misuses");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);

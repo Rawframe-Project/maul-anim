@@ -66,7 +66,8 @@ static void OpenSkin(void)
     maniSkeletonSource source = {kSkeletonBones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                  mani_success,
           "skeleton");
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
     const uint32_t joints[kJoints] = {1, 2, 3, 4, 5};
@@ -77,7 +78,7 @@ static void OpenSkin(void)
     }
     maniSkinSource skin = {&s_skeleton, joints, binds, kJoints};
     CHECK(maniBuildSkin(builder, &skin).result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success,
           "skin");
     CHECK(maniOpenSkin(s_skinFile, size, &s_skin).result == mani_success, "skin opens");
     maniDestroyBuilder(builder);
@@ -89,7 +90,8 @@ static maniBuildResult BuildFrom(const maniInfluenceSource* source)
     maniBuildResult r = maniBuildInfluences(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+              "copies");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -126,9 +128,9 @@ static void TestBuildsAndReads(void)
     BuildSample();
     maniInfluences v;
     CHECK(maniOpenInfluences(s_file, s_size, &v).result == mani_success, "opens");
-    CHECK(maniInfluencesVertexCount(&v) == 4 && maniInfluencesPerVertex(&v) == 8,
+    CHECK(maniInfluences_GetVertexCount(&v) == 4 && maniInfluences_GetPerVertex(&v) == 8,
           "four vertices, two groups");
-    CHECK(maniInfluencesFitSkin(&v, &s_skin), "bound to its skin");
+    CHECK(maniInfluences_IsSkinFit(&v, &s_skin), "bound to its skin");
     // Vertex 0: 0.6 (joint 1), 0.4 (0), 0.2 (4), 0.1 (3), 0.05 (2).
     const uint32_t joints[5] = {1, 0, 4, 3, 2};
     const float weights[5] = {0.6f, 0.4f, 0.2f, 0.1f, 0.05f};
@@ -142,7 +144,7 @@ static void TestBuildsAndReads(void)
     for (uint32_t k = 0; k < 8; ++k)
     {
         float w = 0.0f;
-        uint32_t j = maniInfluence(&v, 0, k, &w);
+        uint32_t j = maniInfluences_GetInfluence(&v, 0, k, &w);
         double want = k < 5 ? (double)weights[k] / total : 0.0;
         sorted = sorted && j == (k < 5 ? joints[k] : 0) && w == (float)want;
         sum += (double)w;
@@ -150,30 +152,32 @@ static void TestBuildsAndReads(void)
     CHECK(sorted, "sorted by weight, renormalized, padded with joint 0 at 0");
     CHECK(fabs(sum - 1.0) < 1e-6, "summing to 1");
     float w = 0.0f;
-    CHECK(maniInfluence(&v, 1, 0, &w) == 4 && w == 1.0f, "one influence: weight 1");
-    CHECK(maniInfluence(&v, 2, 0, &w) == 0 && w == 0.0f, "none weighted: all 0");
-    CHECK(maniInfluence(&v, 3, 0, &w) == 1 && w == 0.5f && maniInfluence(&v, 3, 1, NULL) == 3,
+    CHECK(maniInfluences_GetInfluence(&v, 1, 0, &w) == 4 && w == 1.0f, "one influence: weight 1");
+    CHECK(maniInfluences_GetInfluence(&v, 2, 0, &w) == 0 && w == 0.0f, "none weighted: all 0");
+    CHECK(maniInfluences_GetInfluence(&v, 3, 0, &w) == 1 && w == 0.5f &&
+              maniInfluences_GetInfluence(&v, 3, 1, NULL) == 3,
           "equal weights: the lower joint first");
-    CHECK(maniInfluence(&v, 4, 0, &w) == 0 && w == 0.0f && maniInfluence(&v, 0, 8, &w) == 0 &&
-              w == 0.0f,
+    CHECK(maniInfluences_GetInfluence(&v, 4, 0, &w) == 0 && w == 0.0f &&
+              maniInfluences_GetInfluence(&v, 0, 8, &w) == 0 && w == 0.0f,
           "past the vertices or slots: joint 0 at 0");
-    CHECK(maniInfluencesDualQuaternionWeight(&v, 2) == 0.25f &&
-              maniInfluencesDualQuaternionWeight(&v, 4) == 0.0f &&
-              maniInfluencesDualQuaternionWeight(&v, UINT32_MAX) == 0.0f,
+    CHECK(maniInfluences_GetDualQuaternionWeight(&v, 2) == 0.25f &&
+              maniInfluences_GetDualQuaternionWeight(&v, 4) == 0.0f &&
+              maniInfluences_GetDualQuaternionWeight(&v, UINT32_MAX) == 0.0f,
           "blend weights; 0 past the vertices");
     maniVec3 center;
-    CHECK(!maniInfluencesCenter(&v, 0, &center), "no centers yet");
+    CHECK(!maniInfluences_GetCenter(&v, 0, &center), "no centers yet");
     maniInfluenceSource plain = Sample();
     plain.dualQuaternionWeights = NULL;
     plain.vertexCount = 2;
     CHECK(BuildFrom(&plain).result == mani_success, "one group");
     CHECK(maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
-              maniInfluencesPerVertex(&v) == 8 && maniInfluencesDualQuaternionWeight(&v, 1) == 0.0f,
+              maniInfluences_GetPerVertex(&v) == 8 &&
+              maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.0f,
           "no blend weights: 0");
     // Another skin: a skin of the same joints and other binds.
     maniSkin other = s_skin;
     other.identity ^= 1;
-    CHECK(!maniInfluencesFitSkin(&v, &other), "not another skin");
+    CHECK(!maniInfluences_IsSkinFit(&v, &other), "not another skin");
 }
 
 // A vertex of exactly four influences takes one group, not two.
@@ -190,7 +194,7 @@ static void TestWholeGroup(void)
     maniInfluences v;
     CHECK(BuildFrom(&source).result == mani_success &&
               maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
-              maniInfluencesPerVertex(&v) == 4,
+              maniInfluences_GetPerVertex(&v) == 4,
           "four influences: one group");
 }
 
@@ -393,8 +397,8 @@ static void TestOpenRefusals(void)
     maniInfluences v;
     maniVec3 center;
     CHECK(maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
-              maniInfluencesCenter(&v, 2, &center) && center.y == 2.0f &&
-              !maniInfluencesCenter(&v, 4, &center),
+              maniInfluences_GetCenter(&v, 2, &center) && center.y == 2.0f &&
+              !maniInfluences_GetCenter(&v, 4, &center),
           "centers read");
     centers[7] = INFINITY;
     Craft(maniInfluenceTagCenters, centers, sizeof centers);

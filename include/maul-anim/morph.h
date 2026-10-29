@@ -83,7 +83,7 @@ extern "C"
     /// @return The vertex count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphVertexCount(const maniMorphTargets* targets);
+    MANI_API uint32_t maniMorphTargets_GetVertexCount(const maniMorphTargets* targets);
 
     /// Returns the number of channels, each weighted by its own value.
     ///
@@ -91,7 +91,7 @@ extern "C"
     /// @return The channel count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphChannelCount(const maniMorphTargets* targets);
+    MANI_API uint32_t maniMorphTargets_GetChannelCount(const maniMorphTargets* targets);
 
     /// Returns the number of targets over all channels, in channel order.
     ///
@@ -99,7 +99,7 @@ extern "C"
     /// @return The target count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphTargetCount(const maniMorphTargets* targets);
+    MANI_API uint32_t maniMorphTargets_GetTargetCount(const maniMorphTargets* targets);
 
     /// Returns the number of attributes the targets move.
     ///
@@ -107,7 +107,7 @@ extern "C"
     /// @return The attribute count, at most MANI_MAX_MORPH_ATTRIBUTES.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphAttributeCount(const maniMorphTargets* targets);
+    MANI_API uint32_t maniMorphTargets_GetAttributeCount(const maniMorphTargets* targets);
 
     /// Returns one of the attributes the targets move.
     ///
@@ -118,8 +118,8 @@ extern "C"
     /// @return Its semantic; UINT32_MAX (and set 0) past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets,
-                                                  uint32_t attribute, uint32_t* setOut);
+    MANI_API maniMorphSemantic maniMorphTargets_GetAttribute(const maniMorphTargets* targets,
+                                                             uint32_t attribute, uint32_t* setOut);
 
     /// Returns a channel's name, UTF-8 and not terminated.
     ///
@@ -131,8 +131,8 @@ extern "C"
     /// past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
-                                              size_t* lengthOut);
+    MANI_API const char* maniMorphTargets_GetChannelName(const maniMorphTargets* targets,
+                                                         uint32_t channel, size_t* lengthOut);
 
     /// Finds a channel by its name, in time linear in the channels.
     ///
@@ -143,8 +143,8 @@ extern "C"
     /// @return The channel, or MANI_NO_CHANNEL when none has that name.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name,
-                                           size_t length);
+    MANI_API uint32_t maniMorphTargets_FindChannel(const maniMorphTargets* targets,
+                                                   const char* name, size_t length);
 
     /// Returns a target's name, UTF-8 and not terminated: the one it was
     /// built with, else its channel's, followed by '/' and its index
@@ -159,8 +159,8 @@ extern "C"
     /// past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target,
-                                             size_t* lengthOut);
+    MANI_API const char* maniMorphTargets_GetTargetName(const maniMorphTargets* targets,
+                                                        uint32_t target, size_t* lengthOut);
 
     /// Finds a target by its name, in time linear in the targets: the
     /// first of that name.
@@ -172,8 +172,8 @@ extern "C"
     /// @return The target, or MANI_NO_CHANNEL when none has that name.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name,
-                                          size_t length);
+    MANI_API uint32_t maniMorphTargets_FindTarget(const maniMorphTargets* targets, const char* name,
+                                                  size_t length);
 
     /// Returns a channel's targets: the first's index and their count.
     ///
@@ -183,8 +183,8 @@ extern "C"
     /// @return The number of targets, 0 for a channel past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMorphChannelTargets(const maniMorphTargets* targets, uint32_t channel,
-                                              uint32_t* firstOut);
+    MANI_API uint32_t maniMorphTargets_GetChannelTargets(const maniMorphTargets* targets,
+                                                         uint32_t channel, uint32_t* firstOut);
 
     /// Returns the channel weight at which a target applies in full.
     ///
@@ -193,7 +193,8 @@ extern "C"
     /// @return The full weight; 0 for a target past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API float maniMorphTargetFullWeight(const maniMorphTargets* targets, uint32_t target);
+    MANI_API float maniMorphTargets_GetTargetFullWeight(const maniMorphTargets* targets,
+                                                        uint32_t target);
 
     /// Turns channel weights into target weights, for the job or a
     /// shader: within each channel, the weight walks linearly from an
@@ -214,11 +215,9 @@ extern "C"
     /// a positive capacity, or a weight not finite (nothing written).
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniMorphTargetWeights(const maniMorphTargets* targets,
-                                                              const float* channelWeights,
-                                                              float* targetWeightsOut,
-                                                              uint32_t capacity,
-                                                              uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniResult maniMorphTargets_ComputeTargetWeights(
+        const maniMorphTargets* targets, const float* channelWeights, float* targetWeightsOut,
+        uint32_t capacity, uint32_t* countOut);
 
     // A vertex stream a morph job moves: an attribute's floats at in,
     // written at out; strides in bytes between vertices, at least 4 times
@@ -242,7 +241,7 @@ extern "C"
     typedef struct maniMorphJob
     {
         const maniMorphTargets* targets;
-        // A weight a target (maniMorphTargetWeights), finite.
+        // A weight a target (maniMorphTargets_ComputeTargetWeights), finite.
         const float* weights;
         uint32_t first;
         uint32_t count;

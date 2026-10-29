@@ -61,7 +61,7 @@ static bool SameSections(const uint8_t* a, size_t aSize, const uint8_t* b, size_
 
 static void Exercise(const uint8_t* bytes, size_t size)
 {
-    if (maniRestoreLearnedCheckpoint(s_trainer, bytes, size).result != mani_success)
+    if (maniLearnedTrainer_RestoreCheckpoint(s_trainer, bytes, size).result != mani_success)
     {
         return;
     }
@@ -74,14 +74,14 @@ static void Exercise(const uint8_t* bytes, size_t size)
         return;
     }
     uint8_t* again = block + (16 - (uintptr_t)block % 16) % 16;
-    if (maniSaveLearnedCheckpoint(s_trainer, again, saved, NULL) != mani_success ||
+    if (maniLearnedTrainer_SaveCheckpoint(s_trainer, again, saved, NULL) != mani_success ||
         !SameSections(bytes, size, again, saved))
     {
         abort();
     }
     free(block);
     maniLearnedTrainerReport report;
-    if (maniTrainLearned(s_trainer, 2, &report) != mani_success)
+    if (maniLearnedTrainer_Train(s_trainer, 2, &report) != mani_success)
     {
         abort();
     }

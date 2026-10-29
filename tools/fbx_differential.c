@@ -58,7 +58,7 @@ bool Copy(maniBuilder* builder, Blob* blob)
 {
     Release(blob);
     size_t size = 0;
-    (void)maniCopyBuilt(builder, NULL, 0, &size);
+    (void)maniBuilder_CopyBuilt(builder, NULL, 0, &size);
     blob->raw = malloc(size + 64);
     if (blob->raw == NULL)
     {
@@ -66,7 +66,7 @@ bool Copy(maniBuilder* builder, Blob* blob)
     }
     blob->data = (void*)(((uintptr_t)blob->raw + 63) & ~(uintptr_t)63);
     blob->size = size;
-    return maniCopyBuilt(builder, blob->data, size, &size) == mani_success;
+    return maniBuilder_CopyBuilt(builder, blob->data, size, &size) == mani_success;
 }
 
 static void* ReadFile(const char* path, size_t* size)
@@ -157,7 +157,7 @@ static void OurWorld(const maniAffine* placement, const maniPose* pose, uint32_t
 {
     double p[12];
     double m[12];
-    maniAffine model = maniPoseModel(pose, bone);
+    maniAffine model = maniPose_GetModel(pose, bone);
     FromAffine(placement, p);
     FromAffine(&model, m);
     Compose(p, m, out);
@@ -239,16 +239,16 @@ static void CompareWorlds(Context* c, const char* kind, uint32_t index, double t
                           const maniSkeleton* skeleton, const maniAffine* placement, maniPose* pose,
                           const ufbx_scene* scene)
 {
-    if (maniComputeModel(pose, skeleton) != mani_success)
+    if (maniPose_ComputeModel(pose, skeleton) != mani_success)
     {
         Mismatch(c, kind, "%u t=%g: no model matrices", index, time);
         return;
     }
-    uint32_t n = maniSkeletonBoneCount(skeleton);
+    uint32_t n = maniSkeleton_GetBoneCount(skeleton);
     for (uint32_t b = 0; b < n; ++b)
     {
         size_t length = 0;
-        const char* name = maniSkeletonBoneName(skeleton, b, &length);
+        const char* name = maniSkeleton_GetBoneName(skeleton, b, &length);
         ufbx_node* node = ufbx_find_node_len(scene, name, length);
         if (node != NULL)
         {
@@ -262,12 +262,12 @@ static void CompareWorlds(Context* c, const char* kind, uint32_t index, double t
 // A pose of a skeleton in aligned memory of its own (free raw after).
 maniPose* NewPose(const maniSkeleton* skeleton, void** raw)
 {
-    size_t size = maniPoseSize(skeleton);
+    size_t size = maniSkeleton_GetPoseSize(skeleton);
     *raw = malloc(size + 64);
     maniPose* pose = NULL;
     void* memory = *raw != NULL ? (void*)(((uintptr_t)*raw + 63) & ~(uintptr_t)63) : NULL;
     if (memory == NULL || maniInitPose(skeleton, memory, size, &pose) != mani_success ||
-        maniPoseSetRest(pose, skeleton) != mani_success)
+        maniPose_SetRest(pose, skeleton) != mani_success)
     {
         return NULL;
     }
@@ -300,7 +300,7 @@ static bool CompareOpen(Context* c, const void* bytes, size_t size)
 static void CompareRate(Context* c)
 {
     maniFbxSettings s;
-    if (maniFbxReadSettings(c->fbx, &s) != mani_success)
+    if (maniFbx_ReadSettings(c->fbx, &s) != mani_success)
     {
         Mismatch(c, "rate", "settings unread");
         return;
@@ -324,13 +324,13 @@ static void CompareRate(Context* c)
 // subtrees.
 static void FindSources(Context* c)
 {
-    c->sourceCount = maniFbxSkeletonCount(c->fbx);
+    c->sourceCount = maniFbx_GetSkeletonCount(c->fbx);
     c->byModel = c->sourceCount == 0;
-    uint32_t n = c->byModel ? maniFbxModelCount(c->fbx) : 0;
+    uint32_t n = c->byModel ? maniFbx_GetModelCount(c->fbx) : 0;
     for (uint32_t m = 0; m < n && c->sourceCount < kMaxRoots; ++m)
     {
         size_t length = 0;
-        const char* name = maniFbxModelBoneName(c->fbx, m, &length);
+        const char* name = maniFbx_GetModelBoneName(c->fbx, m, &length);
         ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
         if (node != NULL && node->parent == c->scene->root_node)
         {
@@ -348,16 +348,16 @@ static uint32_t SourceIndex(const Context* c, uint32_t s)
 maniImportResult Placement(const Context* c, uint32_t s, const maniFbxOptions* options,
                            maniAffine* out)
 {
-    return c->byModel ? maniFbxModelPlacement(c->fbx, c->roots[s], options, out)
-                      : maniFbxSkeletonPlacement(c->fbx, s, options, out);
+    return c->byModel ? maniFbx_GetModelPlacement(c->fbx, c->roots[s], options, out)
+                      : maniFbx_GetSkeletonPlacement(c->fbx, s, options, out);
 }
 
 static bool BuildSkeleton(Context* c, uint32_t s, const maniFbxOptions* options, maniSkeleton* out,
                           Blob* blob)
 {
     maniImportResult r = c->byModel
-                             ? maniFbxBuildModelSkeleton(c->builder, c->fbx, c->roots[s], options)
-                             : maniFbxBuildSkeleton(c->builder, c->fbx, s, options);
+                             ? maniBuildFbxModelSkeleton(c->builder, c->fbx, c->roots[s], options)
+                             : maniBuildFbxSkeleton(c->builder, c->fbx, s, options);
     if (r.result != mani_success || !Copy(c->builder, blob) ||
         maniOpenSkeleton(blob->data, blob->size, out).result != mani_success)
     {
@@ -442,9 +442,10 @@ static bool Meshless(const ufbx_scene* scene, const ufbx_skin_deformer* skin)
 // there (no model, or a model without a mesh).
 static const ufbx_node* SkinMesh(const Context* c, uint32_t k)
 {
-    uint32_t model = maniFbxSkinModel(c->fbx, k);
+    uint32_t model = maniFbx_GetSkinModel(c->fbx, k);
     size_t length = 0;
-    const char* name = model != UINT32_MAX ? maniFbxModelBoneName(c->fbx, model, &length) : NULL;
+    const char* name =
+        model != UINT32_MAX ? maniFbx_GetModelBoneName(c->fbx, model, &length) : NULL;
     const ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
     return node != NULL && node->mesh != NULL ? node : NULL;
 }
@@ -526,13 +527,13 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
 {
     const ufbx_node* mesh = NULL;
     ufbx_skin_deformer* theirs = TheirSkin(c, k, &mesh);
-    uint32_t n = maniSkinJointCount(skin);
+    uint32_t n = maniSkin_GetJointCount(skin);
     for (uint32_t j = 0; theirs != NULL && j < n; ++j)
     {
         size_t length = 0;
-        const char* name = maniSkeletonBoneName(skeleton, maniSkinJoint(skin, j), &length);
+        const char* name = maniSkeleton_GetBoneName(skeleton, maniSkin_GetJoint(skin, j), &length);
         ufbx_skin_cluster* cluster = TheirCluster(theirs, j);
-        maniAffine bind = maniSkinInverseBind(skin, j);
+        maniAffine bind = maniSkin_GetInverseBind(skin, j);
         double ours[12];
         double expected[12];
         bool same = cluster != NULL && length == cluster->bone_node->name.length &&
@@ -566,10 +567,10 @@ static void CompareBinds(Context* c, uint32_t k, const maniSkin* skin, const man
 
 static void CompareSkins(Context* c)
 {
-    uint32_t n = maniFbxSkinCount(c->fbx);
+    uint32_t n = maniFbx_GetSkinCount(c->fbx);
     for (uint32_t k = 0; k < n; ++k)
     {
-        uint32_t s = maniFbxSkinSkeleton(c->fbx, k);
+        uint32_t s = maniFbx_GetSkinSkeleton(c->fbx, k);
         maniSkeleton skeleton;
         Blob skeletonBlob = {NULL, NULL, 0};
         Blob skinBlob = {NULL, NULL, 0};
@@ -577,7 +578,7 @@ static void CompareSkins(Context* c)
         maniSkin skin;
         bool built =
             s != UINT32_MAX && BuildSkeleton(c, s, &options, &skeleton, &skeletonBlob) &&
-            maniFbxBuildSkin(c->builder, c->fbx, k, &skeleton, &options).result == mani_success &&
+            maniBuildFbxSkin(c->builder, c->fbx, k, &skeleton, &options).result == mani_success &&
             Copy(c->builder, &skinBlob) &&
             maniOpenSkin(skinBlob.data, skinBlob.size, &skin).result == mani_success;
         if (built)
@@ -711,21 +712,21 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
                         double stackTime)
 {
     const maniSkeleton* skeleton = &c->skeleton;
-    if (maniSampleClip(clip, skeleton, (float)time, pose) != mani_success)
+    if (maniClip_Sample(clip, skeleton, (float)time, pose) != mani_success)
     {
         Mismatch(c, "sample", "clip %u not sampled at %g", k, time);
         return;
     }
     CompareWorlds(c, "sample", k, time, skeleton, &c->placement, pose, evaluated);
     CompareSkinsAt(c, k, pose, evaluated, time);
-    uint32_t tracks = maniClipFloatTrackCount(clip);
+    uint32_t tracks = maniClip_GetFloatTrackCount(clip);
     float values[256];
     bool sampled = tracks <= 256 &&
-                   maniSampleClipFloats(clip, (float)time, values, tracks, NULL) == mani_success;
+                   maniClip_SampleFloats(clip, (float)time, values, tracks, NULL) == mani_success;
     for (uint32_t t = 0; sampled && t < tracks; ++t)
     {
         size_t length = 0;
-        const char* name = maniClipFloatTrackName(clip, t, &length);
+        const char* name = maniClip_GetFloatTrackName(clip, t, &length);
         double theirs = 0.0;
         bool found = TheirFloat(c->scene, anim, stackTime, evaluated, name, length, &theirs);
         if (found && Near((double)values[t], theirs))
@@ -744,7 +745,7 @@ static void CompareTime(Context* c, uint32_t k, const maniClip* clip, maniPose* 
 static double ClipRate(const Context* c)
 {
     maniFbxSettings s;
-    double scene = maniFbxReadSettings(c->fbx, &s) != mani_success ? 0.0
+    double scene = maniFbx_ReadSettings(c->fbx, &s) != mani_success ? 0.0
                    : s.rateDenominator != 0 ? (double)s.rateNumerator / s.rateDenominator
                                             : s.customRate;
     return scene > 0.0 && scene <= 120.0 ? scene : 30.0;
@@ -763,9 +764,9 @@ static void CompareClipTimes(Context* c, uint32_t k, const maniClip* clip,
         free(raw);
         return;
     }
-    uint32_t n = maniClipSampleCount(clip);
-    double rate = (double)maniClipSampleRate(clip);
-    double duration = (double)maniClipDuration(clip);
+    uint32_t n = maniClip_GetSampleCount(clip);
+    double rate = (double)maniClip_GetSampleRate(clip);
+    double duration = (double)maniClip_GetDuration(clip);
     double exact = ClipRate(c);
     double tps = (double)c->scene->metadata.ktime_second;
     double first = round(start * tps);
@@ -792,7 +793,7 @@ static void CompareClipTimes(Context* c, uint32_t k, const maniClip* clip,
 static void CompareClip(Context* c, uint32_t k)
 {
     size_t length = 0;
-    const char* name = maniFbxClipName(c->fbx, k, &length);
+    const char* name = maniFbx_GetClipName(c->fbx, k, &length);
     ufbx_anim_stack* stack = name != NULL ? ufbx_find_anim_stack_len(c->scene, name, length) : NULL;
     maniFbxOptions options = maniDefaultFbxOptions();
     options.foldPlacement = 1;
@@ -801,7 +802,7 @@ static void CompareClip(Context* c, uint32_t k)
     maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0};
     if (stack != NULL)
     {
-        r = maniFbxBuildClip(c->builder, c->fbx, k, &c->skeleton, &options,
+        r = maniBuildFbxClip(c->builder, c->fbx, k, &c->skeleton, &options,
                              &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                              NULL);
     }
@@ -818,13 +819,13 @@ static void CompareClip(Context* c, uint32_t k)
     double stop = 0.0;
     double start = StackStart(stack, &stop);
     double theirs = stop - start;
-    if (Near((double)maniClipDuration(&clip), theirs))
+    if (Near((double)maniClip_GetDuration(&clip), theirs))
     {
         Emit(c, "duration", k, 0.0, name, length, &theirs, 1);
     }
     else
     {
-        Mismatch(c, "duration", "clip %u: ours %g, ufbx %g", k, (double)maniClipDuration(&clip),
+        Mismatch(c, "duration", "clip %u: ours %g, ufbx %g", k, (double)maniClip_GetDuration(&clip),
                  theirs);
     }
     CompareClipTimes(c, k, &clip, stack, start, stop);
@@ -849,7 +850,7 @@ static void CompareFile(Context* c)
         CompareSkins(c);
         CompareMorphs(c);
         KeepClipSkeleton(c);
-        uint32_t n = c->hasSkeleton ? maniFbxClipCount(c->fbx) : 0;
+        uint32_t n = c->hasSkeleton ? maniFbx_GetClipCount(c->fbx) : 0;
         for (uint32_t k = 0; k < n; ++k)
         {
             CompareClip(c, k);

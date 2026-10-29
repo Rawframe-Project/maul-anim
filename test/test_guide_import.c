@@ -134,7 +134,7 @@ static maniResult BuildHuge(const maniBuilderDef* def, bool* reached)
     if (r.result == mani_success)
     {
         *reached = true;
-        r = maniGltfBuildMorphTargets(builder, gltf, 0, 0, &options);
+        r = maniBuildGltfMorphTargets(builder, gltf, 0, 0, &options);
         maniCloseGltf(gltf);
     }
     maniDestroyBuilder(builder);
@@ -188,17 +188,17 @@ int main(int argc, char** argv)
     maniGltf* gltf = NULL;
     maniImportResult read = maniOpenGltf(builder, bytes, size, &gltf);   // bytes kept alive
     maniGltfOptions options = maniDefaultGltfOptions();
-    maniImportResult skeletonImported = maniGltfBuildSkeleton(builder, gltf, 0, &options);
+    maniImportResult skeletonImported = maniBuildGltfSkeleton(builder, gltf, 0, &options);
     size_t skeletonSize = 0;
-    maniResult skeletonCopied = maniCopyBuilt(builder, skeletonFile, skeletonCapacity, &skeletonSize);
+    maniResult skeletonCopied = maniBuilder_CopyBuilt(builder, skeletonFile, skeletonCapacity, &skeletonSize);
     maniSkeleton skeleton;
     maniFileResult skeletonOpened = maniOpenSkeleton(skeletonFile, skeletonSize, &skeleton);
 
     maniImportClipOptions clipOptions = maniDefaultImportClipOptions();   // 30 samples a second
     maniImportResult clipImported =
-        maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, &clipOptions, NULL);
+        maniBuildGltfClip(builder, gltf, 0, &skeleton, &options, &clipOptions, NULL);
     size_t clipSize = 0;
-    maniResult clipCopied = maniCopyBuilt(builder, clipFile, clipCapacity, &clipSize);
+    maniResult clipCopied = maniBuilder_CopyBuilt(builder, clipFile, clipCapacity, &clipSize);
     maniClip clip;
     maniFileResult clipOpened = maniOpenClip(clipFile, clipSize, &clip);
     maniCloseGltf(gltf);
@@ -206,21 +206,21 @@ int main(int argc, char** argv)
     CHECK(read.result == mani_success && skeletonImported.result == mani_success &&
               skeletonCopied == mani_success && skeletonOpened.result == mani_success &&
               clipImported.result == mani_success && clipCopied == mani_success &&
-              clipOpened.result == mani_success && maniClipDuration(&clip) > 0.0f,
+              clipOpened.result == mani_success && maniClip_GetDuration(&clip) > 0.0f,
           "the import snippet reads SimpleSkin's skeleton and animation");
     // clang-format off
     maniCompressOptions tolerance = maniDefaultCompressOptions();   // 0.1 mm at 3 cm
     maniCompressReport report;
     maniResult compressed = maniCompressClip(builder, &clip, &skeleton, &tolerance, &report);
     size_t smallSize = 0;
-    maniResult smallCopied = maniCopyBuilt(builder, smallFile, smallCapacity, &smallSize);
+    maniResult smallCopied = maniBuilder_CopyBuilt(builder, smallFile, smallCapacity, &smallSize);
     maniClip small;
     maniFileResult smallOpened = maniOpenClip(smallFile, smallSize, &small);
     // report.shellError is the largest error found at any sample.
     // clang-format on
     CHECK(compressed == mani_success && smallCopied == mani_success &&
               smallOpened.result == mani_success && report.shellError <= 1e-4 &&
-              maniClipDuration(&small) == maniClipDuration(&clip),
+              maniClip_GetDuration(&small) == maniClip_GetDuration(&clip),
           "the compression snippet keeps the clip within its tolerance");
     maniDestroyBuilder(builder);
     free(bytes);

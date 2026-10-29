@@ -61,20 +61,20 @@ maniTransform maniShellAbsolute(const maniSkeleton* skeleton, uint32_t bone, boo
     {
         return t;
     }
-    maniTransform rest = maniSkeletonRest(skeleton, bone);
+    maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
     maniAddTransform(&rest, &t, 1.0f);
     return rest;
 }
 
 void maniShellModels(const maniSkeleton* skeleton, const maniPose* pose, maniShellMatrix* out)
 {
-    uint32_t n = maniSkeletonBoneCount(skeleton);
-    bool additive = maniPoseIsDifference(pose);
+    uint32_t n = maniSkeleton_GetBoneCount(skeleton);
+    bool additive = maniPose_IsDifference(pose);
     for (uint32_t b = 0; b < n; ++b)
     {
         maniShellMatrix local =
-            maniShellLocal(maniShellAbsolute(skeleton, b, additive, maniPoseLocal(pose, b)));
-        uint32_t parent = maniSkeletonParent(skeleton, b);
+            maniShellLocal(maniShellAbsolute(skeleton, b, additive, maniPose_GetLocal(pose, b)));
+        uint32_t parent = maniSkeleton_GetParent(skeleton, b);
         out[b] = parent == MANI_NO_BONE ? local : maniShellMul(&out[parent], &local);
     }
 }

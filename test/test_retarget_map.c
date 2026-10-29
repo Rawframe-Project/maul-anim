@@ -86,8 +86,8 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
     maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side],
+                                    &size) == mani_success &&
               maniOpenSkeleton(s_skeletonFiles[side], size, out).result == mani_success,
           "a skeleton");
     maniDestroyBuilder(builder);
@@ -150,7 +150,8 @@ static maniBuildResult Build(const maniRetargetMapSource* source)
     maniBuildResult r = maniBuildRetargetMap(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copied");
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+              "copied");
         CHECK(PaddingIgnored(source, s_file, s_size), "the same map under either padding");
     }
     maniDestroyBuilder(builder);
@@ -194,9 +195,10 @@ static void TestPlan(void)
               maniOpenRetargetMap(s_file, s_size, &m).result == mani_success,
           "built and opened");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
-    CHECK(maniRetargetMapSourceIdentity(&m) == maniSkeletonIdentity(&s_source) &&
-              maniRetargetMapTargetIdentity(&m) == maniSkeletonIdentity(&s_target) &&
-              maniRetargetMapIdentity(&m) != 0 && m.sourceBoneCount == 8 && m.targetBoneCount == 10,
+    CHECK(maniRetargetMap_GetSourceIdentity(&m) == maniSkeleton_GetIdentity(&s_source) &&
+              maniRetargetMap_GetTargetIdentity(&m) == maniSkeleton_GetIdentity(&s_target) &&
+              maniRetargetMap_GetIdentity(&m) != 0 && m.sourceBoneCount == 8 &&
+              m.targetBoneCount == 10,
           "the skeletons' identities and counts");
     const uint32_t none = MANI_NO_BONE;
     const uint32_t one = maniRetargetPlanOne;
@@ -262,7 +264,7 @@ static void TestReference(void)
     maniTransform locals[10];
     for (uint32_t b = 0; b < 10; ++b)
     {
-        locals[b] = maniSkeletonRest(&s_target, b);
+        locals[b] = maniSkeleton_GetRest(&s_target, b);
     }
     // sp2 three times as long: the places 0, 0.6, 0.8, 1.
     locals[3].translation = (maniVec3){0.0f, 0.45f, 0.0f};
@@ -291,11 +293,11 @@ static void TestPlaces(void)
     maniTransform source[8];
     for (uint32_t b = 0; b < 10; ++b)
     {
-        target[b] = maniSkeletonRest(&s_target, b);
+        target[b] = maniSkeleton_GetRest(&s_target, b);
     }
     for (uint32_t b = 0; b < 8; ++b)
     {
-        source[b] = maniSkeletonRest(&s_source, b);
+        source[b] = maniSkeleton_GetRest(&s_source, b);
     }
     for (uint32_t b = 3; b <= 5; ++b)
     {
@@ -338,13 +340,13 @@ static void TestRefusals(void)
     maniTransform locals[10];
     for (uint32_t b = 0; b < 10; ++b)
     {
-        locals[b] = maniSkeletonRest(&s_target, b);
+        locals[b] = maniSkeleton_GetRest(&s_target, b);
     }
     locals[4].translation.x = NAN;
     source = Map(&kSpine, 1);
     source.targetReference = locals;
     CHECK(Refused(&source, maniBuildReasonRetargetReference, 4, 1), "a reference not finite");
-    locals[4] = maniSkeletonRest(&s_target, 4);
+    locals[4] = maniSkeleton_GetRest(&s_target, 4);
     locals[6].rotation.w = 0.9f;
     CHECK(Refused(&source, maniBuildReasonRetargetReference, 6, 1),
           "a reference rotation not of length 1");
@@ -475,7 +477,7 @@ static void TestChainPastBound(void)
     maniSkeleton chain;
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenSkeleton(file, size, &chain).result == mani_success,
           "a chain of 33 bones");
     maniDestroyBuilder(builder);

@@ -295,9 +295,9 @@ static MANI_NOINLINE maniResult SolveBodyXpbdWork(maniPose* pose, const maniSkel
     return mani_success;
 }
 
-maniResult maniSolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
-                             const maniBodySolve* solve, void* scratch, size_t scratchSize,
-                             bool* reachedOut)
+maniResult maniPose_SolveBodyXpbd(maniPose* pose, const maniSkeleton* skeleton,
+                                  const maniBodySolve* solve, void* scratch, size_t scratchSize,
+                                  bool* reachedOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveBodyXpbdWork(pose, skeleton, solve, scratch, scratchSize, reachedOut);

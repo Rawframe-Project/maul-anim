@@ -39,7 +39,7 @@ static maniBuildResult Check(const maniSkinSource* source)
     {
         return Result(mani_errorInvalid, maniBuildReasonCount, 0);
     }
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     for (uint32_t j = 0; j < n; ++j)
     {
         if (source->joints[j] >= bones)
@@ -80,8 +80,8 @@ static MANI_NOINLINE maniBuildResult BuildSkinWork(maniBuilder* builder,
     }
     uint32_t n = source->jointCount;
     uint8_t binding[MANI_SKIN_BINDING_SIZE] = {0};
-    maniStoreU64(binding, maniSkeletonIdentity(source->skeleton));
-    maniStoreU32(binding + 8, maniSkeletonBoneCount(source->skeleton));
+    maniStoreU64(binding, maniSkeleton_GetIdentity(source->skeleton));
+    maniStoreU32(binding + 8, maniSkeleton_GetBoneCount(source->skeleton));
     maniStoreU32(binding + 12, n);
     size_t jointBytes = 2 * (size_t)n;
     size_t matrixBytes = MANI_SKIN_MATRIX_SIZE * (size_t)n;

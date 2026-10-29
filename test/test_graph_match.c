@@ -40,7 +40,7 @@ static void TestMirrored(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, &ms).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenMirrorMap(file, size, &map).result == mani_success,
           "a mirror map");
     maniDestroyBuilder(builder);
@@ -63,7 +63,7 @@ static void TestMirrored(void)
     maniRootMove plain[6];
     for (int k = 0; k < 6; ++k)
     {
-        (void)maniUpdateGraph(instance, 0.15f, NULL, 0, NULL, &plain[k]);
+        (void)maniGraphInstance_Update(instance, 0.15f, NULL, 0, NULL, &plain[k]);
     }
     source.nodes = nodes;
     source.nodeCount = 3;
@@ -74,13 +74,14 @@ static void TestMirrored(void)
     for (int k = 0; k < 6; ++k)
     {
         maniRootMove move;
-        maniRootMove want = maniMirrorRootMotion(&map, plain[k]);
-        reflected = reflected &&
-                    maniUpdateGraph(instance, 0.15f, NULL, 0, NULL, &move) == mani_success &&
-                    NearF(move.translation.x, (double)want.translation.x) &&
-                    NearF(move.translation.z, (double)want.translation.z) &&
-                    NearF(move.rotation.y, (double)want.rotation.y) &&
-                    (k == 0 || want.translation.x < 0.0f);
+        maniRootMove want = maniMirrorMap_MirrorRootMotion(&map, plain[k]);
+        reflected =
+            reflected &&
+            maniGraphInstance_Update(instance, 0.15f, NULL, 0, NULL, &move) == mani_success &&
+            NearF(move.translation.x, (double)want.translation.x) &&
+            NearF(move.translation.z, (double)want.translation.z) &&
+            NearF(move.rotation.y, (double)want.rotation.y) &&
+            (k == 0 || want.translation.x < 0.0f);
     }
     CHECK(reflected, "each move the plain node's reflected");
 }
@@ -113,13 +114,14 @@ static void TestPlay(void)
     maniGraphInstance* instance = Matching(MatchNode(10.0f), &g);
     Update(instance, 0.0f);
     maniRootMove move = maniRootMoveIdentity();
-    CHECK(maniUpdateGraph(instance, 0.25f, NULL, 0, NULL, &move) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.25f, NULL, 0, NULL, &move) == mani_success &&
               Playing(instance, &g, 0, 0, 0.25) && NearF(move.translation.x, 0.25),
           "a quarter of the walk, its root a quarter along");
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
-              maniSampleClip(&s_clips[0], &s_skeleton, 0.25f, s_clipPose) == mani_success &&
-              NearF(maniPoseLocal(s_pose, 0).translation.x,
-                    (double)maniPoseLocal(s_clipPose, 0).translation.x),
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success &&
+              maniClip_Sample(&s_clips[0], &s_skeleton, 0.25f, s_clipPose) == mani_success &&
+              NearF(maniPose_GetLocal(s_pose, 0).translation.x,
+                    (double)maniPose_GetLocal(s_clipPose, 0).translation.x),
           "the walk's pose at its playhead");
     // The run moves its hips in the pose (the walk's root motion leaves
     // them still): its pose at the node's playhead.
@@ -130,15 +132,16 @@ static void TestPlay(void)
     Update(run, 0.0f);
     Update(run, 0.4f);
     CHECK(Playing(run, &h, 0, 1, 0.4) &&
-              maniEvaluateGraph(run, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
-              fabs((double)maniPoseLocal(s_pose, 0).translation.x - 1.2) <= 1e-5,
+              maniGraphInstance_Evaluate(run, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success &&
+              fabs((double)maniPose_GetLocal(s_pose, 0).translation.x - 1.2) <= 1e-5,
           "the run's pose at its playhead");
     instance = Matching(MatchNode(10.0f), &g);
     Update(instance, 0.0f);
-    (void)maniUpdateGraph(instance, 0.25f, NULL, 0, NULL, &move);
+    (void)maniGraphInstance_Update(instance, 0.25f, NULL, 0, NULL, &move);
     maniGraphEvent events[4];
     uint32_t count = 0;
-    CHECK(maniUpdateGraph(instance, 0.9f, events, 4, &count, &move) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.9f, events, 4, &count, &move) == mani_success &&
               Playing(instance, &g, 0, 0, 0.15) && fabs((double)move.translation.x - 0.9) <= 1e-5,
           "across the loop: back at 0.15, the root 0.9 along");
     CHECK(count == 2 && events[0].node == 0 && events[0].clip == 0 && events[0].payload == 8 &&
@@ -150,9 +153,9 @@ static void TestPlay(void)
 static float Step(maniGraphInstance* instance, float delta)
 {
     Update(instance, delta);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
           "evaluated");
-    return maniPoseLocal(s_pose, 0).translation.x;
+    return maniPose_GetLocal(s_pose, 0).translation.x;
 }
 
 static void TestPeriod(void)
@@ -168,7 +171,8 @@ static void TestPeriod(void)
     CHECK(Playing(instance, &g, 0, 1, 0.0) && Pending(instance, &g, 1) == 0.25f,
           "the period passed: the run, eased over d");
     const uint32_t* eased = NodeBlock(instance, &g, 1, maniGraphInertiaBlock);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success &&
               (eased[maniGraphInertiaFlags] & maniGraphInertiaActive) != 0 &&
               maniGraphInertiaGet(eased, maniGraphInertiaDuration) == 0.25f,
           "the jump eased out");
@@ -198,7 +202,7 @@ static void TestTrigger(void)
     Update(instance, 0.1f);
     maniGraphValue v;
     CHECK(Playing(instance, &g, 0, 1, 0.0) &&
-              maniGetGraphParameter(instance, 1, &v) == mani_success && v.b == 0,
+              maniGraphInstance_GetParameter(instance, 1, &v) == mani_success && v.b == 0,
           "the trigger searches, and is consumed");
 }
 
@@ -283,12 +287,13 @@ static void TestWraps(void)
     maniGraphInstance* instance = Matching(MatchNode(10.0f), &g);
     Update(instance, 0.0f);
     Update(instance, 0.25f);
-    CHECK(maniUpdateGraph(instance, 2.3f, matched, 16, &matchedCount, NULL) == mani_success,
+    CHECK(maniGraphInstance_Update(instance, 2.3f, matched, 16, &matchedCount, NULL) ==
+              mani_success,
           "matched");
     maniGraphNodeSource clip[1] = {ClipNode(0, 1.0f, maniGraphLoopRepeat)};
     instance = Make((maniGraphSource){.nodes = clip, .nodeCount = 1}, &g);
     Update(instance, 0.25f);
-    CHECK(maniUpdateGraph(instance, 2.3f, played, 16, &playedCount, NULL) == mani_success,
+    CHECK(maniGraphInstance_Update(instance, 2.3f, played, 16, &playedCount, NULL) == mani_success,
           "played");
     bool same = matchedCount == playedCount && matchedCount >= 4;
     for (uint32_t k = 0; k < matchedCount && same; ++k)
@@ -351,15 +356,15 @@ static void TestContinuing(void)
     uint32_t entry = EntryOf(instance, &g, 0);
     double t = State(instance, &g, 0)->time;
     maniMatchEntry e;
-    CHECK(maniMotionDatabaseEntry(&bones, entry, &e) == mani_success, "an entry");
+    CHECK(maniMotionDatabase_GetEntry(&bones, entry, &e) == mani_success, "an entry");
     uint32_t current = e.firstFrame + (uint32_t)floor((t - (double)e.start) * 10.0 + 1e-9);
     float features[MANI_MAX_MATCH_FEATURES];
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseFeatures(&bones, current, features, bones.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetFeatures(&bones, current, features, bones.featureCount, NULL) ==
                   mani_success &&
-              maniMotionDatabaseNormalization(&bones, offsets, scales, bones.featureCount, NULL) ==
-                  mani_success,
+              maniMotionDatabase_GetNormalization(&bones, offsets, scales, bones.featureCount,
+                                                  NULL) == mani_success,
           "the continuing frame's features");
     for (uint32_t j = 3; j < 5; ++j)
     {
@@ -378,14 +383,14 @@ static void TestContinuing(void)
     maniMatchQuery nq = {.features = normalized, .current = MANI_MATCH_NO_FRAME};
     maniMatchResult rr;
     maniMatchResult nr;
-    CHECK(maniSearchMotionDatabase(&bones, &rq, &rr) == mani_success &&
+    CHECK(maniMotionDatabase_Search(&bones, &rq, &rr) == mani_success &&
               maniMatchSearch(&bones, &nq, true, &nr) == mani_success && rr.frame == nr.frame &&
               memcmp(&rr.cost, &nr.cost, sizeof rr.cost) == 0,
           "a normalized query taken as it is");
     float time = (float)t;
     CHECK(maniMatchSearch(&bones, &q, true, &r) == mani_success &&
               (r.frame == current ||
-               maniMotionDatabaseFrame(&bones, r.frame, &entry, &time) == mani_success),
+               maniMotionDatabase_GetFrame(&bones, r.frame, &entry, &time) == mani_success),
           "the search");
     Ahead(instance, 0.2f, 0.0f);
     Set(instance, 1, maniGraphParameterTrigger, Int(1));
@@ -427,7 +432,7 @@ static void TestContinuingFrame(void)
     Ahead(instance, 0.0f, 0.0f);
     Update(instance, 0.0f);
     size_t size = SavedGraphSize(instance);
-    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved, NULL) == mani_success, "saved");
+    CHECK(maniGraphInstance_Save(instance, s_saved, sizeof s_saved, NULL) == mani_success, "saved");
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
     double at = (double)0.7f;
@@ -435,7 +440,7 @@ static void TestContinuingFrame(void)
     memcpy(&bits, &at, sizeof bits);
     maniStoreU32(s_saved + block + 4 * maniGraphMatchEntry, 1);
     maniStoreU64(s_saved + time, bits);
-    CHECK(maniRestoreGraphInstance(instance, s_saved, size).result == mani_success, "restored");
+    CHECK(maniGraphInstance_Restore(instance, s_saved, size).result == mani_success, "restored");
     Set(instance, 1, maniGraphParameterTrigger, Int(1));
     Update(instance, 0.0f);
     double t = State(instance, &g, 0)->time;
@@ -484,14 +489,14 @@ static double Searched(const maniMotionDatabase* d, uint32_t tags, uint32_t entr
     Ahead(instance, 0.0f, 0.0f);
     Update(instance, 0.0f);
     size_t size = SavedGraphSize(instance);
-    CHECK(maniSaveGraphInstance(instance, s_saved, sizeof s_saved, NULL) == mani_success, "saved");
+    CHECK(maniGraphInstance_Save(instance, s_saved, sizeof s_saved, NULL) == mani_success, "saved");
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
     uint64_t bits = 0;
     memcpy(&bits, &at, sizeof bits);
     maniStoreU32(s_saved + block + 4 * maniGraphMatchEntry, entry);
     maniStoreU64(s_saved + time, bits);
-    CHECK(maniRestoreGraphInstance(instance, s_saved, size).result == mani_success, "restored");
+    CHECK(maniGraphInstance_Restore(instance, s_saved, size).result == mani_success, "restored");
     Set(instance, 1, maniGraphParameterTrigger, Int(1));
     Update(instance, 0.0f);
     *entryOut = EntryOf(instance, &g, 0);
@@ -517,7 +522,7 @@ static void TestInterpolated(void)
     // way (0.15) the node plays on.
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseNormalization(&run, offsets, scales, run.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetNormalization(&run, offsets, scales, run.featureCount, NULL) ==
               mani_success,
           "scales");
     double near = 0.15 / (double)scales[0];
@@ -532,7 +537,8 @@ static void TestInterpolated(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_loopFile, sizeof s_loopFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_loopFile, sizeof s_loopFile, &size) ==
+                  mani_success &&
               maniOpenMotionDatabase(s_loopFile, size, &looped).result == mani_success,
           "a looping database");
     maniDestroyBuilder(builder);
@@ -621,7 +627,8 @@ static void TestFacingBlend(void)
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         built = maniBuildMotionDatabase(builder, &source).result == mani_success &&
-                maniCopyBuilt(builder, s_facingFile, sizeof s_facingFile, &size) == mani_success &&
+                maniBuilder_CopyBuilt(builder, s_facingFile, sizeof s_facingFile, &size) ==
+                    mani_success &&
                 maniOpenMotionDatabase(s_facingFile, size, &d).result == mani_success;
         maniDestroyBuilder(builder);
     }
@@ -632,7 +639,7 @@ static void TestFacingBlend(void)
     }
     float offsets[MANI_MAX_MATCH_FEATURES];
     float scales[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseNormalization(&d, offsets, scales, d.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetNormalization(&d, offsets, scales, d.featureCount, NULL) ==
               mani_success,
           "scales");
     float a[3];
@@ -641,8 +648,8 @@ static void TestFacingBlend(void)
     double far = -1.0;
     for (uint32_t f = 0; f + 1 < d.frameCount; ++f)
     {
-        if (maniMotionDatabaseFeatures(&d, f, a, d.featureCount, NULL) != mani_success ||
-            maniMotionDatabaseFeatures(&d, f + 1, b, d.featureCount, NULL) != mani_success)
+        if (maniMotionDatabase_GetFeatures(&d, f, a, d.featureCount, NULL) != mani_success ||
+            maniMotionDatabase_GetFeatures(&d, f + 1, b, d.featureCount, NULL) != mani_success)
         {
             continue;
         }

@@ -3,7 +3,7 @@
 //
 // A clamped span holds a time within its ends. A looping span wraps it:
 // the root's move runs to the span's end, then whole spans (composed by
-// doubling, at most 2^32 of them, as maniClipRootMotion bounds its
+// doubling, at most 2^32 of them, as maniClip_GetRootMotion bounds its
 // periods), then from the start to what is left.
 
 #include "match_move.h"
@@ -19,8 +19,8 @@
 static maniRootMove Move(const maniClip* clip, float from, float step)
 {
     maniRootMove move = maniRootMoveIdentity();
-    return maniClipRootMotion(clip, from, step, &move) == mani_success ? move
-                                                                       : maniRootMoveIdentity();
+    return maniClip_GetRootMotion(clip, from, step, &move) == mani_success ? move
+                                                                           : maniRootMoveIdentity();
 }
 
 // k whole spans of move w, by doubling.
@@ -37,7 +37,7 @@ static maniRootMove Repeat(maniRootMove w, uint64_t k)
 }
 
 // Whole spans counted, at most 2^32 (a root motion's bound, as
-// maniClipRootMotion's).
+// maniClip_GetRootMotion's).
 static uint64_t Count(double whole)
 {
     return whole < 4294967296.0 ? (uint64_t)whole : 4294967296u;

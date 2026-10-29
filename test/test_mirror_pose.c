@@ -96,7 +96,7 @@ static void OpenSkeleton(const maniBoneSource* bones, uint32_t count, uint8_t* f
     maniSkeletonSource source = {bones, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, 4096, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, 4096, &size) == mani_success &&
               maniOpenSkeleton(file, size, out).result == mani_success,
           "a rig");
     maniDestroyBuilder(builder);
@@ -117,7 +117,7 @@ static void Setup(void)
         maniBuilder* builder = NewBuilder();
         size_t size = 0;
         CHECK(maniBuildMirrorMap(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_file[axis], sizeof s_file[axis], &size) ==
+                  maniBuilder_CopyBuilt(builder, s_file[axis], sizeof s_file[axis], &size) ==
                       mani_success &&
                   maniOpenMirrorMap(s_file[axis], size, &s_maps[axis]).result == mani_success,
               "a map");
@@ -176,8 +176,8 @@ static void ModelRotations(const maniPose* pose, maniQuat out[kBones])
 {
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        uint32_t parent = maniSkeletonParent(&s_skeleton, b);
-        maniQuat local = maniPoseLocal(pose, b).rotation;
+        uint32_t parent = maniSkeleton_GetParent(&s_skeleton, b);
+        maniQuat local = maniPose_GetLocal(pose, b).rotation;
         out[b] = parent == MANI_NO_BONE ? local : Mul(out[parent], local);
     }
 }
@@ -193,25 +193,25 @@ static void Turned(maniPose* pose)
 {
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniSkeletonRest(&s_skeleton, b);
+        maniTransform t = maniSkeleton_GetRest(&s_skeleton, b);
         float k = (float)(b + 1);
         t.rotation = Mul(t.rotation, Unit(0.1f * k, -0.07f * k, 0.05f + 0.03f * k, 1.0f));
         t.translation.x += 0.01f * k;
         t.translation.y -= 0.02f;
         t.translation.z += 0.03f - 0.005f * k;
-        maniPoseSetLocal(pose, b, t);
+        maniPose_SetLocal(pose, b, t);
     }
 }
 
 static maniVec3 Position(maniPose* pose, uint32_t bone)
 {
-    maniAffine m = maniPoseModel(pose, bone);
+    maniAffine m = maniPose_GetModel(pose, bone);
     return (maniVec3){m.m[9], m.m[10], m.m[11]};
 }
 
 static uint32_t Partner(uint32_t axis, uint32_t bone)
 {
-    return maniMirrorPartner(&s_maps[axis], bone);
+    return maniMirrorMap_GetPartner(&s_maps[axis], bone);
 }
 
 // Every bone but the prop at its partner's model position reflected and
@@ -222,12 +222,12 @@ static bool Mirrored(uint32_t axis)
     maniQuat rest[kBones];
     maniQuat in[kBones];
     maniQuat out[kBones];
-    CHECK(maniPoseSetRest(s_back, &s_skeleton) == mani_success, "the rest");
+    CHECK(maniPose_SetRest(s_back, &s_skeleton) == mani_success, "the rest");
     ModelRotations(s_back, rest);
     ModelRotations(s_in, in);
     ModelRotations(s_out, out);
-    CHECK(maniComputeModel(s_in, &s_skeleton) == mani_success &&
-              maniComputeModel(s_out, &s_skeleton) == mani_success,
+    CHECK(maniPose_ComputeModel(s_in, &s_skeleton) == mani_success &&
+              maniPose_ComputeModel(s_out, &s_skeleton) == mani_success,
           "the models");
     bool ok = true;
     for (uint32_t b = 0; b < kBones; ++b)
@@ -252,8 +252,8 @@ static bool SameLocals(maniPose* a, maniPose* b, bool exact)
     bool ok = true;
     for (uint32_t bone = 0; bone < kBones; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         if (exact)
         {
             ok = ok && memcmp(&x, &y, sizeof x) == 0;
@@ -270,27 +270,28 @@ static bool SameLocals(maniPose* a, maniPose* b, bool exact)
 static void TestPose(void)
 {
     CHECK(Partner(0, kArmL) == kArmR && Partner(0, kPropR) == kPropR &&
-              maniMirrorMapUnmatchedBone(&s_maps[0]) == kPropR,
+              maniMirrorMap_GetUnmatchedBone(&s_maps[0]) == kPropR,
           "the partners");
     for (uint32_t axis = 0; axis < 3; ++axis)
     {
         Turned(s_in);
-        CHECK(maniMirrorPose(&s_maps[axis], &s_skeleton, s_in, s_out) == mani_success &&
-                  !maniPoseModelCurrent(s_out),
+        CHECK(maniMirrorMap_MirrorPose(&s_maps[axis], &s_skeleton, s_in, s_out) == mani_success &&
+                  !maniPose_IsModelCurrent(s_out),
               "mirrored");
         CHECK(Mirrored(axis), "each bone at its partner's place reflected, turned mirrored");
-        CHECK(maniMirrorPose(&s_maps[axis], &s_skeleton, s_out, s_back) == mani_success &&
+        CHECK(maniMirrorMap_MirrorPose(&s_maps[axis], &s_skeleton, s_out, s_back) == mani_success &&
                   SameLocals(s_back, s_in, false),
               "mirroring twice gives the pose back");
         Turned(s_place);
-        CHECK(maniMirrorPose(&s_maps[axis], &s_skeleton, s_place, s_place) == mani_success &&
+        CHECK(maniMirrorMap_MirrorPose(&s_maps[axis], &s_skeleton, s_place, s_place) ==
+                      mani_success &&
                   SameLocals(s_place, s_out, true),
               "in place as apart");
     }
     maniQuat rest[kBones];
     maniQuat out[kBones];
-    CHECK(maniPoseSetRest(s_in, &s_skeleton) == mani_success &&
-              maniMirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success,
+    CHECK(maniPose_SetRest(s_in, &s_skeleton) == mani_success &&
+              maniMirrorMap_MirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success,
           "the rest mirrored");
     ModelRotations(s_in, rest);
     ModelRotations(s_out, out);
@@ -357,17 +358,17 @@ static void TestScale(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_turnedFile[1], sizeof s_turnedFile[1], &size) ==
+              maniBuilder_CopyBuilt(builder, s_turnedFile[1], sizeof s_turnedFile[1], &size) ==
                   mani_success &&
               maniOpenMirrorMap(s_turnedFile[1], size, &map).result == mani_success,
           "the turned rig's map");
     maniDestroyBuilder(builder);
-    CHECK(maniMirrorBoneFlags(&map, 0) == 0 && maniMirrorBoneFlags(&map, 1) == 0 &&
-              maniMirrorBoneFlags(&map, 3) == 0 &&
-              maniMirrorBoneFlags(&map, 2) == MANI_MIRROR_BONE_UNMATCHED &&
-              maniMirrorBoneFlags(&map, 4) == MANI_MIRROR_BONE_UNMATCHED &&
-              maniMirrorMapUnmatchedBone(&map) == 2 && maniMirrorBoneFlags(&map, 5) == 0 &&
-              maniMirrorBoneFlags(NULL, 0) == 0,
+    CHECK(maniMirrorMap_GetBoneFlags(&map, 0) == 0 && maniMirrorMap_GetBoneFlags(&map, 1) == 0 &&
+              maniMirrorMap_GetBoneFlags(&map, 3) == 0 &&
+              maniMirrorMap_GetBoneFlags(&map, 2) == MANI_MIRROR_BONE_UNMATCHED &&
+              maniMirrorMap_GetBoneFlags(&map, 4) == MANI_MIRROR_BONE_UNMATCHED &&
+              maniMirrorMap_GetUnmatchedBone(&map) == 2 &&
+              maniMirrorMap_GetBoneFlags(&map, 5) == 0 && maniMirrorMap_GetBoneFlags(NULL, 0) == 0,
           "every bone where the hierarchy is not symmetric flagged, the first in the header");
     maniPose* in = NULL;
     maniPose* out = NULL;
@@ -377,45 +378,47 @@ static void TestScale(void)
                   mani_success &&
               maniInitPose(&turned, s_turnedPoses[2], sizeof s_turnedPoses[2], &again) ==
                   mani_success &&
-              maniPoseSetRest(in, &turned) == mani_success,
+              maniPose_SetRest(in, &turned) == mani_success,
           "the turned rig's poses");
-    maniTransform arm = maniSkeletonRest(&turned, 1);
+    maniTransform arm = maniSkeleton_GetRest(&turned, 1);
     arm.scale = (maniVec3){2.0f, 3.0f, 4.0f};
-    maniPoseSetLocal(in, 1, arm);
-    CHECK(maniMirrorPose(&map, &turned, in, out) == mani_success, "mirrored");
-    maniVec3 scale = maniPoseLocal(out, 3).scale;
+    maniPose_SetLocal(in, 1, arm);
+    CHECK(maniMirrorMap_MirrorPose(&map, &turned, in, out) == mani_success, "mirrored");
+    maniVec3 scale = maniPose_GetLocal(out, 3).scale;
     CHECK(scale.x == 4.0f && scale.y == 3.0f && scale.z == 2.0f,
           "the partner's scale on the axes the quarter turn takes it to");
-    CHECK(maniMirrorPose(&map, &turned, out, again) == mani_success &&
-              maniPoseLocal(again, 1).scale.x == 2.0f && maniPoseLocal(again, 1).scale.y == 3.0f &&
-              maniPoseLocal(again, 1).scale.z == 4.0f,
+    CHECK(maniMirrorMap_MirrorPose(&map, &turned, out, again) == mani_success &&
+              maniPose_GetLocal(again, 1).scale.x == 2.0f &&
+              maniPose_GetLocal(again, 1).scale.y == 3.0f &&
+              maniPose_GetLocal(again, 1).scale.z == 4.0f,
           "and back");
     // The hips, their own partner unturned: their scale as it is, every
     // axis its own.
-    maniTransform hips = maniSkeletonRest(&turned, 0);
+    maniTransform hips = maniSkeleton_GetRest(&turned, 0);
     hips.scale = (maniVec3){2.0f, 3.0f, 4.0f};
-    maniPoseSetLocal(in, 0, hips);
-    CHECK(maniMirrorPartner(&map, 0) == 0 &&
-              maniMirrorPose(&map, &turned, in, out) == mani_success &&
-              maniPoseLocal(out, 0).scale.x == 2.0f && maniPoseLocal(out, 0).scale.y == 3.0f &&
-              maniPoseLocal(out, 0).scale.z == 4.0f,
+    maniPose_SetLocal(in, 0, hips);
+    CHECK(maniMirrorMap_GetPartner(&map, 0) == 0 &&
+              maniMirrorMap_MirrorPose(&map, &turned, in, out) == mani_success &&
+              maniPose_GetLocal(out, 0).scale.x == 2.0f &&
+              maniPose_GetLocal(out, 0).scale.y == 3.0f &&
+              maniPose_GetLocal(out, 0).scale.z == 4.0f,
           "an unturned bone's scale on its own axes");
     // The unmatched bones turned: a finite pose, the same bits twice.
     for (uint32_t b = 0; b < 5; ++b)
     {
-        maniTransform t = maniSkeletonRest(&turned, b);
+        maniTransform t = maniSkeleton_GetRest(&turned, b);
         t.rotation = Mul(t.rotation, Unit(0.2f + 0.1f * (float)b, -0.3f, 0.1f, 1.0f));
         t.scale = (maniVec3){1.0f + 0.1f * (float)b, 1.0f, 0.5f};
-        maniPoseSetLocal(in, b, t);
+        maniPose_SetLocal(in, b, t);
     }
-    CHECK(maniMirrorPose(&map, &turned, in, out) == mani_success &&
-              maniMirrorPose(&map, &turned, in, again) == mani_success,
+    CHECK(maniMirrorMap_MirrorPose(&map, &turned, in, out) == mani_success &&
+              maniMirrorMap_MirrorPose(&map, &turned, in, again) == mani_success,
           "a turned pose mirrored twice");
     bool finite = true;
     for (uint32_t b = 0; b < 5; ++b)
     {
-        maniTransform t = maniPoseLocal(out, b);
-        maniTransform u = maniPoseLocal(again, b);
+        maniTransform t = maniPose_GetLocal(out, b);
+        maniTransform u = maniPose_GetLocal(again, b);
         finite = finite && isfinite(t.translation.x) && isfinite(t.translation.y) &&
                  isfinite(t.translation.z) && isfinite(t.rotation.x) && isfinite(t.rotation.y) &&
                  isfinite(t.rotation.z) && isfinite(t.rotation.w) && isfinite(t.scale.x) &&
@@ -426,26 +429,26 @@ static void TestScale(void)
     // The main rig's hands: their clavicles rest 30 and 90 degrees turned,
     // so the turn between the hands takes no axis to an axis.
     maniQuat rest[kBones];
-    CHECK(maniPoseSetRest(s_in, &s_skeleton) == mani_success, "the rest");
+    CHECK(maniPose_SetRest(s_in, &s_skeleton) == mani_success, "the rest");
     ModelRotations(s_in, rest);
-    CHECK(maniMirrorBoneFlags(&s_maps[0], kHandR) == MANI_MIRROR_BONE_SCALE_APPROXIMATE &&
-              maniMirrorBoneFlags(&s_maps[0], kHead) == 0 &&
-              maniMirrorBoneFlags(&s_maps[0], kPropR) == MANI_MIRROR_BONE_UNMATCHED,
+    CHECK(maniMirrorMap_GetBoneFlags(&s_maps[0], kHandR) == MANI_MIRROR_BONE_SCALE_APPROXIMATE &&
+              maniMirrorMap_GetBoneFlags(&s_maps[0], kHead) == 0 &&
+              maniMirrorMap_GetBoneFlags(&s_maps[0], kPropR) == MANI_MIRROR_BONE_UNMATCHED,
           "the hands' scale approximate");
-    maniTransform hand = maniSkeletonRest(&s_skeleton, kHandL);
+    maniTransform hand = maniSkeleton_GetRest(&s_skeleton, kHandL);
     hand.scale = (maniVec3){2.0f, 3.0f, 4.0f};
-    maniPoseSetLocal(s_in, kHandL, hand);
+    maniPose_SetLocal(s_in, kHandL, hand);
     maniVec3 want = Diagonal(Mul(Conjugate(MirrorQuat(rest[kHandL], 0)), rest[kHandR]), hand.scale);
-    scale = (maniMirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
-                ? maniPoseLocal(s_out, kHandR).scale
+    scale = (maniMirrorMap_MirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
+                ? maniPose_GetLocal(s_out, kHandR).scale
                 : (maniVec3){0};
     CHECK(Near(scale.x, want.x) && Near(scale.y, want.y) && Near(scale.z, want.z) &&
               !(Near(scale.x, 2.0f) && Near(scale.y, 3.0f) && Near(scale.z, 4.0f)),
           "the nearest axis scale, the diagonal of the carried one");
     hand.scale = (maniVec3){2.5f, 2.5f, 2.5f};
-    maniPoseSetLocal(s_in, kHandL, hand);
-    scale = (maniMirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
-                ? maniPoseLocal(s_out, kHandR).scale
+    maniPose_SetLocal(s_in, kHandL, hand);
+    scale = (maniMirrorMap_MirrorPose(&s_maps[0], &s_skeleton, s_in, s_out) == mani_success)
+                ? maniPose_GetLocal(s_out, kHandR).scale
                 : (maniVec3){0};
     CHECK(scale.x == 2.5f && scale.y == 2.5f && scale.z == 2.5f, "a uniform scale exact");
 }
@@ -455,43 +458,44 @@ static void TestMoves(void)
     maniRootMove move = {{1.0f, 2.0f, 3.0f}, Unit(0.1f, 0.2f, 0.3f, 0.9f)};
     for (uint32_t axis = 0; axis < 3; ++axis)
     {
-        maniRootMove m = maniMirrorRootMotion(&s_maps[axis], move);
+        maniRootMove m = maniMirrorMap_MirrorRootMotion(&s_maps[axis], move);
         maniVec3 t = Reflect(move.translation, axis);
         maniQuat q = MirrorQuat(move.rotation, axis);
         CHECK(memcmp(&m.translation, &t, sizeof t) == 0 && memcmp(&m.rotation, &q, sizeof q) == 0,
               "a move reflected");
     }
-    maniRootMove same = maniMirrorRootMotion(NULL, move);
+    maniRootMove same = maniMirrorMap_MirrorRootMotion(NULL, move);
     CHECK(memcmp(&same, &move, sizeof move) == 0, "no map leaves a move");
 }
 
 static void TestRefusals(void)
 {
     const maniMirrorMap* map = &s_maps[0];
-    CHECK(maniMirrorPose(NULL, &s_skeleton, s_in, s_out) == mani_errorInvalid &&
-              maniMirrorPose(map, NULL, s_in, s_out) == mani_errorInvalid &&
-              maniMirrorPose(map, &s_skeleton, NULL, s_out) == mani_errorInvalid &&
-              maniMirrorPose(map, &s_skeleton, s_in, NULL) == mani_errorInvalid,
+    CHECK(maniMirrorMap_MirrorPose(NULL, &s_skeleton, s_in, s_out) == mani_errorInvalid &&
+              maniMirrorMap_MirrorPose(map, NULL, s_in, s_out) == mani_errorInvalid &&
+              maniMirrorMap_MirrorPose(map, &s_skeleton, NULL, s_out) == mani_errorInvalid &&
+              maniMirrorMap_MirrorPose(map, &s_skeleton, s_in, NULL) == mani_errorInvalid,
           "a NULL argument");
-    CHECK(maniMirrorPose(map, &s_other, s_otherPose, s_otherPose) == mani_errorInvalid,
+    CHECK(maniMirrorMap_MirrorPose(map, &s_other, s_otherPose, s_otherPose) == mani_errorInvalid,
           "another skeleton");
-    CHECK(maniMirrorPose(map, &s_moved, s_movedPose, s_movedPose) == mani_errorInvalid,
+    CHECK(maniMirrorMap_MirrorPose(map, &s_moved, s_movedPose, s_movedPose) == mani_errorInvalid,
           "another skeleton of the bone count");
-    CHECK(maniMirrorPose(map, &s_skeleton, s_otherPose, s_out) == mani_errorInvalid &&
-              maniMirrorPose(map, &s_skeleton, s_in, s_otherPose) == mani_errorInvalid,
+    CHECK(maniMirrorMap_MirrorPose(map, &s_skeleton, s_otherPose, s_out) == mani_errorInvalid &&
+              maniMirrorMap_MirrorPose(map, &s_skeleton, s_in, s_otherPose) == mani_errorInvalid,
           "a pose of another skeleton");
     maniMirrorMap counted = *map;
     counted.boneCount = kBones + 1;
-    CHECK(maniMirrorPose(&counted, &s_skeleton, s_in, s_out) == mani_errorInvalid,
+    CHECK(maniMirrorMap_MirrorPose(&counted, &s_skeleton, s_in, s_out) == mani_errorInvalid,
           "a map of another bone count");
     Turned(s_in);
-    CHECK(maniPoseSetRest(s_back, &s_skeleton) == mani_success &&
-              maniPoseDifference(&s_skeleton, s_in, s_back, s_place) == mani_success &&
-              maniMirrorPose(map, &s_skeleton, s_place, s_out) == mani_errorInvalid,
+    CHECK(maniPose_SetRest(s_back, &s_skeleton) == mani_success &&
+              maniSkeleton_ComputePoseDifference(&s_skeleton, s_in, s_back, s_place) ==
+                  mani_success &&
+              maniMirrorMap_MirrorPose(map, &s_skeleton, s_place, s_out) == mani_errorInvalid,
           "a difference");
-    CHECK(maniPoseDifference(&s_skeleton, s_in, s_back, s_out) == mani_success &&
-              maniMirrorPose(map, &s_skeleton, s_in, s_out) == mani_success &&
-              !maniPoseIsDifference(s_out),
+    CHECK(maniSkeleton_ComputePoseDifference(&s_skeleton, s_in, s_back, s_out) == mani_success &&
+              maniMirrorMap_MirrorPose(map, &s_skeleton, s_in, s_out) == mani_success &&
+              !maniPose_IsDifference(s_out),
           "the mirror a pose, not a difference");
 }
 

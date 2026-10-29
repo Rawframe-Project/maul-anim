@@ -58,9 +58,10 @@ extern "C"
     /// unchanged).
     /// @par Thread safety
     /// Safe from any thread; out is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniBlendPoses(const maniSkeleton* skeleton,
-                                                      const maniBlendLayer* layers, uint32_t count,
-                                                      float threshold, maniPose* out);
+    MANI_NODISCARD MANI_API maniResult maniSkeleton_BlendPoses(const maniSkeleton* skeleton,
+                                                               const maniBlendLayer* layers,
+                                                               uint32_t count, float threshold,
+                                                               maniPose* out);
 
     // A mask's chain: a bone's weight, for the bone alone or for its
     // subtree.
@@ -91,10 +92,11 @@ extern "C"
     /// non-finite weight.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniBuildMask(const maniSkeleton* skeleton,
-                                                     const maniMaskChain* chains, uint32_t count,
-                                                     float defaultWeight, float* weightsOut,
-                                                     uint32_t capacity, uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniResult maniSkeleton_BuildMask(const maniSkeleton* skeleton,
+                                                              const maniMaskChain* chains,
+                                                              uint32_t count, float defaultWeight,
+                                                              float* weightsOut, uint32_t capacity,
+                                                              uint32_t* countOut);
 
     /// Writes the difference of a pose from a basis, bone by bone:
     /// `d_t = t - t_b`, `d_r = r_b^-1 r` (normalized), `d_s = s / s_b` per
@@ -110,17 +112,16 @@ extern "C"
     /// translations past binary32's range apart; out unchanged).
     /// @par Thread safety
     /// Safe from any thread; out is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniPoseDifference(const maniSkeleton* skeleton,
-                                                          const maniPose* pose,
-                                                          const maniPose* basis, maniPose* out);
+    MANI_NODISCARD MANI_API maniResult maniSkeleton_ComputePoseDifference(
+        const maniSkeleton* skeleton, const maniPose* pose, const maniPose* basis, maniPose* out);
 
     /// Applies differences to a pose in order, each bone at its layer
     /// weight times its bone weight (both 0 to 1): `t + w d_t`,
     /// `r nlerp(1, d_r, w)` (the difference's turn taken the short way),
     /// `s (1 + w (d_s - 1))` per axis, a factor between 1 and `d_s`.
     ///
-    /// @param skeleton  The poses' skeleton.
     /// @param pose      A pose of the skeleton, changed in place.
+    /// @param skeleton  The poses' skeleton.
     /// @param layers    count layers, each a difference.
     /// @param count     The number of layers.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
@@ -128,8 +129,10 @@ extern "C"
     /// difference, or a weight outside 0 to 1 (the pose unchanged).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose,
-                                                    const maniBlendLayer* layers, uint32_t count);
+    MANI_NODISCARD MANI_API maniResult maniPose_AddLayers(maniPose* pose,
+                                                          const maniSkeleton* skeleton,
+                                                          const maniBlendLayer* layers,
+                                                          uint32_t count);
 
 #ifdef __cplusplus
 }

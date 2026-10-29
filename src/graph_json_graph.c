@@ -388,7 +388,7 @@ static bool Chain(Reader* r, uint32_t object, maniMaskChain* chain)
         return false;
     }
     chain->subtree = subtree;
-    chain->bone = maniSkeletonFindBone(r->skeleton, name, length);
+    chain->bone = maniSkeleton_FindBone(r->skeleton, name, length);
     return chain->bone != MANI_NO_BONE || maniGraphJsonFault(r, f[0], maniGraphFormName);
 }
 

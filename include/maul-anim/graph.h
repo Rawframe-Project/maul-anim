@@ -80,7 +80,7 @@ extern "C"
         maniGraphParameterQuat = 5,
         maniGraphParameterTrigger = 6,
         // A pose of the graph's skeleton the host sets with
-        // maniSetGraphPose (a ragdoll's, say), the rest pose until set;
+        // maniGraphInstance_SetPose (a ragdoll's, say), the rest pose until set;
         // read by pose input nodes. Its value is 0.
         maniGraphParameterPose = 7,
     };
@@ -242,7 +242,7 @@ extern "C"
     /// @return The identity; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphIdentity(const maniGraph* graph);
+    MANI_API uint64_t maniGraph_GetIdentity(const maniGraph* graph);
 
     /// Returns the identity of the skeleton the graph was built against.
     ///
@@ -250,7 +250,7 @@ extern "C"
     /// @return The identity; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphSkeletonIdentity(const maniGraph* graph);
+    MANI_API uint64_t maniGraph_GetSkeletonIdentity(const maniGraph* graph);
 
     /// Returns the number of nodes.
     ///
@@ -258,7 +258,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphNodeCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetNodeCount(const maniGraph* graph);
 
     /// Returns the number of parameters.
     ///
@@ -266,7 +266,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphParameterCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetParameterCount(const maniGraph* graph);
 
     /// Finds a parameter by its name.
     ///
@@ -276,8 +276,8 @@ extern "C"
     /// @return The parameter, or MANI_NO_PARAMETER.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphFindParameter(const maniGraph* graph, const char* name,
-                                             size_t length);
+    MANI_API uint32_t maniGraph_FindParameter(const maniGraph* graph, const char* name,
+                                              size_t length);
 
     /// Returns a parameter's type.
     ///
@@ -288,9 +288,9 @@ extern "C"
     /// parameter past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniGraphParameterTypeOf(const maniGraph* graph,
-                                                                uint32_t parameter,
-                                                                maniGraphParameterType* typeOut);
+    MANI_NODISCARD MANI_API maniResult maniGraph_GetParameterType(const maniGraph* graph,
+                                                                  uint32_t parameter,
+                                                                  maniGraphParameterType* typeOut);
 
     /// Returns a parameter's name, its bytes inside the file.
     ///
@@ -300,8 +300,8 @@ extern "C"
     /// @return The name, not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGraphParameterName(const maniGraph* graph, uint32_t parameter,
-                                                size_t* lengthOut);
+    MANI_API const char* maniGraph_GetParameterName(const maniGraph* graph, uint32_t parameter,
+                                                    size_t* lengthOut);
 
     /// Returns the number of clip slots the graph plays.
     ///
@@ -309,7 +309,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphClipCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetClipCount(const maniGraph* graph);
 
     /// Returns the identity of the clip a slot names.
     ///
@@ -318,7 +318,7 @@ extern "C"
     /// @return The clip's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphClipIdentity(const maniGraph* graph, uint32_t clip);
+    MANI_API uint64_t maniGraph_GetClipIdentity(const maniGraph* graph, uint32_t clip);
 
     /// Returns the name a slot gives its clip, its bytes inside the file.
     ///
@@ -328,8 +328,8 @@ extern "C"
     /// @return The name, not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGraphClipName(const maniGraph* graph, uint32_t clip,
-                                           size_t* lengthOut);
+    MANI_API const char* maniGraph_GetClipName(const maniGraph* graph, uint32_t clip,
+                                               size_t* lengthOut);
 
     /// Returns the number of motion database slots the graph's motion
     /// matching nodes search.
@@ -338,7 +338,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphDatabaseCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetDatabaseCount(const maniGraph* graph);
 
     /// Returns the identity of the motion database a slot names.
     ///
@@ -347,7 +347,7 @@ extern "C"
     /// @return The database's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphDatabaseIdentity(const maniGraph* graph, uint32_t database);
+    MANI_API uint64_t maniGraph_GetDatabaseIdentity(const maniGraph* graph, uint32_t database);
 
     /// Returns the name a slot gives its motion database, its bytes inside
     /// the file.
@@ -358,8 +358,8 @@ extern "C"
     /// @return The name, not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGraphDatabaseName(const maniGraph* graph, uint32_t database,
-                                               size_t* lengthOut);
+    MANI_API const char* maniGraph_GetDatabaseName(const maniGraph* graph, uint32_t database,
+                                                   size_t* lengthOut);
 
     /// Returns the number of learned model slots the graph's learned
     /// motion matching nodes play.
@@ -368,7 +368,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphModelCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetModelCount(const maniGraph* graph);
 
     /// Returns the identity of the learned model a slot names.
     ///
@@ -377,7 +377,7 @@ extern "C"
     /// @return The model's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphModelIdentity(const maniGraph* graph, uint32_t model);
+    MANI_API uint64_t maniGraph_GetModelIdentity(const maniGraph* graph, uint32_t model);
 
     /// Returns the name a slot gives its learned model, its bytes inside
     /// the file.
@@ -388,8 +388,8 @@ extern "C"
     /// @return The name, not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGraphModelName(const maniGraph* graph, uint32_t model,
-                                            size_t* lengthOut);
+    MANI_API const char* maniGraph_GetModelName(const maniGraph* graph, uint32_t model,
+                                                size_t* lengthOut);
 
     /// Returns the number of spring set slots the graph's spring nodes
     /// read.
@@ -398,7 +398,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphSpringSetCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetSpringSetCount(const maniGraph* graph);
 
     /// Returns the identity of the spring set a slot names.
     ///
@@ -407,7 +407,7 @@ extern "C"
     /// @return The set's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphSpringSetIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraph_GetSpringSetIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the name a slot gives its spring set, its bytes inside the
     /// file.
@@ -418,8 +418,8 @@ extern "C"
     /// @return The name, not terminated, or NULL past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniGraphSpringSetName(const maniGraph* graph, uint32_t slot,
-                                                size_t* lengthOut);
+    MANI_API const char* maniGraph_GetSpringSetName(const maniGraph* graph, uint32_t slot,
+                                                    size_t* lengthOut);
 
     /// Returns the number of retargeting map slots the graph's clips play
     /// through: one for each map its clip slots name.
@@ -428,7 +428,7 @@ extern "C"
     /// @return The count; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphRetargetMapCount(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetRetargetMapCount(const maniGraph* graph);
 
     /// Returns the identity of the retargeting map a slot names.
     ///
@@ -437,7 +437,7 @@ extern "C"
     /// @return The map's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphRetargetMapIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraph_GetRetargetMapIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the identity of the graph's mirror map, which
     /// its mirror nodes mirror through.
@@ -446,7 +446,7 @@ extern "C"
     /// @return The map's identity; 0 for a graph without one, or NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphMirrorMapIdentity(const maniGraph* graph);
+    MANI_API uint64_t maniGraph_GetMirrorMapIdentity(const maniGraph* graph);
 
     /// Returns the identity of the skeleton a map slot's map takes poses
     /// from: the skeleton its clips are of, which binding needs.
@@ -456,7 +456,7 @@ extern "C"
     /// @return The source skeleton's identity; 0 past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniGraphRetargetMapSourceIdentity(const maniGraph* graph, uint32_t slot);
+    MANI_API uint64_t maniGraph_GetRetargetMapSourceIdentity(const maniGraph* graph, uint32_t slot);
 
     /// Returns the map slot a clip slot plays through.
     ///
@@ -466,7 +466,7 @@ extern "C"
     /// skeleton or past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphClipRetargetMap(const maniGraph* graph, uint32_t clip);
+    MANI_API uint32_t maniGraph_GetClipRetargetMap(const maniGraph* graph, uint32_t clip);
 
     /// Returns a node's kind: with its inputs and the output
     /// node, what a debugger draws the graph's tree from. Nodes are in
@@ -477,7 +477,7 @@ extern "C"
     /// @return Its kind; 0 for a NULL graph or past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniGraphNodeKind maniGraphNodeKindOf(const maniGraph* graph, uint32_t node);
+    MANI_API maniGraphNodeKind maniGraph_GetNodeKind(const maniGraph* graph, uint32_t node);
 
     /// Returns how many inputs a node has (a machine's are its states, a
     /// one-shot's its base and shot).
@@ -487,18 +487,18 @@ extern "C"
     /// @return The count; 0 for a NULL graph or past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphNodeInputCount(const maniGraph* graph, uint32_t node);
+    MANI_API uint32_t maniGraph_GetNodeInputCount(const maniGraph* graph, uint32_t node);
 
     /// Returns a node's input by its place among the node's inputs.
     ///
     /// @param graph  An opened graph.
     /// @param node   The node.
-    /// @param input  The place, below maniGraphNodeInputCount.
+    /// @param input  The place, below maniGraph_GetNodeInputCount.
     /// @return The input node; MANI_GRAPH_NONE for a NULL graph or past a
     /// count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphNodeInput(const maniGraph* graph, uint32_t node, uint32_t input);
+    MANI_API uint32_t maniGraph_GetNodeInput(const maniGraph* graph, uint32_t node, uint32_t input);
 
     /// Returns the node whose pose a graph gives: its last.
     ///
@@ -506,7 +506,7 @@ extern "C"
     /// @return The output node; MANI_GRAPH_NONE for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphOutputNode(const maniGraph* graph);
+    MANI_API uint32_t maniGraph_GetOutputNode(const maniGraph* graph);
 
     /// Returns a node's place in the source it was built from: the builder
     /// orders nodes after their inputs, so a file's node may sit elsewhere
@@ -519,7 +519,7 @@ extern "C"
     /// count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniGraphNodeSourcePlace(const maniGraph* graph, uint32_t node);
+    MANI_API uint32_t maniGraph_GetNodeSourcePlace(const maniGraph* graph, uint32_t node);
 
     // A graph bound to its skeleton and clips, in caller memory: shared by
     // every instance of the graph, read only.
@@ -538,7 +538,7 @@ extern "C"
     /// @return The size; 0 for a NULL graph.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniGraphBindingSize(const maniGraph* graph);
+    MANI_API size_t maniGraph_GetBindingSize(const maniGraph* graph);
 
     // What a graph binds to: its skeleton, and opened clips, motion
     // databases, learned models, spring sets, retargeting maps and the
@@ -581,7 +581,7 @@ extern "C"
     /// @param assets      The skeleton the graph was built against, and
     ///                    the clips, databases, models, spring sets, maps,
     ///                    source skeletons and mirror map.
-    /// @param memory      At least maniGraphBindingSize bytes,
+    /// @param memory      At least maniGraph_GetBindingSize bytes,
     ///                    MANI_GRAPH_BINDING_ALIGNMENT-aligned.
     /// @param size        The memory's size.
     /// @param bindingOut  Receives the binding.
@@ -612,7 +612,7 @@ extern "C"
     /// @return The size; 0 for a NULL binding.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniGraphInstanceSize(const maniGraphBinding* binding);
+    MANI_API size_t maniGraphBinding_GetInstanceSize(const maniGraphBinding* binding);
 
     /// Makes an instance in caller memory: parameters at their defaults,
     /// every playhead at 0, nothing weighed until the first update. The
@@ -620,7 +620,7 @@ extern "C"
     /// is a copy.
     ///
     /// @param binding      A binding, which must outlive the instance.
-    /// @param memory       At least maniGraphInstanceSize bytes,
+    /// @param memory       At least maniGraphBinding_GetInstanceSize bytes,
     ///                     MANI_GRAPH_INSTANCE_ALIGNMENT-aligned.
     /// @param size         The memory's size.
     /// @param instanceOut  Receives the instance.
@@ -647,10 +647,10 @@ extern "C"
     /// length; nothing changed).
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSetGraphParameter(maniGraphInstance* instance,
-                                                             uint32_t parameter,
-                                                             maniGraphParameterType type,
-                                                             maniGraphValue value);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_SetParameter(maniGraphInstance* instance,
+                                                                      uint32_t parameter,
+                                                                      maniGraphParameterType type,
+                                                                      maniGraphValue value);
 
     /// Sets a pose parameter to a pose's local transforms (copied).
     ///
@@ -663,8 +663,9 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the instance and pose are used by one
     /// thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSetGraphPose(maniGraphInstance* instance,
-                                                        uint32_t parameter, const maniPose* pose);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_SetPose(maniGraphInstance* instance,
+                                                                 uint32_t parameter,
+                                                                 const maniPose* pose);
 
     /// Reads a pose parameter's local transforms into a pose.
     ///
@@ -678,8 +679,9 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the instance and pose are used by one
     /// thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniGetGraphPose(const maniGraphInstance* instance,
-                                                        uint32_t parameter, maniPose* poseOut);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_GetPose(const maniGraphInstance* instance,
+                                                                 uint32_t parameter,
+                                                                 maniPose* poseOut);
 
     /// Reads a parameter's value.
     ///
@@ -690,9 +692,8 @@ extern "C"
     /// a parameter past the count.
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniGetGraphParameter(const maniGraphInstance* instance,
-                                                             uint32_t parameter,
-                                                             maniGraphValue* valueOut);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_GetParameter(
+        const maniGraphInstance* instance, uint32_t parameter, maniGraphValue* valueOut);
 
     // What a node of an instance did in its last update, read
     // from the state the update keeps. Fields a kind has no use for are
@@ -747,8 +748,8 @@ extern "C"
     /// Safe from any thread; the instance is used by one thread at a time.
     /// It reads what the last update left, so it runs between updates, on
     /// the thread that updates or after handing the instance over.
-    MANI_NODISCARD MANI_API maniResult maniInspectGraphNode(const maniGraphInstance* instance,
-                                                            uint32_t node, maniGraphNodeView* out);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_InspectNode(
+        const maniGraphInstance* instance, uint32_t node, maniGraphNodeView* out);
 
     /// Writes an instance's state as bytes that hold no pointer, to be
     /// restored into any instance of the same graph: its parameters, its
@@ -767,9 +768,9 @@ extern "C"
     /// a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSaveGraphInstance(const maniGraphInstance* instance,
-                                                             void* bytesOut, size_t capacity,
-                                                             size_t* sizeOut);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_Save(const maniGraphInstance* instance,
+                                                              void* bytesOut, size_t capacity,
+                                                              size_t* sizeOut);
 
     /// Restores a saved state, checked as external bytes: the graph's
     /// identity, the size, every parameter in form, every node's, state
@@ -788,8 +789,9 @@ extern "C"
     /// (the instance unchanged in either case).
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniFileResult maniRestoreGraphInstance(maniGraphInstance* instance,
-                                                                    const void* bytes, size_t size);
+    MANI_NODISCARD MANI_API maniFileResult maniGraphInstance_Restore(maniGraphInstance* instance,
+                                                                     const void* bytes,
+                                                                     size_t size);
 
 // An event fires only from a clip node weighed past this.
 #define MANI_GRAPH_EVENT_THRESHOLD 1e-5f
@@ -841,16 +843,17 @@ extern "C"
     /// move over the step passes it: the update completed for
     /// every node, the failing nodes held their last finite state (or stay
     /// without one) and gave no root motion or events,
-    /// maniInspectGraphNode names them, and the events and root motion
+    /// maniGraphInstance_InspectNode names them, and the events and root motion
     /// written are valid and finite (no misuse is counted: the model is
     /// data); `mani_errorInvalid` for a NULL instance, events NULL with a
     /// capacity, or a step not finite (nothing changed).
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniUpdateGraph(maniGraphInstance* instance, float delta,
-                                                       maniGraphEvent* events, uint32_t capacity,
-                                                       uint32_t* eventCountOut,
-                                                       maniRootMove* rootMotionOut);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_Update(maniGraphInstance* instance,
+                                                                float delta, maniGraphEvent* events,
+                                                                uint32_t capacity,
+                                                                uint32_t* eventCountOut,
+                                                                maniRootMove* rootMotionOut);
 
 #define MANI_GRAPH_SCRATCH_ALIGNMENT 32u
 
@@ -865,27 +868,27 @@ extern "C"
     /// @return The size; 0 for a NULL binding.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniGraphScratchSize(const maniGraphBinding* binding);
+    MANI_API size_t maniGraphBinding_GetScratchSize(const maniGraphBinding* binding);
 
     /// Writes an instance's pose as its last update weighed it: each node
     /// of weight above 0, in order, into its slot (a clip sampled at its
     /// playhead through its cursor; a learned node's model decompressed
     /// at its state, taking the hidden values its last update kept when
-    /// the two states' bytes are equal: maniUpdateGraph writes that
+    /// the two states' bytes are equal: maniGraphInstance_Update writes that
     /// cache, the evaluation only reads it; blends, masks and additive
     /// layers by the blending functions over their weighed inputs; a
     /// select, time scale or seek passing its input on), then the
     /// output's. The rest pose before the first update.
     ///
     /// @param instance  An instance.
-    /// @param scratch   At least maniGraphScratchSize bytes,
+    /// @param scratch   At least maniGraphBinding_GetScratchSize bytes,
     ///                  MANI_GRAPH_SCRATCH_ALIGNMENT-aligned, used by one
     ///                  thread at a time.
     /// @param size      The scratch's size.
     /// @param pose      A pose of the graph's skeleton.
     /// @return `mani_success`; `mani_errorFormat` when a learned node's
     /// model gave a value past the float range: the evaluation completed,
-    /// that node gave the neutral pose, maniInspectGraphNode names it, and
+    /// that node gave the neutral pose, maniGraphInstance_InspectNode names it, and
     /// the pose written is valid and finite (no misuse is counted);
     /// `mani_errorInvalid` for a NULL or misaligned argument or a pose of
     /// another skeleton; `mani_errorCapacity` when the scratch is too
@@ -893,8 +896,9 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the instance, scratch and pose are used by
     /// one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch,
-                                                         size_t size, maniPose* pose);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_Evaluate(maniGraphInstance* instance,
+                                                                  void* scratch, size_t size,
+                                                                  maniPose* pose);
 
     // A subset plan: bones of a binding's skeleton to evaluate,
     // closed under what writing them reads; the caller's memory, made by
@@ -911,7 +915,7 @@ extern "C"
     /// @return The size; 0 for a NULL binding.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniGraphSubsetSize(const maniGraphBinding* binding);
+    MANI_API size_t maniGraphBinding_GetSubsetSize(const maniGraphBinding* binding);
 
     /// Plans the evaluation of some bones (a server's hit-test bones, a
     /// distant crowd's level of detail): the bones listed, every ancestor
@@ -927,7 +931,7 @@ extern "C"
     /// @param bones    The bones, strictly increasing; may be NULL when
     ///                 count is 0.
     /// @param count    How many.
-    /// @param memory   At least maniGraphSubsetSize bytes,
+    /// @param memory   At least maniGraphBinding_GetSubsetSize bytes,
     ///                 MANI_GRAPH_SUBSET_ALIGNMENT-aligned.
     /// @param size     The memory's size.
     /// @param planOut  The plan, in memory.
@@ -950,11 +954,12 @@ extern "C"
     /// @return The bones, in the plan's memory; NULL for a NULL plan.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const uint32_t* maniGraphSubsetBones(const maniGraphSubset* plan, uint32_t* countOut);
+    MANI_API const uint32_t* maniGraphSubset_GetBones(const maniGraphSubset* plan,
+                                                      uint32_t* countOut);
 
-    /// Writes the plan's bones (maniGraphSubsetBones: with the listed ones'
+    /// Writes the plan's bones (maniGraphSubset_GetBones: with the listed ones'
     /// ancestors, so their model pass is right) of an instance's pose as
-    /// maniEvaluateGraph writes them, bit for bit, computing no more than
+    /// maniGraphInstance_Evaluate writes them, bit for bit, computing no more than
     /// the plan needs; every other bone is left as it was. A node of a
     /// kind that writes bones from others and writes no planned bone
     /// passes its input on (a spring set not stepped), and an
@@ -966,18 +971,18 @@ extern "C"
     ///
     /// @param instance  An instance.
     /// @param plan      A plan of the instance's binding.
-    /// @param scratch   As maniEvaluateGraph's.
+    /// @param scratch   As maniGraphInstance_Evaluate's.
     /// @param size      The scratch's size.
     /// @param pose      A pose of the graph's skeleton.
-    /// @return As maniEvaluateGraph; `mani_errorInvalid` also for a NULL
+    /// @return As maniGraphInstance_Evaluate; `mani_errorInvalid` also for a NULL
     /// plan or one of another binding.
     /// @par Thread safety
     /// Safe from any thread; the instance, scratch and pose are used by
     /// one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniEvaluateGraphSubset(maniGraphInstance* instance,
-                                                               const maniGraphSubset* plan,
-                                                               void* scratch, size_t size,
-                                                               maniPose* pose);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_EvaluateSubset(maniGraphInstance* instance,
+                                                                        const maniGraphSubset* plan,
+                                                                        void* scratch, size_t size,
+                                                                        maniPose* pose);
 
 #ifdef __cplusplus
 }

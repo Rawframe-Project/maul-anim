@@ -78,7 +78,8 @@ static void OpenChain(void)
     maniSkeletonSource skeleton = {bones, CHAIN};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
-              maniCopyBuilt(builder, s_chainFile, sizeof s_chainFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_chainFile, sizeof s_chainFile, &size) ==
+                  mani_success &&
               maniOpenSkeleton(s_chainFile, size, &s_chain).result == mani_success,
           "the chain");
     static const float kTimes[2] = {0.0f, 1.0f};
@@ -96,8 +97,8 @@ static void OpenChain(void)
                                  .loop = maniLoopRepeat,
                                  .sampleRate = 10.0f};
         CHECK(maniBuildClip(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_chainClipFiles[i], sizeof s_chainClipFiles[i], &size) ==
-                      mani_success &&
+                  maniBuilder_CopyBuilt(builder, s_chainClipFiles[i], sizeof s_chainClipFiles[i],
+                                        &size) == mani_success &&
                   maniOpenClip(s_chainClipFiles[i], size, &s_chainClips[i]).result == mani_success,
               "a chain clip");
     }
@@ -118,11 +119,11 @@ static void OpenChain(void)
     maniClip uncompressed;
     maniCompressOptions options = maniDefaultCompressOptions();
     CHECK(maniBuildClip(builder, &every).result == mani_success &&
-              maniCopyBuilt(builder, full, sizeof full, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, full, sizeof full, &size) == mani_success &&
               maniOpenClip(full, size, &uncompressed).result == mani_success &&
               maniCompressClip(builder, &uncompressed, &s_chain, &options, NULL) == mani_success &&
-              maniCopyBuilt(builder, s_chainClipFiles[2], sizeof s_chainClipFiles[2], &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_chainClipFiles[2], sizeof s_chainClipFiles[2],
+                                    &size) == mani_success &&
               maniOpenClip(s_chainClipFiles[2], size, &s_chainClips[2]).result == mani_success,
           "a compressed clip moving every bone");
     maniDestroyBuilder(builder);
@@ -207,9 +208,10 @@ static bool Opens(maniGraphSource source, maniGraph* g)
         source.clipCount = CLIPS;
     }
     maniBuilder* builder = NewBuilder();
-    bool ok = maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniOpenGraph(s_built, s_builtSize, g).result == mani_success;
+    bool ok =
+        maniBuildGraph(builder, &source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniOpenGraph(s_built, s_builtSize, g).result == mani_success;
     maniDestroyBuilder(builder);
     return ok;
 }
@@ -302,25 +304,26 @@ static void TestChainMask(void)
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
     maniPose* out = ChainPose(0);
-    CHECK(Opens((maniGraphSource){.skeleton = &s_chain,
-                                  .clips = slots,
-                                  .nodes = nodes,
-                                  .clipCount = 2,
-                                  .nodeCount = 3},
-                &g) &&
-              maniBindGraph(&g,
-                            &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
-                                               NULL, 0, 0, NULL},
-                            s_chainBinding, sizeof s_chainBinding, &binding,
-                            NULL) == mani_success &&
-              maniInitGraphInstance(binding, s_chainInstance, sizeof s_chainInstance, &instance) ==
-                  mani_success &&
-              maniUpdateGraph(instance, 0.25f, NULL, 0, NULL, NULL) == mani_success &&
-              maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success,
-          "a chain graph");
+    CHECK(
+        Opens((maniGraphSource){.skeleton = &s_chain,
+                                .clips = slots,
+                                .nodes = nodes,
+                                .clipCount = 2,
+                                .nodeCount = 3},
+              &g) &&
+            maniBindGraph(&g,
+                          &(maniGraphAssets){&s_chain, clips, NULL, NULL, NULL, 2, 0, 0, 0, NULL,
+                                             NULL, 0, 0, NULL},
+                          s_chainBinding, sizeof s_chainBinding, &binding, NULL) == mani_success &&
+            maniInitGraphInstance(binding, s_chainInstance, sizeof s_chainInstance, &instance) ==
+                mani_success &&
+            maniGraphInstance_Update(instance, 0.25f, NULL, 0, NULL, NULL) == mani_success &&
+            maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success,
+        "a chain graph");
     float inside[CHAIN];
     float outside[CHAIN];
-    CHECK(maniBuildMask(&s_chain, &kChain, 1, 0.0f, inside, CHAIN, NULL) == mani_success, "a mask");
+    CHECK(maniSkeleton_BuildMask(&s_chain, &kChain, 1, 0.0f, inside, CHAIN, NULL) == mani_success,
+          "a mask");
     for (int b = 0; b < CHAIN; ++b)
     {
         outside[b] = 1.0f - inside[b];
@@ -329,15 +332,16 @@ static void TestChainMask(void)
     maniPose* b = ChainPose(2);
     maniPose* want = ChainPose(3);
     const maniBlendLayer layers[2] = {{a, 1.0f, inside}, {b, 1.0f, outside}};
-    CHECK(maniSampleClip(&s_chainClips[0], &s_chain, 0.25f, a) == mani_success &&
-              maniSampleClip(&s_chainClips[1], &s_chain, 0.25f, b) == mani_success &&
-              maniBlendPoses(&s_chain, layers, 2, MANI_BLEND_THRESHOLD, want) == mani_success,
+    CHECK(maniClip_Sample(&s_chainClips[0], &s_chain, 0.25f, a) == mani_success &&
+              maniClip_Sample(&s_chainClips[1], &s_chain, 0.25f, b) == mani_success &&
+              maniSkeleton_BlendPoses(&s_chain, layers, 2, MANI_BLEND_THRESHOLD, want) ==
+                  mani_success,
           "by hand");
     bool same = true;
     for (uint32_t bone = 0; bone < CHAIN; ++bone)
     {
-        maniTransform x = maniPoseLocal(out, bone);
-        maniTransform y = maniPoseLocal(want, bone);
+        maniTransform x = maniPose_GetLocal(out, bone);
+        maniTransform y = maniPose_GetLocal(want, bone);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     CHECK(same, "the masked pose, bit for bit");
@@ -444,7 +448,7 @@ static bool BuildCrafted(void)
                               0,           0,          NULL,   0,       0,     NULL, NULL,  NULL};
     maniBuilder* builder = NewBuilder();
     bool ok = maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success;
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success;
     maniDestroyBuilder(builder);
     return ok;
 }
@@ -509,7 +513,7 @@ static void TestOpenRefusals(void)
                               0,           0,    NULL,   0,    0,     NULL, NULL,  NULL};
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildGraph(builder, &single).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success,
           "a single walk");
     maniDestroyBuilder(builder);
     const uint64_t edits[4] = {Word(0, 0), 2, Record(0), 0x00010001u};
@@ -561,7 +565,8 @@ static void TestSubgraphs(void)
     source.clips = kSlots;
     source.clipCount = CLIPS;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) ==
+                  mani_success &&
               s_builtSize == flatSize && memcmp(s_built, flatFile, flatSize) == 0,
           "inlined as written flat");
     maniDestroyBuilder(builder);
@@ -684,7 +689,7 @@ static uint32_t PlaceOf(const maniGraph* g, uint32_t v)
 {
     for (uint32_t p = 0; p < g->nodeCount; ++p)
     {
-        if (maniGraphNodeSourcePlace(g, p) == v)
+        if (maniGraph_GetNodeSourcePlace(g, p) == v)
         {
             return p;
         }
@@ -733,7 +738,7 @@ static void TestTimeFactors(void)
     bool factors = true;
     for (uint32_t p = 0; p < g.nodeCount; ++p)
     {
-        factors = factors && FactorAt(p) == kWant[maniGraphNodeSourcePlace(&g, p)];
+        factors = factors && FactorAt(p) == kWant[maniGraph_GetNodeSourcePlace(&g, p)];
     }
     CHECK(factors, "each node's largest product, a parameter's at its bounds' larger size");
     uint32_t output = g.nodeCount - 1;
@@ -815,8 +820,8 @@ static void TestBindingRoom(void)
                                                NULL, 0, 0, NULL},
                             s_chainBinding, sizeof s_chainBinding, &binding, NULL) == mani_success,
           "bound");
-    size_t largest = (maniClipCursorSize(&s_chainClips[2]) + 7u) & ~(size_t)7u;
-    CHECK(binding->cursorSize == largest && maniClipCursorSize(&s_chainClips[0]) < largest &&
+    size_t largest = (maniClip_GetCursorSize(&s_chainClips[2]) + 7u) & ~(size_t)7u;
+    CHECK(binding->cursorSize == largest && maniClip_GetCursorSize(&s_chainClips[0]) < largest &&
               binding->maxInputs == 3,
           "room for the largest cursor and the most inputs");
 }

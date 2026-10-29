@@ -47,7 +47,7 @@ typedef struct Entry
 static maniBuildResult Gather(const maniInfluenceSource* s, uint32_t v, Entry* entries,
                               uint32_t* countOut)
 {
-    uint32_t joints = maniSkinJointCount(s->skin);
+    uint32_t joints = maniSkin_GetJointCount(s->skin);
     uint32_t n = 0;
     for (uint32_t i = s->offsets[v]; i < s->offsets[v + 1]; ++i)
     {
@@ -178,8 +178,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniInfluenceSource* s,
         return Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
     }
     uint8_t binding[MANI_INFLUENCE_BINDING_SIZE] = {0};
-    maniStoreU64(binding, maniSkinIdentity(s->skin));
-    maniStoreU32(binding + 8, maniSkinJointCount(s->skin));
+    maniStoreU64(binding, maniSkin_GetIdentity(s->skin));
+    maniStoreU32(binding + 8, maniSkin_GetJointCount(s->skin));
     maniStoreU32(binding + 12, s->vertexCount);
     maniStoreU32(binding + 16, groups);
     for (uint32_t v = 0; v < s->vertexCount; ++v)

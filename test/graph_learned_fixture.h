@@ -80,7 +80,7 @@ static inline maniGraphInstance* MakeLearned(maniGraphSource source, maniGraph* 
     maniGraphInstance* instance = NULL;
     CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(
                   g,

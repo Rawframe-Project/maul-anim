@@ -128,8 +128,8 @@ static size_t Aligned(size_t n)
 static bool TakePoses(Bake* b)
 {
     const maniClipBakeKind* s = b->s;
-    size_t sourceSize = Aligned(maniPoseSize(s->from));
-    size_t targetSize = Aligned(maniPoseSize(s->to));
+    size_t sourceSize = Aligned(maniSkeleton_GetPoseSize(s->from));
+    size_t targetSize = Aligned(maniSkeleton_GetPoseSize(s->to));
     b->scratchSize = s->scratchSize;
     size_t total = 2 * sourceSize + 3 * targetSize + b->scratchSize + MANI_POSE_ALIGNMENT;
     uint8_t* at = Take(b, total, 1);
@@ -218,15 +218,17 @@ static maniResult Additive(Bake* b)
 {
     const maniClipBakeKind* s = b->s;
     maniBlendLayer layer = {b->poses[0], 1.0f, NULL};
-    maniResult r = maniPoseSetRest(b->poses[1], s->from);
-    r = r == mani_success ? maniAddPoses(s->from, b->poses[1], &layer, 1) : r;
+    maniResult r = maniPose_SetRest(b->poses[1], s->from);
+    r = r == mani_success ? maniPose_AddLayers(b->poses[1], s->from, &layer, 1) : r;
     r = r == mani_success
             ? s->carry(s->context, b->poses[1], b->poses[2], b->scratch, b->scratchSize)
             : r;
-    r = r == mani_success ? maniPoseDifference(s->to, b->poses[2], b->poses[3], b->poses[2]) : r;
+    r = r == mani_success
+            ? maniSkeleton_ComputePoseDifference(s->to, b->poses[2], b->poses[3], b->poses[2])
+            : r;
     layer.pose = b->poses[2];
-    r = r == mani_success ? maniPoseSetRest(b->poses[4], s->to) : r;
-    return r == mani_success ? maniAddPoses(s->to, b->poses[4], &layer, 1) : r;
+    r = r == mani_success ? maniPose_SetRest(b->poses[4], s->to) : r;
+    return r == mani_success ? maniPose_AddLayers(b->poses[4], s->to, &layer, 1) : r;
 }
 
 // Sample k: the carried locals into the keys, the float tracks' values,
@@ -243,7 +245,7 @@ static maniResult Sample(Bake* b, uint32_t k)
     const maniPose* pose = b->poses[additive ? 4 : 2];
     for (uint32_t bone = 0; bone < b->bones; ++bone)
     {
-        maniTransform l = maniPoseLocal(pose, bone);
+        maniTransform l = maniPose_GetLocal(pose, bone);
         float* v = b->values + (size_t)bone * BONE_FLOATS * n;
         const float t[3] = {l.translation.x, l.translation.y, l.translation.z};
         const float q[4] = {l.rotation.x, l.rotation.y, l.rotation.z, l.rotation.w};
@@ -289,7 +291,7 @@ static uint32_t LayBoneTracks(Bake* b)
     uint32_t count = 0;
     for (uint32_t bone = 0; bone < b->bones; ++bone)
     {
-        maniTransform rest = maniSkeletonRest(b->s->to, bone);
+        maniTransform rest = maniSkeleton_GetRest(b->s->to, bone);
         const float t[3] = {rest.translation.x, rest.translation.y, rest.translation.z};
         const float q[4] = {rest.rotation.x, rest.rotation.y, rest.rotation.z, rest.rotation.w};
         const float c[3] = {rest.scale.x, rest.scale.y, rest.scale.z};
@@ -320,7 +322,7 @@ static void LayFloatTracks(Bake* b)
     for (uint32_t i = 0; i < b->floats; ++i)
     {
         size_t length = 0;
-        const char* name = Renamed(b, maniClipFloatTrackName(clip, i, &length), &length);
+        const char* name = Renamed(b, maniClip_GetFloatTrackName(clip, i, &length), &length);
         uint32_t interpolation =
             maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16);
         b->floatTracks[i] = (maniFloatTrackSource){
@@ -348,7 +350,7 @@ static void LayCopied(Bake* b)
             b->discreteValues[at + j] = (int32_t)maniLoadU32(key + 4);
         }
         size_t length = 0;
-        const char* name = Renamed(b, maniClipDiscreteTrackName(clip, i, &length), &length);
+        const char* name = Renamed(b, maniClip_GetDiscreteTrackName(clip, i, &length), &length);
         b->discreteTracks[i] = (maniDiscreteTrackSource){name, length, count, b->discreteTimes + at,
                                                          b->discreteValues + at};
         at += count;
@@ -357,7 +359,7 @@ static void LayCopied(Bake* b)
     for (uint32_t i = 0; i < events + clip->markerCount; ++i)
     {
         maniClipEvent e =
-            i < events ? maniClipEventAt(clip, i) : maniClipMarkerAt(clip, i - events);
+            i < events ? maniClip_GetEvent(clip, i) : maniClip_GetMarker(clip, i - events);
         size_t length = e.nameLength;
         const char* name = Renamed(b, e.name, &length);
         b->events[i] = (maniEventSource){e.time, e.payload, name, length};
@@ -426,10 +428,10 @@ maniBuildResult maniBakeClip(maniBuilder* builder, const maniClipBakeKind* kind)
     b.s = kind;
     b.allocator = &builder->allocator;
     b.samples = kind->clip->sampleCount;
-    b.bones = maniSkeletonBoneCount(kind->to);
+    b.bones = maniSkeleton_GetBoneCount(kind->to);
     b.floats = kind->clip->floatTrackCount;
     maniRootMotionSource from;
-    b.root = maniClipRootMotionSource(kind->clip, &from) ? kind->declared.bone : MANI_NO_BONE;
+    b.root = maniClip_GetRootMotionSource(kind->clip, &from) ? kind->declared.bone : MANI_NO_BONE;
     b.keys = DiscreteKeys(kind->clip);
     maniBuildResult r =
         TakeLists(&b) ? Build(builder, &b) : Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);

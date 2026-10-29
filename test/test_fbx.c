@@ -309,7 +309,7 @@ static void CheckScene(uint32_t version, bool big, const char* what)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniFbxVersion(fbx) == version, "the version");
+    CHECK(maniFbx_GetVersion(fbx) == version, "the version");
     CHECK(fbx->nodeCount == 11, "eleven nodes and the root");
     const char* const header[2] = {"FBXHeaderExtension", "FBXVersion"};
     int64_t v = 0;
@@ -697,7 +697,7 @@ static void TestAscii(void)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniFbxVersion(fbx) == 7400, "the version from the first comment");
+    CHECK(maniFbx_GetVersion(fbx) == 7400, "the version from the first comment");
     const char* const model[2] = {"Objects", "Model"};
     uint32_t m = Path(fbx, model, 2);
     int64_t v = 0;
@@ -760,7 +760,7 @@ static void TestAscii(void)
     // The version from the header when no comment gives it.
     SetText("FBXHeaderExtension: {\n FBXVersion: 6100\n}\n");
     CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success &&
-              maniFbxVersion(fbx) == 6100,
+              maniFbx_GetVersion(fbx) == 6100,
           "the version from FBXHeaderExtension");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -778,7 +778,7 @@ static void TestAsciiEdges(void)
     CHECK(maniOpenFbx(builder, s_w.b, s_w.n, &fbx).result == mani_success, "opens");
     if (fbx != NULL)
     {
-        CHECK(maniFbxVersion(fbx) == 7400, "the first comment's version, not a later one's");
+        CHECK(maniFbx_GetVersion(fbx) == 7400, "the first comment's version, not a later one's");
         uint32_t odd = maniFbxFindChild(fbx, 0, "Odd", 3);
         double d = 0;
         bool none = true;
@@ -919,9 +919,9 @@ static void TestValueRefusals(void)
     CHECK(maniOpenFbx(builder, NULL, 0, &fbx).result == mani_errorInvalid && fbx == NULL,
           "no bytes");
     CHECK(maniOpenFbx(NULL, s_w.b, s_w.n, &fbx).result == mani_errorInvalid, "no builder");
-    CHECK(maniBuilderMisuses(builder) == 1, "a misuse counted");
+    CHECK(maniBuilder_GetMisuse(builder) == 1, "a misuse counted");
     maniCloseFbx(NULL);
-    CHECK(maniFbxVersion(NULL) == 0, "no document");
+    CHECK(maniFbx_GetVersion(NULL) == 0, "no document");
     maniDestroyBuilder(builder);
 }
 

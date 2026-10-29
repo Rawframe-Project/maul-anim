@@ -211,7 +211,7 @@ void maniPlanSetChannel(const maniCompressPlan* p, const maniSubTrack* t, uint32
         maniTransform rest =
             p->clip->additive != 0
                 ? (maniTransform){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}
-                : maniSkeletonRest(p->skeleton, t->bone);
+                : maniSkeleton_GetRest(p->skeleton, t->bone);
         local->translation =
             t->channel == maniSubTranslation ? rest.translation : local->translation;
         local->rotation = t->channel == maniSubRotation ? rest.rotation : local->rotation;

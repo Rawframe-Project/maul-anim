@@ -86,11 +86,12 @@ static bool BuildSkin(maniBuilder* builder, const maniFbx* fbx, maniSkin* skin)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     size_t size = 0;
-    return fbx != NULL && maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+    return fbx != NULL && maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success &&
-           maniFbxBuildSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
-           maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+           maniBuildFbxSkin(builder, fbx, 0, &skeleton, &options).result == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
            maniOpenSkin(s_skinFile, size, skin).result == mani_success;
 }
 
@@ -103,11 +104,11 @@ static maniImportResult Import(const char* text, maniInfluences* v)
     maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0};
     if (BuildSkin(builder, fbx, &skin))
     {
-        r = maniFbxBuildInfluences(builder, fbx, 0, &skin);
+        r = maniBuildFbxInfluences(builder, fbx, 0, &skin);
         size_t size = 0;
         if (r.result == mani_success)
         {
-            CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+            CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
                       maniOpenInfluences(s_file, size, v).result == mani_success,
                   "opens");
         }
@@ -139,18 +140,18 @@ static void TestInfluences(void)
     }
     float w0 = 0.0f;
     float w1 = 0.0f;
-    CHECK(maniInfluencesVertexCount(&v) == 4, "a vertex a control point");
-    CHECK(maniInfluence(&v, 0, 0, &w0) == 0 && w0 == 1.0f, "point 0 on Hips");
-    uint32_t j0 = maniInfluence(&v, 1, 0, &w0);
-    uint32_t j1 = maniInfluence(&v, 1, 1, &w1);
+    CHECK(maniInfluences_GetVertexCount(&v) == 4, "a vertex a control point");
+    CHECK(maniInfluences_GetInfluence(&v, 0, 0, &w0) == 0 && w0 == 1.0f, "point 0 on Hips");
+    uint32_t j0 = maniInfluences_GetInfluence(&v, 1, 0, &w0);
+    uint32_t j1 = maniInfluences_GetInfluence(&v, 1, 1, &w1);
     CHECK(j0 == 0 && j1 == 1 && w0 == 0.5f && w1 == 0.5f,
           "point 1: Hips's repeat summed, beside Spine");
-    CHECK(maniInfluence(&v, 2, 0, &w0) == 1 && w0 == 1.0f, "point 2 on Spine");
-    (void)maniInfluence(&v, 3, 0, &w0);
+    CHECK(maniInfluences_GetInfluence(&v, 2, 0, &w0) == 1 && w0 == 1.0f, "point 2 on Spine");
+    (void)maniInfluences_GetInfluence(&v, 3, 0, &w0);
     CHECK(w0 == 0.0f, "point 3: only an unlinked cluster's, so none");
-    CHECK(maniInfluencesDualQuaternionWeight(&v, 1) == 0.25f &&
-              maniInfluencesDualQuaternionWeight(&v, 3) == 0.75f &&
-              maniInfluencesDualQuaternionWeight(&v, 0) == 0.0f,
+    CHECK(maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.25f &&
+              maniInfluences_GetDualQuaternionWeight(&v, 3) == 0.75f &&
+              maniInfluences_GetDualQuaternionWeight(&v, 0) == 0.0f,
           "blend weights, 0 elsewhere for a Blend skin");
     // Hips's index past the points as a negative or a fraction: skipped
     // alike, the other points as before.
@@ -162,10 +163,10 @@ static void TestInfluences(void)
         maniInfluences o;
         bool same = Import(Replace("  Indexes: *4 {\n   a: 0,1,1,9\n  }\n", indexes), &o).result ==
                         mani_success &&
-                    maniInfluence(&o, 0, 0, &w0) == 0 && w0 == 1.0f &&
-                    maniInfluence(&o, 2, 0, &w0) == 1 && w0 == 1.0f;
-        (void)maniInfluence(&o, 2, 1, &w1);
-        (void)maniInfluence(&o, 3, 0, &w0);
+                    maniInfluences_GetInfluence(&o, 0, 0, &w0) == 0 && w0 == 1.0f &&
+                    maniInfluences_GetInfluence(&o, 2, 0, &w0) == 1 && w0 == 1.0f;
+        (void)maniInfluences_GetInfluence(&o, 2, 1, &w1);
+        (void)maniInfluences_GetInfluence(&o, 3, 0, &w0);
         CHECK(same && w1 == 0.0f && w0 == 0.0f,
               k == 0 ? "a negative index skipped" : "a fractional index skipped");
     }
@@ -175,7 +176,7 @@ static maniSkinningMethod Method(const char* text)
 {
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, text);
-    maniSkinningMethod m = fbx != NULL ? maniFbxSkinMethod(fbx, 0) : 99;
+    maniSkinningMethod m = fbx != NULL ? maniFbx_GetSkinMethod(fbx, 0) : 99;
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
     return m;
@@ -197,8 +198,8 @@ static void TestMethods(void)
              Replace("  Indexes: *2 {\n   a: 1,3\n  }\n", "  Indexes: *2 {\n   a: 1,4\n  }\n"));
     maniInfluences skipped;
     CHECK(Import(text, &skipped).result == mani_success &&
-              maniInfluencesDualQuaternionWeight(&skipped, 1) == 0.25f &&
-              maniInfluencesDualQuaternionWeight(&skipped, 3) == 0.0f,
+              maniInfluences_GetDualQuaternionWeight(&skipped, 1) == 0.25f &&
+              maniInfluences_GetDualQuaternionWeight(&skipped, 3) == 0.0f,
           "a blend index past the control points skipped");
     snprintf(text, sizeof text, "%s",
              Replace("  SkinningType: \"Blend\"\n"
@@ -214,8 +215,8 @@ static void TestMethods(void)
     CHECK(Method(text) == maniSkinningDualQuaternion, "DualQuaternion");
     maniInfluences v;
     CHECK(Import(text, &v).result == mani_success &&
-              maniInfluencesDualQuaternionWeight(&v, 0) == 1.0f &&
-              maniInfluencesDualQuaternionWeight(&v, 2) == 1.0f,
+              maniInfluences_GetDualQuaternionWeight(&v, 0) == 1.0f &&
+              maniInfluences_GetDualQuaternionWeight(&v, 2) == 1.0f,
           "a dual quaternion skin's blend weights are 1");
     snprintf(text, sizeof text, "%s",
              Replace("  SkinningType: \"Blend\"\n"
@@ -224,7 +225,7 @@ static void TestMethods(void)
                      ""));
     CHECK(Method(text) == maniSkinningLinear, "no SkinningType: linear");
     CHECK(Import(text, &v).result == mani_success &&
-              maniInfluencesDualQuaternionWeight(&v, 1) == 0.0f,
+              maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.0f,
           "a linear skin carries no blend weights");
 }
 
@@ -258,12 +259,13 @@ static void TestRefusals(void)
     maniFbx* fbx = Open(builder, kScene);
     maniSkin skin;
     CHECK(BuildSkin(builder, fbx, &skin), "skin");
-    CHECK(maniFbxBuildInfluences(builder, fbx, 1, &skin).result == mani_errorInvalid &&
-              maniFbxBuildInfluences(builder, fbx, 0, NULL).result == mani_errorInvalid &&
-              maniFbxBuildInfluences(builder, NULL, 0, &skin).result == mani_errorInvalid &&
-              maniFbxBuildInfluences(NULL, fbx, 0, &skin).result == mani_errorInvalid,
+    CHECK(maniBuildFbxInfluences(builder, fbx, 1, &skin).result == mani_errorInvalid &&
+              maniBuildFbxInfluences(builder, fbx, 0, NULL).result == mani_errorInvalid &&
+              maniBuildFbxInfluences(builder, NULL, 0, &skin).result == mani_errorInvalid &&
+              maniBuildFbxInfluences(NULL, fbx, 0, &skin).result == mani_errorInvalid,
           "misuses");
-    CHECK(maniFbxSkinMethod(fbx, 1) == maniSkinningLinear && maniFbxSkinMethod(NULL, 0) == 0,
+    CHECK(maniFbx_GetSkinMethod(fbx, 1) == maniSkinningLinear &&
+              maniFbx_GetSkinMethod(NULL, 0) == 0,
           "a skin past the count: linear");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -294,8 +296,8 @@ static void TestSix(void)
     maniInfluences v;
     maniImportResult r = Import(kSix, &v);
     float w = 0.0f;
-    CHECK(r.result == mani_success && maniInfluencesVertexCount(&v) == 2 &&
-              maniInfluence(&v, 1, 0, &w) == 0 && w == 1.0f,
+    CHECK(r.result == mani_success && maniInfluences_GetVertexCount(&v) == 2 &&
+              maniInfluences_GetInfluence(&v, 1, 0, &w) == 0 && w == 1.0f,
           "a 6.x skin: point 1 renormalized to 1");
     if (r.result != mani_success)
     {

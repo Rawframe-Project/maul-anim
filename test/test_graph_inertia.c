@@ -97,7 +97,7 @@ static void TestTransition(void)
     maniGraph g;
     maniGraphInstance* instance = Walked(2.0f, &g);
     Steps(instance, 3);
-    CHECK(NearF(maniPoseLocal(s_pose, 0).translation.x, 0.6), "the walk as it is");
+    CHECK(NearF(maniPose_GetLocal(s_pose, 0).translation.x, 0.6), "the walk as it is");
     Pull(instance, 0);
     maniTransform x = Step(instance, 0.1f, 0);
     float x0 = Captured(instance, &g, 0, 0, 3);
@@ -147,7 +147,7 @@ static void TestHistory(void)
 
     instance = Walked(-1.0f, &g);
     Steps(instance, 2);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
           "evaluated again");
     Pull(instance, 0);
     Steps(instance, 1);
@@ -257,7 +257,7 @@ static void Captures(maniGraphTrs last, maniGraphTrs before, maniTransform input
                          b == 0 ? last : rest);
         maniGraphTrsHold(s_block, maniGraphInertiaHistory(s_block, 3, false), b,
                          b == 0 ? before : rest);
-        maniPoseSetLocal(in, b, (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}});
+        maniPose_SetLocal(in, b, (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}});
     }
     s_block[maniGraphInertiaFlags] = maniGraphInertiaLastKept | maniGraphInertiaPrevKept;
     s_block[maniGraphInertiaSerial] = 6;
@@ -266,7 +266,7 @@ static void Captures(maniGraphTrs last, maniGraphTrs before, maniTransform input
     maniGraphInertiaSet(s_block, maniGraphInertiaStep, 0.1f);
     maniGraphInertiaSet(s_block, maniGraphInertiaLastStep, 0.1f);
     maniGraphInertiaSet(s_block, maniGraphInertiaPending, 0.5f);
-    maniPoseSetLocal(in, 0, input);
+    maniPose_SetLocal(in, 0, input);
     maniGraphInertiaEvaluate(s_block, &node, in, s_pose);
 }
 
@@ -291,7 +291,7 @@ static void TestChannels(void)
           "a turn about z, closing at 1 per second");
     double grown = (double)maniGraphQuintic(Word(15), Word(16), Word(17), 0.1f) / 1.7320508;
     CHECK(NearF(Word(15), 1.7320508) && fabs((double)Word(16) + 1.7320508) < 1e-3 &&
-              fabs((double)maniPoseLocal(s_pose, 0).scale.x - 1.0 - grown) < 1e-5,
+              fabs((double)maniPose_GetLocal(s_pose, 0).scale.x - 1.0 - grown) < 1e-5,
           "a scale closing along its offset, eased");
     maniQuat x = maniQuatFromAxisAngle((maniVec3){1.0f, 0.0f, 0.0f}, 0.5f);
     Captures(last, before, (maniTransform){{0, 0, 0}, x, {1, 1, 1}}, in);
@@ -299,7 +299,7 @@ static void TestChannels(void)
     maniQuat back = maniQuatMul(maniQuatFromAxisAngle(axis, Word(9)), x);
     float eased = maniGraphQuintic(Word(9), Word(10), Word(11), 0.1f);
     maniQuat want = maniQuatMul(maniQuatFromAxisAngle(axis, eased), x);
-    maniTransform out = maniPoseLocal(s_pose, 0);
+    maniTransform out = maniPose_GetLocal(s_pose, 0);
     CHECK(fabs(fabs((double)maniQuatDot(back, last.r)) - 1.0) < 1e-5 &&
               fabs(fabs((double)maniQuatDot(want, out.rotation)) - 1.0) < 1e-6,
           "the turn taken from the input's rotation and applied before it");
@@ -415,11 +415,11 @@ static void TestSaved(void)
     size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+              maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) ==
                   mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
-              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Restore(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     maniTransform a = Step(instance, 0.1f, 0);
     maniTransform b = Step(other, 0.1f, 0);
@@ -434,13 +434,13 @@ static void TestSaved(void)
                                  {9, 1},
                                  {MANI_GRAPH_INERTIA_HEADER + 13, 0xFF800000u},
                                  {capture, 0x40000000u}};
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
           "saved again");
     for (int k = 0; k < 7; ++k)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
-        maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
         CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kBad[k][0],
               "a saved block refused at its word");
     }
@@ -544,15 +544,16 @@ static bool RoundTrip(const maniGraphSource* source)
 {
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
-    bool ok = maniBuildGraph(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniWriteGraphJson(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(builder, s_text, s_textSize,
-                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
-                                                         CLIPS, 0, 0, 0, NULL})
-                      .result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    bool ok =
+        maniBuildGraph(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniWriteGraphJson(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
+        maniBuildGraphJson(
+            builder, s_text, s_textSize,
+            &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL})
+                .result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     s_text[ok ? s_textSize : 0] = 0;
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;

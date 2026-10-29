@@ -160,7 +160,7 @@ static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton*
             uint32_t above = solve->bones[k - 1];
             local = maniIkLocal(pose, above);
             frame = maniIkMul(&parent, &local);
-            below = maniIkBelow(pose, skeleton, above, maniSkeletonParent(skeleton, bone));
+            below = maniIkBelow(pose, skeleton, above, maniSkeleton_GetParent(skeleton, bone));
             parent = maniIkMul(&frame, &below);
             local = maniIkLocal(pose, bone);
             frame = maniIkMul(&parent, &local);
@@ -174,7 +174,7 @@ static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton*
         remaining -= solve->shares[k];
         turn = maniIkWeighted(turn, 1.0f);
         turn = share >= 1.0f ? turn : maniQuatSlerp(maniQuatIdentity(), turn, share);
-        before[k] = maniPoseLocal(pose, bone);
+        before[k] = maniPose_GetLocal(pose, bone);
         corrections[k] = maniIkInParent(turn, &parent);
         maniIkCorrect(pose, bone, corrections[k]);
     }
@@ -183,7 +183,7 @@ static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton*
         // Each correction weighted on the input pose.
         for (uint32_t k = 0; k < solve->count; ++k)
         {
-            maniPoseSetLocal(pose, solve->bones[k], before[k]);
+            maniPose_SetLocal(pose, solve->bones[k], before[k]);
             maniIkCorrect(pose, solve->bones[k], maniIkWeighted(corrections[k], solve->weight));
         }
     }
@@ -194,8 +194,8 @@ static MANI_NOINLINE maniResult SolveAimWork(maniPose* pose, const maniSkeleton*
     return mani_success;
 }
 
-maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* solve,
-                        bool* reachedOut)
+maniResult maniPose_SolveAim(maniPose* pose, const maniSkeleton* skeleton,
+                             const maniAimSolve* solve, bool* reachedOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveAimWork(pose, skeleton, solve, reachedOut);

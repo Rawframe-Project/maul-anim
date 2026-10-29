@@ -56,7 +56,7 @@ extern "C"
     /// @return The joint count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSkinJointCount(const maniSkin* skin);
+    MANI_API uint32_t maniSkin_GetJointCount(const maniSkin* skin);
 
     /// Returns the identity of the skeleton the skin is bound to.
     ///
@@ -64,7 +64,7 @@ extern "C"
     /// @return The skeleton's identity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniSkinSkeletonIdentity(const maniSkin* skin);
+    MANI_API uint64_t maniSkin_GetSkeletonIdentity(const maniSkin* skin);
 
     /// Returns the skin's own identity, which influences record to bind
     /// to it.
@@ -73,7 +73,7 @@ extern "C"
     /// @return The identity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniSkinIdentity(const maniSkin* skin);
+    MANI_API uint64_t maniSkin_GetIdentity(const maniSkin* skin);
 
     /// Returns the skeleton bone of a joint.
     ///
@@ -82,7 +82,7 @@ extern "C"
     /// @return The bone, or MANI_NO_BONE for a joint past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSkinJoint(const maniSkin* skin, uint32_t joint);
+    MANI_API uint32_t maniSkin_GetJoint(const maniSkin* skin, uint32_t joint);
 
     /// Returns a joint's inverse bind matrix.
     ///
@@ -91,7 +91,7 @@ extern "C"
     /// @return The matrix, or the identity for a joint past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniAffine maniSkinInverseBind(const maniSkin* skin, uint32_t joint);
+    MANI_API maniAffine maniSkin_GetInverseBind(const maniSkin* skin, uint32_t joint);
 
     /// Computes a skin's palette: entry j is the model matrix of joint j's
     /// bone times the joint's inverse bind matrix.
@@ -110,10 +110,9 @@ extern "C"
     /// difference.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniComputePalette(const maniPose* pose,
-                                                          const maniSkeleton* skeleton,
-                                                          const maniSkin* skin, maniAffine* palette,
-                                                          uint32_t capacity, uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniResult maniPose_ComputePalette(
+        const maniPose* pose, const maniSkeleton* skeleton, const maniSkin* skin,
+        maniAffine* palette, uint32_t capacity, uint32_t* countOut);
 
 #ifdef __cplusplus
 }

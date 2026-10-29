@@ -286,8 +286,9 @@ static bool Skeleton(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpti
                      maniSkeleton* out)
 {
     size_t size = 0;
-    return maniFbxBuildSkeleton(builder, fbx, 0, options).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+    return maniBuildFbxSkeleton(builder, fbx, 0, options).result == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
@@ -312,7 +313,7 @@ static bool PlainSkeleton(maniBuilder* builder, const maniFbxOptions* options, m
 static bool OpenClip(maniBuilder* builder, maniClip* clip)
 {
     size_t size = 0;
-    return maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+    return maniBuilder_CopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
            maniOpenClip(s_clipFile, size, clip).result == mani_success;
 }
 
@@ -349,7 +350,7 @@ static void CheckWalk(int fold)
     maniClip clip;
     uint32_t bound = 0;
     bool built = fbx != NULL && PlainSkeleton(builder, &options, &skeleton) &&
-                 maniFbxBuildClip(
+                 maniBuildFbxClip(
                      builder, fbx, 0, &skeleton, &options,
                      &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, &bound)
                          .result == mani_success &&
@@ -362,14 +363,14 @@ static void CheckWalk(int fold)
         return;
     }
     CHECK(bound == 5, "five bindings drive the rig: not Prop's");
-    CHECK(maniClipSampleRate(&clip) == 30.0f && maniClipDuration(&clip) == 1.0f &&
-              maniClipSampleCount(&clip) == 31,
+    CHECK(maniClip_GetSampleRate(&clip) == 30.0f && maniClip_GetDuration(&clip) == 1.0f &&
+              maniClip_GetSampleCount(&clip) == 31,
           "a second at the scene's 30 a second");
-    uint32_t glow = maniClipFindFloatTrack(&clip, "Spine/Glow", 10);
-    CHECK(glow != MANI_NO_TRACK && maniClipFloatTrackCount(&clip) == 1, "Spine/Glow");
-    uint32_t hips = maniSkeletonFindBone(&skeleton, "Hips", 4);
-    uint32_t spine = maniSkeletonFindBone(&skeleton, "Spine", 5);
-    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
+    uint32_t glow = maniClip_FindFloatTrack(&clip, "Spine/Glow", 10);
+    CHECK(glow != MANI_NO_TRACK && maniClip_GetFloatTrackCount(&clip) == 1, "Spine/Glow");
+    uint32_t hips = maniSkeleton_FindBone(&skeleton, "Hips", 4);
+    uint32_t spine = maniSkeleton_FindBone(&skeleton, "Spine", 5);
+    uint32_t arm = maniSkeleton_FindBone(&skeleton, "Arm", 3);
     maniPose* pose = NULL;
     CHECK(maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
           "pose");
@@ -380,10 +381,10 @@ static void CheckWalk(int fold)
     for (int k = 0; k <= 30 && pose != NULL; ++k)
     {
         double t = (double)k / 30.0;
-        CHECK(maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success, "samples");
-        maniTransform h = maniPoseLocal(pose, hips);
-        maniTransform s = maniPoseLocal(pose, spine);
-        maniTransform a = maniPoseLocal(pose, arm);
+        CHECK(maniClip_Sample(&clip, &skeleton, (float)t, pose) == mani_success, "samples");
+        maniTransform h = maniPose_GetLocal(pose, hips);
+        maniTransform s = maniPose_GetLocal(pose, spine);
+        maniTransform a = maniPose_GetLocal(pose, arm);
         hipsRight = hipsRight && NearVec(h.translation, 3 * t, 1, fold ? 5 + t : 0);
         spineRight = spineRight && NearVec(s.translation, 0, 1, 0) && AboutZ(s.rotation, 90 * t) &&
                      NearVec(s.scale, 1 + t, 1 + t, 1 + t);
@@ -393,7 +394,7 @@ static void CheckWalk(int fold)
                    NearVec(a.scale, 1 / (1 + t), 1 / (1 + t), 1 / (1 + t));
         float value = 0.0f;
         glowRight = glowRight &&
-                    maniSampleClipFloats(&clip, (float)t, &value, 1, NULL) == mani_success &&
+                    maniClip_SampleFloats(&clip, (float)t, &value, 1, NULL) == mani_success &&
                     Near(value, t);
     }
     CHECK(hipsRight, fold ? "Hips under the folded placement" : "Hips");
@@ -413,29 +414,29 @@ static void TestRootMotion(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     CHECK(fbx != NULL && PlainSkeleton(builder, &options, &skeleton), "skeleton");
-    uint32_t hips = maniSkeletonFindBone(&skeleton, "Hips", 4);
+    uint32_t hips = maniSkeleton_FindBone(&skeleton, "Hips", 4);
     maniRootMotionSource travel = {hips, maniRootAxisX | maniRootAxisZ, 0, 0, 0, 0, 0};
     maniImportClipOptions settings = maniDefaultImportClipOptions();
     settings.loop = maniLoopRepeat;
     settings.rootMotion = &travel;
     maniClip clip;
     maniRootMove move;
-    CHECK(maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
+    CHECK(maniBuildFbxClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
                   mani_success &&
-              OpenClip(builder, &clip) && maniClipLoopPolicy(&clip) == maniLoopRepeat &&
-              maniClipRootMotion(&clip, 0.0f, 2.0f, &move) == mani_success &&
+              OpenClip(builder, &clip) && maniClip_GetLoopPolicy(&clip) == maniLoopRepeat &&
+              maniClip_GetRootMotion(&clip, 0.0f, 2.0f, &move) == mani_success &&
               Near(move.translation.x, 6.0) && Near(move.translation.z, 0.0),
           "two loops of Walk travel 6 along x");
     maniPose* pose = NULL;
     CHECK(maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success &&
-              maniSampleClip(&clip, &skeleton, 0.5f, pose) == mani_success &&
-              Near(maniPoseLocal(pose, hips).translation.x,
-                   (double)maniSkeletonRest(&skeleton, hips).translation.x),
+              maniClip_Sample(&clip, &skeleton, 0.5f, pose) == mani_success &&
+              Near(maniPose_GetLocal(pose, hips).translation.x,
+                   (double)maniSkeleton_GetRest(&skeleton, hips).translation.x),
           "the hips in place");
-    travel.bone = maniSkeletonBoneCount(&skeleton);
-    CHECK(maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
+    travel.bone = maniSkeleton_GetBoneCount(&skeleton);
+    CHECK(maniBuildFbxClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
                   mani_errorInvalid &&
-              maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, NULL, NULL).result ==
+              maniBuildFbxClip(builder, fbx, 0, &skeleton, &options, NULL, NULL).result ==
                   mani_errorInvalid,
           "misuses");
     maniCloseFbx(fbx);
@@ -447,21 +448,21 @@ static void TestNames(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, kScene);
     size_t length = 0;
-    const char* name = maniFbxClipName(fbx, 2, &length);
-    CHECK(maniFbxClipCount(fbx) == 14 && name != NULL && length == 5 &&
-              memcmp(name, "Shear", 5) == 0 && maniFbxClipName(fbx, 14, &length) == NULL &&
-              length == 0 && maniFbxClipCount(NULL) == 0,
+    const char* name = maniFbx_GetClipName(fbx, 2, &length);
+    CHECK(maniFbx_GetClipCount(fbx) == 14 && name != NULL && length == 5 &&
+              memcmp(name, "Shear", 5) == 0 && maniFbx_GetClipName(fbx, 14, &length) == NULL &&
+              length == 0 && maniFbx_GetClipCount(NULL) == 0,
           "clips and their names");
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     maniClip clip;
     CHECK(fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
-              maniFbxBuildClip(builder, fbx, 1, &skeleton, &options,
+              maniBuildFbxClip(builder, fbx, 1, &skeleton, &options,
                                &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopRepeat},
                                NULL)
                       .result == mani_success &&
-              OpenClip(builder, &clip) && maniClipDuration(&clip) == 0.0f &&
-              maniClipSampleCount(&clip) == 1,
+              OpenClip(builder, &clip) && maniClip_GetDuration(&clip) == 0.0f &&
+              maniClip_GetSampleCount(&clip) == 1,
           "an empty stack: one sample");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -480,7 +481,7 @@ static bool BuildFor(maniBuilder* builder, const maniFbx* fbx, uint32_t index,
                      const maniSkeleton* skeleton, const maniFbxOptions* options, maniClip* clip)
 {
     return fbx != NULL &&
-           maniFbxBuildClip(builder, fbx, index, skeleton, options,
+           maniBuildFbxClip(builder, fbx, index, skeleton, options,
                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                             NULL)
                    .result == mani_success &&
@@ -497,7 +498,8 @@ static bool Custom(maniBuilder* builder, maniSkeleton* out)
     maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
@@ -521,9 +523,9 @@ static void TestOtherSkeleton(void)
     {
         double t = (double)k / 30.0;
         double turn = 90.0 * t * 3.14159265358979323846 / 180.0;
-        right = right && maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success;
-        maniTransform h = maniPoseLocal(pose, 1);
-        maniTransform a = maniPoseLocal(pose, 2);
+        right = right && maniClip_Sample(&clip, &skeleton, (float)t, pose) == mani_success;
+        maniTransform h = maniPose_GetLocal(pose, 1);
+        maniTransform a = maniPose_GetLocal(pose, 2);
         // Hips' own transform, the placement not folded into a bone that
         // is not the root.
         right = right && NearVec(h.translation, 3 * t, 1, 0);
@@ -550,17 +552,17 @@ static void TestHelpers(void)
     bool built = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
                  BuildFor(builder, fbx, 0, &skeleton, &options, &clip) &&
                  maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success;
-    uint32_t helper = maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14);
-    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
-    CHECK(built && helper != MANI_NO_BONE && maniSkeletonParent(&skeleton, arm) == helper,
+    uint32_t helper = maniSkeleton_FindBone(&skeleton, "Spine#unscaled", 14);
+    uint32_t arm = maniSkeleton_FindBone(&skeleton, "Arm", 3);
+    CHECK(built && helper != MANI_NO_BONE && maniSkeleton_GetParent(&skeleton, arm) == helper,
           "builds with helpers");
     bool right = built;
     for (int k = 0; k <= 30 && built; k += 5)
     {
         double t = (double)k / 30.0;
-        right = right && maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success;
-        maniTransform h = maniPoseLocal(pose, helper);
-        maniTransform a = maniPoseLocal(pose, arm);
+        right = right && maniClip_Sample(&clip, &skeleton, (float)t, pose) == mani_success;
+        maniTransform h = maniPose_GetLocal(pose, helper);
+        maniTransform a = maniPose_GetLocal(pose, arm);
         right = right && NearVec(h.scale, 1 / (1 + t), 1 / (1 + t), 1 / (1 + t)) &&
                 NearVec(h.translation, 0, 0, 0) && NearVec(a.translation, 1 + t, 0, 0) &&
                 AboutZ(a.rotation, 45) && NearVec(a.scale, 1, 1, 1);
@@ -586,7 +588,7 @@ static bool RateIs(const char* mode, float rate, uint32_t samples)
     maniClip clip;
     bool right = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
                  BuildFor(builder, fbx, 0, &skeleton, &options, &clip) &&
-                 maniClipSampleRate(&clip) == rate && maniClipSampleCount(&clip) == samples;
+                 maniClip_GetSampleRate(&clip) == rate && maniClip_GetSampleCount(&clip) == samples;
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
     return right;
@@ -609,12 +611,12 @@ static void TestEnds(void)
     maniClip clip;
     bool opened = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton);
     CHECK(opened && BuildFor(builder, fbx, 4, &skeleton, &options, &clip) &&
-              maniClipDuration(&clip) == 0.0f && maniClipSampleCount(&clip) == 1,
+              maniClip_GetDuration(&clip) == 0.0f && maniClip_GetSampleCount(&clip) == 1,
           "a stack ending before it starts: one sample");
     float glow = 0.0f;
     CHECK(opened && BuildFor(builder, fbx, 5, &skeleton, &options, &clip) &&
-              maniClipDuration(&clip) == (float)1.01 && maniClipSampleCount(&clip) == 32 &&
-              maniSampleClipFloats(&clip, maniClipDuration(&clip), &glow, 1, NULL) ==
+              maniClip_GetDuration(&clip) == (float)1.01 && maniClip_GetSampleCount(&clip) == 32 &&
+              maniClip_SampleFloats(&clip, maniClip_GetDuration(&clip), &glow, 1, NULL) ==
                   mani_success &&
               glow == 9.0f,
           "the last sample at the stack's stop, on its key");
@@ -639,7 +641,7 @@ static bool BuildText(const char* text, uint32_t index, const maniFbxOptions* op
     maniFbx* fbx = Open(builder, text);
     bool right =
         fbx != NULL && Skeleton(builder, fbx, options, skeleton) &&
-        maniFbxBuildClip(builder, fbx, index, skeleton, options,
+        maniBuildFbxClip(builder, fbx, index, skeleton, options,
                          &(maniImportClipOptions){.sampleRate = rate, .loop = maniLoopClamp}, NULL)
                 .result == mani_success &&
         OpenClip(builder, clip);
@@ -654,11 +656,11 @@ static maniTransform LocalAt(const maniClip* clip, const maniSkeleton* skeleton,
     maniPose* pose = NULL;
     maniTransform none = {{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
     if (maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
-        maniSampleClip(clip, skeleton, time, pose) != mani_success)
+        maniClip_Sample(clip, skeleton, time, pose) != mani_success)
     {
         return none;
     }
-    return maniPoseLocal(pose, maniSkeletonFindBone(skeleton, bone, strlen(bone)));
+    return maniPose_GetLocal(pose, maniSkeleton_FindBone(skeleton, bone, strlen(bone)));
 }
 
 static void TestOptions(void)
@@ -668,7 +670,7 @@ static void TestOptions(void)
     maniClip clip;
     maniFbxOptions options = maniDefaultFbxOptions();
     CHECK(BuildText(kScene, 0, &options, 10.0f, &builder, &skeleton, &clip) &&
-              maniClipSampleRate(&clip) == 10.0f && maniClipSampleCount(&clip) == 11,
+              maniClip_GetSampleRate(&clip) == 10.0f && maniClip_GetSampleCount(&clip) == 11,
           "a rate given");
     maniDestroyBuilder(builder);
     // Units: a centimetre file in units of 2 cm.
@@ -717,7 +719,8 @@ static bool Helpered(maniBuilder* builder, maniSkeleton* out)
     maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
@@ -754,12 +757,12 @@ static bool StillIsEmpty(uint8_t helpers)
     options.inheritHelpers = helpers;
     bool built = BuildText(kScene, 6, &options, 0.0f, &builder, &skeleton, &clip);
     size_t size = 0;
-    (void)maniCopyBuilt(builder, NULL, 0, &size);
+    (void)maniBuilder_CopyBuilt(builder, NULL, 0, &size);
     maniClipSource empty = {
         .skeleton = &skeleton, .loop = maniLoopClamp, .sampleRate = 30.0f, .duration = 1.0f};
     size_t reference = 0;
     bool right = built && maniBuildClip(builder, &empty).result == mani_success &&
-                 maniCopyBuilt(builder, NULL, 0, &reference) == mani_errorCapacity &&
+                 maniBuilder_CopyBuilt(builder, NULL, 0, &reference) == mani_errorCapacity &&
                  size == reference;
     maniDestroyBuilder(builder);
     return right;
@@ -775,7 +778,7 @@ static void TestTracks(void)
     // with helpers or without (the rests formed as the samples are).
     CHECK(StillIsEmpty(0) && StillIsEmpty(1), "no bone moved, no track");
     CHECK(BuildText(kScene, 7, &options, 0.0f, &builder, &skeleton, &clip) &&
-              maniClipFloatTrackCount(&clip) == 0,
+              maniClip_GetFloatTrackCount(&clip) == 0,
           "a transform input animated is no float track");
     maniDestroyBuilder(builder);
     bool built = BuildText(kScene, 8, &options, 0.0f, &builder, &skeleton, &clip);
@@ -783,19 +786,19 @@ static void TestTracks(void)
                                           "Spine/Missing/0", "Spine/Missing/1", "Spine/Missing/2",
                                           "Spine/Lone",      "Spine/Glow"};
     static const double kAtHalf[8] = {0.5, 0.2, 0.3, 0, 1, 0, 1.5, 1.0};
-    bool right = built && maniClipFloatTrackCount(&clip) == 8;
+    bool right = built && maniClip_GetFloatTrackCount(&clip) == 8;
     float values[8] = {0};
-    right = right && maniSampleClipFloats(&clip, 0.5f, values, 8, NULL) == mani_success;
+    right = right && maniClip_SampleFloats(&clip, 0.5f, values, 8, NULL) == mani_success;
     for (int k = 0; k < 8 && right; ++k)
     {
-        uint32_t track = maniClipFindFloatTrack(&clip, kNames[k], strlen(kNames[k]));
+        uint32_t track = maniClip_FindFloatTrack(&clip, kNames[k], strlen(kNames[k]));
         right = track != MANI_NO_TRACK && Near(values[track], kAtHalf[k]);
     }
     CHECK(right, "float tracks: a colour's components, entries missing, one name over layers");
     maniDestroyBuilder(builder);
     options.inheritHelpers = 1;
     CHECK(BuildText(kScene, 0, &options, 0.0f, &builder, &skeleton, &clip) &&
-              maniClipFloatTrackCount(&clip) == 1,
+              maniClip_GetFloatTrackCount(&clip) == 1,
           "no float tracks for helpers");
     maniDestroyBuilder(builder);
 }
@@ -828,7 +831,7 @@ static void TestTimes(void)
     float values[1] = {0};
     // Sample 3's time on the clip's grid.
     float third = (float)(3.0 / (double)(float)(30000.0 / 1001.0));
-    CHECK(built && maniSampleClipFloats(&clip, third, values, 1, NULL) == mani_success &&
+    CHECK(built && maniClip_SampleFloats(&clip, third, values, 1, NULL) == mani_success &&
               fabs((double)values[0] - 5.0) <= 1e-4,
           "a key on an NTSC frame lands on its sample");
     maniDestroyBuilder(builder);
@@ -882,7 +885,7 @@ static bool HelperFrom(const char* scales, const char* inherit)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     bool helper = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
-                  maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14) != MANI_NO_BONE;
+                  maniSkeleton_FindBone(&skeleton, "Spine#unscaled", 14) != MANI_NO_BONE;
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
     return helper;
@@ -946,7 +949,7 @@ static bool HelperIn(const char* top, const char* spine, int arm, int model, con
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     bool helper = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
-                  maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14) != MANI_NO_BONE;
+                  maniSkeleton_FindBone(&skeleton, "Spine#unscaled", 14) != MANI_NO_BONE;
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
     return helper;
@@ -1016,15 +1019,15 @@ static void TestAnimatedHelper(void)
     maniClip clip;
     bool built =
         fbx != NULL && Skeleton(builder, fbx, &options, &skeleton) &&
-        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+        maniBuildFbxClip(builder, fbx, 0, &skeleton, &options,
                          &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
                 .result == mani_success &&
         OpenClip(builder, &clip);
-    uint32_t spine = built ? maniSkeletonFindBone(&skeleton, "Spine", 5) : MANI_NO_BONE;
-    uint32_t helper = built ? maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14) : MANI_NO_BONE;
-    uint32_t arm = built ? maniSkeletonFindBone(&skeleton, "Arm", 3) : MANI_NO_BONE;
-    CHECK(helper != MANI_NO_BONE && maniSkeletonParent(&skeleton, helper) == spine &&
-              maniSkeletonParent(&skeleton, arm) == helper,
+    uint32_t spine = built ? maniSkeleton_FindBone(&skeleton, "Spine", 5) : MANI_NO_BONE;
+    uint32_t helper = built ? maniSkeleton_FindBone(&skeleton, "Spine#unscaled", 14) : MANI_NO_BONE;
+    uint32_t arm = built ? maniSkeleton_FindBone(&skeleton, "Arm", 3) : MANI_NO_BONE;
+    CHECK(helper != MANI_NO_BONE && maniSkeleton_GetParent(&skeleton, helper) == spine &&
+              maniSkeleton_GetParent(&skeleton, arm) == helper,
           "a helper from the animation");
     maniPose* pose = NULL;
     bool right =
@@ -1032,9 +1035,9 @@ static void TestAnimatedHelper(void)
     for (int k = 0; right && k <= 30; ++k)
     {
         double t = (double)k / 30.0;
-        right = maniSampleClip(&clip, &skeleton, (float)t, pose) == mani_success;
-        maniTransform a = maniPoseLocal(pose, arm);
-        maniTransform h = maniPoseLocal(pose, helper);
+        right = maniClip_Sample(&clip, &skeleton, (float)t, pose) == mani_success;
+        maniTransform a = maniPose_GetLocal(pose, arm);
+        maniTransform h = maniPose_GetLocal(pose, helper);
         // Its own transform, the translation scaled by Spine's inherited
         // scale.
         right = right && NearVec(a.translation, 1 + t, 0, 0) && AboutZ(a.rotation, 45) &&
@@ -1042,7 +1045,7 @@ static void TestAnimatedHelper(void)
                 NearVec(h.scale, 1 / (1 + t), 1 / (1 + t), 1 / (1 + t));
     }
     CHECK(right, "Arm its own transform under the helper");
-    CHECK(built && maniFbxBuildClip(
+    CHECK(built && maniBuildFbxClip(
                        builder, fbx, 2, &skeleton, &options,
                        &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
                            .result == mani_success,
@@ -1061,7 +1064,7 @@ static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const cha
     maniImportResult r = {mani_errorInvalid, 0, 0, 0};
     if (fbx != NULL && PlainSkeleton(builder, &options, &skeleton))
     {
-        r = maniFbxBuildClip(builder, fbx, clipIndex, &skeleton, &options,
+        r = maniBuildFbxClip(builder, fbx, clipIndex, &skeleton, &options,
                              &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                              NULL);
     }
@@ -1092,7 +1095,7 @@ static void TestRefusals(void)
         maniImportResult r = {mani_errorInvalid, 0, 0, 0};
         if (fbx != NULL && Skeleton(builder, fbx, &options, &skeleton))
         {
-            r = maniFbxBuildClip(
+            r = maniBuildFbxClip(
                 builder, fbx, 0, &skeleton, &options,
                 &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL);
         }
@@ -1110,19 +1113,19 @@ static void TestRefusals(void)
     maniSkeleton skeleton;
     bool opened = fbx != NULL && Skeleton(builder, fbx, &options, &skeleton);
     CHECK(opened &&
-              maniFbxBuildClip(builder, fbx, 14, &skeleton, &options,
+              maniBuildFbxClip(builder, fbx, 14, &skeleton, &options,
                                &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                                NULL)
                       .result == mani_errorInvalid &&
-              maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+              maniBuildFbxClip(builder, fbx, 0, &skeleton, &options,
                                &(maniImportClipOptions){.sampleRate = -1.0f, .loop = maniLoopClamp},
                                NULL)
                       .result == mani_errorInvalid &&
-              maniFbxBuildClip(builder, fbx, 0, NULL, &options,
+              maniBuildFbxClip(builder, fbx, 0, NULL, &options,
                                &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                                NULL)
                       .result == mani_errorInvalid &&
-              maniFbxBuildClip(NULL, fbx, 0, &skeleton, &options,
+              maniBuildFbxClip(NULL, fbx, 0, &skeleton, &options,
                                &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                                NULL)
                       .result == mani_errorInvalid,
@@ -1155,7 +1158,7 @@ static void TestOptionsPaddingIgnored(void)
         maniSkeleton skeleton;
         bool built = fbx != NULL && PlainSkeleton(builder, &options, &skeleton);
         skeletons[k] = built ? TestCopyBuilt(builder, &skeletonSizes[k]) : NULL;
-        maniRootMotionSource travel = {built ? maniSkeletonFindBone(&skeleton, "Hips", 4) : 0,
+        maniRootMotionSource travel = {built ? maniSkeleton_FindBone(&skeleton, "Hips", 4) : 0,
                                        maniRootAxisX | maniRootAxisZ,
                                        0,
                                        0,
@@ -1167,7 +1170,7 @@ static void TestOptionsPaddingIgnored(void)
         settings.rootMotion = &travel;
         TEST_PAD(&settings, 1, kFieldsImportClipOptions, kTestPadPatterns[k]);
         built = built &&
-                maniFbxBuildClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
+                maniBuildFbxClip(builder, fbx, 0, &skeleton, &options, &settings, NULL).result ==
                     mani_success;
         clips[k] = built ? TestCopyBuilt(builder, &clipSizes[k]) : NULL;
         maniCloseFbx(fbx);

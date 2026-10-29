@@ -17,7 +17,7 @@
 bool maniFbxSkinWithin(const maniFbx* fbx, uint32_t skin, const maniSkeleton* skeleton);
 
 // A skin's clusters linking a model, in connection order: its joints,
-// as maniFbxBuildSkin numbers them. Counted with clusters NULL.
+// as maniBuildFbxSkin numbers them. Counted with clusters NULL.
 uint32_t maniFbxSkinClusters(const maniFbx* fbx, uint32_t skin, uint32_t* clusters);
 
 #endif // MAUL_ANIM_SRC_FBX_SKIN_H

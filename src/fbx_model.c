@@ -272,12 +272,12 @@ const char* maniFbxModelName(const maniFbx* fbx, uint32_t model, size_t* lengthO
     return maniBoneName(&fbx->modelNames, model, lengthOut);
 }
 
-uint32_t maniFbxModelCount(const maniFbx* fbx)
+uint32_t maniFbx_GetModelCount(const maniFbx* fbx)
 {
     return fbx != NULL ? fbx->modelCount : 0;
 }
 
-const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model, size_t* lengthOut)
+const char* maniFbx_GetModelBoneName(const maniFbx* fbx, uint32_t model, size_t* lengthOut)
 {
     bool inRange = fbx != NULL && model < fbx->modelCount;
     size_t length = 0;
@@ -289,12 +289,12 @@ const char* maniFbxModelBoneName(const maniFbx* fbx, uint32_t model, size_t* len
     return name;
 }
 
-uint32_t maniFbxRenamedCount(const maniFbx* fbx)
+uint32_t maniFbx_GetRenamedCount(const maniFbx* fbx)
 {
     return fbx != NULL ? fbx->modelNames.renamedCount : 0;
 }
 
-uint32_t maniFbxRenamedModel(const maniFbx* fbx, uint32_t index)
+uint32_t maniFbx_GetRenamedModel(const maniFbx* fbx, uint32_t index)
 {
     return fbx != NULL && index < fbx->modelNames.renamedCount ? fbx->modelNames.renamed[index]
                                                                : UINT32_MAX;

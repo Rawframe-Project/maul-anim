@@ -334,7 +334,7 @@ static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex,
     {
         return CenterMatrix(job, vertex, m);
     }
-    float b = maniInfluencesDualQuaternionWeight(job->influences, vertex);
+    float b = maniInfluences_GetDualQuaternionWeight(job->influences, vertex);
     if (b == 0.0f || b == 1.0f)
     {
         return b == 0.0f ? Blend(job, vertex, m) : DualMatrix(job, vertex, m);
@@ -491,7 +491,8 @@ static MANI_NOINLINE maniResult PaletteDualQuaternionsWork(const maniAffine* pal
     return mani_success;
 }
 
-maniResult maniPaletteDualQuaternions(const maniAffine* palette, uint32_t count, float* out)
+maniResult maniConvertPaletteToDualQuaternions(const maniAffine* palette, uint32_t count,
+                                               float* out)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = PaletteDualQuaternionsWork(palette, count, out);
@@ -521,7 +522,7 @@ static MANI_NOINLINE maniResult PaletteRowsWork(const maniAffine* palette, uint3
     return mani_success;
 }
 
-maniResult maniPaletteRows(const maniAffine* palette, uint32_t count, float* rows)
+maniResult maniConvertPaletteToRows(const maniAffine* palette, uint32_t count, float* rows)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = PaletteRowsWork(palette, count, rows);

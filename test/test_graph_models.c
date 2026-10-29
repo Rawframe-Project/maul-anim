@@ -44,7 +44,8 @@ static maniBuildResult BuildGraph(const maniGraphSource* source)
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
+                  mani_success,
               "copied");
     }
     maniDestroyBuilder(builder);
@@ -86,14 +87,16 @@ static void TestBuild(void)
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
     size_t length = 0;
-    const char* name = maniGraphModelName(&g, 1, &length);
-    CHECK(maniGraphModelCount(&g) == 2 && maniGraphModelIdentity(&g, 0) == s_learned.identity &&
-              maniGraphModelIdentity(&g, 1) == s_other.identity && length == 5 &&
+    const char* name = maniGraph_GetModelName(&g, 1, &length);
+    CHECK(maniGraph_GetModelCount(&g) == 2 &&
+              maniGraph_GetModelIdentity(&g, 0) == s_learned.identity &&
+              maniGraph_GetModelIdentity(&g, 1) == s_other.identity && length == 5 &&
               memcmp(name, "moves", 5) == 0,
           "its model slots read back");
-    CHECK(maniGraphModelCount(NULL) == 0 && maniGraphModelIdentity(&g, 2) == 0 &&
-              maniGraphModelIdentity(NULL, 0) == 0 && maniGraphModelName(&g, 2, &length) == NULL &&
-              length == 0 && maniGraphModelName(NULL, 0, NULL) == NULL,
+    CHECK(maniGraph_GetModelCount(NULL) == 0 && maniGraph_GetModelIdentity(&g, 2) == 0 &&
+              maniGraph_GetModelIdentity(NULL, 0) == 0 &&
+              maniGraph_GetModelName(&g, 2, &length) == NULL && length == 0 &&
+              maniGraph_GetModelName(NULL, 0, NULL) == NULL,
           "past the slots");
     maniGraphModelSource bad[2] = {slots[0], slots[1]};
     bad[1].model = NULL;
@@ -194,7 +197,7 @@ static void TestBind(void)
                               3,           0,     NULL,      NULL,   0,    0,     NULL};
     maniGraphBinding* binding = NULL;
     uint32_t unbound = 0;
-    CHECK(maniGraphBindingSize(&g) <= sizeof s_binding &&
+    CHECK(maniGraph_GetBindingSize(&g) <= sizeof s_binding &&
               maniBindGraph(&g, &assets, s_binding, sizeof s_binding, &binding, &unbound) ==
                   mani_success &&
               unbound == MANI_NO_TRACK && maniGraphBoundModel(binding, 0) == &s_learned,
@@ -221,14 +224,14 @@ static void TestBind(void)
                   mani_errorInvalid,
           "no skeleton, no assets");
     assets.skeleton = &s_skeleton;
-    CHECK(maniBindGraph(&g, &assets, s_binding, maniGraphBindingSize(&g) - 1, &binding, NULL) ==
+    CHECK(maniBindGraph(&g, &assets, s_binding, maniGraph_GetBindingSize(&g) - 1, &binding, NULL) ==
               mani_errorCapacity,
           "less than the binding's size");
-    size_t size = maniGraphBindingSize(&g);
+    size_t size = maniGraph_GetBindingSize(&g);
     source = Graph(NULL, 0);
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              size == maniGraphBindingSize(&g) + sizeof(const maniLearnedModel*),
+              size == maniGraph_GetBindingSize(&g) + sizeof(const maniLearnedModel*),
           "a model's pointer counted in the binding's size");
 }
 
@@ -245,7 +248,7 @@ static void TestJson(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "\"models\": [\n    \"steps\"\n  ],") != NULL, "a models list by name");
@@ -253,7 +256,7 @@ static void TestJson(void)
                                    1,           0,      NULL};
     maniGraph read;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success &&
-              maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
+              maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
                   mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &read).result == mani_success &&
               read.identity == identity,
@@ -271,10 +274,10 @@ static void TestJson(void)
               r.other == maniGraphFormUnbound,
           "a model the host does not name");
     assets.models = NULL;
-    uint32_t misuses = maniBuilderMisuses(builder);
+    uint32_t misuses = maniBuilder_GetMisuse(builder);
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_errorInvalid &&
               maniBuildGraphJson(builder, s_text, size, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == misuses + 2,
+              maniBuilder_GetMisuse(builder) == misuses + 2,
           "models NULL with a count; no assets");
     maniDestroyBuilder(builder);
 }

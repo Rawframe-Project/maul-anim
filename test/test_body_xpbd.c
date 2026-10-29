@@ -45,11 +45,11 @@ static void TestReach(void)
               Distance(At(s_pose, kHandR), s_effectors[1].position) <= 1e-3f,
           "within the tolerance");
     CHECK(LengthsKept(s_pose, s_other), "every length kept");
-    maniTransform hips[2] = {maniPoseLocal(s_pose, kHips), maniPoseLocal(s_other, kHips)};
+    maniTransform hips[2] = {maniPose_GetLocal(s_pose, kHips), maniPose_GetLocal(s_other, kHips)};
     CHECK(memcmp(&hips[0], &hips[1], sizeof hips[0]) == 0, "the pinned top held");
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniPoseSetLocal(s_other, b, maniPoseLocal(s_pose, b));
+        maniPose_SetLocal(s_other, b, maniPose_GetLocal(s_pose, b));
     }
     CHECK(Solved(s_other, &s, &r) && r && Same(s_pose, s_other),
           "a solve on its own reached result unchanged");
@@ -85,12 +85,12 @@ static void TestLockAndLimit(void)
     s.bones = bones;
     s.boneCount = 2;
     CHECK(Solved(s_pose, &s, NULL), "a lock and a limit");
-    maniQuat locked[2] = {maniPoseLocal(s_pose, kForeL).rotation,
-                          maniPoseLocal(s_other, kForeL).rotation};
+    maniQuat locked[2] = {maniPose_GetLocal(s_pose, kForeL).rotation,
+                          maniPose_GetLocal(s_other, kForeL).rotation};
     CHECK(memcmp(&locked[0], &locked[1], sizeof locked[0]) == 0, "the locked forearm kept");
     CHECK(Distance(At(s_pose, kHandL), s_effectors[0].position) <= 1e-3f,
           "the hand under a locked forearm reached where the pose puts it");
-    maniQuat t = maniPoseLocal(s_pose, kForeR).rotation;
+    maniQuat t = maniPose_GetLocal(s_pose, kForeR).rotation;
     t = t.w < 0.0f ? (maniQuat){-t.x, -t.y, -t.z, -t.w} : t;
     // The forearm's axis is the hand's direction at rest, -x.
     float twist = -2.0f * atan2f(t.x, t.w);
@@ -107,9 +107,10 @@ static void TestRotation(void)
     maniBodySolve s = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
     s_effectors[0].rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, 1.0f);
     s_effectors[0].rotationWeight = 1.0f;
-    CHECK(Solved(s_pose, &s, NULL) && maniComputeModel(s_pose, &s_skeleton) == mani_success,
+    CHECK(Solved(s_pose, &s, NULL) && maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success,
           "a rotation goal");
-    CHECK(Angle(maniPoseModelTransform(s_pose, kHandL).rotation, s_effectors[0].rotation) < 1e-2f,
+    CHECK(Angle(maniPose_GetModelTransform(s_pose, kHandL).rotation, s_effectors[0].rotation) <
+              1e-2f,
           "the hand takes the wanted rotation");
 }
 
@@ -142,8 +143,8 @@ static void TestStretchAndTop(void)
     CHECK(Solved(s_pose, &s, NULL), "a pre-pulled top");
     maniVec3 moved = At(s_pose, kHips);
     maniVec3 was = At(s_other, kHips);
-    maniQuat turned[2] = {maniPoseLocal(s_pose, kHips).rotation,
-                          maniPoseLocal(s_other, kHips).rotation};
+    maniQuat turned[2] = {maniPose_GetLocal(s_pose, kHips).rotation,
+                          maniPose_GetLocal(s_other, kHips).rotation};
     CHECK(moved.x > was.x + 1e-2f && memcmp(&turned[0], &turned[1], sizeof turned[0]) == 0 &&
               Distance(At(s_pose, kHandL), far) < pinned - 1e-2f,
           "pre-pull moves the top toward the goal, unturned");
@@ -171,7 +172,7 @@ static void TestPreferred(void)
     const float sides[2] = {0.5f, -0.5f};
     for (int k = 0; k < 2; ++k)
     {
-        CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+        CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
         maniBodyEffector foot = {.bone = kFoot,
                                  .position = {0.1f, 0.3f, 0.0f},
                                  .rotation = {0.0f, 0.0f, 0.0f, 1.0f},
@@ -188,7 +189,7 @@ static void TestPreferred(void)
                            .weight = 1.0f};
         bool r = false;
         CHECK(Solved(s_pose, &s, &r) && r, "a compressed leg reached");
-        CHECK(maniPoseLocal(s_pose, kShin).rotation.x * sides[k] > 0.05f,
+        CHECK(maniPose_GetLocal(s_pose, kShin).rotation.x * sides[k] > 0.05f,
               "the knee bends the preferred way");
     }
 }
@@ -200,16 +201,16 @@ static void TestStiffness(void)
     Bent(s_other);
     maniBodySolve s = Left(goal);
     CHECK(Solved(s_pose, &s, NULL), "free");
-    float free =
-        Angle(maniPoseLocal(s_pose, kSpine).rotation, maniPoseLocal(s_other, kSpine).rotation);
+    float free = Angle(maniPose_GetLocal(s_pose, kSpine).rotation,
+                       maniPose_GetLocal(s_other, kSpine).rotation);
     Bent(s_pose);
     maniBodyBone stiff[2] = {{.bone = kSpine, .rotationStiffness = 0.9f},
                              {.bone = kChest, .rotationStiffness = 0.9f}};
     s.bones = stiff;
     s.boneCount = 2;
     CHECK(Solved(s_pose, &s, NULL), "stiff");
-    float held =
-        Angle(maniPoseLocal(s_pose, kSpine).rotation, maniPoseLocal(s_other, kSpine).rotation);
+    float held = Angle(maniPose_GetLocal(s_pose, kSpine).rotation,
+                       maniPose_GetLocal(s_other, kSpine).rotation);
     CHECK(free > 1e-2f && held < 0.5f * free, "a stiff spine turns less");
 }
 
@@ -296,7 +297,7 @@ static void TestStretchDetails(void)
     float worst = 0.0f;
     for (int k = 0; k < 5; ++k)
     {
-        uint32_t p = maniSkeletonParent(&s_skeleton, part[k]);
+        uint32_t p = maniSkeleton_GetParent(&s_skeleton, part[k]);
         float now = Distance(At(s_pose, part[k]), At(s_pose, p));
         float was = Distance(At(s_other, part[k]), At(s_other, p));
         worst = fmaxf(worst, fabsf(now - was));
@@ -318,13 +319,13 @@ static void TestHalfMove(void)
     maniBodySolve s = Left(far);
     s.topMode = maniBodyTopFree;
     CHECK(Solved(s_pose, &s, NULL), "a free top");
-    maniVec3 full = maniPoseLocal(s_pose, kHips).translation;
+    maniVec3 full = maniPose_GetLocal(s_pose, kHips).translation;
     Bent(s_pose);
     Bent(s_other);
     s.weight = 0.5f;
     CHECK(Solved(s_pose, &s, NULL), "half of it");
-    maniVec3 was = maniPoseLocal(s_other, kHips).translation;
-    maniVec3 half = maniPoseLocal(s_pose, kHips).translation;
+    maniVec3 was = maniPose_GetLocal(s_other, kHips).translation;
+    maniVec3 half = maniPose_GetLocal(s_pose, kHips).translation;
     maniVec3 want = {was.x + 0.5f * (full.x - was.x), was.y + 0.5f * (full.y - was.y),
                      was.z + 0.5f * (full.z - was.z)};
     CHECK(Distance(half, want) < 1e-6f, "the top moved half as far");
@@ -382,7 +383,7 @@ static void TestPinned(void)
         hashes[run] = MANI_HASH_INIT;
         for (uint32_t b = 0; b < BONES; ++b)
         {
-            maniTransform t = maniPoseLocal(s_pose, b);
+            maniTransform t = maniPose_GetLocal(s_pose, b);
             hashes[run] = maniHash64(hashes[run], &t, (int32_t)sizeof t);
         }
     }
@@ -404,7 +405,7 @@ static void TestPinned(void)
     CHECK(Solved(s_pose, &s, NULL) && Finite(s_pose) &&
               Distance(At(s_pose, kHandR), both[1].position) <= 1e-3f,
           "an effector on the held top, the other still reached");
-    maniTransform hips[2] = {maniPoseLocal(s_pose, kHips), maniPoseLocal(s_other, kHips)};
+    maniTransform hips[2] = {maniPose_GetLocal(s_pose, kHips), maniPose_GetLocal(s_other, kHips)};
     CHECK(memcmp(&hips[0], &hips[1], sizeof hips[0]) == 0, "the held top unmoved");
 }
 
@@ -426,7 +427,8 @@ static void TestEdges(void)
     s.bones = locked;
     s.boneCount = 7;
     CHECK(Solved(s_pose, &s, NULL) && Finite(s_pose), "nearly all locked: no NaN");
-    maniTransform spine[2] = {maniPoseLocal(s_pose, kSpine), maniPoseLocal(s_other, kSpine)};
+    maniTransform spine[2] = {maniPose_GetLocal(s_pose, kSpine),
+                              maniPose_GetLocal(s_other, kSpine)};
     CHECK(memcmp(&spine[0], &spine[1], sizeof spine[0]) == 0, "a locked spine kept");
 }
 
@@ -434,20 +436,22 @@ static void TestRefusals(void)
 {
     Bent(s_pose);
     maniBodySolve good = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
-    size_t size = maniBodyIkScratchSize(&s_skeleton, &good);
-    CHECK(size > 0 && maniBodyIkScratchSize(NULL, &good) == 0 &&
-              maniBodyIkScratchSize(&s_skeleton, NULL) == 0,
+    size_t size = maniSkeleton_GetBodyIkScratchSize(&s_skeleton, &good);
+    CHECK(size > 0 && maniSkeleton_GetBodyIkScratchSize(NULL, &good) == 0 &&
+              maniSkeleton_GetBodyIkScratchSize(&s_skeleton, NULL) == 0,
           "the scratch size, 0 for NULL");
-    CHECK(maniSolveBodyXpbd(NULL, &s_skeleton, &good, s_scratch, size, NULL) == mani_errorInvalid &&
-              maniSolveBodyXpbd(s_pose, NULL, &good, s_scratch, size, NULL) == mani_errorInvalid &&
-              maniSolveBodyXpbd(s_pose, &s_skeleton, NULL, s_scratch, size, NULL) ==
+    CHECK(maniPose_SolveBodyXpbd(NULL, &s_skeleton, &good, s_scratch, size, NULL) ==
                   mani_errorInvalid &&
-              maniSolveBodyXpbd(s_pose, &s_skeleton, &good, NULL, size, NULL) ==
+              maniPose_SolveBodyXpbd(s_pose, NULL, &good, s_scratch, size, NULL) ==
                   mani_errorInvalid &&
-              maniSolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch + 4, size, NULL) ==
+              maniPose_SolveBodyXpbd(s_pose, &s_skeleton, NULL, s_scratch, size, NULL) ==
+                  mani_errorInvalid &&
+              maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &good, NULL, size, NULL) ==
+                  mani_errorInvalid &&
+              maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch + 4, size, NULL) ==
                   mani_errorInvalid,
           "NULLs or misaligned scratch");
-    CHECK(maniSolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch, size - 1, NULL) ==
+    CHECK(maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &good, s_scratch, size - 1, NULL) ==
               mani_errorCapacity,
           "too little scratch at the capacity");
     maniBodyEffector saved[2] = {s_effectors[0], s_effectors[1]};
@@ -470,16 +474,16 @@ static void TestRefusals(void)
     for (int k = 0; k < 10; ++k)
     {
         maniResult want = k == 3 || k == 5 ? mani_errorLimit : mani_errorInvalid;
-        refused += maniBodyIkScratchSize(&s_skeleton, &bad[k]) == 0 &&
-                   maniSolveBodyXpbd(s_pose, &s_skeleton, &bad[k], s_scratch, sizeof s_scratch,
-                                     NULL) == want;
+        refused += maniSkeleton_GetBodyIkScratchSize(&s_skeleton, &bad[k]) == 0 &&
+                   maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &bad[k], s_scratch, sizeof s_scratch,
+                                          NULL) == want;
     }
     CHECK(refused == 10,
           "tops, counts and numbers out of range refused, past a bound at the limit");
     maniBodySolve many = good;
     many.boneCount = MANI_MAX_BODY_IK_BONES + 1;
     many.bones = (const maniBodyBone*)s_scratch;
-    CHECK(maniSolveBodyXpbd(s_pose, &s_skeleton, &many, s_scratch, sizeof s_scratch, NULL) ==
+    CHECK(maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &many, s_scratch, sizeof s_scratch, NULL) ==
               mani_errorLimit,
           "settings past MANI_MAX_BODY_IK_BONES at the limit");
     maniBodyEffector wrong[6];
@@ -499,13 +503,13 @@ static void TestRefusals(void)
         maniBodyEffector pair[2] = {wrong[k], saved[1]};
         maniBodySolve s = good;
         s.effectors = pair;
-        refused += maniSolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
-                   mani_errorInvalid;
+        refused += maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch,
+                                          NULL) == mani_errorInvalid;
     }
     maniBodyEffector twice[2] = {saved[0], saved[0]};
     maniBodySolve s = good;
     s.effectors = twice;
-    refused += maniSolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
+    refused += maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
                mani_errorInvalid;
     CHECK(refused == 7, "effectors out of range, not finite, of no rotation, twice refused");
     const maniBodyBone settings[5] = {
@@ -521,15 +525,15 @@ static void TestRefusals(void)
         s = good;
         s.bones = &settings[k];
         s.boneCount = 1;
-        refused += maniSolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
-                   mani_errorInvalid;
+        refused += maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch,
+                                          NULL) == mani_errorInvalid;
     }
     CHECK(refused == 5, "settings off the part, out of range, a hinge along its bone refused");
     maniBodyBone pair[2] = {{.bone = kForeL}, {.bone = kForeL}};
     s = good;
     s.bones = pair;
     s.boneCount = 2;
-    CHECK(maniSolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
+    CHECK(maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
               mani_errorInvalid,
           "a bone's settings twice refused");
 }
@@ -563,10 +567,10 @@ static void TestPartPastBound(void)
     maniPose* pose = NULL;
     bool made = maniCreateBuilder(&def, &builder) == mani_success &&
                 maniBuildSkeleton(builder, &source).result == mani_success &&
-                maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+                maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
                 maniOpenSkeleton(file, size, &skeleton).result == mani_success &&
                 maniInitPose(&skeleton, memory, sizeof memory, &pose) == mani_success &&
-                maniPoseSetRest(pose, &skeleton) == mani_success;
+                maniPose_SetRest(pose, &skeleton) == mani_success;
     maniDestroyBuilder(builder);
     CHECK(made, "the long chain");
     if (!made)
@@ -585,12 +589,12 @@ static void TestPartPastBound(void)
                        .iterations = 8,
                        .tolerance = 1e-3f,
                        .weight = 1.0f};
-    CHECK(maniBodyIkScratchSize(&skeleton, &s) == 0 &&
-              maniSolveBodyXpbd(pose, &skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
+    CHECK(maniSkeleton_GetBodyIkScratchSize(&skeleton, &s) == 0 &&
+              maniPose_SolveBodyXpbd(pose, &skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
                   mani_errorLimit,
           "a part past MANI_MAX_BODY_IK_BONES at the limit");
     s.top = 2;
-    CHECK(maniBodyIkScratchSize(&skeleton, &s) > 0, "the part just within the bound");
+    CHECK(maniSkeleton_GetBodyIkScratchSize(&skeleton, &s) > 0, "the part just within the bound");
 }
 
 int main(void)

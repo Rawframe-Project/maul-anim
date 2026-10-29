@@ -13,35 +13,35 @@ The offline side (built with `MAUL_ANIM_OFFLINE`, on by default) imports glTF 2.
 
 ## glTF
 
-A document opens from JSON or GLB bytes the program keeps alive; external buffers are supplied by the program (`maniGltfBufferUri`, `maniGltfSupplyBuffer`), since the library opens no files. Meshopt-compressed files, as gltfpack writes them, and Draco-compressed meshes are read.
+A document opens from JSON or GLB bytes the program keeps alive; external buffers are supplied by the program (`maniGltf_GetBufferUri`, `maniGltf_SupplyBuffer`), since the library opens no files. Meshopt-compressed files, as gltfpack writes them, and Draco-compressed meshes are read.
 
 ```c
 maniGltf* gltf = NULL;
 maniImportResult read = maniOpenGltf(builder, bytes, size, &gltf);   // bytes kept alive
 maniGltfOptions options = maniDefaultGltfOptions();
-maniImportResult skeletonImported = maniGltfBuildSkeleton(builder, gltf, 0, &options);
+maniImportResult skeletonImported = maniBuildGltfSkeleton(builder, gltf, 0, &options);
 size_t skeletonSize = 0;
-maniResult skeletonCopied = maniCopyBuilt(builder, skeletonFile, skeletonCapacity, &skeletonSize);
+maniResult skeletonCopied = maniBuilder_CopyBuilt(builder, skeletonFile, skeletonCapacity, &skeletonSize);
 maniSkeleton skeleton;
 maniFileResult skeletonOpened = maniOpenSkeleton(skeletonFile, skeletonSize, &skeleton);
 
 maniImportClipOptions clipOptions = maniDefaultImportClipOptions();   // 30 samples a second
 maniImportResult clipImported =
-    maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, &clipOptions, NULL);
+    maniBuildGltfClip(builder, gltf, 0, &skeleton, &options, &clipOptions, NULL);
 size_t clipSize = 0;
-maniResult clipCopied = maniCopyBuilt(builder, clipFile, clipCapacity, &clipSize);
+maniResult clipCopied = maniBuilder_CopyBuilt(builder, clipFile, clipCapacity, &clipSize);
 maniClip clip;
 maniFileResult clipOpened = maniOpenClip(clipFile, clipSize, &clip);
 maniCloseGltf(gltf);
 ```
 
-glTF has no skeleton object: skins whose joints share nodes form one skeleton, numbered by their lowest skin (`maniGltfSkeletonCount`). A node's bone name is its name, or its name followed by `#` and its index when it has none or repeats an earlier one; `maniGltfRenamedNode` lists those, so a program binding by name across exports can warn. The options choose the target axes (a signed permutation, for a Z-up engine) and whether the transform above the root is folded into it or reported (`maniGltfSkeletonPlacement`).
+glTF has no skeleton object: skins whose joints share nodes form one skeleton, numbered by their lowest skin (`maniGltf_GetSkeletonCount`). A node's bone name is its name, or its name followed by `#` and its index when it has none or repeats an earlier one; `maniGltf_GetRenamedNode` lists those, so a program binding by name across exports can warn. The options choose the target axes (a signed permutation, for a Z-up engine) and whether the transform above the root is folded into it or reported (`maniGltf_GetSkeletonPlacement`).
 
 Clip options (`maniImportClipOptions`) set the sample rate, loop policy, additive basis and root motion source per clip. Morph weights become float tracks named node `/` target; `KHR_animation_pointer` channels to other properties become float tracks named by the pointer.
 
 ## FBX
 
-`maniOpenFbx` reads binary and ASCII FBX files from version 3000 to 7700, and the same calls build skeletons, skins, influences, morph targets and clips (`maniFbxBuildSkeleton`, `maniFbxBuildClip` and the rest). FBX's pivots, pre- and post-rotations and scale inheritance modes are evaluated as ufbx evaluates them and land on the library's one transform rule; where a file's scale inheritance cannot be expressed that way, a helper bone named `<parent>#unscaled` is added. Each animation stack is a clip; blend shape weights become float tracks named `mesh/shape`.
+`maniOpenFbx` reads binary and ASCII FBX files from version 3000 to 7700, and the same calls build skeletons, skins, influences, morph targets and clips (`maniBuildFbxSkeleton`, `maniBuildFbxClip` and the rest). FBX's pivots, pre- and post-rotations and scale inheritance modes are evaluated as ufbx evaluates them and land on the library's one transform rule; where a file's scale inheritance cannot be expressed that way, a helper bone named `<parent>#unscaled` is added. Each animation stack is a clip; blend shape weights become float tracks named `mesh/shape`.
 
 ## Refusals
 
@@ -92,7 +92,7 @@ maniBuilder* careful = NULL;
 maniResult created = maniCreateBuilder(&guarded, &careful);
 ```
 
-The allocator's functions must not call the builder they serve; such a call is refused and counted (`maniBuilderMisuses`).
+The allocator's functions must not call the builder they serve; such a call is refused and counted (`maniBuilder_GetMisuse`).
 
 ## Compression
 
@@ -103,7 +103,7 @@ maniCompressOptions tolerance = maniDefaultCompressOptions();   // 0.1 mm at 3 c
 maniCompressReport report;
 maniResult compressed = maniCompressClip(builder, &clip, &skeleton, &tolerance, &report);
 size_t smallSize = 0;
-maniResult smallCopied = maniCopyBuilt(builder, smallFile, smallCapacity, &smallSize);
+maniResult smallCopied = maniBuilder_CopyBuilt(builder, smallFile, smallCapacity, &smallSize);
 maniClip small;
 maniFileResult smallOpened = maniOpenClip(smallFile, smallSize, &small);
 // report.shellError is the largest error found at any sample.

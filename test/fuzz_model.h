@@ -65,7 +65,7 @@ static inline bool MakeFuzzModel(maniBuilder* builder, const maniSkeleton* skele
 {
     static maniLearnedLayerSource layers[3][2];
     static const maniLearnedNameSource kEvent = {"step", 4};
-    uint32_t bones = maniSkeletonBoneCount(skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(skeleton);
     uint32_t features = database->featureCount;
     uint32_t state = features + 2;
     uint32_t outputs = 9 * bones + 6 + 1;
@@ -86,7 +86,7 @@ static inline bool MakeFuzzModel(maniBuilder* builder, const maniSkeleton* skele
                                      .weightFormat = maniLearnedWeightsFloat32};
     size_t size = 0;
     return maniBuildLearnedModel(builder, &source).result == mani_success &&
-           maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success &&
            maniOpenLearnedModel(file, size, out).result == mani_success;
 }
 

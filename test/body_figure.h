@@ -71,8 +71,8 @@ static inline float Angle(maniQuat a, maniQuat b)
 
 static inline maniVec3 At(maniPose* pose, uint32_t bone)
 {
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "the model");
-    return maniPoseModelTransform(pose, bone).translation;
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success, "the model");
+    return maniPose_GetModelTransform(pose, bone).translation;
 }
 
 static inline void Setup(void)
@@ -100,7 +100,7 @@ static inline void Setup(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "the skeleton");
@@ -113,13 +113,13 @@ static inline void Setup(void)
 // The figure at rest, its arms and leg bent a little.
 static inline void Bent(maniPose* pose)
 {
-    CHECK(maniPoseSetRest(pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(pose, &s_skeleton) == mani_success, "rest");
     const uint32_t bent[4] = {kForeL, kForeR, kShin, kSpine};
     for (int k = 0; k < 4; ++k)
     {
-        maniTransform t = maniPoseLocal(pose, bent[k]);
+        maniTransform t = maniPose_GetLocal(pose, bent[k]);
         t.rotation = Turn((maniVec3){0.0f, 0.6f, 0.8f}, 0.3f);
-        maniPoseSetLocal(pose, bent[k], t);
+        maniPose_SetLocal(pose, bent[k], t);
     }
 }
 
@@ -147,9 +147,9 @@ static inline maniBodySolve Solve(maniVec3 left, maniVec3 right)
 
 static inline bool Solved(maniPose* pose, const maniBodySolve* s, bool* reached)
 {
-    size_t size = maniBodyIkScratchSize(&s_skeleton, s);
+    size_t size = maniSkeleton_GetBodyIkScratchSize(&s_skeleton, s);
     return size > 0 && size <= sizeof s_scratch &&
-           maniSolveBodyXpbd(pose, &s_skeleton, s, s_scratch, size, reached) == mani_success;
+           maniPose_SolveBodyXpbd(pose, &s_skeleton, s, s_scratch, size, reached) == mani_success;
 }
 
 static inline bool LengthsKept(maniPose* pose, maniPose* input)
@@ -157,7 +157,7 @@ static inline bool LengthsKept(maniPose* pose, maniPose* input)
     bool kept = true;
     for (uint32_t b = 2; b < BONES; ++b)
     {
-        uint32_t p = maniSkeletonParent(&s_skeleton, b);
+        uint32_t p = maniSkeleton_GetParent(&s_skeleton, b);
         float now = Distance(At(pose, b), At(pose, p));
         float was = Distance(At(input, b), At(input, p));
         kept = kept && fabsf(now - was) < 1e-5f;
@@ -170,8 +170,8 @@ static inline bool Same(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t k = 0; k < BONES; ++k)
     {
-        maniTransform x = maniPoseLocal(a, k);
-        maniTransform y = maniPoseLocal(b, k);
+        maniTransform x = maniPose_GetLocal(a, k);
+        maniTransform y = maniPose_GetLocal(b, k);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     return same;
@@ -190,7 +190,7 @@ static inline bool Finite(const maniPose* pose)
     bool finite = true;
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         finite = finite && isfinite(t.rotation.x) && isfinite(t.rotation.w) &&
                  isfinite(t.translation.x) && isfinite(t.translation.y);
     }

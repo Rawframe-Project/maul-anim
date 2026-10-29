@@ -79,7 +79,7 @@ static uint32_t NodeBone(const Build* b, uint32_t node)
 static uint32_t RootNode(const Build* b)
 {
     size_t length = 0;
-    const char* root = maniSkeletonBoneName(b->skeleton, 0, &length);
+    const char* root = maniSkeleton_GetBoneName(b->skeleton, 0, &length);
     for (uint32_t v = 0; v < b->gltf->nodeCount; ++v)
     {
         size_t n = 0;
@@ -243,7 +243,7 @@ static maniChannelSource Source(const Bound* x)
 // refusals.
 static maniImportResult BoneTracks(Build* b)
 {
-    uint32_t bones = maniSkeletonBoneCount(b->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(b->skeleton);
     uint32_t* trackOf = maniArenaTake(&b->arena, bones, sizeof(uint32_t));
     // One spare: folding may add a root track no channel made.
     b->tracks = maniArenaTake(&b->arena, (size_t)b->boundCount + 1, sizeof(maniBoneTrackSource));
@@ -665,7 +665,7 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
     return r;
 }
 
-maniImportResult maniGltfBuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
+maniImportResult maniBuildGltfClip(maniBuilder* builder, const maniGltf* gltf, uint32_t animation,
                                    const maniSkeleton* skeleton, const maniGltfOptions* options,
                                    const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {

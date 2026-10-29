@@ -632,22 +632,22 @@ maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
     return result;
 }
 
-uint64_t maniMotionDatabaseIdentity(const maniMotionDatabase* database)
+uint64_t maniMotionDatabase_GetIdentity(const maniMotionDatabase* database)
 {
     return database != NULL ? database->identity : 0;
 }
 
-uint64_t maniMotionDatabaseMirrorMapIdentity(const maniMotionDatabase* database)
+uint64_t maniMotionDatabase_GetMirrorMapIdentity(const maniMotionDatabase* database)
 {
     return database != NULL ? database->mirrorMapIdentity : 0;
 }
 
-uint64_t maniMotionDatabaseSkeletonIdentity(const maniMotionDatabase* database)
+uint64_t maniMotionDatabase_GetSkeletonIdentity(const maniMotionDatabase* database)
 {
     return database != NULL ? database->skeletonIdentity : 0;
 }
 
-uint64_t maniMotionDatabaseClipIdentity(const maniMotionDatabase* database, uint32_t clip)
+uint64_t maniMotionDatabase_GetClipIdentity(const maniMotionDatabase* database, uint32_t clip)
 {
     if (database == NULL || clip >= database->clipCount)
     {
@@ -656,8 +656,8 @@ uint64_t maniMotionDatabaseClipIdentity(const maniMotionDatabase* database, uint
     return maniLoadU64(database->clips + 8 * (size_t)clip);
 }
 
-maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database, uint32_t channel,
-                                     maniMatchChannel* channelOut)
+maniResult maniMotionDatabase_GetChannel(const maniMotionDatabase* database, uint32_t channel,
+                                         maniMatchChannel* channelOut)
 {
     if (database == NULL || channelOut == NULL || channel >= database->channelCount)
     {
@@ -678,8 +678,8 @@ maniResult maniMotionDatabaseChannel(const maniMotionDatabase* database, uint32_
     return mani_success;
 }
 
-const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database, uint32_t channel,
-                                          size_t* lengthOut)
+const char* maniMotionDatabase_GetChannelName(const maniMotionDatabase* database, uint32_t channel,
+                                              size_t* lengthOut)
 {
     if (database == NULL || channel >= database->channelCount)
     {
@@ -698,8 +698,8 @@ const char* maniMotionDatabaseChannelName(const maniMotionDatabase* database, ui
     return (const char*)(database->names + maniLoadU32(e + 32));
 }
 
-maniResult maniMotionDatabaseEntry(const maniMotionDatabase* database, uint32_t entry,
-                                   maniMatchEntry* entryOut)
+maniResult maniMotionDatabase_GetEntry(const maniMotionDatabase* database, uint32_t entry,
+                                       maniMatchEntry* entryOut)
 {
     if (database == NULL || entryOut == NULL || entry >= database->entryCount)
     {
@@ -741,8 +741,8 @@ static MANI_NOINLINE maniResult MotionDatabaseFrameWork(const maniMotionDatabase
     return mani_success;
 }
 
-maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t frame,
-                                   uint32_t* entryOut, float* timeOut)
+maniResult maniMotionDatabase_GetFrame(const maniMotionDatabase* database, uint32_t frame,
+                                       uint32_t* entryOut, float* timeOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = MotionDatabaseFrameWork(database, frame, entryOut, timeOut);
@@ -750,8 +750,8 @@ maniResult maniMotionDatabaseFrame(const maniMotionDatabase* database, uint32_t 
     return result;
 }
 
-maniResult maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32_t frame,
-                                      float* featuresOut, uint32_t capacity, uint32_t* countOut)
+maniResult maniMotionDatabase_GetFeatures(const maniMotionDatabase* database, uint32_t frame,
+                                          float* featuresOut, uint32_t capacity, uint32_t* countOut)
 {
     if (database == NULL || (featuresOut == NULL && capacity > 0) || frame >= database->frameCount)
     {
@@ -772,8 +772,9 @@ maniResult maniMotionDatabaseFeatures(const maniMotionDatabase* database, uint32
     return mani_success;
 }
 
-maniResult maniMotionDatabaseNormalization(const maniMotionDatabase* database, float* offsetsOut,
-                                           float* scalesOut, uint32_t capacity, uint32_t* countOut)
+maniResult maniMotionDatabase_GetNormalization(const maniMotionDatabase* database,
+                                               float* offsetsOut, float* scalesOut,
+                                               uint32_t capacity, uint32_t* countOut)
 {
     if (database == NULL || (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
     {

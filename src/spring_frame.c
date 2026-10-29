@@ -12,12 +12,12 @@
 
 maniVec3 maniSpringRestDirection(const maniSkeleton* skeleton, uint32_t head, uint32_t tail)
 {
-    maniTransform t = maniSkeletonRest(skeleton, tail);
+    maniTransform t = maniSkeleton_GetRest(skeleton, tail);
     maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    for (uint32_t b = maniSkeletonParent(skeleton, tail); b != head && b != MANI_NO_BONE;
-         b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = maniSkeleton_GetParent(skeleton, tail); b != head && b != MANI_NO_BONE;
+         b = maniSkeleton_GetParent(skeleton, b))
     {
-        maniTransform r = maniSkeletonRest(skeleton, b);
+        maniTransform r = maniSkeleton_GetRest(skeleton, b);
         maniAffine p = maniAffineFromTrs(r.translation, r.rotation, r.scale);
         m = maniAffineMul(&p, &m);
     }

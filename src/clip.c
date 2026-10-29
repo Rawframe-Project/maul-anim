@@ -347,42 +347,42 @@ maniFileResult maniOpenClip(const void* bytes, size_t size, maniClip* clipOut)
     return result;
 }
 
-uint64_t maniClipIdentity(const maniClip* clip)
+uint64_t maniClip_GetIdentity(const maniClip* clip)
 {
     return clip->identity;
 }
 
-bool maniClipCompressed(const maniClip* clip)
+bool maniClip_IsCompressed(const maniClip* clip)
 {
     return clip->compressed != 0;
 }
 
-float maniClipDuration(const maniClip* clip)
+float maniClip_GetDuration(const maniClip* clip)
 {
     return clip->duration;
 }
 
-float maniClipSampleRate(const maniClip* clip)
+float maniClip_GetSampleRate(const maniClip* clip)
 {
     return clip->sampleRate;
 }
 
-uint32_t maniClipSampleCount(const maniClip* clip)
+uint32_t maniClip_GetSampleCount(const maniClip* clip)
 {
     return clip->sampleCount;
 }
 
-maniLoopPolicy maniClipLoopPolicy(const maniClip* clip)
+maniLoopPolicy maniClip_GetLoopPolicy(const maniClip* clip)
 {
     return clip->loop;
 }
 
-maniAdditiveBasis maniClipAdditiveBasis(const maniClip* clip)
+maniAdditiveBasis maniClip_GetAdditiveBasis(const maniClip* clip)
 {
     return clip->additive;
 }
 
-uint64_t maniClipSkeletonIdentity(const maniClip* clip)
+uint64_t maniClip_GetSkeletonIdentity(const maniClip* clip)
 {
     return clip->skeletonIdentity;
 }
@@ -571,8 +571,8 @@ static MANI_NOINLINE maniResult SampleClipWork(const maniClip* clip, const maniS
     return mani_success;
 }
 
-maniResult maniSampleClip(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                          maniPose* pose)
+maniResult maniClip_Sample(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                           maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SampleClipWork(clip, skeleton, time, pose);
@@ -588,7 +588,7 @@ MANI_NOINLINE maniResult maniSampleClipBonesEntered(const maniClip* clip,
     // A subset keeps the other bones, so it writes into a pose of the
     // clip's kind only.
     if (!maniClipFits(clip, skeleton, pose) || (bones == NULL && count > 0) ||
-        maniPoseIsDifference(pose) != (clip->additive != maniAdditiveNone))
+        maniPose_IsDifference(pose) != (clip->additive != maniAdditiveNone))
     {
         return mani_errorInvalid;
     }
@@ -605,8 +605,8 @@ MANI_NOINLINE maniResult maniSampleClipBonesEntered(const maniClip* clip,
     return mani_success;
 }
 
-maniResult maniSampleClipBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                               const uint32_t* bones, uint32_t count, maniPose* pose)
+maniResult maniClip_SampleBones(const maniClip* clip, const maniSkeleton* skeleton, float time,
+                                const uint32_t* bones, uint32_t count, maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = maniSampleClipBonesEntered(clip, skeleton, time, bones, count, pose);
@@ -635,8 +635,8 @@ static MANI_NOINLINE maniResult SampleClipFloatsWork(const maniClip* clip, float
     return mani_success;
 }
 
-maniResult maniSampleClipFloats(const maniClip* clip, float time, float* values, uint32_t capacity,
-                                uint32_t* countOut)
+maniResult maniClip_SampleFloats(const maniClip* clip, float time, float* values, uint32_t capacity,
+                                 uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SampleClipFloatsWork(clip, time, values, capacity, countOut);

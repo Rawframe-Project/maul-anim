@@ -106,7 +106,7 @@ static void OpenSkin(void)
     maniSkeletonSource source = {bones, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "skeleton");
@@ -119,7 +119,8 @@ static void OpenSkin(void)
     }
     maniSkinSource skin = {&s_skeleton, joints, binds, kJoints};
     CHECK(maniBuildSkin(builder, &skin).result == mani_success &&
-              maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &size) ==
+                  mani_success &&
               maniOpenSkin(s_skinFile, size, &s_skin).result == mani_success,
           "skin");
     maniDestroyBuilder(builder);
@@ -149,7 +150,7 @@ static void BuildInfluences(void)
     maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, kVertices};
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
               maniOpenInfluences(s_file, s_size, &s_influences).result == mani_success,
           "influences");
     maniDestroyBuilder(builder);
@@ -226,10 +227,10 @@ static void Reference(uint32_t v, Vertex* want)
 {
     double m[12] = {0};
     double total = 0.0;
-    for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_influences); ++slot)
+    for (uint32_t slot = 0; slot < maniInfluences_GetPerVertex(&s_influences); ++slot)
     {
         float w = 0.0f;
-        uint32_t j = maniInfluence(&s_influences, v, slot, &w);
+        uint32_t j = maniInfluences_GetInfluence(&s_influences, v, slot, &w);
         for (int k = 0; k < 12; ++k)
         {
             m[k] += (double)s_palette[j].m[k] * (double)w;
@@ -431,7 +432,7 @@ static void TestRows(void)
 {
     RandomPalette();
     float rows[12 * kJoints];
-    CHECK(maniPaletteRows(s_palette, kJoints, rows) == mani_success, "rows");
+    CHECK(maniConvertPaletteToRows(s_palette, kJoints, rows) == mani_success, "rows");
     bool right = true;
     for (uint32_t j = 0; j < kJoints; ++j)
     {
@@ -441,8 +442,8 @@ static void TestRows(void)
                 r[4] == m[1] && r[7] == m[10] && r[8] == m[2] && r[11] == m[11];
     }
     CHECK(right, "row-major 3x4, translation last");
-    CHECK(maniPaletteRows(NULL, 1, rows) == mani_errorInvalid, "no palette");
-    CHECK(maniPaletteRows(NULL, 0, NULL) == mani_success, "nothing to write");
+    CHECK(maniConvertPaletteToRows(NULL, 1, rows) == mani_errorInvalid, "no palette");
+    CHECK(maniConvertPaletteToRows(NULL, 0, NULL) == mani_success, "nothing to write");
 }
 
 // The rotation of a 3x3 matrix's polar decomposition by Higham's
@@ -511,10 +512,10 @@ static bool DualReference(uint32_t v, double m[12])
 {
     double real[4] = {0}, dual[4] = {0}, sum[9] = {0}, lead[4] = {0};
     bool any = false;
-    for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_influences); ++slot)
+    for (uint32_t slot = 0; slot < maniInfluences_GetPerVertex(&s_influences); ++slot)
     {
         float wf = 0.0f;
-        uint32_t j = maniInfluence(&s_influences, v, slot, &wf);
+        uint32_t j = maniInfluences_GetInfluence(&s_influences, v, slot, &wf);
         double w = (double)wf;
         if (w == 0.0)
         {
@@ -593,7 +594,8 @@ static void TestDualAgainstReference(void)
     {
         RandomPalette();
         RandomVertices();
-        CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+        CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success,
+              "dual");
         maniSkinStream streams[4];
         Streams(s_in, s_out, streams);
         maniSkinJob job = Job(0, kVertices, streams, 4);
@@ -628,7 +630,7 @@ static void TestDualOneInfluence(void)
 {
     RandomPalette();
     RandomVertices();
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
     maniSkinStream a[4];
     maniSkinStream b[4];
     Streams(s_in, s_out, a);
@@ -641,7 +643,7 @@ static void TestDualOneInfluence(void)
     for (uint32_t v = 0; v < kVertices; ++v)
     {
         float w = 0.0f;
-        (void)maniInfluence(&s_influences, v, 1, &w);
+        (void)maniInfluences_GetInfluence(&s_influences, v, 1, &w);
         if (w == 0.0f)
         {
             double e = Apart(&s_other[v], &s_out[v]);
@@ -661,7 +663,7 @@ static void TestCandyWrapper(void)
         float sgn = j % 2 == 0 ? 1.0f : -1.0f;
         s_palette[j] = (maniAffine){{1, 0, 0, 0, 0, sgn, 0, -sgn, 0, 0, 0, 0}};
     }
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
     // Every vertex on joints 2k and 2k + 1 at a half each.
     static uint32_t offsets[kVertices + 1];
     static uint32_t joints[kVertices * 2];
@@ -682,7 +684,7 @@ static void TestCandyWrapper(void)
     maniBuilder* builder = NewBuilder();
     maniInfluences halves;
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenInfluences(file, size, &halves).result == mani_success,
           "halves");
     maniDestroyBuilder(builder);
@@ -729,13 +731,13 @@ static void TestBlended(void)
     maniBuilder* builder = NewBuilder();
     maniInfluences blended;
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenInfluences(file, size, &blended).result == mani_success,
           "blended influences");
     maniDestroyBuilder(builder);
     RandomPalette();
     RandomVertices();
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
     static Vertex linear[kVertices];
     static Vertex dual[kVertices];
     maniSkinStream streams[4];
@@ -774,7 +776,7 @@ static void TestBlended(void)
 static void TestDualPalette(void)
 {
     RandomPalette();
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
     double worst = 0.0;
     bool positive = true;
     for (uint32_t j = 0; j < kJoints; ++j)
@@ -804,10 +806,10 @@ static void TestDualPalette(void)
     float kept[20 * kJoints];
     memcpy(kept, s_dual, sizeof kept);
     s_palette[3].m[4] = NAN;
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_errorInvalid,
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_errorInvalid,
           "a matrix not finite");
     CHECK(memcmp(kept, s_dual, sizeof kept) == 0, "out unchanged");
-    CHECK(maniPaletteDualQuaternions(NULL, 1, s_dual) == mani_errorInvalid, "no palette");
+    CHECK(maniConvertPaletteToDualQuaternions(NULL, 1, s_dual) == mani_errorInvalid, "no palette");
     maniSkinStream streams[4];
     Streams(s_in, s_out, streams);
     maniSkinJob job = Job(0, kVertices, streams, 4);
@@ -830,7 +832,7 @@ static void TestPinned(void)
     maniSkinJob job = Job(0, kVertices, streams, 4);
     CHECK(maniSkinLinear(&job) == mani_success, "skins");
     Pin(s_out, sizeof s_out);
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success &&
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success &&
               maniSkinDualQuaternion(&job) == mani_success,
           "dual");
     Pin(s_out, sizeof s_out);
@@ -865,12 +867,12 @@ static void TestMorphThenSkin(void)
         float n = sqrtf(r[3] * r[3] + r[4] * r[4] + r[5] * r[5] + r[6] * r[6]);
         maniTransform t = {
             {r[0], r[1], r[2]}, {r[3] / n, r[4] / n, r[5] / n, r[6] / n}, {r[7], r[8], r[9]}};
-        maniPoseSetLocal(pose, b, t);
+        maniPose_SetLocal(pose, b, t);
     }
     maniAffine saved[kJoints];
     memcpy(saved, s_palette, sizeof saved);
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success &&
-              maniComputePalette(pose, &s_skeleton, &s_skin, s_palette, kJoints, NULL) ==
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success &&
+              maniPose_ComputePalette(pose, &s_skeleton, &s_skin, s_palette, kJoints, NULL) ==
                   mani_success,
           "palette");
     Pin(s_palette, sizeof s_palette);
@@ -896,15 +898,17 @@ static void TestMorphThenSkin(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMorphTargets(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_morphFile, sizeof s_morphFile, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_morphFile, sizeof s_morphFile, &size) ==
+                  mani_success,
           "morph targets built");
     maniDestroyBuilder(builder);
     maniMorphTargets m;
     CHECK(maniOpenMorphTargets(s_morphFile, size, &m).result == mani_success, "morph targets open");
     const float channelWeights[2] = {0.7f, 0.8f};
     float weights[4];
-    CHECK(maniMorphTargetWeights(&m, channelWeights, weights, maniMorphTargetCount(&m), NULL) ==
-              mani_success,
+    CHECK(maniMorphTargets_ComputeTargetWeights(&m, channelWeights, weights,
+                                                maniMorphTargets_GetTargetCount(&m),
+                                                NULL) == mani_success,
           "weights");
     memcpy(s_other, s_in, sizeof s_other);
     maniMorphStream morph[3] = {
@@ -992,12 +996,13 @@ static void BuildMesh(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_meshFile, sizeof s_meshFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_meshFile, sizeof s_meshFile, &size) ==
+                  mani_success &&
               maniOpenInfluences(s_meshFile, size, &s_mesh).result == mani_success,
           "mesh influences");
     maniCenterSource centers = {&s_mesh, &s_rest[0][0], 12, s_triangles, kTriangles, 0.0f};
     CHECK(maniBuildCenters(builder, &centers).result == mani_success &&
-              maniCopyBuilt(builder, s_centersFile, sizeof s_centersFile, &s_centersSize) ==
+              maniBuilder_CopyBuilt(builder, s_centersFile, sizeof s_centersFile, &s_centersSize) ==
                   mani_success &&
               maniOpenInfluences(s_centersFile, s_centersSize, &s_centered).result == mani_success,
           "centers");
@@ -1025,10 +1030,10 @@ static void TestCentersPaddingIgnored(void)
 static void BruteCenter(uint32_t vertex, double out[3])
 {
     double wv[kJoints] = {0};
-    for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_mesh); ++slot)
+    for (uint32_t slot = 0; slot < maniInfluences_GetPerVertex(&s_mesh); ++slot)
     {
         float w = 0.0f;
-        uint32_t j = maniInfluence(&s_mesh, vertex, slot, &w);
+        uint32_t j = maniInfluences_GetInfluence(&s_mesh, vertex, slot, &w);
         wv[j] += (double)w;
     }
     double sum[3] = {0, 0, 0};
@@ -1039,10 +1044,10 @@ static void BruteCenter(uint32_t vertex, double out[3])
         const uint32_t* c = &s_triangles[3 * t];
         for (int i = 0; i < 3; ++i)
         {
-            for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_mesh); ++slot)
+            for (uint32_t slot = 0; slot < maniInfluences_GetPerVertex(&s_mesh); ++slot)
             {
                 float w = 0.0f;
-                uint32_t j = maniInfluence(&s_mesh, c[i], slot, &w);
+                uint32_t j = maniInfluences_GetInfluence(&s_mesh, c[i], slot, &w);
                 wt[j] += (double)w / 3.0;
             }
         }
@@ -1088,7 +1093,7 @@ static void TestCentersBuilt(void)
         double want[3];
         BruteCenter(v, want);
         maniVec3 got;
-        CHECK(maniInfluencesCenter(&s_centered, v, &got), "a center");
+        CHECK(maniInfluences_GetCenter(&s_centered, v, &got), "a center");
         const float g[3] = {got.x, got.y, got.z};
         for (int k = 0; k < 3; ++k)
         {
@@ -1107,9 +1112,9 @@ static void TestCentersBuilt(void)
     }
     CHECK(rigid, "a vertex on one joint keeps its position");
     // The copy keeps everything else.
-    CHECK(maniInfluencesVertexCount(&s_centered) == kMesh &&
-              maniInfluencesPerVertex(&s_centered) == maniInfluencesPerVertex(&s_mesh) &&
-              maniInfluencesFitSkin(&s_centered, &s_skin),
+    CHECK(maniInfluences_GetVertexCount(&s_centered) == kMesh &&
+              maniInfluences_GetPerVertex(&s_centered) == maniInfluences_GetPerVertex(&s_mesh) &&
+              maniInfluences_IsSkinFit(&s_centered, &s_skin),
           "the influences kept");
     static uint8_t copy[65536];
     memcpy(copy, s_centersFile, s_centersSize);
@@ -1162,7 +1167,7 @@ static void TestCentersRefused(void)
 static void TestCentersJob(void)
 {
     RandomPalette();
-    CHECK(maniPaletteDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
+    CHECK(maniConvertPaletteToDualQuaternions(s_palette, kJoints, s_dual) == mani_success, "dual");
     for (uint32_t v = 0; v < kMesh; ++v)
     {
         s_in[v] = (Vertex){{s_rest[v][0], s_rest[v][1], s_rest[v][2]},
@@ -1193,10 +1198,10 @@ static void TestCentersJob(void)
         // v' = R (S v - S c) + sum w_j (R_j S c + t_j), in binary64.
         double real[4] = {0}, lead[4] = {0}, rigid[12] = {0}, sum[9] = {0};
         bool any = false;
-        for (uint32_t slot = 0; slot < maniInfluencesPerVertex(&s_centered); ++slot)
+        for (uint32_t slot = 0; slot < maniInfluences_GetPerVertex(&s_centered); ++slot)
         {
             float wf = 0.0f;
-            uint32_t j = maniInfluence(&s_centered, v, slot, &wf);
+            uint32_t j = maniInfluences_GetInfluence(&s_centered, v, slot, &wf);
             double w = (double)wf;
             if (w == 0.0)
             {
@@ -1248,7 +1253,7 @@ static void TestCentersJob(void)
                        2 * (q[0] * q[2] + q[3] * q[1]),     2 * (q[1] * q[2] - q[3] * q[0]),
                        1 - 2 * (q[0] * q[0] + q[1] * q[1])};
         maniVec3 cf;
-        CHECK(maniInfluencesCenter(&s_centered, v, &cf), "center");
+        CHECK(maniInfluences_GetCenter(&s_centered, v, &cf), "center");
         const double c[3] = {(double)cf.x, (double)cf.y, (double)cf.z};
         const double p[3] = {(double)s_in[v].position[0], (double)s_in[v].position[1],
                              (double)s_in[v].position[2]};

@@ -31,8 +31,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     for (uint32_t b = 0; b < map.boneCount; ++b)
     {
-        uint32_t partner = maniMirrorPartner(&map, b);
-        if (partner >= map.boneCount || maniMirrorPartner(&map, partner) != b)
+        uint32_t partner = maniMirrorMap_GetPartner(&map, b);
+        if (partner >= map.boneCount || maniMirrorMap_GetPartner(&map, partner) != b)
         {
             abort();
         }
@@ -42,7 +42,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
         const uint8_t* e = map.names + (size_t)i * MANI_MIRROR_NAME_SIZE;
         size_t length = 0;
         const char* name = (const char*)map.strings + maniLoadU32(e + 16);
-        const char* partner = maniMirrorName(&map, name, maniLoadU32(e + 20), &length);
+        const char* partner = maniMirrorMap_MirrorName(&map, name, maniLoadU32(e + 20), &length);
         if (partner == NULL ||
             (partner != name && (partner < (const char*)map.strings ||
                                  partner + length > (const char*)map.strings + map.stringsSize)))

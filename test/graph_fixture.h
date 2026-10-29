@@ -68,7 +68,7 @@ static inline void OpenClip(maniBuilder* builder, int i, maniClipSource source)
     source.loop = maniLoopRepeat;
     source.sampleRate = 10.0f;
     CHECK(maniBuildClip(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[i], size, &s_clips[i]).result == mani_success,
           "a clip");
@@ -98,7 +98,7 @@ static inline void Open(void)
     maniSkeletonSource skeleton = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "skeleton");
@@ -186,7 +186,7 @@ static inline maniGraphInstance* Make(maniGraphSource source, maniGraph* g)
     maniGraphInstance* instance = NULL;
     CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(g,
                             &(maniGraphAssets){&s_skeleton, clips, NULL, NULL, NULL, CLIPS, 0, 0, 0,
@@ -218,21 +218,22 @@ static inline bool NearF(float a, double b)
 
 static inline void Update(maniGraphInstance* instance, float delta)
 {
-    CHECK(maniUpdateGraph(instance, delta, NULL, 0, NULL, NULL) == mani_success, "updates");
+    CHECK(maniGraphInstance_Update(instance, delta, NULL, 0, NULL, NULL) == mani_success,
+          "updates");
 }
 
 static inline void Set(maniGraphInstance* instance, uint32_t parameter, maniGraphParameterType type,
                        maniGraphValue value)
 {
-    CHECK(maniSetGraphParameter(instance, parameter, type, value) == mani_success, "set");
+    CHECK(maniGraphInstance_SetParameter(instance, parameter, type, value) == mani_success, "set");
 }
 
-// The bytes maniSaveGraphInstance writes for the instance, measured with
+// The bytes maniGraphInstance_Save writes for the instance, measured with
 // no buffer; 0 when the measure fails.
 static inline size_t SavedGraphSize(const maniGraphInstance* instance)
 {
     size_t size = 0;
-    return maniSaveGraphInstance(instance, NULL, 0, &size) == mani_errorCapacity ? size : 0;
+    return maniGraphInstance_Save(instance, NULL, 0, &size) == mani_errorCapacity ? size : 0;
 }
 
 // The instance's state saved and restored into another instance of its
@@ -244,10 +245,10 @@ static inline bool Restores(maniGraphInstance* instance)
     size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     return size <= sizeof saved &&
-           maniSaveGraphInstance(instance, saved, sizeof saved, NULL) == mani_success &&
+           maniGraphInstance_Save(instance, saved, sizeof saved, NULL) == mani_success &&
            maniInitGraphInstance(instance->binding, memory, sizeof memory, &other) ==
                mani_success &&
-           maniRestoreGraphInstance(other, saved, size).result == mani_success;
+           maniGraphInstance_Restore(other, saved, size).result == mani_success;
 }
 
 #endif // MAUL_ANIM_TEST_GRAPH_FIXTURE_H

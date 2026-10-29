@@ -15,7 +15,7 @@
 const char* maniGetSimdBackend(void);
 
 // 1 when this CPU runs the built backend, else 0.
-int32_t maniCpuSupportsBackend(void);
+int32_t maniIsCpuBackendSupported(void);
 
 // The CPU check without a world: stores the backend's name in *backend
 // when backend is not null and returns 1 when this CPU runs it, 0 when

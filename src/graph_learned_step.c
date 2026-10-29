@@ -117,7 +117,7 @@ static void After(const Learned* l, const uint32_t* from)
     {
         l->state[k] = FloatOf(from[k]);
     }
-    if (maniLearnedStep(l->m, l->state, l->scratch, l->scratchSize) != mani_success)
+    if (maniLearnedModel_Step(l->m, l->state, l->scratch, l->scratchSize) != mani_success)
     {
         Fail(l);
     }
@@ -153,7 +153,7 @@ static void Query(const Learned* l, float* out)
     for (uint32_t c = 0; c < m->channelCount; ++c)
     {
         maniMatchChannel ch;
-        (void)maniLearnedModelChannel(m, c, &ch);
+        (void)maniLearnedModel_GetChannel(m, c, &ch);
         uint32_t width = maniMatchChannelWidth(ch.kind);
         bool vector =
             ch.kind == maniMatchTrajectoryPosition || ch.kind == maniMatchTrajectoryFacing;
@@ -190,7 +190,7 @@ static uint32_t Projector(const Learned* l)
     {
         uint32_t r = 0;
         uint32_t e = 0;
-        (void)maniLearnedModelProjector(l->m, p, &r, &e);
+        (void)maniLearnedModel_GetProjector(l->m, p, &r, &e);
         if (r == required && e == excluded)
         {
             return p;
@@ -210,8 +210,8 @@ static void Project(const Learned* l)
     float projected[MANI_GRAPH_LEARNED_MAX_STATES];
     Query(l, query);
     maniResult r =
-        maniLearnedProject(l->m, projector, query, projected, MANI_GRAPH_LEARNED_MAX_STATES, NULL,
-                           l->scratch, l->scratchSize);
+        maniLearnedModel_Project(l->m, projector, query, projected, MANI_GRAPH_LEARNED_MAX_STATES,
+                                 NULL, l->scratch, l->scratchSize);
     if (r != mani_success)
     {
         if (r == mani_errorFormat)
@@ -315,7 +315,7 @@ static void Outputs(const Learned* l, double step)
         if (u->count < u->capacity)
         {
             size_t length = 0;
-            const char* name = maniLearnedModelEventName(m, e, &length);
+            const char* name = maniLearnedModel_GetEventName(m, e, &length);
             uint64_t hash = maniGraphNodeName(
                 u, l->p, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));
             maniGraphEvent* out = &u->events[u->count];
@@ -348,7 +348,7 @@ void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
     const maniLearnedModel* m =
         maniGraphBoundModel(u->binding, maniGraphUpdateWord(u, data + maniGraphLearnedModel));
     float* room = (float*)((uint8_t*)u->instance + u->instance->roomAt);
-    size_t scratchSize = maniLearnedScratchSize(m);
+    size_t scratchSize = maniLearnedModel_GetScratchSize(m);
     // The scratch is whole floats; the state follows it.
     size_t stateAt = scratchSize / 4;
     uint32_t states = m->featureCount + m->latentCount;

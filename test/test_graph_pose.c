@@ -55,20 +55,20 @@ static maniTransform Moved(uint32_t b)
 // Every bone of a pose parameter as the skeleton's rest.
 static bool AtRest(const maniGraphInstance* instance, uint32_t parameter)
 {
-    bool ok = maniGetGraphPose(instance, parameter, s_read) == mani_success;
+    bool ok = maniGraphInstance_GetPose(instance, parameter, s_read) == mani_success;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        ok = ok && Same(maniPoseLocal(s_read, b), maniSkeletonRest(&s_skeleton, b));
+        ok = ok && Same(maniPose_GetLocal(s_read, b), maniSkeleton_GetRest(&s_skeleton, b));
     }
     return ok;
 }
 
 static bool AsMoved(const maniGraphInstance* instance, uint32_t parameter)
 {
-    bool ok = maniGetGraphPose(instance, parameter, s_read) == mani_success;
+    bool ok = maniGraphInstance_GetPose(instance, parameter, s_read) == mani_success;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        ok = ok && Same(maniPoseLocal(s_read, b), Moved(b));
+        ok = ok && Same(maniPose_GetLocal(s_read, b), Moved(b));
     }
     return ok;
 }
@@ -77,7 +77,7 @@ static void MovePose(void)
 {
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniPoseSetLocal(s_pose, b, Moved(b));
+        maniPose_SetLocal(s_pose, b, Moved(b));
     }
 }
 
@@ -96,18 +96,18 @@ static void TestSetAndGet(void)
               instance->posesAt >= instance->machinesAt && instance->size >= instance->roomAt,
           "the poses' bytes set aside before the room");
     MovePose();
-    CHECK(maniSetGraphPose(instance, 1, s_pose) == mani_success, "set");
+    CHECK(maniGraphInstance_SetPose(instance, 1, s_pose) == mani_success, "set");
     CHECK(AsMoved(instance, 1) && AtRest(instance, 3), "read back, the other untouched");
     maniPoseSetKind(s_read, true);
-    CHECK(maniGetGraphPose(instance, 1, s_read) == mani_success && !maniPoseIsDifference(s_read) &&
-              !maniPoseModelCurrent(s_read),
+    CHECK(maniGraphInstance_GetPose(instance, 1, s_read) == mani_success &&
+              !maniPose_IsDifference(s_read) && !maniPose_IsModelCurrent(s_read),
           "read as a pose, its model stale");
-    CHECK(maniComputeModel(s_read, &s_skeleton) == mani_success &&
-              maniGetGraphPose(instance, 3, s_read) == mani_success &&
-              !maniPoseModelCurrent(s_read),
+    CHECK(maniPose_ComputeModel(s_read, &s_skeleton) == mani_success &&
+              maniGraphInstance_GetPose(instance, 3, s_read) == mani_success &&
+              !maniPose_IsModelCurrent(s_read),
           "a current model made stale by a read");
     maniGraphValue v = Float(5.0f);
-    CHECK(maniGetGraphParameter(instance, 1, &v) == mani_success && v.f[0] == 0.0f &&
+    CHECK(maniGraphInstance_GetParameter(instance, 1, &v) == mani_success && v.f[0] == 0.0f &&
               v.f[1] == 0.0f && v.f[2] == 0.0f && v.f[3] == 0.0f,
           "a pose parameter's value is 0");
 }
@@ -120,20 +120,21 @@ static void TestRefusals(void)
     maniGraph g;
     maniGraphInstance* instance = PoseGraph(&g);
     MovePose();
-    CHECK(maniSetGraphPose(instance, 0, s_pose) == mani_errorInvalid &&
-              maniSetGraphPose(instance, 2, s_pose) == mani_errorInvalid &&
-              maniSetGraphPose(instance, 4, s_pose) == mani_errorInvalid &&
-              maniSetGraphPose(NULL, 1, s_pose) == mani_errorInvalid &&
-              maniSetGraphPose(instance, 1, NULL) == mani_errorInvalid,
+    CHECK(maniGraphInstance_SetPose(instance, 0, s_pose) == mani_errorInvalid &&
+              maniGraphInstance_SetPose(instance, 2, s_pose) == mani_errorInvalid &&
+              maniGraphInstance_SetPose(instance, 4, s_pose) == mani_errorInvalid &&
+              maniGraphInstance_SetPose(NULL, 1, s_pose) == mani_errorInvalid &&
+              maniGraphInstance_SetPose(instance, 1, NULL) == mani_errorInvalid,
           "set: another type, past the count, NULL");
-    CHECK(maniGetGraphPose(instance, 0, s_read) == mani_errorInvalid &&
-              maniGetGraphPose(instance, 2, s_read) == mani_errorInvalid &&
-              maniGetGraphPose(instance, 4, s_read) == mani_errorInvalid &&
-              maniGetGraphPose(NULL, 1, s_read) == mani_errorInvalid &&
-              maniGetGraphPose(instance, 1, NULL) == mani_errorInvalid,
+    CHECK(maniGraphInstance_GetPose(instance, 0, s_read) == mani_errorInvalid &&
+              maniGraphInstance_GetPose(instance, 2, s_read) == mani_errorInvalid &&
+              maniGraphInstance_GetPose(instance, 4, s_read) == mani_errorInvalid &&
+              maniGraphInstance_GetPose(NULL, 1, s_read) == mani_errorInvalid &&
+              maniGraphInstance_GetPose(instance, 1, NULL) == mani_errorInvalid,
           "get: another type, past the count, NULL");
     maniPoseSetKind(s_pose, true);
-    CHECK(maniSetGraphPose(instance, 1, s_pose) == mani_errorInvalid, "a difference refused");
+    CHECK(maniGraphInstance_SetPose(instance, 1, s_pose) == mani_errorInvalid,
+          "a difference refused");
     maniPoseSetKind(s_pose, false);
     // A skeleton of the fixture's first two bones.
     maniBuilder* builder = NewBuilder();
@@ -142,18 +143,19 @@ static void TestRefusals(void)
     maniPose* otherPose = NULL;
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &two).result == mani_success &&
-              maniCopyBuilt(builder, s_otherSkeletonFile, sizeof s_otherSkeletonFile, &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_otherSkeletonFile, sizeof s_otherSkeletonFile,
+                                    &size) == mani_success &&
               maniOpenSkeleton(s_otherSkeletonFile, size, &other).result == mani_success &&
               maniInitPose(&other, s_otherPoseMemory, sizeof s_otherPoseMemory, &otherPose) ==
                   mani_success,
           "another skeleton's pose");
     maniDestroyBuilder(builder);
-    CHECK(maniSetGraphPose(instance, 1, otherPose) == mani_errorInvalid &&
-              maniGetGraphPose(instance, 1, otherPose) == mani_errorInvalid,
+    CHECK(maniGraphInstance_SetPose(instance, 1, otherPose) == mani_errorInvalid &&
+              maniGraphInstance_GetPose(instance, 1, otherPose) == mani_errorInvalid,
           "another skeleton's pose refused");
-    CHECK(maniSetGraphParameter(instance, 1, maniGraphParameterPose, Int(0)) == mani_errorInvalid &&
-              maniSetGraphParameter(instance, 1, maniGraphParameterFloat, Float(1.0f)) ==
+    CHECK(maniGraphInstance_SetParameter(instance, 1, maniGraphParameterPose, Int(0)) ==
+                  mani_errorInvalid &&
+              maniGraphInstance_SetParameter(instance, 1, maniGraphParameterFloat, Float(1.0f)) ==
                   mani_errorInvalid,
           "the value call refuses a pose parameter");
     CHECK(AtRest(instance, 1) && AtRest(instance, 3), "nothing changed");
@@ -166,12 +168,12 @@ static void TestSaved(void)
     maniGraph g;
     maniGraphInstance* instance = PoseGraph(&g);
     MovePose();
-    CHECK(maniSetGraphPose(instance, 3, s_pose) == mani_success, "set");
+    CHECK(maniGraphInstance_SetPose(instance, 3, s_pose) == mani_success, "set");
     size_t size = SavedGraphSize(instance);
     size_t poses = MANI_GRAPH_STATE_HEADER_SIZE + (4 + 1) * MANI_GRAPH_VALUE_SIZE;
     CHECK(size == poses + 2 * 3 * MANI_POSE_COMPONENTS * 4, "two poses of three bones");
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], size - 1, NULL) == mani_errorCapacity &&
-              maniSaveGraphInstance(instance, s_saved[0], size, NULL) == mani_success,
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], size - 1, NULL) == mani_errorCapacity &&
+              maniGraphInstance_Save(instance, s_saved[0], size, NULL) == mani_success,
           "saved");
     float word = 0.0f;
     memcpy(&word, s_saved[0] + poses + 3 * MANI_POSE_COMPONENTS * 4 + MANI_POSE_COMPONENTS * 4 + 8,
@@ -182,7 +184,7 @@ static void TestSaved(void)
                                 &other) == mani_success &&
               AtRest(other, 3),
           "another instance");
-    maniFileResult r = maniRestoreGraphInstance(other, s_saved[0], size);
+    maniFileResult r = maniGraphInstance_Restore(other, s_saved[0], size);
     CHECK(r.result == mani_success && AtRest(other, 1) && AsMoved(other, 3), "restored");
 }
 
@@ -195,11 +197,11 @@ static void TestSavedRefused(void)
     maniGraph g;
     maniGraphInstance* instance = PoseGraph(&g);
     size_t size = SavedGraphSize(instance);
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], size, NULL) == mani_success, "saved");
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], size, NULL) == mani_success, "saved");
     size_t bone = MANI_GRAPH_STATE_HEADER_SIZE + (4 + 1) * MANI_GRAPH_VALUE_SIZE +
                   (3 + 2) * MANI_POSE_COMPONENTS * 4;
     MovePose();
-    CHECK(maniSetGraphPose(instance, 3, s_pose) == mani_success, "set");
+    CHECK(maniGraphInstance_SetPose(instance, 3, s_pose) == mani_success, "set");
     const struct
     {
         size_t at;
@@ -216,14 +218,14 @@ static void TestSavedRefused(void)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + kBad[k].at, kBad[k].bits);
-        maniFileResult r = maniRestoreGraphInstance(instance, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(instance, s_saved[1], size);
         CHECK(r.result == mani_errorFormat && r.offset == kBad[k].refused && AsMoved(instance, 3),
               "refused at the word, the instance unchanged");
     }
     memcpy(s_saved[1], s_saved[0], size);
     // (0, 0, 0, 1.0005): its square within 0.002 of 1.
     maniStoreU32(s_saved[1] + bone + 24, 0x3F801062u);
-    CHECK(maniRestoreGraphInstance(instance, s_saved[1], size).result == mani_success,
+    CHECK(maniGraphInstance_Restore(instance, s_saved[1], size).result == mani_success,
           "a rotation within a thousandth taken");
 }
 

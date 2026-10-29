@@ -10,7 +10,7 @@
 #include "maul-anim/base.h"
 
 // t plus the difference d at weight w: t + w d_t, r nlerp(1, d_r, w) the
-// short way, s (1 + w (d_s - 1)); maniAddPoses's arithmetic.
+// short way, s (1 + w (d_s - 1)); maniPose_AddLayers's arithmetic.
 void maniAddTransform(maniTransform* t, const maniTransform* d, float w);
 
 #endif // MAUL_ANIM_SRC_ADDITIVE_H

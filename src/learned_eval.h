@@ -15,7 +15,7 @@
 // angular velocity, the float tracks, the events' states) for a state,
 // denormalized into out: its hidden layers whole and those outputs only,
 // each the same bits as a whole evaluation gives. scratch holds
-// maniLearnedScratchSize bytes, 4-byte aligned; nothing is checked. With
+// maniLearnedModel_GetScratchSize bytes, 4-byte aligned; nothing is checked. With
 // hidden (maniLearnedHiddenCount floats), the last layer's inputs are
 // kept there. False, out unchanged, when an output passes the float
 // range (the model's data).
@@ -27,7 +27,7 @@ bool maniLearnedDecompressMotion(const maniLearnedModel* model, const float* sta
 // of one layer, which keeps none).
 uint32_t maniLearnedHiddenCount(const maniLearnedModel* model);
 
-// maniLearnedDecompress taking, with hidden, the last layer's inputs as a
+// maniLearnedModel_Decompress taking, with hidden, the last layer's inputs as a
 // decompression kept them at the same state, in place of every layer
 // before it: the same bits. NULL computes them.
 maniResult maniLearnedDecompressFrom(const maniLearnedModel* model, const float* state,

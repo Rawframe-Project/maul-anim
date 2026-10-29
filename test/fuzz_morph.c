@@ -36,8 +36,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
     {
         return;
     }
-    uint32_t channels = maniMorphChannelCount(&m);
-    uint32_t targets = maniMorphTargetCount(&m);
+    uint32_t channels = maniMorphTargets_GetChannelCount(&m);
+    uint32_t targets = maniMorphTargets_GetTargetCount(&m);
     float* channelWeights = malloc(sizeof(float) * channels);
     float* targetWeights = malloc(sizeof(float) * targets);
     if (channelWeights == NULL || targetWeights == NULL)
@@ -49,23 +49,24 @@ static void Exercise(const uint8_t* bytes, size_t size)
     for (uint32_t c = 0; c < channels; ++c)
     {
         size_t length = 0;
-        const char* name = maniMorphChannelName(&m, c, &length);
-        if (name == NULL || maniMorphFindChannel(&m, name, length) > c)
+        const char* name = maniMorphTargets_GetChannelName(&m, c, &length);
+        if (name == NULL || maniMorphTargets_FindChannel(&m, name, length) > c)
         {
             abort();
         }
         channelWeights[c] = (float)(c % 5) * 0.5f - 0.75f;
     }
-    if (maniMorphTargetWeights(&m, channelWeights, targetWeights, maniMorphTargetCount(&m), NULL) !=
-        mani_success)
+    if (maniMorphTargets_ComputeTargetWeights(&m, channelWeights, targetWeights,
+                                              maniMorphTargets_GetTargetCount(&m),
+                                              NULL) != mani_success)
     {
         abort();
     }
     for (uint32_t t = 0; t < targets; ++t)
     {
         size_t length = 0;
-        const char* name = maniMorphTargetName(&m, t, &length);
-        if (name == NULL || maniMorphFindTarget(&m, name, length) > t)
+        const char* name = maniMorphTargets_GetTargetName(&m, t, &length);
+        if (name == NULL || maniMorphTargets_FindTarget(&m, name, length) > t)
         {
             abort();
         }
@@ -78,15 +79,17 @@ static void Exercise(const uint8_t* bytes, size_t size)
     memset(s_texcoords, 0, sizeof s_texcoords);
     memset(s_colors, 0, sizeof s_colors);
     // Every attribute the file names, then read back.
-    for (uint32_t a = 0; a < maniMorphAttributeCount(&m); ++a)
+    for (uint32_t a = 0; a < maniMorphTargets_GetAttributeCount(&m); ++a)
     {
         uint32_t set = 0;
-        if (maniMorphAttribute(&m, a, &set) > maniMorphColor)
+        if (maniMorphTargets_GetAttribute(&m, a, &set) > maniMorphColor)
         {
             abort();
         }
     }
-    uint32_t count = maniMorphVertexCount(&m) < kVertices ? maniMorphVertexCount(&m) : kVertices;
+    uint32_t count = maniMorphTargets_GetVertexCount(&m) < kVertices
+                         ? maniMorphTargets_GetVertexCount(&m)
+                         : kVertices;
     const maniMorphStream streams[5] = {{s_points, s_points, 12, 12, maniMorphPosition, 0, 3},
                                         {s_normals, s_normals, 12, 12, maniMorphNormal, 0, 3},
                                         {s_tangents, s_tangents, 16, 16, maniMorphTangent, 0, 4},

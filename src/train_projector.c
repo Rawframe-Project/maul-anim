@@ -68,7 +68,7 @@ bool maniTrainAnyFrame(const maniMotionDatabase* database, uint32_t required, ui
     for (uint32_t e = 0; e < database->entryCount; ++e)
     {
         maniMatchEntry entry;
-        if (maniMotionDatabaseEntry(database, e, &entry) == mani_success &&
+        if (maniMotionDatabase_GetEntry(database, e, &entry) == mani_success &&
             (entry.tags & required) == required && (entry.tags & excluded) == 0 &&
             (entry.flags & MANI_MATCH_NO_JUMP) == 0 && entry.frameCount > 0)
         {

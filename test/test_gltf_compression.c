@@ -196,8 +196,9 @@ static void TestDecodedAtOpen(void)
     CHECK(gltf != NULL && Decoded(gltf, kAttributesV0Out, sizeof kAttributesV0Out),
           "decoded at open");
     CHECK(gltf != NULL && ReadsAsShorts(gltf), "the accessor reads the decoded bytes");
-    CHECK(gltf != NULL && maniGltfBufferUri(gltf, 1, NULL) == NULL, "a fallback is not external");
-    CHECK(gltf != NULL && maniGltfSupplyBuffer(gltf, 1, s_stream, 296).result == mani_errorInvalid,
+    CHECK(gltf != NULL && maniGltf_GetBufferUri(gltf, 1, NULL) == NULL,
+          "a fallback is not external");
+    CHECK(gltf != NULL && maniGltf_SupplyBuffer(gltf, 1, s_stream, 296).result == mani_errorInvalid,
           "nor supplied");
     maniCloseGltf(gltf);
     // A fallback with a URI is never read either.
@@ -205,20 +206,22 @@ static void TestDecodedAtOpen(void)
           "{\"byteLength\":296,\"uri\":\"fallback.bin\",\"extensions\":{"
           "\"EXT_meshopt_compression\":{\"fallback\":true}}}",
           "");
-    CHECK(Open(builder, &gltf).result == mani_success && maniGltfBufferUri(gltf, 1, NULL) == NULL,
+    CHECK(Open(builder, &gltf).result == mani_success &&
+              maniGltf_GetBufferUri(gltf, 1, NULL) == NULL,
           "a fallback's URI is left alone");
     maniCloseGltf(gltf);
     // A buffer without a URI that only compressed views use is a
     // placeholder; one a plain view uses stays the host's.
     Plain(kStream, "{\"byteLength\":296}", "");
-    CHECK(Open(builder, &gltf).result == mani_success && maniGltfBufferUri(gltf, 1, NULL) == NULL &&
-              maniGltfSupplyBuffer(gltf, 1, s_stream, 296).result == mani_errorInvalid,
+    CHECK(Open(builder, &gltf).result == mani_success &&
+              maniGltf_GetBufferUri(gltf, 1, NULL) == NULL &&
+              maniGltf_SupplyBuffer(gltf, 1, s_stream, 296).result == mani_errorInvalid,
           "a placeholder");
     maniCloseGltf(gltf);
     Plain(kStream, "{\"byteLength\":296}", ",{\"buffer\":1,\"byteLength\":8}");
     size_t length = 1;
     CHECK(Open(builder, &gltf).result == mani_success &&
-              maniGltfBufferUri(gltf, 1, &length) != NULL && length == 0,
+              maniGltf_GetBufferUri(gltf, 1, &length) != NULL && length == 0,
           "a buffer a plain view uses is external");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -401,11 +404,11 @@ static void TestEdges(void)
              kStream);
     size_t length = 1;
     CHECK(Open(builder, &gltf).result == mani_success &&
-              maniGltfBufferUri(gltf, 0, &length) != NULL && length == 0,
+              maniGltf_GetBufferUri(gltf, 0, &length) != NULL && length == 0,
           "a stream's buffer is the host's");
     memset(s_stream, 0, 296);
     memcpy(s_stream, kAttributesV0, sizeof kAttributesV0);
-    CHECK(gltf != NULL && maniGltfSupplyBuffer(gltf, 0, s_stream, 296).result == mani_success &&
+    CHECK(gltf != NULL && maniGltf_SupplyBuffer(gltf, 0, s_stream, 296).result == mani_success &&
               Decoded(gltf, kAttributesV0Out, sizeof kAttributesV0Out),
           "and decoded when supplied");
     maniCloseGltf(gltf);
@@ -455,21 +458,21 @@ static void TestSupplied(void)
         return;
     }
     size_t length = 0;
-    const char* uri = maniGltfBufferUri(gltf, 0, &length);
+    const char* uri = maniGltf_GetBufferUri(gltf, 0, &length);
     CHECK(uri != NULL && length == 10 && memcmp(uri, "stream.bin", 10) == 0, "the stream's URI");
     CHECK(maniGltfReadFloats(gltf, 0, s_floats).reason == maniImportReasonPending, "pending");
     memcpy(s_stream, kAttributesV0, sizeof kAttributesV0);
     s_stream[0] = 0xa2;
-    maniImportResult r = maniGltfSupplyBuffer(gltf, 0, s_stream, sizeof kAttributesV0);
+    maniImportResult r = maniGltf_SupplyBuffer(gltf, 0, s_stream, sizeof kAttributesV0);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonData && r.item == 0,
           "a bad stream refused");
     CHECK(maniGltfReadFloats(gltf, 0, s_floats).reason == maniImportReasonPending,
           "and the buffer pending again");
-    CHECK(maniGltfSupplyBuffer(gltf, 0, kAttributesV0, sizeof kAttributesV0).result ==
+    CHECK(maniGltf_SupplyBuffer(gltf, 0, kAttributesV0, sizeof kAttributesV0).result ==
                   mani_success &&
               ReadsAsShorts(gltf),
           "a good one decoded");
-    CHECK(maniGltfSupplyBuffer(gltf, 0, kAttributesV0, sizeof kAttributesV0).result ==
+    CHECK(maniGltf_SupplyBuffer(gltf, 0, kAttributesV0, sizeof kAttributesV0).result ==
                   mani_success &&
               Decoded(gltf, kAttributesV0Out, sizeof kAttributesV0Out),
           "and supplied again");
@@ -640,7 +643,7 @@ static void TestFallbackEqual(void)
             (inside && memcmp(v->decoded, fallback + v->offset, (size_t)v->length) == 0);
     }
     CHECK(equal, "the decoded views equal the fallback");
-    CHECK(gltf != NULL && maniGltfBufferUri(gltf, 1, NULL) == NULL,
+    CHECK(gltf != NULL && maniGltf_GetBufferUri(gltf, 1, NULL) == NULL,
           "the fallback is not asked for");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -667,26 +670,27 @@ static bool BuildClip(maniBuilder* builder, const maniGltf* gltf, uint32_t node,
 {
     maniGltfOptions options = maniDefaultGltfOptions();
     size_t size = 0;
-    if (maniGltfBuildNodeSkeleton(builder, gltf, node, &options).result != mani_success ||
-        maniCopyBuilt(builder, b->skeletonFile, sizeof b->skeletonFile, &size) != mani_success ||
+    if (maniBuildGltfNodeSkeleton(builder, gltf, node, &options).result != mani_success ||
+        maniBuilder_CopyBuilt(builder, b->skeletonFile, sizeof b->skeletonFile, &size) !=
+            mani_success ||
         maniOpenSkeleton(b->skeletonFile, size, &b->skeleton).result != mani_success)
     {
         return false;
     }
     maniImportClipOptions clipOptions = {.sampleRate = 30.0f, .loop = maniLoopClamp};
-    return maniGltfBuildClip(builder, gltf, animation, &b->skeleton, &options, &clipOptions, NULL)
+    return maniBuildGltfClip(builder, gltf, animation, &b->skeleton, &options, &clipOptions, NULL)
                    .result == mani_success &&
-           maniCopyBuilt(builder, b->clipFile, sizeof b->clipFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, b->clipFile, sizeof b->clipFile, &size) == mani_success &&
            maniOpenClip(b->clipFile, size, &b->clip).result == mani_success;
 }
 
 // The node of this name, or UINT32_MAX.
 static uint32_t FindNode(const maniGltf* gltf, const char* name, uint32_t length)
 {
-    for (uint32_t n = 0; n < maniGltfNodeCount(gltf); ++n)
+    for (uint32_t n = 0; n < maniGltf_GetNodeCount(gltf); ++n)
     {
         size_t l = 0;
-        const char* s = maniGltfNodeBoneName(gltf, n, &l);
+        const char* s = maniGltf_GetNodeBoneName(gltf, n, &l);
         if (l == length && memcmp(s, name, length) == 0)
         {
             return n;
@@ -709,16 +713,16 @@ static double Difference(const maniClip* a, const maniClip* b, const maniSkeleto
         return HUGE_VAL;
     }
     double worst = 0;
-    for (uint32_t k = 0; k < maniClipSampleCount(a); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(a); ++k)
     {
-        float t = fminf((float)k / 30.0f, maniClipDuration(a));
-        if (maniSampleClip(a, sa, t, pa) != mani_success ||
-            maniSampleClip(b, sb, t, pb) != mani_success)
+        float t = fminf((float)k / 30.0f, maniClip_GetDuration(a));
+        if (maniClip_Sample(a, sa, t, pa) != mani_success ||
+            maniClip_Sample(b, sb, t, pb) != mani_success)
         {
             return HUGE_VAL;
         }
-        maniTransform x = maniPoseLocal(pa, boneA);
-        maniTransform y = maniPoseLocal(pb, boneB);
+        maniTransform x = maniPose_GetLocal(pa, boneA);
+        maniTransform y = maniPose_GetLocal(pb, boneB);
         float u[10];
         float w[10];
         memcpy(u, &x.translation, 12);
@@ -755,7 +759,7 @@ static void TestQuantizedClips(void)
     bool open = bytesA != NULL && bytesB != NULL &&
                 maniOpenGltf(builder, bytesA, sizeA, &a).result == mani_success &&
                 maniOpenGltf(builder, bytesB, sizeB, &b).result == mani_success &&
-                maniGltfAnimationCount(a) == 9 && maniGltfAnimationCount(b) == 9;
+                maniGltf_GetAnimationCount(a) == 9 && maniGltf_GetAnimationCount(b) == 9;
     CHECK(open, "both open, nine animations");
     // The animated node of each animation, by its first track: the
     // node a cube's name gives in both.
@@ -775,9 +779,9 @@ static void TestQuantizedClips(void)
         const Built* x = &s_built[0];
         const Built* y = &s_built[1];
         uint32_t boneA =
-            built ? maniSkeletonFindBone(&x->skeleton, kCubes[i], length) : MANI_NO_BONE;
+            built ? maniSkeleton_FindBone(&x->skeleton, kCubes[i], length) : MANI_NO_BONE;
         uint32_t boneB =
-            built ? maniSkeletonFindBone(&y->skeleton, kCubes[i], length) : MANI_NO_BONE;
+            built ? maniSkeleton_FindBone(&y->skeleton, kCubes[i], length) : MANI_NO_BONE;
         worst = boneA != MANI_NO_BONE && boneB != MANI_NO_BONE
                     ? fmax(worst,
                            Difference(&x->clip, &y->clip, &x->skeleton, &y->skeleton, boneA, boneB))
@@ -806,17 +810,17 @@ static void TestPackedSkin(void)
     size_t built = 0;
     maniSkeleton skeleton;
     Built* b = &s_built[0];
-    bool open =
-        bytes != NULL && maniOpenGltf(builder, bytes, size, &gltf).result == mani_success &&
-        maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, b->skeletonFile, sizeof b->skeletonFile, &built) == mani_success &&
-        maniOpenSkeleton(b->skeletonFile, built, &skeleton).result == mani_success;
+    bool open = bytes != NULL && maniOpenGltf(builder, bytes, size, &gltf).result == mani_success &&
+                maniBuildGltfSkeleton(builder, gltf, 0, &options).result == mani_success &&
+                maniBuilder_CopyBuilt(builder, b->skeletonFile, sizeof b->skeletonFile, &built) ==
+                    mani_success &&
+                maniOpenSkeleton(b->skeletonFile, built, &skeleton).result == mani_success;
     CHECK(open, "the skin's skeleton");
-    CHECK(open && maniGltfBuildSkin(builder, gltf, 0, &skeleton, &options).result == mani_success,
+    CHECK(open && maniBuildGltfSkin(builder, gltf, 0, &skeleton, &options).result == mani_success,
           "the skin");
     maniImportClipOptions clipOptions = {.sampleRate = 30.0f, .loop = maniLoopClamp};
     CHECK(open &&
-              maniGltfBuildClip(builder, gltf, 0, &skeleton, &options, &clipOptions, NULL).result ==
+              maniBuildGltfClip(builder, gltf, 0, &skeleton, &options, &clipOptions, NULL).result ==
                   mani_success,
           "the clip");
     maniCloseGltf(gltf);

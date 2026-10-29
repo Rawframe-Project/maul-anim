@@ -88,29 +88,32 @@ static maniImportResult Import(const uint8_t* bytes, size_t size, Vertex* vertic
     maniImportResult r = maniOpenGltf(builder, bytes, size, &gltf);
     bool ok =
         r.result == mani_success &&
-        maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &built) == mani_success &&
+        maniBuildGltfSkeleton(builder, gltf, 0, &options).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &built) ==
+            mani_success &&
         maniOpenSkeleton(s_skeletonFile, built, &skeleton).result == mani_success &&
-        maniGltfBuildSkin(builder, gltf, 0, &skeleton, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skinFile, sizeof s_skinFile, &built) == mani_success &&
+        maniBuildGltfSkin(builder, gltf, 0, &skeleton, &options).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_skinFile, sizeof s_skinFile, &built) == mani_success &&
         maniOpenSkin(s_skinFile, built, &skin).result == mani_success;
     CHECK(r.result != mani_success || ok, "skeleton and skin");
     if (ok)
     {
-        r = maniGltfBuildInfluences(builder, gltf, 0, 0, &skin);
+        r = maniBuildGltfInfluences(builder, gltf, 0, 0, &skin);
     }
     if (ok && r.result == mani_success && vertices != NULL)
     {
-        bool opened = maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
-                      maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
-                      maniInfluencesVertexCount(&v) <= MAX_VERTICES;
+        bool opened =
+            maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success &&
+            maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
+            maniInfluences_GetVertexCount(&v) <= MAX_VERTICES;
         CHECK(opened, "influences open");
-        s_vertices = opened ? maniInfluencesVertexCount(&v) : 0;
+        s_vertices = opened ? maniInfluences_GetVertexCount(&v) : 0;
         for (uint32_t i = 0; i < s_vertices; ++i)
         {
             for (uint32_t k = 0; k < SLOTS; ++k)
             {
-                vertices[i].joints[k] = maniInfluence(&v, i, k, &vertices[i].weights[k]);
+                vertices[i].joints[k] =
+                    maniInfluences_GetInfluence(&v, i, k, &vertices[i].weights[k]);
             }
         }
     }

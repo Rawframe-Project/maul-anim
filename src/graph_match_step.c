@@ -110,7 +110,8 @@ static void Events(const Match* m, uint32_t slot, const maniClip* clip, const ma
     for (uint64_t i = first;
          (e->flags & MANI_MATCH_MIRRORED) != 0 && i < u->count && i < u->capacity; ++i)
     {
-        u->events[i].nameHash = maniMirrorNameHash(u->binding->mirrorMap, u->events[i].nameHash);
+        u->events[i].nameHash =
+            maniMirrorMap_MirrorNameHash(u->binding->mirrorMap, u->events[i].nameHash);
     }
 }
 
@@ -122,7 +123,7 @@ static bool Play(const Match* m, double step)
     s->from = s->time;
     s->step = 0.0;
     maniMatchEntry e;
-    if (maniMotionDatabaseEntry(m->d, m->block[maniGraphMatchEntry], &e) != mani_success)
+    if (maniMotionDatabase_GetEntry(m->d, m->block[maniGraphMatchEntry], &e) != mani_success)
     {
         return false;
     }
@@ -141,7 +142,7 @@ static bool Play(const Match* m, double step)
     {
         // A mirrored entry's move reflected, then the node's.
         maniRootMove move = (e.flags & MANI_MATCH_MIRRORED) != 0
-                                ? maniMirrorRootMotion(m->u->binding->mirrorMap, at.move)
+                                ? maniMirrorMap_MirrorRootMotion(m->u->binding->mirrorMap, at.move)
                                 : at.move;
         move = maniGraphNodeMove(m->u, m->p, move);
         maniRootMotionSumAdd(&m->u->root, &move, (double)s->rootWeight);
@@ -166,7 +167,7 @@ static Continuing ContinuingOf(const Match* m)
 {
     Continuing c = {MANI_MATCH_NO_FRAME, MANI_MATCH_NO_FRAME, 0.0f};
     maniMatchEntry e;
-    if (maniMotionDatabaseEntry(m->d, m->block[maniGraphMatchEntry], &e) != mani_success)
+    if (maniMotionDatabase_GetEntry(m->d, m->block[maniGraphMatchEntry], &e) != mani_success)
     {
         return c;
     }
@@ -215,12 +216,12 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
     const maniMotionDatabase* d = m->d;
     uint32_t n = d->featureCount;
     float next[MANI_MAX_MATCH_FEATURES];
-    if (maniMotionDatabaseFeatures(d, at.frame, here, d->featureCount, NULL) != mani_success)
+    if (maniMotionDatabase_GetFeatures(d, at.frame, here, d->featureCount, NULL) != mani_success)
     {
         memset(here, 0, (size_t)n * sizeof(float));
     }
-    else if (at.weight > 0.0f &&
-             maniMotionDatabaseFeatures(d, at.next, next, d->featureCount, NULL) == mani_success)
+    else if (at.weight > 0.0f && maniMotionDatabase_GetFeatures(d, at.next, next, d->featureCount,
+                                                                NULL) == mani_success)
     {
         maniGraphMatchBlend(d, here, next, at.weight);
     }
@@ -229,7 +230,7 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
     for (uint32_t c = 0; c < d->channelCount; ++c)
     {
         maniMatchChannel ch;
-        (void)maniMotionDatabaseChannel(d, c, &ch);
+        (void)maniMotionDatabase_GetChannel(d, c, &ch);
         uint32_t width = maniMatchChannelWidth(ch.kind);
         bool vector =
             ch.kind == maniMatchTrajectoryPosition || ch.kind == maniMatchTrajectoryFacing;
@@ -263,7 +264,7 @@ static void Jump(const Match* m, uint32_t frame)
 {
     uint32_t entry = 0;
     float time = 0.0f;
-    (void)maniMotionDatabaseFrame(m->d, frame, &entry, &time);
+    (void)maniMotionDatabase_GetFrame(m->d, frame, &entry, &time);
     bool had = m->block[maniGraphMatchEntry] != MANI_GRAPH_MATCH_NO_ENTRY;
     m->block[maniGraphMatchEntry] = entry;
     m->s->time = (double)time;

@@ -67,7 +67,7 @@ static void Write(float* locals, uint32_t bone, const maniTransform* t)
 
 static bool IsPose(const maniPose* pose, const maniSkeleton* skeleton)
 {
-    return maniPoseMatches(pose, skeleton) && !maniPoseIsDifference(pose);
+    return maniPoseMatches(pose, skeleton) && !maniPose_IsDifference(pose);
 }
 
 // A bone's difference: t - t_b, r_b^-1 r (normalized), s / s_b.
@@ -120,8 +120,8 @@ static MANI_NOINLINE maniResult PoseDifferenceWork(const maniSkeleton* skeleton,
     return mani_success;
 }
 
-maniResult maniPoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
-                              const maniPose* basis, maniPose* out)
+maniResult maniSkeleton_ComputePoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
+                                              const maniPose* basis, maniPose* out)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = PoseDifferenceWork(skeleton, pose, basis, out);
@@ -139,7 +139,7 @@ static bool AdditiveValid(const maniSkeleton* skeleton, const maniPose* pose,
     for (uint32_t i = 0; i < count; ++i)
     {
         const maniBlendLayer* l = &layers[i];
-        if (!maniPoseMatches(l->pose, skeleton) || !maniPoseIsDifference(l->pose) ||
+        if (!maniPoseMatches(l->pose, skeleton) || !maniPose_IsDifference(l->pose) ||
             !Usable(l->weight))
         {
             return false;
@@ -169,8 +169,8 @@ void maniAddTransform(maniTransform* t, const maniTransform* d, float w)
     t->scale.z *= 1.0f + w * (d->scale.z - 1.0f);
 }
 
-maniResult maniAddPoses(const maniSkeleton* skeleton, maniPose* pose, const maniBlendLayer* layers,
-                        uint32_t count)
+maniResult maniPose_AddLayers(maniPose* pose, const maniSkeleton* skeleton,
+                              const maniBlendLayer* layers, uint32_t count)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = maniAddPosesIn(skeleton, pose, layers, count, NULL);

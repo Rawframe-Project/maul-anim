@@ -173,7 +173,7 @@ static bool NearAffine(const maniAffine* a, const maniAffine* b, float tolerance
 
 static void OpenBuilt(maniBuilder* builder, uint8_t* file, size_t capacity, size_t* size)
 {
-    CHECK(maniCopyBuilt(builder, file, capacity, size) == mani_success, "copies");
+    CHECK(maniBuilder_CopyBuilt(builder, file, capacity, size) == mani_success, "copies");
 }
 
 static void TestGroupsAndBones(void)
@@ -186,33 +186,34 @@ static void TestGroupsAndBones(void)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniGltfNodeCount(gltf) == 7 && maniGltfSkinCount(gltf) == 3, "counts");
-    CHECK(maniGltfSkeletonCount(gltf) == 2, "skins 0 and 1 share nodes");
-    CHECK(maniGltfSkinSkeleton(gltf, 0) == 0 && maniGltfSkinSkeleton(gltf, 1) == 0 &&
-              maniGltfSkinSkeleton(gltf, 2) == 1 && maniGltfSkinSkeleton(gltf, 3) == UINT32_MAX,
+    CHECK(maniGltf_GetNodeCount(gltf) == 7 && maniGltf_GetSkinCount(gltf) == 3, "counts");
+    CHECK(maniGltf_GetSkeletonCount(gltf) == 2, "skins 0 and 1 share nodes");
+    CHECK(maniGltf_GetSkinSkeleton(gltf, 0) == 0 && maniGltf_GetSkinSkeleton(gltf, 1) == 0 &&
+              maniGltf_GetSkinSkeleton(gltf, 2) == 1 &&
+              maniGltf_GetSkinSkeleton(gltf, 3) == UINT32_MAX,
           "skeletons by lowest skin");
     maniGltfOptions options = maniDefaultGltfOptions();
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success, "builds");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &options).result == mani_success, "builds");
     size_t size = 0;
     OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, "opens");
-    CHECK(maniSkeletonBoneCount(&skeleton) == 4, "hip, spine, head, leg");
-    uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
-    uint32_t spine = maniSkeletonFindBone(&skeleton, "spine", 5);
-    uint32_t head = maniSkeletonFindBone(&skeleton, "head", 4);
-    uint32_t leg = maniSkeletonFindBone(&skeleton, "leg", 3);
-    CHECK(hip == 0 && maniSkeletonParent(&skeleton, spine) == hip &&
-              maniSkeletonParent(&skeleton, head) == spine &&
-              maniSkeletonParent(&skeleton, leg) == hip,
+    CHECK(maniSkeleton_GetBoneCount(&skeleton) == 4, "hip, spine, head, leg");
+    uint32_t hip = maniSkeleton_FindBone(&skeleton, "hip", 3);
+    uint32_t spine = maniSkeleton_FindBone(&skeleton, "spine", 5);
+    uint32_t head = maniSkeleton_FindBone(&skeleton, "head", 4);
+    uint32_t leg = maniSkeleton_FindBone(&skeleton, "leg", 3);
+    CHECK(hip == 0 && maniSkeleton_GetParent(&skeleton, spine) == hip &&
+              maniSkeleton_GetParent(&skeleton, head) == spine &&
+              maniSkeleton_GetParent(&skeleton, leg) == hip,
           "the hierarchy");
-    CHECK(maniSkeletonFindBone(&skeleton, "Scene", 5) == MANI_NO_BONE, "the scene is placement");
-    maniTransform headRest = maniSkeletonRest(&skeleton, head);
+    CHECK(maniSkeleton_FindBone(&skeleton, "Scene", 5) == MANI_NO_BONE, "the scene is placement");
+    maniTransform headRest = maniSkeleton_GetRest(&skeleton, head);
     CHECK(fabsf(headRest.rotation.x - 0.70710677f) < 1e-6f &&
               fabsf(headRest.translation.y - 0.3f) < 1e-7f,
           "a matrix decomposed");
     maniAffine placement;
-    CHECK(maniGltfSkeletonPlacement(gltf, 0, &options, &placement).result == mani_success,
+    CHECK(maniGltf_GetSkeletonPlacement(gltf, 0, &options, &placement).result == mani_success,
           "placement");
     maniAffine scene = Local(0);
     CHECK(NearAffine(&placement, &scene, 0), "the scene node's transform");
@@ -234,11 +235,11 @@ static void CheckBindPalette(uint32_t skin, const maniGltfOptions* options, cons
         return;
     }
     size_t size = 0;
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, options).result == mani_success, what);
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, options).result == mani_success, what);
     OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, what);
-    maniImportResult r = maniGltfBuildSkin(builder, gltf, skin, &skeleton, options);
+    maniImportResult r = maniBuildGltfSkin(builder, gltf, skin, &skeleton, options);
     CHECK(r.result == mani_success, what);
     OpenBuilt(builder, s_skinFile, sizeof s_skinFile, &size);
     maniSkin built;
@@ -247,9 +248,10 @@ static void CheckBindPalette(uint32_t skin, const maniGltfOptions* options, cons
     CHECK(maniInitPose(&skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, what);
     maniAffine palette[4];
     uint32_t count = 0;
-    CHECK(maniComputePalette(pose, &skeleton, &built, palette, 4, &count) == mani_success, what);
+    CHECK(maniPose_ComputePalette(pose, &skeleton, &built, palette, 4, &count) == mani_success,
+          what);
     maniAffine placement;
-    CHECK(maniGltfSkeletonPlacement(gltf, 0, options, &placement).result == mani_success, what);
+    CHECK(maniGltf_GetSkeletonPlacement(gltf, 0, options, &placement).result == mani_success, what);
     maniAffine identity = {{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
     for (uint32_t j = 0; j < count; ++j)
     {
@@ -283,30 +285,30 @@ static void TestBasisRests(void)
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
     maniGltfOptions zUp = {{maniAxisX, maniAxisNegativeZ, maniAxisY}, 0};
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &zUp).result == mani_success, "builds");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &zUp).result == mani_success, "builds");
     size_t size = 0;
     OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, "opens");
     // hip: T(0 1 0) becomes (0 0 1); its turn about y becomes one about z.
-    maniTransform hip = maniSkeletonRest(&skeleton, 0);
+    maniTransform hip = maniSkeleton_GetRest(&skeleton, 0);
     CHECK(hip.translation.x == 0 && hip.translation.y == 0 && hip.translation.z == 1,
           "y up becomes z up");
     CHECK(hip.rotation.z == kHalf && hip.rotation.y == 0 && hip.rotation.w == kCos,
           "a turn about y becomes one about z");
-    maniTransform leg = maniSkeletonRest(&skeleton, maniSkeletonFindBone(&skeleton, "leg", 3));
+    maniTransform leg = maniSkeleton_GetRest(&skeleton, maniSkeleton_FindBone(&skeleton, "leg", 3));
     CHECK(leg.scale.x == 1 && leg.scale.y == 1 && leg.scale.z == 1.5f, "scales permuted");
     // Invalid options are a misuse.
     maniGltfOptions twice = {{maniAxisX, maniAxisNegativeX, maniAxisY}, 0};
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &twice).result == mani_errorInvalid, "x twice");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &twice).result == mani_errorInvalid, "x twice");
     maniGltfOptions far = {{maniAxisX, maniAxisY, 6}, 0};
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &far).result == mani_errorInvalid, "axis 6");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &far).result == mani_errorInvalid, "axis 6");
     maniGltfOptions fold = {{maniAxisX, maniAxisY, maniAxisZ}, 2};
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &fold).result == mani_errorInvalid, "fold 2");
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 2, &zUp).result == mani_errorInvalid, "past");
-    CHECK(maniBuilderMisuses(builder) == 4, "misuses");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &fold).result == mani_errorInvalid, "fold 2");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 2, &zUp).result == mani_errorInvalid, "past");
+    CHECK(maniBuilder_GetMisuse(builder) == 4, "misuses");
     maniAffine placement;
-    CHECK(maniGltfSkeletonPlacement(gltf, 0, &twice, &placement).result == mani_errorInvalid,
+    CHECK(maniGltf_GetSkeletonPlacement(gltf, 0, &twice, &placement).result == mani_errorInvalid,
           "placement, bad options");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -318,14 +320,14 @@ static void TestNodeSkeleton(void)
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
     maniGltfOptions options = maniDefaultGltfOptions();
-    CHECK(maniGltfBuildNodeSkeleton(builder, gltf, 0, &options).result == mani_success, "builds");
+    CHECK(maniBuildGltfNodeSkeleton(builder, gltf, 0, &options).result == mani_success, "builds");
     size_t size = 0;
     OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, "opens");
-    CHECK(maniSkeletonBoneCount(&skeleton) == 6, "the scene's whole subtree");
-    CHECK(maniSkeletonFindBone(&skeleton, "mesh", 4) != MANI_NO_BONE, "every node");
-    CHECK(maniGltfBuildNodeSkeleton(builder, gltf, 7, &options).result == mani_errorInvalid,
+    CHECK(maniSkeleton_GetBoneCount(&skeleton) == 6, "the scene's whole subtree");
+    CHECK(maniSkeleton_FindBone(&skeleton, "mesh", 4) != MANI_NO_BONE, "every node");
+    CHECK(maniBuildGltfNodeSkeleton(builder, gltf, 7, &options).result == mani_errorInvalid,
           "a node past the count");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -345,29 +347,30 @@ static void TestNames(void)
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
     maniGltfOptions options = maniDefaultGltfOptions();
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success, "builds");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &options).result == mani_success, "builds");
     size_t size = 0;
     OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, "opens");
-    CHECK(maniSkeletonFindBone(&skeleton, "root", 4) == 0, "the common root, not a joint");
-    CHECK(maniSkeletonFindBone(&skeleton, "bone", 4) != MANI_NO_BONE, "the first keeps it");
-    CHECK(maniSkeletonFindBone(&skeleton, "bone#2", 6) != MANI_NO_BONE, "a repeat renamed");
-    CHECK(maniSkeletonFindBone(&skeleton, "#3", 2) != MANI_NO_BONE, "no name");
-    CHECK(maniGltfRenamedCount(gltf) == 2 && maniGltfRenamedNode(gltf, 0) == 2 &&
-              maniGltfRenamedNode(gltf, 1) == 3 && maniGltfRenamedNode(gltf, 2) == UINT32_MAX,
+    CHECK(maniSkeleton_FindBone(&skeleton, "root", 4) == 0, "the common root, not a joint");
+    CHECK(maniSkeleton_FindBone(&skeleton, "bone", 4) != MANI_NO_BONE, "the first keeps it");
+    CHECK(maniSkeleton_FindBone(&skeleton, "bone#2", 6) != MANI_NO_BONE, "a repeat renamed");
+    CHECK(maniSkeleton_FindBone(&skeleton, "#3", 2) != MANI_NO_BONE, "no name");
+    CHECK(maniGltf_GetRenamedCount(gltf) == 2 && maniGltf_GetRenamedNode(gltf, 0) == 2 &&
+              maniGltf_GetRenamedNode(gltf, 1) == 3 &&
+              maniGltf_GetRenamedNode(gltf, 2) == UINT32_MAX,
           "the renamed nodes, in node order");
     size_t length = 0;
-    const char* name = maniGltfNodeBoneName(gltf, 2, &length);
+    const char* name = maniGltf_GetNodeBoneName(gltf, 2, &length);
     CHECK(length == 6 && memcmp(name, "bone#2", 6) == 0, "a node's bone name");
-    CHECK(maniGltfNodeBoneName(gltf, 4, &length) == NULL && length == 0, "past the nodes");
+    CHECK(maniGltf_GetNodeBoneName(gltf, 4, &length) == NULL && length == 0, "past the nodes");
     maniCloseGltf(gltf);
     // A node really named as a renamed one would be.
     Names("{\"name\":\"root\",\"children\":[1,2,3]},{\"name\":\"bone\"},{\"name\":\"bone\"},"
           "{\"name\":\"bone#2\"}",
           "1,2,3");
     gltf = Open(builder);
-    maniImportResult r = maniGltfBuildSkeleton(builder, gltf, 0, &options);
+    maniImportResult r = maniBuildGltfSkeleton(builder, gltf, 0, &options);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonName, "a collision");
     maniCloseGltf(gltf);
     // Names are fixed per document: the second rig's "hip" repeats the
@@ -376,18 +379,18 @@ static void TestNames(void)
              "{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"name\":\"hip\"},"
              "{\"name\":\"hip\"}],\"skins\":[{\"joints\":[0]},{\"joints\":[1]}]}");
     gltf = Open(builder);
-    CHECK(maniGltfSkeletonCount(gltf) == 2, "two rigs");
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 1, &options).result == mani_success, "builds");
+    CHECK(maniGltf_GetSkeletonCount(gltf) == 2, "two rigs");
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 1, &options).result == mani_success, "builds");
     OpenBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size);
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success, "opens");
-    CHECK(maniSkeletonFindBone(&skeleton, "hip#1", 5) == 0, "renamed for the document");
-    CHECK(maniGltfBuildSkin(builder, gltf, 1, &skeleton, &options).result == mani_success,
+    CHECK(maniSkeleton_FindBone(&skeleton, "hip#1", 5) == 0, "renamed for the document");
+    CHECK(maniBuildGltfSkin(builder, gltf, 1, &skeleton, &options).result == mani_success,
           "its skin binds by that name");
     maniCloseGltf(gltf);
     // A skin's joint missing from the skeleton given.
     Names("{\"name\":\"root\",\"children\":[1]},{\"name\":\"a\"}", "1");
     gltf = Open(builder);
-    r = maniGltfBuildSkin(builder, gltf, 0, &skeleton, &options);
+    r = maniBuildGltfSkin(builder, gltf, 0, &skeleton, &options);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBone, "a joint not there");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -413,10 +416,10 @@ static void TestNamesAcrossExports(void)
         Names(exports[e], e == 0 ? "0,1,2,3" : "3,2,1,0");
         maniGltf* gltf = Open(builder);
         bool same = gltf != NULL;
-        for (uint32_t v = 0; same && v < maniGltfNodeCount(gltf); ++v)
+        for (uint32_t v = 0; same && v < maniGltf_GetNodeCount(gltf); ++v)
         {
             size_t length = 0;
-            const char* name = maniGltfNodeBoneName(gltf, v, &length);
+            const char* name = maniGltf_GetNodeBoneName(gltf, v, &length);
             bool given = false;
             for (int k = 0; k < 3; ++k)
             {
@@ -426,8 +429,8 @@ static void TestNamesAcrossExports(void)
             same = given || v == unnamed[e];
         }
         CHECK(same, "unique given names kept");
-        CHECK(gltf != NULL && maniGltfRenamedCount(gltf) == 1 &&
-                  maniGltfRenamedNode(gltf, 0) == unnamed[e],
+        CHECK(gltf != NULL && maniGltf_GetRenamedCount(gltf) == 1 &&
+                  maniGltf_GetRenamedNode(gltf, 0) == unnamed[e],
               "one rename, the unnamed node");
         maniCloseGltf(gltf);
     }
@@ -466,7 +469,7 @@ static void ExpectBuildRefusal(maniImportReason reason, const char* what)
     if (gltf != NULL)
     {
         maniGltfOptions options = maniDefaultGltfOptions();
-        maniImportResult r = maniGltfBuildSkeleton(builder, gltf, 0, &options);
+        maniImportResult r = maniBuildGltfSkeleton(builder, gltf, 0, &options);
         CHECK(r.result == mani_errorFormat && r.reason == reason, what);
         maniCloseGltf(gltf);
     }
@@ -554,7 +557,7 @@ static void TestShearTolerance(void)
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
     maniGltfOptions options = maniDefaultGltfOptions();
-    CHECK(gltf != NULL && maniGltfBuildSkeleton(builder, gltf, 0, &options).result == mani_success,
+    CHECK(gltf != NULL && maniBuildGltfSkeleton(builder, gltf, 0, &options).result == mani_success,
           "a shear within 1e-4 of the largest column");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -571,10 +574,10 @@ static void TestFoldedRestShear(void)
     maniGltf* gltf = Open(builder);
     maniGltfOptions fold = {{maniAxisX, maniAxisY, maniAxisZ}, 1};
     maniImportResult r =
-        gltf != NULL ? maniGltfBuildSkeleton(builder, gltf, 0, &fold) : (maniImportResult){0};
+        gltf != NULL ? maniBuildGltfSkeleton(builder, gltf, 0, &fold) : (maniImportResult){0};
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonMatrix, "a folded shear");
     maniGltfOptions report = maniDefaultGltfOptions();
-    CHECK(gltf != NULL && maniGltfBuildSkeleton(builder, gltf, 0, &report).result == mani_success,
+    CHECK(gltf != NULL && maniBuildGltfSkeleton(builder, gltf, 0, &report).result == mani_success,
           "reported, the rest is the node's own");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -592,10 +595,10 @@ static void TestLowestSkinNumbering(void)
              "{\"joints\":[3,5]}]}");
     maniBuilder* builder = NewBuilder();
     maniGltf* gltf = Open(builder);
-    CHECK(gltf != NULL && maniGltfSkeletonCount(gltf) == 2, "two skeletons");
-    CHECK(gltf != NULL && maniGltfSkinSkeleton(gltf, 0) == 0 &&
-              maniGltfSkinSkeleton(gltf, 1) == 1 && maniGltfSkinSkeleton(gltf, 2) == 1 &&
-              maniGltfSkinSkeleton(gltf, 3) == 1,
+    CHECK(gltf != NULL && maniGltf_GetSkeletonCount(gltf) == 2, "two skeletons");
+    CHECK(gltf != NULL && maniGltf_GetSkinSkeleton(gltf, 0) == 0 &&
+              maniGltf_GetSkinSkeleton(gltf, 1) == 1 && maniGltf_GetSkinSkeleton(gltf, 2) == 1 &&
+              maniGltf_GetSkinSkeleton(gltf, 3) == 1,
           "numbered by their lowest skins");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
@@ -771,8 +774,8 @@ static void RandomTrial(void)
         {
             for (int b = 0; b < skinCount; ++b)
             {
-                bool same = maniGltfSkinSkeleton(gltf, (uint32_t)a) ==
-                            maniGltfSkinSkeleton(gltf, (uint32_t)b);
+                bool same = maniGltf_GetSkinSkeleton(gltf, (uint32_t)a) ==
+                            maniGltf_GetSkinSkeleton(gltf, (uint32_t)b);
                 CHECK(same == (group[a] == group[b]), "grouping as the brute force");
             }
             // The skeleton's root: the common ancestor of its skins' roots.
@@ -784,7 +787,7 @@ static void RandomTrial(void)
                     root = root < 0 ? roots[s] : Common(parents, root, roots[s]);
                 }
             }
-            uint32_t k = maniGltfSkinSkeleton(gltf, (uint32_t)a);
+            uint32_t k = maniGltf_GetSkinSkeleton(gltf, (uint32_t)a);
             CHECK(gltf->skeletonRoots[k] == (uint32_t)root, "the skeleton's root");
         }
         maniCloseGltf(gltf);

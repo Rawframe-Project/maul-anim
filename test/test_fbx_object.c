@@ -190,7 +190,7 @@ static void TestSix(void)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniFbxVersion(fbx) == 6100 && fbx->objectCount == 2, "two 6.x objects");
+    CHECK(maniFbx_GetVersion(fbx) == 6100 && fbx->objectCount == 2, "two 6.x objects");
     CHECK(NameIs(fbx, 0, "hip") && maniFbxObjectSubclassIs(fbx, 0, "Limb", 4),
           "named and subclassed");
     CHECK(Value(fbx, 0, "Lcl Translation", 1) == 2.0, "Properties60, no label");

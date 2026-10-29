@@ -59,10 +59,10 @@ static void ReleaseSampler(const maniAllocator* a, Sampler* p)
 
 static bool InitSampler(const maniAllocator* a, const maniTrainDataSource* s, Sampler* p)
 {
-    *p = (Sampler){.s = s, .poseSize = maniPoseSize(s->skeleton)};
+    *p = (Sampler){.s = s, .poseSize = maniSkeleton_GetPoseSize(s->skeleton)};
     for (uint32_t c = 0; c < s->database->clipCount; ++c)
     {
-        uint32_t count = maniClipFloatTrackCount(s->clips[c]);
+        uint32_t count = maniClip_GetFloatTrackCount(s->clips[c]);
         p->floatCapacity = count > p->floatCapacity ? count : p->floatCapacity;
     }
     bool ok = true;
@@ -82,8 +82,8 @@ static bool Sample(Sampler* p, uint32_t f, bool only)
 {
     const maniMotionDatabase* d = p->s->database;
     uint32_t entry = 0;
-    if (maniMotionDatabaseFrame(d, f, &entry, &p->time) != mani_success ||
-        maniMotionDatabaseEntry(d, entry, &p->entry) != mani_success)
+    if (maniMotionDatabase_GetFrame(d, f, &entry, &p->time) != mani_success ||
+        maniMotionDatabase_GetEntry(d, entry, &p->entry) != mani_success)
     {
         return false;
     }
@@ -98,9 +98,9 @@ static bool Sample(Sampler* p, uint32_t f, bool only)
         loop ? (float)(2.0 * h) : (float)((double)p->places[1].time - (double)p->places[2].time);
     for (uint32_t k = 0; k < (only ? 1u : 3u); ++k)
     {
-        if (maniSampleClip(p->clip, p->s->skeleton, p->places[k].time, p->poses[k]) !=
+        if (maniClip_Sample(p->clip, p->s->skeleton, p->places[k].time, p->poses[k]) !=
                 mani_success ||
-            maniComputeModel(p->poses[k], p->s->skeleton) != mani_success)
+            maniPose_ComputeModel(p->poses[k], p->s->skeleton) != mani_success)
         {
             return false;
         }
@@ -132,9 +132,9 @@ static maniVec3 Rate(maniVec3 a, maniVec3 b, float seconds)
 // 0's and its model columns, turned by bone 0's rotation undone.
 static void Character(const maniPose* pose, uint32_t b, float* position, float* columns)
 {
-    maniQuat undo = maniQuatConjugate(maniPoseLocal(pose, 0).rotation);
-    maniAffine root = maniPoseModel(pose, 0);
-    maniAffine m = maniPoseModel(pose, b);
+    maniQuat undo = maniQuatConjugate(maniPose_GetLocal(pose, 0).rotation);
+    maniAffine root = maniPose_GetModel(pose, 0);
+    maniAffine m = maniPose_GetModel(pose, b);
     maniVec3 offset = maniVec3Make(m.m[9] - root.m[9], m.m[10] - root.m[10], m.m[11] - root.m[11]);
     Put3(position, maniQuatRotate(undo, offset));
     Put3(columns, maniQuatRotate(undo, maniVec3Make(m.m[0], m.m[1], m.m[2])));
@@ -151,24 +151,25 @@ static bool Extras(Sampler* p, float* out)
 {
     const maniTrainDataSource* s = p->s;
     uint32_t count = 0;
-    if (maniSampleClipFloats(p->clip, p->time, p->floats, p->floatCapacity, &count) != mani_success)
+    if (maniClip_SampleFloats(p->clip, p->time, p->floats, p->floatCapacity, &count) !=
+        mani_success)
     {
         return false;
     }
     for (uint32_t k = 0; k < s->floatTrackCount; ++k)
     {
         uint32_t track =
-            maniClipFindFloatTrack(p->clip, s->floatTracks[k].name, s->floatTracks[k].length);
+            maniClip_FindFloatTrack(p->clip, s->floatTracks[k].name, s->floatTracks[k].length);
         out[k] = track < count ? p->floats[track] : 0.0f;
     }
     bool loop = (p->entry.flags & MANI_MATCH_LOOP) != 0;
-    float duration = maniClipDuration(p->clip);
+    float duration = maniClip_GetDuration(p->clip);
     for (uint32_t k = 0; k < s->eventCount; ++k)
     {
         float state = 0.0f;
-        for (uint32_t e = 0; e < maniClipEventCount(p->clip); ++e)
+        for (uint32_t e = 0; e < maniClip_GetEventCount(p->clip); ++e)
         {
-            maniClipEvent event = maniClipEventAt(p->clip, e);
+            maniClipEvent event = maniClip_GetEvent(p->clip, e);
             double since = (double)p->time - (double)event.time;
             since += loop && since < 0.0 ? (double)duration : 0.0;
             bool near = since >= 0.0 && since < (double)s->eventSeconds;
@@ -191,7 +192,7 @@ static bool FindScaled(Sampler* p, maniTrainData* d)
         }
         for (uint32_t b = 0; b < bones; ++b)
         {
-            maniVec3 scale = maniPoseLocal(p->poses[0], b).scale;
+            maniVec3 scale = maniPose_GetLocal(p->poses[0], b).scale;
             if (f == 0)
             {
                 Put3(d->scales + 3 * (size_t)b, scale);
@@ -219,9 +220,9 @@ static bool FindScaled(Sampler* p, maniTrainData* d)
 static void BoneInputs(const Sampler* p, const maniTrainData* d, uint32_t b, float* in)
 {
     const uint32_t* g = d->groupStarts;
-    maniTransform now = maniPoseLocal(p->poses[0], b);
-    maniTransform ahead = maniPoseLocal(p->poses[1], b);
-    maniTransform behind = maniPoseLocal(p->poses[2], b);
+    maniTransform now = maniPose_GetLocal(p->poses[0], b);
+    maniTransform ahead = maniPose_GetLocal(p->poses[1], b);
+    maniTransform behind = maniPose_GetLocal(p->poses[2], b);
     Put3(in + g[maniTrainGroupPosition] + 3 * b, now.translation);
     PutColumns(in + g[maniTrainGroupColumns] + 6 * b, now.rotation);
     Put3(in + g[maniTrainGroupVelocity] + 3 * b,
@@ -253,8 +254,8 @@ static void BoneInputs(const Sampler* p, const maniTrainData* d, uint32_t b, flo
 static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
 {
     if (!Sample(p, f, false) ||
-        maniMotionDatabaseFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount,
-                                   p->s->database->featureCount, NULL) != mani_success)
+        maniMotionDatabase_GetFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount,
+                                       p->s->database->featureCount, NULL) != mani_success)
     {
         return false;
     }
@@ -263,7 +264,7 @@ static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
     const uint32_t* g = d->groupStarts;
     for (uint32_t b = 0; b < d->boneCount; ++b)
     {
-        maniTransform t = maniPoseLocal(p->poses[0], b);
+        maniTransform t = maniPose_GetLocal(p->poses[0], b);
         Put3(out + 9 * (size_t)b, t.translation);
         PutColumns(out + 9 * (size_t)b + 3, t.rotation);
         BoneInputs(p, d, b, in);
@@ -271,7 +272,7 @@ static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
     float* rest = out + 9 * (size_t)d->boneCount;
     for (uint32_t k = 0; k < d->scaledBoneCount; ++k)
     {
-        Put3(rest + 3 * k, maniPoseLocal(p->poses[0], d->scaledBones[k]).scale);
+        Put3(rest + 3 * k, maniPose_GetLocal(p->poses[0], d->scaledBones[k]).scale);
     }
     rest += 3 * (size_t)d->scaledBoneCount;
     maniRootMove ahead = p->places[1].move;
@@ -309,7 +310,7 @@ static void Pairs(const maniMotionDatabase* database, maniTrainData* d)
     for (uint32_t e = 0; e < database->entryCount; ++e)
     {
         maniMatchEntry entry;
-        if (maniMotionDatabaseEntry(database, e, &entry) != mani_success)
+        if (maniMotionDatabase_GetEntry(database, e, &entry) != mani_success)
         {
             continue;
         }
@@ -350,7 +351,7 @@ bool maniTrainDataBuild(const maniAllocator* allocator, const maniTrainDataSourc
     d.parents = maniAllocate(allocator, (size_t)d.boneCount + 1, sizeof(uint32_t), 4);
     for (uint32_t b = 0; d.parents != NULL && b < d.boneCount; ++b)
     {
-        d.parents[b] = maniSkeletonParent(source->skeleton, b);
+        d.parents[b] = maniSkeleton_GetParent(source->skeleton, b);
     }
     Sampler p;
     bool ok = InitSampler(allocator, source, &p) && d.scaledBones != NULL && d.scales != NULL &&

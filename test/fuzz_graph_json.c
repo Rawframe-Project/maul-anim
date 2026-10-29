@@ -41,7 +41,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
     size_t fileSize = 0;
     maniGraph graph;
-    if (maniCopyBuilt(s_builder, s_file, sizeof s_file, &fileSize) == mani_success &&
+    if (maniBuilder_CopyBuilt(s_builder, s_file, sizeof s_file, &fileSize) == mani_success &&
         maniOpenGraph(s_file, fileSize, &graph).result != mani_success)
     {
         abort();

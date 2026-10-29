@@ -217,5 +217,5 @@ size_t maniGraphBodyRoom(const maniGraph* g, uint32_t data, const maniSkeleton* 
                                  .weight = 1.0f};
     return 15u + maniGraphBodyRounded(count * sizeof(maniBodyEffector)) +
            maniGraphBodyRounded(settings * sizeof(maniBodyBone)) +
-           maniBodyIkScratchSize(skeleton, &solve);
+           maniSkeleton_GetBodyIkScratchSize(skeleton, &solve);
 }

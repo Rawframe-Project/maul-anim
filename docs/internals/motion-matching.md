@@ -16,7 +16,7 @@ Entries are spans of the database's clips, each with its own flags (looping: tim
 
 ## The search
 
-`maniSearchMotionDatabase` ([`src/match_search.c`](../../src/match_search.c)) is exact. A frame's cost is a constant (its entry's bias plus the transition cost) plus the squared differences of the normalized query and its features, in feature order, in binary32. The continuing frame is scored first. Then the database's k-d tree is walked from its root, the nearer half of each node first: a node is skipped when the bound of its bounding box shows it holds no better frame, and a leaf's frames are scored, every sum stopped once it passes the best.
+`maniMotionDatabase_Search` ([`src/match_search.c`](../../src/match_search.c)) is exact. A frame's cost is a constant (its entry's bias plus the transition cost) plus the squared differences of the normalized query and its features, in feature order, in binary32. The continuing frame is scored first. Then the database's k-d tree is walked from its root, the nearer half of each node first: a node is skipped when the bound of its bounding box shows it holds no better frame, and a leaf's frames are scored, every sum stopped once it passes the best.
 
 The builder ([`src/match_tree.c`](../../src/match_tree.c)) splits each node of more than a leaf's frames at the median of the feature its frames spread widest over, so the tree's shape follows from the frame count and the leaf size alone, and stores the features in the tree's order, so a leaf's frames are read in one run. Each node keeps its box, its lowest frame and the least cost bias of its frames' entries.
 
@@ -41,7 +41,7 @@ A graph lists databases beside its clips; a matching node names its slot, a trig
 
 The query's bone channels are the continuing frame's features interpolated to the playhead toward the entry's next frame. The continuing frame alone lagged the displayed pose by up to a frame period, and that staleness moved the pick in a large share of settled searches; interpolated, the features come within 0.01 (squared, normalized) of the displayed pose's. Facings are directions, so they are renormalized after interpolation. The search scores the continuing frame by the same interpolated features, so playing on costs no bone difference. The displayed pose itself is not the query: while an inertialization eases, it carries the easing's offset, a frame late.
 
-`maniAdvanceTrajectory` predicts the root with Holden's critically damped springs in closed form, using the library's exponential so the bits are the same everywhere; one advance equals many shorter ones up to rounding. `maniTrajectoryFeatures` turns a predicted sample into the node's trajectory parameters as the database measures its own. A host may feed the node from any predictor.
+`maniAdvanceTrajectory` predicts the root with Holden's critically damped springs in closed form, using the library's exponential so the bits are the same everywhere; one advance equals many shorter ones up to rounding. `maniMotionDatabase_ComputeTrajectoryFeatures` turns a predicted sample into the node's trajectory parameters as the database measures its own. A host may feed the node from any predictor.
 
 ## Learned motion matching
 
@@ -55,7 +55,7 @@ A model's cost is its networks' size, not its data's: at Holden's sizes about te
 
 ### Training in the library
 
-PyTorch's results are not reproducible across releases or platforms, so the library trains models itself ([`src/learned_train.c`](../../src/learned_train.c) and the `train_*` modules): Holden's stages (Compressor and Decompressor, then every frame's latent values, then Stepper and Projectors), backward passes written by hand, AdamW with amsgrad. A batch is split into fixed chunks whose gradients are summed in chunk order on the host's task hooks, so the result is the same with any thread count. `maniTrainLearned` runs a bounded number of iterations per call; checkpoints (kind 10) stop and resume to the same bits. A model can also be built from networks trained elsewhere (`maniBuildLearnedModel`).
+PyTorch's results are not reproducible across releases or platforms, so the library trains models itself ([`src/learned_train.c`](../../src/learned_train.c) and the `train_*` modules): Holden's stages (Compressor and Decompressor, then every frame's latent values, then Stepper and Projectors), backward passes written by hand, AdamW with amsgrad. A batch is split into fixed chunks whose gradients are summed in chunk order on the host's task hooks, so the result is the same with any thread count. `maniLearnedTrainer_Train` runs a bounded number of iterations per call; checkpoints (kind 10) stop and resume to the same bits. A model can also be built from networks trained elsewhere (`maniBuildLearnedModel`).
 
 ## Traps
 

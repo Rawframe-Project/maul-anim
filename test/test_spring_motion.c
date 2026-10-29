@@ -123,7 +123,8 @@ static void Reference(uint32_t steps, V tails[2])
 // space at an identity placement).
 static V SavedTail(const maniSpringState* state, uint32_t joint)
 {
-    CHECK(maniSaveSpringState(state, s_saved[0], sizeof s_saved[0], NULL) == mani_success, "saved");
+    CHECK(maniSpringState_Save(state, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+          "saved");
     const uint8_t* p = s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 4 * (21 + 17 * (size_t)joint);
     float v[3];
     for (int k = 0; k < 3; ++k)

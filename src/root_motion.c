@@ -121,7 +121,7 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
     return (maniFileResult){mani_success, 0, 0};
 }
 
-bool maniClipRootMotionSource(const maniClip* clip, maniRootMotionSource* sourceOut)
+bool maniClip_GetRootMotionSource(const maniClip* clip, maniRootMotionSource* sourceOut)
 {
     if (clip == NULL || clip->rootMotion == NULL || sourceOut == NULL)
     {
@@ -267,7 +267,8 @@ MANI_NOINLINE maniResult maniClipRootMotionEntered(const maniClip* clip, float t
     return mani_success;
 }
 
-maniResult maniClipRootMotion(const maniClip* clip, float time, float step, maniRootMove* moveOut)
+maniResult maniClip_GetRootMotion(const maniClip* clip, float time, float step,
+                                  maniRootMove* moveOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = maniClipRootMotionEntered(clip, time, step, moveOut);
@@ -353,7 +354,7 @@ static MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
                                                       const maniSkeleton* skeleton, float time,
                                                       maniPose* pose)
 {
-    if (!maniClipFits(clip, skeleton, pose) || maniPoseIsDifference(pose))
+    if (!maniClipFits(clip, skeleton, pose) || maniPose_IsDifference(pose))
     {
         return mani_errorInvalid;
     }
@@ -363,15 +364,15 @@ static MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
     }
     uint32_t bone = maniLoadU32(clip->rootMotion);
     maniRootMove m = At(clip, time);
-    maniTransform local = maniPoseLocal(pose, bone);
+    maniTransform local = maniPose_GetLocal(pose, bone);
     local.translation = maniVec3Add(m.translation, maniQuatRotate(m.rotation, local.translation));
     local.rotation = maniQuatNormalize(maniQuatMul(m.rotation, local.rotation));
-    maniPoseSetLocal(pose, bone, local);
+    maniPose_SetLocal(pose, bone, local);
     return mani_success;
 }
 
-maniResult maniRestoreRootMotion(const maniClip* clip, const maniSkeleton* skeleton, float time,
-                                 maniPose* pose)
+maniResult maniClip_RestoreRootMotion(const maniClip* clip, const maniSkeleton* skeleton,
+                                      float time, maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = RestoreRootMotionWork(clip, skeleton, time, pose);

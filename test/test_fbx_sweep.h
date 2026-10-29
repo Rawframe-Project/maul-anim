@@ -35,12 +35,13 @@ static inline TestOutcome FbxSweepSkeleton(maniBuilder* builder, const maniFbx* 
 {
     maniFbxOptions options = maniDefaultFbxOptions();
     size_t size = 0;
-    maniImportResult r = maniFbxBuildSkeleton(builder, fbx, 0, &options);
+    maniImportResult r = maniBuildFbxSkeleton(builder, fbx, 0, &options);
     if (r.result != mani_success)
     {
         return TestOutcomeOf(r.result);
     }
-    maniResult copied = maniCopyBuilt(builder, s_sweepSkeleton, sizeof s_sweepSkeleton, &size);
+    maniResult copied =
+        maniBuilder_CopyBuilt(builder, s_sweepSkeleton, sizeof s_sweepSkeleton, &size);
     if (copied != mani_success)
     {
         return testWrong;
@@ -61,14 +62,14 @@ static inline TestOutcome FbxSweepWork(maniBuilder* builder, void* context)
     outcome = outcome == testDone ? FbxSweepSkeleton(builder, fbx, &skeleton) : outcome;
     if (outcome == testDone && sweep->stack != UINT32_MAX)
     {
-        r = maniFbxBuildClip(builder, fbx, sweep->stack, &skeleton, &options,
+        r = maniBuildFbxClip(builder, fbx, sweep->stack, &skeleton, &options,
                              &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                              NULL);
         outcome = TestOutcomeOf(r.result);
     }
     if (outcome == testDone && sweep->skin != UINT32_MAX)
     {
-        r = maniFbxBuildSkin(builder, fbx, sweep->skin, &skeleton, &options);
+        r = maniBuildFbxSkin(builder, fbx, sweep->skin, &skeleton, &options);
         outcome = TestOutcomeOf(r.result);
     }
     maniCloseFbx(fbx);

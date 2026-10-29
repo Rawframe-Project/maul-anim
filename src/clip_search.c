@@ -125,8 +125,8 @@ static void Release(Search* s)
 static maniResult Make(maniCompressPlan* p, Search* s)
 {
     const maniAllocator* a = p->allocator;
-    *s = (Search){.plan = p, .bones = maniSkeletonBoneCount(p->skeleton)};
-    size_t pose = maniPoseSize(p->skeleton);
+    *s = (Search){.plan = p, .bones = maniSkeleton_GetBoneCount(p->skeleton)};
+    size_t pose = maniSkeleton_GetPoseSize(p->skeleton);
     s->poseBlockSize = pose + MANI_POSE_ALIGNMENT;
     s->cells = (size_t)MANI_CLIP_SEGMENT_MAX * s->bones;
     s->shells = maniAllocate(a, s->bones, sizeof(Shell), alignof(Shell));
@@ -157,7 +157,7 @@ static void LoadRaw(Search* s, uint32_t k, uint32_t j)
     maniTransform* raw = s->raw + (size_t)j * s->bones;
     for (uint32_t b = 0; b < s->bones; ++b)
     {
-        raw[b] = maniPoseLocal(s->pose, b);
+        raw[b] = maniPose_GetLocal(s->pose, b);
     }
     maniShellModels(p->skeleton, s->pose, s->rawModels + (size_t)j * s->bones);
 }
@@ -192,7 +192,7 @@ static void Shells(Search* s)
     // have all grown it before it grows its parent.
     for (uint32_t b = s->bones; b-- > 0;)
     {
-        uint32_t parent = maniSkeletonParent(p->skeleton, b);
+        uint32_t parent = maniSkeleton_GetParent(p->skeleton, b);
         double reach = s->shells[b].dominant + s->shells[b].reach;
         if (parent != MANI_NO_BONE && reach > s->shells[parent].dominant)
         {
@@ -218,7 +218,7 @@ static maniShellMatrix Under(const Search* s, const maniShellMatrix* row, uint32
     const maniCompressPlan* p = s->plan;
     maniShellMatrix m =
         maniShellLocal(maniShellAbsolute(p->skeleton, bone, p->clip->additive != 0, local));
-    uint32_t parent = maniSkeletonParent(p->skeleton, bone);
+    uint32_t parent = maniSkeleton_GetParent(p->skeleton, bone);
     return parent == MANI_NO_BONE ? m : maniShellMul(&row[parent], &m);
 }
 
@@ -466,7 +466,7 @@ static Bone BoneAt(const Search* s, uint32_t bone, uint32_t segment)
 {
     const maniCompressPlan* p = s->plan;
     Bone b = {.bone = bone,
-              .end = maniSkeletonSubtreeEnd(p->skeleton, bone),
+              .end = maniSkeleton_GetSubtreeEnd(p->skeleton, bone),
               .first = p->firsts[segment],
               .samples = p->firsts[segment + 1] - p->firsts[segment]};
     for (uint32_t i = p->boneSubs[bone];
@@ -491,7 +491,7 @@ static void Relative(Search* s, const Bone* b)
         {
             maniShellMatrix local = maniShellLocal(
                 maniShellAbsolute(s->plan->skeleton, c, s->plan->clip->additive != 0, decoded[c]));
-            uint32_t parent = maniSkeletonParent(s->plan->skeleton, c);
+            uint32_t parent = maniSkeleton_GetParent(s->plan->skeleton, c);
             row[c] = parent == b->bone ? local : maniShellMul(&row[parent], &local);
         }
     }

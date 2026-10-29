@@ -63,7 +63,7 @@ extern "C"
     /// @return The vertex count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniInfluencesVertexCount(const maniInfluences* influences);
+    MANI_API uint32_t maniInfluences_GetVertexCount(const maniInfluences* influences);
 
     /// Returns the influences a vertex holds: four times the group count,
     /// the last ones of weight 0 where a vertex has fewer.
@@ -72,7 +72,7 @@ extern "C"
     /// @return The influences a vertex.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniInfluencesPerVertex(const maniInfluences* influences);
+    MANI_API uint32_t maniInfluences_GetPerVertex(const maniInfluences* influences);
 
     /// Returns whether the influences are a skin's: its identity and joint
     /// count are the ones recorded.
@@ -82,7 +82,7 @@ extern "C"
     /// @return True when bound to the skin.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API bool maniInfluencesFitSkin(const maniInfluences* influences, const maniSkin* skin);
+    MANI_API bool maniInfluences_IsSkinFit(const maniInfluences* influences, const maniSkin* skin);
 
     /// Returns one influence of a vertex: its joint (an index into the
     /// skin's joints) and weight; joint 0 at weight 0 past the vertex
@@ -95,8 +95,8 @@ extern "C"
     /// @return The joint.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniInfluence(const maniInfluences* influences, uint32_t vertex,
-                                    uint32_t slot, float* weightOut);
+    MANI_API uint32_t maniInfluences_GetInfluence(const maniInfluences* influences, uint32_t vertex,
+                                                  uint32_t slot, float* weightOut);
 
     /// Returns a vertex's blend between linear (0) and dual quaternion (1)
     /// skinning, FBX's blended method; 0 for influences without them or
@@ -107,8 +107,8 @@ extern "C"
     /// @return The weight, 0 to 1.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API float maniInfluencesDualQuaternionWeight(const maniInfluences* influences,
-                                                      uint32_t vertex);
+    MANI_API float maniInfluences_GetDualQuaternionWeight(const maniInfluences* influences,
+                                                          uint32_t vertex);
 
     /// Reads a vertex's center of rotation, built offline.
     ///
@@ -119,8 +119,8 @@ extern "C"
     /// range.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API bool maniInfluencesCenter(const maniInfluences* influences, uint32_t vertex,
-                                       maniVec3* centerOut);
+    MANI_API bool maniInfluences_GetCenter(const maniInfluences* influences, uint32_t vertex,
+                                           maniVec3* centerOut);
 
     // How a skin blends its joints: the job to run on its influences.
     typedef uint32_t maniSkinningMethod;
@@ -162,10 +162,10 @@ extern "C"
     typedef struct maniSkinJob
     {
         const maniInfluences* influences;
-        // The skin's palette, as maniComputePalette writes it: a matrix a
+        // The skin's palette, as maniPose_ComputePalette writes it: a matrix a
         // joint (linear, blended).
         const maniAffine* palette;
-        // The same palette as maniPaletteDualQuaternions writes it, 20
+        // The same palette as maniConvertPaletteToDualQuaternions writes it, 20
         // floats a joint (dual quaternion, blended); NULL otherwise.
         const float* dualQuaternions;
         uint32_t paletteCount;
@@ -243,28 +243,28 @@ extern "C"
     /// part (half the translation times it), then S as three rows of four
     /// (the fourth 0).
     ///
-    /// @param palette  count matrices, as maniComputePalette writes them.
+    /// @param palette  count matrices, as maniPose_ComputePalette writes them.
     /// @param count    The number of matrices.
     /// @param out      Receives 20 floats a matrix.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
     /// a count or a matrix not finite (out unchanged).
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniPaletteDualQuaternions(const maniAffine* palette,
-                                                                  uint32_t count, float* out);
+    MANI_NODISCARD MANI_API maniResult
+    maniConvertPaletteToDualQuaternions(const maniAffine* palette, uint32_t count, float* out);
 
     /// Writes a palette for shaders: each matrix as three rows of four
     /// floats (row-major 3x4), the translation last in each row.
     ///
-    /// @param palette  count matrices, as maniComputePalette writes them.
+    /// @param palette  count matrices, as maniPose_ComputePalette writes them.
     /// @param count    The number of matrices.
     /// @param rows     Receives 12 floats a matrix.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
     /// a count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniPaletteRows(const maniAffine* palette, uint32_t count,
-                                                       float* rows);
+    MANI_NODISCARD MANI_API maniResult maniConvertPaletteToRows(const maniAffine* palette,
+                                                                uint32_t count, float* rows);
 
 #ifdef __cplusplus
 }
