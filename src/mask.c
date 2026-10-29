@@ -69,9 +69,9 @@ static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
     return mani_success;
 }
 
-maniResult maniBuildMask(const maniSkeleton* skeleton, const maniMaskChain* chains, uint32_t count,
-                         float defaultWeight, float* weightsOut, uint32_t capacity,
-                         uint32_t* countOut)
+maniResult maniSkeleton_BuildMask(const maniSkeleton* skeleton, const maniMaskChain* chains,
+                                  uint32_t count, float defaultWeight, float* weightsOut,
+                                  uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result =

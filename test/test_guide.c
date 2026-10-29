@@ -155,7 +155,7 @@ static void GuideBlend(void)
           "two poses to blend");
     // clang-format off
     const maniBlendLayer layers[2] = {{walking, 0.25f, NULL}, {running, 0.75f, NULL}};
-    maniResult blended = maniBlendPoses(&skeleton, layers, 2, 0.1f, pose);
+    maniResult blended = maniSkeleton_BlendPoses(&skeleton, layers, 2, 0.1f, pose);
     // clang-format on
     maniQuat q = maniPose_GetLocal(pose, 1).rotation;
     CHECK(blended == mani_success && q.y > 0.19509032f && q.y < 0.38268343f,

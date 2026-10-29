@@ -209,7 +209,8 @@ static void TestRefusals(void)
     maniPose* difference = NULL;
     CHECK(maniInitPose(&s_skeleton, s_differenceMemory, sizeof s_differenceMemory, &difference) ==
                   mani_success &&
-              maniComputePoseDifference(&s_skeleton, s_pose, s_pose, difference) == mani_success &&
+              maniSkeleton_ComputePoseDifference(&s_skeleton, s_pose, s_pose, difference) ==
+                  mani_success &&
               maniSpringState_Step(state, difference, NULL, NULL, 0.1f) == mani_errorInvalid &&
               maniSpringState_Apply(state, difference) == mani_errorInvalid,
           "a difference refused");

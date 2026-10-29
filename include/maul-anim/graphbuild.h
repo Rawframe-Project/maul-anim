@@ -151,7 +151,7 @@ extern "C"
     } maniGraphBlendNodeSource;
 
     // A mask node: chains making per-bone weights (each 0 to 1) as
-    // maniBuildMask makes them; its first input takes each bone's weight,
+    // maniSkeleton_BuildMask makes them; its first input takes each bone's weight,
     // its second the remainder.
     typedef struct maniGraphMaskNodeSource
     {

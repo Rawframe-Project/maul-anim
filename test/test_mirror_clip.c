@@ -387,14 +387,14 @@ static bool DifferenceMirrored(const maniClip* clip, const maniClip* baked, uint
 {
     float time = (float)k / 30.0f;
     maniBlendLayer layer = {s_in, 1.0f, NULL};
-    bool ok =
-        maniPose_SetRest(s_rest, &s_skeleton) == mani_success &&
-        maniMirrorMap_MirrorPose(&s_map, &s_skeleton, s_rest, s_base) == mani_success &&
-        maniClip_Sample(clip, &s_skeleton, time, s_in) == mani_success &&
-        maniPose_AddLayers(s_rest, &s_skeleton, &layer, 1) == mani_success &&
-        maniMirrorMap_MirrorPose(&s_map, &s_skeleton, s_rest, s_expected) == mani_success &&
-        maniComputePoseDifference(&s_skeleton, s_expected, s_base, s_expected) == mani_success &&
-        maniClip_Sample(baked, &s_skeleton, time, s_out) == mani_success;
+    bool ok = maniPose_SetRest(s_rest, &s_skeleton) == mani_success &&
+              maniMirrorMap_MirrorPose(&s_map, &s_skeleton, s_rest, s_base) == mani_success &&
+              maniClip_Sample(clip, &s_skeleton, time, s_in) == mani_success &&
+              maniPose_AddLayers(s_rest, &s_skeleton, &layer, 1) == mani_success &&
+              maniMirrorMap_MirrorPose(&s_map, &s_skeleton, s_rest, s_expected) == mani_success &&
+              maniSkeleton_ComputePoseDifference(&s_skeleton, s_expected, s_base, s_expected) ==
+                  mani_success &&
+              maniClip_Sample(baked, &s_skeleton, time, s_out) == mani_success;
     return ok && maniPose_IsDifference(s_out) && Same(s_out, s_expected);
 }
 

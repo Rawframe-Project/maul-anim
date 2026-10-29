@@ -3,7 +3,7 @@
 //
 // The ozz differential: an FBX file's skeleton and clips,
 // imported by Maul Anim, sampled at random times into poses that both
-// libraries then blend: ozz-animation's BlendingJob and maniBlendPoses,
+// libraries then blend: ozz-animation's BlendingJob and maniSkeleton_BlendPoses,
 // with the same layers, weights, masks and threshold, then additive
 // layers (differences from the rest) by both, then each blended pose's
 // model matrices by ozz's LocalToModelJob and maniPose_ComputeModel from the
@@ -380,8 +380,8 @@ int Compare(const Run& run, long rounds)
         {
             if (!SampleRandom(run, additive[i].pose) ||
                 maniPose_SetRest(rest.pose, run.skeleton) != mani_success ||
-                maniComputePoseDifference(run.skeleton, additive[i].pose, rest.pose,
-                                          additive[i].pose) != mani_success)
+                maniSkeleton_ComputePoseDifference(run.skeleton, additive[i].pose, rest.pose,
+                                                   additive[i].pose) != mani_success)
             {
                 return Fail("differences");
             }
@@ -408,8 +408,8 @@ int Compare(const Run& run, long rounds)
         job.layers = ozz::span<const ozz::animation::BlendingJob::Layer>(ozzLayers, count);
         job.rest_pose = run.ozz->joint_rest_poses();
         job.output = ozz::make_span(ozzOut);
-        if (!job.Run() ||
-            maniBlendPoses(run.skeleton, layers, count, kThreshold, out.pose) != mani_success)
+        if (!job.Run() || maniSkeleton_BlendPoses(run.skeleton, layers, count, kThreshold,
+                                                  out.pose) != mani_success)
         {
             return Fail("a blend");
         }
@@ -484,7 +484,7 @@ void Timings(const Run& run, long reps, int only)
     // One blend in each before the clock, so a model pass timed alone
     // starts from a blended pose.
     job.Run();
-    (void)maniBlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
+    (void)maniSkeleton_BlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
     double start = Seconds();
     for (long r = 0; (only < 0 || only == 0) && r < reps; ++r)
     {
@@ -494,7 +494,7 @@ void Timings(const Run& run, long reps, int only)
     start = Seconds();
     for (long r = 0; (only < 0 || only == 1) && r < reps; ++r)
     {
-        (void)maniBlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
+        (void)maniSkeleton_BlendPoses(run.skeleton, layers, 2, kThreshold, out.pose);
     }
     double ourTime = Seconds() - start;
     std::printf("ns a blend of two poses: ozz %.0f, Maul Anim %.0f\n", ozzTime / reps * 1e9,

@@ -99,7 +99,8 @@ static void BlendTwo(BenchScenes* s, uint32_t n)
     const maniBlendLayer layers[2] = {{s->layers[0], 0.5f, NULL}, {s->layers[1], 0.5f, NULL}};
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniBlendPoses(&s->skeleton, layers, 2, MANI_BLEND_THRESHOLD, s->pose), "a blend");
+        Must(maniSkeleton_BlendPoses(&s->skeleton, layers, 2, MANI_BLEND_THRESHOLD, s->pose),
+             "a blend");
     }
 }
 
@@ -169,7 +170,8 @@ static void GraphByHand(BenchScenes* s, uint32_t n)
         Must(maniBlendRootMotion(moves, kWeights, 2, &move), "a blended move");
         maniBlendLayer layers[2] = {{s->handLayers[0], kWeights[0], NULL},
                                     {s->handLayers[1], kWeights[1], NULL}};
-        Must(maniBlendPoses(&s->skeleton, layers, 2, MANI_BLEND_THRESHOLD, s->pose), "a blend");
+        Must(maniSkeleton_BlendPoses(&s->skeleton, layers, 2, MANI_BLEND_THRESHOLD, s->pose),
+             "a blend");
         s->handTime = fmodf(s->handTime + STEP, BENCH_DURATION);
     }
 }
@@ -339,7 +341,8 @@ static void BuildMask(BenchScenes* s, uint32_t n)
     float weights[BENCH_BONES];
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniBuildMask(&s->skeleton, kChains, 3, 1.0f, weights, BENCH_BONES, NULL), "a mask");
+        Must(maniSkeleton_BuildMask(&s->skeleton, kChains, 3, 1.0f, weights, BENCH_BONES, NULL),
+             "a mask");
     }
 }
 

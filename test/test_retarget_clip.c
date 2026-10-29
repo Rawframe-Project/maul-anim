@@ -476,16 +476,16 @@ static bool DifferenceCarried(const maniClip* source, const maniClip* baked, uin
 {
     float time = (float)k / 30.0f;
     maniBlendLayer layer = {s_in, 1.0f, NULL};
-    bool ok =
-        maniPose_SetRest(s_whole, &s_source) == mani_success &&
-        maniRetargetMap_RetargetPose(&s_map, &s_source, s_whole, &s_target, s_base, s_scratch,
-                                     sizeof s_scratch) == mani_success &&
-        maniClip_Sample(source, &s_source, time, s_in) == mani_success &&
-        maniPose_AddLayers(s_whole, &s_source, &layer, 1) == mani_success &&
-        maniRetargetMap_RetargetPose(&s_map, &s_source, s_whole, &s_target, s_expected, s_scratch,
-                                     sizeof s_scratch) == mani_success &&
-        maniComputePoseDifference(&s_target, s_expected, s_base, s_expected) == mani_success &&
-        maniClip_Sample(baked, &s_target, time, s_out) == mani_success;
+    bool ok = maniPose_SetRest(s_whole, &s_source) == mani_success &&
+              maniRetargetMap_RetargetPose(&s_map, &s_source, s_whole, &s_target, s_base, s_scratch,
+                                           sizeof s_scratch) == mani_success &&
+              maniClip_Sample(source, &s_source, time, s_in) == mani_success &&
+              maniPose_AddLayers(s_whole, &s_source, &layer, 1) == mani_success &&
+              maniRetargetMap_RetargetPose(&s_map, &s_source, s_whole, &s_target, s_expected,
+                                           s_scratch, sizeof s_scratch) == mani_success &&
+              maniSkeleton_ComputePoseDifference(&s_target, s_expected, s_base, s_expected) ==
+                  mani_success &&
+              maniClip_Sample(baked, &s_target, time, s_out) == mani_success;
     return ok && maniPose_IsDifference(s_out) && Same(s_out, s_expected, 10);
 }
 

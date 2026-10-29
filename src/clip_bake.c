@@ -223,8 +223,9 @@ static maniResult Additive(Bake* b)
     r = r == mani_success
             ? s->carry(s->context, b->poses[1], b->poses[2], b->scratch, b->scratchSize)
             : r;
-    r = r == mani_success ? maniComputePoseDifference(s->to, b->poses[2], b->poses[3], b->poses[2])
-                          : r;
+    r = r == mani_success
+            ? maniSkeleton_ComputePoseDifference(s->to, b->poses[2], b->poses[3], b->poses[2])
+            : r;
     layer.pose = b->poses[2];
     r = r == mani_success ? maniPose_SetRest(b->poses[4], s->to) : r;
     return r == mani_success ? maniPose_AddLayers(b->poses[4], s->to, &layer, 1) : r;

@@ -275,7 +275,7 @@ static void TestMask(void)
     const maniBlendLayer layers[2] = {{poses[1], 1.0f, inside}, {poses[2], 1.0f, outside}};
     static _Alignas(32) uint8_t memory[4096];
     CHECK(maniInitPose(&s_skeleton, memory, sizeof memory, &expected) == mani_success &&
-              maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, expected) ==
+              maniSkeleton_BlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, expected) ==
                   mani_success,
           "blended");
     bool same = true;

@@ -971,7 +971,8 @@ static void Reference(maniPose* out)
     float inside[3];
     float outside[3];
     const maniMaskChain chain = {1, 1.0f, true};
-    CHECK(maniBuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success, "mask");
+    CHECK(maniSkeleton_BuildMask(&s_skeleton, &chain, 1, 0.0f, inside, 3, NULL) == mani_success,
+          "mask");
     for (int b = 0; b < 3; ++b)
     {
         outside[b] = 1.0f - inside[b];
@@ -983,8 +984,10 @@ static void Reference(maniPose* out)
     const maniBlendLayer two[2] = {{walk, 0.5f / 1.5f, NULL}, {run, 1.0f / 1.5f, NULL}};
     const maniBlendLayer masked[2] = {{blend, 1.0f, inside}, {walk, 1.0f, outside}};
     const maniBlendLayer layer = {wave, 1.0f, NULL};
-    CHECK(maniBlendPoses(&s_skeleton, two, 2, MANI_BLEND_THRESHOLD, blend) == mani_success &&
-              maniBlendPoses(&s_skeleton, masked, 2, MANI_BLEND_THRESHOLD, out) == mani_success &&
+    CHECK(maniSkeleton_BlendPoses(&s_skeleton, two, 2, MANI_BLEND_THRESHOLD, blend) ==
+                  mani_success &&
+              maniSkeleton_BlendPoses(&s_skeleton, masked, 2, MANI_BLEND_THRESHOLD, out) ==
+                  mani_success &&
               maniPose_AddLayers(out, &s_skeleton, &layer, 1) == mani_success,
           "the reference");
 }

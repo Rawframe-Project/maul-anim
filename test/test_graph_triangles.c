@@ -183,7 +183,7 @@ static void TestEvaluated(void)
               maniClip_Sample(&s_clips[0], &s_skeleton, 0.25f, poses[1]) == mani_success &&
               maniClip_Sample(&s_clips[1], &s_skeleton, 0.25f, poses[2]) == mani_success &&
               maniClip_Sample(&s_clips[5], &s_skeleton, 0.25f, poses[3]) == mani_success &&
-              maniBlendPoses(&s_skeleton, layers, 3, MANI_BLEND_THRESHOLD, poses[4]) ==
+              maniSkeleton_BlendPoses(&s_skeleton, layers, 3, MANI_BLEND_THRESHOLD, poses[4]) ==
                   mani_success,
           "evaluated");
     bool same = true;

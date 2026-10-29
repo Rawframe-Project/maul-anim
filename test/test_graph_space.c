@@ -233,7 +233,8 @@ static void TestEvaluated(void)
     CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               maniClip_Sample(&s_clips[1], &s_skeleton, 0.25f, run) == mani_success &&
               maniClip_Sample(&s_clips[3], &s_skeleton, 0.25f, step) == mani_success &&
-              maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, want) == mani_success,
+              maniSkeleton_BlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, want) ==
+                  mani_success,
           "evaluated");
     bool same = true;
     for (uint32_t bone = 0; bone < 3; ++bone)

@@ -44,13 +44,13 @@ The compressor measures through the sampler's own arithmetic, so its choices, an
 
 ## Blending
 
-`maniBlendPoses` ([`src/blend.c`](../../src/blend.c)) takes layers (a pose, a weight, optional per-bone weights) in order, a threshold and an output. Per bone, each weight is divided by the bone's total, or by the threshold where the total is below it, the rest taking the shortfall's share, so poses slide into the rest as weights fall. Rotations are summed on the arc that agrees with the sum so far, then normalized; translations and scales are convex combinations. Order matters, as in ozz-animation and Unreal. Graphs use `MANI_BLEND_THRESHOLD` (1e-5).
+`maniSkeleton_BlendPoses` ([`src/blend.c`](../../src/blend.c)) takes layers (a pose, a weight, optional per-bone weights) in order, a threshold and an output. Per bone, each weight is divided by the bone's total, or by the threshold where the total is below it, the rest taking the shortfall's share, so poses slide into the rest as weights fall. Rotations are summed on the arc that agrees with the sum so far, then normalized; translations and scales are convex combinations. Order matters, as in ozz-animation and Unreal. Graphs use `MANI_BLEND_THRESHOLD` (1e-5).
 
 Weights outside [0, 1], a threshold outside (0, 1] and values that are not finite are refused before the output is touched, where ozz silently zeroes negative weights: the mistake surfaces at the call that made it.
 
-A pose records whether it holds a difference. `maniComputePoseDifference` takes one pose from another, `maniPose_AddLayers` adds weighted differences (`t + w d_t`, `r nlerp(1, d_r, w)`, `s (1 + w (d_s - 1))`), and blends take layers of one kind and write that kind. The model pass, the palette and subset sampling refuse differences. An additive clip names its basis (the skeleton's rest or its first frame) and stores each channel's difference from it; sampling it writes a difference. Keeping the kind in the pose makes mixing a pose into a difference a refused call rather than a silent artifact, as graphs refuse it when built.
+A pose records whether it holds a difference. `maniSkeleton_ComputePoseDifference` takes one pose from another, `maniPose_AddLayers` adds weighted differences (`t + w d_t`, `r nlerp(1, d_r, w)`, `s (1 + w (d_s - 1))`), and blends take layers of one kind and write that kind. The model pass, the palette and subset sampling refuse differences. An additive clip names its basis (the skeleton's rest or its first frame) and stores each channel's difference from it; sampling it writes a difference. Keeping the kind in the pose makes mixing a pose into a difference a refused call rather than a silent artifact, as graphs refuse it when built.
 
-`maniBuildMask` turns chains (a bone alone, or its subtree) into per-bone weights in skeleton order: a chain on the bone first, else a subtree chain on its nearest ancestor, else a default.
+`maniSkeleton_BuildMask` turns chains (a bone alone, or its subtree) into per-bone weights in skeleton order: a chain on the bone first, else a subtree chain on its nearest ancestor, else a default.
 
 ## Root motion
 

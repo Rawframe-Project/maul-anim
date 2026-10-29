@@ -84,12 +84,12 @@ Blending takes layers, each a pose, a weight and optional per-bone weights:
 
 ```c
 const maniBlendLayer layers[2] = {{walking, 0.25f, NULL}, {running, 0.75f, NULL}};
-maniResult blended = maniBlendPoses(&skeleton, layers, 2, 0.1f, pose);
+maniResult blended = maniSkeleton_BlendPoses(&skeleton, layers, 2, 0.1f, pose);
 ```
 
-A bone whose layers' weights add to less than the threshold (here 0.1) takes the rest for the remainder. Layers are summed in order. Per-bone weights come from `maniBuildMask`, which turns chains (a bone, or a bone and its subtree) into a weight per bone.
+A bone whose layers' weights add to less than the threshold (here 0.1) takes the rest for the remainder. Layers are summed in order. Per-bone weights come from `maniSkeleton_BuildMask`, which turns chains (a bone, or a bone and its subtree) into a weight per bone.
 
-Additive animation works on differences: `maniComputePoseDifference` takes one pose from another, and `maniPose_AddLayers` adds weighted differences onto a pose. An additive clip, built with a basis (the rest or its first frame), samples straight into a difference. A pose remembers which kind it holds, and calls refuse to mix them.
+Additive animation works on differences: `maniSkeleton_ComputePoseDifference` takes one pose from another, and `maniPose_AddLayers` adds weighted differences onto a pose. An additive clip, built with a basis (the rest or its first frame), samples straight into a difference. A pose remembers which kind it holds, and calls refuse to mix them.
 
 ## The model pass
 

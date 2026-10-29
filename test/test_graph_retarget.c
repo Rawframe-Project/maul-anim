@@ -339,14 +339,15 @@ static bool Transfer(const maniPose* in, maniPose* out)
 static bool Expected(float time)
 {
     maniBlendLayer layer = {s_in, 1.0f, NULL};
-    bool ok = maniClip_Sample(&s_walk, &s_source, time, s_in) == mani_success &&
-              Transfer(s_in, s_expected) &&
-              maniClip_Sample(&s_lean, &s_source, time, s_in) == mani_success &&
-              maniPose_SetRest(s_whole, &s_source) == mani_success &&
-              maniPose_AddLayers(s_whole, &s_source, &layer, 1) == mani_success &&
-              Transfer(s_whole, s_layer) && maniPose_SetRest(s_whole, &s_source) == mani_success &&
-              Transfer(s_whole, s_base) &&
-              maniComputePoseDifference(&s_target, s_layer, s_base, s_layer) == mani_success;
+    bool ok =
+        maniClip_Sample(&s_walk, &s_source, time, s_in) == mani_success &&
+        Transfer(s_in, s_expected) &&
+        maniClip_Sample(&s_lean, &s_source, time, s_in) == mani_success &&
+        maniPose_SetRest(s_whole, &s_source) == mani_success &&
+        maniPose_AddLayers(s_whole, &s_source, &layer, 1) == mani_success &&
+        Transfer(s_whole, s_layer) && maniPose_SetRest(s_whole, &s_source) == mani_success &&
+        Transfer(s_whole, s_base) &&
+        maniSkeleton_ComputePoseDifference(&s_target, s_layer, s_base, s_layer) == mani_success;
     layer.pose = s_layer;
     return ok && maniPose_AddLayers(s_expected, &s_target, &layer, 1) == mani_success;
 }

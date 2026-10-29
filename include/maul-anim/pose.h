@@ -143,7 +143,7 @@ extern "C"
     MANI_API bool maniPose_IsModelCurrent(const maniPose* pose);
 
     /// Returns whether the pose holds a difference: what
-    /// maniComputePoseDifference writes and additive layers apply, never mixed
+    /// maniSkeleton_ComputePoseDifference writes and additive layers apply, never mixed
     /// with poses of the skeleton. Making a pose, setting its rest and
     /// sampling a whole clip into it make it a pose of the skeleton.
     ///

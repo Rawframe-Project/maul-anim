@@ -400,8 +400,8 @@ static void PutMask(const maniGraphSource* source, const maniGraphMaskNodeSource
     uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     MANI_ASSERT(4 * ((uint64_t)lay->maskAt + 1) * bones <= lay->sizes[7]);
     // Checked already: the chains' bones and weights are in range.
-    (void)maniBuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight, lay->weights,
-                        bones, NULL);
+    (void)maniSkeleton_BuildMask(source->skeleton, m->chains, m->chainCount, m->defaultWeight,
+                                 lay->weights, bones, NULL);
     memcpy(lay->sections[7] + 4 * (size_t)lay->maskAt * bones, lay->weights, 4 * (size_t)bones);
     ++lay->maskAt;
 }

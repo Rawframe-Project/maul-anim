@@ -117,7 +117,7 @@ static inline void maniGraphEvalNeutral(const maniGraphEvaluation* e, maniPose* 
     (void)maniPose_SetRest(out, e->binding->skeleton);
     if (difference)
     {
-        (void)maniComputePoseDifference(e->binding->skeleton, out, out, out);
+        (void)maniSkeleton_ComputePoseDifference(e->binding->skeleton, out, out, out);
     }
 }
 

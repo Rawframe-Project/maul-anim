@@ -431,7 +431,7 @@ static bool Matches(maniGraphInstance* instance, const uint32_t* clips, const fl
         layers[k] = (maniBlendLayer){pose, weights[k], NULL};
     }
     CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
-              maniBlendPoses(&s_skeleton, layers, count, MANI_BLEND_THRESHOLD, want) ==
+              maniSkeleton_BlendPoses(&s_skeleton, layers, count, MANI_BLEND_THRESHOLD, want) ==
                   mani_success,
           "evaluates");
     return SameBits(out, want);

@@ -489,10 +489,11 @@ static void TestRefusals(void)
           "a map of another bone count");
     Turned(s_in);
     CHECK(maniPose_SetRest(s_back, &s_skeleton) == mani_success &&
-              maniComputePoseDifference(&s_skeleton, s_in, s_back, s_place) == mani_success &&
+              maniSkeleton_ComputePoseDifference(&s_skeleton, s_in, s_back, s_place) ==
+                  mani_success &&
               maniMirrorMap_MirrorPose(map, &s_skeleton, s_place, s_out) == mani_errorInvalid,
           "a difference");
-    CHECK(maniComputePoseDifference(&s_skeleton, s_in, s_back, s_out) == mani_success &&
+    CHECK(maniSkeleton_ComputePoseDifference(&s_skeleton, s_in, s_back, s_out) == mani_success &&
               maniMirrorMap_MirrorPose(map, &s_skeleton, s_in, s_out) == mani_success &&
               !maniPose_IsDifference(s_out),
           "the mirror a pose, not a difference");

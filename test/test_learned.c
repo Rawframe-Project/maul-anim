@@ -282,7 +282,8 @@ static void TestEvaluateRefusals(void)
     maniPose* difference = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success &&
               maniInitPose(&s_skeleton, other, sizeof other, &difference) == mani_success &&
-              maniComputePoseDifference(&s_skeleton, pose, pose, difference) == mani_success,
+              maniSkeleton_ComputePoseDifference(&s_skeleton, pose, pose, difference) ==
+                  mani_success,
           "poses");
     // A pose of a one-bone skeleton.
     static _Alignas(16) uint8_t oneFile[1024];

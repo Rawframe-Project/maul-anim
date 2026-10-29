@@ -361,8 +361,8 @@ static void Poses(void)
     }
     const maniBlendLayer layers[2] = {{s_pose[0], 0.3f, NULL}, {s_pose[1], 0.7f, NULL}};
     Host();
-    r[0] = maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_pose[4]);
-    r[1] = maniComputePoseDifference(&s_skeleton, s_pose[4], s_pose[0], s_pose[5]);
+    r[0] = maniSkeleton_BlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_pose[4]);
+    r[1] = maniSkeleton_ComputePoseDifference(&s_skeleton, s_pose[4], s_pose[0], s_pose[5]);
     Back();
     const maniBlendLayer difference[1] = {{s_pose[5], 0.6f, NULL}};
     Host();

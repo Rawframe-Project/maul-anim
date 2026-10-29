@@ -345,7 +345,7 @@ static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPa
     (void)maniPose_SetRest(poses[1], pair->source);
     (void)maniRetargetMap_RetargetPose(pair->map, pair->source, poses[1], skeleton, poses[2],
                                        scratch, size);
-    (void)maniComputePoseDifference(skeleton, out, poses[2], out);
+    (void)maniSkeleton_ComputePoseDifference(skeleton, out, poses[2], out);
 }
 
 // A clip at a time: through its cursor, or for a subset the plan's bones

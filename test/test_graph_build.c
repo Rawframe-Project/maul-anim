@@ -322,7 +322,8 @@ static void TestChainMask(void)
         "a chain graph");
     float inside[CHAIN];
     float outside[CHAIN];
-    CHECK(maniBuildMask(&s_chain, &kChain, 1, 0.0f, inside, CHAIN, NULL) == mani_success, "a mask");
+    CHECK(maniSkeleton_BuildMask(&s_chain, &kChain, 1, 0.0f, inside, CHAIN, NULL) == mani_success,
+          "a mask");
     for (int b = 0; b < CHAIN; ++b)
     {
         outside[b] = 1.0f - inside[b];
@@ -333,7 +334,8 @@ static void TestChainMask(void)
     const maniBlendLayer layers[2] = {{a, 1.0f, inside}, {b, 1.0f, outside}};
     CHECK(maniClip_Sample(&s_chainClips[0], &s_chain, 0.25f, a) == mani_success &&
               maniClip_Sample(&s_chainClips[1], &s_chain, 0.25f, b) == mani_success &&
-              maniBlendPoses(&s_chain, layers, 2, MANI_BLEND_THRESHOLD, want) == mani_success,
+              maniSkeleton_BlendPoses(&s_chain, layers, 2, MANI_BLEND_THRESHOLD, want) ==
+                  mani_success,
           "by hand");
     bool same = true;
     for (uint32_t bone = 0; bone < CHAIN; ++bone)

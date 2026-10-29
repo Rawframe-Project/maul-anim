@@ -521,7 +521,8 @@ static void TestRefusals(void)
     }
     CHECK(refused == 8, "limits of an unknown kind, out of range, or a hinge along its bone or "
                         "of no axis refused");
-    CHECK(maniComputePoseDifference(&s_skeleton, s_pose, s_pose, s_other) == mani_success &&
+    CHECK(maniSkeleton_ComputePoseDifference(&s_skeleton, s_pose, s_pose, s_other) ==
+                  mani_success &&
               maniPose_SolveCcd(s_other, &s_skeleton, &good, NULL) == mani_errorInvalid,
           "a difference refused");
 }
