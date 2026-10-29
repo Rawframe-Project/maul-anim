@@ -249,7 +249,8 @@ static _Alignas(32) uint8_t s_scratch[1 << 15];
 static size_t Keep(maniBuilder* builder, int slot)
 {
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, s_files[slot], sizeof s_files[slot], &size) == mani_success,
+    CHECK(maniBuilder_CopyBuilt(builder, s_files[slot], sizeof s_files[slot], &size) ==
+              mani_success,
           "a built file fits");
     Record(s_files[slot], size);
     return size;
@@ -258,7 +259,7 @@ static size_t Keep(maniBuilder* builder, int slot)
 static void RecordLocals(const maniPose* pose)
 {
     maniTransform locals[BONES];
-    CHECK(maniPoseReadLocals(pose, 0, BONES, locals) == mani_success, "locals read");
+    CHECK(maniPose_ReadLocals(pose, 0, BONES, locals) == mani_success, "locals read");
     Record(locals, sizeof locals);
 }
 
@@ -328,7 +329,7 @@ static void Assets(void)
 // Sampling, blending, differences, the model pass, root motion.
 static void Poses(void)
 {
-    size_t poseSize = maniPoseSize(&s_skeleton);
+    size_t poseSize = maniSkeleton_GetPoseSize(&s_skeleton);
     for (int k = 0; k < 6; ++k)
     {
         Host();
@@ -342,12 +343,12 @@ static void Poses(void)
     uint32_t floatCount = 0;
     maniResult r[8];
     Host();
-    r[0] = maniSampleClip(&s_clip, &s_skeleton, 0.37f, s_pose[0]);
-    r[1] = maniSampleClip(&s_compressed, &s_skeleton, 0.61f, s_pose[1]);
+    r[0] = maniClip_Sample(&s_clip, &s_skeleton, 0.37f, s_pose[0]);
+    r[1] = maniClip_Sample(&s_compressed, &s_skeleton, 0.61f, s_pose[1]);
     r[2] = maniInitClipCursor(s_cursorMemory, sizeof s_cursorMemory, &cursor);
-    r[3] = maniSampleClipBones(&s_clip, &s_skeleton, 0.83f, kSubset, 3, s_pose[3]);
-    r[4] = maniSampleClipFloats(&s_clip, 0.29f, floats, 1, &floatCount);
-    r[5] = maniSampleClipCursor(cursor, &s_compressed, &s_skeleton, 0.53f, s_pose[2]);
+    r[3] = maniClip_SampleBones(&s_clip, &s_skeleton, 0.83f, kSubset, 3, s_pose[3]);
+    r[4] = maniClip_SampleFloats(&s_clip, 0.29f, floats, 1, &floatCount);
+    r[5] = maniClipCursor_Sample(cursor, &s_compressed, &s_skeleton, 0.53f, s_pose[2]);
     Back();
     for (int k = 0; k < 6; ++k)
     {
@@ -361,13 +362,13 @@ static void Poses(void)
     const maniBlendLayer layers[2] = {{s_pose[0], 0.3f, NULL}, {s_pose[1], 0.7f, NULL}};
     Host();
     r[0] = maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_pose[4]);
-    r[1] = maniPoseDifference(&s_skeleton, s_pose[4], s_pose[0], s_pose[5]);
+    r[1] = maniComputePoseDifference(&s_skeleton, s_pose[4], s_pose[0], s_pose[5]);
     Back();
     const maniBlendLayer difference[1] = {{s_pose[5], 0.6f, NULL}};
     Host();
-    r[2] = maniAddPoses(&s_skeleton, s_pose[2], difference, 1);
-    r[3] = maniComputeModel(s_pose[4], &s_skeleton);
-    maniTransform head = maniPoseModelTransform(s_pose[4], 2);
+    r[2] = maniPose_AddLayers(s_pose[2], &s_skeleton, difference, 1);
+    r[3] = maniPose_ComputeModel(s_pose[4], &s_skeleton);
+    maniTransform head = maniPose_GetModelTransform(s_pose[4], 2);
     Back();
     for (int k = 0; k < 4; ++k)
     {
@@ -377,15 +378,15 @@ static void Poses(void)
     RecordLocals(s_pose[2]);
     RecordLocals(s_pose[4]);
     maniAffine models[BONES];
-    CHECK(maniPoseReadModels(s_pose[4], 0, BONES, models) == mani_success, "models read");
+    CHECK(maniPose_ReadModels(s_pose[4], 0, BONES, models) == mani_success, "models read");
     Record(models, sizeof models);
     maniTransform decomposed;
     maniRootMove moves[3];
     const float weights[2] = {0.25f, 0.75f};
     Host();
     r[0] = maniDecomposeAffine(&models[5], &decomposed);
-    r[1] = maniClipRootMotion(&s_clip, 0.2f, 0.45f, &moves[0]);
-    r[2] = maniClipRootMotion(&s_clip, 0.9f, 0.3f, &moves[1]);
+    r[1] = maniClip_GetRootMotion(&s_clip, 0.2f, 0.45f, &moves[0]);
+    r[2] = maniClip_GetRootMotion(&s_clip, 0.9f, 0.3f, &moves[1]);
     moves[2] = maniComposeRootMotion(moves[0], moves[1]);
     Back();
     maniRootMove blended;
@@ -441,9 +442,10 @@ static void Meshes(void)
     maniResult (*const jobs[3])(const maniSkinJob*) = {maniSkinLinear, maniSkinDualQuaternion,
                                                        maniSkinBlended};
     Host();
-    maniResult r[3] = {maniComputePalette(s_pose[4], &s_skeleton, &opened, palette, BONES, NULL),
-                       maniPaletteDualQuaternions(palette, BONES, dual),
-                       maniPaletteRows(palette, BONES, rows)};
+    maniResult r[3] = {
+        maniPose_ComputePalette(s_pose[4], &s_skeleton, &opened, palette, BONES, NULL),
+        maniConvertPaletteToDualQuaternions(palette, BONES, dual),
+        maniConvertPaletteToRows(palette, BONES, rows)};
     Back();
     for (int k = 0; k < 3; ++k)
     {
@@ -481,8 +483,8 @@ static void Meshes(void)
     const maniMorphStream stream = {s_positions, moved, 12, 12, maniMorphPosition, 0, 3};
     const maniMorphJob morphJob = {&morphs, targetWeights, 0, VERTICES, 1, &stream};
     Host();
-    r[0] = maniMorphTargetWeights(&morphs, channelWeights, targetWeights,
-                                  maniMorphTargetCount(&morphs), NULL);
+    r[0] = maniMorphTargets_ComputeTargetWeights(&morphs, channelWeights, targetWeights,
+                                                 maniMorphTargets_GetTargetCount(&morphs), NULL);
     r[1] = maniApplyMorphTargets(&morphJob);
     Back();
     RecordResult(r[0]);
@@ -495,7 +497,7 @@ static void Meshes(void)
 static void Solvers(void)
 {
     maniTransform start[BONES];
-    CHECK(maniPoseReadLocals(s_pose[4], 0, BONES, start) == mani_success, "the start");
+    CHECK(maniPose_ReadLocals(s_pose[4], 0, BONES, start) == mani_success, "the start");
     const maniTwoBoneSolve arm = {.start = 3,
                                   .middle = 4,
                                   .end = 5,
@@ -520,13 +522,14 @@ static void Solvers(void)
                                  .weight = 1.0f};
     for (int k = 0; k < 4; ++k)
     {
-        CHECK(maniPoseWriteLocals(s_pose[3], 0, BONES, start) == mani_success, "restored");
+        CHECK(maniPose_WriteLocals(s_pose[3], 0, BONES, start) == mani_success, "restored");
         bool reached = false;
         Host();
-        maniResult solved = k == 0   ? maniSolveTwoBone(s_pose[3], &s_skeleton, &arm, &reached)
-                            : k == 1 ? maniSolveAim(s_pose[3], &s_skeleton, &look, &reached)
-                            : k == 2 ? maniSolveCcd(s_pose[3], &s_skeleton, &tail, &reached)
-                                     : maniSolveFabrik(s_pose[3], &s_skeleton, &tail, &reached);
+        maniResult solved = k == 0   ? maniPose_SolveTwoBone(s_pose[3], &s_skeleton, &arm, &reached)
+                            : k == 1 ? maniPose_SolveAim(s_pose[3], &s_skeleton, &look, &reached)
+                            : k == 2
+                                ? maniPose_SolveCcd(s_pose[3], &s_skeleton, &tail, &reached)
+                                : maniPose_SolveFabrik(s_pose[3], &s_skeleton, &tail, &reached);
         Back();
         RecordResult(solved);
         Record(&reached, sizeof reached);
@@ -564,10 +567,10 @@ static void Solvers(void)
     const maniVec3 wind = {0.3f, 0.0f, 0.1f};
     for (int k = 0; k < 3; ++k)
     {
-        CHECK(maniPoseWriteLocals(s_pose[3], 0, BONES, start) == mani_success, "restored");
+        CHECK(maniPose_WriteLocals(s_pose[3], 0, BONES, start) == mani_success, "restored");
         Host();
-        maniResult stepped = maniStepSprings(state, s_pose[3], NULL, &wind, 1.0f / 60.0f);
-        maniResult applied = maniApplySprings(state, s_pose[3]);
+        maniResult stepped = maniSpringState_Step(state, s_pose[3], NULL, &wind, 1.0f / 60.0f);
+        maniResult applied = maniSpringState_Apply(state, s_pose[3]);
         Back();
         RecordResult(stepped);
         RecordResult(applied);
@@ -584,7 +587,7 @@ static void Solvers(void)
     maniMirrorMap map;
     Host();
     RecordResult(maniOpenMirrorMap(s_files[7], size, &map).result);
-    RecordResult(maniMirrorPose(&map, &s_skeleton, s_pose[4], s_pose[3]));
+    RecordResult(maniMirrorMap_MirrorPose(&map, &s_skeleton, s_pose[4], s_pose[3]));
     Back();
     RecordLocals(s_pose[3]);
 }
@@ -632,11 +635,12 @@ static void Matching(void)
     float features[11];
     float position[4];
     float facing[4];
-    CHECK(maniMotionDatabaseFeatures(&database, 7, features, database.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetFeatures(&database, 7, features, database.featureCount, NULL) ==
               mani_success,
           "features");
     Host();
-    RecordResult(maniTrajectoryFeatures(&database, &trajectory, &later, position, facing));
+    RecordResult(maniMotionDatabase_ComputeTrajectoryFeatures(&database, &trajectory, &later,
+                                                              position, facing));
     Back();
     Record(position, 2 * sizeof(float));
     for (uint32_t j = 0; j < 7; ++j)
@@ -647,7 +651,7 @@ static void Matching(void)
         .features = features, .current = 3, .jumpThreshold = 0.1f, .continuingBias = -0.01f};
     maniMatchResult found;
     Host();
-    RecordResult(maniSearchMotionDatabase(&database, &query, &found));
+    RecordResult(maniMotionDatabase_Search(&database, &query, &found));
     Back();
     Record(&found, sizeof found);
     static const char kGraph[] =
@@ -678,10 +682,10 @@ static void Matching(void)
     r[0] = maniOpenGraph(s_files[9], size, &graph).result;
     r[1] = maniBindGraph(&graph, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL);
     r[2] = maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory, &instance);
-    r[3] = maniSetGraphParameter(instance, maniGraphFindParameter(&graph, "mix", 3),
-                                 maniGraphParameterFloat, (maniGraphValue){.f = {0.45f}});
-    r[4] = maniUpdateGraph(instance, 0.37f, NULL, 0, &events, &move);
-    r[5] = maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose[3]);
+    r[3] = maniGraphInstance_SetParameter(instance, maniGraph_FindParameter(&graph, "mix", 3),
+                                          maniGraphParameterFloat, (maniGraphValue){.f = {0.45f}});
+    r[4] = maniGraphInstance_Update(instance, 0.37f, NULL, 0, &events, &move);
+    r[5] = maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose[3]);
     Back();
     for (int k = 0; k < 6; ++k)
     {

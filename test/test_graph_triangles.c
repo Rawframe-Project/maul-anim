@@ -178,18 +178,19 @@ static void TestEvaluated(void)
     }
     const maniBlendLayer layers[3] = {
         {poses[1], 0.25f, NULL}, {poses[2], 0.25f, NULL}, {poses[3], 0.5f, NULL}};
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, poses[0]) == mani_success &&
-              maniSampleClip(&s_clips[0], &s_skeleton, 0.25f, poses[1]) == mani_success &&
-              maniSampleClip(&s_clips[1], &s_skeleton, 0.25f, poses[2]) == mani_success &&
-              maniSampleClip(&s_clips[5], &s_skeleton, 0.25f, poses[3]) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, poses[0]) ==
+                  mani_success &&
+              maniClip_Sample(&s_clips[0], &s_skeleton, 0.25f, poses[1]) == mani_success &&
+              maniClip_Sample(&s_clips[1], &s_skeleton, 0.25f, poses[2]) == mani_success &&
+              maniClip_Sample(&s_clips[5], &s_skeleton, 0.25f, poses[3]) == mani_success &&
               maniBlendPoses(&s_skeleton, layers, 3, MANI_BLEND_THRESHOLD, poses[4]) ==
                   mani_success,
           "evaluated");
     bool same = true;
     for (uint32_t bone = 0; bone < 3; ++bone)
     {
-        maniTransform a = maniPoseLocal(poses[0], bone);
-        maniTransform b = maniPoseLocal(poses[4], bone);
+        maniTransform a = maniPose_GetLocal(poses[0], bone);
+        maniTransform b = maniPose_GetLocal(poses[4], bone);
         same = same && memcmp(&a, &b, sizeof a) == 0;
     }
     CHECK(same, "the space's pose, bit for bit");
@@ -300,7 +301,8 @@ static void TestSubgraph(void)
     {
         maniBuilder* builder = NewBuilder();
         CHECK(maniBuildGraph(builder, &sources[k]).result == mani_success &&
-                  maniCopyBuilt(builder, files[k], sizeof files[k], &sizes[k]) == mani_success,
+                  maniBuilder_CopyBuilt(builder, files[k], sizeof files[k], &sizes[k]) ==
+                      mani_success,
               "builds");
         maniDestroyBuilder(builder);
     }
@@ -341,14 +343,15 @@ static void TestJson(void)
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) ==
+                  mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &s_textSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &s_textSize) == mani_success &&
               maniBuildGraphJson(builder, s_text, s_textSize,
                                  &(maniGraphNamedAssets){&s_skeleton, kSlots, NULL, NULL, NULL,
                                                          CLIPS, 0, 0, 0, NULL})
                       .result == mani_success &&
-              maniCopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
+              maniBuilder_CopyBuilt(builder, read, sizeof read, &readSize) == mani_success,
           "written and read");
     maniDestroyBuilder(builder);
     CHECK(readSize == s_builtSize && memcmp(read, s_built, s_builtSize) == 0, "the same bytes");

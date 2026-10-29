@@ -104,14 +104,14 @@ static maniBuildResult CheckGroups(const maniSpringSetSource* s)
 // Whether ancestor is a strict ancestor of bone.
 static bool Above(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone)
 {
-    uint32_t b = maniSkeletonParent(skeleton, bone);
+    uint32_t b = maniSkeleton_GetParent(skeleton, bone);
     for (uint32_t depth = 0; b != MANI_NO_BONE && depth < skeleton->boneCount; ++depth)
     {
         if (b == ancestor)
         {
             return true;
         }
-        b = maniSkeletonParent(skeleton, b);
+        b = maniSkeleton_GetParent(skeleton, b);
     }
     return false;
 }
@@ -205,7 +205,7 @@ static maniBuildResult CheckCenter(const maniSpringSetSource* s, uint32_t i, con
          ++depth)
     {
         placed = w->boneOwner[b] == 0 || w->boneOwner[b] == i + 1;
-        b = maniSkeletonParent(s->skeleton, b);
+        b = maniSkeleton_GetParent(s->skeleton, b);
     }
     return placed ? kOk : Refuse(maniBuildReasonSpring, i, spring->jointCount);
 }
@@ -396,7 +396,7 @@ static void LaySprings(const maniSpringSetSource* s, Work* w, uint8_t* const dat
 static void LayHeader(const maniSpringSetSource* s, const Work* w, uint8_t* out)
 {
     float reference = s->referenceRate == 0.0f ? 60.0f : s->referenceRate;
-    maniStoreU64(out, maniSkeletonIdentity(s->skeleton));
+    maniStoreU64(out, maniSkeleton_GetIdentity(s->skeleton));
     const uint32_t counts[6] = {s->skeleton->boneCount, s->colliderCount,   s->springCount,
                                 (uint32_t)w->joints,    (uint32_t)w->links, (uint32_t)w->nameBytes};
     for (uint32_t k = 0; k < 6; ++k)

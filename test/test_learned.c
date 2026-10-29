@@ -90,63 +90,70 @@ static void TestRoundTrip(void)
               m.widest == OUTPUTS && m.stepRate == 60.0f && m.up == s_database.up &&
               m.forward == s_database.forward,
           "the counts");
-    CHECK(maniLearnedModelIdentity(&m) != 0 &&
-              maniLearnedModelSkeletonIdentity(&m) == maniSkeletonIdentity(&s_skeleton) &&
-              maniLearnedModelDatabaseIdentity(&m) == maniMotionDatabaseIdentity(&s_database) &&
-              maniLearnedModelIdentity(NULL) == 0 && maniLearnedModelSkeletonIdentity(NULL) == 0 &&
-              maniLearnedModelDatabaseIdentity(NULL) == 0,
+    CHECK(maniLearnedModel_GetIdentity(&m) != 0 &&
+              maniLearnedModel_GetSkeletonIdentity(&m) == maniSkeleton_GetIdentity(&s_skeleton) &&
+              maniLearnedModel_GetDatabaseIdentity(&m) ==
+                  maniMotionDatabase_GetIdentity(&s_database) &&
+              maniLearnedModel_GetIdentity(NULL) == 0 &&
+              maniLearnedModel_GetSkeletonIdentity(NULL) == 0 &&
+              maniLearnedModel_GetDatabaseIdentity(NULL) == 0,
           "the identities");
     maniMatchChannel mine;
     maniMatchChannel theirs;
-    CHECK(maniLearnedModelChannel(&m, 0, &mine) == mani_success &&
-              maniMotionDatabaseChannel(&s_database, 0, &theirs) == mani_success &&
+    CHECK(maniLearnedModel_GetChannel(&m, 0, &mine) == mani_success &&
+              maniMotionDatabase_GetChannel(&s_database, 0, &theirs) == mani_success &&
               memcmp(&mine, &theirs, sizeof mine) == 0 &&
-              maniLearnedModelChannel(&m, 1, &mine) == mani_errorInvalid &&
-              maniLearnedModelChannel(NULL, 0, &mine) == mani_errorInvalid &&
-              maniLearnedModelChannel(&m, 0, NULL) == mani_errorInvalid,
+              maniLearnedModel_GetChannel(&m, 1, &mine) == mani_errorInvalid &&
+              maniLearnedModel_GetChannel(NULL, 0, &mine) == mani_errorInvalid &&
+              maniLearnedModel_GetChannel(&m, 0, NULL) == mani_errorInvalid,
           "the database's channel");
     float offsets[2][FEATURES];
     float scales[2][FEATURES];
-    CHECK(maniLearnedModelNormalization(&m, offsets[0], scales[0], m.featureCount, NULL) ==
+    CHECK(maniLearnedModel_GetNormalization(&m, offsets[0], scales[0], m.featureCount, NULL) ==
                   mani_success &&
-              maniMotionDatabaseNormalization(&s_database, offsets[1], scales[1],
-                                              s_database.featureCount, NULL) == mani_success &&
+              maniMotionDatabase_GetNormalization(&s_database, offsets[1], scales[1],
+                                                  s_database.featureCount, NULL) == mani_success &&
               SameBits(offsets[0], offsets[1], FEATURES) &&
               SameBits(scales[0], scales[1], FEATURES) &&
-              maniLearnedModelNormalization(NULL, offsets[0], NULL, 0, NULL) == mani_errorInvalid &&
-              maniLearnedModelNormalization(&m, NULL, NULL, 1, NULL) == mani_errorInvalid,
+              maniLearnedModel_GetNormalization(NULL, offsets[0], NULL, 0, NULL) ==
+                  mani_errorInvalid &&
+              maniLearnedModel_GetNormalization(&m, NULL, NULL, 1, NULL) == mani_errorInvalid,
           "the database's normalization");
     uint32_t measured = 0;
     uint32_t refused = 0;
     float kept = offsets[0][0];
-    CHECK(maniLearnedModelNormalization(&m, NULL, NULL, 0, &measured) == mani_errorCapacity &&
+    CHECK(maniLearnedModel_GetNormalization(&m, NULL, NULL, 0, &measured) == mani_errorCapacity &&
               measured == FEATURES &&
-              maniLearnedModelNormalization(&m, offsets[0], scales[0], FEATURES - 1, &refused) ==
-                  mani_errorCapacity &&
+              maniLearnedModel_GetNormalization(&m, offsets[0], scales[0], FEATURES - 1,
+                                                &refused) == mani_errorCapacity &&
               refused == FEATURES && SameBits(&offsets[0][0], &kept, 1),
           "the normalization measured, and a short array refused");
     uint32_t required = 0;
     uint32_t excluded = 0;
-    CHECK(maniLearnedModelProjector(&m, 1, &required, &excluded) == mani_success && required == 2 &&
-              excluded == 1 && maniLearnedModelProjector(&m, 0, &required, NULL) == mani_success &&
-              required == 1 && maniLearnedModelProjector(&m, 2, NULL, NULL) == mani_errorInvalid &&
-              maniLearnedModelProjector(NULL, 0, NULL, NULL) == mani_errorInvalid,
+    CHECK(maniLearnedModel_GetProjector(&m, 1, &required, &excluded) == mani_success &&
+              required == 2 && excluded == 1 &&
+              maniLearnedModel_GetProjector(&m, 0, &required, NULL) == mani_success &&
+              required == 1 &&
+              maniLearnedModel_GetProjector(&m, 2, NULL, NULL) == mani_errorInvalid &&
+              maniLearnedModel_GetProjector(NULL, 0, NULL, NULL) == mani_errorInvalid,
           "the Projectors' filters");
     size_t length = 0;
-    const char* track = maniLearnedModelFloatTrackName(&m, 0, &length);
+    const char* track = maniLearnedModel_GetFloatTrackName(&m, 0, &length);
     CHECK(track != NULL && length == 5 && memcmp(track, "speed", 5) == 0 &&
-              maniLearnedModelFloatTrackName(&m, 1, &length) == NULL &&
-              maniLearnedModelFloatTrackName(NULL, 0, NULL) == NULL,
+              maniLearnedModel_GetFloatTrackName(&m, 1, &length) == NULL &&
+              maniLearnedModel_GetFloatTrackName(NULL, 0, NULL) == NULL,
           "the float track's name");
-    const char* right = maniLearnedModelEventName(&m, 1, &length);
+    const char* right = maniLearnedModel_GetEventName(&m, 1, &length);
     CHECK(right != NULL && length == 5 && memcmp(right, "right", 5) == 0 &&
-              maniLearnedModelEventName(&m, 0, NULL) != NULL &&
-              maniLearnedModelEventName(&m, 2, &length) == NULL &&
-              maniLearnedModelEventName(NULL, 0, NULL) == NULL,
+              maniLearnedModel_GetEventName(&m, 0, NULL) != NULL &&
+              maniLearnedModel_GetEventName(&m, 2, &length) == NULL &&
+              maniLearnedModel_GetEventName(NULL, 0, NULL) == NULL,
           "the events' names");
-    CHECK(maniLearnedScratchSize(&m) > 0 && maniLearnedScratchSize(NULL) == 0, "the scratch");
-    CHECK(maniLearnedModelFloatTrackCount(&m) == 1 && maniLearnedModelEventCount(&m) == 2 &&
-              maniLearnedModelFloatTrackCount(NULL) == 0 && maniLearnedModelEventCount(NULL) == 0,
+    CHECK(maniLearnedModel_GetScratchSize(&m) > 0 && maniLearnedModel_GetScratchSize(NULL) == 0,
+          "the scratch");
+    CHECK(maniLearnedModel_GetFloatTrackCount(&m) == 1 && maniLearnedModel_GetEventCount(&m) == 2 &&
+              maniLearnedModel_GetFloatTrackCount(NULL) == 0 &&
+              maniLearnedModel_GetEventCount(NULL) == 0,
           "the float track and event counts");
 }
 
@@ -159,7 +166,7 @@ static bool Decompressed(const maniLearnedModel* m, const float* state, const fl
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
           "a pose");
     maniLearnedOutput out = {pose, tracks, 1, events, 2, {0, 0, 0}, {0, 0, 0}};
-    if (maniLearnedDecompress(m, state, &out, s_scratch, sizeof s_scratch) != mani_success)
+    if (maniLearnedModel_Decompress(m, state, &out, s_scratch, sizeof s_scratch) != mani_success)
     {
         return false;
     }
@@ -168,7 +175,7 @@ static bool Decompressed(const maniLearnedModel* m, const float* state, const fl
               SameBits(tracks, outputs + 36, 1) && SameBits(events, outputs + 37, 2);
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         const float* o = outputs + 9 * b;
         // The first column turned back by the rotation, and the normal
         // of the first two.
@@ -199,8 +206,9 @@ static void TestEvaluate(void)
         uint32_t p = (uint32_t)k % 2;
         float state[STATE];
         float want[OUTPUTS];
-        projected = projected && maniLearnedProject(&m, p, query, state, STATE, NULL, s_scratch,
-                                                    sizeof s_scratch) == mani_success;
+        projected =
+            projected && maniLearnedModel_Project(&m, p, query, state, STATE, NULL, s_scratch,
+                                                  sizeof s_scratch) == mani_success;
         Plain(&s_projectors[p].network, query, want);
         projected = projected && SameBits(state, want, STATE);
         float rate[STATE];
@@ -210,7 +218,7 @@ static void TestEvaluate(void)
             want[i] = state[i] + (1.0f / 60.0f) * rate[i];
         }
         stepped = stepped &&
-                  maniLearnedStep(&m, state, s_scratch, sizeof s_scratch) == mani_success &&
+                  maniLearnedModel_Step(&m, state, s_scratch, sizeof s_scratch) == mani_success &&
                   SameBits(state, want, STATE);
         Plain(&s_decompressor, state, want);
         decompressed = decompressed && Decompressed(&m, state, want);
@@ -228,50 +236,53 @@ static void TestEvaluateRefusals(void)
     float query[FEATURES] = {0.1f, 0.2f};
     float state[STATE] = {0, 0, 0, 0, 0};
     float bad[STATE] = {0, NAN, 0, 0, 0};
-    size_t need = maniLearnedScratchSize(&m);
-    CHECK(maniLearnedProject(&m, 2, query, state, STATE, NULL, s_scratch, need) ==
+    size_t need = maniLearnedModel_GetScratchSize(&m);
+    CHECK(maniLearnedModel_Project(&m, 2, query, state, STATE, NULL, s_scratch, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, bad, state, STATE, NULL, s_scratch, need) ==
+              maniLearnedModel_Project(&m, 0, bad, state, STATE, NULL, s_scratch, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, query, state, STATE, NULL, s_scratch, need - 1) ==
+              maniLearnedModel_Project(&m, 0, query, state, STATE, NULL, s_scratch, need - 1) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, query, state, STATE, NULL, s_scratch + 1, need) ==
+              maniLearnedModel_Project(&m, 0, query, state, STATE, NULL, s_scratch + 1, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, query, state, STATE, NULL, NULL, need) ==
+              maniLearnedModel_Project(&m, 0, query, state, STATE, NULL, NULL, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(NULL, 0, query, state, 0, NULL, s_scratch, need) ==
+              maniLearnedModel_Project(NULL, 0, query, state, 0, NULL, s_scratch, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, NULL, state, STATE, NULL, s_scratch, need) ==
+              maniLearnedModel_Project(&m, 0, NULL, state, STATE, NULL, s_scratch, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, query, NULL, STATE, NULL, s_scratch, need) ==
+              maniLearnedModel_Project(&m, 0, query, NULL, STATE, NULL, s_scratch, need) ==
                   mani_errorInvalid &&
-              maniLearnedProject(&m, 0, query, state, STATE, NULL, s_scratch, need) == mani_success,
+              maniLearnedModel_Project(&m, 0, query, state, STATE, NULL, s_scratch, need) ==
+                  mani_success,
           "projection's refusals");
     uint32_t measured = 0;
     uint32_t refused = 0;
     float before[STATE];
     memcpy(before, state, sizeof before);
-    CHECK(maniLearnedProject(&m, 0, NULL, NULL, 0, &measured, NULL, 0) == mani_errorCapacity &&
+    CHECK(maniLearnedModel_Project(&m, 0, NULL, NULL, 0, &measured, NULL, 0) ==
+                  mani_errorCapacity &&
               measured == STATE &&
-              maniLearnedProject(&m, 0, query, state, STATE - 1, &refused, s_scratch, need) ==
+              maniLearnedModel_Project(&m, 0, query, state, STATE - 1, &refused, s_scratch, need) ==
                   mani_errorCapacity &&
               refused == STATE && SameBits(before, state, STATE) &&
-              maniLearnedProject(&m, 0, query, NULL, 1, NULL, s_scratch, need) == mani_errorInvalid,
+              maniLearnedModel_Project(&m, 0, query, NULL, 1, NULL, s_scratch, need) ==
+                  mani_errorInvalid,
           "the state measured, a short state refused (nothing written)");
     float kept[STATE];
     memcpy(kept, bad, sizeof kept);
-    CHECK(maniLearnedStep(&m, bad, s_scratch, need) == mani_errorInvalid &&
+    CHECK(maniLearnedModel_Step(&m, bad, s_scratch, need) == mani_errorInvalid &&
               SameBits(kept, bad, STATE) &&
-              maniLearnedStep(&m, state, s_scratch, need - 1) == mani_errorInvalid &&
-              maniLearnedStep(NULL, state, s_scratch, need) == mani_errorInvalid &&
-              maniLearnedStep(&m, NULL, s_scratch, need) == mani_errorInvalid,
+              maniLearnedModel_Step(&m, state, s_scratch, need - 1) == mani_errorInvalid &&
+              maniLearnedModel_Step(NULL, state, s_scratch, need) == mani_errorInvalid &&
+              maniLearnedModel_Step(&m, NULL, s_scratch, need) == mani_errorInvalid,
           "a step's refusals, the state kept");
     maniPose* pose = NULL;
     static _Alignas(32) uint8_t other[4096];
     maniPose* difference = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success &&
               maniInitPose(&s_skeleton, other, sizeof other, &difference) == mani_success &&
-              maniPoseDifference(&s_skeleton, pose, pose, difference) == mani_success,
+              maniComputePoseDifference(&s_skeleton, pose, pose, difference) == mani_success,
           "poses");
     // A pose of a one-bone skeleton.
     static _Alignas(16) uint8_t oneFile[1024];
@@ -283,29 +294,32 @@ static void TestEvaluateRefusals(void)
     size_t oneSize = 0;
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildSkeleton(builder, &oneSource).result == mani_success &&
-              maniCopyBuilt(builder, oneFile, sizeof oneFile, &oneSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, oneFile, sizeof oneFile, &oneSize) == mani_success &&
               maniOpenSkeleton(oneFile, oneSize, &one).result == mani_success &&
               maniInitPose(&one, onePose, sizeof onePose, &small) == mani_success,
           "a one-bone pose");
     maniDestroyBuilder(builder);
     maniLearnedOutput mismatched = {small, NULL, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
-    CHECK(maniLearnedDecompress(&m, state, &mismatched, s_scratch, need) == mani_errorInvalid,
+    CHECK(maniLearnedModel_Decompress(&m, state, &mismatched, s_scratch, need) == mani_errorInvalid,
           "a pose of another bone count");
     maniLearnedOutput out = {difference, NULL, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
     maniLearnedOutput plain = {pose, NULL, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
-    CHECK(maniLearnedDecompress(&m, state, &out, s_scratch, need) == mani_errorInvalid &&
-              maniLearnedDecompress(&m, bad, &plain, s_scratch, need) == mani_errorInvalid &&
-              maniLearnedDecompress(&m, state, NULL, s_scratch, need) == mani_errorInvalid &&
-              maniLearnedDecompress(&m, state, &plain, s_scratch, need - 1) == mani_errorInvalid &&
-              maniLearnedDecompress(NULL, state, &plain, s_scratch, need) == mani_errorInvalid &&
-              maniLearnedDecompress(&m, state, &plain, s_scratch, need) == mani_success,
+    CHECK(maniLearnedModel_Decompress(&m, state, &out, s_scratch, need) == mani_errorInvalid &&
+              maniLearnedModel_Decompress(&m, bad, &plain, s_scratch, need) == mani_errorInvalid &&
+              maniLearnedModel_Decompress(&m, state, NULL, s_scratch, need) == mani_errorInvalid &&
+              maniLearnedModel_Decompress(&m, state, &plain, s_scratch, need - 1) ==
+                  mani_errorInvalid &&
+              maniLearnedModel_Decompress(NULL, state, &plain, s_scratch, need) ==
+                  mani_errorInvalid &&
+              maniLearnedModel_Decompress(&m, state, &plain, s_scratch, need) == mani_success,
           "decompression's refusals");
     float tracks[1] = {7.0f};
     float events[2] = {7.0f, 7.0f};
     maniLearnedOutput shortTracks = {NULL, tracks, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
     maniLearnedOutput shortEvents = {NULL, NULL, 0, events, 1, {0, 0, 0}, {0, 0, 0}};
-    CHECK(maniLearnedDecompress(&m, state, &shortTracks, s_scratch, need) == mani_errorCapacity &&
-              maniLearnedDecompress(&m, state, &shortEvents, s_scratch, need) ==
+    CHECK(maniLearnedModel_Decompress(&m, state, &shortTracks, s_scratch, need) ==
+                  mani_errorCapacity &&
+              maniLearnedModel_Decompress(&m, state, &shortEvents, s_scratch, need) ==
                   mani_errorCapacity &&
               tracks[0] == 7.0f && events[0] == 7.0f && events[1] == 7.0f,
           "a short track or event array refused (nothing written)");
@@ -326,9 +340,9 @@ static maniTransform Local(const maniLearnedModel* m, uint32_t bone)
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
           "a pose");
     maniLearnedOutput out = {pose, NULL, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
-    CHECK(maniLearnedDecompress(m, state, &out, s_scratch, sizeof s_scratch) == mani_success,
+    CHECK(maniLearnedModel_Decompress(m, state, &out, s_scratch, sizeof s_scratch) == mani_success,
           "decompressed");
-    return maniPoseLocal(pose, bone);
+    return maniPose_GetLocal(pose, bone);
 }
 
 static maniQuat Rotation(const maniLearnedModel* m, uint32_t bone)
@@ -487,10 +501,11 @@ static void TestInt16(void)
         float a[STATE];
         float b[STATE];
         near = near &&
-               maniLearnedProject(&wide, 0, query, a, (wide.featureCount + wide.latentCount), NULL,
-                                  s_scratch, sizeof s_scratch) == mani_success &&
-               maniLearnedProject(&narrow, 0, query, b, (narrow.featureCount + narrow.latentCount),
-                                  NULL, s_scratch, sizeof s_scratch) == mani_success;
+               maniLearnedModel_Project(&wide, 0, query, a, (wide.featureCount + wide.latentCount),
+                                        NULL, s_scratch, sizeof s_scratch) == mani_success &&
+               maniLearnedModel_Project(&narrow, 0, query, b,
+                                        (narrow.featureCount + narrow.latentCount), NULL, s_scratch,
+                                        sizeof s_scratch) == mani_success;
         for (uint32_t i = 0; i < STATE; ++i)
         {
             near = near && fabsf(a[i] - b[i]) <= 1e-3f * (1.0f + fabsf(a[i]));
@@ -987,17 +1002,17 @@ static void TestOverflow(void)
     float state[STATE] = {0.5f, -0.25f, 0.125f, 1.0f, -1.0f};
     float kept[STATE];
     memcpy(kept, state, sizeof kept);
-    CHECK(maniLearnedProject(&m, 0, query, state, STATE, NULL, s_scratch, sizeof s_scratch) ==
+    CHECK(maniLearnedModel_Project(&m, 0, query, state, STATE, NULL, s_scratch, sizeof s_scratch) ==
                   mani_errorFormat &&
               memcmp(state, kept, sizeof kept) == 0,
           "a projection refused, the state as it was");
-    CHECK(maniLearnedStep(&m, state, s_scratch, sizeof s_scratch) == mani_errorFormat &&
+    CHECK(maniLearnedModel_Step(&m, state, s_scratch, sizeof s_scratch) == mani_errorFormat &&
               memcmp(state, kept, sizeof kept) == 0,
           "a step refused, the state as it was");
     float tracks[1] = {7.0f};
     float events[2] = {7.0f, 7.0f};
     maniLearnedOutput output = {NULL, tracks, 1, events, 2, {7.0f, 7.0f, 7.0f}, {7.0f, 7.0f, 7.0f}};
-    CHECK(maniLearnedDecompress(&m, state, &output, s_scratch, sizeof s_scratch) ==
+    CHECK(maniLearnedModel_Decompress(&m, state, &output, s_scratch, sizeof s_scratch) ==
                   mani_errorFormat &&
               tracks[0] == 7.0f && events[0] == 7.0f && events[1] == 7.0f &&
               output.rootVelocity.x == 7.0f && output.rootAngularVelocity.z == 7.0f,

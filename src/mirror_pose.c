@@ -120,9 +120,9 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
                                                maniPose* out)
 {
     if (map == NULL || skeleton == NULL ||
-        maniSkeletonIdentity(skeleton) != map->skeletonIdentity ||
-        maniSkeletonBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) ||
-        !maniPoseMatches(out, skeleton) || maniPoseIsDifference(in))
+        maniSkeleton_GetIdentity(skeleton) != map->skeletonIdentity ||
+        maniSkeleton_GetBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) ||
+        !maniPoseMatches(out, skeleton) || maniPose_IsDifference(in))
     {
         return mani_errorInvalid;
     }
@@ -152,8 +152,8 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
     return mani_success;
 }
 
-maniResult maniMirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,
-                          const maniPose* in, maniPose* out)
+maniResult maniMirrorMap_MirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,
+                                    const maniPose* in, maniPose* out)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = MirrorPoseWork(map, skeleton, in, out);
@@ -170,7 +170,7 @@ static MANI_NOINLINE maniRootMove MirrorRootMotionWork(const maniMirrorMap* map,
     return (maniRootMove){Reflect(move.translation, map->axis), Mirror(move.rotation, map->axis)};
 }
 
-maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move)
+maniRootMove maniMirrorMap_MirrorRootMotion(const maniMirrorMap* map, maniRootMove move)
 {
     uint64_t env = maniFloatEnvEnter();
     maniRootMove result = MirrorRootMotionWork(map, move);

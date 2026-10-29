@@ -50,7 +50,7 @@ static maniMirrorMapSource Map(void)
 {
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        s_reference[b] = maniSkeletonRest(&s_skeleton, b);
+        s_reference[b] = maniSkeleton_GetRest(&s_skeleton, b);
     }
     s_reference[kHead].translation.y = 0.65f;
     s_reference[kArmR].rotation = (maniQuat){0.0f, 0.0f, 0.0f, -1.0f};
@@ -115,7 +115,7 @@ static size_t Built(const maniMirrorMapSource* source)
     maniBuilder* builder = NewBuilder(NULL);
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &size) == mani_success,
           "built");
     maniDestroyBuilder(builder);
     return size;
@@ -128,7 +128,8 @@ static maniBuildResult ReadInto(const char* text, size_t* sizeOut)
     *sizeOut = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_read, sizeof s_read, sizeOut) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, sizeOut) == mani_success,
+              "copies");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -185,8 +186,8 @@ static void TestMinimal(void)
               memcmp(s_text, kMinimal, size) == 0,
           "empty lists on one line");
     (void)Map();
-    s_reference[kHead] = maniSkeletonRest(&s_skeleton, kHead);
-    s_reference[kArmR] = maniSkeletonRest(&s_skeleton, kArmR);
+    s_reference[kHead] = maniSkeleton_GetRest(&s_skeleton, kHead);
+    s_reference[kArmR] = maniSkeleton_GetRest(&s_skeleton, kArmR);
     source.reference = s_reference;
     size = Write(&source, &r);
     CHECK(r.result == mani_success && size == sizeof kMinimal - 1 &&
@@ -249,7 +250,7 @@ static void TestReadRefusals(void)
           "no builder");
     CHECK(maniBuildMirrorMapJson(builder, NULL, 1, &s_skeleton).result == mani_errorInvalid &&
               maniBuildMirrorMapJson(builder, "", 0, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 2,
+              maniBuilder_GetMisuse(builder) == 2,
           "misuses");
     maniDestroyBuilder(builder);
 }
@@ -266,7 +267,7 @@ static void TestWriteRefusals(void)
     CHECK(maniWriteMirrorMapJson(NULL, &source).result == mani_errorInvalid, "no builder");
     maniBuilder* builder = NewBuilder(NULL);
     CHECK(maniWriteMirrorMapJson(builder, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 1,
+              maniBuilder_GetMisuse(builder) == 1,
           "no source, a misuse");
     maniDestroyBuilder(builder);
 }

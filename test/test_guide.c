@@ -77,14 +77,14 @@ static void GuideSkeleton(void)
     // built.result; when refused, built.reason, built.item and built.other.
 
     size_t size = 0;
-    maniResult copied = maniCopyBuilt(builder, file, capacity, &size);   // file 16-byte aligned
+    maniResult copied = maniBuilder_CopyBuilt(builder, file, capacity, &size);   // file 16-byte aligned
     maniSkeleton skeleton;
     maniFileResult opened = maniOpenSkeleton(file, size, &skeleton);
     // opened.result; on mani_errorFormat, opened.offset is the first bad byte.
     // clang-format on
     CHECK(made == mani_success && built.result == mani_success && copied == mani_success &&
-              opened.result == mani_success && maniSkeletonBoneCount(&skeleton) == 3 &&
-              maniSkeletonFindBone(&skeleton, "head", 4) == 2,
+              opened.result == mani_success && maniSkeleton_GetBoneCount(&skeleton) == 3 &&
+              maniSkeleton_FindBone(&skeleton, "head", 4) == 2,
           "the skeleton snippet builds and opens three bones");
     s_builder = builder;
     s_skeleton = skeleton;
@@ -110,12 +110,12 @@ static void GuideClip(void)
                                  .duration = 1.0f};
     maniBuildResult clipBuilt = maniBuildClip(builder, &clipSource);
     size_t clipSize = 0;
-    maniResult clipCopied = maniCopyBuilt(builder, clipFile, clipCapacity, &clipSize);
+    maniResult clipCopied = maniBuilder_CopyBuilt(builder, clipFile, clipCapacity, &clipSize);
     maniClip clip;
     maniFileResult clipOpened = maniOpenClip(clipFile, clipSize, &clip);
     // clang-format on
     CHECK(clipBuilt.result == mani_success && clipCopied == mani_success &&
-              clipOpened.result == mani_success && maniClipDuration(&clip) == 1.0f,
+              clipOpened.result == mani_success && maniClip_GetDuration(&clip) == 1.0f,
           "the clip snippet builds and opens a second's turn");
     s_clip = clip;
 }
@@ -127,13 +127,13 @@ static void GuideSample(void)
     uint8_t* poseMemory = s_poseMemory[0];
     // clang-format off
     maniPose* pose = NULL;
-    maniResult ready = maniInitPose(&skeleton, poseMemory, maniPoseSize(&skeleton), &pose);
-    maniResult sampled = maniSampleClip(&clip, &skeleton, 0.5f, pose);   // half a second in
-    maniTransform spine = maniPoseLocal(pose, 1);
+    maniResult ready = maniInitPose(&skeleton, poseMemory, maniSkeleton_GetPoseSize(&skeleton), &pose);
+    maniResult sampled = maniClip_Sample(&clip, &skeleton, 0.5f, pose);   // half a second in
+    maniTransform spine = maniPose_GetLocal(pose, 1);
     // clang-format on
     // Halfway between no turn and 45 degrees about y, by normalized
     // linear interpolation: within a few thousandths of 22.5 degrees.
-    CHECK(maniPoseSize(&skeleton) <= sizeof s_poseMemory[0] && ready == mani_success &&
+    CHECK(maniSkeleton_GetPoseSize(&skeleton) <= sizeof s_poseMemory[0] && ready == mani_success &&
               sampled == mani_success && fabsf(spine.rotation.y - 0.19509032f) < 2e-3f &&
               spine.rotation.x == 0.0f,
           "the sampling snippet turns the spine half way");
@@ -150,14 +150,14 @@ static void GuideBlend(void)
                   mani_success &&
               maniInitPose(&s_skeleton, s_poseMemory[2], sizeof s_poseMemory[2], &running) ==
                   mani_success &&
-              maniSampleClip(&s_clip, &s_skeleton, 0.0f, walking) == mani_success &&
-              maniSampleClip(&s_clip, &s_skeleton, 1.0f, running) == mani_success,
+              maniClip_Sample(&s_clip, &s_skeleton, 0.0f, walking) == mani_success &&
+              maniClip_Sample(&s_clip, &s_skeleton, 1.0f, running) == mani_success,
           "two poses to blend");
     // clang-format off
     const maniBlendLayer layers[2] = {{walking, 0.25f, NULL}, {running, 0.75f, NULL}};
     maniResult blended = maniBlendPoses(&skeleton, layers, 2, 0.1f, pose);
     // clang-format on
-    maniQuat q = maniPoseLocal(pose, 1).rotation;
+    maniQuat q = maniPose_GetLocal(pose, 1).rotation;
     CHECK(blended == mani_success && q.y > 0.19509032f && q.y < 0.38268343f,
           "the blend snippet leans toward the running pose");
 }
@@ -167,12 +167,12 @@ static void GuideModel(void)
     maniSkeleton skeleton = s_skeleton;
     maniPose* pose = s_pose;
     // clang-format off
-    maniResult composed = maniComputeModel(pose, &skeleton);
-    maniAffine head = maniPoseModel(pose, 2);   // the head in model space
+    maniResult composed = maniPose_ComputeModel(pose, &skeleton);
+    maniAffine head = maniPose_GetModel(pose, 2);   // the head in model space
     // clang-format on
     // The head 0.4 above a spine 1.2 high: 1.6 up whatever its turn
     // about y.
-    CHECK(composed == mani_success && maniPoseModelCurrent(pose) &&
+    CHECK(composed == mani_success && maniPose_IsModelCurrent(pose) &&
               fabsf(head.m[10] - 1.6f) < 1e-6f,
           "the model snippet places the head");
 }
@@ -194,7 +194,7 @@ static void GuideSkin(void)
     maniSkinSource skinSource = {&skeleton, joints, inverseBinds, 2};
     maniBuildResult skinBuilt = maniBuildSkin(builder, &skinSource);
     size_t skinSize = 0;
-    maniResult skinCopied = maniCopyBuilt(builder, skinFile, skinCapacity, &skinSize);
+    maniResult skinCopied = maniBuilder_CopyBuilt(builder, skinFile, skinCapacity, &skinSize);
     maniSkin skin;
     maniFileResult skinOpened = maniOpenSkin(skinFile, skinSize, &skin);
 
@@ -206,18 +206,18 @@ static void GuideSkin(void)
     maniBuildResult influencesBuilt = maniBuildInfluences(builder, &influenceSource);
     size_t influencesSize = 0;
     maniResult influencesCopied =
-        maniCopyBuilt(builder, influencesFile, influencesCapacity, &influencesSize);
+        maniBuilder_CopyBuilt(builder, influencesFile, influencesCapacity, &influencesSize);
     maniInfluences influences;
     maniFileResult influencesOpened = maniOpenInfluences(influencesFile, influencesSize, &influences);
     // clang-format on
     CHECK(skinBuilt.result == mani_success && skinCopied == mani_success &&
               skinOpened.result == mani_success && influencesBuilt.result == mani_success &&
               influencesCopied == mani_success && influencesOpened.result == mani_success &&
-              maniInfluencesVertexCount(&influences) == 2,
+              maniInfluences_GetVertexCount(&influences) == 2,
           "the skin snippet builds a skin and its influences");
     // clang-format off
     maniAffine palette[2];
-    maniResult paletted = maniComputePalette(pose, &skeleton, &skin, palette, 2, NULL);
+    maniResult paletted = maniPose_ComputePalette(pose, &skeleton, &skin, palette, 2, NULL);
     const float positions[6] = {0.1f, 1.3f, 0.0f, 0.1f, 1.5f, 0.0f};
     float moved[6];
     const maniSkinStream stream = {positions, moved, 12, 12, maniStreamPoint};
@@ -256,40 +256,42 @@ static void GuideGraph(void)
     maniGraphNamedAssets named = {&skeleton, graphClips, NULL, NULL, NULL, 1, 0, 0, 0, NULL};
     maniBuildResult graphBuilt = maniBuildGraphJson(builder, graphText, sizeof graphText - 1, &named);
     size_t graphSize = 0;
-    maniResult graphCopied = maniCopyBuilt(builder, graphFile, graphCapacity, &graphSize);
+    maniResult graphCopied = maniBuilder_CopyBuilt(builder, graphFile, graphCapacity, &graphSize);
     maniGraph graph;
     maniFileResult graphOpened = maniOpenGraph(graphFile, graphSize, &graph);
     // clang-format on
     CHECK(graphBuilt.result == mani_success && graphCopied == mani_success &&
-              graphOpened.result == mani_success && maniGraphNodeCount(&graph) == 3,
+              graphOpened.result == mani_success && maniGraph_GetNodeCount(&graph) == 3,
           "the graph snippet builds a machine of two clips");
     // clang-format off
     const maniClip* clips[1] = {&clip};
     maniGraphAssets assets = {.skeleton = &skeleton, .clips = clips, .clipCount = 1};
     maniGraphBinding* binding = NULL;
     maniResult bound =
-        maniBindGraph(&graph, &assets, bindingMemory, maniGraphBindingSize(&graph), &binding, NULL);
+        maniBindGraph(&graph, &assets, bindingMemory, maniGraph_GetBindingSize(&graph), &binding, NULL);
     maniGraphInstance* instance = NULL;
     maniResult started =
-        maniInitGraphInstance(binding, instanceMemory, maniGraphInstanceSize(binding), &instance);
+        maniInitGraphInstance(binding, instanceMemory, maniGraphBinding_GetInstanceSize(binding), &instance);
     // clang-format on
-    CHECK(maniGraphBindingSize(&graph) <= sizeof s_bindingMemory && bound == mani_success &&
-              maniGraphInstanceSize(binding) <= sizeof s_instanceMemory && started == mani_success,
+    CHECK(maniGraph_GetBindingSize(&graph) <= sizeof s_bindingMemory && bound == mani_success &&
+              maniGraphBinding_GetInstanceSize(binding) <= sizeof s_instanceMemory &&
+              started == mani_success,
           "the binding snippet makes an instance");
     // clang-format off
-    uint32_t go = maniGraphFindParameter(&graph, "go", 2);
+    uint32_t go = maniGraph_FindParameter(&graph, "go", 2);
     maniResult fired =
-        maniSetGraphParameter(instance, go, maniGraphParameterTrigger, (maniGraphValue){.b = 1});
+        maniGraphInstance_SetParameter(instance, go, maniGraphParameterTrigger, (maniGraphValue){.b = 1});
     maniGraphEvent events[8];
     uint32_t eventCount = 0;
     maniRootMove move;
-    maniResult updated = maniUpdateGraph(instance, 1.0f / 60.0f, events, 8, &eventCount, &move);
-    maniResult evaluated = maniEvaluateGraph(instance, scratch, maniGraphScratchSize(binding), pose);
+    maniResult updated = maniGraphInstance_Update(instance, 1.0f / 60.0f, events, 8, &eventCount, &move);
+    maniResult evaluated = maniGraphInstance_Evaluate(instance, scratch, maniGraphBinding_GetScratchSize(binding), pose);
     // clang-format on
     maniGraphNodeView view;
-    CHECK(maniGraphScratchSize(binding) <= sizeof s_scratch && fired == mani_success &&
+    CHECK(maniGraphBinding_GetScratchSize(binding) <= sizeof s_scratch && fired == mani_success &&
               updated == mani_success && evaluated == mani_success && eventCount == 0 &&
-              maniInspectGraphNode(instance, maniGraphOutputNode(&graph), &view) == mani_success &&
+              maniGraphInstance_InspectNode(instance, maniGraph_GetOutputNode(&graph), &view) ==
+                  mani_success &&
               view.current == 1 && view.transition == 0,
           "the frame snippet fires the transition and evaluates");
     (void)move;
@@ -310,10 +312,11 @@ static void GuideIk(void)
                                     .soften = 1.0f,
                                     .weight = 1.0f};
     bool reached = false;
-    maniResult solved = maniSolveTwoBone(pose, &skeleton, &reach, &reached);
+    maniResult solved = maniPose_SolveTwoBone(pose, &skeleton, &reach, &reached);
     // clang-format on
-    maniAffine head = maniComputeModel(pose, &skeleton) == mani_success ? maniPoseModel(pose, 2)
-                                                                        : (maniAffine){{0}};
+    maniAffine head = maniPose_ComputeModel(pose, &skeleton) == mani_success
+                          ? maniPose_GetModel(pose, 2)
+                          : (maniAffine){{0}};
     CHECK(solved == mani_success && reached && fabsf(head.m[9] - 0.3f) < 1e-5f &&
               fabsf(head.m[10] - 1.5f) < 1e-5f && fabsf(head.m[11]) < 1e-5f,
           "the IK snippet puts the head on its goal");
@@ -326,15 +329,16 @@ static void Tall(maniSkeleton* tall)
     for (uint32_t b = 0; b < 3; ++b)
     {
         size_t length = 0;
-        const char* name = maniSkeletonBoneName(&s_skeleton, b, &length);
-        maniTransform rest = maniSkeletonRest(&s_skeleton, b);
+        const char* name = maniSkeleton_GetBoneName(&s_skeleton, b, &length);
+        maniTransform rest = maniSkeleton_GetRest(&s_skeleton, b);
         rest.translation.y *= 2.0f;
         bones[b] = (maniBoneSource){name, length, b == 0 ? -1 : (int32_t)b - 1, rest};
     }
     maniSkeletonSource source = {bones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(s_builder, &source).result == mani_success &&
-              maniCopyBuilt(s_builder, s_tallFile, sizeof s_tallFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(s_builder, s_tallFile, sizeof s_tallFile, &size) ==
+                  mani_success &&
               maniOpenSkeleton(s_tallFile, size, tall).result == mani_success,
           "a tall rig");
 }
@@ -354,21 +358,21 @@ static void GuideRetarget(void)
     uint8_t* retargetScratch = s_scratch;
     uint8_t* mirrorFile = s_mirrorFile;
     size_t mirrorCapacity = sizeof s_mirrorFile;
-    maniQuat before = maniPoseLocal(pose, 1).rotation;
+    maniQuat before = maniPose_GetLocal(pose, 1).rotation;
     // clang-format off
     maniRetargetMapSource retargetSource = {.source = &skeleton, .target = &tall, .matchNames = true};
     maniBuildResult mapBuilt = maniBuildRetargetMap(builder, &retargetSource);
     size_t mapSize = 0;
-    maniResult mapCopied = maniCopyBuilt(builder, mapFile, mapCapacity, &mapSize);
+    maniResult mapCopied = maniBuilder_CopyBuilt(builder, mapFile, mapCapacity, &mapSize);
     maniRetargetMap map;
     maniFileResult mapOpened = maniOpenRetargetMap(mapFile, mapSize, &map);
-    maniResult carried = maniRetargetPose(&map, &skeleton, pose, &tall, tallPose, retargetScratch,
-                                          maniRetargetScratchSize(&map));
+    maniResult carried = maniRetargetMap_RetargetPose(&map, &skeleton, pose, &tall, tallPose, retargetScratch,
+                                          maniRetargetMap_GetScratchSize(&map));
     // clang-format on
-    maniQuat after = maniPoseLocal(tallPose, 1).rotation;
+    maniQuat after = maniPose_GetLocal(tallPose, 1).rotation;
     CHECK(mapBuilt.result == mani_success && mapCopied == mani_success &&
               mapOpened.result == mani_success &&
-              maniRetargetScratchSize(&map) <= sizeof s_scratch && carried == mani_success &&
+              maniRetargetMap_GetScratchSize(&map) <= sizeof s_scratch && carried == mani_success &&
               fabsf(before.x * after.x + before.y * after.y + before.z * after.z +
                     before.w * after.w) > 1.0f - 1e-6f,
           "the retargeting snippet carries the spine's turn to the tall rig");
@@ -379,17 +383,17 @@ static void GuideRetarget(void)
         .skeleton = &skeleton, .rules = sides, .ruleCount = 2, .axis = maniMirrorAxisX};
     maniBuildResult mirrorBuilt = maniBuildMirrorMap(builder, &mirrorSource);
     size_t mirrorSize = 0;
-    maniResult mirrorCopied = maniCopyBuilt(builder, mirrorFile, mirrorCapacity, &mirrorSize);
+    maniResult mirrorCopied = maniBuilder_CopyBuilt(builder, mirrorFile, mirrorCapacity, &mirrorSize);
     maniMirrorMap mirror;
     maniFileResult mirrorOpened = maniOpenMirrorMap(mirrorFile, mirrorSize, &mirror);
-    maniResult mirrored = maniMirrorPose(&mirror, &skeleton, pose, pose);   // in place
+    maniResult mirrored = maniMirrorMap_MirrorPose(&mirror, &skeleton, pose, pose);   // in place
     // clang-format on
     // No bone has a partner: each mirrors itself across x, so the spine's
     // turn about y reverses.
-    maniQuat back = maniPoseLocal(pose, 1).rotation;
+    maniQuat back = maniPose_GetLocal(pose, 1).rotation;
     CHECK(mirrorBuilt.result == mani_success && mirrorCopied == mani_success &&
               mirrorOpened.result == mani_success && mirrored == mani_success &&
-              maniMirrorPartner(&mirror, 1) == 1 && fabsf(back.y + before.y) < 1e-6f,
+              maniMirrorMap_GetPartner(&mirror, 1) == 1 && fabsf(back.y + before.y) < 1e-6f,
           "the mirror snippet reflects the pose");
 }
 

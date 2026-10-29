@@ -69,7 +69,8 @@ static bool Data(maniTrainData* d)
 static const maniTrainSoloShape kShape = {LATENT, 12, 2, 8, 4, 0};
 
 // A host that runs ranges of one item, last first.
-static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Backwards(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                       void* user)
 {
     (void)minRange;
     (void)user;
@@ -619,7 +620,7 @@ static void TestProjectorNoJump(void)
     size_t size = 0;
     maniMotionDatabase database;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenMotionDatabase(file, size, &database).result == mani_success,
           "a database of a run no jump reaches");
     maniDestroyBuilder(builder);

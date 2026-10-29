@@ -30,7 +30,7 @@ static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
     {
         return mani_errorInvalid;
     }
-    uint32_t bones = maniSkeletonBoneCount(skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(skeleton);
     for (uint32_t i = 0; i < count; ++i)
     {
         if (chains[i].bone >= bones || !Usable(chains[i].weight))
@@ -58,7 +58,7 @@ static MANI_NOINLINE maniResult BuildMaskWork(const maniSkeleton* skeleton,
     // Parents come first, so each bone finds its parent's weight settled.
     for (uint32_t b = 0; b < bones; ++b)
     {
-        uint32_t parent = maniSkeletonParent(skeleton, b);
+        uint32_t parent = maniSkeleton_GetParent(skeleton, b);
         float inherited = parent == MANI_NO_BONE ? defaultWeight : weights[parent];
         weights[b] = weights[b] < 0.0f ? inherited : weights[b];
     }

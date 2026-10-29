@@ -116,7 +116,8 @@ static void OpenSkeleton(void)
     maniSkeletonSource source = {kBones, 4};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+    CHECK(maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              mani_success,
           "copies");
     maniDestroyBuilder(builder);
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
@@ -155,7 +156,8 @@ static maniBuildResult BuildFrom(const maniClipSource* source)
     maniBuildResult r = maniBuildClip(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+              "copies");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -179,7 +181,7 @@ static maniPose* SampleAt(const maniClip* clip, float time)
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
           "pose");
-    CHECK(maniSampleClip(clip, &s_skeleton, time, pose) == mani_success, "samples");
+    CHECK(maniClip_Sample(clip, &s_skeleton, time, pose) == mani_success, "samples");
     return pose;
 }
 
@@ -200,11 +202,11 @@ static void TestHeader(void)
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
-    CHECK(maniClipDuration(&clip) == 1.0f, "duration from the last key");
-    CHECK(maniClipSampleRate(&clip) == 10.0f, "rate");
-    CHECK(maniClipSampleCount(&clip) == 11, "samples");
-    CHECK(maniClipLoopPolicy(&clip) == maniLoopRepeat, "loop");
-    CHECK(maniClipSkeletonIdentity(&clip) == maniSkeletonIdentity(&s_skeleton), "bound");
+    CHECK(maniClip_GetDuration(&clip) == 1.0f, "duration from the last key");
+    CHECK(maniClip_GetSampleRate(&clip) == 10.0f, "rate");
+    CHECK(maniClip_GetSampleCount(&clip) == 11, "samples");
+    CHECK(maniClip_GetLoopPolicy(&clip) == maniLoopRepeat, "loop");
+    CHECK(maniClip_GetSkeletonIdentity(&clip) == maniSkeleton_GetIdentity(&s_skeleton), "bound");
 }
 
 static void TestLinearAndRest(void)
@@ -216,7 +218,7 @@ static void TestLinearAndRest(void)
     {
         float time = 0.05f * (float)k;
         maniPose* pose = SampleAt(&clip, time);
-        maniTransform a = maniPoseLocal(pose, 1);
+        maniTransform a = maniPose_GetLocal(pose, 1);
         // Piecewise linear source on a grid that contains its keys: exact
         // up to rounding everywhere.
         double t = (double)time;
@@ -224,7 +226,7 @@ static void TestLinearAndRest(void)
         double z = t <= 0.5 ? 6.0 * t : 3.0 - 4.0 * (t - 0.5);
         CHECK(Near(a.translation.x, x, 2e-6) && Near(a.translation.z, z, 2e-6), "linear");
         CHECK(a.rotation.w == 1.0f && a.scale.x == 1.0f, "rest channels");
-        maniTransform c = maniPoseLocal(pose, 3);
+        maniTransform c = maniPose_GetLocal(pose, 3);
         CHECK(c.translation.x == 0.5f && c.rotation.w == 1.0f, "an unanimated bone at rest");
     }
 }
@@ -239,7 +241,7 @@ static void TestSlerpAtSamples(void)
     {
         // At sample times, glTF's slerp: a turn of 90 t degrees about z.
         float time = (float)k / 10.0f;
-        maniTransform r = maniPoseLocal(SampleAt(&clip, time), 2);
+        maniTransform r = maniPose_GetLocal(SampleAt(&clip, time), 2);
         double half = 0.25 * 3.14159265358979323846 * (double)time;
         CHECK(Near(r.rotation.z, sin(half), 2e-7) && Near(r.rotation.w, cos(half), 2e-7),
               "slerp at a sample");
@@ -247,7 +249,7 @@ static void TestSlerpAtSamples(void)
         float mid = time + 0.05f;
         if (k < 10)
         {
-            maniTransform m = maniPoseLocal(SampleAt(&clip, mid), 2);
+            maniTransform m = maniPose_GetLocal(SampleAt(&clip, mid), 2);
             double h = 0.25 * 3.14159265358979323846 * (double)mid;
             worstMid = fmax(worstMid, fabs((double)m.rotation.z - sin(h)));
         }
@@ -263,7 +265,7 @@ static void TestCubicAtSamples(void)
     for (int k = 0; k <= 10; ++k)
     {
         float time = (float)k / 10.0f;
-        maniTransform r = maniPoseLocal(SampleAt(&clip, time), 2);
+        maniTransform r = maniPose_GetLocal(SampleAt(&clip, time), 2);
         double u = (double)time;
         double h00 = 2 * u * u * u - 3 * u * u + 1;
         double h10 = u * u * u - 2 * u * u + u;
@@ -286,15 +288,15 @@ static void TestStepAndClamp(void)
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     // The step key at 0.55 lands between the samples at 0.5 and 0.6:
     // sample 0.5 holds 0, sample 0.6 holds 5.
-    CHECK(maniPoseLocal(SampleAt(&clip, 0.5f), 0).translation.y == 0.0f, "before the step");
-    CHECK(maniPoseLocal(SampleAt(&clip, 0.6f), 0).translation.y == 5.0f, "after the step");
-    maniTransform before = maniPoseLocal(SampleAt(&clip, 0.0f), 1);
-    maniTransform early = maniPoseLocal(SampleAt(&clip, -3.0f), 1);
-    maniTransform nan = maniPoseLocal(SampleAt(&clip, NAN), 1);
+    CHECK(maniPose_GetLocal(SampleAt(&clip, 0.5f), 0).translation.y == 0.0f, "before the step");
+    CHECK(maniPose_GetLocal(SampleAt(&clip, 0.6f), 0).translation.y == 5.0f, "after the step");
+    maniTransform before = maniPose_GetLocal(SampleAt(&clip, 0.0f), 1);
+    maniTransform early = maniPose_GetLocal(SampleAt(&clip, -3.0f), 1);
+    maniTransform nan = maniPose_GetLocal(SampleAt(&clip, NAN), 1);
     CHECK(memcmp(&before, &early, sizeof before) == 0, "clamped below");
     CHECK(memcmp(&before, &nan, sizeof before) == 0, "NaN is 0");
-    maniTransform end = maniPoseLocal(SampleAt(&clip, 1.0f), 1);
-    maniTransform late = maniPoseLocal(SampleAt(&clip, 9.0f), 1);
+    maniTransform end = maniPose_GetLocal(SampleAt(&clip, 1.0f), 1);
+    maniTransform late = maniPose_GetLocal(SampleAt(&clip, 9.0f), 1);
     CHECK(memcmp(&end, &late, sizeof end) == 0, "clamped above");
     CHECK(end.translation.x == 3.0f && end.translation.z == 1.0f, "the last key");
 }
@@ -314,8 +316,8 @@ static void TestFactorClamped(void)
     CHECK(BuildFrom(&source).result == mani_success, "builds");
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    float at = maniPoseLocal(SampleAt(&clip, 3.88f), 1).translation.x;
-    float before = maniPoseLocal(SampleAt(&clip, 3.87999988f), 1).translation.x;
+    float at = maniPose_GetLocal(SampleAt(&clip, 3.88f), 1).translation.x;
+    float before = maniPose_GetLocal(SampleAt(&clip, 3.87999988f), 1).translation.x;
     CHECK(before == at, "no extrapolation below a sample");
 }
 
@@ -335,16 +337,17 @@ static void TestDurationAndRate(void)
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     // 30 per second over 0.95 s: 28.5 intervals, so 29, and 30 samples,
     // the last at 0.95.
-    CHECK(maniClipSampleRate(&clip) == 30.0f && maniClipSampleCount(&clip) == 30, "default rate");
-    maniTransform last = maniPoseLocal(SampleAt(&clip, 0.95f), 1);
+    CHECK(maniClip_GetSampleRate(&clip) == 30.0f && maniClip_GetSampleCount(&clip) == 30,
+          "default rate");
+    maniTransform last = maniPose_GetLocal(SampleAt(&clip, 0.95f), 1);
     CHECK(Near(last.translation.x, 1.0 + 4.0 * 0.45, 2e-6), "the last sample at the duration");
 
     source.boneTrackCount = 0;
     source.duration = 0.0f;
     CHECK(BuildFrom(&source).result == mani_success, "no tracks");
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    CHECK(maniClipSampleCount(&clip) == 1 && maniClipDuration(&clip) == 0.0f, "one sample");
-    maniTransform rest = maniPoseLocal(SampleAt(&clip, 0.3f), 1);
+    CHECK(maniClip_GetSampleCount(&clip) == 1 && maniClip_GetDuration(&clip) == 0.0f, "one sample");
+    maniTransform rest = maniPose_GetLocal(SampleAt(&clip, 0.3f), 1);
     CHECK(rest.translation.x == 0.5f, "every bone at rest");
 }
 
@@ -353,22 +356,22 @@ static void TestFloatTracks(void)
     BuildSample();
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    CHECK(maniClipFloatTrackCount(&clip) == 3, "three float tracks");
-    uint32_t ramp = maniClipFindFloatTrack(&clip, "ramp", 4);
-    uint32_t gate = maniClipFindFloatTrack(&clip, "gate", 4);
-    uint32_t wave = maniClipFindFloatTrack(&clip, "wave", 4);
+    CHECK(maniClip_GetFloatTrackCount(&clip) == 3, "three float tracks");
+    uint32_t ramp = maniClip_FindFloatTrack(&clip, "ramp", 4);
+    uint32_t gate = maniClip_FindFloatTrack(&clip, "gate", 4);
+    uint32_t wave = maniClip_FindFloatTrack(&clip, "wave", 4);
     CHECK(ramp != MANI_NO_TRACK && gate != MANI_NO_TRACK && wave != MANI_NO_TRACK, "found");
-    CHECK(maniClipFindFloatTrack(&clip, "foot", 4) == MANI_NO_TRACK, "not a float track");
+    CHECK(maniClip_FindFloatTrack(&clip, "foot", 4) == MANI_NO_TRACK, "not a float track");
     size_t length = 0;
-    const char* name = maniClipFloatTrackName(&clip, gate, &length);
+    const char* name = maniClip_GetFloatTrackName(&clip, gate, &length);
     CHECK(length == 4 && memcmp(name, "gate", 4) == 0, "its name");
-    CHECK(maniClipFloatTrackName(&clip, 3, &length) == NULL && length == 0, "name past");
+    CHECK(maniClip_GetFloatTrackName(&clip, 3, &length) == NULL && length == 0, "name past");
     float values[3];
     uint32_t count = 0;
     for (int k = 0; k <= 20; ++k)
     {
         float time = 0.05f * (float)k;
-        CHECK(maniSampleClipFloats(&clip, time, values, 3, &count) == mani_success && count == 3,
+        CHECK(maniClip_SampleFloats(&clip, time, values, 3, &count) == mani_success && count == 3,
               "samples");
         CHECK(Near(values[ramp], 2.0 * (double)time, 2e-6), "linear");
         // The step key at 0.3f, a float just past 0.3, lands on the first
@@ -380,14 +383,14 @@ static void TestFloatTracks(void)
     for (int k = 0; k <= 10; ++k)
     {
         float time = (float)k / 10.0f;
-        CHECK(maniSampleClipFloats(&clip, time, values, 3, NULL) == mani_success, "samples");
+        CHECK(maniClip_SampleFloats(&clip, time, values, 3, NULL) == mani_success, "samples");
         double u = (double)time;
         double expected = (u * u * u - 2 * u * u + u) * 4 + (-2 * u * u * u + 3 * u * u);
         CHECK(Near(values[wave], expected, 1e-6), "cubic");
     }
-    CHECK(maniSampleClipFloats(&clip, 0.5f, values, 2, &count) == mani_errorCapacity && count == 3,
+    CHECK(maniClip_SampleFloats(&clip, 0.5f, values, 2, &count) == mani_errorCapacity && count == 3,
           "short array");
-    CHECK(maniSampleClipFloats(&clip, 0.5f, NULL, 1, NULL) == mani_errorInvalid, "null array");
+    CHECK(maniClip_SampleFloats(&clip, 0.5f, NULL, 1, NULL) == mani_errorInvalid, "null array");
 }
 
 static void TestDiscreteTracks(void)
@@ -395,19 +398,19 @@ static void TestDiscreteTracks(void)
     BuildSample();
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    CHECK(maniClipDiscreteTrackCount(&clip) == 2, "two discrete tracks");
-    uint32_t foot = maniClipFindDiscreteTrack(&clip, "foot", 4);
-    uint32_t state = maniClipFindDiscreteTrack(&clip, "state", 5);
+    CHECK(maniClip_GetDiscreteTrackCount(&clip) == 2, "two discrete tracks");
+    uint32_t foot = maniClip_FindDiscreteTrack(&clip, "foot", 4);
+    uint32_t state = maniClip_FindDiscreteTrack(&clip, "state", 5);
     CHECK(foot != MANI_NO_TRACK && state != MANI_NO_TRACK, "found");
-    CHECK(maniClipDiscreteValue(&clip, foot, 0.0f) == 1, "first key");
-    CHECK(maniClipDiscreteValue(&clip, foot, 0.39f) == 1, "held");
-    CHECK(maniClipDiscreteValue(&clip, foot, 0.4f) == 2, "at a key");
-    CHECK(maniClipDiscreteValue(&clip, foot, 0.9f) == 1, "after the last");
-    CHECK(maniClipDiscreteValue(&clip, state, 0.1f) == 7, "before the first key, the first");
-    CHECK(maniClipDiscreteValue(&clip, foot, NAN) == 1, "NaN is 0");
-    CHECK(maniClipDiscreteValue(&clip, 2, 0.5f) == 0, "a track past the count");
+    CHECK(maniClip_GetDiscreteValue(&clip, foot, 0.0f) == 1, "first key");
+    CHECK(maniClip_GetDiscreteValue(&clip, foot, 0.39f) == 1, "held");
+    CHECK(maniClip_GetDiscreteValue(&clip, foot, 0.4f) == 2, "at a key");
+    CHECK(maniClip_GetDiscreteValue(&clip, foot, 0.9f) == 1, "after the last");
+    CHECK(maniClip_GetDiscreteValue(&clip, state, 0.1f) == 7, "before the first key, the first");
+    CHECK(maniClip_GetDiscreteValue(&clip, foot, NAN) == 1, "NaN is 0");
+    CHECK(maniClip_GetDiscreteValue(&clip, 2, 0.5f) == 0, "a track past the count");
     size_t length = 0;
-    CHECK(maniClipDiscreteTrackName(&clip, state, &length) != NULL && length == 5, "its name");
+    CHECK(maniClip_GetDiscreteTrackName(&clip, state, &length) != NULL && length == 5, "its name");
 }
 
 static void TestEventsAndMarkers(void)
@@ -415,33 +418,33 @@ static void TestEventsAndMarkers(void)
     BuildSample();
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    CHECK(maniClipEventCount(&clip) == 4 && maniClipMarkerCount(&clip) == 2, "counts");
+    CHECK(maniClip_GetEventCount(&clip) == 4 && maniClip_GetMarkerCount(&clip) == 2, "counts");
     // By time, the tie at 0.5 in source order: breath, step, sound, end.
     static const int32_t payloads[4] = {12, 11, 13, 14};
     for (uint32_t i = 0; i < 4; ++i)
     {
-        CHECK(maniClipEventAt(&clip, i).payload == payloads[i], "in time order");
+        CHECK(maniClip_GetEvent(&clip, i).payload == payloads[i], "in time order");
     }
-    maniClipEvent step = maniClipEventAt(&clip, 1);
+    maniClipEvent step = maniClip_GetEvent(&clip, 1);
     CHECK(step.time == 0.5f && step.nameLength == 4 && memcmp(step.name, "step", 4) == 0,
           "an event's fields");
-    CHECK(maniClipEventAt(&clip, 4).name == NULL, "an event past the count");
+    CHECK(maniClip_GetEvent(&clip, 4).name == NULL, "an event past the count");
     uint32_t first = 0;
     uint32_t count = 0;
-    maniClipEventRange(&clip, 0.2f, 0.5f, &first, &count);
+    maniClip_GetEventRange(&clip, 0.2f, 0.5f, &first, &count);
     CHECK(first == 0 && count == 1, "forward includes from, not to");
-    maniClipEventRange(&clip, 0.5f, 1.0f, &first, &count);
+    maniClip_GetEventRange(&clip, 0.5f, 1.0f, &first, &count);
     CHECK(first == 1 && count == 2, "forward from the tie");
-    maniClipEventRange(&clip, 1.0f, 0.5f, &first, &count);
+    maniClip_GetEventRange(&clip, 1.0f, 0.5f, &first, &count);
     CHECK(first == 3 && count == 1, "backward includes from, not to");
-    maniClipEventRange(&clip, 0.5f, 0.2f, &first, &count);
+    maniClip_GetEventRange(&clip, 0.5f, 0.2f, &first, &count);
     CHECK(first == 1 && count == 2, "backward over the tie");
-    maniClipEventRange(&clip, 0.5f, 0.5f, &first, &count);
+    maniClip_GetEventRange(&clip, 0.5f, 0.5f, &first, &count);
     CHECK(count == 0, "no move, no events");
-    maniClipEventRange(&clip, NAN, 0.5f, &first, &count);
+    maniClip_GetEventRange(&clip, NAN, 0.5f, &first, &count);
     CHECK(count == 0, "NaN, no events");
-    maniClipEvent left = maniClipMarkerAt(&clip, 0);
-    maniClipEvent right = maniClipMarkerAt(&clip, 1);
+    maniClipEvent left = maniClip_GetMarker(&clip, 0);
+    maniClipEvent right = maniClip_GetMarker(&clip, 1);
     CHECK(left.time == 0.0f && memcmp(left.name, "left", 4) == 0, "markers by time");
     CHECK(right.time == 0.4f && right.payload == 0, "a marker's payload is 0");
 }
@@ -489,7 +492,7 @@ static void TestWholeFrameDurations(void)
     CHECK(BuildFrom(&source).result == mani_success, "builds");
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    CHECK(maniClipSampleCount(&clip) == 16, "0.6 s at 25: 16 samples, not 17");
+    CHECK(maniClip_GetSampleCount(&clip) == 16, "0.6 s at 25: 16 samples, not 17");
 }
 
 // The scale channel's Hermite curve (v0 1 1 1, out-tangent 2 0 -1; v1
@@ -539,7 +542,7 @@ static maniClipReport Report(const maniClipSource* source)
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     maniBuilder* builder = NewBuilder();
-    CHECK(maniMeasureClip(builder, source, &clip, &report) == mani_success, "measures");
+    CHECK(maniBuilder_MeasureClip(builder, source, &clip, &report) == mani_success, "measures");
     maniDestroyBuilder(builder);
     return report;
 }
@@ -582,22 +585,28 @@ static void TestReport(void)
     maniBuilder* builder = NewBuilder();
     maniClipReport report;
     source = SampleSource();
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid, "another rate");
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
+          "another rate");
     source.sampleRate = 40.0f;
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_success, "the clip's rate");
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_success,
+          "the clip's rate");
     source.floatTrackCount = 0;
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_success,
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_success,
           "a source's float tracks may be fewer");
     source = SampleSource();
     source.sampleRate = 40.0f;
     source.loop = 5;
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
           "a source the build refuses");
-    CHECK(maniMeasureClip(builder, NULL, &clip, &report) == mani_errorInvalid, "null source");
-    CHECK(maniMeasureClip(builder, &source, NULL, &report) == mani_errorInvalid, "null clip");
-    CHECK(maniMeasureClip(builder, &source, &clip, NULL) == mani_errorInvalid, "null report");
-    CHECK(maniBuilderMisuses(builder) == 3, "misuses");
-    CHECK(maniMeasureClip(NULL, &source, &clip, &report) == mani_errorInvalid, "null builder");
+    CHECK(maniBuilder_MeasureClip(builder, NULL, &clip, &report) == mani_errorInvalid,
+          "null source");
+    CHECK(maniBuilder_MeasureClip(builder, &source, NULL, &report) == mani_errorInvalid,
+          "null clip");
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, NULL) == mani_errorInvalid,
+          "null report");
+    CHECK(maniBuilder_GetMisuse(builder) == 3, "misuses");
+    CHECK(maniBuilder_MeasureClip(NULL, &source, &clip, &report) == mani_errorInvalid,
+          "null builder");
     maniDestroyBuilder(builder);
     // A clip without the source's float tracks.
     source = SampleSource();
@@ -606,7 +615,7 @@ static void TestReport(void)
     CHECK(BuildFrom(&bare).result == mani_success, "builds");
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     builder = NewBuilder();
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
           "a float track the clip lacks");
     maniDestroyBuilder(builder);
 }
@@ -626,7 +635,7 @@ static void TestHemispheres(void)
     CHECK(BuildFrom(&source).result == mani_success, "builds");
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    maniTransform r = maniPoseLocal(SampleAt(&clip, 0.5f), 2);
+    maniTransform r = maniPose_GetLocal(SampleAt(&clip, 0.5f), 2);
     double half = 0.25 * 3.14159265358979323846 * 0.5;
     CHECK(Near(fabsf(r.rotation.z), sin(half), 2e-7) && Near(fabsf(r.rotation.w), cos(half), 2e-7),
           "the short way");
@@ -635,11 +644,11 @@ static void TestHemispheres(void)
     track.rotation = (maniChannelSource){times, steps, 2, maniInterpolationStep};
     CHECK(BuildFrom(&source).result == mani_success, "builds");
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    maniTransform last = maniPoseLocal(SampleAt(&clip, 1.0f), 2);
+    maniTransform last = maniPose_GetLocal(SampleAt(&clip, 1.0f), 2);
     CHECK(last.rotation.w > 0.0f, "kept on the previous sample's side");
     maniBuilder* builder = NewBuilder();
     maniClipReport report;
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_success, "measures");
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_success, "measures");
     CHECK(report.sampleRotation.error < 1e-6, "a flipped sign is no error");
     maniDestroyBuilder(builder);
 }
@@ -660,7 +669,7 @@ static void TestCubicSpan(void)
     {
         float value = 0.0f;
         float time = (float)k / 10.0f;
-        CHECK(maniSampleClipFloats(&clip, time, &value, 1, NULL) == mani_success, "samples");
+        CHECK(maniClip_SampleFloats(&clip, time, &value, 1, NULL) == mani_success, "samples");
         double u = (double)time / 0.5;
         double expected = (-2 * u * u * u + 3 * u * u) * 1 + 0.5 * (u * u * u - u * u) * 2;
         CHECK(Near(value, expected, 1e-6), "the in-tangent times the span");
@@ -682,19 +691,20 @@ static void TestNamedItemsAlone(void)
     CHECK(BuildFrom(&source).result == mani_success, "a track without channels builds");
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
-    CHECK(maniClipDuration(&clip) == 1.5f, "the duration from an event");
-    maniClipEvent first = maniClipEventAt(&clip, 0);
+    CHECK(maniClip_GetDuration(&clip) == 1.5f, "the duration from an event");
+    maniClipEvent first = maniClip_GetEvent(&clip, 0);
     CHECK(first.payload == 2 && first.time == 0.0f && !signbit(first.time), "-0 first, as 0");
-    CHECK(maniPoseLocal(SampleAt(&clip, 0.5f), 3).translation.x == 0.5f, "at rest");
+    CHECK(maniPose_GetLocal(SampleAt(&clip, 0.5f), 3).translation.x == 0.5f, "at rest");
     // The measure checks the rate, not only the count: 9.5 per second
     // over 1.5 s gives 16 samples, as 10 does.
     maniBuilder* builder = NewBuilder();
     maniClipReport report;
     source.sampleRate = 9.5f;
     uint32_t count = 0;
-    CHECK(maniClipSampleCountFor(1.5f, 9.5f, &count) && count == maniClipSampleCount(&clip),
+    CHECK(maniClipSampleCountFor(1.5f, 9.5f, &count) && count == maniClip_GetSampleCount(&clip),
           "the same count");
-    CHECK(maniMeasureClip(builder, &source, &clip, &report) == mani_errorInvalid, "another rate");
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
+          "another rate");
     maniDestroyBuilder(builder);
 }
 
@@ -711,15 +721,15 @@ static void TestWrongSkeleton(void)
     maniSkeletonSource source = {moved, 4};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, other, sizeof other, &size) == mani_success, "copies");
+    CHECK(maniBuilder_CopyBuilt(builder, other, sizeof other, &size) == mani_success, "copies");
     maniDestroyBuilder(builder);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(other, size, &skeleton).result == mani_success, "opens");
     static _Alignas(32) uint8_t memory[4096];
     maniPose* pose = NULL;
     CHECK(maniInitPose(&skeleton, memory, sizeof memory, &pose) == mani_success, "pose");
-    CHECK(maniSampleClip(&clip, &skeleton, 0.5f, pose) == mani_errorInvalid, "another skeleton");
-    CHECK(maniSampleClip(NULL, &skeleton, 0.5f, pose) == mani_errorInvalid, "null clip");
+    CHECK(maniClip_Sample(&clip, &skeleton, 0.5f, pose) == mani_errorInvalid, "another skeleton");
+    CHECK(maniClip_Sample(NULL, &skeleton, 0.5f, pose) == mani_errorInvalid, "null clip");
 }
 
 static void ExpectResult(const maniClipSource* source, maniResult result, maniBuildReason reason,
@@ -856,7 +866,7 @@ static void TestBuildRefusals(void)
 
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildClip(builder, NULL).result == mani_errorInvalid, "null source");
-    CHECK(maniBuilderMisuses(builder) == 1, "a misuse");
+    CHECK(maniBuilder_GetMisuse(builder) == 1, "a misuse");
     maniDestroyBuilder(builder);
 }
 
@@ -1020,13 +1030,13 @@ static void TestPinnedScene(void)
     {
         float time = -0.35f + 0.173f * (float)i;
         maniTransform locals[4];
-        CHECK(maniPoseReadLocals(SampleAt(&clip, time), 0, 4, locals) == mani_success, "reads");
+        CHECK(maniPose_ReadLocals(SampleAt(&clip, time), 0, 4, locals) == mani_success, "reads");
         hash = maniHash64(hash, locals, (int32_t)sizeof locals);
         float values[3];
-        CHECK(maniSampleClipFloats(&clip, time, values, 3, NULL) == mani_success, "floats");
+        CHECK(maniClip_SampleFloats(&clip, time, values, 3, NULL) == mani_success, "floats");
         hash = maniHash64(hash, values, (int32_t)sizeof values);
         maniRootMove move;
-        CHECK(maniClipRootMotion(&clip, time, 0.1f, &move) == mani_success, "root motion");
+        CHECK(maniClip_GetRootMotion(&clip, time, 0.1f, &move) == mani_success, "root motion");
         const float parts[7] = {move.translation.x, move.translation.y, move.translation.z,
                                 move.rotation.x,    move.rotation.y,    move.rotation.z,
                                 move.rotation.w};
@@ -1065,8 +1075,8 @@ static double PoseApart(const maniPose* a, const maniPose* b)
     double worst = 0.0;
     for (uint32_t bone = 0; bone < 4; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         float dot = x.rotation.x * y.rotation.x + x.rotation.y * y.rotation.y +
                     x.rotation.z * y.rotation.z + x.rotation.w * y.rotation.w;
         float s = dot < 0.0f ? -1.0f : 1.0f;
@@ -1096,7 +1106,7 @@ static void TestAdditiveClip(void)
     memcpy(s_plain, s_file, s_size);
     maniClip plain;
     CHECK(maniOpenClip(s_plain, s_size, &plain).result == mani_success, "opens the plain clip");
-    CHECK(maniClipAdditiveBasis(&plain) == maniAdditiveNone, "a clip of poses");
+    CHECK(maniClip_GetAdditiveBasis(&plain) == maniAdditiveNone, "a clip of poses");
     maniPose* p[3];
     for (int i = 0; i < 3; ++i)
     {
@@ -1112,38 +1122,38 @@ static void TestAdditiveClip(void)
         CHECK(BuildFrom(&source).result == mani_success, "builds an additive clip");
         maniClip clip;
         CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens it");
-        CHECK(maniClipAdditiveBasis(&clip) == bases[i], "its basis");
+        CHECK(maniClip_GetAdditiveBasis(&clip) == bases[i], "its basis");
         double worst = 0.0;
         bool identity = true;
         for (int k = 0; k < 6; ++k)
         {
-            CHECK(maniSampleClip(&plain, &s_skeleton, times[k], p[0]) == mani_success, "plain");
-            CHECK(maniSampleClip(&clip, &s_skeleton, times[k], p[1]) == mani_success, "additive");
-            CHECK(maniPoseIsDifference(p[1]), "samples a difference");
-            maniTransform t = maniPoseLocal(p[1], 3);
+            CHECK(maniClip_Sample(&plain, &s_skeleton, times[k], p[0]) == mani_success, "plain");
+            CHECK(maniClip_Sample(&clip, &s_skeleton, times[k], p[1]) == mani_success, "additive");
+            CHECK(maniPose_IsDifference(p[1]), "samples a difference");
+            maniTransform t = maniPose_GetLocal(p[1], 3);
             identity = identity && t.translation.x == 0.0f && t.rotation.w == 1.0f &&
                        t.scale.x == 1.0f && t.rotation.x == 0.0f;
             if (bases[i] == maniAdditiveRest)
             {
-                CHECK(maniPoseSetRest(p[2], &s_skeleton) == mani_success, "the rest");
+                CHECK(maniPose_SetRest(p[2], &s_skeleton) == mani_success, "the rest");
             }
             else
             {
-                CHECK(maniSampleClip(&plain, &s_skeleton, 0.0f, p[2]) == mani_success, "frame 0");
+                CHECK(maniClip_Sample(&plain, &s_skeleton, 0.0f, p[2]) == mani_success, "frame 0");
             }
             maniBlendLayer layer = {p[1], 1.0f, NULL};
-            CHECK(maniAddPoses(&s_skeleton, p[2], &layer, 1) == mani_success, "adds");
+            CHECK(maniPose_AddLayers(p[2], &s_skeleton, &layer, 1) == mani_success, "adds");
             double e = PoseApart(p[0], p[2]);
             worst = e > worst ? e : worst;
         }
         CHECK(worst < 2e-6, "the basis plus the difference: the plain clip");
         CHECK(identity, "a bone without a track: the identity");
         const uint32_t bone[1] = {2};
-        CHECK(maniSampleClipBones(&clip, &s_skeleton, 0.5f, bone, 1, p[0]) == mani_errorInvalid,
+        CHECK(maniClip_SampleBones(&clip, &s_skeleton, 0.5f, bone, 1, p[0]) == mani_errorInvalid,
               "a subset into a pose");
-        CHECK(maniSampleClipBones(&clip, &s_skeleton, 0.5f, bone, 1, p[1]) == mani_success,
+        CHECK(maniClip_SampleBones(&clip, &s_skeleton, 0.5f, bone, 1, p[1]) == mani_success,
               "a subset into a difference");
-        CHECK(maniSampleClipBones(&plain, &s_skeleton, 0.5f, bone, 1, p[1]) == mani_errorInvalid,
+        CHECK(maniClip_SampleBones(&plain, &s_skeleton, 0.5f, bone, 1, p[1]) == mani_errorInvalid,
               "a plain subset into a difference");
     }
     source.additive = 3;

@@ -63,7 +63,7 @@ static maniBuilder* NewBuilder(void)
 static bool NameIs(const maniFbx* fbx, uint32_t model, const char* name)
 {
     size_t length = 0;
-    const char* bone = maniFbxModelBoneName(fbx, model, &length);
+    const char* bone = maniFbx_GetModelBoneName(fbx, model, &length);
     return bone != NULL && length == strlen(name) && memcmp(bone, name, length) == 0;
 }
 
@@ -84,7 +84,7 @@ static void TestSeven(void)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniFbxModelCount(fbx) == 6, "six models; the attribute is none");
+    CHECK(maniFbx_GetModelCount(fbx) == 6, "six models; the attribute is none");
     CHECK(maniFbxModelOf(fbx, 1) == MANI_FBX_NONE && maniFbxModelOf(fbx, 2) == 1 &&
               maniFbxModelOf(fbx, 99) == MANI_FBX_NONE,
           "objects to models");
@@ -103,18 +103,18 @@ static void TestSeven(void)
     CHECK(NameIs(fbx, 0, "hip") && NameIs(fbx, 1, "spine") && NameIs(fbx, 3, "spine#3") &&
               NameIs(fbx, 4, "#4") && NameIs(fbx, 5, "lone"),
           "bone names, renamed when repeated or empty");
-    CHECK(maniFbxRenamedCount(fbx) == 2 && maniFbxRenamedModel(fbx, 0) == 3 &&
-              maniFbxRenamedModel(fbx, 1) == 4 && maniFbxRenamedModel(fbx, 2) == UINT32_MAX,
+    CHECK(maniFbx_GetRenamedCount(fbx) == 2 && maniFbx_GetRenamedModel(fbx, 0) == 3 &&
+              maniFbx_GetRenamedModel(fbx, 1) == 4 && maniFbx_GetRenamedModel(fbx, 2) == UINT32_MAX,
           "the renamed models");
     size_t length = 7;
-    CHECK(maniFbxModelBoneName(fbx, 6, &length) == NULL && length == 0 &&
-              maniFbxModelBoneName(fbx, 0, NULL) != NULL,
+    CHECK(maniFbx_GetModelBoneName(fbx, 6, &length) == NULL && length == 0 &&
+              maniFbx_GetModelBoneName(fbx, 0, NULL) != NULL,
           "past the count; no length wanted");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
-    CHECK(maniFbxModelCount(NULL) == 0 && maniFbxRenamedCount(NULL) == 0 &&
-              maniFbxRenamedModel(NULL, 0) == UINT32_MAX &&
-              maniFbxModelBoneName(NULL, 0, &length) == NULL && length == 0,
+    CHECK(maniFbx_GetModelCount(NULL) == 0 && maniFbx_GetRenamedCount(NULL) == 0 &&
+              maniFbx_GetRenamedModel(NULL, 0) == UINT32_MAX &&
+              maniFbx_GetModelBoneName(NULL, 0, &length) == NULL && length == 0,
           "NULL documents");
 }
 

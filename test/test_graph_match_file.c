@@ -171,16 +171,16 @@ static void TestBind(void)
                                            NULL, NULL, 0, 0, NULL},
                         s_matchBinding, sizeof s_matchBinding, &binding, NULL) == mani_errorInvalid,
           "a count without databases");
-    CHECK(maniGraphDatabaseCount(&g) == 1 &&
-              maniGraphDatabaseIdentity(&g, 0) == maniMotionDatabaseIdentity(&s_database) &&
-              maniGraphDatabaseIdentity(&g, 1) == 0 && maniGraphDatabaseCount(NULL) == 0,
+    CHECK(maniGraph_GetDatabaseCount(&g) == 1 &&
+              maniGraph_GetDatabaseIdentity(&g, 0) == maniMotionDatabase_GetIdentity(&s_database) &&
+              maniGraph_GetDatabaseIdentity(&g, 1) == 0 && maniGraph_GetDatabaseCount(NULL) == 0,
           "the slot's identity");
     size_t length = 0;
-    const char* name = maniGraphDatabaseName(&g, 0, &length);
+    const char* name = maniGraph_GetDatabaseName(&g, 0, &length);
     CHECK(name != NULL && length == 5 && memcmp(name, "moves", 5) == 0 &&
-              maniGraphDatabaseName(&g, 1, &length) == NULL && length == 0,
+              maniGraph_GetDatabaseName(&g, 1, &length) == NULL && length == 0,
           "the slot's name");
-    CHECK(maniGraphBindingSize(&g) >=
+    CHECK(maniGraph_GetBindingSize(&g) >=
               offsetof(maniGraphBinding, clips) + (CLIPS + 1) * sizeof(void*),
           "room for the database");
 }
@@ -320,11 +320,11 @@ static void TestSaved(void)
     size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) ==
+              maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) ==
                   mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
-              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Restore(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     Ahead(instance, 0.5f, 0.0f);
     Ahead(other, 0.5f, 0.0f);
@@ -342,7 +342,7 @@ static void TestSaved(void)
     // The node's block is the first; its playhead the first node's time.
     uint32_t block = MANI_GRAPH_STATE_HEADER_SIZE + 6 * MANI_GRAPH_VALUE_SIZE;
     uint32_t time = MANI_GRAPH_STATE_HEADER_SIZE + 4 * MANI_GRAPH_VALUE_SIZE + 8;
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
               s_saved[0][block + 4 * maniGraphMatchPicks] == 2,
           "saved with two picks");
     const uint32_t kBad[7][3] = {{block + 4 * maniGraphMatchEntry, 2, 0},
@@ -356,7 +356,7 @@ static void TestSaved(void)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + kBad[k][0], kBad[k][1]);
-        maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
         if (r.result != mani_errorFormat || r.offset != block + 4 * kBad[k][2])
         {
             printf("  saved %d refused %d at %llu, want %u\n", k, (int)r.result,
@@ -370,7 +370,7 @@ static void TestSaved(void)
     maniStoreU32(s_saved[1] + block + 4 * maniGraphMatchPicks, 1);
     maniStoreU32(s_saved[1] + block + 4 * maniGraphMatchNext, 0);
     maniStoreU32(s_saved[1] + block + 4 * (maniGraphMatchHistory + 1), 0);
-    maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+    maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
     CHECK(r.result == mani_errorFormat && r.offset == block + 4 * maniGraphMatchNext,
           "the next place not after the picks");
 }
@@ -407,9 +407,9 @@ static void TestSubgraph(void)
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NULL;
     CHECK(maniBuildGraph(builder, &root).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &g).result == mani_success &&
-              maniGraphClipCount(&g) == 2 && maniGraphDatabaseCount(&g) == 1 &&
+              maniGraph_GetClipCount(&g) == 2 && maniGraph_GetDatabaseCount(&g) == 1 &&
               maniBindGraph(&g,
                             &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, 2, 1, 0,
                                                0, NULL, NULL, 0, 0, NULL},
@@ -518,9 +518,9 @@ static void TestSubgraphMapped(void)
     size_t size = 0;
     maniGraph g;
     CHECK(maniBuildGraph(builder, &root).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &g).result == mani_success &&
-              maniGraphDatabaseCount(&g) == 2,
+              maniGraph_GetDatabaseCount(&g) == 2,
           "the subgraph's database joined to the root's");
     maniDestroyBuilder(builder);
     CHECK(DataWord(&g, 0, maniGraphMatchDatabase) == 1 &&
@@ -541,15 +541,16 @@ static bool RoundTrip(const maniGraphSource* source)
 {
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
-    bool ok = maniBuildGraph(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniWriteGraphJson(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
-              maniBuildGraphJson(builder, s_text, s_textSize,
-                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL,
-                                                         NULL, CLIPS, 1, 0, 0, NULL})
-                      .result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    bool ok =
+        maniBuildGraph(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniWriteGraphJson(builder, source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &s_textSize) == mani_success &&
+        maniBuildGraphJson(builder, s_text, s_textSize,
+                           &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, NULL,
+                                                   CLIPS, 1, 0, 0, NULL})
+                .result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     s_text[ok ? s_textSize : 0] = 0;
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;
@@ -652,13 +653,14 @@ static bool Defaults(void)
     static const char kText[] = HEAD TAIL;
     size_t readSize = 0;
     maniBuilder* builder = NewBuilder();
-    bool ok = maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
-              maniBuildGraphJson(builder, kText, sizeof kText - 1,
-                                 &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL,
-                                                         NULL, CLIPS, 1, 0, 0, NULL})
-                      .result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
+    bool ok =
+        maniBuildGraph(builder, &source).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_built, sizeof s_built, &s_builtSize) == mani_success &&
+        maniBuildGraphJson(builder, kText, sizeof kText - 1,
+                           &(maniGraphNamedAssets){&s_skeleton, kSlots, kDatabaseSlot, NULL, NULL,
+                                                   CLIPS, 1, 0, 0, NULL})
+                .result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &readSize) == mani_success;
     maniDestroyBuilder(builder);
     return ok && readSize == s_builtSize && memcmp(s_read, s_built, s_builtSize) == 0;
 }
@@ -725,7 +727,8 @@ static void TestFloatQuery(void)
     maniMotionDatabase d;
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_speedFile, sizeof s_speedFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_speedFile, sizeof s_speedFile, &size) ==
+                  mani_success &&
               maniOpenMotionDatabase(s_speedFile, size, &d).result == mani_success,
           "a database of speed");
     maniDestroyBuilder(builder);

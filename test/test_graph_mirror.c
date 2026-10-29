@@ -115,7 +115,7 @@ static void OpenSkeleton(const maniBoneSource* bones, uint32_t count, uint8_t* f
     maniSkeletonSource source = {bones, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, 4096, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, 4096, &size) == mani_success &&
               maniOpenSkeleton(file, size, out).result == mani_success,
           "a rig");
     maniDestroyBuilder(builder);
@@ -133,7 +133,7 @@ static void OpenMap(const maniSkeleton* skeleton, maniMirrorAxis axis, uint8_t* 
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, 4096, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, 4096, &size) == mani_success &&
               maniOpenMirrorMap(file, size, out).result == mani_success,
           "a map");
     maniDestroyBuilder(builder);
@@ -144,7 +144,7 @@ static void OpenClip(const maniClipSource* source, int slot, maniClip* out)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[slot], sizeof s_clipFiles[slot], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[slot], sizeof s_clipFiles[slot], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[slot], size, out).result == mani_success,
           "a clip");
@@ -243,7 +243,8 @@ static maniBuildResult BuildGraph(const maniGraphSource* source)
     s_graphSize = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
+                  mani_success,
               "the graph copied");
     }
     maniDestroyBuilder(builder);
@@ -264,7 +265,7 @@ static bool Bound(const maniGraph* g, maniGraphInstance** instance)
     maniGraphBinding* binding = NULL;
     return maniBindGraph(g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
                mani_success &&
-           maniGraphScratchSize(binding) <= sizeof s_scratch &&
+           maniGraphBinding_GetScratchSize(binding) <= sizeof s_scratch &&
            maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory, instance) ==
                mani_success;
 }
@@ -296,8 +297,8 @@ static bool Same(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t bone = 0; bone < kBones; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         same = same && Gap(x.translation, y.translation) < 1e-5 &&
                QuatDot(x.rotation, y.rotation) > 1.0 - 1e-10 && Gap(x.scale, y.scale) < 1e-5;
     }
@@ -321,7 +322,8 @@ static void Play(uint32_t mirrors)
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
               Bound(&g, &instance),
           "built, opened and bound");
-    CHECK(maniGraphMirrorMapIdentity(&g) == s_map.identity && maniGraphMirrorMapIdentity(NULL) == 0,
+    CHECK(maniGraph_GetMirrorMapIdentity(&g) == s_map.identity &&
+              maniGraph_GetMirrorMapIdentity(NULL) == 0,
           "the map's identity read back");
     bool odd = mirrors % 2 == 1;
     bool poses = true;
@@ -336,16 +338,18 @@ static void Play(uint32_t mirrors)
         uint32_t count = 0;
         float from = (float)(k - 1) * 0.1f;
         poses =
-            poses && maniUpdateGraph(instance, 0.1f, events, 4, &count, &move) == mani_success &&
-            maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success &&
-            maniSampleClip(&s_walk, &s_skeleton, fmodf((float)k * 0.1f, 1.0f), s_in) ==
+            poses &&
+            maniGraphInstance_Update(instance, 0.1f, events, 4, &count, &move) == mani_success &&
+            maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
                 mani_success &&
-            (odd ? maniMirrorPose(&s_map, &s_skeleton, s_in, s_expected) == mani_success
-                 : maniSampleClip(&s_walk, &s_skeleton, fmodf((float)k * 0.1f, 1.0f), s_expected) ==
-                       mani_success) &&
+            maniClip_Sample(&s_walk, &s_skeleton, fmodf((float)k * 0.1f, 1.0f), s_in) ==
+                mani_success &&
+            (odd ? maniMirrorMap_MirrorPose(&s_map, &s_skeleton, s_in, s_expected) == mani_success
+                 : maniClip_Sample(&s_walk, &s_skeleton, fmodf((float)k * 0.1f, 1.0f),
+                                   s_expected) == mani_success) &&
             Same(s_out, s_expected);
-        moves = moves && maniClipRootMotion(&s_walk, from, 0.1f, &want) == mani_success;
-        want = odd ? maniMirrorRootMotion(&s_map, want) : want;
+        moves = moves && maniClip_GetRootMotion(&s_walk, from, 0.1f, &want) == mani_success;
+        want = odd ? maniMirrorMap_MirrorRootMotion(&s_map, want) : want;
         moves = moves && Gap(move.translation, want.translation) < 1e-6 &&
                 QuatDot(move.rotation, want.rotation) > 1.0 - 1e-12;
         for (uint32_t i = 0; i < count && heard < 4; ++i)
@@ -386,7 +390,8 @@ static void TestSync(void)
     bool half = true;
     for (int k = 1; k <= 7; ++k)
     {
-        half = half && maniUpdateGraph(instance, 0.15f, NULL, 0, NULL, NULL) == mani_success;
+        half =
+            half && maniGraphInstance_Update(instance, 0.15f, NULL, 0, NULL, NULL) == mani_success;
         double lead = State(instance, &g, 0)->time;
         double follow = State(instance, &g, 1)->time;
         half = half && fabs(fmod(lead + 0.5, 1.0) - follow) < 1e-6;
@@ -446,7 +451,7 @@ static void TestBuildRefusals(void)
     maniGraph g;
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraphMirrorMapIdentity(&g) == s_map.identity,
+              maniGraph_GetMirrorMapIdentity(&g) == s_map.identity,
           "a map kept without a mirror node");
 }
 
@@ -596,11 +601,11 @@ static void TestJson(void)
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success,
           "built and opened");
-    uint64_t identity = maniGraphIdentity(&g);
+    uint64_t identity = maniGraph_GetIdentity(&g);
     maniBuilder* builder = NewBuilder();
     size_t length = 0;
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
           "the JSON written");
     CHECK(strstr((const char*)s_text, "{\"kind\": \"mirror\", \"inputs\": [0]}") != NULL,
           "a mirror node by its inputs alone");
@@ -608,9 +613,10 @@ static void TestJson(void)
         .skeleton = &s_skeleton, .clips = s_clips, .clipCount = 1, .mirrorMap = &s_map};
     size_t size = 0;
     CHECK(maniBuildGraphJson(builder, (const char*)s_text, length, &named).result == mani_success &&
-              maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) ==
+                  mani_success &&
               maniOpenGraph(s_graphFile, size, &g).result == mani_success &&
-              maniGraphIdentity(&g) == identity,
+              maniGraph_GetIdentity(&g) == identity,
           "built back the same");
     maniDestroyBuilder(builder);
 }
@@ -636,7 +642,7 @@ static void TestSubgraph(void)
         maniGraph g;
         CHECK(BuildGraph(&source).result == mani_success &&
                   maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-                  maniGraphMirrorMapIdentity(&g) == s_map.identity,
+                  maniGraph_GetMirrorMapIdentity(&g) == s_map.identity,
               i == 0 ? "the subgraph's map the root's" : "the subgraph's map taken");
     }
     source.mirrorMap = &s_mapZ;

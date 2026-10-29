@@ -22,17 +22,17 @@ static void Exercise(const uint8_t* bytes, size_t size)
     maniSkeleton skeleton;
     if (maniOpenSkeleton(bytes, size, &skeleton).result == 0)
     {
-        uint32_t count = maniSkeletonBoneCount(&skeleton);
+        uint32_t count = maniSkeleton_GetBoneCount(&skeleton);
         for (uint32_t bone = 0; bone < count; ++bone)
         {
-            uint32_t parent = maniSkeletonParent(&skeleton, bone);
-            uint32_t end = maniSkeletonSubtreeEnd(&skeleton, bone);
-            maniTransform rest = maniSkeletonRest(&skeleton, bone);
+            uint32_t parent = maniSkeleton_GetParent(&skeleton, bone);
+            uint32_t end = maniSkeleton_GetSubtreeEnd(&skeleton, bone);
+            maniTransform rest = maniSkeleton_GetRest(&skeleton, bone);
             size_t length = 0;
-            const char* name = maniSkeletonBoneName(&skeleton, bone, &length);
+            const char* name = maniSkeleton_GetBoneName(&skeleton, bone, &length);
             if ((parent != MANI_NO_BONE && parent >= bone) || end <= bone || end > count ||
                 rest.rotation.w != rest.rotation.w ||
-                maniSkeletonFindBone(&skeleton, name, length) != bone)
+                maniSkeleton_FindBone(&skeleton, name, length) != bone)
             {
                 abort();
             }

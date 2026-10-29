@@ -14,7 +14,7 @@ const maniAffine inverseBinds[2] = {
 maniSkinSource skinSource = {&skeleton, joints, inverseBinds, 2};
 maniBuildResult skinBuilt = maniBuildSkin(builder, &skinSource);
 size_t skinSize = 0;
-maniResult skinCopied = maniCopyBuilt(builder, skinFile, skinCapacity, &skinSize);
+maniResult skinCopied = maniBuilder_CopyBuilt(builder, skinFile, skinCapacity, &skinSize);
 maniSkin skin;
 maniFileResult skinOpened = maniOpenSkin(skinFile, skinSize, &skin);
 
@@ -26,7 +26,7 @@ maniInfluenceSource influenceSource = {&skin, offsets, vertexJoints, weights, NU
 maniBuildResult influencesBuilt = maniBuildInfluences(builder, &influenceSource);
 size_t influencesSize = 0;
 maniResult influencesCopied =
-    maniCopyBuilt(builder, influencesFile, influencesCapacity, &influencesSize);
+    maniBuilder_CopyBuilt(builder, influencesFile, influencesCapacity, &influencesSize);
 maniInfluences influences;
 maniFileResult influencesOpened = maniOpenInfluences(influencesFile, influencesSize, &influences);
 ```
@@ -39,7 +39,7 @@ Each frame, the pose's model gives the palette, and a job moves the vertices:
 
 ```c
 maniAffine palette[2];
-maniResult paletted = maniComputePalette(pose, &skeleton, &skin, palette, 2, NULL);
+maniResult paletted = maniPose_ComputePalette(pose, &skeleton, &skin, palette, 2, NULL);
 const float positions[6] = {0.1f, 1.3f, 0.0f, 0.1f, 1.5f, 0.0f};
 float moved[6];
 const maniSkinStream stream = {positions, moved, 12, 12, maniStreamPoint};
@@ -47,12 +47,12 @@ const maniSkinJob job = {&influences, palette, NULL, 2, 0, 2, 1, &stream};
 maniResult skinned = maniSkinLinear(&job);
 ```
 
-The palette needs a current model (`maniComputeModel` first); a stale one is refused. Normals, directions and tangents are further streams of the same job, each with its own stride, so a program skins its own vertex layout in place. Jobs over disjoint ranges of vertices may run on several threads at once.
+The palette needs a current model (`maniPose_ComputeModel` first); a stale one is refused. Normals, directions and tangents are further streams of the same job, each with its own stride, so a program skins its own vertex layout in place. Jobs over disjoint ranges of vertices may run on several threads at once.
 
 Methods share the one influence format, so a program switches per mesh without rebuilding data:
 
 - `maniSkinLinear`: linear blend skinning.
-- `maniSkinDualQuaternion`: dual quaternion skinning, which keeps volume at twisting joints; its palette from `maniPaletteDualQuaternions`.
+- `maniSkinDualQuaternion`: dual quaternion skinning, which keeps volume at twisting joints; its palette from `maniConvertPaletteToDualQuaternions`.
 - `maniSkinBlended`: a per-vertex blend of the two, as FBX skins carry it.
 - Centers of rotation (`maniBuildCenters`), computed offline per vertex.
 
@@ -60,7 +60,7 @@ For GPU skinning, the palette (row-major 3x4) or the dual quaternion palette goe
 
 ## Morph targets
 
-Morph targets add weighted deltas to a primitive's attributes (positions, normals, tangents, texture coordinates, colors) before skinning. A morph target file holds named channels, each one or more targets at increasing weights (FBX's in-betweens; a glTF target is one at weight 1). Clips carry the weights as float tracks named by target, so `maniSampleClipFloats` gives what `maniApplyMorphTargets` takes, whichever format the data came from; `maniMorphTargetWeights` turns a channel's weight into its targets' when a program drives channels itself. The job adds the deltas over vertex ranges of strided streams, as the skinning jobs do, and renormalizes normals and tangents. The importers build morph target files from glTF and FBX (`maniGltfBuildMorphTargets`, `maniFbxBuildMorphTargets`).
+Morph targets add weighted deltas to a primitive's attributes (positions, normals, tangents, texture coordinates, colors) before skinning. A morph target file holds named channels, each one or more targets at increasing weights (FBX's in-betweens; a glTF target is one at weight 1). Clips carry the weights as float tracks named by target, so `maniClip_SampleFloats` gives what `maniApplyMorphTargets` takes, whichever format the data came from; `maniMorphTargets_ComputeTargetWeights` turns a channel's weight into its targets' when a program drives channels itself. The job adds the deltas over vertex ranges of strided streams, as the skinning jobs do, and renormalizes normals and tangents. The importers build morph target files from glTF and FBX (`maniBuildGltfMorphTargets`, `maniBuildFbxMorphTargets`).
 
 ## Not obvious
 

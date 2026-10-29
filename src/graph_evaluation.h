@@ -114,10 +114,10 @@ static inline const maniPose* maniGraphEvalInput(const maniGraphEvaluation* e,
 static inline void maniGraphEvalNeutral(const maniGraphEvaluation* e, maniPose* out,
                                         bool difference)
 {
-    (void)maniPoseSetRest(out, e->binding->skeleton);
+    (void)maniPose_SetRest(out, e->binding->skeleton);
     if (difference)
     {
-        (void)maniPoseDifference(e->binding->skeleton, out, out, out);
+        (void)maniComputePoseDifference(e->binding->skeleton, out, out, out);
     }
 }
 

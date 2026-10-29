@@ -5,7 +5,7 @@
 // spring from the spine to the arm gives, frame by frame, the same bits
 // as the walk alone stepped by a standalone spring state at the same
 // placement and wind; its reset trigger and the seek above it drop the
-// motion as maniResetSprings does; over a blend and under a time scale,
+// motion as maniSpringState_Reset does; over a blend and under a time scale,
 // with two updates to an evaluation and backward ones, it steps by the
 // scaled times summed and made positive; a rotation restored off unit
 // length is normalized; a saved state restores to the same motion and its
@@ -83,7 +83,7 @@ static void MakeSet(uint8_t* file, size_t capacity, uint32_t colliderCount, mani
                                   0,           1,    0.0f, 0.0f};
     size_t size = 0;
     CHECK(maniBuildSpringSet(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success &&
               maniOpenSpringSet(file, size, set).result == mani_success,
           "a spring set");
     maniDestroyBuilder(builder);
@@ -140,7 +140,8 @@ static maniBuildResult Build(const maniGraphSource* source, Made* m, size_t* siz
     if (r.result == mani_success)
     {
         CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
-        CHECK(maniCopyBuilt(builder, m->file, sizeof m->file, sizeOut) == mani_success, "copied");
+        CHECK(maniBuilder_CopyBuilt(builder, m->file, sizeof m->file, sizeOut) == mani_success,
+              "copied");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -166,7 +167,7 @@ static bool Instanced(const maniGraphSource* source, Made* m)
                mani_success &&
            maniInitGraphInstance(m->bound, m->instance, sizeof m->instance, &m->live) ==
                mani_success &&
-           maniGraphScratchSize(m->bound) <= sizeof s_scratch;
+           maniGraphBinding_GetScratchSize(m->bound) <= sizeof s_scratch;
 }
 
 static maniPose* PoseAt(int k)
@@ -179,16 +180,16 @@ static maniPose* PoseAt(int k)
 
 static bool Evaluated(Made* m, float delta, maniPose* pose)
 {
-    return maniUpdateGraph(m->live, delta, NULL, 0, NULL, NULL) == mani_success &&
-           maniEvaluateGraph(m->live, s_scratch, sizeof s_scratch, pose) == mani_success;
+    return maniGraphInstance_Update(m->live, delta, NULL, 0, NULL, NULL) == mani_success &&
+           maniGraphInstance_Evaluate(m->live, s_scratch, sizeof s_scratch, pose) == mani_success;
 }
 
 static bool SameLocals(const maniPose* a, const maniPose* b)
 {
     maniTransform x[3];
     maniTransform y[3];
-    return maniPoseReadLocals(a, 0, 3, x) == mani_success &&
-           maniPoseReadLocals(b, 0, 3, y) == mani_success && memcmp(x, y, sizeof x) == 0;
+    return maniPose_ReadLocals(a, 0, 3, x) == mani_success &&
+           maniPose_ReadLocals(b, 0, 3, y) == mani_success && memcmp(x, y, sizeof x) == 0;
 }
 
 // The spring node's place in an opened graph.
@@ -209,9 +210,11 @@ static maniTransform Place(Made* m, uint32_t i)
     maniTransform t = {{0.1f * (float)i, 0.0f, 0.0f}, {0.0f, sinf(a), 0.0f, cosf(a)}, {1, 1, 1}};
     maniGraphValue position = {{t.translation.x, t.translation.y, t.translation.z, 0.0f}};
     maniGraphValue rotation = {{t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w}};
-    CHECK(maniSetGraphParameter(m->live, 0, maniGraphParameterVec3, position) == mani_success &&
-              maniSetGraphParameter(m->live, 1, maniGraphParameterQuat, rotation) == mani_success &&
-              maniGetGraphParameter(m->live, 1, &rotation) == mani_success,
+    CHECK(maniGraphInstance_SetParameter(m->live, 0, maniGraphParameterVec3, position) ==
+                  mani_success &&
+              maniGraphInstance_SetParameter(m->live, 1, maniGraphParameterQuat, rotation) ==
+                  mani_success &&
+              maniGraphInstance_GetParameter(m->live, 1, &rotation) == mani_success,
           "placed");
     t.rotation = (maniQuat){rotation.f[0], rotation.f[1], rotation.f[2], rotation.f[3]};
     return t;
@@ -222,7 +225,8 @@ static maniVec3 Wind(Made* m, uint32_t i)
 {
     maniVec3 w = {0.0f, 0.5f * cosf(0.2f * (float)i), 2.0f * sinf(0.3f * (float)i)};
     maniGraphValue v = {{w.x, w.y, w.z, 0.0f}};
-    CHECK(maniSetGraphParameter(m->live, 4, maniGraphParameterVec3, v) == mani_success, "wind");
+    CHECK(maniGraphInstance_SetParameter(m->live, 4, maniGraphParameterVec3, v) == mani_success,
+          "wind");
     return w;
 }
 
@@ -230,7 +234,8 @@ static void Fire(Made* m, uint32_t trigger)
 {
     maniGraphValue on = {{0}};
     on.b = 1;
-    CHECK(maniSetGraphParameter(m->live, trigger, maniGraphParameterTrigger, on) == mani_success,
+    CHECK(maniGraphInstance_SetParameter(m->live, trigger, maniGraphParameterTrigger, on) ==
+              mani_success,
           "fired");
 }
 
@@ -263,21 +268,21 @@ static void TestSame(void)
         if (i == 40)
         {
             Fire(&s_made[0], 2);
-            maniResetSprings(state);
+            maniSpringState_Reset(state);
         }
         if (i == 70)
         {
             Fire(&s_made[0], 3);
             Fire(&s_made[1], 3);
-            maniResetSprings(state);
+            maniSpringState_Reset(state);
         }
         CHECK(Evaluated(&s_made[0], delta, graphPose) && Evaluated(&s_made[1], delta, walk),
               "a frame");
-        maniQuat raw = maniPoseLocal(walk, 1).rotation;
-        CHECK(maniStepSprings(state, walk, &place, &wind, delta) == mani_success &&
-                  maniApplySprings(state, walk) == mani_success,
+        maniQuat raw = maniPose_GetLocal(walk, 1).rotation;
+        CHECK(maniSpringState_Step(state, walk, &place, &wind, delta) == mani_success &&
+                  maniSpringState_Apply(state, walk) == mani_success,
               "stepped");
-        maniQuat turned = maniPoseLocal(walk, 1).rotation;
+        maniQuat turned = maniPose_GetLocal(walk, 1).rotation;
         same = same && SameLocals(graphPose, walk);
         moved = moved || memcmp(&raw, &turned, sizeof raw) != 0;
     }
@@ -335,15 +340,17 @@ static void TestTimes(void)
         maniTransform place = Place(&s_made[0], i);
         if (updates == 2)
         {
-            CHECK(maniUpdateGraph(s_made[0].live, delta, NULL, 0, NULL, NULL) == mani_success &&
-                      maniUpdateGraph(s_made[1].live, delta, NULL, 0, NULL, NULL) == mani_success,
+            CHECK(maniGraphInstance_Update(s_made[0].live, delta, NULL, 0, NULL, NULL) ==
+                          mani_success &&
+                      maniGraphInstance_Update(s_made[1].live, delta, NULL, 0, NULL, NULL) ==
+                          mani_success,
                   "an update");
         }
         CHECK(Evaluated(&s_made[0], delta, graphPose) && Evaluated(&s_made[1], delta, blended),
               "a frame");
         float seconds = (float)updates * 0.5f * fabsf(delta);
-        CHECK(maniStepSprings(state, blended, &place, NULL, seconds) == mani_success &&
-                  maniApplySprings(state, blended) == mani_success,
+        CHECK(maniSpringState_Step(state, blended, &place, NULL, seconds) == mani_success &&
+                  maniSpringState_Apply(state, blended) == mani_success,
               "stepped");
         same = same && SameLocals(graphPose, blended);
     }
@@ -351,7 +358,7 @@ static void TestTimes(void)
 }
 
 // A rotation restored a little off unit length (as a saved state may
-// keep one) used as maniStepSprings uses it: normalized.
+// keep one) used as maniSpringState_Step uses it: normalized.
 static void TestRestoredTurn(void)
 {
     maniGraphSource springy = SpringGraph(kSpring);
@@ -365,7 +372,7 @@ static void TestRestoredTurn(void)
     plain.output = 1;
     CHECK(Instanced(&springy, &s_made[0]) && Instanced(&plain, &s_made[1]), "two graphs");
     size_t size = SavedGraphSize(s_made[0].live);
-    CHECK(maniSaveGraphInstance(s_made[0].live, s_saved[0], size, NULL) == mani_success, "saved");
+    CHECK(maniGraphInstance_Save(s_made[0].live, s_saved[0], size, NULL) == mani_success, "saved");
     const float scale = 1.000004f;
     maniTransform place = {{0.0f, 0.0f, 0.0f},
                            {0.0f, sinf(0.3f) * scale, 0.0f, cosf(0.3f) * scale},
@@ -378,7 +385,7 @@ static void TestRestoredTurn(void)
         maniStoreU32(s_saved[0] + MANI_GRAPH_STATE_HEADER_SIZE + MANI_GRAPH_VALUE_SIZE + 4 * k,
                      bits);
     }
-    CHECK(maniRestoreGraphInstance(s_made[0].live, s_saved[0], size).result == mani_success,
+    CHECK(maniGraphInstance_Restore(s_made[0].live, s_saved[0], size).result == mani_success,
           "restored a little off unit length");
     maniPose* graphPose = PoseAt(0);
     maniPose* walk = PoseAt(1);
@@ -391,8 +398,8 @@ static void TestRestoredTurn(void)
     {
         CHECK(Evaluated(&s_made[0], 1.0f / 60.0f, graphPose) &&
                   Evaluated(&s_made[1], 1.0f / 60.0f, walk) &&
-                  maniStepSprings(state, walk, &place, NULL, 1.0f / 60.0f) == mani_success &&
-                  maniApplySprings(state, walk) == mani_success,
+                  maniSpringState_Step(state, walk, &place, NULL, 1.0f / 60.0f) == mani_success &&
+                  maniSpringState_Apply(state, walk) == mani_success,
               "a frame");
         same = same && SameLocals(graphPose, walk);
     }
@@ -409,7 +416,7 @@ static void TestSaved(void)
     // there; nothing of it reaches the block.
     const maniGraphInstance* live = s_made[0].live;
     CHECK(maniGraphRoom(s_made[0].bound) >= 4 * (size_t)maniGraphSpringWorkWords(&s_set) &&
-              maniGraphInstanceSize(s_made[0].bound) ==
+              maniGraphBinding_GetInstanceSize(s_made[0].bound) ==
                   live->roomAt + maniGraphRoom(s_made[0].bound),
           "the room holds the set's work area");
     memset((uint8_t*)s_made[0].live + live->roomAt, 0xFF, maniGraphRoom(s_made[0].bound));
@@ -420,8 +427,8 @@ static void TestSaved(void)
     }
     size_t size = SavedGraphSize(s_made[0].live);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(s_made[0].live, s_saved[0], size, NULL) == mani_success &&
-              maniRestoreGraphInstance(s_made[2].live, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Save(s_made[0].live, s_saved[0], size, NULL) == mani_success &&
+              maniGraphInstance_Restore(s_made[2].live, s_saved[0], size).result == mani_success,
           "saved and restored");
     bool same = true;
     for (uint32_t i = 21; i <= 40; ++i)
@@ -446,14 +453,14 @@ static void TestSaved(void)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + at[k], words[k]);
-        maniFileResult r = maniRestoreGraphInstance(s_made[2].live, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(s_made[2].live, s_saved[1], size);
         CHECK(r.result == mani_errorFormat && r.offset == (k < 2 ? block : block + 8),
               "a spring block's time and state checked");
     }
     memcpy(s_saved[1], s_saved[0], size);
     maniStoreU32(s_saved[1] + block, 0);
     maniStoreU32(s_saved[1] + block + 4, 0x7FF00000u);
-    maniFileResult r = maniRestoreGraphInstance(s_made[2].live, s_saved[1], size);
+    maniFileResult r = maniGraphInstance_Restore(s_made[2].live, s_saved[1], size);
     CHECK(r.result == mani_errorFormat && r.offset == block, "a time of infinity");
 }
 
@@ -607,7 +614,7 @@ static void TestBlocksWrap(void)
     uint64_t nodes = 0;
     uint64_t data = 0;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_big, sizeof s_big, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_big, sizeof s_big, &size) == mani_success &&
               maniOpenContainer(s_big, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
                   mani_success &&
               maniContainerSection(&c, maniGraphTagNodes, &bytes, &length, &nodes) &&
@@ -703,7 +710,7 @@ static void TestJson(void)
     uint64_t identity = s_made[0].graph.identity;
     maniBuilder* builder = NewBuilder();
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "{\"kind\": \"spring\", \"inputs\": [0], \"springSet\": \"hair\", "
@@ -717,7 +724,7 @@ static void TestJson(void)
                                    .springSetCount = 1};
     maniGraph read;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success &&
-              maniCopyBuilt(builder, s_made[1].file, sizeof s_made[1].file, &size) ==
+              maniBuilder_CopyBuilt(builder, s_made[1].file, sizeof s_made[1].file, &size) ==
                   mani_success &&
               maniOpenGraph(s_made[1].file, size, &read).result == mani_success &&
               read.identity == identity,
@@ -725,7 +732,7 @@ static void TestJson(void)
     source = SpringGraph((maniGraphSpringNodeSource){0, MANI_NO_PARAMETER, MANI_NO_PARAMETER,
                                                      MANI_NO_PARAMETER, MANI_NO_PARAMETER});
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "\"springSet\": \"hair\"}") != NULL &&
@@ -759,8 +766,8 @@ static void TestSubgraph(void)
     maniGraph g;
     CHECK(Build(&outer, &s_made[0], &size).result == mani_success &&
               maniOpenGraph(s_made[0].file, size, &g).result == mani_success &&
-              maniGraphSpringSetCount(&g) == 1 &&
-              maniGraphSpringSetIdentity(&g, 0) == maniSpringSetIdentity(&s_set),
+              maniGraph_GetSpringSetCount(&g) == 1 &&
+              maniGraph_GetSpringSetIdentity(&g, 0) == maniSpringSet_GetIdentity(&s_set),
           "the subgraph's set slot carried");
     uint32_t data = maniLoadU32(g.nodes + (size_t)SpringAt(&g) * MANI_GRAPH_NODE_SIZE + 12);
     CHECK(maniLoadU32(g.data + 4 * (size_t)(data + maniGraphSpringPosition)) == 4 &&
@@ -773,7 +780,7 @@ static void TestSubgraph(void)
     s_nodes[2] = (maniGraphNodeSource){maniGraphNodeSpring, 1, kSecond, .spring = kSpring};
     CHECK(Build(&outer, &s_made[0], &size).result == mani_success &&
               maniOpenGraph(s_made[0].file, size, &g).result == mani_success &&
-              maniGraphSpringSetCount(&g) == 1,
+              maniGraph_GetSpringSetCount(&g) == 1,
           "two spring nodes over one slot");
     // A slot without its set under two spring nodes: one slot, refused.
     static const maniGraphSpringSetSource kNone[1] = {{NULL, "none", 4}};
@@ -830,7 +837,7 @@ static bool Seed(const char* graphPath, const char* textPath)
     maniBuilder* builder = NewBuilder();
     bool ok = Build(&source, &s_made[0], &size).result == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
               WriteFile(graphPath, s_made[0].file, size) && WriteFile(textPath, s_text, length);
     maniDestroyBuilder(builder);
     return ok;

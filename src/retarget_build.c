@@ -109,10 +109,10 @@ static maniVec3 Position(const Bone* bone)
 static maniBuildResult Side(const maniSkeleton* skeleton, const maniTransform* given, uint32_t side,
                             Bone* bones)
 {
-    uint32_t count = maniSkeletonBoneCount(skeleton);
+    uint32_t count = maniSkeleton_GetBoneCount(skeleton);
     for (uint32_t b = 0; b < count; ++b)
     {
-        maniTransform t = given != NULL ? given[b] : maniSkeletonRest(skeleton, b);
+        maniTransform t = given != NULL ? given[b] : maniSkeleton_GetRest(skeleton, b);
         maniQuat q = t.rotation;
         bool finite = FiniteVec(t.translation) && FiniteVec(t.scale) && Finite(q.x) &&
                       Finite(q.y) && Finite(q.z) && Finite(q.w);
@@ -122,7 +122,7 @@ static maniBuildResult Side(const maniSkeleton* skeleton, const maniTransform* g
         }
         t.rotation = maniQuatNormalize(q);
         maniAffine local = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-        uint32_t parent = maniSkeletonParent(skeleton, b);
+        uint32_t parent = maniSkeleton_GetParent(skeleton, b);
         bones[b].local = t;
         bones[b].model =
             parent == MANI_NO_BONE ? t.rotation : maniQuatMul(bones[parent].model, t.rotation);
@@ -298,9 +298,9 @@ static void Names(const maniRetargetMapSource* s, Work* w)
     for (uint32_t b = 0; s->matchNames && b < w->targetCount; ++b)
     {
         size_t length = 0;
-        const char* name = maniSkeletonBoneName(s->target, b, &length);
+        const char* name = maniSkeleton_GetBoneName(s->target, b, &length);
         uint32_t found =
-            w->plan[b].mapped ? MANI_NO_BONE : maniSkeletonFindBone(s->source, name, length);
+            w->plan[b].mapped ? MANI_NO_BONE : maniSkeleton_FindBone(s->source, name, length);
         if (found != MANI_NO_BONE)
         {
             w->plan[b] = One(found, 1.0f, maniRetargetTranslationOwn, false);
@@ -350,8 +350,8 @@ static void StoreQuat(uint8_t* p, maniQuat q)
 static void LayHeader(const maniRetargetMapSource* s, const Work* w, uint8_t* h)
 {
     const maniRetargetPelvisSource* p = s->pelvis;
-    maniStoreU64(h + maniRetargetHeaderSourceIdentity, maniSkeletonIdentity(s->source));
-    maniStoreU64(h + maniRetargetHeaderTargetIdentity, maniSkeletonIdentity(s->target));
+    maniStoreU64(h + maniRetargetHeaderSourceIdentity, maniSkeleton_GetIdentity(s->source));
+    maniStoreU64(h + maniRetargetHeaderTargetIdentity, maniSkeleton_GetIdentity(s->target));
     maniStoreU32(h + maniRetargetHeaderSourceBones, w->sourceCount);
     maniStoreU32(h + maniRetargetHeaderTargetBones, w->targetCount);
     maniStoreU32(h + maniRetargetHeaderPelvisSource, p != NULL ? p->source : MANI_NO_BONE);
@@ -424,8 +424,8 @@ static void MarkSame(const maniRetargetMapSource* s, Work* w)
         {
             continue;
         }
-        uint32_t pb = maniSkeletonParent(s->target, b);
-        uint32_t pa = maniSkeletonParent(s->source, p->a);
+        uint32_t pb = maniSkeleton_GetParent(s->target, b);
+        uint32_t pa = maniSkeleton_GetParent(s->source, p->a);
         bool parents = pb == MANI_NO_BONE
                            ? pa == MANI_NO_BONE
                            : pa != MANI_NO_BONE &&
@@ -501,8 +501,8 @@ static MANI_NOINLINE maniBuildResult BuildRetargetMapWork(maniBuilder* builder,
     Work w = {NULL,
               NULL,
               NULL,
-              maniSkeletonBoneCount(source->source),
-              maniSkeletonBoneCount(source->target),
+              maniSkeleton_GetBoneCount(source->source),
+              maniSkeleton_GetBoneCount(source->target),
               1.0f};
     size_t bytes = ((size_t)w.sourceCount + w.targetCount) * sizeof(Bone) +
                    (size_t)w.targetCount * sizeof(Plan);

@@ -4,8 +4,8 @@
 // The IK differential: random two-bone chains (random
 // bone lengths and turns, goals in and out of reach, softening and
 // weights, twists) solved by ozz-animation 0.17.0's IKTwoBoneJob and by
-// maniSolveTwoBone, the middle and end bones' model positions compared;
-// then random bones aimed by its IKAimJob and by maniSolveAim (below). Poles within a sine of 0.1
+// maniPose_SolveTwoBone, the middle and end bones' model positions compared;
+// then random bones aimed by its IKAimJob and by maniPose_SolveAim (below). Poles within a sine of 0.1
 // of the goal line are left out: there ozz flips and Maul Anim blends to the chain's own plane;
 // so are goals within a twentieth of the chain's length of the start (ozz turns the
 // start toward them, Maul Anim does not) and weighted corrections of nearly half a turn (which way
@@ -98,11 +98,11 @@ ozz::math::Float4x4 ToOzz(const maniAffine& a)
 
 maniVec3 Position(maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
 {
-    if (maniComputeModel(pose, skeleton) != mani_success)
+    if (maniPose_ComputeModel(pose, skeleton) != mani_success)
     {
         std::abort();
     }
-    maniAffine m = maniPoseModel(pose, bone);
+    maniAffine m = maniPose_GetModel(pose, bone);
     return {m.m[9], m.m[10], m.m[11]};
 }
 
@@ -141,7 +141,7 @@ float Sine(maniVec3 a, maniVec3 b)
             std::sqrt(b.x * b.x + b.y * b.y + b.z * b.z));
 }
 
-// Random bones aimed by ozz's IKAimJob and by maniSolveAim: the turned
+// Random bones aimed by ozz's IKAimJob and by maniPose_SolveAim: the turned
 // bones' model rotations compared, and each one's miss of the goal (the
 // forward line through the offset point, over the goal's distance).
 // Poles and up axes (once the forward is on the goal) within a sine of
@@ -162,13 +162,13 @@ bool AimDifferential(maniPose* ours, maniPose* theirs, const maniSkeleton* skele
         maniTransform local = {{Spread(-1, 1), Spread(0, 2), Spread(-1, 1)},
                                Turn(Direction(), Spread(-3, 3)),
                                {1, 1, 1}};
-        maniPoseSetLocal(ours, 1, local);
-        maniPoseSetLocal(theirs, 1, local);
-        if (maniComputeModel(theirs, skeleton) != mani_success)
+        maniPose_SetLocal(ours, 1, local);
+        maniPose_SetLocal(theirs, 1, local);
+        if (maniPose_ComputeModel(theirs, skeleton) != mani_success)
         {
             return false;
         }
-        maniAffine model = maniPoseModel(theirs, 1);
+        maniAffine model = maniPose_GetModel(theirs, 1);
         maniVec3 origin = {model.m[9], model.m[10], model.m[11]};
         maniVec3 forward = Direction();
         maniVec3 up = Direction();
@@ -215,7 +215,7 @@ bool AimDifferential(maniPose* ours, maniPose* theirs, const maniSkeleton* skele
         solve.twist = twist;
         solve.weight = weight;
         bool reachedOurs = false;
-        if (maniSolveAim(ours, skeleton, &solve, &reachedOurs) != mani_success)
+        if (maniPose_SolveAim(ours, skeleton, &solve, &reachedOurs) != mani_success)
         {
             return false;
         }
@@ -264,8 +264,8 @@ bool AimDifferential(maniPose* ours, maniPose* theirs, const maniSkeleton* skele
         }
         maniTransform t = local;
         t.rotation = Mul(t.rotation, maniQuat{q[0], q[1], q[2], q[3]});
-        maniPoseSetLocal(theirs, 1, t);
-        maniQuat a = maniPoseLocal(ours, 1).rotation;
+        maniPose_SetLocal(theirs, 1, t);
+        maniQuat a = maniPose_GetLocal(ours, 1).rotation;
         maniQuat b = t.rotation;
         float dot = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
         float angle = 2.0f * std::acos(std::fmin(1.0f, dot));
@@ -337,7 +337,7 @@ OzzLocals ToOzzLocals(const maniPose* pose)
     OzzLocals l;
     for (uint32_t b = 0; b < 4; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         l.translation[b] =
             ozz::math::simd_float4::Load(t.translation.x, t.translation.y, t.translation.z, 0.0f);
         l.rotation[b] = {
@@ -377,16 +377,16 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps, int only)
     static OzzLocals locals[kCases];
     for (int c = 0; c < kCases; ++c)
     {
-        maniTransform t = maniPoseLocal(pose, 2);
+        maniTransform t = maniPose_GetLocal(pose, 2);
         t.rotation = Turn(Direction(), Spread(0.2f, 2.5f));
-        maniPoseSetLocal(pose, 2, t);
-        if (maniComputeModel(pose, skeleton) != mani_success)
+        maniPose_SetLocal(pose, 2, t);
+        if (maniPose_ComputeModel(pose, skeleton) != mani_success)
         {
             return;
         }
         for (uint32_t b = 0; b < 3; ++b)
         {
-            models[c][b] = ToOzz(maniPoseModel(pose, b + 1));
+            models[c][b] = ToOzz(maniPose_GetModel(pose, b + 1));
         }
         locals[c] = ToOzzLocals(pose);
         maniVec3 start = Position(pose, skeleton, 1);
@@ -403,9 +403,9 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps, int only)
     {
         for (int c = 0; c < kCases; ++c)
         {
-            (void)maniSolveTwoBone(pose, skeleton, &twoBone[c], nullptr);
+            (void)maniPose_SolveTwoBone(pose, skeleton, &twoBone[c], nullptr);
         }
-        sink += maniPoseLocal(pose, 2).rotation.x;
+        sink += maniPose_GetLocal(pose, 2).rotation.x;
     }
     double oursTwo = Now() - t0;
     t0 = Now();
@@ -460,9 +460,9 @@ void Timings(maniPose* pose, const maniSkeleton* skeleton, long reps, int only)
     {
         for (int c = 0; c < kCases; ++c)
         {
-            (void)maniSolveAim(pose, skeleton, &aim[c], nullptr);
+            (void)maniPose_SolveAim(pose, skeleton, &aim[c], nullptr);
         }
-        sink += maniPoseLocal(pose, 3).rotation.x;
+        sink += maniPose_GetLocal(pose, 3).rotation.x;
     }
     double oursAim = Now() - t0;
     t0 = Now();
@@ -524,17 +524,17 @@ void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps, int o
 {
     constexpr int kCases = 256;
     static maniVec3 goals[kCases];
-    if (maniPoseSetRest(pose, skeleton) != mani_success)
+    if (maniPose_SetRest(pose, skeleton) != mani_success)
     {
         return;
     }
-    maniTransform t = maniPoseLocal(pose, 2);
+    maniTransform t = maniPose_GetLocal(pose, 2);
     t.rotation = Turn(Direction(), 0.8f);
-    maniPoseSetLocal(pose, 2, t);
+    maniPose_SetLocal(pose, 2, t);
     maniTransform bent[4];
     for (uint32_t b = 0; b < 4; ++b)
     {
-        bent[b] = maniPoseLocal(pose, b);
+        bent[b] = maniPose_GetLocal(pose, b);
     }
     maniVec3 start = Position(pose, skeleton, 1);
     for (int c = 0; c < kCases; ++c)
@@ -558,7 +558,7 @@ void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps, int o
             {
                 for (uint32_t b = 1; b < 4; ++b)
                 {
-                    maniPoseSetLocal(pose, b, bent[b]);
+                    maniPose_SetLocal(pose, b, bent[b]);
                 }
                 maniChainSolve s = {};
                 s.root = 1;
@@ -568,9 +568,9 @@ void ChainTimings(maniPose* pose, const maniSkeleton* skeleton, long reps, int o
                 s.iterations = 16;
                 s.tolerance = 1e-4f;
                 s.weight = 1.0f;
-                (void)(solver == 0 ? maniSolveCcd(pose, skeleton, &s, nullptr)
-                                   : maniSolveFabrik(pose, skeleton, &s, nullptr));
-                sink += maniPoseLocal(pose, 2).rotation.x;
+                (void)(solver == 0 ? maniPose_SolveCcd(pose, skeleton, &s, nullptr)
+                                   : maniPose_SolveFabrik(pose, skeleton, &s, nullptr));
+                sink += maniPose_GetLocal(pose, 2).rotation.x;
             }
         }
         seconds[solver] = Now() - t0;
@@ -601,7 +601,7 @@ int main(int argc, char** argv)
     maniPose* theirs = nullptr;
     if (maniCreateBuilder(&def, &builder) != mani_success ||
         maniBuildSkeleton(builder, &source).result != mani_success ||
-        maniCopyBuilt(builder, g_skeletonFile, sizeof g_skeletonFile, &size) != mani_success ||
+        maniBuilder_CopyBuilt(builder, g_skeletonFile, sizeof g_skeletonFile, &size) != mani_success ||
         maniOpenSkeleton(g_skeletonFile, size, &skeleton).result != mani_success ||
         maniInitPose(&skeleton, g_memory[0], sizeof g_memory[0], &ours) != mani_success ||
         maniInitPose(&skeleton, g_memory[1], sizeof g_memory[1], &theirs) != mani_success)
@@ -640,8 +640,8 @@ int main(int argc, char** argv)
         locals[3].translation = {d.x * lb, d.y * lb, d.z * lb};
         for (uint32_t b = 0; b < 4; ++b)
         {
-            maniPoseSetLocal(ours, b, locals[b]);
-            maniPoseSetLocal(theirs, b, locals[b]);
+            maniPose_SetLocal(ours, b, locals[b]);
+            maniPose_SetLocal(theirs, b, locals[b]);
         }
         maniVec3 start = Position(ours, &skeleton, 1);
         maniVec3 dir = Direction();
@@ -671,7 +671,7 @@ int main(int argc, char** argv)
             continue;
         }
         float side = Random() < 0.5f ? 1.0f : -1.0f;
-        maniQuat r = maniPoseModelTransform(ours, 2).rotation;
+        maniQuat r = maniPose_GetModelTransform(ours, 2).rotation;
         maniQuat back = {-r.x, -r.y, -r.z, r.w};
         maniQuat v =
             Mul(Mul(back, maniQuat{n.x / nl * side, n.y / nl * side, n.z / nl * side, 0}), r);
@@ -682,19 +682,19 @@ int main(int argc, char** argv)
 
         maniTwoBoneSolve solve = {1, 2, 3, goal, pole, hinge, twist, soften, weight};
         bool reachedOurs = false;
-        if (maniSolveTwoBone(ours, &skeleton, &solve, &reachedOurs) != mani_success)
+        if (maniPose_SolveTwoBone(ours, &skeleton, &solve, &reachedOurs) != mani_success)
         {
             std::fprintf(stderr, "case %ld refused\n", c);
             return 1;
         }
 
-        if (maniComputeModel(theirs, &skeleton) != mani_success)
+        if (maniPose_ComputeModel(theirs, &skeleton) != mani_success)
         {
             return 1;
         }
-        const ozz::math::Float4x4 models[3] = {ToOzz(maniPoseModel(theirs, 1)),
-                                               ToOzz(maniPoseModel(theirs, 2)),
-                                               ToOzz(maniPoseModel(theirs, 3))};
+        const ozz::math::Float4x4 models[3] = {ToOzz(maniPose_GetModel(theirs, 1)),
+                                               ToOzz(maniPose_GetModel(theirs, 2)),
+                                               ToOzz(maniPose_GetModel(theirs, 3))};
         ozz::animation::IKTwoBoneJob job;
         job.target = ozz::math::simd_float4::Load(goal.x, goal.y, goal.z, 1.0f);
         job.mid_axis = ozz::math::simd_float4::Load(hinge.x, hinge.y, hinge.z, 0.0f);
@@ -747,9 +747,9 @@ int main(int argc, char** argv)
         {
             float q[4];
             ozz::math::StorePtrU(corrections[k].xyzw, q);
-            maniTransform t = maniPoseLocal(theirs, k + 1);
+            maniTransform t = maniPose_GetLocal(theirs, k + 1);
             t.rotation = Mul(t.rotation, maniQuat{q[0], q[1], q[2], q[3]});
-            maniPoseSetLocal(theirs, k + 1, t);
+            maniPose_SetLocal(theirs, k + 1, t);
         }
         float scale = la + lb;
         float apart =

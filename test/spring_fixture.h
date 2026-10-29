@@ -57,7 +57,7 @@ static inline bool OpenBones(const maniBoneSource* bones, uint32_t count, uint8_
     maniSkeletonSource source = {bones, count};
     size_t size = 0;
     return maniBuildSkeleton(s_builder, &source).result == mani_success &&
-           maniCopyBuilt(s_builder, file, capacity, &size) == mani_success &&
+           maniBuilder_CopyBuilt(s_builder, file, capacity, &size) == mani_success &&
            maniOpenSkeleton(file, size, skeleton).result == mani_success;
 }
 
@@ -75,10 +75,10 @@ static inline void Setup(void)
               OpenBones(lone, 1, s_loneFile, sizeof s_loneFile, &s_lone),
           "the skeletons");
     const char* names[4] = {"root", "b0", "b1", "b2"};
-    s_root = maniSkeletonFindBone(&s_skeleton, names[0], 4);
+    s_root = maniSkeleton_FindBone(&s_skeleton, names[0], 4);
     for (int k = 0; k < 3; ++k)
     {
-        s_b[k] = maniSkeletonFindBone(&s_skeleton, names[k + 1], 2);
+        s_b[k] = maniSkeleton_FindBone(&s_skeleton, names[k + 1], 2);
     }
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success &&
               maniInitPose(&s_lone, s_lonePoseMemory, sizeof s_lonePoseMemory, &s_lonePose) ==
@@ -166,7 +166,8 @@ static inline void MakeSet(const Config* c)
                                   3,           1,         0.0f,   c->rate};
     size_t size = 0;
     CHECK(maniBuildSpringSet(s_builder, &source).result == mani_success &&
-              maniCopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) ==
+                  mani_success &&
               maniOpenSpringSet(s_setFile, size, &s_set).result == mani_success,
           "a set");
 }
@@ -174,7 +175,7 @@ static inline void MakeSet(const Config* c)
 static inline maniSpringState* NewState(int k)
 {
     maniSpringState* state = NULL;
-    CHECK(maniSpringStateSize(&s_set) <= sizeof s_memory[k] &&
+    CHECK(maniSpringSet_GetStateSize(&s_set) <= sizeof s_memory[k] &&
               maniInitSpringState(&s_set, &s_skeleton, s_memory[k], sizeof s_memory[k], &state) ==
                   mani_success,
           "a state");
@@ -183,7 +184,7 @@ static inline maniSpringState* NewState(int k)
 
 static inline maniVec3 Position(uint32_t bone)
 {
-    maniAffine m = maniPoseModel(s_pose, bone);
+    maniAffine m = maniPose_GetModel(s_pose, bone);
     return (maniVec3){m.m[9], m.m[10], m.m[11]};
 }
 
@@ -218,18 +219,18 @@ static inline void Still(void)
 // a placement and applied, the model composed.
 static inline bool Frame(maniSpringState* state, float delta, const maniTransform* placement)
 {
-    bool ok = maniPoseSetRest(s_pose, &s_skeleton) == mani_success;
-    maniPoseSetLocal(s_pose, s_root, s_rootLocal);
-    maniTransform b0 = maniPoseLocal(s_pose, s_b[0]);
+    bool ok = maniPose_SetRest(s_pose, &s_skeleton) == mani_success;
+    maniPose_SetLocal(s_pose, s_root, s_rootLocal);
+    maniTransform b0 = maniPose_GetLocal(s_pose, s_b[0]);
     b0.scale = s_b0Scale;
-    maniPoseSetLocal(s_pose, s_b[0], b0);
-    maniTransform b1 = maniPoseLocal(s_pose, s_b[1]);
+    maniPose_SetLocal(s_pose, s_b[0], b0);
+    maniTransform b1 = maniPose_GetLocal(s_pose, s_b[1]);
     b1.rotation = s_b1Rotation;
-    maniPoseSetLocal(s_pose, s_b[1], b1);
-    ok = ok && maniStepSprings(state, s_pose, placement, s_forced ? &s_force : NULL, delta) ==
+    maniPose_SetLocal(s_pose, s_b[1], b1);
+    ok = ok && maniSpringState_Step(state, s_pose, placement, s_forced ? &s_force : NULL, delta) ==
                    mani_success;
-    ok = ok && maniApplySprings(state, s_pose) == mani_success;
-    return ok && maniComputeModel(s_pose, &s_skeleton) == mani_success;
+    ok = ok && maniSpringState_Apply(state, s_pose) == mani_success;
+    return ok && maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success;
 }
 
 static inline bool Frames(maniSpringState* state, float delta, uint32_t count)
@@ -245,19 +246,20 @@ static inline bool Frames(maniSpringState* state, float delta, uint32_t count)
 // A saved state's word (no header) as binary32.
 static inline float SavedFloat(const maniSpringState* state, uint64_t word)
 {
-    CHECK(maniSaveSpringState(state, s_saved[0], sizeof s_saved[0], NULL) == mani_success, "saved");
+    CHECK(maniSpringState_Save(state, s_saved[0], sizeof s_saved[0], NULL) == mani_success,
+          "saved");
     uint32_t bits = maniLoadU32(s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 4 * word);
     float v = 0.0f;
     memcpy(&v, &bits, sizeof v);
     return v;
 }
 
-// The bytes maniSaveSpringState writes for the state, measured with no
+// The bytes maniSpringState_Save writes for the state, measured with no
 // buffer; 0 when the measure fails.
 static inline size_t SavedSpringSize(const maniSpringState* state)
 {
     size_t size = 0;
-    return maniSaveSpringState(state, NULL, 0, &size) == mani_errorCapacity ? size : 0;
+    return maniSpringState_Save(state, NULL, 0, &size) == mani_errorCapacity ? size : 0;
 }
 
 #endif // MAUL_ANIM_TEST_SPRING_FIXTURE_H

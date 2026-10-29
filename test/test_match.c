@@ -63,7 +63,8 @@ static void OpenTurn(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_turnFile, sizeof s_turnFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_turnFile, sizeof s_turnFile, &size) ==
+                  mani_success &&
               maniOpenClip(s_turnFile, size, &s_turn).result == mani_success,
           "the turn");
     maniDestroyBuilder(builder);
@@ -115,7 +116,8 @@ static maniBuildResult Build(const maniMotionDatabaseSource* source)
     maniBuildResult r = maniBuildMotionDatabase(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_database, sizeof s_database, &s_size) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_database, sizeof s_database, &s_size) ==
+                  mani_success,
               "copied");
     }
     maniDestroyBuilder(builder);
@@ -129,7 +131,7 @@ static float s_scales[MANI_MAX_MATCH_FEATURES];
 static double Raw(const maniMotionDatabase* d, uint32_t f, uint32_t j)
 {
     float features[MANI_MAX_MATCH_FEATURES];
-    CHECK(maniMotionDatabaseFeatures(d, f, features, d->featureCount, NULL) == mani_success,
+    CHECK(maniMotionDatabase_GetFeatures(d, f, features, d->featureCount, NULL) == mani_success,
           "features");
     return (double)features[j] * (double)s_scales[j] + (double)s_offsets[j];
 }
@@ -145,18 +147,18 @@ static _Alignas(32) uint8_t s_poseMemory[4096];
 static maniRootMove TurnMove(float t, float step)
 {
     float to = t + step < 0.0f ? 0.0f : (t + step > 1.0f ? 1.0f : t + step);
-    maniRootMove move = maniRootMoveIdentity();
-    CHECK(maniClipRootMotion(&s_turn, t, to - t, &move) == mani_success, "a move");
+    maniRootMove move = maniGetIdentityRootMove();
+    CHECK(maniClip_GetRootMotion(&s_turn, t, to - t, &move) == mani_success, "a move");
     return move;
 }
 
 // The hips' model position in clip c at time t.
 static maniVec3 Hips(const maniClip* clip, float t, maniPose* pose)
 {
-    CHECK(maniSampleClip(clip, &s_skeleton, t, pose) == mani_success &&
-              maniComputeModel(pose, &s_skeleton) == mani_success,
+    CHECK(maniClip_Sample(clip, &s_skeleton, t, pose) == mani_success &&
+              maniPose_ComputeModel(pose, &s_skeleton) == mani_success,
           "sampled");
-    return maniPoseModelTransform(pose, 0).translation;
+    return maniPose_GetModelTransform(pose, 0).translation;
 }
 
 // The walk's frames: the hips held, moving 1 a second with the root;
@@ -211,7 +213,7 @@ static void TestFeatures(void)
     CHECK(d.frameCount == 32 && d.featureCount == 12 && d.channelCount == 4 && d.timeCount == 5 &&
               d.entryCount == 3 && d.clipCount == 3 && d.skeletonBoneCount == 3,
           "the counts: 10 looping frames, 11 and 11 clamped");
-    CHECK(maniMotionDatabaseNormalization(&d, s_offsets, s_scales, d.featureCount, NULL) ==
+    CHECK(maniMotionDatabase_GetNormalization(&d, s_offsets, s_scales, d.featureCount, NULL) ==
               mani_success,
           "the scales");
     uint32_t measured[2] = {0, 0};
@@ -221,19 +223,20 @@ static void TestFeatures(void)
     memset(row, 0x7F, sizeof row);
     memset(offsets, 0x7F, sizeof offsets);
     float kept = row[0];
-    CHECK(maniMotionDatabaseFeatures(&d, 0, NULL, 0, &measured[0]) == mani_errorCapacity &&
+    CHECK(maniMotionDatabase_GetFeatures(&d, 0, NULL, 0, &measured[0]) == mani_errorCapacity &&
               measured[0] == 12 &&
-              maniMotionDatabaseFeatures(&d, 0, row, 11, &refused[0]) == mani_errorCapacity &&
+              maniMotionDatabase_GetFeatures(&d, 0, row, 11, &refused[0]) == mani_errorCapacity &&
               refused[0] == 12 && memcmp(&row[0], &kept, sizeof kept) == 0 &&
-              maniMotionDatabaseFeatures(&d, 0, NULL, 1, NULL) == mani_errorInvalid,
+              maniMotionDatabase_GetFeatures(&d, 0, NULL, 1, NULL) == mani_errorInvalid,
           "the features measured, a short array refused (nothing written)");
-    CHECK(maniMotionDatabaseNormalization(&d, NULL, NULL, 0, &measured[1]) == mani_errorCapacity &&
+    CHECK(maniMotionDatabase_GetNormalization(&d, NULL, NULL, 0, &measured[1]) ==
+                  mani_errorCapacity &&
               measured[1] == 12 &&
-              maniMotionDatabaseNormalization(&d, offsets, NULL, 11, &refused[1]) ==
+              maniMotionDatabase_GetNormalization(&d, offsets, NULL, 11, &refused[1]) ==
                   mani_errorCapacity &&
               refused[1] == 12 && memcmp(&offsets[0], &kept, sizeof kept) == 0 &&
-              maniMotionDatabaseNormalization(&d, NULL, NULL, 1, NULL) == mani_errorInvalid &&
-              maniMotionDatabaseNormalization(&d, NULL, s_scales, 12, NULL) == mani_success,
+              maniMotionDatabase_GetNormalization(&d, NULL, NULL, 1, NULL) == mani_errorInvalid &&
+              maniMotionDatabase_GetNormalization(&d, NULL, s_scales, 12, NULL) == mani_success,
           "the normalization measured, a short array refused (nothing written)");
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
@@ -280,7 +283,8 @@ static void TestNormalization(void)
             for (uint32_t f = 0; f < d.frameCount; ++f)
             {
                 float v[MANI_MAX_MATCH_FEATURES];
-                CHECK(maniMotionDatabaseFeatures(&d, f, v, d.featureCount, NULL) == mani_success,
+                CHECK(maniMotionDatabase_GetFeatures(&d, f, v, d.featureCount, NULL) ==
+                          mani_success,
                       "features");
                 sum += (double)v[j];
                 squares += (double)v[j] * (double)v[j];
@@ -302,30 +306,31 @@ static void TestReadBack(void)
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success,
           "built and opened");
     maniMatchChannel ch;
-    CHECK(maniMotionDatabaseChannel(&d, 2, &ch) == mani_success &&
+    CHECK(maniMotionDatabase_GetChannel(&d, 2, &ch) == mani_success &&
               ch.kind == maniMatchTrajectoryPosition && ch.timeCount == 2 && ch.times[0] == 0.5f &&
               ch.times[1] == -0.2f && ch.firstFeature == 6 && ch.featureCount == 4 &&
               ch.weight == 1.0f,
           "a channel");
-    CHECK(maniMotionDatabaseChannel(&d, 4, &ch) == mani_errorInvalid &&
-              maniMotionDatabaseChannelName(&d, 0, NULL) == NULL,
+    CHECK(maniMotionDatabase_GetChannel(&d, 4, &ch) == mani_errorInvalid &&
+              maniMotionDatabase_GetChannelName(&d, 0, NULL) == NULL,
           "past the channels; no name");
     maniMatchEntry e;
-    CHECK(maniMotionDatabaseEntry(&d, 1, &e) == mani_success && e.clip == 1 && e.flags == 0 &&
+    CHECK(maniMotionDatabase_GetEntry(&d, 1, &e) == mani_success && e.clip == 1 && e.flags == 0 &&
               e.costBias == 0.5f && e.tags == 2u && e.firstFrame == 10 && e.frameCount == 11,
           "an entry");
     uint32_t entry = 0;
     float time = 0.0f;
-    CHECK(maniMotionDatabaseFrame(&d, 9, &entry, &time) == mani_success && entry == 0 &&
-              time == 0.9f && maniMotionDatabaseFrame(&d, 10, &entry, &time) == mani_success &&
+    CHECK(maniMotionDatabase_GetFrame(&d, 9, &entry, &time) == mani_success && entry == 0 &&
+              time == 0.9f && maniMotionDatabase_GetFrame(&d, 10, &entry, &time) == mani_success &&
               entry == 1 && time == 0.0f &&
-              maniMotionDatabaseFrame(&d, 31, &entry, &time) == mani_success && entry == 2 &&
-              time == 1.0f && maniMotionDatabaseFrame(&d, 32, &entry, &time) == mani_errorInvalid,
+              maniMotionDatabase_GetFrame(&d, 31, &entry, &time) == mani_success && entry == 2 &&
+              time == 1.0f &&
+              maniMotionDatabase_GetFrame(&d, 32, &entry, &time) == mani_errorInvalid,
           "frames to entries and times");
-    CHECK(maniMotionDatabaseClipIdentity(&d, 2) == maniClipIdentity(&s_turn) &&
-              maniMotionDatabaseClipIdentity(&d, 3) == 0 &&
-              maniMotionDatabaseSkeletonIdentity(&d) == maniSkeletonIdentity(&s_skeleton) &&
-              maniMotionDatabaseIdentity(&d) != 0,
+    CHECK(maniMotionDatabase_GetClipIdentity(&d, 2) == maniClip_GetIdentity(&s_turn) &&
+              maniMotionDatabase_GetClipIdentity(&d, 3) == 0 &&
+              maniMotionDatabase_GetSkeletonIdentity(&d) == maniSkeleton_GetIdentity(&s_skeleton) &&
+              maniMotionDatabase_GetIdentity(&d) != 0,
           "identities");
 }
 
@@ -340,7 +345,7 @@ static void TestFloatTrack(void)
     maniMotionDatabase d;
     CHECK(Build(&source).result == mani_success &&
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
-              maniMotionDatabaseNormalization(&d, s_offsets, s_scales, d.featureCount, NULL) ==
+              maniMotionDatabase_GetNormalization(&d, s_offsets, s_scales, d.featureCount, NULL) ==
                   mani_success,
           "built and opened");
     bool ok = true;
@@ -349,7 +354,7 @@ static void TestFloatTrack(void)
         ok = ok && Near4(Raw(&d, f, 0), (double)f / 10.0);
     }
     size_t length = 0;
-    const char* name = maniMotionDatabaseChannelName(&d, 0, &length);
+    const char* name = maniMotionDatabase_GetChannelName(&d, 0, &length);
     CHECK(ok && name != NULL && length == 5 && memcmp(name, "speed", 5) == 0,
           "the float track rising, its name");
 }
@@ -491,12 +496,12 @@ static void TestNameTotals(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, &clipSource).result == mani_success &&
-              maniCopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity,
+              maniBuilder_CopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity,
           "the long names' clip");
     uint8_t* raw = malloc(size + 16);
     uint8_t* file = raw + (16 - (uintptr_t)raw % 16) % 16;
     maniClip clip;
-    CHECK(maniCopyBuilt(builder, file, size, &size) == mani_success &&
+    CHECK(maniBuilder_CopyBuilt(builder, file, size, &size) == mani_success &&
               maniOpenClip(file, size, &clip).result == mani_success,
           "the long names' clip opens");
     maniDestroyBuilder(builder);
@@ -581,7 +586,7 @@ static void TestMisuse(void)
     maniBuildResult e = maniBuildMotionDatabase(builder, &s);
     CHECK(a.result == mani_errorInvalid && b.result == mani_errorInvalid &&
               c.result == mani_errorInvalid && e.result == mani_errorInvalid &&
-              maniBuilderMisuses(builder) == 4 &&
+              maniBuilder_GetMisuse(builder) == 4 &&
               maniBuildMotionDatabase(NULL, &s).result == mani_errorInvalid,
           "misuses counted");
     maniDestroyBuilder(builder);
@@ -778,7 +783,8 @@ static void TestLeafSizes(void)
         size_t size = 0;
         maniMotionDatabase d;
         CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
-                  maniCopyBuilt(builder, s_database, sizeof s_database, &size) == mani_success &&
+                  maniBuilder_CopyBuilt(builder, s_database, sizeof s_database, &size) ==
+                      mani_success &&
                   maniOpenMotionDatabase(s_database, size, &d).result == mani_success,
               "a leaf size builds");
         CHECK(d.leafFrames == (kLeaves[k] != 0 ? kLeaves[k] : 16) && d.nodeCount == kNodes[k],
@@ -786,7 +792,7 @@ static void TestLeafSizes(void)
         for (uint32_t f = 0; f < 32; ++f)
         {
             float row[12];
-            CHECK(maniMotionDatabaseFeatures(&d, f, row, d.featureCount, NULL) == mani_success,
+            CHECK(maniMotionDatabase_GetFeatures(&d, f, row, d.featureCount, NULL) == mani_success,
                   "a frame's features");
             same = same && (k == 0 ? (memcpy(features[f], row, sizeof row), true)
                                    : memcmp(features[f], row, sizeof row) == 0);
@@ -795,7 +801,7 @@ static void TestLeafSizes(void)
         {
             float offsets[12];
             float scales[12];
-            CHECK(maniMotionDatabaseNormalization(&d, offsets, scales, d.featureCount, NULL) ==
+            CHECK(maniMotionDatabase_GetNormalization(&d, offsets, scales, d.featureCount, NULL) ==
                       mani_success,
                   "the normalization");
             for (uint32_t j = 0; j < 12; ++j)
@@ -805,7 +811,7 @@ static void TestLeafSizes(void)
         }
         maniMatchQuery q = {.features = s_query, .current = 4, .jumpThreshold = 0.2f};
         maniMatchResult r;
-        CHECK(maniSearchMotionDatabase(&d, &q, &r) == mani_success, "a search");
+        CHECK(maniMotionDatabase_Search(&d, &q, &r) == mani_success, "a search");
         same = same && (k == 0 ? (s_pick = r, true)
                                : r.frame == s_pick.frame &&
                                      memcmp(&r.cost, &s_pick.cost, sizeof r.cost) == 0);
@@ -819,7 +825,7 @@ static void TestLeafSizes(void)
         CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonOption && r.item == 1,
               "another leaf size refused");
     }
-    CHECK(maniBuilderMisuses(builder) == 0, "no misuse counted");
+    CHECK(maniBuilder_GetMisuse(builder) == 0, "no misuse counted");
     maniDestroyBuilder(builder);
 }
 

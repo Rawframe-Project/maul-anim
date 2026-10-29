@@ -75,8 +75,8 @@ static uint32_t Bits(float x)
 uint64_t maniLearnedTrainerSignature(const maniLearnedTrainerSource* s)
 {
     const maniLearnedTrainerOptions* o = &s->options;
-    const uint64_t values[14] = {maniMotionDatabaseIdentity(s->database),
-                                 maniSkeletonIdentity(s->skeleton),
+    const uint64_t values[14] = {maniMotionDatabase_GetIdentity(s->database),
+                                 maniSkeleton_GetIdentity(s->skeleton),
                                  o->latentCount,
                                  o->hiddenWidth,
                                  o->compressorLayers,
@@ -97,7 +97,7 @@ uint64_t maniLearnedTrainerSignature(const maniLearnedTrainerSource* s)
     hash = HashU64(hash, s->clipCount);
     for (uint32_t k = 0; k < s->clipCount; ++k)
     {
-        hash = HashU64(hash, maniMotionDatabaseClipIdentity(s->database, k));
+        hash = HashU64(hash, maniMotionDatabase_GetClipIdentity(s->database, k));
     }
     hash = HashU64(hash, s->projectorCount);
     for (uint32_t p = 0; p < s->projectorCount; ++p)
@@ -180,8 +180,8 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     return mani_success;
 }
 
-maniResult maniSaveLearnedCheckpoint(const maniLearnedTrainer* trainer, void* bytesOut,
-                                     size_t capacity, size_t* sizeOut)
+maniResult maniLearnedTrainer_SaveCheckpoint(const maniLearnedTrainer* trainer, void* bytesOut,
+                                             size_t capacity, size_t* sizeOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SaveLearnedCheckpointWork(trainer, bytesOut, capacity, sizeOut);

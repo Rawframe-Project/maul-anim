@@ -65,8 +65,8 @@ static float Distance(maniVec3 a, maniVec3 b)
 
 static maniVec3 At(maniPose* pose, uint32_t bone)
 {
-    CHECK(maniComputeModel(pose, &s_skeleton) == mani_success, "the model");
-    return maniPoseModelTransform(pose, bone).translation;
+    CHECK(maniPose_ComputeModel(pose, &s_skeleton) == mani_success, "the model");
+    return maniPose_GetModelTransform(pose, bone).translation;
 }
 
 // A chain of count bones under a root, each 0.3 along y from its parent;
@@ -106,7 +106,7 @@ static void Build(maniSkeleton* skeleton, uint8_t* file, size_t capacity, uint32
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success &&
               maniOpenSkeleton(file, size, skeleton).result == mani_success,
           "a skeleton");
     maniDestroyBuilder(builder);
@@ -131,12 +131,12 @@ static void Setup(void)
 // The tail at rest, each bone bent a little about x and z.
 static void Bent(maniPose* pose)
 {
-    CHECK(maniPoseSetRest(pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(pose, &s_skeleton) == mani_success, "rest");
     for (uint32_t b = 1; b < BONES; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         t.rotation = Turn((maniVec3){0.6f, 0.0f, 0.8f}, 0.15f);
-        maniPoseSetLocal(pose, b, t);
+        maniPose_SetLocal(pose, b, t);
     }
 }
 
@@ -171,7 +171,7 @@ static void TestReach(void)
         Bent(s_pose);
         maniChainSolve s = Solve(goals[g]);
         bool r = false;
-        CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+        CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
                   Distance(At(s_pose, BONES - 1), goals[g]) <= 1e-4f,
               "a goal within reach reached");
         CHECK(LengthsKept(s_pose), "every length kept");
@@ -184,7 +184,7 @@ static void TestOutOfReach(void)
     maniVec3 goal = {1.5f, 2.0f, 1.0f};
     maniChainSolve s = Solve(goal);
     bool r = true;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "out of reach");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "out of reach");
     maniVec3 root = At(s_pose, 1);
     maniVec3 end = At(s_pose, BONES - 1);
     float reach = Distance(end, root);
@@ -198,8 +198,8 @@ static void TestOutOfReach(void)
 // A bone's turn from its rest.
 static maniQuat FromRest(const maniSkeleton* skeleton, maniPose* pose, uint32_t bone)
 {
-    maniQuat q = maniPoseLocal(pose, bone).rotation;
-    maniQuat r = maniSkeletonRest(skeleton, bone).rotation;
+    maniQuat q = maniPose_GetLocal(pose, bone).rotation;
+    maniQuat r = maniSkeleton_GetRest(skeleton, bone).rotation;
     maniQuat t = {r.w * q.x - r.x * q.w - r.y * q.z + r.z * q.y,
                   r.w * q.y + r.x * q.z - r.y * q.w - r.z * q.x,
                   r.w * q.z - r.x * q.y + r.y * q.x - r.z * q.w,
@@ -221,7 +221,7 @@ static void TestLimits(void)
     Bent(s_pose);
     maniChainSolve s = Solve((maniVec3){0.9f, 0.4f, 0.3f});
     s.limits = limits;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "limited by cones");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "limited by cones");
     bool within = true;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
@@ -244,7 +244,7 @@ static void TestLimits(void)
     }
     Bent(s_pose);
     s.goal = (maniVec3){0.0f, 0.8f, 0.7f};
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "limited by hinges");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "limited by hinges");
     within = true;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
@@ -268,12 +268,12 @@ static float Angle(maniQuat a, maniQuat b)
 // The turned chain bent a little off its rest about y and z.
 static void TurnedBent(maniPose* pose)
 {
-    CHECK(maniPoseSetRest(pose, &s_turned) == mani_success, "turned rest");
+    CHECK(maniPose_SetRest(pose, &s_turned) == mani_success, "turned rest");
     for (uint32_t b = 1; b < BONES; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         t.rotation = Mul(t.rotation, Turn((maniVec3){0.0f, 0.6f, 0.8f}, 0.15f));
-        maniPoseSetLocal(pose, b, t);
+        maniPose_SetLocal(pose, b, t);
     }
 }
 
@@ -283,8 +283,8 @@ static bool SameLocals(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t k = 0; k < BONES; ++k)
     {
-        maniTransform x = maniPoseLocal(a, k);
-        maniTransform y = maniPoseLocal(b, k);
+        maniTransform x = maniPose_GetLocal(a, k);
+        maniTransform y = maniPose_GetLocal(b, k);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     return same;
@@ -306,7 +306,7 @@ static void TestTurnedRest(void)
     TurnedBent(s_turnedPose);
     maniChainSolve s = Solve((maniVec3){0.2f, 0.9f, 0.5f});
     s.limits = limits;
-    CHECK(maniSolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success, "turned, limited");
+    CHECK(maniPose_SolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success, "turned, limited");
     bool within = true;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
@@ -325,8 +325,8 @@ static void TestTurnedRest(void)
     TurnedBent(s_turnedOther);
     maniChainSolve free = s;
     free.limits = NULL;
-    CHECK(maniSolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success &&
-              maniSolveCcd(s_turnedOther, &s_turned, &free, NULL) == mani_success &&
+    CHECK(maniPose_SolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success &&
+              maniPose_SolveCcd(s_turnedOther, &s_turned, &free, NULL) == mani_success &&
               SameLocals(s_turnedPose, s_turnedOther),
           "limits of no kind solve as none");
     for (uint32_t k = 0; k < BONES - 2; ++k)
@@ -335,12 +335,12 @@ static void TestTurnedRest(void)
             .kind = maniJointLimitCone, .cone = 3.1f, .twistLow = -3.1f, .twistHigh = 3.1f};
     }
     TurnedBent(s_turnedPose);
-    CHECK(maniSolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success, "wide limits");
+    CHECK(maniPose_SolveCcd(s_turnedPose, &s_turned, &s, NULL) == mani_success, "wide limits");
     float worst = 0.0f;
     for (uint32_t b = 1; b < BONES; ++b)
     {
-        worst = fmaxf(worst, Angle(maniPoseLocal(s_turnedPose, b).rotation,
-                                   maniPoseLocal(s_turnedOther, b).rotation));
+        worst = fmaxf(worst, Angle(maniPose_GetLocal(s_turnedPose, b).rotation,
+                                   maniPose_GetLocal(s_turnedOther, b).rotation));
     }
     CHECK(worst < 1e-3f, "limits wider than every turn from rest solve as none");
 }
@@ -352,12 +352,13 @@ static void TestStep(void)
     maniChainSolve s = Solve((maniVec3){0.8f, 0.2f, -0.6f});
     s.iterations = 1;
     s.step = 0.05f;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "a step bound");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "a step bound");
     bool bounded = true;
     bool turned = false;
     for (uint32_t b = 1; b < BONES - 1; ++b)
     {
-        float a = Angle(maniPoseLocal(s_pose, b).rotation, maniPoseLocal(s_other, b).rotation);
+        float a =
+            Angle(maniPose_GetLocal(s_pose, b).rotation, maniPose_GetLocal(s_other, b).rotation);
         bounded = bounded && a <= 0.05f + 1e-4f;
         turned = turned || a > 0.04f;
     }
@@ -369,12 +370,12 @@ static void TestIdempotent(void)
     Bent(s_pose);
     maniChainSolve s = Solve((maniVec3){0.4f, 0.6f, 0.3f});
     bool r = false;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r, "reached");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r, "reached");
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniPoseSetLocal(s_other, b, maniPoseLocal(s_pose, b));
+        maniPose_SetLocal(s_other, b, maniPose_GetLocal(s_pose, b));
     }
-    CHECK(maniSolveCcd(s_other, &s_skeleton, &s, &r) == mani_success && r, "again");
+    CHECK(maniPose_SolveCcd(s_other, &s_skeleton, &s, &r) == mani_success && r, "again");
     CHECK(SameLocals(s_pose, s_other), "a solve on its own reached result unchanged");
 }
 
@@ -384,17 +385,17 @@ static void TestEndRotation(void)
     maniChainSolve s = Solve((maniVec3){0.4f, 0.6f, 0.3f});
     s.rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, 1.2f);
     s.rotationWeight = 1.0f;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "an end rotation");
-    CHECK(maniComputeModel(s_pose, &s_skeleton) == mani_success &&
-              Angle(maniPoseModelTransform(s_pose, BONES - 1).rotation, s.rotation) < 1e-5f &&
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "an end rotation");
+    CHECK(maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success &&
+              Angle(maniPose_GetModelTransform(s_pose, BONES - 1).rotation, s.rotation) < 1e-5f &&
               Distance(At(s_pose, BONES - 1), s.goal) <= 1e-4f,
           "the end takes the wanted rotation, its origin kept");
     Bent(s_pose);
     s.rotationWeight = 0.5f;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success &&
-              maniComputeModel(s_pose, &s_skeleton) == mani_success,
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success &&
+              maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success,
           "half of it");
-    float half = Angle(maniPoseModelTransform(s_pose, BONES - 1).rotation, s.rotation);
+    float half = Angle(maniPose_GetModelTransform(s_pose, BONES - 1).rotation, s.rotation);
     CHECK(half > 0.05f && half < 1.2f, "half the way");
 }
 
@@ -404,17 +405,17 @@ static void TestWeight(void)
     Bent(s_other);
     maniChainSolve s = Solve((maniVec3){0.4f, 0.6f, 0.3f});
     s.weight = 0.0f;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "weight 0");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "weight 0");
     bool same = true;
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        same = same &&
-               Angle(maniPoseLocal(s_pose, b).rotation, maniPoseLocal(s_other, b).rotation) < 1e-6f;
+        same = same && Angle(maniPose_GetLocal(s_pose, b).rotation,
+                             maniPose_GetLocal(s_other, b).rotation) < 1e-6f;
     }
     CHECK(same, "weight 0 leaves the pose");
     s.weight = 0.5f;
     bool r = true;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "weight 0.5");
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && !r, "weight 0.5");
     float part = Distance(At(s_pose, BONES - 1), s.goal);
     float none = Distance(At(s_other, BONES - 1), s.goal);
     CHECK(part > 1e-3f && part < none, "half the correction");
@@ -425,14 +426,14 @@ static void TestEdges(void)
     Bent(s_pose);
     Bent(s_other);
     maniChainSolve s = Solve(At(s_pose, 1));
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "a goal at the root");
-    maniTransform root[2] = {maniPoseLocal(s_pose, 1), maniPoseLocal(s_other, 1)};
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_success, "a goal at the root");
+    maniTransform root[2] = {maniPose_GetLocal(s_pose, 1), maniPose_GetLocal(s_other, 1)};
     CHECK(memcmp(&root[0], &root[1], sizeof root[0]) == 0,
           "the root, its direction to the goal none, left as it was");
     bool finite = true;
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniQuat q = maniPoseLocal(s_pose, b).rotation;
+        maniQuat q = maniPose_GetLocal(s_pose, b).rotation;
         finite = finite && isfinite(q.x) && isfinite(q.y) && isfinite(q.z) && isfinite(q.w);
     }
     CHECK(finite, "no NaN");
@@ -442,23 +443,23 @@ static void TestEdges(void)
     s = Solve((maniVec3){end.x + 0.01f, end.y, end.z});
     s.tolerance = 0.05f;
     bool r = false;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r &&
               SameLocals(s_pose, s_other),
           "a goal within the tolerance: reached, the pose left as it was");
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
     s = Solve(At(s_pose, BONES - 1));
     s.tolerance = 0.0f;
     r = false;
-    CHECK(maniSolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r,
+    CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, &r) == mani_success && r,
           "a goal at the end with tolerance 0 reached");
-    CHECK(maniPoseSetRest(s_longPose, &s_long) == mani_success, "the long pose");
+    CHECK(maniPose_SetRest(s_longPose, &s_long) == mani_success, "the long pose");
     maniChainSolve l = Solve((maniVec3){1.0f, 2.0f, 0.0f});
     l.root = 1;
     l.end = 32;
-    CHECK(maniSolveCcd(s_longPose, &s_long, &l, NULL) == mani_success, "a path of 32 bones");
+    CHECK(maniPose_SolveCcd(s_longPose, &s_long, &l, NULL) == mani_success, "a path of 32 bones");
     l.root = 0;
-    CHECK(maniSolveCcd(s_longPose, &s_long, &l, NULL) == mani_errorLimit &&
-              maniSolveFabrik(s_longPose, &s_long, &l, NULL) == mani_errorLimit,
+    CHECK(maniPose_SolveCcd(s_longPose, &s_long, &l, NULL) == mani_errorLimit &&
+              maniPose_SolveFabrik(s_longPose, &s_long, &l, NULL) == mani_errorLimit,
           "a path of 33 bones at the limit");
 }
 
@@ -466,9 +467,9 @@ static void TestRefusals(void)
 {
     Bent(s_pose);
     maniChainSolve good = Solve((maniVec3){0.4f, 0.6f, 0.3f});
-    CHECK(maniSolveCcd(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
-              maniSolveCcd(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
-              maniSolveCcd(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid,
+    CHECK(maniPose_SolveCcd(NULL, &s_skeleton, &good, NULL) == mani_errorInvalid &&
+              maniPose_SolveCcd(s_pose, NULL, &good, NULL) == mani_errorInvalid &&
+              maniPose_SolveCcd(s_pose, &s_skeleton, NULL, NULL) == mani_errorInvalid,
           "NULLs");
     maniChainSolve bad[16];
     for (int k = 0; k < 16; ++k)
@@ -496,7 +497,7 @@ static void TestRefusals(void)
     for (int k = 0; k < 16; ++k)
     {
         maniResult want = k == 6 ? mani_errorLimit : mani_errorInvalid;
-        refused += maniSolveCcd(s_pose, &s_skeleton, &bad[k], NULL) == want;
+        refused += maniPose_SolveCcd(s_pose, &s_skeleton, &bad[k], NULL) == want;
     }
     CHECK(refused == 16, "bones, pole, rotation, counts and numbers out of range refused, past a "
                          "bound at the limit");
@@ -516,12 +517,12 @@ static void TestRefusals(void)
         limits[3] = wrong[k];
         maniChainSolve s = good;
         s.limits = limits;
-        refused += maniSolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_errorInvalid;
+        refused += maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_errorInvalid;
     }
     CHECK(refused == 8, "limits of an unknown kind, out of range, or a hinge along its bone or "
                         "of no axis refused");
-    CHECK(maniPoseDifference(&s_skeleton, s_pose, s_pose, s_other) == mani_success &&
-              maniSolveCcd(s_other, &s_skeleton, &good, NULL) == mani_errorInvalid,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_pose, s_pose, s_other) == mani_success &&
+              maniPose_SolveCcd(s_other, &s_skeleton, &good, NULL) == mani_errorInvalid,
           "a difference refused");
 }
 

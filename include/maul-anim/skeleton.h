@@ -64,7 +64,7 @@ extern "C"
     /// @return The bone count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSkeletonBoneCount(const maniSkeleton* skeleton);
+    MANI_API uint32_t maniSkeleton_GetBoneCount(const maniSkeleton* skeleton);
 
     /// Returns the skeleton's identity: a hash of its bones' order,
     /// parents, rests and names, which files built against it record.
@@ -73,7 +73,7 @@ extern "C"
     /// @return The identity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniSkeletonIdentity(const maniSkeleton* skeleton);
+    MANI_API uint64_t maniSkeleton_GetIdentity(const maniSkeleton* skeleton);
 
     /// Returns a bone's parent, always a lower index.
     ///
@@ -83,7 +83,7 @@ extern "C"
     /// count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSkeletonParent(const maniSkeleton* skeleton, uint32_t bone);
+    MANI_API uint32_t maniSkeleton_GetParent(const maniSkeleton* skeleton, uint32_t bone);
 
     /// Returns the end of a bone's subtree: the bone and its descendants
     /// are the indices from bone up to, not including, the end.
@@ -94,7 +94,7 @@ extern "C"
     /// range).
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSkeletonSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone);
+    MANI_API uint32_t maniSkeleton_GetSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone);
 
     /// Returns a bone's rest transform, relative to its parent.
     ///
@@ -104,7 +104,7 @@ extern "C"
     /// count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniTransform maniSkeletonRest(const maniSkeleton* skeleton, uint32_t bone);
+    MANI_API maniTransform maniSkeleton_GetRest(const maniSkeleton* skeleton, uint32_t bone);
 
     /// Returns a bone's name, UTF-8 and not terminated.
     ///
@@ -116,8 +116,8 @@ extern "C"
     /// the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone,
-                                              size_t* lengthOut);
+    MANI_API const char* maniSkeleton_GetBoneName(const maniSkeleton* skeleton, uint32_t bone,
+                                                  size_t* lengthOut);
 
     /// Finds a bone by its name.
     ///
@@ -128,8 +128,8 @@ extern "C"
     /// @return The bone, or MANI_NO_BONE when no bone has that name.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniSkeletonFindBone(const maniSkeleton* skeleton, const char* name,
-                                           size_t length);
+    MANI_API uint32_t maniSkeleton_FindBone(const maniSkeleton* skeleton, const char* name,
+                                            size_t length);
 
 #ifdef __cplusplus
 }

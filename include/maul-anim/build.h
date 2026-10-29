@@ -90,7 +90,7 @@ extern "C"
     /// @return The count.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_API uint32_t maniBuilderMisuses(const maniBuilder* builder);
+    MANI_API uint32_t maniBuilder_GetMisuse(const maniBuilder* builder);
 
     // Why a build refused its source.
     typedef uint32_t maniBuildReason;
@@ -683,10 +683,10 @@ extern "C"
     /// allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniMeasureClip(maniBuilder* builder,
-                                                       const maniClipSource* source,
-                                                       const maniClip* clip,
-                                                       maniClipReport* reportOut);
+    MANI_NODISCARD MANI_API maniResult maniBuilder_MeasureClip(maniBuilder* builder,
+                                                               const maniClipSource* source,
+                                                               const maniClip* clip,
+                                                               maniClipReport* reportOut);
 
     // How a clip is compressed, in skeleton units: the largest
     // distance a point on a shell around each bone may move, through the
@@ -959,8 +959,8 @@ extern "C"
     /// positive capacity, or a builder holding neither.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniCopyBuilt(maniBuilder* builder, void* bufferOut,
-                                                     size_t capacity, size_t* sizeOut);
+    MANI_NODISCARD MANI_API maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut,
+                                                             size_t capacity, size_t* sizeOut);
 
     /// Copies where each source bone of the last built skeleton went: the
     /// skeleton's index of source bone i at boneOut[i].
@@ -977,9 +977,10 @@ extern "C"
     /// skeleton.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniCopySkeletonOrder(maniBuilder* builder,
-                                                             uint32_t* boneOut, uint32_t capacity,
-                                                             uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniResult maniBuilder_CopySkeletonOrder(maniBuilder* builder,
+                                                                     uint32_t* boneOut,
+                                                                     uint32_t capacity,
+                                                                     uint32_t* countOut);
 
     // An attribute morph targets move: its semantic and set (0 for
     // positions, normals and tangents).

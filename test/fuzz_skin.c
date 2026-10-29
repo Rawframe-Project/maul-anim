@@ -22,11 +22,11 @@ static void Exercise(const uint8_t* bytes, size_t size)
     maniSkin skin;
     if (maniOpenSkin(bytes, size, &skin).result == 0)
     {
-        uint32_t count = maniSkinJointCount(&skin);
+        uint32_t count = maniSkin_GetJointCount(&skin);
         for (uint32_t joint = 0; joint < count; ++joint)
         {
-            maniAffine bind = maniSkinInverseBind(&skin, joint);
-            if (maniSkinJoint(&skin, joint) >= skin.skeletonBoneCount || bind.m[0] != bind.m[0])
+            maniAffine bind = maniSkin_GetInverseBind(&skin, joint);
+            if (maniSkin_GetJoint(&skin, joint) >= skin.skeletonBoneCount || bind.m[0] != bind.m[0])
             {
                 abort();
             }

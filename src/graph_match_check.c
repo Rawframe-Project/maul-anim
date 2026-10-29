@@ -40,12 +40,12 @@ static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 uint32_t maniGraphDatabaseClipSlot(const maniGraphSource* source,
                                    const maniMotionDatabase* database, uint32_t clip)
 {
-    uint64_t identity = maniMotionDatabaseClipIdentity(database, clip);
+    uint64_t identity = maniMotionDatabase_GetClipIdentity(database, clip);
     for (uint32_t s = 0; s < source->clipCount; ++s)
     {
         const maniClip* c = source->clips[s].clip;
-        if (c != NULL && maniClipIdentity(c) == identity &&
-            maniClipAdditiveBasis(c) == maniAdditiveNone)
+        if (c != NULL && maniClip_GetIdentity(c) == identity &&
+            maniClip_GetAdditiveBasis(c) == maniAdditiveNone)
         {
             return s;
         }
@@ -55,25 +55,25 @@ uint32_t maniGraphDatabaseClipSlot(const maniGraphSource* source,
 
 maniBuildResult maniCheckGraphDatabases(const maniGraphSource* source, uint64_t* clipsOut)
 {
-    uint64_t skeleton = maniSkeletonIdentity(source->skeleton);
+    uint64_t skeleton = maniSkeleton_GetIdentity(source->skeleton);
     *clipsOut = 0;
     for (uint32_t i = 0; i < source->databaseCount; ++i)
     {
         const maniMotionDatabase* d = source->databases[i].database;
-        if (d == NULL || maniMotionDatabaseSkeletonIdentity(d) != skeleton)
+        if (d == NULL || maniMotionDatabase_GetSkeletonIdentity(d) != skeleton)
         {
             return Refuse(maniBuildReasonDatabase, i, 0);
         }
         // Mirrored entries play through the graph's mirror map.
-        uint64_t mirror = maniMotionDatabaseMirrorMapIdentity(d);
+        uint64_t mirror = maniMotionDatabase_GetMirrorMapIdentity(d);
         if (mirror != 0 && (source->mirrorMap == NULL || source->mirrorMap->identity != mirror))
         {
             return Refuse(maniBuildReasonMirrorGraph, i, 3);
         }
         for (uint32_t k = 0; k < i; ++k)
         {
-            if (maniMotionDatabaseIdentity(source->databases[k].database) ==
-                maniMotionDatabaseIdentity(d))
+            if (maniMotionDatabase_GetIdentity(source->databases[k].database) ==
+                maniMotionDatabase_GetIdentity(d))
             {
                 return Refuse(maniBuildReasonDatabase, i, k);
             }

@@ -390,7 +390,7 @@ static MANI_NOINLINE maniImportResult FbxBuildSkeletonWork(maniBuilder* builder,
     return BuildMarked(builder, &b);
 }
 
-maniImportResult maniFbxBuildSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
+maniImportResult maniBuildFbxSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t skeleton,
                                       const maniFbxOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();
@@ -448,7 +448,7 @@ static MANI_NOINLINE maniImportResult FbxBuildModelSkeletonWork(maniBuilder* bui
     return BuildMarked(builder, &b);
 }
 
-maniImportResult maniFbxBuildModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
+maniImportResult maniBuildFbxModelSkeleton(maniBuilder* builder, const maniFbx* fbx, uint32_t model,
                                            const maniFbxOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();
@@ -495,8 +495,9 @@ static MANI_NOINLINE maniImportResult FbxSkeletonPlacementWork(const maniFbx* fb
     return PlacementOf(fbx, fbx->skeletonRoots[skeleton], options, placementOut);
 }
 
-maniImportResult maniFbxSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
-                                          const maniFbxOptions* options, maniAffine* placementOut)
+maniImportResult maniFbx_GetSkeletonPlacement(const maniFbx* fbx, uint32_t skeleton,
+                                              const maniFbxOptions* options,
+                                              maniAffine* placementOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxSkeletonPlacementWork(fbx, skeleton, options, placementOut);
@@ -516,8 +517,8 @@ static MANI_NOINLINE maniImportResult FbxModelPlacementWork(const maniFbx* fbx, 
     return PlacementOf(fbx, model, options, placementOut);
 }
 
-maniImportResult maniFbxModelPlacement(const maniFbx* fbx, uint32_t model,
-                                       const maniFbxOptions* options, maniAffine* placementOut)
+maniImportResult maniFbx_GetModelPlacement(const maniFbx* fbx, uint32_t model,
+                                           const maniFbxOptions* options, maniAffine* placementOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxModelPlacementWork(fbx, model, options, placementOut);

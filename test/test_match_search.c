@@ -444,7 +444,7 @@ static void TestAgainstScan(void)
             maniMatchQuery q = RandomQuery(&s_layout);
             maniMatchResult want = Plain(&s_layout, &q);
             maniMatchResult got = {0, 0.0f};
-            bool ok = maniSearchMotionDatabase(&d, &q, &got) == mani_success &&
+            bool ok = maniMotionDatabase_Search(&d, &q, &got) == mani_success &&
                       got.frame == want.frame && memcmp(&got.cost, &want.cost, 4) == 0;
             if (!ok && same)
             {
@@ -497,7 +497,7 @@ static void TestBoundaries(void)
                     }
                     maniMatchResult want = Plain(l, &q);
                     maniMatchResult got = {0, 0.0f};
-                    bool ok = maniSearchMotionDatabase(&d, &q, &got) == mani_success &&
+                    bool ok = maniMotionDatabase_Search(&d, &q, &got) == mani_success &&
                               got.frame == want.frame && memcmp(&got.cost, &want.cost, 4) == 0;
                     if (!ok && same)
                     {
@@ -545,7 +545,7 @@ static uint32_t Find(const maniMotionDatabase* d, maniMatchQuery q, float at)
     const float features[3] = {at, 0.0f, 0.0f};
     q.features = features;
     maniMatchResult r = {0, 0.0f};
-    CHECK(maniSearchMotionDatabase(d, &q, &r) == mani_success, "searched");
+    CHECK(maniMotionDatabase_Search(d, &q, &r) == mani_success, "searched");
     return r.frame;
 }
 
@@ -577,7 +577,7 @@ static void TestRules(void)
     maniMatchResult r = {0, 0.0f};
     const float zero[3] = {0};
     q.features = zero;
-    CHECK(maniSearchMotionDatabase(&d, &q, &r) == mani_success && r.frame == MANI_MATCH_NO_FRAME &&
+    CHECK(maniMotionDatabase_Search(&d, &q, &r) == mani_success && r.frame == MANI_MATCH_NO_FRAME &&
               r.cost == HUGE_VALF,
           "no candidate");
     Small(&d, MANI_MATCH_NO_JUMP, -10.0f);
@@ -613,11 +613,11 @@ static void TestRefusals(void)
     for (int k = 0; k < 8; ++k)
     {
         maniResult want = k == 3 ? mani_errorLimit : mani_errorInvalid;
-        refused = refused && maniSearchMotionDatabase(&d, &bad[k], &r) == want;
+        refused = refused && maniMotionDatabase_Search(&d, &bad[k], &r) == want;
     }
-    CHECK(refused && maniSearchMotionDatabase(NULL, &q, &r) == mani_errorInvalid &&
-              maniSearchMotionDatabase(&d, NULL, &r) == mani_errorInvalid &&
-              maniSearchMotionDatabase(&d, &q, NULL) == mani_errorInvalid,
+    CHECK(refused && maniMotionDatabase_Search(NULL, &q, &r) == mani_errorInvalid &&
+              maniMotionDatabase_Search(&d, NULL, &r) == mani_errorInvalid &&
+              maniMotionDatabase_Search(&d, &q, NULL) == mani_errorInvalid,
           "refused searches, more picks than MANI_MAX_MATCH_HISTORY at the limit");
 }
 

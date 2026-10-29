@@ -143,8 +143,8 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
     maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side],
+                                    &size) == mani_success &&
               maniOpenSkeleton(s_skeletonFiles[side], size, out).result == mani_success,
           "a skeleton");
     maniDestroyBuilder(builder);
@@ -155,7 +155,7 @@ static void Map(const maniRetargetMapSource* source, int slot, maniRetargetMap* 
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildRetargetMap(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_mapFiles[slot], sizeof s_mapFiles[slot], &size) ==
+              maniBuilder_CopyBuilt(builder, s_mapFiles[slot], sizeof s_mapFiles[slot], &size) ==
                   mani_success &&
               maniOpenRetargetMap(s_mapFiles[slot], size, out).result == mani_success,
           "a map");
@@ -167,7 +167,7 @@ static void Clip(const maniClipSource* source, int slot, maniClip* out)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildClip(builder, source).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[slot], sizeof s_clipFiles[slot], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[slot], sizeof s_clipFiles[slot], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[slot], size, out).result == mani_success,
           "a clip");
@@ -270,7 +270,8 @@ static maniBuildResult BuildGraph(const maniGraphSource* source)
     s_graphSize = 0;
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &s_graphSize) ==
+                  mani_success,
               "the graph copied");
     }
     maniDestroyBuilder(builder);
@@ -318,8 +319,8 @@ static bool Same(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t bone = 0; bone < 10; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         same = same && Gap(x.translation, y.translation) < 1e-5 &&
                QuatDot(x.rotation, y.rotation) > 1.0 - 1e-10 && Gap(x.scale, y.scale) < 1e-5;
     }
@@ -328,8 +329,8 @@ static bool Same(const maniPose* a, const maniPose* b)
 
 static bool Transfer(const maniPose* in, maniPose* out)
 {
-    return maniRetargetPose(&s_map, &s_source, in, &s_target, out, s_transfer, sizeof s_transfer) ==
-           mani_success;
+    return maniRetargetMap_RetargetPose(&s_map, &s_source, in, &s_target, out, s_transfer,
+                                        sizeof s_transfer) == mani_success;
 }
 
 // The walk carried at a time plus the lean carried as the bake carries
@@ -338,16 +339,16 @@ static bool Transfer(const maniPose* in, maniPose* out)
 static bool Expected(float time)
 {
     maniBlendLayer layer = {s_in, 1.0f, NULL};
-    bool ok = maniSampleClip(&s_walk, &s_source, time, s_in) == mani_success &&
+    bool ok = maniClip_Sample(&s_walk, &s_source, time, s_in) == mani_success &&
               Transfer(s_in, s_expected) &&
-              maniSampleClip(&s_lean, &s_source, time, s_in) == mani_success &&
-              maniPoseSetRest(s_whole, &s_source) == mani_success &&
-              maniAddPoses(&s_source, s_whole, &layer, 1) == mani_success &&
-              Transfer(s_whole, s_layer) && maniPoseSetRest(s_whole, &s_source) == mani_success &&
+              maniClip_Sample(&s_lean, &s_source, time, s_in) == mani_success &&
+              maniPose_SetRest(s_whole, &s_source) == mani_success &&
+              maniPose_AddLayers(s_whole, &s_source, &layer, 1) == mani_success &&
+              Transfer(s_whole, s_layer) && maniPose_SetRest(s_whole, &s_source) == mani_success &&
               Transfer(s_whole, s_base) &&
-              maniPoseDifference(&s_target, s_layer, s_base, s_layer) == mani_success;
+              maniComputePoseDifference(&s_target, s_layer, s_base, s_layer) == mani_success;
     layer.pose = s_layer;
-    return ok && maniAddPoses(&s_target, s_expected, &layer, 1) == mani_success;
+    return ok && maniPose_AddLayers(s_expected, &s_target, &layer, 1) == mani_success;
 }
 
 static bool Bound(const maniGraph* g, maniGraphInstance** instance)
@@ -358,7 +359,7 @@ static bool Bound(const maniGraph* g, maniGraphInstance** instance)
     maniGraphBinding* binding = NULL;
     return maniBindGraph(g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
                mani_success &&
-           maniGraphScratchSize(binding) <= sizeof s_scratch &&
+           maniGraphBinding_GetScratchSize(binding) <= sizeof s_scratch &&
            maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory, instance) ==
                mani_success;
 }
@@ -372,15 +373,16 @@ static void TestPlayback(void)
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
               Bound(&g, &instance),
           "opened and bound");
-    CHECK(maniGraphRetargetMapCount(&g) == 1 &&
-              maniGraphRetargetMapIdentity(&g, 0) == s_map.identity &&
-              maniGraphRetargetMapSourceIdentity(&g, 0) == maniSkeletonIdentity(&s_source) &&
-              maniGraphRetargetMapIdentity(&g, 1) == 0 &&
-              maniGraphRetargetMapSourceIdentity(&g, 1) == 0 &&
-              maniGraphClipRetargetMap(&g, 0) == 0 && maniGraphClipRetargetMap(&g, 1) == 0 &&
-              maniGraphClipRetargetMap(&g, 2) == MANI_NO_TRACK &&
-              maniGraphRetargetMapCount(NULL) == 0,
-          "the map slot read back");
+    CHECK(
+        maniGraph_GetRetargetMapCount(&g) == 1 &&
+            maniGraph_GetRetargetMapIdentity(&g, 0) == s_map.identity &&
+            maniGraph_GetRetargetMapSourceIdentity(&g, 0) == maniSkeleton_GetIdentity(&s_source) &&
+            maniGraph_GetRetargetMapIdentity(&g, 1) == 0 &&
+            maniGraph_GetRetargetMapSourceIdentity(&g, 1) == 0 &&
+            maniGraph_GetClipRetargetMap(&g, 0) == 0 && maniGraph_GetClipRetargetMap(&g, 1) == 0 &&
+            maniGraph_GetClipRetargetMap(&g, 2) == MANI_NO_TRACK &&
+            maniGraph_GetRetargetMapCount(NULL) == 0,
+        "the map slot read back");
     bool poses = true;
     bool moves = true;
     for (int k = 1; k <= 12; ++k)
@@ -388,12 +390,15 @@ static void TestPlayback(void)
         maniRootMove move;
         maniRootMove want;
         float from = (float)(k - 1) * 0.1f;
-        poses = poses && maniUpdateGraph(instance, 0.1f, NULL, 0, NULL, &move) == mani_success &&
-                maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success &&
+        poses = poses &&
+                maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, &move) == mani_success &&
+                maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
+                    mani_success &&
                 Expected(fmodf((float)k * 0.1f, 1.0f)) && Same(s_out, s_expected);
         moves = moves &&
-                maniClipRootMotion(&s_walk, fmodf(from, 1.0f), 0.1f, &want) == mani_success &&
-                Gap(move.translation, maniRetargetRootMotion(&s_map, want.translation)) < 1e-5 &&
+                maniClip_GetRootMotion(&s_walk, fmodf(from, 1.0f), 0.1f, &want) == mani_success &&
+                Gap(move.translation,
+                    maniRetargetMap_RetargetRootMotion(&s_map, want.translation)) < 1e-5 &&
                 QuatDot(move.rotation, want.rotation) > 1.0 - 1e-10;
     }
     CHECK(poses, "each pose the walk carried plus the lean carried");
@@ -419,7 +424,7 @@ static void TestBuildRefusals(void)
         size_t size = 0;
         maniClip clip;
         CHECK(maniBuildClip(builder, &still).result == mani_success &&
-                  maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+                  maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
                   maniOpenClip(file, size, &clip).result == mani_success,
               "a still clip");
         maniDestroyBuilder(builder);
@@ -456,10 +461,12 @@ static void TestTooManyMaps(void)
             .skeleton = &s_source, .sampleRate = 30.0f, .duration = (float)(k + 1) / 30.0f};
         size_t size = 0;
         made = made && maniBuildRetargetMap(builder, &m).result == mani_success &&
-               maniCopyBuilt(builder, mapFiles[k], sizeof mapFiles[k], &size) == mani_success &&
+               maniBuilder_CopyBuilt(builder, mapFiles[k], sizeof mapFiles[k], &size) ==
+                   mani_success &&
                maniOpenRetargetMap(mapFiles[k], size, &maps[k]).result == mani_success &&
                maniBuildClip(builder, &c).result == mani_success &&
-               maniCopyBuilt(builder, clipFiles[k], sizeof clipFiles[k], &size) == mani_success &&
+               maniBuilder_CopyBuilt(builder, clipFiles[k], sizeof clipFiles[k], &size) ==
+                   mani_success &&
                maniOpenClip(clipFiles[k], size, &clips[k]).result == mani_success;
         int length = snprintf(names[k], sizeof names[k], "c%u", (unsigned)k);
         slots[k] = (maniGraphClipSource){&clips[k], names[k], (size_t)length, &maps[k]};
@@ -515,7 +522,7 @@ static void TestBindRefusals(void)
     size_t setSize = 0;
     maniSpringSet set;
     CHECK(maniBuildSpringSet(builder, &setSource).result == mani_success &&
-              maniCopyBuilt(builder, setFile, sizeof setFile, &setSize) == mani_success &&
+              maniBuilder_CopyBuilt(builder, setFile, sizeof setFile, &setSize) == mani_success &&
               maniOpenSpringSet(setFile, setSize, &set).result == mani_success,
           "a spring set");
     maniDestroyBuilder(builder);
@@ -563,7 +570,7 @@ static void TestSharedScratch(void)
     size_t size = 0;
     maniClip clip;
     CHECK(maniBuildClip(builder, &bend).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenClip(file, size, &clip).result == mani_success,
           "a clip of the other rig");
     maniDestroyBuilder(builder);
@@ -604,14 +611,15 @@ static void TestSharedScratch(void)
     for (int k = 0; k < 3; ++k)
     {
         float t = 0.1f * (float)(k + 1);
-        same = same && maniUpdateGraph(a, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
-               maniEvaluateGraph(a, s_scratch, sizeof s_scratch, s_out) == mani_success &&
+        same = same && maniGraphInstance_Update(a, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+               maniGraphInstance_Evaluate(a, s_scratch, sizeof s_scratch, s_out) == mani_success &&
                Expected(t) && Same(s_out, s_expected);
-        same = same && maniUpdateGraph(b, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
-               maniEvaluateGraph(b, s_scratch, sizeof s_scratch, s_out) == mani_success &&
-               maniSampleClip(&clip, &s_otherSource, t, s_otherIn) == mani_success &&
-               maniRetargetPose(&s_fromOther, &s_otherSource, s_otherIn, &s_target, s_expected,
-                                s_transfer, sizeof s_transfer) == mani_success &&
+        same = same && maniGraphInstance_Update(b, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+               maniGraphInstance_Evaluate(b, s_scratch, sizeof s_scratch, s_out) == mani_success &&
+               maniClip_Sample(&clip, &s_otherSource, t, s_otherIn) == mani_success &&
+               maniRetargetMap_RetargetPose(&s_fromOther, &s_otherSource, s_otherIn, &s_target,
+                                            s_expected, s_transfer,
+                                            sizeof s_transfer) == mani_success &&
                Same(s_out, s_expected);
     }
     CHECK(same, "each graph its own clip carried");
@@ -654,8 +662,8 @@ static void TestOpen(void)
     CHECK(BuildGraph(&source).result == mani_success, "a graph of two maps builds");
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraphRetargetMapCount(&g) == 2 && maniGraphClipRetargetMap(&g, 1) == 1 &&
-              maniGraphRetargetMapIdentity(&g, 1) == s_chainsOnly.identity,
+              maniGraph_GetRetargetMapCount(&g) == 2 && maniGraph_GetClipRetargetMap(&g, 1) == 1 &&
+              maniGraph_GetRetargetMapIdentity(&g, 1) == s_chainsOnly.identity,
           "two map slots");
     uint64_t clips = SectionAt(maniGraphTagClips);
     uint64_t maps = SectionAt(maniGraphTagMaps);
@@ -679,18 +687,19 @@ static void TestJson(void)
     uint64_t identity = 0;
     maniGraph g;
     CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
-    identity = maniGraphIdentity(&g);
+    identity = maniGraph_GetIdentity(&g);
     maniBuilder* builder = NewBuilder();
     size_t length = 0;
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
           "the JSON written");
     maniGraphNamedAssets named = {.skeleton = &s_target, .clips = s_clips, .clipCount = 2};
     size_t size = 0;
     CHECK(maniBuildGraphJson(builder, (const char*)s_text, length, &named).result == mani_success &&
-              maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, &size) ==
+                  mani_success &&
               maniOpenGraph(s_graphFile, size, &g).result == mani_success &&
-              maniGraphIdentity(&g) == identity,
+              maniGraph_GetIdentity(&g) == identity,
           "built back the same");
     maniDestroyBuilder(builder);
 }
@@ -722,7 +731,7 @@ static void TestSubgraph(void)
     maniGraph g;
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraphClipCount(&g) == 2 && maniGraphRetargetMapCount(&g) == 1,
+              maniGraph_GetClipCount(&g) == 2 && maniGraph_GetRetargetMapCount(&g) == 1,
           "the subgraph's walk joins the slot");
     clips[0].retargetMap = &s_chainsOnly;
     maniBuildResult r = BuildGraph(&source);

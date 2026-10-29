@@ -89,7 +89,7 @@ static maniSkeleton BuildRandomSkeleton(uint32_t count, uint8_t* file, size_t ca
     maniSkeletonSource source = {bones, count};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, file, capacity, &size) == mani_success, "copies");
+    CHECK(maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success, "copies");
     maniDestroyBuilder(builder);
     maniSkeleton skeleton;
     CHECK(maniOpenSkeleton(file, size, &skeleton).result == mani_success, "opens");
@@ -148,7 +148,7 @@ static Matrix Multiply(const Matrix* a, const Matrix* b)
 static void TestMemory(void)
 {
     maniSkeleton s = BuildRandomSkeleton(kBones, s_file, sizeof s_file);
-    size_t size = maniPoseSize(&s);
+    size_t size = maniSkeleton_GetPoseSize(&s);
     CHECK(size % MANI_POSE_ALIGNMENT == 0 && size <= kPoseCapacity, "size");
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s, s_poseMemory + 16, size, &pose) == mani_errorInvalid, "misaligned");
@@ -158,8 +158,8 @@ static void TestMemory(void)
     CHECK(maniInitPose(&s, NULL, size, &pose) == mani_errorInvalid, "null memory");
     CHECK(maniInitPose(&s, s_poseMemory, size, &pose) == mani_success, "inits");
     CHECK((void*)pose == (void*)s_poseMemory, "in the caller's memory");
-    CHECK(maniPoseBoneCount(pose) == kBones, "count");
-    CHECK(maniPoseModelCurrent(pose), "composed at init");
+    CHECK(maniPose_GetBoneCount(pose) == kBones, "count");
+    CHECK(maniPose_IsModelCurrent(pose), "composed at init");
 }
 
 static void TestLocals(void)
@@ -169,17 +169,17 @@ static void TestLocals(void)
     CHECK(maniInitPose(&s, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
     for (uint32_t bone = 0; bone < kBones; ++bone)
     {
-        maniTransform rest = maniSkeletonRest(&s, bone);
-        maniTransform local = maniPoseLocal(pose, bone);
+        maniTransform rest = maniSkeleton_GetRest(&s, bone);
+        maniTransform local = maniPose_GetLocal(pose, bone);
         CHECK(memcmp(&rest, &local, sizeof rest) == 0, "rest at init");
     }
     maniTransform t = RandomTransform();
-    maniPoseSetLocal(pose, 9, t);
-    maniTransform back = maniPoseLocal(pose, 9);
+    maniPose_SetLocal(pose, 9, t);
+    maniTransform back = maniPose_GetLocal(pose, 9);
     CHECK(memcmp(&t, &back, sizeof t) == 0, "set and read");
-    CHECK(!maniPoseModelCurrent(pose), "stale after a set");
-    maniPoseSetLocal(pose, kBones, t);
-    maniTransform past = maniPoseLocal(pose, kBones);
+    CHECK(!maniPose_IsModelCurrent(pose), "stale after a set");
+    maniPose_SetLocal(pose, kBones, t);
+    maniTransform past = maniPose_GetLocal(pose, kBones);
     CHECK(past.rotation.w == 1.0f && past.scale.x == 1.0f && past.translation.y == 0.0f,
           "identity past the count");
 
@@ -188,15 +188,16 @@ static void TestLocals(void)
     {
         range[i] = RandomTransform();
     }
-    CHECK(maniPoseWriteLocals(pose, kBones - 5, 5, range) == mani_success, "writes the end");
+    CHECK(maniPose_WriteLocals(pose, kBones - 5, 5, range) == mani_success, "writes the end");
     maniTransform read[5];
-    CHECK(maniPoseReadLocals(pose, kBones - 5, 5, read) == mani_success, "reads the end");
+    CHECK(maniPose_ReadLocals(pose, kBones - 5, 5, read) == mani_success, "reads the end");
     CHECK(memcmp(range, read, sizeof range) == 0, "the range back");
-    CHECK(maniPoseReadLocals(pose, kBones - 4, 5, read) == mani_errorInvalid, "past the end");
-    CHECK(maniPoseWriteLocals(pose, kBones + 1, 0, range) == mani_errorInvalid, "start past");
-    CHECK(maniPoseReadLocals(pose, 0, 0, NULL) == mani_success, "an empty range");
-    CHECK(maniPoseReadLocals(pose, 0, 1, NULL) == mani_errorInvalid, "a null array");
-    CHECK(maniPoseSetRest(pose, &s) == mani_success && maniPoseModelCurrent(pose), "rest again");
+    CHECK(maniPose_ReadLocals(pose, kBones - 4, 5, read) == mani_errorInvalid, "past the end");
+    CHECK(maniPose_WriteLocals(pose, kBones + 1, 0, range) == mani_errorInvalid, "start past");
+    CHECK(maniPose_ReadLocals(pose, 0, 0, NULL) == mani_success, "an empty range");
+    CHECK(maniPose_ReadLocals(pose, 0, 1, NULL) == mani_errorInvalid, "a null array");
+    CHECK(maniPose_SetRest(pose, &s) == mani_success && maniPose_IsModelCurrent(pose),
+          "rest again");
 }
 
 // A count that fills its last group: the bone past it is not read.
@@ -207,14 +208,14 @@ static void TestFullGroupEdge(void)
     CHECK(maniInitPose(&s, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
     for (uint32_t bone = 0; bone < 8; ++bone)
     {
-        maniPoseSetLocal(pose, bone, RandomTransform());
+        maniPose_SetLocal(pose, bone, RandomTransform());
     }
-    CHECK(maniComputeModel(pose, &s) == mani_success, "composes");
-    maniTransform past = maniPoseLocal(pose, 8);
+    CHECK(maniPose_ComputeModel(pose, &s) == mani_success, "composes");
+    maniTransform past = maniPose_GetLocal(pose, 8);
     CHECK(past.rotation.w == 1.0f && past.rotation.x == 0.0f && past.translation.x == 0.0f &&
               past.scale.z == 1.0f,
           "identity just past a full group");
-    maniAffine model = maniPoseModel(pose, 8);
+    maniAffine model = maniPose_GetModel(pose, 8);
     CHECK(model.m[0] == 1.0f && model.m[9] == 0.0f, "identity model just past");
 }
 
@@ -227,18 +228,18 @@ static void TestModelAgainstBinary64(void)
         CHECK(maniInitPose(&s, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
         for (uint32_t bone = 0; bone < kBones; ++bone)
         {
-            maniPoseSetLocal(pose, bone, RandomTransform());
+            maniPose_SetLocal(pose, bone, RandomTransform());
         }
-        CHECK(maniComputeModel(pose, &s) == mani_success, "composes");
+        CHECK(maniPose_ComputeModel(pose, &s) == mani_success, "composes");
         Matrix reference[kBones];
         double worst = 0.0;
         for (uint32_t bone = 0; bone < kBones; ++bone)
         {
-            maniTransform local = maniPoseLocal(pose, bone);
+            maniTransform local = maniPose_GetLocal(pose, bone);
             Matrix m = FromTransform(&local);
-            uint32_t parent = maniSkeletonParent(&s, bone);
+            uint32_t parent = maniSkeleton_GetParent(&s, bone);
             reference[bone] = parent == MANI_NO_BONE ? m : Multiply(&reference[parent], &m);
-            maniAffine model = maniPoseModel(pose, bone);
+            maniAffine model = maniPose_GetModel(pose, bone);
             // Errors relative to the matrix's size, which grows with depth.
             double magnitude = 1.0;
             for (int k = 0; k < 12; ++k)
@@ -261,14 +262,15 @@ static void TestIdentityRefused(void)
     maniSkeleton b = BuildRandomSkeleton(kBones, other, sizeof other);
     maniPose* pose = NULL;
     CHECK(maniInitPose(&a, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
-    CHECK(maniComputeModel(pose, &b) == mani_errorInvalid, "another skeleton");
-    CHECK(maniPoseSetRest(pose, &b) == mani_errorInvalid, "another skeleton's rest");
-    CHECK(maniComputeModel(NULL, &a) == mani_errorInvalid, "null pose");
+    CHECK(maniPose_ComputeModel(pose, &b) == mani_errorInvalid, "another skeleton");
+    CHECK(maniPose_SetRest(pose, &b) == mani_errorInvalid, "another skeleton's rest");
+    CHECK(maniPose_ComputeModel(NULL, &a) == mani_errorInvalid, "null pose");
     // Memory that no init made is not a pose: a copy of a real pose
     // without the tag in its first four bytes is refused.
-    memcpy(s_otherMemory, s_poseMemory, maniPoseSize(&a));
+    memcpy(s_otherMemory, s_poseMemory, maniSkeleton_GetPoseSize(&a));
     memset(s_otherMemory, 0, 4);
-    CHECK(maniComputeModel((maniPose*)(void*)s_otherMemory, &a) == mani_errorInvalid, "no tag");
+    CHECK(maniPose_ComputeModel((maniPose*)(void*)s_otherMemory, &a) == mani_errorInvalid,
+          "no tag");
 }
 
 // A pose is its bytes: a copy composes the same matrices.
@@ -279,19 +281,19 @@ static void TestCopiedBytes(void)
     CHECK(maniInitPose(&s, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success, "inits");
     for (uint32_t bone = 0; bone < kBones; ++bone)
     {
-        maniPoseSetLocal(pose, bone, RandomTransform());
+        maniPose_SetLocal(pose, bone, RandomTransform());
     }
-    size_t size = maniPoseSize(&s);
+    size_t size = maniSkeleton_GetPoseSize(&s);
     memcpy(s_otherMemory, s_poseMemory, size);
     maniPose* copy = (maniPose*)(void*)s_otherMemory;
-    CHECK(maniComputeModel(pose, &s) == mani_success, "original");
-    CHECK(maniComputeModel(copy, &s) == mani_success, "copy");
+    CHECK(maniPose_ComputeModel(pose, &s) == mani_success, "original");
+    CHECK(maniPose_ComputeModel(copy, &s) == mani_success, "copy");
     maniAffine a[kBones];
     maniAffine b[kBones];
-    CHECK(maniPoseReadModels(pose, 0, kBones, a) == mani_success, "reads");
-    CHECK(maniPoseReadModels(copy, 0, kBones, b) == mani_success, "reads the copy");
+    CHECK(maniPose_ReadModels(pose, 0, kBones, a) == mani_success, "reads");
+    CHECK(maniPose_ReadModels(copy, 0, kBones, b) == mani_success, "reads the copy");
     CHECK(memcmp(a, b, sizeof a) == 0, "same bits");
-    CHECK(maniPoseReadModels(pose, 1, kBones, a) == mani_errorInvalid, "past the end");
+    CHECK(maniPose_ReadModels(pose, 1, kBones, a) == mani_errorInvalid, "past the end");
 }
 
 int main(void)

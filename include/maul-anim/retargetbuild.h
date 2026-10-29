@@ -187,14 +187,14 @@ extern "C"
     /// keeps it in the builder. The clip keeps the source clip's sample
     /// rate, duration, loop policy and additive basis. At each sample
     /// the source's pose is made a pose of the target by
-    /// maniRetargetPose; a channel that is the target's rest at every
+    /// maniRetargetMap_RetargetPose; a channel that is the target's rest at every
     /// sample is left out. An additive clip's differences are each added
     /// to the source's rest, carried, and taken as differences from the
     /// source's rest carried. Float tracks keep their values at the
     /// samples and their interpolation (linear or step); discrete
     /// tracks, events and markers are copied. Root motion carries as
     /// moves: each translation's horizontal and vertical parts scaled as
-    /// maniRetargetRootMotion scales them, both turned from the root
+    /// maniRetargetMap_RetargetRootMotion scales them, both turned from the root
     /// motion bone's parent's reference frame to the target bone's
     /// parent's; its source's axes follow that turn (all axes, and the
     /// whole rotation, where it takes an axis off the axes).

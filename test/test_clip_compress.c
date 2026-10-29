@@ -160,7 +160,8 @@ static void OpenSkeleton(void)
     maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "skeleton builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+    CHECK(maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              mani_success,
           "copies");
     maniDestroyBuilder(builder);
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
@@ -171,7 +172,8 @@ static void BuildFullFrom(const maniClipSource* source)
 {
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildClip(builder, source).result == mani_success, "full clip builds");
-    CHECK(maniCopyBuilt(builder, s_fullFile, sizeof s_fullFile, &s_fullSize) == mani_success,
+    CHECK(maniBuilder_CopyBuilt(builder, s_fullFile, sizeof s_fullFile, &s_fullSize) ==
+              mani_success,
           "copies the full clip");
     maniDestroyBuilder(builder);
     CHECK(maniOpenClip(s_fullFile, s_fullSize, &s_full).result == mani_success, "full opens");
@@ -190,7 +192,7 @@ static maniResult Compress(const maniCompressOptions* options, maniCompressRepor
     maniResult r = maniCompressClip(builder, &s_full, &s_skeleton, options, report);
     if (r == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
               "copies the compressed clip");
     }
     maniDestroyBuilder(builder);
@@ -222,21 +224,21 @@ static void Compare(const maniClip* packed, float* boneOut, float* floatOut)
     *floatOut = 0.0f;
     for (float t = -0.1f; t < s_full.duration + 0.1f; t += 0.0071f)
     {
-        CHECK(maniSampleClip(&s_full, &s_skeleton, t, a) == mani_success, "full samples");
-        CHECK(maniSampleClip(packed, &s_skeleton, t, b) == mani_success, "compressed samples");
-        CHECK(maniComputeModel(a, &s_skeleton) == mani_success, "full models");
-        CHECK(maniComputeModel(b, &s_skeleton) == mani_success, "compressed models");
+        CHECK(maniClip_Sample(&s_full, &s_skeleton, t, a) == mani_success, "full samples");
+        CHECK(maniClip_Sample(packed, &s_skeleton, t, b) == mani_success, "compressed samples");
+        CHECK(maniPose_ComputeModel(a, &s_skeleton) == mani_success, "full models");
+        CHECK(maniPose_ComputeModel(b, &s_skeleton) == mani_success, "compressed models");
         for (uint32_t bone = 0; bone < 6; ++bone)
         {
-            maniAffine ma = maniPoseModel(a, bone);
-            maniAffine mb = maniPoseModel(b, bone);
+            maniAffine ma = maniPose_GetModel(a, bone);
+            maniAffine mb = maniPose_GetModel(b, bone);
             *boneOut = fmaxf(*boneOut, Distance(&ma, &mb));
         }
         float fa[4];
         float fb[4];
         uint32_t n = s_full.floatTrackCount;
-        CHECK(maniSampleClipFloats(&s_full, t, fa, 4, NULL) == mani_success, "floats");
-        CHECK(maniSampleClipFloats(packed, t, fb, 4, NULL) == mani_success, "floats");
+        CHECK(maniClip_SampleFloats(&s_full, t, fa, 4, NULL) == mani_success, "floats");
+        CHECK(maniClip_SampleFloats(packed, t, fb, 4, NULL) == mani_success, "floats");
         for (uint32_t i = 0; i < n; ++i)
         {
             *floatOut = fmaxf(*floatOut, fabsf(fa[i] - fb[i]) / fmaxf(1.0f, fabsf(fa[i])));
@@ -303,9 +305,9 @@ static void TestSegments(void)
     CHECK(Compress(&options, &report) == mani_success, "compresses");
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK(maniClipCompressed(&clip) && !maniClipCompressed(&s_full), "forms");
-    CHECK(maniClipSampleCount(&clip) == 61 && clip.segmentCount == 4, "four segments");
-    CHECK(maniClipDuration(&clip) == maniClipDuration(&s_full), "duration");
+    CHECK(maniClip_IsCompressed(&clip) && !maniClip_IsCompressed(&s_full), "forms");
+    CHECK(maniClip_GetSampleCount(&clip) == 61 && clip.segmentCount == 4, "four segments");
+    CHECK(maniClip_GetDuration(&clip) == maniClip_GetDuration(&s_full), "duration");
     CHECK(report.bytes == s_size && s_size < s_fullSize / 2, "smaller");
     CHECK(report.shellError > 0.0 && report.shellError <= 0.0001, "shell error within precision");
     CHECK(report.floatError <= 0.00001, "float error within precision");
@@ -318,7 +320,7 @@ static void TestSegments(void)
     CHECK(FormOf(&clip, 1, 0) == maniClipFormAbsent, "the spine's translation absent");
     CHECK(DroppedOf(&clip, 0) == 3, "the root's rotation leaves w out");
     CHECK(DroppedOf(&clip, 5) == 0, "the leg's leaves x out");
-    CHECK(clip.forms[FloatFormAt(6, maniClipFindFloatTrack(&clip, "half", 4))] ==
+    CHECK(clip.forms[FloatFormAt(6, maniClip_FindFloatTrack(&clip, "half", 4))] ==
               maniClipFormConstant,
           "half constant");
     CHECK(clip.animatedKinds[maniClipKindRotation] == 4 &&
@@ -367,7 +369,7 @@ static void TestOneSegment(void)
     CHECK(Compress(&options, NULL) == mani_success, "compresses");
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK(maniClipSampleCount(&clip) == 16 && clip.segmentCount == 1, "one segment");
+    CHECK(maniClip_GetSampleCount(&clip) == 16 && clip.segmentCount == 1, "one segment");
     uint32_t zeros = 0;
     uint32_t raws = 0;
     CountRates(&clip, &zeros, &raws);
@@ -387,7 +389,7 @@ static void TestOneSample(void)
     source.floatTracks = &s_floats[1];
     source.floatTrackCount = 1;
     BuildFullFrom(&source);
-    CHECK(maniClipSampleCount(&s_full) == 1, "one sample");
+    CHECK(maniClip_GetSampleCount(&s_full) == 1, "one sample");
     maniCompressOptions options = maniDefaultCompressOptions();
     CHECK(Compress(&options, NULL) == mani_success, "compresses");
     maniClip clip;
@@ -497,7 +499,8 @@ static void RandomSkeleton(uint32_t bones)
     maniSkeletonSource source = {s_randomBones, bones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "random skeleton builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+    CHECK(maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              mani_success,
           "copies");
     maniDestroyBuilder(builder);
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
@@ -582,10 +585,10 @@ static void TestRandomWithinPrecision(void)
 // Two poses' locals, bit for bit.
 static bool SameLocals(const maniPose* a, const maniPose* b)
 {
-    for (uint32_t bone = 0; bone < maniPoseBoneCount(a); ++bone)
+    for (uint32_t bone = 0; bone < maniPose_GetBoneCount(a); ++bone)
     {
-        maniTransform ta = maniPoseLocal(a, bone);
-        maniTransform tb = maniPoseLocal(b, bone);
+        maniTransform ta = maniPose_GetLocal(a, bone);
+        maniTransform tb = maniPose_GetLocal(b, bone);
         if (memcmp(&ta, &tb, sizeof ta) != 0)
         {
             return false;
@@ -631,16 +634,16 @@ static void CursorWalk(const maniClip* clip, maniClipCursor* cursor)
     for (uint32_t step = 0; step < 2000; ++step)
     {
         t = WalkTime(step, t, clip->duration);
-        CHECK(maniSampleClip(clip, &s_skeleton, t, a) == mani_success, "samples");
-        CHECK(maniSampleClipCursor(cursor, clip, &s_skeleton, t, b) == mani_success, "cursor");
+        CHECK(maniClip_Sample(clip, &s_skeleton, t, a) == mani_success, "samples");
+        CHECK(maniClipCursor_Sample(cursor, clip, &s_skeleton, t, b) == mani_success, "cursor");
         float fa[4];
         float fb[4];
         uint32_t n = 0;
-        CHECK(maniSampleClipFloats(clip, t, fa, 4, &n) == mani_success, "floats");
-        CHECK(maniSampleClipFloatsCursor(cursor, clip, t, fb, 4, &n) == mani_success,
+        CHECK(maniClip_SampleFloats(clip, t, fa, 4, &n) == mani_success, "floats");
+        CHECK(maniClipCursor_SampleFloats(cursor, clip, t, fb, 4, &n) == mani_success,
               "cursor floats");
         same = same && SameLocals(a, b) && memcmp(fa, fb, n * sizeof(float)) == 0 &&
-               maniPoseIsDifference(a) == maniPoseIsDifference(b);
+               maniPose_IsDifference(a) == maniPose_IsDifference(b);
         t = t == t ? t : 0.0f;
     }
     CHECK(same, "the cursor plays random access's bits");
@@ -653,8 +656,8 @@ static void TestCursor(void)
     CHECK(Compress(&options, NULL) == mani_success, "compresses");
     maniClip packed;
     CHECK(Open(&packed).result == mani_success, "opens");
-    size_t size = maniClipCursorSize(&packed);
-    CHECK(size > maniClipCursorSize(&s_full) && size <= sizeof s_cursorMemory, "cursor size");
+    size_t size = maniClip_GetCursorSize(&packed);
+    CHECK(size > maniClip_GetCursorSize(&s_full) && size <= sizeof s_cursorMemory, "cursor size");
     maniClipCursor* cursor = NULL;
     CHECK(maniInitClipCursor(s_cursorMemory, size, &cursor) == mani_success, "cursor");
     CursorWalk(&packed, cursor);
@@ -677,7 +680,7 @@ static void TestCursor(void)
     CHECK(maniOpenClip(other, otherSize, &view).result == mani_success, "opens the first");
     maniClip second;
     CHECK(Open(&second).result == mani_success, "opens the second");
-    CHECK(maniClipCursorSize(&second) == maniClipCursorSize(&view), "the same shape");
+    CHECK(maniClip_GetCursorSize(&second) == maniClip_GetCursorSize(&view), "the same shape");
     CursorWalk(&view, cursor);
     // The same time on both: the first clip's samples held at the address
     // must not play for the second.
@@ -685,37 +688,38 @@ static void TestCursor(void)
     maniPose* fresh = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &held) == mani_success, "pose");
     CHECK(maniInitPose(&s_skeleton, s_poseB, sizeof s_poseB, &fresh) == mani_success, "pose");
-    CHECK(maniSampleClipCursor(cursor, &view, &s_skeleton, 0.37f, held) == mani_success, "first");
+    CHECK(maniClipCursor_Sample(cursor, &view, &s_skeleton, 0.37f, held) == mani_success, "first");
     view = second;
-    CHECK(maniSampleClipCursor(cursor, &view, &s_skeleton, 0.37f, held) == mani_success, "second");
-    CHECK(maniSampleClip(&view, &s_skeleton, 0.37f, fresh) == mani_success, "random");
+    CHECK(maniClipCursor_Sample(cursor, &view, &s_skeleton, 0.37f, held) == mani_success, "second");
+    CHECK(maniClip_Sample(&view, &s_skeleton, 0.37f, fresh) == mani_success, "random");
     CHECK(SameLocals(held, fresh), "rebound by identity");
     CursorWalk(&view, cursor);
     view.animatedFloats += 1000;
     maniPose* grownPose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &grownPose) == mani_success, "pose");
-    CHECK(maniSampleClipCursor(cursor, &view, &s_skeleton, 0.5f, grownPose) == mani_errorCapacity,
+    CHECK(maniClipCursor_Sample(cursor, &view, &s_skeleton, 0.5f, grownPose) == mani_errorCapacity,
           "a shape grown at the same identity and address");
     CHECK(Compress(&options, NULL) == mani_success, "compresses again");
     CHECK(Open(&packed).result == mani_success, "opens again");
     // Too small for the compressed clip: refused, nothing written.
     maniClipCursor* small = NULL;
-    CHECK(maniInitClipCursor(s_cursorMemory, maniClipCursorSize(&s_full), &small) == mani_success,
+    CHECK(maniInitClipCursor(s_cursorMemory, maniClip_GetCursorSize(&s_full), &small) ==
+              mani_success,
           "small cursor");
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &pose) == mani_success, "pose");
-    CHECK(maniSampleClipCursor(small, &s_full, &s_skeleton, 0.5f, pose) == mani_success,
+    CHECK(maniClipCursor_Sample(small, &s_full, &s_skeleton, 0.5f, pose) == mani_success,
           "a small cursor plays a full clip");
-    CHECK(maniSampleClipCursor(small, &packed, &s_skeleton, 0.5f, pose) == mani_errorCapacity,
+    CHECK(maniClipCursor_Sample(small, &packed, &s_skeleton, 0.5f, pose) == mani_errorCapacity,
           "too small");
     float values[4];
     uint32_t n = 0;
-    CHECK(maniSampleClipFloatsCursor(small, &packed, 0.5f, values, 4, &n) == mani_errorCapacity &&
+    CHECK(maniClipCursor_SampleFloats(small, &packed, 0.5f, values, 4, &n) == mani_errorCapacity &&
               n == 4,
           "too small for floats");
     // The smallest cursor: no larger, the same bits; below it, refused.
-    size_t compact = maniClipCursorCompactSize(&packed);
-    CHECK(compact > 0 && maniClipCursorCompactSize(NULL) == 0, "compact size");
+    size_t compact = maniClip_GetCursorCompactSize(&packed);
+    CHECK(compact > 0 && maniClip_GetCursorCompactSize(NULL) == 0, "compact size");
     // Smaller where a vector backend holds the groups, the same on the
     // scalar one.
     bool scalar = strcmp(maniGetSimdBackend(), "scalar") == 0;
@@ -733,27 +737,27 @@ static void TestCursor(void)
     CHECK(guarded, "a compact cursor stays within its memory");
     CHECK(maniInitClipCursor(s_cursorMemory, compact - sizeof(float), &small2) == mani_success,
           "too small a cursor");
-    CHECK(maniSampleClipCursor(small2, &packed, &s_skeleton, 0.5f, pose) == mani_errorCapacity,
+    CHECK(maniClipCursor_Sample(small2, &packed, &s_skeleton, 0.5f, pose) == mani_errorCapacity,
           "below the compact size");
     // Misuse.
-    CHECK(maniClipCursorSize(NULL) == 0, "no clip");
+    CHECK(maniClip_GetCursorSize(NULL) == 0, "no clip");
     CHECK(maniInitClipCursor(NULL, size, &cursor) == mani_errorInvalid, "no memory");
     CHECK(maniInitClipCursor(s_cursorMemory, size, NULL) == mani_errorInvalid, "no out");
     CHECK(maniInitClipCursor(s_cursorMemory + 4, size, &cursor) == mani_errorInvalid, "misaligned");
     CHECK(maniInitClipCursor(s_cursorMemory, 8, &cursor) == mani_errorCapacity, "no room");
     CHECK(maniInitClipCursor(s_cursorMemory, size, &cursor) == mani_success, "again");
-    CHECK(maniSampleClipCursor(NULL, &packed, &s_skeleton, 0.5f, pose) == mani_errorInvalid,
+    CHECK(maniClipCursor_Sample(NULL, &packed, &s_skeleton, 0.5f, pose) == mani_errorInvalid,
           "no cursor");
-    CHECK(maniSampleClipCursor(cursor, NULL, &s_skeleton, 0.5f, pose) == mani_errorInvalid,
+    CHECK(maniClipCursor_Sample(cursor, NULL, &s_skeleton, 0.5f, pose) == mani_errorInvalid,
           "no clip to sample");
-    CHECK(maniSampleClipFloatsCursor(NULL, &packed, 0.5f, values, 4, &n) == mani_errorInvalid,
+    CHECK(maniClipCursor_SampleFloats(NULL, &packed, 0.5f, values, 4, &n) == mani_errorInvalid,
           "no cursor for floats");
-    CHECK(maniSampleClipFloatsCursor(cursor, &packed, 0.5f, NULL, 4, &n) == mani_errorInvalid,
+    CHECK(maniClipCursor_SampleFloats(cursor, &packed, 0.5f, NULL, 4, &n) == mani_errorInvalid,
           "no values");
-    CHECK(maniSampleClipFloatsCursor(cursor, &packed, 0.5f, values, 3, &n) == mani_errorCapacity,
+    CHECK(maniClipCursor_SampleFloats(cursor, &packed, 0.5f, values, 3, &n) == mani_errorCapacity,
           "few values");
     static _Alignas(8) uint8_t zeros[256];
-    CHECK(maniSampleClipCursor((maniClipCursor*)(void*)zeros, &packed, &s_skeleton, 0.5f, pose) ==
+    CHECK(maniClipCursor_Sample((maniClipCursor*)(void*)zeros, &packed, &s_skeleton, 0.5f, pose) ==
               mani_errorInvalid,
           "not a cursor");
 }
@@ -779,22 +783,22 @@ static void RandomSubset(const maniClip* clip, uint32_t bones)
     bool right = true;
     for (float t = 0.0f; t < clip->duration; t += 0.071f)
     {
-        CHECK(maniSampleClip(clip, &s_skeleton, t, a) == mani_success, "samples");
+        CHECK(maniClip_Sample(clip, &s_skeleton, t, a) == mani_success, "samples");
         // b of the clip's kind, then marked.
-        CHECK(maniSampleClip(clip, &s_skeleton, 0.0f, b) == mani_success, "kind");
+        CHECK(maniClip_Sample(clip, &s_skeleton, 0.0f, b) == mani_success, "kind");
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
-            maniPoseSetLocal(b, bone, marker);
+            maniPose_SetLocal(b, bone, marker);
         }
-        CHECK(maniSampleClipBones(clip, &s_skeleton, t, list, count, b) == mani_success,
+        CHECK(maniClip_SampleBones(clip, &s_skeleton, t, list, count, b) == mani_success,
               "random subset");
         uint32_t next = 0;
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
             bool listed = next < count && list[next] == bone;
             next += listed ? 1 : 0;
-            maniTransform want = listed ? maniPoseLocal(a, bone) : marker;
-            maniTransform got = maniPoseLocal(b, bone);
+            maniTransform want = listed ? maniPose_GetLocal(a, bone) : marker;
+            maniTransform got = maniPose_GetLocal(b, bone);
             right = right && memcmp(&want, &got, sizeof want) == 0;
         }
     }
@@ -830,7 +834,8 @@ static void TestCursorRandom(void)
         maniSkeletonSource skeleton = {s_randomBones, bones};
         CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success, "turned skeleton");
         size_t size = 0;
-        CHECK(maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                  mani_success,
               "copies");
         maniDestroyBuilder(builder);
         CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
@@ -875,8 +880,8 @@ static void TestCursorRandom(void)
         // Half the rounds through the smallest cursor, which walks its
         // samples where the full one holds them in groups too.
         maniClipCursor* cursor = NULL;
-        size_t memory =
-            round % 4 < 2 ? maniClipCursorSize(&packed) : maniClipCursorCompactSize(&packed);
+        size_t memory = round % 4 < 2 ? maniClip_GetCursorSize(&packed)
+                                      : maniClip_GetCursorCompactSize(&packed);
         CHECK(memory <= sizeof s_cursorMemory, "cursor size");
         CHECK(maniInitClipCursor(s_cursorMemory, memory, &cursor) == mani_success, "cursor");
         CursorWalk(&packed, cursor);
@@ -917,7 +922,8 @@ static void TestCursorConstantRotations(void)
     for (int compact = 0; compact < 2; ++compact)
     {
         maniClipCursor* cursor = NULL;
-        size_t memory = compact ? maniClipCursorCompactSize(&packed) : maniClipCursorSize(&packed);
+        size_t memory =
+            compact ? maniClip_GetCursorCompactSize(&packed) : maniClip_GetCursorSize(&packed);
         CHECK(memory <= sizeof s_cursorMemory, "cursor size");
         CHECK(maniInitClipCursor(s_cursorMemory, memory, &cursor) == mani_success, "cursor");
         CursorWalk(&packed, cursor);
@@ -952,7 +958,7 @@ static void TestBatchTails(void)
         maniClip packed;
         CHECK(Open(&packed).result == mani_success, "opens");
         maniClipCursor* cursor = NULL;
-        CHECK(maniInitClipCursor(s_cursorMemory, maniClipCursorSize(&packed), &cursor) ==
+        CHECK(maniInitClipCursor(s_cursorMemory, maniClip_GetCursorSize(&packed), &cursor) ==
                   mani_success,
               "cursor");
         CursorWalk(&packed, cursor);
@@ -988,11 +994,11 @@ static void TestRestFill(void)
         CHECK(Open(&packed).result == mani_success, "opens");
         maniPose* pose = NULL;
         CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &pose) == mani_success, "pose");
-        CHECK(maniSampleClip(&packed, &s_skeleton, 0.25f, pose) == mani_success, "samples");
+        CHECK(maniClip_Sample(&packed, &s_skeleton, 0.25f, pose) == mani_success, "samples");
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
-            maniTransform want = additive ? identity : maniSkeletonRest(&s_skeleton, bone);
-            maniTransform got = maniPoseLocal(pose, bone);
+            maniTransform want = additive ? identity : maniSkeleton_GetRest(&s_skeleton, bone);
+            maniTransform got = maniPose_GetLocal(pose, bone);
             right = right && memcmp(&want, &got, sizeof want) == 0;
         }
     }
@@ -1015,17 +1021,17 @@ static void SubsetOf(const maniClip* clip)
     bool right = true;
     for (float t = 0.0f; t < clip->duration; t += 0.137f)
     {
-        CHECK(maniSampleClip(clip, &s_skeleton, t, a) == mani_success, "samples");
+        CHECK(maniClip_Sample(clip, &s_skeleton, t, a) == mani_success, "samples");
         for (uint32_t bone = 0; bone < 6; ++bone)
         {
-            maniPoseSetLocal(b, bone, marker);
+            maniPose_SetLocal(b, bone, marker);
         }
-        CHECK(maniSampleClipBones(clip, &s_skeleton, t, kList, 3, b) == mani_success, "subset");
+        CHECK(maniClip_SampleBones(clip, &s_skeleton, t, kList, 3, b) == mani_success, "subset");
         for (uint32_t bone = 0; bone < 6; ++bone)
         {
             bool listed = bone == 1 || bone == 2 || bone == 5;
-            maniTransform want = listed ? maniPoseLocal(a, bone) : marker;
-            maniTransform got = maniPoseLocal(b, bone);
+            maniTransform want = listed ? maniPose_GetLocal(a, bone) : marker;
+            maniTransform got = maniPose_GetLocal(b, bone);
             right = right && memcmp(&want, &got, sizeof want) == 0;
         }
     }
@@ -1033,24 +1039,25 @@ static void SubsetOf(const maniClip* clip)
     static const uint32_t kDown[2] = {2, 1};
     static const uint32_t kSame[2] = {2, 2};
     static const uint32_t kPast[1] = {6};
-    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, kDown, 2, b) == mani_errorInvalid,
+    CHECK(maniClip_SampleBones(clip, &s_skeleton, 0.5f, kDown, 2, b) == mani_errorInvalid,
           "decreasing");
-    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, kSame, 2, b) == mani_errorInvalid,
+    CHECK(maniClip_SampleBones(clip, &s_skeleton, 0.5f, kSame, 2, b) == mani_errorInvalid,
           "repeated");
-    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, kPast, 1, b) == mani_errorInvalid,
+    CHECK(maniClip_SampleBones(clip, &s_skeleton, 0.5f, kPast, 1, b) == mani_errorInvalid,
           "past the bones");
-    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, NULL, 1, b) == mani_errorInvalid, "no list");
-    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, NULL, 0, b) == mani_success, "none");
-    CHECK(maniSampleClipBones(NULL, &s_skeleton, 0.5f, kList, 3, b) == mani_errorInvalid,
+    CHECK(maniClip_SampleBones(clip, &s_skeleton, 0.5f, NULL, 1, b) == mani_errorInvalid,
+          "no list");
+    CHECK(maniClip_SampleBones(clip, &s_skeleton, 0.5f, NULL, 0, b) == mani_success, "none");
+    CHECK(maniClip_SampleBones(NULL, &s_skeleton, 0.5f, kList, 3, b) == mani_errorInvalid,
           "no clip");
     // A subset keeps the other bones: never into a difference.
     maniPoseSetKind(b, true);
-    CHECK(maniSampleClipBones(clip, &s_skeleton, 0.5f, kList, 3, b) == mani_errorInvalid,
+    CHECK(maniClip_SampleBones(clip, &s_skeleton, 0.5f, kList, 3, b) == mani_errorInvalid,
           "a difference");
-    maniTransform got = maniPoseLocal(b, 0);
+    maniTransform got = maniPose_GetLocal(b, 0);
     CHECK(memcmp(&got, &marker, sizeof got) == 0, "refusals leave the pose");
     // A whole sample makes it a pose again.
-    CHECK(maniSampleClip(clip, &s_skeleton, 0.5f, b) == mani_success && !maniPoseIsDifference(b),
+    CHECK(maniClip_Sample(clip, &s_skeleton, 0.5f, b) == mani_success && !maniPose_IsDifference(b),
           "a whole sample: a pose");
 }
 
@@ -1063,7 +1070,7 @@ static void TestSubsets(void)
     maniClip packed;
     CHECK(Open(&packed).result == mani_success, "opens");
     SubsetOf(&packed);
-    CHECK(maniClipIdentity(&packed) == maniLoadU64(s_file + 40), "identity");
+    CHECK(maniClip_GetIdentity(&packed) == maniLoadU64(s_file + 40), "identity");
 }
 
 // The test's own shell metric, binary64: each bone's matrix through the
@@ -1111,10 +1118,10 @@ static Matrix Product(const Matrix* a, const Matrix* b)
 
 static void PoseMatrices(const maniPose* pose, Matrix* out)
 {
-    for (uint32_t b = 0; b < maniSkeletonBoneCount(&s_skeleton); ++b)
+    for (uint32_t b = 0; b < maniSkeleton_GetBoneCount(&s_skeleton); ++b)
     {
-        Matrix local = LocalMatrix(maniPoseLocal(pose, b));
-        uint32_t parent = maniSkeletonParent(&s_skeleton, b);
+        Matrix local = LocalMatrix(maniPose_GetLocal(pose, b));
+        uint32_t parent = maniSkeleton_GetParent(&s_skeleton, b);
         out[b] = parent == MANI_NO_BONE ? local : Product(&out[parent], &local);
     }
 }
@@ -1155,7 +1162,7 @@ static void TestReportMatches(void)
     double worst = 0.0;
     uint32_t worstBone = 0;
     uint32_t worstSample = 0;
-    for (uint32_t k = 0; k < maniClipSampleCount(&clip); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(&clip); ++k)
     {
         maniSampleClipAt(&s_full, &s_skeleton, k, a, NULL);
         maniSampleClipAt(&clip, &s_skeleton, k, b, NULL);
@@ -1257,7 +1264,7 @@ static void AdditiveCompressed(float precision)
     CHECK(Compress(&options, &report) == mani_success, "compresses");
     maniClip clip;
     CHECK(Open(&clip).result == mani_success, "opens");
-    CHECK(maniClipAdditiveBasis(&clip) == maniAdditiveRest, "keeps the basis");
+    CHECK(maniClip_GetAdditiveBasis(&clip) == maniAdditiveRest, "keeps the basis");
     static _Alignas(32) uint8_t restMemory[2][8192];
     maniPose* a = NULL;
     maniPose* b = NULL;
@@ -1272,17 +1279,17 @@ static void AdditiveCompressed(float precision)
     Matrix ma[6];
     Matrix mb[6];
     double worst = 0.0;
-    for (uint32_t k = 0; k < maniClipSampleCount(&clip); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(&clip); ++k)
     {
         maniSampleClipAt(&s_full, &s_skeleton, k, a, NULL);
         maniSampleClipAt(&clip, &s_skeleton, k, b, NULL);
-        CHECK(maniPoseSetRest(ra, &s_skeleton) == mani_success &&
-                  maniPoseSetRest(rb, &s_skeleton) == mani_success,
+        CHECK(maniPose_SetRest(ra, &s_skeleton) == mani_success &&
+                  maniPose_SetRest(rb, &s_skeleton) == mani_success,
               "rests");
         maniBlendLayer la = {a, 1.0f, NULL};
         maniBlendLayer lb = {b, 1.0f, NULL};
-        CHECK(maniAddPoses(&s_skeleton, ra, &la, 1) == mani_success &&
-                  maniAddPoses(&s_skeleton, rb, &lb, 1) == mani_success,
+        CHECK(maniPose_AddLayers(ra, &s_skeleton, &la, 1) == mani_success &&
+                  maniPose_AddLayers(rb, &s_skeleton, &lb, 1) == mani_success,
               "adds");
         PoseMatrices(ra, ma);
         PoseMatrices(rb, mb);
@@ -1295,9 +1302,9 @@ static void AdditiveCompressed(float precision)
     CHECK(worst <= (double)options.precision, "within the precision on the rest");
     CHECK(fabs(worst - report.shellError) <= 1e-12, "the report is the test's measure");
     // Channels without keys decode as the identity difference.
-    maniTransform spine = maniPoseLocal(b, 1);
-    maniTransform root = maniPoseLocal(b, 0);
-    maniTransform hand = maniPoseLocal(b, 4);
+    maniTransform spine = maniPose_GetLocal(b, 1);
+    maniTransform root = maniPose_GetLocal(b, 0);
+    maniTransform hand = maniPose_GetLocal(b, 4);
     CHECK(spine.translation.x == 0.0f && spine.translation.y == 0.0f && root.scale.x == 1.0f &&
               root.scale.z == 1.0f && hand.rotation.w == 1.0f && hand.rotation.x == 0.0f,
           "no keys: the identity");
@@ -1341,7 +1348,7 @@ static void TestBonePrecisions(void)
     Matrix ma[6];
     Matrix mb[6];
     bool within = true;
-    for (uint32_t k = 0; k < maniClipSampleCount(&clip); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(&clip); ++k)
     {
         maniSampleClipAt(&s_full, &s_skeleton, k, a, NULL);
         maniSampleClipAt(&clip, &s_skeleton, k, b, NULL);
@@ -1412,7 +1419,7 @@ static void TestMisuse(void)
     b.floatPrecisions = perFloat;
     CHECK(maniCompressClip(builder, &s_full, &s_skeleton, &b, NULL) == mani_errorInvalid,
           "a float track's precision");
-    CHECK(maniBuilderMisuses(builder) == 18, "a bad argument counts a misuse");
+    CHECK(maniBuilder_GetMisuse(builder) == 18, "a bad argument counts a misuse");
     CHECK(Compress(&o, NULL) == mani_success, "compresses");
     maniClip packed;
     CHECK(Open(&packed).result == mani_success, "opens");
@@ -1422,7 +1429,7 @@ static void TestMisuse(void)
     other.skeletonIdentity ^= 1;
     CHECK(maniCompressClip(builder, &other, &s_skeleton, &o, NULL) == mani_errorInvalid,
           "another skeleton's clip");
-    CHECK(maniBuilderMisuses(builder) == 18, "a clip's own state counts no misuse");
+    CHECK(maniBuilder_GetMisuse(builder) == 18, "a clip's own state counts no misuse");
     maniDestroyBuilder(builder);
 }
 
@@ -1724,7 +1731,7 @@ static void TestOtherVersions(void)
     maniCompressOptions options = maniDefaultCompressOptions();
     CHECK(Open(&clip).result == mani_success &&
               maniCompressClip(builder, &s_full, &s_skeleton, &options, NULL) == mani_success &&
-              maniBuilderMisuses(builder) == 0,
+              maniBuilder_GetMisuse(builder) == 0,
           "recompressed, no misuse counted");
     maniDestroyBuilder(builder);
 }

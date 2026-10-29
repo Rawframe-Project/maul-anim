@@ -17,7 +17,7 @@ const maniGraphClipSource graphClips[1] = {{&clip, "turn", 4, NULL}};
 maniGraphNamedAssets named = {&skeleton, graphClips, NULL, NULL, NULL, 1, 0, 0, 0, NULL};
 maniBuildResult graphBuilt = maniBuildGraphJson(builder, graphText, sizeof graphText - 1, &named);
 size_t graphSize = 0;
-maniResult graphCopied = maniCopyBuilt(builder, graphFile, graphCapacity, &graphSize);
+maniResult graphCopied = maniBuilder_CopyBuilt(builder, graphFile, graphCapacity, &graphSize);
 maniGraph graph;
 maniFileResult graphOpened = maniOpenGraph(graphFile, graphSize, &graph);
 ```
@@ -26,35 +26,35 @@ The JSON form names everything (parameters, clip slots, bones), so the text surv
 
 ## Playing a graph
 
-An opened graph is bound to the assets it names once, and each character gets an instance: its parameters, playheads and state, in the program's memory. Copying an instance's bytes copies the character's state, and `maniSaveGraphInstance` writes it to bytes for saving or rollback; called with no buffer, it reports the size it needs.
+An opened graph is bound to the assets it names once, and each character gets an instance: its parameters, playheads and state, in the program's memory. Copying an instance's bytes copies the character's state, and `maniGraphInstance_Save` writes it to bytes for saving or rollback; called with no buffer, it reports the size it needs.
 
 ```c
 const maniClip* clips[1] = {&clip};
 maniGraphAssets assets = {.skeleton = &skeleton, .clips = clips, .clipCount = 1};
 maniGraphBinding* binding = NULL;
 maniResult bound =
-    maniBindGraph(&graph, &assets, bindingMemory, maniGraphBindingSize(&graph), &binding, NULL);
+    maniBindGraph(&graph, &assets, bindingMemory, maniGraph_GetBindingSize(&graph), &binding, NULL);
 maniGraphInstance* instance = NULL;
 maniResult started =
-    maniInitGraphInstance(binding, instanceMemory, maniGraphInstanceSize(binding), &instance);
+    maniInitGraphInstance(binding, instanceMemory, maniGraphBinding_GetInstanceSize(binding), &instance);
 ```
 
 Each frame: set parameters, update by the frame's time (which fires transitions and events and gives the root motion), then evaluate the pose.
 
 ```c
-uint32_t go = maniGraphFindParameter(&graph, "go", 2);
+uint32_t go = maniGraph_FindParameter(&graph, "go", 2);
 maniResult fired =
-    maniSetGraphParameter(instance, go, maniGraphParameterTrigger, (maniGraphValue){.b = 1});
+    maniGraphInstance_SetParameter(instance, go, maniGraphParameterTrigger, (maniGraphValue){.b = 1});
 maniGraphEvent events[8];
 uint32_t eventCount = 0;
 maniRootMove move;
-maniResult updated = maniUpdateGraph(instance, 1.0f / 60.0f, events, 8, &eventCount, &move);
-maniResult evaluated = maniEvaluateGraph(instance, scratch, maniGraphScratchSize(binding), pose);
+maniResult updated = maniGraphInstance_Update(instance, 1.0f / 60.0f, events, 8, &eventCount, &move);
+maniResult evaluated = maniGraphInstance_Evaluate(instance, scratch, maniGraphBinding_GetScratchSize(binding), pose);
 ```
 
 The update is cheap and gives what game logic needs (events, root motion, machine states); the evaluation writes the pose and may run on another thread or be skipped for a character off screen. One scratch per thread serves every instance.
 
-Both return `mani_errorFormat` when a learned node's model gives a value past the float range, though every weight in it is finite (the update also when a root velocity's move over a long step passes it): the call still completes, and what it writes (events, root motion, the pose) is valid and finite. The failing node holds its last finite state, adds no root motion or events and gives the neutral pose, and `maniInspectGraphNode` names it with `failed`. The model is untrusted data, so this counts no misuse; a program can keep playing, replace the model, or report it.
+Both return `mani_errorFormat` when a learned node's model gives a value past the float range, though every weight in it is finite (the update also when a root velocity's move over a long step passes it): the call still completes, and what it writes (events, root motion, the pose) is valid and finite. The failing node holds its last finite state, adds no root motion or events and gives the neutral pose, and `maniGraphInstance_InspectNode` names it with `failed`. The model is untrusted data, so this counts no misuse; a program can keep playing, replace the model, or report it.
 
 ## Node kinds
 
@@ -75,7 +75,7 @@ Both return `mani_errorFormat` when a learned node's model gives a value past th
 
 ## Debugging and level of detail
 
-`maniInspectGraphNode` reads what each node did in the last update (its share of the output, a playhead, a machine's state and how far its transition has come), for a debugger, without the runtime keeping any names; `maniGraphNodeSourcePlace` maps a node back to its place in the JSON. A subset plan (`maniPlanGraphSubset`, `maniEvaluateGraphSubset`) evaluates only some bones, bit for bit as a full evaluation, for hit tests on a server or a distant crowd.
+`maniGraphInstance_InspectNode` reads what each node did in the last update (its share of the output, a playhead, a machine's state and how far its transition has come), for a debugger, without the runtime keeping any names; `maniGraph_GetNodeSourcePlace` maps a node back to its place in the JSON. A subset plan (`maniPlanGraphSubset`, `maniGraphInstance_EvaluateSubset`) evaluates only some bones, bit for bit as a full evaluation, for hit tests on a server or a distant crowd.
 
 ## Not obvious
 
@@ -83,4 +83,4 @@ Both return `mani_errorFormat` when a learned node's model gives a value past th
 - A node fed by several parents plays once; its playhead serves them all.
 - A time scale that reads a parameter needs the parameter's bounds. The product of the time scales on any path from the output is at most `MANI_MAX_GRAPH_TIME_FACTOR` (1e6) in size, a parameter's counted at the larger size of its bounds; the builder refuses a graph past it with `mani_errorLimit`, and the opener a file past it with `mani_errorFormat`. Scales on parallel branches do not multiply.
 - Sync groups keep clips of different lengths in step by phase, or by marker names when every member has them, so a run that starts on the other foot stays in step with a walk.
-- A pose parameter (`maniSetGraphPose`) copies the pose in; the program may reuse its pose afterwards.
+- A pose parameter (`maniGraphInstance_SetPose`) copies the pose in; the program may reuse its pose afterwards.

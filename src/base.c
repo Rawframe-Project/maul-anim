@@ -10,7 +10,7 @@ maniVersion maniGetVersion(void)
     return (maniVersion){MANI_VERSION_MAJOR, MANI_VERSION_MINOR, MANI_VERSION_PATCH};
 }
 
-const char* maniResultName(maniResult result)
+const char* maniGetResultName(maniResult result)
 {
     switch (result)
     {

@@ -54,7 +54,7 @@ static maniBoneSource Bone(const char* name, int32_t parent, float x, float y, f
 
 static uint32_t Find(const char* name)
 {
-    return maniSkeletonFindBone(&s_skeleton, name, (uint32_t)strlen(name));
+    return maniSkeleton_FindBone(&s_skeleton, name, (uint32_t)strlen(name));
 }
 
 static void OpenSkeleton(void)
@@ -72,7 +72,7 @@ static void OpenSkeleton(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success &&
               maniBuildSkeleton(s_builder, &source).result == mani_success &&
-              maniCopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "a skeleton");
@@ -149,7 +149,8 @@ static maniBuildResult Build(const maniSpringSetSource* source)
     maniBuildResult r = maniBuildSpringSet(s_builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(s_builder, s_file, sizeof s_file, &s_size) == mani_success, "copied");
+        CHECK(maniBuilder_CopyBuilt(s_builder, s_file, sizeof s_file, &s_size) == mani_success,
+              "copied");
     }
     return r;
 }
@@ -176,17 +177,18 @@ static void TestBuild(void)
           "built and opened");
     float reference = 0.0f;
     size_t length = 0;
-    const char* name = maniSpringSetSpringName(&set, 1, &length);
-    CHECK(maniSpringSetSpringCount(&set) == 2 && set.jointCount == 4 && set.colliderCount == 4 &&
-              maniSpringSetStepRate(&set, &reference) == 60.0f && reference == 60.0f &&
-              maniSpringSetSkeletonIdentity(&set) == maniSkeletonIdentity(&s_skeleton) &&
-              maniSpringSetIdentity(&set) != 0 && length == 4 && memcmp(name, "tail", 4) == 0,
+    const char* name = maniSpringSet_GetSpringName(&set, 1, &length);
+    CHECK(maniSpringSet_GetSpringCount(&set) == 2 && set.jointCount == 4 &&
+              set.colliderCount == 4 && maniSpringSet_GetStepRate(&set, &reference) == 60.0f &&
+              reference == 60.0f &&
+              maniSpringSet_GetSkeletonIdentity(&set) == maniSkeleton_GetIdentity(&s_skeleton) &&
+              maniSpringSet_GetIdentity(&set) != 0 && length == 4 && memcmp(name, "tail", 4) == 0,
           "its counts, rates, identities and names");
-    CHECK(maniSpringSetSpringCount(NULL) == 0 && maniSpringSetIdentity(NULL) == 0 &&
-              maniSpringSetSkeletonIdentity(NULL) == 0 &&
-              maniSpringSetStepRate(NULL, &reference) == 0.0f && reference == 0.0f &&
-              maniSpringSetSpringName(&set, 2, &length) == NULL && length == 0 &&
-              maniSpringSetSpringName(NULL, 0, NULL) == NULL,
+    CHECK(maniSpringSet_GetSpringCount(NULL) == 0 && maniSpringSet_GetIdentity(NULL) == 0 &&
+              maniSpringSet_GetSkeletonIdentity(NULL) == 0 &&
+              maniSpringSet_GetStepRate(NULL, &reference) == 0.0f && reference == 0.0f &&
+              maniSpringSet_GetSpringName(&set, 2, &length) == NULL && length == 0 &&
+              maniSpringSet_GetSpringName(NULL, 0, NULL) == NULL,
           "past the springs, and NULL");
     // The hair's colliders: its groups' in order, the head's sphere once.
     const uint8_t* hair = set.springs;
@@ -460,11 +462,11 @@ static void TestJointRefusals(void)
     CHECK(Refused(&s, maniBuildReasonSpringJoint, 0, 2), "the last joint's values checked");
     s = Source();
     s.springs = NULL;
-    uint32_t misuses = maniBuilderMisuses(s_builder);
+    uint32_t misuses = maniBuilder_GetMisuse(s_builder);
     CHECK(maniBuildSpringSet(s_builder, &s).result == mani_errorInvalid &&
               maniBuildSpringSet(s_builder, NULL).result == mani_errorInvalid &&
               maniBuildSpringSet(NULL, &s).result == mani_errorInvalid &&
-              maniBuilderMisuses(s_builder) == misuses + 2,
+              maniBuilder_GetMisuse(s_builder) == misuses + 2,
           "springs NULL with a count, no source, no builder");
 }
 
@@ -611,7 +613,7 @@ static void TestTooManySprings(void)
 {
     uint32_t springs = MANI_MAX_BONES + 1;
     uint8_t header[MANI_SPRING_HEADER_SIZE] = {0};
-    maniStoreU64(header, maniSkeletonIdentity(&s_skeleton));
+    maniStoreU64(header, maniSkeleton_GetIdentity(&s_skeleton));
     const uint32_t counts[6] = {9, 0, springs, springs, 0, 0};
     for (uint32_t k = 0; k < 6; ++k)
     {

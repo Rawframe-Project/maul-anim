@@ -111,7 +111,7 @@ static maniVec3 AfterSteady(uint32_t rate, bool reset)
     {
         s_force = (maniVec3){2.0f, 0.0f, 0.0f};
         CHECK(Frames(state, 1.0f / 60.0f, 30), "frames before");
-        maniResetSprings(state);
+        maniSpringState_Reset(state);
     }
     s_force = (maniVec3){0.0f, 0.0f, 3.0f};
     CHECK(Frames(state, 1.0f / (float)rate, rate), "a second of a steady force");
@@ -163,26 +163,26 @@ static void TestRefusalsAndSaved(void)
 {
     MakeSet(&kStill);
     maniSpringState* state = NewState(0);
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
     const maniVec3 bad[3] = {{NAN, 0.0f, 0.0f}, {0.0f, INFINITY, 0.0f}, {0.0f, 0.0f, -INFINITY}};
     bool refused = true;
     for (int k = 0; k < 3; ++k)
     {
-        refused =
-            refused && maniStepSprings(state, s_pose, NULL, &bad[k], 0.01f) == mani_errorInvalid;
+        refused = refused &&
+                  maniSpringState_Step(state, s_pose, NULL, &bad[k], 0.01f) == mani_errorInvalid;
     }
     CHECK(refused, "a force not finite refused");
     const maniVec3 wind = {0.5f, 0.0f, 0.25f};
-    CHECK(maniStepSprings(state, s_pose, NULL, &wind, 1.0f / 60.0f) == mani_success &&
-              maniStepSprings(state, s_pose, NULL, &wind, 1.0f / 60.0f) == mani_success,
+    CHECK(maniSpringState_Step(state, s_pose, NULL, &wind, 1.0f / 60.0f) == mani_success &&
+              maniSpringState_Step(state, s_pose, NULL, &wind, 1.0f / 60.0f) == mani_success,
           "stepped in a wind");
     maniVec3 kept = maniSpringVec(maniSpringConstBlock(state), maniSpringForce);
     CHECK(kept.x == 0.5f && kept.y == 0.0f && kept.z == 0.25f, "the call's force kept");
     size_t size = SavedSpringSize(state);
-    CHECK(maniSaveSpringState(state, s_saved[0], size, NULL) == mani_success, "saved");
+    CHECK(maniSpringState_Save(state, s_saved[0], size, NULL) == mani_success, "saved");
     maniStoreU32(s_saved[0] + MANI_SPRING_STATE_HEADER_SIZE + 4 * (maniSpringForce + 1),
                  0x7FC00000u);
-    maniFileResult r = maniRestoreSpringState(state, s_saved[0], size);
+    maniFileResult r = maniSpringState_Restore(state, s_saved[0], size);
     CHECK(r.result == mani_errorFormat &&
               r.offset == MANI_SPRING_STATE_HEADER_SIZE + 4 * (maniSpringForce + 1),
           "a saved force not finite refused at its word");

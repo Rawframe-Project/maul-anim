@@ -18,7 +18,7 @@ A graph chooses and mixes a character's animation from parameters the host sets 
 
 ## Shape
 
-A graph is a DAG of nodes. A node may feed several parents; it is then played and evaluated once, so one playhead serves every reader. The builder ([`src/graph_build.c`](../../src/graph_build.c)) stores nodes in topological order, depth first from the output, each after its inputs, the output last; `maniGraphNodeSourcePlace` maps a stored node back to its place in the source or JSON text, for tools.
+A graph is a DAG of nodes. A node may feed several parents; it is then played and evaluated once, so one playhead serves every reader. The builder ([`src/graph_build.c`](../../src/graph_build.c)) stores nodes in topological order, depth first from the output, each after its inputs, the output last; `maniGraph_GetNodeSourcePlace` maps a stored node back to its place in the source or JSON text, for tools.
 
 Each node's pose has a slot, taken before its inputs' slots are freed and reused once its last reader has run, so evaluation needs a pose per slot, a count the file states, rather than one per node.
 
@@ -37,7 +37,7 @@ New node kinds add kinds and data words, not sections, so the format grows witho
 
 ## A frame: update, then evaluate
 
-`maniUpdateGraph` advances time; `maniEvaluateGraph` writes the pose. They are separate because the update is cheap and decides everything the host needs for game logic (events, root motion, machine states), while the evaluation is the expensive part and may run on another thread, at another rate, or not at all for an off-screen character.
+`maniGraphInstance_Update` advances time; `maniGraphInstance_Evaluate` writes the pose. They are separate because the update is cheap and decides everything the host needs for game logic (events, root motion, machine states), while the evaluation is the expensive part and may run on another thread, at another rate, or not at all for an off-screen character.
 
 The **update** ([`src/graph_update.c`](../../src/graph_update.c)):
 
@@ -101,13 +101,13 @@ A subgraph is a source-only node: at build its output takes the node's place, it
 
 ## Introspection and subsets
 
-`maniInspectGraphNode` reads what the update already keeps (a node's share of the output, a playhead, a machine's state and transition, a fade's progress), so a debugger costs nothing when unused and the runtime keeps no names.
+`maniGraphInstance_InspectNode` reads what the update already keeps (a node's share of the output, a playhead, a machine's state and transition, a fade's progress), so a debugger costs nothing when unused and the runtime keeps no names.
 
-`maniPlanGraphSubset` plans an evaluation of some bones only: the listed bones, their ancestors (so the model pass is right), and closed under what nodes read to write them (a mirrored bone's partner, an IK chain, a spring set's joints and colliders, a full-body part). `maniEvaluateGraphSubset` then blends only the groups holding those bones and samples only their channels, writing them bit for bit as a full evaluation and leaving the other bones as they were. A server's hit-test bones or a distant crowd cost by the groups they touch.
+`maniPlanGraphSubset` plans an evaluation of some bones only: the listed bones, their ancestors (so the model pass is right), and closed under what nodes read to write them (a mirrored bone's partner, an IK chain, a spring set's joints and colliders, a full-body part). `maniGraphInstance_EvaluateSubset` then blends only the groups holding those bones and samples only their channels, writing them bit for bit as a full evaluation and leaving the other bones as they were. A server's hit-test bones or a distant crowd cost by the groups they touch.
 
 ## Saved state
 
-`maniSaveGraphInstance` writes a header (the state prefix described in [overview.md](overview.md), then the graph's identity and the size) and the cells, machines' and stateful nodes' blocks and pose parameters as little-endian words, without pointers. `maniRestoreGraphInstance` checks every value as external bytes and starts the cursors over, which cache nothing a pose depends on.
+`maniGraphInstance_Save` writes a header (the state prefix described in [overview.md](overview.md), then the graph's identity and the size) and the cells, machines' and stateful nodes' blocks and pose parameters as little-endian words, without pointers. `maniGraphInstance_Restore` checks every value as external bytes and starts the cursors over, which cache nothing a pose depends on.
 
 ## Traps
 

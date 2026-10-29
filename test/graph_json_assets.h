@@ -70,7 +70,7 @@ static inline bool MakeSet(void)
     maniSpringSetSource source = {&s_skeleton, NULL, NULL, &spring, 0, 0, 1, 0.0f, 0.0f};
     size_t size = 0;
     return maniBuildSpringSet(s_builder, &source).result == mani_success &&
-           maniCopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(s_builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
            maniOpenSpringSet(s_setFile, size, &s_set).result == mani_success;
 }
 
@@ -86,7 +86,8 @@ static inline bool MakeDatabase(void)
                                        2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     size_t size = 0;
     return maniBuildMotionDatabase(s_builder, &source).result == mani_success &&
-           maniCopyBuilt(s_builder, s_databaseFile, sizeof s_databaseFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(s_builder, s_databaseFile, sizeof s_databaseFile, &size) ==
+               mani_success &&
            maniOpenMotionDatabase(s_databaseFile, size, &s_database).result == mani_success;
 }
 
@@ -99,7 +100,8 @@ static inline void SetupGraphAssets(void)
     maniSkeletonSource skeleton = {kBones, 3};
     if (maniCreateBuilder(&def, &s_builder) != mani_success ||
         maniBuildSkeleton(s_builder, &skeleton).result != mani_success ||
-        maniCopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) != mani_success ||
+        maniBuilder_CopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) !=
+            mani_success ||
         maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result != mani_success)
     {
         abort();
@@ -117,7 +119,7 @@ static inline void SetupGraphAssets(void)
                                  .sampleRate = 10.0f,
                                  .additive = i == 2 ? maniAdditiveRest : maniAdditiveNone};
         if (maniBuildClip(s_builder, &source).result != mani_success ||
-            maniCopyBuilt(s_builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) !=
+            maniBuilder_CopyBuilt(s_builder, s_clipFiles[i], sizeof s_clipFiles[i], &size) !=
                 mani_success ||
             maniOpenClip(s_clipFiles[i], size, &s_clips[i]).result != mani_success)
         {

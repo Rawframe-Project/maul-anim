@@ -36,7 +36,7 @@ Where the targets stand, measured on main by the programs named, on an AMD Ryzen
 | Draco and meshopt decoding | Google's and meshoptimizer's scalar decoders | | | not measured ([#36](https://github.com/Rawframe-Project/maul-anim/issues/36)) | none yet |
 | Opening glTF and FBX | cgltf, ufbx | | | not measured ([#37](https://github.com/Rawframe-Project/maul-anim/issues/37), [#38](https://github.com/Rawframe-Project/maul-anim/issues/38)) | none yet |
 
-ozz-animation's IK jobs work on model matrices and return corrections, where `maniSolveTwoBone` and `maniSolveAim` start from the pose's locals and write them back; so ozz's whole cost to a host that holds the same locals is the chain's model pass with ozz's affine maths, the job, and the corrections multiplied into the locals. Its jobs alone take 702 and 309 instructions a solve (`ik_differential`, loops 1 and 4).
+ozz-animation's IK jobs work on model matrices and return corrections, where `maniPose_SolveTwoBone` and `maniPose_SolveAim` start from the pose's locals and write them back; so ozz's whole cost to a host that holds the same locals is the chain's model pass with ozz's affine maths, the job, and the corrections multiplied into the locals. Its jobs alone take 702 and 309 instructions a solve (`ik_differential`, loops 1 and 4).
 
 The differentials in `tools/` time both sides on the same data ([development.md](../operations/development.md#differentials)); the benchmark program in `bench/` times the library's own hot paths on fixed scenes, with their instruction counts ([development.md](../operations/development.md#benchmarks)).
 

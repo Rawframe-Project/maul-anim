@@ -94,11 +94,11 @@ static maniImportResult Import(const char* text, const maniFbxOptions* options, 
     maniImportResult r = {mani_errorInvalid, maniImportReasonNone, 0, 0};
     if (fbx != NULL)
     {
-        r = maniFbxBuildMorphTargets(builder, fbx, 0, options);
+        r = maniBuildFbxMorphTargets(builder, fbx, 0, options);
         size_t size = 0;
         if (r.result == mani_success)
         {
-            CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+            CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
                       maniOpenMorphTargets(s_file, size, m).result == mani_success,
                   "opens");
         }
@@ -127,7 +127,7 @@ static const char* Replace(const char* text, const char* from, const char* to)
 static bool Named(const maniMorphTargets* m, uint32_t target, const char* name)
 {
     size_t length = 0;
-    const char* got = maniMorphTargetName(m, target, &length);
+    const char* got = maniMorphTargets_GetTargetName(m, target, &length);
     bool right = got != NULL && length == strlen(name) && memcmp(got, name, length) == 0;
     if (!right)
     {
@@ -149,7 +149,7 @@ static void Apply(const maniMorphTargets* m, uint32_t target, float* positions, 
         {kZero, positions, 12, 12, maniMorphPosition, 0, 3},
         {kUp, normals, 12, 12, maniMorphNormal, 0, 3},
     };
-    maniMorphJob job = {m, weights, 0, maniMorphVertexCount(m), 2, streams};
+    maniMorphJob job = {m, weights, 0, maniMorphTargets_GetVertexCount(m), 2, streams};
     CHECK(maniApplyMorphTargets(&job) == mani_success, "applies");
 }
 
@@ -169,16 +169,19 @@ static void TestTargets(void)
         printf("  reason %u item %u\n", r.reason, r.item);
         return;
     }
-    CHECK(maniMorphVertexCount(&m) == 4 && maniMorphChannelCount(&m) == 3 &&
-              maniMorphTargetCount(&m) == 5,
+    CHECK(maniMorphTargets_GetVertexCount(&m) == 4 && maniMorphTargets_GetChannelCount(&m) == 3 &&
+              maniMorphTargets_GetTargetCount(&m) == 5,
           "three channels (Empty left out), five targets (Wide's second left out)");
-    CHECK(maniMorphAttributeCount(&m) == 2 && maniMorphAttribute(&m, 1, NULL) == maniMorphNormal,
+    CHECK(maniMorphTargets_GetAttributeCount(&m) == 2 &&
+              maniMorphTargets_GetAttribute(&m, 1, NULL) == maniMorphNormal,
           "normals, as one shape has them");
     CHECK(Named(&m, 0, "Smile_half") && Named(&m, 1, "Smile") && Named(&m, 2, "Wide") &&
               Named(&m, 3, "Frown") && Named(&m, 4, "Frown/1"),
           "names as the clips' tracks: a shape's own, else its channel's and its index");
-    CHECK(maniMorphTargetFullWeight(&m, 0) == 0.5f && maniMorphTargetFullWeight(&m, 1) == 1.0f &&
-              maniMorphTargetFullWeight(&m, 3) == -1.0f && maniMorphTargetFullWeight(&m, 4) == 1.0f,
+    CHECK(maniMorphTargets_GetTargetFullWeight(&m, 0) == 0.5f &&
+              maniMorphTargets_GetTargetFullWeight(&m, 1) == 1.0f &&
+              maniMorphTargets_GetTargetFullWeight(&m, 3) == -1.0f &&
+              maniMorphTargets_GetTargetFullWeight(&m, 4) == 1.0f,
           "FullWeights / 100, sorted");
 }
 
@@ -230,36 +233,36 @@ static void TestWeights(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, kScene);
     float w[6] = {9, 9, 9, 9, 9, 9};
-    CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 5 &&
-              maniFbxMorphTargetCount(fbx, 1) == 0,
+    CHECK(maniFbx_GetMorphCount(fbx) == 1 && maniFbx_GetMorphTargetCount(fbx, 0) == 5 &&
+              maniFbx_GetMorphTargetCount(fbx, 1) == 0,
           "one set of five targets");
-    uint32_t model = maniFbxMorphModel(fbx, 0);
+    uint32_t model = maniFbx_GetMorphModel(fbx, 0);
     size_t length = 0;
-    const char* name = maniFbxModelBoneName(fbx, model, &length);
+    const char* name = maniFbx_GetModelBoneName(fbx, model, &length);
     CHECK(name != NULL && length == 4 && memcmp(name, "Face", 4) == 0 &&
-              maniFbxMorphModel(fbx, 1) == UINT32_MAX,
+              maniFbx_GetMorphModel(fbx, 1) == UINT32_MAX,
           "the mesh model");
-    CHECK(maniFbxMorphWeights(fbx, 0, w, 5, NULL).result == mani_success && w[0] == 0.5f &&
+    CHECK(maniFbx_GetMorphWeights(fbx, 0, w, 5, NULL).result == mani_success && w[0] == 0.5f &&
               w[1] == 0.0f && w[2] == 0.5f && w[3] == 0.0f && w[4] == 0.0f && w[5] == 9.0f,
           "rest weights, walked as the clips walk them");
     uint32_t measured = 0;
     uint32_t refused = 0;
     w[0] = 9.0f;
-    CHECK(maniFbxMorphWeights(fbx, 0, NULL, 0, &measured).result == mani_errorCapacity &&
+    CHECK(maniFbx_GetMorphWeights(fbx, 0, NULL, 0, &measured).result == mani_errorCapacity &&
               measured == 5 &&
-              maniFbxMorphWeights(fbx, 0, w, 4, &refused).result == mani_errorCapacity &&
+              maniFbx_GetMorphWeights(fbx, 0, w, 4, &refused).result == mani_errorCapacity &&
               refused == 5 && w[0] == 9.0f,
           "the weights measured, and a short array refused");
-    CHECK(maniFbxMorphWeights(fbx, 0, NULL, 5, NULL).result == mani_errorInvalid &&
-              maniFbxMorphWeights(fbx, 1, w, 0, NULL).result == mani_errorInvalid &&
-              maniFbxMorphWeights(NULL, 0, w, 5, NULL).result == mani_errorInvalid,
+    CHECK(maniFbx_GetMorphWeights(fbx, 0, NULL, 5, NULL).result == mani_errorInvalid &&
+              maniFbx_GetMorphWeights(fbx, 1, w, 0, NULL).result == mani_errorInvalid &&
+              maniFbx_GetMorphWeights(NULL, 0, w, 5, NULL).result == mani_errorInvalid,
           "weight misuses");
     maniFbxOptions options = maniDefaultFbxOptions();
-    CHECK(maniFbxBuildMorphTargets(builder, fbx, 1, &options).result == mani_errorInvalid &&
-              maniFbxBuildMorphTargets(builder, fbx, 0, NULL).result == mani_errorInvalid &&
-              maniFbxBuildMorphTargets(builder, NULL, 0, &options).result == mani_errorInvalid &&
-              maniFbxBuildMorphTargets(NULL, fbx, 0, &options).result == mani_errorInvalid &&
-              maniFbxMorphCount(NULL) == 0 && maniFbxMorphTargetCount(NULL, 0) == 0,
+    CHECK(maniBuildFbxMorphTargets(builder, fbx, 1, &options).result == mani_errorInvalid &&
+              maniBuildFbxMorphTargets(builder, fbx, 0, NULL).result == mani_errorInvalid &&
+              maniBuildFbxMorphTargets(builder, NULL, 0, &options).result == mani_errorInvalid &&
+              maniBuildFbxMorphTargets(NULL, fbx, 0, &options).result == mani_errorInvalid &&
+              maniFbx_GetMorphCount(NULL) == 0 && maniFbx_GetMorphTargetCount(NULL, 0) == 0,
           "misuses");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -276,8 +279,8 @@ static void TestBlender(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniMorphTargets m;
     maniImportResult r = Import(text, &options, &m);
-    CHECK(r.result == mani_success && maniMorphTargetCount(&m) == 3 && Named(&m, 0, "Smile_half") &&
-              Named(&m, 2, "Frown"),
+    CHECK(r.result == mani_success && maniMorphTargets_GetTargetCount(&m) == 3 &&
+              Named(&m, 0, "Smile_half") && Named(&m, 2, "Frown"),
           "a target a channel");
     float p[12];
     float n[12];
@@ -353,13 +356,13 @@ static void TestSix(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     maniMorphTargets m;
     maniImportResult r = Import(kSix, &options, &m);
-    CHECK(r.result == mani_success && maniMorphVertexCount(&m) == 2 &&
-              maniMorphChannelCount(&m) == 2 && maniMorphTargetCount(&m) == 2 &&
-              Named(&m, 0, "Smile") && Named(&m, 1, "Smile") &&
-              maniMorphTargetFullWeight(&m, 0) == 1.0f,
+    CHECK(r.result == mani_success && maniMorphTargets_GetVertexCount(&m) == 2 &&
+              maniMorphTargets_GetChannelCount(&m) == 2 &&
+              maniMorphTargets_GetTargetCount(&m) == 2 && Named(&m, 0, "Smile") &&
+              Named(&m, 1, "Smile") && maniMorphTargets_GetTargetFullWeight(&m, 0) == 1.0f,
           "a 6.x shape: a channel of one target at 1");
     size_t length = 0;
-    const char* channel = maniMorphChannelName(&m, 1, &length);
+    const char* channel = maniMorphTargets_GetChannelName(&m, 1, &length);
     CHECK(channel != NULL && length == 7 && memcmp(channel, "Smile#1", 7) == 0,
           "a repeated channel name numbered");
     if (r.result != mani_success)
@@ -374,9 +377,9 @@ static void TestSix(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, kSix);
     float w[2] = {0};
-    CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 2 &&
-              maniFbxMorphWeights(fbx, 0, w, 2, NULL).result == mani_success && Near(w[0], 0.1f) &&
-              Near(w[1], 0.1f),
+    CHECK(maniFbx_GetMorphCount(fbx) == 1 && maniFbx_GetMorphTargetCount(fbx, 0) == 2 &&
+              maniFbx_GetMorphWeights(fbx, 0, w, 2, NULL).result == mani_success &&
+              Near(w[0], 0.1f) && Near(w[1], 0.1f),
           "its weight: the property over 100");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -408,7 +411,7 @@ static void TestLegacy(void)
                                   "}\n";
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = Open(builder, kLegacy);
-    CHECK(maniFbxMorphCount(fbx) == 1 && maniFbxMorphTargetCount(fbx, 0) == 1,
+    CHECK(maniFbx_GetMorphCount(fbx) == 1 && maniFbx_GetMorphTargetCount(fbx, 0) == 1,
           "one set: the model's, not its legacy skin's");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);

@@ -80,7 +80,7 @@ static void Load(const char* text, size_t length, uint32_t clipCount, uint32_t p
                              &(maniGraphNamedAssets){&s_skeleton, kHost, kHostDatabase, NULL, NULL,
                                                      clipCount, 1, 0, 0, NULL})
                       .result == mani_success &&
-              maniCopyBuilt(s_builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(s_builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &s_graph).result == mani_success,
           "the graph");
     const maniClip* clips[3] = {&s_clips[0], &s_clips[1], &s_clips[2]};
@@ -93,12 +93,12 @@ static void Load(const char* text, size_t length, uint32_t clipCount, uint32_t p
               maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
                                     &s_instance) == mani_success,
           "an instance");
-    CHECK(maniGraphScratchSize(binding) <= sizeof s_scratch &&
+    CHECK(maniGraphBinding_GetScratchSize(binding) <= sizeof s_scratch &&
               maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) == mani_success,
           "a pose");
     for (uint32_t n = 0; n < places; ++n)
     {
-        uint32_t place = maniGraphNodeSourcePlace(&s_graph, n);
+        uint32_t place = maniGraph_GetNodeSourcePlace(&s_graph, n);
         s_at[place < kPlaces ? place : 0] = n;
     }
 }
@@ -106,11 +106,11 @@ static void Load(const char* text, size_t length, uint32_t clipCount, uint32_t p
 // Each node's kind, inputs and place in the source.
 static void TestStructure(void)
 {
-    CHECK(maniGraphNodeCount(&s_graph) == kPlaces, "ten nodes");
+    CHECK(maniGraph_GetNodeCount(&s_graph) == kPlaces, "ten nodes");
     uint32_t seen = 0;
     for (uint32_t n = 0; n < kPlaces; ++n)
     {
-        uint32_t place = maniGraphNodeSourcePlace(&s_graph, n);
+        uint32_t place = maniGraph_GetNodeSourcePlace(&s_graph, n);
         if (place < kPlaces)
         {
             s_at[place] = n;
@@ -118,55 +118,56 @@ static void TestStructure(void)
         }
     }
     CHECK(seen == (1u << kPlaces) - 1u, "every place once");
-    CHECK(maniGraphOutputNode(&s_graph) == s_at[0] && s_at[0] == kPlaces - 1,
+    CHECK(maniGraph_GetOutputNode(&s_graph) == s_at[0] && s_at[0] == kPlaces - 1,
           "the output, last, from place 0");
     CHECK(s_at[1] != 1, "the builder reordered");
-    CHECK(maniGraphNodeKindOf(&s_graph, s_at[0]) == maniGraphNodeInertialize &&
-              maniGraphNodeKindOf(&s_graph, s_at[3]) == maniGraphNodeMachine &&
-              maniGraphNodeKindOf(&s_graph, s_at[8]) == maniGraphNodeMatch &&
-              maniGraphNodeKindOf(&s_graph, s_at[9]) == maniGraphNodeClip,
+    CHECK(maniGraph_GetNodeKind(&s_graph, s_at[0]) == maniGraphNodeInertialize &&
+              maniGraph_GetNodeKind(&s_graph, s_at[3]) == maniGraphNodeMachine &&
+              maniGraph_GetNodeKind(&s_graph, s_at[8]) == maniGraphNodeMatch &&
+              maniGraph_GetNodeKind(&s_graph, s_at[9]) == maniGraphNodeClip,
           "kinds");
-    CHECK(maniGraphNodeInputCount(&s_graph, s_at[3]) == 2 &&
-              maniGraphNodeInput(&s_graph, s_at[3], 0) == s_at[6] &&
-              maniGraphNodeInput(&s_graph, s_at[3], 1) == s_at[7] &&
-              maniGraphNodeInput(&s_graph, s_at[1], 1) == s_at[5] &&
-              maniGraphNodeInputCount(&s_graph, s_at[9]) == 0,
+    CHECK(maniGraph_GetNodeInputCount(&s_graph, s_at[3]) == 2 &&
+              maniGraph_GetNodeInput(&s_graph, s_at[3], 0) == s_at[6] &&
+              maniGraph_GetNodeInput(&s_graph, s_at[3], 1) == s_at[7] &&
+              maniGraph_GetNodeInput(&s_graph, s_at[1], 1) == s_at[5] &&
+              maniGraph_GetNodeInputCount(&s_graph, s_at[9]) == 0,
           "inputs");
-    CHECK(maniGraphNodeKindOf(NULL, 0) == 0 && maniGraphNodeKindOf(&s_graph, kPlaces) == 0 &&
-              maniGraphNodeInputCount(NULL, 0) == 0 &&
-              maniGraphNodeInputCount(&s_graph, kPlaces) == 0 &&
-              maniGraphNodeInput(&s_graph, s_at[3], 2) == MANI_GRAPH_NONE &&
-              maniGraphNodeInput(NULL, 0, 0) == MANI_GRAPH_NONE &&
-              maniGraphOutputNode(NULL) == MANI_GRAPH_NONE &&
-              maniGraphNodeSourcePlace(NULL, 0) == MANI_GRAPH_NONE &&
-              maniGraphNodeSourcePlace(&s_graph, kPlaces) == MANI_GRAPH_NONE,
+    CHECK(maniGraph_GetNodeKind(NULL, 0) == 0 && maniGraph_GetNodeKind(&s_graph, kPlaces) == 0 &&
+              maniGraph_GetNodeInputCount(NULL, 0) == 0 &&
+              maniGraph_GetNodeInputCount(&s_graph, kPlaces) == 0 &&
+              maniGraph_GetNodeInput(&s_graph, s_at[3], 2) == MANI_GRAPH_NONE &&
+              maniGraph_GetNodeInput(NULL, 0, 0) == MANI_GRAPH_NONE &&
+              maniGraph_GetOutputNode(NULL) == MANI_GRAPH_NONE &&
+              maniGraph_GetNodeSourcePlace(NULL, 0) == MANI_GRAPH_NONE &&
+              maniGraph_GetNodeSourcePlace(&s_graph, kPlaces) == MANI_GRAPH_NONE,
           "past the counts");
     // A count one short: its last node is there to be read wrongly.
     maniGraph shorter = s_graph;
     shorter.nodeCount = kPlaces - 1;
-    CHECK(maniGraphNodeKindOf(&shorter, kPlaces - 1) == 0, "the count bounds the kind");
+    CHECK(maniGraph_GetNodeKind(&shorter, kPlaces - 1) == 0, "the count bounds the kind");
 }
 
 static maniGraphNodeView View(uint32_t place)
 {
     maniGraphNodeView v;
     memset(&v, 0xA5, sizeof v);
-    CHECK(maniInspectGraphNode(s_instance, s_at[place], &v) == mani_success, "inspected");
+    CHECK(maniGraphInstance_InspectNode(s_instance, s_at[place], &v) == mani_success, "inspected");
     return v;
 }
 
 static void Set(uint32_t parameter, maniGraphParameterType type, int32_t value)
 {
     maniGraphValue v = {.i = value};
-    CHECK(maniSetGraphParameter(s_instance, parameter, type, v) == mani_success, "set");
+    CHECK(maniGraphInstance_SetParameter(s_instance, parameter, type, v) == mani_success, "set");
 }
 
 static void Update(float delta)
 {
     uint32_t count = 0;
     maniRootMove move;
-    CHECK(maniUpdateGraph(s_instance, delta, NULL, 0, &count, &move) == mani_success &&
-              maniEvaluateGraph(s_instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
+    CHECK(maniGraphInstance_Update(s_instance, delta, NULL, 0, &count, &move) == mani_success &&
+              maniGraphInstance_Evaluate(s_instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success,
           "updated and evaluated");
 }
 
@@ -233,10 +234,11 @@ static void TestRefusals(void)
 {
     maniGraphNodeView v;
     static _Alignas(16) uint8_t kNever[256];
-    CHECK(maniInspectGraphNode(NULL, 0, &v) == mani_errorInvalid &&
-              maniInspectGraphNode((const maniGraphInstance*)kNever, 0, &v) == mani_errorInvalid &&
-              maniInspectGraphNode(s_instance, kPlaces, &v) == mani_errorInvalid &&
-              maniInspectGraphNode(s_instance, 0, NULL) == mani_errorInvalid,
+    CHECK(maniGraphInstance_InspectNode(NULL, 0, &v) == mani_errorInvalid &&
+              maniGraphInstance_InspectNode((const maniGraphInstance*)kNever, 0, &v) ==
+                  mani_errorInvalid &&
+              maniGraphInstance_InspectNode(s_instance, kPlaces, &v) == mani_errorInvalid &&
+              maniGraphInstance_InspectNode(s_instance, 0, NULL) == mani_errorInvalid,
           "refused");
 }
 

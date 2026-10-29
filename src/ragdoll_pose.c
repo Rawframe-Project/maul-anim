@@ -105,7 +105,7 @@ static Rigid Split(const maniAffine* m)
 static Rigid BodyFrame(const maniRagdoll* ragdoll, const maniPose* pose, Rigid place, uint32_t i)
 {
     const uint8_t* e = Record(ragdoll, i);
-    maniAffine model = maniPoseModel(pose, maniLoadU32(e + maniRagdollBodyBone));
+    maniAffine model = maniPose_GetModel(pose, maniLoadU32(e + maniRagdollBodyBone));
     Rigid body = Compose(Compose(place, Split(&model)), LoadRigid(e + maniRagdollBodyFrame));
     return (Rigid){body.t, maniQuatNormalize(body.r)};
 }
@@ -119,7 +119,7 @@ static maniQuat Shortest(maniQuat q)
 static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)
 {
     return maniPoseOfSkeleton(pose, ragdoll->skeletonIdentity, ragdoll->boneCount) &&
-           maniPoseModelCurrent(pose);
+           maniPose_IsModelCurrent(pose);
 }
 
 static MANI_NOINLINE maniResult RagdollBodiesFromPoseWork(
@@ -163,11 +163,12 @@ static MANI_NOINLINE maniResult RagdollBodiesFromPoseWork(
     return mani_success;
 }
 
-maniResult maniRagdollBodiesFromPose(const maniRagdoll* ragdoll, const maniPose* pose,
-                                     const maniTransform* placement, const maniPose* previous,
-                                     const maniTransform* previousPlacement, float seconds,
-                                     maniRagdollBodyState* bodiesOut, uint32_t capacity,
-                                     uint32_t* countOut)
+maniResult maniRagdoll_ComputeBodiesFromPose(const maniRagdoll* ragdoll, const maniPose* pose,
+                                             const maniTransform* placement,
+                                             const maniPose* previous,
+                                             const maniTransform* previousPlacement, float seconds,
+                                             maniRagdollBodyState* bodiesOut, uint32_t capacity,
+                                             uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result =
@@ -212,9 +213,10 @@ static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdo
     return mani_success;
 }
 
-maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
-                                   maniRagdollJointTarget* jointsOut, uint32_t capacity,
-                                   uint32_t* countOut)
+maniResult maniRagdoll_ComputeJointTargets(const maniRagdoll* ragdoll,
+                                           const maniRagdollBodyState* bodies,
+                                           maniRagdollJointTarget* jointsOut, uint32_t capacity,
+                                           uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = RagdollJointTargetsWork(ragdoll, bodies, jointsOut, capacity, countOut);
@@ -261,7 +263,7 @@ static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
 {
     Rigid place;
     if (ragdoll == NULL || bodies == NULL || skeleton == NULL ||
-        maniSkeletonIdentity(skeleton) != ragdoll->skeletonIdentity ||
+        maniSkeleton_GetIdentity(skeleton) != ragdoll->skeletonIdentity ||
         !maniPoseOfSkeleton(reference, ragdoll->skeletonIdentity, ragdoll->boneCount) ||
         !maniPoseOfSkeleton(poseOut, ragdoll->skeletonIdentity, ragdoll->boneCount) ||
         !Placement(placement, &place))
@@ -280,10 +282,10 @@ static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
     uint32_t next = 0;
     for (uint32_t bone = 0; bone < ragdoll->boneCount; ++bone)
     {
-        maniTransform local = maniPoseLocal(reference, bone);
-        uint32_t parent = maniSkeletonParent(skeleton, bone);
+        maniTransform local = maniPose_GetLocal(reference, bone);
+        uint32_t parent = maniSkeleton_GetParent(skeleton, bone);
         maniAffine parentModel =
-            parent != MANI_NO_BONE ? maniPoseModel(poseOut, parent) : (maniAffine){{0}};
+            parent != MANI_NO_BONE ? maniPose_GetModel(poseOut, parent) : (maniAffine){{0}};
         const uint8_t* e = next < ragdoll->bodyCount ? Record(ragdoll, next) : NULL;
         if (e != NULL && maniLoadU32(e + maniRagdollBodyBone) == bone)
         {
@@ -293,7 +295,7 @@ static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
             local = LocalFor(parent != MANI_NO_BONE ? &parentModel : NULL, want, local.scale);
             ++next;
         }
-        maniPoseSetLocal(poseOut, bone, local);
+        maniPose_SetLocal(poseOut, bone, local);
         maniAffine own = maniAffineFromTrs(local.translation, local.rotation, local.scale);
         maniAffine model = parent != MANI_NO_BONE ? maniAffineMul(&parentModel, &own) : own;
         maniPoseStoreModel(poseOut, bone, &model);
@@ -302,10 +304,11 @@ static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
     return mani_success;
 }
 
-maniResult maniRagdollPoseFromBodies(const maniRagdoll* ragdoll, const maniSkeleton* skeleton,
-                                     const maniRagdollBodyState* bodies, uint32_t count,
-                                     const maniTransform* placement, const maniPose* reference,
-                                     maniPose* poseOut)
+maniResult maniRagdoll_ComputePoseFromBodies(const maniRagdoll* ragdoll,
+                                             const maniSkeleton* skeleton,
+                                             const maniRagdollBodyState* bodies, uint32_t count,
+                                             const maniTransform* placement,
+                                             const maniPose* reference, maniPose* poseOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result =

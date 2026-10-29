@@ -95,7 +95,7 @@ static uint32_t SetObject(const maniFbx* fbx, uint32_t morph)
     return MANI_FBX_NONE;
 }
 
-uint32_t maniFbxMorphCount(const maniFbx* fbx)
+uint32_t maniFbx_GetMorphCount(const maniFbx* fbx)
 {
     uint32_t n = 0;
     for (uint32_t o = 0; fbx != NULL && o < fbx->objectCount; ++o)
@@ -105,7 +105,7 @@ uint32_t maniFbxMorphCount(const maniFbx* fbx)
     return n;
 }
 
-uint32_t maniFbxMorphModel(const maniFbx* fbx, uint32_t morph)
+uint32_t maniFbx_GetMorphModel(const maniFbx* fbx, uint32_t morph)
 {
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     uint32_t model = object == MANI_FBX_NONE
@@ -201,7 +201,7 @@ static maniImportResult CountTargets(const maniFbx* fbx, maniArena* arena, uint3
     return r;
 }
 
-uint32_t maniFbxMorphTargetCount(const maniFbx* fbx, uint32_t morph)
+uint32_t maniFbx_GetMorphTargetCount(const maniFbx* fbx, uint32_t morph)
 {
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     if (object == MANI_FBX_NONE)
@@ -656,7 +656,7 @@ static MANI_NOINLINE maniImportResult FbxBuildMorphTargetsWork(maniBuilder* buil
     return r;
 }
 
-maniImportResult maniFbxBuildMorphTargets(maniBuilder* builder, const maniFbx* fbx, uint32_t morph,
+maniImportResult maniBuildFbxMorphTargets(maniBuilder* builder, const maniFbx* fbx, uint32_t morph,
                                           const maniFbxOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();
@@ -766,8 +766,8 @@ static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, ui
     return r;
 }
 
-maniImportResult maniFbxMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
-                                     uint32_t capacity, uint32_t* countOut)
+maniImportResult maniFbx_GetMorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
+                                         uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = FbxMorphWeightsWork(fbx, morph, weightsOut, capacity, countOut);

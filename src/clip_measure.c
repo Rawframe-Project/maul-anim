@@ -83,7 +83,7 @@ static void MeasureBone(Measure* m, const maniBoneTrackSource* t, double sourceT
                         bool midpoint)
 {
     maniClipReport* r = &m->report;
-    maniTransform played = maniPoseLocal(m->pose, t->bone);
+    maniTransform played = maniPose_GetLocal(m->pose, t->bone);
     const maniChannelSource* channels[3] = {&t->translation, &t->rotation, &t->scale};
     maniClipError* errors[3] = {midpoint ? &r->midTranslation : &r->sampleTranslation,
                                 midpoint ? &r->midRotation : &r->sampleRotation,
@@ -105,8 +105,8 @@ static void MeasureBone(Measure* m, const maniBoneTrackSource* t, double sourceT
 // One time: every bone channel and float track against the source.
 static maniResult MeasureAt(Measure* m, double sourceTime, float time, bool midpoint)
 {
-    if (maniSampleClip(m->clip, m->source->skeleton, time, m->pose) != mani_success ||
-        maniSampleClipFloats(m->clip, time, m->floats, m->floatCount, NULL) != mani_success)
+    if (maniClip_Sample(m->clip, m->source->skeleton, time, m->pose) != mani_success ||
+        maniClip_SampleFloats(m->clip, time, m->floats, m->floatCount, NULL) != mani_success)
     {
         return mani_errorInvalid;
     }
@@ -200,16 +200,16 @@ static maniResult Run(Measure* m)
 static bool Matches(Measure* m)
 {
     const maniClipTiming* g = &m->timing;
-    if (maniClipSkeletonIdentity(m->clip) != maniSkeletonIdentity(m->source->skeleton) ||
-        maniClipSampleCount(m->clip) != g->sampleCount || maniClipSampleRate(m->clip) != g->rate ||
-        maniClipDuration(m->clip) != g->duration)
+    if (maniClip_GetSkeletonIdentity(m->clip) != maniSkeleton_GetIdentity(m->source->skeleton) ||
+        maniClip_GetSampleCount(m->clip) != g->sampleCount ||
+        maniClip_GetSampleRate(m->clip) != g->rate || maniClip_GetDuration(m->clip) != g->duration)
     {
         return false;
     }
     for (uint32_t i = 0; i < m->source->floatTrackCount; ++i)
     {
         const maniFloatTrackSource* f = &m->source->floatTracks[i];
-        m->floatMap[i] = maniClipFindFloatTrack(m->clip, f->name, f->nameLength);
+        m->floatMap[i] = maniClip_FindFloatTrack(m->clip, f->name, f->nameLength);
         if (m->floatMap[i] == MANI_NO_TRACK)
         {
             return false;
@@ -235,9 +235,9 @@ static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const mani
         return mani_errorInvalid;
     }
     const maniAllocator* a = &builder->allocator;
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
-    size_t poseBytes = maniPoseSize(source->skeleton) + MANI_POSE_ALIGNMENT;
-    size_t floatCount = maniClipFloatTrackCount(clip);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
+    size_t poseBytes = maniSkeleton_GetPoseSize(source->skeleton) + MANI_POSE_ALIGNMENT;
+    size_t floatCount = maniClip_GetFloatTrackCount(clip);
     size_t words = (size_t)bones + source->floatTrackCount + 1;
     uint32_t* seen = maniAllocate(a, words, sizeof(uint32_t), 8);
     float* floats = maniAllocate(a, floatCount + 1, sizeof(float), 8);
@@ -270,8 +270,8 @@ static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const mani
     return result;
 }
 
-maniResult maniMeasureClip(maniBuilder* builder, const maniClipSource* source, const maniClip* clip,
-                           maniClipReport* reportOut)
+maniResult maniBuilder_MeasureClip(maniBuilder* builder, const maniClipSource* source,
+                                   const maniClip* clip, maniClipReport* reportOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = MeasureClipWork(builder, source, clip, reportOut);

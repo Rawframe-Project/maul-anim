@@ -67,7 +67,7 @@ static maniGraphEvalParts PartsOf(const maniGraphBinding* binding)
     parts.weightsAt = parts.layersAt + Round((size_t)binding->maxInputs * sizeof(maniBlendLayer));
     parts.posesAt =
         parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float));
-    parts.poseSize = maniPoseSize(binding->skeleton);
+    parts.poseSize = maniSkeleton_GetPoseSize(binding->skeleton);
     parts.size = parts.posesAt + (size_t)binding->graph.slotCount * parts.poseSize;
     parts.retargetAt = parts.size;
     if (binding->sourcePoseSize > 0)
@@ -78,7 +78,7 @@ static maniGraphEvalParts PartsOf(const maniGraphBinding* binding)
     return parts;
 }
 
-size_t maniGraphScratchSize(const maniGraphBinding* binding)
+size_t maniGraphBinding_GetScratchSize(const maniGraphBinding* binding)
 {
     if (binding == NULL || binding->stamp != MANI_GRAPH_BINDING_STAMP)
     {
@@ -331,18 +331,21 @@ static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPa
     }
     size_t size = e->binding->retargetScratchSize;
     (void)maniSampleClipCursorEntered(c, clip, pair->source, time, poses[0]);
-    if (!maniPoseIsDifference(poses[0]))
+    if (!maniPose_IsDifference(poses[0]))
     {
-        (void)maniRetargetPose(pair->map, pair->source, poses[0], skeleton, out, scratch, size);
+        (void)maniRetargetMap_RetargetPose(pair->map, pair->source, poses[0], skeleton, out,
+                                           scratch, size);
         return;
     }
     maniBlendLayer layer = {poses[0], 1.0f, NULL};
-    (void)maniPoseSetRest(poses[1], pair->source);
-    (void)maniAddPoses(pair->source, poses[1], &layer, 1);
-    (void)maniRetargetPose(pair->map, pair->source, poses[1], skeleton, out, scratch, size);
-    (void)maniPoseSetRest(poses[1], pair->source);
-    (void)maniRetargetPose(pair->map, pair->source, poses[1], skeleton, poses[2], scratch, size);
-    (void)maniPoseDifference(skeleton, out, poses[2], out);
+    (void)maniPose_SetRest(poses[1], pair->source);
+    (void)maniPose_AddLayers(poses[1], pair->source, &layer, 1);
+    (void)maniRetargetMap_RetargetPose(pair->map, pair->source, poses[1], skeleton, out, scratch,
+                                       size);
+    (void)maniPose_SetRest(poses[1], pair->source);
+    (void)maniRetargetMap_RetargetPose(pair->map, pair->source, poses[1], skeleton, poses[2],
+                                       scratch, size);
+    (void)maniComputePoseDifference(skeleton, out, poses[2], out);
 }
 
 // A clip at a time: through its cursor, or for a subset the plan's bones
@@ -356,7 +359,7 @@ static void SampleClip(const maniGraphEvaluation* e, maniClipCursor* c, const ma
         (void)maniSampleClipCursorEntered(c, clip, e->binding->skeleton, time, out);
         return;
     }
-    maniPoseSetKind(out, maniClipAdditiveBasis(clip) != maniAdditiveNone);
+    maniPoseSetKind(out, maniClip_GetAdditiveBasis(clip) != maniAdditiveNone);
     (void)maniSampleClipBonesEntered(clip, e->binding->skeleton, time, maniGraphSubsetList(e->plan),
                                      e->plan->count, out);
 }
@@ -395,7 +398,7 @@ static void SampleMatch(const maniGraphEvaluation* e, const uint8_t* record, uin
     uint32_t entry = ((const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt))
         [maniGraphEvalWord(e, data + maniGraphMatchBlock) + maniGraphMatchEntry];
     maniMatchEntry m;
-    if (maniMotionDatabaseEntry(maniGraphBoundDatabase(e->binding, slot), entry, &m) !=
+    if (maniMotionDatabase_GetEntry(maniGraphBoundDatabase(e->binding, slot), entry, &m) !=
         mani_success)
     {
         maniGraphEvalNeutral(e, out, false);
@@ -412,13 +415,13 @@ static void SampleMatch(const maniGraphEvaluation* e, const uint8_t* record, uin
     // A mirrored entry plays mirrored (its map bound as the graph's).
     if ((m.flags & MANI_MATCH_MIRRORED) != 0)
     {
-        (void)maniMirrorPose(e->binding->mirrorMap, e->binding->skeleton, out, out);
+        (void)maniMirrorMap_MirrorPose(e->binding->mirrorMap, e->binding->skeleton, out, out);
     }
 }
 
 // The character's place a spring node reads: its position and rotation
 // parameters, or the origin and the identity; the rotation normalized as
-// maniStepSprings normalizes it.
+// maniSpringState_Step normalizes it.
 static maniTransform Placement(const maniGraphEvaluation* e, uint32_t data)
 {
     maniTransform t = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
@@ -511,7 +514,7 @@ static void SampleLearned(const maniGraphEvaluation* e, uint32_t p, const uint8_
         return;
     }
     float* room = (float*)((uint8_t*)e->instance + e->instance->roomAt);
-    size_t scratchSize = maniLearnedScratchSize(m);
+    size_t scratchSize = maniLearnedModel_GetScratchSize(m);
     float* state = room + scratchSize / 4;
     uint32_t states = m->featureCount + m->latentCount;
     maniGraphLearnedState(block, states, m->stepRate, state);
@@ -538,7 +541,8 @@ static void Mirror(const maniGraphEvaluation* e, const uint8_t* record, maniPose
 {
     const maniPose* input = maniGraphEvalInput(e, record, 0);
     const maniGraphBinding* b = e->binding;
-    if (input == NULL || maniMirrorPose(b->mirrorMap, b->skeleton, input, out) != mani_success)
+    if (input == NULL ||
+        maniMirrorMap_MirrorPose(b->mirrorMap, b->skeleton, input, out) != mani_success)
     {
         maniGraphEvalNeutral(e, out, false);
     }
@@ -640,7 +644,7 @@ static void WritePlanned(const maniGraphSubset* plan, const maniPose* slot, mani
     const uint32_t* bones = maniGraphSubsetList(plan);
     for (uint32_t i = 0; i < plan->count; ++i)
     {
-        maniPoseSetLocal(pose, bones[i], maniPoseLocal(slot, bones[i]));
+        maniPose_SetLocal(pose, bones[i], maniPose_GetLocal(slot, bones[i]));
     }
     maniPoseSetKind(pose, false);
     maniPoseMarkStale(pose);
@@ -652,7 +656,7 @@ static void RestPlanned(const maniGraphSubset* plan, const maniSkeleton* skeleto
     const uint32_t* bones = maniGraphSubsetList(plan);
     for (uint32_t i = 0; i < plan->count; ++i)
     {
-        maniPoseSetLocal(pose, bones[i], maniSkeletonRest(skeleton, bones[i]));
+        maniPose_SetLocal(pose, bones[i], maniSkeleton_GetRest(skeleton, bones[i]));
     }
     maniPoseSetKind(pose, false);
     maniPoseMarkStale(pose);
@@ -700,7 +704,7 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
             RestPlanned(plan, binding->skeleton, pose);
             return mani_success;
         }
-        return maniPoseSetRest(pose, binding->skeleton);
+        return maniPose_SetRest(pose, binding->skeleton);
     }
     Prepare(&e);
     uint32_t cursor = 0;
@@ -742,8 +746,8 @@ static MANI_NOINLINE maniResult EvaluateGraphWork(maniGraphInstance* instance, v
     return Run(instance, NULL, scratch, size, pose);
 }
 
-maniResult maniEvaluateGraph(maniGraphInstance* instance, void* scratch, size_t size,
-                             maniPose* pose)
+maniResult maniGraphInstance_Evaluate(maniGraphInstance* instance, void* scratch, size_t size,
+                                      maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = EvaluateGraphWork(instance, scratch, size, pose);
@@ -764,8 +768,9 @@ static MANI_NOINLINE maniResult EvaluateGraphSubsetWork(maniGraphInstance* insta
     return Run(instance, plan, scratch, size, pose);
 }
 
-maniResult maniEvaluateGraphSubset(maniGraphInstance* instance, const maniGraphSubset* plan,
-                                   void* scratch, size_t size, maniPose* pose)
+maniResult maniGraphInstance_EvaluateSubset(maniGraphInstance* instance,
+                                            const maniGraphSubset* plan, void* scratch, size_t size,
+                                            maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = EvaluateGraphSubsetWork(instance, plan, scratch, size, pose);

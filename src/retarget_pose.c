@@ -63,7 +63,7 @@ static maniQuat TargetModel(const maniRetargetMap* map, uint32_t b)
     return b == MANI_NO_BONE ? maniQuatIdentity() : LoadQuat(TargetBone(map, b));
 }
 
-size_t maniRetargetScratchSize(const maniRetargetMap* map)
+size_t maniRetargetMap_GetScratchSize(const maniRetargetMap* map)
 {
     if (map == NULL)
     {
@@ -86,7 +86,7 @@ static MANI_NOINLINE maniVec3 RetargetRootMotionWork(const maniRetargetMap* map,
         maniVec3Scale(vertical, LoadF32(map->header + maniRetargetHeaderVertical)));
 }
 
-maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
+maniVec3 maniRetargetMap_RetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
 {
     uint64_t env = maniFloatEnvEnter();
     maniVec3 result = RetargetRootMotionWork(map, delta);
@@ -119,12 +119,12 @@ static float Lerp(float a, float b, float t)
 // A bone's model matrix: the full transforms of its root path in a pose.
 static maniAffine PathMatrix(const maniSkeleton* skeleton, const maniPose* pose, uint32_t bone)
 {
-    maniTransform t = maniPoseLocal(pose, bone);
+    maniTransform t = maniPose_GetLocal(pose, bone);
     maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    for (uint32_t p = maniSkeletonParent(skeleton, bone); p != MANI_NO_BONE;
-         p = maniSkeletonParent(skeleton, p))
+    for (uint32_t p = maniSkeleton_GetParent(skeleton, bone); p != MANI_NO_BONE;
+         p = maniSkeleton_GetParent(skeleton, p))
     {
-        t = maniPoseLocal(pose, p);
+        t = maniPose_GetLocal(pose, p);
         maniAffine parent = maniAffineFromTrs(t.translation, t.rotation, t.scale);
         m = maniAffineMul(&parent, &m);
     }
@@ -147,7 +147,7 @@ static maniVec3 PelvisPosition(const Transfer* x, uint32_t sourcePelvis)
     maniVec3 reference = LoadVec(h + maniRetargetHeaderTargetPelvis);
     maniVec3 now = SourcePosition(x, sourcePelvis);
     maniVec3 change = maniVec3Sub(now, LoadVec(h + maniRetargetHeaderSourcePelvis));
-    maniVec3 scaled = maniRetargetRootMotion(x->map, change);
+    maniVec3 scaled = maniRetargetMap_RetargetRootMotion(x->map, change);
     maniVec3 absolute = LoadVec(h + maniRetargetHeaderAbsolute);
     maniVec3 toSource = LoadVec(h + maniRetargetHeaderToSource);
     float weight = LoadF32(h + maniRetargetHeaderTranslationWeight);
@@ -173,7 +173,7 @@ static void Carry(const Transfer* x, uint32_t bone, uint32_t a, uint32_t transla
     if (translation == maniRetargetTranslationScaled ||
         translation == maniRetargetTranslationAbsolute)
     {
-        maniVec3 from = maniPoseLocal(x->sourcePose, a).translation;
+        maniVec3 from = maniPose_GetLocal(x->sourcePose, a).translation;
         if (translation == maniRetargetTranslationScaled)
         {
             float ratio = LoadF32(x->map->header + maniRetargetHeaderRatio);
@@ -181,9 +181,9 @@ static void Carry(const Transfer* x, uint32_t bone, uint32_t a, uint32_t transla
         }
         // From the source parent's reference model frame to the target
         // parent's.
-        maniQuat frame =
-            maniQuatMul(maniQuatConjugate(TargetModel(x->map, maniSkeletonParent(x->target, bone))),
-                        SourceModel(x->map, maniSkeletonParent(x->source, a)));
+        maniQuat frame = maniQuatMul(
+            maniQuatConjugate(TargetModel(x->map, maniSkeleton_GetParent(x->target, bone))),
+            SourceModel(x->map, maniSkeleton_GetParent(x->source, a)));
         maniVec3 turned = maniQuatRotate(frame, from);
         local->translation = translation == maniRetargetTranslationScaled
                                  ? maniVec3Add(local->translation, turned)
@@ -191,7 +191,7 @@ static void Carry(const Transfer* x, uint32_t bone, uint32_t a, uint32_t transla
     }
     if (scale)
     {
-        maniVec3 now = maniPoseLocal(x->sourcePose, a).scale;
+        maniVec3 now = maniPose_GetLocal(x->sourcePose, a).scale;
         maniVec3 was = LoadVec(SourceBone(x->map, a) + 28);
         local->scale.x *= was.x != 0.0f ? now.x / was.x : 1.0f;
         local->scale.y *= was.y != 0.0f ? now.y / was.y : 1.0f;
@@ -205,7 +205,7 @@ static void Carry(const Transfer* x, uint32_t bone, uint32_t a, uint32_t transla
 static maniTransform SameFrame(const Transfer* x, uint32_t b, uint32_t a, maniQuat above,
                                uint32_t translation, bool scale, maniTransform local)
 {
-    const maniTransform given = maniPoseLocal(x->sourcePose, a);
+    const maniTransform given = maniPose_GetLocal(x->sourcePose, a);
     local.rotation = given.rotation;
     x->targetModels[b] = maniQuatMul(above, given.rotation);
     if (translation == maniRetargetTranslationAbsolute)
@@ -228,7 +228,7 @@ static maniTransform Bone(const Transfer* x, uint32_t b)
 {
     const uint8_t* e = x->map->plan + (size_t)b * MANI_RETARGET_PLAN_SIZE;
     const uint8_t* t = TargetBone(x->map, b);
-    uint32_t parent = maniSkeletonParent(x->target, b);
+    uint32_t parent = maniSkeleton_GetParent(x->target, b);
     maniQuat above = parent == MANI_NO_BONE ? maniQuatIdentity() : x->targetModels[parent];
     maniTransform local = {LoadVec(t + 32), LoadQuat(t + 16), LoadVec(t + 44)};
     uint32_t kind = maniLoadU32(e + maniRetargetPlanKind);
@@ -279,12 +279,12 @@ static bool Usable(const maniRetargetMap* map, const maniSkeleton* source,
 {
     return map != NULL && source != NULL && target != NULL && sourcePose != NULL &&
            targetPose != NULL && scratch != NULL && (uintptr_t)scratch % 16 == 0 &&
-           scratchSize >= maniRetargetScratchSize(map) &&
-           maniSkeletonIdentity(source) == map->sourceIdentity &&
-           maniSkeletonIdentity(target) == map->targetIdentity &&
-           maniSkeletonBoneCount(source) == map->sourceBoneCount &&
-           maniSkeletonBoneCount(target) == map->targetBoneCount &&
-           maniPoseMatches(sourcePose, source) && !maniPoseIsDifference(sourcePose) &&
+           scratchSize >= maniRetargetMap_GetScratchSize(map) &&
+           maniSkeleton_GetIdentity(source) == map->sourceIdentity &&
+           maniSkeleton_GetIdentity(target) == map->targetIdentity &&
+           maniSkeleton_GetBoneCount(source) == map->sourceBoneCount &&
+           maniSkeleton_GetBoneCount(target) == map->targetBoneCount &&
+           maniPoseMatches(sourcePose, source) && !maniPose_IsDifference(sourcePose) &&
            maniPoseMatches(targetPose, target);
 }
 
@@ -308,21 +308,21 @@ static MANI_NOINLINE maniResult RetargetPoseWork(const maniRetargetMap* map,
                   sourceModels + map->sourceBoneCount};
     for (uint32_t b = 0; b < map->sourceBoneCount; ++b)
     {
-        maniQuat q = maniPoseLocal(sourcePose, b).rotation;
-        uint32_t parent = maniSkeletonParent(source, b);
+        maniQuat q = maniPose_GetLocal(sourcePose, b).rotation;
+        uint32_t parent = maniSkeleton_GetParent(source, b);
         sourceModels[b] = parent == MANI_NO_BONE ? q : maniQuatMul(sourceModels[parent], q);
     }
     for (uint32_t b = 0; b < map->targetBoneCount; ++b)
     {
-        maniPoseSetLocal(targetPose, b, Bone(&x, b));
+        maniPose_SetLocal(targetPose, b, Bone(&x, b));
     }
     maniPoseSetKind(targetPose, false);
     return mani_success;
 }
 
-maniResult maniRetargetPose(const maniRetargetMap* map, const maniSkeleton* source,
-                            const maniPose* sourcePose, const maniSkeleton* target,
-                            maniPose* targetPose, void* scratch, size_t scratchSize)
+maniResult maniRetargetMap_RetargetPose(const maniRetargetMap* map, const maniSkeleton* source,
+                                        const maniPose* sourcePose, const maniSkeleton* target,
+                                        maniPose* targetPose, void* scratch, size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result =

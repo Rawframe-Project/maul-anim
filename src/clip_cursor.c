@@ -69,7 +69,7 @@ static size_t HeldFloats(const maniClip* clip, size_t floats, bool grouped)
 #endif
 }
 
-size_t maniClipCursorSize(const maniClip* clip)
+size_t maniClip_GetCursorSize(const maniClip* clip)
 {
     if (clip == NULL)
     {
@@ -234,8 +234,8 @@ MANI_NOINLINE maniResult maniSampleClipCursorEntered(maniClipCursor* cursor, con
     return mani_success;
 }
 
-maniResult maniSampleClipCursor(maniClipCursor* cursor, const maniClip* clip,
-                                const maniSkeleton* skeleton, float time, maniPose* pose)
+maniResult maniClipCursor_Sample(maniClipCursor* cursor, const maniClip* clip,
+                                 const maniSkeleton* skeleton, float time, maniPose* pose)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = maniSampleClipCursorEntered(cursor, clip, skeleton, time, pose);
@@ -266,8 +266,8 @@ static MANI_NOINLINE maniResult SampleClipFloatsCursorWork(maniClipCursor* curso
     return mani_success;
 }
 
-maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor, const maniClip* clip, float time,
-                                      float* values, uint32_t capacity, uint32_t* countOut)
+maniResult maniClipCursor_SampleFloats(maniClipCursor* cursor, const maniClip* clip, float time,
+                                       float* values, uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SampleClipFloatsCursorWork(cursor, clip, time, values, capacity, countOut);
@@ -275,7 +275,7 @@ maniResult maniSampleClipFloatsCursor(maniClipCursor* cursor, const maniClip* cl
     return result;
 }
 
-size_t maniClipCursorCompactSize(const maniClip* clip)
+size_t maniClip_GetCursorCompactSize(const maniClip* clip)
 {
 #if defined(MANI_CLIP_LANES)
     if (clip == NULL)
@@ -286,6 +286,6 @@ size_t maniClipCursorCompactSize(const maniClip* clip)
            HeldFloats(clip, CacheFloats(clip), false) * sizeof(float);
 #else
     // The scalar backend holds no groups: the one size.
-    return maniClipCursorSize(clip);
+    return maniClip_GetCursorSize(clip);
 #endif
 }

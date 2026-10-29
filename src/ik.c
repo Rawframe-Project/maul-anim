@@ -134,7 +134,7 @@ static MANI_NOINLINE maniResult SolveTwoBoneWork(maniPose* pose, const maniSkele
     maniIkFrame local = maniIkLocal(pose, solve->start);
     maniIkFrame start = maniIkMul(&startParent, &local);
     maniIkFrame path =
-        maniIkBelow(pose, skeleton, solve->start, maniSkeletonParent(skeleton, solve->middle));
+        maniIkBelow(pose, skeleton, solve->start, maniSkeleton_GetParent(skeleton, solve->middle));
     maniIkFrame middleParent = maniIkMul(&start, &path);
     local = maniIkLocal(pose, solve->middle);
     maniIkFrame middle = maniIkMul(&middleParent, &local);
@@ -178,8 +178,8 @@ static MANI_NOINLINE maniResult SolveTwoBoneWork(maniPose* pose, const maniSkele
     return mani_success;
 }
 
-maniResult maniSolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
-                            const maniTwoBoneSolve* solve, bool* reachedOut)
+maniResult maniPose_SolveTwoBone(maniPose* pose, const maniSkeleton* skeleton,
+                                 const maniTwoBoneSolve* solve, bool* reachedOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SolveTwoBoneWork(pose, skeleton, solve, reachedOut);

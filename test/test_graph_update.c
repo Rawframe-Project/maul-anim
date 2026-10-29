@@ -268,7 +268,8 @@ static void TestOwnWeights(void)
     maniGraphInstance* instance = Make((maniGraphSource){.nodes = nodes, .nodeCount = 3}, &g);
     maniGraphEvent events[4];
     uint32_t count = 0;
-    CHECK(maniUpdateGraph(instance, 0.6f, events, 4, &count, NULL) == mani_success && count == 0,
+    CHECK(maniGraphInstance_Update(instance, 0.6f, events, 4, &count, NULL) == mani_success &&
+              count == 0,
           "no events from a node of no weight");
     // The walk inside a mask of the hips at 0.25 and the spine at 1: its
     // weight 1, its root weight 0.25 (the run's 0.75, without motion).
@@ -277,7 +278,7 @@ static void TestOwnWeights(void)
     nodes[0] = (maniGraphNodeSource){maniGraphNodeMask, 2, kMaskInputs, .mask = {kChains, 2, 0.0f}};
     instance = Make((maniGraphSource){.nodes = nodes, .nodeCount = 3}, &g);
     maniRootMove move;
-    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, NULL, &move) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.5f, NULL, 0, NULL, &move) == mani_success &&
               NearF(State(instance, &g, 0)->weight, 1.0) && Near((double)move.translation.x, 0.125),
           "root motion by the root weight");
 }
@@ -310,7 +311,7 @@ static void TestMarkerStepEnd(void)
     maniGraph g;
     maniGraphInstance* instance = Synced(4, maniGraphSyncAllEvents, maniGraphLoopClip, &g);
     uint32_t count = 0;
-    CHECK(maniUpdateGraph(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
+    CHECK(maniGraphInstance_Update(instance, 0.5f, NULL, 0, &count, NULL) == mani_success &&
               Near(State(instance, &g, 1)->time, 0.5) && count == 0,
           "a marker at the step's end is not passed");
 }
@@ -334,7 +335,8 @@ static void TestMarkerFollowerSilent(void)
     for (int k = 0; k < 3; ++k)
     {
         uint32_t count = 0;
-        CHECK(maniUpdateGraph(instance, kSteps[k], NULL, 0, &count, NULL) == mani_success, "step");
+        CHECK(maniGraphInstance_Update(instance, kSteps[k], NULL, 0, &count, NULL) == mani_success,
+              "step");
         total += count;
     }
     CHECK(Near(State(instance, &g, 1)->time, 1.5) && total == 0, "a follower's events silent");
@@ -407,8 +409,8 @@ static bool SameBits(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t bone = 0; bone < 3; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     return same;
@@ -425,10 +427,10 @@ static bool Matches(maniGraphInstance* instance, const uint32_t* clips, const fl
     for (uint32_t k = 0; k < count; ++k)
     {
         maniPose* pose = PoseAt(2 + (int)k);
-        CHECK(maniSampleClip(&s_clips[clips[k]], &s_skeleton, t, pose) == mani_success, "sample");
+        CHECK(maniClip_Sample(&s_clips[clips[k]], &s_skeleton, t, pose) == mani_success, "sample");
         layers[k] = (maniBlendLayer){pose, weights[k], NULL};
     }
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               maniBlendPoses(&s_skeleton, layers, count, MANI_BLEND_THRESHOLD, want) ==
                   mani_success,
           "evaluates");
@@ -479,19 +481,19 @@ static void RestoreWeights(maniGraphInstance* instance, const maniGraph* g, cons
 {
     static uint8_t state[1024];
     size_t size = SavedGraphSize(instance);
-    CHECK(maniSaveGraphInstance(instance, state, sizeof state, NULL) == mani_success, "saves");
+    CHECK(maniGraphInstance_Save(instance, state, sizeof state, NULL) == mani_success, "saves");
     for (uint32_t k = 0; k < count; ++k)
     {
         size_t at = MANI_GRAPH_STATE_HEADER_SIZE + 16 * (size_t)(g->parameterCount + nodes[k]);
         memset(state + at, 0, 4);
     }
-    CHECK(maniRestoreGraphInstance(instance, state, size).result == mani_success, "restores");
+    CHECK(maniGraphInstance_Restore(instance, state, size).result == mani_success, "restores");
 }
 
 static bool IsRest(const maniPose* pose)
 {
     maniPose* rest = PoseAt(1);
-    CHECK(maniPoseSetRest(rest, &s_skeleton) == mani_success, "the rest");
+    CHECK(maniPose_SetRest(rest, &s_skeleton) == mani_success, "the rest");
     return SameBits(pose, rest);
 }
 
@@ -510,21 +512,21 @@ static void TestRestoredEvaluation(void)
     maniGraphInstance* instance = Make((maniGraphSource){.nodes = nodes, .nodeCount = 2}, &g);
     maniPose* out = PoseAt(0);
     Update(instance, 0.25f);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               !IsRest(out),
           "the run");
     static const uint32_t kRunNode[1] = {0};
     RestoreWeights(instance, &g, kRunNode, 1);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               IsRest(out),
           "an unweighed input: the rest");
     Update(instance, 0.0f);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               !IsRest(out),
           "the run again");
     static const uint32_t kOutput[1] = {1};
     RestoreWeights(instance, &g, kOutput, 1);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               IsRest(out),
           "an unweighed output: the rest");
     // The run 0, a wave 1 under a time scale 2, the wave again 3, the
@@ -545,14 +547,15 @@ static void TestRestoredEvaluation(void)
     maniPose* run = PoseAt(2);
     maniPose* wave = PoseAt(3);
     const maniBlendLayer layer = {wave, 1.0f, NULL};
-    CHECK(maniSampleClip(&s_clips[1], &s_skeleton, 0.25f, run) == mani_success &&
-              maniSampleClip(&s_clips[2], &s_skeleton, 0.25f, wave) == mani_success &&
-              maniAddPoses(&s_skeleton, run, &layer, 1) == mani_success &&
-              maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniClip_Sample(&s_clips[1], &s_skeleton, 0.25f, run) == mani_success &&
+              maniClip_Sample(&s_clips[2], &s_skeleton, 0.25f, wave) == mani_success &&
+              maniPose_AddLayers(run, &s_skeleton, &layer, 1) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) ==
+                  mani_success &&
               SameBits(out, run),
           "a missing difference adds nothing; the other layer is added");
     RestoreWeights(instance, &g, kRunNode, 1);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, out) == mani_success &&
               IsRest(out),
           "an additive node without its base: the rest");
 }
@@ -589,7 +592,7 @@ static void TestLowClamp(void)
         &g);
     maniGraphValue v = {{0}};
     Set(instance, 0, maniGraphParameterFloat, Float(0.1f));
-    CHECK(maniGetGraphParameter(instance, 0, &v) == mani_success && v.f[0] == 0.5f,
+    CHECK(maniGraphInstance_GetParameter(instance, 0, &v) == mani_success && v.f[0] == 0.5f,
           "clamped up to the minimum");
 }
 

@@ -255,14 +255,15 @@ static bool Build(maniBuilder* builder, const maniFbx* fbx, uint32_t stack, mani
 {
     maniFbxOptions options = maniDefaultFbxOptions();
     size_t size = 0;
-    return maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+    return maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success &&
-           maniFbxBuildClip(builder, fbx, stack, skeleton, &options,
+           maniBuildFbxClip(builder, fbx, stack, skeleton, &options,
                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                             NULL)
                    .result == mani_success &&
-           maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
            maniOpenClip(s_clipFile, size, clip).result == mani_success;
 }
 
@@ -277,12 +278,12 @@ static bool RowMatches(const maniClip* clip, const maniSkeleton* skeleton, const
 {
     maniPose* pose = NULL;
     if (maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
-        maniSampleClip(clip, skeleton, row->time, pose) != mani_success)
+        maniClip_Sample(clip, skeleton, row->time, pose) != mani_success)
     {
         return false;
     }
-    uint32_t bone = maniSkeletonFindBone(skeleton, row->bone, strlen(row->bone));
-    maniTransform t = maniPoseLocal(pose, bone);
+    uint32_t bone = maniSkeleton_FindBone(skeleton, row->bone, strlen(row->bone));
+    maniTransform t = maniPose_GetLocal(pose, bone);
     const double* v = row->trs;
     bool right = bone != MANI_NO_BONE && Near((double)t.translation.x, v[0]) &&
                  Near((double)t.translation.y, v[1]) && Near((double)t.translation.z, v[2]) &&
@@ -302,11 +303,11 @@ static void TestStacks(void)
     maniBuilder* builder = NewBuilder();
     maniFbx* fbx = NULL;
     CHECK(maniOpenFbx(builder, kScene, strlen(kScene), &fbx).result == mani_success, "opens");
-    bool right = fbx != NULL && maniFbxClipCount(fbx) == 3;
+    bool right = fbx != NULL && maniFbx_GetClipCount(fbx) == 3;
     for (uint32_t k = 0; right && k < 3; ++k)
     {
         size_t length = 0;
-        const char* name = maniFbxClipName(fbx, k, &length);
+        const char* name = maniFbx_GetClipName(fbx, k, &length);
         right = name != NULL && length == strlen(kStackNames[k]) &&
                 memcmp(name, kStackNames[k], length) == 0;
     }
@@ -316,7 +317,8 @@ static void TestStacks(void)
         maniSkeleton skeleton;
         maniClip clip;
         bool built = Build(builder, fbx, k, &skeleton, &clip);
-        bool rows = built && fabs((double)maniClipDuration(&clip) - (double)kDurations[k]) <= 1e-6;
+        bool rows =
+            built && fabs((double)maniClip_GetDuration(&clip) - (double)kDurations[k]) <= 1e-6;
         for (size_t r = 0; rows && r < sizeof kRows / sizeof kRows[0]; ++r)
         {
             bool inside = (double)kRows[r].time <= (double)kDurations[k] + 1e-9;
@@ -341,16 +343,16 @@ static void TestTracks(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     uint32_t bound = 0;
     CHECK(built &&
-              maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+              maniBuildFbxClip(builder, fbx, 0, &skeleton, &options,
                                &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                                &bound)
                       .result == mani_success &&
               bound == 5,
           "the model channels bound, not an attribute's");
     float value = 0.0f;
-    uint32_t track = built ? maniClipFindFloatTrack(&clip, "Hips/Custom", 11) : MANI_NO_TRACK;
-    CHECK(built && maniClipFloatTrackCount(&clip) == 1 && track == 0 &&
-              maniSampleClipFloats(&clip, 0.5f, &value, 1, NULL) == mani_success &&
+    uint32_t track = built ? maniClip_FindFloatTrack(&clip, "Hips/Custom", 11) : MANI_NO_TRACK;
+    CHECK(built && maniClip_GetFloatTrackCount(&clip) == 1 && track == 0 &&
+              maniClip_SampleFloats(&clip, 0.5f, &value, 1, NULL) == mani_success &&
               Near((double)value, 3.0),
           "a user property is a track, an attribute's is not");
     maniCloseFbx(fbx);

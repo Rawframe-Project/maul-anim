@@ -232,7 +232,8 @@ static bool Bones(maniBuilder* builder, const char* const* names, uint32_t count
     maniSkeletonSource source = {bones, count};
     size_t size = 0;
     return maniBuildSkeleton(builder, &source).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+               mani_success &&
            maniOpenSkeleton(s_skeletonFile, size, out).result == mani_success;
 }
 
@@ -248,10 +249,10 @@ static bool Build(maniBuilder* builder, const char* text, const char* const* nam
     bool right = maniOpenFbx(builder, text, strlen(text), &fbx).result == mani_success;
     if (right && names == NULL)
     {
-        right =
-            maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-            maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-            maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
+        right = maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+                maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                    mani_success &&
+                maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success;
     }
     else if (right)
     {
@@ -259,10 +260,10 @@ static bool Build(maniBuilder* builder, const char* text, const char* const* nam
     }
     right =
         right &&
-        maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+        maniBuildFbxClip(builder, fbx, 0, &skeleton, &options,
                          &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, bound)
                 .result == mani_success &&
-        maniCopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, clip).result == mani_success;
     maniCloseFbx(fbx);
     return right;
@@ -272,9 +273,9 @@ static bool Build(maniBuilder* builder, const char* text, const char* const* nam
 static double ValueAt(const maniClip* clip, const char* name, float time)
 {
     float values[16] = {0};
-    uint32_t track = maniClipFindFloatTrack(clip, name, strlen(name));
-    if (track == MANI_NO_TRACK || maniClipFloatTrackCount(clip) > 16 ||
-        maniSampleClipFloats(clip, time, values, 16, NULL) != mani_success)
+    uint32_t track = maniClip_FindFloatTrack(clip, name, strlen(name));
+    if (track == MANI_NO_TRACK || maniClip_GetFloatTrackCount(clip) > 16 ||
+        maniClip_SampleFloats(clip, time, values, 16, NULL) != mani_success)
     {
         return (double)NAN;
     }
@@ -287,7 +288,7 @@ static void TestTracks(void)
     maniClip clip;
     uint32_t bound = 0;
     bool built = Build(builder, kScene, NULL, 0, &clip, &bound);
-    CHECK(built && maniClipFloatTrackCount(&clip) == 9 && bound == 5,
+    CHECK(built && maniClip_GetFloatTrackCount(&clip) == 9 && bound == 5,
           "nine shapes of the skinned face, five weights bound");
     static const char* const kNames[9] = {"Face/Smile_half", "Face/Smile",       "Face/Blink",
                                           "Face/Wide",       "Face/Wide/1",      "Face/Frown_up",
@@ -320,12 +321,13 @@ static void TestMeshes(void)
     uint32_t bound = 0;
     static const char* const kHeadProp[2] = {"Head", "Prop"};
     CHECK(Build(builder, kScene, kHeadProp, 2, &clip, &bound) &&
-              maniClipFloatTrackCount(&clip) == 1 && Near(ValueAt(&clip, "Prop/Grow", 0.5f), 0.5),
+              maniClip_GetFloatTrackCount(&clip) == 1 &&
+              Near(ValueAt(&clip, "Prop/Grow", 0.5f), 0.5),
           "a mesh that is a bone; a skin with a joint outside the skeleton left out");
     maniDestroyBuilder(builder);
     builder = NewBuilder();
     CHECK(Build(builder, kScene, kHeadProp, 1, &clip, &bound) &&
-              maniClipFloatTrackCount(&clip) == 0,
+              maniClip_GetFloatTrackCount(&clip) == 0,
           "a skin of no joints is no skin within the skeleton");
     maniDestroyBuilder(builder);
 }
@@ -657,7 +659,7 @@ static bool ShapeTracks(const char* text, uint32_t count, const char* const* nam
     maniClip clip;
     uint32_t bound = 0;
     bool right = Build(builder, text, NULL, 0, &clip, &bound) &&
-                 maniClipFloatTrackCount(&clip) == count && bound == count;
+                 maniClip_GetFloatTrackCount(&clip) == count && bound == count;
     for (uint32_t k = 0; right && k < count; ++k)
     {
         for (int s = 0; right && s < 5; ++s)
@@ -684,7 +686,7 @@ static void TestShapeOwners(void)
         maniClip clip;
         uint32_t bound = 0;
         CHECK(Build(builder, kShapes6, kOther, 1, &clip, &bound) &&
-                  maniClipFloatTrackCount(&clip) == 0,
+                  maniClip_GetFloatTrackCount(&clip) == 0,
               "no shapes of a mesh outside the skeleton");
         maniDestroyBuilder(builder);
     }
@@ -706,11 +708,12 @@ static void TestShapeOwners(void)
     maniSkeleton skeleton;
     maniImportResult r = {mani_success, 0, 0, 0};
     if (maniOpenFbx(builder, unnamed, strlen(unnamed), &fbx).result == mani_success &&
-        maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+        maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+        maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+            mani_success &&
         maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success)
     {
-        r = maniFbxBuildClip(builder, fbx, 0, &skeleton, &options,
+        r = maniBuildFbxClip(builder, fbx, 0, &skeleton, &options,
                              &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                              NULL);
     }

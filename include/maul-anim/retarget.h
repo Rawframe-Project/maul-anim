@@ -91,7 +91,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniRetargetMapIdentity(const maniRetargetMap* map);
+    MANI_API uint64_t maniRetargetMap_GetIdentity(const maniRetargetMap* map);
 
     /// Returns the identity of the skeleton a map takes poses from.
     ///
@@ -99,7 +99,7 @@ extern "C"
     /// @return The source skeleton's identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniRetargetMapSourceIdentity(const maniRetargetMap* map);
+    MANI_API uint64_t maniRetargetMap_GetSourceIdentity(const maniRetargetMap* map);
 
     /// Returns the identity of the skeleton a map makes poses for.
     ///
@@ -107,16 +107,16 @@ extern "C"
     /// @return The target skeleton's identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniRetargetMapTargetIdentity(const maniRetargetMap* map);
+    MANI_API uint64_t maniRetargetMap_GetTargetIdentity(const maniRetargetMap* map);
 
-    /// Returns the scratch maniRetargetPose takes with a map: a rotation
+    /// Returns the scratch maniRetargetMap_RetargetPose takes with a map: a rotation
     /// for every bone of both skeletons.
     ///
     /// @param map  An opened map, or NULL.
     /// @return The bytes; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API size_t maniRetargetScratchSize(const maniRetargetMap* map);
+    MANI_API size_t maniRetargetMap_GetScratchSize(const maniRetargetMap* map);
 
     /// Makes a pose of the target from a pose of the source through a
     /// map. Each bone's model rotation is the product of its root path's
@@ -144,7 +144,7 @@ extern "C"
     /// @param target       The map's target skeleton.
     /// @param targetPose   A pose of the target; its locals are written.
     /// @param scratch      Scratch memory, 16-byte aligned.
-    /// @param scratchSize  Its size: at least maniRetargetScratchSize.
+    /// @param scratchSize  Its size: at least maniRetargetMap_GetScratchSize.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// skeleton whose identity is not the map's, a pose of another
     /// skeleton, a source pose of differences, misaligned or too little
@@ -152,7 +152,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread; the target pose and the scratch are used by
     /// one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniRetargetPose(
+    MANI_NODISCARD MANI_API maniResult maniRetargetMap_RetargetPose(
         const maniRetargetMap* map, const maniSkeleton* source, const maniPose* sourcePose,
         const maniSkeleton* target, maniPose* targetPose, void* scratch, size_t scratchSize);
 
@@ -165,7 +165,8 @@ extern "C"
     /// @return The target's.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniVec3 maniRetargetRootMotion(const maniRetargetMap* map, maniVec3 delta);
+    MANI_API maniVec3 maniRetargetMap_RetargetRootMotion(const maniRetargetMap* map,
+                                                         maniVec3 delta);
 
 #ifdef __cplusplus
 }

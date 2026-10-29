@@ -65,7 +65,7 @@ static Rigid Compose(Rigid a, Rigid b)
 // A bone's rest model frame, its scale left out, from the pose.
 static Rigid BoneFrame(uint32_t bone)
 {
-    maniTransform m = maniPoseModelTransform(s_pose, bone);
+    maniTransform m = maniPose_GetModelTransform(s_pose, bone);
     return (Rigid){m.translation, m.rotation};
 }
 
@@ -90,8 +90,8 @@ static void TestBuild(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenRagdoll(s_file, s_size, &ragdoll).result == mani_success,
           "built and opened");
-    CHECK(maniRagdollBodyCount(&ragdoll) == 5 && maniRagdollIdentity(&ragdoll) != 0 &&
-              maniRagdollSkeletonIdentity(&ragdoll) == maniSkeletonIdentity(&s_skeleton) &&
+    CHECK(maniRagdoll_GetBodyCount(&ragdoll) == 5 && maniRagdoll_GetIdentity(&ragdoll) != 0 &&
+              maniRagdoll_GetSkeletonIdentity(&ragdoll) == maniSkeleton_GetIdentity(&s_skeleton) &&
               ragdoll.facing.z == 1.0f && ragdoll.up.y == 1.0f,
           "its count, identities and axes");
     // By bone: pelvis, chest (its parent the pelvis, past the spine),
@@ -104,7 +104,7 @@ static void TestBuild(void)
     bool read = true;
     for (uint32_t i = 0; i < 5; ++i)
     {
-        read = read && maniRagdollReadBody(&ragdoll, i, &b[i]) == mani_success &&
+        read = read && maniRagdoll_GetBody(&ragdoll, i, &b[i]) == mani_success &&
                b[i].bone == bones[i] && b[i].parent == parents[i] &&
                b[i].nameLength == strlen(names[i]) &&
                memcmp(b[i].name, names[i], b[i].nameLength) == 0;
@@ -132,11 +132,11 @@ static void TestBuild(void)
     }
     CHECK(worst < 2e-6f, "each joint at one place in both bodies at rest");
     maniRagdollBody none;
-    CHECK(maniRagdollReadBody(&ragdoll, 5, &none) == mani_errorInvalid &&
-              maniRagdollReadBody(NULL, 0, &none) == mani_errorInvalid &&
-              maniRagdollReadBody(&ragdoll, 0, NULL) == mani_errorInvalid &&
-              maniRagdollBodyCount(NULL) == 0 && maniRagdollIdentity(NULL) == 0 &&
-              maniRagdollSkeletonIdentity(NULL) == 0,
+    CHECK(maniRagdoll_GetBody(&ragdoll, 5, &none) == mani_errorInvalid &&
+              maniRagdoll_GetBody(NULL, 0, &none) == mani_errorInvalid &&
+              maniRagdoll_GetBody(&ragdoll, 0, NULL) == mani_errorInvalid &&
+              maniRagdoll_GetBodyCount(NULL) == 0 && maniRagdoll_GetIdentity(NULL) == 0 &&
+              maniRagdoll_GetSkeletonIdentity(NULL) == 0,
           "reads refused and NULL views");
 }
 
@@ -151,7 +151,7 @@ static void TestOneBody(void)
     maniRagdollBody b;
     CHECK(Build(&source).result == mani_success &&
               maniOpenRagdoll(s_file, s_size, &ragdoll).result == mani_success &&
-              maniRagdollReadBody(&ragdoll, 0, &b) == mani_success && b.parent == MANI_NO_BONE &&
+              maniRagdoll_GetBody(&ragdoll, 0, &b) == mani_success && b.parent == MANI_NO_BONE &&
               b.twistMin == 0.0f && b.jointTranslation.x == 0.0f,
           "a lone body the root");
 }

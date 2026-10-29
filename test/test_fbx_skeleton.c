@@ -118,12 +118,12 @@ static bool Near(const maniAffine* a, const maniAffine* b)
 // The bone's model matrix: its rests composed up its parents.
 static maniAffine ModelOf(const maniSkeleton* skeleton, uint32_t bone)
 {
-    maniTransform t = maniSkeletonRest(skeleton, bone);
+    maniTransform t = maniSkeleton_GetRest(skeleton, bone);
     maniAffine m = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-    for (uint32_t p = maniSkeletonParent(skeleton, bone); p != MANI_NO_BONE;
-         p = maniSkeletonParent(skeleton, p))
+    for (uint32_t p = maniSkeleton_GetParent(skeleton, bone); p != MANI_NO_BONE;
+         p = maniSkeleton_GetParent(skeleton, p))
     {
-        t = maniSkeletonRest(skeleton, p);
+        t = maniSkeleton_GetRest(skeleton, p);
         maniAffine parent = maniAffineFromTrs(t.translation, t.rotation, t.scale);
         m = maniAffineMul(&parent, &m);
     }
@@ -135,7 +135,7 @@ static maniAffine ModelOf(const maniSkeleton* skeleton, uint32_t bone)
 static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOptions* options,
                       const maniBasis* basis, const char* what)
 {
-    maniImportResult r = maniFbxBuildSkeleton(builder, fbx, 0, options);
+    maniImportResult r = maniBuildFbxSkeleton(builder, fbx, 0, options);
     CHECK(r.result == mani_success, what);
     if (r.result != mani_success)
     {
@@ -144,20 +144,20 @@ static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpt
     }
     size_t size = 0;
     maniSkeleton skeleton;
-    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenSkeleton(s_file, size, &skeleton).result == mani_success,
           "opens the skeleton");
     maniFbxWorld worlds[16];
     (void)maniFbxEvaluateWorlds(fbx, NULL, worlds);
     maniAffine placement;
-    CHECK(maniFbxSkeletonPlacement(fbx, 0, options, &placement).result == mani_success,
+    CHECK(maniFbx_GetSkeletonPlacement(fbx, 0, options, &placement).result == mani_success,
           "placement");
     bool all = true;
     for (uint32_t m = 0; m < fbx->modelCount; ++m)
     {
         size_t length = 0;
-        const char* name = maniFbxModelBoneName(fbx, m, &length);
-        uint32_t bone = maniSkeletonFindBone(&skeleton, name, length);
+        const char* name = maniFbx_GetModelBoneName(fbx, m, &length);
+        uint32_t bone = maniSkeleton_FindBone(&skeleton, name, length);
         if (bone == MANI_NO_BONE)
         {
             continue;
@@ -168,7 +168,7 @@ static uint32_t Check(maniBuilder* builder, const maniFbx* fbx, const maniFbxOpt
         all = all && Near(&got, &expected);
     }
     CHECK(all, what);
-    return maniSkeletonBoneCount(&skeleton);
+    return maniSkeleton_GetBoneCount(&skeleton);
 }
 
 static maniBasis Identity(void)
@@ -217,28 +217,28 @@ static void TestHelperShape(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     size_t size = 0;
     maniSkeleton skeleton;
-    CHECK(fbx != NULL && maniFbxBuildSkeleton(builder, fbx, 0, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+    CHECK(fbx != NULL && maniBuildFbxSkeleton(builder, fbx, 0, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenSkeleton(s_file, size, &skeleton).result == mani_success,
           "builds");
-    uint32_t spine = maniSkeletonFindBone(&skeleton, "Spine", 5);
-    uint32_t helper = maniSkeletonFindBone(&skeleton, "Spine#unscaled", 14);
-    uint32_t head = maniSkeletonFindBone(&skeleton, "Head", 4);
-    uint32_t arm = maniSkeletonFindBone(&skeleton, "Arm", 3);
-    uint32_t chest = maniSkeletonFindBone(&skeleton, "Chest", 5);
-    maniTransform h = maniSkeletonRest(&skeleton, helper);
-    CHECK(maniSkeletonParent(&skeleton, arm) == helper &&
-              maniSkeletonParent(&skeleton, chest) == spine,
+    uint32_t spine = maniSkeleton_FindBone(&skeleton, "Spine", 5);
+    uint32_t helper = maniSkeleton_FindBone(&skeleton, "Spine#unscaled", 14);
+    uint32_t head = maniSkeleton_FindBone(&skeleton, "Head", 4);
+    uint32_t arm = maniSkeleton_FindBone(&skeleton, "Arm", 3);
+    uint32_t chest = maniSkeleton_FindBone(&skeleton, "Chest", 5);
+    maniTransform h = maniSkeleton_GetRest(&skeleton, helper);
+    CHECK(maniSkeleton_GetParent(&skeleton, arm) == helper &&
+              maniSkeleton_GetParent(&skeleton, chest) == spine,
           "every RrSs or Rrs child under the helper, normal ones under the parent");
-    CHECK(helper != MANI_NO_BONE && maniSkeletonParent(&skeleton, helper) == spine &&
-              maniSkeletonParent(&skeleton, head) == helper && h.scale.x == 1.0f &&
+    CHECK(helper != MANI_NO_BONE && maniSkeleton_GetParent(&skeleton, helper) == spine &&
+              maniSkeleton_GetParent(&skeleton, head) == helper && h.scale.x == 1.0f &&
               h.scale.y == 0.5f && fabsf(h.scale.z - 1.0f / 3.0f) < 1e-7f && h.translation.x == 0 &&
               h.rotation.w == 1,
           "a helper: the inverse of its parent's scale, Head under it");
-    CHECK(maniSkeletonFindBone(&skeleton, "Body", 4) == MANI_NO_BONE &&
-              maniSkeletonFindBone(&skeleton, "Armature", 8) == MANI_NO_BONE,
+    CHECK(maniSkeleton_FindBone(&skeleton, "Body", 4) == MANI_NO_BONE &&
+              maniSkeleton_FindBone(&skeleton, "Armature", 8) == MANI_NO_BONE,
           "the meshes and the armature are no bones");
-    CHECK(maniSkeletonFindBone(&skeleton, "Prop", 4) == MANI_NO_BONE, "a mesh under a bone");
+    CHECK(maniSkeleton_FindBone(&skeleton, "Prop", 4) == MANI_NO_BONE, "a mesh under a bone");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -282,12 +282,12 @@ static void TestAxes(void)
     options = maniDefaultFbxOptions();
     CHECK(Check(builder, fbx, &options, &basis, "not converted") == 7, "seven bones");
     maniFbxSettings settings;
-    CHECK(maniFbxReadSettings(fbx, &settings) == mani_success && settings.axes[0] == maniAxisX &&
+    CHECK(maniFbx_ReadSettings(fbx, &settings) == mani_success && settings.axes[0] == maniAxisX &&
               settings.axes[1] == maniAxisZ && settings.axes[2] == maniAxisNegativeY &&
               settings.unitMeters == 0.01 && settings.rateNumerator == 30,
           "the settings");
-    CHECK(maniFbxReadSettings(NULL, &settings) == mani_errorInvalid &&
-              maniFbxReadSettings(fbx, NULL) == mani_errorInvalid,
+    CHECK(maniFbx_ReadSettings(NULL, &settings) == mani_errorInvalid &&
+              maniFbx_ReadSettings(fbx, NULL) == mani_errorInvalid,
           "settings misuse");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
@@ -312,12 +312,12 @@ static void TestRefusals(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     Rig("0,1,1", "");
     maniFbx* fbx = Open(builder);
-    ExpectRefusal(maniFbxBuildSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
+    ExpectRefusal(maniBuildFbxSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
                   "Model: 3", 2, "a helper for a zero scale");
     maniCloseFbx(fbx);
     Rig("1e-300,1,1", "");
     fbx = Open(builder);
-    ExpectRefusal(maniFbxBuildSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
+    ExpectRefusal(maniBuildFbxSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
                   "Model: 3", 2, "a helper scale past binary32");
     maniCloseFbx(fbx);
     // A non-uniform armature under a rotated root: folding shears.
@@ -326,7 +326,7 @@ static void TestRefusals(void)
     memcpy(scale, "100,200,300", 11);
     fbx = Open(builder);
     options.foldPlacement = 1;
-    ExpectRefusal(maniFbxBuildSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
+    ExpectRefusal(maniBuildFbxSkeleton(builder, fbx, 0, &options), maniImportReasonMatrix,
                   "Model: 2", 1, "a folded placement that shears");
     maniCloseFbx(fbx);
     // A model named as a helper.
@@ -340,7 +340,7 @@ static void TestRefusals(void)
     link[10] = '4';
     fbx = Open(builder);
     options = maniDefaultFbxOptions();
-    maniImportResult r = maniFbxBuildSkeleton(builder, fbx, 0, &options);
+    maniImportResult r = maniBuildFbxSkeleton(builder, fbx, 0, &options);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonName,
           "a helper's name taken");
     maniCloseFbx(fbx);
@@ -363,24 +363,26 @@ static void TestMisuse(void)
     for (int i = 0; i < 5; ++i)
     {
         refused =
-            refused && maniFbxBuildSkeleton(builder, fbx, 0, &bad[i]).result == mani_errorInvalid;
+            refused && maniBuildFbxSkeleton(builder, fbx, 0, &bad[i]).result == mani_errorInvalid;
     }
     bad[0] = options;
     bad[0].convertAxes = 2;
-    refused = refused && maniFbxBuildSkeleton(builder, fbx, 0, &bad[0]).result == mani_errorInvalid;
+    refused = refused && maniBuildFbxSkeleton(builder, fbx, 0, &bad[0]).result == mani_errorInvalid;
     CHECK(refused, "options out of range");
     maniAffine placement;
-    CHECK(maniFbxBuildSkeleton(builder, fbx, 1, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkeleton(NULL, fbx, 0, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkeleton(builder, NULL, 0, &options).result == mani_errorInvalid &&
-              maniFbxBuildSkeleton(builder, fbx, 0, NULL).result == mani_errorInvalid &&
-              maniFbxBuildModelSkeleton(builder, fbx, 10, &options).result == mani_errorInvalid &&
-              maniFbxSkeletonPlacement(fbx, 1, &options, &placement).result == mani_errorInvalid &&
-              maniFbxSkeletonPlacement(fbx, 0, &bad[1], &placement).result == mani_errorInvalid &&
-              maniFbxSkeletonPlacement(fbx, 0, &options, NULL).result == mani_errorInvalid &&
-              maniFbxModelPlacement(fbx, 10, &options, &placement).result == mani_errorInvalid &&
-              maniFbxModelPlacement(NULL, 0, &options, &placement).result == mani_errorInvalid,
-          "arguments out of range");
+    CHECK(
+        maniBuildFbxSkeleton(builder, fbx, 1, &options).result == mani_errorInvalid &&
+            maniBuildFbxSkeleton(NULL, fbx, 0, &options).result == mani_errorInvalid &&
+            maniBuildFbxSkeleton(builder, NULL, 0, &options).result == mani_errorInvalid &&
+            maniBuildFbxSkeleton(builder, fbx, 0, NULL).result == mani_errorInvalid &&
+            maniBuildFbxModelSkeleton(builder, fbx, 10, &options).result == mani_errorInvalid &&
+            maniFbx_GetSkeletonPlacement(fbx, 1, &options, &placement).result ==
+                mani_errorInvalid &&
+            maniFbx_GetSkeletonPlacement(fbx, 0, &bad[1], &placement).result == mani_errorInvalid &&
+            maniFbx_GetSkeletonPlacement(fbx, 0, &options, NULL).result == mani_errorInvalid &&
+            maniFbx_GetModelPlacement(fbx, 10, &options, &placement).result == mani_errorInvalid &&
+            maniFbx_GetModelPlacement(NULL, 0, &options, &placement).result == mani_errorInvalid,
+        "arguments out of range");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -393,30 +395,30 @@ static void TestModelSkeleton(void)
     maniFbxOptions options = maniDefaultFbxOptions();
     size_t size = 0;
     maniSkeleton skeleton;
-    CHECK(maniFbxBuildModelSkeleton(builder, fbx, 0, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+    CHECK(maniBuildFbxModelSkeleton(builder, fbx, 0, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenSkeleton(s_file, size, &skeleton).result == mani_success &&
-              maniSkeletonBoneCount(&skeleton) == 10 &&
-              maniSkeletonFindBone(&skeleton, "Body", 4) != MANI_NO_BONE &&
-              maniSkeletonFindBone(&skeleton, "Armature", 8) == 0,
+              maniSkeleton_GetBoneCount(&skeleton) == 10 &&
+              maniSkeleton_FindBone(&skeleton, "Body", 4) != MANI_NO_BONE &&
+              maniSkeleton_FindBone(&skeleton, "Armature", 8) == 0,
           "a model's whole subtree");
     maniAffine placement;
     maniAffine identity = maniIdentityAffine();
-    CHECK(maniFbxModelPlacement(fbx, 0, &options, &placement).result == mani_success &&
+    CHECK(maniFbx_GetModelPlacement(fbx, 0, &options, &placement).result == mani_success &&
               Near(&placement, &identity),
           "a top model hangs from nothing");
     maniFbxWorld worlds[16];
     (void)maniFbxEvaluateWorlds(fbx, NULL, worlds);
     maniAffine armature = maniFbxMatrixAffine(&worlds[0].world);
-    CHECK(maniFbxModelPlacement(fbx, 1, &options, &placement).result == mani_success &&
+    CHECK(maniFbx_GetModelPlacement(fbx, 1, &options, &placement).result == mani_success &&
               Near(&placement, &armature),
           "Hips hangs from the armature's world");
     maniAffine unscaled = maniFbxMatrixAffine(&worlds[2].unscaled);
-    CHECK(maniFbxModelPlacement(fbx, 3, &options, &placement).result == mani_success &&
+    CHECK(maniFbx_GetModelPlacement(fbx, 3, &options, &placement).result == mani_success &&
               Near(&placement, &unscaled),
           "Rrs Head hangs from Spine's unscaled world");
     options.foldPlacement = 1;
-    CHECK(maniFbxSkeletonPlacement(fbx, 0, &options, &placement).result == mani_success &&
+    CHECK(maniFbx_GetSkeletonPlacement(fbx, 0, &options, &placement).result == mani_success &&
               Near(&placement, &identity),
           "folded: identity");
     maniCloseFbx(fbx);

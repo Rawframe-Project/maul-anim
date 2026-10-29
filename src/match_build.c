@@ -84,7 +84,7 @@ static bool ChannelPast(const maniMatchChannelSource* c)
 // A channel within its bounds (ChannelPast refused the rest).
 static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChannelSource* c)
 {
-    uint32_t bones = maniSkeletonBoneCount(s->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(s->skeleton);
     bool bone = c->kind <= maniMatchBoneFacing;
     bool track = c->kind == maniMatchFloatTrack;
     if (c->kind > maniMatchFloatTrack || (bone && c->bone >= bones) ||
@@ -111,19 +111,19 @@ static bool EntryValid(const maniMotionDatabaseSource* s, const maniMatchEntrySo
         return false;
     }
     bool loop = (e->flags & MANI_MATCH_LOOP) != 0;
-    float duration = maniClipDuration(s->clips[e->clip]);
+    float duration = maniClip_GetDuration(s->clips[e->clip]);
     return e->start >= 0.0f && e->end <= duration &&
            (loop ? e->end > e->start : e->end >= e->start) && fabsf(e->costBias) < HUGE_VALF;
 }
 
 static maniBuildResult CheckClips(const maniMotionDatabaseSource* s)
 {
-    uint64_t skeleton = maniSkeletonIdentity(s->skeleton);
+    uint64_t skeleton = maniSkeleton_GetIdentity(s->skeleton);
     for (uint32_t i = 0; i < s->clipCount; ++i)
     {
         const maniClip* clip = s->clips[i];
-        if (maniClipSkeletonIdentity(clip) != skeleton ||
-            maniClipAdditiveBasis(clip) != maniAdditiveNone)
+        if (maniClip_GetSkeletonIdentity(clip) != skeleton ||
+            maniClip_GetAdditiveBasis(clip) != maniAdditiveNone)
         {
             return Refuse(maniBuildReasonJoint, i, 0);
         }
@@ -141,9 +141,9 @@ static uint32_t TrackOf(const maniMotionDatabaseSource* s, const maniMatchChanne
     const char* name = ch->track;
     if ((e->flags & MANI_MATCH_MIRRORED) != 0)
     {
-        name = maniMirrorName(s->mirrorMap, name, length, &length);
+        name = maniMirrorMap_MirrorName(s->mirrorMap, name, length, &length);
     }
-    return maniClipFindFloatTrack(s->clips[e->clip], name, length);
+    return maniClip_FindFloatTrack(s->clips[e->clip], name, length);
 }
 
 static maniBuildResult CheckChannels(const maniMotionDatabaseSource* s, Totals* t)
@@ -254,8 +254,8 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
         return Refuse(maniBuildReasonCount, 0, 0);
     }
     const maniMirrorMap* map = s->mirrorMap;
-    if (map != NULL && (map->skeletonIdentity != maniSkeletonIdentity(s->skeleton) ||
-                        map->boneCount != maniSkeletonBoneCount(s->skeleton)))
+    if (map != NULL && (map->skeletonIdentity != maniSkeleton_GetIdentity(s->skeleton) ||
+                        map->boneCount != maniSkeleton_GetBoneCount(s->skeleton)))
     {
         return Refuse(maniBuildReasonMirrorDatabase, 0, 0);
     }
@@ -336,10 +336,10 @@ static bool Allocate(Work* w)
     size_t frames = (size_t)w->totals.frames;
     for (uint32_t i = 0; i < s->clipCount; ++i)
     {
-        uint32_t count = maniClipFloatTrackCount(s->clips[i]);
+        uint32_t count = maniClip_GetFloatTrackCount(s->clips[i]);
         w->floatCapacity = count > w->floatCapacity ? count : w->floatCapacity;
     }
-    w->poseSize = maniPoseSize(s->skeleton);
+    w->poseSize = maniSkeleton_GetPoseSize(s->skeleton);
     w->features = maniAllocate(a, w->featureFloats, sizeof(float), 8);
     w->normalization = maniAllocate(a, 2 * (size_t)w->totals.features, sizeof(float), 8);
     w->order = maniAllocate(a, frames, sizeof(uint32_t), 4);
@@ -538,17 +538,17 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
     }
     for (uint32_t i = 0; i < s->clipCount; ++i)
     {
-        maniStoreU64(clips + 8 * (size_t)i, maniClipIdentity(s->clips[i]));
+        maniStoreU64(clips + 8 * (size_t)i, maniClip_GetIdentity(s->clips[i]));
     }
     const Totals* t = &w->totals;
-    const uint32_t counts[7] = {maniSkeletonBoneCount(s->skeleton),
+    const uint32_t counts[7] = {maniSkeleton_GetBoneCount(s->skeleton),
                                 t->frames,
                                 t->features,
                                 s->channelCount,
                                 t->times,
                                 s->entryCount,
                                 s->clipCount};
-    maniStoreU64(header, maniSkeletonIdentity(s->skeleton));
+    maniStoreU64(header, maniSkeleton_GetIdentity(s->skeleton));
     for (uint32_t k = 0; k < 7; ++k)
     {
         maniStoreU32(header + 8 + 4 * k, counts[k]);

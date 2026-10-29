@@ -127,27 +127,27 @@ maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
     return result;
 }
 
-uint32_t maniSkinJointCount(const maniSkin* skin)
+uint32_t maniSkin_GetJointCount(const maniSkin* skin)
 {
     return skin->jointCount;
 }
 
-uint64_t maniSkinSkeletonIdentity(const maniSkin* skin)
+uint64_t maniSkin_GetSkeletonIdentity(const maniSkin* skin)
 {
     return skin->skeletonIdentity;
 }
 
-uint64_t maniSkinIdentity(const maniSkin* skin)
+uint64_t maniSkin_GetIdentity(const maniSkin* skin)
 {
     return skin->identity;
 }
 
-uint32_t maniSkinJoint(const maniSkin* skin, uint32_t joint)
+uint32_t maniSkin_GetJoint(const maniSkin* skin, uint32_t joint)
 {
     return joint < skin->jointCount ? maniLoadU16(skin->joints + 2 * (size_t)joint) : MANI_NO_BONE;
 }
 
-maniAffine maniSkinInverseBind(const maniSkin* skin, uint32_t joint)
+maniAffine maniSkin_GetInverseBind(const maniSkin* skin, uint32_t joint)
 {
     maniAffine m = {{1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f}};
     if (joint < skin->jointCount)
@@ -164,8 +164,8 @@ static MANI_NOINLINE maniResult ComputePaletteWork(const maniPose* pose,
 {
     if (skin == NULL || (palette == NULL && capacity > 0) || !maniPoseMatches(pose, skeleton) ||
         skin->skeletonIdentity != skeleton->identity ||
-        skin->skeletonBoneCount != skeleton->boneCount || !maniPoseModelCurrent(pose) ||
-        maniPoseIsDifference(pose))
+        skin->skeletonBoneCount != skeleton->boneCount || !maniPose_IsModelCurrent(pose) ||
+        maniPose_IsDifference(pose))
     {
         return mani_errorInvalid;
     }
@@ -191,9 +191,9 @@ static MANI_NOINLINE maniResult ComputePaletteWork(const maniPose* pose,
     return mani_success;
 }
 
-maniResult maniComputePalette(const maniPose* pose, const maniSkeleton* skeleton,
-                              const maniSkin* skin, maniAffine* palette, uint32_t capacity,
-                              uint32_t* countOut)
+maniResult maniPose_ComputePalette(const maniPose* pose, const maniSkeleton* skeleton,
+                                   const maniSkin* skin, maniAffine* palette, uint32_t capacity,
+                                   uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = ComputePaletteWork(pose, skeleton, skin, palette, capacity, countOut);

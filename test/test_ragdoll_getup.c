@@ -80,7 +80,7 @@ static void Lie(maniVec3 at, maniQuat turn)
 static maniRagdollGetUp GetUp(const maniRagdollGround* ground)
 {
     maniRagdollGetUp up = {0};
-    CHECK(maniRagdollGetUpPlacement(&s_ragdoll, s_states, 5, ground, &up) == mani_success,
+    CHECK(maniRagdoll_ComputeGetUpPlacement(&s_ragdoll, s_states, 5, ground, &up) == mani_success,
           "a placement");
     return up;
 }
@@ -243,16 +243,16 @@ static void TestRoundTrip(void)
 {
     static const maniTransform kLying = {
         {2.0f, 0.4f, -1.0f}, {0.70710677f, 0.0f, 0.0f, 0.70710677f}, {1.0f, 1.0f, 1.0f}};
-    CHECK(maniComputeModel(s_poses[0], &s_skeleton) == mani_success &&
-              maniRagdollBodiesFromPose(&s_ragdoll, s_poses[0], &kLying, NULL, NULL, 0.0f, s_states,
-                                        5, NULL) == mani_success,
+    CHECK(maniPose_ComputeModel(s_poses[0], &s_skeleton) == mani_success &&
+              maniRagdoll_ComputeBodiesFromPose(&s_ragdoll, s_poses[0], &kLying, NULL, NULL, 0.0f,
+                                                s_states, 5, NULL) == mani_success,
           "bodies lying face down");
     maniRagdollGetUp up = GetUp(&kGround);
     maniRagdollBodyState back[5];
-    CHECK(maniRagdollPoseFromBodies(&s_ragdoll, &s_skeleton, s_states, 5, &up.placement, s_poses[0],
-                                    s_poses[1]) == mani_success &&
-              maniRagdollBodiesFromPose(&s_ragdoll, s_poses[1], &up.placement, NULL, NULL, 0.0f,
-                                        back, 5, NULL) == mani_success,
+    CHECK(maniRagdoll_ComputePoseFromBodies(&s_ragdoll, &s_skeleton, s_states, 5, &up.placement,
+                                            s_poses[0], s_poses[1]) == mani_success &&
+              maniRagdoll_ComputeBodiesFromPose(&s_ragdoll, s_poses[1], &up.placement, NULL, NULL,
+                                                0.0f, back, 5, NULL) == mani_success,
           "a pose in the get-up frame");
     bool same = true;
     for (int i = 0; i < 5; ++i)
@@ -270,20 +270,24 @@ static void TestRoundTrip(void)
 static maniResult With(const maniRagdollGround* ground)
 {
     maniRagdollGetUp up = {0};
-    return maniRagdollGetUpPlacement(&s_ragdoll, s_states, 5, ground, &up);
+    return maniRagdoll_ComputeGetUpPlacement(&s_ragdoll, s_states, 5, ground, &up);
 }
 
 static void TestRefusals(void)
 {
     Lie((maniVec3){0.0f, 0.3f, 0.0f}, (maniQuat){0.0f, 0.0f, 0.0f, 1.0f});
     maniRagdollGetUp up = {0};
-    CHECK(maniRagdollGetUpPlacement(NULL, s_states, 5, &kGround, &up) == mani_errorInvalid &&
-              maniRagdollGetUpPlacement(&s_ragdoll, NULL, 5, &kGround, &up) == mani_errorInvalid &&
-              maniRagdollGetUpPlacement(&s_ragdoll, s_states, 5, NULL, &up) == mani_errorInvalid &&
-              maniRagdollGetUpPlacement(&s_ragdoll, s_states, 5, &kGround, NULL) ==
+    CHECK(maniRagdoll_ComputeGetUpPlacement(NULL, s_states, 5, &kGround, &up) ==
+                  mani_errorInvalid &&
+              maniRagdoll_ComputeGetUpPlacement(&s_ragdoll, NULL, 5, &kGround, &up) ==
+                  mani_errorInvalid &&
+              maniRagdoll_ComputeGetUpPlacement(&s_ragdoll, s_states, 5, NULL, &up) ==
+                  mani_errorInvalid &&
+              maniRagdoll_ComputeGetUpPlacement(&s_ragdoll, s_states, 5, &kGround, NULL) ==
                   mani_errorInvalid,
           "NULL arguments");
-    CHECK(maniRagdollGetUpPlacement(&s_ragdoll, s_states, 4, &kGround, &up) == mani_errorCapacity,
+    CHECK(maniRagdoll_ComputeGetUpPlacement(&s_ragdoll, s_states, 4, &kGround, &up) ==
+              mani_errorCapacity,
           "too few bodies");
     s_states[4].position.y = HUGE_VALF;
     CHECK(With(&kGround) == mani_errorInvalid, "the last body's place not finite");

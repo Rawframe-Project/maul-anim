@@ -49,10 +49,10 @@ static size_t SizeOf(uint32_t bones, uint32_t nodes)
            MANI_GRAPH_SUBSET_ALIGNMENT;
 }
 
-size_t maniGraphSubsetSize(const maniGraphBinding* binding)
+size_t maniGraphBinding_GetSubsetSize(const maniGraphBinding* binding)
 {
     return binding != NULL
-               ? SizeOf(maniSkeletonBoneCount(binding->skeleton), binding->graph.nodeCount)
+               ? SizeOf(maniSkeleton_GetBoneCount(binding->skeleton), binding->graph.nodeCount)
                : 0;
 }
 
@@ -70,7 +70,7 @@ typedef struct Closure
 static void Mark(Closure* c, uint32_t bone)
 {
     for (uint32_t b = bone; b < c->bones && c->marks[b] == 0;
-         b = maniSkeletonParent(c->skeleton, b))
+         b = maniSkeleton_GetParent(c->skeleton, b))
     {
         c->marks[b] = 1;
         c->grew = true;
@@ -111,7 +111,7 @@ static void See(Visit* v, uint32_t bone)
 static void Path(Visit* v, uint32_t from, uint32_t to)
 {
     const maniSkeleton* skeleton = v->closure->skeleton;
-    for (uint32_t b = from; b < v->closure->bones; b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = from; b < v->closure->bones; b = maniSkeleton_GetParent(skeleton, b))
     {
         See(v, b);
         if (b == to)
@@ -209,7 +209,7 @@ static void Grow(Closure* c)
     {
         if (c->marks[b] != 0)
         {
-            Mark(c, maniMirrorPartner(map, b));
+            Mark(c, maniMirrorMap_GetPartner(map, b));
         }
     }
 }
@@ -250,7 +250,7 @@ static MANI_NOINLINE maniResult PlanGraphSubsetWork(const maniGraphBinding* bind
         return mani_errorInvalid;
     }
     const maniSkeleton* skeleton = binding->skeleton;
-    uint32_t boneCount = maniSkeletonBoneCount(skeleton);
+    uint32_t boneCount = maniSkeleton_GetBoneCount(skeleton);
     if (!BonesValid(bones, count, boneCount))
     {
         return mani_errorInvalid;
@@ -303,7 +303,7 @@ maniResult maniPlanGraphSubset(const maniGraphBinding* binding, const uint32_t* 
     return result;
 }
 
-const uint32_t* maniGraphSubsetBones(const maniGraphSubset* plan, uint32_t* countOut)
+const uint32_t* maniGraphSubset_GetBones(const maniGraphSubset* plan, uint32_t* countOut)
 {
     bool valid = plan != NULL && plan->stamp == MANI_GRAPH_SUBSET_STAMP;
     if (countOut != NULL)

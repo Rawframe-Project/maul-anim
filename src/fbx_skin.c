@@ -60,7 +60,7 @@ static uint32_t MeshModel(const maniFbx* fbx, uint32_t skin)
     return maniFbxDeformerModel(fbx, fbx->skins[skin]);
 }
 
-uint32_t maniFbxSkinModel(const maniFbx* fbx, uint32_t skin)
+uint32_t maniFbx_GetSkinModel(const maniFbx* fbx, uint32_t skin)
 {
     if (fbx == NULL || skin >= fbx->skinCount)
     {
@@ -162,7 +162,7 @@ static void VisitWithin(const maniFbx* fbx, uint32_t child, void* context)
     }
     size_t length = 0;
     const char* name = maniFbxModelName(fbx, model, &length);
-    w->all = w->all && maniSkeletonFindBone(w->skeleton, name, length) != MANI_NO_BONE;
+    w->all = w->all && maniSkeleton_FindBone(w->skeleton, name, length) != MANI_NO_BONE;
     ++w->count;
 }
 
@@ -419,7 +419,7 @@ static maniImportResult ReadJoints(Skin* s, const maniSkeleton* skeleton, const 
     {
         size_t length = 0;
         const char* name = maniFbxModelName(fbx, s->joints.models[j], &length);
-        s->bones[j] = maniSkeletonFindBone(skeleton, name, length);
+        s->bones[j] = maniSkeleton_FindBone(skeleton, name, length);
         if (s->bones[j] == MANI_NO_BONE)
         {
             return maniFbxFail(maniImportReasonBone, ObjectOffset(fbx, s->joints.clusters[j]),
@@ -500,7 +500,7 @@ static MANI_NOINLINE maniImportResult FbxBuildSkinWork(maniBuilder* builder, con
     return r;
 }
 
-maniImportResult maniFbxBuildSkin(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
+maniImportResult maniBuildFbxSkin(maniBuilder* builder, const maniFbx* fbx, uint32_t skin,
                                   const maniSkeleton* skeleton, const maniFbxOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();

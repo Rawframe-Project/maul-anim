@@ -58,11 +58,11 @@ static maniGltf* Open(maniBuilder* builder, const maniGltfOptions* options, mani
     maniImportResult r = maniOpenGltf(builder, s_json, strlen(s_json), &gltf);
     CHECK(r.result == mani_success, "opens");
     size_t size = 0;
-    bool built =
-        r.result == mani_success &&
-        maniGltfBuildSkeleton(builder, gltf, 0, options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
+    bool built = r.result == mani_success &&
+                 maniBuildGltfSkeleton(builder, gltf, 0, options).result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
     CHECK(built, "a skeleton");
     return gltf;
 }
@@ -75,13 +75,13 @@ static void TestValues(void)
     maniSkeleton skeleton;
     maniGltf* gltf = Open(builder, &options, &skeleton);
     maniSpringSetSource set;
-    maniImportResult r = maniGltfReadSprings(gltf, &skeleton, &options, &set);
+    maniImportResult r = maniGltf_ReadSprings(gltf, &skeleton, &options, &set);
     CHECK(r.result == mani_success, "reads");
     CHECK(set.skeleton == &skeleton && set.colliderCount == 2 && set.colliderGroupCount == 2 &&
               set.springCount == 1,
           "counts");
-    uint32_t head = maniSkeletonFindBone(&skeleton, "head", 4);
-    uint32_t hip = maniSkeletonFindBone(&skeleton, "hip", 3);
+    uint32_t head = maniSkeleton_FindBone(&skeleton, "head", 4);
+    uint32_t hip = maniSkeleton_FindBone(&skeleton, "hip", 3);
     const maniColliderSource* sphere = &set.colliders[0];
     CHECK(sphere->bone == head && sphere->shape == maniColliderSphere && sphere->offset.y == 0.1f &&
               sphere->radius == 0.08f,
@@ -102,8 +102,9 @@ static void TestValues(void)
               hair->center == hip,
           "the spring");
     const maniSpringJointSource* first = &hair->joints[0];
-    CHECK(first->bone == maniSkeletonFindBone(&skeleton, "hair1", 5) && first->hitRadius == 0.02f &&
-              first->stiffness == 1.5f && first->gravityPower == 0.3f && first->drag == 0.4f,
+    CHECK(first->bone == maniSkeleton_FindBone(&skeleton, "hair1", 5) &&
+              first->hitRadius == 0.02f && first->stiffness == 1.5f &&
+              first->gravityPower == 0.3f && first->drag == 0.4f,
           "a joint's values");
     const maniSpringJointSource* tail = &hair->joints[2];
     CHECK(tail->stiffness == 1.0f && tail->drag == 0.5f && tail->hitRadius == 0.0f &&
@@ -113,15 +114,15 @@ static void TestValues(void)
     maniGltfOptions zUp = {{maniAxisX, maniAxisNegativeZ, maniAxisY}, 0};
     maniSkeleton skeletonZ;
     size_t size = 0;
-    CHECK(maniGltfBuildSkeleton(builder, gltf, 0, &zUp).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+    CHECK(maniBuildGltfSkeleton(builder, gltf, 0, &zUp).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &skeletonZ).result == mani_success,
           "z up");
-    CHECK(maniGltfReadSprings(gltf, &skeletonZ, &zUp, &set).result == mani_success, "reads");
+    CHECK(maniGltf_ReadSprings(gltf, &skeletonZ, &zUp, &set).result == mani_success, "reads");
     CHECK(set.colliders[0].offset.z == 0.1f && set.colliders[0].offset.y == 0.0f, "offset z up");
     CHECK(set.springs[0].joints[2].gravityDirection.z == -1.0f, "gravity down is -z");
-    CHECK(maniGltfReadSprings(gltf, NULL, &zUp, &set).result == mani_errorInvalid, "no skeleton");
+    CHECK(maniGltf_ReadSprings(gltf, NULL, &zUp, &set).result == mani_errorInvalid, "no skeleton");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
@@ -137,7 +138,7 @@ static void TestNone(void)
     maniGltf* gltf = Open(builder, &options, &skeleton);
     maniSpringSetSource set;
     memset(&set, 0xFF, sizeof set);
-    CHECK(maniGltfReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
+    CHECK(maniGltf_ReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
               set.springCount == 0 && set.colliderCount == 0,
           "no extension, no springs");
     maniCloseGltf(gltf);
@@ -151,7 +152,7 @@ static void ExpectRefusal(maniImportReason reason, const char* at, const char* w
     maniSkeleton skeleton;
     maniGltf* gltf = Open(builder, &options, &skeleton);
     maniSpringSetSource set;
-    maniImportResult r = maniGltfReadSprings(gltf, &skeleton, &options, &set);
+    maniImportResult r = maniGltf_ReadSprings(gltf, &skeleton, &options, &set);
     const char* found = at != NULL ? strstr(s_json, at) : NULL;
     bool right = r.result == mani_errorFormat && r.reason == reason &&
                  (at == NULL || (found != NULL && r.offset == (uint64_t)(found - s_json)));
@@ -227,13 +228,13 @@ static void TestRefusals(void)
     maniGltfOptions options = maniDefaultGltfOptions();
     size_t size = 0;
     maniSkeleton head;
-    CHECK(maniGltfBuildNodeSkeleton(builder, gltf, 4, &options).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+    CHECK(maniBuildGltfNodeSkeleton(builder, gltf, 4, &options).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &head).result == mani_success,
           "the head alone");
     maniSpringSetSource set;
-    maniImportResult r = maniGltfReadSprings(gltf, &head, &options, &set);
+    maniImportResult r = maniGltf_ReadSprings(gltf, &head, &options, &set);
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBone, "a bone not there");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);

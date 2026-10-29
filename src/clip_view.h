@@ -219,7 +219,7 @@ void maniDecodeCompressedSample(const maniClip* clip, uint32_t sample, float* ou
 void maniExpandCompressedSample(const maniClip* clip, const maniSkeleton* skeleton,
                                 const float* cache, float* groups, float* masks);
 
-// maniClipEventRange, maniSampleClipCursor and maniSampleClipBones for
+// maniClip_GetEventRange, maniClipCursor_Sample and maniClip_SampleBones for
 // a caller already in the library's floating-point environment
 // (fpenv.h), without entering it again.
 void maniClipEventRangeEntered(const maniClip* clip, float from, float to, uint32_t* firstOut,

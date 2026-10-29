@@ -13,7 +13,7 @@
 
 #include <stdbool.h>
 
-// maniSearchMotionDatabase, its query's features normalized already when
+// maniMotionDatabase_Search, its query's features normalized already when
 // normalized is true (then taken as they are).
 maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQuery* query,
                            bool normalized, maniMatchResult* resultOut);

@@ -67,7 +67,7 @@ static maniResult CallBuilder(int k)
     case 4:
         return maniBuildClip(b, NULL).result;
     case 5:
-        return maniMeasureClip(b, NULL, NULL, NULL);
+        return maniBuilder_MeasureClip(b, NULL, NULL, NULL);
     case 6:
         return maniCompressClip(b, NULL, NULL, NULL, NULL);
     case 7:
@@ -75,9 +75,9 @@ static maniResult CallBuilder(int k)
     case 8:
         return maniBuildRagdoll(b, NULL).result;
     case 9:
-        return maniCopyBuilt(b, NULL, 1, NULL);
+        return maniBuilder_CopyBuilt(b, NULL, 1, NULL);
     case 10:
-        return maniCopySkeletonOrder(b, NULL, 1, NULL);
+        return maniBuilder_CopySkeletonOrder(b, NULL, 1, NULL);
     case 11:
         return maniBuildMorphTargets(b, NULL).result;
     case 12:
@@ -89,31 +89,31 @@ static maniResult CallBuilder(int k)
     case 15:
         return maniOpenGltf(b, NULL, 0, NULL).result;
     case 16:
-        return maniGltfBuildSkeleton(b, NULL, 0, NULL).result;
+        return maniBuildGltfSkeleton(b, NULL, 0, NULL).result;
     case 17:
-        return maniGltfBuildNodeSkeleton(b, NULL, 0, NULL).result;
+        return maniBuildGltfNodeSkeleton(b, NULL, 0, NULL).result;
     case 18:
-        return maniGltfBuildSkin(b, NULL, 0, NULL, NULL).result;
+        return maniBuildGltfSkin(b, NULL, 0, NULL, NULL).result;
     case 19:
-        return maniGltfBuildClip(b, NULL, 0, NULL, NULL, NULL, NULL).result;
+        return maniBuildGltfClip(b, NULL, 0, NULL, NULL, NULL, NULL).result;
     case 20:
-        return maniGltfBuildInfluences(b, NULL, 0, 0, NULL).result;
+        return maniBuildGltfInfluences(b, NULL, 0, 0, NULL).result;
     case 21:
-        return maniGltfBuildMorphTargets(b, NULL, 0, 0, NULL).result;
+        return maniBuildGltfMorphTargets(b, NULL, 0, 0, NULL).result;
     case 22:
         return maniOpenFbx(b, NULL, 0, NULL).result;
     case 23:
-        return maniFbxBuildSkeleton(b, NULL, 0, NULL).result;
+        return maniBuildFbxSkeleton(b, NULL, 0, NULL).result;
     case 24:
-        return maniFbxBuildModelSkeleton(b, NULL, 0, NULL).result;
+        return maniBuildFbxModelSkeleton(b, NULL, 0, NULL).result;
     case 25:
-        return maniFbxBuildSkin(b, NULL, 0, NULL, NULL).result;
+        return maniBuildFbxSkin(b, NULL, 0, NULL, NULL).result;
     case 26:
-        return maniFbxBuildInfluences(b, NULL, 0, NULL).result;
+        return maniBuildFbxInfluences(b, NULL, 0, NULL).result;
     case 27:
-        return maniFbxBuildMorphTargets(b, NULL, 0, NULL).result;
+        return maniBuildFbxMorphTargets(b, NULL, 0, NULL).result;
     case 28:
-        return maniFbxBuildClip(b, NULL, 0, NULL, NULL, NULL, NULL).result;
+        return maniBuildFbxClip(b, NULL, 0, NULL, NULL, NULL, NULL).result;
     case 29:
         return maniBuildLearnedModel(b, NULL).result;
     case 30:
@@ -217,7 +217,7 @@ static bool Build(uint8_t* out, size_t capacity, size_t* size)
         {"c", 1, 1, {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}}};
     const maniSkeletonSource source = {kBones, 3};
     return maniBuildSkeleton(s_builder, &source).result == mani_success &&
-           maniCopyBuilt(s_builder, out, capacity, size) == mani_success;
+           maniBuilder_CopyBuilt(s_builder, out, capacity, size) == mani_success;
 }
 
 static void TestBuilder(void)
@@ -238,7 +238,7 @@ static void TestBuilder(void)
     {
         for (int k = 0; k < kCalls; ++k)
         {
-            uint32_t before = maniBuilderMisuses(s_builder);
+            uint32_t before = maniBuilder_GetMisuse(s_builder);
             s_onFree = onFree == 1;
             s_call = k;
             s_result = mani_success;
@@ -246,18 +246,18 @@ static void TestBuilder(void)
             same = same && Build(s_built, sizeof s_built, &size) && size == alone &&
                    memcmp(s_built, s_alone, size) == 0;
             refused = refused && s_call == -1 && s_result == mani_errorBusy &&
-                      maniBuilderMisuses(s_builder) == before + 1;
+                      maniBuilder_GetMisuse(s_builder) == before + 1;
         }
     }
     CHECK(refused, "every call back in refused and counted once");
     CHECK(same, "each build as without it");
-    CHECK(maniGltfNodeCount(s_gltf) == 0 && maniFbxSkeletonCount(s_fbx) == 0,
+    CHECK(maniGltf_GetNodeCount(s_gltf) == 0 && maniFbx_GetSkeletonCount(s_fbx) == 0,
           "the documents still open");
     maniCloseGltf(s_gltf);
     maniCloseFbx(s_fbx);
-    uint32_t before = maniBuilderMisuses(s_builder);
+    uint32_t before = maniBuilder_GetMisuse(s_builder);
     CHECK(maniBuildSkeleton(s_builder, NULL).result == mani_errorInvalid &&
-              maniBuilderMisuses(s_builder) == before + 1,
+              maniBuilder_GetMisuse(s_builder) == before + 1,
           "outside the allocator the same calls refused as invalid");
     maniDestroyBuilder(s_builder);
 }
@@ -297,10 +297,10 @@ static void TrainerCallBack(Where where)
     switch (k)
     {
     case kTrain:
-        s_trainerResult = maniTrainLearned(s_trainer, 0, NULL);
+        s_trainerResult = maniLearnedTrainer_Train(s_trainer, 0, NULL);
         break;
     case kRestore:
-        s_trainerResult = maniRestoreLearnedCheckpoint(s_trainer, NULL, 0).result;
+        s_trainerResult = maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result;
         break;
     default:
         maniDestroyLearnedTrainer(s_trainer);
@@ -325,7 +325,8 @@ static void TrainerFree(void* memory, size_t size, size_t alignment, void* conte
     Unaligned(memory);
 }
 
-static void* Enqueue(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Enqueue(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                     void* user)
 {
     (void)minRange;
     (void)user;
@@ -374,9 +375,9 @@ static void TestTrainer(void)
             s_trainerCall = k;
             s_trainerResult = mani_success;
             maniLearnedTrainerReport report;
-            trained = trained && maniTrainLearned(s_trainer, 4, &report) == mani_success;
+            trained = trained && maniLearnedTrainer_Train(s_trainer, 4, &report) == mani_success;
             refused = refused && s_trainerCall == -1 && s_trainerResult == mani_errorBusy &&
-                      maniLearnedTrainerMisuses(s_trainer) == 1;
+                      maniLearnedTrainer_GetMisuse(s_trainer) == 1;
             s_trainerCall = -1;
             maniDestroyLearnedTrainer(s_trainer);
         }

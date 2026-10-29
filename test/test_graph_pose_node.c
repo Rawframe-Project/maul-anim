@@ -57,18 +57,18 @@ static void SetRagdoll(maniGraphInstance* instance)
 {
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniPoseSetLocal(s_pose, b, Moved(b));
+        maniPose_SetLocal(s_pose, b, Moved(b));
     }
-    CHECK(maniSetGraphPose(instance, 1, s_pose) == mani_success, "the ragdoll set");
+    CHECK(maniGraphInstance_SetPose(instance, 1, s_pose) == mani_success, "the ragdoll set");
 }
 
 // An update of 0.3 seconds and the output's bone b.
 static maniTransform Out(maniGraphInstance* instance, uint32_t b)
 {
     Update(instance, 0.3f);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
           "evaluated");
-    return maniPoseLocal(s_out, b);
+    return maniPose_GetLocal(s_out, b);
 }
 
 static bool NearT(maniTransform a, maniTransform b)
@@ -100,7 +100,7 @@ static void Walk(void)
     maniGraphInstance* instance = Make(PoseSource(nodes, 1), &g);
     for (uint32_t b = 0; b < 3; ++b)
     {
-        s_walk[b] = b == 0 ? Out(instance, 0) : maniPoseLocal(s_out, b);
+        s_walk[b] = b == 0 ? Out(instance, 0) : maniPose_GetLocal(s_out, b);
     }
 }
 
@@ -114,17 +114,17 @@ static void TestAlone(void)
     bool rest = true;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        rest = rest && Same(b == 0 ? Out(instance, 0) : maniPoseLocal(s_out, b),
-                            maniSkeletonRest(&s_skeleton, b));
+        rest = rest && Same(b == 0 ? Out(instance, 0) : maniPose_GetLocal(s_out, b),
+                            maniSkeleton_GetRest(&s_skeleton, b));
     }
     CHECK(rest, "the rest until set");
     SetRagdoll(instance);
     bool moved = true;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        moved = moved && Same(b == 0 ? Out(instance, 0) : maniPoseLocal(s_out, b), Moved(b));
+        moved = moved && Same(b == 0 ? Out(instance, 0) : maniPose_GetLocal(s_out, b), Moved(b));
     }
-    CHECK(moved && !maniPoseIsDifference(s_out), "the pose set");
+    CHECK(moved && !maniPose_IsDifference(s_out), "the pose set");
 }
 
 // The walk and the ragdoll blended by the weight parameter: 0 the walk,
@@ -166,8 +166,8 @@ static void TestMasked(void)
     maniGraphInstance* instance = Make(PoseSource(nodes, 3), &g);
     SetRagdoll(instance);
     maniTransform hips = Out(instance, 0);
-    CHECK(NearT(hips, s_walk[0]) && NearT(maniPoseLocal(s_out, 1), Moved(1)) &&
-              NearT(maniPoseLocal(s_out, 2), Moved(2)),
+    CHECK(NearT(hips, s_walk[0]) && NearT(maniPose_GetLocal(s_out, 1), Moved(1)) &&
+              NearT(maniPose_GetLocal(s_out, 2), Moved(2)),
           "the spine's subtree the ragdoll's, the hips the walk's");
 }
 
@@ -175,9 +175,9 @@ static void TestMasked(void)
 static maniVec3 Hips(maniGraphInstance* instance, float delta)
 {
     Update(instance, delta);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
           "evaluated");
-    return maniPoseLocal(s_out, 0).translation;
+    return maniPose_GetLocal(s_out, 0).translation;
 }
 
 static double Gap(maniVec3 a, maniVec3 b)
@@ -337,7 +337,7 @@ static void TestFileRefusals(void)
     size_t size = 0;
     maniGraph g;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, &g).result == mani_success,
           "a graph of a pose node");
     maniDestroyBuilder(builder);

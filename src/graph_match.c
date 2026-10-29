@@ -149,7 +149,7 @@ void maniGraphResetMatch(uint32_t* block)
 static bool TimeValid(const maniMotionDatabase* database, uint32_t entry, double time)
 {
     maniMatchEntry e;
-    return maniMotionDatabaseEntry(database, entry, &e) == mani_success &&
+    return maniMotionDatabase_GetEntry(database, entry, &e) == mani_success &&
            time >= (double)e.start && time <= (double)e.end;
 }
 
@@ -192,12 +192,12 @@ uint32_t maniGraphSavedMatchValid(const uint8_t* bytes, const maniGraph* g, uint
 maniResult maniGraphDatabaseChannel(const void* database, uint32_t channel,
                                     maniMatchChannel* channelOut)
 {
-    return maniMotionDatabaseChannel(database, channel, channelOut);
+    return maniMotionDatabase_GetChannel(database, channel, channelOut);
 }
 
 maniResult maniGraphModelChannel(const void* model, uint32_t channel, maniMatchChannel* channelOut)
 {
-    return maniLearnedModelChannel(model, channel, channelOut);
+    return maniLearnedModel_GetChannel(model, channel, channelOut);
 }
 
 bool maniGraphQueryFits(const void* owner, uint32_t channelCount, maniGraphChannelFn* channel,

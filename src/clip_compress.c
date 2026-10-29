@@ -485,9 +485,9 @@ static void ReleaseMeasure(const maniAllocator* a, Measure* m)
 static maniResult MakeMeasure(const maniAllocator* a, const maniSkeleton* skeleton, uint32_t floats,
                               Measure* m)
 {
-    size_t pose = maniPoseSize(skeleton);
+    size_t pose = maniSkeleton_GetPoseSize(skeleton);
     m->posesSize = 2 * pose + MANI_POSE_ALIGNMENT;
-    m->modelCount = 2 * (size_t)maniSkeletonBoneCount(skeleton);
+    m->modelCount = 2 * (size_t)maniSkeleton_GetBoneCount(skeleton);
     m->floatCount = 2 * ((size_t)floats + 1);
     m->poses = maniAllocate(a, m->posesSize, 1, 8);
     m->models = maniAllocate(a, m->modelCount, sizeof(maniShellMatrix), alignof(maniShellMatrix));
@@ -507,7 +507,7 @@ static maniResult MakeMeasure(const maniAllocator* a, const maniSkeleton* skelet
 static void Report(const maniClip* full, const maniClip* packed, const maniSkeleton* skeleton,
                    const maniCompressOptions* o, Measure* m, maniCompressReport* report)
 {
-    uint32_t bones = maniSkeletonBoneCount(skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(skeleton);
     maniShellMatrix* fullModels = m->models;
     maniShellMatrix* packedModels = m->models + bones;
     float* fullFloats = m->floats;
@@ -662,8 +662,8 @@ static MANI_NOINLINE maniResult CompressClipWork(maniBuilder* builder, const man
     }
     // A clip already compressed or built for another skeleton is the
     // opened file's doing, not the program's, so it counts no misuse.
-    if (clip->compressed || clip->skeletonIdentity != maniSkeletonIdentity(skeleton) ||
-        clip->skeletonBoneCount != maniSkeletonBoneCount(skeleton))
+    if (clip->compressed || clip->skeletonIdentity != maniSkeleton_GetIdentity(skeleton) ||
+        clip->skeletonBoneCount != maniSkeleton_GetBoneCount(skeleton))
     {
         return mani_errorInvalid;
     }

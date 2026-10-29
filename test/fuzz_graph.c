@@ -26,21 +26,21 @@ static void Exercise(const uint8_t* bytes, size_t size)
     {
         return;
     }
-    for (uint32_t p = 0; p < maniGraphParameterCount(&graph); ++p)
+    for (uint32_t p = 0; p < maniGraph_GetParameterCount(&graph); ++p)
     {
         size_t length = 0;
-        const char* name = maniGraphParameterName(&graph, p, &length);
+        const char* name = maniGraph_GetParameterName(&graph, p, &length);
         maniGraphParameterType type = 0;
-        if (name == NULL || maniGraphParameterTypeOf(&graph, p, &type) != 0 ||
-            type > maniGraphParameterPose || maniGraphFindParameter(&graph, name, length) > p)
+        if (name == NULL || maniGraph_GetParameterType(&graph, p, &type) != 0 ||
+            type > maniGraphParameterPose || maniGraph_FindParameter(&graph, name, length) > p)
         {
             abort();
         }
     }
-    for (uint32_t c = 0; c < maniGraphClipCount(&graph); ++c)
+    for (uint32_t c = 0; c < maniGraph_GetClipCount(&graph); ++c)
     {
         size_t length = 0;
-        if (maniGraphClipName(&graph, c, &length) == NULL || length == 0)
+        if (maniGraph_GetClipName(&graph, c, &length) == NULL || length == 0)
         {
             abort();
         }

@@ -134,7 +134,7 @@ static bool JointValid(const maniRagdollJointSource* j)
 static maniBuildResult CheckBody(const maniRagdollSource* s, uint32_t i, Work* w)
 {
     const maniRagdollBodySource* b = &s->bodies[i];
-    uint32_t bones = maniSkeletonBoneCount(s->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(s->skeleton);
     if (b->bone >= bones)
     {
         return Refuse(maniBuildReasonRagdollBody, i, 0);
@@ -164,8 +164,8 @@ static maniBuildResult CheckBody(const maniRagdollSource* s, uint32_t i, Work* w
 // The nearest ancestor of bone with a body, or MANI_NO_BONE.
 static uint32_t AncestorBody(const maniSkeleton* skeleton, const Work* w, uint32_t bone)
 {
-    for (uint32_t a = maniSkeletonParent(skeleton, bone); a != MANI_NO_BONE;
-         a = maniSkeletonParent(skeleton, a))
+    for (uint32_t a = maniSkeleton_GetParent(skeleton, bone); a != MANI_NO_BONE;
+         a = maniSkeleton_GetParent(skeleton, a))
     {
         if (w->bones[a].bodyOf != 0)
         {
@@ -218,12 +218,12 @@ static maniBuildResult Check(const maniRagdollSource* s, Work* w)
 // parents first, split with their scales dropped.
 static void Models(const maniSkeleton* skeleton, Bone* bones)
 {
-    uint32_t count = maniSkeletonBoneCount(skeleton);
+    uint32_t count = maniSkeleton_GetBoneCount(skeleton);
     for (uint32_t b = 0; b < count; ++b)
     {
-        maniTransform rest = maniSkeletonRest(skeleton, b);
+        maniTransform rest = maniSkeleton_GetRest(skeleton, b);
         maniAffine local = maniAffineFromTrs(rest.translation, rest.rotation, rest.scale);
-        uint32_t parent = maniSkeletonParent(skeleton, b);
+        uint32_t parent = maniSkeleton_GetParent(skeleton, b);
         bones[b].affine =
             parent != MANI_NO_BONE ? maniAffineMul(&bones[parent].affine, &local) : local;
         maniTransform split = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
@@ -283,7 +283,7 @@ static void LayJoint(const maniRagdollBodySource* b, const maniRagdollBodySource
 static void LayBodies(const maniRagdollSource* s, Work* w, uint8_t* bodies, uint8_t* names)
 {
     static const Rigid kIdentity = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
-    uint32_t bones = maniSkeletonBoneCount(s->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(s->skeleton);
     uint32_t index = 0;
     uint32_t name = 0;
     for (uint32_t bone = 0; bone < bones; ++bone)
@@ -328,8 +328,8 @@ static void LayBodies(const maniRagdollSource* s, Work* w, uint8_t* bodies, uint
 
 static void LayHeader(const maniRagdollSource* s, const Work* w, uint8_t* out)
 {
-    maniStoreU64(out, maniSkeletonIdentity(s->skeleton));
-    maniStoreU32(out + 8, maniSkeletonBoneCount(s->skeleton));
+    maniStoreU64(out, maniSkeleton_GetIdentity(s->skeleton));
+    maniStoreU32(out + 8, maniSkeleton_GetBoneCount(s->skeleton));
     maniStoreU32(out + 12, s->bodyCount);
     maniStoreU32(out + 16, (uint32_t)w->nameBytes);
     StoreVec(out + 20, s->facing);
@@ -392,7 +392,7 @@ static MANI_NOINLINE maniBuildResult BuildRagdollWork(maniBuilder* builder,
         maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
-    uint32_t bones = maniSkeletonBoneCount(source->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(source->skeleton);
     if (source->bodyCount < 1 || source->bodyCount > bones)
     {
         return Refuse(maniBuildReasonCount, 0, 0);

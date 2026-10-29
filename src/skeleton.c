@@ -291,17 +291,17 @@ maniFileResult maniOpenSkeleton(const void* bytes, size_t size, maniSkeleton* sk
     return result;
 }
 
-uint32_t maniSkeletonBoneCount(const maniSkeleton* skeleton)
+uint32_t maniSkeleton_GetBoneCount(const maniSkeleton* skeleton)
 {
     return skeleton->boneCount;
 }
 
-uint64_t maniSkeletonIdentity(const maniSkeleton* skeleton)
+uint64_t maniSkeleton_GetIdentity(const maniSkeleton* skeleton)
 {
     return skeleton->identity;
 }
 
-uint32_t maniSkeletonParent(const maniSkeleton* skeleton, uint32_t bone)
+uint32_t maniSkeleton_GetParent(const maniSkeleton* skeleton, uint32_t bone)
 {
     if (bone >= skeleton->boneCount)
     {
@@ -310,7 +310,7 @@ uint32_t maniSkeletonParent(const maniSkeleton* skeleton, uint32_t bone)
     return maniLoadU16(skeleton->parents + 2 * (size_t)bone);
 }
 
-uint32_t maniSkeletonSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone)
+uint32_t maniSkeleton_GetSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone)
 {
     if (bone >= skeleton->boneCount)
     {
@@ -319,7 +319,7 @@ uint32_t maniSkeletonSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone)
     return maniLoadU16(skeleton->subtreeEnds + 2 * (size_t)bone);
 }
 
-maniTransform maniSkeletonRest(const maniSkeleton* skeleton, uint32_t bone)
+maniTransform maniSkeleton_GetRest(const maniSkeleton* skeleton, uint32_t bone)
 {
     maniTransform rest = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
     if (bone < skeleton->boneCount)
@@ -329,7 +329,7 @@ maniTransform maniSkeletonRest(const maniSkeleton* skeleton, uint32_t bone)
     return rest;
 }
 
-const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone, size_t* lengthOut)
+const char* maniSkeleton_GetBoneName(const maniSkeleton* skeleton, uint32_t bone, size_t* lengthOut)
 {
     if (bone >= skeleton->boneCount)
     {
@@ -347,7 +347,7 @@ const char* maniSkeletonBoneName(const maniSkeleton* skeleton, uint32_t bone, si
     return (const char*)(skeleton->nameBytes + maniLoadU32(span));
 }
 
-uint32_t maniSkeletonFindBone(const maniSkeleton* skeleton, const char* name, size_t length)
+uint32_t maniSkeleton_FindBone(const maniSkeleton* skeleton, const char* name, size_t length)
 {
     // An empty name hashes to MANI_HASH_INIT and matches no bone, whose
     // names are never empty, so it needs no case of its own.
@@ -370,7 +370,7 @@ uint32_t maniSkeletonFindBone(const maniSkeleton* skeleton, const char* name, si
         else
         {
             size_t foundLength = 0;
-            const char* foundName = maniSkeletonBoneName(skeleton, bone, &foundLength);
+            const char* foundName = maniSkeleton_GetBoneName(skeleton, bone, &foundLength);
             bool same = foundLength == length && memcmp(foundName, name, length) == 0;
             return same ? bone : MANI_NO_BONE;
         }

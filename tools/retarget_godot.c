@@ -185,14 +185,14 @@ static void Skeleton(const Rig* rig, uint8_t* file, size_t capacity, maniSkeleto
     maniSkeletonSource source = {bones, (uint32_t)rig->count};
     size_t size = 0;
     if (maniBuildSkeleton(s_builder, &source).result != mani_success ||
-        maniCopyBuilt(s_builder, file, capacity, &size) != mani_success ||
+        maniBuilder_CopyBuilt(s_builder, file, capacity, &size) != mani_success ||
         maniOpenSkeleton(file, size, out).result != mani_success)
     {
         Die("a skeleton");
     }
     for (int i = 0; i < rig->count; ++i)
     {
-        at[i] = maniSkeletonFindBone(out, rig->bones[i].name, strlen(rig->bones[i].name));
+        at[i] = maniSkeleton_FindBone(out, rig->bones[i].name, strlen(rig->bones[i].name));
         if (at[i] == MANI_NO_BONE)
         {
             Die("a bone not found");
@@ -263,7 +263,7 @@ static int Check(const char* inPath, const char* outPath)
     maniRetargetMap map;
     size_t size = 0;
     if (maniBuildRetargetMap(s_builder, &ms).result != mani_success ||
-        maniCopyBuilt(s_builder, files[2], sizeof files[2], &size) != mani_success ||
+        maniBuilder_CopyBuilt(s_builder, files[2], sizeof files[2], &size) != mani_success ||
         maniOpenRetargetMap(files[2], size, &map).result != mani_success)
     {
         Die("the map");
@@ -304,29 +304,29 @@ static int Check(const char* inPath, const char* outPath)
     uint32_t compared = 0;
     for (int k = 0; k < count; ++k)
     {
-        if (maniPoseSetRest(in, &source) != mani_success)
+        if (maniPose_SetRest(in, &source) != mani_success)
         {
             Die("the rest");
         }
         for (int i = 0; i < s; ++i)
         {
-            maniTransform local = maniPoseLocal(in, sourceAt[i]);
+            maniTransform local = maniPose_GetLocal(in, sourceAt[i]);
             if (fscanf(given, "%f %f %f %f\n", &local.rotation.x, &local.rotation.y,
                        &local.rotation.z, &local.rotation.w) != 4)
             {
                 Die("in.txt's pose");
             }
-            maniPoseSetLocal(in, sourceAt[i], local);
+            maniPose_SetLocal(in, sourceAt[i], local);
         }
-        if (maniRetargetPose(&map, &source, in, &target, out, scratch, sizeof scratch) !=
-            mani_success)
+        if (maniRetargetMap_RetargetPose(&map, &source, in, &target, out, scratch,
+                                         sizeof scratch) != mani_success)
         {
             Die("the transfer");
         }
         Q model[kMaxBones];
         for (int i = 0; i < t; ++i)
         {
-            maniQuat r = maniPoseLocal(out, targetAt[i]).rotation;
+            maniQuat r = maniPose_GetLocal(out, targetAt[i]).rotation;
             Q local = {(double)r.x, (double)r.y, (double)r.z, (double)r.w};
             int parent = s_target.bones[i].parent;
             model[i] = parent < 0 ? local : Mul(model[parent], local);

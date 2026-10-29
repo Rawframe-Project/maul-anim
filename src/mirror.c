@@ -241,22 +241,22 @@ maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* 
     return result;
 }
 
-uint64_t maniMirrorMapIdentity(const maniMirrorMap* map)
+uint64_t maniMirrorMap_GetIdentity(const maniMirrorMap* map)
 {
     return map != NULL ? map->identity : 0;
 }
 
-uint64_t maniMirrorMapSkeletonIdentity(const maniMirrorMap* map)
+uint64_t maniMirrorMap_GetSkeletonIdentity(const maniMirrorMap* map)
 {
     return map != NULL ? map->skeletonIdentity : 0;
 }
 
-maniMirrorAxis maniMirrorMapAxis(const maniMirrorMap* map)
+maniMirrorAxis maniMirrorMap_GetAxis(const maniMirrorMap* map)
 {
     return map != NULL ? map->axis : maniMirrorAxisX;
 }
 
-uint32_t maniMirrorPartner(const maniMirrorMap* map, uint32_t bone)
+uint32_t maniMirrorMap_GetPartner(const maniMirrorMap* map, uint32_t bone)
 {
     if (map == NULL || bone >= map->boneCount)
     {
@@ -265,7 +265,7 @@ uint32_t maniMirrorPartner(const maniMirrorMap* map, uint32_t bone)
     return maniLoadU32(map->bones + (size_t)bone * MANI_MIRROR_BONE_SIZE);
 }
 
-uint32_t maniMirrorBoneFlags(const maniMirrorMap* map, uint32_t bone)
+uint32_t maniMirrorMap_GetBoneFlags(const maniMirrorMap* map, uint32_t bone)
 {
     if (map == NULL || bone >= map->boneCount)
     {
@@ -276,7 +276,7 @@ uint32_t maniMirrorBoneFlags(const maniMirrorMap* map, uint32_t bone)
            ((flags & MANI_MIRROR_FLAG_APPROXIMATE) != 0 ? MANI_MIRROR_BONE_SCALE_APPROXIMATE : 0u);
 }
 
-uint32_t maniMirrorMapUnmatchedBone(const maniMirrorMap* map)
+uint32_t maniMirrorMap_GetUnmatchedBone(const maniMirrorMap* map)
 {
     return map != NULL ? maniLoadU32(map->header + 20) : MANI_NO_BONE;
 }
@@ -307,8 +307,8 @@ static const uint8_t* Find(const maniMirrorMap* map, uint64_t hash)
     return NULL;
 }
 
-const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t length,
-                           size_t* lengthOut)
+const char* maniMirrorMap_MirrorName(const maniMirrorMap* map, const char* name, size_t length,
+                                     size_t* lengthOut)
 {
     if (lengthOut != NULL)
     {
@@ -330,7 +330,7 @@ const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t le
     return (const char*)map->strings + maniLoadU32(e + 16);
 }
 
-uint64_t maniMirrorNameHash(const maniMirrorMap* map, uint64_t hash)
+uint64_t maniMirrorMap_MirrorNameHash(const maniMirrorMap* map, uint64_t hash)
 {
     const uint8_t* e = map != NULL ? Find(map, hash) : NULL;
     return e != NULL ? maniLoadU64(e + 8) : hash;

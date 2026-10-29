@@ -35,12 +35,12 @@ bool maniIkFiniteVec(maniVec3 v)
 bool maniIkPoseUsable(const maniPose* pose, const maniSkeleton* skeleton)
 {
     return maniPoseOfSkeleton(pose, skeleton->identity, skeleton->boneCount) &&
-           !maniPoseIsDifference(pose);
+           !maniPose_IsDifference(pose);
 }
 
 maniIkFrame maniIkLocal(const maniPose* pose, uint32_t bone)
 {
-    maniTransform t = maniPoseLocal(pose, bone);
+    maniTransform t = maniPose_GetLocal(pose, bone);
     if (t.scale.x == 1.0f && t.scale.y == 1.0f && t.scale.z == 1.0f)
     {
         return (maniIkFrame){.rotation = t.rotation, .origin = t.translation};
@@ -78,8 +78,8 @@ maniIkFrame maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint
         return kIdentity;
     }
     maniIkFrame m = maniIkLocal(pose, bone);
-    for (uint32_t b = maniSkeletonParent(skeleton, bone); b != top;
-         b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = maniSkeleton_GetParent(skeleton, bone); b != top;
+         b = maniSkeleton_GetParent(skeleton, b))
     {
         maniIkFrame local = maniIkLocal(pose, b);
         m = maniIkMul(&local, &m);
@@ -89,8 +89,8 @@ maniIkFrame maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint
 
 bool maniIkAbove(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone)
 {
-    for (uint32_t b = maniSkeletonParent(skeleton, bone); b != MANI_NO_BONE;
-         b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = maniSkeleton_GetParent(skeleton, bone); b != MANI_NO_BONE;
+         b = maniSkeleton_GetParent(skeleton, b))
     {
         if (b == ancestor)
         {
@@ -215,13 +215,13 @@ maniQuat maniIkWeighted(maniQuat q, float weight)
 
 void maniIkCorrect(maniPose* pose, uint32_t bone, maniQuat correction)
 {
-    maniTransform t = maniPoseLocal(pose, bone);
+    maniTransform t = maniPose_GetLocal(pose, bone);
     t.rotation = maniQuatNormalize(maniQuatMul(correction, t.rotation));
-    maniPoseSetLocal(pose, bone, t);
+    maniPose_SetLocal(pose, bone, t);
 }
 
 maniIkFrame maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
 {
-    uint32_t parent = maniSkeletonParent(skeleton, bone);
+    uint32_t parent = maniSkeleton_GetParent(skeleton, bone);
     return parent != MANI_NO_BONE ? maniIkBelow(pose, skeleton, MANI_NO_BONE, parent) : kIdentity;
 }

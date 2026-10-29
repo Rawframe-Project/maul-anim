@@ -98,7 +98,7 @@ static void BuildSkeleton(void)
     maniSkeletonSource source = {bones, kBones};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success, "copies");
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success, "copies");
     maniDestroyBuilder(builder);
     CHECK(maniOpenSkeleton(s_file, size, &s_skeleton).result == mani_success, "opens");
     for (int i = 0; i <= kLayers; ++i)
@@ -124,7 +124,7 @@ static void RandomizeLayers(void)
         maniPoseSetKind(s_layer[i], false);
         for (uint32_t b = 0; b < kBones; ++b)
         {
-            maniPoseSetLocal(s_layer[i], b, RandomTransform());
+            maniPose_SetLocal(s_layer[i], b, RandomTransform());
         }
     }
 }
@@ -156,7 +156,7 @@ static void Reference(const maniBlendLayer* layers, uint32_t count, float thresh
             continue;
         }
         double v[10];
-        Components(maniPoseLocal(layers[i].pose, bone), v);
+        Components(maniPose_GetLocal(layers[i].pose, bone), v);
         double dot = sum[3] * v[3] + sum[4] * v[4] + sum[5] * v[5] + sum[6] * v[6];
         for (int c = 0; c < 10; ++c)
         {
@@ -165,7 +165,7 @@ static void Reference(const maniBlendLayer* layers, uint32_t count, float thresh
         total += w;
     }
     maniTransform restT = difference ? (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}}
-                                     : maniSkeletonRest(&s_skeleton, bone);
+                                     : maniSkeleton_GetRest(&s_skeleton, bone);
     double rest[10];
     Components(restT, rest);
     if (total == 0.0)
@@ -198,7 +198,7 @@ static double Apart(const maniBlendLayer* layers, uint32_t count, float threshol
         double want[10];
         double got[10];
         Reference(layers, count, threshold, b, difference, want);
-        Components(maniPoseLocal(s_out, b), got);
+        Components(maniPose_GetLocal(s_out, b), got);
         for (int c = 0; c < 10; ++c)
         {
             double e = fabs(want[c] - got[c]);
@@ -241,8 +241,8 @@ static bool SameAsRest(void)
     bool same = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform got = maniPoseLocal(s_out, b);
-        maniTransform rest = maniSkeletonRest(&s_skeleton, b);
+        maniTransform got = maniPose_GetLocal(s_out, b);
+        maniTransform rest = maniSkeleton_GetRest(&s_skeleton, b);
         same = same && memcmp(&got, &rest, sizeof got) == 0;
     }
     return same;
@@ -262,9 +262,9 @@ static void TestRest(void)
     maniBlendLayer half = {s_layer[0], 0.25f, NULL};
     CHECK(maniBlendPoses(&s_skeleton, &half, 1, 0.5f, s_out) == mani_success, "half");
     CHECK(Apart(&half, 1, 0.5f, false) < 2e-6, "the rest fills the shortfall");
-    maniTransform t = maniPoseLocal(s_out, 3);
-    maniTransform a = maniPoseLocal(s_layer[0], 3);
-    maniTransform r = maniSkeletonRest(&s_skeleton, 3);
+    maniTransform t = maniPose_GetLocal(s_out, 3);
+    maniTransform a = maniPose_GetLocal(s_layer[0], 3);
+    maniTransform r = maniSkeleton_GetRest(&s_skeleton, 3);
     CHECK(fabsf(t.translation.x - 0.5f * (a.translation.x + r.translation.x)) < 1e-6f,
           "translation halfway");
     // One layer alone gives itself back.
@@ -275,8 +275,8 @@ static void TestRest(void)
     {
         double want[10];
         double got[10];
-        Components(maniPoseLocal(s_layer[1], b), want);
-        Components(maniPoseLocal(s_out, b), got);
+        Components(maniPose_GetLocal(s_layer[1], b), want);
+        Components(maniPose_GetLocal(s_out, b), got);
         for (int c = 0; c < 10; ++c)
         {
             itself = itself && fabs(want[c] - got[c]) < 1e-6;
@@ -293,19 +293,19 @@ static void TestHemisphere(void)
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
           "blends");
     maniTransform before[kBones];
-    CHECK(maniPoseReadLocals(s_out, 0, kBones, before) == mani_success, "reads");
+    CHECK(maniPose_ReadLocals(s_out, 0, kBones, before) == mani_success, "reads");
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_layer[1], b);
+        maniTransform t = maniPose_GetLocal(s_layer[1], b);
         t.rotation = (maniQuat){-t.rotation.x, -t.rotation.y, -t.rotation.z, -t.rotation.w};
-        maniPoseSetLocal(s_layer[1], b, t);
+        maniPose_SetLocal(s_layer[1], b, t);
     }
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
           "blends negated");
     bool same = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_out, b);
+        maniTransform t = maniPose_GetLocal(s_out, b);
         same = same && memcmp(&t, &before[b], sizeof t) == 0;
     }
     CHECK(same, "a negated layer blends to the same bits");
@@ -347,9 +347,9 @@ static void TestEdges(void)
         {
             for (int l = 0; l < 2; ++l)
             {
-                maniTransform t = maniPoseLocal(s_layer[l], b);
+                maniTransform t = maniPose_GetLocal(s_layer[l], b);
                 t.rotation = sums[i];
-                maniPoseSetLocal(s_layer[l], b, t);
+                maniPose_SetLocal(s_layer[l], b, t);
             }
         }
         CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
@@ -357,36 +357,38 @@ static void TestEdges(void)
         bool identity = true;
         for (uint32_t b = 0; b < kBones; ++b)
         {
-            maniQuat q = maniPoseLocal(s_out, b).rotation;
+            maniQuat q = maniPose_GetLocal(s_out, b).rotation;
             identity = identity && q.x == 0.0f && q.y == 0.0f && q.z == 0.0f && q.w == 1.0f;
         }
         CHECK(identity, "a zero or overflowing rotation sum: the identity");
     }
     RandomizeLayers();
-    CHECK(maniPoseSetRest(s_out, &s_skeleton) == mani_success && maniPoseModelCurrent(s_out),
+    CHECK(maniPose_SetRest(s_out, &s_skeleton) == mani_success && maniPose_IsModelCurrent(s_out),
           "a current model");
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
           "blends");
-    CHECK(!maniPoseModelCurrent(s_out), "a blend marks the model stale");
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+    CHECK(!maniPose_IsModelCurrent(s_out), "a blend marks the model stale");
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) ==
+              mani_success,
           "difference");
-    CHECK(maniComputeModel(s_out, &s_skeleton) == mani_success, "composes");
+    CHECK(maniPose_ComputeModel(s_out, &s_skeleton) == mani_success, "composes");
     maniBlendLayer add = {s_layer[2], 0.5f, NULL};
-    CHECK(maniAddPoses(&s_skeleton, s_out, &add, 1) == mani_success, "adds");
-    CHECK(!maniPoseModelCurrent(s_out), "adding marks the model stale");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &add, 1) == mani_success, "adds");
+    CHECK(!maniPose_IsModelCurrent(s_out), "adding marks the model stale");
     // A difference whose turn overflows binary32: the identity turn.
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_layer[0], b);
+        maniTransform t = maniPose_GetLocal(s_layer[0], b);
         t.rotation = (maniQuat){3e19f, 3e19f, 0.0f, 0.0f};
-        maniPoseSetLocal(s_layer[0], b, t);
+        maniPose_SetLocal(s_layer[0], b, t);
     }
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) ==
+              mani_success,
           "difference");
     bool turn = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniQuat q = maniPoseLocal(s_layer[2], b).rotation;
+        maniQuat q = maniPose_GetLocal(s_layer[2], b).rotation;
         turn = turn && q.x == 0.0f && q.y == 0.0f && q.z == 0.0f && q.w == 1.0f;
     }
     CHECK(turn, "an overflowing difference turn: the identity");
@@ -400,23 +402,24 @@ static void TestKinds(void)
     maniBlendLayer layers[2] = {{s_layer[0], 0.0f, NULL}, {s_layer[1], 0.0f, NULL}};
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_success,
           "differences");
-    CHECK(maniPoseIsDifference(s_out), "a difference out");
+    CHECK(maniPose_IsDifference(s_out), "a difference out");
     bool identity = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_out, b);
+        maniTransform t = maniPose_GetLocal(s_out, b);
         identity = identity && t.translation.x == 0.0f && t.rotation.w == 1.0f &&
                    t.rotation.x == 0.0f && t.scale.y == 1.0f;
     }
     CHECK(identity, "a difference's rest is the identity");
-    CHECK(maniComputeModel(s_out, &s_skeleton) == mani_errorInvalid, "a difference has no model");
+    CHECK(maniPose_ComputeModel(s_out, &s_skeleton) == mani_errorInvalid,
+          "a difference has no model");
     layers[0].weight = 0.3f;
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, 0.5f, s_out) == mani_success, "weighed");
     CHECK(Apart(layers, 2, 0.5f, true) < 2e-6, "toward the identity");
     maniPoseSetKind(s_layer[1], false);
     CHECK(maniBlendPoses(&s_skeleton, layers, 2, MANI_BLEND_THRESHOLD, s_out) == mani_errorInvalid,
           "kinds mixed");
-    CHECK(maniPoseSetRest(s_out, &s_skeleton) == mani_success && !maniPoseIsDifference(s_out),
+    CHECK(maniPose_SetRest(s_out, &s_skeleton) == mani_success && !maniPose_IsDifference(s_out),
           "the rest makes a pose");
 }
 
@@ -479,11 +482,11 @@ static void TestRefusals(void)
     // them (shares summing a rounding past 1 cannot reach infinity).
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_layer[0], b);
+        maniTransform t = maniPose_GetLocal(s_layer[0], b);
         t.translation = (maniVec3){0x1p127f, -0x1p127f, 0x1p126f};
         t.scale = (maniVec3){0x1p127f, 0x1p100f, -0x1p127f};
-        maniPoseSetLocal(s_layer[0], b, t);
-        maniPoseSetLocal(s_layer[1], b, t);
+        maniPose_SetLocal(s_layer[0], b, t);
+        maniPose_SetLocal(s_layer[1], b, t);
     }
     layers[0].weight = 0.7f;
     layers[1].weight = 0.9f;
@@ -493,7 +496,7 @@ static void TestRefusals(void)
     bool finite = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_out, b);
+        maniTransform t = maniPose_GetLocal(s_out, b);
         finite = finite && isfinite(t.translation.x) && isfinite(t.translation.y) &&
                  isfinite(t.scale.x) && isfinite(t.scale.z) && fabsf(t.translation.x) <= FLT_MAX;
     }
@@ -514,7 +517,8 @@ static void TestMask(void)
         // The nearest of bones 1 and 2 above or at b, else the default.
         float want = 0.9f;
         bool settled = false;
-        for (uint32_t a = b; !settled && a != MANI_NO_BONE; a = maniSkeletonParent(&s_skeleton, a))
+        for (uint32_t a = b; !settled && a != MANI_NO_BONE;
+             a = maniSkeleton_GetParent(&s_skeleton, a))
         {
             settled = a == 1 || a == 2;
             want = a == 2 ? 0.125f : (a == 1 ? 0.5f : want);
@@ -525,7 +529,7 @@ static void TestMask(void)
     CHECK(right, "nearest chain, the bone's own first, the later of two");
     // A bone with children: its own chain, listed before its subtree's,
     // stays its own, and its children take the subtree's.
-    uint32_t parent = maniSkeletonParent(&s_skeleton, kBones - 1);
+    uint32_t parent = maniSkeleton_GetParent(&s_skeleton, kBones - 1);
     const maniMaskChain mixed[2] = {{parent, 0.25f, false}, {parent, 0.5f, true}};
     CHECK(maniBuildMask(&s_skeleton, mixed, 2, 0.0f, weights, kBones, NULL) == mani_success,
           "builds");
@@ -579,7 +583,7 @@ static void AddReference(const maniTransform* base, const maniBlendLayer* layers
             continue;
         }
         double d[10];
-        Components(maniPoseLocal(layers[i].pose, bone), d);
+        Components(maniPose_GetLocal(layers[i].pose, bone), d);
         double sign = d[6] < 0.0 ? -1.0 : 1.0;
         double q[4] = {sign * d[3] * w, sign * d[4] * w, sign * d[5] * w,
                        (sign * d[6] - 1.0) * w + 1.0};
@@ -606,7 +610,7 @@ static void MakeDifferences(uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i)
     {
-        CHECK(maniPoseDifference(&s_skeleton, s_layer[i], s_out, s_layer[i]) == mani_success,
+        CHECK(maniComputePoseDifference(&s_skeleton, s_layer[i], s_out, s_layer[i]) == mani_success,
               "a difference in place");
     }
 }
@@ -620,26 +624,26 @@ static void TestAdditive(void)
         RandomizeLayers();
         for (uint32_t b = 0; b < kBones; ++b)
         {
-            maniPoseSetLocal(s_out, b, RandomTransform());
+            maniPose_SetLocal(s_out, b, RandomTransform());
             boneWeights[b] = Uniform(0.0f, 1.0f);
         }
         maniPoseSetKind(s_out, false);
         MakeDifferences(2);
         for (uint32_t b = 0; b < kBones; ++b)
         {
-            maniPoseSetLocal(s_out, b, RandomTransform());
+            maniPose_SetLocal(s_out, b, RandomTransform());
         }
         maniTransform base[kBones];
-        CHECK(maniPoseReadLocals(s_out, 0, kBones, base) == mani_success, "reads");
+        CHECK(maniPose_ReadLocals(s_out, 0, kBones, base) == mani_success, "reads");
         maniBlendLayer layers[2] = {{s_layer[0], Uniform(0.0f, 1.0f), NULL},
                                     {s_layer[1], Uniform(0.0f, 1.0f), boneWeights}};
-        CHECK(maniAddPoses(&s_skeleton, s_out, layers, 2) == mani_success, "adds");
+        CHECK(maniPose_AddLayers(s_out, &s_skeleton, layers, 2) == mani_success, "adds");
         for (uint32_t b = 0; b < kBones; ++b)
         {
             double want[10];
             double got[10];
             AddReference(&base[b], layers, 2, b, want);
-            Components(maniPoseLocal(s_out, b), got);
+            Components(maniPose_GetLocal(s_out, b), got);
             for (int c = 0; c < 10; ++c)
             {
                 double e = fabs(want[c] - got[c]);
@@ -656,19 +660,20 @@ static void TestRoundTrip(void)
 {
     RandomizeLayers();
     // s_layer[0] the pose, s_layer[1] the basis, s_layer[2] the difference.
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) ==
+              mani_success,
           "difference");
-    CHECK(maniPoseIsDifference(s_layer[2]), "a difference");
+    CHECK(maniPose_IsDifference(s_layer[2]), "a difference");
     memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
     maniBlendLayer layer = {s_layer[2], 1.0f, NULL};
-    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_success, "adds");
     double worst = 0.0;
     for (uint32_t b = 0; b < kBones; ++b)
     {
         double want[10];
         double got[10];
-        Components(maniPoseLocal(s_layer[0], b), want);
-        Components(maniPoseLocal(s_out, b), got);
+        Components(maniPose_GetLocal(s_layer[0], b), want);
+        Components(maniPose_GetLocal(s_out, b), got);
         double dot = want[3] * got[3] + want[4] * got[4] + want[5] * got[5] + want[6] * got[6];
         for (int c = 0; c < 10; ++c)
         {
@@ -679,17 +684,20 @@ static void TestRoundTrip(void)
     CHECK(worst < 1e-5, "the basis plus the difference: the pose");
     memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
     layer.weight = 0.0f;
-    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds at 0");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_success, "adds at 0");
     CHECK(memcmp(s_poses[kLayers], s_poses[1], sizeof s_poses[1]) == 0, "at 0: unchanged");
     // In place, either side, against out of place.
     memcpy(s_copy, s_poses[2], sizeof s_copy);
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[0]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[0]) ==
+              mani_success,
           "out is the pose");
     CHECK(memcmp(s_poses[0] + 64, s_copy + 64, sizeof s_copy - 64) == 0, "the same bits");
     RandomizeLayers();
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) ==
+              mani_success,
           "out of place");
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[1]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[1]) ==
+              mani_success,
           "out is the basis");
     CHECK(memcmp(s_poses[1] + 64, s_poses[2] + 64, sizeof s_copy - 64) == 0, "the same bits");
 }
@@ -698,21 +706,22 @@ static void TestRoundTrip(void)
 static void TestAdditiveHemisphere(void)
 {
     RandomizeLayers();
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) ==
+              mani_success,
           "difference");
     maniPoseSetKind(s_out, false);
     memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
     maniBlendLayer layer = {s_layer[2], 0.6f, NULL};
-    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_success, "adds");
     memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniTransform t = maniPoseLocal(s_layer[2], b);
+        maniTransform t = maniPose_GetLocal(s_layer[2], b);
         t.rotation = (maniQuat){-t.rotation.x, -t.rotation.y, -t.rotation.z, -t.rotation.w};
-        maniPoseSetLocal(s_layer[2], b, t);
+        maniPose_SetLocal(s_layer[2], b, t);
     }
     memcpy(s_poses[kLayers], s_poses[1], sizeof s_poses[1]);
-    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds negated");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_success, "adds negated");
     CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "the same bits");
 }
 
@@ -723,19 +732,19 @@ static void TestAdditiveBounds(void)
     RandomizeLayers();
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        maniPoseSetLocal(s_layer[2], b,
-                         (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {0.5f, 0.5f, 0.5f}});
+        maniPose_SetLocal(s_layer[2], b,
+                          (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {0.5f, 0.5f, 0.5f}});
     }
     maniPoseSetKind(s_layer[2], true);
     maniPoseSetKind(s_out, false);
     memcpy(s_poses[kLayers], s_poses[0], sizeof s_poses[0]);
     maniBlendLayer layer = {s_layer[2], 1.0f, NULL};
-    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_success, "adds at 1");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_success, "adds at 1");
     bool halved = true;
     for (uint32_t b = 0; b < kBones; ++b)
     {
-        halved = halved &&
-                 maniPoseLocal(s_out, b).scale.x == 0.5f * maniPoseLocal(s_layer[0], b).scale.x;
+        halved = halved && maniPose_GetLocal(s_out, b).scale.x ==
+                               0.5f * maniPose_GetLocal(s_layer[0], b).scale.x;
     }
     CHECK(halved, "w 1, d_s 0.5: half the scale");
 }
@@ -743,7 +752,8 @@ static void TestAdditiveBounds(void)
 static void TestAdditiveRefusals(void)
 {
     RandomizeLayers();
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) == mani_success,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_layer[2]) ==
+              mani_success,
           "difference");
     maniPoseSetKind(s_out, false);
     float boneWeights[kBones];
@@ -757,46 +767,53 @@ static void TestAdditiveRefusals(void)
     {
         memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
         layer.weight = wrong[i];
-        CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_errorInvalid, "a layer weight");
+        CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_errorInvalid,
+              "a layer weight");
         layer.weight = 0.5f;
         boneWeights[3] = wrong[i];
-        CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_errorInvalid, "a bone weight");
+        CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_errorInvalid,
+              "a bone weight");
         boneWeights[3] = 1.0f;
         CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "the pose unchanged");
     }
     layer.pose = s_layer[0];
-    CHECK(maniAddPoses(&s_skeleton, s_out, &layer, 1) == mani_errorInvalid, "a pose as a layer");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, &layer, 1) == mani_errorInvalid,
+          "a pose as a layer");
     layer.pose = s_layer[2];
-    CHECK(maniAddPoses(&s_skeleton, s_layer[2], &layer, 1) == mani_errorInvalid,
+    CHECK(maniPose_AddLayers(s_layer[2], &s_skeleton, &layer, 1) == mani_errorInvalid,
           "a difference as the pose");
-    CHECK(maniAddPoses(&s_skeleton, s_out, NULL, 1) == mani_errorInvalid, "no layers given");
-    CHECK(maniAddPoses(&s_skeleton, s_out, NULL, 0) == mani_success, "none");
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[2], s_layer[1], s_out) == mani_errorInvalid,
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, NULL, 1) == mani_errorInvalid, "no layers given");
+    CHECK(maniPose_AddLayers(s_out, &s_skeleton, NULL, 0) == mani_success, "none");
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[2], s_layer[1], s_out) ==
+              mani_errorInvalid,
           "a difference as the pose");
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[2], s_out) == mani_errorInvalid,
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[2], s_out) ==
+              mani_errorInvalid,
           "a difference as the basis");
-    maniTransform t = maniPoseLocal(s_layer[1], kBones - 1);
+    maniTransform t = maniPose_GetLocal(s_layer[1], kBones - 1);
     maniTransform kept = t;
     memcpy(s_copy, s_poses[kLayers], sizeof s_copy);
     const float scales[2] = {0.0f, 1e-39f};
     for (int i = 0; i < 2; ++i)
     {
         t.scale.z = scales[i];
-        maniPoseSetLocal(s_layer[1], kBones - 1, t);
-        CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
+        maniPose_SetLocal(s_layer[1], kBones - 1, t);
+        CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) ==
+                  mani_errorInvalid,
               "a basis scale 0 or near it");
     }
     t = kept;
     t.translation.x = -FLT_MAX;
-    maniPoseSetLocal(s_layer[1], kBones - 1, t);
-    maniTransform far = maniPoseLocal(s_layer[0], kBones - 1);
+    maniPose_SetLocal(s_layer[1], kBones - 1, t);
+    maniTransform far = maniPose_GetLocal(s_layer[0], kBones - 1);
     far.translation.x = FLT_MAX;
-    maniPoseSetLocal(s_layer[0], kBones - 1, far);
-    CHECK(maniPoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
+    maniPose_SetLocal(s_layer[0], kBones - 1, far);
+    CHECK(maniComputePoseDifference(&s_skeleton, s_layer[0], s_layer[1], s_out) ==
+              mani_errorInvalid,
           "translations past binary32's range apart");
     CHECK(memcmp(s_copy, s_poses[kLayers], sizeof s_copy) == 0, "out unchanged");
-    maniPoseSetLocal(s_layer[1], kBones - 1, kept);
-    CHECK(maniPoseDifference(NULL, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
+    maniPose_SetLocal(s_layer[1], kBones - 1, kept);
+    CHECK(maniComputePoseDifference(NULL, s_layer[0], s_layer[1], s_out) == mani_errorInvalid,
           "no skeleton");
 }
 
@@ -814,17 +831,18 @@ static void TestPinned(void)
     CHECK(maniBlendPoses(&s_skeleton, layers, 3, MANI_BLEND_THRESHOLD, s_out) == mani_success,
           "blends");
     maniTransform locals[kBones];
-    CHECK(maniPoseReadLocals(s_out, 0, kBones, locals) == mani_success, "reads");
+    CHECK(maniPose_ReadLocals(s_out, 0, kBones, locals) == mani_success, "reads");
     uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
     // That blend as a difference from layer 2, added back onto layer 0.
-    CHECK(maniPoseDifference(&s_skeleton, s_out, s_layer[2], s_out) == mani_success, "difference");
+    CHECK(maniComputePoseDifference(&s_skeleton, s_out, s_layer[2], s_out) == mani_success,
+          "difference");
     maniBlendLayer add = {s_out, 0.7f, boneWeights};
-    CHECK(maniAddPoses(&s_skeleton, s_layer[0], &add, 1) == mani_success, "adds");
-    CHECK(maniPoseReadLocals(s_layer[0], 0, kBones, locals) == mani_success, "reads");
+    CHECK(maniPose_AddLayers(s_layer[0], &s_skeleton, &add, 1) == mani_success, "adds");
+    CHECK(maniPose_ReadLocals(s_layer[0], 0, kBones, locals) == mani_success, "reads");
     hash = maniHash64(hash, locals, (int32_t)sizeof locals);
     maniAffine models[kBones];
-    CHECK(maniComputeModel(s_layer[0], &s_skeleton) == mani_success &&
-              maniPoseReadModels(s_layer[0], 0, kBones, models) == mani_success,
+    CHECK(maniPose_ComputeModel(s_layer[0], &s_skeleton) == mani_success &&
+              maniPose_ReadModels(s_layer[0], 0, kBones, models) == mani_success,
           "composes");
     hash = maniHash64(hash, models, (int32_t)sizeof models);
     // Mirrored across x, two pairs of bones swapping sides.
@@ -837,13 +855,14 @@ static void TestPinned(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &builder) == mani_success &&
               maniBuildMirrorMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success,
           "mirror map built");
     maniDestroyBuilder(builder);
     maniMirrorMap map;
     CHECK(maniOpenMirrorMap(file, size, &map).result == mani_success, "mirror map opens");
-    CHECK(maniMirrorPose(&map, &s_skeleton, s_layer[0], s_layer[1]) == mani_success, "mirrors");
-    CHECK(maniPoseReadLocals(s_layer[1], 0, kBones, locals) == mani_success, "reads");
+    CHECK(maniMirrorMap_MirrorPose(&map, &s_skeleton, s_layer[0], s_layer[1]) == mani_success,
+          "mirrors");
+    CHECK(maniPose_ReadLocals(s_layer[1], 0, kBones, locals) == mani_success, "reads");
     hash = maniHash64(hash, locals, (int32_t)sizeof locals);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
     if (hash != PINNED_SCENE_HASH)

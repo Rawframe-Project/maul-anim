@@ -266,7 +266,8 @@ static void Chunk(int32_t start, int32_t end, void* context)
 }
 
 // A host that runs ranges of one item, last first.
-static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Backwards(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                       void* user)
 {
     (void)minRange;
     (void)user;
@@ -280,13 +281,14 @@ static void* Backwards(maniTaskFn* task, int32_t count, int32_t minRange, void* 
 // A host that hands back a handle and runs everything at the finish.
 typedef struct Deferred
 {
-    maniTaskFn* task;
+    maniTaskFunction* task;
     int32_t count;
     void* context;
     int finished;
 } Deferred;
 
-static void* Defer(maniTaskFn* task, int32_t count, int32_t minRange, void* context, void* user)
+static void* Defer(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
+                   void* user)
 {
     (void)minRange;
     Deferred* d = user;

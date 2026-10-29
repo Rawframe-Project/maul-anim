@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The chain IK nodes over the hips, spine and arm: a CCD
-// node's output is its input solved as maniSolveCcd solves it, a FABRIK
-// node's as maniSolveFabrik, bit for bit, their goal, pole and the end's
+// node's output is its input solved as maniPose_SolveCcd solves it, a FABRIK
+// node's as maniPose_SolveFabrik, bit for bit, their goal, pole and the end's
 // rotation read from parameters, weights clamped (0 passing the input);
 // limits carried; both inside a subgraph through its mapping; the JSON
 // form read back to the same file; refused at build (differences,
@@ -82,7 +82,7 @@ static maniGraphNodeSource ChainNode(maniGraphNodeKind kind, const uint32_t* inp
 
 static void Evaluate(maniGraphInstance* instance)
 {
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
           "evaluated");
 }
 
@@ -91,8 +91,8 @@ static bool Matches(bool walk)
     bool same = true;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniTransform x = maniPoseLocal(s_out, b);
-        maniTransform y = walk ? s_walk[b] : maniPoseLocal(s_pose, b);
+        maniTransform x = maniPose_GetLocal(s_out, b);
+        maniTransform y = walk ? s_walk[b] : maniPose_GetLocal(s_pose, b);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     return same;
@@ -107,7 +107,7 @@ static void Walk(void)
     Evaluate(instance);
     for (uint32_t b = 0; b < 3; ++b)
     {
-        s_walk[b] = maniPoseLocal(s_out, b);
+        s_walk[b] = maniPose_GetLocal(s_out, b);
     }
 }
 
@@ -118,7 +118,7 @@ static void Reference(bool fabrik, const maniGraphChainNodeSource* n, float rota
 {
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniPoseSetLocal(s_pose, b, s_walk[b]);
+        maniPose_SetLocal(s_pose, b, s_walk[b]);
     }
     maniChainSolve s = {.root = n->root,
                         .end = n->end,
@@ -134,8 +134,8 @@ static void Reference(bool fabrik, const maniGraphChainNodeSource* n, float rota
                         .step = n->step,
                         .rotationWeight = n->rotation != MANI_NO_PARAMETER ? rotationWeight : 0.0f,
                         .weight = weight};
-    maniResult r = fabrik ? maniSolveFabrik(s_pose, &s_skeleton, &s, NULL)
-                          : maniSolveCcd(s_pose, &s_skeleton, &s, NULL);
+    maniResult r = fabrik ? maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL)
+                          : maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL);
     CHECK(r == mani_success, "the reference");
 }
 
@@ -217,7 +217,7 @@ static void TestSubgraph(void)
                         .rotation = {0.0f, 0.0f, 0.0f, 1.0f},
                         .iterations = 8,
                         .weight = 1.0f};
-    CHECK(maniSolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
     CHECK(Matches(false), "the outer goal and weight through the mapping");
 }
 
@@ -347,7 +347,7 @@ static size_t Built1(maniGraphNodeSource node, size_t* sizeOut, size_t* recordOu
     maniBuilder* builder = NewBuilder();
     maniGraph g;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, sizeOut) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, sizeOut) == mani_success &&
               maniOpenGraph(s_file, *sizeOut, &g).result == mani_success,
           "a graph of a chain node");
     maniDestroyBuilder(builder);
@@ -470,13 +470,13 @@ static void TestJson(void)
     size_t length = 0;
     size_t read = 0;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
           "built and written");
     maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL};
     CHECK(maniBuildGraphJson(builder, s_text, length, &assets).result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &read) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &read) == mani_success &&
               read == size && memcmp(s_read, s_file, size) == 0,
           "read back to the same file");
     char* limits = strstr(s_text, "\"limits\": [");
@@ -514,9 +514,9 @@ static bool Seed(const char* graphPath, const char* textPath)
     size_t length = 0;
     maniBuilder* builder = NewBuilder();
     bool ok = maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
               WriteFile(graphPath, s_file, size) && WriteFile(textPath, s_text, length);
     maniDestroyBuilder(builder);
     return ok;

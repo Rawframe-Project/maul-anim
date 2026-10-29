@@ -82,7 +82,7 @@ static uint32_t Collect(const maniSkeleton* skeleton, const maniBodySolve* solve
                         bool* past)
 {
     uint32_t count = 0;
-    uint32_t n = maniSkeletonBoneCount(skeleton);
+    uint32_t n = maniSkeleton_GetBoneCount(skeleton);
     for (uint32_t e = 0; e < solve->effectorCount; ++e)
     {
         uint32_t b = solve->effectors[e].bone;
@@ -90,7 +90,7 @@ static uint32_t Collect(const maniSkeleton* skeleton, const maniBodySolve* solve
         {
             return 0;
         }
-        for (; b != solve->top; b = maniSkeletonParent(skeleton, b))
+        for (; b != solve->top; b = maniSkeleton_GetParent(skeleton, b))
         {
             if (!Add(list, &count, b))
             {
@@ -116,7 +116,7 @@ static maniVec3 Axis(const maniSkeleton* skeleton, const uint32_t* list, uint32_
     uint32_t child = MANI_BODY_NONE;
     for (uint32_t k = slot + 1; k < count; ++k)
     {
-        if (maniSkeletonParent(skeleton, list[k]) == list[slot])
+        if (maniSkeleton_GetParent(skeleton, list[k]) == list[slot])
         {
             if (child != MANI_BODY_NONE)
             {
@@ -127,7 +127,7 @@ static maniVec3 Axis(const maniSkeleton* skeleton, const uint32_t* list, uint32_
     }
     return child == MANI_BODY_NONE
                ? zero
-               : maniVec3Normalize(maniSkeletonRest(skeleton, child).translation, zero);
+               : maniVec3Normalize(maniSkeleton_GetRest(skeleton, child).translation, zero);
 }
 
 static bool EffectorValid(const maniBodyEffector* e)
@@ -166,7 +166,7 @@ static bool HeaderValid(const maniBodySolve* solve)
 uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve, bool* past)
 {
     *past = false;
-    if (skeleton == NULL || solve == NULL || solve->top >= maniSkeletonBoneCount(skeleton))
+    if (skeleton == NULL || solve == NULL || solve->top >= maniSkeleton_GetBoneCount(skeleton))
     {
         return 0;
     }
@@ -212,7 +212,7 @@ static size_t ScratchBytes(uint32_t count, uint32_t effectors)
            Rounded((xpbd > sdls ? xpbd : sdls) * sizeof(float));
 }
 
-size_t maniBodyIkScratchSize(const maniSkeleton* skeleton, const maniBodySolve* solve)
+size_t maniSkeleton_GetBodyIkScratchSize(const maniSkeleton* skeleton, const maniBodySolve* solve)
 {
     bool past = false;
     uint32_t count = maniBodyPartShape(skeleton, solve, &past);
@@ -295,15 +295,15 @@ static void ReadNode(maniBodyPart* part, const maniPose* pose, const maniSkeleto
 {
     maniBodyNode* node = &part->nodes[k];
     node->bone = list[k];
-    node->parent =
-        k == 0 ? MANI_BODY_NONE : Find(list, part->count, maniSkeletonParent(skeleton, list[k]));
+    node->parent = k == 0 ? MANI_BODY_NONE
+                          : Find(list, part->count, maniSkeleton_GetParent(skeleton, list[k]));
     node->parentFrame =
         k == 0 ? maniIkParentModel(pose, skeleton, list[k]) : part->nodes[node->parent].frame;
     maniIkFrame local = maniIkLocal(pose, list[k]);
     node->frame = maniIkMul(&node->parentFrame, &local);
     node->origin = maniIkOrigin(&node->frame);
     node->turn = maniQuatIdentity();
-    node->local = maniQuatNormalize(maniPoseLocal(pose, list[k]).rotation);
+    node->local = maniQuatNormalize(maniPose_GetLocal(pose, list[k]).rotation);
     node->offset = k == 0 ? maniVec3Make(0.0f, 0.0f, 0.0f)
                           : maniVec3Sub(node->origin, part->nodes[node->parent].origin);
     node->axis = Axis(skeleton, list, part->count, k);
@@ -527,7 +527,7 @@ void maniBodyLimit(maniBodyPart* part, const maniSkeleton* skeleton, const maniB
     {
         return;
     }
-    maniQuat rest = maniSkeletonRest(skeleton, node->bone).rotation;
+    maniQuat rest = maniSkeleton_GetRest(skeleton, node->bone).rotation;
     maniQuat r = maniQuatNormalize(maniQuatMul(maniQuatConjugate(rest), maniBodyLocal(part, k)));
     maniQuat limited = maniIkLimit(&s->limit, node->axis, r);
     if (limited.x == r.x && limited.y == r.y && limited.z == r.z && limited.w == r.w)
@@ -586,10 +586,10 @@ bool maniBodyFinish(maniBodyPart* part, maniPose* pose, const maniBodySolve* sol
         maniVec3 moved = maniVec3Sub(node->origin, placed);
         if ((k == 0 || solve->stretch) && maniVec3Dot(moved, moved) > 0.0f)
         {
-            maniTransform t = maniPoseLocal(pose, node->bone);
+            maniTransform t = maniPose_GetLocal(pose, node->bone);
             maniVec3 d = maniVec3Scale(InParentVector(part, k, moved), solve->weight);
             t.translation = maniVec3Add(t.translation, d);
-            maniPoseSetLocal(pose, node->bone, t);
+            maniPose_SetLocal(pose, node->bone, t);
         }
     }
     return reached;

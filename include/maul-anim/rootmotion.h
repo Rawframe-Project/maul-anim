@@ -84,7 +84,7 @@ extern "C"
     /// @return Translation 0, rotation identity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniRootMove maniRootMoveIdentity(void);
+    MANI_API maniRootMove maniGetIdentityRootMove(void);
 
     /// Gives the move a clip's root motion makes from a playhead time over
     /// a signed step, in the character's frame where the move begins: for
@@ -102,8 +102,8 @@ extern "C"
     /// a time or step not finite (nothing written).
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniClipRootMotion(const maniClip* clip, float time,
-                                                          float step, maniRootMove* moveOut);
+    MANI_NODISCARD MANI_API maniResult maniClip_GetRootMotion(const maniClip* clip, float time,
+                                                              float step, maniRootMove* moveOut);
 
     /// Composes two moves: first, then then from where first ends.
     ///
@@ -149,9 +149,9 @@ extern "C"
     /// pose (nothing written).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniRestoreRootMotion(const maniClip* clip,
-                                                             const maniSkeleton* skeleton,
-                                                             float time, maniPose* pose);
+    MANI_NODISCARD MANI_API maniResult maniClip_RestoreRootMotion(const maniClip* clip,
+                                                                  const maniSkeleton* skeleton,
+                                                                  float time, maniPose* pose);
 
     /// Reads the source a clip's root motion was taken from.
     ///
@@ -160,7 +160,8 @@ extern "C"
     /// @return True when the clip has root motion.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API bool maniClipRootMotionSource(const maniClip* clip, maniRootMotionSource* sourceOut);
+    MANI_API bool maniClip_GetRootMotionSource(const maniClip* clip,
+                                               maniRootMotionSource* sourceOut);
 
 #ifdef __cplusplus
 }

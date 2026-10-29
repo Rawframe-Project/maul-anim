@@ -45,7 +45,7 @@ static inline void BuildDatabase(const maniMatchChannelSource* channels, uint32_
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMotionDatabase(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success &&
               maniOpenMotionDatabase(file, size, out).result == mani_success,
           "a database");
     maniDestroyBuilder(builder);
@@ -122,7 +122,7 @@ static inline maniGraphInstance* MakeMatch(maniGraphSource source, maniGraph* g)
     maniGraphInstance* instance = NULL;
     CHECK(GraphPaddingIgnored(&source), "the same graph under either padding");
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenGraph(s_file, size, g).result == mani_success &&
               maniBindGraph(g,
                             &(maniGraphAssets){&s_skeleton, clips, databases, NULL, NULL, CLIPS, 1,

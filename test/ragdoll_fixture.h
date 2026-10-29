@@ -52,7 +52,7 @@ static maniBoneSource Bone(const char* name, int32_t parent, maniVec3 at, maniQu
 
 static uint32_t Find(const char* name)
 {
-    return maniSkeletonFindBone(&s_skeleton, name, (uint32_t)strlen(name));
+    return maniSkeleton_FindBone(&s_skeleton, name, (uint32_t)strlen(name));
 }
 
 static void OpenSkeleton(void)
@@ -78,7 +78,7 @@ static void OpenSkeleton(void)
     size_t size = 0;
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success &&
               maniBuildSkeleton(s_builder, &source).result == mani_success &&
-              maniCopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(s_builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "a skeleton");
@@ -88,11 +88,11 @@ static void OpenSkeleton(void)
     {
         s_bone[k] = Find(names[k]);
     }
-    CHECK(maniPoseSize(&s_skeleton) <= sizeof s_poseMemory &&
+    CHECK(maniSkeleton_GetPoseSize(&s_skeleton) <= sizeof s_poseMemory &&
               maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &s_pose) ==
                   mani_success &&
-              maniPoseSetRest(s_pose, &s_skeleton) == mani_success &&
-              maniComputeModel(s_pose, &s_skeleton) == mani_success,
+              maniPose_SetRest(s_pose, &s_skeleton) == mani_success &&
+              maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success,
           "the rest pose");
 }
 
@@ -153,7 +153,8 @@ static maniBuildResult Build(const maniRagdollSource* source)
     maniBuildResult r = maniBuildRagdoll(s_builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(s_builder, s_file, sizeof s_file, &s_size) == mani_success, "copied");
+        CHECK(maniBuilder_CopyBuilt(s_builder, s_file, sizeof s_file, &s_size) == mani_success,
+              "copied");
     }
     return r;
 }

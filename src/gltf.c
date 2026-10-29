@@ -325,12 +325,12 @@ void maniCloseGltf(maniGltf* gltf)
     maniRelease(&allocator, gltf, 1, sizeof(maniGltf), 8);
 }
 
-uint32_t maniGltfBufferCount(const maniGltf* gltf)
+uint32_t maniGltf_GetBufferCount(const maniGltf* gltf)
 {
     return gltf->bufferCount;
 }
 
-const char* maniGltfBufferUri(const maniGltf* gltf, uint32_t buffer, size_t* lengthOut)
+const char* maniGltf_GetBufferUri(const maniGltf* gltf, uint32_t buffer, size_t* lengthOut)
 {
     bool external = buffer < gltf->bufferCount && gltf->buffers[buffer].external;
     if (lengthOut != NULL)
@@ -365,8 +365,8 @@ static MANI_NOINLINE maniImportResult GltfSupplyBufferWork(maniGltf* gltf, uint3
     return r;
 }
 
-maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes,
-                                      size_t size)
+maniImportResult maniGltf_SupplyBuffer(maniGltf* gltf, uint32_t buffer, const void* bytes,
+                                       size_t size)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfSupplyBufferWork(gltf, buffer, bytes, size);
@@ -374,32 +374,32 @@ maniImportResult maniGltfSupplyBuffer(maniGltf* gltf, uint32_t buffer, const voi
     return result;
 }
 
-uint32_t maniGltfSkeletonCount(const maniGltf* gltf)
+uint32_t maniGltf_GetSkeletonCount(const maniGltf* gltf)
 {
     return gltf->skeletonCount;
 }
 
-uint32_t maniGltfSkinCount(const maniGltf* gltf)
+uint32_t maniGltf_GetSkinCount(const maniGltf* gltf)
 {
     return gltf->skinCount;
 }
 
-uint32_t maniGltfSkinSkeleton(const maniGltf* gltf, uint32_t skin)
+uint32_t maniGltf_GetSkinSkeleton(const maniGltf* gltf, uint32_t skin)
 {
     return skin < gltf->skinCount ? gltf->skinSkeletons[skin] : UINT32_MAX;
 }
 
-uint32_t maniGltfNodeCount(const maniGltf* gltf)
+uint32_t maniGltf_GetNodeCount(const maniGltf* gltf)
 {
     return gltf->nodeCount;
 }
 
-uint32_t maniGltfAnimationCount(const maniGltf* gltf)
+uint32_t maniGltf_GetAnimationCount(const maniGltf* gltf)
 {
     return gltf->animationCount;
 }
 
-const char* maniGltfAnimationName(const maniGltf* gltf, uint32_t animation, size_t* lengthOut)
+const char* maniGltf_GetAnimationName(const maniGltf* gltf, uint32_t animation, size_t* lengthOut)
 {
     const maniBoneNames* names = &gltf->animationNames;
     bool inRange = animation < gltf->animationCount;

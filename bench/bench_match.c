@@ -121,9 +121,9 @@ static void* Keep(maniBuilder* builder, maniBuildResult built, const char* what,
                 (int)built.result, (unsigned)built.reason, (unsigned)built.item);
         exit(1);
     }
-    (void)maniCopyBuilt(builder, NULL, 0, size);
+    (void)maniBuilder_CopyBuilt(builder, NULL, 0, size);
     void* file = Take(*size);
-    if (maniCopyBuilt(builder, file, *size, NULL) != mani_success)
+    if (maniBuilder_CopyBuilt(builder, file, *size, NULL) != mani_success)
     {
         Stop(what);
     }
@@ -401,7 +401,7 @@ static void BuildTree(Tree* t, const maniMotionDatabase* d, uint32_t leaf)
     }
     for (uint32_t e = 0; e < d->entryCount; ++e)
     {
-        if (maniMotionDatabaseEntry(d, e, &t->entries[e]) != mani_success)
+        if (maniMotionDatabase_GetEntry(d, e, &t->entries[e]) != mani_success)
         {
             Stop("an entry");
         }
@@ -413,7 +413,7 @@ static void BuildTree(Tree* t, const maniMotionDatabase* d, uint32_t leaf)
     for (uint32_t f = 0; f < frames; ++f)
     {
         t->order[f] = f;
-        if (maniMotionDatabaseFeatures(d, f, all + (size_t)f * n, d->featureCount, NULL) !=
+        if (maniMotionDatabase_GetFeatures(d, f, all + (size_t)f * n, d->featureCount, NULL) !=
             mani_success)
         {
             Stop("the features");
@@ -434,7 +434,7 @@ static size_t TreeBytes(const Tree* t)
     return (size_t)t->nodeCount * (2 * (size_t)t->n * 4 + 24) + (size_t)t->frames * 8;
 }
 
-// A search through the tree, as maniSearchMotionDatabase's semantics:
+// A search through the tree, as maniMotionDatabase_Search's semantics:
 // the query checked and normalized, the continuing frame scored first,
 // then the nodes nearest first, pruned by their boxes' bounds.
 typedef struct TreeSearch
@@ -679,7 +679,7 @@ static maniResult SearchTree(const Tree* t, const maniMotionDatabase* d, const m
         if ((e->tags & q->requiredTags) == q->requiredTags && (e->tags & q->excludedTags) == 0)
         {
             float continuing[MANI_MAX_MATCH_FEATURES];
-            (void)maniMotionDatabaseFeatures(d, q->current, continuing, d->featureCount, NULL);
+            (void)maniMotionDatabase_GetFeatures(d, q->current, continuing, d->featureCount, NULL);
             s.bestCost = Cost(&s, continuing, q->continuingBias + e->costBias);
             s.best = q->current;
             s.continuing = true;
@@ -804,7 +804,7 @@ static Measure Run(int method, const Tree* t, const maniMotionDatabase* d,
         double start = Seconds();
         for (uint32_t i = 0; i < QUERIES; ++i)
         {
-            maniResult r = method == 0 ? maniSearchMotionDatabase(d, &queries[i], &s_results[0][i])
+            maniResult r = method == 0 ? maniMotionDatabase_Search(d, &queries[i], &s_results[0][i])
                                        : SearchTree(t, d, &queries[i], &s_results[1][i]);
             if (r != mani_success)
             {
@@ -835,14 +835,15 @@ static void MakeQueries(const maniMotionDatabase* d, uint32_t shape, float* feat
     float* offsets = malloc(n * sizeof(float));
     float* scales = malloc(n * sizeof(float));
     if (path == NULL || other == NULL || offsets == NULL || scales == NULL ||
-        maniMotionDatabaseNormalization(d, offsets, scales, d->featureCount, NULL) != mani_success)
+        maniMotionDatabase_GetNormalization(d, offsets, scales, d->featureCount, NULL) !=
+            mani_success)
     {
         Stop("the queries");
     }
     for (uint32_t c = 0; c < d->channelCount; ++c)
     {
         maniMatchChannel ch;
-        if (maniMotionDatabaseChannel(d, c, &ch) != mani_success)
+        if (maniMotionDatabase_GetChannel(d, c, &ch) != mani_success)
         {
             Stop("a channel");
         }
@@ -859,9 +860,9 @@ static void MakeQueries(const maniMotionDatabase* d, uint32_t shape, float* feat
         uint32_t f = (uint32_t)(Uniform() * (double)d->frameCount);
         uint32_t g = (uint32_t)(Uniform() * (double)d->frameCount);
         float* q = features + (size_t)i * n;
-        if (maniMotionDatabaseFeatures(d, shape == 2 ? g : f, q, d->featureCount, NULL) !=
+        if (maniMotionDatabase_GetFeatures(d, shape == 2 ? g : f, q, d->featureCount, NULL) !=
                 mani_success ||
-            maniMotionDatabaseFeatures(d, g, other, d->featureCount, NULL) != mani_success)
+            maniMotionDatabase_GetFeatures(d, g, other, d->featureCount, NULL) != mani_success)
         {
             Stop("the features");
         }

@@ -30,19 +30,19 @@ static const uint8_t* Record(const maniGraph* graph, uint32_t node)
     return graph->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE;
 }
 
-maniGraphNodeKind maniGraphNodeKindOf(const maniGraph* graph, uint32_t node)
+maniGraphNodeKind maniGraph_GetNodeKind(const maniGraph* graph, uint32_t node)
 {
     return graph != NULL && node < graph->nodeCount ? maniLoadU16(Record(graph, node)) : 0u;
 }
 
-uint32_t maniGraphNodeInputCount(const maniGraph* graph, uint32_t node)
+uint32_t maniGraph_GetNodeInputCount(const maniGraph* graph, uint32_t node)
 {
     return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 8) : 0u;
 }
 
-uint32_t maniGraphNodeInput(const maniGraph* graph, uint32_t node, uint32_t input)
+uint32_t maniGraph_GetNodeInput(const maniGraph* graph, uint32_t node, uint32_t input)
 {
-    if (input >= maniGraphNodeInputCount(graph, node))
+    if (input >= maniGraph_GetNodeInputCount(graph, node))
     {
         return MANI_GRAPH_NONE;
     }
@@ -50,12 +50,12 @@ uint32_t maniGraphNodeInput(const maniGraph* graph, uint32_t node, uint32_t inpu
     return maniLoadU32(graph->inputs + 4 * ((size_t)first + input));
 }
 
-uint32_t maniGraphOutputNode(const maniGraph* graph)
+uint32_t maniGraph_GetOutputNode(const maniGraph* graph)
 {
     return graph != NULL && graph->nodeCount > 0 ? graph->nodeCount - 1 : MANI_GRAPH_NONE;
 }
 
-uint32_t maniGraphNodeSourcePlace(const maniGraph* graph, uint32_t node)
+uint32_t maniGraph_GetNodeSourcePlace(const maniGraph* graph, uint32_t node)
 {
     return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 24)
                                                     : MANI_GRAPH_NONE;
@@ -162,8 +162,8 @@ static MANI_NOINLINE maniResult InspectGraphNodeWork(const maniGraphInstance* in
     return mani_success;
 }
 
-maniResult maniInspectGraphNode(const maniGraphInstance* instance, uint32_t node,
-                                maniGraphNodeView* out)
+maniResult maniGraphInstance_InspectNode(const maniGraphInstance* instance, uint32_t node,
+                                         maniGraphNodeView* out)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = InspectGraphNodeWork(instance, node, out);

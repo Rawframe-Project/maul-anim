@@ -78,7 +78,7 @@ static bool TagsKnown(const maniGraphSource* source, const maniGraphLearnedNodeS
     {
         uint32_t required = 0;
         uint32_t excluded = 0;
-        (void)maniLearnedModelProjector(m, p, &required, &excluded);
+        (void)maniLearnedModel_GetProjector(m, p, &required, &excluded);
         if (required == l->requiredTags.value && excluded == l->excludedTags.value)
         {
             return true;

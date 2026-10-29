@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The full-body IK nodes over the hips, spine and arm: an
-// XPBD node's output is its input solved as maniSolveBodyXpbd solves it,
-// an SDLS node's as maniSolveBodySdls, bit for bit, the effectors' goals
+// XPBD node's output is its input solved as maniPose_SolveBodyXpbd solves it,
+// an SDLS node's as maniPose_SolveBodySdls, bit for bit, the effectors' goals
 // and rotation read from parameters, weights clamped (0 passing the
 // input); settings carried; both inside a subgraph through its mapping;
 // the room the instance keeps holding the node's need; the word count
@@ -108,7 +108,7 @@ static maniGraphNodeSource BodyNode(maniGraphNodeKind kind, const uint32_t* inpu
 
 static void Evaluate(maniGraphInstance* instance)
 {
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
           "evaluated");
 }
 
@@ -117,8 +117,8 @@ static bool Matches(bool walk)
     bool same = true;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniTransform x = maniPoseLocal(s_out, b);
-        maniTransform y = walk ? s_walk[b] : maniPoseLocal(s_pose, b);
+        maniTransform x = maniPose_GetLocal(s_out, b);
+        maniTransform y = walk ? s_walk[b] : maniPose_GetLocal(s_pose, b);
         same = same && memcmp(&x, &y, sizeof x) == 0;
     }
     return same;
@@ -133,7 +133,7 @@ static void Walk(void)
     Evaluate(instance);
     for (uint32_t b = 0; b < 3; ++b)
     {
-        s_walk[b] = maniPoseLocal(s_out, b);
+        s_walk[b] = maniPose_GetLocal(s_out, b);
     }
 }
 
@@ -162,7 +162,7 @@ static void Reference(bool sdls, const maniGraphBodyNodeSource* n, float b, floa
 {
     for (uint32_t k = 0; k < 3 && !again; ++k)
     {
-        maniPoseSetLocal(s_pose, k, s_walk[k]);
+        maniPose_SetLocal(s_pose, k, s_walk[k]);
     }
     maniBodyEffector effectors[MANI_MAX_BODY_IK_EFFECTORS];
     for (uint32_t e = 0; e < n->effectorCount; ++e)
@@ -189,10 +189,10 @@ static void Reference(bool sdls, const maniGraphBodyNodeSource* n, float b, floa
                        .tolerance = n->tolerance,
                        .weight =
                            n->weight.parameter != MANI_NO_PARAMETER ? weight : n->weight.value};
-    maniResult r =
-        sdls
-            ? maniSolveBodySdls(s_pose, &s_skeleton, &s, s_bodyScratch, sizeof s_bodyScratch, NULL)
-            : maniSolveBodyXpbd(s_pose, &s_skeleton, &s, s_bodyScratch, sizeof s_bodyScratch, NULL);
+    maniResult r = sdls ? maniPose_SolveBodySdls(s_pose, &s_skeleton, &s, s_bodyScratch,
+                                                 sizeof s_bodyScratch, NULL)
+                        : maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &s, s_bodyScratch,
+                                                 sizeof s_bodyScratch, NULL);
     CHECK(r == mani_success, "the reference");
 }
 
@@ -484,7 +484,7 @@ static size_t Built1(maniGraphNodeSource node, size_t* sizeOut, size_t* recordOu
     maniBuilder* builder = NewBuilder();
     maniGraph g;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, sizeOut) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, sizeOut) == mani_success &&
               maniOpenGraph(s_file, *sizeOut, &g).result == mani_success,
           "a graph of a body node");
     maniDestroyBuilder(builder);
@@ -673,14 +673,14 @@ static void TestJson(void)
     size_t length = 0;
     size_t read = 0;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success,
           "built and written");
     s_text[length < sizeof s_text ? length : sizeof s_text - 1] = '\0';
     maniGraphNamedAssets assets = {&s_skeleton, kSlots, NULL, NULL, NULL, CLIPS, 0, 0, 0, NULL};
     CHECK(maniBuildGraphJson(builder, s_text, length, &assets).result == mani_success &&
-              maniCopyBuilt(builder, s_read, sizeof s_read, &read) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_read, sizeof s_read, &read) == mani_success &&
               read == size && memcmp(s_read, s_file, size) == 0,
           "read back to the same file");
     CHECK(strstr(s_text, "\"bones\": [") != NULL && strstr(s_text, "\"topMode\": \"free\"") != NULL,
@@ -734,9 +734,9 @@ static bool Seed(const char* graphPath, const char* textPath)
     size_t length = 0;
     maniBuilder* builder = NewBuilder();
     bool ok = maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
               WriteFile(graphPath, s_file, size) && WriteFile(textPath, s_text, length);
     maniDestroyBuilder(builder);
     return ok;

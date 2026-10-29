@@ -29,7 +29,7 @@ static void Records(const maniLearnedModel* m)
     for (uint32_t c = 0; c < m->channelCount; ++c)
     {
         maniMatchChannel ch;
-        if (maniLearnedModelChannel(m, c, &ch) != 0 ||
+        if (maniLearnedModel_GetChannel(m, c, &ch) != 0 ||
             ch.firstFeature + ch.featureCount > m->featureCount)
         {
             abort();
@@ -37,7 +37,7 @@ static void Records(const maniLearnedModel* m)
     }
     for (uint32_t p = 0; p < m->projectorCount; ++p)
     {
-        if (maniLearnedModelProjector(m, p, NULL, NULL) != 0)
+        if (maniLearnedModel_GetProjector(m, p, NULL, NULL) != 0)
         {
             abort();
         }
@@ -46,8 +46,8 @@ static void Records(const maniLearnedModel* m)
     {
         size_t length = 0;
         const char* name = k < m->floatTrackCount
-                               ? maniLearnedModelFloatTrackName(m, k, &length)
-                               : maniLearnedModelEventName(m, k - m->floatTrackCount, &length);
+                               ? maniLearnedModel_GetFloatTrackName(m, k, &length)
+                               : maniLearnedModel_GetEventName(m, k - m->floatTrackCount, &length);
         if (name == NULL || length == 0)
         {
             abort();
@@ -70,7 +70,7 @@ static void Evaluate(const maniLearnedModel* m)
     {
         return;
     }
-    size_t scratchSize = maniLearnedScratchSize(m);
+    size_t scratchSize = maniLearnedModel_GetScratchSize(m);
     size_t stateSize = sizeof(float) * ((size_t)m->featureCount + m->latentCount);
     float* scratch = malloc(scratchSize);
     float* state = calloc(1, stateSize);
@@ -80,10 +80,10 @@ static void Evaluate(const maniLearnedModel* m)
         maniLearnedOutput out = {NULL, NULL, 0, NULL, 0, {0, 0, 0}, {0, 0, 0}};
         // A model's values may overflow to infinities: refusals then are
         // answers, not faults.
-        (void)maniLearnedProject(m, 0, query, state, (m->featureCount + m->latentCount), NULL,
-                                 scratch, scratchSize);
-        (void)maniLearnedStep(m, state, scratch, scratchSize);
-        (void)maniLearnedDecompress(m, state, &out, scratch, scratchSize);
+        (void)maniLearnedModel_Project(m, 0, query, state, (m->featureCount + m->latentCount), NULL,
+                                       scratch, scratchSize);
+        (void)maniLearnedModel_Step(m, state, scratch, scratchSize);
+        (void)maniLearnedModel_Decompress(m, state, &out, scratch, scratchSize);
     }
     free(scratch);
     free(state);

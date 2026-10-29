@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The IK nodes: a two-bone node's output is its input solved
-// as maniSolveTwoBone solves it, its goal and pole read from vec3
+// as maniPose_SolveTwoBone solves it, its goal and pole read from vec3
 // parameters, its twist, soften and weight numbers or float parameters
 // (soften and weight clamped to [0, 1], a weight of 0 passing the
-// input); an aim node's as maniSolveAim's, its shares equal when left
+// input); an aim node's as maniPose_SolveAim's, its shares equal when left
 // out, its cone clamped to [0, pi]; both inside a subgraph through its
 // parameter mapping; refused at build (differences, inputs, bones,
 // parameters, numbers) and at open at the first wrong word; a crafted
@@ -92,7 +92,7 @@ static const maniGraphAimNodeSource kLook = {kChain,
 
 static void Evaluate(maniGraphInstance* instance)
 {
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) == mani_success,
           "evaluated");
 }
 
@@ -108,7 +108,8 @@ static bool Matches(bool walk)
     bool same = true;
     for (uint32_t b = 0; b < 3; ++b)
     {
-        same = same && Same(maniPoseLocal(s_out, b), walk ? s_walk[b] : maniPoseLocal(s_pose, b));
+        same = same &&
+               Same(maniPose_GetLocal(s_out, b), walk ? s_walk[b] : maniPose_GetLocal(s_pose, b));
     }
     return same;
 }
@@ -123,7 +124,7 @@ static void Walk(void)
     Evaluate(instance);
     for (uint32_t b = 0; b < 3; ++b)
     {
-        s_walk[b] = maniPoseLocal(s_out, b);
+        s_walk[b] = maniPose_GetLocal(s_out, b);
     }
 }
 
@@ -131,7 +132,7 @@ static void Rest(void)
 {
     for (uint32_t b = 0; b < 3; ++b)
     {
-        maniPoseSetLocal(s_pose, b, s_walk[b]);
+        maniPose_SetLocal(s_pose, b, s_walk[b]);
     }
 }
 
@@ -142,7 +143,7 @@ static void TwoBone(maniVec3 pole, float twist, float soften, float weight)
     Rest();
     maniTwoBoneSolve s = {0,     1,      2,     {0.6f, 1.2f, 0.3f}, pole, {0.0f, 0.0f, 0.0f},
                           twist, soften, weight};
-    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
+    CHECK(maniPose_SolveTwoBone(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
 }
 
 static void Aim(const float* shares, float cone, float weight)
@@ -159,7 +160,7 @@ static void Aim(const float* shares, float cone, float weight)
                       0.1f,
                       cone,
                       weight};
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, NULL) == mani_success, "the reference");
 }
 
 // The knee's node: the solve of its input; a weight of 0 the walk, 0.5
@@ -177,7 +178,7 @@ static void TestTwoBone(void)
     Evaluate(instance);
     TwoBone(kPole, 0.25f, 0.8f, 1.0f);
     CHECK(Matches(false) && !Matches(true), "the walk solved");
-    CHECK(!maniPoseIsDifference(s_out), "a pose");
+    CHECK(!maniPose_IsDifference(s_out), "a pose");
     Set(instance, 3, maniGraphParameterFloat, Float(0.0f));
     Evaluate(instance);
     CHECK(Matches(true), "weight 0: the walk");
@@ -208,7 +209,7 @@ static void TestTwoBone(void)
     Evaluate(instance);
     Rest();
     maniTwoBoneSolve h = {0, 1, 2, {0.6f, 1.2f, 0.3f}, kPole, hinged.hinge, 0.25f, 0.8f, 1.0f};
-    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &h, NULL) == mani_success, "the reference");
+    CHECK(maniPose_SolveTwoBone(s_pose, &s_skeleton, &h, NULL) == mani_success, "the reference");
     bool matched = Matches(false);
     TwoBone(kPole, 0.25f, 0.8f, 1.0f);
     CHECK(matched && !Matches(false), "a hinge, unlike none");
@@ -301,8 +302,8 @@ static void TestSubgraph(void)
                       0.1f,
                       0.0f,
                       0.5f};
-    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &s, NULL) == mani_success &&
-              maniSolveAim(s_pose, &s_skeleton, &a, NULL) == mani_success,
+    CHECK(maniPose_SolveTwoBone(s_pose, &s_skeleton, &s, NULL) == mani_success &&
+              maniPose_SolveAim(s_pose, &s_skeleton, &a, NULL) == mani_success,
           "the reference");
     CHECK(Matches(false), "the outer goal and weight through the mapping");
 }
@@ -520,7 +521,7 @@ static size_t Built1(maniGraphNodeSource node, size_t* sizeOut)
     maniBuilder* builder = NewBuilder();
     maniGraph g;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, sizeOut) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, sizeOut) == mani_success &&
               maniOpenGraph(s_file, *sizeOut, &g).result == mani_success,
           "a graph of an IK node");
     maniDestroyBuilder(builder);
@@ -689,9 +690,9 @@ static bool Seed(const char* graphPath, const char* textPath)
     size_t length = 0;
     maniBuilder* builder = NewBuilder();
     bool ok = maniBuildGraph(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, text, sizeof text, &length) == mani_success &&
+              maniBuilder_CopyBuilt(builder, text, sizeof text, &length) == mani_success &&
               WriteFile(graphPath, s_file, size) && WriteFile(textPath, text, length);
     maniDestroyBuilder(builder);
     return ok;

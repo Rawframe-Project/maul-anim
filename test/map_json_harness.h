@@ -88,7 +88,7 @@ static bool FailOnce(BuildCall call, bool reading, uint32_t failAt, bool* cleanO
     size_t size = 1;
     bool failed = f.calls > f.failAt;
     bool clean = failed ? r.result == mani_errorCapacity &&
-                              maniCopyBuilt(builder, NULL, 0, &size) == mani_errorInvalid
+                              maniBuilder_CopyBuilt(builder, NULL, 0, &size) == mani_errorInvalid
                         : r.result == mani_success;
     maniDestroyBuilder(builder);
     *cleanOut = clean && f.live == 0;
@@ -162,7 +162,7 @@ static void CheckRefusals(ReadText read, const Refusal* cases, size_t count)
 static size_t CopyText(maniBuilder* builder, char* out, size_t capacity)
 {
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, out, capacity, &size) == mani_success, "the text copied");
+    CHECK(maniBuilder_CopyBuilt(builder, out, capacity, &size) == mani_success, "the text copied");
     return size;
 }
 

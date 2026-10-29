@@ -30,11 +30,11 @@ static void Exercise(const uint8_t* bytes, size_t size)
     }
     uint64_t joints = 0;
     uint64_t links = 0;
-    for (uint32_t i = 0; i < maniSpringSetSpringCount(&set); ++i)
+    for (uint32_t i = 0; i < maniSpringSet_GetSpringCount(&set); ++i)
     {
         size_t length = 0;
         const uint8_t* e = set.springs + (size_t)i * MANI_SPRING_SPRING_SIZE;
-        if (maniSpringSetSpringName(&set, i, &length) == NULL || length > set.nameBytes)
+        if (maniSpringSet_GetSpringName(&set, i, &length) == NULL || length > set.nameBytes)
         {
             abort();
         }

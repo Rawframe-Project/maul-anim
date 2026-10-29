@@ -21,5 +21,5 @@ int main(void)
            runs == 1 ? "runs" : "does not run");
     bool named = backend != NULL && strcmp(backend, maniGetSimdBackend()) == 0 &&
                  strcmp(backend, CONSUMER_BACKEND) == 0;
-    return runs == 1 && maniCpuSupportsBackend() == 1 && named ? 0 : 1;
+    return runs == 1 && maniIsCpuBackendSupported() == 1 && named ? 0 : 1;
 }

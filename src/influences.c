@@ -224,25 +224,25 @@ maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences
     return result;
 }
 
-uint32_t maniInfluencesVertexCount(const maniInfluences* influences)
+uint32_t maniInfluences_GetVertexCount(const maniInfluences* influences)
 {
     return influences->vertexCount;
 }
 
-uint32_t maniInfluencesPerVertex(const maniInfluences* influences)
+uint32_t maniInfluences_GetPerVertex(const maniInfluences* influences)
 {
     return influences->groupCount * MANI_INFLUENCE_GROUP;
 }
 
-bool maniInfluencesFitSkin(const maniInfluences* influences, const maniSkin* skin)
+bool maniInfluences_IsSkinFit(const maniInfluences* influences, const maniSkin* skin)
 {
     return influences != NULL && skin != NULL &&
-           influences->skinIdentity == maniSkinIdentity(skin) &&
-           influences->skinJointCount == maniSkinJointCount(skin);
+           influences->skinIdentity == maniSkin_GetIdentity(skin) &&
+           influences->skinJointCount == maniSkin_GetJointCount(skin);
 }
 
-uint32_t maniInfluence(const maniInfluences* influences, uint32_t vertex, uint32_t slot,
-                       float* weightOut)
+uint32_t maniInfluences_GetInfluence(const maniInfluences* influences, uint32_t vertex,
+                                     uint32_t slot, float* weightOut)
 {
     uint32_t per = influences->groupCount * MANI_INFLUENCE_GROUP;
     bool inside = vertex < influences->vertexCount && slot < per;
@@ -254,7 +254,7 @@ uint32_t maniInfluence(const maniInfluences* influences, uint32_t vertex, uint32
     return inside ? maniLoadU16(influences->joints + 2 * k) : 0;
 }
 
-float maniInfluencesDualQuaternionWeight(const maniInfluences* influences, uint32_t vertex)
+float maniInfluences_GetDualQuaternionWeight(const maniInfluences* influences, uint32_t vertex)
 {
     if (influences->dualQuaternionWeights == NULL || vertex >= influences->vertexCount)
     {
@@ -263,7 +263,8 @@ float maniInfluencesDualQuaternionWeight(const maniInfluences* influences, uint3
     return LoadF32(influences->dualQuaternionWeights + 4 * (size_t)vertex);
 }
 
-bool maniInfluencesCenter(const maniInfluences* influences, uint32_t vertex, maniVec3* centerOut)
+bool maniInfluences_GetCenter(const maniInfluences* influences, uint32_t vertex,
+                              maniVec3* centerOut)
 {
     if (influences->centers == NULL || vertex >= influences->vertexCount || centerOut == NULL)
     {

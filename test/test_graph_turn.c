@@ -101,7 +101,8 @@ static maniBuildResult Build(const maniGraphSource* source, Made* m)
     if (r.result == mani_success)
     {
         CHECK(GraphPaddingIgnored(source), "the same graph under either padding");
-        CHECK(maniCopyBuilt(builder, m->file, sizeof m->file, &m->size) == mani_success, "copied");
+        CHECK(maniBuilder_CopyBuilt(builder, m->file, sizeof m->file, &m->size) == mani_success,
+              "copied");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -121,7 +122,7 @@ static bool Instanced(const maniGraphSource* source, Made* m)
                mani_success &&
            maniInitGraphInstance(m->bound, m->instance, sizeof m->instance, &m->live) ==
                mani_success &&
-           maniGraphScratchSize(m->bound) <= sizeof s_scratch;
+           maniGraphBinding_GetScratchSize(m->bound) <= sizeof s_scratch;
 }
 
 static maniPose* PoseAt(int k)
@@ -142,21 +143,21 @@ static maniQuat About(float x, float y, float z, float angle)
 static void Body(Made* m, maniQuat hips, maniQuat spine, float lift)
 {
     maniPose* body = PoseAt(2);
-    CHECK(maniPoseSetRest(body, &s_skeleton) == mani_success, "the rest");
-    maniTransform h = maniPoseLocal(body, 0);
-    maniTransform s = maniPoseLocal(body, 1);
+    CHECK(maniPose_SetRest(body, &s_skeleton) == mani_success, "the rest");
+    maniTransform h = maniPose_GetLocal(body, 0);
+    maniTransform s = maniPose_GetLocal(body, 1);
     h.rotation = hips;
     s.rotation = spine;
     s.translation.y += lift;
-    maniPoseSetLocal(body, 0, h);
-    maniPoseSetLocal(body, 1, s);
-    CHECK(maniSetGraphPose(m->live, 0, body) == mani_success, "the body set");
+    maniPose_SetLocal(body, 0, h);
+    maniPose_SetLocal(body, 1, s);
+    CHECK(maniGraphInstance_SetPose(m->live, 0, body) == mani_success, "the body set");
 }
 
 static bool Evaluated(Made* m, float delta, maniPose* pose)
 {
-    return maniUpdateGraph(m->live, delta, NULL, 0, NULL, NULL) == mani_success &&
-           maniEvaluateGraph(m->live, s_scratch, sizeof s_scratch, pose) == mani_success;
+    return maniGraphInstance_Update(m->live, delta, NULL, 0, NULL, NULL) == mani_success &&
+           maniGraphInstance_Evaluate(m->live, s_scratch, sizeof s_scratch, pose) == mani_success;
 }
 
 static double Angle(maniQuat a, maniQuat b)
@@ -174,14 +175,15 @@ static bool Same(maniQuat a, maniQuat b)
 
 static maniQuat RotationOf(const maniPose* pose, uint32_t bone)
 {
-    return maniPoseLocal(pose, bone).rotation;
+    return maniPose_GetLocal(pose, bone).rotation;
 }
 
 static void Fire(Made* m, uint32_t trigger)
 {
     maniGraphValue on = {{0}};
     on.b = 1;
-    CHECK(maniSetGraphParameter(m->live, trigger, maniGraphParameterTrigger, on) == mani_success,
+    CHECK(maniGraphInstance_SetParameter(m->live, trigger, maniGraphParameterTrigger, on) ==
+              mani_success,
           "fired");
 }
 
@@ -197,7 +199,7 @@ static void TestStep(void)
               Same(RotationOf(out, 1), start),
           "the first evaluation takes its input as it is");
     // A jump of 1.5 radians about x at 1 radian a second over 0.1 s.
-    maniQuat target = maniPoseLocal(out, 0).rotation;
+    maniQuat target = maniPose_GetLocal(out, 0).rotation;
     maniQuat jump = About(1.0f, 0.0f, 0.0f, 1.5f);
     maniQuat goal = {jump.w * target.x + jump.x * target.w + jump.y * target.z - jump.z * target.y,
                      jump.w * target.y - jump.x * target.z + jump.y * target.w + jump.z * target.x,
@@ -209,7 +211,7 @@ static void TestStep(void)
     maniQuat first = RotationOf(out, 0);
     CHECK(fabs(Angle(start, first) - 0.1) < 2e-6 && fabs(Angle(first, goal) - (total - 0.1)) < 2e-6,
           "a jump turned toward by the speed times the seconds, on the arc");
-    CHECK(maniPoseLocal(out, 1).translation.y == 0.75f && Same(RotationOf(out, 1), start),
+    CHECK(maniPose_GetLocal(out, 1).translation.y == 0.75f && Same(RotationOf(out, 1), start),
           "a translation passes, an unchanged rotation is given as it is");
     double turned = 0.1;
     bool steady = true;
@@ -237,9 +239,10 @@ static void TestStep(void)
           "the same rotation negated is no turn, given as it is");
     // Two updates to an evaluation, one backward: 0.04 + 0.06 seconds.
     Body(m, start, start, 0.0f);
-    CHECK(maniUpdateGraph(m->live, 0.04f, NULL, 0, NULL, NULL) == mani_success &&
-              maniUpdateGraph(m->live, -0.06f, NULL, 0, NULL, NULL) == mani_success &&
-              maniEvaluateGraph(m->live, s_scratch, sizeof s_scratch, out) == mani_success &&
+    CHECK(maniGraphInstance_Update(m->live, 0.04f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_Update(m->live, -0.06f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_Evaluate(m->live, s_scratch, sizeof s_scratch, out) ==
+                  mani_success &&
               fabs(Angle(negated, RotationOf(out, 0)) - 0.1) < 2e-6,
           "the times of two updates added, made positive");
     // A speed of 0, then below 0: held.
@@ -271,12 +274,13 @@ static void TestStep(void)
     Set(m->live, 4, maniGraphParameterBool, Int(1));
     maniGraphNodeView view;
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start) &&
-              maniInspectGraphNode(m->live, 1, &view) == mani_success &&
+              maniGraphInstance_InspectNode(m->live, 1, &view) == mani_success &&
               view.kind == maniGraphNodeTurnLimit && view.weight == 0.0f,
           "the raw pose picked, the node of no share");
     Set(m->live, 4, maniGraphParameterBool, Int(0));
     CHECK(Evaluated(m, 0.1f, out) && Same(RotationOf(out, 0), start) &&
-              maniInspectGraphNode(m->live, 1, &view) == mani_success && view.weight == 1.0f,
+              maniGraphInstance_InspectNode(m->live, 1, &view) == mani_success &&
+              view.weight == 1.0f,
           "back from an update that did not reach it: the input as it is");
     // A turn of 0.15 at 1 radian a second over 0.1 s: turned by 0.1, the
     // whole angle against the budget (its half is within it).
@@ -344,12 +348,12 @@ static void TestSubset(void)
     CHECK(Evaluated(m, 0.1f, out), "a frame");
     const uint32_t hips[1] = {0};
     maniGraphSubset* plan = NULL;
-    CHECK(maniGraphSubsetSize(m->bound) <= sizeof s_plan &&
+    CHECK(maniGraphBinding_GetSubsetSize(m->bound) <= sizeof s_plan &&
               maniPlanGraphSubset(m->bound, hips, 1, s_plan, sizeof s_plan, &plan) == mani_success,
           "a plan of the hips");
     Body(m, goal, goal, 0.0f);
-    CHECK(maniUpdateGraph(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
-              maniEvaluateGraphSubset(m->live, plan, s_scratch, sizeof s_scratch, out) ==
+    CHECK(maniGraphInstance_Update(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_EvaluateSubset(m->live, plan, s_scratch, sizeof s_scratch, out) ==
                   mani_success &&
               fabs(Angle(start, RotationOf(out, 0)) - 0.1) < 2e-6,
           "the hips turned under the plan");
@@ -380,14 +384,14 @@ static maniPose* BranchedPose(int k)
 static void BranchedBody(Made* m, maniQuat q)
 {
     maniPose* body = BranchedPose(2);
-    CHECK(maniPoseSetRest(body, &s_branched) == mani_success, "the rest");
+    CHECK(maniPose_SetRest(body, &s_branched) == mani_success, "the rest");
     for (uint32_t b = 0; b < 5; ++b)
     {
-        maniTransform t = maniPoseLocal(body, b);
+        maniTransform t = maniPose_GetLocal(body, b);
         t.rotation = q;
-        maniPoseSetLocal(body, b, t);
+        maniPose_SetLocal(body, b, t);
     }
-    CHECK(maniSetGraphPose(m->live, 0, body) == mani_success, "the body set");
+    CHECK(maniGraphInstance_SetPose(m->live, 0, body) == mani_success, "the body set");
 }
 
 static void TestSubsetBranch(void)
@@ -402,7 +406,7 @@ static void TestSubsetBranch(void)
     maniSkeletonSource skeleton = {kBranched, 5};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &skeleton).result == mani_success &&
-              maniCopyBuilt(builder, s_branchedFile, sizeof s_branchedFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_branchedFile, sizeof s_branchedFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_branchedFile, size, &s_branched).result == mani_success,
           "a branching skeleton");
@@ -419,7 +423,7 @@ static void TestSubsetBranch(void)
                   mani_success &&
               maniInitGraphInstance(m->bound, m->instance, sizeof m->instance, &m->live) ==
                   mani_success &&
-              maniGraphScratchSize(m->bound) <= sizeof s_scratch,
+              maniGraphBinding_GetScratchSize(m->bound) <= sizeof s_scratch,
           "a graph over the branching skeleton");
     maniPose* out = BranchedPose(0);
     maniQuat start = About(0.0f, 1.0f, 0.0f, 0.3f);
@@ -428,30 +432,31 @@ static void TestSubsetBranch(void)
     CHECK(Evaluated(m, 0.1f, out), "a frame");
     const uint32_t foot[1] = {4};
     maniGraphSubset* plan = NULL;
-    CHECK(maniGraphSubsetSize(m->bound) <= sizeof s_plan &&
+    CHECK(maniGraphBinding_GetSubsetSize(m->bound) <= sizeof s_plan &&
               maniPlanGraphSubset(m->bound, foot, 1, s_plan, sizeof s_plan, &plan) == mani_success,
           "a plan of the foot");
     BranchedBody(m, goal);
-    CHECK(maniUpdateGraph(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
-              maniEvaluateGraphSubset(m->live, plan, s_scratch, sizeof s_scratch, out) ==
+    CHECK(maniGraphInstance_Update(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_EvaluateSubset(m->live, plan, s_scratch, sizeof s_scratch, out) ==
                   mani_success,
           "an update evaluated under the plan");
     bool listed = true;
     const uint32_t kListed[3] = {0, 3, 4};
     for (int k = 0; k < 3; ++k)
     {
-        listed = listed && fabs(Angle(start, maniPoseLocal(out, kListed[k]).rotation) - 0.1) < 2e-6;
+        listed =
+            listed && fabs(Angle(start, maniPose_GetLocal(out, kListed[k]).rotation) - 0.1) < 2e-6;
     }
     CHECK(listed, "the hips, the leg and the foot turned by the update's budget");
-    CHECK(Same(maniPoseLocal(out, 1).rotation, start) &&
-              Same(maniPoseLocal(out, 2).rotation, start),
+    CHECK(Same(maniPose_GetLocal(out, 1).rotation, start) &&
+              Same(maniPose_GetLocal(out, 2).rotation, start),
           "the spine and the arm, skipped, as they were");
     CHECK(Evaluated(m, 0.1f, out), "a whole evaluation");
     bool whole = true;
     for (uint32_t b = 0; b < 5; ++b)
     {
         double want = b == 1 || b == 2 ? 0.1 : 0.2;
-        whole = whole && fabs(Angle(start, maniPoseLocal(out, b).rotation) - want) < 4e-6;
+        whole = whole && fabs(Angle(start, maniPose_GetLocal(out, b).rotation) - want) < 4e-6;
     }
     CHECK(whole, "the skipped bones turn from what they last had by this update's budget");
 }
@@ -470,8 +475,8 @@ static void TestSaved(void)
     }
     size_t size = SavedGraphSize(s_made[0].live);
     CHECK(size <= sizeof s_saved[0] &&
-              maniSaveGraphInstance(s_made[0].live, s_saved[0], size, NULL) == mani_success &&
-              maniRestoreGraphInstance(s_made[1].live, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Save(s_made[0].live, s_saved[0], size, NULL) == mani_success &&
+              maniGraphInstance_Restore(s_made[1].live, s_saved[0], size).result == mani_success,
           "saved and restored");
     bool same = true;
     for (uint32_t i = 6; i < 12; ++i)
@@ -504,7 +509,7 @@ static void TestSaved(void)
                 maniStoreU32(s_saved[1] + at[k] + 4 * (uint64_t)c, 0x3FB504F3u);
             }
         }
-        maniFileResult r = maniRestoreGraphInstance(s_made[1].live, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(s_made[1].live, s_saved[1], size);
         CHECK(r.result == mani_errorFormat && r.offset == (k == 0 ? block : at[k]),
               "a turn block checked");
     }
@@ -513,7 +518,7 @@ static void TestSaved(void)
     {
         maniStoreU32(s_saved[1] + block + 8 + 4 * (uint64_t)c, 0);
     }
-    CHECK(maniRestoreGraphInstance(s_made[1].live, s_saved[1], size).result == mani_success,
+    CHECK(maniGraphInstance_Restore(s_made[1].live, s_saved[1], size).result == mani_success,
           "a bone held nothing for: all zero");
 }
 
@@ -598,7 +603,7 @@ static void TestJson(void)
     size_t size = 0;
     maniBuilder* builder = NewBuilder();
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "{\"kind\": \"turnLimit\", \"inputs\": [0], \"speed\": {\"parameter\": "
@@ -608,14 +613,14 @@ static void TestJson(void)
     maniGraphNamedAssets assets = {.skeleton = &s_skeleton, .clips = kSlots, .clipCount = CLIPS};
     maniGraph read;
     CHECK(maniBuildGraphJson(builder, s_text, size, &assets).result == mani_success &&
-              maniCopyBuilt(builder, s_made[1].file, sizeof s_made[1].file, &size) ==
+              maniBuilder_CopyBuilt(builder, s_made[1].file, sizeof s_made[1].file, &size) ==
                   mani_success &&
               maniOpenGraph(s_made[1].file, size, &read).result == mani_success &&
               read.identity == g.identity,
           "read back to the same graph");
     source = TurnGraph((maniGraphTurnLimitNodeSource){LITERAL(2.5f), MANI_NO_PARAMETER, NULL});
     CHECK(maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
           "written");
     s_text[size] = 0;
     CHECK(strstr(s_text, "\"inputs\": [0], \"speed\": 2.5}") != NULL &&
@@ -695,7 +700,7 @@ static bool Seed(const char* graphPath, const char* textPath)
     maniBuilder* builder = NewBuilder();
     bool ok = Build(&source, &s_made[0]).result == mani_success &&
               maniWriteGraphJson(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &length) == mani_success &&
               WriteFile(graphPath, s_made[0].file, s_made[0].size) &&
               WriteFile(textPath, s_text, length);
     maniDestroyBuilder(builder);

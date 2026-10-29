@@ -36,7 +36,7 @@ typedef struct CheckpointHost
 
 static inline bool HostCopied(maniBuilder* builder, uint8_t* out, size_t capacity, size_t* size)
 {
-    return maniCopyBuilt(builder, out, capacity, size) == mani_success;
+    return maniBuilder_CopyBuilt(builder, out, capacity, size) == mani_success;
 }
 
 static inline bool HostAssets(CheckpointHost* h, maniBuilder* builder)
@@ -95,12 +95,13 @@ static inline maniLearnedTrainer* MakeCheckpointHost(CheckpointHost* h)
                : NULL;
 }
 
-// The bytes maniSaveLearnedCheckpoint writes for the trainer as it is
+// The bytes maniLearnedTrainer_SaveCheckpoint writes for the trainer as it is
 // now, measured with no buffer; 0 when the measure fails.
 static inline size_t CheckpointSize(const maniLearnedTrainer* trainer)
 {
     size_t size = 0;
-    return maniSaveLearnedCheckpoint(trainer, NULL, 0, &size) == mani_errorCapacity ? size : 0;
+    return maniLearnedTrainer_SaveCheckpoint(trainer, NULL, 0, &size) == mani_errorCapacity ? size
+                                                                                            : 0;
 }
 
 #endif // MAUL_ANIM_TEST_CHECKPOINT_HOST_H

@@ -89,10 +89,10 @@ static void TestRig(void)
         maniDestroyBuilder(builder);
         return;
     }
-    CHECK(maniFbxSkinCount(fbx) == 3 && maniFbxSkeletonCount(fbx) == 2,
+    CHECK(maniFbx_GetSkinCount(fbx) == 3 && maniFbx_GetSkeletonCount(fbx) == 2,
           "three skins, two skeletons");
-    CHECK(maniFbxSkinSkeleton(fbx, 0) == 0 && maniFbxSkinSkeleton(fbx, 1) == UINT32_MAX &&
-              maniFbxSkinSkeleton(fbx, 2) == 1 && maniFbxSkinSkeleton(fbx, 3) == UINT32_MAX,
+    CHECK(maniFbx_GetSkinSkeleton(fbx, 0) == 0 && maniFbx_GetSkinSkeleton(fbx, 1) == UINT32_MAX &&
+              maniFbx_GetSkinSkeleton(fbx, 2) == 1 && maniFbx_GetSkinSkeleton(fbx, 3) == UINT32_MAX,
           "each skin's skeleton");
     // Units: skin 0 (root Armature), skin 2 (root Trigger), the chains
     // at Hips and at Tail.
@@ -109,8 +109,8 @@ static void TestRig(void)
     CHECK(MarkedAre(fbx, 1, "000000010"), "skeleton 1's: one rigid model");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
-    CHECK(maniFbxSkeletonCount(NULL) == 0 && maniFbxSkinCount(NULL) == 0 &&
-              maniFbxSkinSkeleton(NULL, 0) == UINT32_MAX,
+    CHECK(maniFbx_GetSkeletonCount(NULL) == 0 && maniFbx_GetSkinCount(NULL) == 0 &&
+              maniFbx_GetSkinSkeleton(NULL, 0) == UINT32_MAX,
           "NULL documents");
 }
 
@@ -132,7 +132,7 @@ static void TestChains(void)
     CHECK(maniOpenFbx(builder, kChains, strlen(kChains), &fbx).result == mani_success, "opens");
     if (fbx != NULL)
     {
-        CHECK(maniFbxSkeletonCount(fbx) == 2 && fbx->skeletonRoots[0] == 0 &&
+        CHECK(maniFbx_GetSkeletonCount(fbx) == 2 && fbx->skeletonRoots[0] == 0 &&
                   fbx->skeletonRoots[1] == 3,
               "two chains");
         CHECK(MarkedAre(fbx, 0, "1110") && MarkedAre(fbx, 1, "0001"),
@@ -165,8 +165,8 @@ static void TestSix(void)
     CHECK(maniOpenFbx(builder, kSix, strlen(kSix), &fbx).result == mani_success, "opens");
     if (fbx != NULL)
     {
-        CHECK(maniFbxSkinCount(fbx) == 1 && maniFbxSkeletonCount(fbx) == 1 &&
-                  maniFbxSkinSkeleton(fbx, 0) == 0 && fbx->skeletonRoots[0] == 0 &&
+        CHECK(maniFbx_GetSkinCount(fbx) == 1 && maniFbx_GetSkeletonCount(fbx) == 1 &&
+                  maniFbx_GetSkinSkeleton(fbx, 0) == 0 && fbx->skeletonRoots[0] == 0 &&
                   MarkedAre(fbx, 0, "110"),
               "6.x skins and limbs by name");
         maniCloseFbx(fbx);

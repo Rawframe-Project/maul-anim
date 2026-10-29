@@ -68,7 +68,7 @@ static void SampleFull(BenchScenes* s, uint32_t n)
 {
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniSampleClip(&s->full[i % BENCH_CLIPS], &s->skeleton, RandomTime(i), s->pose),
+        Must(maniClip_Sample(&s->full[i % BENCH_CLIPS], &s->skeleton, RandomTime(i), s->pose),
              "a full sample");
     }
 }
@@ -77,7 +77,7 @@ static void SampleCompressed(BenchScenes* s, uint32_t n)
 {
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniSampleClip(&s->compressed[i % BENCH_CLIPS], &s->skeleton, RandomTime(i), s->pose),
+        Must(maniClip_Sample(&s->compressed[i % BENCH_CLIPS], &s->skeleton, RandomTime(i), s->pose),
              "a compressed sample");
     }
 }
@@ -89,7 +89,7 @@ static void SampleCursor(BenchScenes* s, uint32_t n)
     for (uint32_t i = 0; i < n; ++i)
     {
         float t = (float)(i % 600u) * STEP;
-        Must(maniSampleClipCursor(s->cursor, &s->compressed[2], &s->skeleton, t, s->pose),
+        Must(maniClipCursor_Sample(s->cursor, &s->compressed[2], &s->skeleton, t, s->pose),
              "a cursor sample");
     }
 }
@@ -107,7 +107,7 @@ static void Model(BenchScenes* s, uint32_t n)
 {
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniComputeModel(s->pose, &s->skeleton), "a model pass");
+        Must(maniPose_ComputeModel(s->pose, &s->skeleton), "a model pass");
     }
 }
 
@@ -118,7 +118,8 @@ static void GraphUpdate(BenchScenes* s, uint32_t n)
     maniRootMove move;
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniUpdateGraph(s->instance, STEP, events, 8, &count, &move), "a graph update");
+        Must(maniGraphInstance_Update(s->instance, STEP, events, 8, &count, &move),
+             "a graph update");
     }
 }
 
@@ -126,7 +127,7 @@ static void GraphEvaluate(BenchScenes* s, uint32_t n)
 {
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniEvaluateGraph(s->instance, s->scratch, s->scratchSize, s->pose),
+        Must(maniGraphInstance_Evaluate(s->instance, s->scratch, s->scratchSize, s->pose),
              "a graph evaluation");
     }
 }
@@ -139,8 +140,9 @@ static void GraphFrame(BenchScenes* s, uint32_t n)
     maniRootMove move;
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniUpdateGraph(s->instance, STEP, events, 8, &count, &move), "a graph update");
-        Must(maniEvaluateGraph(s->instance, s->scratch, s->scratchSize, s->pose),
+        Must(maniGraphInstance_Update(s->instance, STEP, events, 8, &count, &move),
+             "a graph update");
+        Must(maniGraphInstance_Evaluate(s->instance, s->scratch, s->scratchSize, s->pose),
              "a graph evaluation");
     }
 }
@@ -158,9 +160,9 @@ static void GraphByHand(BenchScenes* s, uint32_t n)
         maniRootMove moves[2];
         for (uint32_t c = 0; c < 2; ++c)
         {
-            Must(maniClipRootMotion(&s->compressed[c], s->handTime, STEP, &moves[c]), "a move");
-            Must(maniSampleClipCursor(s->handCursors[c], &s->compressed[c], &s->skeleton,
-                                      s->handTime + STEP, s->handLayers[c]),
+            Must(maniClip_GetRootMotion(&s->compressed[c], s->handTime, STEP, &moves[c]), "a move");
+            Must(maniClipCursor_Sample(s->handCursors[c], &s->compressed[c], &s->skeleton,
+                                       s->handTime + STEP, s->handLayers[c]),
                  "a sample");
         }
         maniRootMove move;
@@ -177,7 +179,7 @@ static void MatchSearch(BenchScenes* s, uint32_t n)
     maniMatchResult result;
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniSearchMotionDatabase(&s->database, &s->queries[i % BENCH_QUERIES], &result),
+        Must(maniMotionDatabase_Search(&s->database, &s->queries[i % BENCH_QUERIES], &result),
              "a search");
     }
 }
@@ -189,8 +191,8 @@ static void Springs(BenchScenes* s, uint32_t n)
     for (uint32_t i = 0; i < n; ++i)
     {
         BenchRestore(s);
-        Must(maniStepSprings(s->springs, s->pose, NULL, NULL, STEP), "a spring step");
-        Must(maniApplySprings(s->springs, s->pose), "a spring apply");
+        Must(maniSpringState_Step(s->springs, s->pose, NULL, NULL, STEP), "a spring step");
+        Must(maniSpringState_Apply(s->springs, s->pose), "a spring apply");
     }
 }
 
@@ -200,7 +202,7 @@ static void TwoBone(BenchScenes* s, uint32_t n)
     for (uint32_t i = 0; i < n; ++i)
     {
         BenchRestore(s);
-        Must(maniSolveTwoBone(s->pose, &s->skeleton, &s->leg, NULL), "a two-bone solve");
+        Must(maniPose_SolveTwoBone(s->pose, &s->skeleton, &s->leg, NULL), "a two-bone solve");
     }
 }
 
@@ -209,7 +211,7 @@ static void Aim(BenchScenes* s, uint32_t n)
     for (uint32_t i = 0; i < n; ++i)
     {
         BenchRestore(s);
-        Must(maniSolveAim(s->pose, &s->skeleton, &s->look, NULL), "an aim");
+        Must(maniPose_SolveAim(s->pose, &s->skeleton, &s->look, NULL), "an aim");
     }
 }
 
@@ -218,7 +220,7 @@ static void Ccd(BenchScenes* s, uint32_t n)
     for (uint32_t i = 0; i < n; ++i)
     {
         BenchRestore(s);
-        Must(maniSolveCcd(s->pose, &s->skeleton, &s->tail, NULL), "a CCD solve");
+        Must(maniPose_SolveCcd(s->pose, &s->skeleton, &s->tail, NULL), "a CCD solve");
     }
 }
 
@@ -227,7 +229,7 @@ static void Fabrik(BenchScenes* s, uint32_t n)
     for (uint32_t i = 0; i < n; ++i)
     {
         BenchRestore(s);
-        Must(maniSolveFabrik(s->pose, &s->skeleton, &s->tail, NULL), "a FABRIK solve");
+        Must(maniPose_SolveFabrik(s->pose, &s->skeleton, &s->tail, NULL), "a FABRIK solve");
     }
 }
 
@@ -235,9 +237,9 @@ static void Palette(BenchScenes* s, uint32_t n)
 {
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(
-            maniComputePalette(s->layers[0], &s->skeleton, &s->skin, s->palette, BENCH_BONES, NULL),
-            "a palette");
+        Must(maniPose_ComputePalette(s->layers[0], &s->skeleton, &s->skin, s->palette, BENCH_BONES,
+                                     NULL),
+             "a palette");
     }
 }
 
@@ -280,8 +282,9 @@ static void Morph(BenchScenes* s, uint32_t n)
     const maniMorphJob job = {&s->morphs, s->targetWeights, 0, BENCH_VERTICES, 2, streams};
     for (uint32_t i = 0; i < n; ++i)
     {
-        Must(maniMorphTargetWeights(&s->morphs, s->channelWeights, s->targetWeights,
-                                    maniMorphTargetCount(&s->morphs), NULL),
+        Must(maniMorphTargets_ComputeTargetWeights(&s->morphs, s->channelWeights, s->targetWeights,
+                                                   maniMorphTargets_GetTargetCount(&s->morphs),
+                                                   NULL),
              "the target weights");
         Must(maniApplyMorphTargets(&job), "a morph");
     }

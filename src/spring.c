@@ -393,22 +393,23 @@ maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* 
     return result;
 }
 
-uint64_t maniSpringSetIdentity(const maniSpringSet* set)
+uint64_t maniSpringSet_GetIdentity(const maniSpringSet* set)
 {
     return set != NULL ? set->identity : 0;
 }
 
-uint64_t maniSpringSetSkeletonIdentity(const maniSpringSet* set)
+uint64_t maniSpringSet_GetSkeletonIdentity(const maniSpringSet* set)
 {
     return set != NULL ? set->skeletonIdentity : 0;
 }
 
-uint32_t maniSpringSetSpringCount(const maniSpringSet* set)
+uint32_t maniSpringSet_GetSpringCount(const maniSpringSet* set)
 {
     return set != NULL ? set->springCount : 0;
 }
 
-const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring, size_t* lengthOut)
+const char* maniSpringSet_GetSpringName(const maniSpringSet* set, uint32_t spring,
+                                        size_t* lengthOut)
 {
     bool valid = set != NULL && spring < set->springCount;
     const uint8_t* e = valid ? set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE : NULL;
@@ -419,7 +420,7 @@ const char* maniSpringSetSpringName(const maniSpringSet* set, uint32_t spring, s
     return valid ? (const char*)(set->names + maniLoadU32(e + 20)) : NULL;
 }
 
-float maniSpringSetStepRate(const maniSpringSet* set, float* referenceRateOut)
+float maniSpringSet_GetStepRate(const maniSpringSet* set, float* referenceRateOut)
 {
     if (referenceRateOut != NULL)
     {

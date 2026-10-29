@@ -420,28 +420,28 @@ maniFileResult maniOpenMorphTargets(const void* bytes, size_t size, maniMorphTar
     return result;
 }
 
-uint32_t maniMorphVertexCount(const maniMorphTargets* targets)
+uint32_t maniMorphTargets_GetVertexCount(const maniMorphTargets* targets)
 {
     return targets->vertexCount;
 }
 
-uint32_t maniMorphChannelCount(const maniMorphTargets* targets)
+uint32_t maniMorphTargets_GetChannelCount(const maniMorphTargets* targets)
 {
     return targets->channelCount;
 }
 
-uint32_t maniMorphTargetCount(const maniMorphTargets* targets)
+uint32_t maniMorphTargets_GetTargetCount(const maniMorphTargets* targets)
 {
     return targets->targetCount;
 }
 
-uint32_t maniMorphAttributeCount(const maniMorphTargets* targets)
+uint32_t maniMorphTargets_GetAttributeCount(const maniMorphTargets* targets)
 {
     return targets->attributeCount;
 }
 
-maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets, uint32_t attribute,
-                                     uint32_t* setOut)
+maniMorphSemantic maniMorphTargets_GetAttribute(const maniMorphTargets* targets, uint32_t attribute,
+                                                uint32_t* setOut)
 {
     bool inside = attribute < targets->attributeCount;
     const uint8_t* e = targets->attributes + (size_t)attribute * MANI_MORPH_ATTRIBUTE_SIZE;
@@ -452,8 +452,8 @@ maniMorphSemantic maniMorphAttribute(const maniMorphTargets* targets, uint32_t a
     return inside ? maniLoadU32(e) : UINT32_MAX;
 }
 
-const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t channel,
-                                 size_t* lengthOut)
+const char* maniMorphTargets_GetChannelName(const maniMorphTargets* targets, uint32_t channel,
+                                            size_t* lengthOut)
 {
     bool inside = channel < targets->channelCount;
     const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
@@ -464,7 +464,8 @@ const char* maniMorphChannelName(const maniMorphTargets* targets, uint32_t chann
     return inside ? (const char*)targets->names + maniLoadU32(e + 8) : NULL;
 }
 
-uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name, size_t length)
+uint32_t maniMorphTargets_FindChannel(const maniMorphTargets* targets, const char* name,
+                                      size_t length)
 {
     // No channel has an empty name.
     if (name == NULL || length == 0)
@@ -483,7 +484,8 @@ uint32_t maniMorphFindChannel(const maniMorphTargets* targets, const char* name,
     return MANI_NO_CHANNEL;
 }
 
-const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target, size_t* lengthOut)
+const char* maniMorphTargets_GetTargetName(const maniMorphTargets* targets, uint32_t target,
+                                           size_t* lengthOut)
 {
     bool inside = target < targets->targetCount;
     const uint8_t* e = targets->targets + (size_t)target * MANI_MORPH_TARGET_SIZE;
@@ -494,7 +496,8 @@ const char* maniMorphTargetName(const maniMorphTargets* targets, uint32_t target
     return inside ? (const char*)targets->names + maniLoadU32(e + 32) : NULL;
 }
 
-uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name, size_t length)
+uint32_t maniMorphTargets_FindTarget(const maniMorphTargets* targets, const char* name,
+                                     size_t length)
 {
     // No target has an empty name.
     if (name == NULL || length == 0)
@@ -513,8 +516,8 @@ uint32_t maniMorphFindTarget(const maniMorphTargets* targets, const char* name, 
     return MANI_NO_CHANNEL;
 }
 
-uint32_t maniMorphChannelTargets(const maniMorphTargets* targets, uint32_t channel,
-                                 uint32_t* firstOut)
+uint32_t maniMorphTargets_GetChannelTargets(const maniMorphTargets* targets, uint32_t channel,
+                                            uint32_t* firstOut)
 {
     bool inside = channel < targets->channelCount;
     const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
@@ -525,7 +528,7 @@ uint32_t maniMorphChannelTargets(const maniMorphTargets* targets, uint32_t chann
     return inside ? maniLoadU32(e + 4) : 0;
 }
 
-float maniMorphTargetFullWeight(const maniMorphTargets* targets, uint32_t target)
+float maniMorphTargets_GetTargetFullWeight(const maniMorphTargets* targets, uint32_t target)
 {
     if (target >= targets->targetCount)
     {
@@ -539,7 +542,7 @@ float maniMorphTargetFullWeight(const maniMorphTargets* targets, uint32_t target
 
 static float Full(const maniMorphTargets* m, uint32_t first, uint32_t key)
 {
-    return key == ZERO_KEY ? 0.0f : maniMorphTargetFullWeight(m, first + key);
+    return key == ZERO_KEY ? 0.0f : maniMorphTargets_GetTargetFullWeight(m, first + key);
 }
 
 // The keys around a positive weight: from the zero shape (or the last
@@ -647,7 +650,7 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
     for (uint32_t c = 0; c < targets->channelCount; ++c)
     {
         uint32_t first = 0;
-        uint32_t count = maniMorphChannelTargets(targets, c, &first);
+        uint32_t count = maniMorphTargets_GetChannelTargets(targets, c, &first);
         // Opening checked that the channels cover the targets in order.
         MANI_ASSERT(count > 0 && first <= targets->targetCount &&
                     count <= targets->targetCount - first);
@@ -656,8 +659,10 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
     return mani_success;
 }
 
-maniResult maniMorphTargetWeights(const maniMorphTargets* targets, const float* channelWeights,
-                                  float* targetWeightsOut, uint32_t capacity, uint32_t* countOut)
+maniResult maniMorphTargets_ComputeTargetWeights(const maniMorphTargets* targets,
+                                                 const float* channelWeights,
+                                                 float* targetWeightsOut, uint32_t capacity,
+                                                 uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result =
@@ -728,7 +733,7 @@ static uint32_t Slot(const maniMorphTargets* m, const maniMorphStream* s)
     for (uint32_t a = 0; a < m->attributeCount; ++a)
     {
         uint32_t set = 0;
-        if (maniMorphAttribute(m, a, &set) == s->semantic && set == s->set)
+        if (maniMorphTargets_GetAttribute(m, a, &set) == s->semantic && set == s->set)
         {
             return a;
         }
@@ -746,7 +751,7 @@ static const uint8_t* SlotDeltas(const maniMorphTargets* m, const uint8_t* e, ui
     MANI_ASSERT(slot < m->attributeCount && ((mask >> slot) & 1u) != 0);
     for (uint32_t a = 0; a < slot; ++a)
     {
-        uint32_t semantic = maniMorphAttribute(m, a, NULL);
+        uint32_t semantic = maniMorphTargets_GetAttribute(m, a, NULL);
         at += ((mask >> a) & 1u) != 0 ? count * maniMorphWidth(semantic) : 0;
     }
     return m->deltas + 4 * at;

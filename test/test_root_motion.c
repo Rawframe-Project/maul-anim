@@ -72,7 +72,8 @@ static void OpenSkeleton(void)
     maniSkeletonSource source = {kBones, 3};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                  mani_success,
           "skeleton");
     maniDestroyBuilder(builder);
     CHECK(maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success, "opens");
@@ -109,7 +110,7 @@ static maniBuildResult Build(const maniClipSource* source, uint8_t* file, size_t
     maniBuildResult r = maniBuildClip(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, file, sizeof s_file, size) == mani_success, "copies");
+        CHECK(maniBuilder_CopyBuilt(builder, file, sizeof s_file, size) == mani_success, "copies");
     }
     maniDestroyBuilder(builder);
     return r;
@@ -171,16 +172,16 @@ static float Recomposed(const maniClip* with, const maniClip* without)
               maniInitPose(&s_skeleton, s_plainMemory, sizeof s_plainMemory, &b) == mani_success,
           "poses");
     float worst = 0.0f;
-    for (uint32_t k = 0; k < maniClipSampleCount(with); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(with); ++k)
     {
         float time = (float)k / 4.0f;
-        CHECK(maniSampleClip(with, &s_skeleton, time, a) == mani_success &&
-                  maniSampleClip(without, &s_skeleton, time, b) == mani_success,
+        CHECK(maniClip_Sample(with, &s_skeleton, time, a) == mani_success &&
+                  maniClip_Sample(without, &s_skeleton, time, b) == mani_success,
               "samples");
         float m[7];
         MotionAt(with, k, m);
-        maniTransform stored = maniPoseLocal(a, 0);
-        maniTransform source = maniPoseLocal(b, 0);
+        maniTransform stored = maniPose_GetLocal(a, 0);
+        maniTransform source = maniPose_GetLocal(b, 0);
         const float st[3] = {stored.translation.x, stored.translation.y, stored.translation.z};
         const float sr[4] = {stored.rotation.x, stored.rotation.y, stored.rotation.z,
                              stored.rotation.w};
@@ -197,8 +198,8 @@ static float Recomposed(const maniClip* with, const maniClip* without)
             worst = fmaxf(worst, fabsf(m[i] + t[i] - want[i]));
         }
         worst = fmaxf(worst, 1.0f - fabsf(dot));
-        maniTransform spine = maniPoseLocal(a, 1);
-        maniTransform plain = maniPoseLocal(b, 1);
+        maniTransform spine = maniPose_GetLocal(a, 1);
+        maniTransform plain = maniPose_GetLocal(b, 1);
         worst = fmaxf(worst, fabsf(spine.rotation.z - plain.rotation.z));
     }
     return worst;
@@ -217,9 +218,10 @@ static void TestWalk(void)
     maniClip without;
     CHECK(BuildBoth(&walk) && OpenBoth(&with, &without), "builds and opens");
     maniRootMotionSource read;
-    CHECK(maniClipRootMotionSource(&with, &read) && memcmp(&read, &walk, sizeof read) == 0 &&
-              !maniClipRootMotionSource(&without, &read) &&
-              !maniClipRootMotionSource(NULL, &read) && !maniClipRootMotionSource(&with, NULL),
+    CHECK(maniClip_GetRootMotionSource(&with, &read) && memcmp(&read, &walk, sizeof read) == 0 &&
+              !maniClip_GetRootMotionSource(&without, &read) &&
+              !maniClip_GetRootMotionSource(NULL, &read) &&
+              !maniClip_GetRootMotionSource(&with, NULL),
           "the source read back; none without");
     float worst = Recomposed(&with, &without);
     CHECK(worst < 2e-6f, "the motion times the stored bone is the source");
@@ -229,7 +231,7 @@ static void TestWalk(void)
     }
     // Along x and z only, a twist about y only.
     bool shaped = true;
-    for (uint32_t k = 0; k < maniClipSampleCount(&with); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(&with); ++k)
     {
         float m[7];
         MotionAt(&with, k, m);
@@ -273,9 +275,9 @@ static void TestReferences(void)
     CHECK(m[1] == 1.0f && Recomposed(&with, &without) < 2e-6f, "from the origin");
     maniPose* pose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success &&
-              maniSampleClip(&with, &s_skeleton, 0.5f, pose) == mani_success,
+              maniClip_Sample(&with, &s_skeleton, 0.5f, pose) == mani_success,
           "samples");
-    maniTransform hips = maniPoseLocal(pose, 0);
+    maniTransform hips = maniPose_GetLocal(pose, 0);
     CHECK(fabsf(hips.translation.y) < 1e-6f && fabsf(hips.rotation.w - 1.0f) < 1e-6f,
           "the whole motion out: the bone at the origin");
 }
@@ -334,8 +336,8 @@ static float MoveApart(maniRootMove a, maniRootMove b)
 
 static maniRootMove Move(const maniClip* clip, float time, float step)
 {
-    maniRootMove m = maniRootMoveIdentity();
-    CHECK(maniClipRootMotion(clip, time, step, &m) == mani_success, "a move");
+    maniRootMove m = maniGetIdentityRootMove();
+    CHECK(maniClip_GetRootMotion(clip, time, step, &m) == mani_success, "a move");
     return m;
 }
 
@@ -366,7 +368,7 @@ static void TestCompressed(void)
     size_t size = 0;
     maniClip compressed;
     CHECK(maniCompressClip(builder, &clip, &s_skeleton, &options, NULL) == mani_success &&
-              maniCopyBuilt(builder, s_crafted, sizeof s_crafted, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_crafted, sizeof s_crafted, &size) == mani_success &&
               maniOpenClip(s_crafted, size, &compressed).result == mani_success,
           "compresses");
     maniDestroyBuilder(builder);
@@ -391,7 +393,8 @@ static void TestMoves(void)
     maniRootMove between =
         maniComposeRootMotion(Inverted(SampleMove(&clip, 1)), SampleMove(&clip, 3));
     CHECK(MoveApart(Move(&clip, 0.25f, 0.5f), between) < 1e-6f, "between two samples");
-    CHECK(MoveApart(Move(&clip, 0.6f, 0.0f), maniRootMoveIdentity()) < 1e-6f, "no step, no move");
+    CHECK(MoveApart(Move(&clip, 0.6f, 0.0f), maniGetIdentityRootMove()) < 1e-6f,
+          "no step, no move");
     maniRootMove period =
         maniComposeRootMotion(Inverted(SampleMove(&clip, 0)), SampleMove(&clip, 4));
     CHECK(MoveApart(Move(&clip, 0.0f, 1.0f), period) < 1e-6f &&
@@ -417,12 +420,12 @@ static void TestMoves(void)
     }
     maniRootMove there = Move(&clip, 0.4f, 2.7f);
     maniRootMove back = Move(&clip, 0.4f + 2.7f, -2.7f);
-    CHECK(MoveApart(maniComposeRootMotion(there, back), maniRootMoveIdentity()) < 2e-5f,
+    CHECK(MoveApart(maniComposeRootMotion(there, back), maniGetIdentityRootMove()) < 2e-5f,
           "backward undoes forward");
     // The period turns a quarter about y, so four periods come back to
     // the start: a thousand periods by squaring are no move, a thousand
     // and one the period, and back the period's inverse.
-    CHECK(MoveApart(Move(&clip, 0.0f, 1000.0f), maniRootMoveIdentity()) < 1e-5f &&
+    CHECK(MoveApart(Move(&clip, 0.0f, 1000.0f), maniGetIdentityRootMove()) < 1e-5f &&
               MoveApart(Move(&clip, 0.0f, 1001.0f), period) < 1e-5f &&
               MoveApart(Move(&clip, 1001.0f, -1001.0f), Inverted(period)) < 1e-5f,
           "a thousand periods by squaring");
@@ -434,16 +437,16 @@ static void TestMoves(void)
                         maniComposeRootMotion(Inverted(SampleMove(&clip, 0)),
                                               SampleMove(&clip, 2))) < 1e-6f,
           "a clamped clip between its clamped times");
-    CHECK(MoveApart(Move(&clip, -3.0f, 2.0f), maniRootMoveIdentity()) == 0.0f,
+    CHECK(MoveApart(Move(&clip, -3.0f, 2.0f), maniGetIdentityRootMove()) == 0.0f,
           "both times before the start: no move");
     maniRootMove m;
-    CHECK(maniClipRootMotion(&without, 0.0f, 1.0f, &m) == mani_success &&
-              MoveApart(m, maniRootMoveIdentity()) == 0.0f,
+    CHECK(maniClip_GetRootMotion(&without, 0.0f, 1.0f, &m) == mani_success &&
+              MoveApart(m, maniGetIdentityRootMove()) == 0.0f,
           "a clip without root motion moves nothing");
-    CHECK(maniClipRootMotion(NULL, 0.0f, 1.0f, &m) == mani_errorInvalid &&
-              maniClipRootMotion(&clip, 0.0f, 1.0f, NULL) == mani_errorInvalid &&
-              maniClipRootMotion(&clip, NAN, 1.0f, &m) == mani_errorInvalid &&
-              maniClipRootMotion(&clip, 0.0f, INFINITY, &m) == mani_errorInvalid,
+    CHECK(maniClip_GetRootMotion(NULL, 0.0f, 1.0f, &m) == mani_errorInvalid &&
+              maniClip_GetRootMotion(&clip, 0.0f, 1.0f, NULL) == mani_errorInvalid &&
+              maniClip_GetRootMotion(&clip, NAN, 1.0f, &m) == mani_errorInvalid &&
+              maniClip_GetRootMotion(&clip, 0.0f, INFINITY, &m) == mani_errorInvalid,
           "misuses");
 }
 
@@ -474,7 +477,7 @@ static void TestBlend(void)
     };
     const float later[3] = {0.0f, 1.0f, 1.0f};
     CHECK(maniBlendRootMotion(turned, later, 3, &out) == mani_success &&
-              MoveApart(out, maniRootMoveIdentity()) < 1e-6f,
+              MoveApart(out, maniGetIdentityRootMove()) < 1e-6f,
           "a first move of weight 0 does not lead");
     const float one[2] = {0.0f, 3.0f};
     CHECK(maniBlendRootMotion(moves, one, 2, &out) == mani_success &&
@@ -482,7 +485,7 @@ static void TestBlend(void)
           "one weight: that move");
     const float none[2] = {0.0f, 0.0f};
     CHECK(maniBlendRootMotion(moves, none, 2, &out) == mani_success &&
-              MoveApart(out, maniRootMoveIdentity()) == 0.0f &&
+              MoveApart(out, maniGetIdentityRootMove()) == 0.0f &&
               maniBlendRootMotion(NULL, NULL, 0, &out) == mani_success,
           "no weight: no move");
     const float negative[2] = {1.0f, -1.0f};
@@ -495,7 +498,7 @@ static void TestBlend(void)
               maniBlendRootMotion(NULL, even, 2, &out) == mani_errorInvalid &&
               maniBlendRootMotion(moves, even, 2, NULL) == mani_errorInvalid,
           "misuses");
-    maniRootMove id = maniRootMoveIdentity();
+    maniRootMove id = maniGetIdentityRootMove();
     CHECK(MoveApart(maniComposeRootMotion(id, moves[0]), moves[0]) < 1e-7f &&
               MoveApart(maniComposeRootMotion(moves[0], id), moves[0]) < 1e-7f,
           "composing with no move");
@@ -556,11 +559,11 @@ static void TestRestore(void)
         }
         int j = i % 9;
         float time = j < 7 ? kAt[j] : 0.1f + 0.4f * (float)(j - 7);
-        CHECK(maniSampleClip(&clip, &s_skeleton, time, a) == mani_success &&
-                  maniRestoreRootMotion(&clip, &s_skeleton, time, a) == mani_success &&
-                  maniSampleClip(&without, &s_skeleton, time, b) == mani_success,
+        CHECK(maniClip_Sample(&clip, &s_skeleton, time, a) == mani_success &&
+                  maniClip_RestoreRootMotion(&clip, &s_skeleton, time, a) == mani_success &&
+                  maniClip_Sample(&without, &s_skeleton, time, b) == mani_success,
               "restores");
-        float apart = TransformApart(maniPoseLocal(a, 0), maniPoseLocal(b, 0));
+        float apart = TransformApart(maniPose_GetLocal(a, 0), maniPose_GetLocal(b, 0));
         if (j < 7)
         {
             worst = fmaxf(worst, apart);
@@ -569,7 +572,7 @@ static void TestRestore(void)
         {
             between[i / 9] = fmaxf(between[i / 9], apart);
         }
-        worst = fmaxf(worst, TransformApart(maniPoseLocal(a, 1), maniPoseLocal(b, 1)));
+        worst = fmaxf(worst, TransformApart(maniPose_GetLocal(a, 1), maniPose_GetLocal(b, 1)));
     }
     CHECK(worst < 2e-6f, "restored at the samples: the source's hips");
     CHECK(between[0] < 1e-4f && between[1] < 2e-2f,
@@ -580,19 +583,19 @@ static void TestRestore(void)
                (double)between[1]);
     }
     // Without root motion: unchanged.
-    CHECK(maniSampleClip(&without, &s_skeleton, 0.3f, b) == mani_success, "samples");
-    maniTransform before = maniPoseLocal(b, 0);
-    CHECK(maniRestoreRootMotion(&without, &s_skeleton, 0.3f, b) == mani_success &&
-              SameTransform(before, maniPoseLocal(b, 0)),
+    CHECK(maniClip_Sample(&without, &s_skeleton, 0.3f, b) == mani_success, "samples");
+    maniTransform before = maniPose_GetLocal(b, 0);
+    CHECK(maniClip_RestoreRootMotion(&without, &s_skeleton, 0.3f, b) == mani_success &&
+              SameTransform(before, maniPose_GetLocal(b, 0)),
           "a clip without root motion leaves the pose");
-    CHECK(maniRestoreRootMotion(NULL, &s_skeleton, 0.0f, a) == mani_errorInvalid &&
-              maniRestoreRootMotion(&clip, NULL, 0.0f, a) == mani_errorInvalid &&
-              maniRestoreRootMotion(&clip, &s_skeleton, 0.0f, NULL) == mani_errorInvalid,
+    CHECK(maniClip_RestoreRootMotion(NULL, &s_skeleton, 0.0f, a) == mani_errorInvalid &&
+              maniClip_RestoreRootMotion(&clip, NULL, 0.0f, a) == mani_errorInvalid &&
+              maniClip_RestoreRootMotion(&clip, &s_skeleton, 0.0f, NULL) == mani_errorInvalid,
           "misuses");
     maniPoseSetKind(a, true);
-    before = maniPoseLocal(a, 0);
-    CHECK(maniRestoreRootMotion(&clip, &s_skeleton, 0.5f, a) == mani_errorInvalid &&
-              SameTransform(before, maniPoseLocal(a, 0)),
+    before = maniPose_GetLocal(a, 0);
+    CHECK(maniClip_RestoreRootMotion(&clip, &s_skeleton, 0.5f, a) == mani_errorInvalid &&
+              SameTransform(before, maniPose_GetLocal(a, 0)),
           "a difference pose refused, untouched");
 }
 
@@ -691,13 +694,13 @@ static void TestGiven(void)
     maniRootMove move;
     maniPose* pose = NULL;
     CHECK(maniBuildClipMoved(builder, &source, &work).result == mani_success &&
-              maniCopyBuilt(builder, s_crafted, sizeof s_crafted, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_crafted, sizeof s_crafted, &size) == mani_success &&
               maniOpenClip(s_crafted, size, &clip).result == mani_success &&
-              maniClipRootMotion(&clip, 0.0f, 1.0f, &move) == mani_success &&
+              maniClip_GetRootMotion(&clip, 0.0f, 1.0f, &move) == mani_success &&
               fabsf(move.translation.x - 1.0f) < 1e-6f &&
               maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success &&
-              maniSampleClip(&clip, &s_skeleton, 1.0f, pose) == mani_success &&
-              maniPoseLocal(pose, 0).translation.z == 4.0f,
+              maniClip_Sample(&clip, &s_skeleton, 1.0f, pose) == mani_success &&
+              maniPose_GetLocal(pose, 0).translation.z == 4.0f,
           "given moves written, the bone kept");
     maniRootMotionSource own = Walk();
     source.rootMotion = &own;

@@ -226,7 +226,7 @@ bool maniLearnedDecompressMotion(const maniLearnedModel* model, const float* sta
     return true;
 }
 
-size_t maniLearnedScratchSize(const maniLearnedModel* model)
+size_t maniLearnedModel_GetScratchSize(const maniLearnedModel* model)
 {
     return model != NULL ? 2 * sizeof(float) * (size_t)model->widest : 0;
 }
@@ -234,7 +234,7 @@ size_t maniLearnedScratchSize(const maniLearnedModel* model)
 static bool ScratchFits(const maniLearnedModel* m, const void* scratch, size_t size)
 {
     return scratch != NULL && (uintptr_t)scratch % sizeof(float) == 0 &&
-           size >= maniLearnedScratchSize(m);
+           size >= maniLearnedModel_GetScratchSize(m);
 }
 
 static MANI_NOINLINE maniResult LearnedProjectWork(const maniLearnedModel* model,
@@ -273,9 +273,9 @@ static MANI_NOINLINE maniResult LearnedProjectWork(const maniLearnedModel* model
     return mani_success;
 }
 
-maniResult maniLearnedProject(const maniLearnedModel* model, uint32_t projector, const float* query,
-                              float* stateOut, uint32_t capacity, uint32_t* countOut, void* scratch,
-                              size_t scratchSize)
+maniResult maniLearnedModel_Project(const maniLearnedModel* model, uint32_t projector,
+                                    const float* query, float* stateOut, uint32_t capacity,
+                                    uint32_t* countOut, void* scratch, size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = LearnedProjectWork(model, projector, query, stateOut, capacity, countOut,
@@ -311,8 +311,8 @@ static MANI_NOINLINE maniResult LearnedStepWork(const maniLearnedModel* model, f
     return mani_success;
 }
 
-maniResult maniLearnedStep(const maniLearnedModel* model, float* state, void* scratch,
-                           size_t scratchSize)
+maniResult maniLearnedModel_Step(const maniLearnedModel* model, float* state, void* scratch,
+                                 size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = LearnedStepWork(model, state, scratch, scratchSize);
@@ -381,8 +381,8 @@ static void Pose(const maniLearnedModel* m, const float* out, maniPose* pose)
             const uint8_t* s = scales + 12 * (size_t)b;
             scale = maniVec3Make(LoadF32(s), LoadF32(s + 4), LoadF32(s + 8));
         }
-        maniPoseSetLocal(pose, b,
-                         (maniTransform){Vec3(t), FromColumns(Vec3(t + 3), Vec3(t + 6)), scale});
+        maniPose_SetLocal(pose, b,
+                          (maniTransform){Vec3(t), FromColumns(Vec3(t + 3), Vec3(t + 6)), scale});
     }
 }
 
@@ -393,8 +393,8 @@ static MANI_NOINLINE maniResult LearnedDecompressWork(const maniLearnedModel* mo
     return maniLearnedDecompressFrom(model, state, output, scratch, scratchSize, NULL);
 }
 
-maniResult maniLearnedDecompress(const maniLearnedModel* model, const float* state,
-                                 maniLearnedOutput* output, void* scratch, size_t scratchSize)
+maniResult maniLearnedModel_Decompress(const maniLearnedModel* model, const float* state,
+                                       maniLearnedOutput* output, void* scratch, size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = LearnedDecompressWork(model, state, output, scratch, scratchSize);
@@ -409,8 +409,8 @@ maniResult maniLearnedDecompressFrom(const maniLearnedModel* model, const float*
     uint32_t count = model != NULL ? model->featureCount + model->latentCount : 0;
     if (model == NULL || state == NULL || output == NULL ||
         !ScratchFits(model, scratch, scratchSize) || !AllFinite(state, count) ||
-        (output->pose != NULL && (maniPoseBoneCount(output->pose) != model->boneCount ||
-                                  maniPoseIsDifference(output->pose))))
+        (output->pose != NULL && (maniPose_GetBoneCount(output->pose) != model->boneCount ||
+                                  maniPose_IsDifference(output->pose))))
     {
         return mani_errorInvalid;
     }

@@ -29,7 +29,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
     for (uint32_t c = 0; c < d.channelCount; ++c)
     {
         maniMatchChannel ch;
-        if (maniMotionDatabaseChannel(&d, c, &ch) != 0 || ch.timeCount == 0 ||
+        if (maniMotionDatabase_GetChannel(&d, c, &ch) != 0 || ch.timeCount == 0 ||
             ch.firstFeature + ch.featureCount > d.featureCount)
         {
             abort();
@@ -41,10 +41,10 @@ static void Exercise(const uint8_t* bytes, size_t size)
         uint32_t entry = 0;
         float time = 0.0f;
         maniMatchEntry e;
-        if (maniMotionDatabaseFrame(&d, f, &entry, &time) != 0 ||
-            maniMotionDatabaseEntry(&d, entry, &e) != 0 || f < e.firstFrame ||
+        if (maniMotionDatabase_GetFrame(&d, f, &entry, &time) != 0 ||
+            maniMotionDatabase_GetEntry(&d, entry, &e) != 0 || f < e.firstFrame ||
             f >= e.firstFrame + e.frameCount ||
-            maniMotionDatabaseFeatures(&d, f, features, d.featureCount, NULL) != 0)
+            maniMotionDatabase_GetFeatures(&d, f, features, d.featureCount, NULL) != 0)
         {
             abort();
         }

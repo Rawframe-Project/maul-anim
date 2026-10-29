@@ -93,13 +93,13 @@ bool ReadFile(const char* path, Bytes* out)
 bool CopyBuilt(maniBuilder* builder, Bytes* out)
 {
     size_t size = 0;
-    if (maniCopyBuilt(builder, nullptr, 0, &size) != mani_errorCapacity)
+    if (maniBuilder_CopyBuilt(builder, nullptr, 0, &size) != mani_errorCapacity)
     {
         return false;
     }
     out->size = size;
     out->words.assign(size / sizeof(std::max_align_t) + 1, std::max_align_t{});
-    return maniCopyBuilt(builder, out->words.data(), size, nullptr) == mani_success;
+    return maniBuilder_CopyBuilt(builder, out->words.data(), size, nullptr) == mani_success;
 }
 
 // A pose in caller memory.
@@ -110,12 +110,12 @@ struct Pose
 
     explicit Pose(const maniSkeleton* skeleton)
     {
-        size_t size = maniPoseSize(skeleton) + MANI_POSE_ALIGNMENT;
+        size_t size = maniSkeleton_GetPoseSize(skeleton) + MANI_POSE_ALIGNMENT;
         words.resize(size / sizeof(std::max_align_t) + 1);
         auto at = reinterpret_cast<uintptr_t>(words.data());
         at += (MANI_POSE_ALIGNMENT - at % MANI_POSE_ALIGNMENT) % MANI_POSE_ALIGNMENT;
-        if (maniInitPose(skeleton, reinterpret_cast<void*>(at), maniPoseSize(skeleton), &pose) !=
-            mani_success)
+        if (maniInitPose(skeleton, reinterpret_cast<void*>(at), maniSkeleton_GetPoseSize(skeleton),
+                         &pose) != mani_success)
         {
             std::abort();
         }
@@ -280,8 +280,8 @@ struct Run
 // The full clip's samples as ACL's raw tracks.
 void RawTracks(Run& run, const maniClip& clip, acl::track_array_qvvf* raw)
 {
-    uint32_t bones = maniSkeletonBoneCount(run.skeleton);
-    uint32_t samples = maniClipSampleCount(&clip);
+    uint32_t bones = maniSkeleton_GetBoneCount(run.skeleton);
+    uint32_t samples = maniClip_GetSampleCount(&clip);
     *raw = acl::track_array_qvvf(run.allocator, bones);
     for (uint32_t b = 0; b < bones; ++b)
     {
@@ -291,7 +291,7 @@ void RawTracks(Run& run, const maniClip& clip, acl::track_array_qvvf* raw)
             run.parents[b] == MANI_NO_BONE ? acl::k_invalid_track_index : run.parents[b];
         desc.precision = kPrecision;
         desc.shell_distance = kShell;
-        desc.default_value = ToQvv(maniSkeletonRest(run.skeleton, b));
+        desc.default_value = ToQvv(maniSkeleton_GetRest(run.skeleton, b));
         (*raw)[b] = acl::track_qvvf::make_reserve(desc, run.allocator, samples, kRate);
     }
     Pose pose(run.skeleton);
@@ -300,7 +300,7 @@ void RawTracks(Run& run, const maniClip& clip, acl::track_array_qvvf* raw)
         maniSampleClipAt(&clip, run.skeleton, k, pose.pose, nullptr);
         for (uint32_t b = 0; b < bones; ++b)
         {
-            rtm::qvvf t = ToQvv(maniPoseLocal(pose.pose, b));
+            rtm::qvvf t = ToQvv(maniPose_GetLocal(pose.pose, b));
             (*raw)[b][k] = rtm::qvv_set(rtm::quat_normalize(t.rotation), t.translation, t.scale);
         }
     }
@@ -310,7 +310,7 @@ void RawTracks(Run& run, const maniClip& clip, acl::track_array_qvvf* raw)
 // samples, against the full clip.
 void Measure(Run& run, Clip& c)
 {
-    uint32_t bones = maniSkeletonBoneCount(run.skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(run.skeleton);
     Pose full(run.skeleton);
     Pose packed(run.skeleton);
     std::vector<rtm::qvvf> reference(bones);
@@ -324,7 +324,7 @@ void Measure(Run& run, Clip& c)
     Writer writer;
     writer.out = theirs.data();
     writer.rest = run.rest.data();
-    for (uint32_t k = 0; k < maniClipSampleCount(&c.fullClip); ++k)
+    for (uint32_t k = 0; k < maniClip_GetSampleCount(&c.fullClip); ++k)
     {
         maniSampleClipAt(&c.fullClip, run.skeleton, k, full.pose, nullptr);
         maniSampleClipAt(&c.packedClip, run.skeleton, k, packed.pose, nullptr);
@@ -332,8 +332,8 @@ void Measure(Run& run, Clip& c)
         context.decompress_tracks(writer);
         for (uint32_t b = 0; b < bones; ++b)
         {
-            reference[b] = ToQvv(maniPoseLocal(full.pose, b));
-            ours[b] = ToQvv(maniPoseLocal(packed.pose, b));
+            reference[b] = ToQvv(maniPose_GetLocal(full.pose, b));
+            ours[b] = ToQvv(maniPose_GetLocal(packed.pose, b));
         }
         Models(run.parents, reference, &mr);
         Models(run.parents, ours, &mo);
@@ -383,7 +383,7 @@ bool CompressBoth(Run& run, Clip& c)
 // clip in turn in 600 steps.
 void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
 {
-    uint32_t bones = maniSkeletonBoneCount(run.skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(run.skeleton);
     std::vector<rtm::qvvf> out(bones);
     Writer writer;
     writer.out = out.data();
@@ -392,7 +392,7 @@ void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
     size_t cursorSize = 0;
     for (const Clip& c : clips)
     {
-        size_t size = maniClipCursorSize(&c.packedClip);
+        size_t size = maniClip_GetCursorSize(&c.packedClip);
         cursorSize = size > cursorSize ? size : cursorSize;
     }
     std::vector<std::max_align_t> cursorWords(cursorSize / 16 + 2);
@@ -434,22 +434,22 @@ void Timings(Run& run, std::vector<Clip>& clips, long reps, int only)
         {
             Clip& c = clips[static_cast<size_t>(r) % clips.size()];
             float t =
-                maniClipDuration(&c.packedClip) * (std::rand() / static_cast<float>(RAND_MAX));
-            (void)maniSampleClip(&c.packedClip, run.skeleton, t, pose.pose);
+                maniClip_GetDuration(&c.packedClip) * (std::rand() / static_cast<float>(RAND_MAX));
+            (void)maniClip_Sample(&c.packedClip, run.skeleton, t, pose.pose);
         }
         double t3 = Now();
         for (long r = 0; (only < 0 || only == 3) && r < reps; ++r)
         {
             Clip& c = clips[static_cast<size_t>(r / 600) % clips.size()];
-            float t = maniClipDuration(&c.packedClip) * static_cast<float>(r % 600) / 600.0f;
-            (void)maniSampleClipCursor(cursor, &c.packedClip, run.skeleton, t, pose.pose);
+            float t = maniClip_GetDuration(&c.packedClip) * static_cast<float>(r % 600) / 600.0f;
+            (void)maniClipCursor_Sample(cursor, &c.packedClip, run.skeleton, t, pose.pose);
         }
         double t4 = Now();
         for (long r = 0; (only < 0 || only == 4) && r < reps; ++r)
         {
             Clip& c = clips[static_cast<size_t>(r / 600) % clips.size()];
-            float t = maniClipDuration(&c.fullClip) * static_cast<float>(r % 600) / 600.0f;
-            (void)maniSampleClip(&c.fullClip, run.skeleton, t, pose.pose);
+            float t = maniClip_GetDuration(&c.fullClip) * static_cast<float>(r % 600) / 600.0f;
+            (void)maniClip_Sample(&c.fullClip, run.skeleton, t, pose.pose);
         }
         double t5 = Now();
         double scale = 1e9 / static_cast<double>(reps);
@@ -517,20 +517,20 @@ int main(int argc, char** argv)
     maniSkeleton skeleton{};
     if (maniCreateBuilder(&def, &run.builder) != mani_success ||
         maniOpenFbx(run.builder, file.data(), file.size, &fbx).result != mani_success ||
-        maniFbxSkeletonCount(fbx) == 0 ||
-        maniFbxBuildSkeleton(run.builder, fbx, 0, &options).result != mani_success ||
+        maniFbx_GetSkeletonCount(fbx) == 0 ||
+        maniBuildFbxSkeleton(run.builder, fbx, 0, &options).result != mani_success ||
         !CopyBuilt(run.builder, &skeletonFile) ||
         maniOpenSkeleton(skeletonFile.data(), skeletonFile.size, &skeleton).result != mani_success)
     {
         return Fail("the skeleton does not import");
     }
     run.skeleton = &skeleton;
-    for (uint32_t b = 0; b < maniSkeletonBoneCount(&skeleton); ++b)
+    for (uint32_t b = 0; b < maniSkeleton_GetBoneCount(&skeleton); ++b)
     {
-        run.parents.push_back(maniSkeletonParent(&skeleton, b));
-        run.rest.push_back(ToQvv(maniSkeletonRest(&skeleton, b)));
+        run.parents.push_back(maniSkeleton_GetParent(&skeleton, b));
+        run.rest.push_back(ToQvv(maniSkeleton_GetRest(&skeleton, b)));
     }
-    std::vector<Clip> clips(maniFbxClipCount(fbx));
+    std::vector<Clip> clips(maniFbx_GetClipCount(fbx));
     size_t aclBytes = 0;
     size_t ourBytes = 0;
     size_t payload = 0;
@@ -539,15 +539,16 @@ int main(int argc, char** argv)
     double ourTime = 0;
     double worst[4] = {0, 0, 0, 0};
     std::printf("%u bones, %zu clips at %.0f samples a second, %.4f m at %.2f m\n",
-                maniSkeletonBoneCount(&skeleton), clips.size(), D(kRate), D(kPrecision), D(kShell));
+                maniSkeleton_GetBoneCount(&skeleton), clips.size(), D(kRate), D(kPrecision),
+                D(kShell));
     maniImportClipOptions clipOptions = maniDefaultImportClipOptions();
     clipOptions.sampleRate = kRate;
     for (uint32_t k = 0; k < clips.size(); ++k)
     {
         Clip& c = clips[k];
         size_t length = 0;
-        const char* name = maniFbxClipName(fbx, k, &length);
-        if (maniFbxBuildClip(run.builder, fbx, k, &skeleton, &options, &clipOptions, nullptr)
+        const char* name = maniFbx_GetClipName(fbx, k, &length);
+        if (maniBuildFbxClip(run.builder, fbx, k, &skeleton, &options, &clipOptions, nullptr)
                     .result != mani_success ||
             !CopyBuilt(run.builder, &c.full) ||
             maniOpenClip(c.full.data(), c.full.size, &c.fullClip).result != mani_success ||
@@ -559,21 +560,21 @@ int main(int argc, char** argv)
         std::printf("%-28.*s %6.2f s  ACL %7zu B  Maul Anim %7zu B  error (mm) ACL %.4f (its "
                     "metric %.4f) Maul Anim %.4f (reported %.4f)  compression (ms) ACL %.1f Maul "
                     "Anim %.1f\n",
-                    static_cast<int>(length), name, D(maniClipDuration(&c.fullClip)),
+                    static_cast<int>(length), name, D(maniClip_GetDuration(&c.fullClip)),
                     static_cast<size_t>(c.acl->get_size()), c.packed.size, c.aclShell * 1e3,
                     c.aclError * 1e3, c.ourShell * 1e3, c.reported * 1e3, c.aclSeconds * 1e3,
                     c.ourSeconds * 1e3);
         if (c.ourShell > static_cast<double>(kPrecision))
         {
             size_t n = 0;
-            const char* bone = maniSkeletonBoneName(&skeleton, c.reportedBone, &n);
+            const char* bone = maniSkeleton_GetBoneName(&skeleton, c.reportedBone, &n);
             std::printf("  past the precision at bone %u (%.*s), sample %u\n", c.reportedBone,
                         static_cast<int>(n), bone, c.reportedSample);
         }
         aclBytes += c.acl->get_size();
         ourBytes += c.packed.size;
         payload += Payload(c.packed);
-        seconds += D(maniClipDuration(&c.fullClip));
+        seconds += D(maniClip_GetDuration(&c.fullClip));
         aclTime += c.aclSeconds;
         ourTime += c.ourSeconds;
         worst[0] = std::fmax(worst[0], c.aclShell);

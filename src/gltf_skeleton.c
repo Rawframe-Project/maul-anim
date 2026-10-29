@@ -202,7 +202,7 @@ static MANI_NOINLINE maniImportResult GltfBuildSkeletonWork(maniBuilder* builder
     return r;
 }
 
-maniImportResult maniGltfBuildSkeleton(maniBuilder* builder, const maniGltf* gltf,
+maniImportResult maniBuildGltfSkeleton(maniBuilder* builder, const maniGltf* gltf,
                                        uint32_t skeleton, const maniGltfOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();
@@ -238,7 +238,7 @@ static MANI_NOINLINE maniImportResult GltfBuildNodeSkeletonWork(maniBuilder* bui
     return r;
 }
 
-maniImportResult maniGltfBuildNodeSkeleton(maniBuilder* builder, const maniGltf* gltf,
+maniImportResult maniBuildGltfNodeSkeleton(maniBuilder* builder, const maniGltf* gltf,
                                            uint32_t node, const maniGltfOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();
@@ -265,8 +265,9 @@ static MANI_NOINLINE maniImportResult GltfSkeletonPlacementWork(const maniGltf* 
     return maniGltfPlacement(gltf, gltf->skeletonRoots[skeleton], options, placementOut);
 }
 
-maniImportResult maniGltfSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
-                                           const maniGltfOptions* options, maniAffine* placementOut)
+maniImportResult maniGltf_GetSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
+                                               const maniGltfOptions* options,
+                                               maniAffine* placementOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfSkeletonPlacementWork(gltf, skeleton, options, placementOut);
@@ -284,7 +285,7 @@ static maniImportResult FindJoints(const maniGltf* gltf, uint32_t skin,
     {
         size_t length = 0;
         const char* name = maniGltfNodeName(gltf, maniGltfJointNode(gltf, element), &length);
-        joints[j] = maniSkeletonFindBone(skeleton, name, length);
+        joints[j] = maniSkeleton_FindBone(skeleton, name, length);
         if (joints[j] == MANI_NO_BONE)
         {
             return maniImportFail(maniImportReasonBone, maniGltfOffset(&gltf->g, element), skin);
@@ -363,7 +364,7 @@ static MANI_NOINLINE maniImportResult GltfBuildSkinWork(maniBuilder* builder, co
     return r;
 }
 
-maniImportResult maniGltfBuildSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin,
+maniImportResult maniBuildGltfSkin(maniBuilder* builder, const maniGltf* gltf, uint32_t skin,
                                    const maniSkeleton* skeleton, const maniGltfOptions* options)
 {
     uint64_t env = maniFloatEnvEnter();

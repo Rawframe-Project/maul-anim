@@ -63,7 +63,7 @@ static void BuildSample(void)
     maniBuilder* builder = NewBuilder();
     maniSkeletonSource source = {kBones, 6};
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
-    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success, "copies");
     maniDestroyBuilder(builder);
 }
 
@@ -78,7 +78,7 @@ static void TestBuildsDepthFirst(void)
     BuildSample();
     maniSkeleton s;
     CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
-    CHECK(maniSkeletonBoneCount(&s) == 6, "count");
+    CHECK(maniSkeleton_GetBoneCount(&s) == 6, "count");
     // hips, leftLeg, leftFoot, spine, head, prop.
     static const char* const names[6] = {"hips", "leftLeg", "leftFoot", "spine", "head", "prop"};
     static const uint32_t parents[6] = {MANI_NO_BONE, 0, 1, 0, 3, MANI_NO_BONE};
@@ -87,18 +87,18 @@ static void TestBuildsDepthFirst(void)
     for (uint32_t i = 0; i < 6; ++i)
     {
         size_t length = 0;
-        const char* name = maniSkeletonBoneName(&s, i, &length);
+        const char* name = maniSkeleton_GetBoneName(&s, i, &length);
         CHECK(length == strlen(names[i]) && memcmp(name, names[i], length) == 0, "name");
-        CHECK(maniSkeletonParent(&s, i) == parents[i], "parent");
-        CHECK(maniSkeletonSubtreeEnd(&s, i) == ends[i], "subtree end");
-        CHECK(maniSkeletonRest(&s, i).translation.x == tx[i], "rest");
-        CHECK(maniSkeletonFindBone(&s, names[i], strlen(names[i])) == i, "find");
+        CHECK(maniSkeleton_GetParent(&s, i) == parents[i], "parent");
+        CHECK(maniSkeleton_GetSubtreeEnd(&s, i) == ends[i], "subtree end");
+        CHECK(maniSkeleton_GetRest(&s, i).translation.x == tx[i], "rest");
+        CHECK(maniSkeleton_FindBone(&s, names[i], strlen(names[i])) == i, "find");
     }
     // spine's rotation (0, 0, 0, 2) is normalized.
-    CHECK(maniSkeletonRest(&s, 3).rotation.w == 1.0f, "normalized");
-    CHECK(maniSkeletonFindBone(&s, "tail", 4) == MANI_NO_BONE, "no such bone");
-    CHECK(maniSkeletonFindBone(&s, "hip", 3) == MANI_NO_BONE, "a prefix");
-    CHECK(maniSkeletonFindBone(&s, NULL, 0) == MANI_NO_BONE, "empty");
+    CHECK(maniSkeleton_GetRest(&s, 3).rotation.w == 1.0f, "normalized");
+    CHECK(maniSkeleton_FindBone(&s, "tail", 4) == MANI_NO_BONE, "no such bone");
+    CHECK(maniSkeleton_FindBone(&s, "hip", 3) == MANI_NO_BONE, "a prefix");
+    CHECK(maniSkeleton_FindBone(&s, NULL, 0) == MANI_NO_BONE, "empty");
 }
 
 static void TestGettersPastTheCount(void)
@@ -106,13 +106,13 @@ static void TestGettersPastTheCount(void)
     BuildSample();
     maniSkeleton s;
     CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
-    CHECK(maniSkeletonParent(&s, 6) == MANI_NO_BONE, "parent past");
-    CHECK(maniSkeletonSubtreeEnd(&s, 9) == 9, "end past");
-    maniTransform rest = maniSkeletonRest(&s, 6);
+    CHECK(maniSkeleton_GetParent(&s, 6) == MANI_NO_BONE, "parent past");
+    CHECK(maniSkeleton_GetSubtreeEnd(&s, 9) == 9, "end past");
+    maniTransform rest = maniSkeleton_GetRest(&s, 6);
     CHECK(rest.rotation.w == 1.0f && rest.scale.y == 1.0f && rest.translation.z == 0.0f,
           "identity past");
     size_t length = 7;
-    CHECK(maniSkeletonBoneName(&s, 6, &length) == NULL && length == 0, "name past");
+    CHECK(maniSkeleton_GetBoneName(&s, 6, &length) == NULL && length == 0, "name past");
 }
 
 static void TestOrderMap(void)
@@ -122,22 +122,25 @@ static void TestOrderMap(void)
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success, "builds");
     uint32_t map[6] = {0};
     uint32_t count = 0;
-    CHECK(maniCopySkeletonOrder(builder, map, 6, &count) == mani_success && count == 6, "map");
+    CHECK(maniBuilder_CopySkeletonOrder(builder, map, 6, &count) == mani_success && count == 6,
+          "map");
     static const uint32_t expected[6] = {0, 1, 3, 2, 4, 5};
     CHECK(memcmp(map, expected, sizeof map) == 0, "where bones went");
     uint32_t partial[2] = {0};
-    CHECK(maniCopySkeletonOrder(builder, partial, 2, &count) == mani_errorCapacity && count == 6,
+    CHECK(maniBuilder_CopySkeletonOrder(builder, partial, 2, &count) == mani_errorCapacity &&
+              count == 6,
           "short map");
     CHECK(partial[0] == 0 && partial[1] == 1, "short map filled");
-    CHECK(maniCopySkeletonOrder(builder, NULL, 0, &count) == mani_errorCapacity && count == 6,
+    CHECK(maniBuilder_CopySkeletonOrder(builder, NULL, 0, &count) == mani_errorCapacity &&
+              count == 6,
           "count only");
     size_t size = 0;
-    CHECK(maniCopyBuilt(builder, s_file, 10, &size) == mani_errorCapacity && size > 10,
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, 10, &size) == mani_errorCapacity && size > 10,
           "short buffer");
-    CHECK(maniCopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity, "size only");
-    CHECK(maniBuilderMisuses(builder) == 0, "no misuse");
-    CHECK(maniCopyBuilt(builder, NULL, 5, &size) == mani_errorInvalid, "null buffer");
-    CHECK(maniBuilderMisuses(builder) == 1, "counted");
+    CHECK(maniBuilder_CopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity, "size only");
+    CHECK(maniBuilder_GetMisuse(builder) == 0, "no misuse");
+    CHECK(maniBuilder_CopyBuilt(builder, NULL, 5, &size) == mani_errorInvalid, "null buffer");
+    CHECK(maniBuilder_GetMisuse(builder) == 1, "counted");
     maniDestroyBuilder(builder);
 }
 
@@ -229,10 +232,11 @@ static void TestBuildRefusals(void)
 
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildSkeleton(builder, NULL).result == mani_errorInvalid, "null source");
-    CHECK(maniBuilderMisuses(builder) == 1, "a misuse");
-    CHECK(maniCopyBuilt(builder, s_file, sizeof s_file, NULL) == mani_errorInvalid,
+    CHECK(maniBuilder_GetMisuse(builder) == 1, "a misuse");
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, NULL) == mani_errorInvalid,
           "nothing built");
-    CHECK(maniCopySkeletonOrder(builder, NULL, 0, NULL) == mani_errorInvalid, "no skeleton");
+    CHECK(maniBuilder_CopySkeletonOrder(builder, NULL, 0, NULL) == mani_errorInvalid,
+          "no skeleton");
     maniDestroyBuilder(builder);
     CHECK(maniBuildSkeleton(NULL, NULL).result == mani_errorInvalid, "null builder");
 }

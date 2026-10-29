@@ -6,7 +6,7 @@
 // libraries then blend: ozz-animation's BlendingJob and maniBlendPoses,
 // with the same layers, weights, masks and threshold, then additive
 // layers (differences from the rest) by both, then each blended pose's
-// model matrices by ozz's LocalToModelJob and maniComputeModel from the
+// model matrices by ozz's LocalToModelJob and maniPose_ComputeModel from the
 // same locals. Printed: the largest difference of each component kind
 // over every round, and the nanoseconds a blend of two poses and a model
 // pass take in each. Built with MAUL_ANIM_DIFFERENTIAL against
@@ -77,13 +77,13 @@ bool ReadFile(const char* path, Bytes* out)
 bool CopyBuilt(maniBuilder* builder, Bytes* out)
 {
     size_t size = 0;
-    if (maniCopyBuilt(builder, nullptr, 0, &size) != mani_errorCapacity)
+    if (maniBuilder_CopyBuilt(builder, nullptr, 0, &size) != mani_errorCapacity)
     {
         return false;
     }
     out->words.resize(size / sizeof(std::max_align_t) + 1);
     out->size = size;
-    return maniCopyBuilt(builder, out->words.data(), size, nullptr) == mani_success;
+    return maniBuilder_CopyBuilt(builder, out->words.data(), size, nullptr) == mani_success;
 }
 
 int Fail(const char* what)
@@ -115,7 +115,7 @@ struct Pose
 
     bool Init(const maniSkeleton* skeleton)
     {
-        size_t size = maniPoseSize(skeleton) + MANI_POSE_ALIGNMENT;
+        size_t size = maniSkeleton_GetPoseSize(skeleton) + MANI_POSE_ALIGNMENT;
         words.resize(size / sizeof(std::max_align_t) + 1);
         auto at = reinterpret_cast<uintptr_t>(words.data());
         auto* memory = reinterpret_cast<uint8_t*>(words.data()) +
@@ -131,17 +131,17 @@ ozz::animation::offline::RawSkeleton::Joint MakeJoint(const maniSkeleton* skelet
 {
     ozz::animation::offline::RawSkeleton::Joint joint;
     size_t length = 0;
-    const char* name = maniSkeletonBoneName(skeleton, bone, &length);
+    const char* name = maniSkeleton_GetBoneName(skeleton, bone, &length);
     joint.name = ozz::string(name, length);
-    maniTransform rest = maniSkeletonRest(skeleton, bone);
+    maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
     joint.transform.translation =
         ozz::math::Float3(rest.translation.x, rest.translation.y, rest.translation.z);
     joint.transform.rotation =
         ozz::math::Quaternion(rest.rotation.x, rest.rotation.y, rest.rotation.z, rest.rotation.w);
     joint.transform.scale = ozz::math::Float3(rest.scale.x, rest.scale.y, rest.scale.z);
-    for (uint32_t c = bone + 1; c < maniSkeletonBoneCount(skeleton); ++c)
+    for (uint32_t c = bone + 1; c < maniSkeleton_GetBoneCount(skeleton); ++c)
     {
-        if (maniSkeletonParent(skeleton, c) == bone)
+        if (maniSkeleton_GetParent(skeleton, c) == bone)
         {
             joint.children.push_back(MakeJoint(skeleton, c));
         }
@@ -152,9 +152,9 @@ ozz::animation::offline::RawSkeleton::Joint MakeJoint(const maniSkeleton* skelet
 ozz::unique_ptr<ozz::animation::Skeleton> MakeOzzSkeleton(const maniSkeleton* skeleton)
 {
     ozz::animation::offline::RawSkeleton raw;
-    for (uint32_t b = 0; b < maniSkeletonBoneCount(skeleton); ++b)
+    for (uint32_t b = 0; b < maniSkeleton_GetBoneCount(skeleton); ++b)
     {
-        if (maniSkeletonParent(skeleton, b) == MANI_NO_BONE)
+        if (maniSkeleton_GetParent(skeleton, b) == MANI_NO_BONE)
         {
             raw.roots.push_back(MakeJoint(skeleton, b));
         }
@@ -162,14 +162,14 @@ ozz::unique_ptr<ozz::animation::Skeleton> MakeOzzSkeleton(const maniSkeleton* sk
     ozz::animation::offline::SkeletonBuilder build;
     ozz::unique_ptr<ozz::animation::Skeleton> out = build(raw);
     if (out == nullptr ||
-        static_cast<uint32_t>(out->num_joints()) != maniSkeletonBoneCount(skeleton))
+        static_cast<uint32_t>(out->num_joints()) != maniSkeleton_GetBoneCount(skeleton))
     {
         return nullptr;
     }
-    for (uint32_t b = 0; b < maniSkeletonBoneCount(skeleton); ++b)
+    for (uint32_t b = 0; b < maniSkeleton_GetBoneCount(skeleton); ++b)
     {
         size_t length = 0;
-        const char* name = maniSkeletonBoneName(skeleton, b, &length);
+        const char* name = maniSkeleton_GetBoneName(skeleton, b, &length);
         if (std::strlen(out->joint_names()[b]) != length ||
             std::memcmp(out->joint_names()[b], name, length) != 0)
         {
@@ -191,7 +191,7 @@ void ToSoa(const maniPose* pose, uint32_t bones, Soa* out)
         for (uint32_t k = 0; k < 4; ++k)
         {
             uint32_t b = static_cast<uint32_t>(g) * 4 + k;
-            t[k] = b < bones ? maniPoseLocal(pose, b)
+            t[k] = b < bones ? maniPose_GetLocal(pose, b)
                              : maniTransform{{0, 0, 0}, {0, 0, 0, 1}, {1, 1, 1}};
         }
         auto L = [&](auto f)
@@ -252,7 +252,7 @@ struct Apart
     {
         for (uint32_t b = 0; b < bones; ++b)
         {
-            maniTransform t = maniPoseLocal(ours, b);
+            maniTransform t = maniPose_GetLocal(ours, b);
             float o[10] = {t.translation.x, t.translation.y, t.translation.z, t.rotation.x,
                            t.rotation.y,    t.rotation.z,    t.rotation.w,    t.scale.x,
                            t.scale.y,       t.scale.z};
@@ -280,7 +280,7 @@ struct ModelApart
     {
         for (uint32_t b = 0; b < bones; ++b)
         {
-            maniAffine a = maniPoseModel(ours, b);
+            maniAffine a = maniPose_GetModel(ours, b);
             float z[16];
             for (int c = 0; c < 4; ++c)
             {
@@ -310,7 +310,7 @@ struct Run
 bool SampleRandom(const Run& run, maniPose* pose)
 {
     const maniClip& clip = run.clips[Next() % run.clips.size()];
-    return maniSampleClip(&clip, run.skeleton, Uniform(0.0f, maniClipDuration(&clip)), pose) ==
+    return maniClip_Sample(&clip, run.skeleton, Uniform(0.0f, maniClip_GetDuration(&clip)), pose) ==
            mani_success;
 }
 
@@ -379,9 +379,9 @@ int Compare(const Run& run, long rounds)
         for (uint32_t i = 0; i < adds; ++i)
         {
             if (!SampleRandom(run, additive[i].pose) ||
-                maniPoseSetRest(rest.pose, run.skeleton) != mani_success ||
-                maniPoseDifference(run.skeleton, additive[i].pose, rest.pose, additive[i].pose) !=
-                    mani_success)
+                maniPose_SetRest(rest.pose, run.skeleton) != mani_success ||
+                maniComputePoseDifference(run.skeleton, additive[i].pose, rest.pose,
+                                          additive[i].pose) != mani_success)
             {
                 return Fail("differences");
             }
@@ -418,7 +418,8 @@ int Compare(const Run& run, long rounds)
         {
             job.additive_layers =
                 ozz::span<const ozz::animation::BlendingJob::Layer>(ozzAdds, adds);
-            if (!job.Run() || maniAddPoses(run.skeleton, out.pose, addLayers, adds) != mani_success)
+            if (!job.Run() ||
+                maniPose_AddLayers(out.pose, run.skeleton, addLayers, adds) != mani_success)
             {
                 return Fail("additive layers");
             }
@@ -429,7 +430,7 @@ int Compare(const Run& run, long rounds)
         toModel.skeleton = run.ozz.get();
         toModel.input = ozz::make_span(mine);
         toModel.output = ozz::make_span(models);
-        if (!toModel.Run() || maniComputeModel(out.pose, run.skeleton) != mani_success)
+        if (!toModel.Run() || maniPose_ComputeModel(out.pose, run.skeleton) != mani_success)
         {
             return Fail("a model pass");
         }
@@ -514,7 +515,7 @@ void Timings(const Run& run, long reps, int only)
     start = Seconds();
     for (long r = 0; (only < 0 || only == 3) && r < reps; ++r)
     {
-        (void)maniComputeModel(out.pose, run.skeleton);
+        (void)maniPose_ComputeModel(out.pose, run.skeleton);
     }
     double ourModel = Seconds() - start;
     std::printf("ns a model pass: ozz %.0f, Maul Anim %.0f\n", ozzModel / reps * 1e9,
@@ -547,8 +548,8 @@ int main(int argc, char** argv)
     maniSkeleton skeleton{};
     if (maniCreateBuilder(&def, &builder) != mani_success ||
         maniOpenFbx(builder, file.data(), file.size, &fbx).result != mani_success ||
-        maniFbxSkeletonCount(fbx) == 0 ||
-        maniFbxBuildSkeleton(builder, fbx, 0, &options).result != mani_success ||
+        maniFbx_GetSkeletonCount(fbx) == 0 ||
+        maniBuildFbxSkeleton(builder, fbx, 0, &options).result != mani_success ||
         !CopyBuilt(builder, &skeletonFile) ||
         maniOpenSkeleton(skeletonFile.data(), skeletonFile.size, &skeleton).result != mani_success)
     {
@@ -556,19 +557,19 @@ int main(int argc, char** argv)
     }
     Run run;
     run.skeleton = &skeleton;
-    run.bones = maniSkeletonBoneCount(&skeleton);
+    run.bones = maniSkeleton_GetBoneCount(&skeleton);
     run.ozz = MakeOzzSkeleton(&skeleton);
     if (run.ozz == nullptr)
     {
         return Fail("ozz's skeleton differs");
     }
-    std::vector<Bytes> files(maniFbxClipCount(fbx));
+    std::vector<Bytes> files(maniFbx_GetClipCount(fbx));
     run.clips.resize(files.size());
     maniImportClipOptions clipOptions = maniDefaultImportClipOptions();
     clipOptions.sampleRate = kRate;
     for (uint32_t k = 0; k < files.size(); ++k)
     {
-        if (maniFbxBuildClip(builder, fbx, k, &skeleton, &options, &clipOptions, nullptr).result !=
+        if (maniBuildFbxClip(builder, fbx, k, &skeleton, &options, &clipOptions, nullptr).result !=
                 mani_success ||
             !CopyBuilt(builder, &files[k]) ||
             maniOpenClip(files[k].data(), files[k].size, &run.clips[k]).result != mani_success)

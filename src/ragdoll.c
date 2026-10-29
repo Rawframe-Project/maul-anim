@@ -321,22 +321,22 @@ maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragd
     return result;
 }
 
-uint64_t maniRagdollIdentity(const maniRagdoll* ragdoll)
+uint64_t maniRagdoll_GetIdentity(const maniRagdoll* ragdoll)
 {
     return ragdoll != NULL ? ragdoll->identity : 0;
 }
 
-uint64_t maniRagdollSkeletonIdentity(const maniRagdoll* ragdoll)
+uint64_t maniRagdoll_GetSkeletonIdentity(const maniRagdoll* ragdoll)
 {
     return ragdoll != NULL ? ragdoll->skeletonIdentity : 0;
 }
 
-uint32_t maniRagdollBodyCount(const maniRagdoll* ragdoll)
+uint32_t maniRagdoll_GetBodyCount(const maniRagdoll* ragdoll)
 {
     return ragdoll != NULL ? ragdoll->bodyCount : 0;
 }
 
-maniResult maniRagdollReadBody(const maniRagdoll* ragdoll, uint32_t body, maniRagdollBody* bodyOut)
+maniResult maniRagdoll_GetBody(const maniRagdoll* ragdoll, uint32_t body, maniRagdollBody* bodyOut)
 {
     if (ragdoll == NULL || bodyOut == NULL || body >= ragdoll->bodyCount)
     {

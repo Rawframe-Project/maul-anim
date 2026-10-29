@@ -280,7 +280,7 @@ static uint32_t ClipSlot(const Scope* s, Flat* f, uint32_t slot)
     {
         const maniClip* other = f->clips[k].clip;
         bool same = other != NULL && c->clip != NULL
-                        ? maniClipIdentity(other) == maniClipIdentity(c->clip)
+                        ? maniClip_GetIdentity(other) == maniClip_GetIdentity(c->clip)
                         : other == c->clip;
         if (same && MapIdentity(f->clips[k].retargetMap) == MapIdentity(c->retargetMap))
         {
@@ -306,9 +306,9 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
     for (uint32_t k = 0; k < f->databaseCount; ++k)
     {
         const maniMotionDatabase* other = f->databases[k].database;
-        if (other != NULL && d->database != NULL
-                ? maniMotionDatabaseIdentity(other) == maniMotionDatabaseIdentity(d->database)
-                : other == d->database)
+        if (other != NULL && d->database != NULL ? maniMotionDatabase_GetIdentity(other) ==
+                                                       maniMotionDatabase_GetIdentity(d->database)
+                                                 : other == d->database)
         {
             return k;
         }
@@ -320,7 +320,7 @@ static uint32_t DatabaseSlot(const Scope* s, Flat* f, uint32_t slot)
         const maniClip* clip = s->graph->clips[k].clip;
         for (uint32_t c = 0; c < d->database->clipCount && clip != NULL; ++c)
         {
-            if (maniMotionDatabaseClipIdentity(d->database, c) == maniClipIdentity(clip))
+            if (maniMotionDatabase_GetClipIdentity(d->database, c) == maniClip_GetIdentity(clip))
             {
                 (void)ClipSlot(s, f, k);
             }
@@ -346,7 +346,7 @@ static uint32_t ModelSlot(const Scope* s, Flat* f, uint32_t slot)
     {
         const maniLearnedModel* other = f->models[k].model;
         if (other != NULL && m->model != NULL
-                ? maniLearnedModelIdentity(other) == maniLearnedModelIdentity(m->model)
+                ? maniLearnedModel_GetIdentity(other) == maniLearnedModel_GetIdentity(m->model)
                 : other == m->model)
         {
             return k;
@@ -372,7 +372,7 @@ static uint32_t SpringSetSlot(const Scope* s, Flat* f, uint32_t slot)
     {
         const maniSpringSet* other = f->springSets[k].set;
         if (other != NULL && p->set != NULL
-                ? maniSpringSetIdentity(other) == maniSpringSetIdentity(p->set)
+                ? maniSpringSet_GetIdentity(other) == maniSpringSet_GetIdentity(p->set)
                 : other == p->set)
         {
             return k;
@@ -644,7 +644,7 @@ static bool SubgraphValid(const Scope* s, const maniGraphNodeSource* node,
 {
     const maniGraphSource* sub = node->subgraph.graph;
     if (node->inputCount != 0 || sub->skeleton == NULL ||
-        maniSkeletonIdentity(sub->skeleton) != maniSkeletonIdentity(skeleton) ||
+        maniSkeleton_GetIdentity(sub->skeleton) != maniSkeleton_GetIdentity(skeleton) ||
         sub->output >= sub->nodeCount ||
         (sub->parameterCount > 0 && (node->subgraph.parameters == NULL || sub->parameters == NULL)))
     {

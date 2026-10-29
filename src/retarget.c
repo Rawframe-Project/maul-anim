@@ -327,17 +327,17 @@ maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetM
     return result;
 }
 
-uint64_t maniRetargetMapIdentity(const maniRetargetMap* map)
+uint64_t maniRetargetMap_GetIdentity(const maniRetargetMap* map)
 {
     return map != NULL ? map->identity : 0;
 }
 
-uint64_t maniRetargetMapSourceIdentity(const maniRetargetMap* map)
+uint64_t maniRetargetMap_GetSourceIdentity(const maniRetargetMap* map)
 {
     return map != NULL ? map->sourceIdentity : 0;
 }
 
-uint64_t maniRetargetMapTargetIdentity(const maniRetargetMap* map)
+uint64_t maniRetargetMap_GetTargetIdentity(const maniRetargetMap* map)
 {
     return map != NULL ? map->targetIdentity : 0;
 }

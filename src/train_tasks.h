@@ -13,7 +13,7 @@
 
 // Runs task over [0, count): on the hooks, one item a range at least, or
 // on this thread when the hooks have no enqueue.
-void maniTrainRun(const maniTaskHooks* hooks, maniTaskFn* task, int32_t count, void* context);
+void maniTrainRun(const maniTaskHooks* hooks, maniTaskFunction* task, int32_t count, void* context);
 
 // sum = chunk 0 + chunk 1 + ..., value by value in chunk order; chunk c
 // starts at chunks + c * count.

@@ -119,7 +119,7 @@ static void OpenMap(maniMirrorAxis axis, uint8_t* file, maniMirrorMap* out)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, 4096, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, 4096, &size) == mani_success &&
               maniOpenMirrorMap(file, size, out).result == mani_success,
           "a map");
     maniDestroyBuilder(builder);
@@ -131,7 +131,7 @@ static void Setup(void)
     maniSkeletonSource rig = {kRig, kBones};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &rig).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+              maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
                   mani_success &&
               maniOpenSkeleton(s_skeletonFile, size, &s_skeleton).result == mani_success,
           "the rig");
@@ -157,13 +157,13 @@ static void Setup(void)
                                  .duration = 1.0f,
                                  .rootMotion = &root};
     CHECK(maniBuildClip(builder, &walk).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[0], sizeof s_clipFiles[0], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[0], sizeof s_clipFiles[0], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[0], size, &s_walk).result == mani_success,
           "the walk");
     const maniMirrorClipSource mirror = {&s_map, &s_skeleton, &s_walk};
     CHECK(maniBuildMirroredClip(builder, &mirror).result == mani_success &&
-              maniCopyBuilt(builder, s_clipFiles[1], sizeof s_clipFiles[1], &size) ==
+              maniBuilder_CopyBuilt(builder, s_clipFiles[1], sizeof s_clipFiles[1], &size) ==
                   mani_success &&
               maniOpenClip(s_clipFiles[1], size, &s_baked).result == mani_success,
           "the walk's mirrored bake");
@@ -195,8 +195,8 @@ static maniBuildResult BuildDatabase(const maniMotionDatabaseSource* source, int
     if (r.result == mani_success)
     {
         CHECK(
-            maniCopyBuilt(builder, s_databaseFiles[slot], sizeof s_databaseFiles[slot],
-                          &s_databaseSizes[slot]) == mani_success &&
+            maniBuilder_CopyBuilt(builder, s_databaseFiles[slot], sizeof s_databaseFiles[slot],
+                                  &s_databaseSizes[slot]) == mani_success &&
                 maniOpenMotionDatabase(s_databaseFiles[slot], s_databaseSizes[slot], out).result ==
                     mani_success,
             "the database opens");
@@ -230,8 +230,8 @@ static void TestFeatures(void)
     maniMotionDatabaseSource source = Mirrored(&s_map);
     CHECK(BuildDatabase(&source, 0, &s_mirrored).result == mani_success,
           "a database of mirrored entries builds");
-    CHECK(maniMotionDatabaseMirrorMapIdentity(&s_mirrored) == s_map.identity &&
-              maniMotionDatabaseMirrorMapIdentity(NULL) == 0,
+    CHECK(maniMotionDatabase_GetMirrorMapIdentity(&s_mirrored) == s_map.identity &&
+              maniMotionDatabase_GetMirrorMapIdentity(NULL) == 0,
           "the map's identity kept");
     static const maniClip* baked[2];
     static const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
@@ -243,7 +243,7 @@ static void TestFeatures(void)
         2,           30.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     CHECK(BuildDatabase(&bake, 1, &s_bakedDatabase).result == mani_success,
           "a database of the bake builds");
-    CHECK(maniMotionDatabaseMirrorMapIdentity(&s_bakedDatabase) == 0, "no map without mirrors");
+    CHECK(maniMotionDatabase_GetMirrorMapIdentity(&s_bakedDatabase) == 0, "no map without mirrors");
     uint32_t n = s_mirrored.featureCount;
     bool same = s_mirrored.frameCount == 60 && s_bakedDatabase.frameCount == 60 &&
                 s_bakedDatabase.featureCount == n;
@@ -254,12 +254,12 @@ static void TestFeatures(void)
         float b[32];
         float plain[32];
         same = n <= 32 &&
-               maniMotionDatabaseFeatures(&s_mirrored, f, a, s_mirrored.featureCount, NULL) ==
+               maniMotionDatabase_GetFeatures(&s_mirrored, f, a, s_mirrored.featureCount, NULL) ==
                    mani_success &&
-               maniMotionDatabaseFeatures(&s_bakedDatabase, f, b, s_bakedDatabase.featureCount,
-                                          NULL) == mani_success &&
-               maniMotionDatabaseFeatures(&s_mirrored, f % 30, plain, s_mirrored.featureCount,
-                                          NULL) == mani_success;
+               maniMotionDatabase_GetFeatures(&s_bakedDatabase, f, b, s_bakedDatabase.featureCount,
+                                              NULL) == mani_success &&
+               maniMotionDatabase_GetFeatures(&s_mirrored, f % 30, plain, s_mirrored.featureCount,
+                                              NULL) == mani_success;
         for (uint32_t k = 0; same && k < n; ++k)
         {
             same = Near(a[k], b[k]);
@@ -288,8 +288,8 @@ static void TestFeatures(void)
     {
         float x[32];
         float y[32];
-        same = maniMotionDatabaseFeatures(&a, f, x, a.featureCount, NULL) == mani_success &&
-               maniMotionDatabaseFeatures(&b, f, y, b.featureCount, NULL) == mani_success;
+        same = maniMotionDatabase_GetFeatures(&a, f, x, a.featureCount, NULL) == mani_success &&
+               maniMotionDatabase_GetFeatures(&b, f, y, b.featureCount, NULL) == mani_success;
         for (uint32_t k = 0; same && k < n; ++k)
         {
             same = Near(x[k], y[k]);
@@ -329,7 +329,7 @@ static void TestRefusals(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildMirrorMap(builder, &ms).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenMirrorMap(file, size, &flap).result == mani_success,
           "a map pairing flag with flap");
     maniDestroyBuilder(builder);
@@ -477,7 +477,8 @@ static maniBuildResult BuildGraph(const maniGraphSource* source, size_t* sizeOut
     maniBuildResult r = maniBuildGraph(builder, source);
     if (r.result == mani_success)
     {
-        CHECK(maniCopyBuilt(builder, s_graphFile, sizeof s_graphFile, sizeOut) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_graphFile, sizeof s_graphFile, sizeOut) ==
+                  mani_success,
               "the graph copied");
     }
     maniDestroyBuilder(builder);
@@ -507,8 +508,8 @@ static bool Same(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t bone = 0; bone < kBones; ++bone)
     {
-        maniTransform x = maniPoseLocal(a, bone);
-        maniTransform y = maniPoseLocal(b, bone);
+        maniTransform x = maniPose_GetLocal(a, bone);
+        maniTransform y = maniPose_GetLocal(b, bone);
         maniQuat p = x.rotation;
         maniQuat q = y.rotation;
         same = same && Gap(x.translation, y.translation) < 1e-5 &&
@@ -543,7 +544,7 @@ static void Play(uint32_t mirrors)
           "a graph of the database bound");
     bool flipped = mirrors == 0;
     // The first search places the node somewhere in the mirrored entry.
-    (void)maniUpdateGraph(instance, 0.0f, NULL, 0, NULL, NULL);
+    (void)maniGraphInstance_Update(instance, 0.0f, NULL, 0, NULL, NULL);
     float start = (float)instance->cells[g.parameterCount].node.time;
     bool poses = true;
     bool moves = true;
@@ -557,15 +558,17 @@ static void Play(uint32_t mirrors)
         uint32_t count = 0;
         float from = fmodf(start + (float)(k - 1) * 0.1f, 1.0f);
         float t = fmodf(start + (float)k * 0.1f, 1.0f);
-        poses = poses &&
-                maniUpdateGraph(instance, 0.1f, events, 4, &count, &move) == mani_success &&
-                maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_out) == mani_success &&
-                maniSampleClip(&s_walk, &s_skeleton, t, s_expected) == mani_success &&
-                (!flipped ||
-                 maniMirrorPose(&s_map, &s_skeleton, s_expected, s_expected) == mani_success) &&
-                Same(s_out, s_expected);
-        moves = moves && maniClipRootMotion(&s_walk, from, 0.1f, &want) == mani_success;
-        want = flipped ? maniMirrorRootMotion(&s_map, want) : want;
+        poses =
+            poses &&
+            maniGraphInstance_Update(instance, 0.1f, events, 4, &count, &move) == mani_success &&
+            maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
+                mani_success &&
+            maniClip_Sample(&s_walk, &s_skeleton, t, s_expected) == mani_success &&
+            (!flipped || maniMirrorMap_MirrorPose(&s_map, &s_skeleton, s_expected, s_expected) ==
+                             mani_success) &&
+            Same(s_out, s_expected);
+        moves = moves && maniClip_GetRootMotion(&s_walk, from, 0.1f, &want) == mani_success;
+        want = flipped ? maniMirrorMap_MirrorRootMotion(&s_map, want) : want;
         moves = moves && Gap(move.translation, want.translation) < 1e-5;
         for (uint32_t i = 0; i < count && heard < 4; ++i)
         {

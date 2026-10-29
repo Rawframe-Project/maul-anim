@@ -129,7 +129,7 @@ bool maniMapJsonReference(maniGraphReader* r, uint32_t value, const maniTransfor
     {
         return true;
     }
-    uint32_t bones = maniSkeletonBoneCount(r->skeleton);
+    uint32_t bones = maniSkeleton_GetBoneCount(r->skeleton);
     maniTransform* pose = maniArenaTake(&r->arena, bones, sizeof *pose);
     uint8_t* seen = maniArenaTake(&r->arena, bones, 1);
     if (pose == NULL || seen == NULL)
@@ -138,7 +138,7 @@ bool maniMapJsonReference(maniGraphReader* r, uint32_t value, const maniTransfor
     }
     for (uint32_t b = 0; b < bones; ++b)
     {
-        pose[b] = maniSkeletonRest(r->skeleton, b);
+        pose[b] = maniSkeleton_GetRest(r->skeleton, b);
         seen[b] = 0;
     }
     uint32_t e = value;
@@ -205,7 +205,7 @@ static_assert(sizeof(maniTransform) == 10 * sizeof(float), "ten floats");
 // Whether a local is its bone's rest bit for bit.
 static bool AtRest(const maniSkeleton* skeleton, uint32_t bone, const maniTransform* t)
 {
-    maniTransform rest = maniSkeletonRest(skeleton, bone);
+    maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
     uint32_t a[10];
     uint32_t b[10];
     memcpy(a, &rest, sizeof a);
@@ -220,7 +220,7 @@ static bool AtRest(const maniSkeleton* skeleton, uint32_t bone, const maniTransf
 
 void maniMapJsonPutReference(maniGraphWriter* w, const char* key, const maniTransform* given)
 {
-    uint32_t bones = given != NULL ? maniSkeletonBoneCount(w->skeleton) : 0u;
+    uint32_t bones = given != NULL ? maniSkeleton_GetBoneCount(w->skeleton) : 0u;
     uint32_t n = 0;
     maniMapJsonPutOpen(w, key);
     for (uint32_t b = 0; b < bones; ++b)

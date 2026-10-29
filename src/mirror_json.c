@@ -215,8 +215,8 @@ static void Draw(Writer* w, const void* source)
     {
         size_t first = 0;
         size_t second = 0;
-        const char* a = maniSkeletonBoneName(s->skeleton, s->pairs[i].first, &first);
-        const char* b = maniSkeletonBoneName(s->skeleton, s->pairs[i].second, &second);
+        const char* a = maniSkeleton_GetBoneName(s->skeleton, s->pairs[i].first, &first);
+        const char* b = maniSkeleton_GetBoneName(s->skeleton, s->pairs[i].second, &second);
         maniMapJsonPutItem(w, i);
         PutTwo(w, a, first, b, second);
     }

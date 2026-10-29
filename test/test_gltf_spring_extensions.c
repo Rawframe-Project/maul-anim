@@ -109,8 +109,8 @@ static bool Skeleton(maniBuilder* builder, maniGltf* gltf, const maniGltfOptions
                      maniSkeleton* skeleton)
 {
     size_t size = 0;
-    return maniGltfBuildSkeleton(builder, gltf, 0, options).result == mani_success &&
-           maniCopyBuilt(builder, s_skeletonFiles[k], sizeof s_skeletonFiles[k], &size) ==
+    return maniBuildGltfSkeleton(builder, gltf, 0, options).result == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_skeletonFiles[k], sizeof s_skeletonFiles[k], &size) ==
                mani_success &&
            maniOpenSkeleton(s_skeletonFiles[k], size, skeleton).result == mani_success;
 }
@@ -127,7 +127,7 @@ static bool Builds(maniBuilder* builder, const maniSpringSetSource* set)
     size_t size = 0;
     maniSpringSet opened;
     return maniBuildSpringSet(builder, set).result == mani_success &&
-           maniCopyBuilt(builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
+           maniBuilder_CopyBuilt(builder, s_setFile, sizeof s_setFile, &size) == mani_success &&
            maniOpenSpringSet(s_setFile, size, &opened).result == mani_success;
 }
 
@@ -140,7 +140,7 @@ static void TestColliders(void)
     maniSkeleton skeleton;
     maniSpringSetSource set;
     CHECK(Skeleton(builder, gltf, &options, 0, &skeleton) &&
-              maniGltfReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
+              maniGltf_ReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
               set.colliderCount == 6,
           "read");
     const maniColliderSource* c = set.colliders;
@@ -164,7 +164,7 @@ static void TestColliders(void)
     // Z up: the plane's normal along +z, its point too.
     maniGltfOptions zUp = {{maniAxisX, maniAxisNegativeZ, maniAxisY}, 0};
     CHECK(Skeleton(builder, gltf, &zUp, 0, &skeleton) &&
-              maniGltfReadSprings(gltf, &skeleton, &zUp, &set).result == mani_success &&
+              maniGltf_ReadSprings(gltf, &skeleton, &zUp, &set).result == mani_success &&
               set.colliders[2].tail.z == 1.0f && set.colliders[2].offset.z == 0.5f &&
               set.colliders[5].tail.y == -1.0f && Builds(builder, &set),
           "z up");
@@ -186,7 +186,7 @@ static void TestLimits(void)
     maniSkeleton skeleton;
     maniSpringSetSource set;
     CHECK(Skeleton(builder, gltf, &options, 0, &skeleton) &&
-              maniGltfReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
+              maniGltf_ReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
               set.springCount == 2 && set.springs[0].jointCount == 4,
           "read");
     const maniSpringJointSource* j = set.springs[0].joints;
@@ -207,7 +207,7 @@ static void TestLimits(void)
     Document("[]", kOtherVersion);
     gltf = Open(builder);
     CHECK(Skeleton(builder, gltf, &options, 0, &skeleton) &&
-              maniGltfReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
+              maniGltf_ReadSprings(gltf, &skeleton, &options, &set).result == mani_success &&
               set.springs[0].joints[0].limit == maniSpringLimitNone,
           "another version: no limit, its body unread");
     maniCloseGltf(gltf);
@@ -239,14 +239,14 @@ static void TestLimitBasis(const maniGltfOptions* basis, bool mirror, const char
     maniSpringSetSource set;
     CHECK(Skeleton(builder, gltf, &options, 0, &plain) &&
               Skeleton(builder, gltf, basis, 1, &changed) &&
-              maniGltfReadSprings(gltf, &plain, &options, &set).result == mani_success,
+              maniGltf_ReadSprings(gltf, &plain, &options, &set).result == mani_success,
           "read");
     // Spring 0's three limits, then spring 1's, whose rest direction is
     // -y: half a turn from +y.
     maniSpringJointSource joints[6];
     memcpy(joints, set.springs[0].joints, 4 * sizeof *joints);
     memcpy(joints + 4, set.springs[1].joints, 2 * sizeof *joints);
-    CHECK(maniGltfReadSprings(gltf, &changed, basis, &set).result == mani_success, "read again");
+    CHECK(maniGltf_ReadSprings(gltf, &changed, basis, &set).result == mani_success, "read again");
     maniSpringJointSource read[6];
     memcpy(read, set.springs[0].joints, 4 * sizeof *read);
     memcpy(read + 4, set.springs[1].joints, 2 * sizeof *read);
@@ -284,7 +284,7 @@ static void ExpectRefusal(const char* colliders, const char* springs, const char
     maniSkeleton skeleton;
     maniSpringSetSource set;
     CHECK(Skeleton(builder, gltf, &options, 0, &skeleton), "a skeleton");
-    maniImportResult r = maniGltfReadSprings(gltf, &skeleton, &options, &set);
+    maniImportResult r = maniGltf_ReadSprings(gltf, &skeleton, &options, &set);
     const char* found = at != NULL ? strstr(s_json, at) : NULL;
     bool right = r.result == mani_errorFormat && r.reason == maniImportReasonProperty &&
                  (at == NULL || (found != NULL && r.offset == (uint64_t)(found - s_json)));

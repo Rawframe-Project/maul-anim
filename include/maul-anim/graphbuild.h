@@ -397,7 +397,7 @@ extern "C"
     // takes the continuing bias and transition cost (finite), the jump
     // threshold, end exclusion and history time (seconds, not negative),
     // the last historyCount picks (0 to MANI_MAX_MATCH_HISTORY) and the
-    // tags (maniSearchMotionDatabase). On a jump it requests duration
+    // tags (maniMotionDatabase_Search). On a jump it requests duration
     // seconds of the nearest inertialize node above it, which the build
     // requires on every path from the output. It moves by the time its
     // parents give it, forward.
@@ -451,17 +451,17 @@ extern "C"
 
     // A spring bone node: one input, a pose of the skeleton
     // (not differences), given with its spring set slot's joints turned
-    // toward their tails as maniApplySprings turns them. Its tails step
+    // toward their tails as maniSpringState_Apply turns them. Its tails step
     // at the set's step rate by the time its parents give it (its
     // magnitude), when the graph is evaluated, toward the input pose just
     // computed, at most MANI_SPRING_MAX_STEPS steps an evaluation. The
     // character's place in the world is position (a vec3 parameter) and
     // rotation (a quat parameter), MANI_NO_PARAMETER for the origin and
     // the identity. Its reset trigger (MANI_NO_PARAMETER for none) and a
-    // seek above it drop the motion, as maniResetSprings does: the next
+    // seek above it drop the motion, as maniSpringState_Reset does: the next
     // evaluation places every tail where the input puts it. Its force (a
     // vec3 parameter, MANI_NO_PARAMETER for none) is the external force
-    // maniStepSprings takes. The set's state takes at most 2^24 words.
+    // maniSpringState_Step takes. The set's state takes at most 2^24 words.
     typedef struct maniGraphSpringNodeSource
     {
         uint32_t springSet;
@@ -504,7 +504,7 @@ extern "C"
     } maniGraphPoseNodeSource;
 
     // A two-bone IK node: one input, a pose of the skeleton
-    // (not differences), given with its chain solved as maniSolveTwoBone
+    // (not differences), given with its chain solved as maniPose_SolveTwoBone
     // solves it: start, middle and end bones of the skeleton, each an
     // ancestor of the next; its goal (a vec3 parameter, in the model
     // space of the pose) and pole (a vec3 parameter, MANI_NO_PARAMETER for
@@ -526,7 +526,7 @@ extern "C"
     } maniGraphTwoBoneNodeSource;
 
     // An aim IK node: one input, a pose of the skeleton (not
-    // differences), given with its bones aimed as maniSolveAim aims them:
+    // differences), given with its bones aimed as maniPose_SolveAim aims them:
     // count bones (1 to MANI_MAX_AIM_BONES) of the skeleton, each an
     // ancestor of the next, the aiming bone last; their shares (at least
     // 0, finite, not all 0), or NULL for equal shares; its goal and pole
@@ -552,7 +552,7 @@ extern "C"
 
     // A chain IK node, CCD or FABRIK by its kind: one input, a
     // pose of the skeleton (not differences), given with its chain solved
-    // as maniSolveCcd or maniSolveFabrik solves it: root and end bones,
+    // as maniPose_SolveCcd or maniPose_SolveFabrik solves it: root and end bones,
     // the root an ancestor of the end, at most MANI_MAX_IK_CHAIN_BONES
     // on the path; its goal (a vec3 parameter, model space); a FABRIK
     // node's pole (a vec3 parameter, MANI_NO_PARAMETER for none; none
@@ -597,8 +597,8 @@ extern "C"
 
     // A full-body IK node, XPBD or SDLS by its kind: one
     // input, a pose of the skeleton (not differences), given with the
-    // bones from its top to its effectors solved as maniSolveBodyXpbd or
-    // maniSolveBodySdls solves them: the top and its mode; the effectors
+    // bones from its top to its effectors solved as maniPose_SolveBodyXpbd or
+    // maniPose_SolveBodySdls solves them: the top and its mode; the effectors
     // (1 to MANI_MAX_BODY_IK_EFFECTORS); bone settings as maniBodyBone
     // (NULL for none); stretch (XPBD only), the iteration count and
     // tolerance as maniBodySolve takes them; its weight (in [0, 1]) a
@@ -790,7 +790,7 @@ extern "C"
     /// place in the source, subgraphs as nested graphs with their
     /// parameters mapped by name, and numbers as the shortest text that
     /// reads back to the same binary32 (ECMAScript's layout). The text is
-    /// kept in place of any file or text kept before; maniCopyBuilt
+    /// kept in place of any file or text kept before; maniBuilder_CopyBuilt
     /// copies it.
     ///
     /// @param builder  The builder.

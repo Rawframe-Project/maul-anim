@@ -463,9 +463,9 @@ static maniQuat RootModel(const maniGltfRagdollReader* r, uint32_t root)
 {
     maniAffine model = maniGltfIdentityAffine();
     for (uint32_t bone = r->bodies[root].bone; bone != MANI_NO_BONE;
-         bone = maniSkeletonParent(r->skeleton, bone))
+         bone = maniSkeleton_GetParent(r->skeleton, bone))
     {
-        maniTransform t = maniSkeletonRest(r->skeleton, bone);
+        maniTransform t = maniSkeleton_GetRest(r->skeleton, bone);
         maniAffine local = maniAffineFromTrs(t.translation, t.rotation, t.scale);
         model = maniAffineMul(&local, &model);
     }
@@ -481,8 +481,8 @@ static uint32_t Root(const maniGltfRagdollReader* r)
     for (uint32_t i = 0; i < r->bodyCount; ++i)
     {
         bool below = false;
-        for (uint32_t bone = maniSkeletonParent(r->skeleton, r->bodies[i].bone);
-             bone != MANI_NO_BONE && !below; bone = maniSkeletonParent(r->skeleton, bone))
+        for (uint32_t bone = maniSkeleton_GetParent(r->skeleton, r->bodies[i].bone);
+             bone != MANI_NO_BONE && !below; bone = maniSkeleton_GetParent(r->skeleton, bone))
         {
             for (uint32_t j = 0; j < r->bodyCount && !below; ++j)
             {
@@ -605,9 +605,9 @@ static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
     return result;
 }
 
-maniImportResult maniGltfReadRagdoll(maniGltf* gltf, const maniSkeleton* skeleton,
-                                     const maniGltfOptions* options, maniVec3 facing, maniVec3 up,
-                                     maniRagdollSource* sourceOut)
+maniImportResult maniGltf_ReadRagdoll(maniGltf* gltf, const maniSkeleton* skeleton,
+                                      const maniGltfOptions* options, maniVec3 facing, maniVec3 up,
+                                      maniRagdollSource* sourceOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniImportResult result = GltfReadRagdollWork(gltf, skeleton, options, facing, up, sourceOut);

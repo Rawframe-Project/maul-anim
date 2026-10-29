@@ -149,7 +149,7 @@ static void BuildSample(void)
     SampleSource(&source);
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildMorphTargets(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
           "sample built");
     maniDestroyBuilder(builder);
 }
@@ -166,39 +166,44 @@ static void TestBuildsAndReads(void)
     maniMorphTargets m;
     CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
-    CHECK(maniMorphVertexCount(&m) == kVertices && maniMorphChannelCount(&m) == 3 &&
-              maniMorphTargetCount(&m) == 5 && maniMorphAttributeCount(&m) == 5,
+    CHECK(maniMorphTargets_GetVertexCount(&m) == kVertices &&
+              maniMorphTargets_GetChannelCount(&m) == 3 &&
+              maniMorphTargets_GetTargetCount(&m) == 5 &&
+              maniMorphTargets_GetAttributeCount(&m) == 5,
           "counts");
     uint32_t set = 9;
-    CHECK(maniMorphAttribute(&m, 4, &set) == maniMorphColor && set == 1 &&
-              maniMorphAttribute(&m, 3, &set) == maniMorphTexcoord && set == 0 &&
-              maniMorphAttribute(&m, 5, &set) == UINT32_MAX && set == 0,
+    CHECK(maniMorphTargets_GetAttribute(&m, 4, &set) == maniMorphColor && set == 1 &&
+              maniMorphTargets_GetAttribute(&m, 3, &set) == maniMorphTexcoord && set == 0 &&
+              maniMorphTargets_GetAttribute(&m, 5, &set) == UINT32_MAX && set == 0,
           "the attribute table");
     size_t length = 0;
-    const char* name = maniMorphChannelName(&m, 1, &length);
+    const char* name = maniMorphTargets_GetChannelName(&m, 1, &length);
     CHECK(length == 5 && memcmp(name, "blink", 5) == 0, "a channel's name");
-    CHECK(maniMorphChannelName(&m, 3, &length) == NULL && length == 0, "no channel past the count");
-    CHECK(maniMorphFindChannel(&m, "wide", 4) == 2 &&
-              maniMorphFindChannel(&m, "wid", 3) == MANI_NO_CHANNEL &&
-              maniMorphFindChannel(&m, NULL, 1) == MANI_NO_CHANNEL &&
-              maniMorphFindChannel(&m, "", 0) == MANI_NO_CHANNEL,
+    CHECK(maniMorphTargets_GetChannelName(&m, 3, &length) == NULL && length == 0,
+          "no channel past the count");
+    CHECK(maniMorphTargets_FindChannel(&m, "wide", 4) == 2 &&
+              maniMorphTargets_FindChannel(&m, "wid", 3) == MANI_NO_CHANNEL &&
+              maniMorphTargets_FindChannel(&m, NULL, 1) == MANI_NO_CHANNEL &&
+              maniMorphTargets_FindChannel(&m, "", 0) == MANI_NO_CHANNEL,
           "find");
-    const char* target = maniMorphTargetName(&m, 2, &length);
+    const char* target = maniMorphTargets_GetTargetName(&m, 2, &length);
     CHECK(length == 7 && memcmp(target, "blink/1", 7) == 0, "a target's default name");
-    target = maniMorphTargetName(&m, 1, &length);
+    target = maniMorphTargets_GetTargetName(&m, 1, &length);
     CHECK(length == 5 && memcmp(target, "blink", 5) == 0, "a first target: the channel's name");
-    CHECK(maniMorphFindTarget(&m, "shut", 4) == 3 && maniMorphFindTarget(&m, "wide", 4) == 4 &&
-              maniMorphFindTarget(&m, "blink/2", 7) == MANI_NO_CHANNEL &&
-              maniMorphFindTarget(&m, NULL, 0) == MANI_NO_CHANNEL &&
-              maniMorphTargetName(&m, 5, &length) == NULL && length == 0,
+    CHECK(maniMorphTargets_FindTarget(&m, "shut", 4) == 3 &&
+              maniMorphTargets_FindTarget(&m, "wide", 4) == 4 &&
+              maniMorphTargets_FindTarget(&m, "blink/2", 7) == MANI_NO_CHANNEL &&
+              maniMorphTargets_FindTarget(&m, NULL, 0) == MANI_NO_CHANNEL &&
+              maniMorphTargets_GetTargetName(&m, 5, &length) == NULL && length == 0,
           "a given name; find");
     uint32_t first = 0;
-    CHECK(maniMorphChannelTargets(&m, 1, &first) == 3 && first == 1 &&
-              maniMorphChannelTargets(&m, 2, &first) == 1 && first == 4 &&
-              maniMorphChannelTargets(&m, 3, &first) == 0 && first == 0,
+    CHECK(maniMorphTargets_GetChannelTargets(&m, 1, &first) == 3 && first == 1 &&
+              maniMorphTargets_GetChannelTargets(&m, 2, &first) == 1 && first == 4 &&
+              maniMorphTargets_GetChannelTargets(&m, 3, &first) == 0 && first == 0,
           "a channel's targets");
-    CHECK(maniMorphTargetFullWeight(&m, 1) == -1.0f && maniMorphTargetFullWeight(&m, 2) == 0.5f &&
-              maniMorphTargetFullWeight(&m, 5) == 0.0f,
+    CHECK(maniMorphTargets_GetTargetFullWeight(&m, 1) == -1.0f &&
+              maniMorphTargets_GetTargetFullWeight(&m, 2) == 0.5f &&
+              maniMorphTargets_GetTargetFullWeight(&m, 5) == 0.0f,
           "full weights");
     // Smile: sorted, vertex 5 summed; wide: dense, tangents then colors.
     const uint8_t* smile = m.targets;
@@ -287,8 +292,8 @@ static void TestWeights(void)
         float w = (float)i * 0.05f;
         const float channels[3] = {w, w, w};
         float targets[5];
-        CHECK(maniMorphTargetWeights(&m, channels, targets, maniMorphTargetCount(&m), NULL) ==
-                  mani_success,
+        CHECK(maniMorphTargets_ComputeTargetWeights(
+                  &m, channels, targets, maniMorphTargets_GetTargetCount(&m), NULL) == mani_success,
               "weights");
         through = through && targets[0] == w && targets[4] == w;
         double want[3];
@@ -308,8 +313,8 @@ static void TestWeights(void)
     // At a key, that key alone; at 0, nothing.
     const float atKey[3] = {0.0f, 0.5f, 0.0f};
     float targets[5];
-    CHECK(maniMorphTargetWeights(&m, atKey, targets, maniMorphTargetCount(&m), NULL) ==
-                  mani_success &&
+    CHECK(maniMorphTargets_ComputeTargetWeights(
+              &m, atKey, targets, maniMorphTargets_GetTargetCount(&m), NULL) == mani_success &&
               targets[0] == 0.0f && targets[1] == 0.0f && targets[2] == 1.0f &&
               targets[3] == 0.0f && targets[4] == 0.0f,
           "at a key and at 0");
@@ -317,20 +322,22 @@ static void TestWeights(void)
     memset(targets, 0x7F, sizeof targets);
     float kept[5];
     memcpy(kept, targets, sizeof kept);
-    CHECK(maniMorphTargetWeights(&m, bad, targets, maniMorphTargetCount(&m), NULL) ==
-                  mani_errorInvalid &&
+    CHECK(maniMorphTargets_ComputeTargetWeights(
+              &m, bad, targets, maniMorphTargets_GetTargetCount(&m), NULL) == mani_errorInvalid &&
               memcmp(kept, targets, sizeof kept) == 0,
           "a weight not finite: nothing written");
-    CHECK(maniMorphTargetWeights(&m, NULL, targets, maniMorphTargetCount(&m), NULL) ==
-              mani_errorInvalid,
+    CHECK(maniMorphTargets_ComputeTargetWeights(
+              &m, NULL, targets, maniMorphTargets_GetTargetCount(&m), NULL) == mani_errorInvalid,
           "no weights");
     uint32_t measured = 0;
     uint32_t refused = 0;
-    CHECK(maniMorphTargetWeights(&m, atKey, NULL, 0, &measured) == mani_errorCapacity &&
+    CHECK(maniMorphTargets_ComputeTargetWeights(&m, atKey, NULL, 0, &measured) ==
+                  mani_errorCapacity &&
               measured == 5 &&
-              maniMorphTargetWeights(&m, atKey, targets, 4, &refused) == mani_errorCapacity &&
+              maniMorphTargets_ComputeTargetWeights(&m, atKey, targets, 4, &refused) ==
+                  mani_errorCapacity &&
               refused == 5 && memcmp(kept, targets, sizeof kept) == 0 &&
-              maniMorphTargetWeights(&m, atKey, NULL, 1, NULL) == mani_errorInvalid,
+              maniMorphTargets_ComputeTargetWeights(&m, atKey, NULL, 1, NULL) == mani_errorInvalid,
           "the weights measured, a short array refused (nothing written)");
 }
 
@@ -454,8 +461,8 @@ static void TestJob(void)
         const float channels[3] = {Uniform(-1.5f, 1.5f), Uniform(-1.5f, 1.5f),
                                    Uniform(-1.5f, 1.5f)};
         float weights[5];
-        CHECK(maniMorphTargetWeights(&m, channels, weights, maniMorphTargetCount(&m), NULL) ==
-                  mani_success,
+        CHECK(maniMorphTargets_ComputeTargetWeights(
+                  &m, channels, weights, maniMorphTargets_GetTargetCount(&m), NULL) == mani_success,
               "weights");
         maniMorphStream streams[5];
         Streams(s_in, s_out, streams);
@@ -554,9 +561,9 @@ static void TestSparseAsDense(void)
     maniMorphTargets ma;
     maniMorphTargets mb;
     CHECK(maniBuildMorphTargets(builder, &sa).result == mani_success &&
-              maniCopyBuilt(builder, fa, sizeof fa, &na) == mani_success &&
+              maniBuilder_CopyBuilt(builder, fa, sizeof fa, &na) == mani_success &&
               maniBuildMorphTargets(builder, &sb).result == mani_success &&
-              maniCopyBuilt(builder, fb, sizeof fb, &nb) == mani_success &&
+              maniBuilder_CopyBuilt(builder, fb, sizeof fb, &nb) == mani_success &&
               maniOpenMorphTargets(fa, na, &ma).result == mani_success &&
               maniOpenMorphTargets(fb, nb, &mb).result == mani_success,
           "sparse and dense built");

@@ -117,7 +117,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniRagdollIdentity(const maniRagdoll* ragdoll);
+    MANI_API uint64_t maniRagdoll_GetIdentity(const maniRagdoll* ragdoll);
 
     /// Returns the identity of the skeleton a profile was built for.
     ///
@@ -125,7 +125,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniRagdollSkeletonIdentity(const maniRagdoll* ragdoll);
+    MANI_API uint64_t maniRagdoll_GetSkeletonIdentity(const maniRagdoll* ragdoll);
 
     /// Returns the number of bodies in a profile.
     ///
@@ -133,7 +133,7 @@ extern "C"
     /// @return The count, at least 1; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniRagdollBodyCount(const maniRagdoll* ragdoll);
+    MANI_API uint32_t maniRagdoll_GetBodyCount(const maniRagdoll* ragdoll);
 
     /// Reads a body of a profile, in the order the profile keeps them
     /// (by bone, parents first).
@@ -145,7 +145,7 @@ extern "C"
     /// an index past the bodies.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniRagdollReadBody(const maniRagdoll* ragdoll,
+    MANI_NODISCARD MANI_API maniResult maniRagdoll_GetBody(const maniRagdoll* ragdoll,
                                                            uint32_t body, maniRagdollBody* bodyOut);
 
     // A body's place in the world (its frame's origin and rotation) and
@@ -204,7 +204,7 @@ extern "C"
     /// range.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniRagdollBodiesFromPose(
+    MANI_NODISCARD MANI_API maniResult maniRagdoll_ComputeBodiesFromPose(
         const maniRagdoll* ragdoll, const maniPose* pose, const maniTransform* placement,
         const maniPose* previous, const maniTransform* previousPlacement, float seconds,
         maniRagdollBodyState* bodiesOut, uint32_t capacity, uint32_t* countOut);
@@ -226,11 +226,9 @@ extern "C"
     /// positive capacity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniRagdollJointTargets(const maniRagdoll* ragdoll,
-                                                               const maniRagdollBodyState* bodies,
-                                                               maniRagdollJointTarget* jointsOut,
-                                                               uint32_t capacity,
-                                                               uint32_t* countOut);
+    MANI_NODISCARD MANI_API maniResult maniRagdoll_ComputeJointTargets(
+        const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies,
+        maniRagdollJointTarget* jointsOut, uint32_t capacity, uint32_t* countOut);
 
     /// Makes a pose from bodies' places: a bone with a body takes its
     /// model frame from the body's, the body's frame taken off, under
@@ -253,7 +251,7 @@ extern "C"
     /// `mani_errorCapacity` when count is under the body count.
     /// @par Thread safety
     /// Safe from any thread; the poses are used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniRagdollPoseFromBodies(
+    MANI_NODISCARD MANI_API maniResult maniRagdoll_ComputePoseFromBodies(
         const maniRagdoll* ragdoll, const maniSkeleton* skeleton,
         const maniRagdollBodyState* bodies, uint32_t count, const maniTransform* placement,
         const maniPose* reference, maniPose* poseOut);
@@ -288,7 +286,7 @@ extern "C"
     /// body inverted), the head's way alone. The placement stands on the
     /// plane under the root body, its model up along the normal and its
     /// model forward along the heading, scale 1. A pose from the bodies
-    /// under it (maniRagdollPoseFromBodies) is the ragdoll in the
+    /// under it (maniRagdoll_ComputePoseFromBodies) is the ragdoll in the
     /// character's new frame, to blend a get-up clip from.
     ///
     /// @param ragdoll  An opened profile.
@@ -304,11 +302,9 @@ extern "C"
     /// `mani_errorCapacity` when count is under the body count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniRagdollGetUpPlacement(const maniRagdoll* ragdoll,
-                                                                 const maniRagdollBodyState* bodies,
-                                                                 uint32_t count,
-                                                                 const maniRagdollGround* ground,
-                                                                 maniRagdollGetUp* out);
+    MANI_NODISCARD MANI_API maniResult maniRagdoll_ComputeGetUpPlacement(
+        const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies, uint32_t count,
+        const maniRagdollGround* ground, maniRagdollGetUp* out);
 
 #ifdef __cplusplus
 }

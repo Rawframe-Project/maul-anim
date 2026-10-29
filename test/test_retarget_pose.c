@@ -112,8 +112,8 @@ static void Skeleton(const Bone* bones, uint32_t count, int side, maniSkeleton* 
     maniSkeletonSource source = {sources, count};
     size_t size = 0;
     CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side], &size) ==
-                  mani_success &&
+              maniBuilder_CopyBuilt(builder, s_skeletonFiles[side], sizeof s_skeletonFiles[side],
+                                    &size) == mani_success &&
               maniOpenSkeleton(s_skeletonFiles[side], size, out).result == mani_success,
           "a skeleton");
     maniDestroyBuilder(builder);
@@ -142,7 +142,7 @@ static void Setup(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildRetargetMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success &&
               maniOpenRetargetMap(s_file, size, &s_map).result == mani_success,
           "the map");
     maniDestroyBuilder(builder);
@@ -154,8 +154,8 @@ static void Setup(void)
 
 static bool Transfer(void)
 {
-    return maniRetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch,
-                            sizeof s_scratch) == mani_success;
+    return maniRetargetMap_RetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch,
+                                        sizeof s_scratch) == mani_success;
 }
 
 // Quaternions in binary64.
@@ -226,9 +226,10 @@ static void Rotate(Q q, const double* v, double* out)
 static void Point(const maniSkeleton* skeleton, const maniPose* pose, uint32_t bone, double* out)
 {
     double p[3] = {0.0, 0.0, 0.0};
-    for (uint32_t b = bone; b != MANI_NO_BONE; b = maniSkeletonParent(skeleton, b))
+    for (uint32_t b = bone; b != MANI_NO_BONE; b = maniSkeleton_GetParent(skeleton, b))
     {
-        maniTransform t = pose != NULL ? maniPoseLocal(pose, b) : maniSkeletonRest(skeleton, b);
+        maniTransform t =
+            pose != NULL ? maniPose_GetLocal(pose, b) : maniSkeleton_GetRest(skeleton, b);
         double turned[3];
         Rotate(FromQuat(t.rotation), p, turned);
         p[0] = turned[0] + (double)t.translation.x;
@@ -241,22 +242,22 @@ static void Point(const maniSkeleton* skeleton, const maniPose* pose, uint32_t b
 // A bone's model rotation: its root path's local rotations' product.
 static Q Model(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
 {
-    Q q = FromQuat(maniPoseLocal(pose, bone).rotation);
-    for (uint32_t p = maniSkeletonParent(skeleton, bone); p != MANI_NO_BONE;
-         p = maniSkeletonParent(skeleton, p))
+    Q q = FromQuat(maniPose_GetLocal(pose, bone).rotation);
+    for (uint32_t p = maniSkeleton_GetParent(skeleton, bone); p != MANI_NO_BONE;
+         p = maniSkeleton_GetParent(skeleton, p))
     {
-        q = Mul(FromQuat(maniPoseLocal(pose, p).rotation), q);
+        q = Mul(FromQuat(maniPose_GetLocal(pose, p).rotation), q);
     }
     return q;
 }
 
 static Q RestModel(const maniSkeleton* skeleton, uint32_t bone)
 {
-    Q q = FromQuat(maniSkeletonRest(skeleton, bone).rotation);
-    for (uint32_t p = maniSkeletonParent(skeleton, bone); p != MANI_NO_BONE;
-         p = maniSkeletonParent(skeleton, p))
+    Q q = FromQuat(maniSkeleton_GetRest(skeleton, bone).rotation);
+    for (uint32_t p = maniSkeleton_GetParent(skeleton, bone); p != MANI_NO_BONE;
+         p = maniSkeleton_GetParent(skeleton, p))
     {
-        q = Mul(FromQuat(maniSkeletonRest(skeleton, p).rotation), q);
+        q = Mul(FromQuat(maniSkeleton_GetRest(skeleton, p).rotation), q);
     }
     return q;
 }
@@ -275,10 +276,10 @@ static maniQuat AxisAngle(double x, double y, double z, double angle)
 
 static void Turned(uint32_t bone, maniQuat turn)
 {
-    maniTransform t = maniPoseLocal(s_in, bone);
+    maniTransform t = maniPose_GetLocal(s_in, bone);
     Q q = Mul(FromQuat(turn), FromQuat(t.rotation));
     t.rotation = (maniQuat){(float)q.x, (float)q.y, (float)q.z, (float)q.w};
-    maniPoseSetLocal(s_in, bone, t);
+    maniPose_SetLocal(s_in, bone, t);
 }
 
 // The source's reference gives the target's, but for the pelvis's
@@ -287,12 +288,12 @@ static void Turned(uint32_t bone, maniQuat turn)
 // checks it by its formula).
 static void TestReference(void)
 {
-    CHECK(maniPoseSetRest(s_in, &s_source) == mani_success && Transfer(), "transferred");
+    CHECK(maniPose_SetRest(s_in, &s_source) == mani_success && Transfer(), "transferred");
     bool same = true;
     for (uint32_t b = 0; b < 10; ++b)
     {
-        maniTransform t = maniPoseLocal(s_out, b);
-        maniTransform r = maniSkeletonRest(&s_target, b);
+        maniTransform t = maniPose_GetLocal(s_out, b);
+        maniTransform r = maniSkeleton_GetRest(&s_target, b);
         bool placed = b == 1 || (fabsf(t.translation.x - r.translation.x) <= 1e-6f &&
                                  fabsf(t.translation.y - r.translation.y) <= 1e-6f &&
                                  fabsf(t.translation.z - r.translation.z) <= 1e-6f);
@@ -305,11 +306,11 @@ static void TestReference(void)
 // hand turned about different axes.
 static void Posed(void)
 {
-    CHECK(maniPoseSetRest(s_in, &s_source) == mani_success, "rest");
+    CHECK(maniPose_SetRest(s_in, &s_source) == mani_success, "rest");
     // The root moved and turned: the hips' model place moves with it.
-    maniTransform root = maniPoseLocal(s_in, 0);
+    maniTransform root = maniPose_GetLocal(s_in, 0);
     root.translation = (maniVec3){0.05f, 0.0f, 0.02f};
-    maniPoseSetLocal(s_in, 0, root);
+    maniPose_SetLocal(s_in, 0, root);
     Turned(0, AxisAngle(0.0, 1.0, 0.0, 0.3));
     Turned(1, AxisAngle(0.0, 1.0, 0.0, 0.4));
     Turned(2, AxisAngle(1.0, 0.0, 0.0, 0.3));
@@ -343,12 +344,12 @@ static void TestTurns(void)
     CHECK(Near(Turn(s_out, &s_target, 6), Slerp(none, arm, 0.5), 1e-11) &&
               Near(Turn(s_out, &s_target, 7), Slerp(none, hand, 0.5), 1e-11),
           "a chain of weight 0.5: half the turns");
-    maniTransform extra = maniPoseLocal(s_out, 8);
-    maniTransform rest = maniSkeletonRest(&s_target, 8);
+    maniTransform extra = maniPose_GetLocal(s_out, 8);
+    maniTransform rest = maniSkeleton_GetRest(&s_target, 8);
     CHECK(memcmp(&extra, &rest, sizeof extra) == 0,
           "an extra bone: its reference local bit for bit");
-    maniVec3 sp2 = maniPoseLocal(s_out, 3).translation;
-    maniVec3 own = maniSkeletonRest(&s_target, 3).translation;
+    maniVec3 sp2 = maniPose_GetLocal(s_out, 3).translation;
+    maniVec3 own = maniSkeleton_GetRest(&s_target, 3).translation;
     CHECK(memcmp(&sp2, &own, sizeof sp2) == 0, "their own translations kept");
 }
 
@@ -356,23 +357,23 @@ static void TestTranslations(void)
 {
     Posed();
     // The hand moved 0.1 along its parent's x and scaled 2 along x.
-    maniTransform t = maniPoseLocal(s_in, 6);
+    maniTransform t = maniPose_GetLocal(s_in, 6);
     t.translation.x += 0.1f;
     t.scale.x = 2.0f;
-    maniPoseSetLocal(s_in, 6, t);
+    maniPose_SetLocal(s_in, 6, t);
     // The hips up 0.1 and along x 0.2 (their parent's frame is the
     // model's).
-    maniTransform hips = maniPoseLocal(s_in, 1);
+    maniTransform hips = maniPose_GetLocal(s_in, 1);
     hips.translation.x += 0.2f;
     hips.translation.y += 0.1f;
-    maniPoseSetLocal(s_in, 1, hips);
+    maniPose_SetLocal(s_in, 1, hips);
     CHECK(Transfer(), "transferred");
     // The forearm (from the hand, scaled): the source's change times 0.9,
     // turned from the source arm's reference model frame into the upper
     // arm's (sp1's 30 degrees about z, then 90 about y), then the scale
     // carried.
-    maniTransform forearm = maniPoseLocal(s_out, 7);
-    maniVec3 rest = maniSkeletonRest(&s_target, 7).translation;
+    maniTransform forearm = maniPose_GetLocal(s_out, 7);
+    maniVec3 rest = maniSkeleton_GetRest(&s_target, 7).translation;
     const double change[3] = {0.09, 0.0, 0.0};
     double turned[3];
     Rotate(Mul(Conj(RestModel(&s_target, 6)), RestModel(&s_source, 5)), change, turned);
@@ -399,38 +400,40 @@ static void TestTranslations(void)
     {
         model[k] = reference[k] + 0.75 * (placed[k] - reference[k]);
     }
-    maniTransform root = maniPoseLocal(s_out, 0);
+    maniTransform root = maniPose_GetLocal(s_out, 0);
     double offset[3] = {model[0] - (double)root.translation.x,
                         model[1] - (double)root.translation.y,
                         model[2] - (double)root.translation.z};
     double local[3];
     Rotate(Conj(FromQuat(root.rotation)), offset, local);
-    maniTransform pelvis = maniPoseLocal(s_out, 1);
+    maniTransform pelvis = maniPose_GetLocal(s_out, 1);
     CHECK(fabs((double)pelvis.translation.x - local[0]) <= 1e-6 &&
               fabs((double)pelvis.translation.y - local[1]) <= 1e-6 &&
               fabs((double)pelvis.translation.z - local[2]) <= 1e-6 && fabs(now[0] - was[0]) > 0.1,
           "the pelvis: scaled by parts, blended, weighted, under the turned root");
-    maniVec3 motion = maniRetargetRootMotion(&s_map, (maniVec3){1.0f, 0.5f, -2.0f});
+    maniVec3 motion = maniRetargetMap_RetargetRootMotion(&s_map, (maniVec3){1.0f, 0.5f, -2.0f});
     CHECK(fabsf(motion.x - 0.9f) <= 1e-6f && fabsf(motion.y - 0.225f) <= 1e-6f &&
               fabsf(motion.z + 1.8f) <= 1e-6f,
           "root motion: horizontal by 0.9, vertical by 0.45");
-    maniVec3 same = maniRetargetRootMotion(NULL, (maniVec3){1.0f, 2.0f, 3.0f});
+    maniVec3 same = maniRetargetMap_RetargetRootMotion(NULL, (maniVec3){1.0f, 2.0f, 3.0f});
     CHECK(same.x == 1.0f && same.y == 2.0f && same.z == 3.0f, "no map: unchanged");
 }
 
 static void TestRefusals(void)
 {
-    CHECK(maniRetargetScratchSize(&s_map) > 0 && maniRetargetScratchSize(NULL) == 0, "the scratch");
-    maniResult wrong =
-        maniRetargetPose(&s_map, &s_target, s_in, &s_source, s_out, s_scratch, sizeof s_scratch);
-    maniResult small = maniRetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch,
-                                        maniRetargetScratchSize(&s_map) - 1);
-    maniResult aligned = maniRetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch + 8,
-                                          sizeof s_scratch - 8);
-    maniResult swapped = maniRetargetPose(&s_map, &s_source, (const maniPose*)s_out, &s_target,
-                                          s_out, s_scratch, sizeof s_scratch);
-    maniResult none =
-        maniRetargetPose(NULL, &s_source, s_in, &s_target, s_out, s_scratch, sizeof s_scratch);
+    CHECK(maniRetargetMap_GetScratchSize(&s_map) > 0 && maniRetargetMap_GetScratchSize(NULL) == 0,
+          "the scratch");
+    maniResult wrong = maniRetargetMap_RetargetPose(&s_map, &s_target, s_in, &s_source, s_out,
+                                                    s_scratch, sizeof s_scratch);
+    maniResult small =
+        maniRetargetMap_RetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch,
+                                     maniRetargetMap_GetScratchSize(&s_map) - 1);
+    maniResult aligned = maniRetargetMap_RetargetPose(&s_map, &s_source, s_in, &s_target, s_out,
+                                                      s_scratch + 8, sizeof s_scratch - 8);
+    maniResult swapped = maniRetargetMap_RetargetPose(
+        &s_map, &s_source, (const maniPose*)s_out, &s_target, s_out, s_scratch, sizeof s_scratch);
+    maniResult none = maniRetargetMap_RetargetPose(NULL, &s_source, s_in, &s_target, s_out,
+                                                   s_scratch, sizeof s_scratch);
     maniPose* otherIn = NULL;
     maniPose* otherOut = NULL;
     CHECK(maniInitPose(&s_otherSource, s_poseMemory[2], sizeof s_poseMemory[2], &otherIn) ==
@@ -438,19 +441,19 @@ static void TestRefusals(void)
               maniInitPose(&s_otherTarget, s_poseMemory[3], sizeof s_poseMemory[3], &otherOut) ==
                   mani_success,
           "poses of the other rigs");
-    maniResult otherSource = maniRetargetPose(&s_map, &s_otherSource, otherIn, &s_target, s_out,
-                                              s_scratch, sizeof s_scratch);
-    maniResult otherTarget =
-        maniRetargetPose(&s_map, &s_source, s_in, &s_target, otherOut, s_scratch, sizeof s_scratch);
+    maniResult otherSource = maniRetargetMap_RetargetPose(
+        &s_map, &s_otherSource, otherIn, &s_target, s_out, s_scratch, sizeof s_scratch);
+    maniResult otherTarget = maniRetargetMap_RetargetPose(&s_map, &s_source, s_in, &s_target,
+                                                          otherOut, s_scratch, sizeof s_scratch);
     maniPoseSetKind(s_in, true);
-    maniResult difference =
-        maniRetargetPose(&s_map, &s_source, s_in, &s_target, s_out, s_scratch, sizeof s_scratch);
+    maniResult difference = maniRetargetMap_RetargetPose(&s_map, &s_source, s_in, &s_target, s_out,
+                                                         s_scratch, sizeof s_scratch);
     maniPoseSetKind(s_in, false);
     CHECK(otherSource == mani_errorInvalid && otherTarget == mani_errorInvalid &&
               difference == mani_errorInvalid,
           "a source of another identity, a target pose of another rig, a source of differences");
     maniPoseSetKind(s_out, true);
-    CHECK(Transfer() && !maniPoseIsDifference(s_out), "the output a pose, not differences");
+    CHECK(Transfer() && !maniPose_IsDifference(s_out), "the output a pose, not differences");
     CHECK(wrong == mani_errorInvalid && small == mani_errorInvalid &&
               aligned == mani_errorInvalid && swapped == mani_errorInvalid &&
               none == mani_errorInvalid,
@@ -476,16 +479,16 @@ static void TestReversed(void)
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildRetargetMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
               maniOpenRetargetMap(file, size, &map).result == mani_success,
           "a reversed map");
     maniDestroyBuilder(builder);
     Posed();
-    CHECK(maniRetargetPose(&map, &s_source, s_in, &s_target, s_out, s_scratch, sizeof s_scratch) ==
-              mani_success,
+    CHECK(maniRetargetMap_RetargetPose(&map, &s_source, s_in, &s_target, s_out, s_scratch,
+                                       sizeof s_scratch) == mani_success,
           "transferred");
-    maniTransform upper = maniPoseLocal(s_out, 6);
-    maniTransform rest = maniSkeletonRest(&s_target, 6);
+    maniTransform upper = maniPose_GetLocal(s_out, 6);
+    maniTransform rest = maniSkeleton_GetRest(&s_target, 6);
     CHECK(memcmp(&upper, &rest, sizeof upper) == 0 &&
               Near(Turn(s_out, &s_target, 7), Turn(s_in, &s_source, 5), 1e-11) &&
               Near(Turn(s_out, &s_target, 8), Turn(s_in, &s_source, 6), 1e-11),
@@ -497,7 +500,7 @@ static void TestPinned(void)
     Posed();
     CHECK(Transfer(), "transferred");
     maniTransform locals[10];
-    CHECK(maniPoseReadLocals(s_out, 0, 10, locals) == mani_success, "read");
+    CHECK(maniPose_ReadLocals(s_out, 0, 10, locals) == mani_success, "read");
     uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
     CHECK(hash == PINNED_HASH, "the transfer's bits the same on every platform");
     if (hash != PINNED_HASH)
@@ -530,7 +533,7 @@ static void PairMap(const maniSkeleton* from, const maniSkeleton* to,
     maniBuilder* builder = NewBuilder();
     size_t size = 0;
     CHECK(maniBuildRetargetMap(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, file, capacity, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, capacity, &size) == mani_success &&
               maniOpenRetargetMap(file, size, out).result == mani_success,
           "a map of pairs");
     maniDestroyBuilder(builder);
@@ -543,8 +546,8 @@ static bool Agree(const maniPose* a, const maniPose* b, float scale, double tol)
     bool same = true;
     for (uint32_t k = 0; k < 8; ++k)
     {
-        maniTransform x = maniPoseLocal(a, k);
-        maniTransform y = maniPoseLocal(b, k);
+        maniTransform x = maniPose_GetLocal(a, k);
+        maniTransform y = maniPose_GetLocal(b, k);
         same = same && Near(FromQuat(x.rotation), FromQuat(y.rotation), tol) &&
                fabs((double)(x.translation.x * scale - y.translation.x)) <= tol &&
                fabs((double)(x.translation.y * scale - y.translation.y)) <= tol &&
@@ -562,8 +565,8 @@ static bool SameLocals(const maniPose* a, const maniPose* b)
     bool same = true;
     for (uint32_t k = 0; k < 8; ++k)
     {
-        maniTransform x = maniPoseLocal(a, k);
-        maniTransform y = maniPoseLocal(b, k);
+        maniTransform x = maniPose_GetLocal(a, k);
+        maniTransform y = maniPose_GetLocal(b, k);
         uint32_t u[10];
         uint32_t v[10];
         static_assert(sizeof x == sizeof u, "ten words");
@@ -618,22 +621,22 @@ static void TestInvariants(void)
               mani_success,
           "a pose of the source");
     Posed();
-    CHECK(maniRetargetPose(&self, &s_source, s_in, &s_source, same, s_scratch, sizeof s_scratch) ==
-                  mani_success &&
+    CHECK(maniRetargetMap_RetargetPose(&self, &s_source, s_in, &s_source, same, s_scratch,
+                                       sizeof s_scratch) == mani_success &&
               SameLocals(s_in, same),
           "a rig to itself: the identity, bit for bit");
     CHECK(maniInitPose(&twice, s_invariantPoses[1], sizeof s_invariantPoses[1], &mid) ==
                   mani_success &&
-              maniRetargetPose(&scaled, &s_source, s_in, &twice, mid, s_scratch,
-                               sizeof s_scratch) == mani_success &&
+              maniRetargetMap_RetargetPose(&scaled, &s_source, s_in, &twice, mid, s_scratch,
+                                           sizeof s_scratch) == mani_success &&
               Agree(s_in, mid, 2.0f, 1e-6),
           "to the rig scaled twice: the same turns, translations doubled");
     CHECK(maniInitPose(&other, s_invariantPoses[1], sizeof s_invariantPoses[1], &mid) ==
                   mani_success &&
-              maniRetargetPose(&there, &s_source, s_in, &other, mid, s_scratch, sizeof s_scratch) ==
-                  mani_success &&
-              maniRetargetPose(&back, &other, mid, &s_source, same, s_scratch, sizeof s_scratch) ==
-                  mani_success &&
+              maniRetargetMap_RetargetPose(&there, &s_source, s_in, &other, mid, s_scratch,
+                                           sizeof s_scratch) == mani_success &&
+              maniRetargetMap_RetargetPose(&back, &other, mid, &s_source, same, s_scratch,
+                                           sizeof s_scratch) == mani_success &&
               Agree(s_in, same, 1.0f, 1e-5),
           "there and back between rigs whose rests turn otherwise: the pose");
 }

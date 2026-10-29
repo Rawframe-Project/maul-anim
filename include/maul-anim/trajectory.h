@@ -77,10 +77,9 @@ extern "C"
     /// root or sample.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult maniTrajectoryFeatures(const maniMotionDatabase* database,
-                                                              const maniTrajectory* root,
-                                                              const maniTrajectory* sample,
-                                                              float* positionOut, float* facingOut);
+    MANI_NODISCARD MANI_API maniResult maniMotionDatabase_ComputeTrajectoryFeatures(
+        const maniMotionDatabase* database, const maniTrajectory* root,
+        const maniTrajectory* sample, float* positionOut, float* facingOut);
 
 #ifdef __cplusplus
 }

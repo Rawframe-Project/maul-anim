@@ -75,10 +75,10 @@ extern "C"
     /// pole, hinge or twist not finite, a soften or weight outside [0, 1].
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSolveTwoBone(maniPose* pose,
-                                                        const maniSkeleton* skeleton,
-                                                        const maniTwoBoneSolve* solve,
-                                                        bool* reachedOut);
+    MANI_NODISCARD MANI_API maniResult maniPose_SolveTwoBone(maniPose* pose,
+                                                             const maniSkeleton* skeleton,
+                                                             const maniTwoBoneSolve* solve,
+                                                             bool* reachedOut);
 
 // The most bones an aim spreads its turn over.
 #define MANI_MAX_AIM_BONES 8u
@@ -141,8 +141,10 @@ extern "C"
     /// outside [0, 1].
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSolveAim(maniPose* pose, const maniSkeleton* skeleton,
-                                                    const maniAimSolve* solve, bool* reachedOut);
+    MANI_NODISCARD MANI_API maniResult maniPose_SolveAim(maniPose* pose,
+                                                         const maniSkeleton* skeleton,
+                                                         const maniAimSolve* solve,
+                                                         bool* reachedOut);
 
 // The most bones a CCD or FABRIK chain holds, its end included.
 #define MANI_MAX_IK_CHAIN_BONES 32u
@@ -244,8 +246,10 @@ extern "C"
     /// pi], a rotation weight or weight outside [0, 1].
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSolveCcd(maniPose* pose, const maniSkeleton* skeleton,
-                                                    const maniChainSolve* solve, bool* reachedOut);
+    MANI_NODISCARD MANI_API maniResult maniPose_SolveCcd(maniPose* pose,
+                                                         const maniSkeleton* skeleton,
+                                                         const maniChainSolve* solve,
+                                                         bool* reachedOut);
 
     /// Bends a chain of a pose toward a goal by FABRIK (Aristidou and
     /// Lasenby): with a pole, the chain first turns about the
@@ -265,14 +269,15 @@ extern "C"
     /// @param reachedOut Receives whether the end lies within the
     ///                   tolerance of the goal at full weight; may be
     ///                   NULL.
-    /// @return As maniSolveCcd, but for a pole other than zero, which
+    /// @return As maniPose_SolveCcd, but for a pole other than zero, which
     /// FABRIK takes, and a step other than 0, which it refuses with
     /// `mani_errorInvalid`.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSolveFabrik(maniPose* pose, const maniSkeleton* skeleton,
-                                                       const maniChainSolve* solve,
-                                                       bool* reachedOut);
+    MANI_NODISCARD MANI_API maniResult maniPose_SolveFabrik(maniPose* pose,
+                                                            const maniSkeleton* skeleton,
+                                                            const maniChainSolve* solve,
+                                                            bool* reachedOut);
 
 #ifdef __cplusplus
 }

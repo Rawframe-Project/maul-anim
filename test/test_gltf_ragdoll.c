@@ -110,11 +110,11 @@ static maniGltf* Open(maniBuilder* builder, const char* text, const maniGltfOpti
     maniImportResult r = maniOpenGltf(builder, text, strlen(text), &gltf);
     CHECK(r.result == mani_success, "opens");
     size_t size = 0;
-    bool built =
-        r.result == mani_success &&
-        maniGltfBuildSkeleton(builder, gltf, 0, options).result == mani_success &&
-        maniCopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
-        maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
+    bool built = r.result == mani_success &&
+                 maniBuildGltfSkeleton(builder, gltf, 0, options).result == mani_success &&
+                 maniBuilder_CopyBuilt(builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+                     mani_success &&
+                 maniOpenSkeleton(s_skeletonFile, size, skeleton).result == mani_success;
     CHECK(built, "a skeleton");
     return gltf;
 }
@@ -141,7 +141,7 @@ static void TestRead(void)
     maniSkeleton skeleton;
     maniGltf* gltf = Open(builder, kDocument, &options, &skeleton);
     maniRagdollSource source;
-    maniImportResult r = maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source);
+    maniImportResult r = maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source);
     CHECK(r.result == mani_success && source.skeleton == &skeleton && source.bodyCount == 3,
           "three bodies, the floor and the crate left out");
     if (r.result != mani_success || source.bodyCount != 3)
@@ -154,9 +154,9 @@ static void TestRead(void)
     const maniRagdollBodySource* pelvis = &source.bodies[0];
     const maniRagdollBodySource* chest = &source.bodies[1];
     const maniRagdollBodySource* head = &source.bodies[2];
-    CHECK(pelvis->bone == maniSkeletonFindBone(&skeleton, "pelvis", 6) &&
-              chest->bone == maniSkeletonFindBone(&skeleton, "chest", 5) &&
-              head->bone == maniSkeletonFindBone(&skeleton, "head", 4),
+    CHECK(pelvis->bone == maniSkeleton_FindBone(&skeleton, "pelvis", 6) &&
+              chest->bone == maniSkeleton_FindBone(&skeleton, "chest", 5) &&
+              head->bone == maniSkeleton_FindBone(&skeleton, "head", 4),
           "each body on its bone");
     CHECK(pelvis->nameLength == 10 && memcmp(pelvis->name, "pelvisBody", 10) == 0 &&
               pelvis->mass == 12.0f && chest->mass == 15.0f && head->mass == 5.0f,
@@ -190,18 +190,19 @@ static void TestRead(void)
     maniRagdoll ragdoll;
     size_t size = 0;
     CHECK(maniBuildRagdoll(builder, &source).result == mani_success &&
-              maniCopyBuilt(builder, s_ragdollFile, sizeof s_ragdollFile, &size) == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_ragdollFile, sizeof s_ragdollFile, &size) ==
+                  mani_success &&
               maniOpenRagdoll(s_ragdollFile, size, &ragdoll).result == mani_success &&
-              maniRagdollBodyCount(&ragdoll) == 3,
+              maniRagdoll_GetBodyCount(&ragdoll) == 3,
           "the source builds");
-    CHECK(maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kFacing, &source).result ==
+    CHECK(maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kFacing, &source).result ==
                   mani_errorInvalid &&
-              maniGltfReadRagdoll(gltf, &skeleton, &options, (maniVec3){0.0f, 0.0f, 1.1f}, kUp,
-                                  &source)
+              maniGltf_ReadRagdoll(gltf, &skeleton, &options, (maniVec3){0.0f, 0.0f, 1.1f}, kUp,
+                                   &source)
                       .result == mani_errorInvalid &&
-              maniGltfReadRagdoll(NULL, &skeleton, &options, kFacing, kUp, &source).result ==
+              maniGltf_ReadRagdoll(NULL, &skeleton, &options, kFacing, kUp, &source).result ==
                   mani_errorInvalid &&
-              maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, NULL).result ==
+              maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, NULL).result ==
                   mani_errorInvalid,
           "axes not perpendicular or not unit, NULL arguments");
     maniCloseGltf(gltf);
@@ -216,7 +217,7 @@ static void TestBasis(void)
     maniSkeleton skeleton;
     maniGltf* gltf = Open(builder, kDocument, &zUp, &skeleton);
     maniRagdollSource source;
-    CHECK(maniGltfReadRagdoll(gltf, &skeleton, &zUp, kFacing, kUp, &source).result ==
+    CHECK(maniGltf_ReadRagdoll(gltf, &skeleton, &zUp, kFacing, kUp, &source).result ==
                   mani_success &&
               NearV(source.bodies[1].frameTranslation, 0.0, 0.0, 0.1) &&
               NearV(source.bodies[1].joint.translation, 0.0, 0.0, -0.3) &&
@@ -364,7 +365,7 @@ static void TestRefusals(void)
         maniGltf* gltf = Open(builder, text, &options, &skeleton);
         maniRagdollSource source;
         maniImportResult r =
-            gltf != NULL ? maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source)
+            gltf != NULL ? maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source)
                          : (maniImportResult){mani_errorInvalid, 0, 0, 0};
         const char* start = strstr(text, c->after);
         const char* marker = start != NULL ? strstr(start, c->marker) : NULL;
@@ -424,7 +425,7 @@ static void TestDriveValues(void)
         maniSkeleton skeleton;
         maniGltf* gltf = Open(builder, s_variant, &options, &skeleton);
         maniRagdollSource source;
-        bool read = maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
+        bool read = maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
                     mani_success;
         const maniRagdollJointSource* j = read ? &source.bodies[1].joint : NULL;
         CHECK(j != NULL && j->driveStiffness == kCases[k].stiffness &&
@@ -447,11 +448,11 @@ static void TestNone(void)
     maniGltf* gltf = Open(builder, kPlain, &options, &skeleton);
     maniRagdollSource source;
     memset(&source, 0xFF, sizeof source);
-    CHECK(maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
+    CHECK(maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
                   mani_success &&
               source.bodyCount == 0 && source.bodies == NULL && source.skeleton == &skeleton,
           "no bodies");
-    CHECK(maniGltfReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
+    CHECK(maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, &source).result ==
               mani_success,
           "read again");
     maniCloseGltf(gltf);

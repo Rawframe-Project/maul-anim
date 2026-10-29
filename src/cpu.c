@@ -27,7 +27,7 @@ const char* maniGetSimdBackend(void)
 #endif
 }
 
-int32_t maniCpuSupportsBackend(void)
+int32_t maniIsCpuBackendSupported(void)
 {
 #if defined(MAUL_ANIM_BUILT_FOR_AVX2)
     // The AVX2 kernels need AVX2 and FMA3, and the operating system must
@@ -70,5 +70,5 @@ int32_t maniCheckCpu(const char** backend)
     {
         *backend = maniGetSimdBackend();
     }
-    return maniCpuSupportsBackend();
+    return maniIsCpuBackendSupported();
 }

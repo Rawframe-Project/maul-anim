@@ -83,9 +83,9 @@ static maniPose* s_pose;
 static inline maniTransform Step(maniGraphInstance* instance, float delta, uint32_t b)
 {
     Update(instance, delta);
-    CHECK(maniEvaluateGraph(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) == mani_success,
           "evaluated");
-    return maniPoseLocal(s_pose, b);
+    return maniPose_GetLocal(s_pose, b);
 }
 
 static inline void Steps(maniGraphInstance* instance, int count)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// A stretch's events are the clip's in its window (maniClipEventRange),
+// A stretch's events are the clip's in its window (maniClip_GetEventRange),
 // each listed with the node, its clip slot and its weight while the
 // buffer lasts, and counted up to UINT32_MAX. A request is kept in the
 // inertialize node's block as the least of an update's.
@@ -36,7 +36,7 @@ void maniGraphEmit(maniGraphUpdate* u, uint32_t node, uint32_t slot, const maniC
     {
         if (u->count < u->capacity)
         {
-            maniClipEvent e = maniClipEventAt(clip, first + k);
+            maniClipEvent e = maniClip_GetEvent(clip, first + k);
             maniGraphEvent* out = &u->events[u->count];
             memset(out, 0, sizeof *out);
             out->node = node;
@@ -93,10 +93,10 @@ static bool Mirrored(const maniGraphUpdate* u, uint32_t node)
 
 maniRootMove maniGraphNodeMove(const maniGraphUpdate* u, uint32_t node, maniRootMove move)
 {
-    return Mirrored(u, node) ? maniMirrorRootMotion(u->binding->mirrorMap, move) : move;
+    return Mirrored(u, node) ? maniMirrorMap_MirrorRootMotion(u->binding->mirrorMap, move) : move;
 }
 
 uint64_t maniGraphNodeName(const maniGraphUpdate* u, uint32_t node, uint64_t hash)
 {
-    return Mirrored(u, node) ? maniMirrorNameHash(u->binding->mirrorMap, hash) : hash;
+    return Mirrored(u, node) ? maniMirrorMap_MirrorNameHash(u->binding->mirrorMap, hash) : hash;
 }

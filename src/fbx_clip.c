@@ -57,12 +57,12 @@ static maniImportResult Capacity(void)
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
-uint32_t maniFbxClipCount(const maniFbx* fbx)
+uint32_t maniFbx_GetClipCount(const maniFbx* fbx)
 {
     return fbx != NULL ? fbx->stackCount : 0;
 }
 
-const char* maniFbxClipName(const maniFbx* fbx, uint32_t clip, size_t* lengthOut)
+const char* maniFbx_GetClipName(const maniFbx* fbx, uint32_t clip, size_t* lengthOut)
 {
     bool inRange = fbx != NULL && clip < fbx->stackCount;
     if (lengthOut != NULL)
@@ -114,7 +114,7 @@ static maniImportResult Bind(Clip* c)
     {
         size_t length = 0;
         const char* own = maniFbxModelName(fbx, m, &length);
-        uint32_t bone = maniSkeletonFindBone(c->skeleton, own, length);
+        uint32_t bone = maniSkeleton_FindBone(c->skeleton, own, length);
         if (bone != MANI_NO_BONE)
         {
             c->modelOf[bone] = m;
@@ -126,7 +126,7 @@ static maniImportResult Bind(Clip* c)
         }
         memcpy(name, own, length);
         memcpy(name + length, kHelperSuffix, MANI_HELPER_SUFFIX);
-        bone = maniSkeletonFindBone(c->skeleton, name, (size_t)length + MANI_HELPER_SUFFIX);
+        bone = maniSkeleton_FindBone(c->skeleton, name, (size_t)length + MANI_HELPER_SUFFIX);
         if (bone != MANI_NO_BONE)
         {
             c->modelOf[bone] = m;
@@ -151,7 +151,7 @@ static void Rules(Clip* c)
         {
             continue;
         }
-        uint32_t pb = maniSkeletonParent(c->skeleton, b);
+        uint32_t pb = maniSkeleton_GetParent(c->skeleton, b);
         uint32_t p = fbx->modelParents[m];
         uint32_t pm = pb != MANI_NO_BONE ? c->modelOf[pb] : MANI_FBX_NONE;
         bool parentHelper = pb != MANI_NO_BONE && c->rule[pb] == kHelper;
@@ -278,7 +278,7 @@ static bool Local(const Clip* c, uint32_t b, maniTransform* out)
         *out = maniFbxTrsTransform(&w->transform);
         return true;
     }
-    return Relative(Frame(c, maniSkeletonParent(c->skeleton, b)), &w->world, out);
+    return Relative(Frame(c, maniSkeleton_GetParent(c->skeleton, b)), &w->world, out);
 }
 
 // A transform's ten floats: translation, rotation, scale.
@@ -337,7 +337,7 @@ static maniImportResult Sample(Clip* c)
 static uint32_t Moving(const Clip* c, uint32_t b)
 {
     float rest[10];
-    maniTransform r = maniSkeletonRest(c->skeleton, b);
+    maniTransform r = maniSkeleton_GetRest(c->skeleton, b);
     Floats(&r, rest);
     uint32_t bits = 0;
     for (uint32_t k = 0; k < c->sampleCount; ++k)
@@ -470,7 +470,7 @@ static maniImportResult FromBuild(const Clip* c, maniBuildResult r)
 static maniImportResult Prepare(Clip* c, uint32_t clip)
 {
     const maniFbx* fbx = c->fbx;
-    c->boneCount = maniSkeletonBoneCount(c->skeleton);
+    c->boneCount = maniSkeleton_GetBoneCount(c->skeleton);
     c->modelOf = maniArenaTake(&c->arena, c->boneCount, sizeof(uint32_t));
     c->rule = maniArenaTake(&c->arena, c->boneCount, 1);
     c->needed = maniArenaTake(&c->arena, (size_t)fbx->modelCount + 1, 1);
@@ -565,7 +565,7 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
     return r;
 }
 
-maniImportResult maniFbxBuildClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
+maniImportResult maniBuildFbxClip(maniBuilder* builder, const maniFbx* fbx, uint32_t clip,
                                   const maniSkeleton* skeleton, const maniFbxOptions* options,
                                   const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {

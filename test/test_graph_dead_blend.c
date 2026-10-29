@@ -105,7 +105,7 @@ static void TestDeadScale(void)
     maniGraphTrs before = {{0, 0, 0}, {0, 0, 0, 1}, {1.8f, 1.8f, 1.5f}};
     maniGraphTrsHold(s_deadBlock, maniGraphInertiaHistory(s_deadBlock, 3, true), 0, last);
     maniGraphTrsHold(s_deadBlock, maniGraphInertiaHistory(s_deadBlock, 3, false), 0, before);
-    maniPoseSetLocal(s_pose, 0, (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1.0f, 1.0f, 1.0f}});
+    maniPose_SetLocal(s_pose, 0, (maniTransform){{0, 0, 0}, {0, 0, 0, 1}, {1.0f, 1.0f, 1.0f}});
     maniGraphDeadCapture(s_deadBlock, &node, maniPoseLocals(s_pose), true, 0.1f);
     double v = log(2.0 / 1.8) / 0.1;
     double y = log(2.0) / 0.1;
@@ -114,7 +114,7 @@ static void TestDeadScale(void)
               words[18] == 0.0f && fabs((double)words[25] - y) < 1e-3,
           "the scale's speed in log space, none for a negative axis");
     maniGraphDeadApply(s_deadBlock, &node, maniPoseLocals(s_pose), 0.1f, 0.5f);
-    maniTransform x = maniPoseLocal(s_pose, 0);
+    maniTransform x = maniPose_GetLocal(s_pose, 0);
     double e = 2.0 * exp(v * (1.0 - exp(-y * 0.1)) / y);
     CHECK(fabs((double)x.scale.x - (e + (1.0 - e) * 0.104)) < 1e-4 &&
               fabs((double)x.scale.y - (e + (1.0 - e) * 0.104)) < 1e-4 &&
@@ -135,7 +135,7 @@ static void DeadCaptures(maniGraphTrs last, maniGraphTrs before, maniTransform i
     maniGraphResetInertia(s_deadBlock, &node);
     maniGraphTrsHold(s_deadBlock, maniGraphInertiaHistory(s_deadBlock, 3, true), 0, last);
     maniGraphTrsHold(s_deadBlock, maniGraphInertiaHistory(s_deadBlock, 3, false), 0, before);
-    maniPoseSetLocal(s_pose, 0, input);
+    maniPose_SetLocal(s_pose, 0, input);
     maniGraphDeadCapture(s_deadBlock, &node, maniPoseLocals(s_pose), true, dt);
 }
 
@@ -154,7 +154,7 @@ static void TestDeadTurn(void)
           "a turn's speed and half-life on the shorter arc");
     maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f, NULL};
     maniGraphDeadApply(s_deadBlock, &node, maniPoseLocals(s_pose), 0.1f, 0.5f);
-    maniTransform x = maniPoseLocal(s_pose, 0);
+    maniTransform x = maniPose_GetLocal(s_pose, 0);
     double angle = (0.4 - (1.0 - exp(-y * 0.1)) / y) * (1.0 - 0.104);
     double got = 2.0 * atan2(fabs((double)x.rotation.z), fabs((double)x.rotation.w));
     CHECK(fabs(got - angle) < 1e-4, "extrapolated and slerped");
@@ -178,7 +178,7 @@ static void TestDeadEdges(void)
     maniGraphInertiaSet(s_deadBlock, at + 19, 0.0f);
     maniGraphInertia node = {3, maniGraphDeadBlending, 0.3f, 0.1f, 1.0f, NULL};
     maniGraphDeadApply(s_deadBlock, &node, maniPoseLocals(s_pose), 0.1f, 0.5f);
-    CHECK(NearF(maniPoseLocal(s_pose, 0).translation.x, (1.0 + 1.0 * 0.1) * (1.0 - 0.104)),
+    CHECK(NearF(maniPose_GetLocal(s_pose, 0).translation.x, (1.0 + 1.0 * 0.1) * (1.0 - 0.104)),
           "no decay: the speed carried on");
 }
 
@@ -196,10 +196,10 @@ static void TestDeadSaved(void)
     Steps(instance, 1);
     size_t size = SavedGraphSize(instance);
     maniGraphInstance* other = NULL;
-    CHECK(maniSaveGraphInstance(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
+    CHECK(maniGraphInstance_Save(instance, s_saved[0], sizeof s_saved[0], NULL) == mani_success &&
               maniInitGraphInstance(instance->binding, s_other, sizeof s_other, &other) ==
                   mani_success &&
-              maniRestoreGraphInstance(other, s_saved[0], size).result == mani_success,
+              maniGraphInstance_Restore(other, s_saved[0], size).result == mani_success,
           "saved and restored");
     maniTransform a = Step(instance, 0.1f, 0);
     maniTransform b = Step(other, 0.1f, 0);
@@ -212,7 +212,7 @@ static void TestDeadSaved(void)
     {
         memcpy(s_saved[1], s_saved[0], size);
         maniStoreU32(s_saved[1] + block + 4 * kBad[k][0], kBad[k][1]);
-        maniFileResult r = maniRestoreGraphInstance(other, s_saved[1], size);
+        maniFileResult r = maniGraphInstance_Restore(other, s_saved[1], size);
         CHECK(r.result == mani_errorFormat && r.offset == block + 4 * kBad[k][0],
               "a saved block refused at its word");
     }

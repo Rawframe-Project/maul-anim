@@ -33,9 +33,9 @@
 
 static bool Sdls(maniPose* pose, const maniBodySolve* s, bool* reached)
 {
-    size_t size = maniBodyIkScratchSize(&s_skeleton, s);
+    size_t size = maniSkeleton_GetBodyIkScratchSize(&s_skeleton, s);
     return size > 0 && size <= sizeof s_scratch &&
-           maniSolveBodySdls(pose, &s_skeleton, s, s_scratch, size, reached) == mani_success;
+           maniPose_SolveBodySdls(pose, &s_skeleton, s, s_scratch, size, reached) == mani_success;
 }
 
 static void TestReach(void)
@@ -49,11 +49,11 @@ static void TestReach(void)
               Distance(At(s_pose, kHandR), s_effectors[1].position) <= 1e-3f,
           "within the tolerance where the pose puts them");
     CHECK(LengthsKept(s_pose, s_other), "every length kept");
-    maniTransform hips[2] = {maniPoseLocal(s_pose, kHips), maniPoseLocal(s_other, kHips)};
+    maniTransform hips[2] = {maniPose_GetLocal(s_pose, kHips), maniPose_GetLocal(s_other, kHips)};
     CHECK(memcmp(&hips[0], &hips[1], sizeof hips[0]) == 0, "the pinned top held");
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniPoseSetLocal(s_other, b, maniPoseLocal(s_pose, b));
+        maniPose_SetLocal(s_other, b, maniPose_GetLocal(s_pose, b));
     }
     CHECK(Sdls(s_other, &s, &r) && r && Same(s_pose, s_other),
           "a solve on its own reached result unchanged");
@@ -86,12 +86,12 @@ static void TestLockLimitRotation(void)
     s.bones = bones;
     s.boneCount = 2;
     CHECK(Sdls(s_pose, &s, NULL), "a lock and a limit");
-    maniQuat locked[2] = {maniPoseLocal(s_pose, kForeL).rotation,
-                          maniPoseLocal(s_other, kForeL).rotation};
+    maniQuat locked[2] = {maniPose_GetLocal(s_pose, kForeL).rotation,
+                          maniPose_GetLocal(s_other, kForeL).rotation};
     CHECK(memcmp(&locked[0], &locked[1], sizeof locked[0]) == 0 &&
               Distance(At(s_pose, kHandL), s_effectors[0].position) <= 1e-3f,
           "the locked forearm kept, its hand reached");
-    maniQuat t = maniPoseLocal(s_pose, kForeR).rotation;
+    maniQuat t = maniPose_GetLocal(s_pose, kForeR).rotation;
     t = t.w < 0.0f ? (maniQuat){-t.x, -t.y, -t.z, -t.w} : t;
     float twist = -2.0f * atan2f(t.x, t.w);
     maniQuat q = Turn((maniVec3){-1.0f, 0.0f, 0.0f}, -twist);
@@ -102,8 +102,8 @@ static void TestLockLimitRotation(void)
     s = Solve((maniVec3){0.6f, 1.2f, 0.3f}, (maniVec3){-0.5f, 1.6f, 0.2f});
     s_effectors[0].rotation = Turn((maniVec3){0.0f, 0.0f, 1.0f}, 1.0f);
     s_effectors[0].rotationWeight = 1.0f;
-    CHECK(Sdls(s_pose, &s, NULL) && maniComputeModel(s_pose, &s_skeleton) == mani_success &&
-              Angle(maniPoseModelTransform(s_pose, kHandL).rotation, s_effectors[0].rotation) <
+    CHECK(Sdls(s_pose, &s, NULL) && maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success &&
+              Angle(maniPose_GetModelTransform(s_pose, kHandL).rotation, s_effectors[0].rotation) <
                   1e-2f &&
               Distance(At(s_pose, kHandL), s_effectors[0].position) <= 1e-3f,
           "the hand takes the wanted rotation at its goal");
@@ -123,7 +123,7 @@ static void TestTopAndEdges(void)
               Distance(At(s_pose, kHips), At(s_other, kHips)) > 1e-2f,
           "a free top moves, the hand closer");
     s.stretch = true;
-    CHECK(maniSolveBodySdls(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
+    CHECK(maniPose_SolveBodySdls(s_pose, &s_skeleton, &s, s_scratch, sizeof s_scratch, NULL) ==
               mani_errorInvalid,
           "stretch refused");
     Bent(s_pose);
@@ -162,8 +162,8 @@ static void TestTopRotation(void)
                        .iterations = 64,
                        .tolerance = 1e-4f,
                        .weight = 1.0f};
-    CHECK(Sdls(s_pose, &s, NULL) && maniComputeModel(s_pose, &s_skeleton) == mani_success &&
-              Angle(maniPoseModelTransform(s_pose, kHips).rotation, top.rotation) < 1e-2f,
+    CHECK(Sdls(s_pose, &s, NULL) && maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success &&
+              Angle(maniPose_GetModelTransform(s_pose, kHips).rotation, top.rotation) < 1e-2f,
           "a free top turned to its wanted rotation");
 }
 
@@ -173,7 +173,7 @@ static uint64_t Hash(const maniPose* pose)
     uint64_t hash = MANI_HASH_INIT;
     for (uint32_t b = 0; b < BONES; ++b)
     {
-        maniTransform t = maniPoseLocal(pose, b);
+        maniTransform t = maniPose_GetLocal(pose, b);
         hash = maniHash64(hash, &t, (int32_t)sizeof t);
     }
     return hash;
@@ -201,7 +201,7 @@ static void TestPinned(void)
     // From the rest (straight arms, small singular values), a free top
     // and goals out of reach (the step's clamps acting on turns and
     // moves together), four iterations.
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
     s = Solve((maniVec3){1.6f, 1.9f, 0.4f}, (maniVec3){-1.5f, 0.9f, -0.3f});
     s.topMode = maniBodyTopFree;
     s.iterations = 4;
@@ -211,7 +211,7 @@ static void TestPinned(void)
     hash = maniHash64(hash, &free, (int32_t)sizeof free);
     // The other solvers from the rest: two bones, an aim over two bones,
     // and FABRIK and CCD along the left arm from the spine.
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
     maniTwoBoneSolve two = {.start = kArmL,
                             .middle = kForeL,
                             .end = kHandL,
@@ -220,7 +220,7 @@ static void TestPinned(void)
                             .twist = 0.2f,
                             .soften = 0.9f,
                             .weight = 1.0f};
-    CHECK(maniSolveTwoBone(s_pose, &s_skeleton, &two, NULL) == mani_success, "two bones");
+    CHECK(maniPose_SolveTwoBone(s_pose, &s_skeleton, &two, NULL) == mani_success, "two bones");
     maniAimSolve aim = {.bones = {kSpine, kChest},
                         .shares = {0.5f, 0.5f},
                         .count = 2,
@@ -229,7 +229,7 @@ static void TestPinned(void)
                         .forward = {0.0f, 1.0f, 0.0f},
                         .up = {0.0f, 0.0f, 1.0f},
                         .weight = 1.0f};
-    CHECK(maniSolveAim(s_pose, &s_skeleton, &aim, NULL) == mani_success, "aim");
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &aim, NULL) == mani_success, "aim");
     uint64_t solvers = Hash(s_pose);
     maniChainSolve chain = {.root = kSpine,
                             .end = kHandL,
@@ -237,13 +237,13 @@ static void TestPinned(void)
                             .rotation = {0.0f, 0.0f, 0.0f, 1.0f},
                             .iterations = 16,
                             .weight = 1.0f};
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success &&
-              maniSolveFabrik(s_pose, &s_skeleton, &chain, NULL) == mani_success,
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success &&
+              maniPose_SolveFabrik(s_pose, &s_skeleton, &chain, NULL) == mani_success,
           "FABRIK");
     solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int32_t)sizeof(uint64_t));
     chain.step = 0.5f;
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success &&
-              maniSolveCcd(s_pose, &s_skeleton, &chain, NULL) == mani_success,
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success &&
+              maniPose_SolveCcd(s_pose, &s_skeleton, &chain, NULL) == mani_success,
           "CCD");
     solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int32_t)sizeof(uint64_t));
     hash = maniHash64(hash, &solvers, (int32_t)sizeof solvers);
@@ -463,7 +463,7 @@ static double Misses(double t1, double t2, Vec s, Vec g1, Vec g2)
 // and the hand down: the least squared misses, found by a search.
 static void TestLeastSquares(void)
 {
-    CHECK(maniPoseSetRest(s_pose, &s_skeleton) == mani_success, "rest");
+    CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
     Vec shoulder = V(At(s_pose, kArmL));
     maniVec3 elbow = At(s_pose, kForeL);
     maniVec3 hand = At(s_pose, kHandL);

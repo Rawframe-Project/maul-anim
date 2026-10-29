@@ -171,7 +171,7 @@ static maniQuat Turn(maniQuat p, maniQuat q, float budget, bool* turnedOut)
 void maniGraphTurnPose(uint32_t* block, const float* weights, float speed, const uint32_t* list,
                        uint32_t count, maniPose* pose)
 {
-    uint32_t bones = list != NULL ? count : maniPoseBoneCount(pose);
+    uint32_t bones = list != NULL ? count : maniPose_GetBoneCount(pose);
     float seconds = (float)Pending(block);
     SetPending(block, 0.0);
     // The rotations read and written in place (components 3 to 6 of a

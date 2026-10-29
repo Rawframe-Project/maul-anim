@@ -47,7 +47,7 @@ static void Free(void* memory, size_t size, size_t alignment, void* context)
 // The host's task hooks run in the host's floating-point environment:
 // each call is the only work of a helper of its own. The task bodies they
 // run enter the library's again (maniTrainRun).
-static MANI_NOINLINE void* HostEnqueue(const maniTaskHooks* tasks, maniTaskFn* task,
+static MANI_NOINLINE void* HostEnqueue(const maniTaskHooks* tasks, maniTaskFunction* task,
                                        int32_t itemCount, int32_t minRange, void* taskContext)
 {
     maniFloatHost host = maniFloatHostEnter();
@@ -63,7 +63,7 @@ static MANI_NOINLINE void HostFinish(const maniTaskHooks* tasks, void* userTask)
     maniFloatHostLeave(host);
 }
 
-static void* Enqueue(maniTaskFn* task, int32_t itemCount, int32_t minRange, void* taskContext,
+static void* Enqueue(maniTaskFunction* task, int32_t itemCount, int32_t minRange, void* taskContext,
                      void* userContext)
 {
     maniHostCode* host = userContext;

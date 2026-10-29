@@ -19,7 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// A bone's flags (maniMirrorBoneFlags): its parent's partner is not its
+// A bone's flags (maniMirrorMap_GetBoneFlags): its parent's partner is not its
 // partner's parent; its scale is carried as the nearest axis scale.
 #define MANI_MIRROR_BONE_UNMATCHED         1u
 #define MANI_MIRROR_BONE_SCALE_APPROXIMATE 2u
@@ -80,7 +80,7 @@ extern "C"
     /// @return The identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMirrorMapIdentity(const maniMirrorMap* map);
+    MANI_API uint64_t maniMirrorMap_GetIdentity(const maniMirrorMap* map);
 
     /// Returns the identity of the skeleton a map mirrors.
     ///
@@ -88,7 +88,7 @@ extern "C"
     /// @return The skeleton's identity; 0 for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMirrorMapSkeletonIdentity(const maniMirrorMap* map);
+    MANI_API uint64_t maniMirrorMap_GetSkeletonIdentity(const maniMirrorMap* map);
 
     /// Returns the axis a map's plane is normal to.
     ///
@@ -96,7 +96,7 @@ extern "C"
     /// @return maniMirrorAxisX, Y or Z; maniMirrorAxisX for NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniMirrorAxis maniMirrorMapAxis(const maniMirrorMap* map);
+    MANI_API maniMirrorAxis maniMirrorMap_GetAxis(const maniMirrorMap* map);
 
     /// Returns a bone's partner: the bone it takes its mirrored local
     /// from (itself when unpaired).
@@ -107,7 +107,7 @@ extern "C"
     /// count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMirrorPartner(const maniMirrorMap* map, uint32_t bone);
+    MANI_API uint32_t maniMirrorMap_GetPartner(const maniMirrorMap* map, uint32_t bone);
 
     /// Returns how a bone's mirrored local is made, as flags:
     /// MANI_MIRROR_BONE_UNMATCHED when its parent's partner is not its
@@ -124,7 +124,7 @@ extern "C"
     /// @return The flags; 0 for NULL or a bone past the count.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMirrorBoneFlags(const maniMirrorMap* map, uint32_t bone);
+    MANI_API uint32_t maniMirrorMap_GetBoneFlags(const maniMirrorMap* map, uint32_t bone);
 
     /// Returns the first bone whose parent's partner is not its partner's
     /// parent: where the hierarchy is not mirror-symmetric, so that its
@@ -135,7 +135,7 @@ extern "C"
     /// @return The bone; MANI_NO_BONE for a symmetric hierarchy or NULL.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint32_t maniMirrorMapUnmatchedBone(const maniMirrorMap* map);
+    MANI_API uint32_t maniMirrorMap_GetUnmatchedBone(const maniMirrorMap* map);
 
     /// Returns the partner of a float track's, event's or marker's name:
     /// the name the map pairs it with, or the name itself.
@@ -149,8 +149,8 @@ extern "C"
     /// name itself when unpaired (or for a NULL map).
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniMirrorName(const maniMirrorMap* map, const char* name, size_t length,
-                                        size_t* lengthOut);
+    MANI_API const char* maniMirrorMap_MirrorName(const maniMirrorMap* map, const char* name,
+                                                  size_t length, size_t* lengthOut);
 
     /// Returns the hash of a name's partner from the name's hash, for
     /// names kept hashed (events, markers): the hash of the name the map
@@ -161,7 +161,7 @@ extern "C"
     /// @return The partner's hash.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniMirrorNameHash(const maniMirrorMap* map, uint64_t hash);
+    MANI_API uint64_t maniMirrorMap_MirrorNameHash(const maniMirrorMap* map, uint64_t hash);
 
     /// Mirrors a pose: each bone takes its partner's local (its own when
     /// unpaired), the translation's component along the normal negated
@@ -183,9 +183,9 @@ extern "C"
     /// another skeleton, or a difference.
     /// @par Thread safety
     /// Safe from any thread; out is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniMirrorPose(const maniMirrorMap* map,
-                                                      const maniSkeleton* skeleton,
-                                                      const maniPose* in, maniPose* out);
+    MANI_NODISCARD MANI_API maniResult maniMirrorMap_MirrorPose(const maniMirrorMap* map,
+                                                                const maniSkeleton* skeleton,
+                                                                const maniPose* in, maniPose* out);
 
     /// Mirrors a root motion move: its translation's component along the
     /// normal negated, its rotation mirrored (the turn the reflection makes
@@ -196,7 +196,8 @@ extern "C"
     /// @return The mirrored move.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniRootMove maniMirrorRootMotion(const maniMirrorMap* map, maniRootMove move);
+    MANI_API maniRootMove maniMirrorMap_MirrorRootMotion(const maniMirrorMap* map,
+                                                         maniRootMove move);
 
 #ifdef __cplusplus
 }

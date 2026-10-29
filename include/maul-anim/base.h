@@ -139,7 +139,7 @@ extern "C"
 
     // A range of work items, [startIndex, endIndex), run by the host on any
     // thread. The library passes taskContext through unchanged.
-    typedef void maniTaskFn(int32_t startIndex, int32_t endIndex, void* taskContext);
+    typedef void maniTaskFunction(int32_t startIndex, int32_t endIndex, void* taskContext);
 
     // Hands the host itemCount items of work: the host splits [0, itemCount)
     // into ranges of at least minRange items (the last may be shorter),
@@ -148,11 +148,11 @@ extern "C"
     // before returning may return NULL, and finishTask is then not called.
     // Results never depend on the split or the order: each item writes only
     // its own slots.
-    typedef void* maniEnqueueTaskFn(maniTaskFn* task, int32_t itemCount, int32_t minRange,
-                                    void* taskContext, void* userContext);
+    typedef void* maniEnqueueTaskFunction(maniTaskFunction* task, int32_t itemCount,
+                                          int32_t minRange, void* taskContext, void* userContext);
 
     // Waits until every range of the work behind userTask has run.
-    typedef void maniFinishTaskFn(void* userTask, void* userContext);
+    typedef void maniFinishTaskFunction(void* userTask, void* userContext);
 
     // The host's task system, which an owner object takes in its def; both
     // hooks NULL (the default) runs every item on the calling thread.
@@ -160,8 +160,8 @@ extern "C"
     // serve: one that does is refused with mani_errorBusy.
     typedef struct maniTaskHooks
     {
-        maniEnqueueTaskFn* enqueueTask;
-        maniFinishTaskFn* finishTask;
+        maniEnqueueTaskFunction* enqueueTask;
+        maniFinishTaskFunction* finishTask;
         // Passed to enqueueTask and finishTask as their userContext.
         void* userContext;
     } maniTaskHooks;
@@ -229,7 +229,7 @@ extern "C"
     /// @return 1 when it does, else 0.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API int32_t maniCpuSupportsBackend(void);
+    MANI_API int32_t maniIsCpuBackendSupported(void);
 
     /// The CPU check a host makes once, before any other call into the
     /// library: an AVX2 build on a CPU without AVX2 and FMA would stop on
@@ -268,7 +268,7 @@ extern "C"
     /// @return A static, NUL-terminated string such as "mani_errorCapacity".
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API const char* maniResultName(maniResult result);
+    MANI_API const char* maniGetResultName(maniResult result);
 
 #ifdef __cplusplus
 }

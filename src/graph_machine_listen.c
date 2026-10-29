@@ -78,7 +78,7 @@ static bool InRange(const maniClip* clip, double from, double to, uint64_t hash)
     bool heard = false;
     for (uint32_t k = 0; k < count && !heard; ++k)
     {
-        heard = maniClipEventAt(clip, first + k).nameHash == hash;
+        heard = maniClip_GetEvent(clip, first + k).nameHash == hash;
     }
     return heard;
 }

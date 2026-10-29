@@ -79,7 +79,7 @@ static char* TrackName(maniFbxClipState* c, uint32_t b, const char* property, si
                        uint32_t width, uint32_t k, size_t* lengthOut)
 {
     size_t boneLength = 0;
-    const char* bone = maniSkeletonBoneName(c->skeleton, b, &boneLength);
+    const char* bone = maniSkeleton_GetBoneName(c->skeleton, b, &boneLength);
     size_t n = (size_t)boneLength + 1 + length + (width > 1 ? 2 : 0);
     char* name = maniArenaTake(&c->arena, n, 1);
     if (name != NULL)
@@ -221,13 +221,13 @@ static bool MeshInSkeleton(const maniFbxClipState* c, uint32_t model)
 {
     size_t length = 0;
     const char* name = maniFbxModelName(c->fbx, model, &length);
-    if (maniSkeletonFindBone(c->skeleton, name, length) != MANI_NO_BONE)
+    if (maniSkeleton_FindBone(c->skeleton, name, length) != MANI_NO_BONE)
     {
         return true;
     }
     for (uint32_t s = 0; s < c->fbx->skinCount; ++s)
     {
-        if (maniFbxSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton))
+        if (maniFbx_GetSkinModel(c->fbx, s) == model && maniFbxSkinWithin(c->fbx, s, c->skeleton))
         {
             return true;
         }

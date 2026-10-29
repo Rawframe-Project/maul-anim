@@ -61,7 +61,7 @@ static void BuildSkeletons(void)
     {
         size_t size = 0;
         if (maniBuildSkeleton(builder, &sources[i]).result == mani_success &&
-            maniCopyBuilt(builder, s_skeletonFiles[i], sizeof s_skeletonFiles[i], &size) ==
+            maniBuilder_CopyBuilt(builder, s_skeletonFiles[i], sizeof s_skeletonFiles[i], &size) ==
                 mani_success &&
             maniOpenSkeleton(s_skeletonFiles[i], size, &s_skeletons[s_skeletonCount]).result ==
                 mani_success)
@@ -77,26 +77,26 @@ static void BuildSkeletons(void)
 static void Compare(const maniClip* clip, const maniSkeleton* skeleton, const maniPose* pose,
                     maniClipCursor* cursor, maniPose* other, float time)
 {
-    if (maniSampleClipCursor(cursor, clip, skeleton, time, other) == mani_success)
+    if (maniClipCursor_Sample(cursor, clip, skeleton, time, other) == mani_success)
     {
-        for (uint32_t b = 0; b < maniSkeletonBoneCount(skeleton); ++b)
+        for (uint32_t b = 0; b < maniSkeleton_GetBoneCount(skeleton); ++b)
         {
-            maniTransform x = maniPoseLocal(pose, b);
-            maniTransform y = maniPoseLocal(other, b);
+            maniTransform x = maniPose_GetLocal(pose, b);
+            maniTransform y = maniPose_GetLocal(other, b);
             if (memcmp(&x, &y, sizeof x) != 0)
             {
                 abort();
             }
         }
     }
-    uint32_t bones[2] = {0, maniSkeletonBoneCount(skeleton) - 1};
-    if (maniSampleClipBones(clip, skeleton, time, bones, bones[1] > 0 ? 2 : 1, other) ==
+    uint32_t bones[2] = {0, maniSkeleton_GetBoneCount(skeleton) - 1};
+    if (maniClip_SampleBones(clip, skeleton, time, bones, bones[1] > 0 ? 2 : 1, other) ==
         mani_success)
     {
         for (uint32_t i = 0; i < 2; ++i)
         {
-            maniTransform x = maniPoseLocal(pose, bones[i]);
-            maniTransform y = maniPoseLocal(other, bones[i]);
+            maniTransform x = maniPose_GetLocal(pose, bones[i]);
+            maniTransform y = maniPose_GetLocal(other, bones[i]);
             if (memcmp(&x, &y, sizeof x) != 0)
             {
                 abort();
@@ -104,8 +104,8 @@ static void Compare(const maniClip* clip, const maniSkeleton* skeleton, const ma
         }
     }
     uint32_t n = 0;
-    if (maniSampleClipFloats(clip, time, s_values, 64, &n) == mani_success &&
-        maniSampleClipFloatsCursor(cursor, clip, time, s_cursorValues, 64, &n) == mani_success &&
+    if (maniClip_SampleFloats(clip, time, s_values, 64, &n) == mani_success &&
+        maniClipCursor_SampleFloats(cursor, clip, time, s_cursorValues, 64, &n) == mani_success &&
         memcmp(s_values, s_cursorValues, n * sizeof(float)) != 0)
     {
         abort();
@@ -121,7 +121,7 @@ static void Sample(const maniClip* clip)
         maniPose* pose = NULL;
         maniPose* other = NULL;
         maniClipCursor* cursor = NULL;
-        if (maniClipSkeletonIdentity(clip) != maniSkeletonIdentity(skeleton) ||
+        if (maniClip_GetSkeletonIdentity(clip) != maniSkeleton_GetIdentity(skeleton) ||
             maniInitPose(skeleton, s_poseMemory, sizeof s_poseMemory, &pose) != mani_success ||
             maniInitPose(skeleton, s_cursorPoseMemory, sizeof s_cursorPoseMemory, &other) !=
                 mani_success ||
@@ -129,14 +129,14 @@ static void Sample(const maniClip* clip)
         {
             continue;
         }
-        float d = maniClipDuration(clip);
+        float d = maniClip_GetDuration(clip);
         const float times[6] = {-1.0f, 0.0f, d * 0.37f, d * 0.5f, d, d + 1.0f};
         for (int t = 0; t < 6; ++t)
         {
-            maniResult bones = maniSampleClip(clip, skeleton, times[t], pose);
-            maniResult floats = maniSampleClipFloats(clip, times[t], s_values, 64, NULL);
-            bool fits = maniClipFloatTrackCount(clip) <= 64;
-            if ((clip->skeletonBoneCount == maniSkeletonBoneCount(skeleton)) !=
+            maniResult bones = maniClip_Sample(clip, skeleton, times[t], pose);
+            maniResult floats = maniClip_SampleFloats(clip, times[t], s_values, 64, NULL);
+            bool fits = maniClip_GetFloatTrackCount(clip) <= 64;
+            if ((clip->skeletonBoneCount == maniSkeleton_GetBoneCount(skeleton)) !=
                     (bones == mani_success) ||
                 (floats == mani_success) != fits)
             {
@@ -166,7 +166,7 @@ static void ExerciseRootMotion(const maniClip* clip)
     const float weights[5] = {1.0f, 0.5f, 0.0f, 2.0f, 1.0f};
     for (int i = 0; i < 5; ++i)
     {
-        if (maniClipRootMotion(clip, kSteps[i][0], kSteps[i][1], &moves[i]) != mani_success ||
+        if (maniClip_GetRootMotion(clip, kSteps[i][0], kSteps[i][1], &moves[i]) != mani_success ||
             !MoveFinite(&moves[i]))
         {
             abort();
@@ -184,43 +184,43 @@ static void Exercise(const uint8_t* bytes, size_t size)
     maniClip clip;
     if (maniOpenClip(bytes, size, &clip).result == 0)
     {
-        if (maniClipSampleCount(&clip) == 0 || !(maniClipDuration(&clip) >= 0.0f) ||
-            !(maniClipSampleRate(&clip) > 0.0f))
+        if (maniClip_GetSampleCount(&clip) == 0 || !(maniClip_GetDuration(&clip) >= 0.0f) ||
+            !(maniClip_GetSampleRate(&clip) > 0.0f))
         {
             abort();
         }
         // An opened clip's root motion source is in range.
         maniRootMotionSource root;
-        if (maniClipRootMotionSource(&clip, &root) &&
+        if (maniClip_GetRootMotionSource(&clip, &root) &&
             (root.translationAxes > 7 || root.rotation > maniRootRotationWhole ||
              (root.translationAxes == 0 && root.rotation == maniRootRotationNone)))
         {
             abort();
         }
         ExerciseRootMotion(&clip);
-        for (uint32_t i = 0; i < maniClipFloatTrackCount(&clip); ++i)
+        for (uint32_t i = 0; i < maniClip_GetFloatTrackCount(&clip); ++i)
         {
             size_t length = 0;
-            const char* name = maniClipFloatTrackName(&clip, i, &length);
-            if (maniClipFindFloatTrack(&clip, name, length) != i)
+            const char* name = maniClip_GetFloatTrackName(&clip, i, &length);
+            if (maniClip_FindFloatTrack(&clip, name, length) != i)
             {
                 abort();
             }
         }
-        for (uint32_t i = 0; i < maniClipDiscreteTrackCount(&clip); ++i)
+        for (uint32_t i = 0; i < maniClip_GetDiscreteTrackCount(&clip); ++i)
         {
             size_t length = 0;
-            const char* name = maniClipDiscreteTrackName(&clip, i, &length);
-            if (maniClipFindDiscreteTrack(&clip, name, length) != i)
+            const char* name = maniClip_GetDiscreteTrackName(&clip, i, &length);
+            if (maniClip_FindDiscreteTrack(&clip, name, length) != i)
             {
                 abort();
             }
-            (void)maniClipDiscreteValue(&clip, i, maniClipDuration(&clip) * 0.5f);
+            (void)maniClip_GetDiscreteValue(&clip, i, maniClip_GetDuration(&clip) * 0.5f);
         }
         uint32_t first = 0;
         uint32_t count = 0;
-        maniClipEventRange(&clip, 0.0f, maniClipDuration(&clip), &first, &count);
-        if (first + count > maniClipEventCount(&clip))
+        maniClip_GetEventRange(&clip, 0.0f, maniClip_GetDuration(&clip), &first, &count);
+        if (first + count > maniClip_GetEventCount(&clip))
         {
             abort();
         }

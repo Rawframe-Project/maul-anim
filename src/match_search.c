@@ -377,7 +377,7 @@ void maniMatchFacings(const maniMotionDatabase* database, float* features)
     for (uint32_t c = 0; c < database->channelCount; ++c)
     {
         maniMatchChannel ch;
-        if (maniMotionDatabaseChannel(database, c, &ch) != mani_success ||
+        if (maniMotionDatabase_GetChannel(database, c, &ch) != mani_success ||
             ch.kind != maniMatchBoneFacing)
         {
             continue;
@@ -412,8 +412,8 @@ static MANI_NOINLINE maniResult SearchMotionDatabaseWork(const maniMotionDatabas
     return maniMatchSearchFrom(database, query, false, NULL, resultOut);
 }
 
-maniResult maniSearchMotionDatabase(const maniMotionDatabase* database, const maniMatchQuery* query,
-                                    maniMatchResult* resultOut)
+maniResult maniMotionDatabase_Search(const maniMotionDatabase* database,
+                                     const maniMatchQuery* query, maniMatchResult* resultOut)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result = SearchMotionDatabaseWork(database, query, resultOut);

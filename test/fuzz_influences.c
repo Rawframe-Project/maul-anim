@@ -25,22 +25,22 @@ static void Exercise(const uint8_t* bytes, size_t size)
     {
         return;
     }
-    uint32_t per = maniInfluencesPerVertex(&v);
-    uint32_t vertices = maniInfluencesVertexCount(&v);
+    uint32_t per = maniInfluences_GetPerVertex(&v);
+    uint32_t vertices = maniInfluences_GetVertexCount(&v);
     for (uint32_t vertex = 0; vertex < vertices && vertex < 4096; ++vertex)
     {
         for (uint32_t slot = 0; slot < per; ++slot)
         {
             float w = 0.0f;
-            if (maniInfluence(&v, vertex, slot, &w) >= v.skinJointCount || !(w >= 0.0f) ||
-                !(w <= 1.0f))
+            if (maniInfluences_GetInfluence(&v, vertex, slot, &w) >= v.skinJointCount ||
+                !(w >= 0.0f) || !(w <= 1.0f))
             {
                 abort();
             }
         }
-        float b = maniInfluencesDualQuaternionWeight(&v, vertex);
+        float b = maniInfluences_GetDualQuaternionWeight(&v, vertex);
         maniVec3 c;
-        if (!(b >= 0.0f && b <= 1.0f) || (maniInfluencesCenter(&v, vertex, &c) && c.x != c.x))
+        if (!(b >= 0.0f && b <= 1.0f) || (maniInfluences_GetCenter(&v, vertex, &c) && c.x != c.x))
         {
             abort();
         }

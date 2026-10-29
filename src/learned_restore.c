@@ -277,8 +277,8 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* byt
     return kOk;
 }
 
-maniFileResult maniRestoreLearnedCheckpoint(maniLearnedTrainer* trainer, const void* bytes,
-                                            size_t size)
+maniFileResult maniLearnedTrainer_RestoreCheckpoint(maniLearnedTrainer* trainer, const void* bytes,
+                                                    size_t size)
 {
     uint64_t env = maniFloatEnvEnter();
     maniFileResult result =

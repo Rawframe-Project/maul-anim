@@ -16,7 +16,7 @@
 // A task and its context, run by InEnvironment.
 typedef struct Wrapped
 {
-    maniTaskFn* task;
+    maniTaskFunction* task;
     void* context;
 } Wrapped;
 
@@ -42,7 +42,7 @@ static void InEnvironment(int32_t startIndex, int32_t endIndex, void* taskContex
     maniFloatEnvRun(RunRange, &range);
 }
 
-void maniTrainRun(const maniTaskHooks* hooks, maniTaskFn* task, int32_t count, void* context)
+void maniTrainRun(const maniTaskHooks* hooks, maniTaskFunction* task, int32_t count, void* context)
 {
     if (count <= 0)
     {

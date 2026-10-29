@@ -136,7 +136,7 @@ void maniCloseFbx(maniFbx* fbx)
     maniRelease(&allocator, fbx, 1, sizeof(maniFbx), 8);
 }
 
-uint32_t maniFbxVersion(const maniFbx* fbx)
+uint32_t maniFbx_GetVersion(const maniFbx* fbx)
 {
     return fbx != NULL ? fbx->version : 0;
 }

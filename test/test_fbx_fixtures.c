@@ -141,24 +141,26 @@ static bool UseSkeleton(Fixture* f, bool byModel, uint32_t index, bool folded)
     if (f->pose != NULL && f->skeletonByModel == byModel && f->skeletonIndex == index &&
         f->skeletonFolded == folded)
     {
-        return maniPoseSetRest(f->pose, &f->skeleton) == mani_success;
+        return maniPose_SetRest(f->pose, &f->skeleton) == mani_success;
     }
     f->pose = NULL;
     f->skinIndex = kNone;
     f->clipIndex = kNone;
     maniFbxOptions options = maniDefaultFbxOptions();
     options.foldPlacement = folded ? 1 : 0;
-    maniImportResult r = byModel ? maniFbxBuildModelSkeleton(f->builder, f->fbx, index, &options)
-                                 : maniFbxBuildSkeleton(f->builder, f->fbx, index, &options);
-    maniImportResult p = byModel ? maniFbxModelPlacement(f->fbx, index, &options, &f->placement)
-                                 : maniFbxSkeletonPlacement(f->fbx, index, &options, &f->placement);
+    maniImportResult r = byModel ? maniBuildFbxModelSkeleton(f->builder, f->fbx, index, &options)
+                                 : maniBuildFbxSkeleton(f->builder, f->fbx, index, &options);
+    maniImportResult p = byModel
+                             ? maniFbx_GetModelPlacement(f->fbx, index, &options, &f->placement)
+                             : maniFbx_GetSkeletonPlacement(f->fbx, index, &options, &f->placement);
     size_t size = 0;
     bool built =
         r.result == mani_success && p.result == mani_success &&
-        maniCopyBuilt(f->builder, s_skeletonFile, sizeof s_skeletonFile, &size) == mani_success &&
+        maniBuilder_CopyBuilt(f->builder, s_skeletonFile, sizeof s_skeletonFile, &size) ==
+            mani_success &&
         maniOpenSkeleton(s_skeletonFile, size, &f->skeleton).result == mani_success &&
         maniInitPose(&f->skeleton, s_poseMemory, sizeof s_poseMemory, &f->pose) == mani_success &&
-        maniPoseSetRest(f->pose, &f->skeleton) == mani_success;
+        maniPose_SetRest(f->pose, &f->skeleton) == mani_success;
     if (built)
     {
         Pin(s_skeletonFile, size);
@@ -173,12 +175,12 @@ static bool UseSkeleton(Fixture* f, bool byModel, uint32_t index, bool folded)
 // A bone's world in the pose: the placement times its model matrix.
 static bool World(Fixture* f, const char* name, double out[12])
 {
-    uint32_t bone = maniSkeletonFindBone(&f->skeleton, name, (uint32_t)strlen(name));
-    if (bone == MANI_NO_BONE || maniComputeModel(f->pose, &f->skeleton) != mani_success)
+    uint32_t bone = maniSkeleton_FindBone(&f->skeleton, name, (uint32_t)strlen(name));
+    if (bone == MANI_NO_BONE || maniPose_ComputeModel(f->pose, &f->skeleton) != mani_success)
     {
         return false;
     }
-    maniAffine model = maniPoseModel(f->pose, bone);
+    maniAffine model = maniPose_GetModel(f->pose, bone);
     Compose(&f->placement, &model, out);
     return true;
 }
@@ -192,7 +194,7 @@ static bool CheckRest(Fixture* f, const FbxExpected* e, bool byModel)
 
 static bool CheckBind(Fixture* f, const FbxExpected* e)
 {
-    uint32_t s = maniFbxSkinSkeleton(f->fbx, e->index);
+    uint32_t s = maniFbx_GetSkinSkeleton(f->fbx, e->index);
     if (s == UINT32_MAX || !UseSkeleton(f, false, s, false))
     {
         return false;
@@ -202,9 +204,10 @@ static bool CheckBind(Fixture* f, const FbxExpected* e)
         maniFbxOptions options = maniDefaultFbxOptions();
         size_t size = 0;
         bool built =
-            maniFbxBuildSkin(f->builder, f->fbx, e->index, &f->skeleton, &options).result ==
+            maniBuildFbxSkin(f->builder, f->fbx, e->index, &f->skeleton, &options).result ==
                 mani_success &&
-            maniCopyBuilt(f->builder, s_skinFile, sizeof s_skinFile, &size) == mani_success &&
+            maniBuilder_CopyBuilt(f->builder, s_skinFile, sizeof s_skinFile, &size) ==
+                mani_success &&
             maniOpenSkin(s_skinFile, size, &f->skin).result == mani_success;
         if (built)
         {
@@ -213,13 +216,14 @@ static bool CheckBind(Fixture* f, const FbxExpected* e)
         f->skinIndex = built ? e->index : kNone;
     }
     uint32_t j = (uint32_t)e->time;
-    if (f->skinIndex == kNone || j >= maniSkinJointCount(&f->skin))
+    if (f->skinIndex == kNone || j >= maniSkin_GetJointCount(&f->skin))
     {
         return false;
     }
     size_t length = 0;
-    const char* name = maniSkeletonBoneName(&f->skeleton, maniSkinJoint(&f->skin, j), &length);
-    maniAffine bind = maniSkinInverseBind(&f->skin, j);
+    const char* name =
+        maniSkeleton_GetBoneName(&f->skeleton, maniSkin_GetJoint(&f->skin, j), &length);
+    maniAffine bind = maniSkin_GetInverseBind(&f->skin, j);
     double ours[12];
     for (int i = 0; i < 12; ++i)
     {
@@ -243,10 +247,10 @@ static bool UseClip(Fixture* f, uint32_t k)
     options.foldPlacement = 1;
     size_t size = 0;
     bool built =
-        maniFbxBuildClip(f->builder, f->fbx, k, &f->skeleton, &options,
+        maniBuildFbxClip(f->builder, f->fbx, k, &f->skeleton, &options,
                          &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp}, NULL)
                 .result == mani_success &&
-        maniCopyBuilt(f->builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
+        maniBuilder_CopyBuilt(f->builder, s_clipFile, sizeof s_clipFile, &size) == mani_success &&
         maniOpenClip(s_clipFile, size, &f->clip).result == mani_success;
     if (built)
     {
@@ -260,7 +264,7 @@ static bool CheckSample(Fixture* f, const FbxExpected* e)
 {
     double ours[12];
     return UseClip(f, e->index) &&
-           maniSampleClip(&f->clip, &f->skeleton, (float)e->time, f->pose) == mani_success &&
+           maniClip_Sample(&f->clip, &f->skeleton, (float)e->time, f->pose) == mani_success &&
            World(f, e->name, ours) && SameValues(ours, e);
 }
 
@@ -271,12 +275,12 @@ static bool CheckFloat(Fixture* f, const FbxExpected* e)
     {
         return false;
     }
-    uint32_t tracks = maniClipFloatTrackCount(&f->clip);
-    uint32_t t = maniClipFindFloatTrack(&f->clip, e->name, (uint32_t)strlen(e->name));
+    uint32_t tracks = maniClip_GetFloatTrackCount(&f->clip);
+    uint32_t t = maniClip_FindFloatTrack(&f->clip, e->name, (uint32_t)strlen(e->name));
     double ours = 0.0;
     bool sampled =
         tracks <= 256 && t != MANI_NO_TRACK &&
-        maniSampleClipFloats(&f->clip, (float)e->time, values, tracks, NULL) == mani_success;
+        maniClip_SampleFloats(&f->clip, (float)e->time, values, tracks, NULL) == mani_success;
     ours = sampled ? (double)values[t] : 0.0;
     return sampled && SameValues(&ours, e);
 }
@@ -284,7 +288,7 @@ static bool CheckFloat(Fixture* f, const FbxExpected* e)
 static bool CheckRate(const Fixture* f, const FbxExpected* e)
 {
     maniFbxSettings s;
-    if (maniFbxReadSettings(f->fbx, &s) != mani_success)
+    if (maniFbx_ReadSettings(f->fbx, &s) != mani_success)
     {
         return false;
     }
@@ -323,7 +327,7 @@ static bool Check(Fixture* f, const FbxExpected* e, bool opened)
     }
     if (strcmp(e->kind, "duration") == 0)
     {
-        double ours = UseClip(f, e->index) ? (double)maniClipDuration(&f->clip) : -1.0;
+        double ours = UseClip(f, e->index) ? (double)maniClip_GetDuration(&f->clip) : -1.0;
         return SameValues(&ours, e);
     }
     if (strcmp(e->kind, "sample") == 0)

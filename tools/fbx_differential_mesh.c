@@ -48,10 +48,10 @@ static bool SameWeights(const maniInfluences* ours, const ufbx_skin_deformer* th
 {
     memset(a, 0, joints * sizeof(double));
     memset(b, 0, joints * sizeof(double));
-    for (uint32_t slot = 0; slot < maniInfluencesPerVertex(ours); ++slot)
+    for (uint32_t slot = 0; slot < maniInfluences_GetPerVertex(ours); ++slot)
     {
         float w = 0.0f;
-        uint32_t j = maniInfluence(ours, v, slot, &w);
+        uint32_t j = maniInfluences_GetInfluence(ours, v, slot, &w);
         a[j < joints ? j : 0] += (double)w;
     }
     ufbx_skin_vertex vertex = theirs->vertices.data[v];
@@ -71,7 +71,7 @@ static bool SameWeights(const maniInfluences* ours, const ufbx_skin_deformer* th
     {
         same = fabs(a[j] - (total > 0.0 ? b[j] / total : 0.0)) <= 1e-6;
     }
-    double dq = (double)maniInfluencesDualQuaternionWeight(ours, v);
+    double dq = (double)maniInfluences_GetDualQuaternionWeight(ours, v);
     return same && fabs(dq - vertex.dq_weight) <= 1e-6;
 }
 
@@ -86,7 +86,7 @@ static bool EmptyAgrees(maniImportResult r, const ufbx_mesh* mesh)
 static bool OpenInfluences(Context* c, uint32_t k, const maniSkin* skin, const ufbx_mesh* mesh,
                            Blob* blob, maniInfluences* out)
 {
-    maniImportResult r = maniFbxBuildInfluences(c->builder, c->fbx, k, skin);
+    maniImportResult r = maniBuildFbxInfluences(c->builder, c->fbx, k, skin);
     if (EmptyAgrees(r, mesh))
     {
         return false;
@@ -108,7 +108,7 @@ static bool Skin(const maniInfluences* influences, maniSkinningMethod method,
 {
     maniSkinStream stream = {in, out, 12, 12, maniStreamPoint};
     maniSkinJob job = {influences, palette, dualQuaternions,
-                       joints,     0,       maniInfluencesVertexCount(influences),
+                       joints,     0,       maniInfluences_GetVertexCount(influences),
                        1,          &stream};
     maniResult r = method == maniSkinningDualQuaternion ? maniSkinDualQuaternion(&job)
                    : method == maniSkinningBlended      ? maniSkinBlended(&job)
@@ -148,15 +148,16 @@ static uint32_t CompareSkinned(const Context* c, uint32_t k, const maniSkin* ski
                                const maniAffine* placement, const maniInfluences* influences,
                                const ufbx_skin_deformer* theirs, const ufbx_mesh* mesh)
 {
-    uint32_t joints = maniSkinJointCount(skin);
-    uint32_t vertices = maniInfluencesVertexCount(influences);
+    uint32_t joints = maniSkin_GetJointCount(skin);
+    uint32_t vertices = maniInfluences_GetVertexCount(influences);
     maniAffine* palette = malloc(((size_t)joints + 1) * sizeof(maniAffine));
     float* dq = malloc(((size_t)joints + 1) * 20 * sizeof(float));
     float* in = malloc(((size_t)vertices + 1) * 3 * sizeof(float));
     float* out = malloc(((size_t)vertices + 1) * 3 * sizeof(float));
-    bool ready = pose != NULL && palette != NULL && dq != NULL && in != NULL && out != NULL &&
-                 maniComputePalette(pose, skeleton, skin, palette, joints, NULL) == mani_success &&
-                 maniPaletteDualQuaternions(palette, joints, dq) == mani_success;
+    bool ready =
+        pose != NULL && palette != NULL && dq != NULL && in != NULL && out != NULL &&
+        maniPose_ComputePalette(pose, skeleton, skin, palette, joints, NULL) == mani_success &&
+        maniConvertPaletteToDualQuaternions(palette, joints, dq) == mani_success;
     for (uint32_t v = 0; ready && v < vertices; ++v)
     {
         for (int i = 0; i < 3; ++i)
@@ -164,7 +165,8 @@ static uint32_t CompareSkinned(const Context* c, uint32_t k, const maniSkin* ski
             in[3 * v + i] = (float)mesh->vertices.data[v].v[i];
         }
     }
-    ready = ready && Skin(influences, maniFbxSkinMethod(c->fbx, k), palette, dq, joints, in, out);
+    ready =
+        ready && Skin(influences, maniFbx_GetSkinMethod(c->fbx, k), palette, dq, joints, in, out);
     double p[12];
     FromAffine(placement, p);
     uint32_t first = ready ? UINT32_MAX : vertices;
@@ -209,8 +211,8 @@ void CompareInfluences(Context* c, uint32_t k, uint32_t s, const maniSkin* skin,
         Release(&blob);
         return;
     }
-    uint32_t vertices = maniInfluencesVertexCount(&ours);
-    uint32_t joints = maniSkinJointCount(skin);
+    uint32_t vertices = maniInfluences_GetVertexCount(&ours);
+    uint32_t joints = maniSkin_GetJointCount(skin);
     uint32_t* clusterJoints = ClusterJoints(theirs);
     double* a = malloc(((size_t)joints + 1) * sizeof(double));
     double* b = malloc(((size_t)joints + 1) * sizeof(double));
@@ -244,7 +246,7 @@ void CompareInfluences(Context* c, uint32_t k, uint32_t s, const maniSkin* skin,
         if (differs != UINT32_MAX)
         {
             Mismatch(c, "skinning", "skin %u (method %u) vertex %u", k,
-                     maniFbxSkinMethod(c->fbx, k), differs);
+                     maniFbx_GetSkinMethod(c->fbx, k), differs);
         }
         c->skinsCompared += differs == UINT32_MAX ? 1 : 0;
     }
@@ -260,10 +262,10 @@ static bool OpenClipSkin(Context* c, uint32_t k, Blob* skinBlob, maniSkin* skin,
 {
     maniFbxOptions options = maniDefaultFbxOptions();
     options.foldPlacement = 1;
-    return maniFbxBuildSkin(c->builder, c->fbx, k, &c->skeleton, &options).result == mani_success &&
+    return maniBuildFbxSkin(c->builder, c->fbx, k, &c->skeleton, &options).result == mani_success &&
            Copy(c->builder, skinBlob) &&
            maniOpenSkin(skinBlob->data, skinBlob->size, skin).result == mani_success &&
-           maniFbxBuildInfluences(c->builder, c->fbx, k, skin).result == mani_success &&
+           maniBuildFbxInfluences(c->builder, c->fbx, k, skin).result == mani_success &&
            Copy(c->builder, blob) &&
            maniOpenInfluences(blob->data, blob->size, influences).result == mani_success;
 }
@@ -271,11 +273,11 @@ static bool OpenClipSkin(Context* c, uint32_t k, Blob* skinBlob, maniSkin* skin,
 void CompareSkinsAt(Context* c, uint32_t clip, const maniPose* pose, const ufbx_scene* evaluated,
                     double time)
 {
-    for (uint32_t k = 0; !c->byModel && k < maniFbxSkinCount(c->fbx); ++k)
+    for (uint32_t k = 0; !c->byModel && k < maniFbx_GetSkinCount(c->fbx); ++k)
     {
         const ufbx_node* node = NULL;
         ufbx_skin_deformer* theirs =
-            maniFbxSkinSkeleton(c->fbx, k) == 0 ? TheirSkin(c, k, &node) : NULL;
+            maniFbx_GetSkinSkeleton(c->fbx, k) == 0 ? TheirSkin(c, k, &node) : NULL;
         if (theirs == NULL || node == NULL || node->mesh == NULL || node->mesh->num_vertices == 0)
         {
             continue;
@@ -290,7 +292,7 @@ void CompareSkinsAt(Context* c, uint32_t clip, const maniPose* pose, const ufbx_
         uint32_t differs = opened ? CompareSkinned(c, k, &skin, &c->skeleton, pose, &c->placement,
                                                    &influences, posed, node->mesh)
                                   : 0;
-        maniSkinningMethod method = maniFbxSkinMethod(c->fbx, k);
+        maniSkinningMethod method = maniFbx_GetSkinMethod(c->fbx, k);
         c->posedCompared += differs == UINT32_MAX ? 1 : 0;
         c->posedDualQuaternion += differs == UINT32_MAX && method != maniSkinningLinear ? 1 : 0;
         if (differs != UINT32_MAX)
@@ -309,14 +311,15 @@ void CompareSkinsAt(Context* c, uint32_t clip, const maniPose* pose, const ufbx_
 static ufbx_blend_deformer* TheirBlend(const Context* c, uint32_t m, const ufbx_node** nodeOut)
 {
     size_t length = 0;
-    uint32_t model = maniFbxMorphModel(c->fbx, m);
-    const char* name = model != UINT32_MAX ? maniFbxModelBoneName(c->fbx, model, &length) : NULL;
+    uint32_t model = maniFbx_GetMorphModel(c->fbx, m);
+    const char* name =
+        model != UINT32_MAX ? maniFbx_GetModelBoneName(c->fbx, model, &length) : NULL;
     const ufbx_node* node = name != NULL ? ufbx_find_node_len(c->scene, name, length) : NULL;
     *nodeOut = node;
     uint32_t rank = 0;
     for (uint32_t j = 0; j < m; ++j)
     {
-        rank += maniFbxMorphModel(c->fbx, j) == model ? 1 : 0;
+        rank += maniFbx_GetMorphModel(c->fbx, j) == model ? 1 : 0;
     }
     return node != NULL && node->mesh != NULL && rank < node->mesh->blend_deformers.count
                ? node->mesh->blend_deformers.data[rank]
@@ -335,16 +338,16 @@ static bool KeptKey(const ufbx_blend_channel* channel, size_t k)
 static bool SameTarget(const maniMorphTargets* ours, uint32_t t, const ufbx_blend_channel* channel,
                        size_t k, float* weights, float* positions, ufbx_vec3* expected)
 {
-    uint32_t vertices = maniMorphVertexCount(ours);
+    uint32_t vertices = maniMorphTargets_GetVertexCount(ours);
     size_t length = 0;
-    const char* name = maniMorphTargetName(ours, t, &length);
+    const char* name = maniMorphTargets_GetTargetName(ours, t, &length);
     const ufbx_blend_keyframe* key = &channel->keyframes.data[k];
     if (name == NULL || !ShapeNamed(channel, k, name, length) ||
-        fabs((double)maniMorphTargetFullWeight(ours, t) - key->target_weight) > 1e-6)
+        fabs((double)maniMorphTargets_GetTargetFullWeight(ours, t) - key->target_weight) > 1e-6)
     {
         return false;
     }
-    memset(weights, 0, maniMorphTargetCount(ours) * sizeof(float));
+    memset(weights, 0, maniMorphTargets_GetTargetCount(ours) * sizeof(float));
     weights[t] = 1.0f;
     memset(positions, 0, (size_t)vertices * 3 * sizeof(float));
     memset(expected, 0, (size_t)vertices * sizeof(ufbx_vec3));
@@ -364,8 +367,8 @@ static bool SameTarget(const maniMorphTargets* ours, uint32_t t, const ufbx_blen
 static uint32_t CompareTargets(const maniMorphTargets* ours, const ufbx_blend_deformer* blend,
                                const float* rest)
 {
-    uint32_t count = maniMorphTargetCount(ours);
-    uint32_t vertices = maniMorphVertexCount(ours);
+    uint32_t count = maniMorphTargets_GetTargetCount(ours);
+    uint32_t vertices = maniMorphTargets_GetVertexCount(ours);
     float* weights = malloc(((size_t)count + 1) * sizeof(float));
     float* positions = malloc(((size_t)vertices + 1) * 3 * sizeof(float));
     ufbx_vec3* expected = malloc(((size_t)vertices + 1) * sizeof(ufbx_vec3));
@@ -398,13 +401,13 @@ static void CompareMorph(Context* c, uint32_t m)
     maniFbxOptions options = maniDefaultFbxOptions();
     Blob blob = {NULL, NULL, 0};
     maniMorphTargets ours;
-    uint32_t count = maniFbxMorphTargetCount(c->fbx, m);
+    uint32_t count = maniFbx_GetMorphTargetCount(c->fbx, m);
     float* rest = malloc(((size_t)count + 1) * sizeof(float));
-    maniImportResult r = maniFbxBuildMorphTargets(c->builder, c->fbx, m, &options);
+    maniImportResult r = maniBuildFbxMorphTargets(c->builder, c->fbx, m, &options);
     bool built = r.result == mani_success && Copy(c->builder, &blob) &&
                  maniOpenMorphTargets(blob.data, blob.size, &ours).result == mani_success &&
                  rest != NULL &&
-                 maniFbxMorphWeights(c->fbx, m, rest, count, NULL).result == mani_success;
+                 maniFbx_GetMorphWeights(c->fbx, m, rest, count, NULL).result == mani_success;
     if (theirs == NULL)
     {
         Mismatch(c, "morph", "set %u has no ufbx blend deformer", m);
@@ -418,10 +421,10 @@ static void CompareMorph(Context* c, uint32_t m)
         Mismatch(c, "morph", "set %u not built (result %d, reason %d, item %u)", m, (int)r.result,
                  (int)r.reason, r.item);
     }
-    else if (maniMorphVertexCount(&ours) != node->mesh->num_vertices)
+    else if (maniMorphTargets_GetVertexCount(&ours) != node->mesh->num_vertices)
     {
-        Mismatch(c, "morph", "set %u: %u vertices, ufbx %zu", m, maniMorphVertexCount(&ours),
-                 node->mesh->num_vertices);
+        Mismatch(c, "morph", "set %u: %u vertices, ufbx %zu", m,
+                 maniMorphTargets_GetVertexCount(&ours), node->mesh->num_vertices);
     }
     else
     {
@@ -429,7 +432,7 @@ static void CompareMorph(Context* c, uint32_t m)
         if (t != UINT32_MAX)
         {
             Mismatch(c, "morph", "set %u target %u of %u differs", m, t,
-                     maniMorphTargetCount(&ours));
+                     maniMorphTargets_GetTargetCount(&ours));
         }
         c->morphsCompared += t == UINT32_MAX ? 1 : 0;
     }
@@ -439,7 +442,7 @@ static void CompareMorph(Context* c, uint32_t m)
 
 void CompareMorphs(Context* c)
 {
-    for (uint32_t m = 0; m < maniFbxMorphCount(c->fbx); ++m)
+    for (uint32_t m = 0; m < maniFbx_GetMorphCount(c->fbx); ++m)
     {
         CompareMorph(c, m);
     }
