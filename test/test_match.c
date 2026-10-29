@@ -435,6 +435,16 @@ static void TestChannelRefusals(void)
                                           : Refused(&s, maniBuildReasonChannel, 3, 0),
               "a channel refused");
     }
+#if SIZE_MAX > UINT32_MAX
+    {
+        // Past 32 bits a track name's length would pass the names' total
+        // without wrapping it: still left to its channel.
+        maniMotionDatabaseSource s = Source();
+        s_channels[3] = (maniMatchChannelSource){maniMatchFloatTrack, 0,   0, 1, kNow, "a",
+                                                 (size_t)1 << 40,     1.0f};
+        CHECK(PastLimit(&s, maniBuildReasonChannel, 3, 0), "a track name of 2^40 bytes");
+    }
+#endif
     maniMotionDatabaseSource s = Source();
     s_channels[3] = (maniMatchChannelSource){maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
     CHECK(Refused(&s, maniBuildReasonMissingTrack, 3, 0), "the walk lacks the track");
