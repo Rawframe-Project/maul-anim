@@ -155,8 +155,9 @@ extern "C"
     /// database rate past MANI_MAX_LEARNED_RATE), `maniBuildReasonCount`
     /// (more than MANI_MAX_LEARNED_PROJECTORS Projectors,
     /// MANI_MAX_LEARNED_FLOAT_TRACKS float tracks or
-    /// MANI_MAX_LEARNED_EVENTS events); `mani_errorInvalid` for a NULL
-    /// argument, a def without its cookie, an allocator or task hooks with
+    /// MANI_MAX_LEARNED_EVENTS events) or a name past MANI_MAX_NAME_BYTES
+    /// (the reason and item a refused name gets); `mani_errorInvalid` for a
+    /// NULL argument, a def without its cookie, an allocator or task hooks with
     /// one function, a list missing, or with the reason and item for a
     /// refused source: `maniBuildReasonOption` (item the option's place:
     /// no latent values, no width, a batch not a multiple of 4, a window

@@ -404,9 +404,11 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The bones.
     /// @return `mani_success`; `mani_errorLimit` with
-    /// `maniBuildReasonCount` for more than MANI_MAX_BONES bones (no
-    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse) or with
-    /// the reason and source bone for a refused source;
+    /// `maniBuildReasonCount` for more than MANI_MAX_BONES bones, or with
+    /// `maniBuildReasonName` and the source bone for a name past
+    /// MANI_MAX_NAME_BYTES (no misuse); `mani_errorInvalid` for a NULL
+    /// argument (a misuse) or with the reason and source bone for a
+    /// refused source;
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
@@ -623,8 +625,9 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The clip.
     /// @return `mani_success`; `mani_errorLimit` with
-    /// `maniBuildReasonTiming` for more than MANI_MAX_SAMPLES samples (no
-    /// misuse); `mani_errorInvalid` for a NULL argument (a misuse), or
+    /// `maniBuildReasonTiming` for more than MANI_MAX_SAMPLES samples, or
+    /// with the reason and track a refused name gets for a name past
+    /// MANI_MAX_NAME_BYTES (no misuse); `mani_errorInvalid` for a NULL argument (a misuse), or
     /// with the reason and track for a refused source;
     /// `mani_errorCapacity` when the allocator fails.
     /// @par Thread safety
@@ -861,8 +864,9 @@ extern "C"
     /// @param source   The set's source.
     /// @return `mani_success`; `mani_errorLimit` with
     /// `maniBuildReasonOption` (item 0 the reference rate, 1 the step
-    /// rate, past MANI_MAX_SPRING_RATE) or `maniBuildReasonCount` (more
-    /// than MANI_MAX_BONES springs), no misuse; `mani_errorInvalid` with
+    /// rate, past MANI_MAX_SPRING_RATE), `maniBuildReasonCount` (more
+    /// than MANI_MAX_BONES springs) or the reason and spring a refused
+    /// name gets (a name past MANI_MAX_NAME_BYTES), no misuse; `mani_errorInvalid` with
     /// the reason, item and other for a refused source (or NULL
     /// arguments, a misuse); `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
@@ -929,10 +933,12 @@ extern "C"
     ///
     /// @param builder  A builder; its last output is replaced on success.
     /// @param source   The profile's source.
-    /// @return `mani_success`; `mani_errorInvalid` with the reason, item
-    /// and other for a refused source (or NULL arguments, a misuse;
-    /// maniBuildReasonCount for no bodies or more than the skeleton's
-    /// bones); `mani_errorCapacity` when memory runs out.
+    /// @return `mani_success`; `mani_errorLimit` with
+    /// `maniBuildReasonName` and the body for a name past
+    /// MANI_MAX_NAME_BYTES (no misuse); `mani_errorInvalid` with the
+    /// reason, item and other for a refused source (or NULL arguments, a
+    /// misuse; maniBuildReasonCount for no bodies or more than the
+    /// skeleton's bones); `mani_errorCapacity` when memory runs out.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildRagdoll(maniBuilder* builder,
@@ -1036,7 +1042,9 @@ extern "C"
     /// @param source   The channels.
     /// @return `mani_success`; `mani_errorLimit` with
     /// `maniBuildReasonCount` for more than MANI_MAX_MORPH_ATTRIBUTES
-    /// attributes (item 0; no misuse); `mani_errorInvalid` for a NULL
+    /// attributes (item 0), or with `maniBuildReasonName` for a name past
+    /// MANI_MAX_NAME_BYTES (item the channel, or the target with other 1),
+    /// no misuse; `mani_errorInvalid` for a NULL
     /// argument (a misuse), or with the reason and item for a refused
     /// source (item a
     /// channel for `maniBuildReasonCount` on a channel without targets,

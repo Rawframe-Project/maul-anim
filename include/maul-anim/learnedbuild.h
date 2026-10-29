@@ -104,7 +104,9 @@ extern "C"
     /// @param builder  The builder.
     /// @param source   The model.
     /// @return `mani_success`; `mani_errorLimit` with the reason and item
-    /// for a source past a bound (no misuse): `maniBuildReasonTiming` (a
+    /// for a source past a bound (no misuse): a name past
+    /// MANI_MAX_NAME_BYTES (the reason and item a refused name gets),
+    /// `maniBuildReasonTiming` (a
     /// step rate past MANI_MAX_LEARNED_RATE), `maniBuildReasonOption`
     /// (item 0: more than MANI_MAX_LEARNED_LATENT latent values),
     /// `maniBuildReasonCount` (more than MANI_MAX_LEARNED_PROJECTORS
