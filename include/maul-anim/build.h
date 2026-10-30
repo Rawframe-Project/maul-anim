@@ -76,7 +76,10 @@ extern "C"
                                                          maniBuilder** builderOut);
 
     /// Destroys a builder and the file it holds. Called back in from the
-    /// builder's allocator it destroys nothing and counts one misuse.
+    /// builder's allocator it destroys nothing and counts one misuse. From
+    /// the moment it begins, the builder is gone to the host's code: a
+    /// call on it from the free hook, the builder's own block's free
+    /// among it, is refused with `mani_errorBusy` and counted.
     ///
     /// @param builder  The builder, or NULL.
     /// @par Thread safety

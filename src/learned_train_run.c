@@ -320,6 +320,12 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
     {
         return maniBuildCalledBack();
     }
+    // Read from the trainer's own code, its destroy's frees among it, the
+    // trainer may be mid-change or emptied: refused, counted on it.
+    if (trainer != NULL && maniHostCalledBack((maniHostCode*)&trainer->host))
+    {
+        return maniBuildCalledBack();
+    }
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};

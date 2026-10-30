@@ -12,6 +12,11 @@
 // measures again into the same report leaves what the measure wrote. A
 // trainer's allocator and task hooks call training, restoring and
 // destroying it, likewise refused, counted, left alone and harmless.
+// A destroy or close is gone to the host's code from its start: from
+// every free it makes, the object's own block's among them, the calls
+// on the builder or trainer are refused as busy (the trainer's readers
+// among them), and a closing document reads as empty and refuses its
+// changes.
 
 #include "checkpoint_host.h"
 #include "cleared.h"
@@ -238,6 +243,9 @@ static void* BuilderAlloc(size_t size, size_t alignment, void* context)
 static maniClipReport* s_measureInto;
 static maniResult s_measured;
 
+// Called from every free while set, before the block goes.
+static void (*s_eachFree)(const void* memory);
+
 static void BuilderFree(void* memory, size_t size, size_t alignment, void* context)
 {
     (void)size;
@@ -246,6 +254,10 @@ static void BuilderFree(void* memory, size_t size, size_t alignment, void* conte
     if (s_call >= 0 && s_onFree)
     {
         CallBack();
+    }
+    if (s_eachFree != NULL)
+    {
+        s_eachFree(memory);
     }
     if (s_measureInto != NULL)
     {
@@ -361,6 +373,170 @@ static void TestBuilder(void)
     maniDestroyBuilder(s_builder);
 }
 
+// ---- Destroys and closes, gone to the host's code from their start.
+
+// What the frees of a destroy or close saw: how many ran, whether one
+// was the object's own block, and whether every call made from them
+// was refused or read the object as gone.
+static int s_frees;
+static bool s_ownBlock;
+static bool s_gone;
+
+// From a builder's destroy: every call taking it, a build that would
+// succeed, and the destroy again, each refused and counted once. The
+// destroy is tried only once the others were refused, since one the
+// builder let through would free it twice.
+static void BuilderGone(const void* memory)
+{
+    ++s_frees;
+    s_ownBlock = s_ownBlock || memory == s_builder;
+    uint32_t before = maniBuilder_GetMisuse(s_builder);
+    bool refused = true;
+    for (int k = 0; k < kDestroy; ++k)
+    {
+        refused = refused && CallBuilder(k) == mani_errorBusy;
+    }
+    uint8_t out[1024];
+    size_t size = 0;
+    refused = refused && !Build(out, sizeof out, &size);
+    if (refused)
+    {
+        maniDestroyBuilder(s_builder);
+    }
+    s_gone = s_gone && refused && maniBuilder_GetMisuse(s_builder) == before + kDestroy + 2;
+}
+
+static void TestDestroyBuilder(void)
+{
+    maniBuilderDef def = maniDefaultBuilderDef();
+    def.allocator = (maniAllocator){BuilderAlloc, BuilderFree, NULL};
+    uint8_t out[1024];
+    size_t size = 0;
+    CHECK(maniCreateBuilder(&def, &s_builder) == mani_success && Build(out, sizeof out, &size),
+          "a builder holding a file");
+    s_gltf = NULL;
+    s_fbx = NULL;
+    s_frees = 0;
+    s_ownBlock = false;
+    s_gone = true;
+    s_eachFree = BuilderGone;
+    maniDestroyBuilder(s_builder);
+    s_eachFree = NULL;
+    CHECK(s_frees >= 2 && s_ownBlock, "the destroy's frees seen, its own block's among them");
+    CHECK(s_gone, "from each, every call on the builder refused as busy and counted once");
+}
+
+static const char kGltfNodes[] = "{\"asset\": {\"version\": \"2.0\"}, \"nodes\": "
+                                 "[{\"name\": \"hip\", \"children\": [1]}, {\"name\": \"leg\"}]}";
+static const char kFbxModels[] = "; FBX 7.4.0 project file\n"
+                                 "Objects: {\n"
+                                 " Model: 100, \"Model::hip\", \"LimbNode\" {\n }\n"
+                                 " Model: 200, \"Model::leg\", \"LimbNode\" {\n }\n"
+                                 "}\n"
+                                 "Connections: {\n"
+                                 " C: \"OO\",100,0\n"
+                                 " C: \"OO\",200,100\n"
+                                 "}\n";
+
+// From a glTF document's close: every reader finds it empty, and its
+// changes and the close again are refused and counted on the builder.
+static void GltfGone(const void* memory)
+{
+    (void)memory;
+    ++s_frees;
+    const maniGltf* g = s_gltf;
+    const maniGltfOptions options = maniDefaultGltfOptions();
+    size_t length = 1;
+    uint32_t count = 1;
+    maniAffine placement;
+    bool empty = maniGltf_GetBufferCount(g) == 0 && maniGltf_GetBufferUri(g, 0, &length) == NULL &&
+                 length == 0 && maniGltf_GetSkeletonCount(g) == 0 &&
+                 maniGltf_GetSkinCount(g) == 0 && maniGltf_GetSkinSkeleton(g, 0) == UINT32_MAX &&
+                 maniGltf_GetNodeCount(g) == 0 &&
+                 maniGltf_GetSkeletonPlacement(g, 0, &options, &placement).result != mani_success;
+    length = 1;
+    empty = empty && maniGltf_GetNodeBoneName(g, 0, &length) == NULL && length == 0 &&
+            maniGltf_GetRenamedCount(g) == 0 && maniGltf_GetRenamedNode(g, 0) == UINT32_MAX &&
+            maniGltf_GetNodeMesh(g, 0) == UINT32_MAX && maniGltf_GetNodeSkin(g, 0) == UINT32_MAX &&
+            maniGltf_GetAnimationCount(g) == 0;
+    length = 1;
+    empty = empty && maniGltf_GetAnimationName(g, 0, &length) == NULL && length == 0 &&
+            maniGltf_GetMeshCount(g) == 0 && maniGltf_GetPrimitiveCount(g, 0) == 0 &&
+            maniGltf_GetPrimitiveTargetCount(g, 0, 0) == 0 &&
+            maniGltf_GetMorphWeights(g, 0, NULL, 0, &count).result != mani_success && count == 0;
+    uint32_t before = maniBuilder_GetMisuse(s_builder);
+    maniSpringSetSource springs;
+    maniRagdollSource ragdoll;
+    const maniVec3 z = {0.0f, 0.0f, 1.0f};
+    const maniVec3 y = {0.0f, 1.0f, 0.0f};
+    bool refused =
+        maniGltf_SupplyBuffer(s_gltf, 0, "x", 1).result == mani_errorBusy &&
+        maniGltf_ReadSprings(s_gltf, NULL, &options, &springs).result == mani_errorBusy &&
+        maniGltf_ReadRagdoll(s_gltf, NULL, &options, z, y, &ragdoll).result == mani_errorBusy;
+    maniCloseGltf(s_gltf);
+    s_gone = s_gone && empty && refused && maniBuilder_GetMisuse(s_builder) == before + 4;
+}
+
+// The same from an FBX document's close.
+static void FbxGone(const void* memory)
+{
+    (void)memory;
+    ++s_frees;
+    const maniFbx* f = s_fbx;
+    const maniFbxOptions options = maniDefaultFbxOptions();
+    size_t length = 1;
+    uint32_t count = 1;
+    maniAffine placement;
+    bool empty =
+        maniFbx_GetVersion(f) == 0 && maniFbx_GetModelCount(f) == 0 &&
+        maniFbx_GetModelBoneName(f, 0, &length) == NULL && length == 0 &&
+        maniFbx_GetRenamedCount(f) == 0 && maniFbx_GetRenamedModel(f, 0) == UINT32_MAX &&
+        maniFbx_GetSkeletonCount(f) == 0 && maniFbx_GetSkinCount(f) == 0 &&
+        maniFbx_GetSkinSkeleton(f, 0) == UINT32_MAX && maniFbx_GetSkinModel(f, 0) == UINT32_MAX &&
+        maniFbx_GetSkinMethod(f, 0) == maniSkinningLinear && maniFbx_GetMorphCount(f) == 0 &&
+        maniFbx_GetMorphModel(f, 0) == UINT32_MAX && maniFbx_GetMorphTargetCount(f, 0) == 0 &&
+        maniFbx_GetMorphWeights(f, 0, NULL, 0, &count).result != mani_success && count == 0 &&
+        maniFbx_GetClipCount(f) == 0 &&
+        maniFbx_GetSkeletonPlacement(f, 0, &options, &placement).result != mani_success &&
+        maniFbx_GetModelPlacement(f, 0, &options, &placement).result != mani_success;
+    length = 1;
+    maniFbxSettings settings;
+    empty = empty && maniFbx_GetClipName(f, 0, &length) == NULL && length == 0 &&
+            maniFbx_ReadSettings(f, &settings) == mani_success;
+    uint32_t before = maniBuilder_GetMisuse(s_builder);
+    maniCloseFbx(s_fbx);
+    s_gone = s_gone && empty && maniBuilder_GetMisuse(s_builder) == before + 1;
+}
+
+static void TestCloseDocuments(void)
+{
+    maniBuilderDef def = maniDefaultBuilderDef();
+    def.allocator = (maniAllocator){BuilderAlloc, BuilderFree, NULL};
+    CHECK(maniCreateBuilder(&def, &s_builder) == mani_success &&
+              maniOpenGltf(s_builder, kGltfNodes, sizeof kGltfNodes - 1, &s_gltf).result ==
+                  mani_success &&
+              maniOpenFbx(s_builder, kFbxModels, sizeof kFbxModels - 1, &s_fbx).result ==
+                  mani_success,
+          "documents with nodes and models");
+    CHECK(maniGltf_GetNodeCount(s_gltf) == 2 && maniFbx_GetModelCount(s_fbx) == 2,
+          "open, they read as full");
+    s_frees = 0;
+    s_gone = true;
+    s_eachFree = GltfGone;
+    maniCloseGltf(s_gltf);
+    s_eachFree = NULL;
+    CHECK(s_frees > 0 && s_gone, "from each free of a glTF close, the document empty and its "
+                                 "changes and close refused as busy");
+    s_frees = 0;
+    s_gone = true;
+    s_eachFree = FbxGone;
+    maniCloseFbx(s_fbx);
+    s_eachFree = NULL;
+    CHECK(s_frees > 0 && s_gone,
+          "from each free of an FBX close, the document empty and its close refused");
+    maniDestroyBuilder(s_builder);
+}
+
 // ---- A trainer's allocator and task hooks.
 
 enum
@@ -419,13 +595,27 @@ static void* TrainerAlloc(size_t size, size_t alignment, void* context)
     return Aligned(size, alignment);
 }
 
+// Called from every free while set: after the block goes, so a read of
+// it shows, but before for the trainer's own block, which every call on
+// the trainer reads.
+static void (*s_eachTrainerFree)(const void* memory);
+
 static void TrainerFree(void* memory, size_t size, size_t alignment, void* context)
 {
     (void)size;
     (void)alignment;
     (void)context;
     TrainerCallBack(kFree);
+    bool own = memory == s_trainer;
+    if (s_eachTrainerFree != NULL && own)
+    {
+        s_eachTrainerFree(memory);
+    }
     Unaligned(memory);
+    if (s_eachTrainerFree != NULL && !own)
+    {
+        s_eachTrainerFree(memory);
+    }
 }
 
 static void* Enqueue(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
@@ -490,9 +680,77 @@ static void TestTrainer(void)
     CHECK(s_trainerLeft, "training refused with its report left");
 }
 
+// A builder to build a model from the trainer with.
+static maniBuilder* s_modelBuilder;
+
+// From a trained trainer's destroy: training, restoring, saving a
+// checkpoint (its buffer and size left), building a model from it and
+// the destroy again, each refused and counted once (the destroy tried
+// only once the others were, as for the builder).
+static void TrainerGone(const void* memory)
+{
+    ++s_frees;
+    s_ownBlock = s_ownBlock || memory == s_trainer;
+    uint32_t before = maniLearnedTrainer_GetMisuse(s_trainer);
+    maniLearnedTrainerReport report;
+    uint8_t checkpoint[64];
+    size_t size = 7;
+    Fill(checkpoint, sizeof checkpoint);
+    bool refused =
+        maniLearnedTrainer_Train(s_trainer, 1, &report) == mani_errorBusy &&
+        maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result == mani_errorBusy &&
+        maniLearnedTrainer_SaveCheckpoint(s_trainer, checkpoint, sizeof checkpoint, &size) ==
+            mani_errorBusy &&
+        Kept(checkpoint, sizeof checkpoint) && size == 7 &&
+        maniBuildLearnedModelFromTrainer(s_modelBuilder, s_trainer, maniLearnedWeightsFloat32)
+                .result == mani_errorBusy;
+    if (refused)
+    {
+        maniDestroyLearnedTrainer(s_trainer);
+    }
+    s_gone = s_gone && refused && maniLearnedTrainer_GetMisuse(s_trainer) == before + 5;
+}
+
+static void TestDestroyTrainer(void)
+{
+    static CheckpointHost s_host;
+    maniLearnedTrainer* plain = MakeCheckpointHost(&s_host);
+    CHECK(plain != NULL, "the trainer's assets");
+    maniDestroyLearnedTrainer(plain);
+    static const maniLearnedTagFilter kEvery = {0, 0};
+    maniLearnedTrainerSource source = {.skeleton = &s_host.skeleton,
+                                       .database = &s_host.database,
+                                       .clips = s_host.clips,
+                                       .projectors = &kEvery,
+                                       .clipCount = 1,
+                                       .projectorCount = 1,
+                                       .options = {2, 4, 1, 1, 1, 1, 4, 2, 3, 7, 0.001f, 0.1f}};
+    maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
+    def.allocator = (maniAllocator){TrainerAlloc, TrainerFree, NULL};
+    maniLearnedTrainerReport report;
+    maniBuilderDef builderDef = maniDefaultBuilderDef();
+    CHECK(maniCreateLearnedTrainer(&def, &source, &s_trainer).result == mani_success &&
+              maniLearnedTrainer_Train(s_trainer, 1000000, &report) == mani_success &&
+              report.stage == report.stageCount &&
+              maniCreateBuilder(&builderDef, &s_modelBuilder) == mani_success,
+          "a trained trainer, and a builder");
+    s_frees = 0;
+    s_ownBlock = false;
+    s_gone = true;
+    s_eachTrainerFree = TrainerGone;
+    maniDestroyLearnedTrainer(s_trainer);
+    s_eachTrainerFree = NULL;
+    CHECK(s_frees >= 2 && s_ownBlock, "the destroy's frees seen, its own block's among them");
+    CHECK(s_gone, "from each, every call on the trainer refused as busy and counted once");
+    maniDestroyBuilder(s_modelBuilder);
+}
+
 int main(void)
 {
     TestBuilder();
+    TestDestroyBuilder();
+    TestCloseDocuments();
     TestTrainer();
+    TestDestroyTrainer();
     return s_failures == 0 ? 0 : 1;
 }

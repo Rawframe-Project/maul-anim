@@ -13,6 +13,7 @@
 #include "gltf_document.h"
 #include "gltf_names.h"
 #include "gltf_property.h"
+#include "host_code.h"
 #include "json.h"
 #include "spring_frame.h"
 #include "vecmath.h"
@@ -826,6 +827,12 @@ static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
                                                           const maniGltfOptions* options,
                                                           maniSpringSetSource* setOut)
 {
+    // The builder's allocator, which the document shares, calling back in
+    // (a close under way among it).
+    if (gltf != NULL && maniHostAllocatorCalledBack(&gltf->allocator))
+    {
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
+    }
     if (setOut != NULL)
     {
         memset(setOut, 0, sizeof *setOut);

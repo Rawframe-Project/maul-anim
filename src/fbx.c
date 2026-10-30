@@ -124,14 +124,19 @@ void maniCloseFbx(maniFbx* fbx)
     {
         return;
     }
-    maniAllocator allocator = fbx->allocator;
-    maniFbxReleaseStacks(fbx);
-    maniFbxReleaseUnits(fbx);
-    maniFbxReleaseModels(fbx);
-    maniFbxReleaseLegacy(fbx);
-    maniFbxReleaseObjects(fbx);
-    maniRelease(&allocator, fbx->nodes, fbx->nodeCount, sizeof(maniFbxNode), 8);
-    maniRelease(&allocator, fbx->properties, (size_t)fbx->propertyCount + 1,
+    // The frees run the host's code, which finds the document empty: the
+    // arrays are freed from a copy. The allocator stays, as arenas point
+    // at it.
+    maniFbx held = *fbx;
+    *fbx = (maniFbx){.allocator = held.allocator};
+    maniAllocator allocator = held.allocator;
+    maniFbxReleaseStacks(&held);
+    maniFbxReleaseUnits(&held);
+    maniFbxReleaseModels(&held);
+    maniFbxReleaseLegacy(&held);
+    maniFbxReleaseObjects(&held);
+    maniRelease(&allocator, held.nodes, held.nodeCount, sizeof(maniFbxNode), 8);
+    maniRelease(&allocator, held.properties, (size_t)held.propertyCount + 1,
                 sizeof(maniFbxProperty), 8);
     maniRelease(&allocator, fbx, 1, sizeof(maniFbx), 8);
 }

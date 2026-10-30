@@ -20,6 +20,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "host_code.h"
 #include "learned_file.h"
 #include "learned_train.h"
 #include "train_decompress.h"
@@ -187,6 +188,13 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
                                                           void* bytes, size_t capacity,
                                                           size_t* sizeOut)
 {
+    // Read from the trainer's own code, its destroy's frees among it, the
+    // trainer may be mid-change or emptied: refused, its outputs left.
+    // The mark is the trainer's state, not its contents.
+    if (trainer != NULL && maniHostCalledBack((maniHostCode*)&trainer->host))
+    {
+        return mani_errorBusy;
+    }
     maniResult r = SaveCheckpoint(trainer, bytes, capacity, sizeOut);
     if (r != mani_success && bytes != NULL)
     {
