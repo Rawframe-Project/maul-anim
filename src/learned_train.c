@@ -230,6 +230,9 @@ void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer)
     {
         return;
     }
+    // A call back in from any free below, the block's own among them,
+    // finds the trainer gone.
+    maniHostRetire(&trainer->host);
     maniLearnedTrainerDrop(trainer);
     maniLearnedTrainerForget(trainer);
     const maniAllocator* a = &trainer->allocator;

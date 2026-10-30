@@ -173,7 +173,11 @@ extern "C"
     MANI_NODISCARD MANI_API maniImportResult maniOpenGltf(maniBuilder* builder, const void* bytes,
                                                           size_t size, maniGltf** gltfOut);
 
-    /// Closes a document and frees its memory. NULL is allowed.
+    /// Closes a document and frees its memory. NULL is allowed. The
+    /// document reads as empty from the moment the close begins, so the
+    /// builder's free hook, which runs during the close, finds no nodes, no
+    /// names and no data in it. Called back in from the builder's
+    /// allocator, it closes nothing and counts one misuse on the builder.
     ///
     /// @param gltf  The document.
     /// @par Thread safety
@@ -219,7 +223,9 @@ extern "C"
     /// a buffer that is not external; `mani_errorFormat` with
     /// maniImportReasonBuffer for too few bytes, or maniImportReasonData
     /// for a refused stream; `mani_errorCapacity` when the allocator
-    /// fails.
+    /// fails; `mani_errorBusy` when called back in from the builder's
+    /// allocator, which the document shares (one misuse counted on the
+    /// builder).
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult maniGltf_SupplyBuffer(maniGltf* gltf, uint32_t buffer,
@@ -432,10 +438,13 @@ extern "C"
     /// @param gltf      The document.
     /// @param skeleton  An opened skeleton holding the springs' nodes.
     /// @param options   The options the skeleton was built with.
-    /// @param setOut    Receives the sources; zeroed on failure.
+    /// @param setOut    Receives the sources; zeroed on another failure
+    ///                  than mani_errorBusy.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// options out of range; `mani_errorFormat` with a reason;
-    /// `mani_errorCapacity` when the allocator fails.
+    /// `mani_errorCapacity` when the allocator fails;
+    /// `mani_errorBusy` when called back in from the builder's allocator,
+    /// which the document shares (one misuse counted on the builder).
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult maniGltf_ReadSprings(maniGltf* gltf,
@@ -468,12 +477,15 @@ extern "C"
     /// @param facing     The character's facing (out of the chest) in
     ///                   glTF's basis; +Z for glTF's convention.
     /// @param up         Its up axis in glTF's basis; +Y for glTF's.
-    /// @param sourceOut  Receives the source; zeroed on failure.
+    /// @param sourceOut  Receives the source; zeroed on another failure
+    ///                   than mani_errorBusy.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
     /// options out of range or axes not unit and perpendicular within a
     /// thousandth; `mani_errorFormat` with a reason (Unsupported for what
     /// a profile cannot hold); `mani_errorCapacity` when the allocator
-    /// fails.
+    /// fails; `mani_errorBusy` when called back in from the builder's
+    /// allocator, which the document shares (one misuse counted on the
+    /// builder).
     /// @par Thread safety
     /// Safe from any thread; the document is used by one thread at a time.
     MANI_NODISCARD MANI_API maniImportResult maniGltf_ReadRagdoll(maniGltf* gltf,
@@ -637,7 +649,11 @@ extern "C"
     MANI_NODISCARD MANI_API maniImportResult maniOpenFbx(maniBuilder* builder, const void* bytes,
                                                          size_t size, maniFbx** fbxOut);
 
-    /// Closes an FBX document and frees its memory. NULL is allowed.
+    /// Closes an FBX document and frees its memory. NULL is allowed. The
+    /// document reads as empty from the moment the close begins, so the
+    /// builder's free hook, which runs during the close, finds no models, no
+    /// names and no data in it. Called back in from the builder's
+    /// allocator, it closes nothing and counts one misuse on the builder.
     ///
     /// @param fbx  The document.
     /// @par Thread safety

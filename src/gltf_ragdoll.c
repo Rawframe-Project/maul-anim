@@ -19,6 +19,7 @@
 #include "gltf_names.h"
 #include "gltf_property.h"
 #include "gltf_rest.h"
+#include "host_code.h"
 #include "json.h"
 #include "vecmath.h"
 
@@ -567,6 +568,12 @@ static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
                                                           maniVec3 facing, maniVec3 up,
                                                           maniRagdollSource* sourceOut)
 {
+    // The builder's allocator, which the document shares, calling back in
+    // (a close under way among it).
+    if (gltf != NULL && maniHostAllocatorCalledBack(&gltf->allocator))
+    {
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
+    }
     if (sourceOut != NULL)
     {
         memset(sourceOut, 0, sizeof *sourceOut);

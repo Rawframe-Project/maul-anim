@@ -119,6 +119,11 @@ bool maniHostCalledBack(maniHostCode* host)
     return true;
 }
 
+void maniHostRetire(maniHostCode* host)
+{
+    atomic_store_explicit(&host->running, true, memory_order_relaxed);
+}
+
 bool maniHostAllocatorCalledBack(const maniAllocator* allocator)
 {
     return allocator->alloc == Alloc && maniHostCalledBack(allocator->context);

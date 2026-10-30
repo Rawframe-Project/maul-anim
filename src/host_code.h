@@ -47,6 +47,11 @@ maniTaskHooks maniHostTasks(maniHostCode* host);
 // not.
 bool maniHostCalledBack(maniHostCode* host);
 
+// Marks the object for good as its destroy begins, before the first
+// host call: a function of the object called back in from then on, the
+// last free among it, is refused like a call from the host's code.
+void maniHostRetire(maniHostCode* host);
+
 // The same for an allocator maniHostAllocator gave (a document's copy of
 // its builder's); false for any other.
 bool maniHostAllocatorCalledBack(const maniAllocator* allocator);

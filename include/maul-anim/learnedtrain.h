@@ -179,7 +179,10 @@ extern "C"
         maniLearnedTrainer** trainerOut);
 
     /// Destroys a trainer. Called back in from the trainer's allocator or
-    /// task hooks it destroys nothing and counts one misuse.
+    /// task hooks it destroys nothing and counts one misuse. From the
+    /// moment it begins, the trainer is gone to the host's code: a call on
+    /// it from the free hook, the trainer's own block's free among it, is
+    /// refused with `mani_errorBusy` and counted.
     ///
     /// @param trainer  The trainer, or NULL.
     /// @par Thread safety

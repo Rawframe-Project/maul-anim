@@ -224,8 +224,8 @@ fbx_ascii: allocator decimal fbx_document
 fbx_binary: allocator bytes fbx_document
 fbx_document: hierarchy names
 fbx_value: allocator bytes fbx_ascii fbx_binary fbx_document inflate
-gltf_spring: arena fpenv gltf_basis gltf_document gltf_names gltf_property json spring_frame vecmath
-gltf_ragdoll: arena decompose fpenv gltf_basis gltf_document gltf_names gltf_property gltf_rest json vecmath
+gltf_spring: arena fpenv gltf_basis gltf_document gltf_names gltf_property host_code json spring_frame vecmath
+gltf_ragdoll: arena decompose fpenv gltf_basis gltf_document gltf_names gltf_property gltf_rest host_code json vecmath
 gltf_ragdoll_joint: arena gltf_document gltf_property gltf_ragdoll json vecmath
 gltf_buffer: allocator gltf_compression gltf_document gltf_property json
 gltf_layout: allocator bytes gltf_compression gltf_document gltf_property json

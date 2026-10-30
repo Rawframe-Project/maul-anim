@@ -75,6 +75,9 @@ void maniDestroyBuilder(maniBuilder* builder)
     {
         return;
     }
+    // A call back in from any free below, the block's own among them,
+    // finds the builder gone.
+    maniHostRetire(&builder->host);
     maniBuilderClear(builder);
     // The block itself straight to the host's: the library's allocator
     // marks the builder after the host's call returns.

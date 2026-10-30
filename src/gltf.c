@@ -311,17 +311,22 @@ void maniCloseGltf(maniGltf* gltf)
     {
         return;
     }
-    maniAllocator allocator = gltf->allocator;
-    maniArenaRelease(&gltf->springs);
-    maniArenaRelease(&gltf->ragdoll);
-    maniGltfReleaseAnimations(gltf);
-    maniGltfReleaseNames(gltf);
-    maniGltfReleaseNodes(gltf);
-    maniGltfReleaseBuffers(gltf);
-    maniGltfReleaseDecoded(gltf);
-    maniRelease(&allocator, gltf->views, gltf->viewCount, sizeof(maniGltfView), 8);
-    maniRelease(&allocator, gltf->accessors, gltf->accessorCount, sizeof(maniGltfAccessor), 8);
-    maniReleaseJson(&allocator, &gltf->json);
+    // The frees run the host's code, which finds the document empty: the
+    // arrays are freed from a copy. The allocator stays, as the arenas
+    // point at it.
+    maniGltf held = *gltf;
+    *gltf = (maniGltf){.allocator = held.allocator};
+    maniAllocator allocator = held.allocator;
+    maniArenaRelease(&held.springs);
+    maniArenaRelease(&held.ragdoll);
+    maniGltfReleaseAnimations(&held);
+    maniGltfReleaseNames(&held);
+    maniGltfReleaseNodes(&held);
+    maniGltfReleaseBuffers(&held);
+    maniGltfReleaseDecoded(&held);
+    maniRelease(&allocator, held.views, held.viewCount, sizeof(maniGltfView), 8);
+    maniRelease(&allocator, held.accessors, held.accessorCount, sizeof(maniGltfAccessor), 8);
+    maniReleaseJson(&allocator, &held.json);
     maniRelease(&allocator, gltf, 1, sizeof(maniGltf), 8);
 }
 
@@ -347,6 +352,12 @@ const char* maniGltf_GetBufferUri(const maniGltf* gltf, uint32_t buffer, size_t*
 static MANI_NOINLINE maniImportResult GltfSupplyBufferWork(maniGltf* gltf, uint32_t buffer,
                                                            const void* bytes, size_t size)
 {
+    // The builder's allocator, which the document shares, calling back in
+    // (a close under way among it).
+    if (gltf != NULL && maniHostAllocatorCalledBack(&gltf->allocator))
+    {
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
+    }
     if (gltf == NULL || bytes == NULL || buffer >= gltf->bufferCount ||
         !gltf->buffers[buffer].external)
     {
