@@ -207,7 +207,8 @@ extern "C"
     ///
     /// @param database   An opened database.
     /// @param channel    The channel's index.
-    /// @param lengthOut  Receives the name's length in bytes, or NULL.
+    /// @param lengthOut  Receives the name's length in bytes, 0 for a NULL
+    ///                   name; or NULL.
     /// @return The name, UTF-8, not terminated; NULL for a NULL database,
     /// an index past the channels or a channel of another kind.
     /// @par Thread safety

@@ -500,7 +500,7 @@ static maniImportResult Prepare(Clip* c, uint32_t clip)
 }
 
 static maniImportResult Run(maniBuilder* builder, Clip* c, uint32_t clip,
-                            const maniImportClipOptions* settings, uint32_t* boundOut)
+                            const maniImportClipOptions* settings)
 {
     maniImportResult r = Prepare(c, clip);
     r = r.result == mani_success ? Timing(c, settings->sampleRate) : r;
@@ -510,10 +510,6 @@ static maniImportResult Run(maniBuilder* builder, Clip* c, uint32_t clip,
     if (r.result != mani_success)
     {
         return r;
-    }
-    if (boundOut != NULL)
-    {
-        *boundOut = Bound(c);
     }
     maniClipSource source = {.skeleton = c->skeleton,
                              .boneTracks = c->tracks,
@@ -532,6 +528,10 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
                                                        const maniImportClipOptions* clipOptions,
                                                        uint32_t* boundOut)
 {
+    if (boundOut != NULL)
+    {
+        *boundOut = 0;
+    }
     if (maniBuilderCalledBack(builder))
     {
         return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
@@ -546,16 +546,16 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
     {
         return Invalid();
     }
-    if (boundOut != NULL)
-    {
-        *boundOut = 0;
-    }
     Clip c = {.fbx = fbx,
               .skeleton = skeleton,
               .options = options,
               .basis = maniFbxBasis(fbx, options),
               .arena = maniArenaMake(&fbx->allocator)};
-    maniImportResult r = Run(builder, &c, clip, clipOptions, boundOut);
+    maniImportResult r = Run(builder, &c, clip, clipOptions);
+    if (r.result == mani_success && boundOut != NULL)
+    {
+        *boundOut = Bound(&c);
+    }
     maniFbxReleaseSampler(&c.sampler);
     if (c.animation.layers != NULL || c.animation.channels != NULL)
     {

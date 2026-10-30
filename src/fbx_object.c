@@ -726,6 +726,10 @@ void maniFbxReleaseObjects(maniFbx* fbx)
 static MANI_NOINLINE maniResult FbxReadSettingsWork(const maniFbx* fbx,
                                                     maniFbxSettings* settingsOut)
 {
+    if (settingsOut != NULL)
+    {
+        memset(settingsOut, 0, sizeof *settingsOut);
+    }
     if (fbx == NULL || settingsOut == NULL)
     {
         return mani_errorInvalid;

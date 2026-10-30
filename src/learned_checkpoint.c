@@ -153,6 +153,10 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
                                                           void* bytes, size_t capacity,
                                                           size_t* sizeOut)
 {
+    if (sizeOut != NULL)
+    {
+        *sizeOut = 0;
+    }
     if (trainer == NULL || (bytes == NULL && capacity > 0))
     {
         return mani_errorInvalid;

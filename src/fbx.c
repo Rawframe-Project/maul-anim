@@ -62,13 +62,13 @@ static MANI_NOINLINE maniImportResult OpenFbxWork(maniBuilder* builder, const vo
                                                   size_t size, uint32_t propertyLimit,
                                                   maniFbx** fbxOut)
 {
-    if (maniBuilderCalledBack(builder))
-    {
-        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
-    }
     if (fbxOut != NULL)
     {
         *fbxOut = NULL;
+    }
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (builder == NULL)
     {

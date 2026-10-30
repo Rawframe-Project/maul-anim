@@ -742,6 +742,10 @@ static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, ui
                                                           float* weightsOut, uint32_t capacity,
                                                           uint32_t* countOut)
 {
+    if (countOut != NULL)
+    {
+        *countOut = 0;
+    }
     uint32_t object = fbx != NULL ? SetObject(fbx, morph) : MANI_FBX_NONE;
     if ((weightsOut == NULL && capacity > 0) || object == MANI_FBX_NONE)
     {

@@ -6,12 +6,13 @@
 // taking that builder (each with arguments refused otherwise as invalid,
 // so the busy error is the call back in alone), destroys it and closes
 // a glTF and an FBX document opened with it: each refused with
-// mani_errorBusy (nothing destroyed or closed) and counted once, the
-// build finishing as it does without. A trainer's allocator and task
-// hooks call training, restoring and destroying it, likewise refused,
-// counted and harmless.
+// mani_errorBusy (nothing destroyed or closed) and counted once, its
+// outputs cleared, the build finishing as it does without. A trainer's
+// allocator and task hooks call training, restoring and destroying it,
+// likewise refused, counted, cleared and harmless.
 
 #include "checkpoint_host.h"
+#include "cleared.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -51,6 +52,44 @@ static int s_call = -1;
 static bool s_onFree;
 static maniResult s_result;
 
+// The outputs of the calls made back in, filled with a sentinel before
+// each: a refused call clears its own.
+static struct
+{
+    maniClipReport clipReport;
+    maniCompressReport compressReport;
+    size_t size;
+    uint32_t count;
+    maniGltf* gltf;
+    maniFbx* fbx;
+    uint32_t bound;
+} s_out;
+
+// Whether call k cleared its output.
+static bool OutputCleared(int k)
+{
+    switch (k)
+    {
+    case 5:
+        return Cleared(&s_out.clipReport, sizeof s_out.clipReport);
+    case 6:
+        return Cleared(&s_out.compressReport, sizeof s_out.compressReport);
+    case 9:
+        return s_out.size == 0;
+    case 10:
+        return s_out.count == 0;
+    case 15:
+        return s_out.gltf == NULL;
+    case 19:
+    case 28:
+        return s_out.bound == 0;
+    case 22:
+        return s_out.fbx == NULL;
+    default:
+        return true;
+    }
+}
+
 static maniResult CallBuilder(int k)
 {
     maniBuilder* b = s_builder;
@@ -67,17 +106,17 @@ static maniResult CallBuilder(int k)
     case 4:
         return maniBuildClip(b, NULL).result;
     case 5:
-        return maniBuilder_MeasureClip(b, NULL, NULL, NULL);
+        return maniBuilder_MeasureClip(b, NULL, NULL, &s_out.clipReport);
     case 6:
-        return maniCompressClip(b, NULL, NULL, NULL, NULL);
+        return maniCompressClip(b, NULL, NULL, NULL, &s_out.compressReport);
     case 7:
         return maniBuildSpringSet(b, NULL).result;
     case 8:
         return maniBuildRagdoll(b, NULL).result;
     case 9:
-        return maniBuilder_CopyBuilt(b, NULL, 1, NULL);
+        return maniBuilder_CopyBuilt(b, NULL, 1, &s_out.size);
     case 10:
-        return maniBuilder_CopySkeletonOrder(b, NULL, 1, NULL);
+        return maniBuilder_CopySkeletonOrder(b, NULL, 1, &s_out.count);
     case 11:
         return maniBuildMorphTargets(b, NULL).result;
     case 12:
@@ -87,7 +126,7 @@ static maniResult CallBuilder(int k)
     case 14:
         return maniBuildGraphJson(b, NULL, 0, NULL).result;
     case 15:
-        return maniOpenGltf(b, NULL, 0, NULL).result;
+        return maniOpenGltf(b, NULL, 0, &s_out.gltf).result;
     case 16:
         return maniBuildGltfSkeleton(b, NULL, 0, NULL).result;
     case 17:
@@ -95,13 +134,13 @@ static maniResult CallBuilder(int k)
     case 18:
         return maniBuildGltfSkin(b, NULL, 0, NULL, NULL).result;
     case 19:
-        return maniBuildGltfClip(b, NULL, 0, NULL, NULL, NULL, NULL).result;
+        return maniBuildGltfClip(b, NULL, 0, NULL, NULL, NULL, &s_out.bound).result;
     case 20:
         return maniBuildGltfInfluences(b, NULL, 0, 0, NULL).result;
     case 21:
         return maniBuildGltfMorphTargets(b, NULL, 0, 0, NULL).result;
     case 22:
-        return maniOpenFbx(b, NULL, 0, NULL).result;
+        return maniOpenFbx(b, NULL, 0, &s_out.fbx).result;
     case 23:
         return maniBuildFbxSkeleton(b, NULL, 0, NULL).result;
     case 24:
@@ -113,7 +152,7 @@ static maniResult CallBuilder(int k)
     case 27:
         return maniBuildFbxMorphTargets(b, NULL, 0, NULL).result;
     case 28:
-        return maniBuildFbxClip(b, NULL, 0, NULL, NULL, NULL, NULL).result;
+        return maniBuildFbxClip(b, NULL, 0, NULL, NULL, NULL, &s_out.bound).result;
     case 29:
         return maniBuildLearnedModel(b, NULL).result;
     case 30:
@@ -234,6 +273,7 @@ static void TestBuilder(void)
     CHECK(Build(s_alone, sizeof s_alone, &alone), "a build without calls back in");
     bool refused = true;
     bool same = true;
+    bool cleared = true;
     for (int onFree = 0; onFree < 2; ++onFree)
     {
         for (int k = 0; k < kCalls; ++k)
@@ -242,14 +282,17 @@ static void TestBuilder(void)
             s_onFree = onFree == 1;
             s_call = k;
             s_result = mani_success;
+            Fill(&s_out, sizeof s_out);
             size_t size = 0;
             same = same && Build(s_built, sizeof s_built, &size) && size == alone &&
                    memcmp(s_built, s_alone, size) == 0;
             refused = refused && s_call == -1 && s_result == mani_errorBusy &&
                       maniBuilder_GetMisuse(s_builder) == before + 1;
+            cleared = cleared && OutputCleared(k);
         }
     }
     CHECK(refused, "every call back in refused and counted once");
+    CHECK(cleared, "every refused call's outputs cleared");
     CHECK(same, "each build as without it");
     CHECK(maniGltf_GetNodeCount(s_gltf) == 0 && maniFbx_GetSkeletonCount(s_fbx) == 0,
           "the documents still open");
@@ -285,6 +328,8 @@ static maniLearnedTrainer* s_trainer;
 static int s_trainerCall = -1;
 static Where s_where;
 static maniResult s_trainerResult;
+static maniLearnedTrainerReport s_trainerReport;
+static bool s_trainerCleared = true;
 
 static void TrainerCallBack(Where where)
 {
@@ -297,7 +342,9 @@ static void TrainerCallBack(Where where)
     switch (k)
     {
     case kTrain:
-        s_trainerResult = maniLearnedTrainer_Train(s_trainer, 0, NULL);
+        Fill(&s_trainerReport, sizeof s_trainerReport);
+        s_trainerResult = maniLearnedTrainer_Train(s_trainer, 0, &s_trainerReport);
+        s_trainerCleared = s_trainerCleared && Cleared(&s_trainerReport, sizeof s_trainerReport);
         break;
     case kRestore:
         s_trainerResult = maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result;
@@ -384,6 +431,7 @@ static void TestTrainer(void)
     }
     CHECK(trained, "training goes on");
     CHECK(refused, "every call back in from the trainer's code refused and counted once");
+    CHECK(s_trainerCleared, "training refused with its report cleared");
 }
 
 int main(void)

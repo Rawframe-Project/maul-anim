@@ -8,6 +8,7 @@
 // come out as the identity, the end-to-end proof that rests, placement,
 // basis and inverse binds agree.
 
+#include "cleared.h"
 #include "gltf_document.h"
 #include "test_gltf_sweep.h"
 #include "test_harness.h"
@@ -308,8 +309,14 @@ static void TestBasisRests(void)
     CHECK(maniBuildGltfSkeleton(builder, gltf, 2, &zUp).result == mani_errorInvalid, "past");
     CHECK(maniBuilder_GetMisuse(builder) == 4, "misuses");
     maniAffine placement;
-    CHECK(maniGltf_GetSkeletonPlacement(gltf, 0, &twice, &placement).result == mani_errorInvalid,
-          "placement, bad options");
+    Fill(&placement, sizeof placement);
+    CHECK(maniGltf_GetSkeletonPlacement(gltf, 0, &twice, &placement).result == mani_errorInvalid &&
+              Cleared(&placement, sizeof placement),
+          "placement, bad options: cleared");
+    Fill(&placement, sizeof placement);
+    CHECK(maniGltf_GetSkeletonPlacement(NULL, 0, &zUp, &placement).result == mani_errorInvalid &&
+              Cleared(&placement, sizeof placement),
+          "placement, no document: cleared");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

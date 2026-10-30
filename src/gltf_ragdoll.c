@@ -567,12 +567,15 @@ static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
                                                           maniVec3 facing, maniVec3 up,
                                                           maniRagdollSource* sourceOut)
 {
+    if (sourceOut != NULL)
+    {
+        memset(sourceOut, 0, sizeof *sourceOut);
+    }
     if (gltf == NULL || skeleton == NULL || options == NULL || sourceOut == NULL ||
         !maniGltfOptionsValid(options) || !AxesValid(facing, up))
     {
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
-    *sourceOut = (maniRagdollSource){0};
     maniArenaRelease(&gltf->ragdoll);
     gltf->ragdoll = maniArenaMake(&gltf->allocator);
     uint32_t n = gltf->nodeCount;

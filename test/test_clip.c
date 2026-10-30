@@ -12,6 +12,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "bytes.h"
+#include "cleared.h"
 #include "clip_file.h"
 #include "container.h"
 #include "file_tag.h"
@@ -596,10 +597,18 @@ static void TestReport(void)
     source = SampleSource();
     source.sampleRate = 40.0f;
     source.loop = 5;
-    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_errorInvalid,
-          "a source the build refuses");
-    CHECK(maniBuilder_MeasureClip(builder, NULL, &clip, &report) == mani_errorInvalid,
-          "null source");
+    Fill(&report, sizeof report);
+    CHECK(maniBuilder_MeasureClip(builder, &source, &clip, &report) == mani_errorInvalid &&
+              Cleared(&report, sizeof report),
+          "a source the build refuses: the report cleared");
+    Fill(&report, sizeof report);
+    CHECK(maniBuilder_MeasureClip(builder, NULL, &clip, &report) == mani_errorInvalid &&
+              Cleared(&report, sizeof report),
+          "null source: the report cleared");
+    Fill(&report, sizeof report);
+    CHECK(maniBuilder_MeasureClip(NULL, &source, &clip, &report) == mani_errorInvalid &&
+              Cleared(&report, sizeof report),
+          "null builder: the report cleared");
     CHECK(maniBuilder_MeasureClip(builder, &source, NULL, &report) == mani_errorInvalid,
           "null clip");
     CHECK(maniBuilder_MeasureClip(builder, &source, &clip, NULL) == mani_errorInvalid,

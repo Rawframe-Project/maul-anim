@@ -114,7 +114,7 @@ extern "C"
     ///
     /// @param influences  Opened influences.
     /// @param vertex      The vertex.
-    /// @param centerOut   Receives the center; unchanged on false.
+    /// @param centerOut   Receives the center; zero on false.
     /// @return True when the influences hold centers and the vertex is in
     /// range.
     /// @par Thread safety

@@ -585,8 +585,7 @@ static maniImportResult FromBuild(const Build* b, maniBuildResult r)
     return ChannelFail(b, name ? maniImportReasonName : maniImportReasonData, channel);
 }
 
-static maniImportResult Run(maniBuilder* builder, Build* b, const maniImportClipOptions* clip,
-                            uint32_t* boundOut)
+static maniImportResult Run(maniBuilder* builder, Build* b, const maniImportClipOptions* clip)
 {
     maniImportResult r = ReadChannels(b);
     if (r.result == mani_success)
@@ -615,10 +614,6 @@ static maniImportResult Run(maniBuilder* builder, Build* b, const maniImportClip
     {
         return r;
     }
-    if (boundOut != NULL)
-    {
-        *boundOut = b->boundCount;
-    }
     maniClipSource source = {.skeleton = b->skeleton,
                              .boneTracks = b->tracks,
                              .floatTracks = b->floats,
@@ -634,6 +629,10 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
     maniBuilder* builder, const maniGltf* gltf, uint32_t animation, const maniSkeleton* skeleton,
     const maniGltfOptions* options, const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
+    if (boundOut != NULL)
+    {
+        *boundOut = 0;
+    }
     if (maniBuilderCalledBack(builder))
     {
         return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
@@ -649,10 +648,6 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
         maniBuilderMisuse(builder);
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
-    if (boundOut != NULL)
-    {
-        *boundOut = 0;
-    }
     Build b = {.arena = maniArenaMake(&gltf->allocator),
                .gltf = gltf,
                .skeleton = skeleton,
@@ -660,8 +655,12 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
                .animation = animation,
                .rate = clipOptions->sampleRate == 0.0f ? 30.0f : clipOptions->sampleRate};
     b.rootNode = RootNode(&b);
-    maniImportResult r = Run(builder, &b, clipOptions, boundOut);
+    maniImportResult r = Run(builder, &b, clipOptions);
     maniArenaRelease(&b.arena);
+    if (r.result == mani_success && boundOut != NULL)
+    {
+        *boundOut = b.boundCount;
+    }
     return r;
 }
 

@@ -156,7 +156,7 @@ extern "C"
     /// Reads the source a clip's root motion was taken from.
     ///
     /// @param clip       An opened clip.
-    /// @param sourceOut  Receives the source; unchanged on false.
+    /// @param sourceOut  Receives the source; zeroed on false.
     /// @return True when the clip has root motion.
     /// @par Thread safety
     /// Safe from any thread.

@@ -266,6 +266,10 @@ float maniInfluences_GetDualQuaternionWeight(const maniInfluences* influences, u
 bool maniInfluences_GetCenter(const maniInfluences* influences, uint32_t vertex,
                               maniVec3* centerOut)
 {
+    if (centerOut != NULL)
+    {
+        memset(centerOut, 0, sizeof *centerOut);
+    }
     if (influences->centers == NULL || vertex >= influences->vertexCount || centerOut == NULL)
     {
         return false;

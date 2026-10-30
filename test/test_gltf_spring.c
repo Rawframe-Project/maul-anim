@@ -6,6 +6,7 @@
 // bound by name, the basis change on offsets and gravity, and every
 // rule the specification sets on versions, ranges, chains and centers.
 
+#include "cleared.h"
 #include "test_gltf_sweep.h"
 #include "test_harness.h"
 
@@ -122,7 +123,10 @@ static void TestValues(void)
     CHECK(maniGltf_ReadSprings(gltf, &skeletonZ, &zUp, &set).result == mani_success, "reads");
     CHECK(set.colliders[0].offset.z == 0.1f && set.colliders[0].offset.y == 0.0f, "offset z up");
     CHECK(set.springs[0].joints[2].gravityDirection.z == -1.0f, "gravity down is -z");
-    CHECK(maniGltf_ReadSprings(gltf, NULL, &zUp, &set).result == mani_errorInvalid, "no skeleton");
+    Fill(&set, sizeof set);
+    CHECK(maniGltf_ReadSprings(gltf, NULL, &zUp, &set).result == mani_errorInvalid &&
+              Cleared(&set, sizeof set),
+          "no skeleton: the set cleared");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }
