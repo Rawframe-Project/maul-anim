@@ -25,6 +25,7 @@
 #include "maul-anim/learnedbuild.h"
 #include "maul-anim/learnedtrain.h"
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -250,7 +251,7 @@ static void Iterate(maniLearnedTrainer* t)
 static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, uint64_t iterations,
                                                  maniLearnedTrainerReport* reportOut)
 {
-    if (trainer != NULL && maniHostCalledBack(&trainer->host))
+    if (trainer != NULL && maniLearnedTrainerBusy(trainer))
     {
         return mani_errorBusy;
     }
@@ -378,21 +379,23 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
     {
         return maniBuildCalledBack();
     }
-    // The trainer is read while the builder's code and its own run: it is
-    // marked throughout, so training, restoring or destroying it from
-    // there is refused. The mark is the trainer's state, not its
-    // contents.
-    maniHostCode* host = trainer != NULL ? (maniHostCode*)&trainer->host : NULL;
-    if (maniHostCalledBack(host))
+    if (trainer == NULL)
+    {
+        return BuildFromTrainer(builder, trainer, weightFormat);
+    }
+    // Read from the trainer's own code, the trainer may be mid-change or
+    // emptied: refused, counted on it.
+    maniLearnedTrainer* t = (maniLearnedTrainer*)trainer;
+    if (maniHostCalledBack(&t->host))
     {
         return maniBuildCalledBack();
     }
-    bool was = host != NULL && maniHostEnter(host);
+    // The trainer is read while the builder's code and its own run: while
+    // it is, a call that changes it is refused, and one that only reads it
+    // works. The count is the trainer's state, not its contents.
+    atomic_fetch_add_explicit(&t->readers, 1u, memory_order_relaxed);
     maniBuildResult r = BuildFromTrainer(builder, trainer, weightFormat);
-    if (host != NULL)
-    {
-        maniHostLeave(host, was);
-    }
+    atomic_fetch_sub_explicit(&t->readers, 1u, memory_order_relaxed);
     return r;
 }
 

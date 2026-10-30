@@ -119,16 +119,6 @@ bool maniHostCalledBack(maniHostCode* host)
     return true;
 }
 
-bool maniHostEnter(maniHostCode* host)
-{
-    return Mark(host);
-}
-
-void maniHostLeave(maniHostCode* host, bool was)
-{
-    Restore(host, was);
-}
-
 void maniHostRetire(maniHostCode* host)
 {
     atomic_store_explicit(&host->running, true, memory_order_relaxed);

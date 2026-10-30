@@ -47,13 +47,6 @@ maniTaskHooks maniHostTasks(maniHostCode* host);
 // not.
 bool maniHostCalledBack(maniHostCode* host);
 
-// Marks the object for a call that reads it while it runs host code (its
-// own or another object's), and returns the mark it had, for
-// maniHostLeave; a function of the object called back in meanwhile is
-// refused.
-bool maniHostEnter(maniHostCode* host);
-void maniHostLeave(maniHostCode* host, bool was);
-
 // Marks the object for good as its destroy begins, before the first
 // host call: a function of the object called back in from then on, the
 // last free among it, is refused like a call from the host's code.

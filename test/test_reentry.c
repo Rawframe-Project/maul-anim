@@ -754,15 +754,40 @@ static void TestDestroyTrainer(void)
     maniDestroyBuilder(s_modelBuilder);
 }
 
+// The trainer's checkpoint and model, saved and built outside any build,
+// and what the same calls gave from inside one.
+static uint8_t s_checkpoint[1 << 16];
+static size_t s_checkpointSize;
+static uint8_t s_plain[1 << 16];
+static size_t s_plainSize;
+static bool s_read;
+
 // From a free of the builder's while it builds a model from the trainer:
-// training, restoring and destroying the trainer, each refused and
-// counted once on it (the destroy tried only once the others were).
+// saving a checkpoint and building the trainer into another builder,
+// which only read it, work as outside; training, restoring and
+// destroying it are each refused and counted once on it (the destroy
+// tried only once the others were).
 static void TrainerRead(const void* memory)
 {
     (void)memory;
     s_eachFree = NULL;
     ++s_frees;
     uint32_t before = maniLearnedTrainer_GetMisuse(s_trainer);
+    static uint8_t s_saved[1 << 16];
+    static uint8_t s_nested[1 << 16];
+    size_t saved = 0;
+    size_t nested = 0;
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* other = NULL;
+    s_read = maniLearnedTrainer_SaveCheckpoint(s_trainer, s_saved, sizeof s_saved, &saved) ==
+                 mani_success &&
+             saved == s_checkpointSize && memcmp(s_saved, s_checkpoint, saved) == 0 &&
+             maniCreateBuilder(&def, &other) == mani_success &&
+             maniBuildLearnedModelFromTrainer(other, s_trainer, maniLearnedWeightsFloat32).result ==
+                 mani_success &&
+             maniBuilder_CopyBuilt(other, s_nested, sizeof s_nested, &nested) == mani_success &&
+             nested == s_plainSize && memcmp(s_nested, s_plain, nested) == 0;
+    maniDestroyBuilder(other);
     maniLearnedTrainerReport report;
     bool refused =
         maniLearnedTrainer_Train(s_trainer, 1, &report) == mani_errorBusy &&
@@ -777,7 +802,6 @@ static void TrainerRead(const void* memory)
 static void TestBuildFromTrainer(void)
 {
     static CheckpointHost s_host;
-    static uint8_t s_plain[1 << 16];
     static uint8_t s_hooked[1 << 16];
     s_trainer = MakeCheckpointHost(&s_host);
     maniLearnedTrainerReport report;
@@ -787,13 +811,14 @@ static void TestBuildFromTrainer(void)
           "a trainer with every stage done");
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* plain = NULL;
-    size_t plainSize = 0;
     CHECK(
         maniCreateBuilder(&def, &plain) == mani_success &&
             maniBuildLearnedModelFromTrainer(plain, s_trainer, maniLearnedWeightsFloat32).result ==
                 mani_success &&
-            maniBuilder_CopyBuilt(plain, s_plain, sizeof s_plain, &plainSize) == mani_success,
-        "the model built without calls back in");
+            maniBuilder_CopyBuilt(plain, s_plain, sizeof s_plain, &s_plainSize) == mani_success &&
+            maniLearnedTrainer_SaveCheckpoint(s_trainer, s_checkpoint, sizeof s_checkpoint,
+                                              &s_checkpointSize) == mani_success,
+        "the model built and a checkpoint saved without calls back in");
     maniDestroyBuilder(plain);
     def.allocator = (maniAllocator){BuilderAlloc, BuilderFree, NULL};
     CHECK(maniCreateBuilder(&def, &s_builder) == mani_success, "a builder with hooks");
@@ -805,11 +830,13 @@ static void TestBuildFromTrainer(void)
         maniBuildLearnedModelFromTrainer(s_builder, s_trainer, maniLearnedWeightsFloat32).result ==
                 mani_success &&
             maniBuilder_CopyBuilt(s_builder, s_hooked, sizeof s_hooked, &size) == mani_success &&
-            size == plainSize && memcmp(s_hooked, s_plain, size) == 0,
+            size == s_plainSize && memcmp(s_hooked, s_plain, size) == 0,
         "the build as without them");
     s_eachFree = NULL;
-    CHECK(s_frees == 1 && s_gone, "from the builder's free, training, restoring and destroying "
-                                  "the trainer refused as busy and counted once");
+    CHECK(s_frees == 1 && s_read, "from the builder's free, a checkpoint saved and a model built "
+                                  "from the trainer, as outside");
+    CHECK(s_gone, "from it, training, restoring and destroying the trainer refused as busy and "
+                  "counted once");
     maniDestroyBuilder(s_builder);
     maniDestroyLearnedTrainer(s_trainer);
 }
