@@ -8,6 +8,7 @@
 // indices past the control points skipped, Blender's per-vertex weights,
 // rest weights; the 6.x form; the refusals and the misuses.
 
+#include "cleared.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -248,23 +249,26 @@ static void TestWeights(void)
     uint32_t measured = 0;
     uint32_t refused = 0;
     w[0] = 9.0f;
+    w[4] = 9.0f;
     CHECK(maniFbx_GetMorphWeights(fbx, 0, NULL, 0, &measured).result == mani_errorCapacity &&
               measured == 5 &&
               maniFbx_GetMorphWeights(fbx, 0, w, 4, &refused).result == mani_errorCapacity &&
-              refused == 5 && w[0] == 9.0f,
-          "the weights measured, and a short array refused");
+              refused == 5 && w[0] == 0.0f && w[3] == 0.0f && w[4] == 9.0f && w[5] == 9.0f,
+          "the weights measured, and a short array refused and zeroed to its capacity");
     CHECK(maniFbx_GetMorphWeights(fbx, 0, NULL, 5, NULL).result == mani_errorInvalid &&
               maniFbx_GetMorphWeights(fbx, 1, w, 0, NULL).result == mani_errorInvalid &&
               maniFbx_GetMorphWeights(NULL, 0, w, 5, NULL).result == mani_errorInvalid,
           "weight misuses");
     uint32_t noCount = 7;
-    bool pastSets =
-        maniFbx_GetMorphWeights(fbx, 1, w, 0, &noCount).result == mani_errorInvalid && noCount == 0;
+    Fill(w, sizeof w);
+    bool pastSets = maniFbx_GetMorphWeights(fbx, 1, w, 6, &noCount).result == mani_errorInvalid &&
+                    noCount == 0 && Cleared(w, sizeof w);
     noCount = 7;
+    Fill(w, sizeof w);
     CHECK(pastSets &&
-              maniFbx_GetMorphWeights(NULL, 0, w, 5, &noCount).result == mani_errorInvalid &&
-              noCount == 0,
-          "refused weights clear the count");
+              maniFbx_GetMorphWeights(NULL, 0, w, 6, &noCount).result == mani_errorInvalid &&
+              noCount == 0 && Cleared(w, sizeof w),
+          "refused weights clear the count and the array");
     maniFbxOptions options = maniDefaultFbxOptions();
     CHECK(maniBuildFbxMorphTargets(builder, fbx, 1, &options).result == mani_errorInvalid &&
               maniBuildFbxMorphTargets(builder, fbx, 0, NULL).result == mani_errorInvalid &&

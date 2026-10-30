@@ -221,14 +221,15 @@ extern "C"
     ///
     /// @param trainer   The trainer.
     /// @param bytesOut  Receives the checkpoint: at least capacity bytes;
-    ///                  may be NULL when capacity is 0.
+    ///                  may be NULL when capacity is 0. Zeroed up to
+    ///                  capacity on failure.
     /// @param capacity  The bytes bytesOut holds.
     /// @param sizeOut   Receives the checkpoint's size in bytes; 0 on
     ///                  another failure than a buffer too small. May be
     ///                  NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is
-    /// smaller than the checkpoint, with the size still written and
-    /// nothing else; `mani_errorInvalid` for a NULL trainer or a NULL
+    /// smaller than the checkpoint, with the size still written and the
+    /// buffer zeroed; `mani_errorInvalid` for a NULL trainer or a NULL
     /// buffer with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.

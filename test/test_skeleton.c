@@ -127,17 +127,20 @@ static void TestOrderMap(void)
           "map");
     static const uint32_t expected[6] = {0, 1, 3, 2, 4, 5};
     CHECK(memcmp(map, expected, sizeof map) == 0, "where bones went");
-    uint32_t partial[2] = {0};
+    uint32_t partial[2];
+    Fill(partial, sizeof partial);
     CHECK(maniBuilder_CopySkeletonOrder(builder, partial, 2, &count) == mani_errorCapacity &&
               count == 6,
           "short map");
-    CHECK(partial[0] == 0 && partial[1] == 1, "short map filled");
+    CHECK(Cleared(partial, sizeof partial), "short map zeroed");
     CHECK(maniBuilder_CopySkeletonOrder(builder, NULL, 0, &count) == mani_errorCapacity &&
               count == 6,
           "count only");
     size_t size = 0;
-    CHECK(maniBuilder_CopyBuilt(builder, s_file, 10, &size) == mani_errorCapacity && size > 10,
-          "short buffer");
+    Fill(s_file, 11);
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, 10, &size) == mani_errorCapacity && size > 10 &&
+              Cleared(s_file, 10) && s_file[10] == CLEARED_SENTINEL,
+          "short buffer zeroed up to its capacity");
     CHECK(maniBuilder_CopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity, "size only");
     CHECK(maniBuilder_GetMisuse(builder) == 0, "no misuse");
     size = 7;
@@ -237,18 +240,25 @@ static void TestBuildRefusals(void)
     CHECK(maniBuildSkeleton(builder, NULL).result == mani_errorInvalid, "null source");
     CHECK(maniBuilder_GetMisuse(builder) == 1, "a misuse");
     size_t size = 7;
+    Fill(s_file, sizeof s_file);
     CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_errorInvalid &&
-              size == 0,
-          "nothing built: the size cleared");
+              size == 0 && Cleared(s_file, sizeof s_file),
+          "nothing built: the size and buffer cleared");
     uint32_t count = 7;
-    CHECK(maniBuilder_CopySkeletonOrder(builder, NULL, 0, &count) == mani_errorInvalid &&
-              count == 0,
-          "no skeleton: the count cleared");
+    uint32_t order[3];
+    Fill(order, sizeof order);
+    CHECK(maniBuilder_CopySkeletonOrder(builder, order, 3, &count) == mani_errorInvalid &&
+              count == 0 && Cleared(order, sizeof order),
+          "no skeleton: the count and array cleared");
     count = 7;
     size = 7;
-    CHECK(maniBuilder_CopySkeletonOrder(NULL, NULL, 0, &count) == mani_errorInvalid && count == 0 &&
-              maniBuilder_CopyBuilt(NULL, NULL, 0, &size) == mani_errorInvalid && size == 0,
-          "no builder: the count and size cleared");
+    Fill(order, sizeof order);
+    Fill(s_file, sizeof s_file);
+    CHECK(maniBuilder_CopySkeletonOrder(NULL, order, 3, &count) == mani_errorInvalid &&
+              count == 0 && Cleared(order, sizeof order) &&
+              maniBuilder_CopyBuilt(NULL, s_file, sizeof s_file, &size) == mani_errorInvalid &&
+              size == 0 && Cleared(s_file, sizeof s_file),
+          "no builder: the count, size and arrays cleared");
     maniDestroyBuilder(builder);
     CHECK(maniBuildSkeleton(NULL, NULL).result == mani_errorInvalid, "null builder");
 }

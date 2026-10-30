@@ -738,9 +738,8 @@ static bool Holds(uint32_t total, const float* weightsOut, uint32_t capacity, ui
     return weightsOut != NULL && capacity >= total;
 }
 
-static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, uint32_t morph,
-                                                          float* weightsOut, uint32_t capacity,
-                                                          uint32_t* countOut)
+static maniImportResult MorphWeights(const maniFbx* fbx, uint32_t morph, float* weightsOut,
+                                     uint32_t capacity, uint32_t* countOut)
 {
     if (countOut != NULL)
     {
@@ -767,6 +766,18 @@ static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, ui
     r = r.result == mani_success && !Holds(total, weightsOut, capacity, countOut) ? tooSmall : r;
     r = r.result == mani_success ? BlendRestWeights(fbx, &arena, object, weightsOut) : r;
     maniArenaRelease(&arena);
+    return r;
+}
+
+static MANI_NOINLINE maniImportResult FbxMorphWeightsWork(const maniFbx* fbx, uint32_t morph,
+                                                          float* weightsOut, uint32_t capacity,
+                                                          uint32_t* countOut)
+{
+    maniImportResult r = MorphWeights(fbx, morph, weightsOut, capacity, countOut);
+    if (r.result != mani_success && weightsOut != NULL)
+    {
+        memset(weightsOut, 0, (size_t)capacity * sizeof(float));
+    }
     return r;
 }
 

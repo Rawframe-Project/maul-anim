@@ -536,14 +536,15 @@ extern "C"
     /// @param gltf        The document.
     /// @param node        The node.
     /// @param weightsOut  Receives a weight per morph target of the node's
-    ///                    mesh; may be NULL when capacity is 0.
+    ///                    mesh; may be NULL when capacity is 0. Zeroed up to
+    ///                    capacity on failure.
     /// @param capacity    The floats weightsOut holds.
     /// @param countOut    Receives the mesh's morph target count; 0 on
     ///                    another failure than an array too short. May be
     ///                    NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
-    /// the target count, with the count still written and nothing else;
-    /// `mani_errorInvalid` for a NULL document, a NULL array with a
+    /// the target count, with the count still written and the array
+    /// zeroed; `mani_errorInvalid` for a NULL document, a NULL array with a
     /// positive capacity, or a node past the count, without a mesh or whose
     /// mesh has no morph targets; `mani_errorFormat` (Property) for weights
     /// not an array of that many numbers.
@@ -973,13 +974,14 @@ extern "C"
     /// @param fbx         The document.
     /// @param morph       The set.
     /// @param weightsOut  Receives a weight per target of the set; may be
-    ///                    NULL when capacity is 0.
+    ///                    NULL when capacity is 0. Zeroed up to capacity on
+    ///                    failure.
     /// @param capacity    The floats weightsOut holds.
     /// @param countOut    Receives the set's target count; 0 on another
     ///                    failure than an array too short. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
-    /// the target count, with the count still written and nothing else,
-    /// or when the allocator fails; `mani_errorInvalid` for a NULL
+    /// the target count, with the count still written and the array
+    /// zeroed, or when the allocator fails; `mani_errorInvalid` for a NULL
     /// document, a NULL array with a positive capacity or a set past the
     /// count; `mani_errorFormat` (Data) for a FullWeights value not finite.
     /// @par Thread safety

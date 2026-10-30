@@ -13,6 +13,7 @@
 // _CRT_SECURE_NO_WARNINGS for the fixture tests.
 
 #include "bytes.h"
+#include "cleared.h"
 #include "morph_file.h"
 #include "test_harness.h"
 
@@ -229,24 +230,27 @@ static void TestQueries(void)
     CHECK(maniGltf_GetMorphWeights(gltf, 3, wide, 3, &count).result == mani_success && count == 2 &&
               wide[0] == 1.0f && wide[1] == 0.0f && wide[2] == 9.0f,
           "a wider array takes the mesh's count");
+    w[1] = 9.0f;
     uint32_t measured = 0;
     uint32_t refused = 0;
     CHECK(maniGltf_GetMorphWeights(gltf, 3, NULL, 0, &measured).result == mani_errorCapacity &&
               measured == 2 &&
               maniGltf_GetMorphWeights(gltf, 2, w, 1, &refused).result == mani_errorCapacity &&
-              refused == 2 && w[0] == 1.0f,
-          "the weights measured, and a short array refused");
+              refused == 2 && w[0] == 0.0f && w[1] == 9.0f,
+          "the weights measured, and a short array refused and zeroed to its capacity");
     CHECK(maniGltf_GetMorphWeights(gltf, 0, w, 2, NULL).result == mani_errorInvalid &&
               maniGltf_GetMorphWeights(gltf, 2, NULL, 2, NULL).result == mani_errorInvalid &&
               maniGltf_GetMorphWeights(NULL, 2, w, 2, NULL).result == mani_errorInvalid,
           "weights refused: no mesh, no output, no document");
     uint32_t noCount = 7;
+    Fill(w, sizeof w);
     bool noMesh = maniGltf_GetMorphWeights(gltf, 0, w, 2, &noCount).result == mani_errorInvalid &&
-                  noCount == 0;
+                  noCount == 0 && Cleared(w, sizeof w);
     noCount = 7;
+    Fill(w, sizeof w);
     CHECK(noMesh && maniGltf_GetMorphWeights(NULL, 2, w, 2, &noCount).result == mani_errorInvalid &&
-              noCount == 0,
-          "refused weights clear the count");
+              noCount == 0 && Cleared(w, sizeof w),
+          "refused weights clear the count and the array");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

@@ -87,13 +87,8 @@ uint32_t maniBuilder_GetMisuse(const maniBuilder* builder)
     return maniHostMisuses(&builder->host);
 }
 
-maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
-                                 size_t* sizeOut)
+static maniResult CopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity, size_t* sizeOut)
 {
-    if (maniBuilderCalledBack(builder))
-    {
-        return mani_errorBusy;
-    }
     if (sizeOut != NULL)
     {
         *sizeOut = 0;
@@ -122,13 +117,24 @@ maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut, size_t c
     return mani_success;
 }
 
-maniResult maniBuilder_CopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
-                                         uint32_t* countOut)
+maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
+                                 size_t* sizeOut)
 {
     if (maniBuilderCalledBack(builder))
     {
         return mani_errorBusy;
     }
+    maniResult r = CopyBuilt(builder, bufferOut, capacity, sizeOut);
+    if (r != mani_success && bufferOut != NULL)
+    {
+        memset(bufferOut, 0, capacity);
+    }
+    return r;
+}
+
+static maniResult CopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
+                                    uint32_t* countOut)
+{
     if (countOut != NULL)
     {
         *countOut = 0;
@@ -146,10 +152,28 @@ maniResult maniBuilder_CopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut
     {
         *countOut = builder->orderCount;
     }
-    uint32_t copied = capacity < builder->orderCount ? capacity : builder->orderCount;
-    if (copied > 0)
+    if (capacity < builder->orderCount)
     {
-        memcpy(boneOut, builder->order, (size_t)copied * sizeof(uint32_t));
+        return mani_errorCapacity;
     }
-    return copied < builder->orderCount ? mani_errorCapacity : mani_success;
+    if (builder->orderCount > 0)
+    {
+        memcpy(boneOut, builder->order, (size_t)builder->orderCount * sizeof(uint32_t));
+    }
+    return mani_success;
+}
+
+maniResult maniBuilder_CopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
+                                         uint32_t* countOut)
+{
+    if (maniBuilderCalledBack(builder))
+    {
+        return mani_errorBusy;
+    }
+    maniResult r = CopySkeletonOrder(builder, boneOut, capacity, countOut);
+    if (r != mani_success && boneOut != NULL)
+    {
+        memset(boneOut, 0, (size_t)capacity * sizeof(uint32_t));
+    }
+    return r;
 }
