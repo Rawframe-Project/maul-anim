@@ -206,7 +206,8 @@ extern "C"
     /// @param targets           Opened morph targets.
     /// @param channelWeights    A finite weight a channel, any sign.
     /// @param targetWeightsOut  Receives a weight a target; may be NULL
-    ///                          when capacity is 0.
+    ///                          when capacity is 0, and may be
+    ///                          channelWeights, with the same results.
     /// @param capacity          The floats targetWeightsOut holds.
     /// @param countOut          Receives the target count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
