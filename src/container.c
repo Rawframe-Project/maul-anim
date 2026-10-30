@@ -20,16 +20,8 @@ static const uint8_t kMagic[4] = {'M', 'A', 'N', 'I'};
 
 uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size)
 {
-    // maniHash64 takes counts below 2^31 a call; pieces of 2^30 bytes, a
-    // multiple of eight, continue it exactly.
-    uint64_t hash = seed;
-    for (uint64_t done = 0; done < size;)
-    {
-        uint64_t piece = size - done < 0x40000000u ? size - done : 0x40000000u;
-        hash = maniHash64(hash, data + done, (int32_t)piece);
-        done += piece;
-    }
-    return hash;
+    // Bytes in memory number below 2^63.
+    return maniHash64(seed, data, (int64_t)size);
 }
 
 // The hash of the bytes after the header.

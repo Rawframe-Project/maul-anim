@@ -14,12 +14,12 @@
 int main(void)
 {
     const char* backend = NULL;
-    int32_t runs = maniCheckCpu(&backend);
+    bool runs = maniCheckCpu(&backend);
     maniVersion version = maniGetVersion();
     printf("maul-anim %u.%u.%u: backend %s, this CPU %s it\n", (unsigned)version.major,
            (unsigned)version.minor, (unsigned)version.patch, backend != NULL ? backend : "(none)",
-           runs == 1 ? "runs" : "does not run");
+           runs ? "runs" : "does not run");
     bool named = backend != NULL && strcmp(backend, maniGetSimdBackend()) == 0 &&
                  strcmp(backend, CONSUMER_BACKEND) == 0;
-    return runs == 1 && maniIsCpuBackendSupported() == 1 && named ? 0 : 1;
+    return runs && maniIsCpuBackendSupported() && named ? 0 : 1;
 }

@@ -384,12 +384,12 @@ static void TestPinned(void)
         for (uint32_t b = 0; b < BONES; ++b)
         {
             maniTransform t = maniPose_GetLocal(s_pose, b);
-            hashes[run] = maniHash64(hashes[run], &t, (int32_t)sizeof t);
+            hashes[run] = maniHash64(hashes[run], &t, (int64_t)sizeof t);
         }
     }
     CHECK(hashes[2] == hashes[1], "a second solve on the same scratch the same");
     // The plain solve and the stretching one, together.
-    uint64_t hash = maniHash64(hashes[0], &hashes[1], (int32_t)sizeof hashes[1]);
+    uint64_t hash = maniHash64(hashes[0], &hashes[1], (int64_t)sizeof hashes[1]);
     CHECK(hash == PINNED_XPBD_HASH, "the same bits on every platform");
     if (hash != PINNED_XPBD_HASH)
     {

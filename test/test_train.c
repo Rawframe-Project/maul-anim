@@ -449,7 +449,7 @@ static void TestFit(void)
     CHECK(before > 0.1 && after < 0.01, "a sine fit: its error falls below 0.01");
     CHECK(after == again && memcmp(first, second, sizeof first) == 0,
           "a second run, the same bits");
-    uint64_t hash = maniHash64(MANI_HASH_INIT, first, (int32_t)sizeof first);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, first, (int64_t)sizeof first);
     CHECK(hash == PINNED_TRAINED_HASH, "the trained bits the same on every platform");
     if (hash != PINNED_TRAINED_HASH)
     {

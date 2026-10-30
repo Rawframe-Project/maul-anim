@@ -145,7 +145,7 @@ static maniBuildResult CheckNames(const maniMorphSource* s, const maniAllocator*
     for (uint32_t c = 0; c < n && r.result == mani_success; ++c)
     {
         keys[c] =
-            maniHash64(MANI_HASH_INIT, s->channels[c].name, (int32_t)s->channels[c].nameLength);
+            maniHash64(MANI_HASH_INIT, s->channels[c].name, (int64_t)s->channels[c].nameLength);
     }
     if (r.result == mani_success)
     {

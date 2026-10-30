@@ -8,19 +8,19 @@
 #ifndef MAUL_ANIM_SRC_CPU_H
 #define MAUL_ANIM_SRC_CPU_H
 
-#include <stdint.h>
+#include <stdbool.h>
 
 // The backend the library's vector code was built for: "avx2", "neon"
 // or "scalar". The string is static.
 const char* maniGetSimdBackend(void);
 
-// 1 when this CPU runs the built backend, else 0.
-int32_t maniIsCpuBackendSupported(void);
+// Whether this CPU runs the built backend.
+bool maniIsCpuBackendSupported(void);
 
 // The CPU check without a world: stores the backend's name in *backend
-// when backend is not null and returns 1 when this CPU runs it, 0 when
-// it does not (the build should then be configured scalar). Safe from
-// any thread; it keeps no state.
-int32_t maniCheckCpu(const char** backend);
+// when backend is not null and returns whether this CPU runs it (when it
+// does not, the build should be configured scalar). Safe from any thread;
+// it keeps no state.
+bool maniCheckCpu(const char** backend);
 
 #endif

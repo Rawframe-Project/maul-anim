@@ -42,8 +42,8 @@ An AVX2 build stops on its first vector instruction on a CPU without AVX2 and FM
 
 ```c
 const char* backend = NULL;
-int32_t runs = maniCheckCpu(&backend);   // before any other call
-// runs == 0: this CPU cannot run the build's backend (backend names it,
+bool runs = maniCheckCpu(&backend);   // before any other call
+// !runs: this CPU cannot run the build's backend (backend names it,
 // "avx2" say): refuse to start, or load a build made with
 // -DMAUL_ANIM_SIMD=scalar, which runs on any CPU with the same results.
 ```

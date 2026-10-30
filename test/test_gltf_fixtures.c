@@ -72,7 +72,7 @@ static uint64_t s_imported = MANI_HASH_INIT;
 static void Pin(const uint8_t* file, size_t size)
 {
     s_imported = maniHash64(s_imported, file, 16);
-    s_imported = maniHash64(s_imported, file + 22, (int32_t)(size - 22));
+    s_imported = maniHash64(s_imported, file + 22, (int64_t)(size - 22));
 }
 
 static maniBuilder* NewBuilder(void)

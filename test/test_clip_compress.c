@@ -1765,7 +1765,7 @@ static void TestPinnedBytes(void)
     BuildFull(0.0f);
     Reset();
     memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int64_t)s_size);
     CHECK(hash == PINNED_COMPRESSED_HASH, "pinned file");
     if (hash != PINNED_COMPRESSED_HASH)
     {

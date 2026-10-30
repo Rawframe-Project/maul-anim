@@ -501,7 +501,7 @@ static void TestPinned(void)
     CHECK(Transfer(), "transferred");
     maniTransform locals[10];
     CHECK(maniPose_ReadLocals(s_out, 0, 10, locals) == mani_success, "read");
-    uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int64_t)sizeof locals);
     CHECK(hash == PINNED_HASH, "the transfer's bits the same on every platform");
     if (hash != PINNED_HASH)
     {

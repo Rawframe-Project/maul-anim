@@ -37,7 +37,7 @@ static void WriteSample(void)
 static void Rehash(void)
 {
     uint64_t hash = maniHash64(MANI_HASH_INIT, s_file + MANI_CONTAINER_HEADER_SIZE,
-                               (int32_t)(s_size - MANI_CONTAINER_HEADER_SIZE));
+                               (int64_t)(s_size - MANI_CONTAINER_HEADER_SIZE));
     maniStoreU64(s_file + 32, hash);
 }
 

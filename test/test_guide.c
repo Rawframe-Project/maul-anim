@@ -51,12 +51,12 @@ static void GuideCpu(void)
 {
     // clang-format off
     const char* backend = NULL;
-    int32_t runs = maniCheckCpu(&backend);   // before any other call
-    // runs == 0: this CPU cannot run the build's backend (backend names it,
+    bool runs = maniCheckCpu(&backend);   // before any other call
+    // !runs: this CPU cannot run the build's backend (backend names it,
     // "avx2" say): refuse to start, or load a build made with
     // -DMAUL_ANIM_SIMD=scalar, which runs on any CPU with the same results.
     // clang-format on
-    CHECK(runs == 1 && backend == maniGetSimdBackend(), "the CPU runs the build");
+    CHECK(runs && backend == maniGetSimdBackend(), "the CPU runs the build");
 }
 
 static void GuideSkeleton(void)

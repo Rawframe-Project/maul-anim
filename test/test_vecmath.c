@@ -306,14 +306,14 @@ static void HashFloat(Hasher* h, float value)
     h->block[h->count++] = value;
     if (h->count == 1024)
     {
-        h->hash = maniHash64(h->hash, h->block, (int32_t)sizeof h->block);
+        h->hash = maniHash64(h->hash, h->block, (int64_t)sizeof h->block);
         h->count = 0;
     }
 }
 
 static uint64_t HashEnd(Hasher* h)
 {
-    return maniHash64(h->hash, h->block, h->count * (int32_t)sizeof(float));
+    return maniHash64(h->hash, h->block, h->count * (int64_t)sizeof(float));
 }
 
 static uint64_t HashAll(void)
