@@ -148,9 +148,9 @@ jobs:
   # together, the summary gives the seeds' coverage and the corpus's, and
   # the result is saved for the next night. A run that found something
   # does none of that: its corpus holds inputs close to the finding. The
-  # corpus is never uploaded, but the cache is not secret (a fork's pull
-  # request can restore it); this repository's pull_request runs do not
-  # restore it. A finding and the log stay on the runner:
+  # corpus is never uploaded, and the cache is not secret (a fork's pull
+  # request can restore it), so it holds nothing the seeds would not lead
+  # to. A finding and the log stay on the runner:
   # tools/fuzz_target.sh prints only the report.
   fuzz:
     needs: fuzz-targets
