@@ -140,17 +140,15 @@ jobs:
   # Each target fuzzes ten minutes from its corpus of the nights before, in
   # a job of its own, so a slow or failing target never costs the others
   # their night. The corpus is carried in an Actions cache per target, keyed
-  # by the target and by the fuzz build's inputs (the library, its CMake,
-  # the target's source and the compiler), so an unchanged build restores
-  # its own corpus exactly; a changed one restores the target's latest
-  # corpus of an earlier build, whose inputs stay valid. After a run that
-  # found nothing, the fuzzer's merge minimizes the seeds and the corpus
-  # together, the summary gives the seeds' coverage and the corpus's, and
-  # the result is saved for the next night. A run that found something
-  # does none of that: its corpus holds inputs close to the finding. The
-  # corpus is never uploaded, and the cache is not secret (a fork's pull
-  # request can restore it), so it holds nothing the seeds would not lead
-  # to. A finding and the log stay on the runner:
+  # by the target and the run, and each night restores the target's latest:
+  # a corpus is inputs, which stay valid when the library changes. After a
+  # run that found nothing, the fuzzer's merge minimizes the seeds and the
+  # corpus together, the summary gives the seeds' coverage and the
+  # corpus's, and the result is saved for the next night. A run that found
+  # something does none of that: its corpus holds inputs close to the
+  # finding. The corpus is never uploaded, and the cache is not secret (a
+  # fork's pull request can restore it), so it holds nothing the seeds
+  # would not lead to. A finding and the log stay on the runner:
   # tools/fuzz_target.sh prints only the report.
   fuzz:
     needs: fuzz-targets
@@ -170,23 +168,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Build
-        env:
-          INPUTS: ${{ hashFiles('src/**', 'include/**', 'cmake/**', 'CMakeLists.txt', 'CMakePresets.json', format('test/{0}.c', matrix.target), 'test/*.h') }}
         run: |
           cmake --preset linux-fuzz
           cmake --build --preset linux-fuzz -j 4 --target "$TARGET"
-          compiler=$(clang-20 --version | head -1 | sha256sum | cut -c1-16)
-          echo "CORPUS_KEY=corpus-$TARGET-$INPUTS-$compiler" >>"$GITHUB_ENV"
       - name: Restore the corpus
-        if: github.event_name != 'pull_request'
         id: restore
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: out/corpus/${{ matrix.target }}
-          key: ${{ env.CORPUS_KEY }}-${{ github.run_id }}
-          restore-keys: |
-            ${{ env.CORPUS_KEY }}-
-            corpus-${{ matrix.target }}-
+          key: corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: corpus-${{ matrix.target }}-
       - name: Fuzz
         run: tools/fuzz.sh run out/linux-fuzz 600 "$TARGET"
       - name: Minimize the corpus
@@ -197,11 +188,8 @@ jobs:
           coverage() { "out/linux-fuzz/$TARGET" -runs=0 "$@" 2>&1 | sed -n 's/.*INITED cov: \([0-9]*\).*/\1/p'; }
           seeded=none
           [ -d "test/seeds/$TARGET" ] && seeded=$(coverage "test/seeds/$TARGET")
-          case "$MATCHED" in
-          "") restored="none: the seeds alone" ;;
-          "$CORPUS_KEY"-*) restored="this build's" ;;
-          *) restored="an earlier build's" ;;
-          esac
+          restored="the last night's"
+          [ -n "$MATCHED" ] || restored="none: the seeds alone"
           {
             echo "| Target | Corpus restored | Seeds' coverage | Corpus's coverage | Corpus files |"
             echo "|---|---|---|---|---|"
@@ -212,4 +200,14 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: out/corpus/${{ matrix.target }}
-          key: ${{ env.CORPUS_KEY }}-${{ github.run_id }}
+          key: corpus-${{ matrix.target }}-${{ github.run_id }}
+
+  # On main, once every target's job has run: the corpus entries a newer
+  # night replaced are deleted (keys ending in a run id, the newest kept
+  # per target), as ci.yml's prune does after its own saves.
+  prune-caches:
+    needs: [fuzz]
+    if: always() && github.ref == 'refs/heads/main'
+    uses: Rawframe-Project/.github/.github/workflows/cache-prune.yml@8414d388d2116b581c5c5d8f6641e1da4d863244 # v0.0.42
+    permissions:
+      actions: write
