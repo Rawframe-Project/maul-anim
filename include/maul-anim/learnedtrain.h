@@ -134,7 +134,7 @@ extern "C"
     {
         uint32_t stage;
         uint32_t stageCount;
-        uint64_t iteration;
+        uint64_t iterationCount;
         float loss;
     } maniLearnedTrainerReport;
 

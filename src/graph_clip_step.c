@@ -524,7 +524,7 @@ void maniGraphAdvanceClip(maniGraphUpdate* u, uint32_t p)
     {
         m = Follow(u, group, p, &clip, s->time);
     }
-    maniRootMove move = maniRootMoveIdentity();
+    maniRootMove move = maniMakeRootMoveIdentity();
     s->from = m.t0;
     s->step = m.seeking ? 0.0 : m.step;
     if (!m.seeking)

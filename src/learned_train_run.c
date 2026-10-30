@@ -145,7 +145,7 @@ maniResult maniLearnedTrainerBegin(maniLearnedTrainer* t)
                                     f->required, f->excluded, &t->random, &t->projector);
     }
     t->begun = ok;
-    t->iteration = 0;
+    t->iterationCount = 0;
     t->loss = 0.0f;
     return ok ? mani_success : mani_errorCapacity;
 }
@@ -208,7 +208,7 @@ static maniResult End(maniLearnedTrainer* t)
     }
     maniLearnedTrainerDrop(t);
     t->stage += 1;
-    t->iteration = 0;
+    t->iterationCount = 0;
     t->loss = 0.0f;
     return mani_success;
 }
@@ -229,7 +229,7 @@ static float Rate(float rate, uint64_t step)
 
 static void Iterate(maniLearnedTrainer* t)
 {
-    uint64_t step = t->iteration + 1;
+    uint64_t step = t->iterationCount + 1;
     float rate = Rate(t->source.options.learningRate, step);
     if (t->stage == MANI_LEARNED_DECOMPRESSOR)
     {
@@ -244,7 +244,7 @@ static void Iterate(maniLearnedTrainer* t)
     {
         t->loss = maniTrainProjectorStep(&t->projector, &t->random, &t->tasks, step, rate);
     }
-    t->iteration = step;
+    t->iterationCount = step;
 }
 
 static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, uint64_t iterations,
@@ -266,7 +266,7 @@ static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, ui
     maniResult r = mani_success;
     while (r == mani_success && t->stage < t->stageCount)
     {
-        if (t->begun && t->iteration == t->source.options.iterations)
+        if (t->begun && t->iterationCount == t->source.options.iterations)
         {
             r = End(t);
             continue;
@@ -285,7 +285,7 @@ static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, ui
     memset(reportOut, 0, sizeof *reportOut);
     reportOut->stage = t->stage;
     reportOut->stageCount = t->stageCount;
-    reportOut->iteration = t->iteration;
+    reportOut->iterationCount = t->iterationCount;
     reportOut->loss = t->loss;
     return r;
 }

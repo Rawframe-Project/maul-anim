@@ -53,7 +53,7 @@ typedef struct Progress
 {
     uint32_t stage;
     bool begun;
-    uint64_t iteration;
+    uint64_t iterationCount;
     float loss;
     maniTrainRandom random;
     const uint8_t* latents;
@@ -84,7 +84,7 @@ static maniFileResult ReadProgress(const maniLearnedTrainer* t, const maniContai
     {
         return Fail(MANI_CONTAINER_HEADER_SIZE);
     }
-    p->iteration = maniLoadU64(bytes);
+    p->iterationCount = maniLoadU64(bytes);
     for (uint32_t k = 0; k < 4; ++k)
     {
         p->random.s[k] = maniLoadU64(bytes + 8 + 8 * k);
@@ -102,7 +102,7 @@ static maniFileResult ReadProgress(const maniLearnedTrainer* t, const maniContai
     // depend on them.
     const bool valid[5] = {
         p->stage <= t->stageCount, begun <= 1 && (working || !p->begun),
-        p->iteration <= t->source.options.iterations && (p->begun || p->iteration == 0),
+        p->iterationCount <= t->source.options.iterations && (p->begun || p->iterationCount == 0),
         p->begun != fresh,
         fabsf(p->loss) < HUGE_VALF && (p->begun || maniLoadU32(bytes + 48) == 0)};
     const uint32_t offsets[5] = {40, 44, 0, 8, 48};
@@ -221,7 +221,7 @@ static bool Apply(maniLearnedTrainer* t, const Progress* p)
             memcpy(arrays[k], p->training[k], sizeof(float) * (size_t)count);
         }
         t->random = p->random;
-        t->iteration = p->iteration;
+        t->iterationCount = p->iterationCount;
         t->loss = p->loss;
     }
     return true;
@@ -265,7 +265,7 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* byt
     maniLearnedTrainerDrop(trainer);
     maniLearnedTrainerForget(trainer);
     trainer->stage = 0;
-    trainer->iteration = 0;
+    trainer->iterationCount = 0;
     trainer->loss = 0.0f;
     if (!Apply(trainer, &p))
     {

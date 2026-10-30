@@ -274,7 +274,7 @@ static void Outputs(const Learned* l, double step)
 {
     const maniLearnedModel* m = l->m;
     float* cache = maniGraphLearnedCache(l->u->instance, l->p);
-    maniRootMove move = maniRootMoveIdentity();
+    maniRootMove move = maniMakeRootMoveIdentity();
     if (!maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch,
                                      cache != NULL ? cache + 1 + l->states : NULL) ||
         !RootMove(l, step, &move))

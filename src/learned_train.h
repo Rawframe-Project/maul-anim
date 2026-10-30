@@ -50,7 +50,7 @@ struct maniLearnedTrainer
     uint32_t stage;
     uint32_t stageCount;
     // Iterations the stage has run; its last batch's loss.
-    uint64_t iteration;
+    uint64_t iterationCount;
     float loss;
     // Whether the stage's state exists (a stage begins when first run).
     bool begun;
