@@ -165,9 +165,8 @@ static bool ReadNumbers(const maniJson* json, uint32_t array, uint32_t count, fl
     return true;
 }
 
-static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf, uint32_t node,
-                                                           float* weightsOut, uint32_t capacity,
-                                                           uint32_t* countOut)
+static maniImportResult MorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,
+                                     uint32_t capacity, uint32_t* countOut)
 {
     if (countOut != NULL)
     {
@@ -200,6 +199,18 @@ static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf,
     }
     memset(weightsOut, 0, (size_t)count * sizeof(float));
     return maniImportSuccess();
+}
+
+static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf, uint32_t node,
+                                                           float* weightsOut, uint32_t capacity,
+                                                           uint32_t* countOut)
+{
+    maniImportResult r = MorphWeights(gltf, node, weightsOut, capacity, countOut);
+    if (r.result != mani_success && weightsOut != NULL)
+    {
+        memset(weightsOut, 0, (size_t)capacity * sizeof(float));
+    }
+    return r;
 }
 
 maniImportResult maniGltf_GetMorphWeights(const maniGltf* gltf, uint32_t node, float* weightsOut,

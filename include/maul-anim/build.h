@@ -953,7 +953,8 @@ extern "C"
     /// @param builder   The builder.
     /// @param bufferOut Receives the bytes: at least capacity bytes; may be
     ///                  NULL when capacity is 0. Open a file's copy from a
-    ///                  16-byte aligned address.
+    ///                  16-byte aligned address. Zeroed up to capacity on
+    ///                  another failure than mani_errorBusy.
     /// @param capacity  The buffer's size in bytes.
     /// @param sizeOut   Receives the size in bytes; 0 on another failure
     ///                  than a buffer too small or mani_errorBusy. May be
@@ -971,15 +972,16 @@ extern "C"
     /// skeleton's index of source bone i at boneOut[i].
     ///
     /// @param builder   The builder.
-    /// @param boneOut   Receives up to capacity indices; may be NULL when
-    ///                  capacity is 0.
+    /// @param boneOut   Receives the indices; may be NULL when capacity is
+    ///                  0. Zeroed up to capacity on another failure than
+    ///                  mani_errorBusy.
     /// @param capacity  The array's length.
     /// @param countOut  Receives the source's bone count; 0 on another
     ///                  failure than an array too short or mani_errorBusy.
     ///                  May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when the array is
     /// shorter than the count, with the count still written and the array
-    /// filled as far as it goes; `mani_errorInvalid` for a NULL builder, a
+    /// zeroed; `mani_errorInvalid` for a NULL builder, a
     /// NULL array with a positive capacity, or a builder holding no
     /// skeleton.
     /// @par Thread safety

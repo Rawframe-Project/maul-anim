@@ -149,9 +149,8 @@ static uint32_t Sections(const maniLearnedTrainer* t, uint8_t* progress,
     return count;
 }
 
-static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrainer* trainer,
-                                                          void* bytes, size_t capacity,
-                                                          size_t* sizeOut)
+static maniResult SaveCheckpoint(const maniLearnedTrainer* trainer, void* bytes, size_t capacity,
+                                 size_t* sizeOut)
 {
     if (sizeOut != NULL)
     {
@@ -182,6 +181,18 @@ static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrain
     maniWriteContainer(bytes, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION,
                        trainer->signature, sections, count);
     return mani_success;
+}
+
+static MANI_NOINLINE maniResult SaveLearnedCheckpointWork(const maniLearnedTrainer* trainer,
+                                                          void* bytes, size_t capacity,
+                                                          size_t* sizeOut)
+{
+    maniResult r = SaveCheckpoint(trainer, bytes, capacity, sizeOut);
+    if (r != mani_success && bytes != NULL)
+    {
+        memset(bytes, 0, capacity);
+    }
+    return r;
 }
 
 maniResult maniLearnedTrainer_SaveCheckpoint(const maniLearnedTrainer* trainer, void* bytesOut,

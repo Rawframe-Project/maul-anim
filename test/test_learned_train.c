@@ -428,6 +428,18 @@ static void TestStages(void)
               maniLearnedTrainer_SaveCheckpoint(t, NULL, 5, &noSize) == mani_errorInvalid &&
               noSize == 0,
           "a refused save clears the size");
+    static uint8_t s_short[64];
+    Fill(s_short, sizeof s_short);
+    bool shortCleared = maniLearnedTrainer_SaveCheckpoint(t, s_short, sizeof s_short - 1,
+                                                          &noSize) == mani_errorCapacity &&
+                        noSize > sizeof s_short && Cleared(s_short, sizeof s_short - 1) &&
+                        s_short[sizeof s_short - 1] == CLEARED_SENTINEL;
+    Fill(s_short, sizeof s_short);
+    CHECK(shortCleared &&
+              maniLearnedTrainer_SaveCheckpoint(NULL, s_short, sizeof s_short, &noSize) ==
+                  mani_errorInvalid &&
+              Cleared(s_short, sizeof s_short),
+          "a refused save zeroes the buffer up to its capacity");
     Build(t, 0, maniLearnedWeightsFloat32);
     maniLearnedModel model;
     CHECK(maniOpenLearnedModel(s_model[0], s_modelSize[0], &model).result == mani_success &&
