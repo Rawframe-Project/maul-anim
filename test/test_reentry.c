@@ -7,9 +7,11 @@
 // so the busy error is the call back in alone), destroys it and closes
 // a glTF and an FBX document opened with it: each refused with
 // mani_errorBusy (nothing destroyed or closed) and counted once, its
-// outputs cleared, the build finishing as it does without. A trainer's
-// allocator and task hooks call training, restoring and destroying it,
-// likewise refused, counted, cleared and harmless.
+// outputs left as they were (an opened document's handle NULL), the
+// build finishing as it does without; a measure's free hook that
+// measures again into the same report leaves what the measure wrote. A
+// trainer's allocator and task hooks call training, restoring and
+// destroying it, likewise refused, counted, left alone and harmless.
 
 #include "checkpoint_host.h"
 #include "cleared.h"
@@ -25,6 +27,7 @@
 #include "maul-anim/matchbuild.h"
 #include "maul-anim/mirrorbuild.h"
 #include "maul-anim/retargetbuild.h"
+#include "maul-anim/skeleton.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -53,7 +56,8 @@ static bool s_onFree;
 static maniResult s_result;
 
 // The outputs of the calls made back in, filled with a sentinel before
-// each: a refused call clears its own.
+// each: a refused call leaves its own, since they may be the ones the
+// call in progress is filling, and sets an opened document's to NULL.
 static struct
 {
     maniClipReport clipReport;
@@ -65,24 +69,25 @@ static struct
     uint32_t bound;
 } s_out;
 
-// Whether call k cleared its output.
-static bool OutputCleared(int k)
+// Whether call k left its output as it was, or set the handle it
+// creates to NULL.
+static bool OutputLeft(int k)
 {
     switch (k)
     {
     case 5:
-        return Cleared(&s_out.clipReport, sizeof s_out.clipReport);
+        return Kept(&s_out.clipReport, sizeof s_out.clipReport);
     case 6:
-        return Cleared(&s_out.compressReport, sizeof s_out.compressReport);
+        return Kept(&s_out.compressReport, sizeof s_out.compressReport);
     case 9:
-        return s_out.size == 0;
+        return Kept(&s_out.size, sizeof s_out.size);
     case 10:
-        return s_out.count == 0;
+        return Kept(&s_out.count, sizeof s_out.count);
     case 15:
         return s_out.gltf == NULL;
     case 19:
     case 28:
-        return s_out.bound == 0;
+        return Kept(&s_out.bound, sizeof s_out.bound);
     case 22:
         return s_out.fbx == NULL;
     default:
@@ -228,6 +233,11 @@ static void* BuilderAlloc(size_t size, size_t alignment, void* context)
     return Aligned(size, alignment);
 }
 
+// The report a measure in progress fills, measured into again from the
+// next free, and what that returned.
+static maniClipReport* s_measureInto;
+static maniResult s_measured;
+
 static void BuilderFree(void* memory, size_t size, size_t alignment, void* context)
 {
     (void)size;
@@ -236,6 +246,12 @@ static void BuilderFree(void* memory, size_t size, size_t alignment, void* conte
     if (s_call >= 0 && s_onFree)
     {
         CallBack();
+    }
+    if (s_measureInto != NULL)
+    {
+        maniClipReport* report = s_measureInto;
+        s_measureInto = NULL;
+        s_measured = maniBuilder_MeasureClip(s_builder, NULL, NULL, report);
     }
     Unaligned(memory);
 }
@@ -259,6 +275,45 @@ static bool Build(uint8_t* out, size_t capacity, size_t* size)
            maniBuilder_CopyBuilt(s_builder, out, capacity, size) == mani_success;
 }
 
+// A clip of the three bones whose last bone steps to a key between two
+// samples, so its report is not all zeros: measured alone, then with its
+// free hook measuring again into the same report, written by then.
+static void TestMeasureLeft(void)
+{
+    static _Alignas(16) uint8_t s_skeletonFile[1024];
+    static _Alignas(16) uint8_t s_clipFile[4096];
+    size_t size = 0;
+    maniSkeleton skeleton;
+    CHECK(Build(s_skeletonFile, sizeof s_skeletonFile, &size) &&
+              maniOpenSkeleton(s_skeletonFile, size, &skeleton).result == mani_success,
+          "a skeleton to measure a clip of");
+    static const float kTimes[2] = {0.0f, 0.01f};
+    static const float kValues[6] = {0.0f, 1.0f, 0.0f, 0.5f, 1.0f, 0.0f};
+    const maniBoneTrackSource track = {2, {kTimes, kValues, 2, maniInterpolationStep}, {0}, {0}};
+    const maniClipSource source = {
+        .skeleton = &skeleton, .boneTracks = &track, .boneTrackCount = 1, .duration = 0.1f};
+    maniClip clip;
+    CHECK(maniBuildClip(s_builder, &source).result == mani_success &&
+              maniBuilder_CopyBuilt(s_builder, s_clipFile, sizeof s_clipFile, &size) ==
+                  mani_success &&
+              maniOpenClip(s_clipFile, size, &clip).result == mani_success,
+          "the clip");
+    maniClipReport alone;
+    CHECK(maniBuilder_MeasureClip(s_builder, &source, &clip, &alone) == mani_success &&
+              !Cleared(&alone, sizeof alone),
+          "measured alone, not all zeros");
+    uint32_t before = maniBuilder_GetMisuse(s_builder);
+    maniClipReport report;
+    Fill(&report, sizeof report);
+    s_measureInto = &report;
+    s_measured = mani_success;
+    CHECK(maniBuilder_MeasureClip(s_builder, &source, &clip, &report) == mani_success &&
+              s_measureInto == NULL && s_measured == mani_errorBusy &&
+              maniBuilder_GetMisuse(s_builder) == before + 1,
+          "the measure from its free hook refused and counted once");
+    CHECK(memcmp(&report, &alone, sizeof report) == 0, "the report the measure wrote left");
+}
+
 static void TestBuilder(void)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
@@ -273,7 +328,7 @@ static void TestBuilder(void)
     CHECK(Build(s_alone, sizeof s_alone, &alone), "a build without calls back in");
     bool refused = true;
     bool same = true;
-    bool cleared = true;
+    bool left = true;
     for (int onFree = 0; onFree < 2; ++onFree)
     {
         for (int k = 0; k < kCalls; ++k)
@@ -288,16 +343,17 @@ static void TestBuilder(void)
                    memcmp(s_built, s_alone, size) == 0;
             refused = refused && s_call == -1 && s_result == mani_errorBusy &&
                       maniBuilder_GetMisuse(s_builder) == before + 1;
-            cleared = cleared && OutputCleared(k);
+            left = left && OutputLeft(k);
         }
     }
     CHECK(refused, "every call back in refused and counted once");
-    CHECK(cleared, "every refused call's outputs cleared");
+    CHECK(left, "every refused call's outputs left, a document's handle NULL");
     CHECK(same, "each build as without it");
     CHECK(maniGltf_GetNodeCount(s_gltf) == 0 && maniFbx_GetSkeletonCount(s_fbx) == 0,
           "the documents still open");
     maniCloseGltf(s_gltf);
     maniCloseFbx(s_fbx);
+    TestMeasureLeft();
     uint32_t before = maniBuilder_GetMisuse(s_builder);
     CHECK(maniBuildSkeleton(s_builder, NULL).result == mani_errorInvalid &&
               maniBuilder_GetMisuse(s_builder) == before + 1,
@@ -329,7 +385,7 @@ static int s_trainerCall = -1;
 static Where s_where;
 static maniResult s_trainerResult;
 static maniLearnedTrainerReport s_trainerReport;
-static bool s_trainerCleared = true;
+static bool s_trainerLeft = true;
 
 static void TrainerCallBack(Where where)
 {
@@ -344,7 +400,7 @@ static void TrainerCallBack(Where where)
     case kTrain:
         Fill(&s_trainerReport, sizeof s_trainerReport);
         s_trainerResult = maniLearnedTrainer_Train(s_trainer, 0, &s_trainerReport);
-        s_trainerCleared = s_trainerCleared && Cleared(&s_trainerReport, sizeof s_trainerReport);
+        s_trainerLeft = s_trainerLeft && Kept(&s_trainerReport, sizeof s_trainerReport);
         break;
     case kRestore:
         s_trainerResult = maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result;
@@ -431,7 +487,7 @@ static void TestTrainer(void)
     }
     CHECK(trained, "training goes on");
     CHECK(refused, "every call back in from the trainer's code refused and counted once");
-    CHECK(s_trainerCleared, "training refused with its report cleared");
+    CHECK(s_trainerLeft, "training refused with its report left");
 }
 
 int main(void)

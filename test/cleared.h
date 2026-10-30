@@ -4,7 +4,8 @@
 // Outputs a refused call or a "no" clears: a suite fills an output with a
 // sentinel byte, makes the call, and requires every byte zero, padding
 // included, so a value left from an earlier call is never read as the
-// answer.
+// answer. A call refused as busy from its object's own code leaves them:
+// every byte still the sentinel.
 
 #ifndef MAUL_ANIM_TEST_CLEARED_H
 #define MAUL_ANIM_TEST_CLEARED_H
@@ -28,6 +29,19 @@ static inline bool Cleared(const void* bytes, size_t size)
     for (size_t i = 0; i < size; ++i)
     {
         if (b[i] != 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static inline bool Kept(const void* bytes, size_t size)
+{
+    const uint8_t* b = (const uint8_t*)bytes;
+    for (size_t i = 0; i < size; ++i)
+    {
+        if (b[i] != CLEARED_SENTINEL)
         {
             return false;
         }

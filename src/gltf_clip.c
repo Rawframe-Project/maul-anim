@@ -629,13 +629,13 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
     maniBuilder* builder, const maniGltf* gltf, uint32_t animation, const maniSkeleton* skeleton,
     const maniGltfOptions* options, const maniImportClipOptions* clipOptions, uint32_t* boundOut)
 {
-    if (boundOut != NULL)
-    {
-        *boundOut = 0;
-    }
     if (maniBuilderCalledBack(builder))
     {
         return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
+    }
+    if (boundOut != NULL)
+    {
+        *boundOut = 0;
     }
     if (builder == NULL)
     {

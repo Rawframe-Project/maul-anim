@@ -27,7 +27,8 @@ extern "C"
 
     // A trainer: the networks of one model in training. Training,
     // restoring and destroying refuse a call back in from the trainer's
-    // allocator or task hooks with mani_errorBusy and count one misuse.
+    // allocator or task hooks with mani_errorBusy and count one misuse;
+    // the refused call leaves its outputs as they were.
     typedef struct maniLearnedTrainer maniLearnedTrainer;
 
     typedef struct maniLearnedTrainerDef
@@ -202,7 +203,8 @@ extern "C"
     /// @param trainer    The trainer.
     /// @param iterations Iterations to run at most; 0 only reports.
     /// @param reportOut  Receives the progress, also when memory runs out;
-    ///                   zeroed when the call is refused before it starts.
+    ///                   zeroed when the call is refused before it starts,
+    ///                   but for mani_errorBusy, which leaves it.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
     /// `mani_errorCapacity` when memory runs out as a stage begins or
     /// ends (the trainer keeps its progress, and a later call goes on).

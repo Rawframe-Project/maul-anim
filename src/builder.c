@@ -90,13 +90,13 @@ uint32_t maniBuilder_GetMisuse(const maniBuilder* builder)
 maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut, size_t capacity,
                                  size_t* sizeOut)
 {
-    if (sizeOut != NULL)
-    {
-        *sizeOut = 0;
-    }
     if (maniBuilderCalledBack(builder))
     {
         return mani_errorBusy;
+    }
+    if (sizeOut != NULL)
+    {
+        *sizeOut = 0;
     }
     if (builder == NULL)
     {
@@ -125,13 +125,13 @@ maniResult maniBuilder_CopyBuilt(maniBuilder* builder, void* bufferOut, size_t c
 maniResult maniBuilder_CopySkeletonOrder(maniBuilder* builder, uint32_t* boneOut, uint32_t capacity,
                                          uint32_t* countOut)
 {
-    if (countOut != NULL)
-    {
-        *countOut = 0;
-    }
     if (maniBuilderCalledBack(builder))
     {
         return mani_errorBusy;
+    }
+    if (countOut != NULL)
+    {
+        *countOut = 0;
     }
     if (builder == NULL)
     {
