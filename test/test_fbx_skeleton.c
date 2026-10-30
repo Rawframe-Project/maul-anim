@@ -9,6 +9,7 @@
 // misuses, model subtrees, a helper's name taken, and the settings.
 
 #include "basis.h"
+#include "cleared.h"
 #include "fbx_document.h"
 #include "fbx_transform.h"
 #include "fbx_world.h"
@@ -286,9 +287,11 @@ static void TestAxes(void)
               settings.axes[1] == maniAxisZ && settings.axes[2] == maniAxisNegativeY &&
               settings.unitMeters == 0.01 && settings.rateNumerator == 30,
           "the settings");
+    Fill(&settings, sizeof settings);
     CHECK(maniFbx_ReadSettings(NULL, &settings) == mani_errorInvalid &&
+              Cleared(&settings, sizeof settings) &&
               maniFbx_ReadSettings(fbx, NULL) == mani_errorInvalid,
-          "settings misuse");
+          "settings misuse: the settings cleared");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }
@@ -383,6 +386,16 @@ static void TestMisuse(void)
             maniFbx_GetModelPlacement(fbx, 10, &options, &placement).result == mani_errorInvalid &&
             maniFbx_GetModelPlacement(NULL, 0, &options, &placement).result == mani_errorInvalid,
         "arguments out of range");
+    Fill(&placement, sizeof placement);
+    bool skeletonCleared =
+        maniFbx_GetSkeletonPlacement(fbx, 1, &options, &placement).result == mani_errorInvalid &&
+        Cleared(&placement, sizeof placement);
+    Fill(&placement, sizeof placement);
+    CHECK(skeletonCleared &&
+              maniFbx_GetModelPlacement(NULL, 0, &options, &placement).result ==
+                  mani_errorInvalid &&
+              Cleared(&placement, sizeof placement),
+          "a refused placement cleared");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }

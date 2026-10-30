@@ -193,7 +193,8 @@ extern "C"
     ///
     /// @param model      An opened model.
     /// @param track      The track's index.
-    /// @param lengthOut  Receives the name's length in bytes, or NULL.
+    /// @param lengthOut  Receives the name's length in bytes, 0 for a NULL
+    ///                   name; or NULL.
     /// @return The name, UTF-8, not terminated; NULL for a NULL model or
     /// an index past the tracks.
     /// @par Thread safety
@@ -205,7 +206,8 @@ extern "C"
     ///
     /// @param model      An opened model.
     /// @param event      The event's index.
-    /// @param lengthOut  Receives the name's length in bytes, or NULL.
+    /// @param lengthOut  Receives the name's length in bytes, 0 for a NULL
+    ///                   name; or NULL.
     /// @return The name, UTF-8, not terminated; NULL for a NULL model or
     /// an index past the events.
     /// @par Thread safety

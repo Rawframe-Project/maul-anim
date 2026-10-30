@@ -240,6 +240,13 @@ static void TestQueries(void)
               maniGltf_GetMorphWeights(gltf, 2, NULL, 2, NULL).result == mani_errorInvalid &&
               maniGltf_GetMorphWeights(NULL, 2, w, 2, NULL).result == mani_errorInvalid,
           "weights refused: no mesh, no output, no document");
+    uint32_t noCount = 7;
+    bool noMesh = maniGltf_GetMorphWeights(gltf, 0, w, 2, &noCount).result == mani_errorInvalid &&
+                  noCount == 0;
+    noCount = 7;
+    CHECK(noMesh && maniGltf_GetMorphWeights(NULL, 2, w, 2, &noCount).result == mani_errorInvalid &&
+              noCount == 0,
+          "refused weights clear the count");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

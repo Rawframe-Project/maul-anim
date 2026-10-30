@@ -681,6 +681,10 @@ maniResult maniMotionDatabase_GetChannel(const maniMotionDatabase* database, uin
 const char* maniMotionDatabase_GetChannelName(const maniMotionDatabase* database, uint32_t channel,
                                               size_t* lengthOut)
 {
+    if (lengthOut != NULL)
+    {
+        *lengthOut = 0;
+    }
     if (database == NULL || channel >= database->channelCount)
     {
         return NULL;

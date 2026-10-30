@@ -378,6 +378,13 @@ static void TestClipOptions(void)
     CHECK(r.result == mani_errorFormat && r.reason == maniImportReasonBuild &&
               r.item == maniBuildReasonRootMotion,
           "a root motion bone without a track");
+    // Refused by the clip builder after the channels are bound: the
+    // count is still cleared.
+    uint32_t bound = 7;
+    CHECK(maniBuildGltfClip(builder, gltf, 0, &skeleton, &options, &settings, &bound).result ==
+                  mani_errorFormat &&
+              bound == 0,
+          "refused by the builder: the bound cleared");
     turn.bone = hip;
     settings.additive = maniAdditiveRest;
     r = BuildWith(builder, gltf, &skeleton, settings);
@@ -526,22 +533,26 @@ static void TestAnotherRig(void)
     CHECK(maniClip_Sample(&clip, &skeleton, 0.5f, pose) == mani_success, "samples");
     CHECK(Near(maniPose_GetLocal(pose, 0).translation.x, 3.5, 1e-6), "the prop moves");
     // Misuse.
+    bound = 7;
     CHECK(maniBuildGltfClip(builder, gltf, 1, &skeleton, &options,
                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
-                            NULL)
-                  .result == mani_errorInvalid,
-          "an animation past the count");
+                            &bound)
+                      .result == mani_errorInvalid &&
+              bound == 0,
+          "an animation past the count: the bound cleared");
     CHECK(maniBuildGltfClip(builder, gltf, 0, NULL, &options,
                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
                             NULL)
                   .result == mani_errorInvalid,
           "no skeleton");
     CHECK(maniBuilder_GetMisuse(builder) == 2, "misuses");
+    bound = 7;
     CHECK(maniBuildGltfClip(NULL, gltf, 0, &skeleton, &options,
                             &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
-                            NULL)
-                  .result == mani_errorInvalid,
-          "no builder");
+                            &bound)
+                      .result == mani_errorInvalid &&
+              bound == 0,
+          "no builder: the bound cleared");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

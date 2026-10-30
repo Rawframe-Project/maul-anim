@@ -13,6 +13,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "bytes.h"
+#include "cleared.h"
 #include "clip_codec.h"
 #include "clip_file.h"
 #include "clip_view.h"
@@ -1385,8 +1386,16 @@ static void TestMisuse(void)
     maniBuilder* builder = NewBuilder();
     maniCompressOptions o = maniDefaultCompressOptions();
     CHECK(maniCompressClip(NULL, &s_full, &s_skeleton, &o, NULL) == mani_errorInvalid, "builder");
+    maniCompressReport report;
+    Fill(&report, sizeof report);
+    CHECK(maniCompressClip(NULL, &s_full, &s_skeleton, &o, &report) == mani_errorInvalid &&
+              Cleared(&report, sizeof report),
+          "no builder: the report cleared");
     CHECK(maniCompressClip(builder, NULL, &s_skeleton, &o, NULL) == mani_errorInvalid, "clip");
-    CHECK(maniCompressClip(builder, &s_full, NULL, &o, NULL) == mani_errorInvalid, "skeleton");
+    Fill(&report, sizeof report);
+    CHECK(maniCompressClip(builder, &s_full, NULL, &o, &report) == mani_errorInvalid &&
+              Cleared(&report, sizeof report),
+          "skeleton: the report cleared");
     CHECK(maniCompressClip(builder, &s_full, &s_skeleton, NULL, NULL) == mani_errorInvalid,
           "options");
     const float bad[4] = {0.0f, -1.0f, NAN, INFINITY};

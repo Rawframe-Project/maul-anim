@@ -164,7 +164,7 @@ extern "C"
     /// @param bytes    The file; kept alive and unchanged while the
     ///                 document is open.
     /// @param size     Its size in bytes.
-    /// @param gltfOut  Receives the document.
+    /// @param gltfOut  Receives the document, or NULL on failure.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
     /// `mani_errorFormat` with a reason, an offset and an item;
     /// `mani_errorCapacity` when the allocator fails.
@@ -298,7 +298,7 @@ extern "C"
     /// @param gltf          The document.
     /// @param skeleton      The skeleton.
     /// @param options       The options.
-    /// @param placementOut  Receives the placement.
+    /// @param placementOut  Receives the placement; zeroed on failure.
     /// @return `mani_success`; `mani_errorInvalid` as
     /// maniBuildGltfSkeleton; `mani_errorFormat` for a node above the
     /// root whose matrix is refused.
@@ -399,7 +399,7 @@ extern "C"
     /// @param options     The options the skeleton was built with.
     /// @param clipOptions The clip's settings; sample rate 0 for 30.
     /// @param boundOut    Receives how many of the animation's channels the
-    ///                    clip holds. May be NULL.
+    ///                    clip holds; 0 on failure. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, an
     /// animation past the count, options out of range, or a clip setting
     /// out of range (a rate not finite or negative, a loop, basis or
@@ -431,7 +431,7 @@ extern "C"
     /// @param gltf      The document.
     /// @param skeleton  An opened skeleton holding the springs' nodes.
     /// @param options   The options the skeleton was built with.
-    /// @param setOut    Receives the sources.
+    /// @param setOut    Receives the sources; zeroed on failure.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// options out of range; `mani_errorFormat` with a reason;
     /// `mani_errorCapacity` when the allocator fails.
@@ -467,7 +467,7 @@ extern "C"
     /// @param facing     The character's facing (out of the chest) in
     ///                   glTF's basis; +Z for glTF's convention.
     /// @param up         Its up axis in glTF's basis; +Y for glTF's.
-    /// @param sourceOut  Receives the source.
+    /// @param sourceOut  Receives the source; zeroed on failure.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
     /// options out of range or axes not unit and perpendicular within a
     /// thousandth; `mani_errorFormat` with a reason (Unsupported for what
@@ -537,7 +537,8 @@ extern "C"
     /// @param weightsOut  Receives a weight per morph target of the node's
     ///                    mesh; may be NULL when capacity is 0.
     /// @param capacity    The floats weightsOut holds.
-    /// @param countOut    Receives the mesh's morph target count. May be
+    /// @param countOut    Receives the mesh's morph target count; 0 on
+    ///                    another failure than an array too short. May be
     ///                    NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
     /// the target count, with the count still written and nothing else;
@@ -624,7 +625,7 @@ extern "C"
     /// @param bytes    The file; kept alive and unchanged while the
     ///                 document is open.
     /// @param size     Its size in bytes.
-    /// @param fbxOut   Receives the document.
+    /// @param fbxOut   Receives the document, or NULL on failure.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
     /// `mani_errorFormat` with a reason (Container, Version, Syntax) and
     /// the offset of the first byte found wrong; `mani_errorCapacity`
@@ -759,7 +760,7 @@ extern "C"
     /// second.
     ///
     /// @param fbx          The document.
-    /// @param settingsOut  Receives the settings.
+    /// @param settingsOut  Receives the settings; zeroed on failure.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument.
     /// @par Thread safety
     /// Safe from any thread.
@@ -834,7 +835,7 @@ extern "C"
     /// @param fbx           The document.
     /// @param skeleton      The skeleton.
     /// @param options       The options.
-    /// @param placementOut  Receives the placement.
+    /// @param placementOut  Receives the placement; zeroed on failure.
     /// @return `mani_success`; `mani_errorInvalid` as
     /// maniBuildFbxSkeleton; `mani_errorFormat` for a model above the
     /// root whose properties are refused.
@@ -973,7 +974,8 @@ extern "C"
     /// @param weightsOut  Receives a weight per target of the set; may be
     ///                    NULL when capacity is 0.
     /// @param capacity    The floats weightsOut holds.
-    /// @param countOut    Receives the set's target count. May be NULL.
+    /// @param countOut    Receives the set's target count; 0 on another
+    ///                    failure than an array too short. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
     /// the target count, with the count still written and nothing else,
     /// or when the allocator fails; `mani_errorInvalid` for a NULL
@@ -1030,7 +1032,8 @@ extern "C"
     /// @param clipOptions The clip's settings; sample rate 0 for the
     ///                    scene's frame rate up to 120, else 30.
     /// @param boundOut    Receives how many of the stack's channel bindings
-    ///                    drive models the clip reads. May be NULL.
+    ///                    drive models the clip reads; 0 on failure. May be
+    ///                    NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// clip past the count, options out of range, or a clip setting out
     /// of range (as maniBuildGltfClip); `mani_errorFormat` with a reason (Property with the clip
@@ -1053,7 +1056,7 @@ extern "C"
     /// @param fbx           The document.
     /// @param model         The root model.
     /// @param options       The options.
-    /// @param placementOut  Receives the placement.
+    /// @param placementOut  Receives the placement; zeroed on failure.
     /// @return As maniFbx_GetSkeletonPlacement.
     /// @par Thread safety
     /// Safe from any thread.

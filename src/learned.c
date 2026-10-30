@@ -645,6 +645,10 @@ const char* maniLearnedModel_GetFloatTrackName(const maniLearnedModel* model, ui
 {
     if (model == NULL || track >= model->floatTrackCount)
     {
+        if (lengthOut != NULL)
+        {
+            *lengthOut = 0;
+        }
         return NULL;
     }
     return Name(model, track, lengthOut);
@@ -655,6 +659,10 @@ const char* maniLearnedModel_GetEventName(const maniLearnedModel* model, uint32_
 {
     if (model == NULL || event >= model->eventCount)
     {
+        if (lengthOut != NULL)
+        {
+            *lengthOut = 0;
+        }
         return NULL;
     }
     return Name(model, model->floatTrackCount + event, lengthOut);

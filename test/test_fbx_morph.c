@@ -257,6 +257,14 @@ static void TestWeights(void)
               maniFbx_GetMorphWeights(fbx, 1, w, 0, NULL).result == mani_errorInvalid &&
               maniFbx_GetMorphWeights(NULL, 0, w, 5, NULL).result == mani_errorInvalid,
           "weight misuses");
+    uint32_t noCount = 7;
+    bool pastSets =
+        maniFbx_GetMorphWeights(fbx, 1, w, 0, &noCount).result == mani_errorInvalid && noCount == 0;
+    noCount = 7;
+    CHECK(pastSets &&
+              maniFbx_GetMorphWeights(NULL, 0, w, 5, &noCount).result == mani_errorInvalid &&
+              noCount == 0,
+          "refused weights clear the count");
     maniFbxOptions options = maniDefaultFbxOptions();
     CHECK(maniBuildFbxMorphTargets(builder, fbx, 1, &options).result == mani_errorInvalid &&
               maniBuildFbxMorphTargets(builder, fbx, 0, NULL).result == mani_errorInvalid &&

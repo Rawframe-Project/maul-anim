@@ -260,13 +260,13 @@ static maniImportResult Open(maniGltf* gltf, const uint8_t* bytes, size_t size)
 static MANI_NOINLINE maniImportResult OpenGltfWork(maniBuilder* builder, const void* bytes,
                                                    size_t size, maniGltf** gltfOut)
 {
-    if (maniBuilderCalledBack(builder))
-    {
-        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
-    }
     if (gltfOut != NULL)
     {
         *gltfOut = NULL;
+    }
+    if (maniBuilderCalledBack(builder))
+    {
+        return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
     if (builder == NULL)
     {

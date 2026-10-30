@@ -647,6 +647,10 @@ static MANI_NOINLINE maniResult CompressClipWork(maniBuilder* builder, const man
                                                  const maniCompressOptions* options,
                                                  maniCompressReport* reportOut)
 {
+    if (reportOut != NULL)
+    {
+        memset(reportOut, 0, sizeof *reportOut);
+    }
     if (maniBuilderCalledBack(builder))
     {
         return mani_errorBusy;

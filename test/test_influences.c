@@ -164,8 +164,10 @@ static void TestBuildsAndReads(void)
               maniInfluences_GetDualQuaternionWeight(&v, 4) == 0.0f &&
               maniInfluences_GetDualQuaternionWeight(&v, UINT32_MAX) == 0.0f,
           "blend weights; 0 past the vertices");
-    maniVec3 center;
-    CHECK(!maniInfluences_GetCenter(&v, 0, &center), "no centers yet");
+    maniVec3 center = {7.0f, 7.0f, 7.0f};
+    CHECK(!maniInfluences_GetCenter(&v, 0, &center) && center.x == 0.0f && center.y == 0.0f &&
+              center.z == 0.0f,
+          "no centers yet: the center cleared");
     maniInfluenceSource plain = Sample();
     plain.dualQuaternionWeights = NULL;
     plain.vertexCount = 2;
@@ -398,8 +400,9 @@ static void TestOpenRefusals(void)
     maniVec3 center;
     CHECK(maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
               maniInfluences_GetCenter(&v, 2, &center) && center.y == 2.0f &&
-              !maniInfluences_GetCenter(&v, 4, &center),
-          "centers read");
+              !maniInfluences_GetCenter(&v, 4, &center) && center.x == 0.0f && center.y == 0.0f &&
+              center.z == 0.0f,
+          "centers read; past the vertices the center cleared");
     centers[7] = INFINITY;
     Craft(maniInfluenceTagCenters, centers, sizeof centers);
     ExpectFormat(SectionAt(maniInfluenceTagCenters) + 4 * 7, "a center not finite");

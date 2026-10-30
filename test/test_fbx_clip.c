@@ -1062,14 +1062,17 @@ static void ExpectRefusal(uint32_t clipIndex, maniImportReason reason, const cha
     maniFbxOptions options = maniDefaultFbxOptions();
     maniSkeleton skeleton;
     maniImportResult r = {mani_errorInvalid, 0, 0, 0};
+    // A refusal by the clip builder comes after the channels are bound:
+    // the count is still cleared.
+    uint32_t bound = 7;
     if (fbx != NULL && PlainSkeleton(builder, &options, &skeleton))
     {
         r = maniBuildFbxClip(builder, fbx, clipIndex, &skeleton, &options,
                              &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
-                             NULL);
+                             &bound);
     }
     bool right = r.result == mani_errorFormat && r.reason == reason && r.item == item &&
-                 r.offset == (uint64_t)(strstr(kScene, at) - kScene);
+                 r.offset == (uint64_t)(strstr(kScene, at) - kScene) && bound == 0;
     CHECK(right, what);
     if (!right)
     {
@@ -1130,6 +1133,21 @@ static void TestRefusals(void)
                                NULL)
                       .result == mani_errorInvalid,
           "misuses");
+    uint32_t bound = 7;
+    CHECK(opened &&
+              maniBuildFbxClip(builder, fbx, 14, &skeleton, &options,
+                               &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                               &bound)
+                      .result == mani_errorInvalid &&
+              bound == 0,
+          "a clip past the count: the bound cleared");
+    bound = 7;
+    CHECK(maniBuildFbxClip(NULL, fbx, 0, &skeleton, &options,
+                           &(maniImportClipOptions){.sampleRate = 0.0f, .loop = maniLoopClamp},
+                           &bound)
+                      .result == mani_errorInvalid &&
+              bound == 0,
+          "no builder: the bound cleared");
     maniCloseFbx(fbx);
     maniDestroyBuilder(builder);
 }

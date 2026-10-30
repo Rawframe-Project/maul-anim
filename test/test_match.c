@@ -311,9 +311,14 @@ static void TestReadBack(void)
               ch.times[1] == -0.2f && ch.firstFeature == 6 && ch.featureCount == 4 &&
               ch.weight == 1.0f,
           "a channel");
+    size_t noName = 7;
     CHECK(maniMotionDatabase_GetChannel(&d, 4, &ch) == mani_errorInvalid &&
-              maniMotionDatabase_GetChannelName(&d, 0, NULL) == NULL,
-          "past the channels; no name");
+              maniMotionDatabase_GetChannelName(&d, 0, NULL) == NULL &&
+              maniMotionDatabase_GetChannelName(&d, 0, &noName) == NULL && noName == 0,
+          "past the channels; no name, its length cleared");
+    noName = 7;
+    CHECK(maniMotionDatabase_GetChannelName(&d, 4, &noName) == NULL && noName == 0,
+          "past the channels the length cleared");
     maniMatchEntry e;
     CHECK(maniMotionDatabase_GetEntry(&d, 1, &e) == mani_success && e.clip == 1 && e.flags == 0 &&
               e.costBias == 0.5f && e.tags == 2u && e.firstFrame == 10 && e.frameCount == 11,

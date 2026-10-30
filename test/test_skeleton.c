@@ -10,6 +10,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "bytes.h"
+#include "cleared.h"
 #include "container.h"
 #include "file_tag.h"
 #include "skeleton_file.h"
@@ -139,7 +140,9 @@ static void TestOrderMap(void)
           "short buffer");
     CHECK(maniBuilder_CopyBuilt(builder, NULL, 0, &size) == mani_errorCapacity, "size only");
     CHECK(maniBuilder_GetMisuse(builder) == 0, "no misuse");
-    CHECK(maniBuilder_CopyBuilt(builder, NULL, 5, &size) == mani_errorInvalid, "null buffer");
+    size = 7;
+    CHECK(maniBuilder_CopyBuilt(builder, NULL, 5, &size) == mani_errorInvalid && size == 0,
+          "null buffer: the size cleared");
     CHECK(maniBuilder_GetMisuse(builder) == 1, "counted");
     maniDestroyBuilder(builder);
 }
@@ -233,10 +236,19 @@ static void TestBuildRefusals(void)
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildSkeleton(builder, NULL).result == mani_errorInvalid, "null source");
     CHECK(maniBuilder_GetMisuse(builder) == 1, "a misuse");
-    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, NULL) == mani_errorInvalid,
-          "nothing built");
-    CHECK(maniBuilder_CopySkeletonOrder(builder, NULL, 0, NULL) == mani_errorInvalid,
-          "no skeleton");
+    size_t size = 7;
+    CHECK(maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_errorInvalid &&
+              size == 0,
+          "nothing built: the size cleared");
+    uint32_t count = 7;
+    CHECK(maniBuilder_CopySkeletonOrder(builder, NULL, 0, &count) == mani_errorInvalid &&
+              count == 0,
+          "no skeleton: the count cleared");
+    count = 7;
+    size = 7;
+    CHECK(maniBuilder_CopySkeletonOrder(NULL, NULL, 0, &count) == mani_errorInvalid && count == 0 &&
+              maniBuilder_CopyBuilt(NULL, NULL, 0, &size) == mani_errorInvalid && size == 0,
+          "no builder: the count and size cleared");
     maniDestroyBuilder(builder);
     CHECK(maniBuildSkeleton(NULL, NULL).result == mani_errorInvalid, "null builder");
 }

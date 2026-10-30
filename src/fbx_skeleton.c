@@ -461,9 +461,9 @@ maniImportResult maniBuildFbxModelSkeleton(maniBuilder* builder, const maniFbx* 
 static maniImportResult PlacementOf(const maniFbx* fbx, uint32_t root,
                                     const maniFbxOptions* options, maniAffine* placementOut)
 {
-    *placementOut = maniIdentityAffine();
     if (options->foldPlacement != 0)
     {
+        *placementOut = maniIdentityAffine();
         return maniFbxSuccess();
     }
     Build b = NewBuild(fbx, options, root);
@@ -487,6 +487,10 @@ static MANI_NOINLINE maniImportResult FbxSkeletonPlacementWork(const maniFbx* fb
                                                                const maniFbxOptions* options,
                                                                maniAffine* placementOut)
 {
+    if (placementOut != NULL)
+    {
+        memset(placementOut, 0, sizeof *placementOut);
+    }
     if (fbx == NULL || options == NULL || placementOut == NULL || !maniFbxOptionsValid(options) ||
         skeleton >= fbx->skeletonCount)
     {
@@ -509,6 +513,10 @@ static MANI_NOINLINE maniImportResult FbxModelPlacementWork(const maniFbx* fbx, 
                                                             const maniFbxOptions* options,
                                                             maniAffine* placementOut)
 {
+    if (placementOut != NULL)
+    {
+        memset(placementOut, 0, sizeof *placementOut);
+    }
     if (fbx == NULL || options == NULL || placementOut == NULL || !maniFbxOptionsValid(options) ||
         model >= fbx->modelCount)
     {

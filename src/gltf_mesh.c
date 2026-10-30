@@ -169,6 +169,10 @@ static MANI_NOINLINE maniImportResult GltfMorphWeightsWork(const maniGltf* gltf,
                                                            float* weightsOut, uint32_t capacity,
                                                            uint32_t* countOut)
 {
+    if (countOut != NULL)
+    {
+        *countOut = 0;
+    }
     uint32_t mesh = gltf == NULL ? UINT32_MAX : maniGltf_GetNodeMesh(gltf, node);
     uint32_t count = mesh == UINT32_MAX ? 0 : maniGltfMeshTargets(gltf, mesh);
     if ((weightsOut == NULL && capacity > 0) || count == 0)

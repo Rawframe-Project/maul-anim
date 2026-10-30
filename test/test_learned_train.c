@@ -20,6 +20,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "checkpoint_host.h"
+#include "cleared.h"
 #include "container.h"
 #include "file_tag.h"
 #include "fpenv.h"
@@ -414,6 +415,19 @@ static void TestStages(void)
     CHECK(maniLearnedTrainer_Train(NULL, 1, &report) == mani_errorInvalid &&
               maniLearnedTrainer_Train(t, 1, NULL) == mani_errorInvalid,
           "NULL arguments");
+    Fill(&report, sizeof report);
+    CHECK(maniLearnedTrainer_Train(NULL, 1, &report) == mani_errorInvalid &&
+              Cleared(&report, sizeof report),
+          "a refused call clears the report");
+    size_t noSize = 7;
+    bool sizeCleared =
+        maniLearnedTrainer_SaveCheckpoint(NULL, NULL, 0, &noSize) == mani_errorInvalid &&
+        noSize == 0;
+    noSize = 7;
+    CHECK(sizeCleared &&
+              maniLearnedTrainer_SaveCheckpoint(t, NULL, 5, &noSize) == mani_errorInvalid &&
+              noSize == 0,
+          "a refused save clears the size");
     Build(t, 0, maniLearnedWeightsFloat32);
     maniLearnedModel model;
     CHECK(maniOpenLearnedModel(s_model[0], s_modelSize[0], &model).result == mani_success &&

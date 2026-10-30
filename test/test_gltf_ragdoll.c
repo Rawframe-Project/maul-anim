@@ -16,6 +16,7 @@
 // the request comes before any header that reaches the C library.
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "cleared.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -205,6 +206,17 @@ static void TestRead(void)
               maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kUp, NULL).result ==
                   mani_errorInvalid,
           "axes not perpendicular or not unit, NULL arguments");
+    Fill(&source, sizeof source);
+    bool axesCleared =
+        maniGltf_ReadRagdoll(gltf, &skeleton, &options, kFacing, kFacing, &source).result ==
+            mani_errorInvalid &&
+        Cleared(&source, sizeof source);
+    Fill(&source, sizeof source);
+    CHECK(axesCleared &&
+              maniGltf_ReadRagdoll(NULL, &skeleton, &options, kFacing, kUp, &source).result ==
+                  mani_errorInvalid &&
+              Cleared(&source, sizeof source),
+          "a refused read clears the source");
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

@@ -826,6 +826,10 @@ static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
                                                           const maniGltfOptions* options,
                                                           maniSpringSetSource* setOut)
 {
+    if (setOut != NULL)
+    {
+        memset(setOut, 0, sizeof *setOut);
+    }
     if (gltf == NULL || skeleton == NULL || options == NULL || setOut == NULL ||
         !maniGltfOptionsValid(options))
     {
@@ -836,7 +840,10 @@ static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
     maniSpringSetSource set = {.skeleton = skeleton};
     Reader r = {gltf, skeleton, options, &set};
     maniImportResult result = Read(&r);
-    *setOut = result.result == mani_success ? set : (maniSpringSetSource){0};
+    if (result.result == mani_success)
+    {
+        *setOut = set;
+    }
     return result;
 }
 

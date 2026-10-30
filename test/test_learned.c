@@ -140,15 +140,15 @@ static void TestRoundTrip(void)
     size_t length = 0;
     const char* track = maniLearnedModel_GetFloatTrackName(&m, 0, &length);
     CHECK(track != NULL && length == 5 && memcmp(track, "speed", 5) == 0 &&
-              maniLearnedModel_GetFloatTrackName(&m, 1, &length) == NULL &&
+              maniLearnedModel_GetFloatTrackName(&m, 1, &length) == NULL && length == 0 &&
               maniLearnedModel_GetFloatTrackName(NULL, 0, NULL) == NULL,
-          "the float track's name");
+          "the float track's name; past the tracks the length cleared");
     const char* right = maniLearnedModel_GetEventName(&m, 1, &length);
     CHECK(right != NULL && length == 5 && memcmp(right, "right", 5) == 0 &&
               maniLearnedModel_GetEventName(&m, 0, NULL) != NULL &&
-              maniLearnedModel_GetEventName(&m, 2, &length) == NULL &&
+              maniLearnedModel_GetEventName(&m, 2, &length) == NULL && length == 0 &&
               maniLearnedModel_GetEventName(NULL, 0, NULL) == NULL,
-          "the events' names");
+          "the events' names; past the events the length cleared");
     CHECK(maniLearnedModel_GetScratchSize(&m) > 0 && maniLearnedModel_GetScratchSize(NULL) == 0,
           "the scratch");
     CHECK(maniLearnedModel_GetFloatTrackCount(&m) == 1 && maniLearnedModel_GetEventCount(&m) == 2 &&

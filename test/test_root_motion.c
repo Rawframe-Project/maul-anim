@@ -223,6 +223,11 @@ static void TestWalk(void)
               !maniClip_GetRootMotionSource(NULL, &read) &&
               !maniClip_GetRootMotionSource(&with, NULL),
           "the source read back; none without");
+    memset(&read, 0xA5, sizeof read);
+    const maniRootMotionSource cleared = {0};
+    CHECK(!maniClip_GetRootMotionSource(&without, &read) &&
+              memcmp(&read, &cleared, sizeof read) == 0,
+          "none clears the source");
     float worst = Recomposed(&with, &without);
     CHECK(worst < 2e-6f, "the motion times the stored bone is the source");
     if (worst >= 2e-6f)

@@ -123,6 +123,10 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
 
 bool maniClip_GetRootMotionSource(const maniClip* clip, maniRootMotionSource* sourceOut)
 {
+    if (sourceOut != NULL)
+    {
+        memset(sourceOut, 0, sizeof *sourceOut);
+    }
     if (clip == NULL || clip->rootMotion == NULL || sourceOut == NULL)
     {
         return false;

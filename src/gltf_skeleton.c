@@ -252,17 +252,26 @@ static MANI_NOINLINE maniImportResult GltfSkeletonPlacementWork(const maniGltf* 
                                                                 const maniGltfOptions* options,
                                                                 maniAffine* placementOut)
 {
+    if (placementOut != NULL)
+    {
+        memset(placementOut, 0, sizeof *placementOut);
+    }
     if (gltf == NULL || options == NULL || placementOut == NULL || !maniGltfOptionsValid(options) ||
         skeleton >= gltf->skeletonCount)
     {
         return Invalid();
     }
-    *placementOut = maniGltfIdentityAffine();
-    if (options->foldPlacement != 0)
+    maniAffine placement = maniGltfIdentityAffine();
+    maniImportResult r = maniImportSuccess();
+    if (options->foldPlacement == 0)
     {
-        return maniImportSuccess();
+        r = maniGltfPlacement(gltf, gltf->skeletonRoots[skeleton], options, &placement);
     }
-    return maniGltfPlacement(gltf, gltf->skeletonRoots[skeleton], options, placementOut);
+    if (r.result == mani_success)
+    {
+        *placementOut = placement;
+    }
+    return r;
 }
 
 maniImportResult maniGltf_GetSkeletonPlacement(const maniGltf* gltf, uint32_t skeleton,
