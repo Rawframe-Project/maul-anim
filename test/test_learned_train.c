@@ -511,10 +511,17 @@ static void TestModelBits(void)
                                                (model.featureCount + model.latentCount), NULL,
                                                scratch, sizeof scratch) == mani_success &&
                       memcmp(out, want, sizeof out) == 0;
+            // In place: the state written over its own query.
+            float together[9];
+            memcpy(together, t->data.features + f * 5, 5 * sizeof(float));
+            project = project &&
+                      maniLearnedModel_Project(&model, p, together, together, 9, NULL, scratch,
+                                               sizeof scratch) == mani_success &&
+                      memcmp(together, want, sizeof together) == 0;
         }
     }
     CHECK(step, "the model's Stepper gives the trainer's bits");
-    CHECK(project, "its Projectors give the trainer's bits");
+    CHECK(project, "its Projectors give the trainer's bits, apart and in place");
     // The Decompressor: 27 bone values, the root's six, two events.
     static _Alignas(32) uint8_t memory[4096];
     maniPose* pose = NULL;
