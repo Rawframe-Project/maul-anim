@@ -26,9 +26,10 @@ extern "C"
 #endif
 
     // A trainer: the networks of one model in training. Training,
-    // restoring and destroying refuse a call back in from the trainer's
-    // allocator or task hooks with mani_errorBusy and count one misuse;
-    // the refused call leaves its outputs as they were.
+    // restoring, saving a checkpoint, building a model from it and
+    // destroying it refuse a call back in from the trainer's allocator or
+    // task hooks with mani_errorBusy and count one misuse; the refused
+    // call leaves its outputs as they were.
     typedef struct maniLearnedTrainer maniLearnedTrainer;
 
     typedef struct maniLearnedTrainerDef
@@ -225,15 +226,16 @@ extern "C"
     /// @param trainer   The trainer.
     /// @param bytesOut  Receives the checkpoint: at least capacity bytes;
     ///                  may be NULL when capacity is 0. Zeroed up to
-    ///                  capacity on failure.
+    ///                  capacity on another failure than mani_errorBusy.
     /// @param capacity  The bytes bytesOut holds.
     /// @param sizeOut   Receives the checkpoint's size in bytes; 0 on
-    ///                  another failure than a buffer too small. May be
-    ///                  NULL.
+    ///                  another failure than a buffer too small or
+    ///                  mani_errorBusy. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is
     /// smaller than the checkpoint, with the size still written and the
     /// buffer zeroed; `mani_errorInvalid` for a NULL trainer or a NULL
-    /// buffer with a positive capacity.
+    /// buffer with a positive capacity; `mani_errorBusy` when called back
+    /// in from the trainer's allocator or task hooks (one misuse counted).
     /// @par Thread safety
     /// Safe from any thread; the trainer is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniLearnedTrainer_SaveCheckpoint(
@@ -266,7 +268,9 @@ extern "C"
     /// @param trainer      The trainer.
     /// @param weightFormat How the file keeps the weights.
     /// @return As maniBuildLearnedModel; `mani_errorInvalid` for a NULL
-    /// argument or a trainer with a stage to run.
+    /// argument or a trainer with a stage to run; `mani_errorBusy` when
+    /// called back in from the trainer's allocator or task hooks (one
+    /// misuse counted on the trainer).
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     /// The trainer is not trained meanwhile.

@@ -14,8 +14,9 @@
 // destroying it, likewise refused, counted, left alone and harmless.
 // A destroy or close is gone to the host's code from its start: from
 // every free it makes, the object's own block's among them, the calls
-// on the builder or trainer are refused as busy, and a closing
-// document reads as empty and refuses its changes.
+// on the builder or trainer are refused as busy (the trainer's readers
+// among them), and a closing document reads as empty and refuses its
+// changes.
 
 #include "checkpoint_host.h"
 #include "cleared.h"
@@ -594,6 +595,9 @@ static void* TrainerAlloc(size_t size, size_t alignment, void* context)
     return Aligned(size, alignment);
 }
 
+// Called from every free while set: after the block goes, so a read of
+// it shows, but before for the trainer's own block, which every call on
+// the trainer reads.
 static void (*s_eachTrainerFree)(const void* memory);
 
 static void TrainerFree(void* memory, size_t size, size_t alignment, void* context)
@@ -602,11 +606,16 @@ static void TrainerFree(void* memory, size_t size, size_t alignment, void* conte
     (void)alignment;
     (void)context;
     TrainerCallBack(kFree);
-    if (s_eachTrainerFree != NULL)
+    bool own = memory == s_trainer;
+    if (s_eachTrainerFree != NULL && own)
     {
         s_eachTrainerFree(memory);
     }
     Unaligned(memory);
+    if (s_eachTrainerFree != NULL && !own)
+    {
+        s_eachTrainerFree(memory);
+    }
 }
 
 static void* Enqueue(maniTaskFunction* task, int32_t count, int32_t minRange, void* context,
@@ -671,23 +680,35 @@ static void TestTrainer(void)
     CHECK(s_trainerLeft, "training refused with its report left");
 }
 
-// From a trainer's destroy: training, restoring and the destroy again,
-// each refused and counted once (the destroy tried only once the others
-// were, as for the builder).
+// A builder to build a model from the trainer with.
+static maniBuilder* s_modelBuilder;
+
+// From a trained trainer's destroy: training, restoring, saving a
+// checkpoint (its buffer and size left), building a model from it and
+// the destroy again, each refused and counted once (the destroy tried
+// only once the others were, as for the builder).
 static void TrainerGone(const void* memory)
 {
     ++s_frees;
     s_ownBlock = s_ownBlock || memory == s_trainer;
     uint32_t before = maniLearnedTrainer_GetMisuse(s_trainer);
     maniLearnedTrainerReport report;
+    uint8_t checkpoint[64];
+    size_t size = 7;
+    Fill(checkpoint, sizeof checkpoint);
     bool refused =
         maniLearnedTrainer_Train(s_trainer, 1, &report) == mani_errorBusy &&
-        maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result == mani_errorBusy;
+        maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result == mani_errorBusy &&
+        maniLearnedTrainer_SaveCheckpoint(s_trainer, checkpoint, sizeof checkpoint, &size) ==
+            mani_errorBusy &&
+        Kept(checkpoint, sizeof checkpoint) && size == 7 &&
+        maniBuildLearnedModelFromTrainer(s_modelBuilder, s_trainer, maniLearnedWeightsFloat32)
+                .result == mani_errorBusy;
     if (refused)
     {
         maniDestroyLearnedTrainer(s_trainer);
     }
-    s_gone = s_gone && refused && maniLearnedTrainer_GetMisuse(s_trainer) == before + 3;
+    s_gone = s_gone && refused && maniLearnedTrainer_GetMisuse(s_trainer) == before + 5;
 }
 
 static void TestDestroyTrainer(void)
@@ -707,9 +728,12 @@ static void TestDestroyTrainer(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     def.allocator = (maniAllocator){TrainerAlloc, TrainerFree, NULL};
     maniLearnedTrainerReport report;
+    maniBuilderDef builderDef = maniDefaultBuilderDef();
     CHECK(maniCreateLearnedTrainer(&def, &source, &s_trainer).result == mani_success &&
-              maniLearnedTrainer_Train(s_trainer, 4, &report) == mani_success,
-          "a trainer partway");
+              maniLearnedTrainer_Train(s_trainer, 1000000, &report) == mani_success &&
+              report.stage == report.stageCount &&
+              maniCreateBuilder(&builderDef, &s_modelBuilder) == mani_success,
+          "a trained trainer, and a builder");
     s_frees = 0;
     s_ownBlock = false;
     s_gone = true;
@@ -718,6 +742,7 @@ static void TestDestroyTrainer(void)
     s_eachTrainerFree = NULL;
     CHECK(s_frees >= 2 && s_ownBlock, "the destroy's frees seen, its own block's among them");
     CHECK(s_gone, "from each, every call on the trainer refused as busy and counted once");
+    maniDestroyBuilder(s_modelBuilder);
 }
 
 int main(void)
